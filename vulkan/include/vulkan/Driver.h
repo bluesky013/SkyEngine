@@ -5,6 +5,7 @@
 
 #include "vulkan/vulkan.h"
 #include "vulkan/Basic.h"
+#include "vulkan/Device.h"
 #include <string>
 
 namespace sky::drv {
@@ -19,6 +20,10 @@ namespace sky::drv {
 
         static Driver* Create(const Descriptor&);
         static void Destroy(Driver*);
+
+        Device* CreateDevice(const Device::Descriptor&);
+
+        VkInstance GetInstance() const;
 
     private:
         Driver();

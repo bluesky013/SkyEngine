@@ -35,6 +35,7 @@ namespace sky::drv {
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData)
     {
+        LOG_I(TAG, "vulkan debug layer %s", pCallbackData->pMessage);
         return VK_FALSE;
     }
 
@@ -67,6 +68,16 @@ namespace sky::drv {
         if (driver != nullptr) {
             delete driver;
         }
+    }
+
+    Device* Driver::CreateDevice(const Device::Descriptor& des)
+    {
+        auto device = new Device(*this);
+        if (!device->Init(des, debug != nullptr)) {
+            delete device;
+            device = nullptr;
+        }
+        return device;
     }
 
     Driver::Driver() : instance(VK_NULL_HANDLE), debug(VK_NULL_HANDLE)
@@ -114,6 +125,7 @@ namespace sky::drv {
 
         VkResult rst = vkCreateInstance(&instInfo, VKL_ALLOC, &instance);
         if (rst != VK_NULL_HANDLE) {
+            LOG_E(TAG, "create instance failed %u", rst);
             return false;
         }
 
@@ -121,6 +133,11 @@ namespace sky::drv {
             CreateDebugUtilsMessengerEXT(instance, &debugInfo, VKL_ALLOC, &debug);
         }
         return true;
+    }
+
+    VkInstance Driver::GetInstance() const
+    {
+        return instance;
     }
 
 }

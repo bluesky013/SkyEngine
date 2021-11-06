@@ -14,6 +14,6 @@ namespace sky {
 
 }
 
-#define LOG_E(tag, fmt, ...) LOG(tag, "ERROR",   fmt, ##__VA_ARGS__)
-#define LOG_W(tag, fmt, ...) LOG(tag, "WARNING", fmt, ##__VA_ARGS__)
-#define LOG_I(tag, fmt, ...) LOG(tag, "INFO",    fmt, ##__VA_ARGS__)
+#define LOG_E(tag, fmt, ...) Logger::Print(tag, "ERROR",   fmt, ##__VA_ARGS__)
+#define LOG_W(tag, fmt, ...) Logger::Print(tag, "WARNING", fmt, ##__VA_ARGS__)
+#define LOG_I(tag, fmt, ...) Logger::Print(tag, "INFO",    fmt, ##__VA_ARGS__)
