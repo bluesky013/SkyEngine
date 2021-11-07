@@ -11,10 +11,21 @@ namespace sky::drv {
 
     class Device;
 
-    class Queue : public DevObject {
+    class Queue {
     public:
-        Queue(Device&);
-        ~Queue();
+        ~Queue() = default;
+
+        uint32_t GetQueueFamilyIndex() const { return queueFamilyIndex; }
+
+        VkQueue GetNativeHandle() const { return queue; }
+
+    private:
+        friend class Device;
+        Queue(VkQueue q, uint32_t family, uint32_t index = 0) : queueFamilyIndex(family), queueIndex(index), queue(q) {}
+
+        uint32_t queueFamilyIndex;
+        uint32_t queueIndex;
+        VkQueue queue;
     };
 
 }

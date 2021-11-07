@@ -31,6 +31,11 @@ namespace sky::drv {
             vmaDestroyAllocator(allocator);
         }
 
+        for (auto& queue : queues) {
+            delete queue;
+        }
+        queues.clear();
+
         if (device != VK_NULL_HANDLE) {
             vkDestroyDevice(device, VKL_ALLOC);
         }
@@ -110,6 +115,13 @@ namespace sky::drv {
             return false;
         }
 
+        queues.resize(count);
+        for (i = 0; i < count; ++i) {
+            VkQueue queue = VK_NULL_HANDLE;
+            vkGetDeviceQueue(device, i, 0, &queue);
+            queues[i] = new Queue(queue, i, 0);
+        }
+
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.device = device;;
         allocatorInfo.physicalDevice = phyDev;
@@ -127,6 +139,27 @@ namespace sky::drv {
     VmaAllocator Device::GetAllocator() const
     {
         return allocator;
+    }
+
+    VkDevice Device::GetNativeDevice() const
+    {
+        return device;
+    }
+
+    Queue* Device::GetQueue(const QueueFilter& filter) const
+    {
+        Queue* res = nullptr;
+        for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
+            if ((queueFamilies[i].queueFlags & filter.preferred) == filter.preferred) {
+                res = queues[i];
+            }
+
+            if (queueFamilies[i].queueFlags == filter.preferred) {
+                return queues[i];
+            }
+
+        }
+        return res;
     }
 
 }

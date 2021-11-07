@@ -39,4 +39,9 @@ namespace sky::drv {
         }
         return true;
     }
+
+    VkBuffer Buffer::GetNativeHandle() const
+    {
+        return buffer;
+    }
 }

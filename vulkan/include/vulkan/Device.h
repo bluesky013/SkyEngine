@@ -4,6 +4,7 @@
 
 #pragma once
 #include "vulkan/vulkan.h"
+#include "vulkan/Queue.h"
 #include "vk_mem_alloc.h"
 #include <vector>
 
@@ -31,6 +32,14 @@ namespace sky::drv {
 
         VmaAllocator GetAllocator() const;
 
+        VkDevice GetNativeDevice() const;
+
+        struct QueueFilter {
+            VkQueueFlags preferred = 0;
+        };
+
+        Queue* GetQueue(const QueueFilter&) const;
+
     private:
         bool Init(const Descriptor&, bool enableDebug);
 
@@ -45,6 +54,7 @@ namespace sky::drv {
         VkPhysicalDeviceFeatures phyFeatures;
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
+        std::vector<Queue*> queues;
     };
 
 }

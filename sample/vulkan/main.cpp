@@ -4,6 +4,8 @@
 #include "vulkan/Driver.h"
 #include "vulkan/Buffer.h"
 #include "vulkan/Image.h"
+#include "vulkan/CommandPool.h"
+#include "vulkan/CommandBuffer.h"
 
 int main()
 {
@@ -16,8 +18,13 @@ int main()
     Buffer::Descriptor bufferDes = {};
     bufferDes.size   = 128;
     bufferDes.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    bufferDes.usage  = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    auto buffer = device->CreateDeviceObject<Buffer>(bufferDes);
+    bufferDes.usage  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    auto stagingBuffer = device->CreateDeviceObject<Buffer>(bufferDes);
+
+    bufferDes.size   = 128;
+    bufferDes.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+    bufferDes.usage  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    auto deviceBuffer = device->CreateDeviceObject<Buffer>(bufferDes);
 
     Image::Descriptor imageDes = {};
     imageDes.imageType   = VK_IMAGE_TYPE_2D;
@@ -31,8 +38,36 @@ int main()
     imageDes.memory      = VMA_MEMORY_USAGE_GPU_ONLY;
     auto image = device->CreateDeviceObject<Image>(imageDes);
 
+    auto queue = device->GetQueue({VK_QUEUE_TRANSFER_BIT});
 
-    delete buffer;
+    CommandPool::Descriptor cmdPoolDes = {};
+    cmdPoolDes.queueFamilyIndex = queue->GetQueueFamilyIndex();
+    cmdPoolDes.flag = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    auto pool = device->CreateDeviceObject<CommandPool>(cmdPoolDes);
+
+    CommandBuffer::Descriptor cmdDes = {};
+    cmdDes.needFence = true;
+    auto cmd = pool->Allocate(cmdDes);
+
+    cmd->Begin();
+
+    cmd->Encode([stagingBuffer, deviceBuffer](VkCommandBuffer cmdBuffer) {
+
+        VkBufferCopy copyRegion = {};
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = 0;
+        copyRegion.size = 128;
+        vkCmdCopyBuffer(cmdBuffer, stagingBuffer->GetNativeHandle(), deviceBuffer->GetNativeHandle(), 1, &copyRegion);
+    });
+
+    cmd->End();
+    cmd->Submit(*queue, {});
+
+
+    delete cmd;
+    delete pool;
+    delete stagingBuffer;
+    delete deviceBuffer;
     delete image;
     delete device;
     Driver::Destroy(driver);

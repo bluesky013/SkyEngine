@@ -1,0 +1,33 @@
+//
+// Created by Zach Lee on 2021/11/7.
+//
+#pragma once
+#include "vulkan/DevObject.h"
+#include "vulkan/CommandBuffer.h"
+#include "vulkan/vulkan.h"
+
+namespace sky::drv {
+
+    class Device;
+
+    class CommandPool : public DevObject {
+    public:
+        ~CommandPool();
+
+        struct Descriptor {
+            uint32_t queueFamilyIndex     = 0;
+            VkCommandPoolCreateFlags flag = 0;
+        };
+
+        bool Init(const Descriptor&);
+
+        CommandBuffer* Allocate(const CommandBuffer::Descriptor&);
+
+    private:
+        friend class Device;
+        CommandPool(Device&);
+
+        VkCommandPool pool;
+    };
+
+}
