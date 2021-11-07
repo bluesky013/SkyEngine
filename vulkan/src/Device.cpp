@@ -103,7 +103,6 @@ namespace sky::drv {
             LOG_E(TAG, "create device failed -%d", rst);
             return false;
         }
-
         return true;
     }
 

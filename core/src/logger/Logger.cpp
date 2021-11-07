@@ -4,7 +4,7 @@
 
 #include "core/logger/Logger.h"
 #include <string>
-#include <stdio.h>
+#include <stdarg.h>
 
 namespace sky {
 
