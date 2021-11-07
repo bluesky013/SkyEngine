@@ -12,15 +12,27 @@ namespace sky::drv {
 
     class Device {
     public:
+        ~Device();
+
         struct Descriptor {
         };
+
+        template <typename T>
+        inline T* CreateDeviceObject(const typename T::Descriptor& des)
+        {
+            auto res = new T(*this);
+            if (!res->Init(des)) {
+                delete res;
+                res = nullptr;
+            }
+            return res;
+        }
 
     private:
         bool Init(const Descriptor&, bool enableDebug);
 
         friend class Driver;
         Device(Driver&);
-        ~Device();
         Driver& driver;
         VkPhysicalDevice phyDev;
         VkDevice device;

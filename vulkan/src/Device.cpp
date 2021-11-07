@@ -76,6 +76,7 @@ namespace sky::drv {
             queueInfo.queueCount = 1;
             queueInfo.pQueuePriorities = &queuePriority;
             queueCreateInfos.emplace_back(queueInfo);
+            LOG_I(TAG, "queue family index %u, count %u, flags %u", i, queueFamilies[i].queueCount, queueFamilies[i].queueFlags);
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};

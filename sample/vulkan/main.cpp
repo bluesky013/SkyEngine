@@ -9,8 +9,9 @@ int main()
 
     auto driver = Driver::Create({"", "", true});
 
-    driver->CreateDevice({});
+    auto device = driver->CreateDevice({});
 
+    delete device;
     Driver::Destroy(driver);
     return 0;
 }
