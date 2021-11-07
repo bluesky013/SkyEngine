@@ -13,7 +13,7 @@ namespace sky::drv {
         DevObject(Device& dev) : device(dev) {}
         virtual ~DevObject() = default;
 
-    private:
+    protected:
         Device& device;
     };
 

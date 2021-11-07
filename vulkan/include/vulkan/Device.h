@@ -4,6 +4,7 @@
 
 #pragma once
 #include "vulkan/vulkan.h"
+#include "vk_mem_alloc.h"
 #include <vector>
 
 namespace sky::drv {
@@ -28,6 +29,8 @@ namespace sky::drv {
             return res;
         }
 
+        VmaAllocator GetAllocator() const;
+
     private:
         bool Init(const Descriptor&, bool enableDebug);
 
@@ -36,6 +39,7 @@ namespace sky::drv {
         Driver& driver;
         VkPhysicalDevice phyDev;
         VkDevice device;
+        VmaAllocator allocator;
 
         VkPhysicalDeviceProperties phyProps;
         VkPhysicalDeviceFeatures phyFeatures;

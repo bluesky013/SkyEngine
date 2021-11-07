@@ -5,6 +5,8 @@
 #include "vulkan/Device.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Driver.h"
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 #include "core/logger/Logger.h"
 #include <vector>
 
@@ -19,12 +21,16 @@ const std::vector<const char*> VALIDATION_LAYERS = {
 
 namespace sky::drv {
 
-    Device::Device(Driver& drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE)
+    Device::Device(Driver& drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
     }
 
     Device::~Device()
     {
+        if (allocator != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator);
+        }
+
         if (device != VK_NULL_HANDLE) {
             vkDestroyDevice(device, VKL_ALLOC);
         }
@@ -103,7 +109,24 @@ namespace sky::drv {
             LOG_E(TAG, "create device failed -%d", rst);
             return false;
         }
+
+        VmaAllocatorCreateInfo allocatorInfo = {};
+        allocatorInfo.device = device;;
+        allocatorInfo.physicalDevice = phyDev;
+        allocatorInfo.instance = driver.GetInstance();
+        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_1;
+        rst = vmaCreateAllocator(&allocatorInfo, &allocator);
+        if (rst != VK_SUCCESS) {
+            LOG_E(TAG, "create allocator failed -%d", rst);
+            return false;
+        }
+
         return true;
+    }
+
+    VmaAllocator Device::GetAllocator() const
+    {
+        return allocator;
     }
 
 }

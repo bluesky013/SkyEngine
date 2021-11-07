@@ -5,6 +5,7 @@
 #pragma once
 
 #include "vulkan/DevObject.h"
+#include "vulkan/vulkan.h"
 
 namespace sky::drv {
 

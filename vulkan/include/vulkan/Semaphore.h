@@ -3,6 +3,7 @@
 //
 
 #include "vulkan/DevObject.h"
+#include "vulkan/vulkan.h"
 
 namespace sky::drv {
 
@@ -12,6 +13,12 @@ namespace sky::drv {
     public:
         Semaphore(Device&);
         ~Semaphore();
+
+        struct Descriptor {
+
+        };
+
+        bool Init(const Descriptor&);
     };
 
 }
