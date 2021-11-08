@@ -17,7 +17,7 @@ namespace sky::drv {
     Fence::~Fence()
     {
         if (fence != VK_NULL_HANDLE) {
-            vkDestroyFence(device.GetNativeDevice(), fence, VKL_ALLOC);
+            vkDestroyFence(device.GetNativeHandle(), fence, VKL_ALLOC);
         }
     }
 
@@ -26,7 +26,7 @@ namespace sky::drv {
         VkFenceCreateInfo fenceInfo = {};
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = des.flag;
-        auto rst = vkCreateFence(device.GetNativeDevice(), &fenceInfo, VKL_ALLOC, &fence);
+        auto rst = vkCreateFence(device.GetNativeHandle(), &fenceInfo, VKL_ALLOC, &fence);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create fence failed, %d", rst);
             return false;
@@ -36,12 +36,12 @@ namespace sky::drv {
 
     void Fence::Wait(uint64_t timeout)
     {
-        vkWaitForFences(device.GetNativeDevice(), 1, &fence, VK_TRUE, timeout);
+        vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, timeout);
     }
 
     void Fence::Reset()
     {
-        vkResetFences(device.GetNativeDevice(), 1, &fence);
+        vkResetFences(device.GetNativeHandle(), 1, &fence);
     }
 
     VkFence Fence::GetNativeHandle() const

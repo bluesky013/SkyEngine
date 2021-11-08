@@ -141,9 +141,19 @@ namespace sky::drv {
         return allocator;
     }
 
-    VkDevice Device::GetNativeDevice() const
+    VkDevice Device::GetNativeHandle() const
     {
         return device;
+    }
+
+    VkPhysicalDevice Device::GetGpuHandle() const
+    {
+        return phyDev;
+    }
+
+    VkInstance Device::GetInstance() const
+    {
+        return driver.GetInstance();
     }
 
     Queue* Device::GetQueue(const QueueFilter& filter) const
@@ -157,7 +167,6 @@ namespace sky::drv {
             if (queueFamilies[i].queueFlags == filter.preferred) {
                 return queues[i];
             }
-
         }
         return res;
     }

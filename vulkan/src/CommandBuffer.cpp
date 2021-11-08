@@ -26,7 +26,7 @@ namespace sky::drv {
         }
 
         if (pool != VK_NULL_HANDLE && cmdBuffer != VK_NULL_HANDLE) {
-            vkFreeCommandBuffers(device.GetNativeDevice(), pool, 1, &cmdBuffer);
+            vkFreeCommandBuffers(device.GetNativeHandle(), pool, 1, &cmdBuffer);
         }
     }
 

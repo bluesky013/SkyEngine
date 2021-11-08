@@ -17,7 +17,7 @@ namespace sky::drv {
     Semaphore::~Semaphore()
     {
         if (semaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device.GetNativeDevice(), semaphore, VKL_ALLOC);
+            vkDestroySemaphore(device.GetNativeHandle(), semaphore, VKL_ALLOC);
         }
     }
 
@@ -25,7 +25,7 @@ namespace sky::drv {
     {
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        auto rst = vkCreateSemaphore(device.GetNativeDevice(), &semaphoreInfo, VKL_ALLOC, &semaphore);
+        auto rst = vkCreateSemaphore(device.GetNativeHandle(), &semaphoreInfo, VKL_ALLOC, &semaphore);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create semaphore failed, %d", rst);
             return false;

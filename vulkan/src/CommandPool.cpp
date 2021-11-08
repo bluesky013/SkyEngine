@@ -18,7 +18,7 @@ namespace sky::drv {
     CommandPool::~CommandPool()
     {
         if (pool != VK_NULL_HANDLE) {
-            vkDestroyCommandPool(device.GetNativeDevice(), pool, VKL_ALLOC);
+            vkDestroyCommandPool(device.GetNativeHandle(), pool, VKL_ALLOC);
         }
     }
 
@@ -28,7 +28,7 @@ namespace sky::drv {
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = des.queueFamilyIndex;
         poolInfo.flags = des.flag;
-        VkResult rst = vkCreateCommandPool(device.GetNativeDevice(), &poolInfo, VKL_ALLOC, &pool);
+        VkResult rst = vkCreateCommandPool(device.GetNativeHandle(), &poolInfo, VKL_ALLOC, &pool);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create command pool failed -%u", rst);
             return false;
@@ -45,7 +45,7 @@ namespace sky::drv {
         cbInfo.commandBufferCount = 1;
 
         VkCommandBuffer buffer = VK_NULL_HANDLE;
-        VkResult rst = vkAllocateCommandBuffers(device.GetNativeDevice(), &cbInfo, &buffer);
+        VkResult rst = vkAllocateCommandBuffers(device.GetNativeHandle(), &cbInfo, &buffer);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "allocate command buffer failed， %d", rst);
             return nullptr;

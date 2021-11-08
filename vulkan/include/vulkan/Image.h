@@ -4,6 +4,7 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/ImageView.h"
 #include "vk_mem_alloc.h"
 
 namespace sky::drv {
@@ -26,11 +27,12 @@ namespace sky::drv {
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
         };
 
-        bool Init(const Descriptor&);
+        ImageView* CreateImageView(const ImageView::Descriptor& des);
 
     private:
         friend class Device;
         Image(Device&);
+        bool Init(const Descriptor&);
 
         VkImage image;
         VmaAllocation allocation;

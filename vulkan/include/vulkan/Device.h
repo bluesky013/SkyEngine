@@ -32,7 +32,11 @@ namespace sky::drv {
 
         VmaAllocator GetAllocator() const;
 
-        VkDevice GetNativeDevice() const;
+        VkDevice GetNativeHandle() const;
+
+        VkPhysicalDevice GetGpuHandle() const;
+
+        VkInstance GetInstance() const;
 
         struct QueueFilter {
             VkQueueFlags preferred = 0;

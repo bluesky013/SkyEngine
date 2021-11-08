@@ -46,4 +46,14 @@ namespace sky::drv {
         }
         return true;
     }
+
+    ImageView* Image::CreateImageView(const ImageView::Descriptor& des)
+    {
+        auto view = new ImageView(device, image);
+        if (!view->Init(des)) {
+            delete view;
+            view = nullptr;
+        }
+        return view;
+    }
 }
