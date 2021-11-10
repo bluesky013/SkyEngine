@@ -1,6 +1,6 @@
 function(sky_add_exe)
     cmake_parse_arguments(TMP
-        ""
+        "WIN32"
         "TARGET"
         "SOURCES;INCS;LIBS"
         ${ARGN}
@@ -10,7 +10,12 @@ function(sky_add_exe)
         message("target not set")
     endif()
 
-    add_executable(${TMP_TARGET} ${TMP_SOURCES})
+    unset(TMP_TYPE)
+    if (TMP_WIN32)
+        set(TMP_TYPE WIN32)
+    endif()
+
+    add_executable(${TMP_TARGET} ${TMP_TYPE} ${TMP_SOURCES})
     foreach (dep ${TMP_LINK_LIBS})
         if (TARGET ${dep})
             get_target_property(type ${dep} TYPE)

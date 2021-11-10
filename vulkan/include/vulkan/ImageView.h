@@ -35,7 +35,7 @@ namespace sky::drv {
 
     private:
         friend class Image;
-        friend class Swapchain;
+        friend class SwapChain;
         ImageView(Device&, VkImage image);
 
         VkImage image;

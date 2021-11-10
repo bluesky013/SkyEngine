@@ -14,9 +14,9 @@ namespace sky::drv {
     class Queue;
     class ImageView;
 
-    class Swapchain : public DevObject {
+    class SwapChain : public DevObject {
     public:
-        ~Swapchain();
+        ~SwapChain();
 
         struct Descriptor {
             void* window = nullptr;
@@ -32,16 +32,16 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        Swapchain(Device&);
+        SwapChain(Device&);
 
         bool CreateSurface(const Descriptor&);
         void DestroySurface();
 
-        bool CreateSwapchain(const Descriptor&);
-        void DestroySwapchain();
+        bool CreateSwapChain(const Descriptor&);
+        void DestroySwapChain();
 
         VkSurfaceKHR surface;
-        VkSwapchainKHR swapchain;
+        VkSwapchainKHR swapChain;
         Queue* queue;
         uint32_t imageCount;
         uint32_t currentImage;

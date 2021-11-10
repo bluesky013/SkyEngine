@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "vulkan/Swapchain.h"
+#include "vulkan/SwapChain.h"
 #include "vulkan/Device.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Queue.h"
@@ -18,10 +18,10 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    Swapchain::Swapchain(Device& dev)
+    SwapChain::SwapChain(Device& dev)
         : DevObject(dev)
         , surface(VK_NULL_HANDLE)
-        , swapchain(VK_NULL_HANDLE)
+        , swapChain(VK_NULL_HANDLE)
         , queue(nullptr)
         , imageCount(0)
         , currentImage(0)
@@ -29,30 +29,30 @@ namespace sky::drv {
     {
     }
 
-    Swapchain::~Swapchain()
+    SwapChain::~SwapChain()
     {
-        DestroySwapchain();
+        DestroySwapChain();
         DestroySurface();
     }
 
-    bool Swapchain::Init(const Descriptor& des)
+    bool SwapChain::Init(const Descriptor& des)
     {
         if (!CreateSurface(des)) {
             return false;
         }
 
-        if (!CreateSwapchain(des)) {
+        if (!CreateSwapChain(des)) {
             return false;
         }
         return true;
     }
 
-    VkSwapchainKHR Swapchain::GetNativeHandle() const
+    VkSwapchainKHR SwapChain::GetNativeHandle() const
     {
-        return swapchain;
+        return swapChain;
     }
 
-    bool Swapchain::CreateSurface(const Descriptor& des)
+    bool SwapChain::CreateSurface(const Descriptor& des)
     {
 #ifdef _WIN32
         VkWin32SurfaceCreateInfoKHR surfaceInfo = {};
@@ -69,7 +69,7 @@ namespace sky::drv {
         return true;
     }
 
-    void Swapchain::DestroySurface()
+    void SwapChain::DestroySurface()
     {
         if (surface != VK_NULL_HANDLE) {
             vkDestroySurfaceKHR(device.GetInstance(), surface, VKL_ALLOC);
@@ -77,7 +77,7 @@ namespace sky::drv {
         }
     }
 
-    bool Swapchain::CreateSwapchain(const Descriptor& des)
+    bool SwapChain::CreateSwapChain(const Descriptor& des)
     {
         std::vector<VkQueueFlags> preferred = {
             VK_QUEUE_TRANSFER_BIT,
@@ -152,17 +152,17 @@ namespace sky::drv {
         swcInfo.preTransform     = des.preTransform;
         swcInfo.compositeAlpha   = des.compositeAlpha;
         
-        VkResult rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapchain);
+        VkResult rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
         if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create swapchain failed-%d", rst);
+            LOG_E(TAG, "create swapChain failed-%d", rst);
             return false;
         }
 
         std::vector<VkImage> images;
-        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapchain, &num, nullptr);
+        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, nullptr);
         images.resize(num);
         views.resize(num);
-        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapchain, &num, images.data());
+        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, images.data());
         ImageView::Descriptor viewDes = {};
         viewDes.format = format.format;
 
@@ -176,11 +176,11 @@ namespace sky::drv {
         return true;
     }
 
-    void Swapchain::DestroySwapchain()
+    void SwapChain::DestroySwapChain()
     {
-        if (swapchain != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(device.GetNativeHandle(), swapchain, VKL_ALLOC);
-            swapchain = VK_NULL_HANDLE;
+        if (swapChain != VK_NULL_HANDLE) {
+            vkDestroySwapchainKHR(device.GetNativeHandle(), swapChain, VKL_ALLOC);
+            swapChain = VK_NULL_HANDLE;
         }
     }
 }
