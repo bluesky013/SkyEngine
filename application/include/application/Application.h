@@ -5,7 +5,9 @@
 
 #pragma once
 
-#include "application/window/NativeWindow.h"
+#include <application/window/NativeWindow.h>
+#include <core/util/DynamicModule.h>
+#include <memory>
 
 namespace sky {
 
@@ -30,9 +32,13 @@ namespace sky {
 
         void Mainloop();
 
+        void Shutdown();
+
     private:
         Impl* impl;
         NativeWindow* window;
+        void* engineInstance;
+        std::unique_ptr<DynamicModule> module;
     };
 
 }

@@ -19,8 +19,11 @@ int main(int argc, char** argv)
     ProcessCommand(argc, argv);
 
     sky::Application app;
-    app.Init();
-    app.Mainloop();
+    if (app.Init()) {
+        app.Mainloop();
+    }
+
+    app.Shutdown();
 
     return 0;
 }

@@ -13,6 +13,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/bin)
 
 
 add_subdirectory(launcher)
+add_subdirectory(engine)
 add_subdirectory(application)
 add_subdirectory(thirdparty)
 add_subdirectory(core)

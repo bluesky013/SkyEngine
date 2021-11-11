@@ -2,11 +2,14 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include "application/Application.h"
+#include <application/Application.h>
 
 namespace sky {
 
-    Application::Application() : impl(nullptr), window(nullptr)
+    using EngineLoad = void*(*)();
+    using EngineShutdown = void(*)(void*);
+
+    Application::Application() : impl(nullptr), window(nullptr), engineInstance(nullptr)
     {
     }
 
@@ -31,7 +34,24 @@ namespace sky {
             return false;
         }
 
+        module = std::make_unique<DynamicModule>("SkyEngine");
+        if (module->Load()) {
+            auto createFn = module->GetAddress<EngineLoad>("StartEngine");
+            if (createFn != nullptr) {
+                engineInstance = createFn();
+            }
+        }
         return true;
+    }
+
+    void Application::Shutdown()
+    {
+        if (module->IsLoaded()) {
+            auto destroyFn = module->GetAddress<EngineShutdown>("ShutdownEngine");
+            if (destroyFn != nullptr) {
+                destroyFn(engineInstance);
+            }
+        }
     }
 
     void Application::Mainloop()
