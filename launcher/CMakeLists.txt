@@ -9,3 +9,5 @@ sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
     LIBS
         Application
 )
+
+add_dependencies(Launcher SkyEngine)

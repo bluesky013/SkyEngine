@@ -6,8 +6,8 @@
 
 namespace sky {
 
-    using EngineLoad = void*(*)();
-    using EngineShutdown = void(*)(void*);
+    using EngineLoad = IEngineLoop*(*)();
+    using EngineShutdown = void(*)(IEngineLoop*);
 
     Application::Application() : impl(nullptr), window(nullptr), engineInstance(nullptr)
     {
@@ -18,7 +18,7 @@ namespace sky {
 
     }
 
-    bool Application::Init()
+    bool Application::Init(const StartInfo& start)
     {
         impl = Impl::Create();
         if (impl == nullptr) {
@@ -39,6 +39,7 @@ namespace sky {
             auto createFn = module->GetAddress<EngineLoad>("StartEngine");
             if (createFn != nullptr) {
                 engineInstance = createFn();
+                engineInstance->Init(start);
             }
         }
         return true;
@@ -49,6 +50,7 @@ namespace sky {
         if (module->IsLoaded()) {
             auto destroyFn = module->GetAddress<EngineShutdown>("ShutdownEngine");
             if (destroyFn != nullptr) {
+                engineInstance->DeInit();
                 destroyFn(engineInstance);
             }
         }
@@ -58,6 +60,10 @@ namespace sky {
     {
         while (!impl->IsExit()) {
             impl->PumpMessages();
+        }
+
+        if (engineInstance != nullptr) {
+            engineInstance->Tick();
         }
     }
 

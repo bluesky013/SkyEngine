@@ -18,8 +18,11 @@ int main(int argc, char** argv)
 {
     ProcessCommand(argc, argv);
 
+    sky::StartInfo start = {};
+    start.appName = "Win32Launcher";
+
     sky::Application app;
-    if (app.Init()) {
+    if (app.Init(start)) {
         app.Mainloop();
     }
 

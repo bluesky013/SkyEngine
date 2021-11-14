@@ -9,4 +9,6 @@ sky_add_library(TARGET Core STATIC
         src
     PUBLIC_INC
         include
+    LINK_LIBS
+        GLM
     )

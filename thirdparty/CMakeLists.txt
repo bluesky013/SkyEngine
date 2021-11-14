@@ -18,3 +18,7 @@ sky_add_library(TARGET Imgui STATIC
 set(VMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator)
 add_library(VMA INTERFACE IMPORTED GLOBAL)
 target_include_directories(VMA INTERFACE ${VMA_DIR}/src)
+
+set(GLM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/glm)
+add_library(GLM INTERFACE IMPORTED GLOBAL)
+target_include_directories(GLM INTERFACE ${GLM_DIR})

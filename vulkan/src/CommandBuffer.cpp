@@ -99,6 +99,6 @@ namespace sky::drv {
             submitInfo.pWaitDstStageMask = waitStages.data();
             submitInfo.pWaitSemaphores = waitSemaphores.data();
         }
-        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence == nullptr ? nullptr : fence->GetNativeHandle());
+        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence == nullptr ? VK_NULL_HANDLE : fence->GetNativeHandle());
     }
 }

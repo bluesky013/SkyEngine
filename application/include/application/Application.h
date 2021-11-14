@@ -6,6 +6,7 @@
 #pragma once
 
 #include <application/window/NativeWindow.h>
+#include <application/interface/EngineLoop.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
 
@@ -28,7 +29,7 @@ namespace sky {
             virtual bool IsExit() const = 0;
         };
 
-        bool Init();
+        bool Init(const StartInfo&);
 
         void Mainloop();
 
@@ -37,7 +38,7 @@ namespace sky {
     private:
         Impl* impl;
         NativeWindow* window;
-        void* engineInstance;
+        IEngineLoop* engineInstance;
         std::unique_ptr<DynamicModule> module;
     };
 

@@ -11,4 +11,6 @@ sky_add_library(TARGET SkyEngine SHARED
         include
     LINK_LIBS
         Core
+        Application
+        Driver
     )
