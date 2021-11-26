@@ -3,7 +3,6 @@
 //
 
 #include <SkyEngine.h>
-#include <core/platform/Platform.h>
 #include <world/World.h>
 #include <render/Render.h>
 
@@ -14,55 +13,78 @@ namespace sky {
         render = new Render();
         render->Init(startInfo);
         RegisterEngineListener(render);
-
         return true;
     }
 
-    void SkyEngine::Tick()
+    void SkyEngine::Tick(float time)
     {
+        for (auto& module : modules) {
+            module->Tick(time);
+        }
+
         for (auto& world : worlds) {
-            world->Tick();
+            world->Tick(time);
         }
     }
 
     void SkyEngine::DeInit()
     {
-        eventListeners.clear();
+        for (auto& module : modules) {
+            module->Stop();
+        }
 
         if (render != nullptr) {
             delete render;
             render = nullptr;
         }
+
+        eventListeners.clear();
     }
 
-    void SkyEngine::AddWorld(World* world)
+    void SkyEngine::AddWorld(World& world)
     {
-        if (world != nullptr) {
-            worlds.emplace_back(world);
+        auto iter = std::find(worlds.begin(), worlds.end(), &world);
+        if (iter != worlds.end()) {
+            return;
         }
+        worlds.emplace_back(&world);
+        EachListener([&world](IEngineEvent* event) {
+            event->OnAddWorld(world);
+        });
     }
 
-    void SkyEngine::RemoveWorld(World* world)
+    void SkyEngine::RemoveWorld(World& world)
     {
-        auto iter = std::find(worlds.begin(), worlds.end(), world);
+        auto iter = std::find(worlds.begin(), worlds.end(), &world);
         if (iter != worlds.end()) {
             worlds.erase(iter);
         }
+        EachListener([&world](IEngineEvent* event) {
+            event->OnRemoveWorld(world);
+        });
     }
 
-    void SkyEngine::AddViewport(Viewport* vp)
+    void SkyEngine::AddViewport(Viewport& vp)
     {
-        if (vp != nullptr) {
-            viewports.emplace_back(vp);
+        auto iter = std::find(viewports.begin(), viewports.end(), &vp);
+        if (iter != viewports.end()) {
+            return;
         }
+        viewports.emplace_back(&vp);
+        EachListener([&vp](IEngineEvent* event) {
+            event->OnAddViewport(vp);
+        });
     }
 
-    void SkyEngine::RemoveViewport(Viewport* vp)
+    void SkyEngine::RemoveViewport(Viewport& vp)
     {
-        auto iter = std::find(viewports.begin(), viewports.end(), vp);
+        auto iter = std::find(viewports.begin(), viewports.end(), &vp);
         if (iter != viewports.end()) {
             viewports.erase(iter);
         }
+        EachListener([&vp](IEngineEvent* event) {
+            event->OnRemoveViewport(vp);
+        });
     }
 
     void SkyEngine::RegisterEngineListener(IEngineEvent* event)
@@ -80,16 +102,21 @@ namespace sky {
         }
     }
 
-}
-
-extern "C" SKY_EXPORT sky::IEngineLoop* StartEngine()
-{
-    return new sky::SkyEngine();
-}
-
-extern "C" SKY_EXPORT void ShutdownEngine(sky::IEngineLoop* engine)
-{
-    if (engine != nullptr) {
-        delete engine;
+    void SkyEngine::RegisterModule(IModule* module)
+    {
+        if (module != nullptr) {
+            module->Start();
+            modules.emplace_back(module);
+        }
     }
+
+    void SkyEngine::UnRegisterModule(IModule* module)
+    {
+        auto iter = std::find(modules.begin(), modules.end(), module);
+        if (iter != modules.end()) {
+            (*iter)->Stop();
+            modules.erase(iter);
+        }
+    }
+
 }

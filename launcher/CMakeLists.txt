@@ -10,4 +10,4 @@ sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
         Application
 )
 
-add_dependencies(Launcher SkyEngine)
+add_dependencies(Launcher SkyEngineModule SampleModule)

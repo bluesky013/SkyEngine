@@ -119,6 +119,14 @@ namespace sky::drv {
         return *this;
     }
 
+    RenderPassFactory::SubImpl::SubImpl(RenderPass::Descriptor& des, uint32_t index)
+        : Impl(des), subPass(index)
+    {
+        auto& sub = descriptor.subPasses[subPass];
+        sub.depthStencil.attachment = -1;
+        sub.depthStencil.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddColor()
     {
         auto& sub = descriptor.subPasses[subPass];

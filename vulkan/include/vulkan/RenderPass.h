@@ -79,8 +79,7 @@ namespace sky::drv {
 
         class SubImpl : public Impl {
         public:
-            SubImpl(RenderPass::Descriptor& des, uint32_t sub)
-                : Impl(des), subPass(sub) {}
+            SubImpl(RenderPass::Descriptor& des, uint32_t sub);
             ~SubImpl() = default;
 
             AttachmentImpl AddColor();

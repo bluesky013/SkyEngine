@@ -23,8 +23,30 @@ namespace sky {
         }
     }
 
-    void World::Tick()
+    void World::SetTarget(Viewport& vp)
+    {
+        EachListener([&vp](IWorldEvent* event) {
+            event->OnViewportChange(vp);
+        });
+    }
+
+    void World::Tick(float time)
     {
 
+    }
+
+    void World::RegisterWorldListener(IWorldEvent *event)
+    {
+        if (event != nullptr) {
+            eventListeners.emplace_back(event);
+        }
+    }
+
+    void World::UnRegisterWorldListener(IWorldEvent *event)
+    {
+        auto iter = std::find(eventListeners.begin(), eventListeners.end(), event);
+        if (iter != eventListeners.end()) {
+            eventListeners.erase(iter);
+        }
     }
 }

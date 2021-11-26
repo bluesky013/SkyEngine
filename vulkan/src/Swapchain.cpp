@@ -166,13 +166,6 @@ namespace sky::drv {
         ImageView::Descriptor viewDes = {};
         viewDes.format = format.format;
 
-        for (auto& image : images) {
-            auto view = new ImageView(device, image);
-            if (!view->Init(viewDes)) {
-                return false;
-            }
-        }
-
         return true;
     }
 

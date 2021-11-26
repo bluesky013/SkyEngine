@@ -23,7 +23,7 @@ namespace sky::drv {
             VkFormat preferredFormat = VK_FORMAT_R8G8B8A8_UNORM;
             VkPresentModeKHR preferredMode = VK_PRESENT_MODE_MAILBOX_KHR;
             VkSurfaceTransformFlagBitsKHR preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-            VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+            VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         };
 
         bool Init(const Descriptor&);

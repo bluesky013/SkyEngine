@@ -5,20 +5,17 @@
 
 #pragma once
 
-#include <core/math/Rect.h>
-
 namespace sky {
 
     class Viewport {
     public:
-        Viewport();
+        Viewport(void* hWnd) : window(hWnd) {}
         ~Viewport() = default;
 
         void* GetNativeWindow() const;
 
     private:
         void* window;
-        Rect rect;
     };
 
 }

@@ -31,6 +31,8 @@ namespace sky {
             virtual void* GetNativeHandle() const = 0;
         };
 
+        void* GetNativeHandle() const;
+
     private:
         bool Init(const Descriptor&);
 

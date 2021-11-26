@@ -88,7 +88,7 @@ namespace sky {
 
     bool Win32WindowImpl::CreateWin32Window(const NativeWindow::Descriptor& des)
     {
-        HWND hWnd = CreateWindowA(className.c_str(), titleName.c_str(), WS_OVERLAPPEDWINDOW,
+        hWnd = CreateWindowA(className.c_str(), titleName.c_str(), WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
         if (!hWnd) {

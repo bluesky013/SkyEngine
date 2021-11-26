@@ -33,4 +33,9 @@ namespace sky {
         return window;
     }
 
+    void* NativeWindow::GetNativeHandle() const
+    {
+        return impl->GetNativeHandle();
+    }
+
 }

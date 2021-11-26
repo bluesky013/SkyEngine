@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET SkyEngine STATIC
+sky_add_library(TARGET Sample STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,18 +10,16 @@ sky_add_library(TARGET SkyEngine STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Core
-        Application
-        Driver
+        SkyEngine
     )
 
-sky_add_library(TARGET SkyEngineModule SHARED
+sky_add_library(TARGET SampleModule SHARED
     SOURCES
-        SkyEngineModule.cpp
+        SampleModule.cpp
     PRIVATE_INC
         src
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyEngine
+        Sample
     )

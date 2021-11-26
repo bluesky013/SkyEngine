@@ -3,13 +3,9 @@
 //
 
 
-#include <Viewport.h>
+#include <world/Viewport.h>
 
 namespace sky {
-
-    Viewport::Viewport() : window(nullptr), rect{0, 0, 1, 1}
-    {
-    }
 
     void* Viewport::GetNativeWindow() const
     {

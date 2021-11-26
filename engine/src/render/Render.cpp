@@ -4,10 +4,12 @@
 //
 
 #include <render/Render.h>
-#include <Viewport.h>
+#include <world/World.h>
+#include <world/Viewport.h>
 #include <vulkan/Driver.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/SwapChain.h>
+#include <render/RenderScene.h>
 
 namespace sky {
 
@@ -37,50 +39,62 @@ namespace sky {
             return false;
         }
 
-        drv::RenderPassFactory factory;
-        auto pass = factory.operator()().AddSubPass()
-            .AddColor()
-            .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
-            .Format(VK_FORMAT_R8G8B8A8_UNORM)
-            .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-            .AddDependency()
-            .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-            .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
-            .AddDependency()
-            .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-            .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
-            .Create(*device);
+//        drv::RenderPassFactory factory;
+//        auto pass = factory.operator()().AddSubPass()
+//            .AddColor()
+//                .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
+//                .Format(VK_FORMAT_R8G8B8A8_UNORM)
+//                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+//            .AddDependency()
+//                .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+//                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+//                    VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
+//            .AddDependency()
+//                .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+//                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+//                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
+//            .Create(*device);
 
         return true;
     }
 
-    void Render::OnAddWorld(World*)
+    void Render::OnAddWorld(World& world)
     {
-
+        auto iter = scenes.find(&world);
+        if (iter != scenes.end()) {
+            return;
+        }
+        auto scene = new RenderScene();
+        world.RegisterWorldListener(scene);
+        scenes.emplace(&world, scene);
     }
 
-    void Render::OnRemoveWorld(World*)
+    void Render::OnRemoveWorld(World& world)
     {
-
+        auto iter = scenes.find(&world);
+        if (iter == scenes.end()) {
+            return;
+        }
+        world.UnRegisterWorldListener(iter->second);
+        delete iter->second;
+        scenes.erase(iter);
     }
 
-    void Render::OnAddViewport(Viewport* vp)
+    void Render::OnAddViewport(Viewport& vp)
     {
-        auto iter = swapChains.find(vp);
+        auto iter = swapChains.find(&vp);
         if (iter != swapChains.end()) {
             return;
         }
         drv::SwapChain::Descriptor swcDes = {};
-        swcDes.window = vp->GetNativeWindow();
+        swcDes.window = vp.GetNativeWindow();
         auto swapChain = device->CreateDeviceObject<drv::SwapChain>(swcDes);
-        swapChains.emplace(vp, swapChain);
+        swapChains.emplace(&vp, swapChain);
     }
 
-    void Render::OnRemoveViewport(Viewport* vp)
+    void Render::OnRemoveViewport(Viewport& vp)
     {
-        auto iter = swapChains.find(vp);
+        auto iter = swapChains.find(&vp);
         if (iter == swapChains.end()) {
             return;
         }

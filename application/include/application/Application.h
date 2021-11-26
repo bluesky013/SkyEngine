@@ -6,7 +6,7 @@
 #pragma once
 
 #include <application/window/NativeWindow.h>
-#include <application/interface/EngineLoop.h>
+#include <application/interface/EngineInterface.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
 
@@ -35,11 +35,15 @@ namespace sky {
 
         void Shutdown();
 
+        NativeWindow* CreateNativeWindow(const NativeWindow::Descriptor&);
+
+        IEngine* GetEngine() const;
+
     private:
         Impl* impl;
-        NativeWindow* window;
-        IEngineLoop* engineInstance;
-        std::unique_ptr<DynamicModule> module;
+        IEngine* engineInstance;
+        std::unique_ptr<DynamicModule> engine;
+        std::vector<std::unique_ptr<DynamicModule>> modules;
     };
 
 }

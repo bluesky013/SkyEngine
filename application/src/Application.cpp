@@ -3,13 +3,15 @@
 //
 
 #include <application/Application.h>
+#include <chrono>
 
 namespace sky {
 
-    using EngineLoad = IEngineLoop*(*)();
-    using EngineShutdown = void(*)(IEngineLoop*);
+    using EngineLoad = IEngine*(*)();
+    using EngineShutdown = void(*)(IEngine*);
+    using ModuleStart = void(*)(Application&);
 
-    Application::Application() : impl(nullptr), window(nullptr), engineInstance(nullptr)
+    Application::Application() : impl(nullptr), engineInstance(nullptr)
     {
     }
 
@@ -25,30 +27,43 @@ namespace sky {
             return false;
         }
 
-        NativeWindow::Descriptor des = {};
-        des.titleName = "SkyEngine";
-        des.className = "SkyEngine";
-
-        window = NativeWindow::Create(des);
-        if (window == nullptr) {
-            return false;
-        }
-
-        module = std::make_unique<DynamicModule>("SkyEngine");
-        if (module->Load()) {
-            auto createFn = module->GetAddress<EngineLoad>("StartEngine");
+        engine = std::make_unique<DynamicModule>("SkyEngineModule");
+        if (engine->Load()) {
+            auto createFn = engine->GetAddress<EngineLoad>("StartEngine");
             if (createFn != nullptr) {
                 engineInstance = createFn();
                 engineInstance->Init(start);
             }
         }
+
+        for (auto& module : start.modules) {
+            auto dynModule = std::make_unique<DynamicModule>(module);
+            if (dynModule->Load()) {
+                auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
+                if (startFn != nullptr) {
+                    startFn(*this);
+                }
+                modules.emplace_back(dynModule.release());
+            }
+        }
+
         return true;
+    }
+
+    NativeWindow* Application::CreateNativeWindow(const NativeWindow::Descriptor& des)
+    {
+        return NativeWindow::Create(des);
+    }
+
+    IEngine* Application::GetEngine() const
+    {
+        return engineInstance;
     }
 
     void Application::Shutdown()
     {
-        if (module->IsLoaded()) {
-            auto destroyFn = module->GetAddress<EngineShutdown>("ShutdownEngine");
+        if (engine->IsLoaded()) {
+            auto destroyFn = engine->GetAddress<EngineShutdown>("ShutdownEngine");
             if (destroyFn != nullptr) {
                 engineInstance->DeInit();
                 destroyFn(engineInstance);
@@ -62,8 +77,12 @@ namespace sky {
             impl->PumpMessages();
         }
 
+        static auto timePoint = std::chrono::high_resolution_clock::now();
+        auto current = std::chrono::high_resolution_clock::now();
+        auto delta = std::chrono::duration<float>(current - timePoint).count();
+        timePoint = current;
         if (engineInstance != nullptr) {
-            engineInstance->Tick();
+            engineInstance->Tick(delta);
         }
     }
 

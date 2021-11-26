@@ -20,6 +20,9 @@ int main(int argc, char** argv)
 
     sky::StartInfo start = {};
     start.appName = "Win32Launcher";
+    start.modules = {
+        "SampleModule"
+    };
 
     sky::Application app;
     if (app.Init(start)) {
