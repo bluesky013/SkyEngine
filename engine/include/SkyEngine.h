@@ -20,6 +20,8 @@ namespace sky {
 
         virtual void OnAddViewport(Viewport&) {}
         virtual void OnRemoveViewport(Viewport&) {}
+
+        virtual void OnWorldTargetChange(World& world, Viewport& vp) {}
     };
 
     class SkyEngine : public IEngine {

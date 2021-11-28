@@ -10,10 +10,22 @@
 
 namespace sky {
 
-    class RenderScene : public IWorldEvent {
+    namespace drv {
+        class SwapChain;
+    }
+
+    class Render;
+
+    class RenderScene {
     public:
-        RenderScene() = default;
+        RenderScene(Render& rd) : render(rd) {}
         ~RenderScene() = default;
+
+        void SetTarget(drv::SwapChain& swc);
+
+    private:
+        Render& render;
+        drv::SwapChain* swapChain = nullptr;
     };
 
 }

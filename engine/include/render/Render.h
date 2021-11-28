@@ -30,6 +30,8 @@ namespace sky {
         void OnAddViewport(Viewport&) override;
         void OnRemoveViewport(Viewport&) override;
 
+        void OnWorldTargetChange(World& world, Viewport& vp) override;
+
     private:
         drv::Driver* driver = nullptr;
         drv::Device* device = nullptr;

@@ -64,8 +64,7 @@ namespace sky {
         if (iter != scenes.end()) {
             return;
         }
-        auto scene = new RenderScene();
-        world.RegisterWorldListener(scene);
+        auto scene = new RenderScene(*this);
         scenes.emplace(&world, scene);
     }
 
@@ -75,7 +74,6 @@ namespace sky {
         if (iter == scenes.end()) {
             return;
         }
-        world.UnRegisterWorldListener(iter->second);
         delete iter->second;
         scenes.erase(iter);
     }
@@ -100,6 +98,21 @@ namespace sky {
         }
         delete iter->second;
         swapChains.erase(iter);
+    }
+
+    void Render::OnWorldTargetChange(World& world, Viewport& vp)
+    {
+        auto sIt = scenes.find(&world);
+        if (sIt == scenes.end()) {
+            return;
+        }
+
+        auto vIt = swapChains.find(&vp);
+        if (vIt == swapChains.end()) {
+            return;
+        }
+
+        sIt->second->SetTarget(*vIt->second);
     }
 
 

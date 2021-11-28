@@ -30,20 +30,7 @@ namespace sky {
 
         void Tick(float);
 
-        void RegisterWorldListener(IWorldEvent*);
-
-        void UnRegisterWorldListener(IWorldEvent*);
-
     private:
-        template <typename Func>
-        void EachListener(Func&& f)
-        {
-            for(auto& listener : eventListeners) {
-                f(listener);
-            }
-        }
-
-        std::vector<IWorldEvent*> eventListeners;
         std::vector<GameObject*> gameObjects;
         Viewport* viewport = nullptr;
     };
