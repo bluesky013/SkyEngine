@@ -60,6 +60,13 @@ namespace sky {
         return engineInstance;
     }
 
+    void Application::SetExit()
+    {
+        if (impl != nullptr) {
+            impl->SetExit();
+        }
+    }
+
     void Application::Shutdown()
     {
         if (engine->IsLoaded()) {

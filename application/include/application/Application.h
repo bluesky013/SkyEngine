@@ -27,6 +27,8 @@ namespace sky {
             virtual void PumpMessages() = 0;
 
             virtual bool IsExit() const = 0;
+
+            virtual void SetExit() = 0;
         };
 
         bool Init(const StartInfo&);
@@ -34,6 +36,8 @@ namespace sky {
         void Mainloop();
 
         void Shutdown();
+
+        void SetExit();
 
         NativeWindow* CreateNativeWindow(const NativeWindow::Descriptor&);
 

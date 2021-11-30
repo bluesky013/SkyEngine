@@ -6,7 +6,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <dlfcn.h>
 #endif
+
+static const std::string APPLE_DYN_PREFIX = "lib";
+static const std::string APPLE_DYN_SUFFIX = ".dylib";
 
 namespace sky {
 
@@ -25,6 +29,8 @@ namespace sky {
 #ifdef _WIN32
         handle = ::LoadLibraryExA(name.c_str(), nullptr, 0);
 #else
+        std::string libName = APPLE_DYN_PREFIX + name + APPLE_DYN_SUFFIX;
+        handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
         return handle != nullptr;
     }
@@ -35,6 +41,7 @@ namespace sky {
 #ifdef _WIN32
             ::FreeLibrary((HMODULE)handle);
 #else
+            dlclose(handle);
 #endif
         }
         handle = nullptr;
@@ -47,7 +54,8 @@ namespace sky {
         }
 #ifdef _WIN32
         return ::GetProcAddress((HMODULE)handle, str.c_str());
-#elif
+#else
+        return dlsym(handle, str.c_str());
 #endif
     }
 

@@ -16,6 +16,8 @@ namespace sky {
 
         bool IsExit() const override;
 
+        void SetExit() override;
+
     private:
         bool exit = false;
     };
@@ -28,6 +30,11 @@ namespace sky {
     bool Win32AppImpl::IsExit() const
     {
         return exit;
+    }
+
+    void Win32AppImpl::SetExit()
+    {
+        exit = true;
     }
 
     void Win32AppImpl::PumpMessages()

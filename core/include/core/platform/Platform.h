@@ -9,6 +9,6 @@
 #define SKY_EXPORT __declspec(dllexport)
 #define SKY_IMPORT __declspec(dllimport)
 #else
-#define SKY_EXPORT __attribute__ (visibility ("default"))
-#define SKY_IMPORT __attribute__ (visibility ("default"))
+#define SKY_EXPORT __attribute__ ((visibility ("default")))
+#define SKY_IMPORT __attribute__ ((visibility ("default")))
 #endif

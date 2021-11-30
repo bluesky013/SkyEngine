@@ -9,6 +9,8 @@ namespace sky {
     void Sample::Start()
     {
         NativeWindow::Descriptor des = {
+            1366,
+            768,
             "SkyEngine",
             "Sample"
         };
@@ -33,6 +35,9 @@ namespace sky {
         engine.RemoveViewport(*viewport);
         delete viewport;
         viewport = nullptr;
+
+        delete viewport;
+        delete nativeWindow;
     }
 
     void Sample::Tick(float delta)

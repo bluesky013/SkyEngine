@@ -1,6 +1,7 @@
 if (WIN32)
-#    set(PLATFORM_TYPE WIN32)
     file(GLOB_RECURSE PLATFORM_SRC windows/*)
+elseif(APPLE)
+    file(GLOB_RECURSE PLATFORM_SRC macos/*)
 endif()
 
 sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}

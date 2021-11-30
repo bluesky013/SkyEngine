@@ -15,6 +15,8 @@ namespace sky {
         ~NativeWindow();
 
         struct Descriptor {
+            uint32_t width = 1366;
+            uint32_t height = 768;
             std::string className;
             std::string titleName;
         };

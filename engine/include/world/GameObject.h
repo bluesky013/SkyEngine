@@ -10,7 +10,7 @@
 namespace sky {
 
     class Component;
-    class world;
+    class World;
 
     class GameObject {
     public:

@@ -131,7 +131,7 @@ namespace sky::drv {
     {
         auto& sub = descriptor.subPasses[subPass];
         sub.colors.emplace_back(VkAttachmentReference{
-            descriptor.attachments.size(),
+            static_cast<uint32_t>(descriptor.attachments.size()),
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
@@ -142,7 +142,7 @@ namespace sky::drv {
     {
         auto& sub = descriptor.subPasses[subPass];
         sub.resolves.emplace_back(VkAttachmentReference{
-            descriptor.attachments.size(),
+            static_cast<uint32_t>(descriptor.attachments.size()),
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
@@ -153,7 +153,7 @@ namespace sky::drv {
     {
         auto& sub = descriptor.subPasses[subPass];
         sub.inputs.emplace_back(VkAttachmentReference{
-            descriptor.attachments.size(),
+            static_cast<uint32_t>(descriptor.attachments.size()),
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
