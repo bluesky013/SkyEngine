@@ -4,3 +4,15 @@
 
 
 #pragma once
+
+#include <world/Component.h>
+
+namespace sky {
+
+    class LightComponent : public Component {
+    public:
+        LightComponent() = default;
+        ~LightComponent() = default;
+    };
+
+}
