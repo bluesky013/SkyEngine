@@ -79,3 +79,36 @@ function(sky_add_library)
     target_link_libraries(${TMP_TARGET} ${LINK_LIBRARIES})
 
 endfunction()
+
+function(sky_add_test)
+    cmake_parse_arguments(TMP
+        ""
+        "TARGET;WORKING_DIR"
+        "SOURCES;INCS;LIBS"
+        ${ARGN}
+        )
+
+    if (NOT TMP_TARGET)
+        message("target not set")
+    endif()
+
+    add_executable(${TMP_TARGET} ${TMP_TYPE} ${TMP_SOURCES})
+    foreach (dep ${TMP_LINK_LIBS})
+        if (TARGET ${dep})
+            get_target_property(type ${dep} TYPE)
+            if (${type} STREQUAL "INTERFACE_LIBRARY")
+                get_target_property(tmpInc ${dep} INTERFACE_INCLUDE_DIRECTORIES)
+                get_target_property(tmpLib ${dep} INTERFACE_LINK_LIBRARIES)
+                list(APPEND TMP_INCS ${tmpInc})
+                list(APPEND TMP_LIBS ${tmpLib})
+            endif()
+        endif()
+    endforeach()
+    target_include_directories(${TMP_TARGET} PRIVATE ${TMP_INCS})
+    target_link_libraries(${TMP_TARGET} ${TMP_LIBS})
+    add_test(
+        NAME ${TMP_TARGET}
+        COMMAND ${TMP_TARGET}
+        WORKING_DIRECTORY ${PARAMS_WORKING_DIR}
+    )
+endfunction()

@@ -5,13 +5,18 @@
 
 #include <world/World.h>
 #include <world/GameObject.h>
+#include <atomic>
 
 namespace sky {
 
     GameObject* World::CreateGameObject()
     {
+        static std::atomic_uint32_t index = 0;
+        index.fetch_add(1);
+
         auto go = new GameObject();
         go->world = this;
+        go->objId = index.load();
         return go;
     }
 

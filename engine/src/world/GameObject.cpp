@@ -36,4 +36,10 @@ namespace sky {
         components.erase(iter);
         component->object = nullptr;
     }
+
+    uint32_t GameObject::GetId() const
+    {
+        std::hash<uint32_t>;
+        return objId;
+    }
 }

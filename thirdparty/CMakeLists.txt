@@ -22,3 +22,9 @@ target_include_directories(VMA INTERFACE ${VMA_DIR}/src)
 set(GLM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/glm)
 add_library(GLM INTERFACE IMPORTED GLOBAL)
 target_include_directories(GLM INTERFACE ${GLM_DIR})
+
+add_library(googletest STATIC
+    googletest/googletest/src/gtest-all.cc
+    )
+target_include_directories(googletest PUBLIC googletest/googletest/include)
+target_include_directories(googletest PRIVATE googletest/googletest)
