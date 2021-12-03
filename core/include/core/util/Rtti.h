@@ -25,12 +25,12 @@ namespace sky {
     template <typename T>
     struct TypeInfo {
 
-        static constexpr static std::string_view Name()
+        static constexpr std::string_view Name()
         {
             return PrettyFunc<T>();
         }
 
-        static constexpr  uint32_t Hash()
+        static constexpr uint32_t Hash()
         {
             return Fnv1a32(Name());
         }

@@ -2,8 +2,9 @@
 // Created by Zach Lee on 2021/11/28.
 //
 
-#include "application/Application.h"
+#include <framework/Application.h>
 #include <AppKit/NSApplication.h>
+#include <core/platform/Platform.h>
 #import <Cocoa/Cocoa.h>
 
 namespace sky {
@@ -25,11 +26,6 @@ namespace sky {
 
         bool exit = false;
     };
-
-    Application::Impl *Application::Impl::Create()
-    {
-        return new MacosApplicationImpl();
-    }
 
     void MacosApplicationImpl::PumpMessages()
     {
@@ -63,4 +59,9 @@ namespace sky {
     {
         exit = true;
     }
+}
+
+extern "C" SKY_EXPORT sky::Application::Impl* CreateApplication()
+{
+    return new sky::MacosApplicationImpl();
 }

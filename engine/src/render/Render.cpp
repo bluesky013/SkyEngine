@@ -8,7 +8,7 @@
 #include <world/Viewport.h>
 #include <vulkan/Driver.h>
 #include <vulkan/RenderPass.h>
-#include <vulkan/SwapChain.h>
+#include <vulkan/Swapchain.h>
 #include <render/RenderScene.h>
 
 namespace sky {

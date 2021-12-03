@@ -2,7 +2,8 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include <application/Application.h>
+#include <framework/Application.h>
+#include "PlatformImpl.h"
 #include <chrono>
 
 namespace sky {
@@ -10,6 +11,11 @@ namespace sky {
     using EngineLoad = IEngine*(*)();
     using EngineShutdown = void(*)(IEngine*);
     using ModuleStart = void(*)(Application&);
+
+    Application::Impl* Application::Impl::Create()
+    {
+        return PlatformImpl::Get()->CreateApplication();
+    }
 
     Application::Application() : impl(nullptr), engineInstance(nullptr)
     {
@@ -46,7 +52,6 @@ namespace sky {
                 modules.emplace_back(dynModule.release());
             }
         }
-
         return true;
     }
 

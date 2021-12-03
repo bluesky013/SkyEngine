@@ -11,7 +11,7 @@ sky_add_library(TARGET SkyEngine STATIC
         include
     LINK_LIBS
         Core
-        Application
+        Framework
         Driver
     )
 

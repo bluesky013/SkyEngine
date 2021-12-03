@@ -12,5 +12,7 @@ static constexpr uint64_t hash64 = sky::Fnv1a64("SkyEngine");
 
 TEST(UtilTest, TestFnv1aHash)
 {
-    ASSERT_EQ(hash32, std::hash<std::string>()("SkyEngine"));
+#ifdef MSVC
+        ASSERT_EQ(hash32, std::hash<std::string>()("SkyEngine"));
+#endif
 }

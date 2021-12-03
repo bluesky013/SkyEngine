@@ -8,7 +8,7 @@
 #include <SkyEngine.h>
 #include <world/Viewport.h>
 #include <world/World.h>
-#include <application/Application.h>
+#include <framework/Application.h>
 
 namespace sky {
 

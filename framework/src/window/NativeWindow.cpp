@@ -2,7 +2,9 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include "application/window/NativeWindow.h"
+#include "framework/window/NativeWindow.h"
+#include "core/util/DynamicModule.h"
+#include "PlatformImpl.h"
 
 namespace sky {
 
@@ -31,6 +33,11 @@ namespace sky {
             window = nullptr;
         }
         return window;
+    }
+
+    NativeWindow::Impl* NativeWindow::Impl::Create(const Descriptor& des)
+    {
+        return PlatformImpl::Get()->CreateWindow(des);
     }
 
     void* NativeWindow::GetNativeHandle() const

@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <application/window/NativeWindow.h>
-#include <application/interface/EngineInterface.h>
+#include <framework/window/NativeWindow.h>
+#include <framework/interface/EngineInterface.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
 

@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2021/11/28.
 //
 
-#include "application/window/NativeWindow.h"
-#include <vector>
+#include <framework/window/NativeWindow.h>
+#include <core/platform/Platform.h>
 #import <AppKit/AppKit.h>
 
 @interface MacosViewController : NSViewController {}
@@ -41,16 +41,6 @@ namespace sky {
         NSString* title = nullptr;
         MacosViewController* controller = nullptr;
     };
-
-    NativeWindow::Impl* NativeWindow::Impl::Create(const NativeWindow::Descriptor& des)
-    {
-        auto impl = new MacosWindowImpl();
-        if (!impl->Init(des)) {
-            delete impl;
-            impl = nullptr;
-        }
-        return impl;
-    }
 
     MacosWindowImpl::~MacosWindowImpl()
     {
@@ -119,5 +109,14 @@ namespace sky {
         title = nullptr;
         controller = nullptr;
     }
+}
 
+extern "C" SKY_EXPORT sky::NativeWindow::Impl* CreateWindow(const sky::NativeWindow::Descriptor& des)
+{
+    auto impl = new sky::MacosWindowImpl();
+    if (!impl->Init(des)) {
+        delete impl;
+        impl = nullptr;
+    }
+    return impl;
 }

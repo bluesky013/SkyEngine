@@ -39,7 +39,6 @@ namespace sky {
 
     uint32_t GameObject::GetId() const
     {
-        std::hash<uint32_t>;
         return objId;
     }
 }

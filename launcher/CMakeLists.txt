@@ -8,7 +8,8 @@ sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
     SOURCES
         ${PLATFORM_SRC}
     LIBS
-        Application
+        Framework
+        ${PLATFORM_EXT_LIBS}
 )
 
 add_dependencies(Launcher SkyEngineModule SampleModule)

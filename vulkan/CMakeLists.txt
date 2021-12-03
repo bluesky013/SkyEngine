@@ -29,4 +29,5 @@ sky_add_library(TARGET Driver STATIC
         Core
         VulkanSdk
         VMA
+        ${PLATFORM_EXT_LIBS}
 )

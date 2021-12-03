@@ -1,3 +1,5 @@
+add_subdirectory(platform)
+
 if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC platform/windows/*)
 elseif(APPLE)
@@ -8,14 +10,7 @@ file(GLOB_RECURSE APP_INC include/*)
 
 message("platform src" ${PLATFORM_SRC})
 
-if(APPLE)
-    set(EXT_LIBS
-        "-framework Cocoa"
-        "-framework IOKit"
-        "-framework CoreFoundation")
-endif()
-
-sky_add_library(TARGET Application STATIC
+sky_add_library(TARGET Framework STATIC
     SOURCES
         ${PLATFORM_SRC}
         ${APP_SRC}
@@ -26,5 +21,6 @@ sky_add_library(TARGET Application STATIC
         include
     LINK_LIBS
         Core
-        ${EXT_LIBS}
     )
+
+add_dependencies(Framework FrameworkImpl)

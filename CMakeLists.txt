@@ -11,10 +11,16 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/bin)
 
+if (APPLE)
+set(PLATFORM_EXT_LIBS
+    "-framework Cocoa"
+    "-framework IOKit"
+    "-framework CoreFoundation")
+endif()
 
 add_subdirectory(launcher)
 add_subdirectory(engine)
-add_subdirectory(application)
+add_subdirectory(framework)
 add_subdirectory(thirdparty)
 add_subdirectory(core)
 add_subdirectory(vulkan)
