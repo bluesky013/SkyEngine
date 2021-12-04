@@ -9,17 +9,45 @@
 
 namespace sky {
 
+    class AssetInstanceBase {
+    public:
+        AssetInstanceBase() = default;
+        virtual ~AssetInstanceBase() = default;
+    };
+
+    class AssetHandlerBase {
+    public:
+        AssetHandlerBase() = default;
+        virtual ~AssetHandlerBase() = default;
+
+        virtual AssetInstanceBase* Create() = 0;
+    };
+
+    template <typename T>
+    class AssetHandler : public AssetHandlerBase {
+    public:
+        AssetHandler() = default;
+        ~AssetHandler() = default;
+
+        AssetInstanceBase* Create() override
+        {
+            return new T();
+        }
+    };
+
     template <typename T>
     class Asset {
     public:
         Asset() = default;
         ~Asset() = default;
 
-        static const char* TYPE = TypeInfo<T>::Name();
-        static const uint32_t TYPE_ID = TypeInfo<T>::Hash();
+        static constexpr char* TYPE = TypeInfo<T>::Name();
+        static constexpr uint32_t TYPE_ID = TypeInfo<T>::Hash();
 
     private:
         Uuid assetId;
+
+        AssetInstanceBase* instance = nullptr;
     };
 
 }
