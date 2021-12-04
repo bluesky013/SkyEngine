@@ -11,34 +11,22 @@ namespace sky {
 
     GameObject::~GameObject()
     {
-        world->RemoveGameObject(this);
-        for (auto& comp : components) {
-            comp->object = nullptr;
+        if (world != nullptr) {
+            world->RemoveGameObject(this);
         }
-    }
-
-    void GameObject::AddComponent(Component* component)
-    {
-        auto iter = std::find(components.begin(), components.end(), component);
-        if (iter != components.end()) {
-            return;
+        for (auto& pair : components) {
+            delete pair.second;
         }
-        components.emplace_back(component);
-        component->object = this;
-    }
-
-    void GameObject::RemoveComponent(Component* component)
-    {
-        auto iter = std::find(components.begin(), components.end(), component);
-        if (iter == components.end()) {
-            return;
-        }
-        components.erase(iter);
-        component->object = nullptr;
+        components.clear();
     }
 
     uint32_t GameObject::GetId() const
     {
         return objId;
+    }
+
+    const std::string& GameObject::GetName() const
+    {
+        return name;
     }
 }

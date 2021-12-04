@@ -14,12 +14,22 @@ namespace sky {
     class TransformComponent : public Component {
     public:
         TransformComponent() = default;
-        ~TransformComponent() = default;
+        ~TransformComponent();
 
         void SetParent(TransformComponent*);
 
+        TransformComponent* GetParent() const;
+
+        const std::vector<TransformComponent*>& GetChildren() const;
+
+        void Update();
+
+        void Print();
+
     private:
-        TransformComponent* parent;
+        static void PrintChild(TransformComponent& comp, std::string str);
+
+        TransformComponent* parent = nullptr;
         std::vector<TransformComponent*> children;
         Transform local;
         Transform global;

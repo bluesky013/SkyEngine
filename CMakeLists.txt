@@ -18,6 +18,8 @@ set(PLATFORM_EXT_LIBS
     "-framework CoreFoundation")
 endif()
 
+enable_testing()
+
 add_subdirectory(launcher)
 add_subdirectory(engine)
 add_subdirectory(framework)

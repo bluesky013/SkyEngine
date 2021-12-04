@@ -5,9 +5,11 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <core/math/Rect.h>
+#include <world/TransformComponent.h>
 
 namespace sky {
 
@@ -24,12 +26,15 @@ namespace sky {
         World() = default;
         ~World() = default;
 
-        GameObject* CreateGameObject();
+        GameObject* CreateGameObject(const std::string& name);
+
         void RemoveGameObject(GameObject*);
 
         void SetTarget(Viewport& vp);
 
         void Tick(float);
+
+        const std::vector<GameObject*>& GetGameObjects() const;
 
     private:
         std::vector<GameObject*> gameObjects;

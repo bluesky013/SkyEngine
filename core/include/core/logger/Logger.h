@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#define ENABLE_FILE_LINE
+//#define ENABLE_FILE_LINE
 
 namespace sky {
 

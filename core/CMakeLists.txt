@@ -11,4 +11,5 @@ sky_add_library(TARGET Core STATIC
         include
     LINK_LIBS
         GLM
+        sfmt
     )

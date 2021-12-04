@@ -28,3 +28,9 @@ add_library(googletest STATIC
     )
 target_include_directories(googletest PUBLIC googletest/googletest/include)
 target_include_directories(googletest PRIVATE googletest/googletest)
+
+add_library(sfmt STATIC
+    SFMT-src-1.5.1/SFMT.c
+    )
+target_compile_definitions(sfmt PUBLIC -DSFMT_MEXP=19937)
+target_include_directories(sfmt PUBLIC SFMT-src-1.5.1)

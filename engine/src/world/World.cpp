@@ -9,14 +9,16 @@
 
 namespace sky {
 
-    GameObject* World::CreateGameObject()
+    GameObject* World::CreateGameObject(const std::string& name)
     {
         static std::atomic_uint32_t index = 0;
         index.fetch_add(1);
 
-        auto go = new GameObject();
+        auto go = new GameObject(name);
         go->world = this;
         go->objId = index.load();
+        go->AddComponent<TransformComponent>();
+        gameObjects.emplace_back(go);
         return go;
     }
 
@@ -35,5 +37,10 @@ namespace sky {
     void World::Tick(float time)
     {
 
+    }
+
+    const std::vector<GameObject*>& World::GetGameObjects() const
+    {
+        return gameObjects;
     }
 }

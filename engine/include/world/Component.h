@@ -23,20 +23,8 @@ namespace sky {
         GameObject* object = nullptr;
     };
 
-    class ComponentBuilderBase {
-    public:
-        ComponentBuilderBase() = default;
-        virtual ~ComponentBuilderBase() = default;
-
-        virtual Component* CreateComponent() = 0;
-
-        virtual std::string_view GetName() const = 0;
-
-        virtual uint32_t GetId() const = 0;
-    };
-
     template <typename T>
-    class ComponentBuilder : public ComponentBuilderBase {
+    class ComponentBuilder {
     public:
         static_assert(std::is_base_of_v<Component, T>);
         ComponentBuilder() = default;
@@ -45,17 +33,17 @@ namespace sky {
         static constexpr std::string_view name = TypeInfo<T>::Name();
         static constexpr uint32_t id = TypeInfo<T>::Hash();
 
-        Component* CreateComponent() override
+        static T* CreateComponent()
         {
             return new T();
         }
 
-        std::string_view GetName() const override
+        static std::string_view GetName()
         {
             return name;
         }
 
-        uint32_t GetId() const override
+        static uint32_t GetId()
         {
             return id;
         }
