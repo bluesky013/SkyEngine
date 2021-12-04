@@ -4,16 +4,17 @@
 
 #pragma once
 
+#include <framework/environment/Singleton.h>
+
 namespace sky {
 
-    class AssetManager {
+    class AssetManager : public Singleton<AssetManager> {
     public:
-        static AssetManager* Get();
-        static AssetManager* Destroy();
 
-    private:
-        AssetManager() = default;
-        ~AssetManager() = default;
+    protected:
+        friend class Singleton<AssetManager>;
+        AssetManager();
+        ~AssetManager();
     };
 
 }

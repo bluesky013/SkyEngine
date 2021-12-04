@@ -3,21 +3,22 @@
 //
 
 #include <framework/Application.h>
+#include <framework/environment/Environment.h>
 #include "PlatformImpl.h"
 #include <chrono>
 
 namespace sky {
 
-    using EngineLoad = IEngine*(*)();
+    using EngineLoad = IEngine*(*)(Environment*);
     using EngineShutdown = void(*)(IEngine*);
-    using ModuleStart = void(*)(Application&);
+    using ModuleStart = void(*)(Application&, Environment*);
 
     Application::Impl* Application::Impl::Create()
     {
         return PlatformImpl::Get()->CreateApplication();
     }
 
-    Application::Application() : impl(nullptr), engineInstance(nullptr)
+    Application::Application() : impl(nullptr), engineInstance(nullptr), env(nullptr)
     {
     }
 
@@ -33,11 +34,16 @@ namespace sky {
             return false;
         }
 
+        env = Environment::Get();
+        if (env == nullptr) {
+            return false;
+        }
+
         engine = std::make_unique<DynamicModule>("SkyEngineModule");
         if (engine->Load()) {
             auto createFn = engine->GetAddress<EngineLoad>("StartEngine");
             if (createFn != nullptr) {
-                engineInstance = createFn();
+                engineInstance = createFn(env);
                 engineInstance->Init(start);
             }
         }
@@ -46,9 +52,10 @@ namespace sky {
             auto dynModule = std::make_unique<DynamicModule>(module);
             if (dynModule->Load()) {
                 auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
-                if (startFn != nullptr) {
-                    startFn(*this);
+                if (startFn == nullptr) {
+                    continue;
                 }
+                startFn(*this, env);
                 modules.emplace_back(dynModule.release());
             }
         }

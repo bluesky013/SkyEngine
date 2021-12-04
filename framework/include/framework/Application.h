@@ -12,6 +12,8 @@
 
 namespace sky {
 
+    class Environment;
+
     class Application {
     public:
         Application();
@@ -46,6 +48,7 @@ namespace sky {
     private:
         Impl* impl;
         IEngine* engineInstance;
+        Environment* env;
         std::unique_ptr<DynamicModule> engine;
         std::vector<std::unique_ptr<DynamicModule>> modules;
     };

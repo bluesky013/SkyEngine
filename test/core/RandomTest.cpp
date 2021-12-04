@@ -9,6 +9,6 @@ using namespace sky;
 
 TEST(MathTest, SfmtTest)
 {
-    SFMTRandom random(0);
+    SFMTRandom random;
     std::cout << random.GenU32() << std::endl;
 }

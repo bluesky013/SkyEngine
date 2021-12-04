@@ -9,8 +9,9 @@ namespace sky {
 
     SFMTRandom::SFMTRandom()
     {
-        Random::Gen(&seed, sizeof(uint32_t));
-        sfmt_init_gen_rand(&sfmt, seed);
+        uint32_t seed[32] = {0};
+        Random::Gen(&seed, sizeof(seed));
+        sfmt_init_by_array(&sfmt, seed, 32);
     }
 
     SFMTRandom::SFMTRandom(uint32_t s) : seed(s)

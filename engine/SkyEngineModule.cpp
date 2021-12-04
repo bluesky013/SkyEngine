@@ -3,10 +3,12 @@
 //
 
 #include <SkyEngine.h>
+#include <framework/Environment/Environment.h>
 #include <core/platform/Platform.h>
 
-extern "C" SKY_EXPORT sky::IEngine* StartEngine()
+extern "C" SKY_EXPORT sky::IEngine* StartEngine(sky::Environment* env)
 {
+    sky::Environment::Attach(env);
     return new sky::SkyEngine();
 }
 

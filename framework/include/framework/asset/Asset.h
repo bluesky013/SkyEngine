@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <core/util/Rtti.h>
+#include <core/util/Uuid.h>
+
 namespace sky {
 
     template <typename T>
@@ -12,8 +15,11 @@ namespace sky {
         Asset() = default;
         ~Asset() = default;
 
-    private:
+        static const char* TYPE = TypeInfo<T>::Name();
+        static const uint32_t TYPE_ID = TypeInfo<T>::Hash();
 
+    private:
+        Uuid assetId;
     };
 
 }
