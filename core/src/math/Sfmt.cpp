@@ -3,11 +3,13 @@
 //
 
 #include <core/math/Sfmt.h>
+#include <core/math/Random.h>
 
 namespace sky {
 
-    SFMTRandom::SFMTRandom() : seed((uint32_t)rand())
+    SFMTRandom::SFMTRandom()
     {
+        Random::Gen(&seed, sizeof(uint32_t));
         sfmt_init_gen_rand(&sfmt, seed);
     }
 

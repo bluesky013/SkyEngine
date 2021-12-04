@@ -10,7 +10,8 @@
 namespace sky {
 
     /**
-     *
+     * Version 4
+     * RFC_4122
      */
     class Uuid {
     public:
