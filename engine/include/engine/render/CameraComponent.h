@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <world/Component.h>
+#include <engine/world/Component.h>
 #include <core/math/Matrix.h>
 #include <cstdint>
 

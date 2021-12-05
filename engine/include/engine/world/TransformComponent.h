@@ -6,7 +6,7 @@
 #pragma once
 
 #include <core/math/Transform.h>
-#include <world/Component.h>
+#include <engine/world/Component.h>
 #include <vector>
 
 namespace sky {

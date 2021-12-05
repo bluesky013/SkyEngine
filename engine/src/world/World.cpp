@@ -3,8 +3,8 @@
 //
 
 
-#include <world/World.h>
-#include <world/GameObject.h>
+#include <engine/world/World.h>
+#include <engine/world/GameObject.h>
 #include <atomic>
 
 namespace sky {

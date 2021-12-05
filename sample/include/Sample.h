@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include <SkyEngine.h>
-#include <world/Viewport.h>
-#include <world/World.h>
+#include <engine/SkyEngine.h>
+#include <engine/world/Viewport.h>
+#include <engine/world/World.h>
 #include <framework/Application.h>
 
 namespace sky {

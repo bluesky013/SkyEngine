@@ -3,7 +3,7 @@
 //
 
 #include <core/platform/Platform.h>
-#include <framework/Environment/Environment.h>
+#include <framework/environment/Environment.h>
 #include <Sample.h>
 
 extern "C" SKY_EXPORT void StartModule(sky::Application& app, sky::Environment* env)

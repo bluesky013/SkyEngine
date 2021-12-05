@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include <SkyEngine.h>
-#include <world/World.h>
-#include <render/Render.h>
+#include <engine/SkyEngine.h>
+#include <engine/world/World.h>
+#include <engine/render/Render.h>
 
 namespace sky {
 

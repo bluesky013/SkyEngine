@@ -7,7 +7,7 @@
 
 #include <string>
 #include <unordered_map>
-#include <world/Component.h>
+#include <engine/world/Component.h>
 
 namespace sky {
     class World;

@@ -3,9 +3,9 @@
 //
 
 
-#include <world/GameObject.h>
-#include <world/World.h>
-#include <world/Component.h>
+#include <engine/world/GameObject.h>
+#include <engine/world/World.h>
+#include <engine/world/Component.h>
 
 namespace sky {
 

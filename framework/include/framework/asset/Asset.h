@@ -20,9 +20,9 @@ namespace sky {
             LOADED
         };
 
-        virtual bool IsReady() const = 0;
-
         virtual uint32_t GetType() const = 0;
+
+        bool IsReady() const { return status == Status::LOADED; }
 
         Uuid GetId() const { return id; }
 

@@ -12,11 +12,6 @@ public:
     TestAsset() = default;
     ~TestAsset() = default;
 
-    bool IsReady() const override
-    {
-        return true;
-    }
-
     uint32_t GetType() const override
     {
         return TypeInfo<TestAsset>::Hash();
