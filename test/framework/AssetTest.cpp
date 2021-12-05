@@ -28,5 +28,4 @@ TEST(AssetTest, AssetManagerSingleton)
 
 TEST(AssetTest, AssetManagerCreate)
 {
-    AssetManager::Get()->RegisterHandler<TestAsset>();
 }

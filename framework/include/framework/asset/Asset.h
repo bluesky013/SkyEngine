@@ -43,18 +43,6 @@ namespace sky {
     };
 
     template <typename T>
-    class AssetHandler : public AssetHandlerBase {
-    public:
-        AssetHandler() = default;
-        ~AssetHandler() = default;
-
-        AssetInstanceBase* Create() override
-        {
-            return new T();
-        }
-    };
-
-    template <typename T>
     class Asset {
     public:
         Asset(Uuid id) : assetId(id) {}

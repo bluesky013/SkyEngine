@@ -14,18 +14,6 @@ namespace sky {
     class AssetManager : public Singleton<AssetManager> {
     public:
 
-        template <typename T>
-        void RegisterHandler()
-        {
-            RegisterHandler(Asset<T>::TYPE_ID, new AssetHandler<T>());
-        }
-
-        template <typename T>
-        void UnRegisterHandler()
-        {
-            UnRegisterHandler(Asset<T>::TYPE_ID);
-        }
-
         void RegisterHandler(uint32_t type, AssetHandlerBase*);
 
         void UnRegisterHandler(uint32_t type);
