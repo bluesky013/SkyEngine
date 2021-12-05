@@ -40,4 +40,21 @@ namespace sky {
         }
     }
 
+    AssetInstanceBase* AssetManager::FindOrCreate(Uuid id, uint32_t type)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto iIter = instances.find(id);
+        if (iIter != instances.end()) {
+            return iIter->second;
+        }
+
+        auto tIter = handlers.find(type);
+        if (tIter == handlers.end()) {
+            return nullptr;
+        }
+        auto instance = tIter->second->Create();
+        instance->id = id;
+        return instance;
+    }
+
 }

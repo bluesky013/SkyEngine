@@ -13,6 +13,23 @@ namespace sky {
     public:
         AssetInstanceBase() = default;
         virtual ~AssetInstanceBase() = default;
+
+        enum class Status : uint8_t {
+            UNLOAD,
+            LOADING,
+            LOADED
+        };
+
+        virtual bool IsReady() const = 0;
+
+        virtual uint32_t GetType() const = 0;
+
+        Uuid GetId() const { return id; }
+
+    protected:
+        friend class AssetManager;
+        Uuid id;
+        Status status = Status::UNLOAD;
     };
 
     class AssetHandlerBase {
@@ -21,6 +38,8 @@ namespace sky {
         virtual ~AssetHandlerBase() = default;
 
         virtual AssetInstanceBase* Create() = 0;
+
+        virtual bool LoadAsset(const std::string& path) { return false; }
     };
 
     template <typename T>
@@ -38,6 +57,7 @@ namespace sky {
     template <typename T>
     class Asset {
     public:
+        Asset(Uuid id) : assetId(id) {}
         Asset() = default;
         ~Asset() = default;
 
@@ -45,9 +65,10 @@ namespace sky {
         static constexpr uint32_t TYPE_ID = TypeInfo<T>::Hash();
 
     private:
-        Uuid assetId;
+        friend class AssetManager;
 
-        AssetInstanceBase* instance = nullptr;
+        Uuid assetId;
+        T* instance = nullptr;
     };
 
 }

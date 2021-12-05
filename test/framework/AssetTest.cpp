@@ -7,10 +7,31 @@
 
 using namespace sky;
 
+class TestAsset : public AssetInstanceBase {
+public:
+    TestAsset() = default;
+    ~TestAsset() = default;
+
+    bool IsReady() const override
+    {
+        return true;
+    }
+
+    uint32_t GetType() const override
+    {
+        return TypeInfo<TestAsset>::Hash();
+    }
+};
+
 TEST(AssetTest, AssetManagerSingleton)
 {
     auto mgr1 = AssetManager::Get();
     ASSERT_NE(mgr1, nullptr);
 
     AssetManager::Destroy();
+}
+
+TEST(AssetTest, AssetManagerCreate)
+{
+    AssetManager::Get()->RegisterHandler<TestAsset>();
 }
