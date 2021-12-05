@@ -1,0 +1,2 @@
+add_subdirectory(assettools)
+add_subdirectory(loader)

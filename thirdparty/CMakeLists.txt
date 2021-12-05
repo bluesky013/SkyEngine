@@ -34,3 +34,7 @@ add_library(sfmt STATIC
     )
 target_compile_definitions(sfmt PUBLIC -DSFMT_MEXP=19937)
 target_include_directories(sfmt PUBLIC SFMT-src-1.5.1)
+
+set(TINYGLTF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tinygltf)
+add_library(Tinygltf INTERFACE IMPORTED GLOBAL)
+target_include_directories(Tinygltf INTERFACE ${TINYGLTF_DIR})
