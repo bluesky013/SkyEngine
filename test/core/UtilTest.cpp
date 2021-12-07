@@ -13,6 +13,10 @@ static constexpr uint64_t hash64 = sky::Fnv1a64("SkyEngine");
 
 using namespace sky;
 
+struct TestUuid {
+    static constexpr Uuid ID = Uuid::CreateFromString("12345678-0123-4567-8901-234567890123");
+};
+
 TEST(UtilTest, TestFnv1aHash)
 {
 #ifdef MSVC
@@ -22,6 +26,17 @@ TEST(UtilTest, TestFnv1aHash)
 
 TEST(MathTest, UuIdTest)
 {
-    Uuid id = Uuid::Create();
-    std::cout << id.ToString() << std::endl;
+    {
+        Uuid id = Uuid::Create();
+        std::cout << id.ToString() << std::endl;
+    }
+
+    {
+        Uuid id;
+        std::cout << id.ToString() << std::endl;
+    }
+
+
+    std::string str = TestUuid::ID.ToString();
+    ASSERT_EQ(str, std::string("12345678-0123-4567-8901-234567890123"));
 }
