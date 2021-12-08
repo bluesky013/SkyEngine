@@ -7,11 +7,15 @@
 namespace sky {
 
     Environment* Environment::instance = nullptr;
+    std::mutex Environment::globalMutex;
 
     Environment* Environment::Get()
     {
         if (instance == nullptr) {
-            instance = new Environment();
+            std::lock_guard<std::mutex> lock(globalMutex);
+            if (instance == nullptr) {
+                instance = new Environment();
+            }
         }
         return instance;
     }

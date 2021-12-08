@@ -13,6 +13,7 @@
 
 #include <string_view>
 #include <core/hash/Fnv1a.h>
+#include <type_traits>
 
 namespace sky {
 
@@ -35,6 +36,15 @@ namespace sky {
             return Fnv1a32(Name());
         }
 
+        static constexpr T* Allocate()
+        {
+            return new T();
+        }
+
+        static constexpr void Free(T* ptr)
+        {
+            ptr->~T();
+        }
     };
 
 }

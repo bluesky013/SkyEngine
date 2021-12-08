@@ -25,6 +25,7 @@ namespace sky {
 
     protected:
         static Environment* instance;
+        static std::mutex globalMutex;
 
         Environment() = default;
         ~Environment() = default;

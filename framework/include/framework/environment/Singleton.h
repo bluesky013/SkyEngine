@@ -16,10 +16,27 @@ namespace sky {
         static constexpr uint32_t NAME = TypeInfo<T>::Name();
         static constexpr uint32_t ID = TypeInfo<T>::Hash();
 
-        static T* Get(bool release = false)
+        static T* Get()
+        {
+            return GetPtr();
+        }
+
+        static void Destroy()
+        {
+            auto& instance = GetPtr();
+            if (instance != nullptr) {
+                Environment::Get()->UnRegister(ID);
+                delete instance;
+                instance = nullptr;
+            }
+        }
+    protected:
+        static T*& GetPtr()
         {
             static T* instance = nullptr;
+            static std::mutex mutex;
             if (instance == nullptr) {
+                std::lock_guard<std::mutex> lock(mutex);
                 void* ptr = Environment::Get()->Find(ID);
                 if (ptr == nullptr) {
                     instance = new T();
@@ -28,22 +45,9 @@ namespace sky {
                     instance = static_cast<T*>(ptr);
                 }
             }
-            T* res = instance;
-            if (release) {
-                instance = nullptr;
-            }
-            return res;
+            return instance;
         }
 
-        static void Destroy()
-        {
-            auto instance = Get(true);
-            if (instance != nullptr) {
-                Environment::Get()->UnRegister(ID);
-                delete instance;
-            }
-        }
-    protected:
         Singleton() = default;
         virtual ~Singleton() = default;
     };
