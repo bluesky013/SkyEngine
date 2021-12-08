@@ -13,8 +13,10 @@ namespace sky {
         Model() = default;
         ~Model() = default;
 
+        static constexpr Uuid TYPE = Uuid::CreateFromString("9f7c599a-0073-4ff5-8136-f551d1a1a371");
+
     private:
-        uint32_t GetType() const override { return 0; }
+        const Uuid& GetType() const override { return TYPE; }
     };
 
 }

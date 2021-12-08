@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/12/5.
 //
 
-#include <engine/asset/Prefab.h>
+#include <engine/asset/Bundle.h>
 
 namespace sky {
 

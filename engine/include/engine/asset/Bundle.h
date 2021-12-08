@@ -8,12 +8,12 @@
 
 namespace sky {
 
-    class Buffer : public AssetInstanceBase {
+    class Bundle : public AssetInstanceBase {
     public:
-        Buffer() = default;
-        ~Buffer() = default;
+        Bundle() = default;
+        ~Bundle() = default;
 
-        static constexpr Uuid TYPE = Uuid::CreateFromString("1ba844f8-3032-45de-8f6a-0010dd9f2656");
+        static constexpr Uuid TYPE = Uuid::CreateFromString("d9f4b48f-5d35-4d02-a5fe-ac975e663eff");
 
     private:
         const Uuid& GetType() const override { return TYPE; }

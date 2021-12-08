@@ -9,6 +9,12 @@
 
 namespace sky {
 
+    struct AssetHead {
+        uint32_t magic = 0x00594B53;
+        Uuid type = {};
+        Uuid id = {};
+    };
+
     class AssetInstanceBase {
     public:
         AssetInstanceBase() = default;
@@ -20,11 +26,11 @@ namespace sky {
             LOADED
         };
 
-        virtual uint32_t GetType() const = 0;
-
         bool IsReady() const { return status == Status::LOADED; }
 
-        Uuid GetId() const { return id; }
+        const Uuid& GetId() const { return id; }
+
+        virtual const Uuid& GetType() const = 0;
 
     protected:
         friend class AssetManager;
@@ -37,26 +43,49 @@ namespace sky {
         AssetHandlerBase() = default;
         virtual ~AssetHandlerBase() = default;
 
-        virtual AssetInstanceBase* Create() = 0;
+        virtual AssetInstanceBase* Create(const Uuid& id) = 0;
+    };
 
-        virtual bool LoadAsset(const std::string& path) { return false; }
+    template <typename T>
+    class AssetHandler : public AssetHandlerBase {
+    public:
+        AssetHandler() = default;
+        ~AssetHandler() = default;
+
+        AssetInstanceBase* Create(const Uuid& id) override
+        {
+            return new T();
+        }
     };
 
     template <typename T>
     class Asset {
     public:
-        Asset(Uuid id) : assetId(id) {}
+        Asset(const Uuid& id)
+            : assetId(id)
+            , typeId(T::TYPE)
+            , instance(nullptr)
+            {}
+
         Asset() = default;
         ~Asset() = default;
 
-        static constexpr char* TYPE = TypeInfo<T>::Name();
-        static constexpr uint32_t TYPE_ID = TypeInfo<T>::Hash();
+        T* Get() const
+        {
+            return instance;
+        }
+
+        const Uuid& GetId() const
+        {
+            return assetId;
+        }
 
     private:
         friend class AssetManager;
 
         Uuid assetId;
-        T* instance = nullptr;
+        Uuid typeId;
+        T* instance;
     };
 
 }

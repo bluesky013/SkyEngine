@@ -12,8 +12,10 @@ namespace sky {
         Image() = default;
         ~Image() = default;
 
+        static constexpr Uuid TYPE = Uuid::CreateFromString("a4a44abf-1b60-438d-b6c5-1690e548d97c");
+
     private:
-        uint32_t GetType() const override { return 0; }
+        const Uuid& GetType() const override { return TYPE; }
     };
 
 }

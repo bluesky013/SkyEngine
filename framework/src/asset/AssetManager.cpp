@@ -16,7 +16,7 @@ namespace sky {
 
     }
 
-    void AssetManager::RegisterHandler(uint32_t type, AssetHandlerBase* handler)
+    void AssetManager::RegisterHandler(const Uuid& type, AssetHandlerBase* handler)
     {
         if (handler == nullptr) {
             return;
@@ -31,7 +31,7 @@ namespace sky {
         handlers.emplace(type, handler);
     }
 
-    void AssetManager::UnRegisterHandler(uint32_t type)
+    void AssetManager::UnRegisterHandler(const Uuid& type)
     {
         auto iter = handlers.find(type);
         if (iter != handlers.end()) {
@@ -40,7 +40,17 @@ namespace sky {
         }
     }
 
-    AssetInstanceBase* AssetManager::FindOrCreate(Uuid id, uint32_t type)
+    void AssetManager::DestroyAsset(const Uuid& id)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto iter = instances.find(id);
+        if (iter != instances.end()) {
+            delete iter->second;
+            instances.erase(iter);
+        }
+    }
+
+    AssetInstanceBase* AssetManager::FindOrCreate(const Uuid& id, const Uuid& type)
     {
         std::lock_guard<std::mutex> lock(mutex);
         auto iIter = instances.find(id);
@@ -52,8 +62,9 @@ namespace sky {
         if (tIter == handlers.end()) {
             return nullptr;
         }
-        auto instance = tIter->second->Create();
+        auto instance = tIter->second->Create(id);
         instance->id = id;
+        instances.emplace(id, instance);
         return instance;
     }
 
