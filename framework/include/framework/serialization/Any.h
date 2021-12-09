@@ -21,7 +21,7 @@ namespace sky {
         template <typename T, typename ...Args>
         Any(std::in_place_type_t<T>, Args&&...args)
             : data{0}
-            , info(internal::TypeInfoNode<T>::Get()->RtInfo())
+            , info(TypeInfoObj<T>::Get()->RtInfo())
         {
             if (info->size > BLOCK_SIZE) {
                 ptr = malloc(info->size);
@@ -54,7 +54,7 @@ namespace sky {
             uint8_t data[BLOCK_SIZE];
             void* ptr;
         };
-        internal::TypeInfoRT* info = nullptr;
+        TypeInfoRT* info = nullptr;
     };
 
 }
