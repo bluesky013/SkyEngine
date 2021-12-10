@@ -68,6 +68,23 @@ TEST(SerializationTest, TypeTest)
          std::is_trivial_v<TestReflect>,
          std::is_trivial_v<int>,
          std::is_trivial_v<int*>);
+
+    Any v(std::in_place_type<TestReflect>);
+    uint32_t* ptr = nullptr;
+    ASSERT_EQ(v.Set("a", 5u), true);
+    ASSERT_EQ(v.Set("b", 6.f), true);
+    ASSERT_EQ(v.Set("c", ptr), true);
+    auto val = v.GetAs<TestReflect>();
+    ASSERT_EQ(val->a, 5u);
+    ASSERT_EQ(val->b, 6.f);
+    ASSERT_EQ(val->c, nullptr);
+
+    Any va = v.Get("a");
+    ASSERT_EQ(*va.GetAs<uint32_t>(), 5u);
+    Any vb = v.Get("b");
+    ASSERT_EQ(*vb.GetAs<float>(), 6.f);
+    Any vc= v.Get("c");
+    ASSERT_EQ(*vc.GetAs<uint32_t*>(), nullptr);
 }
 
 class Ctor1 {
@@ -149,6 +166,4 @@ TEST(SerializationTest, ConstructorTest)
           std::is_copy_constructible_v<Move2>,
           std::is_copy_constructible_v<Move3>,
           std::is_copy_constructible_v<Move4>);
-
-    std::any any;
 }

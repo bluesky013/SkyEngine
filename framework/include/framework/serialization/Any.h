@@ -27,6 +27,11 @@ namespace sky {
             new (Data()) T{std::forward<Args>(args)...};
         }
 
+        template <typename T>
+        Any(const T& t) : Any(std::in_place_type<T>, t)
+        {
+        }
+
         ~Any()
         {
             Destructor();
@@ -66,11 +71,21 @@ namespace sky {
         template <typename T>
         T* GetAs()
         {
+            return const_cast<T*>(std::as_const(*this).GetAsConst<T>());
+        }
+
+        template <typename T>
+        const T* GetAsConst() const
+        {
             if (info != nullptr && TypeInfo<T>::Hash() == info->hash) {
-                return static_cast<T*>(Data());
+                return static_cast<const T*>(Data());
             }
             return nullptr;
         }
+
+        bool Set(const std::string& str, const Any& any);
+
+        Any Get(const std::string& str);
 
     private:
         void Construct();
