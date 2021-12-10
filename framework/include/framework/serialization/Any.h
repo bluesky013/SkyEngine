@@ -102,5 +102,4 @@ namespace sky {
         };
         TypeInfoRT* info = nullptr;
     };
-
 }

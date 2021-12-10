@@ -3,10 +3,16 @@
 //
 
 #include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/Type.h>
-#include <framework/serialization/Any.h>
-#include <framework/serialization/SerializationFactory.h>
 
 namespace sky {
+
+    TypeNode* SerializationContext::FindType(const std::string& key)
+    {
+        auto iter = types.find(key);
+        if (iter == types.end()) {
+            return nullptr;
+        }
+        return &(iter->second);
+    }
 
 }

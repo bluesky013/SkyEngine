@@ -20,14 +20,7 @@ namespace sky {
             return TypeFactory<T>(type);
         }
 
-        TypeNode* FindType(const std::string& key)
-        {
-            auto iter = types.find(key);
-            if (iter == types.end()) {
-                return nullptr;
-            }
-            return &(iter->second);
-        }
+        TypeNode* FindType(const std::string& key);
 
     private:
         friend class Singleton<SerializationContext>;
@@ -37,5 +30,21 @@ namespace sky {
 
         std::unordered_map<std::string_view, TypeNode> types;
     };
+
+    template <typename T, typename ...Args>
+    inline Any MakeAny(Args&&... args)
+    {
+        auto context = SerializationContext::Get();
+        auto rtInfo = TypeInfoObj<T>::Get()->RtInfo();
+        if(rtInfo == nullptr) {
+            return {};
+        }
+        TypeNode* node = context->FindType(rtInfo->typeId.data());
+        if (node->constructList.empty()) {
+            return {};
+        }
+        std::array<Any, sizeof...(Args)> anyArgs{std::forward<Args>(args)...};
+        return node->constructList.back().constructFn(anyArgs.data());
+    }
 
 }

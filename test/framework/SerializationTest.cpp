@@ -87,83 +87,28 @@ TEST(SerializationTest, TypeTest)
     ASSERT_EQ(*vc.GetAs<uint32_t*>(), nullptr);
 }
 
-class Ctor1 {
+struct Ctor1 {
 public:
-    Ctor1() = default;
-};
-
-class Ctor2 {
-public:
-    Ctor2() {}
-};
-
-class Ctor3 {
-public:
-    Ctor3(int) {}
-};
-
-class Ctor4 {
-    Ctor4() = default;
-};
-
-class Ctor5 {
-public:
+    Ctor1(int va, float vb, double vc) : a(va), b(vb), c(vc) {}
     int a;
+    float b;
+    double c;
 };
-
-class Ctor6 {
-public:
-    int a = 1;
-};
-
-class Move1 {
-public:
-    Move1() = default;
-    ~Move1() = default;
-
-    Move1(const Move1&) = default;
-    Move1& operator=(const Move1&) = default;
-};
-
-class Move2 {
-public:
-    Move2() = default;
-    ~Move2() = default;
-
-    Move2(const Move2&) = default;
-    Move2& operator=(const Move2&) = delete;
-};
-
-class Move3 {
-public:
-    Move3() = default;
-    ~Move3() = default;
-
-    Move3(const Move3&) = delete;
-    Move3& operator=(const Move3&) = delete;
-};
-
-class Move4 {
-public:
-    Move4() = default;
-    ~Move4() = default;
-};
-
-
 
 TEST(SerializationTest, ConstructorTest)
 {
-    LOG_I(TAG, "default construct, %u, %u, %u, %u, %u, %u",
-          std::is_default_constructible_v<Ctor1>,
-          std::is_default_constructible_v<Ctor2>,
-          std::is_default_constructible_v<Ctor3>,
-          std::is_default_constructible_v<Ctor4>,
-          std::is_default_constructible_v<Ctor5>,
-          std::is_default_constructible_v<Ctor6>);
+    auto context = SerializationContext::Get();
 
-    LOG_I(TAG, "move construct %u, %u, %u, %u",
-          std::is_copy_constructible_v<Move1>,
-          std::is_copy_constructible_v<Move2>,
-          std::is_copy_constructible_v<Move3>,
-          std::is_copy_constructible_v<Move4>);
+    context->Register<Ctor1>("Ctor1")
+        .Member<&Ctor1::a>("a")
+        .Member<&Ctor1::b>("b")
+        .Member<&Ctor1::c>("c")
+        .Constructor<int, float, double>();
+
+    Any any = MakeAny<Ctor1>(1, 2.f, 3.0);
+    Ctor1* ptr = any.GetAs<Ctor1>();
+    ASSERT_NE(ptr, nullptr);
+    ASSERT_EQ(ptr->a, 1);
+    ASSERT_EQ(ptr->b, 2.f);
+    ASSERT_EQ(ptr->c, 3.0);
 }

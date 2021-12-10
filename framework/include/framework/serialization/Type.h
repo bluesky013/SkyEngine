@@ -38,6 +38,32 @@ namespace sky {
         CopyFn copy = nullptr;
     };
 
+    template <typename T>
+    struct TypeAllocate {
+        static constexpr bool CTOR = std::is_default_constructible_v<T>;
+        static constexpr bool DTOR = std::is_destructible_v<T>;
+        static constexpr bool COPY = std::is_copy_constructible_v<T>;
+
+        static void Construct(void* ptr)
+        {
+            if constexpr(CTOR) {
+                new (ptr) T{};
+            }
+        }
+
+        static void Destruct(void* ptr)
+        {
+            if constexpr(DTOR) {
+                ((T*)ptr)->~T();
+            }
+        }
+
+        static void Copy(const void* src, void* dst)
+        {
+            new (dst) T{*((T*)src)};
+        }
+    };
+
     template<typename T>
     class TypeInfoObj : public Singleton<TypeInfoObj<T>> {
     public:
@@ -67,10 +93,9 @@ namespace sky {
                         std::is_union_v<T>,                   // isUnion;
                         std::is_class_v<T>,                   // isClass;
                         std::is_trivial_v<T>,                 // isTrivial;
-                        std::is_default_constructible_v<T> ? [] (void* ptr) { new (ptr) T{}; } : nullptr,
-                        std::is_destructible_v<T> ? [] (void* ptr) { ((T*)ptr)->~T(); } : nullptr,
-                        std::is_copy_constructible_v<T> ?
-                            [] (const void* src, void* dst) { new (dst) T{*((T*)src)}; } : nullptr,
+                        TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
+                        TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
+                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr,
                     };
                 }
             }
