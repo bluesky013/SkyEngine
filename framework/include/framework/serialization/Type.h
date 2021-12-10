@@ -8,9 +8,14 @@
 
 namespace sky {
 
+    using Destructor = void(*)(void* ptr);
+    using Constructor = void(*)(void* ptr);
+    using CopyFn = void(*)(const void* src, void* dst);
+
     struct TypeInfoRT {
         std::string_view typeId;
         const std::string_view name;
+        const uint32_t hash;
         const size_t rank;
         const size_t size;
         const bool isFundamental;
@@ -28,6 +33,9 @@ namespace sky {
         const bool isUnion;
         const bool isClass;
         const bool isTrivial;
+        Constructor constructor = nullptr;
+        Destructor destructor = nullptr;
+        CopyFn copy = nullptr;
     };
 
     template<typename T>
@@ -41,6 +49,7 @@ namespace sky {
                     info = new TypeInfoRT{
                         "",                                   // typeId
                         TypeInfo<T>::Name(),                  // name
+                        TypeInfo<T>::Hash(),                  // hash
                         std::rank_v<T>,                       // rank
                         sizeof(T),                            // size
                         std::is_fundamental_v<T>,             // isFundamental
@@ -58,6 +67,10 @@ namespace sky {
                         std::is_union_v<T>,                   // isUnion;
                         std::is_class_v<T>,                   // isClass;
                         std::is_trivial_v<T>,                 // isTrivial;
+                        std::is_default_constructible_v<T> ? [] (void* ptr) { new (ptr) T{}; } : nullptr,
+                        std::is_destructible_v<T> ? [] (void* ptr) { ((T*)ptr)->~T(); } : nullptr,
+                        std::is_copy_constructible_v<T> ?
+                            [] (const void* src, void* dst) { new (dst) T{*((T*)src)}; } : nullptr,
                     };
                 }
             }

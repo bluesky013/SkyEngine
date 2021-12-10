@@ -10,7 +10,7 @@ namespace sky {
 
     class Any {
     public:
-        static constexpr uint32_t BLOCK_SIZE = 28;
+        static constexpr uint32_t BLOCK_SIZE = 32 - sizeof(void*);
 
         Any()
             : info(nullptr)
@@ -23,11 +23,8 @@ namespace sky {
             : data{0}
             , info(TypeInfoObj<T>::Get()->RtInfo())
         {
-            if (info->size > BLOCK_SIZE) {
-                ptr = malloc(info->size);
-            }
-            auto instance = Data();
-            new (instance) T{std::forward<Args>(args)...};
+            Construct();
+            new (Data()) T{std::forward<Args>(args)...};
         }
 
         ~Any()
@@ -35,20 +32,54 @@ namespace sky {
             Destructor();
         }
 
+        Any(const Any& any)
+        {
+            info = any.info;
+            Construct();
+            Copy(any);
+        }
+
+        Any& operator=(const Any& any)
+        {
+            info = any.info;
+            Construct();
+            return *this;
+        }
+
+        Any(Any&& any)
+        {
+            info = any.info;
+            Move(any);
+        }
+
+        Any& operator=(Any&& any)
+        {
+            info = any.info;
+            Move(any);
+            return *this;
+        }
+
         void* Data();
+
+        const void* Data() const;
 
         template <typename T>
         T* GetAs()
         {
-            if (info != nullptr && TypeInfo<T>::Hash() == info->typeId) {
+            if (info != nullptr && TypeInfo<T>::Hash() == info->hash) {
                 return static_cast<T*>(Data());
             }
             return nullptr;
         }
 
     private:
+        void Construct();
 
         void Destructor();
+
+        void Move(Any& any);
+
+        void Copy(const Any& any);
 
         union {
             uint8_t data[BLOCK_SIZE];

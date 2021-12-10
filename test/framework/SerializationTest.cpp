@@ -10,35 +10,6 @@ using namespace sky;
 
 static const char* TAG = "SerializationTest";
 
-struct Test1 {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
-    uint32_t e;
-    uint32_t f;
-    uint32_t g;
-};
-
-struct Test2 {
-    uint64_t a;
-    uint64_t b;
-    uint64_t c;
-    uint64_t d;
-};
-
-TEST(SerializationTest, AnyTest)
-{
-    Any any1(std::in_place_type<Test1>, 1u, 2u, 3u, 4u, 5u, 6u, 7u);
-    ASSERT_EQ(&any1, any1.Data());
-
-    Any any2(std::in_place_type<Test2>, 1ull, 2ull, 3ull, 4ull);
-    ASSERT_NE(&any2, any2.Data());
-
-    Any any3(std::in_place_type<float>, 5.f);
-    ASSERT_EQ(&any3, any3.Data());
-}
-
 struct TestMember {
     float a;
     float b;
@@ -97,4 +68,87 @@ TEST(SerializationTest, TypeTest)
          std::is_trivial_v<TestReflect>,
          std::is_trivial_v<int>,
          std::is_trivial_v<int*>);
+}
+
+class Ctor1 {
+public:
+    Ctor1() = default;
+};
+
+class Ctor2 {
+public:
+    Ctor2() {}
+};
+
+class Ctor3 {
+public:
+    Ctor3(int) {}
+};
+
+class Ctor4 {
+    Ctor4() = default;
+};
+
+class Ctor5 {
+public:
+    int a;
+};
+
+class Ctor6 {
+public:
+    int a = 1;
+};
+
+class Move1 {
+public:
+    Move1() = default;
+    ~Move1() = default;
+
+    Move1(const Move1&) = default;
+    Move1& operator=(const Move1&) = default;
+};
+
+class Move2 {
+public:
+    Move2() = default;
+    ~Move2() = default;
+
+    Move2(const Move2&) = default;
+    Move2& operator=(const Move2&) = delete;
+};
+
+class Move3 {
+public:
+    Move3() = default;
+    ~Move3() = default;
+
+    Move3(const Move3&) = delete;
+    Move3& operator=(const Move3&) = delete;
+};
+
+class Move4 {
+public:
+    Move4() = default;
+    ~Move4() = default;
+};
+
+
+
+TEST(SerializationTest, ConstructorTest)
+{
+    LOG_I(TAG, "default construct, %u, %u, %u, %u, %u, %u",
+          std::is_default_constructible_v<Ctor1>,
+          std::is_default_constructible_v<Ctor2>,
+          std::is_default_constructible_v<Ctor3>,
+          std::is_default_constructible_v<Ctor4>,
+          std::is_default_constructible_v<Ctor5>,
+          std::is_default_constructible_v<Ctor6>);
+
+    LOG_I(TAG, "move construct %u, %u, %u, %u",
+          std::is_copy_constructible_v<Move1>,
+          std::is_copy_constructible_v<Move2>,
+          std::is_copy_constructible_v<Move3>,
+          std::is_copy_constructible_v<Move4>);
+
+    std::any any;
 }
