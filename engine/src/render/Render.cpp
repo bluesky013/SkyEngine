@@ -10,6 +10,9 @@
 #include <vulkan/Driver.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/Swapchain.h>
+#include <core/logger/Logger.h>
+
+static const char* TAG = "Render";
 
 namespace sky {
 
@@ -113,6 +116,10 @@ namespace sky {
         }
 
         sIt->second->SetTarget(*vIt->second);
+    }
+
+    void Render::OnTick(float time)
+    {
     }
 
 

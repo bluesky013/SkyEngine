@@ -4,6 +4,7 @@
 
 #pragma once
 #include <QWidget>
+#include <QWindow>
 #include <engine/world/Viewport.h>
 
 namespace sky::editor {
@@ -15,6 +16,8 @@ namespace sky::editor {
         ~ViewportWidget();
 
         void Init();
+
+        void Shutdown();
 
     private:
         Viewport* viewport;

@@ -25,6 +25,10 @@ namespace sky {
         for (auto& world : worlds) {
             world->Tick(time);
         }
+
+        EachListener([time](IEngineEvent* event) {
+            event->OnTick(time);
+        });
     }
 
     void SkyEngine::DeInit()
@@ -117,6 +121,11 @@ namespace sky {
             (*iter)->Stop();
             modules.erase(iter);
         }
+    }
+
+    Render* SkyEngine::GetRender() const
+    {
+        return render;
     }
 
 }

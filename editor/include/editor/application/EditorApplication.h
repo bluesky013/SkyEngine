@@ -4,8 +4,10 @@
 
 #pragma once
 #include <QApplication>
-#include <engine/SkyEngine.h>
-#include <framework/environment/Environment.h>
+
+namespace sky {
+    class SkyEngine;
+}
 
 namespace sky::editor {
 
@@ -14,7 +16,7 @@ namespace sky::editor {
     public:
         EditorApplication(int &argc, char **argv, int flag = ApplicationFlags)
             : QApplication(argc, argv, flag)
-            , engineInstance(nullptr)
+            , engine(nullptr)
         {
         }
 
@@ -25,8 +27,7 @@ namespace sky::editor {
         void Shutdown();
 
     private:
-        SkyEngine* engineInstance;
-        Environment* env;
+        SkyEngine* engine;
     };
 
 }

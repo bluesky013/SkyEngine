@@ -3,6 +3,8 @@
 //
 
 #include <editor/application/EditorApplication.h>
+#include <engine/SkyEngine.h>
+#include <framework/environment/Environment.h>
 
 namespace sky::editor {
 
@@ -13,16 +15,18 @@ namespace sky::editor {
         start.modules = {
         };
 
-        engineInstance = new SkyEngine();
-        engineInstance->Init(start);
+        Environment::Get();
+
+        engine = SkyEngine::Get();
+        engine->Init(start);
     }
 
     void EditorApplication::Shutdown()
     {
-        if (engineInstance != nullptr) {
-            engineInstance->DeInit();
+        if (engine != nullptr) {
+            engine->DeInit();
+            SkyEngine::Destroy();
+            engine = nullptr;
         }
-        delete engineInstance;
-        engineInstance = nullptr;
     }
 }

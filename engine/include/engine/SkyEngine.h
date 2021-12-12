@@ -5,6 +5,7 @@
 
 #pragma once
 #include <framework/interface/EngineInterface.h>
+#include <framework/environment/Singleton.h>
 #include <vector>
 #include <memory>
 
@@ -22,13 +23,12 @@ namespace sky {
         virtual void OnRemoveViewport(Viewport&) {}
 
         virtual void OnWorldTargetChange(World& world, Viewport& vp) {}
+
+        virtual void OnTick(float time) {}
     };
 
-    class SkyEngine : public IEngine {
+    class SkyEngine : public IEngine, public Singleton<SkyEngine> {
     public:
-        SkyEngine() = default;
-        ~SkyEngine() = default;
-
         virtual bool Init(const StartInfo&) override;
 
         virtual void Tick(float) override;
@@ -51,7 +51,17 @@ namespace sky {
 
         void UnRegisterModule(IModule*) override;
 
+        Render* GetRender() const;
+
+
+
     private:
+        template <typename T>
+        friend class Singleton;
+
+        SkyEngine() = default;
+        ~SkyEngine() = default;
+
         template <typename Func>
         void EachListener(Func&& f)
         {

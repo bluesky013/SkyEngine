@@ -9,12 +9,10 @@
 extern "C" SKY_EXPORT sky::IEngine* StartEngine(sky::Environment* env)
 {
     sky::Environment::Attach(env);
-    return new sky::SkyEngine();
+    return sky::SkyEngine::Get();
 }
 
 extern "C" SKY_EXPORT void ShutdownEngine(sky::IEngine* engine)
 {
-    if (engine != nullptr) {
-        delete engine;
-    }
+    sky::SkyEngine::Destroy();
 }

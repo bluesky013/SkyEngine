@@ -11,8 +11,7 @@ namespace sky::drv {
 
     bool SwapChain::CreateSurface(const Descriptor& des)
     {
-        auto nsWindow = static_cast<NSWindow*>(des.window);
-        auto nsView = nsWindow.contentView;
+        auto nsView = static_cast<NSView*>(des.window);
 
         NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
         if (!bundle) {

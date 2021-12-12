@@ -18,12 +18,12 @@ namespace sky {
 
         static T* Get()
         {
-            return GetPtr();
+            return GetPtr(true);
         }
 
         static void Destroy()
         {
-            auto& instance = GetPtr();
+            auto& instance = GetPtr(false);
             if (instance != nullptr) {
                 Environment::Get()->UnRegister(ID);
                 delete instance;
@@ -31,11 +31,11 @@ namespace sky {
             }
         }
     protected:
-        static T*& GetPtr()
+        static T*& GetPtr(bool create)
         {
             static T* instance = nullptr;
             static std::mutex mutex;
-            if (instance == nullptr) {
+            if (instance == nullptr && create) {
                 std::lock_guard<std::mutex> lock(mutex);
                 void* ptr = Environment::Get()->Find(ID);
                 if (ptr == nullptr) {

@@ -32,6 +32,8 @@ namespace sky {
 
         void OnWorldTargetChange(World& world, Viewport& vp) override;
 
+        void OnTick(float time) override;
+
     private:
         drv::Driver* driver = nullptr;
         drv::Device* device = nullptr;

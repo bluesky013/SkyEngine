@@ -19,6 +19,8 @@ int main(int argc, char *argv[])
     mainWindow.show();
 
     auto ret = a.exec();
+
+    mainWindow.Shutdown();
     a.Shutdown();
 
     return ret;

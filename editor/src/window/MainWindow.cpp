@@ -5,25 +5,77 @@
 #include "MainWindow.h"
 #include <QTimer>
 #include <QDockWidget>
+#include <engine/SkyEngine.h>
+#include <engine/world/World.h>
+
+#include <editor/viewport/ViewportWidget.h>
+#include "CentralWidget.h"
 
 namespace sky::editor {
 
-    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {}
+    MainWindow::MainWindow(QWidget *parent)
+        : QMainWindow(parent)
+        , engine(nullptr)
+        , world(nullptr)
+        , timer(nullptr)
+    {
+        Init();
+    }
 
     MainWindow::~MainWindow() {}
 
+    void MainWindow::InitWorld()
+    {
+        engine = SkyEngine::Get();
+        world = new World();
+        engine->AddWorld(*world);
+    }
+
+    void MainWindow::ShutdownWorld()
+    {
+        engine->RemoveWorld(*world);
+        delete world;
+        world = nullptr;
+        engine = nullptr;
+    }
+
+    void MainWindow::OnTick()
+    {
+        static auto timePoint = std::chrono::high_resolution_clock::now();
+        auto current = std::chrono::high_resolution_clock::now();
+        auto delta = std::chrono::duration<float>(current - timePoint).count();
+        timePoint = current;
+        if (engine != nullptr) {
+            engine->Tick(delta);
+        }
+    }
+
     void MainWindow::Init()
     {
-        setSizePolicy(QSizePolicy::Policy::Maximum, QSizePolicy::Policy::Maximum);
+        InitWorld();
+
+        setWindowState(Qt::WindowMaximized);
+        setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
+
+        auto centralWidget = new CentralWidget();
+        setCentralWidget(centralWidget);
+        centralWidget->Init();
+        viewports.emplace_back(centralWidget->GetViewport());
 
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, new QDockWidget(this));
         addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, new QDockWidget(this));
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, new QDockWidget(this));
 
-
-        QTimer* timer = new QTimer(this);
+        timer = new QTimer(this);
         timer->start(0);
-//        connect(timer, &QTimer::timeout, this, &MainWindow::onDraw);
+        connect(timer, &QTimer::timeout, this, &MainWindow::OnTick);
+    }
+
+    void MainWindow::Shutdown()
+    {
+        for (auto& vp : viewports) {
+            vp->Shutdown();
+        }
     }
 
 }
