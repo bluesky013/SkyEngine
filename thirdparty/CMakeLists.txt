@@ -38,3 +38,7 @@ target_include_directories(sfmt PUBLIC SFMT-src-1.5.1)
 set(TINYGLTF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tinygltf)
 add_library(Tinygltf INTERFACE IMPORTED GLOBAL)
 target_include_directories(Tinygltf INTERFACE ${TINYGLTF_DIR})
+
+set(RAPIDJSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson)
+add_library(Rapidjson INTERFACE IMPORTED GLOBAL)
+target_include_directories(Rapidjson INTERFACE ${RAPIDJSON_DIR}/include)

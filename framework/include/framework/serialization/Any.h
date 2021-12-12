@@ -87,6 +87,11 @@ namespace sky {
 
         Any Get(const std::string& str);
 
+        const TypeInfoRT* Info() const
+        {
+            return info;
+        }
+
     private:
         void Construct();
 

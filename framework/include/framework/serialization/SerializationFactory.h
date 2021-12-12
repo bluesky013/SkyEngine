@@ -14,7 +14,7 @@ namespace sky {
 
     using PropertyMap = std::unordered_map<uint32_t, Any>;
     using SetterFn = bool(*)(Any&, const Any&);
-    using GetterFn = Any(*)(Any&);
+    using GetterFn = Any(*)(const Any&);
     using ConstructFn = Any(*)(Any*);
 
     struct TypeMemberNode {
@@ -58,10 +58,10 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    Any Getter(Any& any)
+    Any Getter(const Any& any)
     {
         if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
-            if (auto ptr = any.GetAs<T>(); ptr != nullptr) {
+            if (auto ptr = any.GetAsConst<T>(); ptr != nullptr) {
                 return Any(std::invoke(D, *ptr));
             }
         }

@@ -89,10 +89,19 @@ TEST(SerializationTest, TypeTest)
 
 struct Ctor1 {
 public:
-    Ctor1(int va, float vb, double vc) : a(va), b(vb), c(vc) {}
+    Ctor1(int va, float vb, double vc, bool vd) : a(va), b(vb), c(vc), d(vd) {}
     int a;
     float b;
     double c;
+    bool d;
+};
+
+struct Ctor2 {
+    Ctor2(double va, uint64_t vb, int64_t vc, Ctor1 vd) : a(va), b(vb), c(vc), d(vd) {}
+    double a;
+    uint64_t b;
+    int64_t c;
+    Ctor1 d;
 };
 
 TEST(SerializationTest, ConstructorTest)
@@ -103,12 +112,41 @@ TEST(SerializationTest, ConstructorTest)
         .Member<&Ctor1::a>("a")
         .Member<&Ctor1::b>("b")
         .Member<&Ctor1::c>("c")
-        .Constructor<int, float, double>();
+        .Member<&Ctor1::d>("d")
+        .Constructor<int, float, double, bool>();
 
-    Any any = MakeAny<Ctor1>(1, 2.f, 3.0);
-    Ctor1* ptr = any.GetAs<Ctor1>();
-    ASSERT_NE(ptr, nullptr);
-    ASSERT_EQ(ptr->a, 1);
-    ASSERT_EQ(ptr->b, 2.f);
-    ASSERT_EQ(ptr->c, 3.0);
+    context->Register<Ctor2>("Ctor2")
+        .Member<&Ctor2::a>("a")
+        .Member<&Ctor2::b>("b")
+        .Member<&Ctor2::c>("c")
+        .Member<&Ctor2::d>("d")
+        .Constructor<double, uint64_t, int64_t, Ctor1>();
+
+    {
+        Any any1 = MakeAny<Ctor1>(1, 2.f, 3.0, true);
+        Ctor1* ptr = any1.GetAs<Ctor1>();
+        ASSERT_NE(ptr, nullptr);
+        ASSERT_EQ(ptr->a, 1);
+        ASSERT_EQ(ptr->b, 2.f);
+        ASSERT_EQ(ptr->c, 3.0);
+        ASSERT_EQ(ptr->d, true);
+    }
+
+    std::string output;
+    {
+        Any any2 = MakeAny<Ctor2>(1.0, 3llu, -1ll, Ctor1{1, 2.0f, 3.0, true});
+        Ctor2* ptr = any2.GetAs<Ctor2>();
+        ASSERT_NE(ptr, nullptr);
+        ASSERT_EQ(ptr->a, 1);
+        ASSERT_EQ(ptr->b, 3llu);
+        ASSERT_EQ(ptr->c, -1ll);
+        ASSERT_EQ(ptr->d.a, 1);
+        ASSERT_EQ(ptr->d.b, 2.0f);
+        ASSERT_EQ(ptr->d.c, 3.0);
+        ASSERT_EQ(ptr->d.d, true);
+
+        SerializationWriteString(any2, output);
+        LOG_I(TAG, "%s", output.data());
+    }
+
 }

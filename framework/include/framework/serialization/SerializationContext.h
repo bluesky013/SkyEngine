@@ -47,4 +47,23 @@ namespace sky {
         return node->constructList.back().constructFn(anyArgs.data());
     }
 
+    inline const TypeNode* GetTypeNode(const Any& any)
+    {
+        auto context = SerializationContext::Get();
+        auto rtInfo = any.Info();
+        if (rtInfo == nullptr) {
+            return nullptr;
+        }
+        return context->FindType(rtInfo->typeId.data());
+    }
+
+    enum class SerializeOption : uint8_t {
+        BIN,
+        JSON
+    };
+
+    void SerializationWriteString(const Any& any, std::string& output);
+
+    void SerializationReadString(Any& any, const std::string& input);
+
 }
