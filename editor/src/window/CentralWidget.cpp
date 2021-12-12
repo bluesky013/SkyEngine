@@ -3,11 +3,12 @@
 //
 
 #include "CentralWidget.h"
+#include <QBoxLayout>
 
 namespace sky::editor {
 
     CentralWidget::CentralWidget(QWidget* parent)
-        : QMainWindow(parent)
+        : QWidget(parent)
     {
         Init();
     }
@@ -19,12 +20,19 @@ namespace sky::editor {
 
     void CentralWidget::Init()
     {
-        viewport = new ViewportWidget(this);
+        auto layout = new QHBoxLayout();
+        viewport = new ViewportWidget();
+        layout->addWidget(viewport);
+        viewport->Init();
     }
 
     void CentralWidget::Shutdown()
     {
-        viewport->Shutdown();
+        if (viewport != nullptr) {
+            viewport->Shutdown();
+            delete viewport;
+            viewport = nullptr;
+        }
     }
 
     ViewportWidget* CentralWidget::GetViewport() const

@@ -10,6 +10,9 @@
 #include <vulkan/Driver.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/Swapchain.h>
+#include <vulkan/Image.h>
+#include <vulkan/ImageView.h>
+#include <vulkan/FrameBuffer.h>
 #include <core/logger/Logger.h>
 
 static const char* TAG = "Render";
@@ -41,22 +44,6 @@ namespace sky {
         if (device == nullptr) {
             return false;
         }
-
-//        drv::RenderPassFactory factory;
-//        auto pass = factory.operator()().AddSubPass()
-//            .AddColor()
-//                .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
-//                .Format(VK_FORMAT_R8G8B8A8_UNORM)
-//                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-//            .AddDependency()
-//                .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-//                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-//                    VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
-//            .AddDependency()
-//                .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-//                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-//                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
-//            .Create(*device);
 
         return true;
     }
@@ -91,6 +78,32 @@ namespace sky {
         swcDes.window = vp.GetNativeWindow();
         auto swapChain = device->CreateDeviceObject<drv::SwapChain>(swcDes);
         swapChains.emplace(&vp, swapChain);
+
+        drv::RenderPassFactory factory;
+        auto pass = factory.operator()().AddSubPass()
+            .AddColor()
+                .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
+                .Format(swapChain->GetFormat())
+                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            .AddDependency()
+                .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
+            .AddDependency()
+                .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
+            .Create(*device);
+
+        auto ext = swapChain->GetExtent();
+        drv::FrameBuffer::Descriptor des = {
+            ext.width,
+            ext.height,
+            pass,
+            {swapChain->GetViews()[0]->GetNativeHandle()}
+        };
+
+        auto fb = device->CreateDeviceObject<drv::FrameBuffer>(des);
     }
 
     void Render::OnRemoveViewport(Viewport& vp)

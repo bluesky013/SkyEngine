@@ -19,10 +19,6 @@ namespace sky::editor {
 
     void ViewportWidget::Init()
     {
-        setVisible(true);
-        setUpdatesEnabled(false);
-        setMouseTracking(true);
-        setObjectName("renderOverlay");
         viewport = new Viewport((void*)winId());
         SkyEngine::Get()->AddViewport(*viewport);
     }
@@ -33,6 +29,18 @@ namespace sky::editor {
             SkyEngine::Get()->RemoveViewport(*viewport);
             delete viewport;
             viewport = nullptr;
+        }
+    }
+
+    bool ViewportWidget::event(QEvent *event)
+    {
+        auto size = rect();
+        switch (event->type()) {
+            case QEvent::Resize:
+                SkyEngine::Get()->OnResize((void*)winId(), size.width(), size.height());
+                break;
+            default:
+                break;
         }
     }
 

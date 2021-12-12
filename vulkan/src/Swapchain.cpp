@@ -55,6 +55,21 @@ namespace sky::drv {
         }
     }
 
+    VkFormat SwapChain::GetFormat() const
+    {
+        return format.format;
+    }
+
+    VkExtent2D SwapChain::GetExtent() const
+    {
+        return extent;
+    }
+
+    const std::vector<ImageView*>& SwapChain::GetViews() const
+    {
+        return views;
+    }
+
     bool SwapChain::CreateSwapChain(const Descriptor& des)
     {
         std::vector<VkQueueFlags> preferred = {
@@ -121,7 +136,7 @@ namespace sky::drv {
         swcInfo.imageFormat      = format.format;
         swcInfo.imageColorSpace  = format.colorSpace;
         swcInfo.imageExtent      = extent;
-        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         swcInfo.imageArrayLayers = 1;
         swcInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swcInfo.presentMode      = mode;
@@ -136,19 +151,32 @@ namespace sky::drv {
             return false;
         }
 
+        LOG_I(TAG, "create swapChain format-%d width-%u, height-%u, imageCount-%u", format.format, extent.width, extent.height, imageCount);
+
         std::vector<VkImage> images;
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, nullptr);
         images.resize(num);
-        views.resize(num);
+        views.reserve(num);
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, images.data());
         ImageView::Descriptor viewDes = {};
+        viewDes.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewDes.format = format.format;
+
+        for (auto& img : images) {
+            viewDes.image = img;
+            views.emplace_back(device.CreateDeviceObject<ImageView>(viewDes));
+        }
 
         return true;
     }
 
     void SwapChain::DestroySwapChain()
     {
+        for (auto& view : views) {
+            delete view;
+        }
+        views.clear();
+
         if (swapChain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(device.GetNativeHandle(), swapChain, VKL_ALLOC);
             swapChain = VK_NULL_HANDLE;

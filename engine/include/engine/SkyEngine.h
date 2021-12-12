@@ -25,6 +25,8 @@ namespace sky {
         virtual void OnWorldTargetChange(World& world, Viewport& vp) {}
 
         virtual void OnTick(float time) {}
+
+        virtual void OnWindowResize(void* hwnd, uint32_t, uint32_t) {}
     };
 
     class SkyEngine : public IEngine, public Singleton<SkyEngine> {
@@ -51,9 +53,9 @@ namespace sky {
 
         void UnRegisterModule(IModule*) override;
 
+        void OnResize(void* wnd, uint32_t, uint32_t) override;
+
         Render* GetRender() const;
-
-
 
     private:
         template <typename T>

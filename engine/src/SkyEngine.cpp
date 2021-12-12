@@ -5,6 +5,9 @@
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
 #include <engine/render/Render.h>
+#include <core/logger/Logger.h>
+
+static const char* TAG = "SkyEngine";
 
 namespace sky {
 
@@ -121,6 +124,14 @@ namespace sky {
             (*iter)->Stop();
             modules.erase(iter);
         }
+    }
+
+    void SkyEngine::OnResize(void* hwnd, uint32_t w, uint32_t h)
+    {
+        EachListener([w, h, hwnd](IEngineEvent* event) {
+            event->OnWindowResize(hwnd, w, h);
+        });
+        LOG_I(TAG, "window resize %u, %u", w, h);
     }
 
     Render* SkyEngine::GetRender() const

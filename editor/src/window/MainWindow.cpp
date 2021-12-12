@@ -57,10 +57,12 @@ namespace sky::editor {
         setWindowState(Qt::WindowMaximized);
         setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
 
-        auto centralWidget = new CentralWidget();
+        auto centralWidget = new CentralWidget(this);
         setCentralWidget(centralWidget);
-        centralWidget->Init();
-        viewports.emplace_back(centralWidget->GetViewport());
+        auto vp = centralWidget->GetViewport();
+        if (vp != nullptr) {
+            viewports.emplace_back(vp);
+        }
 
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, new QDockWidget(this));
         addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, new QDockWidget(this));

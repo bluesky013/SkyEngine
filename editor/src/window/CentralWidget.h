@@ -8,7 +8,7 @@
 
 namespace sky::editor {
 
-    class CentralWidget : public QMainWindow {
+    class CentralWidget : public QWidget {
     public:
         CentralWidget(QWidget* parent = nullptr);
         ~CentralWidget();

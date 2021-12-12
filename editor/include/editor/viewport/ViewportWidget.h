@@ -12,12 +12,14 @@ namespace sky::editor {
     class ViewportWidget : public QWidget {
         Q_OBJECT
     public:
-        ViewportWidget(QWidget* parent);
+        ViewportWidget(QWidget* parent = nullptr);
         ~ViewportWidget();
 
         void Init();
 
         void Shutdown();
+
+        bool event(QEvent *event) override;
 
     private:
         Viewport* viewport;

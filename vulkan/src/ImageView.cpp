@@ -10,7 +10,7 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    ImageView::ImageView(Device& dev, VkImage img) : DevObject(dev), image(img), view(VK_NULL_HANDLE)
+    ImageView::ImageView(Device& dev) : DevObject(dev), image(VK_NULL_HANDLE), view(VK_NULL_HANDLE)
     {
     }
 
@@ -25,7 +25,7 @@ namespace sky::drv {
     {
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType      = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image      = image;
+        viewInfo.image      = image = des.image;
         viewInfo.viewType   = des.viewType;
         viewInfo.format     = des.format;
         viewInfo.components = des.components;

@@ -26,9 +26,6 @@ namespace sky::drv {
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
         };
-
-        ImageView* CreateImageView(const ImageView::Descriptor& des);
-
     private:
         friend class Device;
         Image(Device&);

@@ -30,6 +30,12 @@ namespace sky::drv {
 
         VkSwapchainKHR GetNativeHandle() const;
 
+        VkFormat GetFormat() const;
+
+        VkExtent2D GetExtent() const;
+
+        const std::vector<ImageView*>& GetViews() const;
+
     private:
         friend class Device;
         SwapChain(Device&);
