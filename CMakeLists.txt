@@ -29,3 +29,7 @@ add_subdirectory(vulkan)
 add_subdirectory(sample)
 add_subdirectory(tools)
 add_subdirectory(test)
+
+if (QT_PATH)
+    add_subdirectory(editor)
+endif()
