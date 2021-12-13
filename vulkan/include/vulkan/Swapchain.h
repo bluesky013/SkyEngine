@@ -13,6 +13,7 @@ namespace sky::drv {
     class Device;
     class Queue;
     class ImageView;
+    class Semaphore;
 
     class SwapChain : public DevObject {
     public:
@@ -26,6 +27,10 @@ namespace sky::drv {
             VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         };
 
+        struct PresentInfo {
+            std::vector<Semaphore*> signals;
+        };
+
         bool Init(const Descriptor&);
 
         VkSwapchainKHR GetNativeHandle() const;
@@ -35,6 +40,14 @@ namespace sky::drv {
         VkExtent2D GetExtent() const;
 
         const std::vector<ImageView*>& GetViews() const;
+
+        void Present(const PresentInfo&) const;
+
+        VkResult AcquireNext() const;
+
+        Semaphore* GetAvailableSemaphore() const;
+
+        ImageView* GetCurrentImageView() const;
 
     private:
         friend class Device;
@@ -50,12 +63,13 @@ namespace sky::drv {
         VkSwapchainKHR swapChain;
         Queue* queue;
         uint32_t imageCount;
-        uint32_t currentImage;
+        mutable uint32_t currentImage;
         VkExtent2D extent;
         VkSurfaceCapabilitiesKHR capabilities;
         VkSurfaceFormatKHR format;
         VkPresentModeKHR mode;
         std::vector<ImageView*> views;
+        Semaphore* imageAvailable;
     };
 
 }

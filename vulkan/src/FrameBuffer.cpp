@@ -40,4 +40,8 @@ namespace sky::drv {
         return true;
     }
 
+    VkFramebuffer FrameBuffer::GetNativeHandle() const
+    {
+        return frameBuffer;
+    }
 }

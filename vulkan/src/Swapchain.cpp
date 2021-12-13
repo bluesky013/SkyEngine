@@ -7,6 +7,7 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Queue.h"
 #include "vulkan/ImageView.h"
+#include "vulkan/Semaphore.h"
 #include "core/logger/Logger.h"
 
 static const char* TAG = "Driver";
@@ -68,6 +69,25 @@ namespace sky::drv {
     const std::vector<ImageView*>& SwapChain::GetViews() const
     {
         return views;
+    }
+
+    void SwapChain::Present(const PresentInfo& info) const
+    {
+        std::vector<VkSemaphore> semaphores;
+        for (auto& sem : info.signals) {
+            semaphores.emplace_back(sem->GetNativeHandle());
+        }
+
+        VkPresentInfoKHR presentInfo = {
+            VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            nullptr,
+            (uint32_t)semaphores.size(),
+            semaphores.data(),
+            1,
+            &swapChain,
+            &currentImage
+        };
+        vkQueuePresentKHR(queue->GetNativeHandle(), &presentInfo);
     }
 
     bool SwapChain::CreateSwapChain(const Descriptor& des)
@@ -167,6 +187,8 @@ namespace sky::drv {
             views.emplace_back(device.CreateDeviceObject<ImageView>(viewDes));
         }
 
+        imageAvailable = device.CreateDeviceObject<Semaphore>(Semaphore::Descriptor{});
+
         return true;
     }
 
@@ -181,5 +203,23 @@ namespace sky::drv {
             vkDestroySwapchainKHR(device.GetNativeHandle(), swapChain, VKL_ALLOC);
             swapChain = VK_NULL_HANDLE;
         }
+    }
+
+    VkResult SwapChain::AcquireNext() const
+    {
+        return vkAcquireNextImageKHR(device.GetNativeHandle(), swapChain, UINT64_MAX,
+            imageAvailable->GetNativeHandle(),
+            VK_NULL_HANDLE, &currentImage);
+    }
+
+    Semaphore* SwapChain::GetAvailableSemaphore() const
+    {
+        return imageAvailable;
+    }
+
+    ImageView* SwapChain::GetCurrentImageView() const
+    {
+        AcquireNext();
+        return views[currentImage];
     }
 }

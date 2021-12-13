@@ -41,6 +41,8 @@ namespace sky::drv {
 
         void Submit(Queue& queue, const SubmitInfo& submit);
 
+        VkCommandBuffer GetNativeHandle() const;
+
     private:
         friend class CommandPool;
         CommandBuffer(Device&, VkCommandPool, VkCommandBuffer);

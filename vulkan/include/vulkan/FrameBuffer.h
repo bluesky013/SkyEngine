@@ -26,6 +26,8 @@ namespace sky::drv {
 
         bool Init(const Descriptor&);
 
+        VkFramebuffer GetNativeHandle() const;
+
     private:
         friend class Device;
         FrameBuffer(Device&);

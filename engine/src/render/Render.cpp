@@ -13,6 +13,8 @@
 #include <vulkan/Image.h>
 #include <vulkan/ImageView.h>
 #include <vulkan/FrameBuffer.h>
+#include <vulkan/CommandPool.h>
+#include <vulkan/Semaphore.h>
 #include <core/logger/Logger.h>
 
 static const char* TAG = "Render";
@@ -84,7 +86,7 @@ namespace sky {
             .AddColor()
                 .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
                 .Format(swapChain->GetFormat())
-                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
             .AddDependency()
                 .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
                 .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -100,10 +102,57 @@ namespace sky {
             ext.width,
             ext.height,
             pass,
-            {swapChain->GetViews()[0]->GetNativeHandle()}
+            {swapChain->GetCurrentImageView()->GetNativeHandle()}
         };
 
         auto fb = device->CreateDeviceObject<drv::FrameBuffer>(des);
+
+        auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
+
+        drv::CommandPool::Descriptor poolDes = {
+            queue->GetQueueFamilyIndex(),
+            VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+        };
+        auto pool = device->CreateDeviceObject<drv::CommandPool>(poolDes);
+
+        drv::Semaphore::Descriptor sDes = {};
+
+        auto sem = device->CreateDeviceObject<drv::Semaphore>(sDes);
+        auto cmd = pool->Allocate(drv::CommandBuffer::Descriptor{});
+
+        cmd->Begin();
+
+        VkClearValue clear;
+        clear.color.float32[0] = 1.f;
+        clear.color.float32[1] = 0.f;
+        clear.color.float32[2] = 0.f;
+        clear.color.float32[3] = 0.f;
+
+        VkRenderPassBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        beginInfo.pNext = nullptr;
+        beginInfo.renderPass = pass->GetNativeHandle();
+        beginInfo.framebuffer = fb->GetNativeHandle();
+        beginInfo.renderArea = {{0, 0}, ext};
+        beginInfo.clearValueCount = 1;
+        beginInfo.pClearValues = &clear;
+
+        vkCmdBeginRenderPass(cmd->GetNativeHandle(), &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        vkCmdEndRenderPass(cmd->GetNativeHandle());
+
+        cmd->End();
+
+        drv::CommandBuffer::SubmitInfo submit = {
+            {},
+            {sem}
+        };
+        cmd->Submit(*queue, submit);
+
+        drv::SwapChain::PresentInfo present = {
+            {sem}
+        };
+        swapChain->Present(present);
     }
 
     void Render::OnRemoveViewport(Viewport& vp)

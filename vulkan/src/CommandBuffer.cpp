@@ -101,4 +101,9 @@ namespace sky::drv {
         }
         vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence == nullptr ? VK_NULL_HANDLE : fence->GetNativeHandle());
     }
+
+    VkCommandBuffer CommandBuffer::GetNativeHandle() const
+    {
+        return cmdBuffer;
+    }
 }

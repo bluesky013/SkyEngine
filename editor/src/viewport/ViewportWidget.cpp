@@ -19,6 +19,7 @@ namespace sky::editor {
 
     void ViewportWidget::Init()
     {
+        setVisible(true);
         viewport = new Viewport((void*)winId());
         SkyEngine::Get()->AddViewport(*viewport);
     }
