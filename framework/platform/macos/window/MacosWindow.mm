@@ -36,7 +36,7 @@ namespace sky {
 
         void DeInit();
 
-        void* GetNativeHandle() const override { return handle; };
+        void* GetNativeHandle() const override { return handle.contentView; };
         NSWindow* handle = nullptr;
         NSString* title = nullptr;
         MacosViewController* controller = nullptr;
@@ -76,17 +76,16 @@ namespace sky {
         [handle setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
         [handle makeKeyAndOrderFront:nil];
 
-        NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
-        CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
-
-        [handle.contentView setLayer: layer];
-        [handle.contentView setWantsLayer: YES];
-
         controller = [MacosViewController alloc];
         [controller init];
         [controller setView : handle.contentView];
         [controller retain];
 
+        NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
+        CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
+        NSView* view = handle.contentView;
+        [view setLayer: layer];
+        [view setWantsLayer: YES];
 
         //Used for window close notification
         [[NSNotificationCenter defaultCenter] addObserver: controller
