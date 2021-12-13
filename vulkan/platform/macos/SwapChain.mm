@@ -9,24 +9,13 @@
 
 namespace sky::drv {
 
-    bool SwapChain::CreateSurface(const Descriptor& des)
+    bool SwapChain::CreateSurface()
     {
-        auto nsView = static_cast<NSView*>(des.window);
-
-        NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
-        if (!bundle) {
-            return false;
-        }
-        CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
-        if (!layer) {
-            return false;
-        }
-        [nsView setLayer: layer];
-        [nsView setWantsLayer: YES];
+        auto view = static_cast<NSView*>(descriptor.window);
 
         VkMacOSSurfaceCreateInfoMVK createInfo {};
         createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-        createInfo.pView = nsView;
+        createInfo.pView = view;
         createInfo.pNext = nullptr;
 
         if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr, &surface) != VK_SUCCESS) {

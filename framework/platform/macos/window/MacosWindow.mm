@@ -76,6 +76,12 @@ namespace sky {
         [handle setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
         [handle makeKeyAndOrderFront:nil];
 
+        NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
+        CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
+
+        [handle.contentView setLayer: layer];
+        [handle.contentView setWantsLayer: YES];
+
         controller = [MacosViewController alloc];
         [controller init];
         [controller setView : handle.contentView];

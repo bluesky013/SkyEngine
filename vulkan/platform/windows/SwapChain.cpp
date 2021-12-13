@@ -13,11 +13,11 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    bool SwapChain::CreateSurface(const Descriptor& des)
+    bool SwapChain::CreateSurface()
     {
         VkWin32SurfaceCreateInfoKHR surfaceInfo = {};
         surfaceInfo.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-        surfaceInfo.hwnd      = (HWND)des.window;
+        surfaceInfo.hwnd      = (HWND)descriptor.window;
         surfaceInfo.hinstance = GetModuleHandle(0);
         VkResult rst = vkCreateWin32SurfaceKHR(device.GetInstance(), &surfaceInfo, VKL_ALLOC, &surface);
         if (rst != VK_SUCCESS) {

@@ -3,14 +3,14 @@
 //
 
 #include "CentralWidget.h"
-#include <QBoxLayout>
+#include <QGridLayout>
 
 namespace sky::editor {
 
     CentralWidget::CentralWidget(QWidget* parent)
         : QWidget(parent)
+        , viewport(new ViewportWidget(this))
     {
-        Init();
     }
 
     CentralWidget::~CentralWidget()
@@ -20,10 +20,10 @@ namespace sky::editor {
 
     void CentralWidget::Init()
     {
-        auto layout = new QHBoxLayout();
-        viewport = new ViewportWidget();
-        layout->addWidget(viewport);
         viewport->Init();
+        auto layout = new QGridLayout(this);
+        layout->setMargin(0);
+        layout->addWidget(viewport, 0, 0, 1, 1);
     }
 
     void CentralWidget::Shutdown()
@@ -38,6 +38,18 @@ namespace sky::editor {
     ViewportWidget* CentralWidget::GetViewport() const
     {
         return viewport;
+    }
+
+    bool CentralWidget::event(QEvent *event)
+    {
+        auto size = rect();
+        switch (event->type()) {
+            case QEvent::Resize:
+                break;
+            default:
+                break;
+        }
+        return true;
     }
 
 }

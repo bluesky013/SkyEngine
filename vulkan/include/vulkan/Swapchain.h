@@ -21,6 +21,8 @@ namespace sky::drv {
 
         struct Descriptor {
             void* window = nullptr;
+            uint32_t width = 1;
+            uint32_t height = 1;
             VkFormat preferredFormat = VK_FORMAT_R8G8B8A8_UNORM;
             VkPresentModeKHR preferredMode = VK_PRESENT_MODE_MAILBOX_KHR;
             VkSurfaceTransformFlagBitsKHR preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -49,14 +51,16 @@ namespace sky::drv {
 
         ImageView* GetCurrentImageView() const;
 
+        void Resize(uint32_t width, uint32_t height);
+
     private:
         friend class Device;
         SwapChain(Device&);
 
-        bool CreateSurface(const Descriptor&);
+        bool CreateSurface();
         void DestroySurface();
 
-        bool CreateSwapChain(const Descriptor&);
+        bool CreateSwapChain();
         void DestroySwapChain();
 
         VkSurfaceKHR surface;
@@ -70,6 +74,7 @@ namespace sky::drv {
         VkPresentModeKHR mode;
         std::vector<ImageView*> views;
         Semaphore* imageAvailable;
+        Descriptor descriptor;
     };
 
 }

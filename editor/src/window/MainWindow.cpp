@@ -55,10 +55,10 @@ namespace sky::editor {
         InitWorld();
 
         setWindowState(Qt::WindowMaximized);
-        setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
 
         auto centralWidget = new CentralWidget(this);
         setCentralWidget(centralWidget);
+        centralWidget->Init();
         auto vp = centralWidget->GetViewport();
         if (vp != nullptr) {
             viewports.emplace_back(vp);

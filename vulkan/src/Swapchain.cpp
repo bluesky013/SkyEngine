@@ -33,11 +33,12 @@ namespace sky::drv {
 
     bool SwapChain::Init(const Descriptor& des)
     {
-        if (!CreateSurface(des)) {
+        descriptor = des;
+        if (!CreateSurface()) {
             return false;
         }
 
-        if (!CreateSwapChain(des)) {
+        if (!CreateSwapChain()) {
             return false;
         }
         return true;
@@ -90,7 +91,7 @@ namespace sky::drv {
         vkQueuePresentKHR(queue->GetNativeHandle(), &presentInfo);
     }
 
-    bool SwapChain::CreateSwapChain(const Descriptor& des)
+    bool SwapChain::CreateSwapChain()
     {
         std::vector<VkQueueFlags> preferred = {
             VK_QUEUE_TRANSFER_BIT,
@@ -134,7 +135,7 @@ namespace sky::drv {
         }
         format = formats[0];
         for (auto& f : formats) {
-            if (f.format == des.preferredFormat) {
+            if (f.format == descriptor.preferredFormat) {
                 format = f;
                 break;
             }
@@ -142,13 +143,17 @@ namespace sky::drv {
 
         mode = presentModes[0];
         for (auto& m : presentModes) {
-            if (m == des.preferredMode) {
+            if (m == descriptor.preferredMode) {
                 mode = m;
                 break;
             }
         }
         imageCount = std::min(capabilities.minImageCount + 1, capabilities.maxImageCount);
-        extent = capabilities.currentExtent;
+        extent.width = std::max(descriptor.width, capabilities.minImageExtent.width);
+        extent.height = std::max(descriptor.height, capabilities.minImageExtent.height);
+
+        extent.width = std::min(extent.width, capabilities.maxImageExtent.width);
+        extent.height = std::min(extent.height, capabilities.maxImageExtent.height);
 
         VkSwapchainCreateInfoKHR swcInfo = {};
         swcInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -162,8 +167,8 @@ namespace sky::drv {
         swcInfo.presentMode      = mode;
         swcInfo.clipped          = VK_TRUE;
         swcInfo.minImageCount    = imageCount;
-        swcInfo.preTransform     = des.preTransform;
-        swcInfo.compositeAlpha   = des.compositeAlpha;
+        swcInfo.preTransform     = descriptor.preTransform;
+        swcInfo.compositeAlpha   = descriptor.compositeAlpha;
         
         VkResult rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
         if (rst != VK_SUCCESS) {
@@ -221,5 +226,16 @@ namespace sky::drv {
     {
         AcquireNext();
         return views[currentImage];
+    }
+
+    void SwapChain::Resize(uint32_t width, uint32_t height)
+    {
+        descriptor.width = width;
+        descriptor.height = height;
+        if (queue != nullptr) {
+            vkQueueWaitIdle(queue->GetNativeHandle());
+        }
+        DestroySwapChain();
+        CreateSwapChain();
     }
 }

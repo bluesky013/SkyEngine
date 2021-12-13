@@ -3,13 +3,14 @@
 //
 
 #include <editor/viewport/ViewportWidget.h>
+#include <QGridLayout>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
 
     ViewportWidget::ViewportWidget(QWidget* parent)
         : QWidget(parent)
-        , viewport(nullptr)
+        , window(new Viewport())
     {
     }
 
@@ -19,30 +20,31 @@ namespace sky::editor {
 
     void ViewportWidget::Init()
     {
-        setVisible(true);
-        viewport = new Viewport((void*)winId());
-        SkyEngine::Get()->AddViewport(*viewport);
+        auto container = QWidget::createWindowContainer(window, this);
+        window->Init();
+        auto layout = new QGridLayout(this);
+        layout->setMargin(0);
+        layout->addWidget(container, 0, 0, 1, 1);
     }
 
     void ViewportWidget::Shutdown()
     {
-        if (viewport != nullptr) {
-            SkyEngine::Get()->RemoveViewport(*viewport);
-            delete viewport;
-            viewport = nullptr;
+        if (window != nullptr) {
+            window->Shutdown();
         }
     }
 
     bool ViewportWidget::event(QEvent *event)
     {
-        auto size = rect();
         switch (event->type()) {
             case QEvent::Resize:
-                SkyEngine::Get()->OnResize((void*)winId(), size.width(), size.height());
+                window->setGeometry(geometry());
+                SkyEngine::Get()->OnResize((void*)window->winId(), geometry().width(), geometry().height());
                 break;
             default:
                 break;
         }
+        return true;
     }
 
 }

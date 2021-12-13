@@ -72,29 +72,66 @@ namespace sky {
 
     void Render::OnAddViewport(Viewport& vp)
     {
-        auto iter = swapChains.find(&vp);
+        auto handle = vp.GetNativeWindow();
+        if (handle == nullptr) {
+            return;
+        }
+        auto iter = swapChains.find(handle);
         if (iter != swapChains.end()) {
             return;
         }
         drv::SwapChain::Descriptor swcDes = {};
-        swcDes.window = vp.GetNativeWindow();
+        swcDes.window = handle;
         auto swapChain = device->CreateDeviceObject<drv::SwapChain>(swcDes);
-        swapChains.emplace(&vp, swapChain);
+        swapChains.emplace(handle, swapChain);
+    }
 
+    void Render::OnRemoveViewport(Viewport& vp)
+    {
+        auto handle = vp.GetNativeWindow();
+        if (handle == nullptr) {
+            return;
+        }
+        auto iter = swapChains.find(handle);
+        if (iter == swapChains.end()) {
+            return;
+        }
+        delete iter->second;
+        swapChains.erase(iter);
+    }
+
+    void Render::OnWorldTargetChange(World& world, Viewport& vp)
+    {
+        auto sIt = scenes.find(&world);
+        if (sIt == scenes.end()) {
+            return;
+        }
+
+        auto vIt = swapChains.find(&vp);
+        if (vIt == swapChains.end()) {
+            return;
+        }
+
+        sIt->second->SetTarget(*vIt->second);
+    }
+
+    void Render::Test()
+    {
+        auto swapChain = swapChains.begin()->second;
         drv::RenderPassFactory factory;
         auto pass = factory.operator()().AddSubPass()
             .AddColor()
-                .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
-                .Format(swapChain->GetFormat())
-                .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+            .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+            .Format(swapChain->GetFormat())
+            .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
             .AddDependency()
-                .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
+            .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+            .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                     VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT})
             .AddDependency()
-                .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-                .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
+            .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+            .SetBarrier(drv::Barrier{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, VK_ACCESS_MEMORY_READ_BIT})
             .Create(*device);
 
         auto ext = swapChain->GetExtent();
@@ -126,7 +163,7 @@ namespace sky {
         clear.color.float32[0] = 1.f;
         clear.color.float32[1] = 0.f;
         clear.color.float32[2] = 0.f;
-        clear.color.float32[3] = 0.f;
+        clear.color.float32[3] = 1.f;
 
         VkRenderPassBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -155,34 +192,18 @@ namespace sky {
         swapChain->Present(present);
     }
 
-    void Render::OnRemoveViewport(Viewport& vp)
-    {
-        auto iter = swapChains.find(&vp);
-        if (iter == swapChains.end()) {
-            return;
-        }
-        delete iter->second;
-        swapChains.erase(iter);
-    }
-
-    void Render::OnWorldTargetChange(World& world, Viewport& vp)
-    {
-        auto sIt = scenes.find(&world);
-        if (sIt == scenes.end()) {
-            return;
-        }
-
-        auto vIt = swapChains.find(&vp);
-        if (vIt == swapChains.end()) {
-            return;
-        }
-
-        sIt->second->SetTarget(*vIt->second);
-    }
-
     void Render::OnTick(float time)
     {
     }
 
+    void Render::OnWindowResize(void* hwnd, uint32_t w, uint32_t h)
+    {
+        auto iter = swapChains.find(hwnd);
+        if (iter == swapChains.end()) {
+            return;
+        }
+        iter->second->Resize(w, h);
+        Test();
+    }
 
 }

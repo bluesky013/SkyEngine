@@ -32,12 +32,16 @@ namespace sky {
 
         void OnWorldTargetChange(World& world, Viewport& vp) override;
 
+        void OnWindowResize(void* hwnd, uint32_t, uint32_t) override;
+
         void OnTick(float time) override;
+
+        void Test();
 
     private:
         drv::Driver* driver = nullptr;
         drv::Device* device = nullptr;
-        std::unordered_map<Viewport*, drv::SwapChain*> swapChains;
+        std::unordered_map<void*, drv::SwapChain*> swapChains;
         std::unordered_map<World*, RenderScene*> scenes;
     };
 

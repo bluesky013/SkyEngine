@@ -4,8 +4,7 @@
 
 #pragma once
 #include <QWidget>
-#include <QWindow>
-#include <engine/world/Viewport.h>
+#include <editor/viewport/Viewport.h>
 
 namespace sky::editor {
 
@@ -22,7 +21,7 @@ namespace sky::editor {
         bool event(QEvent *event) override;
 
     private:
-        Viewport* viewport;
+        Viewport* window;
     };
 
 }
