@@ -8,6 +8,7 @@
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
 #include <editor/dockwidget/WorldWidget.h>
+#include <editor/dockwidget/InspectorWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include "CentralWidget.h"
 
@@ -66,13 +67,17 @@ namespace sky::editor {
         if (vp != nullptr) {
             viewports.emplace_back(vp);
         }
-
+        auto dockMgr = DockManager::Get();
 
         auto worldWidget = new WorldWidget(this);
         worldWidget->SetWorld(*world);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
+        dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
 
-        addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, new QDockWidget(this));
+        auto inspector = new InspectorWidget(this);
+        addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, inspector);
+        dockMgr->Register((uint32_t)DockId::INSPECTOR, *inspector);
+
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, new QDockWidget(this));
 
         timer = new QTimer(this);
