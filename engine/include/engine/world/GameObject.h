@@ -6,7 +6,7 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
+#include <map>
 #include <engine/world/Component.h>
 
 namespace sky {
@@ -48,9 +48,24 @@ namespace sky {
             return nullptr;
         }
 
+        template <typename T>
+        inline const T* GetComponent() const
+        {
+            auto iter = components.find(ComponentBuilder<T>::id);
+            if (iter != components.end()) {
+                return static_cast<T*>(iter->second);
+            }
+            return nullptr;
+        }
+
         uint32_t GetId() const;
 
         const std::string& GetName() const;
+
+        void SetParent(GameObject* gameObject);
+
+        using ComponentMap = std::map<uint32_t, Component*>;
+        ComponentMap& GetComponents();
 
     private:
         friend class World;
@@ -58,7 +73,7 @@ namespace sky {
         World* world = nullptr;
         uint32_t objId = 0;
         std::string name;
-        std::unordered_map<uint32_t, Component*> components;
+        ComponentMap components;
     };
 
 }

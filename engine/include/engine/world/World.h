@@ -9,13 +9,12 @@
 #include <vector>
 #include <unordered_map>
 #include <core/math/Rect.h>
-#include <engine/world/TransformComponent.h>
 
 namespace sky {
 
-    class GameObject;
     class Viewport;
     class World;
+    class GameObject;
 
     struct IWorldEvent {
         virtual void OnViewportChange(Viewport& vp) {}
@@ -23,7 +22,7 @@ namespace sky {
 
     class World {
     public:
-        World() = default;
+        World();
         ~World() = default;
 
         GameObject* CreateGameObject(const std::string& name);
@@ -36,9 +35,12 @@ namespace sky {
 
         const std::vector<GameObject*>& GetGameObjects() const;
 
+        GameObject* GetRoot();
+
     private:
+        Viewport* viewport;
+        GameObject* root;
         std::vector<GameObject*> gameObjects;
-        Viewport* viewport = nullptr;
     };
 
 }

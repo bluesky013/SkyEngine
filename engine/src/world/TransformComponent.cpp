@@ -32,6 +32,10 @@ namespace sky {
 
     void TransformComponent::SetParent(TransformComponent* newParent)
     {
+        if (parent == newParent) {
+            return;
+        }
+
         if (parent != nullptr) {
             auto iter = FindChild(parent->children, this);
             if (iter != parent->children.end()) {
@@ -40,9 +44,11 @@ namespace sky {
         }
         parent = newParent;
 
-        auto iter = FindChild(parent->children, this);
-        if (iter == parent->children.end()) {
-            newParent->children.emplace_back(this);
+        if (parent != nullptr) {
+            auto iter = FindChild(parent->children, this);
+            if (iter == parent->children.end()) {
+                newParent->children.emplace_back(this);
+            }
         }
     }
 

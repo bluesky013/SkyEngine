@@ -18,9 +18,9 @@ namespace sky {
         Component() = default;
         virtual ~Component() = default;
 
+        GameObject* object = nullptr;
     protected:
         friend class GameObject;
-        GameObject* object = nullptr;
     };
 
     template <typename T>

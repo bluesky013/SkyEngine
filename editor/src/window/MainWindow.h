@@ -8,6 +8,8 @@
 #include <QTimer>
 #include <engine/world/World.h>
 
+class QDockWidget;
+
 namespace sky {
     class SkyEngine;
 }
@@ -38,6 +40,7 @@ namespace sky::editor {
         World* world;
         QTimer* timer;
         std::vector<ViewportWidget*> viewports;
+        std::list<QDockWidget*> docks;
     };
 
 }

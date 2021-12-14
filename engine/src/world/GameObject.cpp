@@ -6,6 +6,7 @@
 #include <engine/world/GameObject.h>
 #include <engine/world/World.h>
 #include <engine/world/Component.h>
+#include <engine/world/TransformComponent.h>
 
 namespace sky {
 
@@ -28,5 +29,18 @@ namespace sky {
     const std::string& GameObject::GetName() const
     {
         return name;
+    }
+
+    void GameObject::SetParent(GameObject* gameObject)
+    {
+        auto trans = GetComponent<TransformComponent>();
+        auto parent = gameObject == nullptr ? world->GetRoot()->GetComponent<TransformComponent>()
+            : gameObject->GetComponent<TransformComponent>();
+        trans->SetParent(parent);
+    }
+
+    GameObject::ComponentMap& GameObject::GetComponents()
+    {
+        return components;
     }
 }

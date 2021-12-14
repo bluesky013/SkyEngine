@@ -7,8 +7,8 @@
 #include <QDockWidget>
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
-
-#include <editor/viewport/ViewportWidget.h>
+#include <editor/dockwidget/WorldWidget.h>
+#include <editor/dockwidget/DockManager.h>
 #include "CentralWidget.h"
 
 namespace sky::editor {
@@ -29,6 +29,9 @@ namespace sky::editor {
         engine = SkyEngine::Get();
         world = new World();
         engine->AddWorld(*world);
+
+        world->CreateGameObject("camera");
+        world->CreateGameObject("light");
     }
 
     void MainWindow::ShutdownWorld()
@@ -64,7 +67,11 @@ namespace sky::editor {
             viewports.emplace_back(vp);
         }
 
-        addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, new QDockWidget(this));
+
+        auto worldWidget = new WorldWidget(this);
+        worldWidget->SetWorld(*world);
+        addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
+
         addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, new QDockWidget(this));
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, new QDockWidget(this));
 

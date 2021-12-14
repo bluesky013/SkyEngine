@@ -4,10 +4,19 @@
 
 
 #include <engine/world/World.h>
+#include <engine/world/TransformComponent.h>
 #include <engine/world/GameObject.h>
 #include <atomic>
 
 namespace sky {
+
+    World::World()
+        : viewport(nullptr)
+        , root(new GameObject("root"))
+    {
+        root->AddComponent<TransformComponent>();
+        gameObjects.emplace_back(root);
+    }
 
     GameObject* World::CreateGameObject(const std::string& name)
     {
@@ -18,6 +27,7 @@ namespace sky {
         go->world = this;
         go->objId = index.load();
         go->AddComponent<TransformComponent>();
+        go->SetParent(root);
         gameObjects.emplace_back(go);
         return go;
     }
@@ -42,5 +52,10 @@ namespace sky {
     const std::vector<GameObject*>& World::GetGameObjects() const
     {
         return gameObjects;
+    }
+
+    GameObject* World::GetRoot()
+    {
+        return root;
     }
 }
