@@ -7,6 +7,7 @@
 
 #include <engine/world/Component.h>
 #include <core/math/Matrix.h>
+#include <core/math/Vector.h>
 #include <cstdint>
 
 namespace sky {
@@ -22,6 +23,9 @@ namespace sky {
         ~CameraComponent() = default;
 
     private:
+        float near;
+        float far;
+
         Matrix4 projection;
     };
 

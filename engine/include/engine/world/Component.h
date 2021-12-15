@@ -19,6 +19,7 @@ namespace sky {
         virtual ~Component() = default;
 
         GameObject* object = nullptr;
+
     protected:
         friend class GameObject;
     };

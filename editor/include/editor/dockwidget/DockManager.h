@@ -20,6 +20,7 @@ namespace sky::editor {
     public:
         void Register(uint32_t key, QDockWidget& dock);
         void UnRegister(uint32_t key);
+        QDockWidget* Find(uint32_t) const;
 
     private:
         friend class Singleton<DockManager>;

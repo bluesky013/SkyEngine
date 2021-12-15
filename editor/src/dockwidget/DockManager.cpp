@@ -19,4 +19,10 @@ namespace sky::editor {
         }
     }
 
+    QDockWidget* DockManager::Find(uint32_t key) const
+    {
+        auto iter = docks.find(key);
+        return iter == docks.end() ? nullptr : iter->second;
+    }
+
 }

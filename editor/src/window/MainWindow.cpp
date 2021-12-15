@@ -7,8 +7,11 @@
 #include <QDockWidget>
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
+#include <engine/world/GameObject.h>
+#include <engine/render/CameraComponent.h>
+#include <engine/render/LightComponent.h>
 #include <editor/dockwidget/WorldWidget.h>
-#include <editor/dockwidget/InspectorWidget.h>
+#include <editor/inspector/InspectorWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include "CentralWidget.h"
 
@@ -31,8 +34,11 @@ namespace sky::editor {
         world = new World();
         engine->AddWorld(*world);
 
-        world->CreateGameObject("camera");
-        world->CreateGameObject("light");
+        auto camera = world->CreateGameObject("camera");
+        camera->AddComponent<CameraComponent>();
+
+        auto light = world->CreateGameObject("light");
+        light->AddComponent<LightComponent>();
     }
 
     void MainWindow::ShutdownWorld()

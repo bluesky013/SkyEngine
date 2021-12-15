@@ -5,6 +5,8 @@
 #include <editor/dockwidget/WorldWidget.h>
 #include <QVBoxLayout>
 #include <QMenu>
+#include <editor/dockwidget/DockManager.h>
+#include <editor/inspector/InspectorWidget.h>
 #include <engine/world/World.h>
 #include <engine/world/GameObject.h>
 #include <engine/world/TransformComponent.h>
@@ -51,11 +53,13 @@ namespace sky::editor {
 
         connect(worldTree, &QTreeWidget::itemClicked, this, [](QTreeWidgetItem* item, int column) {
             WorldItem* worldItem = static_cast<WorldItem*>(item);
-            auto& map = worldItem->go->GetComponents();
-            for (auto& comp : map) {
-
-            }
+            auto inspector = static_cast<InspectorWidget*>(DockManager::Get()->Find((uint32_t)DockId::INSPECTOR));
+            inspector->SetWorldItem(worldItem);
         });
+
+//        connect(worldTree, &QTreeWidget::itemDoubleClicked, this, [](QTreeWidgetItem* item, int column) {
+//
+//        });
     }
 
     void WorldWidget::Refresh()
