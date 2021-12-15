@@ -7,30 +7,11 @@
 
 namespace sky {
 
-    TypeMemberNode* GetTypeMember(const std::string& str, TypeInfoRT* info)
-    {
-        if(info == nullptr) {
-            return nullptr;
-        }
-        auto context = SerializationContext::Get();
-        auto node = context->FindType(info->typeId.data());
-        if (node == nullptr) {
-            return nullptr;
-        }
-
-        auto it = node->members.find(str);
-        if (it == node->members.end()) {
-            return nullptr;
-        }
-
-        return &it->second;
-    }
-
     bool Any::Set(const std::string& str, const Any& any)
     {
         auto node = GetTypeMember(str, info);
-        if (node->setterFn != nullptr) {
-            return node->setterFn(*this, any);
+        if (node != nullptr && node->setterFn != nullptr) {
+            return node->setterFn(Data(), any);
         }
         return false;
     }
@@ -38,8 +19,8 @@ namespace sky {
     Any Any::Get(const std::string& str)
     {
         auto node = GetTypeMember(str, info);
-        if (node->getterFn != nullptr) {
-            return node->getterFn(*this);
+        if (node != nullptr && node->getterFn != nullptr) {
+            return node->getterFn(Data());
         }
         return Any{};
     }

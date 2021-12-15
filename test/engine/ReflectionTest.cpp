@@ -25,20 +25,40 @@ TEST(EngineReflect, TestBasic)
     }
 
     Component* comp = new TransformComponent();
-    Any any = comp->GetAsRef();
-    TransformComponent* trans = *any.GetAs<TransformComponent*>();
-    ASSERT_NE(trans, nullptr);
-    ASSERT_EQ(trans->local.scale.x, 1.f);
-    ASSERT_EQ(trans->local.scale.y, 1.f);
-    ASSERT_EQ(trans->local.scale.z, 1.f);
+    TypeInfoRT* info = comp->GetTypeInfo();
 
-    ASSERT_EQ(trans->local.pos.x, 0.f);
-    ASSERT_EQ(trans->local.pos.y, 0.f);
-    ASSERT_EQ(trans->local.pos.z, 0.f);
+    auto node = GetTypeMember("local", info);
+    ASSERT_NE(node, nullptr);
 
-    ASSERT_EQ(trans->local.rotation.x, 0.f);
-    ASSERT_EQ(trans->local.rotation.y, 0.f);
-    ASSERT_EQ(trans->local.rotation.z, 0.f);
-    ASSERT_EQ(trans->local.rotation.w, 1.f);
+    auto local = node->getterFn(comp);
+    auto rotation = local.Get("rotation");
+    auto pos = local.Get("pos");
+    auto scale = local.Get("scale");
 
+    ASSERT_EQ(*pos.Get("x").GetAs<float>(), 0.f);
+    ASSERT_EQ(*pos.Get("y").GetAs<float>(), 0.f);
+    ASSERT_EQ(*pos.Get("z").GetAs<float>(), 0.f);
+
+    ASSERT_EQ(*scale.Get("x").GetAs<float>(), 1.f);
+    ASSERT_EQ(*scale.Get("y").GetAs<float>(), 1.f);
+    ASSERT_EQ(*scale.Get("z").GetAs<float>(), 1.f);
+
+    ASSERT_EQ(*rotation.Get("x").GetAs<float>(), 0.f);
+    ASSERT_EQ(*rotation.Get("y").GetAs<float>(), 0.f);
+    ASSERT_EQ(*rotation.Get("z").GetAs<float>(), 0.f);
+    ASSERT_EQ(*rotation.Get("w").GetAs<float>(), 1.f);
+
+    struct Test {
+        int a;
+        int b;
+    };
+
+    auto va = &Test::a;
+    Test p = {1, 2};
+    std::invoke(va, p) = 3;
+
+    Test* q = &p;
+    ASSERT_EQ(p.a, 3);
+    std::invoke(va, q) = 4;
+    ASSERT_EQ(p.a, 4);
 }

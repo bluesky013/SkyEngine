@@ -13,8 +13,9 @@
 namespace sky {
 
     using PropertyMap = std::unordered_map<uint32_t, Any>;
-    using SetterFn = bool(*)(Any&, const Any&);
-    using GetterFn = Any(*)(const Any&);
+    using SetterFn = bool(*)(void* ptr, const Any&);
+    using GetterFn = Any(*)(void* ptr);
+    using GetterConstFn = Any(*)(const void* ptr);
     using ConstructFn = Any(*)(Any*);
 
     struct TypeMemberNode {
@@ -23,6 +24,7 @@ namespace sky {
         const bool isStatic;
         SetterFn setterFn = nullptr;
         GetterFn getterFn = nullptr;
+        GetterConstFn getterConstFn = nullptr;
         PropertyMap properties;
     };
 
@@ -42,13 +44,13 @@ namespace sky {
     };
 
     template <typename T, auto D>
-    bool Setter(Any& any, const Any& value)
+    bool Setter(void* p, const Any& value)
     {
         if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
             using ValType = std::remove_reference_t<decltype(std::declval<T>().*D)>;
 
             if constexpr (!std::is_const_v<ValType>) {
-                if (auto ptr = any.GetAs<T>(); ptr != nullptr) {
+                if (auto ptr = static_cast<T*>(p); ptr != nullptr) {
                     std::invoke(D, *ptr) = *value.GetAsConst<ValType>();
                     return true;
                 }
@@ -58,10 +60,21 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    Any Getter(const Any& any)
+    Any Getter(void* p)
     {
         if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
-            if (auto ptr = any.GetAsConst<T>(); ptr != nullptr) {
+            if (auto ptr = static_cast<T*>(p); ptr != nullptr) {
+                return Any(std::invoke(D, *ptr));
+            }
+        }
+        return Any();
+    }
+
+    template <typename T, auto D>
+    Any GetterConst(const void* p)
+    {
+        if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
+            if (auto ptr = static_cast<const T*>(p); ptr != nullptr) {
                 return Any(std::invoke(D, *ptr));
             }
         }
@@ -157,7 +170,8 @@ namespace sky {
                 std::is_const_v<Type>,
                 !std::is_member_object_pointer_v<Type>,
                 &Setter<T, S>,
-                &Getter<T, G>
+                &Getter<T, G>,
+                &GetterConst<T, G>,
             });
             return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type,
                 it.first->second.properties);

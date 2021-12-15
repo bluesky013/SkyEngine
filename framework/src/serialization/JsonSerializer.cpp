@@ -91,10 +91,10 @@ namespace sky {
             for (auto& member : node->members) {
                 writer.Key(member.first.data());
                 if (member.second.info->isFundamental) {
-                    WriteFundamental(writer, member.second.getterFn(any));
+                    WriteFundamental(writer, member.second.getterConstFn(any.Data()));
                 } else {
                     writer.StartObject();
-                    WriteObject(writer, member.second.getterFn(any));
+                    WriteObject(writer, member.second.getterConstFn(any.Data()));
                     writer.EndObject();
                 }
             }

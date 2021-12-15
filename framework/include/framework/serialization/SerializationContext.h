@@ -57,6 +57,25 @@ namespace sky {
         return context->FindType(rtInfo->typeId.data());
     }
 
+    inline TypeMemberNode* GetTypeMember(const std::string& str, TypeInfoRT* info)
+    {
+        if(info == nullptr) {
+            return nullptr;
+        }
+        auto context = SerializationContext::Get();
+        auto node = context->FindType(info->typeId.data());
+        if (node == nullptr) {
+            return nullptr;
+        }
+
+        auto it = node->members.find(str);
+        if (it == node->members.end()) {
+            return nullptr;
+        }
+
+        return &it->second;
+    }
+
     enum class SerializeOption : uint8_t {
         BIN,
         JSON
@@ -72,9 +91,5 @@ namespace sky {
     virtual TypeInfoRT* GetTypeInfo() const         \
     {                                               \
         return TypeInfoObj<name>::Get()->RtInfo();  \
-    }                                               \
-    virtual Any GetAsRef()                          \
-    {                                               \
-        return Any(std::ref(*this));                \
     }                                               \
     TYPE_RTTI(name)
