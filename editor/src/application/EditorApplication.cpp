@@ -17,6 +17,7 @@ namespace sky::editor {
 
         Environment::Get();
 
+        SkyEngine::Reflect();
         engine = SkyEngine::Get();
         engine->Init(start);
     }

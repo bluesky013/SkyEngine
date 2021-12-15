@@ -58,4 +58,9 @@ namespace sky {
     {
         return root;
     }
+
+    void World::Reflect()
+    {
+        TransformComponent::Reflect();
+    }
 }

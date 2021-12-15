@@ -13,6 +13,11 @@ namespace sky {
     public:
         LightComponent() = default;
         ~LightComponent() = default;
+
+        TYPE_RTTI_WITH_VT(LightComponent)
+
+        static void Reflect();
+
     };
 
 }

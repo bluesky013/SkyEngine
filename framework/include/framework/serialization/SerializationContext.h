@@ -40,7 +40,7 @@ namespace sky {
             return {};
         }
         TypeNode* node = context->FindType(rtInfo->typeId.data());
-        if (node->constructList.empty()) {
+        if (node == nullptr || node->constructList.empty()) {
             return {};
         }
         std::array<Any, sizeof...(Args)> anyArgs{std::forward<Args>(args)...};
@@ -67,3 +67,14 @@ namespace sky {
     void SerializationReadString(Any& any, const std::string& input);
 
 }
+
+#define TYPE_RTTI_WITH_VT(name)                     \
+    virtual TypeInfoRT* GetTypeInfo() const         \
+    {                                               \
+        return TypeInfoObj<name>::Get()->RtInfo();  \
+    }                                               \
+    virtual Any GetAsRef()                          \
+    {                                               \
+        return Any(std::ref(*this));                \
+    }                                               \
+    TYPE_RTTI(name)

@@ -38,6 +38,8 @@ namespace sky {
 
         void Test();
 
+        static void Reflect();
+
     private:
         drv::Driver* driver = nullptr;
         drv::Device* device = nullptr;

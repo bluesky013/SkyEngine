@@ -5,6 +5,7 @@
 #include <engine/world/TransformComponent.h>
 #include <engine/world/GameObject.h>
 #include <core/logger/Logger.h>
+#include <framework/serialization/SerializationContext.h>
 #include <string>
 
 namespace sky {
@@ -14,6 +15,13 @@ namespace sky {
     static auto FindChild(std::vector<TransformComponent*>& trans, TransformComponent* current)
     {
         return std::find(trans.begin(), trans.end(), current);
+    }
+
+    void TransformComponent::Reflect()
+    {
+        SerializationContext::Get()->Register<TransformComponent>(TypeName())
+            .Member<&TransformComponent::local>("local")
+            .Member<&TransformComponent::global>("global");
     }
 
     TransformComponent::~TransformComponent()

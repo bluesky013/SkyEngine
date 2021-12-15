@@ -16,6 +16,10 @@ namespace sky {
         TransformComponent() = default;
         ~TransformComponent();
 
+        TYPE_RTTI_WITH_VT(TransformComponent)
+
+        static void Reflect();
+
         void SetParent(TransformComponent*);
 
         TransformComponent* GetParent() const;
@@ -26,13 +30,13 @@ namespace sky {
 
         void Print();
 
+        Transform local;
+        Transform global;
     private:
         static void PrintChild(TransformComponent& comp, std::string str);
 
         TransformComponent* parent = nullptr;
         std::vector<TransformComponent*> children;
-        Transform local;
-        Transform global;
     };
 
 }

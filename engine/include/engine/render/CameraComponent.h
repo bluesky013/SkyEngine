@@ -22,9 +22,13 @@ namespace sky {
         CameraComponent() = default;
         ~CameraComponent() = default;
 
+        TYPE_RTTI_WITH_VT(CameraComponent)
+
+        static void Reflect();
+
     private:
-        float near;
-        float far;
+        float near = 0.1f;
+        float far = 100.f;
 
         Matrix4 projection;
     };

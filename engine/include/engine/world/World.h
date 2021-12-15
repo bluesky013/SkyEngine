@@ -37,6 +37,8 @@ namespace sky {
 
         GameObject* GetRoot();
 
+        static void Reflect();
+
     private:
         Viewport* viewport;
         GameObject* root;

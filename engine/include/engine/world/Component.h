@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <string_view>
 #include <core/util/Rtti.h>
+#include <framework/serialization/Type.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky {
 
@@ -17,6 +19,8 @@ namespace sky {
     public:
         Component() = default;
         virtual ~Component() = default;
+
+        TYPE_RTTI_WITH_VT(Component)
 
         GameObject* object = nullptr;
 

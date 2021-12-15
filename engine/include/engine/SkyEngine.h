@@ -57,6 +57,8 @@ namespace sky {
 
         Render* GetRender() const;
 
+        static void Reflect();
+
     private:
         template <typename T>
         friend class Singleton;

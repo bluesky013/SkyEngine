@@ -205,5 +205,4 @@ namespace sky {
         iter->second->Resize(w, h);
         Test();
     }
-
 }

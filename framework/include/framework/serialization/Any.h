@@ -28,6 +28,12 @@ namespace sky {
         }
 
         template <typename T>
+        Any(std::reference_wrapper<T> ref)
+            : Any(std::in_place_type<T*>, &ref.get())
+        {
+        }
+
+        template <typename T>
         Any(const T& t) : Any(std::in_place_type<T>, t)
         {
         }
@@ -90,6 +96,11 @@ namespace sky {
         const TypeInfoRT* Info() const
         {
             return info;
+        }
+
+        operator bool()
+        {
+            return Data() != nullptr;
         }
 
     private:

@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <engine/world/World.h>
 #include <engine/world/GameObject.h>
+#include <engine/world/TransformComponent.h>
 
 class TestComponent : public sky::Component {
 public:
@@ -58,13 +59,12 @@ TEST(EngineTest, TransformComponentTest)
     ASSERT_EQ(t3->GetParent(), t2);
     ASSERT_EQ(t2->GetParent(), t1);
 
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(4));
+    ASSERT_EQ(world.GetGameObjects().size(), size_t(5));
     delete go3;
-    ASSERT_EQ(t1->GetParent(), nullptr);
     ASSERT_EQ(t1->GetChildren().size(), size_t(1));
     ASSERT_EQ(t2->GetChildren().size(), size_t(0));
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(2));
+    ASSERT_EQ(world.GetGameObjects().size(), size_t(3));
 
     delete go1;
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(0));
+    ASSERT_EQ(world.GetGameObjects().size(), size_t(1));
 }
