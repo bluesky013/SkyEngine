@@ -25,12 +25,12 @@ TEST(EngineReflect, TestBasic)
     }
 
     Component* comp = new TransformComponent();
-    TypeInfoRT* info = comp->GetTypeInfo();
+    const TypeInfoRT* info = comp->GetTypeInfo();
 
     auto node = GetTypeMember("local", info);
     ASSERT_NE(node, nullptr);
 
-    auto local = node->getterFn(comp);
+    auto local = node->getterFn(comp, false);
     auto rotation = local.Get("rotation");
     auto pos = local.Get("pos");
     auto scale = local.Get("scale");

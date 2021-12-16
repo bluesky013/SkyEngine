@@ -4,9 +4,12 @@
 
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/inspector/InspectorBase.h>
+#include <editor/inspector/PropertyUtil.h>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <engine/world/GameObject.h>
+
+#include <editor/inspector/PropertyTransform.h>
 
 namespace sky::editor {
 
@@ -30,10 +33,26 @@ namespace sky::editor {
         layout->setMargin(0);
     }
 
-    void InspectorWidget::AddComponent()
+    void InspectorWidget::AddComponent(Component* comp)
     {
+        const TypeInfoRT* info = comp->GetTypeInfo();
+        auto node = GetTypeNode(info);
+        if (node == nullptr) {
+            return;
+        }
         auto inspector = new InspectorBase(groupWidget);
+        inspector->SetName(node->info->typeId.data());
+
         layout->addWidget(inspector);
+        for(auto& mem : node->members) {
+            if (!util::IsVisible(mem.second)) {
+                continue;
+            }
+            auto prop = util::CreateByTypeMemberInfo(mem.second, groupWidget);
+            prop->SetInstance(comp, mem.first.data(), mem.second);
+            layout->addWidget(prop);
+        }
+
         groups.emplace_back(inspector);
     }
 
@@ -62,7 +81,7 @@ namespace sky::editor {
         auto go = selectedItem->go;
         auto& comps = go->GetComponents();
         for (auto& comp : comps) {
-            AddComponent();
+            AddComponent(comp);
         }
     }
 

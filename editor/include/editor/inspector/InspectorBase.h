@@ -15,6 +15,8 @@ namespace sky::editor {
         InspectorBase(QWidget* parent);
         ~InspectorBase() = default;
 
+        void SetName(const QString& str);
+
     private:
         QLabel* label;
     };

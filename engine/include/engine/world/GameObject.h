@@ -6,8 +6,9 @@
 #pragma once
 
 #include <string>
-#include <map>
+#include <list>
 #include <engine/world/Component.h>
+#include <core/util/Rtti.h>
 
 namespace sky {
     class World;
@@ -24,16 +25,19 @@ namespace sky {
         {
             auto comp = ComponentBuilder<T>::CreateComponent();
             comp->object = this;
-            components.emplace(ComponentBuilder<T>::id, comp);
+            components.emplace_back(comp);
             return comp;
         }
 
         template <typename T>
         inline void RemoveComponent()
         {
-            auto iter = components.find(ComponentBuilder<T>::id);
+            auto info = TypeInfoObj<T>::Get()->RtInfo();
+            auto iter = std::find_if(components.begin(), components.end(), [info](Component* comp) {
+                return comp->GetTypeInfo() == info;
+            });
             if (iter != components.end()) {
-                delete iter->second;
+                delete *iter;
                 components.erase(iter);
             }
         }
@@ -41,9 +45,13 @@ namespace sky {
         template <typename T>
         inline T* GetComponent()
         {
-            auto iter = components.find(ComponentBuilder<T>::id);
+            auto info = TypeInfoObj<T>::Get()->RtInfo();
+            auto iter = std::find_if(components.begin(), components.end(), [info](Component* comp) {
+                auto ci = comp->GetTypeInfo();
+                return comp->GetTypeInfo() == info;
+            });
             if (iter != components.end()) {
-                return static_cast<T*>(iter->second);
+                return static_cast<T*>(*iter);
             }
             return nullptr;
         }
@@ -51,9 +59,12 @@ namespace sky {
         template <typename T>
         inline const T* GetComponent() const
         {
-            auto iter = components.find(ComponentBuilder<T>::id);
+            auto info = TypeInfoObj<T>::Get()->RtInfo();
+            auto iter = std::find_if(components.begin(), components.end(), [info](Component* comp) {
+                return comp->GetTypeInfo() == info;
+            });
             if (iter != components.end()) {
-                return static_cast<T*>(iter->second);
+                return static_cast<T*>(*iter);
             }
             return nullptr;
         }
@@ -64,8 +75,8 @@ namespace sky {
 
         void SetParent(GameObject* gameObject);
 
-        using ComponentMap = std::map<uint32_t, Component*>;
-        ComponentMap& GetComponents();
+        using ComponentList = std::list<Component*>;
+        ComponentList& GetComponents();
 
     private:
         friend class World;
@@ -73,7 +84,7 @@ namespace sky {
         World* world = nullptr;
         uint32_t objId = 0;
         std::string name;
-        ComponentMap components;
+        ComponentList components;
     };
 
 }

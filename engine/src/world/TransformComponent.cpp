@@ -6,6 +6,7 @@
 #include <engine/world/GameObject.h>
 #include <core/logger/Logger.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/PropertyCommon.h>
 #include <string>
 
 namespace sky {
@@ -21,7 +22,8 @@ namespace sky {
     {
         SerializationContext::Get()->Register<TransformComponent>(TypeName())
             .Member<&TransformComponent::local>("local")
-            .Member<&TransformComponent::global>("global");
+            .Member<&TransformComponent::global>("global")
+            .Property(UI_PROP_VISIBLE, false);
     }
 
     TransformComponent::~TransformComponent()

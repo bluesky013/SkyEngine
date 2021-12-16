@@ -14,7 +14,7 @@ namespace sky {
 
     using PropertyMap = std::unordered_map<uint32_t, Any>;
     using SetterFn = bool(*)(void* ptr, const Any&);
-    using GetterFn = Any(*)(void* ptr);
+    using GetterFn = Any(*)(void* ptr, bool asRef);
     using GetterConstFn = Any(*)(const void* ptr);
     using ConstructFn = Any(*)(Any*);
 
@@ -60,11 +60,15 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    Any Getter(void* p)
+    Any Getter(void* p, bool asRef)
     {
         if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<T*>(p); ptr != nullptr) {
-                return Any(std::invoke(D, *ptr));
+                if (asRef) {
+                    return std::reference_wrapper(std::invoke(D, *ptr));
+                } else {
+                    return Any(std::invoke(D, *ptr));
+                }
             }
         }
         return Any();
@@ -194,6 +198,7 @@ namespace sky {
         TypeFactory &Property(uint32_t key, const Any &any)
         {
             property.emplace(key, any);
+            return *this;
         }
 
     protected:

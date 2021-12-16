@@ -20,7 +20,7 @@ namespace sky {
     {
         auto node = GetTypeMember(str, info);
         if (node != nullptr && node->getterFn != nullptr) {
-            return node->getterFn(Data());
+            return node->getterFn(Data(), false);
         }
         return Any{};
     }

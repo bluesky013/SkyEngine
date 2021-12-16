@@ -49,15 +49,24 @@ namespace sky {
 
     inline const TypeNode* GetTypeNode(const Any& any)
     {
-        auto context = SerializationContext::Get();
         auto rtInfo = any.Info();
         if (rtInfo == nullptr) {
             return nullptr;
         }
+        auto context = SerializationContext::Get();
         return context->FindType(rtInfo->typeId.data());
     }
 
-    inline TypeMemberNode* GetTypeMember(const std::string& str, TypeInfoRT* info)
+    inline const TypeNode* GetTypeNode(const TypeInfoRT* rtInfo)
+    {
+        if (rtInfo == nullptr) {
+            return nullptr;
+        }
+        auto context = SerializationContext::Get();
+        return context->FindType(rtInfo->typeId.data());
+    }
+
+    inline TypeMemberNode* GetTypeMember(const std::string& str, const TypeInfoRT* info)
     {
         if(info == nullptr) {
             return nullptr;
@@ -87,9 +96,13 @@ namespace sky {
 
 }
 
-#define TYPE_RTTI_WITH_VT(name)                     \
-    virtual TypeInfoRT* GetTypeInfo() const         \
-    {                                               \
-        return TypeInfoObj<name>::Get()->RtInfo();  \
-    }                                               \
+#define TYPE_RTTI_BASE                              \
+    virtual const sky::TypeInfoRT* GetTypeInfo() const = 0;
+
+#define TYPE_RTTI_WITH_VT(name)                          \
+    const sky::TypeInfoRT* GetTypeInfo() const override  \
+    {                                                    \
+        static const sky::TypeInfoRT* info = sky::TypeInfoObj<name>::Get()->RtInfo(); \
+        return info;                                     \
+    }                                                    \
     TYPE_RTTI(name)

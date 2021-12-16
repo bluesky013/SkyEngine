@@ -14,6 +14,7 @@ class QVBoxLayout;
 namespace sky {
     class World;
     class GameObject;
+    class Component;
 }
 
 namespace sky::editor {
@@ -25,7 +26,7 @@ namespace sky::editor {
 
         void SetWorldItem(WorldItem* item);
 
-        void AddComponent();
+        void AddComponent(Component* comp);
 
         void Clear();
 

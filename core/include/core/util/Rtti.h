@@ -47,4 +47,60 @@ namespace sky {
         }
     };
 
+    using Destructor = void(*)(void* ptr);
+    using Constructor = void(*)(void* ptr);
+    using CopyFn = void(*)(const void* src, void* dst);
+
+    struct TypeInfoRT {
+        std::string_view typeId;
+        const std::string_view name;
+        const uint32_t hash;
+        const size_t rank;
+        const size_t size;
+        const bool isFundamental;
+        const bool isVoid;
+        const bool isNullptr;
+        const bool isArithmetic;
+        const bool isFloatingPoint;
+        const bool isInteger;
+        const bool isCompound;
+        const bool isPointer;
+        const bool isMemberObjectPointer;
+        const bool isMemberFunctionPointer;
+        const bool isArray;
+        const bool isEnum;
+        const bool isUnion;
+        const bool isClass;
+        const bool isTrivial;
+        Constructor constructor = nullptr;
+        Destructor destructor = nullptr;
+        CopyFn copy = nullptr;
+    };
+
+    template <typename T>
+    struct TypeAllocate {
+        static constexpr bool CTOR = std::is_default_constructible_v<T>;
+        static constexpr bool DTOR = std::is_destructible_v<T>;
+        static constexpr bool COPY = std::is_copy_constructible_v<T>;
+
+        static void Construct(void* ptr)
+        {
+            if constexpr(CTOR) {
+                new (ptr) T{};
+            }
+        }
+
+        static void Destruct(void* ptr)
+        {
+            if constexpr(DTOR) {
+                ((T*)ptr)->~T();
+            }
+        }
+
+        static void Copy(const void* src, void* dst)
+        {
+            new (dst) T{*((T*)src)};
+        }
+    };
+
 }

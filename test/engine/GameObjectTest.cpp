@@ -11,6 +11,8 @@ class TestComponent : public sky::Component {
 public:
     TestComponent() = default;
     ~TestComponent() = default;
+
+    TYPE_RTTI_WITH_VT(TestComponent)
 };
 
 using namespace sky;

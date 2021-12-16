@@ -15,8 +15,8 @@ namespace sky {
         if (world != nullptr) {
             world->RemoveGameObject(this);
         }
-        for (auto& pair : components) {
-            delete pair.second;
+        for (auto iter : components) {
+            delete iter;
         }
         components.clear();
     }
@@ -39,7 +39,7 @@ namespace sky {
         trans->SetParent(parent);
     }
 
-    GameObject::ComponentMap& GameObject::GetComponents()
+    GameObject::ComponentList& GameObject::GetComponents()
     {
         return components;
     }

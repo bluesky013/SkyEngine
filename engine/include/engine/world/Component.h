@@ -20,7 +20,7 @@ namespace sky {
         Component() = default;
         virtual ~Component() = default;
 
-        TYPE_RTTI_WITH_VT(Component)
+        TYPE_RTTI_BASE
 
         GameObject* object = nullptr;
 
