@@ -20,6 +20,9 @@ namespace sky::editor {
         auto widget = new QWidget(this);
         setWidget(widget);
         auto rootLayout = new QVBoxLayout(widget);
+        rootLayout->setContentsMargins(0, 0, 0, 0);
+        rootLayout->setAlignment(Qt::AlignTop);
+
         auto button = new QPushButton(tr("Add Component"), widget);
         groupWidget = new QWidget(widget);
 
@@ -29,8 +32,9 @@ namespace sky::editor {
         rootLayout->addWidget(button);
 
         layout = new QVBoxLayout(groupWidget);
+        layout->setAlignment(Qt::AlignTop);
+        layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
-        layout->setMargin(0);
     }
 
     void InspectorWidget::AddComponent(Component* comp)

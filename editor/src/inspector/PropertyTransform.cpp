@@ -13,6 +13,10 @@ namespace sky::editor {
     PropertyTransform::PropertyTransform(QWidget* parent) : PropertyWidget(parent)
     {
         auto layout = new QVBoxLayout(this);
+        layout->setAlignment(Qt::AlignTop);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->setMargin(0);
         pos = new PropertyVec<3>(this);
         scale = new PropertyVec<3>(this);
         rotation = new PropertyVec<4>(this);

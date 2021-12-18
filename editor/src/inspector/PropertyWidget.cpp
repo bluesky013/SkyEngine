@@ -14,6 +14,7 @@ namespace sky::editor {
         , memberNode(nullptr)
     {
         label = new QLabel(this);
+        label->setFixedWidth(80);
     }
 
     void PropertyWidget::SetInstance(void* inst, const QString& name, const TypeMemberNode& node)

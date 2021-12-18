@@ -24,9 +24,14 @@ namespace sky::editor::util {
 
     PropertyWidget* CreateByTypeMemberInfo(const TypeMemberNode& member, QWidget* parent)
     {
-        if (member.info == TypeInfoObj<float>::Get()->RtInfo() ||
-            member.info == TypeInfoObj<double>::Get()->RtInfo()) {
-            return new PropertyVec<1>(parent);
+        if (member.info == TypeInfoObj<float>::Get()->RtInfo()) {
+            return new ScalarWidget<float>(parent);
+        } else if (member.info == TypeInfoObj<double>::Get()->RtInfo()) {
+            return new ScalarWidget<double>(parent);
+        } else if (member.info == TypeInfoObj<int32_t>::Get()->RtInfo()) {
+            return new ScalarWidget<int32_t>(parent);
+        } else if (member.info == TypeInfoObj<uint32_t>::Get()->RtInfo()) {
+            return new ScalarWidget<uint32_t>(parent);
         } else if (member.info == TypeInfoObj<Transform>::Get()->RtInfo()) {
             return new PropertyTransform(parent);
         }

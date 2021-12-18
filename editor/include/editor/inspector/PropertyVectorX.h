@@ -16,20 +16,67 @@ namespace sky::editor {
 
     static const char* LABEL[4] = { "x", "y", "z", "w" };
 
+    template <typename T>
+    class ScalarWidget : public PropertyWidget {
+    public:
+        ScalarWidget(QWidget* parent) : PropertyWidget(parent)
+        {
+            auto layout = new QHBoxLayout(this);
+            layout->setSpacing(0);
+            layout->setMargin(0);
+            layout->addWidget(label);
+
+            line = new QLineEdit(this);
+            if constexpr (std::is_floating_point_v<T>) {
+                line->setValidator(new QDoubleValidator(this));
+            } else if constexpr (std::is_integral_v<T>) {
+                line->setValidator(new QIntValidator(this));
+            }
+            layout->addWidget(line);
+
+            connect(line, &QLineEdit::textEdited, this, [this](const QString &s) {
+                T val = 0;
+                if constexpr (std::is_floating_point_v<T>) {
+                    val = static_cast<T>(s.toDouble());
+                } else if constexpr (std::is_signed_v<T>) {
+                    T val = static_cast<T>(s.toInt());
+                } else if constexpr (std::is_unsigned_v<T>) {
+                    T val = static_cast<T>(s.toUInt());
+                }
+                memberNode->setterFn(instance, val);
+            });
+        }
+
+        void Refresh() override
+        {
+            Any val = memberNode->getterFn(instance, false);
+            T* data = static_cast<T*>(val.Data());
+            line->setText(QString::number(*data));
+        }
+
+        ~ScalarWidget() = default;
+
+    private:
+        QLineEdit* line;
+    };
+
     template <size_t N>
     class PropertyVec : public PropertyWidget {
     public:
         PropertyVec(QWidget* parent) : PropertyWidget(parent)
         {
             auto layout = new QHBoxLayout(this);
+            layout->setSpacing(0);
+            layout->setMargin(0);
+
             layout->addWidget(label);
             auto validator = new QDoubleValidator(this);
             for (uint32_t i = 0; i < N; ++i) {
                 line[i] = new QLineEdit(this);
                 line[i]->setValidator(validator);
-                if (N > 1) {
-                    layout->addWidget(new QLabel(LABEL[i], this));
-                }
+                auto label = new QLabel(LABEL[i], this);
+                label->setFixedWidth(20);
+                layout->addWidget(label);
                 layout->addWidget(line[i]);
 
                 connect(line[i], &QLineEdit::textEdited, this, [i, this](const QString &s) {

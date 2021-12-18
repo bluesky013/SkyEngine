@@ -4,6 +4,7 @@
 
 #pragma once
 #include <QWidget>
+#include <QGridLayout>
 
 namespace sky {
     struct TypeMemberNode;
