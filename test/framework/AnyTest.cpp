@@ -160,3 +160,28 @@ TEST(AnyTest, CopyMoveTest)
         ASSERT_EQ(ptr2, nullptr);
     }
 }
+
+TEST(AnyTest, AnyRefTest)
+{
+    Test1 t1 = {1, 2, 3, 4, 5, 6};
+    Test2 t2 = {1, 2, 3, 4};
+
+    Any rfa1(std::ref(t1));
+    Any rfa2(std::ref(t2));
+
+    Test1* ref1 = *rfa1.GetAs<Test1*>();
+    Test2* ref2 = *rfa2.GetAs<Test2*>();
+
+    ref1->a = 99;
+    ref2->a = 99;
+
+    ref1->f = 101;
+    ref2->d = 101;
+
+    ASSERT_EQ(t1.a, 99);
+    ASSERT_EQ(t1.f, 101);
+
+    ASSERT_EQ(t2.a, 99);
+    ASSERT_EQ(t2.d, 101);
+
+}

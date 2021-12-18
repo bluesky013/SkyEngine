@@ -65,7 +65,7 @@ namespace sky {
         if constexpr(std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<T*>(p); ptr != nullptr) {
                 if (asRef) {
-                    return std::reference_wrapper(std::invoke(D, *ptr));
+                    return std::ref(std::invoke(D, *ptr));
                 } else {
                     return Any(std::invoke(D, *ptr));
                 }

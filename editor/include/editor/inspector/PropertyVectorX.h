@@ -17,9 +17,9 @@ namespace sky::editor {
     static const char* LABEL[4] = { "x", "y", "z", "w" };
 
     template <typename T>
-    class ScalarWidget : public PropertyWidget {
+    class PropertyScalar : public PropertyWidget {
     public:
-        ScalarWidget(QWidget* parent) : PropertyWidget(parent)
+        PropertyScalar(QWidget* parent) : PropertyWidget(parent)
         {
             auto layout = new QHBoxLayout(this);
             layout->setSpacing(0);
@@ -54,7 +54,7 @@ namespace sky::editor {
             line->setText(QString::number(*data));
         }
 
-        ~ScalarWidget() = default;
+        ~PropertyScalar() = default;
 
     private:
         QLineEdit* line;
@@ -74,9 +74,9 @@ namespace sky::editor {
             for (uint32_t i = 0; i < N; ++i) {
                 line[i] = new QLineEdit(this);
                 line[i]->setValidator(validator);
-                auto label = new QLabel(LABEL[i], this);
-                label->setFixedWidth(20);
-                layout->addWidget(label);
+                memLabel[i] = new QLabel(this);
+                memLabel[i]->setFixedWidth(20);
+                layout->addWidget(memLabel[i]);
                 layout->addWidget(line[i]);
 
                 connect(line[i], &QLineEdit::textEdited, this, [i, this](const QString &s) {
@@ -86,12 +86,30 @@ namespace sky::editor {
             }
         }
 
+        void SetInstance(void* instance, const QString& str, const TypeMemberNode& node) override
+        {
+            PropertyWidget::SetInstance(instance, str, node);
+            auto member = GetTypeNode(memberNode->info);
+            if (member == nullptr) {
+                return;
+            }
+            uint32_t i = 0;
+            for (auto& mem : member->members) {
+                memLabel[i++]->setText(mem.first.data());
+            }
+        }
+
         void Refresh() override
         {
             Any val = memberNode->getterFn(instance, false);
-            float* data = static_cast<float*>(val.Data());
-            for (uint32_t i = 0; i < N; ++i) {
-                line[i]->setText(QString::number(data[i]));
+            auto member = GetTypeNode(val);
+            if (member == nullptr) {
+                return;
+            }
+            uint32_t i = 0;
+            for (auto& mem : member->members) {
+                auto memVal = mem.second.getterFn(val.Data(), false);
+                line[i++]->setText(QString::number(*memVal.GetAs<float>()));
             }
         }
 
@@ -99,6 +117,7 @@ namespace sky::editor {
 
     private:
         QLineEdit* line[N];
+        QLabel* memLabel[N];
     };
 
 }
