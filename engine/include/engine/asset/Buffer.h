@@ -8,10 +8,10 @@
 
 namespace sky {
 
-    class Buffer : public AssetDataBase {
+    class BufferAsset : public AssetBase {
     public:
-        Buffer() = default;
-        ~Buffer() = default;
+        BufferAsset(const Uuid& id) : AssetBase(id) {}
+        ~BufferAsset() = default;
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("1ba844f8-3032-45de-8f6a-0010dd9f2656");
 

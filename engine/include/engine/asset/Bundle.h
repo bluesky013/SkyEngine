@@ -8,10 +8,10 @@
 
 namespace sky {
 
-    class Bundle : public AssetDataBase {
+    class BundleAsset : public AssetBase {
     public:
-        Bundle() = default;
-        ~Bundle() = default;
+        BundleAsset(const Uuid& id) : AssetBase(id) {}
+        ~BundleAsset() = default;
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("d9f4b48f-5d35-4d02-a5fe-ac975e663eff");
 

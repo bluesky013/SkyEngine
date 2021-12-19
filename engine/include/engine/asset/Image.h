@@ -7,10 +7,10 @@
 
 namespace sky {
 
-    class Image : public AssetDataBase {
+    class ImageAsset : public AssetBase {
     public:
-        Image() = default;
-        ~Image() = default;
+        ImageAsset(const Uuid& id) : AssetBase(id) {}
+        ~ImageAsset() = default;
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("a4a44abf-1b60-438d-b6c5-1690e548d97c");
 

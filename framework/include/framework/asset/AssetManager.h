@@ -32,7 +32,15 @@ namespace sky {
             UnRegisterHandler(T::TYPE);
         }
 
-        AssetDataBase* FindOrCreate(const Uuid& id, const Uuid& type);
+        AssetPtr LoadAsset(const std::string& path, const Uuid& type);
+
+        AssetPtr FindOrCreate(const Uuid& id, const Uuid& type);
+
+        template <typename T>
+        AssetPtr FindOrCreate(const Uuid& id)
+        {
+            return FindOrCreate(id, T::TYPE);
+        }
 
         void DestroyAsset(const Uuid& id);
 
@@ -45,7 +53,7 @@ namespace sky {
         std::unordered_map<Uuid, AssetHandlerBase*> handlers;
 
         mutable std::mutex mutex;
-        std::unordered_map<Uuid, AssetDataBase*> assets;
+        std::unordered_map<Uuid, AssetBase*> assets;
     };
 
 }

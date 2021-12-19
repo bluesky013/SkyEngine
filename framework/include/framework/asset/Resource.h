@@ -5,13 +5,19 @@
 #pragma once
 
 #include <core/util/Uuid.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky {
 
-    class ResourceBase {
+    class AssetBase;
+
+    class ResourceBase : public RefObject<ResourceBase> {
     public:
         ResourceBase() = default;
         virtual ~ResourceBase() = default;
+
+    private:
+        AssetBase* asset = nullptr;
     };
 
 }

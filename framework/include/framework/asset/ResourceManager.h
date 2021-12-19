@@ -10,7 +10,7 @@ namespace sky {
 
     class ResourceManager : public Singleton<ResourceManager> {
     public:
-
+        
 
     private:
         friend class Singleton<ResourceManager>;

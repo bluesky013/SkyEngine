@@ -6,6 +6,7 @@
 
 #include <core/util/Rtti.h>
 #include <core/util/Uuid.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky {
 
@@ -15,10 +16,10 @@ namespace sky {
         Uuid id = {};
     };
 
-    class AssetDataBase {
+    class AssetBase : public RefObject<AssetBase> {
     public:
-        AssetDataBase(const Uuid& id) : uuid(id) {}
-        virtual ~AssetDataBase() = default;
+        AssetBase(const Uuid& id) : uuid(id) {}
+        virtual ~AssetBase() = default;
 
         enum class Status : uint8_t {
             UNLOAD,
@@ -38,12 +39,15 @@ namespace sky {
         Status status = Status::UNLOAD;
     };
 
+    using AssetPtr = CounterPtr<AssetBase>;
+
     class AssetHandlerBase {
     public:
         AssetHandlerBase() = default;
         virtual ~AssetHandlerBase() = default;
 
-        virtual AssetDataBase* Create(const Uuid& id) = 0;
-    };
+        virtual AssetPtr Create(const Uuid& id) = 0;
 
+        virtual AssetPtr Load(const std::string&) = 0;
+    };
 }
