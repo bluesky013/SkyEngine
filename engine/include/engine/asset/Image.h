@@ -7,7 +7,7 @@
 
 namespace sky {
 
-    class Image : public AssetInstanceBase {
+    class Image : public AssetDataBase {
     public:
         Image() = default;
         ~Image() = default;

@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    class Model : public AssetInstanceBase {
+    class Model : public AssetDataBase {
     public:
         Model() = default;
         ~Model() = default;

@@ -6,6 +6,7 @@
 
 #include <framework/environment/Singleton.h>
 #include <framework/asset/Asset.h>
+#include <core/platform/Platform.h>
 #include <unordered_map>
 #include <mutex>
 
@@ -19,9 +20,10 @@ namespace sky {
         void UnRegisterHandler(const Uuid& type);
 
         template <typename T>
-        void RegisterHandler()
+        void RegisterHandler(AssetHandlerBase* handler)
         {
-            RegisterHandler(T::TYPE, new AssetHandler<T>());
+            SKY_ASSERT(handler != nullptr);
+            RegisterHandler(T::TYPE, handler);
         }
 
         template <typename T>
@@ -30,18 +32,11 @@ namespace sky {
             UnRegisterHandler(T::TYPE);
         }
 
-        template <typename T>
-        Asset<T> CreateAsset(const Uuid& id)
-        {
-            Asset<T> res(id);
-            res.instance = static_cast<T*>(FindOrCreate(id, T::TYPE));
-            return res;
-        }
+        AssetDataBase* FindOrCreate(const Uuid& id, const Uuid& type);
 
         void DestroyAsset(const Uuid& id);
 
     private:
-        AssetInstanceBase* FindOrCreate(const Uuid&, const Uuid&);
 
         friend class Singleton<AssetManager>;
         AssetManager();
@@ -50,7 +45,7 @@ namespace sky {
         std::unordered_map<Uuid, AssetHandlerBase*> handlers;
 
         mutable std::mutex mutex;
-        std::unordered_map<Uuid, AssetInstanceBase*> instances;
+        std::unordered_map<Uuid, AssetDataBase*> assets;
     };
 
 }

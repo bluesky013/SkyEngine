@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include <assert.h>
+#define SKY_ASSERT(val) assert(val);
+
 #ifdef _MSC_VER
 #define SKY_EXPORT __declspec(dllexport)
 #define SKY_IMPORT __declspec(dllimport)

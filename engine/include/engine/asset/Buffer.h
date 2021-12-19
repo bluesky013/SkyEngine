@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    class Buffer : public AssetInstanceBase {
+    class Buffer : public AssetDataBase {
     public:
         Buffer() = default;
         ~Buffer() = default;

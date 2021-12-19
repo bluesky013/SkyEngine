@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    class Material : public AssetInstanceBase {
+    class Material : public AssetDataBase {
     public:
         Material() = default;
         ~Material() = default;
@@ -19,7 +19,7 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    class MaterialInstance : public AssetInstanceBase {
+    class MaterialInstance : public AssetDataBase {
     public:
         MaterialInstance() = default;
         ~MaterialInstance() = default;

@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    class Bundle : public AssetInstanceBase {
+    class Bundle : public AssetDataBase {
     public:
         Bundle() = default;
         ~Bundle() = default;

@@ -15,10 +15,10 @@ namespace sky {
         Uuid id = {};
     };
 
-    class AssetInstanceBase {
+    class AssetDataBase {
     public:
-        AssetInstanceBase() = default;
-        virtual ~AssetInstanceBase() = default;
+        AssetDataBase(const Uuid& id) : uuid(id) {}
+        virtual ~AssetDataBase() = default;
 
         enum class Status : uint8_t {
             UNLOAD,
@@ -28,13 +28,13 @@ namespace sky {
 
         bool IsReady() const { return status == Status::LOADED; }
 
-        const Uuid& GetId() const { return id; }
+        const Uuid& GetId() const { return uuid; }
 
         virtual const Uuid& GetType() const = 0;
 
     protected:
         friend class AssetManager;
-        Uuid id;
+        Uuid uuid;
         Status status = Status::UNLOAD;
     };
 
@@ -43,49 +43,7 @@ namespace sky {
         AssetHandlerBase() = default;
         virtual ~AssetHandlerBase() = default;
 
-        virtual AssetInstanceBase* Create(const Uuid& id) = 0;
-    };
-
-    template <typename T>
-    class AssetHandler : public AssetHandlerBase {
-    public:
-        AssetHandler() = default;
-        ~AssetHandler() = default;
-
-        AssetInstanceBase* Create(const Uuid& id) override
-        {
-            return new T();
-        }
-    };
-
-    template <typename T>
-    class Asset {
-    public:
-        Asset(const Uuid& id)
-            : assetId(id)
-            , typeId(T::TYPE)
-            , instance(nullptr)
-            {}
-
-        Asset() = default;
-        ~Asset() = default;
-
-        T* Get() const
-        {
-            return instance;
-        }
-
-        const Uuid& GetId() const
-        {
-            return assetId;
-        }
-
-    private:
-        friend class AssetManager;
-
-        Uuid assetId;
-        Uuid typeId;
-        T* instance;
+        virtual AssetDataBase* Create(const Uuid& id) = 0;
     };
 
 }

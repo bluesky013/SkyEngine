@@ -2,7 +2,8 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt5 COMPONENTS Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Widgets REQUIRED
+    PATHS ${QT_PATH})
 
 set(Qt5Libs
     Qt5::Widgets

@@ -43,18 +43,18 @@ namespace sky {
     void AssetManager::DestroyAsset(const Uuid& id)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto iter = instances.find(id);
-        if (iter != instances.end()) {
+        auto iter = assets.find(id);
+        if (iter != assets.end()) {
             delete iter->second;
-            instances.erase(iter);
+            assets.erase(iter);
         }
     }
 
-    AssetInstanceBase* AssetManager::FindOrCreate(const Uuid& id, const Uuid& type)
+    AssetDataBase* AssetManager::FindOrCreate(const Uuid& id, const Uuid& type)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto iIter = instances.find(id);
-        if (iIter != instances.end()) {
+        auto iIter = assets.find(id);
+        if (iIter != assets.end()) {
             return iIter->second;
         }
 
@@ -62,10 +62,9 @@ namespace sky {
         if (tIter == handlers.end()) {
             return nullptr;
         }
-        auto instance = tIter->second->Create(id);
-        instance->id = id;
-        instances.emplace(id, instance);
-        return instance;
+        auto asset = tIter->second->Create(id);
+        assets.emplace(id, asset);
+        return asset;
     }
 
 }

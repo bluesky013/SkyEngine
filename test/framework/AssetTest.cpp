@@ -9,9 +9,9 @@ using namespace sky;
 
 uint32_t g_Counter = 0;
 
-class TestAsset : public AssetInstanceBase {
+class TestAsset : public AssetDataBase {
 public:
-    TestAsset()
+    TestAsset(const Uuid& id) : AssetDataBase(id)
     {
         g_Counter++;
     }
@@ -29,19 +29,29 @@ public:
     }
 };
 
+class TestAssetHandler : public AssetHandlerBase {
+public:
+    TestAssetHandler() = default;
+    ~TestAssetHandler() = default;
+
+    AssetDataBase* Create(const Uuid& id)
+    {
+        return new TestAsset(id);
+    }
+};
+
 TEST(AssetTest, AssetManagerSingleton)
 {
     auto mgr = AssetManager::Get();
     ASSERT_NE(mgr, nullptr);
 
-    mgr->RegisterHandler<TestAsset>();
+    mgr->RegisterHandler<TestAsset>(new TestAssetHandler());
 
     g_Counter = 0;
-    auto asset = mgr->CreateAsset<TestAsset>(Uuid::Create());
-    ASSERT_NE(asset.Get(), nullptr);
+    auto asset = mgr->FindOrCreate(Uuid::Create(), TestAsset::TYPE);
     ASSERT_EQ(g_Counter, 1);
 
-    mgr->DestroyAsset(asset.GetId());
+    mgr->DestroyAsset(asset->GetId());
     ASSERT_EQ(g_Counter, 0);
 
     AssetManager::Destroy();
