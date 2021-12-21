@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
+#include <framework/asset/Resource.h>
 
 namespace sky {
 
@@ -17,6 +18,22 @@ namespace sky {
 
     private:
         const Uuid& GetType() const override { return TYPE; }
+    };
+
+    class BufferHandler : public AssetHandlerBase {
+    public:
+        BufferHandler() = default;
+        ~BufferHandler() = default;
+
+        AssetPtr Create(const Uuid& id);
+
+        AssetPtr Load(const std::string&);
+    };
+
+    class Buffer : public ResourceBase {
+    public:
+        Buffer(const Uuid& id) : ResourceBase(id) {}
+        ~Buffer() = default;
     };
 
 }

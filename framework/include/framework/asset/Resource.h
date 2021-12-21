@@ -13,11 +13,18 @@ namespace sky {
 
     class ResourceBase : public RefObject<ResourceBase> {
     public:
-        ResourceBase() = default;
+        ResourceBase(const Uuid& id) : uuid(id) {}
         virtual ~ResourceBase() = default;
 
-    private:
+    protected:
+        friend class ResourceManager;
+
+        void OnExpire() override;
+
         AssetBase* asset = nullptr;
+        Uuid uuid;
     };
+
+    using ResourceInstance = CounterPtr<ResourceBase>;
 
 }

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
+#include <framework/asset/Resource.h>
 
 namespace sky {
 
@@ -17,6 +18,22 @@ namespace sky {
 
     private:
         const Uuid& GetType() const override { return TYPE; }
+    };
+
+    class MaterialHandler : public AssetHandlerBase {
+    public:
+        MaterialHandler() = default;
+        ~MaterialHandler() = default;
+
+        AssetPtr Create(const Uuid& id);
+
+        AssetPtr Load(const std::string&);
+    };
+
+    class Material : public ResourceBase {
+    public:
+        Material(const Uuid& id) : ResourceBase(id) {}
+        ~Material() = default;
     };
 
 }

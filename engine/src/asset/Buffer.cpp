@@ -6,5 +6,14 @@
 
 namespace sky {
 
+    AssetPtr BufferHandler::Create(const Uuid& id)
+    {
+        return new BufferAsset(id);
+    }
+
+    AssetPtr BufferHandler::Load(const std::string&)
+    {
+        return AssetPtr{};
+    }
 
 }

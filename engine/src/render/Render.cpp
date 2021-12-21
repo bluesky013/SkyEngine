@@ -16,6 +16,7 @@
 #include <vulkan/CommandPool.h>
 #include <vulkan/Semaphore.h>
 #include <core/logger/Logger.h>
+#include <engine/render/DriverManager.h>
 
 static const char* TAG = "Render";
 
@@ -23,30 +24,13 @@ namespace sky {
 
     Render::~Render()
     {
-        if (device != nullptr) {
-            delete device;
-            device = nullptr;
-        }
-        drv::Driver::Destroy(driver);
     }
 
     bool Render::Init(const StartInfo& info)
     {
-        drv::Driver::Descriptor drvDes = {};
-        drvDes.appName = "SkyEngine";
-        drvDes.enableDebugLayer = true;
-        drvDes.appName = info.appName;
-        driver = drv::Driver::Create(drvDes);
-        if (driver == nullptr) {
+        if (!DriverManager::Get()->Initialize({info.appName})) {
             return false;
         }
-
-        drv::Device::Descriptor devDes = {};
-        device = driver->CreateDevice(devDes);
-        if (device == nullptr) {
-            return false;
-        }
-
         return true;
     }
 
@@ -82,7 +66,7 @@ namespace sky {
         }
         drv::SwapChain::Descriptor swcDes = {};
         swcDes.window = handle;
-        auto swapChain = device->CreateDeviceObject<drv::SwapChain>(swcDes);
+        auto swapChain = DriverManager::Get()->CreateDeviceObject<drv::SwapChain>(swcDes);
         swapChains.emplace(handle, swapChain);
     }
 
@@ -117,6 +101,7 @@ namespace sky {
 
     void Render::Test()
     {
+        auto device = DriverManager::Get()->GetDevice();
         auto swapChain = swapChains.begin()->second;
         drv::RenderPassFactory factory;
         auto pass = factory.operator()().AddSubPass()

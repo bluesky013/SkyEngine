@@ -6,4 +6,14 @@
 
 namespace sky {
 
+    AssetPtr ImageHandler::Create(const Uuid& id)
+    {
+        return new ImageAsset(id);
+    }
+
+    AssetPtr ImageHandler::Load(const std::string&)
+    {
+        return AssetPtr{};
+    }
+
 }

@@ -6,4 +6,14 @@
 
 namespace sky {
 
+    AssetPtr MaterialHandler::Create(const Uuid& id)
+    {
+        return new MaterialAsset(id);
+    }
+
+    AssetPtr MaterialHandler::Load(const std::string&)
+    {
+        return AssetPtr{};
+    }
+
 }

@@ -14,7 +14,6 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-
         void RegisterHandler(const Uuid& type, AssetHandlerBase*);
 
         void UnRegisterHandler(const Uuid& type);

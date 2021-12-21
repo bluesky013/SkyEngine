@@ -41,8 +41,6 @@ namespace sky {
         static void Reflect();
 
     private:
-        drv::Driver* driver = nullptr;
-        drv::Device* device = nullptr;
         std::unordered_map<void*, drv::SwapChain*> swapChains;
         std::unordered_map<World*, RenderScene*> scenes;
     };

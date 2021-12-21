@@ -7,6 +7,7 @@
 #include <core/util/Rtti.h>
 #include <core/util/Uuid.h>
 #include <core/template/ReferenceObject.h>
+#include <framework/asset/Resource.h>
 
 namespace sky {
 
@@ -33,8 +34,16 @@ namespace sky {
 
         virtual const Uuid& GetType() const = 0;
 
+        virtual ResourceInstance CreateInstance(const Uuid&)
+        {
+            return ResourceInstance {};
+        }
+
     protected:
         friend class AssetManager;
+
+        void OnExpire() override;
+
         Uuid uuid;
         Status status = Status::UNLOAD;
     };

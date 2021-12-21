@@ -27,6 +27,11 @@ public:
     {
         return TYPE;
     }
+
+    ResourceInstance CreateInstance(const Uuid&) override
+    {
+        return ResourceInstance {};
+    }
 };
 
 class TestAssetHandler : public AssetHandlerBase {
@@ -53,10 +58,11 @@ TEST(AssetTest, AssetManagerSingleton)
     mgr->RegisterHandler<TestAsset>(new TestAssetHandler());
 
     g_Counter = 0;
-    auto asset = mgr->FindOrCreate<TestAsset>(Uuid::Create());
-    ASSERT_EQ(g_Counter, 1);
+    {
+        auto asset = mgr->FindOrCreate<TestAsset>(Uuid::Create());
+        ASSERT_EQ(g_Counter, 1);
+    }
 
-    mgr->DestroyAsset(asset->GetId());
     ASSERT_EQ(g_Counter, 0);
 
     AssetManager::Destroy();
