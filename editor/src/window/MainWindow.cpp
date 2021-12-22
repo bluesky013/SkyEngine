@@ -8,8 +8,8 @@
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
 #include <engine/world/GameObject.h>
-#include <engine/render/CameraComponent.h>
-#include <engine/render/LightComponent.h>
+#include <engine/render/camera/CameraComponent.h>
+#include <engine/render/light/LightComponent.h>
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/dockwidget/DockManager.h>

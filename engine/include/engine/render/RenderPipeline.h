@@ -11,6 +11,6 @@ namespace sky {
     public:
         RenderPipeline() = default;
         ~RenderPipeline() = default;
-    };
+    }
 
 }

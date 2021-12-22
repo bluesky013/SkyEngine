@@ -19,16 +19,6 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    class ImageHandler : public AssetHandlerBase {
-    public:
-        ImageHandler() = default;
-        ~ImageHandler() = default;
-
-        AssetPtr Create(const Uuid& id);
-
-        AssetPtr Load(const std::string&);
-    };
-
     class Image : public ResourceBase {
     public:
         Image(const Uuid& id) : ResourceBase(id) {}

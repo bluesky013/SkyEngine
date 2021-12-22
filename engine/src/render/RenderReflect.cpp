@@ -3,8 +3,8 @@
 //
 
 #include <engine/render/Render.h>
-#include <engine/render/CameraComponent.h>
-#include <engine/render/LightComponent.h>
+#include <engine/render/camera/CameraComponent.h>
+#include <engine/render/light/LightComponent.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky {

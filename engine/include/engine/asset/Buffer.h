@@ -20,16 +20,6 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    class BufferHandler : public AssetHandlerBase {
-    public:
-        BufferHandler() = default;
-        ~BufferHandler() = default;
-
-        AssetPtr Create(const Uuid& id);
-
-        AssetPtr Load(const std::string&);
-    };
-
     class Buffer : public ResourceBase {
     public:
         Buffer(const Uuid& id) : ResourceBase(id) {}

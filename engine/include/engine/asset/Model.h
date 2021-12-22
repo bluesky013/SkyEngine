@@ -20,16 +20,6 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    class ModelHandler : public AssetHandlerBase {
-    public:
-        ModelHandler() = default;
-        ~ModelHandler() = default;
-
-        AssetPtr Create(const Uuid& id);
-
-        AssetPtr Load(const std::string&);
-    };
-
     class Model : public ResourceBase {
     public:
         Model(const Uuid& id) : ResourceBase(id) {}

@@ -59,4 +59,21 @@ namespace sky {
 
         virtual AssetPtr Load(const std::string&) = 0;
     };
+
+    template <typename T>
+    class AssetHandler : public AssetHandlerBase {
+    public:
+        AssetHandler() = default;
+        ~AssetHandler() = default;
+
+        AssetPtr Create(const Uuid& id)
+        {
+            return new T(id);
+        }
+
+        AssetPtr Load(const std::string&)
+        {
+            return AssetPtr{};
+        }
+    };
 }
