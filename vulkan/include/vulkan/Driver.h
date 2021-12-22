@@ -31,6 +31,8 @@ namespace sky::drv {
 
         bool Init(const Descriptor&);
 
+        void PrintSupportedExtensions() const;
+
         VkInstance instance;
         VkDebugUtilsMessengerEXT debug;
     };

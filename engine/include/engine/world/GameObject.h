@@ -23,10 +23,18 @@ namespace sky {
         template <typename T>
         inline T* AddComponent()
         {
-            auto comp = ComponentBuilder<T>::CreateComponent();
-            comp->object = this;
-            components.emplace_back(comp);
-            return comp;
+            auto info = TypeInfoObj<T>::Get()->RtInfo();
+            auto iter = std::find_if(components.begin(), components.end(), [info](Component* comp) {
+                return comp->GetTypeInfo() == info;
+            });
+            if (iter == components.end()) {
+                auto comp = ComponentFactory<T>::CreateComponent();
+                comp->object = this;
+                ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
+                components.emplace_back(comp);
+                return comp;
+            }
+            return static_cast<T*>(*iter);
         }
 
         template <typename T>
@@ -37,6 +45,7 @@ namespace sky {
                 return comp->GetTypeInfo() == info;
             });
             if (iter != components.end()) {
+                ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
                 delete *iter;
                 components.erase(iter);
             }

@@ -132,12 +132,25 @@ namespace sky::drv {
         if (des.enableDebugLayer) {
             CreateDebugUtilsMessengerEXT(instance, &debugInfo, VKL_ALLOC, &debug);
         }
+
+        PrintSupportedExtensions();
         return true;
     }
 
     VkInstance Driver::GetInstance() const
     {
         return instance;
+    }
+
+    void Driver::PrintSupportedExtensions() const
+    {
+        uint32_t count;
+        vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+        std::vector<VkExtensionProperties> supported(count);
+        vkEnumerateInstanceExtensionProperties(nullptr, &count, supported.data());
+        for (auto & ext : supported) {
+            LOG_I(TAG, "supported extensions name %s, version %u", ext.extensionName, ext.specVersion);
+        }
     }
 
 }

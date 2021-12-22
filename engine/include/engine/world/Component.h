@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <string_view>
 #include <core/util/Rtti.h>
+#include <set>
+#include <framework/environment/Singleton.h>
 #include <framework/serialization/Type.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -28,12 +30,17 @@ namespace sky {
         friend class GameObject;
     };
 
+    struct IComponentListener {
+        virtual void OnAddComponent(GameObject* go, Component*) {}
+        virtual void OnRemoveComponent(GameObject* go, Component*) {}
+    };
+
     template <typename T>
-    class ComponentBuilder {
+    class ComponentFactory : public Singleton<ComponentFactory<T>> {
     public:
         static_assert(std::is_base_of_v<Component, T>);
-        ComponentBuilder() = default;
-        ~ComponentBuilder() = default;
+        ComponentFactory() = default;
+        ~ComponentFactory() = default;
 
         static constexpr std::string_view name = TypeInfo<T>::Name();
         static constexpr uint32_t id = TypeInfo<T>::Hash();
@@ -52,6 +59,29 @@ namespace sky {
         {
             return id;
         }
+
+        template <auto F>
+        void ForEach(GameObject* go, Component* component)
+        {
+            for (auto& listener : listeners) {
+                std::invoke(F, listener, go, static_cast<T*>(component));
+            }
+        }
+
+        void RegisterListener(IComponentListener* listener)
+        {
+            if (listener != nullptr) {
+                listeners.emplace(listener);
+            }
+        }
+
+        void UnRegisterListener(IComponentListener* listener)
+        {
+            listeners.erase(listener);
+        }
+
+    private:
+        std::set<IComponentListener*> listeners;
     };
 
 }

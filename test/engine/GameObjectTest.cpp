@@ -70,3 +70,45 @@ TEST(EngineTest, TransformComponentTest)
     delete go1;
     ASSERT_EQ(world.GetGameObjects().size(), size_t(1));
 }
+
+struct TestSystem : public IComponentListener {
+    TestSystem(int& val) : p(val)
+    {
+        ComponentFactory<TestComponent>::Get()->RegisterListener(this);
+    }
+
+    ~TestSystem()
+    {
+        ComponentFactory<TestComponent>::Get()->UnRegisterListener(this);
+    }
+    void OnAddComponent(GameObject* go, Component*)
+    {
+        p += 10;
+    }
+    void OnRemoveComponent(GameObject* go, Component*)
+    {
+        p += 20;
+    }
+    int& p;
+};
+
+TEST(EngineTest, ListenerTest)
+{
+    int val = 0;
+    TestSystem system(val);
+
+    World world;
+    auto go = world.CreateGameObject("test");
+
+    go->AddComponent<TestComponent>();
+    ASSERT_EQ(val, 10);
+
+    go->AddComponent<TestComponent>();
+    ASSERT_EQ(val, 10);
+
+    go->RemoveComponent<TestComponent>();
+    ASSERT_EQ(val, 30);
+
+    go->RemoveComponent<TestComponent>();
+    ASSERT_EQ(val, 30);
+}
