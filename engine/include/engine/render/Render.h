@@ -5,6 +5,7 @@
 
 #pragma once
 #include <engine/SkyEngine.h>
+#include <framework/environment/Singleton.h>
 #include <unordered_map>
 
 namespace sky {
@@ -17,11 +18,8 @@ namespace sky {
 
     class RenderScene;
 
-    class Render : public IEngineEvent {
+    class Render : public Singleton<Render>, public IEngineEvent {
     public:
-        Render() = default;
-        ~Render();
-
         bool Init(const StartInfo&);
 
         void OnAddWorld(World&) override;
@@ -41,6 +39,9 @@ namespace sky {
         static void Reflect();
 
     private:
+        friend class Singleton<Render>;
+        Render() = default;
+        ~Render();
         std::unordered_map<void*, drv::SwapChain*> swapChains;
         std::unordered_map<World*, RenderScene*> scenes;
     };

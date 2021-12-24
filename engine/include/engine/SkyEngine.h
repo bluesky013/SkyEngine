@@ -55,8 +55,6 @@ namespace sky {
 
         void OnResize(void* wnd, uint32_t, uint32_t) override;
 
-        Render* GetRender() const;
-
         static void Reflect();
 
     private:

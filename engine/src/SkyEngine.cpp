@@ -13,7 +13,7 @@ namespace sky {
 
     bool SkyEngine::Init(const StartInfo& startInfo)
     {
-        render = new Render();
+        render = Render::Get();
         render->Init(startInfo);
         RegisterEngineListener(render);
         return true;
@@ -40,10 +40,7 @@ namespace sky {
             module->Stop();
         }
 
-        if (render != nullptr) {
-            delete render;
-            render = nullptr;
-        }
+        Render::Destroy();
 
         eventListeners.clear();
     }
@@ -132,11 +129,6 @@ namespace sky {
             event->OnWindowResize(hwnd, w, h);
         });
         LOG_I(TAG, "window resize %u, %u", w, h);
-    }
-
-    Render* SkyEngine::GetRender() const
-    {
-        return render;
     }
 
 }
