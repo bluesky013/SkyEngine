@@ -2,10 +2,8 @@
 // Created by Zach Lee on 2021/12/22.
 //
 
-#include <engine/render/GraphPass.h>
+#include <engine/render/templates/GraphTemplate.h>
 
 namespace sky {
-
-
 
 }
