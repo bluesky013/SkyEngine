@@ -6,9 +6,8 @@
 
 namespace sky {
 
-    void RenderView::SetViewTag(const std::string&)
+    const RenderView::Descriptor& RenderView::GetDescriptor() const
     {
-
+        return descriptor;
     }
-
 }

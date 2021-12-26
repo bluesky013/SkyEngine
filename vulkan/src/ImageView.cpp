@@ -25,7 +25,7 @@ namespace sky::drv {
     {
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType      = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image      = image = des.image;
+        viewInfo.image      = image;
         viewInfo.viewType   = des.viewType;
         viewInfo.format     = des.format;
         viewInfo.components = des.components;

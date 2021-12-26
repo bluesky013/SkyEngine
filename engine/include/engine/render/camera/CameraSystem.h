@@ -10,10 +10,10 @@ namespace sky {
 
     class CameraSystem : public ISystem {
     public:
-        CameraSystem() = default;
-        ~CameraSystem() = default;
+        CameraSystem();
+        ~CameraSystem();
 
-        void OnTick(float time) override {}
+        void OnTick(float time) override;
     };
 
 }

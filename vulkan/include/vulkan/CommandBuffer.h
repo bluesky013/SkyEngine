@@ -4,12 +4,12 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/Fence.h"
 #include <vector>
 
 namespace sky::drv {
 
     class Device;
-    class Fence;
     class Queue;
     class Semaphore;
 
@@ -51,7 +51,7 @@ namespace sky::drv {
 
         VkCommandPool pool;
         VkCommandBuffer cmdBuffer;
-        Fence* fence;
+        FencePtr fence;
     };
 
 }

@@ -26,4 +26,6 @@ namespace sky::drv {
         VkSemaphore semaphore;
     };
 
+    using SemaphorePtr = std::shared_ptr<Semaphore>;
+
 }

@@ -3,12 +3,14 @@
 //
 
 #pragma once
+#include <core/template/ReferenceObject.h>
+#include <memory>
 
 namespace sky::drv {
 
     class Device;
 
-    class DevObject {
+    class DevObject : public std::enable_shared_from_this<DevObject> {
     public:
         DevObject(Device& dev) : device(dev) {}
         virtual ~DevObject() = default;

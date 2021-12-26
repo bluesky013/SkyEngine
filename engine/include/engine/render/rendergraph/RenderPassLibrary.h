@@ -11,14 +11,14 @@
 
 namespace sky {
 
-    class GraphLibrary : public Singleton<GraphLibrary> {
+    class RenderPassLibrary : public Singleton<RenderPassLibrary> {
     public:
         void RegisterPass(const std::string& tag, drv::RenderPass*);
 
     private:
-        friend class Singleton<GraphLibrary>;
-        GraphLibrary() = default;
-        ~GraphLibrary() = default;
+        friend class Singleton<RenderPassLibrary>;
+        RenderPassLibrary() = default;
+        ~RenderPassLibrary() = default;
 
         std::unordered_map<std::string, drv::RenderPass*> passes;
     };

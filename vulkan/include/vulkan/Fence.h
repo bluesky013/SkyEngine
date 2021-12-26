@@ -31,4 +31,6 @@ namespace sky::drv {
         VkFence fence;
     };
 
+    using FencePtr = std::shared_ptr<Fence>;
+
 }

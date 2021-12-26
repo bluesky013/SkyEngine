@@ -35,4 +35,6 @@ namespace sky::drv {
         VkFramebuffer frameBuffer;
     };
 
+    using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
+
 }

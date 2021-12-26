@@ -11,14 +11,18 @@ namespace sky {
 
     class RenderView {
     public:
-        RenderView() = default;
+        struct Descriptor {
+            std::string viewTag;
+            uint32_t viewNum;
+        };
+
+        RenderView(Descriptor des) : descriptor(std::move(des)) {}
         ~RenderView() = default;
 
-        void SetViewTag(const std::string&);
+        const Descriptor& GetDescriptor() const;
 
     private:
-        std::string viewTag;
-        uint32_t num;
+        Descriptor descriptor;
     };
 
 }

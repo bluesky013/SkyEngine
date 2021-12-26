@@ -72,10 +72,6 @@ namespace sky {
         return children;
     }
 
-    void TransformComponent::Update()
-    {
-    }
-
     void TransformComponent::PrintChild(TransformComponent& comp, std::string str)
     {
         LOG_I(TAG, "%s%s", str.c_str(), comp.object->GetName().c_str());

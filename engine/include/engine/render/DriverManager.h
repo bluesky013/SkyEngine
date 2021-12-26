@@ -24,7 +24,7 @@ namespace sky {
         drv::Driver* GetDriver() const;
 
         template <typename T>
-        T* CreateDeviceObject(const typename T::Descriptor& des)
+        std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor& des)
         {
             return device->CreateDeviceObject<T>(des);
         }

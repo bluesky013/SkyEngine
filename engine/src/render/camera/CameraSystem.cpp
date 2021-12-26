@@ -6,5 +6,17 @@
 
 namespace sky {
 
+    CameraSystem::CameraSystem()
+    {
+    }
 
+    CameraSystem::~CameraSystem()
+    {
+
+    }
+
+    void CameraSystem::OnTick(float time)
+    {
+
+    }
 }

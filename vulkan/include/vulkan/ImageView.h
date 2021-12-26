@@ -17,7 +17,6 @@ namespace sky::drv {
         struct Descriptor {
             VkImageViewType viewType      = VK_IMAGE_VIEW_TYPE_2D;
             VkFormat format               = VK_FORMAT_UNDEFINED;
-            VkImage image                 = VK_NULL_HANDLE;
             VkComponentMapping components = {
                 VK_COMPONENT_SWIZZLE_IDENTITY,
                 VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -36,11 +35,13 @@ namespace sky::drv {
 
     private:
         friend class Image;
-        friend class Device;
+        friend class SwapChain;
         ImageView(Device&);
 
         VkImage image;
         VkImageView view;
     };
+
+    using ImageViewPtr = std::shared_ptr<ImageView>;
 
 }

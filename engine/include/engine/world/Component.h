@@ -26,6 +26,12 @@ namespace sky {
 
         GameObject* object = nullptr;
 
+        virtual void OnInit() {}
+
+        virtual void OnTick(float time) {}
+
+        virtual void OnDestroy() {}
+
     protected:
         friend class GameObject;
     };

@@ -26,8 +26,6 @@ namespace sky {
 
         const std::vector<TransformComponent*>& GetChildren() const;
 
-        void Update();
-
         void Print();
 
         Transform local;

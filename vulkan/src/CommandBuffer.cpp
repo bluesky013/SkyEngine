@@ -13,7 +13,7 @@ static const char* TAG = "Driver";
 namespace sky::drv {
 
     CommandBuffer::CommandBuffer(Device& dev, VkCommandPool cp, VkCommandBuffer cb)
-        : DevObject(dev), pool(cp), cmdBuffer(cb), fence(nullptr)
+        : DevObject(dev), pool(cp), cmdBuffer(cb), fence()
     {
     }
 
@@ -21,8 +21,8 @@ namespace sky::drv {
     {
         Wait();
 
-        if (fence != nullptr) {
-            delete fence;
+        if (fence) {
+            fence->Reset();
         }
 
         if (pool != VK_NULL_HANDLE && cmdBuffer != VK_NULL_HANDLE) {
@@ -36,7 +36,7 @@ namespace sky::drv {
             Fence::Descriptor fenceDes = {};
             fenceDes.flag = VK_FENCE_CREATE_SIGNALED_BIT;
             fence = device.CreateDeviceObject<Fence>(fenceDes);
-            if (fence == nullptr) {
+            if (!fence) {
                 return false;
             }
         }
@@ -46,14 +46,14 @@ namespace sky::drv {
 
     void CommandBuffer::Wait(uint64_t timeout)
     {
-        if (fence != nullptr) {
+        if (fence) {
             fence->Wait(timeout);
         }
     }
 
     void CommandBuffer::Begin()
     {
-        if (fence != nullptr) {
+        if (fence) {
             fence->Reset();
         }
 
@@ -99,7 +99,7 @@ namespace sky::drv {
             submitInfo.pWaitDstStageMask = waitStages.data();
             submitInfo.pWaitSemaphores = waitSemaphores.data();
         }
-        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence == nullptr ? VK_NULL_HANDLE : fence->GetNativeHandle());
+        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence ? VK_NULL_HANDLE : fence->GetNativeHandle());
     }
 
     VkCommandBuffer CommandBuffer::GetNativeHandle() const

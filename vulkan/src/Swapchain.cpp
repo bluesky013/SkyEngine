@@ -67,7 +67,7 @@ namespace sky::drv {
         return extent;
     }
 
-    const std::vector<ImageView*>& SwapChain::GetViews() const
+    const std::vector<ImageViewPtr>& SwapChain::GetViews() const
     {
         return views;
     }
@@ -188,8 +188,12 @@ namespace sky::drv {
         viewDes.format = format.format;
 
         for (auto& img : images) {
-            viewDes.image = img;
-            views.emplace_back(device.CreateDeviceObject<ImageView>(viewDes));
+            auto view = std::shared_ptr<ImageView>(new ImageView(device));
+            view->image = img;
+            if (!view->Init(viewDes)) {
+                return false;
+            }
+            views.emplace_back(view);
         }
 
         imageAvailable = device.CreateDeviceObject<Semaphore>(Semaphore::Descriptor{});
@@ -199,9 +203,6 @@ namespace sky::drv {
 
     void SwapChain::DestroySwapChain()
     {
-        for (auto& view : views) {
-            delete view;
-        }
         views.clear();
 
         if (swapChain != VK_NULL_HANDLE) {
@@ -217,15 +218,15 @@ namespace sky::drv {
             VK_NULL_HANDLE, &currentImage);
     }
 
-    Semaphore* SwapChain::GetAvailableSemaphore() const
+    const Semaphore* SwapChain::GetAvailableSemaphore() const
     {
-        return imageAvailable;
+        return imageAvailable.get();
     }
 
-    ImageView* SwapChain::GetCurrentImageView() const
+    const ImageView* SwapChain::GetCurrentImageView() const
     {
         AcquireNext();
-        return views[currentImage];
+        return views[currentImage].get();
     }
 
     void SwapChain::Resize(uint32_t width, uint32_t height)
@@ -237,5 +238,22 @@ namespace sky::drv {
         }
         DestroySwapChain();
         CreateSwapChain();
+
+        for (auto& listener : listeners) {
+            listener->OnResize(*this);
+        }
+    }
+
+    void SwapChain::RegisterListener(SwapChainListener* listener)
+    {
+        if (listener == nullptr) {
+            return;
+        }
+        listeners.emplace(listener);
+    }
+
+    void SwapChain::UnRegisterListener(SwapChainListener* listener)
+    {
+        listeners.erase(listener);
     }
 }

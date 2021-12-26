@@ -28,4 +28,5 @@ namespace sky::drv {
         VkQueue queue;
     };
 
+    using QueuePtr = std::shared_ptr<Queue>;
 }

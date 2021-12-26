@@ -41,6 +41,8 @@ namespace sky::drv {
         VkRenderPass pass;
     };
 
+    using RenderPassPtr = std::shared_ptr<RenderPass>;
+
     struct RenderPassFactory {
     public:
         RenderPassFactory() = default;
@@ -59,7 +61,7 @@ namespace sky::drv {
 
             DependencyImpl AddDependency();
 
-            RenderPass* Create(Device& device);
+            RenderPassPtr Create(Device& device);
 
         protected:
             RenderPass::Descriptor& descriptor;

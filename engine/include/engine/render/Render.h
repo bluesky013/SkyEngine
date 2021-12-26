@@ -6,6 +6,8 @@
 #pragma once
 #include <engine/SkyEngine.h>
 #include <framework/environment/Singleton.h>
+#include <engine/render/RenderScene.h>
+#include <vulkan/Swapchain.h>
 #include <unordered_map>
 
 namespace sky {
@@ -13,7 +15,6 @@ namespace sky {
     namespace drv {
         class Driver;
         class Device;
-        class SwapChain;
     }
 
     class RenderScene;
@@ -34,16 +35,16 @@ namespace sky {
 
         void OnTick(float time) override;
 
-        void Test();
-
         static void Reflect();
 
     private:
         friend class Singleton<Render>;
         Render() = default;
         ~Render();
-        std::unordered_map<void*, drv::SwapChain*> swapChains;
-        std::unordered_map<World*, RenderScene*> scenes;
+        using RenderScenePtr = std::unique_ptr<RenderScene>;
+
+        std::unordered_map<void*, drv::SwapChainPtr> swapChains;
+        std::unordered_map<World*, RenderScenePtr> scenes;
     };
 
 }

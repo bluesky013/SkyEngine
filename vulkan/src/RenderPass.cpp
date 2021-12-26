@@ -64,7 +64,7 @@ namespace sky::drv {
         return RenderPassFactory::Impl(descriptor);
     }
 
-    RenderPass* RenderPassFactory::Impl::Create(Device& device)
+    RenderPassPtr RenderPassFactory::Impl::Create(Device& device)
     {
         return device.CreateDeviceObject<RenderPass>(descriptor);
     }

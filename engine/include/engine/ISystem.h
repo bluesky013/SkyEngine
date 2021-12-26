@@ -4,9 +4,11 @@
 
 #pragma once
 
+#include <engine/world/Component.h>
+
 namespace sky {
 
-    class ISystem {
+    class ISystem : public IComponentListener {
     public:
         ISystem() = default;
         virtual ~ISystem() = default;

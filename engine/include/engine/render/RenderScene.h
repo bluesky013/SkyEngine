@@ -7,25 +7,40 @@
 #pragma once
 
 #include <engine/world/World.h>
+#include <vulkan/Swapchain.h>
+#include <engine/render/RenderPipeline.h>
+#include <engine/render/RenderView.h>
+#include <engine/render/rendergraph/RenderGraph.h>
 
 namespace sky {
 
-    namespace drv {
-        class SwapChain;
-    }
-
     class Render;
+    class RenderPipeline;
 
     class RenderScene {
     public:
         RenderScene(Render& rd) : render(rd) {}
-        ~RenderScene() = default;
+        ~RenderScene();
 
-        void SetTarget(drv::SwapChain& swc);
+        using PipelienPtr = std::unique_ptr<RenderPipeline>;
 
+        void SetTarget(drv::SwapChainPtr& swc);
+
+        void SetRenderPipeline(PipelienPtr&& ptr);
+
+        void AddView(RenderView* view);
+
+        void OnPreTick();
+
+        void OnTick(float time);
+
+        void OnPostTick();
     private:
         Render& render;
-        drv::SwapChain* swapChain = nullptr;
+        drv::SwapChainPtr swapChain;
+        PipelienPtr pipeline;
+        RenderGraph renderGraph;
+        std::list<RenderView*> views;
     };
 
 }

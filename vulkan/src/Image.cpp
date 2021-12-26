@@ -16,9 +16,7 @@ namespace sky::drv {
 
     Image::~Image()
     {
-        if (image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
-            vmaDestroyImage(device.GetAllocator(), image, allocation);
-        }
+        Reset();
     }
 
     bool Image::Init(const Descriptor& des)
@@ -34,7 +32,7 @@ namespace sky::drv {
         imageInfo.samples       = des.samples;
         imageInfo.tiling        = des.tiling;
         imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.initialLayout = des.layout;
 
         VmaAllocationCreateInfo allocInfo = {};
         allocInfo.usage = des.memory;
@@ -44,6 +42,25 @@ namespace sky::drv {
             LOG_E(TAG, "create image failed, %d", rst);
             return false;
         }
+
         return true;
+    }
+
+    void Image::Reset()
+    {
+        if (image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
+            vmaDestroyImage(device.GetAllocator(), image, allocation);
+        }
+    }
+
+    ImageViewPtr Image::CreateImageView(const ImageView::Descriptor& des)
+    {
+        ImageViewPtr ptr = std::shared_ptr<ImageView>(new ImageView(device));
+        ptr->image = image;
+        if (ptr->Init(des)) {
+            views.emplace_back(ptr);
+            return ptr;
+        }
+        return {};
     }
 }

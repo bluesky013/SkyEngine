@@ -6,6 +6,7 @@
 #include "vulkan/vulkan.h"
 #include "vulkan/ImageView.h"
 #include "vk_mem_alloc.h"
+#include <list>
 
 namespace sky::drv {
 
@@ -25,14 +26,23 @@ namespace sky::drv {
             VkSampleCountFlagBits samples     = VK_SAMPLE_COUNT_1_BIT;
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
+            VkImageLayout         layout      = VK_IMAGE_LAYOUT_UNDEFINED;
         };
+
+        ImageViewPtr CreateImageView(const ImageView::Descriptor& des);
+
     private:
         friend class Device;
         Image(Device&);
         bool Init(const Descriptor&);
 
+        void Reset();
+
         VkImage image;
         VmaAllocation allocation;
+        std::list<ImageViewPtr> views;
     };
+
+    using ImagePtr = std::shared_ptr<Image>;
 
 }

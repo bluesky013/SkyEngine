@@ -75,6 +75,11 @@ namespace sky {
             return ptr;
         }
 
+        const T* Get() const
+        {
+            return ptr;
+        }
+
     protected:
         void UpdateRefs(const CounterPtrBase &p)
         {
@@ -83,11 +88,11 @@ namespace sky {
             }
             ptr = p.ptr;
             if (ptr != nullptr) {
-                ptr->AddRefs();
+                ptr->AddRef();
             }
         }
 
-        T *ptr;
+        T *ptr = nullptr;
     };
 
     template<typename T>
@@ -116,7 +121,13 @@ namespace sky {
 
         operator bool() { return CounterPtrBase<typename T::ObjType>::ptr != nullptr; }
 
-        T *operator->() { return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr); }
+        T* Get() { return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr); }
+
+        const T* Get() const { return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr); }
+
+        T *operator->() { return Get(); }
+
+        const T* operator->() const { return Get(); }
     };
 
 }
