@@ -20,6 +20,8 @@ namespace sky::editor {
 
         bool event(QEvent *event) override;
 
+        sky::Viewport* GetNativeViewport() const;
+
     private:
         Viewport* window;
     };

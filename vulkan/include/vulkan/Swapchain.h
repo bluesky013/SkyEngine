@@ -48,7 +48,7 @@ namespace sky::drv {
 
         VkFormat GetFormat() const;
 
-        VkExtent2D GetExtent() const;
+        const VkExtent2D& GetExtent() const;
 
         const std::vector<ImageViewPtr>& GetViews() const;
 

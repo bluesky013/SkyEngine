@@ -4,6 +4,9 @@
 
 #pragma once
 #include <string>
+#include <unordered_map>
+#include <engine/render/rendergraph/RenderGraphResource.h>
+#include <engine/render/rendergraph/RenderGraphPass.h>
 
 namespace sky {
 
@@ -11,17 +14,24 @@ namespace sky {
 
     class RenderGraphBuilder {
     public:
-        RenderGraphBuilder(RenderGraph& rg) : renderGraph(rg) {}
+        RenderGraphBuilder(RenderGraph& rg, RenderGraphPassBase& ps)
+            : renderGraph(rg)
+            , pass(ps)
+        {
+        }
         ~RenderGraphBuilder() = default;
 
-        template <typename T, typename Setup, typename Execute>
-        void AddPass(const std::string& key, Setup&& setup, Execute&& execute)
-        {
-            setup(*this);
-        }
+        GraphImage* CreateImage(const std::string& str, const drv::Image::Descriptor& desc);
+
+        GraphAttachment* CreateAttachment(const std::string& source, const std::string& str, const drv::ImageView::Descriptor& desc);
+
+        bool Read(const std::string& str);
+
+        bool Write(const std::string& str);
 
     private:
         RenderGraph& renderGraph;
+        RenderGraphPassBase& pass;
     };
 
 }

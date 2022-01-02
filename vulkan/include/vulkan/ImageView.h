@@ -29,17 +29,20 @@ namespace sky::drv {
             };
         };
 
-        bool Init(const Descriptor&);
-
         VkImageView GetNativeHandle() const;
+
+        const VkImageViewCreateInfo& GetViewInfo() const;
 
     private:
         friend class Image;
         friend class SwapChain;
         ImageView(Device&);
 
+        bool Init(const Descriptor&);
+
         VkImage image;
         VkImageView view;
+        VkImageViewCreateInfo viewInfo;
     };
 
     using ImageViewPtr = std::shared_ptr<ImageView>;

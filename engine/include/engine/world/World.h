@@ -16,10 +16,6 @@ namespace sky {
     class World;
     class GameObject;
 
-    struct IWorldEvent {
-        virtual void OnViewportChange(Viewport& vp) {}
-    };
-
     class World {
     public:
         World();
@@ -28,8 +24,6 @@ namespace sky {
         GameObject* CreateGameObject(const std::string& name);
 
         void RemoveGameObject(GameObject*);
-
-        void SetTarget(Viewport& vp);
 
         void Tick(float);
 
@@ -40,7 +34,6 @@ namespace sky {
         static void Reflect();
 
     private:
-        Viewport* viewport;
         GameObject* root;
         std::vector<GameObject*> gameObjects;
     };

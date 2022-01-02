@@ -42,7 +42,6 @@ namespace sky::editor {
 
     bool CentralWidget::event(QEvent *event)
     {
-        auto size = rect();
         switch (event->type()) {
             case QEvent::Resize:
                 break;

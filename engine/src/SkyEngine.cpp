@@ -91,6 +91,13 @@ namespace sky {
         });
     }
 
+    void SkyEngine::SetTarget(World& world, Viewport& viewport)
+    {
+        EachListener([&world, &viewport](IEngineEvent* event) {
+            event->OnWorldTargetChange(world, viewport);
+        });
+    }
+
     void SkyEngine::RegisterEngineListener(IEngineEvent* event)
     {
         if (event != nullptr) {

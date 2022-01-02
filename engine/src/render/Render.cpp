@@ -10,7 +10,7 @@
 #include <vulkan/Swapchain.h>
 #include <core/logger/Logger.h>
 #include <engine/render/DriverManager.h>
-#include <engine/render/rendergraph/DeferredRendering.h>
+#include <engine/render/rendergraph/ForwardRendering.h>
 
 static const char* TAG = "Render";
 
@@ -35,7 +35,7 @@ namespace sky {
             return;
         }
         auto scene = std::make_unique<RenderScene>(*this);
-        auto pipeline = std::make_unique<RenderPipeline>();
+        auto pipeline = std::make_unique<ForwardRendering>();
         scene->SetRenderPipeline(std::move(pipeline));
 
         scenes.emplace(&world, std::move(scene));
@@ -86,7 +86,7 @@ namespace sky {
             return;
         }
 
-        auto vIt = swapChains.find(&vp);
+        auto vIt = swapChains.find(vp.GetNativeWindow());
         if (vIt == swapChains.end()) {
             return;
         }
@@ -175,7 +175,15 @@ namespace sky {
     void Render::OnTick(float time)
     {
         for (auto& rs : scenes) {
+            rs.second->OnPreTick();
+        }
+
+        for (auto& rs : scenes) {
             rs.second->OnTick(time);
+        }
+
+        for (auto& rs : scenes) {
+            rs.second->OnPostTick();
         }
     }
 

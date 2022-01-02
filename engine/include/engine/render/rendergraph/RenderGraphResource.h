@@ -5,23 +5,35 @@
 #pragma once
 
 #include <vulkan/Image.h>
-#include <memory>
+#include <engine/render/rendergraph/RenderGraphNode.h>
 
 namespace sky {
 
-    class RenderGraphResource {
+    enum class SizePolicy : uint8_t {
+        CUSTOM,
+        INPUT
+    };
+
+    class RenderGraphResource : public RenderGraphNode {
     public:
-        RenderGraphResource() = default;
-        virtual ~RenderGraphResource() = default;
+        RenderGraphResource(std::string&& str) : RenderGraphNode(std::forward<std::string>(str)) {}
+        ~RenderGraphResource() = default;
     };
 
     class GraphImage : public RenderGraphResource {
     public:
-        GraphImage() {}
+        GraphImage(std::string str)
+            : RenderGraphResource(std::move(str))
+        {
+        }
+
         ~GraphImage() = default;
 
-        void Update(const drv::Image::Descriptor& des);
+        bool Init(const drv::Image::Descriptor& des);
 
+        bool operator==(const drv::Image::Descriptor& des);
+
+        drv::ImagePtr GetImage() const;
     private:
         drv::Image::Descriptor descriptor;
         drv::ImagePtr image;
@@ -29,19 +41,35 @@ namespace sky {
 
     class GraphAttachment : public RenderGraphResource {
     public:
-        GraphAttachment(GraphImage& img) : image(img) {}
+        GraphAttachment(std::string str, drv::ImagePtr img)
+            : RenderGraphResource(std::move(str))
+            , image(img)
+        {
+        }
+
         ~GraphAttachment() = default;
 
-        void Update(const drv::Image::Descriptor& des);
+        bool Init(const drv::ImageView::Descriptor& des);
+
+        bool operator==(const drv::ImageView::Descriptor& des);
 
     private:
-        GraphImage& image;
         drv::ImageView::Descriptor descriptor;
+        drv::ImagePtr image;
         drv::ImageViewPtr view;
-        VkClearValue clear;
     };
 
-    using RGResourcePtr = std::shared_ptr<RenderGraphResource>;
-    using RGImagePtr = std::shared_ptr<GraphImage>;
-    using RGAttachmentPtr = std::shared_ptr<GraphAttachment>;
+    class GraphFrameBuffer : public RenderGraphResource {
+    public:
+        GraphFrameBuffer(std::string str)
+            : RenderGraphResource(std::move(str))
+        {
+        }
+
+
+    };
+
+    using RGResourcePtr = std::unique_ptr<RenderGraphResource>;
+    using RGImagePtr = std::unique_ptr<GraphImage>;
+    using RGAttachmentPtr = std::unique_ptr<GraphAttachment>;
 }

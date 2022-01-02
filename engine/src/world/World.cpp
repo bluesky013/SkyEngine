@@ -11,8 +11,7 @@
 namespace sky {
 
     World::World()
-        : viewport(nullptr)
-        , root(new GameObject("root"))
+        : root(new GameObject("root"))
     {
         root->AddComponent<TransformComponent>();
         gameObjects.emplace_back(root);
@@ -38,10 +37,6 @@ namespace sky {
         if (iter != gameObjects.end()) {
             gameObjects.erase(iter);
         }
-    }
-
-    void World::SetTarget(Viewport& vp)
-    {
     }
 
     void World::Tick(float time)

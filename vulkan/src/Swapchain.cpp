@@ -62,7 +62,7 @@ namespace sky::drv {
         return format.format;
     }
 
-    VkExtent2D SwapChain::GetExtent() const
+    const VkExtent2D& SwapChain::GetExtent() const
     {
         return extent;
     }

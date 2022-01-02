@@ -20,6 +20,7 @@ namespace sky {
         virtual void OnRemoveWorld(World&) {}
 
         virtual void OnAddViewport(Viewport&) {}
+
         virtual void OnRemoveViewport(Viewport&) {}
 
         virtual void OnWorldTargetChange(World& world, Viewport& vp) {}
@@ -44,6 +45,8 @@ namespace sky {
         void AddViewport(Viewport&);
 
         void RemoveViewport(Viewport&);
+
+        void SetTarget(World& world, Viewport& viewport);
 
         void RegisterEngineListener(IEngineEvent*);
 

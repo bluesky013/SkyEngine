@@ -15,14 +15,16 @@ namespace sky::drv {
         ~Buffer();
 
         struct Descriptor {
-            VkBufferCreateFlags flags    = 0;
-            VkDeviceSize        size     = 0;
-            VkBufferUsageFlags  usage    = 0;
-            VmaMemoryUsage      memory   = VMA_MEMORY_USAGE_UNKNOWN;
-            bool                allocate = true;
+            VkBufferCreateFlags flags     = 0;
+            VkDeviceSize        size      = 0;
+            VkBufferUsageFlags  usage     = 0;
+            VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
+            bool                transient = true;
         };
 
         VkBuffer GetNativeHandle() const;
+
+        bool IsTransient() const;
 
     private:
         friend class Device;
@@ -32,6 +34,8 @@ namespace sky::drv {
 
         VkBuffer buffer;
         VmaAllocation allocation;
+        VkBufferCreateInfo bufferInfo;
+        bool isTransient = false;
     };
 
 }

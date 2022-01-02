@@ -27,4 +27,9 @@ namespace sky::editor {
         }
     }
 
+    sky::Viewport* Viewport::GetNativeViewport() const
+    {
+        return viewport;
+    }
+
 }

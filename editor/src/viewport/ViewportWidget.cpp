@@ -34,6 +34,11 @@ namespace sky::editor {
         }
     }
 
+    sky::Viewport* ViewportWidget::GetNativeViewport() const
+    {
+        return window->GetNativeViewport();
+    }
+
     bool ViewportWidget::event(QEvent *event)
     {
         switch (event->type()) {

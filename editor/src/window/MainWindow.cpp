@@ -72,6 +72,7 @@ namespace sky::editor {
         auto vp = centralWidget->GetViewport();
         if (vp != nullptr) {
             viewports.emplace_back(vp);
+            engine->SetTarget(*world, *vp->GetNativeViewport());
         }
         auto dockMgr = DockManager::Get();
 

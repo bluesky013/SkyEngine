@@ -4,16 +4,27 @@
 
 
 #pragma once
+#include <vulkan/Swapchain.h>
 #include <list>
 
 namespace sky {
 
-    class RenderView;
+    class RenderGraph;
 
     class RenderPipeline  {
     public:
         RenderPipeline() = default;
-        ~RenderPipeline() = default;
+        virtual ~RenderPipeline() = default;
+
+        void SetSwapChain(drv::SwapChainPtr swc)
+        {
+            swapChain = swc;
+        }
+
+        virtual void Render(RenderGraph&) = 0;
+
+    protected:
+        drv::SwapChainPtr swapChain;
     };
 
 }

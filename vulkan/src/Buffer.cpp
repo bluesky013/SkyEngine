@@ -10,7 +10,11 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    Buffer::Buffer(Device& dev) : DevObject(dev), buffer(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE)
+    Buffer::Buffer(Device& dev)
+        : DevObject(dev)
+        , buffer(VK_NULL_HANDLE)
+        , allocation(VK_NULL_HANDLE)
+        , bufferInfo{}
     {
     }
 
@@ -23,13 +27,12 @@ namespace sky::drv {
 
     bool Buffer::Init(const Descriptor& des)
     {
-        VkBufferCreateInfo bufferInfo = {};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = des.size;
         bufferInfo.usage = des.usage;
 
         VkResult res;
-        if (des.allocate) {
+        if (!des.transient) {
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage = des.memory;
             res = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
@@ -40,11 +43,18 @@ namespace sky::drv {
             LOG_E(TAG, "create buffer failed, %d", res);
             return false;
         }
+
+        isTransient = des.transient;
         return true;
     }
 
     VkBuffer Buffer::GetNativeHandle() const
     {
         return buffer;
+    }
+
+    bool Buffer::IsTransient() const
+    {
+        return isTransient;
     }
 }

@@ -10,7 +10,11 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    Image::Image(Device& dev) : DevObject(dev), image(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE)
+    Image::Image(Device& dev)
+        : DevObject(dev)
+        , image(VK_NULL_HANDLE)
+        , allocation(VK_NULL_HANDLE)
+        , imageInfo{}
     {
     }
 
@@ -21,7 +25,6 @@ namespace sky::drv {
 
     bool Image::Init(const Descriptor& des)
     {
-        VkImageCreateInfo imageInfo = {};
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.mipLevels     = des.mipLevels;
         imageInfo.arrayLayers   = des.arrayLayers;
@@ -32,10 +35,10 @@ namespace sky::drv {
         imageInfo.samples       = des.samples;
         imageInfo.tiling        = des.tiling;
         imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.initialLayout = des.layout;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
         VkResult res;
-        if (des.allocate) {
+        if (!des.transient) {
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage = des.memory;
 
@@ -48,6 +51,7 @@ namespace sky::drv {
             return false;
         }
 
+        isTransient = des.transient;
         return true;
     }
 
@@ -67,5 +71,15 @@ namespace sky::drv {
             return ptr;
         }
         return {};
+    }
+
+    bool Image::IsTransient() const
+    {
+        return isTransient;
+    }
+
+    const VkImageCreateInfo& Image::GetImageInfo() const
+    {
+        return imageInfo;
     }
 }
