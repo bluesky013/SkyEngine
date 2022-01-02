@@ -34,10 +34,6 @@ namespace sky {
 
     void RenderScene::OnTick(float time)
     {
-        RenderGraphBuilder builder(renderGraph);
-        if (pipeline) {
-            pipeline->Prepare(builder, views);
-        }
     }
 
     void RenderScene::OnPostTick()

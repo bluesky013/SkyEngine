@@ -15,19 +15,20 @@ namespace sky::drv {
         ~Buffer();
 
         struct Descriptor {
-            VkBufferCreateFlags flags  = 0;
-            VkDeviceSize        size   = 0;
-            VkBufferUsageFlags  usage  = 0;
-            VmaMemoryUsage      memory = VMA_MEMORY_USAGE_UNKNOWN;
+            VkBufferCreateFlags flags    = 0;
+            VkDeviceSize        size     = 0;
+            VkBufferUsageFlags  usage    = 0;
+            VmaMemoryUsage      memory   = VMA_MEMORY_USAGE_UNKNOWN;
+            bool                allocate = true;
         };
-
-        bool Init(const Descriptor&);
 
         VkBuffer GetNativeHandle() const;
 
     private:
         friend class Device;
         Buffer(Device&);
+
+        bool Init(const Descriptor&);
 
         VkBuffer buffer;
         VmaAllocation allocation;

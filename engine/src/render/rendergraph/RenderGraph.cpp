@@ -8,7 +8,6 @@ namespace sky {
 
     void RenderGraph::Clear()
     {
-        database.Clear();
     }
 
 }

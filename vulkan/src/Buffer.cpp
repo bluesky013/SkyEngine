@@ -28,13 +28,16 @@ namespace sky::drv {
         bufferInfo.size = des.size;
         bufferInfo.usage = des.usage;
 
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = des.memory;
-
-
-        auto rst = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-        if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create buffer failed, %d", rst);
+        VkResult res;
+        if (des.allocate) {
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = des.memory;
+            res = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+        } else {
+            res = vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, nullptr, &buffer);
+        }
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "create buffer failed, %d", res);
             return false;
         }
         return true;

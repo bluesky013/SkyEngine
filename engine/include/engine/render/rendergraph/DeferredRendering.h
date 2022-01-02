@@ -4,27 +4,19 @@
 
 #pragma once
 
-#include <engine/render/rendergraph/RenderGraphTemplate.h>
-#include <string_view>
+#include <unordered_map>
+#include <set>
+#include <list>
+#include <string>
 
 namespace sky {
 
-    class DeferredRendering : public RenderGraphTemplate {
+    class DeferredRendering {
     public:
         DeferredRendering();
-        ~DeferredRendering() = default;
-
-        bool HasViewTags(const std::string&) const override;
-
-        void PreparePipeline(RenderGraphBuilder&, std::list<RenderView*>&) override;
-
-        void SetOutputConfig(const GraphOutput&) override;
-
-    private:
-        void BuildResources();
+        ~DeferredRendering();
 
         std::set<std::string> viewTags;
-        std::unordered_map<std::string_view, drv::Image::Descriptor> imageDes;
         std::list<std::string_view> resizable;
     };
 

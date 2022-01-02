@@ -9,10 +9,10 @@
 
 namespace sky {
 
-    class RenderGraphResource : std::enable_shared_from_this<RenderGraphResource> {
+    class RenderGraphResource {
     public:
         RenderGraphResource() = default;
-        ~RenderGraphResource() = default;
+        virtual ~RenderGraphResource() = default;
     };
 
     class GraphImage : public RenderGraphResource {

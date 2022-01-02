@@ -34,12 +34,17 @@ namespace sky::drv {
         imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = des.layout;
 
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = des.memory;
+        VkResult res;
+        if (des.allocate) {
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = des.memory;
 
-        auto rst = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
-        if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create image failed, %d", rst);
+            res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
+        } else {
+            res = vkCreateImage(device.GetNativeHandle(), &imageInfo, nullptr, &image);
+        }
+        if (res != VK_NULL_HANDLE) {
+            LOG_E(TAG, "create image failed %d", res);
             return false;
         }
 

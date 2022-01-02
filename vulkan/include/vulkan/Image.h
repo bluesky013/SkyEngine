@@ -27,6 +27,7 @@ namespace sky::drv {
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
             VkImageLayout         layout      = VK_IMAGE_LAYOUT_UNDEFINED;
+            bool                  allocate    = true;
         };
 
         ImageViewPtr CreateImageView(const ImageView::Descriptor& des);

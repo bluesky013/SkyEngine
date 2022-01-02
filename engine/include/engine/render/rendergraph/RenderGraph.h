@@ -3,7 +3,6 @@
 //
 
 #pragma once
-#include <engine/render/rendergraph/RenderGraphDatabase.h>
 
 namespace sky {
 
@@ -13,9 +12,6 @@ namespace sky {
         ~RenderGraph() = default;
 
         void Clear();
-
-    private:
-        RenderGraphDatabase database;
     };
 
 

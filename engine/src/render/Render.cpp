@@ -36,7 +36,6 @@ namespace sky {
         }
         auto scene = std::make_unique<RenderScene>(*this);
         auto pipeline = std::make_unique<RenderPipeline>();
-        pipeline->BuildTemplate<DeferredRendering>();
         scene->SetRenderPipeline(std::move(pipeline));
 
         scenes.emplace(&world, std::move(scene));
