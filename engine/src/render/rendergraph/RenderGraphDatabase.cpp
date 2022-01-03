@@ -14,12 +14,12 @@ namespace sky {
                 return iter->second;
             }
         }
-        auto image = std::make_unique<GraphImage>(key);
+        auto image = std::make_shared<GraphImage>(key);
         if (!image->Init(des)) {
             return nullptr;
         }
-
-        return cachedImages.emplace(key, std::move(image)).first->second;
+        cachedImages.emplace(key, image);
+        return image;
     }
 
 }
