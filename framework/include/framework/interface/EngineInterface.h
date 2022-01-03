@@ -12,6 +12,7 @@
 namespace sky {
 
     class IEngine;
+    class IWindowEvent;
 
     struct StartInfo {
         std::string appName;
@@ -44,6 +45,8 @@ namespace sky {
         virtual void RegisterModule(IModule*) = 0;
 
         virtual void UnRegisterModule(IModule*) = 0;
+
+        virtual IWindowEvent* GetEventHandler() = 0;
     };
 
 }

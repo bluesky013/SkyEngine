@@ -138,4 +138,9 @@ namespace sky {
         LOG_I(TAG, "window resize %u, %u", w, h);
     }
 
+    IWindowEvent* SkyEngine::GetEventHandler()
+    {
+        return this;
+    }
+
 }

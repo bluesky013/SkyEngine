@@ -39,9 +39,9 @@ namespace sky {
             return false;
         }
 
-        engine = std::make_unique<DynamicModule>("SkyEngineModule");
-        if (engine->Load()) {
-            auto createFn = engine->GetAddress<EngineLoad>("StartEngine");
+        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
+        if (engineModule->Load()) {
+            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
             if (createFn != nullptr) {
                 engineInstance = createFn(env);
                 engineInstance->Init(start);
@@ -64,7 +64,9 @@ namespace sky {
 
     NativeWindow* Application::CreateNativeWindow(const NativeWindow::Descriptor& des)
     {
-        return NativeWindow::Create(des);
+        auto window = NativeWindow::Create(des);
+        window->SetEventHandler(*engineInstance->GetEventHandler());
+        return window;
     }
 
     IEngine* Application::GetEngine() const
@@ -81,8 +83,8 @@ namespace sky {
 
     void Application::Shutdown()
     {
-        if (engine->IsLoaded()) {
-            auto destroyFn = engine->GetAddress<EngineShutdown>("ShutdownEngine");
+        if (engineModule->IsLoaded()) {
+            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
             if (destroyFn != nullptr) {
                 engineInstance->DeInit();
                 destroyFn(engineInstance);

@@ -8,8 +8,6 @@ endif()
 file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)
 
-message("platform src" ${PLATFORM_SRC})
-
 sky_add_library(TARGET Framework STATIC
     SOURCES
         ${PLATFORM_SRC}

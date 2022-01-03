@@ -49,7 +49,7 @@ namespace sky {
         Impl* impl;
         IEngine* engineInstance;
         Environment* env;
-        std::unique_ptr<DynamicModule> engine;
+        std::unique_ptr<DynamicModule> engineModule;
         std::vector<std::unique_ptr<DynamicModule>> modules;
     };
 

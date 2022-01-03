@@ -63,6 +63,8 @@ namespace sky {
 
         void OnWindowResize(void* window, uint32_t width, uint32_t height) override;
 
+        IWindowEvent* GetEventHandler();
+
         static void Reflect();
 
     private:

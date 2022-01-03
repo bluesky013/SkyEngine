@@ -44,7 +44,7 @@ namespace sky::editor {
         switch (event->type()) {
             case QEvent::Resize:
                 window->setGeometry(geometry());
-                SkyEngine::Get()->OnResize((void*)window->winId(), geometry().width(), geometry().height());
+                SkyEngine::Get()->OnWindowResize((void*)window->winId(), geometry().width(), geometry().height());
                 break;
             default:
                 break;

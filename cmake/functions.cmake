@@ -73,7 +73,6 @@ function(sky_add_library)
         endif()
     endforeach()
 
-    message(${TMP_TARGET} " : " ${LINK_LIBRARIES})
     target_include_directories(${TMP_TARGET} PRIVATE ${TMP_PRIVATE_INC})
     target_include_directories(${TMP_TARGET} PUBLIC ${TMP_PUBLIC_INC})
     target_link_libraries(${TMP_TARGET} ${LINK_LIBRARIES})
