@@ -32,4 +32,19 @@ namespace sky::editor {
         return viewport;
     }
 
+    bool Viewport::event(QEvent *event)
+    {
+        auto handler = SkyEngine::Get();
+        switch (event->type()) {
+            case QEvent::Resize:
+                handler->OnWindowResize((void*)winId(), geometry().width(), geometry().height());
+                break;
+            case QEvent::MouseMove:
+                break;
+            default:
+                break;
+        }
+        return true;
+    }
+
 }

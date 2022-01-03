@@ -3,7 +3,7 @@
 //
 
 #include <editor/viewport/ViewportWidget.h>
-#include <QGridLayout>
+#include <QVBoxLayout>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
@@ -22,9 +22,10 @@ namespace sky::editor {
     {
         auto container = QWidget::createWindowContainer(window, this);
         window->Init();
-        auto layout = new QGridLayout(this);
+        auto layout = new QVBoxLayout(this);
         layout->setMargin(0);
-        layout->addWidget(container, 0, 0, 1, 1);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(container);
     }
 
     void ViewportWidget::Shutdown()
@@ -37,19 +38,6 @@ namespace sky::editor {
     sky::Viewport* ViewportWidget::GetNativeViewport() const
     {
         return window->GetNativeViewport();
-    }
-
-    bool ViewportWidget::event(QEvent *event)
-    {
-        switch (event->type()) {
-            case QEvent::Resize:
-                window->setGeometry(geometry());
-                SkyEngine::Get()->OnWindowResize((void*)window->winId(), geometry().width(), geometry().height());
-                break;
-            default:
-                break;
-        }
-        return true;
     }
 
 }

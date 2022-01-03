@@ -37,9 +37,15 @@ namespace sky {
         void DeInit();
 
         void* GetNativeHandle() const override { return handle.contentView; };
+
+        void SetEventHandler(IWindowEvent& h) override
+        {
+            handler = &h;
+        }
         NSWindow* handle = nullptr;
         NSString* title = nullptr;
         MacosViewController* controller = nullptr;
+        IWindowEvent* handler = nullptr;
     };
 
     MacosWindowImpl::~MacosWindowImpl()
