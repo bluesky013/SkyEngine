@@ -72,13 +72,13 @@ namespace sky::drv {
     RenderPassFactory::SubImpl RenderPassFactory::Impl::AddSubPass()
     {
         descriptor.subPasses.emplace_back(RenderPass::SubPass{});
-        return RenderPassFactory::SubImpl(descriptor, descriptor.subPasses.size() - 1);
+        return RenderPassFactory::SubImpl(descriptor, (uint32_t)descriptor.subPasses.size() - 1);
     }
 
     RenderPassFactory::DependencyImpl RenderPassFactory::Impl::AddDependency()
     {
         descriptor.dependencies.emplace_back(VkSubpassDependency{});
-        return RenderPassFactory::DependencyImpl(descriptor, descriptor.dependencies.size() - 1);
+        return RenderPassFactory::DependencyImpl(descriptor, (uint32_t)descriptor.dependencies.size() - 1);
     }
 
     RenderPassFactory::DependencyImpl::DependencyImpl(RenderPass::Descriptor& des, uint32_t dep)
@@ -135,7 +135,7 @@ namespace sky::drv {
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
-        return RenderPassFactory::AttachmentImpl(descriptor.attachments.size() - 1, descriptor, subPass);
+        return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddResolve()
@@ -146,7 +146,7 @@ namespace sky::drv {
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
-        return RenderPassFactory::AttachmentImpl(descriptor.attachments.size() - 1, descriptor, subPass);
+        return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddInput()
@@ -157,7 +157,7 @@ namespace sky::drv {
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
         });
         descriptor.attachments.emplace_back();
-        return RenderPassFactory::AttachmentImpl(descriptor.attachments.size() - 1, descriptor, subPass);
+        return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddDepthStencil()
@@ -166,7 +166,7 @@ namespace sky::drv {
         sub.depthStencil.attachment = descriptor.attachments.size();
         sub.depthStencil.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         descriptor.attachments.emplace_back();
-        return RenderPassFactory::AttachmentImpl(descriptor.attachments.size() - 1, descriptor, subPass);
+        return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
     RenderPassFactory::AttachmentImpl::AttachmentImpl(uint32_t index, RenderPass::Descriptor& des, uint32_t sub)

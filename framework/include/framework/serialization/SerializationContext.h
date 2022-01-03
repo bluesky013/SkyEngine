@@ -6,6 +6,7 @@
 
 #include <framework/environment/Singleton.h>
 #include <framework/serialization/SerializationFactory.h>
+#include <array>
 
 namespace sky {
 

@@ -116,7 +116,7 @@ namespace sky {
     }
 }
 
-extern "C" SKY_EXPORT sky::NativeWindow::Impl* CreateWindow(const sky::NativeWindow::Descriptor& des)
+extern "C" SKY_EXPORT sky::NativeWindow::Impl* CreateNativeWindow(const sky::NativeWindow::Descriptor& des)
 {
     auto impl = new sky::MacosWindowImpl();
     if (!impl->Init(des)) {

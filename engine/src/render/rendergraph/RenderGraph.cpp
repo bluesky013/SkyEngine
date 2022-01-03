@@ -39,9 +39,7 @@ namespace sky {
         }
 
         for (auto& res : cachedAttachments) {
-            if (resources[res->GetName()]->IsActive()) {
-                res->Compile();
-            }
+            res->Compile();
         }
 
     }

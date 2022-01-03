@@ -94,14 +94,14 @@ namespace sky {
     {
         while (!impl->IsExit()) {
             impl->PumpMessages();
-        }
 
-        static auto timePoint = std::chrono::high_resolution_clock::now();
-        auto current = std::chrono::high_resolution_clock::now();
-        auto delta = std::chrono::duration<float>(current - timePoint).count();
-        timePoint = current;
-        if (engineInstance != nullptr) {
-            engineInstance->Tick(delta);
+            static auto timePoint = std::chrono::high_resolution_clock::now();
+            auto current = std::chrono::high_resolution_clock::now();
+            auto delta = std::chrono::duration<float>(current - timePoint).count();
+            timePoint = current;
+            if (engineInstance != nullptr) {
+                engineInstance->Tick(delta);
+            }
         }
     }
 

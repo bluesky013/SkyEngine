@@ -2,7 +2,9 @@
 // Created by Zach Lee on 2021/11/10.
 //
 
-#include "application/window/NativeWindow.h"
+#include <core/platform/Platform.h>
+#include <framework/window/NativeWindow.h>
+#include <framework/window/IWindowEvent.h>
 #include <windows.h>
 #include <vector>
 
@@ -16,49 +18,44 @@ namespace sky {
         return wc.data();
     }
 
-    static LRESULT CALLBACK AppWndProc(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam)
-    {
-        switch (msg) {
-            case WM_DESTROY:
-                PostQuitMessage(0);
-                break;
-            default:
-                break;
-        }
-        return DefWindowProc(hwnd, msg, wParam, lParam);
-    }
+    static LRESULT CALLBACK AppWndProc(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam);
 
     class Win32WindowImpl : public NativeWindow::Impl {
     public:
-        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr) {}
+        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr), handler(nullptr) {}
         virtual ~Win32WindowImpl() = default;
 
         bool Init(const NativeWindow::Descriptor&);
+
+        IWindowEvent* GetHandler() const;
 
     private:
         bool RegisterWin32Class();
         bool CreateWin32Window(const NativeWindow::Descriptor&);
 
         void* GetNativeHandle() const override;
+
+        void SetEventHandler(IWindowEvent& handler);
         HWND hWnd;
         HINSTANCE hInstance;
         std::string className;
         std::string titleName;
+        IWindowEvent* handler;
     };
 
-    NativeWindow::Impl* NativeWindow::Impl::Create(const NativeWindow::Descriptor& des)
+    IWindowEvent* Win32WindowImpl::GetHandler() const
     {
-        auto impl = new Win32WindowImpl();
-        if (!impl->Init(des)) {
-            delete impl;
-            impl = nullptr;
-        }
-        return impl;
+        return handler;
     }
 
     void* Win32WindowImpl::GetNativeHandle() const
     {
         return hWnd;
+    }
+
+    void Win32WindowImpl::SetEventHandler(IWindowEvent& h)
+    {
+        handler = &h;
     }
 
     bool Win32WindowImpl::RegisterWin32Class()
@@ -97,6 +94,7 @@ namespace sky {
         ShowWindow(hWnd, SW_SHOW);
         UpdateWindow(hWnd);
 
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
         return true;
     }
 
@@ -115,4 +113,37 @@ namespace sky {
 
         return true;
     }
+
+    LRESULT AppWndProc(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam)
+    {
+        Win32WindowImpl* nativeWindowImpl = reinterpret_cast<Win32WindowImpl*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        IWindowEvent* handler = nativeWindowImpl != nullptr ? nativeWindowImpl->GetHandler() : nullptr;
+
+        switch (msg) {
+            case WM_SIZE:
+                if (handler != nullptr) {
+                    uint32_t width = LOWORD(lParam);
+                    uint32_t height = HIWORD(lParam);
+                    handler->OnWindowResize(hwnd, width, height);
+                }
+                return 0;
+            case WM_DESTROY:
+                PostQuitMessage(0);
+                break;
+            default:
+                break;
+        }
+        return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+}
+
+extern "C"
+SKY_EXPORT sky::NativeWindow::Impl* CreateNativeWindow(const sky::NativeWindow::Descriptor& des)
+{
+    auto impl = new sky::Win32WindowImpl();
+    if (!impl->Init(des)) {
+        delete impl;
+        impl = nullptr;
+    }
+    return impl;
 }

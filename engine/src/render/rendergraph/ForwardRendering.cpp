@@ -65,13 +65,11 @@ namespace sky {
             desc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
             desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             desc.transient = false;
-            auto dsi = builder.CreateImage("MainDepthStencilImage", desc);
-            dsi->SideEffect();
+            builder.CreateImage("MainDepthStencilImage", desc);
 
             desc.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
             desc.format = swapChain->GetFormat();
-            auto cli = builder.CreateImage("MainColorImage", desc);
-            cli->SideEffect();
+            builder.CreateImage("MainColorImage", desc);
 
             drv::ImageView::Descriptor viewDesc = {};
             viewDesc.format = swapChain->GetFormat();
@@ -81,7 +79,7 @@ namespace sky {
 
             viewDesc.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
             viewDesc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-            data.clears.emplace_back(drv::MakeClearDepthStencil(1.f, 0.f));
+            data.clears.emplace_back(drv::MakeClearDepthStencil(1.f, 0));
             data.attachments.emplace_back(builder.Write("MainDepthStencilImage", viewDesc));
 
             auto& pass = passes["ForwardColor"];
@@ -122,6 +120,7 @@ namespace sky {
         renderGraph.AddPass<SwapChainPassData>("SwapChain", [this](RenderGraphBuilder& builder, SwapChainPassData& data) -> bool {
             data.swapChain = swapChain;
             data.image = builder.ReadImage("MainColorImage");
+            builder.SideEffect();
             return true;
         }, [](SwapChainPassData& data, const RenderGraph&, drv::CommandBuffer& cmd) {
             auto dst = data.swapChain->GetImage();

@@ -44,8 +44,6 @@ namespace sky {
         virtual void RegisterModule(IModule*) = 0;
 
         virtual void UnRegisterModule(IModule*) = 0;
-
-        virtual void OnResize(void* wnd, uint32_t, uint32_t) = 0;
     };
 
 }

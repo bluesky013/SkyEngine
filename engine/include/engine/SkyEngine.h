@@ -6,6 +6,7 @@
 #pragma once
 #include <framework/interface/EngineInterface.h>
 #include <framework/environment/Singleton.h>
+#include <framework/window/IWindowEvent.h>
 #include <vector>
 #include <memory>
 
@@ -17,6 +18,7 @@ namespace sky {
 
     struct IEngineEvent {
         virtual void OnAddWorld(World&) {}
+
         virtual void OnRemoveWorld(World&) {}
 
         virtual void OnAddViewport(Viewport&) {}
@@ -30,7 +32,10 @@ namespace sky {
         virtual void OnWindowResize(void* hwnd, uint32_t, uint32_t) {}
     };
 
-    class SkyEngine : public IEngine, public Singleton<SkyEngine> {
+    class SkyEngine
+        : public IEngine
+        , public IWindowEvent
+        , public Singleton<SkyEngine> {
     public:
         virtual bool Init(const StartInfo&) override;
 
@@ -56,7 +61,7 @@ namespace sky {
 
         void UnRegisterModule(IModule*) override;
 
-        void OnResize(void* wnd, uint32_t, uint32_t) override;
+        void OnWindowResize(void* window, uint32_t width, uint32_t height) override;
 
         static void Reflect();
 

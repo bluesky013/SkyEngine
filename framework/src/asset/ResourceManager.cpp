@@ -22,4 +22,13 @@ namespace sky {
         return res;
     }
 
+    void ResourceManager::DestroyInstance(const Uuid& id)
+    {
+        auto iter = resourceMap.find(id);
+        if (iter != resourceMap.end()) {
+            delete iter->second;
+            resourceMap.erase(iter);
+        }
+    }
+
 }

@@ -13,7 +13,7 @@ namespace sky {
     template <typename T>
     class Singleton {
     public:
-        static constexpr uint32_t NAME = TypeInfo<T>::Name();
+        static constexpr std::string_view NAME = TypeInfo<T>::Name();
         static constexpr uint32_t ID = TypeInfo<T>::Hash();
 
         static T* Get()

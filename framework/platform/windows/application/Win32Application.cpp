@@ -2,7 +2,8 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include "application/Application.h"
+#include <core/platform/Platform.h>
+#include <framework/Application.h>
 #include <windows.h>
 
 namespace sky {
@@ -21,11 +22,6 @@ namespace sky {
     private:
         bool exit = false;
     };
-
-    Application::Impl* Application::Impl::Create()
-    {
-        return new Win32AppImpl();
-    }
 
     bool Win32AppImpl::IsExit() const
     {
@@ -50,4 +46,9 @@ namespace sky {
         }
     }
 
+}
+
+extern "C" SKY_EXPORT sky::Application::Impl* CreateApplication()
+{
+    return new sky::Win32AppImpl();
 }

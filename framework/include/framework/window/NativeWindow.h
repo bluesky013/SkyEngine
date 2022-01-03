@@ -8,6 +8,7 @@
 #include <string>
 
 namespace sky {
+    class IWindowEvent;
 
     class NativeWindow {
     public:
@@ -31,9 +32,13 @@ namespace sky {
             static Impl* Create(const Descriptor&);
 
             virtual void* GetNativeHandle() const = 0;
+
+            virtual void SetEventHandler(IWindowEvent&) = 0;
         };
 
         void* GetNativeHandle() const;
+
+        void SetEventHandler(IWindowEvent&);
 
     private:
         bool Init(const Descriptor&);

@@ -130,7 +130,7 @@ namespace sky {
         }
     }
 
-    void SkyEngine::OnResize(void* hwnd, uint32_t w, uint32_t h)
+    void SkyEngine::OnWindowResize(void* hwnd, uint32_t w, uint32_t h)
     {
         EachListener([w, h, hwnd](IEngineEvent* event) {
             event->OnWindowResize(hwnd, w, h);

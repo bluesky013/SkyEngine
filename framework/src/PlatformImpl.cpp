@@ -14,7 +14,7 @@ namespace sky {
 
             instance->module = std::make_unique<DynamicModule>("FrameworkImpl");
             instance->module->Load();
-            instance->windowCreateFn = instance->module->GetAddress<WindowCreateFn>("CreateWindow");
+            instance->windowCreateFn = instance->module->GetAddress<WindowCreateFn>("CreateNativeWindow");
             instance->applicationCreateFn = instance->module->GetAddress<ApplicationCreateFn>("CreateApplication");
         }
         return instance;

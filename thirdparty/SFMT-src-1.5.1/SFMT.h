@@ -46,7 +46,6 @@ extern "C" {
 #elif defined(_MSC_VER) || defined(__BORLANDC__)
   typedef unsigned int uint32_t;
   typedef unsigned __int64 uint64_t;
-  #define inline __inline
 #else
   #include <inttypes.h>
   #if defined(__GNUC__)

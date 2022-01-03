@@ -23,5 +23,3 @@ sky_add_library(TARGET Framework STATIC
         Core
         Rapidjson
     )
-
-add_dependencies(Framework FrameworkImpl)

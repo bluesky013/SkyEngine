@@ -89,9 +89,9 @@ namespace sky::drv {
     bool SwapChain::CreateSwapChain()
     {
         std::vector<VkQueueFlags> preferred = {
+            VK_QUEUE_GRAPHICS_BIT,
             VK_QUEUE_TRANSFER_BIT,
             VK_QUEUE_COMPUTE_BIT,
-            VK_QUEUE_GRAPHICS_BIT
         };
         VkPhysicalDevice gpu = device.GetGpuHandle();
         auto surfaceCheck = [this, gpu](uint32_t index) {
