@@ -21,7 +21,7 @@ namespace sky::drv {
 
         bool Init(const Descriptor&);
 
-        CommandBuffer* Allocate(const CommandBuffer::Descriptor&);
+        CommandBufferPtr Allocate(const CommandBuffer::Descriptor&);
 
     private:
         friend class Device;
@@ -30,4 +30,5 @@ namespace sky::drv {
         VkCommandPool pool;
     };
 
+    using CommandPoolPtr = std::shared_ptr<CommandPool>;
 }

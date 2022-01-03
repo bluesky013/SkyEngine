@@ -32,17 +32,27 @@ namespace sky {
 
     bool GraphAttachment::Init(const drv::ImageView::Descriptor& des)
     {
-        auto res = image->CreateImageView(des);
+        descriptor = des;
+        return true;
+    }
+
+    bool GraphAttachment::Compile()
+    {
+        auto res = image->CreateImageView(descriptor);
         if (!res) {
             return false;
         }
         view = res;
-        descriptor = des;
         return true;
     }
 
     bool GraphAttachment::operator==(const drv::ImageView::Descriptor& des)
     {
         return memcmp(&descriptor, &des, sizeof(drv::ImageView::Descriptor)) == 0;
+    }
+
+    const drv::ImageViewPtr& GraphAttachment::GetImageView() const
+    {
+        return view;
     }
 }

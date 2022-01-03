@@ -5,6 +5,7 @@
 #pragma once
 
 #include <engine/render/RenderPipeline.h>
+#include <vulkan/RenderPass.h>
 #include <unordered_map>
 #include <set>
 #include <list>
@@ -21,7 +22,10 @@ namespace sky {
         void Render(RenderGraph&) override;
 
     private:
+        void Setup() override;
+
         std::set<std::string> viewTags;
+        std::unordered_map<std::string, drv::RenderPassPtr> passes;
     };
 
 }

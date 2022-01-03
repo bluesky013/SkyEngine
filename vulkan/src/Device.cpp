@@ -12,7 +12,10 @@
 
 static const char* TAG = "Driver";
 const std::vector<const char*> DEVICE_EXTS = {
-    "VK_KHR_swapchain"
+    "VK_KHR_swapchain",
+#ifdef __APPLE__
+    "VK_KHR_portability_subset"
+#endif
 };
 
 const std::vector<const char*> VALIDATION_LAYERS = {
@@ -31,9 +34,6 @@ namespace sky::drv {
             vmaDestroyAllocator(allocator);
         }
 
-        for (auto& queue : queues) {
-            delete queue;
-        }
         queues.clear();
 
         if (device != VK_NULL_HANDLE) {
@@ -119,7 +119,8 @@ namespace sky::drv {
         for (i = 0; i < count; ++i) {
             VkQueue queue = VK_NULL_HANDLE;
             vkGetDeviceQueue(device, i, 0, &queue);
-            queues[i] = new Queue(queue, i, 0);
+            queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
+            queues[i]->Setup();
         }
 
         VmaAllocatorCreateInfo allocatorInfo = {};
@@ -161,11 +162,11 @@ namespace sky::drv {
         Queue* res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
             if ((queueFamilies[i].queueFlags & filter.preferred) == filter.preferred) {
-                res = queues[i];
+                res = queues[i].get();
             }
 
             if (queueFamilies[i].queueFlags == filter.preferred) {
-                return queues[i];
+                return queues[i].get();
             }
         }
         return res;

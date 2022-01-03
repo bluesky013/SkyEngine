@@ -16,6 +16,7 @@ namespace sky::drv {
     {
         VmaPoolCreateInfo poolInfo = {};
         vmaCreatePool(device.GetAllocator(), &poolInfo,  &pool);
+        return true;
     }
 
 }

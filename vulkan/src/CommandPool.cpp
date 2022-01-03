@@ -36,7 +36,7 @@ namespace sky::drv {
         return true;
     }
 
-    CommandBuffer* CommandPool::Allocate(const CommandBuffer::Descriptor& des)
+    CommandBufferPtr CommandPool::Allocate(const CommandBuffer::Descriptor& des)
     {
         VkCommandBufferAllocateInfo cbInfo = {};
         cbInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -56,6 +56,6 @@ namespace sky::drv {
             delete cmdBuffer;
             cmdBuffer = nullptr;
         }
-        return cmdBuffer;
+        return std::shared_ptr<CommandBuffer>(cmdBuffer);
     }
 }

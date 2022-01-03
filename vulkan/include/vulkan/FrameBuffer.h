@@ -18,8 +18,7 @@ namespace sky::drv {
         ~FrameBuffer();
 
         struct Descriptor {
-            uint32_t width;
-            uint32_t height;
+            VkExtent2D extent = {1, 1};
             RenderPass* pass = nullptr;
             std::vector<VkImageView> views;
         };
@@ -28,11 +27,14 @@ namespace sky::drv {
 
         VkFramebuffer GetNativeHandle() const;
 
+        const VkExtent2D& GetExtent() const;
+
     private:
         friend class Device;
         FrameBuffer(Device&);
 
         VkFramebuffer frameBuffer;
+        Descriptor descriptor;
     };
 
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;

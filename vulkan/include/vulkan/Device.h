@@ -59,7 +59,7 @@ namespace sky::drv {
         VkPhysicalDeviceFeatures phyFeatures;
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
-        std::vector<Queue*> queues;
+        std::vector<QueuePtr> queues;
     };
 
 }

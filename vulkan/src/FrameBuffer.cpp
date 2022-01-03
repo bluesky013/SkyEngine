@@ -27,8 +27,8 @@ namespace sky::drv {
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = des.pass->GetNativeHandle();
-        fbInfo.width      = des.width;
-        fbInfo.height     = des.height;
+        fbInfo.width      = des.extent.width;
+        fbInfo.height     = des.extent.height;
         fbInfo.layers     = 1;
         fbInfo.attachmentCount = (uint32_t)des.views.size();
         fbInfo.pAttachments = des.views.data();
@@ -37,11 +37,18 @@ namespace sky::drv {
         if (rst != VK_SUCCESS) {
             return false;
         }
+
+        descriptor = des;
         return true;
     }
 
     VkFramebuffer FrameBuffer::GetNativeHandle() const
     {
         return frameBuffer;
+    }
+
+    const VkExtent2D& FrameBuffer::GetExtent() const
+    {
+        return descriptor.extent;
     }
 }

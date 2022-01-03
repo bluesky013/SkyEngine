@@ -23,7 +23,7 @@ namespace sky {
         engine.AddViewport(*viewport);
         engine.AddWorld(*world);
 
-        world->SetTarget(*viewport);
+        engine.SetTarget(*world, *viewport);
     }
 
     void Sample::Stop()

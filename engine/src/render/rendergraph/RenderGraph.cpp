@@ -12,6 +12,7 @@ namespace sky {
         resources.clear();
         passes.clear();
         edges.clear();
+        cachedAttachments.clear();
     }
 
     void RenderGraph::Compile()
@@ -21,10 +22,10 @@ namespace sky {
         }
         std::vector<RenderGraphNode*> stack;
         for (auto& res : resources) {
-            if (!res.second->IsActive()) stack.emplace_back(res.second);
+            if (!res.second->IsActive()) stack.emplace_back(res.second.get());
         }
         for (auto& pass : passes) {
-            if (!pass.second->IsActive()) stack.emplace_back(pass.second);
+            if (!pass->IsActive()) stack.emplace_back(pass.get());
         }
 
         while (!stack.empty()) {
@@ -35,6 +36,20 @@ namespace sky {
                 in->RemoveRef();
                 if (!in->IsActive()) stack.emplace_back(in);
             }
+        }
+
+        for (auto& res : cachedAttachments) {
+            if (resources[res->GetName()]->IsActive()) {
+                res->Compile();
+            }
+        }
+
+    }
+
+    void RenderGraph::Execute(drv::CommandBuffer& commandBuffer)
+    {
+        for (auto& pass : passes) {
+            pass->Execute(*this, commandBuffer);
         }
     }
 

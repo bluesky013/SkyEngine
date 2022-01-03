@@ -124,7 +124,7 @@ namespace sky::drv {
         }
 
         VkResult rst = vkCreateInstance(&instInfo, VKL_ALLOC, &instance);
-        if (rst != VK_NULL_HANDLE) {
+        if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create instance failed %u", rst);
             return false;
         }

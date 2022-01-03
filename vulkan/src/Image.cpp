@@ -4,6 +4,7 @@
 
 #include "vulkan/Image.h"
 #include "vulkan/Device.h"
+#include "vulkan/Basic.h"
 #include "core/logger/Logger.h"
 
 static const char* TAG = "Driver";
@@ -15,6 +16,15 @@ namespace sky::drv {
         , image(VK_NULL_HANDLE)
         , allocation(VK_NULL_HANDLE)
         , imageInfo{}
+    {
+    }
+
+    Image::Image(Device& dev, VkImage img)
+        : DevObject(dev)
+        , image(img)
+        , allocation(VK_NULL_HANDLE)
+        , imageInfo{}
+        , isOwn(false)
     {
     }
 
@@ -46,7 +56,7 @@ namespace sky::drv {
         } else {
             res = vkCreateImage(device.GetNativeHandle(), &imageInfo, nullptr, &image);
         }
-        if (res != VK_NULL_HANDLE) {
+        if (res != VK_SUCCESS) {
             LOG_E(TAG, "create image failed %d", res);
             return false;
         }
@@ -59,7 +69,11 @@ namespace sky::drv {
     {
         if (image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
             vmaDestroyImage(device.GetAllocator(), image, allocation);
+        } else if (image != VK_NULL_HANDLE && isOwn) {
+            vkDestroyImage(device.GetNativeHandle(), image, VKL_ALLOC);
         }
+        image = VK_NULL_HANDLE;
+        allocation = VK_NULL_HANDLE;
     }
 
     ImageViewPtr Image::CreateImageView(const ImageView::Descriptor& des)
@@ -81,5 +95,10 @@ namespace sky::drv {
     const VkImageCreateInfo& Image::GetImageInfo() const
     {
         return imageInfo;
+    }
+
+    VkImage Image::GetNativeHandle() const
+    {
+        return image;
     }
 }

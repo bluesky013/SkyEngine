@@ -10,7 +10,12 @@ namespace sky {
 
     class RenderGraphNode {
     public:
-        RenderGraphNode(std::string&& str) : name(std::move(str)) {}
+        RenderGraphNode(std::string&& str)
+            : name(std::move(str))
+            , counter(0)
+        {
+        }
+
         virtual ~RenderGraphNode() = default;
 
         const std::string& GetName() const

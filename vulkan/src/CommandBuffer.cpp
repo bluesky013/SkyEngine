@@ -21,10 +21,6 @@ namespace sky::drv {
     {
         Wait();
 
-        if (fence) {
-            fence->Reset();
-        }
-
         if (pool != VK_NULL_HANDLE && cmdBuffer != VK_NULL_HANDLE) {
             vkFreeCommandBuffers(device.GetNativeHandle(), pool, 1, &cmdBuffer);
         }
@@ -99,11 +95,24 @@ namespace sky::drv {
             submitInfo.pWaitDstStageMask = waitStages.data();
             submitInfo.pWaitSemaphores = waitSemaphores.data();
         }
-        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence ? VK_NULL_HANDLE : fence->GetNativeHandle());
+        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence ? fence->GetNativeHandle() : VK_NULL_HANDLE);
     }
 
     VkCommandBuffer CommandBuffer::GetNativeHandle() const
     {
         return cmdBuffer;
+    }
+
+    void CommandBuffer::Barrier(VkPipelineStageFlags src, VkPipelineStageFlags dst,
+        const VkImageMemoryBarrier& barrier)
+    {
+        vkCmdPipelineBarrier(cmdBuffer, src, dst, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr,
+            1, &barrier);
+    }
+
+    void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout,
+        VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy)
+    {
+        vkCmdCopyImage(cmdBuffer, src, srcLayout, dst, dstLayout, 1, &copy);
     }
 }

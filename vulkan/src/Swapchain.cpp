@@ -67,11 +67,6 @@ namespace sky::drv {
         return extent;
     }
 
-    const std::vector<ImageViewPtr>& SwapChain::GetViews() const
-    {
-        return views;
-    }
-
     void SwapChain::Present(const PresentInfo& info) const
     {
         std::vector<VkSemaphore> semaphores;
@@ -161,7 +156,7 @@ namespace sky::drv {
         swcInfo.imageFormat      = format.format;
         swcInfo.imageColorSpace  = format.colorSpace;
         swcInfo.imageExtent      = extent;
-        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         swcInfo.imageArrayLayers = 1;
         swcInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swcInfo.presentMode      = mode;
@@ -178,55 +173,52 @@ namespace sky::drv {
 
         LOG_I(TAG, "create swapChain format-%d width-%u, height-%u, imageCount-%u", format.format, extent.width, extent.height, imageCount);
 
-        std::vector<VkImage> images;
+        std::vector<VkImage> vImages;
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, nullptr);
+        vImages.resize(num);
         images.resize(num);
-        views.reserve(num);
-        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, images.data());
-        ImageView::Descriptor viewDes = {};
-        viewDes.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewDes.format = format.format;
+        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, vImages.data());
 
-        for (auto& img : images) {
-            auto view = std::shared_ptr<ImageView>(new ImageView(device));
-            view->image = img;
-            if (!view->Init(viewDes)) {
-                return false;
-            }
-            views.emplace_back(view);
+        auto cmd = queue->AllocateCommandBuffer({});
+
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.pNext = nullptr;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.srcQueueFamilyIndex = 0;
+        barrier.dstQueueFamilyIndex = 0;
+        barrier.subresourceRange = {
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            0, 1, 0, 1
+        };
+        cmd->Begin();
+        for (uint32_t i = 0; i < num; ++i) {
+            barrier.image = vImages[i];
+            images[i] = std::shared_ptr<Image>(new Image(device, vImages[i]));
+            cmd->Barrier(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, barrier);
         }
-
-        imageAvailable = device.CreateDeviceObject<Semaphore>(Semaphore::Descriptor{});
+        cmd->End();
+        cmd->Submit(*queue, {});
 
         return true;
     }
 
     void SwapChain::DestroySwapChain()
     {
-        views.clear();
-
         if (swapChain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(device.GetNativeHandle(), swapChain, VKL_ALLOC);
             swapChain = VK_NULL_HANDLE;
         }
     }
 
-    VkResult SwapChain::AcquireNext() const
+    VkResult SwapChain::AcquireNext(SemaphorePtr semaphore) const
     {
         return vkAcquireNextImageKHR(device.GetNativeHandle(), swapChain, UINT64_MAX,
-            imageAvailable->GetNativeHandle(),
+            semaphore->GetNativeHandle(),
             VK_NULL_HANDLE, &currentImage);
-    }
-
-    const Semaphore* SwapChain::GetAvailableSemaphore() const
-    {
-        return imageAvailable.get();
-    }
-
-    const ImageView* SwapChain::GetCurrentImageView() const
-    {
-        AcquireNext();
-        return views[currentImage].get();
     }
 
     void SwapChain::Resize(uint32_t width, uint32_t height)
@@ -238,22 +230,10 @@ namespace sky::drv {
         }
         DestroySwapChain();
         CreateSwapChain();
-
-        for (auto& listener : listeners) {
-            listener->OnResize(*this);
-        }
     }
 
-    void SwapChain::RegisterListener(SwapChainListener* listener)
+    ImagePtr SwapChain::GetImage() const
     {
-        if (listener == nullptr) {
-            return;
-        }
-        listeners.emplace(listener);
-    }
-
-    void SwapChain::UnRegisterListener(SwapChainListener* listener)
-    {
-        listeners.erase(listener);
+        return images[currentImage];
     }
 }

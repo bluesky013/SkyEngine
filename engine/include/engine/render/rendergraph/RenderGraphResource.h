@@ -5,14 +5,11 @@
 #pragma once
 
 #include <vulkan/Image.h>
+#include <vulkan/RenderPass.h>
+#include <vulkan/FrameBuffer.h>
 #include <engine/render/rendergraph/RenderGraphNode.h>
 
 namespace sky {
-
-    enum class SizePolicy : uint8_t {
-        CUSTOM,
-        INPUT
-    };
 
     class RenderGraphResource : public RenderGraphNode {
     public:
@@ -27,7 +24,9 @@ namespace sky {
         {
         }
 
-        ~GraphImage() = default;
+        ~GraphImage()
+        {
+        }
 
         bool Init(const drv::Image::Descriptor& des);
 
@@ -47,11 +46,17 @@ namespace sky {
         {
         }
 
-        ~GraphAttachment() = default;
+        ~GraphAttachment()
+        {
+        }
 
         bool Init(const drv::ImageView::Descriptor& des);
 
+        bool Compile();
+
         bool operator==(const drv::ImageView::Descriptor& des);
+
+        const drv::ImageViewPtr& GetImageView() const;
 
     private:
         drv::ImageView::Descriptor descriptor;
@@ -59,17 +64,7 @@ namespace sky {
         drv::ImageViewPtr view;
     };
 
-    class GraphFrameBuffer : public RenderGraphResource {
-    public:
-        GraphFrameBuffer(std::string str)
-            : RenderGraphResource(std::move(str))
-        {
-        }
-
-
-    };
-
-    using RGResourcePtr = std::unique_ptr<RenderGraphResource>;
-    using RGImagePtr = std::unique_ptr<GraphImage>;
-    using RGAttachmentPtr = std::unique_ptr<GraphAttachment>;
+    using RGResourcePtr = std::shared_ptr<RenderGraphResource>;
+    using RGImagePtr = std::shared_ptr<GraphImage>;
+    using RGAttachmentPtr = std::shared_ptr<GraphAttachment>;
 }

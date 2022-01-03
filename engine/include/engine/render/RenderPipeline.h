@@ -19,11 +19,14 @@ namespace sky {
         void SetSwapChain(drv::SwapChainPtr swc)
         {
             swapChain = swc;
+            Setup();
         }
 
         virtual void Render(RenderGraph&) = 0;
 
     protected:
+        virtual void Setup() = 0;
+
         drv::SwapChainPtr swapChain;
     };
 

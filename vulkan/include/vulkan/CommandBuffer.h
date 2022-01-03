@@ -2,16 +2,16 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
-#include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
-#include "vulkan/Fence.h"
+#include <vulkan/DevObject.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/Fence.h>
+#include <vulkan/Semaphore.h>
 #include <vector>
 
 namespace sky::drv {
 
     class Device;
     class Queue;
-    class Semaphore;
 
     class CommandBuffer : public DevObject {
     public:
@@ -32,11 +32,17 @@ namespace sky::drv {
             fun(cmdBuffer);
         }
 
+        void Barrier(VkPipelineStageFlags src, VkPipelineStageFlags dst,
+            const VkImageMemoryBarrier& barrier);
+
+        void Copy(VkImage src, VkImageLayout srcLayout,
+            VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy);
+
         void End();
 
         struct SubmitInfo {
-            std::vector<std::pair<VkPipelineStageFlags, Semaphore*>> waits;
-            std::vector<Semaphore*> signals;
+            std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
+            std::vector<SemaphorePtr> signals;
         };
 
         void Submit(Queue& queue, const SubmitInfo& submit);
@@ -53,5 +59,7 @@ namespace sky::drv {
         VkCommandBuffer cmdBuffer;
         FencePtr fence;
     };
+
+    using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
 
 }

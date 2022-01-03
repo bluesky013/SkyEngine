@@ -27,6 +27,7 @@ namespace sky::drv {
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
             bool                  transient   = false;
+            char                  rsv[3]      = {0};
         };
 
         ImageViewPtr CreateImageView(const ImageView::Descriptor& des);
@@ -35,9 +36,15 @@ namespace sky::drv {
 
         const VkImageCreateInfo& GetImageInfo() const;
 
+        VkImage GetNativeHandle() const;
+
     private:
         friend class Device;
+        friend class SwapChain;
         Image(Device&);
+
+        Image(Device&, VkImage);
+
         bool Init(const Descriptor&);
 
         void Reset();
@@ -47,6 +54,7 @@ namespace sky::drv {
         VkImageCreateInfo imageInfo;
         std::list<ImageViewPtr> views;
         bool isTransient = false;
+        bool isOwn = true;
     };
 
     using ImagePtr = std::shared_ptr<Image>;

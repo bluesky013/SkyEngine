@@ -6,7 +6,7 @@
 
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/ImageView.h>
+#include <vulkan/Image.h>
 #include <vulkan/Semaphore.h>
 #include <vector>
 #include <set>
@@ -16,13 +16,6 @@ namespace sky::drv {
     class Device;
     class Queue;
     class SwapChain;
-
-    class SwapChainListener {
-    public:
-        SwapChainListener() = default;
-        virtual ~SwapChainListener() = default;
-        virtual void OnResize(SwapChain&) {}
-    };
 
     class SwapChain : public DevObject {
     public:
@@ -39,7 +32,7 @@ namespace sky::drv {
         };
 
         struct PresentInfo {
-            std::vector<Semaphore*> signals;
+            std::vector<SemaphorePtr> signals;
         };
 
         bool Init(const Descriptor&);
@@ -50,21 +43,13 @@ namespace sky::drv {
 
         const VkExtent2D& GetExtent() const;
 
-        const std::vector<ImageViewPtr>& GetViews() const;
-
         void Present(const PresentInfo&) const;
 
-        VkResult AcquireNext() const;
-
-        const Semaphore* GetAvailableSemaphore() const;
-
-        const ImageView* GetCurrentImageView() const;
+        VkResult AcquireNext(SemaphorePtr semaphore) const;
 
         void Resize(uint32_t width, uint32_t height);
 
-        void RegisterListener(SwapChainListener* listener);
-
-        void UnRegisterListener(SwapChainListener* listener);
+        ImagePtr GetImage() const;
 
     private:
         friend class Device;
@@ -85,10 +70,8 @@ namespace sky::drv {
         VkSurfaceCapabilitiesKHR capabilities;
         VkSurfaceFormatKHR format;
         VkPresentModeKHR mode;
-        std::vector<ImageViewPtr> views;
-        SemaphorePtr imageAvailable;
+        std::vector<ImagePtr> images;
         Descriptor descriptor;
-        std::set<SwapChainListener*> listeners;
     };
 
     using SwapChainPtr = std::shared_ptr<SwapChain>;

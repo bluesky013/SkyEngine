@@ -4,6 +4,9 @@
 
 
 #include <engine/render/RenderScene.h>
+#include <engine/render/DriverManager.h>
+#include <vulkan/CommandBuffer.h>
+#include <vulkan/CommandPool.h>
 
 namespace sky {
 
@@ -40,5 +43,31 @@ namespace sky {
 
     void RenderScene::OnPostTick()
     {
+        renderGraph.Compile();
+        auto device = DriverManager::Get()->GetDevice();
+        auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
+
+        drv::SemaphorePtr wait = device->CreateDeviceObject<drv::Semaphore>({});
+        drv::SemaphorePtr signal = device->CreateDeviceObject<drv::Semaphore>({});
+
+        swapChain->AcquireNext(wait);
+
+        auto cmd = queue->AllocateCommandBuffer(drv::CommandBuffer::Descriptor{});
+        cmd->Begin();
+
+        renderGraph.Execute(*cmd);
+
+        cmd->End();
+
+        drv::CommandBuffer::SubmitInfo submit = {
+            {{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, wait}},
+            {signal}
+        };
+        cmd->Submit(*queue, submit);
+
+        drv::SwapChain::PresentInfo present = {
+            {signal}
+        };
+        swapChain->Present(present);
     }
 }

@@ -4,29 +4,38 @@
 
 #pragma once
 
-#include "vulkan/DevObject.h"
+#include "vulkan/CommandPool.h"
 #include "vulkan/vulkan.h"
 
 namespace sky::drv {
 
     class Device;
 
-    class Queue {
+    class Queue : public DevObject {
     public:
         ~Queue() = default;
+
+        void Setup();
 
         uint32_t GetQueueFamilyIndex() const { return queueFamilyIndex; }
 
         VkQueue GetNativeHandle() const { return queue; }
 
+        CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor& des);
+
     private:
         friend class Device;
-        Queue(VkQueue q, uint32_t family, uint32_t index = 0) : queueFamilyIndex(family), queueIndex(index), queue(q) {}
+        Queue(Device& dev, VkQueue q, uint32_t family)
+            : DevObject(dev)
+            , queueFamilyIndex(family)
+            , queue(q)
+        {
+        }
 
         uint32_t queueFamilyIndex;
-        uint32_t queueIndex;
         VkQueue queue;
+        CommandPoolPtr pool;
     };
 
-    using QueuePtr = std::shared_ptr<Queue>;
+    using QueuePtr = std::unique_ptr<Queue>;
 }

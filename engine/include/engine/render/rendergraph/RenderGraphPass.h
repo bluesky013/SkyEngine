@@ -18,12 +18,14 @@ namespace sky {
     public:
         RenderGraphPassBase(std::string&& str) : RenderGraphNode(std::forward<std::string>(str)) {}
         ~RenderGraphPassBase() = default;
+
+        virtual void Execute(const RenderGraph&, drv::CommandBuffer&) = 0;
     };
 
     template <typename Data>
     class RenderGraphPass : public RenderGraphPassBase {
     public:
-        using ExecuteType = std::function<void(const Data &, const RenderGraph&, drv::CommandBuffer&)>;
+        using ExecuteType = std::function<void(Data &, const RenderGraph&, drv::CommandBuffer&)>;
 
         RenderGraphPass(std::string str, ExecuteType&& exe)
             : RenderGraphPassBase(std::move(str))
@@ -32,9 +34,11 @@ namespace sky {
         {
         }
 
-        ~RenderGraphPass() = default;
+        ~RenderGraphPass()
+        {
+        }
 
-        void Execute(const RenderGraph& graph, drv::CommandBuffer& cmd)
+        void Execute(const RenderGraph& graph, drv::CommandBuffer& cmd) override
         {
             if (execute) execute(static_cast<Data&>(*data), graph, cmd);
         }
