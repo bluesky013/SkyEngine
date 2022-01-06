@@ -3,6 +3,7 @@
 //
 
 #include "vulkan/ImageView.h"
+#include "vulkan/Image.h"
 #include "vulkan/Device.h"
 #include "vulkan/Basic.h"
 #include "core/logger/Logger.h"

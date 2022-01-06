@@ -40,6 +40,7 @@ namespace sky::drv {
 
     private:
         friend class Device;
+        friend class ImageView;
         friend class SwapChain;
         Image(Device&);
 
@@ -52,7 +53,6 @@ namespace sky::drv {
         VkImage image;
         VmaAllocation allocation;
         VkImageCreateInfo imageInfo;
-        std::list<ImageViewPtr> views;
         bool isTransient = false;
         bool isOwn = true;
     };

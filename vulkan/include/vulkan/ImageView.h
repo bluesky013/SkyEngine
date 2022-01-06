@@ -9,6 +9,7 @@
 namespace sky::drv {
 
     class Device;
+    class Image;
 
     class ImageView : public DevObject {
     public:

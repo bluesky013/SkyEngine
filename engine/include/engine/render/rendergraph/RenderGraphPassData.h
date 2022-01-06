@@ -23,8 +23,14 @@ namespace sky {
 
     class GraphicPassData : public RenderGraphPassData {
     public:
-        GraphicPassData() = default;
-        ~GraphicPassData() = default;
+        GraphicPassData()
+        {
+
+        }
+
+        ~GraphicPassData()
+        {
+        }
 
         std::vector<RGAttachmentPtr> attachments;
         std::vector<VkClearValue> clears;

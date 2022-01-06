@@ -10,7 +10,7 @@ namespace sky::drv {
 
     class Device;
 
-    class DevObject : public std::enable_shared_from_this<DevObject> {
+    class DevObject {
     public:
         DevObject(Device& dev) : device(dev) {}
         virtual ~DevObject() = default;

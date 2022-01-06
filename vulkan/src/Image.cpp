@@ -78,10 +78,9 @@ namespace sky::drv {
 
     ImageViewPtr Image::CreateImageView(const ImageView::Descriptor& des)
     {
-        ImageViewPtr ptr = std::shared_ptr<ImageView>(new ImageView(device));
+        ImageViewPtr ptr = std::shared_ptr<ImageView>(new ImageView( device));
         ptr->image = image;
         if (ptr->Init(des)) {
-            views.emplace_back(ptr);
             return ptr;
         }
         return {};
