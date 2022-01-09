@@ -12,4 +12,5 @@ sky_add_library(TARGET Core STATIC
     LINK_LIBS
         GLM
         sfmt
+        crc32c
     )

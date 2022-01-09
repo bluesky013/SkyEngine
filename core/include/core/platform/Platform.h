@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <assert.h>
+#include <cassert>
 #define SKY_ASSERT(val) assert(val);
 
 #ifdef _MSC_VER

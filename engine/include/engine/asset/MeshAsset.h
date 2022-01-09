@@ -9,10 +9,10 @@
 
 namespace sky {
 
-    class ModelAsset : public AssetBase {
+    class MeshAsset : public AssetBase {
     public:
-        ModelAsset(const Uuid& id) : AssetBase(id) {}
-        ~ModelAsset() = default;
+        MeshAsset(const Uuid& id) : AssetBase(id) {}
+        ~MeshAsset() = default;
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("9f7c599a-0073-4ff5-8136-f551d1a1a371");
 
@@ -20,10 +20,10 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    class Model : public ResourceBase {
+    class Mesh : public ResourceBase {
     public:
-        Model(const Uuid& id) : ResourceBase(id) {}
-        ~Model() = default;
+        Mesh(const Uuid& id) : ResourceBase(id) {}
+        ~Mesh() = default;
     };
 
 }

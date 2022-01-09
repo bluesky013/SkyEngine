@@ -26,6 +26,18 @@ namespace sky::drv {
 
     Device::Device(Driver& drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
+        samplers.SetUp([this](VkSampler sampler) {
+            vkDestroySampler(device, sampler, VKL_ALLOC);
+        });
+
+        setLayouts.SetUp([this](VkDescriptorSetLayout layout) {
+            vkDestroyDescriptorSetLayout(device, layout, VKL_ALLOC);
+        });
+
+        pipelineLayouts.SetUp([this](VkPipelineLayout layout) {
+            vkDestroyPipelineLayout(device, layout, VKL_ALLOC);
+        });
+
     }
 
     Device::~Device()
@@ -170,6 +182,54 @@ namespace sky::drv {
             }
         }
         return res;
+    }
+
+    VkSampler Device::GetSampler(uint32_t hash, VkSamplerCreateInfo* samplerInfo)
+    {
+        if (samplerInfo == nullptr) {
+            return samplers.Find(hash);
+        }
+
+        return samplers.FindOrEmplace(hash, [this, samplerInfo]() {
+            VkSampler sampler = VK_NULL_HANDLE;
+            auto rst = vkCreateSampler(device, samplerInfo, VKL_ALLOC, &sampler);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create Sampler failed, %d", rst);
+            }
+            return sampler;
+        });
+    }
+
+    VkPipelineLayout Device::GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo* layoutInfo)
+    {
+        if (layoutInfo == nullptr) {
+            return pipelineLayouts.Find(hash);
+        }
+
+        return pipelineLayouts.FindOrEmplace(hash, [this, layoutInfo]() {
+            VkPipelineLayout layout = VK_NULL_HANDLE;
+            auto rst = vkCreatePipelineLayout(device, layoutInfo, VKL_ALLOC, &layout);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create PipelineLayout failed, %d", rst);
+            }
+            return layout;
+        });
+    }
+
+    VkDescriptorSetLayout Device::GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo* layoutInfo)
+    {
+        if (layoutInfo == nullptr) {
+            return setLayouts.Find(hash);
+        }
+
+        return setLayouts.FindOrEmplace(hash, [this, layoutInfo]() {
+            VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+            auto rst = vkCreateDescriptorSetLayout(device, layoutInfo, VKL_ALLOC, &layout);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create DescriptorSetLayout failed, %d", rst);
+            }
+            return layout;
+        });
     }
 
 }
