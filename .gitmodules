@@ -19,3 +19,6 @@
 [submodule "thirdparty/rapidjson"]
 	path = thirdparty/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "thirdparty/crc32c"]
+	path = thirdparty/crc32c
+	url = git@github.com:google/crc32c.git
