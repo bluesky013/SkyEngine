@@ -22,3 +22,6 @@
 [submodule "thirdparty/crc32c"]
 	path = thirdparty/crc32c
 	url = git@github.com:google/crc32c.git
+[submodule "thirdparty/assimp"]
+	path = thirdparty/assimp
+	url = git@github.com:assimp/assimp.git
