@@ -4,6 +4,7 @@
 
 #include <editor/viewport/ViewportWidget.h>
 #include <QVBoxLayout>
+#include <QPushButton>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
@@ -20,7 +21,7 @@ namespace sky::editor {
 
     void ViewportWidget::Init()
     {
-        auto container = QWidget::createWindowContainer(window, this);
+        auto container = QWidget::createWindowContainer(window, this, Qt::Widget);
         window->Init();
         auto layout = new QVBoxLayout(this);
         layout->setMargin(0);

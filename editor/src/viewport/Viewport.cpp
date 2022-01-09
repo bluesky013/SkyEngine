@@ -9,11 +9,11 @@ namespace sky::editor {
 
     Viewport::Viewport()
     {
+        setSurfaceType(SurfaceType::MetalSurface);
     }
 
     void Viewport::Init()
     {
-        setSurfaceType(SurfaceType::MetalSurface);
         viewport = new sky::Viewport((void*)winId());
         SkyEngine::Get()->AddViewport(*viewport);
     }

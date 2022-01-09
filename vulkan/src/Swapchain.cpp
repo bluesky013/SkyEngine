@@ -144,8 +144,8 @@ namespace sky::drv {
             }
         }
         imageCount = std::min(capabilities.minImageCount + 1, capabilities.maxImageCount);
-        extent.width = std::max(descriptor.width, capabilities.minImageExtent.width);
-        extent.height = std::max(descriptor.height, capabilities.minImageExtent.height);
+        extent.width = std::max(descriptor.width, capabilities.currentExtent.width);
+        extent.height = std::max(descriptor.height, capabilities.currentExtent.height);
 
         extent.width = std::min(extent.width, capabilities.maxImageExtent.width);
         extent.height = std::min(extent.height, capabilities.maxImageExtent.height);
