@@ -52,6 +52,8 @@ namespace sky::drv {
 
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo* = nullptr);
 
+        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo* = nullptr);
+
     private:
         bool Init(const Descriptor&, bool enableDebug);
 
@@ -72,6 +74,7 @@ namespace sky::drv {
         CacheManager<VkDescriptorSetLayout> setLayouts;
         CacheManager<VkPipelineLayout> pipelineLayouts;
         CacheManager<VkPipeline> pipelines;
+        CacheManager<VkRenderPass> renderPasses;
     };
 
 }

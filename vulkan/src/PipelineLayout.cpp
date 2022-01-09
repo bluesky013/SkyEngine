@@ -24,6 +24,8 @@ namespace sky::drv {
         for (auto& desSet : des.desLayouts) {
             HashCombine32(hash, desSet.second);
             layouts.emplace_back(device.GetDescriptorSetLayout(desSet.second));
+
+            requirements.emplace_back(desSet.first);
         }
 
         for (auto& push : des.pushConstants) {
@@ -53,5 +55,10 @@ namespace sky::drv {
     uint32_t PipelineLayout::GetHash() const
     {
         return hash;
+    }
+
+    const std::vector<uint32_t>& PipelineLayout::GetRequirements() const
+    {
+        return requirements;
     }
 }

@@ -38,6 +38,10 @@ namespace sky::drv {
             vkDestroyPipelineLayout(device, layout, VKL_ALLOC);
         });
 
+        renderPasses.SetUp([this](VkRenderPass pass) {
+            vkDestroyRenderPass(device, pass, VKL_ALLOC);
+        });
+
     }
 
     Device::~Device()
@@ -229,6 +233,22 @@ namespace sky::drv {
                 LOG_E(TAG, "create DescriptorSetLayout failed, %d", rst);
             }
             return layout;
+        });
+    }
+
+    VkRenderPass Device::GetRenderPass(uint32_t hash, VkRenderPassCreateInfo* passInfo)
+    {
+        if (passInfo == nullptr) {
+            return renderPasses.Find(hash);
+        }
+
+        return renderPasses.FindOrEmplace(hash, [this, passInfo]() {
+            VkRenderPass pass = VK_NULL_HANDLE;
+            auto rst = vkCreateRenderPass(device, passInfo, VKL_ALLOC, &pass);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create RenderPass failed, %d", rst);
+            }
+            return pass;
         });
     }
 

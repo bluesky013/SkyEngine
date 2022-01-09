@@ -39,6 +39,7 @@ namespace sky::drv {
         RenderPass(Device&);
 
         VkRenderPass pass;
+        uint32_t hash;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

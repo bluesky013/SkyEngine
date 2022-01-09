@@ -27,6 +27,8 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
+        const std::vector<uint32_t>& GetRequirements() const;
+
     private:
         friend class Device;
         PipelineLayout(Device&);
@@ -34,6 +36,7 @@ namespace sky::drv {
         VkPipelineLayout layout;
         uint32_t hash;
         Descriptor descriptor;
+        std::vector<uint32_t> requirements;
     };
 
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;

@@ -38,6 +38,7 @@ TEST(VulkanTest, PipelineLayoutTest)
 
         auto setLayout = device->CreateDeviceObject<DescriptorSetLayout>(descriptor);
         ASSERT_NE(setLayout, nullptr);
+        ASSERT_NE(setLayout->GetNativeHandle(), VK_NULL_HANDLE);
         pipelineLayoutDes.desLayouts.emplace(0, setLayout->GetHash());
     }
 
@@ -50,11 +51,17 @@ TEST(VulkanTest, PipelineLayoutTest)
 
         auto setLayout = device->CreateDeviceObject<DescriptorSetLayout>(descriptor);
         ASSERT_NE(setLayout, nullptr);
+        ASSERT_NE(setLayout->GetNativeHandle(), VK_NULL_HANDLE);
         pipelineLayoutDes.desLayouts.emplace(1, setLayout->GetHash());
     }
 
     auto pipelineLayout = device->CreateDeviceObject<PipelineLayout>(pipelineLayoutDes);
     ASSERT_NE(pipelineLayout, nullptr);
-
+    ASSERT_NE(pipelineLayout->GetNativeHandle(), VK_NULL_HANDLE);
     ASSERT_EQ(device->GetPipelineLayout(pipelineLayout->GetHash()), pipelineLayout->GetNativeHandle());
+
+    auto& requirements = pipelineLayout->GetRequirements();
+    ASSERT_EQ(requirements.size(), 2);
+    ASSERT_EQ(requirements[0], 0);
+    ASSERT_EQ(requirements[1], 1);
 }

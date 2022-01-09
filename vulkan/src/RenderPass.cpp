@@ -6,23 +6,25 @@
 #include "vulkan/Device.h"
 #include "vulkan/Basic.h"
 #include "core/logger/Logger.h"
+#include "core/hash/Crc32.h"
+#include "core/hash/Hash.h"
 static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    RenderPass::RenderPass(Device& dev) : DevObject(dev), pass(VK_NULL_HANDLE)
+    RenderPass::RenderPass(Device& dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0)
     {
     }
 
     RenderPass::~RenderPass()
     {
-        if (pass != VK_NULL_HANDLE) {
-            vkDestroyRenderPass(device.GetNativeHandle(), pass, VKL_ALLOC);
-        }
     }
 
     bool RenderPass::Init(const Descriptor& des)
     {
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(des.attachments.data()),
+            des.attachments.size() * sizeof(VkAttachmentDescription)));
+
         std::vector<VkSubpassDescription> subPasses(des.subPasses.size());
         for (uint32_t i = 0; i < subPasses.size(); ++i) {
             auto& vSubPass = subPasses[i];
@@ -36,7 +38,18 @@ namespace sky::drv {
             vSubPass.pColorAttachments = subPass.colors.empty() ? nullptr : subPass.colors.data();
             vSubPass.pResolveAttachments = subPass.resolves.empty() ? nullptr : subPass.resolves.data();
             vSubPass.pDepthStencilAttachment = subPass.depthStencil.attachment == -1 ? nullptr : &subPass.depthStencil;
+
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.colors.data()),
+                subPass.colors.size() * sizeof(VkAttachmentReference)));
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.resolves.data()),
+                subPass.resolves.size() * sizeof(VkAttachmentReference)));
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.inputs.data()),
+                subPass.inputs.size() * sizeof(VkAttachmentReference)));
+            HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
         }
+
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(des.dependencies.data()),
+            des.dependencies.size() * sizeof(VkSubpassDependency)));
 
         VkRenderPassCreateInfo passInfo = {};
         passInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -47,8 +60,8 @@ namespace sky::drv {
         passInfo.dependencyCount = (uint32_t)des.dependencies.size();
         passInfo.pDependencies   = des.dependencies.data();
 
-        auto rst = vkCreateRenderPass(device.GetNativeHandle(), &passInfo, VKL_ALLOC, &pass);
-        if (rst != VK_SUCCESS) {
+        pass = device.GetRenderPass(hash, &passInfo);
+        if (pass == VK_NULL_HANDLE) {
             return false;
         }
         return true;
