@@ -8,6 +8,7 @@
 #include <vulkan/DescriptorSetLayout.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Sampler.h>
+#include <vulkan/ShaderOption.h>
 
 using namespace sky::drv;
 
@@ -64,4 +65,18 @@ TEST(VulkanTest, PipelineLayoutTest)
     ASSERT_EQ(requirements.size(), 2);
     ASSERT_EQ(requirements[0], 0);
     ASSERT_EQ(requirements[1], 1);
+}
+
+TEST(VulkanTest, ShaderOptionTest)
+{
+    ShaderOption::Builder builder;
+
+    builder.AddConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4);
+    builder.AddConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, 4);
+
+    builder.AddConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 1, 4);
+    builder.AddConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 2, 4);
+    auto ptr = builder.Build();
+
+    ASSERT_EQ(!!ptr, true);
 }

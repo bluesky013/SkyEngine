@@ -1,0 +1,10 @@
+{
+    "vert" : {
+        "path"  : "shaders/PosWithUv.vert",
+        "entry" : "main"
+    },
+    "frag" : {
+        "path"  : "shaders/BaseColor.frag",
+        "entry" : "main"
+    }
+}

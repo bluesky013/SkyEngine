@@ -49,3 +49,7 @@ set(CRC32C_INSTALL OFF)
 set(CRC32C_USE_GLOG OFF)
 set(gtest_force_shared_crt OFF)
 add_subdirectory(crc32c)
+
+set(BUILD_TESTING OFF)
+set(ENABLE_CTEST OFF)
+add_subdirectory(glslang)

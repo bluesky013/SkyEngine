@@ -17,7 +17,9 @@ namespace sky::drv {
 
     Shader::~Shader()
     {
-
+        if (shaderModule != nullptr) {
+            vkDestroyShaderModule(device.GetNativeHandle(), shaderModule, VKL_ALLOC);
+        }
     }
 
     bool Shader::Init(const Descriptor& des)

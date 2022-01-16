@@ -18,6 +18,9 @@ set(PLATFORM_EXT_LIBS
     "-framework CoreFoundation")
 endif()
 
+configure_file(ProjectRoot.h.in ${CMAKE_BINARY_DIR}/Gen/ProjectRoot.h)
+include_directories(${CMAKE_BINARY_DIR}/Gen)
+
 enable_testing()
 
 add_subdirectory(launcher)

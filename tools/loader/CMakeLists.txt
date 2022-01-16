@@ -1,14 +1,10 @@
-file(GLOB_RECURSE LOADER_SRC src/*)
-file(GLOB_RECURSE LOADER_INC include/*)
-
 sky_add_library(TARGET Loader STATIC
     SOURCES
-        ${LOADER_SRC}
-        ${LOADER_INC}
-    PRIVATE_INC
-        src
+        Loader.cpp
+        Loader.h
     PUBLIC_INC
-        include
-    LINK_LIBS
-        Tinygltf
+        .
     )
+
+add_subdirectory(gltf)
+add_subdirectory(shader)

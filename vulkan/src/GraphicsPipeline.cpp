@@ -16,6 +16,11 @@ namespace sky::drv {
 
     bool GraphicsPipeline::Init(const Descriptor& des)
     {
+        if (des.state == nullptr) {
+            return false;
+        }
+        auto& pipelineState = *des.state;
+
         VkGraphicsPipelineCreateInfo pipelineInfo = {};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
@@ -27,8 +32,8 @@ namespace sky::drv {
 
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
         inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssemblyInfo.topology = des.state.inputAssembly.topology;
-        inputAssemblyInfo.primitiveRestartEnable = des.state.inputAssembly.primitiveRestartEnable;
+        inputAssemblyInfo.topology = pipelineState.inputAssembly.topology;
+        inputAssemblyInfo.primitiveRestartEnable = pipelineState.inputAssembly.primitiveRestartEnable;
         pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
 
         pipelineInfo.pTessellationState = nullptr;
@@ -41,47 +46,47 @@ namespace sky::drv {
 
         VkPipelineRasterizationStateCreateInfo rasterState = {};
         rasterState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterState.depthClampEnable = des.state.raster.depthClampEnable;
-        rasterState.rasterizerDiscardEnable = des.state.raster.rasterizerDiscardEnable;
-        rasterState.polygonMode = des.state.raster.polygonMode;
-        rasterState.cullMode = des.state.raster.cullMode;
-        rasterState.frontFace = des.state.raster.frontFace;
-        rasterState.depthBiasEnable = des.state.raster.depthBiasEnable;
-        rasterState.depthBiasConstantFactor = des.state.raster.depthBiasConstantFactor;
-        rasterState.depthBiasClamp = des.state.raster.depthBiasClamp;
-        rasterState.depthBiasSlopeFactor = des.state.raster.depthBiasSlopeFactor;
-        rasterState.lineWidth = des.state.raster.lineWidth;
-        pipelineInfo.pRasterizationState = &rasterState;
+        rasterState.depthClampEnable        = pipelineState.raster.depthClampEnable;
+        rasterState.rasterizerDiscardEnable = pipelineState.raster.rasterizerDiscardEnable;
+        rasterState.polygonMode             = pipelineState.raster.polygonMode;
+        rasterState.cullMode                = pipelineState.raster.cullMode;
+        rasterState.frontFace               = pipelineState.raster.frontFace;
+        rasterState.depthBiasEnable         = pipelineState.raster.depthBiasEnable;
+        rasterState.depthBiasConstantFactor = pipelineState.raster.depthBiasConstantFactor;
+        rasterState.depthBiasClamp          = pipelineState.raster.depthBiasClamp;
+        rasterState.depthBiasSlopeFactor    = pipelineState.raster.depthBiasSlopeFactor;
+        rasterState.lineWidth               = pipelineState.raster.lineWidth;
+        pipelineInfo.pRasterizationState    = &rasterState;
 
         VkPipelineMultisampleStateCreateInfo multiSampleInfo = {};
         multiSampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multiSampleInfo.rasterizationSamples = des.state.multiSample.rasterizationSamples;
-        multiSampleInfo.sampleShadingEnable = des.state.multiSample.sampleShadingEnable;
-        multiSampleInfo.minSampleShading = des.state.multiSample.minSampleShading;
-        multiSampleInfo.pSampleMask = nullptr;
-        multiSampleInfo.alphaToCoverageEnable = des.state.multiSample.alphaToCoverageEnable;
-        multiSampleInfo.alphaToOneEnable = des.state.multiSample.alphaToOneEnable;
-        pipelineInfo.pMultisampleState = &multiSampleInfo;
+        multiSampleInfo.rasterizationSamples  = pipelineState.multiSample.samples;
+        multiSampleInfo.sampleShadingEnable   = pipelineState.multiSample.sampleShadingEnable;
+        multiSampleInfo.minSampleShading      = pipelineState.multiSample.minSampleShading;
+        multiSampleInfo.pSampleMask           = nullptr;
+        multiSampleInfo.alphaToCoverageEnable = pipelineState.multiSample.alphaToCoverageEnable;
+        multiSampleInfo.alphaToOneEnable      = pipelineState.multiSample.alphaToOneEnable;
+        pipelineInfo.pMultisampleState        = &multiSampleInfo;
 
         VkPipelineDepthStencilStateCreateInfo dsInfo = {};
         dsInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        dsInfo.depthTestEnable = des.state.depthStencil.depthTestEnable;
-        dsInfo.depthWriteEnable = des.state.depthStencil.depthWriteEnable;
-        dsInfo.depthCompareOp = des.state.depthStencil.depthCompareOp;
-        dsInfo.depthBoundsTestEnable = des.state.depthStencil.depthBoundsTestEnable;
-        dsInfo.stencilTestEnable = des.state.depthStencil.stencilTestEnable;
-        dsInfo.front = des.state.depthStencil.front;
-        dsInfo.back = des.state.depthStencil.back;
-        dsInfo.minDepthBounds = des.state.depthStencil.minDepthBounds;
-        dsInfo.maxDepthBounds = des.state.depthStencil.maxDepthBounds;
+        dsInfo.depthTestEnable       = pipelineState.depthStencil.depthTestEnable;
+        dsInfo.depthWriteEnable      = pipelineState.depthStencil.depthWriteEnable;
+        dsInfo.depthCompareOp        = pipelineState.depthStencil.depthCompareOp;
+        dsInfo.depthBoundsTestEnable = pipelineState.depthStencil.depthBoundsTestEnable;
+        dsInfo.stencilTestEnable     = pipelineState.depthStencil.stencilTestEnable;
+        dsInfo.front                 = pipelineState.depthStencil.front;
+        dsInfo.back                  = pipelineState.depthStencil.back;
+        dsInfo.minDepthBounds        = pipelineState.depthStencil.minDepthBounds;
+        dsInfo.maxDepthBounds        = pipelineState.depthStencil.maxDepthBounds;
         pipelineInfo.pDepthStencilState = &dsInfo;
 
         VkPipelineColorBlendStateCreateInfo blendInfo = {};
         blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         blendInfo.logicOpEnable = VK_FALSE;
         blendInfo.logicOp = VK_LOGIC_OP_CLEAR;
-        blendInfo.attachmentCount = static_cast<uint32_t>(des.state.blends.attachments.size());
-        blendInfo.pAttachments = des.state.blends.attachments.data();
+        blendInfo.attachmentCount = static_cast<uint32_t>(pipelineState.blends.attachments.size());
+        blendInfo.pAttachments = pipelineState.blends.attachments.data();
         blendInfo.blendConstants[0] = 0;
         blendInfo.blendConstants[1] = 0;
         blendInfo.blendConstants[2] = 0;

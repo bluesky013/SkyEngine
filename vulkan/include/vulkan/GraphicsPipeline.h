@@ -35,7 +35,7 @@ namespace sky::drv {
         };
 
         struct MultiSample {
-            VkSampleCountFlagBits rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+            VkSampleCountFlagBits samples               = VK_SAMPLE_COUNT_1_BIT;
             VkBool32              sampleShadingEnable   = VK_FALSE;
             float                 minSampleShading      = 0.f;
             VkBool32              alphaToCoverageEnable = VK_FALSE;
@@ -67,7 +67,7 @@ namespace sky::drv {
         };
 
         struct Descriptor {
-            PipelineState state;
+            PipelineState* state = nullptr;
             uint32_t pipelineLayout = 0;
             uint32_t renderPass = 0;
         };

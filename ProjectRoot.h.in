@@ -1,0 +1,11 @@
+//
+// Created by Zach Lee on 2022/1/16.
+//
+
+#pragma once
+
+#include <string>
+
+namespace sky {
+    std::string PROJECT_ROOT = "@CMAKE_SOURCE_DIR@";
+}

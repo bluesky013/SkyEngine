@@ -4,11 +4,9 @@
 
 #pragma once
 
-#include <loader/Loader.h>
-
 namespace sky {
 
-    class GLtfLoader : public Loader {
+    class GLtfLoader {
     public:
         GLtfLoader() = default;
         ~GLtfLoader() = default;
