@@ -7,9 +7,6 @@
 [submodule "thirdparty/googletest"]
 	path = thirdparty/googletest
 	url = git@github.com:google/googletest.git
-[submodule "thirdparty/rttr"]
-	path = thirdparty/rttr
-	url = git@github.com:rttrorg/rttr.git
 [submodule "thirdparty/glm"]
 	path = thirdparty/glm
 	url = git@github.com:g-truc/glm.git
@@ -25,3 +22,6 @@
 [submodule "thirdparty/assimp"]
 	path = thirdparty/assimp
 	url = git@github.com:assimp/assimp.git
+[submodule "thirdparty/SPIRV-Cross"]
+	path = thirdparty/SPIRV-Cross
+	url = git@github.com:KhronosGroup/SPIRV-Cross.git
