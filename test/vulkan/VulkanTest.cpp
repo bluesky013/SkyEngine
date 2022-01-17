@@ -71,6 +71,13 @@ TEST(VulkanTest, ShaderOptionTest)
 {
     ShaderOption::Builder builder;
 
+    struct OpDataTest {
+        uint32_t a = 1;
+        float    b = 0.2f;
+        uint32_t c = 3;
+        float    d = 0.4f;
+    };
+
     builder.AddConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4);
     builder.AddConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, 4);
 
@@ -79,4 +86,28 @@ TEST(VulkanTest, ShaderOptionTest)
     auto ptr = builder.Build();
 
     ASSERT_EQ(!!ptr, true);
+    ptr->SetConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, 1);
+    ptr->SetConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, 0.2f);
+    ptr->SetConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 1, 3);
+    ptr->SetConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 2, 0.4f);
+
+    auto data = ptr->GetData();
+
+    auto vi = ptr->GetSpecializationInfo(VK_SHADER_STAGE_VERTEX_BIT);
+    ASSERT_NE(vi, nullptr);
+    ASSERT_EQ(vi->mapEntryCount, 1);
+    ASSERT_EQ(vi->dataSize, 4);
+    ASSERT_EQ(data, vi->pData);
+
+    auto fi = ptr->GetSpecializationInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    ASSERT_NE(fi, nullptr);
+    ASSERT_EQ(fi->mapEntryCount, 3);
+    ASSERT_EQ(fi->dataSize, 12);
+    ASSERT_EQ(&((uint8_t*)vi->pData)[4], fi->pData);
+
+    auto tData = (const OpDataTest*)data;
+    ASSERT_EQ(tData->a, 1);
+    ASSERT_EQ(tData->b, 0.2f);
+    ASSERT_EQ(tData->c, 3);
+    ASSERT_EQ(tData->d, 0.4f);
 }

@@ -29,10 +29,12 @@ namespace sky::drv {
             offsets.emplace_back(size, index);
             auto& info = res->specializationInfo.back();
 
+            uint32_t currentOffset = 0;
             for (auto& id : stage.second) {
                 res->entries.emplace_back(VkSpecializationMapEntry{
-                    id.first, size, id.second
+                    id.first, currentOffset, id.second
                 });
+                currentOffset += id.second;
                 size += id.second;
                 index ++;
             }
@@ -50,5 +52,20 @@ namespace sky::drv {
             info.pData = res->storage.get() + offsets[i].first;
         }
         return res;
+    }
+
+    const VkSpecializationInfo* ShaderOption::GetSpecializationInfo(VkShaderStageFlagBits stage) const
+    {
+        auto iter = std::find(stages.begin(), stages.end(), stage);
+        if (iter == stages.end()) {
+            return nullptr;
+        }
+        auto distance = std::distance(stages.begin(), iter);
+        return &specializationInfo[distance];
+    }
+
+    const uint8_t* ShaderOption::GetData() const
+    {
+        return storage.get();
     }
 }

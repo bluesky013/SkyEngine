@@ -8,6 +8,7 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <algorithm>
 
 namespace sky::drv {
 
@@ -30,13 +31,33 @@ namespace sky::drv {
             std::map<VkShaderStageFlagBits, ConstantMap> constants;
         };
 
+        template <typename T>
+        void SetConstant(VkShaderStageFlagBits stage, uint32_t id, const T& val)
+        {
+            auto iter = std::find(stages.begin(), stages.end(), stage);
+            if (iter == stages.end()) {
+                return;
+            }
+            auto& info = specializationInfo[std::distance(stages.begin(), iter)];
+            for (uint32_t i = 0; i < info.mapEntryCount; ++i) {
+                auto& entry = info.pMapEntries[i];
+                if (entry.constantID == id) {
+                    uint8_t *ptr = const_cast<uint8_t*>(static_cast<const uint8_t*>(info.pData) + entry.offset);
+                    new (ptr) T(val);
+                    return;
+                }
+            }
+        }
+
         const VkSpecializationInfo* GetSpecializationInfo(VkShaderStageFlagBits) const;
 
+        const uint8_t* GetData() const;
 
     private:
         friend class ShaderOption::Builder;
         std::unique_ptr<uint8_t[]> storage;
         std::vector<VkShaderStageFlagBits> stages;
+        std::vector<uint32_t> offsets;
         std::vector<VkSpecializationMapEntry> entries;
         std::vector<VkSpecializationInfo> specializationInfo;
     };
