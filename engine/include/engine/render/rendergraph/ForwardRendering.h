@@ -22,9 +22,10 @@ namespace sky {
         void Render(RenderGraph&) override;
 
     private:
-        void Setup() override;
+        void SetupImage();
         std::set<std::string> viewTags;
         drv::ImagePtr depthImage;
+        VkExtent2D extent = {0, 0};
     };
 
 }

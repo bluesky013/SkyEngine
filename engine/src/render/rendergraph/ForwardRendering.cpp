@@ -18,30 +18,61 @@ namespace sky {
     {
     }
 
-    void ForwardRendering::Setup()
+    void ForwardRendering::SetupImage()
     {
         auto device = DriverManager::Get()->GetDevice();
 
-        auto desc = drv::MakeImage2D(VK_FORMAT_D32_SFLOAT_S8_UINT, swapChain->GetExtent());
-        desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        desc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        depthImage = device->CreateDeviceObject<drv::Image>(desc);
+        auto& ext = swapChain->GetExtent();
+        if (ext.width != extent.width || ext.height != extent.height || !depthImage) {
+            auto desc = drv::MakeImage2D(VK_FORMAT_D32_SFLOAT_S8_UINT, ext);
+            desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            desc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+            depthImage = device->CreateDeviceObject<drv::Image>(desc);
+        }
+        extent = ext;
     }
 
     void ForwardRendering::Render(RenderGraph& renderGraph)
     {
+        SetupImage();
+
         renderGraph.AddPass<GraphicPassData>("ForwardColor",
             [this](RenderGraphBuilder& builder, GraphicPassData& data) -> bool {
-            builder.ImportImage("OutputColor", swapChain->GetImage());
+            builder.ImportImage("MainColor", swapChain->GetImage());
             builder.ImportImage("MainDepthStencil", depthImage);
-            auto color = builder.WriteImage("OutputColor", drv::ImageView::Make2DColor(swapChain->GetFormat()),
-                ImageBindingFlag{ VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
+            auto color = builder.WriteImage("MainColor", drv::ImageView::Make2DColor(swapChain->GetFormat()),
+                ImageBindingFlag{ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
                 AttachmentDesc{VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE});
             color->SetClearColor(drv::MakeClearColor(1.0, 0.0, 0.0, 1.0));
             data.colors.emplace_back(color);
             data.depthStencil = builder.WriteImage("MainDepthStencil", drv::ImageView::Make2DDepthStencil(VK_FORMAT_D32_SFLOAT_S8_UINT),
                 ImageBindingFlag{VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT},
                 AttachmentDesc{VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE});
+            data.extent2D = swapChain->GetExtent();
+            BuildGraphicsPass(data);
+            return true;
+        }, [](GraphicPassData& data, const RenderGraph&, drv::CommandBuffer& cmdBuffer) {
+            BuildFrameBuffer(data);
+            VkRenderPassBeginInfo beginInfo = {};
+            beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            beginInfo.pNext = nullptr;
+            beginInfo.renderPass = data.pass->GetNativeHandle();
+            beginInfo.framebuffer = data.frameBuffer->GetNativeHandle();
+            beginInfo.renderArea.extent = data.extent2D;
+            beginInfo.clearValueCount = static_cast<uint32_t>(data.clears.size());
+            beginInfo.pClearValues = data.clears.data();
+            auto cmd = cmdBuffer.GetNativeHandle();
+            vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdEndRenderPass(cmd);
+        });
+
+        renderGraph.AddPass<GraphicPassData>("SwapChain",
+        [this](RenderGraphBuilder& builder, GraphicPassData& data) -> bool {
+            auto color = builder.WriteImage("MainColor", drv::ImageView::Make2DColor(swapChain->GetFormat()),
+                ImageBindingFlag{ VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
+                AttachmentDesc{VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE});
+            color->SetClearColor(drv::MakeClearColor(0.0, 1.0, 0.0, 1.0));
+            data.colors.emplace_back(color);
             data.extent2D = swapChain->GetExtent();
             BuildGraphicsPass(data);
             return true;

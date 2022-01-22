@@ -27,7 +27,9 @@ namespace sky {
         for (auto& color : passData.colors) {
             BuildAttachment(subPass.AddColor(), color);
         }
-        BuildAttachment(subPass.AddDepthStencil(), passData.depthStencil);
+        if (passData.depthStencil) {
+            BuildAttachment(subPass.AddDepthStencil(), passData.depthStencil);
+        }
         subPass.AddDependency()
             .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
             .SetBarrier(
