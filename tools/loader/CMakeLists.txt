@@ -7,4 +7,3 @@ sky_add_library(TARGET Loader STATIC
     )
 
 add_subdirectory(gltf)
-add_subdirectory(shader)

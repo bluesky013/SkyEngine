@@ -2,19 +2,20 @@
 // Created by Zach Lee on 2022/1/16.
 //
 
-#include <shader/ShaderLoader.h>
+#include <engine/loader/shader/ShaderLoader.h>
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <ProjectRoot.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
+#include <filesystem>
 using namespace rapidjson;
 
 static const char* TAG = "ShaderLoader";
 
 namespace sky {
 
-    static bool ParseShader(const std::string& tag, Document& document, ShaderAsset::SourceData& data)
+    static bool ParseShader(std::filesystem::path parentPath, const std::string& tag, Document& document, ShaderAsset::SourceData& data)
     {
         if(!document.HasMember(tag.data())) {
             return false;
@@ -34,7 +35,8 @@ namespace sky {
             return false;
         }
         auto path = val["path"].GetString();
-        ReadBin(std::string(path) + ".spv", shader.data);
+        parentPath.append(std::string(path) + ".spv");
+        ReadBin(parentPath.string(), shader.data);
 
         if (val.HasMember("entry")) {
             shader.entry = val["entry"].GetString();
@@ -44,10 +46,10 @@ namespace sky {
         return true;
     }
 
-    void ShaderLoader::Load(const std::string &path)
+    void ShaderLoader::Load(const std::string &path, ShaderAsset::SourceData& sourceData)
     {
         std::string data;
-        if (!ReadString(PROJECT_ROOT + "/shaders/" + path, data)) {
+        if (!ReadString(path, data)) {
             return;
         }
 
@@ -58,9 +60,10 @@ namespace sky {
             LOG_E(TAG, "parse json failed, %u", document.GetParseError());
             return;
         }
-        ShaderAsset::SourceData sourceData = {};
-        ParseShader("vert", document, sourceData);
-        ParseShader("frag", document, sourceData);
+        std::filesystem::path absolutePath(path);
+        auto rootDir = absolutePath.parent_path();
+        ParseShader(rootDir, "vert", document, sourceData);
+        ParseShader(rootDir, "frag", document, sourceData);
     }
 
 }

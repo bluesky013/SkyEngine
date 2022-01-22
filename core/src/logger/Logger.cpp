@@ -20,17 +20,4 @@ namespace sky {
 
         printf("[%s] [%s] : %s\n", tag, type, buffer);
     }
-
-    void Logger::Print(const char* tag, const char* type, const char* file, uint32_t line, const char* fmt, ...)
-    {
-        const uint32_t MAX_SIZE = 1024;
-        char buffer[MAX_SIZE];
-        va_list params;
-        va_start(params, fmt);
-        vsnprintf(buffer, MAX_SIZE - 1, fmt, params);
-        va_end(params);
-        buffer[MAX_SIZE - 1] = '\0';
-
-        printf("[%s] [%s] [%s:%d]: %s\n", tag, type, file, line, buffer);
-    }
 }

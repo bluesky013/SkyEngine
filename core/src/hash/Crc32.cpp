@@ -19,7 +19,7 @@ namespace sky {
 
     uint32_t Crc32::Cal(const std::string_view& str)
     {
-        return crc32c::Crc32c(str);
+        return crc32c::Crc32c(str.data(), str.length());
     }
 
 }

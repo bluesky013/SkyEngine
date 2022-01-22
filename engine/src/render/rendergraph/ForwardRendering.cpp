@@ -61,7 +61,7 @@ namespace sky {
         [this](RenderGraphBuilder& builder, GraphicPassData& data) -> bool {
             auto color = builder.WriteImage("MainColor", drv::ImageView::Make2DColor(swapChain->GetFormat()),
                 ImageBindingFlag{ VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
-                AttachmentDesc{VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE});
+                AttachmentDesc{VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE});
             color->SetClearColor(drv::MakeClearColor(0.0, 1.0, 0.0, 1.0));
             data.colors.emplace_back(color);
             data.extent2D = swapChain->GetExtent();

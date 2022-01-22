@@ -4,13 +4,12 @@
 //
 
 #include <engine/render/Render.h>
-#include <engine/world/World.h>
 #include <engine/world/Viewport.h>
-#include <engine/render/RenderScene.h>
-#include <vulkan/Swapchain.h>
 #include <core/logger/Logger.h>
 #include <engine/render/DriverManager.h>
 #include <engine/render/rendergraph/ForwardRendering.h>
+#include <engine/asset/ShaderAsset.h>
+#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Render";
 
@@ -18,6 +17,9 @@ namespace sky {
 
     Render::~Render()
     {
+        scenes.clear();
+        AssetManager::Get()->UnRegisterHandler<ShaderAsset>();
+        DriverManager::Get()->Destroy();
     }
 
     bool Render::Init(const StartInfo& info)
@@ -25,6 +27,12 @@ namespace sky {
         if (!DriverManager::Get()->Initialize({info.appName})) {
             return false;
         }
+
+        AssetManager::Get()->RegisterHandler<ShaderAsset>(new ShaderAssetHandler());
+
+
+        auto asset = AssetManager::Get()->LoadAsset("../shaders/BaseColor.prog", ShaderAsset::TYPE);
+        auto instance = Shader::CreateFromAsset(asset);
         return true;
     }
 

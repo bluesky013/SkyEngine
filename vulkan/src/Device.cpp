@@ -52,6 +52,12 @@ namespace sky::drv {
 
         queues.clear();
 
+        samplers.Shutdown();
+        setLayouts.Shutdown();
+        pipelineLayouts.Shutdown();
+        pipelines.Shutdown();
+        renderPasses.Shutdown();
+
         if (device != VK_NULL_HANDLE) {
             vkDestroyDevice(device, VKL_ALLOC);
         }

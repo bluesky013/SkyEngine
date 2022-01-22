@@ -15,7 +15,7 @@ namespace sky {
         ResourceInstance GetOrCreate(AssetBase& asset, const Uuid& id);
 
         template <typename T>
-        ResourceInstance GetOrCreate(const Uuid& id);
+        CounterPtr<T> GetOrCreate(const Uuid& id);
 
         void DestroyInstance(const Uuid& id);
 
@@ -29,7 +29,7 @@ namespace sky {
     };
 
     template <typename T>
-    ResourceInstance ResourceManager::GetOrCreate(const Uuid& id)
+    CounterPtr<T> ResourceManager::GetOrCreate(const Uuid& id)
     {
         auto iter = resourceMap.find(id);
         if (iter != resourceMap.end()) {

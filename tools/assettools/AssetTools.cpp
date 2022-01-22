@@ -3,12 +3,9 @@
 //
 
 #include <iostream>
-#include <shader/ShaderLoader.h>
 
 int main()
 {
-    sky::ShaderLoader loader;
-    loader.Load("BaseColor.prog");
 
     return 0;
 }

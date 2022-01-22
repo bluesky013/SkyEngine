@@ -17,7 +17,8 @@ namespace sky::drv {
 
         struct Descriptor {
             VkShaderStageFlagBits stage;
-            std::vector<uint32_t> spv;
+            uint32_t* spv = nullptr;
+            uint32_t size = 0;
         };
 
         bool Init(const Descriptor&);

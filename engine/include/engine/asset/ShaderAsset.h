@@ -27,9 +27,28 @@ namespace sky {
             std::vector<ShaderData> shaders;
         };
 
+        const SourceData& GetSourceData() const
+        {
+            return sourceData;
+        }
+
     private:
+        friend class Shader;
+        friend class ShaderAssetHandler;
         const Uuid& GetType() const override { return TYPE; }
-        std::vector<SourceData> shaderDataList;
+        SourceData sourceData;
+
+        AssetPtr Create(const Uuid &id);
+    };
+
+    class ShaderAssetHandler : public AssetHandlerBase {
+    public:
+        ShaderAssetHandler() = default;
+        virtual ~ShaderAssetHandler() = default;
+
+        AssetPtr Create(const Uuid& id) override;
+
+        AssetPtr Load(const std::string&) override;
     };
 
     class Shader : public ResourceBase {
@@ -37,7 +56,10 @@ namespace sky {
         Shader(const Uuid& id) : ResourceBase(id) {}
         ~Shader() = default;
 
+        static CounterPtr<Shader> CreateFromAsset(AssetPtr asset);
+
     private:
+        std::vector<drv::ShaderPtr> shaders;
     };
 
 }

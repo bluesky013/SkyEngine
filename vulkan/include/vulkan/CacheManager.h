@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <functional>
 #include <unordered_map>
 #include <mutex>
 
@@ -16,6 +17,10 @@ namespace sky::drv {
         CacheManager() = default;
 
         ~CacheManager()
+        {
+        }
+
+        void Shutdown()
         {
             std::lock_guard<std::mutex> lock(mutex);
             for (auto& cache : caches) {

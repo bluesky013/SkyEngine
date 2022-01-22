@@ -3,9 +3,6 @@
 //
 
 #pragma once
-#include <cstdint>
-#include <vector>
-#include <list>
 #include <string>
 #include <engine/asset/ShaderAsset.h>
 
@@ -16,7 +13,7 @@ namespace sky {
         ShaderLoader() = default;
         ~ShaderLoader() = default;
 
-        void Load(const std::string& path);
+        void Load(const std::string& path, ShaderAsset::SourceData& data);
     };
 
 }

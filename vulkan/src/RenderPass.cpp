@@ -23,7 +23,7 @@ namespace sky::drv {
     bool RenderPass::Init(const Descriptor& des)
     {
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(des.attachments.data()),
-            des.attachments.size() * sizeof(VkAttachmentDescription)));
+            static_cast<uint32_t>(des.attachments.size() * sizeof(VkAttachmentDescription))));
 
         std::vector<VkSubpassDescription> subPasses(des.subPasses.size());
         for (uint32_t i = 0; i < subPasses.size(); ++i) {
@@ -40,16 +40,16 @@ namespace sky::drv {
             vSubPass.pDepthStencilAttachment = subPass.depthStencil.attachment == -1 ? nullptr : &subPass.depthStencil;
 
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.colors.data()),
-                subPass.colors.size() * sizeof(VkAttachmentReference)));
+                static_cast<uint32_t>(subPass.colors.size() * sizeof(VkAttachmentReference))));
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.resolves.data()),
-                subPass.resolves.size() * sizeof(VkAttachmentReference)));
+                static_cast<uint32_t>(subPass.resolves.size() * sizeof(VkAttachmentReference))));
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(subPass.inputs.data()),
-                subPass.inputs.size() * sizeof(VkAttachmentReference)));
+                static_cast<uint32_t>(subPass.inputs.size() * sizeof(VkAttachmentReference))));
             HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
         }
 
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(des.dependencies.data()),
-            des.dependencies.size() * sizeof(VkSubpassDependency)));
+            static_cast<uint32_t>(des.dependencies.size() * sizeof(VkSubpassDependency))));
 
         VkRenderPassCreateInfo passInfo = {};
         passInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -176,7 +176,7 @@ namespace sky::drv {
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddDepthStencil()
     {
         auto& sub = descriptor.subPasses[subPass];
-        sub.depthStencil.attachment = descriptor.attachments.size();
+        sub.depthStencil.attachment = static_cast<uint32_t>(descriptor.attachments.size());
         sub.depthStencil.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         descriptor.attachments.emplace_back();
         return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
