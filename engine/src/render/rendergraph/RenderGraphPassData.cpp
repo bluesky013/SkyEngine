@@ -8,6 +8,21 @@
 
 namespace sky {
 
+    void GraphicPassExecutor::Execute(drv::CommandBuffer& cmdBuffer)
+    {
+        VkRenderPassBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        beginInfo.pNext = nullptr;
+        beginInfo.renderPass = data.pass->GetNativeHandle();
+        beginInfo.framebuffer = data.frameBuffer->GetNativeHandle();
+        beginInfo.renderArea.extent = data.extent2D;
+        beginInfo.clearValueCount = static_cast<uint32_t>(data.clears.size());
+        beginInfo.pClearValues = data.clears.data();
+        auto cmd = cmdBuffer.GetNativeHandle();
+        vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdEndRenderPass(cmd);
+    }
+
     inline void BuildAttachment(drv::RenderPassFactory::AttachmentImpl builder, RGAttachmentPtr attachment)
     {
         auto subImage = attachment->GetSubImage();

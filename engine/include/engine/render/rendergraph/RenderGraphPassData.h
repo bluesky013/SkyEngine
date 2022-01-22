@@ -6,6 +6,7 @@
 #include <vulkan/FrameBuffer.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/Swapchain.h>
+#include <vulkan/CommandBuffer.h>
 #include <engine/render/rendergraph/RenderGraphResource.h>
 
 namespace sky {
@@ -34,6 +35,17 @@ namespace sky {
         drv::RenderPassPtr pass;
         drv::FrameBufferPtr frameBuffer;
         std::vector<VkClearValue> clears;
+    };
+
+    class GraphicPassExecutor {
+    public:
+        GraphicPassExecutor(GraphicPassData& dat) : data(dat) {}
+        ~GraphicPassExecutor() = default;
+
+        void Execute(drv::CommandBuffer& cmd);
+
+    private:
+        GraphicPassData& data;
     };
 
     void BuildGraphicsPass(GraphicPassData& passData);
