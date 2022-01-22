@@ -34,6 +34,9 @@ namespace sky {
     {
         views.clear();
         renderGraph.Clear();
+        auto device = DriverManager::Get()->GetDevice();
+        waitSemaphore = device->CreateDeviceObject<drv::Semaphore>({});
+        swapChain->AcquireNext(waitSemaphore);
     }
 
     void RenderScene::OnTick(float time)
@@ -47,10 +50,7 @@ namespace sky {
         auto device = DriverManager::Get()->GetDevice();
         auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
 
-        drv::SemaphorePtr wait = device->CreateDeviceObject<drv::Semaphore>({});
         drv::SemaphorePtr signal = device->CreateDeviceObject<drv::Semaphore>({});
-
-        swapChain->AcquireNext(wait);
 
         auto cmd = queue->AllocateCommandBuffer(drv::CommandBuffer::Descriptor{});
         cmd->Begin();
@@ -60,7 +60,7 @@ namespace sky {
         cmd->End();
 
         drv::CommandBuffer::SubmitInfo submit = {
-            {{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, wait}},
+            {{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, waitSemaphore}},
             {signal}
         };
         cmd->Submit(*queue, submit);

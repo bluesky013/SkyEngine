@@ -5,7 +5,6 @@
 #pragma once
 #include <engine/render/rendergraph/RenderGraphBuilder.h>
 #include <engine/render/rendergraph/RenderGraphPass.h>
-#include <engine/render/rendergraph/RenderGraphDatabase.h>
 #include <string>
 
 namespace sky {
@@ -37,16 +36,11 @@ namespace sky {
             RenderGraphNode* to;
         };
 
-        RenderGraphDatabase database;
         std::vector<Edge> edges;
         using PassPtr = std::unique_ptr<RenderGraphPassBase>;
 
-        std::unordered_map<std::string, RGResourcePtr> resources;
+        std::unordered_map<std::string, RGImagePtr> images;
         std::vector<PassPtr> passes;
         std::unordered_map<RenderGraphNode*, std::vector<RenderGraphNode*>> incomingEdgeMap;
-
-        std::list<RGAttachmentPtr> cachedAttachments;
     };
-
-
 }

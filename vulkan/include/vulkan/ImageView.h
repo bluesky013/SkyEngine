@@ -13,6 +13,7 @@ namespace sky::drv {
 
     class ImageView : public DevObject {
     public:
+        ImageView(Device&);
         ~ImageView();
 
         struct Descriptor {
@@ -30,6 +31,12 @@ namespace sky::drv {
             };
         };
 
+        static Descriptor Make2DColor(VkFormat);
+
+        static Descriptor Make2DDepth(VkFormat);
+
+        static Descriptor Make2DDepthStencil(VkFormat);
+
         VkImageView GetNativeHandle() const;
 
         const VkImageViewCreateInfo& GetViewInfo() const;
@@ -37,7 +44,6 @@ namespace sky::drv {
     private:
         friend class Image;
         friend class SwapChain;
-        ImageView(Device&);
 
         bool Init(const Descriptor&);
 
@@ -47,5 +53,4 @@ namespace sky::drv {
     };
 
     using ImageViewPtr = std::shared_ptr<ImageView>;
-
 }

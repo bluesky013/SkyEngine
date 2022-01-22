@@ -41,6 +41,7 @@ namespace sky {
         PipelienPtr pipeline;
         RenderGraph renderGraph;
         std::list<RenderView*> views;
+        drv::SemaphorePtr waitSemaphore;
     };
 
 }

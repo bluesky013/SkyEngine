@@ -21,13 +21,14 @@ namespace sky {
         }
         ~RenderGraphBuilder() = default;
 
-        RGImagePtr CreateImage(const std::string& str, const drv::Image::Descriptor& desc);
+        void ImportImage(const std::string& str, drv::ImagePtr image);
 
-        RGImagePtr ReadImage(const std::string& str);
+        RGAttachmentPtr WriteImage(const std::string& str, const drv::ImageView::Descriptor& viewDesc,
+            ImageBindingFlag binding, const AttachmentDesc& attachmentDesc);
 
-        bool Read(const std::string& str, const drv::ImageView::Descriptor& desc);
+//        RGImagePtr CreateImage(const std::string& str, const drv::Image::Descriptor& desc);
 
-        RGAttachmentPtr Write(const std::string& str, const drv::ImageView::Descriptor& desc);
+//        bool Read(const std::string& str, const drv::ImageView::Descriptor& desc);
 
         void SideEffect();
     private:

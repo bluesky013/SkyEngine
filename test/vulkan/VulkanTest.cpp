@@ -9,10 +9,9 @@
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Sampler.h>
 #include <vulkan/ShaderOption.h>
+#include <vulkan/VertexInput.h>
 
 using namespace sky::drv;
-
-
 
 TEST(VulkanTest, PipelineLayoutTest)
 {
@@ -72,10 +71,10 @@ TEST(VulkanTest, ShaderOptionTest)
     ShaderOption::Builder builder;
 
     struct OpDataTest {
-        uint32_t a = 1;
-        float    b = 0.2f;
-        uint32_t c = 3;
-        float    d = 0.4f;
+        uint32_t a = 0;
+        float    b = 0;
+        uint32_t c = 0;
+        float    d = 0;
     };
 
     builder.AddConstant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4);
@@ -110,4 +109,18 @@ TEST(VulkanTest, ShaderOptionTest)
     ASSERT_EQ(tData->b, 0.2f);
     ASSERT_EQ(tData->c, 3);
     ASSERT_EQ(tData->d, 0.4f);
+}
+
+TEST(VulkanTest, VertexInputTest)
+{
+    VertexInput::Builder builder;
+    auto ptr = builder.Begin()
+        .AddAttribute(0, 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
+        .AddAttribute(1, 0, 16, VK_FORMAT_R32G32B32A32_SFLOAT)
+        .AddAttribute(2, 0, 32, VK_FORMAT_R32G32B32A32_SFLOAT)
+        .AddAttribute(3, 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
+        .AddStream(0, 48, VK_VERTEX_INPUT_RATE_VERTEX)
+        .AddStream(1, 4, VK_VERTEX_INPUT_RATE_VERTEX)
+        .Build();
+    ASSERT_NE(ptr.get(), nullptr);
 }

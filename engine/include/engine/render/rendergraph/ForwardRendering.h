@@ -23,9 +23,8 @@ namespace sky {
 
     private:
         void Setup() override;
-
         std::set<std::string> viewTags;
-        std::unordered_map<std::string, drv::RenderPassPtr> passes;
+        drv::ImagePtr depthImage;
     };
 
 }

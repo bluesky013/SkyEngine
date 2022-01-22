@@ -5,24 +5,13 @@
 #include <engine/render/rendergraph/RenderGraphResource.h>
 #include <engine/render/DriverManager.h>
 #include <vulkan/Util.h>
+#include <core/hash/Crc32.h>
 
 namespace sky {
 
-    bool GraphImage::Init(const drv::Image::Descriptor& des)
+    void GraphImage::SetImage(drv::ImagePtr img)
     {
-        auto device = DriverManager::Get()->GetDevice();
-        auto res = device->CreateDeviceObject<drv::Image>(des);
-        if (!res) {
-            return false;
-        }
-        image = res;
-        descriptor = des;
-        return true;
-    }
-
-    bool GraphImage::operator==(const drv::Image::Descriptor& des)
-    {
-        return memcmp(&descriptor, &des, sizeof(drv::Image::Descriptor)) == 0;
+        image = img;
     }
 
     drv::ImagePtr GraphImage::GetImage() const
@@ -30,29 +19,48 @@ namespace sky {
         return image;
     }
 
-    bool GraphAttachment::Init(const drv::ImageView::Descriptor& des)
+    RGSubImagePtr GraphImage::GetOrCreateSubImage(const drv::ImageView::Descriptor& desc)
     {
-        descriptor = des;
-        return true;
-    }
-
-    bool GraphAttachment::Compile()
-    {
-        auto res = image->CreateImageView(descriptor);
-        if (!res) {
-            return false;
+        uint32_t hash = Crc32::Cal(desc);
+        auto iter = subImages.find(hash);
+        if (iter != subImages.end()) {
+            return iter->second;
         }
-        view = res;
-        return true;
+        auto sub = std::make_shared<GraphSubImage>(desc);
+        subImages.emplace(hash, sub);
+        return sub;
     }
 
-    bool GraphAttachment::operator==(const drv::ImageView::Descriptor& des)
+    void GraphImage::BuildResource()
     {
-        return memcmp(&descriptor, &des, sizeof(drv::ImageView::Descriptor)) == 0;
+        for (auto& sub : subImages) {
+            sub.second->view = image->CreateImageView(sub.second->descriptor);
+        }
     }
 
-    const drv::ImageViewPtr& GraphAttachment::GetImageView() const
-    {
-        return view;
-    }
+//    bool GraphAttachment::Init(const drv::ImageView::Descriptor& des)
+//    {
+//        descriptor = des;
+//        return true;
+//    }
+//
+//    bool GraphAttachment::Compile()
+//    {
+//        auto res = image->CreateImageView(descriptor);
+//        if (!res) {
+//            return false;
+//        }
+//        view = res;
+//        return true;
+//    }
+//
+//    bool GraphAttachment::operator==(const drv::ImageView::Descriptor& des)
+//    {
+//        return memcmp(&descriptor, &des, sizeof(drv::ImageView::Descriptor)) == 0;
+//    }
+//
+//    const drv::ImageViewPtr& GraphAttachment::GetImageView() const
+//    {
+//        return view;
+//    }
 }

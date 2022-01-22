@@ -23,28 +23,20 @@ namespace sky {
 
     class GraphicPassData : public RenderGraphPassData {
     public:
-        GraphicPassData()
-        {
+        GraphicPassData() = default;
 
-        }
+        ~GraphicPassData() = default;
 
-        ~GraphicPassData()
-        {
-        }
-
-        std::vector<RGAttachmentPtr> attachments;
-        std::vector<VkClearValue> clears;
-        drv::FrameBuffer::Descriptor fbInfo;
+        std::vector<RGAttachmentPtr> colors;
+        std::vector<RGAttachmentPtr> resolves;
+        RGAttachmentPtr depthStencil;
+        VkExtent2D extent2D = {1, 1};
+        drv::RenderPassPtr pass;
         drv::FrameBufferPtr frameBuffer;
+        std::vector<VkClearValue> clears;
     };
 
-    class SwapChainPassData : public RenderGraphPassData {
-    public:
-        SwapChainPassData() = default;
-        ~SwapChainPassData() = default;
+    void BuildGraphicsPass(GraphicPassData& passData);
 
-        RGImagePtr image;
-        drv::SwapChainPtr swapChain;
-    };
-
+    void BuildFrameBuffer(GraphicPassData& passData);
 }

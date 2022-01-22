@@ -10,13 +10,20 @@ static const char* TAG = "RenderGraphBuilder";
 
 namespace sky {
 
-    RGImagePtr RenderGraphBuilder::CreateImage(const std::string& str,
-        const drv::Image::Descriptor& desc)
+    void RenderGraphBuilder::ImportImage(const std::string& str, drv::ImagePtr image)
     {
-        auto res = renderGraph.database.GetOrCreateImage(str, desc);
-        renderGraph.resources.emplace(str, res);
-        return res;
+        auto rgImage = std::make_shared<GraphImage>(str);
+        rgImage->SetImage(image);
+        renderGraph.images.emplace(str, rgImage);
     }
+
+//    RGImagePtr RenderGraphBuilder::CreateImage(const std::string& str,
+//        const drv::Image::Descriptor& desc)
+//    {
+//        auto res = renderGraph.database.GetOrCreateImage(str, desc);
+//        renderGraph.resources.emplace(str, res);
+//        return res;
+//    }
 
 //    GraphAttachment* RenderGraphBuilder::CreateAttachment(const std::string& source, const std::string& str,
 //        const drv::ImageView::Descriptor& desc)
@@ -31,47 +38,49 @@ namespace sky {
 //        return renderGraph.database.GetOrCreateFrameBuffer(key, desc);
 //    }
 
-    RGImagePtr RenderGraphBuilder::ReadImage(const std::string& str)
+//    RGImagePtr RenderGraphBuilder::ReadImage(const std::string& str)
+//    {
+//        auto iter = renderGraph.resources.find(str);
+//        if (iter == renderGraph.resources.end()) {
+//            return nullptr;
+//        }
+//        RenderGraphNode* from = iter->second.get();
+//        RenderGraphNode* to = &pass;
+//        renderGraph.edges.emplace_back(RenderGraph::Edge{from, to});
+//        auto& vector = renderGraph.incomingEdgeMap[to];
+//        vector.emplace_back(from);
+//        return std::static_pointer_cast<GraphImage>(iter->second);
+//    }
+//
+//    bool RenderGraphBuilder::Read(const std::string& str, const drv::ImageView::Descriptor& desc)
+//    {
+//        auto iter = renderGraph.resources.find(str);
+//        if (iter == renderGraph.resources.end()) {
+//            return false;
+//        }
+//        RenderGraphNode* from = iter->second.get();
+//        RenderGraphNode* to = &pass;
+//        renderGraph.edges.emplace_back(RenderGraph::Edge{from, to});
+//        auto& vector = renderGraph.incomingEdgeMap[to];
+//        vector.emplace_back(from);
+//        return true;
+//    }
+//
+    RGAttachmentPtr RenderGraphBuilder::WriteImage(const std::string& str, const drv::ImageView::Descriptor& viewDesc,
+        ImageBindingFlag binding, const AttachmentDesc& attachmentDesc)
     {
-        auto iter = renderGraph.resources.find(str);
-        if (iter == renderGraph.resources.end()) {
-            return nullptr;
-        }
-        RenderGraphNode* from = iter->second.get();
-        RenderGraphNode* to = &pass;
-        renderGraph.edges.emplace_back(RenderGraph::Edge{from, to});
-        auto& vector = renderGraph.incomingEdgeMap[to];
-        vector.emplace_back(from);
-        return std::static_pointer_cast<GraphImage>(iter->second);
-    }
-
-    bool RenderGraphBuilder::Read(const std::string& str, const drv::ImageView::Descriptor& desc)
-    {
-        auto iter = renderGraph.resources.find(str);
-        if (iter == renderGraph.resources.end()) {
-            return false;
-        }
-        RenderGraphNode* from = iter->second.get();
-        RenderGraphNode* to = &pass;
-        renderGraph.edges.emplace_back(RenderGraph::Edge{from, to});
-        auto& vector = renderGraph.incomingEdgeMap[to];
-        vector.emplace_back(from);
-        return true;
-    }
-
-    RGAttachmentPtr RenderGraphBuilder::Write(const std::string& str, const drv::ImageView::Descriptor& desc)
-    {
-        auto iter = renderGraph.resources.find(str);
-        if (iter == renderGraph.resources.end()) {
-            return nullptr;
+        auto iter = renderGraph.images.find(str);
+        if (iter == renderGraph.images.end()) {
+            return {};
         }
 
-        auto* image = static_cast<GraphImage*>(iter->second.get());
-        auto attachment = std::make_shared<GraphAttachment>(str, image->GetImage());
-        if (!attachment->Init(desc)) {
-            return nullptr;
+        if (iter->second->first == nullptr) {
+            iter->second->first = &pass;
         }
-        renderGraph.cachedAttachments.emplace_back(attachment);
+        iter->second->last = &pass;
+        auto sub = iter->second->GetOrCreateSubImage(viewDesc);
+        auto attachment = std::make_unique<GraphAttachment>(sub, attachmentDesc, sub->GetBinding(), binding);
+        sub->SetBinding(binding);
 
         RenderGraphNode* from = &pass;
         RenderGraphNode* to = iter->second.get();

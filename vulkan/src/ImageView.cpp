@@ -50,4 +50,28 @@ namespace sky::drv {
     {
         return viewInfo;
     }
+
+    ImageView::Descriptor ImageView::Make2DColor(VkFormat format)
+    {
+        ImageView::Descriptor desc = {};
+        desc.format = format;
+        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        return desc;
+    }
+
+    ImageView::Descriptor ImageView::Make2DDepth(VkFormat format)
+    {
+        ImageView::Descriptor desc = {};
+        desc.format = format;
+        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        return desc;
+    }
+
+    ImageView::Descriptor ImageView::Make2DDepthStencil(VkFormat format)
+    {
+        ImageView::Descriptor desc = {};
+        desc.format = format;
+        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        return desc;
+    }
 }

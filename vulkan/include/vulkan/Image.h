@@ -7,6 +7,8 @@
 #include "vulkan/ImageView.h"
 #include "vk_mem_alloc.h"
 #include <list>
+#include <unordered_map>
+#include <mutex>
 
 namespace sky::drv {
 
@@ -55,6 +57,9 @@ namespace sky::drv {
         VkImageCreateInfo imageInfo;
         bool isTransient = false;
         bool isOwn = true;
+
+        std::mutex mutex;
+        std::unordered_map<uint32_t, ImageViewPtr> views;
     };
 
     using ImagePtr = std::shared_ptr<Image>;

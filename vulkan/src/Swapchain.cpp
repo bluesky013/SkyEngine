@@ -156,7 +156,7 @@ namespace sky::drv {
         swcInfo.imageFormat      = format.format;
         swcInfo.imageColorSpace  = format.colorSpace;
         swcInfo.imageExtent      = extent;
-        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         swcInfo.imageArrayLayers = 1;
         swcInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swcInfo.presentMode      = mode;
@@ -178,30 +178,9 @@ namespace sky::drv {
         vImages.resize(num);
         images.resize(num);
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, vImages.data());
-
-        auto cmd = queue->AllocateCommandBuffer({});
-
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        barrier.srcQueueFamilyIndex = 0;
-        barrier.dstQueueFamilyIndex = 0;
-        barrier.subresourceRange = {
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            0, 1, 0, 1
-        };
-        cmd->Begin();
         for (uint32_t i = 0; i < num; ++i) {
-            barrier.image = vImages[i];
             images[i] = std::shared_ptr<Image>(new Image(device, vImages[i]));
-            cmd->Barrier(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, barrier);
         }
-        cmd->End();
-        cmd->Submit(*queue, {});
 
         return true;
     }
