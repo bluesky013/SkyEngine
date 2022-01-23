@@ -42,6 +42,7 @@ namespace sky {
         RenderGraph renderGraph;
         std::list<RenderView*> views;
         drv::SemaphorePtr waitSemaphore;
+        drv::CommandBufferPtr cmdBuffer;
     };
 
 }

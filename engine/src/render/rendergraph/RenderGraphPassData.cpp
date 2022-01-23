@@ -5,8 +5,14 @@
 #include <engine/render/rendergraph/RenderGraphPassData.h>
 #include <engine/render/DriverManager.h>
 #include <vulkan/RenderPass.h>
+#include <engine/render/DevObjManager.h>
 
 namespace sky {
+
+    GraphicPassData::~GraphicPassData()
+    {
+        DevObjManager::Get()->FreeDeviceObject(frameBuffer);
+    }
 
     void GraphicPassExecutor::Execute(drv::CommandBuffer& cmdBuffer)
     {
@@ -24,12 +30,20 @@ namespace sky {
         VkRect2D rect {{0, 0}, data.extent2D};
         vkCmdSetViewport(cmd, 0, 1, &viewport);
         vkCmdSetScissor(cmd, 0, 1, &rect);
-        if (data.pipeline) {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline->GetNativeHandle());
+        if (data.encoder) {
+            data.encoder->Execute(cmdBuffer, data);
+        }
+        vkCmdEndRenderPass(cmd);
+    }
+
+    void FullscreenEncoder::Execute(drv::CommandBuffer &cmdBuffer, GraphicPassData& data)
+    {
+        auto cmd = cmdBuffer.GetNativeHandle();
+        auto& fsData = static_cast<FullscreenPassData&>(data);
+        if (fsData.pipeline) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, fsData.pipeline->GetNativeHandle());
             vkCmdDraw(cmd, 3, 1, 0, 0);
         }
-
-        vkCmdEndRenderPass(cmd);
     }
 
     inline void BuildAttachment(drv::RenderPassFactory::AttachmentImpl builder, RGAttachmentPtr attachment)
@@ -88,15 +102,6 @@ namespace sky {
             passData.clears.emplace_back(passData.depthStencil->GetClearValue());
         }
         passData.frameBuffer = DriverManager::Get()->CreateDeviceObject<drv::FrameBuffer>(desc);
-    }
-
-    drv::GraphicsPipelinePtr BuildFullscreenPipeline(FullscreenPassData& fullscreenData)
-    {
-        drv::GraphicsPipeline::Descriptor desc = {};
-        drv::GraphicsPipeline::State pipelineState = {};
-
-
-        return {};
     }
 
 }

@@ -10,8 +10,10 @@
 #include <vulkan/GraphicsPipeline.h>
 #include <engine/render/rendergraph/RenderGraphResource.h>
 #include <engine/asset/ShaderAsset.h>
+#include <memory>
 
 namespace sky {
+    class GraphicPassData;
 
     enum class SizePolicy : uint8_t {
         CUSTOM,
@@ -24,11 +26,27 @@ namespace sky {
         virtual ~RenderGraphPassData() = default;
     };
 
+    class GraphicEncoder {
+    public:
+        GraphicEncoder() = default;
+        ~GraphicEncoder() = default;
+
+        virtual void Execute(drv::CommandBuffer& cmd, GraphicPassData& data) = 0;
+    };
+
+    class FullscreenEncoder : public GraphicEncoder {
+    public:
+        FullscreenEncoder() = default;
+        ~FullscreenEncoder() = default;
+
+        virtual void Execute(drv::CommandBuffer& cmd, GraphicPassData& data) override;
+    };
+
     class GraphicPassData : public RenderGraphPassData {
     public:
         GraphicPassData() = default;
 
-        ~GraphicPassData() = default;
+        ~GraphicPassData();
 
         std::vector<RGAttachmentPtr> colors;
         std::vector<RGAttachmentPtr> resolves;
@@ -37,14 +55,17 @@ namespace sky {
         drv::RenderPassPtr pass;
         drv::FrameBufferPtr frameBuffer;
         std::vector<VkClearValue> clears;
-        drv::GraphicsPipelinePtr pipeline;
+        std::unique_ptr<GraphicEncoder> encoder;
     };
 
     class FullscreenPassData : public GraphicPassData {
     public:
-        FullscreenPassData() = default;
+        FullscreenPassData()
+        {
+            encoder.reset(new FullscreenEncoder());
+        }
         ~FullscreenPassData() = default;
-        ShaderPtr shader;
+
         drv::GraphicsPipelinePtr pipeline;
     };
 
@@ -62,6 +83,4 @@ namespace sky {
     void BuildGraphicsPass(GraphicPassData& passData);
 
     void BuildFrameBuffer(GraphicPassData& passData);
-
-    drv::GraphicsPipelinePtr BuildFullscreenPipeline(FullscreenPassData& fullscreenData);
 }

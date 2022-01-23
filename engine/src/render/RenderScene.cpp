@@ -5,8 +5,7 @@
 
 #include <engine/render/RenderScene.h>
 #include <engine/render/DriverManager.h>
-#include <vulkan/CommandBuffer.h>
-#include <vulkan/CommandPool.h>
+#include <engine/render/DevObjManager.h>
 
 namespace sky {
 
@@ -52,22 +51,26 @@ namespace sky {
 
         drv::SemaphorePtr signal = device->CreateDeviceObject<drv::Semaphore>({});
 
-        auto cmd = queue->AllocateCommandBuffer(drv::CommandBuffer::Descriptor{});
-        cmd->Begin();
+        if (!cmdBuffer) {
+            cmdBuffer = queue->AllocateCommandBuffer(drv::CommandBuffer::Descriptor{});
+        }
+        cmdBuffer->Wait();
+        cmdBuffer->Begin();
 
-        renderGraph.Execute(*cmd);
+        renderGraph.Execute(*cmdBuffer);
 
-        cmd->End();
+        cmdBuffer->End();
 
         drv::CommandBuffer::SubmitInfo submit = {
             {{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, waitSemaphore}},
             {signal}
         };
-        cmd->Submit(*queue, submit);
+        cmdBuffer->Submit(*queue, submit);
 
         drv::SwapChain::PresentInfo present = {
             {signal}
         };
         swapChain->Present(present);
+        DevObjManager::Get()->FreeDeviceObject(signal);
     }
 }

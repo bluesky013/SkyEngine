@@ -8,7 +8,7 @@
 #include <core/logger/Logger.h>
 #include <engine/render/DriverManager.h>
 #include <engine/render/rendergraph/ForwardRendering.h>
-#include <engine/asset/ShaderAsset.h>
+#include <engine/render/DevObjManager.h>
 #include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Render";
@@ -19,6 +19,7 @@ namespace sky {
     {
         scenes.clear();
         AssetManager::Get()->UnRegisterHandler<ShaderAsset>();
+        DevObjManager::Get()->Destroy();
         DriverManager::Get()->Destroy();
     }
 
@@ -100,6 +101,8 @@ namespace sky {
 
     void Render::OnTick(float time)
     {
+        DevObjManager::Get()->TickFreeList();
+
         for (auto& rs : scenes) {
             rs.second->OnPreTick();
         }

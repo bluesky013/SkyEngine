@@ -18,5 +18,6 @@ namespace sky::drv {
     protected:
         Device& device;
     };
+    using DevPtr = std::shared_ptr<DevObject>;
 
 }

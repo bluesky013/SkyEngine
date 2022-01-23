@@ -88,13 +88,13 @@ namespace sky {
             executor.Execute(cmdBuffer);
         });
 
-        renderGraph.AddPass<GraphicPassData>("SwapChain",
-        [this](RenderGraphBuilder& builder, GraphicPassData& data) -> bool {
+        renderGraph.AddPass<FullscreenPassData>("SwapChain",
+        [this](RenderGraphBuilder& builder, FullscreenPassData& data) -> bool {
             builder.ImportImage("OutColor", swapChain->GetImage());
             auto color = builder.WriteImage("OutColor", drv::ImageView::Make2DColor(swapChain->GetFormat()),
                 ImageBindingFlag{ VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
                 AttachmentDesc{VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE});
-            color->SetClearColor(drv::MakeClearColor(0.0, 1.0, 0.0, 1.0));
+            color->SetClearColor(drv::MakeClearColor(0.0, 0.0, 0.0, 0.0));
             data.colors.emplace_back(color);
             data.extent2D = extent;
             BuildGraphicsPass(data);
@@ -108,7 +108,7 @@ namespace sky {
             data.pipeline = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::GraphicsPipeline>(desc);
 
             return true;
-        }, [this](GraphicPassData& data, const RenderGraph&, drv::CommandBuffer& cmdBuffer) {
+        }, [](FullscreenPassData& data, const RenderGraph&, drv::CommandBuffer& cmdBuffer) {
             BuildFrameBuffer(data);
             GraphicPassExecutor executor(data);
             executor.Execute(cmdBuffer);
