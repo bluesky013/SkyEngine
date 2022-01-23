@@ -20,6 +20,15 @@ namespace sky {
         beginInfo.pClearValues = data.clears.data();
         auto cmd = cmdBuffer.GetNativeHandle();
         vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        VkViewport viewport { 0, 0,  (float)data.extent2D.width, (float)data.extent2D.height, 0, 1.f};
+        VkRect2D rect {{0, 0}, data.extent2D};
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        vkCmdSetScissor(cmd, 0, 1, &rect);
+        if (data.pipeline) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline->GetNativeHandle());
+            vkCmdDraw(cmd, 3, 1, 0, 0);
+        }
+
         vkCmdEndRenderPass(cmd);
     }
 

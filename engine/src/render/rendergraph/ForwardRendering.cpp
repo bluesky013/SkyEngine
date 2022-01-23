@@ -110,26 +110,8 @@ namespace sky {
             return true;
         }, [this](GraphicPassData& data, const RenderGraph&, drv::CommandBuffer& cmdBuffer) {
             BuildFrameBuffer(data);
-//            GraphicPassExecutor executor(data);
-//            executor.Execute(cmdBuffer);
-
-            VkRenderPassBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            beginInfo.pNext = nullptr;
-            beginInfo.renderPass = data.pass->GetNativeHandle();
-            beginInfo.framebuffer = data.frameBuffer->GetNativeHandle();
-            beginInfo.renderArea.extent = data.extent2D;
-            beginInfo.clearValueCount = static_cast<uint32_t>(data.clears.size());
-            beginInfo.pClearValues = data.clears.data();
-            auto cmd = cmdBuffer.GetNativeHandle();
-            vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-                VkViewport viewport { 0, 0,  (float)extent.width, (float)extent.height, 0, 1.f};
-                VkRect2D rect {{0, 0}, extent};
-                vkCmdSetViewport(cmd, 0, 1, &viewport);
-                vkCmdSetScissor(cmd, 0, 1, &rect);
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline->GetNativeHandle());
-                vkCmdDraw(cmd, 3, 1, 0, 0);
-            vkCmdEndRenderPass(cmd);
+            GraphicPassExecutor executor(data);
+            executor.Execute(cmdBuffer);
         });
 
     }
