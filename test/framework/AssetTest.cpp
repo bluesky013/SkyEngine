@@ -39,12 +39,12 @@ public:
     TestAssetHandler() = default;
     ~TestAssetHandler() = default;
 
-    AssetPtr Create(const Uuid& id) override
+    AssetBase* Create(const Uuid& id) override
     {
         return new TestAsset(id);
     }
 
-    AssetPtr Load(const std::string&) override
+    AssetBase* Load(const std::string&) override
     {
         return new TestAsset(Uuid::Create());
     }

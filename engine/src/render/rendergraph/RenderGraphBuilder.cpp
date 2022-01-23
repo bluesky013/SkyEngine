@@ -12,9 +12,7 @@ namespace sky {
 
     void RenderGraphBuilder::ImportImage(const std::string& str, drv::ImagePtr image)
     {
-        auto rgImage = std::make_shared<GraphImage>(str);
-        rgImage->SetImage(image);
-        renderGraph.images.emplace(str, rgImage);
+        renderGraph.ImportImage(str, image);
     }
 
 //    RGImagePtr RenderGraphBuilder::CreateImage(const std::string& str,
@@ -66,6 +64,30 @@ namespace sky {
 //        return true;
 //    }
 //
+    RGTexturePtr RenderGraphBuilder::ReadImage(const std::string& str, const drv::ImageView::Descriptor& viewDesc,
+        ImageBindingFlag binding)
+    {
+        auto iter = renderGraph.images.find(str);
+        if (iter == renderGraph.images.end()) {
+            return {};
+        }
+
+        if (iter->second->first == nullptr) {
+            iter->second->first = &pass;
+        }
+        iter->second->last = &pass;
+        auto sub = iter->second->GetOrCreateSubImage(viewDesc);
+        auto texture = std::make_unique<GraphTexture>(sub, sub->GetBinding(), binding);
+        sub->SetBinding(binding);
+
+        RenderGraphNode* from = iter->second.get();
+        RenderGraphNode* to = &pass;
+        renderGraph.edges.emplace_back(RenderGraph::Edge{from, to});
+        auto& vector = renderGraph.incomingEdgeMap[to];
+        vector.emplace_back(from);
+        return texture;
+    }
+
     RGAttachmentPtr RenderGraphBuilder::WriteImage(const std::string& str, const drv::ImageView::Descriptor& viewDesc,
         ImageBindingFlag binding, const AttachmentDesc& attachmentDesc)
     {

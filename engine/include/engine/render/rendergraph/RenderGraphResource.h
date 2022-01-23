@@ -9,6 +9,7 @@
 #include <vulkan/FrameBuffer.h>
 #include <vulkan/Swapchain.h>
 #include <vulkan/Util.h>
+#include <vulkan/Sampler.h>
 #include <engine/render/rendergraph/RenderGraphNode.h>
 
 namespace sky {
@@ -103,10 +104,33 @@ namespace sky {
     };
     using RGImagePtr = std::shared_ptr<GraphImage>;
 
+    class GraphTexture {
+    public:
+        GraphTexture(RGSubImagePtr sub, const ImageBindingFlag& last, const ImageBindingFlag& current)
+            : subImage(sub)
+            , lastBinding(last)
+            , currentBinding(current)
+        {
+        }
+
+        void SetSampler(drv::SamplerPtr spl)
+        {
+            sampler = spl;
+        }
+
+    private:
+        friend class RenderGraphBuilder;
+        RGSubImagePtr subImage;
+        ImageBindingFlag lastBinding;
+        ImageBindingFlag currentBinding;
+        drv::SamplerPtr sampler;
+    };
+    using RGTexturePtr = std::shared_ptr<GraphTexture>;
+
     class GraphAttachment {
     public:
         GraphAttachment(RGSubImagePtr sub, const AttachmentDesc& attachment,
-                        const ImageBindingFlag& last, const ImageBindingFlag& current)
+            const ImageBindingFlag& last, const ImageBindingFlag& current)
             : subImage(sub)
             , attachmentDesc(attachment)
             , lastBinding(last)

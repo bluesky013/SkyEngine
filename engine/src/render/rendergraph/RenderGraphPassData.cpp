@@ -81,4 +81,13 @@ namespace sky {
         passData.frameBuffer = DriverManager::Get()->CreateDeviceObject<drv::FrameBuffer>(desc);
     }
 
+    drv::GraphicsPipelinePtr BuildFullscreenPipeline(FullscreenPassData& fullscreenData)
+    {
+        drv::GraphicsPipeline::Descriptor desc = {};
+        drv::GraphicsPipeline::State pipelineState = {};
+
+
+        return {};
+    }
+
 }

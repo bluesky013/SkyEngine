@@ -25,11 +25,14 @@ namespace sky::drv {
 
         VkShaderModule GetNativeHandle() const;
 
+        VkShaderStageFlagBits GetShaderStage() const;
+
     private:
         friend class Device;
         Shader(Device&);
 
         VkShaderModule shaderModule;
+        VkShaderStageFlagBits stage;
         uint32_t hash;
     };
 

@@ -46,6 +46,7 @@ namespace sky {
 
         Uuid uuid;
         Status status = Status::UNLOAD;
+        std::string path;
     };
 
     using AssetPtr = CounterPtr<AssetBase>;
@@ -55,8 +56,8 @@ namespace sky {
         AssetHandlerBase() = default;
         virtual ~AssetHandlerBase() = default;
 
-        virtual AssetPtr Create(const Uuid& id) = 0;
+        virtual AssetBase* Create(const Uuid& id) = 0;
 
-        virtual AssetPtr Load(const std::string&) = 0;
+        virtual AssetBase* Load(const std::string&) = 0;
     };
 }

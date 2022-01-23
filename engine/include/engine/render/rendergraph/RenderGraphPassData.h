@@ -7,7 +7,9 @@
 #include <vulkan/RenderPass.h>
 #include <vulkan/Swapchain.h>
 #include <vulkan/CommandBuffer.h>
+#include <vulkan/GraphicsPipeline.h>
 #include <engine/render/rendergraph/RenderGraphResource.h>
+#include <engine/asset/ShaderAsset.h>
 
 namespace sky {
 
@@ -35,6 +37,15 @@ namespace sky {
         drv::RenderPassPtr pass;
         drv::FrameBufferPtr frameBuffer;
         std::vector<VkClearValue> clears;
+        drv::GraphicsPipelinePtr pipeline;
+    };
+
+    class FullscreenPassData : public GraphicPassData {
+    public:
+        FullscreenPassData() = default;
+        ~FullscreenPassData() = default;
+        ShaderPtr shader;
+        drv::GraphicsPipelinePtr pipeline;
     };
 
     class GraphicPassExecutor {
@@ -51,4 +62,6 @@ namespace sky {
     void BuildGraphicsPass(GraphicPassData& passData);
 
     void BuildFrameBuffer(GraphicPassData& passData);
+
+    drv::GraphicsPipelinePtr BuildFullscreenPipeline(FullscreenPassData& fullscreenData);
 }

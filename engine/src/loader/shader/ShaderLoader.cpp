@@ -36,7 +36,9 @@ namespace sky {
         }
         auto path = val["path"].GetString();
         parentPath.append(std::string(path) + ".spv");
-        ReadBin(parentPath.string(), shader.data);
+        if (!ReadBin(parentPath.string(), shader.data)) {
+            return false;
+        }
 
         if (val.HasMember("entry")) {
             shader.entry = val["entry"].GetString();
@@ -46,11 +48,11 @@ namespace sky {
         return true;
     }
 
-    void ShaderLoader::Load(const std::string &path, ShaderAsset::SourceData& sourceData)
+    bool ShaderLoader::Load(const std::string &path, ShaderAsset::SourceData& sourceData)
     {
         std::string data;
         if (!ReadString(path, data)) {
-            return;
+            return false;
         }
 
         Document document;
@@ -58,12 +60,13 @@ namespace sky {
 
         if (document.HasParseError()) {
             LOG_E(TAG, "parse json failed, %u", document.GetParseError());
-            return;
+            return false;
         }
         std::filesystem::path absolutePath(path);
         auto rootDir = absolutePath.parent_path();
         ParseShader(rootDir, "vert", document, sourceData);
         ParseShader(rootDir, "frag", document, sourceData);
+        return true;
     }
 
 }

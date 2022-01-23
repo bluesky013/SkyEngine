@@ -13,7 +13,7 @@ namespace sky {
         ShaderLoader() = default;
         ~ShaderLoader() = default;
 
-        void Load(const std::string& path, ShaderAsset::SourceData& data);
+        bool Load(const std::string& path, ShaderAsset::SourceData& data);
     };
 
 }

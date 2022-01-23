@@ -35,11 +35,7 @@ TEST(VulkanTest, PipelineLayoutTest)
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
         descriptor.bindings.emplace(2, DescriptorSetLayout::SetBinding
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
-
-        auto setLayout = device->CreateDeviceObject<DescriptorSetLayout>(descriptor);
-        ASSERT_NE(setLayout, nullptr);
-        ASSERT_NE(setLayout->GetNativeHandle(), nullptr);
-        pipelineLayoutDes.desLayouts.emplace(0, setLayout->GetHash());
+        pipelineLayoutDes.desLayouts.emplace(0, descriptor);
     }
 
     {
@@ -48,22 +44,13 @@ TEST(VulkanTest, PipelineLayoutTest)
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, 0});
         descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding
             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
-
-        auto setLayout = device->CreateDeviceObject<DescriptorSetLayout>(descriptor);
-        ASSERT_NE(setLayout, nullptr);
-        ASSERT_NE(setLayout->GetNativeHandle(), nullptr);
-        pipelineLayoutDes.desLayouts.emplace(1, setLayout->GetHash());
+        pipelineLayoutDes.desLayouts.emplace(1, descriptor);
     }
 
     auto pipelineLayout = device->CreateDeviceObject<PipelineLayout>(pipelineLayoutDes);
     ASSERT_NE(pipelineLayout, nullptr);
     ASSERT_NE(pipelineLayout->GetNativeHandle(), nullptr);
     ASSERT_EQ(device->GetPipelineLayout(pipelineLayout->GetHash()), pipelineLayout->GetNativeHandle());
-
-    auto& requirements = pipelineLayout->GetRequirements();
-    ASSERT_EQ(requirements.size(), 2);
-    ASSERT_EQ(requirements[0], 0);
-    ASSERT_EQ(requirements[1], 1);
 }
 
 TEST(VulkanTest, ShaderOptionTest)

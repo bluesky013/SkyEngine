@@ -45,12 +45,24 @@ namespace sky {
 
     AssetPtr AssetManager::LoadAsset(const std::string& path, const Uuid& type)
     {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto iter = assetsFileMap.find(path);
+        if (iter != assetsFileMap.end()) {
+            return FindOrCreate(iter->second, type);
+        }
+
         auto handler = handlers.find(type);
         if (handler == handlers.end()) {
             LOG_E(TAG, "handler not found %s", type.ToString().c_str());
             return {};
         }
-        return handler->second->Load(path);
+        auto asset = handler->second->Load(path);
+        if (asset != nullptr) {
+            asset->path = path;
+            asset->status = AssetBase::Status::LOADED;
+            assetsFileMap.emplace(path, asset->GetId());
+        }
+        return asset;
     }
 
     void AssetManager::DestroyAsset(const Uuid& id)
@@ -58,6 +70,9 @@ namespace sky {
         std::lock_guard<std::mutex> lock(mutex);
         auto iter = assets.find(id);
         if (iter != assets.end()) {
+            if (!iter->second->path.empty()) {
+                assetsFileMap.erase(iter->second->path);
+            }
             delete iter->second;
             assets.erase(iter);
         }
@@ -77,7 +92,7 @@ namespace sky {
             return {};
         }
         auto asset = tIter->second->Create(id);
-        assets.emplace(id, asset.Get());
+        assets.emplace(id, asset);
         return asset;
     }
 

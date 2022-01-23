@@ -61,5 +61,6 @@ namespace sky::drv {
         std::vector<VkSpecializationMapEntry> entries;
         std::vector<VkSpecializationInfo> specializationInfo;
     };
+    using ShaderOptionPtr = std::shared_ptr<ShaderOption>;
 
 }

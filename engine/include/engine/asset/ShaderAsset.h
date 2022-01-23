@@ -5,6 +5,7 @@
 #pragma once
 
 #include <vulkan/Shader.h>
+#include <vulkan/GraphicsPipeline.h>
 #include <framework/asset/Asset.h>
 #include <framework/asset/Resource.h>
 
@@ -46,9 +47,9 @@ namespace sky {
         ShaderAssetHandler() = default;
         virtual ~ShaderAssetHandler() = default;
 
-        AssetPtr Create(const Uuid& id) override;
+        AssetBase* Create(const Uuid& id) override;
 
-        AssetPtr Load(const std::string&) override;
+        AssetBase* Load(const std::string&) override;
     };
 
     class Shader : public ResourceBase {
@@ -58,8 +59,14 @@ namespace sky {
 
         static CounterPtr<Shader> CreateFromAsset(AssetPtr asset);
 
+        const drv::GraphicsPipeline::Program& GetProgram() const;
+
+        const drv::GraphicsPipeline::State& GetState() const;
+
     private:
-        std::vector<drv::ShaderPtr> shaders;
+        drv::GraphicsPipeline::Program program;
+        drv::GraphicsPipeline::State state;
     };
+    using ShaderPtr = CounterPtr<Shader>;
 
 }

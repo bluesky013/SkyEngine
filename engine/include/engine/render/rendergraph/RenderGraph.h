@@ -23,6 +23,8 @@ namespace sky {
             passes.emplace_back(std::move(pass));
         }
 
+        void ImportImage(const std::string& str, drv::ImagePtr image);
+
         void Compile();
 
         void Execute(drv::CommandBuffer& commandBuffer);

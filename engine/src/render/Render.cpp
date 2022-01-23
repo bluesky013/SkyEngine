@@ -29,10 +29,6 @@ namespace sky {
         }
 
         AssetManager::Get()->RegisterHandler<ShaderAsset>(new ShaderAssetHandler());
-
-
-        auto asset = AssetManager::Get()->LoadAsset("../shaders/BaseColor.prog", ShaderAsset::TYPE);
-        auto instance = Shader::CreateFromAsset(asset);
         return true;
     }
 

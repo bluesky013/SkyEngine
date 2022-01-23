@@ -53,6 +53,7 @@ namespace sky {
 
         mutable std::mutex mutex;
         std::unordered_map<Uuid, AssetBase*> assets;
+        std::unordered_map<std::string, Uuid> assetsFileMap;
     };
 
 }

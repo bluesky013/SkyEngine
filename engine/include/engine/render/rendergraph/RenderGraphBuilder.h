@@ -26,9 +26,10 @@ namespace sky {
         RGAttachmentPtr WriteImage(const std::string& str, const drv::ImageView::Descriptor& viewDesc,
             ImageBindingFlag binding, const AttachmentDesc& attachmentDesc);
 
-//        RGImagePtr CreateImage(const std::string& str, const drv::Image::Descriptor& desc);
+        RGTexturePtr ReadImage(const std::string& str, const drv::ImageView::Descriptor& desc,
+            ImageBindingFlag binding);
 
-//        bool Read(const std::string& str, const drv::ImageView::Descriptor& desc);
+//        RGImagePtr CreateImage(const std::string& str, const drv::Image::Descriptor& desc);
 
         void SideEffect();
     private:

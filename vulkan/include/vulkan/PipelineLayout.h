@@ -5,6 +5,7 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/DescriptorSetLayout.h"
 #include <map>
 #include <vector>
 
@@ -17,7 +18,7 @@ namespace sky::drv {
         ~PipelineLayout();
 
         struct Descriptor {
-            std::map<uint32_t, uint32_t> desLayouts;
+            std::map<uint32_t, DescriptorSetLayout::Descriptor> desLayouts;
             std::vector<VkPushConstantRange> pushConstants;
         };
 
@@ -27,16 +28,13 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
-        const std::vector<uint32_t>& GetRequirements() const;
-
     private:
         friend class Device;
         PipelineLayout(Device&);
 
         VkPipelineLayout layout;
         uint32_t hash;
-        Descriptor descriptor;
-        std::vector<uint32_t> requirements;
+        std::map<uint32_t, DescriptorSetLayoutPtr> desLayouts;
     };
 
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;

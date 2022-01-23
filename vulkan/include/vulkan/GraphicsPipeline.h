@@ -6,7 +6,13 @@
 
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/Shader.h"
+#include "vulkan/ShaderOption.h"
+#include "vulkan/PipelineLayout.h"
+#include "vulkan/RenderPass.h"
+#include "vulkan/VertexInput.h"
 #include <vector>
+#include <string>
 
 namespace sky::drv {
 
@@ -54,11 +60,23 @@ namespace sky::drv {
             float            maxDepthBounds = 1.f;
         };
 
-        struct ColorBlend {
-            std::vector<VkPipelineColorBlendAttachmentState> attachments;
+        struct BlendState {
+            VkBool32              blendEnable = VK_FALSE;
+            VkBlendFactor         srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+            VkBlendFactor         dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+            VkBlendOp             colorBlendOp = VK_BLEND_OP_ADD;
+            VkBlendFactor         srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            VkBlendFactor         dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            VkBlendOp             alphaBlendOp = VK_BLEND_OP_ADD;
+            VkColorComponentFlags colorWriteMask = 0xF;
         };
 
-        struct PipelineState {
+        struct ColorBlend {
+            uint32_t attachmentNum = 1;
+            BlendState attachments[4];
+        };
+
+        struct State {
             InputAssembly inputAssembly;
             Raster raster;
             MultiSample multiSample;
@@ -66,10 +84,22 @@ namespace sky::drv {
             DepthStencilState depthStencil;
         };
 
+        struct ShaderInfo {
+            ShaderPtr shader;
+            std::string entry;
+        };
+
+        struct Program {
+            std::vector<ShaderInfo> shaders;
+            ShaderOptionPtr shaderOption;
+        };
+
         struct Descriptor {
-            PipelineState* state = nullptr;
-            uint32_t pipelineLayout = 0;
-            uint32_t renderPass = 0;
+            const State* state = nullptr;
+            const Program* program = nullptr;
+            VertexInputPtr vertexInput;
+            RenderPassPtr renderPass;
+            PipelineLayoutPtr pipelineLayout;
         };
 
         bool Init(const Descriptor&);
@@ -79,6 +109,8 @@ namespace sky::drv {
     private:
         friend class Device;
         GraphicsPipeline(Device&);
+
+        static uint32_t CalculateHash(const Descriptor&);
 
         VkPipeline pipeline;
         uint32_t hash;

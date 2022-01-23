@@ -9,6 +9,11 @@
 
 namespace sky::drv {
 
+    uint32_t GraphicsPipeline::CalculateHash(const Descriptor& desc)
+    {
+        return 0;
+    }
+
     GraphicsPipeline::GraphicsPipeline(Device& dev) : DevObject(dev), pipeline(VK_NULL_HANDLE), hash(0)
     {
 
@@ -25,10 +30,23 @@ namespace sky::drv {
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
         /* Shader */
-        pipelineInfo.stageCount;
-        pipelineInfo.pStages;
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStageInfo;
+        for (auto& shaderInfo : des.program->shaders) {
+            VkPipelineShaderStageCreateInfo stageInfo = {};
+            stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            stageInfo.stage = shaderInfo.shader->GetShaderStage();
+            stageInfo.module = shaderInfo.shader->GetNativeHandle();
+            stageInfo.pName = shaderInfo.entry.c_str();
 
-        pipelineInfo.pVertexInputState;
+            if (des.program->shaderOption) {
+                stageInfo.pSpecializationInfo = des.program->shaderOption->GetSpecializationInfo(stageInfo.stage);
+            }
+            shaderStageInfo.emplace_back(std::move(stageInfo));
+        }
+        pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfo.size());
+        pipelineInfo.pStages = shaderStageInfo.data();
+
+        pipelineInfo.pVertexInputState = des.vertexInput->GetInfo();
 
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
         inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -85,8 +103,8 @@ namespace sky::drv {
         blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         blendInfo.logicOpEnable = VK_FALSE;
         blendInfo.logicOp = VK_LOGIC_OP_CLEAR;
-        blendInfo.attachmentCount = static_cast<uint32_t>(pipelineState.blends.attachments.size());
-        blendInfo.pAttachments = pipelineState.blends.attachments.data();
+        blendInfo.attachmentCount = pipelineState.blends.attachmentNum;
+        blendInfo.pAttachments = (VkPipelineColorBlendAttachmentState*)(pipelineState.blends.attachments);
         blendInfo.blendConstants[0] = 0;
         blendInfo.blendConstants[1] = 0;
         blendInfo.blendConstants[2] = 0;
@@ -103,11 +121,16 @@ namespace sky::drv {
         dynStates.pDynamicStates = dynStatesData;
         pipelineInfo.pDynamicState = &dynStates;
 
-        pipelineInfo.layout = device.GetPipelineLayout(des.pipelineLayout);
-        pipelineInfo.renderPass = device.GetRenderPass(des.renderPass);
+        pipelineInfo.layout = des.pipelineLayout->GetNativeHandle();
+        pipelineInfo.renderPass = des.renderPass->GetNativeHandle();
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = 0;
+
+        auto rst = vkCreateGraphicsPipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &pipelineInfo, VKL_ALLOC, &pipeline);
+        if (rst != VK_SUCCESS) {
+            return false;
+        }
         return true;
     }
 

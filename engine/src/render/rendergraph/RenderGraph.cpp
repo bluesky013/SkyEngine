@@ -15,6 +15,13 @@ namespace sky {
         edges.clear();
     }
 
+    void RenderGraph::ImportImage(const std::string& str, drv::ImagePtr image)
+    {
+        auto rgImage = std::make_shared<GraphImage>(str);
+        rgImage->SetImage(image);
+        images.emplace(str, rgImage);
+    }
+
     void RenderGraph::Compile()
     {
 //        for (auto& edge : edges) {

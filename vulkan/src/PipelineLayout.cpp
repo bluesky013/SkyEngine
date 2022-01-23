@@ -22,10 +22,10 @@ namespace sky::drv {
     {
         std::vector<VkDescriptorSetLayout> layouts;
         for (auto& desSet : des.desLayouts) {
-            HashCombine32(hash, desSet.second);
-            layouts.emplace_back(device.GetDescriptorSetLayout(desSet.second));
-
-            requirements.emplace_back(desSet.first);
+            auto layout = device.CreateDeviceObject<DescriptorSetLayout>(desSet.second);
+            HashCombine32(hash, layout->GetHash());
+            desLayouts.emplace(desSet.first, layout);
+            layouts.emplace_back(layout->GetNativeHandle());
         }
 
         for (auto& push : des.pushConstants) {
@@ -43,7 +43,6 @@ namespace sky::drv {
         if (layout == VK_NULL_HANDLE) {
             return false;
         }
-        descriptor = des;
         return true;
     }
 
@@ -55,10 +54,5 @@ namespace sky::drv {
     uint32_t PipelineLayout::GetHash() const
     {
         return hash;
-    }
-
-    const std::vector<uint32_t>& PipelineLayout::GetRequirements() const
-    {
-        return requirements;
     }
 }

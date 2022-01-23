@@ -1,10 +1,10 @@
 {
     "vert" : {
-        "path"  : "PosWithUv.vert",
+        "path"  : "Fullscreen.vert",
         "entry" : "main"
     },
     "frag" : {
-        "path"  : "BaseColor.frag",
+        "path"  : "Fullscreen.frag",
         "entry" : "main"
     }
 }

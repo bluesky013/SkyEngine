@@ -42,5 +42,6 @@ namespace sky::drv {
         std::vector<VkVertexInputBindingDescription> bindings;
         VkPipelineVertexInputStateCreateInfo vInputInfo = {};
     };
+    using VertexInputPtr = std::shared_ptr<VertexInput>;
 
 }

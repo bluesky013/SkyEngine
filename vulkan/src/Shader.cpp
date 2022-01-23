@@ -11,7 +11,7 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    Shader::Shader(Device& dev) : DevObject(dev), shaderModule(VK_NULL_HANDLE), hash(0)
+    Shader::Shader(Device& dev) : DevObject(dev), shaderModule(VK_NULL_HANDLE), stage(VK_SHADER_STAGE_VERTEX_BIT), hash(0)
     {
     }
 
@@ -28,6 +28,7 @@ namespace sky::drv {
         shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         shaderInfo.codeSize = des.size;
         shaderInfo.pCode = des.spv;
+        stage = des.stage;
 
         auto rst = vkCreateShaderModule(device.GetNativeHandle(), &shaderInfo, VKL_ALLOC, &shaderModule);
         if (rst != VK_SUCCESS) {
@@ -43,5 +44,8 @@ namespace sky::drv {
         return shaderModule;
     }
 
-
+    VkShaderStageFlagBits Shader::GetShaderStage() const
+    {
+        return stage;
+    }
 }
