@@ -27,6 +27,8 @@ namespace sky::drv {
 
         VkShaderStageFlagBits GetShaderStage() const;
 
+        uint32_t GetHash() const;
+
     private:
         friend class Device;
         Shader(Device&);

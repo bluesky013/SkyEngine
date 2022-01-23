@@ -3,6 +3,8 @@
 //
 
 #include <vulkan/VertexInput.h>
+#include <core/hash/Crc32.h>
+#include <core/hash/Hash.h>
 
 namespace sky::drv {
 
@@ -35,12 +37,20 @@ namespace sky::drv {
         vertexInput->vInputInfo.pVertexAttributeDescriptions = vertexInput->attributes.data();
         vertexInput->vInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInput->bindings.size());
         vertexInput->vInputInfo.pVertexBindingDescriptions = vertexInput->bindings.data();
+        vertexInput->hash = 0;
+        HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t*)vertexInput->attributes.data(), static_cast<uint32_t>(vertexInput->attributes.size())));
+        HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t*)vertexInput->bindings.data(), static_cast<uint32_t>(vertexInput->bindings.size())));
         return vertexInput;
     }
 
     const VkPipelineVertexInputStateCreateInfo* VertexInput::GetInfo() const
     {
         return &vInputInfo;
+    }
+
+    uint32_t VertexInput::GetHash() const
+    {
+        return hash;
     }
 
 }

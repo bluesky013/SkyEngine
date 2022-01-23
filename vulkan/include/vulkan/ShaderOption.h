@@ -53,13 +53,19 @@ namespace sky::drv {
 
         const uint8_t* GetData() const;
 
+        uint32_t GetHash() const;
+
     private:
         friend class ShaderOption::Builder;
+        void CalculateHash();
+
         std::unique_ptr<uint8_t[]> storage;
         std::vector<VkShaderStageFlagBits> stages;
         std::vector<uint32_t> offsets;
         std::vector<VkSpecializationMapEntry> entries;
         std::vector<VkSpecializationInfo> specializationInfo;
+        uint32_t size = 0;
+        uint32_t hash = 0;
     };
     using ShaderOptionPtr = std::shared_ptr<ShaderOption>;
 

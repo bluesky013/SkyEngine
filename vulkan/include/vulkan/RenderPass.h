@@ -34,6 +34,8 @@ namespace sky::drv {
 
         VkRenderPass GetNativeHandle() const;
 
+        uint32_t GetHash() const;
+
     private:
         friend class Device;
         RenderPass(Device&);

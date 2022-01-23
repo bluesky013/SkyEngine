@@ -72,6 +72,11 @@ namespace sky::drv {
         return pass;
     }
 
+    uint32_t RenderPass::GetHash() const
+    {
+        return hash;
+    }
+
     RenderPassFactory::Impl RenderPassFactory::operator()()
     {
         return RenderPassFactory::Impl(descriptor);

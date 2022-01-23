@@ -4,6 +4,7 @@
 
 #include <vulkan/ShaderOption.h>
 #include <core/util/Memory.h>
+#include <core/hash/Crc32.h>
 #include <algorithm>
 
 namespace sky::drv {
@@ -41,6 +42,7 @@ namespace sky::drv {
             sizes.emplace_back(size - offsets.back().first, index - offsets.back().second);
         }
         if(size != 0) {
+            res->size = size;
             res->storage = std::make_unique<uint8_t[]>(size);
         }
 
@@ -67,5 +69,17 @@ namespace sky::drv {
     const uint8_t* ShaderOption::GetData() const
     {
         return storage.get();
+    }
+
+    uint32_t ShaderOption::GetHash() const
+    {
+        return hash;
+    }
+
+    void ShaderOption::CalculateHash()
+    {
+        if (storage != 0) {
+            hash = Crc32::Cal(storage.get(), size);
+        }
     }
 }

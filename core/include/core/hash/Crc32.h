@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <string_view>
 
 namespace sky {
@@ -23,7 +24,6 @@ namespace sky {
         {
             return Cal(reinterpret_cast<const uint8_t*>(&t), sizeof(T));
         }
-
     };
 
 }

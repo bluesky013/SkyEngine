@@ -35,12 +35,15 @@ namespace sky::drv {
 
         const VkPipelineVertexInputStateCreateInfo* GetInfo() const;
 
+        uint32_t GetHash() const;
+
     private:
         friend class VertexInput::Builder;
 
         std::vector<VkVertexInputAttributeDescription> attributes;
         std::vector<VkVertexInputBindingDescription> bindings;
         VkPipelineVertexInputStateCreateInfo vInputInfo = {};
+        uint32_t hash = 0;
     };
     using VertexInputPtr = std::shared_ptr<VertexInput>;
 

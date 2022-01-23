@@ -11,7 +11,19 @@ namespace sky::drv {
 
     uint32_t GraphicsPipeline::CalculateHash(const Descriptor& desc)
     {
-        return 0;
+        uint32_t hash = 0;
+        HashCombine32(hash, Crc32::Cal(*desc.state));
+        for (auto& shaderInfo : desc.program->shaders) {
+            HashCombine32(hash, shaderInfo.shader->GetHash());
+            HashCombine32(hash, Crc32::Cal(shaderInfo.entry));
+        }
+        if (desc.program->shaderOption) {
+            HashCombine32(hash, desc.program->shaderOption->GetHash());
+        }
+        HashCombine32(hash, desc.pipelineLayout->GetHash());
+        HashCombine32(hash, desc.renderPass->GetHash());
+        HashCombine32(hash, desc.vertexInput->GetHash());
+        return hash;
     }
 
     GraphicsPipeline::GraphicsPipeline(Device& dev) : DevObject(dev), pipeline(VK_NULL_HANDLE), hash(0)
@@ -21,7 +33,7 @@ namespace sky::drv {
 
     bool GraphicsPipeline::Init(const Descriptor& des)
     {
-        if (des.state == nullptr) {
+        if (des.state == nullptr || des.program == nullptr || !des.vertexInput || !des.pipelineLayout || !des.renderPass) {
             return false;
         }
         auto& pipelineState = *des.state;
@@ -127,10 +139,12 @@ namespace sky::drv {
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = 0;
 
-        auto rst = vkCreateGraphicsPipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &pipelineInfo, VKL_ALLOC, &pipeline);
-        if (rst != VK_SUCCESS) {
+        auto tmpHash = CalculateHash(des);
+        pipeline = device.GetPipeline(tmpHash, &pipelineInfo);
+        if (pipeline == VK_NULL_HANDLE) {
             return false;
         }
+        hash = tmpHash;
         return true;
     }
 

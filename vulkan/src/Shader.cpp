@@ -48,4 +48,9 @@ namespace sky::drv {
     {
         return stage;
     }
+
+    uint32_t Shader::GetHash() const
+    {
+        return hash;
+    }
 }

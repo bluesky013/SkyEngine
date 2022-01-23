@@ -54,6 +54,8 @@ namespace sky::drv {
 
         VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo* = nullptr);
 
+        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo* = nullptr);
+
     private:
         bool Init(const Descriptor&, bool enableDebug);
 

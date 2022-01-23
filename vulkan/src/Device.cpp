@@ -42,6 +42,10 @@ namespace sky::drv {
             vkDestroyRenderPass(device, pass, VKL_ALLOC);
         });
 
+        pipelines.SetUp([this](VkPipeline pipeline) {
+            vkDestroyPipeline(device, pipeline, VKL_ALLOC);
+        });
+
     }
 
     Device::~Device()
@@ -255,6 +259,22 @@ namespace sky::drv {
                 LOG_E(TAG, "create RenderPass failed, %d", rst);
             }
             return pass;
+        });
+    }
+
+    VkPipeline Device::GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo *pipelineInfo)
+    {
+        if (pipelineInfo == nullptr) {
+            return pipelines.Find(hash);
+        }
+
+        return pipelines.FindOrEmplace(hash, [this, pipelineInfo]() {
+            VkPipeline pipeline;
+            auto rst = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, pipelineInfo, VKL_ALLOC, &pipeline);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create Pipeline failed, %d", rst);
+            }
+            return pipeline;
         });
     }
 
