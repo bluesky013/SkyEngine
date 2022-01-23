@@ -30,6 +30,7 @@ namespace sky {
         VkRect2D rect {{0, 0}, data.extent2D};
         vkCmdSetViewport(cmd, 0, 1, &viewport);
         vkCmdSetScissor(cmd, 0, 1, &rect);
+
         if (data.encoder) {
             data.encoder->Execute(cmdBuffer, data);
         }

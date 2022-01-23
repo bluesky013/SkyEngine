@@ -25,7 +25,9 @@ namespace sky {
 
     bool Render::Init(const StartInfo& info)
     {
+        LOG_I(TAG, "Init Render");
         if (!DriverManager::Get()->Initialize({info.appName})) {
+            LOG_E(TAG, "Init Driver Failed");
             return false;
         }
 

@@ -4,8 +4,11 @@
 
 #include <framework/Application.h>
 #include <framework/environment/Environment.h>
+#include <core/logger/Logger.h>
 #include "PlatformImpl.h"
 #include <chrono>
+
+static const char* TAG = "Application";
 
 namespace sky {
 
@@ -29,16 +32,20 @@ namespace sky {
 
     bool Application::Init(const StartInfo& start)
     {
+        LOG_I(TAG, "Application Init Start...");
         impl = Impl::Create();
         if (impl == nullptr) {
+            LOG_E(TAG, "Init App Failed");
             return false;
         }
 
         env = Environment::Get();
         if (env == nullptr) {
+            LOG_E(TAG, "Get Environment Failed");
             return false;
         }
 
+        LOG_I(TAG, "Load Engine Module...");
         engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
         if (engineModule->Load()) {
             auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
@@ -47,18 +54,24 @@ namespace sky {
                 engineInstance->Init(start);
             }
         }
+        LOG_I(TAG, "Load Engine Module Success");
+
 
         for (auto& module : start.modules) {
             auto dynModule = std::make_unique<DynamicModule>(module);
+            LOG_I(TAG, "Load Module : %s", module.c_str());
             if (dynModule->Load()) {
                 auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
                 if (startFn == nullptr) {
+                    LOG_E(TAG, "Load Module : %s failed", module.c_str());
                     continue;
                 }
                 startFn(*this, env);
                 modules.emplace_back(dynModule.release());
             }
+            LOG_I(TAG, "Load Module : %s success", module.c_str());
         }
+        LOG_I(TAG, "Application Init Success");
         return true;
     }
 
