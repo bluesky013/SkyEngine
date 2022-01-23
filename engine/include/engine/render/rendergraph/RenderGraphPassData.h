@@ -29,7 +29,7 @@ namespace sky {
     class GraphicEncoder {
     public:
         GraphicEncoder() = default;
-        ~GraphicEncoder() = default;
+        virtual ~GraphicEncoder() = default;
 
         virtual void Execute(drv::CommandBuffer& cmd, GraphicPassData& data) = 0;
     };

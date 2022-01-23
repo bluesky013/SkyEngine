@@ -21,7 +21,7 @@ namespace sky {
 
     bool NativeWindow::Init(const Descriptor& des)
     {
-        impl = Impl::Create(des);
+        impl = NativeWindowImpl::Create(des);
         return impl != nullptr;
     }
 
@@ -35,7 +35,7 @@ namespace sky {
         return window;
     }
 
-    NativeWindow::Impl* NativeWindow::Impl::Create(const Descriptor& des)
+    NativeWindowImpl* NativeWindowImpl::Create(const NativeWindow::Descriptor& des)
     {
         return PlatformImpl::Get()->CreateWindow(des);
     }
@@ -48,6 +48,11 @@ namespace sky {
     void NativeWindow::SetEventHandler(IWindowEvent& handler)
     {
         impl->SetEventHandler(handler);
+    }
+
+    void NativeWindow::SetApplication(Application& app)
+    {
+        impl->SetApplication(*app.GetImpl());
     }
 
 }

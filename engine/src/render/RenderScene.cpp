@@ -34,7 +34,9 @@ namespace sky {
         views.clear();
         renderGraph.Clear();
         auto device = DriverManager::Get()->GetDevice();
-        waitSemaphore = device->CreateDeviceObject<drv::Semaphore>({});
+        if (!waitSemaphore) {
+            waitSemaphore = device->CreateDeviceObject<drv::Semaphore>({});
+        }
         swapChain->AcquireNext(waitSemaphore);
     }
 

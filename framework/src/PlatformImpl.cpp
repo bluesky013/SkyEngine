@@ -20,12 +20,12 @@ namespace sky {
         return instance;
     }
 
-    NativeWindow::Impl* PlatformImpl::CreateWindow(const NativeWindow::Descriptor& des)
+    NativeWindowImpl* PlatformImpl::CreateWindow(const NativeWindow::Descriptor& des)
     {
         return windowCreateFn(des);
     }
 
-    Application::Impl* PlatformImpl::CreateApplication()
+    ApplicationImpl* PlatformImpl::CreateApplication()
     {
         return applicationCreateFn();
     }

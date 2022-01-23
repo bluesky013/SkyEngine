@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    class Win32AppImpl : public Application::Impl {
+    class Win32AppImpl : public ApplicationImpl {
     public:
         Win32AppImpl() = default;
         virtual ~Win32AppImpl() = default;
@@ -48,7 +48,7 @@ namespace sky {
 
 }
 
-extern "C" SKY_EXPORT sky::Application::Impl* CreateApplication()
+extern "C" SKY_EXPORT sky::ApplicationImpl* CreateApplication()
 {
     return new sky::Win32AppImpl();
 }

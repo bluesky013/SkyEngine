@@ -3,15 +3,33 @@
 //
 
 #include <framework/Application.h>
-#include <AppKit/NSApplication.h>
 #include <core/platform/Platform.h>
+#import <AppKit/NSApplication.h>
 #import <Cocoa/Cocoa.h>
+
+@interface SkyEngineDelegate : NSObject <NSApplicationDelegate>
+@end
+
+@implementation SkyEngineDelegate
+-(BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication
+{
+    return YES;
+}
+
+-(void)applicationDidFinishLaunching:(NSNotification *)aNotification
+{
+    // Make the application a foreground application (else it won't receive keyboard events)
+    ProcessSerialNumber psn = {0, kCurrentProcess};
+    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+}
+@end
+
 
 namespace sky {
 
-    class MacosApplicationImpl : public Application::Impl {
+    class MacosApplicationImpl : public ApplicationImpl {
     public:
-        MacosApplicationImpl() = default;
+        MacosApplicationImpl();
 
         virtual ~MacosApplicationImpl() = default;
 
@@ -26,6 +44,18 @@ namespace sky {
 
         bool exit = false;
     };
+
+    MacosApplicationImpl::MacosApplicationImpl()
+    {
+        @autoreleasepool {
+            NSApp = [NSApplication sharedApplication];
+            [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+            SkyEngineDelegate *delegate = [[SkyEngineDelegate alloc] init];
+            [[NSApplication sharedApplication] setDelegate:delegate];
+
+            [NSApp finishLaunching];
+        }
+    }
 
     void MacosApplicationImpl::PumpMessages()
     {
@@ -61,7 +91,7 @@ namespace sky {
     }
 }
 
-extern "C" SKY_EXPORT sky::Application::Impl* CreateApplication()
+extern "C" SKY_EXPORT sky::ApplicationImpl* CreateApplication()
 {
     return new sky::MacosApplicationImpl();
 }

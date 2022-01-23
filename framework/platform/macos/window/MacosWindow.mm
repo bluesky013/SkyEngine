@@ -3,38 +3,33 @@
 //
 
 #include <framework/window/NativeWindow.h>
+#include <framework/Application.h>
 #include <core/platform/Platform.h>
 #import <AppKit/AppKit.h>
 
+namespace sky {
+    class MacosWindowImpl;
+}
+
 @interface MacosViewController : NSViewController {}
+@property (nonatomic) sky::MacosWindowImpl* nativeWindow;
 - (void)windowWillClose:(NSNotification *)notification;
 - (void)windowDidResize:(NSNotification *)notification;
 @end
 
-@implementation MacosViewController
-- (void)windowWillClose:(NSNotification *)notification
-{
-
-}
-- (void)windowDidResize:(NSNotification *)notification
-{
-
-}
-@end
-
 namespace sky {
 
-    class MacosWindowImpl : public NativeWindow::Impl {
+    class MacosWindowImpl : public NativeWindowImpl {
     public:
         MacosWindowImpl() {}
         virtual ~MacosWindowImpl();
 
         bool Init(const NativeWindow::Descriptor&);
 
+        void DeInit();
+
     private:
         bool CreateMacosWindow(const NativeWindow::Descriptor&);
-
-        void DeInit();
 
         void* GetNativeHandle() const override { return handle.contentView; };
 
@@ -42,10 +37,16 @@ namespace sky {
         {
             handler = &h;
         }
-        NSWindow* handle = nullptr;
-        NSString* title = nullptr;
+
+        void SetApplication(ApplicationImpl& application) override
+        {
+            app = &application;
+        }
+        NSWindow* handle = nil;
+        NSString* title = nil;
         MacosViewController* controller = nullptr;
         IWindowEvent* handler = nullptr;
+        ApplicationImpl* app = nullptr;
     };
 
     MacosWindowImpl::~MacosWindowImpl()
@@ -70,7 +71,7 @@ namespace sky {
         contentRect.size.width = des.width;
         contentRect.size.height = des.height;
 
-        auto mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+        auto mask = NSWindowStyleMaskTitled|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable|NSWindowStyleMaskClosable;
 
         handle = [[NSWindow alloc]
             initWithContentRect:contentRect
@@ -79,13 +80,17 @@ namespace sky {
             defer:NO];
 
         title = [NSString stringWithCString:des.titleName.c_str() encoding:NSUTF8StringEncoding];
+
         [handle setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
         [handle makeKeyAndOrderFront:nil];
+        [handle setAcceptsMouseMovedEvents:YES];
+        [handle setOpaque:YES];
 
         controller = [MacosViewController alloc];
         [controller init];
         [controller setView : handle.contentView];
         [controller retain];
+        controller.nativeWindow = this;
 
         NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
         CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
@@ -113,16 +118,29 @@ namespace sky {
 
     void MacosWindowImpl::DeInit()
     {
-        if (handle != nullptr) {
+        if (handle != nil) {
             [handle release];
-            handle = nullptr;
+            handle = nil;
         }
-        title = nullptr;
-        controller = nullptr;
+        title = nil;
+        controller = nil;
+        app->SetExit();
     }
 }
 
-extern "C" SKY_EXPORT sky::NativeWindow::Impl* CreateNativeWindow(const sky::NativeWindow::Descriptor& des)
+@implementation MacosViewController
+- (void)windowWillClose:(NSNotification *)notification
+{
+    if (_nativeWindow != nullptr) {
+        _nativeWindow->DeInit();
+    }
+}
+- (void)windowDidResize:(NSNotification *)notification
+{
+}
+@end
+
+extern "C" SKY_EXPORT sky::NativeWindowImpl* CreateNativeWindow(const sky::NativeWindow::Descriptor& des)
 {
     auto impl = new sky::MacosWindowImpl();
     if (!impl->Init(des)) {

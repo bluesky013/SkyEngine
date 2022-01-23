@@ -14,24 +14,24 @@ namespace sky {
 
     class Environment;
 
+    class ApplicationImpl {
+    public:
+        ApplicationImpl() = default;
+        virtual ~ApplicationImpl() = default;
+
+        static ApplicationImpl* Create();
+
+        virtual void PumpMessages() = 0;
+
+        virtual bool IsExit() const = 0;
+
+        virtual void SetExit() = 0;
+    };
+
     class Application {
     public:
         Application();
         ~Application();
-
-        class Impl {
-        public:
-            Impl() = default;
-            virtual ~Impl() = default;
-
-            static Impl* Create();
-
-            virtual void PumpMessages() = 0;
-
-            virtual bool IsExit() const = 0;
-
-            virtual void SetExit() = 0;
-        };
 
         bool Init(const StartInfo&);
 
@@ -45,8 +45,10 @@ namespace sky {
 
         IEngine* GetEngine() const;
 
+        ApplicationImpl* GetImpl() const;
+
     private:
-        Impl* impl;
+        ApplicationImpl* impl;
         IEngine* engineInstance;
         Environment* env;
         std::unique_ptr<DynamicModule> engineModule;

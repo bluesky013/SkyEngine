@@ -14,16 +14,16 @@ namespace sky {
     public:
         static PlatformImpl* Get();
 
-        NativeWindow::Impl* CreateWindow(const NativeWindow::Descriptor& des);
+        NativeWindowImpl* CreateWindow(const NativeWindow::Descriptor& des);
 
-        Application::Impl* CreateApplication();
+        ApplicationImpl* CreateApplication();
 
     private:
         PlatformImpl() = default;
         ~PlatformImpl() = default;
 
-        using WindowCreateFn = NativeWindow::Impl*(*)(const sky::NativeWindow::Descriptor& des);
-        using ApplicationCreateFn = Application::Impl*(*)();
+        using WindowCreateFn = NativeWindowImpl*(*)(const sky::NativeWindow::Descriptor& des);
+        using ApplicationCreateFn = ApplicationImpl*(*)();
 
         std::unique_ptr<DynamicModule> module;
         WindowCreateFn windowCreateFn = nullptr;

@@ -16,7 +16,7 @@ namespace sky {
     using EngineShutdown = void(*)(IEngine*);
     using ModuleStart = void(*)(Application&, Environment*);
 
-    Application::Impl* Application::Impl::Create()
+    ApplicationImpl* ApplicationImpl::Create()
     {
         return PlatformImpl::Get()->CreateApplication();
     }
@@ -33,7 +33,7 @@ namespace sky {
     bool Application::Init(const StartInfo& start)
     {
         LOG_I(TAG, "Application Init Start...");
-        impl = Impl::Create();
+        impl = ApplicationImpl::Create();
         if (impl == nullptr) {
             LOG_E(TAG, "Init App Failed");
             return false;
@@ -79,12 +79,18 @@ namespace sky {
     {
         auto window = NativeWindow::Create(des);
         window->SetEventHandler(*engineInstance->GetEventHandler());
+        window->SetApplication(*this);
         return window;
     }
 
     IEngine* Application::GetEngine() const
     {
         return engineInstance;
+    }
+
+    ApplicationImpl* Application::GetImpl() const
+    {
+        return impl;
     }
 
     void Application::SetExit()
