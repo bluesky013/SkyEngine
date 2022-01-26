@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <vulkan/Basic.h>
 #include <core/template/ReferenceObject.h>
 #include <memory>
 

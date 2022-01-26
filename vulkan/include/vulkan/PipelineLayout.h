@@ -5,7 +5,9 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/DescriptorSet.h"
 #include "vulkan/DescriptorSetLayout.h"
+#include "vulkan/DescriptorSetPool.h"
 #include <map>
 #include <vector>
 
@@ -27,6 +29,8 @@ namespace sky::drv {
         VkPipelineLayout GetNativeHandle() const;
 
         uint32_t GetHash() const;
+
+        DescriptorSetPtr Allocate(DescriptorSetPool& pool, uint32_t slot);
 
     private:
         friend class Device;

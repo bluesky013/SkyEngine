@@ -20,7 +20,6 @@ namespace sky::drv {
             VkDescriptorType   descriptorType   = VK_DESCRIPTOR_TYPE_SAMPLER;
             uint32_t           descriptorCount  = 0;
             VkShaderStageFlags stageFlags       = 0;
-            uint32_t           immutableSampler = 0;
         };
 
         struct Descriptor {

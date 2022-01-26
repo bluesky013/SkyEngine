@@ -24,18 +24,11 @@ namespace sky::drv {
             HashCombine32(hash, Crc32::Cal(binding.second));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};
-            layoutBinding.binding = binding.first;
-            layoutBinding.descriptorType = binding.second.descriptorType;
-            layoutBinding.descriptorCount = binding.second.descriptorCount;
-            layoutBinding.stageFlags = binding.second.stageFlags;
-
-            if (binding.second.immutableSampler != 0) {
-                auto sampler = device.GetSampler(binding.second.immutableSampler);
-                if (sampler != nullptr) {
-                    samplers.emplace_back(sampler);
-                    layoutBinding.pImmutableSamplers = &samplers.back();
-                }
-            }
+            layoutBinding.binding            = binding.first;
+            layoutBinding.descriptorType     = binding.second.descriptorType;
+            layoutBinding.descriptorCount    = binding.second.descriptorCount;
+            layoutBinding.stageFlags         = binding.second.stageFlags;
+            layoutBinding.pImmutableSamplers = nullptr;
             bindings.emplace_back(std::move(layoutBinding));
         }
 

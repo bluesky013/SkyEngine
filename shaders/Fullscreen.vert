@@ -15,6 +15,7 @@ vec2 uv[3] = vec2[](
 );
 
 void main() {
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    vec2 pos = (positions[gl_VertexIndex] - vec2(1.0)) / 4.0;
+    gl_Position = vec4(pos, 0.0, 1.0);
     outUv = uv[gl_VertexIndex];
 }

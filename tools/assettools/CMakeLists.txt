@@ -5,7 +5,7 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
 
 make_directory(${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders)
 add_custom_command(
-    TARGET AssetTool PRE_BUILD
+    TARGET AssetTool POST_BUILD
     COMMAND glslc ${CMAKE_SOURCE_DIR}/shaders/PosWithUv.vert -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/PosWithUv.vert.spv
     COMMAND glslc ${CMAKE_SOURCE_DIR}/shaders/BaseColor.frag -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/BaseColor.frag.spv
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/shaders/BaseColor.prog ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/BaseColor.prog

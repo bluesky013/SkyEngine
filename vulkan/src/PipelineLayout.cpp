@@ -55,4 +55,13 @@ namespace sky::drv {
     {
         return hash;
     }
+
+    DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPool& pool, uint32_t slot)
+    {
+        auto iter = desLayouts.find(slot);
+        if (iter == desLayouts.end()) {
+            return {};
+        }
+        return pool.Allocate(iter->second);
+    }
 }
