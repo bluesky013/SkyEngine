@@ -12,4 +12,9 @@ sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
         ${PLATFORM_EXT_LIBS}
 )
 
-add_dependencies(Launcher SkyEngineModule SampleModule)
+add_dependencies(Launcher SkyEngineModule SampleModule AssetTool)
+
+add_custom_command(
+    TARGET Launcher PRE_BUILD
+    COMMAND AssetTool
+    VERBATIM)
