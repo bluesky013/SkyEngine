@@ -3,9 +3,15 @@
 //
 
 #include <iostream>
+#include <model/ModelLoader.h>
+#include <ProjectRoot.h>
 
+
+using namespace sky;
 int main()
 {
+    ModelLoader loader;
+    loader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
 
     return 0;
 }

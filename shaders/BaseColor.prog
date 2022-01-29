@@ -1,6 +1,6 @@
 {
     "vert" : {
-        "path"  : "PosWithUv.vert",
+        "path"  : "BaseColor.vert",
         "entry" : "main"
     },
     "frag" : {

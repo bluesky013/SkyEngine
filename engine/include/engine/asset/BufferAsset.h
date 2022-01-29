@@ -25,5 +25,6 @@ namespace sky {
         Buffer(const Uuid& id) : ResourceBase(id) {}
         ~Buffer() = default;
     };
+    using BufferPtr = CounterPtr<Buffer>;
 
 }
