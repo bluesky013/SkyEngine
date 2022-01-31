@@ -7,11 +7,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <core/logger/Logger.h>
-#include <cereal/archives/binary.hpp>
-#include <cereal/archives/json.hpp>
 #include <engine/BasicSerialization.h>
 #include <framework/asset/AssetManager.h>
-#include <fstream>
 
 static const char* TAG = "Model Loader";
 

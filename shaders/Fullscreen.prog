@@ -1,10 +1,10 @@
 {
     "vert" : {
-        "path"  : "Fullscreen.vert",
+        "path"  : "shaders/Fullscreen.vert",
         "entry" : "main"
     },
     "frag" : {
-        "path"  : "Fullscreen.frag",
+        "path"  : "shaders/Fullscreen.frag",
         "entry" : "main"
     }
 }

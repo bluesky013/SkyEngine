@@ -3,6 +3,7 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
         AssetTools.cpp
     LIBS
         ModelLoader
+        ShaderLoader
     )
 
 make_directory(${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders)

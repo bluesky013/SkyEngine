@@ -69,7 +69,7 @@ namespace sky {
     public:
         static constexpr Uuid TYPE = Uuid::CreateFromString("9f7c599a-0073-4ff5-8136-f551d1a1a371");
 
-        MeshAsset(const Uuid& id) : AssetBase(id), data(id, TYPE) {}
+        MeshAsset(const Uuid& id) : AssetBase(id) {}
         ~MeshAsset() = default;
 
         template<class Archive>

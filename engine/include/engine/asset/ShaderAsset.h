@@ -58,14 +58,12 @@ namespace sky {
             ar(sourceData);
         }
 
-    private:
-        friend class Shader;
-        friend class ShaderAssetHandler;
-        const Uuid& GetType() const override { return TYPE; }
         ShaderSourceData sourceData;
 
-        AssetPtr Create(const Uuid &id);
+        const Uuid& GetType() const override { return TYPE; }
     };
+
+    using ShaderAssetPtr = CounterPtr<ShaderAsset>;
 
     class Shader : public ResourceBase {
     public:

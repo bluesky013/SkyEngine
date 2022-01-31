@@ -4,15 +4,20 @@
 
 #include <iostream>
 #include <model/ModelLoader.h>
+#include <shader/ShaderLoader.h>
 #include <ProjectRoot.h>
 
 
 using namespace sky;
 int main()
 {
-    ModelLoader loader;
-    loader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
-    loader.Save("DamagedHelmet.asset");
+//    ModelLoader modelLoader;
+//    modelLoader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
+//    modelLoader.Save("DamagedHelmet.model");
+
+    ShaderLoader shaderLoader;
+    shaderLoader.Load(PROJECT_ROOT + "/shaders/BaseColor.prog");
+    shaderLoader.Save("BaseColor.prog");
 
     return 0;
 }

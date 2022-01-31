@@ -7,5 +7,5 @@
 #include <string>
 
 namespace sky {
-    std::string PROJECT_ROOT = "@CMAKE_SOURCE_DIR@";
+    static std::string PROJECT_ROOT = "@CMAKE_SOURCE_DIR@";
 }
