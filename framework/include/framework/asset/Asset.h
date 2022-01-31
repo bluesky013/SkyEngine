@@ -8,20 +8,10 @@
 #include <core/util/Uuid.h>
 #include <core/template/ReferenceObject.h>
 #include <framework/asset/Resource.h>
+#include <cereal/archives/binary.hpp>
+#include <fstream>
 
 namespace sky {
-
-    struct AssetHead {
-        uint32_t magic = 0x00594B53;
-        Uuid type = {};
-        Uuid id = {};
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(magic, type, id);
-        }
-    };
 
     class AssetBase : public RefObject<AssetBase> {
     public:
@@ -64,15 +54,44 @@ namespace sky {
 
         virtual AssetBase* Create(const Uuid& id) = 0;
 
-        AssetBase* Load(const std::string& path);
+        virtual AssetBase* Load(const std::string& path) = 0;
+
+        virtual void SaveAsset(AssetBase*, const std::string& path) = 0;
+
+    protected:
     };
 
     template <class Asset>
     class AssetHandler : public AssetHandlerBase {
     public:
-        AssetBase* Create(const Uuid& id)
+        AssetBase* Create(const Uuid& id) override
         {
             return new Asset(id);
         }
+
+        AssetBase* Load(const std::string& path) override
+        {
+            std::ifstream is(path, std::ios::binary);
+            cereal::BinaryInputArchive archive(is);
+
+            auto asset = new Asset({});
+            archive(*asset);
+            return asset;
+        }
+
+        void SaveAsset(AssetBase* ptr, const std::string& path) override
+        {
+            std::ofstream os(path, std::ios::binary);
+            cereal::BinaryOutputArchive archive(os);
+
+            auto& asset = *static_cast<Asset*>(ptr);
+            archive(asset);
+        }
     };
+
+    template <typename T>
+    CounterPtr<T> Cast(AssetPtr asset)
+    {
+        return CounterPtr<T>(static_cast<T*>(asset.Get()));
+    }
 }

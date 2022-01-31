@@ -4,8 +4,6 @@
 
 #include <framework/asset/Asset.h>
 #include <framework/asset/AssetManager.h>
-#include <cereal/archives/binary.hpp>
-#include <cereal/archives/json.hpp>
 
 namespace sky {
 
@@ -13,10 +11,4 @@ namespace sky {
     {
         AssetManager::Get()->DestroyAsset(uuid);
     }
-
-    AssetBase* AssetHandlerBase::Load(const std::string& path)
-    {
-        return Create(Uuid::Create());
-    }
-
 }

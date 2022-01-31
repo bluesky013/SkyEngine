@@ -43,19 +43,12 @@ namespace sky {
         }
     };
 
-    struct MeshData : public AssetHead {
-        MeshData(Uuid _id, Uuid _type)
-        {
-            id = _id;
-            type = _type;
-        }
-
+    struct MeshData {
         std::vector<SubMeshData> meshes;
 
         template <class Archive>
         void serialize(Archive& ar)
         {
-            AssetHead::serialize(ar);
             ar(meshes);
         }
     };
@@ -95,6 +88,8 @@ namespace sky {
 
         MeshData data;
     };
+
+    using MeshAssetPtr = CounterPtr<MeshAsset>;
 
     class Mesh : public ResourceBase {
     public:

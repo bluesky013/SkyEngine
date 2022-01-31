@@ -49,6 +49,16 @@ namespace sky {
         return asset;
     }
 
+    void AssetManager::SaveAsset(const std::string& path, AssetPtr asset, const Uuid& type)
+    {
+        auto handler = handlers.find(type);
+        if (handler == handlers.end()) {
+            LOG_E(TAG, "handler not found %s", type.ToString().c_str());
+            return;
+        }
+        return handler->second->SaveAsset(asset.Get(), path);
+    }
+
     void AssetManager::DestroyAsset(const Uuid& id)
     {
         std::lock_guard<std::mutex> lock(mutex);

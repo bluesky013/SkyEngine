@@ -8,8 +8,31 @@
 #include <vulkan/GraphicsPipeline.h>
 #include <framework/asset/Asset.h>
 #include <framework/asset/Resource.h>
+#include <engine/BasicSerialization.h>
 
 namespace sky {
+
+    struct ShaderData {
+        std::vector<uint32_t> data;
+        VkShaderStageFlagBits stage;
+        std::string entry = "main";
+
+        template <class Archive>
+        void serialize(Archive& ar)
+        {
+            ar(data, stage, entry);
+        }
+    };
+
+    struct ShaderSourceData {
+        std::vector<ShaderData> shaders;
+
+        template <class Archive>
+        void serialize(Archive& ar)
+        {
+            ar(shaders);
+        }
+    };
 
     class ShaderAsset : public AssetBase {
     public:
@@ -18,26 +41,28 @@ namespace sky {
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("1338d2ed-5d6d-4324-aba5-1bfb6908fd7a");
 
-        struct ShaderData {
-            std::vector<uint32_t> data;
-            VkShaderStageFlagBits stage;
-            std::string entry = "main";
-        };
-
-        struct SourceData {
-            std::vector<ShaderData> shaders;
-        };
-
-        const SourceData& GetSourceData() const
+        const ShaderSourceData& GetSourceData() const
         {
             return sourceData;
+        }
+
+        template<class Archive>
+        void load(Archive& ar)
+        {
+            ar(sourceData);
+        }
+
+        template<class Archive>
+        void save(Archive& ar) const
+        {
+            ar(sourceData);
         }
 
     private:
         friend class Shader;
         friend class ShaderAssetHandler;
         const Uuid& GetType() const override { return TYPE; }
-        SourceData sourceData;
+        ShaderSourceData sourceData;
 
         AssetPtr Create(const Uuid &id);
     };

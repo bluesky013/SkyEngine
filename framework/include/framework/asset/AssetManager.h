@@ -30,12 +30,14 @@ namespace sky {
 
         AssetPtr LoadAsset(const std::string& path, const Uuid& type);
 
+        void SaveAsset(const std::string& path, AssetPtr asset, const Uuid& type);
+
         AssetPtr FindOrCreate(const Uuid& id, const Uuid& type);
 
         template <typename T>
-        AssetPtr FindOrCreate(const Uuid& id)
+        CounterPtr<T> FindOrCreate(const Uuid& id)
         {
-            return FindOrCreate(id, T::TYPE);
+            return Cast<T>(FindOrCreate(id, T::TYPE));
         }
 
         void DestroyAsset(const Uuid& id);

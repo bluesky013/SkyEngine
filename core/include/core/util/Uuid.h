@@ -68,15 +68,27 @@ namespace sky {
 
         std::string ToString() const;
 
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(word[0], word[1]);
+        }
+
     private:
         friend struct std::hash<sky::Uuid>;
         friend struct std::equal_to<sky::Uuid>;
+        friend bool operator==(const Uuid& lhs, const Uuid& rhs);
 
         union {
             uint64_t word[2];
             uint8_t data[16];
         };
     };
+
+    inline bool operator==(const Uuid& lhs, const Uuid& rhs)
+    {
+        return lhs.word[0] == rhs.word[0] && lhs.word[1] == rhs.word[1];
+    }
 }
 
 namespace std {

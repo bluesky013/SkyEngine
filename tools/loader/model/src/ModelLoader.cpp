@@ -10,14 +10,21 @@
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <engine/BasicSerialization.h>
+#include <framework/asset/AssetManager.h>
 #include <fstream>
 
 static const char* TAG = "Model Loader";
 
 namespace sky {
 
-    ModelLoader::ModelLoader() : asset(Uuid::Create())
+    ModelLoader::ModelLoader()
     {
+        AssetManager::Get()->RegisterHandler<MeshAsset>();
+    }
+
+    ModelLoader::~ModelLoader()
+    {
+        AssetManager::Get()->UnRegisterHandler<MeshAsset>();
     }
 
     bool ModelLoader::Load(const std::string& path)
@@ -28,6 +35,8 @@ namespace sky {
             return false;
         }
 
+        asset = AssetManager::Get()->FindOrCreate<MeshAsset>(Uuid::Create());
+
         LoadMesh();
 //        LoadTextures();
 //        LoadMaterial();
@@ -36,10 +45,10 @@ namespace sky {
 
     void ModelLoader::LoadMesh()
     {
-        asset.data.meshes.resize(scene->mNumMeshes);
+        asset->data.meshes.resize(scene->mNumMeshes);
         for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
             auto mesh = scene->mMeshes[i];
-            auto& tmpMesh = asset.data.meshes[i];
+            auto& tmpMesh = asset->data.meshes[i];
 
             tmpMesh.vertices.resize(mesh->mNumVertices);
             for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
@@ -100,10 +109,7 @@ namespace sky {
 
     void ModelLoader::Save(const std::string& path)
     {
-        std::ofstream os(path, std::ios::binary);
-        cereal::JSONOutputArchive archive( os );
-
-        archive(asset);
+        AssetManager::Get()->SaveAsset(path, asset, MeshAsset::TYPE);
     }
 
 }

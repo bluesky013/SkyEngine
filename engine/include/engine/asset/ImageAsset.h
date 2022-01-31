@@ -15,6 +15,16 @@ namespace sky {
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("a4a44abf-1b60-438d-b6c5-1690e548d97c");
 
+        template<class Archive>
+        void load(Archive& ar)
+        {
+        }
+
+        template<class Archive>
+        void save(Archive& ar) const
+        {
+        }
+
     private:
         const Uuid& GetType() const override { return TYPE; }
     };
