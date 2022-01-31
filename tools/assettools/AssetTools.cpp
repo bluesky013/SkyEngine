@@ -15,9 +15,18 @@ int main()
 //    modelLoader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
 //    modelLoader.Save("DamagedHelmet.model");
 
-    ShaderLoader shaderLoader;
-    shaderLoader.Load(PROJECT_ROOT + "/shaders/BaseColor.prog");
-    shaderLoader.Save("BaseColor.prog");
+    {
+        ShaderLoader shaderLoader;
+        shaderLoader.Load(PROJECT_ROOT + "/shaders/BaseColor.prog");
+        shaderLoader.Save("BaseColor.prog");
+    }
+
+    {
+        ShaderLoader shaderLoader;
+        shaderLoader.Load(PROJECT_ROOT + "/shaders/Fullscreen.prog");
+        shaderLoader.Save("Fullscreen.prog");
+    }
+
 
     return 0;
 }

@@ -3,6 +3,7 @@
 //
 
 #include <core/util/DynamicModule.h>
+#include <vector>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -26,12 +27,21 @@ namespace sky {
 
     bool DynamicModule::Load()
     {
+        std::vector<std::string> names = {
+            name, name + "d"
+        };
+
+        for (auto& ptr : names) {
 #ifdef _WIN32
-        handle = ::LoadLibraryExA(name.c_str(), nullptr, 0);
+            handle = ::LoadLibraryExA(ptr.c_str(), nullptr, 0);
 #else
-        std::string libName = APPLE_DYN_PREFIX + name + APPLE_DYN_SUFFIX;
-        handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+            std::string libName = APPLE_DYN_PREFIX + ptr + APPLE_DYN_SUFFIX;
+            handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
+            if (handle != nullptr) {
+                break;
+            }
+        }
         return handle != nullptr;
     }
 
