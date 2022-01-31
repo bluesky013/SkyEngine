@@ -14,15 +14,12 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-        void RegisterHandler(const Uuid& type, AssetHandlerBase*);
-
         void UnRegisterHandler(const Uuid& type);
 
         template <typename T>
-        void RegisterHandler(AssetHandlerBase* handler)
+        void RegisterHandler()
         {
-            SKY_ASSERT(handler != nullptr);
-            RegisterHandler(T::TYPE, handler);
+            handlers[T::TYPE].reset(new AssetHandler<T>());
         }
 
         template <typename T>
@@ -49,7 +46,9 @@ namespace sky {
         AssetManager();
         ~AssetManager();
 
-        std::unordered_map<Uuid, AssetHandlerBase*> handlers;
+        using AssetHanlderPtr = std::unique_ptr<AssetHandlerBase>;
+
+        std::unordered_map<Uuid, AssetHanlderPtr> handlers;
 
         mutable std::mutex mutex;
         std::unordered_map<Uuid, AssetBase*> assets;

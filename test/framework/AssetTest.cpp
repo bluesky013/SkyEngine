@@ -34,28 +34,12 @@ public:
     }
 };
 
-class TestAssetHandler : public AssetHandlerBase {
-public:
-    TestAssetHandler() = default;
-    ~TestAssetHandler() = default;
-
-    AssetBase* Create(const Uuid& id) override
-    {
-        return new TestAsset(id);
-    }
-
-    AssetBase* Load(const std::string&) override
-    {
-        return new TestAsset(Uuid::Create());
-    }
-};
-
 TEST(AssetTest, AssetManagerSingleton)
 {
     auto mgr = AssetManager::Get();
     ASSERT_NE(mgr, nullptr);
 
-    mgr->RegisterHandler<TestAsset>(new TestAssetHandler());
+    mgr->RegisterHandler<TestAsset>();
 
     g_Counter = 0;
     {

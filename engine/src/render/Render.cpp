@@ -10,6 +10,11 @@
 #include <engine/render/rendergraph/ForwardRendering.h>
 #include <engine/render/DevObjManager.h>
 #include <framework/asset/AssetManager.h>
+#include <engine/asset/ShaderAsset.h>
+#include <engine/asset/BufferAsset.h>
+#include <engine/asset/MaterialAsset.h>
+#include <engine/asset/MeshAsset.h>
+#include <engine/asset/ImageAsset.h>
 
 static const char* TAG = "Render";
 
@@ -31,7 +36,11 @@ namespace sky {
             return false;
         }
 
-        AssetManager::Get()->RegisterHandler<ShaderAsset>(new ShaderAssetHandler());
+        AssetManager::Get()->RegisterHandler<ShaderAsset>();
+        AssetManager::Get()->RegisterHandler<MeshAsset>();
+        AssetManager::Get()->RegisterHandler<MaterialAsset>();
+        AssetManager::Get()->RegisterHandler<ImageAsset>();
+        AssetManager::Get()->RegisterHandler<BufferAsset>();
         return true;
     }
 

@@ -12,6 +12,7 @@ int main()
 {
     ModelLoader loader;
     loader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
+    loader.Save("DamagedHelmet.asset");
 
     return 0;
 }

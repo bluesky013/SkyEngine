@@ -144,9 +144,6 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d.b, 2.0f);
         ASSERT_EQ(ptr->d.c, 3.0);
         ASSERT_EQ(ptr->d.d, true);
-
-        SerializationWriteString(any2, output);
-        LOG_I(TAG, "%s", output.data());
     }
 
 }

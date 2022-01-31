@@ -19,26 +19,10 @@ namespace sky {
 
     }
 
-    void AssetManager::RegisterHandler(const Uuid& type, AssetHandlerBase* handler)
-    {
-        if (handler == nullptr) {
-            return;
-        }
-        auto iter = handlers.find(type);
-        if (iter != handlers.end()) {
-            if (iter->second == handler) {
-                return;
-            }
-            delete iter->second;
-        }
-        handlers.emplace(type, handler);
-    }
-
     void AssetManager::UnRegisterHandler(const Uuid& type)
     {
         auto iter = handlers.find(type);
         if (iter != handlers.end()) {
-            delete iter->second;
             handlers.erase(iter);
         }
     }

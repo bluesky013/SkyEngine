@@ -42,16 +42,6 @@ namespace sky {
         AssetPtr Create(const Uuid &id);
     };
 
-    class ShaderAssetHandler : public AssetHandlerBase {
-    public:
-        ShaderAssetHandler() = default;
-        virtual ~ShaderAssetHandler() = default;
-
-        AssetBase* Create(const Uuid& id) override;
-
-        AssetBase* Load(const std::string&) override;
-    };
-
     class Shader : public ResourceBase {
     public:
         Shader(const Uuid& id) : ResourceBase(id) {}

@@ -3,27 +3,26 @@
 //
 
 #include <engine/asset/ShaderAsset.h>
-#include <engine/loader/shader/ShaderLoader.h>
 #include <engine/render/DriverManager.h>
 #include <framework/asset/ResourceManager.h>
 
 namespace sky {
 
-    AssetBase* ShaderAssetHandler::Create(const Uuid& id)
-    {
-        return new ShaderAsset(id);
-    }
-
-    AssetBase* ShaderAssetHandler::Load(const std::string& uri)
-    {
-        auto shaderAsset = Create(Uuid::Create());
-        auto* source = static_cast<ShaderAsset*>(shaderAsset);
-        ShaderLoader loader;
-        if (!loader.Load(uri, source->sourceData)) {
-            return nullptr;
-        }
-        return shaderAsset;
-    }
+//    AssetBase* ShaderAssetHandler::Create(const Uuid& id)
+//    {
+//        return new ShaderAsset(id);
+//    }
+//
+//    AssetBase* ShaderAssetHandler::Load(const std::string& uri)
+//    {
+//        auto shaderAsset = Create(Uuid::Create());
+//        auto* source = static_cast<ShaderAsset*>(shaderAsset);
+//        ShaderLoader loader;
+//        if (!loader.Load(uri, source->sourceData)) {
+//            return nullptr;
+//        }
+//        return shaderAsset;
+//    }
 
     CounterPtr<Shader> Shader::CreateFromAsset(AssetPtr asset)
     {

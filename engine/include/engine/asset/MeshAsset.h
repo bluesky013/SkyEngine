@@ -43,18 +43,19 @@ namespace sky {
         }
     };
 
-    struct MeshData {
+    struct MeshData : public AssetHead {
+        MeshData(Uuid _id, Uuid _type)
+        {
+            id = _id;
+            type = _type;
+        }
+
         std::vector<SubMeshData> meshes;
 
         template <class Archive>
-        void save(Archive& ar) const
+        void serialize(Archive& ar)
         {
-            ar(meshes);
-        }
-
-        template <class Archive>
-        void load(Archive& ar)
-        {
+            AssetHead::serialize(ar);
             ar(meshes);
         }
     };
@@ -73,23 +74,26 @@ namespace sky {
 
     class MeshAsset : public AssetBase {
     public:
-        MeshAsset(const Uuid& id) : AssetBase(id) {}
-        ~MeshAsset() = default;
-
         static constexpr Uuid TYPE = Uuid::CreateFromString("9f7c599a-0073-4ff5-8136-f551d1a1a371");
 
-    private:
+        MeshAsset(const Uuid& id) : AssetBase(id), data(id, TYPE) {}
+        ~MeshAsset() = default;
+
+        template<class Archive>
+        void load(Archive& ar)
+        {
+            ar(data);
+        }
+
+        template<class Archive>
+        void save(Archive& ar) const
+        {
+            ar(data);
+        }
+
         const Uuid& GetType() const override { return TYPE; }
-    };
 
-    class MeshAssetHandler : public AssetHandlerBase {
-    public:
-        MeshAssetHandler() = default;
-        virtual ~MeshAssetHandler() = default;
-
-        AssetBase* Create(const Uuid& id) override;
-
-        AssetBase* Load(const std::string&) override;
+        MeshData data;
     };
 
     class Mesh : public ResourceBase {

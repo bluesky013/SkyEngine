@@ -13,7 +13,7 @@ namespace sky {
 
     class ModelLoader {
     public:
-        ModelLoader() = default;
+        ModelLoader();
         ~ModelLoader() = default;
 
         bool Load(const std::string& path);
@@ -29,7 +29,7 @@ namespace sky {
     private:
         const aiScene* scene = nullptr;
 
-        MeshData model;
+        MeshAsset asset;
     };
 
 }

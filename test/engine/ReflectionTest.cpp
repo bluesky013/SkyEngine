@@ -19,9 +19,6 @@ TEST(EngineReflect, TestBasic)
     {
         Any transform(Transform{});
         ASSERT_EQ(!!transform, true);
-
-        SerializationWriteString(transform, output);
-        LOG_I(TAG, "%s\n", output.data());
     }
 
     Component* comp = new TransformComponent();

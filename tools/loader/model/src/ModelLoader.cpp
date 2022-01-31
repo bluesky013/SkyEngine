@@ -7,14 +7,18 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <core/logger/Logger.h>
-#include <cereal/types/vector.hpp>
 #include <cereal/archives/binary.hpp>
-#include <framework/serialization/BasicSerialization.h>
+#include <cereal/archives/json.hpp>
+#include <engine/BasicSerialization.h>
 #include <fstream>
 
 static const char* TAG = "Model Loader";
 
 namespace sky {
+
+    ModelLoader::ModelLoader() : asset(Uuid::Create())
+    {
+    }
 
     bool ModelLoader::Load(const std::string& path)
     {
@@ -32,10 +36,10 @@ namespace sky {
 
     void ModelLoader::LoadMesh()
     {
-        model.meshes.resize(scene->mNumMeshes);
+        asset.data.meshes.resize(scene->mNumMeshes);
         for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
             auto mesh = scene->mMeshes[i];
-            auto& tmpMesh = model.meshes[i];
+            auto& tmpMesh = asset.data.meshes[i];
 
             tmpMesh.vertices.resize(mesh->mNumVertices);
             for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
@@ -97,8 +101,9 @@ namespace sky {
     void ModelLoader::Save(const std::string& path)
     {
         std::ofstream os(path, std::ios::binary);
-        cereal::BinaryOutputArchive archive( os );
-        archive(model);
+        cereal::JSONOutputArchive archive( os );
+
+        archive(asset);
     }
 
 }

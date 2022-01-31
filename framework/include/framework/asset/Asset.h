@@ -15,6 +15,12 @@ namespace sky {
         uint32_t magic = 0x00594B53;
         Uuid type = {};
         Uuid id = {};
+
+        template <class Archive>
+        void serialize(Archive& ar)
+        {
+            ar(magic, type, id);
+        }
     };
 
     class AssetBase : public RefObject<AssetBase> {
@@ -58,6 +64,15 @@ namespace sky {
 
         virtual AssetBase* Create(const Uuid& id) = 0;
 
-        virtual AssetBase* Load(const std::string&) = 0;
+        AssetBase* Load(const std::string& path);
+    };
+
+    template <class Asset>
+    class AssetHandler : public AssetHandlerBase {
+    public:
+        AssetBase* Create(const Uuid& id)
+        {
+            return new Asset(id);
+        }
     };
 }

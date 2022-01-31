@@ -91,10 +91,6 @@ namespace sky {
         JSON
     };
 
-    void SerializationWriteString(const Any& any, std::string& output);
-
-    void SerializationReadString(Any& any, const std::string& input);
-
 }
 
 #define TYPE_RTTI_BASE                              \

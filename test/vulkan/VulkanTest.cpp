@@ -30,20 +30,20 @@ TEST(VulkanTest, PipelineLayoutTest)
     {
         DescriptorSetLayout::Descriptor descriptor = {};
         descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, 0});
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
         descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         descriptor.bindings.emplace(2, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         pipelineLayoutDes.desLayouts.emplace(0, descriptor);
     }
 
     {
         DescriptorSetLayout::Descriptor descriptor = {};
         descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, 0});
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
         descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, 0});
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         pipelineLayoutDes.desLayouts.emplace(1, descriptor);
     }
 
