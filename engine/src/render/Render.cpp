@@ -50,7 +50,7 @@ namespace sky {
         if (iter != scenes.end()) {
             return;
         }
-        auto scene = std::make_unique<RenderScene>(*this);
+        auto scene = std::make_unique<RenderScene>();
         auto pipeline = std::make_unique<ForwardRendering>();
         scene->SetRenderPipeline(std::move(pipeline));
 

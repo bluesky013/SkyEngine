@@ -74,7 +74,7 @@ namespace sky {
             std::ifstream is(path, std::ios::binary);
             cereal::BinaryInputArchive archive(is);
 
-            auto asset = new Asset({});
+            auto asset = new Asset(Uuid::Create());
             archive(*asset);
             return asset;
         }

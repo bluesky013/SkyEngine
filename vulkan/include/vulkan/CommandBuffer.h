@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/Fence.h>
 #include <vulkan/Semaphore.h>
+#include <vulkan/Buffer.h>
 #include <vector>
 
 namespace sky::drv {
@@ -37,6 +38,8 @@ namespace sky::drv {
 
         void Copy(VkImage src, VkImageLayout srcLayout,
             VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy);
+
+        void Copy(VkBuffer src, VkBuffer dst, const VkBufferCopy& copy);
 
         void End();
 

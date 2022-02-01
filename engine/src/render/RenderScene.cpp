@@ -9,17 +9,13 @@
 
 namespace sky {
 
-    RenderScene::~RenderScene()
-    {
-    }
-
     void RenderScene::SetTarget(drv::SwapChainPtr& swc)
     {
         swapChain = swc;
         pipeline->SetSwapChain(swapChain);
     }
 
-    void RenderScene::SetRenderPipeline(PipelienPtr&& ptr)
+    void RenderScene::SetRenderPipeline(PipelinePtr&& ptr)
     {
         pipeline.reset(ptr.release());
     }
@@ -42,7 +38,7 @@ namespace sky {
 
     void RenderScene::OnTick(float time)
     {
-        pipeline->Render(renderGraph);
+        pipeline->Render(*this, renderGraph);
     }
 
     void RenderScene::OnPostTick()

@@ -23,7 +23,7 @@ namespace sky {
 
         GameObject* CreateGameObject(const std::string& name);
 
-        void RemoveGameObject(GameObject*);
+        void DestroyGameObject(GameObject*);
 
         void Tick(float);
 

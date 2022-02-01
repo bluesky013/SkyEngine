@@ -20,7 +20,7 @@ namespace sky {
         ForwardRendering();
         ~ForwardRendering();
 
-        void Render(RenderGraph&) override;
+        void Render(RenderScene& scene, RenderGraph&) override;
 
     private:
         void SetupShader();

@@ -115,4 +115,9 @@ namespace sky::drv {
     {
         vkCmdCopyImage(cmdBuffer, src, srcLayout, dst, dstLayout, 1, &copy);
     }
+
+    void CommandBuffer::Copy(VkBuffer src, VkBuffer dst, const VkBufferCopy& copy)
+    {
+        vkCmdCopyBuffer(cmdBuffer, src, dst, 1, &copy);
+    }
 }

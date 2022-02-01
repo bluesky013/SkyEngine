@@ -62,13 +62,6 @@ TEST(EngineTest, TransformComponentTest)
     ASSERT_EQ(t2->GetParent(), t1);
 
     ASSERT_EQ(world.GetGameObjects().size(), size_t(5));
-    delete go3;
-    ASSERT_EQ(t1->GetChildren().size(), size_t(1));
-    ASSERT_EQ(t2->GetChildren().size(), size_t(0));
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(3));
-
-    delete go1;
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(1));
 }
 
 struct TestSystem : public IComponentListener {

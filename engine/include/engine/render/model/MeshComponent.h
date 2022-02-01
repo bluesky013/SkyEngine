@@ -16,9 +16,12 @@ namespace sky {
 
         TYPE_RTTI_WITH_VT(MeshComponent)
 
+        void OnTick(float time) override;
+
         static void Reflect();
 
         MeshAssetPtr asset;
+        MeshPtr instance;
     };
 
 }

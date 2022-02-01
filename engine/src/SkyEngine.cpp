@@ -9,6 +9,8 @@
 #include <engine/ServiceManager.h>
 #include <engine/render/service/TransformService.h>
 #include <engine/render/service/CameraService.h>
+#include <framework/asset/ResourceManager.h>
+#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "SkyEngine";
 
@@ -46,6 +48,8 @@ namespace sky {
             module->Stop();
         }
 
+        AssetManager::Destroy();
+        ResourceManager::Destroy();
         Render::Destroy();
 
         eventListeners.clear();

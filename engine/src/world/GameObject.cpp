@@ -12,9 +12,6 @@ namespace sky {
 
     GameObject::~GameObject()
     {
-        if (world != nullptr) {
-            world->RemoveGameObject(this);
-        }
         for (auto iter : components) {
             delete iter;
         }

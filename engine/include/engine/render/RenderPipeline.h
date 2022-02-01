@@ -9,6 +9,7 @@
 
 namespace sky {
 
+    class RenderScene;
     class RenderGraph;
 
     class RenderPipeline  {
@@ -21,7 +22,7 @@ namespace sky {
             swapChain = swc;
         }
 
-        virtual void Render(RenderGraph&) = 0;
+        virtual void Render(RenderScene& scene, RenderGraph&) = 0;
 
     protected:
         drv::SwapChainPtr swapChain;

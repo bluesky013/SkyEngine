@@ -15,8 +15,6 @@ namespace sky {
 
     class GameObject {
     public:
-        ~GameObject();
-
         GameObject(const GameObject&) = delete;
         GameObject& operator=(const GameObject&) = delete;
 
@@ -93,6 +91,8 @@ namespace sky {
 
     private:
         friend class World;
+        ~GameObject();
+
         GameObject(const std::string& str) : name(str) {}
         World* world = nullptr;
         uint32_t objId = 0;

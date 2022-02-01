@@ -45,6 +45,7 @@ namespace sky::drv {
         }
 
         isTransient = des.transient;
+        desc = des;
         return true;
     }
 
@@ -56,5 +57,17 @@ namespace sky::drv {
     bool Buffer::IsTransient() const
     {
         return isTransient;
+    }
+
+    uint8_t* Buffer::Map()
+    {
+        uint8_t* ptr = nullptr;
+        vmaMapMemory(device.GetAllocator(), allocation, reinterpret_cast<void **>(&ptr));
+        return ptr;
+    }
+
+    void Buffer::UnMap()
+    {
+        vmaUnmapMemory(device.GetAllocator(), allocation);
     }
 }

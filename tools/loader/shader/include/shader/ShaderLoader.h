@@ -8,8 +8,6 @@
 #include <vector>
 #include <engine/asset/ShaderAsset.h>
 
-struct aiScene;
-
 namespace sky {
 
     class ShaderLoader {
@@ -22,8 +20,6 @@ namespace sky {
         void Save(const std::string& path);
 
     private:
-        const aiScene* scene = nullptr;
-
         ShaderAssetPtr asset;
     };
 

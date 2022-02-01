@@ -14,12 +14,16 @@ namespace sky {
         : root(new GameObject("root"))
     {
         root->AddComponent<TransformComponent>();
+        root->world = this;
         gameObjects.emplace_back(root);
     }
 
     World::~World()
     {
-
+        for (auto& go : gameObjects) {
+            delete go;
+        }
+        gameObjects.clear();
     }
 
     GameObject* World::CreateGameObject(const std::string& name)
@@ -36,10 +40,11 @@ namespace sky {
         return go;
     }
 
-    void World::RemoveGameObject(GameObject* go)
+    void World::DestroyGameObject(GameObject *go)
     {
         auto iter = std::find(gameObjects.begin(), gameObjects.end(), go);
         if (iter != gameObjects.end()) {
+            delete (*iter);
             gameObjects.erase(iter);
         }
     }

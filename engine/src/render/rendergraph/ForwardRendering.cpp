@@ -62,7 +62,7 @@ namespace sky {
         extent = ext;
     }
 
-    void ForwardRendering::Render(RenderGraph& renderGraph)
+    void ForwardRendering::Render(RenderScene& scene, RenderGraph& renderGraph)
     {
         SetupImage();
         SetupShader();

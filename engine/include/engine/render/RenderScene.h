@@ -19,14 +19,14 @@ namespace sky {
 
     class RenderScene {
     public:
-        RenderScene(Render& rd) : render(rd) {}
-        ~RenderScene();
+        RenderScene() = default;
+        ~RenderScene() = default;
 
-        using PipelienPtr = std::unique_ptr<RenderPipeline>;
+        using PipelinePtr = std::unique_ptr<RenderPipeline>;
 
         void SetTarget(drv::SwapChainPtr& swc);
 
-        void SetRenderPipeline(PipelienPtr&& ptr);
+        void SetRenderPipeline(PipelinePtr&& ptr);
 
         void AddView(RenderView* view);
 
@@ -36,9 +36,8 @@ namespace sky {
 
         void OnPostTick();
     private:
-        Render& render;
         drv::SwapChainPtr swapChain;
-        PipelienPtr pipeline;
+        PipelinePtr pipeline;
         RenderGraph renderGraph;
         std::list<RenderView*> views;
         drv::SemaphorePtr waitSemaphore;

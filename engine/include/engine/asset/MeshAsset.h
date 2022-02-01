@@ -10,6 +10,7 @@
 #include <engine/asset/BufferAsset.h>
 #include <engine/asset/MaterialAsset.h>
 #include <vulkan/Device.h>
+#include <vulkan/Buffer.h>
 #include <vector>
 
 namespace sky {
@@ -54,7 +55,7 @@ namespace sky {
     };
 
     struct BufferView {
-        BufferPtr buffer;
+        drv::BufferPtr buffer;
         uint32_t offset = 0;
         uint32_t stride = 0;
     };
@@ -91,18 +92,28 @@ namespace sky {
 
     using MeshAssetPtr = CounterPtr<MeshAsset>;
 
+    struct Primitive {
+        uint32_t vertices;
+        std::vector<BufferView> vertexBuffers;
+        std::vector<Attribute> attributes;
+        BufferView indices;
+        MaterialPtr material;
+        AABB aabb;
+    };
+
     class Mesh : public ResourceBase {
     public:
         Mesh(const Uuid& id) : ResourceBase(id) {}
         ~Mesh() = default;
 
+        static CounterPtr<Mesh> CreateFromAsset(AssetPtr asset);
+
     private:
-        uint32_t vertices;
-        std::vector<BufferView> vertexBuffers;
-        BufferView indices;
-        std::vector<Attribute> attributes;
-        MaterialPtr material;
-        AABB aabb;
+        drv::BufferPtr vertexBuffer;
+        drv::BufferPtr indexBuffer;
+        std::vector<Primitive> primitives;
     };
+
+    using MeshPtr = CounterPtr<Mesh>;
 
 }

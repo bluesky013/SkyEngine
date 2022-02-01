@@ -19,12 +19,16 @@ namespace sky::drv {
             VkDeviceSize        size      = 0;
             VkBufferUsageFlags  usage     = 0;
             VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
-            bool                transient = true;
+            bool                transient = false;
         };
 
         VkBuffer GetNativeHandle() const;
 
         bool IsTransient() const;
+
+        uint8_t* Map();
+
+        void UnMap();
 
     private:
         friend class Device;
@@ -35,7 +39,10 @@ namespace sky::drv {
         VkBuffer buffer;
         VmaAllocation allocation;
         VkBufferCreateInfo bufferInfo;
+        Descriptor desc = {};
         bool isTransient = false;
     };
+
+    using BufferPtr = std::shared_ptr<Buffer>;
 
 }

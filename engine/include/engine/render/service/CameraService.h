@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include <engine/IService.h>
+#include <engine/render/service/RenderService.h>
 
 namespace sky {
 
     class CameraService
-        : public IService
-        , public IComponentListener
-    {
+        : public RenderService
+        , public IComponentListener {
     public:
         CameraService();
         ~CameraService();

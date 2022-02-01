@@ -35,7 +35,7 @@ namespace sky {
             }
         }
         for (auto& child : children) {
-            delete child->object;
+            child->parent = nullptr;
         }
         children.clear();
     }
