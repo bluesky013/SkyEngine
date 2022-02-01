@@ -29,6 +29,7 @@ namespace sky {
             });
             if (iter == components.end()) {
                 auto comp = ComponentFactory<T>::CreateComponent();
+                comp->OnInit();
                 comp->object = this;
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
                 components.emplace_back(comp);
@@ -45,6 +46,7 @@ namespace sky {
                 return comp->GetTypeInfo() == info;
             });
             if (iter != components.end()) {
+                (*iter)->OnDestroy();
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
                 delete *iter;
                 components.erase(iter);
@@ -83,6 +85,8 @@ namespace sky {
         const std::string& GetName() const;
 
         void SetParent(GameObject* gameObject);
+
+        void Tick(float time);
 
         using ComponentList = std::list<Component*>;
         ComponentList& GetComponents();

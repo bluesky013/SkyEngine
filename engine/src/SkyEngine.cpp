@@ -6,6 +6,9 @@
 #include <engine/world/World.h>
 #include <engine/render/Render.h>
 #include <core/logger/Logger.h>
+#include <engine/ServiceManager.h>
+#include <engine/render/service/TransformService.h>
+#include <engine/render/service/CameraService.h>
 
 static const char* TAG = "SkyEngine";
 
@@ -16,6 +19,9 @@ namespace sky {
         render = Render::Get();
         render->Init(startInfo);
         RegisterEngineListener(render);
+
+        ServiceManager::Get()->RegisterService<TransformService>();
+        ServiceManager::Get()->RegisterService<CameraService>();
         return true;
     }
 

@@ -5,6 +5,7 @@
 #include <engine/render/Render.h>
 #include <engine/render/camera/CameraComponent.h>
 #include <engine/render/light/LightComponent.h>
+#include <engine/render/model/MeshComponent.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky {
@@ -21,10 +22,17 @@ namespace sky {
         SerializationContext::Get()->Register<LightComponent>(TypeName());
     }
 
+    void MeshComponent::Reflect()
+    {
+        SerializationContext::Get()->Register<MeshComponent>(TypeName())
+            .Member<&MeshComponent::asset>("mesh");
+    }
+
     void Render::Reflect()
     {
         CameraComponent::Reflect();
         LightComponent::Reflect();
+        MeshComponent::Reflect();
     }
 
 }

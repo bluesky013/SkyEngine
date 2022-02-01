@@ -8,10 +8,10 @@
 
 namespace sky {
 
-    class ISystem : public IComponentListener {
+    class IService {
     public:
-        ISystem() = default;
-        virtual ~ISystem() = default;
+        IService() = default;
+        virtual ~IService() = default;
 
         virtual void OnTick(float time) {}
     };

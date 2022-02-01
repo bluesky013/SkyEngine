@@ -17,6 +17,11 @@ namespace sky {
         gameObjects.emplace_back(root);
     }
 
+    World::~World()
+    {
+
+    }
+
     GameObject* World::CreateGameObject(const std::string& name)
     {
         static std::atomic_uint32_t index = 0;
@@ -41,7 +46,9 @@ namespace sky {
 
     void World::Tick(float time)
     {
-
+        for (auto& obj : gameObjects) {
+            obj->Tick(time);
+        }
     }
 
     const std::vector<GameObject*>& World::GetGameObjects() const

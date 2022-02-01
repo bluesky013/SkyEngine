@@ -39,6 +39,13 @@ namespace sky {
         trans->SetParent(parent);
     }
 
+    void GameObject::Tick(float time)
+    {
+        for (auto& comp : components) {
+            comp->OnTick(time);
+        }
+    }
+
     GameObject::ComponentList& GameObject::GetComponents()
     {
         return components;

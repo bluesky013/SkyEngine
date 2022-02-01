@@ -19,7 +19,7 @@ namespace sky {
     class World {
     public:
         World();
-        ~World() = default;
+        ~World();
 
         GameObject* CreateGameObject(const std::string& name);
 

@@ -3,6 +3,11 @@
 //
 
 #include <Sample.h>
+#include <engine/world/GameObject.h>
+#include <engine/render/camera/CameraComponent.h>
+#include <engine/render/light/LightComponent.h>
+#include <engine/render/model/MeshComponent.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -22,6 +27,17 @@ namespace sky {
 
         engine.AddViewport(*viewport);
         engine.AddWorld(*world);
+
+        auto camera = world->CreateGameObject("Camera");
+        auto cameraComp = camera->AddComponent<CameraComponent>();
+        cameraComp->Perspective(0.1f, 100.f, 60 / 180.f * 3.14f, 1366 / 768.f);
+
+        auto light = world->CreateGameObject("Light");
+        light->AddComponent<LightComponent>();
+
+        auto mesh = world->CreateGameObject("Mesh");
+        auto meshComp = mesh->AddComponent<MeshComponent>();
+        meshComp->asset = Cast<MeshAsset>(AssetManager::Get()->LoadAsset("DamagedHelmet.model", MeshAsset::TYPE));
 
         engine.SetTarget(*world, *viewport);
     }

@@ -32,6 +32,10 @@ namespace sky {
 
         void UpdateProjection();
 
+        void OnInit() override;
+
+        void OnDestroy() override;
+
     private:
         float near = 0.1f;
         float far = 100.f;
