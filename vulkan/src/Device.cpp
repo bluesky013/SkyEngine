@@ -278,5 +278,10 @@ namespace sky::drv {
         });
     }
 
+    const VkPhysicalDeviceProperties& Device::GetProperties() const
+    {
+        return phyProps;
+    }
+
 }
 

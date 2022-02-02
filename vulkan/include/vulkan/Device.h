@@ -56,6 +56,8 @@ namespace sky::drv {
 
         VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo* = nullptr);
 
+        const VkPhysicalDeviceProperties& GetProperties() const;
+
     private:
         bool Init(const Descriptor&, bool enableDebug);
 

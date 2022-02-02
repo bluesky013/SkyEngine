@@ -32,6 +32,8 @@ namespace sky {
 
         void UpdateProjection();
 
+        void OnTick(float time) override;
+
         void OnInit() override;
 
         void OnDestroy() override;

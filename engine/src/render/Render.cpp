@@ -15,6 +15,8 @@
 #include <engine/asset/MaterialAsset.h>
 #include <engine/asset/MeshAsset.h>
 #include <engine/asset/ImageAsset.h>
+#include <engine/render/service/TransformService.h>
+#include <engine/render/service/ViewService.h>
 
 static const char* TAG = "Render";
 
@@ -54,6 +56,9 @@ namespace sky {
         auto pipeline = std::make_unique<ForwardRendering>();
         scene->SetRenderPipeline(std::move(pipeline));
 
+        world.GetServiceManager()->RegisterService<TransformService>();
+        world.GetServiceManager()->RegisterService<ViewService>();
+
         scenes.emplace(&world, std::move(scene));
     }
 
@@ -63,6 +68,9 @@ namespace sky {
         if (iter == scenes.end()) {
             return;
         }
+
+        world.GetServiceManager()->UnRegisterService<TransformService>();
+        world.GetServiceManager()->UnRegisterService<ViewService>();
         scenes.erase(iter);
     }
 

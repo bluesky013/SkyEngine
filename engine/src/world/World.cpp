@@ -13,6 +13,8 @@ namespace sky {
     World::World()
         : root(new GameObject("root"))
     {
+        serviceManager = std::make_unique<ServiceManager>();
+
         root->AddComponent<TransformComponent>();
         root->world = this;
         gameObjects.emplace_back(root);
@@ -54,6 +56,9 @@ namespace sky {
         for (auto& obj : gameObjects) {
             obj->Tick(time);
         }
+        if (serviceManager) {
+            serviceManager->Tick(time);
+        }
     }
 
     const std::vector<GameObject*>& World::GetGameObjects() const
@@ -64,6 +69,11 @@ namespace sky {
     GameObject* World::GetRoot()
     {
         return root;
+    }
+
+    ServiceManager* World::GetServiceManager() const
+    {
+        return serviceManager.get();
     }
 
     void World::Reflect()

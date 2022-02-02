@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <core/math/Rect.h>
+#include <engine/ServiceManager.h>
 
 namespace sky {
 
@@ -31,10 +32,13 @@ namespace sky {
 
         GameObject* GetRoot();
 
+        ServiceManager* GetServiceManager() const;
+
         static void Reflect();
 
     private:
         GameObject* root;
+        std::unique_ptr<ServiceManager> serviceManager;
         std::vector<GameObject*> gameObjects;
     };
 

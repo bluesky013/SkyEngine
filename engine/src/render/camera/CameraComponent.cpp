@@ -4,9 +4,9 @@
 
 
 #include <engine/render/camera/CameraComponent.h>
+#include <engine/world/TransformComponent.h>
+#include <engine/world/GameObject.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <engine/render/service/TransformService.h>
-#include <engine/ServiceManager.h>
 
 namespace sky {
 
@@ -41,9 +41,13 @@ namespace sky {
         }
     }
 
+    void CameraComponent::OnTick(float time)
+    {
+        auto trans = object->GetComponent<TransformComponent>();
+    }
+
     void CameraComponent::OnInit()
     {
-        auto ts = ServiceManager::Get()->GetService<TransformService>();
     }
 
     void CameraComponent::OnDestroy()

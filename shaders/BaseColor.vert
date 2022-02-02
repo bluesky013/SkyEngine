@@ -14,6 +14,7 @@ layout (set = 0, binding = 0) uniform ObjectInfo {
 } objectInfo;
 
 layout (set = 0, binding = 1) uniform ViewInfo {
+    mat4 viewMatrix;
     mat4 viewProject;
 } viewInfo;
 

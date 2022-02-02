@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <framework/environment/Singleton.h>
 #include <engine/IService.h>
 #include <core/util/Rtti.h>
 #include <unordered_map>
@@ -12,8 +11,10 @@
 
 namespace sky {
 
-    class ServiceManager : public Singleton<ServiceManager> {
+    class ServiceManager {
     public:
+        ServiceManager() = default;
+        ~ServiceManager() = default;
 
         template <typename T>
         T* GetService() const
@@ -34,12 +35,15 @@ namespace sky {
             services.erase(TypeInfo<T>::Name());
         }
 
-    private:
-        friend class Singleton<ServiceManager>;
-        ServiceManager() = default;
-        ~ServiceManager() = default;
-        using ServicePtr = std::unique_ptr<IService>;
+        void Tick(float time)
+        {
+            for (auto& service : services) {
+                service.second->OnTick(time);
+            }
+        }
 
+    private:
+        using ServicePtr = std::unique_ptr<IService>;
         std::unordered_map<std::string_view, ServicePtr> services;
     };
 }
