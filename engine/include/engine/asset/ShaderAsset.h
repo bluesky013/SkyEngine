@@ -79,6 +79,7 @@ namespace sky {
     private:
         drv::GraphicsPipeline::Program program;
         drv::GraphicsPipeline::State state;
+        drv::PipelineLayoutPtr pipelineLayout;
     };
     using ShaderPtr = CounterPtr<Shader>;
 

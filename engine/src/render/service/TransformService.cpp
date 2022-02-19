@@ -18,19 +18,33 @@ namespace sky {
 
     TransformService::Handle TransformService::Acquire()
     {
-        if (!freeList.empty()) {
-            auto res = freeList.back();
-            freeList.pop_back();
-            return res;
-        }
-        auto tmp = index;
-        ++index;
+//        if (!freeList.empty()) {
+//            auto res = freeList.back();
+//            freeList.pop_back();
+//            return res;
+//        }
+//        auto tmp = index;
+//        ++index;
+//
+//        if (!pool) {
+//            InitPool();
+//        }
+//        pool->Reserve(index);
+//        return tmp;
+        return {};
+    }
 
-        if (!pool) {
-            InitPool();
+    void TransformService::UpdateTransform(Handle handle, const Matrix4& trans)
+    {
+        if (pool) {
+//            auto ptr = pool->GetAddress(handle);
+//            new (ptr) ObjectInfo{trans, glm::transpose(glm::inverse(glm::mat3(trans)))};
         }
-        pool->Reserve(index);
-        return tmp;
+    }
+
+    void TransformService::Free(Handle handle)
+    {
+//        freeList.emplace_back(handle);
     }
 
     void TransformService::InitPool()
@@ -43,22 +57,8 @@ namespace sky {
         desc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
         desc.stride = std::max(static_cast<uint32_t>(prop.limits.minUniformBufferOffsetAlignment),
                                static_cast<uint32_t>(sizeof(ObjectInfo)));
-        desc.frame = 2;
 
         pool = std::make_unique<RenderBufferPool>(desc);
-    }
-
-    void TransformService::UpdateTransform(Handle handle, const Matrix4& trans)
-    {
-        if (pool) {
-            auto ptr = pool->GetAddress(handle);
-            new (ptr) ObjectInfo{trans, glm::transpose(glm::inverse(glm::mat3(trans)))};
-        }
-    }
-
-    void TransformService::Free(Handle handle)
-    {
-        freeList.emplace_back(handle);
     }
 
     void TransformService::OnTick(float time)

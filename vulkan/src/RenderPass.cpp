@@ -12,7 +12,7 @@ static const char* TAG = "Driver";
 
 namespace sky::drv {
 
-    RenderPass::RenderPass(Device& dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0)
+    RenderPass::RenderPass(Device& dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0), psoHash(0)
     {
     }
 
@@ -22,6 +22,7 @@ namespace sky::drv {
 
     bool RenderPass::Init(const Descriptor& des)
     {
+        hash = 0;
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(des.attachments.data()),
             static_cast<uint32_t>(des.attachments.size() * sizeof(VkAttachmentDescription))));
 
@@ -75,6 +76,38 @@ namespace sky::drv {
     uint32_t RenderPass::GetHash() const
     {
         return hash;
+    }
+
+    uint32_t RenderPass::GetPsoHash() const
+    {
+        return psoHash;
+    }
+
+    /**
+     * Render Pass Compatibility
+     */
+    void RenderPass::CalculateHashForPSO(const Descriptor& desc)
+    {
+        psoHash = 0;
+
+        auto calc = [this](const Descriptor& desc, const VkAttachmentReference& ref) {
+            auto& attachment = desc.attachments[ref.attachment];
+            HashCombine32(psoHash, attachment.format);
+            HashCombine32(psoHash, attachment.samples);
+        };
+
+        for (auto& subPass : desc.subPasses) {
+            for (auto& attachment : subPass.colors) {
+                calc(desc, attachment);
+            }
+            for (auto& attachment : subPass.resolves) {
+                calc(desc, attachment);
+            }
+            for (auto& attachment : subPass.inputs) {
+                calc(desc, attachment);
+            }
+            calc(desc, subPass.depthStencil);
+        }
     }
 
     RenderPassFactory::Impl RenderPassFactory::operator()()

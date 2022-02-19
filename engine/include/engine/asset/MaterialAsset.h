@@ -11,7 +11,15 @@
 #include <string>
 
 namespace sky {
-    class MaterialInstance;
+
+    struct MaterialData {
+
+        template <class Archive>
+        void serialize(Archive& ar)
+        {
+        }
+    };
+
 
     class MaterialAsset : public AssetBase {
     public:
@@ -34,17 +42,12 @@ namespace sky {
         const Uuid& GetType() const override { return TYPE; }
     };
 
-    struct MaterialLayout {
-
-    };
-
     class Material : public ResourceBase {
     public:
         Material(const Uuid& id) : ResourceBase(id) {}
         ~Material() = default;
 
     private:
-        MaterialLayout layout;
         std::unordered_map<std::string, Any> properties;
     };
     using MaterialPtr = CounterPtr<Material>;

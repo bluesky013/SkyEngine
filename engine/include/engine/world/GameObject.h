@@ -27,8 +27,8 @@ namespace sky {
             });
             if (iter == components.end()) {
                 auto comp = ComponentFactory<T>::CreateComponent();
-                comp->OnInit();
                 comp->object = this;
+                comp->OnInit();
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
                 components.emplace_back(comp);
                 return comp;
@@ -81,6 +81,8 @@ namespace sky {
         uint32_t GetId() const;
 
         const std::string& GetName() const;
+
+        World* GetWorld() const;
 
         void SetParent(GameObject* gameObject);
 

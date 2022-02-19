@@ -28,6 +28,11 @@ namespace sky {
         return name;
     }
 
+    World* GameObject::GetWorld() const
+    {
+        return world;
+    }
+
     void GameObject::SetParent(GameObject* gameObject)
     {
         auto trans = GetComponent<TransformComponent>();

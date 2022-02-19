@@ -7,7 +7,7 @@
 #include <core/math/Matrix.h>
 #include <core/math/Transform.h>
 #include <vulkan/Buffer.h>
-#include <list>
+#include <unordered_map>
 #include <memory>
 
 namespace sky {
@@ -22,13 +22,13 @@ namespace sky {
         TransformService();
         ~TransformService();
 
-        using Handle = uint32_t;
-
-        void UpdateTransform(Handle, const Matrix4& trans);
+        using Handle = SHandle<TransformService>;
 
         Handle Acquire();
 
         void Free(Handle);
+
+        void UpdateTransform(Handle, const Matrix4& trans);
 
         void OnTick(float time) override;
 
@@ -37,7 +37,7 @@ namespace sky {
 
         uint32_t index = 0;
         std::unique_ptr<RenderBufferPool> pool;
-        std::list<Handle> freeList;
+        std::unordered_map<uint32_t, uint32_t> offsetTable;
     };
 
 }

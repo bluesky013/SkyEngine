@@ -37,7 +37,7 @@ namespace sky {
 
         auto mesh = world->CreateGameObject("Mesh");
         auto meshComp = mesh->AddComponent<MeshComponent>();
-        meshComp->asset = Cast<MeshAsset>(AssetManager::Get()->LoadAsset("DamagedHelmet.model", MeshAsset::TYPE));
+        meshComp->asset = Cast<MeshAsset>(AssetManager::Get()->LoadAsset("models/DamagedHelmet.model", MeshAsset::TYPE));
 
         engine.SetTarget(*world, *viewport);
     }

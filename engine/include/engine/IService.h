@@ -8,6 +8,12 @@
 
 namespace sky {
 
+    template <typename T>
+    struct SHandle {
+        using Type = T;
+        uint32_t handle;
+    };
+
     class IService {
     public:
         IService() = default;

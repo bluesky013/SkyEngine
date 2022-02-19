@@ -19,6 +19,12 @@ namespace sky {
         ViewService();
         ~ViewService();
 
+        using Handle = SHandle<ViewService>;
+
+        Handle Acquire();
+
+        void Free(Handle);
+
         void OnTick(float time);
 
     private:

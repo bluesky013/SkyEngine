@@ -1,10 +1,12 @@
 {
-    "vert" : {
-        "path"  : "shaders/BaseColor.vert",
-        "entry" : "main"
+    "vert": {
+        "path": "shaders/BaseColor.vert",
+        "entry": "main"
     },
-    "frag" : {
-        "path"  : "shaders/BaseColor.frag",
-        "entry" : "main"
-    }
+    "frag": {
+        "path": "shaders/BaseColor.frag",
+        "entry": "main"
+    },
+    "vertexLayout": "",
+    "renderPass": ""
 }

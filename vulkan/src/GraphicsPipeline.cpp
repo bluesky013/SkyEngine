@@ -21,7 +21,7 @@ namespace sky::drv {
             HashCombine32(hash, desc.program->shaderOption->GetHash());
         }
         HashCombine32(hash, desc.pipelineLayout->GetHash());
-        HashCombine32(hash, desc.renderPass->GetHash());
+        HashCombine32(hash, desc.renderPass->GetPsoHash());
         HashCombine32(hash, desc.vertexInput->GetHash());
         return hash;
     }

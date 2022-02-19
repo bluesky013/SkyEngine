@@ -5,6 +5,7 @@
 #include <engine/asset/ShaderAsset.h>
 #include <engine/render/DriverManager.h>
 #include <framework/asset/ResourceManager.h>
+#include <spirv_cross/spirv_cross.hpp>
 
 namespace sky {
 
@@ -35,6 +36,8 @@ namespace sky {
         auto shaderAsset = static_cast<ShaderAsset*>(asset.Get());
 
         instance->program.shaders.reserve(shaderAsset->sourceData.shaders.size());
+
+        drv::PipelineLayout::Descriptor desc = {};
         for (auto& source : shaderAsset->sourceData.shaders) {
             drv::Shader::Descriptor des = {};
             des.stage = source.stage;
@@ -47,6 +50,15 @@ namespace sky {
             instance->program.shaders.emplace_back(drv::GraphicsPipeline::ShaderInfo {
                 drvShader, source.entry
             });
+
+//            spirv_cross::Compiler glsl(source.data);
+//            spirv_cross::ShaderResources resources = glsl.get_shader_resources();
+//            for (auto &resource : resources.sampled_images)
+//            {
+//                unsigned set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+//                unsigned binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+//            }
+
         }
         return instance;
     }

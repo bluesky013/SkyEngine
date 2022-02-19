@@ -36,12 +36,17 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
+        uint32_t GetPsoHash() const;
+
     private:
         friend class Device;
         RenderPass(Device&);
 
+        void CalculateHashForPSO(const Descriptor&);
+
         VkRenderPass pass;
         uint32_t hash;
+        uint32_t psoHash;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

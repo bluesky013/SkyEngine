@@ -58,6 +58,10 @@ set(ASSIMP_BUILD_TESTS false)
 set(BUILD_SHARED_LIBS false)
 add_subdirectory(assimp)
 
+set(SPIRV_CROSS_CLI false)
+set(SPIRV_CROSS_ENABLE_TESTS false)
+add_subdirectory(SPIRV-Cross)
+
 set(CEREAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cereal)
 add_library(cereal INTERFACE IMPORTED GLOBAL)
 target_include_directories(cereal INTERFACE ${CEREAL_DIR}/include)
