@@ -16,12 +16,16 @@ TEST(TaskManagerTest, TaskTest)
 
     int a = 0;
     TaskFlow flow;
-    flow.Emplace([&a]() {
+    auto t1 = flow.Emplace([&a]() {
         a = 1;
     });
+    auto t2 = flow.Emplace([&a]() {
+        a++;
+    });
+    t2.succeed(t1);
 
     tm->Execute(flow).wait();
-    ASSERT_EQ(a, 1);
+    ASSERT_EQ(a, 2);
 
     tm->Shutdown();
     TaskManager::Destroy();
