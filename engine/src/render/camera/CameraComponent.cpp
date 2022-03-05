@@ -46,7 +46,10 @@ namespace sky {
     void CameraComponent::OnTick(float time)
     {
         auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
-        auto trans = object->GetComponent<TransformComponent>();
+        auto transComp = object->GetComponent<TransformComponent>();
+
+        auto& transform = transComp->GetWorld();
+        viewService->UpdateViewInfo(viewHandle, transform.GetInverse().ToMatrix(), projection);
     }
 
     void CameraComponent::OnActive()

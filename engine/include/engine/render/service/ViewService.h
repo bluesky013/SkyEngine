@@ -28,7 +28,7 @@ namespace sky {
 
         void OnTick(float time);
 
-        void UpdateViewInfo(const Matrix4& world, const Matrix4& project);
+        void UpdateViewInfo(const Handle& handle, const Matrix4& view, const Matrix4& project);
 
     private:
         BufferTemplate<ViewData, Handle> viewPool;

@@ -33,11 +33,9 @@ namespace sky {
 
     void TransformService::UpdateTransform(const Handle& handle, const Matrix4& trans)
     {
-        bufferPool.Update(handle, trans,
-                          offsetof(ObjectInfo, worldMatrix));
+        bufferPool.Update(handle, trans, offsetof(ObjectInfo, worldMatrix));
 
-        bufferPool.Update(handle, glm::mat4(glm::transpose(glm::inverse(glm::mat3(trans)))),
-                          offsetof(ObjectInfo, inverseTransMatrix));
+        bufferPool.Update(handle, glm::mat4(glm::transpose(glm::inverse(glm::mat3(trans)))), offsetof(ObjectInfo, inverseTransMatrix));
     }
 
 }

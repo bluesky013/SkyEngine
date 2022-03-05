@@ -29,4 +29,10 @@ namespace sky {
     {
         viewPool.Flush();
     }
+
+    void ViewService::UpdateViewInfo(const Handle& handle, const Matrix4& view, const Matrix4& project)
+    {
+        viewPool.Update(handle, view, offsetof(ViewData, worldToView));
+        viewPool.Update(handle,  project * view, offsetof(ViewData, worldToClip));
+    }
 }
