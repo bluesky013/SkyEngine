@@ -29,7 +29,7 @@ TEST(EngineReflect, TestBasic)
 
     auto local = node->getterFn(comp, false);
     auto rotation = local.Get("rotation");
-    auto pos = local.Get("pos");
+    auto pos = local.Get("translation");
     auto scale = local.Get("scale");
 
     ASSERT_EQ(*pos.Get("x").GetAs<float>(), 0.f);
