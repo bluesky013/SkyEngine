@@ -6,6 +6,7 @@
 
 #include <framework/environment/Singleton.h>
 #include <framework/asset/Asset.h>
+#include <framework/task/TaskManager.h>
 #include <core/platform/Platform.h>
 #include <unordered_map>
 #include <mutex>
@@ -28,10 +29,9 @@ namespace sky {
             UnRegisterHandler(T::TYPE);
         }
 
-        AssetPtr LoadAsset(const std::string& path, const Uuid& type);
-
         void SaveAsset(const std::string& path, AssetPtr asset, const Uuid& type);
 
+        AssetPtr FindOrCreate(const std::string& path, const Uuid& type);
         AssetPtr FindOrCreate(const Uuid& id, const Uuid& type);
 
         template <typename T>

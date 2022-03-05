@@ -27,28 +27,6 @@ namespace sky {
         }
     }
 
-    AssetPtr AssetManager::LoadAsset(const std::string& path, const Uuid& type)
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        auto iter = assetsFileMap.find(path);
-        if (iter != assetsFileMap.end()) {
-            return FindOrCreate(iter->second, type);
-        }
-
-        auto handler = handlers.find(type);
-        if (handler == handlers.end()) {
-            LOG_E(TAG, "handler not found %s", type.ToString().c_str());
-            return {};
-        }
-        auto asset = handler->second->Load(path);
-        if (asset != nullptr) {
-            asset->path = path;
-            asset->status = AssetBase::Status::LOADED;
-            assetsFileMap.emplace(path, asset->GetId());
-        }
-        return asset;
-    }
-
     void AssetManager::SaveAsset(const std::string& path, AssetPtr asset, const Uuid& type)
     {
         auto handler = handlers.find(type);
@@ -70,6 +48,28 @@ namespace sky {
             delete iter->second;
             assets.erase(iter);
         }
+    }
+
+    AssetPtr AssetManager::FindOrCreate(const std::string& path, const Uuid& type)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto iter = assetsFileMap.find(path);
+        if (iter != assetsFileMap.end()) {
+            return FindOrCreate(iter->second, type);
+        }
+
+        auto handler = handlers.find(type);
+        if (handler == handlers.end()) {
+            LOG_E(TAG, "handler not found %s", type.ToString().c_str());
+            return {};
+        }
+        auto asset = handler->second->Load(path);
+        if (asset != nullptr) {
+            asset->path = path;
+            asset->status = AssetBase::Status::LOADED;
+            assetsFileMap.emplace(path, asset->GetId());
+        }
+        return asset;
     }
 
     AssetPtr AssetManager::FindOrCreate(const Uuid& id, const Uuid& type)

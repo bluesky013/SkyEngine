@@ -23,7 +23,7 @@ namespace sky {
     {
         auto device = DriverManager::Get();
         if (!shader) {
-            auto asset = AssetManager::Get()->LoadAsset("shaders/Fullscreen.prog", ShaderAsset::TYPE);
+            auto asset = AssetManager::Get()->FindOrCreate("shaders/Fullscreen.prog", ShaderAsset::TYPE);
             shader = Shader::CreateFromAsset(asset);
         }
 
