@@ -26,7 +26,7 @@ namespace sky {
 
         GameObject* object = nullptr;
 
-        virtual void OnInit() {}
+        virtual void OnActive() {}
 
         virtual void OnTick(float time) {}
 

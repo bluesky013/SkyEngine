@@ -6,6 +6,7 @@
 #pragma once
 
 #include <engine/world/Component.h>
+#include <engine/render/service/ViewService.h>
 #include <core/math/Matrix.h>
 #include <core/math/Vector.h>
 #include <cstdint>
@@ -34,7 +35,7 @@ namespace sky {
 
         void OnTick(float time) override;
 
-        void OnInit() override;
+        void OnActive() override;
 
         void OnDestroy() override;
 
@@ -51,6 +52,8 @@ namespace sky {
 
         ProjectType type;
         Matrix4 projection;
+
+        ViewService::Handle viewHandle;
     };
 
 

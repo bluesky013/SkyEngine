@@ -28,7 +28,7 @@ namespace sky {
             if (iter == components.end()) {
                 auto comp = ComponentFactory<T>::CreateComponent();
                 comp->object = this;
-                comp->OnInit();
+                comp->OnActive();
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
                 components.emplace_back(comp);
                 return comp;

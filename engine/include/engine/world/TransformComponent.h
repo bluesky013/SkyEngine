@@ -26,13 +26,32 @@ namespace sky {
 
         const std::vector<TransformComponent*>& GetChildren() const;
 
-        void Print();
+        void SetWorldTranslation(const Vector3& translation);
+        void SetWorldRotation(const Quaternion& rotation);
+        void SetWorldScale(const Vector3& scale);
 
-        Transform local;
-        Transform global;
+        void SetLocalTranslation(const Vector3& translation);
+        void SetLocalRotation(const Quaternion& rotation);
+        void SetLocalScale(const Vector3& scale);
+
+        const Transform& GetLocal() const;
+        const Transform& GetWorld() const;
+
+        void Print();
     private:
         static void PrintChild(TransformComponent& comp, std::string str);
 
+        void TransformChanged();
+
+        void UpdateLocal();
+
+        void UpdateWorld();
+
+        const Transform& GetParentTransform() const;
+
+        Transform local;
+        Transform world;
+        bool suppressWorldChange = false;
         TransformComponent* parent = nullptr;
         std::vector<TransformComponent*> children;
     };

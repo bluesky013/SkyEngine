@@ -22,7 +22,7 @@ namespace sky {
     {
         SerializationContext::Get()->Register<TransformComponent>(TypeName())
             .Member<&TransformComponent::local>("local")
-            .Member<&TransformComponent::global>("global")
+            .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);
     }
 
@@ -60,6 +60,7 @@ namespace sky {
                 newParent->children.emplace_back(this);
             }
         }
+        UpdateLocal();
     }
 
     TransformComponent* TransformComponent::GetParent() const
@@ -83,5 +84,89 @@ namespace sky {
     void TransformComponent::Print()
     {
         PrintChild(*this, "");
+    }
+
+    void TransformComponent::TransformChanged()
+    {
+        for (auto child : children) {
+            child->UpdateWorld();
+        }
+    }
+
+    void TransformComponent::UpdateLocal()
+    {
+        if (parent != nullptr) {
+            auto inverse = parent->world.GetInverse();
+            local = inverse * world;
+        } else {
+            local = world;
+        }
+        TransformChanged();
+    }
+
+    void TransformComponent::UpdateWorld()
+    {
+        world = GetParentTransform() * local;
+        TransformChanged();
+    }
+
+    const Transform& TransformComponent::GetParentTransform() const
+    {
+        if (parent != nullptr) {
+            return parent->world;
+        }
+        return Transform::GetIdentity();
+    }
+
+    void TransformComponent::SetWorldTranslation(const Vector3& translation)
+    {
+        world.translation = translation;
+        UpdateLocal();
+    }
+
+    void TransformComponent::SetWorldRotation(const Quaternion& rotation)
+    {
+        world.rotation = rotation;
+        UpdateLocal();
+    }
+
+    void TransformComponent::SetWorldScale(const Vector3& scale)
+    {
+        world.scale = scale;
+        UpdateLocal();
+    }
+
+    void TransformComponent::SetLocalTranslation(const Vector3& translation)
+    {
+        local.translation = translation;
+        if (!suppressWorldChange) {
+            UpdateWorld();
+        }
+    }
+
+    void TransformComponent::SetLocalRotation(const Quaternion& rotation)
+    {
+        local.rotation = rotation;
+        if (!suppressWorldChange) {
+            UpdateWorld();
+        }
+    }
+
+    void TransformComponent::SetLocalScale(const Vector3& scale)
+    {
+        local.scale = scale;
+        if (!suppressWorldChange) {
+            UpdateWorld();
+        }
+    }
+
+    const Transform& TransformComponent::GetLocal() const
+    {
+        return local;
+    }
+
+    const Transform& TransformComponent::GetWorld() const
+    {
+        return world;
     }
 }

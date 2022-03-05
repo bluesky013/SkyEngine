@@ -2,6 +2,7 @@
 // Created by Zach Lee on 2022/2/2.
 //
 
+#pragma once
 #include <engine/IService.h>
 #include <engine/render/service/BufferTemplate.h>
 #include <core/math/Transform.h>
@@ -26,6 +27,8 @@ namespace sky {
         void Free(Handle&);
 
         void OnTick(float time);
+
+        void UpdateViewInfo(const Matrix4& world, const Matrix4& project);
 
     private:
         BufferTemplate<ViewData, Handle> viewPool;

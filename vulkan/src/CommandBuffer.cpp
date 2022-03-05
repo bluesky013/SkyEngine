@@ -74,10 +74,10 @@ namespace sky::drv {
             waitSemaphores[i] = submit.waits[i].second->GetNativeHandle();
         }
         
-        uint32_t signalSize = (uint32_t)submit.signals.size();
+        uint32_t signalSize = (uint32_t)submit.submitSignals.size();
         std::vector<VkSemaphore> signalSemaphores(signalSize);
         for (uint32_t i = 0; i < signalSize; ++i) {
-            signalSemaphores[i] = submit.signals[i]->GetNativeHandle();
+            signalSemaphores[i] = submit.submitSignals[i]->GetNativeHandle();
         }
 
         VkSubmitInfo submitInfo = {};
@@ -85,7 +85,7 @@ namespace sky::drv {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmdBuffer;
 
-        if (!submit.signals.empty()) {
+        if (!submit.submitSignals.empty()) {
             submitInfo.signalSemaphoreCount = signalSize;
             submitInfo.pSignalSemaphores = signalSemaphores.data();
         }

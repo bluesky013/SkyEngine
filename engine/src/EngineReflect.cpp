@@ -38,7 +38,7 @@ namespace sky {
             .Member<&Quaternion::w>("w");
 
         SerializationContext::Get()->Register<Transform>("Transform")
-            .Member<&Transform::pos>("pos")
+            .Member<&Transform::translation>("translation")
             .Member<&Transform::scale>("scale")
             .Member<&Transform::rotation>("rotation");
     }

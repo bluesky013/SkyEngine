@@ -49,13 +49,15 @@ namespace sky {
         auto trans = object->GetComponent<TransformComponent>();
     }
 
-    void CameraComponent::OnInit()
+    void CameraComponent::OnActive()
     {
         auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
+        viewHandle = viewService->Acquire();
     }
 
     void CameraComponent::OnDestroy()
     {
         auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
+        viewService->Free(viewHandle);
     }
 }

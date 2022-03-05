@@ -45,7 +45,7 @@ namespace sky::drv {
 
         struct SubmitInfo {
             std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
-            std::vector<SemaphorePtr> signals;
+            std::vector<SemaphorePtr> submitSignals;
         };
 
         void Submit(Queue& queue, const SubmitInfo& submit);
