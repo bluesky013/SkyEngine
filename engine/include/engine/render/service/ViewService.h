@@ -3,15 +3,15 @@
 //
 
 #include <engine/IService.h>
-#include <engine/render/RenderBufferPool.h>
+#include <engine/render/service/BufferTemplate.h>
 #include <core/math/Transform.h>
 #include <core/math/Matrix.h>
 
 namespace sky {
 
     struct ViewData {
-        Matrix4 viewMatrix;
-        Matrix4 viewProjectMatrix;
+        Matrix4 worldToView;
+        Matrix4 worldToClip;
     };
 
     class ViewService : public IService {
@@ -23,15 +23,12 @@ namespace sky {
 
         Handle Acquire();
 
-        void Free(Handle);
+        void Free(Handle&);
 
         void OnTick(float time);
 
     private:
-        void InitPool();
-
-        uint32_t index = 0;
-        std::unique_ptr<RenderBufferPool> pool;
+        BufferTemplate<ViewData, Handle> viewPool;
     };
 
 }

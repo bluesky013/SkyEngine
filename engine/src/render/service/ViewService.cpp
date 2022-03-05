@@ -15,10 +15,18 @@ namespace sky {
     {
     }
 
+    ViewService::Handle ViewService::Acquire()
+    {
+        return viewPool.Acquire();
+    }
+
+    void ViewService::Free(Handle& handle)
+    {
+        return viewPool.Free(handle);
+    }
+
     void ViewService::OnTick(float time)
     {
-        if (pool) {
-            pool->SwapBuffer();
-        }
+        viewPool.Flush();
     }
 }

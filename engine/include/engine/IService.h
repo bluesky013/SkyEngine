@@ -9,9 +9,30 @@
 namespace sky {
 
     template <typename T>
-    struct SHandle {
+    class SHandle {
+    public:
         using Type = T;
-        uint32_t handle;
+        static constexpr uint32_t INVALID_ID = ~(0u);
+        SHandle(uint32_t hnd) : index(hnd) {}
+        ~SHandle() = default;
+
+        operator bool() const
+        {
+            return index != INVALID_ID;
+        }
+
+        void Reset()
+        {
+            index = INVALID_ID;
+        }
+
+        uint32_t GetIndex() const
+        {
+            return index;
+        }
+
+    private:
+        uint32_t index = INVALID_ID;
     };
 
     class IService {

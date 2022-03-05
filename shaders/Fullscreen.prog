@@ -6,5 +6,6 @@
     "frag" : {
         "path": "shaders/Fullscreen.frag",
         "entry": "main"
-    }
+    },
+    "vertex_layout": "standard",
 }

@@ -36,7 +36,7 @@ namespace sky {
 
         struct Block {
             drv::BufferPtr buffer;
-            uint8_t* ptr = nullptr;
+            uint8_t* mappedPtr = nullptr;
         };
 
         uint32_t currentFrame;

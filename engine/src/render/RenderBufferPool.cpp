@@ -54,6 +54,6 @@ namespace sky {
         uint32_t bufferIndex = index * descriptor.stride;
         uint32_t blockIndex = bufferIndex / validBlockSize;
         uint32_t offset = bufferIndex % validBlockSize + currentFrame * validBlockSize;
-        return blocks[blockIndex].ptr + offset;
+        return blocks[blockIndex].mappedPtr + offset;
     }
 }
