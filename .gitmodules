@@ -31,3 +31,6 @@
 [submodule "thirdparty/cereal"]
 	path = thirdparty/cereal
 	url = git@github.com:USCiLab/cereal.git
+[submodule "thirdparty/taskflow"]
+	path = thirdparty/taskflow
+	url = git@github.com:taskflow/taskflow.git
