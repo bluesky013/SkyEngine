@@ -20,4 +20,5 @@ sky_add_library(TARGET Framework STATIC
     LINK_LIBS
         Core
         cereal
+        TaskFlow
     )

@@ -43,6 +43,11 @@ set(RAPIDJSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson)
 add_library(Rapidjson INTERFACE IMPORTED GLOBAL)
 target_include_directories(Rapidjson INTERFACE ${RAPIDJSON_DIR}/include)
 
+set(TASKFLOW_DIR ${CMAKE_CURRENT_SOURCE_DIR}/taskflow)
+add_library(TaskFlow INTERFACE IMPORTED GLOBAL)
+target_include_directories(TaskFlow INTERFACE ${TASKFLOW_DIR}/taskflow)
+
+
 set(CRC32C_BUILD_BENCHMARKS false)
 set(CRC32C_BUILD_TESTS false)
 set(CRC32C_INSTALL false)
