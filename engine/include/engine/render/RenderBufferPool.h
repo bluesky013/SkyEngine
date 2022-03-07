@@ -11,7 +11,7 @@ namespace sky {
     class RenderBufferPool {
     public:
         struct Descriptor {
-            VkDeviceSize        blockSize = 0;
+            uint32_t            blockSize = 0;
             VkBufferUsageFlags  usage     = 0;
             VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
             uint32_t            stride    = 0;

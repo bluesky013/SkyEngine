@@ -16,9 +16,9 @@ namespace sky {
 
     void RenderBufferPool::Reserve(uint32_t size)
     {
-        auto num = std::ceil(size * descriptor.stride / (float)validBlockSize);
+        auto num = std::ceil(size * descriptor.stride / static_cast<float>(validBlockSize));
         if (num > blocks.size()) {
-            AllocateBlock(num - blocks.size());
+            AllocateBlock(static_cast<uint32_t>(num - blocks.size()));
         }
     }
 

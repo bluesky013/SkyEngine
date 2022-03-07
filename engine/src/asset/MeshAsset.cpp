@@ -23,8 +23,8 @@ namespace sky {
         uint32_t vtxSize = 0;
         uint32_t idxSize = 0;
         for (auto& buffer : sourceData.meshes) {
-            vtxSize += buffer.vertices.size() * sizeof(Vertex);
-            idxSize += buffer.indices.size() * sizeof(uint32_t);
+            vtxSize += static_cast<uint32_t>(buffer.vertices.size()) * sizeof(Vertex);
+            idxSize += static_cast<uint32_t>(buffer.indices.size()) * sizeof(uint32_t);
         }
 
         drv::Buffer::Descriptor bufferDesc = {};
@@ -60,14 +60,14 @@ namespace sky {
 
             {
                 uint8_t* vtxPtr = vPtr + vtxOffset;
-                uint32_t copySize = subData.vertices.size() * sizeof(Vertex);
+                uint32_t copySize = static_cast<uint32_t>(subData.vertices.size()) * sizeof(Vertex);
                 memcpy(vtxPtr, subData.vertices.data(), copySize);
                 vtxOffset += copySize;
             }
 
             {
                 uint8_t* idxPtr = iPtr + idxOffset;
-                uint32_t copySize = subData.indices.size() * sizeof(uint32_t);
+                uint32_t copySize = static_cast<uint32_t>(subData.indices.size()) * sizeof(uint32_t);
                 memcpy(idxPtr, subData.indices.data(), copySize);
                 idxOffset += copySize;
             }
