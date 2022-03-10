@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/1/27.
 //
 
-#include <model/ModelLoader.h>
+#include <model/ModelBuilder.h>
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -14,17 +14,17 @@ static const char* TAG = "Model Loader";
 
 namespace sky {
 
-    ModelLoader::ModelLoader()
+    ModelBuilder::ModelBuilder()
     {
         AssetManager::Get()->RegisterHandler<MeshAsset>();
     }
 
-    ModelLoader::~ModelLoader()
+    ModelBuilder::~ModelBuilder()
     {
         AssetManager::Get()->UnRegisterHandler<MeshAsset>();
     }
 
-    bool ModelLoader::Load(const std::string& path)
+    bool ModelBuilder::Load(const std::string& path)
     {
         scene = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
         if (scene == nullptr) {
@@ -40,7 +40,7 @@ namespace sky {
         return true;
     }
 
-    void ModelLoader::LoadMesh()
+    void ModelBuilder::LoadMesh()
     {
         asset->data.meshes.resize(scene->mNumMeshes);
         for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
@@ -74,7 +74,7 @@ namespace sky {
         }
     }
 
-    void ModelLoader::LoadTextures()
+    void ModelBuilder::LoadTextures()
     {
         for (uint32_t i = 0; i < scene->mNumTextures; ++i) {
             auto tex = scene->mTextures[i];
@@ -82,7 +82,7 @@ namespace sky {
         }
     }
 
-    void ModelLoader::LoadMaterial()
+    void ModelBuilder::LoadMaterial()
     {
         for (uint32_t i = 0; i < scene->mNumMaterials; ++i) {
             auto mat = scene->mMaterials[i];
@@ -104,7 +104,7 @@ namespace sky {
         }
     }
 
-    void ModelLoader::Save(const std::string& path)
+    void ModelBuilder::Save(const std::string& path)
     {
         AssetManager::Get()->SaveAsset(path, asset, MeshAsset::TYPE);
     }

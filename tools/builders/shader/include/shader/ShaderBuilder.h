@@ -7,13 +7,14 @@
 #include <string>
 #include <vector>
 #include <engine/asset/ShaderAsset.h>
+#include <BuilderBase.h>
 
 namespace sky {
 
-    class ShaderLoader {
+    class ShaderBuilder : public BuilderBase {
     public:
-        ShaderLoader();
-        ~ShaderLoader();
+        ShaderBuilder();
+        ~ShaderBuilder();
 
         bool Load(const std::string& path);
 

@@ -1,7 +1,7 @@
 file(GLOB_RECURSE LOADER_SRC src/*)
 file(GLOB_RECURSE LOADER_INC include/*)
 
-sky_add_library(TARGET ModelLoader STATIC
+sky_add_library(TARGET GltfBuilder SHARED
     SOURCES
         ${LOADER_SRC}
         ${LOADER_INC}
@@ -10,7 +10,5 @@ sky_add_library(TARGET ModelLoader STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        assimp
-        cereal
-        SkyEngine
+        Tinygltf
     )

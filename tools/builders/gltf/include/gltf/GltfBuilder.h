@@ -6,10 +6,10 @@
 
 namespace sky {
 
-    class GLtfLoader {
+    class GltfBuilder {
     public:
-        GLtfLoader() = default;
-        ~GLtfLoader() = default;
+        GltfBuilder() = default;
+        ~GltfBuilder() = default;
 
     private:
 

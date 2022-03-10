@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/1/31.
 //
 
-#include <shader/ShaderLoader.h>
+#include <shader/ShaderBuilder.h>
 #include <engine/BasicSerialization.h>
 #include <framework/asset/AssetManager.h>
 #include <ProjectRoot.h>
@@ -47,17 +47,17 @@ namespace sky {
         return true;
     }
 
-    ShaderLoader::ShaderLoader()
+    ShaderBuilder::ShaderBuilder()
     {
         AssetManager::Get()->RegisterHandler<ShaderAsset>();
     }
 
-    ShaderLoader::~ShaderLoader()
+    ShaderBuilder::~ShaderBuilder()
     {
         AssetManager::Get()->UnRegisterHandler<ShaderAsset>();
     }
 
-    bool ShaderLoader::Load(const std::string &path)
+    bool ShaderBuilder::Load(const std::string &path)
     {
         std::string data;
         if (!ReadString(path, data)) {
@@ -80,7 +80,7 @@ namespace sky {
         return true;
     }
 
-    void ShaderLoader::Save(const std::string& path)
+    void ShaderBuilder::Save(const std::string& path)
     {
         AssetManager::Get()->SaveAsset(path, asset, ShaderAsset::TYPE);
     }

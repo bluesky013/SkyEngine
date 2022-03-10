@@ -11,10 +11,10 @@ struct aiScene;
 
 namespace sky {
 
-    class ModelLoader {
+    class ModelBuilder {
     public:
-        ModelLoader();
-        ~ModelLoader();
+        ModelBuilder();
+        ~ModelBuilder();
 
         bool Load(const std::string& path);
 
