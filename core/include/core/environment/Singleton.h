@@ -5,8 +5,8 @@
 #pragma once
 
 #include <mutex>
-#include <core/util/Rtti.h>
-#include <framework/environment/Environment.h>
+#include <core/type/Rtti.h>
+#include <core/environment/Environment.h>
 
 namespace sky {
 

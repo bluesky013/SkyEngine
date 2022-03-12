@@ -7,10 +7,10 @@
 
 #include <type_traits>
 #include <string_view>
-#include <core/util/Rtti.h>
+#include <core/type/Rtti.h>
+#include <core/type/Type.h>
+#include <core/environment/Singleton.h>
 #include <set>
-#include <framework/environment/Singleton.h>
-#include <framework/serialization/Type.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky {

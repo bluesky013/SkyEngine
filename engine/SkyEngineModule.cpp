@@ -3,7 +3,7 @@
 //
 
 #include <engine/SkyEngine.h>
-#include <framework/environment/Environment.h>
+#include <core/environment/Environment.h>
 #include <core/platform/Platform.h>
 
 extern "C" SKY_EXPORT sky::IEngine* StartEngine(sky::Environment* env)

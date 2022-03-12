@@ -6,7 +6,7 @@
 #pragma once
 
 #include <mutex>
-#include <framework/environment/Singleton.h>
+#include <core/environment/Singleton.h>
 
 namespace sky {
 

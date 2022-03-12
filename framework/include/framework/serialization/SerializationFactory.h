@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <framework/serialization/Any.h>
-#include <framework/serialization/Type.h>
+#include <core/type/Any.h>
+#include <core/type/Type.h>
 #include <type_traits>
 #include <unordered_map>
 #include <list>

@@ -3,8 +3,8 @@
 //
 
 #pragma once
-#include <core/util/Rtti.h>
-#include <framework/environment/Singleton.h>
+#include <core/type/Rtti.h>
+#include <core/environment/Singleton.h>
 
 namespace sky {
 

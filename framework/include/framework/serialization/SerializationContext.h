@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <framework/environment/Singleton.h>
+#include <core/environment/Singleton.h>
 #include <framework/serialization/SerializationFactory.h>
 #include <array>
 

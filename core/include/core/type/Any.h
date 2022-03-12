@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include <framework/serialization/Type.h>
+#include <core/type/Type.h>
+#include <core/type/Rtti.h>
 
 namespace sky {
 
@@ -88,10 +89,6 @@ namespace sky {
             }
             return nullptr;
         }
-
-        bool Set(const std::string& str, const Any& any);
-
-        Any Get(const std::string& str);
 
         const TypeInfoRT* Info() const
         {

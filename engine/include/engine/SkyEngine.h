@@ -5,8 +5,8 @@
 
 #pragma once
 #include <framework/interface/IEngine.h>
-#include <framework/environment/Singleton.h>
 #include <framework/window/IWindowEvent.h>
+#include <core/environment/Singleton.h>
 #include <vector>
 #include <memory>
 

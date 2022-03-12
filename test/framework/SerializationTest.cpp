@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <core/logger/Logger.h>
+#include <framework/serialization/AnyRT.h>
 #include <framework/serialization/SerializationContext.h>
 
 using namespace sky;
@@ -71,19 +72,19 @@ TEST(SerializationTest, TypeTest)
 
     Any v(std::in_place_type<TestReflect>);
     uint32_t* ptr = nullptr;
-    ASSERT_EQ(v.Set("a", 5u), true);
-    ASSERT_EQ(v.Set("b", 6.f), true);
-    ASSERT_EQ(v.Set("c", ptr), true);
+    ASSERT_EQ(SetAny(v, "a", 5u), true);
+    ASSERT_EQ(SetAny(v, "b", 6.f), true);
+    ASSERT_EQ(SetAny(v, "c", ptr), true);
     auto val = v.GetAs<TestReflect>();
     ASSERT_EQ(val->a, 5u);
     ASSERT_EQ(val->b, 6.f);
     ASSERT_EQ(val->c, nullptr);
 
-    Any va = v.Get("a");
+    Any va = GetAny(v, "a");
     ASSERT_EQ(*va.GetAs<uint32_t>(), 5u);
-    Any vb = v.Get("b");
+    Any vb = GetAny(v, "b");
     ASSERT_EQ(*vb.GetAs<float>(), 6.f);
-    Any vc= v.Get("c");
+    Any vc= GetAny(v, "c");
     ASSERT_EQ(*vc.GetAs<uint32_t*>(), nullptr);
 }
 

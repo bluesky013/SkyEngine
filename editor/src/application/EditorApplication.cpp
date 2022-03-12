@@ -4,7 +4,7 @@
 
 #include <editor/application/EditorApplication.h>
 #include <engine/SkyEngine.h>
-#include <framework/environment/Environment.h>
+#include <core/environment/Environment.h>
 
 namespace sky::editor {
 

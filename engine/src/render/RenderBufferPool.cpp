@@ -14,6 +14,13 @@ namespace sky {
         validBlockSize = descriptor.blockSize / descriptor.frame;
     }
 
+    RenderBufferPool::~RenderBufferPool()
+    {
+        for (auto& block : blocks) {
+            block.buffer->UnMap();
+        }
+    }
+
     void RenderBufferPool::Reserve(uint32_t size)
     {
         auto num = std::ceil(size * descriptor.stride / static_cast<float>(validBlockSize));

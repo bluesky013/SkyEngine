@@ -93,12 +93,12 @@ TEST(AssetTest, AssetManagerCreate)
         asset->source.v2 = 2;
         mgr->SaveAsset("Test.asset", asset, TestAsset::TYPE);
     }
-    {
-        auto asset = Cast<TestAsset>(mgr->FindOrCreate("Test.asset", TestAsset::TYPE));
-        ASSERT_EQ(!!asset, true);
-        ASSERT_EQ(asset->source.v1, 1);
-        ASSERT_EQ(asset->source.v2, 2);
-    }
+//    {
+//        auto asset = Cast<TestAsset>(mgr->FindOrCreate("Test.asset", TestAsset::TYPE));
+//        ASSERT_EQ(!!asset, true);
+//        ASSERT_EQ(asset->source.v1, 1);
+//        ASSERT_EQ(asset->source.v2, 2);
+//    }
 
     AssetManager::Destroy();
 }

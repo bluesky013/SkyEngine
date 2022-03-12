@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <framework/environment/Singleton.h>
+#include <core/environment/Singleton.h>
 #include <vulkan/Device.h>
 #include <vulkan/DevObject.h>
 #include <list>

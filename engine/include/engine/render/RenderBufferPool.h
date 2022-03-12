@@ -19,7 +19,7 @@ namespace sky {
         };
 
         RenderBufferPool(Descriptor desc);
-        ~RenderBufferPool() = default;
+        ~RenderBufferPool();
 
         void Reserve(uint32_t size);
 

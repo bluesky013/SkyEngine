@@ -5,8 +5,8 @@
 
 #pragma once
 #include <engine/SkyEngine.h>
-#include <framework/environment/Singleton.h>
 #include <engine/render/RenderScene.h>
+#include <core/environment/Singleton.h>
 #include <vulkan/Swapchain.h>
 #include <unordered_map>
 

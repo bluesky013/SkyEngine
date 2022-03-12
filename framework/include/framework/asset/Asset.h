@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/util/Rtti.h>
+#include <core/type/Rtti.h>
 #include <core/util/Uuid.h>
 #include <core/template/ReferenceObject.h>
 #include <framework/asset/Resource.h>

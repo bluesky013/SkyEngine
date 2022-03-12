@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <framework/environment/Singleton.h>
+#include <core/environment/Singleton.h>
 #include <framework/asset/Resource.h>
 #include <framework/asset/Asset.h>
 

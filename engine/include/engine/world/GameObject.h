@@ -8,7 +8,7 @@
 #include <string>
 #include <list>
 #include <engine/world/Component.h>
-#include <core/util/Rtti.h>
+#include <core/type/Rtti.h>
 
 namespace sky {
     class World;

@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <framework/environment/Singleton.h>
 #include <framework/asset/Asset.h>
 #include <framework/task/TaskManager.h>
+#include <core/environment/Singleton.h>
 #include <core/platform/Platform.h>
 #include <unordered_map>
 #include <mutex>

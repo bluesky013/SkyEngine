@@ -5,7 +5,7 @@
 #pragma once
 
 #include <engine/IService.h>
-#include <core/util/Rtti.h>
+#include <core/type/Rtti.h>
 #include <unordered_map>
 #include <memory>
 

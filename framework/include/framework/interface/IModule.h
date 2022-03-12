@@ -6,7 +6,7 @@
 #pragma once
 
 #include <core/platform/Platform.h>
-#include <framework/environment/Environment.h>
+#include <core/environment/Environment.h>
 
 namespace sky {
 

@@ -4,7 +4,7 @@
 
 #pragma once
 #include <unordered_map>
-#include <framework/environment/Singleton.h>
+#include <core/environment/Singleton.h>
 
 class QDockWidget;
 

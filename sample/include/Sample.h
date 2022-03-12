@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <framework/interface/AppInterface.h>
+#include <framework/interface/IModule.h>
 #include <framework/window/NativeWindow.h>
 #include <memory>
 
