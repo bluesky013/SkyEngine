@@ -22,7 +22,7 @@ namespace sky {
 
     class Win32WindowImpl : public NativeWindowImpl {
     public:
-        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr), handler(nullptr), app(nullptr) {}
+        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr), handler(nullptr) {}
         virtual ~Win32WindowImpl() = default;
 
         bool Init(const NativeWindow::Descriptor&);
@@ -36,14 +36,11 @@ namespace sky {
         void* GetNativeHandle() const override;
 
         void SetEventHandler(IWindowEvent& handler);
-
-        void SetApplication(ApplicationImpl&);
         HWND hWnd;
         HINSTANCE hInstance;
         std::string className;
         std::string titleName;
         IWindowEvent* handler;
-        ApplicationImpl* app;
     };
 
     IWindowEvent* Win32WindowImpl::GetHandler() const
@@ -59,11 +56,6 @@ namespace sky {
     void Win32WindowImpl::SetEventHandler(IWindowEvent& h)
     {
         handler = &h;
-    }
-
-    void Win32WindowImpl::SetApplication(ApplicationImpl& application)
-    {
-        app = &application;
     }
 
     bool Win32WindowImpl::RegisterWin32Class()

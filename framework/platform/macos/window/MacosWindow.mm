@@ -37,16 +37,10 @@ namespace sky {
         {
             handler = &h;
         }
-
-        void SetApplication(ApplicationImpl& application) override
-        {
-            app = &application;
-        }
         NSWindow* handle = nil;
         NSString* title = nil;
         MacosViewController* controller = nullptr;
         IWindowEvent* handler = nullptr;
-        ApplicationImpl* app = nullptr;
     };
 
     MacosWindowImpl::~MacosWindowImpl()
@@ -124,7 +118,6 @@ namespace sky {
         }
         title = nil;
         controller = nil;
-        app->SetExit();
     }
 }
 

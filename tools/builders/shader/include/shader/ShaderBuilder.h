@@ -16,12 +16,9 @@ namespace sky {
         ShaderBuilder();
         ~ShaderBuilder();
 
-        bool Load(const std::string& path);
-
-        void Save(const std::string& path);
+        bool Build(const BuildRequest& request) override;
 
     private:
-        ShaderAssetPtr asset;
+        ShaderSourceData sourceData;
     };
-
 }

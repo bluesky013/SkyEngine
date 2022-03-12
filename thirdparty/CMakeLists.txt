@@ -55,9 +55,9 @@ set(CRC32C_USE_GLOG false)
 set(gtest_force_shared_crt false)
 add_subdirectory(crc32c)
 
-set(BUILD_TESTING false)
-set(ENABLE_CTEST false)
-add_subdirectory(glslang)
+#set(BUILD_TESTING false)
+#set(ENABLE_CTEST false)
+#add_subdirectory(glslang)
 
 set(ASSIMP_BUILD_TESTS false)
 set(BUILD_SHARED_LIBS false)

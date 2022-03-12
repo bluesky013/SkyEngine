@@ -23,10 +23,6 @@ namespace sky {
 
     void SkyEngine::Tick(float time)
     {
-        for (auto& module : modules) {
-            module->Tick(time);
-        }
-
         for (auto& world : worlds) {
             world->Tick(time);
         }
@@ -38,10 +34,6 @@ namespace sky {
 
     void SkyEngine::DeInit()
     {
-        for (auto& module : modules) {
-            module->Stop();
-        }
-
         AssetManager::Destroy();
         ResourceManager::Destroy();
         Render::Destroy();
@@ -114,23 +106,6 @@ namespace sky {
         auto iter = std::find(eventListeners.begin(), eventListeners.end(), event);
         if (iter != eventListeners.end()) {
             eventListeners.erase(iter);
-        }
-    }
-
-    void SkyEngine::RegisterModule(IModule* module)
-    {
-        if (module != nullptr) {
-            module->Start();
-            modules.emplace_back(module);
-        }
-    }
-
-    void SkyEngine::UnRegisterModule(IModule* module)
-    {
-        auto iter = std::find(modules.begin(), modules.end(), module);
-        if (iter != modules.end()) {
-            (*iter)->Stop();
-            modules.erase(iter);
         }
     }
 

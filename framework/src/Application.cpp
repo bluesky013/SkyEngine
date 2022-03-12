@@ -12,9 +12,11 @@ static const char* TAG = "Application";
 
 namespace sky {
 
-    using EngineLoad = IEngine*(*)(Environment*);
-    using EngineShutdown = void(*)(IEngine*);
-    using ModuleStart = void(*)(Application&, Environment*);
+//    using EngineLoad = IEngine*(*)(Environment*);
+//    using EngineShutdown = void(*)(IEngine*);
+
+    using ModuleStart = IModule*(*)(Environment*);
+    using ModuleStop = void(*)();
 
     ApplicationImpl* ApplicationImpl::Create()
     {
@@ -45,19 +47,24 @@ namespace sky {
             return false;
         }
 
-        LOG_I(TAG, "Load Engine Module...");
-        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
-        if (engineModule->Load()) {
-            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
-            if (createFn != nullptr) {
-                engineInstance = createFn(env);
-                engineInstance->Init(start);
-            }
-        }
+//        LOG_I(TAG, "Load Engine Module...");
+//        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
+//        if (engineModule->Load()) {
+//            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
+//            if (createFn != nullptr) {
+//                engineInstance = createFn(env);
+//                engineInstance->Init(start);
+//            }
+//        }
+
+        LoadDynamicModules(start);
         LOG_I(TAG, "Load Engine Module Success");
+        return true;
+    }
 
-
-        for (auto& module : start.modules) {
+    void Application::LoadDynamicModules(const StartInfo& startInfo)
+    {
+        for (auto& module : startInfo.modules) {
             auto dynModule = std::make_unique<DynamicModule>(module);
             LOG_I(TAG, "Load Module : %s", module.c_str());
             if (dynModule->Load()) {
@@ -66,21 +73,29 @@ namespace sky {
                     LOG_E(TAG, "Load Module : %s failed", module.c_str());
                     continue;
                 }
-                startFn(*this, env);
-                modules.emplace_back(dynModule.release());
+                auto module = startFn(Environment::Get());
+                if (module == nullptr) {
+                    continue;
+                }
+                module->Start();
+                modules.emplace_back(Module {
+                    std::move(dynModule),
+                    std::unique_ptr<IModule>(module)
+                });
             }
             LOG_I(TAG, "Load Module : %s success", module.c_str());
         }
-        LOG_I(TAG, "Application Init Success");
-        return true;
     }
 
-    NativeWindow* Application::CreateNativeWindow(const NativeWindow::Descriptor& des)
+    void Application::UnloadDynamicModules()
     {
-        auto window = NativeWindow::Create(des);
-        window->SetEventHandler(*engineInstance->GetEventHandler());
-        window->SetApplication(*this);
-        return window;
+        for (auto& module : modules) {
+            module.interface->Stop();
+            auto stopFn = module.dynLib->GetAddress<ModuleStop>("StopModule");
+            if (stopFn != nullptr) {
+                stopFn();
+            }
+        }
     }
 
     IEngine* Application::GetEngine() const
@@ -102,13 +117,15 @@ namespace sky {
 
     void Application::Shutdown()
     {
-        if (engineModule->IsLoaded()) {
-            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
-            if (destroyFn != nullptr) {
-                engineInstance->DeInit();
-                destroyFn(engineInstance);
-            }
-        }
+        UnloadDynamicModules();
+
+//        if (engineModule->IsLoaded()) {
+//            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
+//            if (destroyFn != nullptr) {
+//                engineInstance->DeInit();
+//                destroyFn(engineInstance);
+//            }
+//        }
     }
 
     void Application::Mainloop()

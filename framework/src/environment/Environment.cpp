@@ -33,6 +33,11 @@ namespace sky {
         instance = env;
     }
 
+    void Environment::Detach()
+    {
+        instance = nullptr;
+    }
+
     void Environment::Register(uint32_t key, void* ptr)
     {
         if (ptr == nullptr) {

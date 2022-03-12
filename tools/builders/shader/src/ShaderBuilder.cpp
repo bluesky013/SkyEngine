@@ -3,13 +3,13 @@
 //
 
 #include <shader/ShaderBuilder.h>
-#include <engine/BasicSerialization.h>
 #include <framework/asset/AssetManager.h>
 #include <ProjectRoot.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
+#include <core/file/FileUtil.h>
 
 using namespace rapidjson;
 
@@ -49,16 +49,19 @@ namespace sky {
 
     ShaderBuilder::ShaderBuilder()
     {
-        AssetManager::Get()->RegisterHandler<ShaderAsset>();
     }
 
     ShaderBuilder::~ShaderBuilder()
     {
-        AssetManager::Get()->UnRegisterHandler<ShaderAsset>();
     }
 
-    bool ShaderBuilder::Load(const std::string &path)
+    bool ShaderBuilder::Build(const BuildRequest& request)
     {
+        std::string path;
+        if (!ConstructFullPath(request.srcFolder, request.srcFile, path)) {
+            return false;
+        }
+
         std::string data;
         if (!ReadString(path, data)) {
             return false;
@@ -72,16 +75,8 @@ namespace sky {
             return false;
         }
 
-        asset = AssetManager::Get()->FindOrCreate<ShaderAsset>(Uuid::Create());
-
-        ShaderSourceData& sourceData = asset->sourceData;
         ParseShader("vert", document, sourceData);
         ParseShader("frag", document, sourceData);
         return true;
-    }
-
-    void ShaderBuilder::Save(const std::string& path)
-    {
-        AssetManager::Get()->SaveAsset(path, asset, ShaderAsset::TYPE);
     }
 }

@@ -24,34 +24,16 @@ namespace sky {
         Vector4 pos    = { 0.f, 0.f, 0.f, 1.f};
         Vector4 normal = {1.f, 0.f, 0.f, 1.f};
         Vector4 color  = {1.f, 1.f, 1.f, 1.f};
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(pos, normal, color);
-        }
     };
 
     struct SubMeshData {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         AABB aabb;
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(vertices, indices, aabb.min, aabb.max);
-        }
     };
 
     struct MeshData {
         std::vector<SubMeshData> meshes;
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(meshes);
-        }
     };
 
     struct BufferView {
@@ -72,18 +54,6 @@ namespace sky {
 
         MeshAsset(const Uuid& id) : AssetBase(id) {}
         ~MeshAsset() = default;
-
-        template<class Archive>
-        void load(Archive& ar)
-        {
-            ar(data);
-        }
-
-        template<class Archive>
-        void save(Archive& ar) const
-        {
-            ar(data);
-        }
 
         const Uuid& GetType() const override { return TYPE; }
 

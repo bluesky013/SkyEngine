@@ -1,10 +1,11 @@
-file(GLOB_RECURSE LOADER_SRC src/*)
-file(GLOB_RECURSE LOADER_INC include/*)
+file(GLOB_RECURSE BUILDER_SRC src/*)
+file(GLOB_RECURSE BUILDER_INC include/*)
 
 sky_add_library(TARGET ShaderBuilder SHARED
     SOURCES
-        ${LOADER_SRC}
-        ${LOADER_INC}
+        ShaderModule.cpp
+        ${BUILDER_SRC}
+        ${BUILDER_INC}
     PRIVATE_INC
         src
     PUBLIC_INC

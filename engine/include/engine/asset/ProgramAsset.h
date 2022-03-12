@@ -26,18 +26,6 @@ namespace sky {
         ProgramAsset(const Uuid& id) : AssetBase(id) {}
         ~ProgramAsset() = default;
 
-        template<class Archive>
-        void load(Archive& ar)
-        {
-            ar(data);
-        }
-
-        template<class Archive>
-        void save(Archive& ar) const
-        {
-            ar(data);
-        }
-
         const Uuid& GetType() const override { return TYPE; }
 
         ProgramData data;

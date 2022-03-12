@@ -71,21 +71,21 @@ namespace sky {
 
         AssetBase* Load(const std::string& path) override
         {
-            std::ifstream is(path, std::ios::binary);
-            cereal::BinaryInputArchive archive(is);
+//            std::ifstream is(path, std::ios::binary);
+//            cereal::BinaryInputArchive archive(is);
 
             auto asset = new Asset(Uuid::Create());
-            archive(*asset);
+//            archive(*asset);
             return asset;
         }
 
         void SaveAsset(AssetBase* ptr, const std::string& path) override
         {
-            std::ofstream os(path, std::ios::binary);
-            cereal::BinaryOutputArchive archive(os);
+//            std::ofstream os(path, std::ios::binary);
+//            cereal::BinaryOutputArchive archive(os);
 
             auto& asset = *static_cast<Asset*>(ptr);
-            archive(asset);
+//            archive(asset);
         }
     };
 

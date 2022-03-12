@@ -17,6 +17,8 @@ namespace sky {
 
         static void Attach(Environment* env);
 
+        static void Detach();
+
         void Register(uint32_t key, void* ptr);
 
         void UnRegister(uint32_t key);

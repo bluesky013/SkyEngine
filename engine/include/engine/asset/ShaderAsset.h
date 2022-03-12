@@ -8,7 +8,6 @@
 #include <vulkan/GraphicsPipeline.h>
 #include <framework/asset/Asset.h>
 #include <framework/asset/Resource.h>
-#include <engine/BasicSerialization.h>
 
 namespace sky {
 
@@ -16,22 +15,10 @@ namespace sky {
         std::vector<uint32_t> data;
         VkShaderStageFlagBits stage;
         std::string entry = "main";
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(data, stage, entry);
-        }
     };
 
     struct ShaderSourceData {
         std::vector<ShaderData> shaders;
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(shaders);
-        }
     };
 
     class ShaderAsset : public AssetBase {
@@ -44,18 +31,6 @@ namespace sky {
         const ShaderSourceData& GetSourceData() const
         {
             return sourceData;
-        }
-
-        template<class Archive>
-        void load(Archive& ar)
-        {
-            ar(sourceData);
-        }
-
-        template<class Archive>
-        void save(Archive& ar) const
-        {
-            ar(sourceData);
         }
 
         ShaderSourceData sourceData;

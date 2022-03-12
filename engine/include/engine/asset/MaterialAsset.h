@@ -13,11 +13,6 @@
 namespace sky {
 
     struct MaterialData {
-
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-        }
     };
 
 
@@ -27,16 +22,6 @@ namespace sky {
         ~MaterialAsset() = default;
 
         static constexpr Uuid TYPE = Uuid::CreateFromString("9c158e38-033c-464d-be3d-619ecd4e5954");
-
-        template<class Archive>
-        void load(Archive& ar)
-        {
-        }
-
-        template<class Archive>
-        void save(Archive& ar) const
-        {
-        }
 
     private:
         const Uuid& GetType() const override { return TYPE; }

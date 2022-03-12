@@ -4,11 +4,12 @@
 
 
 #pragma once
-#include <framework/interface/EngineInterface.h>
+#include <framework/interface/AppInterface.h>
 #include <framework/environment/Singleton.h>
 #include <framework/window/IWindowEvent.h>
 #include <vector>
 #include <memory>
+
 
 namespace sky {
 
@@ -57,10 +58,6 @@ namespace sky {
 
         void UnRegisterEngineListener(IEngineEvent*);
 
-        void RegisterModule(IModule*) override;
-
-        void UnRegisterModule(IModule*) override;
-
         void OnWindowResize(void* window, uint32_t width, uint32_t height) override;
 
         IWindowEvent* GetEventHandler() override;
@@ -84,7 +81,6 @@ namespace sky {
 
         std::vector<World*> worlds;
         std::vector<Viewport*> viewports;
-        std::vector<IModule*> modules;
         std::vector<IEngineEvent*> eventListeners;
         Render* render = nullptr;
     };

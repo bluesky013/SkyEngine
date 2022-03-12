@@ -50,9 +50,4 @@ namespace sky {
         impl->SetEventHandler(handler);
     }
 
-    void NativeWindow::SetApplication(Application& app)
-    {
-        impl->SetApplication(*app.GetImpl());
-    }
-
 }

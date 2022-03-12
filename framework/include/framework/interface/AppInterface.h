@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <core/platform/Platform.h>
+#include <framework/environment/Environment.h>
 
 namespace sky {
 
@@ -42,11 +44,18 @@ namespace sky {
 
         virtual void DeInit() = 0;
 
-        virtual void RegisterModule(IModule*) = 0;
-
-        virtual void UnRegisterModule(IModule*) = 0;
-
         virtual IWindowEvent* GetEventHandler() = 0;
     };
 
 }
+
+#define REGISTER_MODULE(name) \
+    extern "C" SKY_EXPORT sky::IModule* StartModule(sky::Environment* env) \
+    { \
+        sky::Environment::Attach(env);      \
+        return new name();                  \
+    } \
+    extern "C" SKY_EXPORT void StopModule() \
+    {                                       \
+        sky::Environment::Detach();         \
+    }
