@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include "framework/window/NativeWindow.h"
-#include "core/util/DynamicModule.h"
-#include "PlatformImpl.h"
+#include <framework/window/NativeWindow.h>
+#include <core/util/DynamicModule.h>
+#include "application/PlatformImpl.h"
 
 namespace sky {
 

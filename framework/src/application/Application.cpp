@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include <framework/Application.h>
+#include <framework/application/Application.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include "PlatformImpl.h"

@@ -3,7 +3,7 @@
 //
 
 #include <core/platform/Platform.h>
-#include <framework/Application.h>
+#include <framework/application/Application.h>
 #include <windows.h>
 
 namespace sky {

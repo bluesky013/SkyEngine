@@ -11,7 +11,7 @@
 #include <core/file/FileUtil.h>
 #include <core/file/FileIO.h>
 
-#include <framework/Application.h>
+#include <framework/application/Application.h>
 
 using namespace sky;
 using namespace rapidjson;

@@ -5,7 +5,7 @@
 #pragma once
 #include <memory>
 #include <core/util/DynamicModule.h>
-#include <framework/Application.h>
+#include <framework/application/Application.h>
 #include <framework/window/NativeWindow.h>
 
 namespace sky {

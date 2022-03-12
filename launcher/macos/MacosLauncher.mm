@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/11/28.
 //
 
-#include "framework/Application.h"
+#include <framework/application/Application.h>
 #include <iostream>
 
 void ProcessCommand(int argc, char** argv)

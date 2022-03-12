@@ -3,7 +3,7 @@
 //
 
 #include <framework/window/NativeWindow.h>
-#include <framework/Application.h>
+#include <framework/application/Application.h>
 #include <core/platform/Platform.h>
 #import <AppKit/AppKit.h>
 
