@@ -47,6 +47,8 @@ namespace sky {
             return false;
         }
 
+        Interface<ISystemNotify>::Get()->Register(*this);
+
 //        LOG_I(TAG, "Load Engine Module...");
 //        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
 //        if (engineModule->Load()) {
@@ -126,6 +128,8 @@ namespace sky {
 //                destroyFn(engineInstance);
 //            }
 //        }
+
+        Interface<ISystemNotify>::Get()->UnRegister();
     }
 
     void Application::Mainloop()
@@ -137,6 +141,12 @@ namespace sky {
             auto current = std::chrono::high_resolution_clock::now();
             auto delta = std::chrono::duration<float>(current - timePoint).count();
             timePoint = current;
+
+            for (auto& module : modules) {
+                module.interface->Tick(delta);
+            }
+
+
             if (engineInstance != nullptr) {
                 engineInstance->Tick(delta);
             }

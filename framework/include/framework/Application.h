@@ -5,8 +5,10 @@
 
 #pragma once
 
-#include <framework/window/NativeWindow.h>
-#include <framework/interface/AppInterface.h>
+#include <framework/interface/IEngine.h>
+#include <framework/interface/IModule.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
 
@@ -28,7 +30,7 @@ namespace sky {
         virtual void SetExit() = 0;
     };
 
-    class Application {
+    class Application : public ISystemNotify {
     public:
         Application();
         ~Application();
@@ -39,7 +41,7 @@ namespace sky {
 
         void Shutdown();
 
-        void SetExit();
+        void SetExit() override;
 
         IEngine* GetEngine() const;
 

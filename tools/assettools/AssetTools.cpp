@@ -37,6 +37,7 @@ int main()
 
     sky::StartInfo start = {};
     start.appName = "AssetTool";
+    start.modules.emplace_back("AssetToolModule");
 
     auto parseStringArray = [&document](const char* str, std::vector<std::string>& out) {
         if (document.HasMember(str)) {
@@ -58,24 +59,6 @@ int main()
     }
 
     app.Shutdown();
-
-//    if (1) {
-//        ModelLoader modelLoader;
-//        modelLoader.Load(PROJECT_ROOT + "/glTF-Sample-Models-master/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
-//        modelLoader.Save("models/DamagedHelmet.model");
-//    } else {
-//        {
-//            ShaderLoader shaderLoader;
-//            shaderLoader.Load(PROJECT_ROOT + "/shaders/BaseColor.prog");
-//            shaderLoader.Save("shaders/BaseColor.prog");
-//        }
-//
-//        {
-//            ShaderLoader shaderLoader;
-//            shaderLoader.Load(PROJECT_ROOT + "/shaders/Fullscreen.prog");
-//            shaderLoader.Save("shaders/Fullscreen.prog");
-//        }
-//    }
 
     return 0;
 }

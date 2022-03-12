@@ -2,7 +2,10 @@
 // Created by Zach Lee on 2022/3/12.
 //
 
-#include <framework/interface/AppInterface.h>
+#include <framework/interface/IModule.h>
+#include <framework/interface/Interface.h>
+#include <shader/ShaderBuilder.h>
+#include <memory>
 
 namespace sky {
 
@@ -13,15 +16,19 @@ namespace sky {
 
         void Start() override
         {
-
+            builder = std::make_unique<ShaderBuilder>();
+            Interface<IBuilderRegistry>::Get()->GetApi()->RegisterBuilder(builder.get());
         }
 
         void Stop() override
         {
-
+            Interface<IBuilderRegistry>::Get()->GetApi()->UnRegisterBuilder(builder.get());
         }
 
         void Tick(float delta) override {}
+
+    private:
+        std::unique_ptr<ShaderBuilder> builder;
     };
 
 }

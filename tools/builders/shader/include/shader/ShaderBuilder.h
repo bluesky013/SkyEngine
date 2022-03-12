@@ -7,16 +7,18 @@
 #include <string>
 #include <vector>
 #include <engine/asset/ShaderAsset.h>
-#include <BuilderBase.h>
+#include <framework/interface/IBuilder.h>
 
 namespace sky {
 
-    class ShaderBuilder : public BuilderBase {
+    class ShaderBuilder : public IBuilder {
     public:
         ShaderBuilder();
         ~ShaderBuilder();
 
         bool Build(const BuildRequest& request) override;
+
+        bool Support(const std::string& ext) override;
 
     private:
         ShaderSourceData sourceData;

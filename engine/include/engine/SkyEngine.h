@@ -4,7 +4,7 @@
 
 
 #pragma once
-#include <framework/interface/AppInterface.h>
+#include <framework/interface/IEngine.h>
 #include <framework/environment/Singleton.h>
 #include <framework/window/IWindowEvent.h>
 #include <vector>

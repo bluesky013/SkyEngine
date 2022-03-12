@@ -1,0 +1,10 @@
+{
+    "folders":
+        [
+            "shaders"
+        ],
+    "builders":
+        [
+            "ShaderBuilder"
+        ]
+}
