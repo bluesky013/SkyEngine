@@ -4,8 +4,13 @@
 
 #include <framework/interface/IModule.h>
 #include <framework/interface/IBuilder.h>
+#include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
+#include <core/logger/Logger.h>
 #include <set>
+
+static const char* TAG = "AssetTool";
 
 namespace sky {
 
@@ -56,7 +61,9 @@ namespace sky {
 
     void AssetToolModule::Tick(float delta)
     {
-
+        auto& settings = Interface<ISystemNotify>::Get()->GetApi()->GetSettings();
+        std::string out;
+        settings.Save(out);
     }
 }
 

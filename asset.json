@@ -1,7 +1,8 @@
 {
-    "folders":
+    "asset_folders":
         [
-            "shaders"
+            "shaders",
+            "test"
         ],
     "builders":
         [

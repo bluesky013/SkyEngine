@@ -35,13 +35,15 @@ namespace sky {
         Application();
         ~Application();
 
-        bool Init(const StartInfo&);
+        bool Init(StartInfo&);
 
         void Mainloop();
 
         void Shutdown();
 
         void SetExit() override;
+
+        const SettingRegistry& GetSettings() const override;
 
         IEngine* GetEngine() const;
 
@@ -61,6 +63,7 @@ namespace sky {
         IEngine* engineInstance;
         Environment* env;
         std::vector<Module> modules;
+        SettingRegistry settings;
     };
 
 }

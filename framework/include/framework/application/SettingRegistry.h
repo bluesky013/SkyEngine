@@ -1,0 +1,42 @@
+//
+// Created by Zach Lee on 2022/3/13.
+//
+
+
+#pragma once
+
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/document.h>
+#include <rapidjson/pointer.h>
+#include <string_view>
+
+namespace sky {
+
+    class SettingRegistry {
+    public:
+        SettingRegistry() = default;
+        ~SettingRegistry() = default;
+
+        template <typename T>
+        void SetValue(std::string_view key, const T& value)
+        {
+            rapidjson::Pointer pointer(key.data(), key.length());
+            if (pointer.IsValid()) {
+                if constexpr(std::is_same_v<T, std::string_view>) {
+                    rapidjson::Value& setting = pointer.Create(document, document.GetAllocator());
+                    setting.SetString(value.data(), static_cast<rapidjson::SizeType>(value.length()), document.GetAllocator());
+                } else {
+                    pointer.Set(document, value);
+                }
+            }
+        }
+
+        void Swap(SettingRegistry& registry);
+
+        void Save(std::string& out) const;
+
+    private:
+        rapidjson::Document document;
+    };
+
+}

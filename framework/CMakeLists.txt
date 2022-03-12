@@ -21,4 +21,5 @@ sky_add_library(TARGET Framework STATIC
         Core
         cereal
         TaskFlow
+        Rapidjson
     )

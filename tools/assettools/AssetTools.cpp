@@ -33,8 +33,6 @@ int main()
     Document document;
     document.Parse(data.data());
 
-    std::vector<std::string> folders;
-
     sky::StartInfo start = {};
     start.appName = "AssetTool";
     start.modules.emplace_back("AssetToolModule");
@@ -50,8 +48,9 @@ int main()
             }
         }
     };
-    parseStringArray("folders", folders);
     parseStringArray("builders", start.modules);
+
+    start.setting.SetValue("/asset_folders", document["asset_folders"]);
 
     sky::Application app;
     if (app.Init(start)) {

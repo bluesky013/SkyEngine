@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <framework/application/SettingRegistry.h>
 
 namespace sky {
 
@@ -15,6 +16,7 @@ namespace sky {
     struct StartInfo {
         std::string appName;
         std::vector<std::string> modules;
+        SettingRegistry setting;
     };
 
     class IEngine {

@@ -6,6 +6,7 @@
 #pragma once
 
 namespace sky {
+    class SettingRegistry;
 
     class ISystemNotify {
     public:
@@ -13,6 +14,8 @@ namespace sky {
         virtual ~ISystemNotify() = default;
 
         virtual void SetExit() = 0;
+
+        virtual const SettingRegistry& GetSettings() const = 0;
     };
 
 }

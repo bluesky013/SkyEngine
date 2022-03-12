@@ -32,9 +32,11 @@ namespace sky {
 
     }
 
-    bool Application::Init(const StartInfo& start)
+    bool Application::Init(StartInfo& start)
     {
         LOG_I(TAG, "Application Init Start...");
+        settings.Swap(start.setting);
+
         impl = ApplicationImpl::Create();
         if (impl == nullptr) {
             LOG_E(TAG, "Init App Failed");
@@ -115,6 +117,11 @@ namespace sky {
         if (impl != nullptr) {
             impl->SetExit();
         }
+    }
+
+    const SettingRegistry& Application::GetSettings() const
+    {
+        return settings;
     }
 
     void Application::Shutdown()
