@@ -37,3 +37,9 @@
 [submodule "thirdparty/shaderc"]
 	path = thirdparty/shaderc
 	url = git@github.com:google/shaderc.git
+[submodule "thirdparty/SPIRV-Headers"]
+	path = thirdparty/SPIRV-Headers
+	url = git@github.com:KhronosGroup/SPIRV-Headers.git
+[submodule "thirdparty/SPIRV-Tools"]
+	path = thirdparty/SPIRV-Tools
+	url = git@github.com:KhronosGroup/SPIRV-Tools.git
