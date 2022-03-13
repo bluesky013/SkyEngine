@@ -21,12 +21,6 @@ namespace sky {
     static const char* VS_EXT = ".vert";
     static const char* FS_EXT = ".frag";
 
-    static const std::vector<std::string> EXTENSIONS = {
-        PRG_EXT,
-        VS_EXT,
-        FS_EXT
-    };
-
     static bool ParseShader(const std::string& tag, Document& document, ShaderSourceData& data)
     {
         if(!document.HasMember(tag.data())) {
@@ -85,13 +79,14 @@ namespace sky {
             return false;
         }
 
+        ShaderSourceData sourceData;
         ParseShader("vert", document, sourceData);
         ParseShader("frag", document, sourceData);
         return true;
     }
 
-    bool ShaderBuilder::Support(const std::string& ext)
+    bool ShaderBuilder::Support(const std::string& ext) const
     {
-        return std::find(EXTENSIONS.begin(), EXTENSIONS.end(), ext) != EXTENSIONS.end();
+        return ext == PRG_EXT;
     }
 }

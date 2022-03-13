@@ -31,6 +31,33 @@ namespace sky {
             }
         }
 
+        std::string VisitString(std::string_view key) const
+        {
+            if (document.HasMember(key.data())) {
+                auto& value = document[key.data()];
+                if (value.IsString()) {
+                    return std::string(value.GetString());
+                }
+            }
+            return {};
+        }
+
+        template <class Func>
+        void VisitStringArray(std::string_view key, Func&& func) const
+        {
+            if (document.HasMember(key.data())) {
+                auto& value = document[key.data()];
+                if (value.IsArray()) {
+                    auto array = value.GetArray();
+                    for (auto& val : array) {
+                        if (val.IsString()) {
+                            func(val.GetString());
+                        }
+                    }
+                }
+            }
+        }
+
         void Swap(SettingRegistry& registry);
 
         void Save(std::string& out) const;

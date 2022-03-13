@@ -18,9 +18,7 @@ namespace sky {
 
         bool Build(const BuildRequest& request) override;
 
-        bool Support(const std::string& ext) override;
+        bool Support(const std::string& ext) const override;
 
-    private:
-        ShaderSourceData sourceData;
     };
 }

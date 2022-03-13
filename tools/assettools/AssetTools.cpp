@@ -51,6 +51,7 @@ int main()
     parseStringArray("builders", start.modules);
 
     start.setting.SetValue("/asset_folders", document["asset_folders"]);
+    start.setting.SetValue("/project_root", std::string_view(PROJECT_ROOT.data()));
 
     sky::Application app;
     if (app.Init(start)) {

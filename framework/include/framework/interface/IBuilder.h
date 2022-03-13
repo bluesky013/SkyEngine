@@ -21,7 +21,7 @@ namespace sky {
 
         virtual bool Build(const BuildRequest&) = 0;
 
-        virtual bool Support(const std::string& ext) = 0;
+        virtual bool Support(const std::string& ext) const = 0;
     };
 
     class IBuilderRegistry {

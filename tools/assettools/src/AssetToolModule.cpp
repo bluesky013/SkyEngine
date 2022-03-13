@@ -7,19 +7,25 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/application/SettingRegistry.h>
+#include <framework/task/TaskManager.h>
 #include <core/logger/Logger.h>
 #include <set>
+#include <filesystem>
 
 static const char* TAG = "AssetTool";
 
 namespace sky {
 
+    class BuildTask {
+
+    };
+
     class AssetToolModule
         : public IModule
         , public IBuilderRegistry {
     public:
-        AssetToolModule() = default;
-        ~AssetToolModule() = default;
+        AssetToolModule();
+        ~AssetToolModule();
 
         void Start() override;
 
@@ -31,17 +37,51 @@ namespace sky {
         void UnRegisterBuilder(IBuilder* builder) override;
 
     private:
+        IBuilder* FindBuilder(const std::string& extension);
+
         std::set<IBuilder*> builders;
+        TaskFlow taskFlow;
     };
 
-    void AssetToolModule::Start()
+    AssetToolModule::AssetToolModule()
     {
         Interface<IBuilderRegistry>::Get()->Register(*this);
     }
 
-    void AssetToolModule::Stop()
+    AssetToolModule::~AssetToolModule()
     {
         Interface<IBuilderRegistry>::Get()->UnRegister();
+    }
+
+    void AssetToolModule::Start()
+    {
+        auto sysApi = Interface<ISystemNotify>::Get()->GetApi();
+        auto& settings = sysApi->GetSettings();
+
+        std::filesystem::path projectRoot(settings.VisitString("project_root"));
+
+        settings.VisitStringArray("asset_folders", [&projectRoot, this](const char* folder) {
+            std::filesystem::path path = projectRoot;
+            path.append(folder);
+            for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                auto file = absolute(entry.path());
+                auto builder = FindBuilder(file.extension().string());
+                if (builder != nullptr) {
+                    BuildRequest request = {
+                        file.parent_path().string(),
+                        file.filename().string()
+                    };
+                    builder->Build(request);
+                }
+            }
+        });
+
+        sysApi->SetExit();
+    }
+
+    void AssetToolModule::Stop()
+    {
+
     }
 
     void AssetToolModule::RegisterBuilder(IBuilder* builder)
@@ -59,11 +99,19 @@ namespace sky {
         }
     }
 
+    IBuilder* AssetToolModule::FindBuilder(const std::string& extension)
+    {
+        auto iter = std::find_if(builders.begin(), builders.end(), [&extension](const IBuilder* builder) {
+            return builder->Support(extension);
+        });
+        if (iter != builders.end()) {
+            return *iter;
+        }
+        return nullptr;
+    }
+
     void AssetToolModule::Tick(float delta)
     {
-        auto& settings = Interface<ISystemNotify>::Get()->GetApi()->GetSettings();
-        std::string out;
-        settings.Save(out);
     }
 }
 
