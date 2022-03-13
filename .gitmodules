@@ -34,3 +34,6 @@
 [submodule "thirdparty/taskflow"]
 	path = thirdparty/taskflow
 	url = git@github.com:taskflow/taskflow.git
+[submodule "thirdparty/shaderc"]
+	path = thirdparty/shaderc
+	url = git@github.com:google/shaderc.git
