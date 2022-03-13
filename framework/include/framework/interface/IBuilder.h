@@ -4,14 +4,12 @@
 
 
 #pragma once
+#include <filesystem>
 
 namespace sky {
 
     struct BuildRequest {
-        std::string srcFolder;
-        std::string srcFile;
-        std::string dstFolder;
-        std::string dstFile;
+        std::filesystem::path source;
     };
 
     class IBuilder {

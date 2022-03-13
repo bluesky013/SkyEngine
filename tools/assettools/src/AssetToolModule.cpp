@@ -27,6 +27,8 @@ namespace sky {
         AssetToolModule();
         ~AssetToolModule();
 
+        void Init() override {}
+
         void Start() override;
 
         void Stop() override;
@@ -64,12 +66,11 @@ namespace sky {
             std::filesystem::path path = projectRoot;
             path.append(folder);
             for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                auto file = absolute(entry.path());
+                auto file = std::filesystem::absolute(entry.path());
                 auto builder = FindBuilder(file.extension().string());
                 if (builder != nullptr) {
                     BuildRequest request = {
-                        file.parent_path().string(),
-                        file.filename().string()
+                        file
                     };
                     builder->Build(request);
                 }

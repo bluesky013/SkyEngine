@@ -3,13 +3,14 @@
 //
 
 #include <shader/ShaderBuilder.h>
-#include <framework/asset/AssetManager.h>
-#include <ProjectRoot.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
 #include <core/file/FileUtil.h>
+#include <shaderc/shaderc.hpp>
+#include <vector>
+#include <filesystem>
 
 using namespace rapidjson;
 
@@ -21,7 +22,18 @@ namespace sky {
     static const char* VS_EXT = ".vert";
     static const char* FS_EXT = ".frag";
 
-    static bool ParseShader(const std::string& tag, Document& document, ShaderSourceData& data)
+    void CompileShader(const std::string& name, shaderc_shader_kind kind, const std::string& data,
+        std::vector<uint32_t>& out)
+    {
+        shaderc::Compiler compiler;
+        shaderc::CompileOptions options;
+
+        shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(data, kind, name.c_str(), options);
+        out.assign(result.begin(), result.end());
+    }
+
+    static bool ParseShader(std::filesystem::path path, const std::string& tag, Document& document,
+        ShaderSourceData& data)
     {
         if(!document.HasMember(tag.data())) {
             return false;
@@ -40,14 +52,21 @@ namespace sky {
         if (!val.HasMember("path")) {
             return false;
         }
-        auto path = val["path"].GetString();
-        ReadBin(std::string(path) + ".spv", shader.data);
 
-        if (val.HasMember("entry")) {
-            shader.entry = val["entry"].GetString();
+        path.append(val["path"].GetString());
+        std::string source;
+        if (!ReadString(path.string(), source)) {
+            return false;
         }
 
-        data.shaders.emplace_back(shader);
+
+//        ReadBin(std::string(path) + ".spv", shader.data);
+//
+//        if (val.HasMember("entry")) {
+//            shader.entry = val["entry"].GetString();
+//        }
+//
+//        data.shaders.emplace_back(shader);
         return true;
     }
 
@@ -61,13 +80,8 @@ namespace sky {
 
     bool ShaderBuilder::Build(const BuildRequest& request)
     {
-        std::string path;
-        if (!ConstructFullPath(request.srcFolder, request.srcFile, path)) {
-            return false;
-        }
-
         std::string data;
-        if (!ReadString(path, data)) {
+        if (!ReadString(request.source.string(), data)) {
             return false;
         }
 
@@ -78,10 +92,11 @@ namespace sky {
             LOG_E(TAG, "parse json failed, %u", document.GetParseError());
             return false;
         }
+        auto parentPath = request.source.parent_path();
 
         ShaderSourceData sourceData;
-        ParseShader("vert", document, sourceData);
-        ParseShader("frag", document, sourceData);
+        ParseShader(parentPath, "vert", document, sourceData);
+        ParseShader(parentPath, "frag", document, sourceData);
         return true;
     }
 

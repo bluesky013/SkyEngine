@@ -17,6 +17,8 @@ namespace sky {
         Sample() = default;
         ~Sample() = default;
 
+        void Init() override {}
+
         void Start() override;
 
         void Stop() override;

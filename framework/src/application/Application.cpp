@@ -81,13 +81,17 @@ namespace sky {
                 if (module == nullptr) {
                     continue;
                 }
-                module->Start();
+                module->Init();
                 modules.emplace_back(Module {
                     std::move(dynModule),
                     std::unique_ptr<IModule>(module)
                 });
             }
             LOG_I(TAG, "Load Module : %s success", module.c_str());
+        }
+
+        for (auto& module : modules) {
+            module.interface->Start();
         }
     }
 

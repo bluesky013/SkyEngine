@@ -12,12 +12,17 @@ namespace sky {
     class ShaderBuilderModule : public IModule {
     public:
         ShaderBuilderModule() = default;
+
         ~ShaderBuilderModule() = default;
 
-        void Start() override
+        void Init() override
         {
             builder = std::make_unique<ShaderBuilder>();
             Interface<IBuilderRegistry>::Get()->GetApi()->RegisterBuilder(builder.get());
+        }
+
+        void Start() override
+        {
         }
 
         void Stop() override
@@ -30,7 +35,6 @@ namespace sky {
     private:
         std::unique_ptr<ShaderBuilder> builder;
     };
-
 }
 
 REGISTER_MODULE(sky::ShaderBuilderModule)
