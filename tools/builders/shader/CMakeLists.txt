@@ -1,9 +1,6 @@
 file(GLOB_RECURSE BUILDER_SRC src/*)
 file(GLOB_RECURSE BUILDER_INC include/*)
 
-#set(ShaderCLib "C:\\VulkanSDK\\1.2.154.1\\Lib\\shaderc_combined.lib")
-#set(ShaderCInc "C:\\VulkanSDK\\1.2.154.1\\Include\\shaderc")
-
 sky_add_library(TARGET ShaderBuilder SHARED
     SOURCES
         ShaderModule.cpp
@@ -18,4 +15,5 @@ sky_add_library(TARGET ShaderBuilder SHARED
         Rapidjson
         SkyEngine
         shaderc
+        spirv-cross-cpp
     )

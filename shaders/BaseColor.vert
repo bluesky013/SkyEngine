@@ -23,7 +23,7 @@ out gl_PerVertex
     vec4 gl_Position;
 };
 
-void main(void)
+void main()
 {
     vec4 worldPos = objectInfo.worldMatrix * inPos;
     gl_Position = viewInfo.viewProject * worldPos;

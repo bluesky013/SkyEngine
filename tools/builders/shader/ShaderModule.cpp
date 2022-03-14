@@ -4,6 +4,8 @@
 
 #include <framework/interface/IModule.h>
 #include <framework/interface/Interface.h>
+#include <framework/interface/ISystem.h>
+#include <framework/application/SettingRegistry.h>
 #include <shader/ShaderBuilder.h>
 #include <memory>
 
@@ -19,6 +21,8 @@ namespace sky {
         {
             builder = std::make_unique<ShaderBuilder>();
             Interface<IBuilderRegistry>::Get()->GetApi()->RegisterBuilder(builder.get());
+
+            auto& settings = Interface<ISystemNotify>::Get()->GetApi()->GetSettings();
         }
 
         void Start() override
