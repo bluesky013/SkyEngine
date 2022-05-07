@@ -24,8 +24,7 @@ namespace sky {
 
     void MeshComponent::Reflect()
     {
-        SerializationContext::Get()->Register<MeshComponent>(TypeName())
-            .Member<&MeshComponent::asset>("mesh");
+        SerializationContext::Get()->Register<MeshComponent>(TypeName());
     }
 
     void Render::Reflect()

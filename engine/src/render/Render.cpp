@@ -9,12 +9,6 @@
 #include <engine/render/DriverManager.h>
 #include <engine/render/rendergraph/ForwardRendering.h>
 #include <engine/render/DevObjManager.h>
-#include <framework/asset/AssetManager.h>
-#include <engine/asset/ShaderAsset.h>
-#include <engine/asset/BufferAsset.h>
-#include <engine/asset/MaterialAsset.h>
-#include <engine/asset/MeshAsset.h>
-#include <engine/asset/ImageAsset.h>
 #include <engine/render/service/TransformService.h>
 #include <engine/render/service/ViewService.h>
 
@@ -25,7 +19,6 @@ namespace sky {
     Render::~Render()
     {
         scenes.clear();
-        AssetManager::Get()->UnRegisterHandler<ShaderAsset>();
         DevObjManager::Get()->Destroy();
         DriverManager::Get()->Destroy();
     }
@@ -37,12 +30,6 @@ namespace sky {
             LOG_E(TAG, "Init Driver Failed");
             return false;
         }
-
-        AssetManager::Get()->RegisterHandler<ShaderAsset>();
-        AssetManager::Get()->RegisterHandler<MeshAsset>();
-        AssetManager::Get()->RegisterHandler<MaterialAsset>();
-        AssetManager::Get()->RegisterHandler<ImageAsset>();
-        AssetManager::Get()->RegisterHandler<BufferAsset>();
         return true;
     }
 

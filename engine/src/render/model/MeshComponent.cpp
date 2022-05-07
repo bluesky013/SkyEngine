@@ -8,8 +8,5 @@ namespace sky {
 
     void MeshComponent::OnTick(float time)
     {
-        if (asset && !instance) {
-            instance = Mesh::CreateFromAsset(asset);
-        }
     }
 }

@@ -4,7 +4,6 @@
 
 #include <engine/IService.h>
 #include <core/util/Uuid.h>
-#include <engine/asset/MeshAsset.h>
 #include <unordered_map>
 
 namespace sky {

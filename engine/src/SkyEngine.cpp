@@ -6,8 +6,6 @@
 #include <engine/world/World.h>
 #include <engine/render/Render.h>
 #include <core/logger/Logger.h>
-#include <framework/asset/ResourceManager.h>
-#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "SkyEngine";
 
@@ -34,8 +32,6 @@ namespace sky {
 
     void SkyEngine::DeInit()
     {
-        AssetManager::Destroy();
-        ResourceManager::Destroy();
         Render::Destroy();
 
         eventListeners.clear();

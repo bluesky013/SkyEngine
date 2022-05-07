@@ -5,8 +5,9 @@
 #pragma once
 
 #include <engine/render/RenderPipeline.h>
-#include <engine/asset/ShaderAsset.h>
 #include <vulkan/RenderPass.h>
+#include <vulkan/VertexInput.h>
+#include <vulkan/PipelineLayout.h>
 #include <unordered_map>
 #include <set>
 #include <list>
@@ -30,7 +31,6 @@ namespace sky {
         drv::ImagePtr colorImage;
         drv::ImagePtr depthImage;
         VkExtent2D extent = {0, 0};
-        ShaderPtr shader;
         drv::VertexInputPtr vInput;
         drv::PipelineLayoutPtr pipelineLayout;
     };

@@ -7,7 +7,6 @@
 #include <engine/render/rendergraph/RenderGraphPassData.h>
 #include <engine/render/DriverManager.h>
 #include <vulkan/Util.h>
-#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -22,11 +21,6 @@ namespace sky {
     void ForwardRendering::SetupShader()
     {
         auto device = DriverManager::Get();
-        if (!shader) {
-            auto asset = AssetManager::Get()->FindOrCreate("shaders/Fullscreen.prog", ShaderAsset::TYPE);
-            shader = Shader::CreateFromAsset(asset);
-        }
-
         if (!vInput) {
             drv::VertexInput::Builder builder;
             vInput = builder.Begin().Build();
@@ -100,8 +94,8 @@ namespace sky {
             BuildGraphicsPass(data);
 
             drv::GraphicsPipeline::Descriptor desc = {};
-            desc.state = &shader->GetState();
-            desc.program = &shader->GetProgram();
+//            desc.state = &shader->GetState();
+//            desc.program = &shader->GetProgram();
             desc.pipelineLayout = pipelineLayout;
             desc.vertexInput = vInput;
             desc.renderPass = data.pass;

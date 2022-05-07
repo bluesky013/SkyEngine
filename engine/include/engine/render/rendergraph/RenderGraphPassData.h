@@ -9,7 +9,6 @@
 #include <vulkan/CommandBuffer.h>
 #include <vulkan/GraphicsPipeline.h>
 #include <engine/render/rendergraph/RenderGraphResource.h>
-#include <engine/asset/ShaderAsset.h>
 #include <memory>
 
 namespace sky {

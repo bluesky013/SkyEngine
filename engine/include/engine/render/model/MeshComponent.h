@@ -5,7 +5,6 @@
 #pragma once
 
 #include <engine/world/Component.h>
-#include <engine/asset/MeshAsset.h>
 
 namespace sky {
 
@@ -19,9 +18,6 @@ namespace sky {
         void OnTick(float time) override;
 
         static void Reflect();
-
-        MeshAssetPtr asset;
-        MeshPtr instance;
     };
 
 }
