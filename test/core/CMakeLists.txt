@@ -5,5 +5,5 @@ sky_add_test(TARGET CoreTest
         ${TEST_SRC}
     LIBS
         Core
-        googletest
+        3rdParty::googletest
     )

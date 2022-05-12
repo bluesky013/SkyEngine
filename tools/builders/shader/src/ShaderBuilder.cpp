@@ -36,60 +36,60 @@ namespace sky {
         virtual ~ShaderIncluder() = default;
     };
 
-    void ShaderBuilder::CompileShader(const std::string& name, shaderc_shader_kind kind, const std::string& data,
-        ShaderData& shaderOut, const shaderc::CompileOptions& options)
-    {
-        shaderc::SpvCompilationResult result =
-            compiler.CompileGlslToSpv(data, kind, name.c_str(), shaderOut.entry.c_str(), options);
-        if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
-            shaderOut.data.assign(result.begin(), result.end());
-        } else {
-            LOG_E(TAG, "compile error shader:%s, message:\n%s", name.c_str(), result.GetErrorMessage().c_str());
-        }
-
-    }
-
-    bool ShaderBuilder::ParseShader(std::filesystem::path path, const std::string& tag, Document& document,
-        ShaderSourceData& data)
-    {
-        if(!document.HasMember(tag.data())) {
-            return false;
-        }
-        ShaderData shader;
-        shaderc_shader_kind kind;
-
-        auto& val = document[tag.data()];
-        if (tag == "vert") {
-            shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
-            kind = shaderc_vertex_shader;
-        } else if (tag == "frag") {
-            shader.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-            kind = shaderc_fragment_shader;
-        } else if (tag == "comp") {
-            shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-            kind = shaderc_compute_shader;
-        } else {
-            return false;
-        }
-
-        if (!val.HasMember("path")) {
-            return false;
-        }
-        if (val.HasMember("entry")) {
-            shader.entry = val["entry"].GetString();
-        }
-
-        path.append(val["path"].GetString());
-        std::string source;
-        if (!ReadString(path.string(), source)) {
-            return false;
-        }
-
-        CompileShader(path.filename().string(), kind, source, shader, options);
-
-        data.shaders.emplace_back(std::move(shader));
-        return true;
-    }
+//    void ShaderBuilder::CompileShader(const std::string& name, shaderc_shader_kind kind, const std::string& data,
+//        ShaderData& shaderOut, const shaderc::CompileOptions& options)
+//    {
+//        shaderc::SpvCompilationResult result =
+//            compiler.CompileGlslToSpv(data, kind, name.c_str(), shaderOut.entry.c_str(), options);
+//        if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
+//            shaderOut.data.assign(result.begin(), result.end());
+//        } else {
+//            LOG_E(TAG, "compile error shader:%s, message:\n%s", name.c_str(), result.GetErrorMessage().c_str());
+//        }
+//
+//    }
+//
+//    bool ShaderBuilder::ParseShader(std::filesystem::path path, const std::string& tag, Document& document,
+//        ShaderSourceData& data)
+//    {
+//        if(!document.HasMember(tag.data())) {
+//            return false;
+//        }
+//        ShaderData shader;
+//        shaderc_shader_kind kind;
+//
+//        auto& val = document[tag.data()];
+//        if (tag == "vert") {
+//            shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
+//            kind = shaderc_vertex_shader;
+//        } else if (tag == "frag") {
+//            shader.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+//            kind = shaderc_fragment_shader;
+//        } else if (tag == "comp") {
+//            shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+//            kind = shaderc_compute_shader;
+//        } else {
+//            return false;
+//        }
+//
+//        if (!val.HasMember("path")) {
+//            return false;
+//        }
+//        if (val.HasMember("entry")) {
+//            shader.entry = val["entry"].GetString();
+//        }
+//
+//        path.append(val["path"].GetString());
+//        std::string source;
+//        if (!ReadString(path.string(), source)) {
+//            return false;
+//        }
+//
+//        CompileShader(path.filename().string(), kind, source, shader, options);
+//
+//        data.shaders.emplace_back(std::move(shader));
+//        return true;
+//    }
 
     ShaderBuilder::ShaderBuilder()
     {
@@ -116,9 +116,9 @@ namespace sky {
         }
         auto parentPath = request.source.parent_path();
 
-        ShaderSourceData sourceData;
-        ParseShader(parentPath, "vert", document, sourceData);
-        ParseShader(parentPath, "frag", document, sourceData);
+//        ShaderSourceData sourceData;
+//        ParseShader(parentPath, "vert", document, sourceData);
+//        ParseShader(parentPath, "frag", document, sourceData);
         return true;
     }
 

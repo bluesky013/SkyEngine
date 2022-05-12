@@ -8,7 +8,6 @@
 #include <assimp/postprocess.h>
 #include <core/logger/Logger.h>
 #include <engine/BasicSerialization.h>
-#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Model Loader";
 
@@ -16,12 +15,10 @@ namespace sky {
 
     ModelBuilder::ModelBuilder()
     {
-        AssetManager::Get()->RegisterHandler<MeshAsset>();
     }
 
     ModelBuilder::~ModelBuilder()
     {
-        AssetManager::Get()->UnRegisterHandler<MeshAsset>();
     }
 
     bool ModelBuilder::Load(const std::string& path)
@@ -32,8 +29,6 @@ namespace sky {
             return false;
         }
 
-        asset = AssetManager::Get()->FindOrCreate<MeshAsset>(Uuid::Create());
-
         LoadMesh();
 //        LoadTextures();
 //        LoadMaterial();
@@ -42,36 +37,36 @@ namespace sky {
 
     void ModelBuilder::LoadMesh()
     {
-        asset->data.meshes.resize(scene->mNumMeshes);
-        for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
-            auto mesh = scene->mMeshes[i];
-            auto& tmpMesh = asset->data.meshes[i];
+//        asset->data.meshes.resize(scene->mNumMeshes);
+//        for (uint32_t i = 0; i < scene->mNumMeshes; ++i) {
+//            auto mesh = scene->mMeshes[i];
+//            auto& tmpMesh = asset->data.meshes[i];
 
-            tmpMesh.vertices.resize(mesh->mNumVertices);
-            for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
-                auto& vtx = tmpMesh.vertices[j];
-                auto& aiVtx = mesh->mVertices[j];
-                auto& aiNml = mesh->mNormals[j];
-
-                vtx.pos = Vector4(aiVtx.x, aiVtx.y, aiVtx.z, 1.f);
-                vtx.normal = Vector4(aiNml.x, aiNml.y, aiNml.z, 1.f);
-                if (mesh->mColors[0] != nullptr) {
-                    auto& aiColor0 = mesh->mColors[0][j];
-                    vtx.color = Vector4 (aiColor0.r, aiColor0.g, aiColor0.b, aiColor0.a);
-                }
-            }
-
-            tmpMesh.indices.reserve(mesh->mNumFaces * 4);
-            for (uint32_t j = 0; j < mesh->mNumFaces; ++j) {
-                auto& face = mesh->mFaces[j];
-                for (uint32_t k = 0; k < face.mNumIndices; ++k) {
-                    tmpMesh.indices.emplace_back(face.mIndices[k]);
-                }
-            }
-
-            tmpMesh.aabb.min = Vector3(mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z);
-            tmpMesh.aabb.max = Vector3(mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z);
-        }
+//            tmpMesh.vertices.resize(mesh->mNumVertices);
+//            for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
+//                auto& vtx = tmpMesh.vertices[j];
+//                auto& aiVtx = mesh->mVertices[j];
+//                auto& aiNml = mesh->mNormals[j];
+//
+//                vtx.pos = Vector4(aiVtx.x, aiVtx.y, aiVtx.z, 1.f);
+//                vtx.normal = Vector4(aiNml.x, aiNml.y, aiNml.z, 1.f);
+//                if (mesh->mColors[0] != nullptr) {
+//                    auto& aiColor0 = mesh->mColors[0][j];
+//                    vtx.color = Vector4 (aiColor0.r, aiColor0.g, aiColor0.b, aiColor0.a);
+//                }
+//            }
+//
+//            tmpMesh.indices.reserve(mesh->mNumFaces * 4);
+//            for (uint32_t j = 0; j < mesh->mNumFaces; ++j) {
+//                auto& face = mesh->mFaces[j];
+//                for (uint32_t k = 0; k < face.mNumIndices; ++k) {
+//                    tmpMesh.indices.emplace_back(face.mIndices[k]);
+//                }
+//            }
+//
+//            tmpMesh.aabb.min = Vector3(mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z);
+//            tmpMesh.aabb.max = Vector3(mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z);
+//        }
     }
 
     void ModelBuilder::LoadTextures()
@@ -106,7 +101,6 @@ namespace sky {
 
     void ModelBuilder::Save(const std::string& path)
     {
-        AssetManager::Get()->SaveAsset(path, asset, MeshAsset::TYPE);
     }
 
 }

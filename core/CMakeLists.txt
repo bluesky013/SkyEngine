@@ -10,7 +10,7 @@ sky_add_library(TARGET Core STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        GLM
-        sfmt
-        crc32c
+        3rdParty::glm
+        3rdParty::sfmt
+        3rdParty::crc32
     )

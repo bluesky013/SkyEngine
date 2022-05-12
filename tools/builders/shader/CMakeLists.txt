@@ -12,8 +12,8 @@ sky_add_library(TARGET ShaderBuilder SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        Rapidjson
         SkyEngine
-        shaderc
-        spirv-cross-cpp
+        3rdParty::rapidjson
+        3rdParty::shaderc
+        3rdParty::SPIRVCross
     )

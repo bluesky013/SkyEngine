@@ -5,7 +5,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <engine/asset/MeshAsset.h>
 
 struct aiScene;
 
@@ -28,8 +27,6 @@ namespace sky {
 
     private:
         const aiScene* scene = nullptr;
-
-        MeshAssetPtr asset;
     };
 
 }

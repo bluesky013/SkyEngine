@@ -10,7 +10,7 @@ sky_add_library(TARGET ModelBuilder SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        assimp
-        cereal
+        3rdParty::assimp
+        3rdParty::cereal
         SkyEngine
     )

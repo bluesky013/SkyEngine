@@ -28,6 +28,6 @@ sky_add_library(TARGET Driver STATIC
     LINK_LIBS
         Core
         VulkanSdk
-        VMA
+        3rdParty::vma
         ${PLATFORM_EXT_LIBS}
 )

@@ -5,5 +5,5 @@ sky_add_test(TARGET FrameworkTest
         ${TEST_SRC}
     LIBS
         Framework
-        googletest
+        3rdParty::googletest
     )

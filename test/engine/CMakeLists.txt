@@ -5,5 +5,5 @@ sky_add_test(TARGET EngineTest
         ${TEST_SRC}
     LIBS
         SkyEngine
-        googletest
+        3rdParty::googletest
     )

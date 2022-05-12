@@ -19,7 +19,7 @@ sky_add_library(TARGET Framework STATIC
         include
     LINK_LIBS
         Core
-        cereal
-        TaskFlow
-        Rapidjson
+        3rdParty::cereal
+        3rdParty::taskflow
+        3rdParty::rapidjson
     )

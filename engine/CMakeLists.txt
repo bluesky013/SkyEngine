@@ -13,7 +13,6 @@ sky_add_library(TARGET SkyEngine STATIC
         Core
         Framework
         Driver
-        spirv-cross-cpp
     )
 
 sky_add_library(TARGET SkyEngineModule SHARED

@@ -3,7 +3,6 @@
 //
 
 #include <Sample.h>
-#include <framework/asset/AssetManager.h>
 
 namespace sky {
 

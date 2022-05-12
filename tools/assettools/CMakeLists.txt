@@ -19,7 +19,7 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
         AssetTools.cpp
     LIBS
         Framework
-        Rapidjson
+        3rdParty::rapidjson
     )
 
 
