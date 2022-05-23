@@ -1,12 +1,12 @@
+find_package(Qt6 COMPONENTS Widgets
+    PATHS ${QT_PATH})
+
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt5 COMPONENTS Widgets REQUIRED
-    PATHS ${QT_PATH})
-
-set(Qt5Libs
-    Qt5::Widgets
+set(QtLibs
+    Qt6::Widgets
 )
 
 file(GLOB_RECURSE EDITOR_SRC src/*)
@@ -20,7 +20,7 @@ sky_add_exe(TARGET Editor
         include
     LIBS
         SkyEngine
-        ${Qt5Libs}
+        ${QtLibs}
     )
 
 add_dependencies(Launcher SkyEngineModule SampleModule)

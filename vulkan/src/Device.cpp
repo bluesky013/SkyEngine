@@ -2,12 +2,11 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "vulkan/Device.h"
-#include "vulkan/Basic.h"
-#include "vulkan/Driver.h"
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-#include "core/logger/Logger.h"
+#include <vulkan/Device.h>
+#include <vulkan/Basic.h>
+#include <vulkan/Driver.h>
+#include <core/logger/Logger.h>
+
 #include <vector>
 
 static const char* TAG = "Driver";
@@ -153,7 +152,7 @@ namespace sky::drv {
         allocatorInfo.device = device;;
         allocatorInfo.physicalDevice = phyDev;
         allocatorInfo.instance = driver.GetInstance();
-        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_1;
+        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
         rst = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create allocator failed -%d", rst);

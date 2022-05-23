@@ -24,7 +24,6 @@ namespace sky::editor {
         auto container = QWidget::createWindowContainer(window, this, Qt::Widget);
         window->Init();
         auto layout = new QVBoxLayout(this);
-        layout->setMargin(0);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(container);
     }

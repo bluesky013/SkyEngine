@@ -23,7 +23,6 @@ namespace sky::editor {
         {
             auto layout = new QHBoxLayout(this);
             layout->setSpacing(0);
-            layout->setMargin(0);
             layout->addWidget(label);
 
             line = new QLineEdit(this);
@@ -67,7 +66,6 @@ namespace sky::editor {
         {
             auto layout = new QHBoxLayout(this);
             layout->setSpacing(0);
-            layout->setMargin(0);
 
             layout->addWidget(label);
             auto validator = new QDoubleValidator(this);
