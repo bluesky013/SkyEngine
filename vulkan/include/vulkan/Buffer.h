@@ -15,10 +15,10 @@ namespace sky::drv {
         ~Buffer();
 
         struct Descriptor {
-            VkBufferCreateFlags flags     = 0;
             VkDeviceSize        size      = 0;
             VkBufferUsageFlags  usage     = 0;
             VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
+            VkBufferCreateFlags flags     = 0;
             bool                transient = false;
         };
 
