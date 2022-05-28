@@ -21,6 +21,7 @@ namespace sky::drv {
         std::list<VkSampler> samplers;
 
         for (auto& binding : des.bindings) {
+            HashCombine32(hash, Crc32::Cal(binding.first));
             HashCombine32(hash, Crc32::Cal(binding.second));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};

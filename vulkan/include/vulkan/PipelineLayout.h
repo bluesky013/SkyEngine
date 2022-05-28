@@ -20,7 +20,7 @@ namespace sky::drv {
         ~PipelineLayout();
 
         struct Descriptor {
-            std::map<uint32_t, DescriptorSetLayout::Descriptor> desLayouts;
+            std::vector<DescriptorSetLayout::Descriptor> desLayouts;
             std::vector<VkPushConstantRange> pushConstants;
         };
 
@@ -38,7 +38,7 @@ namespace sky::drv {
 
         VkPipelineLayout layout;
         uint32_t hash;
-        std::map<uint32_t, DescriptorSetLayoutPtr> desLayouts;
+        std::vector<DescriptorSetLayoutPtr> desLayouts;
     };
 
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;

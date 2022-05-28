@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <engine/render/DriverManager.h>
 #include <engine/render/resources/Mesh.h>
+#include <engine/render/resources/Image.h>
 #include <engine/render/resources/Shader.h>
 
 using namespace sky;
@@ -66,10 +67,26 @@ TEST_F(EngineRenderResourceTest, BufferTest)
     }
 }
 
+TEST_F(EngineRenderResourceTest, ImageTest)
+{
+    std::vector<uint8_t> data = {
+        255, 0,   0, 255,   0, 255,   0, 255,
+        0,   0, 255, 255, 255, 255, 255, 255
+    };
+
+    Image::Descriptor desc = {
+        VK_FORMAT_R8G8B8A8_UNORM, {2, 2}, 1
+    };
+    RDImagePtr image = std::make_shared<Image>(desc);
+    image->InitRHI();
+    image->Update(data.data(), data.size());
+}
+
 TEST_F(EngineRenderResourceTest, ShaderTest)
 {
     auto table = std::make_shared<GraphicsShaderTable>();
     table->LoadFromFile("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
+    table->InitRHI();
 
     ASSERT_EQ(table->IsValid(), true);
 }

@@ -5,7 +5,6 @@
 
 #include <engine/render/resources/Buffer.h>
 #include <engine/render/DriverManager.h>
-#include <vulkan/CommandBuffer.h>
 
 namespace sky {
 
@@ -34,8 +33,10 @@ namespace sky {
         return !!rhiBuffer;
     }
 
-    void Buffer::Update(const uint8_t* data, uint64_t size)
+    void Buffer::Update(const uint8_t* data, uint64_t srcSize)
     {
+        uint64_t validateSize = std::min(srcSize, descriptor.size);
+
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
             auto device = DriverManager::Get()->GetDevice();
             auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
@@ -43,10 +44,10 @@ namespace sky {
             drv::Buffer::Descriptor stagingDes = {};
             stagingDes.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
             stagingDes.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            stagingDes.size = descriptor.size;
+            stagingDes.size = validateSize;
             auto stagingBuffer = device->CreateDeviceObject<drv::Buffer>(stagingDes);
             uint8_t* dst = stagingBuffer->Map();
-            memcpy(dst, data, size);
+            memcpy(dst, data, validateSize);
             stagingBuffer->UnMap();
 
             auto cmd = queue->AllocateCommandBuffer({});
@@ -59,7 +60,7 @@ namespace sky {
             cmd->Wait();
         } else {
             uint8_t* dst = rhiBuffer->Map();
-            memcpy(dst, data, descriptor.size);
+            memcpy(dst, data, validateSize);
             rhiBuffer->UnMap();
         }
     }

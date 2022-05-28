@@ -30,10 +30,17 @@ namespace sky {
 
         bool IsValid() const override;
 
+        using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
+        const DescriptorTable& GetDescriptorTable() const;
+
     private:
+        void BuildReflection();
+
         Descriptor descriptor;
         std::vector<uint32_t> spv;
         drv::ShaderPtr rhiShader;
+
+        DescriptorTable descriptorTable;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
 
@@ -42,7 +49,10 @@ namespace sky {
         ShaderTable() = default;
         ~ShaderTable() = default;
 
+        void InitRHI() override;
+
     protected:
+        std::vector<RDShaderPtr> shaders;
         drv::PipelineLayoutPtr pipelineLayout;
     };
     using RDShaderTablePtr = std::shared_ptr<ShaderTable>;

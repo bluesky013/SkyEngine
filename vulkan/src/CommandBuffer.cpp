@@ -103,11 +103,29 @@ namespace sky::drv {
         return cmdBuffer;
     }
 
-    void CommandBuffer::Barrier(VkPipelineStageFlags src, VkPipelineStageFlags dst,
-        const VkImageMemoryBarrier& barrier)
+    void CommandBuffer::Copy(BufferPtr src, ImagePtr dst, const VkBufferImageCopy& copy)
     {
-        vkCmdPipelineBarrier(cmdBuffer, src, dst, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr,
-            1, &barrier);
+        vkCmdCopyBufferToImage(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    }
+
+    void CommandBuffer::ImageBarrier(ImagePtr image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst)
+    {
+        VkImageMemoryBarrier imageMemoryBarrier = {};
+        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageMemoryBarrier.srcAccessMask = barrier.srcAccessMask;
+        imageMemoryBarrier.dstAccessMask = barrier.dstAccessMask;
+        imageMemoryBarrier.image = image->GetNativeHandle();
+        imageMemoryBarrier.subresourceRange = subresourceRange;
+        imageMemoryBarrier.oldLayout = src;
+        imageMemoryBarrier.newLayout = dst;
+        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &imageMemoryBarrier);
     }
 
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout,

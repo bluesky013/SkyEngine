@@ -13,6 +13,7 @@ sky_add_library(TARGET SkyEngine STATIC
         Core
         Framework
         Driver
+        3rdParty::SPIRVCross
     )
 
 sky_add_library(TARGET SkyEngineModule SHARED

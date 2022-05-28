@@ -28,9 +28,10 @@ namespace sky::drv {
 
         DescriptorSetPtr Allocate(DescriptorSetLayoutPtr layout);
 
+    private:
+        friend class DescriptorSet;
         void Free(DescriptorSet& set);
 
-    private:
         VkDescriptorPool pool;
         using SetList = std::list<VkDescriptorSet>;
         std::unordered_map<uint32_t, SetList> freeList;

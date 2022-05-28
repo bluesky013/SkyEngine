@@ -2,10 +2,10 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
-#include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
-#include "vulkan/ImageView.h"
-#include "vk_mem_alloc.h"
+#include <vulkan/DevObject.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/ImageView.h>
+#include <vk_mem_alloc.h>
 #include <list>
 #include <unordered_map>
 #include <mutex>
@@ -57,9 +57,6 @@ namespace sky::drv {
         VkImageCreateInfo imageInfo;
         bool isTransient = false;
         bool isOwn = true;
-
-        std::mutex mutex;
-        std::unordered_map<uint32_t, ImageViewPtr> views;
     };
 
     using ImagePtr = std::shared_ptr<Image>;

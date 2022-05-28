@@ -18,12 +18,6 @@ namespace sky {
         DescriptorGroup() = default;
         ~DescriptorGroup() = default;
 
-        struct BufferEntry {
-            uint32_t binding;
-            uint32_t offset;
-            uint32_t size;
-        };
-
     private:
         drv::DescriptorSetPtr set;
     };

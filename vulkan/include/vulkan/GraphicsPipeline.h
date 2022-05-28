@@ -84,13 +84,8 @@ namespace sky::drv {
             DepthStencilState depthStencil;
         };
 
-        struct ShaderInfo {
-            ShaderPtr shader;
-            std::string entry;
-        };
-
         struct Program {
-            std::vector<ShaderInfo> shaders;
+            std::vector<ShaderPtr> shaders;
             ShaderOptionPtr shaderOption;
         };
 

@@ -79,17 +79,9 @@ namespace sky::drv {
 
     ImageViewPtr Image::CreateImageView(const ImageView::Descriptor& des)
     {
-        auto hash = Crc32::Cal(des);
-        std::lock_guard<std::mutex> lock(mutex);
-        auto iter = views.find(hash);
-        if (iter != views.end()) {
-            return iter->second;
-        }
-
         ImageViewPtr ptr = std::make_shared<ImageView>(device);
         ptr->image = image;
         if (ptr->Init(des)) {
-            views.emplace(hash, ptr);
             return ptr;
         }
         return {};

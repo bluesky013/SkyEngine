@@ -13,9 +13,8 @@ namespace sky::drv {
     {
         uint32_t hash = 0;
         HashCombine32(hash, Crc32::Cal(*desc.state));
-        for (auto& shaderInfo : desc.program->shaders) {
-            HashCombine32(hash, shaderInfo.shader->GetHash());
-            HashCombine32(hash, Crc32::Cal(shaderInfo.entry));
+        for (auto& shader : desc.program->shaders) {
+            HashCombine32(hash, shader->GetHash());
         }
         if (desc.program->shaderOption) {
             HashCombine32(hash, desc.program->shaderOption->GetHash());
@@ -43,12 +42,12 @@ namespace sky::drv {
 
         /* Shader */
         std::vector<VkPipelineShaderStageCreateInfo> shaderStageInfo;
-        for (auto& shaderInfo : des.program->shaders) {
+        for (auto& shader : des.program->shaders) {
             VkPipelineShaderStageCreateInfo stageInfo = {};
             stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            stageInfo.stage = shaderInfo.shader->GetShaderStage();
-            stageInfo.module = shaderInfo.shader->GetNativeHandle();
-            stageInfo.pName = shaderInfo.entry.c_str();
+            stageInfo.stage = shader->GetShaderStage();
+            stageInfo.module = shader->GetNativeHandle();
+            stageInfo.pName = "main";
 
             if (des.program->shaderOption) {
                 stageInfo.pSpecializationInfo = des.program->shaderOption->GetSpecializationInfo(stageInfo.stage);

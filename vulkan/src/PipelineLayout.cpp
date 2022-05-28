@@ -20,12 +20,13 @@ namespace sky::drv {
 
     bool PipelineLayout::Init(const Descriptor& des)
     {
-        std::vector<VkDescriptorSetLayout> layouts;
-        for (auto& desSet : des.desLayouts) {
-            auto layout = device.CreateDeviceObject<DescriptorSetLayout>(desSet.second);
+        desLayouts.resize(des.desLayouts.size());
+        std::vector<VkDescriptorSetLayout> layouts(des.desLayouts.size());
+        for (uint32_t i = 0; i < des.desLayouts.size(); ++i) {
+            auto layout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);
             HashCombine32(hash, layout->GetHash());
-            desLayouts.emplace(desSet.first, layout);
-            layouts.emplace_back(layout->GetNativeHandle());
+            desLayouts[i] = layout;
+            layouts[i] = layout->GetNativeHandle();
         }
 
         for (auto& push : des.pushConstants) {
@@ -58,10 +59,9 @@ namespace sky::drv {
 
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPool& pool, uint32_t slot)
     {
-        auto iter = desLayouts.find(slot);
-        if (iter == desLayouts.end()) {
+        if (slot >= desLayouts.size()) {
             return {};
         }
-        return pool.Allocate(iter->second);
+        return pool.Allocate(desLayouts[slot]);
     }
 }

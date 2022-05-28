@@ -7,6 +7,7 @@
 #include <vulkan/Fence.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/Buffer.h>
+#include <vulkan/Image.h>
 #include <vector>
 
 namespace sky::drv {
@@ -33,11 +34,12 @@ namespace sky::drv {
             fun(cmdBuffer);
         }
 
-        void Barrier(VkPipelineStageFlags src, VkPipelineStageFlags dst,
-            const VkImageMemoryBarrier& barrier);
+        void ImageBarrier(ImagePtr image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst);
 
         void Copy(VkImage src, VkImageLayout srcLayout,
             VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy);
+
+        void Copy(BufferPtr src, ImagePtr dst, const VkBufferImageCopy& copy);
 
         void Copy(BufferPtr src, BufferPtr dst, const VkBufferCopy& copy);
 
