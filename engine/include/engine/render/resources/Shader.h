@@ -65,6 +65,11 @@ namespace sky {
     public:
         GraphicsShaderTable() = default;
         ~GraphicsShaderTable() = default;
+
+        void LoadFromFile(const std::string& vs, const std::string& fs);
+
+        bool IsValid() const override;
+
     private:
         RDShaderPtr vs;
         RDShaderPtr fs;

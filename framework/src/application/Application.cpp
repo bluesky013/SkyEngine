@@ -12,8 +12,8 @@ static const char* TAG = "Application";
 
 namespace sky {
 
-//    using EngineLoad = IEngine*(*)(Environment*);
-//    using EngineShutdown = void(*)(IEngine*);
+    using EngineLoad = IEngine*(*)(Environment*);
+    using EngineShutdown = void(*)(IEngine*);
 
     using ModuleStart = IModule*(*)(Environment*);
     using ModuleStop = void(*)();
@@ -51,17 +51,22 @@ namespace sky {
 
         Interface<ISystemNotify>::Get()->Register(*this);
 
-//        LOG_I(TAG, "Load Engine Module...");
-//        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
-//        if (engineModule->Load()) {
-//            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
-//            if (createFn != nullptr) {
-//                engineInstance = createFn(env);
-//                engineInstance->Init(start);
-//            }
-//        }
+        LOG_I(TAG, "Load Engine Module...");
+        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
+        if (engineModule->Load()) {
+            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
+            if (createFn != nullptr) {
+                engineInstance = createFn(env);
+                engineInstance->Init(start);
+            }
+        }
 
         LoadDynamicModules(start);
+
+        if (start.createWindow) {
+            nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName}));
+        }
+
         LOG_I(TAG, "Load Engine Module Success");
         return true;
     }
@@ -128,17 +133,22 @@ namespace sky {
         return settings;
     }
 
+    const NativeWindow* Application::GetViewport() const
+    {
+        return nativeWindow.get();
+    }
+
     void Application::Shutdown()
     {
         UnloadDynamicModules();
 
-//        if (engineModule->IsLoaded()) {
-//            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
-//            if (destroyFn != nullptr) {
-//                engineInstance->DeInit();
-//                destroyFn(engineInstance);
-//            }
-//        }
+        if (engineModule->IsLoaded()) {
+            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
+            if (destroyFn != nullptr) {
+                engineInstance->DeInit();
+                destroyFn(engineInstance);
+            }
+        }
 
         Interface<ISystemNotify>::Get()->UnRegister();
     }

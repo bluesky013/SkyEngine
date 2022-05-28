@@ -24,9 +24,6 @@ namespace sky {
         void Stop() override;
 
         void Tick(float delta) override;
-
-    private:
-        std::unique_ptr<NativeWindow> nativeWindow;
     };
 
 }

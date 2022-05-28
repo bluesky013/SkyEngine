@@ -32,28 +32,44 @@ public:
     }
 };
 
+struct Vertex {
+    float pos[4];
+    float normal[4];
+    float color[4];
+};
+
 TEST_F(EngineRenderResourceTest, BufferTest)
 {
-    Buffer::Descriptor desc = {};
-    desc.size = 128;
-    desc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    desc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    RDBufferPtr buffer = std::make_shared<Buffer>(desc);
-    buffer->InitRHI();
+    const uint32_t size = 128;
+    std::vector<Vertex> vertices(size);
 
-    ASSERT_EQ(buffer->IsValid(), true);
+    {
+        Buffer::Descriptor desc = {};
+        desc.size = size * sizeof(Vertex);
+        desc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        desc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        RDBufferPtr buffer = std::make_shared<Buffer>(desc);
+        buffer->InitRHI();
+        buffer->Update(reinterpret_cast<const uint8_t *>(&vertices[0]), desc.size);
+        ASSERT_EQ(buffer->IsValid(), true);
+    }
+
+    {
+        Buffer::Descriptor desc = {};
+        desc.size = size * sizeof(Vertex);
+        desc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+        desc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        RDBufferPtr buffer = std::make_shared<Buffer>(desc);
+        buffer->InitRHI();
+        buffer->Update(reinterpret_cast<const uint8_t *>(&vertices[0]), desc.size);
+        ASSERT_EQ(buffer->IsValid(), true);
+    }
 }
 
 TEST_F(EngineRenderResourceTest, ShaderTest)
 {
-    auto vs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_VERTEX_BIT});
-    vs->LoadFromFile("shaders/BaseColor.vert.spv");
-    vs->InitRHI();
+    auto table = std::make_shared<GraphicsShaderTable>();
+    table->LoadFromFile("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
 
-    auto fs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_FRAGMENT_BIT});
-    fs->LoadFromFile("shaders/BaseColor.frag.spv");
-    fs->InitRHI();
-
-    ASSERT_EQ(vs->IsValid(), true);
-    ASSERT_EQ(fs->IsValid(), true);
+    ASSERT_EQ(table->IsValid(), true);
 }

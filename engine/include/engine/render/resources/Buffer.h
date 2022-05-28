@@ -26,6 +26,10 @@ namespace sky {
 
         bool IsValid() const override;
 
+        void Update(const uint8_t* data, uint64_t size);
+
+        void Update();
+
     protected:
         Descriptor descriptor;
         std::vector<uint8_t> rawData;

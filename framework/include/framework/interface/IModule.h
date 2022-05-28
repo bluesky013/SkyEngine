@@ -10,6 +10,8 @@
 
 namespace sky {
 
+    class NativeWindow;
+
     class IModule {
     public:
         IModule() = default;

@@ -36,4 +36,20 @@ namespace sky {
         return !!rhiShader;
     }
 
+    void GraphicsShaderTable::LoadFromFile(const std::string &vsPath, const std::string &fsPath)
+    {
+        vs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_VERTEX_BIT});
+        vs->LoadFromFile(vsPath);
+        vs->InitRHI();
+
+        fs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_FRAGMENT_BIT});
+        fs->LoadFromFile(fsPath);
+        fs->InitRHI();
+    }
+
+    bool GraphicsShaderTable::IsValid() const
+    {
+        return vs && fs;
+    }
+
 }

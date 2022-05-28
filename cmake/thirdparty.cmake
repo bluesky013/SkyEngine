@@ -1,6 +1,7 @@
 SET(3RD_PATH "" CACHE STRING "SkyEngine 3rd path")
 
-unset(CMAKE_MODULE_PATH)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/thirdparty)
+
 function(sky_find_3rd)
     cmake_parse_arguments(TMP
         ""
@@ -9,7 +10,7 @@ function(sky_find_3rd)
         ${ARGN}
         )
     message("find target ${TMP_TARGET}")
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${3RD_PATH}/${TMP_DIR})
+    set(${TMP_TARGET}_PATH ${3RD_PATH}/${TMP_DIR})
     find_package(${TMP_TARGET})
     if (NOT ${${TMP_TARGET}_FOUND})
         message(FATAL_ERROR "${TMP_TARGET} not found")

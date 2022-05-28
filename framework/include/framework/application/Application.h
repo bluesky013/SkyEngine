@@ -9,6 +9,7 @@
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <framework/window/NativeWindow.h>
 #include <core/util/DynamicModule.h>
 #include <memory>
 
@@ -45,6 +46,8 @@ namespace sky {
 
         const SettingRegistry& GetSettings() const override;
 
+        const NativeWindow* GetViewport() const override;
+
         IEngine* GetEngine() const;
 
         ApplicationImpl* GetImpl() const;
@@ -62,8 +65,11 @@ namespace sky {
         ApplicationImpl* impl;
         IEngine* engineInstance;
         Environment* env;
+        std::unique_ptr<DynamicModule> engineModule;
         std::vector<Module> modules;
         SettingRegistry settings;
+
+        std::unique_ptr<NativeWindow> nativeWindow;
     };
 
 }
