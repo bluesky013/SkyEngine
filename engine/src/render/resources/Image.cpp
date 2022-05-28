@@ -77,7 +77,7 @@ namespace sky {
         }
 
         VkBufferImageCopy imageCopy = {};
-        imageCopy.imageSubresource = {0, range.baseArrayLayer, range.layerCount};
+        imageCopy.imageSubresource = {range.aspectMask, 0, range.baseArrayLayer, range.layerCount};
         imageCopy.imageExtent = rhiImage->GetImageInfo().extent;
         cmd->Copy(stagingBuffer, rhiImage, imageCopy);
 
