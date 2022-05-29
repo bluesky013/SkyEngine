@@ -6,6 +6,7 @@
 #pragma once
 
 #include <engine/render/resources/RenderResource.h>
+#include <engine/render/resources/Image.h>
 #include <vulkan/Sampler.h>
 #include <vulkan/ImageView.h>
 
@@ -34,8 +35,13 @@ namespace sky {
 
         drv::ImageViewPtr GetImageView() const { return imageView; }
 
+        bool IsValid() const override;
+
+        static std::shared_ptr<Texture> CreateFromImage(RDImagePtr image, const Texture::Descriptor& desc);
+
     private:
         Descriptor descriptor;
+        RDImagePtr sourceImage;
         drv::SamplerPtr sampler;
         drv::ImageViewPtr imageView;
     };

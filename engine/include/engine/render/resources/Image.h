@@ -5,7 +5,6 @@
 #pragma once
 
 #include <engine/render/resources/RenderResource.h>
-#include <engine/render/resources/Texture.h>
 #include <vulkan/Image.h>
 
 namespace sky {
@@ -24,13 +23,17 @@ namespace sky {
 
         ~Image() = default;
 
-        RDTexturePtr CreateTexture(const Texture::Descriptor& desc);
-
         void InitRHI() override;
 
         bool IsValid() const override;
 
         void Update(const uint8_t* ptr, uint64_t size);
+
+        VkFormat GetFormat() const;
+
+        drv::ImagePtr GetRHIImage() const;
+
+        static std::shared_ptr<Image> LoadFromFile(const std::string& path);
 
     private:
         Descriptor descriptor;

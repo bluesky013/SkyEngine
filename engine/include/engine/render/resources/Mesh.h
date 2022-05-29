@@ -8,12 +8,14 @@
 #include <engine/render/resources/RenderResource.h>
 #include <engine/render/resources/Material.h>
 #include <engine/render/resources/Buffer.h>
+#include <core/math/Box.h>
 
 namespace sky {
 
     struct SubMesh {
         uint32_t offset = 0;
         uint32_t count  = 0;
+        Box aabb;
         RDMaterialPtr material;
     };
 

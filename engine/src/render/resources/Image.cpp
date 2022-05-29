@@ -6,30 +6,11 @@
 #include <engine/render/resources/Image.h>
 #include <engine/render/DriverManager.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 namespace sky {
-
-    RDTexturePtr Image::CreateTexture(const Texture::Descriptor& desc)
-    {
-        auto texture = std::make_shared<Texture>(desc);
-        drv::ImageView::Descriptor viewDesc = {};
-        viewDesc.subResourceRange.baseMipLevel = desc.baseMipLevel;
-        viewDesc.subResourceRange.levelCount = desc.levelCount;
-        viewDesc.subResourceRange.baseArrayLayer = desc.baseArrayLayer;
-        viewDesc.subResourceRange.layerCount = desc.layerCount;
-        auto imageView = rhiImage->CreateImageView(viewDesc);
-
-        drv::Sampler::Descriptor sampDesc = {};
-        if (desc.levelCount > 1) {
-            sampDesc.maxLod = 13;
-        }
-        auto sampler = DriverManager::Get()->CreateDeviceObject<drv::Sampler>(sampDesc);
-
-        texture->SetImageView(imageView);
-        texture->SetSampler(sampler);
-        return texture;
-    }
-
-    void Image::InitRHI()
+        void Image::InitRHI()
     {
         if (rhiImage) {
             return;
@@ -51,6 +32,16 @@ namespace sky {
     bool Image::IsValid() const
     {
         return !!rhiImage;
+    }
+
+    VkFormat Image::GetFormat() const
+    {
+        return descriptor.format;
+    }
+
+    drv::ImagePtr Image::GetRHIImage() const
+    {
+        return rhiImage;
     }
 
     void Image::Update(const uint8_t* data, uint64_t size)
@@ -89,6 +80,34 @@ namespace sky {
         cmd->End();
         cmd->Submit(*queue, {});
         cmd->Wait();
+    }
+
+    std::shared_ptr<Image> Image::LoadFromFile(const std::string& path)
+    {
+        int x = 0;
+        int y = 0;
+        int channel = 0;
+        auto data = stbi_load(path.c_str(), &x, &y, &channel, 0);
+
+        Image::Descriptor desc = {};
+        if (channel == 4) {
+            desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+        } else if (channel == 3) {
+            desc.format = VK_FORMAT_R8G8B8_UNORM;
+        } else {
+            return {};
+        }
+        desc.extent.width = static_cast<uint32_t>(x);
+        desc.extent.height = static_cast<uint32_t>(y);
+        desc.mipLevels = 1;
+
+        auto result = std::make_shared<Image>(desc);
+        result->InitRHI();
+        result->Update(data, x * y * channel);
+
+        stbi_image_free(data);
+
+        return result;
     }
 
 }

@@ -79,13 +79,23 @@ TEST_F(EngineRenderResourceTest, ImageTest)
     };
     RDImagePtr image = std::make_shared<Image>(desc);
     image->InitRHI();
+    ASSERT_EQ(image->IsValid(), true);
     image->Update(data.data(), data.size());
+
+    Texture::Descriptor texDes = {};
+    auto tex = Texture::CreateFromImage(image, texDes);
+    ASSERT_EQ(tex->IsValid(), true);
+}
+
+TEST_F(EngineRenderResourceTest, ImageLoadTest)
+{
+    auto image = Image::LoadFromFile("images/awesomeface.png");
 }
 
 TEST_F(EngineRenderResourceTest, ShaderTest)
 {
     auto table = std::make_shared<GraphicsShaderTable>();
-    table->LoadFromFile("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
+    table->LoadShader("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
     table->InitRHI();
 
     ASSERT_EQ(table->IsValid(), true);

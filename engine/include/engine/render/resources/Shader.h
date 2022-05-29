@@ -22,7 +22,7 @@ namespace sky {
         Shader(const Descriptor& desc);
         ~Shader() = default;
 
-        void LoadFromFile(const std::string& path);
+        void LoadData(const std::string& path);
 
         void SetData(std::vector<uint32_t>&& data);
 
@@ -76,7 +76,7 @@ namespace sky {
         GraphicsShaderTable() = default;
         ~GraphicsShaderTable() = default;
 
-        void LoadFromFile(const std::string& vs, const std::string& fs);
+        void LoadShader(const std::string& vs, const std::string& fs);
 
         bool IsValid() const override;
 

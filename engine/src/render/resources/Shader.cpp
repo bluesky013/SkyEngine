@@ -14,7 +14,7 @@ namespace sky {
     {
     }
 
-    void Shader::LoadFromFile(const std::string& path)
+    void Shader::LoadData(const std::string& path)
     {
         ReadBin(path, spv);
     }
@@ -95,14 +95,14 @@ namespace sky {
         pipelineLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::PipelineLayout>(desc);
     }
 
-    void GraphicsShaderTable::LoadFromFile(const std::string &vsPath, const std::string &fsPath)
+    void GraphicsShaderTable::LoadShader(const std::string &vsPath, const std::string &fsPath)
     {
         vs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_VERTEX_BIT});
-        vs->LoadFromFile(vsPath);
+        vs->LoadData(vsPath);
         vs->InitRHI();
 
         fs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_FRAGMENT_BIT});
-        fs->LoadFromFile(fsPath);
+        fs->LoadData(fsPath);
         fs->InitRHI();
 
         shaders.emplace_back(vs);

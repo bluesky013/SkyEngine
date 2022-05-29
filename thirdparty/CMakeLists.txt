@@ -36,7 +36,7 @@ endfunction()
 
 function(sky_add_custom_3rd)
     cmake_parse_arguments(TMP
-        "STATIC;SHARED"
+        "STATIC;SHARED;INTERFACE"
         "TARGET"
         "SOURCES;PUBLIC_HEADERS;PUBLIC_INCLUDES;PRIVATE_INCLUDES"
         ${ARGN}
@@ -47,6 +47,8 @@ function(sky_add_custom_3rd)
         set(TMP_TYPE STATIC)
     elseif(TMP_SHARED)
         set(TMP_TYPE SHARED)
+    elseif(TMP_INTERFACE)
+        set(TMP_TYPE INTERFACE)
     endif()
 
     add_library(${TMP_TARGET} ${TMP_TYPE}
@@ -82,6 +84,15 @@ sky_add_custom_3rd(TARGET Imgui STATIC
     SOURCES ${IMGUI_SRC}
     PUBLIC_HEADERS ${IMGUI_DIR}/imgui.h
 )
+
+set(STB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/stb)
+set(STB_SRC
+    ${STB_DIR}/stb_image.h
+    ${STB_DIR}/stb_image_write.h
+    )
+sky_add_custom_3rd(TARGET stb INTERFACE
+    SOURCES ${STB_SRC}
+    PUBLIC_HEADERS ${STB_SRC})
 
 set(SFMT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SFMT-src-1.5.1)
 set(SFMT_HEADERS
