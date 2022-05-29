@@ -43,3 +43,6 @@
 [submodule "thirdparty/SPIRV-Tools"]
 	path = thirdparty/SPIRV-Tools
 	url = git@github.com:KhronosGroup/SPIRV-Tools.git
+[submodule ".\\thirdparty\\stb"]
+	path = .\\thirdparty\\stb
+	url = git@github.com:nothings/stb.git
