@@ -4,7 +4,7 @@
 
 #include <engine/IService.h>
 #include <engine/render/RenderBufferPool.h>
-#include <engine/render/service/BufferTemplate.h>
+#include <engine/render/BufferTemplate.h>
 #include <core/math/Matrix.h>
 #include <core/math/Transform.h>
 #include <vulkan/Buffer.h>

@@ -3,8 +3,8 @@
 //
 
 
-#include <engine/render/camera/CameraComponent.h>
-#include <engine/render/service/ViewService.h>
+#include <engine/feature/camera/CameraComponent.h>
+#include <engine/feature/service/ViewService.h>
 #include <engine/world/TransformComponent.h>
 #include <engine/world/GameObject.h>
 #include <engine/world/World.h>

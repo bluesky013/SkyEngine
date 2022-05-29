@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2021/12/23.
 //
 
-#include <engine/render/service/ViewService.h>
-#include <engine/render/camera/CameraComponent.h>
+#include <engine/feature/service/ViewService.h>
+#include <engine/feature/camera/CameraComponent.h>
 
 namespace sky {
 

@@ -4,7 +4,7 @@
 
 #pragma once
 #include <engine/IService.h>
-#include <engine/render/service/BufferTemplate.h>
+#include <engine/render/BufferTemplate.h>
 #include <core/math/Transform.h>
 #include <core/math/Matrix.h>
 
