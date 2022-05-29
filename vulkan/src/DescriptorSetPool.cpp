@@ -3,6 +3,7 @@
 //
 
 #include <vulkan/DescriptorSetPool.h>
+#include <vulkan/DescriptorSet.h>
 #include <vulkan/Device.h>
 
 namespace sky::drv {
@@ -30,40 +31,6 @@ namespace sky::drv {
             return false;
         }
         return true;
-    }
-
-    DescriptorSetPtr DescriptorSetPool::Allocate(DescriptorSetLayoutPtr layout)
-    {
-        auto setCreateFn = [layout, this](VkDescriptorSet set) {
-            auto setPtr = std::make_shared<DescriptorSet>(device);
-            setPtr->handle = set;
-            setPtr->layout = layout;
-            return setPtr;
-        };
-
-        auto hash = layout->GetHash();
-        auto iter = freeList.find(hash);
-        if (iter != freeList.end() && !iter->second.empty()) {
-            auto back = iter->second.back();
-            iter->second.pop_back();
-            return setCreateFn(back);
-        }
-
-        auto vl = layout->GetNativeHandle();
-        VkDescriptorSetAllocateInfo setInfo = {};
-        setInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        setInfo.pNext = nullptr;
-        setInfo.descriptorPool = pool;
-        setInfo.descriptorSetCount = 1;
-        setInfo.pSetLayouts = &vl;
-
-        VkDescriptorSet set = VK_NULL_HANDLE;
-        auto result = vkAllocateDescriptorSets(device.GetNativeHandle(), &setInfo, &set);
-        if (result != VK_SUCCESS) {
-            return {};
-        }
-
-        return setCreateFn(set);
     }
 
     void DescriptorSetPool::Free(DescriptorSet& set)

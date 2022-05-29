@@ -7,5 +7,8 @@
 
 namespace sky {
 
-
+    bool DescriptorGroup::IsValid() const
+    {
+        return !!set;
+    }
 }

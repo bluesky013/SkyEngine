@@ -9,8 +9,6 @@
 #include <vulkan/DescriptorSet.h>
 #include <vulkan/DescriptorSetLayout.h>
 
-#include <unordered_map>
-
 namespace sky {
 
     class DescriptorGroup : public RenderResource {
@@ -18,7 +16,10 @@ namespace sky {
         DescriptorGroup() = default;
         ~DescriptorGroup() = default;
 
+        bool IsValid() const;
+
     private:
+        friend class DescriptorPool;
         drv::DescriptorSetPtr set;
     };
     using RDDesGroupPtr = std::shared_ptr<DescriptorGroup>;

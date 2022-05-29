@@ -17,6 +17,8 @@ namespace sky::drv {
 
     bool DescriptorSetLayout::Init(const Descriptor& des)
     {
+        descriptor = des;
+
         std::vector<VkDescriptorSetLayoutBinding> bindings;
         std::list<VkSampler> samplers;
 
@@ -53,5 +55,10 @@ namespace sky::drv {
     uint32_t DescriptorSetLayout::GetHash() const
     {
         return hash;
+    }
+
+    const std::map<uint32_t, DescriptorSetLayout::SetBinding>& DescriptorSetLayout::GetDescriptorTable() const
+    {
+        return descriptor.bindings;
     }
 }

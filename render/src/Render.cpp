@@ -98,6 +98,18 @@ namespace sky {
 
     void Render::OnTick(float time)
     {
+        for (auto& scene : scenes) {
+            scene->OnPreRender();
+        }
+
+        for (auto& scene : scenes) {
+            scene->OnPostRender();
+        }
+    }
+
+    void Render::AddScene(RDScenePtr scene)
+    {
+        scenes.emplace_back(scene);
     }
 
 //    void Render::OnWindowResize(void* hwnd, uint32_t w, uint32_t h)

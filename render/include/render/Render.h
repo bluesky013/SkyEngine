@@ -5,6 +5,7 @@
 
 #pragma once
 #include <render/RenderScene.h>
+#include <render/RenderView.h>
 #include <core/environment/Singleton.h>
 #include <framework/interface/IEngine.h>
 
@@ -23,10 +24,14 @@ namespace sky {
 
         void OnTick(float time);
 
+        void AddScene(RDScenePtr scene);
+
     private:
         friend class Singleton<Render>;
         Render() = default;
         ~Render();
+
+        std::vector<RDScenePtr> scenes;
     };
 
 }

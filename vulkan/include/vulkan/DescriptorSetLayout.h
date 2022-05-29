@@ -18,7 +18,7 @@ namespace sky::drv {
 
         struct SetBinding {
             VkDescriptorType   descriptorType   = VK_DESCRIPTOR_TYPE_SAMPLER;
-            uint32_t           descriptorCount  = 0;
+            uint32_t           descriptorCount  = 1;
             VkShaderStageFlags stageFlags       = 0;
         };
 
@@ -32,10 +32,13 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
+        const std::map<uint32_t, SetBinding>& GetDescriptorTable() const;
+
     private:
         friend class Device;
         DescriptorSetLayout(Device&);
 
+        Descriptor descriptor;
         VkDescriptorSetLayout layout;
         uint32_t hash;
     };

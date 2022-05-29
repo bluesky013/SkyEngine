@@ -6,18 +6,30 @@
 
 #pragma once
 
-namespace sky {
+#include <render/RenderView.h>
+#include <render/RenderViewport.h>
+#include <render/RenderSceneProxy.h>
 
-    class Render;
-    class RenderPipeline;
+namespace sky {
 
     class RenderScene {
     public:
         RenderScene() = default;
         ~RenderScene() = default;
 
-        void OnTick(float time);
-    private:
-    };
+        void OnPreRender();
 
+        void OnPostRender();
+
+        void AddView(RDViewPtr view);
+
+        void RemoveView(RDViewPtr view);
+
+        const std::vector<RDViewPtr>& GetViews() const;
+
+    private:
+
+        std::vector<RDViewPtr> views;
+    };
+    using RDScenePtr = std::shared_ptr<RenderScene>;
 }

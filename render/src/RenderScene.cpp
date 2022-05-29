@@ -9,6 +9,34 @@
 
 namespace sky {
 
+    void RenderScene::OnPreRender()
+    {
+    }
+
+    void RenderScene::OnPostRender()
+    {
+    }
+
+    void RenderScene::AddView(RDViewPtr view)
+    {
+        views.emplace_back(view);
+    }
+
+    void RenderScene::RemoveView(RDViewPtr view)
+    {
+        auto iter = std::find_if(views.begin(), views.end(), [&view](RDViewPtr& rhs) {
+            return view.get() == rhs.get();
+        });
+        if (iter != views.end()) {
+            views.erase(iter);
+        }
+    }
+
+    const std::vector<RDViewPtr>& RenderScene::GetViews() const
+    {
+        return views;
+    }
+
 //    void RenderScene::OnPostTick()
 //    {
 //        renderGraph.Compile();

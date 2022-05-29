@@ -6,8 +6,6 @@
 
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/DescriptorSet.h>
-#include <vulkan/DescriptorSetLayout.h>
 #include <list>
 #include <unordered_map>
 
@@ -26,8 +24,6 @@ namespace sky::drv {
 
         bool Init(const Descriptor& desc);
 
-        DescriptorSetPtr Allocate(DescriptorSetLayoutPtr layout);
-
     private:
         friend class DescriptorSet;
         void Free(DescriptorSet& set);
@@ -36,5 +32,6 @@ namespace sky::drv {
         using SetList = std::list<VkDescriptorSet>;
         std::unordered_map<uint32_t, SetList> freeList;
     };
+    using DescriptorSetPoolPtr = std::shared_ptr<DescriptorSetPool>;
 
 }

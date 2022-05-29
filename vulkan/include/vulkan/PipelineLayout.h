@@ -30,7 +30,7 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
-        DescriptorSetPtr Allocate(DescriptorSetPool& pool, uint32_t slot);
+        DescriptorSetPtr Allocate(DescriptorSetPoolPtr pool, uint32_t slot);
 
     private:
         friend class Device;
