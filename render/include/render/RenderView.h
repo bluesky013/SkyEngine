@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <render/resources/Shader.h>
+#include <render/resources/DescirptorGroup.h>
 #include <core/math/Matrix.h>
 #include <core/math/Vector.h>
 #include <string>
@@ -29,6 +31,8 @@ namespace sky {
         Matrix4 worldToViewMatrix;
         Matrix4 viewToClipMatrix;
         Matrix4 worldToClipMatrix;
+
+        RDDesGroupPtr group;
     };
     using RDViewPtr = std::shared_ptr<RenderView>;
 

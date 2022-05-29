@@ -51,6 +51,8 @@ namespace sky {
 
         void InitRHI() override;
 
+        drv::PipelineLayoutPtr GetPipelineLayout() const;
+
     protected:
         std::vector<RDShaderPtr> shaders;
         drv::PipelineLayoutPtr pipelineLayout;

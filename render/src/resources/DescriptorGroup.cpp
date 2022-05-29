@@ -4,6 +4,7 @@
 
 
 #include <render/resources/DescirptorGroup.h>
+#include <render/resources/GlobalResource.h>
 
 namespace sky {
 

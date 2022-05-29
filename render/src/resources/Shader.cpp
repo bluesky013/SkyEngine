@@ -95,6 +95,11 @@ namespace sky {
         pipelineLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::PipelineLayout>(desc);
     }
 
+    drv::PipelineLayoutPtr ShaderTable::GetPipelineLayout() const
+    {
+        return pipelineLayout;
+    }
+
     void GraphicsShaderTable::LoadShader(const std::string &vsPath, const std::string &fsPath)
     {
         vs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_VERTEX_BIT});

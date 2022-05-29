@@ -110,4 +110,22 @@ namespace sky {
         return result;
     }
 
+    RDImagePtr CreateImage2D()
+    {
+        static const uint8_t data[] = {
+            127, 127, 127, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 127, 127, 127, 255
+        };
+
+        Image::Descriptor desc = {};
+        desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+        desc.extent = {2, 2};
+
+        auto image = std::make_shared<Image>(desc);
+        image->InitRHI();
+        image->Update(data, sizeof(data));
+
+        return image;
+    }
+
 }

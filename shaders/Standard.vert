@@ -13,7 +13,7 @@ layout (set = 0, binding = 0) uniform ObjectInfo {
     mat4 inverseTranspose;
 } objectInfo;
 
-layout (set = 0, binding = 1) uniform ViewInfo {
+layout (set = 1, binding = 0) uniform ViewInfo {
     mat4 viewMatrix;
     mat4 viewProject;
 } viewInfo;

@@ -71,22 +71,35 @@ TEST_F(EngineRenderResourceTest, BufferTest)
 
 TEST_F(EngineRenderResourceTest, ImageTest)
 {
-    std::vector<uint8_t> data = {
-        255, 0,   0, 255,   0, 255,   0, 255,
-        0,   0, 255, 255, 255, 255, 255, 255
-    };
+    {
+        std::vector<uint8_t> data = {
+            255, 0,   0, 255,   0, 255,   0, 255,
+            0,   0, 255, 255, 255, 255, 255, 255
+        };
 
-    Image::Descriptor desc = {
-        VK_FORMAT_R8G8B8A8_UNORM, {2, 2}, 1
-    };
-    RDImagePtr image = std::make_shared<Image>(desc);
-    image->InitRHI();
-    ASSERT_EQ(image->IsValid(), true);
-    image->Update(data.data(), data.size());
+        Image::Descriptor desc = {
+            VK_FORMAT_R8G8B8A8_UNORM, {2, 2}, 1
+        };
+        RDImagePtr image = std::make_shared<Image>(desc);
+        image->InitRHI();
+        ASSERT_EQ(image->IsValid(), true);
+        image->Update(data.data(), data.size());
 
-    Texture::Descriptor texDes = {};
-    auto tex = Texture::CreateFromImage(image, texDes);
-    ASSERT_EQ(tex->IsValid(), true);
+        Texture::Descriptor texDes = {};
+        auto tex = Texture::CreateFromImage(image, texDes);
+        ASSERT_EQ(tex->IsValid(), true);
+    }
+
+    {
+        auto image = GlobalResource<Image>::Get()->GetResource(GlobalImageType::IMAGE_2D);
+        ASSERT_EQ(image->IsValid(), true);
+
+        Texture::Descriptor texDes = {};
+        auto tex = Texture::CreateFromImage(image, texDes);
+        ASSERT_EQ(tex->IsValid(), true);
+    }
+
+    GlobalResource<Image>::Get()->FreeAll();
 }
 
 TEST_F(EngineRenderResourceTest, DescriptorSetTest)
