@@ -3,8 +3,8 @@
 //
 
 #include <engine/IService.h>
-#include <engine/render/RenderBufferPool.h>
-#include <engine/render/BufferTemplate.h>
+#include <render/RenderBufferPool.h>
+#include <render/BufferTemplate.h>
 #include <core/math/Matrix.h>
 #include <core/math/Transform.h>
 #include <vulkan/Buffer.h>

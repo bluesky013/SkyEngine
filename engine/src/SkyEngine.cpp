@@ -4,7 +4,6 @@
 
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
-#include <engine/render/Render.h>
 #include <core/logger/Logger.h>
 
 static const char* TAG = "SkyEngine";
@@ -13,9 +12,6 @@ namespace sky {
 
     bool SkyEngine::Init(const StartInfo& startInfo)
     {
-        render = Render::Get();
-        render->Init(startInfo);
-        RegisterEngineListener(render);
         return true;
     }
 
@@ -32,8 +28,6 @@ namespace sky {
 
     void SkyEngine::DeInit()
     {
-        Render::Destroy();
-
         eventListeners.clear();
     }
 

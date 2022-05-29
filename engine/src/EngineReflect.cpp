@@ -4,7 +4,6 @@
 
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
-#include <engine/render/Render.h>
 #include <core/math/Math.h>
 #include <core/math/Vector.h>
 #include <core/math/Matrix.h>
@@ -46,7 +45,6 @@ namespace sky {
     void SkyEngine::Reflect()
     {
         World::Reflect();
-        Render::Reflect();
         BasicReflect();
     }
 
