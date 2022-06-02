@@ -9,6 +9,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/pointer.h>
 #include <string_view>
+#include <string>
 
 namespace sky {
 

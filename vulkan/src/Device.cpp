@@ -152,7 +152,7 @@ namespace sky::drv {
         allocatorInfo.device = device;;
         allocatorInfo.physicalDevice = phyDev;
         allocatorInfo.instance = driver.GetInstance();
-        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+        allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
         rst = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create allocator failed -%d", rst);

@@ -103,7 +103,7 @@ namespace sky::drv {
         app.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         app.pEngineName = des.engineName.c_str();
         app.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        app.apiVersion = VK_API_VERSION_1_3;
+        app.apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
 
         VkInstanceCreateInfo instInfo = {};
         instInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

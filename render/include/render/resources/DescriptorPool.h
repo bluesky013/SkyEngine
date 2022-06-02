@@ -8,6 +8,7 @@
 #include <render/resources/RenderResource.h>
 #include <render/resources/DescirptorGroup.h>
 #include <vulkan/DescriptorSetPool.h>
+#include <vector>
 
 namespace sky {
 

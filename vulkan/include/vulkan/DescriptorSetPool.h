@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 namespace sky::drv {
+    class DescriptorSet;
 
     class DescriptorSetPool : public DevObject {
     public:

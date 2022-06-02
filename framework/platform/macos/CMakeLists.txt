@@ -8,6 +8,6 @@ sky_add_library(TARGET FrameworkImpl SHARED
     PRIVATE_INC
         ${CMAKE_CURRENT_SOURCE_DIR}/../../include
     LINK_LIBS
-        Core
+        Framework
         ${PLATFORM_EXT_LIBS}
 )

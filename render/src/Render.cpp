@@ -5,7 +5,6 @@
 
 #include <render/Render.h>
 #include <render/DriverManager.h>
-#include <render/rendergraph/ForwardRendering.h>
 #include <render/DevObjManager.h>
 
 #include <core/logger/Logger.h>
