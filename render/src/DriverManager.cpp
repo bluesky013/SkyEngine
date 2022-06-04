@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    void DriverManager::Destroy()
+    void DriverManager::ShutDown()
     {
         if (device != nullptr) {
             delete device;

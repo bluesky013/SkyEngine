@@ -17,7 +17,7 @@ namespace sky {
 
         bool Initialize(const Descriptor&);
 
-        void Destroy();
+        void ShutDown();
 
         drv::Device* GetDevice() const;
 
