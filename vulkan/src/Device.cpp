@@ -182,15 +182,15 @@ namespace sky::drv {
         return driver.GetInstance();
     }
 
-    Queue* Device::GetQueue(const QueueFilter& filter) const
+    Queue* Device::GetQueue(VkQueueFlags preferred) const
     {
         Queue* res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-            if ((queueFamilies[i].queueFlags & filter.preferred) == filter.preferred) {
+            if ((queueFamilies[i].queueFlags & preferred) == preferred) {
                 res = queues[i].get();
             }
 
-            if (queueFamilies[i].queueFlags == filter.preferred) {
+            if (queueFamilies[i].queueFlags == preferred) {
                 return queues[i].get();
             }
         }
@@ -280,6 +280,11 @@ namespace sky::drv {
     const VkPhysicalDeviceProperties& Device::GetProperties() const
     {
         return phyProps;
+    }
+
+    void Device::WaitIdle() const
+    {
+        vkDeviceWaitIdle(device);
     }
 
 }

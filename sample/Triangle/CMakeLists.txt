@@ -11,5 +11,8 @@ sky_add_library(TARGET TriangleSample SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyEngine
+        Driver
+        Framework
     )
+
+add_dependencies(Launcher TriangleSample)

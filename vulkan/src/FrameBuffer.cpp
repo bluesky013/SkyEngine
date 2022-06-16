@@ -24,6 +24,11 @@ namespace sky::drv {
 
     bool FrameBuffer::Init(const Descriptor& des)
     {
+        std::vector<VkImageView> views(des.views.size());
+        for (uint32_t i = 0; i < des.views.size(); ++i) {
+            views[i] = des.views[i]->GetNativeHandle();
+        }
+
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = des.pass->GetNativeHandle();
@@ -31,7 +36,7 @@ namespace sky::drv {
         fbInfo.height     = des.extent.height;
         fbInfo.layers     = 1;
         fbInfo.attachmentCount = (uint32_t)des.views.size();
-        fbInfo.pAttachments = des.views.data();
+        fbInfo.pAttachments = views.data();
 
         auto rst = vkCreateFramebuffer(device.GetNativeHandle(), &fbInfo, VKL_ALLOC, &frameBuffer);
         if (rst != VK_SUCCESS) {

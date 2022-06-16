@@ -40,11 +40,7 @@ namespace sky::drv {
 
         VkInstance GetInstance() const;
 
-        struct QueueFilter {
-            VkQueueFlags preferred = 0;
-        };
-
-        Queue* GetQueue(const QueueFilter&) const;
+        Queue* GetQueue(VkQueueFlags preferred) const;
 
         VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo* samplerInfo = nullptr);
 
@@ -57,6 +53,8 @@ namespace sky::drv {
         VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo* = nullptr);
 
         const VkPhysicalDeviceProperties& GetProperties() const;
+
+        void WaitIdle() const;
 
     private:
         bool Init(const Descriptor&, bool enableDebug);

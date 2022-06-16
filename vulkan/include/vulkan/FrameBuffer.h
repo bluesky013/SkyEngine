@@ -6,12 +6,13 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 #include "vulkan/Basic.h"
+#include "vulkan/RenderPass.h"
+#include "vulkan/ImageView.h"
 #include <vector>
 
 namespace sky::drv {
 
     class Device;
-    class RenderPass;
 
     class FrameBuffer : public DevObject {
     public:
@@ -19,8 +20,8 @@ namespace sky::drv {
 
         struct Descriptor {
             VkExtent2D extent = {1, 1};
-            RenderPass* pass = nullptr;
-            std::vector<VkImageView> views;
+            RenderPassPtr pass;
+            std::vector<ImageViewPtr> views;
         };
 
         bool Init(const Descriptor&);

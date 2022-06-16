@@ -46,14 +46,14 @@ namespace sky {
             return false;
         }
 
+        if (start.createWindow) {
+            nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName}));
+        }
+
         Interface<ISystemNotify>::Get()->Register(*this);
 
         LOG_I(TAG, "Load Engine Module...");
         LoadDynamicModules(start);
-
-        if (start.createWindow) {
-            nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName}));
-        }
 
         LOG_I(TAG, "Load Engine Module Success");
         return true;

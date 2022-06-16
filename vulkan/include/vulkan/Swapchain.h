@@ -33,6 +33,7 @@ namespace sky::drv {
 
         struct PresentInfo {
             std::vector<SemaphorePtr> signals;
+            uint32_t imageIndex = 0;
         };
 
         bool Init(const Descriptor&);
@@ -45,11 +46,13 @@ namespace sky::drv {
 
         void Present(const PresentInfo&) const;
 
-        VkResult AcquireNext(SemaphorePtr semaphore) const;
+        VkResult AcquireNext(SemaphorePtr semaphore, uint32_t& next) const;
 
         void Resize(uint32_t width, uint32_t height);
 
-        ImagePtr GetImage() const;
+        ImagePtr GetImage(uint32_t image) const;
+
+        uint32_t GetImageCount() const;
 
     private:
         friend class Device;
@@ -65,7 +68,6 @@ namespace sky::drv {
         VkSwapchainKHR swapChain;
         Queue* queue;
         uint32_t imageCount;
-        mutable uint32_t currentImage;
         VkExtent2D extent;
         VkSurfaceCapabilitiesKHR capabilities;
         VkSurfaceFormatKHR format;

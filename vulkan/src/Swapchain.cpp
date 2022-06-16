@@ -20,7 +20,6 @@ namespace sky::drv {
         , swapChain(VK_NULL_HANDLE)
         , queue(nullptr)
         , imageCount(0)
-        , currentImage(0)
         , extent{1, 1}
     {
     }
@@ -81,7 +80,7 @@ namespace sky::drv {
             semaphores.data(),
             1,
             &swapChain,
-            &currentImage
+            &info.imageIndex
         };
         vkQueuePresentKHR(queue->GetNativeHandle(), &presentInfo);
     }
@@ -193,11 +192,11 @@ namespace sky::drv {
         }
     }
 
-    VkResult SwapChain::AcquireNext(SemaphorePtr semaphore) const
+    VkResult SwapChain::AcquireNext(SemaphorePtr semaphore,  uint32_t& next) const
     {
         return vkAcquireNextImageKHR(device.GetNativeHandle(), swapChain, UINT64_MAX,
             semaphore->GetNativeHandle(),
-            VK_NULL_HANDLE, &currentImage);
+            VK_NULL_HANDLE, &next);
     }
 
     void SwapChain::Resize(uint32_t width, uint32_t height)
@@ -211,8 +210,13 @@ namespace sky::drv {
         CreateSwapChain();
     }
 
-    ImagePtr SwapChain::GetImage() const
+    ImagePtr SwapChain::GetImage(uint32_t image) const
     {
-        return images[currentImage];
+        return images[image];
+    }
+
+    uint32_t SwapChain::GetImageCount() const
+    {
+        return imageCount;
     }
 }
