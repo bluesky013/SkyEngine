@@ -4,26 +4,18 @@
 
 #include <framework/application/Application.h>
 #include <iostream>
-
-void ProcessCommand(int argc, char** argv)
-{
-    for (int i = 1; i < argc; ++i) {
-        auto str = argv[i];
-        std::cout << str << std::endl;
-    }
-}
+#include "Command.h"
 
 int main(int argc, char** argv)
 {
-    ProcessCommand(argc, argv);
+    sky::CommandInfo cmdInfo = {};
+    sky::ProcessCommand(argc, argv, cmdInfo);
 
-    sky::Application app;
     sky::StartInfo start = {};
     start.appName = "MacosLauncher";
-    start.modules = {
-        "SampleModule"
-    };
+    start.modules.swap(cmdInfo.modules);
 
+    sky::Application app;
     if (app.Init(start)) {
         app.Mainloop();
     }

@@ -11,10 +11,7 @@
 static const char* TAG = "Application";
 
 namespace sky {
-
-    using EngineLoad = IEngine*(*)(Environment*);
-    using EngineShutdown = void(*)(IEngine*);
-
+    
     using ModuleStart = IModule*(*)(Environment*);
     using ModuleStop = void(*)();
 
@@ -23,7 +20,7 @@ namespace sky {
         return PlatformImpl::Get()->CreateApplication();
     }
 
-    Application::Application() : impl(nullptr), engineInstance(nullptr), env(nullptr)
+    Application::Application() : impl(nullptr), env(nullptr)
     {
     }
 
@@ -52,15 +49,6 @@ namespace sky {
         Interface<ISystemNotify>::Get()->Register(*this);
 
         LOG_I(TAG, "Load Engine Module...");
-        engineModule = std::make_unique<DynamicModule>("SkyEngineModule");
-        if (engineModule->Load()) {
-            auto createFn = engineModule->GetAddress<EngineLoad>("StartEngine");
-            if (createFn != nullptr) {
-                engineInstance = createFn(env);
-                engineInstance->Init(start);
-            }
-        }
-
         LoadDynamicModules(start);
 
         if (start.createWindow) {
@@ -87,33 +75,29 @@ namespace sky {
                     continue;
                 }
                 module->Init();
-                modules.emplace_back(Module {
-                    std::move(dynModule),
-                    std::unique_ptr<IModule>(module)
-                });
+                modules.emplace_back(std::unique_ptr<IModule>(module));
+                dynLibs.emplace_back(std::move(dynModule));
             }
             LOG_I(TAG, "Load Module : %s success", module.c_str());
         }
 
         for (auto& module : modules) {
-            module.interface->Start();
+            module->Start();
         }
     }
 
     void Application::UnloadDynamicModules()
     {
         for (auto& module : modules) {
-            module.interface->Stop();
-            auto stopFn = module.dynLib->GetAddress<ModuleStop>("StopModule");
+            module->Stop();
+        }
+
+        for (auto& lib : dynLibs) {
+            auto stopFn = lib->GetAddress<ModuleStop>("StopModule");
             if (stopFn != nullptr) {
                 stopFn();
             }
         }
-    }
-
-    IEngine* Application::GetEngine() const
-    {
-        return engineInstance;
     }
 
     ApplicationImpl* Application::GetImpl() const
@@ -142,14 +126,6 @@ namespace sky {
     {
         UnloadDynamicModules();
 
-        if (engineModule->IsLoaded()) {
-            auto destroyFn = engineModule->GetAddress<EngineShutdown>("ShutdownEngine");
-            if (destroyFn != nullptr) {
-                engineInstance->DeInit();
-                destroyFn(engineInstance);
-            }
-        }
-
         Interface<ISystemNotify>::Get()->UnRegister();
     }
 
@@ -164,12 +140,7 @@ namespace sky {
             timePoint = current;
 
             for (auto& module : modules) {
-                module.interface->Tick(delta);
-            }
-
-
-            if (engineInstance != nullptr) {
-                engineInstance->Tick(delta);
+                module->Tick(delta);
             }
         }
     }

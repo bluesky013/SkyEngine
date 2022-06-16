@@ -5,24 +5,16 @@
 #include <framework/application/Application.h>
 #include <windows.h>
 #include <iostream>
-
-void ProcessCommand(int argc, char** argv)
-{
-    for (int i = 1; i < argc; ++i) {
-        auto str = argv[i];
-        std::cout << str << std::endl;
-    }
-}
+#include "Command.h"
 
 int main(int argc, char** argv)
 {
-    ProcessCommand(argc, argv);
+    sky::CommandInfo cmdInfo = {};
+    sky::ProcessCommand(argc, argv, cmdInfo);
 
     sky::StartInfo start = {};
     start.appName = "Win32Launcher";
-    start.modules = {
-        "SampleModule"
-    };
+    start.modules.swap(cmdInfo.modules);
 
     sky::Application app;
     if (app.Init(start)) {

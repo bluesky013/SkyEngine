@@ -4,6 +4,6 @@
 
 #include <core/platform/Platform.h>
 #include <framework/interface/IModule.h>
-#include <Sample.h>
+#include <Triangle.h>
 
-REGISTER_MODULE(sky::Sample)
+REGISTER_MODULE(sky::Triangle)

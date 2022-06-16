@@ -1,19 +1,20 @@
 //
-// Created by Zach Lee on 2021/11/26.
+// Created by Zach Lee on 2022/6/16.
 //
 
-#include <Sample.h>
+
+#include <Triangle.h>
 #include <render/DriverManager.h>
 #include <render/framegraph/FrameGraph.h>
 #include <render/framegraph/FrameGraphPass.h>
 
 namespace sky {
 
-    void Sample::Init()
+    void Triangle::Init()
     {
     }
 
-    void Sample::Start()
+    void Triangle::Start()
     {
         DriverManager::Get()->Initialize({"Sample"});
 
@@ -23,13 +24,13 @@ namespace sky {
         });
     }
 
-    void Sample::Stop()
+    void Triangle::Stop()
     {
         DriverManager::Get()->ShutDown();
         DriverManager::Destroy();
     }
 
-    void Sample::Tick(float delta)
+    void Triangle::Tick(float delta)
     {
 
     }

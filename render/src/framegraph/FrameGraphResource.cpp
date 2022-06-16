@@ -8,6 +8,13 @@
 
 namespace sky {
 
-
+    void FrameGraphResource::Reference(FrameGraphPass& pass)
+    {
+        if (first == nullptr) {
+            first = &pass;
+        } else {
+            last = &pass;
+        }
+    }
 
 }

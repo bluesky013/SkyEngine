@@ -36,6 +36,9 @@ namespace sky {
         Application();
         ~Application();
 
+        Application(const Application&) = delete;
+        Application& operator=(const Application&) = delete;
+
         bool Init(StartInfo&);
 
         void Mainloop();
@@ -48,8 +51,6 @@ namespace sky {
 
         const NativeWindow* GetViewport() const override;
 
-        IEngine* GetEngine() const;
-
         ApplicationImpl* GetImpl() const;
 
     private:
@@ -57,16 +58,10 @@ namespace sky {
 
         void UnloadDynamicModules();
 
-        struct Module {
-            std::unique_ptr<DynamicModule> dynLib;
-            std::unique_ptr<IModule> interface;
-        };
-
         ApplicationImpl* impl;
-        IEngine* engineInstance;
         Environment* env;
-        std::unique_ptr<DynamicModule> engineModule;
-        std::vector<Module> modules;
+        std::vector<std::unique_ptr<DynamicModule>> dynLibs;
+        std::vector<std::unique_ptr<IModule>> modules;
         SettingRegistry settings;
 
         std::unique_ptr<NativeWindow> nativeWindow;

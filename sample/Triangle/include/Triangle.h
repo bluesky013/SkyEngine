@@ -1,5 +1,5 @@
 //
-// Created by Zach Lee on 2021/11/26.
+// Created by Zach Lee on 2022/6/16.
 //
 
 
@@ -12,10 +12,10 @@
 namespace sky {
     class NativeWindow;
 
-    class Sample : public IModule {
+    class Triangle : public IModule {
     public:
-        Sample() = default;
-        ~Sample() = default;
+        Triangle() = default;
+        ~Triangle() = default;
 
         void Init() override;
 
