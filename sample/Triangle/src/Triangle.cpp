@@ -37,7 +37,7 @@ namespace sky {
             .AddColor()
             .Format(swapChain->GetFormat())
             .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-            .ColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
+            .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
             .Samples(VK_SAMPLE_COUNT_1_BIT)
             .AddDependency()
             .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
