@@ -48,13 +48,4 @@ namespace sky {
     {
         scenes.emplace_back(scene);
     }
-
-//    void Render::OnWindowResize(void* hwnd, uint32_t w, uint32_t h)
-//    {
-//        auto iter = swapChains.find(hwnd);
-//        if (iter == swapChains.end()) {
-//            return;
-//        }
-//        iter->second->Resize(w, h);
-//    }
 }
