@@ -35,9 +35,9 @@ struct EventListener : public ITestEvent1, public ITestEvent2 {
         Event<ITestEvent2>::Connect(v, this);
     }
 
-    void DisConnect(int v)
+    void DisConnect()
     {
-        Event<ITestEvent2>::DisConnect(v, this);
+        Event<ITestEvent2>::DisConnect(this);
     }
 
     void E1()
@@ -99,5 +99,17 @@ TEST(EventTest, BroadCastTest)
     Event<ITestEvent2>::BroadCast(2, &ITestEvent2::E4, 4.f);
     ASSERT_EQ(listener1.b, 3.f);
     ASSERT_EQ(listener2.b, 4.f);
+
+    listener1.DisConnect();
+    Event<ITestEvent2>::BroadCast(1, &ITestEvent2::E4, 5.f);
+    Event<ITestEvent2>::BroadCast(2, &ITestEvent2::E4, 6.f);
+    ASSERT_EQ(listener1.b, 3.f);
+    ASSERT_EQ(listener2.b, 6.f);
+
+    listener2.DisConnect();
+    Event<ITestEvent2>::BroadCast(1, &ITestEvent2::E4, 7.f);
+    Event<ITestEvent2>::BroadCast(2, &ITestEvent2::E4, 8.f);
+    ASSERT_EQ(listener1.b, 3.f);
+    ASSERT_EQ(listener2.b, 6.f);
 
 }

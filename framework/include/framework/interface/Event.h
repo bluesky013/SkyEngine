@@ -29,16 +29,14 @@ namespace sky {
                 set.emplace(listener);
             }
 
-            void Erase(const KeyType& key, Interface* listener)
+            void Erase(Interface* listener)
             {
-                auto iter = listeners.find(key);
-                if (iter == listeners.end()) {
-                    return;
-                }
-
-                auto lIter = iter->second.find(listener);
-                if (lIter != iter->second.end()) {
-                    iter->second.erase(lIter);
+                for (auto& pair : listeners) {
+                    auto iter = pair.second.find(listener);
+                    if (iter != pair.second.end()) {
+                        pair.second.erase(iter);
+                        break;
+                    }
                 }
             }
 
@@ -67,9 +65,9 @@ namespace sky {
             Storage::Get()->Emplace(key, listener);
         }
 
-        static void DisConnect(const KeyType& key, Interface* listener)
+        static void DisConnect(Interface* listener)
         {
-            Storage::Get()->Erase(key, listener);
+            Storage::Get()->Erase(listener);
         }
 
         template <typename T, typename ...Args>
