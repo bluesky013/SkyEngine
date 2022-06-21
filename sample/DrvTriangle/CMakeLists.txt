@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET TriangleSample SHARED
+sky_add_library(TARGET DrvTriangleSample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -15,4 +15,4 @@ sky_add_library(TARGET TriangleSample SHARED
         Framework
     )
 
-add_dependencies(Launcher TriangleSample)
+add_dependencies(Launcher DrvTriangleSample)

@@ -17,6 +17,10 @@ namespace sky {
     {
     }
 
+    void RenderScene::OnRender()
+    {
+    }
+
     void RenderScene::AddView(RDViewPtr view)
     {
         views.emplace_back(view);

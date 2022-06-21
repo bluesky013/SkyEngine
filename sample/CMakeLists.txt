@@ -1,1 +1,2 @@
-add_subdirectory(Triangle)
+add_subdirectory(DrvTriangle)
+add_subdirectory(RDTriangle)

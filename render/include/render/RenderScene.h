@@ -7,7 +7,7 @@
 #pragma once
 
 #include <render/RenderView.h>
-#include <render/RenderViewport.h>
+#include <render/RenderPipeline.h>
 #include <render/RenderSceneProxy.h>
 
 namespace sky {
@@ -21,6 +21,8 @@ namespace sky {
 
         void OnPostRender();
 
+        void OnRender();
+
         void AddView(RDViewPtr view);
 
         void RemoveView(RDViewPtr view);
@@ -28,7 +30,7 @@ namespace sky {
         const std::vector<RDViewPtr>& GetViews() const;
 
     private:
-
+        RDPipeline pipeline;
         std::vector<RDViewPtr> views;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;

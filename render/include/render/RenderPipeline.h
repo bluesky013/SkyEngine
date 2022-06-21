@@ -5,7 +5,7 @@
 
 #pragma once
 #include <vulkan/Swapchain.h>
-#include <list>
+#include <memory>
 
 namespace sky {
 
@@ -22,10 +22,9 @@ namespace sky {
             swapChain = swc;
         }
 
-        virtual void Render(RenderScene& scene, RenderGraph&) = 0;
-
     protected:
         drv::SwapChainPtr swapChain;
     };
+    using RDPipeline = std::shared_ptr<RenderPipeline>;
 
 }
