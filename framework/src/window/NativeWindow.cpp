@@ -45,9 +45,4 @@ namespace sky {
         return impl->GetNativeHandle();
     }
 
-    void NativeWindow::SetEventHandler(IWindowEvent& handler)
-    {
-        impl->SetEventHandler(handler);
-    }
-
 }

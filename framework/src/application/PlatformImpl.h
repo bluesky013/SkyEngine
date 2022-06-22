@@ -24,9 +24,11 @@ namespace sky {
 
         using WindowCreateFn = NativeWindowImpl*(*)(const sky::NativeWindow::Descriptor& des);
         using ApplicationCreateFn = ApplicationImpl*(*)();
+        using AttachEnvFn = void(*)(Environment* env);
 
         std::unique_ptr<DynamicModule> module;
         WindowCreateFn windowCreateFn = nullptr;
         ApplicationCreateFn applicationCreateFn = nullptr;
+        AttachEnvFn attachEnvFn = nullptr;
     };
 }

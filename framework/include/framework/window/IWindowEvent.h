@@ -5,14 +5,18 @@
 
 #pragma once
 
+#include <framework/event/Event.h>
+
 namespace sky {
 
-    class IWindowEvent {
+    class IWindowEvent : public EventTrait {
     public:
+        using KeyType = void*;
+
         IWindowEvent() = default;
         virtual ~IWindowEvent() = default;
 
-        virtual void OnWindowResize(void* window, uint32_t width, uint32_t height) {}
+        virtual void OnWindowResize(uint32_t width, uint32_t height) {}
     };
 
 }

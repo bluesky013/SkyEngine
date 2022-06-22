@@ -26,8 +26,6 @@ namespace sky {
         static NativeWindow* Create(const Descriptor&);
 
         void* GetNativeHandle() const;
-
-        void SetEventHandler(IWindowEvent&);
     private:
         bool Init(const Descriptor&);
 
@@ -42,8 +40,6 @@ namespace sky {
         static NativeWindowImpl* Create(const NativeWindow::Descriptor&);
 
         virtual void* GetNativeHandle() const = 0;
-
-        virtual void SetEventHandler(IWindowEvent&) = 0;
     };
 
 }

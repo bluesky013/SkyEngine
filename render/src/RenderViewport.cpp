@@ -9,6 +9,7 @@ namespace sky {
 
     RenderViewport::~RenderViewport()
     {
+        Shutdown();
     }
 
     void RenderViewport::SetScene(RDScenePtr scene)
@@ -22,14 +23,24 @@ namespace sky {
         descriptor.window = info.wHandle;
 
         swapChain = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::SwapChain>(descriptor);
+
+        Event<IWindowEvent>::Connect(descriptor.window, this);
     }
 
     void RenderViewport::Shutdown()
     {
-        auto device = DriverManager::Get()->GetDevice();
-        device->WaitIdle();
+        if (swapChain != nullptr) {
+            auto device = DriverManager::Get()->GetDevice();
+            device->WaitIdle();
+            swapChain = nullptr;
 
-        swapChain = nullptr;
+            Event<IWindowEvent>::DisConnect(this);
+        }
+    }
+
+    void RenderViewport::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        swapChain->Resize(width, height);
     }
 
 }

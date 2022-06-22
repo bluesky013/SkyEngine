@@ -49,26 +49,7 @@ namespace sky {
                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
             .Create(*device);
 
-        auto imageCount = swapChain->GetImageCount();
-        frameBuffers.resize(imageCount);
-        colorViews.resize(imageCount);
-
-        drv::FrameBuffer::Descriptor fbDesc = {};
-        fbDesc.extent = swapChain->GetExtent();
-        fbDesc.pass = renderPass;
-
-        drv::ImageView::Descriptor viewDesc = {};
-        viewDesc.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewDesc.format = swapChain->GetFormat();
-
-        for (uint32_t i = 0; i < imageCount; ++i) {
-            auto image = swapChain->GetImage(i);
-            colorViews[i] = image->CreateImageView(viewDesc);
-            fbDesc.views = std::vector<drv::ImageViewPtr> {
-                colorViews[i]
-            };
-            frameBuffers[i] = device->CreateDeviceObject<drv::FrameBuffer>(fbDesc);
-        }
+        ResetFrameBuffer();
 
         LoadShader(VK_SHADER_STAGE_VERTEX_BIT, "shaders/Triangle.vert.spv");
         LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, "shaders/Triangle.frag.spv");
@@ -104,13 +85,13 @@ namespace sky {
         drv::CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = commandPool->Allocate(cmdDesc);
 
-        imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
-        renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
+        Event<IWindowEvent>::Connect(swcDesc.window, this);
     }
 
     void Triangle::Stop()
     {
         device->WaitIdle();
+        Event<IWindowEvent>::DisConnect(this);
     }
 
     void Triangle::Tick(float delta)
@@ -172,6 +153,33 @@ namespace sky {
         swapChain->Present(presentInfo);
     }
 
+    void Triangle::ResetFrameBuffer()
+    {
+        auto imageCount = swapChain->GetImageCount();
+        frameBuffers.resize(imageCount);
+        colorViews.resize(imageCount);
+
+        drv::FrameBuffer::Descriptor fbDesc = {};
+        fbDesc.extent = swapChain->GetExtent();
+        fbDesc.pass = renderPass;
+
+        drv::ImageView::Descriptor viewDesc = {};
+        viewDesc.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewDesc.format = swapChain->GetFormat();
+
+        for (uint32_t i = 0; i < imageCount; ++i) {
+            auto image = swapChain->GetImage(i);
+            colorViews[i] = image->CreateImageView(viewDesc);
+            fbDesc.views = std::vector<drv::ImageViewPtr> {
+                colorViews[i]
+            };
+            frameBuffers[i] = device->CreateDeviceObject<drv::FrameBuffer>(fbDesc);
+        }
+
+        imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
+        renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
+    }
+
     void Triangle::LoadShader(VkShaderStageFlagBits stage, const std::string& path)
     {
         std::vector<uint32_t> spv;
@@ -190,6 +198,17 @@ namespace sky {
         } else if (stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
             fs = shader;
         }
+    }
+
+    void Triangle::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        auto& ext = swapChain->GetExtent();
+        if (ext.width == width && ext.height == height) {
+            return;
+        }
+
+        swapChain->Resize(width, height);
+        ResetFrameBuffer();
     }
 
 }

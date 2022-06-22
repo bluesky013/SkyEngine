@@ -5,6 +5,7 @@
 #include <core/platform/Platform.h>
 #include <framework/window/NativeWindow.h>
 #include <framework/window/IWindowEvent.h>
+#include <framework/event/Event.h>
 #include <windows.h>
 #include <vector>
 
@@ -22,40 +23,27 @@ namespace sky {
 
     class Win32WindowImpl : public NativeWindowImpl {
     public:
-        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr), handler(nullptr) {}
+        Win32WindowImpl() : hWnd(nullptr), hInstance(nullptr) {}
         virtual ~Win32WindowImpl() = default;
 
         bool Init(const NativeWindow::Descriptor&);
 
-        IWindowEvent* GetHandler() const;
+        void OnWindowResize(uint32_t width, uint32_t height);
 
     private:
         bool RegisterWin32Class();
         bool CreateWin32Window(const NativeWindow::Descriptor&);
 
         void* GetNativeHandle() const override;
-
-        void SetEventHandler(IWindowEvent& handler);
         HWND hWnd;
         HINSTANCE hInstance;
         std::string className;
         std::string titleName;
-        IWindowEvent* handler;
     };
-
-    IWindowEvent* Win32WindowImpl::GetHandler() const
-    {
-        return handler;
-    }
 
     void* Win32WindowImpl::GetNativeHandle() const
     {
         return hWnd;
-    }
-
-    void Win32WindowImpl::SetEventHandler(IWindowEvent& h)
-    {
-        handler = &h;
     }
 
     bool Win32WindowImpl::RegisterWin32Class()
@@ -114,19 +102,25 @@ namespace sky {
         return true;
     }
 
+    void Win32WindowImpl::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        Event<IWindowEvent>::BroadCast(hWnd, &IWindowEvent::OnWindowResize, width, height);
+    }
+
     LRESULT AppWndProc(HWND hwnd, uint32_t msg, WPARAM wParam, LPARAM lParam)
     {
         Win32WindowImpl* nativeWindowImpl = reinterpret_cast<Win32WindowImpl*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-        IWindowEvent* handler = nativeWindowImpl != nullptr ? nativeWindowImpl->GetHandler() : nullptr;
 
         switch (msg) {
             case WM_SIZE:
-                if (handler != nullptr) {
+            {
+                if (nativeWindowImpl != nullptr) {
                     uint32_t width = LOWORD(lParam);
                     uint32_t height = HIWORD(lParam);
-                    handler->OnWindowResize(hwnd, width, height);
+                    nativeWindowImpl->OnWindowResize(width, height);
                 }
                 return 0;
+            }
             case WM_DESTROY:
                 PostQuitMessage(0);
                 break;
@@ -135,6 +129,12 @@ namespace sky {
         }
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
+}
+
+extern "C"
+SKY_EXPORT void AttachEnvironment(sky::Environment* env)
+{
+    sky::Environment::Attach(env);
 }
 
 extern "C"

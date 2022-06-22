@@ -6,12 +6,13 @@
 #pragma once
 
 #include <render/RenderScene.h>
+#include <framework/window/IWindowEvent.h>
 #include <vulkan/Swapchain.h>
 #include <memory>
 
 namespace sky {
 
-    class RenderViewport {
+    class RenderViewport : public IWindowEvent {
     public:
         RenderViewport() = default;
         ~RenderViewport();
@@ -27,6 +28,8 @@ namespace sky {
         void Shutdown();
 
     private:
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
         RDScenePtr scene;
         drv::SwapChainPtr swapChain;
     };

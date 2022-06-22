@@ -3,7 +3,7 @@
 //
 #include <gtest/gtest.h>
 #include <core/logger/Logger.h>
-#include <framework/interface/Event.h>
+#include "framework/event/Event.h"
 
 using namespace sky;
 

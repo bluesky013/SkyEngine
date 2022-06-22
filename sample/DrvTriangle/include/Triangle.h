@@ -9,6 +9,7 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/window/IWindowEvent.h>
 #include <vulkan/Driver.h>
 #include <vulkan/Device.h>
 #include <vulkan/GraphicsPipeline.h>
@@ -21,7 +22,7 @@
 namespace sky {
     class NativeWindow;
 
-    class Triangle : public IModule {
+    class Triangle : public IModule, public IWindowEvent {
     public:
         Triangle() = default;
         ~Triangle() = default;
@@ -34,8 +35,12 @@ namespace sky {
 
         void Tick(float delta) override;
 
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
     private:
         void LoadShader(VkShaderStageFlagBits stage, const std::string& path);
+
+        void ResetFrameBuffer();
 
         drv::Driver* driver = nullptr;
         drv::Device* device = nullptr;
