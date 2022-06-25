@@ -8,12 +8,25 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/Buffer.h>
 #include <vulkan/Image.h>
+#include <vulkan/DrawItem.h>
 #include <vector>
 
 namespace sky::drv {
 
     class Device;
     class Queue;
+
+    class GraphicsEncoder {
+    public:
+        GraphicsEncoder() = default;
+        ~GraphicsEncoder() = default;
+
+        void Encode(const DrawItem& item);
+
+    private:
+        friend class CommandBuffer;
+        VkCommandBuffer cmdBuffer;
+    };
 
     class CommandBuffer : public DevObject {
     public:
@@ -51,6 +64,8 @@ namespace sky::drv {
         };
 
         void Submit(Queue& queue, const SubmitInfo& submit);
+
+        GraphicsEncoder EncodeGraphics();
 
         VkCommandBuffer GetNativeHandle() const;
 

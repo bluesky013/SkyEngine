@@ -144,11 +144,19 @@ namespace sky::drv {
             return false;
         }
         hash = tmpHash;
+
+        renderPass = des.renderPass;
+        pipelineLayout = des.pipelineLayout;
         return true;
     }
 
     VkPipeline GraphicsPipeline::GetNativeHandle() const
     {
         return pipeline;
+    }
+
+    PipelineLayoutPtr GraphicsPipeline::GetPipelineLayout() const
+    {
+        return pipelineLayout;
     }
 }

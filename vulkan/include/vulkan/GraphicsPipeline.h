@@ -101,6 +101,8 @@ namespace sky::drv {
 
         VkPipeline GetNativeHandle() const;
 
+        PipelineLayoutPtr GetPipelineLayout() const;
+
     private:
         friend class Device;
         GraphicsPipeline(Device&);
@@ -109,6 +111,8 @@ namespace sky::drv {
 
         VkPipeline pipeline;
         uint32_t hash;
+        RenderPassPtr renderPass;
+        PipelineLayoutPtr pipelineLayout;
     };
 
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;

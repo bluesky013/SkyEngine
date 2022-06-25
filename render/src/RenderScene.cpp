@@ -11,14 +11,25 @@ namespace sky {
 
     void RenderScene::OnPreRender()
     {
+        views.clear();
+        for (auto& feature : features) {
+            feature->OnPrepareView(*this);
+            feature->GatherRenderItem(*this);
+        }
     }
 
     void RenderScene::OnPostRender()
     {
+        for (auto& feature : features) {
+            feature->OnPostRender(*this);
+        }
     }
 
     void RenderScene::OnRender()
     {
+        for (auto& feature : features) {
+            feature->OnRender(*this);
+        }
     }
 
     void RenderScene::AddView(RDViewPtr view)
@@ -26,19 +37,14 @@ namespace sky {
         views.emplace_back(view);
     }
 
-    void RenderScene::RemoveView(RDViewPtr view)
-    {
-        auto iter = std::find_if(views.begin(), views.end(), [&view](RDViewPtr& rhs) {
-            return view.get() == rhs.get();
-        });
-        if (iter != views.end()) {
-            views.erase(iter);
-        }
-    }
-
     const std::vector<RDViewPtr>& RenderScene::GetViews() const
     {
         return views;
+    }
+
+    void RenderScene::RegisterFeature(RenderFeature* feature)
+    {
+        features.emplace_back(std::unique_ptr<RenderFeature>(feature));
     }
 
 //    void RenderScene::OnPostTick()

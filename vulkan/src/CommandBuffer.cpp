@@ -103,6 +103,13 @@ namespace sky::drv {
         return cmdBuffer;
     }
 
+    GraphicsEncoder CommandBuffer::EncodeGraphics()
+    {
+        GraphicsEncoder encoder;
+        encoder.cmdBuffer = cmdBuffer;
+        return encoder;
+    }
+
     void CommandBuffer::Copy(BufferPtr src, ImagePtr dst, const VkBufferImageCopy& copy)
     {
         vkCmdCopyBufferToImage(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
@@ -137,5 +144,58 @@ namespace sky::drv {
     void CommandBuffer::Copy(BufferPtr src, BufferPtr dst, const VkBufferCopy& copy)
     {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
+    }
+
+    void GraphicsEncoder::Encode(const DrawItem& item)
+    {
+        if (!item.pso) {
+            return;
+        }
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetNativeHandle());
+        if (item.viewport != nullptr && item.viewportCount != 0) {
+            vkCmdSetViewport(cmdBuffer, 0, item.viewportCount, item.viewport);
+        }
+
+        if (item.scissor != nullptr && item.scissor != 0) {
+            vkCmdSetScissor(cmdBuffer, 0, item.scissorCount, item.scissor);
+        }
+
+        if (item.descriptorSets != nullptr && item.descriptorSetCount != 0) {
+            std::vector<VkDescriptorSet> sets(item.descriptorSetCount);
+            for (uint8_t i = 0; i < item.descriptorSetCount; ++i) {
+                sets[i] = item.descriptorSets[i]->GetNativeHandle();
+            }
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetPipelineLayout()->GetNativeHandle(),
+                0, item.descriptorSetCount, sets.data(), 0, nullptr);
+        }
+
+        if (item.vertexBuffer != nullptr && item.vertexBufferCount != 0) {
+            std::vector<VkBuffer> buffers(item.vertexBufferCount);
+            std::vector<VkDeviceSize> offsets(item.vertexBufferCount, 0);
+            for (uint8_t i = 0; i < item.vertexBufferCount; ++i) {
+                buffers[i] = item.vertexBuffer[i]->GetNativeHandle();
+            }
+
+            vkCmdBindVertexBuffers(cmdBuffer, 0, item.vertexBufferCount, buffers.data(), offsets.data());
+        }
+
+        if (item.indexBuffer) {
+            vkCmdBindIndexBuffer(cmdBuffer, item.indexBuffer->GetNativeHandle(), 0, VK_INDEX_TYPE_UINT32);
+        }
+        
+        if (item.drawArgs != nullptr) {
+            switch (item.drawArgs->type) {
+                case CmdDrawType::INDEXED:
+                    vkCmdDrawIndexed(cmdBuffer, item.drawArgs->indexed.indexCount, item.drawArgs->indexed.instanceCount,
+                        item.drawArgs->indexed.firstIndex, item.drawArgs->indexed.vertexOffset, item.drawArgs->indexed.firstInstance);
+                    break;
+                case CmdDrawType::LINEAR:
+                    vkCmdDraw(cmdBuffer, item.drawArgs->linear.vertexCount,
+                        item.drawArgs->linear.instanceCount, item.drawArgs->linear.firstVertex, item.drawArgs->linear.firstInstance);
+                    break;
+            }
+            
+        }
+
     }
 }

@@ -15,6 +15,8 @@ namespace sky::drv {
         DescriptorSet(Device& device) : DevObject(device) {}
         ~DescriptorSet();
 
+        VkDescriptorSet GetNativeHandle() const;
+
         static std::shared_ptr<DescriptorSet> Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout);
 
     private:

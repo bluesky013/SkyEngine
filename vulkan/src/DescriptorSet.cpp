@@ -15,6 +15,11 @@ namespace sky::drv {
         }
     }
 
+    VkDescriptorSet DescriptorSet::GetNativeHandle() const
+    {
+        return handle;
+    }
+
     DescriptorSetPtr DescriptorSet::Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout)
     {
         auto setCreateFn = [&pool, &layout](VkDescriptorSet set) {
