@@ -12,9 +12,9 @@ namespace sky {
         Shutdown();
     }
 
-    void RenderViewport::SetScene(RDScenePtr scene)
+    void RenderViewport::SetScene(RDScenePtr scn)
     {
-        scene = scene;
+        scene = scn;
     }
 
     void RenderViewport::Setup(const ViewportInfo& info)

@@ -14,7 +14,6 @@ namespace sky {
         views.clear();
         for (auto& feature : features) {
             feature->OnPrepareView(*this);
-            feature->GatherRenderItem(*this);
         }
     }
 
@@ -28,6 +27,7 @@ namespace sky {
     void RenderScene::OnRender()
     {
         for (auto& feature : features) {
+            feature->GatherRenderItem(*this);
             feature->OnRender(*this);
         }
     }
