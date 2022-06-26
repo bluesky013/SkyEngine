@@ -9,6 +9,8 @@
 #include <vulkan/Buffer.h>
 #include <vulkan/Image.h>
 #include <vulkan/DrawItem.h>
+#include <vulkan/RenderPass.h>
+#include <vulkan/FrameBuffer.h>
 #include <vector>
 
 namespace sky::drv {
@@ -16,16 +18,28 @@ namespace sky::drv {
     class Device;
     class Queue;
 
+    struct PassBeginInfo {
+        drv::FrameBufferPtr frameBuffer;
+        drv::RenderPassPtr renderPass;
+        uint32_t clearValueCount = 0;
+        VkClearValue* clearValues = nullptr;
+        VkRect2D* renderArea = nullptr;
+    };
+
     class GraphicsEncoder {
     public:
-        GraphicsEncoder() = default;
+        GraphicsEncoder();
         ~GraphicsEncoder() = default;
 
         void Encode(const DrawItem& item);
 
+        void BeginPass(const PassBeginInfo&);
+        void EndPass();
+
     private:
         friend class CommandBuffer;
         VkCommandBuffer cmdBuffer;
+        VkRenderPassBeginInfo vkBeginInfo = {};
     };
 
     class CommandBuffer : public DevObject {

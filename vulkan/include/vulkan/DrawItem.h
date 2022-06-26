@@ -47,15 +47,15 @@ namespace sky::drv {
         uint8_t viewportCount      = 0;
         uint8_t scissorCount       = 0;
         uint8_t descriptorSetCount = 0;
-        drv::GraphicsPipelinePtr pso;
-        drv::BufferPtr           indexBuffer;
-        drv::DescriptorSetPtr*   descriptorSets = nullptr;
-        drv::CmdDraw*            drawArgs = nullptr;
-        drv::BufferPtr*          vertexBuffer = nullptr;
-        VkViewport*              viewport = nullptr;
-        VkRect2D*                scissor = nullptr;
-        drv::CmdStencil*         stencil = nullptr;
-        uint8_t*                 pushConstants = nullptr;
+        GraphicsPipelinePtr pso;
+        DescriptorSetPtr*   descriptorSets = nullptr;
+        CmdDraw*            drawArgs = nullptr;
+        BufferView*         indexBuffer = nullptr;
+        BufferView*         vertexBuffer = nullptr;
+        VkViewport*         viewport = nullptr;
+        VkRect2D*           scissor = nullptr;
+        CmdStencil*         stencil = nullptr;
+        uint8_t*            pushConstants = nullptr;
     };
 
 }

@@ -146,6 +146,48 @@ namespace sky::drv {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
+    GraphicsEncoder::GraphicsEncoder()
+    {
+        vkBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        vkBeginInfo.pNext = nullptr;
+        vkBeginInfo.renderPass = VK_NULL_HANDLE;
+        vkBeginInfo.framebuffer = VK_NULL_HANDLE;
+        vkBeginInfo.renderArea = {};
+        vkBeginInfo.clearValueCount = 0;
+        vkBeginInfo.pClearValues = nullptr;
+    }
+
+    void GraphicsEncoder::BeginPass(const PassBeginInfo& beginInfo)
+    {
+        vkBeginInfo.renderPass = beginInfo.renderPass->GetNativeHandle();
+        auto& extent = beginInfo.frameBuffer->GetExtent();
+
+        if (beginInfo.renderArea != nullptr) {
+            vkBeginInfo.renderArea = *beginInfo.renderArea;
+        } else {
+            vkBeginInfo.framebuffer = beginInfo.frameBuffer->GetNativeHandle();
+            vkBeginInfo.renderArea.offset.x = 0;
+            vkBeginInfo.renderArea.offset.y = 0;
+            vkBeginInfo.renderArea.extent = extent;
+        }
+
+        vkBeginInfo.clearValueCount = beginInfo.clearValueCount;
+        vkBeginInfo.pClearValues = beginInfo.clearValues;
+
+        vkCmdBeginRenderPass(cmdBuffer, &vkBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        VkViewport viewport = {0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.f, 1.f};
+        VkRect2D scissor = {{0, 0}, extent};
+
+        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    }
+
+    void GraphicsEncoder::EndPass()
+    {
+        vkCmdEndRenderPass(cmdBuffer);
+    }
+
     void GraphicsEncoder::Encode(const DrawItem& item)
     {
         if (!item.pso) {
@@ -171,16 +213,17 @@ namespace sky::drv {
 
         if (item.vertexBuffer != nullptr && item.vertexBufferCount != 0) {
             std::vector<VkBuffer> buffers(item.vertexBufferCount);
-            std::vector<VkDeviceSize> offsets(item.vertexBufferCount, 0);
+            std::vector<VkDeviceSize> offsets(item.vertexBufferCount);
             for (uint8_t i = 0; i < item.vertexBufferCount; ++i) {
-                buffers[i] = item.vertexBuffer[i]->GetNativeHandle();
+                buffers[i] = item.vertexBuffer[i].buffer->GetNativeHandle();
+                offsets[i] = item.vertexBuffer[i].offset;
             }
 
             vkCmdBindVertexBuffers(cmdBuffer, 0, item.vertexBufferCount, buffers.data(), offsets.data());
         }
 
-        if (item.indexBuffer) {
-            vkCmdBindIndexBuffer(cmdBuffer, item.indexBuffer->GetNativeHandle(), 0, VK_INDEX_TYPE_UINT32);
+        if (item.indexBuffer != nullptr) {
+            vkCmdBindIndexBuffer(cmdBuffer, item.indexBuffer->buffer->GetNativeHandle(), item.indexBuffer->offset, VK_INDEX_TYPE_UINT32);
         }
         
         if (item.drawArgs != nullptr) {

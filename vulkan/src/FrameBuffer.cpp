@@ -56,4 +56,9 @@ namespace sky::drv {
     {
         return descriptor.extent;
     }
+
+    uint32_t FrameBuffer::GetAttachmentCount() const
+    {
+        return static_cast<uint32_t>(descriptor.views.size());
+    }
 }

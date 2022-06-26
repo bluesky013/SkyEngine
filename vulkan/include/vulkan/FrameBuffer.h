@@ -30,6 +30,8 @@ namespace sky::drv {
 
         const VkExtent2D& GetExtent() const;
 
+        uint32_t GetAttachmentCount() const;
+
     private:
         friend class Device;
         FrameBuffer(Device&);

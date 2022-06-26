@@ -103,6 +103,7 @@ namespace sky {
         commandBuffer->Begin();
 
         auto cmd = commandBuffer->GetNativeHandle();
+        auto graphicsEncoder = commandBuffer->EncodeGraphics();
 
         VkClearValue clearValue = {};
         clearValue.color.float32[0] = 0.f;
@@ -110,32 +111,27 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        VkRect2D renderArea = {};
-        auto& ext = swapChain->GetExtent();
-        renderArea.extent.width = ext.width;
-        renderArea.extent.height = ext.height;
-        renderArea.offset.x = 0;
-        renderArea.offset.y = 0;
+        drv::CmdDraw args = {};
+        args.type = drv::CmdDrawType::LINEAR;
+        args.linear.firstVertex = 0;
+        args.linear.firstInstance = 0;
+        args.linear.vertexCount = 3;
+        args.linear.instanceCount = 1;
 
-        VkRenderPassBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        beginInfo.renderPass = renderPass->GetNativeHandle();
-        beginInfo.framebuffer = frameBuffers[imageIndex]->GetNativeHandle();
+        drv::DrawItem item = {};
+        item.pso = pso;
+        item.drawArgs = &args;
+
+
+        drv::PassBeginInfo beginInfo = {};
+        beginInfo.frameBuffer = frameBuffers[imageIndex];
+        beginInfo.renderPass = renderPass;
         beginInfo.clearValueCount = 1;
-        beginInfo.pClearValues = &clearValue;
-        beginInfo.renderArea = renderArea;
+        beginInfo.clearValues = &clearValue;
 
-        vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        VkViewport viewport = {0, 0, static_cast<float>(ext.width), static_cast<float>(ext.height), 0.f, 1.f};
-
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-        vkCmdSetScissor(cmd, 0, 1, &renderArea);
-
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pso->GetNativeHandle());
-        vkCmdDraw(cmd, 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(cmd);
+        graphicsEncoder.BeginPass(beginInfo);
+        graphicsEncoder.Encode(item);
+        graphicsEncoder.EndPass();
 
         commandBuffer->End();
 

@@ -45,4 +45,10 @@ namespace sky::drv {
 
     using BufferPtr = std::shared_ptr<Buffer>;
 
+    struct BufferView {
+        BufferPtr buffer;
+        uint32_t offset = 0;
+        uint32_t size   = 0;
+    };
+
 }
