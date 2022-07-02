@@ -19,10 +19,17 @@ namespace sky {
 
         void ImportImage(const std::string& name, drv::ImagePtr);
 
-        void ReadImage(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+        void CreateImage(const std::string& name, const drv::Image::Descriptor& imageDesc);
 
-        void WriteImage(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+        void ReadImage(const std::string& resKey, const std::string& name, const FrameGraphImageAttachment::Usage& usage, const VkImageSubresourceRange& range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
 
+        void WriteImage(const std::string& resKey, const std::string& name, const FrameGraphImageAttachment::Usage& usage, const VkImageSubresourceRange& range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+        void ReadAttachment(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+
+        void WriteAttachment(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+
+        void ReadWriteAttachment(const std::string& name, const std::string newName, const FrameGraphImageAttachment::Usage& usage);
     private:
         FrameGraph& graph;
         FrameGraphPass& pass;

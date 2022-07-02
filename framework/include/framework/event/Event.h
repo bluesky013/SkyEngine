@@ -10,7 +10,7 @@
 
 namespace sky {
 
-    struct EventTrait {
+    struct EventTraits {
         using KeyType = void;
         using MutexType = void;
     };

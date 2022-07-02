@@ -38,6 +38,11 @@ namespace sky {
         }
     }
 
+    drv::SwapChainPtr RenderViewport::GetSwapChain() const
+    {
+        return swapChain;
+    }
+
     void RenderViewport::OnWindowResize(uint32_t width, uint32_t height)
     {
         swapChain->Resize(width, height);

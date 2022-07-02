@@ -9,7 +9,7 @@
 
 namespace sky {
 
-    class IWindowEvent : public EventTrait {
+    class IWindowEvent : public EventTraits {
     public:
         using KeyType = void*;
 

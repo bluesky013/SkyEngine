@@ -27,6 +27,8 @@ namespace sky {
 
         void Shutdown();
 
+        drv::SwapChainPtr GetSwapChain() const;
+
     private:
         void OnWindowResize(uint32_t width, uint32_t height) override;
 

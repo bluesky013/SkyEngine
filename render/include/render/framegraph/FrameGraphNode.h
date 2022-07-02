@@ -4,12 +4,18 @@
 
 #pragma once
 
+#include <string>
+
 namespace sky {
 
     class FrameGraphNode {
     public:
-        FrameGraphNode() = default;
+        FrameGraphNode(const std::string& str) : name(str) {}
         virtual ~FrameGraphNode() = default;
+
+    private:
+        friend class FrameGraph;
+        std::string name;
     };
 
 }

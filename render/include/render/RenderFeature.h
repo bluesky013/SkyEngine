@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <render/RenderDrawItem.h>
+#include <render/RenderMeshBatch.h>
 #include <memory>
 
 namespace sky {

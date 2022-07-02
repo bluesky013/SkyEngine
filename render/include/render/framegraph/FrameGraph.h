@@ -23,9 +23,9 @@ namespace sky {
         FrameGraph& operator=(const FrameGraph&) = delete;
 
         template <typename Pass, typename Setup>
-        void AddPass(Setup&& setup)
+        void AddPass(const std::string& name, Setup&& setup)
         {
-            Pass* pass = AddNode<Pass>();
+            Pass* pass = AddNode<Pass>(name);
             FrameGraphBuilder builder(*this, *pass);
             setup(builder);
         }
@@ -37,6 +37,12 @@ namespace sky {
 
         using FgNodePtr = std::unique_ptr<FrameGraphNode>;
         using FgResourcePtr = std::unique_ptr<FrameGraphResource>;
+
+        void Compile();
+
+        void Execute();
+
+        void PrintGraph();
 
     private:
         friend class FrameGraphBuilder;

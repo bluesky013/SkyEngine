@@ -12,7 +12,7 @@ namespace sky {
 
     class FrameGraphPass : public FrameGraphNode {
     public:
-        FrameGraphPass() = default;
+        FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
         ~FrameGraphPass() = default;
 
         virtual void UseImageAttachment(FrameGraphAttachment* attachment) = 0;
@@ -20,7 +20,7 @@ namespace sky {
 
     class FrameGraphGraphicPass : public FrameGraphPass {
     public:
-        FrameGraphGraphicPass() = default;
+        FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
         ~FrameGraphGraphicPass() = default;
 
         void UseImageAttachment(FrameGraphAttachment* attachment) override;

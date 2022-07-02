@@ -7,12 +7,12 @@
 
 using namespace sky;
 
-struct ITestEvent1 : public EventTrait {
+struct ITestEvent1 : public EventTraits {
     virtual void E1() = 0;
     virtual void E2(float) = 0;
 };
 
-struct ITestEvent2 : public EventTrait {
+struct ITestEvent2 : public EventTraits {
     using KeyType = int;
 
     virtual void E3() = 0;
