@@ -149,15 +149,25 @@ namespace sky::drv {
         extent.width = std::min(extent.width, capabilities.maxImageExtent.width);
         extent.height = std::min(extent.height, capabilities.maxImageExtent.height);
 
+        VkImageCreateInfo imageInfo = {};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent = VkExtent3D{extent.width, extent.height, 1};
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
         VkSwapchainCreateInfoKHR swcInfo = {};
         swcInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         swcInfo.surface          = surface;
-        swcInfo.imageFormat      = format.format;
+        swcInfo.imageFormat      = imageInfo.format = format.format;
         swcInfo.imageColorSpace  = format.colorSpace;
         swcInfo.imageExtent      = extent;
-        swcInfo.imageUsage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        swcInfo.imageUsage       = imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         swcInfo.imageArrayLayers = 1;
-        swcInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swcInfo.imageSharingMode = imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swcInfo.presentMode      = mode;
         swcInfo.clipped          = VK_TRUE;
         swcInfo.minImageCount    = imageCount;
@@ -179,6 +189,7 @@ namespace sky::drv {
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, vImages.data());
         for (uint32_t i = 0; i < num; ++i) {
             images[i] = std::shared_ptr<Image>(new Image(device, vImages[i]));
+            images[i]->imageInfo = imageInfo;
         }
 
         return true;

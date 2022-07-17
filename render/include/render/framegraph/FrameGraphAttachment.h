@@ -16,22 +16,38 @@ namespace sky {
         ~FrameGraphAttachment() = default;
     };
 
+    enum class ImageBindFlag : uint32_t {
+        COLOR,
+        COLOR_RESOLVE,
+        INPUT,
+        DEPTH_STENCIL,
+        DEPTH_STENCIL_READ,
+        SHADER_READ,
+        SHADER_WRITE,
+    };
+
     class FrameGraphImageAttachment : public FrameGraphAttachment {
     public:
         FrameGraphImageAttachment(const std::string& str) : FrameGraphAttachment(str) {}
         ~FrameGraphImageAttachment() = default;
 
-        struct Usage {
-            VkPipelineStageFlagBits stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        };
+        void Execute(drv::CommandBufferPtr commandBuffer) override {}
+
+        void Compile();
 
     private:
         friend class FrameGraphBuilder;
-        Usage usage;
+        friend class FrameGraphGraphicPass;
+
+        ImageBindFlag bindFlag = ImageBindFlag::COLOR;
         VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         FrameGraphImage* source = nullptr;
         drv::ImageViewPtr imageView;
+        VkClearValue clearValue;
+        VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     };
 
 }

@@ -15,7 +15,9 @@ namespace sky {
         FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
         ~FrameGraphPass() = default;
 
-        virtual void UseImageAttachment(FrameGraphAttachment* attachment) = 0;
+        virtual void Compile() {}
+
+        virtual void UseImageAttachment(FrameGraphImageAttachment* attachment) = 0;
     };
 
     class FrameGraphGraphicPass : public FrameGraphPass {
@@ -23,7 +25,21 @@ namespace sky {
         FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
         ~FrameGraphGraphicPass() = default;
 
-        void UseImageAttachment(FrameGraphAttachment* attachment) override;
+        void UseImageAttachment(FrameGraphImageAttachment* attachment) override;
+
+        void Compile() override;
+
+        void Execute(drv::CommandBufferPtr commandBuffer) override;
+
+    private:
+        void AddClearValue(FrameGraphImageAttachment* attachment);
+
+        drv::PassBeginInfo passInfo = {};
+        std::vector<VkClearValue> clearValues;
+        std::vector<FrameGraphImageAttachment*> colors;
+        std::vector<FrameGraphImageAttachment*> resolves;
+        std::vector<FrameGraphImageAttachment*> inputs;
+        FrameGraphImageAttachment* depthStencil;
     };
 
 }

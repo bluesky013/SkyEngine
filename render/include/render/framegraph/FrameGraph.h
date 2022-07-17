@@ -27,6 +27,7 @@ namespace sky {
         {
             Pass* pass = AddNode<Pass>(name);
             FrameGraphBuilder builder(*this, *pass);
+            passes.emplace_back(pass);
             setup(builder);
         }
 
@@ -37,10 +38,12 @@ namespace sky {
 
         using FgNodePtr = std::unique_ptr<FrameGraphNode>;
         using FgResourcePtr = std::unique_ptr<FrameGraphResource>;
+        using FgImagePtr = std::unique_ptr<FrameGraphImage>;
+        using FgBufferPtr = std::unique_ptr<FrameGraphBuffer>;
 
         void Compile();
 
-        void Execute();
+        void Execute(drv::CommandBufferPtr commandBuffer);
 
         void PrintGraph();
 
@@ -51,13 +54,21 @@ namespace sky {
         {
             nodes.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
             auto res = nodes.back().get();
+            nodeTable.emplace(res->name, res);
             return static_cast<T*>(res);
         }
 
         template <typename T>
-        T* AddResource(const std::string& name)
+        T* AddImage(const std::string& name)
         {
-            auto iter = resources.emplace(name, std::make_unique<T>());
+            auto iter = images.emplace(name, std::make_unique<T>());
+            return static_cast<T*>(iter.first->second.get());
+        }
+
+        template <typename T>
+        T* AddBuffer(const std::string& name)
+        {
+            auto iter = buffers.emplace(name, std::make_unique<T>());
             return static_cast<T*>(iter.first->second.get());
         }
 
@@ -68,7 +79,9 @@ namespace sky {
 
         std::vector<FgNodePtr> nodes;
         std::vector<Edge> edges;
-        std::unordered_map<std::string, FgResourcePtr> resources;
+        std::vector<FrameGraphPass*> passes;
+        std::unordered_map<std::string, FgImagePtr> images;
+        std::unordered_map<std::string, FgBufferPtr> buffers;
         std::unordered_map<std::string, FrameGraphNode*> nodeTable;
     };
 

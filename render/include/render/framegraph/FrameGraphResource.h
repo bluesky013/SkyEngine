@@ -27,6 +27,12 @@ namespace sky {
         FrameGraphImage() = default;
         ~FrameGraphImage() = default;
 
+        const VkImageCreateInfo& GetImageInfo() const;
+
+        void Compile();
+
+        drv::ImagePtr GetImage() const;
+
     private:
         friend class FrameGraphBuilder;
         drv::ImagePtr image;

@@ -11,12 +11,16 @@ namespace sky {
 
     void FrameGraph::Compile()
     {
-
+        for (auto& pass : passes) {
+            pass->Compile();
+        }
     }
 
-    void FrameGraph::Execute()
+    void FrameGraph::Execute(drv::CommandBufferPtr commandBuffer)
     {
-
+        for (auto& node : nodes) {
+            node->Execute(commandBuffer);
+        }
     }
 
     void FrameGraph::PrintGraph()

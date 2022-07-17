@@ -17,4 +17,18 @@ namespace sky {
         }
     }
 
+    const VkImageCreateInfo& FrameGraphImage::GetImageInfo() const
+    {
+        return image->GetImageInfo();
+    }
+
+    drv::ImagePtr FrameGraphImage::GetImage() const
+    {
+        return image;
+    }
+
+    void FrameGraphImage::Compile()
+    {
+    }
+
 }

@@ -21,16 +21,18 @@ namespace sky {
 
         void CreateImage(const std::string& name, const drv::Image::Descriptor& imageDesc);
 
-        void ReadImage(const std::string& resKey, const std::string& name, const FrameGraphImageAttachment::Usage& usage, const VkImageSubresourceRange& range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+        void CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag);
 
-        void WriteImage(const std::string& resKey, const std::string& name, const FrameGraphImageAttachment::Usage& usage, const VkImageSubresourceRange& range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+        void CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range);
 
-        void ReadAttachment(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+        void ReadAttachment(const std::string& name, const ImageBindFlag& flag);
 
-        void WriteAttachment(const std::string& name, const FrameGraphImageAttachment::Usage& usage);
+        void WriteAttachment(const std::string& name, const ImageBindFlag& flag);
 
-        void ReadWriteAttachment(const std::string& name, const std::string newName, const FrameGraphImageAttachment::Usage& usage);
+        void ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag);
     private:
+        FrameGraphImageAttachment* GetImageAttachment(const std::string& name);
+
         FrameGraph& graph;
         FrameGraphPass& pass;
     };
