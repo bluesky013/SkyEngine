@@ -23,12 +23,13 @@ namespace sky {
         FrameGraph& operator=(const FrameGraph&) = delete;
 
         template <typename Pass, typename Setup>
-        void AddPass(const std::string& name, Setup&& setup)
+        Pass* AddPass(const std::string& name, Setup&& setup)
         {
             Pass* pass = AddNode<Pass>(name);
             FrameGraphBuilder builder(*this, *pass);
             passes.emplace_back(pass);
             setup(builder);
+            return pass;
         }
 
         struct Edge {

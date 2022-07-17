@@ -4,8 +4,29 @@
 
 #include <render/framegraph/FrameGraphPass.h>
 #include <render/DriverManager.h>
+#include <render/DevObjManager.h>
 
 namespace sky {
+
+    VkImageLayout GetImageLayout(ImageBindFlag flag)
+    {
+        switch (flag) {
+            case ImageBindFlag::UNDEFINED:
+                return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ImageBindFlag::COLOR:
+            case ImageBindFlag::COLOR_RESOLVE:
+                return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            case ImageBindFlag::DEPTH_STENCIL:
+                return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            case ImageBindFlag::DEPTH_STENCIL_READ:
+                return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            case ImageBindFlag::SHADER_READ:
+                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ImageBindFlag::PRESENT:
+                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        }
+        return VK_IMAGE_LAYOUT_GENERAL;
+    }
 
     void FrameGraphGraphicPass::AddClearValue(FrameGraphImageAttachment* attachment)
     {
@@ -35,6 +56,12 @@ namespace sky {
         }
     }
 
+    FrameGraphGraphicPass::~FrameGraphGraphicPass()
+    {
+        DevObjManager::Get()->FreeDeviceObject(passInfo.renderPass);
+        DevObjManager::Get()->FreeDeviceObject(passInfo.frameBuffer);
+    }
+
     void FrameGraphGraphicPass::Compile()
     {
         drv::FrameBuffer::Descriptor fbDesc = {};
@@ -43,7 +70,7 @@ namespace sky {
         drv::RenderPassFactory factory;
         auto subPassFactory = factory().AddSubPass();
         auto attachmentFn =
-            [&fbDesc](AF af, FrameGraphImageAttachment* attachment, VkImageLayout layout)
+            [&fbDesc](AF af, FrameGraphImageAttachment* attachment)
             {
                 attachment->Compile();
                 auto& imageInfo = attachment->source->GetImageInfo();
@@ -52,7 +79,7 @@ namespace sky {
 
                 af.ColorOp(attachment->loadOp, attachment->storeOp)
                     .StencilOp(attachment->stencilLoadOp, attachment->stencilStoreOp)
-                    .Layout(layout, layout)
+                    .Layout(GetImageLayout(attachment->initFlag), GetImageLayout(attachment->finalFlag))
                     .Format(imageInfo.format)
                     .Samples(imageInfo.samples);
 
@@ -60,16 +87,25 @@ namespace sky {
             };
 
         for (auto& color : colors) {
-            attachmentFn(subPassFactory.AddColor(), color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            attachmentFn(subPassFactory.AddColor(), color);
         }
 
         for (auto& resolve : resolves) {
-            attachmentFn(subPassFactory.AddResolve(), resolve, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            attachmentFn(subPassFactory.AddResolve(), resolve);
         }
 
         if (depthStencil != nullptr) {
-            attachmentFn(subPassFactory.AddDepthStencil(), depthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            attachmentFn(subPassFactory.AddDepthStencil(), depthStencil);
         }
+
+        subPassFactory.AddDependency()
+            .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+            .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
+            .AddDependency()
+            .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+            .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                         VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT});
 
         auto device = DriverManager::Get()->GetDevice();
         fbDesc.pass = passInfo.renderPass = subPassFactory.Create(*device);
@@ -82,7 +118,21 @@ namespace sky {
     {
         auto encoder = commandBuffer->EncodeGraphics();
         encoder.BeginPass(passInfo);
+
+        for (auto& item : drawItems) {
+            encoder.Encode(item);
+        }
+
         encoder.EndPass();
     }
 
+    drv::RenderPassPtr FrameGraphGraphicPass::GetPass() const
+    {
+        return passInfo.renderPass;
+    }
+
+    void FrameGraphGraphicPass::Emplace(const drv::DrawItem& item)
+    {
+        drawItems.emplace_back(item);
+    }
 }

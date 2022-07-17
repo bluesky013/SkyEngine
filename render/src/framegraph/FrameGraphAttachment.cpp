@@ -23,4 +23,17 @@ namespace sky {
         imageView = image->CreateImageView(viewDesc);
     }
 
+    FrameGraphImageAttachment& FrameGraphImageAttachment::SetColorOp(VkAttachmentLoadOp load, VkAttachmentStoreOp store)
+    {
+        loadOp = load;
+        storeOp = store;
+        return *this;
+    }
+
+    FrameGraphImageAttachment& FrameGraphImageAttachment::SetClearValue(VkClearValue clear)
+    {
+        clearValue = clear;
+        return *this;
+    }
+
 }

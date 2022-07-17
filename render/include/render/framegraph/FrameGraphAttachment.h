@@ -17,6 +17,7 @@ namespace sky {
     };
 
     enum class ImageBindFlag : uint32_t {
+        UNDEFINED = 0,
         COLOR,
         COLOR_RESOLVE,
         INPUT,
@@ -24,6 +25,7 @@ namespace sky {
         DEPTH_STENCIL_READ,
         SHADER_READ,
         SHADER_WRITE,
+        PRESENT
     };
 
     class FrameGraphImageAttachment : public FrameGraphAttachment {
@@ -35,11 +37,17 @@ namespace sky {
 
         void Compile();
 
+        FrameGraphImageAttachment& SetColorOp(VkAttachmentLoadOp, VkAttachmentStoreOp);
+
+        FrameGraphImageAttachment& SetClearValue(VkClearValue clearValue);
+
     private:
         friend class FrameGraphBuilder;
         friend class FrameGraphGraphicPass;
 
-        ImageBindFlag bindFlag = ImageBindFlag::COLOR;
+        ImageBindFlag initFlag = ImageBindFlag::UNDEFINED;
+        ImageBindFlag bindFlag = ImageBindFlag::UNDEFINED;
+        ImageBindFlag finalFlag = ImageBindFlag::UNDEFINED;
         VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         FrameGraphImage* source = nullptr;
         drv::ImageViewPtr imageView;

@@ -21,15 +21,15 @@ namespace sky {
 
         void CreateImage(const std::string& name, const drv::Image::Descriptor& imageDesc);
 
-        void CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag);
+        FrameGraphImageAttachment* CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag);
 
-        void CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range);
+        FrameGraphImageAttachment* CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range);
 
         void ReadAttachment(const std::string& name, const ImageBindFlag& flag);
 
         void WriteAttachment(const std::string& name, const ImageBindFlag& flag);
 
-        void ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag);
+        FrameGraphImageAttachment* ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag);
     private:
         FrameGraphImageAttachment* GetImageAttachment(const std::string& name);
 

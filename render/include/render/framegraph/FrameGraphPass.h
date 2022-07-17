@@ -15,21 +15,37 @@ namespace sky {
         FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
         ~FrameGraphPass() = default;
 
-        virtual void Compile() {}
+        virtual void Compile() = 0;
 
         virtual void UseImageAttachment(FrameGraphImageAttachment* attachment) = 0;
+    };
+
+    class FrameGraphEmptyPass : public FrameGraphPass {
+    public:
+        FrameGraphEmptyPass(const std::string& str) : FrameGraphPass(str) {}
+        ~FrameGraphEmptyPass() = default;
+
+        void Compile() override {}
+
+        void Execute(drv::CommandBufferPtr commandBuffer) override {}
+
+        void UseImageAttachment(FrameGraphImageAttachment* attachment) override {}
     };
 
     class FrameGraphGraphicPass : public FrameGraphPass {
     public:
         FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
-        ~FrameGraphGraphicPass() = default;
+        ~FrameGraphGraphicPass();
 
         void UseImageAttachment(FrameGraphImageAttachment* attachment) override;
 
         void Compile() override;
 
         void Execute(drv::CommandBufferPtr commandBuffer) override;
+
+        drv::RenderPassPtr GetPass() const;
+
+        void Emplace(const drv::DrawItem& item);
 
     private:
         void AddClearValue(FrameGraphImageAttachment* attachment);
@@ -40,6 +56,7 @@ namespace sky {
         std::vector<FrameGraphImageAttachment*> resolves;
         std::vector<FrameGraphImageAttachment*> inputs;
         FrameGraphImageAttachment* depthStencil;
+        std::vector<drv::DrawItem> drawItems;
     };
 
 }

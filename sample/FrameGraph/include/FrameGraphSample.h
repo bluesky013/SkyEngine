@@ -32,20 +32,28 @@ namespace sky::render {
 
         void Tick(float delta) override;
 
+        void PrepareFrameGraph(FrameGraph& graph, drv::ImagePtr output);
+
+        void LoadShader(VkShaderStageFlagBits stage, const std::string& path);
+
     private:
         RDViewportPtr viewport;
-        FrameGraph graph;
 
         drv::Device* device = nullptr;
         drv::SemaphorePtr imageAvailable;
         drv::SemaphorePtr renderFinish;
         drv::ImagePtr msaaColor;
         drv::ImagePtr depthStencil;
-        drv::ImagePtr shadowMap;
 
         drv::CommandPoolPtr commandPool;
         drv::CommandBufferPtr commandBuffer;
         drv::Queue* graphicsQueue;
+
+        drv::GraphicsPipelinePtr pso;
+        drv::PipelineLayoutPtr pipelineLayout;
+        drv::ShaderPtr vs;
+        drv::ShaderPtr fs;
+        drv::VertexInputPtr vertexInput;
     };
 
 }

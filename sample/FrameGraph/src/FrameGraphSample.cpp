@@ -7,6 +7,9 @@
 #include <render/framegraph/FrameGraph.h>
 #include <render/framegraph/FrameGraphPass.h>
 #include <render/DriverManager.h>
+#include <render/DevObjManager.h>
+#include <core/file/FileIO.h>
+#include <vulkan/Util.h>
 
 namespace sky::render {
 
@@ -59,38 +62,14 @@ namespace sky::render {
         imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
         renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
 
-        dsDesc.format = VK_FORMAT_D32_SFLOAT;
-        dsDesc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        dsDesc.extent.width = 1024;
-        dsDesc.extent.height = 1024;
-        dsDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-        shadowMap = device->CreateDeviceObject<drv::Image>(dsDesc);
+        LoadShader(VK_SHADER_STAGE_VERTEX_BIT, "shaders/Triangle.vert.spv");
+        LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, "shaders/Triangle.frag.spv");
 
-        uint32_t imageIndex = 0;
-        swapChain->AcquireNext(imageAvailable, imageIndex);
+        vertexInput = drv::VertexInput::Builder().Begin()
+            .Build();
 
-        graph.AddPass<FrameGraphGraphicPass>("ShadowPass", [&](FrameGraphBuilder& builder) {
-            builder.ImportImage("ShadowMapImage", shadowMap);
-            builder.CreateImageAttachment("ShadowMapImage", "ShadowMap", VK_IMAGE_ASPECT_DEPTH_BIT);
-            builder.WriteAttachment("ShadowMap", ImageBindFlag::DEPTH_STENCIL);
-        });
-
-        graph.AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
-            builder.ImportImage("ColorMSAAImage", msaaColor);
-            builder.ImportImage("SwapChainImage", swapChain->GetImage(imageIndex));
-            builder.ImportImage("DepthImage", depthStencil);
-            builder.CreateImageAttachment("SwapChainImage", "SwapChainOutput", VK_IMAGE_ASPECT_COLOR_BIT);
-            builder.CreateImageAttachment("ColorMSAAImage", "ColorMSAA", VK_IMAGE_ASPECT_COLOR_BIT);
-            builder.CreateImageAttachment("DepthImage", "DepthOutput", VK_IMAGE_ASPECT_DEPTH_BIT);
-
-            builder.ReadAttachment("ShadowMap", ImageBindFlag::DEPTH_STENCIL_READ);
-            builder.WriteAttachment("SwapChainOutput", ImageBindFlag::COLOR_RESOLVE);
-            builder.WriteAttachment("ColorMSAA", ImageBindFlag::COLOR);
-            builder.WriteAttachment("DepthOutput", ImageBindFlag::DEPTH_STENCIL);
-        });
-
-        graph.Compile();
-        graph.PrintGraph();
+        drv::PipelineLayout::Descriptor pDesc = {};
+        pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(pDesc);
     }
 
     void FrameGraphSample::Stop()
@@ -101,23 +80,110 @@ namespace sky::render {
         Render::Get()->Destroy();
     }
 
+    void FrameGraphSample::LoadShader(VkShaderStageFlagBits stage, const std::string& path)
+    {
+        std::vector<uint32_t> spv;
+        if (!ReadBin(path, spv)) {
+            return;
+        }
+
+        drv::Shader::Descriptor shaderDesc = {};
+        shaderDesc.stage = stage;
+        shaderDesc.size = static_cast<uint32_t>(spv.size()) * sizeof(uint32_t);
+        shaderDesc.spv = spv.data();
+
+        auto shader = device->CreateDeviceObject<drv::Shader>(shaderDesc);
+        if (stage == VK_SHADER_STAGE_VERTEX_BIT) {
+            vs = shader;
+        } else if (stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
+            fs = shader;
+        }
+    }
+
+    void FrameGraphSample::PrepareFrameGraph(FrameGraph& graph, drv::ImagePtr output)
+    {
+        auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
+        auto clearDS = drv::MakeClearDepthStencil(1.f, 0);
+
+        auto colorPass = graph.AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
+            builder.ImportImage("ColorMSAAImage", msaaColor);
+            builder.ImportImage("ColorResolveImage", output);
+            builder.ImportImage("DepthImage", depthStencil);
+            builder.CreateImageAttachment("ColorMSAAImage", "ColorMSAA", VK_IMAGE_ASPECT_COLOR_BIT)
+                ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                .SetClearValue(clearColor);
+
+            builder.CreateImageAttachment("ColorResolveImage", "ColorResolve", VK_IMAGE_ASPECT_COLOR_BIT)
+                ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                .SetClearValue(clearColor);
+
+            builder.CreateImageAttachment("DepthImage", "DepthOutput", VK_IMAGE_ASPECT_DEPTH_BIT)
+                ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                .SetClearValue(clearDS);
+
+            builder.WriteAttachment("ColorMSAA", ImageBindFlag::COLOR);
+            builder.WriteAttachment("ColorResolve", ImageBindFlag::COLOR_RESOLVE);
+            builder.WriteAttachment("DepthOutput", ImageBindFlag::DEPTH_STENCIL);
+        });
+
+        graph.AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
+            builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
+        });
+
+        graph.Compile();
+
+        drv::GraphicsPipeline::Program program;
+        program.shaders.emplace_back(vs);
+        program.shaders.emplace_back(fs);
+
+        drv::GraphicsPipeline::State state = {};
+        state.multiSample.samples = VK_SAMPLE_COUNT_4_BIT;
+
+        drv::GraphicsPipeline::Descriptor psoDesc = {};
+        psoDesc.program = &program;
+        psoDesc.state = &state;
+        psoDesc.pipelineLayout = pipelineLayout;
+        psoDesc.vertexInput = vertexInput;
+        psoDesc.renderPass = colorPass->GetPass();
+        pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+
+        static drv::CmdDraw args = {};
+        args.type = drv::CmdDrawType::LINEAR;
+        args.linear.firstVertex = 0;
+        args.linear.firstInstance = 0;
+        args.linear.vertexCount = 3;
+        args.linear.instanceCount = 1;
+
+        drv::DrawItem item = {};
+        item.pso = pso;
+        item.drawArgs = &args;
+        colorPass->Emplace(item);
+    }
+
     void FrameGraphSample::Tick(float delta)
     {
         uint32_t imageIndex = 0;
         auto swapChain = viewport->GetSwapChain();
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
+        FrameGraph graph;
+        PrepareFrameGraph(graph, swapChain->GetImage(imageIndex));
+
         commandBuffer->Wait();
+        DevObjManager::Get()->TickFreeList();
+
+
         commandBuffer->Begin();
 
         graph.Execute(commandBuffer);
+
+        commandBuffer->End();
 
         drv::CommandBuffer::SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable
         });
-
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 
         drv::SwapChain::PresentInfo presentInfo = {};

@@ -23,11 +23,11 @@ namespace sky {
         fgImage->image = device->CreateDeviceObject<drv::Image>(imageDesc);
     }
 
-    void FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag)
+    FrameGraphImageAttachment* FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag)
     {
         auto iter = graph.images.find(source);
         if (iter == graph.images.end()) {
-            return;
+            return nullptr;
         }
         auto& info = iter->second->image->GetImageInfo();
 
@@ -38,18 +38,20 @@ namespace sky {
         attachment->range.layerCount = info.arrayLayers;
         attachment->range.levelCount = info.mipLevels;
         attachment->source = iter->second.get();
+        return attachment;
     }
 
-    void FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range)
+    FrameGraphImageAttachment* FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range)
     {
         auto iter = graph.images.find(source);
         if (iter == graph.images.end()) {
-            return;
+            return nullptr;
         }
 
         auto attachment = graph.AddNode<FrameGraphImageAttachment>(name);
         attachment->range = range;
         attachment->source = iter->second.get();
+        return attachment;
     }
 
     FrameGraphImageAttachment* FrameGraphBuilder::GetImageAttachment(const std::string& name)
@@ -68,7 +70,11 @@ namespace sky {
             return;
         }
 
-        attachment->bindFlag = flag;
+        if (attachment->bindFlag == ImageBindFlag::UNDEFINED) {
+            attachment->bindFlag = flag;
+        }
+        attachment->finalFlag = flag;
+
         pass.UseImageAttachment(attachment);
         graph.AddEdge(attachment, &pass);
     }
@@ -80,19 +86,30 @@ namespace sky {
             return;
         }
 
-        attachment->bindFlag = flag;
+        if (attachment->bindFlag == ImageBindFlag::UNDEFINED) {
+            attachment->bindFlag = flag;
+        }
+        attachment->finalFlag = flag;
+
         pass.UseImageAttachment(attachment);
         graph.AddEdge(&pass, attachment);
     }
 
-    void FrameGraphBuilder::ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag)
+    FrameGraphImageAttachment* FrameGraphBuilder::ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag)
     {
         auto oldAttachment = GetImageAttachment(name);
         if (oldAttachment == nullptr) {
-            return;
+            return nullptr;
         }
 
+        if (oldAttachment->bindFlag == ImageBindFlag::UNDEFINED) {
+            oldAttachment->bindFlag = flag;
+        }
+        oldAttachment->finalFlag = flag;
+
         auto newAttachment = graph.AddNode<FrameGraphImageAttachment>(newName);
+        newAttachment->initFlag = flag;
+        newAttachment->bindFlag = flag;
         newAttachment->bindFlag = flag;
         newAttachment->range = oldAttachment->range;
         newAttachment->source = oldAttachment->source;
@@ -101,6 +118,7 @@ namespace sky {
 
         graph.AddEdge(oldAttachment, &pass);
         graph.AddEdge(&pass, newAttachment);
+        return newAttachment;
     }
 
 }
