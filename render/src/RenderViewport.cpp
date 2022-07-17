@@ -23,7 +23,7 @@ namespace sky {
         descriptor.window = info.wHandle;
 
         swapChain = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::SwapChain>(descriptor);
-
+        nativeHandle = info.wHandle;
         Event<IWindowEvent>::Connect(descriptor.window, this);
     }
 
@@ -41,6 +41,11 @@ namespace sky {
     drv::SwapChainPtr RenderViewport::GetSwapChain() const
     {
         return swapChain;
+    }
+
+    void* RenderViewport::GetNativeHandle() const
+    {
+        return nativeHandle;
     }
 
     void RenderViewport::OnWindowResize(uint32_t width, uint32_t height)

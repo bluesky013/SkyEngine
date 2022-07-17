@@ -24,12 +24,6 @@ namespace sky::render {
 
     void FrameGraphSample::Start()
     {
-        viewport = std::make_unique<RenderViewport>();
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        RenderViewport::ViewportInfo info = {};
-        info.wHandle = nativeWindow->GetNativeHandle();
-        viewport->Setup(info);
-
         graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
         drv::CommandPool::Descriptor cmdPoolDesc = {};
         cmdPoolDesc.flag = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -40,24 +34,8 @@ namespace sky::render {
         drv::CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = commandPool->Allocate(cmdDesc);
 
-        Event<IWindowEvent>::Connect(info.wHandle, this);
-
-        auto swapChain = viewport->GetSwapChain();
-        auto& ext = swapChain->GetExtent();
-
-        drv::Image::Descriptor dsDesc = {};
-        dsDesc.format = VK_FORMAT_D32_SFLOAT;
-        dsDesc.extent.width = ext.width;
-        dsDesc.extent.height = ext.height;
-        dsDesc.samples = VK_SAMPLE_COUNT_4_BIT;
-        dsDesc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        dsDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        depthStencil = device->CreateDeviceObject<drv::Image>(dsDesc);
-
-        dsDesc.format = swapChain->GetFormat();
-        dsDesc.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        dsDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        msaaColor = device->CreateDeviceObject<drv::Image>(dsDesc);
+        OnWindowResize(1, 1);
+        Event<IWindowEvent>::Connect(viewport->GetNativeHandle(), this);
 
         imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
         renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
@@ -78,6 +56,33 @@ namespace sky::render {
         viewport = nullptr;
 
         Render::Get()->Destroy();
+        Event<IWindowEvent>::DisConnect(this);
+    }
+
+    void FrameGraphSample::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        viewport = std::make_unique<RenderViewport>();
+        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        RenderViewport::ViewportInfo info = {};
+        info.wHandle = nativeWindow->GetNativeHandle();
+        viewport->Setup(info);
+
+        auto swapChain = viewport->GetSwapChain();
+        auto& ext = swapChain->GetExtent();
+
+        drv::Image::Descriptor dsDesc = {};
+        dsDesc.format = VK_FORMAT_D32_SFLOAT;
+        dsDesc.extent.width = ext.width;
+        dsDesc.extent.height = ext.height;
+        dsDesc.samples = VK_SAMPLE_COUNT_4_BIT;
+        dsDesc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        dsDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+        depthStencil = device->CreateDeviceObject<drv::Image>(dsDesc);
+
+        dsDesc.format = swapChain->GetFormat();
+        dsDesc.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        dsDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+        msaaColor = device->CreateDeviceObject<drv::Image>(dsDesc);
     }
 
     void FrameGraphSample::LoadShader(VkShaderStageFlagBits stage, const std::string& path)
@@ -171,7 +176,6 @@ namespace sky::render {
 
         commandBuffer->Wait();
         DevObjManager::Get()->TickFreeList();
-
 
         commandBuffer->Begin();
 

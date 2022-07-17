@@ -29,10 +29,13 @@ namespace sky {
 
         drv::SwapChainPtr GetSwapChain() const;
 
+        void* GetNativeHandle() const;
+
     private:
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
         RDScenePtr scene;
+        void* nativeHandle = nullptr;
         drv::SwapChainPtr swapChain;
     };
     using RDViewportPtr = std::unique_ptr<RenderViewport>;

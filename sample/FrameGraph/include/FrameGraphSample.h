@@ -32,6 +32,8 @@ namespace sky::render {
 
         void Tick(float delta) override;
 
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
         void PrepareFrameGraph(FrameGraph& graph, drv::ImagePtr output);
 
         void LoadShader(VkShaderStageFlagBits stage, const std::string& path);
