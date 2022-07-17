@@ -135,6 +135,25 @@ namespace sky::drv {
             1, &imageMemoryBarrier);
     }
 
+    void CommandBuffer::BufferBarrier(BufferPtr buffer, const Barrier& barrier, uint32_t size, uint32_t offset)
+    {
+        VkBufferMemoryBarrier bufferBarrier = {};
+        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask = barrier.srcAccessMask;
+        bufferBarrier.dstAccessMask = barrier.dstAccessMask;
+        bufferBarrier.buffer = buffer->GetNativeHandle();
+        bufferBarrier.offset = offset;
+        bufferBarrier.size = size;
+        bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask,
+                             0,
+                             0, nullptr,
+                             1, &bufferBarrier,
+                             0, nullptr);
+    }
+
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout,
         VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy)
     {

@@ -58,4 +58,27 @@ namespace sky {
         VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     };
 
+    enum class BufferBindFlag : uint32_t {
+        SHADER_READ,
+        SHADER_WRITE,
+        VERTEX_INPUT
+    };
+
+    class FrameGraphBufferAttachment : public FrameGraphAttachment {
+    public:
+        FrameGraphBufferAttachment(const std::string& str) : FrameGraphAttachment(str) {}
+        ~FrameGraphBufferAttachment() = default;
+
+        void Execute(drv::CommandBufferPtr commandBuffer) override;
+
+        void Compile();
+
+    private:
+        friend class FrameGraphBuilder;
+        FrameGraphBuffer* source = nullptr;
+        BufferBindFlag bindFlag = BufferBindFlag::SHADER_READ;
+        BufferBindFlag finalFlag = BufferBindFlag::SHADER_READ;
+        drv::Barrier barrier = {};
+    };
+
 }

@@ -43,6 +43,10 @@ namespace sky {
         FrameGraphBuffer() = default;
         ~FrameGraphBuffer() = default;
 
+        void Compile();
+
+        drv::BufferPtr GetBuffer() const;
+
     private:
         friend class FrameGraphBuilder;
         drv::BufferPtr buffer;

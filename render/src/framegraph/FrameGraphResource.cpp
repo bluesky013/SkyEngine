@@ -31,4 +31,13 @@ namespace sky {
     {
     }
 
+    drv::BufferPtr FrameGraphBuffer::GetBuffer() const
+    {
+        return buffer;
+    }
+
+    void FrameGraphBuffer::Compile()
+    {
+    }
+
 }

@@ -110,10 +110,13 @@ namespace sky::render {
         auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
         auto clearDS = drv::MakeClearDepthStencil(1.f, 0);
 
-        auto colorPass = graph.AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
+        graph.AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder& builder) {
             builder.ImportImage("ColorMSAAImage", msaaColor);
             builder.ImportImage("ColorResolveImage", output);
             builder.ImportImage("DepthImage", depthStencil);
+        });
+
+        auto colorPass = graph.AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
             builder.CreateImageAttachment("ColorMSAAImage", "ColorMSAA", VK_IMAGE_ASPECT_COLOR_BIT)
                 ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                 .SetClearValue(clearColor);
