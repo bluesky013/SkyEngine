@@ -6,7 +6,7 @@ if (NOT Vulkan_FOUND)
     message("vulkan sdk not found")
 endif()
 
-add_library(VulkanSdk INTERFACE IMPORTED GLOBAL ../framework/include/framework/jobsystem/JobSystem.h ../framework/src/jobsystem/JobSystem.cpp ../render/src/RenderViewport.cpp ../framework/include/framework/event/Event.h ../test/framework/EventTest.cpp ../render/include/render/RenderFeature.h ../render/include/render/RenderMeshBatch.h include/vulkan/DrawItem.h)
+add_library(VulkanSdk INTERFACE IMPORTED GLOBAL)
 target_link_libraries(VulkanSdk INTERFACE ${Vulkan_LIBRARIES})
 target_include_directories(VulkanSdk INTERFACE ${Vulkan_INCLUDE_DIRS})
 

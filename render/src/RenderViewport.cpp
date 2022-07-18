@@ -15,6 +15,7 @@ namespace sky {
     void RenderViewport::SetScene(RDScenePtr scn)
     {
         scene = scn;
+        scene->Setup(*this);
     }
 
     void RenderViewport::Setup(const ViewportInfo& info)
@@ -33,9 +34,8 @@ namespace sky {
             auto device = DriverManager::Get()->GetDevice();
             device->WaitIdle();
             swapChain = nullptr;
-
-            Event<IWindowEvent>::DisConnect(this);
         }
+        Event<IWindowEvent>::DisConnect(this);
     }
 
     drv::SwapChainPtr RenderViewport::GetSwapChain() const
@@ -51,6 +51,7 @@ namespace sky {
     void RenderViewport::OnWindowResize(uint32_t width, uint32_t height)
     {
         swapChain->Resize(width, height);
+        scene->ViewportChange(*this);
     }
 
 }

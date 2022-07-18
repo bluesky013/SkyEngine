@@ -6,6 +6,7 @@
 #include <render/RenderScene.h>
 #include <render/DriverManager.h>
 #include <render/DevObjManager.h>
+#include <render/RenderPipelineForward.h>
 
 namespace sky {
 
@@ -13,22 +14,33 @@ namespace sky {
     {
         views.clear();
         for (auto& feature : features) {
-            feature->OnPrepareView(*this);
+            feature.second->OnPrepareView(*this);
+        }
+        if (pipeline) {
+            pipeline->BeginFrame();
         }
     }
 
     void RenderScene::OnPostRender()
     {
         for (auto& feature : features) {
-            feature->OnPostRender(*this);
+            feature.second->OnPostRender(*this);
+        }
+
+        if (pipeline) {
+            pipeline->EndFrame();
         }
     }
 
     void RenderScene::OnRender()
     {
         for (auto& feature : features) {
-            feature->GatherRenderItem(*this);
-            feature->OnRender(*this);
+            feature.second->GatherRenderItem(*this);
+            feature.second->OnRender(*this);
+        }
+
+        if (pipeline) {
+            pipeline->DoFrame();
         }
     }
 
@@ -42,39 +54,15 @@ namespace sky {
         return views;
     }
 
-    void RenderScene::RegisterFeature(RenderFeature* feature)
+    void RenderScene::Setup(RenderViewport& viewport)
     {
-        features.emplace_back(std::unique_ptr<RenderFeature>(feature));
+        pipeline = std::make_unique<RenderPipelineForward>();
+        pipeline->Setup(viewport);
+        ViewportChange(viewport);
     }
 
-//    void RenderScene::OnPostTick()
-//    {
-//        renderGraph.Compile();
-//        auto device = DriverManager::Get()->GetDevice();
-//        auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
-//
-//        drv::SemaphorePtr signal = device->CreateDeviceObject<drv::Semaphore>({});
-//
-//        if (!cmdBuffer) {
-//            cmdBuffer = queue->AllocateCommandBuffer(drv::CommandBuffer::Descriptor{});
-//        }
-//        cmdBuffer->Wait();
-//        cmdBuffer->Begin();
-//
-//        renderGraph.Execute(*cmdBuffer);
-//
-//        cmdBuffer->End();
-//
-//        drv::CommandBuffer::SubmitInfo submit = {
-//            {{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, waitSemaphore}},
-//            {signal}
-//        };
-//        cmdBuffer->Submit(*queue, submit);
-//
-//        drv::SwapChain::PresentInfo present = {
-//            {signal}
-//        };
-//        swapChain->Present(present);
-//        DevObjManager::Get()->FreeDeviceObject(signal);
-//    }
+    void RenderScene::ViewportChange(RenderViewport& viewport)
+    {
+        pipeline->ViewportChange(viewport);
+    }
 }

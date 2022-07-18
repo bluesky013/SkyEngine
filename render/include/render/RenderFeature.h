@@ -15,13 +15,13 @@ namespace sky {
         RenderFeature() = default;
         virtual ~RenderFeature() = default;
 
-        virtual void OnPrepareView(RenderScene& scene) = 0;
+        virtual void OnPrepareView(RenderScene& scene) {}
 
-        virtual void GatherRenderItem(RenderScene& scene) = 0;
+        virtual void GatherRenderItem(RenderScene& scene) {}
 
-        virtual void OnRender(RenderScene& scene) = 0;
+        virtual void OnRender(RenderScene& scene) {}
 
-        virtual void OnPostRender(RenderScene& scene) = 0;
+        virtual void OnPostRender(RenderScene& scene) {}
     };
 
 }

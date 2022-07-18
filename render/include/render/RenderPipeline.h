@@ -4,26 +4,40 @@
 
 
 #pragma once
-#include <vulkan/Swapchain.h>
 #include <memory>
+#include <vulkan/Semaphore.h>
+#include <vulkan/CommandBuffer.h>
+#include <vulkan/CommandPool.h>
 
 namespace sky {
 
     class RenderScene;
     class RenderGraph;
+    class RenderViewport;
 
     class RenderPipeline  {
     public:
         RenderPipeline() = default;
         virtual ~RenderPipeline() = default;
 
-        void SetSwapChain(drv::SwapChainPtr swc)
-        {
-            swapChain = swc;
-        }
+        virtual void BeginFrame() {}
+
+        virtual void DoFrame() {}
+
+        virtual void EndFrame() {}
+
+        void Setup(RenderViewport& vp);
+
+        virtual void ViewportChange(RenderViewport& vp) {}
 
     protected:
-        drv::SwapChainPtr swapChain;
+        RenderViewport* viewport = nullptr;
+
+        drv::SemaphorePtr imageAvailable;
+        drv::SemaphorePtr renderFinish;
+        drv::CommandPoolPtr commandPool;
+        drv::CommandBufferPtr commandBuffer;
+        drv::Queue* graphicsQueue;
     };
     using RDPipeline = std::shared_ptr<RenderPipeline>;
 

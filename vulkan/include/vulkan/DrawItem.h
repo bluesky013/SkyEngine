@@ -43,19 +43,19 @@ namespace sky::drv {
     };
 
     struct DrawItem {
-        uint8_t vertexBufferCount  = 0;
-        uint8_t viewportCount      = 0;
-        uint8_t scissorCount       = 0;
-        uint8_t descriptorSetCount = 0;
-        GraphicsPipelinePtr pso;
+        uint16_t vertexBufferCount         = 0;
+        uint16_t viewportCount             = 0;
+        uint16_t scissorCount              = 0;
+        uint16_t descriptorSetCount        = 0;
         DescriptorSetPtr*   descriptorSets = nullptr;
-        CmdDraw*            drawArgs = nullptr;
-        BufferView*         indexBuffer = nullptr;
-        BufferView*         vertexBuffer = nullptr;
-        VkViewport*         viewport = nullptr;
-        VkRect2D*           scissor = nullptr;
-        CmdStencil*         stencil = nullptr;
-        uint8_t*            pushConstants = nullptr;
+        CmdDraw*            drawArgs       = nullptr;
+        BufferView*         indexBuffer    = nullptr;
+        BufferView*         vertexBuffer   = nullptr;
+        VkViewport*         viewport       = nullptr;
+        VkRect2D*           scissor        = nullptr;
+        CmdStencil*         stencil        = nullptr;
+        uint8_t*            pushConstants  = nullptr;
+        GraphicsPipelinePtr pso;
     };
 
 }

@@ -10,10 +10,10 @@
 
 namespace sky {
 
-    class MeshBatch {
+    class RenderMeshBatch {
     public:
-        MeshBatch() = default;
-        ~MeshBatch() = default;
+        RenderMeshBatch() = default;
+        ~RenderMeshBatch() = default;
     };
 
 }
