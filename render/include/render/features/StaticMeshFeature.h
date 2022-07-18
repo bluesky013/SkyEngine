@@ -5,6 +5,8 @@
 #pragma once
 
 #include <render/RenderFeature.h>
+#include <render/StaticMesh.h>
+#include <core/util/Macros.h>
 
 namespace sky {
 
@@ -13,13 +15,18 @@ namespace sky {
         StaticMeshFeature() = default;
         ~StaticMeshFeature() = default;
 
-        void OnPrepareView(RenderScene& scene) override;
+        SKY_DISABLE_COPY(StaticMeshFeature)
+
+        StaticMesh* Create();
+
+        void Release(StaticMesh* mesh);
 
         void GatherRenderItem(RenderScene& scene) override;
 
         void OnRender(RenderScene& scene) override;
 
-        void OnPostRender(RenderScene& scene) override;
+    private:
+        std::vector<StaticMeshPtr> meshes;
     };
 
 }

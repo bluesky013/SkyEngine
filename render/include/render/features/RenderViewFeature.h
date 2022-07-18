@@ -5,6 +5,7 @@
 #pragma once
 
 #include <render/RenderFeature.h>
+#include <render/RenderView.h>
 
 namespace sky {
 
@@ -13,13 +14,18 @@ namespace sky {
         RenderViewFeature() = default;
         ~RenderViewFeature() = default;
 
-        void OnPrepareView(RenderScene& scene) override;
+        RDViewPtr CreateView();
 
-        void GatherRenderItem(RenderScene& scene) override;
+        void RemoveView(RDViewPtr view);
+
+        void OnPrepareView(RenderScene& scene) override;
 
         void OnRender(RenderScene& scene) override;
 
         void OnPostRender(RenderScene& scene) override;
+
+    private:
+        std::list<RDViewPtr> views;
     };
 
 }

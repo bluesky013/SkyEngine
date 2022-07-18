@@ -6,9 +6,21 @@
 
 namespace sky {
 
-    void StaticMeshFeature::OnPrepareView(RenderScene& scene)
+    StaticMesh* StaticMeshFeature::Create()
     {
+        meshes.emplace_back(std::make_unique<StaticMesh>());
+        auto mesh = meshes.back().get();
+        return mesh;
+    }
 
+    void StaticMeshFeature::Release(StaticMesh* mesh)
+    {
+        auto iter = std::find_if(meshes.begin(), meshes.end(), [mesh](StaticMeshPtr& rhs) {
+            return mesh == rhs.get();
+        });
+        if (iter != meshes.end()) {
+            meshes.erase(iter);
+        }
     }
 
     void StaticMeshFeature::GatherRenderItem(RenderScene& scene)
@@ -17,11 +29,6 @@ namespace sky {
     }
 
     void StaticMeshFeature::OnRender(RenderScene& scene)
-    {
-
-    }
-
-    void StaticMeshFeature::OnPostRender(RenderScene& scene)
     {
 
     }
