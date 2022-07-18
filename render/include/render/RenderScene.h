@@ -10,6 +10,7 @@
 #include <render/RenderPipeline.h>
 #include <render/RenderSceneProxy.h>
 #include <render/RenderFeature.h>
+#include <core/type/Rtti.h>
 
 namespace sky {
 
@@ -26,18 +27,32 @@ namespace sky {
 
         void AddView(RDViewPtr view);
 
-        void RegisterFeature(RenderFeature* feature);
-
         const std::vector<RDViewPtr>& GetViews() const;
 
         void Setup(RenderViewport& viewport);
 
         void ViewportChange(RenderViewport& viewport);
 
+        template <typename T, typename ...Args>
+        void RegisterFeature(Args&& ...args)
+        {
+            features.emplace(TypeInfo<T>::Hash(), std::make_unique<T>(std::forward<Args>(args)...));
+        }
+
+        template <typename T>
+        T* GetFeature()
+        {
+            auto iter = features.find(TypeInfo<T>::Hash());
+            if (iter == features.end()) {
+                return nullptr;
+            }
+            return static_cast<T*>(iter->second.get());
+        }
+
     private:
         RDPipeline pipeline;
         std::vector<RDViewPtr> views;
-        std::vector<std::unique_ptr<RenderFeature>> features;
+        std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 }

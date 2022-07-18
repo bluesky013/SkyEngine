@@ -14,7 +14,7 @@ namespace sky {
     {
         views.clear();
         for (auto& feature : features) {
-            feature->OnPrepareView(*this);
+            feature.second->OnPrepareView(*this);
         }
         if (pipeline) {
             pipeline->BeginFrame();
@@ -24,7 +24,7 @@ namespace sky {
     void RenderScene::OnPostRender()
     {
         for (auto& feature : features) {
-            feature->OnPostRender(*this);
+            feature.second->OnPostRender(*this);
         }
 
         if (pipeline) {
@@ -35,8 +35,8 @@ namespace sky {
     void RenderScene::OnRender()
     {
         for (auto& feature : features) {
-            feature->GatherRenderItem(*this);
-            feature->OnRender(*this);
+            feature.second->GatherRenderItem(*this);
+            feature.second->OnRender(*this);
         }
 
         if (pipeline) {
@@ -64,10 +64,5 @@ namespace sky {
     void RenderScene::ViewportChange(RenderViewport& viewport)
     {
         pipeline->ViewportChange(viewport);
-    }
-
-    void RenderScene::RegisterFeature(RenderFeature* feature)
-    {
-        features.emplace_back(std::unique_ptr<RenderFeature>(feature));
     }
 }

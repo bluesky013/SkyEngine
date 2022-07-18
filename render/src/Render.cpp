@@ -6,8 +6,9 @@
 #include <render/Render.h>
 #include <render/DriverManager.h>
 #include <render/DevObjManager.h>
-
 #include <core/logger/Logger.h>
+#include <render/features/RenderViewFeature.h>
+#include <render/features/StaticMeshFeature.h>
 
 static const char* TAG = "Render";
 
@@ -46,6 +47,8 @@ namespace sky {
 
     void Render::AddScene(RDScenePtr scene)
     {
+        scene->RegisterFeature<RenderViewFeature>();
+        scene->RegisterFeature<StaticMeshFeature>();
         scenes.emplace_back(scene);
     }
 }
