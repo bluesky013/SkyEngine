@@ -30,7 +30,9 @@ namespace sky {
 
         const std::vector<RDViewPtr>& GetViews() const;
 
-        void Setup();
+        void Setup(RenderViewport& viewport);
+
+        void ViewportChange(RenderViewport& viewport);
 
     private:
         RDPipeline pipeline;
