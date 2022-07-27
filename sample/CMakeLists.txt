@@ -1,4 +1,4 @@
 add_subdirectory(DrvTriangle)
-add_subdirectory(RDTriangle)
 add_subdirectory(MemoryAliasing)
 add_subdirectory(FrameGraph)
+add_subdirectory(RDSceneSample)

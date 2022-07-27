@@ -1,25 +1,23 @@
 //
-// Created by Zach Lee on 2022/6/16.
+// Created by Zach Lee on 2022/7/27.
 //
-
-
 #pragma once
 
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/window/NativeWindow.h>
-#include <render/Render.h>
+
 #include <render/RenderScene.h>
+#include <render/RenderView.h>
 #include <render/RenderViewport.h>
 
-namespace sky::render {
-    class NativeWindow;
+namespace sky {
+    class StaticMeshFeature;
 
-    class Triangle : public IModule {
+    class RDSceneSample : public IModule {
     public:
-        Triangle() = default;
-        ~Triangle() = default;
+        RDSceneSample() = default;
+        ~RDSceneSample() = default;
 
         void Init() override;
 
@@ -33,6 +31,8 @@ namespace sky::render {
         RDScenePtr scene;
         RDViewPtr mainCamera;
         RDViewportPtr viewport;
+
+        StaticMeshFeature* smFeature = nullptr;
     };
 
 }

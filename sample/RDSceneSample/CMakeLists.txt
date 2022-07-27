@@ -1,11 +1,10 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET RDTriangleSample SHARED
+sky_add_library(TARGET RDSceneSample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
-        TriangleModule.cpp
     PRIVATE_INC
         src
     PUBLIC_INC
@@ -15,4 +14,4 @@ sky_add_library(TARGET RDTriangleSample SHARED
         Framework
     )
 
-add_dependencies(Launcher RDTriangleSample)
+add_dependencies(Launcher RDSceneSample)

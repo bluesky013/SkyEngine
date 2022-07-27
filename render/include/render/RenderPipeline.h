@@ -12,7 +12,6 @@
 namespace sky {
 
     class RenderScene;
-    class RenderGraph;
     class RenderViewport;
 
     class RenderPipeline  {

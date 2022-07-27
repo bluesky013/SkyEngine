@@ -8,9 +8,8 @@ namespace sky {
 
     StaticMesh* StaticMeshFeature::Create()
     {
-        meshes.emplace_back(std::make_unique<StaticMesh>());
-        auto mesh = meshes.back().get();
-        return mesh;
+        meshes.emplace_back(new StaticMesh);
+        return meshes.back().get();
     }
 
     void StaticMeshFeature::Release(StaticMesh* mesh)
