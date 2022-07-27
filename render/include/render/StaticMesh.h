@@ -11,8 +11,11 @@ namespace sky {
 
     class StaticMesh : public RenderMesh {
     public:
-        StaticMesh() = default;
         ~StaticMesh() = default;
+
+    private:
+        friend class StaticMeshFeature;
+        StaticMesh() = default;
     };
 
     using StaticMeshPtr = std::unique_ptr<StaticMesh>;

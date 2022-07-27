@@ -10,6 +10,7 @@
 #include <render/RenderPipeline.h>
 #include <render/RenderSceneProxy.h>
 #include <render/RenderFeature.h>
+#include <render/RenderMesh.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
@@ -34,9 +35,10 @@ namespace sky {
         void ViewportChange(RenderViewport& viewport);
 
         template <typename T, typename ...Args>
-        void RegisterFeature(Args&& ...args)
+        T* RegisterFeature(Args&& ...args)
         {
-            features.emplace(TypeInfo<T>::Hash(), std::make_unique<T>(std::forward<Args>(args)...));
+            auto iter = features.emplace(TypeInfo<T>::Hash(), std::make_unique<T>(std::forward<Args>(args)...));
+            return static_cast<T*>(iter.first->second.get());
         }
 
         template <typename T>

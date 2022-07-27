@@ -1,20 +1,23 @@
 //
-// Created by Zach Lee on 2022/6/16.
+// Created by Zach Lee on 2022/7/27.
 //
 
+#include <RDSceneSample.h>
+#include <render/Render.h>
+#include <render/features/StaticMeshFeature.h>
+#include <framework/window/NativeWindow.h>
 
-#include <Triangle.h>
+namespace sky {
 
-namespace sky::render {
-
-    void Triangle::Init()
+    void RDSceneSample::Init()
     {
         StartInfo info = {};
-        info.appName = "RDTriangle";
+        info.appName = "RDSceneSample";
+
         Render::Get()->Init(info);
     }
 
-    void Triangle::Start()
+    void RDSceneSample::Start()
     {
         mainCamera = std::make_shared<RenderView>();
         scene = std::make_shared<RenderScene>();
@@ -30,20 +33,17 @@ namespace sky::render {
         Render::Get()->AddScene(scene);
     }
 
-    void Triangle::Stop()
+    void RDSceneSample::Stop()
     {
-        viewport->Shutdown();
-        viewport = nullptr;
         scene = nullptr;
-        mainCamera = nullptr;
-
         Render::Get()->Destroy();
     }
 
-    void Triangle::Tick(float delta)
+    void RDSceneSample::Tick(float delta)
     {
         Render::Get()->OnTick(delta);
     }
 
-
 }
+
+REGISTER_MODULE(sky::RDSceneSample)

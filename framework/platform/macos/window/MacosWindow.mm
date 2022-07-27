@@ -33,10 +33,6 @@ namespace sky {
 
         void* GetNativeHandle() const override { return handle.contentView; };
 
-        void SetEventHandler(IWindowEvent& h) override
-        {
-            handler = &h;
-        }
         NSWindow* handle = nil;
         NSString* title = nil;
         MacosViewController* controller = nullptr;
@@ -132,6 +128,11 @@ namespace sky {
 {
 }
 @end
+
+extern "C" SKY_EXPORT void AttachEnvironment(sky::Environment* env)
+{
+    sky::Environment::Attach(env);
+}
 
 extern "C" SKY_EXPORT sky::NativeWindowImpl* CreateNativeWindow(const sky::NativeWindow::Descriptor& des)
 {
