@@ -28,7 +28,7 @@ namespace sky {
         void OnPostRender(RenderScene& scene) override;
 
     private:
-        std::vector<RDCameraPtr> cameras;
+        std::vector<std::unique_ptr<RenderCamera>> cameras;
     };
 
 }

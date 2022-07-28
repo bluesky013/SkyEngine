@@ -8,11 +8,13 @@
 #include <framework/interface/Interface.h>
 
 #include <render/RenderScene.h>
-#include <render/RenderView.h>
 #include <render/RenderViewport.h>
+#include <render/RenderCamera.h>
+#include <render/StaticMesh.h>
 
 namespace sky {
     class StaticMeshFeature;
+    class CameraFeature;
 
     class RDSceneSample : public IModule {
     public:
@@ -29,9 +31,11 @@ namespace sky {
 
     private:
         RDScenePtr scene;
-        RDViewPtr mainCamera;
         RDViewportPtr viewport;
+        RenderCamera* mainCamera = nullptr;
+        StaticMesh* mesh = nullptr;
 
+        CameraFeature* cmFeature = nullptr;
         StaticMeshFeature* smFeature = nullptr;
     };
 

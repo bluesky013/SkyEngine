@@ -16,6 +16,10 @@ namespace sky {
 
         inline RDViewPtr GetView() const { return renderView; }
 
+        void SetTransform(const Matrix4& transform);
+
+        void SetProjectMatrix(const Matrix4& projectMatrix);
+
     private:
         friend class CameraFeature;
         RenderCamera() = default;
@@ -23,8 +27,13 @@ namespace sky {
         void Init();
 
         bool active = true;
+
+        Vector3 position;
+        Matrix4 viewToWorldMatrix;
+        Matrix4 worldToViewMatrix;
+        Matrix4 viewToClipMatrix;
+        Matrix4 worldToClipMatrix;
+
         RDViewPtr renderView;
     };
-    using RDCameraPtr = std::unique_ptr<RenderCamera>;
-
 }

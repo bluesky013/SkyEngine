@@ -21,12 +21,9 @@ namespace sky {
 
     void CameraFeature::Release(RenderCamera* camera)
     {
-        auto iter = std::find_if(cameras.begin(), cameras.end(), [&camera](RDCameraPtr & v) {
-            return camera == v.get();
-        });
-        if (iter != cameras.end()) {
-            cameras.erase(iter);
-        }
+        cameras.erase(std::remove_if(cameras.begin(), cameras.end(),[camera](auto& ptr) {
+            return ptr.get() == camera;
+        }), cameras.end());
     }
 
     void CameraFeature::OnPrepareView(RenderScene& scene)
