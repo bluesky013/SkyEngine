@@ -10,7 +10,7 @@
 #include <stb_image.h>
 
 namespace sky {
-        void Image::InitRHI()
+    void Image::InitRHI()
     {
         if (rhiImage) {
             return;

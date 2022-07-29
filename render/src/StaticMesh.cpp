@@ -3,3 +3,12 @@
 //
 
 #include <render/StaticMesh.h>
+
+namespace sky {
+
+    void StaticMesh::SetMesh(RDMeshPtr m)
+    {
+        mesh = m;
+    }
+
+}

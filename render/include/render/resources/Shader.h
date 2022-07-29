@@ -8,10 +8,17 @@
 #include <render/resources/RenderResource.h>
 #include <vulkan/Shader.h>
 #include <vulkan/PipelineLayout.h>
+#include <vulkan/GraphicsPipeline.h>
 
 #include <string>
 
 namespace sky {
+
+    struct VertexInputInfo {
+        std::string name;
+        uint32_t location = 0;
+        VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    };
 
     class Shader : public RenderResource {
     public:
@@ -30,6 +37,8 @@ namespace sky {
 
         bool IsValid() const override;
 
+        drv::ShaderPtr GetShader() const;
+
         using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
         const DescriptorTable& GetDescriptorTable() const;
 
@@ -39,7 +48,7 @@ namespace sky {
         Descriptor descriptor;
         std::vector<uint32_t> spv;
         drv::ShaderPtr rhiShader;
-
+        std::vector<VertexInputInfo> vertexInputInfo;
         DescriptorTable descriptorTable;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
@@ -52,6 +61,8 @@ namespace sky {
         void InitRHI() override;
 
         drv::PipelineLayoutPtr GetPipelineLayout() const;
+
+        void FillProgram(drv::GraphicsPipeline::Program& program);
 
     protected:
         std::vector<RDShaderPtr> shaders;

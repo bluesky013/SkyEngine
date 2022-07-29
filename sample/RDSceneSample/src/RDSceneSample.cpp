@@ -5,7 +5,11 @@
 #include <RDSceneSample.h>
 #include <render/Render.h>
 #include <render/features/StaticMeshFeature.h>
+#include <render/features/CameraFeature.h>
 #include <framework/window/NativeWindow.h>
+#include <render/RenderCamera.h>
+#include <render/resources/Technique.h>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
@@ -19,18 +23,48 @@ namespace sky {
 
     void RDSceneSample::Start()
     {
-        mainCamera = std::make_shared<RenderView>();
         scene = std::make_shared<RenderScene>();
-        scene->AddView(mainCamera);
+        Render::Get()->AddScene(scene);
 
         viewport = std::make_unique<RenderViewport>();
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+
         RenderViewport::ViewportInfo info = {};
         info.wHandle = nativeWindow->GetNativeHandle();
         viewport->Setup(info);
         viewport->SetScene(scene);
+        auto& ext = viewport->GetSwapChain()->GetExtent();
 
-        Render::Get()->AddScene(scene);
+        cmFeature = scene->GetFeature<CameraFeature>();
+        smFeature = scene->GetFeature<StaticMeshFeature>();
+
+        mainCamera = cmFeature->Create();
+        mainCamera->SetProjectMatrix(glm::perspective(
+            60 / 180.f * 3.14f,
+            ext.width / static_cast<float>(ext.height),
+            0.01f,
+            100.f)
+        );
+
+        mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
+
+        mesh = smFeature->Create();
+        Matrix4 transform = glm::identity<Matrix4>();
+        transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
+        transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
+
+        MathUtil::PrintMatrix(transform);
+
+        mesh->SetWorldMatrix(transform);
+
+        // init material
+        auto colorTable = std::make_shared<GraphicsShaderTable>();
+        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
+        colorTable->InitRHI();
+
+        auto colorTech = std::make_shared<GraphicsTechnique>();
+        colorTech->SetShaderTable(colorTable);
+
     }
 
     void RDSceneSample::Stop()

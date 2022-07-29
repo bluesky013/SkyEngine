@@ -5,7 +5,7 @@
 #pragma once
 
 #include <render/RenderMesh.h>
-#include <memory>
+#include <render/resources/Mesh.h>
 
 namespace sky {
 
@@ -13,11 +13,15 @@ namespace sky {
     public:
         ~StaticMesh() = default;
 
+        void SetMesh(RDMeshPtr);
+
     private:
         friend class StaticMeshFeature;
         StaticMesh() = default;
-    };
+        RDMeshPtr mesh;
 
-    using StaticMeshPtr = std::unique_ptr<StaticMesh>;
+        drv::VertexInputPtr standard;
+        drv::VertexInputPtr positionOnly;
+    };
 
 }

@@ -26,7 +26,7 @@ namespace sky {
         void OnRender(RenderScene& scene) override;
 
     private:
-        std::vector<StaticMeshPtr> meshes;
+        std::vector<std::unique_ptr<RenderMesh>> meshes;
     };
 
 }

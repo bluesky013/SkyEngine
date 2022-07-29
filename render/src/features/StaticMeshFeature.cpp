@@ -8,18 +8,15 @@ namespace sky {
 
     StaticMesh* StaticMeshFeature::Create()
     {
-        meshes.emplace_back(new StaticMesh);
-        return meshes.back().get();
+        meshes.emplace_back(new StaticMesh());
+        return static_cast<StaticMesh*>(meshes.back().get());
     }
 
     void StaticMeshFeature::Release(StaticMesh* mesh)
     {
-        auto iter = std::find_if(meshes.begin(), meshes.end(), [mesh](StaticMeshPtr& rhs) {
-            return mesh == rhs.get();
-        });
-        if (iter != meshes.end()) {
-            meshes.erase(iter);
-        }
+        meshes.erase(std::remove_if(meshes.begin(), meshes.end(),[mesh](auto& ptr) {
+            return ptr.get() == mesh;
+        }), meshes.end());
     }
 
     void StaticMeshFeature::GatherRenderItem(RenderScene& scene)

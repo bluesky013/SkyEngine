@@ -13,8 +13,11 @@
 namespace sky {
 
     struct SubMesh {
-        uint32_t offset = 0;
-        uint32_t count  = 0;
+        uint32_t firstVertex = 0;
+        uint32_t vertexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
+
         Box aabb;
         RDMaterialPtr material;
     };

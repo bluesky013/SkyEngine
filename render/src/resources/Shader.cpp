@@ -40,6 +40,11 @@ namespace sky {
         return !!rhiShader;
     }
 
+    drv::ShaderPtr Shader::GetShader() const
+    {
+        return rhiShader;
+    }
+
     const Shader::DescriptorTable& Shader::GetDescriptorTable() const
     {
         return descriptorTable;
@@ -49,7 +54,8 @@ namespace sky {
     {
         spirv_cross::Compiler compiler(spv.data(), spv.size());
 
-        auto fn = [&compiler, this](spirv_cross::SmallVector<spirv_cross::Resource>& resources, VkDescriptorType type) {
+        using SpvResources = spirv_cross::SmallVector<spirv_cross::Resource>;
+        auto fn = [&compiler, this](const SpvResources& resources, VkDescriptorType type) {
             for (auto& res : resources) {
                 auto set = compiler.get_decoration(res.id, spv::DecorationDescriptorSet);
                 auto binding = compiler.get_decoration(res.id, spv::DecorationBinding);
@@ -67,6 +73,29 @@ namespace sky {
         fn(resources.storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         fn(resources.sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         fn(resources.storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+        if (descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT) {
+            auto fn = [&compiler, this](const SpvResources& resources) {
+                for (auto& res : resources) {
+                    vertexInputInfo.emplace_back();
+                    auto& info = vertexInputInfo.back();
+
+                    info.location = compiler.get_decoration(res.id, spv::DecorationLocation);
+                    info.name = compiler.get_name(res.id);
+                    auto& type = compiler.get_type(res.type_id);
+                    if (type.basetype == spirv_cross::SPIRType::Float) {
+                        if (type.vecsize == 4) {
+                            info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                        } if (type.vecsize == 3) {
+                            info.format = VK_FORMAT_R32G32B32_SFLOAT;
+                        } if (type.vecsize == 2) {
+                            info.format = VK_FORMAT_R32G32_SFLOAT;
+                        }
+                    }
+                }
+            };
+            fn(resources.stage_inputs);
+        }
     }
 
     void ShaderTable::InitRHI()
@@ -100,6 +129,13 @@ namespace sky {
         return pipelineLayout;
     }
 
+    void ShaderTable::FillProgram(drv::GraphicsPipeline::Program& program)
+    {
+        for (auto& shader : shaders) {
+            program.shaders.emplace_back(shader->GetShader());
+        }
+    }
+
     void GraphicsShaderTable::LoadShader(const std::string &vsPath, const std::string &fsPath)
     {
         vs = std::make_shared<Shader>(Shader::Descriptor{VK_SHADER_STAGE_VERTEX_BIT});
@@ -118,5 +154,4 @@ namespace sky {
     {
         return vs && fs;
     }
-
 }

@@ -6,6 +6,7 @@
 
 #include <render/resources/RenderResource.h>
 #include <render/resources/Shader.h>
+#include <render/resources/Pass.h>
 #include <vulkan/GraphicsPipeline.h>
 
 namespace sky {
@@ -22,9 +23,20 @@ namespace sky {
         GraphicsTechnique() = default;
         ~GraphicsTechnique() = default;
 
+        void SetShaderTable(RDGfxShaderTablePtr);
+
+        void SetRenderPass(RDPassPtr pass);
+
+        void InitRHI() override;
+
+        bool IsValid() const override;
+
     private:
         RDGfxShaderTablePtr table;
+        RDPassPtr pass;
         drv::GraphicsPipeline::State pipelineState;
+        drv::GraphicsPipeline::Program program;
+        drv::GraphicsPipelinePtr pso;
     };
     using RDGfxTechniquePtr = std::shared_ptr<GraphicsTechnique>;
 
