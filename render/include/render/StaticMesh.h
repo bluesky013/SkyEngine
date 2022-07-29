@@ -13,10 +13,15 @@ namespace sky {
     public:
         ~StaticMesh() = default;
 
+        void SetMesh(RDMeshPtr);
+
     private:
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
+
+        drv::VertexInputPtr standard;
+        drv::VertexInputPtr positionOnly;
     };
 
 }

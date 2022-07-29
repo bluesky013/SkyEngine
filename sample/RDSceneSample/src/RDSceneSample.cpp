@@ -8,6 +8,8 @@
 #include <render/features/CameraFeature.h>
 #include <framework/window/NativeWindow.h>
 #include <render/RenderCamera.h>
+#include <render/resources/Technique.h>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
@@ -51,7 +53,18 @@ namespace sky {
         transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
         transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
 
+        MathUtil::PrintMatrix(transform);
+
         mesh->SetWorldMatrix(transform);
+
+        // init material
+        auto colorTable = std::make_shared<GraphicsShaderTable>();
+        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
+        colorTable->InitRHI();
+
+        auto colorTech = std::make_shared<GraphicsTechnique>();
+        colorTech->SetShaderTable(colorTable);
+
     }
 
     void RDSceneSample::Stop()
