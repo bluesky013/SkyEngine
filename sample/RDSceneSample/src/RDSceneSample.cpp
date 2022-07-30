@@ -3,13 +3,22 @@
 //
 
 #include <RDSceneSample.h>
+
+#include <core/math/MathUtil.h>
+
+#include <framework/window/NativeWindow.h>
+
 #include <render/Render.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
-#include <framework/window/NativeWindow.h>
+
 #include <render/RenderCamera.h>
+
 #include <render/resources/Technique.h>
-#include <core/math/MathUtil.h>
+#include <render/resources/Material.h>
+
+#include <render/shapes/ShapeManager.h>
+#include <render/shapes/RenderShape.h>
 
 namespace sky {
 
@@ -33,7 +42,8 @@ namespace sky {
         info.wHandle = nativeWindow->GetNativeHandle();
         viewport->Setup(info);
         viewport->SetScene(scene);
-        auto& ext = viewport->GetSwapChain()->GetExtent();
+        auto swapChain = viewport->GetSwapChain();
+        auto& ext = swapChain->GetExtent();
 
         cmFeature = scene->GetFeature<CameraFeature>();
         smFeature = scene->GetFeature<StaticMeshFeature>();
@@ -48,23 +58,36 @@ namespace sky {
 
         mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
 
-        mesh = smFeature->Create();
+        staticMesh = smFeature->Create();
         Matrix4 transform = glm::identity<Matrix4>();
         transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
         transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
 
         MathUtil::PrintMatrix(transform);
-
-        mesh->SetWorldMatrix(transform);
+        staticMesh->SetWorldMatrix(transform);
 
         // init material
         auto colorTable = std::make_shared<GraphicsShaderTable>();
         colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
         colorTable->InitRHI();
 
+        auto pass = std::make_shared<Pass>();
+        SubPassInfo subPassInfo = {};
+        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_1_BIT});
+        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_SAMPLE_COUNT_1_BIT};
+        pass->AddSubPass(subPassInfo);
+        pass->InitRHI();
+
         auto colorTech = std::make_shared<GraphicsTechnique>();
         colorTech->SetShaderTable(colorTable);
+        colorTech->SetRenderPass(pass);
 
+        auto material = std::make_shared<Material>();
+        material->AddTechnique(colorTech);
+
+        auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
+        auto mesh = plane->CreateMesh(material);
+        staticMesh->SetMesh(mesh);
     }
 
     void RDSceneSample::Stop()

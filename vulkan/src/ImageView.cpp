@@ -13,8 +13,8 @@ namespace sky::drv {
 
     ImageView::ImageView(Device& dev)
         : DevObject(dev)
-        , image(VK_NULL_HANDLE)
-        , view(VK_NULL_HANDLE)
+        , source{}
+        , view{VK_NULL_HANDLE}
         , viewInfo{}
     {
     }
@@ -29,7 +29,7 @@ namespace sky::drv {
     bool ImageView::Init(const Descriptor& des)
     {
         viewInfo.sType      = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image      = image;
+        viewInfo.image      = source->GetNativeHandle();
         viewInfo.viewType   = des.viewType;
         viewInfo.format     = des.format;
         viewInfo.components = des.components;
@@ -73,5 +73,15 @@ namespace sky::drv {
         desc.format = format;
         desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
         return desc;
+    }
+
+    std::shared_ptr<ImageView> ImageView::CreateImageView(ImagePtr image, ImageView::Descriptor& des)
+    {
+        ImageViewPtr ptr = std::make_shared<ImageView>(image->device);
+        ptr->source = image;
+        if (ptr->Init(des)) {
+            return ptr;
+        }
+        return {};
     }
 }

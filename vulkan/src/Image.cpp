@@ -77,16 +77,6 @@ namespace sky::drv {
         allocation = VK_NULL_HANDLE;
     }
 
-    ImageViewPtr Image::CreateImageView(const ImageView::Descriptor& des)
-    {
-        ImageViewPtr ptr = std::make_shared<ImageView>(device);
-        ptr->image = image;
-        if (ptr->Init(des)) {
-            return ptr;
-        }
-        return {};
-    }
-
     bool Image::IsTransient() const
     {
         return isTransient;

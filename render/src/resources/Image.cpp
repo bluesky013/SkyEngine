@@ -47,7 +47,7 @@ namespace sky {
     void Image::Update(const uint8_t* data, uint64_t size)
     {
         auto device = DriverManager::Get()->GetDevice();
-        auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
+        auto queue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
 
         drv::Buffer::Descriptor stagingDes = {};
         stagingDes.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;

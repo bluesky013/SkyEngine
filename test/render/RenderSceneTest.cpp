@@ -22,22 +22,4 @@ TEST(RenderSceneTest, ViewTest)
         auto& views = scene->GetViews();
         ASSERT_EQ(views.size(), 2);
     }
-
-    {
-        scene->RemoveView({});
-        auto& views = scene->GetViews();
-        ASSERT_EQ(views.size(), 2);
-    }
-
-    {
-        scene->RemoveView(view1);
-        auto& views = scene->GetViews();
-        ASSERT_EQ(views.size(), 1);
-    }
-
-    {
-        scene->RemoveView(view2);
-        auto& views = scene->GetViews();
-        ASSERT_EQ(views.size(), 0);
-    }
 }

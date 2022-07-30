@@ -165,7 +165,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < imageCount; ++i) {
             auto image = swapChain->GetImage(i);
-            colorViews[i] = image->CreateImageView(viewDesc);
+            colorViews[i] = drv::ImageView::CreateImageView(image, viewDesc);
             fbDesc.views = std::vector<drv::ImageViewPtr> {
                 colorViews[i]
             };

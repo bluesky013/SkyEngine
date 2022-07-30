@@ -15,6 +15,7 @@ namespace sky {
                 return VK_IMAGE_LAYOUT_UNDEFINED;
             case ImageBindFlag::COLOR:
             case ImageBindFlag::COLOR_RESOLVE:
+            case ImageBindFlag::INPUT:
                 return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             case ImageBindFlag::DEPTH_STENCIL:
                 return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -24,6 +25,8 @@ namespace sky {
                 return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             case ImageBindFlag::PRESENT:
                 return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            default:
+                break;
         }
         return VK_IMAGE_LAYOUT_GENERAL;
     }
@@ -52,6 +55,8 @@ namespace sky {
             case ImageBindFlag::DEPTH_STENCIL:
                 depthStencil = attachment;
                 AddClearValue(attachment);
+                break;
+            default:
                 break;
         }
     }

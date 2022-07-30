@@ -32,7 +32,8 @@ namespace sky {
         viewDesc.subResourceRange.levelCount = desc.levelCount;
         viewDesc.subResourceRange.baseArrayLayer = desc.baseArrayLayer;
         viewDesc.subResourceRange.layerCount = desc.layerCount;
-        auto imageView = image->GetRHIImage()->CreateImageView(viewDesc);
+        auto rhiImage = image->GetRHIImage();
+        auto imageView = drv::ImageView::CreateImageView(rhiImage, viewDesc);
 
         drv::Sampler::Descriptor sampDesc = {};
         if (desc.levelCount > 1) {

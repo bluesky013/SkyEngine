@@ -13,10 +13,10 @@ namespace sky {
     class Buffer : public RenderResource {
     public:
         struct Descriptor {
-            VkDeviceSize        size      = 0;
-            VkBufferUsageFlags  usage     = 0;
-            VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            bool                useHost   = false;
+            VkDeviceSize        size    = 0;
+            VkBufferUsageFlags  usage   = 0;
+            VmaMemoryUsage      memory  = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            bool                keepCPU = false;
         };
 
         Buffer(const Descriptor& desc);
@@ -26,9 +26,17 @@ namespace sky {
 
         bool IsValid() const override;
 
+        void Write(const uint8_t* data, uint64_t size, uint64_t offset = 0);
+
+        template <typename T>
+        void Write(const T& value, uint64_t offset)
+        {
+            Write(&value, sizeof(T), offset);
+        }
+
         void Update(const uint8_t* data, uint64_t size);
 
-        void Update();
+        void Update(bool release = false);
 
     protected:
         Descriptor descriptor;
@@ -37,9 +45,15 @@ namespace sky {
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;
 
-    struct BufferView {
+    class BufferView : public RenderResource {
+    public:
+        BufferView(RDBufferPtr buffer, uint32_t stride, uint32_t offset);
+        ~BufferView() = default;
+
+    private:
         RDBufferPtr buffer;
         uint32_t stride = 0;
         uint32_t offset = 0;
     };
+    using RDBufferViewPtr = std::shared_ptr<BufferView>;
 }

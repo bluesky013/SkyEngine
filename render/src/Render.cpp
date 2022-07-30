@@ -9,6 +9,7 @@
 #include <core/logger/Logger.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
+#include <render/shapes/ShapeManager.h>
 
 static const char* TAG = "Render";
 
@@ -16,6 +17,7 @@ namespace sky {
 
     Render::~Render()
     {
+        ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
         DriverManager::Get()->Destroy();
     }

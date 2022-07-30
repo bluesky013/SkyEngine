@@ -33,7 +33,7 @@ namespace sky {
         RDScenePtr scene;
         RDViewportPtr viewport;
         RenderCamera* mainCamera = nullptr;
-        StaticMesh* mesh = nullptr;
+        StaticMesh* staticMesh = nullptr;
 
         CameraFeature* cmFeature = nullptr;
         StaticMeshFeature* smFeature = nullptr;

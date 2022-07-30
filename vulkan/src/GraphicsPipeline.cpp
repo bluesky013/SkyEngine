@@ -22,6 +22,7 @@ namespace sky::drv {
         HashCombine32(hash, desc.pipelineLayout->GetHash());
         HashCombine32(hash, desc.renderPass->GetPsoHash());
         HashCombine32(hash, desc.vertexInput->GetHash());
+        HashCombine32(hash, desc.subPassIndex);
         return hash;
     }
 
@@ -134,7 +135,7 @@ namespace sky::drv {
 
         pipelineInfo.layout = des.pipelineLayout->GetNativeHandle();
         pipelineInfo.renderPass = des.renderPass->GetNativeHandle();
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = des.subPassIndex;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = 0;
 

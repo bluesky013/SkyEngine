@@ -20,7 +20,7 @@ namespace sky {
         viewDesc.format = imageInfo.format;
         viewDesc.subResourceRange = range;
         viewDesc.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        imageView = image->CreateImageView(viewDesc);
+        imageView = drv::ImageView::CreateImageView(image, viewDesc);
     }
 
     FrameGraphImageAttachment& FrameGraphImageAttachment::SetColorOp(VkAttachmentLoadOp load, VkAttachmentStoreOp store)

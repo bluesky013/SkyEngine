@@ -33,8 +33,6 @@ namespace sky {
         virtual void Tick(float) = 0;
 
         virtual void DeInit() = 0;
-
-        virtual IWindowEvent* GetEventHandler() = 0;
     };
 
 }
