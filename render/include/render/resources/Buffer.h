@@ -31,7 +31,7 @@ namespace sky {
         template <typename T>
         void Write(const T& value, uint64_t offset)
         {
-            Write(&value, sizeof(T), offset);
+            Write(reinterpret_cast<const uint8_t*>(&value), sizeof(T), offset);
         }
 
         void Update(const uint8_t* data, uint64_t size);
@@ -44,6 +44,7 @@ namespace sky {
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
         drv::BufferPtr rhiBuffer;
+        bool dirty = true;
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;
 
@@ -59,6 +60,16 @@ namespace sky {
         uint32_t GetSize() const;
 
         bool IsValid() const;
+
+        void RequestUpdate();
+
+        template <typename T>
+        void Write(const T& value, uint64_t off = 0)
+        {
+            if (buffer) {
+                buffer->Write(value, offset + off);
+            }
+        }
 
     private:
         RDBufferPtr buffer;

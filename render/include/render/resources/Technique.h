@@ -31,9 +31,19 @@ namespace sky {
 
         drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr vi, drv::ShaderOptionPtr option);
 
+        void SetViewTag(uint32_t tag);
+
+        void SetDrawTag(uint32_t tag);
+
+        uint32_t GetViewTag() const;
+
+        uint32_t GetDrawTag() const;
+
     private:
         RDGfxShaderTablePtr table;
         uint32_t subPassIndex = 0;
+        uint32_t viewTag = 0;
+        uint32_t drawTag = 0;
         RDPassPtr pass;
         drv::GraphicsPipeline::State pipelineState;
         std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> psoCache;

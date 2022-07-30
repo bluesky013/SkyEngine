@@ -27,8 +27,6 @@ namespace sky {
         void Init();
 
         bool active = true;
-
-        ViewInfo viewInfo;
         RDViewPtr renderView;
     };
 }

@@ -53,4 +53,24 @@ namespace sky {
         auto pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
         psoCache.emplace(hash, pso);
     }
+
+    void GraphicsTechnique::SetViewTag(uint32_t tag)
+    {
+        viewTag = tag;
+    }
+
+    void GraphicsTechnique::SetDrawTag(uint32_t tag)
+    {
+        drawTag = tag;
+    }
+
+    uint32_t GraphicsTechnique::GetViewTag() const
+    {
+        return viewTag;
+    }
+
+    uint32_t GraphicsTechnique::GetDrawTag() const
+    {
+        return drawTag;
+    }
 }

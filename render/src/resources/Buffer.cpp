@@ -40,10 +40,15 @@ namespace sky {
         }
         uint8_t* ptr = rawData.data() + offset;
         memcpy(ptr, data, size);
+        dirty = true;
     }
 
     void Buffer::Update(const uint8_t* data, uint64_t srcSize)
     {
+        if (!dirty) {
+            return;
+        }
+
         uint64_t validateSize = std::min(srcSize, descriptor.size);
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
@@ -72,6 +77,8 @@ namespace sky {
             memcpy(dst, data, validateSize);
             rhiBuffer->UnMap();
         }
+
+        dirty = false;
     }
 
     void Buffer::Update(bool release)
@@ -111,6 +118,13 @@ namespace sky {
     bool BufferView::IsValid() const
     {
         return buffer && buffer->IsValid();
+    }
+
+    void BufferView::RequestUpdate()
+    {
+        if (buffer) {
+            buffer->Update();
+        }
     }
 
 }

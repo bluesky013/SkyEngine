@@ -13,17 +13,12 @@ namespace sky {
 
     void RenderCamera::SetTransform(const Matrix4& transform)
     {
-        viewInfo.viewToWorldMatrix = transform;
-        viewInfo.worldToViewMatrix = glm::inverse(transform);
-        viewInfo.position.x = transform[3][0];
-        viewInfo.position.y = transform[3][1];
-        viewInfo.position.z = transform[3][2];
+        renderView->SetTransform(transform);
     }
 
     void RenderCamera::SetProjectMatrix(const Matrix4& projectMatrix)
     {
-        viewInfo.viewToClipMatrix = projectMatrix;
-        viewInfo.worldToClipMatrix = viewInfo.viewToClipMatrix * viewInfo.worldToViewMatrix;
+        renderView->SetProjectMatrix(projectMatrix);
     }
 
 }

@@ -21,11 +21,7 @@ namespace sky {
 
         void Release(RenderCamera* camera);
 
-        void OnPrepareView(RenderScene& scene) override;
-
-        void OnRender(RenderScene& scene) override;
-
-        void OnPostRender(RenderScene& scene) override;
+        void OnPreparePipeline(RenderScene& scene) override;
 
     private:
         std::vector<std::unique_ptr<RenderCamera>> cameras;

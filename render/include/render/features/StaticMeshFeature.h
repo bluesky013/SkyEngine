@@ -21,7 +21,7 @@ namespace sky {
 
         void Release(StaticMesh* mesh);
 
-        void GatherRenderItem(RenderScene& scene) override;
+        void GatherRenderMesh(RenderScene& scene) override;
 
     private:
         std::vector<std::unique_ptr<RenderMesh>> meshes;

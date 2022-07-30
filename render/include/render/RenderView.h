@@ -26,9 +26,19 @@ namespace sky {
         RenderView() = default;
         ~RenderView() = default;
 
-        void UpdateData();
+        void SetTransform(const Matrix4& transform);
+
+        void SetProjectMatrix(const Matrix4& projectMatrix);
+
+        const ViewInfo& GetViewInfo() const;
+
+        void SetViewTag(uint32_t tag);
+
+        uint32_t GetViewTag() const;
 
     private:
+        ViewInfo viewInfo;
+        uint32_t viewTag = 0;
     };
     using RDViewPtr = std::shared_ptr<RenderView>;
 

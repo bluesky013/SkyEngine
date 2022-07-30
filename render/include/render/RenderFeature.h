@@ -15,9 +15,9 @@ namespace sky {
         RenderFeature() = default;
         virtual ~RenderFeature() = default;
 
-        virtual void OnPrepareView(RenderScene& scene) {}
+        virtual void OnPreparePipeline(RenderScene& scene) {}
 
-        virtual void GatherRenderItem(RenderScene& scene) {}
+        virtual void GatherRenderMesh(RenderScene& scene) {}
 
         virtual void OnRender(RenderScene& scene) {}
 

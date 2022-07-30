@@ -9,20 +9,30 @@
 
 namespace sky {
 
+    struct ObjectInfo {
+        Matrix4 worldMatrix;
+        Matrix4 inverseTransposeMatrix;
+    };
+
     class RenderMesh {
     public:
         RenderMesh() = default;
         virtual ~RenderMesh() = default;
 
-        void SetWorldMatrix(const Matrix4& matrix)
+        inline void SetWorldMatrix(const Matrix4& matrix)
         {
-            worldMatrix = matrix;
-            inverseTransposeMatrix = glm::inverseTranspose(worldMatrix);
+            objectInfo.worldMatrix = matrix;
+            objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
+        }
+
+        inline void SetViewTag(uint32_t tag)
+        {
+            viewMask |= tag;
         }
 
     private:
-        Matrix4 worldMatrix;
-        Matrix4 inverseTransposeMatrix;
+        ObjectInfo objectInfo;
+        uint32_t viewMask = 0;
     };
     using RenderMeshPtr = std::shared_ptr<RenderMesh>;
 

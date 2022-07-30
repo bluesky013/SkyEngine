@@ -12,6 +12,7 @@
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
 #include <render/resources/DescirptorGroup.h>
+#include <render/resources/DescriptorPool.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
@@ -60,17 +61,21 @@ namespace sky {
 
         RDBufferViewPtr GetMainViewBuffer() const;
 
+        RDDescriptorPoolPtr GetObjectSetPool() const;
+
     private:
         void InitSceneResource();
 
         RDPipeline pipeline;
-        RDDesGroupPtr sceneSet;
+        RDDescriptorPoolPtr objectPool;
+        std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
 
+        // dynamic data
+        std::vector<RDViewPtr> views;
+        RDDesGroupPtr sceneSet;
         RDBufferViewPtr sceneInfo;
         RDBufferViewPtr mainViewInfo;
 
-        std::vector<RDViewPtr> views;
-        std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 }

@@ -8,6 +8,7 @@
 #include <render/DevObjManager.h>
 #include <render/RenderPipelineForward.h>
 #include <render/Render.h>
+#include <render/RenderConstants.h>
 
 namespace sky {
 
@@ -15,7 +16,11 @@ namespace sky {
     {
         views.clear();
         for (auto& feature : features) {
-            feature.second->OnPrepareView(*this);
+            feature.second->OnPreparePipeline(*this);
+        }
+
+        for (auto& feature : features) {
+            feature.second->GatherRenderMesh(*this);
         }
 
         if (pipeline) {
@@ -36,8 +41,10 @@ namespace sky {
 
     void RenderScene::OnRender()
     {
+        sceneInfo->RequestUpdate();
+        mainViewInfo->RequestUpdate();
+
         for (auto& feature : features) {
-            feature.second->GatherRenderItem(*this);
             feature.second->OnRender(*this);
         }
 
@@ -92,6 +99,13 @@ namespace sky {
         sceneSet->UpdateBuffer(0, mainViewInfo);
         sceneSet->UpdateBuffer(1, sceneInfo);
         sceneSet->Update();
+
+        drv::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
+        objSetLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT
+        });
+        auto objSetLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(objSetLayoutInfo);
+        objectPool = DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM});
     }
 
     RDBufferViewPtr RenderScene::GetSceneBuffer() const
@@ -102,5 +116,10 @@ namespace sky {
     RDBufferViewPtr RenderScene::GetMainViewBuffer() const
     {
         return mainViewInfo;
+    }
+
+    RDDescriptorPoolPtr RenderScene::GetObjectSetPool() const
+    {
+        return objectPool;
     }
 }

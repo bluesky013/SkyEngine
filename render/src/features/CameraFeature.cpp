@@ -26,23 +26,18 @@ namespace sky {
         }), cameras.end());
     }
 
-    void CameraFeature::OnPrepareView(RenderScene& scene)
+    void CameraFeature::OnPreparePipeline(RenderScene& scene)
     {
+        auto viewBuffer = scene.GetMainViewBuffer();
         for (auto& camera : cameras) {
             if (camera->IsActive()) {
-                scene.AddView(camera->GetView());
+                auto view = camera->GetView();
+                view->SetViewTag(MAIN_CAMERA_TAG);
+                scene.AddView(view);
+
+                viewBuffer->Write(view->GetViewInfo());
             }
         }
-    }
-
-    void CameraFeature::OnRender(RenderScene& scene)
-    {
-
-    }
-
-    void CameraFeature::OnPostRender(RenderScene& scene)
-    {
-
     }
 
 }
