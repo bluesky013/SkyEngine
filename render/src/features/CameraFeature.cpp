@@ -4,6 +4,7 @@
 
 #include <render/features/CameraFeature.h>
 #include <render/RenderScene.h>
+#include <render/RenderConstants.h>
 
 namespace sky {
 
@@ -12,8 +13,7 @@ namespace sky {
         cameras.emplace_back(new RenderCamera());
         auto camera = cameras.back().get();
         camera->Init();
-        // [CONSTANTS]
-        if (cameras.size() > 1) {
+        if (cameras.size() > MAX_ACTIVE_CAMERA) {
             camera->active = false;
         }
         return cameras.back().get();

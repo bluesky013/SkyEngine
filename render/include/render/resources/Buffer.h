@@ -38,6 +38,8 @@ namespace sky {
 
         void Update(bool release = false);
 
+        drv::BufferPtr GetRHIBuffer() const;
+
     protected:
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
@@ -47,13 +49,22 @@ namespace sky {
 
     class BufferView : public RenderResource {
     public:
-        BufferView(RDBufferPtr buffer, uint32_t stride, uint32_t offset);
+        BufferView(RDBufferPtr buffer, uint32_t offset, uint32_t size, uint32_t stride = 0);
         ~BufferView() = default;
+
+        RDBufferPtr GetBuffer() const;
+
+        uint32_t GetOffset() const;
+
+        uint32_t GetSize() const;
+
+        bool IsValid() const;
 
     private:
         RDBufferPtr buffer;
-        uint32_t stride = 0;
+        uint32_t size = 0;
         uint32_t offset = 0;
+        uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;
 }

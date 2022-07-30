@@ -18,16 +18,16 @@ namespace sky {
             uint32_t maxSet = 32;
         };
 
-        DescriptorPool(const Descriptor& desc) : descriptor(desc)
-        {
-        }
-
         ~DescriptorPool() = default;
 
         static std::shared_ptr<DescriptorPool> CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& desc);
 
         RDDesGroupPtr Allocate();
     private:
+        DescriptorPool(const Descriptor& desc) : descriptor(desc)
+        {
+        }
+
         drv::DescriptorSetPoolPtr CreateInternal();
 
         Descriptor descriptor;

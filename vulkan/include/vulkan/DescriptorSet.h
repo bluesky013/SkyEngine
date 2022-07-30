@@ -49,14 +49,27 @@ namespace sky::drv {
 
         static std::shared_ptr<DescriptorSet> Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout);
 
+        DescriptorSetLayoutPtr GetLayout() const;
+
     private:
         friend class DescriptorSetPool;
         DescriptorSetLayoutPtr layout;
         DescriptorSetPoolPtr pool;
         VkDescriptorSet handle = VK_NULL_HANDLE;
-        std::unordered_map<uint32_t, BufferPtr> buffers;
-        std::unordered_map<uint32_t, ImageViewPtr> views;
-        std::unordered_map<uint32_t, SamplerPtr> samplers;
+        bool dirty = false;
+        struct BufferView {
+            BufferPtr buffer;
+            uint32_t size = 0;
+            uint32_t offset = 0;
+        };
+
+        struct ImageSampler {
+            ImageViewPtr view;
+            SamplerPtr sampler;
+        };
+
+        std::unordered_map<uint32_t, BufferView> buffers;
+        std::unordered_map<uint32_t, ImageSampler> views;
     };
 
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;

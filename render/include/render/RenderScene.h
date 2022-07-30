@@ -11,9 +11,14 @@
 #include <render/RenderSceneProxy.h>
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
+#include <render/resources/DescirptorGroup.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
+
+    struct SceneInfo {
+        uint32_t lightCount;
+    };
 
     class RenderScene {
     public:
@@ -51,8 +56,19 @@ namespace sky {
             return static_cast<T*>(iter->second.get());
         }
 
+        RDBufferViewPtr GetSceneBuffer() const;
+
+        RDBufferViewPtr GetMainViewBuffer() const;
+
     private:
+        void InitSceneResource();
+
         RDPipeline pipeline;
+        RDDesGroupPtr sceneSet;
+
+        RDBufferViewPtr sceneInfo;
+        RDBufferViewPtr mainViewInfo;
+
         std::vector<RDViewPtr> views;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
     };

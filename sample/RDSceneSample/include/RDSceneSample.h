@@ -13,9 +13,6 @@
 #include <render/StaticMesh.h>
 
 namespace sky {
-    class StaticMeshFeature;
-    class CameraFeature;
-
     class RDSceneSample : public IModule {
     public:
         RDSceneSample() = default;
@@ -34,9 +31,6 @@ namespace sky {
         RDViewportPtr viewport;
         RenderCamera* mainCamera = nullptr;
         StaticMesh* staticMesh = nullptr;
-
-        CameraFeature* cmFeature = nullptr;
-        StaticMeshFeature* smFeature = nullptr;
     };
 
 }

@@ -11,4 +11,9 @@ namespace sky {
         mesh = m;
     }
 
+    void StaticMesh::Setup()
+    {
+
+    }
+
 }

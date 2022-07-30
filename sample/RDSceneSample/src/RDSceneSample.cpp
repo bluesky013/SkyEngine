@@ -45,8 +45,8 @@ namespace sky {
         auto swapChain = viewport->GetSwapChain();
         auto& ext = swapChain->GetExtent();
 
-        cmFeature = scene->GetFeature<CameraFeature>();
-        smFeature = scene->GetFeature<StaticMeshFeature>();
+        auto cmFeature = scene->GetFeature<CameraFeature>();
+        auto smFeature = scene->GetFeature<StaticMeshFeature>();
 
         mainCamera = cmFeature->Create();
         mainCamera->SetProjectMatrix(glm::perspective(

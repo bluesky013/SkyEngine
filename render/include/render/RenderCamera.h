@@ -28,12 +28,7 @@ namespace sky {
 
         bool active = true;
 
-        Vector3 position;
-        Matrix4 viewToWorldMatrix;
-        Matrix4 worldToViewMatrix;
-        Matrix4 viewToClipMatrix;
-        Matrix4 worldToClipMatrix;
-
+        ViewInfo viewInfo;
         RDViewPtr renderView;
     };
 }

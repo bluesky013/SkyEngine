@@ -23,9 +23,4 @@ namespace sky {
     {
 
     }
-
-    void StaticMeshFeature::OnRender(RenderScene& scene)
-    {
-
-    }
 }

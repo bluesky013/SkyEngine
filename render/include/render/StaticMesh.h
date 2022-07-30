@@ -16,12 +16,17 @@ namespace sky {
         void SetMesh(RDMeshPtr);
 
     private:
+        void Setup();
+
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
 
         drv::VertexInputPtr standard;
         drv::VertexInputPtr positionOnly;
+
+        // key : renderOption
+        std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> cachedPso;
     };
 
 }

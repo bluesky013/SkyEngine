@@ -80,11 +80,37 @@ namespace sky {
         rawData.clear();
     }
 
-    BufferView::BufferView(RDBufferPtr b, uint32_t s, uint32_t o)
-        : buffer(b)
-        , stride(s)
-        , offset(o)
+    drv::BufferPtr Buffer::GetRHIBuffer() const
     {
+        return rhiBuffer;
+    }
+
+    BufferView::BufferView(RDBufferPtr b, uint32_t sz, uint32_t o, uint32_t s)
+        : buffer(b)
+        , size(sz)
+        , offset(o)
+        , stride(s)
+    {
+    }
+
+    RDBufferPtr BufferView::GetBuffer() const
+    {
+        return buffer;
+    }
+
+    uint32_t BufferView::GetOffset() const
+    {
+        return offset;
+    }
+
+    uint32_t BufferView::GetSize() const
+    {
+        return size;
+    }
+
+    bool BufferView::IsValid() const
+    {
+        return buffer && buffer->IsValid();
     }
 
 }

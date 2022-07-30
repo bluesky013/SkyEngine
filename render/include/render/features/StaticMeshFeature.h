@@ -23,8 +23,6 @@ namespace sky {
 
         void GatherRenderItem(RenderScene& scene) override;
 
-        void OnRender(RenderScene& scene) override;
-
     private:
         std::vector<std::unique_ptr<RenderMesh>> meshes;
     };
