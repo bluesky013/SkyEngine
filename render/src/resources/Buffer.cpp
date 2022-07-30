@@ -10,7 +10,7 @@ namespace sky {
 
     Buffer::Buffer(const Descriptor& desc) : descriptor(desc)
     {
-        if (desc.useHost) {
+        if (desc.keepCPU) {
             rawData.resize(desc.size);
         }
     }
@@ -33,13 +33,22 @@ namespace sky {
         return !!rhiBuffer;
     }
 
+    void Buffer::Write(const uint8_t* data, uint64_t size, uint64_t offset)
+    {
+        if (size + offset > rawData.size()) {
+            return;
+        }
+        uint8_t* ptr = rawData.data() + offset;
+        memcpy(ptr, data, size);
+    }
+
     void Buffer::Update(const uint8_t* data, uint64_t srcSize)
     {
         uint64_t validateSize = std::min(srcSize, descriptor.size);
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
             auto device = DriverManager::Get()->GetDevice();
-            auto queue = device->GetQueue({VK_QUEUE_GRAPHICS_BIT});
+            auto queue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
 
             drv::Buffer::Descriptor stagingDes = {};
             stagingDes.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -65,10 +74,17 @@ namespace sky {
         }
     }
 
-    void Buffer::Update()
+    void Buffer::Update(bool release)
     {
         Update(rawData.data(), rawData.size());
+        rawData.clear();
     }
 
+    BufferView::BufferView(RDBufferPtr b, uint32_t s, uint32_t o)
+        : buffer(b)
+        , stride(s)
+        , offset(o)
+    {
+    }
 
 }

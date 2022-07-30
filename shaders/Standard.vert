@@ -2,11 +2,14 @@
 
 layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inNormal;
-layout (location = 2) in vec4 inColor;
+layout (location = 2) in vec4 inTangent;
+layout (location = 3) in vec4 inColor;
+layout (location = 4) in vec2 inUv;
 
 layout (location = 0) out vec3 outPos;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
+layout (location = 3) out vec2 outUv;
 
 layout (set = 0, binding = 0) uniform ObjectInfo {
     mat4 worldMatrix;
@@ -31,4 +34,6 @@ void main()
     outNormal = normalize(mat3(objectInfo.inverseTranspose) * inNormal.xyz);
     outColor = inColor;
     outPos = worldPos.xyz / worldPos.w;
+
+    outUv = inUv;
 }

@@ -12,12 +12,15 @@
 
 namespace sky {
 
-    struct SubMesh {
+    struct SubMeshDrawData {
         uint32_t firstVertex = 0;
         uint32_t vertexCount = 0;
         uint32_t firstIndex = 0;
         uint32_t indexCount = 0;
+    };
 
+    struct SubMesh {
+        SubMeshDrawData drawData;
         Box aabb;
         RDMaterialPtr material;
     };
@@ -35,23 +38,22 @@ namespace sky {
 
         class Builder {
         public:
-            Builder();
+            Builder(Mesh& m);
             ~Builder() = default;
 
-            Builder& SetIndexBuffer(const BufferView& buffer);
-            Builder& AddVertexBuffer(const BufferView& buffer);
+            Builder& SetIndexBuffer(const RDBufferViewPtr& buffer);
+            Builder& AddVertexBuffer(const RDBufferViewPtr& buffer);
             Builder& AddVertexDesc(const VertexDesc& desc);
             Builder& AddSubMesh(const SubMesh& mesh);
-            std::shared_ptr<Mesh> Build();
 
         private:
-            std::shared_ptr<Mesh> mesh;
+            Mesh& mesh;
         };
 
     private:
         friend class Builder;
-        BufferView indexBuffer;
-        std::vector<BufferView> vertexBuffers;
+        RDBufferViewPtr indexBuffer;
+        std::vector<RDBufferViewPtr> vertexBuffers;
         std::vector<VertexDesc> vertexDescriptions;
         std::vector<SubMesh> subMeshes;
     };

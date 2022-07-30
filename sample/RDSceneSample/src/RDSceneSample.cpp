@@ -3,14 +3,22 @@
 //
 
 #include <RDSceneSample.h>
+
+#include <core/math/MathUtil.h>
+
+#include <framework/window/NativeWindow.h>
+
 #include <render/Render.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
-#include <framework/window/NativeWindow.h>
+
 #include <render/RenderCamera.h>
+
 #include <render/resources/Technique.h>
 #include <render/resources/Material.h>
-#include <core/math/MathUtil.h>
+
+#include <render/shapes/ShapeManager.h>
+#include <render/shapes/RenderShape.h>
 
 namespace sky {
 
@@ -50,14 +58,13 @@ namespace sky {
 
         mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
 
-        mesh = smFeature->Create();
+        staticMesh = smFeature->Create();
         Matrix4 transform = glm::identity<Matrix4>();
         transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
         transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
 
         MathUtil::PrintMatrix(transform);
-
-        mesh->SetWorldMatrix(transform);
+        staticMesh->SetWorldMatrix(transform);
 
         // init material
         auto colorTable = std::make_shared<GraphicsShaderTable>();
@@ -77,6 +84,10 @@ namespace sky {
 
         auto material = std::make_shared<Material>();
         material->AddTechnique(colorTech);
+
+        auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
+        auto mesh = plane->CreateMesh(material);
+        staticMesh->SetMesh(mesh);
     }
 
     void RDSceneSample::Stop()

@@ -6,39 +6,31 @@
 
 namespace sky {
 
-    Mesh::Builder::Builder()
+    Mesh::Builder::Builder(Mesh& m) : mesh(m)
     {
-        mesh = std::make_shared<Mesh>();
     }
 
-    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const BufferView& buffer)
+    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer)
     {
-        mesh->indexBuffer = std::move(buffer);
+        mesh.indexBuffer = std::move(buffer);
         return *this;
     }
 
-    Mesh::Builder& Mesh::Builder::AddVertexBuffer(const BufferView& buffer)
+    Mesh::Builder& Mesh::Builder::AddVertexBuffer(const RDBufferViewPtr& buffer)
     {
-        mesh->vertexBuffers.emplace_back(buffer);
+        mesh.vertexBuffers.emplace_back(buffer);
         return *this;
     }
 
     Mesh::Builder& Mesh::Builder::AddVertexDesc(const VertexDesc& desc)
     {
-        mesh->vertexDescriptions.emplace_back(desc);
+        mesh.vertexDescriptions.emplace_back(desc);
         return *this;
     }
 
     Mesh::Builder& Mesh::Builder::AddSubMesh(const SubMesh& subMesh)
     {
-        mesh->subMeshes.emplace_back(subMesh);
+        mesh.subMeshes.emplace_back(subMesh);
         return *this;
     }
-
-    std::shared_ptr<Mesh> Mesh::Builder::Build()
-    {
-        return mesh;
-    }
-
-
 }
