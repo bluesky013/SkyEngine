@@ -11,9 +11,15 @@
 #include <render/RenderSceneProxy.h>
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
+#include <render/resources/DescirptorGroup.h>
+#include <render/resources/DescriptorPool.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
+
+    struct SceneInfo {
+        uint32_t lightCount;
+    };
 
     class RenderScene {
     public:
@@ -51,10 +57,25 @@ namespace sky {
             return static_cast<T*>(iter->second.get());
         }
 
+        RDBufferViewPtr GetSceneBuffer() const;
+
+        RDBufferViewPtr GetMainViewBuffer() const;
+
+        RDDescriptorPoolPtr GetObjectSetPool() const;
+
     private:
+        void InitSceneResource();
+
         RDPipeline pipeline;
-        std::vector<RDViewPtr> views;
+        RDDescriptorPoolPtr objectPool;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
+
+        // dynamic data
+        std::vector<RDViewPtr> views;
+        RDDesGroupPtr sceneSet;
+        RDBufferViewPtr sceneInfo;
+        RDBufferViewPtr mainViewInfo;
+
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 }

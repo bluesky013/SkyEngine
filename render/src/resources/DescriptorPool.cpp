@@ -12,7 +12,7 @@ namespace sky {
 
     std::shared_ptr<DescriptorPool> DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& descriptor)
     {
-        auto pool = std::make_shared<DescriptorPool>(descriptor);
+        auto pool = std::shared_ptr<DescriptorPool>(new DescriptorPool(descriptor));
         pool->layout = layout;
 
         auto& desTable = layout->GetDescriptorTable();
@@ -54,7 +54,7 @@ namespace sky {
 
         auto group = std::make_shared<DescriptorGroup>();
         group->set = result;
-
+        group->Init();
         return group;
     }
 

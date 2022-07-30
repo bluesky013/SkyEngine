@@ -8,6 +8,7 @@
 #include <render/RenderView.h>
 #include <core/environment/Singleton.h>
 #include <framework/interface/IEngine.h>
+#include <render/resources/DescriptorPool.h>
 
 namespace sky {
 
@@ -26,12 +27,18 @@ namespace sky {
 
         void AddScene(RDScenePtr scene);
 
+        RDDescriptorPoolPtr GetGlobalSetPool() const;
+
     private:
         friend class Singleton<Render>;
+
+        void InitGlobalPool();
+
         Render() = default;
         ~Render();
 
         std::vector<RDScenePtr> scenes;
+        RDDescriptorPoolPtr globalPool;
     };
 
 }

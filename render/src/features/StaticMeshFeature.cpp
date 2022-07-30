@@ -3,6 +3,7 @@
 //
 
 #include <render/features/StaticMeshFeature.h>
+#include <render/RenderScene.h>
 
 namespace sky {
 
@@ -19,13 +20,12 @@ namespace sky {
         }), meshes.end());
     }
 
-    void StaticMeshFeature::GatherRenderItem(RenderScene& scene)
+    void StaticMeshFeature::GatherRenderMesh(RenderScene& scene)
     {
+        auto& views = scene.GetViews();
 
-    }
+        for (auto& mesh : meshes) {
 
-    void StaticMeshFeature::OnRender(RenderScene& scene)
-    {
-
+        }
     }
 }

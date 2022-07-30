@@ -31,29 +31,51 @@ namespace sky {
         template <typename T>
         void Write(const T& value, uint64_t offset)
         {
-            Write(&value, sizeof(T), offset);
+            Write(reinterpret_cast<const uint8_t*>(&value), sizeof(T), offset);
         }
 
         void Update(const uint8_t* data, uint64_t size);
 
         void Update(bool release = false);
 
+        drv::BufferPtr GetRHIBuffer() const;
+
     protected:
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
         drv::BufferPtr rhiBuffer;
+        bool dirty = true;
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;
 
     class BufferView : public RenderResource {
     public:
-        BufferView(RDBufferPtr buffer, uint32_t stride, uint32_t offset);
+        BufferView(RDBufferPtr buffer, uint32_t offset, uint32_t size, uint32_t stride = 0);
         ~BufferView() = default;
+
+        RDBufferPtr GetBuffer() const;
+
+        uint32_t GetOffset() const;
+
+        uint32_t GetSize() const;
+
+        bool IsValid() const;
+
+        void RequestUpdate();
+
+        template <typename T>
+        void Write(const T& value, uint64_t off = 0)
+        {
+            if (buffer) {
+                buffer->Write(value, offset + off);
+            }
+        }
 
     private:
         RDBufferPtr buffer;
-        uint32_t stride = 0;
+        uint32_t size = 0;
         uint32_t offset = 0;
+        uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;
 }

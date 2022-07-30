@@ -6,7 +6,6 @@
 #pragma once
 
 #include <render/resources/Shader.h>
-#include <render/resources/DescirptorGroup.h>
 #include <core/math/Matrix.h>
 #include <core/math/Vector.h>
 #include <string>
@@ -14,15 +13,32 @@
 
 namespace sky {
 
+    struct ViewInfo {
+        Matrix4 viewToWorldMatrix;
+        Matrix4 worldToViewMatrix;
+        Matrix4 viewToClipMatrix;
+        Matrix4 worldToClipMatrix;
+        Vector3 position;
+    };
+
     class RenderView {
     public:
         RenderView() = default;
         ~RenderView() = default;
 
-        void UpdateData();
+        void SetTransform(const Matrix4& transform);
+
+        void SetProjectMatrix(const Matrix4& projectMatrix);
+
+        const ViewInfo& GetViewInfo() const;
+
+        void SetViewTag(uint32_t tag);
+
+        uint32_t GetViewTag() const;
 
     private:
-        RDDesGroupPtr group;
+        ViewInfo viewInfo;
+        uint32_t viewTag = 0;
     };
     using RDViewPtr = std::shared_ptr<RenderView>;
 

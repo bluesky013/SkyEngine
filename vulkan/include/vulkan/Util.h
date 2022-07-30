@@ -37,4 +37,19 @@ namespace sky::drv {
         des.extent.depth = 1;
         return des;
     }
+
+    inline bool IsBufferDescriptor(VkDescriptorType type)
+    {
+        return type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+            type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+            type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ||
+            type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    }
+
+    inline bool IsImageDescriptor(VkDescriptorType type)
+    {
+        return type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+            type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT ||
+            type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    }
 }

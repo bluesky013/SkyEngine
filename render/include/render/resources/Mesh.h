@@ -31,6 +31,14 @@ namespace sky {
         VkFormat format = VK_FORMAT_UNDEFINED;
     };
 
+    enum class MeshAttribute : uint32_t {
+        POSITION,
+        NORMAL,
+        TANGENT,
+        COLOR,
+        UV0
+    };
+
     class Mesh : public RenderResource {
     public:
         Mesh() = default;

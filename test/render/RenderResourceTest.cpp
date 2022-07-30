@@ -124,14 +124,14 @@ TEST_F(EngineRenderResourceTest, DescriptorSetTest)
         auto set1 = pool->Allocate();
         auto set2 = pool->Allocate();
         auto set3 = pool->Allocate();
-        ASSERT_EQ(!!set1 && set1->IsValid(), true);
-        ASSERT_EQ(!!set2 && set2->IsValid(), true);
-        ASSERT_EQ(!!set3 && set3->IsValid(), true);
+        ASSERT_EQ(set1 && set1->GetRHISet(), true);
+        ASSERT_EQ(set2 && set2->GetRHISet(), true);
+        ASSERT_EQ(set3 && set3->GetRHISet(), true);
     }
 
     {
         auto set = pool->Allocate();
-        ASSERT_EQ(!!set && set->IsValid(), true);
+        ASSERT_EQ(!!set && set->GetRHISet(), true);
     }
 }
 

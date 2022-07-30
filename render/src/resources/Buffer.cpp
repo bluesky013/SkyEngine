@@ -40,10 +40,15 @@ namespace sky {
         }
         uint8_t* ptr = rawData.data() + offset;
         memcpy(ptr, data, size);
+        dirty = true;
     }
 
     void Buffer::Update(const uint8_t* data, uint64_t srcSize)
     {
+        if (!dirty) {
+            return;
+        }
+
         uint64_t validateSize = std::min(srcSize, descriptor.size);
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
@@ -72,6 +77,8 @@ namespace sky {
             memcpy(dst, data, validateSize);
             rhiBuffer->UnMap();
         }
+
+        dirty = false;
     }
 
     void Buffer::Update(bool release)
@@ -80,11 +87,44 @@ namespace sky {
         rawData.clear();
     }
 
-    BufferView::BufferView(RDBufferPtr b, uint32_t s, uint32_t o)
-        : buffer(b)
-        , stride(s)
-        , offset(o)
+    drv::BufferPtr Buffer::GetRHIBuffer() const
     {
+        return rhiBuffer;
+    }
+
+    BufferView::BufferView(RDBufferPtr b, uint32_t sz, uint32_t o, uint32_t s)
+        : buffer(b)
+        , size(sz)
+        , offset(o)
+        , stride(s)
+    {
+    }
+
+    RDBufferPtr BufferView::GetBuffer() const
+    {
+        return buffer;
+    }
+
+    uint32_t BufferView::GetOffset() const
+    {
+        return offset;
+    }
+
+    uint32_t BufferView::GetSize() const
+    {
+        return size;
+    }
+
+    bool BufferView::IsValid() const
+    {
+        return buffer && buffer->IsValid();
+    }
+
+    void BufferView::RequestUpdate()
+    {
+        if (buffer) {
+            buffer->Update();
+        }
     }
 
 }

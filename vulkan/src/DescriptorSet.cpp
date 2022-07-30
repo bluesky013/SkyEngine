@@ -61,10 +61,29 @@ namespace sky::drv {
         return setCreateFn(set);
     }
 
+    DescriptorSetLayoutPtr DescriptorSet::GetLayout() const
+    {
+        return layout;
+    }
+
     DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
         BufferPtr buffer, VkDeviceSize offset, VkDeviceSize size)
     {
-        set.buffers.emplace(binding, buffer);
+        if (!buffer) {
+            return *this;
+        }
+
+        auto& bufferView = set.buffers[binding];
+        auto handleFn = [&bufferView]() ->VkBuffer {
+            return bufferView.buffer ? bufferView.buffer->GetNativeHandle() : VK_NULL_HANDLE;
+        };
+
+        if (handleFn() == buffer->GetNativeHandle() && bufferView.offset == offset && bufferView.size == size) {
+            return *this;
+        }
+        bufferView.buffer = buffer;
+        bufferView.offset = offset;
+        bufferView.size = size;
 
         buffers.emplace_back();
         auto& bufferInfo = buffers.back();
@@ -78,8 +97,24 @@ namespace sky::drv {
 
     DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,ImageViewPtr view, SamplerPtr sampler)
     {
-        set.views.emplace(binding, view);
-        set.samplers.emplace(binding, sampler);
+        if (!view || !sampler) {
+            return *this;
+        }
+
+        auto& viewInfo = set.views[binding];
+        auto viewHandleFn = [&viewInfo]() -> VkImageView {
+            return viewInfo.view ? viewInfo.view->GetNativeHandle() : VK_NULL_HANDLE;
+        };
+
+        auto samplerHandleFn = [&viewInfo]() -> VkSampler {
+            return viewInfo.sampler ? viewInfo.sampler->GetNativeHandle() : VK_NULL_HANDLE;
+        };
+
+        if (viewHandleFn() == view->GetNativeHandle() && samplerHandleFn() == sampler->GetNativeHandle()) {
+            return *this;
+        }
+        viewInfo.view = view;
+        viewInfo.sampler = sampler;
 
         images.emplace_back();
         auto& imageInfo = images.back();
@@ -100,6 +135,7 @@ namespace sky::drv {
         const VkDescriptorBufferInfo* bufferInfo,
         const VkDescriptorImageInfo* imageInfo)
     {
+        set.dirty = true;
         VkWriteDescriptorSet bindingInfo = {};
         bindingInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         bindingInfo.pNext = nullptr;
@@ -116,8 +152,11 @@ namespace sky::drv {
 
     void DescriptorSet::Writer::Update()
     {
-        vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(writes.size()), writes.data(),
-                               0, nullptr);
+        if (set.dirty) {
+            vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(writes.size()), writes.data(),
+                                   0, nullptr);
+        }
+        set.dirty = false;
     }
 
 }

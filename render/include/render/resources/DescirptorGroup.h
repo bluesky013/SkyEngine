@@ -18,19 +18,24 @@ namespace sky {
         DescriptorGroup() = default;
         ~DescriptorGroup() = default;
 
-        bool IsValid() const;
+        void UpdateTexture(uint32_t binding, const RDTexturePtr& texture);
 
-        void UpdateTexture(uint32_t binding, RDTexturePtr texture);
-
-        void UpdateBuffer(uint32_t binding, const BufferView& buffer);
+        void UpdateBuffer(uint32_t binding, const RDBufferViewPtr& buffer);
 
         void Update();
 
+        bool IsValid() const override;
+
+        drv::DescriptorSetPtr GetRHISet() const;
+
     private:
         friend class DescriptorPool;
+        void Init();
+
         drv::DescriptorSetPtr set;
         std::unordered_map<uint32_t, RDTexturePtr> textures;
-        std::unordered_map<uint32_t, BufferView> buffers;
+        std::unordered_map<uint32_t, RDBufferViewPtr> buffers;
+        bool dirty = true;
     };
     using RDDesGroupPtr = std::shared_ptr<DescriptorGroup>;
 

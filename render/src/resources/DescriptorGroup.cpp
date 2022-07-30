@@ -5,26 +5,89 @@
 
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/GlobalResource.h>
+#include <vulkan/Util.h>
 
 namespace sky {
 
-    bool DescriptorGroup::IsValid() const
+    void DescriptorGroup::UpdateTexture(uint32_t binding, const RDTexturePtr& texture)
     {
-        return !!set;
+        auto iter = textures.find(binding);
+        if (iter == textures.end()) {
+            return;
+        }
+        iter->second = texture;
+        dirty = true;
     }
 
-    void DescriptorGroup::UpdateTexture(uint32_t binding, RDTexturePtr texture)
+    void DescriptorGroup::UpdateBuffer(uint32_t binding, const RDBufferViewPtr& buffer)
     {
-
-    }
-
-    void DescriptorGroup::UpdateBuffer(uint32_t binding, const BufferView& buffer)
-    {
-
+        auto iter = buffers.find(binding);
+        if (iter == buffers.end()) {
+            return;
+        }
+        iter->second = buffer;
+        dirty = true;
     }
 
     void DescriptorGroup::Update()
     {
-        
+        if (!set || !dirty) {
+            return;
+        }
+
+        auto writer = set->CreateWriter();
+
+        auto layout = set->GetLayout();
+        auto& table = layout->GetDescriptorTable();
+
+        auto bindingFn = [&table](uint32_t binding) -> const drv::DescriptorSetLayout::SetBinding* {
+            auto iter = table.find(binding);
+            if (iter == table.end()) {
+                return nullptr;
+            }
+            return &iter->second;
+        };
+
+        for (auto& [binding, buffer] : buffers) {
+            auto bindingInfo = bindingFn(binding);
+            if (!buffer || !buffer->IsValid() || bindingInfo == nullptr) {
+                return;
+            }
+            writer.Write(binding, bindingInfo->descriptorType, buffer->GetBuffer()->GetRHIBuffer(), buffer->GetOffset(), buffer->GetSize());
+        }
+
+        for (auto& [binding, tex] : textures) {
+            auto bindingInfo = bindingFn(binding);
+            if (!tex || !tex->IsValid() || bindingInfo == nullptr) {
+                return;
+            }
+            writer.Write(binding, bindingInfo->descriptorType, tex->GetImageView(), tex->GetSampler());
+        }
+
+        writer.Update();
+        dirty = false;
+    }
+
+    bool DescriptorGroup::IsValid() const
+    {
+        return !!set && !dirty;
+    }
+
+    drv::DescriptorSetPtr DescriptorGroup::GetRHISet() const
+    {
+        return set;
+    }
+
+    void DescriptorGroup::Init()
+    {
+        auto layout = set->GetLayout();
+        auto& table = layout->GetDescriptorTable();
+        for (auto& [slot, binding] : table) {
+            if (drv::IsBufferDescriptor(binding.descriptorType)) {
+                buffers.emplace(slot, nullptr);
+            } else if (drv::IsImageDescriptor(binding.descriptorType)) {
+                textures.emplace(slot, nullptr);
+            }
+        }
     }
 }
