@@ -12,4 +12,19 @@ namespace sky {
     {
         return !!set;
     }
+
+    void DescriptorGroup::UpdateTexture(uint32_t binding, RDTexturePtr texture)
+    {
+
+    }
+
+    void DescriptorGroup::UpdateBuffer(uint32_t binding, const BufferView& buffer)
+    {
+
+    }
+
+    void DescriptorGroup::Update()
+    {
+        
+    }
 }

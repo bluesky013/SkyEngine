@@ -9,6 +9,7 @@
 #include <framework/window/NativeWindow.h>
 #include <render/RenderCamera.h>
 #include <render/resources/Technique.h>
+#include <render/resources/Material.h>
 #include <core/math/MathUtil.h>
 
 namespace sky {
@@ -33,7 +34,8 @@ namespace sky {
         info.wHandle = nativeWindow->GetNativeHandle();
         viewport->Setup(info);
         viewport->SetScene(scene);
-        auto& ext = viewport->GetSwapChain()->GetExtent();
+        auto swapChain = viewport->GetSwapChain();
+        auto& ext = swapChain->GetExtent();
 
         cmFeature = scene->GetFeature<CameraFeature>();
         smFeature = scene->GetFeature<StaticMeshFeature>();
@@ -62,9 +64,19 @@ namespace sky {
         colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
         colorTable->InitRHI();
 
+        auto pass = std::make_shared<Pass>();
+        SubPassInfo subPassInfo = {};
+        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_1_BIT});
+        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_SAMPLE_COUNT_1_BIT};
+        pass->AddSubPass(subPassInfo);
+        pass->InitRHI();
+
         auto colorTech = std::make_shared<GraphicsTechnique>();
         colorTech->SetShaderTable(colorTable);
+        colorTech->SetRenderPass(pass);
 
+        auto material = std::make_shared<Material>();
+        material->AddTechnique(colorTech);
     }
 
     void RDSceneSample::Stop()

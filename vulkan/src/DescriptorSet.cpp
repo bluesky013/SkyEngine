@@ -5,6 +5,7 @@
 #include <vulkan/DescriptorSet.h>
 #include <vulkan/DescriptorSetPool.h>
 #include <vulkan/Device.h>
+#include <vulkan/CacheManager.h>
 
 namespace sky::drv {
 
@@ -18,6 +19,11 @@ namespace sky::drv {
     VkDescriptorSet DescriptorSet::GetNativeHandle() const
     {
         return handle;
+    }
+
+    DescriptorSet::Writer DescriptorSet::CreateWriter()
+    {
+        return Writer(*this);
     }
 
     DescriptorSetPtr DescriptorSet::Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout)
@@ -53,6 +59,65 @@ namespace sky::drv {
         }
 
         return setCreateFn(set);
+    }
+
+    DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
+        BufferPtr buffer, VkDeviceSize offset, VkDeviceSize size)
+    {
+        set.buffers.emplace(binding, buffer);
+
+        buffers.emplace_back();
+        auto& bufferInfo = buffers.back();
+        bufferInfo.buffer = buffer->GetNativeHandle();
+        bufferInfo.offset = offset;
+        bufferInfo.range = size;
+
+        Write(binding, type, &bufferInfo, nullptr);
+        return *this;
+    }
+
+    DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,ImageViewPtr view, SamplerPtr sampler)
+    {
+        set.views.emplace(binding, view);
+        set.samplers.emplace(binding, sampler);
+
+        images.emplace_back();
+        auto& imageInfo = images.back();
+        imageInfo.sampler = sampler->GetNativeHandle();
+        imageInfo.imageView = view->GetNativeHandle();
+
+        if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        } else if (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+
+        Write(binding, type, nullptr, &imageInfo);
+        return *this;
+    }
+
+    void DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
+        const VkDescriptorBufferInfo* bufferInfo,
+        const VkDescriptorImageInfo* imageInfo)
+    {
+        VkWriteDescriptorSet bindingInfo = {};
+        bindingInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        bindingInfo.pNext = nullptr;
+        bindingInfo.dstSet = set.GetNativeHandle();
+        bindingInfo.dstBinding = binding;
+        bindingInfo.dstArrayElement = 0;
+        bindingInfo.descriptorCount = 1;
+        bindingInfo.descriptorType = type;
+        bindingInfo.pImageInfo = imageInfo;
+        bindingInfo.pBufferInfo = bufferInfo;
+        bindingInfo.pTexelBufferView = nullptr;
+        writes.emplace_back(bindingInfo);
+    }
+
+    void DescriptorSet::Writer::Update()
+    {
+        vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(writes.size()), writes.data(),
+                               0, nullptr);
     }
 
 }

@@ -77,10 +77,9 @@ namespace sky {
         if (descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT) {
             auto fn = [&compiler, this](const SpvResources& resources) {
                 for (auto& res : resources) {
-                    vertexInputInfo.emplace_back();
-                    auto& info = vertexInputInfo.back();
+                    auto location = compiler.get_decoration(res.id, spv::DecorationLocation);
+                    auto& info = stageInputs[location];
 
-                    info.location = compiler.get_decoration(res.id, spv::DecorationLocation);
                     info.name = compiler.get_name(res.id);
                     auto& type = compiler.get_type(res.type_id);
                     if (type.basetype == spirv_cross::SPIRType::Float) {
@@ -120,8 +119,8 @@ namespace sky {
                 }
             }
         }
-
-        pipelineLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::PipelineLayout>(desc);
+        auto device = DriverManager::Get()->GetDevice();
+        pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(desc);
     }
 
     drv::PipelineLayoutPtr ShaderTable::GetPipelineLayout() const

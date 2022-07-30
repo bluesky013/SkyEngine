@@ -14,10 +14,10 @@
 
 namespace sky {
 
-    struct VertexInputInfo {
+    struct StageInputInfo {
         std::string name;
-        uint32_t location = 0;
         VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        uint32_t size = 16;
     };
 
     class Shader : public RenderResource {
@@ -48,7 +48,7 @@ namespace sky {
         Descriptor descriptor;
         std::vector<uint32_t> spv;
         drv::ShaderPtr rhiShader;
-        std::vector<VertexInputInfo> vertexInputInfo;
+        std::map<uint32_t, StageInputInfo> stageInputs;
         DescriptorTable descriptorTable;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
@@ -92,6 +92,16 @@ namespace sky {
         void LoadShader(const std::string& vs, const std::string& fs);
 
         bool IsValid() const override;
+
+        inline RDShaderPtr GetVS() const
+        {
+            return vs;
+        }
+
+        inline RDShaderPtr GetFS() const
+        {
+            return fs;
+        }
 
     private:
         RDShaderPtr vs;

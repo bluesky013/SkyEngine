@@ -100,7 +100,7 @@ namespace sky::drv {
         };
 
         for (auto& pref : preferred) {
-            queue = device.GetQueue({pref});
+            queue = device.GetQueue(pref);
             if (queue != nullptr && surfaceCheck(queue->GetQueueFamilyIndex())) {
                 break;
             }

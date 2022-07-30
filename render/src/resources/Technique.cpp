@@ -5,39 +5,52 @@
 
 #include <render/resources/Technique.h>
 #include <render/DriverManager.h>
+#include <core/hash/Hash.h>
 
 namespace sky {
 
     void GraphicsTechnique::SetShaderTable(RDGfxShaderTablePtr shaders)
     {
         table = shaders;
-        table->FillProgram(program);
     }
 
-    void GraphicsTechnique::SetRenderPass(RDPassPtr p)
+    void GraphicsTechnique::SetRenderPass(RDPassPtr p, uint32_t subPass)
     {
         pass = p;
+        subPassIndex = subPass;
     }
 
-    void GraphicsTechnique::InitRHI()
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr vertexInput)
     {
-        if (!pso) {
-            return;
+        return AcquirePso(vertexInput, {});
+    }
+
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr vi, drv::ShaderOptionPtr option)
+    {
+        uint32_t hash = 0;
+        HashCombine32(hash, vi->GetHash());
+        if (option) {
+            HashCombine32(hash, option->GetHash());
         }
+
+        auto iter = psoCache.find(hash);
+        if (iter != psoCache.end()) {
+            return iter->second;
+        }
+
+        drv::GraphicsPipeline::Program program;
+        table->FillProgram(program);
+        program.shaderOption = option;
 
         drv::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.renderPass = pass->GetRenderPass();
         psoDesc.program = &program;
         psoDesc.state = &pipelineState;
+        psoDesc.vertexInput = vi;
         psoDesc.pipelineLayout = table->GetPipelineLayout();
 
         auto device = DriverManager::Get()->GetDevice();
-        pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        auto pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        psoCache.emplace(hash, pso);
     }
-
-    bool GraphicsTechnique::IsValid() const
-    {
-        return !!pso;
-    }
-
 }

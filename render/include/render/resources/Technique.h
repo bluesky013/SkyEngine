@@ -23,20 +23,20 @@ namespace sky {
         GraphicsTechnique() = default;
         ~GraphicsTechnique() = default;
 
-        void SetShaderTable(RDGfxShaderTablePtr);
+        void SetShaderTable(RDGfxShaderTablePtr table);
 
-        void SetRenderPass(RDPassPtr pass);
+        void SetRenderPass(RDPassPtr pass, uint32_t subPass = 0);
 
-        void InitRHI() override;
+        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr vertexInput);
 
-        bool IsValid() const override;
+        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr vi, drv::ShaderOptionPtr option);
 
     private:
         RDGfxShaderTablePtr table;
+        uint32_t subPassIndex = 0;
         RDPassPtr pass;
         drv::GraphicsPipeline::State pipelineState;
-        drv::GraphicsPipeline::Program program;
-        drv::GraphicsPipelinePtr pso;
+        std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> psoCache;
     };
     using RDGfxTechniquePtr = std::shared_ptr<GraphicsTechnique>;
 

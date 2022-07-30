@@ -95,6 +95,7 @@ namespace sky::drv {
             VertexInputPtr vertexInput;
             RenderPassPtr renderPass;
             PipelineLayoutPtr pipelineLayout;
+            uint32_t subPassIndex = 0;
         };
 
         bool Init(const Descriptor&);

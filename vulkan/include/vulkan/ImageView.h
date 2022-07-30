@@ -4,6 +4,7 @@
 #pragma once
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/Image.h>
 #include <vk_mem_alloc.h>
 
 namespace sky::drv {
@@ -37,6 +38,8 @@ namespace sky::drv {
 
         static Descriptor Make2DDepthStencil(VkFormat);
 
+        static std::shared_ptr<ImageView> CreateImageView(ImagePtr image, ImageView::Descriptor& des);
+
         VkImageView GetNativeHandle() const;
 
         const VkImageViewCreateInfo& GetViewInfo() const;
@@ -47,7 +50,7 @@ namespace sky::drv {
 
         bool Init(const Descriptor&);
 
-        VkImage image;
+        ImagePtr source;
         VkImageView view;
         VkImageViewCreateInfo viewInfo;
     };

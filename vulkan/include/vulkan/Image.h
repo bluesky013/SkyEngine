@@ -4,7 +4,6 @@
 #pragma once
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/ImageView.h>
 #include <vk_mem_alloc.h>
 #include <list>
 #include <unordered_map>
@@ -13,6 +12,7 @@
 namespace sky::drv {
 
     class Device;
+    class ImageView;
 
     class Image : public DevObject {
     public:
@@ -31,8 +31,6 @@ namespace sky::drv {
             bool                  transient   = false;
             char                  rsv[3]      = {0};
         };
-
-        ImageViewPtr CreateImageView(const ImageView::Descriptor& des);
 
         bool IsTransient() const;
 
