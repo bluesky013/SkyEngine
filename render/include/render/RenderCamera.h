@@ -7,7 +7,6 @@
 #include <render/RenderView.h>
 
 namespace sky {
-
     class RenderCamera {
     public:
         ~RenderCamera() = default;
@@ -25,8 +24,7 @@ namespace sky {
         RenderCamera() = default;
 
         void Init();
-
-        bool active = true;
         RDViewPtr renderView;
+        bool active = true;
     };
 }

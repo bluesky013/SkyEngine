@@ -5,9 +5,10 @@
 #pragma once
 #include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
-#include <render/resources/Mesh.h>
+#include <render/resources/DescirptorGroup.h>
 
 namespace sky {
+    class RenderScene;
 
     struct ObjectInfo {
         Matrix4 worldMatrix;
@@ -19,21 +20,20 @@ namespace sky {
         RenderMesh() = default;
         virtual ~RenderMesh() = default;
 
-        inline void SetWorldMatrix(const Matrix4& matrix)
-        {
-            objectInfo.worldMatrix = matrix;
-            objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
-        }
+        void SetWorldMatrix(const Matrix4& matrix);
 
-        inline void SetViewTag(uint32_t tag)
-        {
-            viewMask |= tag;
-        }
+        virtual void AddToScene(RenderScene& scene);
+
+        virtual void RemoveFromScene(RenderScene& scene);
+
+        virtual void OnRender(RenderScene& scene);
 
     private:
+        void UpdateBuffer();
         ObjectInfo objectInfo;
-        uint32_t viewMask = 0;
-    };
-    using RenderMeshPtr = std::shared_ptr<RenderMesh>;
+        RDDesGroupPtr objectSet;
 
+        // [OPT]: Batch to RenderScene
+        RDBufferViewPtr objectBuffer;
+    };
 }

@@ -6,7 +6,6 @@
 
 #include <render/RenderMesh.h>
 #include <render/resources/Mesh.h>
-#include <render/resources/DescirptorGroup.h>
 
 namespace sky {
 
@@ -22,13 +21,6 @@ namespace sky {
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
-        RDDesGroupPtr objectSet;
-
-        drv::VertexInputPtr standard;
-        drv::VertexInputPtr positionOnly;
-
-        // key : renderOption
-        std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> cachedPso;
     };
 
 }

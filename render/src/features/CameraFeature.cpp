@@ -26,7 +26,7 @@ namespace sky {
         }), cameras.end());
     }
 
-    void CameraFeature::OnPreparePipeline(RenderScene& scene)
+    void CameraFeature::OnPreparePipeline()
     {
         auto viewBuffer = scene.GetMainViewBuffer();
         for (auto& camera : cameras) {

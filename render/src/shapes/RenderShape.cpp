@@ -133,7 +133,7 @@ namespace sky {
         descriptor.size = (positions.size() + normals.size() + tangents.size() + colors.size() + uvs.size()) * sizeof(float);
         descriptor.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         descriptor.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        descriptor.keepCPU = true;
+        descriptor.allocCPU = true;
 
         uint64_t offset = 0;
         buffer = std::make_shared<Buffer>(descriptor);

@@ -12,16 +12,19 @@ namespace sky {
 
     class RenderFeature {
     public:
-        RenderFeature() = default;
+        RenderFeature(RenderScene& scn) : scene(scn) {}
         virtual ~RenderFeature() = default;
 
-        virtual void OnPreparePipeline(RenderScene& scene) {}
+        virtual void OnPreparePipeline() {}
 
-        virtual void GatherRenderMesh(RenderScene& scene) {}
+        virtual void GatherRenderProxy() {}
 
-        virtual void OnRender(RenderScene& scene) {}
+        virtual void OnRender() {}
 
-        virtual void OnPostRender(RenderScene& scene) {}
+        virtual void OnPostRender() {}
+
+    protected:
+        RenderScene& scene;
     };
 
 }
