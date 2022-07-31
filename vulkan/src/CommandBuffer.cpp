@@ -221,13 +221,8 @@ namespace sky::drv {
             vkCmdSetScissor(cmdBuffer, 0, item.scissorCount, item.scissor);
         }
 
-        if (item.descriptorSets != nullptr && item.descriptorSetCount != 0) {
-            std::vector<VkDescriptorSet> sets(item.descriptorSetCount);
-            for (uint8_t i = 0; i < item.descriptorSetCount; ++i) {
-                sets[i] = item.descriptorSets[i]->GetNativeHandle();
-            }
-            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetPipelineLayout()->GetNativeHandle(),
-                0, item.descriptorSetCount, sets.data(), 0, nullptr);
+        if (item.shaderResources) {
+            item.shaderResources->OnBind(cmdBuffer);
         }
 
         if (item.vertexAssembly != nullptr) {

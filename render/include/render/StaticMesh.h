@@ -7,6 +7,7 @@
 #include <core/util/Macros.h>
 #include <render/RenderMesh.h>
 #include <render/resources/Mesh.h>
+#include <vulkan/VertexAssembly.h>
 
 namespace sky {
 
@@ -24,6 +25,7 @@ namespace sky {
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
+        drv::VertexAssemblyPtr vertexAssembly;
 
         using RenderPrimitivePtr = std::unique_ptr<RenderPrimitive>;
         std::vector<RenderPrimitivePtr> primitives;

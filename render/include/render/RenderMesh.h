@@ -9,6 +9,9 @@
 #include <render/resources/Mesh.h>
 #include <render/resources/Material.h>
 #include <render/resources/DescirptorGroup.h>
+#include <vulkan/VertexAssembly.h>
+#include <vulkan/DescriptorSetBinder.h>
+#include <vulkan/DrawItem.h>
 
 namespace sky {
     class RenderScene;
@@ -18,15 +21,14 @@ namespace sky {
         Matrix4 inverseTransposeMatrix;
     };
 
+    struct RenderTechniqueProxy {
+        drv::DescriptorSetBinderPtr setBinder;
+    };
+
     class RenderPrimitive {
     public:
         RenderPrimitive() = default;
         virtual ~RenderPrimitive() = default;
-
-        inline void SetObjectSet(RDDesGroupPtr value)
-        {
-            objectSet = value;
-        }
 
         inline void SetMaterial(RDMaterialPtr value)
         {
@@ -36,6 +38,11 @@ namespace sky {
         inline void SetAABB(const Box& value)
         {
             aabb = value;
+        }
+
+        inline void SetVertexAssembly(drv::VertexAssemblyPtr value)
+        {
+            vertexAssembly = value;
         }
 
         inline void SetViewMask(uint32_t value)
@@ -49,11 +56,13 @@ namespace sky {
         }
 
     protected:
-        RDDesGroupPtr objectSet;
-        RDMaterialPtr material;
-        Box aabb;
         uint32_t viewMask = 0;
         uint32_t drawMask = 0;
+        drv::CmdDraw drawArgs {};
+        Box aabb {};
+        RDMaterialPtr material;
+        drv::VertexAssemblyPtr vertexAssembly;
+        std::vector<RenderTechniqueProxy> techniques;
     };
 
     class RenderMesh {

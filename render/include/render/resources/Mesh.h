@@ -49,7 +49,7 @@ namespace sky {
             Builder(Mesh& m);
             ~Builder() = default;
 
-            Builder& SetIndexBuffer(const RDBufferViewPtr& buffer);
+            Builder& SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
             Builder& AddVertexBuffer(const RDBufferViewPtr& buffer);
             Builder& AddVertexDesc(const VertexDesc& desc);
             Builder& AddSubMesh(const SubMesh& mesh);
@@ -72,6 +72,7 @@ namespace sky {
         std::vector<RDBufferViewPtr> vertexBuffers;
         std::vector<VertexDesc> vertexDescriptions;
         std::vector<SubMesh> subMeshes;
+        VkIndexType indexType = VK_INDEX_TYPE_UINT32;
     };
 
     using RDMeshPtr = std::shared_ptr<Mesh>;

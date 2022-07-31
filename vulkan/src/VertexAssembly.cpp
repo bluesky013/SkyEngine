@@ -11,14 +11,17 @@ namespace sky::drv {
         vertexInput = input;
     }
 
-    void VertexAssembly::AddVertexBuffer(const BufferView& view)
+    void VertexAssembly::AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
     {
-        vertexBuffers.emplace_back(view);
+        vertexBuffers.emplace_back(buffer);
+        vkBuffers.emplace_back(buffer->GetNativeHandle());
+        offsets.emplace_back(offset);
     }
 
-    void VertexAssembly::SetIndexBuffer(const BufferView& view)
+    void VertexAssembly::SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
     {
-        indexBuffer = view;
+        indexBuffer = buffer;
+        indexOffset = offset;
     }
 
     void VertexAssembly::SetIndexType(VkIndexType type)
@@ -26,21 +29,13 @@ namespace sky::drv {
         indexType = type;
     }
 
-    void VertexAssembly::Finalize()
-    {
-        for (auto& vb : vertexBuffers) {
-            cmdVbs.emplace_back(vb.buffer->GetNativeHandle());
-            cmdOffsets.emplace_back(vb.offset);
-        }
-    }
-
     void VertexAssembly::OnBind(VkCommandBuffer cmd)
     {
-        if (!cmdVbs.empty()) {
-            vkCmdBindVertexBuffers(cmd, 0, static_cast<uint32_t>(cmdVbs.size()),cmdVbs.data(), cmdOffsets.data());
+        if (!vkBuffers.empty()) {
+            vkCmdBindVertexBuffers(cmd, 0, static_cast<uint32_t>(vkBuffers.size()),vkBuffers.data(), offsets.data());
         }
-        if (!indexBuffer.buffer) {
-            vkCmdBindIndexBuffer(cmd, indexBuffer.buffer->GetNativeHandle(), indexBuffer.offset, indexType);
+        if (indexBuffer) {
+            vkCmdBindIndexBuffer(cmd, indexBuffer->GetNativeHandle(), indexOffset, indexType);
         }
     }
 

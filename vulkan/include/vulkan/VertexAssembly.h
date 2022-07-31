@@ -17,24 +17,22 @@ namespace sky::drv {
 
         void SetVertexInput(VertexInputPtr input);
 
-        void AddVertexBuffer(const BufferView& view);
+        void AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset = 0);
 
-        void SetIndexBuffer(const BufferView& view);
+        void SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
 
         void SetIndexType(VkIndexType);
-
-        void Finalize();
 
         void OnBind(VkCommandBuffer);
 
     private:
         VertexInputPtr vertexInput;
-        std::vector<BufferView> vertexBuffers;
-        BufferView indexBuffer;
+        std::vector<BufferPtr> vertexBuffers;
+        std::vector<VkBuffer> vkBuffers;
+        std::vector<VkDeviceSize> offsets;
+        BufferPtr indexBuffer;
+        VkDeviceSize indexOffset = 0;
         VkIndexType indexType = VK_INDEX_TYPE_UINT32;
-
-        std::vector<VkBuffer> cmdVbs;
-        std::vector<VkDeviceSize> cmdOffsets;
     };
     using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 

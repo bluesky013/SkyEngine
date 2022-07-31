@@ -10,9 +10,10 @@ namespace sky {
     {
     }
 
-    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer)
+    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type)
     {
         mesh.indexBuffer = std::move(buffer);
+        mesh.indexType = type;
         return *this;
     }
 
