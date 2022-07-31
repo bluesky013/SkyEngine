@@ -13,10 +13,10 @@ namespace sky {
     class Buffer : public RenderResource {
     public:
         struct Descriptor {
-            VkDeviceSize        size    = 0;
-            VkBufferUsageFlags  usage   = 0;
-            VmaMemoryUsage      memory  = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            bool                keepCPU = false;
+            VkDeviceSize        size     = 0;
+            VkBufferUsageFlags  usage    = 0;
+            VmaMemoryUsage      memory   = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            bool                allocCPU = false;
         };
 
         Buffer(const Descriptor& desc);
@@ -50,7 +50,7 @@ namespace sky {
 
     class BufferView : public RenderResource {
     public:
-        BufferView(RDBufferPtr buffer, uint32_t offset, uint32_t size, uint32_t stride = 0);
+        BufferView(RDBufferPtr buffer, uint32_t size, uint32_t offset, uint32_t stride = 0);
         ~BufferView() = default;
 
         RDBufferPtr GetBuffer() const;

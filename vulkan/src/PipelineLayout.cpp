@@ -57,6 +57,11 @@ namespace sky::drv {
         return hash;
     }
 
+    uint32_t PipelineLayout::GetSlotNumber() const
+    {
+        return static_cast<uint32_t>(desLayouts.size());
+    }
+
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {

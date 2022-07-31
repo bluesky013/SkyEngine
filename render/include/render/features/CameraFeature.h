@@ -12,7 +12,7 @@ namespace sky {
 
     class CameraFeature : public RenderFeature {
     public:
-        CameraFeature() = default;
+        CameraFeature(RenderScene& scn) : RenderFeature(scn) {}
         ~CameraFeature() = default;
 
         SKY_DISABLE_COPY(CameraFeature)
@@ -21,7 +21,7 @@ namespace sky {
 
         void Release(RenderCamera* camera);
 
-        void OnPreparePipeline(RenderScene& scene) override;
+        void OnPreparePipeline() override;
 
     private:
         std::vector<std::unique_ptr<RenderCamera>> cameras;

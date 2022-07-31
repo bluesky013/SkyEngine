@@ -16,11 +16,11 @@ namespace sky {
     {
         views.clear();
         for (auto& feature : features) {
-            feature.second->OnPreparePipeline(*this);
+            feature.second->OnPreparePipeline();
         }
 
         for (auto& feature : features) {
-            feature.second->GatherRenderMesh(*this);
+            feature.second->GatherRenderProxy();
         }
 
         if (pipeline) {
@@ -31,7 +31,7 @@ namespace sky {
     void RenderScene::OnPostRender()
     {
         for (auto& feature : features) {
-            feature.second->OnPostRender(*this);
+            feature.second->OnPostRender();
         }
 
         if (pipeline) {
@@ -45,7 +45,7 @@ namespace sky {
         mainViewInfo->RequestUpdate();
 
         for (auto& feature : features) {
-            feature.second->OnRender(*this);
+            feature.second->OnRender();
         }
 
         if (pipeline) {
@@ -86,7 +86,7 @@ namespace sky {
         bufferDesc.size = sizeof(SceneInfo);
         bufferDesc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
         bufferDesc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        bufferDesc.keepCPU = true;
+        bufferDesc.allocCPU = true;
         auto sceneBuffer = std::make_shared<Buffer>(bufferDesc);
         sceneBuffer->InitRHI();
         sceneInfo = std::make_shared<BufferView>(sceneBuffer, sizeof(SceneInfo), 0);

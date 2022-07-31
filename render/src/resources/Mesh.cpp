@@ -10,9 +10,10 @@ namespace sky {
     {
     }
 
-    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer)
+    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type)
     {
         mesh.indexBuffer = std::move(buffer);
+        mesh.indexType = type;
         return *this;
     }
 
@@ -33,4 +34,25 @@ namespace sky {
         mesh.subMeshes.emplace_back(subMesh);
         return *this;
     }
+
+    const std::vector<SubMesh>& Mesh::GetSubMeshes() const
+    {
+        return subMeshes;
+    }
+
+    const std::vector<VertexDesc>& Mesh::GetVertexDesc() const
+    {
+        return vertexDescriptions;
+    }
+
+    const std::vector<RDBufferViewPtr>& Mesh::GetVertexBuffers() const
+    {
+        return vertexBuffers;
+    }
+
+    RDBufferViewPtr Mesh::GetIndexBuffer() const
+    {
+        return indexBuffer;
+    }
+
 }

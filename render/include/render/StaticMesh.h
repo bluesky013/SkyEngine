@@ -4,15 +4,18 @@
 
 #pragma once
 
+#include <core/util/Macros.h>
 #include <render/RenderMesh.h>
 #include <render/resources/Mesh.h>
-#include <render/resources/DescirptorGroup.h>
+#include <vulkan/VertexAssembly.h>
 
 namespace sky {
 
     class StaticMesh : public RenderMesh {
     public:
         ~StaticMesh() = default;
+
+        SKY_DISABLE_COPY(StaticMesh)
 
         void SetMesh(RDMeshPtr);
 
@@ -22,13 +25,10 @@ namespace sky {
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
-        RDDesGroupPtr objectSet;
+        drv::VertexAssemblyPtr vertexAssembly;
 
-        drv::VertexInputPtr standard;
-        drv::VertexInputPtr positionOnly;
-
-        // key : renderOption
-        std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> cachedPso;
+        using RenderPrimitivePtr = std::unique_ptr<RenderPrimitive>;
+        std::vector<RenderPrimitivePtr> primitives;
     };
 
 }

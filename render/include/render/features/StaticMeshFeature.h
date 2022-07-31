@@ -12,7 +12,7 @@ namespace sky {
 
     class StaticMeshFeature : public RenderFeature {
     public:
-        StaticMeshFeature() = default;
+        StaticMeshFeature(RenderScene& scn) : RenderFeature(scn) {}
         ~StaticMeshFeature() = default;
 
         SKY_DISABLE_COPY(StaticMeshFeature)
@@ -21,8 +21,9 @@ namespace sky {
 
         void Release(StaticMesh* mesh);
 
-        void GatherRenderMesh(RenderScene& scene) override;
+        void GatherRenderProxy() override;
 
+        void OnRender() override;
     private:
         std::vector<std::unique_ptr<RenderMesh>> meshes;
     };

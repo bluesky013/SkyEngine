@@ -52,8 +52,8 @@ namespace sky {
 
     void Render::AddScene(RDScenePtr scene)
     {
-        scene->RegisterFeature<CameraFeature>();
-        scene->RegisterFeature<StaticMeshFeature>();
+        scene->RegisterFeature<CameraFeature>(*scene);
+        scene->RegisterFeature<StaticMeshFeature>(*scene);
         scenes.emplace_back(scene);
     }
 

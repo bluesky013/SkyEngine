@@ -10,7 +10,7 @@ namespace sky {
 
     Buffer::Buffer(const Descriptor& desc) : descriptor(desc)
     {
-        if (desc.keepCPU) {
+        if (desc.allocCPU) {
             rawData.resize(desc.size);
         }
     }
@@ -84,7 +84,9 @@ namespace sky {
     void Buffer::Update(bool release)
     {
         Update(rawData.data(), rawData.size());
-        rawData.clear();
+        if (release) {
+            rawData.clear();
+        }
     }
 
     drv::BufferPtr Buffer::GetRHIBuffer() const
@@ -122,7 +124,7 @@ namespace sky {
 
     void BufferView::RequestUpdate()
     {
-        if (buffer) {
+        if (IsValid()) {
             buffer->Update();
         }
     }

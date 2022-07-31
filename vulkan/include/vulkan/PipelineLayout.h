@@ -32,6 +32,8 @@ namespace sky::drv {
 
         DescriptorSetPtr Allocate(DescriptorSetPoolPtr pool, uint32_t slot);
 
+        uint32_t GetSlotNumber() const;
+
     private:
         friend class Device;
         PipelineLayout(Device&);
