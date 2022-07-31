@@ -33,4 +33,25 @@ namespace sky {
         mesh.subMeshes.emplace_back(subMesh);
         return *this;
     }
+
+    const std::vector<SubMesh>& Mesh::GetSubMeshes() const
+    {
+        return subMeshes;
+    }
+
+    const std::vector<VertexDesc>& Mesh::GetVertexDesc() const
+    {
+        return vertexDescriptions;
+    }
+
+    const std::vector<RDBufferViewPtr>& Mesh::GetVertexBuffers() const
+    {
+        return vertexBuffers;
+    }
+
+    RDBufferViewPtr Mesh::GetIndexBuffer() const
+    {
+        return indexBuffer;
+    }
+
 }

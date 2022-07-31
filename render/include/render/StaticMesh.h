@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <core/util/Macros.h>
 #include <render/RenderMesh.h>
 #include <render/resources/Mesh.h>
 
@@ -13,6 +14,8 @@ namespace sky {
     public:
         ~StaticMesh() = default;
 
+        SKY_DISABLE_COPY(StaticMesh)
+
         void SetMesh(RDMeshPtr);
 
     private:
@@ -21,6 +24,9 @@ namespace sky {
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
+
+        using RenderPrimitivePtr = std::unique_ptr<RenderPrimitive>;
+        std::vector<RenderPrimitivePtr> primitives;
     };
 
 }

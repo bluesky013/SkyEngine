@@ -58,6 +58,14 @@ namespace sky {
             Mesh& mesh;
         };
 
+        const std::vector<SubMesh>& GetSubMeshes() const;
+
+        const std::vector<VertexDesc>& GetVertexDesc() const;
+
+        const std::vector<RDBufferViewPtr>& GetVertexBuffers() const;
+
+        RDBufferViewPtr GetIndexBuffer() const;
+
     private:
         friend class Builder;
         RDBufferViewPtr indexBuffer;

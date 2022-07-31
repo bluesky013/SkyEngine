@@ -8,7 +8,6 @@
 
 #include <render/RenderView.h>
 #include <render/RenderPipeline.h>
-#include <render/RenderSceneProxy.h>
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
 #include <render/resources/DescirptorGroup.h>

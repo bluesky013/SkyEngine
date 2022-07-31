@@ -230,19 +230,8 @@ namespace sky::drv {
                 0, item.descriptorSetCount, sets.data(), 0, nullptr);
         }
 
-        if (item.vertexBuffer != nullptr && item.vertexBufferCount != 0) {
-            std::vector<VkBuffer> buffers(item.vertexBufferCount);
-            std::vector<VkDeviceSize> offsets(item.vertexBufferCount);
-            for (uint8_t i = 0; i < item.vertexBufferCount; ++i) {
-                buffers[i] = item.vertexBuffer[i].buffer->GetNativeHandle();
-                offsets[i] = item.vertexBuffer[i].offset;
-            }
-
-            vkCmdBindVertexBuffers(cmdBuffer, 0, item.vertexBufferCount, buffers.data(), offsets.data());
-        }
-
-        if (item.indexBuffer != nullptr) {
-            vkCmdBindIndexBuffer(cmdBuffer, item.indexBuffer->buffer->GetNativeHandle(), item.indexBuffer->offset, VK_INDEX_TYPE_UINT32);
+        if (item.vertexAssembly != nullptr) {
+            item.vertexAssembly->OnBind(cmdBuffer);
         }
         
         if (item.drawArgs != nullptr) {

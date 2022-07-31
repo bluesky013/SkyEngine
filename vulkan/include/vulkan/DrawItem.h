@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/DescriptorSet.h>
 #include <vulkan/GraphicsPipeline.h>
+#include <vulkan/VertexAssembly.h>
 
 namespace sky::drv {
 
@@ -43,14 +44,12 @@ namespace sky::drv {
     };
 
     struct DrawItem {
-        uint16_t vertexBufferCount         = 0;
-        uint16_t viewportCount             = 0;
-        uint16_t scissorCount              = 0;
+        uint8_t viewportCount              = 0;
+        uint8_t scissorCount               = 0;
         uint16_t descriptorSetCount        = 0;
         DescriptorSetPtr*   descriptorSets = nullptr;
         CmdDraw*            drawArgs       = nullptr;
-        BufferView*         indexBuffer    = nullptr;
-        BufferView*         vertexBuffer   = nullptr;
+        VertexAssembly*     vertexAssembly = nullptr;
         VkViewport*         viewport       = nullptr;
         VkRect2D*           scissor        = nullptr;
         CmdStencil*         stencil        = nullptr;
