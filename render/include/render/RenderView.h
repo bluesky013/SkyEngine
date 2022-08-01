@@ -10,8 +10,10 @@
 #include <core/math/Vector.h>
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace sky {
+    class RenderPrimitive;
 
     struct ViewInfo {
         Matrix4 viewToWorldMatrix;
@@ -34,11 +36,14 @@ namespace sky {
 
         void SetViewTag(uint32_t tag);
 
-        uint32_t GetViewTag() const;
+        void AddRenderPrimitive(RenderPrimitive* primitive);
+
+        void Reset();
 
     private:
         ViewInfo viewInfo;
         uint32_t viewTag = 0;
+        std::vector<RenderPrimitive*> primitives;
     };
     using RDViewPtr = std::shared_ptr<RenderView>;
 

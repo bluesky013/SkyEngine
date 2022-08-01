@@ -11,14 +11,7 @@
 
 namespace sky {
 
-    class Technique : public RenderResource {
-    public:
-        Technique() = default;
-        ~Technique() = default;
-    };
-    using RDTechniquePtr = std::shared_ptr<Technique>;
-
-    class GraphicsTechnique : public Technique {
+    class GraphicsTechnique : public RenderResource {
     public:
         GraphicsTechnique() = default;
         ~GraphicsTechnique() = default;

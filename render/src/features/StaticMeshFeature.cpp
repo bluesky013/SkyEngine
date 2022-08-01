@@ -34,11 +34,13 @@ namespace sky {
         }
     }
 
-    void StaticMeshFeature::GatherRenderProxy()
+    void StaticMeshFeature::GatherRenderPrimitives()
     {
-        auto& views = scene.GetViews();
-        for (auto& mesh : meshes) {
-
+        auto &views = scene.GetViews();
+        for (auto &view: views) {
+            for (auto& mesh : meshes) {
+                mesh->OnGatherRenderPrimitives(*view);
+            }
         }
     }
 }

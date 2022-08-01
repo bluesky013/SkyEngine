@@ -11,8 +11,10 @@ namespace sky {
 
     class RenderPipelineForward : public RenderPipeline {
     public:
-        RenderPipelineForward() = default;
+        RenderPipelineForward(RenderScene& scene) : RenderPipeline(scene) {}
         ~RenderPipelineForward() = default;
+
+        static constexpr uint32_t FORWARD_TAG = 0x01;
 
         void ViewportChange(RenderViewport& vp) override;
 

@@ -7,9 +7,14 @@
 
 namespace sky {
 
-    void Material::AddTechnique(RDTechniquePtr tech)
+    void Material::AddGfxTechnique(RDGfxTechniquePtr tech)
     {
-        techniques.emplace_back(tech);
+        gfxTechniques.emplace_back(tech);
+    }
+
+    const std::vector<RDGfxTechniquePtr>& Material::GetGraphicTechniques() const
+    {
+        return gfxTechniques;
     }
 
 }

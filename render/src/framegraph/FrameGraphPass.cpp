@@ -121,23 +121,22 @@ namespace sky {
 
     void FrameGraphGraphicPass::Execute(drv::CommandBufferPtr commandBuffer)
     {
-        auto encoder = commandBuffer->EncodeGraphics();
-        encoder.BeginPass(passInfo);
+        auto drvEncoder = commandBuffer->EncodeGraphics();
+        drvEncoder.BeginPass(passInfo);
 
-        for (auto& item : drawItems) {
-            encoder.Encode(item);
+        if (encoder) {
+            encoder->Encode(drvEncoder);
         }
+        drvEncoder.EndPass();
+    }
 
-        encoder.EndPass();
+    void FrameGraphGraphicPass::SetEncoder(FrameGraphEncoder* value)
+    {
+        encoder = value;
     }
 
     drv::RenderPassPtr FrameGraphGraphicPass::GetPass() const
     {
         return passInfo.renderPass;
-    }
-
-    void FrameGraphGraphicPass::Emplace(const drv::DrawItem& item)
-    {
-        drawItems.emplace_back(item);
     }
 }

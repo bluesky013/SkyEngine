@@ -66,6 +66,8 @@ namespace sky {
 
         RDBufferViewPtr GetIndexBuffer() const;
 
+        VkIndexType GetIndexType() const;
+
     private:
         friend class Builder;
         RDBufferViewPtr indexBuffer;

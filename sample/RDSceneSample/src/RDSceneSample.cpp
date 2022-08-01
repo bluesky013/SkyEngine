@@ -19,6 +19,8 @@
 
 #include <render/shapes/ShapeManager.h>
 #include <render/shapes/RenderShape.h>
+#include <render/RenderPipelineForward.h>
+#include <render/RenderConstants.h>
 
 namespace sky {
 
@@ -81,9 +83,11 @@ namespace sky {
         auto colorTech = std::make_shared<GraphicsTechnique>();
         colorTech->SetShaderTable(colorTable);
         colorTech->SetRenderPass(pass);
+        colorTech->SetViewTag(MAIN_CAMERA_TAG);
+        colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
 
         auto material = std::make_shared<Material>();
-        material->AddTechnique(colorTech);
+        material->AddGfxTechnique(colorTech);
 
         auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
         auto mesh = plane->CreateMesh(material);

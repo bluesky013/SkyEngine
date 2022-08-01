@@ -17,10 +17,12 @@ namespace sky {
         Material() = default;
         ~Material() = default;
 
-        void AddTechnique(RDTechniquePtr tech);
+        void AddGfxTechnique(RDGfxTechniquePtr tech);
+
+        const std::vector<RDGfxTechniquePtr>& GetGraphicTechniques() const;
 
     private:
-        std::vector<RDTechniquePtr> techniques;
+        std::vector<RDGfxTechniquePtr> gfxTechniques;
     };
 
     using RDMaterialPtr = std::shared_ptr<Material>;

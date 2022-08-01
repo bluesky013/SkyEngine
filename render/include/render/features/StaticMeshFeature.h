@@ -21,7 +21,7 @@ namespace sky {
 
         void Release(StaticMesh* mesh);
 
-        void GatherRenderProxy() override;
+        void GatherRenderPrimitives() override;
 
         void OnRender() override;
     private:

@@ -4,6 +4,7 @@
 
 #include <render/StaticMesh.h>
 #include <render/RenderConstants.h>
+#include <render/RenderView.h>
 
 namespace sky {
 
@@ -24,18 +25,19 @@ namespace sky {
 
         auto& subMeshes = mesh->GetSubMeshes();
         for (auto& subMesh : subMeshes) {
-            auto primitive = std::make_shared<RenderPrimitive>();
-            primitive->SetViewMask(MAIN_CAMERA_TAG);
+            auto primitive = std::make_unique<RenderPrimitive>();
             primitive->SetAABB(subMesh.aabb);
             primitive->SetMaterial(subMesh.material);
             primitive->SetVertexAssembly(vertexAssembly);
+            primitives.emplace_back(std::move(primitive));
         }
 
     }
 
-    void StaticMesh::Setup()
+    void StaticMesh::OnGatherRenderPrimitives(RenderView& view)
     {
-
+        for (auto& primitive : primitives) {
+            view.AddRenderPrimitive(primitive.get());
+        }
     }
-
 }

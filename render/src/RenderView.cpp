@@ -3,6 +3,7 @@
 //
 
 #include <render/RenderView.h>
+#include <render/RenderPrimtive.h>
 
 namespace sky {
 
@@ -31,8 +32,16 @@ namespace sky {
         viewTag = tag;
     }
 
-    uint32_t RenderView::GetViewTag() const
+    void RenderView::AddRenderPrimitive(RenderPrimitive* primitive)
     {
-        return viewTag;
+        if (primitive == nullptr || (viewTag & primitive->GetViewMask()) == 0) {
+            return;
+        }
+        primitives.emplace_back(primitive);
+    }
+
+    void RenderView::Reset()
+    {
+        primitives.clear();
     }
 }

@@ -55,4 +55,9 @@ namespace sky {
         return indexBuffer;
     }
 
+    VkIndexType Mesh::GetIndexType() const
+    {
+        return indexType;
+    }
+
 }

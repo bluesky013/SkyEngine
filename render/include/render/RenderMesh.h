@@ -6,6 +6,7 @@
 #include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
 #include <core/util/Macros.h>
+#include <render/RenderPrimtive.h>
 #include <render/resources/Mesh.h>
 #include <render/resources/Material.h>
 #include <render/resources/DescirptorGroup.h>
@@ -15,54 +16,11 @@
 
 namespace sky {
     class RenderScene;
+    class RenderView;
 
     struct ObjectInfo {
         Matrix4 worldMatrix;
         Matrix4 inverseTransposeMatrix;
-    };
-
-    struct RenderTechniqueProxy {
-        drv::DescriptorSetBinderPtr setBinder;
-    };
-
-    class RenderPrimitive {
-    public:
-        RenderPrimitive() = default;
-        virtual ~RenderPrimitive() = default;
-
-        inline void SetMaterial(RDMaterialPtr value)
-        {
-            material = value;
-        }
-
-        inline void SetAABB(const Box& value)
-        {
-            aabb = value;
-        }
-
-        inline void SetVertexAssembly(drv::VertexAssemblyPtr value)
-        {
-            vertexAssembly = value;
-        }
-
-        inline void SetViewMask(uint32_t value)
-        {
-            viewMask |= value;
-        }
-
-        inline void SetDrawMask(uint32_t value)
-        {
-            drawMask |= value;
-        }
-
-    protected:
-        uint32_t viewMask = 0;
-        uint32_t drawMask = 0;
-        drv::CmdDraw drawArgs {};
-        Box aabb {};
-        RDMaterialPtr material;
-        drv::VertexAssemblyPtr vertexAssembly;
-        std::vector<RenderTechniqueProxy> techniques;
     };
 
     class RenderMesh {
@@ -79,6 +37,8 @@ namespace sky {
         virtual void RemoveFromScene(RenderScene& scene);
 
         virtual void OnRender(RenderScene& scene);
+
+        virtual void OnGatherRenderPrimitives(RenderView& view) {}
 
     private:
         void UpdateBuffer();

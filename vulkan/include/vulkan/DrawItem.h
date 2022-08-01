@@ -45,13 +45,13 @@ namespace sky::drv {
     };
 
     struct DrawItem {
-        uint8_t viewportCount              = 0;
-        uint8_t scissorCount               = 0;
-        CmdDraw*            drawArgs       = nullptr;
-        VkViewport*         viewport       = nullptr;
-        VkRect2D*           scissor        = nullptr;
-        CmdStencil*         stencil        = nullptr;
-        uint8_t*            pushConstants  = nullptr;
+        uint8_t                viewportCount  = 0;
+        uint8_t                scissorCount   = 0;
+        CmdDraw*               drawArgs       = nullptr;
+        VkViewport*            viewport       = nullptr;
+        VkRect2D*              scissor        = nullptr;
+        CmdStencil*            stencil        = nullptr;
+        uint8_t*               pushConstants  = nullptr;
         GraphicsPipelinePtr    pso;
         DescriptorSetBinderPtr shaderResources;
         VertexAssemblyPtr      vertexAssembly;
