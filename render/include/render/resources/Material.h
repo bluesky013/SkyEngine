@@ -6,6 +6,7 @@
 #pragma once
 
 #include <render/resources/RenderResource.h>
+#include <render/resources/DescirptorGroup.h>
 #include <render/resources/Technique.h>
 #include <render/resources/Buffer.h>
 #include <render/resources/Texture.h>
@@ -21,8 +22,14 @@ namespace sky {
 
         const std::vector<RDGfxTechniquePtr>& GetGraphicTechniques() const;
 
+        void InitRHI();
+
+        RDDesGroupPtr GetMaterialSet() const;
+
     private:
         std::vector<RDGfxTechniquePtr> gfxTechniques;
+        RDDesGroupPtr matSet;
+        RDBufferPtr materialBuffer;
     };
 
     using RDMaterialPtr = std::shared_ptr<Material>;

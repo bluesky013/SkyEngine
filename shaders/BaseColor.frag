@@ -11,7 +11,11 @@ layout (set = 1, binding = 1) uniform SceneInfo {
     int lightCount;
 } sceneInfo;
 
+layout (set = 2, binding = 0) uniform MaterialInfo {
+    vec4 baseColor;
+} material;
+
 void main()
 {
-    outFragColor = color;
+    outFragColor = color * material.baseColor;
 }

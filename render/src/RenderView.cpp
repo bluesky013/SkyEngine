@@ -40,6 +40,11 @@ namespace sky {
         primitives.emplace_back(primitive);
     }
 
+    const std::vector<RenderPrimitive*>& RenderView::GetPrimitives() const
+    {
+        return primitives;
+    }
+
     void RenderView::Reset()
     {
         primitives.clear();

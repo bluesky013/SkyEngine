@@ -32,6 +32,8 @@ namespace sky {
 
         uint32_t GetDrawTag() const;
 
+        RDGfxShaderTablePtr GetShaderTable() const;
+
     private:
         RDGfxShaderTablePtr table;
         uint32_t subPassIndex = 0;

@@ -38,6 +38,8 @@ namespace sky {
 
         void AddRenderPrimitive(RenderPrimitive* primitive);
 
+        const std::vector<RenderPrimitive*>& GetPrimitives() const;
+
         void Reset();
 
     private:

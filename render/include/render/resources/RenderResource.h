@@ -14,8 +14,6 @@ namespace sky {
         RenderResource() = default;
         virtual ~RenderResource() = default;
 
-        virtual void InitRHI() {}
-
         virtual bool IsValid() const
         {
             return true;

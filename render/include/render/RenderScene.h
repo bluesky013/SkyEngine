@@ -70,7 +70,9 @@ namespace sky {
             if (iter != encoders.end()) {
                 return static_cast<T*>(iter->second.get());
             }
-            return static_cast<T*>(encoders.emplace(tag, std::make_unique<T>(std::forward<Args>(args)...)).first->second.get());
+            auto res = static_cast<T*>(encoders.emplace(tag, std::make_unique<T>(std::forward<Args>(args)...)).first->second.get());
+            res->SetDrawTag(tag);
+            return res;
         }
 
     private:
@@ -79,7 +81,7 @@ namespace sky {
         RDPipeline pipeline;
         RDDescriptorPoolPtr objectPool;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
-        std::unordered_map<uint32_t, FGEncoderPtr> encoders;
+        std::unordered_map<uint32_t, std::unique_ptr<FrameGraphRasterEncoder>> encoders;
 
         // dynamic data
         std::vector<RDViewPtr> views;

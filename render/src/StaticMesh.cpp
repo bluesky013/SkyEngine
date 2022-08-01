@@ -5,6 +5,7 @@
 #include <render/StaticMesh.h>
 #include <render/RenderConstants.h>
 #include <render/RenderView.h>
+#include <vulkan/Util.h>
 
 namespace sky {
 
@@ -29,6 +30,9 @@ namespace sky {
             primitive->SetAABB(subMesh.aabb);
             primitive->SetMaterial(subMesh.material);
             primitive->SetVertexAssembly(vertexAssembly);
+            primitive->SetDrawArgs(subMesh.drawData);
+            primitive->SetObjectSet(objectSet);
+
             primitives.emplace_back(std::move(primitive));
         }
 

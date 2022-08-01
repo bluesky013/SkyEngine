@@ -4,6 +4,7 @@
 
 #include <render/RenderPipeline.h>
 #include <render/DriverManager.h>
+#include <render/RenderScene.h>
 
 namespace sky {
 
@@ -25,5 +26,25 @@ namespace sky {
         renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
 
         viewport = &vp;
+    }
+
+    void RenderPipeline::DoFrame()
+    {
+        auto& views = scene.GetViews();
+        for (auto& view : views) {
+            auto& primitives = view->GetPrimitives();
+            for (auto& primitive : primitives) {
+                auto& techniques = primitive->GetTechniques();
+                for (auto& tech : techniques) {
+                    for (auto& encoder : encoders) {
+                        if ((encoder->GetDrawTag() & tech->drawTag) == 0) {
+                            continue;
+                        }
+
+
+                    }
+                }
+            }
+        }
     }
 }

@@ -88,6 +88,7 @@ namespace sky {
 
         auto material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);
+        material->InitRHI();
 
         auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
         auto mesh = plane->CreateMesh(material);

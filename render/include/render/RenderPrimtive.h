@@ -17,7 +17,7 @@ namespace sky {
         RDGfxTechniquePtr gfxTechnique;
         drv::DescriptorSetBinderPtr setBinder;
         drv::VertexAssemblyPtr assembly;
-        drv::CmdDraw* args = nullptr;
+        drv::CmdDraw args {};
         uint32_t drawTag = 0;
     };
     using RDGfxTechniqueProxyPtr = std::unique_ptr<GraphicsTechniqueProxy>;
@@ -32,9 +32,14 @@ namespace sky {
 
         void SetMaterial(RDMaterialPtr value);
 
-        inline void SetDrawArgs(const drv::CmdDraw& args)
+        inline void SetObjectSet(RDDesGroupPtr set)
         {
-            drawArgs = args;
+            objSet = set;
+        }
+
+        inline void SetDrawArgs(const SubMeshDrawData& args)
+        {
+            drawData = args;
         }
 
         inline void SetAABB(const Box& value)
@@ -57,11 +62,18 @@ namespace sky {
             return viewMask;
         }
 
+        const std::vector<RDGfxTechniqueProxyPtr>& GetTechniques() const
+        {
+            return graphicTechniques;
+        }
+
     protected:
         Box aabb {};
-        drv::CmdDraw drawArgs {};
+        SubMeshDrawData drawData {};
         uint32_t viewMask = 0;
         RDMaterialPtr material;
+        RDDesGroupPtr objSet;
+        RDDesGroupPtr matSet;
         drv::VertexAssemblyPtr vertexAssembly;
         std::vector<RDGfxTechniqueProxyPtr> graphicTechniques;
     };

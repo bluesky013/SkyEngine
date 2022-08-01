@@ -22,7 +22,7 @@ namespace sky {
         Buffer(const Descriptor& desc);
         ~Buffer() = default;
 
-        void InitRHI() override;
+        void InitRHI();
 
         bool IsValid() const override;
 

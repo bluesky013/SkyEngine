@@ -17,7 +17,6 @@ namespace sky {
 
         virtual void Encode(drv::GraphicsEncoder& encoder) {}
     };
-    using FGEncoderPtr = std::unique_ptr<FrameGraphEncoder>;
 
     class FrameGraphRasterEncoder : public FrameGraphEncoder {
     public:
@@ -28,7 +27,12 @@ namespace sky {
 
         void Emplace(const drv::DrawItem& item);
 
+        void SetDrawTag(uint32_t tag);
+
+        uint32_t GetDrawTag() const;
+
     private:
+        uint32_t drawTag {0};
         std::vector<drv::DrawItem> drawItems;
     };
 

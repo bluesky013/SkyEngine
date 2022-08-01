@@ -19,4 +19,14 @@ namespace sky {
         drawItems.emplace_back(item);
     }
 
+    void FrameGraphRasterEncoder::SetDrawTag(uint32_t tag)
+    {
+        drawTag = tag;
+    }
+
+    uint32_t FrameGraphRasterEncoder::GetDrawTag() const
+    {
+        return drawTag;
+    }
+
 }

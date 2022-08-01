@@ -40,6 +40,22 @@ namespace sky::drv {
         CmdDrawType type;
     };
 
+    inline CmdDraw MakeCmdDraw(const CmdDrawLinear& value)
+    {
+        CmdDraw draw = {};
+        draw.linear = value;
+        draw.type = CmdDrawType::LINEAR;
+        return draw;
+    }
+
+    inline CmdDraw MakeCmdDraw(const CmdDrawIndexed& value)
+    {
+        CmdDraw draw = {};
+        draw.indexed = value;
+        draw.type = CmdDrawType::LINEAR;
+        return draw;
+    }
+
     struct CmdStencil {
         uint8_t reference;
     };

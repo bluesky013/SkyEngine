@@ -25,6 +25,8 @@ namespace sky::drv {
 
         void OnBind(VkCommandBuffer);
 
+        bool IsIndexed() const;
+
     private:
         VertexInputPtr vertexInput;
         std::vector<BufferPtr> vertexBuffers;

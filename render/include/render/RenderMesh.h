@@ -40,7 +40,7 @@ namespace sky {
 
         virtual void OnGatherRenderPrimitives(RenderView& view) {}
 
-    private:
+    protected:
         void UpdateBuffer();
         ObjectInfo objectInfo;
         RDDesGroupPtr objectSet;

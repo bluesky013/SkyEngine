@@ -34,6 +34,8 @@ namespace sky::drv {
 
         uint32_t GetSlotNumber() const;
 
+        DescriptorSetLayoutPtr GetLayout(uint32_t slot) const;
+
     private:
         friend class Device;
         PipelineLayout(Device&);

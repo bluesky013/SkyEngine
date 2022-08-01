@@ -48,6 +48,7 @@ namespace sky {
         psoDesc.state = &pipelineState;
         psoDesc.vertexInput = vi;
         psoDesc.pipelineLayout = table->GetPipelineLayout();
+        psoDesc.subPassIndex = subPassIndex;
 
         auto device = DriverManager::Get()->GetDevice();
         auto pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
@@ -72,5 +73,10 @@ namespace sky {
     uint32_t GraphicsTechnique::GetDrawTag() const
     {
         return drawTag;
+    }
+
+    RDGfxShaderTablePtr GraphicsTechnique::GetShaderTable() const
+    {
+        return table;
     }
 }

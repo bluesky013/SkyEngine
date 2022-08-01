@@ -25,15 +25,13 @@ namespace sky {
             encoders.clear();
         }
 
-        virtual void DoFrame() {}
+        virtual void DoFrame();
 
         virtual void EndFrame() {}
 
         void Setup(RenderViewport& vp);
 
         virtual void ViewportChange(RenderViewport& vp) {}
-
-        const std::vector<FrameGraphRasterEncoder*> GetEncoders() const;
 
     protected:
         RenderScene& scene;

@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/Image.h>
 #include <vulkan/ImageView.h>
+#include <vulkan/DrawItem.h>
 
 namespace sky::drv {
 
@@ -52,4 +53,13 @@ namespace sky::drv {
             type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT ||
             type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     }
+
+    inline CmdDraw MakeDrawLinear(const CmdDrawIndexed& indexed)
+    {
+        CmdDraw draw = {};
+        draw.type = CmdDrawType::LINEAR;
+        draw.indexed = indexed;
+        return draw;
+    }
+
 }

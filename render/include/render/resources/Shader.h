@@ -33,7 +33,7 @@ namespace sky {
 
         void SetData(std::vector<uint32_t>&& data);
 
-        void InitRHI() override;
+        void InitRHI();
 
         bool IsValid() const override;
 
@@ -58,7 +58,7 @@ namespace sky {
         ShaderTable() = default;
         ~ShaderTable() = default;
 
-        void InitRHI() override;
+        void InitRHI();
 
         drv::PipelineLayoutPtr GetPipelineLayout() const;
 

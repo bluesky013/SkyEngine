@@ -7,6 +7,7 @@
 #include <render/DriverManager.h>
 #include <render/DevObjManager.h>
 #include <render/RenderConstants.h>
+#include <render/GlobalDescriptorPool.h>
 #include <core/logger/Logger.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
@@ -18,6 +19,7 @@ namespace sky {
 
     Render::~Render()
     {
+        GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
         DriverManager::Get()->Destroy();

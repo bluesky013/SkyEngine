@@ -9,6 +9,7 @@ namespace sky {
     void RenderPrimitive::SetMaterial(RDMaterialPtr value)
     {
         material = value;
+        matSet = value->GetMaterialSet();
 
         {
             auto& techniques = material->GetGraphicTechniques();
@@ -18,7 +19,6 @@ namespace sky {
                 proxy->setBinder = std::make_unique<drv::DescriptorSetBinder>();
                 proxy->assembly = vertexAssembly;
                 proxy->drawTag |= tech->GetDrawTag();
-                proxy->args = &drawArgs;
 
                 SetViewTag(tech->GetViewTag());
                 graphicTechniques.emplace_back(proxy);
