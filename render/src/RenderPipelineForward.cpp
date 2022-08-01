@@ -34,6 +34,7 @@ namespace sky {
 
     void RenderPipelineForward::BeginFrame()
     {
+        RenderPipeline::BeginFrame();
         auto swapChain = viewport->GetSwapChain();
         swapChain->AcquireNext(imageAvailable, currentImageIndex);
 
@@ -47,7 +48,7 @@ namespace sky {
             builder.ImportImage("DepthImage", depthStencil);
         });
 
-        currentFrame->AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
+        auto pass = currentFrame->AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
             builder.CreateImageAttachment("ColorMSAAImage", "ColorMSAA", VK_IMAGE_ASPECT_COLOR_BIT)
                 ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                 .SetClearValue(clearColor);
@@ -64,18 +65,21 @@ namespace sky {
             builder.WriteAttachment("ColorResolve", ImageBindFlag::COLOR_RESOLVE);
             builder.WriteAttachment("DepthOutput", ImageBindFlag::DEPTH_STENCIL);
         });
+        auto encoder = scene.RegisterEncoder<FrameGraphRasterEncoder>(FORWARD_TAG);
+        encoders.emplace_back(encoder);
+        pass->SetEncoder(encoder);
 
         currentFrame->AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
             builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
         });
 
         currentFrame->Compile();
+
+        commandBuffer->Wait();
     }
 
     void RenderPipelineForward::DoFrame()
     {
-        commandBuffer->Wait();
-
         commandBuffer->Begin();
         currentFrame->Execute(commandBuffer);
 

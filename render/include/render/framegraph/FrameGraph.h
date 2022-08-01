@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 namespace sky {
+    class RenderScene;
 
     class FrameGraph {
     public:

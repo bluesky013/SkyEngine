@@ -8,6 +8,7 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/CommandBuffer.h>
 #include <vulkan/CommandPool.h>
+#include <render/framegraph/FrameGraphEncoder.h>
 
 namespace sky {
 
@@ -16,12 +17,15 @@ namespace sky {
 
     class RenderPipeline  {
     public:
-        RenderPipeline() = default;
+        RenderPipeline(RenderScene& scn) : scene(scn) {}
         virtual ~RenderPipeline() = default;
 
-        virtual void BeginFrame() {}
+        virtual void BeginFrame()
+        {
+            encoders.clear();
+        }
 
-        virtual void DoFrame() {}
+        virtual void DoFrame();
 
         virtual void EndFrame() {}
 
@@ -30,6 +34,7 @@ namespace sky {
         virtual void ViewportChange(RenderViewport& vp) {}
 
     protected:
+        RenderScene& scene;
         RenderViewport* viewport = nullptr;
 
         drv::SemaphorePtr imageAvailable;
@@ -37,7 +42,9 @@ namespace sky {
         drv::CommandPoolPtr commandPool;
         drv::CommandBufferPtr commandBuffer;
         drv::Queue* graphicsQueue;
+
+        std::vector<FrameGraphRasterEncoder*> encoders;
     };
-    using RDPipeline = std::shared_ptr<RenderPipeline>;
+    using RDPipeline = std::unique_ptr<RenderPipeline>;
 
 }

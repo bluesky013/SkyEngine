@@ -138,7 +138,7 @@ namespace sky::render {
             builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
         });
 
-        graph.Compile();
+//        graph.Compile();
 
         drv::GraphicsPipeline::Program program;
         program.shaders.emplace_back(vs);
@@ -162,10 +162,10 @@ namespace sky::render {
         args.linear.vertexCount = 3;
         args.linear.instanceCount = 1;
 
-        drv::DrawItem item = {};
-        item.pso = pso;
-        item.drawArgs = &args;
-        colorPass->Emplace(item);
+//        drv::DrawItem item = {};
+//        item.pso = pso;
+//        item.drawArgs = &args;
+//        colorPass->Emplace(item);
     }
 
     void FrameGraphSample::Tick(float delta)

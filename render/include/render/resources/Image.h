@@ -25,7 +25,7 @@ namespace sky {
 
         ~Image() = default;
 
-        void InitRHI() override;
+        void InitRHI();
 
         bool IsValid() const override;
 

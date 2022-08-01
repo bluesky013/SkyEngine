@@ -17,7 +17,7 @@ namespace sky {
 
         virtual void OnPreparePipeline() {}
 
-        virtual void GatherRenderProxy() {}
+        virtual void GatherRenderPrimitives() {}
 
         virtual void OnRender() {}
 

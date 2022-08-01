@@ -62,6 +62,14 @@ namespace sky::drv {
         return static_cast<uint32_t>(desLayouts.size());
     }
 
+    DescriptorSetLayoutPtr PipelineLayout::GetLayout(uint32_t slot) const
+    {
+        if (slot >= desLayouts.size()) {
+            return {};
+        }
+        return desLayouts[slot];
+    }
+
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {

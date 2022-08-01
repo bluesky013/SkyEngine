@@ -37,7 +37,7 @@ namespace sky {
         Pass() = default;
         ~Pass() = default;
 
-        void InitRHI() override;
+        void InitRHI();
 
         bool IsValid() const override;
 

@@ -20,22 +20,11 @@ namespace sky {
         }
 
         for (auto& feature : features) {
-            feature.second->GatherRenderProxy();
+            feature.second->GatherRenderPrimitives();
         }
 
         if (pipeline) {
             pipeline->BeginFrame();
-        }
-    }
-
-    void RenderScene::OnPostRender()
-    {
-        for (auto& feature : features) {
-            feature.second->OnPostRender();
-        }
-
-        if (pipeline) {
-            pipeline->EndFrame();
         }
     }
 
@@ -53,8 +42,20 @@ namespace sky {
         }
     }
 
+    void RenderScene::OnPostRender()
+    {
+        for (auto& feature : features) {
+            feature.second->OnPostRender();
+        }
+
+        if (pipeline) {
+            pipeline->EndFrame();
+        }
+    }
+
     void RenderScene::AddView(RDViewPtr view)
     {
+        view->Reset();
         views.emplace_back(view);
     }
 
@@ -65,7 +66,7 @@ namespace sky {
 
     void RenderScene::Setup(RenderViewport& viewport)
     {
-        pipeline = std::make_unique<RenderPipelineForward>();
+        pipeline = std::make_unique<RenderPipelineForward>(*this);
         pipeline->Setup(viewport);
         ViewportChange(viewport);
 

@@ -11,14 +11,7 @@
 
 namespace sky {
 
-    class Technique : public RenderResource {
-    public:
-        Technique() = default;
-        ~Technique() = default;
-    };
-    using RDTechniquePtr = std::shared_ptr<Technique>;
-
-    class GraphicsTechnique : public Technique {
+    class GraphicsTechnique : public RenderResource {
     public:
         GraphicsTechnique() = default;
         ~GraphicsTechnique() = default;
@@ -38,6 +31,8 @@ namespace sky {
         uint32_t GetViewTag() const;
 
         uint32_t GetDrawTag() const;
+
+        RDGfxShaderTablePtr GetShaderTable() const;
 
     private:
         RDGfxShaderTablePtr table;

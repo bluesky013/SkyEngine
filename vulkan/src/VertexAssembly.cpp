@@ -39,4 +39,9 @@ namespace sky::drv {
         }
     }
 
+    bool VertexAssembly::IsIndexed() const
+    {
+        return !!indexBuffer;
+    }
+
 }

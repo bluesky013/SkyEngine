@@ -19,9 +19,9 @@ namespace sky {
 
         void SetMesh(RDMeshPtr);
 
-    private:
-        void Setup();
+        void OnGatherRenderPrimitives(RenderView& view);
 
+    private:
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr mesh;
