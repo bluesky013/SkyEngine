@@ -123,4 +123,9 @@ namespace sky {
     {
         return objectPool;
     }
+
+    RDDesGroupPtr RenderScene::GetSceneSet() const
+    {
+        return sceneSet;
+    }
 }

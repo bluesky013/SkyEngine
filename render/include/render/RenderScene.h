@@ -59,6 +59,8 @@ namespace sky {
 
         RDDescriptorPoolPtr GetObjectSetPool() const;
 
+        RDDesGroupPtr GetSceneSet() const;
+
         void AddView(RDViewPtr view);
 
         const std::vector<RDViewPtr>& GetViews() const;

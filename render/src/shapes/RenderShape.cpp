@@ -9,7 +9,7 @@ namespace sky {
     static RDBufferViewPtr CopyData(RDBufferPtr& buffer, const std::vector<float>& values, uint64_t& offset, uint32_t stride)
     {
         uint64_t size = values.size() * sizeof(float);
-        auto viewPtr = std::make_shared<BufferView>(buffer, stride, offset);
+        auto viewPtr = std::make_shared<BufferView>(buffer, size, offset, stride);
         buffer->Write(reinterpret_cast<const uint8_t*>(values.data()), size, offset);
         offset += size;
         return viewPtr;
@@ -146,11 +146,11 @@ namespace sky {
         vertexBuffers.emplace_back(CopyData(buffer, uvs, offset, 8));
         buffer->Update(true);
 
-        vertexDescriptions.emplace_back(VertexDesc{0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        vertexDescriptions.emplace_back(VertexDesc{1, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        vertexDescriptions.emplace_back(VertexDesc{2, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        vertexDescriptions.emplace_back(VertexDesc{3, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        vertexDescriptions.emplace_back(VertexDesc{4, 0, VK_FORMAT_R32G32_SFLOAT});
+        vertexDescriptions.emplace_back(VertexDesc{"inPos",     0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        vertexDescriptions.emplace_back(VertexDesc{"inNormal",  1, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        vertexDescriptions.emplace_back(VertexDesc{"inTangent", 2, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        vertexDescriptions.emplace_back(VertexDesc{"inColor",   3, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        vertexDescriptions.emplace_back(VertexDesc{"inUv",      4, 0, VK_FORMAT_R32G32_SFLOAT});
 
         drawData.firstVertex = 0;
         drawData.vertexCount = 6;

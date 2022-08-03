@@ -6,10 +6,14 @@
 
 namespace sky {
 
-    void RenderPrimitive::SetMaterial(RDMaterialPtr value)
+    void RenderPrimitive::SetMesh(RDMeshPtr& value, uint32_t index)
     {
-        material = value;
-        matSet = value->GetMaterialSet();
+        mesh = value;
+        subMeshIndex = index;
+        auto& subMesh = mesh->GetSubMesh(subMeshIndex);
+        auto& material = subMesh.material;
+        matSet = material->GetMaterialSet();
+        args = mesh->BuildDrawArgs(index);
 
         {
             auto& techniques = material->GetGraphicTechniques();
@@ -18,7 +22,10 @@ namespace sky {
                 proxy->gfxTechnique = tech;
                 proxy->setBinder = std::make_unique<drv::DescriptorSetBinder>();
                 proxy->assembly = vertexAssembly;
+                proxy->vertexInput = mesh->BuildVertexInput(*tech->GetShaderTable()->GetVS());
+                proxy->args = &args;
                 proxy->drawTag |= tech->GetDrawTag();
+                proxy->pso = tech->AcquirePso(proxy->vertexInput);
 
                 SetViewTag(tech->GetViewTag());
                 graphicTechniques.emplace_back(proxy);

@@ -98,6 +98,7 @@ namespace sky {
     void RDSceneSample::Stop()
     {
         scene = nullptr;
+        viewport = nullptr;
         Render::Get()->Destroy();
     }
 

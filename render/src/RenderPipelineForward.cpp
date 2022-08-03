@@ -80,6 +80,8 @@ namespace sky {
 
     void RenderPipelineForward::DoFrame()
     {
+        RenderPipeline::DoFrame();
+
         commandBuffer->Begin();
         currentFrame->Execute(commandBuffer);
 
