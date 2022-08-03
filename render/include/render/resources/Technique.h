@@ -20,9 +20,9 @@ namespace sky {
 
         void SetRenderPass(RDPassPtr pass, uint32_t subPass = 0);
 
-        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr vertexInput);
+        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr& vertexInput);
 
-        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr vi, drv::ShaderOptionPtr option);
+        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr& vi, drv::ShaderOptionPtr option);
 
         void SetViewTag(uint32_t tag);
 
@@ -35,6 +35,8 @@ namespace sky {
         RDGfxShaderTablePtr GetShaderTable() const;
 
     private:
+        bool CheckVertexInput(drv::VertexInput& input) const;
+
         RDGfxShaderTablePtr table;
         uint32_t subPassIndex = 0;
         uint32_t viewTag = 0;

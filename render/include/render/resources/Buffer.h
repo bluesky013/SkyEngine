@@ -59,6 +59,8 @@ namespace sky {
 
         uint32_t GetSize() const;
 
+        uint32_t GetStride() const;
+
         bool IsValid() const;
 
         void RequestUpdate();

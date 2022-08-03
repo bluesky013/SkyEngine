@@ -50,6 +50,11 @@ namespace sky {
         return descriptorTable;
     }
 
+    const std::map<std::string, StageInputInfo>& Shader::GetStageInputs() const
+    {
+        return stageInputs;
+    }
+
     void Shader::BuildReflection()
     {
         spirv_cross::Compiler compiler(spv.data(), spv.size());
@@ -78,9 +83,9 @@ namespace sky {
             auto fn = [&compiler, this](const SpvResources& resources) {
                 for (auto& res : resources) {
                     auto location = compiler.get_decoration(res.id, spv::DecorationLocation);
-                    auto& info = stageInputs[location];
-
-                    info.name = compiler.get_name(res.id);
+                    auto& name = compiler.get_name(res.id);
+                    auto& info = stageInputs[name];
+                    info.location = location;
                     auto& type = compiler.get_type(res.type_id);
                     if (type.basetype == spirv_cross::SPIRType::Float) {
                         if (type.vecsize == 4) {

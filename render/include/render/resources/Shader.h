@@ -15,9 +15,9 @@
 namespace sky {
 
     struct StageInputInfo {
-        std::string name;
-        VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        uint32_t location = 0;
         uint32_t size = 16;
+        VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
     };
 
     class Shader : public RenderResource {
@@ -42,13 +42,15 @@ namespace sky {
         using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
         const DescriptorTable& GetDescriptorTable() const;
 
+        const std::map<std::string, StageInputInfo>& GetStageInputs() const;
+
     private:
         void BuildReflection();
 
         Descriptor descriptor;
         std::vector<uint32_t> spv;
         drv::ShaderPtr rhiShader;
-        std::map<uint32_t, StageInputInfo> stageInputs;
+        std::map<std::string, StageInputInfo> stageInputs;
         DescriptorTable descriptorTable;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;

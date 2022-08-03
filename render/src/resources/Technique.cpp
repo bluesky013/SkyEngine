@@ -20,12 +20,12 @@ namespace sky {
         subPassIndex = subPass;
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr vertexInput)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr& vertexInput)
     {
         return AcquirePso(vertexInput, {});
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr vi, drv::ShaderOptionPtr option)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr& vi, drv::ShaderOptionPtr option)
     {
         uint32_t hash = 0;
         HashCombine32(hash, vi->GetHash());
@@ -53,6 +53,7 @@ namespace sky {
         auto device = DriverManager::Get()->GetDevice();
         auto pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
         psoCache.emplace(hash, pso);
+        return pso;
     }
 
     void GraphicsTechnique::SetViewTag(uint32_t tag)

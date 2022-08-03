@@ -33,6 +33,8 @@ namespace sky::drv {
             std::shared_ptr<VertexInput> vertexInput;
         };
 
+        const std::vector<VkVertexInputAttributeDescription>& GetAttributeDescriptions() const;
+
         const VkPipelineVertexInputStateCreateInfo* GetInfo() const;
 
         uint32_t GetHash() const;

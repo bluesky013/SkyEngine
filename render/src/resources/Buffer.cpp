@@ -117,6 +117,11 @@ namespace sky {
         return size;
     }
 
+    uint32_t BufferView::GetStride() const
+    {
+        return stride;
+    }
+
     bool BufferView::IsValid() const
     {
         return buffer && buffer->IsValid();

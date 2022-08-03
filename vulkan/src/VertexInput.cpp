@@ -10,9 +10,7 @@ namespace sky::drv {
 
     VertexInput::Builder& VertexInput::Builder::Begin()
     {
-        if (!vertexInput) {
-            vertexInput = std::make_shared<VertexInput>();
-        }
+        vertexInput = std::make_shared<VertexInput>();
         return *this;
     }
 
@@ -41,6 +39,11 @@ namespace sky::drv {
         HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t*)vertexInput->attributes.data(), static_cast<uint32_t>(vertexInput->attributes.size())));
         HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t*)vertexInput->bindings.data(), static_cast<uint32_t>(vertexInput->bindings.size())));
         return vertexInput;
+    }
+
+    const std::vector<VkVertexInputAttributeDescription>& VertexInput::GetAttributeDescriptions() const
+    {
+        return attributes;
     }
 
     const VkPipelineVertexInputStateCreateInfo* VertexInput::GetInfo() const
