@@ -23,7 +23,7 @@ namespace sky {
                 proxy->setBinder = tech->CreateSetBinder();
                 proxy->assembly = vertexAssembly;
                 proxy->vertexInput = mesh->BuildVertexInput(*tech->GetShaderTable()->GetVS());
-                proxy->args = &args;
+                proxy->args = args;
                 proxy->drawTag |= tech->GetDrawTag();
                 proxy->pso = tech->AcquirePso(proxy->vertexInput);
 

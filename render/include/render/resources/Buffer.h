@@ -19,8 +19,11 @@ namespace sky {
             bool                allocCPU = false;
         };
 
+        Buffer() = default;
         Buffer(const Descriptor& desc);
         ~Buffer() = default;
+
+        void Init(const Descriptor& desc);
 
         void InitRHI();
 

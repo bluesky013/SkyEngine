@@ -82,6 +82,9 @@ namespace sky {
         material->AddGfxTechnique(colorTech);
         material->InitRHI();
 
+        material->UpdateValue("material.baseColor", Vector4{1.f, 0.f, 0.f, 1.f});
+        material->Update();
+
         staticMesh = smFeature->Create();
         Matrix4 transform = glm::identity<Matrix4>();
         transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));

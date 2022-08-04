@@ -10,8 +10,19 @@
 #include <render/resources/Buffer.h>
 #include <vulkan/DescriptorSet.h>
 #include <vulkan/DescriptorSetLayout.h>
+#include <unordered_map>
 
 namespace sky {
+
+    struct PropertyHandler {
+        uint32_t binding = 0;
+        uint32_t offset  = 0;
+    };
+
+    struct ProperTableInfo {
+        std::unordered_map<std::string, PropertyHandler> handleMap;
+    };
+    using PropertyTablePtr = std::shared_ptr<ProperTableInfo>;
 
     class DescriptorGroup : public RenderResource {
     public:
@@ -28,6 +39,10 @@ namespace sky {
 
         drv::DescriptorSetPtr GetRHISet() const;
 
+        void SetPropertyTable(PropertyTablePtr table);
+
+        PropertyTablePtr GetProperTable() const;
+
     private:
         friend class DescriptorPool;
         void Init();
@@ -35,6 +50,7 @@ namespace sky {
         drv::DescriptorSetPtr set;
         std::unordered_map<uint32_t, RDTexturePtr> textures;
         std::unordered_map<uint32_t, RDBufferViewPtr> buffers;
+        PropertyTablePtr properTable;
         bool dirty = true;
     };
     using RDDesGroupPtr = std::shared_ptr<DescriptorGroup>;

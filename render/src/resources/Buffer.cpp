@@ -8,8 +8,14 @@
 
 namespace sky {
 
-    Buffer::Buffer(const Descriptor& desc) : descriptor(desc)
+    Buffer::Buffer(const Descriptor& desc)
     {
+        Init(desc);
+    }
+
+    void Buffer::Init(const Descriptor& desc)
+    {
+        descriptor = desc;
         if (desc.allocCPU) {
             rawData.resize(desc.size);
         }

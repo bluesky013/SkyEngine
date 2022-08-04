@@ -78,6 +78,16 @@ namespace sky {
         return set;
     }
 
+    void DescriptorGroup::SetPropertyTable(PropertyTablePtr value)
+    {
+        properTable = value;
+    }
+
+    PropertyTablePtr DescriptorGroup::GetProperTable() const
+    {
+        return properTable;
+    }
+
     void DescriptorGroup::Init()
     {
         auto layout = set->GetLayout();
