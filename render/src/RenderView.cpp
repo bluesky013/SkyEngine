@@ -7,6 +7,11 @@
 
 namespace sky {
 
+    void RenderView::Update()
+    {
+        viewInfo.worldToClipMatrix = viewInfo.viewToClipMatrix * viewInfo.worldToViewMatrix;
+    }
+
     void RenderView::SetTransform(const Matrix4& transform)
     {
         viewInfo.viewToWorldMatrix = transform;
@@ -14,12 +19,13 @@ namespace sky {
         viewInfo.position.x = transform[3][0];
         viewInfo.position.y = transform[3][1];
         viewInfo.position.z = transform[3][2];
+        Update();
     }
 
     void RenderView::SetProjectMatrix(const Matrix4& projectMatrix)
     {
         viewInfo.viewToClipMatrix = projectMatrix;
-        viewInfo.worldToClipMatrix = viewInfo.viewToClipMatrix * viewInfo.worldToViewMatrix;
+        Update();
     }
 
     const ViewInfo& RenderView::GetViewInfo() const

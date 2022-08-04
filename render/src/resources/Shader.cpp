@@ -5,6 +5,7 @@
 #include <render/resources/Shader.h>
 #include <render/DriverManager.h>
 #include <core/file/FileIO.h>
+#include <render/GlobalDescriptorPool.h>
 
 #include <spirv_cross/spirv_cross.hpp>
 
@@ -50,9 +51,14 @@ namespace sky {
         return descriptorTable;
     }
 
-    const std::map<std::string, StageInputInfo>& Shader::GetStageInputs() const
+    const Shader::StageInputTable& Shader::GetStageInputs() const
     {
         return stageInputs;
+    }
+
+    const Shader::NameTable& Shader::GetNameTable() const
+    {
+        return nameTable;
     }
 
     void Shader::BuildReflection()
@@ -64,11 +70,30 @@ namespace sky {
             for (auto& res : resources) {
                 auto set = compiler.get_decoration(res.id, spv::DecorationDescriptorSet);
                 auto binding = compiler.get_decoration(res.id, spv::DecorationBinding);
+                auto& name = compiler.get_name(res.id);
 
                 auto& entry = descriptorTable[set].bindings[binding];
                 entry.descriptorType = type;
                 entry.stageFlags = descriptor.stage;
                 entry.descriptorCount = 1;
+
+                auto& table = nameTable[set];
+                if (!table) {
+                    table = std::make_shared<ProperTableInfo>();
+                }
+
+                if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                    auto& type = compiler.get_type(res.base_type_id);
+                    size_t memberNum = type.member_types.size();
+                    for (size_t i = 0; i < memberNum; ++i) {
+                        uint32_t offset = compiler.get_member_decoration(res.base_type_id, i, spv::DecorationOffset);
+                        std::string nameKey = name + "." + compiler.get_member_name(res.base_type_id, i);
+                        table->handleMap.emplace(nameKey, PropertyHandler{ binding, offset });
+                        entry.size = compiler.get_declared_struct_size(type);
+                    }
+                } else {
+                    table->handleMap.emplace(name, PropertyHandler{ binding, 0 });
+                }
             }
         };
 
@@ -121,6 +146,18 @@ namespace sky {
                     merge.stageFlags |= binding.second.stageFlags;
                     merge.descriptorType = binding.second.descriptorType;
                     merge.descriptorCount = binding.second.descriptorCount;
+                    merge.size = binding.second.size;
+                }
+            }
+            auto& shaderNameTable = shader->GetNameTable();
+            for (auto& pair : shaderNameTable) {
+                for (auto& [name, handler] : pair.second->handleMap) {
+                    auto& handleMap = nameTable[pair.first];
+                    if (!handleMap) {
+                        handleMap = std::make_shared<ProperTableInfo>();
+                    }
+
+                    nameTable[pair.first]->handleMap.emplace(name, handler);
                 }
             }
         }
@@ -131,6 +168,24 @@ namespace sky {
     drv::PipelineLayoutPtr ShaderTable::GetPipelineLayout() const
     {
         return pipelineLayout;
+    }
+
+    RDDesGroupPtr ShaderTable::CreateDescriptorGroup(uint32_t slot) const
+    {
+        auto iter = nameTable.find(slot);
+        if (iter == nameTable.end()) {
+            return {};
+        }
+
+        drv::DescriptorSetLayoutPtr layout = pipelineLayout->GetLayout(slot);
+        if (!layout) {
+            return {};
+        }
+
+        RDDescriptorPoolPtr pool = GlobalDescriptorPool::Get()->GetPool(layout);
+        RDDesGroupPtr res = pool->Allocate();
+        res->SetPropertyTable(iter->second);
+        return res;
     }
 
     void ShaderTable::FillProgram(drv::GraphicsPipeline::Program& program)

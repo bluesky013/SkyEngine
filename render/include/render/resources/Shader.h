@@ -6,6 +6,8 @@
 #pragma once
 
 #include <render/resources/RenderResource.h>
+#include <render/resources/DescirptorGroup.h>
+#include <render/resources/DescriptorPool.h>
 #include <vulkan/Shader.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/GraphicsPipeline.h>
@@ -29,6 +31,10 @@ namespace sky {
         Shader(const Descriptor& desc);
         ~Shader() = default;
 
+        using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
+        using NameTable = std::unordered_map<uint32_t, PropertyTablePtr>;
+        using StageInputTable = std::map<std::string, StageInputInfo>;
+
         void LoadData(const std::string& path);
 
         void SetData(std::vector<uint32_t>&& data);
@@ -39,10 +45,11 @@ namespace sky {
 
         drv::ShaderPtr GetShader() const;
 
-        using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
         const DescriptorTable& GetDescriptorTable() const;
 
-        const std::map<std::string, StageInputInfo>& GetStageInputs() const;
+        const StageInputTable& GetStageInputs() const;
+
+        const NameTable& GetNameTable() const;
 
     private:
         void BuildReflection();
@@ -50,7 +57,8 @@ namespace sky {
         Descriptor descriptor;
         std::vector<uint32_t> spv;
         drv::ShaderPtr rhiShader;
-        std::map<std::string, StageInputInfo> stageInputs;
+        StageInputTable stageInputs;
+        NameTable nameTable;
         DescriptorTable descriptorTable;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
@@ -64,10 +72,13 @@ namespace sky {
 
         drv::PipelineLayoutPtr GetPipelineLayout() const;
 
+        RDDesGroupPtr CreateDescriptorGroup(uint32_t slot) const;
+
         void FillProgram(drv::GraphicsPipeline::Program& program);
 
     protected:
         std::vector<RDShaderPtr> shaders;
+        Shader::NameTable nameTable;
         drv::PipelineLayoutPtr pipelineLayout;
     };
     using RDShaderTablePtr = std::shared_ptr<ShaderTable>;
@@ -94,6 +105,8 @@ namespace sky {
         void LoadShader(const std::string& vs, const std::string& fs);
 
         bool IsValid() const override;
+
+        RDDesGroupPtr CreateDescriptor();
 
         inline RDShaderPtr GetVS() const
         {

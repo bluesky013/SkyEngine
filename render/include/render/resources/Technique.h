@@ -8,6 +8,7 @@
 #include <render/resources/Shader.h>
 #include <render/resources/Pass.h>
 #include <vulkan/GraphicsPipeline.h>
+#include <vulkan/DescriptorSetBinder.h>
 
 namespace sky {
 
@@ -33,6 +34,8 @@ namespace sky {
         uint32_t GetDrawTag() const;
 
         RDGfxShaderTablePtr GetShaderTable() const;
+
+        drv::DescriptorSetBinderPtr CreateSetBinder() const;
 
     private:
         bool CheckVertexInput(drv::VertexInput& input) const;

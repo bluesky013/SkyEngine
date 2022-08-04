@@ -18,6 +18,7 @@ namespace sky {
     {
         pass = p;
         subPassIndex = subPass;
+        pass->ValidatePipelineState(pipelineState, subPass);
     }
 
     drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr& vertexInput)
@@ -79,5 +80,14 @@ namespace sky {
     RDGfxShaderTablePtr GraphicsTechnique::GetShaderTable() const
     {
         return table;
+    }
+
+    drv::DescriptorSetBinderPtr GraphicsTechnique::CreateSetBinder() const
+    {
+        auto layout = table->GetPipelineLayout();
+        auto res = std::make_shared<drv::DescriptorSetBinder>();
+        res->SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
+        res->SetPipelineLayout(layout);
+        return res;
     }
 }

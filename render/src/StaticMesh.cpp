@@ -12,6 +12,8 @@ namespace sky {
 
     void StaticMesh::OnRender(RenderScene& scene)
     {
+        RenderMesh::OnRender(scene);
+
         for (auto& primitive : primitives) {
             auto& techs = primitive->GetTechniques();
             for (auto& tech : techs) {
@@ -39,9 +41,9 @@ namespace sky {
         auto& subMeshes = mesh->GetSubMeshes();
         for (uint32_t i = 0; i < subMeshes.size(); ++i) {
             auto primitive = std::make_unique<RenderPrimitive>();
-            primitive->SetMesh(mesh, i);
             primitive->SetVertexAssembly(vertexAssembly);
             primitive->SetObjectSet(objectSet);
+            primitive->SetMesh(mesh, i);
 
             primitives.emplace_back(std::move(primitive));
         }

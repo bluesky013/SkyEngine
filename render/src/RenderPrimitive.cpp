@@ -20,10 +20,10 @@ namespace sky {
             for (auto& tech : techniques) {
                 auto proxy = new GraphicsTechniqueProxy();
                 proxy->gfxTechnique = tech;
-                proxy->setBinder = std::make_unique<drv::DescriptorSetBinder>();
+                proxy->setBinder = tech->CreateSetBinder();
                 proxy->assembly = vertexAssembly;
                 proxy->vertexInput = mesh->BuildVertexInput(*tech->GetShaderTable()->GetVS());
-                proxy->args = &args;
+                proxy->args = args;
                 proxy->drawTag |= tech->GetDrawTag();
                 proxy->pso = tech->AcquirePso(proxy->vertexInput);
 

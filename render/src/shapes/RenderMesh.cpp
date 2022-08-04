@@ -4,6 +4,7 @@
 
 #include <render/RenderMesh.h>
 #include <render/RenderScene.h>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
@@ -12,12 +13,14 @@ namespace sky {
         objectInfo.worldMatrix = matrix;
         objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
 
+        MathUtil::PrintMatrix(objectInfo.worldMatrix);
+        MathUtil::PrintMatrix(objectInfo.inverseTransposeMatrix);
         UpdateBuffer();
     }
 
     void RenderMesh::UpdateBuffer()
     {
-        objectBuffer->Write(&objectInfo);
+        objectBuffer->Write(objectInfo);
     }
 
     void RenderMesh::AddToScene(RenderScene& scene)

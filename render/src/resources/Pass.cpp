@@ -34,7 +34,7 @@ namespace sky {
             [](DF df, const PassDependencyInfo& info)
             {
                 df.SetLinkage(info.src, info.dst)
-                    .SetBarrier({})
+                    .SetBarrier(info.barrier)
                     .SetFlags(VK_DEPENDENCY_BY_REGION_BIT);
             };
 
@@ -59,9 +59,21 @@ namespace sky {
             }
         }
 
+        dependencyFn(pF.AddDependency(), {VK_SUBPASS_EXTERNAL, 0,
+            {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_ACCESS_MEMORY_READ_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT}
+        });
         for (auto& dep : dependencies) {
             dependencyFn(pF.AddDependency(), dep);
         }
+        dependencyFn(pF.AddDependency(), {0, VK_SUBPASS_EXTERNAL,
+            {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_MEMORY_READ_BIT}
+        });
 
         auto device = DriverManager::Get()->GetDevice();
         renderPass = pF.Create(*device);
@@ -75,6 +87,22 @@ namespace sky {
     void Pass::AddSubPass(const SubPassInfo& subPassInfo)
     {
         subPasses.emplace_back(subPassInfo);
+    }
+
+    drv::RenderPassPtr Pass::GetRenderPass() const
+    {
+        return renderPass;
+    }
+
+    void Pass::ValidatePipelineState(drv::GraphicsPipeline::State& state, uint32_t index)
+    {
+        if (index >= subPasses.size()) {
+            return;
+        }
+
+        auto& subPass = subPasses[index];
+        state.blends.attachmentNum = static_cast<uint32_t>(subPass.colors.size());
+        state.multiSample.samples = subPass.colors.empty() ? subPass.depthStencil.samples : subPass.colors[0].samples;
     }
 
 }

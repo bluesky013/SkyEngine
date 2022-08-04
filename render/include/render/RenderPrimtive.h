@@ -19,7 +19,7 @@ namespace sky {
         drv::VertexAssemblyPtr assembly;
         drv::VertexInputPtr vertexInput;
         drv::GraphicsPipelinePtr pso;
-        drv::CmdDraw* args = nullptr;
+        drv::CmdDraw args = {};
         uint32_t drawTag = 0;
     };
     using RDGfxTechniqueProxyPtr = std::unique_ptr<GraphicsTechniqueProxy>;

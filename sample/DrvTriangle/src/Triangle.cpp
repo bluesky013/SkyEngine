@@ -120,7 +120,7 @@ namespace sky {
 
         drv::DrawItem item = {};
         item.pso = pso;
-        item.drawArgs = &args;
+        item.drawArgs = args;
 
 
         drv::PassBeginInfo beginInfo = {};

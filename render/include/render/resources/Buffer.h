@@ -19,8 +19,11 @@ namespace sky {
             bool                allocCPU = false;
         };
 
+        Buffer() = default;
         Buffer(const Descriptor& desc);
         ~Buffer() = default;
+
+        void Init(const Descriptor& desc);
 
         void InitRHI();
 
@@ -50,14 +53,14 @@ namespace sky {
 
     class BufferView : public RenderResource {
     public:
-        BufferView(RDBufferPtr buffer, uint32_t size, uint32_t offset, uint32_t stride = 0);
+        BufferView(RDBufferPtr buffer, VkDeviceSize size, VkDeviceSize offset, uint32_t stride = 0);
         ~BufferView() = default;
 
         RDBufferPtr GetBuffer() const;
 
-        uint32_t GetOffset() const;
+        VkDeviceSize GetOffset() const;
 
-        uint32_t GetSize() const;
+        VkDeviceSize GetSize() const;
 
         uint32_t GetStride() const;
 
@@ -75,8 +78,8 @@ namespace sky {
 
     private:
         RDBufferPtr buffer;
-        uint32_t size = 0;
-        uint32_t offset = 0;
+        VkDeviceSize size = 0;
+        VkDeviceSize offset = 0;
         uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;

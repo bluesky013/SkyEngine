@@ -225,22 +225,26 @@ namespace sky::drv {
             item.shaderResources->OnBind(cmdBuffer);
         }
 
-        if (item.vertexAssembly != nullptr) {
+        if (item.vertexAssembly) {
             item.vertexAssembly->OnBind(cmdBuffer);
         }
-        
-        if (item.drawArgs != nullptr) {
-            switch (item.drawArgs->type) {
-                case CmdDrawType::INDEXED:
-                    vkCmdDrawIndexed(cmdBuffer, item.drawArgs->indexed.indexCount, item.drawArgs->indexed.instanceCount,
-                        item.drawArgs->indexed.firstIndex, item.drawArgs->indexed.vertexOffset, item.drawArgs->indexed.firstInstance);
-                    break;
-                case CmdDrawType::LINEAR:
-                    vkCmdDraw(cmdBuffer, item.drawArgs->linear.vertexCount,
-                        item.drawArgs->linear.instanceCount, item.drawArgs->linear.firstVertex, item.drawArgs->linear.firstInstance);
-                    break;
-            }
-            
+
+        switch (item.drawArgs.type) {
+            case CmdDrawType::INDEXED:
+                vkCmdDrawIndexed(cmdBuffer,
+                                 item.drawArgs.indexed.indexCount,
+                                 item.drawArgs.indexed.instanceCount,
+                                 item.drawArgs.indexed.firstIndex,
+                                 item.drawArgs.indexed.vertexOffset,
+                                 item.drawArgs.indexed.firstInstance);
+                break;
+            case CmdDrawType::LINEAR:
+                vkCmdDraw(cmdBuffer,
+                          item.drawArgs.linear.vertexCount,
+                          item.drawArgs.linear.instanceCount,
+                          item.drawArgs.linear.firstVertex,
+                          item.drawArgs.linear.firstInstance);
+                break;
         }
 
     }
