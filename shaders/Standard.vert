@@ -17,8 +17,11 @@ layout (set = 0, binding = 0) uniform ObjectInfo {
 } objectInfo;
 
 layout (set = 1, binding = 0) uniform ViewInfo {
-    mat4 viewMatrix;
-    mat4 viewProject;
+    mat4 viewToWorldMatrix;
+    mat4 worldToViewMatrix;
+    mat4 viewToClipMatrix;
+    mat4 worldToClipMatrix;
+    vec3 position;
 } viewInfo;
 
 out gl_PerVertex
@@ -29,7 +32,7 @@ out gl_PerVertex
 void main()
 {
     vec4 worldPos = objectInfo.worldMatrix * inPos;
-    gl_Position = viewInfo.viewProject * worldPos;
+    gl_Position = viewInfo.worldToClipMatrix * worldPos;
 
     outNormal = normalize(mat3(objectInfo.inverseTranspose) * inNormal.xyz);
     outColor = inColor;

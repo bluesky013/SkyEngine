@@ -103,7 +103,7 @@ namespace sky {
             res.linear.firstVertex = subMesh.drawData.firstVertex;
             res.linear.vertexCount = subMesh.drawData.vertexCount;
         }
-
+        return res;
     }
 
 }

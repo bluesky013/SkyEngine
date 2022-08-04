@@ -16,10 +16,10 @@ namespace sky {
     class RenderPrimitive;
 
     struct ViewInfo {
-        Matrix4 viewToWorldMatrix;
-        Matrix4 worldToViewMatrix;
-        Matrix4 viewToClipMatrix;
-        Matrix4 worldToClipMatrix;
+        Matrix4 viewToWorldMatrix = glm::identity<Matrix4>();
+        Matrix4 worldToViewMatrix = glm::identity<Matrix4>();
+        Matrix4 viewToClipMatrix = glm::identity<Matrix4>();
+        Matrix4 worldToClipMatrix = glm::identity<Matrix4>();
         Vector3 position;
     };
 
@@ -43,6 +43,8 @@ namespace sky {
         void Reset();
 
     private:
+        void Update();
+
         ViewInfo viewInfo;
         uint32_t viewTag = 0;
         std::vector<RenderPrimitive*> primitives;

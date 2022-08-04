@@ -6,6 +6,7 @@
 
 #include <render/resources/RenderResource.h>
 #include <vulkan/RenderPass.h>
+#include <vulkan/GraphicsPipeline.h>
 #include <memory>
 
 namespace sky {
@@ -30,6 +31,7 @@ namespace sky {
     struct PassDependencyInfo {
         uint32_t src = 0;
         uint32_t dst = 0;
+        drv::Barrier barrier{};
     };
 
     class Pass : public RenderResource {
@@ -43,15 +45,13 @@ namespace sky {
 
         void AddSubPass(const SubPassInfo& subPassInfo);
 
-        inline drv::RenderPassPtr GetRenderPass() const
-        {
-            return renderPass;
-        }
+        drv::RenderPassPtr GetRenderPass() const;
+
+        void ValidatePipelineState(drv::GraphicsPipeline::State& state, uint32_t subPass);
 
     private:
-        std::vector<SubPassInfo>    subPasses;
+        std::vector<SubPassInfo> subPasses;
         std::vector<PassDependencyInfo> dependencies;
-
         drv::RenderPassPtr renderPass;
     };
     using RDPassPtr = std::shared_ptr<Pass>;

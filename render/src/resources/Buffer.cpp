@@ -94,7 +94,7 @@ namespace sky {
         return rhiBuffer;
     }
 
-    BufferView::BufferView(RDBufferPtr b, uint32_t sz, uint32_t o, uint32_t s)
+    BufferView::BufferView(RDBufferPtr b, VkDeviceSize sz, VkDeviceSize o, uint32_t s)
         : buffer(b)
         , size(sz)
         , offset(o)
@@ -107,12 +107,12 @@ namespace sky {
         return buffer;
     }
 
-    uint32_t BufferView::GetOffset() const
+    VkDeviceSize BufferView::GetOffset() const
     {
         return offset;
     }
 
-    uint32_t BufferView::GetSize() const
+    VkDeviceSize BufferView::GetSize() const
     {
         return size;
     }

@@ -60,14 +60,6 @@ namespace sky {
 
         mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
 
-        staticMesh = smFeature->Create();
-        Matrix4 transform = glm::identity<Matrix4>();
-        transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
-        transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
-
-        MathUtil::PrintMatrix(transform);
-        staticMesh->SetWorldMatrix(transform);
-
         // init material
         auto colorTable = std::make_shared<GraphicsShaderTable>();
         colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
@@ -75,8 +67,8 @@ namespace sky {
 
         auto pass = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
-        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_1_BIT});
-        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_SAMPLE_COUNT_1_BIT};
+        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_4_BIT});
+        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
@@ -89,6 +81,13 @@ namespace sky {
         auto material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);
         material->InitRHI();
+
+        staticMesh = smFeature->Create();
+        Matrix4 transform = glm::identity<Matrix4>();
+        transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
+        transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
+
+        staticMesh->SetWorldMatrix(transform);
 
         auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
         auto mesh = plane->CreateMesh(material);

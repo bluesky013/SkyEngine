@@ -225,7 +225,7 @@ namespace sky::drv {
             item.shaderResources->OnBind(cmdBuffer);
         }
 
-        if (item.vertexAssembly != nullptr) {
+        if (item.vertexAssembly) {
             item.vertexAssembly->OnBind(cmdBuffer);
         }
         
