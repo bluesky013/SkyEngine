@@ -15,7 +15,9 @@ layout (set = 2, binding = 0) uniform MaterialInfo {
     vec4 baseColor;
 } material;
 
+layout (set = 2, binding = 1) uniform sampler2D baseColor;
+
 void main()
 {
-    outFragColor = color * material.baseColor;
+    outFragColor = color * material.baseColor * texture(baseColor, uv);
 }

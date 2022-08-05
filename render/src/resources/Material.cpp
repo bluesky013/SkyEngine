@@ -4,6 +4,7 @@
 
 
 #include <render/resources/Material.h>
+#include <render/Render.h>
 
 namespace sky {
 
@@ -34,18 +35,25 @@ namespace sky {
         descriptor.size = 0;
 
         materialBuffer = std::make_shared<Buffer>();
+        auto tex = Render::Get()->GetDefaultTexture();
         for (auto& [binding, info] : descriptorTable) {
             if (info.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
                 info.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
-                bufferView[binding] = std::make_shared<BufferView>(materialBuffer, info.size, descriptor.size);
+                bufferViews[binding] = std::make_shared<BufferView>(materialBuffer, info.size, descriptor.size);
                 descriptor.size += info.size;
+            } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                textures[binding] = tex;
             }
         }
         materialBuffer->Init(descriptor);
         materialBuffer->InitRHI();
 
-        for (auto& [binding, view] : bufferView) {
+        for (auto& [binding, view] : bufferViews) {
             matSet->UpdateBuffer(binding, view);
+        }
+
+        for (auto& [binding, tex] : textures) {
+            matSet->UpdateTexture(binding, tex);
         }
         matSet->Update();
     }
@@ -57,8 +65,9 @@ namespace sky {
 
     void Material::Update()
     {
-        for (auto& view : bufferView) {
+        for (auto& view : bufferViews) {
             view.second->RequestUpdate();
         }
+        matSet->Update();
     }
 }

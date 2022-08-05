@@ -34,7 +34,7 @@ namespace sky {
             if (iter == table->handleMap.end()) {
                 return;
             }
-            bufferView[iter->second.binding]->Write(value, iter->second.offset);
+            bufferViews[iter->second.binding]->Write(value, iter->second.offset);
         }
 
         void Update();
@@ -42,7 +42,8 @@ namespace sky {
         std::vector<RDGfxTechniquePtr> gfxTechniques;
         RDDesGroupPtr matSet;
         RDBufferPtr materialBuffer;
-        std::unordered_map<uint32_t, RDBufferViewPtr> bufferView;
+        std::unordered_map<uint32_t, RDBufferViewPtr> bufferViews;
+        std::unordered_map<uint32_t, RDTexturePtr> textures;
     };
 
     using RDMaterialPtr = std::shared_ptr<Material>;

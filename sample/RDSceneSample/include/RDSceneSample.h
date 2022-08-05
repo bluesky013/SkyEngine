@@ -29,6 +29,7 @@ namespace sky {
     private:
         RDScenePtr scene;
         RDViewportPtr viewport;
+        RDMaterialPtr material;
         RenderCamera* mainCamera = nullptr;
         StaticMesh* staticMesh = nullptr;
     };

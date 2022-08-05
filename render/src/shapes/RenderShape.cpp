@@ -6,6 +6,60 @@
 
 namespace sky {
 
+//    namespace plane {
+//        static Vector3 POS1 = {-0.5f, 0.f,  0.5f};
+//        static Vector3 POS2 = {-0.5f, 0.f, -0.5f};
+//        static Vector3 POS3 = { 0.5f, 0.f, -0.5f};
+//        static Vector3 POS4 = { 0.5f, 0.f,  0.5f};
+//
+//        static Vector2 UV1 = {0.f, 1.f};
+//        static Vector2 UV2 = {0.f, 0.f};
+//        static Vector2 UV3 = {1.f, 0.f};
+//        static Vector2 UV4 = {1.f, 1.f};
+//
+//        inline void AddPlane(const Vector3& normal,
+//            std::vector<float>& positions,
+//            std::vector<float>& normals,
+//            std::vector<float>& tangents,
+//            std::vector<float>& colors,
+//            std::vector<float>& uv)
+//        {
+//            Vector3 tangent1 = {0.f, 0.f, 0.f};
+//            Vector3 tangent2 = {0.f, 0.f, 0.f};
+//
+//            Vector3 edge1 = POS2 - POS1;
+//            Vector3 edge2 = POS3 - POS1;
+//            Vector2 deltaUV1 = UV2 - UV1;
+//            Vector2 deltaUV2 = UV3 - UV1;
+//
+//            float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+//
+//            tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+//            tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+//            tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+//            tangent1 = glm::normalize(tangent1);
+//
+//            edge1 = POS3 - POS1;
+//            edge2 = POS4 - POS1;
+//            deltaUV1 = UV3 - UV1;
+//            deltaUV2 = UV4 - UV1;
+//
+//            f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+//
+//            tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+//            tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+//            tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+//            tangent2 = glm::normalize(tangent2);
+//
+//            positions.emplace_back(Vector4{POS1.x, POS1.y, POS1.z, 1.f}};
+//            positions.emplace_back(Vector4{POS2.x, POS2.y, POS2.z, 1.f}};
+//            positions.emplace_back(Vector4{POS3.x, POS3.y, POS3.z, 1.f}};
+//            positions.emplace_back(Vector4{POS1.x, POS1.y, POS1.z, 1.f}};
+//            positions.emplace_back(Vector4{POS3.x, POS3.y, POS3.z, 1.f}};
+//            positions.emplace_back(Vector4{POS4.x, POS4.y, POS4.z, 1.f}};
+//        }
+//    }
+
     static RDBufferViewPtr CopyData(RDBufferPtr& buffer, const std::vector<float>& values, uint64_t& offset, uint32_t stride)
     {
         uint64_t size = values.size() * sizeof(float);
@@ -157,6 +211,11 @@ namespace sky {
 
         aabb.min = Vector3 {-0.5f, 0.f, -0.5f};
         aabb.max = Vector3 {0.5f, 0.f, 0.5f};
+    }
+
+    void Cube::Init()
+    {
+
     }
 
 }

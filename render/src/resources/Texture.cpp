@@ -4,6 +4,7 @@
 
 
 #include <render/resources/Texture.h>
+#include <render/Render.h>
 #include <render/DriverManager.h>
 
 namespace sky {
@@ -34,12 +35,7 @@ namespace sky {
         viewDesc.subResourceRange.layerCount = desc.layerCount;
         auto rhiImage = image->GetRHIImage();
         auto imageView = drv::ImageView::CreateImageView(rhiImage, viewDesc);
-
-        drv::Sampler::Descriptor sampDesc = {};
-        if (desc.levelCount > 1) {
-            sampDesc.maxLod = 13;
-        }
-        auto sampler = DriverManager::Get()->CreateDeviceObject<drv::Sampler>(sampDesc);
+        auto sampler= Render::Get()->GetDefaultSampler();
 
         texture->SetImageView(imageView);
         texture->SetSampler(sampler);

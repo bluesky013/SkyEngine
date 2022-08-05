@@ -29,16 +29,25 @@ namespace sky {
 
         RDDescriptorPoolPtr GetGlobalSetPool() const;
 
+        RDTexturePtr GetDefaultTexture() const;
+
+        drv::SamplerPtr GetDefaultSampler() const;
+
     private:
         friend class Singleton<Render>;
 
         void InitGlobalPool();
+
+        void InitDefaultResource();
 
         Render() = default;
         ~Render();
 
         std::vector<RDScenePtr> scenes;
         RDDescriptorPoolPtr globalPool;
+
+        RDTexturePtr defaultTexture;
+        drv::SamplerPtr defaultSampler;
     };
 
 }

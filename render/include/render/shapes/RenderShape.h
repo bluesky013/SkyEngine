@@ -37,4 +37,15 @@ namespace sky {
         RDBufferPtr buffer;
     };
 
+    class Cube : public RenderShape {
+    public:
+        Cube() = default;
+        ~Cube() = default;
+
+        void Init() override;
+
+    private:
+        RDBufferPtr buffer;
+    };
+
 }

@@ -78,11 +78,11 @@ namespace sky {
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
         colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
 
-        auto material = std::make_shared<Material>();
+        material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);
         material->InitRHI();
 
-        material->UpdateValue("material.baseColor", Vector4{1.f, 0.f, 0.f, 1.f});
+        material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
         material->Update();
 
         staticMesh = smFeature->Create();
@@ -101,6 +101,7 @@ namespace sky {
     {
         scene = nullptr;
         viewport = nullptr;
+        material = nullptr;
         Render::Get()->Destroy();
     }
 
