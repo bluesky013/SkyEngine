@@ -12,9 +12,6 @@ namespace sky {
     {
         objectInfo.worldMatrix = matrix;
         objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
-
-        MathUtil::PrintMatrix(objectInfo.worldMatrix);
-        MathUtil::PrintMatrix(objectInfo.inverseTransposeMatrix);
         UpdateBuffer();
     }
 
