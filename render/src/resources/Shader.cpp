@@ -85,11 +85,11 @@ namespace sky {
                 if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
                     auto& type = compiler.get_type(res.base_type_id);
                     size_t memberNum = type.member_types.size();
-                    for (size_t i = 0; i < memberNum; ++i) {
+                    for (uint32_t i = 0; i < memberNum; ++i) {
                         uint32_t offset = compiler.get_member_decoration(res.base_type_id, i, spv::DecorationOffset);
                         std::string nameKey = name + "." + compiler.get_member_name(res.base_type_id, i);
                         table->handleMap.emplace(nameKey, PropertyHandler{ binding, offset });
-                        entry.size = compiler.get_declared_struct_size(type);
+                        entry.size = static_cast<uint32_t>(compiler.get_declared_struct_size(type));
                     }
                 } else {
                     table->handleMap.emplace(name, PropertyHandler{ binding, 0 });

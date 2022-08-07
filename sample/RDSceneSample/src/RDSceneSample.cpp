@@ -24,6 +24,30 @@
 
 namespace sky {
 
+    class RotationFeature : public RenderFeature {
+    public:
+        RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
+        ~RotationFeature() = default;
+
+        void SetMesh(StaticMesh* value)
+        {
+            mesh = value;
+        }
+
+        void OnPreparePipeline() override
+        {
+            Matrix4 transform = glm::identity<Matrix4>();
+            transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
+            transform = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
+            mesh->SetWorldMatrix(transform);
+            angle -= 0.02f;
+        }
+
+    private:
+        float angle = 0.f;
+        StaticMesh* mesh = nullptr;
+    };
+
     void RDSceneSample::Init()
     {
         StartInfo info = {};
@@ -77,6 +101,9 @@ namespace sky {
         colorTech->SetRenderPass(pass);
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
         colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
+        colorTech->SetDepthTestEn(true);
+        colorTech->SetDepthWriteEn(true);
+
 
         material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);
@@ -86,15 +113,12 @@ namespace sky {
         material->Update();
 
         staticMesh = smFeature->Create();
-        Matrix4 transform = glm::identity<Matrix4>();
-        transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
-        transform = glm::rotate(transform, glm::radians(30.f), Vector3(1.f, 1.f, 1.f));
-
-        staticMesh->SetWorldMatrix(transform);
-
-        auto plane= ShapeManager::Get()->GetOrCreate<Plane>();
-        auto mesh = plane->CreateMesh(material);
+        auto cube= ShapeManager::Get()->GetOrCreate<Cube>();
+        auto mesh = cube->CreateMesh(material);
         staticMesh->SetMesh(mesh);
+
+        auto feature = scene->RegisterFeature<RotationFeature>(*scene);
+        feature->SetMesh(staticMesh);
     }
 
     void RDSceneSample::Stop()
