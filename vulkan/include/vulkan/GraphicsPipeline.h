@@ -51,7 +51,7 @@ namespace sky::drv {
         struct DepthStencilState {
             VkBool32         depthTestEnable  = false;
             VkBool32         depthWriteEnable = false;
-            VkCompareOp      depthCompareOp   = VK_COMPARE_OP_NEVER;
+            VkCompareOp      depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
             VkBool32         depthBoundsTestEnable = VK_FALSE;
             VkBool32         stencilTestEnable     = VK_FALSE;
             VkStencilOpState front = {};

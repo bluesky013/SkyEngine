@@ -37,6 +37,10 @@ namespace sky {
 
         drv::DescriptorSetBinderPtr CreateSetBinder() const;
 
+        void SetDepthTestEn(bool enable);
+
+        void SetDepthWriteEn(bool enable);
+
     private:
         bool CheckVertexInput(drv::VertexInput& input) const;
 

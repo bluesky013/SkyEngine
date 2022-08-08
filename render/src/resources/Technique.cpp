@@ -90,4 +90,14 @@ namespace sky {
         res->SetPipelineLayout(layout);
         return res;
     }
+
+    void GraphicsTechnique::SetDepthTestEn(bool enable)
+    {
+        pipelineState.depthStencil.depthTestEnable = enable;
+    }
+
+    void GraphicsTechnique::SetDepthWriteEn(bool enable)
+    {
+        pipelineState.depthStencil.depthWriteEnable = enable;
+    }
 }

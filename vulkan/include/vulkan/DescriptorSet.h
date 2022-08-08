@@ -59,8 +59,8 @@ namespace sky::drv {
         bool dirty = false;
         struct BufferView {
             BufferPtr buffer;
-            uint32_t size = 0;
-            uint32_t offset = 0;
+            VkDeviceSize size = 0;
+            VkDeviceSize offset = 0;
         };
 
         struct ImageSampler {
