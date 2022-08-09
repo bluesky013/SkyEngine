@@ -6,12 +6,12 @@
 
 namespace sky {
 
-    void Asset::SetUuid(const Uuid& id)
+    void AssetBase::SetUuid(const Uuid& id)
     {
         uuid = id;
     }
 
-    const Uuid& Asset::GetUuid() const
+    const Uuid& AssetBase::GetUuid() const
     {
         return uuid;
     }
