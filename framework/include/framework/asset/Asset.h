@@ -7,6 +7,7 @@
 #include <core/util/Uuid.h>
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace sky {
 
@@ -15,20 +16,28 @@ namespace sky {
         AssetBase() = default;
         virtual ~AssetBase() = default;
 
+        enum class Status {
+            INITIAL,
+            LOADING,
+            LOADED
+        };
+
         void SetUuid(const Uuid& id);
 
         const Uuid& GetUuid() const;
 
+        Status GetStatus() const;
+
     private:
+        friend class AssetManager;
         Uuid uuid;
+        Status status = Status::INITIAL;
     };
     using AssetPtr = std::shared_ptr<AssetBase>;
 
     template <typename T>
     struct AssetTraits {
         using DataType = std::vector<uint8_t>;
-
-        static constexpr char* EXT = "asset";
 
         static void LoadFromPath(const std::string& path, DataType& data)
         {
@@ -48,9 +57,13 @@ namespace sky {
 
         using DataType = typename AssetTraits<T>::DataType;
 
-
+        T* CreateInstance()
+        {
+            return AssetTraits<T>::CreateFromData(data);
+        }
 
     private:
+        friend class AssetManager;
         DataType data;
     };
 }

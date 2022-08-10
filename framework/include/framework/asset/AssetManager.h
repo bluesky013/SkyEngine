@@ -18,23 +18,34 @@ namespace sky {
         template<class T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid& uuid)
         {
+            std::shared_ptr<Asset<T>> asset;
             {
                 std::lock_guard<std::mutex> lock(assetMutex);
                 auto iter = assetMap.find(uuid);
                 if (iter != assetMap.end()) {
                     std::shared_ptr<AssetBase> res = iter->second.lock();
                     if (res) {
-                        return res;
+                        return std::static_pointer_cast<Asset<T>>(res);
                     }
                 }
+                asset = std::make_shared<Asset<T>>();
+                assetMap.emplace(uuid, asset);
             }
 
-            std::shared_ptr<Asset<T>> asset = std::make_shared<Asset<T>>();
+            auto pIter = pathMap.find(uuid);
+            if (pIter == pathMap.end()) {
+                return {};
+            }
+
             asset->SetUuid(uuid);
+            asset->status = AssetBase::Status::LOADING;
+            auto fn = [asset](const std::string& path) {
+                AssetTraits<T>::LoadFromPath(path, asset->data);
+                asset->status = AssetBase::Status::LOADED;
+            };
 
-            {
-                std::lock_guard<std::mutex> lock(assetMutex);
-            }
+            fn(pIter->second);
+            return asset;
         }
 
         void RegisterAsset(const Uuid& id, const std::string& path);
@@ -42,8 +53,6 @@ namespace sky {
     private:
         friend class Singleton<AssetManager>;
         AssetManager() = default;
-
-//        std::unordered_map<uint32_t
 
         std::unordered_map<Uuid, std::string> pathMap;
 

@@ -16,4 +16,9 @@ namespace sky {
         return uuid;
     }
 
+    AssetBase::Status AssetBase::GetStatus() const
+    {
+        return status;
+    }
+
 }

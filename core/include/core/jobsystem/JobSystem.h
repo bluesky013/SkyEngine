@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <core/environment/Singleton.h>
-#include <core/util/Macros.h>
+#include "core/environment/Singleton.h"
+#include "core/util/Macros.h"
 #include <taskflow/taskflow.hpp>
 
 namespace sky {
