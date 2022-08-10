@@ -7,6 +7,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <core/environment/Singleton.h>
+#include <core/jobsystem/JobSystem.h>
 #include <framework/asset/Asset.h>
 
 namespace sky {
@@ -18,39 +19,60 @@ namespace sky {
         template<class T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid& uuid)
         {
-            std::shared_ptr<Asset<T>> asset;
-            {
-                std::lock_guard<std::mutex> lock(assetMutex);
-                auto iter = assetMap.find(uuid);
-                if (iter != assetMap.end()) {
-                    std::shared_ptr<AssetBase> res = iter->second.lock();
-                    if (res) {
-                        return std::static_pointer_cast<Asset<T>>(res);
-                    }
-                }
-                asset = std::make_shared<Asset<T>>();
-                assetMap.emplace(uuid, asset);
-            }
-
             auto pIter = pathMap.find(uuid);
             if (pIter == pathMap.end()) {
                 return {};
             }
 
-            asset->SetUuid(uuid);
+            std::shared_ptr<Asset<T>> asset = GetOrCreate<T>(uuid);
+            AssetTraits<T>::LoadFromPath(pIter->second, asset->data);
+            asset->status = AssetBase::Status::LOADED;
+            return asset;
+        }
+
+        template<class T>
+        std::shared_ptr<Asset<T>> LoadAssetAsync(const Uuid& uuid)
+        {
+            auto pIter = pathMap.find(uuid);
+            if (pIter == pathMap.end()) {
+                return {};
+            }
+
+            std::shared_ptr<Asset<T>> asset = GetOrCreate<T>(uuid);
             asset->status = AssetBase::Status::LOADING;
-            auto fn = [asset](const std::string& path) {
+
+            tf::Taskflow flow;
+            std::string& path = pIter->second;
+            flow.emplace([asset, path]() {
                 AssetTraits<T>::LoadFromPath(path, asset->data);
                 asset->status = AssetBase::Status::LOADED;
-            };
+            });
 
-            fn(pIter->second);
+            asset->future = JobSystem::Get()->Run(std::move(flow));
             return asset;
         }
 
         void RegisterAsset(const Uuid& id, const std::string& path);
 
     private:
+        template <typename T>
+        std::shared_ptr<Asset<T>> GetOrCreate(const Uuid uuid)
+        {
+            std::lock_guard<std::mutex> lock(assetMutex);
+            auto iter = assetMap.find(uuid);
+            if (iter != assetMap.end()) {
+                std::shared_ptr<AssetBase> res = iter->second.lock();
+                if (res) {
+                    return std::static_pointer_cast<Asset<T>>(res);
+                }
+            }
+            auto asset = std::make_shared<Asset<T>>();
+            asset->SetUuid(uuid);
+            assetMap.emplace(uuid, asset);
+            return asset;
+        }
+
+
         friend class Singleton<AssetManager>;
         AssetManager() = default;
 

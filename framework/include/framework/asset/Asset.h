@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/util/Uuid.h>
+#include <core/jobsystem/JobSystem.h>
 #include <memory>
 #include <vector>
 #include <string>
@@ -28,10 +29,18 @@ namespace sky {
 
         Status GetStatus() const;
 
+        void BlockUtilLoaded()
+        {
+            if (future.valid()) {
+                future.wait();
+            }
+        }
+
     private:
         friend class AssetManager;
         Uuid uuid;
         Status status = Status::INITIAL;
+        tf::Future<void> future;
     };
     using AssetPtr = std::shared_ptr<AssetBase>;
 

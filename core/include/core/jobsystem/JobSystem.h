@@ -23,6 +23,11 @@ namespace sky {
             return executor.run(flow);
         }
 
+        auto Run(tf::Taskflow&& flow)
+        {
+            return executor.run(std::forward<tf::Taskflow>(flow));
+        }
+
     private:
         friend class Singleton<JobSystem>;
         JobSystem() = default;

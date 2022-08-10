@@ -80,6 +80,22 @@ public:
 TEST_F(AssetTest, LoadTest1)
 {
     auto asset = sky::AssetManager::Get()->LoadAsset<Test1>(T1);
+    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
+    asset->BlockUtilLoaded();
+    asset->BlockUtilLoaded();
+    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
+    std::unique_ptr<Test1> instance(asset->CreateInstance());
+    ASSERT_EQ(instance->value.a, 1);
+    ASSERT_EQ(instance->value.b, 2.f);
+    ASSERT_EQ(instance->value.c, "abc");
+}
+
+TEST_F(AssetTest, AsyncLoadTest1)
+{
+    auto asset = sky::AssetManager::Get()->LoadAssetAsync<Test1>(T1);
+    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADING);
+    asset->BlockUtilLoaded();
+    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
     std::unique_ptr<Test1> instance(asset->CreateInstance());
     ASSERT_EQ(instance->value.a, 1);
     ASSERT_EQ(instance->value.b, 2.f);
