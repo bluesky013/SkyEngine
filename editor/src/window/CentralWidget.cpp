@@ -26,15 +26,6 @@ namespace sky::editor {
         layout->addWidget(viewport);
     }
 
-    void CentralWidget::Shutdown()
-    {
-        if (viewport != nullptr) {
-            viewport->Shutdown();
-            delete viewport;
-            viewport = nullptr;
-        }
-    }
-
     ViewportWidget* CentralWidget::GetViewport() const
     {
         return viewport;

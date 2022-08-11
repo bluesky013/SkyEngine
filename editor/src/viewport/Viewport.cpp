@@ -12,19 +12,17 @@ namespace sky::editor {
         setSurfaceType(SurfaceType::MetalSurface);
     }
 
-    void Viewport::Init()
-    {
-        viewport = new sky::Viewport((void*)winId());
-        SkyEngine::Get()->AddViewport(*viewport);
-    }
-
-    void Viewport::Shutdown()
+    Viewport::~Viewport()
     {
         if (viewport != nullptr) {
-            SkyEngine::Get()->RemoveViewport(*viewport);
             delete viewport;
             viewport = nullptr;
         }
+    }
+
+    void Viewport::Init()
+    {
+        viewport = new sky::Viewport((void*)winId());
     }
 
     sky::Viewport* Viewport::GetNativeViewport() const
@@ -34,10 +32,8 @@ namespace sky::editor {
 
     bool Viewport::event(QEvent *event)
     {
-        auto handler = SkyEngine::Get();
         switch (event->type()) {
             case QEvent::Resize:
-                handler->OnWindowResize((void*)winId(), geometry().width(), geometry().height());
                 break;
             case QEvent::MouseMove:
                 break;

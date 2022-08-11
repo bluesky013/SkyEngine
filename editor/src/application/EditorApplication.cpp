@@ -8,6 +8,15 @@
 
 namespace sky::editor {
 
+    EditorApplication::~EditorApplication() noexcept
+    {
+        if (engine != nullptr) {
+            engine->DeInit();
+            SkyEngine::Destroy();
+            engine = nullptr;
+        }
+    }
+
     void EditorApplication::Setup()
     {
         sky::StartInfo start = {};
@@ -20,14 +29,5 @@ namespace sky::editor {
         SkyEngine::Reflect();
         engine = SkyEngine::Get();
         engine->Init(start);
-    }
-
-    void EditorApplication::Shutdown()
-    {
-        if (engine != nullptr) {
-            engine->DeInit();
-            SkyEngine::Destroy();
-            engine = nullptr;
-        }
     }
 }

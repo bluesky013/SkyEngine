@@ -1,33 +1,31 @@
-find_package(Qt6 COMPONENTS Widgets
-    PATHS ${QT_PATH})
+find_package(Qt5 COMPONENTS Widgets)
 
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
+if (Qt5_FOUND)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
 
-set(QtLibs
-    Qt6::Widgets
-)
+    set(QtLibs Qt5::Widgets)
 
-file(GLOB_RECURSE EDITOR_SRC src/*)
-file(GLOB_RECURSE EDITOR_INC include/*)
+    file(GLOB_RECURSE EDITOR_SRC src/*)
+    file(GLOB_RECURSE EDITOR_INC include/*)
 
-sky_add_exe(TARGET Editor
-    SOURCES
-        ${EDITOR_SRC}
-        ${EDITOR_INC}
-    INCS
-        include
-    LIBS
-        SkyEngine
-        ${QtLibs}
-    )
+    sky_add_exe(TARGET Editor
+        SOURCES
+            ${EDITOR_SRC}
+            ${EDITOR_INC}
+        INCS
+            include
+        LIBS
+            SkyEngine
+            ${QtLibs}
+        )
 
-add_dependencies(Launcher SkyEngineModule SampleModule)
+    if (WIN32)
+        set(DeployTool windeployqt.exe)
+        add_custom_command(TARGET Editor
+            POST_BUILD
+            COMMAND ${DeployTool} "$<TARGET_FILE:Editor>")
+    endif ()
+endif()
 
-if (WIN32)
-    set(DeployTool ${QT_PATH}/bin/windeployqt.exe)
-    add_custom_command(TARGET Editor
-        POST_BUILD
-        COMMAND ${DeployTool} "$<TARGET_FILE:Editor>")
-endif ()

@@ -34,7 +34,4 @@ add_subdirectory(render)
 add_subdirectory(sample)
 #add_subdirectory(tools)
 add_subdirectory(test)
-
-if (QT_PATH)
-    add_subdirectory(editor)
-endif()
+add_subdirectory(editor)

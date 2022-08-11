@@ -13,11 +13,9 @@ namespace sky::editor {
         Q_OBJECT
     public:
         Viewport();
-        ~Viewport() = default;
+        ~Viewport();
 
         void Init();
-
-        void Shutdown();
 
         sky::Viewport* GetNativeViewport() const;
 

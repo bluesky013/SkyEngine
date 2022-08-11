@@ -28,13 +28,6 @@ namespace sky::editor {
         layout->addWidget(container);
     }
 
-    void ViewportWidget::Shutdown()
-    {
-        if (window != nullptr) {
-            window->Shutdown();
-        }
-    }
-
     sky::Viewport* ViewportWidget::GetNativeViewport() const
     {
         return window->GetNativeViewport();

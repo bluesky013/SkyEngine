@@ -20,11 +20,9 @@ namespace sky::editor {
         {
         }
 
-        ~EditorApplication() = default;
+        ~EditorApplication();
 
         void Setup();
-
-        void Shutdown();
 
     private:
         SkyEngine* engine;

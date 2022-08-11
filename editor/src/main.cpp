@@ -17,11 +17,5 @@ int main(int argc, char *argv[])
 
     sky::editor::MainWindow mainWindow;
     mainWindow.show();
-
-    auto ret = a.exec();
-
-    mainWindow.Shutdown();
-    a.Shutdown();
-
-    return ret;
+    return a.exec();
 }
