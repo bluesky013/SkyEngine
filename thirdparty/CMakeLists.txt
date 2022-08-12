@@ -203,3 +203,9 @@ sky_add_external_3rd(TARGET SpvCross
     COMPILE_OPTIONS
     -SPIRV_CROSS_CLI=OFF
     -SPIRV_CROSS_ENABLE_TESTS=OFF)
+
+sky_add_external_3rd(TARGET cxxopts
+    DIR cxxopts
+    COMPILE_OPTIONS
+    -DCXXOPTS_BUILD_EXAMPLES=OFF
+    -DCXXOPTS_BUILD_TESTS=OFF)
