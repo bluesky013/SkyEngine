@@ -46,3 +46,6 @@
 [submodule "thirdparty/stb"]
 	path = thirdparty/stb
 	url = git@github.com:nothings/stb.git
+[submodule "thirdparty/cxxopts"]
+	path = thirdparty/cxxopts
+	url = git@github.com:jarro2783/cxxopts.git
