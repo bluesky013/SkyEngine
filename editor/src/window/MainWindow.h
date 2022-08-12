@@ -5,10 +5,10 @@
 
 #pragma once
 #include <QMainWindow>
-#include <QTimer>
-#include <engine/world/World.h>
 
 class QDockWidget;
+class QMenuBar;
+class QTimer;
 
 namespace sky {
     class SkyEngine;
@@ -16,6 +16,7 @@ namespace sky {
 
 namespace sky::editor {
 
+    class ActionManager;
     class ViewportWidget;
 
     class MainWindow : public QMainWindow
@@ -26,19 +27,21 @@ namespace sky::editor {
         ~MainWindow();
 
         void Init();
-
-        void Shutdown();
-
     private:
-        void InitWorld();
+        void InitEngine();
 
-        void ShutdownWorld();
+        void InitMenu();
+
+        void ShutdownEngine();
 
         void OnTick();
 
-        SkyEngine* engine;
-        World* world;
-        QTimer* timer;
+        void OnOpenProject(const QString& path);
+
+        SkyEngine* engine = nullptr;
+        QTimer* timer = nullptr;
+        QMenuBar* menuBar = nullptr;
+        ActionManager* actionManager = nullptr;
         std::vector<ViewportWidget*> viewports;
         std::list<QDockWidget*> docks;
     };

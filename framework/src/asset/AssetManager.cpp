@@ -6,4 +6,9 @@
 
 namespace sky {
 
+    void AssetManager::RegisterAsset(const Uuid& id, const std::string& path)
+    {
+        pathMap[id] = path;
+    }
+
 }

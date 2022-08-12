@@ -15,8 +15,6 @@ namespace sky::editor {
 
         void Init();
 
-        void Shutdown();
-
         ViewportWidget* GetViewport() const;
 
         bool event(QEvent *event) override;

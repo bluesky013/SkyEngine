@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <core/environment/Singleton.h>
-#include <core/util/Macros.h>
+#include "core/environment/Singleton.h"
+#include "core/util/Macros.h"
 #include <taskflow/taskflow.hpp>
 
 namespace sky {
@@ -21,6 +21,11 @@ namespace sky {
         auto Run(tf::Taskflow& flow)
         {
             return executor.run(flow);
+        }
+
+        auto Run(tf::Taskflow&& flow)
+        {
+            return executor.run(std::forward<tf::Taskflow>(flow));
         }
 
     private:

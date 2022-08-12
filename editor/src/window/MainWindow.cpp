@@ -5,47 +5,45 @@
 #include "MainWindow.h"
 #include <QTimer>
 #include <QDockWidget>
+#include <QMenuBar>
+#include <QFileDialog>
 #include <engine/SkyEngine.h>
-#include <engine/world/World.h>
 #include <engine/world/GameObject.h>
-#include <engine/render/camera/CameraComponent.h>
-#include <engine/render/light/LightComponent.h>
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include "CentralWidget.h"
+#include "ActionManager.h"
+#include "Constants.h"
 
 namespace sky::editor {
 
     MainWindow::MainWindow(QWidget *parent)
         : QMainWindow(parent)
         , engine(nullptr)
-        , world(nullptr)
         , timer(nullptr)
     {
         Init();
+        InitMenu();
     }
 
-    MainWindow::~MainWindow() {}
+    MainWindow::~MainWindow()
+    {
+        if (actionManager != nullptr) {
+            delete actionManager;
+            actionManager = nullptr;
+        }
+    }
 
-    void MainWindow::InitWorld()
+    void MainWindow::InitEngine()
     {
         engine = SkyEngine::Get();
-        world = new World();
-        engine->AddWorld(*world);
-
-        auto camera = world->CreateGameObject("camera");
-        camera->AddComponent<CameraComponent>();
-
-        auto light = world->CreateGameObject("light");
-        light->AddComponent<LightComponent>();
     }
 
-    void MainWindow::ShutdownWorld()
+    void MainWindow::ShutdownEngine()
     {
-        engine->RemoveWorld(*world);
-        delete world;
-        world = nullptr;
+        engine->DeInit();
+        SkyEngine::Destroy();
         engine = nullptr;
     }
 
@@ -60,9 +58,14 @@ namespace sky::editor {
         }
     }
 
+    void MainWindow::OnOpenProject(const QString& path)
+    {
+        actionManager->Update(1 << PROJECT_OPEN_BIT);
+    }
+
     void MainWindow::Init()
     {
-        InitWorld();
+        InitEngine();
 
         setWindowState(Qt::WindowMaximized);
 
@@ -72,12 +75,10 @@ namespace sky::editor {
         auto vp = centralWidget->GetViewport();
         if (vp != nullptr) {
             viewports.emplace_back(vp);
-            engine->SetTarget(*world, *vp->GetNativeViewport());
         }
-        auto dockMgr = DockManager::Get();
 
+        auto dockMgr = DockManager::Get();
         auto worldWidget = new WorldWidget(this);
-        worldWidget->SetWorld(*world);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
 
@@ -92,11 +93,56 @@ namespace sky::editor {
         connect(timer, &QTimer::timeout, this, &MainWindow::OnTick);
     }
 
-    void MainWindow::Shutdown()
+    void MainWindow::InitMenu()
     {
-        for (auto& vp : viewports) {
-            vp->Shutdown();
-        }
-    }
+        actionManager = new ActionManager();
 
+        menuBar = new QMenuBar(this);
+
+        ActionWithFlag* openLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "Open Level");
+
+        ActionWithFlag* closeLevelAct = new ActionWithFlag(1 << LEVEL_OPEN_BIT, "Close Level");
+
+        ActionWithFlag* newLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "New Level");
+
+        ActionWithFlag* openProjectAct = new ActionWithFlag(0, "Open Project", this);
+        connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
+            QFileDialog dialog(this);
+            dialog.setFileMode(QFileDialog::AnyFile);
+            dialog.setNameFilter(tr("Projects (*.sproj)"));
+            dialog.setViewMode(QFileDialog::Detail);
+            QStringList fileNames;
+            if (dialog.exec()) {
+                fileNames = dialog.selectedFiles();
+                if (!fileNames.empty()) {
+                    OnOpenProject(fileNames[0]);
+                }
+            }
+        });
+
+        ActionWithFlag* closeAct = new ActionWithFlag(0, "Close", this);
+        connect(closeAct, &QAction::triggered, this, [this](bool /**/) {
+            close();
+        });
+
+        auto fileMenu = new QMenu("File", menuBar);
+        fileMenu->addAction(openProjectAct);
+        fileMenu->addSeparator();
+        fileMenu->addAction(newLevelAct);
+        fileMenu->addAction(openLevelAct);
+        fileMenu->addAction(closeLevelAct);
+        fileMenu->addSeparator();
+        fileMenu->addAction(closeAct);
+        menuBar->addMenu(fileMenu);
+
+        setMenuBar(menuBar);
+
+
+        actionManager->AddAction(openLevelAct);
+        actionManager->AddAction(closeLevelAct);
+        actionManager->AddAction(newLevelAct);
+        actionManager->AddAction(openProjectAct);
+        actionManager->AddAction(closeAct);
+        actionManager->Update(0);
+    }
 }

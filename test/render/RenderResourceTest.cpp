@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <render/Render.h>
 #include <render/DriverManager.h>
 #include <render/resources/Mesh.h>
 #include <render/resources/DescriptorPool.h>
@@ -18,12 +19,12 @@ class EngineRenderResourceTest : public ::testing::Test {
 public:
     static void SetUpTestSuite()
     {
-        DriverManager::Get()->Initialize({"test"});
+        Render::Get()->Init({});
     }
 
     static void TearDownTestSuite()
     {
-        DriverManager::Get()->Destroy();
+        Render::Get()->Destroy();
     }
 
     void SetUp()

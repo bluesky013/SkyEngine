@@ -7,6 +7,7 @@
 #include <framework/serialization/AnyRT.h>
 #include <engine/SkyEngine.h>
 #include <engine/world/TransformComponent.h>
+#include <engine/GlobalVariable.h>
 
 using namespace sky;
 
@@ -59,4 +60,21 @@ TEST(EngineReflect, TestBasic)
     ASSERT_EQ(p.a, 3);
     std::invoke(va, q) = 4;
     ASSERT_EQ(p.a, 4);
+}
+
+TEST(GlobalVairableTest, ValueBasic)
+{
+    const std::string VALUE1("Test1 value");
+    const int VALUE2 = 1;
+    const float VALUE3 = 2;
+
+    auto gv = GlobalVariable::Get();
+    gv->Register("VALUE1", VALUE1);
+    gv->Register("VALUE2", VALUE2);
+    gv->Register("VALUE3", VALUE3);
+
+    ASSERT_EQ(gv->Find<int>("VALUE1"), nullptr);
+    ASSERT_EQ(*gv->Find<std::string>("VALUE1"), VALUE1);
+    ASSERT_EQ(*gv->Find<int>("VALUE2"), VALUE2);
+    ASSERT_EQ(*gv->Find<float>("VALUE3"), VALUE3);
 }
