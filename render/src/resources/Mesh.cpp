@@ -3,6 +3,8 @@
 //
 
 #include <render/resources/Mesh.h>
+#include <framework/asset/AssetManager.h>
+#include <cereal/archives/json.hpp>
 
 namespace sky {
 
@@ -109,17 +111,33 @@ namespace sky {
     namespace impl {
         void LoadFromPath(const std::string& path, MeshAssetData& data)
         {
-
+            auto realPath = AssetManager::Get()->GetRealPath(path);
+            std::ifstream file(realPath,  std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONInputArchive archive(file);
+            archive >> data;
         }
 
         void SaveToPath(const std::string& path, const MeshAssetData& data)
         {
-
+            std::ofstream file(path, std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONOutputArchive binOutput(file);
+            binOutput << data;
         }
 
         Mesh* CreateFromData(const MeshAssetData& data)
         {
             return nullptr;
         }
+    }
+
+    void BufferAssetView::InitBuffer(const Uuid& id)
+    {
+        buffer = AssetManager::Get()->LoadAsset<Buffer>(id);
     }
 }

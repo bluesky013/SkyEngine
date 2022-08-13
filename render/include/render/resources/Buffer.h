@@ -6,6 +6,7 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
+#include <framework/serialization/BasicSerialization.h>
 #include <render/resources/RenderResource.h>
 #include <vulkan/Buffer.h>
 #include <vector>
@@ -14,6 +15,12 @@ namespace sky {
 
     struct BufferAssetData {
         std::vector<uint8_t> data;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(data);
+        }
     };
 
     class Buffer : public RenderResource {

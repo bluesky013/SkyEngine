@@ -5,21 +5,27 @@
 #include <RDSceneProject.h>
 #include <framework/asset/AssetManager.h>
 #include <RDSceneProject/EngineRoot.h>
+#include <filesystem>
 
 namespace sky {
 
-    static constexpr Uuid MODEL_ID = Uuid::CreateFromString("{8CF942CA-E5BF-407E-A9EC-9EC9BBAB70CA}");
+    static const char* BUFFER_PATH = "data/models/medi2_buffer.bin";
+    static const char* MESH_PATH = "data/models/medi2_mesh0.mesh";
 
     void RDSceneProject::Init()
     {
         AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT);
         AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT);
-        AssetManager::Get()->RegisterAsset(MODEL_ID, "data/models/medi2_buffer.bin");
+
+        std::filesystem::path temp(BUFFER_PATH);
+        auto str = temp.string();
+        AssetManager::Get()->RegisterAsset(Uuid::CreateWithSeed(4059331220), BUFFER_PATH);
+        AssetManager::Get()->RegisterAsset(Uuid::CreateWithSeed(Fnv1a32(MESH_PATH)), MESH_PATH);
     }
 
     void RDSceneProject::Start()
     {
-        auto bufferAsset = AssetManager::Get()->LoadAsset<Buffer>(MODEL_ID);
+        auto mesh = AssetManager::Get()->LoadAsset<Mesh>(Uuid::CreateWithSeed(Fnv1a32(MESH_PATH)));
 
     }
 

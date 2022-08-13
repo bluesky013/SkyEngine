@@ -5,8 +5,8 @@
 
 #include <render/resources/Buffer.h>
 #include <render/DriverManager.h>
-#include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
+#include <fstream>
 
 namespace sky {
 
@@ -145,12 +145,23 @@ namespace sky {
     namespace impl {
         void LoadFromPath(const std::string& path, BufferAssetData& data)
         {
-            ReadBin(AssetManager::Get()->GetRealPath(path), data.data);
+            auto realPath = AssetManager::Get()->GetRealPath(path);
+            std::ifstream file(realPath,  std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::BinaryInputArchive archive(file);
+            archive >> data;
         }
 
         void SaveToPath(const std::string& path, const BufferAssetData& data)
         {
-            WriteBin(path, reinterpret_cast<const char*>(data.data.data()), data.data.size());
+            std::ofstream file(path, std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::BinaryOutputArchive binOutput(file);
+            binOutput << data;
         }
 
         Buffer* CreateFromData(const BufferAssetData& data)

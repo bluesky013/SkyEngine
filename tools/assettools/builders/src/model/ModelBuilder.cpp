@@ -9,6 +9,7 @@
 #include <render/resources/Mesh.h>
 #include <core/math/Vector.h>
 #include <filesystem>
+#include <sstream>
 
 namespace sky {
 
@@ -96,27 +97,27 @@ namespace sky {
         data.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
 
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].buffer = outScene.buffer;
-        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].offset = outScene.rawData.positions.size();
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].offset = outScene.rawData.positions.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].stride = sizeof(Vector4);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size   = 0;
 
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].buffer = outScene.buffer;
-        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].offset = outScene.rawData.normals.size();
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].offset = outScene.rawData.normals.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].stride = sizeof(Vector4);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size   = 0;
 
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].buffer = outScene.buffer;
-        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].offset = outScene.rawData.tangents.size();
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].offset = outScene.rawData.tangents.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].stride = sizeof(Vector4);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size   = 0;
 
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].buffer = outScene.buffer;
-        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].offset = outScene.rawData.colors.size();
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].offset = outScene.rawData.colors.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].stride = sizeof(Vector4);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size   = 0;
 
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].buffer = outScene.buffer;
-        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].offset = outScene.rawData.uvs.size();
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].offset = outScene.rawData.uvs.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].stride = 2 * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size   = 0;
 
@@ -141,10 +142,10 @@ namespace sky {
 
             data.indexBuffer.size += mesh->mNumFaces * 3 * sizeof(uint32_t);
             data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * 2 * sizeof(float);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size   += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size  += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size    += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size      += vertexNum * 2 * sizeof(float);
         }
 
         outMesh->SetData(std::move(data));
@@ -221,10 +222,21 @@ namespace sky {
         if (!std::filesystem::exists(dataPath)) {
             std::filesystem::create_directories(dataPath);
         }
-        dataPath.append(builderScene.directory.filename().replace_extension().string() + "_buffer.bin");
+        std::string fileWithoutExt = builderScene.directory.filename().replace_extension().string();
+        std::filesystem::path bufferPath = dataPath;
+        bufferPath.append(fileWithoutExt + "_buffer.bin");
 
         builderScene.buffer->SetData(std::move(bufferData));
-        builderScene.buffer->SaveToPath(dataPath.string());
+        builderScene.buffer->SetUuid(Uuid::CreateWithSeed(Fnv1a32(std::filesystem::relative(bufferPath, projectPath).string().data())));
+        builderScene.buffer->SaveToPath(bufferPath.string());
+
+        uint32_t index = 0;
+        for (auto& mesh : builderScene.meshes) {
+            std::filesystem::path meshPath = dataPath;
+            std::stringstream ss;
+            ss << fileWithoutExt << "_mesh" << index++ << ".mesh";
+            mesh->SaveToPath(meshPath.append(ss.str()).string());
+        }
     }
 
 }

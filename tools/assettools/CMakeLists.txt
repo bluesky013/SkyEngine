@@ -21,7 +21,6 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
         builders/include
     LIBS
         SkyRender
-        3rdParty::rapidjson
         3rdParty::cxxopts
         3rdParty::assimp
     )

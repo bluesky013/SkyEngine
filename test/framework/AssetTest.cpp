@@ -25,6 +25,10 @@ namespace sky {
     struct AssetTraits<Test1> {
         using DataType = Test1Data;
 
+        static void SaveToPath(const std::string& path, const DataType& data)
+        {
+        }
+
         static void LoadFromPath(const std::string& path, Test1Data& data)
         {
             std::string source;

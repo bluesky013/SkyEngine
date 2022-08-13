@@ -38,7 +38,7 @@ namespace sky {
 
         virtual void SaveToPath(const std::string& path) const {}
 
-    private:
+    protected:
         friend class AssetManager;
         Uuid uuid;
         Status status = Status::INITIAL;
@@ -95,6 +95,12 @@ namespace sky {
         void SaveToPath(const std::string& path) const override
         {
             AssetTraits<T>::SaveToPath(path, data);
+        }
+
+        template<class Archiver>
+        void serialize(Archiver& ar)
+        {
+            ar(uuid);
         }
     private:
         friend class AssetManager;
