@@ -18,14 +18,14 @@ namespace sky {
         }
     }
 
-    void BuilderManager::Build(const std::string& path)
+    void BuilderManager::Build(const std::string& projectPath, const std::string& path)
     {
         std::filesystem::path filePath(path);
         if (filePath.has_extension()) {
             auto ext = filePath.extension().string();
             auto iter = extMap.find(ext);
             if (iter != extMap.end()) {
-                iter->second->Build(path);
+                iter->second->Build(projectPath, path);
             }
         }
     }

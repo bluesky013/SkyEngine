@@ -5,6 +5,8 @@
 
 #include <render/resources/Buffer.h>
 #include <render/DriverManager.h>
+#include <core/file/FileIO.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -140,4 +142,20 @@ namespace sky {
         }
     }
 
+    namespace impl {
+        void LoadFromPath(const std::string& path, BufferAssetData& data)
+        {
+            ReadBin(AssetManager::Get()->GetRealPath(path), data.data);
+        }
+
+        void SaveToPath(const std::string& path, const BufferAssetData& data)
+        {
+            WriteBin(path, reinterpret_cast<const char*>(data.data.data()), data.data.size());
+        }
+
+        Buffer* CreateFromData(const BufferAssetData& data)
+        {
+            return nullptr;
+        }
+    }
 }

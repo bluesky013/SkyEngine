@@ -20,7 +20,7 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
     INCS
         builders/include
     LIBS
-        Framework
+        SkyRender
         3rdParty::rapidjson
         3rdParty::cxxopts
         3rdParty::assimp

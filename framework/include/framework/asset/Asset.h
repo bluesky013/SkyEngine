@@ -36,6 +36,8 @@ namespace sky {
             }
         }
 
+        virtual void SaveToPath(const std::string& path) const {}
+
     private:
         friend class AssetManager;
         Uuid uuid;
@@ -49,6 +51,10 @@ namespace sky {
         using DataType = std::vector<uint8_t>;
 
         static void LoadFromPath(const std::string& path, DataType& data)
+        {
+        }
+
+        static void SaveToPath(const std::string& path, const DataType& data)
         {
         }
 
@@ -66,11 +72,30 @@ namespace sky {
 
         using DataType = typename AssetTraits<T>::DataType;
 
+        void SetData(const DataType& input)
+        {
+            data = input;
+        }
+
+        void SetData(DataType&& input)
+        {
+            data = std::move(input);
+        }
+
         T* CreateInstance()
         {
             return AssetTraits<T>::CreateFromData(data);
         }
 
+        DataType& Data()
+        {
+            return data;
+        }
+
+        void SaveToPath(const std::string& path) const override
+        {
+            AssetTraits<T>::SaveToPath(path, data);
+        }
     private:
         friend class AssetManager;
         DataType data;

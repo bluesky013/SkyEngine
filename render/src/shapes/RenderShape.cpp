@@ -17,12 +17,7 @@ namespace sky {
         static Vector2 UV3 = {1.f, 0.f};
         static Vector2 UV4 = {1.f, 1.f};
 
-        inline void AddPlane(const Vector3& normal,
-            std::vector<float>& outPositions,
-            std::vector<float>& outNormals,
-            std::vector<float>& outTangents,
-            std::vector<float>& outColors,
-            std::vector<float>& outUvs)
+        inline void AddPlane(const Vector3& normal, MeshRawData& out)
         {
             Vector3 axis = glm::cross(normal, Vector3(0, 1.f, 0));
             float angle = glm::acos(glm::dot(normal, Vector3(0, 1.f, 0.f)));
@@ -68,7 +63,7 @@ namespace sky {
                 pos3.x, pos3.y, pos3.z, 1.f,
                 pos4.x, pos4.y, pos4.z, 1.f
             };
-            outPositions.insert(outPositions.end(), positions.begin(), positions.end());
+            out.positions.insert(out.positions.end(), positions.begin(), positions.end());
 
             std::vector<float> normals = {
                 normal.x, normal.y, normal.z, 1.f,
@@ -78,7 +73,7 @@ namespace sky {
                 normal.x, normal.y, normal.z, 1.f,
                 normal.x, normal.y, normal.z, 1.f,
             };
-            outNormals.insert(outNormals.end(), normals.begin(), normals.end());
+            out.normals.insert(out.normals.end(), normals.begin(), normals.end());
 
             std::vector<float> tangents {
                 tangent1.x, tangent1.y, tangent1.z, 1.f,
@@ -88,7 +83,7 @@ namespace sky {
                 tangent2.x, tangent2.y, tangent2.z, 1.f,
                 tangent2.x, tangent2.y, tangent2.z, 1.f,
             };
-            outTangents.insert(outTangents.end(), tangents.begin(), tangents.end());
+            out.tangents.insert(out.tangents.end(), tangents.begin(), tangents.end());
 
             std::vector<float> colors = {
                 1.f, 1.f, 1.f, 1.f,
@@ -98,7 +93,7 @@ namespace sky {
                 1.f, 1.f, 1.f, 1.f,
                 1.f, 1.f, 1.f, 1.f,
             };
-            outColors.insert(outColors.end(), colors.begin(), colors.end());
+            out.colors.insert(out.colors.end(), colors.begin(), colors.end());
 
             std::vector<float> uvs = {
                 UV1.x, UV1.y,
@@ -108,7 +103,7 @@ namespace sky {
                 UV3.x, UV3.y,
                 UV4.x, UV4.y,
             };
-            outUvs.insert(outUvs.end(), uvs.begin(), uvs.end());
+            out.uvs.insert(out.uvs.end(), uvs.begin(), uvs.end());
         }
     }
 
@@ -146,15 +141,11 @@ namespace sky {
 
     void Plane::Init()
     {
-        std::vector<float> positions;
-        std::vector<float> normals;
-        std::vector<float> tangents;
-        std::vector<float> colors;
-        std::vector<float> uvs;
-        impl::AddPlane(Vector3{0.f, 1.f, 0.f}, positions, normals, tangents, colors, uvs);
+        MeshRawData rawData;
+        impl::AddPlane(Vector3{0.f, 1.f, 0.f}, rawData);
 
         Buffer::Descriptor descriptor = {};
-        descriptor.size = (positions.size() + normals.size() + tangents.size() + colors.size() + uvs.size()) * sizeof(float);
+        descriptor.size = rawData.Size();
         descriptor.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         descriptor.memory = VMA_MEMORY_USAGE_GPU_ONLY;
         descriptor.allocCPU = true;
@@ -163,11 +154,11 @@ namespace sky {
         buffer = std::make_shared<Buffer>(descriptor);
         buffer->InitRHI();
 
-        vertexBuffers.emplace_back(CopyData(buffer, positions, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, normals, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, tangents, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, colors, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, uvs, offset, 8));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.positions, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.normals, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.tangents, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.colors, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.uvs, offset, 8));
         buffer->Update(true);
 
         vertexDescriptions.emplace_back(VertexDesc{"inPos",     0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
@@ -185,17 +176,13 @@ namespace sky {
 
     void Cube::Init()
     {
-        std::vector<float> positions;
-        std::vector<float> normals;
-        std::vector<float> tangents;
-        std::vector<float> colors;
-        std::vector<float> uvs;
-        impl::AddPlane(Vector3{1.f, 0.f, 0.f}, positions, normals, tangents, colors, uvs);
-        impl::AddPlane(Vector3{0.f, 1.f, 0.f}, positions, normals, tangents, colors, uvs);
-        impl::AddPlane(Vector3{0.f, 0.f, 1.f}, positions, normals, tangents, colors, uvs);
+        MeshRawData rawData;
+        impl::AddPlane(Vector3{1.f, 0.f, 0.f}, rawData);
+        impl::AddPlane(Vector3{0.f, 1.f, 0.f}, rawData);
+        impl::AddPlane(Vector3{0.f, 0.f, 1.f}, rawData);
 
         Buffer::Descriptor descriptor = {};
-        descriptor.size = (positions.size() + normals.size() + tangents.size() + colors.size() + uvs.size()) * sizeof(float);
+        descriptor.size = rawData.Size();
         descriptor.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         descriptor.memory = VMA_MEMORY_USAGE_GPU_ONLY;
         descriptor.allocCPU = true;
@@ -204,11 +191,11 @@ namespace sky {
         buffer = std::make_shared<Buffer>(descriptor);
         buffer->InitRHI();
 
-        vertexBuffers.emplace_back(CopyData(buffer, positions, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, normals, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, tangents, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, colors, offset, 16));
-        vertexBuffers.emplace_back(CopyData(buffer, uvs, offset, 8));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.positions, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.normals, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.tangents, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.colors, offset, 16));
+        vertexBuffers.emplace_back(CopyData(buffer, rawData.uvs, offset, 8));
         buffer->Update(true);
 
         vertexDescriptions.emplace_back(VertexDesc{"inPos",     0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});

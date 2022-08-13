@@ -60,7 +60,7 @@ public:
     static void SetUpTestSuite()
     {
         auto am = sky::AssetManager::Get();
-        am->RegisterAsset(T1, "tests/framework/t1.json");
+        am->RegisterAsset(T1, "test/assets/t1.json");
     }
 
     static void TearDownTestSuite()

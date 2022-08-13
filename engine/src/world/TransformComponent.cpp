@@ -13,11 +13,6 @@ namespace sky {
 
     static const char* TAG = "TransformComponent";
 
-    static auto FindChild(std::vector<TransformComponent*>& trans, TransformComponent* current)
-    {
-        return std::find(trans.begin(), trans.end(), current);
-    }
-
     void TransformComponent::Reflect()
     {
         SerializationContext::Get()->Register<TransformComponent>(TypeName())
@@ -29,10 +24,7 @@ namespace sky {
     TransformComponent::~TransformComponent()
     {
         if (parent != nullptr) {
-            auto iter = FindChild(parent->children, this);
-            if (iter != parent->children.end()) {
-                parent->children.erase(iter);
-            }
+            parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
         }
         for (auto& child : children) {
             child->parent = nullptr;
@@ -47,15 +39,12 @@ namespace sky {
         }
 
         if (parent != nullptr) {
-            auto iter = FindChild(parent->children, this);
-            if (iter != parent->children.end()) {
-                parent->children.erase(iter);
-            }
+            parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
         }
         parent = newParent;
 
         if (parent != nullptr) {
-            auto iter = FindChild(parent->children, this);
+            auto iter = std::find(parent->children.begin(), parent->children.end(), this);
             if (iter == parent->children.end()) {
                 newParent->children.emplace_back(this);
             }

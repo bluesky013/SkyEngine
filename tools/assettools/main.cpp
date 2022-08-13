@@ -38,13 +38,13 @@ int main(int argc, char *argv[])
     builderManager.RegisterBuilder(new sky::ModelBuilder());
 
     std::filesystem::path path = projectPath;
-    path.append("Assets");
+    path.append("assets");
     for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
         auto file = std::filesystem::absolute(entry.path());
         if (is_directory(file)) {
             continue;
         }
-        builderManager.Build(file.string());
+        builderManager.Build(projectPath, file.string());
     }
 
     return 0;

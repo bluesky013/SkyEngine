@@ -106,4 +106,20 @@ namespace sky {
         return res;
     }
 
+    namespace impl {
+        void LoadFromPath(const std::string& path, MeshAssetData& data)
+        {
+
+        }
+
+        void SaveToPath(const std::string& path, const MeshAssetData& data)
+        {
+
+        }
+
+        Mesh* CreateFromData(const MeshAssetData& data)
+        {
+            return nullptr;
+        }
+    }
 }
