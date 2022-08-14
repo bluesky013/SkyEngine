@@ -32,6 +32,12 @@ namespace sky {
         return *this;
     }
 
+    Mesh::Builder& Mesh::Builder::SetVertexDesc(const std::vector<VertexDesc>& desc)
+    {
+        mesh.vertexDescriptions = desc;
+        return *this;
+    }
+
     Mesh::Builder& Mesh::Builder::AddSubMesh(const SubMesh& subMesh)
     {
         mesh.subMeshes.emplace_back(subMesh);
@@ -108,6 +114,16 @@ namespace sky {
         return res;
     }
 
+    uint32_t Mesh::GetSubMeshCount() const
+    {
+        return static_cast<uint32_t>(subMeshes.size());
+    }
+
+    void Mesh::SetMaterial(RDMaterialPtr material, uint32_t index)
+    {
+        subMeshes[index].material = material;
+    }
+
     namespace impl {
         void LoadFromPath(const std::string& path, MeshAssetData& data)
         {
@@ -130,14 +146,34 @@ namespace sky {
             binOutput << data;
         }
 
-        Mesh* CreateFromData(const MeshAssetData& data)
+        RDMeshPtr CreateFromData(const MeshAssetData& data)
         {
-            return nullptr;
+            RDMeshPtr mesh = std::make_shared<Mesh>();
+            Mesh::Builder builder(*mesh);
+            builder.SetVertexDesc(data.vertexDescriptions);
+            builder.SetIndexBuffer(data.indexBuffer.CreateBufferView(), data.indexType);
+            for (auto& vb : data.vertexBuffers) {
+                builder.AddVertexBuffer(vb.CreateBufferView());
+            }
+            for (auto& subMesh : data.subMeshes) {
+                builder.AddSubMesh(subMesh.ToSubMesh());
+            }
+            return mesh;
         }
+    }
+
+    SubMesh SubMeshAsset::ToSubMesh() const
+    {
+        return SubMesh{ drawData, aabb, nullptr };
     }
 
     void BufferAssetView::InitBuffer(const Uuid& id)
     {
         buffer = AssetManager::Get()->LoadAsset<Buffer>(id);
+    }
+
+    RDBufferViewPtr BufferAssetView::CreateBufferView() const
+    {
+        return std::make_shared<BufferView>(buffer->CreateInstance(), size, offset, stride);
     }
 }

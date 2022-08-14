@@ -20,5 +20,4 @@ sky_add_library(TARGET Framework STATIC
     LINK_LIBS
         Core
         3rdParty::cereal
-        3rdParty::rapidjson
     )

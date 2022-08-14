@@ -6,7 +6,7 @@ layout (location = 2) in vec4 color;
 
 layout (location = 0) out vec4 outFragColor;
 
-layout (set = 2, binding = 0) uniform SceneInfo {
+layout (set = 0, binding = 0) uniform SceneInfo {
     int lightCount;
 } sceneInfo;
 

@@ -88,6 +88,8 @@ namespace sky {
         }
 
         void InitBuffer(const Uuid& id);
+
+        RDBufferViewPtr CreateBufferView() const;
     };
 
     struct SubMeshAsset {
@@ -99,6 +101,8 @@ namespace sky {
         {
             ar(drawData, aabb);
         }
+
+        SubMesh ToSubMesh() const;
     };
 
     struct MeshAssetData {
@@ -128,6 +132,7 @@ namespace sky {
             Builder& SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
             Builder& AddVertexBuffer(const RDBufferViewPtr& buffer, VkVertexInputRate rate = VK_VERTEX_INPUT_RATE_VERTEX);
             Builder& AddVertexDesc(const VertexDesc& desc);
+            Builder& SetVertexDesc(const std::vector<VertexDesc>& desc);
             Builder& AddSubMesh(const SubMesh& mesh);
 
         private:
@@ -150,6 +155,10 @@ namespace sky {
 
         drv::CmdDraw BuildDrawArgs(uint32_t subMesh) const;
 
+        uint32_t GetSubMeshCount() const;
+
+        void SetMaterial(RDMaterialPtr material, uint32_t index);
+
     private:
         friend class Builder;
         RDBufferViewPtr indexBuffer;
@@ -165,7 +174,7 @@ namespace sky {
     namespace impl {
         void LoadFromPath(const std::string& path, MeshAssetData& data);
         void SaveToPath(const std::string& path, const MeshAssetData& data);
-        Mesh* CreateFromData(const MeshAssetData& data);
+        RDMeshPtr CreateFromData(const MeshAssetData& data);
     }
 
     template <>
@@ -177,7 +186,7 @@ namespace sky {
             impl::LoadFromPath(path, data);
         }
 
-        static Mesh* CreateFromData(const DataType& data)
+        static RDMeshPtr CreateFromData(const DataType& data)
         {
             return impl::CreateFromData(data);
         }

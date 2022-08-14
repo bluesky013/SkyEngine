@@ -4,7 +4,7 @@
 
 
 #include <framework/application/SettingRegistry.h>
-#include <rapidjson/prettywriter.h>
+#include <cereal/external/rapidjson/prettywriter.h>
 
 using namespace rapidjson;
 

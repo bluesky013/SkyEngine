@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <framework/asset/AssetManager.h>
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/document.h>
+#include <cereal/external/rapidjson/rapidjson.h>
+#include <cereal/external/rapidjson/document.h>
 #include <core/file/FileIO.h>
 
 static constexpr sky::Uuid T1 = sky::Uuid::CreateFromString("{EEA173FA-F7F1-4651-A008-A8F56CF6B393}");
@@ -50,9 +50,9 @@ namespace sky {
             }
         }
 
-        static Test1* CreateFromData(const DataType& data)
+        static std::shared_ptr<Test1> CreateFromData(const DataType& data)
         {
-            auto res = new Test1();
+            auto res = std::make_shared<Test1>();
             res->value = data;
             return res;
         }
@@ -88,7 +88,7 @@ TEST_F(AssetTest, LoadTest1)
     asset->BlockUtilLoaded();
     asset->BlockUtilLoaded();
     ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-    std::unique_ptr<Test1> instance(asset->CreateInstance());
+    auto instance = asset->CreateInstance();
     ASSERT_EQ(instance->value.a, 1);
     ASSERT_EQ(instance->value.b, 2.f);
     ASSERT_EQ(instance->value.c, "abc");
@@ -100,7 +100,7 @@ TEST_F(AssetTest, AsyncLoadTest1)
     ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADING);
     asset->BlockUtilLoaded();
     ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-    std::unique_ptr<Test1> instance(asset->CreateInstance());
+    auto instance = asset->CreateInstance();
     ASSERT_EQ(instance->value.a, 1);
     ASSERT_EQ(instance->value.b, 2.f);
     ASSERT_EQ(instance->value.c, "abc");

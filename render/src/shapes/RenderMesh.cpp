@@ -34,6 +34,7 @@ namespace sky {
         buffer->InitRHI();
 
         objectBuffer = std::make_shared<BufferView>(buffer, bufferDesc.size, 0);
+        UpdateBuffer();
 
         objectSet->UpdateBuffer(0, objectBuffer);
         objectSet->Update();

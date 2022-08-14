@@ -98,14 +98,11 @@ namespace sky {
 
         uint8_t data[] = {
             127, 127, 127, 255,
-            255, 255, 255, 255,
-            255, 255, 255, 255,
-            127, 127, 127, 255,
         };
 
         Image::Descriptor imageDesc = {};
         imageDesc.format = VK_FORMAT_R8G8B8A8_UNORM;
-        imageDesc.extent = {2, 2};
+        imageDesc.extent = {1, 1};
         imageDesc.mipLevels = 1;
         imageDesc.layers = 1;
         auto image = std::make_shared<Image>(imageDesc);

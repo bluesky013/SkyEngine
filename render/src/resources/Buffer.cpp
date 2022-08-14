@@ -164,9 +164,16 @@ namespace sky {
             binOutput << data;
         }
 
-        Buffer* CreateFromData(const BufferAssetData& data)
+        RDBufferPtr CreateFromData(const BufferAssetData& data)
         {
-            return nullptr;
+            Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size = data.data.size();
+            bufferDesc.usage = data.usage;
+            bufferDesc.memory = data.memory;
+            auto buffer = std::make_shared<Buffer>(bufferDesc);
+            buffer->InitRHI();
+            buffer->Update(data.data.data(), data.data.size());
+            return buffer;
         }
     }
 }

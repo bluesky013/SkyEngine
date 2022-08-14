@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <mutex>
 
 namespace sky {
 
@@ -58,7 +59,7 @@ namespace sky {
         {
         }
 
-        static T* CreateFromData(const DataType& data)
+        static std::shared_ptr<T> CreateFromData(const DataType& data)
         {
             return nullptr;
         }
@@ -82,8 +83,19 @@ namespace sky {
             data = std::move(input);
         }
 
-        T* CreateInstance()
+        std::shared_ptr<T> CreateInstance(bool useDefault = true)
         {
+            std::shared_ptr<T> res;
+            if (useDefault) {
+                std::lock_guard<std::mutex> lock(mutex);
+                res = defaultInstance.lock();
+                if (res) {
+                    return res;
+                }
+                res = AssetTraits<T>::CreateFromData(data);
+                defaultInstance = res;
+                return res;
+            }
             return AssetTraits<T>::CreateFromData(data);
         }
 
@@ -105,5 +117,9 @@ namespace sky {
     private:
         friend class AssetManager;
         DataType data;
+
+        std::mutex mutex;
+        std::weak_ptr<T> defaultInstance;
+
     };
 }

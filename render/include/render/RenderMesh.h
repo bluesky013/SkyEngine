@@ -19,8 +19,8 @@ namespace sky {
     class RenderView;
 
     struct ObjectInfo {
-        Matrix4 worldMatrix;
-        Matrix4 inverseTransposeMatrix;
+        Matrix4 worldMatrix = glm::identity<Matrix4>();
+        Matrix4 inverseTransposeMatrix = glm::identity<Matrix4>();
     };
 
     class RenderMesh {

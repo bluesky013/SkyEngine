@@ -81,7 +81,7 @@ namespace sky {
         }
 
         subMesh.drawData.firstIndex = 0;
-
+        subMesh.drawData.indexCount = mesh->mNumFaces * 3;
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
             aiFace face = mesh->mFaces[i];
@@ -89,6 +89,8 @@ namespace sky {
             outScene.indices.emplace_back(face.mIndices[1]);
             outScene.indices.emplace_back(face.mIndices[2]);
         }
+
+        data.subMeshes.emplace_back(subMesh);
     }
 
     static void ProcessMesh(aiNode *node, const aiScene *scene, MeshAssetPtr outMesh, builder::Scene& outScene)
@@ -128,7 +130,7 @@ namespace sky {
         data.vertexDescriptions.emplace_back(VertexDesc{"inUv",      4, 0, VK_FORMAT_R32G32_SFLOAT});
 
         data.indexBuffer.buffer = outScene.buffer;
-        data.indexBuffer.offset = outScene.indices.size();
+        data.indexBuffer.offset = outScene.indices.size() * sizeof(uint32_t);
         data.indexBuffer.stride = sizeof(uint32_t);
         data.indexBuffer.size   = 0;
 
@@ -179,11 +181,19 @@ namespace sky {
     }
 
     template <typename T>
-    static void CopyData(uint8_t* &ptr, const std::vector<T>& data)
+    static void CopyData(uint8_t* ptr, size_t& offset, const std::vector<T>& data, builder::Scene& scene, MeshAttributeType type)
     {
         size_t size = data.size() * sizeof(T);
-        memcpy(ptr, data.data(), size);
-        ptr += size;
+        memcpy(&ptr[offset], data.data(), size);
+
+        for (auto& mesh : scene.meshes) {
+            if (type == MeshAttributeType::NUM) {
+                mesh->Data().indexBuffer.offset += offset;
+            } else {
+                mesh->Data().vertexBuffers[static_cast<uint32_t>(type)].offset += offset;
+            }
+        }
+        offset += size;
     }
 
     void ModelBuilder::Build(const std::string& projectPath, const std::string& path) const
@@ -204,18 +214,21 @@ namespace sky {
 
         BufferAssetData bufferData;
         bufferData.data.resize(vertexBufferSize + indicesSize);
+        bufferData.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        bufferData.memory = VMA_MEMORY_USAGE_GPU_ONLY;
         uint8_t* ptr = bufferData.data.data();
-        CopyData(ptr, builderScene.rawData.positions);
-        CopyData(ptr, builderScene.rawData.normals);
-        CopyData(ptr, builderScene.rawData.tangents);
-        CopyData(ptr, builderScene.rawData.colors);
-        CopyData(ptr, builderScene.rawData.uvs);
+        size_t offset = 0;
 
-        CopyData(ptr, builderScene.indices);
+        CopyData(ptr, offset, builderScene.rawData.positions, builderScene, MeshAttributeType::POSITION);
+        CopyData(ptr, offset, builderScene.rawData.normals, builderScene, MeshAttributeType::NORMAL);
+        CopyData(ptr, offset, builderScene.rawData.tangents, builderScene, MeshAttributeType::TANGENT);
+        CopyData(ptr, offset, builderScene.rawData.colors, builderScene, MeshAttributeType::COLOR);
+        CopyData(ptr, offset, builderScene.rawData.uvs, builderScene, MeshAttributeType::UV0);
+        CopyData(ptr, offset, builderScene.indices, builderScene, MeshAttributeType::NUM);
 
-        for (auto& mesh : builderScene.meshes) {
-            mesh->Data().indexBuffer.offset += vertexBufferSize;
-        }
+//        for (auto& mesh : builderScene.meshes) {
+//            mesh->Data().indexBuffer.offset += vertexBufferSize;
+//        }
 
         std::filesystem::path dataPath(projectPath);
         dataPath.append("data").append("models");

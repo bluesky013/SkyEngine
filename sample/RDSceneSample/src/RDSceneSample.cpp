@@ -116,6 +116,7 @@ namespace sky {
         auto cube= ShapeManager::Get()->GetOrCreate<Cube>();
         auto mesh = cube->CreateMesh(material);
         staticMesh->SetMesh(mesh);
+        staticMesh->SetWorldMatrix(glm::identity<Matrix4>());
 
         auto feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetMesh(staticMesh);
