@@ -24,7 +24,7 @@ namespace sky {
         DevObjManager() = default;
         ~DevObjManager() = default;
         std::mutex mutex;
-        static constexpr uint32_t FRAME_NUM = 4;
+        static constexpr uint32_t FRAME_NUM = 3;
         uint32_t currentIndex = FRAME_NUM - 1;
         std::list<drv::DevPtr> freeList[FRAME_NUM];
     };

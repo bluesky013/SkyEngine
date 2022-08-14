@@ -86,18 +86,34 @@ namespace sky {
         template <typename T>
         void Write(const T& value, uint64_t off = 0)
         {
-            if (buffer) {
-                buffer->Write(value, offset + off);
-            }
+            WriteImpl(reinterpret_cast<const uint8_t*>(&value), sizeof(T), offset);
         }
 
-    private:
+    protected:
+        virtual void WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset);
+
         RDBufferPtr buffer;
         VkDeviceSize size = 0;
         VkDeviceSize offset = 0;
         uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;
+
+    class DynamicBufferView : public BufferView {
+    public:
+        DynamicBufferView(RDBufferPtr buffer, VkDeviceSize size, VkDeviceSize offset, uint32_t stride = 0);
+        ~DynamicBufferView() = default;
+
+        void SetDynamicOffset(uint32_t);
+
+        uint32_t GetDynamicOffset() const;
+
+        virtual void WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset) override;
+
+    private:
+        uint32_t dynamicOffset;
+    };
+    using RDDynBufferViewPtr = std::shared_ptr<DynamicBufferView>;
 
     namespace impl {
         void LoadFromPath(const std::string& path, BufferAssetData& data);

@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include <vulkan/Buffer.h>
+#include <render/resources/Buffer.h>
 #include <vector>
 
 namespace sky {
@@ -11,38 +11,30 @@ namespace sky {
     class RenderBufferPool {
     public:
         struct Descriptor {
-            uint32_t            blockSize = 0;
+            uint32_t            count     = 1;
+            uint32_t            stride    = 4;
+            uint32_t            frame     = 2;
             VkBufferUsageFlags  usage     = 0;
             VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
-            uint32_t            stride    = 0;
-            uint32_t            frame     = 2;
         };
 
         RenderBufferPool(Descriptor desc);
         ~RenderBufferPool();
 
-        void Reserve(uint32_t size);
+        RDDynBufferViewPtr Allocate();
 
-        using BufferHandle = std::pair<drv::BufferPtr, uint32_t>;
-
-        BufferHandle GetBuffer(uint32_t index) const;
-
-        uint8_t* GetAddress(uint32_t index);
+        void Free(RDDynBufferViewPtr view);
 
         void SwapBuffer();
 
     private:
         void AllocateBlock(uint32_t num);
 
-        struct Block {
-            drv::BufferPtr buffer;
-            uint8_t* mappedPtr = nullptr;
-        };
-
-        uint32_t currentFrame;
-        uint32_t validBlockSize;
+        uint32_t currentFrame = 0;
         Descriptor descriptor;
-        std::vector<Block> blocks;
+        std::vector<RDBufferPtr> blocks;
+        std::list<RDDynBufferViewPtr> active;
+        std::list<RDDynBufferViewPtr> freeList;
     };
 
 }
