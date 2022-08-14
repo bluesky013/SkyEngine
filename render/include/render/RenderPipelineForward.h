@@ -18,15 +18,13 @@ namespace sky {
 
         void ViewportChange(RenderViewport& vp) override;
 
-        void BeginFrame() override;
+        void BeginFrame(FrameGraph& frameGraph) override;
 
-        void DoFrame() override;
+        void DoFrame(FrameGraph& frameGraph) override;
 
         void EndFrame() override;
 
     private:
-        std::unique_ptr<FrameGraph> currentFrame;
-        std::unique_ptr<FrameGraph> lastFrame;
         drv::ImagePtr msaaColor;
         drv::ImagePtr depthStencil;
         uint32_t currentImageIndex = 0;

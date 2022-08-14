@@ -54,6 +54,8 @@ namespace sky {
         for (auto& scene : scenes) {
             scene->OnPostRender();
         }
+
+        DevObjManager::Get()->TickFreeList();
     }
 
     void Render::AddScene(RDScenePtr scene)

@@ -32,23 +32,22 @@ namespace sky {
         msaaColor = device->CreateDeviceObject<drv::Image>(dsDesc);
     }
 
-    void RenderPipelineForward::BeginFrame()
+    void RenderPipelineForward::BeginFrame(FrameGraph& frameGraph)
     {
-        RenderPipeline::BeginFrame();
+        RenderPipeline::BeginFrame(frameGraph);
         auto swapChain = viewport->GetSwapChain();
         swapChain->AcquireNext(imageAvailable, currentImageIndex);
 
         auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
         auto clearDS = drv::MakeClearDepthStencil(1.f, 0);
 
-        currentFrame = std::make_unique<FrameGraph>();
-        currentFrame->AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder& builder) {
+        frameGraph.AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder& builder) {
             builder.ImportImage("ColorMSAAImage", msaaColor);
             builder.ImportImage("ColorResolveImage", swapChain->GetImage(currentImageIndex));
             builder.ImportImage("DepthImage", depthStencil);
         });
 
-        auto pass = currentFrame->AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
+        auto pass = frameGraph.AddPass<FrameGraphGraphicPass>("ColorPass", [&](FrameGraphBuilder& builder) {
             builder.CreateImageAttachment("ColorMSAAImage", "ColorMSAA", VK_IMAGE_ASPECT_COLOR_BIT)
                 ->SetColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                 .SetClearValue(clearColor);
@@ -69,24 +68,23 @@ namespace sky {
         encoders.emplace_back(encoder);
         pass->SetEncoder(encoder);
 
-        currentFrame->AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
+        frameGraph.AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
             builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
         });
 
-        currentFrame->Compile();
+        frameGraph.Compile();
 
         commandBuffer->Wait();
     }
 
-    void RenderPipelineForward::DoFrame()
+    void RenderPipelineForward::DoFrame(FrameGraph& frameGraph)
     {
-        RenderPipeline::DoFrame();
+        RenderPipeline::DoFrame(frameGraph);
 
         commandBuffer->Begin();
-        currentFrame->Execute(commandBuffer);
+        frameGraph.Execute(commandBuffer);
 
         commandBuffer->End();
-        lastFrame.reset(currentFrame.release());
     }
 
     void RenderPipelineForward::EndFrame()

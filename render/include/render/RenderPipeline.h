@@ -12,6 +12,7 @@
 
 namespace sky {
 
+    class FrameGraph;
     class RenderScene;
     class RenderViewport;
 
@@ -20,12 +21,12 @@ namespace sky {
         RenderPipeline(RenderScene& scn) : scene(scn) {}
         virtual ~RenderPipeline() = default;
 
-        virtual void BeginFrame()
+        virtual void BeginFrame(FrameGraph& frameGraph)
         {
             encoders.clear();
         }
 
-        virtual void DoFrame();
+        virtual void DoFrame(FrameGraph& frameGraph);
 
         virtual void EndFrame() {}
 

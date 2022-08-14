@@ -28,7 +28,7 @@ namespace sky {
         viewport = &vp;
     }
 
-    void RenderPipeline::DoFrame()
+    void RenderPipeline::DoFrame(FrameGraph& graph)
     {
         auto& views = scene.GetViews();
         for (auto& view : views) {

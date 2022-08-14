@@ -23,14 +23,15 @@ namespace sky {
         for (auto& feature : features) {
             feature.second->GatherRenderPrimitives();
         }
-
-        if (pipeline) {
-            pipeline->BeginFrame();
-        }
     }
 
     void RenderScene::OnRender()
     {
+        FrameGraph frameGraph;
+        if (pipeline) {
+            pipeline->BeginFrame(frameGraph);
+        }
+
         sceneInfo->RequestUpdate();
         mainViewInfo->RequestUpdate();
 
@@ -39,7 +40,7 @@ namespace sky {
         }
 
         if (pipeline) {
-            pipeline->DoFrame();
+            pipeline->DoFrame(frameGraph);
         }
     }
 
