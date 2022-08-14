@@ -4,7 +4,6 @@
 
 
 #include <engine/feature/camera/CameraComponent.h>
-#include <engine/feature/service/ViewService.h>
 #include <engine/world/TransformComponent.h>
 #include <engine/world/GameObject.h>
 #include <engine/world/World.h>
@@ -45,22 +44,13 @@ namespace sky {
 
     void CameraComponent::OnTick(float time)
     {
-        auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
-        auto transComp = object->GetComponent<TransformComponent>();
-
-        auto& transform = transComp->GetWorld();
-        viewService->UpdateViewInfo(viewHandle, transform.GetInverse().ToMatrix(), projection);
     }
 
     void CameraComponent::OnActive()
     {
-        auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
-        viewHandle = viewService->Acquire();
     }
 
     void CameraComponent::OnDestroy()
     {
-        auto viewService = object->GetWorld()->GetServiceManager()->GetService<ViewService>();
-        viewService->Free(viewHandle);
     }
 }

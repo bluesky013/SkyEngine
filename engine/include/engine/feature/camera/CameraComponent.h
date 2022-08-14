@@ -6,7 +6,6 @@
 #pragma once
 
 #include <engine/world/Component.h>
-#include <engine/feature/service/ViewService.h>
 #include <core/math/Matrix.h>
 #include <core/math/Vector.h>
 #include <cstdint>
@@ -52,8 +51,6 @@ namespace sky {
 
         ProjectType type;
         Matrix4 projection;
-
-        ViewService::Handle viewHandle;
     };
 
 

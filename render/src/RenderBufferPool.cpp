@@ -11,56 +11,61 @@ namespace sky {
         : currentFrame(0)
         , descriptor(std::move(desc))
     {
-        validBlockSize = descriptor.blockSize / descriptor.frame;
     }
 
     RenderBufferPool::~RenderBufferPool()
     {
-        for (auto& block : blocks) {
-            block.buffer->UnMap();
-        }
+        freeList.clear();
+        blocks.clear();
     }
 
-    void RenderBufferPool::Reserve(uint32_t size)
+    RDDynBufferViewPtr RenderBufferPool::Allocate()
     {
-        auto num = std::ceil(size * descriptor.stride / static_cast<float>(validBlockSize));
-        if (num > blocks.size()) {
-            AllocateBlock(static_cast<uint32_t>(num - blocks.size()));
+        RDDynBufferViewPtr res;
+        if (!freeList.empty()) {
+            res = freeList.back();
+            freeList.pop_back();
+        } else {
+            size_t currentNum = active.size();
+            if (currentNum == blocks.size() * descriptor.count) {
+                AllocateBlock(1);
+            }
+            size_t blockIndex = currentNum / descriptor.count;
+            size_t offset = (currentNum % descriptor.count) * descriptor.stride;
+            res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset);
         }
+        active.emplace_back(res);
+        return res;
     }
 
-    RenderBufferPool::BufferHandle RenderBufferPool::GetBuffer(uint32_t index) const
+    void RenderBufferPool::Free(RDDynBufferViewPtr view)
     {
-        uint32_t bufferIndex = index * descriptor.stride;
-        uint32_t blockIndex = bufferIndex / validBlockSize;
-        uint32_t offset = bufferIndex % validBlockSize + currentFrame * validBlockSize;
-        return BufferHandle{blocks[blockIndex].buffer, offset};
+        active.erase(std::find_if(active.begin(), active.end(), [&view](RDDynBufferViewPtr& rhs) {
+            return view.get() == rhs.get();
+        }));
+        freeList.emplace_back(view);
     }
 
     void RenderBufferPool::SwapBuffer()
     {
         currentFrame = (currentFrame + 1) % descriptor.frame;
+        for (auto& view : active) {
+            view->SetDynamicOffset(currentFrame * descriptor.count * descriptor.stride);
+        }
     }
 
     void RenderBufferPool::AllocateBlock(uint32_t num)
     {
         auto dev = DriverManager::Get()->GetDevice();
         for (uint32_t i = 0; i < num; ++i) {
-            drv::Buffer::Descriptor bufferDesc = {};
-            bufferDesc.size = descriptor.blockSize;
+            Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size = descriptor.count * descriptor.stride * descriptor.frame;
             bufferDesc.memory = descriptor.memory;
             bufferDesc.usage = descriptor.usage;
-            auto buffer = dev->CreateDeviceObject<drv::Buffer>(bufferDesc);
-            auto ptr = buffer->Map();
-            blocks.emplace_back(Block{buffer, ptr});
+            bufferDesc.allocCPU = true;
+            auto buffer = std::make_shared<Buffer>();
+            buffer->InitRHI();
+            blocks.emplace_back(buffer);
         }
-    }
-
-    uint8_t* RenderBufferPool::GetAddress(uint32_t index)
-    {
-        uint32_t bufferIndex = index * descriptor.stride;
-        uint32_t blockIndex = bufferIndex / validBlockSize;
-        uint32_t offset = bufferIndex % validBlockSize + currentFrame * validBlockSize;
-        return blocks[blockIndex].mappedPtr + offset;
     }
 }

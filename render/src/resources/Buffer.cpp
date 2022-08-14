@@ -38,7 +38,7 @@ namespace sky {
 
     bool Buffer::IsValid() const
     {
-        return !!rhiBuffer;
+        return static_cast<bool>(rhiBuffer);
     }
 
     void Buffer::Write(const uint8_t* data, uint64_t size, uint64_t offset)
@@ -103,7 +103,7 @@ namespace sky {
     }
 
     BufferView::BufferView(RDBufferPtr b, VkDeviceSize sz, VkDeviceSize o, uint32_t s)
-        : buffer(b)
+        : buffer(std::move(b))
         , size(sz)
         , offset(o)
         , stride(s)
@@ -139,6 +139,36 @@ namespace sky {
     {
         if (IsValid()) {
             buffer->Update();
+        }
+    }
+
+    void BufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset)
+    {
+        if (buffer) {
+            buffer->Write(data, size, offset);
+        }
+    }
+
+    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t stride)
+        : BufferView(std::move(buf), sz, off, stride)
+        , dynamicOffset(0)
+    {
+    }
+
+    void DynamicBufferView::SetDynamicOffset(uint32_t dynamic)
+    {
+        dynamicOffset = dynamic;
+    }
+
+    uint32_t DynamicBufferView::GetDynamicOffset() const
+    {
+        return dynamicOffset;
+    }
+
+    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset)
+    {
+        if (buffer) {
+            buffer->Write(data, size, offset + dynamicOffset);
         }
     }
 
