@@ -4,11 +4,26 @@
 
 
 #pragma once
+
+#include <framework/asset/Asset.h>
+#include <framework/serialization/BasicSerialization.h>
 #include <render/resources/RenderResource.h>
 #include <vulkan/Buffer.h>
 #include <vector>
 
 namespace sky {
+
+    struct BufferAssetData {
+        std::vector<uint8_t> data;
+        VkBufferUsageFlags  usage    = 0;
+        VmaMemoryUsage      memory   = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(data, usage, memory);
+        }
+    };
 
     class Buffer : public RenderResource {
     public:
@@ -83,4 +98,32 @@ namespace sky {
         uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, BufferAssetData& data);
+        void SaveToPath(const std::string& path, const BufferAssetData& data);
+        RDBufferPtr CreateFromData(const BufferAssetData& data);
+    }
+
+    template <>
+    struct AssetTraits <Buffer> {
+        using DataType = BufferAssetData;
+
+        static void LoadFromPath(const std::string& path, DataType& data)
+        {
+            impl::LoadFromPath(path, data);
+        }
+
+        static RDBufferPtr CreateFromData(const DataType& data)
+        {
+            return impl::CreateFromData(data);
+        }
+
+        static void SaveToPath(const std::string& path, const DataType& data)
+        {
+            impl::SaveToPath(path, data);
+        }
+    };
+
+    using BufferAssetPtr = std::shared_ptr<Asset<Buffer>>;
 }

@@ -34,13 +34,13 @@ namespace sky {
             mesh = value;
         }
 
-        void OnPreparePipeline() override
+        void OnTick(float time) override
         {
             Matrix4 transform = glm::identity<Matrix4>();
             transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
             transform = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
             mesh->SetWorldMatrix(transform);
-            angle -= 0.02f;
+            angle += 20.f * time;
         }
 
     private:
@@ -116,6 +116,7 @@ namespace sky {
         auto cube= ShapeManager::Get()->GetOrCreate<Cube>();
         auto mesh = cube->CreateMesh(material);
         staticMesh->SetMesh(mesh);
+        staticMesh->SetWorldMatrix(glm::identity<Matrix4>());
 
         auto feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetMesh(staticMesh);

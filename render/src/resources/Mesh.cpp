@@ -3,6 +3,8 @@
 //
 
 #include <render/resources/Mesh.h>
+#include <framework/asset/AssetManager.h>
+#include <cereal/archives/json.hpp>
 
 namespace sky {
 
@@ -27,6 +29,12 @@ namespace sky {
     Mesh::Builder& Mesh::Builder::AddVertexDesc(const VertexDesc& desc)
     {
         mesh.vertexDescriptions.emplace_back(desc);
+        return *this;
+    }
+
+    Mesh::Builder& Mesh::Builder::SetVertexDesc(const std::vector<VertexDesc>& desc)
+    {
+        mesh.vertexDescriptions = desc;
         return *this;
     }
 
@@ -106,4 +114,66 @@ namespace sky {
         return res;
     }
 
+    uint32_t Mesh::GetSubMeshCount() const
+    {
+        return static_cast<uint32_t>(subMeshes.size());
+    }
+
+    void Mesh::SetMaterial(RDMaterialPtr material, uint32_t index)
+    {
+        subMeshes[index].material = material;
+    }
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, MeshAssetData& data)
+        {
+            auto realPath = AssetManager::Get()->GetRealPath(path);
+            std::ifstream file(realPath,  std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONInputArchive archive(file);
+            archive >> data;
+        }
+
+        void SaveToPath(const std::string& path, const MeshAssetData& data)
+        {
+            std::ofstream file(path, std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONOutputArchive binOutput(file);
+            binOutput << data;
+        }
+
+        RDMeshPtr CreateFromData(const MeshAssetData& data)
+        {
+            RDMeshPtr mesh = std::make_shared<Mesh>();
+            Mesh::Builder builder(*mesh);
+            builder.SetVertexDesc(data.vertexDescriptions);
+            builder.SetIndexBuffer(data.indexBuffer.CreateBufferView(), data.indexType);
+            for (auto& vb : data.vertexBuffers) {
+                builder.AddVertexBuffer(vb.CreateBufferView());
+            }
+            for (auto& subMesh : data.subMeshes) {
+                builder.AddSubMesh(subMesh.ToSubMesh());
+            }
+            return mesh;
+        }
+    }
+
+    SubMesh SubMeshAsset::ToSubMesh() const
+    {
+        return SubMesh{ drawData, aabb, nullptr };
+    }
+
+    void BufferAssetView::InitBuffer(const Uuid& id)
+    {
+        buffer = AssetManager::Get()->LoadAsset<Buffer>(id);
+    }
+
+    RDBufferViewPtr BufferAssetView::CreateBufferView() const
+    {
+        return std::make_shared<BufferView>(buffer->CreateInstance(), size, offset, stride);
+    }
 }

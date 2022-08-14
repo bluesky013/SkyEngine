@@ -54,6 +54,10 @@ namespace sky {
 
         void RegisterAsset(const Uuid& id, const std::string& path);
 
+        void RegisterSearchPath(const std::string& path);
+
+        std::string GetRealPath(const std::string& relative) const;
+
     private:
         template <typename T>
         std::shared_ptr<Asset<T>> GetOrCreate(const Uuid uuid)
@@ -77,6 +81,7 @@ namespace sky {
         AssetManager() = default;
 
         std::unordered_map<Uuid, std::string> pathMap;
+        std::vector<std::string> searchPaths;
 
         mutable std::mutex pendingMutex;
 

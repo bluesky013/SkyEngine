@@ -38,6 +38,8 @@ namespace sky {
 
         static Uuid Create();
 
+        static Uuid CreateWithSeed(uint32_t);
+
         /**
          * create uuid from string view
          * @param str "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" format

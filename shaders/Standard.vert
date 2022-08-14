@@ -11,18 +11,18 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUv;
 
-layout (set = 0, binding = 0) uniform ObjectInfo {
-    mat4 worldMatrix;
-    mat4 inverseTranspose;
-} objectInfo;
-
-layout (set = 1, binding = 0) uniform ViewInfo {
+layout (set = 0, binding = 0) uniform ViewInfo {
     mat4 viewToWorldMatrix;
     mat4 worldToViewMatrix;
     mat4 viewToClipMatrix;
     mat4 worldToClipMatrix;
     vec3 position;
 } viewInfo;
+
+layout (set = 1, binding = 0) uniform ObjectInfo {
+    mat4 worldMatrix;
+    mat4 inverseTranspose;
+} objectInfo;
 
 out gl_PerVertex
 {
@@ -33,6 +33,7 @@ void main()
 {
     vec4 worldPos = objectInfo.worldMatrix * inPos;
     gl_Position = viewInfo.worldToClipMatrix * worldPos;
+    gl_Position.y = -gl_Position.y;
 
     outNormal = normalize(mat3(objectInfo.inverseTranspose) * inNormal.xyz);
     outColor = inColor;

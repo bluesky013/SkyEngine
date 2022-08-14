@@ -23,6 +23,21 @@ namespace sky {
         return res;
     }
 
+    Uuid Uuid::CreateWithSeed(uint32_t seed)
+    {
+        Uuid res;
+        SFMTRandom random(seed);
+        uint64_t* lPtr = reinterpret_cast<uint64_t*>(&res);
+        lPtr[0] = random.GenU64();
+        lPtr[1] = random.GenU64();
+
+        res.data[8] &= 0xBF;
+        res.data[8] |= 0x80;
+        res.data[6] &= 0x4F;
+        res.data[6] |= 0x40;
+        return res;
+    }
+
     std::string Uuid::ToString() const
     {
         std::string res = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";

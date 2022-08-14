@@ -16,7 +16,7 @@ namespace sky {
 
         virtual const std::vector<std::string>& GetExtensions() const = 0;
 
-        virtual void Build(const std::string& path) = 0;
+        virtual void Build(const std::string& projectPath, const std::string& path) const = 0;
     };
 
 }

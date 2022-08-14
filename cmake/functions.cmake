@@ -108,6 +108,6 @@ function(sky_add_test)
     add_test(
         NAME ${TMP_TARGET}
         COMMAND ${TMP_TARGET}
-        WORKING_DIRECTORY ${PARAMS_WORKING_DIR}
+        WORKING_DIRECTORY ${TMP_WORKING_DIR}
     )
 endfunction()

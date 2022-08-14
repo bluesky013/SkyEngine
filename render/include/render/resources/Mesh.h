@@ -18,6 +18,12 @@ namespace sky {
         uint32_t vertexCount = 0;
         uint32_t firstIndex = 0;
         uint32_t indexCount = 0;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(firstVertex, vertexCount, firstIndex, indexCount);
+        }
     };
 
     struct SubMesh {
@@ -31,6 +37,86 @@ namespace sky {
         uint32_t index  = 0;
         uint32_t offset = 0;
         VkFormat format = VK_FORMAT_UNDEFINED;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(name, index, offset, format);
+        }
+    };
+
+    enum class MeshAttributeType : uint8_t {
+        POSITION = 0,
+        NORMAL,
+        TANGENT,
+        COLOR,
+        UV0,
+        NUM,
+    };
+
+    struct MeshRawData {
+        std::vector<float> positions;
+        std::vector<float> normals;
+        std::vector<float> tangents;
+        std::vector<float> colors;
+        std::vector<float> uvs;
+
+        std::size_t Size() const
+        {
+            return (positions.size() + normals.size() + tangents.size() + colors.size() + uvs.size()) * sizeof(float);
+        }
+    };
+
+    struct BufferAssetView {
+        BufferAssetPtr buffer;
+        uint64_t offset = 0;
+        uint64_t size   = 0;
+        uint32_t stride = 0;
+
+        template<class Archive>
+        void save(Archive & ar) const
+        {
+            ar(buffer->GetUuid(), offset, size, stride);
+        }
+
+        template<class Archive>
+        void load(Archive & ar)
+        {
+            Uuid uuid;
+            ar(uuid, offset, size, stride);
+            InitBuffer(uuid);
+        }
+
+        void InitBuffer(const Uuid& id);
+
+        RDBufferViewPtr CreateBufferView() const;
+    };
+
+    struct SubMeshAsset {
+        SubMeshDrawData drawData;
+        Box aabb;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(drawData, aabb);
+        }
+
+        SubMesh ToSubMesh() const;
+    };
+
+    struct MeshAssetData {
+        BufferAssetView indexBuffer;
+        std::vector<BufferAssetView> vertexBuffers;
+        std::vector<VertexDesc> vertexDescriptions;
+        std::vector<SubMeshAsset> subMeshes;
+        VkIndexType indexType = VK_INDEX_TYPE_UINT32;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(indexBuffer, vertexBuffers, vertexDescriptions, subMeshes, indexType);
+        }
     };
 
     class Mesh : public RenderResource {
@@ -46,6 +132,7 @@ namespace sky {
             Builder& SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
             Builder& AddVertexBuffer(const RDBufferViewPtr& buffer, VkVertexInputRate rate = VK_VERTEX_INPUT_RATE_VERTEX);
             Builder& AddVertexDesc(const VertexDesc& desc);
+            Builder& SetVertexDesc(const std::vector<VertexDesc>& desc);
             Builder& AddSubMesh(const SubMesh& mesh);
 
         private:
@@ -68,6 +155,10 @@ namespace sky {
 
         drv::CmdDraw BuildDrawArgs(uint32_t subMesh) const;
 
+        uint32_t GetSubMeshCount() const;
+
+        void SetMaterial(RDMaterialPtr material, uint32_t index);
+
     private:
         friend class Builder;
         RDBufferViewPtr indexBuffer;
@@ -79,4 +170,32 @@ namespace sky {
     };
 
     using RDMeshPtr = std::shared_ptr<Mesh>;
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, MeshAssetData& data);
+        void SaveToPath(const std::string& path, const MeshAssetData& data);
+        RDMeshPtr CreateFromData(const MeshAssetData& data);
+    }
+
+    template <>
+    struct AssetTraits <Mesh> {
+        using DataType = MeshAssetData;
+
+        static void LoadFromPath(const std::string& path, DataType& data)
+        {
+            impl::LoadFromPath(path, data);
+        }
+
+        static RDMeshPtr CreateFromData(const DataType& data)
+        {
+            return impl::CreateFromData(data);
+        }
+
+        static void SaveToPath(const std::string& path, const DataType& data)
+        {
+            impl::SaveToPath(path, data);
+        }
+    };
+
+    using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
 }

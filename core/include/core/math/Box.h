@@ -20,6 +20,12 @@ namespace sky {
             res.max = glm::max(max, rhs.max);
             return res;
         }
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(min, max);
+        }
     };
 
 }

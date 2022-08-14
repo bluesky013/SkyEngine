@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/document.h>
-#include <rapidjson/pointer.h>
+#include <cereal/external/rapidjson/rapidjson.h>
+#include <cereal/external/rapidjson/document.h>
+#include <cereal/external/rapidjson/pointer.h>
 #include <string_view>
 #include <string>
 
