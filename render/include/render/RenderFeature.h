@@ -15,6 +15,8 @@ namespace sky {
         RenderFeature(RenderScene& scn) : scene(scn) {}
         virtual ~RenderFeature() = default;
 
+        virtual void OnTick(float time) {}
+
         virtual void OnPreparePipeline() {}
 
         virtual void GatherRenderPrimitives() {}

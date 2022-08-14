@@ -26,7 +26,7 @@ namespace sky {
         RenderScene() = default;
         ~RenderScene() = default;
 
-        void OnPreRender();
+        void OnPreRender(float time);
 
         void OnPostRender();
 

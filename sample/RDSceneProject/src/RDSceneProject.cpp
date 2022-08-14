@@ -16,8 +16,42 @@
 
 namespace sky {
 
+    class RotationFeature : public RenderFeature {
+    public:
+        RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
+        ~RotationFeature() = default;
+
+        void SetMesh(RenderCamera* value)
+        {
+            camera = value;
+        }
+
+        void OnTick(float time) override
+        {
+//            auto transform = glm::identity<Matrix4>();
+//            transform = glm::translate(transform, Vector3(0, 25, 30));
+//            transform = glm::rotate(transform, glm::radians(-30.f), Vector3(1, 0, 0));
+//            mainCamera->SetTransform(transform);
+//            glm::lookAt()
+
+            angle += glm::radians(20.f) * time;
+            position.z = radius * cos(angle);
+            position.x = radius * sin(angle);
+
+            auto rotation = glm::eulerAngleYXZ(angle,  -30 / 180.f * 3.14f, 0.f);
+            auto transform = glm::translate(glm::identity<Matrix4>(), position);
+            transform = transform * rotation;
+            camera->SetTransform(transform);
+        }
+
+    private:
+        float radius = 30.f;
+        float angle = 0.f;
+        Vector3 position = Vector3(0.f, 25.f, 0.f);
+        RenderCamera* camera = nullptr;
+    };
+
     static const char* BUFFER_PATH = "data/models/medi2_buffer.bin";
-    static const char* MESH_PATH = "data/models/medi2_mesh0.mesh";
 
     void RDSceneProject::Init()
     {
@@ -56,12 +90,8 @@ namespace sky {
             100.f)
         );
 
-        {
-            auto transform = glm::identity<Matrix4>();
-            transform = glm::translate(transform, Vector3(0, 25, 30));
-            transform = glm::rotate(transform, glm::radians(-30.f), Vector3(1, 0, 0));
-            mainCamera->SetTransform(transform);
-        }
+        auto feature = scene->RegisterFeature<RotationFeature>(*scene);
+        feature->SetMesh(mainCamera);
 
 
         // init material

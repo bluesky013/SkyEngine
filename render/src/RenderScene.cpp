@@ -12,10 +12,11 @@
 
 namespace sky {
 
-    void RenderScene::OnPreRender()
+    void RenderScene::OnPreRender(float time)
     {
         views.clear();
         for (auto& feature : features) {
+            feature.second->OnTick(time);
             feature.second->OnPreparePipeline();
         }
 

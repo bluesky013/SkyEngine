@@ -44,7 +44,7 @@ namespace sky {
     void Render::OnTick(float time)
     {
         for (auto& scene : scenes) {
-            scene->OnPreRender();
+            scene->OnPreRender(time);
         }
 
         for (auto& scene : scenes) {
