@@ -49,3 +49,6 @@
 [submodule "thirdparty/cxxopts"]
 	path = thirdparty/cxxopts
 	url = git@github.com:jarro2783/cxxopts.git
+[submodule "thirdparty/sdl"]
+	path = thirdparty/sdl
+	url = git@github.com:libsdl-org/SDL.git

@@ -5,7 +5,7 @@
 #include <framework/application/Application.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
-#include "PlatformImpl.h"
+#include <SDL2/SDL.h>
 #include <chrono>
 
 static const char* TAG = "Application";
@@ -15,12 +15,7 @@ namespace sky {
     using ModuleStart = IModule*(*)(Environment*);
     using ModuleStop = void(*)();
 
-    ApplicationImpl* ApplicationImpl::Create()
-    {
-        return PlatformImpl::Get()->CreateApplication();
-    }
-
-    Application::Application() : impl(nullptr), env(nullptr)
+    Application::Application() : env(nullptr)
     {
     }
 
@@ -32,11 +27,9 @@ namespace sky {
     bool Application::Init(StartInfo& start)
     {
         LOG_I(TAG, "Application Init Start...");
-        settings.Swap(start.setting);
 
-        impl = ApplicationImpl::Create();
-        if (impl == nullptr) {
-            LOG_E(TAG, "Init App Failed");
+        if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+            LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());
             return false;
         }
 
@@ -100,16 +93,9 @@ namespace sky {
         }
     }
 
-    ApplicationImpl* Application::GetImpl() const
-    {
-        return impl;
-    }
-
     void Application::SetExit()
     {
-        if (impl != nullptr) {
-            impl->SetExit();
-        }
+        exit = true;
     }
 
     const SettingRegistry& Application::GetSettings() const
@@ -125,14 +111,15 @@ namespace sky {
     void Application::Shutdown()
     {
         UnloadDynamicModules();
-
         Interface<ISystemNotify>::Get()->UnRegister();
+
+        SDL_Quit();
     }
 
     void Application::Mainloop()
     {
-        while (!impl->IsExit()) {
-            impl->PumpMessages();
+        while (!exit) {
+            nativeWindow->PollEvent(exit);
 
             static auto timePoint = std::chrono::high_resolution_clock::now();
             auto current = std::chrono::high_resolution_clock::now();

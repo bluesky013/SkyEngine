@@ -7,8 +7,11 @@
 
 #include <string>
 
+struct SDL_Window;
+union SDL_Event;
+struct SDL_WindowEvent;
+
 namespace sky {
-    class NativeWindowImpl;
     class IWindowEvent;
 
     class NativeWindow {
@@ -26,20 +29,16 @@ namespace sky {
         static NativeWindow* Create(const Descriptor&);
 
         void* GetNativeHandle() const;
+
+        void PollEvent(bool &quit);
     private:
         bool Init(const Descriptor&);
 
-        NativeWindowImpl* impl;
+        void Dispatch(const SDL_Event &event, bool &quit);
+
+        void Dispatch(const SDL_WindowEvent &event);
+
+        SDL_Window *window = nullptr;
+        void* winHandle = nullptr;
     };
-
-    class NativeWindowImpl {
-    public:
-        NativeWindowImpl() = default;
-        virtual ~NativeWindowImpl() = default;
-
-        static NativeWindowImpl* Create(const NativeWindow::Descriptor&);
-
-        virtual void* GetNativeHandle() const = 0;
-    };
-
 }

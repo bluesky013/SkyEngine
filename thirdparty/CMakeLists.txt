@@ -209,3 +209,9 @@ sky_add_external_3rd(TARGET cxxopts
     COMPILE_OPTIONS
     -DCXXOPTS_BUILD_EXAMPLES=OFF
     -DCXXOPTS_BUILD_TESTS=OFF)
+
+sky_add_external_3rd(TARGET sdl
+    DIR sdl
+    COMPILE_OPTIONS
+    -DSDL_TEST=OFF
+    -DSDL_SHARED=OFF)
