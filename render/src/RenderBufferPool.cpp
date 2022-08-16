@@ -8,8 +8,7 @@
 namespace sky {
 
     RenderBufferPool::RenderBufferPool(Descriptor desc)
-        : currentFrame(0)
-        , descriptor(std::move(desc))
+        : descriptor(std::move(desc))
     {
     }
 
@@ -46,11 +45,10 @@ namespace sky {
         freeList.emplace_back(view);
     }
 
-    void RenderBufferPool::SwapBuffer()
+    void RenderBufferPool::Update()
     {
-        currentFrame = (currentFrame + 1) % descriptor.frame;
-        for (auto& view : active) {
-            view->SetDynamicOffset(currentFrame * descriptor.count * descriptor.stride);
+        for (auto& block : blocks) {
+            block->Update();
         }
     }
 

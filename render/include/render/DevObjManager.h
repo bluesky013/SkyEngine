@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <render/RenderConstants.h>
 #include <core/environment/Singleton.h>
 #include <vulkan/Device.h>
 #include <vulkan/DevObject.h>
@@ -24,8 +25,7 @@ namespace sky {
         DevObjManager() = default;
         ~DevObjManager() = default;
         std::mutex mutex;
-        static constexpr uint32_t FRAME_NUM = 3;
-        uint32_t currentIndex = FRAME_NUM - 1;
-        std::list<drv::DevPtr> freeList[FRAME_NUM];
+        uint32_t currentIndex = 0;
+        std::list<drv::DevPtr> freeList[INFLIGHT_FRAME + 1];
     };
 }

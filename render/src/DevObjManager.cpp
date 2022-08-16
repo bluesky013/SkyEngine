@@ -15,9 +15,8 @@ namespace sky {
 
     void DevObjManager::TickFreeList()
     {
-        currentIndex++;
-        currentIndex %= FRAME_NUM;
         std::lock_guard<std::mutex> lock(mutex);
+        currentIndex = (currentIndex + 1) % (INFLIGHT_FRAME + 1);
         freeList[currentIndex].clear();
     }
 }
