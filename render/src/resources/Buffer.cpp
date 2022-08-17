@@ -97,6 +97,11 @@ namespace sky {
         }
     }
 
+    const uint8_t* Buffer::Data() const
+    {
+        return rawData.data();
+    }
+
     drv::BufferPtr Buffer::GetRHIBuffer() const
     {
         return rhiBuffer;
@@ -146,29 +151,6 @@ namespace sky {
     {
         if (buffer) {
             buffer->Write(data, size, offset);
-        }
-    }
-
-    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t stride)
-        : BufferView(std::move(buf), sz, off, stride)
-        , dynamicOffset(0)
-    {
-    }
-
-    void DynamicBufferView::SetDynamicOffset(uint32_t dynamic)
-    {
-        dynamicOffset = dynamic;
-    }
-
-    uint32_t DynamicBufferView::GetDynamicOffset() const
-    {
-        return dynamicOffset;
-    }
-
-    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset)
-    {
-        if (buffer) {
-            buffer->Write(data, size, offset + dynamicOffset);
         }
     }
 

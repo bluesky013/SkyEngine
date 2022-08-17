@@ -16,7 +16,7 @@ namespace sky {
     class Material : public RenderResource {
     public:
         Material() = default;
-        ~Material() = default;
+        ~Material() override = default;
 
         void AddGfxTechnique(RDGfxTechniquePtr tech);
 
@@ -27,7 +27,7 @@ namespace sky {
         RDDesGroupPtr GetMaterialSet() const;
 
         template <typename T>
-        void UpdateValue(std::string name, const T& value)
+        void UpdateValue(const std::string& name, const T& value)
         {
             auto table = matSet->GetProperTable();
             auto iter = table->handleMap.find(name);

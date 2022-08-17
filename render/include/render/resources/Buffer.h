@@ -58,6 +58,8 @@ namespace sky {
 
         drv::BufferPtr GetRHIBuffer() const;
 
+        const uint8_t* Data() const;
+
     protected:
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
@@ -98,22 +100,6 @@ namespace sky {
         uint32_t stride = 0;
     };
     using RDBufferViewPtr = std::shared_ptr<BufferView>;
-
-    class DynamicBufferView : public BufferView {
-    public:
-        DynamicBufferView(RDBufferPtr buffer, VkDeviceSize size, VkDeviceSize offset, uint32_t stride = 0);
-        ~DynamicBufferView() = default;
-
-        void SetDynamicOffset(uint32_t);
-
-        uint32_t GetDynamicOffset() const;
-
-        virtual void WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset) override;
-
-    private:
-        uint32_t dynamicOffset;
-    };
-    using RDDynBufferViewPtr = std::shared_ptr<DynamicBufferView>;
 
     namespace impl {
         void LoadFromPath(const std::string& path, BufferAssetData& data);

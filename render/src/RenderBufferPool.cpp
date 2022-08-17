@@ -7,9 +7,43 @@
 
 namespace sky {
 
-    RenderBufferPool::RenderBufferPool(Descriptor desc)
-        : descriptor(std::move(desc))
+    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t index, uint32_t frame, uint32_t block)
+        : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
+        , bufferIndex(index)
+        , frameNum(frame)
+        , blockStride(block)
+        , currentFrame(0)
+        , dynamicOffset(0)
     {
+    }
+
+    uint32_t DynamicBufferView::GetDynamicOffset() const
+    {
+        return dynamicOffset;
+    }
+
+    uint32_t DynamicBufferView::GetIndex() const
+    {
+        return bufferIndex;
+    }
+
+    void DynamicBufferView::SwapBuffer()
+    {
+        currentFrame = (currentFrame + 1) % frameNum;
+        dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
+    }
+
+    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t off)
+    {
+        if (buffer) {
+            buffer->Write(data, size, off + dynamicOffset);
+        }
+    }
+
+    RenderBufferPool::RenderBufferPool(const Descriptor& desc)
+        : descriptor(desc)
+    {
+        blockStride = descriptor.count * descriptor.stride;
     }
 
     RenderBufferPool::~RenderBufferPool()
@@ -20,29 +54,31 @@ namespace sky {
 
     RDDynBufferViewPtr RenderBufferPool::Allocate()
     {
-        RDDynBufferViewPtr res;
+        uint32_t index = 0;
         if (!freeList.empty()) {
-            res = freeList.back();
+            index = freeList.back();
             freeList.pop_back();
         } else {
-            size_t currentNum = active.size();
-            if (currentNum == blocks.size() * descriptor.count) {
-                AllocateBlock(1);
-            }
-            size_t blockIndex = currentNum / descriptor.count;
-            size_t offset = (currentNum % descriptor.count) * descriptor.stride;
-            res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset);
+            index = static_cast<uint32_t>(active.size());
         }
-        active.emplace_back(res);
+
+        if (index == blocks.size() * descriptor.count) {
+            AllocateBlock();
+        }
+        size_t blockIndex = index / descriptor.count;
+        size_t offset = (index % descriptor.count) * descriptor.stride;
+        auto res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset, index, descriptor.frame, blockStride);
+        active.emplace_back(index);
+
         return res;
     }
 
-    void RenderBufferPool::Free(RDDynBufferViewPtr view)
+    void RenderBufferPool::Free(uint32_t index)
     {
-        active.erase(std::find_if(active.begin(), active.end(), [&view](RDDynBufferViewPtr& rhs) {
-            return view.get() == rhs.get();
+        active.erase(std::find_if(active.begin(), active.end(), [index](uint32_t rhs) {
+            return index == rhs;
         }));
-        freeList.emplace_back(view);
+        freeList.emplace_back(index);
     }
 
     void RenderBufferPool::Update()
@@ -52,18 +88,15 @@ namespace sky {
         }
     }
 
-    void RenderBufferPool::AllocateBlock(uint32_t num)
+    void RenderBufferPool::AllocateBlock()
     {
-        auto dev = DriverManager::Get()->GetDevice();
-        for (uint32_t i = 0; i < num; ++i) {
-            Buffer::Descriptor bufferDesc = {};
-            bufferDesc.size = descriptor.count * descriptor.stride * descriptor.frame;
-            bufferDesc.memory = descriptor.memory;
-            bufferDesc.usage = descriptor.usage;
-            bufferDesc.allocCPU = true;
-            auto buffer = std::make_shared<Buffer>();
-            buffer->InitRHI();
-            blocks.emplace_back(buffer);
-        }
+        Buffer::Descriptor bufferDesc = {};
+        bufferDesc.size = blockStride * descriptor.frame;
+        bufferDesc.memory = descriptor.memory;
+        bufferDesc.usage = descriptor.usage;
+        bufferDesc.allocCPU = true;
+        auto buffer = std::make_shared<Buffer>(bufferDesc);
+        buffer->InitRHI();
+        blocks.emplace_back(buffer);
     }
 }
