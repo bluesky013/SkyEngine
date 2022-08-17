@@ -36,7 +36,7 @@ namespace sky {
     {
         RenderPipeline::BeginFrame(frameGraph);
         auto swapChain = viewport->GetSwapChain();
-        swapChain->AcquireNext(imageAvailable, currentImageIndex);
+        swapChain->AcquireNext(imageAvailable[currentFrame], currentImageIndex);
 
         auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
         auto clearDS = drv::MakeClearDepthStencil(1.f, 0);
@@ -74,33 +74,35 @@ namespace sky {
 
         frameGraph.Compile();
 
-        commandBuffer->Wait();
+        commandBuffer[currentFrame]->Wait();
     }
 
     void RenderPipelineForward::DoFrame(FrameGraph& frameGraph)
     {
         RenderPipeline::DoFrame(frameGraph);
 
-        commandBuffer->Begin();
-        frameGraph.Execute(commandBuffer);
+        commandBuffer[currentFrame]->Begin();
+        frameGraph.Execute(commandBuffer[currentFrame]);
 
-        commandBuffer->End();
+        commandBuffer[currentFrame]->End();
     }
 
     void RenderPipelineForward::EndFrame()
     {
         drv::CommandBuffer::SubmitInfo submitInfo = {};
-        submitInfo.submitSignals.emplace_back(renderFinish);
+        submitInfo.submitSignals.emplace_back(renderFinish[currentFrame]);
         submitInfo.waits.emplace_back(std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]
         });
-        commandBuffer->Submit(*graphicsQueue, submitInfo);
+        commandBuffer[currentFrame]->Submit(*graphicsQueue, submitInfo);
 
         drv::SwapChain::PresentInfo presentInfo = {};
         presentInfo.imageIndex = currentImageIndex;
-        presentInfo.signals.emplace_back(renderFinish);
+        presentInfo.signals.emplace_back(renderFinish[currentFrame]);
 
         auto swapChain = viewport->GetSwapChain();
         swapChain->Present(presentInfo);
+
+        RenderPipeline::EndFrame();
     }
 }

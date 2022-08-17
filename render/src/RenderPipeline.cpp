@@ -8,6 +8,18 @@
 
 namespace sky {
 
+    RenderPipeline::~RenderPipeline()
+    {
+        DriverManager::Get()->GetDevice()->WaitIdle();
+
+        for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
+            commandBuffer[i] = nullptr;
+            imageAvailable[i] = nullptr;
+            renderFinish[i] = nullptr;
+        }
+        commandPool = nullptr;
+    }
+
     void RenderPipeline::Setup(RenderViewport& vp)
     {
         auto device = DriverManager::Get()->GetDevice();
@@ -20,10 +32,12 @@ namespace sky {
         commandPool = device->CreateDeviceObject<drv::CommandPool>(cmdPoolDesc);
 
         drv::CommandBuffer::Descriptor cmdDesc = {};
-        commandBuffer = commandPool->Allocate(cmdDesc);
 
-        imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
-        renderFinish = device->CreateDeviceObject<drv::Semaphore>({});
+        for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
+            commandBuffer[i] = commandPool->Allocate(cmdDesc);
+            imageAvailable[i] = device->CreateDeviceObject<drv::Semaphore>({});
+            renderFinish[i] = device->CreateDeviceObject<drv::Semaphore>({});
+        }
 
         viewport = &vp;
     }

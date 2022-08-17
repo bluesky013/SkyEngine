@@ -21,7 +21,9 @@ namespace sky {
     {
         defaultSampler = nullptr;
         defaultTexture = nullptr;
+        globalPool = nullptr;
 
+        scenes.clear();
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
