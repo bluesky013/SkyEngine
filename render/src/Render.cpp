@@ -12,6 +12,8 @@
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
 #include <render/shapes/ShapeManager.h>
+#include <render/fonts/FontLibrary.h>
+#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Render";
 
@@ -24,6 +26,7 @@ namespace sky {
         globalPool = nullptr;
 
         scenes.clear();
+        FontLibrary::Get()->Destroy();
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
@@ -40,6 +43,7 @@ namespace sky {
 
         InitGlobalPool();
         InitDefaultResource();
+        InitFonts();
         return true;
     }
 
@@ -115,5 +119,11 @@ namespace sky {
 
         Texture::Descriptor textureDesc = {};
         defaultTexture = Texture::CreateFromImage(image, textureDesc);
+    }
+
+    void Render::InitFonts()
+    {
+        FontLibrary::Get()->Init();
+        AssetManager::Get()->LoadAsset<FontFace>("C:\\Windows\\Fonts\\Arial.ttf");
     }
 }

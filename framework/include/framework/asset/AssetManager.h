@@ -17,6 +17,14 @@ namespace sky {
         ~AssetManager() = default;
 
         template<class T>
+        std::shared_ptr<Asset<T>> LoadAsset(const std::string& path)
+        {
+            auto id = Uuid::CreateWithSeed(Fnv1a32(path));
+            RegisterAsset(id, path);
+            return LoadAsset<T>(id);
+        }
+
+        template<class T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid& uuid)
         {
             auto pIter = pathMap.find(uuid);

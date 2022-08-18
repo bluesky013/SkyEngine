@@ -40,6 +40,8 @@ namespace sky {
 
         void InitDefaultResource();
 
+        void InitFonts();
+
         Render() = default;
         ~Render();
 
