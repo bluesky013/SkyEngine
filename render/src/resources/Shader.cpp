@@ -82,7 +82,7 @@ namespace sky {
                     table = std::make_shared<ProperTableInfo>();
                 }
 
-                if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER || type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
                     auto& type = compiler.get_type(res.base_type_id);
                     size_t memberNum = type.member_types.size();
                     for (uint32_t i = 0; i < memberNum; ++i) {
@@ -99,7 +99,7 @@ namespace sky {
 
         auto resources = compiler.get_shader_resources();
 
-        fn(resources.uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        fn(resources.uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
         fn(resources.storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         fn(resources.sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         fn(resources.storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);

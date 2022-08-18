@@ -10,9 +10,12 @@
 
 namespace sky::drv {
 
-    DescriptorSetLayout::DescriptorSetLayout(Device& dev) : DevObject(dev), layout(VK_NULL_HANDLE), hash(0)
+    DescriptorSetLayout::DescriptorSetLayout(Device& dev)
+        : DevObject(dev)
+        , layout(VK_NULL_HANDLE)
+        , dynamicNum(0)
+        , hash(0)
     {
-
     }
 
     bool DescriptorSetLayout::Init(const Descriptor& des)
@@ -33,6 +36,11 @@ namespace sky::drv {
             layoutBinding.stageFlags         = binding.second.stageFlags;
             layoutBinding.pImmutableSamplers = nullptr;
             bindings.emplace_back(std::move(layoutBinding));
+
+            if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+                layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
+                ++dynamicNum;
+            }
         }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -56,6 +64,12 @@ namespace sky::drv {
     {
         return hash;
     }
+
+    uint32_t DescriptorSetLayout::GetDynamicNum() const
+    {
+        return dynamicNum;
+    }
+
 
     const std::map<uint32_t, DescriptorSetLayout::SetBinding>& DescriptorSetLayout::GetDescriptorTable() const
     {

@@ -10,6 +10,7 @@
 #include <render/RenderPipeline.h>
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
+#include <render/RenderBufferPool.h>
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
 #include <render/framegraph/FrameGraphEncoder.h>
@@ -53,11 +54,13 @@ namespace sky {
             return static_cast<T*>(iter->second.get());
         }
 
-        RDBufferViewPtr GetSceneBuffer() const;
+        RDDynBufferViewPtr GetSceneBuffer() const;
 
-        RDBufferViewPtr GetMainViewBuffer() const;
+        RDDynBufferViewPtr GetMainViewBuffer() const;
 
-        RDDescriptorPoolPtr GetObjectSetPool() const;
+        DescriptorPool* GetObjectSetPool() const;
+
+        RenderBufferPool* GetObjectBufferPool() const;
 
         RDDesGroupPtr GetSceneSet() const;
 
@@ -77,19 +80,22 @@ namespace sky {
             return res;
         }
 
+        void FillSetBinder(drv::DescriptorSetBinder& binder);
+
     private:
         void InitSceneResource();
 
         RDPipeline pipeline;
-        RDDescriptorPoolPtr objectPool;
+        std::unique_ptr<DescriptorPool> objectPool;
+        std::unique_ptr<RenderBufferPool> objectBufferPool;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
         std::unordered_map<uint32_t, std::unique_ptr<FrameGraphRasterEncoder>> encoders;
 
         // dynamic data
         std::vector<RDViewPtr> views;
         RDDesGroupPtr sceneSet;
-        RDBufferViewPtr sceneInfo;
-        RDBufferViewPtr mainViewInfo;
+        RDDynBufferViewPtr sceneInfo;
+        RDDynBufferViewPtr mainViewInfo;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 }

@@ -12,6 +12,8 @@
 #include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
 #include <render/shapes/ShapeManager.h>
+#include <render/fonts/FontLibrary.h>
+#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Render";
 
@@ -24,6 +26,7 @@ namespace sky {
         globalPool = nullptr;
 
         scenes.clear();
+        FontLibrary::Get()->Destroy();
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
@@ -40,6 +43,7 @@ namespace sky {
 
         InitGlobalPool();
         InitDefaultResource();
+        InitFonts();
         return true;
     }
 
@@ -67,9 +71,9 @@ namespace sky {
         scenes.emplace_back(scene);
     }
 
-    RDDescriptorPoolPtr Render::GetGlobalSetPool() const
+    DescriptorPool* Render::GetGlobalSetPool() const
     {
-        return globalPool;
+        return globalPool.get();
     }
 
     RDTexturePtr Render::GetDefaultTexture() const
@@ -86,13 +90,13 @@ namespace sky {
     {
         drv::DescriptorSetLayout::Descriptor layoutDesc = {};
         layoutDesc.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT
         });
         layoutDesc.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT
         });
         auto layout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
-        globalPool = DescriptorPool::CreatePool(layout, {MAX_RENDER_SCENE});
+        globalPool.reset(DescriptorPool::CreatePool(layout, {MAX_RENDER_SCENE}));
     }
 
     void Render::InitDefaultResource()
@@ -115,5 +119,11 @@ namespace sky {
 
         Texture::Descriptor textureDesc = {};
         defaultTexture = Texture::CreateFromImage(image, textureDesc);
+    }
+
+    void Render::InitFonts()
+    {
+        FontLibrary::Get()->Init();
+        AssetManager::Get()->LoadAsset<FontFace>("C:\\Windows\\Fonts\\Arial.ttf");
     }
 }

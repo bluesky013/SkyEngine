@@ -27,7 +27,7 @@ namespace sky {
 
         void AddScene(RDScenePtr scene);
 
-        RDDescriptorPoolPtr GetGlobalSetPool() const;
+        DescriptorPool* GetGlobalSetPool() const;
 
         RDTexturePtr GetDefaultTexture() const;
 
@@ -40,11 +40,13 @@ namespace sky {
 
         void InitDefaultResource();
 
+        void InitFonts();
+
         Render() = default;
         ~Render();
 
         std::vector<RDScenePtr> scenes;
-        RDDescriptorPoolPtr globalPool;
+        std::unique_ptr<DescriptorPool> globalPool;
 
         RDTexturePtr defaultTexture;
         drv::SamplerPtr defaultSampler;

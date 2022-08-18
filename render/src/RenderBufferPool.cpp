@@ -7,13 +7,14 @@
 
 namespace sky {
 
-    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t index, uint32_t frame, uint32_t block)
+    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t frame, uint32_t block)
         : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
-        , bufferIndex(index)
         , frameNum(frame)
         , blockStride(block)
+        , bufferIndex(~(0u))
         , currentFrame(0)
         , dynamicOffset(0)
+        , isDirty(false)
     {
     }
 
@@ -22,7 +23,12 @@ namespace sky {
         return dynamicOffset;
     }
 
-    uint32_t DynamicBufferView::GetIndex() const
+    void DynamicBufferView::SetID(uint32_t id)
+    {
+        bufferIndex = id;
+    }
+
+    uint32_t DynamicBufferView::GetID() const
     {
         return bufferIndex;
     }
@@ -33,10 +39,20 @@ namespace sky {
         dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
     }
 
+    void DynamicBufferView::RequestUpdate()
+    {
+        if (isDirty) {
+            BufferView::RequestUpdate();
+            SwapBuffer();
+            isDirty = false;
+        }
+    }
+
     void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t off)
     {
         if (buffer) {
             buffer->Write(data, size, off + dynamicOffset);
+            isDirty = true;
         }
     }
 
@@ -67,7 +83,8 @@ namespace sky {
         }
         size_t blockIndex = index / descriptor.count;
         size_t offset = (index % descriptor.count) * descriptor.stride;
-        auto res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset, index, descriptor.frame, blockStride);
+        auto res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset, descriptor.frame, blockStride);
+        res->SetID(index);
         active.emplace_back(index);
 
         return res;

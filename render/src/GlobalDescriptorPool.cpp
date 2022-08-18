@@ -14,7 +14,7 @@ namespace sky {
             return iter->second;
         }
 
-        auto pool = DescriptorPool::CreatePool(layout, DescriptorPool::Descriptor{});
+        RDDescriptorPoolPtr pool(DescriptorPool::CreatePool(layout, DescriptorPool::Descriptor{}));
         pools.emplace(hash, pool);
         return pool;
     }

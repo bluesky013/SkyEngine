@@ -34,13 +34,18 @@ namespace sky::drv {
 
         uint32_t GetSlotNumber() const;
 
+        uint32_t GetDynamicNum() const;
+
         DescriptorSetLayoutPtr GetLayout(uint32_t slot) const;
+
+        const std::vector<DescriptorSetLayoutPtr>& GetLayouts() const;
 
     private:
         friend class Device;
         PipelineLayout(Device&);
 
         VkPipelineLayout layout;
+        uint32_t dynamicNum;
         uint32_t hash;
         std::vector<DescriptorSetLayoutPtr> desLayouts;
     };

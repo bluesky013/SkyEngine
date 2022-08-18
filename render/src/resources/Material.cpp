@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    void Material::AddGfxTechnique(RDGfxTechniquePtr tech)
+    void Material::AddGfxTechnique(const RDGfxTechniquePtr& tech)
     {
         gfxTechniques.emplace_back(tech);
     }
@@ -35,14 +35,14 @@ namespace sky {
         descriptor.size = 0;
 
         materialBuffer = std::make_shared<Buffer>();
-        auto tex = Render::Get()->GetDefaultTexture();
+        auto defaultTexture = Render::Get()->GetDefaultTexture();
         for (auto& [binding, info] : descriptorTable) {
             if (info.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
                 info.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
                 bufferViews[binding] = std::make_shared<BufferView>(materialBuffer, info.size, descriptor.size);
                 descriptor.size += info.size;
             } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                textures[binding] = tex;
+                textures[binding] = defaultTexture;
             }
         }
         materialBuffer->Init(descriptor);

@@ -17,7 +17,7 @@ namespace sky {
         for (auto& primitive : primitives) {
             auto& techs = primitive->GetTechniques();
             for (auto& tech : techs) {
-                tech->setBinder->BindSet(0, scene.GetSceneSet()->GetRHISet());
+                scene.FillSetBinder(*tech->setBinder);
                 tech->setBinder->BindSet(1, objectSet->GetRHISet());
                 tech->setBinder->BindSet(2, primitive->GetMaterialSet()->GetRHISet());
             }

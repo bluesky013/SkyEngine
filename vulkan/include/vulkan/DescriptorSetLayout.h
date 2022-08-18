@@ -33,6 +33,8 @@ namespace sky::drv {
 
         uint32_t GetHash() const;
 
+        uint32_t GetDynamicNum() const;
+
         const std::map<uint32_t, SetBinding>& GetDescriptorTable() const;
 
     private:
@@ -41,6 +43,7 @@ namespace sky::drv {
 
         Descriptor descriptor;
         VkDescriptorSetLayout layout;
+        uint32_t dynamicNum;
         uint32_t hash;
     };
 

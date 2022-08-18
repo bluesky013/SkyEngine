@@ -7,6 +7,7 @@
 #include <core/logger/Logger.h>
 #include <core/util/Macros.h>
 #include <render/RenderPrimtive.h>
+#include <render/RenderBufferPool.h>
 #include <render/resources/Mesh.h>
 #include <render/resources/Material.h>
 #include <render/resources/DescirptorGroup.h>
@@ -44,8 +45,6 @@ namespace sky {
         void UpdateBuffer();
         ObjectInfo objectInfo;
         RDDesGroupPtr objectSet;
-
-        // [OPT]: Batch to RenderScene
-        RDBufferViewPtr objectBuffer;
+        RDDynBufferViewPtr objectBuffer;
     };
 }

@@ -9,9 +9,12 @@
 
 namespace sky::drv {
 
-    PipelineLayout::PipelineLayout(Device& dev) : DevObject(dev), layout(VK_NULL_HANDLE), hash(0)
+    PipelineLayout::PipelineLayout(Device& dev)
+        : DevObject(dev)
+        , layout(VK_NULL_HANDLE)
+        , dynamicNum(0)
+        , hash(0)
     {
-
     }
 
     PipelineLayout::~PipelineLayout()
@@ -27,6 +30,7 @@ namespace sky::drv {
             HashCombine32(hash, layout->GetHash());
             desLayouts[i] = layout;
             layouts[i] = layout->GetNativeHandle();
+            dynamicNum += layout->GetDynamicNum();
         }
 
         for (auto& push : des.pushConstants) {
@@ -62,12 +66,22 @@ namespace sky::drv {
         return static_cast<uint32_t>(desLayouts.size());
     }
 
+    uint32_t PipelineLayout::GetDynamicNum() const
+    {
+        return dynamicNum;
+    }
+
     DescriptorSetLayoutPtr PipelineLayout::GetLayout(uint32_t slot) const
     {
         if (slot >= desLayouts.size()) {
             return {};
         }
         return desLayouts[slot];
+    }
+
+    const std::vector<DescriptorSetLayoutPtr>& PipelineLayout::GetLayouts() const
+    {
+        return desLayouts;
     }
 
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)

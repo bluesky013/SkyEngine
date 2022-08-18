@@ -20,7 +20,7 @@ namespace sky {
 
         ~DescriptorPool() = default;
 
-        static std::shared_ptr<DescriptorPool> CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& desc);
+        static DescriptorPool* CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& desc);
 
         RDDesGroupPtr Allocate();
     private:
