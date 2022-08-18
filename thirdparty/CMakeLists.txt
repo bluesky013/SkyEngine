@@ -215,3 +215,7 @@ sky_add_external_3rd(TARGET sdl
     COMPILE_OPTIONS
     -DSDL_TEST=OFF
     -DSDL_SHARED=OFF)
+
+sky_add_external_3rd(TARGET freetype
+    DIR freetype
+    COMPILE_OPTIONS)
