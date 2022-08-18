@@ -10,9 +10,9 @@
 
 namespace sky {
 
-    std::shared_ptr<DescriptorPool> DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& descriptor)
+    DescriptorPool* DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& descriptor)
     {
-        auto pool = std::shared_ptr<DescriptorPool>(new DescriptorPool(descriptor));
+        auto pool = new DescriptorPool(descriptor);
         pool->layout = layout;
 
         auto& desTable = layout->GetDescriptorTable();

@@ -10,6 +10,7 @@ namespace sky {
     void RenderView::Update()
     {
         viewInfo.worldToClipMatrix = viewInfo.viewToClipMatrix * viewInfo.worldToViewMatrix;
+        dirty = true;
     }
 
     void RenderView::SetTransform(const Matrix4& transform)
@@ -54,5 +55,11 @@ namespace sky {
     void RenderView::Reset()
     {
         primitives.clear();
+        dirty = false;
+    }
+
+    bool RenderView::IsDirty() const
+    {
+        return dirty;
     }
 }

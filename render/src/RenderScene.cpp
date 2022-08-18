@@ -5,10 +5,10 @@
 
 #include <render/RenderScene.h>
 #include <render/DriverManager.h>
-#include <render/DevObjManager.h>
 #include <render/RenderPipelineForward.h>
 #include <render/Render.h>
 #include <render/RenderConstants.h>
+#include <core/util/Memory.h>
 
 namespace sky {
 
@@ -66,6 +66,13 @@ namespace sky {
         return views;
     }
 
+    void RenderScene::FillSetBinder(drv::DescriptorSetBinder& binder)
+    {
+        binder.BindSet(0, sceneSet->GetRHISet());
+        binder.SetOffset(0, 0, mainViewInfo->GetDynamicOffset());
+        binder.SetOffset(0, 1, sceneInfo->GetDynamicOffset());
+    }
+
     void RenderScene::Setup(RenderViewport& viewport)
     {
         pipeline = std::make_unique<RenderPipelineForward>(*this);
@@ -85,19 +92,23 @@ namespace sky {
         auto globalPool = Render::Get()->GetGlobalSetPool();
         sceneSet = globalPool->Allocate();
 
+        auto& deviceProperties = DriverManager::Get()->GetDevice()->GetProperties();
+
         Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size = sizeof(SceneInfo);
+        uint32_t sceneInfoStride = Align(sizeof(SceneInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        bufferDesc.size = sceneInfoStride * INFLIGHT_FRAME;
         bufferDesc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
         bufferDesc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         bufferDesc.allocCPU = true;
         auto sceneBuffer = std::make_shared<Buffer>(bufferDesc);
         sceneBuffer->InitRHI();
-        sceneInfo = std::make_shared<BufferView>(sceneBuffer, sizeof(SceneInfo), 0);
+        sceneInfo = std::make_shared<DynamicBufferView>(sceneBuffer, sizeof(SceneInfo), 0, INFLIGHT_FRAME, sceneInfoStride);
 
-        bufferDesc.size = sizeof(ViewInfo);
+        uint32_t viewInfoSize = Align(sizeof(ViewInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        bufferDesc.size = viewInfoSize * INFLIGHT_FRAME;
         auto viewBuffer = std::make_shared<Buffer>(bufferDesc);
         viewBuffer->InitRHI();
-        mainViewInfo = std::make_shared<BufferView>(viewBuffer, sizeof(ViewInfo), 0);
+        mainViewInfo = std::make_shared<DynamicBufferView>(viewBuffer, sizeof(ViewInfo), 0, INFLIGHT_FRAME, viewInfoSize);
 
         sceneSet->UpdateBuffer(0, mainViewInfo);
         sceneSet->UpdateBuffer(1, sceneInfo);
@@ -108,22 +119,37 @@ namespace sky {
             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT
         });
         auto objSetLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(objSetLayoutInfo);
-        objectPool = DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM});
+        objectPool.reset(DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM}));
+
+        uint32_t objectInfoSize = Align(sizeof(ObjectInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        RenderBufferPool::Descriptor bufferPoolInfo = {};
+        bufferPoolInfo.count  = DEFAULT_OBJECT_BLOCK_NUM;
+        bufferPoolInfo.stride = objectInfoSize;
+        bufferPoolInfo.frame  = INFLIGHT_FRAME;
+        bufferPoolInfo.usage  = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        bufferPoolInfo.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+        objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
     }
 
-    RDBufferViewPtr RenderScene::GetSceneBuffer() const
+    RDDynBufferViewPtr RenderScene::GetSceneBuffer() const
     {
         return sceneInfo;
     }
 
-    RDBufferViewPtr RenderScene::GetMainViewBuffer() const
+    RDDynBufferViewPtr RenderScene::GetMainViewBuffer() const
     {
         return mainViewInfo;
     }
 
-    RDDescriptorPoolPtr RenderScene::GetObjectSetPool() const
+    DescriptorPool* RenderScene::GetObjectSetPool() const
     {
-        return objectPool;
+        return objectPool.get();
+    }
+
+    RenderBufferPool* RenderScene::GetObjectBufferPool() const
+    {
+        return objectBufferPool.get();
     }
 
     RDDesGroupPtr RenderScene::GetSceneSet() const

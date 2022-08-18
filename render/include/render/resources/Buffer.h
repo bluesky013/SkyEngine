@@ -83,7 +83,7 @@ namespace sky {
 
         bool IsValid() const;
 
-        void RequestUpdate();
+        virtual void RequestUpdate();
 
         template <typename T>
         void Write(const T& value, uint64_t off = 0)

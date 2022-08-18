@@ -79,6 +79,11 @@ namespace sky::drv {
         return desLayouts[slot];
     }
 
+    const std::vector<DescriptorSetLayoutPtr>& PipelineLayout::GetLayouts() const
+    {
+        return desLayouts;
+    }
+
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {

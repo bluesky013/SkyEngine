@@ -42,11 +42,14 @@ namespace sky {
 
         void Reset();
 
+        bool IsDirty() const;
+
     private:
         void Update();
 
         ViewInfo viewInfo;
         uint32_t viewTag = 0;
+        bool dirty = true;
         std::vector<RenderPrimitive*> primitives;
     };
     using RDViewPtr = std::shared_ptr<RenderView>;

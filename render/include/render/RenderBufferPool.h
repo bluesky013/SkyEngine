@@ -13,24 +13,30 @@ namespace sky {
 
     class DynamicBufferView : public BufferView {
     public:
-        DynamicBufferView(RDBufferPtr buffer, VkDeviceSize size, VkDeviceSize offset, uint32_t index, uint32_t frame, uint32_t block);
+        DynamicBufferView(RDBufferPtr buffer, VkDeviceSize size, VkDeviceSize offset, uint32_t frame, uint32_t block);
         ~DynamicBufferView() = default;
 
         uint32_t GetDynamicOffset() const;
 
-        uint32_t GetIndex() const;
+        void SetID(uint32_t);
 
-        void SwapBuffer();
+        uint32_t GetID() const;
+
+        virtual void RequestUpdate() override;
 
         virtual void WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset) override;
 
     private:
         friend class RenderBufferPool;
-        const uint32_t bufferIndex;
+
+        void SwapBuffer();
+
         const uint32_t frameNum;
         const uint32_t blockStride;
+        uint32_t bufferIndex;
         uint32_t dynamicOffset;
         uint32_t currentFrame;
+        bool isDirty;
     };
     using RDDynBufferViewPtr = std::shared_ptr<DynamicBufferView>;
 

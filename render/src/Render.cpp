@@ -67,9 +67,9 @@ namespace sky {
         scenes.emplace_back(scene);
     }
 
-    RDDescriptorPoolPtr Render::GetGlobalSetPool() const
+    DescriptorPool* Render::GetGlobalSetPool() const
     {
-        return globalPool;
+        return globalPool.get();
     }
 
     RDTexturePtr Render::GetDefaultTexture() const
@@ -92,7 +92,7 @@ namespace sky {
             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT
         });
         auto layout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
-        globalPool = DescriptorPool::CreatePool(layout, {MAX_RENDER_SCENE});
+        globalPool.reset(DescriptorPool::CreatePool(layout, {MAX_RENDER_SCENE}));
     }
 
     void Render::InitDefaultResource()

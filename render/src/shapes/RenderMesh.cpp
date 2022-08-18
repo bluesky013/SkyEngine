@@ -23,7 +23,9 @@ namespace sky {
     void RenderMesh::AddToScene(RenderScene& scene)
     {
         auto objPool = scene.GetObjectSetPool();
+        auto bufferPool = scene.GetObjectBufferPool();
         objectSet = objPool->Allocate();
+        objectBuffer = bufferPool->Allocate();
 
         Buffer::Descriptor bufferDesc = {};
         bufferDesc.size = sizeof(ObjectInfo);
@@ -33,7 +35,6 @@ namespace sky {
         auto buffer = std::make_shared<Buffer>(bufferDesc);
         buffer->InitRHI();
 
-        objectBuffer = std::make_shared<BufferView>(buffer, bufferDesc.size, 0);
         UpdateBuffer();
 
         objectSet->UpdateBuffer(0, objectBuffer);
@@ -42,6 +43,9 @@ namespace sky {
 
     void RenderMesh::RemoveFromScene(RenderScene& scene)
     {
+        auto bufferPool = scene.GetObjectBufferPool();
+        bufferPool->Free(objectBuffer->GetID());
+        objectBuffer = nullptr;
     }
 
     void RenderMesh::OnRender(RenderScene& scene)

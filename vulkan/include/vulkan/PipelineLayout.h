@@ -38,6 +38,8 @@ namespace sky::drv {
 
         DescriptorSetLayoutPtr GetLayout(uint32_t slot) const;
 
+        const std::vector<DescriptorSetLayoutPtr>& GetLayouts() const;
+
     private:
         friend class Device;
         PipelineLayout(Device&);

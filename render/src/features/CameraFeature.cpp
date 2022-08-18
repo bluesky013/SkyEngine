@@ -33,9 +33,10 @@ namespace sky {
             if (camera->IsActive()) {
                 auto view = camera->GetView();
                 view->SetViewTag(MAIN_CAMERA_TAG);
+                if (view->IsDirty()) {
+                    viewBuffer->Write(view->GetViewInfo());
+                }
                 scene.AddView(view);
-
-                viewBuffer->Write(view->GetViewInfo());
             }
         }
     }
