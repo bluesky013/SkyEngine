@@ -13,6 +13,7 @@ namespace sky::drv {
         auto layoutNum = layout->GetSlotNumber();
         sets.resize(layoutNum);
         vkSets.resize(layoutNum);
+        dynamicOffsets.resize(layout->GetDynamicNum());
     }
 
     void DescriptorSetBinder::SetBindPoint(VkPipelineBindPoint bp)
@@ -25,7 +26,7 @@ namespace sky::drv {
         if (!sets.empty() && pipelineLayout) {
             vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout->GetNativeHandle(), 0,
                                     static_cast<uint32_t>(vkSets.size()), vkSets.data(),
-                                    0, nullptr); // [OPT]
+                                    static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
         }
     }
 

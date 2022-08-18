@@ -105,7 +105,7 @@ namespace sky {
 
         drv::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
         objSetLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT
         });
         auto objSetLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(objSetLayoutInfo);
         objectPool = DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM});

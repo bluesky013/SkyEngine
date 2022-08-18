@@ -27,6 +27,7 @@ namespace sky::drv {
 
         std::vector<DescriptorSetPtr> sets;
         std::vector<VkDescriptorSet> vkSets;
+        std::vector<uint32_t> dynamicOffsets;
     };
     using DescriptorSetBinderPtr = std::shared_ptr<DescriptorSetBinder>;
 

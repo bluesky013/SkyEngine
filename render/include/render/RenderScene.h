@@ -10,6 +10,7 @@
 #include <render/RenderPipeline.h>
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
+#include <render/RenderBufferPool.h>
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
 #include <render/framegraph/FrameGraphEncoder.h>

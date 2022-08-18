@@ -18,7 +18,7 @@ namespace sky {
         Material() = default;
         ~Material() override = default;
 
-        void AddGfxTechnique(RDGfxTechniquePtr tech);
+        void AddGfxTechnique(const RDGfxTechniquePtr& tech);
 
         const std::vector<RDGfxTechniquePtr>& GetGraphicTechniques() const;
 
