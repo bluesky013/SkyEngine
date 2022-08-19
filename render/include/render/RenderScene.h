@@ -27,15 +27,17 @@ namespace sky {
         RenderScene() = default;
         ~RenderScene() = default;
 
+        void ViewportChange(RenderViewport& viewport);
+
+        void SetupPipeline(RenderViewport& viewport);
+
+        void UpdateOutput(const drv::ImagePtr& output);
+
         void OnPreRender(float time);
 
-        void OnPostRender();
+        void OnRender(const drv::CommandBufferPtr& commandBuffer);
 
-        void OnRender();
-
-        void Setup(RenderViewport& viewport);
-
-        void ViewportChange(RenderViewport& viewport);
+        void Setup();
 
         template <typename T, typename ...Args>
         T* RegisterFeature(Args&& ...args)

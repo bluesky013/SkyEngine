@@ -3,6 +3,7 @@
 //
 
 #include <vulkan/PipelineLayout.h>
+#include <vulkan/PushConstants.h>
 #include <vulkan/Device.h>
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
@@ -24,6 +25,7 @@ namespace sky::drv {
     bool PipelineLayout::Init(const Descriptor& des)
     {
         desLayouts.resize(des.desLayouts.size());
+        pushConstants = des.pushConstants;
         std::vector<VkDescriptorSetLayout> layouts(des.desLayouts.size());
         for (uint32_t i = 0; i < des.desLayouts.size(); ++i) {
             auto layout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);

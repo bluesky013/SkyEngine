@@ -7,13 +7,14 @@
 #include <render/framegraph/FrameGraphBuilder.h>
 #include <render/RenderViewport.h>
 #include <render/DriverManager.h>
+#include <render/RenderScene.h>
 #include <vulkan/Util.h>
 
 namespace sky {
 
-    void RenderPipelineForward::ViewportChange(RenderViewport& vp)
+    void RenderPipelineForward::ViewportChange(const RenderViewport& viewport)
     {
-        auto swapChain = viewport->GetSwapChain();
+        auto swapChain = viewport.GetSwapChain();
         auto& ext = swapChain->GetExtent();
         auto device = DriverManager::Get()->GetDevice();
 
@@ -32,18 +33,20 @@ namespace sky {
         msaaColor = device->CreateDeviceObject<drv::Image>(dsDesc);
     }
 
+    void RenderPipelineForward::SetOutput(const drv::ImagePtr& output)
+    {
+        colorOut = output;
+    }
+
     void RenderPipelineForward::BeginFrame(FrameGraph& frameGraph)
     {
         RenderPipeline::BeginFrame(frameGraph);
-        auto swapChain = viewport->GetSwapChain();
-        swapChain->AcquireNext(imageAvailable[currentFrame], currentImageIndex);
-
         auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
         auto clearDS = drv::MakeClearDepthStencil(1.f, 0);
 
         frameGraph.AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder& builder) {
             builder.ImportImage("ColorMSAAImage", msaaColor);
-            builder.ImportImage("ColorResolveImage", swapChain->GetImage(currentImageIndex));
+            builder.ImportImage("ColorResolveImage", colorOut);
             builder.ImportImage("DepthImage", depthStencil);
         });
 
@@ -71,38 +74,11 @@ namespace sky {
         frameGraph.AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
             builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
         });
-
-        frameGraph.Compile();
-
-        commandBuffer[currentFrame]->Wait();
     }
 
-    void RenderPipelineForward::DoFrame(FrameGraph& frameGraph)
+    void RenderPipelineForward::DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& commandBuffer)
     {
-        RenderPipeline::DoFrame(frameGraph);
-
-        commandBuffer[currentFrame]->Begin();
-        frameGraph.Execute(commandBuffer[currentFrame]);
-
-        commandBuffer[currentFrame]->End();
-    }
-
-    void RenderPipelineForward::EndFrame()
-    {
-        drv::CommandBuffer::SubmitInfo submitInfo = {};
-        submitInfo.submitSignals.emplace_back(renderFinish[currentFrame]);
-        submitInfo.waits.emplace_back(std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]
-        });
-        commandBuffer[currentFrame]->Submit(*graphicsQueue, submitInfo);
-
-        drv::SwapChain::PresentInfo presentInfo = {};
-        presentInfo.imageIndex = currentImageIndex;
-        presentInfo.signals.emplace_back(renderFinish[currentFrame]);
-
-        auto swapChain = viewport->GetSwapChain();
-        swapChain->Present(presentInfo);
-
-        RenderPipeline::EndFrame();
+        RenderPipeline::DoFrame(frameGraph, commandBuffer);
+        frameGraph.Execute(commandBuffer);
     }
 }

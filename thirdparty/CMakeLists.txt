@@ -82,7 +82,9 @@ set(IMGUI_SRC
 
 sky_add_custom_3rd(TARGET Imgui STATIC
     SOURCES ${IMGUI_SRC}
-    PUBLIC_HEADERS ${IMGUI_DIR}/imgui.h
+    PUBLIC_HEADERS
+        ${IMGUI_DIR}/imgui.h
+        ${IMGUI_DIR}/imconfig.h
 )
 
 set(STB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/stb)

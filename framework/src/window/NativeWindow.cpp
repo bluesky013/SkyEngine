@@ -82,7 +82,7 @@ namespace sky {
                 break;
             }
             case SDL_WINDOWEVENT_ENTER: {
-                SDL_CaptureMouse(SDL_TRUE);
+//                SDL_CaptureMouse(SDL_TRUE);
                 break;
             }
             case SDL_WINDOWEVENT_CLOSE: {

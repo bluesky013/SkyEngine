@@ -13,7 +13,7 @@
 #include <render/features/CameraFeature.h>
 #include <render/shapes/ShapeManager.h>
 #include <render/fonts/FontLibrary.h>
-#include <framework/asset/AssetManager.h>
+#include <render/imgui/GuiManager.h>
 
 static const char* TAG = "Render";
 
@@ -26,7 +26,9 @@ namespace sky {
         globalPool = nullptr;
 
         scenes.clear();
+        viewports.clear();
         FontLibrary::Get()->Destroy();
+        GuiManager::Get()->Destroy();
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
@@ -44,6 +46,7 @@ namespace sky {
         InitGlobalPool();
         InitDefaultResource();
         InitFonts();
+        InitGui();
         return true;
     }
 
@@ -53,22 +56,23 @@ namespace sky {
             scene->OnPreRender(time);
         }
 
-        for (auto& scene : scenes) {
-            scene->OnRender();
-        }
-
-        for (auto& scene : scenes) {
-            scene->OnPostRender();
+        for (auto& vp : viewports) {
+            vp->DoFrame();
         }
 
         DevObjManager::Get()->TickFreeList();
     }
 
-    void Render::AddScene(RDScenePtr scene)
+    void Render::AddScene(const RDScenePtr &scene)
     {
         scene->RegisterFeature<CameraFeature>(*scene);
         scene->RegisterFeature<StaticMeshFeature>(*scene);
         scenes.emplace_back(scene);
+    }
+
+    void Render::AddViewport(const RDViewportPtr &viewport)
+    {
+        viewports.emplace_back(viewport);
     }
 
     DescriptorPool* Render::GetGlobalSetPool() const
@@ -124,6 +128,10 @@ namespace sky {
     void Render::InitFonts()
     {
         FontLibrary::Get()->Init();
-        AssetManager::Get()->LoadAsset<FontFace>("C:\\Windows\\Fonts\\Arial.ttf");
+    }
+
+    void Render::InitGui()
+    {
+        GuiManager::Get()->Init();
     }
 }

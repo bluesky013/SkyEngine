@@ -5,6 +5,7 @@
 
 #include <render/resources/Buffer.h>
 #include <render/DriverManager.h>
+#include <render/DevObjManager.h>
 #include <framework/asset/AssetManager.h>
 #include <fstream>
 
@@ -13,6 +14,16 @@ namespace sky {
     Buffer::Buffer(const Descriptor& desc)
     {
         Init(desc);
+    }
+
+    Buffer::~Buffer()
+    {
+        if (rhiBuffer) {
+            if (mapPtr != nullptr) {
+                rhiBuffer->UnMap();
+            }
+            DevObjManager::Get()->FreeDeviceObject(rhiBuffer);
+        }
     }
 
     void Buffer::Init(const Descriptor& desc)
@@ -34,11 +45,19 @@ namespace sky {
         desc.memory = descriptor.memory;
         desc.usage = descriptor.usage;
         rhiBuffer = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
+        if (descriptor.keepMap) {
+            mapPtr = rhiBuffer->Map();
+        }
     }
 
     bool Buffer::IsValid() const
     {
         return static_cast<bool>(rhiBuffer);
+    }
+
+    uint8_t *Buffer::GetMappedAddress() const
+    {
+        return mapPtr;
     }
 
     void Buffer::Write(const uint8_t* data, uint64_t size, uint64_t offset)
@@ -151,6 +170,56 @@ namespace sky {
     {
         if (buffer) {
             buffer->Write(data, size, offset);
+        }
+    }
+
+
+    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t frame, uint32_t block)
+            : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
+            , frameNum(frame)
+            , blockStride(block)
+            , bufferIndex(~(0u))
+            , currentFrame(0)
+            , dynamicOffset(0)
+            , isDirty(false)
+    {
+    }
+
+    uint32_t DynamicBufferView::GetDynamicOffset() const
+    {
+        return dynamicOffset;
+    }
+
+    void DynamicBufferView::SetID(uint32_t id)
+    {
+        bufferIndex = id;
+    }
+
+    uint32_t DynamicBufferView::GetID() const
+    {
+        return bufferIndex;
+    }
+
+    void DynamicBufferView::SwapBuffer()
+    {
+        currentFrame = (currentFrame + 1) % frameNum;
+        dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
+    }
+
+    void DynamicBufferView::RequestUpdate()
+    {
+        if (isDirty) {
+            BufferView::RequestUpdate();
+            SwapBuffer();
+            isDirty = false;
+        }
+    }
+
+    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t off)
+    {
+        if (buffer) {
+            buffer->Write(data, size, off + dynamicOffset);
+            isDirty = true;
         }
     }
 

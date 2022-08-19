@@ -28,7 +28,6 @@ namespace sky {
 
     private:
         RDScenePtr scene;
-        RDViewportPtr viewport;
         RenderCamera* mainCamera = nullptr;
     };
 
