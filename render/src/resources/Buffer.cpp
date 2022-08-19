@@ -5,6 +5,7 @@
 
 #include <render/resources/Buffer.h>
 #include <render/DriverManager.h>
+#include <render/DevObjManager.h>
 #include <framework/asset/AssetManager.h>
 #include <fstream>
 
@@ -13,6 +14,16 @@ namespace sky {
     Buffer::Buffer(const Descriptor& desc)
     {
         Init(desc);
+    }
+
+    Buffer::~Buffer()
+    {
+        if (rhiBuffer) {
+            if (mapPtr != nullptr) {
+                rhiBuffer->UnMap();
+            }
+            DevObjManager::Get()->FreeDeviceObject(rhiBuffer);
+        }
     }
 
     void Buffer::Init(const Descriptor& desc)
@@ -34,11 +45,19 @@ namespace sky {
         desc.memory = descriptor.memory;
         desc.usage = descriptor.usage;
         rhiBuffer = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
+        if (descriptor.keepMap) {
+            mapPtr = rhiBuffer->Map();
+        }
     }
 
     bool Buffer::IsValid() const
     {
         return static_cast<bool>(rhiBuffer);
+    }
+
+    uint8_t *Buffer::GetMappedAddress() const
+    {
+        return mapPtr;
     }
 
     void Buffer::Write(const uint8_t* data, uint64_t size, uint64_t offset)

@@ -14,6 +14,7 @@
 namespace sky::drv {
 
     class Device;
+    class PushConstants;
 
     class PipelineLayout : public DevObject {
     public:
@@ -47,6 +48,7 @@ namespace sky::drv {
         VkPipelineLayout layout;
         uint32_t dynamicNum;
         uint32_t hash;
+        std::vector<VkPushConstantRange> pushConstants;
         std::vector<DescriptorSetLayoutPtr> desLayouts;
     };
 

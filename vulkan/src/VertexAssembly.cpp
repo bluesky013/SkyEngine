@@ -11,6 +11,11 @@ namespace sky::drv {
         vertexInput = input;
     }
 
+    void VertexAssembly::ResetVertexBuffer()
+    {
+        vertexBuffers.clear();
+    }
+
     void VertexAssembly::AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
     {
         vertexBuffers.emplace_back(buffer);

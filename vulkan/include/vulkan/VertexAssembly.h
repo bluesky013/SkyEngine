@@ -17,6 +17,8 @@ namespace sky::drv {
 
         void SetVertexInput(VertexInputPtr input);
 
+        void ResetVertexBuffer();
+
         void AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset = 0);
 
         void SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset = 0);

@@ -104,6 +104,8 @@ namespace sky {
         fn(resources.sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         fn(resources.storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
+
+
         if (descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT) {
             auto fn = [&compiler, this](const SpvResources& resources) {
                 for (auto& res : resources) {

@@ -44,11 +44,13 @@ namespace sky {
             bufferDesc.size = vertexSize;
             bufferDesc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             bufferDesc.allocCPU = false;
+            bufferDesc.keepMap = true;
             bufferDesc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
             vertexBuffer = std::make_shared<Buffer>(bufferDesc);
             vertexBuffer->InitRHI();
 
             currentVertexSize = vertexSize;
+            assembly->ResetVertexBuffer();
             assembly->AddVertexBuffer(vertexBuffer->GetRHIBuffer());
         }
 
@@ -57,6 +59,7 @@ namespace sky {
             bufferDesc.size = vertexSize;
             bufferDesc.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             bufferDesc.allocCPU = false;
+            bufferDesc.keepMap = true;
             bufferDesc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
             indexBuffer = std::make_shared<Buffer>(bufferDesc);
             indexBuffer->InitRHI();
@@ -82,6 +85,33 @@ namespace sky {
         uint64_t vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
         uint64_t indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
         CheckBufferSize(vertexSize, indexSize);
+
+        ImDrawVert* vertexDst = reinterpret_cast<ImDrawVert*>(vertexBuffer->GetMappedAddress());
+        ImDrawIdx* indexDst = reinterpret_cast<ImDrawIdx*>(indexBuffer->GetMappedAddress());
+
+        for (int i = 0; i < drawData->CmdListsCount; ++i) {
+            const ImDrawList* cmdList = drawData->CmdLists[i];
+            memcpy(vertexDst, cmdList->VtxBuffer.Data, cmdList->VtxBuffer.Size * sizeof(ImDrawVert));
+            memcpy(indexDst, cmdList->IdxBuffer.Data, cmdList->IdxBuffer.Size * sizeof(ImDrawIdx));
+            vertexDst += cmdList->VtxBuffer.Size;
+            indexDst += cmdList->IdxBuffer.Size;
+        }
+
+        ImVec2 clipOff = drawData->DisplayPos;
+        ImVec2 clipScale = drawData->FramebufferScale;
+
+        uint32_t vtxOffset = 0;
+        uint32_t idxOffset = 0;
+        for (int i = 0; i < drawData->CmdListsCount; i++)
+        {
+            const ImDrawList* cmdList = drawData->CmdLists[i];
+            for (int j = 0; j < cmdList->CmdBuffer.Size; j++)
+            {
+                const ImDrawCmd* pcmd = &cmdList->CmdBuffer[j];
+            }
+            idxOffset += cmdList->IdxBuffer.Size;
+            vtxOffset += cmdList->VtxBuffer.Size;
+        }
     }
 
 }

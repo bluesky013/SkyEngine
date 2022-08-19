@@ -28,6 +28,8 @@ namespace sky {
 
         Texture::Descriptor texDesc = {};
         fontTexture = Texture::CreateFromImage(fontImage, texDesc);
+
+        io.Fonts->SetTexID(reinterpret_cast<ImTextureID>(fontImage->GetRHIImage()->GetNativeHandle()));
     }
 
     RDTexturePtr GuiManager::GetFontTexture()

@@ -32,17 +32,20 @@ namespace sky {
             VkBufferUsageFlags  usage    = 0;
             VmaMemoryUsage      memory   = VMA_MEMORY_USAGE_CPU_TO_GPU;
             bool                allocCPU = false;
+            bool                keepMap  = false;
         };
 
         Buffer() = default;
         Buffer(const Descriptor& desc);
-        ~Buffer() = default;
+        ~Buffer();
 
         void Init(const Descriptor& desc);
 
         void InitRHI();
 
         bool IsValid() const override;
+
+        uint8_t *GetMappedAddress() const;
 
         void Write(const uint8_t* data, uint64_t size, uint64_t offset = 0);
 
@@ -64,6 +67,7 @@ namespace sky {
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
         drv::BufferPtr rhiBuffer;
+        uint8_t* mapPtr = nullptr;
         bool dirty = true;
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;
