@@ -59,15 +59,18 @@ namespace sky {
     void RDSceneSample::Start()
     {
         scene = std::make_shared<RenderScene>();
+        scene->Setup();
         Render::Get()->AddScene(scene);
 
-        viewport = std::make_unique<RenderViewport>();
+        auto viewport = std::make_shared<RenderViewport>();
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
 
         RenderViewport::ViewportInfo info = {};
         info.wHandle = nativeWindow->GetNativeHandle();
         viewport->Setup(info);
         viewport->SetScene(scene);
+        Render::Get()->AddViewport(viewport);
+
         auto swapChain = viewport->GetSwapChain();
         auto& ext = swapChain->GetExtent();
 
@@ -125,7 +128,6 @@ namespace sky {
     void RDSceneSample::Stop()
     {
         scene = nullptr;
-        viewport = nullptr;
         material = nullptr;
         Render::Get()->Destroy();
     }

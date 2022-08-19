@@ -60,6 +60,7 @@ namespace sky {
         StageInputTable stageInputs;
         NameTable nameTable;
         DescriptorTable descriptorTable;
+        uint32_t constantBlockSize = 0;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
 

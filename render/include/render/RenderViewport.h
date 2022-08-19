@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include <render/RenderScene.h>
 #include <framework/window/IWindowEvent.h>
 #include <vulkan/Swapchain.h>
+#include <render/RenderScene.h>
 #include <memory>
 
 namespace sky {
@@ -21,9 +21,9 @@ namespace sky {
             void* wHandle = nullptr;
         };
 
-        void SetScene(RDScenePtr scene);
-
         void Setup(const ViewportInfo& info);
+
+        void SetScene(const RDScenePtr& scn);
 
         void Shutdown();
 
@@ -31,13 +31,25 @@ namespace sky {
 
         void* GetNativeHandle() const;
 
+        void DoFrame();
+
     private:
+        void BeginFrame();
+
+        void EndFrame();
+
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
-        RDScenePtr scene;
         void* nativeHandle = nullptr;
+        uint32_t currentFrame = 0;
+        uint32_t currentImageIndex = 0;
+        RDScenePtr scene;
+        drv::SemaphorePtr imageAvailable[INFLIGHT_FRAME];
+        drv::SemaphorePtr renderFinish[INFLIGHT_FRAME];
+        drv::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
+        drv::CommandPoolPtr commandPool;
         drv::SwapChainPtr swapChain;
+        drv::Queue *graphicsQueue{nullptr};
     };
-    using RDViewportPtr = std::unique_ptr<RenderViewport>;
-
+    using RDViewportPtr = std::shared_ptr<RenderViewport>;
 }

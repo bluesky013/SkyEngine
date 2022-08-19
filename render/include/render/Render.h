@@ -6,6 +6,7 @@
 #pragma once
 #include <render/RenderScene.h>
 #include <render/RenderView.h>
+#include <render/RenderViewport.h>
 #include <core/environment/Singleton.h>
 #include <framework/interface/IEngine.h>
 #include <render/resources/DescriptorPool.h>
@@ -25,7 +26,9 @@ namespace sky {
 
         void OnTick(float time);
 
-        void AddScene(RDScenePtr scene);
+        void AddScene(const RDScenePtr &scene);
+
+        void AddViewport(const RDViewportPtr &viewport);
 
         DescriptorPool* GetGlobalSetPool() const;
 
@@ -48,8 +51,8 @@ namespace sky {
         ~Render();
 
         std::vector<RDScenePtr> scenes;
+        std::vector<RDViewportPtr> viewports;
         std::unique_ptr<DescriptorPool> globalPool;
-
         RDTexturePtr defaultTexture;
         drv::SamplerPtr defaultSampler;
     };

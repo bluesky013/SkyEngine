@@ -16,18 +16,18 @@ namespace sky {
 
         static constexpr uint32_t FORWARD_TAG = 0x01;
 
-        void ViewportChange(RenderViewport& vp) override;
+        void ViewportChange(const RenderViewport& viewport) override;
+
+        void SetOutput(const drv::ImagePtr& output) override;
 
         void BeginFrame(FrameGraph& frameGraph) override;
 
-        void DoFrame(FrameGraph& frameGraph) override;
-
-        void EndFrame() override;
+        void DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& cmdBuffer) override;
 
     private:
         drv::ImagePtr msaaColor;
+        drv::ImagePtr colorOut;
         drv::ImagePtr depthStencil;
-        uint32_t currentImageIndex = 0;
     };
 
 }

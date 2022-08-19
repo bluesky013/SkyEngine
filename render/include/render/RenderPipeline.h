@@ -27,28 +27,14 @@ namespace sky {
             encoders.clear();
         }
 
-        virtual void DoFrame(FrameGraph& frameGraph);
+        virtual void DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& cmdBuffer);
 
-        virtual void EndFrame()
-        {
-            currentFrame = (currentFrame + 1) % INFLIGHT_FRAME;
-        }
+        virtual void ViewportChange(const RenderViewport& viewport) {}
 
-        void Setup(RenderViewport& vp);
-
-        virtual void ViewportChange(RenderViewport& vp) {}
+        virtual void SetOutput(const drv::ImagePtr& output) {}
 
     protected:
         RenderScene& scene;
-        RenderViewport* viewport = nullptr;
-        uint32_t currentFrame = 0;
-
-        drv::SemaphorePtr imageAvailable[INFLIGHT_FRAME];
-        drv::SemaphorePtr renderFinish[INFLIGHT_FRAME];
-        drv::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
-        drv::CommandPoolPtr commandPool;
-        drv::Queue* graphicsQueue;
-
         std::vector<FrameGraphRasterEncoder*> encoders;
     };
     using RDPipeline = std::unique_ptr<RenderPipeline>;

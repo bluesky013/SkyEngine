@@ -31,7 +31,7 @@ namespace sky::drv {
             uint32_t size = 0;
         };
 
-        void SetPipelineLayout(PipelineLayoutPtr layout);
+        static std::shared_ptr<PushConstants> CreateFromPipelineLayout(const PipelineLayoutPtr& layout);
 
         template <typename T>
         void WriteData(VkShaderStageFlagBits stage, const T& value, uint32_t offset = 0)

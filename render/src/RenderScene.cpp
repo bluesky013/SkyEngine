@@ -25,12 +25,32 @@ namespace sky {
         }
     }
 
-    void RenderScene::OnRender()
+    void RenderScene::ViewportChange(RenderViewport& viewport)
     {
-        FrameGraph frameGraph;
+        pipeline->ViewportChange(viewport);
+    }
+
+    void RenderScene::SetupPipeline(RenderViewport& viewport)
+    {
+        pipeline = std::make_unique<RenderPipelineForward>(*this);
+        ViewportChange(viewport);
+    }
+
+    void RenderScene::UpdateOutput(const drv::ImagePtr& output)
+    {
         if (pipeline) {
-            pipeline->BeginFrame(frameGraph);
+            pipeline->SetOutput(output);
         }
+    }
+
+    void RenderScene::OnRender(const drv::CommandBufferPtr& commandBuffer)
+    {
+        if (!pipeline) {
+            return;
+        }
+
+        FrameGraph frameGraph;
+        pipeline->BeginFrame(frameGraph);
 
         sceneInfo->RequestUpdate();
         mainViewInfo->RequestUpdate();
@@ -39,19 +59,9 @@ namespace sky {
             feature.second->OnRender();
         }
 
-        if (pipeline) {
-            pipeline->DoFrame(frameGraph);
-        }
-    }
-
-    void RenderScene::OnPostRender()
-    {
+        pipeline->DoFrame(frameGraph, commandBuffer);
         for (auto& feature : features) {
             feature.second->OnPostRender();
-        }
-
-        if (pipeline) {
-            pipeline->EndFrame();
         }
     }
 
@@ -73,18 +83,9 @@ namespace sky {
         binder.SetOffset(0, 1, sceneInfo->GetDynamicOffset());
     }
 
-    void RenderScene::Setup(RenderViewport& viewport)
+    void RenderScene::Setup()
     {
-        pipeline = std::make_unique<RenderPipelineForward>(*this);
-        pipeline->Setup(viewport);
-        ViewportChange(viewport);
-
         InitSceneResource();
-    }
-
-    void RenderScene::ViewportChange(RenderViewport& viewport)
-    {
-        pipeline->ViewportChange(viewport);
     }
 
     void RenderScene::InitSceneResource()

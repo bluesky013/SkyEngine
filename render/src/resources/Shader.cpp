@@ -84,12 +84,12 @@ namespace sky {
 
                 if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER || type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
                     auto& type = compiler.get_type(res.base_type_id);
+                    entry.size = static_cast<uint32_t>(compiler.get_declared_struct_size(type));
                     size_t memberNum = type.member_types.size();
                     for (uint32_t i = 0; i < memberNum; ++i) {
                         uint32_t offset = compiler.get_member_decoration(res.base_type_id, i, spv::DecorationOffset);
                         std::string nameKey = name + "." + compiler.get_member_name(res.base_type_id, i);
                         table->handleMap.emplace(nameKey, PropertyHandler{ binding, offset });
-                        entry.size = static_cast<uint32_t>(compiler.get_declared_struct_size(type));
                     }
                 } else {
                     table->handleMap.emplace(name, PropertyHandler{ binding, 0 });
@@ -104,7 +104,12 @@ namespace sky {
         fn(resources.sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         fn(resources.storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-
+        // There can only be one push constant per stage.
+        if (!resources.push_constant_buffers.empty()) {
+            auto& res = resources.push_constant_buffers.front();
+            auto& type = compiler.get_type(res.base_type_id);
+            constantBlockSize = static_cast<uint32_t>(compiler.get_declared_struct_size(type));
+        }
 
         if (descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT) {
             auto fn = [&compiler, this](const SpvResources& resources) {

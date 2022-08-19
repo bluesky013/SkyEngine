@@ -5,45 +5,19 @@
 #include <render/RenderPipeline.h>
 #include <render/DriverManager.h>
 #include <render/RenderScene.h>
+#include <render/framegraph/FrameGraph.h>
 
 namespace sky {
 
     RenderPipeline::~RenderPipeline()
     {
         DriverManager::Get()->GetDevice()->WaitIdle();
-
-        for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
-            commandBuffer[i] = nullptr;
-            imageAvailable[i] = nullptr;
-            renderFinish[i] = nullptr;
-        }
-        commandPool = nullptr;
     }
 
-    void RenderPipeline::Setup(RenderViewport& vp)
+    void RenderPipeline::DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& cmdBuffer)
     {
-        auto device = DriverManager::Get()->GetDevice();
+        frameGraph.Compile();
 
-        graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
-        drv::CommandPool::Descriptor cmdPoolDesc = {};
-        cmdPoolDesc.flag = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmdPoolDesc.queueFamilyIndex = graphicsQueue->GetQueueFamilyIndex();
-
-        commandPool = device->CreateDeviceObject<drv::CommandPool>(cmdPoolDesc);
-
-        drv::CommandBuffer::Descriptor cmdDesc = {};
-
-        for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
-            commandBuffer[i] = commandPool->Allocate(cmdDesc);
-            imageAvailable[i] = device->CreateDeviceObject<drv::Semaphore>({});
-            renderFinish[i] = device->CreateDeviceObject<drv::Semaphore>({});
-        }
-
-        viewport = &vp;
-    }
-
-    void RenderPipeline::DoFrame(FrameGraph& graph)
-    {
         auto& views = scene.GetViews();
         for (auto& view : views) {
             auto& primitives = view->GetPrimitives();
