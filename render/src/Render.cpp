@@ -13,7 +13,7 @@
 #include <render/features/CameraFeature.h>
 #include <render/shapes/ShapeManager.h>
 #include <render/fonts/FontLibrary.h>
-#include <framework/asset/AssetManager.h>
+#include <render/imgui/GuiManager.h>
 
 static const char* TAG = "Render";
 
@@ -27,6 +27,7 @@ namespace sky {
 
         scenes.clear();
         FontLibrary::Get()->Destroy();
+        GuiManager::Get()->Destroy();
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
@@ -44,6 +45,7 @@ namespace sky {
         InitGlobalPool();
         InitDefaultResource();
         InitFonts();
+        InitGui();
         return true;
     }
 
@@ -124,6 +126,10 @@ namespace sky {
     void Render::InitFonts()
     {
         FontLibrary::Get()->Init();
-        AssetManager::Get()->LoadAsset<FontFace>("C:\\Windows\\Fonts\\Arial.ttf");
+    }
+
+    void Render::InitGui()
+    {
+        GuiManager::Get()->Init();
     }
 }

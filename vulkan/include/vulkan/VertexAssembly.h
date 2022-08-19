@@ -19,7 +19,7 @@ namespace sky::drv {
 
         void AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset = 0);
 
-        void SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
+        void SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset = 0);
 
         void SetIndexType(VkIndexType);
 

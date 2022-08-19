@@ -154,6 +154,56 @@ namespace sky {
         }
     }
 
+
+    DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t frame, uint32_t block)
+            : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
+            , frameNum(frame)
+            , blockStride(block)
+            , bufferIndex(~(0u))
+            , currentFrame(0)
+            , dynamicOffset(0)
+            , isDirty(false)
+    {
+    }
+
+    uint32_t DynamicBufferView::GetDynamicOffset() const
+    {
+        return dynamicOffset;
+    }
+
+    void DynamicBufferView::SetID(uint32_t id)
+    {
+        bufferIndex = id;
+    }
+
+    uint32_t DynamicBufferView::GetID() const
+    {
+        return bufferIndex;
+    }
+
+    void DynamicBufferView::SwapBuffer()
+    {
+        currentFrame = (currentFrame + 1) % frameNum;
+        dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
+    }
+
+    void DynamicBufferView::RequestUpdate()
+    {
+        if (isDirty) {
+            BufferView::RequestUpdate();
+            SwapBuffer();
+            isDirty = false;
+        }
+    }
+
+    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t off)
+    {
+        if (buffer) {
+            buffer->Write(data, size, off + dynamicOffset);
+            isDirty = true;
+        }
+    }
+
     namespace impl {
         void LoadFromPath(const std::string& path, BufferAssetData& data)
         {
