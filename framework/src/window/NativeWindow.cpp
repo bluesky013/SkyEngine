@@ -93,40 +93,56 @@ namespace sky {
 
     void NativeWindow::Dispatch(const SDL_Event &sdlEvent, bool &quit) {
         switch (sdlEvent.type) {
-            case SDL_QUIT: {
+            case SDL_QUIT:
+            {
                 quit = true;
                 break;
             }
-            case SDL_WINDOWEVENT: {
+            case SDL_WINDOWEVENT:
+            {
                 Dispatch(sdlEvent.window);
                 break;
             }
-            case SDL_MOUSEBUTTONDOWN: {
-                int width  = 0;
-                int height = 0;
-                SDL_GetWindowSize(window, &width, &height);
+            case SDL_MOUSEBUTTONDOWN:
+            {
                 const SDL_MouseButtonEvent &event = sdlEvent.button;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnMouseButtonDown, event.button);
                 break;
             }
-            case SDL_MOUSEBUTTONUP: {
+            case SDL_MOUSEBUTTONUP:
+            {
                 const SDL_MouseButtonEvent &event = sdlEvent.button;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnMouseButtonUp, event.button);
                 break;
             }
-            case SDL_MOUSEMOTION: {
+            case SDL_MOUSEMOTION:
+            {
                 const SDL_MouseMotionEvent &event = sdlEvent.motion;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnMouseMove, event.x, event.y);
                 break;
             }
-            case SDL_MOUSEWHEEL: {
+            case SDL_MOUSEWHEEL:
+            {
                 const SDL_MouseWheelEvent &event = sdlEvent.wheel;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnMouseWheel, event.x, event.y);
                 break;
             }
-            case SDL_KEYDOWN: {
+            case SDL_KEYDOWN:
+            {
                 const SDL_KeyboardEvent &event = sdlEvent.key;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnKeyDown, event.keysym.scancode - 3);
                 break;
             }
-            case SDL_KEYUP: {
+            case SDL_KEYUP:
+            {
                 const SDL_KeyboardEvent &event = sdlEvent.key;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnKeyUp, event.keysym.scancode - 3);
                 break;
+            }
+            case SDL_TEXTINPUT:
+            {
+                const SDL_TextInputEvent &event = sdlEvent.text;
+                Event<IWindowEvent>::BroadCast(winHandle, &IWindowEvent::OnTextInput, event.text);
             }
             default:
                 break;

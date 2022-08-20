@@ -57,9 +57,18 @@ namespace sky {
 
         void GatherRenderPrimitives() override;
 
+        // RenderFeature overrides
         void OnBindViewport(const RenderViewport& viewport) override;
-
         void OnViewportSizeChange(const RenderViewport& viewport) override;
+
+        // IWindowEvent overrides
+        void OnMouseMove(int32_t x, int32_t y) override;
+        void OnMouseButtonDown(MouseButtonType button) override;
+        void OnMouseButtonUp(MouseButtonType button) override;
+        void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
+        void OnKeyUp(KeyButtonType) override;
+        void OnKeyDown(KeyButtonType) override;
+        void OnTextInput(const char* text) override;
 
         template <typename T, typename ...Args>
         T* Create(Args&& ...args)

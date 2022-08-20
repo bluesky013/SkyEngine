@@ -218,4 +218,50 @@ namespace sky {
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2((float)width, (float)height);
     }
+
+    void GuiRenderer::OnMouseMove(int32_t x, int32_t y)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MousePos.x = static_cast<float>(x);
+        io.MousePos.y = static_cast<float>(y);
+    }
+
+    void GuiRenderer::OnMouseButtonDown(MouseButtonType button)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDown[button - 1] = true;
+    }
+
+    void GuiRenderer::OnMouseButtonUp(MouseButtonType button)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDown[button - 1] = false;
+    }
+
+    void GuiRenderer::OnMouseWheel(int32_t wheelX, int32_t wheelY)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        if (wheelX > 0) io.MouseWheelH += 1;
+        if (wheelX < 0) io.MouseWheelH -= 1;
+        if (wheelY > 0) io.MouseWheel += 1;
+        if (wheelY < 0) io.MouseWheel -= 1;
+    }
+
+    void GuiRenderer::OnKeyUp(KeyButtonType key)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.KeysDown[key] = false;
+    }
+
+    void GuiRenderer::OnKeyDown(KeyButtonType key)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.KeysDown[key] = true;
+    }
+
+    void GuiRenderer::OnTextInput(const char *text)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddInputCharactersUTF8(text);
+    }
 }
