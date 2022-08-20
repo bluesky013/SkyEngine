@@ -14,8 +14,6 @@ namespace sky {
         RenderPipelineForward(RenderScene& scene) : RenderPipeline(scene) {}
         ~RenderPipelineForward() = default;
 
-        static constexpr uint32_t FORWARD_TAG = 0x01;
-
         void ViewportChange(const RenderViewport& viewport) override;
 
         void SetOutput(const drv::ImagePtr& output) override;

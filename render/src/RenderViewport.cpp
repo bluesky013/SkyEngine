@@ -16,6 +16,7 @@ namespace sky {
     {
         drv::SwapChain::Descriptor descriptor = {};
         descriptor.window = info.wHandle;
+        descriptor.preferredMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
         auto device = DriverManager::Get()->GetDevice();
         swapChain = device->CreateDeviceObject<drv::SwapChain>(descriptor);
@@ -40,7 +41,7 @@ namespace sky {
     void RenderViewport::SetScene(const RDScenePtr& scn)
     {
         scene = scn;
-        scene->SetupPipeline(*this);
+        scene->BindViewport(*this);
     }
 
     void RenderViewport::Shutdown()
@@ -77,6 +78,11 @@ namespace sky {
         }
 
         EndFrame();
+    }
+
+    const VkExtent2D& RenderViewport::GetExtent() const
+    {
+        return swapChain->GetExtent();
     }
 
     void RenderViewport::BeginFrame()

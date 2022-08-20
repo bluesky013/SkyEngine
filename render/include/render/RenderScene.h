@@ -11,9 +11,10 @@
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
 #include <render/RenderBufferPool.h>
+#include <render/RenderEncoder.h>
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
-#include <render/framegraph/FrameGraphEncoder.h>
+#include <framework/window/IWindowEvent.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
@@ -29,7 +30,7 @@ namespace sky {
 
         void ViewportChange(RenderViewport& viewport);
 
-        void SetupPipeline(RenderViewport& viewport);
+        void BindViewport(RenderViewport& viewport);
 
         void UpdateOutput(const drv::ImagePtr& output);
 
@@ -56,17 +57,17 @@ namespace sky {
             return static_cast<T*>(iter->second.get());
         }
 
-        RDDynBufferViewPtr GetSceneBuffer() const;
+        const RDDynBufferViewPtr &GetSceneBuffer() const;
 
-        RDDynBufferViewPtr GetMainViewBuffer() const;
+        const RDDynBufferViewPtr &GetMainViewBuffer() const;
 
         DescriptorPool* GetObjectSetPool() const;
 
         RenderBufferPool* GetObjectBufferPool() const;
 
-        RDDesGroupPtr GetSceneSet() const;
+        const RDDesGroupPtr &GetSceneSet() const;
 
-        void AddView(RDViewPtr view);
+        void AddView(const RDViewPtr& view);
 
         const std::vector<RDViewPtr>& GetViews() const;
 
@@ -91,7 +92,7 @@ namespace sky {
         std::unique_ptr<DescriptorPool> objectPool;
         std::unique_ptr<RenderBufferPool> objectBufferPool;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
-        std::unordered_map<uint32_t, std::unique_ptr<FrameGraphRasterEncoder>> encoders;
+        std::unordered_map<uint32_t, std::unique_ptr<RenderEncoder>> encoders;
 
         // dynamic data
         std::vector<RDViewPtr> views;

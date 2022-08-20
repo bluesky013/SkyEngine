@@ -9,6 +9,7 @@
 #include <vulkan/GraphicsPipeline.h>
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/DescriptorSetBinder.h>
+#include <vulkan/PushConstants.h>
 
 namespace sky::drv {
 
@@ -67,7 +68,7 @@ namespace sky::drv {
         VkViewport*            viewport       = nullptr;
         VkRect2D*              scissor        = nullptr;
         CmdStencil*            stencil        = nullptr;
-        uint8_t*               pushConstants  = nullptr;
+        PushConstantsPtr       pushConstants  = nullptr;
         GraphicsPipelinePtr    pso;
         DescriptorSetBinderPtr shaderResources;
         VertexAssemblyPtr      vertexAssembly;

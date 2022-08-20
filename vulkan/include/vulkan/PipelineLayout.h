@@ -39,7 +39,9 @@ namespace sky::drv {
 
         DescriptorSetLayoutPtr GetLayout(uint32_t slot) const;
 
-        const std::vector<DescriptorSetLayoutPtr>& GetLayouts() const;
+        const std::vector<DescriptorSetLayoutPtr> &GetLayouts() const;
+
+        const std::vector<VkPushConstantRange> &GetConstantRanges() const;
 
     private:
         friend class Device;

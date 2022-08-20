@@ -6,7 +6,7 @@
 #include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
 #include <core/util/Macros.h>
-#include <render/RenderPrimtive.h>
+#include <render/RenderMeshPrimtive.h>
 #include <render/RenderBufferPool.h>
 #include <render/resources/Mesh.h>
 #include <render/resources/Material.h>

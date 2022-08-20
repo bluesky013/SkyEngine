@@ -3,6 +3,7 @@
 //
 
 #include <framework/application/Application.h>
+#include <framework/util/Performance.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <SDL2/SDL.h>
@@ -121,10 +122,16 @@ namespace sky {
         while (!exit) {
             nativeWindow->PollEvent(exit);
 
-            static auto timePoint = std::chrono::high_resolution_clock::now();
-            auto current = std::chrono::high_resolution_clock::now();
-            auto delta = std::chrono::duration<float>(current - timePoint).count();
-            timePoint = current;
+//            static auto timePoint = std::chrono::high_resolution_clock::now();
+//            auto current = std::chrono::high_resolution_clock::now();
+//            auto delta = std::chrono::duration<float>(current - timePoint).count();
+//            timePoint = current;
+
+            uint64_t frequency = GetPerformanceFrequency();
+            uint64_t currentCounter = GetPerformanceCounter();
+            static uint64_t current = 0;
+            float delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
+            current = currentCounter;
 
             for (auto& module : modules) {
                 module->Tick(delta);

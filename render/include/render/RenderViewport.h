@@ -33,6 +33,8 @@ namespace sky {
 
         void DoFrame();
 
+        const VkExtent2D& GetExtent() const;
+
     private:
         void BeginFrame();
 

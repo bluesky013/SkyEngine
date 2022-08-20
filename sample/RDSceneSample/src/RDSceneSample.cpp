@@ -78,12 +78,7 @@ namespace sky {
         auto smFeature = scene->GetFeature<StaticMeshFeature>();
 
         mainCamera = cmFeature->Create();
-        mainCamera->SetProjectMatrix(glm::perspective(
-            60 / 180.f * 3.14f,
-            ext.width / static_cast<float>(ext.height),
-            0.01f,
-            100.f)
-        );
+        mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
         mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
 
@@ -103,7 +98,7 @@ namespace sky {
         colorTech->SetShaderTable(colorTable);
         colorTech->SetRenderPass(pass);
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
+        colorTech->SetDrawTag(FORWARD_TAG);
         colorTech->SetDepthTestEn(true);
         colorTech->SetDepthWriteEn(true);
 

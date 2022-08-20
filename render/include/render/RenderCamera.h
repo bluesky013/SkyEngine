@@ -7,6 +7,12 @@
 #include <render/RenderView.h>
 
 namespace sky {
+
+    enum class ProjectType : uint8_t {
+        PERSPECTIVE,
+        ORTHOGONAL
+    };
+
     class RenderCamera {
     public:
         ~RenderCamera() = default;
@@ -17,7 +23,15 @@ namespace sky {
 
         void SetTransform(const Matrix4& transform);
 
-        void SetProjectMatrix(const Matrix4& projectMatrix);
+        void SetFov(float value);
+
+        void SetAspect(float value);
+
+        void SetNearFar(float near, float far);
+
+        void UpdateProjection();
+
+        bool AspectFromViewport() const;
 
     private:
         friend class CameraFeature;
@@ -25,6 +39,13 @@ namespace sky {
 
         void Init();
         RDViewPtr renderView;
+        ProjectType projectType = ProjectType::PERSPECTIVE;
+        float fov = 60.f;
+        float aspect = 3 / 4.f;
+        float near = 0.01f;
+        float far = 100.f;
         bool active = true;
+        bool dirty = true;
+        bool autoAspect = true;
     };
 }

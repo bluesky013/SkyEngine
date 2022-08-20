@@ -6,16 +6,16 @@
 
 #include <render/framegraph/FrameGraphNode.h>
 #include <render/framegraph/FrameGraphAttachment.h>
-#include <render/framegraph/FrameGraphEncoder.h>
-#include <render/RenderPrimtive.h>
+#include <render/RenderEncoder.h>
+#include <render/RenderMeshPrimtive.h>
 
 namespace sky {
     class FrameGraphBuilder;
 
     class FrameGraphPass : public FrameGraphNode {
     public:
-        FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
-        ~FrameGraphPass() = default;
+        explicit FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
+        ~FrameGraphPass() override = default;
 
         virtual void Compile() = 0;
 
@@ -24,8 +24,8 @@ namespace sky {
 
     class FrameGraphEmptyPass : public FrameGraphPass {
     public:
-        FrameGraphEmptyPass(const std::string& str) : FrameGraphPass(str) {}
-        ~FrameGraphEmptyPass() = default;
+        explicit FrameGraphEmptyPass(const std::string& str) : FrameGraphPass(str) {}
+        ~FrameGraphEmptyPass() override = default;
 
         void Compile() override {}
 
@@ -36,8 +36,8 @@ namespace sky {
 
     class FrameGraphGraphicPass : public FrameGraphPass {
     public:
-        FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
-        ~FrameGraphGraphicPass();
+        explicit FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
+        ~FrameGraphGraphicPass() override;
 
         void UseImageAttachment(FrameGraphImageAttachment* attachment) override;
 
@@ -45,7 +45,7 @@ namespace sky {
 
         void Execute(drv::CommandBufferPtr commandBuffer) override;
 
-        void SetEncoder(FrameGraphEncoder* encoder);
+        void SetEncoder(RenderEncoder* encoder);
 
         drv::RenderPassPtr GetPass() const;
 
@@ -57,8 +57,8 @@ namespace sky {
         std::vector<FrameGraphImageAttachment*> colors;
         std::vector<FrameGraphImageAttachment*> resolves;
         std::vector<FrameGraphImageAttachment*> inputs;
-        FrameGraphImageAttachment* depthStencil;
-        FrameGraphEncoder* encoder;
+        FrameGraphImageAttachment* depthStencil = nullptr;
+        RenderEncoder* encoder = nullptr;
     };
 
 }

@@ -8,6 +8,8 @@
 #include <render/RenderPipelineForward.h>
 #include <render/features/CameraFeature.h>
 #include <render/features/StaticMeshFeature.h>
+#include <render/imgui/GuiRenderer.h>
+#include <imgui.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/window/NativeWindow.h>
 #include <RDSceneProject/EngineRoot.h>
@@ -84,14 +86,17 @@ namespace sky {
 
         auto cmFeature = scene->GetFeature<CameraFeature>();
         auto smFeature = scene->GetFeature<StaticMeshFeature>();
+        auto guiFeature = scene->GetFeature<GuiRenderer>();
+
+        guiFeature->CreateLambda([](ImGuiContext* context) {
+            ImGui::SetCurrentContext(context);
+            ImGui::Begin("RDSceneProject");
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::End();
+        });
 
         mainCamera = cmFeature->Create();
-        mainCamera->SetProjectMatrix(glm::perspective(
-            60 / 180.f * 3.14f,
-            static_cast<float>(ext.width) / static_cast<float>(ext.height),
-            0.01f,
-            100.f)
-        );
+        mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
         auto feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetMesh(mainCamera);
@@ -113,7 +118,7 @@ namespace sky {
         colorTech->SetShaderTable(colorTable);
         colorTech->SetRenderPass(pass);
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
+        colorTech->SetDrawTag(FORWARD_TAG);
         colorTech->SetDepthTestEn(true);
         colorTech->SetDepthWriteEn(true);
 

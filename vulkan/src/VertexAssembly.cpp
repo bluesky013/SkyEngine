@@ -14,6 +14,8 @@ namespace sky::drv {
     void VertexAssembly::ResetVertexBuffer()
     {
         vertexBuffers.clear();
+        vkBuffers.clear();
+        offsets.clear();
     }
 
     void VertexAssembly::AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset)

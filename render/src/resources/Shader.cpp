@@ -61,6 +61,11 @@ namespace sky {
         return nameTable;
     }
 
+    uint32_t Shader::GetConstantBlockSize() const
+    {
+        return constantBlockSize;
+    }
+
     void Shader::BuildReflection()
     {
         spirv_cross::Compiler compiler(spv.data(), spv.size());
@@ -141,6 +146,9 @@ namespace sky {
         }
 
         drv::PipelineLayout::Descriptor desc = {};
+
+        VkPushConstantRange range{};
+        // merge shader resources.
         for (auto& shader : shaders) {
             auto& table = shader->GetDescriptorTable();
             for (auto& item : table) {
@@ -156,6 +164,15 @@ namespace sky {
                     merge.size = binding.second.size;
                 }
             }
+
+            uint32_t pushConstantBlockSize = shader->GetConstantBlockSize();
+            if (pushConstantBlockSize != 0) {
+                range.stageFlags |= shader->GetShader()->GetShaderStage();
+                range.offset = 0;
+                range.size = shader->GetConstantBlockSize();
+                desc.pushConstants.emplace_back(range);
+            }
+
             auto& shaderNameTable = shader->GetNameTable();
             for (auto& pair : shaderNameTable) {
                 for (auto& [name, handler] : pair.second->handleMap) {

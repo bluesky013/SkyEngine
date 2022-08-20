@@ -86,6 +86,11 @@ namespace sky::drv {
         return desLayouts;
     }
 
+    const std::vector<VkPushConstantRange> &PipelineLayout::GetConstantRanges() const
+    {
+        return pushConstants;
+    }
+
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {

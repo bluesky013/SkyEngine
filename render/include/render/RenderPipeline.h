@@ -8,7 +8,7 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/CommandBuffer.h>
 #include <vulkan/CommandPool.h>
-#include <render/framegraph/FrameGraphEncoder.h>
+#include <render/RenderEncoder.h>
 #include <render/RenderConstants.h>
 
 namespace sky {
@@ -16,6 +16,9 @@ namespace sky {
     class FrameGraph;
     class RenderScene;
     class RenderViewport;
+
+    static constexpr uint32_t FORWARD_TAG = 0x01;
+    static constexpr uint32_t UI_TAG      = 0x02;
 
     class RenderPipeline  {
     public:
@@ -35,7 +38,7 @@ namespace sky {
 
     protected:
         RenderScene& scene;
-        std::vector<FrameGraphRasterEncoder*> encoders;
+        std::vector<RenderRasterEncoder*> encoders;
     };
     using RDPipeline = std::unique_ptr<RenderPipeline>;
 

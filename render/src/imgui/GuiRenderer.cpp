@@ -4,20 +4,44 @@
 
 #include <render/imgui/GuiRenderer.h>
 #include <render/RenderConstants.h>
+#include <render/RenderViewport.h>
+#include <render/imgui/GuiManager.h>
 #include <imgui.h>
 
 namespace sky {
 
+    struct GuiConstants {
+        ImVec2 scale;
+        ImVec2 translate;
+    };
+
+    GuiRenderer::~GuiRenderer()
+    {
+        Event<IWindowEvent>::DisConnect(this);
+    }
+
     void GuiRenderer::Init()
     {
+        primitive = std::make_unique<GuiPrimitive>();
+        primitive->SetViewTag(MAIN_CAMERA_TAG);
+        primitive->SetDrawTag(UI_TAG);
+
         shaders = std::make_shared<GraphicsShaderTable>();
         shaders->LoadShader("shaders/Gui.vert.spv", "Shaders/Gui.frag.spv");
+        shaders->InitRHI();
+
+        drv::VertexInput::Builder builder;
+        auto vi = builder.Begin()
+            .AddAttribute(0, 0, offsetof(ImDrawVert, pos), VK_FORMAT_R32G32_SFLOAT)
+            .AddAttribute(1, 0, offsetof(ImDrawVert, uv),  VK_FORMAT_R32G32_SFLOAT)
+            .AddAttribute(2, 0, offsetof(ImDrawVert, col), VK_FORMAT_R8G8B8A8_UNORM)
+            .AddStream(0, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX)
+            .Build();
 
         // TODO
         auto pass = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
-        subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_4_BIT});
-        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
+        subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_1_BIT});
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
@@ -28,13 +52,30 @@ namespace sky {
         technique->SetDrawTag(0x01);  // TODO
         technique->SetDepthTestEn(true);
         technique->SetDepthWriteEn(true);
-        setBinder = technique->CreateSetBinder();
-        assembly = std::make_shared<drv::VertexAssembly>();
+        auto& pipelineState = technique->GetState();
+        pipelineState.blends.attachments[0].blendEnable = VK_TRUE;
+        pipelineState.blends.attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        pipelineState.blends.attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.attachments[0].colorBlendOp        = VK_BLEND_OP_ADD;
+        pipelineState.blends.attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        pipelineState.blends.attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.attachments[0].alphaBlendOp        = VK_BLEND_OP_ADD;
+        pipelineState.blends.attachments[0].colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+        primitive->pso = technique->AcquirePso(vi);
+        primitive->setBinder = technique->CreateSetBinder();
+        primitive->constants = drv::PushConstants::CreateFromPipelineLayout(shaders->GetPipelineLayout());
 
         pool.reset(DescriptorPool::CreatePool(shaders->GetPipelineLayout()->GetLayout(0), {1}));
-        set = pool->Allocate();
+        primitive->set = pool->Allocate();
+        primitive->set->UpdateTexture(0, GuiManager::Get()->GetFontTexture());
+        primitive->set->Update();
 
-        CheckBufferSize(128 * sizeof(ImDrawVert), 128 * sizeof(ImDrawIdx));
+        primitive->setBinder->BindSet(0, primitive->set->GetRHISet());
+
+        primitive->assembly = std::make_shared<drv::VertexAssembly>();
+
+        inited = true;
     }
 
     void GuiRenderer::CheckBufferSize(uint64_t vertexSize, uint64_t indexSize)
@@ -50,8 +91,8 @@ namespace sky {
             vertexBuffer->InitRHI();
 
             currentVertexSize = vertexSize;
-            assembly->ResetVertexBuffer();
-            assembly->AddVertexBuffer(vertexBuffer->GetRHIBuffer());
+            primitive->assembly->ResetVertexBuffer();
+            primitive->assembly->AddVertexBuffer(vertexBuffer->GetRHIBuffer());
         }
 
         if (indexSize > currentIndexSize) {
@@ -65,29 +106,42 @@ namespace sky {
             indexBuffer->InitRHI();
 
             currentIndexSize = indexSize;
-            assembly->SetIndexType(VK_INDEX_TYPE_UINT16);
-            assembly->SetIndexBuffer(indexBuffer->GetRHIBuffer());
+            primitive->assembly->SetIndexType(VK_INDEX_TYPE_UINT16);
+            primitive->assembly->SetIndexBuffer(indexBuffer->GetRHIBuffer());
         }
     }
 
-    void GuiRenderer::Render()
+    void GuiRenderer::OnTick(float time)
     {
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.DeltaTime = time;
+
         ImGui::NewFrame();
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
+        auto context = ImGui::GetCurrentContext();
+        for (auto& widget : widgets) {
+            widget->OnRender(context);
+        }
 
         ImGui::Render();
-        ImDrawData* drawData = ImGui::GetDrawData();
+    }
 
-        if (drawData->TotalVtxCount == 0) {
+    void GuiRenderer::GatherRenderPrimitives()
+    {
+        ImDrawData* drawData = ImGui::GetDrawData();
+        if (drawData == nullptr || drawData->TotalVtxCount == 0) {
             return;
         }
+        if (!inited) {
+            Init();
+        }
+
         uint64_t vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
         uint64_t indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
         CheckBufferSize(vertexSize, indexSize);
 
-        ImDrawVert* vertexDst = reinterpret_cast<ImDrawVert*>(vertexBuffer->GetMappedAddress());
-        ImDrawIdx* indexDst = reinterpret_cast<ImDrawIdx*>(indexBuffer->GetMappedAddress());
+        auto* vertexDst = reinterpret_cast<ImDrawVert*>(vertexBuffer->GetMappedAddress());
+        auto* indexDst = reinterpret_cast<ImDrawIdx*>(indexBuffer->GetMappedAddress());
 
         for (int i = 0; i < drawData->CmdListsCount; ++i) {
             const ImDrawList* cmdList = drawData->CmdLists[i];
@@ -100,6 +154,14 @@ namespace sky {
         ImVec2 clipOff = drawData->DisplayPos;
         ImVec2 clipScale = drawData->FramebufferScale;
 
+        GuiConstants currentConstant;
+        currentConstant.scale.x = 2.0f / drawData->DisplaySize.x;
+        currentConstant.scale.y = 2.0f / drawData->DisplaySize.y;
+        currentConstant.translate.x = -1.0f - drawData->DisplayPos.x * currentConstant.scale[0];
+        currentConstant.translate.y = -1.0f - drawData->DisplayPos.y * currentConstant.scale[1];
+        primitive->constants->WriteData(currentConstant, 0);
+        primitive->args.clear();
+
         uint32_t vtxOffset = 0;
         uint32_t idxOffset = 0;
         for (int i = 0; i < drawData->CmdListsCount; i++)
@@ -108,10 +170,52 @@ namespace sky {
             for (int j = 0; j < cmdList->CmdBuffer.Size; j++)
             {
                 const ImDrawCmd* pcmd = &cmdList->CmdBuffer[j];
+
+                ImVec2 clipMin((pcmd->ClipRect.x - clipOff.x) * clipScale.x, (pcmd->ClipRect.y - clipOff.y) * clipScale.y);
+                ImVec2 clipMax((pcmd->ClipRect.z - clipOff.x) * clipScale.x, (pcmd->ClipRect.w - clipOff.y) * clipScale.y);
+
+                if (clipMin.x < 0.0f) { clipMin.x = 0.0f; }
+                if (clipMin.y < 0.0f) { clipMin.y = 0.0f; }
+                if (clipMax.x > width) { clipMax.x = (float)width; }
+                if (clipMax.y > height) { clipMax.y = (float)height; }
+                if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
+                    continue;
+
+                VkRect2D scissor;
+                scissor.offset.x = (int32_t)(clipMin.x);
+                scissor.offset.y = (int32_t)(clipMin.y);
+                scissor.extent.width = (uint32_t)(clipMax.x - clipMin.x);
+                scissor.extent.height = (uint32_t)(clipMax.y - clipMin.y);
+//                vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+//                vkCmdDrawIndexed(command_buffer, pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
+                drv::CmdDraw arg{};
+                arg.type = drv::CmdDrawType::INDEXED;
+                arg.indexed.indexCount    = pcmd->ElemCount;
+                arg.indexed.firstIndex    = pcmd->IdxOffset + idxOffset;
+                arg.indexed.vertexOffset  = pcmd->VtxOffset + vtxOffset;
+                primitive->args.emplace_back(arg);
             }
             idxOffset += cmdList->IdxBuffer.Size;
             vtxOffset += cmdList->VtxBuffer.Size;
         }
+
+        auto &views = scene.GetViews();
+        for (auto &view: views) {
+            view->AddRenderPrimitive(primitive.get());
+        }
     }
 
+    void GuiRenderer::OnBindViewport(const RenderViewport& viewport)
+    {
+        Event<IWindowEvent>::Connect(viewport.GetNativeHandle(), this);
+    }
+
+    void GuiRenderer::OnViewportSizeChange(const RenderViewport& viewport)
+    {
+        auto& ext = viewport.GetExtent();
+        width = ext.width;
+        height = ext.height;
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize = ImVec2((float)width, (float)height);
+    }
 }

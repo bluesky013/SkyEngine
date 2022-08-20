@@ -3,7 +3,7 @@
 //
 
 #include <render/RenderView.h>
-#include <render/RenderPrimtive.h>
+#include <render/RenderMeshPrimtive.h>
 
 namespace sky {
 

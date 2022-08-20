@@ -17,7 +17,6 @@ sky_add_library(TARGET ${TARGET_NAME} SHARED
         include
     LINK_LIBS
         SkyRender
-        Framework
     )
 
 add_dependencies(Launcher ${TARGET_NAME})

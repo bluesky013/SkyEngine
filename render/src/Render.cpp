@@ -14,6 +14,7 @@
 #include <render/shapes/ShapeManager.h>
 #include <render/fonts/FontLibrary.h>
 #include <render/imgui/GuiManager.h>
+#include <render/imgui/GuiRenderer.h>
 
 static const char* TAG = "Render";
 
@@ -67,6 +68,7 @@ namespace sky {
     {
         scene->RegisterFeature<CameraFeature>(*scene);
         scene->RegisterFeature<StaticMeshFeature>(*scene);
+        scene->RegisterFeature<GuiRenderer>(*scene);
         scenes.emplace_back(scene);
     }
 

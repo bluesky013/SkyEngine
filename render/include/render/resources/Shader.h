@@ -51,6 +51,8 @@ namespace sky {
 
         const NameTable& GetNameTable() const;
 
+        uint32_t GetConstantBlockSize() const;
+
     private:
         void BuildReflection();
 
@@ -106,8 +108,6 @@ namespace sky {
         void LoadShader(const std::string& vs, const std::string& fs);
 
         bool IsValid() const override;
-
-        RDDesGroupPtr CreateDescriptor();
 
         inline RDShaderPtr GetVS() const
         {

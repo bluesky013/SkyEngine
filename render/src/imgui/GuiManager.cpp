@@ -32,7 +32,7 @@ namespace sky {
         io.Fonts->SetTexID(reinterpret_cast<ImTextureID>(fontImage->GetRHIImage()->GetNativeHandle()));
     }
 
-    RDTexturePtr GuiManager::GetFontTexture()
+    const RDTexturePtr &GuiManager::GetFontTexture() const
     {
         return fontTexture;
     }
