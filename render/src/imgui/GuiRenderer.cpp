@@ -10,6 +10,11 @@
 
 namespace sky {
 
+    struct GuiConstants {
+        ImVec2 scale;
+        ImVec2 translate;
+    };
+
     GuiRenderer::~GuiRenderer()
     {
         Event<IWindowEvent>::DisConnect(this);
@@ -18,6 +23,8 @@ namespace sky {
     void GuiRenderer::Init()
     {
         primitive = std::make_unique<GuiPrimitive>();
+        primitive->SetViewTag(MAIN_CAMERA_TAG);
+        primitive->SetDrawTag(UI_TAG);
 
         shaders = std::make_shared<GraphicsShaderTable>();
         shaders->LoadShader("shaders/Gui.vert.spv", "Shaders/Gui.frag.spv");
@@ -34,8 +41,7 @@ namespace sky {
         // TODO
         auto pass = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
-        subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_4_BIT});
-        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
+        subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_1_BIT});
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
@@ -46,16 +52,28 @@ namespace sky {
         technique->SetDrawTag(0x01);  // TODO
         technique->SetDepthTestEn(true);
         technique->SetDepthWriteEn(true);
+        auto& pipelineState = technique->GetState();
+        pipelineState.blends.attachments[0].blendEnable = VK_TRUE;
+        pipelineState.blends.attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        pipelineState.blends.attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.attachments[0].colorBlendOp        = VK_BLEND_OP_ADD;
+        pipelineState.blends.attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        pipelineState.blends.attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.attachments[0].alphaBlendOp        = VK_BLEND_OP_ADD;
+        pipelineState.blends.attachments[0].colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
         primitive->pso = technique->AcquirePso(vi);
         primitive->setBinder = technique->CreateSetBinder();
+        primitive->constants = drv::PushConstants::CreateFromPipelineLayout(shaders->GetPipelineLayout());
 
         pool.reset(DescriptorPool::CreatePool(shaders->GetPipelineLayout()->GetLayout(0), {1}));
         primitive->set = pool->Allocate();
         primitive->set->UpdateTexture(0, GuiManager::Get()->GetFontTexture());
         primitive->set->Update();
 
+        primitive->setBinder->BindSet(0, primitive->set->GetRHISet());
+
         primitive->assembly = std::make_shared<drv::VertexAssembly>();
-        CheckBufferSize(128 * sizeof(ImDrawVert), 128 * sizeof(ImDrawIdx));
 
         inited = true;
     }
@@ -95,8 +113,11 @@ namespace sky {
 
     void GuiRenderer::OnTick(float time)
     {
-        ImGui::NewFrame();
 
+        ImGuiIO& io = ImGui::GetIO();
+        io.DeltaTime = time;
+
+        ImGui::NewFrame();
         auto context = ImGui::GetCurrentContext();
         for (auto& widget : widgets) {
             widget->OnRender(context);
@@ -133,6 +154,14 @@ namespace sky {
         ImVec2 clipOff = drawData->DisplayPos;
         ImVec2 clipScale = drawData->FramebufferScale;
 
+        GuiConstants currentConstant;
+        currentConstant.scale.x = 2.0f / drawData->DisplaySize.x;
+        currentConstant.scale.y = 2.0f / drawData->DisplaySize.y;
+        currentConstant.translate.x = -1.0f - drawData->DisplayPos.x * currentConstant.scale[0];
+        currentConstant.translate.y = -1.0f - drawData->DisplayPos.y * currentConstant.scale[1];
+        primitive->constants->WriteData(currentConstant, 0);
+        primitive->args.clear();
+
         uint32_t vtxOffset = 0;
         uint32_t idxOffset = 0;
         for (int i = 0; i < drawData->CmdListsCount; i++)
@@ -141,9 +170,38 @@ namespace sky {
             for (int j = 0; j < cmdList->CmdBuffer.Size; j++)
             {
                 const ImDrawCmd* pcmd = &cmdList->CmdBuffer[j];
+
+                ImVec2 clipMin((pcmd->ClipRect.x - clipOff.x) * clipScale.x, (pcmd->ClipRect.y - clipOff.y) * clipScale.y);
+                ImVec2 clipMax((pcmd->ClipRect.z - clipOff.x) * clipScale.x, (pcmd->ClipRect.w - clipOff.y) * clipScale.y);
+
+                if (clipMin.x < 0.0f) { clipMin.x = 0.0f; }
+                if (clipMin.y < 0.0f) { clipMin.y = 0.0f; }
+                if (clipMax.x > width) { clipMax.x = (float)width; }
+                if (clipMax.y > height) { clipMax.y = (float)height; }
+                if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
+                    continue;
+
+                VkRect2D scissor;
+                scissor.offset.x = (int32_t)(clipMin.x);
+                scissor.offset.y = (int32_t)(clipMin.y);
+                scissor.extent.width = (uint32_t)(clipMax.x - clipMin.x);
+                scissor.extent.height = (uint32_t)(clipMax.y - clipMin.y);
+//                vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+//                vkCmdDrawIndexed(command_buffer, pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
+                drv::CmdDraw arg{};
+                arg.type = drv::CmdDrawType::INDEXED;
+                arg.indexed.indexCount    = pcmd->ElemCount;
+                arg.indexed.firstIndex    = pcmd->IdxOffset + idxOffset;
+                arg.indexed.vertexOffset  = pcmd->VtxOffset + vtxOffset;
+                primitive->args.emplace_back(arg);
             }
             idxOffset += cmdList->IdxBuffer.Size;
             vtxOffset += cmdList->VtxBuffer.Size;
+        }
+
+        auto &views = scene.GetViews();
+        for (auto &view: views) {
+            view->AddRenderPrimitive(primitive.get());
         }
     }
 

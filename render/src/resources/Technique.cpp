@@ -100,4 +100,9 @@ namespace sky {
     {
         pipelineState.depthStencil.depthWriteEnable = enable;
     }
+
+    drv::GraphicsPipeline::State &GraphicsTechnique::GetState()
+    {
+        return pipelineState;
+    }
 }

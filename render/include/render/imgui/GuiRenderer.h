@@ -31,9 +31,9 @@ namespace sky {
 
     class LambdaWidget : public IGuiWidget {
     public:
-        template <typename T>
-        LambdaWidget(T&& func) : executor(std::forward<T>(func)) {}
-        ~LambdaWidget() = default;
+        template <typename T, typename = std::enable_if<!std::is_same_v<T, LambdaWidget>>>
+        explicit LambdaWidget(T&& func) : executor(std::forward<T>(func)) {}
+        ~LambdaWidget() override = default;
 
         void OnRender(ImGuiContext* context) override
         {
@@ -48,8 +48,8 @@ namespace sky {
 
     class GuiRenderer : public RenderFeature, public IWindowEvent {
     public:
-        GuiRenderer(RenderScene& scn) : RenderFeature(scn) {}
-        ~GuiRenderer();
+        explicit GuiRenderer(RenderScene& scn) : RenderFeature(scn) {}
+        ~GuiRenderer() override;
 
         void Init();
 

@@ -110,7 +110,7 @@ namespace sky {
         auto newAttachment = graph.AddNode<FrameGraphImageAttachment>(newName);
         newAttachment->initFlag = flag;
         newAttachment->bindFlag = flag;
-        newAttachment->bindFlag = flag;
+        newAttachment->finalFlag = flag;
         newAttachment->range = oldAttachment->range;
         newAttachment->source = oldAttachment->source;
 

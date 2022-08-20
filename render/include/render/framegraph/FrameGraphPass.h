@@ -14,8 +14,8 @@ namespace sky {
 
     class FrameGraphPass : public FrameGraphNode {
     public:
-        FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
-        ~FrameGraphPass() = default;
+        explicit FrameGraphPass(const std::string& str) : FrameGraphNode(str) {}
+        ~FrameGraphPass() override = default;
 
         virtual void Compile() = 0;
 
@@ -24,8 +24,8 @@ namespace sky {
 
     class FrameGraphEmptyPass : public FrameGraphPass {
     public:
-        FrameGraphEmptyPass(const std::string& str) : FrameGraphPass(str) {}
-        ~FrameGraphEmptyPass() = default;
+        explicit FrameGraphEmptyPass(const std::string& str) : FrameGraphPass(str) {}
+        ~FrameGraphEmptyPass() override = default;
 
         void Compile() override {}
 
@@ -36,8 +36,8 @@ namespace sky {
 
     class FrameGraphGraphicPass : public FrameGraphPass {
     public:
-        FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
-        ~FrameGraphGraphicPass();
+        explicit FrameGraphGraphicPass(const std::string& str) : FrameGraphPass(str) {}
+        ~FrameGraphGraphicPass() override;
 
         void UseImageAttachment(FrameGraphImageAttachment* attachment) override;
 
@@ -57,8 +57,8 @@ namespace sky {
         std::vector<FrameGraphImageAttachment*> colors;
         std::vector<FrameGraphImageAttachment*> resolves;
         std::vector<FrameGraphImageAttachment*> inputs;
-        FrameGraphImageAttachment* depthStencil;
-        RenderEncoder* encoder;
+        FrameGraphImageAttachment* depthStencil = nullptr;
+        RenderEncoder* encoder = nullptr;
     };
 
 }

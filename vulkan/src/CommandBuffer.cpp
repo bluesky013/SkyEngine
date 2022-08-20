@@ -5,7 +5,6 @@
 #include "vulkan/CommandBuffer.h"
 #include "vulkan/Device.h"
 #include "vulkan/Fence.h"
-#include "vulkan/Semaphore.h"
 #include "core/logger/Logger.h"
 
 static const char* TAG = "Driver";
@@ -66,15 +65,15 @@ namespace sky::drv {
 
     void CommandBuffer::Submit(Queue& queue, const SubmitInfo& submit)
     {
-        uint32_t waitSize = (uint32_t)submit.waits.size();
+        auto waitSize = static_cast<uint32_t>(submit.waits.size());
         std::vector<VkPipelineStageFlags> waitStages(waitSize);
         std::vector<VkSemaphore> waitSemaphores(waitSize);
         for (uint32_t i = 0; i < waitSize; ++i) {
             waitStages[i] = submit.waits[i].first;
             waitSemaphores[i] = submit.waits[i].second->GetNativeHandle();
         }
-        
-        uint32_t signalSize = (uint32_t)submit.submitSignals.size();
+
+        auto signalSize = static_cast<uint32_t>(submit.submitSignals.size());
         std::vector<VkSemaphore> signalSemaphores(signalSize);
         for (uint32_t i = 0; i < signalSize; ++i) {
             signalSemaphores[i] = submit.submitSignals[i]->GetNativeHandle();
@@ -110,12 +109,12 @@ namespace sky::drv {
         return encoder;
     }
 
-    void CommandBuffer::Copy(BufferPtr src, ImagePtr dst, const VkBufferImageCopy& copy)
+    void CommandBuffer::Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy)
     {
         vkCmdCopyBufferToImage(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
     }
 
-    void CommandBuffer::ImageBarrier(ImagePtr image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst)
+    void CommandBuffer::ImageBarrier(const ImagePtr &image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst)
     {
         VkImageMemoryBarrier imageMemoryBarrier = {};
         imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -135,7 +134,7 @@ namespace sky::drv {
             1, &imageMemoryBarrier);
     }
 
-    void CommandBuffer::BufferBarrier(BufferPtr buffer, const Barrier& barrier, uint32_t size, uint32_t offset)
+    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier& barrier, uint32_t size, uint32_t offset)
     {
         VkBufferMemoryBarrier bufferBarrier = {};
         bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -160,7 +159,7 @@ namespace sky::drv {
         vkCmdCopyImage(cmdBuffer, src, srcLayout, dst, dstLayout, 1, &copy);
     }
 
-    void CommandBuffer::Copy(BufferPtr src, BufferPtr dst, const VkBufferCopy& copy)
+    void CommandBuffer::Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy& copy)
     {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
@@ -217,7 +216,7 @@ namespace sky::drv {
             vkCmdSetViewport(cmdBuffer, 0, item.viewportCount, item.viewport);
         }
 
-        if (item.scissor != nullptr && item.scissor != 0) {
+        if (item.scissor != nullptr && item.scissor != nullptr) {
             vkCmdSetScissor(cmdBuffer, 0, item.scissorCount, item.scissor);
         }
 
@@ -227,6 +226,10 @@ namespace sky::drv {
 
         if (item.vertexAssembly) {
             item.vertexAssembly->OnBind(cmdBuffer);
+        }
+
+        if (item.pushConstants) {
+            item.pushConstants->OnBind(cmdBuffer);
         }
 
         switch (item.drawArgs.type) {

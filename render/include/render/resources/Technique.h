@@ -41,6 +41,8 @@ namespace sky {
 
         void SetDepthWriteEn(bool enable);
 
+        drv::GraphicsPipeline::State &GetState();
+
     private:
         bool CheckVertexInput(drv::VertexInput& input) const;
 

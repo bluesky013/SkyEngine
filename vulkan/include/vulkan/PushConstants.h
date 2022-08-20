@@ -34,17 +34,13 @@ namespace sky::drv {
         static std::shared_ptr<PushConstants> CreateFromPipelineLayout(const PipelineLayoutPtr& layout);
 
         template <typename T>
-        void WriteData(VkShaderStageFlagBits stage, const T& value, uint32_t offset = 0)
+        void WriteData(const T& value, uint32_t offset = 0)
         {
-            auto iter = table.find(stage);
-            if (iter == table.end()) {
+            auto valueSize = sizeof(T);
+            if (offset + valueSize > data.size()) {
                 return;
             }
-            uint32_t realOff = offset + iter->second.first;
-            if (offset + sizeof(T) > iter->second.second) {
-                return;
-            }
-            uint8_t* ptr = data.data() + realOff;
+            uint8_t* ptr = data.data() + offset;
             memcpy(ptr, &value, sizeof(T));
         }
 
@@ -53,7 +49,7 @@ namespace sky::drv {
     private:
         friend class Builder;
         std::vector<uint8_t> data;
-        std::unordered_map<VkShaderStageFlagBits, std::pair<uint32_t, uint32_t>> table; // offset, size
+        std::vector<VkPushConstantRange> ranges;
         PipelineLayoutPtr pipelineLayout;
     };
     using PushConstantsPtr = std::shared_ptr<PushConstants>;

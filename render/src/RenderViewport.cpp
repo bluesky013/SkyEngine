@@ -16,6 +16,7 @@ namespace sky {
     {
         drv::SwapChain::Descriptor descriptor = {};
         descriptor.window = info.wHandle;
+        descriptor.preferredMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
         auto device = DriverManager::Get()->GetDevice();
         swapChain = device->CreateDeviceObject<drv::SwapChain>(descriptor);

@@ -10,6 +10,8 @@
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/DescriptorSetBinder.h>
 #include <vulkan/GraphicsPipeline.h>
+#include <vulkan/PushConstants.h>
+#include <vulkan/DrawItem.h>
 
 namespace sky {
 
@@ -28,7 +30,9 @@ namespace sky {
         drv::GraphicsPipelinePtr pso;
         drv::DescriptorSetBinderPtr setBinder;
         drv::VertexAssemblyPtr assembly;
+        drv::PushConstantsPtr constants;
         uint32_t drawTag;
+        std::vector<drv::CmdDraw> args;
     };
 
 }

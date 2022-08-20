@@ -17,12 +17,16 @@ namespace sky {
         if ((encoder->GetDrawTag() & drawTag) == 0) {
             return;
         }
-        drv::DrawItem item;
-        item.pso = pso;
-        item.vertexAssembly = assembly;
-//        item.drawArgs = args;
-        item.shaderResources = setBinder;
-        encoder->Emplace(item);
+
+        for (auto& arg : args) {
+            drv::DrawItem item;
+            item.pso = pso;
+            item.vertexAssembly = assembly;
+            item.drawArgs = arg;
+            item.shaderResources = setBinder;
+            item.pushConstants = constants;
+            encoder->Emplace(item);
+        }
     }
 
 }

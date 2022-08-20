@@ -67,12 +67,25 @@ namespace sky {
             builder.WriteAttachment("ColorResolve", ImageBindFlag::COLOR_RESOLVE);
             builder.WriteAttachment("DepthOutput", ImageBindFlag::DEPTH_STENCIL);
         });
-        auto encoder = scene.RegisterEncoder<RenderRasterEncoder>(FORWARD_TAG);
-        encoders.emplace_back(encoder);
-        pass->SetEncoder(encoder);
+        {
+            auto encoder = scene.RegisterEncoder<RenderRasterEncoder>(FORWARD_TAG);
+            encoders.emplace_back(encoder);
+            pass->SetEncoder(encoder);
+        }
+
+
+        auto uiPass = frameGraph.AddPass<FrameGraphGraphicPass>("UIPass", [&](FrameGraphBuilder& builder) {
+            builder.ReadWriteAttachment("ColorResolve", "ColorOutput", ImageBindFlag::COLOR)
+                ->SetColorOp(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
+        });
+        {
+            auto encoder = scene.RegisterEncoder<RenderRasterEncoder>(UI_TAG);
+            encoders.emplace_back(encoder);
+            uiPass->SetEncoder(encoder);
+        }
 
         frameGraph.AddPass<FrameGraphEmptyPass>("Present", [&](FrameGraphBuilder& builder) {
-            builder.ReadAttachment("ColorResolve", ImageBindFlag::PRESENT);
+            builder.ReadAttachment("ColorOutput", ImageBindFlag::PRESENT);
         });
     }
 

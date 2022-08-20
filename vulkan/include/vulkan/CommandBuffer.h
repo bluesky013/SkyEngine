@@ -38,13 +38,13 @@ namespace sky::drv {
 
     private:
         friend class CommandBuffer;
-        VkCommandBuffer cmdBuffer;
+        VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
         VkRenderPassBeginInfo vkBeginInfo = {};
     };
 
     class CommandBuffer : public DevObject {
     public:
-        ~CommandBuffer();
+        ~CommandBuffer() override;
 
         struct Descriptor {
             VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -61,16 +61,16 @@ namespace sky::drv {
             fun(cmdBuffer);
         }
 
-        void ImageBarrier(ImagePtr image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst);
+        void ImageBarrier(const ImagePtr &image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst);
 
-        void BufferBarrier(BufferPtr buffer, const Barrier& barrier, uint32_t size, uint32_t offset);
+        void BufferBarrier(const BufferPtr &buffer, const Barrier& barrier, uint32_t size, uint32_t offset);
 
         void Copy(VkImage src, VkImageLayout srcLayout,
             VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy);
 
-        void Copy(BufferPtr src, ImagePtr dst, const VkBufferImageCopy& copy);
+        void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy);
 
-        void Copy(BufferPtr src, BufferPtr dst, const VkBufferCopy& copy);
+        void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy& copy);
 
         void End();
 

@@ -51,6 +51,8 @@ namespace sky {
 
         const NameTable& GetNameTable() const;
 
+        uint32_t GetConstantBlockSize() const;
+
     private:
         void BuildReflection();
 

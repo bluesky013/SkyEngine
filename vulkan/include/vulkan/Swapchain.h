@@ -26,7 +26,7 @@ namespace sky::drv {
             uint32_t width = 1;
             uint32_t height = 1;
             VkFormat preferredFormat = VK_FORMAT_R8G8B8A8_UNORM;
-            VkPresentModeKHR preferredMode = VK_PRESENT_MODE_MAILBOX_KHR;
+            VkPresentModeKHR preferredMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
             VkSurfaceTransformFlagBitsKHR preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
             VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         };

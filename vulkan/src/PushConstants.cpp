@@ -9,9 +9,8 @@ namespace sky::drv {
     void PushConstants::OnBind(VkCommandBuffer cmdBuffer)
     {
         uint8_t* ptr = data.data();
-        for (auto& [stage, pair] : table) {
-            vkCmdPushConstants(cmdBuffer, pipelineLayout->GetNativeHandle(), stage, 0, pair.second, ptr);
-            ptr += pair.second;
+        for (auto& range : ranges) {
+            vkCmdPushConstants(cmdBuffer, pipelineLayout->GetNativeHandle(), range.stageFlags, range.offset, range.size, ptr + range.offset);
         }
     }
 
@@ -20,12 +19,20 @@ namespace sky::drv {
         auto constants = std::make_shared<PushConstants>();
         constants->pipelineLayout = layout;
 
+        auto& ranges = layout->GetConstantRanges();
+
         PushConstants::Builder builder(*constants);
+        for (auto &range : ranges) {
+            builder.AddRange(range);
+        }
+        builder.Finalize();
         return constants;
     }
 
     PushConstants::Builder& PushConstants::Builder::AddRange(const VkPushConstantRange& range)
     {
+        size = std::max(range.size + range.offset, size);
+        reference.ranges.emplace_back(range);
         return *this;
     }
 
