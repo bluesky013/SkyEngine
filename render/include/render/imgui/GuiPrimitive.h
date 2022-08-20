@@ -32,7 +32,12 @@ namespace sky {
         drv::VertexAssemblyPtr assembly;
         drv::PushConstantsPtr constants;
         uint32_t drawTag;
-        std::vector<drv::CmdDraw> args;
+        struct DrawCall {
+            VkRect2D scissor;
+            drv::CmdDrawIndexed indexed;
+        };
+
+        std::vector<DrawCall> dc;
     };
 
 }

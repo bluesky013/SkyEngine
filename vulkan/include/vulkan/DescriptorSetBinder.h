@@ -18,7 +18,7 @@ namespace sky::drv {
 
         void SetBindPoint(VkPipelineBindPoint bindPoint);
 
-        void OnBind(VkCommandBuffer);
+        void OnBind(VkCommandBuffer) const;
 
         void BindSet(uint32_t slot, const DescriptorSetPtr& set);
 

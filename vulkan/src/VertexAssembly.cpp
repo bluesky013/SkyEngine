@@ -36,7 +36,7 @@ namespace sky::drv {
         indexType = type;
     }
 
-    void VertexAssembly::OnBind(VkCommandBuffer cmd)
+    void VertexAssembly::OnBind(VkCommandBuffer cmd) const
     {
         if (!vkBuffers.empty()) {
             vkCmdBindVertexBuffers(cmd, 0, static_cast<uint32_t>(vkBuffers.size()),vkBuffers.data(), offsets.data());

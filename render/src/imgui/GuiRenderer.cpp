@@ -160,7 +160,7 @@ namespace sky {
         currentConstant.translate.x = -1.0f - drawData->DisplayPos.x * currentConstant.scale[0];
         currentConstant.translate.y = -1.0f - drawData->DisplayPos.y * currentConstant.scale[1];
         primitive->constants->WriteData(currentConstant, 0);
-        primitive->args.clear();
+        primitive->dc.clear();
 
         uint32_t vtxOffset = 0;
         uint32_t idxOffset = 0;
@@ -181,19 +181,16 @@ namespace sky {
                 if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
                     continue;
 
-                VkRect2D scissor;
-                scissor.offset.x = (int32_t)(clipMin.x);
-                scissor.offset.y = (int32_t)(clipMin.y);
-                scissor.extent.width = (uint32_t)(clipMax.x - clipMin.x);
-                scissor.extent.height = (uint32_t)(clipMax.y - clipMin.y);
-//                vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-//                vkCmdDrawIndexed(command_buffer, pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
-                drv::CmdDraw arg{};
-                arg.type = drv::CmdDrawType::INDEXED;
-                arg.indexed.indexCount    = pcmd->ElemCount;
-                arg.indexed.firstIndex    = pcmd->IdxOffset + idxOffset;
-                arg.indexed.vertexOffset  = pcmd->VtxOffset + vtxOffset;
-                primitive->args.emplace_back(arg);
+                GuiPrimitive::DrawCall drawCall{};
+                drawCall.scissor.offset.x = (int32_t)(clipMin.x);
+                drawCall.scissor.offset.y = (int32_t)(clipMin.y);
+                drawCall.scissor.extent.width = (uint32_t)(clipMax.x - clipMin.x);
+                drawCall.scissor.extent.height = (uint32_t)(clipMax.y - clipMin.y);
+
+                drawCall.indexed.indexCount    = pcmd->ElemCount;
+                drawCall.indexed.firstIndex    = pcmd->IdxOffset + idxOffset;
+                drawCall.indexed.vertexOffset  = pcmd->VtxOffset + vtxOffset;
+                primitive->dc.emplace_back(drawCall);
             }
             idxOffset += cmdList->IdxBuffer.Size;
             vtxOffset += cmdList->VtxBuffer.Size;

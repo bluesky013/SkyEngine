@@ -18,15 +18,15 @@ namespace sky {
             return;
         }
 
-        for (auto& arg : args) {
-            drv::DrawItem item;
-            item.pso = pso;
-            item.vertexAssembly = assembly;
-            item.drawArgs = arg;
-            item.shaderResources = setBinder;
-            item.pushConstants = constants;
-            encoder->Emplace(item);
-        }
+        encoder->EmplaceLambda([this](drv::GraphicsEncoder& gfx) {
+            gfx.BindPipeline(pso);
+            gfx.BindAssembly(assembly);
+            gfx.BindShaderResource(setBinder);
+            gfx.PushConstant(constants);
+            for (auto& drawCall : dc) {
+                gfx.SetScissor(1, &drawCall.scissor);
+                gfx.DrawIndexed(drawCall.indexed);
+            }
+        });
     }
-
 }

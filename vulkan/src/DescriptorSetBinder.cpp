@@ -33,7 +33,7 @@ namespace sky::drv {
         bindPoint = bp;
     }
 
-    void DescriptorSetBinder::OnBind(VkCommandBuffer cmd)
+    void DescriptorSetBinder::OnBind(VkCommandBuffer cmd) const
     {
         if (!sets.empty() && pipelineLayout) {
             vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout->GetNativeHandle(), 0,
