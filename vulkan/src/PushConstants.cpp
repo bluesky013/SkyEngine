@@ -6,9 +6,9 @@
 
 namespace sky::drv {
 
-    void PushConstants::OnBind(VkCommandBuffer cmdBuffer)
+    void PushConstants::OnBind(VkCommandBuffer cmdBuffer) const
     {
-        uint8_t* ptr = data.data();
+        const uint8_t* ptr = data.data();
         for (auto& range : ranges) {
             vkCmdPushConstants(cmdBuffer, pipelineLayout->GetNativeHandle(), range.stageFlags, range.offset, range.size, ptr + range.offset);
         }

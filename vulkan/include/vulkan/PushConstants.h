@@ -44,7 +44,7 @@ namespace sky::drv {
             memcpy(ptr, &value, sizeof(T));
         }
 
-        void OnBind(VkCommandBuffer);
+        void OnBind(VkCommandBuffer) const;
 
     private:
         friend class Builder;

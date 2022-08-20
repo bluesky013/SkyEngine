@@ -34,6 +34,23 @@ namespace sky::drv {
         void Encode(const DrawItem& item);
 
         void BeginPass(const PassBeginInfo&);
+
+        void BindPipeline(const GraphicsPipelinePtr &pso);
+
+        void BindShaderResource(const DescriptorSetBinderPtr &binder);
+
+        void BindAssembly(const VertexAssemblyPtr &assembly);
+
+        void PushConstant(const PushConstantsPtr &constants);
+
+        void SetViewport(uint32_t count, const VkViewport *viewport);
+
+        void SetScissor(uint32_t count, const VkRect2D *scissor);
+
+        void DrawIndexed(const CmdDrawIndexed &indexed);
+
+        void DrawLinear(const CmdDrawLinear &linear);
+
         void EndPass();
 
     private:

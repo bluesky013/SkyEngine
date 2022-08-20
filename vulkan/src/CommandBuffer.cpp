@@ -249,6 +249,45 @@ namespace sky::drv {
                           item.drawArgs.linear.firstInstance);
                 break;
         }
+    }
 
+    void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
+    {
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pso->GetNativeHandle());
+    }
+
+    void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
+    {
+        binder->OnBind(cmdBuffer);
+    }
+
+    void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembly)
+    {
+        assembly->OnBind(cmdBuffer);
+    }
+
+    void GraphicsEncoder::PushConstant(const PushConstantsPtr &constants)
+    {
+        constants->OnBind(cmdBuffer);
+    }
+
+    void GraphicsEncoder::SetViewport(uint32_t count, const VkViewport *viewport)
+    {
+        vkCmdSetViewport(cmdBuffer, 0, count, viewport);
+    }
+
+    void GraphicsEncoder::SetScissor(uint32_t count, const VkRect2D *scissor)
+    {
+        vkCmdSetScissor(cmdBuffer, 0, count, scissor);
+    }
+
+    void GraphicsEncoder::DrawIndexed(const CmdDrawIndexed &indexed)
+    {
+        vkCmdDrawIndexed(cmdBuffer, indexed.indexCount, indexed.instanceCount, indexed.firstIndex, indexed.vertexOffset, indexed.firstInstance);
+    }
+
+    void GraphicsEncoder::DrawLinear(const CmdDrawLinear &linear)
+    {
+        vkCmdDraw(cmdBuffer, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
     }
 }

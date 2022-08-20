@@ -8,15 +8,15 @@ namespace sky {
 
     void RenderRasterEncoder::Encode(drv::GraphicsEncoder& encoder)
     {
-        for (auto& item : drawItems) {
-            encoder.Encode(item);
+        for (auto& producer : producers) {
+            producer->Process(encoder);
         }
-        drawItems.clear();
+        producers.clear();
     }
 
     void RenderRasterEncoder::Emplace(const drv::DrawItem& item)
     {
-        drawItems.emplace_back(item);
+        producers.emplace_back(new ItemDrawCallProducer(item)); // TODO : Pool
     }
 
     void RenderRasterEncoder::SetDrawTag(uint32_t tag)
@@ -29,4 +29,8 @@ namespace sky {
         return drawTag;
     }
 
+    void ItemDrawCallProducer::Process(drv::GraphicsEncoder& encoder)
+    {
+        encoder.Encode(item);
+    }
 }

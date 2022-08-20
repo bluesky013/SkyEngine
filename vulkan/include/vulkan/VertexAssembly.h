@@ -25,7 +25,7 @@ namespace sky::drv {
 
         void SetIndexType(VkIndexType);
 
-        void OnBind(VkCommandBuffer);
+        void OnBind(VkCommandBuffer) const;
 
         bool IsIndexed() const;
 
