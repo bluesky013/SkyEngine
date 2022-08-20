@@ -25,24 +25,6 @@ namespace sky {
         }
     }
 
-    void RenderScene::ViewportChange(RenderViewport& viewport)
-    {
-        pipeline->ViewportChange(viewport);
-    }
-
-    void RenderScene::SetupPipeline(RenderViewport& viewport)
-    {
-        pipeline = std::make_unique<RenderPipelineForward>(*this);
-        ViewportChange(viewport);
-    }
-
-    void RenderScene::UpdateOutput(const drv::ImagePtr& output)
-    {
-        if (pipeline) {
-            pipeline->SetOutput(output);
-        }
-    }
-
     void RenderScene::OnRender(const drv::CommandBufferPtr& commandBuffer)
     {
         if (!pipeline) {
@@ -65,7 +47,28 @@ namespace sky {
         }
     }
 
-    void RenderScene::AddView(RDViewPtr view)
+    void RenderScene::ViewportChange(RenderViewport& viewport)
+    {
+        pipeline->ViewportChange(viewport);
+        for (auto& feature : features) {
+            feature.second->OnViewportSizeChange(viewport);
+        }
+    }
+
+    void RenderScene::BindViewport(RenderViewport& viewport)
+    {
+        pipeline = std::make_unique<RenderPipelineForward>(*this);
+        ViewportChange(viewport);
+    }
+
+    void RenderScene::UpdateOutput(const drv::ImagePtr& output)
+    {
+        if (pipeline) {
+            pipeline->SetOutput(output);
+        }
+    }
+
+    void RenderScene::AddView(const RDViewPtr& view)
     {
         view->Reset();
         views.emplace_back(view);
@@ -133,12 +136,12 @@ namespace sky {
         objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
     }
 
-    RDDynBufferViewPtr RenderScene::GetSceneBuffer() const
+    const RDDynBufferViewPtr &RenderScene::GetSceneBuffer() const
     {
         return sceneInfo;
     }
 
-    RDDynBufferViewPtr RenderScene::GetMainViewBuffer() const
+    const RDDynBufferViewPtr &RenderScene::GetMainViewBuffer() const
     {
         return mainViewInfo;
     }
@@ -153,7 +156,7 @@ namespace sky {
         return objectBufferPool.get();
     }
 
-    RDDesGroupPtr RenderScene::GetSceneSet() const
+    const RDDesGroupPtr &RenderScene::GetSceneSet() const
     {
         return sceneSet;
     }

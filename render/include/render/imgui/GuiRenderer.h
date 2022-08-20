@@ -9,19 +9,24 @@
 #include <render/resources/Technique.h>
 #include <render/resources/Texture.h>
 #include <render/resources/DescirptorGroup.h>
+#include <render/RenderFeature.h>
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/DescriptorSetBinder.h>
 
 namespace sky {
 
-    class GuiRenderer {
+    class GuiRenderer : public RenderFeature {
     public:
-        GuiRenderer() = default;
+        GuiRenderer(RenderScene& scn) : RenderFeature(scn) {}
         ~GuiRenderer() = default;
 
         void Init();
 
-        void Render();
+        void OnTick(float time);
+
+        void GatherRenderPrimitives();
+
+        void OnRender();
 
     private:
         void CheckBufferSize(uint64_t vertexSize, uint64_t indexSize);

@@ -14,6 +14,7 @@
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
 #include <render/framegraph/FrameGraphEncoder.h>
+#include <framework/window/IWindowEvent.h>
 #include <core/type/Rtti.h>
 
 namespace sky {
@@ -29,7 +30,7 @@ namespace sky {
 
         void ViewportChange(RenderViewport& viewport);
 
-        void SetupPipeline(RenderViewport& viewport);
+        void BindViewport(RenderViewport& viewport);
 
         void UpdateOutput(const drv::ImagePtr& output);
 
@@ -56,17 +57,17 @@ namespace sky {
             return static_cast<T*>(iter->second.get());
         }
 
-        RDDynBufferViewPtr GetSceneBuffer() const;
+        const RDDynBufferViewPtr &GetSceneBuffer() const;
 
-        RDDynBufferViewPtr GetMainViewBuffer() const;
+        const RDDynBufferViewPtr &GetMainViewBuffer() const;
 
         DescriptorPool* GetObjectSetPool() const;
 
         RenderBufferPool* GetObjectBufferPool() const;
 
-        RDDesGroupPtr GetSceneSet() const;
+        const RDDesGroupPtr &GetSceneSet() const;
 
-        void AddView(RDViewPtr view);
+        void AddView(const RDViewPtr& view);
 
         const std::vector<RDViewPtr>& GetViews() const;
 

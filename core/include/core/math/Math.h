@@ -9,3 +9,9 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+
+namespace sky {
+
+    static constexpr float PI = 3.1415926f;
+
+}

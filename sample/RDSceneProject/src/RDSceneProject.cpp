@@ -86,12 +86,7 @@ namespace sky {
         auto smFeature = scene->GetFeature<StaticMeshFeature>();
 
         mainCamera = cmFeature->Create();
-        mainCamera->SetProjectMatrix(glm::perspective(
-            60 / 180.f * 3.14f,
-            static_cast<float>(ext.width) / static_cast<float>(ext.height),
-            0.01f,
-            100.f)
-        );
+        mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
         auto feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetMesh(mainCamera);

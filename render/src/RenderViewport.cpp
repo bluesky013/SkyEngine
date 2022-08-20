@@ -40,7 +40,7 @@ namespace sky {
     void RenderViewport::SetScene(const RDScenePtr& scn)
     {
         scene = scn;
-        scene->SetupPipeline(*this);
+        scene->BindViewport(*this);
     }
 
     void RenderViewport::Shutdown()
@@ -77,6 +77,11 @@ namespace sky {
         }
 
         EndFrame();
+    }
+
+    const VkExtent2D& RenderViewport::GetExtent() const
+    {
+        return swapChain->GetExtent();
     }
 
     void RenderViewport::BeginFrame()

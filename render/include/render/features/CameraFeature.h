@@ -19,6 +19,8 @@ namespace sky {
 
         RenderCamera* Create();
 
+        void OnViewportSizeChange(const RenderViewport& viewport) override;
+
         void Release(RenderCamera* camera);
 
         void OnPreparePipeline() override;

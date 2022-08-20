@@ -9,11 +9,16 @@
 
 namespace sky {
     class RenderScene;
+    class RenderViewport;
 
     class RenderFeature {
     public:
         RenderFeature(RenderScene& scn) : scene(scn) {}
         virtual ~RenderFeature() = default;
+
+        virtual void OnBindViewport(const RenderViewport& viewport) {}
+
+        virtual void OnViewportSizeChange(const RenderViewport& viewport) {}
 
         virtual void OnTick(float time) {}
 

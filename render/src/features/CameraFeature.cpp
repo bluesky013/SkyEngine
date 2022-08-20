@@ -5,6 +5,7 @@
 #include <render/features/CameraFeature.h>
 #include <render/RenderScene.h>
 #include <render/RenderConstants.h>
+#include <render/RenderViewport.h>
 
 namespace sky {
 
@@ -31,6 +32,7 @@ namespace sky {
         auto viewBuffer = scene.GetMainViewBuffer();
         for (auto& camera : cameras) {
             if (camera->IsActive()) {
+                camera->UpdateProjection();
                 auto view = camera->GetView();
                 view->SetViewTag(MAIN_CAMERA_TAG);
                 if (view->IsDirty()) {
@@ -41,4 +43,13 @@ namespace sky {
         }
     }
 
+    void CameraFeature::OnViewportSizeChange(const RenderViewport& viewport)
+    {
+        auto& ext = viewport.GetExtent();
+        for (auto& camera : cameras) {
+            if (camera->AspectFromViewport()) {
+                camera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
+            }
+        }
+    }
 }

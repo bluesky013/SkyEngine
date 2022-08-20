@@ -70,24 +70,33 @@ namespace sky {
         }
     }
 
-    void GuiRenderer::Render()
+    void GuiRenderer::OnTick(float time)
     {
-        ImGui::NewFrame();
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
+//        ImGui::NewFrame();
+//        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+//        ImGui::End();
+//
+//        ImGui::Render();
+    }
 
-        ImGui::Render();
+    void GuiRenderer::GatherRenderPrimitives()
+    {
+
+    }
+
+    void GuiRenderer::OnRender()
+    {
         ImDrawData* drawData = ImGui::GetDrawData();
 
-        if (drawData->TotalVtxCount == 0) {
+        if (drawData == nullptr || drawData->TotalVtxCount == 0) {
             return;
         }
         uint64_t vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
         uint64_t indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
         CheckBufferSize(vertexSize, indexSize);
 
-        ImDrawVert* vertexDst = reinterpret_cast<ImDrawVert*>(vertexBuffer->GetMappedAddress());
-        ImDrawIdx* indexDst = reinterpret_cast<ImDrawIdx*>(indexBuffer->GetMappedAddress());
+        auto* vertexDst = reinterpret_cast<ImDrawVert*>(vertexBuffer->GetMappedAddress());
+        auto* indexDst = reinterpret_cast<ImDrawIdx*>(indexBuffer->GetMappedAddress());
 
         for (int i = 0; i < drawData->CmdListsCount; ++i) {
             const ImDrawList* cmdList = drawData->CmdLists[i];
