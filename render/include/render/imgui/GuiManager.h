@@ -7,6 +7,7 @@
 #include <core/environment/Singleton.h>
 #include <core/util/Macros.h>
 #include <render/resources/Texture.h>
+#include <render/imgui/GuiRenderer.h>
 
 namespace sky {
 
@@ -16,7 +17,7 @@ namespace sky {
 
         void Init();
 
-        RDTexturePtr GetFontTexture();
+        const RDTexturePtr &GetFontTexture() const;
 
     private:
         friend class Singleton<GuiManager>;

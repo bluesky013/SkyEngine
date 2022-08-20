@@ -58,6 +58,9 @@ namespace sky {
     void RenderScene::BindViewport(RenderViewport& viewport)
     {
         pipeline = std::make_unique<RenderPipelineForward>(*this);
+        for (auto& feature : features) {
+            feature.second->OnBindViewport(viewport);
+        }
         ViewportChange(viewport);
     }
 

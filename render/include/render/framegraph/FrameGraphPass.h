@@ -6,8 +6,8 @@
 
 #include <render/framegraph/FrameGraphNode.h>
 #include <render/framegraph/FrameGraphAttachment.h>
-#include <render/framegraph/FrameGraphEncoder.h>
-#include <render/RenderPrimtive.h>
+#include <render/RenderEncoder.h>
+#include <render/RenderMeshPrimtive.h>
 
 namespace sky {
     class FrameGraphBuilder;
@@ -45,7 +45,7 @@ namespace sky {
 
         void Execute(drv::CommandBufferPtr commandBuffer) override;
 
-        void SetEncoder(FrameGraphEncoder* encoder);
+        void SetEncoder(RenderEncoder* encoder);
 
         drv::RenderPassPtr GetPass() const;
 
@@ -58,7 +58,7 @@ namespace sky {
         std::vector<FrameGraphImageAttachment*> resolves;
         std::vector<FrameGraphImageAttachment*> inputs;
         FrameGraphImageAttachment* depthStencil;
-        FrameGraphEncoder* encoder;
+        RenderEncoder* encoder;
     };
 
 }

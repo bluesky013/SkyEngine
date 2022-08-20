@@ -11,9 +11,9 @@
 #include <render/RenderFeature.h>
 #include <render/RenderMesh.h>
 #include <render/RenderBufferPool.h>
+#include <render/RenderEncoder.h>
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
-#include <render/framegraph/FrameGraphEncoder.h>
 #include <framework/window/IWindowEvent.h>
 #include <core/type/Rtti.h>
 
@@ -92,7 +92,7 @@ namespace sky {
         std::unique_ptr<DescriptorPool> objectPool;
         std::unique_ptr<RenderBufferPool> objectBufferPool;
         std::unordered_map<uint32_t, std::unique_ptr<RenderFeature>> features;
-        std::unordered_map<uint32_t, std::unique_ptr<FrameGraphRasterEncoder>> encoders;
+        std::unordered_map<uint32_t, std::unique_ptr<RenderEncoder>> encoders;
 
         // dynamic data
         std::vector<RDViewPtr> views;

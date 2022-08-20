@@ -98,7 +98,7 @@ namespace sky {
         colorTech->SetShaderTable(colorTable);
         colorTech->SetRenderPass(pass);
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(RenderPipelineForward::FORWARD_TAG);
+        colorTech->SetDrawTag(FORWARD_TAG);
         colorTech->SetDepthTestEn(true);
         colorTech->SetDepthWriteEn(true);
 

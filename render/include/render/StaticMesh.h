@@ -19,7 +19,7 @@ namespace sky {
 
         void OnRender(RenderScene& scene) override;
 
-        void SetMesh(RDMeshPtr);
+        void SetMesh(const RDMeshPtr& mesh);
 
         void OnGatherRenderPrimitives(RenderView& view) override;
 
@@ -30,7 +30,7 @@ namespace sky {
         drv::VertexAssemblyPtr vertexAssembly;
         drv::VertexInputPtr vertexInput;
 
-        using RenderPrimitivePtr = std::unique_ptr<RenderPrimitive>;
+        using RenderPrimitivePtr = std::unique_ptr<RenderMeshPrimitive>;
         std::vector<RenderPrimitivePtr> primitives;
     };
 

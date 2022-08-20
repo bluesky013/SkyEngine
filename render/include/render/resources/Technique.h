@@ -21,9 +21,9 @@ namespace sky {
 
         void SetRenderPass(RDPassPtr pass, uint32_t subPass = 0);
 
-        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr& vertexInput);
+        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr& vertexInput);
 
-        drv::GraphicsPipelinePtr AcquirePso(drv::VertexInputPtr& vi, drv::ShaderOptionPtr option);
+        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr& vi, const drv::ShaderOptionPtr &option);
 
         void SetViewTag(uint32_t tag);
 

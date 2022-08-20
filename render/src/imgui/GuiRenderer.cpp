@@ -4,14 +4,32 @@
 
 #include <render/imgui/GuiRenderer.h>
 #include <render/RenderConstants.h>
+#include <render/RenderViewport.h>
+#include <render/imgui/GuiManager.h>
 #include <imgui.h>
 
 namespace sky {
 
+    GuiRenderer::~GuiRenderer()
+    {
+        Event<IWindowEvent>::DisConnect(this);
+    }
+
     void GuiRenderer::Init()
     {
+        primitive = std::make_unique<GuiPrimitive>();
+
         shaders = std::make_shared<GraphicsShaderTable>();
         shaders->LoadShader("shaders/Gui.vert.spv", "Shaders/Gui.frag.spv");
+        shaders->InitRHI();
+
+        drv::VertexInput::Builder builder;
+        auto vi = builder.Begin()
+            .AddAttribute(0, 0, offsetof(ImDrawVert, pos), VK_FORMAT_R32G32_SFLOAT)
+            .AddAttribute(1, 0, offsetof(ImDrawVert, uv),  VK_FORMAT_R32G32_SFLOAT)
+            .AddAttribute(2, 0, offsetof(ImDrawVert, col), VK_FORMAT_R8G8B8A8_UNORM)
+            .AddStream(0, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX)
+            .Build();
 
         // TODO
         auto pass = std::make_shared<Pass>();
@@ -28,13 +46,18 @@ namespace sky {
         technique->SetDrawTag(0x01);  // TODO
         technique->SetDepthTestEn(true);
         technique->SetDepthWriteEn(true);
-        setBinder = technique->CreateSetBinder();
-        assembly = std::make_shared<drv::VertexAssembly>();
+        primitive->pso = technique->AcquirePso(vi);
+        primitive->setBinder = technique->CreateSetBinder();
 
         pool.reset(DescriptorPool::CreatePool(shaders->GetPipelineLayout()->GetLayout(0), {1}));
-        set = pool->Allocate();
+        primitive->set = pool->Allocate();
+        primitive->set->UpdateTexture(0, GuiManager::Get()->GetFontTexture());
+        primitive->set->Update();
 
+        primitive->assembly = std::make_shared<drv::VertexAssembly>();
         CheckBufferSize(128 * sizeof(ImDrawVert), 128 * sizeof(ImDrawIdx));
+
+        inited = true;
     }
 
     void GuiRenderer::CheckBufferSize(uint64_t vertexSize, uint64_t indexSize)
@@ -50,8 +73,8 @@ namespace sky {
             vertexBuffer->InitRHI();
 
             currentVertexSize = vertexSize;
-            assembly->ResetVertexBuffer();
-            assembly->AddVertexBuffer(vertexBuffer->GetRHIBuffer());
+            primitive->assembly->ResetVertexBuffer();
+            primitive->assembly->AddVertexBuffer(vertexBuffer->GetRHIBuffer());
         }
 
         if (indexSize > currentIndexSize) {
@@ -65,32 +88,33 @@ namespace sky {
             indexBuffer->InitRHI();
 
             currentIndexSize = indexSize;
-            assembly->SetIndexType(VK_INDEX_TYPE_UINT16);
-            assembly->SetIndexBuffer(indexBuffer->GetRHIBuffer());
+            primitive->assembly->SetIndexType(VK_INDEX_TYPE_UINT16);
+            primitive->assembly->SetIndexBuffer(indexBuffer->GetRHIBuffer());
         }
     }
 
     void GuiRenderer::OnTick(float time)
     {
-//        ImGui::NewFrame();
-//        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-//        ImGui::End();
-//
-//        ImGui::Render();
+        ImGui::NewFrame();
+
+        auto context = ImGui::GetCurrentContext();
+        for (auto& widget : widgets) {
+            widget->OnRender(context);
+        }
+
+        ImGui::Render();
     }
 
     void GuiRenderer::GatherRenderPrimitives()
     {
-
-    }
-
-    void GuiRenderer::OnRender()
-    {
         ImDrawData* drawData = ImGui::GetDrawData();
-
         if (drawData == nullptr || drawData->TotalVtxCount == 0) {
             return;
         }
+        if (!inited) {
+            Init();
+        }
+
         uint64_t vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
         uint64_t indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
         CheckBufferSize(vertexSize, indexSize);
@@ -123,4 +147,17 @@ namespace sky {
         }
     }
 
+    void GuiRenderer::OnBindViewport(const RenderViewport& viewport)
+    {
+        Event<IWindowEvent>::Connect(viewport.GetNativeHandle(), this);
+    }
+
+    void GuiRenderer::OnViewportSizeChange(const RenderViewport& viewport)
+    {
+        auto& ext = viewport.GetExtent();
+        width = ext.width;
+        height = ext.height;
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize = ImVec2((float)width, (float)height);
+    }
 }

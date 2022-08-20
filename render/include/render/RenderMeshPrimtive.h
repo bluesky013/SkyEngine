@@ -4,17 +4,17 @@
 
 #pragma once
 
-#include <render/resources/Mesh.h>
 #include <vulkan/DescriptorSetBinder.h>
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/DrawItem.h>
 #include <core/util/Macros.h>
+#include <render/resources/DescirptorGroup.h>
+#include <render/RenderPrimitive.h>
 
 namespace sky {
-
+    class Mesh;
 
     struct GraphicsTechniqueProxy {
-        RDGfxTechniquePtr gfxTechnique;
         drv::DescriptorSetBinderPtr setBinder;
         drv::VertexAssemblyPtr assembly;
         drv::VertexInputPtr vertexInput;
@@ -25,33 +25,18 @@ namespace sky {
     using RDGfxTechniqueProxyPtr = std::unique_ptr<GraphicsTechniqueProxy>;
 
 
-    class RenderPrimitive {
+    class RenderMeshPrimitive : public RenderPrimitive {
     public:
-        RenderPrimitive() = default;
-        virtual ~RenderPrimitive() = default;
+        RenderMeshPrimitive() = default;
+        virtual ~RenderMeshPrimitive() = default;
 
-        SKY_DISABLE_COPY(RenderPrimitive)
+        SKY_DISABLE_COPY(RenderMeshPrimitive)
 
-        void SetMesh(RDMeshPtr& value, uint32_t subMesh = 0);
-
-        inline void SetObjectSet(RDDesGroupPtr set)
-        {
-            objSet = set;
-        }
+        void SetMesh(Mesh& value, uint32_t subMesh = 0);
 
         inline void SetVertexAssembly(drv::VertexAssemblyPtr value)
         {
             vertexAssembly = value;
-        }
-
-        inline void SetViewTag(uint32_t tag)
-        {
-            viewMask |= tag;
-        }
-
-        inline uint32_t GetViewMask() const
-        {
-            return viewMask;
         }
 
         const std::vector<RDGfxTechniqueProxyPtr>& GetTechniques() const
@@ -64,12 +49,11 @@ namespace sky {
             return matSet;
         }
 
+        void Encode(RenderRasterEncoder*) override;
+
     protected:
         uint32_t subMeshIndex = 0;
-        uint32_t viewMask = 0;
-        RDDesGroupPtr objSet;
         RDDesGroupPtr matSet;
-        RDMeshPtr mesh;
         drv::CmdDraw args {};
         drv::VertexAssemblyPtr vertexAssembly;
         std::vector<RDGfxTechniqueProxyPtr> graphicTechniques;

@@ -67,7 +67,7 @@ namespace sky {
             builder.WriteAttachment("ColorResolve", ImageBindFlag::COLOR_RESOLVE);
             builder.WriteAttachment("DepthOutput", ImageBindFlag::DEPTH_STENCIL);
         });
-        auto encoder = scene.RegisterEncoder<FrameGraphRasterEncoder>(FORWARD_TAG);
+        auto encoder = scene.RegisterEncoder<RenderRasterEncoder>(FORWARD_TAG);
         encoders.emplace_back(encoder);
         pass->SetEncoder(encoder);
 

@@ -5,23 +5,23 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <vulkan/CommandBuffer.h>
-#include <render/RenderPrimtive.h>
 
 namespace sky {
 
-    class FrameGraphEncoder {
+    class RenderEncoder {
     public:
-        FrameGraphEncoder() = default;
-        virtual ~FrameGraphEncoder() = default;
+        RenderEncoder() = default;
+        virtual ~RenderEncoder() = default;
 
         virtual void Encode(drv::GraphicsEncoder& encoder) {}
     };
 
-    class FrameGraphRasterEncoder : public FrameGraphEncoder {
+    class RenderRasterEncoder : public RenderEncoder {
     public:
-        FrameGraphRasterEncoder() = default;
-        ~FrameGraphRasterEncoder() = default;
+        RenderRasterEncoder() = default;
+        ~RenderRasterEncoder() = default;
 
         void Encode(drv::GraphicsEncoder& encoder) override;
 

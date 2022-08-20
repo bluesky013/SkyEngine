@@ -130,7 +130,7 @@ namespace sky {
         drvEncoder.EndPass();
     }
 
-    void FrameGraphGraphicPass::SetEncoder(FrameGraphEncoder* value)
+    void FrameGraphGraphicPass::SetEncoder(RenderEncoder* value)
     {
         encoder = value;
     }

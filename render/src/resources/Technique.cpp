@@ -21,12 +21,12 @@ namespace sky {
         pass->ValidatePipelineState(pipelineState, subPass);
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr& vertexInput)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr& vertexInput)
     {
         return AcquirePso(vertexInput, {});
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(drv::VertexInputPtr& vi, drv::ShaderOptionPtr option)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr& vi, const drv::ShaderOptionPtr &option)
     {
         uint32_t hash = 0;
         HashCombine32(hash, vi->GetHash());

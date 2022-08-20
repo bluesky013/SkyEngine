@@ -107,8 +107,6 @@ namespace sky {
 
         bool IsValid() const override;
 
-        RDDesGroupPtr CreateDescriptor();
-
         inline RDShaderPtr GetVS() const
         {
             return vs;

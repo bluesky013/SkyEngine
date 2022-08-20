@@ -24,7 +24,7 @@ namespace sky {
         }
     }
 
-    void StaticMesh::SetMesh(RDMeshPtr m)
+    void StaticMesh::SetMesh(const RDMeshPtr& m)
     {
         mesh = m;
         auto& vbs = mesh->GetVertexBuffers();
@@ -40,10 +40,9 @@ namespace sky {
 
         auto& subMeshes = mesh->GetSubMeshes();
         for (uint32_t i = 0; i < subMeshes.size(); ++i) {
-            auto primitive = std::make_unique<RenderPrimitive>();
+            auto primitive = std::make_unique<RenderMeshPrimitive>();
             primitive->SetVertexAssembly(vertexAssembly);
-            primitive->SetObjectSet(objectSet);
-            primitive->SetMesh(mesh, i);
+            primitive->SetMesh(*mesh, i);
 
             primitives.emplace_back(std::move(primitive));
         }

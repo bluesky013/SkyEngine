@@ -22,19 +22,8 @@ namespace sky {
         for (auto& view : views) {
             auto& primitives = view->GetPrimitives();
             for (auto& primitive : primitives) {
-                auto& techniques = primitive->GetTechniques();
-                for (auto& tech : techniques) {
-                    for (auto& encoder : encoders) {
-                        if ((encoder->GetDrawTag() & tech->drawTag) == 0) {
-                            continue;
-                        }
-                        drv::DrawItem item;
-                        item.pso = tech->pso;
-                        item.vertexAssembly = tech->assembly;
-                        item.drawArgs = tech->args;
-                        item.shaderResources = tech->setBinder;
-                        encoder->Emplace(item);
-                    }
+                for (auto& encoder : encoders) {
+                    primitive->Encode(encoder);
                 }
             }
         }
