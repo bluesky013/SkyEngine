@@ -6,9 +6,25 @@
 
 #include <render/resources/GlobalResource.h>
 #include <render/resources/RenderResource.h>
+#include <framework/asset/Asset.h>
+#include <framework/serialization/BasicSerialization.h>
 #include <vulkan/Image.h>
+#include <vector>
 
 namespace sky {
+
+    struct ImageAssetData {
+        uint32_t width  = 0;
+        uint32_t height = 0;
+        VkFormat format = VK_FORMAT_UNDEFINED;
+        std::vector<uint8_t> data;
+
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(width, height, format, data);
+        }
+    };
 
     class Image : public RenderResource {
     public:
@@ -59,4 +75,32 @@ namespace sky {
             return CreateImage2D();
         }
     };
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, ImageAssetData& data);
+        void SaveToPath(const std::string& path, const ImageAssetData& data);
+        RDImagePtr CreateFromData(const ImageAssetData& data);
+    }
+
+    template <>
+    struct AssetTraits <Image> {
+        using DataType = ImageAssetData;
+
+        static void LoadFromPath(const std::string& path, DataType& data)
+        {
+            impl::LoadFromPath(path, data);
+        }
+
+        static RDImagePtr CreateFromData(const DataType& data)
+        {
+            return impl::CreateFromData(data);
+        }
+
+        static void SaveToPath(const std::string& path, const DataType& data)
+        {
+            impl::SaveToPath(path, data);
+        }
+    };
+
+    using ImageAssetPtr = std::shared_ptr<Asset<Image>>;
 }
