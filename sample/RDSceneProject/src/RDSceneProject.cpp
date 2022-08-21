@@ -36,7 +36,7 @@ namespace sky {
 //            mainCamera->SetTransform(transform);
 //            glm::lookAt()
 
-            angle += glm::radians(20.f) * time;
+            angle += glm::radians(30.f) * time;
             position.z = radius * cos(angle);
             position.x = radius * sin(angle);
 
@@ -47,13 +47,13 @@ namespace sky {
         }
 
     private:
-        float radius = 30.f;
+        float radius = 5.f;
         float angle = 0.f;
-        Vector3 position = Vector3(0.f, 25.f, 0.f);
+        Vector3 position = Vector3(0.f, 2.f, 0.f);
         RenderCamera* camera = nullptr;
     };
 
-    static const char* BUFFER_PATH = "data\\models\\medi2_buffer.bin";
+    static const char* BUFFER_PATH = "data\\models\\DamagedHelmet_buffer.bin";
 
     void RDSceneProject::Init()
     {
@@ -131,21 +131,19 @@ namespace sky {
 
         AssetManager::Get()->LoadAsset<Buffer>(BUFFER_PATH);
 
-        for (uint32_t i = 0; i < 20; ++i) {
-            std::stringstream ss;
-            ss << "data\\models\\medi2_mesh" << i << ".mesh";
-            std::string path = ss.str();
-            auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>(path);
-            auto mesh = meshAsset->CreateInstance();
-            for (uint32_t j = 0; j < mesh->GetSubMeshCount(); ++j) {
-                mesh->SetMaterial(material, j);
-            }
-            auto staticMesh = smFeature->Create();
-            staticMesh->SetMesh(mesh);
-            auto transform = glm::identity<Matrix4>();
-            transform = glm::scale(transform, Vector3(0.01f, 0.01f, 0.01f));
-            staticMesh->SetWorldMatrix(transform);
+        std::stringstream ss;
+        ss << "data\\models\\DamagedHelmet_mesh0.mesh";
+        std::string path = ss.str();
+        auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>(path);
+        auto mesh = meshAsset->CreateInstance();
+        for (uint32_t i = 0; i < mesh->GetSubMeshCount(); ++i) {
+            mesh->SetMaterial(material, i);
         }
+        auto staticMesh = smFeature->Create();
+        staticMesh->SetMesh(mesh);
+        auto transform = glm::identity<Matrix4>();
+        transform = glm::rotate(transform, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
+        staticMesh->SetWorldMatrix(transform);
     }
 
     void RDSceneProject::Stop()
