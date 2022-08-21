@@ -20,8 +20,8 @@ namespace sky {
 
     class RotationFeature : public RenderFeature {
     public:
-        RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
-        ~RotationFeature() = default;
+        explicit RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
+        ~RotationFeature() override = default;
 
         void SetMesh(RenderCamera* value)
         {
@@ -53,7 +53,7 @@ namespace sky {
         RenderCamera* camera = nullptr;
     };
 
-    static const char* BUFFER_PATH = "data/models/medi2_buffer.bin";
+    static const char* BUFFER_PATH = "data\\models\\medi2_buffer.bin";
 
     void RDSceneProject::Init()
     {
@@ -129,20 +129,16 @@ namespace sky {
         material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
         material->Update();
 
-        std::filesystem::path temp(BUFFER_PATH);
-        auto str = temp.string();
-        AssetManager::Get()->RegisterAsset(Uuid::CreateWithSeed(4059331220), BUFFER_PATH);
+        AssetManager::Get()->LoadAsset<Buffer>(BUFFER_PATH);
 
         for (uint32_t i = 0; i < 20; ++i) {
             std::stringstream ss;
-            ss << "data/models/medi2_mesh" << i << ".mesh";
+            ss << "data\\models\\medi2_mesh" << i << ".mesh";
             std::string path = ss.str();
-
-            AssetManager::Get()->RegisterAsset(Uuid::CreateWithSeed(Fnv1a32(path)), path);
-            auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>(Uuid::CreateWithSeed(Fnv1a32(path)));
+            auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>(path);
             auto mesh = meshAsset->CreateInstance();
-            for (uint32_t i = 0; i < mesh->GetSubMeshCount(); ++i) {
-                mesh->SetMaterial(material, i);
+            for (uint32_t j = 0; j < mesh->GetSubMeshCount(); ++j) {
+                mesh->SetMaterial(material, j);
             }
             auto staticMesh = smFeature->Create();
             staticMesh->SetMesh(mesh);
