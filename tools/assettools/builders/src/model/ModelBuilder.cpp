@@ -8,6 +8,7 @@
 #include <assimp/postprocess.h>
 #include <render/resources/Mesh.h>
 #include <core/math/Vector.h>
+#include <core/logger/Logger.h>
 #include <filesystem>
 #include <sstream>
 
@@ -29,13 +30,23 @@ namespace sky {
         };
     }
 
-    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, MeshAssetData& data, builder::Scene& outScene)
+    static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
+    {
+        aiMaterial* material = scene->mMaterials[materialIndex];
+        aiShadingMode shadingModel = aiShadingMode_Flat;
+        material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
+        LOG_I("ModelBuilder", "shader model %d", shadingModel);
+    }
+
+    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, MeshAssetData& data, builder::Scene& outScene,
+                               uint32_t &vertexOffset, uint32_t &indexOffset)
     {
         SubMeshAsset subMesh;
         subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
         subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
-        subMesh.drawData.firstVertex = 0;
+        subMesh.drawData.firstVertex = vertexOffset;
         subMesh.drawData.vertexCount = mesh->mNumVertices;
+        vertexOffset += subMesh.drawData.vertexCount;
 
         for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
             auto& pos = mesh->mVertices[i];
@@ -80,8 +91,9 @@ namespace sky {
             }
         }
 
-        subMesh.drawData.firstIndex = 0;
+        subMesh.drawData.firstIndex = indexOffset;
         subMesh.drawData.indexCount = mesh->mNumFaces * 3;
+        indexOffset += subMesh.drawData.indexCount;
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
             aiFace face = mesh->mFaces[i];
@@ -90,10 +102,12 @@ namespace sky {
             outScene.indices.emplace_back(face.mIndices[2]);
         }
 
+        ProcessMaterial(scene, mesh->mMaterialIndex, outScene);
+
         data.subMeshes.emplace_back(subMesh);
     }
 
-    static void ProcessMesh(aiNode *node, const aiScene *scene, MeshAssetPtr outMesh, builder::Scene& outScene)
+    static void ProcessMesh(aiNode *node, const aiScene *scene, const MeshAssetPtr &outMesh, builder::Scene& outScene)
     {
         MeshAssetData data;
         data.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
@@ -136,11 +150,13 @@ namespace sky {
 
         data.indexType = VK_INDEX_TYPE_UINT32;
 
+        uint32_t indexOffset = 0;
+        uint32_t vertexOffset = 0;
         for(unsigned int i = 0; i < node->mNumMeshes; i++) {
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             uint32_t vertexNum = mesh->mNumVertices;
 
-            ProcessSubMesh(mesh, scene, data, outScene);
+            ProcessSubMesh(mesh, scene, data, outScene, vertexOffset, indexOffset);
 
             data.indexBuffer.size += mesh->mNumFaces * 3 * sizeof(uint32_t);
             data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
@@ -240,7 +256,7 @@ namespace sky {
         bufferPath.append(fileWithoutExt + "_buffer.bin");
 
         builderScene.buffer->SetData(std::move(bufferData));
-        builderScene.buffer->SetUuid(Uuid::CreateWithSeed(Fnv1a32(std::filesystem::relative(bufferPath, projectPath).string().data())));
+        builderScene.buffer->SetUuid(Uuid::CreateWithSeed(Fnv1a32(std::filesystem::relative(bufferPath, projectPath).make_preferred().string().data())));
         builderScene.buffer->SaveToPath(bufferPath.string());
 
         uint32_t index = 0;

@@ -8,16 +8,16 @@ namespace sky {
 
     void FontLibrary::Init()
     {
-        isReady = !FT_Init_FreeType( &library );
+//        isReady = !FT_Init_FreeType( &library );
     }
 
     FontLibrary::~FontLibrary()
     {
-        FT_Done_FreeType(library);
+//        FT_Done_FreeType(library);
     }
 
-    FT_Library FontLibrary::GetLibrary() const
-    {
-        return library;
-    }
+//    FT_Library FontLibrary::GetLibrary() const
+//    {
+//        return library;
+//    }
 }

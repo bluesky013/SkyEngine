@@ -15,6 +15,6 @@ sky_add_library(TARGET SkyRender STATIC
         Driver
         3rdParty::SPIRVCross
         3rdParty::stb
-        3rdParty::freetype
+#        3rdParty::freetype
         3rdParty::imgui
     )
