@@ -18,6 +18,20 @@
 
 namespace sky {
 
+    static const std::map<VkQueryPipelineStatisticFlagBits, std::string> PIPELINE_STATS_MAP = {
+        {VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT,                    "input assembly vertices            "},
+        {VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT,                  "input assembly primitives          "},
+        {VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT,                  "vertex shader invocations          "},
+        {VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_INVOCATIONS_BIT,                "geometry shader invocations        "},
+        {VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT,                 "geometry shader primitives         "},
+        {VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT,                       "clipping invocations               "},
+        {VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT,                        "clipping primitives                "},
+        {VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT,                "fragment shader invocations        "},
+        {VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_CONTROL_SHADER_PATCHES_BIT,        "tess control shader patches        "},
+        {VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT, "tess evaluation shader invocations "},
+        {VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT,                 "compute shader invocations         "},
+    };
+
     class RotationFeature : public RenderFeature {
     public:
         explicit RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
@@ -88,10 +102,24 @@ namespace sky {
         auto smFeature = scene->GetFeature<StaticMeshFeature>();
         auto guiFeature = scene->GetFeature<GuiRenderer>();
 
-        guiFeature->CreateLambda([](ImGuiContext* context) {
+        guiFeature->CreateLambda([this](ImGuiContext* context) {
             ImGui::SetCurrentContext(context);
             ImGui::Begin("RDSceneProject");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Pipeline statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+                auto &pool = scene->GetQueryPool();
+                auto &data = pool->GetData();
+                VkQueryPipelineStatisticFlags flags = pool->GetFlags();
+                uint32_t index = 0;
+                for (auto &[flag, str]: PIPELINE_STATS_MAP) {
+                    if ((flags & flag) == flag) {
+                        ImGui::Text("%s : [%llu]", str.c_str(), data[index++]);
+                    }
+                }
+            }
+
             ImGui::End();
         });
 

@@ -6,18 +6,30 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/GltfMaterial.h>
 #include <render/resources/Mesh.h>
 #include <core/math/Vector.h>
+#include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
+#include <stb_image.h>
 #include <filesystem>
 #include <sstream>
 
 namespace sky {
 
+    static const char* TAG = "ModelBuilder";
+
+    struct PBRProperties {
+        Vector4 baseColor;
+        float metallic;
+        float roughness;
+    };
+
     namespace builder {
         struct Node {
             uint32_t parentIndex = ~(0u);
             uint32_t meshIndex = ~(0u);
+            Matrix4 transform = glm::identity<Matrix4>();
         };
 
         struct Scene {
@@ -26,8 +38,59 @@ namespace sky {
             BufferAssetPtr buffer;
             MeshRawData rawData;
             std::vector<uint32_t> indices;
+            std::unordered_map<std::string, ImageAssetPtr> images;
             std::filesystem::path directory;
         };
+    }
+
+    static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
+    {
+        Matrix4 res;
+        for (uint32_t i = 0; i < 4; ++i) {
+            for (uint32_t j = 0; j < 4; ++j) {
+                res[i][j] = trans[j][i];
+            }
+        }
+        return res;
+    }
+
+    static void ProcessTexture(const aiScene *scene, const aiString& path, builder::Scene& outScene)
+    {
+        auto iter = outScene.images.find(path.data);
+        if (iter != outScene.images.end()) {
+            return;
+        }
+
+        auto tex = scene->GetEmbeddedTexture(path.data);
+        if (tex != nullptr) {
+            int width = 0;
+            int height = 0;
+            int channel = 0;
+            auto texAsset = std::make_shared<Asset<Image>>();
+            ImageAssetData assetData;
+
+            if (tex->mHeight != 0) {
+
+            } else {
+                const uint32_t size = tex->mWidth;
+                auto ptr = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), size, &width, &height, &channel, 0);
+                if (channel == 3) {
+                    assetData.format = VK_FORMAT_R8G8B8_UNORM;
+                } else if (channel == 4) {
+                    assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
+                }
+                uint64_t dataSize = width * height * channel;
+                assetData.data.resize(dataSize);
+                memcpy(assetData.data.data(), ptr, dataSize);
+                LOG_I(TAG, "filename %s, width %d, height %d, channel %d", tex->achFormatHint, width, height, channel);
+                stbi_image_free(ptr);
+            }
+
+            assetData.width = static_cast<uint32_t>(width);
+            assetData.height = static_cast<uint32_t>(height);
+            texAsset->SetData(std::move(assetData));
+            outScene.images.emplace(path.data, texAsset);
+        }
     }
 
     static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
@@ -35,7 +98,80 @@ namespace sky {
         aiMaterial* material = scene->mMaterials[materialIndex];
         aiShadingMode shadingModel = aiShadingMode_Flat;
         material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
-        LOG_I("ModelBuilder", "shader model %d", shadingModel);
+        LOG_I(TAG, "shader model %d", shadingModel);
+
+        for (uint32_t i = 0; i < material->mNumProperties; ++i) {
+            auto prop = material->mProperties[i];
+            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
+        }
+
+        PBRProperties properties{};
+
+        aiString str;
+        bool useMap = false;
+        if (!material->Get(AI_MATKEY_USE_AO_MAP, useMap)) {
+            LOG_I(TAG, "use ao texture %d", useMap);
+        }
+
+        if (!material->Get(AI_MATKEY_USE_EMISSIVE_MAP, useMap)) {
+            LOG_I(TAG, "use emissive texture %d", useMap);
+        }
+
+        if (!material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str)) {
+            ProcessTexture(scene, str, outScene);
+        }
+
+        if (!material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str)) {
+            ProcessTexture(scene, str, outScene);
+        }
+
+        if (!material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str)) {
+            ProcessTexture(scene, str, outScene);
+        }
+
+        if (shadingModel == aiShadingMode_PBR_BRDF) {
+
+            if (!material->Get(AI_MATKEY_BASE_COLOR, properties.baseColor)) {
+                LOG_I(TAG, "baseColor factor [%f, %f, %f, %f]", properties.baseColor.r, properties.baseColor.g, properties.baseColor.b, properties.baseColor.a);
+            }
+
+            if (!material->Get(AI_MATKEY_METALLIC_FACTOR, properties.metallic)) {
+                LOG_I(TAG, "metallic factor %f", properties.metallic);
+            }
+
+            if (!material->Get(AI_MATKEY_ROUGHNESS_FACTOR, properties.roughness)) {
+                LOG_I(TAG, "roughness factor %f", properties.roughness);
+            }
+
+            if (!material->Get(AI_MATKEY_USE_COLOR_MAP, useMap)) {
+                LOG_I(TAG, "use baseColor texture %d", useMap);
+            }
+
+            if (!material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str)) {
+                ProcessTexture(scene, str, outScene);
+            }
+
+            if (!material->Get(AI_MATKEY_USE_METALLIC_MAP, useMap)) {
+                LOG_I(TAG, "use metallic texture %d", useMap);
+            }
+
+            if (!material->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &str)) {
+                ProcessTexture(scene, str, outScene);
+            }
+
+            if (!material->Get(AI_MATKEY_USE_ROUGHNESS_MAP, useMap)) {
+                LOG_I(TAG, "use roughness texture %d", useMap);
+            }
+
+            if (!material->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &str)) {
+                ProcessTexture(scene, str, outScene);
+            }
+
+            if (!material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str)) {
+                ProcessTexture(scene, str, outScene);
+            }
+        }
+
     }
 
     static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, MeshAssetData& data, builder::Scene& outScene,
@@ -176,6 +312,8 @@ namespace sky {
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
 
+        current.transform = FromAssimp(node->mTransformation);
+
         if (node->mNumMeshes != 0) {
             current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
             MeshAssetPtr meshAsset = std::make_shared<Asset<Mesh>>();
@@ -265,6 +403,14 @@ namespace sky {
             std::stringstream ss;
             ss << fileWithoutExt << "_mesh" << index++ << ".mesh";
             mesh->SaveToPath(meshPath.append(ss.str()).string());
+        }
+
+        index = 0;
+        for (auto& [path, tex] : builderScene.images) {
+            std::filesystem::path meshPath = dataPath;
+            std::stringstream ss;
+            ss << fileWithoutExt << "_tex" << index++ << ".tex";
+            tex->SaveToPath(meshPath.append(ss.str()).string());
         }
     }
 

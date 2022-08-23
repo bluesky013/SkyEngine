@@ -11,6 +11,7 @@
 #include <vulkan/DrawItem.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/FrameBuffer.h>
+#include <vulkan/QueryPool.h>
 #include <vector>
 
 namespace sky::drv {
@@ -88,6 +89,12 @@ namespace sky::drv {
         void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy);
 
         void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy& copy);
+
+        void BeginQuery(const QueryPoolPtr &pool, uint32_t queryId);
+
+        void EndQuery(const QueryPoolPtr &pool, uint32_t queryId);
+
+        void ResetQueryPool(const QueryPoolPtr &pool, uint32_t first, uint32_t count);
 
         void End();
 

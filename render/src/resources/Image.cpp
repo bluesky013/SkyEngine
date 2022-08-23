@@ -5,9 +5,12 @@
 
 #include <render/resources/Image.h>
 #include <render/DriverManager.h>
+#include <framework/asset/AssetManager.h>
+#include <cereal/archives/binary.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
 
 namespace sky {
     void Image::InitRHI()
@@ -126,6 +129,34 @@ namespace sky {
         image->Update(data, sizeof(data));
 
         return image;
+    }
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, ImageAssetData& data)
+        {
+            auto realPath = AssetManager::Get()->GetRealPath(path);
+            std::ifstream file(realPath,  std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::BinaryInputArchive archive(file);
+            archive >> data;
+        }
+
+        void SaveToPath(const std::string& path, const ImageAssetData& data)
+        {
+            std::ofstream file(path, std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::BinaryOutputArchive binOutput(file);
+            binOutput << data;
+        }
+
+        RDImagePtr CreateFromData(const ImageAssetData& data)
+        {
+            return {};
+        }
     }
 
 }

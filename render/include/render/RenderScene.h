@@ -16,6 +16,7 @@
 #include <render/resources/DescriptorPool.h>
 #include <framework/window/IWindowEvent.h>
 #include <core/type/Rtti.h>
+#include <vulkan/QueryPool.h>
 
 namespace sky {
 
@@ -37,6 +38,8 @@ namespace sky {
         void OnPreRender(float time);
 
         void OnRender(const drv::CommandBufferPtr& commandBuffer);
+
+        void OnPostRender();
 
         void Setup();
 
@@ -66,6 +69,8 @@ namespace sky {
         RenderBufferPool* GetObjectBufferPool() const;
 
         const RDDesGroupPtr &GetSceneSet() const;
+
+        const drv::QueryPoolPtr &GetQueryPool() const;
 
         void AddView(const RDViewPtr& view);
 
@@ -99,6 +104,7 @@ namespace sky {
         RDDesGroupPtr sceneSet;
         RDDynBufferViewPtr sceneInfo;
         RDDynBufferViewPtr mainViewInfo;
+        drv::QueryPoolPtr queryPool;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 }

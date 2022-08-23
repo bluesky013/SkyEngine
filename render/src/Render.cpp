@@ -61,6 +61,10 @@ namespace sky {
             vp->DoFrame();
         }
 
+        for (auto& scene : scenes) {
+            scene->OnPostRender();
+        }
+
         DevObjManager::Get()->TickFreeList();
     }
 
