@@ -108,13 +108,15 @@ namespace sky {
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             ImGui::Separator();
 
-            auto& pool = scene->GetQueryPool();
-            auto& data = pool->GetData();
-            VkQueryPipelineStatisticFlags flags = pool->GetFlags();
-            uint32_t index = 0;
-            for (auto& [flag, str] : PIPELINE_STATS_MAP) {
-                if ((flags & flag) == flag) {
-                    ImGui::Text("%s : [%llu]", str.c_str(), data[index++]);
+            if (ImGui::CollapsingHeader("Pipeline statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
+                auto &pool = scene->GetQueryPool();
+                auto &data = pool->GetData();
+                VkQueryPipelineStatisticFlags flags = pool->GetFlags();
+                uint32_t index = 0;
+                for (auto &[flag, str]: PIPELINE_STATS_MAP) {
+                    if ((flags & flag) == flag) {
+                        ImGui::Text("%s : [%llu]", str.c_str(), data[index++]);
+                    }
                 }
             }
 
