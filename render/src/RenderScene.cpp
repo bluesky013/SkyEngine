@@ -47,6 +47,11 @@ namespace sky {
         }
     }
 
+    void RenderScene::OnPostRender()
+    {
+        queryPool->ReadResults(1);
+    }
+
     void RenderScene::ViewportChange(RenderViewport& viewport)
     {
         pipeline->ViewportChange(viewport);
@@ -137,6 +142,23 @@ namespace sky {
         bufferPoolInfo.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
         objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
+
+
+        if (!queryPool) {
+            drv::QueryPool::Descriptor queryDesc = {};
+            queryDesc.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+            queryDesc.queryCount = 7;
+            queryDesc.pipelineStatistics = VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
+                                           VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+            queryPool = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::QueryPool>(queryDesc);
+        } else {
+            queryPool->Reset();
+        }
     }
 
     const RDDynBufferViewPtr &RenderScene::GetSceneBuffer() const
@@ -162,5 +184,10 @@ namespace sky {
     const RDDesGroupPtr &RenderScene::GetSceneSet() const
     {
         return sceneSet;
+    }
+
+    const drv::QueryPoolPtr &RenderScene::GetQueryPool() const
+    {
+        return queryPool;
     }
 }

@@ -58,6 +58,21 @@ namespace sky::drv {
         vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
+    void CommandBuffer::BeginQuery(const QueryPoolPtr &pool, uint32_t queryId)
+    {
+        vkCmdBeginQuery(cmdBuffer, pool->GetNativeHandle(), queryId, 0);
+    }
+
+    void CommandBuffer::EndQuery(const QueryPoolPtr &pool, uint32_t queryId)
+    {
+        vkCmdEndQuery(cmdBuffer, pool->GetNativeHandle(), queryId);
+    }
+
+    void CommandBuffer::ResetQueryPool(const QueryPoolPtr &pool, uint32_t first, uint32_t count)
+    {
+        vkCmdResetQueryPool(cmdBuffer, pool->GetNativeHandle(), first, count);
+    }
+
     void CommandBuffer::End()
     {
         vkEndCommandBuffer(cmdBuffer);
