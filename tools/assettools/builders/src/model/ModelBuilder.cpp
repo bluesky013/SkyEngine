@@ -36,6 +36,7 @@ namespace sky {
             std::vector<MeshAssetPtr> meshes;
             std::unordered_map<uint32_t, MaterialAssetPtr> materials;
             std::unordered_map<std::string, ImageAssetPtr> images;
+            std::filesystem::path filePath;
             std::filesystem::path directory;
         };
     }
@@ -95,36 +96,47 @@ namespace sky {
             return;
         }
 
-        auto tex = scene->GetEmbeddedTexture(path.data);
-        if (tex != nullptr) {
-            int width = 0;
-            int height = 0;
-            int channel = 0;
-            auto texAsset = std::make_shared<Asset<Image>>();
-            ImageAssetData assetData;
+        int width = 0;
+        int height = 0;
+        int channel = 0;
+        ImageAssetData assetData;
 
+        auto modelPath = std::filesystem::path(outScene.directory).append(path.data);
+        stbi_uc * srcData = nullptr;
+        if (std::filesystem::exists(modelPath)) {
+            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 0);
+        } else {
+            auto tex = scene->GetEmbeddedTexture(path.data);
+            if (tex == nullptr) {
+                return;
+            }
             if (tex->mHeight != 0) {
 
             } else {
                 const uint32_t size = tex->mWidth;
-                auto ptr = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size), &width, &height, &channel, 0);
-                if (channel == 3) {
-                    assetData.format = VK_FORMAT_R8G8B8_UNORM;
-                } else if (channel == 4) {
-                    assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
-                }
-                uint64_t dataSize = width * height * channel;
-                assetData.data.resize(dataSize);
-                memcpy(assetData.data.data(), ptr, dataSize);
-                LOG_I(TAG, "filename %s, width %d, height %d, channel %d", tex->achFormatHint, width, height, channel);
-                stbi_image_free(ptr);
+                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
+                                                 &width, &height, &channel, 0);
             }
-
-            assetData.width = static_cast<uint32_t>(width);
-            assetData.height = static_cast<uint32_t>(height);
-            texAsset->SetData(std::move(assetData));
-            outScene.images.emplace(path.data, texAsset);
         }
+        if (srcData == nullptr) {
+            return;
+        }
+
+        assetData.width = static_cast<uint32_t>(width);
+        assetData.height = static_cast<uint32_t>(height);
+        if (channel == 3) {
+            assetData.format = VK_FORMAT_R8G8B8_UNORM;
+        } else if (channel == 4) {
+            assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
+        }
+        uint64_t dataSize = width * height * channel;
+        assetData.data.resize(dataSize);
+        memcpy(assetData.data.data(), srcData, dataSize);
+        stbi_image_free(srcData);
+
+        auto texAsset = std::make_shared<Asset<Image>>();
+        texAsset->SetData(std::move(assetData));
+        outScene.images.emplace(path.data, texAsset);
     }
 
     static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
@@ -136,7 +148,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < material->mNumProperties; ++i) {
             auto prop = material->mProperties[i];
-            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
+//            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
         }
 
         PBRProperties properties{};
@@ -393,7 +405,8 @@ namespace sky {
         }
 
         builder::Scene builderScene;
-        builderScene.directory = path;
+        builderScene.filePath = path;
+        builderScene.directory = builderScene.filePath.parent_path();
         builderScene.buffer = std::make_shared<Asset<Buffer>>();
         ProcessNode(scene->mRootNode, scene, -1, builderScene);
 
@@ -419,7 +432,7 @@ namespace sky {
         if (!std::filesystem::exists(dataPath)) {
             std::filesystem::create_directories(dataPath);
         }
-        std::string fileWithoutExt = builderScene.directory.filename().replace_extension().string();
+        std::string fileWithoutExt = builderScene.filePath.filename().replace_extension().string();
         PrefabData outData = ToPrefab(projectPath, dataPath.string(), fileWithoutExt, builderScene);
         AssetTraits<Prefab>::SaveToPath(dataPath.append(fileWithoutExt + ".prefab").string(), outData);
     }
