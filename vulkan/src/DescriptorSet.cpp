@@ -23,16 +23,17 @@ namespace sky::drv {
 
     DescriptorSet::Writer DescriptorSet::CreateWriter()
     {
-        return Writer(*this);
+        return {*this, layout->GetUpdateTemplate()};
     }
 
-    DescriptorSetPtr DescriptorSet::Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout)
+    DescriptorSetPtr DescriptorSet::Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout)
     {
         auto setCreateFn = [&pool, &layout](VkDescriptorSet set) {
             auto setPtr = std::make_shared<DescriptorSet>(pool->device);
             setPtr->handle = set;
             setPtr->layout = layout;
             setPtr->pool = pool;
+            setPtr->writeInfos.resize(layout->GetDescriptorTable().size(), {});
             return setPtr;
         };
 
@@ -67,7 +68,7 @@ namespace sky::drv {
     }
 
     DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
-        BufferPtr buffer, VkDeviceSize offset, VkDeviceSize size)
+        const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size)
     {
         if (!buffer) {
             return *this;
@@ -85,17 +86,21 @@ namespace sky::drv {
         bufferView.offset = offset;
         bufferView.size = size;
 
-        buffers.emplace_back();
-        auto& bufferInfo = buffers.back();
+        auto iter = updateTemplate.indices.find(binding);
+        if (iter == updateTemplate.indices.end()) {
+            return *this;
+        }
+
+        auto& bufferInfo = set.writeInfos[iter->second].buffer;
         bufferInfo.buffer = buffer->GetNativeHandle();
         bufferInfo.offset = offset;
-        bufferInfo.range = size;
+        bufferInfo.range  = size;
 
         Write(binding, type, &bufferInfo, nullptr);
         return *this;
     }
 
-    DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,ImageViewPtr view, SamplerPtr sampler)
+    DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const ImageViewPtr &view, const SamplerPtr &sampler)
     {
         if (!view || !sampler) {
             return *this;
@@ -116,8 +121,12 @@ namespace sky::drv {
         viewInfo.view = view;
         viewInfo.sampler = sampler;
 
-        images.emplace_back();
-        auto& imageInfo = images.back();
+        auto iter = updateTemplate.indices.find(binding);
+        if (iter == updateTemplate.indices.end()) {
+            return *this;
+        }
+
+        auto& imageInfo = set.writeInfos[iter->second].image;
         imageInfo.sampler = sampler->GetNativeHandle();
         imageInfo.imageView = view->GetNativeHandle();
 
@@ -136,6 +145,10 @@ namespace sky::drv {
         const VkDescriptorImageInfo* imageInfo)
     {
         set.dirty = true;
+        if (updateTemplate.handle != VK_NULL_HANDLE) {
+            return;
+        }
+
         VkWriteDescriptorSet bindingInfo = {};
         bindingInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         bindingInfo.pNext = nullptr;
@@ -152,9 +165,15 @@ namespace sky::drv {
 
     void DescriptorSet::Writer::Update()
     {
-        if (set.dirty) {
+        if (!set.dirty) {
+            return;
+        }
+
+        if (updateTemplate.handle == VK_NULL_HANDLE) {
             vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(writes.size()), writes.data(),
                                    0, nullptr);
+        } else {
+            vkUpdateDescriptorSetWithTemplate(set.device.GetNativeHandle(), set.GetNativeHandle(), updateTemplate.handle, set.writeInfos.data());
         }
         set.dirty = false;
     }

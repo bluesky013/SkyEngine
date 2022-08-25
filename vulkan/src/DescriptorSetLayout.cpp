@@ -13,9 +13,17 @@ namespace sky::drv {
     DescriptorSetLayout::DescriptorSetLayout(Device& dev)
         : DevObject(dev)
         , layout(VK_NULL_HANDLE)
+        , updateTemplate{VK_NULL_HANDLE}
         , dynamicNum(0)
         , hash(0)
     {
+    }
+
+    DescriptorSetLayout::~DescriptorSetLayout()
+    {
+        if (updateTemplate.handle != VK_NULL_HANDLE) {
+            vkDestroyDescriptorUpdateTemplate(device.GetNativeHandle(), updateTemplate.handle, VKL_ALLOC);
+        }
     }
 
     bool DescriptorSetLayout::Init(const Descriptor& des)
@@ -23,24 +31,35 @@ namespace sky::drv {
         descriptor = des;
 
         std::vector<VkDescriptorSetLayoutBinding> bindings;
+        std::vector<VkDescriptorUpdateTemplateEntry> entries;
         std::list<VkSampler> samplers;
 
-        for (auto& binding : des.bindings) {
-            HashCombine32(hash, Crc32::Cal(binding.first));
-            HashCombine32(hash, Crc32::Cal(binding.second));
+        for (auto& [binding, desInfo] : des.bindings) {
+            HashCombine32(hash, Crc32::Cal(binding));
+            HashCombine32(hash, Crc32::Cal(desInfo));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};
-            layoutBinding.binding            = binding.first;
-            layoutBinding.descriptorType     = binding.second.descriptorType;
-            layoutBinding.descriptorCount    = binding.second.descriptorCount;
-            layoutBinding.stageFlags         = binding.second.stageFlags;
+            layoutBinding.binding            = binding;
+            layoutBinding.descriptorType     = desInfo.descriptorType;
+            layoutBinding.descriptorCount    = desInfo.descriptorCount;
+            layoutBinding.stageFlags         = desInfo.stageFlags;
             layoutBinding.pImmutableSamplers = nullptr;
-            bindings.emplace_back(std::move(layoutBinding));
+            bindings.emplace_back(layoutBinding);
 
             if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
                 layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
                 ++dynamicNum;
             }
+
+            VkDescriptorUpdateTemplateEntry templateEntry{};
+            templateEntry.dstBinding      = binding;
+            templateEntry.dstArrayElement = 0;
+            templateEntry.descriptorCount = desInfo.descriptorCount;
+            templateEntry.descriptorType  = desInfo.descriptorType;
+            templateEntry.offset          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * entries.size());
+            templateEntry.stride          = sizeof(DescriptorWriteInfo);
+            updateTemplate.indices[binding] = static_cast<uint32_t>(entries.size());
+            entries.emplace_back(templateEntry);
         }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -51,6 +70,14 @@ namespace sky::drv {
         if (layout == VK_NULL_HANDLE) {
             return false;
         }
+
+        VkDescriptorUpdateTemplateCreateInfo templateInfo{};
+        templateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
+        templateInfo.descriptorUpdateEntryCount = static_cast<uint32_t>(entries.size());
+        templateInfo.pDescriptorUpdateEntries   = entries.data();
+        templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
+        templateInfo.descriptorSetLayout        = layout;
+        vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
 
         return true;
     }
@@ -75,4 +102,10 @@ namespace sky::drv {
     {
         return descriptor.bindings;
     }
+
+    const UpdateTemplate &DescriptorSetLayout::GetUpdateTemplate() const
+    {
+        return updateTemplate;
+    }
+
 }
