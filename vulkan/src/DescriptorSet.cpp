@@ -6,6 +6,7 @@
 #include <vulkan/DescriptorSetPool.h>
 #include <vulkan/Device.h>
 #include <vulkan/CacheManager.h>
+#include <vulkan/Util.h>
 
 namespace sky::drv {
 
@@ -33,7 +34,7 @@ namespace sky::drv {
             setPtr->handle = set;
             setPtr->layout = layout;
             setPtr->pool = pool;
-            setPtr->writeInfos.resize(layout->GetDescriptorTable().size(), {});
+            setPtr->Setup();
             return setPtr;
         };
 
@@ -67,6 +68,40 @@ namespace sky::drv {
         return layout;
     }
 
+    void DescriptorSet::Setup()
+    {
+        auto& table = layout->GetDescriptorTable();
+        auto& indicesMap = layout->GetUpdateTemplate();
+
+        writeInfos.resize(table.size(), {});
+        for (auto& [binding, info] : table) {
+            writeEntries.emplace_back(VkWriteDescriptorSet {});
+            VkWriteDescriptorSet &entry = writeEntries.back();
+            entry.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            entry.pNext           = nullptr;
+            entry.dstSet          = handle;
+            entry.dstBinding      = binding;
+            entry.dstArrayElement = 0;
+            entry.descriptorCount = info.descriptorCount;
+            entry.descriptorType  = info.descriptorType;
+
+            uint32_t index = indicesMap.indices.at(binding);
+            if (IsBufferDescriptor(info.descriptorType)) {
+                entry.pBufferInfo = &writeInfos[index].buffer;
+            } else if (IsImageDescriptor(info.descriptorType)) {
+                auto& imageInfo = writeInfos[index].image;
+                if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+                }
+                entry.pImageInfo = &imageInfo;
+            } else {
+                entry.pTexelBufferView = &writeInfos[index].bufferView;
+            }
+        }
+    }
+
     DescriptorSet::Writer& DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
         const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size)
     {
@@ -95,8 +130,7 @@ namespace sky::drv {
         bufferInfo.buffer = buffer->GetNativeHandle();
         bufferInfo.offset = offset;
         bufferInfo.range  = size;
-
-        Write(binding, type, &bufferInfo, nullptr);
+        set.dirty = true;
         return *this;
     }
 
@@ -130,37 +164,8 @@ namespace sky::drv {
         imageInfo.sampler = sampler->GetNativeHandle();
         imageInfo.imageView = view->GetNativeHandle();
 
-        if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        } else if (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        }
-
-        Write(binding, type, nullptr, &imageInfo);
-        return *this;
-    }
-
-    void DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type,
-        const VkDescriptorBufferInfo* bufferInfo,
-        const VkDescriptorImageInfo* imageInfo)
-    {
         set.dirty = true;
-        if (updateTemplate.handle != VK_NULL_HANDLE) {
-            return;
-        }
-
-        VkWriteDescriptorSet bindingInfo = {};
-        bindingInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        bindingInfo.pNext = nullptr;
-        bindingInfo.dstSet = set.GetNativeHandle();
-        bindingInfo.dstBinding = binding;
-        bindingInfo.dstArrayElement = 0;
-        bindingInfo.descriptorCount = 1;
-        bindingInfo.descriptorType = type;
-        bindingInfo.pImageInfo = imageInfo;
-        bindingInfo.pBufferInfo = bufferInfo;
-        bindingInfo.pTexelBufferView = nullptr;
-        writes.emplace_back(bindingInfo);
+        return *this;
     }
 
     void DescriptorSet::Writer::Update()
@@ -170,8 +175,7 @@ namespace sky::drv {
         }
 
         if (updateTemplate.handle == VK_NULL_HANDLE) {
-            vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(writes.size()), writes.data(),
-                                   0, nullptr);
+            vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(set.writeEntries.size()), set.writeEntries.data(), 0, nullptr);
         } else {
             vkUpdateDescriptorSetWithTemplate(set.device.GetNativeHandle(), set.GetNativeHandle(), updateTemplate.handle, set.writeInfos.data());
         }

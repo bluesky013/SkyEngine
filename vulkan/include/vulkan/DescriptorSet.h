@@ -36,11 +36,9 @@ namespace sky::drv {
             void Update();
 
         private:
-            void Write(uint32_t binding, VkDescriptorType type,
+            void Write(uint32_t index, uint32_t binding, VkDescriptorType type,
                 const VkDescriptorBufferInfo* bufferInfo,
                 const VkDescriptorImageInfo* imageInfo);
-
-            std::vector<VkWriteDescriptorSet> writes;
             DescriptorSet& set;
             const UpdateTemplate& updateTemplate;
         };
@@ -53,6 +51,8 @@ namespace sky::drv {
 
     private:
         friend class DescriptorSetPool;
+        void Setup();
+
         DescriptorSetLayoutPtr layout;
         DescriptorSetPoolPtr pool;
         VkDescriptorSet handle = VK_NULL_HANDLE;
@@ -71,6 +71,7 @@ namespace sky::drv {
         std::unordered_map<uint32_t, BufferView> buffers;
         std::unordered_map<uint32_t, ImageSampler> views;
         std::vector<DescriptorWriteInfo> writeInfos;
+        std::vector<VkWriteDescriptorSet> writeEntries;
     };
 
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;

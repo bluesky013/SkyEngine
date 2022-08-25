@@ -77,7 +77,7 @@ namespace sky::drv {
         templateInfo.pDescriptorUpdateEntries   = entries.data();
         templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
         templateInfo.descriptorSetLayout        = layout;
-        vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
+//        vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
 
         return true;
     }
