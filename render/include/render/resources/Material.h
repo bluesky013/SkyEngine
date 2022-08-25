@@ -13,6 +13,13 @@
 
 namespace sky {
 
+    struct MaterialAssetData {
+        template<class Archive>
+        void serialize(Archive &ar)
+        {
+        }
+    };
+
     class Material : public RenderResource {
     public:
         Material() = default;
@@ -47,4 +54,32 @@ namespace sky {
     };
 
     using RDMaterialPtr = std::shared_ptr<Material>;
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, MaterialAssetData& data);
+        void SaveToPath(const std::string& path, const MaterialAssetData& data);
+        RDMaterialPtr CreateFromData(const MaterialAssetData& data);
+    }
+
+    template <>
+    struct AssetTraits <Material> {
+        using DataType = MaterialAssetData;
+
+        static void LoadFromPath(const std::string& path, DataType& data)
+        {
+            impl::LoadFromPath(path, data);
+        }
+
+        static RDMaterialPtr CreateFromData(const DataType& data)
+        {
+            return impl::CreateFromData(data);
+        }
+
+        static void SaveToPath(const std::string& path, const DataType& data)
+        {
+            impl::SaveToPath(path, data);
+        }
+    };
+
+    using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
 }

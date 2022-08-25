@@ -4,6 +4,8 @@
 
 
 #include <render/resources/Material.h>
+#include <framework/asset/AssetManager.h>
+#include <cereal/archives/json.hpp>
 #include <render/Render.h>
 
 namespace sky {
@@ -69,5 +71,33 @@ namespace sky {
             view.second->RequestUpdate();
         }
         matSet->Update();
+    }
+
+    namespace impl {
+        void LoadFromPath(const std::string& path, MaterialAssetData& data)
+        {
+            auto realPath = AssetManager::Get()->GetRealPath(path);
+            std::ifstream file(realPath,  std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONInputArchive archive(file);
+            archive >> data;
+        }
+
+        void SaveToPath(const std::string& path, const MaterialAssetData& data)
+        {
+            std::ofstream file(path, std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+            cereal::JSONOutputArchive binOutput(file);
+            binOutput << data;
+        }
+
+        RDMaterialPtr CreateFromData(const MaterialAssetData& data)
+        {
+            return {};
+        }
     }
 }
