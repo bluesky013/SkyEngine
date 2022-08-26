@@ -15,6 +15,7 @@
 #include <memory>
 
 namespace sky::drv {
+
     class DescriptorSet : public DevObject {
     public:
         DescriptorSet(Device& device) : DevObject(device) {}
@@ -24,35 +25,34 @@ namespace sky::drv {
 
         struct Writer {
         public:
-            Writer(DescriptorSet& s) : set(s)
+            Writer(DescriptorSet& s, const UpdateTemplate& u) : set(s), updateTemplate(u)
             {
             }
 
-            Writer& Write(uint32_t binding, VkDescriptorType, BufferPtr buffer, VkDeviceSize offset, VkDeviceSize size);
+            Writer& Write(uint32_t binding, VkDescriptorType, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size);
 
-            Writer& Write(uint32_t binding, VkDescriptorType, ImageViewPtr view, SamplerPtr sampler);
+            Writer& Write(uint32_t binding, VkDescriptorType, const ImageViewPtr &view, const SamplerPtr &sampler);
 
             void Update();
 
         private:
-            void Write(uint32_t binding, VkDescriptorType type,
+            void Write(uint32_t index, uint32_t binding, VkDescriptorType type,
                 const VkDescriptorBufferInfo* bufferInfo,
                 const VkDescriptorImageInfo* imageInfo);
-
-            std::list<VkDescriptorBufferInfo> buffers;
-            std::list<VkDescriptorImageInfo> images;
-            std::vector<VkWriteDescriptorSet> writes;
             DescriptorSet& set;
+            const UpdateTemplate& updateTemplate;
         };
 
         Writer CreateWriter();
 
-        static std::shared_ptr<DescriptorSet> Allocate(DescriptorSetPoolPtr pool, DescriptorSetLayoutPtr layout);
+        static std::shared_ptr<DescriptorSet> Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout);
 
         DescriptorSetLayoutPtr GetLayout() const;
 
     private:
         friend class DescriptorSetPool;
+        void Setup();
+
         DescriptorSetLayoutPtr layout;
         DescriptorSetPoolPtr pool;
         VkDescriptorSet handle = VK_NULL_HANDLE;
@@ -70,6 +70,8 @@ namespace sky::drv {
 
         std::unordered_map<uint32_t, BufferView> buffers;
         std::unordered_map<uint32_t, ImageSampler> views;
+        std::vector<DescriptorWriteInfo> writeInfos;
+        std::vector<VkWriteDescriptorSet> writeEntries;
     };
 
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;

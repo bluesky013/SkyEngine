@@ -8,6 +8,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/GltfMaterial.h>
 #include <render/resources/Mesh.h>
+#include <render/resources/Prefab.h>
 #include <core/math/Vector.h>
 #include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
@@ -26,28 +27,62 @@ namespace sky {
     };
 
     namespace builder {
-        struct Node {
-            uint32_t parentIndex = ~(0u);
-            uint32_t meshIndex = ~(0u);
-            Matrix4 transform = glm::identity<Matrix4>();
-        };
 
         struct Scene {
-            std::vector<Node> nodes;
-            std::vector<MeshAssetPtr> meshes;
-            BufferAssetPtr buffer;
+            std::vector<PrefabNode> nodes;
             MeshRawData rawData;
             std::vector<uint32_t> indices;
+            BufferAssetPtr buffer;
+            std::vector<MeshAssetPtr> meshes;
+            std::unordered_map<uint32_t, MaterialAssetPtr> materials;
             std::unordered_map<std::string, ImageAssetPtr> images;
+            std::filesystem::path filePath;
             std::filesystem::path directory;
         };
+    }
+
+    template <typename T>
+    static void SaveAsset(PrefabData &prefab, const std::shared_ptr<Asset<T>> &asset, const std::string &ext,
+                          const std::string &projectPath, const std::string &dataPath, const std::string& fileWithoutExt,
+                          uint32_t &index)
+    {
+        std::filesystem::path outPath = dataPath;
+        std::stringstream ss;
+        ss << fileWithoutExt << '_' << ext << index++ << '.' << ext;
+
+        outPath.append(ss.str());
+        auto relativePath = std::filesystem::relative(outPath, projectPath).make_preferred().string();
+        auto uuid = Uuid::CreateWithSeed(Fnv1a32(relativePath.data()));
+        asset->SetUuid(uuid);
+        asset->SaveToPath(outPath.string());
+        prefab.assetPathMap[uuid] = relativePath;
+    }
+
+    static PrefabData ToPrefab(const std::string& projectPath, const std::string& dataPath, const std::string& fileWithoutExt, const builder::Scene& outScene)
+    {
+        PrefabData data;
+        data.nodes = outScene.nodes;
+
+        uint32_t index = 0;
+        SaveAsset(data, outScene.buffer, "buffer", projectPath, dataPath, fileWithoutExt, index);
+
+        index = 0;
+        for (auto& mesh : outScene.meshes) {
+            SaveAsset(data, mesh, "mesh", projectPath, dataPath, fileWithoutExt, index);
+        }
+
+        index = 0;
+        for (auto& [first, image] : outScene.images) {
+            SaveAsset(data, image, "image", projectPath, dataPath, fileWithoutExt, index);
+        }
+        return data;
     }
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
     {
         Matrix4 res;
-        for (uint32_t i = 0; i < 4; ++i) {
-            for (uint32_t j = 0; j < 4; ++j) {
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
                 res[i][j] = trans[j][i];
             }
         }
@@ -61,36 +96,47 @@ namespace sky {
             return;
         }
 
-        auto tex = scene->GetEmbeddedTexture(path.data);
-        if (tex != nullptr) {
-            int width = 0;
-            int height = 0;
-            int channel = 0;
-            auto texAsset = std::make_shared<Asset<Image>>();
-            ImageAssetData assetData;
+        int width = 0;
+        int height = 0;
+        int channel = 0;
+        ImageAssetData assetData;
 
+        auto modelPath = std::filesystem::path(outScene.directory).append(path.data);
+        stbi_uc * srcData = nullptr;
+        if (std::filesystem::exists(modelPath)) {
+            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 0);
+        } else {
+            auto tex = scene->GetEmbeddedTexture(path.data);
+            if (tex == nullptr) {
+                return;
+            }
             if (tex->mHeight != 0) {
 
             } else {
                 const uint32_t size = tex->mWidth;
-                auto ptr = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), size, &width, &height, &channel, 0);
-                if (channel == 3) {
-                    assetData.format = VK_FORMAT_R8G8B8_UNORM;
-                } else if (channel == 4) {
-                    assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
-                }
-                uint64_t dataSize = width * height * channel;
-                assetData.data.resize(dataSize);
-                memcpy(assetData.data.data(), ptr, dataSize);
-                LOG_I(TAG, "filename %s, width %d, height %d, channel %d", tex->achFormatHint, width, height, channel);
-                stbi_image_free(ptr);
+                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
+                                                 &width, &height, &channel, 0);
             }
-
-            assetData.width = static_cast<uint32_t>(width);
-            assetData.height = static_cast<uint32_t>(height);
-            texAsset->SetData(std::move(assetData));
-            outScene.images.emplace(path.data, texAsset);
         }
+        if (srcData == nullptr) {
+            return;
+        }
+
+        assetData.width = static_cast<uint32_t>(width);
+        assetData.height = static_cast<uint32_t>(height);
+        if (channel == 3) {
+            assetData.format = VK_FORMAT_R8G8B8_UNORM;
+        } else if (channel == 4) {
+            assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
+        }
+        uint64_t dataSize = width * height * channel;
+        assetData.data.resize(dataSize);
+        memcpy(assetData.data.data(), srcData, dataSize);
+        stbi_image_free(srcData);
+
+        auto texAsset = std::make_shared<Asset<Image>>();
+        texAsset->SetData(std::move(assetData));
+        outScene.images.emplace(path.data, texAsset);
     }
 
     static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
@@ -102,7 +148,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < material->mNumProperties; ++i) {
             auto prop = material->mProperties[i];
-            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
+//            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
         }
 
         PBRProperties properties{};
@@ -307,8 +353,8 @@ namespace sky {
 
     static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, builder::Scene& outScene)
     {
-        uint32_t index = static_cast<uint32_t>(outScene.nodes.size());
-        outScene.nodes.emplace_back(builder::Node{});
+        auto index = static_cast<uint32_t>(outScene.nodes.size());
+        outScene.nodes.emplace_back(PrefabNode{});
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
 
@@ -359,7 +405,8 @@ namespace sky {
         }
 
         builder::Scene builderScene;
-        builderScene.directory = path;
+        builderScene.filePath = path;
+        builderScene.directory = builderScene.filePath.parent_path();
         builderScene.buffer = std::make_shared<Asset<Buffer>>();
         ProcessNode(scene->mRootNode, scene, -1, builderScene);
 
@@ -380,38 +427,14 @@ namespace sky {
         CopyData(ptr, offset, builderScene.rawData.uvs, builderScene, MeshAttributeType::UV0);
         CopyData(ptr, offset, builderScene.indices, builderScene, MeshAttributeType::NUM);
 
-//        for (auto& mesh : builderScene.meshes) {
-//            mesh->Data().indexBuffer.offset += vertexBufferSize;
-//        }
-
         std::filesystem::path dataPath(projectPath);
         dataPath.append("data").append("models");
         if (!std::filesystem::exists(dataPath)) {
             std::filesystem::create_directories(dataPath);
         }
-        std::string fileWithoutExt = builderScene.directory.filename().replace_extension().string();
-        std::filesystem::path bufferPath = dataPath;
-        bufferPath.append(fileWithoutExt + "_buffer.bin");
-
-        builderScene.buffer->SetData(std::move(bufferData));
-        builderScene.buffer->SetUuid(Uuid::CreateWithSeed(Fnv1a32(std::filesystem::relative(bufferPath, projectPath).make_preferred().string().data())));
-        builderScene.buffer->SaveToPath(bufferPath.string());
-
-        uint32_t index = 0;
-        for (auto& mesh : builderScene.meshes) {
-            std::filesystem::path meshPath = dataPath;
-            std::stringstream ss;
-            ss << fileWithoutExt << "_mesh" << index++ << ".mesh";
-            mesh->SaveToPath(meshPath.append(ss.str()).string());
-        }
-
-        index = 0;
-        for (auto& [path, tex] : builderScene.images) {
-            std::filesystem::path meshPath = dataPath;
-            std::stringstream ss;
-            ss << fileWithoutExt << "_tex" << index++ << ".tex";
-            tex->SaveToPath(meshPath.append(ss.str()).string());
-        }
+        std::string fileWithoutExt = builderScene.filePath.filename().replace_extension().string();
+        PrefabData outData = ToPrefab(projectPath, dataPath.string(), fileWithoutExt, builderScene);
+        AssetTraits<Prefab>::SaveToPath(dataPath.append(fileWithoutExt + ".prefab").string(), outData);
     }
 
 }
