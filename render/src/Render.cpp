@@ -15,6 +15,8 @@
 #include <render/fonts/FontLibrary.h>
 #include <render/imgui/GuiManager.h>
 #include <render/imgui/GuiRenderer.h>
+#include <render/resources/Prefab.h>
+#include <framework/asset/AssetManager.h>
 
 static const char* TAG = "Render";
 
@@ -48,6 +50,7 @@ namespace sky {
         InitDefaultResource();
         InitFonts();
         InitGui();
+        InitAssetHandlers();
         return true;
     }
 
@@ -139,5 +142,13 @@ namespace sky {
     void Render::InitGui()
     {
         GuiManager::Get()->Init();
+    }
+
+    void Render::InitAssetHandlers()
+    {
+        AssetManager::Get()->RegisterAssetHandler<Buffer>();
+        AssetManager::Get()->RegisterAssetHandler<Mesh>();
+        AssetManager::Get()->RegisterAssetHandler<Image>();
+        AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }
 }

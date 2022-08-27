@@ -87,7 +87,7 @@ namespace sky {
             stagingDes.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             stagingDes.size = validateSize;
             auto stagingBuffer = device->CreateDeviceObject<drv::Buffer>(stagingDes);
-            uint8_t* dst = stagingBuffer->Map();
+            uint8_t *dst = stagingBuffer->Map();
             memcpy(dst, data, validateSize);
             stagingBuffer->UnMap();
 
@@ -166,7 +166,7 @@ namespace sky {
         }
     }
 
-    void BufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset)
+    void BufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t offset)
     {
         if (buffer) {
             buffer->Write(data, size, offset);
@@ -215,7 +215,7 @@ namespace sky {
         }
     }
 
-    void DynamicBufferView::WriteImpl(const uint8_t* data, uint64_t size, uint64_t off)
+    void DynamicBufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t off)
     {
         if (buffer) {
             buffer->Write(data, size, off + dynamicOffset);
@@ -223,38 +223,15 @@ namespace sky {
         }
     }
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, BufferAssetData& data)
-        {
-            auto realPath = AssetManager::Get()->GetRealPath(path);
-            std::ifstream file(realPath,  std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::BinaryInputArchive archive(file);
-            archive >> data;
-        }
-
-        void SaveToPath(const std::string& path, const BufferAssetData& data)
-        {
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::BinaryOutputArchive binOutput(file);
-            binOutput << data;
-        }
-
-        RDBufferPtr CreateFromData(const BufferAssetData& data)
-        {
-            Buffer::Descriptor bufferDesc = {};
-            bufferDesc.size = data.data.size();
-            bufferDesc.usage = data.usage;
-            bufferDesc.memory = data.memory;
-            auto buffer = std::make_shared<Buffer>(bufferDesc);
-            buffer->InitRHI();
-            buffer->Update(data.data.data(), data.data.size());
-            return buffer;
-        }
+    RDBufferPtr Buffer::CreateFromData(const BufferAssetData &data)
+    {
+        Buffer::Descriptor bufferDesc = {};
+        bufferDesc.size = data.data.size();
+        bufferDesc.usage = data.usage;
+        bufferDesc.memory = data.memory;
+        auto buffer = std::make_shared<Buffer>(bufferDesc);
+        buffer->InitRHI();
+        buffer->Update(data.data.data(), data.data.size());
+        return buffer;
     }
 }

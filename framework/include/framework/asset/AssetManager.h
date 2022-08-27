@@ -1,5 +1,5 @@
 //
-// Created by yjrj on 2022/8/8.
+// Created by Zach on 2022/8/8.
 //
 
 #pragma once
@@ -17,81 +17,52 @@ namespace sky {
         ~AssetManager() = default;
 
         template<class T>
-        std::shared_ptr<Asset<T>> LoadAsset(const std::string& path)
+        std::shared_ptr<Asset<T>> LoadAsset(const std::string& path, bool async = false)
         {
             auto id = Uuid::CreateWithSeed(Fnv1a32(path));
             RegisterAsset(id, path);
-            return LoadAsset<T>(id);
+            return LoadAsset<T>(id, async);
         }
 
         template<class T>
-        std::shared_ptr<Asset<T>> LoadAsset(const Uuid& uuid)
+        std::shared_ptr<Asset<T>> LoadAsset(const Uuid& uuid, bool async = false)
         {
-            auto pIter = pathMap.find(uuid);
-            if (pIter == pathMap.end()) {
-                return {};
-            }
-
-            std::shared_ptr<Asset<T>> asset = GetOrCreate<T>(uuid);
-            AssetTraits<T>::LoadFromPath(pIter->second, asset->data);
-            asset->status = AssetBase::Status::LOADED;
-            return asset;
+            return std::static_pointer_cast<Asset<T>>(GetOrCreate(AssetTraits<T>::ASSET_TYPE, uuid, async));
         }
 
         template<class T>
-        std::shared_ptr<Asset<T>> LoadAssetAsync(const Uuid& uuid)
+        void RegisterAssetHandler()
         {
-            auto pIter = pathMap.find(uuid);
-            if (pIter == pathMap.end()) {
-                return {};
-            }
-
-            std::shared_ptr<Asset<T>> asset = GetOrCreate<T>(uuid);
-            asset->status = AssetBase::Status::LOADING;
-
-            tf::Taskflow flow;
-            std::string& path = pIter->second;
-            flow.emplace([asset, path]() {
-                AssetTraits<T>::LoadFromPath(path, asset->data);
-                asset->status = AssetBase::Status::LOADED;
-            });
-
-            asset->future = JobSystem::Get()->Run(std::move(flow));
-            return asset;
+            RegisterAssetHandler(AssetTraits<T>::ASSET_TYPE, new AssetHandler<T>());
         }
+
+        template<class T>
+        void SaveAsset(const std::shared_ptr<Asset<T>> &asset, const std::string &path)
+        {
+            SaveAsset(asset, AssetTraits<T>::ASSET_TYPE, path);
+        }
+
+        std::shared_ptr<AssetBase> GetOrCreate(const Uuid& type, const Uuid &uuid, bool async);
+
+        void SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid& type, const std::string &path);
 
         void RegisterAsset(const Uuid& id, const std::string& path);
 
         void RegisterSearchPath(const std::string& path);
 
+        void RegisterAssetHandler(const Uuid &type, AssetHandlerBase* handler);
+
+        AssetHandlerBase* GetAssetHandler(const Uuid& type);
+
         std::string GetRealPath(const std::string& relative) const;
 
     private:
-        template <typename T>
-        std::shared_ptr<Asset<T>> GetOrCreate(const Uuid uuid)
-        {
-            std::lock_guard<std::mutex> lock(assetMutex);
-            auto iter = assetMap.find(uuid);
-            if (iter != assetMap.end()) {
-                std::shared_ptr<AssetBase> res = iter->second.lock();
-                if (res) {
-                    return std::static_pointer_cast<Asset<T>>(res);
-                }
-            }
-            auto asset = std::make_shared<Asset<T>>();
-            asset->SetUuid(uuid);
-            assetMap.emplace(uuid, asset);
-            return asset;
-        }
-
-
         friend class Singleton<AssetManager>;
         AssetManager() = default;
 
         std::unordered_map<Uuid, std::string> pathMap;
+        std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::string> searchPaths;
-
-        mutable std::mutex pendingMutex;
 
         mutable std::mutex assetMutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assetMap;

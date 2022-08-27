@@ -47,6 +47,8 @@ namespace sky {
 
         void InitGui();
 
+        void InitAssetHandlers();
+
         Render() = default;
         ~Render();
 

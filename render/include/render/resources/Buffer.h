@@ -63,6 +63,8 @@ namespace sky {
 
         const uint8_t* Data() const;
 
+        static std::shared_ptr<Buffer> CreateFromData(const BufferAssetData& data);
+
     protected:
         Descriptor descriptor;
         std::vector<uint8_t> rawData;
@@ -119,7 +121,6 @@ namespace sky {
         virtual void RequestUpdate() override;
 
         virtual void WriteImpl(const uint8_t* data, uint64_t size, uint64_t offset) override;
-
     private:
         friend class RenderBufferPool;
 
@@ -134,31 +135,15 @@ namespace sky {
     };
     using RDDynBufferViewPtr = std::shared_ptr<DynamicBufferView>;
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, BufferAssetData& data);
-        void SaveToPath(const std::string& path, const BufferAssetData& data);
-        RDBufferPtr CreateFromData(const BufferAssetData& data);
-    }
-
     template <>
     struct AssetTraits <Buffer> {
         using DataType = BufferAssetData;
-
-        static void LoadFromPath(const std::string& path, DataType& data)
-        {
-            impl::LoadFromPath(path, data);
-        }
-
+        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("E97EF70C-65F8-46AB-8C3B-470FEACBC522");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
         static RDBufferPtr CreateFromData(const DataType& data)
         {
-            return impl::CreateFromData(data);
-        }
-
-        static void SaveToPath(const std::string& path, const DataType& data)
-        {
-            impl::SaveToPath(path, data);
+            return Buffer::CreateFromData(data);
         }
     };
-
     using BufferAssetPtr = std::shared_ptr<Asset<Buffer>>;
 }
