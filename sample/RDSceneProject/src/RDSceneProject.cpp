@@ -168,7 +168,7 @@ namespace sky {
             mesh->SetMaterial(material, i);
         }
 
-        uint32_t num = 1;
+        uint32_t num = 100;
         for (uint32_t i = 0; i < num; ++i) {
             for (uint32_t j = 0; j < num; ++j) {
                 auto staticMesh = smFeature->Create();

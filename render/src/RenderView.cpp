@@ -32,6 +32,7 @@ namespace sky {
     const ViewInfo& RenderView::GetViewInfo() const
     {
         return viewInfo;
+
     }
 
     void RenderView::SetViewTag(uint32_t tag)

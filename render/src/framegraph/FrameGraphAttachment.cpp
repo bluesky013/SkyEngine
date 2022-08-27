@@ -36,7 +36,7 @@ namespace sky {
         return *this;
     }
 
-    void FrameGraphBufferAttachment::Execute(drv::CommandBufferPtr commandBuffer)
+    void FrameGraphBufferAttachment::Execute(const drv::CommandBufferPtr &commandBuffer)
     {
         
     }

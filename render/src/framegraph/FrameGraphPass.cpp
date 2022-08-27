@@ -117,9 +117,10 @@ namespace sky {
         passInfo.frameBuffer = device->CreateDeviceObject<drv::FrameBuffer>(fbDesc);
         passInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         passInfo.clearValues = clearValues.data();
+        passInfo.contents = VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS;
     }
 
-    void FrameGraphGraphicPass::Execute(drv::CommandBufferPtr commandBuffer)
+    void FrameGraphGraphicPass::Execute(const drv::CommandBufferPtr &commandBuffer)
     {
         auto drvEncoder = commandBuffer->EncodeGraphics();
         drvEncoder.BeginPass(passInfo);

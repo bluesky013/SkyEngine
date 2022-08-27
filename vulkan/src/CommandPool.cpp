@@ -41,7 +41,7 @@ namespace sky::drv {
         VkCommandBufferAllocateInfo cbInfo = {};
         cbInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         cbInfo.commandPool = pool;
-        cbInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cbInfo.level = des.level;
         cbInfo.commandBufferCount = 1;
 
         VkCommandBuffer buffer = VK_NULL_HANDLE;

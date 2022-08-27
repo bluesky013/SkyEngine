@@ -33,7 +33,7 @@ namespace sky {
         FrameGraphImageAttachment(const std::string& str) : FrameGraphAttachment(str) {}
         ~FrameGraphImageAttachment() = default;
 
-        void Execute(drv::CommandBufferPtr commandBuffer) override {}
+        void Execute(const drv::CommandBufferPtr &commandBuffer) override {}
 
         void Compile();
 
@@ -69,7 +69,7 @@ namespace sky {
         FrameGraphBufferAttachment(const std::string& str) : FrameGraphAttachment(str) {}
         ~FrameGraphBufferAttachment() = default;
 
-        void Execute(drv::CommandBufferPtr commandBuffer) override;
+        void Execute(const drv::CommandBufferPtr &commandBuffer) override;
 
         void Compile();
 

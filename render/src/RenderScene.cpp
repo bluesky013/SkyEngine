@@ -49,7 +49,7 @@ namespace sky {
 
     void RenderScene::OnPostRender()
     {
-        queryPool->ReadResults(1);
+//        queryPool->ReadResults(1);
     }
 
     void RenderScene::ViewportChange(RenderViewport& viewport)
