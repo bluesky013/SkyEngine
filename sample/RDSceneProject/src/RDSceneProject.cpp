@@ -67,7 +67,7 @@ namespace sky {
         RenderCamera* camera = nullptr;
     };
 
-    static const char* BUFFER_PATH = "data\\models\\DamagedHelmet_buffer.bin";
+    static const char* BUFFER_PATH = "data\\models\\DamagedHelmet_buffer0.buffer";
 
     void RDSceneProject::Init()
     {
@@ -167,11 +167,19 @@ namespace sky {
         for (uint32_t i = 0; i < mesh->GetSubMeshCount(); ++i) {
             mesh->SetMaterial(material, i);
         }
-        auto staticMesh = smFeature->Create();
-        staticMesh->SetMesh(mesh);
-        auto transform = glm::identity<Matrix4>();
-        transform = glm::rotate(transform, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
-        staticMesh->SetWorldMatrix(transform);
+
+        uint32_t num = 100;
+        for (uint32_t i = 0; i < num; ++i) {
+            for (uint32_t j = 0; j < num; ++j) {
+                auto staticMesh = smFeature->Create();
+                staticMesh->SetMesh(mesh);
+                auto transform = glm::identity<Matrix4>();
+                transform = glm::translate(transform, Vector3(i - num / 2.f, 0.f, j - num / 2.f));
+                transform = glm::rotate(transform, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
+                transform = glm::scale(transform, Vector3(0.2f, 0.2f, 0.2f));
+                staticMesh->SetWorldMatrix(transform);
+            }
+        }
     }
 
     void RDSceneProject::Stop()

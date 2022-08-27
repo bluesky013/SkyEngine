@@ -35,7 +35,7 @@ TEST(RenderTest, RenderBufferPoolTest)
         ASSERT_EQ(ptr[0].b, t.b);
         ASSERT_EQ(ptr[0].c, t.c);
 
-        view->SwapBuffer();
+        view->RequestUpdate();
         ASSERT_EQ(view->GetDynamicOffset(), count * sizeof(TestData));
 
         t.a = 4;
@@ -46,7 +46,7 @@ TEST(RenderTest, RenderBufferPoolTest)
         ASSERT_EQ(ptr[count].b, t.b);
         ASSERT_EQ(ptr[count].c, t.c);
 
-        view->SwapBuffer();
+        view->RequestUpdate();
         ASSERT_EQ(view->GetDynamicOffset(), 0);
 
         t.a = 7;

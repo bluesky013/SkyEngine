@@ -159,6 +159,8 @@ namespace sky {
 
         void SetMaterial(RDMaterialPtr material, uint32_t index);
 
+        static std::shared_ptr<Mesh> CreateFromData(const MeshAssetData& data);
+
     private:
         friend class Builder;
         RDBufferViewPtr indexBuffer;
@@ -171,31 +173,16 @@ namespace sky {
 
     using RDMeshPtr = std::shared_ptr<Mesh>;
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, MeshAssetData& data);
-        void SaveToPath(const std::string& path, const MeshAssetData& data);
-        RDMeshPtr CreateFromData(const MeshAssetData& data);
-    }
-
     template <>
     struct AssetTraits <Mesh> {
         using DataType = MeshAssetData;
-
-        static void LoadFromPath(const std::string& path, DataType& data)
-        {
-            impl::LoadFromPath(path, data);
-        }
+        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("394AB7FF-FC10-484F-82A6-42D523949DD1");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
 
         static RDMeshPtr CreateFromData(const DataType& data)
         {
-            return impl::CreateFromData(data);
-        }
-
-        static void SaveToPath(const std::string& path, const DataType& data)
-        {
-            impl::SaveToPath(path, data);
+            return Mesh::CreateFromData(data);
         }
     };
-
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
 }

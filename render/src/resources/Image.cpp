@@ -85,32 +85,9 @@ namespace sky {
         cmd->Wait();
     }
 
-    std::shared_ptr<Image> Image::LoadFromFile(const std::string& path)
+    RDImagePtr Image::CreateFromData(const ImageAssetData& data)
     {
-        int x = 0;
-        int y = 0;
-        int channel = 0;
-        auto data = stbi_load(path.c_str(), &x, &y, &channel, 0);
-
-        Image::Descriptor desc = {};
-        if (channel == 4) {
-            desc.format = VK_FORMAT_R8G8B8A8_UNORM;
-        } else if (channel == 3) {
-            desc.format = VK_FORMAT_R8G8B8_UNORM;
-        } else {
-            return {};
-        }
-        desc.extent.width = static_cast<uint32_t>(x);
-        desc.extent.height = static_cast<uint32_t>(y);
-        desc.mipLevels = 1;
-
-        auto result = std::make_shared<Image>(desc);
-        result->InitRHI();
-        result->Update(data, x * y * channel);
-
-        stbi_image_free(data);
-
-        return result;
+        return {};
     }
 
     RDImagePtr CreateImage2D()
@@ -130,33 +107,4 @@ namespace sky {
 
         return image;
     }
-
-    namespace impl {
-        void LoadFromPath(const std::string& path, ImageAssetData& data)
-        {
-            auto realPath = AssetManager::Get()->GetRealPath(path);
-            std::ifstream file(realPath,  std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::BinaryInputArchive archive(file);
-            archive >> data;
-        }
-
-        void SaveToPath(const std::string& path, const ImageAssetData& data)
-        {
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::BinaryOutputArchive binOutput(file);
-            binOutput << data;
-        }
-
-        RDImagePtr CreateFromData(const ImageAssetData& data)
-        {
-            return {};
-        }
     }
-
-}

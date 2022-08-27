@@ -29,7 +29,7 @@ namespace sky {
 
         void Compile() override {}
 
-        void Execute(drv::CommandBufferPtr commandBuffer) override {}
+        void Execute(const drv::CommandBufferPtr &commandBuffer) override {}
 
         void UseImageAttachment(FrameGraphImageAttachment* attachment) override {}
     };
@@ -43,7 +43,7 @@ namespace sky {
 
         void Compile() override;
 
-        void Execute(drv::CommandBufferPtr commandBuffer) override;
+        void Execute(const drv::CommandBufferPtr &commandBuffer) override;
 
         void SetEncoder(RenderEncoder* encoder);
 

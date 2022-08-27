@@ -124,44 +124,6 @@ namespace sky {
         subMeshes[index].material = material;
     }
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, MeshAssetData& data)
-        {
-            auto realPath = AssetManager::Get()->GetRealPath(path);
-            std::ifstream file(realPath,  std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::JSONInputArchive archive(file);
-            archive >> data;
-        }
-
-        void SaveToPath(const std::string& path, const MeshAssetData& data)
-        {
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::JSONOutputArchive binOutput(file);
-            binOutput << data;
-        }
-
-        RDMeshPtr CreateFromData(const MeshAssetData& data)
-        {
-            RDMeshPtr mesh = std::make_shared<Mesh>();
-            Mesh::Builder builder(*mesh);
-            builder.SetVertexDesc(data.vertexDescriptions);
-            builder.SetIndexBuffer(data.indexBuffer.CreateBufferView(), data.indexType);
-            for (auto& vb : data.vertexBuffers) {
-                builder.AddVertexBuffer(vb.CreateBufferView());
-            }
-            for (auto& subMesh : data.subMeshes) {
-                builder.AddSubMesh(subMesh.ToSubMesh());
-            }
-            return mesh;
-        }
-    }
-
     SubMesh SubMeshAsset::ToSubMesh() const
     {
         return SubMesh{ drawData, aabb, nullptr };
@@ -175,5 +137,21 @@ namespace sky {
     RDBufferViewPtr BufferAssetView::CreateBufferView() const
     {
         return std::make_shared<BufferView>(buffer->CreateInstance(), size, offset, stride);
+    }
+
+
+    RDMeshPtr Mesh::CreateFromData(const MeshAssetData& data)
+    {
+        RDMeshPtr mesh = std::make_shared<Mesh>();
+        Mesh::Builder builder(*mesh);
+        builder.SetVertexDesc(data.vertexDescriptions);
+        builder.SetIndexBuffer(data.indexBuffer.CreateBufferView(), data.indexType);
+        for (auto& vb : data.vertexBuffers) {
+            builder.AddVertexBuffer(vb.CreateBufferView());
+        }
+        for (auto& subMesh : data.subMeshes) {
+            builder.AddSubMesh(subMesh.ToSubMesh());
+        }
+        return mesh;
     }
 }

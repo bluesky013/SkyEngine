@@ -13,10 +13,9 @@
 
 namespace sky {
 
-    struct PrefabNode {
+    struct PrefabAssetNode {
         Matrix4 transform;
         uint32_t parentIndex = ~(0u);
-        uint32_t meshIndex = ~(0u);
 
         template<class Archive>
         void serialize(Archive &ar)
@@ -26,7 +25,7 @@ namespace sky {
     };
 
     struct PrefabData {
-        std::vector<PrefabNode> nodes;
+        std::vector<PrefabAssetNode> nodes;
         std::unordered_map<Uuid, std::string> assetPathMap;
 
         template<class Archive>
@@ -43,29 +42,11 @@ namespace sky {
     };
     using PrefabPtr = std::shared_ptr<Prefab>;
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, PrefabData& data);
-        void SaveToPath(const std::string& path, const PrefabData& data);
-        PrefabPtr CreateFromData(const PrefabData& data);
-    }
 
     template <>
     struct AssetTraits <Prefab> {
         using DataType = PrefabData;
-
-        static void LoadFromPath(const std::string& path, DataType& data)
-        {
-            impl::LoadFromPath(path, data);
-        }
-
-        static PrefabPtr CreateFromData(const DataType& data)
-        {
-            return impl::CreateFromData(data);
-        }
-
-        static void SaveToPath(const std::string& path, const DataType& data)
-        {
-            impl::SaveToPath(path, data);
-        }
+        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("B3F0BC22-EAF6-47BA-9A8F-3D5F11D06777");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
     };
 }

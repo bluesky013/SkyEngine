@@ -21,4 +21,20 @@ namespace sky::drv {
         return pool->Allocate(des);
     }
 
+    CommandBufferPtr Queue::AllocateTlsCommandBuffer(const CommandBuffer::Descriptor& des)
+    {
+        auto& tlsPool = GetOrCreatePool();
+        return tlsPool->Allocate(des);
+    }
+
+    const CommandPoolPtr &Queue::GetOrCreatePool()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto& pool = tlsPools[std::this_thread::get_id()];
+        if (!pool) {
+            pool = device.CreateDeviceObject<CommandPool>({});
+        }
+        return pool;
+    }
+
 }

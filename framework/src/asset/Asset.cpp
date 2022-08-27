@@ -1,8 +1,9 @@
 //
-// Created by yjrj on 2022/8/8.
+// Created by Zach on 2022/8/8.
 //
 
 #include <framework/asset/Asset.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -19,6 +20,11 @@ namespace sky {
     AssetBase::Status AssetBase::GetStatus() const
     {
         return status;
+    }
+
+    std::string AssetHandlerBase::GetRealPath(const std::string& path)
+    {
+        return AssetManager::Get()->GetRealPath(path);
     }
 
 }

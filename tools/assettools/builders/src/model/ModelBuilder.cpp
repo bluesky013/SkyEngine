@@ -9,6 +9,7 @@
 #include <assimp/GltfMaterial.h>
 #include <render/resources/Mesh.h>
 #include <render/resources/Prefab.h>
+#include <framework/asset/AssetManager.h>
 #include <core/math/Vector.h>
 #include <core/math/Matrix.h>
 #include <core/logger/Logger.h>
@@ -29,7 +30,7 @@ namespace sky {
     namespace builder {
 
         struct Scene {
-            std::vector<PrefabNode> nodes;
+            std::vector<PrefabAssetNode> nodes;
             MeshRawData rawData;
             std::vector<uint32_t> indices;
             BufferAssetPtr buffer;
@@ -54,7 +55,7 @@ namespace sky {
         auto relativePath = std::filesystem::relative(outPath, projectPath).make_preferred().string();
         auto uuid = Uuid::CreateWithSeed(Fnv1a32(relativePath.data()));
         asset->SetUuid(uuid);
-        asset->SaveToPath(outPath.string());
+        AssetManager::Get()->SaveAsset(asset, outPath.string());
         prefab.assetPathMap[uuid] = relativePath;
     }
 
@@ -354,14 +355,14 @@ namespace sky {
     static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, builder::Scene& outScene)
     {
         auto index = static_cast<uint32_t>(outScene.nodes.size());
-        outScene.nodes.emplace_back(PrefabNode{});
+        outScene.nodes.emplace_back(PrefabAssetNode{});
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
 
         current.transform = FromAssimp(node->mTransformation);
 
         if (node->mNumMeshes != 0) {
-            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
+//            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
             MeshAssetPtr meshAsset = std::make_shared<Asset<Mesh>>();
             outScene.meshes.emplace_back(meshAsset);
             ProcessMesh(node, scene, meshAsset, outScene);
@@ -426,6 +427,7 @@ namespace sky {
         CopyData(ptr, offset, builderScene.rawData.colors, builderScene, MeshAttributeType::COLOR);
         CopyData(ptr, offset, builderScene.rawData.uvs, builderScene, MeshAttributeType::UV0);
         CopyData(ptr, offset, builderScene.indices, builderScene, MeshAttributeType::NUM);
+        builderScene.buffer->SetData(std::move(bufferData));
 
         std::filesystem::path dataPath(projectPath);
         dataPath.append("data").append("models");
@@ -434,7 +436,17 @@ namespace sky {
         }
         std::string fileWithoutExt = builderScene.filePath.filename().replace_extension().string();
         PrefabData outData = ToPrefab(projectPath, dataPath.string(), fileWithoutExt, builderScene);
-        AssetTraits<Prefab>::SaveToPath(dataPath.append(fileWithoutExt + ".prefab").string(), outData);
+        auto prefabAsset = std::make_shared<Asset<Prefab>>();
+        prefabAsset->SetData(std::move(outData));
+        AssetManager::Get()->SaveAsset(prefabAsset, dataPath.append(fileWithoutExt + ".prefab").string());
+    }
+
+    ModelBuilder::ModelBuilder()
+    {
+        AssetManager::Get()->RegisterAssetHandler<Mesh>();
+        AssetManager::Get()->RegisterAssetHandler<Buffer>();
+        AssetManager::Get()->RegisterAssetHandler<Image>();
+        AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }
 
 }

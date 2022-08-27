@@ -18,6 +18,8 @@ namespace sky::drv {
 
     class Device;
     class Queue;
+    class CommandBuffer;
+    class SecondaryCommands;
 
     struct PassBeginInfo {
         drv::FrameBufferPtr frameBuffer;
@@ -25,11 +27,12 @@ namespace sky::drv {
         uint32_t clearValueCount = 0;
         VkClearValue* clearValues = nullptr;
         VkRect2D* renderArea = nullptr;
+        VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE;
     };
 
     class GraphicsEncoder {
     public:
-        GraphicsEncoder();
+        GraphicsEncoder(CommandBuffer&);
         ~GraphicsEncoder() = default;
 
         void Encode(const DrawItem& item);
@@ -54,10 +57,24 @@ namespace sky::drv {
 
         void EndPass();
 
+        const VkRenderPassBeginInfo &GetCurrentPass() const;
+
+        uint32_t GetSubPassId() const;
+
+        const VkViewport &GetCurrentViewport() const;
+
+        const VkRect2D &GetCurrentScissor() const;
+
+        CommandBuffer& GetCommandBuffer();
+
     private:
         friend class CommandBuffer;
-        VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+        CommandBuffer &cmdBuffer;
+        VkCommandBuffer cmd = VK_NULL_HANDLE;
         VkRenderPassBeginInfo vkBeginInfo = {};
+        uint32_t currentSubPassId = 0;
+        VkViewport viewport{};
+        VkRect2D scissor{};
     };
 
     class CommandBuffer : public DevObject {
@@ -72,6 +89,8 @@ namespace sky::drv {
         void Wait(uint64_t timeout = UINT64_MAX);
 
         void Begin();
+
+        void Begin(const VkCommandBufferInheritanceInfo& inheritanceInfo);
 
         template <typename Func>
         void Encode(Func&& fun)
@@ -105,6 +124,8 @@ namespace sky::drv {
 
         void Submit(Queue& queue, const SubmitInfo& submit);
 
+        void ExecuteSecondary(const SecondaryCommands&);
+
         GraphicsEncoder EncodeGraphics();
 
         VkCommandBuffer GetNativeHandle() const;
@@ -121,5 +142,20 @@ namespace sky::drv {
     };
 
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
+
+    class SecondaryCommands {
+    public:
+        SecondaryCommands() = default;
+        ~SecondaryCommands() = default;
+
+        void Emplace(const CommandBufferPtr &cmd);
+
+        void OnExecute(VkCommandBuffer main) const;
+
+    private:
+        mutable std::mutex mutex;
+        std::list<CommandBufferPtr> cmdBuffers;
+        std::vector<VkCommandBuffer> cmdHandlers;
+    };
 
 }

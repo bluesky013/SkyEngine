@@ -51,7 +51,7 @@ namespace sky {
 
         void Update(const uint8_t* ptr, uint64_t size);
 
-        static std::shared_ptr<Image> LoadFromFile(const std::string& path);
+        static std::shared_ptr<Image> CreateFromData(const ImageAssetData& data);
 
     private:
         Descriptor descriptor;
@@ -76,31 +76,16 @@ namespace sky {
         }
     };
 
-    namespace impl {
-        void LoadFromPath(const std::string& path, ImageAssetData& data);
-        void SaveToPath(const std::string& path, const ImageAssetData& data);
-        RDImagePtr CreateFromData(const ImageAssetData& data);
-    }
-
     template <>
     struct AssetTraits <Image> {
         using DataType = ImageAssetData;
-
-        static void LoadFromPath(const std::string& path, DataType& data)
-        {
-            impl::LoadFromPath(path, data);
-        }
+        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static RDImagePtr CreateFromData(const DataType& data)
         {
-            return impl::CreateFromData(data);
-        }
-
-        static void SaveToPath(const std::string& path, const DataType& data)
-        {
-            impl::SaveToPath(path, data);
+            return Image::CreateFromData(data);
         }
     };
-
     using ImageAssetPtr = std::shared_ptr<Asset<Image>>;
 }

@@ -58,6 +58,15 @@ namespace sky::drv {
         vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
+    void CommandBuffer::Begin(const VkCommandBufferInheritanceInfo& inheritanceInfo)
+    {
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
+        vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+    }
+
     void CommandBuffer::BeginQuery(const QueryPoolPtr &pool, uint32_t queryId)
     {
         vkCmdBeginQuery(cmdBuffer, pool->GetNativeHandle(), queryId, 0);
@@ -76,6 +85,11 @@ namespace sky::drv {
     void CommandBuffer::End()
     {
         vkEndCommandBuffer(cmdBuffer);
+    }
+
+    void CommandBuffer::ExecuteSecondary(const SecondaryCommands& buffers)
+    {
+        buffers.OnExecute(cmdBuffer);
     }
 
     void CommandBuffer::Submit(Queue& queue, const SubmitInfo& submit)
@@ -119,9 +133,7 @@ namespace sky::drv {
 
     GraphicsEncoder CommandBuffer::EncodeGraphics()
     {
-        GraphicsEncoder encoder;
-        encoder.cmdBuffer = cmdBuffer;
-        return encoder;
+        return GraphicsEncoder(*this);
     }
 
     void CommandBuffer::Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy)
@@ -179,8 +191,9 @@ namespace sky::drv {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
-    GraphicsEncoder::GraphicsEncoder()
+    GraphicsEncoder::GraphicsEncoder(CommandBuffer& cb) : cmdBuffer{cb}
     {
+        cmd = cmdBuffer.GetNativeHandle();
         vkBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         vkBeginInfo.pNext = nullptr;
         vkBeginInfo.renderPass = VK_NULL_HANDLE;
@@ -207,18 +220,40 @@ namespace sky::drv {
         vkBeginInfo.clearValueCount = beginInfo.clearValueCount;
         vkBeginInfo.pClearValues = beginInfo.clearValues;
 
-        vkCmdBeginRenderPass(cmdBuffer, &vkBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(cmd, &vkBeginInfo, beginInfo.contents);
 
-        VkViewport viewport = {0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.f, 1.f};
-        VkRect2D scissor = {{0, 0}, extent};
-
-        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+        viewport = {0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.f, 1.f};
+        scissor = {{0, 0}, extent};
     }
 
     void GraphicsEncoder::EndPass()
     {
-        vkCmdEndRenderPass(cmdBuffer);
+        vkCmdEndRenderPass(cmd);
+    }
+
+    const VkRenderPassBeginInfo &GraphicsEncoder::GetCurrentPass() const
+    {
+        return vkBeginInfo;
+    }
+
+    uint32_t GraphicsEncoder::GetSubPassId() const
+    {
+        return currentSubPassId;
+    }
+
+    const VkViewport &GraphicsEncoder::GetCurrentViewport() const
+    {
+        return viewport;
+    }
+
+    const VkRect2D &GraphicsEncoder::GetCurrentScissor() const
+    {
+        return scissor;
+    }
+
+    CommandBuffer& GraphicsEncoder::GetCommandBuffer()
+    {
+        return cmdBuffer;
     }
 
     void GraphicsEncoder::Encode(const DrawItem& item)
@@ -226,30 +261,30 @@ namespace sky::drv {
         if (!item.pso) {
             return;
         }
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetNativeHandle());
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetNativeHandle());
         if (item.viewport != nullptr && item.viewportCount != 0) {
-            vkCmdSetViewport(cmdBuffer, 0, item.viewportCount, item.viewport);
+            vkCmdSetViewport(cmd, 0, item.viewportCount, item.viewport);
         }
 
         if (item.scissor != nullptr && item.scissor != nullptr) {
-            vkCmdSetScissor(cmdBuffer, 0, item.scissorCount, item.scissor);
+            vkCmdSetScissor(cmd, 0, item.scissorCount, item.scissor);
         }
 
         if (item.shaderResources) {
-            item.shaderResources->OnBind(cmdBuffer);
+            item.shaderResources->OnBind(cmd);
         }
 
         if (item.vertexAssembly) {
-            item.vertexAssembly->OnBind(cmdBuffer);
+            item.vertexAssembly->OnBind(cmd);
         }
 
         if (item.pushConstants) {
-            item.pushConstants->OnBind(cmdBuffer);
+            item.pushConstants->OnBind(cmd);
         }
 
         switch (item.drawArgs.type) {
             case CmdDrawType::INDEXED:
-                vkCmdDrawIndexed(cmdBuffer,
+                vkCmdDrawIndexed(cmd,
                                  item.drawArgs.indexed.indexCount,
                                  item.drawArgs.indexed.instanceCount,
                                  item.drawArgs.indexed.firstIndex,
@@ -257,7 +292,7 @@ namespace sky::drv {
                                  item.drawArgs.indexed.firstInstance);
                 break;
             case CmdDrawType::LINEAR:
-                vkCmdDraw(cmdBuffer,
+                vkCmdDraw(cmd,
                           item.drawArgs.linear.vertexCount,
                           item.drawArgs.linear.instanceCount,
                           item.drawArgs.linear.firstVertex,
@@ -268,41 +303,53 @@ namespace sky::drv {
 
     void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
     {
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pso->GetNativeHandle());
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pso->GetNativeHandle());
     }
 
     void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
     {
-        binder->OnBind(cmdBuffer);
+        binder->OnBind(cmd);
     }
 
     void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembly)
     {
-        assembly->OnBind(cmdBuffer);
+        assembly->OnBind(cmd);
     }
 
     void GraphicsEncoder::PushConstant(const PushConstantsPtr &constants)
     {
-        constants->OnBind(cmdBuffer);
+        constants->OnBind(cmd);
     }
 
     void GraphicsEncoder::SetViewport(uint32_t count, const VkViewport *viewport)
     {
-        vkCmdSetViewport(cmdBuffer, 0, count, viewport);
+        vkCmdSetViewport(cmd, 0, count, viewport);
     }
 
     void GraphicsEncoder::SetScissor(uint32_t count, const VkRect2D *scissor)
     {
-        vkCmdSetScissor(cmdBuffer, 0, count, scissor);
+        vkCmdSetScissor(cmd, 0, count, scissor);
     }
 
     void GraphicsEncoder::DrawIndexed(const CmdDrawIndexed &indexed)
     {
-        vkCmdDrawIndexed(cmdBuffer, indexed.indexCount, indexed.instanceCount, indexed.firstIndex, indexed.vertexOffset, indexed.firstInstance);
+        vkCmdDrawIndexed(cmd, indexed.indexCount, indexed.instanceCount, indexed.firstIndex, indexed.vertexOffset, indexed.firstInstance);
     }
 
     void GraphicsEncoder::DrawLinear(const CmdDrawLinear &linear)
     {
-        vkCmdDraw(cmdBuffer, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
+        vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
+    }
+
+    void SecondaryCommands::Emplace(const CommandBufferPtr &cmd)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        cmdBuffers.emplace_back(cmd);
+        cmdHandlers.emplace_back(cmd->GetNativeHandle());
+    }
+
+    void SecondaryCommands::OnExecute(VkCommandBuffer main) const
+    {
+        vkCmdExecuteCommands(main, static_cast<uint32_t>(cmdHandlers.size()), cmdHandlers.data());
     }
 }

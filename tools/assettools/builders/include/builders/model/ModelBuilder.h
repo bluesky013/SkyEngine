@@ -10,7 +10,7 @@ namespace sky {
 
     class ModelBuilder : public BuilderBase {
     public:
-        ModelBuilder() = default;
+        ModelBuilder();
         virtual ~ModelBuilder() = default;
 
         virtual const std::vector<std::string>& GetExtensions() const override;
