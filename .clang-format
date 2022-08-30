@@ -1,0 +1,40 @@
+---
+ObjCBlockIndentWidth:                            4
+ObjCSpaceAfterProperty:                          true
+ObjCBinPackProtocolList:                         Auto
+
+---
+Language:                                        Cpp
+
+AccessModifierOffset:                            -4
+NamespaceIndentation:                            All
+AlignConsecutiveMacros:                          true
+AlignConsecutiveAssignments:                     true
+AlignConsecutiveDeclarations:                    true
+AllowShortCaseLabelsOnASingleLine:               true
+ColumnLimit:                                     150
+ConstructorInitializerIndentWidth:               0
+IncludeBlocks:                                   Preserve
+IndentPPDirectives:                              BeforeHash
+IndentWidth:                                     4
+SpacesBeforeTrailingComments:                    1
+ConstructorInitializerAllOnOneLineOrOnePerLine:  true
+DerivePointerAlignment:                          false
+PointerAlignment:                                Right
+AllowShortFunctionsOnASingleLine:                false
+BreakConstructorInitializers:                    BeforeComma
+BinPackParameters:                               false
+
+BreakBeforeBraces:                               Custom
+BraceWrapping:
+    AfterClass:	                                 false
+    AfterControlStatement:	                     false
+    AfterEnum:	                                 false
+    AfterFunction:	                             true
+    AfterNamespace:	                             false
+    AfterObjCDeclaration:	                     false
+    AfterStruct:	                             false
+    AfterUnion:	                                 false
+    BeforeCatch:	                             true
+    BeforeElse:	                                 false
+    IndentBraces:	                             false
