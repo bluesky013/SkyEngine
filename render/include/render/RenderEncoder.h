@@ -18,6 +18,8 @@ namespace sky {
         virtual ~RenderEncoder() = default;
 
         virtual void Encode(drv::GraphicsEncoder& encoder) {}
+
+        virtual bool MultiThreadEncode() const { return false; }
     };
 
     class DrawCallProducer {
@@ -65,6 +67,8 @@ namespace sky {
 
         void Emplace(const drv::DrawItem& item);
 
+        bool MultiThreadEncode() const override;
+
         template <typename T>
         void EmplaceLambda(T&& func)
         {
@@ -81,5 +85,4 @@ namespace sky {
         uint32_t drawTag {0};
         std::vector<ProducerPtr> producers;
     };
-
 }
