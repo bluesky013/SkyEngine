@@ -2,11 +2,10 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-
-#include <engine/world/GameObject.h>
-#include <engine/world/World.h>
 #include <engine/world/Component.h>
+#include <engine/world/GameObject.h>
 #include <engine/world/TransformComponent.h>
+#include <engine/world/World.h>
 
 namespace sky {
 
@@ -23,33 +22,32 @@ namespace sky {
         return objId;
     }
 
-    const std::string& GameObject::GetName() const
+    const std::string &GameObject::GetName() const
     {
         return name;
     }
 
-    World* GameObject::GetWorld() const
+    World *GameObject::GetWorld() const
     {
         return world;
     }
 
-    void GameObject::SetParent(GameObject* gameObject)
+    void GameObject::SetParent(GameObject *gameObject)
     {
-        auto trans = GetComponent<TransformComponent>();
-        auto parent = gameObject == nullptr ? world->GetRoot()->GetComponent<TransformComponent>()
-            : gameObject->GetComponent<TransformComponent>();
+        auto trans  = GetComponent<TransformComponent>();
+        auto parent = gameObject == nullptr ? world->GetRoot()->GetComponent<TransformComponent>() : gameObject->GetComponent<TransformComponent>();
         trans->SetParent(parent);
     }
 
     void GameObject::Tick(float time)
     {
-        for (auto& comp : components) {
+        for (auto &comp : components) {
             comp->OnTick(time);
         }
     }
 
-    GameObject::ComponentList& GameObject::GetComponents()
+    GameObject::ComponentList &GameObject::GetComponents()
     {
         return components;
     }
-}
+} // namespace sky

@@ -11,4 +11,4 @@ namespace sky {
         shapes.clear();
     }
 
-}
+} // namespace sky

@@ -4,23 +4,22 @@
 
 #pragma once
 
-#include <render/resources/GlobalResource.h>
-#include <render/resources/RenderResource.h>
 #include <framework/asset/Asset.h>
 #include <framework/serialization/BasicSerialization.h>
-#include <vulkan/Image.h>
+#include <render/resources/GlobalResource.h>
+#include <render/resources/RenderResource.h>
 #include <vector>
+#include <vulkan/Image.h>
 
 namespace sky {
 
     struct ImageAssetData {
-        uint32_t width  = 0;
-        uint32_t height = 0;
-        VkFormat format = VK_FORMAT_UNDEFINED;
+        uint32_t             width  = 0;
+        uint32_t             height = 0;
+        VkFormat             format = VK_FORMAT_UNDEFINED;
         std::vector<uint8_t> data;
 
-        template<class Archive>
-        void serialize(Archive &ar)
+        template <class Archive> void serialize(Archive &ar)
         {
             ar(width, height, format, data);
         }
@@ -29,13 +28,13 @@ namespace sky {
     class Image : public RenderResource {
     public:
         struct Descriptor {
-            VkFormat   format     = VK_FORMAT_UNDEFINED;
-            VkExtent2D extent     = {1, 1};
-            uint32_t   mipLevels  = 1;
-            uint32_t   layers     = 1;
+            VkFormat   format    = VK_FORMAT_UNDEFINED;
+            VkExtent2D extent    = {1, 1};
+            uint32_t   mipLevels = 1;
+            uint32_t   layers    = 1;
         };
 
-        Image(const Descriptor& desc) : descriptor(desc)
+        Image(const Descriptor &desc) : descriptor(desc)
         {
         }
 
@@ -49,43 +48,37 @@ namespace sky {
 
         drv::ImagePtr GetRHIImage() const;
 
-        void Update(const uint8_t* ptr, uint64_t size);
+        void Update(const uint8_t *ptr, uint64_t size);
 
-        static std::shared_ptr<Image> CreateFromData(const ImageAssetData& data);
+        static std::shared_ptr<Image> CreateFromData(const ImageAssetData &data);
 
     private:
-        Descriptor descriptor;
+        Descriptor    descriptor;
         drv::ImagePtr rhiImage;
     };
     using RDImagePtr = std::shared_ptr<Image>;
 
-    enum class GlobalImageType {
-        IMAGE_2D,
-        IMAGE_CUBE_MAP
-    };
+    enum class GlobalImageType { IMAGE_2D, IMAGE_CUBE_MAP };
 
     RDImagePtr CreateImage2D();
 
-    template <>
-    struct GlobalResourceTraits<Image>
-    {
+    template <> struct GlobalResourceTraits<Image> {
         using KeyType = GlobalImageType;
-        static RDImagePtr Create(const GlobalImageType& value)
+        static RDImagePtr Create(const GlobalImageType &value)
         {
             return CreateImage2D();
         }
     };
 
-    template <>
-    struct AssetTraits <Image> {
-        using DataType = ImageAssetData;
-        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
+    template <> struct AssetTraits<Image> {
+        using DataType                                = ImageAssetData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
-        static RDImagePtr CreateFromData(const DataType& data)
+        static RDImagePtr CreateFromData(const DataType &data)
         {
             return Image::CreateFromData(data);
         }
     };
     using ImageAssetPtr = std::shared_ptr<Asset<Image>>;
-}
+} // namespace sky

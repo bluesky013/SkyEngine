@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <unordered_map>
 #include <core/environment/Singleton.h>
 #include <render/resources/DescriptorPool.h>
+#include <unordered_map>
 
 namespace sky {
 
@@ -16,9 +16,9 @@ namespace sky {
 
     private:
         friend class Singleton<GlobalDescriptorPool>;
-        GlobalDescriptorPool() = default;
+        GlobalDescriptorPool()  = default;
         ~GlobalDescriptorPool() = default;
-        std::mutex mutex;
+        std::mutex                                        mutex;
         std::unordered_map<uint32_t, RDDescriptorPoolPtr> pools;
     };
-}
+} // namespace sky

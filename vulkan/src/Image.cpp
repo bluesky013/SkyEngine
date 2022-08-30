@@ -3,29 +3,20 @@
 //
 
 #include "vulkan/Image.h"
-#include "vulkan/Device.h"
-#include "vulkan/Basic.h"
-#include "core/logger/Logger.h"
 #include "core/hash/Crc32.h"
+#include "core/logger/Logger.h"
+#include "vulkan/Basic.h"
+#include "vulkan/Device.h"
 
-static const char* TAG = "Driver";
+static const char *TAG = "Driver";
 
 namespace sky::drv {
 
-    Image::Image(Device& dev)
-        : DevObject(dev)
-        , image(VK_NULL_HANDLE)
-        , allocation(VK_NULL_HANDLE)
-        , imageInfo{}
+    Image::Image(Device &dev) : DevObject(dev), image(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE), imageInfo{}
     {
     }
 
-    Image::Image(Device& dev, VkImage img)
-        : DevObject(dev)
-        , image(img)
-        , allocation(VK_NULL_HANDLE)
-        , imageInfo{}
-        , isOwn(false)
+    Image::Image(Device &dev, VkImage img) : DevObject(dev), image(img), allocation(VK_NULL_HANDLE), imageInfo{}, isOwn(false)
     {
     }
 
@@ -34,7 +25,7 @@ namespace sky::drv {
         Reset();
     }
 
-    bool Image::Init(const Descriptor& des)
+    bool Image::Init(const Descriptor &des)
     {
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.mipLevels     = des.mipLevels;
@@ -51,7 +42,7 @@ namespace sky::drv {
         VkResult res;
         if (!des.transient) {
             VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = des.memory;
+            allocInfo.usage                   = des.memory;
 
             res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
         } else {
@@ -73,7 +64,7 @@ namespace sky::drv {
         } else if (image != VK_NULL_HANDLE && isOwn) {
             vkDestroyImage(device.GetNativeHandle(), image, VKL_ALLOC);
         }
-        image = VK_NULL_HANDLE;
+        image      = VK_NULL_HANDLE;
         allocation = VK_NULL_HANDLE;
     }
 
@@ -82,7 +73,7 @@ namespace sky::drv {
         return isTransient;
     }
 
-    const VkImageCreateInfo& Image::GetImageInfo() const
+    const VkImageCreateInfo &Image::GetImageInfo() const
     {
         return imageInfo;
     }
@@ -91,4 +82,4 @@ namespace sky::drv {
     {
         return image;
     }
-}
+} // namespace sky::drv

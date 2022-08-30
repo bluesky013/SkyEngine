@@ -4,24 +4,26 @@
 
 #pragma once
 
-#include <render/RenderFeature.h>
-#include <render/RenderCamera.h>
 #include <core/util/Macros.h>
+#include <render/RenderCamera.h>
+#include <render/RenderFeature.h>
 
 namespace sky {
 
     class CameraFeature : public RenderFeature {
     public:
-        CameraFeature(RenderScene& scn) : RenderFeature(scn) {}
+        CameraFeature(RenderScene &scn) : RenderFeature(scn)
+        {
+        }
         ~CameraFeature() = default;
 
         SKY_DISABLE_COPY(CameraFeature)
 
-        RenderCamera* Create();
+        RenderCamera *Create();
 
-        void OnViewportSizeChange(const RenderViewport& viewport) override;
+        void OnViewportSizeChange(const RenderViewport &viewport) override;
 
-        void Release(RenderCamera* camera);
+        void Release(RenderCamera *camera);
 
         void OnPreparePipeline() override;
 
@@ -29,4 +31,4 @@ namespace sky {
         std::vector<std::unique_ptr<RenderCamera>> cameras;
     };
 
-}
+} // namespace sky

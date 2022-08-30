@@ -3,20 +3,20 @@
 //
 
 #include <core/math/Random.h>
-#include <stdio.h>
 #include <cstdint>
+#include <stdio.h>
 
 #if defined(_WIN32)
-#include <windows.h>
-#include <wincrypt.h>
+    #include <wincrypt.h>
+    #include <windows.h>
 #endif
 
 namespace sky {
 
-    bool Random::Gen(void* data, uint32_t dataSize)
+    bool Random::Gen(void *data, uint32_t dataSize)
     {
 #if defined(__linux__) || defined(__APPLE__)
-        int res;
+        int   res;
         auto *fp = fopen("/dev/urandom", "rb");
         if (fp == nullptr) {
             return false;
@@ -31,4 +31,4 @@ namespace sky {
         return true;
     }
 
-}
+} // namespace sky

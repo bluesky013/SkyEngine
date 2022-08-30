@@ -3,25 +3,22 @@
 //
 
 #include "MainWindow.h"
-#include <QTimer>
+#include "ActionManager.h"
+#include "CentralWidget.h"
+#include "Constants.h"
 #include <QDockWidget>
-#include <QMenuBar>
 #include <QFileDialog>
-#include <engine/SkyEngine.h>
-#include <engine/world/GameObject.h>
+#include <QMenuBar>
+#include <QTimer>
+#include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/inspector/InspectorWidget.h>
-#include <editor/dockwidget/DockManager.h>
-#include "CentralWidget.h"
-#include "ActionManager.h"
-#include "Constants.h"
+#include <engine/SkyEngine.h>
+#include <engine/world/GameObject.h>
 
 namespace sky::editor {
 
-    MainWindow::MainWindow(QWidget *parent)
-        : QMainWindow(parent)
-        , engine(nullptr)
-        , timer(nullptr)
+    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), engine(nullptr), timer(nullptr)
     {
         Init();
         InitMenu();
@@ -50,15 +47,15 @@ namespace sky::editor {
     void MainWindow::OnTick()
     {
         static auto timePoint = std::chrono::high_resolution_clock::now();
-        auto current = std::chrono::high_resolution_clock::now();
-        auto delta = std::chrono::duration<float>(current - timePoint).count();
-        timePoint = current;
+        auto        current   = std::chrono::high_resolution_clock::now();
+        auto        delta     = std::chrono::duration<float>(current - timePoint).count();
+        timePoint             = current;
         if (engine != nullptr) {
             engine->Tick(delta);
         }
     }
 
-    void MainWindow::OnOpenProject(const QString& path)
+    void MainWindow::OnOpenProject(const QString &path)
     {
         actionManager->Update(1 << PROJECT_OPEN_BIT);
     }
@@ -77,7 +74,7 @@ namespace sky::editor {
             viewports.emplace_back(vp);
         }
 
-        auto dockMgr = DockManager::Get();
+        auto dockMgr     = DockManager::Get();
         auto worldWidget = new WorldWidget(this);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
@@ -99,13 +96,13 @@ namespace sky::editor {
 
         menuBar = new QMenuBar(this);
 
-        ActionWithFlag* openLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "Open Level");
+        ActionWithFlag *openLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "Open Level");
 
-        ActionWithFlag* closeLevelAct = new ActionWithFlag(1 << LEVEL_OPEN_BIT, "Close Level");
+        ActionWithFlag *closeLevelAct = new ActionWithFlag(1 << LEVEL_OPEN_BIT, "Close Level");
 
-        ActionWithFlag* newLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "New Level");
+        ActionWithFlag *newLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "New Level");
 
-        ActionWithFlag* openProjectAct = new ActionWithFlag(0, "Open Project", this);
+        ActionWithFlag *openProjectAct = new ActionWithFlag(0, "Open Project", this);
         connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
             QFileDialog dialog(this);
             dialog.setFileMode(QFileDialog::AnyFile);
@@ -120,10 +117,8 @@ namespace sky::editor {
             }
         });
 
-        ActionWithFlag* closeAct = new ActionWithFlag(0, "Close", this);
-        connect(closeAct, &QAction::triggered, this, [this](bool /**/) {
-            close();
-        });
+        ActionWithFlag *closeAct = new ActionWithFlag(0, "Close", this);
+        connect(closeAct, &QAction::triggered, this, [this](bool /**/) { close(); });
 
         auto fileMenu = new QMenu("File", menuBar);
         fileMenu->addAction(openProjectAct);
@@ -137,7 +132,6 @@ namespace sky::editor {
 
         setMenuBar(menuBar);
 
-
         actionManager->AddAction(openLevelAct);
         actionManager->AddAction(closeLevelAct);
         actionManager->AddAction(newLevelAct);
@@ -145,4 +139,4 @@ namespace sky::editor {
         actionManager->AddAction(closeAct);
         actionManager->Update(0);
     }
-}
+} // namespace sky::editor

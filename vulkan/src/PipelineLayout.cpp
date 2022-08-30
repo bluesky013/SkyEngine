@@ -2,19 +2,15 @@
 // Created by Zach Lee on 2022/1/9.
 //
 
-#include <vulkan/PipelineLayout.h>
-#include <vulkan/PushConstants.h>
-#include <vulkan/Device.h>
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
+#include <vulkan/Device.h>
+#include <vulkan/PipelineLayout.h>
+#include <vulkan/PushConstants.h>
 
 namespace sky::drv {
 
-    PipelineLayout::PipelineLayout(Device& dev)
-        : DevObject(dev)
-        , layout(VK_NULL_HANDLE)
-        , dynamicNum(0)
-        , hash(0)
+    PipelineLayout::PipelineLayout(Device &dev) : DevObject(dev), layout(VK_NULL_HANDLE), dynamicNum(0), hash(0)
     {
     }
 
@@ -22,7 +18,7 @@ namespace sky::drv {
     {
     }
 
-    bool PipelineLayout::Init(const Descriptor& des)
+    bool PipelineLayout::Init(const Descriptor &des)
     {
         desLayouts.resize(des.desLayouts.size());
         pushConstants = des.pushConstants;
@@ -31,20 +27,20 @@ namespace sky::drv {
             auto layout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);
             HashCombine32(hash, layout->GetHash());
             desLayouts[i] = layout;
-            layouts[i] = layout->GetNativeHandle();
+            layouts[i]    = layout->GetNativeHandle();
             dynamicNum += layout->GetDynamicNum();
         }
 
-        for (auto& push : des.pushConstants) {
+        for (auto &push : des.pushConstants) {
             HashCombine32(hash, Crc32::Cal(push));
         }
 
         VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-        pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
-        pipelineLayoutCreateInfo.pSetLayouts = layouts.data();
-        pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(des.pushConstants.size());
-        pipelineLayoutCreateInfo.pPushConstantRanges = des.pushConstants.data();
+        pipelineLayoutCreateInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutCreateInfo.setLayoutCount             = static_cast<uint32_t>(layouts.size());
+        pipelineLayoutCreateInfo.pSetLayouts                = layouts.data();
+        pipelineLayoutCreateInfo.pushConstantRangeCount     = static_cast<uint32_t>(des.pushConstants.size());
+        pipelineLayoutCreateInfo.pPushConstantRanges        = des.pushConstants.data();
 
         layout = device.GetPipelineLayout(hash, &pipelineLayoutCreateInfo);
         if (layout == VK_NULL_HANDLE) {
@@ -81,7 +77,7 @@ namespace sky::drv {
         return desLayouts[slot];
     }
 
-    const std::vector<DescriptorSetLayoutPtr>& PipelineLayout::GetLayouts() const
+    const std::vector<DescriptorSetLayoutPtr> &PipelineLayout::GetLayouts() const
     {
         return desLayouts;
     }
@@ -98,4 +94,4 @@ namespace sky::drv {
         }
         return DescriptorSet::Allocate(pool, desLayouts[slot]);
     }
-}
+} // namespace sky::drv

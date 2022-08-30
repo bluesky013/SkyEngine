@@ -3,16 +3,15 @@
 //
 
 #include "vulkan/CommandBuffer.h"
+#include "core/logger/Logger.h"
 #include "vulkan/Device.h"
 #include "vulkan/Fence.h"
-#include "core/logger/Logger.h"
 
-static const char* TAG = "Driver";
+static const char *TAG = "Driver";
 
 namespace sky::drv {
 
-    CommandBuffer::CommandBuffer(Device& dev, VkCommandPool cp, VkCommandBuffer cb)
-        : DevObject(dev), pool(cp), cmdBuffer(cb), fence()
+    CommandBuffer::CommandBuffer(Device &dev, VkCommandPool cp, VkCommandBuffer cb) : DevObject(dev), pool(cp), cmdBuffer(cb), fence()
     {
     }
 
@@ -25,17 +24,17 @@ namespace sky::drv {
         }
     }
 
-    bool CommandBuffer::Init(const Descriptor& des)
+    bool CommandBuffer::Init(const Descriptor &des)
     {
         if (des.needFence) {
             Fence::Descriptor fenceDes = {};
-            fenceDes.flag = VK_FENCE_CREATE_SIGNALED_BIT;
-            fence = device.CreateDeviceObject<Fence>(fenceDes);
+            fenceDes.flag              = VK_FENCE_CREATE_SIGNALED_BIT;
+            fence                      = device.CreateDeviceObject<Fence>(fenceDes);
             if (!fence) {
                 return false;
             }
         }
-        
+
         return true;
     }
 
@@ -53,17 +52,17 @@ namespace sky::drv {
         }
 
         VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
-    void CommandBuffer::Begin(const VkCommandBufferInheritanceInfo& inheritanceInfo)
+    void CommandBuffer::Begin(const VkCommandBufferInheritanceInfo &inheritanceInfo)
     {
         VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
-        beginInfo.pInheritanceInfo = &inheritanceInfo;
+        beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+        beginInfo.pInheritanceInfo         = &inheritanceInfo;
         vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
@@ -87,41 +86,41 @@ namespace sky::drv {
         vkEndCommandBuffer(cmdBuffer);
     }
 
-    void CommandBuffer::ExecuteSecondary(const SecondaryCommands& buffers)
+    void CommandBuffer::ExecuteSecondary(const SecondaryCommands &buffers)
     {
         buffers.OnExecute(cmdBuffer);
     }
 
-    void CommandBuffer::Submit(Queue& queue, const SubmitInfo& submit)
+    void CommandBuffer::Submit(Queue &queue, const SubmitInfo &submit)
     {
-        auto waitSize = static_cast<uint32_t>(submit.waits.size());
+        auto                              waitSize = static_cast<uint32_t>(submit.waits.size());
         std::vector<VkPipelineStageFlags> waitStages(waitSize);
-        std::vector<VkSemaphore> waitSemaphores(waitSize);
+        std::vector<VkSemaphore>          waitSemaphores(waitSize);
         for (uint32_t i = 0; i < waitSize; ++i) {
-            waitStages[i] = submit.waits[i].first;
+            waitStages[i]     = submit.waits[i].first;
             waitSemaphores[i] = submit.waits[i].second->GetNativeHandle();
         }
 
-        auto signalSize = static_cast<uint32_t>(submit.submitSignals.size());
+        auto                     signalSize = static_cast<uint32_t>(submit.submitSignals.size());
         std::vector<VkSemaphore> signalSemaphores(signalSize);
         for (uint32_t i = 0; i < signalSize; ++i) {
             signalSemaphores[i] = submit.submitSignals[i]->GetNativeHandle();
         }
 
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        VkSubmitInfo submitInfo       = {};
+        submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmdBuffer;
+        submitInfo.pCommandBuffers    = &cmdBuffer;
 
         if (!submit.submitSignals.empty()) {
             submitInfo.signalSemaphoreCount = signalSize;
-            submitInfo.pSignalSemaphores = signalSemaphores.data();
+            submitInfo.pSignalSemaphores    = signalSemaphores.data();
         }
 
         if (!waitStages.empty()) {
             submitInfo.waitSemaphoreCount = waitSize;
-            submitInfo.pWaitDstStageMask = waitStages.data();
-            submitInfo.pWaitSemaphores = waitSemaphores.data();
+            submitInfo.pWaitDstStageMask  = waitStages.data();
+            submitInfo.pWaitSemaphores    = waitSemaphores.data();
         }
         vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence ? fence->GetNativeHandle() : VK_NULL_HANDLE);
     }
@@ -136,94 +135,86 @@ namespace sky::drv {
         return GraphicsEncoder(*this);
     }
 
-    void CommandBuffer::Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy)
+    void CommandBuffer::Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy)
     {
         vkCmdCopyBufferToImage(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
     }
 
-    void CommandBuffer::ImageBarrier(const ImagePtr &image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst)
+    void CommandBuffer::ImageBarrier(
+        const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst)
     {
         VkImageMemoryBarrier imageMemoryBarrier = {};
-        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        imageMemoryBarrier.srcAccessMask = barrier.srcAccessMask;
-        imageMemoryBarrier.dstAccessMask = barrier.dstAccessMask;
-        imageMemoryBarrier.image = image->GetNativeHandle();
-        imageMemoryBarrier.subresourceRange = subresourceRange;
-        imageMemoryBarrier.oldLayout = src;
-        imageMemoryBarrier.newLayout = dst;
-        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imageMemoryBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageMemoryBarrier.srcAccessMask        = barrier.srcAccessMask;
+        imageMemoryBarrier.dstAccessMask        = barrier.dstAccessMask;
+        imageMemoryBarrier.image                = image->GetNativeHandle();
+        imageMemoryBarrier.subresourceRange     = subresourceRange;
+        imageMemoryBarrier.oldLayout            = src;
+        imageMemoryBarrier.newLayout            = dst;
+        imageMemoryBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        imageMemoryBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
 
-        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask,
-            0,
-            0, nullptr,
-            0, nullptr,
-            1, &imageMemoryBarrier);
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
     }
 
-    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier& barrier, uint32_t size, uint32_t offset)
+    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset)
     {
         VkBufferMemoryBarrier bufferBarrier = {};
-        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        bufferBarrier.srcAccessMask = barrier.srcAccessMask;
-        bufferBarrier.dstAccessMask = barrier.dstAccessMask;
-        bufferBarrier.buffer = buffer->GetNativeHandle();
-        bufferBarrier.offset = offset;
-        bufferBarrier.size = size;
-        bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask         = barrier.srcAccessMask;
+        bufferBarrier.dstAccessMask         = barrier.dstAccessMask;
+        bufferBarrier.buffer                = buffer->GetNativeHandle();
+        bufferBarrier.offset                = offset;
+        bufferBarrier.size                  = size;
+        bufferBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 
-        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask,
-                             0,
-                             0, nullptr,
-                             1, &bufferBarrier,
-                             0, nullptr);
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
     }
 
-    void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout,
-        VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy)
+    void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy)
     {
         vkCmdCopyImage(cmdBuffer, src, srcLayout, dst, dstLayout, 1, &copy);
     }
 
-    void CommandBuffer::Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy& copy)
+    void CommandBuffer::Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy &copy)
     {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
-    GraphicsEncoder::GraphicsEncoder(CommandBuffer& cb) : cmdBuffer{cb}
+    GraphicsEncoder::GraphicsEncoder(CommandBuffer &cb) : cmdBuffer{cb}
     {
-        cmd = cmdBuffer.GetNativeHandle();
-        vkBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        vkBeginInfo.pNext = nullptr;
-        vkBeginInfo.renderPass = VK_NULL_HANDLE;
-        vkBeginInfo.framebuffer = VK_NULL_HANDLE;
-        vkBeginInfo.renderArea = {};
+        cmd                         = cmdBuffer.GetNativeHandle();
+        vkBeginInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        vkBeginInfo.pNext           = nullptr;
+        vkBeginInfo.renderPass      = VK_NULL_HANDLE;
+        vkBeginInfo.framebuffer     = VK_NULL_HANDLE;
+        vkBeginInfo.renderArea      = {};
         vkBeginInfo.clearValueCount = 0;
-        vkBeginInfo.pClearValues = nullptr;
+        vkBeginInfo.pClearValues    = nullptr;
     }
 
-    void GraphicsEncoder::BeginPass(const PassBeginInfo& beginInfo)
+    void GraphicsEncoder::BeginPass(const PassBeginInfo &beginInfo)
     {
         vkBeginInfo.renderPass = beginInfo.renderPass->GetNativeHandle();
-        auto& extent = beginInfo.frameBuffer->GetExtent();
+        auto &extent           = beginInfo.frameBuffer->GetExtent();
 
         if (beginInfo.renderArea != nullptr) {
             vkBeginInfo.renderArea = *beginInfo.renderArea;
         } else {
-            vkBeginInfo.framebuffer = beginInfo.frameBuffer->GetNativeHandle();
+            vkBeginInfo.framebuffer         = beginInfo.frameBuffer->GetNativeHandle();
             vkBeginInfo.renderArea.offset.x = 0;
             vkBeginInfo.renderArea.offset.y = 0;
-            vkBeginInfo.renderArea.extent = extent;
+            vkBeginInfo.renderArea.extent   = extent;
         }
 
         vkBeginInfo.clearValueCount = beginInfo.clearValueCount;
-        vkBeginInfo.pClearValues = beginInfo.clearValues;
+        vkBeginInfo.pClearValues    = beginInfo.clearValues;
 
         vkCmdBeginRenderPass(cmd, &vkBeginInfo, beginInfo.contents);
 
         viewport = {0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.f, 1.f};
-        scissor = {{0, 0}, extent};
+        scissor  = {{0, 0}, extent};
 
         if (beginInfo.contents == VK_SUBPASS_CONTENTS_INLINE) {
             SetViewport(1, &viewport);
@@ -256,12 +247,12 @@ namespace sky::drv {
         return scissor;
     }
 
-    CommandBuffer& GraphicsEncoder::GetCommandBuffer()
+    CommandBuffer &GraphicsEncoder::GetCommandBuffer()
     {
         return cmdBuffer;
     }
 
-    void GraphicsEncoder::Encode(const DrawItem& item)
+    void GraphicsEncoder::Encode(const DrawItem &item)
     {
         if (!item.pso) {
             return;
@@ -288,21 +279,14 @@ namespace sky::drv {
         }
 
         switch (item.drawArgs.type) {
-            case CmdDrawType::INDEXED:
-                vkCmdDrawIndexed(cmd,
-                                 item.drawArgs.indexed.indexCount,
-                                 item.drawArgs.indexed.instanceCount,
-                                 item.drawArgs.indexed.firstIndex,
-                                 item.drawArgs.indexed.vertexOffset,
-                                 item.drawArgs.indexed.firstInstance);
-                break;
-            case CmdDrawType::LINEAR:
-                vkCmdDraw(cmd,
-                          item.drawArgs.linear.vertexCount,
-                          item.drawArgs.linear.instanceCount,
-                          item.drawArgs.linear.firstVertex,
-                          item.drawArgs.linear.firstInstance);
-                break;
+        case CmdDrawType::INDEXED:
+            vkCmdDrawIndexed(cmd, item.drawArgs.indexed.indexCount, item.drawArgs.indexed.instanceCount, item.drawArgs.indexed.firstIndex,
+                             item.drawArgs.indexed.vertexOffset, item.drawArgs.indexed.firstInstance);
+            break;
+        case CmdDrawType::LINEAR:
+            vkCmdDraw(cmd, item.drawArgs.linear.vertexCount, item.drawArgs.linear.instanceCount, item.drawArgs.linear.firstVertex,
+                      item.drawArgs.linear.firstInstance);
+            break;
         }
     }
 
@@ -357,4 +341,4 @@ namespace sky::drv {
     {
         vkCmdExecuteCommands(main, static_cast<uint32_t>(cmdHandlers.size()), cmdHandlers.data());
     }
-}
+} // namespace sky::drv

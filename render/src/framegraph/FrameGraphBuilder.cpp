@@ -2,68 +2,69 @@
 // Created by Zach Lee on 2022/6/2.
 //
 
-#include <render/framegraph/FrameGraphBuilder.h>
-#include <render/framegraph/FrameGraphResource.h>
+#include <render/DriverManager.h>
 #include <render/framegraph/FrameGraph.h>
 #include <render/framegraph/FrameGraphAttachment.h>
-#include <render/DriverManager.h>
+#include <render/framegraph/FrameGraphBuilder.h>
+#include <render/framegraph/FrameGraphResource.h>
 
 namespace sky {
 
-    void FrameGraphBuilder::ImportImage(const std::string& name, drv::ImagePtr image)
+    void FrameGraphBuilder::ImportImage(const std::string &name, drv::ImagePtr image)
     {
-        FrameGraphImage* fgImage = graph.AddImage<FrameGraphImage>(name);
-        fgImage->image = image;
+        FrameGraphImage *fgImage = graph.AddImage<FrameGraphImage>(name);
+        fgImage->image           = image;
     }
 
-    void FrameGraphBuilder::CreateImage(const std::string& name, const drv::Image::Descriptor& imageDesc)
+    void FrameGraphBuilder::CreateImage(const std::string &name, const drv::Image::Descriptor &imageDesc)
     {
-        auto device = DriverManager::Get()->GetDevice();
-        FrameGraphImage* fgImage = graph.AddImage<FrameGraphImage>(name);
-        fgImage->image = device->CreateDeviceObject<drv::Image>(imageDesc);
+        auto             device  = DriverManager::Get()->GetDevice();
+        FrameGraphImage *fgImage = graph.AddImage<FrameGraphImage>(name);
+        fgImage->image           = device->CreateDeviceObject<drv::Image>(imageDesc);
     }
 
-    FrameGraphImageAttachment* FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag)
+    FrameGraphImageAttachment *FrameGraphBuilder::CreateImageAttachment(const std::string &source, const std::string &name, VkImageAspectFlags flag)
     {
         auto iter = graph.images.find(source);
         if (iter == graph.images.end()) {
             return nullptr;
         }
-        auto& info = iter->second->image->GetImageInfo();
+        auto &info = iter->second->image->GetImageInfo();
 
-        auto attachment = graph.AddNode<FrameGraphImageAttachment>(name);
-        attachment->range.aspectMask = flag;
+        auto attachment                  = graph.AddNode<FrameGraphImageAttachment>(name);
+        attachment->range.aspectMask     = flag;
         attachment->range.baseArrayLayer = 0;
-        attachment->range.baseMipLevel = 0;
-        attachment->range.layerCount = info.arrayLayers;
-        attachment->range.levelCount = info.mipLevels;
-        attachment->source = iter->second.get();
+        attachment->range.baseMipLevel   = 0;
+        attachment->range.layerCount     = info.arrayLayers;
+        attachment->range.levelCount     = info.mipLevels;
+        attachment->source               = iter->second.get();
         return attachment;
     }
 
-    FrameGraphImageAttachment* FrameGraphBuilder::CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range)
+    FrameGraphImageAttachment *
+    FrameGraphBuilder::CreateImageAttachment(const std::string &source, const std::string &name, const VkImageSubresourceRange &range)
     {
         auto iter = graph.images.find(source);
         if (iter == graph.images.end()) {
             return nullptr;
         }
 
-        auto attachment = graph.AddNode<FrameGraphImageAttachment>(name);
-        attachment->range = range;
+        auto attachment    = graph.AddNode<FrameGraphImageAttachment>(name);
+        attachment->range  = range;
         attachment->source = iter->second.get();
         return attachment;
     }
 
-    FrameGraphImageAttachment* FrameGraphBuilder::GetImageAttachment(const std::string& name)
+    FrameGraphImageAttachment *FrameGraphBuilder::GetImageAttachment(const std::string &name)
     {
         auto iter = graph.nodeTable.find(name);
         if (iter == graph.nodeTable.end()) {
             return nullptr;
         }
-        return dynamic_cast<FrameGraphImageAttachment*>(iter->second);
+        return dynamic_cast<FrameGraphImageAttachment *>(iter->second);
     }
 
-    void FrameGraphBuilder::ReadAttachment(const std::string& name, const ImageBindFlag& flag)
+    void FrameGraphBuilder::ReadAttachment(const std::string &name, const ImageBindFlag &flag)
     {
         auto attachment = GetImageAttachment(name);
         if (attachment == nullptr) {
@@ -79,7 +80,7 @@ namespace sky {
         graph.AddEdge(attachment, &pass);
     }
 
-    void FrameGraphBuilder::WriteAttachment(const std::string& name, const ImageBindFlag& flag)
+    void FrameGraphBuilder::WriteAttachment(const std::string &name, const ImageBindFlag &flag)
     {
         auto attachment = GetImageAttachment(name);
         if (attachment == nullptr) {
@@ -95,7 +96,7 @@ namespace sky {
         graph.AddEdge(&pass, attachment);
     }
 
-    FrameGraphImageAttachment* FrameGraphBuilder::ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag)
+    FrameGraphImageAttachment *FrameGraphBuilder::ReadWriteAttachment(const std::string &name, const std::string newName, const ImageBindFlag &flag)
     {
         auto oldAttachment = GetImageAttachment(name);
         if (oldAttachment == nullptr) {
@@ -107,12 +108,12 @@ namespace sky {
         }
         oldAttachment->finalFlag = flag;
 
-        auto newAttachment = graph.AddNode<FrameGraphImageAttachment>(newName);
-        newAttachment->initFlag = flag;
-        newAttachment->bindFlag = flag;
+        auto newAttachment       = graph.AddNode<FrameGraphImageAttachment>(newName);
+        newAttachment->initFlag  = flag;
+        newAttachment->bindFlag  = flag;
         newAttachment->finalFlag = flag;
-        newAttachment->range = oldAttachment->range;
-        newAttachment->source = oldAttachment->source;
+        newAttachment->range     = oldAttachment->range;
+        newAttachment->source    = oldAttachment->source;
 
         pass.UseImageAttachment(newAttachment);
 
@@ -121,4 +122,4 @@ namespace sky {
         return newAttachment;
     }
 
-}
+} // namespace sky

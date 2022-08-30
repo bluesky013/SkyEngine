@@ -1,8 +1,8 @@
 //
 // Created by Zach Lee on 2021/12/4.
 //
-#include <gtest/gtest.h>
 #include <core/math/Sfmt.h>
+#include <gtest/gtest.h>
 #include <string>
 
 using namespace sky;

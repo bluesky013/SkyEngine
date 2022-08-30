@@ -19,4 +19,4 @@ namespace sky {
         return pool;
     }
 
-}
+} // namespace sky

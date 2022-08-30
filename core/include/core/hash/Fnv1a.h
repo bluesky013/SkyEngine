@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2021/12/3.
 //
 
-
 #pragma once
 
 #include <cstdint>
@@ -18,7 +17,7 @@ namespace sky {
 
     inline constexpr uint32_t Fnv1a32(std::string_view str)
     {
-        uint32_t res = FNVOffsetBias32;
+        uint32_t res  = FNVOffsetBias32;
         uint32_t size = static_cast<uint32_t>(str.size());
         for (uint32_t i = 0; i < size; ++i) {
             res ^= str[i];
@@ -29,7 +28,7 @@ namespace sky {
 
     inline constexpr uint64_t Fnv1a64(std::string_view str)
     {
-        uint64_t res = FNVOffsetBias64;
+        uint64_t res  = FNVOffsetBias64;
         uint64_t size = str.size();
         for (uint32_t i = 0; i < size; ++i) {
             res ^= str[i];
@@ -38,4 +37,4 @@ namespace sky {
         return res;
     }
 
-}
+} // namespace sky

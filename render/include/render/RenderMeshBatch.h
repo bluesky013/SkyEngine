@@ -4,16 +4,16 @@
 
 #pragma once
 
-#include <vulkan/GraphicsPipeline.h>
-#include <vulkan/DescriptorSet.h>
 #include <vulkan/Buffer.h>
+#include <vulkan/DescriptorSet.h>
+#include <vulkan/GraphicsPipeline.h>
 
 namespace sky {
 
     class RenderMeshBatch {
     public:
-        RenderMeshBatch() = default;
+        RenderMeshBatch()  = default;
         ~RenderMeshBatch() = default;
     };
 
-}
+} // namespace sky

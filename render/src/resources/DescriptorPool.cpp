@@ -2,29 +2,26 @@
 // Created by Zach Lee on 2022/5/29.
 //
 
-
-#include <render/resources/DescriptorPool.h>
-#include <render/DriverManager.h>
 #include <algorithm>
 #include <iterator>
+#include <render/DriverManager.h>
+#include <render/resources/DescriptorPool.h>
 
 namespace sky {
 
-    DescriptorPool* DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& descriptor)
+    DescriptorPool *DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor &descriptor)
     {
-        auto pool = new DescriptorPool(descriptor);
+        auto pool    = new DescriptorPool(descriptor);
         pool->layout = layout;
 
-        auto& desTable = layout->GetDescriptorTable();
+        auto                                                      &desTable = layout->GetDescriptorTable();
         std::unordered_map<VkDescriptorType, VkDescriptorPoolSize> sizesTable;
-        std::vector<VkDescriptorPoolSize>& sizes = pool->sizes;
-        for (const auto& layoutBinding : desTable)
-        {
+        std::vector<VkDescriptorPoolSize>                         &sizes = pool->sizes;
+        for (const auto &layoutBinding : desTable) {
             sizesTable[layoutBinding.second.descriptorType].descriptorCount += layoutBinding.second.descriptorCount * descriptor.maxSet;
         }
         sizes.reserve(sizesTable.size());
-        std::transform(sizesTable.begin(), sizesTable.end(), std::back_inserter(sizes), [](auto &it)
-        {
+        std::transform(sizesTable.begin(), sizesTable.end(), std::back_inserter(sizes), [](auto &it) {
             it.second.type = it.first;
             return it.second;
         });
@@ -36,8 +33,8 @@ namespace sky {
         drv::DescriptorSetPtr result;
         for (uint32_t i = 0; i < pools.size(); ++i) {
             uint32_t ringIndex = (index + i) % pools.size();
-            auto& drvPool = pools[ringIndex];
-            result = drv::DescriptorSet::Allocate(drvPool, layout);
+            auto    &drvPool   = pools[ringIndex];
+            result             = drv::DescriptorSet::Allocate(drvPool, layout);
             if (result) {
                 index = ringIndex;
                 break;
@@ -45,7 +42,7 @@ namespace sky {
         }
         if (!result) {
             pools.emplace_back(CreateInternal());
-            index = static_cast<uint32_t>(pools.size()) - 1;
+            index  = static_cast<uint32_t>(pools.size()) - 1;
             result = drv::DescriptorSet::Allocate(pools.back(), layout);
         }
         if (!result) {
@@ -61,12 +58,12 @@ namespace sky {
     drv::DescriptorSetPoolPtr DescriptorPool::CreateInternal()
     {
         drv::DescriptorSetPool::Descriptor poolDesc = {};
-        poolDesc.maxSets = descriptor.maxSet;
-        poolDesc.num = static_cast<uint32_t>(sizes.size());
-        poolDesc.sizes = sizes.data();
+        poolDesc.maxSets                            = descriptor.maxSet;
+        poolDesc.num                                = static_cast<uint32_t>(sizes.size());
+        poolDesc.sizes                              = sizes.data();
 
         auto pool = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetPool>(poolDesc);
         return pool;
     }
 
-}
+} // namespace sky

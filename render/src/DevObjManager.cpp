@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2022/1/23.
 //
 
-
 #include <render/DevObjManager.h>
 
 namespace sky {
@@ -19,4 +18,4 @@ namespace sky {
         currentIndex = (currentIndex + 1) % (INFLIGHT_FRAME + 1);
         freeList[currentIndex].clear();
     }
-}
+} // namespace sky

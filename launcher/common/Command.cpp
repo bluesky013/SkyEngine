@@ -2,14 +2,13 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
-
 #include "Command.h"
 #include <iostream>
 #include <string>
 
 namespace sky {
 
-    void ProcessCommand(int argc, char** argv, CommandInfo& output)
+    void ProcessCommand(int argc, char **argv, CommandInfo &output)
     {
         for (int i = 1; i < argc; ++i) {
             auto str = argv[i];
@@ -23,5 +22,4 @@ namespace sky {
         }
     }
 
-
-}
+} // namespace sky

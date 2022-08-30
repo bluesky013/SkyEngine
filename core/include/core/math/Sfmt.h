@@ -19,9 +19,9 @@ namespace sky {
         uint64_t GenU64();
 
     private:
-        uint32_t seed = 0;
-        sfmt_t sfmt;
+        uint32_t           seed = 0;
+        sfmt_t             sfmt;
         mutable std::mutex mutex;
     };
 
-}
+} // namespace sky

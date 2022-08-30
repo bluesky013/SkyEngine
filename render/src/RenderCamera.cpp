@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/7/28.
 //
 
-#include <render/RenderCamera.h>
 #include <core/math/MathUtil.h>
+#include <render/RenderCamera.h>
 
 namespace sky {
 
@@ -12,27 +12,27 @@ namespace sky {
         renderView = std::make_shared<RenderView>();
     }
 
-    void RenderCamera::SetTransform(const Matrix4& transform)
+    void RenderCamera::SetTransform(const Matrix4 &transform)
     {
         renderView->SetTransform(transform);
     }
 
     void RenderCamera::SetFov(float value)
     {
-        fov = value;
+        fov   = value;
         dirty = true;
     }
 
     void RenderCamera::SetAspect(float value)
     {
         aspect = value;
-        dirty = true;
+        dirty  = true;
     }
 
     void RenderCamera::SetNearFar(float n, float f)
     {
-        near = n;
-        far = f;
+        near  = n;
+        far   = f;
         dirty = true;
     }
 
@@ -53,4 +53,4 @@ namespace sky {
         dirty = false;
     }
 
-}
+} // namespace sky

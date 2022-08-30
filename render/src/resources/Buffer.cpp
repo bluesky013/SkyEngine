@@ -2,16 +2,15 @@
 // Created by Zach Lee on 2022/5/27.
 //
 
-
-#include <render/resources/Buffer.h>
-#include <render/DriverManager.h>
-#include <render/DevObjManager.h>
 #include <framework/asset/AssetManager.h>
 #include <fstream>
+#include <render/DevObjManager.h>
+#include <render/DriverManager.h>
+#include <render/resources/Buffer.h>
 
 namespace sky {
 
-    Buffer::Buffer(const Descriptor& desc)
+    Buffer::Buffer(const Descriptor &desc)
     {
         Init(desc);
     }
@@ -26,7 +25,7 @@ namespace sky {
         }
     }
 
-    void Buffer::Init(const Descriptor& desc)
+    void Buffer::Init(const Descriptor &desc)
     {
         descriptor = desc;
         if (desc.allocCPU) {
@@ -41,10 +40,10 @@ namespace sky {
         }
 
         drv::Buffer::Descriptor desc = {};
-        desc.size = descriptor.size;
-        desc.memory = descriptor.memory;
-        desc.usage = descriptor.usage;
-        rhiBuffer = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
+        desc.size                    = descriptor.size;
+        desc.memory                  = descriptor.memory;
+        desc.usage                   = descriptor.usage;
+        rhiBuffer                    = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
         if (descriptor.keepMap) {
             mapPtr = rhiBuffer->Map();
         }
@@ -60,17 +59,17 @@ namespace sky {
         return mapPtr;
     }
 
-    void Buffer::Write(const uint8_t* data, uint64_t size, uint64_t offset)
+    void Buffer::Write(const uint8_t *data, uint64_t size, uint64_t offset)
     {
         if (size + offset > rawData.size()) {
             return;
         }
-        uint8_t* ptr = rawData.data() + offset;
+        uint8_t *ptr = rawData.data() + offset;
         memcpy(ptr, data, size);
         dirty = true;
     }
 
-    void Buffer::Update(const uint8_t* data, uint64_t srcSize)
+    void Buffer::Update(const uint8_t *data, uint64_t srcSize)
     {
         if (!dirty) {
             return;
@@ -80,14 +79,14 @@ namespace sky {
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
             auto device = DriverManager::Get()->GetDevice();
-            auto queue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
+            auto queue  = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
 
             drv::Buffer::Descriptor stagingDes = {};
-            stagingDes.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            stagingDes.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            stagingDes.size = validateSize;
-            auto stagingBuffer = device->CreateDeviceObject<drv::Buffer>(stagingDes);
-            uint8_t *dst = stagingBuffer->Map();
+            stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            stagingDes.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            stagingDes.size                    = validateSize;
+            auto     stagingBuffer             = device->CreateDeviceObject<drv::Buffer>(stagingDes);
+            uint8_t *dst                       = stagingBuffer->Map();
             memcpy(dst, data, validateSize);
             stagingBuffer->UnMap();
 
@@ -100,7 +99,7 @@ namespace sky {
             cmd->Submit(*queue, {});
             cmd->Wait();
         } else {
-            uint8_t* dst = rhiBuffer->Map();
+            uint8_t *dst = rhiBuffer->Map();
             memcpy(dst, data, validateSize);
             rhiBuffer->UnMap();
         }
@@ -116,7 +115,7 @@ namespace sky {
         }
     }
 
-    const uint8_t* Buffer::Data() const
+    const uint8_t *Buffer::Data() const
     {
         return rawData.data();
     }
@@ -126,11 +125,7 @@ namespace sky {
         return rhiBuffer;
     }
 
-    BufferView::BufferView(RDBufferPtr b, VkDeviceSize sz, VkDeviceSize o, uint32_t s)
-        : buffer(std::move(b))
-        , size(sz)
-        , offset(o)
-        , stride(s)
+    BufferView::BufferView(RDBufferPtr b, VkDeviceSize sz, VkDeviceSize o, uint32_t s) : buffer(std::move(b)), size(sz), offset(o), stride(s)
     {
     }
 
@@ -173,15 +168,14 @@ namespace sky {
         }
     }
 
-
     DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t frame, uint32_t block)
-            : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
-            , frameNum(frame)
-            , blockStride(block)
-            , bufferIndex(~(0u))
-            , currentFrame(0)
-            , dynamicOffset(0)
-            , isDirty(false)
+    : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
+    , frameNum(frame)
+    , blockStride(block)
+    , bufferIndex(~(0u))
+    , currentFrame(0)
+    , dynamicOffset(0)
+    , isDirty(false)
     {
     }
 
@@ -202,7 +196,7 @@ namespace sky {
 
     void DynamicBufferView::SwapBuffer()
     {
-        currentFrame = (currentFrame + 1) % frameNum;
+        currentFrame  = (currentFrame + 1) % frameNum;
         dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
     }
 
@@ -226,12 +220,12 @@ namespace sky {
     RDBufferPtr Buffer::CreateFromData(const BufferAssetData &data)
     {
         Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size = data.data.size();
-        bufferDesc.usage = data.usage;
-        bufferDesc.memory = data.memory;
-        auto buffer = std::make_shared<Buffer>(bufferDesc);
+        bufferDesc.size               = data.data.size();
+        bufferDesc.usage              = data.usage;
+        bufferDesc.memory             = data.memory;
+        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
         buffer->InitRHI();
         buffer->Update(data.data.data(), data.data.size());
         return buffer;
     }
-}
+} // namespace sky

@@ -3,18 +3,14 @@
 //
 
 #include "vulkan/Buffer.h"
-#include "vulkan/Device.h"
 #include "core/logger/Logger.h"
+#include "vulkan/Device.h"
 
-static const char* TAG = "Driver";
+static const char *TAG = "Driver";
 
 namespace sky::drv {
 
-    Buffer::Buffer(Device& dev)
-        : DevObject(dev)
-        , buffer(VK_NULL_HANDLE)
-        , allocation(VK_NULL_HANDLE)
-        , bufferInfo{}
+    Buffer::Buffer(Device &dev) : DevObject(dev), buffer(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE), bufferInfo{}
     {
     }
 
@@ -25,17 +21,17 @@ namespace sky::drv {
         }
     }
 
-    bool Buffer::Init(const Descriptor& des)
+    bool Buffer::Init(const Descriptor &des)
     {
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = des.size;
+        bufferInfo.size  = des.size;
         bufferInfo.usage = des.usage;
 
         VkResult res;
         if (!des.transient) {
             VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = des.memory;
-            res = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+            allocInfo.usage                   = des.memory;
+            res                               = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
         } else {
             res = vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, nullptr, &buffer);
         }
@@ -45,7 +41,7 @@ namespace sky::drv {
         }
 
         isTransient = des.transient;
-        desc = des;
+        desc        = des;
         return true;
     }
 
@@ -59,9 +55,9 @@ namespace sky::drv {
         return isTransient;
     }
 
-    uint8_t* Buffer::Map()
+    uint8_t *Buffer::Map()
     {
-        uint8_t* ptr = nullptr;
+        uint8_t *ptr = nullptr;
         vmaMapMemory(device.GetAllocator(), allocation, reinterpret_cast<void **>(&ptr));
         return ptr;
     }
@@ -70,4 +66,4 @@ namespace sky::drv {
     {
         vmaUnmapMemory(device.GetAllocator(), allocation);
     }
-}
+} // namespace sky::drv

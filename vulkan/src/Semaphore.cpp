@@ -3,14 +3,14 @@
 //
 
 #include "vulkan/Semaphore.h"
-#include "vulkan/Device.h"
-#include "vulkan/Basic.h"
 #include "core/logger/Logger.h"
-static const char* TAG = "Driver";
+#include "vulkan/Basic.h"
+#include "vulkan/Device.h"
+static const char *TAG = "Driver";
 
 namespace sky::drv {
 
-    Semaphore::Semaphore(Device& dev) : DevObject(dev), semaphore(VK_NULL_HANDLE)
+    Semaphore::Semaphore(Device &dev) : DevObject(dev), semaphore(VK_NULL_HANDLE)
     {
     }
 
@@ -21,11 +21,11 @@ namespace sky::drv {
         }
     }
 
-    bool Semaphore::Init(const Descriptor& des)
+    bool Semaphore::Init(const Descriptor &des)
     {
         VkSemaphoreCreateInfo semaphoreInfo = {};
-        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        auto rst = vkCreateSemaphore(device.GetNativeHandle(), &semaphoreInfo, VKL_ALLOC, &semaphore);
+        semaphoreInfo.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        auto rst                            = vkCreateSemaphore(device.GetNativeHandle(), &semaphoreInfo, VKL_ALLOC, &semaphore);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create semaphore failed, %d", rst);
             return false;
@@ -37,4 +37,4 @@ namespace sky::drv {
     {
         return semaphore;
     }
-}
+} // namespace sky::drv

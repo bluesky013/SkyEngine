@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/6/21.
 //
 
-#include <render/RenderViewport.h>
 #include <render/DriverManager.h>
+#include <render/RenderViewport.h>
 
 namespace sky {
 
@@ -12,33 +12,34 @@ namespace sky {
         Shutdown();
     }
 
-    void RenderViewport::Setup(const ViewportInfo& info)
+    void RenderViewport::Setup(const ViewportInfo &info)
     {
         drv::SwapChain::Descriptor descriptor = {};
-        descriptor.window = info.wHandle;
-        descriptor.preferredMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        descriptor.window                     = info.wHandle;
+        descriptor.preferredMode              = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
-        auto device = DriverManager::Get()->GetDevice();
-        swapChain = device->CreateDeviceObject<drv::SwapChain>(descriptor);
+        auto device  = DriverManager::Get()->GetDevice();
+        swapChain    = device->CreateDeviceObject<drv::SwapChain>(descriptor);
         nativeHandle = info.wHandle;
         Event<IWindowEvent>::Connect(descriptor.window, this);
 
-        graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);;
+        graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
+        ;
         drv::CommandPool::Descriptor cmdPoolDesc = {};
-        cmdPoolDesc.flag = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmdPoolDesc.queueFamilyIndex = graphicsQueue->GetQueueFamilyIndex();
+        cmdPoolDesc.flag                         = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        cmdPoolDesc.queueFamilyIndex             = graphicsQueue->GetQueueFamilyIndex();
 
         commandPool = device->CreateDeviceObject<drv::CommandPool>(cmdPoolDesc);
 
         drv::CommandBuffer::Descriptor cmdDesc = {};
         for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
-            commandBuffer[i] = commandPool->Allocate(cmdDesc);
+            commandBuffer[i]  = commandPool->Allocate(cmdDesc);
             imageAvailable[i] = device->CreateDeviceObject<drv::Semaphore>({});
-            renderFinish[i] = device->CreateDeviceObject<drv::Semaphore>({});
+            renderFinish[i]   = device->CreateDeviceObject<drv::Semaphore>({});
         }
     }
 
-    void RenderViewport::SetScene(const RDScenePtr& scn)
+    void RenderViewport::SetScene(const RDScenePtr &scn)
     {
         scene = scn;
         scene->BindViewport(*this);
@@ -54,12 +55,12 @@ namespace sky {
 
         for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
             imageAvailable[i] = nullptr;
-            renderFinish[i] = nullptr;
-            commandBuffer[i] = nullptr;
+            renderFinish[i]   = nullptr;
+            commandBuffer[i]  = nullptr;
         }
-        commandPool = nullptr;
+        commandPool   = nullptr;
         graphicsQueue = nullptr;
-        scene = nullptr;
+        scene         = nullptr;
         Event<IWindowEvent>::DisConnect(this);
     }
 
@@ -80,7 +81,7 @@ namespace sky {
         EndFrame();
     }
 
-    const VkExtent2D& RenderViewport::GetExtent() const
+    const VkExtent2D &RenderViewport::GetExtent() const
     {
         return swapChain->GetExtent();
     }
@@ -99,13 +100,12 @@ namespace sky {
 
         drv::CommandBuffer::SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish[currentFrame]);
-        submitInfo.waits.emplace_back(std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]
-        });
+        submitInfo.waits.emplace_back(
+            std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]});
         commandBuffer[currentFrame]->Submit(*graphicsQueue, submitInfo);
 
         drv::SwapChain::PresentInfo presentInfo = {};
-        presentInfo.imageIndex = currentImageIndex;
+        presentInfo.imageIndex                  = currentImageIndex;
         presentInfo.signals.emplace_back(renderFinish[currentFrame]);
 
         swapChain->Present(presentInfo);
@@ -113,7 +113,7 @@ namespace sky {
         currentFrame = (currentFrame + 1) % INFLIGHT_FRAME;
     }
 
-    void* RenderViewport::GetNativeHandle() const
+    void *RenderViewport::GetNativeHandle() const
     {
         return nativeHandle;
     }
@@ -124,4 +124,4 @@ namespace sky {
         scene->ViewportChange(*this);
     }
 
-}
+} // namespace sky

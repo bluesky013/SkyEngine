@@ -4,8 +4,8 @@
 
 #pragma once
 #include <core/environment/Singleton.h>
-#include <vulkan/Driver.h>
 #include <vulkan/Device.h>
+#include <vulkan/Driver.h>
 
 namespace sky {
 
@@ -15,26 +15,25 @@ namespace sky {
             std::string appName;
         };
 
-        bool Initialize(const Descriptor&);
+        bool Initialize(const Descriptor &);
 
         void ShutDown();
 
-        drv::Device* GetDevice() const;
+        drv::Device *GetDevice() const;
 
-        drv::Driver* GetDriver() const;
+        drv::Driver *GetDriver() const;
 
-        template <typename T>
-        std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor& des)
+        template <typename T> std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
         {
             return device->CreateDeviceObject<T>(des);
         }
 
     private:
         friend class Singleton<DriverManager>;
-        DriverManager() = default;
-        ~DriverManager() = default;
-        drv::Driver* driver = nullptr;
-        drv::Device* device = nullptr;
+        DriverManager()     = default;
+        ~DriverManager()    = default;
+        drv::Driver *driver = nullptr;
+        drv::Device *device = nullptr;
     };
 
-}
+} // namespace sky

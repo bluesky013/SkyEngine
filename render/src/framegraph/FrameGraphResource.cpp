@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    void FrameGraphResource::Reference(FrameGraphPass& pass)
+    void FrameGraphResource::Reference(FrameGraphPass &pass)
     {
         if (first == nullptr) {
             first = &pass;
@@ -17,7 +17,7 @@ namespace sky {
         }
     }
 
-    const VkImageCreateInfo& FrameGraphImage::GetImageInfo() const
+    const VkImageCreateInfo &FrameGraphImage::GetImageInfo() const
     {
         return image->GetImageInfo();
     }
@@ -40,4 +40,4 @@ namespace sky {
     {
     }
 
-}
+} // namespace sky

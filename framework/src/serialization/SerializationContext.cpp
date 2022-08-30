@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    TypeNode* SerializationContext::FindType(const std::string& key)
+    TypeNode *SerializationContext::FindType(const std::string &key)
     {
         auto iter = types.find(key);
         if (iter == types.end()) {
@@ -15,4 +15,4 @@ namespace sky {
         return &(iter->second);
     }
 
-}
+} // namespace sky

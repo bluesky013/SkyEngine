@@ -4,30 +4,30 @@
 
 #pragma once
 
-#include <vulkan/Image.h>
 #include <vulkan/Buffer.h>
+#include <vulkan/Image.h>
 
 namespace sky {
     class FrameGraphPass;
 
     class FrameGraphResource {
     public:
-        FrameGraphResource() = default;
+        FrameGraphResource()          = default;
         virtual ~FrameGraphResource() = default;
 
-        void Reference(FrameGraphPass& pass);
+        void Reference(FrameGraphPass &pass);
 
     private:
-        FrameGraphPass* first = nullptr;
-        FrameGraphPass* last = nullptr;
+        FrameGraphPass *first = nullptr;
+        FrameGraphPass *last  = nullptr;
     };
 
     class FrameGraphImage : public FrameGraphResource {
     public:
-        FrameGraphImage() = default;
+        FrameGraphImage()  = default;
         ~FrameGraphImage() = default;
 
-        const VkImageCreateInfo& GetImageInfo() const;
+        const VkImageCreateInfo &GetImageInfo() const;
 
         void Compile();
 
@@ -40,7 +40,7 @@ namespace sky {
 
     class FrameGraphBuffer : public FrameGraphResource {
     public:
-        FrameGraphBuffer() = default;
+        FrameGraphBuffer()  = default;
         ~FrameGraphBuffer() = default;
 
         void Compile();
@@ -52,4 +52,4 @@ namespace sky {
         drv::BufferPtr buffer;
     };
 
-}
+} // namespace sky

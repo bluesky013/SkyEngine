@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <render/RenderMeshBatch.h>
 #include <memory>
+#include <render/RenderMeshBatch.h>
 
 namespace sky {
     class RenderScene;
@@ -13,25 +13,41 @@ namespace sky {
 
     class RenderFeature {
     public:
-        RenderFeature(RenderScene& scn) : scene(scn) {}
+        RenderFeature(RenderScene &scn) : scene(scn)
+        {
+        }
         virtual ~RenderFeature() = default;
 
-        virtual void OnBindViewport(const RenderViewport& viewport) {}
+        virtual void OnBindViewport(const RenderViewport &viewport)
+        {
+        }
 
-        virtual void OnViewportSizeChange(const RenderViewport& viewport) {}
+        virtual void OnViewportSizeChange(const RenderViewport &viewport)
+        {
+        }
 
-        virtual void OnTick(float time) {}
+        virtual void OnTick(float time)
+        {
+        }
 
-        virtual void OnPreparePipeline() {}
+        virtual void OnPreparePipeline()
+        {
+        }
 
-        virtual void GatherRenderPrimitives() {}
+        virtual void GatherRenderPrimitives()
+        {
+        }
 
-        virtual void OnRender() {}
+        virtual void OnRender()
+        {
+        }
 
-        virtual void OnPostRender() {}
+        virtual void OnPostRender()
+        {
+        }
 
     protected:
-        RenderScene& scene;
+        RenderScene &scene;
     };
 
-}
+} // namespace sky

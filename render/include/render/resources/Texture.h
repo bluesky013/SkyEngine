@@ -2,13 +2,12 @@
 // Created by Zach Lee on 2022/5/7.
 //
 
-
 #pragma once
 
-#include <render/resources/RenderResource.h>
 #include <render/resources/Image.h>
-#include <vulkan/Sampler.h>
+#include <render/resources/RenderResource.h>
 #include <vulkan/ImageView.h>
+#include <vulkan/Sampler.h>
 
 namespace sky {
 
@@ -21,7 +20,7 @@ namespace sky {
             uint32_t layerCount     = 1;
         };
 
-        Texture(const Descriptor& desc) : descriptor(desc)
+        Texture(const Descriptor &desc) : descriptor(desc)
         {
         }
 
@@ -31,20 +30,26 @@ namespace sky {
 
         void SetImageView(drv::ImageViewPtr imageView);
 
-        drv::SamplerPtr GetSampler() const { return sampler; }
+        drv::SamplerPtr GetSampler() const
+        {
+            return sampler;
+        }
 
-        drv::ImageViewPtr GetImageView() const { return imageView; }
+        drv::ImageViewPtr GetImageView() const
+        {
+            return imageView;
+        }
 
         bool IsValid() const override;
 
-        static std::shared_ptr<Texture> CreateFromImage(RDImagePtr image, const Texture::Descriptor& desc);
+        static std::shared_ptr<Texture> CreateFromImage(RDImagePtr image, const Texture::Descriptor &desc);
 
     private:
-        Descriptor descriptor;
-        RDImagePtr sourceImage;
-        drv::SamplerPtr sampler;
+        Descriptor        descriptor;
+        RDImagePtr        sourceImage;
+        drv::SamplerPtr   sampler;
         drv::ImageViewPtr imageView;
     };
     using RDTexturePtr = std::shared_ptr<Texture>;
 
-}
+} // namespace sky

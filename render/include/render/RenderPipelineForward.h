@@ -11,16 +11,18 @@ namespace sky {
 
     class RenderPipelineForward : public RenderPipeline {
     public:
-        RenderPipelineForward(RenderScene& scene) : RenderPipeline(scene) {}
+        RenderPipelineForward(RenderScene &scene) : RenderPipeline(scene)
+        {
+        }
         ~RenderPipelineForward() = default;
 
-        void ViewportChange(const RenderViewport& viewport) override;
+        void ViewportChange(const RenderViewport &viewport) override;
 
-        void SetOutput(const drv::ImagePtr& output) override;
+        void SetOutput(const drv::ImagePtr &output) override;
 
-        void BeginFrame(FrameGraph& frameGraph) override;
+        void BeginFrame(FrameGraph &frameGraph) override;
 
-        void DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& cmdBuffer) override;
+        void DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &cmdBuffer) override;
 
     private:
         drv::ImagePtr msaaColor;
@@ -28,4 +30,4 @@ namespace sky {
         drv::ImagePtr depthStencil;
     };
 
-}
+} // namespace sky

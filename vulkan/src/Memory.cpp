@@ -6,13 +6,12 @@
 
 namespace sky::drv {
 
-    Memory::Memory(Device& dev) : DevObject(dev)
+    Memory::Memory(Device &dev) : DevObject(dev)
     {
-
     }
 
-    bool Memory::Init(const Descriptor&)
+    bool Memory::Init(const Descriptor &)
     {
         return true;
     }
-}
+} // namespace sky::drv

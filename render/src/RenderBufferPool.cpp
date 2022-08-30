@@ -2,13 +2,12 @@
 // Created by Zach Lee on 2022/2/1.
 //
 
-#include <render/RenderBufferPool.h>
 #include <render/DriverManager.h>
+#include <render/RenderBufferPool.h>
 
 namespace sky {
 
-    RenderBufferPool::RenderBufferPool(const Descriptor& desc)
-        : descriptor(desc)
+    RenderBufferPool::RenderBufferPool(const Descriptor &desc) : descriptor(desc)
     {
         blockStride = descriptor.count * descriptor.stride;
     }
@@ -33,8 +32,8 @@ namespace sky {
             AllocateBlock();
         }
         size_t blockIndex = index / descriptor.count;
-        size_t offset = (index % descriptor.count) * descriptor.stride;
-        auto res = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset, descriptor.frame, blockStride);
+        size_t offset     = (index % descriptor.count) * descriptor.stride;
+        auto   res        = std::make_shared<DynamicBufferView>(blocks[blockIndex], descriptor.stride, offset, descriptor.frame, blockStride);
         res->SetID(index);
         active.emplace_back(index);
 
@@ -43,15 +42,13 @@ namespace sky {
 
     void RenderBufferPool::Free(uint32_t index)
     {
-        active.erase(std::find_if(active.begin(), active.end(), [index](uint32_t rhs) {
-            return index == rhs;
-        }));
+        active.erase(std::find_if(active.begin(), active.end(), [index](uint32_t rhs) { return index == rhs; }));
         freeList.emplace_back(index);
     }
 
     void RenderBufferPool::Update()
     {
-        for (auto& block : blocks) {
+        for (auto &block : blocks) {
             block->Update();
         }
     }
@@ -59,12 +56,12 @@ namespace sky {
     void RenderBufferPool::AllocateBlock()
     {
         Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size = blockStride * descriptor.frame;
-        bufferDesc.memory = descriptor.memory;
-        bufferDesc.usage = descriptor.usage;
-        bufferDesc.allocCPU = true;
-        auto buffer = std::make_shared<Buffer>(bufferDesc);
+        bufferDesc.size               = blockStride * descriptor.frame;
+        bufferDesc.memory             = descriptor.memory;
+        bufferDesc.usage              = descriptor.usage;
+        bufferDesc.allocCPU           = true;
+        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
         buffer->InitRHI();
         blocks.emplace_back(buffer);
     }
-}
+} // namespace sky

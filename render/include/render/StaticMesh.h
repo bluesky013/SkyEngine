@@ -17,21 +17,21 @@ namespace sky {
 
         SKY_DISABLE_COPY(StaticMesh)
 
-        void OnRender(RenderScene& scene) override;
+        void OnRender(RenderScene &scene) override;
 
-        void SetMesh(const RDMeshPtr& mesh);
+        void SetMesh(const RDMeshPtr &mesh);
 
-        void OnGatherRenderPrimitives(RenderView& view) override;
+        void OnGatherRenderPrimitives(RenderView &view) override;
 
     private:
         friend class StaticMeshFeature;
         StaticMesh() = default;
-        RDMeshPtr mesh;
+        RDMeshPtr              mesh;
         drv::VertexAssemblyPtr vertexAssembly;
-        drv::VertexInputPtr vertexInput;
+        drv::VertexInputPtr    vertexInput;
 
         using RenderPrimitivePtr = std::unique_ptr<RenderMeshPrimitive>;
         std::vector<RenderPrimitivePtr> primitives;
     };
 
-}
+} // namespace sky

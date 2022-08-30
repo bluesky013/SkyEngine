@@ -2,64 +2,64 @@
 // Created by Zach Lee on 2022/5/26.
 //
 
-#include <render/resources/Mesh.h>
-#include <framework/asset/AssetManager.h>
 #include <cereal/archives/json.hpp>
+#include <framework/asset/AssetManager.h>
+#include <render/resources/Mesh.h>
 
 namespace sky {
 
-    Mesh::Builder::Builder(Mesh& m) : mesh(m)
+    Mesh::Builder::Builder(Mesh &m) : mesh(m)
     {
     }
 
-    Mesh::Builder& Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type)
+    Mesh::Builder &Mesh::Builder::SetIndexBuffer(const RDBufferViewPtr &buffer, VkIndexType type)
     {
         mesh.indexBuffer = std::move(buffer);
-        mesh.indexType = type;
+        mesh.indexType   = type;
         return *this;
     }
 
-    Mesh::Builder& Mesh::Builder::AddVertexBuffer(const RDBufferViewPtr& buffer, VkVertexInputRate rate)
+    Mesh::Builder &Mesh::Builder::AddVertexBuffer(const RDBufferViewPtr &buffer, VkVertexInputRate rate)
     {
         mesh.vertexBuffers.emplace_back(buffer);
         mesh.inputRates.emplace_back(rate);
         return *this;
     }
 
-    Mesh::Builder& Mesh::Builder::AddVertexDesc(const VertexDesc& desc)
+    Mesh::Builder &Mesh::Builder::AddVertexDesc(const VertexDesc &desc)
     {
         mesh.vertexDescriptions.emplace_back(desc);
         return *this;
     }
 
-    Mesh::Builder& Mesh::Builder::SetVertexDesc(const std::vector<VertexDesc>& desc)
+    Mesh::Builder &Mesh::Builder::SetVertexDesc(const std::vector<VertexDesc> &desc)
     {
         mesh.vertexDescriptions = desc;
         return *this;
     }
 
-    Mesh::Builder& Mesh::Builder::AddSubMesh(const SubMesh& subMesh)
+    Mesh::Builder &Mesh::Builder::AddSubMesh(const SubMesh &subMesh)
     {
         mesh.subMeshes.emplace_back(subMesh);
         return *this;
     }
 
-    const SubMesh& Mesh::GetSubMesh(uint32_t index) const
+    const SubMesh &Mesh::GetSubMesh(uint32_t index) const
     {
         return subMeshes[index];
     }
 
-    const std::vector<SubMesh>& Mesh::GetSubMeshes() const
+    const std::vector<SubMesh> &Mesh::GetSubMeshes() const
     {
         return subMeshes;
     }
 
-    const std::vector<VertexDesc>& Mesh::GetVertexDesc() const
+    const std::vector<VertexDesc> &Mesh::GetVertexDesc() const
     {
         return vertexDescriptions;
     }
 
-    const std::vector<RDBufferViewPtr>& Mesh::GetVertexBuffers() const
+    const std::vector<RDBufferViewPtr> &Mesh::GetVertexBuffers() const
     {
         return vertexBuffers;
     }
@@ -74,12 +74,12 @@ namespace sky {
         return indexType;
     }
 
-    drv::VertexInputPtr Mesh::BuildVertexInput(Shader& shader) const
+    drv::VertexInputPtr Mesh::BuildVertexInput(Shader &shader) const
     {
-        auto& shaderInputs = shader.GetStageInputs();
+        auto                     &shaderInputs = shader.GetStageInputs();
         drv::VertexInput::Builder builder;
         builder.Begin();
-        for (auto& attribute : vertexDescriptions) {
+        for (auto &attribute : vertexDescriptions) {
             auto iter = shaderInputs.find(attribute.name);
             if (iter == shaderInputs.end() || iter->second.format != attribute.format) {
                 return {};
@@ -95,21 +95,21 @@ namespace sky {
 
     drv::CmdDraw Mesh::BuildDrawArgs(uint32_t index) const
     {
-        drv::CmdDraw res {};
-        auto& subMesh = subMeshes[index];
+        drv::CmdDraw res{};
+        auto        &subMesh = subMeshes[index];
         if (indexBuffer && indexBuffer->IsValid()) {
-            res.type = drv::CmdDrawType::INDEXED;
+            res.type                  = drv::CmdDrawType::INDEXED;
             res.indexed.firstInstance = 0;
             res.indexed.instanceCount = 1;
-            res.indexed.firstIndex = subMesh.drawData.firstIndex;
-            res.indexed.indexCount = subMesh.drawData.indexCount;
-            res.indexed.vertexOffset = subMesh.drawData.firstVertex;
+            res.indexed.firstIndex    = subMesh.drawData.firstIndex;
+            res.indexed.indexCount    = subMesh.drawData.indexCount;
+            res.indexed.vertexOffset  = subMesh.drawData.firstVertex;
         } else {
-            res.type = drv::CmdDrawType::LINEAR;
+            res.type                 = drv::CmdDrawType::LINEAR;
             res.linear.firstInstance = 0;
             res.linear.instanceCount = 1;
-            res.linear.firstVertex = subMesh.drawData.firstVertex;
-            res.linear.vertexCount = subMesh.drawData.vertexCount;
+            res.linear.firstVertex   = subMesh.drawData.firstVertex;
+            res.linear.vertexCount   = subMesh.drawData.vertexCount;
         }
         return res;
     }
@@ -126,10 +126,10 @@ namespace sky {
 
     SubMesh SubMeshAsset::ToSubMesh() const
     {
-        return SubMesh{ drawData, aabb, nullptr };
+        return SubMesh{drawData, aabb, nullptr};
     }
 
-    void BufferAssetView::InitBuffer(const Uuid& id)
+    void BufferAssetView::InitBuffer(const Uuid &id)
     {
         buffer = AssetManager::Get()->LoadAsset<Buffer>(id);
     }
@@ -139,19 +139,18 @@ namespace sky {
         return std::make_shared<BufferView>(buffer->CreateInstance(), size, offset, stride);
     }
 
-
-    RDMeshPtr Mesh::CreateFromData(const MeshAssetData& data)
+    RDMeshPtr Mesh::CreateFromData(const MeshAssetData &data)
     {
-        RDMeshPtr mesh = std::make_shared<Mesh>();
+        RDMeshPtr     mesh = std::make_shared<Mesh>();
         Mesh::Builder builder(*mesh);
         builder.SetVertexDesc(data.vertexDescriptions);
         builder.SetIndexBuffer(data.indexBuffer.CreateBufferView(), data.indexType);
-        for (auto& vb : data.vertexBuffers) {
+        for (auto &vb : data.vertexBuffers) {
             builder.AddVertexBuffer(vb.CreateBufferView());
         }
-        for (auto& subMesh : data.subMeshes) {
+        for (auto &subMesh : data.subMeshes) {
             builder.AddSubMesh(subMesh.ToSubMesh());
         }
         return mesh;
     }
-}
+} // namespace sky

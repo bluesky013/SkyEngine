@@ -7,7 +7,7 @@
 
 namespace sky {
 
-    bool SetAny(Any& source, const std::string& str, const Any& any)
+    bool SetAny(Any &source, const std::string &str, const Any &any)
     {
         auto node = GetTypeMember(str, source.Info());
         if (node != nullptr && node->setterFn != nullptr) {
@@ -16,7 +16,7 @@ namespace sky {
         return false;
     }
 
-    Any GetAny(Any& source, const std::string& str)
+    Any GetAny(Any &source, const std::string &str)
     {
         auto node = GetTypeMember(str, source.Info());
         if (node != nullptr && node->getterFn != nullptr) {
@@ -25,4 +25,4 @@ namespace sky {
         return Any{};
     }
 
-}
+} // namespace sky

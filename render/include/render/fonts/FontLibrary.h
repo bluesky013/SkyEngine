@@ -4,11 +4,11 @@
 
 #pragma once
 
-#include <core/util/Macros.h>
 #include <core/environment/Singleton.h>
+#include <core/util/Macros.h>
+#include <mutex>
 #include <render/fonts/FontFace.h>
 #include <unordered_map>
-#include <mutex>
 
 namespace sky {
 
@@ -18,7 +18,7 @@ namespace sky {
 
         void Init();
 
-//        FT_Library GetLibrary() const;
+        //        FT_Library GetLibrary() const;
     private:
         friend class Singleton<FontLibrary>;
 
@@ -27,6 +27,6 @@ namespace sky {
         ~FontLibrary();
 
         bool isReady = false;
-//        FT_Library library{};
+        //        FT_Library library{};
     };
-}
+} // namespace sky

@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2021/12/19.
 //
 
-#include <gtest/gtest.h>
 #include <core/template/ReferenceObject.h>
+#include <gtest/gtest.h>
 using namespace sky;
 
 static uint32_t g_count = 0;
@@ -12,7 +12,6 @@ struct TestRef : public RefObject<TestRef> {
 public:
     TestRef()
     {
-
     }
 
     ~TestRef()
@@ -20,12 +19,11 @@ public:
         g_count++;
     }
 
-    TestRef(const TestRef&)
+    TestRef(const TestRef &)
     {
-
     }
 
-    TestRef& operator=(const TestRef&)
+    TestRef &operator=(const TestRef &)
     {
         return *this;
     }
@@ -38,7 +36,7 @@ public:
 
 struct TestRefDev : public TestRef {
 public:
-    TestRefDev() = default;
+    TestRefDev()  = default;
     ~TestRefDev() = default;
 };
 

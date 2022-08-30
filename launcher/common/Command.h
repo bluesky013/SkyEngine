@@ -2,11 +2,10 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
-
 #pragma once
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace sky {
 
@@ -14,5 +13,5 @@ namespace sky {
         std::vector<std::string> modules;
     };
 
-    void ProcessCommand(int argc, char** argv, CommandInfo& output);
-}
+    void ProcessCommand(int argc, char **argv, CommandInfo &output);
+} // namespace sky

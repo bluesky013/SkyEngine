@@ -6,8 +6,8 @@
 
 #include <core/environment/Singleton.h>
 #include <core/util/Macros.h>
-#include <render/resources/Texture.h>
 #include <render/imgui/GuiRenderer.h>
+#include <render/resources/Texture.h>
 
 namespace sky {
 
@@ -21,10 +21,10 @@ namespace sky {
 
     private:
         friend class Singleton<GuiManager>;
-        GuiManager() = default;
+        GuiManager()  = default;
         ~GuiManager() = default;
 
-        RDImagePtr fontImage;
+        RDImagePtr   fontImage;
         RDTexturePtr fontTexture;
     };
-}
+} // namespace sky

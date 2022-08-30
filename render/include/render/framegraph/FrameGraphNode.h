@@ -4,13 +4,15 @@
 
 #pragma once
 
-#include <vulkan/CommandBuffer.h>
 #include <string>
+#include <vulkan/CommandBuffer.h>
 
 namespace sky {
     class FrameGraphNode {
     public:
-        explicit FrameGraphNode(const std::string& str) : name(str) {}
+        explicit FrameGraphNode(const std::string &str) : name(str)
+        {
+        }
         virtual ~FrameGraphNode() = default;
 
         virtual void Execute(const drv::CommandBufferPtr &commandBuffer) = 0;
@@ -20,4 +22,4 @@ namespace sky {
         std::string name;
     };
 
-}
+} // namespace sky

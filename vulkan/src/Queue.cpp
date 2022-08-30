@@ -2,39 +2,39 @@
 // Created by Zach Lee on 2022/1/3.
 //
 
-#include <vulkan/Queue.h>
 #include <vulkan/Device.h>
+#include <vulkan/Queue.h>
 
 namespace sky::drv {
 
     void Queue::Setup()
     {
         CommandPool::Descriptor des = {};
-        des.queueFamilyIndex = queueFamilyIndex;
-        des.flag = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        des.queueFamilyIndex        = queueFamilyIndex;
+        des.flag                    = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
         pool = device.CreateDeviceObject<CommandPool>(des);
     }
 
-    CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::Descriptor& des)
+    CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::Descriptor &des)
     {
         return pool->Allocate(des);
     }
 
-    CommandBufferPtr Queue::AllocateTlsCommandBuffer(const CommandBuffer::Descriptor& des)
+    CommandBufferPtr Queue::AllocateTlsCommandBuffer(const CommandBuffer::Descriptor &des)
     {
-        auto& tlsPool = GetOrCreatePool();
+        auto &tlsPool = GetOrCreatePool();
         return tlsPool->Allocate(des);
     }
 
     const CommandPoolPtr &Queue::GetOrCreatePool()
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto& pool = tlsPools[std::this_thread::get_id()];
+        auto                       &pool = tlsPools[std::this_thread::get_id()];
         if (!pool) {
             pool = device.CreateDeviceObject<CommandPool>({});
         }
         return pool;
     }
 
-}
+} // namespace sky::drv

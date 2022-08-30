@@ -12,11 +12,9 @@ namespace sky {
 
     class ShapeManager : public Singleton<ShapeManager> {
     public:
-
-        template <typename T>
-        RDShaperPtr GetOrCreate()
+        template <typename T> RDShaperPtr GetOrCreate()
         {
-            auto id = TypeInfo<T>::Hash();
+            auto id   = TypeInfo<T>::Hash();
             auto iter = shapes.find(id);
             if (iter != shapes.end()) {
                 return iter->second;
@@ -33,9 +31,9 @@ namespace sky {
 
     private:
         friend class Singleton<ShapeManager>;
-        ShapeManager() = default;
+        ShapeManager()  = default;
         ~ShapeManager() = default;
 
         std::unordered_map<uint32_t, RDShaperPtr> shapes;
     };
-}
+} // namespace sky

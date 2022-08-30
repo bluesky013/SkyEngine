@@ -2,14 +2,13 @@
 // Created by Zach Lee on 2021/11/14.
 //
 
-
 #pragma once
 #include <memory>
-#include <vulkan/Semaphore.h>
+#include <render/RenderConstants.h>
+#include <render/RenderEncoder.h>
 #include <vulkan/CommandBuffer.h>
 #include <vulkan/CommandPool.h>
-#include <render/RenderEncoder.h>
-#include <render/RenderConstants.h>
+#include <vulkan/Semaphore.h>
 
 namespace sky {
 
@@ -20,26 +19,32 @@ namespace sky {
     static constexpr uint32_t FORWARD_TAG = 0x01;
     static constexpr uint32_t UI_TAG      = 0x02;
 
-    class RenderPipeline  {
+    class RenderPipeline {
     public:
-        RenderPipeline(RenderScene& scn) : scene(scn) {}
+        RenderPipeline(RenderScene &scn) : scene(scn)
+        {
+        }
         virtual ~RenderPipeline();
 
-        virtual void BeginFrame(FrameGraph& frameGraph)
+        virtual void BeginFrame(FrameGraph &frameGraph)
         {
             encoders.clear();
         }
 
-        virtual void DoFrame(FrameGraph& frameGraph, const drv::CommandBufferPtr& cmdBuffer);
+        virtual void DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &cmdBuffer);
 
-        virtual void ViewportChange(const RenderViewport& viewport) {}
+        virtual void ViewportChange(const RenderViewport &viewport)
+        {
+        }
 
-        virtual void SetOutput(const drv::ImagePtr& output) {}
+        virtual void SetOutput(const drv::ImagePtr &output)
+        {
+        }
 
     protected:
-        RenderScene& scene;
-        std::vector<RenderRasterEncoder*> encoders;
+        RenderScene                       &scene;
+        std::vector<RenderRasterEncoder *> encoders;
     };
     using RDPipeline = std::unique_ptr<RenderPipeline>;
 
-}
+} // namespace sky

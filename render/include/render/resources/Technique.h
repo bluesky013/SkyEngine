@@ -4,26 +4,26 @@
 
 #pragma once
 
+#include <render/resources/Pass.h>
 #include <render/resources/RenderResource.h>
 #include <render/resources/Shader.h>
-#include <render/resources/Pass.h>
-#include <vulkan/GraphicsPipeline.h>
 #include <vulkan/DescriptorSetBinder.h>
+#include <vulkan/GraphicsPipeline.h>
 
 namespace sky {
 
     class GraphicsTechnique : public RenderResource {
     public:
-        GraphicsTechnique() = default;
+        GraphicsTechnique()  = default;
         ~GraphicsTechnique() = default;
 
         void SetShaderTable(RDGfxShaderTablePtr table);
 
         void SetRenderPass(RDPassPtr pass, uint32_t subPass = 0);
 
-        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr& vertexInput);
+        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr &vertexInput);
 
-        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr& vi, const drv::ShaderOptionPtr &option);
+        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr &vi, const drv::ShaderOptionPtr &option);
 
         void SetViewTag(uint32_t tag);
 
@@ -44,16 +44,16 @@ namespace sky {
         drv::GraphicsPipeline::State &GetState();
 
     private:
-        bool CheckVertexInput(drv::VertexInput& input) const;
+        bool CheckVertexInput(drv::VertexInput &input) const;
 
-        RDGfxShaderTablePtr table;
-        uint32_t subPassIndex = 0;
-        uint32_t viewTag = 0;
-        uint32_t drawTag = 0;
-        RDPassPtr pass;
-        drv::GraphicsPipeline::State pipelineState;
+        RDGfxShaderTablePtr                                    table;
+        uint32_t                                               subPassIndex = 0;
+        uint32_t                                               viewTag      = 0;
+        uint32_t                                               drawTag      = 0;
+        RDPassPtr                                              pass;
+        drv::GraphicsPipeline::State                           pipelineState;
         std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> psoCache;
     };
     using RDGfxTechniquePtr = std::shared_ptr<GraphicsTechnique>;
 
-}
+} // namespace sky

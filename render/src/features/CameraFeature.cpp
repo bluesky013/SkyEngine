@@ -2,14 +2,14 @@
 // Created by Zach Lee on 2022/7/18.
 //
 
-#include <render/features/CameraFeature.h>
-#include <render/RenderScene.h>
 #include <render/RenderConstants.h>
+#include <render/RenderScene.h>
 #include <render/RenderViewport.h>
+#include <render/features/CameraFeature.h>
 
 namespace sky {
 
-    RenderCamera* CameraFeature::Create()
+    RenderCamera *CameraFeature::Create()
     {
         cameras.emplace_back(new RenderCamera());
         auto camera = cameras.back().get();
@@ -20,17 +20,15 @@ namespace sky {
         return cameras.back().get();
     }
 
-    void CameraFeature::Release(RenderCamera* camera)
+    void CameraFeature::Release(RenderCamera *camera)
     {
-        cameras.erase(std::remove_if(cameras.begin(), cameras.end(),[camera](auto& ptr) {
-            return ptr.get() == camera;
-        }), cameras.end());
+        cameras.erase(std::remove_if(cameras.begin(), cameras.end(), [camera](auto &ptr) { return ptr.get() == camera; }), cameras.end());
     }
 
     void CameraFeature::OnPreparePipeline()
     {
         auto viewBuffer = scene.GetMainViewBuffer();
-        for (auto& camera : cameras) {
+        for (auto &camera : cameras) {
             if (camera->IsActive()) {
                 camera->UpdateProjection();
                 auto view = camera->GetView();
@@ -43,13 +41,13 @@ namespace sky {
         }
     }
 
-    void CameraFeature::OnViewportSizeChange(const RenderViewport& viewport)
+    void CameraFeature::OnViewportSizeChange(const RenderViewport &viewport)
     {
-        auto& ext = viewport.GetExtent();
-        for (auto& camera : cameras) {
+        auto &ext = viewport.GetExtent();
+        for (auto &camera : cameras) {
             if (camera->AspectFromViewport()) {
                 camera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
             }
         }
     }
-}
+} // namespace sky

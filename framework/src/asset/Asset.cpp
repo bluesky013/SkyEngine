@@ -7,12 +7,12 @@
 
 namespace sky {
 
-    void AssetBase::SetUuid(const Uuid& id)
+    void AssetBase::SetUuid(const Uuid &id)
     {
         uuid = id;
     }
 
-    const Uuid& AssetBase::GetUuid() const
+    const Uuid &AssetBase::GetUuid() const
     {
         return uuid;
     }
@@ -22,9 +22,9 @@ namespace sky {
         return status;
     }
 
-    std::string AssetHandlerBase::GetRealPath(const std::string& path)
+    std::string AssetHandlerBase::GetRealPath(const std::string &path)
     {
         return AssetManager::Get()->GetRealPath(path);
     }
 
-}
+} // namespace sky
