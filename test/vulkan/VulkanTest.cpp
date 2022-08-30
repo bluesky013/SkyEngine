@@ -3,9 +3,9 @@
 //
 
 #include <gtest/gtest.h>
-#include <vulkan/Driver.h>
-#include <vulkan/Device.h>
 #include <vulkan/DescriptorSetLayout.h>
+#include <vulkan/Device.h>
+#include <vulkan/Driver.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Sampler.h>
 #include <vulkan/ShaderOption.h>
@@ -16,34 +16,29 @@ using namespace sky::drv;
 TEST(VulkanTest, PipelineLayoutTest)
 {
     Driver::Descriptor drvDes = {};
-    drvDes.engineName = "SkyEngine";
-    drvDes.appName = "Test";
-    drvDes.enableDebugLayer = true;
+    drvDes.engineName         = "SkyEngine";
+    drvDes.appName            = "Test";
+    drvDes.enableDebugLayer   = true;
 
     auto driver = Driver::Create(drvDes);
 
     Device::Descriptor devDes = {};
-    auto device = driver->CreateDevice(devDes);
+    auto               device = driver->CreateDevice(devDes);
 
     PipelineLayout::Descriptor pipelineLayoutDes = {};
 
     {
         DescriptorSetLayout::Descriptor descriptor = {};
-        descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
-        descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-        descriptor.bindings.emplace(2, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
+        descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        descriptor.bindings.emplace(2, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         pipelineLayoutDes.desLayouts.emplace_back(descriptor);
     }
 
     {
         DescriptorSetLayout::Descriptor descriptor = {};
-        descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
-        descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
+        descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         pipelineLayoutDes.desLayouts.emplace_back(descriptor);
     }
 
@@ -89,9 +84,9 @@ TEST(VulkanTest, ShaderOptionTest)
     ASSERT_NE(fi, nullptr);
     ASSERT_EQ(fi->mapEntryCount, 3);
     ASSERT_EQ(fi->dataSize, 12);
-    ASSERT_EQ(&((uint8_t*)vi->pData)[4], fi->pData);
+    ASSERT_EQ(&((uint8_t *)vi->pData)[4], fi->pData);
 
-    auto tData = (const OpDataTest*)data;
+    auto tData = (const OpDataTest *)data;
     ASSERT_EQ(tData->a, 1);
     ASSERT_EQ(tData->b, 0.2f);
     ASSERT_EQ(tData->c, 3);
@@ -101,13 +96,13 @@ TEST(VulkanTest, ShaderOptionTest)
 TEST(VulkanTest, VertexInputTest)
 {
     VertexInput::Builder builder;
-    auto ptr = builder.Begin()
-        .AddAttribute(0, 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
-        .AddAttribute(1, 0, 16, VK_FORMAT_R32G32B32A32_SFLOAT)
-        .AddAttribute(2, 0, 32, VK_FORMAT_R32G32B32A32_SFLOAT)
-        .AddAttribute(3, 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
-        .AddStream(0, 48, VK_VERTEX_INPUT_RATE_VERTEX)
-        .AddStream(1, 4, VK_VERTEX_INPUT_RATE_VERTEX)
-        .Build();
+    auto                 ptr = builder.Begin()
+                   .AddAttribute(0, 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
+                   .AddAttribute(1, 0, 16, VK_FORMAT_R32G32B32A32_SFLOAT)
+                   .AddAttribute(2, 0, 32, VK_FORMAT_R32G32B32A32_SFLOAT)
+                   .AddAttribute(3, 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
+                   .AddStream(0, 48, VK_VERTEX_INPUT_RATE_VERTEX)
+                   .AddStream(1, 4, VK_VERTEX_INPUT_RATE_VERTEX)
+                   .Build();
     ASSERT_NE(ptr.get(), nullptr);
 }

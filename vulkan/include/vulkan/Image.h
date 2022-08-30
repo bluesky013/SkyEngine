@@ -2,12 +2,12 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
+#include <list>
+#include <mutex>
+#include <unordered_map>
+#include <vk_mem_alloc.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
-#include <vk_mem_alloc.h>
-#include <list>
-#include <unordered_map>
-#include <mutex>
 
 namespace sky::drv {
 
@@ -34,7 +34,7 @@ namespace sky::drv {
 
         bool IsTransient() const;
 
-        const VkImageCreateInfo& GetImageInfo() const;
+        const VkImageCreateInfo &GetImageInfo() const;
 
         VkImage GetNativeHandle() const;
 
@@ -42,21 +42,21 @@ namespace sky::drv {
         friend class Device;
         friend class ImageView;
         friend class SwapChain;
-        Image(Device&);
+        Image(Device &);
 
-        Image(Device&, VkImage);
+        Image(Device &, VkImage);
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         void Reset();
 
-        VkImage image;
-        VmaAllocation allocation;
+        VkImage           image;
+        VmaAllocation     allocation;
         VkImageCreateInfo imageInfo;
-        bool isTransient = false;
-        bool isOwn = true;
+        bool              isTransient = false;
+        bool              isOwn       = true;
     };
 
     using ImagePtr = std::shared_ptr<Image>;
 
-}
+} // namespace sky::drv

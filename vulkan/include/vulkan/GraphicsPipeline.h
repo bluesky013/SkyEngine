@@ -5,14 +5,14 @@
 #pragma once
 
 #include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
-#include "vulkan/Shader.h"
-#include "vulkan/ShaderOption.h"
 #include "vulkan/PipelineLayout.h"
 #include "vulkan/RenderPass.h"
+#include "vulkan/Shader.h"
+#include "vulkan/ShaderOption.h"
 #include "vulkan/VertexInput.h"
-#include <vector>
+#include "vulkan/vulkan.h"
 #include <string>
+#include <vector>
 
 namespace sky::drv {
 
@@ -23,7 +23,7 @@ namespace sky::drv {
         ~GraphicsPipeline() = default;
 
         struct InputAssembly {
-            VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            VkPrimitiveTopology topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
             VkBool32            primitiveRestartEnable = VK_FALSE;
         };
 
@@ -49,56 +49,56 @@ namespace sky::drv {
         };
 
         struct DepthStencilState {
-            VkBool32         depthTestEnable  = false;
-            VkBool32         depthWriteEnable = false;
-            VkCompareOp      depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
+            VkBool32         depthTestEnable       = false;
+            VkBool32         depthWriteEnable      = false;
+            VkCompareOp      depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
             VkBool32         depthBoundsTestEnable = VK_FALSE;
             VkBool32         stencilTestEnable     = VK_FALSE;
-            VkStencilOpState front = {};
-            VkStencilOpState back  = {};
-            float            minDepthBounds = 0.f;
-            float            maxDepthBounds = 1.f;
+            VkStencilOpState front                 = {};
+            VkStencilOpState back                  = {};
+            float            minDepthBounds        = 0.f;
+            float            maxDepthBounds        = 1.f;
         };
 
         struct BlendState {
-            VkBool32              blendEnable = VK_FALSE;
+            VkBool32              blendEnable         = VK_FALSE;
             VkBlendFactor         srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
             VkBlendFactor         dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-            VkBlendOp             colorBlendOp = VK_BLEND_OP_ADD;
+            VkBlendOp             colorBlendOp        = VK_BLEND_OP_ADD;
             VkBlendFactor         srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
             VkBlendFactor         dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            VkBlendOp             alphaBlendOp = VK_BLEND_OP_ADD;
-            VkColorComponentFlags colorWriteMask = 0xF;
+            VkBlendOp             alphaBlendOp        = VK_BLEND_OP_ADD;
+            VkColorComponentFlags colorWriteMask      = 0xF;
         };
 
         struct ColorBlend {
-            uint32_t attachmentNum = 1;
+            uint32_t   attachmentNum = 1;
             BlendState attachments[4];
         };
 
         struct State {
-            InputAssembly inputAssembly;
-            Raster raster;
-            MultiSample multiSample;
-            ColorBlend blends;
+            InputAssembly     inputAssembly;
+            Raster            raster;
+            MultiSample       multiSample;
+            ColorBlend        blends;
             DepthStencilState depthStencil;
         };
 
         struct Program {
             std::vector<ShaderPtr> shaders;
-            ShaderOptionPtr shaderOption;
+            ShaderOptionPtr        shaderOption;
         };
 
         struct Descriptor {
-            const State* state = nullptr;
-            const Program* program = nullptr;
-            VertexInputPtr vertexInput;
-            RenderPassPtr renderPass;
+            const State      *state   = nullptr;
+            const Program    *program = nullptr;
+            VertexInputPtr    vertexInput;
+            RenderPassPtr     renderPass;
             PipelineLayoutPtr pipelineLayout;
-            uint32_t subPassIndex = 0;
+            uint32_t          subPassIndex = 0;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkPipeline GetNativeHandle() const;
 
@@ -106,16 +106,16 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        GraphicsPipeline(Device&);
+        GraphicsPipeline(Device &);
 
-        static uint32_t CalculateHash(const Descriptor&);
+        static uint32_t CalculateHash(const Descriptor &);
 
-        VkPipeline pipeline;
-        uint32_t hash;
-        RenderPassPtr renderPass;
+        VkPipeline        pipeline;
+        uint32_t          hash;
+        RenderPassPtr     renderPass;
         PipelineLayoutPtr pipelineLayout;
     };
 
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 
-}
+} // namespace sky::drv

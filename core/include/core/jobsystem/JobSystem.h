@@ -12,28 +12,27 @@ namespace sky {
 
     class JobSystem : public Singleton<JobSystem> {
     public:
-
-        void RunAndWait(tf::Taskflow& flow)
+        void RunAndWait(tf::Taskflow &flow)
         {
             executor.run(flow).wait();
         }
 
-        auto Run(tf::Taskflow& flow)
+        auto Run(tf::Taskflow &flow)
         {
             return executor.run(flow);
         }
 
-        auto Run(tf::Taskflow&& flow)
+        auto Run(tf::Taskflow &&flow)
         {
             return executor.run(std::forward<tf::Taskflow>(flow));
         }
 
     private:
         friend class Singleton<JobSystem>;
-        JobSystem() = default;
+        JobSystem()  = default;
         ~JobSystem() = default;
 
         tf::Executor executor;
     };
 
-}
+} // namespace sky

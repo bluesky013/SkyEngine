@@ -3,9 +3,9 @@
 //
 
 #pragma once
-#include <vulkan/Basic.h>
 #include <core/template/ReferenceObject.h>
 #include <memory>
+#include <vulkan/Basic.h>
 
 namespace sky::drv {
 
@@ -13,12 +13,14 @@ namespace sky::drv {
 
     class DevObject {
     public:
-        DevObject(Device& dev) : device(dev) {}
+        DevObject(Device &dev) : device(dev)
+        {
+        }
         virtual ~DevObject() = default;
 
     protected:
-        Device& device;
+        Device &device;
     };
     using DevPtr = std::shared_ptr<DevObject>;
 
-}
+} // namespace sky::drv

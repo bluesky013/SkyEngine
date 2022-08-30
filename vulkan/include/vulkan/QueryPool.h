@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <vector>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan_core.h>
-#include <vector>
 
 namespace sky::drv {
 
@@ -15,12 +15,12 @@ namespace sky::drv {
         ~QueryPool();
 
         struct Descriptor {
-            VkQueryType                      queryType  = VK_QUERY_TYPE_PIPELINE_STATISTICS;
-            uint32_t                         queryCount = 0;
-            VkQueryPipelineStatisticFlags    pipelineStatistics = 0;
+            VkQueryType                   queryType          = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+            uint32_t                      queryCount         = 0;
+            VkQueryPipelineStatisticFlags pipelineStatistics = 0;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkQueryPool GetNativeHandle() const;
 
@@ -34,13 +34,13 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        QueryPool(Device&);
+        QueryPool(Device &);
 
-        VkQueryPool pool;
-        uint32_t queryCount = 0;
+        VkQueryPool                   pool;
+        uint32_t                      queryCount           = 0;
         VkQueryPipelineStatisticFlags pipelineStaticsFlags = 0;
-        std::vector<uint64_t> results;
+        std::vector<uint64_t>         results;
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 
-}
+} // namespace sky::drv

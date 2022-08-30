@@ -17,7 +17,8 @@ namespace sky {
         VkBufferUsageFlags   usage  = 0;
         VmaMemoryUsage       memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(data, usage, memory);
         }
@@ -47,7 +48,8 @@ namespace sky {
 
         void Write(const uint8_t *data, uint64_t size, uint64_t offset = 0);
 
-        template <typename T> void Write(const T &value, uint64_t offset)
+        template <typename T>
+        void Write(const T &value, uint64_t offset)
         {
             Write(reinterpret_cast<const uint8_t *>(&value), sizeof(T), offset);
         }
@@ -88,9 +90,10 @@ namespace sky {
 
         virtual void RequestUpdate();
 
-        template <typename T> void Write(const T &value, uint64_t off = 0)
+        template <typename T>
+        void Write(const T &value, uint64_t off = 0)
         {
-            WriteImpl(reinterpret_cast<const uint8_t *>(&value), sizeof(T), offset);
+            WriteImpl(reinterpret_cast<const uint8_t *>(&value), sizeof(T), off + offset);
         }
 
     protected:
@@ -132,7 +135,8 @@ namespace sky {
     };
     using RDDynBufferViewPtr = std::shared_ptr<DynamicBufferView>;
 
-    template <> struct AssetTraits<Buffer> {
+    template <>
+    struct AssetTraits<Buffer> {
         using DataType                                = BufferAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E97EF70C-65F8-46AB-8C3B-470FEACBC522");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;

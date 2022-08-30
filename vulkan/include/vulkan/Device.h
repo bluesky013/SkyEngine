@@ -3,12 +3,12 @@
 //
 
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vulkan/Queue.h>
-#include <vulkan/CacheManager.h>
-#include <vk_mem_alloc.h>
 #include <core/template/ReferenceObject.h>
 #include <vector>
+#include <vk_mem_alloc.h>
+#include <vulkan/CacheManager.h>
+#include <vulkan/Queue.h>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
 
@@ -18,11 +18,10 @@ namespace sky::drv {
     public:
         ~Device();
 
-        struct Descriptor {
-        };
+        struct Descriptor {};
 
         template <typename T>
-        inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor& des)
+        inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
         {
             auto res = new T(*this);
             if (!res->Init(des)) {
@@ -40,43 +39,43 @@ namespace sky::drv {
 
         VkInstance GetInstance() const;
 
-        Queue* GetQueue(VkQueueFlags preferred) const;
+        Queue *GetQueue(VkQueueFlags preferred) const;
 
-        VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo* samplerInfo = nullptr);
+        VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
 
-        VkPipelineLayout GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo* = nullptr);
+        VkPipelineLayout GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo * = nullptr);
 
-        VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo* = nullptr);
+        VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
 
-        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo* = nullptr);
+        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo * = nullptr);
 
-        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo* = nullptr);
+        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
 
-        const VkPhysicalDeviceProperties& GetProperties() const;
+        const VkPhysicalDeviceProperties &GetProperties() const;
 
         void WaitIdle() const;
 
     private:
-        bool Init(const Descriptor&, bool enableDebug);
+        bool Init(const Descriptor &, bool enableDebug);
 
         friend class Driver;
-        Device(Driver&);
-        Driver& driver;
+        Device(Driver &);
+        Driver          &driver;
         VkPhysicalDevice phyDev;
-        VkDevice device;
-        VmaAllocator allocator;
+        VkDevice         device;
+        VmaAllocator     allocator;
 
         VkPhysicalDeviceProperties phyProps;
-        VkPhysicalDeviceFeatures phyFeatures;
+        VkPhysicalDeviceFeatures   phyFeatures;
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
-        std::vector<QueuePtr> queues;
+        std::vector<QueuePtr>                queues;
 
-        CacheManager<VkSampler> samplers;
+        CacheManager<VkSampler>             samplers;
         CacheManager<VkDescriptorSetLayout> setLayouts;
-        CacheManager<VkPipelineLayout> pipelineLayouts;
-        CacheManager<VkPipeline> pipelines;
-        CacheManager<VkRenderPass> renderPasses;
+        CacheManager<VkPipelineLayout>      pipelineLayouts;
+        CacheManager<VkPipeline>            pipelines;
+        CacheManager<VkRenderPass>          renderPasses;
     };
 
-}
+} // namespace sky::drv

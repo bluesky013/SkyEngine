@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
-
 #include <MemoryAliasingSample.h>
 #include <vulkan/MemoryPool.h>
 
@@ -23,6 +22,6 @@ namespace sky::render {
     void MemoryAliasingSample::Tick(float delta)
     {
     }
-}
+} // namespace sky::render
 
 REGISTER_MODULE(sky::render::MemoryAliasingSample)

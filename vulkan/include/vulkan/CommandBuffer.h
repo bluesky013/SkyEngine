@@ -2,17 +2,17 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
-#include <vulkan/DevObject.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/Fence.h>
-#include <vulkan/Semaphore.h>
-#include <vulkan/Buffer.h>
-#include <vulkan/Image.h>
-#include <vulkan/DrawItem.h>
-#include <vulkan/RenderPass.h>
-#include <vulkan/FrameBuffer.h>
-#include <vulkan/QueryPool.h>
 #include <vector>
+#include <vulkan/Buffer.h>
+#include <vulkan/DevObject.h>
+#include <vulkan/DrawItem.h>
+#include <vulkan/Fence.h>
+#include <vulkan/FrameBuffer.h>
+#include <vulkan/Image.h>
+#include <vulkan/QueryPool.h>
+#include <vulkan/RenderPass.h>
+#include <vulkan/Semaphore.h>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
 
@@ -23,21 +23,21 @@ namespace sky::drv {
 
     struct PassBeginInfo {
         drv::FrameBufferPtr frameBuffer;
-        drv::RenderPassPtr renderPass;
-        uint32_t clearValueCount = 0;
-        VkClearValue* clearValues = nullptr;
-        VkRect2D* renderArea = nullptr;
-        VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE;
+        drv::RenderPassPtr  renderPass;
+        uint32_t            clearValueCount = 0;
+        VkClearValue       *clearValues     = nullptr;
+        VkRect2D           *renderArea      = nullptr;
+        VkSubpassContents   contents        = VK_SUBPASS_CONTENTS_INLINE;
     };
 
     class GraphicsEncoder {
     public:
-        GraphicsEncoder(CommandBuffer&);
+        GraphicsEncoder(CommandBuffer &);
         ~GraphicsEncoder() = default;
 
-        void Encode(const DrawItem& item);
+        void Encode(const DrawItem &item);
 
-        void BeginPass(const PassBeginInfo&);
+        void BeginPass(const PassBeginInfo &);
 
         void BindPipeline(const GraphicsPipelinePtr &pso);
 
@@ -65,16 +65,16 @@ namespace sky::drv {
 
         const VkRect2D &GetCurrentScissor() const;
 
-        CommandBuffer& GetCommandBuffer();
+        CommandBuffer &GetCommandBuffer();
 
     private:
         friend class CommandBuffer;
-        CommandBuffer &cmdBuffer;
-        VkCommandBuffer cmd = VK_NULL_HANDLE;
-        VkRenderPassBeginInfo vkBeginInfo = {};
-        uint32_t currentSubPassId = 0;
-        VkViewport viewport{};
-        VkRect2D scissor{};
+        CommandBuffer        &cmdBuffer;
+        VkCommandBuffer       cmd              = VK_NULL_HANDLE;
+        VkRenderPassBeginInfo vkBeginInfo      = {};
+        uint32_t              currentSubPassId = 0;
+        VkViewport            viewport{};
+        VkRect2D              scissor{};
     };
 
     class CommandBuffer : public DevObject {
@@ -82,32 +82,32 @@ namespace sky::drv {
         ~CommandBuffer() override;
 
         struct Descriptor {
-            VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            bool needFence = true;
+            VkCommandBufferLevel level     = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            bool                 needFence = true;
         };
 
         void Wait(uint64_t timeout = UINT64_MAX);
 
         void Begin();
 
-        void Begin(const VkCommandBufferInheritanceInfo& inheritanceInfo);
+        void Begin(const VkCommandBufferInheritanceInfo &inheritanceInfo);
 
         template <typename Func>
-        void Encode(Func&& fun)
+        void Encode(Func &&fun)
         {
             fun(cmdBuffer);
         }
 
-        void ImageBarrier(const ImagePtr &image, const VkImageSubresourceRange& subresourceRange, const Barrier& barrier, VkImageLayout src, VkImageLayout dst);
+        void ImageBarrier(
+            const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
 
-        void BufferBarrier(const BufferPtr &buffer, const Barrier& barrier, uint32_t size, uint32_t offset);
+        void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset);
 
-        void Copy(VkImage src, VkImageLayout srcLayout,
-            VkImage dst, VkImageLayout dstLayout, const VkImageCopy& copy);
+        void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
 
-        void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy& copy);
+        void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy);
 
-        void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy& copy);
+        void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy &copy);
 
         void BeginQuery(const QueryPoolPtr &pool, uint32_t queryId);
 
@@ -119,12 +119,12 @@ namespace sky::drv {
 
         struct SubmitInfo {
             std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
-            std::vector<SemaphorePtr> submitSignals;
+            std::vector<SemaphorePtr>                                  submitSignals;
         };
 
-        void Submit(Queue& queue, const SubmitInfo& submit);
+        void Submit(Queue &queue, const SubmitInfo &submit);
 
-        void ExecuteSecondary(const SecondaryCommands&);
+        void ExecuteSecondary(const SecondaryCommands &);
 
         GraphicsEncoder EncodeGraphics();
 
@@ -132,20 +132,20 @@ namespace sky::drv {
 
     private:
         friend class CommandPool;
-        CommandBuffer(Device&, VkCommandPool, VkCommandBuffer);
+        CommandBuffer(Device &, VkCommandPool, VkCommandBuffer);
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
-        VkCommandPool pool;
+        VkCommandPool   pool;
         VkCommandBuffer cmdBuffer;
-        FencePtr fence;
+        FencePtr        fence;
     };
 
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
 
     class SecondaryCommands {
     public:
-        SecondaryCommands() = default;
+        SecondaryCommands()  = default;
         ~SecondaryCommands() = default;
 
         void Emplace(const CommandBufferPtr &cmd);
@@ -153,9 +153,9 @@ namespace sky::drv {
         void OnExecute(VkCommandBuffer main) const;
 
     private:
-        mutable std::mutex mutex;
-        std::list<CommandBufferPtr> cmdBuffers;
+        mutable std::mutex           mutex;
+        std::list<CommandBufferPtr>  cmdBuffers;
         std::vector<VkCommandBuffer> cmdHandlers;
     };
 
-}
+} // namespace sky::drv

@@ -7,15 +7,15 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 
+#include <render/RenderCamera.h>
 #include <render/RenderScene.h>
 #include <render/RenderViewport.h>
-#include <render/RenderCamera.h>
 #include <render/StaticMesh.h>
 
 namespace sky {
     class RDSceneSample : public IModule {
     public:
-        RDSceneSample() = default;
+        RDSceneSample()  = default;
         ~RDSceneSample() = default;
 
         void Init() override;
@@ -27,10 +27,10 @@ namespace sky {
         void Tick(float delta) override;
 
     private:
-        RDScenePtr scene;
+        RDScenePtr    scene;
         RDMaterialPtr material;
-        RenderCamera* mainCamera = nullptr;
-        StaticMesh* staticMesh = nullptr;
+        RenderCamera *mainCamera = nullptr;
+        StaticMesh   *staticMesh = nullptr;
     };
 
-}
+} // namespace sky

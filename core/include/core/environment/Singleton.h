@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <mutex>
-#include <core/type/Rtti.h>
 #include <core/environment/Environment.h>
+#include <core/type/Rtti.h>
+#include <mutex>
 
 namespace sky {
 
@@ -14,42 +14,43 @@ namespace sky {
     class Singleton {
     public:
         static constexpr std::string_view NAME = TypeInfo<T>::Name();
-        static constexpr uint32_t ID = TypeInfo<T>::Hash();
+        static constexpr uint32_t         ID   = TypeInfo<T>::Hash();
 
-        static T* Get()
+        static T *Get()
         {
             return GetPtr(true);
         }
 
         static void Destroy()
         {
-            auto& instance = GetPtr(false);
+            auto &instance = GetPtr(false);
             if (instance != nullptr) {
                 Environment::Get()->UnRegister(ID);
                 delete instance;
                 instance = nullptr;
             }
         }
+
     protected:
-        static T*& GetPtr(bool create)
+        static T *&GetPtr(bool create)
         {
-            static T* instance = nullptr;
+            static T         *instance = nullptr;
             static std::mutex mutex;
             if (instance == nullptr && create) {
                 std::lock_guard<std::mutex> lock(mutex);
-                void* ptr = Environment::Get()->Find(ID);
+                void                       *ptr = Environment::Get()->Find(ID);
                 if (ptr == nullptr) {
                     instance = new T();
                     Environment::Get()->Register(ID, instance);
                 } else {
-                    instance = static_cast<T*>(ptr);
+                    instance = static_cast<T *>(ptr);
                 }
             }
             return instance;
         }
 
-        Singleton() = default;
+        Singleton()          = default;
         virtual ~Singleton() = default;
     };
 
-}
+} // namespace sky

@@ -4,15 +4,15 @@
 
 #pragma once
 
-#include <core/util/Uuid.h>
-#include <core/jobsystem/JobSystem.h>
-#include <cereal/archives/json.hpp>
 #include <cereal/archives/binary.hpp>
+#include <cereal/archives/json.hpp>
 #include <cereal/archives/xml.hpp>
+#include <core/jobsystem/JobSystem.h>
+#include <core/util/Uuid.h>
 #include <memory>
-#include <vector>
-#include <string>
 #include <mutex>
+#include <string>
+#include <vector>
 
 namespace sky {
 
@@ -22,11 +22,7 @@ namespace sky {
 
         virtual ~AssetBase() = default;
 
-        enum class Status {
-            INITIAL,
-            LOADING,
-            LOADED
-        };
+        enum class Status { INITIAL, LOADING, LOADED };
 
         void SetUuid(const Uuid &id);
 
@@ -34,7 +30,8 @@ namespace sky {
 
         Status GetStatus() const;
 
-        void BlockUtilLoaded() {
+        void BlockUtilLoaded()
+        {
             if (future.valid()) {
                 future.wait();
             }
@@ -43,32 +40,28 @@ namespace sky {
     protected:
         friend class AssetManager;
 
-        Uuid uuid;
-        Status status = Status::INITIAL;
+        Uuid             uuid;
+        Status           status = Status::INITIAL;
         tf::Future<void> future;
     };
 
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    enum class SerializeType : uint8_t {
-        JSON,
-        BIN,
-        XML
-    };
+    enum class SerializeType : uint8_t { JSON, BIN, XML };
 
-    template<typename T>
+    template <typename T>
     struct AssetTraits {
         using DataType = std::vector<uint8_t>;
-        static constexpr Uuid ASSET_TYPE;
+        static constexpr Uuid          ASSET_TYPE;
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
 
-        static std::shared_ptr<T> CreateFromData(const DataType& data)
+        static std::shared_ptr<T> CreateFromData(const DataType &data)
         {
             return nullptr;
         }
     };
 
-    template<typename T>
+    template <typename T>
     class Asset : public AssetBase {
     public:
         Asset() = default;
@@ -77,15 +70,18 @@ namespace sky {
 
         using DataType = typename AssetTraits<T>::DataType;
 
-        void SetData(const DataType &input) {
+        void SetData(const DataType &input)
+        {
             data = input;
         }
 
-        void SetData(DataType &&input) {
+        void SetData(DataType &&input)
+        {
             data = std::move(input);
         }
 
-        std::shared_ptr<T> CreateInstance(bool useDefault = true) {
+        std::shared_ptr<T> CreateInstance(bool useDefault = true)
+        {
             std::shared_ptr<T> res;
             if (useDefault) {
                 std::lock_guard<std::mutex> lock(mutex);
@@ -93,14 +89,15 @@ namespace sky {
                 if (res) {
                     return res;
                 }
-                res = AssetTraits<T>::CreateFromData(data);
+                res             = AssetTraits<T>::CreateFromData(data);
                 defaultInstance = res;
                 return res;
             }
             return AssetTraits<T>::CreateFromData(data);
         }
 
-        const DataType &Data() const {
+        const DataType &Data() const
+        {
             return data;
         }
 
@@ -109,8 +106,9 @@ namespace sky {
             return data;
         }
 
-        template<class Archiver>
-        void serialize(Archiver &ar) {
+        template <class Archiver>
+        void serialize(Archiver &ar)
+        {
             ar(uuid);
         }
 
@@ -119,7 +117,7 @@ namespace sky {
 
         DataType data;
 
-        std::mutex mutex;
+        std::mutex       mutex;
         std::weak_ptr<T> defaultInstance;
     };
 
@@ -140,27 +138,29 @@ namespace sky {
         static std::string GetRealPath(const std::string &path);
     };
 
-    template<typename T>
+    template <typename T>
     class AssetHandler : public AssetHandlerBase {
     public:
         AssetHandler() = default;
 
         ~AssetHandler() override = default;
 
-        using DataType = typename AssetTraits<T>::DataType;
+        using DataType                                = typename AssetTraits<T>::DataType;
         static constexpr SerializeType SERIALIZE_TYPE = AssetTraits<T>::SERIALIZE_TYPE;
 
-        std::shared_ptr<AssetBase> CreateAsset() override {
+        std::shared_ptr<AssetBase> CreateAsset() override
+        {
             return std::make_shared<Asset<T>>();
         }
 
-        void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override {
+        void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
+        {
             std::ifstream file(GetRealPath(path), std::ios::binary);
             if (!file.is_open()) {
                 return;
             }
 
-            auto asset = std::static_pointer_cast<Asset<T>>(assetBase);
+            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
             DataType assetData;
             if (SERIALIZE_TYPE == SerializeType::JSON) {
                 cereal::JSONInputArchive archive(file);
@@ -175,9 +175,10 @@ namespace sky {
             asset->SetData(std::move(assetData));
         }
 
-        void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override {
-            auto asset = std::static_pointer_cast<Asset<T>>(assetBase);
-            auto &assetData = asset->Data();
+        void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
+        {
+            auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
+            auto         &assetData = asset->Data();
             std::ofstream file(path, std::ios::binary);
             if (!file.is_open()) {
                 return;
@@ -194,4 +195,4 @@ namespace sky {
             }
         }
     };
-}
+} // namespace sky

@@ -3,12 +3,12 @@
 //
 
 #pragma once
-#include <core/type/Rtti.h>
 #include <core/environment/Singleton.h>
+#include <core/type/Rtti.h>
 
 namespace sky {
 
-    template<typename T>
+    template <typename T>
     class TypeInfoObj : public Singleton<TypeInfoObj<T>> {
     public:
         TypeInfoRT *RtInfo()
@@ -47,14 +47,14 @@ namespace sky {
         }
 
     private:
-        std::mutex mutex;
+        std::mutex  mutex;
         TypeInfoRT *info = nullptr;
     };
 
-}
+} // namespace sky
 
-#define TYPE_RTTI(name)                             \
-    static const char* TypeName()                   \
-    {                                               \
-         return #name;                              \
+#define TYPE_RTTI(name)                                                                                                                              \
+    static const char *TypeName()                                                                                                                    \
+    {                                                                                                                                                \
+        return #name;                                                                                                                                \
     }

@@ -10,7 +10,7 @@ namespace sky {
 
     class MeshComponent : public Component {
     public:
-        MeshComponent() = default;
+        MeshComponent()  = default;
         ~MeshComponent() = default;
 
         TYPE_RTTI_WITH_VT(MeshComponent)
@@ -20,4 +20,4 @@ namespace sky {
         static void Reflect();
     };
 
-}
+} // namespace sky

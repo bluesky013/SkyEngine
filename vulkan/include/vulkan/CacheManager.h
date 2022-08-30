@@ -4,8 +4,8 @@
 
 #pragma once
 #include <functional>
-#include <unordered_map>
 #include <mutex>
+#include <unordered_map>
 
 namespace sky::drv {
 
@@ -23,7 +23,7 @@ namespace sky::drv {
         void Shutdown()
         {
             std::lock_guard<std::mutex> lock(mutex);
-            for (auto& cache : caches) {
+            for (auto &cache : caches) {
                 if (deleteFn) {
                     deleteFn(cache.second);
                 }
@@ -33,7 +33,7 @@ namespace sky::drv {
         T Find(uint32_t key)
         {
             std::lock_guard<std::mutex> lock(mutex);
-            auto iter = caches.find(key);
+            auto                        iter = caches.find(key);
             if (iter != caches.end()) {
                 return iter->second;
             }
@@ -41,10 +41,10 @@ namespace sky::drv {
         }
 
         template <typename CreateFn>
-        T FindOrEmplace(uint32_t key, CreateFn&& fn)
+        T FindOrEmplace(uint32_t key, CreateFn &&fn)
         {
             std::lock_guard<std::mutex> lock(mutex);
-            auto iter = caches.find(key);
+            auto                        iter = caches.find(key);
             if (iter != caches.end()) {
                 return iter->second;
             }
@@ -57,15 +57,15 @@ namespace sky::drv {
         }
 
         template <typename DeleteFn>
-        void SetUp(DeleteFn&& fn)
+        void SetUp(DeleteFn &&fn)
         {
             deleteFn = std::move(fn);
         }
 
     private:
-        std::mutex mutex;
+        std::mutex                      mutex;
         std::unordered_map<uint32_t, T> caches;
-        std::function<void(T&)> deleteFn;
+        std::function<void(T &)>        deleteFn;
     };
 
-}
+} // namespace sky::drv

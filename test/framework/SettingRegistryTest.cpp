@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/3/13.
 //
 
-#include <gtest/gtest.h>
 #include <framework/application/SettingRegistry.h>
+#include <gtest/gtest.h>
 
 using namespace sky;
 

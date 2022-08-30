@@ -2,14 +2,13 @@
 // Created by Zach Lee on 2021/11/12.
 //
 
-
 #pragma once
 
-#include <string>
-#include <vector>
-#include <unordered_map>
 #include <core/math/Rect.h>
 #include <engine/ServiceManager.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace sky {
 
@@ -22,24 +21,24 @@ namespace sky {
         World();
         ~World();
 
-        GameObject* CreateGameObject(const std::string& name);
+        GameObject *CreateGameObject(const std::string &name);
 
-        void DestroyGameObject(GameObject*);
+        void DestroyGameObject(GameObject *);
 
         void Tick(float);
 
-        const std::vector<GameObject*>& GetGameObjects() const;
+        const std::vector<GameObject *> &GetGameObjects() const;
 
-        GameObject* GetRoot();
+        GameObject *GetRoot();
 
-        ServiceManager* GetServiceManager() const;
+        ServiceManager *GetServiceManager() const;
 
         static void Reflect();
 
     private:
-        GameObject* root;
+        GameObject                     *root;
         std::unique_ptr<ServiceManager> serviceManager;
-        std::vector<GameObject*> gameObjects;
+        std::vector<GameObject *>       gameObjects;
     };
 
-}
+} // namespace sky

@@ -3,11 +3,11 @@
 //
 
 #pragma once
-#include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
 #include "vulkan/DescriptorSet.h"
 #include "vulkan/DescriptorSetLayout.h"
 #include "vulkan/DescriptorSetPool.h"
+#include "vulkan/DevObject.h"
+#include "vulkan/vulkan.h"
 #include <map>
 #include <vector>
 
@@ -22,10 +22,10 @@ namespace sky::drv {
 
         struct Descriptor {
             std::vector<DescriptorSetLayout::Descriptor> desLayouts;
-            std::vector<VkPushConstantRange> pushConstants;
+            std::vector<VkPushConstantRange>             pushConstants;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkPipelineLayout GetNativeHandle() const;
 
@@ -45,15 +45,15 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        PipelineLayout(Device&);
+        PipelineLayout(Device &);
 
-        VkPipelineLayout layout;
-        uint32_t dynamicNum;
-        uint32_t hash;
-        std::vector<VkPushConstantRange> pushConstants;
+        VkPipelineLayout                    layout;
+        uint32_t                            dynamicNum;
+        uint32_t                            hash;
+        std::vector<VkPushConstantRange>    pushConstants;
         std::vector<DescriptorSetLayoutPtr> desLayouts;
     };
 
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;
 
-}
+} // namespace sky::drv

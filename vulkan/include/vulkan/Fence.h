@@ -17,7 +17,7 @@ namespace sky::drv {
             VkFenceCreateFlags flag = 0;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         void Wait(uint64_t timeout = UINT64_MAX);
 
@@ -27,10 +27,10 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        Fence(Device&);
+        Fence(Device &);
         VkFence fence;
     };
 
     using FencePtr = std::shared_ptr<Fence>;
 
-}
+} // namespace sky::drv

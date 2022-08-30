@@ -74,14 +74,16 @@ namespace sky {
         void OnKeyDown(KeyButtonType) override;
         void OnTextInput(const char *text) override;
 
-        template <typename T, typename... Args> T *Create(Args &&...args)
+        template <typename T, typename... Args>
+        T *Create(Args &&...args)
         {
             auto widget = new T(std::forward<Args>(args)...);
             widgets.emplace_back(widget);
             return static_cast<T *>(widgets.back().get());
         }
 
-        template <typename T> LambdaWidget *CreateLambda(T &&func)
+        template <typename T>
+        LambdaWidget *CreateLambda(T &&func)
         {
             return Create<LambdaWidget>(std::forward<T>(func));
         }

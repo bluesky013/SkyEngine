@@ -2,17 +2,17 @@
 // Created by Zach Lee on 2022/8/11.
 //
 
-#include <gtest/gtest.h>
+#include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/BasicSerialization.h>
-#include <core/file/FileIO.h>
+#include <gtest/gtest.h>
 
 struct Test1Data {
-    int a;
-    float b;
+    int         a;
+    float       b;
     std::string c;
 
-    template<class Archive>
+    template <class Archive>
     void serialize(Archive &ar)
     {
         ar(a, b, c);
@@ -26,18 +26,18 @@ struct Test1 {
 namespace sky {
     template <>
     struct AssetTraits<Test1> {
-        using DataType = Test1Data;
-        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("5F34BBB0-3E06-4197-B1A9-069C18D5D3C5");
+        using DataType                                = Test1Data;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("5F34BBB0-3E06-4197-B1A9-069C18D5D3C5");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
 
-        static std::shared_ptr<Test1> CreateFromData(const DataType& data)
+        static std::shared_ptr<Test1> CreateFromData(const DataType &data)
         {
-            auto res = std::make_shared<Test1>();
+            auto res   = std::make_shared<Test1>();
             res->value = data;
             return res;
         }
     };
-}
+} // namespace sky
 
 class AssetTest : public ::testing::Test {
 public:
@@ -46,7 +46,7 @@ public:
         auto am = sky::AssetManager::Get();
         am->RegisterAssetHandler<Test1>();
 
-        auto testAsset = std::make_shared<sky::Asset<Test1>>();
+        auto testAsset      = std::make_shared<sky::Asset<Test1>>();
         testAsset->Data().a = 1;
         testAsset->Data().b = 2.0;
         testAsset->Data().c = "abc";

@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2021/11/10.
 //
 
-
 #pragma once
 
 #include <string>
@@ -20,25 +19,26 @@ namespace sky {
         ~NativeWindow();
 
         struct Descriptor {
-            uint32_t width = 1366;
-            uint32_t height = 768;
+            uint32_t    width  = 1366;
+            uint32_t    height = 768;
             std::string className;
             std::string titleName;
         };
 
-        static NativeWindow* Create(const Descriptor&);
+        static NativeWindow *Create(const Descriptor &);
 
-        void* GetNativeHandle() const;
+        void *GetNativeHandle() const;
 
         void PollEvent(bool &quit);
+
     private:
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         void Dispatch(const SDL_Event &event, bool &quit);
 
         void Dispatch(const SDL_WindowEvent &event);
 
-        SDL_Window *window = nullptr;
-        void* winHandle = nullptr;
+        SDL_Window *window    = nullptr;
+        void       *winHandle = nullptr;
     };
-}
+} // namespace sky

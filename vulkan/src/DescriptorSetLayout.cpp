@@ -2,20 +2,16 @@
 // Created by Zach Lee on 2022/1/9.
 //
 
+#include <core/hash/Crc32.h>
+#include <core/hash/Hash.h>
+#include <list>
 #include <vulkan/DescriptorSetLayout.h>
 #include <vulkan/Device.h>
-#include <core/hash/Hash.h>
-#include <core/hash/Crc32.h>
-#include <list>
 
 namespace sky::drv {
 
-    DescriptorSetLayout::DescriptorSetLayout(Device& dev)
-        : DevObject(dev)
-        , layout(VK_NULL_HANDLE)
-        , updateTemplate{VK_NULL_HANDLE}
-        , dynamicNum(0)
-        , hash(0)
+    DescriptorSetLayout::DescriptorSetLayout(Device &dev)
+    : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), hash(0)
     {
     }
 
@@ -26,24 +22,24 @@ namespace sky::drv {
         }
     }
 
-    bool DescriptorSetLayout::Init(const Descriptor& des)
+    bool DescriptorSetLayout::Init(const Descriptor &des)
     {
         descriptor = des;
 
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
+        std::vector<VkDescriptorSetLayoutBinding>    bindings;
         std::vector<VkDescriptorUpdateTemplateEntry> entries;
-        std::list<VkSampler> samplers;
+        std::list<VkSampler>                         samplers;
 
-        for (auto& [binding, desInfo] : des.bindings) {
+        for (auto &[binding, desInfo] : des.bindings) {
             HashCombine32(hash, Crc32::Cal(binding));
             HashCombine32(hash, Crc32::Cal(desInfo));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};
-            layoutBinding.binding            = binding;
-            layoutBinding.descriptorType     = desInfo.descriptorType;
-            layoutBinding.descriptorCount    = desInfo.descriptorCount;
-            layoutBinding.stageFlags         = desInfo.stageFlags;
-            layoutBinding.pImmutableSamplers = nullptr;
+            layoutBinding.binding                      = binding;
+            layoutBinding.descriptorType               = desInfo.descriptorType;
+            layoutBinding.descriptorCount              = desInfo.descriptorCount;
+            layoutBinding.stageFlags                   = desInfo.stageFlags;
+            layoutBinding.pImmutableSamplers           = nullptr;
             bindings.emplace_back(layoutBinding);
 
             if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
@@ -52,27 +48,27 @@ namespace sky::drv {
             }
 
             VkDescriptorUpdateTemplateEntry templateEntry{};
-            templateEntry.dstBinding      = binding;
-            templateEntry.dstArrayElement = 0;
-            templateEntry.descriptorCount = desInfo.descriptorCount;
-            templateEntry.descriptorType  = desInfo.descriptorType;
-            templateEntry.offset          = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * entries.size());
-            templateEntry.stride          = sizeof(DescriptorWriteInfo);
+            templateEntry.dstBinding        = binding;
+            templateEntry.dstArrayElement   = 0;
+            templateEntry.descriptorCount   = desInfo.descriptorCount;
+            templateEntry.descriptorType    = desInfo.descriptorType;
+            templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * entries.size());
+            templateEntry.stride            = sizeof(DescriptorWriteInfo);
             updateTemplate.indices[binding] = static_cast<uint32_t>(entries.size());
             entries.emplace_back(templateEntry);
         }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-        layoutInfo.pBindings = bindings.data();
-        layout = device.GetDescriptorSetLayout(hash, &layoutInfo);
+        layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount                    = static_cast<uint32_t>(bindings.size());
+        layoutInfo.pBindings                       = bindings.data();
+        layout                                     = device.GetDescriptorSetLayout(hash, &layoutInfo);
         if (layout == VK_NULL_HANDLE) {
             return false;
         }
 
         VkDescriptorUpdateTemplateCreateInfo templateInfo{};
-        templateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
+        templateInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
         templateInfo.descriptorUpdateEntryCount = static_cast<uint32_t>(entries.size());
         templateInfo.pDescriptorUpdateEntries   = entries.data();
         templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
@@ -97,8 +93,7 @@ namespace sky::drv {
         return dynamicNum;
     }
 
-
-    const std::map<uint32_t, DescriptorSetLayout::SetBinding>& DescriptorSetLayout::GetDescriptorTable() const
+    const std::map<uint32_t, DescriptorSetLayout::SetBinding> &DescriptorSetLayout::GetDescriptorTable() const
     {
         return descriptor.bindings;
     }
@@ -108,4 +103,4 @@ namespace sky::drv {
         return updateTemplate;
     }
 
-}
+} // namespace sky::drv

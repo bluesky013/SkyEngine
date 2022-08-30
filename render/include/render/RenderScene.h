@@ -42,13 +42,15 @@ namespace sky {
 
         void Setup();
 
-        template <typename T, typename... Args> T *RegisterFeature(Args &&...args)
+        template <typename T, typename... Args>
+        T *RegisterFeature(Args &&...args)
         {
             auto iter = features.emplace(TypeInfo<T>::Hash(), std::make_unique<T>(std::forward<Args>(args)...));
             return static_cast<T *>(iter.first->second.get());
         }
 
-        template <typename T> T *GetFeature()
+        template <typename T>
+        T *GetFeature()
         {
             auto iter = features.find(TypeInfo<T>::Hash());
             if (iter == features.end()) {
@@ -73,7 +75,8 @@ namespace sky {
 
         const std::vector<RDViewPtr> &GetViews() const;
 
-        template <typename T, typename... Args> T *RegisterEncoder(uint32_t tag, Args &&...args)
+        template <typename T, typename... Args>
+        T *RegisterEncoder(uint32_t tag, Args &&...args)
         {
             auto iter = encoders.find(tag);
             if (iter != encoders.end()) {

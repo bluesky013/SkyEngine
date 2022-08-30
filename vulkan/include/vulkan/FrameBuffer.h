@@ -3,11 +3,11 @@
 //
 
 #pragma once
-#include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
 #include "vulkan/Basic.h"
-#include "vulkan/RenderPass.h"
+#include "vulkan/DevObject.h"
 #include "vulkan/ImageView.h"
+#include "vulkan/RenderPass.h"
+#include "vulkan/vulkan.h"
 #include <vector>
 
 namespace sky::drv {
@@ -19,27 +19,27 @@ namespace sky::drv {
         ~FrameBuffer();
 
         struct Descriptor {
-            VkExtent2D extent = {1, 1};
-            RenderPassPtr pass;
+            VkExtent2D                extent = {1, 1};
+            RenderPassPtr             pass;
             std::vector<ImageViewPtr> views;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkFramebuffer GetNativeHandle() const;
 
-        const VkExtent2D& GetExtent() const;
+        const VkExtent2D &GetExtent() const;
 
         uint32_t GetAttachmentCount() const;
 
     private:
         friend class Device;
-        FrameBuffer(Device&);
+        FrameBuffer(Device &);
 
         VkFramebuffer frameBuffer;
-        Descriptor descriptor;
+        Descriptor    descriptor;
     };
 
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 
-}
+} // namespace sky::drv

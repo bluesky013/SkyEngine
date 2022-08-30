@@ -2,24 +2,20 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-
 #pragma once
 
-#include <engine/world/Component.h>
 #include <core/math/Matrix.h>
 #include <core/math/Vector.h>
 #include <cstdint>
+#include <engine/world/Component.h>
 
 namespace sky {
 
-    enum class ProjectType : uint32_t {
-        ORTHOGONAL,
-        PROJECTIVE
-    };
+    enum class ProjectType : uint32_t { ORTHOGONAL, PROJECTIVE };
 
     class CameraComponent : public Component {
     public:
-        CameraComponent() = default;
+        CameraComponent()  = default;
         ~CameraComponent() = default;
 
         TYPE_RTTI_WITH_VT(CameraComponent)
@@ -39,19 +35,18 @@ namespace sky {
         void OnDestroy() override;
 
     private:
-        float near = 0.1f;
-        float far = 100.f;
-        float fov = 60;
+        float near   = 0.1f;
+        float far    = 100.f;
+        float fov    = 60;
         float aspect = 1.f;
 
-        float left = -1.f;
-        float right = 1.f;
-        float top = 1.f;
+        float left   = -1.f;
+        float right  = 1.f;
+        float top    = 1.f;
         float bottom = -1.f;
 
         ProjectType type;
-        Matrix4 projection;
+        Matrix4     projection;
     };
 
-
-}
+} // namespace sky

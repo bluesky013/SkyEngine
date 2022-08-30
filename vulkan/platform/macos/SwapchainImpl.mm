@@ -9,19 +9,19 @@
 
 namespace sky::drv {
 
-    bool SwapChain::CreateSurface()
-    {
-        auto view = static_cast<NSView*>(descriptor.window);
+bool SwapChain::CreateSurface() {
+  auto view = static_cast<NSView *>(descriptor.window);
 
-        VkMacOSSurfaceCreateInfoMVK createInfo {};
-        createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-        createInfo.pView = view;
-        createInfo.pNext = nullptr;
+  VkMacOSSurfaceCreateInfoMVK createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
+  createInfo.pView = view;
+  createInfo.pNext = nullptr;
 
-        if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr, &surface) != VK_SUCCESS) {
-            return false;
-        }
-        return true;
-    }
+  if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr,
+                              &surface) != VK_SUCCESS) {
+    return false;
+  }
+  return true;
+}
 
 }

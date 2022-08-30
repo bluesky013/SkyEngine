@@ -9,4 +9,4 @@ namespace sky {
     void MeshComponent::OnTick(float time)
     {
     }
-}
+} // namespace sky

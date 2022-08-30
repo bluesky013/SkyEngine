@@ -3,9 +3,9 @@
 //
 #pragma once
 
-#include "vulkan/vulkan.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
+#include "vulkan/vulkan.h"
 #include <string>
 
 namespace sky::drv {
@@ -15,13 +15,13 @@ namespace sky::drv {
         struct Descriptor {
             std::string appName;
             std::string engineName;
-            bool enableDebugLayer;
+            bool        enableDebugLayer;
         };
 
-        static Driver* Create(const Descriptor&);
-        static void Destroy(Driver*);
+        static Driver *Create(const Descriptor &);
+        static void    Destroy(Driver *);
 
-        Device* CreateDevice(const Device::Descriptor&);
+        Device *CreateDevice(const Device::Descriptor &);
 
         VkInstance GetInstance() const;
 
@@ -29,12 +29,12 @@ namespace sky::drv {
         Driver();
         ~Driver();
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         void PrintSupportedExtensions() const;
 
-        VkInstance instance;
+        VkInstance               instance;
         VkDebugUtilsMessengerEXT debug;
     };
 
-}
+} // namespace sky::drv

@@ -2,11 +2,10 @@
 // Created by Zach Lee on 2022/3/12.
 //
 
-
 #pragma once
 
-#include <core/platform/Platform.h>
 #include <core/environment/Environment.h>
+#include <core/platform/Platform.h>
 
 namespace sky {
 
@@ -14,7 +13,7 @@ namespace sky {
 
     class IModule {
     public:
-        IModule() = default;
+        IModule()          = default;
         virtual ~IModule() = default;
 
         virtual void Init() = 0;
@@ -26,15 +25,15 @@ namespace sky {
         virtual void Tick(float delta) = 0;
     };
 
-}
+} // namespace sky
 
-#define REGISTER_MODULE(name) \
-    extern "C" SKY_EXPORT sky::IModule* StartModule(sky::Environment* env) \
-    { \
-        sky::Environment::Attach(env);      \
-        return new name();                  \
-    } \
-    extern "C" SKY_EXPORT void StopModule() \
-    {                                       \
-        sky::Environment::Detach();         \
+#define REGISTER_MODULE(name)                                                                                                                        \
+    extern "C" SKY_EXPORT sky::IModule *StartModule(sky::Environment *env)                                                                           \
+    {                                                                                                                                                \
+        sky::Environment::Attach(env);                                                                                                               \
+        return new name();                                                                                                                           \
+    }                                                                                                                                                \
+    extern "C" SKY_EXPORT void StopModule()                                                                                                          \
+    {                                                                                                                                                \
+        sky::Environment::Detach();                                                                                                                  \
     }

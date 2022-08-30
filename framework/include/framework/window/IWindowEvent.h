@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2022/1/3.
 //
 
-
 #pragma once
 
 #include <framework/event/Event.h>
@@ -13,7 +12,7 @@ namespace sky {
         static constexpr uint8_t MOUSE_BUTTON_LEFT   = 1;
         static constexpr uint8_t MOUSE_BUTTON_RIGHT  = 2;
         static constexpr uint8_t MOUSE_BUTTON_MIDDLE = 3;
-    }
+    } // namespace MouseButton
     using MouseButtonType = uint8_t;
 
     namespace KeyButton {
@@ -113,27 +112,43 @@ namespace sky {
         static constexpr uint16_t KEY_KP_9         = 94;
         static constexpr uint16_t KEY_KP_0         = 95;
         static constexpr uint16_t KEY_KP_PERIOD    = 96;
-    }
+    } // namespace KeyButton
     using KeyButtonType = uint16_t;
 
     class IWindowEvent : public EventTraits {
     public:
-        using KeyType = void*;
+        using KeyType = void *;
 
-        IWindowEvent() = default;
+        IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
 
-        virtual void OnWindowResize(uint32_t width, uint32_t height) {}
+        virtual void OnWindowResize(uint32_t width, uint32_t height)
+        {
+        }
 
         // mouse
-        virtual void OnMouseMove(int32_t x, int32_t y) {}
-        virtual void OnMouseButtonDown(MouseButtonType button) {}
-        virtual void OnMouseButtonUp(MouseButtonType button) {}
-        virtual void OnMouseWheel(int32_t wheelX, int32_t wheelY) {}
+        virtual void OnMouseMove(int32_t x, int32_t y)
+        {
+        }
+        virtual void OnMouseButtonDown(MouseButtonType button)
+        {
+        }
+        virtual void OnMouseButtonUp(MouseButtonType button)
+        {
+        }
+        virtual void OnMouseWheel(int32_t wheelX, int32_t wheelY)
+        {
+        }
 
-        virtual void OnKeyUp(KeyButtonType) {}
-        virtual void OnKeyDown(KeyButtonType) {}
-        virtual void OnTextInput(const char* text) {}
+        virtual void OnKeyUp(KeyButtonType)
+        {
+        }
+        virtual void OnKeyDown(KeyButtonType)
+        {
+        }
+        virtual void OnTextInput(const char *text)
+        {
+        }
     };
 
-}
+} // namespace sky

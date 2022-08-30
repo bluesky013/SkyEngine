@@ -10,8 +10,8 @@ namespace sky::drv {
     struct Barrier {
         VkPipelineStageFlags srcStageMask;
         VkPipelineStageFlags dstStageMask;
-        VkAccessFlags srcAccessMask;
-        VkAccessFlags dstAccessMask;
+        VkAccessFlags        srcAccessMask;
+        VkAccessFlags        dstAccessMask;
     };
 
-}
+} // namespace sky::drv

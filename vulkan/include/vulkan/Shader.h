@@ -17,11 +17,11 @@ namespace sky::drv {
 
         struct Descriptor {
             VkShaderStageFlagBits stage;
-            uint32_t* spv = nullptr;
-            uint32_t size = 0;
+            uint32_t             *spv  = nullptr;
+            uint32_t              size = 0;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkShaderModule GetNativeHandle() const;
 
@@ -31,13 +31,13 @@ namespace sky::drv {
 
     private:
         friend class Device;
-        Shader(Device&);
+        Shader(Device &);
 
-        VkShaderModule shaderModule;
+        VkShaderModule        shaderModule;
         VkShaderStageFlagBits stage;
-        uint32_t hash;
+        uint32_t              hash;
     };
 
     using ShaderPtr = std::shared_ptr<Shader>;
 
-}
+} // namespace sky::drv

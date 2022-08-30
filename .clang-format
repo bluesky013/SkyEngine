@@ -21,9 +21,10 @@ SpacesBeforeTrailingComments:                    1
 ConstructorInitializerAllOnOneLineOrOnePerLine:  true
 DerivePointerAlignment:                          false
 PointerAlignment:                                Right
-AllowShortFunctionsOnASingleLine:                false
+AllowShortFunctionsOnASingleLine:                None
 BreakConstructorInitializers:                    BeforeComma
 BinPackParameters:                               false
+AlwaysBreakTemplateDeclarations:                 Yes
 
 BreakBeforeBraces:                               Custom
 BraceWrapping:

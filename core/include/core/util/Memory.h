@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace sky {
 
     inline uint32_t Align(uint32_t size, uint32_t alignment)
     {
         return ((size + alignment - 1) & (~(alignment - 1)));
     }
-}
+} // namespace sky

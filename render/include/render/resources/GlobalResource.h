@@ -11,11 +11,13 @@ namespace sky {
 
     struct GlobalResourceEmptyKey {};
 
-    template <typename T> struct GlobalResourceTraits {
+    template <typename T>
+    struct GlobalResourceTraits {
         using KeyType = GlobalResourceEmptyKey;
     };
 
-    template <typename T> class GlobalResource : public Singleton<GlobalResource<T>> {
+    template <typename T>
+    class GlobalResource : public Singleton<GlobalResource<T>> {
     public:
         using ResPtr  = std::shared_ptr<T>;
         using KeyType = typename GlobalResourceTraits<T>::KeyType;

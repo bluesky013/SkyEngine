@@ -9,14 +9,18 @@
 
 namespace sky {
 
-    template<typename T>
+    template <typename T>
     class RefObject {
     public:
         using ObjType = T;
 
-        RefObject() : counter{} {}
+        RefObject() : counter{}
+        {
+        }
 
-        virtual ~RefObject() {}
+        virtual ~RefObject()
+        {
+        }
 
         virtual void AddRef()
         {
@@ -45,7 +49,7 @@ namespace sky {
         std::atomic_uint32_t counter;
     };
 
-    template<typename T>
+    template <typename T>
     class CounterPtrBase {
     public:
         CounterPtrBase(T *p) : ptr(p)
@@ -62,7 +66,10 @@ namespace sky {
             }
         }
 
-        CounterPtrBase(const CounterPtrBase &p) { UpdateRefs(p); }
+        CounterPtrBase(const CounterPtrBase &p)
+        {
+            UpdateRefs(p);
+        }
 
         CounterPtrBase &operator=(const CounterPtrBase &p)
         {
@@ -75,7 +82,7 @@ namespace sky {
             return ptr;
         }
 
-        const T* Get() const
+        const T *Get() const
         {
             return ptr;
         }
@@ -95,21 +102,25 @@ namespace sky {
         T *ptr = nullptr;
     };
 
-    template<typename T>
+    template <typename T>
     class CounterPtr : public CounterPtrBase<typename T::ObjType> {
     public:
-        CounterPtr() : CounterPtrBase<typename T::ObjType>(nullptr) {}
+        CounterPtr() : CounterPtrBase<typename T::ObjType>(nullptr)
+        {
+        }
 
-        template<typename U>
-        CounterPtr(U *p) : CounterPtrBase<typename T::ObjType>(p) {}
+        template <typename U>
+        CounterPtr(U *p) : CounterPtrBase<typename T::ObjType>(p)
+        {
+        }
 
-        template<typename U>
+        template <typename U>
         CounterPtr(CounterPtr<U> &u) : CounterPtrBase<typename T::ObjType>(u.Get())
         {
             static_assert(std::is_base_of_v<T, U>, "U must derived from T");
         }
 
-        template<typename U>
+        template <typename U>
         CounterPtr &operator=(const CounterPtr<U> &u)
         {
             static_assert(std::is_base_of_v<T, U>, "U must derived from T");
@@ -117,17 +128,34 @@ namespace sky {
             return *this;
         }
 
-        ~CounterPtr() {}
+        ~CounterPtr()
+        {
+        }
 
-        operator bool() { return CounterPtrBase<typename T::ObjType>::ptr != nullptr; }
+        operator bool()
+        {
+            return CounterPtrBase<typename T::ObjType>::ptr != nullptr;
+        }
 
-        T* Get() { return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr); }
+        T *Get()
+        {
+            return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr);
+        }
 
-        const T* Get() const { return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr); }
+        const T *Get() const
+        {
+            return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr);
+        }
 
-        T *operator->() { return Get(); }
+        T *operator->()
+        {
+            return Get();
+        }
 
-        const T* operator->() const { return Get(); }
+        const T *operator->() const
+        {
+            return Get();
+        }
     };
 
-}
+} // namespace sky

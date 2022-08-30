@@ -2,29 +2,28 @@
 // Created by Zach Lee on 2022/3/13.
 //
 
-
 #pragma once
 
-#include <cereal/external/rapidjson/rapidjson.h>
 #include <cereal/external/rapidjson/document.h>
 #include <cereal/external/rapidjson/pointer.h>
-#include <string_view>
+#include <cereal/external/rapidjson/rapidjson.h>
 #include <string>
+#include <string_view>
 
 namespace sky {
 
     class SettingRegistry {
     public:
-        SettingRegistry() = default;
+        SettingRegistry()  = default;
         ~SettingRegistry() = default;
 
         template <typename T>
-        void SetValue(std::string_view key, const T& value)
+        void SetValue(std::string_view key, const T &value)
         {
             rapidjson::Pointer pointer(key.data(), key.length());
             if (pointer.IsValid()) {
-                if constexpr(std::is_same_v<T, std::string_view>) {
-                    rapidjson::Value& setting = pointer.Create(document, document.GetAllocator());
+                if constexpr (std::is_same_v<T, std::string_view>) {
+                    rapidjson::Value &setting = pointer.Create(document, document.GetAllocator());
                     setting.SetString(value.data(), static_cast<rapidjson::SizeType>(value.length()), document.GetAllocator());
                 } else {
                     pointer.Set(document, value);
@@ -35,7 +34,7 @@ namespace sky {
         std::string VisitString(std::string_view key) const
         {
             if (document.HasMember(key.data())) {
-                auto& value = document[key.data()];
+                auto &value = document[key.data()];
                 if (value.IsString()) {
                     return std::string(value.GetString());
                 }
@@ -44,13 +43,13 @@ namespace sky {
         }
 
         template <class Func>
-        void VisitStringArray(std::string_view key, Func&& func) const
+        void VisitStringArray(std::string_view key, Func &&func) const
         {
             if (document.HasMember(key.data())) {
-                auto& value = document[key.data()];
+                auto &value = document[key.data()];
                 if (value.IsArray()) {
                     auto array = value.GetArray();
-                    for (auto& val : array) {
+                    for (auto &val : array) {
                         if (val.IsString()) {
                             func(val.GetString());
                         }
@@ -59,12 +58,12 @@ namespace sky {
             }
         }
 
-        void Swap(SettingRegistry& registry);
+        void Swap(SettingRegistry &registry);
 
-        void Save(std::string& out) const;
+        void Save(std::string &out) const;
 
     private:
         rapidjson::Document document;
     };
 
-}
+} // namespace sky

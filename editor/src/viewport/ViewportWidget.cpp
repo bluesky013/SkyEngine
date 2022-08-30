@@ -2,16 +2,14 @@
 // Created by Zach Lee on 2021/12/12.
 //
 
-#include <editor/viewport/ViewportWidget.h>
-#include <QVBoxLayout>
 #include <QPushButton>
+#include <QVBoxLayout>
+#include <editor/viewport/ViewportWidget.h>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
 
-    ViewportWidget::ViewportWidget(QWidget* parent)
-        : QWidget(parent)
-        , window(new Viewport())
+    ViewportWidget::ViewportWidget(QWidget *parent) : QWidget(parent), window(new Viewport())
     {
     }
 
@@ -28,9 +26,9 @@ namespace sky::editor {
         layout->addWidget(container);
     }
 
-    sky::Viewport* ViewportWidget::GetNativeViewport() const
+    sky::Viewport *ViewportWidget::GetNativeViewport() const
     {
         return window->GetNativeViewport();
     }
 
-}
+} // namespace sky::editor

@@ -18,14 +18,14 @@ namespace sky::drv {
         offsets.clear();
     }
 
-    void VertexAssembly::AddVertexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
+    void VertexAssembly::AddVertexBuffer(const BufferPtr &buffer, VkDeviceSize offset)
     {
         vertexBuffers.emplace_back(buffer);
         vkBuffers.emplace_back(buffer->GetNativeHandle());
         offsets.emplace_back(offset);
     }
 
-    void VertexAssembly::SetIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
+    void VertexAssembly::SetIndexBuffer(const BufferPtr &buffer, VkDeviceSize offset)
     {
         indexBuffer = buffer;
         indexOffset = offset;
@@ -39,7 +39,7 @@ namespace sky::drv {
     void VertexAssembly::OnBind(VkCommandBuffer cmd) const
     {
         if (!vkBuffers.empty()) {
-            vkCmdBindVertexBuffers(cmd, 0, static_cast<uint32_t>(vkBuffers.size()),vkBuffers.data(), offsets.data());
+            vkCmdBindVertexBuffers(cmd, 0, static_cast<uint32_t>(vkBuffers.size()), vkBuffers.data(), offsets.data());
         }
         if (indexBuffer) {
             vkCmdBindIndexBuffer(cmd, indexBuffer->GetNativeHandle(), indexOffset, indexType);
@@ -51,4 +51,4 @@ namespace sky::drv {
         return !!indexBuffer;
     }
 
-}
+} // namespace sky::drv

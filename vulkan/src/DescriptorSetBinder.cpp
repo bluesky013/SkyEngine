@@ -6,19 +6,19 @@
 
 namespace sky::drv {
 
-    void DescriptorSetBinder::SetPipelineLayout(const PipelineLayoutPtr& layout)
+    void DescriptorSetBinder::SetPipelineLayout(const PipelineLayoutPtr &layout)
     {
         pipelineLayout = layout;
 
-        auto layoutNum = layout->GetSlotNumber();
+        auto layoutNum  = layout->GetSlotNumber();
         auto dynamicNum = layout->GetDynamicNum();
         sets.resize(layoutNum);
         vkSets.resize(layoutNum);
         offsetIndex.resize(layoutNum, dynamicNum);
         dynamicOffsets.resize(dynamicNum, 0);
 
-        auto& desLayouts = layout->GetLayouts();
-        uint32_t offset = 0;
+        auto    &desLayouts = layout->GetLayouts();
+        uint32_t offset     = 0;
         for (uint32_t i = 0; i < layoutNum; ++i) {
             auto num = desLayouts[i]->GetDynamicNum();
             if (num != 0) {
@@ -36,18 +36,17 @@ namespace sky::drv {
     void DescriptorSetBinder::OnBind(VkCommandBuffer cmd) const
     {
         if (!sets.empty() && pipelineLayout) {
-            vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout->GetNativeHandle(), 0,
-                                    static_cast<uint32_t>(vkSets.size()), vkSets.data(),
+            vkCmdBindDescriptorSets(cmd, bindPoint, pipelineLayout->GetNativeHandle(), 0, static_cast<uint32_t>(vkSets.size()), vkSets.data(),
                                     static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
         }
     }
 
-    void DescriptorSetBinder::BindSet(uint32_t slot, const DescriptorSetPtr& set)
+    void DescriptorSetBinder::BindSet(uint32_t slot, const DescriptorSetPtr &set)
     {
         if (slot >= sets.size()) {
             return;
         }
-        sets[slot] = set;
+        sets[slot]   = set;
         vkSets[slot] = set->GetNativeHandle();
     }
 
@@ -59,4 +58,4 @@ namespace sky::drv {
         }
     }
 
-}
+} // namespace sky::drv

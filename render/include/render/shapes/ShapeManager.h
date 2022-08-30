@@ -12,7 +12,8 @@ namespace sky {
 
     class ShapeManager : public Singleton<ShapeManager> {
     public:
-        template <typename T> RDShaperPtr GetOrCreate()
+        template <typename T>
+        RDShaperPtr GetOrCreate()
         {
             auto id   = TypeInfo<T>::Hash();
             auto iter = shapes.find(id);

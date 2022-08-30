@@ -4,22 +4,22 @@
 
 #pragma once
 
-#include <vulkan/vulkan.h>
-#include <memory>
-#include <map>
-#include <vector>
 #include <algorithm>
+#include <map>
+#include <memory>
+#include <vector>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
 
     class ShaderOption {
     public:
-        ShaderOption() = default;
+        ShaderOption()  = default;
         ~ShaderOption() = default;
 
         class Builder {
         public:
-            Builder() = default;
+            Builder()  = default;
             ~Builder() = default;
 
             void AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size);
@@ -32,26 +32,26 @@ namespace sky::drv {
         };
 
         template <typename T>
-        void SetConstant(VkShaderStageFlagBits stage, uint32_t id, const T& val)
+        void SetConstant(VkShaderStageFlagBits stage, uint32_t id, const T &val)
         {
             auto iter = std::find(stages.begin(), stages.end(), stage);
             if (iter == stages.end()) {
                 return;
             }
-            auto& info = specializationInfo[std::distance(stages.begin(), iter)];
+            auto &info = specializationInfo[std::distance(stages.begin(), iter)];
             for (uint32_t i = 0; i < info.mapEntryCount; ++i) {
-                auto& entry = info.pMapEntries[i];
+                auto &entry = info.pMapEntries[i];
                 if (entry.constantID == id) {
-                    uint8_t *ptr = const_cast<uint8_t*>(static_cast<const uint8_t*>(info.pData) + entry.offset);
+                    uint8_t *ptr = const_cast<uint8_t *>(static_cast<const uint8_t *>(info.pData) + entry.offset);
                     new (ptr) T(val);
                     return;
                 }
             }
         }
 
-        const VkSpecializationInfo* GetSpecializationInfo(VkShaderStageFlagBits) const;
+        const VkSpecializationInfo *GetSpecializationInfo(VkShaderStageFlagBits) const;
 
-        const uint8_t* GetData() const;
+        const uint8_t *GetData() const;
 
         uint32_t GetHash() const;
 
@@ -59,14 +59,14 @@ namespace sky::drv {
         friend class ShaderOption::Builder;
         void CalculateHash();
 
-        std::unique_ptr<uint8_t[]> storage;
-        std::vector<VkShaderStageFlagBits> stages;
-        std::vector<uint32_t> offsets;
+        std::unique_ptr<uint8_t[]>            storage;
+        std::vector<VkShaderStageFlagBits>    stages;
+        std::vector<uint32_t>                 offsets;
         std::vector<VkSpecializationMapEntry> entries;
-        std::vector<VkSpecializationInfo> specializationInfo;
-        uint32_t size = 0;
-        uint32_t hash = 0;
+        std::vector<VkSpecializationInfo>     specializationInfo;
+        uint32_t                              size = 0;
+        uint32_t                              hash = 0;
     };
     using ShaderOptionPtr = std::shared_ptr<ShaderOption>;
 
-}
+} // namespace sky::drv

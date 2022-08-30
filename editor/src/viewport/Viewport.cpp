@@ -22,10 +22,10 @@ namespace sky::editor {
 
     void Viewport::Init()
     {
-        viewport = new sky::Viewport((void*)winId());
+        viewport = new sky::Viewport((void *)winId());
     }
 
-    sky::Viewport* Viewport::GetNativeViewport() const
+    sky::Viewport *Viewport::GetNativeViewport() const
     {
         return viewport;
     }
@@ -33,14 +33,11 @@ namespace sky::editor {
     bool Viewport::event(QEvent *event)
     {
         switch (event->type()) {
-            case QEvent::Resize:
-                break;
-            case QEvent::MouseMove:
-                break;
-            default:
-                break;
+        case QEvent::Resize: break;
+        case QEvent::MouseMove: break;
+        default: break;
         }
         return true;
     }
 
-}
+} // namespace sky::editor

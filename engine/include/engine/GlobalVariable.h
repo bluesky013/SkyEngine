@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <core/type/Any.h>
 #include <core/environment/Singleton.h>
+#include <core/type/Any.h>
+#include <unordered_map>
 
 namespace sky {
 
@@ -15,7 +15,7 @@ namespace sky {
         ~GlobalVariable() = default;
 
         template <typename T>
-        const T* Find(const std::string& key)
+        const T *Find(const std::string &key)
         {
             auto iter = valueMap.find(key);
             if (iter != valueMap.end()) {
@@ -25,7 +25,7 @@ namespace sky {
         }
 
         template <typename T>
-        void Register(const std::string& key, const T& val)
+        void Register(const std::string &key, const T &val)
         {
             valueMap[key] = Any(val);
         }
@@ -37,4 +37,4 @@ namespace sky {
         std::unordered_map<std::string, Any> valueMap;
     };
 
-}
+} // namespace sky
