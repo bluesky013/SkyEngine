@@ -123,6 +123,9 @@ namespace sky {
     void FrameGraphGraphicPass::Execute(const drv::CommandBufferPtr &commandBuffer)
     {
         auto drvEncoder = commandBuffer->EncodeGraphics();
+        if (encoder) {
+            passInfo.contents = encoder->MultiThreadEncode() ? VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS : VK_SUBPASS_CONTENTS_INLINE;
+        }
         drvEncoder.BeginPass(passInfo);
 
         if (encoder) {

@@ -36,7 +36,11 @@ namespace sky {
 
         drv::Driver::Descriptor drvDes = {};
         drvDes.appName = "SkyEngine";
+#ifdef _DEBUG
         drvDes.enableDebugLayer = true;
+#else
+        drvDes.enableDebugLayer = false;
+#endif
         drvDes.appName = des.appName;
         driver = drv::Driver::Create(drvDes);
         if (driver == nullptr) {

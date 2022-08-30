@@ -39,14 +39,14 @@ TEST(JobSystemTest, TaskHandleTest)
     int a = 0;
     int b = 0;
 
-    auto t1 = flow1.emplace([&a]() {
-        std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(1000));
+    flow1.emplace([&a]() {
+        std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(50));
         a++;
     });
     auto future = js->Run(flow1);
 
     tf::Taskflow flow2;
-    auto t2 = flow1.emplace([&a, &b, &future]() {
+    flow1.emplace([&a, &b, &future]() {
         b = a;
         future.wait();
     });

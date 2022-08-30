@@ -224,6 +224,11 @@ namespace sky::drv {
 
         viewport = {0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.f, 1.f};
         scissor = {{0, 0}, extent};
+
+        if (beginInfo.contents == VK_SUBPASS_CONTENTS_INLINE) {
+            SetViewport(1, &viewport);
+            SetScissor(1, &scissor);
+        }
     }
 
     void GraphicsEncoder::EndPass()
