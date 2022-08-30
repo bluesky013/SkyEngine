@@ -3,8 +3,8 @@
 //
 
 #include <gtest/gtest.h>
-#include <render/MaterialDatabase.h>
 #include <render/DriverManager.h>
+#include <render/MaterialDatabase.h>
 
 using namespace sky;
 
@@ -18,14 +18,13 @@ TEST(RenderTest, RenderBufferPoolTest)
 {
     DriverManager::Get()->Initialize({});
 
-    uint32_t count  = std::min(MAX_MATERIAL_COUNT_PER_BLOCK, static_cast<uint32_t>(DEFAULT_MATERIAL_BUFFER_BLOCK / sizeof(TestData)));
+    uint32_t count = std::min(MAX_MATERIAL_COUNT_PER_BLOCK, static_cast<uint32_t>(DEFAULT_MATERIAL_BUFFER_BLOCK / sizeof(TestData)));
 
     {
         std::unique_ptr<MaterialDatabase> database = std::make_unique<MaterialDatabase>(2);
 
-        auto view = database->Allocate(1);
-        const TestData* ptr = reinterpret_cast<const TestData*>(view->GetBuffer()->Data());
-
+        auto            view = database->Allocate(1);
+        const TestData *ptr  = reinterpret_cast<const TestData *>(view->GetBuffer()->Data());
 
         TestData t = {};
         ASSERT_EQ(view->GetDynamicOffset(), 0);
@@ -56,8 +55,6 @@ TEST(RenderTest, RenderBufferPoolTest)
         ASSERT_EQ(ptr[0].a, t.a);
         ASSERT_EQ(ptr[0].b, t.b);
         ASSERT_EQ(ptr[0].c, t.c);
-
-
     }
 
     DriverManager::Get()->Destroy();

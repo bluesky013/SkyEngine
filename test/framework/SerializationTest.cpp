@@ -2,14 +2,14 @@
 // Created by Zach Lee on 2021/12/9.
 //
 
-#include <gtest/gtest.h>
 #include <core/logger/Logger.h>
 #include <framework/serialization/AnyRT.h>
 #include <framework/serialization/SerializationContext.h>
+#include <gtest/gtest.h>
 
 using namespace sky;
 
-static const char* TAG = "SerializationTest";
+static const char *TAG = "SerializationTest";
 
 struct TestMember {
     float a;
@@ -17,13 +17,13 @@ struct TestMember {
 };
 
 struct TestReflect {
-    uint32_t a;
-    float b;
-    uint32_t* c;
-    const uint32_t* d;
-    const double e;
+    uint32_t        a;
+    float           b;
+    uint32_t       *c;
+    const uint32_t *d;
+    const double    e;
     static uint32_t f;
-    TestMember t;
+    TestMember      t;
 };
 
 uint32_t TestReflect::f = 0;
@@ -41,9 +41,7 @@ TEST(SerializationTest, TypeTest)
         .Member<&TestReflect::f>("f")
         .Member<&TestReflect::t>("t");
 
-    context->Register<TestMember>("TestMember")
-        .Member<&TestMember::a>("a")
-        .Member<&TestMember::b>("b");
+    context->Register<TestMember>("TestMember").Member<&TestMember::a>("a").Member<&TestMember::b>("b");
 
     auto testReflect = context->FindType("TestReflect");
     ASSERT_NE(testReflect, nullptr);
@@ -55,23 +53,16 @@ TEST(SerializationTest, TypeTest)
     ASSERT_EQ(testMember->members.size(), 2);
     LOG_I(TAG, "name %s", testMember->info->typeId.data());
 
-    for (auto& member : testReflect->members) {
-        auto& memberNode = member.second;
-        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(),
-              memberNode.info->typeId.data(),
-              memberNode.info->isFundamental,
-              memberNode.isStatic,
-              memberNode.isConst);
+    for (auto &member : testReflect->members) {
+        auto &memberNode = member.second;
+        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->typeId.data(),
+              memberNode.info->isFundamental, memberNode.isStatic, memberNode.isConst);
     }
 
-    LOG_I(TAG, "%u, %u, %u, %u",
-         std::is_trivial_v<TestMember>,
-         std::is_trivial_v<TestReflect>,
-         std::is_trivial_v<int>,
-         std::is_trivial_v<int*>);
+    LOG_I(TAG, "%u, %u, %u, %u", std::is_trivial_v<TestMember>, std::is_trivial_v<TestReflect>, std::is_trivial_v<int>, std::is_trivial_v<int *>);
 
-    Any v(std::in_place_type<TestReflect>);
-    uint32_t* ptr = nullptr;
+    Any       v(std::in_place_type<TestReflect>);
+    uint32_t *ptr = nullptr;
     ASSERT_EQ(SetAny(v, "a", 5u), true);
     ASSERT_EQ(SetAny(v, "b", 6.f), true);
     ASSERT_EQ(SetAny(v, "c", ptr), true);
@@ -84,25 +75,29 @@ TEST(SerializationTest, TypeTest)
     ASSERT_EQ(*va.GetAs<uint32_t>(), 5u);
     Any vb = GetAny(v, "b");
     ASSERT_EQ(*vb.GetAs<float>(), 6.f);
-    Any vc= GetAny(v, "c");
-    ASSERT_EQ(*vc.GetAs<uint32_t*>(), nullptr);
+    Any vc = GetAny(v, "c");
+    ASSERT_EQ(*vc.GetAs<uint32_t *>(), nullptr);
 }
 
 struct Ctor1 {
 public:
-    Ctor1(int va, float vb, double vc, bool vd) : a(va), b(vb), c(vc), d(vd) {}
-    int a;
-    float b;
+    Ctor1(int va, float vb, double vc, bool vd) : a(va), b(vb), c(vc), d(vd)
+    {
+    }
+    int    a;
+    float  b;
     double c;
-    bool d;
+    bool   d;
 };
 
 struct Ctor2 {
-    Ctor2(double va, uint64_t vb, int64_t vc, Ctor1 vd) : a(va), b(vb), c(vc), d(vd) {}
-    double a;
+    Ctor2(double va, uint64_t vb, int64_t vc, Ctor1 vd) : a(va), b(vb), c(vc), d(vd)
+    {
+    }
+    double   a;
     uint64_t b;
-    int64_t c;
-    Ctor1 d;
+    int64_t  c;
+    Ctor1    d;
 };
 
 TEST(SerializationTest, ConstructorTest)
@@ -124,8 +119,8 @@ TEST(SerializationTest, ConstructorTest)
         .Constructor<double, uint64_t, int64_t, Ctor1>();
 
     {
-        Any any1 = MakeAny<Ctor1>(1, 2.f, 3.0, true);
-        Ctor1* ptr = any1.GetAs<Ctor1>();
+        Any    any1 = MakeAny<Ctor1>(1, 2.f, 3.0, true);
+        Ctor1 *ptr  = any1.GetAs<Ctor1>();
         ASSERT_NE(ptr, nullptr);
         ASSERT_EQ(ptr->a, 1);
         ASSERT_EQ(ptr->b, 2.f);
@@ -135,8 +130,8 @@ TEST(SerializationTest, ConstructorTest)
 
     std::string output;
     {
-        Any any2 = MakeAny<Ctor2>(1.0, 3llu, -1ll, Ctor1{1, 2.0f, 3.0, true});
-        Ctor2* ptr = any2.GetAs<Ctor2>();
+        Any    any2 = MakeAny<Ctor2>(1.0, 3llu, -1ll, Ctor1{1, 2.0f, 3.0, true});
+        Ctor2 *ptr  = any2.GetAs<Ctor2>();
         ASSERT_NE(ptr, nullptr);
         ASSERT_EQ(ptr->a, 1);
         ASSERT_EQ(ptr->b, 3llu);
@@ -146,5 +141,4 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d.c, 3.0);
         ASSERT_EQ(ptr->d.d, true);
     }
-
 }

@@ -23,7 +23,8 @@ namespace sky {
         FrameGraph(const FrameGraph &)            = delete;
         FrameGraph &operator=(const FrameGraph &) = delete;
 
-        template <typename Pass, typename Setup> Pass *AddPass(const std::string &name, Setup &&setup)
+        template <typename Pass, typename Setup>
+        Pass *AddPass(const std::string &name, Setup &&setup)
         {
             Pass             *pass = AddNode<Pass>(name);
             FrameGraphBuilder builder(*this, *pass);
@@ -50,7 +51,8 @@ namespace sky {
 
     private:
         friend class FrameGraphBuilder;
-        template <typename T, typename... Args> T *AddNode(Args &&...args)
+        template <typename T, typename... Args>
+        T *AddNode(Args &&...args)
         {
             nodes.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
             auto res = nodes.back().get();
@@ -58,13 +60,15 @@ namespace sky {
             return static_cast<T *>(res);
         }
 
-        template <typename T> T *AddImage(const std::string &name)
+        template <typename T>
+        T *AddImage(const std::string &name)
         {
             auto iter = images.emplace(name, std::make_unique<T>());
             return static_cast<T *>(iter.first->second.get());
         }
 
-        template <typename T> T *AddBuffer(const std::string &name)
+        template <typename T>
+        T *AddBuffer(const std::string &name)
         {
             auto iter = buffers.emplace(name, std::make_unique<T>());
             return static_cast<T *>(iter.first->second.get());

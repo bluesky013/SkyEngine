@@ -4,6 +4,6 @@
 
 #pragma once
 
-#define SKY_DISABLE_COPY(className) \
-    className(const className&) = delete;            \
-    className& operator=(const className&) = delete;
+#define SKY_DISABLE_COPY(className)                                                                                                                  \
+    className(const className &)            = delete;                                                                                                \
+    className &operator=(const className &) = delete;

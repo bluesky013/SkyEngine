@@ -4,28 +4,28 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
-#include <vector>
-#include <memory>
 
 namespace sky::drv {
 
     class VertexInput {
     public:
-        VertexInput() = default;
+        VertexInput()  = default;
         ~VertexInput() = default;
 
         class Builder {
         public:
-            Builder() = default;
+            Builder()  = default;
             ~Builder() = default;
 
-            Builder& Begin();
+            Builder &Begin();
 
-            Builder& AddAttribute(uint32_t loc, uint32_t binding, uint32_t off, VkFormat format);
+            Builder &AddAttribute(uint32_t loc, uint32_t binding, uint32_t off, VkFormat format);
 
-            Builder& AddStream(uint32_t binding, uint32_t stride, VkVertexInputRate);
+            Builder &AddStream(uint32_t binding, uint32_t stride, VkVertexInputRate);
 
             std::shared_ptr<VertexInput> Build();
 
@@ -33,9 +33,9 @@ namespace sky::drv {
             std::shared_ptr<VertexInput> vertexInput;
         };
 
-        const std::vector<VkVertexInputAttributeDescription>& GetAttributeDescriptions() const;
+        const std::vector<VkVertexInputAttributeDescription> &GetAttributeDescriptions() const;
 
-        const VkPipelineVertexInputStateCreateInfo* GetInfo() const;
+        const VkPipelineVertexInputStateCreateInfo *GetInfo() const;
 
         uint32_t GetHash() const;
 
@@ -43,10 +43,10 @@ namespace sky::drv {
         friend class VertexInput::Builder;
 
         std::vector<VkVertexInputAttributeDescription> attributes;
-        std::vector<VkVertexInputBindingDescription> bindings;
-        VkPipelineVertexInputStateCreateInfo vInputInfo = {};
-        uint32_t hash = 0;
+        std::vector<VkVertexInputBindingDescription>   bindings;
+        VkPipelineVertexInputStateCreateInfo           vInputInfo = {};
+        uint32_t                                       hash       = 0;
     };
     using VertexInputPtr = std::shared_ptr<VertexInput>;
 
-}
+} // namespace sky::drv

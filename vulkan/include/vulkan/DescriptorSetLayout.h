@@ -4,8 +4,8 @@
 
 #pragma once
 #include "vulkan/DevObject.h"
-#include "vulkan/vulkan.h"
 #include "vulkan/Sampler.h"
+#include "vulkan/vulkan.h"
 #include <map>
 #include <vector>
 
@@ -21,7 +21,7 @@ namespace sky::drv {
     };
 
     struct UpdateTemplate {
-        VkDescriptorUpdateTemplate handle;
+        VkDescriptorUpdateTemplate   handle;
         std::map<uint32_t, uint32_t> indices;
     };
 
@@ -30,17 +30,17 @@ namespace sky::drv {
         ~DescriptorSetLayout();
 
         struct SetBinding {
-            VkDescriptorType   descriptorType   = VK_DESCRIPTOR_TYPE_SAMPLER;
-            uint32_t           descriptorCount  = 1;
-            VkShaderStageFlags stageFlags       = 0;
-            uint32_t           size             = 0;
+            VkDescriptorType   descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
+            uint32_t           descriptorCount = 1;
+            VkShaderStageFlags stageFlags      = 0;
+            uint32_t           size            = 0;
         };
 
         struct Descriptor {
             std::map<uint32_t, SetBinding> bindings;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkDescriptorSetLayout GetNativeHandle() const;
 
@@ -48,21 +48,21 @@ namespace sky::drv {
 
         uint32_t GetDynamicNum() const;
 
-        const std::map<uint32_t, SetBinding>& GetDescriptorTable() const;
+        const std::map<uint32_t, SetBinding> &GetDescriptorTable() const;
 
         const UpdateTemplate &GetUpdateTemplate() const;
 
     private:
         friend class Device;
-        DescriptorSetLayout(Device&);
+        DescriptorSetLayout(Device &);
 
-        Descriptor descriptor;
+        Descriptor            descriptor;
         VkDescriptorSetLayout layout;
-        UpdateTemplate updateTemplate;
-        uint32_t dynamicNum;
-        uint32_t hash;
+        UpdateTemplate        updateTemplate;
+        uint32_t              dynamicNum;
+        uint32_t              hash;
     };
 
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 
-}
+} // namespace sky::drv

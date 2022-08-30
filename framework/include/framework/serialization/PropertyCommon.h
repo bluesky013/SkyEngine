@@ -10,5 +10,4 @@ namespace sky {
         UI_PROP_VISIBLE,
     };
 
-
 }

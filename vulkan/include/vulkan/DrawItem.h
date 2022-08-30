@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <vulkan/vulkan.h>
 #include <vulkan/DescriptorSet.h>
-#include <vulkan/GraphicsPipeline.h>
-#include <vulkan/VertexAssembly.h>
 #include <vulkan/DescriptorSetBinder.h>
+#include <vulkan/GraphicsPipeline.h>
 #include <vulkan/PushConstants.h>
+#include <vulkan/VertexAssembly.h>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
 
@@ -28,32 +28,29 @@ namespace sky::drv {
         uint32_t firstInstance = 0;
     };
 
-    enum CmdDrawType : uint8_t {
-        LINEAR,
-        INDEXED
-    };
+    enum CmdDrawType : uint8_t { LINEAR, INDEXED };
 
     struct CmdDraw {
         union {
             CmdDrawIndexed indexed;
-            CmdDrawLinear linear;
+            CmdDrawLinear  linear;
         };
         CmdDrawType type;
     };
 
-    inline CmdDraw MakeCmdDraw(const CmdDrawLinear& value)
+    inline CmdDraw MakeCmdDraw(const CmdDrawLinear &value)
     {
         CmdDraw draw = {};
-        draw.linear = value;
-        draw.type = CmdDrawType::LINEAR;
+        draw.linear  = value;
+        draw.type    = CmdDrawType::LINEAR;
         return draw;
     }
 
-    inline CmdDraw MakeCmdDraw(const CmdDrawIndexed& value)
+    inline CmdDraw MakeCmdDraw(const CmdDrawIndexed &value)
     {
         CmdDraw draw = {};
         draw.indexed = value;
-        draw.type = CmdDrawType::LINEAR;
+        draw.type    = CmdDrawType::LINEAR;
         return draw;
     }
 
@@ -62,16 +59,16 @@ namespace sky::drv {
     };
 
     struct DrawItem {
-        uint8_t                viewportCount  = 0;
-        uint8_t                scissorCount   = 0;
-        CmdDraw                drawArgs       = {};
-        VkViewport*            viewport       = nullptr;
-        VkRect2D*              scissor        = nullptr;
-        CmdStencil*            stencil        = nullptr;
-        PushConstantsPtr       pushConstants  = nullptr;
+        uint8_t                viewportCount = 0;
+        uint8_t                scissorCount  = 0;
+        CmdDraw                drawArgs      = {};
+        VkViewport            *viewport      = nullptr;
+        VkRect2D              *scissor       = nullptr;
+        CmdStencil            *stencil       = nullptr;
+        PushConstantsPtr       pushConstants = nullptr;
         GraphicsPipelinePtr    pso;
         DescriptorSetBinderPtr shaderResources;
         VertexAssemblyPtr      vertexAssembly;
     };
 
-}
+} // namespace sky::drv

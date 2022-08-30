@@ -50,7 +50,8 @@ namespace sky {
         drv::DrawItem item;
     };
 
-    template <typename T> class LambdaDrawCallProducer : public DrawCallProducer {
+    template <typename T>
+    class LambdaDrawCallProducer : public DrawCallProducer {
     public:
         LambdaDrawCallProducer(T &&func) : function(std::forward<T>(func))
         {
@@ -77,7 +78,8 @@ namespace sky {
 
         bool MultiThreadEncode() const override;
 
-        template <typename T> void EmplaceLambda(T &&func)
+        template <typename T>
+        void EmplaceLambda(T &&func)
         {
             producers.emplace_back(new LambdaDrawCallProducer<T>(std::forward<T>(func)));
         }

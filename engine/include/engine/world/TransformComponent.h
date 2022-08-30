@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-
 #pragma once
 
 #include <core/math/Transform.h>
@@ -20,26 +19,27 @@ namespace sky {
 
         static void Reflect();
 
-        void SetParent(TransformComponent*);
+        void SetParent(TransformComponent *);
 
-        TransformComponent* GetParent() const;
+        TransformComponent *GetParent() const;
 
-        const std::vector<TransformComponent*>& GetChildren() const;
+        const std::vector<TransformComponent *> &GetChildren() const;
 
-        void SetWorldTranslation(const Vector3& translation);
-        void SetWorldRotation(const Quaternion& rotation);
-        void SetWorldScale(const Vector3& scale);
+        void SetWorldTranslation(const Vector3 &translation);
+        void SetWorldRotation(const Quaternion &rotation);
+        void SetWorldScale(const Vector3 &scale);
 
-        void SetLocalTranslation(const Vector3& translation);
-        void SetLocalRotation(const Quaternion& rotation);
-        void SetLocalScale(const Vector3& scale);
+        void SetLocalTranslation(const Vector3 &translation);
+        void SetLocalRotation(const Quaternion &rotation);
+        void SetLocalScale(const Vector3 &scale);
 
-        const Transform& GetLocal() const;
-        const Transform& GetWorld() const;
+        const Transform &GetLocal() const;
+        const Transform &GetWorld() const;
 
         void Print();
+
     private:
-        static void PrintChild(TransformComponent& comp, std::string str);
+        static void PrintChild(TransformComponent &comp, std::string str);
 
         void TransformChanged();
 
@@ -47,13 +47,13 @@ namespace sky {
 
         void UpdateWorld();
 
-        const Transform& GetParentTransform() const;
+        const Transform &GetParentTransform() const;
 
-        Transform local;
-        Transform world;
-        bool suppressWorldChange = false;
-        TransformComponent* parent = nullptr;
-        std::vector<TransformComponent*> children;
+        Transform                         local;
+        Transform                         world;
+        bool                              suppressWorldChange = false;
+        TransformComponent               *parent              = nullptr;
+        std::vector<TransformComponent *> children;
     };
 
-}
+} // namespace sky

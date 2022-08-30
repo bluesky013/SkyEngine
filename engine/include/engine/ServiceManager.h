@@ -4,23 +4,23 @@
 
 #pragma once
 
-#include <engine/IService.h>
 #include <core/type/Rtti.h>
-#include <unordered_map>
+#include <engine/IService.h>
 #include <memory>
+#include <unordered_map>
 
 namespace sky {
 
     class ServiceManager {
     public:
-        ServiceManager() = default;
+        ServiceManager()  = default;
         ~ServiceManager() = default;
 
         template <typename T>
-        T* GetService() const
+        T *GetService() const
         {
             auto iter = services.find(TypeInfo<T>::Name());
-            return iter == services.end() ? nullptr : static_cast<T*>(iter->second.get());
+            return iter == services.end() ? nullptr : static_cast<T *>(iter->second.get());
         }
 
         template <typename T>
@@ -37,7 +37,7 @@ namespace sky {
 
         void Tick(float time)
         {
-            for (auto& service : services) {
+            for (auto &service : services) {
                 service.second->OnTick(time);
             }
         }
@@ -46,4 +46,4 @@ namespace sky {
         using ServicePtr = std::unique_ptr<IService>;
         std::unordered_map<std::string_view, ServicePtr> services;
     };
-}
+} // namespace sky

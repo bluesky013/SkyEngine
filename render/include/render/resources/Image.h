@@ -19,7 +19,8 @@ namespace sky {
         VkFormat             format = VK_FORMAT_UNDEFINED;
         std::vector<uint8_t> data;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(width, height, format, data);
         }
@@ -62,7 +63,8 @@ namespace sky {
 
     RDImagePtr CreateImage2D();
 
-    template <> struct GlobalResourceTraits<Image> {
+    template <>
+    struct GlobalResourceTraits<Image> {
         using KeyType = GlobalImageType;
         static RDImagePtr Create(const GlobalImageType &value)
         {
@@ -70,7 +72,8 @@ namespace sky {
         }
     };
 
-    template <> struct AssetTraits<Image> {
+    template <>
+    struct AssetTraits<Image> {
         using DataType                                = ImageAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;

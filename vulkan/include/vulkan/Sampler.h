@@ -29,18 +29,18 @@ namespace sky::drv {
             VkBorderColor        borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkSampler GetNativeHandle() const;
 
     private:
         friend class Device;
-        Sampler(Device&);
+        Sampler(Device &);
 
         VkSampler sampler;
-        uint32_t hash = 0;
+        uint32_t  hash = 0;
     };
 
     using SamplerPtr = std::shared_ptr<Sampler>;
 
-}
+} // namespace sky::drv

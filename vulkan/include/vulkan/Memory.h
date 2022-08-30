@@ -3,9 +3,9 @@
 //
 
 #pragma once
+#include "vk_mem_alloc.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
-#include "vk_mem_alloc.h"
 
 namespace sky::drv {
 
@@ -13,15 +13,12 @@ namespace sky::drv {
     public:
         ~Memory() = default;
 
-        struct Descriptor {
-
-        };
+        struct Descriptor {};
 
     private:
         friend class Device;
-        Memory(Device&);
-        bool Init(const Descriptor&);
+        Memory(Device &);
+        bool Init(const Descriptor &);
     };
 
-
-}
+} // namespace sky::drv

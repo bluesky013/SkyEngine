@@ -12,7 +12,7 @@
 namespace sky {
 
     static constexpr std::string_view DIGITS = "0123456789ABCDEFabcdef";
-    constexpr size_t GetDigit(char ch)
+    constexpr size_t                  GetDigit(char ch)
     {
         auto it = DIGITS.find(ch);
         if (it == std::string::npos) {
@@ -70,7 +70,7 @@ namespace sky {
 
         std::string ToString() const;
 
-        template<class Archive>
+        template <class Archive>
         void serialize(Archive &ar)
         {
             ar(word[0], word[1]);
@@ -79,25 +79,25 @@ namespace sky {
     private:
         friend struct std::hash<sky::Uuid>;
         friend struct std::equal_to<sky::Uuid>;
-        friend bool operator==(const Uuid& lhs, const Uuid& rhs);
+        friend bool operator==(const Uuid &lhs, const Uuid &rhs);
 
         union {
             uint64_t word[2];
-            uint8_t data[16];
+            uint8_t  data[16];
         };
     };
 
-    inline bool operator==(const Uuid& lhs, const Uuid& rhs)
+    inline bool operator==(const Uuid &lhs, const Uuid &rhs)
     {
         return lhs.word[0] == rhs.word[0] && lhs.word[1] == rhs.word[1];
     }
-}
+} // namespace sky
 
 namespace std {
 
     template <>
     struct hash<sky::Uuid> {
-        size_t operator()(const sky::Uuid& uuid) const noexcept
+        size_t operator()(const sky::Uuid &uuid) const noexcept
         {
             return uuid.word[0];
         }
@@ -105,10 +105,10 @@ namespace std {
 
     template <>
     struct equal_to<sky::Uuid> {
-        bool operator()(const sky::Uuid& x, const sky::Uuid& y) const noexcept
+        bool operator()(const sky::Uuid &x, const sky::Uuid &y) const noexcept
         {
             return (x.word[0] == y.word[0]) && (x.word[1] == y.word[1]);
         }
     };
 
-}
+} // namespace std

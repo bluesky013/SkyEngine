@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <array>
 #include <core/environment/Singleton.h>
 #include <framework/serialization/SerializationFactory.h>
-#include <array>
 
 namespace sky {
 
@@ -15,32 +15,32 @@ namespace sky {
         template <typename T>
         auto Register(const std::string_view &key)
         {
-            auto& type = types[key];
-            type.info = TypeInfoObj<T>::Get()->RtInfo();
+            auto &type        = types[key];
+            type.info         = TypeInfoObj<T>::Get()->RtInfo();
             type.info->typeId = key;
             return TypeFactory<T>(type);
         }
 
-        TypeNode* FindType(const std::string& key);
+        TypeNode *FindType(const std::string &key);
 
     private:
         friend class Singleton<SerializationContext>;
 
-        SerializationContext() = default;
+        SerializationContext()  = default;
         ~SerializationContext() = default;
 
         std::unordered_map<std::string_view, TypeNode> types;
     };
 
-    template <typename T, typename ...Args>
-    inline Any MakeAny(Args&&... args)
+    template <typename T, typename... Args>
+    inline Any MakeAny(Args &&...args)
     {
         auto context = SerializationContext::Get();
-        auto rtInfo = TypeInfoObj<T>::Get()->RtInfo();
-        if(rtInfo == nullptr) {
+        auto rtInfo  = TypeInfoObj<T>::Get()->RtInfo();
+        if (rtInfo == nullptr) {
             return {};
         }
-        TypeNode* node = context->FindType(rtInfo->typeId.data());
+        TypeNode *node = context->FindType(rtInfo->typeId.data());
         if (node == nullptr || node->constructList.empty()) {
             return {};
         }
@@ -48,7 +48,7 @@ namespace sky {
         return node->constructList.back().constructFn(anyArgs.data());
     }
 
-    inline const TypeNode* GetTypeNode(const Any& any)
+    inline const TypeNode *GetTypeNode(const Any &any)
     {
         auto rtInfo = any.Info();
         if (rtInfo == nullptr) {
@@ -58,7 +58,7 @@ namespace sky {
         return context->FindType(rtInfo->typeId.data());
     }
 
-    inline const TypeNode* GetTypeNode(const TypeInfoRT* rtInfo)
+    inline const TypeNode *GetTypeNode(const TypeInfoRT *rtInfo)
     {
         if (rtInfo == nullptr) {
             return nullptr;
@@ -67,13 +67,13 @@ namespace sky {
         return context->FindType(rtInfo->typeId.data());
     }
 
-    inline TypeMemberNode* GetTypeMember(const std::string& str, const TypeInfoRT* info)
+    inline TypeMemberNode *GetTypeMember(const std::string &str, const TypeInfoRT *info)
     {
-        if(info == nullptr) {
+        if (info == nullptr) {
             return nullptr;
         }
         auto context = SerializationContext::Get();
-        auto node = context->FindType(info->typeId.data());
+        auto node    = context->FindType(info->typeId.data());
         if (node == nullptr) {
             return nullptr;
         }
@@ -86,20 +86,16 @@ namespace sky {
         return &it->second;
     }
 
-    enum class SerializeOption : uint8_t {
-        BIN,
-        JSON
-    };
+    enum class SerializeOption : uint8_t { BIN, JSON };
 
-}
+} // namespace sky
 
-#define TYPE_RTTI_BASE                              \
-    virtual const sky::TypeInfoRT* GetTypeInfo() const = 0;
+#define TYPE_RTTI_BASE virtual const sky::TypeInfoRT *GetTypeInfo() const = 0;
 
-#define TYPE_RTTI_WITH_VT(name)                          \
-    const sky::TypeInfoRT* GetTypeInfo() const override  \
-    {                                                    \
-        static const sky::TypeInfoRT* info = sky::TypeInfoObj<name>::Get()->RtInfo(); \
-        return info;                                     \
-    }                                                    \
+#define TYPE_RTTI_WITH_VT(name)                                                                                                                      \
+    const sky::TypeInfoRT *GetTypeInfo() const override                                                                                              \
+    {                                                                                                                                                \
+        static const sky::TypeInfoRT *info = sky::TypeInfoObj<name>::Get()->RtInfo();                                                                \
+        return info;                                                                                                                                 \
+    }                                                                                                                                                \
     TYPE_RTTI(name)

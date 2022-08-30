@@ -1,21 +1,21 @@
 //
 // Created by Zach Lee on 2022/6/22.
 //
-#include <gtest/gtest.h>
-#include <core/logger/Logger.h>
 #include "framework/event/Event.h"
+#include <core/logger/Logger.h>
+#include <gtest/gtest.h>
 
 using namespace sky;
 
 struct ITestEvent1 : public EventTraits {
-    virtual void E1() = 0;
+    virtual void E1()      = 0;
     virtual void E2(float) = 0;
 };
 
 struct ITestEvent2 : public EventTraits {
     using KeyType = int;
 
-    virtual void E3() = 0;
+    virtual void E3()      = 0;
     virtual void E4(float) = 0;
 };
 
@@ -60,7 +60,7 @@ struct EventListener : public ITestEvent1, public ITestEvent2 {
         b = val;
     }
 
-    int a = 0;
+    int   a = 0;
     float b = 0;
 };
 
@@ -111,5 +111,4 @@ TEST(EventTest, BroadCastTest)
     Event<ITestEvent2>::BroadCast(2, &ITestEvent2::E4, 8.f);
     ASSERT_EQ(listener1.b, 3.f);
     ASSERT_EQ(listener2.b, 6.f);
-
 }

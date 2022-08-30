@@ -15,17 +15,17 @@ namespace sky::drv {
 
         struct Descriptor {};
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
         VkSemaphore GetNativeHandle() const;
 
     private:
         friend class Device;
-        Semaphore(Device&);
+        Semaphore(Device &);
 
         VkSemaphore semaphore;
     };
 
     using SemaphorePtr = std::shared_ptr<Semaphore>;
 
-}
+} // namespace sky::drv

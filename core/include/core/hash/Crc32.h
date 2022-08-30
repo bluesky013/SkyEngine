@@ -19,7 +19,8 @@ namespace sky {
 
         static uint32_t Cal(const std::string_view &str);
 
-        template <typename T> static uint32_t Cal(const T &t)
+        template <typename T>
+        static uint32_t Cal(const T &t)
         {
             return Cal(reinterpret_cast<const uint8_t *>(&t), sizeof(T));
         }

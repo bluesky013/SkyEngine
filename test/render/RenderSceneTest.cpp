@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2022/5/29.
 //
 
-
 #include <gtest/gtest.h>
 #include <render/RenderScene.h>
 
@@ -19,7 +18,7 @@ TEST(RenderSceneTest, ViewTest)
     scene->AddView(view2);
 
     {
-        auto& views = scene->GetViews();
+        auto &views = scene->GetViews();
         ASSERT_EQ(views.size(), 2);
     }
 }

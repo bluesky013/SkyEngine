@@ -4,30 +4,30 @@
 
 #pragma once
 
-#include <vulkan/DevObject.h>
-#include <vulkan/vulkan.h>
 #include <list>
 #include <unordered_map>
+#include <vulkan/DevObject.h>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
     class DescriptorSet;
 
     class DescriptorSetPool : public DevObject {
     public:
-        DescriptorSetPool(Device& dev);
+        DescriptorSetPool(Device &dev);
         ~DescriptorSetPool();
 
         struct Descriptor {
-            uint32_t maxSets            = 0;
-            uint32_t num                = 0;
-            VkDescriptorPoolSize* sizes = nullptr;
+            uint32_t              maxSets = 0;
+            uint32_t              num     = 0;
+            VkDescriptorPoolSize *sizes   = nullptr;
         };
 
-        bool Init(const Descriptor& desc);
+        bool Init(const Descriptor &desc);
 
     private:
         friend class DescriptorSet;
-        void Free(DescriptorSet& set);
+        void Free(DescriptorSet &set);
 
         VkDescriptorPool pool;
         using SetList = std::list<VkDescriptorSet>;
@@ -35,4 +35,4 @@ namespace sky::drv {
     };
     using DescriptorSetPoolPtr = std::shared_ptr<DescriptorSetPool>;
 
-}
+} // namespace sky::drv

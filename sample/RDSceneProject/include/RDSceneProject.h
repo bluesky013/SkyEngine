@@ -8,14 +8,14 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 
+#include <render/RenderCamera.h>
 #include <render/RenderScene.h>
 #include <render/RenderViewport.h>
-#include <render/RenderCamera.h>
 
 namespace sky {
     class RDSceneProject : public IModule {
     public:
-        RDSceneProject() = default;
+        RDSceneProject()  = default;
         ~RDSceneProject() = default;
 
         void Init() override;
@@ -27,8 +27,8 @@ namespace sky {
         void Tick(float delta) override;
 
     private:
-        RDScenePtr scene;
-        RenderCamera* mainCamera = nullptr;
+        RDScenePtr    scene;
+        RenderCamera *mainCamera = nullptr;
     };
 
-}
+} // namespace sky

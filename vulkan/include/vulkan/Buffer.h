@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
+#include "vk_mem_alloc.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
-#include "vk_mem_alloc.h"
 
 namespace sky::drv {
 
@@ -26,23 +26,23 @@ namespace sky::drv {
 
         bool IsTransient() const;
 
-        uint8_t* Map();
+        uint8_t *Map();
 
         void UnMap();
 
     private:
         friend class Device;
-        Buffer(Device&);
+        Buffer(Device &);
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
-        VkBuffer buffer;
-        VmaAllocation allocation;
+        VkBuffer           buffer;
+        VmaAllocation      allocation;
         VkBufferCreateInfo bufferInfo;
-        Descriptor desc = {};
-        bool isTransient = false;
+        Descriptor         desc        = {};
+        bool               isTransient = false;
     };
 
     using BufferPtr = std::shared_ptr<Buffer>;
 
-}
+} // namespace sky::drv

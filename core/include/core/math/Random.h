@@ -9,10 +9,10 @@ namespace sky {
 
     class Random {
     public:
-        Random() = default;
+        Random()  = default;
         ~Random() = default;
 
-        static bool Gen(void* data, uint32_t dataSize);
+        static bool Gen(void *data, uint32_t dataSize);
     };
 
-}
+} // namespace sky

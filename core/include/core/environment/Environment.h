@@ -4,35 +4,35 @@
 
 #pragma once
 
-#include <unordered_map>
 #include <mutex>
+#include <unordered_map>
 
 namespace sky {
 
     class Environment {
     public:
-        static Environment* Get();
+        static Environment *Get();
 
         static void Destroy();
 
-        static void Attach(Environment* env);
+        static void Attach(Environment *env);
 
         static void Detach();
 
-        void Register(uint32_t key, void* ptr);
+        void Register(uint32_t key, void *ptr);
 
         void UnRegister(uint32_t key);
 
-        void* Find(uint32_t key);
+        void *Find(uint32_t key);
 
     protected:
-        static Environment* instance;
-        static std::mutex globalMutex;
+        static Environment *instance;
+        static std::mutex   globalMutex;
 
-        Environment() = default;
+        Environment()  = default;
         ~Environment() = default;
-        mutable std::mutex mutex;
-        std::unordered_map<uint32_t, void*> envMap;
+        mutable std::mutex                   mutex;
+        std::unordered_map<uint32_t, void *> envMap;
     };
 
-}
+} // namespace sky

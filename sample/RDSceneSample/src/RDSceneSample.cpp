@@ -9,27 +9,29 @@
 #include <framework/window/NativeWindow.h>
 
 #include <render/Render.h>
-#include <render/features/StaticMeshFeature.h>
 #include <render/features/CameraFeature.h>
+#include <render/features/StaticMeshFeature.h>
 
 #include <render/RenderCamera.h>
 
-#include <render/resources/Technique.h>
 #include <render/resources/Material.h>
+#include <render/resources/Technique.h>
 
-#include <render/shapes/ShapeManager.h>
-#include <render/shapes/RenderShape.h>
-#include <render/RenderPipelineForward.h>
 #include <render/RenderConstants.h>
+#include <render/RenderPipelineForward.h>
+#include <render/shapes/RenderShape.h>
+#include <render/shapes/ShapeManager.h>
 
 namespace sky {
 
     class RotationFeature : public RenderFeature {
     public:
-        RotationFeature(RenderScene& scn) : RenderFeature(scn) {}
+        RotationFeature(RenderScene &scn) : RenderFeature(scn)
+        {
+        }
         ~RotationFeature() = default;
 
-        void SetMesh(StaticMesh* value)
+        void SetMesh(StaticMesh *value)
         {
             mesh = value;
         }
@@ -37,21 +39,21 @@ namespace sky {
         void OnTick(float time) override
         {
             Matrix4 transform = glm::identity<Matrix4>();
-            transform = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
-            transform = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
+            transform         = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
+            transform         = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
             mesh->SetWorldMatrix(transform);
             angle += 20.f * time;
         }
 
     private:
-        float angle = 0.f;
-        StaticMesh* mesh = nullptr;
+        float       angle = 0.f;
+        StaticMesh *mesh  = nullptr;
     };
 
     void RDSceneSample::Init()
     {
         StartInfo info = {};
-        info.appName = "RDSceneSample";
+        info.appName   = "RDSceneSample";
 
         Render::Get()->Init(info);
     }
@@ -62,17 +64,17 @@ namespace sky {
         scene->Setup();
         Render::Get()->AddScene(scene);
 
-        auto viewport = std::make_shared<RenderViewport>();
+        auto viewport     = std::make_shared<RenderViewport>();
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
 
         RenderViewport::ViewportInfo info = {};
-        info.wHandle = nativeWindow->GetNativeHandle();
+        info.wHandle                      = nativeWindow->GetNativeHandle();
         viewport->Setup(info);
         viewport->SetScene(scene);
         Render::Get()->AddViewport(viewport);
 
-        auto swapChain = viewport->GetSwapChain();
-        auto& ext = swapChain->GetExtent();
+        auto  swapChain = viewport->GetSwapChain();
+        auto &ext       = swapChain->GetExtent();
 
         auto cmFeature = scene->GetFeature<CameraFeature>();
         auto smFeature = scene->GetFeature<StaticMeshFeature>();
@@ -87,7 +89,7 @@ namespace sky {
         colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
         colorTable->InitRHI();
 
-        auto pass = std::make_shared<Pass>();
+        auto        pass        = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
         subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_4_BIT});
         subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
@@ -102,7 +104,6 @@ namespace sky {
         colorTech->SetDepthTestEn(true);
         colorTech->SetDepthWriteEn(true);
 
-
         material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);
         material->InitRHI();
@@ -111,8 +112,8 @@ namespace sky {
         material->Update();
 
         staticMesh = smFeature->Create();
-        auto cube= ShapeManager::Get()->GetOrCreate<Cube>();
-        auto mesh = cube->CreateMesh(material);
+        auto cube  = ShapeManager::Get()->GetOrCreate<Cube>();
+        auto mesh  = cube->CreateMesh(material);
         staticMesh->SetMesh(mesh);
         staticMesh->SetWorldMatrix(glm::identity<Matrix4>());
 
@@ -122,7 +123,7 @@ namespace sky {
 
     void RDSceneSample::Stop()
     {
-        scene = nullptr;
+        scene    = nullptr;
         material = nullptr;
         Render::Get()->Destroy();
     }
@@ -132,6 +133,6 @@ namespace sky {
         Render::Get()->OnTick(delta);
     }
 
-}
+} // namespace sky
 
 REGISTER_MODULE(sky::RDSceneSample)

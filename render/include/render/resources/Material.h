@@ -13,7 +13,8 @@
 namespace sky {
 
     struct MaterialAssetData {
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
         }
     };
@@ -31,7 +32,8 @@ namespace sky {
 
         RDDesGroupPtr GetMaterialSet() const;
 
-        template <typename T> void UpdateValue(const std::string &name, const T &value)
+        template <typename T>
+        void UpdateValue(const std::string &name, const T &value)
         {
             auto table = matSet->GetProperTable();
             auto iter  = table->handleMap.find(name);
@@ -59,7 +61,8 @@ namespace sky {
         RDMaterialPtr CreateFromData(const MaterialAssetData &data);
     } // namespace impl
 
-    template <> struct AssetTraits<Material> {
+    template <>
+    struct AssetTraits<Material> {
         using DataType = MaterialAssetData;
 
         static void LoadFromPath(const std::string &path, DataType &data)

@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
-
 #pragma once
 
 #include <framework/interface/IModule.h>
@@ -15,7 +14,7 @@ namespace sky::render {
 
     class MemoryAliasingSample : public IModule {
     public:
-        MemoryAliasingSample() = default;
+        MemoryAliasingSample()  = default;
         ~MemoryAliasingSample() = default;
 
         void Init() override;
@@ -29,4 +28,4 @@ namespace sky::render {
     private:
     };
 
-}
+} // namespace sky::render

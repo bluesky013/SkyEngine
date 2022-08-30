@@ -2,17 +2,17 @@
 // Created by Zach Lee on 2021/12/16.
 //
 
+#include <core/math/Transform.h>
+#include <core/math/Vector.h>
+#include <editor/inspector/PropertyTransform.h>
 #include <editor/inspector/PropertyUtil.h>
 #include <editor/inspector/PropertyVectorX.h>
-#include <editor/inspector/PropertyTransform.h>
-#include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/PropertyCommon.h>
-#include <core/math/Vector.h>
-#include <core/math/Transform.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::editor::util {
 
-    bool IsVisible(const TypeMemberNode& member)
+    bool IsVisible(const TypeMemberNode &member)
     {
         auto iter = member.properties.find(UI_PROP_VISIBLE);
         if (iter != member.properties.end()) {
@@ -22,7 +22,7 @@ namespace sky::editor::util {
         return true;
     }
 
-    PropertyWidget* CreateByTypeMemberInfo(const TypeMemberNode& member, QWidget* parent)
+    PropertyWidget *CreateByTypeMemberInfo(const TypeMemberNode &member, QWidget *parent)
     {
         if (member.info == TypeInfoObj<float>::Get()->RtInfo()) {
             return new PropertyScalar<float>(parent);
@@ -37,4 +37,4 @@ namespace sky::editor::util {
         }
         return nullptr;
     }
-}
+} // namespace sky::editor::util

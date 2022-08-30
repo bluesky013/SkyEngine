@@ -20,7 +20,8 @@ namespace sky {
             return res;
         }
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(min, max);
         }

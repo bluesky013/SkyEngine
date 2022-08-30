@@ -2,19 +2,18 @@
 // Created by Zach Lee on 2021/12/15.
 //
 
-#include <editor/inspector/InspectorWidget.h>
-#include <editor/inspector/InspectorBase.h>
-#include <editor/inspector/PropertyUtil.h>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <editor/inspector/InspectorBase.h>
+#include <editor/inspector/InspectorWidget.h>
+#include <editor/inspector/PropertyUtil.h>
 #include <engine/world/GameObject.h>
 
 #include <editor/inspector/PropertyTransform.h>
 
 namespace sky::editor {
 
-    InspectorWidget::InspectorWidget(QWidget* parent)
-        : QDockWidget(parent)
+    InspectorWidget::InspectorWidget(QWidget *parent) : QDockWidget(parent)
     {
         setWindowTitle(tr("Inspector"));
         auto widget = new QWidget(this);
@@ -37,10 +36,10 @@ namespace sky::editor {
         layout->setSpacing(0);
     }
 
-    void InspectorWidget::AddComponent(Component* comp)
+    void InspectorWidget::AddComponent(Component *comp)
     {
-        const TypeInfoRT* info = comp->GetTypeInfo();
-        auto node = GetTypeNode(info);
+        const TypeInfoRT *info = comp->GetTypeInfo();
+        auto              node = GetTypeNode(info);
         if (node == nullptr) {
             return;
         }
@@ -48,7 +47,7 @@ namespace sky::editor {
         inspector->SetName(node->info->typeId.data());
 
         layout->addWidget(inspector);
-        for(auto& mem : node->members) {
+        for (auto &mem : node->members) {
             if (!util::IsVisible(mem.second)) {
                 continue;
             }
@@ -62,15 +61,14 @@ namespace sky::editor {
 
     void InspectorWidget::Clear()
     {
-        while (QLayoutItem* child = layout->takeAt(0))
-        {
+        while (QLayoutItem *child = layout->takeAt(0)) {
             delete child->widget();
             delete child;
         }
         groups.clear();
     }
 
-    void InspectorWidget::SetWorldItem(WorldItem* item)
+    void InspectorWidget::SetWorldItem(WorldItem *item)
     {
         selectedItem = item;
         Refresh();
@@ -82,11 +80,11 @@ namespace sky::editor {
             return;
         }
         Clear();
-        auto go = selectedItem->go;
-        auto& comps = go->GetComponents();
-        for (auto& comp : comps) {
+        auto  go    = selectedItem->go;
+        auto &comps = go->GetComponents();
+        for (auto &comp : comps) {
             AddComponent(comp);
         }
     }
 
-}
+} // namespace sky::editor

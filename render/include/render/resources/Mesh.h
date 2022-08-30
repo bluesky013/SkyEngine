@@ -18,7 +18,8 @@ namespace sky {
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(firstVertex, vertexCount, firstIndex, indexCount);
         }
@@ -36,7 +37,8 @@ namespace sky {
         uint32_t    offset = 0;
         VkFormat    format = VK_FORMAT_UNDEFINED;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(name, index, offset, format);
         }
@@ -70,12 +72,14 @@ namespace sky {
         uint64_t       size   = 0;
         uint32_t       stride = 0;
 
-        template <class Archive> void save(Archive &ar) const
+        template <class Archive>
+        void save(Archive &ar) const
         {
             ar(buffer->GetUuid(), offset, size, stride);
         }
 
-        template <class Archive> void load(Archive &ar)
+        template <class Archive>
+        void load(Archive &ar)
         {
             Uuid uuid;
             ar(uuid, offset, size, stride);
@@ -91,7 +95,8 @@ namespace sky {
         SubMeshDrawData drawData;
         Box             aabb;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(drawData, aabb);
         }
@@ -106,7 +111,8 @@ namespace sky {
         std::vector<SubMeshAsset>    subMeshes;
         VkIndexType                  indexType = VK_INDEX_TYPE_UINT32;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(indexBuffer, vertexBuffers, vertexDescriptions, subMeshes, indexType);
         }
@@ -166,7 +172,8 @@ namespace sky {
 
     using RDMeshPtr = std::shared_ptr<Mesh>;
 
-    template <> struct AssetTraits<Mesh> {
+    template <>
+    struct AssetTraits<Mesh> {
         using DataType                                = MeshAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("394AB7FF-FC10-484F-82A6-42D523949DD1");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;

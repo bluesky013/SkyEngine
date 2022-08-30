@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2021/11/7.
 //
 #pragma once
-#include "vulkan/DevObject.h"
 #include "vulkan/CommandBuffer.h"
+#include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
 namespace sky::drv {
@@ -15,20 +15,20 @@ namespace sky::drv {
         ~CommandPool();
 
         struct Descriptor {
-            uint32_t queueFamilyIndex     = 0;
-            VkCommandPoolCreateFlags flag = 0;
+            uint32_t                 queueFamilyIndex = 0;
+            VkCommandPoolCreateFlags flag             = 0;
         };
 
-        bool Init(const Descriptor&);
+        bool Init(const Descriptor &);
 
-        CommandBufferPtr Allocate(const CommandBuffer::Descriptor&);
+        CommandBufferPtr Allocate(const CommandBuffer::Descriptor &);
 
     private:
         friend class Device;
-        CommandPool(Device&);
+        CommandPool(Device &);
 
         VkCommandPool pool;
     };
 
     using CommandPoolPtr = std::shared_ptr<CommandPool>;
-}
+} // namespace sky::drv

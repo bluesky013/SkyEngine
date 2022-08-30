@@ -3,17 +3,17 @@
 //
 
 #include <gtest/gtest.h>
-#include <render/Render.h>
 #include <render/DriverManager.h>
-#include <render/resources/Mesh.h>
-#include <render/resources/DescriptorPool.h>
+#include <render/Render.h>
 #include <render/resources/DescirptorGroup.h>
+#include <render/resources/DescriptorPool.h>
 #include <render/resources/Image.h>
+#include <render/resources/Mesh.h>
 #include <render/resources/Shader.h>
 
 using namespace sky;
 
-static const char* TAG = "EngineRenderResourceTest";
+static const char *TAG = "EngineRenderResourceTest";
 
 class EngineRenderResourceTest : public ::testing::Test {
 public:
@@ -44,15 +44,15 @@ struct Vertex {
 
 TEST_F(EngineRenderResourceTest, BufferTest)
 {
-    const uint32_t size = 128;
+    const uint32_t      size = 128;
     std::vector<Vertex> vertices(size);
 
     {
         Buffer::Descriptor desc = {};
-        desc.size = size * sizeof(Vertex);
-        desc.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        desc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        RDBufferPtr buffer = std::make_shared<Buffer>(desc);
+        desc.size               = size * sizeof(Vertex);
+        desc.memory             = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        desc.usage              = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        RDBufferPtr buffer      = std::make_shared<Buffer>(desc);
         buffer->InitRHI();
         buffer->Update(reinterpret_cast<const uint8_t *>(&vertices[0]), desc.size);
         ASSERT_EQ(buffer->IsValid(), true);
@@ -60,10 +60,10 @@ TEST_F(EngineRenderResourceTest, BufferTest)
 
     {
         Buffer::Descriptor desc = {};
-        desc.size = size * sizeof(Vertex);
-        desc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        desc.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        RDBufferPtr buffer = std::make_shared<Buffer>(desc);
+        desc.size               = size * sizeof(Vertex);
+        desc.memory             = VMA_MEMORY_USAGE_GPU_ONLY;
+        desc.usage              = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        RDBufferPtr buffer      = std::make_shared<Buffer>(desc);
         buffer->InitRHI();
         buffer->Update(reinterpret_cast<const uint8_t *>(&vertices[0]), desc.size);
         ASSERT_EQ(buffer->IsValid(), true);
@@ -73,21 +73,16 @@ TEST_F(EngineRenderResourceTest, BufferTest)
 TEST_F(EngineRenderResourceTest, ImageTest)
 {
     {
-        std::vector<uint8_t> data = {
-            255, 0,   0, 255,   0, 255,   0, 255,
-            0,   0, 255, 255, 255, 255, 255, 255
-        };
+        std::vector<uint8_t> data = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
 
-        Image::Descriptor desc = {
-            VK_FORMAT_R8G8B8A8_UNORM, {2, 2}, 1
-        };
-        RDImagePtr image = std::make_shared<Image>(desc);
+        Image::Descriptor desc  = {VK_FORMAT_R8G8B8A8_UNORM, {2, 2}, 1};
+        RDImagePtr        image = std::make_shared<Image>(desc);
         image->InitRHI();
         ASSERT_EQ(image->IsValid(), true);
         image->Update(data.data(), data.size());
 
         Texture::Descriptor texDes = {};
-        auto tex = Texture::CreateFromImage(image, texDes);
+        auto                tex    = Texture::CreateFromImage(image, texDes);
         ASSERT_EQ(tex->IsValid(), true);
     }
 
@@ -96,7 +91,7 @@ TEST_F(EngineRenderResourceTest, ImageTest)
         ASSERT_EQ(image->IsValid(), true);
 
         Texture::Descriptor texDes = {};
-        auto tex = Texture::CreateFromImage(image, texDes);
+        auto                tex    = Texture::CreateFromImage(image, texDes);
         ASSERT_EQ(tex->IsValid(), true);
     }
 
@@ -105,20 +100,18 @@ TEST_F(EngineRenderResourceTest, ImageTest)
 
 TEST_F(EngineRenderResourceTest, DescriptorSetTest)
 {
-    drv::DescriptorSetLayout::Descriptor layoutDesc = {
-        {
-            {0, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
-            {1, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
-            {2, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-            {3, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-            {4, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
-        }
-    };
-    auto layout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
+    drv::DescriptorSetLayout::Descriptor layoutDesc = {{
+        {0, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
+        {1, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
+        {2, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+        {3, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+        {4, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
+    }};
+    auto                                 layout     = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
     ASSERT_EQ(!!layout, true);
 
     DescriptorPool::Descriptor desc = {2};
-    auto pool = DescriptorPool::CreatePool(layout, desc);
+    auto                       pool = DescriptorPool::CreatePool(layout, desc);
     ASSERT_EQ(!!pool, true);
 
     {
@@ -136,17 +129,16 @@ TEST_F(EngineRenderResourceTest, DescriptorSetTest)
     }
 }
 
-
-//TEST_F(EngineRenderResourceTest, ImageLoadTest)
+// TEST_F(EngineRenderResourceTest, ImageLoadTest)
 //{
-//    auto image = Image::LoadFromFile("images/awesomeface.png");
-//}
+//     auto image = Image::LoadFromFile("images/awesomeface.png");
+// }
 //
-//TEST_F(EngineRenderResourceTest, ShaderTest)
+// TEST_F(EngineRenderResourceTest, ShaderTest)
 //{
-//    auto table = std::make_shared<GraphicsShaderTable>();
-//    table->LoadShader("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
-//    table->InitRHI();
+//     auto table = std::make_shared<GraphicsShaderTable>();
+//     table->LoadShader("shaders/BaseColor.vert.spv", "shaders/BaseColor.frag.spv");
+//     table->InitRHI();
 //
-//    ASSERT_EQ(table->IsValid(), true);
-//}
+//     ASSERT_EQ(table->IsValid(), true);
+// }

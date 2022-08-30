@@ -17,7 +17,8 @@ namespace sky {
         Matrix4  transform;
         uint32_t parentIndex = ~(0u);
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(transform, parentIndex);
         }
@@ -27,7 +28,8 @@ namespace sky {
         std::vector<PrefabAssetNode>          nodes;
         std::unordered_map<Uuid, std::string> assetPathMap;
 
-        template <class Archive> void serialize(Archive &ar)
+        template <class Archive>
+        void serialize(Archive &ar)
         {
             ar(nodes, assetPathMap);
         }
@@ -40,7 +42,8 @@ namespace sky {
     };
     using PrefabPtr = std::shared_ptr<Prefab>;
 
-    template <> struct AssetTraits<Prefab> {
+    template <>
+    struct AssetTraits<Prefab> {
         using DataType                                = PrefabData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("B3F0BC22-EAF6-47BA-9A8F-3D5F11D06777");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;

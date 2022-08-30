@@ -11,4 +11,4 @@ namespace sky {
     uint64_t GetPerformanceFrequency();
 
     uint64_t GetPerformanceCounter();
-}
+} // namespace sky
