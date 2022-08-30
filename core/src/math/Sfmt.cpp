@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2021/12/4.
 //
 
-#include <core/math/Sfmt.h>
 #include <core/math/Random.h>
+#include <core/math/Sfmt.h>
 
 namespace sky {
 
@@ -31,4 +31,4 @@ namespace sky {
         return sfmt_genrand_uint64(&sfmt);
     }
 
-}
+} // namespace sky

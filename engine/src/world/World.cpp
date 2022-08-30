@@ -2,16 +2,14 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-
-#include <engine/world/World.h>
-#include <engine/world/TransformComponent.h>
-#include <engine/world/GameObject.h>
 #include <atomic>
+#include <engine/world/GameObject.h>
+#include <engine/world/TransformComponent.h>
+#include <engine/world/World.h>
 
 namespace sky {
 
-    World::World()
-        : root(new GameObject("root"))
+    World::World() : root(new GameObject("root"))
     {
         serviceManager = std::make_unique<ServiceManager>();
 
@@ -22,18 +20,18 @@ namespace sky {
 
     World::~World()
     {
-        for (auto& go : gameObjects) {
+        for (auto &go : gameObjects) {
             delete go;
         }
         gameObjects.clear();
     }
 
-    GameObject* World::CreateGameObject(const std::string& name)
+    GameObject *World::CreateGameObject(const std::string &name)
     {
         static std::atomic_uint32_t index = 0;
         index.fetch_add(1);
 
-        auto go = new GameObject(name);
+        auto go   = new GameObject(name);
         go->world = this;
         go->objId = index.load();
         go->AddComponent<TransformComponent>();
@@ -53,7 +51,7 @@ namespace sky {
 
     void World::Tick(float time)
     {
-        for (auto& obj : gameObjects) {
+        for (auto &obj : gameObjects) {
             obj->Tick(time);
         }
         if (serviceManager) {
@@ -61,17 +59,17 @@ namespace sky {
         }
     }
 
-    const std::vector<GameObject*>& World::GetGameObjects() const
+    const std::vector<GameObject *> &World::GetGameObjects() const
     {
         return gameObjects;
     }
 
-    GameObject* World::GetRoot()
+    GameObject *World::GetRoot()
     {
         return root;
     }
 
-    ServiceManager* World::GetServiceManager() const
+    ServiceManager *World::GetServiceManager() const
     {
         return serviceManager.get();
     }
@@ -80,4 +78,4 @@ namespace sky {
     {
         TransformComponent::Reflect();
     }
-}
+} // namespace sky

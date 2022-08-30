@@ -2,16 +2,15 @@
 // Created by Zach Lee on 2022/5/7.
 //
 
-
 #pragma once
 
 #include <memory>
 
 namespace sky {
 
-    class RenderResource  {
+    class RenderResource {
     public:
-        RenderResource() = default;
+        RenderResource()          = default;
         virtual ~RenderResource() = default;
 
         virtual bool IsValid() const
@@ -20,4 +19,4 @@ namespace sky {
         }
     };
 
-}
+} // namespace sky

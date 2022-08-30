@@ -2,49 +2,35 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include <vulkan/Device.h>
-#include <vulkan/Basic.h>
-#include <vulkan/Driver.h>
 #include <core/logger/Logger.h>
+#include <vulkan/Basic.h>
+#include <vulkan/Device.h>
+#include <vulkan/Driver.h>
 
 #include <vector>
 
-static const char* TAG = "Driver";
-const std::vector<const char*> DEVICE_EXTS = {
-    "VK_KHR_swapchain",
+static const char              *TAG         = "Driver";
+const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
 #ifdef __APPLE__
-    "VK_KHR_portability_subset"
+                                               "VK_KHR_portability_subset"
 #endif
 };
 
-const std::vector<const char*> VALIDATION_LAYERS = {
-    "VK_LAYER_KHRONOS_validation"
-};
+const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 namespace sky::drv {
 
-    Device::Device(Driver& drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
+    Device::Device(Driver &drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
-        samplers.SetUp([this](VkSampler sampler) {
-            vkDestroySampler(device, sampler, VKL_ALLOC);
-        });
+        samplers.SetUp([this](VkSampler sampler) { vkDestroySampler(device, sampler, VKL_ALLOC); });
 
-        setLayouts.SetUp([this](VkDescriptorSetLayout layout) {
-            vkDestroyDescriptorSetLayout(device, layout, VKL_ALLOC);
-        });
+        setLayouts.SetUp([this](VkDescriptorSetLayout layout) { vkDestroyDescriptorSetLayout(device, layout, VKL_ALLOC); });
 
-        pipelineLayouts.SetUp([this](VkPipelineLayout layout) {
-            vkDestroyPipelineLayout(device, layout, VKL_ALLOC);
-        });
+        pipelineLayouts.SetUp([this](VkPipelineLayout layout) { vkDestroyPipelineLayout(device, layout, VKL_ALLOC); });
 
-        renderPasses.SetUp([this](VkRenderPass pass) {
-            vkDestroyRenderPass(device, pass, VKL_ALLOC);
-        });
+        renderPasses.SetUp([this](VkRenderPass pass) { vkDestroyRenderPass(device, pass, VKL_ALLOC); });
 
-        pipelines.SetUp([this](VkPipeline pipeline) {
-            vkDestroyPipeline(device, pipeline, VKL_ALLOC);
-        });
-
+        pipelines.SetUp([this](VkPipeline pipeline) { vkDestroyPipeline(device, pipeline, VKL_ALLOC); });
     }
 
     Device::~Device()
@@ -66,7 +52,7 @@ namespace sky::drv {
         }
     }
 
-    bool Device::Init(const Descriptor& des, bool enableDebug)
+    bool Device::Init(const Descriptor &des, bool enableDebug)
     {
         auto instance = driver.GetInstance();
 
@@ -103,35 +89,35 @@ namespace sky::drv {
         vkGetPhysicalDeviceQueueFamilyProperties(phyDev, &count, queueFamilies.data());
 
         // CreateDevice Device
-        float queuePriority = 1.0f;
+        float                                queuePriority = 1.0f;
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        VkDeviceQueueCreateInfo queueInfo = {};
-        queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        VkDeviceQueueCreateInfo              queueInfo = {};
+        queueInfo.sType                                = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         for (i = 0; i < count; ++i) {
             queueInfo.queueFamilyIndex = i;
-            queueInfo.queueCount = 1;
+            queueInfo.queueCount       = 1;
             queueInfo.pQueuePriorities = &queuePriority;
             queueCreateInfos.emplace_back(queueInfo);
             LOG_I(TAG, "queue family index %u, count %u, flags %u", i, queueFamilies[i].queueCount, queueFamilies[i].queueFlags);
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.multiViewport = phyFeatures.multiViewport;
-        deviceFeatures.samplerAnisotropy = phyFeatures.samplerAnisotropy;
+        deviceFeatures.multiViewport           = phyFeatures.multiViewport;
+        deviceFeatures.samplerAnisotropy       = phyFeatures.samplerAnisotropy;
         deviceFeatures.pipelineStatisticsQuery = phyFeatures.pipelineStatisticsQuery;
 
         VkDeviceCreateInfo devInfo = {};
-        devInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
-        devInfo.pEnabledFeatures = &deviceFeatures;
-        devInfo.enabledExtensionCount = (uint32_t)DEVICE_EXTS.size();
+        devInfo.pEnabledFeatures        = &deviceFeatures;
+        devInfo.enabledExtensionCount   = (uint32_t)DEVICE_EXTS.size();
         devInfo.ppEnabledExtensionNames = DEVICE_EXTS.data();
 
         devInfo.queueCreateInfoCount = (uint32_t)queueCreateInfos.size();
-        devInfo.pQueueCreateInfos = queueCreateInfos.data();
+        devInfo.pQueueCreateInfos    = queueCreateInfos.data();
 
         if (enableDebug) {
-            devInfo.enabledLayerCount = (uint32_t)VALIDATION_LAYERS.size();
+            devInfo.enabledLayerCount   = (uint32_t)VALIDATION_LAYERS.size();
             devInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
         }
 
@@ -150,11 +136,12 @@ namespace sky::drv {
         }
 
         VmaAllocatorCreateInfo allocatorInfo = {};
-        allocatorInfo.device = device;;
-        allocatorInfo.physicalDevice = phyDev;
-        allocatorInfo.instance = driver.GetInstance();
+        allocatorInfo.device                 = device;
+        ;
+        allocatorInfo.physicalDevice   = phyDev;
+        allocatorInfo.instance         = driver.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
-        rst = vmaCreateAllocator(&allocatorInfo, &allocator);
+        rst                            = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create allocator failed -%d", rst);
             return false;
@@ -183,9 +170,9 @@ namespace sky::drv {
         return driver.GetInstance();
     }
 
-    Queue* Device::GetQueue(VkQueueFlags preferred) const
+    Queue *Device::GetQueue(VkQueueFlags preferred) const
     {
-        Queue* res = nullptr;
+        Queue *res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
             if ((queueFamilies[i].queueFlags & preferred) == preferred) {
                 res = queues[i].get();
@@ -198,7 +185,7 @@ namespace sky::drv {
         return res;
     }
 
-    VkSampler Device::GetSampler(uint32_t hash, VkSamplerCreateInfo* samplerInfo)
+    VkSampler Device::GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo)
     {
         if (samplerInfo == nullptr) {
             return samplers.Find(hash);
@@ -206,7 +193,7 @@ namespace sky::drv {
 
         return samplers.FindOrEmplace(hash, [this, samplerInfo]() {
             VkSampler sampler = VK_NULL_HANDLE;
-            auto rst = vkCreateSampler(device, samplerInfo, VKL_ALLOC, &sampler);
+            auto      rst     = vkCreateSampler(device, samplerInfo, VKL_ALLOC, &sampler);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create Sampler failed, %d", rst);
             }
@@ -214,7 +201,7 @@ namespace sky::drv {
         });
     }
 
-    VkPipelineLayout Device::GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo* layoutInfo)
+    VkPipelineLayout Device::GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo *layoutInfo)
     {
         if (layoutInfo == nullptr) {
             return pipelineLayouts.Find(hash);
@@ -222,7 +209,7 @@ namespace sky::drv {
 
         return pipelineLayouts.FindOrEmplace(hash, [this, layoutInfo]() {
             VkPipelineLayout layout = VK_NULL_HANDLE;
-            auto rst = vkCreatePipelineLayout(device, layoutInfo, VKL_ALLOC, &layout);
+            auto             rst    = vkCreatePipelineLayout(device, layoutInfo, VKL_ALLOC, &layout);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create PipelineLayout failed, %d", rst);
             }
@@ -230,7 +217,7 @@ namespace sky::drv {
         });
     }
 
-    VkDescriptorSetLayout Device::GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo* layoutInfo)
+    VkDescriptorSetLayout Device::GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo *layoutInfo)
     {
         if (layoutInfo == nullptr) {
             return setLayouts.Find(hash);
@@ -238,7 +225,7 @@ namespace sky::drv {
 
         return setLayouts.FindOrEmplace(hash, [this, layoutInfo]() {
             VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-            auto rst = vkCreateDescriptorSetLayout(device, layoutInfo, VKL_ALLOC, &layout);
+            auto                  rst    = vkCreateDescriptorSetLayout(device, layoutInfo, VKL_ALLOC, &layout);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create DescriptorSetLayout failed, %d", rst);
             }
@@ -246,7 +233,7 @@ namespace sky::drv {
         });
     }
 
-    VkRenderPass Device::GetRenderPass(uint32_t hash, VkRenderPassCreateInfo* passInfo)
+    VkRenderPass Device::GetRenderPass(uint32_t hash, VkRenderPassCreateInfo *passInfo)
     {
         if (passInfo == nullptr) {
             return renderPasses.Find(hash);
@@ -254,7 +241,7 @@ namespace sky::drv {
 
         return renderPasses.FindOrEmplace(hash, [this, passInfo]() {
             VkRenderPass pass = VK_NULL_HANDLE;
-            auto rst = vkCreateRenderPass(device, passInfo, VKL_ALLOC, &pass);
+            auto         rst  = vkCreateRenderPass(device, passInfo, VKL_ALLOC, &pass);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create RenderPass failed, %d", rst);
             }
@@ -270,7 +257,7 @@ namespace sky::drv {
 
         return pipelines.FindOrEmplace(hash, [this, pipelineInfo]() {
             VkPipeline pipeline;
-            auto rst = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, pipelineInfo, VKL_ALLOC, &pipeline);
+            auto       rst = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, pipelineInfo, VKL_ALLOC, &pipeline);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create Pipeline failed, %d", rst);
             }
@@ -278,7 +265,7 @@ namespace sky::drv {
         });
     }
 
-    const VkPhysicalDeviceProperties& Device::GetProperties() const
+    const VkPhysicalDeviceProperties &Device::GetProperties() const
     {
         return phyProps;
     }
@@ -288,5 +275,4 @@ namespace sky::drv {
         vkDeviceWaitIdle(device);
     }
 
-}
-
+} // namespace sky::drv

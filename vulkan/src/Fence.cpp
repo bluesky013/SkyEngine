@@ -3,14 +3,14 @@
 //
 
 #include "vulkan/Fence.h"
-#include "vulkan/Device.h"
-#include "vulkan/Basic.h"
 #include "core/logger/Logger.h"
-static const char* TAG = "Driver";
+#include "vulkan/Basic.h"
+#include "vulkan/Device.h"
+static const char *TAG = "Driver";
 
 namespace sky::drv {
 
-    Fence::Fence(Device& dev) : DevObject(dev), fence(VK_NULL_HANDLE)
+    Fence::Fence(Device &dev) : DevObject(dev), fence(VK_NULL_HANDLE)
     {
     }
 
@@ -21,12 +21,12 @@ namespace sky::drv {
         }
     }
 
-    bool Fence::Init(const Descriptor& des)
+    bool Fence::Init(const Descriptor &des)
     {
         VkFenceCreateInfo fenceInfo = {};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceInfo.flags = des.flag;
-        auto rst = vkCreateFence(device.GetNativeHandle(), &fenceInfo, VKL_ALLOC, &fence);
+        fenceInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags             = des.flag;
+        auto rst                    = vkCreateFence(device.GetNativeHandle(), &fenceInfo, VKL_ALLOC, &fence);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create fence failed, %d", rst);
             return false;
@@ -49,4 +49,4 @@ namespace sky::drv {
         return fence;
     }
 
-}
+} // namespace sky::drv

@@ -2,10 +2,9 @@
 // Created by Zach Lee on 2022/5/28.
 //
 
-
-#include <render/resources/Technique.h>
-#include <render/DriverManager.h>
 #include <core/hash/Hash.h>
+#include <render/DriverManager.h>
+#include <render/resources/Technique.h>
 
 namespace sky {
 
@@ -16,17 +15,17 @@ namespace sky {
 
     void GraphicsTechnique::SetRenderPass(RDPassPtr p, uint32_t subPass)
     {
-        pass = p;
+        pass         = p;
         subPassIndex = subPass;
         pass->ValidatePipelineState(pipelineState, subPass);
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr& vertexInput)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr &vertexInput)
     {
         return AcquirePso(vertexInput, {});
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr& vi, const drv::ShaderOptionPtr &option)
+    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr &vi, const drv::ShaderOptionPtr &option)
     {
         uint32_t hash = 0;
         HashCombine32(hash, vi->GetHash());
@@ -44,15 +43,15 @@ namespace sky {
         program.shaderOption = option;
 
         drv::GraphicsPipeline::Descriptor psoDesc = {};
-        psoDesc.renderPass = pass->GetRenderPass();
-        psoDesc.program = &program;
-        psoDesc.state = &pipelineState;
-        psoDesc.vertexInput = vi;
-        psoDesc.pipelineLayout = table->GetPipelineLayout();
-        psoDesc.subPassIndex = subPassIndex;
+        psoDesc.renderPass                        = pass->GetRenderPass();
+        psoDesc.program                           = &program;
+        psoDesc.state                             = &pipelineState;
+        psoDesc.vertexInput                       = vi;
+        psoDesc.pipelineLayout                    = table->GetPipelineLayout();
+        psoDesc.subPassIndex                      = subPassIndex;
 
         auto device = DriverManager::Get()->GetDevice();
-        auto pso = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        auto pso    = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
         psoCache.emplace(hash, pso);
         return pso;
     }
@@ -85,7 +84,7 @@ namespace sky {
     drv::DescriptorSetBinderPtr GraphicsTechnique::CreateSetBinder() const
     {
         auto layout = table->GetPipelineLayout();
-        auto res = std::make_shared<drv::DescriptorSetBinder>();
+        auto res    = std::make_shared<drv::DescriptorSetBinder>();
         res->SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         res->SetPipelineLayout(layout);
         return res;
@@ -105,4 +104,4 @@ namespace sky {
     {
         return pipelineState;
     }
-}
+} // namespace sky

@@ -2,18 +2,18 @@
 // Created by Zach Lee on 2021/11/9.
 //
 
-#include <framework/application/Application.h>
-#include <windows.h>
-#include <iostream>
 #include "Command.h"
+#include <framework/application/Application.h>
+#include <iostream>
+#include <windows.h>
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     sky::CommandInfo cmdInfo = {};
     sky::ProcessCommand(argc, argv, cmdInfo);
 
     sky::StartInfo start = {};
-    start.appName = "Win32Launcher";
+    start.appName        = "Win32Launcher";
     start.modules.swap(cmdInfo.modules);
 
     sky::Application app;

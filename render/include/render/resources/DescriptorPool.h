@@ -2,13 +2,12 @@
 // Created by Zach Lee on 2022/5/29.
 //
 
-
 #pragma once
 
-#include <render/resources/RenderResource.h>
 #include <render/resources/DescirptorGroup.h>
-#include <vulkan/DescriptorSetPool.h>
+#include <render/resources/RenderResource.h>
 #include <vector>
+#include <vulkan/DescriptorSetPool.h>
 
 namespace sky {
 
@@ -20,21 +19,22 @@ namespace sky {
 
         ~DescriptorPool() = default;
 
-        static DescriptorPool* CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor& desc);
+        static DescriptorPool *CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor &desc);
 
         RDDesGroupPtr Allocate();
+
     private:
-        DescriptorPool(const Descriptor& desc) : descriptor(desc)
+        DescriptorPool(const Descriptor &desc) : descriptor(desc)
         {
         }
 
         drv::DescriptorSetPoolPtr CreateInternal();
 
-        Descriptor descriptor;
-        drv::DescriptorSetLayoutPtr layout;
-        std::vector<VkDescriptorPoolSize> sizes;
+        Descriptor                             descriptor;
+        drv::DescriptorSetLayoutPtr            layout;
+        std::vector<VkDescriptorPoolSize>      sizes;
         std::vector<drv::DescriptorSetPoolPtr> pools;
-        uint32_t index = 0;
+        uint32_t                               index = 0;
     };
     using RDDescriptorPoolPtr = std::shared_ptr<DescriptorPool>;
-}
+} // namespace sky

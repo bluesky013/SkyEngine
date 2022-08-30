@@ -10,7 +10,7 @@ namespace sky {
 
     class RenderShape {
     public:
-        RenderShape() = default;
+        RenderShape()          = default;
         virtual ~RenderShape() = default;
 
         virtual void Init() = 0;
@@ -18,17 +18,17 @@ namespace sky {
         RDMeshPtr CreateMesh(RDMaterialPtr material);
 
     protected:
-        RDBufferViewPtr indexBuffer;
-        SubMeshDrawData drawData;
-        Box aabb;
+        RDBufferViewPtr              indexBuffer;
+        SubMeshDrawData              drawData;
+        Box                          aabb;
         std::vector<RDBufferViewPtr> vertexBuffers;
-        std::vector<VertexDesc> vertexDescriptions;
+        std::vector<VertexDesc>      vertexDescriptions;
     };
     using RDShaperPtr = std::shared_ptr<RenderShape>;
 
     class Plane : public RenderShape {
     public:
-        Plane() = default;
+        Plane()  = default;
         ~Plane() = default;
 
         void Init() override;
@@ -39,7 +39,7 @@ namespace sky {
 
     class Cube : public RenderShape {
     public:
-        Cube() = default;
+        Cube()  = default;
         ~Cube() = default;
 
         void Init() override;
@@ -48,4 +48,4 @@ namespace sky {
         RDBufferPtr buffer;
     };
 
-}
+} // namespace sky

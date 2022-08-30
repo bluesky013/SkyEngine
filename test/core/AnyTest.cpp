@@ -2,13 +2,13 @@
 // Created by Zach Lee on 2021/12/10.
 //
 
-#include <gtest/gtest.h>
 #include <core/logger/Logger.h>
 #include <core/type/Any.h>
+#include <gtest/gtest.h>
 
 using namespace sky;
 
-static const char* TAG = "AnyTest";
+static const char *TAG = "AnyTest";
 
 struct Test1 {
     uint32_t a;
@@ -85,20 +85,24 @@ TEST(AnyTest, CtorDtorTest)
 }
 
 struct AnyCopy1 {
-    AnyCopy1() : a(0) {}
+    AnyCopy1() : a(0)
+    {
+    }
 
-    AnyCopy1(uint32_t v) : a(v) {}
+    AnyCopy1(uint32_t v) : a(v)
+    {
+    }
 
     ~AnyCopy1()
     {
     }
 
-    AnyCopy1(const AnyCopy1& any)
+    AnyCopy1(const AnyCopy1 &any)
     {
         a = any.a;
     }
 
-    AnyCopy1(AnyCopy1&& any)
+    AnyCopy1(AnyCopy1 &&any)
     {
         a = any.a;
     }
@@ -108,55 +112,59 @@ struct AnyCopy1 {
 
 struct AnyCopy2 {
 
-    AnyCopy2() : a(0) {}
+    AnyCopy2() : a(0)
+    {
+    }
 
-    AnyCopy2(uint32_t v) : a(v) {}
+    AnyCopy2(uint32_t v) : a(v)
+    {
+    }
 
     ~AnyCopy2()
     {
         a = 0;
     }
 
-    AnyCopy2(const AnyCopy2& any)
+    AnyCopy2(const AnyCopy2 &any)
     {
         a = any.a;
     }
 
-    AnyCopy2(AnyCopy2&& any)
+    AnyCopy2(AnyCopy2 &&any)
     {
         a = any.a;
     }
 
     uint32_t a;
-    char data[32];
+    char     data[32];
 };
 
 TEST(AnyTest, CopyMoveTest)
 {
     Any any1(std::in_place_type<AnyCopy1>, 1u);
     {
-        AnyCopy1* ptr = any1.GetAs<AnyCopy1>();
+        AnyCopy1 *ptr = any1.GetAs<AnyCopy1>();
         ASSERT_EQ(ptr->a, 1);
     }
     {
-        Any tmp = any1;
-        AnyCopy1* ptr = tmp.GetAs<AnyCopy1>();
+        Any       tmp = any1;
+        AnyCopy1 *ptr = tmp.GetAs<AnyCopy1>();
         ASSERT_NE(ptr, nullptr);
         ASSERT_EQ(ptr->a, 1);
     }
 
     Any any2(std::in_place_type<AnyCopy2>, 1u);
     {
-        AnyCopy2* ptr = any2.GetAs<AnyCopy2>();
+        AnyCopy2 *ptr = any2.GetAs<AnyCopy2>();
         ASSERT_EQ(ptr->a, 1);
     }
     {
-        Any tmp(std::move(any2));
-        AnyCopy2* ptr1 = tmp.GetAs<AnyCopy2>();
+        Any       tmp(std::move(any2));
+        AnyCopy2 *ptr1 = tmp.GetAs<AnyCopy2>();
         ASSERT_NE(ptr1, nullptr);
         ASSERT_EQ(ptr1->a, 1);
 
-        AnyCopy2* ptr2 = any2.GetAs<AnyCopy2>();
+        AnyCopy2 *ptr2 = any2.GetAs<AnyCopy2>();
         ASSERT_EQ(ptr2, nullptr);
     }
 }
@@ -169,8 +177,8 @@ TEST(AnyTest, AnyRefTest)
     Any rfa1(std::ref(t1));
     Any rfa2(std::ref(t2));
 
-    Test1* ref1 = *rfa1.GetAs<Test1*>();
-    Test2* ref2 = *rfa2.GetAs<Test2*>();
+    Test1 *ref1 = *rfa1.GetAs<Test1 *>();
+    Test2 *ref2 = *rfa2.GetAs<Test2 *>();
 
     ref1->a = 99;
     ref2->a = 99;
@@ -183,5 +191,4 @@ TEST(AnyTest, AnyRefTest)
 
     ASSERT_EQ(t2.a, 99);
     ASSERT_EQ(t2.d, 101);
-
 }

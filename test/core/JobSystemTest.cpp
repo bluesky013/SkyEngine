@@ -2,26 +2,21 @@
 // Created by Zach Lee on 2022/3/6.
 //
 
+#include "core/jobsystem/JobSystem.h"
+#include "core/logger/Logger.h"
 #include <gtest/gtest.h>
 #include <thread>
-#include "core/logger/Logger.h"
-#include "core/jobsystem/JobSystem.h"
 
 using namespace sky;
-
 
 TEST(JobSystemTest, TaskFlowTest)
 {
     auto js = JobSystem::Get();
 
-    int a = 0;
+    int          a = 0;
     tf::Taskflow flow;
-    auto t1 = flow.emplace([&a]() {
-        a = 1;
-    });
-    auto t2 = flow.emplace([&a]() {
-        a++;
-    });
+    auto         t1 = flow.emplace([&a]() { a = 1; });
+    auto         t2 = flow.emplace([&a]() { a++; });
     t2.succeed(t1);
 
     js->RunAndWait(flow);
@@ -52,7 +47,7 @@ TEST(JobSystemTest, TaskHandleTest)
     });
     js->RunAndWait(flow1);
 
-    ASSERT_EQ(b,  1);
+    ASSERT_EQ(b, 1);
 
     JobSystem::Destroy();
 }

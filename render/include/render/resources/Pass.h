@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <render/resources/RenderResource.h>
-#include <vulkan/RenderPass.h>
-#include <vulkan/GraphicsPipeline.h>
 #include <memory>
+#include <render/resources/RenderResource.h>
+#include <vulkan/GraphicsPipeline.h>
+#include <vulkan/RenderPass.h>
 
 namespace sky {
 
@@ -23,36 +23,36 @@ namespace sky {
     };
 
     struct SubPassInfo {
-        std::vector<AttachmentInfo> colors;
+        std::vector<AttachmentInfo>      colors;
         std::vector<InputAttachmentInfo> inputs;
-        AttachmentInfo depthStencil;
+        AttachmentInfo                   depthStencil;
     };
 
     struct PassDependencyInfo {
-        uint32_t src = 0;
-        uint32_t dst = 0;
+        uint32_t     src = 0;
+        uint32_t     dst = 0;
         drv::Barrier barrier{};
     };
 
     class Pass : public RenderResource {
     public:
-        Pass() = default;
+        Pass()  = default;
         ~Pass() = default;
 
         void InitRHI();
 
         bool IsValid() const override;
 
-        void AddSubPass(const SubPassInfo& subPassInfo);
+        void AddSubPass(const SubPassInfo &subPassInfo);
 
         drv::RenderPassPtr GetRenderPass() const;
 
-        void ValidatePipelineState(drv::GraphicsPipeline::State& state, uint32_t subPass);
+        void ValidatePipelineState(drv::GraphicsPipeline::State &state, uint32_t subPass);
 
     private:
-        std::vector<SubPassInfo> subPasses;
+        std::vector<SubPassInfo>        subPasses;
         std::vector<PassDependencyInfo> dependencies;
-        drv::RenderPassPtr renderPass;
+        drv::RenderPassPtr              renderPass;
     };
     using RDPassPtr = std::shared_ptr<Pass>;
-}
+} // namespace sky

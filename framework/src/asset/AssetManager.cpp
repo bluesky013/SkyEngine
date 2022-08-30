@@ -2,13 +2,13 @@
 // Created by Zach on 2022/8/8.
 //
 
-#include <framework/asset/AssetManager.h>
 #include <core/file/FileIO.h>
 #include <filesystem>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
-    std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid& type, const Uuid &uuid, bool async)
+    std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid &type, const Uuid &uuid, bool async)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
@@ -25,7 +25,7 @@ namespace sky {
         std::shared_ptr<AssetBase> asset;
         {
             std::lock_guard<std::mutex> lock(assetMutex);
-            auto iter = assetMap.find(uuid);
+            auto                        iter = assetMap.find(uuid);
             if (iter != assetMap.end()) {
                 std::shared_ptr<AssetBase> res = iter->second.lock();
                 if (res) {
@@ -54,7 +54,7 @@ namespace sky {
         return asset;
     }
 
-    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid& type, const std::string &path)
+    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
@@ -64,22 +64,22 @@ namespace sky {
         assetHandler->SaveToPath(path, asset);
     }
 
-    void AssetManager::RegisterAsset(const Uuid& id, const std::string& path)
+    void AssetManager::RegisterAsset(const Uuid &id, const std::string &path)
     {
         pathMap[id] = path;
     }
 
-    void AssetManager::RegisterSearchPath(const std::string& path)
+    void AssetManager::RegisterSearchPath(const std::string &path)
     {
         searchPaths.emplace_back(path);
     }
 
-    void AssetManager::RegisterAssetHandler(const Uuid &type, AssetHandlerBase* handler)
+    void AssetManager::RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler)
     {
         assetHandlers[type].reset(handler);
     }
 
-    AssetHandlerBase* AssetManager::GetAssetHandler(const Uuid& type)
+    AssetHandlerBase *AssetManager::GetAssetHandler(const Uuid &type)
     {
         auto iter = assetHandlers.find(type);
         if (iter == assetHandlers.end()) {
@@ -88,11 +88,11 @@ namespace sky {
         return iter->second.get();
     }
 
-    std::string AssetManager::GetRealPath(const std::string& relative) const
+    std::string AssetManager::GetRealPath(const std::string &relative) const
     {
         std::filesystem::path path(relative);
         if (!std::filesystem::exists(path)) {
-            for (auto& sp : searchPaths) {
+            for (auto &sp : searchPaths) {
                 std::filesystem::path tmpPath(sp);
                 tmpPath.append(path.string());
                 if (std::filesystem::exists(tmpPath)) {
@@ -102,4 +102,4 @@ namespace sky {
         }
         return relative;
     }
-}
+} // namespace sky

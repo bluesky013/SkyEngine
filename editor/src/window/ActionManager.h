@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <QAction>
 #include <QMap>
 #include <QString>
-#include <QAction>
 #include <bitset>
 
 namespace sky::editor {
@@ -19,7 +19,7 @@ namespace sky::editor {
         explicit ActionWithFlag(const ActionFlag &flag, const QString &text, QObject *parent = nullptr);
         explicit ActionWithFlag(const ActionFlag &flag, const QIcon &icon, const QString &text, QObject *parent = nullptr);
 
-        void Update(const ActionFlag& flag);
+        void Update(const ActionFlag &flag);
 
     private:
         ActionFlag flag;
@@ -27,15 +27,15 @@ namespace sky::editor {
 
     class ActionManager {
     public:
-        ActionManager() = default;
+        ActionManager()  = default;
         ~ActionManager() = default;
 
-        void AddAction(ActionWithFlag* action);
+        void AddAction(ActionWithFlag *action);
 
-        void Update(const ActionFlag& flag);
+        void Update(const ActionFlag &flag);
 
     private:
-        QMap<QString, ActionWithFlag*> actions;
+        QMap<QString, ActionWithFlag *> actions;
     };
 
-}
+} // namespace sky::editor

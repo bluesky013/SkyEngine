@@ -12,44 +12,44 @@
 
 namespace sky {
 
-//    class FontFace : public RenderResource {
-//    public:
-//        ~FontFace() = default;
-//
-//        void SetFace(FT_Face);
-//
-//    private:
-//        friend class FontLibrary;
-//        FT_Face face;
-//    };
-//
-//    struct FontAssetData {
-//        FT_Face face;
-//    };
-//    using FontFacePtr = std::shared_ptr<FontFace>;
+    //    class FontFace : public RenderResource {
+    //    public:
+    //        ~FontFace() = default;
+    //
+    //        void SetFace(FT_Face);
+    //
+    //    private:
+    //        friend class FontLibrary;
+    //        FT_Face face;
+    //    };
+    //
+    //    struct FontAssetData {
+    //        FT_Face face;
+    //    };
+    //    using FontFacePtr = std::shared_ptr<FontFace>;
 
-//    namespace impl {
-//        void LoadFromPath(const std::string& path, FontAssetData& data);
-//        FontFacePtr CreateFromData(const FontAssetData& data);
-//    }
-//
-//    template <>
-//    struct AssetTraits <FontFace> {
-//        using DataType = FontAssetData;
-//
-//        static void LoadFromPath(const std::string& path, DataType& data)
-//        {
-//            impl::LoadFromPath(path, data);
-//        }
-//
-//        static FontFacePtr CreateFromData(const DataType& data)
-//        {
-//            return impl::CreateFromData(data);
-//        }
-//
-//        static void SaveToPath(const std::string& path, const DataType& data) {}
-//    };
-//
-//    using FontAssetPtr = std::shared_ptr<Asset<FontFace>>;
+    //    namespace impl {
+    //        void LoadFromPath(const std::string& path, FontAssetData& data);
+    //        FontFacePtr CreateFromData(const FontAssetData& data);
+    //    }
+    //
+    //    template <>
+    //    struct AssetTraits <FontFace> {
+    //        using DataType = FontAssetData;
+    //
+    //        static void LoadFromPath(const std::string& path, DataType& data)
+    //        {
+    //            impl::LoadFromPath(path, data);
+    //        }
+    //
+    //        static FontFacePtr CreateFromData(const DataType& data)
+    //        {
+    //            return impl::CreateFromData(data);
+    //        }
+    //
+    //        static void SaveToPath(const std::string& path, const DataType& data) {}
+    //    };
+    //
+    //    using FontAssetPtr = std::shared_ptr<Asset<FontFace>>;
 
-}
+} // namespace sky

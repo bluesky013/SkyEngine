@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    void* Any::Data()
+    void *Any::Data()
     {
         if (info == nullptr) {
             return nullptr;
@@ -14,7 +14,7 @@ namespace sky {
         return info->size > BLOCK_SIZE ? ptr : &data[0];
     }
 
-    const void* Any::Data() const
+    const void *Any::Data() const
     {
         if (info == nullptr) {
             return nullptr;
@@ -46,17 +46,17 @@ namespace sky {
         memset(data, 0, BLOCK_SIZE);
     }
 
-    void Any::Copy(const Any& any)
+    void Any::Copy(const Any &any)
     {
         if (info != nullptr && info->copy != nullptr) {
             info->copy(any.Data(), Data());
         }
     }
 
-    void Any::Move(Any& any)
+    void Any::Move(Any &any)
     {
         if (info->size > BLOCK_SIZE) {
-            ptr = any.ptr;
+            ptr     = any.ptr;
             any.ptr = nullptr;
         } else {
             Copy(any);
@@ -64,4 +64,4 @@ namespace sky {
         }
     }
 
-}
+} // namespace sky

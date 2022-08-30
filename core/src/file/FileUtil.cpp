@@ -7,7 +7,7 @@
 
 namespace sky {
 
-    bool ConstructFullPath(const std::string& root, const std::string& relative, std::string& out)
+    bool ConstructFullPath(const std::string &root, const std::string &relative, std::string &out)
     {
         std::filesystem::path fsRelative(relative);
         std::filesystem::path fsAbsolute(root);
@@ -19,4 +19,4 @@ namespace sky {
         return true;
     }
 
-}
+} // namespace sky

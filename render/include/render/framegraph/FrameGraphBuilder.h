@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <render/framegraph/FrameGraphAttachment.h>
 #include <string>
 #include <vulkan/Image.h>
-#include <render/framegraph/FrameGraphAttachment.h>
 
 namespace sky {
     class FrameGraph;
@@ -14,27 +14,30 @@ namespace sky {
 
     class FrameGraphBuilder {
     public:
-        FrameGraphBuilder(FrameGraph& g, FrameGraphPass& p) : graph(g), pass(p) {}
+        FrameGraphBuilder(FrameGraph &g, FrameGraphPass &p) : graph(g), pass(p)
+        {
+        }
         ~FrameGraphBuilder() = default;
 
-        void ImportImage(const std::string& name, drv::ImagePtr);
+        void ImportImage(const std::string &name, drv::ImagePtr);
 
-        void CreateImage(const std::string& name, const drv::Image::Descriptor& imageDesc);
+        void CreateImage(const std::string &name, const drv::Image::Descriptor &imageDesc);
 
-        FrameGraphImageAttachment* CreateImageAttachment(const std::string& source, const std::string& name, VkImageAspectFlags flag);
+        FrameGraphImageAttachment *CreateImageAttachment(const std::string &source, const std::string &name, VkImageAspectFlags flag);
 
-        FrameGraphImageAttachment* CreateImageAttachment(const std::string& source, const std::string& name, const VkImageSubresourceRange& range);
+        FrameGraphImageAttachment *CreateImageAttachment(const std::string &source, const std::string &name, const VkImageSubresourceRange &range);
 
-        void ReadAttachment(const std::string& name, const ImageBindFlag& flag);
+        void ReadAttachment(const std::string &name, const ImageBindFlag &flag);
 
-        void WriteAttachment(const std::string& name, const ImageBindFlag& flag);
+        void WriteAttachment(const std::string &name, const ImageBindFlag &flag);
 
-        FrameGraphImageAttachment* ReadWriteAttachment(const std::string& name, const std::string newName, const ImageBindFlag& flag);
+        FrameGraphImageAttachment *ReadWriteAttachment(const std::string &name, const std::string newName, const ImageBindFlag &flag);
+
     private:
-        FrameGraphImageAttachment* GetImageAttachment(const std::string& name);
+        FrameGraphImageAttachment *GetImageAttachment(const std::string &name);
 
-        FrameGraph& graph;
-        FrameGraphPass& pass;
+        FrameGraph     &graph;
+        FrameGraphPass &pass;
     };
 
-}
+} // namespace sky

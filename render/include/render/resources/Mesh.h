@@ -2,13 +2,12 @@
 // Created by Zach Lee on 2022/5/26.
 //
 
-
 #pragma once
 
-#include <render/resources/RenderResource.h>
-#include <render/resources/Material.h>
-#include <render/resources/Buffer.h>
 #include <core/math/Box.h>
+#include <render/resources/Buffer.h>
+#include <render/resources/Material.h>
+#include <render/resources/RenderResource.h>
 #include <vulkan/DrawItem.h>
 
 namespace sky {
@@ -16,11 +15,10 @@ namespace sky {
     struct SubMeshDrawData {
         uint32_t firstVertex = 0;
         uint32_t vertexCount = 0;
-        uint32_t firstIndex = 0;
-        uint32_t indexCount = 0;
+        uint32_t firstIndex  = 0;
+        uint32_t indexCount  = 0;
 
-        template<class Archive>
-        void serialize(Archive &ar)
+        template <class Archive> void serialize(Archive &ar)
         {
             ar(firstVertex, vertexCount, firstIndex, indexCount);
         }
@@ -28,18 +26,17 @@ namespace sky {
 
     struct SubMesh {
         SubMeshDrawData drawData;
-        Box aabb;
-        RDMaterialPtr material;
+        Box             aabb;
+        RDMaterialPtr   material;
     };
 
     struct VertexDesc {
         std::string name;
-        uint32_t index  = 0;
-        uint32_t offset = 0;
-        VkFormat format = VK_FORMAT_UNDEFINED;
+        uint32_t    index  = 0;
+        uint32_t    offset = 0;
+        VkFormat    format = VK_FORMAT_UNDEFINED;
 
-        template<class Archive>
-        void serialize(Archive &ar)
+        template <class Archive> void serialize(Archive &ar)
         {
             ar(name, index, offset, format);
         }
@@ -69,35 +66,32 @@ namespace sky {
 
     struct BufferAssetView {
         BufferAssetPtr buffer;
-        uint64_t offset = 0;
-        uint64_t size   = 0;
-        uint32_t stride = 0;
+        uint64_t       offset = 0;
+        uint64_t       size   = 0;
+        uint32_t       stride = 0;
 
-        template<class Archive>
-        void save(Archive & ar) const
+        template <class Archive> void save(Archive &ar) const
         {
             ar(buffer->GetUuid(), offset, size, stride);
         }
 
-        template<class Archive>
-        void load(Archive & ar)
+        template <class Archive> void load(Archive &ar)
         {
             Uuid uuid;
             ar(uuid, offset, size, stride);
             InitBuffer(uuid);
         }
 
-        void InitBuffer(const Uuid& id);
+        void InitBuffer(const Uuid &id);
 
         RDBufferViewPtr CreateBufferView() const;
     };
 
     struct SubMeshAsset {
         SubMeshDrawData drawData;
-        Box aabb;
+        Box             aabb;
 
-        template<class Archive>
-        void serialize(Archive &ar)
+        template <class Archive> void serialize(Archive &ar)
         {
             ar(drawData, aabb);
         }
@@ -106,14 +100,13 @@ namespace sky {
     };
 
     struct MeshAssetData {
-        BufferAssetView indexBuffer;
+        BufferAssetView              indexBuffer;
         std::vector<BufferAssetView> vertexBuffers;
-        std::vector<VertexDesc> vertexDescriptions;
-        std::vector<SubMeshAsset> subMeshes;
-        VkIndexType indexType = VK_INDEX_TYPE_UINT32;
+        std::vector<VertexDesc>      vertexDescriptions;
+        std::vector<SubMeshAsset>    subMeshes;
+        VkIndexType                  indexType = VK_INDEX_TYPE_UINT32;
 
-        template<class Archive>
-        void serialize(Archive &ar)
+        template <class Archive> void serialize(Archive &ar)
         {
             ar(indexBuffer, vertexBuffers, vertexDescriptions, subMeshes, indexType);
         }
@@ -121,37 +114,37 @@ namespace sky {
 
     class Mesh : public RenderResource {
     public:
-        Mesh() = default;
+        Mesh()  = default;
         ~Mesh() = default;
 
         class Builder {
         public:
-            Builder(Mesh& m);
+            Builder(Mesh &m);
             ~Builder() = default;
 
-            Builder& SetIndexBuffer(const RDBufferViewPtr& buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
-            Builder& AddVertexBuffer(const RDBufferViewPtr& buffer, VkVertexInputRate rate = VK_VERTEX_INPUT_RATE_VERTEX);
-            Builder& AddVertexDesc(const VertexDesc& desc);
-            Builder& SetVertexDesc(const std::vector<VertexDesc>& desc);
-            Builder& AddSubMesh(const SubMesh& mesh);
+            Builder &SetIndexBuffer(const RDBufferViewPtr &buffer, VkIndexType type = VK_INDEX_TYPE_UINT32);
+            Builder &AddVertexBuffer(const RDBufferViewPtr &buffer, VkVertexInputRate rate = VK_VERTEX_INPUT_RATE_VERTEX);
+            Builder &AddVertexDesc(const VertexDesc &desc);
+            Builder &SetVertexDesc(const std::vector<VertexDesc> &desc);
+            Builder &AddSubMesh(const SubMesh &mesh);
 
         private:
-            Mesh& mesh;
+            Mesh &mesh;
         };
 
-        const SubMesh& GetSubMesh(uint32_t index) const;
+        const SubMesh &GetSubMesh(uint32_t index) const;
 
-        const std::vector<SubMesh>& GetSubMeshes() const;
+        const std::vector<SubMesh> &GetSubMeshes() const;
 
-        const std::vector<VertexDesc>& GetVertexDesc() const;
+        const std::vector<VertexDesc> &GetVertexDesc() const;
 
-        const std::vector<RDBufferViewPtr>& GetVertexBuffers() const;
+        const std::vector<RDBufferViewPtr> &GetVertexBuffers() const;
 
         RDBufferViewPtr GetIndexBuffer() const;
 
         VkIndexType GetIndexType() const;
 
-        drv::VertexInputPtr BuildVertexInput(Shader& vertexShader) const;
+        drv::VertexInputPtr BuildVertexInput(Shader &vertexShader) const;
 
         drv::CmdDraw BuildDrawArgs(uint32_t subMesh) const;
 
@@ -159,30 +152,29 @@ namespace sky {
 
         void SetMaterial(RDMaterialPtr material, uint32_t index);
 
-        static std::shared_ptr<Mesh> CreateFromData(const MeshAssetData& data);
+        static std::shared_ptr<Mesh> CreateFromData(const MeshAssetData &data);
 
     private:
         friend class Builder;
-        RDBufferViewPtr indexBuffer;
-        std::vector<RDBufferViewPtr> vertexBuffers;
+        RDBufferViewPtr                indexBuffer;
+        std::vector<RDBufferViewPtr>   vertexBuffers;
         std::vector<VkVertexInputRate> inputRates;
-        std::vector<VertexDesc> vertexDescriptions;
-        std::vector<SubMesh> subMeshes;
-        VkIndexType indexType = VK_INDEX_TYPE_UINT32;
+        std::vector<VertexDesc>        vertexDescriptions;
+        std::vector<SubMesh>           subMeshes;
+        VkIndexType                    indexType = VK_INDEX_TYPE_UINT32;
     };
 
     using RDMeshPtr = std::shared_ptr<Mesh>;
 
-    template <>
-    struct AssetTraits <Mesh> {
-        using DataType = MeshAssetData;
-        static constexpr Uuid ASSET_TYPE = Uuid::CreateFromString("394AB7FF-FC10-484F-82A6-42D523949DD1");
+    template <> struct AssetTraits<Mesh> {
+        using DataType                                = MeshAssetData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("394AB7FF-FC10-484F-82A6-42D523949DD1");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
 
-        static RDMeshPtr CreateFromData(const DataType& data)
+        static RDMeshPtr CreateFromData(const DataType &data)
         {
             return Mesh::CreateFromData(data);
         }
     };
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
-}
+} // namespace sky

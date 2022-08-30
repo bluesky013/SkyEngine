@@ -4,28 +4,31 @@
 
 #pragma once
 
+#include <core/util/Macros.h>
 #include <render/RenderFeature.h>
 #include <render/StaticMesh.h>
-#include <core/util/Macros.h>
 
 namespace sky {
 
     class StaticMeshFeature : public RenderFeature {
     public:
-        StaticMeshFeature(RenderScene& scn) : RenderFeature(scn) {}
+        StaticMeshFeature(RenderScene &scn) : RenderFeature(scn)
+        {
+        }
         ~StaticMeshFeature() = default;
 
         SKY_DISABLE_COPY(StaticMeshFeature)
 
-        StaticMesh* Create();
+        StaticMesh *Create();
 
-        void Release(StaticMesh* mesh);
+        void Release(StaticMesh *mesh);
 
         void GatherRenderPrimitives() override;
 
         void OnRender() override;
+
     private:
         std::vector<std::unique_ptr<RenderMesh>> meshes;
     };
 
-}
+} // namespace sky

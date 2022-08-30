@@ -2,19 +2,19 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include <framework/application/Application.h>
-#include <framework/util/Performance.h>
-#include <core/environment/Environment.h>
-#include <core/logger/Logger.h>
 #include <SDL2/SDL.h>
 #include <chrono>
+#include <core/environment/Environment.h>
+#include <core/logger/Logger.h>
+#include <framework/application/Application.h>
+#include <framework/util/Performance.h>
 
-static const char* TAG = "Application";
+static const char *TAG = "Application";
 
 namespace sky {
-    
-    using ModuleStart = IModule*(*)(Environment*);
-    using ModuleStop = void(*)();
+
+    using ModuleStart = IModule *(*)(Environment *);
+    using ModuleStop  = void (*)();
 
     Application::Application() : env(nullptr)
     {
@@ -22,14 +22,13 @@ namespace sky {
 
     Application::~Application()
     {
-
     }
 
-    bool Application::Init(StartInfo& start)
+    bool Application::Init(StartInfo &start)
     {
         LOG_I(TAG, "Application Init Start...");
 
-        if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+        if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
             LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());
             return false;
         }
@@ -53,9 +52,9 @@ namespace sky {
         return true;
     }
 
-    void Application::LoadDynamicModules(const StartInfo& startInfo)
+    void Application::LoadDynamicModules(const StartInfo &startInfo)
     {
-        for (auto& module : startInfo.modules) {
+        for (auto &module : startInfo.modules) {
             auto dynModule = std::make_unique<DynamicModule>(module);
             LOG_I(TAG, "Load Module : %s", module.c_str());
             if (dynModule->Load()) {
@@ -75,18 +74,18 @@ namespace sky {
             LOG_I(TAG, "Load Module : %s success", module.c_str());
         }
 
-        for (auto& module : modules) {
+        for (auto &module : modules) {
             module->Start();
         }
     }
 
     void Application::UnloadDynamicModules()
     {
-        for (auto& module : modules) {
+        for (auto &module : modules) {
             module->Stop();
         }
 
-        for (auto& lib : dynLibs) {
+        for (auto &lib : dynLibs) {
             auto stopFn = lib->GetAddress<ModuleStop>("StopModule");
             if (stopFn != nullptr) {
                 stopFn();
@@ -99,12 +98,12 @@ namespace sky {
         exit = true;
     }
 
-    const SettingRegistry& Application::GetSettings() const
+    const SettingRegistry &Application::GetSettings() const
     {
         return settings;
     }
 
-    const NativeWindow* Application::GetViewport() const
+    const NativeWindow *Application::GetViewport() const
     {
         return nativeWindow.get();
     }
@@ -122,22 +121,21 @@ namespace sky {
         while (!exit) {
             nativeWindow->PollEvent(exit);
 
-//            static auto timePoint = std::chrono::high_resolution_clock::now();
-//            auto current = std::chrono::high_resolution_clock::now();
-//            auto delta = std::chrono::duration<float>(current - timePoint).count();
-//            timePoint = current;
+            //            static auto timePoint = std::chrono::high_resolution_clock::now();
+            //            auto current = std::chrono::high_resolution_clock::now();
+            //            auto delta = std::chrono::duration<float>(current - timePoint).count();
+            //            timePoint = current;
 
-            uint64_t frequency = GetPerformanceFrequency();
-            uint64_t currentCounter = GetPerformanceCounter();
-            static uint64_t current = 0;
-            float delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
-            current = currentCounter;
+            uint64_t        frequency      = GetPerformanceFrequency();
+            uint64_t        currentCounter = GetPerformanceCounter();
+            static uint64_t current        = 0;
+            float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
+            current               = currentCounter;
 
-            for (auto& module : modules) {
+            for (auto &module : modules) {
                 module->Tick(delta);
             }
         }
     }
 
-
-}
+} // namespace sky

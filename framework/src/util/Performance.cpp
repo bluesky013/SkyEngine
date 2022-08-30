@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/8/20.
 //
 
-#include <framework/util/Performance.h>
 #include <SDL2/SDL.h>
+#include <framework/util/Performance.h>
 
 namespace sky {
 
@@ -17,4 +17,4 @@ namespace sky {
         return SDL_GetPerformanceCounter();
     }
 
-}
+} // namespace sky

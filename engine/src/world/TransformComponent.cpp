@@ -2,20 +2,21 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <engine/world/TransformComponent.h>
-#include <engine/world/GameObject.h>
 #include <core/logger/Logger.h>
-#include <framework/serialization/SerializationContext.h>
+#include <engine/world/GameObject.h>
+#include <engine/world/TransformComponent.h>
 #include <framework/serialization/PropertyCommon.h>
+#include <framework/serialization/SerializationContext.h>
 #include <string>
 
 namespace sky {
 
-    static const char* TAG = "TransformComponent";
+    static const char *TAG = "TransformComponent";
 
     void TransformComponent::Reflect()
     {
-        SerializationContext::Get()->Register<TransformComponent>(TypeName())
+        SerializationContext::Get()
+            ->Register<TransformComponent>(TypeName())
             .Member<&TransformComponent::local>("local")
             .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);
@@ -26,13 +27,13 @@ namespace sky {
         if (parent != nullptr) {
             parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
         }
-        for (auto& child : children) {
+        for (auto &child : children) {
             child->parent = nullptr;
         }
         children.clear();
     }
 
-    void TransformComponent::SetParent(TransformComponent* newParent)
+    void TransformComponent::SetParent(TransformComponent *newParent)
     {
         if (parent == newParent) {
             return;
@@ -52,20 +53,20 @@ namespace sky {
         UpdateLocal();
     }
 
-    TransformComponent* TransformComponent::GetParent() const
+    TransformComponent *TransformComponent::GetParent() const
     {
         return parent;
     }
 
-    const std::vector<TransformComponent*>& TransformComponent::GetChildren() const
+    const std::vector<TransformComponent *> &TransformComponent::GetChildren() const
     {
         return children;
     }
 
-    void TransformComponent::PrintChild(TransformComponent& comp, std::string str)
+    void TransformComponent::PrintChild(TransformComponent &comp, std::string str)
     {
         LOG_I(TAG, "%s%s", str.c_str(), comp.object->GetName().c_str());
-        for (auto& child : comp.children) {
+        for (auto &child : comp.children) {
             PrintChild(*child, str + "  ");
         }
     }
@@ -86,7 +87,7 @@ namespace sky {
     {
         if (parent != nullptr) {
             auto inverse = parent->world.GetInverse();
-            local = inverse * world;
+            local        = inverse * world;
         } else {
             local = world;
         }
@@ -99,7 +100,7 @@ namespace sky {
         TransformChanged();
     }
 
-    const Transform& TransformComponent::GetParentTransform() const
+    const Transform &TransformComponent::GetParentTransform() const
     {
         if (parent != nullptr) {
             return parent->world;
@@ -107,25 +108,25 @@ namespace sky {
         return Transform::GetIdentity();
     }
 
-    void TransformComponent::SetWorldTranslation(const Vector3& translation)
+    void TransformComponent::SetWorldTranslation(const Vector3 &translation)
     {
         world.translation = translation;
         UpdateLocal();
     }
 
-    void TransformComponent::SetWorldRotation(const Quaternion& rotation)
+    void TransformComponent::SetWorldRotation(const Quaternion &rotation)
     {
         world.rotation = rotation;
         UpdateLocal();
     }
 
-    void TransformComponent::SetWorldScale(const Vector3& scale)
+    void TransformComponent::SetWorldScale(const Vector3 &scale)
     {
         world.scale = scale;
         UpdateLocal();
     }
 
-    void TransformComponent::SetLocalTranslation(const Vector3& translation)
+    void TransformComponent::SetLocalTranslation(const Vector3 &translation)
     {
         local.translation = translation;
         if (!suppressWorldChange) {
@@ -133,7 +134,7 @@ namespace sky {
         }
     }
 
-    void TransformComponent::SetLocalRotation(const Quaternion& rotation)
+    void TransformComponent::SetLocalRotation(const Quaternion &rotation)
     {
         local.rotation = rotation;
         if (!suppressWorldChange) {
@@ -141,7 +142,7 @@ namespace sky {
         }
     }
 
-    void TransformComponent::SetLocalScale(const Vector3& scale)
+    void TransformComponent::SetLocalScale(const Vector3 &scale)
     {
         local.scale = scale;
         if (!suppressWorldChange) {
@@ -149,13 +150,13 @@ namespace sky {
         }
     }
 
-    const Transform& TransformComponent::GetLocal() const
+    const Transform &TransformComponent::GetLocal() const
     {
         return local;
     }
 
-    const Transform& TransformComponent::GetWorld() const
+    const Transform &TransformComponent::GetWorld() const
     {
         return world;
     }
-}
+} // namespace sky

@@ -19,14 +19,14 @@ namespace sky::editor {
     class ActionManager;
     class ViewportWidget;
 
-    class MainWindow : public QMainWindow
-    {
+    class MainWindow : public QMainWindow {
         Q_OBJECT
     public:
         MainWindow(QWidget *parent = nullptr);
         ~MainWindow();
 
         void Init();
+
     private:
         void InitEngine();
 
@@ -36,14 +36,14 @@ namespace sky::editor {
 
         void OnTick();
 
-        void OnOpenProject(const QString& path);
+        void OnOpenProject(const QString &path);
 
-        SkyEngine* engine = nullptr;
-        QTimer* timer = nullptr;
-        QMenuBar* menuBar = nullptr;
-        ActionManager* actionManager = nullptr;
-        std::vector<ViewportWidget*> viewports;
-        std::list<QDockWidget*> docks;
+        SkyEngine                    *engine        = nullptr;
+        QTimer                       *timer         = nullptr;
+        QMenuBar                     *menuBar       = nullptr;
+        ActionManager                *actionManager = nullptr;
+        std::vector<ViewportWidget *> viewports;
+        std::list<QDockWidget *>      docks;
     };
 
-}
+} // namespace sky::editor

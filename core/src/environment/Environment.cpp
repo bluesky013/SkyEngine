@@ -6,10 +6,10 @@
 
 namespace sky {
 
-    Environment* Environment::instance = nullptr;
-    std::mutex Environment::globalMutex;
+    Environment *Environment::instance = nullptr;
+    std::mutex   Environment::globalMutex;
 
-    Environment* Environment::Get()
+    Environment *Environment::Get()
     {
         if (instance == nullptr) {
             std::lock_guard<std::mutex> lock(globalMutex);
@@ -28,7 +28,7 @@ namespace sky {
         }
     }
 
-    void Environment::Attach(Environment* env)
+    void Environment::Attach(Environment *env)
     {
         instance = env;
     }
@@ -38,7 +38,7 @@ namespace sky {
         instance = nullptr;
     }
 
-    void Environment::Register(uint32_t key, void* ptr)
+    void Environment::Register(uint32_t key, void *ptr)
     {
         if (ptr == nullptr) {
             return;
@@ -50,19 +50,19 @@ namespace sky {
     void Environment::UnRegister(uint32_t key)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto iter = envMap.find(key);
+        auto                        iter = envMap.find(key);
         if (iter != envMap.end()) {
             envMap.erase(iter);
         }
     }
 
-    void* Environment::Find(uint32_t key)
+    void *Environment::Find(uint32_t key)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto iter = envMap.find(key);
+        auto                        iter = envMap.find(key);
         if (iter != envMap.end()) {
             return iter->second;
         }
         return nullptr;
     }
-}
+} // namespace sky

@@ -18,41 +18,41 @@ namespace sky {
         }
     }
 
-    drv::Device* DriverManager::GetDevice() const
+    drv::Device *DriverManager::GetDevice() const
     {
         return device;
     }
 
-    drv::Driver* DriverManager::GetDriver() const
+    drv::Driver *DriverManager::GetDriver() const
     {
         return driver;
     }
 
-    bool DriverManager::Initialize(const Descriptor& des)
+    bool DriverManager::Initialize(const Descriptor &des)
     {
         if (driver != nullptr) {
             return true;
         }
 
         drv::Driver::Descriptor drvDes = {};
-        drvDes.appName = "SkyEngine";
+        drvDes.appName                 = "SkyEngine";
 #ifdef _DEBUG
         drvDes.enableDebugLayer = true;
 #else
         drvDes.enableDebugLayer = false;
 #endif
         drvDes.appName = des.appName;
-        driver = drv::Driver::Create(drvDes);
+        driver         = drv::Driver::Create(drvDes);
         if (driver == nullptr) {
             return false;
         }
 
         drv::Device::Descriptor devDes = {};
-        device = driver->CreateDevice(devDes);
+        device                         = driver->CreateDevice(devDes);
         if (device == nullptr) {
             return false;
         }
         return true;
     }
 
-}
+} // namespace sky

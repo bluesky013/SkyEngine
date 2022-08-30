@@ -3,10 +3,9 @@
 // Created by Zach Lee on 2021/12/12.
 //
 
-
+#include "window/MainWindow.h"
 #include <QApplication>
 #include <editor/application/EditorApplication.h>
-#include "window/MainWindow.h"
 
 using namespace sky::editor;
 

@@ -2,13 +2,12 @@
 // Created by Zach Lee on 2022/5/29.
 //
 
-
 #pragma once
 
 #include <framework/window/IWindowEvent.h>
-#include <vulkan/Swapchain.h>
-#include <render/RenderScene.h>
 #include <memory>
+#include <render/RenderScene.h>
+#include <vulkan/Swapchain.h>
 
 namespace sky {
 
@@ -18,22 +17,22 @@ namespace sky {
         ~RenderViewport();
 
         struct ViewportInfo {
-            void* wHandle = nullptr;
+            void *wHandle = nullptr;
         };
 
-        void Setup(const ViewportInfo& info);
+        void Setup(const ViewportInfo &info);
 
-        void SetScene(const RDScenePtr& scn);
+        void SetScene(const RDScenePtr &scn);
 
         void Shutdown();
 
         drv::SwapChainPtr GetSwapChain() const;
 
-        void* GetNativeHandle() const;
+        void *GetNativeHandle() const;
 
         void DoFrame();
 
-        const VkExtent2D& GetExtent() const;
+        const VkExtent2D &GetExtent() const;
 
     private:
         void BeginFrame();
@@ -42,16 +41,16 @@ namespace sky {
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
-        void* nativeHandle = nullptr;
-        uint32_t currentFrame = 0;
-        uint32_t currentImageIndex = 0;
-        RDScenePtr scene;
-        drv::SemaphorePtr imageAvailable[INFLIGHT_FRAME];
-        drv::SemaphorePtr renderFinish[INFLIGHT_FRAME];
+        void                 *nativeHandle      = nullptr;
+        uint32_t              currentFrame      = 0;
+        uint32_t              currentImageIndex = 0;
+        RDScenePtr            scene;
+        drv::SemaphorePtr     imageAvailable[INFLIGHT_FRAME];
+        drv::SemaphorePtr     renderFinish[INFLIGHT_FRAME];
         drv::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
-        drv::CommandPoolPtr commandPool;
-        drv::SwapChainPtr swapChain;
-        drv::Queue *graphicsQueue{nullptr};
+        drv::CommandPoolPtr   commandPool;
+        drv::SwapChainPtr     swapChain;
+        drv::Queue           *graphicsQueue{nullptr};
     };
     using RDViewportPtr = std::shared_ptr<RenderViewport>;
-}
+} // namespace sky

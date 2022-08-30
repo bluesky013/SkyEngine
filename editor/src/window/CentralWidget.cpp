@@ -7,15 +7,12 @@
 
 namespace sky::editor {
 
-    CentralWidget::CentralWidget(QWidget* parent)
-        : QWidget(parent)
-        , viewport(new ViewportWidget(this))
+    CentralWidget::CentralWidget(QWidget *parent) : QWidget(parent), viewport(new ViewportWidget(this))
     {
     }
 
     CentralWidget::~CentralWidget()
     {
-
     }
 
     void CentralWidget::Init()
@@ -26,7 +23,7 @@ namespace sky::editor {
         layout->addWidget(viewport);
     }
 
-    ViewportWidget* CentralWidget::GetViewport() const
+    ViewportWidget *CentralWidget::GetViewport() const
     {
         return viewport;
     }
@@ -35,12 +32,10 @@ namespace sky::editor {
     {
         auto rect = geometry();
         switch (event->type()) {
-            case QEvent::Resize:
-                break;
-            default:
-                break;
+        case QEvent::Resize: break;
+        default: break;
         }
         return true;
     }
 
-}
+} // namespace sky::editor

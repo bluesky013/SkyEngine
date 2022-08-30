@@ -10,11 +10,11 @@ namespace sky {
 
     class RenderMaterialProxy {
     public:
-        RenderMaterialProxy() = default;
+        RenderMaterialProxy()  = default;
         ~RenderMaterialProxy() = default;
 
     private:
         RDMaterialPtr material;
     };
 
-}
+} // namespace sky

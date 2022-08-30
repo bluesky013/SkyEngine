@@ -3,16 +3,16 @@
 //
 
 #include "core/logger/Logger.h"
-#include <string>
 #include <stdarg.h>
+#include <string>
 
 namespace sky {
 
-    void Logger::Print(const char* tag, const char* type, const char* fmt, ...)
+    void Logger::Print(const char *tag, const char *type, const char *fmt, ...)
     {
         const uint32_t MAX_SIZE = 1024;
-        char buffer[MAX_SIZE];
-        va_list params;
+        char           buffer[MAX_SIZE];
+        va_list        params;
         va_start(params, fmt);
         vsnprintf(buffer, MAX_SIZE - 1, fmt, params);
         va_end(params);
@@ -20,4 +20,4 @@ namespace sky {
 
         printf("[%s] [%s] : %s\n", tag, type, buffer);
     }
-}
+} // namespace sky

@@ -10,19 +10,21 @@ namespace sky {
 
     class MaterialDatabase {
     public:
-        MaterialDatabase(uint32_t number = INFLIGHT_FRAME) : frameNum(std::max(1u, number)) {}
+        MaterialDatabase(uint32_t number = INFLIGHT_FRAME) : frameNum(std::max(1u, number))
+        {
+        }
         ~MaterialDatabase() = default;
 
         RDDynBufferViewPtr Allocate(uint32_t stride);
 
-        void Free(DynamicBufferView& view);
+        void Free(DynamicBufferView &view);
 
         uint32_t Level(uint32_t stride) const;
 
     private:
         using PoolPtr = std::unique_ptr<RenderBufferPool>;
-        uint32_t frameNum;
+        uint32_t             frameNum;
         std::vector<PoolPtr> pools;
     };
 
-}
+} // namespace sky
