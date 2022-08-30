@@ -14,7 +14,8 @@ namespace sky {
         return producers.size() > MIN_DRAW_ITEM_PER_THREAD;
     }
 
-    void RenderRasterEncoder::Encode(drv::GraphicsEncoder& encoder) {
+    void RenderRasterEncoder::Encode(drv::GraphicsEncoder& encoder)
+    {
         tf::Taskflow flow;
         uint32_t size = static_cast<uint32_t>(producers.size());
         if (MultiThreadEncode()) {
