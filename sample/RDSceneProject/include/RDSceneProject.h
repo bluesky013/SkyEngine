@@ -13,6 +13,14 @@
 #include <render/RenderViewport.h>
 
 namespace sky {
+    class StaticMesh;
+
+    struct Transform {
+        Vector3 position;
+        Vector3 euler;
+        Vector3 scale;
+    };
+
     class RDSceneProject : public IModule {
     public:
         RDSceneProject()  = default;
@@ -29,6 +37,8 @@ namespace sky {
     private:
         RDScenePtr    scene;
         RenderCamera *mainCamera = nullptr;
+        std::vector<StaticMesh*> meshes;
+        std::vector<Transform> transforms;
     };
 
 } // namespace sky

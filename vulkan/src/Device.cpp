@@ -105,6 +105,7 @@ namespace sky::drv {
         deviceFeatures.multiViewport           = phyFeatures.multiViewport;
         deviceFeatures.samplerAnisotropy       = phyFeatures.samplerAnisotropy;
         deviceFeatures.pipelineStatisticsQuery = phyFeatures.pipelineStatisticsQuery;
+        deviceFeatures.inheritedQueries        = phyFeatures.inheritedQueries;
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

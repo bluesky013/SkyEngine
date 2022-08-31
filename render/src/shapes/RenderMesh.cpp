@@ -15,6 +15,11 @@ namespace sky {
         UpdateBuffer();
     }
 
+    const ObjectInfo& RenderMesh::GetObjectInfo() const
+    {
+        return objectInfo;
+    }
+
     void RenderMesh::UpdateBuffer()
     {
         objectBuffer->Write(objectInfo);

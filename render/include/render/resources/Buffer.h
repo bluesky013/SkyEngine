@@ -54,9 +54,11 @@ namespace sky {
             Write(reinterpret_cast<const uint8_t *>(&value), sizeof(T), offset);
         }
 
-        void Update(const uint8_t *data, uint64_t size);
+        void Update(const uint8_t *data, uint64_t size, uint64_t offset = 0);
 
         void Update(bool release = false);
+
+        void Update(uint64_t offset, uint64_t range, bool release = false);
 
         drv::BufferPtr GetRHIBuffer() const;
 
@@ -69,7 +71,6 @@ namespace sky {
         std::vector<uint8_t> rawData;
         drv::BufferPtr       rhiBuffer;
         uint8_t             *mapPtr = nullptr;
-        bool                 dirty  = true;
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;
 
@@ -93,7 +94,7 @@ namespace sky {
         template <typename T>
         void Write(const T &value, uint64_t off = 0)
         {
-            WriteImpl(reinterpret_cast<const uint8_t *>(&value), sizeof(T), off + offset);
+            WriteImpl(reinterpret_cast<const uint8_t *>(&value), sizeof(T), off);
         }
 
     protected:

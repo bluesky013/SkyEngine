@@ -45,7 +45,7 @@ namespace sky::drv {
 
     void QueryPool::ReadResults(uint32_t count, uint32_t first)
     {
-        vkGetQueryPoolResults(device.GetNativeHandle(), pool, first, count, static_cast<uint32_t>(results.size()) * sizeof(uint64_t), results.data(),
+        auto result = vkGetQueryPoolResults(device.GetNativeHandle(), pool, first, count, static_cast<uint32_t>(results.size()) * sizeof(uint64_t), results.data(),
                               sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
     }
 

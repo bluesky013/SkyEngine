@@ -33,14 +33,15 @@ namespace sky {
         FrameGraph frameGraph;
         pipeline->BeginFrame(frameGraph);
 
-        sceneInfo->RequestUpdate();
-        mainViewInfo->RequestUpdate();
-
         for (auto &feature : features) {
             feature.second->OnRender();
         }
 
         pipeline->DoFrame(frameGraph, commandBuffer);
+
+        sceneInfo->RequestUpdate();
+        mainViewInfo->RequestUpdate();
+
         for (auto &feature : features) {
             feature.second->OnPostRender();
         }
@@ -48,7 +49,7 @@ namespace sky {
 
     void RenderScene::OnPostRender()
     {
-        //        queryPool->ReadResults(1);
+        queryPool->ReadResults(1);
     }
 
     void RenderScene::ViewportChange(RenderViewport &viewport)
