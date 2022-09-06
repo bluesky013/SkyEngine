@@ -33,6 +33,8 @@ namespace sky {
 
         void SetWorldMatrix(const Matrix4 &matrix);
 
+        const ObjectInfo& GetObjectInfo() const;
+
         virtual void AddToScene(RenderScene &scene);
 
         virtual void RemoveFromScene(RenderScene &scene);

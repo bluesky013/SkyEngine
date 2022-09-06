@@ -17,6 +17,9 @@ namespace sky::drv {
     Buffer::~Buffer()
     {
         if (buffer != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
+            if (mappedPtr != nullptr) {
+                vmaUnmapMemory(device.GetAllocator(), allocation);
+            }
             vmaDestroyBuffer(device.GetAllocator(), buffer, allocation);
         }
     }
@@ -57,13 +60,13 @@ namespace sky::drv {
 
     uint8_t *Buffer::Map()
     {
-        uint8_t *ptr = nullptr;
-        vmaMapMemory(device.GetAllocator(), allocation, reinterpret_cast<void **>(&ptr));
-        return ptr;
+        if (mappedPtr == nullptr) {
+            vmaMapMemory(device.GetAllocator(), allocation, reinterpret_cast<void **>(&mappedPtr));
+        }
+        return mappedPtr;
     }
 
     void Buffer::UnMap()
     {
-        vmaUnmapMemory(device.GetAllocator(), allocation);
     }
 } // namespace sky::drv

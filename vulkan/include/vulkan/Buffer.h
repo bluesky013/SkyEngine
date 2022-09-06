@@ -41,6 +41,7 @@ namespace sky::drv {
         VkBufferCreateInfo bufferInfo;
         Descriptor         desc        = {};
         bool               isTransient = false;
+        uint8_t*           mappedPtr   = nullptr;
     };
 
     using BufferPtr = std::shared_ptr<Buffer>;

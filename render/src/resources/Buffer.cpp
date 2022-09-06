@@ -66,16 +66,13 @@ namespace sky {
         }
         uint8_t *ptr = rawData.data() + offset;
         memcpy(ptr, data, size);
-        dirty = true;
     }
 
-    void Buffer::Update(const uint8_t *data, uint64_t srcSize)
+    void Buffer::Update(const uint8_t *data, uint64_t range, uint64_t offset)
     {
-        if (!dirty) {
+        if (range + offset > descriptor.size) {
             return;
         }
-
-        uint64_t validateSize = std::min(srcSize, descriptor.size);
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
             auto device = DriverManager::Get()->GetDevice();
@@ -84,32 +81,38 @@ namespace sky {
             drv::Buffer::Descriptor stagingDes = {};
             stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             stagingDes.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            stagingDes.size                    = validateSize;
+            stagingDes.size                    = range;
             auto     stagingBuffer             = device->CreateDeviceObject<drv::Buffer>(stagingDes);
             uint8_t *dst                       = stagingBuffer->Map();
-            memcpy(dst, data, validateSize);
+            memcpy(dst, data, range);
             stagingBuffer->UnMap();
 
             auto cmd = queue->AllocateCommandBuffer({});
             cmd->Begin();
 
-            cmd->Copy(stagingBuffer, rhiBuffer, VkBufferCopy{0, 0, descriptor.size});
+            cmd->Copy(stagingBuffer, rhiBuffer, VkBufferCopy{0, offset, range});
 
             cmd->End();
             cmd->Submit(*queue, {});
             cmd->Wait();
         } else {
-            uint8_t *dst = rhiBuffer->Map();
-            memcpy(dst, data, validateSize);
+            uint8_t *dst = rhiBuffer->Map() + offset;
+            memcpy(dst, data, range);
             rhiBuffer->UnMap();
         }
-
-        dirty = false;
     }
 
     void Buffer::Update(bool release)
     {
-        Update(rawData.data(), rawData.size());
+        Update(0, descriptor.size, release);
+        if (release) {
+            rawData.clear();
+        }
+    }
+
+    void Buffer::Update(uint64_t offset, uint64_t range, bool release)
+    {
+        Update(rawData.data() + offset, range, offset);
         if (release) {
             rawData.clear();
         }
@@ -161,21 +164,21 @@ namespace sky {
         }
     }
 
-    void BufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t offset)
+    void BufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t off)
     {
         if (buffer) {
-            buffer->Write(data, size, offset);
+            buffer->Write(data, size, offset + off);
         }
     }
 
     DynamicBufferView::DynamicBufferView(RDBufferPtr buf, VkDeviceSize sz, VkDeviceSize off, uint32_t frame, uint32_t block)
-    : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
-    , frameNum(frame)
-    , blockStride(block)
-    , bufferIndex(~(0u))
-    , currentFrame(0)
-    , dynamicOffset(0)
-    , isDirty(false)
+        : BufferView(std::move(buf), sz, off, static_cast<uint32_t>(sz))
+        , frameNum(frame)
+        , blockStride(block)
+        , bufferIndex(~(0u))
+        , currentFrame(0)
+        , dynamicOffset(0)
+        , isDirty(false)
     {
     }
 
@@ -197,13 +200,15 @@ namespace sky {
     void DynamicBufferView::SwapBuffer()
     {
         currentFrame  = (currentFrame + 1) % frameNum;
-        dynamicOffset = static_cast<uint32_t>(offset) + currentFrame * blockStride;
+        dynamicOffset = currentFrame * blockStride;
     }
 
     void DynamicBufferView::RequestUpdate()
     {
         if (isDirty) {
-            BufferView::RequestUpdate();
+            if (IsValid()) {
+                buffer->Update(offset + dynamicOffset, size);
+            }
             SwapBuffer();
             isDirty = false;
         }
@@ -211,8 +216,8 @@ namespace sky {
 
     void DynamicBufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t off)
     {
-        if (buffer) {
-            buffer->Write(data, size, off + dynamicOffset);
+        if (IsValid()) {
+            buffer->Write(data, size, off + offset + dynamicOffset);
             isDirty = true;
         }
     }

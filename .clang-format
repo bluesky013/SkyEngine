@@ -13,7 +13,7 @@ AlignConsecutiveAssignments:                     true
 AlignConsecutiveDeclarations:                    true
 AllowShortCaseLabelsOnASingleLine:               true
 ColumnLimit:                                     150
-ConstructorInitializerIndentWidth:               0
+ConstructorInitializerIndentWidth:               4
 IncludeBlocks:                                   Preserve
 IndentPPDirectives:                              BeforeHash
 IndentWidth:                                     4
@@ -25,6 +25,7 @@ AllowShortFunctionsOnASingleLine:                None
 BreakConstructorInitializers:                    BeforeComma
 BinPackParameters:                               false
 AlwaysBreakTemplateDeclarations:                 Yes
+AlignOperands:                                   Align
 
 BreakBeforeBraces:                               Custom
 BraceWrapping:

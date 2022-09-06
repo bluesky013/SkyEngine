@@ -15,7 +15,7 @@ namespace sky {
     constexpr uint32_t DEFAULT_OBJECT_SET_NUM   = 200;
     constexpr uint32_t DEFAULT_OBJECT_BLOCK_NUM = 16;
 
-    constexpr uint32_t INFLIGHT_FRAME = 2;
+    constexpr uint32_t INFLIGHT_FRAME = 3;
 
     constexpr uint32_t MIN_MATERIAL_BUFFER_STRIDE    = 16;
     constexpr uint32_t MATERIAL_BUFFER_LEVEL_OFFSET  = 4; // log2(MIN_MATERIAL_BUFFER_STRIDE)
