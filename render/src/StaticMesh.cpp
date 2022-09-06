@@ -17,6 +17,7 @@ namespace sky {
             for (auto &tech : techs) {
                 scene.FillSetBinder(*tech->setBinder);
                 tech->setBinder->BindSet(1, objectSet->GetRHISet());
+                tech->setBinder->SetOffset(1, 0, objectBuffer->GetDynamicOffset());
                 tech->setBinder->BindSet(2, primitive->GetMaterialSet()->GetRHISet());
             }
         }

@@ -124,7 +124,7 @@ namespace sky {
         Render::Get()->AddScene(scene);
 
         auto viewport     = std::make_shared<RenderViewport>();
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
 
         RenderViewport::ViewportInfo info = {};
         info.wHandle                      = nativeWindow->GetNativeHandle();
@@ -133,11 +133,11 @@ namespace sky {
         Render::Get()->AddViewport(viewport);
 
         auto  swapChain = viewport->GetSwapChain();
-        auto &ext       = swapChain->GetExtent();
+        const auto &ext       = swapChain->GetExtent();
 
-        auto cmFeature  = scene->GetFeature<CameraFeature>();
-        auto smFeature  = scene->GetFeature<StaticMeshFeature>();
-        auto guiFeature = scene->GetFeature<GuiRenderer>();
+        auto *cmFeature  = scene->GetFeature<CameraFeature>();
+        auto *smFeature  = scene->GetFeature<StaticMeshFeature>();
+        auto *guiFeature = scene->GetFeature<GuiRenderer>();
 
         guiFeature->CreateLambda([this](ImGuiContext *context) {
             ImGui::SetCurrentContext(context);
@@ -146,11 +146,11 @@ namespace sky {
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Pipeline statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-                auto                         &pool  = scene->GetQueryPool();
-                auto                         &data  = pool->GetData();
+                const auto                         &pool  = scene->GetQueryPool();
+                const auto                         &data  = pool->GetData();
                 VkQueryPipelineStatisticFlags flags = pool->GetFlags();
                 uint32_t                      index = 0;
-                for (auto &[flag, str] : PIPELINE_STATS_MAP) {
+                for (const auto &[flag, str] : PIPELINE_STATS_MAP) {
                     if ((flags & flag) == flag) {
                         ImGui::Text("%s : [%llu]", str.c_str(), data[index++]);
                     }
@@ -204,7 +204,7 @@ namespace sky {
         uint32_t num = 100;
         for (uint32_t i = 0; i < num; ++i) {
             for (uint32_t j = 0; j < num; ++j) {
-                auto staticMesh = smFeature->Create();
+                auto *staticMesh = smFeature->Create();
                 staticMesh->SetMesh(mesh);
 //                auto transform = glm::identity<Matrix4>();
 //                transform      = glm::translate(transform, Vector3(i - num / 2.f, 0.f, j - num / 2.f));
@@ -220,7 +220,7 @@ namespace sky {
             }
         }
 
-        auto feature = scene->RegisterFeature<RotationFeature>(*scene);
+        auto *feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetCamera(mainCamera);
         feature->SetMeshes(meshes, transforms);
     }
