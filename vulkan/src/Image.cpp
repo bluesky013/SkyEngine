@@ -39,7 +39,12 @@ namespace sky::drv {
         imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-        VkResult res;
+        VkImageFormatProperties properties{};
+        auto res = vkGetPhysicalDeviceImageFormatProperties(device.GetGpuHandle(), imageInfo.format, imageInfo.imageType, imageInfo.tiling, imageInfo.usage, imageInfo.flags, &properties);
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "image not supported %d", res);
+        }
+
         if (!des.transient) {
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage                   = des.memory;

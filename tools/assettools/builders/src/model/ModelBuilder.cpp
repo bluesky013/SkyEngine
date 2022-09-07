@@ -105,7 +105,7 @@ namespace sky {
         auto modelPath = std::filesystem::path(outScene.directory).append(path.data);
         stbi_uc * srcData = nullptr;
         if (std::filesystem::exists(modelPath)) {
-            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 0);
+            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 4);
         } else {
             auto tex = scene->GetEmbeddedTexture(path.data);
             if (tex == nullptr) {
@@ -116,7 +116,7 @@ namespace sky {
             } else {
                 const uint32_t size = tex->mWidth;
                 srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
-                                                 &width, &height, &channel, 0);
+                                                 &width, &height, &channel, 4);
             }
         }
         if (srcData == nullptr) {
@@ -125,12 +125,9 @@ namespace sky {
 
         assetData.width = static_cast<uint32_t>(width);
         assetData.height = static_cast<uint32_t>(height);
-        if (channel == 3) {
-            assetData.format = VK_FORMAT_R8G8B8_UNORM;
-        } else if (channel == 4) {
-            assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
-        }
-        uint64_t dataSize = width * height * channel;
+        assetData.format = VK_FORMAT_R8G8B8A8_SRGB;
+
+        uint64_t dataSize = width * height * 4;
         assetData.data.resize(dataSize);
         memcpy(assetData.data.data(), srcData, dataSize);
         stbi_image_free(srcData);

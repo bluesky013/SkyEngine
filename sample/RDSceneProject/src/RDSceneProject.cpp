@@ -192,6 +192,9 @@ namespace sky {
 
         AssetManager::Get()->LoadAsset<Buffer>(BUFFER_PATH);
 
+        auto imageAsset = AssetManager::Get()->LoadAsset<Image>("data\\models\\DamagedHelmet_image0.image");
+        auto image = imageAsset->CreateInstance();
+
         std::stringstream ss;
         ss << "data\\models\\DamagedHelmet_mesh0.mesh";
         std::string path      = ss.str();

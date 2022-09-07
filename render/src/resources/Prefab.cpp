@@ -8,4 +8,9 @@
 
 namespace sky {
 
+    std::shared_ptr<Prefab> Prefab::CreateFromData(const PrefabData &data)
+    {
+        return {};
+    }
+
 }
