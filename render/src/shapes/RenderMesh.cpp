@@ -32,14 +32,6 @@ namespace sky {
         objectSet       = objPool->Allocate();
         objectBuffer    = bufferPool->Allocate();
 
-        Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size               = sizeof(ObjectInfo);
-        bufferDesc.memory             = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        bufferDesc.usage              = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        bufferDesc.allocCPU           = true;
-        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
-        buffer->InitRHI();
-
         UpdateBuffer();
 
         objectSet->UpdateBuffer(0, objectBuffer);

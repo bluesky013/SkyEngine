@@ -66,15 +66,18 @@ namespace sky {
 
         uint32_t index = 0;
         SaveAsset(data, outScene.buffer, "buffer", projectPath, dataPath, fileWithoutExt, index);
+        data.buffers.emplace_back(outScene.buffer->GetUuid());
 
         index = 0;
-        for (auto& mesh : outScene.meshes) {
+        for (const auto& mesh : outScene.meshes) {
             SaveAsset(data, mesh, "mesh", projectPath, dataPath, fileWithoutExt, index);
+            data.meshes.emplace_back(mesh->GetUuid());
         }
 
         index = 0;
-        for (auto& [first, image] : outScene.images) {
+        for (const auto& [first, image] : outScene.images) {
             SaveAsset(data, image, "image", projectPath, dataPath, fileWithoutExt, index);
+            data.images.emplace_back(image->GetUuid());
         }
         return data;
     }
@@ -107,7 +110,7 @@ namespace sky {
         if (std::filesystem::exists(modelPath)) {
             srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 4);
         } else {
-            auto tex = scene->GetEmbeddedTexture(path.data);
+            const auto *tex = scene->GetEmbeddedTexture(path.data);
             if (tex == nullptr) {
                 return;
             }
@@ -359,7 +362,7 @@ namespace sky {
         current.transform = FromAssimp(node->mTransformation);
 
         if (node->mNumMeshes != 0) {
-//            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
+            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
             MeshAssetPtr meshAsset = std::make_shared<Asset<Mesh>>();
             outScene.meshes.emplace_back(meshAsset);
             ProcessMesh(node, scene, meshAsset, outScene);

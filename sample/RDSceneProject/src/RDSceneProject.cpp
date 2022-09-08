@@ -14,6 +14,7 @@
 #include <render/features/CameraFeature.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/imgui/GuiRenderer.h>
+#include <render/resources/Prefab.h>
 #include <sstream>
 
 namespace sky {
@@ -163,65 +164,29 @@ namespace sky {
         mainCamera = cmFeature->Create();
         mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
-        // init material
-        auto colorTable = std::make_shared<GraphicsShaderTable>();
-        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
-        colorTable->InitRHI();
 
-        auto        pass        = std::make_shared<Pass>();
-        SubPassInfo subPassInfo = {};
-        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_4_BIT});
-        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
-        pass->AddSubPass(subPassInfo);
-        pass->InitRHI();
+        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
+        auto prefab = prefabAsset->CreateInstance();
+        prefab->LoadToScene(*scene);
 
-        auto colorTech = std::make_shared<GraphicsTechnique>();
-        colorTech->SetShaderTable(colorTable);
-        colorTech->SetRenderPass(pass);
-        colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(FORWARD_TAG);
-        colorTech->SetDepthTestEn(true);
-        colorTech->SetDepthWriteEn(true);
-
-        auto material = std::make_shared<Material>();
-        material->AddGfxTechnique(colorTech);
-        material->InitRHI();
-
-        material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
-        material->Update();
-
-        AssetManager::Get()->LoadAsset<Buffer>(BUFFER_PATH);
-
-        auto imageAsset = AssetManager::Get()->LoadAsset<Image>("data\\models\\DamagedHelmet_image0.image");
-        auto image = imageAsset->CreateInstance();
-
-        std::stringstream ss;
-        ss << "data\\models\\DamagedHelmet_mesh0.mesh";
-        std::string path      = ss.str();
-        auto        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(path);
-        auto        mesh      = meshAsset->CreateInstance();
-        for (uint32_t i = 0; i < mesh->GetSubMeshCount(); ++i) {
-            mesh->SetMaterial(material, i);
-        }
-
-        uint32_t num = 100;
-        for (uint32_t i = 0; i < num; ++i) {
-            for (uint32_t j = 0; j < num; ++j) {
-                auto *staticMesh = smFeature->Create();
-                staticMesh->SetMesh(mesh);
+//        uint32_t num = 100;
+//        for (uint32_t i = 0; i < num; ++i) {
+//            for (uint32_t j = 0; j < num; ++j) {
+//                auto *staticMesh = smFeature->Create();
+//                staticMesh->SetMesh(mesh);
 //                auto transform = glm::identity<Matrix4>();
 //                transform      = glm::translate(transform, Vector3(i - num / 2.f, 0.f, j - num / 2.f));
 //                transform      = glm::rotate(transform, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
 //                transform      = glm::scale(transform, Vector3(0.2f, 0.2f, 0.2f));
 //                staticMesh->SetWorldMatrix(transform);
-                meshes.emplace_back(staticMesh);
-                transforms.emplace_back(Transform{
-                    {i - num / 2.f, 0.f, j - num / 2.f},
-                    {90.f, 0.f, 0.f},
-                    {0.2f, 0.2f, 0.2f}
-                });
-            }
-        }
+//                meshes.emplace_back(staticMesh);
+//                transforms.emplace_back(Transform{
+//                    {i - num / 2.f, 0.f, j - num / 2.f},
+//                    {90.f, 0.f, 0.f},
+//                    {0.2f, 0.2f, 0.2f}
+//                });
+//            }
+//        }
 
         auto *feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetCamera(mainCamera);
