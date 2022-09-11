@@ -11,7 +11,7 @@ namespace sky {
     void RenderMesh::SetWorldMatrix(const Matrix4 &matrix)
     {
         objectInfo.worldMatrix            = matrix;
-        objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
+        objectInfo.inverseTransposeMatrix = matrix.InverseTranspose();
         UpdateBuffer();
     }
 

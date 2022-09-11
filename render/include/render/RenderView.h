@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <core/math/Matrix.h>
-#include <core/math/Vector.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Vector3.h>
 #include <memory>
 #include <render/resources/Shader.h>
 #include <string>
@@ -15,10 +15,10 @@ namespace sky {
     class RenderPrimitive;
 
     struct ViewInfo {
-        Matrix4 viewToWorldMatrix = glm::identity<Matrix4>();
-        Matrix4 worldToViewMatrix = glm::identity<Matrix4>();
-        Matrix4 viewToClipMatrix  = glm::identity<Matrix4>();
-        Matrix4 worldToClipMatrix = glm::identity<Matrix4>();
+        Matrix4 viewToWorldMatrix = Matrix4::Identity();
+        Matrix4 worldToViewMatrix = Matrix4::Identity();
+        Matrix4 viewToClipMatrix  = Matrix4::Identity();
+        Matrix4 worldToClipMatrix = Matrix4::Identity();
         Vector3 position;
     };
 

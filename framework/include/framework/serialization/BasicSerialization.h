@@ -8,32 +8,34 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/vector.hpp>
-#include <core/math/Matrix.h>
-#include <core/math/Vector.h>
 #include <core/util/Uuid.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Vector2.h>
+#include <core/math/Vector3.h>
+#include <core/math/Vector4.h>
 
-namespace glm {
+namespace sky {
     template <class Archive>
-    void serialize(Archive &ar, glm::mat4 &s)
+    void serialize(Archive &ar, Matrix4 &s)
     {
         ar(s[0][0], s[0][1], s[0][2], s[0][3], s[1][0], s[1][1], s[1][2], s[1][3], s[2][0], s[2][1], s[2][2], s[2][3], s[3][0], s[3][1], s[3][2],
            s[3][3]);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, glm::vec4 &s)
+    void serialize(Archive &ar, Vector4 &s)
     {
         ar(s.x, s.y, s.z, s.w);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, glm::vec3 &s)
+    void serialize(Archive &ar, Vector3 &s)
     {
         ar(s.x, s.y, s.z);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, glm::vec2 &s)
+    void serialize(Archive &ar, Vector2 &s)
     {
         ar(s.x, s.y);
     }

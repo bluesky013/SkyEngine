@@ -18,9 +18,9 @@ namespace sky {
             };
         };
 
-        Vector2();
-        Vector2(float v);
-        Vector2(float x_, float y_);
+        inline Vector2();
+        inline Vector2(float v);
+        inline Vector2(float x_, float y_);
 
         inline Vector2 operator+(const Vector2& rhs) const;
 

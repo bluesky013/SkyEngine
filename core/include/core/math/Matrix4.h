@@ -14,14 +14,19 @@ namespace sky {
     struct Matrix4 {
         union {
             float v[16];
-            float m[4][4];
             struct {
-                Vector4 cols[4];
+                Vector4 m[4];
             };
         };
 
-        Matrix4();
-        Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3);
+        inline Matrix4();
+        inline Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3);
+
+        inline static const Matrix4 &Identity();
+
+        inline void Translate(const Vector3 & pos);
+        inline Matrix4 Inverse() const;
+        inline Matrix4 InverseTranspose() const;
 
         inline Matrix4 operator+(const Matrix4& rhs) const;
         inline Matrix4 operator-(const Matrix4& rhs) const;

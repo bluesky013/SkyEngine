@@ -48,7 +48,7 @@ namespace sky {
         }
 
         if (projectType == ProjectType::PERSPECTIVE) {
-            renderView->SetProjectMatrix(glm::perspective(ToRadian(fov), aspect, near, far));
+            renderView->SetProjectMatrix(MakePerspective(ToRadian(fov), aspect, near, far));
         }
         dirty = false;
     }

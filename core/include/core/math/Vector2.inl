@@ -4,15 +4,15 @@
 
 namespace sky {
 
-    Vector2::Vector2() : Vector2(0, 0)
+    inline Vector2::Vector2() : Vector2(0, 0)
     {
     }
 
-    Vector2::Vector2(float v) : Vector2(v, v)
+    inline Vector2::Vector2(float v) : Vector2(v, v)
     {
     }
 
-    Vector2::Vector2(float x_, float y_) : x(x_), y(y_)
+    inline Vector2::Vector2(float x_, float y_) : x(x_), y(y_)
     {
     }
 
@@ -38,17 +38,17 @@ namespace sky {
 
     Vector2 Vector2::operator*(float m) const
     {
-        return Vector2(*this) * m;
+        return Vector2(*this) *= m;
     }
 
     Vector2 Vector2::operator/(const Vector2& rhs) const
     {
-        return Vector2(*this) / rhs;
+        return Vector2(*this) /= rhs;
     }
 
     Vector2 Vector2::operator/(float d) const
     {
-        return Vector2(*this) / d;
+        return Vector2(*this) /= d;
     }
 
     inline Vector2& Vector2::operator+=(const Vector2& rhs)

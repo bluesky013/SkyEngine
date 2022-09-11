@@ -4,51 +4,51 @@
 
 namespace sky {
 
-    Vector4::Vector4() : Vector4(0, 0, 0, 0)
+    inline Vector4::Vector4() : Vector4(0, 0, 0, 0)
     {
     }
 
-    Vector4::Vector4(float v) : Vector4(v, v, v, v)
+    inline Vector4::Vector4(float v) : Vector4(v, v, v, v)
     {
     }
 
-    Vector4::Vector4(float x_, float y_, float z_, float w_) : x(x_), y(y_), z(z_), w(w_)
+    inline Vector4::Vector4(float x_, float y_, float z_, float w_) : x(x_), y(y_), z(z_), w(w_)
     {
     }
 
-    Vector4 Vector4::operator+(const Vector4& rhs) const
+    inline Vector4 Vector4::operator+(const Vector4& rhs) const
     {
         return Vector4(*this) += rhs;
     }
 
-    Vector4 Vector4::operator-() const
+    inline Vector4 Vector4::operator-() const
     {
         return Vector4(0) - *this;
     }
 
-    Vector4 Vector4::operator-(const Vector4& rhs) const
+    inline Vector4 Vector4::operator-(const Vector4& rhs) const
     {
         return Vector4(*this) -= rhs;
     }
 
-    Vector4 Vector4::operator*(const Vector4& rhs) const
+    inline Vector4 Vector4::operator*(const Vector4& rhs) const
     {
         return Vector4(*this) *= rhs;
     }
 
-    Vector4 Vector4::operator*(float m) const
+    inline Vector4 Vector4::operator*(float m) const
     {
-        return Vector4(*this) * m;
+        return Vector4(*this) *= m;
     }
 
-    Vector4 Vector4::operator/(const Vector4& rhs) const
+    inline Vector4 Vector4::operator/(const Vector4& rhs) const
     {
-        return Vector4(*this) / rhs;
+        return Vector4(*this) /= rhs;
     }
 
-    Vector4 Vector4::operator/(float d) const
+    inline Vector4 Vector4::operator/(float d) const
     {
-        return Vector4(*this) / d;
+        return Vector4(*this) /= d;
     }
 
     inline Vector4& Vector4::operator+=(const Vector4& rhs)
@@ -113,5 +113,17 @@ namespace sky {
     inline float Vector4::operator[](uint32_t i) const
     {
         return v[i];
+    }
+
+    inline float Vector4::Dot(const Vector4 &rhs) const
+    {
+        Vector4 ret = (*this) * rhs;
+        return (ret.x + ret.y) + (ret.z + ret.w);
+    }
+
+    inline void Vector4::Normalize()
+    {
+        float inverseSqrt = 1 / sqrt(Dot(*this));
+        Vector4::operator*=(inverseSqrt);
     }
 }

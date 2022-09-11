@@ -4,9 +4,8 @@
 
 #include <engine/feature/camera/CameraComponent.h>
 #include <engine/world/GameObject.h>
-#include <engine/world/TransformComponent.h>
 #include <engine/world/World.h>
-#include <glm/gtc/matrix_transform.hpp>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
@@ -35,9 +34,9 @@ namespace sky {
     void CameraComponent::UpdateProjection()
     {
         if (type == ProjectType::PROJECTIVE) {
-            projection = glm::perspective(fov / 180.f * 3.14f, aspect, near, far);
+            projection = MakePerspective(fov / 180.f * 3.14f, aspect, near, far);
         } else {
-            projection = glm::orthoRH_NO(left, right, bottom, top, near, far);
+            projection = MakeOrthogonal(left, right, top, bottom, near, far);
         }
     }
 

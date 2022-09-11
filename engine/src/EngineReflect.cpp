@@ -2,11 +2,12 @@
 // Created by Zach Lee on 2021/12/15.
 //
 
-#include <core/math/Math.h>
-#include <core/math/Matrix.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Vector2.h>
+#include <core/math/Vector3.h>
+#include <core/math/Vector4.h>
 #include <core/math/Quaternion.h>
 #include <core/math/Transform.h>
-#include <core/math/Vector.h>
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
 #include <framework/serialization/SerializationContext.h>

@@ -10,8 +10,9 @@
 #include <render/resources/Mesh.h>
 #include <render/resources/Prefab.h>
 #include <framework/asset/AssetManager.h>
-#include <core/math/Vector.h>
-#include <core/math/Matrix.h>
+#include <core/math/Vector3.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Color.h>
 #include <core/logger/Logger.h>
 #include <stb_image.h>
 #include <filesystem>
@@ -22,7 +23,7 @@ namespace sky {
     static const char* TAG = "ModelBuilder";
 
     struct PBRProperties {
-        Vector4 baseColor;
+        Color baseColor;
         float metallic;
         float roughness;
     };

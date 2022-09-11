@@ -15,6 +15,10 @@
 #include <render/features/StaticMeshFeature.h>
 #include <render/imgui/GuiRenderer.h>
 #include <render/resources/Prefab.h>
+
+#include <core/math/Quaternion.h>
+#include <core/math/Matrix3.h>
+#include <core/math/Matrix4.h>
 #include <sstream>
 
 namespace sky {
@@ -60,31 +64,35 @@ namespace sky {
             //            mainCamera->SetTransform(transform);
             //            glm::lookAt()
 
-            angle += glm::radians(30.f) * time;
+            angle += ToRadian(30.f) * time;
             position.z = radius * cos(angle);
             position.x = radius * sin(angle);
 
-            auto rotation  = glm::eulerAngleYXZ(angle, -30 / 180.f * 3.14f, 0.f);
-            auto transform = glm::translate(glm::identity<Matrix4>(), position);
-            transform      = transform * rotation;
-            camera->SetTransform(transform);
+            Matrix4 translation = Matrix4::Identity();
+            translation.Translate(position);
+            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-30.f), angle, 0.f}));
 
-            JobSystem *js = JobSystem::Get();
-            tf::Taskflow flow;
-            uint32_t nPerG = 256;
-            uint32_t group = meshNum / nPerG + 1;
-            for (uint32_t i = 0; i < group; ++i) {
-                flow.emplace([i, nPerG, this]() {
-                    for (uint32_t j = 0, k = i * nPerG; j < nPerG && k < meshNum; ++j, ++k) {
-                        auto tt = glm::identity<Matrix4>();
-                        tt      = glm::translate(tt, trans[k].position + Vector3(0.f, rand() % 100 / 100.f, 0.f));
-                        tt      = glm::rotate(tt, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
-                        tt      = glm::scale(tt, trans[k].scale);
-                        meshes[k]->SetWorldMatrix(tt);
-                    }
-                });
-            }
-            js->Run(std::move(flow)).wait();
+//            rotation.Translate(position);
+//            auto transform = glm::translate(glm::identity<Matrix4>(), position);
+//            transform      = transform * rotation;
+            camera->SetTransform(translation * rotation);
+
+//            JobSystem *js = JobSystem::Get();
+//            tf::Taskflow flow;
+//            uint32_t nPerG = 256;
+//            uint32_t group = meshNum / nPerG + 1;
+//            for (uint32_t i = 0; i < group; ++i) {
+//                flow.emplace([i, nPerG, this]() {
+//                    for (uint32_t j = 0, k = i * nPerG; j < nPerG && k < meshNum; ++j, ++k) {
+//                        auto tt = glm::identity<Matrix4>();
+//                        tt      = glm::translate(tt, trans[k].position + Vector3(0.f, rand() % 100 / 100.f, 0.f));
+//                        tt      = glm::rotate(tt, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
+//                        tt      = glm::scale(tt, trans[k].scale);
+//                        meshes[k]->SetWorldMatrix(tt);
+//                    }
+//                });
+//            }
+//            js->Run(std::move(flow)).wait();
 
 //            for (uint32_t i = 0; i < meshNum; ++i) {
 //                auto tt = glm::identity<Matrix4>();

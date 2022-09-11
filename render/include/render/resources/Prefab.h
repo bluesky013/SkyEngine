@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/math/Matrix.h>
+#include <core/math/Matrix4.h>
 #include <core/util/Uuid.h>
 #include <framework/serialization/BasicSerialization.h>
 #include <render/resources/Mesh.h>

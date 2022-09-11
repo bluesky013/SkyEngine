@@ -20,9 +20,12 @@ namespace sky {
             };
         };
 
-        Vector4();
-        Vector4(float v);
-        Vector4(float x_, float y_, float z_, float w_);
+        inline Vector4();
+        inline Vector4(float v);
+        inline Vector4(float x_, float y_, float z_, float w_);
+
+        inline void Normalize();
+        inline float Dot(const Vector4 &rhs) const;
 
         inline Vector4 operator+(const Vector4& rhs) const;
 
