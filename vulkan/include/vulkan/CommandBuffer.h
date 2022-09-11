@@ -13,6 +13,7 @@
 #include <vulkan/RenderPass.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/VertexAssembly.h>
 
 namespace sky::drv {
 
@@ -72,9 +73,12 @@ namespace sky::drv {
         CommandBuffer        &cmdBuffer;
         VkCommandBuffer       cmd              = VK_NULL_HANDLE;
         VkRenderPassBeginInfo vkBeginInfo      = {};
-        uint32_t              currentSubPassId = 0;
         VkViewport            viewport{};
         VkRect2D              scissor{};
+
+        uint32_t              currentSubPassId = 0;
+        VkPipeline            currentPso       = VK_NULL_HANDLE;
+        VertexAssemblyPtr     currentAssembler;
     };
 
     class CommandBuffer : public DevObject {

@@ -19,14 +19,14 @@ namespace sky {
 
         inline void AddPlane(const Vector3 &normal, MeshRawData &out)
         {
-            Vector3 axis  = glm::cross(normal, Vector3(0, 1.f, 0));
-            float   angle = glm::acos(glm::dot(normal, Vector3(0, 1.f, 0.f)));
-            auto    rot   = glm::angleAxis(angle, axis);
+            Vector3 axis  = normal.Cross(Vector3(0, 1.f, 0));
+            float   angle = acos(normal.Dot(Vector3(0, 1.f, 0.f)));
+//            auto    rot   = glm::angleAxis(angle, axis);
 
-            Vector3 pos1 = POS1 * rot;
-            Vector3 pos2 = POS2 * rot;
-            Vector3 pos3 = POS3 * rot;
-            Vector3 pos4 = POS4 * rot;
+            Vector3 pos1; // = POS1 * rot;
+            Vector3 pos2; // = POS2 * rot;
+            Vector3 pos3; // = POS3 * rot;
+            Vector3 pos4; // = POS4 * rot;
 
             Vector3 tangent1 = {0.f, 0.f, 0.f};
             Vector3 tangent2 = {0.f, 0.f, 0.f};
@@ -41,7 +41,7 @@ namespace sky {
             tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
             tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
             tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-            tangent1   = glm::normalize(tangent1);
+            tangent1.Normalize();
 
             edge1    = POS3 - POS1;
             edge2    = POS4 - POS1;
@@ -53,7 +53,7 @@ namespace sky {
             tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
             tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
             tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-            tangent2   = glm::normalize(tangent2);
+            tangent2.Normalize();
 
             std::vector<float> positions = {pos1.x, pos1.y, pos1.z, 1.f, pos2.x, pos2.y, pos2.z, 1.f, pos3.x, pos3.y, pos3.z, 1.f,
                                             pos1.x, pos1.y, pos1.z, 1.f, pos3.x, pos3.y, pos3.z, 1.f, pos4.x, pos4.y, pos4.z, 1.f};

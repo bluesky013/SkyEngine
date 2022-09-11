@@ -56,11 +56,12 @@ namespace sky {
     void RenderBufferPool::AllocateBlock()
     {
         Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size               = blockStride * descriptor.frame;
+        bufferDesc.size               = blockStride;
         bufferDesc.memory             = descriptor.memory;
         bufferDesc.usage              = descriptor.usage;
         bufferDesc.allocCPU           = true;
-        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
+        bufferDesc.inflight           = descriptor.frame;
+        auto buffer  = std::make_shared<Buffer>(bufferDesc);
         buffer->InitRHI();
         blocks.emplace_back(buffer);
     }

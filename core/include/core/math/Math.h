@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
+#include <cstdint>
+#include <cmath>
 
 namespace sky {
 

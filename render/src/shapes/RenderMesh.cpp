@@ -11,7 +11,7 @@ namespace sky {
     void RenderMesh::SetWorldMatrix(const Matrix4 &matrix)
     {
         objectInfo.worldMatrix            = matrix;
-        objectInfo.inverseTransposeMatrix = glm::inverseTranspose(matrix);
+        objectInfo.inverseTransposeMatrix = matrix.InverseTranspose();
         UpdateBuffer();
     }
 
@@ -31,14 +31,6 @@ namespace sky {
         auto bufferPool = scene.GetObjectBufferPool();
         objectSet       = objPool->Allocate();
         objectBuffer    = bufferPool->Allocate();
-
-        Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size               = sizeof(ObjectInfo);
-        bufferDesc.memory             = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        bufferDesc.usage              = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        bufferDesc.allocCPU           = true;
-        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
-        buffer->InitRHI();
 
         UpdateBuffer();
 

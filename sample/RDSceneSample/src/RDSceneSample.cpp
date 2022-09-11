@@ -38,9 +38,9 @@ namespace sky {
 
         void OnTick(float time) override
         {
-            Matrix4 transform = glm::identity<Matrix4>();
-            transform         = glm::translate(transform, Vector3(0.0f, -0.5f, 0.5f));
-            transform         = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
+            Matrix4 transform = Matrix4::Identity();
+            transform.Translate(Vector3(0.0f, -0.5f, 0.5f));
+//            transform         = glm::rotate(transform, glm::radians(angle), Vector3(1.f, 1.f, 1.f));
             mesh->SetWorldMatrix(transform);
             angle += 20.f * time;
         }
@@ -82,7 +82,9 @@ namespace sky {
         mainCamera = cmFeature->Create();
         mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
-        mainCamera->SetTransform(glm::translate(glm::identity<Matrix4>(), Vector3(0, 0, 5)));
+        Matrix4 mat = Matrix4::Identity();
+        mat.Translate(Vector3(0, 0, 5));
+        mainCamera->SetTransform(mat);
 
         // init material
         auto colorTable = std::make_shared<GraphicsShaderTable>();
@@ -115,7 +117,6 @@ namespace sky {
         auto cube  = ShapeManager::Get()->GetOrCreate<Cube>();
         auto mesh  = cube->CreateMesh(material);
         staticMesh->SetMesh(mesh);
-        staticMesh->SetWorldMatrix(glm::identity<Matrix4>());
 
         auto feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetMesh(staticMesh);

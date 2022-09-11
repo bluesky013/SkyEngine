@@ -4,7 +4,7 @@
 
 #pragma once
 #include <core/logger/Logger.h>
-#include <core/math/Matrix.h>
+#include <core/math/Matrix4.h>
 #include <core/util/Macros.h>
 #include <render/RenderBufferPool.h>
 #include <render/RenderMeshPrimtive.h>
@@ -20,8 +20,8 @@ namespace sky {
     class RenderView;
 
     struct ObjectInfo {
-        Matrix4 worldMatrix            = glm::identity<Matrix4>();
-        Matrix4 inverseTransposeMatrix = glm::identity<Matrix4>();
+        Matrix4 worldMatrix;
+        Matrix4 inverseTransposeMatrix;
     };
 
     class RenderMesh {

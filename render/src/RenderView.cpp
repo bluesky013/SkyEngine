@@ -16,7 +16,7 @@ namespace sky {
     void RenderView::SetTransform(const Matrix4 &transform)
     {
         viewInfo.viewToWorldMatrix = transform;
-        viewInfo.worldToViewMatrix = glm::inverse(transform);
+        viewInfo.worldToViewMatrix = transform.Inverse();
         viewInfo.position.x        = transform[3][0];
         viewInfo.position.y        = transform[3][1];
         viewInfo.position.z        = transform[3][2];

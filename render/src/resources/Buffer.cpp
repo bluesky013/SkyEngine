@@ -40,7 +40,7 @@ namespace sky {
         }
 
         drv::Buffer::Descriptor desc = {};
-        desc.size                    = descriptor.size;
+        desc.size                    = realSize = descriptor.size * descriptor.inflight;
         desc.memory                  = descriptor.memory;
         desc.usage                   = descriptor.usage;
         rhiBuffer                    = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
@@ -70,7 +70,7 @@ namespace sky {
 
     void Buffer::Update(const uint8_t *data, uint64_t range, uint64_t offset)
     {
-        if (range + offset > descriptor.size) {
+        if (range + offset > realSize) {
             return;
         }
 
@@ -112,7 +112,7 @@ namespace sky {
 
     void Buffer::Update(uint64_t offset, uint64_t range, bool release)
     {
-        Update(rawData.data() + offset, range, offset);
+        Update(rawData.data(), range, offset);
         if (release) {
             rawData.clear();
         }
@@ -206,10 +206,10 @@ namespace sky {
     void DynamicBufferView::RequestUpdate()
     {
         if (isDirty) {
+            SwapBuffer();
             if (IsValid()) {
                 buffer->Update(offset + dynamicOffset, size);
             }
-            SwapBuffer();
             isDirty = false;
         }
     }
@@ -217,7 +217,7 @@ namespace sky {
     void DynamicBufferView::WriteImpl(const uint8_t *data, uint64_t size, uint64_t off)
     {
         if (IsValid()) {
-            buffer->Write(data, size, off + offset + dynamicOffset);
+            buffer->Write(data, size, off + offset);
             isDirty = true;
         }
     }
@@ -228,7 +228,7 @@ namespace sky {
         bufferDesc.size               = data.data.size();
         bufferDesc.usage              = data.usage;
         bufferDesc.memory             = data.memory;
-        auto buffer                   = std::make_shared<Buffer>(bufferDesc);
+        auto buffer  = std::make_shared<Buffer>(bufferDesc);
         buffer->InitRHI();
         buffer->Update(data.data.data(), data.data.size());
         return buffer;

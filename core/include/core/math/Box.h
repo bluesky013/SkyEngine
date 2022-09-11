@@ -4,19 +4,19 @@
 
 #pragma once
 
-#include <core/math/Vector.h>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
     struct Box {
-        Vector3 min = glm::zero<Vector3>();
-        Vector3 max = glm::zero<Vector3>();
+        Vector3 min;
+        Vector3 max;
 
         Box Combine(const Box &rhs)
         {
             Box res = {};
-            res.min = glm::min(min, rhs.min);
-            res.max = glm::max(max, rhs.max);
+            res.min = Min(min, rhs.min);
+            res.max = Max(max, rhs.max);
             return res;
         }
 

@@ -20,14 +20,14 @@ namespace sky {
         drv::Image::Descriptor imageDesc = {};
         imageDesc.format                 = descriptor.format;
         imageDesc.mipLevels              = descriptor.mipLevels;
+        imageDesc.arrayLayers            = descriptor.layers;
         imageDesc.extent                 = VkExtent3D{descriptor.extent.width, descriptor.extent.height, 1};
 
-        imageDesc.usage       = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        imageDesc.memory      = VMA_MEMORY_USAGE_GPU_ONLY;
-        imageDesc.samples     = VK_SAMPLE_COUNT_1_BIT;
-        imageDesc.arrayLayers = 1;
-        imageDesc.imageType   = VK_IMAGE_TYPE_2D;
-        rhiImage              = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Image>(imageDesc);
+        imageDesc.usage     = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        imageDesc.memory    = VMA_MEMORY_USAGE_GPU_ONLY;
+        imageDesc.samples   = VK_SAMPLE_COUNT_1_BIT;
+        imageDesc.imageType = VK_IMAGE_TYPE_2D;
+        rhiImage            = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Image>(imageDesc);
     }
 
     bool Image::IsValid() const
@@ -86,7 +86,15 @@ namespace sky {
 
     RDImagePtr Image::CreateFromData(const ImageAssetData &data)
     {
-        return {};
+        Image::Descriptor imageDesc = {};
+        imageDesc.format    = data.format;
+        imageDesc.extent    = {data.width, data.height};
+        imageDesc.mipLevels = 1;
+        imageDesc.layers    = 1;
+        auto image = std::make_shared<Image>(imageDesc);
+        image->InitRHI();
+        image->Update(data.data.data(), data.data.size());
+        return image;
     }
 
     RDImagePtr CreateImage2D()

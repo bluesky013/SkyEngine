@@ -10,8 +10,9 @@
 #include <render/resources/Mesh.h>
 #include <render/resources/Prefab.h>
 #include <framework/asset/AssetManager.h>
-#include <core/math/Vector.h>
-#include <core/math/Matrix.h>
+#include <core/math/Vector3.h>
+#include <core/math/Matrix4.h>
+#include <core/math/Color.h>
 #include <core/logger/Logger.h>
 #include <stb_image.h>
 #include <filesystem>
@@ -22,7 +23,7 @@ namespace sky {
     static const char* TAG = "ModelBuilder";
 
     struct PBRProperties {
-        Vector4 baseColor;
+        Color baseColor;
         float metallic;
         float roughness;
     };
@@ -66,15 +67,18 @@ namespace sky {
 
         uint32_t index = 0;
         SaveAsset(data, outScene.buffer, "buffer", projectPath, dataPath, fileWithoutExt, index);
+        data.buffers.emplace_back(outScene.buffer->GetUuid());
 
         index = 0;
-        for (auto& mesh : outScene.meshes) {
+        for (const auto& mesh : outScene.meshes) {
             SaveAsset(data, mesh, "mesh", projectPath, dataPath, fileWithoutExt, index);
+            data.meshes.emplace_back(mesh->GetUuid());
         }
 
         index = 0;
-        for (auto& [first, image] : outScene.images) {
+        for (const auto& [first, image] : outScene.images) {
             SaveAsset(data, image, "image", projectPath, dataPath, fileWithoutExt, index);
+            data.images.emplace_back(image->GetUuid());
         }
         return data;
     }
@@ -105,9 +109,9 @@ namespace sky {
         auto modelPath = std::filesystem::path(outScene.directory).append(path.data);
         stbi_uc * srcData = nullptr;
         if (std::filesystem::exists(modelPath)) {
-            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 0);
+            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 4);
         } else {
-            auto tex = scene->GetEmbeddedTexture(path.data);
+            const auto *tex = scene->GetEmbeddedTexture(path.data);
             if (tex == nullptr) {
                 return;
             }
@@ -116,7 +120,7 @@ namespace sky {
             } else {
                 const uint32_t size = tex->mWidth;
                 srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
-                                                 &width, &height, &channel, 0);
+                                                 &width, &height, &channel, 4);
             }
         }
         if (srcData == nullptr) {
@@ -125,12 +129,9 @@ namespace sky {
 
         assetData.width = static_cast<uint32_t>(width);
         assetData.height = static_cast<uint32_t>(height);
-        if (channel == 3) {
-            assetData.format = VK_FORMAT_R8G8B8_UNORM;
-        } else if (channel == 4) {
-            assetData.format = VK_FORMAT_R8G8B8A8_UNORM;
-        }
-        uint64_t dataSize = width * height * channel;
+        assetData.format = VK_FORMAT_R8G8B8A8_SRGB;
+
+        uint64_t dataSize = width * height * 4;
         assetData.data.resize(dataSize);
         memcpy(assetData.data.data(), srcData, dataSize);
         stbi_image_free(srcData);
@@ -362,7 +363,7 @@ namespace sky {
         current.transform = FromAssimp(node->mTransformation);
 
         if (node->mNumMeshes != 0) {
-//            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
+            current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
             MeshAssetPtr meshAsset = std::make_shared<Asset<Mesh>>();
             outScene.meshes.emplace_back(meshAsset);
             ProcessMesh(node, scene, meshAsset, outScene);

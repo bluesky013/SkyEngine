@@ -110,11 +110,11 @@ namespace sky::drv {
         instInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
         instInfo.ppEnabledExtensionNames = extensions.data();
 
-        instInfo.enabledLayerCount   = static_cast<uint32_t>(validationLayers.size());
-        instInfo.ppEnabledLayerNames = validationLayers.data();
-
         VkDebugUtilsMessengerCreateInfoEXT debugInfo = {};
         if (des.enableDebugLayer) {
+            instInfo.enabledLayerCount   = static_cast<uint32_t>(validationLayers.size());
+            instInfo.ppEnabledLayerNames = validationLayers.data();
+
             debugInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
             debugInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |

@@ -12,15 +12,16 @@ namespace sky {
 
     void StaticMesh::OnRender(RenderScene &scene)
     {
+        RenderMesh::OnRender(scene);
         for (auto &primitive : primitives) {
             auto &techs = primitive->GetTechniques();
             for (auto &tech : techs) {
                 scene.FillSetBinder(*tech->setBinder);
                 tech->setBinder->BindSet(1, objectSet->GetRHISet());
+                tech->setBinder->SetOffset(1, 0, objectBuffer->GetDynamicOffset());
                 tech->setBinder->BindSet(2, primitive->GetMaterialSet()->GetRHISet());
             }
         }
-        RenderMesh::OnRender(scene);
     }
 
     void StaticMesh::SetMesh(const RDMeshPtr &m)

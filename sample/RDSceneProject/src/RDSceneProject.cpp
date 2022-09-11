@@ -14,6 +14,11 @@
 #include <render/features/CameraFeature.h>
 #include <render/features/StaticMeshFeature.h>
 #include <render/imgui/GuiRenderer.h>
+#include <render/resources/Prefab.h>
+
+#include <core/math/Quaternion.h>
+#include <core/math/Matrix3.h>
+#include <core/math/Matrix4.h>
 #include <sstream>
 
 namespace sky {
@@ -59,31 +64,35 @@ namespace sky {
             //            mainCamera->SetTransform(transform);
             //            glm::lookAt()
 
-            angle += glm::radians(30.f) * time;
+            angle += ToRadian(30.f) * time;
             position.z = radius * cos(angle);
             position.x = radius * sin(angle);
 
-            auto rotation  = glm::eulerAngleYXZ(angle, -30 / 180.f * 3.14f, 0.f);
-            auto transform = glm::translate(glm::identity<Matrix4>(), position);
-            transform      = transform * rotation;
-            camera->SetTransform(transform);
+            Matrix4 translation = Matrix4::Identity();
+            translation.Translate(position);
+            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-30.f), angle, 0.f}));
 
-            JobSystem *js = JobSystem::Get();
-            tf::Taskflow flow;
-            uint32_t nPerG = 256;
-            uint32_t group = meshNum / nPerG + 1;
-            for (uint32_t i = 0; i < group; ++i) {
-                flow.emplace([i, nPerG, this]() {
-                    for (uint32_t j = 0, k = i * nPerG; j < nPerG && k < meshNum; ++j, ++k) {
-                        auto tt = glm::identity<Matrix4>();
-                        tt      = glm::translate(tt, trans[k].position + Vector3(0.f, rand() % 100 / 100.f, 0.f));
-                        tt      = glm::rotate(tt, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
-                        tt      = glm::scale(tt, trans[k].scale);
-                        meshes[k]->SetWorldMatrix(tt);
-                    }
-                });
-            }
-            js->Run(std::move(flow)).wait();
+//            rotation.Translate(position);
+//            auto transform = glm::translate(glm::identity<Matrix4>(), position);
+//            transform      = transform * rotation;
+            camera->SetTransform(translation * rotation);
+
+//            JobSystem *js = JobSystem::Get();
+//            tf::Taskflow flow;
+//            uint32_t nPerG = 256;
+//            uint32_t group = meshNum / nPerG + 1;
+//            for (uint32_t i = 0; i < group; ++i) {
+//                flow.emplace([i, nPerG, this]() {
+//                    for (uint32_t j = 0, k = i * nPerG; j < nPerG && k < meshNum; ++j, ++k) {
+//                        auto tt = glm::identity<Matrix4>();
+//                        tt      = glm::translate(tt, trans[k].position + Vector3(0.f, rand() % 100 / 100.f, 0.f));
+//                        tt      = glm::rotate(tt, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
+//                        tt      = glm::scale(tt, trans[k].scale);
+//                        meshes[k]->SetWorldMatrix(tt);
+//                    }
+//                });
+//            }
+//            js->Run(std::move(flow)).wait();
 
 //            for (uint32_t i = 0; i < meshNum; ++i) {
 //                auto tt = glm::identity<Matrix4>();
@@ -124,7 +133,7 @@ namespace sky {
         Render::Get()->AddScene(scene);
 
         auto viewport     = std::make_shared<RenderViewport>();
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
 
         RenderViewport::ViewportInfo info = {};
         info.wHandle                      = nativeWindow->GetNativeHandle();
@@ -133,11 +142,11 @@ namespace sky {
         Render::Get()->AddViewport(viewport);
 
         auto  swapChain = viewport->GetSwapChain();
-        auto &ext       = swapChain->GetExtent();
+        const auto &ext       = swapChain->GetExtent();
 
-        auto cmFeature  = scene->GetFeature<CameraFeature>();
-        auto smFeature  = scene->GetFeature<StaticMeshFeature>();
-        auto guiFeature = scene->GetFeature<GuiRenderer>();
+        auto *cmFeature  = scene->GetFeature<CameraFeature>();
+        auto *smFeature  = scene->GetFeature<StaticMeshFeature>();
+        auto *guiFeature = scene->GetFeature<GuiRenderer>();
 
         guiFeature->CreateLambda([this](ImGuiContext *context) {
             ImGui::SetCurrentContext(context);
@@ -146,11 +155,11 @@ namespace sky {
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Pipeline statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-                auto                         &pool  = scene->GetQueryPool();
-                auto                         &data  = pool->GetData();
+                const auto                         &pool  = scene->GetQueryPool();
+                const auto                         &data  = pool->GetData();
                 VkQueryPipelineStatisticFlags flags = pool->GetFlags();
                 uint32_t                      index = 0;
-                for (auto &[flag, str] : PIPELINE_STATS_MAP) {
+                for (const auto &[flag, str] : PIPELINE_STATS_MAP) {
                     if ((flags & flag) == flag) {
                         ImGui::Text("%s : [%llu]", str.c_str(), data[index++]);
                     }
@@ -163,64 +172,31 @@ namespace sky {
         mainCamera = cmFeature->Create();
         mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
-        // init material
-        auto colorTable = std::make_shared<GraphicsShaderTable>();
-        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
-        colorTable->InitRHI();
 
-        auto        pass        = std::make_shared<Pass>();
-        SubPassInfo subPassInfo = {};
-        subPassInfo.colors.emplace_back(AttachmentInfo{swapChain->GetFormat(), VK_SAMPLE_COUNT_4_BIT});
-        subPassInfo.depthStencil = AttachmentInfo{VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_4_BIT};
-        pass->AddSubPass(subPassInfo);
-        pass->InitRHI();
+        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
+        auto prefab = prefabAsset->CreateInstance();
+        prefab->LoadToScene(*scene);
 
-        auto colorTech = std::make_shared<GraphicsTechnique>();
-        colorTech->SetShaderTable(colorTable);
-        colorTech->SetRenderPass(pass);
-        colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(FORWARD_TAG);
-        colorTech->SetDepthTestEn(true);
-        colorTech->SetDepthWriteEn(true);
-
-        auto material = std::make_shared<Material>();
-        material->AddGfxTechnique(colorTech);
-        material->InitRHI();
-
-        material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
-        material->Update();
-
-        AssetManager::Get()->LoadAsset<Buffer>(BUFFER_PATH);
-
-        std::stringstream ss;
-        ss << "data\\models\\DamagedHelmet_mesh0.mesh";
-        std::string path      = ss.str();
-        auto        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(path);
-        auto        mesh      = meshAsset->CreateInstance();
-        for (uint32_t i = 0; i < mesh->GetSubMeshCount(); ++i) {
-            mesh->SetMaterial(material, i);
-        }
-
-        uint32_t num = 100;
-        for (uint32_t i = 0; i < num; ++i) {
-            for (uint32_t j = 0; j < num; ++j) {
-                auto staticMesh = smFeature->Create();
-                staticMesh->SetMesh(mesh);
+//        uint32_t num = 100;
+//        for (uint32_t i = 0; i < num; ++i) {
+//            for (uint32_t j = 0; j < num; ++j) {
+//                auto *staticMesh = smFeature->Create();
+//                staticMesh->SetMesh(mesh);
 //                auto transform = glm::identity<Matrix4>();
 //                transform      = glm::translate(transform, Vector3(i - num / 2.f, 0.f, j - num / 2.f));
 //                transform      = glm::rotate(transform, glm::radians(90.f), Vector3(1.f, 0.f, 0.f));
 //                transform      = glm::scale(transform, Vector3(0.2f, 0.2f, 0.2f));
 //                staticMesh->SetWorldMatrix(transform);
-                meshes.emplace_back(staticMesh);
-                transforms.emplace_back(Transform{
-                    {i - num / 2.f, 0.f, j - num / 2.f},
-                    {90.f, 0.f, 0.f},
-                    {0.2f, 0.2f, 0.2f}
-                });
-            }
-        }
+//                meshes.emplace_back(staticMesh);
+//                transforms.emplace_back(Transform{
+//                    {i - num / 2.f, 0.f, j - num / 2.f},
+//                    {90.f, 0.f, 0.f},
+//                    {0.2f, 0.2f, 0.2f}
+//                });
+//            }
+//        }
 
-        auto feature = scene->RegisterFeature<RotationFeature>(*scene);
+        auto *feature = scene->RegisterFeature<RotationFeature>(*scene);
         feature->SetCamera(mainCamera);
         feature->SetMeshes(meshes, transforms);
     }

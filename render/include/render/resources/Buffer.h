@@ -30,6 +30,7 @@ namespace sky {
             VkDeviceSize       size     = 0;
             VkBufferUsageFlags usage    = 0;
             VmaMemoryUsage     memory   = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            uint32_t           inflight = 1;
             bool               allocCPU = false;
             bool               keepMap  = false;
         };
@@ -67,6 +68,7 @@ namespace sky {
         static std::shared_ptr<Buffer> CreateFromData(const BufferAssetData &data);
 
     protected:
+        VkDeviceSize         realSize = 0;
         Descriptor           descriptor;
         std::vector<uint8_t> rawData;
         drv::BufferPtr       rhiBuffer;

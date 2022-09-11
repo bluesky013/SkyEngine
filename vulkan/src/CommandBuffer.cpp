@@ -257,42 +257,46 @@ namespace sky::drv {
         if (!item.pso) {
             return;
         }
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pso->GetNativeHandle());
+
         if (item.viewport != nullptr && item.viewportCount != 0) {
-            vkCmdSetViewport(cmd, 0, item.viewportCount, item.viewport);
+            SetViewport(item.viewportCount, item.viewport);
         }
 
-        if (item.scissor != nullptr && item.scissor != nullptr) {
-            vkCmdSetScissor(cmd, 0, item.scissorCount, item.scissor);
+        if (item.scissor != nullptr && item.scissorCount != 0) {
+            SetScissor(item.scissorCount, item.scissor);
         }
+
+        BindPipeline(item.pso);
 
         if (item.shaderResources) {
-            item.shaderResources->OnBind(cmd);
+            BindShaderResource(item.shaderResources);
         }
 
         if (item.vertexAssembly) {
-            item.vertexAssembly->OnBind(cmd);
+            BindAssembly(item.vertexAssembly);
         }
 
         if (item.pushConstants) {
-            item.pushConstants->OnBind(cmd);
+            PushConstant(item.pushConstants);
         }
 
         switch (item.drawArgs.type) {
         case CmdDrawType::INDEXED:
-            vkCmdDrawIndexed(cmd, item.drawArgs.indexed.indexCount, item.drawArgs.indexed.instanceCount, item.drawArgs.indexed.firstIndex,
-                             item.drawArgs.indexed.vertexOffset, item.drawArgs.indexed.firstInstance);
+            DrawIndexed(item.drawArgs.indexed);
             break;
         case CmdDrawType::LINEAR:
-            vkCmdDraw(cmd, item.drawArgs.linear.vertexCount, item.drawArgs.linear.instanceCount, item.drawArgs.linear.firstVertex,
-                      item.drawArgs.linear.firstInstance);
+            DrawLinear(item.drawArgs.linear);
             break;
         }
     }
 
     void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pso->GetNativeHandle());
+        auto handle = pso->GetNativeHandle();
+        if (handle != currentPso) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
+            currentPso = handle;
+        }
     }
 
     void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
@@ -300,9 +304,12 @@ namespace sky::drv {
         binder->OnBind(cmd);
     }
 
-    void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembly)
+    void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembler)
     {
-        assembly->OnBind(cmd);
+        if (currentAssembler != assembler) {
+            assembler->OnBind(cmd);
+            currentAssembler = assembler;
+        }
     }
 
     void GraphicsEncoder::PushConstant(const PushConstantsPtr &constants)
