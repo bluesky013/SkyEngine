@@ -22,10 +22,17 @@ namespace sky {
         return info->size > BLOCK_SIZE ? ptr : &data[0];
     }
 
-    void Any::Construct()
+    void Any::CheckMemory()
     {
         if (info->size > BLOCK_SIZE) {
             ptr = malloc(info->size);
+        }
+    }
+
+    void Any::Construct()
+    {
+        if (info->constructor != nullptr) {
+            info->constructor(ptr);
         }
     }
 
@@ -55,7 +62,7 @@ namespace sky {
 
     void Any::Move(Any &any)
     {
-        if (info->size > BLOCK_SIZE) {
+        if (info->size <= BLOCK_SIZE) {
             ptr     = any.ptr;
             any.ptr = nullptr;
         } else {

@@ -23,7 +23,7 @@ namespace sky {
         return !!imageView && !!sampler;
     }
 
-    RDTexturePtr Texture::CreateFromImage(RDImagePtr image, const Texture::Descriptor &desc)
+    RDTexturePtr Texture::CreateFromImage(const RDImagePtr &image, const Texture::Descriptor &desc)
     {
         auto                       texture       = std::make_shared<Texture>(desc);
         drv::ImageView::Descriptor viewDesc      = {};

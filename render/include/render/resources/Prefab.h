@@ -33,6 +33,7 @@ namespace sky {
         std::vector<Uuid> buffers;
         std::vector<Uuid> meshes;
         std::vector<Uuid> images;
+        std::vector<Uuid> materials;
         std::unordered_map<Uuid, std::string> assetPathMap;
 
         template <class Archive>
