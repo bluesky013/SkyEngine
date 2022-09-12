@@ -24,7 +24,7 @@ namespace sky {
 
         inline static const Matrix4 &Identity();
 
-        inline void Translate(const Vector3 & pos);
+        inline void Translate(const Vector3 &rhs);
         inline Matrix4 Inverse() const;
         inline Matrix4 InverseTranspose() const;
 
