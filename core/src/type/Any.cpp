@@ -62,7 +62,7 @@ namespace sky {
 
     void Any::Move(Any &any)
     {
-        if (info->size <= BLOCK_SIZE) {
+        if (info->size > BLOCK_SIZE) {
             ptr     = any.ptr;
             any.ptr = nullptr;
         } else {

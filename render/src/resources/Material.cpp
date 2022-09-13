@@ -98,9 +98,12 @@ namespace sky {
             } else if (prop.type == MaterialPropertyType::TEXTURE) {
                 auto imageAssetId = *prop.any.GetAsConst<Uuid>();
                 auto imageAsset = AssetManager::Get()->LoadAsset<Image>(imageAssetId);
-                auto image = imageAsset->CreateInstance();
-                image->InitRHI();
-                mat->UpdateTexture(prop.name, Texture::CreateFromImage(image, {}));
+                if (imageAsset) {
+                    auto image = imageAsset->CreateInstance();
+                    mat->UpdateTexture(prop.name, Texture::CreateFromImage(image, {}));
+                } else {
+                    mat->UpdateTexture(prop.name, Render::Get()->GetDefaultTexture());
+                }
             }
         }
         mat->InitRHI();
