@@ -25,6 +25,11 @@ namespace sky {
         spv.swap(data);
     }
 
+    void Shader::SetData(const std::vector<uint32_t> &data)
+    {
+        spv = data;
+    }
+
     void Shader::InitRHI()
     {
         BuildReflection();
@@ -141,6 +146,16 @@ namespace sky {
         }
     }
 
+    std::shared_ptr<Shader> Shader::CreateFromData(const ShaderAssetData &data)
+    {
+        Shader::Descriptor shaderDesc = {};
+        shaderDesc.stage = data.stage;
+        auto shader = std::make_shared<Shader>(shaderDesc);
+        shader->SetData(data.spv);
+        shader->InitRHI();
+        return shader;
+    }
+
     void ShaderTable::InitRHI()
     {
         if (pipelineLayout) {
@@ -233,6 +248,16 @@ namespace sky {
 
         shaders.emplace_back(vs);
         shaders.emplace_back(fs);
+    }
+
+    void GraphicsShaderTable::SetVS(const RDShaderPtr &vs_)
+    {
+        vs = vs_;
+    }
+
+    void GraphicsShaderTable::SetFS(const RDShaderPtr &fs_)
+    {
+        fs = fs_;
     }
 
     bool GraphicsShaderTable::IsValid() const

@@ -12,14 +12,19 @@
 
 namespace sky {
 
+    struct GfxTechniqueAssetData {
+        ShaderAssetPtr vs;
+        ShaderAssetPtr fs;
+    };
+
     class GraphicsTechnique : public RenderResource {
     public:
         GraphicsTechnique()  = default;
         ~GraphicsTechnique() = default;
 
-        void SetShaderTable(RDGfxShaderTablePtr table);
+        void SetShaderTable(const RDGfxShaderTablePtr &table);
 
-        void SetRenderPass(RDPassPtr pass, uint32_t subPass = 0);
+        void SetRenderPass(const RDPassPtr &pass, uint32_t subPass = 0);
 
         drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr &vertexInput);
 
@@ -43,6 +48,8 @@ namespace sky {
 
         drv::GraphicsPipeline::State &GetState();
 
+        static std::shared_ptr<GraphicsTechnique> CreateFromData(const GfxTechniqueAssetData& data);
+
     private:
         bool CheckVertexInput(drv::VertexInput &input) const;
 
@@ -55,5 +62,18 @@ namespace sky {
         std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> psoCache;
     };
     using RDGfxTechniquePtr = std::shared_ptr<GraphicsTechnique>;
+
+    template <>
+    struct AssetTraits<GraphicsTechnique> {
+        using DataType                                = GfxTechniqueAssetData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("79F513A7-8BC1-48B4-B086-FB2E78798D60");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
+
+        static RDGfxTechniquePtr CreateFromData(const DataType &data)
+        {
+            return GraphicsTechnique::CreateFromData(data);
+        }
+    };
+    using GfxTechniqueAssetPtr = std::shared_ptr<Asset<GraphicsTechnique>>;
 
 } // namespace sky

@@ -8,12 +8,12 @@
 
 namespace sky {
 
-    void GraphicsTechnique::SetShaderTable(RDGfxShaderTablePtr shaders)
+    void GraphicsTechnique::SetShaderTable(const RDGfxShaderTablePtr &shaders)
     {
         table = shaders;
     }
 
-    void GraphicsTechnique::SetRenderPass(RDPassPtr p, uint32_t subPass)
+    void GraphicsTechnique::SetRenderPass(const RDPassPtr &p, uint32_t subPass)
     {
         pass         = p;
         subPassIndex = subPass;
@@ -103,5 +103,19 @@ namespace sky {
     drv::GraphicsPipeline::State &GraphicsTechnique::GetState()
     {
         return pipelineState;
+    }
+
+    std::shared_ptr<GraphicsTechnique> GraphicsTechnique::CreateFromData(const GfxTechniqueAssetData &data)
+    {
+        auto gfxTech = std::make_shared<GraphicsTechnique>();
+        auto gfxShaderTable = std::make_shared<GraphicsShaderTable>();
+        if (data.vs) {
+            gfxShaderTable->SetVS(data.vs->CreateInstance());
+        }
+        if (data.fs) {
+            gfxShaderTable->SetFS(data.fs->CreateInstance());
+        }
+        gfxTech->SetShaderTable(gfxShaderTable);
+        return gfxTech;
     }
 } // namespace sky
