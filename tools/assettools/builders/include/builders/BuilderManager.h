@@ -7,6 +7,7 @@
 #include <memory>
 #include <list>
 #include <unordered_map>
+#include <filesystem>
 #include <builders/BuilderBase.h>
 
 namespace sky {
@@ -18,7 +19,7 @@ namespace sky {
 
         void RegisterBuilder(BuilderBase* builder);
 
-        void Build(const std::string& projectPath, const std::string& path);
+        void Build(const std::string& projectPath, const std::filesystem::path& path);
 
     private:
         std::list<std::unique_ptr<BuilderBase>> builders;

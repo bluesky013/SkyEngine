@@ -18,7 +18,7 @@ namespace sky {
         }
     }
 
-    void BuilderManager::Build(const std::string& projectPath, const std::string& path)
+    void BuilderManager::Build(const std::string& projectPath, const std::filesystem::path& path)
     {
         std::filesystem::path filePath(path);
         if (filePath.has_extension()) {

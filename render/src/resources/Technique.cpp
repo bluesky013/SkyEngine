@@ -3,6 +3,7 @@
 //
 
 #include <core/hash/Hash.h>
+#include <framework/asset/AssetManager.h>
 #include <render/DriverManager.h>
 #include <render/resources/Technique.h>
 
@@ -118,4 +119,10 @@ namespace sky {
         gfxTech->SetShaderTable(gfxShaderTable);
         return gfxTech;
     }
+
+    void GfxTechniqueAssetData::InitShader(const Uuid &id, ShaderAssetPtr &asset)
+    {
+        asset = AssetManager::Get()->LoadAsset<Shader>(id);
+    }
+
 } // namespace sky

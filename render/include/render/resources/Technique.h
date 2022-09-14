@@ -15,6 +15,25 @@ namespace sky {
     struct GfxTechniqueAssetData {
         ShaderAssetPtr vs;
         ShaderAssetPtr fs;
+
+        template <class Archive>
+        void save(Archive &ar) const
+        {
+            ar(vs->GetUuid(), fs->GetUuid());
+        }
+
+        template <class Archive>
+        void load(Archive &ar)
+        {
+            Uuid vsId;
+            Uuid fsId;
+            ar(vsId, fsId);
+
+            InitShader(vsId, vs);
+            InitShader(fsId, fs);
+        }
+
+        static void InitShader(const Uuid &id, ShaderAssetPtr &asset);
     };
 
     class GraphicsTechnique : public RenderResource {

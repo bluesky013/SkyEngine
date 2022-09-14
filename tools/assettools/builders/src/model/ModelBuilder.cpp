@@ -400,10 +400,10 @@ namespace sky {
         offset += size;
     }
 
-    void ModelBuilder::Build(const std::string& projectPath, const std::string& path) const
+    void ModelBuilder::Build(const std::string& projectPath, const std::filesystem::path& path) const
     {
         Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        const aiScene* scene = importer.ReadFile(path.string(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
             return;
         }
@@ -450,6 +450,8 @@ namespace sky {
         AssetManager::Get()->RegisterAssetHandler<Mesh>();
         AssetManager::Get()->RegisterAssetHandler<Buffer>();
         AssetManager::Get()->RegisterAssetHandler<Image>();
+        AssetManager::Get()->RegisterAssetHandler<Shader>();
+        AssetManager::Get()->RegisterAssetHandler<GraphicsTechnique>();
         AssetManager::Get()->RegisterAssetHandler<Material>();
         AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }

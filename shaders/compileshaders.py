@@ -31,7 +31,7 @@ glslang_path = findGlslang()
 dir_path = os.path.dirname(os.path.realpath(__file__))
 dir_path = dir_path.replace('\\', '/')
 
-out_path = os.path.dirname(dir_path) + "/output/bin/Debug/shaders/"
+out_path = os.path.dirname(dir_path) + "/shaders/output/"
 if not os.path.exists(out_path) :
     os.mkdir(out_path)
 
