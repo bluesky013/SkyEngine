@@ -8,4 +8,4 @@
 /thirdparty/build/
 /venv/
 /test/framework/t1.json
-/shaders/output/
+/assets/shaders/output/

@@ -19,7 +19,6 @@ namespace sky {
     struct InputAttachmentInfo {
         VkFormat              format  = VK_FORMAT_UNDEFINED;
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-        VkImageLayout         usage   = VK_IMAGE_LAYOUT_UNDEFINED;
     };
 
     struct SubPassInfo {
@@ -31,7 +30,6 @@ namespace sky {
     struct PassDependencyInfo {
         uint32_t     src = 0;
         uint32_t     dst = 0;
-        drv::Barrier barrier{};
     };
 
     class Pass : public RenderResource {

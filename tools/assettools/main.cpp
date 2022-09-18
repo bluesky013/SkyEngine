@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
     std::vector<std::filesystem::path> pathList;
     pathList.emplace_back(projectPath + "/assets/");
-    pathList.emplace_back(enginePath + "/shaders/output/");
+    pathList.emplace_back(enginePath + "/assets/shaders/output/");
 
     for (auto& path : pathList) {
         for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {

@@ -13,6 +13,7 @@
 #include "vulkan/vulkan.h"
 #include <string>
 #include <vector>
+#include <array>
 
 namespace sky::drv {
 
@@ -72,8 +73,7 @@ namespace sky::drv {
         };
 
         struct ColorBlend {
-            uint32_t   attachmentNum = 1;
-            BlendState attachments[4];
+            std::vector<BlendState> blendStates;
         };
 
         struct State {
