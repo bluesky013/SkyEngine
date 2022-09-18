@@ -1,0 +1,11 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "data/shaders/Standard.vert.shader",
+        "frag": "data/shaders/BaseColor.frag.shader"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    }
+}

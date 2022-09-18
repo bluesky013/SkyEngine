@@ -1,6 +1,0 @@
-{
-    "type": graphics,
-    "shaders": [
-        "vert": "shaders/"
-    ]
-}

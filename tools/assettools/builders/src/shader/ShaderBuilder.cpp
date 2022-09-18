@@ -6,7 +6,6 @@
 #include <builders/shader/ShaderBuilder.h>
 #include <framework/asset/AssetManager.h>
 #include <render/resources/Shader.h>
-#include <render/resources/Technique.h>
 
 namespace sky {
 

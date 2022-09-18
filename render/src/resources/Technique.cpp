@@ -101,6 +101,21 @@ namespace sky {
         pipelineState.depthStencil.depthWriteEnable = enable;
     }
 
+    void GraphicsTechnique::SetDepthStencilState(const drv::GraphicsPipeline::DepthStencilState &ds)
+    {
+        pipelineState.depthStencil = ds;
+    }
+
+    void GraphicsTechnique::SetBlendState(const drv::GraphicsPipeline::ColorBlend &blends)
+    {
+        pipelineState.blends = blends;
+    }
+
+    void GraphicsTechnique::SetRasterState(const drv::GraphicsPipeline::Raster &raster)
+    {
+        pipelineState.raster = raster;
+    }
+
     drv::GraphicsPipeline::State &GraphicsTechnique::GetState()
     {
         return pipelineState;
@@ -117,12 +132,15 @@ namespace sky {
             gfxShaderTable->SetFS(data.fs->CreateInstance());
         }
         gfxTech->SetShaderTable(gfxShaderTable);
+        gfxTech->SetDepthStencilState(data.depthStencilState);
+        gfxTech->SetBlendState(data.blends);
+        gfxTech->SetRasterState(data.raster);
         return gfxTech;
     }
 
     void GfxTechniqueAssetData::InitShader(const Uuid &id, ShaderAssetPtr &asset)
     {
-        asset = AssetManager::Get()->LoadAsset<Shader>(id);
+        asset = AssetManager::Get()->LoadAsset<Shader>(assetPathMap[id]);
     }
 
 } // namespace sky
