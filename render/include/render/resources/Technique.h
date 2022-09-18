@@ -117,7 +117,7 @@ namespace sky {
 
         uint32_t GetDrawTag() const;
 
-        RDGfxShaderTablePtr GetShaderTable() const;
+        const RDGfxShaderTablePtr &GetShaderTable() const;
 
         drv::DescriptorSetBinderPtr CreateSetBinder() const;
 

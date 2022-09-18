@@ -253,11 +253,13 @@ namespace sky {
     void GraphicsShaderTable::SetVS(const RDShaderPtr &vs_)
     {
         vs = vs_;
+        shaders.emplace_back(vs);
     }
 
     void GraphicsShaderTable::SetFS(const RDShaderPtr &fs_)
     {
         fs = fs_;
+        shaders.emplace_back(fs);
     }
 
     bool GraphicsShaderTable::IsValid() const
