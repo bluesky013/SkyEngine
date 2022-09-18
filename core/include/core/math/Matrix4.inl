@@ -119,102 +119,102 @@ namespace sky {
 
     inline Matrix4 Matrix4::Inverse() const
     {
-        float Coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
-        float Coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
-        float Coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+        float c00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+        float c02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+        float c03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
 
-        float Coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
-        float Coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-        float Coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+        float c04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+        float c06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+        float c07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
 
-        float Coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
-        float Coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
-        float Coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+        float c08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+        float c10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+        float c11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
 
-        float Coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
-        float Coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
-        float Coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+        float c12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+        float c14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+        float c15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
 
-        float Coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
-        float Coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
-        float Coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+        float c16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+        float c18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+        float c19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
 
-        float Coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
-        float Coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
-        float Coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+        float c20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+        float c22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+        float c23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
 
-        Vector4 Fac0(Coef00, Coef00, Coef02, Coef03);
-        Vector4 Fac1(Coef04, Coef04, Coef06, Coef07);
-        Vector4 Fac2(Coef08, Coef08, Coef10, Coef11);
-        Vector4 Fac3(Coef12, Coef12, Coef14, Coef15);
-        Vector4 Fac4(Coef16, Coef16, Coef18, Coef19);
-        Vector4 Fac5(Coef20, Coef20, Coef22, Coef23);
+        Vector4 fac0(c00, c00, c02, c03);
+        Vector4 fac1(c04, c04, c06, c07);
+        Vector4 fac2(c08, c08, c10, c11);
+        Vector4 fac3(c12, c12, c14, c15);
+        Vector4 fac4(c16, c16, c18, c19);
+        Vector4 fac5(c20, c20, c22, c23);
 
-        Vector4 Vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
-        Vector4 Vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
-        Vector4 Vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
-        Vector4 Vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
+        Vector4 vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
+        Vector4 vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
+        Vector4 vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
+        Vector4 vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
 
-        Vector4 Inv0(Vec1 * Fac0 - Vec2 * Fac1 + Vec3 * Fac2);
-        Vector4 Inv1(Vec0 * Fac0 - Vec2 * Fac3 + Vec3 * Fac4);
-        Vector4 Inv2(Vec0 * Fac1 - Vec1 * Fac3 + Vec3 * Fac5);
-        Vector4 Inv3(Vec0 * Fac2 - Vec1 * Fac4 + Vec2 * Fac5);
+        Vector4 inv0(vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
+        Vector4 inv1(vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
+        Vector4 inv2(vec0 * fac1 - vec1 * fac3 + vec3 * fac5);
+        Vector4 inv3(vec0 * fac2 - vec1 * fac4 + vec2 * fac5);
 
-        Vector4 SignA(+1, -1, +1, -1);
-        Vector4 SignB(-1, +1, -1, +1);
-        Matrix4 Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
+        Vector4 signA(+1, -1, +1, -1);
+        Vector4 signB(-1, +1, -1, +1);
+        Matrix4 inverse(inv0 * signA, inv1 * signB, inv2 * signA, inv3 * signB);
 
-        Vector4 Row0(Inverse[0][0], Inverse[1][0], Inverse[2][0], Inverse[3][0]);
+        Vector4 row0(inverse[0][0], inverse[1][0], inverse[2][0], inverse[3][0]);
 
-        Vector4 Dot0(m[0] * Row0);
-        float Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
+        Vector4 dot0(m[0] * row0);
+        float dot1 = (dot0.x + dot0.y) + (dot0.z + dot0.w);
 
-        float OneOverDeterminant = 1.f / Dot1;
-        return Inverse * OneOverDeterminant;
+        float inverseDet = 1.f / dot1;
+        return inverse * inverseDet;
     }
 
     inline Matrix4 Matrix4::InverseTranspose() const
     {
-        float SubFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
-        float SubFactor01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
-        float SubFactor02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
-        float SubFactor03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
-        float SubFactor04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
-        float SubFactor05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
-        float SubFactor06 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
-        float SubFactor07 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-        float SubFactor08 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
-        float SubFactor09 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
-        float SubFactor10 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
-        float SubFactor11 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-        float SubFactor12 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
-        float SubFactor13 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
-        float SubFactor14 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
-        float SubFactor15 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
-        float SubFactor16 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
-        float SubFactor17 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
-        float SubFactor18 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+        float s00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+        float s01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+        float s02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+        float s03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+        float s04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+        float s05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+        float s06 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+        float s07 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+        float s08 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+        float s09 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+        float s10 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+        float s11 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+        float s12 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+        float s13 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+        float s14 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+        float s15 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+        float s16 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+        float s17 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+        float s18 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
 
         Matrix4 ret;
-        ret[0][0] = + (m[1][1] * SubFactor00 - m[1][2] * SubFactor01 + m[1][3] * SubFactor02);
-        ret[0][1] = - (m[1][0] * SubFactor00 - m[1][2] * SubFactor03 + m[1][3] * SubFactor04);
-        ret[0][2] = + (m[1][0] * SubFactor01 - m[1][1] * SubFactor03 + m[1][3] * SubFactor05);
-        ret[0][3] = - (m[1][0] * SubFactor02 - m[1][1] * SubFactor04 + m[1][2] * SubFactor05);
+        ret[0][0] = + (m[1][1] * s00 - m[1][2] * s01 + m[1][3] * s02);
+        ret[0][1] = - (m[1][0] * s00 - m[1][2] * s03 + m[1][3] * s04);
+        ret[0][2] = + (m[1][0] * s01 - m[1][1] * s03 + m[1][3] * s05);
+        ret[0][3] = - (m[1][0] * s02 - m[1][1] * s04 + m[1][2] * s05);
 
-        ret[1][0] = - (m[0][1] * SubFactor00 - m[0][2] * SubFactor01 + m[0][3] * SubFactor02);
-        ret[1][1] = + (m[0][0] * SubFactor00 - m[0][2] * SubFactor03 + m[0][3] * SubFactor04);
-        ret[1][2] = - (m[0][0] * SubFactor01 - m[0][1] * SubFactor03 + m[0][3] * SubFactor05);
-        ret[1][3] = + (m[0][0] * SubFactor02 - m[0][1] * SubFactor04 + m[0][2] * SubFactor05);
+        ret[1][0] = - (m[0][1] * s00 - m[0][2] * s01 + m[0][3] * s02);
+        ret[1][1] = + (m[0][0] * s00 - m[0][2] * s03 + m[0][3] * s04);
+        ret[1][2] = - (m[0][0] * s01 - m[0][1] * s03 + m[0][3] * s05);
+        ret[1][3] = + (m[0][0] * s02 - m[0][1] * s04 + m[0][2] * s05);
 
-        ret[2][0] = + (m[0][1] * SubFactor06 - m[0][2] * SubFactor07 + m[0][3] * SubFactor08);
-        ret[2][1] = - (m[0][0] * SubFactor06 - m[0][2] * SubFactor09 + m[0][3] * SubFactor10);
-        ret[2][2] = + (m[0][0] * SubFactor11 - m[0][1] * SubFactor09 + m[0][3] * SubFactor12);
-        ret[2][3] = - (m[0][0] * SubFactor08 - m[0][1] * SubFactor10 + m[0][2] * SubFactor12);
+        ret[2][0] = + (m[0][1] * s06 - m[0][2] * s07 + m[0][3] * s08);
+        ret[2][1] = - (m[0][0] * s06 - m[0][2] * s09 + m[0][3] * s10);
+        ret[2][2] = + (m[0][0] * s11 - m[0][1] * s09 + m[0][3] * s12);
+        ret[2][3] = - (m[0][0] * s08 - m[0][1] * s10 + m[0][2] * s12);
 
-        ret[3][0] = - (m[0][1] * SubFactor13 - m[0][2] * SubFactor14 + m[0][3] * SubFactor15);
-        ret[3][1] = + (m[0][0] * SubFactor13 - m[0][2] * SubFactor16 + m[0][3] * SubFactor17);
-        ret[3][2] = - (m[0][0] * SubFactor14 - m[0][1] * SubFactor16 + m[0][3] * SubFactor18);
-        ret[3][3] = + (m[0][0] * SubFactor15 - m[0][1] * SubFactor17 + m[0][2] * SubFactor18);
+        ret[3][0] = - (m[0][1] * s13 - m[0][2] * s14 + m[0][3] * s15);
+        ret[3][1] = + (m[0][0] * s13 - m[0][2] * s16 + m[0][3] * s17);
+        ret[3][2] = - (m[0][0] * s14 - m[0][1] * s16 + m[0][3] * s18);
+        ret[3][3] = + (m[0][0] * s15 - m[0][1] * s17 + m[0][2] * s18);
 
         float det =
             + m[0][0] * ret[0][0]

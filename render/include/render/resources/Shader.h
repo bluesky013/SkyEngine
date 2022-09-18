@@ -21,6 +21,17 @@ namespace sky {
         VkFormat format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     };
 
+    struct ShaderAssetData {
+        VkShaderStageFlagBits stage;
+        std::vector<uint32_t> spv;
+
+        template <class Archive>
+        void serialize(Archive &ar)
+        {
+            ar(stage, spv);
+        }
+    };
+
     class Shader : public RenderResource {
     public:
         struct Descriptor {
@@ -38,6 +49,8 @@ namespace sky {
 
         void SetData(std::vector<uint32_t> &&data);
 
+        void SetData(const std::vector<uint32_t> &data);
+
         void InitRHI();
 
         bool IsValid() const override;
@@ -51,6 +64,8 @@ namespace sky {
         const NameTable &GetNameTable() const;
 
         uint32_t GetConstantBlockSize() const;
+
+        static std::shared_ptr<Shader> CreateFromData(const ShaderAssetData &data);
 
     private:
         void BuildReflection();
@@ -106,6 +121,9 @@ namespace sky {
 
         void LoadShader(const std::string &vs, const std::string &fs);
 
+        void SetVS(const RDShaderPtr &vs);
+        void SetFS(const RDShaderPtr &fs);
+
         bool IsValid() const override;
 
         inline RDShaderPtr GetVS() const
@@ -123,5 +141,18 @@ namespace sky {
         RDShaderPtr fs;
     };
     using RDGfxShaderTablePtr = std::shared_ptr<GraphicsShaderTable>;
+
+    template <>
+    struct AssetTraits<Shader> {
+        using DataType                                = ShaderAssetData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E71838F5-40F3-470A-883C-401D8796B5FD");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
+        static RDShaderPtr CreateFromData(const DataType &data)
+        {
+            return Shader::CreateFromData(data);
+        }
+    };
+    using ShaderAssetPtr = std::shared_ptr<Asset<Shader>>;
 
 } // namespace sky

@@ -20,12 +20,12 @@ namespace sky {
         };
 
         inline Vector3();
-        inline Vector3(float v);
+        inline explicit Vector3(float v);
         inline Vector3(float x_, float y_, float z_);
 
-        inline Vector3 Vector3::Cross(const Vector3 &rhs) const;
-        inline float Vector3::Dot(const Vector3 &rhs) const;
-        inline void Vector3::Normalize();
+        inline Vector3 Cross(const Vector3 &rhs) const;
+        inline float Dot(const Vector3 &rhs) const;
+        inline void Normalize();
 
         inline Vector3 operator+(const Vector3& rhs) const;
 

@@ -20,7 +20,7 @@ namespace sky {
         template <typename T, typename... Args>
         Any(std::in_place_type_t<T>, Args &&...args) : data{0}, info(TypeInfoObj<T>::Get()->RtInfo())
         {
-            Construct();
+            CheckMemory();
             new (Data()) T{std::forward<Args>(args)...};
         }
 
@@ -42,26 +42,29 @@ namespace sky {
         Any(const Any &any)
         {
             info = any.info;
-            Construct();
+            CheckMemory();
             Copy(any);
         }
 
         Any &operator=(const Any &any)
         {
             info = any.info;
-            Construct();
+            CheckMemory();
+            Copy(any);
             return *this;
         }
 
         Any(Any &&any)
         {
             info = any.info;
+            CheckMemory();
             Move(any);
         }
 
         Any &operator=(Any &&any)
         {
             info = any.info;
+            CheckMemory();
             Move(any);
             return *this;
         }
@@ -90,12 +93,14 @@ namespace sky {
             return info;
         }
 
-        operator bool()
+        operator bool() const
         {
             return Data() != nullptr;
         }
 
     private:
+        void CheckMemory();
+
         void Construct();
 
         void Destructor();

@@ -7,6 +7,7 @@
 #include <cxxopts.hpp>
 #include <builders/BuilderManager.h>
 #include <builders/model/ModelBuilder.h>
+#include <builders/shader/ShaderBuilder.h>
 
 int main(int argc, char *argv[])
 {
@@ -36,16 +37,21 @@ int main(int argc, char *argv[])
 
     sky::BuilderManager builderManager;
     builderManager.RegisterBuilder(new sky::ModelBuilder());
+    builderManager.RegisterBuilder(new sky::ShaderBuilder());
 
-    std::filesystem::path path = projectPath;
-    path.append("assets");
-    for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-        auto file = std::filesystem::absolute(entry.path());
-        if (is_directory(file)) {
-            continue;
+
+    std::vector<std::filesystem::path> pathList;
+    pathList.emplace_back(projectPath + "/assets/");
+    pathList.emplace_back(enginePath + "/assets/shaders/output/");
+
+    for (auto& path : pathList) {
+        for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+            auto file = std::filesystem::absolute(entry.path());
+            if (is_directory(file)) {
+                continue;
+            }
+            builderManager.Build(projectPath, file.string());
         }
-        builderManager.Build(projectPath, file.string());
     }
-
     return 0;
 }

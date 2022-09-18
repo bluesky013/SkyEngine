@@ -28,8 +28,8 @@ namespace sky {
                 .Samples(samples);
         };
 
-        auto dependencyFn = [](DF df, const PassDependencyInfo &info) {
-            df.SetLinkage(info.src, info.dst).SetBarrier(info.barrier).SetFlags(VK_DEPENDENCY_BY_REGION_BIT);
+        auto dependencyFn = [](DF df, const PassDependencyInfo &info, const drv::Barrier& barrier) {
+            df.SetLinkage(info.src, info.dst).SetBarrier(barrier).SetFlags(VK_DEPENDENCY_BY_REGION_BIT);
         };
 
         for (auto &subPass : subPasses) {
@@ -45,7 +45,7 @@ namespace sky {
             }
 
             for (auto &input : subPass.inputs) {
-                attachmentFn(subFactory.AddInput(), input.format, input.samples, input.usage);
+                attachmentFn(subFactory.AddInput(), input.format, input.samples, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
 
             if (subPass.depthStencil.format != VK_FORMAT_UNDEFINED) {
@@ -54,17 +54,17 @@ namespace sky {
             }
         }
 
-        dependencyFn(pF.AddDependency(), {VK_SUBPASS_EXTERNAL,
-                                          0,
+        dependencyFn(pF.AddDependency(), {VK_SUBPASS_EXTERNAL, 0},
                                           {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                           VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT}});
+                                           VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT});
         for (auto &dep : dependencies) {
-            dependencyFn(pF.AddDependency(), dep);
+            dependencyFn(pF.AddDependency(), dep,
+                         {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT});
         }
-        dependencyFn(pF.AddDependency(), {0,
-                                          VK_SUBPASS_EXTERNAL,
+        dependencyFn(pF.AddDependency(), {0, VK_SUBPASS_EXTERNAL},
                                           {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                                           VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT}});
+                                           VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT});
 
         auto device = DriverManager::Get()->GetDevice();
         renderPass  = pF.Create(*device);
@@ -92,7 +92,7 @@ namespace sky {
         }
 
         auto &subPass              = subPasses[index];
-        state.blends.attachmentNum = static_cast<uint32_t>(subPass.colors.size());
+        state.blends.blendStates.resize(subPass.colors.size());
         state.multiSample.samples  = subPass.colors.empty() ? subPass.depthStencil.samples : subPass.colors[0].samples;
     }
 

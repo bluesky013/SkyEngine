@@ -98,6 +98,7 @@ namespace sky {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] += rhs.m[i];
         }
+        return *this;
     }
 
     inline Matrix3& Matrix3::operator-=(const Matrix3& rhs)
@@ -105,6 +106,7 @@ namespace sky {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] -= rhs.m[i];
         }
+        return *this;
     }
 
     inline Matrix3& Matrix3::operator*=(const Matrix3& rhs)
@@ -112,6 +114,7 @@ namespace sky {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] *= rhs.m[i];
         }
+        return *this;
     }
 
     inline Matrix3& Matrix3::operator*=(float multiplier)
@@ -119,6 +122,7 @@ namespace sky {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] *= multiplier;
         }
+        return *this;
     }
 
     inline Matrix3& Matrix3::operator/=(float divisor)
@@ -126,6 +130,7 @@ namespace sky {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] /= divisor;
         }
+        return *this;
     }
 
     inline Vector3 Matrix3::operator*(const Vector3& rhs) const

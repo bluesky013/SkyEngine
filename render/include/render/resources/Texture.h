@@ -42,7 +42,7 @@ namespace sky {
 
         bool IsValid() const override;
 
-        static std::shared_ptr<Texture> CreateFromImage(RDImagePtr image, const Texture::Descriptor &desc);
+        static std::shared_ptr<Texture> CreateFromImage(const RDImagePtr &image, const Texture::Descriptor &desc);
 
     private:
         Descriptor        descriptor;

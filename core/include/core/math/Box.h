@@ -12,7 +12,7 @@ namespace sky {
         Vector3 min;
         Vector3 max;
 
-        Box Combine(const Box &rhs)
+        Box Combine(const Box &rhs) const
         {
             Box res = {};
             res.min = Min(min, rhs.min);

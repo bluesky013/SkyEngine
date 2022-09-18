@@ -1,5 +1,5 @@
 //
-// Created by Zach Lee on 2022/8/12.
+// Created by Zach Lee on 2022/9/14.
 //
 
 #pragma once
@@ -8,10 +8,10 @@
 
 namespace sky {
 
-    class ModelBuilder : public BuilderBase {
+    class ShaderBuilder : public BuilderBase {
     public:
-        ModelBuilder();
-        virtual ~ModelBuilder() = default;
+        ShaderBuilder();
+        virtual ~ShaderBuilder() = default;
 
         virtual const std::vector<std::string>& GetExtensions() const override;
 

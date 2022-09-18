@@ -114,8 +114,8 @@ namespace sky::drv {
         blendInfo.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         blendInfo.logicOpEnable                       = VK_FALSE;
         blendInfo.logicOp                             = VK_LOGIC_OP_CLEAR;
-        blendInfo.attachmentCount                     = pipelineState.blends.attachmentNum;
-        blendInfo.pAttachments                        = (VkPipelineColorBlendAttachmentState *)(pipelineState.blends.attachments);
+        blendInfo.attachmentCount                     = static_cast<uint32_t>(pipelineState.blends.blendStates.size());
+        blendInfo.pAttachments                        = (VkPipelineColorBlendAttachmentState *)(pipelineState.blends.blendStates.data());
         blendInfo.blendConstants[0]                   = 0;
         blendInfo.blendConstants[1]                   = 0;
         blendInfo.blendConstants[2]                   = 0;

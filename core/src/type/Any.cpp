@@ -22,10 +22,17 @@ namespace sky {
         return info->size > BLOCK_SIZE ? ptr : &data[0];
     }
 
-    void Any::Construct()
+    void Any::CheckMemory()
     {
         if (info->size > BLOCK_SIZE) {
             ptr = malloc(info->size);
+        }
+    }
+
+    void Any::Construct()
+    {
+        if (info->constructor != nullptr) {
+            info->constructor(ptr);
         }
     }
 

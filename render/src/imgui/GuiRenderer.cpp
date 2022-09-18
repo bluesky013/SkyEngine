@@ -53,15 +53,14 @@ namespace sky {
         technique->SetDepthTestEn(true);
         technique->SetDepthWriteEn(true);
         auto &pipelineState                                     = technique->GetState();
-        pipelineState.blends.attachments[0].blendEnable         = VK_TRUE;
-        pipelineState.blends.attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        pipelineState.blends.attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        pipelineState.blends.attachments[0].colorBlendOp        = VK_BLEND_OP_ADD;
-        pipelineState.blends.attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        pipelineState.blends.attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        pipelineState.blends.attachments[0].alphaBlendOp        = VK_BLEND_OP_ADD;
-        pipelineState.blends.attachments[0].colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        pipelineState.blends.blendStates.resize(1);
+        pipelineState.blends.blendStates[0].blendEnable         = VK_TRUE;
+        pipelineState.blends.blendStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        pipelineState.blends.blendStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.blendStates[0].colorBlendOp        = VK_BLEND_OP_ADD;
+        pipelineState.blends.blendStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        pipelineState.blends.blendStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        pipelineState.blends.blendStates[0].alphaBlendOp        = VK_BLEND_OP_ADD;
 
         primitive->pso       = technique->AcquirePso(vi);
         primitive->setBinder = technique->CreateSetBinder();

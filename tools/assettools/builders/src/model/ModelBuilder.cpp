@@ -22,12 +22,6 @@ namespace sky {
 
     static const char* TAG = "ModelBuilder";
 
-    struct PBRProperties {
-        Color baseColor;
-        float metallic;
-        float roughness;
-    };
-
     namespace builder {
 
         struct Scene {
@@ -70,15 +64,21 @@ namespace sky {
         data.buffers.emplace_back(outScene.buffer->GetUuid());
 
         index = 0;
-        for (const auto& mesh : outScene.meshes) {
-            SaveAsset(data, mesh, "mesh", projectPath, dataPath, fileWithoutExt, index);
-            data.meshes.emplace_back(mesh->GetUuid());
-        }
-
-        index = 0;
         for (const auto& [first, image] : outScene.images) {
             SaveAsset(data, image, "image", projectPath, dataPath, fileWithoutExt, index);
             data.images.emplace_back(image->GetUuid());
+        }
+
+        index = 0;
+        for (const auto& [first, material] : outScene.materials) {
+            SaveAsset(data, material, "mat", projectPath, dataPath, fileWithoutExt, index);
+            data.materials.emplace_back(material->GetUuid());
+        }
+
+        index = 0;
+        for (const auto& mesh : outScene.meshes) {
+            SaveAsset(data, mesh, "mesh", projectPath, dataPath, fileWithoutExt, index);
+            data.meshes.emplace_back(mesh->GetUuid());
         }
         return data;
     }
@@ -94,7 +94,7 @@ namespace sky {
         return res;
     }
 
-    static void ProcessTexture(const aiScene *scene, const aiString& path, builder::Scene& outScene)
+    static void ProcessTexture(const aiScene *scene, const aiString& path, builder::Scene& outScene, const std::string &name, MaterialAssetData &data)
     {
         auto iter = outScene.images.find(path.data);
         if (iter != outScene.images.end()) {
@@ -139,6 +139,7 @@ namespace sky {
         auto texAsset = std::make_shared<Asset<Image>>();
         texAsset->SetData(std::move(assetData));
         outScene.images.emplace(path.data, texAsset);
+        data.properties.emplace_back(PropertyAssetData{name, MaterialPropertyType::TEXTURE, Any(texAsset.get())});
     }
 
     static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
@@ -146,80 +147,81 @@ namespace sky {
         aiMaterial* material = scene->mMaterials[materialIndex];
         aiShadingMode shadingModel = aiShadingMode_Flat;
         material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
+
+        MaterialAssetPtr materialAsset = std::make_shared<Asset<Material>>();
+        outScene.materials.emplace(materialIndex, materialAsset);
+        MaterialAssetData data;
+
         LOG_I(TAG, "shader model %d", shadingModel);
-
-        for (uint32_t i = 0; i < material->mNumProperties; ++i) {
-            auto prop = material->mProperties[i];
-//            LOG_I(TAG, "material key %s, data %u", material->mProperties[i]->mKey.data, material->mProperties[i]->mDataLength);
-        }
-
-        PBRProperties properties{};
-
         aiString str;
         bool useMap = false;
         if (!material->Get(AI_MATKEY_USE_AO_MAP, useMap)) {
-            LOG_I(TAG, "use ao texture %d", useMap);
+            data.properties.emplace_back(PropertyAssetData{"useAOMap", MaterialPropertyType::BOOL, Any(useMap)});
         }
 
         if (!material->Get(AI_MATKEY_USE_EMISSIVE_MAP, useMap)) {
-            LOG_I(TAG, "use emissive texture %d", useMap);
+            data.properties.emplace_back(PropertyAssetData{"useEmissiveMap", MaterialPropertyType::BOOL, Any(useMap)});
         }
 
         if (!material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str)) {
-            ProcessTexture(scene, str, outScene);
+            ProcessTexture(scene, str, outScene, "normalMap", data);
         }
 
         if (!material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str)) {
-            ProcessTexture(scene, str, outScene);
+            ProcessTexture(scene, str, outScene, "emissiveMap", data);
         }
 
         if (!material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str)) {
-            ProcessTexture(scene, str, outScene);
+            ProcessTexture(scene, str, outScene, "lightMap", data);
         }
 
         if (shadingModel == aiShadingMode_PBR_BRDF) {
 
-            if (!material->Get(AI_MATKEY_BASE_COLOR, properties.baseColor)) {
-                LOG_I(TAG, "baseColor factor [%f, %f, %f, %f]", properties.baseColor.r, properties.baseColor.g, properties.baseColor.b, properties.baseColor.a);
+            float scalar;
+            Vector4 vec4;
+            if (!material->Get(AI_MATKEY_BASE_COLOR, vec4)) {
+                data.properties.emplace_back(PropertyAssetData{"factors.baseColor", MaterialPropertyType::VEC4, Any(vec4)});
             }
 
-            if (!material->Get(AI_MATKEY_METALLIC_FACTOR, properties.metallic)) {
-                LOG_I(TAG, "metallic factor %f", properties.metallic);
+            if (!material->Get(AI_MATKEY_METALLIC_FACTOR, scalar)) {
+                data.properties.emplace_back(PropertyAssetData{"factors.metallic", MaterialPropertyType::FLOAT, Any(scalar)});
             }
 
-            if (!material->Get(AI_MATKEY_ROUGHNESS_FACTOR, properties.roughness)) {
-                LOG_I(TAG, "roughness factor %f", properties.roughness);
+            if (!material->Get(AI_MATKEY_ROUGHNESS_FACTOR, scalar)) {
+                data.properties.emplace_back(PropertyAssetData{"factors.roughness", MaterialPropertyType::FLOAT, Any(scalar)});
             }
 
             if (!material->Get(AI_MATKEY_USE_COLOR_MAP, useMap)) {
-                LOG_I(TAG, "use baseColor texture %d", useMap);
+                data.properties.emplace_back(PropertyAssetData{"useBaseColorMap", MaterialPropertyType::BOOL, Any(useMap)});
             }
 
             if (!material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene);
+                ProcessTexture(scene, str, outScene, "baseColorMap", data);
+                data.properties.emplace_back(PropertyAssetData{"useBaseColorMap", MaterialPropertyType::BOOL, Any(useMap)});
             }
 
             if (!material->Get(AI_MATKEY_USE_METALLIC_MAP, useMap)) {
-                LOG_I(TAG, "use metallic texture %d", useMap);
+                data.properties.emplace_back(PropertyAssetData{"useMetallicMapMap", MaterialPropertyType::BOOL, Any(useMap)});
             }
 
             if (!material->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene);
+                ProcessTexture(scene, str, outScene, "metallicMap", data);
             }
 
             if (!material->Get(AI_MATKEY_USE_ROUGHNESS_MAP, useMap)) {
-                LOG_I(TAG, "use roughness texture %d", useMap);
+                data.properties.emplace_back(PropertyAssetData{"useRoughnessMap", MaterialPropertyType::BOOL, Any(useMap)});
             }
 
             if (!material->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene);
+                ProcessTexture(scene, str, outScene, "roughnessMap", data);
             }
 
             if (!material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene);
+                data.properties.emplace_back(PropertyAssetData{"useMetallicRoughnessMap", MaterialPropertyType::BOOL, Any(true)});
+                ProcessTexture(scene, str, outScene, "metallicRoughnessMap", data);
             }
         }
-
+        materialAsset->SetData(std::move(data));
     }
 
     static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, MeshAssetData& data, builder::Scene& outScene,
@@ -398,10 +400,10 @@ namespace sky {
         offset += size;
     }
 
-    void ModelBuilder::Build(const std::string& projectPath, const std::string& path) const
+    void ModelBuilder::Build(const std::string& projectPath, const std::filesystem::path& path) const
     {
         Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        const aiScene* scene = importer.ReadFile(path.string(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
             return;
         }
@@ -435,6 +437,7 @@ namespace sky {
         if (!std::filesystem::exists(dataPath)) {
             std::filesystem::create_directories(dataPath);
         }
+
         std::string fileWithoutExt = builderScene.filePath.filename().replace_extension().string();
         PrefabData outData = ToPrefab(projectPath, dataPath.string(), fileWithoutExt, builderScene);
         auto prefabAsset = std::make_shared<Asset<Prefab>>();
@@ -447,6 +450,9 @@ namespace sky {
         AssetManager::Get()->RegisterAssetHandler<Mesh>();
         AssetManager::Get()->RegisterAssetHandler<Buffer>();
         AssetManager::Get()->RegisterAssetHandler<Image>();
+        AssetManager::Get()->RegisterAssetHandler<Shader>();
+        AssetManager::Get()->RegisterAssetHandler<GraphicsTechnique>();
+        AssetManager::Get()->RegisterAssetHandler<Material>();
         AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }
 

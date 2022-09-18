@@ -71,31 +71,42 @@ namespace sky {
         matSet->Update();
     }
 
-    namespace impl {
-        void LoadFromPath(const std::string &path, MaterialAssetData &data)
-        {
-            auto          realPath = AssetManager::Get()->GetRealPath(path);
-            std::ifstream file(realPath, std::ios::binary);
-            if (!file.is_open()) {
-                return;
+    std::shared_ptr<Material> Material::CreateFromData(const MaterialAssetData &data)
+    {
+        auto mat = std::make_shared<Material>();
+        for (auto &prop : data.properties) {
+            if (prop.type == MaterialPropertyType::FLOAT) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<float>());
+            } else if (prop.type == MaterialPropertyType::INT) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<int32_t>());
+            } else if (prop.type == MaterialPropertyType::UINT) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<uint32_t>());
+            } else if (prop.type == MaterialPropertyType::INT64) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<int64_t>());
+            } else if (prop.type == MaterialPropertyType::UINT64) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<uint64_t>());
+            } else if (prop.type == MaterialPropertyType::DOUBLE) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<double>());
+            } else if (prop.type == MaterialPropertyType::VEC2) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<Vector2>());
+            } else if (prop.type == MaterialPropertyType::VEC3) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<Vector3>());
+            } else if (prop.type == MaterialPropertyType::VEC4) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<Vector4>());
+            } else if (prop.type == MaterialPropertyType::BOOL) {
+                mat->UpdateValue(prop.name, *prop.any.GetAsConst<bool>());
+            } else if (prop.type == MaterialPropertyType::TEXTURE) {
+                auto imageAssetId = *prop.any.GetAsConst<Uuid>();
+                auto imageAsset = AssetManager::Get()->LoadAsset<Image>(imageAssetId);
+                if (imageAsset) {
+                    auto image = imageAsset->CreateInstance();
+                    mat->UpdateTexture(prop.name, Texture::CreateFromImage(image, {}));
+                } else {
+                    mat->UpdateTexture(prop.name, Render::Get()->GetDefaultTexture());
+                }
             }
-            cereal::JSONInputArchive archive(file);
-            archive >> data;
         }
-
-        void SaveToPath(const std::string &path, const MaterialAssetData &data)
-        {
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            cereal::JSONOutputArchive binOutput(file);
-            binOutput << data;
-        }
-
-        RDMaterialPtr CreateFromData(const MaterialAssetData &data)
-        {
-            return {};
-        }
-    } // namespace impl
+        mat->InitRHI();
+        return mat;
+    }
 } // namespace sky
