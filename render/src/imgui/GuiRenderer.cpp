@@ -53,6 +53,7 @@ namespace sky {
         technique->SetDepthTestEn(true);
         technique->SetDepthWriteEn(true);
         auto &pipelineState                                     = technique->GetState();
+        pipelineState.raster.cullMode = VK_CULL_MODE_NONE;
         pipelineState.blends.blendStates.resize(1);
         pipelineState.blends.blendStates[0].blendEnable         = VK_TRUE;
         pipelineState.blends.blendStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -118,7 +119,7 @@ namespace sky {
         io.DeltaTime = time;
 
         ImGui::NewFrame();
-        auto context = ImGui::GetCurrentContext();
+        auto *context = ImGui::GetCurrentContext();
         for (auto &widget : widgets) {
             widget->OnRender(context);
         }
@@ -178,14 +179,15 @@ namespace sky {
                 if (clipMin.y < 0.0f) {
                     clipMin.y = 0.0f;
                 }
-                if (clipMax.x > width) {
-                    clipMax.x = (float)width;
+                if (clipMax.x > static_cast<float>(width)) {
+                    clipMax.x = static_cast<float>(width);
                 }
-                if (clipMax.y > height) {
-                    clipMax.y = (float)height;
+                if (clipMax.y > static_cast<float>(height)) {
+                    clipMax.y = static_cast<float>(height);
                 }
-                if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
+                if (clipMax.x < clipMin.x || clipMax.y < clipMin.y) {
                     continue;
+                }
 
                 GuiPrimitive::DrawCall drawCall{};
                 drawCall.scissor.offset.x      = (int32_t)(clipMin.x);
@@ -195,15 +197,15 @@ namespace sky {
 
                 drawCall.indexed.indexCount   = pcmd->ElemCount;
                 drawCall.indexed.firstIndex   = pcmd->IdxOffset + idxOffset;
-                drawCall.indexed.vertexOffset = pcmd->VtxOffset + vtxOffset;
+                drawCall.indexed.vertexOffset = static_cast<int32_t>(pcmd->VtxOffset + vtxOffset);
                 primitive->dc.emplace_back(drawCall);
             }
             idxOffset += cmdList->IdxBuffer.Size;
             vtxOffset += cmdList->VtxBuffer.Size;
         }
 
-        auto &views = scene.GetViews();
-        for (auto &view : views) {
+        const auto &views = scene.GetViews();
+        for (const auto &view : views) {
             view->AddRenderPrimitive(primitive.get());
         }
     }
@@ -215,7 +217,7 @@ namespace sky {
 
     void GuiRenderer::OnViewportSizeChange(const RenderViewport &viewport)
     {
-        auto &ext      = viewport.GetExtent();
+        const auto &ext      = viewport.GetExtent();
         width          = ext.width;
         height         = ext.height;
         ImGuiIO &io    = ImGui::GetIO();
@@ -244,14 +246,18 @@ namespace sky {
     void GuiRenderer::OnMouseWheel(int32_t wheelX, int32_t wheelY)
     {
         ImGuiIO &io = ImGui::GetIO();
-        if (wheelX > 0)
+        if (wheelX > 0) {
             io.MouseWheelH += 1;
-        if (wheelX < 0)
+        }
+        if (wheelX < 0) {
             io.MouseWheelH -= 1;
-        if (wheelY > 0)
+        }
+        if (wheelY > 0) {
             io.MouseWheel += 1;
-        if (wheelY < 0)
+        }
+        if (wheelY < 0) {
             io.MouseWheel -= 1;
+        }
     }
 
     void GuiRenderer::OnKeyUp(KeyButtonType key)
