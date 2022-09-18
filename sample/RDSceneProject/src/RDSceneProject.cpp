@@ -177,8 +177,8 @@ namespace sky {
         auto prefab = prefabAsset->CreateInstance();
         prefab->LoadToScene(*scene);
 
-//        auto matAsset = AssetManager::Get()->LoadAsset<Material>("data\\models\\DamagedHelmet_mat0.mat");
-//        matAsset->CreateInstance();
+//        auto techAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\base_color_forward.tech");
+//        techAsset->CreateInstance();
 
 //        uint32_t num = 100;
 //        for (uint32_t i = 0; i < num; ++i) {

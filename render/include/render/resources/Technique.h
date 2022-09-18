@@ -74,11 +74,12 @@ namespace sky {
         drv::GraphicsPipeline::Raster raster;
         drv::GraphicsPipeline::ColorBlend blends;
         std::string rasterTag;
+        std::unordered_map<Uuid, std::string> assetPathMap;
 
         template <class Archive>
         void save(Archive &ar) const
         {
-            ar(vs->GetUuid(), fs->GetUuid(), depthStencilState, raster, blends);
+            ar(vs->GetUuid(), fs->GetUuid(), depthStencilState, raster, blends, assetPathMap);
         }
 
         template <class Archive>
@@ -86,13 +87,13 @@ namespace sky {
         {
             Uuid vsId;
             Uuid fsId;
-            ar(vsId, fsId, depthStencilState, raster, blends);
+            ar(vsId, fsId, depthStencilState, raster, blends, assetPathMap);
 
             InitShader(vsId, vs);
             InitShader(fsId, fs);
         }
 
-        static void InitShader(const Uuid &id, ShaderAssetPtr &asset);
+        void InitShader(const Uuid &id, ShaderAssetPtr &asset);
     };
 
     class GraphicsTechnique : public RenderResource {
@@ -123,6 +124,12 @@ namespace sky {
         void SetDepthTestEn(bool enable);
 
         void SetDepthWriteEn(bool enable);
+
+        void SetDepthStencilState(const drv::GraphicsPipeline::DepthStencilState &ds);
+
+        void SetBlendState(const drv::GraphicsPipeline::ColorBlend &blends);
+
+        void SetRasterState(const drv::GraphicsPipeline::Raster &raster);
 
         drv::GraphicsPipeline::State &GetState();
 

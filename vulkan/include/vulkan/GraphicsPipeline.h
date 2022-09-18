@@ -32,7 +32,7 @@ namespace sky::drv {
             VkBool32        depthClampEnable        = VK_FALSE;
             VkBool32        rasterizerDiscardEnable = VK_FALSE;
             VkPolygonMode   polygonMode             = VK_POLYGON_MODE_FILL;
-            VkCullModeFlags cullMode                = VK_CULL_MODE_NONE;
+            VkCullModeFlags cullMode                = VK_CULL_MODE_BACK_BIT;
             VkFrontFace     frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
             VkBool32        depthBiasEnable         = VK_FALSE;
             float           depthBiasConstantFactor = 0.f;
@@ -50,11 +50,11 @@ namespace sky::drv {
         };
 
         struct DepthStencilState {
-            VkBool32         depthTestEnable       = false;
-            VkBool32         depthWriteEnable      = false;
+            bool             depthTestEnable       = false;
+            bool             depthWriteEnable      = false;
+            bool             depthBoundsTestEnable = VK_FALSE;
+            bool             stencilTestEnable     = VK_FALSE;
             VkCompareOp      depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
-            VkBool32         depthBoundsTestEnable = VK_FALSE;
-            VkBool32         stencilTestEnable     = VK_FALSE;
             VkStencilOpState front                 = {};
             VkStencilOpState back                  = {};
             float            minDepthBounds        = 0.f;
