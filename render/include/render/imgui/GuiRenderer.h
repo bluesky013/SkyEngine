@@ -91,7 +91,6 @@ namespace sky {
     private:
         void CheckBufferSize(uint64_t vertexSize, uint64_t indexSize);
 
-        RDGfxShaderTablePtr                      shaders;
         RDGfxTechniquePtr                        technique;
         RDBufferPtr                              vertexBuffer;
         RDBufferPtr                              indexBuffer;

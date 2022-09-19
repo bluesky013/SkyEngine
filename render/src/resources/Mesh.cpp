@@ -126,7 +126,7 @@ namespace sky {
 
     SubMesh SubMeshAsset::ToSubMesh() const
     {
-        return SubMesh{drawData, aabb, nullptr};
+        return SubMesh{drawData, aabb, material->CreateInstance()};
     }
 
     void BufferAssetView::InitBuffer(const Uuid &id)
@@ -152,5 +152,10 @@ namespace sky {
             builder.AddSubMesh(subMesh.ToSubMesh());
         }
         return mesh;
+    }
+
+    void SubMeshAsset::InitMaterial(const Uuid &id)
+    {
+        material = AssetManager::Get()->LoadAsset<Material>(id);
     }
 } // namespace sky

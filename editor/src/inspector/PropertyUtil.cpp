@@ -3,7 +3,7 @@
 //
 
 #include <core/math/Transform.h>
-#include <core/math/Vector.h>
+#include <core/math/Vector2.h>
 #include <editor/inspector/PropertyTransform.h>
 #include <editor/inspector/PropertyUtil.h>
 #include <editor/inspector/PropertyVectorX.h>

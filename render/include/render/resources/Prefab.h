@@ -39,7 +39,7 @@ namespace sky {
         template <class Archive>
         void serialize(Archive &ar)
         {
-            ar(nodes, buffers, meshes, images, assetPathMap);
+            ar(nodes, buffers, meshes, images, materials, assetPathMap);
         }
     };
 
@@ -58,6 +58,7 @@ namespace sky {
         std::vector<BufferAssetPtr> buffers;
         std::vector<MeshAssetPtr> meshes;
         std::vector<ImageAssetPtr> images;
+        std::vector<MaterialAssetPtr> materials;
     };
     using PrefabPtr = std::shared_ptr<Prefab>;
 

@@ -74,6 +74,13 @@ namespace sky {
     std::shared_ptr<Material> Material::CreateFromData(const MaterialAssetData &data)
     {
         auto mat = std::make_shared<Material>();
+        if (data.materialType) {
+            for (auto &tech : data.materialType->Data().gfxTechniques) {
+                mat->AddGfxTechnique(tech->CreateInstance());
+            }
+        }
+        mat->InitRHI();
+
         for (auto &prop : data.properties) {
             if (prop.type == MaterialPropertyType::FLOAT) {
                 mat->UpdateValue(prop.name, *prop.any.GetAsConst<float>());
@@ -106,7 +113,21 @@ namespace sky {
                 }
             }
         }
-        mat->InitRHI();
+        mat->Update();
         return mat;
     }
+
+    void MaterialType::InitTechnique(const std::vector<Uuid> &gfxIds)
+    {
+        gfxTechniques.reserve(gfxIds.size());
+        for (auto& id : gfxIds) {
+            gfxTechniques.emplace_back(AssetManager::Get()->LoadAsset<GraphicsTechnique>(assetPathMap[id]));
+        }
+    }
+
+    void MaterialAssetData::InitMaterialType(const Uuid &id)
+    {
+        materialType = AssetManager::Get()->LoadAsset<MaterialType>(assetPathMap[id]);
+    }
+
 } // namespace sky

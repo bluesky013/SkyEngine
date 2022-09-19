@@ -152,6 +152,7 @@ namespace sky {
         AssetManager::Get()->RegisterAssetHandler<Image>();
         AssetManager::Get()->RegisterAssetHandler<Shader>();
         AssetManager::Get()->RegisterAssetHandler<GraphicsTechnique>();
+        AssetManager::Get()->RegisterAssetHandler<MaterialType>();
         AssetManager::Get()->RegisterAssetHandler<Material>();
         AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }

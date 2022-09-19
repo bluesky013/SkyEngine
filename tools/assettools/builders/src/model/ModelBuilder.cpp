@@ -142,7 +142,7 @@ namespace sky {
         data.properties.emplace_back(PropertyAssetData{name, MaterialPropertyType::TEXTURE, Any(texAsset.get())});
     }
 
-    static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene)
+    static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene, SubMeshAsset &subMesh)
     {
         aiMaterial* material = scene->mMaterials[materialIndex];
         aiShadingMode shadingModel = aiShadingMode_Flat;
@@ -151,8 +151,14 @@ namespace sky {
         MaterialAssetPtr materialAsset = std::make_shared<Asset<Material>>();
         outScene.materials.emplace(materialIndex, materialAsset);
         MaterialAssetData data;
-
         LOG_I(TAG, "shader model %d", shadingModel);
+
+        std::string baseColorTypePath = "data/techniques/base_color.mtype";
+        Uuid typeId = Uuid::CreateWithSeed(Fnv1a32(baseColorTypePath));
+        data.materialType = std::make_shared<Asset<MaterialType>>();
+        data.materialType->SetUuid(typeId);
+        data.assetPathMap.emplace(typeId, baseColorTypePath);
+
         aiString str;
         bool useMap = false;
         if (!material->Get(AI_MATKEY_USE_AO_MAP, useMap)) {
@@ -222,6 +228,7 @@ namespace sky {
             }
         }
         materialAsset->SetData(std::move(data));
+        subMesh.material = materialAsset;
     }
 
     static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, MeshAssetData& data, builder::Scene& outScene,
@@ -288,7 +295,7 @@ namespace sky {
             outScene.indices.emplace_back(face.mIndices[2]);
         }
 
-        ProcessMaterial(scene, mesh->mMaterialIndex, outScene);
+        ProcessMaterial(scene, mesh->mMaterialIndex, outScene, subMesh);
 
         data.subMeshes.emplace_back(subMesh);
     }
@@ -452,6 +459,7 @@ namespace sky {
         AssetManager::Get()->RegisterAssetHandler<Image>();
         AssetManager::Get()->RegisterAssetHandler<Shader>();
         AssetManager::Get()->RegisterAssetHandler<GraphicsTechnique>();
+        AssetManager::Get()->RegisterAssetHandler<MaterialType>();
         AssetManager::Get()->RegisterAssetHandler<Material>();
         AssetManager::Get()->RegisterAssetHandler<Prefab>();
     }

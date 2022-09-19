@@ -77,7 +77,7 @@ namespace sky {
         return drawTag;
     }
 
-    RDGfxShaderTablePtr GraphicsTechnique::GetShaderTable() const
+    const RDGfxShaderTablePtr &GraphicsTechnique::GetShaderTable() const
     {
         return table;
     }
@@ -131,10 +131,13 @@ namespace sky {
         if (data.fs) {
             gfxShaderTable->SetFS(data.fs->CreateInstance());
         }
+        gfxShaderTable->InitRHI();
         gfxTech->SetShaderTable(gfxShaderTable);
         gfxTech->SetDepthStencilState(data.depthStencilState);
         gfxTech->SetBlendState(data.blends);
         gfxTech->SetRasterState(data.raster);
+        gfxTech->SetDrawTag(data.drawTag);
+        gfxTech->SetViewTag(data.viewTag);
         return gfxTech;
     }
 

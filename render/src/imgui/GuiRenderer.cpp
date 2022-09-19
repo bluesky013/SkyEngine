@@ -7,6 +7,7 @@
 #include <render/RenderViewport.h>
 #include <render/imgui/GuiManager.h>
 #include <render/imgui/GuiRenderer.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -26,10 +27,6 @@ namespace sky {
         primitive->SetViewTag(MAIN_CAMERA_TAG);
         primitive->SetDrawTag(UI_TAG);
 
-        shaders = std::make_shared<GraphicsShaderTable>();
-        shaders->LoadShader("shaders/Gui.vert.spv", "Shaders/Gui.frag.spv");
-        shaders->InitRHI();
-
         drv::VertexInput::Builder builder;
         auto                      vi = builder.Begin()
                       .AddAttribute(0, 0, offsetof(ImDrawVert, pos), VK_FORMAT_R32G32_SFLOAT)
@@ -45,29 +42,17 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
-        technique = std::make_shared<GraphicsTechnique>();
-        technique->SetShaderTable(shaders);
+        auto techAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\gui.tech");
+        technique = techAsset->CreateInstance();
         technique->SetRenderPass(pass);
-        technique->SetViewTag(MAIN_CAMERA_TAG);
-        technique->SetDrawTag(0x01); // TODO
-        technique->SetDepthTestEn(true);
-        technique->SetDepthWriteEn(true);
-        auto &pipelineState                                     = technique->GetState();
-        pipelineState.raster.cullMode = VK_CULL_MODE_NONE;
-        pipelineState.blends.blendStates.resize(1);
-        pipelineState.blends.blendStates[0].blendEnable         = VK_TRUE;
-        pipelineState.blends.blendStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        pipelineState.blends.blendStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        pipelineState.blends.blendStates[0].colorBlendOp        = VK_BLEND_OP_ADD;
-        pipelineState.blends.blendStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        pipelineState.blends.blendStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        pipelineState.blends.blendStates[0].alphaBlendOp        = VK_BLEND_OP_ADD;
+        auto &table = technique->GetShaderTable();
+        auto layout = table->GetPipelineLayout();
 
         primitive->pso       = technique->AcquirePso(vi);
         primitive->setBinder = technique->CreateSetBinder();
-        primitive->constants = drv::PushConstants::CreateFromPipelineLayout(shaders->GetPipelineLayout());
+        primitive->constants = drv::PushConstants::CreateFromPipelineLayout(layout);
 
-        pool.reset(DescriptorPool::CreatePool(shaders->GetPipelineLayout()->GetLayout(0), {1}));
+        pool.reset(DescriptorPool::CreatePool(layout->GetLayout(0), {1}));
         primitive->set = pool->Allocate();
         primitive->set->UpdateTexture(0, GuiManager::Get()->GetFontTexture());
         primitive->set->Update();

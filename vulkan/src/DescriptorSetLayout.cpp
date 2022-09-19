@@ -27,6 +27,7 @@ namespace sky::drv {
         descriptor = des;
 
         std::vector<VkDescriptorSetLayoutBinding>    bindings;
+        std::vector<VkDescriptorBindingFlags>        bindingFlags;
         std::vector<VkDescriptorUpdateTemplateEntry> entries;
         std::list<VkSampler>                         samplers;
 
@@ -41,6 +42,7 @@ namespace sky::drv {
             layoutBinding.stageFlags                   = desInfo.stageFlags;
             layoutBinding.pImmutableSamplers           = nullptr;
             bindings.emplace_back(layoutBinding);
+            bindingFlags.emplace_back(desInfo.bindingFlags);
 
             if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
                 layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
@@ -58,8 +60,14 @@ namespace sky::drv {
             entries.emplace_back(templateEntry);
         }
 
+        VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};
+        setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        setLayoutBindingFlags.bindingCount = static_cast<uint32_t>(bindingFlags.size());
+        setLayoutBindingFlags.pBindingFlags = bindingFlags.data();
+
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.pNext                           = &setLayoutBindingFlags;
         layoutInfo.bindingCount                    = static_cast<uint32_t>(bindings.size());
         layoutInfo.pBindings                       = bindings.data();
         layout                                     = device.GetDescriptorSetLayout(hash, &layoutInfo);

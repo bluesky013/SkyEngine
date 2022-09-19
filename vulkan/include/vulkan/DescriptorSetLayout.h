@@ -30,10 +30,11 @@ namespace sky::drv {
         ~DescriptorSetLayout();
 
         struct SetBinding {
-            VkDescriptorType   descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
-            uint32_t           descriptorCount = 1;
-            VkShaderStageFlags stageFlags      = 0;
-            uint32_t           size            = 0;
+            VkDescriptorType         descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
+            uint32_t                 descriptorCount = 1;
+            VkShaderStageFlags       stageFlags      = 0;
+            uint32_t                 size            = 0; // TODO remove later
+            VkDescriptorBindingFlags bindingFlags    = 0;
         };
 
         struct Descriptor {

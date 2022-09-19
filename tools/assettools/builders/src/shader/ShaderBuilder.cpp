@@ -30,9 +30,9 @@ namespace sky {
         auto shader = std::make_shared<Asset<Shader>>();
         ShaderAssetData assetData = {};
 
-        if (shaderType == "vert") {
+        if (shaderType == ".vert") {
             assetData.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        } else if (shaderType == "frag") {
+        } else if (shaderType == ".frag") {
             assetData.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         }
         ReadBin(path.string(), assetData.spv);

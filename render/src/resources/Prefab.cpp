@@ -30,12 +30,16 @@ namespace sky {
             prefab->buffers.emplace_back(LoadAsset<Buffer>(buffer, data));
         }
 
-        for (auto& mesh : data.meshes) {
-            prefab->meshes.emplace_back(LoadAsset<Mesh>(mesh, data));
+        for (auto& mat : data.materials) {
+            prefab->materials.emplace_back(LoadAsset<Material>(mat, data));
         }
 
         for (auto& image : data.images) {
             prefab->images.emplace_back(LoadAsset<Image>(image, data));
+        }
+
+        for (auto& mesh : data.meshes) {
+            prefab->meshes.emplace_back(LoadAsset<Mesh>(mesh, data));
         }
 
         return prefab;
@@ -43,11 +47,6 @@ namespace sky {
 
     void Prefab::LoadToScene(RenderScene &scene)
     {
-        // init material
-        auto colorTable = std::make_shared<GraphicsShaderTable>();
-        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
-        colorTable->InitRHI();
-
         auto        pass        = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
         subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_4_BIT});
@@ -55,28 +54,17 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
-        auto colorTech = std::make_shared<GraphicsTechnique>();
-        colorTech->SetShaderTable(colorTable);
-        colorTech->SetRenderPass(pass);
-        colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(FORWARD_TAG);
-        colorTech->SetDepthTestEn(true);
-        colorTech->SetDepthWriteEn(true);
-
-        auto material = std::make_shared<Material>();
-        material->AddGfxTechnique(colorTech);
-        material->InitRHI();
-
-        material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
-        material->Update();
-
-
         auto *smFeature  = scene.GetFeature<StaticMeshFeature>();
         for (auto& node : nodes) {
             if (node.meshIndex != ~(0u)) {
                 StaticMesh *staticMesh = smFeature->Create();
                 RDMeshPtr mesh = meshes[node.meshIndex]->CreateInstance();
-                mesh->SetMaterial(material, 0);
+
+                auto &mat = mesh->GetSubMesh(0).material;
+                mat->GetGraphicTechniques()[0]->SetRenderPass(pass); // TODO
+                mat->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
+                mat->Update();
+
                 staticMesh->SetMesh(mesh);
                 staticMesh->SetWorldMatrix(node.transform);
             }

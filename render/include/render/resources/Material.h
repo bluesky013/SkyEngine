@@ -13,6 +13,33 @@
 
 namespace sky {
 
+    struct MaterialType {
+        std::vector<GfxTechniqueAssetPtr> gfxTechniques;
+        std::unordered_map<Uuid, std::string> assetPathMap;
+
+        template <class Archive>
+        void save(Archive &ar) const
+        {
+            std::vector<Uuid> uuids;
+            uuids.reserve(gfxTechniques.size());
+            for (auto &tech : gfxTechniques) {
+                uuids.emplace_back(tech->GetUuid());
+            }
+            ar(uuids, assetPathMap);
+        }
+
+        template <class Archive>
+        void load(Archive &ar)
+        {
+            std::vector<Uuid> uuids;
+            ar(uuids, assetPathMap);
+            InitTechnique(uuids);
+        }
+
+        void InitTechnique(const std::vector<Uuid> &gfxIds);
+    };
+    using MaterialTypeAssetPtr = std::shared_ptr<Asset<MaterialType>>;
+
     enum class MaterialPropertyType : uint32_t {
         FLOAT,
         INT,
@@ -102,12 +129,24 @@ namespace sky {
 
     struct MaterialAssetData {
         std::vector<PropertyAssetData> properties;
+        MaterialTypeAssetPtr materialType;
+        std::unordered_map<Uuid, std::string> assetPathMap;
 
         template <class Archive>
-        void serialize(Archive &ar)
+        void save(Archive &ar) const
         {
-            ar(properties);
+            ar(properties, materialType->GetUuid(), assetPathMap);
         }
+
+        template <class Archive>
+        void load(Archive &ar)
+        {
+            Uuid id;
+            ar(properties, id, assetPathMap);
+            InitMaterialType(id);
+        }
+
+        void InitMaterialType(const Uuid &id);
     };
 
     class Material : public RenderResource {
@@ -170,4 +209,16 @@ namespace sky {
         }
     };
     using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
+
+    template <>
+    struct AssetTraits<MaterialType> {
+        using DataType                                = MaterialType;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("05CEFCD1-9D0F-4AE3-9232-9349F76562FF");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
+
+        static std::shared_ptr<MaterialType> CreateFromData(const DataType &data)
+        {
+            return {};
+        }
+    };
 } // namespace sky
