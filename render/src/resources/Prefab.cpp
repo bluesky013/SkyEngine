@@ -43,11 +43,6 @@ namespace sky {
 
     void Prefab::LoadToScene(RenderScene &scene)
     {
-        // init material
-        auto colorTable = std::make_shared<GraphicsShaderTable>();
-        colorTable->LoadShader("shaders/Standard.vert.spv", "shaders/BaseColor.frag.spv");
-        colorTable->InitRHI();
-
         auto        pass        = std::make_shared<Pass>();
         SubPassInfo subPassInfo = {};
         subPassInfo.colors.emplace_back(AttachmentInfo{VK_FORMAT_B8G8R8A8_UNORM, VK_SAMPLE_COUNT_4_BIT});
@@ -55,13 +50,11 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
-        auto colorTech = std::make_shared<GraphicsTechnique>();
-        colorTech->SetShaderTable(colorTable);
+        auto colorTechAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\base_color_forward.tech");
+        auto colorTech = colorTechAsset->CreateInstance();
         colorTech->SetRenderPass(pass);
         colorTech->SetViewTag(MAIN_CAMERA_TAG);
         colorTech->SetDrawTag(FORWARD_TAG);
-        colorTech->SetDepthTestEn(true);
-        colorTech->SetDepthWriteEn(true);
 
         auto material = std::make_shared<Material>();
         material->AddGfxTechnique(colorTech);

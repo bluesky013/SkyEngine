@@ -69,7 +69,7 @@ namespace sky {
                 ds.depthTestEnable = dsObject["depthTestEnable"].GetBool();
             }
             if (dsObject.HasMember("depthWriteEnable")) {
-                ds.depthTestEnable = dsObject["depthWriteEnable"].GetBool();
+                ds.depthWriteEnable = dsObject["depthWriteEnable"].GetBool();
             }
         }
     }

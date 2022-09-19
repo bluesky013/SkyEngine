@@ -12,7 +12,7 @@ TEST(TransformTest, BasicTest)
 {
     Transform trans   = {};
     trans.translation = Vector3(1.f, 0.f, 0.f);
-    trans.rotation    = glm::angleAxis(30.f / 180.f * 3.1415926f, Vector3(0.f, 1.f, 0.f));
+    trans.rotation    = Quaternion(30.f / 180.f * 3.1415926f, Vector3(0.f, 1.f, 0.f));
 
     Transform inverse = trans.GetInverse();
     Transform result  = trans * inverse;
@@ -25,10 +25,13 @@ TEST(TransformTest, BasicTest)
 
 TEST(TransformTest, MatrixTest)
 {
+    Vector3 axis = Vector3(0.3f, 0.7f, 0.2f);
+    axis.Normalize();
+
     Transform trans   = {};
     trans.translation = Vector3(0.5f, 0.9f, 1.3f);
     trans.scale       = Vector3(0.5f, 1.f, 2.f);
-    trans.rotation    = glm::angleAxis(30.f / 180.f * 3.1415926f, glm::normalize(Vector3(0.3f, 0.7f, 0.2f)));
+    trans.rotation    = Quaternion(30.f / 180.f * 3.1415926f, axis);
 
     Matrix4   matrix = trans.ToMatrix();
     Transform result = Transform::FromMatrix(matrix);
