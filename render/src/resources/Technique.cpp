@@ -136,6 +136,8 @@ namespace sky {
         gfxTech->SetDepthStencilState(data.depthStencilState);
         gfxTech->SetBlendState(data.blends);
         gfxTech->SetRasterState(data.raster);
+        gfxTech->SetDrawTag(data.drawTag);
+        gfxTech->SetViewTag(data.viewTag);
         return gfxTech;
     }
 

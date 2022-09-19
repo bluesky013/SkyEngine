@@ -30,12 +30,16 @@ namespace sky {
             prefab->buffers.emplace_back(LoadAsset<Buffer>(buffer, data));
         }
 
-        for (auto& mesh : data.meshes) {
-            prefab->meshes.emplace_back(LoadAsset<Mesh>(mesh, data));
+        for (auto& mat : data.materials) {
+            prefab->materials.emplace_back(LoadAsset<Material>(mat, data));
         }
 
         for (auto& image : data.images) {
             prefab->images.emplace_back(LoadAsset<Image>(image, data));
+        }
+
+        for (auto& mesh : data.meshes) {
+            prefab->meshes.emplace_back(LoadAsset<Mesh>(mesh, data));
         }
 
         return prefab;
@@ -50,26 +54,17 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
-        auto colorTechAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\base_color_forward.tech");
-        auto colorTech = colorTechAsset->CreateInstance();
-        colorTech->SetRenderPass(pass);
-        colorTech->SetViewTag(MAIN_CAMERA_TAG);
-        colorTech->SetDrawTag(FORWARD_TAG);
-
-        auto material = std::make_shared<Material>();
-        material->AddGfxTechnique(colorTech);
-        material->InitRHI();
-
-        material->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
-        material->Update();
-
-
         auto *smFeature  = scene.GetFeature<StaticMeshFeature>();
         for (auto& node : nodes) {
             if (node.meshIndex != ~(0u)) {
                 StaticMesh *staticMesh = smFeature->Create();
                 RDMeshPtr mesh = meshes[node.meshIndex]->CreateInstance();
-                mesh->SetMaterial(material, 0);
+
+                auto &mat = mesh->GetSubMesh(0).material;
+                mat->GetGraphicTechniques()[0]->SetRenderPass(pass); // TODO
+                mat->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
+                mat->Update();
+
                 staticMesh->SetMesh(mesh);
                 staticMesh->SetWorldMatrix(node.transform);
             }

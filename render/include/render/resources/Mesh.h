@@ -92,15 +92,26 @@ namespace sky {
     };
 
     struct SubMeshAsset {
-        SubMeshDrawData drawData;
-        Box             aabb;
+        SubMeshDrawData  drawData;
+        MaterialAssetPtr material;
+        Box              aabb;
 
         template <class Archive>
-        void serialize(Archive &ar)
+        void save(Archive &ar) const
         {
-            ar(drawData, aabb);
+            Uuid uuid;
+            ar(drawData, material->GetUuid(), aabb);
         }
 
+        template <class Archive>
+        void load(Archive &ar)
+        {
+            Uuid uuid;
+            ar(drawData, uuid, aabb);
+            InitMaterial(uuid);
+        }
+
+        void InitMaterial(const Uuid &id);
         SubMesh ToSubMesh() const;
     };
 

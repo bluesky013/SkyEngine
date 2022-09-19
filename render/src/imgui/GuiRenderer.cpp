@@ -45,8 +45,6 @@ namespace sky {
         auto techAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\gui.tech");
         technique = techAsset->CreateInstance();
         technique->SetRenderPass(pass);
-        technique->SetViewTag(MAIN_CAMERA_TAG);
-        technique->SetDrawTag(0x01); // TODO
         auto &table = technique->GetShaderTable();
         auto layout = table->GetPipelineLayout();
 

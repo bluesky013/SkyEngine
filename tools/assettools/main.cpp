@@ -9,6 +9,7 @@
 #include <builders/model/ModelBuilder.h>
 #include <builders/shader/ShaderBuilder.h>
 #include <builders/technique/TechniqueBuilder.h>
+#include <builders/technique/MaterialTypeBuilder.h>
 
 int main(int argc, char *argv[])
 {
@@ -40,12 +41,12 @@ int main(int argc, char *argv[])
     builderManager.RegisterBuilder(new sky::ModelBuilder());
     builderManager.RegisterBuilder(new sky::ShaderBuilder());
     builderManager.RegisterBuilder(new sky::TechniqueBuilder());
+    builderManager.RegisterBuilder(new sky::MaterialTypeBuilder());
 
 
     std::vector<std::filesystem::path> pathList;
     pathList.emplace_back(projectPath + "/assets/");
-    pathList.emplace_back(enginePath + "/assets/shaders/output/");
-    pathList.emplace_back(enginePath + "/assets/techniques/");
+    pathList.emplace_back(enginePath + "/assets/");
 
     for (auto& path : pathList) {
         for (auto& entry : std::filesystem::recursive_directory_iterator(path)) {

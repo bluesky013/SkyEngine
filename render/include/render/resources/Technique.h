@@ -73,13 +73,14 @@ namespace sky {
         drv::GraphicsPipeline::DepthStencilState depthStencilState;
         drv::GraphicsPipeline::Raster raster;
         drv::GraphicsPipeline::ColorBlend blends;
-        std::string rasterTag;
+        uint32_t viewTag;
+        uint32_t drawTag;
         std::unordered_map<Uuid, std::string> assetPathMap;
 
         template <class Archive>
         void save(Archive &ar) const
         {
-            ar(vs->GetUuid(), fs->GetUuid(), depthStencilState, raster, blends, assetPathMap);
+            ar(vs->GetUuid(), fs->GetUuid(), depthStencilState, raster, blends, viewTag, drawTag, assetPathMap);
         }
 
         template <class Archive>
@@ -87,7 +88,7 @@ namespace sky {
         {
             Uuid vsId;
             Uuid fsId;
-            ar(vsId, fsId, depthStencilState, raster, blends, assetPathMap);
+            ar(vsId, fsId, depthStencilState, raster, blends, viewTag, drawTag, assetPathMap);
 
             InitShader(vsId, vs);
             InitShader(fsId, fs);

@@ -1,0 +1,5 @@
+{
+    "gfxTechniques": [
+        "data\\techniques\\base_color_forward.tech"
+    ]
+}

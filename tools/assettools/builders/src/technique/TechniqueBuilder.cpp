@@ -153,6 +153,16 @@ namespace sky {
         }
     }
 
+    static void ProcessTag(rapidjson::Document &document, GfxTechniqueAssetData &data)
+    {
+        if (document.HasMember("view_tag")) {
+            data.viewTag = document["view_tag"].GetUint();
+        }
+        if (document.HasMember("draw_tag")) {
+            data.drawTag = document["draw_tag"].GetUint();
+        }
+    }
+
     static void ProcessGraphics(const std::string& dataPath, const std::filesystem::path& path, rapidjson::Document &document)
     {
         auto fileName = path.filename().replace_extension();
@@ -165,6 +175,7 @@ namespace sky {
         ProcessDepthStencil(document, data.depthStencilState);
         ProcessBlendStates(document, data.blends);
         ProcessRasterStates(document, data.raster);
+        ProcessTag(document, data);
         asset->SetData(std::move(data));
 
         std::filesystem::path outPath = dataPath;
