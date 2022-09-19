@@ -13,18 +13,51 @@
 
 using namespace sky::drv;
 
-TEST(VulkanTest, PipelineLayoutTest)
+static Driver *driver = nullptr;
+static Device *device = nullptr;
+
+class VulkanTest : public ::testing::Test {
+public:
+    static void SetUpTestSuite()
+    {
+        Driver::Descriptor drvDes = {};
+        drvDes.engineName         = "SkyEngine";
+        drvDes.appName            = "Test";
+        drvDes.enableDebugLayer   = true;
+
+        driver = Driver::Create(drvDes);
+
+        Device::Descriptor devDes = {};
+        device = driver->CreateDevice(devDes);
+    }
+
+    static void TearDownTestSuite()
+    {
+        if (device != nullptr) {
+            delete device;
+            device = nullptr;
+        }
+        Driver::Destroy(driver);
+    }
+
+    void SetUp()
+    {
+    }
+
+    void TearDown()
+    {
+    }
+
+};
+
+struct Vertex {
+    float pos[4];
+    float normal[4];
+    float color[4];
+};
+
+TEST_F(VulkanTest, PipelineLayoutTest)
 {
-    Driver::Descriptor drvDes = {};
-    drvDes.engineName         = "SkyEngine";
-    drvDes.appName            = "Test";
-    drvDes.enableDebugLayer   = true;
-
-    auto driver = Driver::Create(drvDes);
-
-    Device::Descriptor devDes = {};
-    auto               device = driver->CreateDevice(devDes);
-
     PipelineLayout::Descriptor pipelineLayoutDes = {};
 
     {
@@ -48,7 +81,7 @@ TEST(VulkanTest, PipelineLayoutTest)
     ASSERT_EQ(device->GetPipelineLayout(pipelineLayout->GetHash()), pipelineLayout->GetNativeHandle());
 }
 
-TEST(VulkanTest, ShaderOptionTest)
+TEST_F(VulkanTest, ShaderOptionTest)
 {
     ShaderOption::Builder builder;
 
@@ -93,10 +126,11 @@ TEST(VulkanTest, ShaderOptionTest)
     ASSERT_EQ(tData->d, 0.4f);
 }
 
-TEST(VulkanTest, VertexInputTest)
+TEST_F(VulkanTest, VertexInputTest)
 {
     VertexInput::Builder builder;
-    auto                 ptr = builder.Begin()
+
+    auto ptr = builder.Begin()
                    .AddAttribute(0, 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT)
                    .AddAttribute(1, 0, 16, VK_FORMAT_R32G32B32A32_SFLOAT)
                    .AddAttribute(2, 0, 32, VK_FORMAT_R32G32B32A32_SFLOAT)
@@ -105,4 +139,18 @@ TEST(VulkanTest, VertexInputTest)
                    .AddStream(1, 4, VK_VERTEX_INPUT_RATE_VERTEX)
                    .Build();
     ASSERT_NE(ptr.get(), nullptr);
+}
+
+TEST_F(VulkanTest, VulkanDescriptorIndexingTest)
+{
+    DescriptorSetLayout::Descriptor desc = {};
+    desc.bindings.emplace(0, DescriptorSetLayout::SetBinding{
+                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                 10,
+                                 VK_SHADER_STAGE_VERTEX_BIT,
+                                 0,
+                                 VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+    });
+    auto layout = device->CreateDeviceObject<DescriptorSetLayout>(desc);
+    ASSERT_EQ(!!layout, true);
 }

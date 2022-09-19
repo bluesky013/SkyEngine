@@ -66,7 +66,8 @@ namespace sky::drv {
         VmaAllocator     allocator;
 
         VkPhysicalDeviceProperties phyProps;
-        VkPhysicalDeviceFeatures   phyFeatures;
+        VkPhysicalDeviceFeatures2  phyFeatures = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;

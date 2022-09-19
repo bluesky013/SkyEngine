@@ -67,10 +67,15 @@ namespace sky::drv {
         std::vector<VkPhysicalDevice> phyDevices(count);
         vkEnumeratePhysicalDevices(instance, &count, phyDevices.data());
 
+        phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+        phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        phyFeatures.pNext = &phyIndexingFeatures;
+
         uint32_t i = 0;
         for (; i < count; ++i) {
             auto pDev = phyDevices[i];
-            vkGetPhysicalDeviceFeatures(pDev, &phyFeatures);
+            vkGetPhysicalDeviceFeatures2(pDev, &phyFeatures);
             vkGetPhysicalDeviceProperties(pDev, &phyProps);
 
             if (phyProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -102,13 +107,20 @@ namespace sky::drv {
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.multiViewport           = phyFeatures.multiViewport;
-        deviceFeatures.samplerAnisotropy       = phyFeatures.samplerAnisotropy;
-        deviceFeatures.pipelineStatisticsQuery = phyFeatures.pipelineStatisticsQuery;
-        deviceFeatures.inheritedQueries        = phyFeatures.inheritedQueries;
+        deviceFeatures.multiViewport           = phyFeatures.features.multiViewport;
+        deviceFeatures.samplerAnisotropy       = phyFeatures.features.samplerAnisotropy;
+        deviceFeatures.pipelineStatisticsQuery = phyFeatures.features.pipelineStatisticsQuery;
+        deviceFeatures.inheritedQueries        = phyFeatures.features.inheritedQueries;
+
+        VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
+        indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        indexingFeatures.runtimeDescriptorArray                    = phyIndexingFeatures.runtimeDescriptorArray;
+        indexingFeatures.descriptorBindingVariableDescriptorCount  = phyIndexingFeatures.descriptorBindingVariableDescriptorCount;
+        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        devInfo.pNext              = &indexingFeatures;
 
         devInfo.pEnabledFeatures        = &deviceFeatures;
         devInfo.enabledExtensionCount   = (uint32_t)DEVICE_EXTS.size();
