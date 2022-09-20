@@ -153,7 +153,7 @@ namespace sky {
         MaterialAssetData data;
         LOG_I(TAG, "shader model %d", shadingModel);
 
-        std::string baseColorTypePath = "data/techniques/base_color.mtype";
+        std::string baseColorTypePath = "data/techniques/StandardPBR.mtype";
         Uuid typeId = Uuid::CreateWithSeed(Fnv1a32(baseColorTypePath));
         data.materialType = std::make_shared<Asset<MaterialType>>();
         data.materialType->SetUuid(typeId);
@@ -182,19 +182,17 @@ namespace sky {
         }
 
         if (shadingModel == aiShadingMode_PBR_BRDF) {
-
             float scalar;
-            Vector4 vec4;
-            if (!material->Get(AI_MATKEY_BASE_COLOR, vec4)) {
-                data.properties.emplace_back(PropertyAssetData{"factors.baseColor", MaterialPropertyType::VEC4, Any(vec4)});
-            }
+            Vector4 vec4 = {1.f, 1.f, 1.f, 1.f};
+            material->Get(AI_MATKEY_BASE_COLOR, vec4);
+            data.properties.emplace_back(PropertyAssetData{"material.baseColor", MaterialPropertyType::VEC4, Any(vec4)});
 
             if (!material->Get(AI_MATKEY_METALLIC_FACTOR, scalar)) {
-                data.properties.emplace_back(PropertyAssetData{"factors.metallic", MaterialPropertyType::FLOAT, Any(scalar)});
+                data.properties.emplace_back(PropertyAssetData{"material.metallic", MaterialPropertyType::FLOAT, Any(scalar)});
             }
 
             if (!material->Get(AI_MATKEY_ROUGHNESS_FACTOR, scalar)) {
-                data.properties.emplace_back(PropertyAssetData{"factors.roughness", MaterialPropertyType::FLOAT, Any(scalar)});
+                data.properties.emplace_back(PropertyAssetData{"material.roughness", MaterialPropertyType::FLOAT, Any(scalar)});
             }
 
             if (!material->Get(AI_MATKEY_USE_COLOR_MAP, useMap)) {
@@ -245,6 +243,7 @@ namespace sky {
             auto& pos = mesh->mVertices[i];
             auto& normal = mesh->mNormals[i];
             auto& tangent = mesh->mTangents[i];
+            auto& biTangent = mesh->mBitangents[i];
 
             outScene.rawData.positions.emplace_back(pos.x);
             outScene.rawData.positions.emplace_back(pos.y);
@@ -260,6 +259,11 @@ namespace sky {
             outScene.rawData.tangents.emplace_back(tangent.y);
             outScene.rawData.tangents.emplace_back(tangent.z);
             outScene.rawData.tangents.emplace_back(1.0f);
+
+            outScene.rawData.biTangents.emplace_back(biTangent.x);
+            outScene.rawData.biTangents.emplace_back(biTangent.y);
+            outScene.rawData.biTangents.emplace_back(biTangent.z);
+            outScene.rawData.biTangents.emplace_back(1.0f);
 
             if (mesh->HasVertexColors(0)) {
                 auto& color = mesh->mColors[0][i];
@@ -320,6 +324,11 @@ namespace sky {
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].stride = sizeof(Vector4);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size   = 0;
 
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].buffer = outScene.buffer;
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].offset = outScene.rawData.biTangents.size() * sizeof(float);
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].stride = sizeof(Vector4);
+        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].size   = 0;
+
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].buffer = outScene.buffer;
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].offset = outScene.rawData.colors.size() * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].stride = sizeof(Vector4);
@@ -330,11 +339,12 @@ namespace sky {
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].stride = 2 * sizeof(float);
         data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size   = 0;
 
-        data.vertexDescriptions.emplace_back(VertexDesc{"inPos",     0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        data.vertexDescriptions.emplace_back(VertexDesc{"inNormal",  1, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        data.vertexDescriptions.emplace_back(VertexDesc{"inPos", 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        data.vertexDescriptions.emplace_back(VertexDesc{"inNormal", 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
         data.vertexDescriptions.emplace_back(VertexDesc{"inTangent", 2, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        data.vertexDescriptions.emplace_back(VertexDesc{"inColor",   3, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-        data.vertexDescriptions.emplace_back(VertexDesc{"inUv",      4, 0, VK_FORMAT_R32G32_SFLOAT});
+        data.vertexDescriptions.emplace_back(VertexDesc{"inBiTangent", 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        data.vertexDescriptions.emplace_back(VertexDesc{"inColor", 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
+        data.vertexDescriptions.emplace_back(VertexDesc{"inUv", 5, 0, VK_FORMAT_R32G32_SFLOAT});
 
         data.indexBuffer.buffer = outScene.buffer;
         data.indexBuffer.offset = outScene.indices.size() * sizeof(uint32_t);
@@ -343,20 +353,21 @@ namespace sky {
 
         data.indexType = VK_INDEX_TYPE_UINT32;
 
-        uint32_t indexOffset = 0;
+        uint32_t indexOffset  = 0;
         uint32_t vertexOffset = 0;
-        for(unsigned int i = 0; i < node->mNumMeshes; i++) {
-            aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+            aiMesh  *mesh      = scene->mMeshes[node->mMeshes[i]];
             uint32_t vertexNum = mesh->mNumVertices;
 
             ProcessSubMesh(mesh, scene, data, outScene, vertexOffset, indexOffset);
 
             data.indexBuffer.size += mesh->mNumFaces * 3 * sizeof(uint32_t);
             data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size   += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size  += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size    += vertexNum * sizeof(Vector4);
-            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size      += vertexNum * 2 * sizeof(float);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].size += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size += vertexNum * sizeof(Vector4);
+            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size += vertexNum * 2 * sizeof(float);
         }
 
         outMesh->SetData(std::move(data));
@@ -434,6 +445,7 @@ namespace sky {
         CopyData(ptr, offset, builderScene.rawData.positions, builderScene, MeshAttributeType::POSITION);
         CopyData(ptr, offset, builderScene.rawData.normals, builderScene, MeshAttributeType::NORMAL);
         CopyData(ptr, offset, builderScene.rawData.tangents, builderScene, MeshAttributeType::TANGENT);
+        CopyData(ptr, offset, builderScene.rawData.biTangents, builderScene, MeshAttributeType::BITANGENT);
         CopyData(ptr, offset, builderScene.rawData.colors, builderScene, MeshAttributeType::COLOR);
         CopyData(ptr, offset, builderScene.rawData.uvs, builderScene, MeshAttributeType::UV0);
         CopyData(ptr, offset, builderScene.indices, builderScene, MeshAttributeType::NUM);

@@ -48,6 +48,7 @@ namespace sky {
         POSITION = 0,
         NORMAL,
         TANGENT,
+        BITANGENT,
         COLOR,
         UV0,
         NUM,
@@ -57,12 +58,13 @@ namespace sky {
         std::vector<float> positions;
         std::vector<float> normals;
         std::vector<float> tangents;
+        std::vector<float> biTangents;
         std::vector<float> colors;
         std::vector<float> uvs;
 
         std::size_t Size() const
         {
-            return (positions.size() + normals.size() + tangents.size() + colors.size() + uvs.size()) * sizeof(float);
+            return (positions.size() + normals.size() + tangents.size() + biTangents.size() + colors.size() + uvs.size()) * sizeof(float);
         }
     };
 
