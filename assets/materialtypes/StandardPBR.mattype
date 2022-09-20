@@ -1,0 +1,5 @@
+{
+    "gfxTechniques": [
+        "data\\techniques\\StandardPBRForward.tech"
+    ]
+}

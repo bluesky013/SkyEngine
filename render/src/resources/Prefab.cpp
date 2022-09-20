@@ -62,9 +62,6 @@ namespace sky {
 
                 auto &mat = mesh->GetSubMesh(0).material;
                 mat->GetGraphicTechniques()[0]->SetRenderPass(pass); // TODO
-                mat->UpdateValue("material.baseColor", Vector4{1.f, 1.f, 1.f, 1.f});
-                mat->Update();
-
                 staticMesh->SetMesh(mesh);
                 staticMesh->SetWorldMatrix(node.transform);
             }

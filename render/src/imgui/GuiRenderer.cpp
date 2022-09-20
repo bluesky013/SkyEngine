@@ -42,7 +42,7 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
-        auto techAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\gui.tech");
+        auto techAsset = AssetManager::Get()->LoadAsset<GraphicsTechnique>("data\\techniques\\Gui.tech");
         technique = techAsset->CreateInstance();
         technique->SetRenderPass(pass);
         auto &table = technique->GetShaderTable();

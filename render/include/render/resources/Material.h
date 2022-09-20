@@ -181,6 +181,7 @@ namespace sky {
                 return;
             }
             textures[iter->second.binding] = tex;
+            matSet->UpdateTexture(iter->second.binding, tex);
         }
 
         void Update();
