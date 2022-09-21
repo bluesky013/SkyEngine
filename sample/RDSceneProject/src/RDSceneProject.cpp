@@ -70,7 +70,7 @@ namespace sky {
 
             Matrix4 translation = Matrix4::Identity();
             translation.Translate(position);
-            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-30.f), angle, 0.f}));
+            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-10.f), angle, 0.f}));
 
 //            rotation.Translate(position);
 //            auto transform = glm::translate(glm::identity<Matrix4>(), position);
@@ -104,9 +104,9 @@ namespace sky {
         }
 
     private:
-        float         radius    = 5.f;
+        float         radius    = 3.f;
         float         angle     = 0.f;
-        Vector3       position  = Vector3(0.f, 2.f, 0.f);
+        Vector3       position  = Vector3(0.f, 0.5f, 0.f);
         RenderCamera *camera    = nullptr;
         StaticMesh  **meshes    = nullptr;
         Transform    *trans     = nullptr;

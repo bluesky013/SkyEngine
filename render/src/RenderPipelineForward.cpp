@@ -41,7 +41,7 @@ namespace sky {
     void RenderPipelineForward::BeginFrame(FrameGraph &frameGraph)
     {
         RenderPipeline::BeginFrame(frameGraph);
-        auto clearColor = drv::MakeClearColor(0.f, 0.f, 0.f, 0.f);
+        auto clearColor = drv::MakeClearColor(0.5f, 0.5f, 0.5f, 1.f);
         auto clearDS    = drv::MakeClearDepthStencil(1.f, 0);
 
         frameGraph.AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder &builder) {
