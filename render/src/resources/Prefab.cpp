@@ -45,6 +45,20 @@ namespace sky {
         return prefab;
     }
 
+    static void ProcessWorldMatrix(const std::vector<PrefabAssetNode>& nodes, size_t index, std::vector<Matrix4> &worldMatrices)
+    {
+        auto& node = nodes[index];
+        if (node.parentIndex == ~(0U)) {
+            worldMatrices[index] = node.transform;
+        } else {
+            auto &parent = worldMatrices[node.parentIndex];
+            worldMatrices[index] = parent * node.transform;
+        }
+        for (auto &child : node.children) {
+            ProcessWorldMatrix(nodes, child, worldMatrices);
+        }
+    }
+
     void Prefab::LoadToScene(RenderScene &scene)
     {
         auto        pass        = std::make_shared<Pass>();
@@ -54,8 +68,16 @@ namespace sky {
         pass->AddSubPass(subPassInfo);
         pass->InitRHI();
 
+        std::vector<Matrix4> worldMatrices(nodes.size());
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            if (nodes[i].parentIndex == ~(0U)) {
+                ProcessWorldMatrix(nodes, i, worldMatrices);
+            }
+        }
+
         auto *smFeature  = scene.GetFeature<StaticMeshFeature>();
-        for (auto& node : nodes) {
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            auto& node = nodes[i];
             if (node.meshIndex != ~(0u)) {
                 StaticMesh *staticMesh = smFeature->Create();
                 RDMeshPtr mesh = meshes[node.meshIndex]->CreateInstance();
@@ -63,7 +85,7 @@ namespace sky {
                 auto &mat = mesh->GetSubMesh(0).material;
                 mat->GetGraphicTechniques()[0]->SetRenderPass(pass); // TODO
                 staticMesh->SetMesh(mesh);
-                staticMesh->SetWorldMatrix(node.transform);
+                staticMesh->SetWorldMatrix(worldMatrices[i]);
             }
         }
     }

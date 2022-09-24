@@ -104,15 +104,15 @@ namespace sky {
 
     void Buffer::Update(bool release)
     {
-        Update(0, descriptor.size, release);
+        Update(0, 0, descriptor.size, release);
         if (release) {
             rawData.clear();
         }
     }
 
-    void Buffer::Update(uint64_t offset, uint64_t range, bool release)
+    void Buffer::Update(uint64_t offset, uint64_t rawOffset, uint64_t range, bool release)
     {
-        Update(rawData.data(), range, offset);
+        Update(rawData.data() + rawOffset, range, offset);
         if (release) {
             rawData.clear();
         }
@@ -176,7 +176,7 @@ namespace sky {
         , frameNum(frame)
         , blockStride(block)
         , bufferIndex(~(0u))
-        , currentFrame(0)
+        , currentFrame(frameNum - 1)
         , dynamicOffset(0)
         , isDirty(false)
     {
@@ -208,7 +208,7 @@ namespace sky {
         if (isDirty) {
             SwapBuffer();
             if (IsValid()) {
-                buffer->Update(offset + dynamicOffset, size);
+                buffer->Update(offset + dynamicOffset, offset, size);
             }
             isDirty = false;
         }

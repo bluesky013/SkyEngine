@@ -104,16 +104,14 @@ namespace sky {
         }
 
     private:
-        float         radius    = 3.f;
+        float         radius    = 5.f;
         float         angle     = 0.f;
-        Vector3       position  = Vector3(0.f, 0.5f, 0.f);
+        Vector3       position  = Vector3(0.f, 2.5f, 0.f);
         RenderCamera *camera    = nullptr;
         StaticMesh  **meshes    = nullptr;
         Transform    *trans     = nullptr;
         uint32_t      meshNum   = 0;
     };
-
-    static const char *BUFFER_PATH = "data\\models\\DamagedHelmet_buffer0.buffer";
 
     void RDSceneProject::Init()
     {
@@ -174,6 +172,8 @@ namespace sky {
 
 
         auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
+//        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\AlphaBlendModeTest.prefab");
+//        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Sponza.prefab");
         auto prefab = prefabAsset->CreateInstance();
         prefab->LoadToScene(*scene);
 

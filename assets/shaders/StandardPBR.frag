@@ -25,12 +25,19 @@ layout (set = 2, binding = 0) uniform MaterialInfo {
     vec4 baseColor;
     float metallic;
     float roughness;
+    float alphaCutoff;
+    bool useMask;
+    bool useBaseColorMap;
+    bool useNormalMap;
+    bool useEmissiveMap;
+    bool useAOMap;
+    bool useMetallicRoughnessMap;
 } material;
 
 layout (set = 2, binding = 1) uniform sampler2D baseColorMap;
 layout (set = 2, binding = 2) uniform sampler2D normalMap;
 layout (set = 2, binding = 3) uniform sampler2D emissiveMap;
-layout (set = 2, binding = 4) uniform sampler2D lightMap;
+layout (set = 2, binding = 4) uniform sampler2D aoMap;
 layout (set = 2, binding = 5) uniform sampler2D metallicRoughnessMap;
 
 const float PI = 3.1415926;
@@ -93,32 +100,53 @@ void main()
 {
     Light light;
     light.color = vec4(1.0, 1.0, 1.0, 1.0);
-    light.pos = vec4(0, 20, 0, 1.0);
+    light.pos = vec4(0, 20, 5, 1.0);
 
     vec3 N = normalize(normal);
-    vec3 T = normalize(tangent);
-    vec3 B = normalize(biTangent);
-    mat3 TBN = mat3(T, B, N);
 
-    vec4 baseColor = pow(texture(baseColorMap, uv), vec4(2.2)) * color * material.baseColor;
+    vec4 baseColor = color * material.baseColor;
+    if (material.useBaseColorMap) {
+        vec4 colorFromTex = texture(baseColorMap, uv);
+        baseColor = vec4(pow(colorFromTex.rgb, vec3(2.2)), colorFromTex.a) * baseColor;
+    }
 
-    vec3 tNormal = normalize(texture(normalMap, uv).xyz * 2.0 - 1.0);
-    N = normalize(TBN * tNormal);
+    if (material.useMask && baseColor.a < material.alphaCutoff) {
+        discard;
+    }
+
+    if (material.useNormalMap) {
+        vec3 tNormal = normalize(texture(normalMap, uv).xyz * 2.0 - 1.0);
+        vec3 T = normalize(tangent);
+        vec3 B = normalize(biTangent);
+        mat3 TBN = mat3(T, B, N);
+
+        N = normalize(TBN * tNormal);
+    }
+
     vec3 L = normalize(light.pos.xyz - pos);
     vec3 V = normalize(viewInfo.position - pos);
 
-    vec4 mr = texture(metallicRoughnessMap, uv);
-    float metallic = mr.b;
-    float roughness = mr.g;
+    float metallic = material.metallic;
+    float roughness = material.roughness;
+    if (material.useMetallicRoughnessMap) {
+        vec4 mr = texture(metallicRoughnessMap, uv);
+        metallic = mr.b;
+        roughness = mr.g;
+    }
 
     // brdf
-    vec3 color = CalculateBRDF(L, V, N, metallic, roughness, baseColor.rgb, light.color.rgb);
+    vec3 outColor = CalculateBRDF(L, V, N, metallic, roughness, baseColor.rgb, light.color.rgb);
 
-    vec3 emissive = texture(emissiveMap, uv).rgb;
-    float ao = texture(lightMap, uv).r;
+    if (material.useAOMap) {
+        float ao = texture(aoMap, uv).r;
+        outColor = outColor * ao;
+    }
 
-    vec3 outColor = color * ao + emissive;
+    if (material.useEmissiveMap) {
+        vec3 emissive = texture(emissiveMap, uv).rgb;
+        outColor += emissive;
+    }
+
     outColor = pow(outColor, vec3(1.0f / 2.2));
-
-    outFragColor = vec4(outColor, 1.0);
+    outFragColor = vec4(outColor, baseColor.a);
 }
