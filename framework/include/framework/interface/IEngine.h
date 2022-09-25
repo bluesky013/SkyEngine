@@ -17,7 +17,6 @@ namespace sky {
         std::vector<std::string> modules;
         SettingRegistry          setting;
 
-        bool     createWindow = true;
         uint32_t windowWidth  = 1366;
         uint32_t windowHeight = 768;
     };

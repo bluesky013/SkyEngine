@@ -3,6 +3,7 @@
 /.idea/
 /.vscode/
 /build/
+/build-release/
 /output/
 /glTF-Sample-Models-master/
 /thirdparty/build/
