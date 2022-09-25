@@ -16,7 +16,7 @@ namespace sky {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
-        winHandle = reinterpret_cast<void *>(wmInfo.info.win.window);
+        winHandle = reinterpret_cast<void *>(wmInfo.info.cocoa.window);
         return winHandle != nullptr;
     }
 
