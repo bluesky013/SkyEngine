@@ -18,13 +18,14 @@ namespace sky {
 
     struct PrefabAssetNode {
         Matrix4  transform;
-        uint32_t parentIndex = ~(0u);
         uint32_t meshIndex = ~(0u);
+        uint32_t parentIndex = ~(0u);
+        std::vector<uint32_t> children;
 
         template <class Archive>
         void serialize(Archive &ar)
         {
-            ar(transform, parentIndex, meshIndex);
+            ar(transform, meshIndex, parentIndex, children);
         }
     };
 

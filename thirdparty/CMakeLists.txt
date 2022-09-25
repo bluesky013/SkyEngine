@@ -123,30 +123,37 @@ function(sky_add_external_3rd)
         ${ARGN}
         )
 
-    ExternalProject_Add(
-        ${TMP_TARGET}
-        CMAKE_ARGS
-        ${TMP_COMPILE_OPTIONS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install/${TMP_DIR}
-        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Debug
-        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Release
-        -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Debug
-        -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Release
-        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/bin/Debug
-        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/bin/Release
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${TMP_DIR}
-        BINARY_DIR ${CMAKE_BINARY_DIR}/${TMP_DIR}
-    )
+    if (NOT ANDROID)
+        ExternalProject_Add(
+            ${TMP_TARGET}
+            CMAKE_ARGS
+            ${TMP_COMPILE_OPTIONS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install/${TMP_DIR}
+            -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Debug
+            -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Release
+            -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Debug
+            -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/lib/Release
+            -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/bin/Debug
+            -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=${CMAKE_BINARY_DIR}/install/${TMP_DIR}/bin/Release
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${TMP_DIR}
+            BINARY_DIR ${CMAKE_BINARY_DIR}/${TMP_DIR}
+        )
+    else()
+        ExternalProject_Add(
+            ${TMP_TARGET}
+            CMAKE_ARGS
+            ${TMP_COMPILE_OPTIONS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install/${TMP_DIR}
+            -DCMAKE_TOOLCHAIN_FILE=%ANDROID_NDK_HOME%/build/cmake/android.toolchain.cmake
+            -DANDROID_NDK=%ANDROID_NDK_HOME%
+            -DANDROID_ABI=arm64-v8a
+            -DANDROID_PLATFORM=android-21
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${TMP_DIR}
+            BINARY_DIR ${CMAKE_BINARY_DIR}/${TMP_DIR}
+        )
+    endif()
 endfunction()
 
 sky_add_external_3rd(TARGET vma
     DIR VulkanMemoryAllocator)
-
-sky_add_external_3rd(TARGET glm
-    DIR glm
-    COMPILE_OPTIONS
-    -DBUILD_SHARED_LIBS=OFF
-    -DBUILD_STATIC_LIBS=OFF
-    -DBUILD_TESTING=OFF)
 
 sky_add_external_3rd(TARGET rapidjson
     DIR rapidjson
@@ -212,11 +219,13 @@ sky_add_external_3rd(TARGET cxxopts
     -DCXXOPTS_BUILD_EXAMPLES=OFF
     -DCXXOPTS_BUILD_TESTS=OFF)
 
+if (NOT ANDROID)
 sky_add_external_3rd(TARGET sdl
     DIR sdl
     COMPILE_OPTIONS
     -DSDL_TEST=OFF
     -DSDL_SHARED=OFF)
+endif()
 
 sky_add_external_3rd(TARGET freetype
     DIR freetype

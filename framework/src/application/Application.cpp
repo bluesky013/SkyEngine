@@ -2,12 +2,11 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
-#include <SDL2/SDL.h>
 #include <chrono>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/application/Application.h>
-#include <framework/util/Performance.h>
+#include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
 
@@ -28,19 +27,10 @@ namespace sky {
     {
         LOG_I(TAG, "Application Init Start...");
 
-        if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-            LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());
-            return false;
-        }
-
         env = Environment::Get();
         if (env == nullptr) {
             LOG_E(TAG, "Get Environment Failed");
             return false;
-        }
-
-        if (start.createWindow) {
-            nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName}));
         }
 
         Interface<ISystemNotify>::Get()->Register(*this);
@@ -103,31 +93,19 @@ namespace sky {
         return settings;
     }
 
-    const NativeWindow *Application::GetViewport() const
-    {
-        return nativeWindow.get();
-    }
-
     void Application::Shutdown()
     {
         UnloadDynamicModules();
         Interface<ISystemNotify>::Get()->UnRegister();
-
-        SDL_Quit();
     }
 
     void Application::Mainloop()
     {
         while (!exit) {
-            nativeWindow->PollEvent(exit);
+            PreTick();
 
-            //            static auto timePoint = std::chrono::high_resolution_clock::now();
-            //            auto current = std::chrono::high_resolution_clock::now();
-            //            auto delta = std::chrono::duration<float>(current - timePoint).count();
-            //            timePoint = current;
-
-            uint64_t        frequency      = GetPerformanceFrequency();
-            uint64_t        currentCounter = GetPerformanceCounter();
+            uint64_t        frequency      = PlatformBase::GetPlatform()->GetPerformanceFrequency();
+            uint64_t        currentCounter = PlatformBase::GetPlatform()->GetPerformanceCounter();
             static uint64_t current        = 0;
             float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
             current               = currentCounter;

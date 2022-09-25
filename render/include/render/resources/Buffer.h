@@ -59,7 +59,7 @@ namespace sky {
 
         void Update(bool release = false);
 
-        void Update(uint64_t offset, uint64_t range, bool release = false);
+        void Update(uint64_t offset, uint64_t rawOffset, uint64_t range, bool release = false);
 
         drv::BufferPtr GetRHIBuffer() const;
 

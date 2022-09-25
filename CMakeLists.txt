@@ -5,19 +5,26 @@ PROJECT(SkyEngine)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(cmake/functions.cmake)
-include(cmake/thirdparty.cmake)
-include(cmake/configuration.cmake)
+set(ENGINE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output/bin)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output/bin)
+include(${ENGINE_ROOT}/cmake/functions.cmake)
+include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
+include(${ENGINE_ROOT}/cmake/configuration.cmake)
+
+if (NOT ANDROID)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/lib)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
+endif()
 
 if (APPLE)
-set(PLATFORM_EXT_LIBS
-    "-framework Cocoa"
-    "-framework IOKit"
-    "-framework CoreFoundation")
+    set(PLATFORM_EXT_LIBS
+        "-framework Cocoa"
+        "-framework IOKit"
+        "-framework CoreFoundation")
+elseif (ANDROID)
+    set(PLATFORM_EXT_LIBS
+        android)
 endif()
 
 enable_testing()
@@ -28,7 +35,10 @@ add_subdirectory(core)
 add_subdirectory(vulkan)
 add_subdirectory(engine)
 add_subdirectory(render)
+
+if (WIN32)
+add_subdirectory(editor)
 add_subdirectory(sample)
 add_subdirectory(tools)
 add_subdirectory(test)
-add_subdirectory(editor)
+endif()

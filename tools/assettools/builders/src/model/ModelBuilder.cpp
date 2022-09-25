@@ -98,6 +98,7 @@ namespace sky {
     {
         auto iter = outScene.images.find(path.data);
         if (iter != outScene.images.end()) {
+            data.properties.emplace_back(PropertyAssetData{name, MaterialPropertyType::TEXTURE, Any(iter->second.get())});
             return;
         }
 
@@ -144,10 +145,15 @@ namespace sky {
 
     static void ProcessMaterial(const aiScene *scene, uint32_t materialIndex, builder::Scene& outScene, SubMeshAsset &subMesh)
     {
+        auto iter = outScene.materials.find(materialIndex);
+        if (iter != outScene.materials.end()) {
+            subMesh.material = iter->second;
+            return;
+        }
+
         aiMaterial* material = scene->mMaterials[materialIndex];
         aiShadingMode shadingModel = aiShadingMode_Flat;
         material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
-
         MaterialAssetPtr materialAsset = std::make_shared<Asset<Material>>();
         outScene.materials.emplace(materialIndex, materialAsset);
         MaterialAssetData data;
@@ -160,71 +166,71 @@ namespace sky {
         data.assetPathMap.emplace(typeId, baseColorTypePath);
 
         aiString str;
-        bool useMap = false;
-        if (!material->Get(AI_MATKEY_USE_AO_MAP, useMap)) {
-            data.properties.emplace_back(PropertyAssetData{"useAOMap", MaterialPropertyType::BOOL, Any(useMap)});
+        bool useAOMap = false;
+        bool useEmissiveMap = false;
+        bool useBaseColorMap = false;
+        bool useNormalMap = false;
+        bool useMetallicRoughnessMap = false;
+        bool useMask = false;
+        Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
+        float metallic = 1.f;
+        float roughness = 1.f;
+
+        aiString aiAlphaMode;
+        if (!material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode)) {
+            std::string mode = aiAlphaMode.data;
+            if (mode == "MASK") {
+                useMask = true;
+            }
         }
 
-        if (!material->Get(AI_MATKEY_USE_EMISSIVE_MAP, useMap)) {
-            data.properties.emplace_back(PropertyAssetData{"useEmissiveMap", MaterialPropertyType::BOOL, Any(useMap)});
-        }
+        float alphaCutoff = 0.5f;
+        material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, alphaCutoff);
 
         if (!material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str)) {
+            useNormalMap = true;
             ProcessTexture(scene, str, outScene, "normalMap", data);
         }
 
         if (!material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str)) {
+            useEmissiveMap = true;
             ProcessTexture(scene, str, outScene, "emissiveMap", data);
         }
 
         if (!material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str)) {
-            ProcessTexture(scene, str, outScene, "lightMap", data);
+            useAOMap = true;
+            ProcessTexture(scene, str, outScene, "aoMap", data);
         }
 
         if (shadingModel == aiShadingMode_PBR_BRDF) {
-            float scalar;
-            Vector4 vec4 = {1.f, 1.f, 1.f, 1.f};
-            material->Get(AI_MATKEY_BASE_COLOR, vec4);
-            data.properties.emplace_back(PropertyAssetData{"material.baseColor", MaterialPropertyType::VEC4, Any(vec4)});
+            material->Get(AI_MATKEY_BASE_COLOR, baseColor);
+            material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
+            material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 
-            if (!material->Get(AI_MATKEY_METALLIC_FACTOR, scalar)) {
-                data.properties.emplace_back(PropertyAssetData{"material.metallic", MaterialPropertyType::FLOAT, Any(scalar)});
-            }
-
-            if (!material->Get(AI_MATKEY_ROUGHNESS_FACTOR, scalar)) {
-                data.properties.emplace_back(PropertyAssetData{"material.roughness", MaterialPropertyType::FLOAT, Any(scalar)});
-            }
-
-            if (!material->Get(AI_MATKEY_USE_COLOR_MAP, useMap)) {
-                data.properties.emplace_back(PropertyAssetData{"useBaseColorMap", MaterialPropertyType::BOOL, Any(useMap)});
-            }
 
             if (!material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str)) {
+                useBaseColorMap = true;
                 ProcessTexture(scene, str, outScene, "baseColorMap", data);
-                data.properties.emplace_back(PropertyAssetData{"useBaseColorMap", MaterialPropertyType::BOOL, Any(useMap)});
-            }
-
-            if (!material->Get(AI_MATKEY_USE_METALLIC_MAP, useMap)) {
-                data.properties.emplace_back(PropertyAssetData{"useMetallicMapMap", MaterialPropertyType::BOOL, Any(useMap)});
-            }
-
-            if (!material->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene, "metallicMap", data);
-            }
-
-            if (!material->Get(AI_MATKEY_USE_ROUGHNESS_MAP, useMap)) {
-                data.properties.emplace_back(PropertyAssetData{"useRoughnessMap", MaterialPropertyType::BOOL, Any(useMap)});
-            }
-
-            if (!material->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &str)) {
-                ProcessTexture(scene, str, outScene, "roughnessMap", data);
             }
 
             if (!material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str)) {
-                data.properties.emplace_back(PropertyAssetData{"useMetallicRoughnessMap", MaterialPropertyType::BOOL, Any(true)});
+                useMetallicRoughnessMap = true;
                 ProcessTexture(scene, str, outScene, "metallicRoughnessMap", data);
             }
         }
+
+        data.properties.emplace_back(PropertyAssetData{"material.useAOMap", MaterialPropertyType::BOOL, Any(useAOMap)});
+        data.properties.emplace_back(PropertyAssetData{"material.useEmissiveMap", MaterialPropertyType::BOOL, Any(useEmissiveMap)});
+        data.properties.emplace_back(PropertyAssetData{"material.useBaseColorMap", MaterialPropertyType::BOOL, Any(useBaseColorMap)});
+        data.properties.emplace_back(PropertyAssetData{"material.useMetallicRoughnessMap", MaterialPropertyType::BOOL, Any(useMetallicRoughnessMap)});
+        data.properties.emplace_back(PropertyAssetData{"material.useNormalMap", MaterialPropertyType::BOOL, Any(useNormalMap)});
+        data.properties.emplace_back(PropertyAssetData{"material.useMask", MaterialPropertyType::BOOL, Any(useMask)});
+
+        data.properties.emplace_back(PropertyAssetData{"material.baseColor", MaterialPropertyType::VEC4, Any(baseColor)});
+        data.properties.emplace_back(PropertyAssetData{"material.metallic", MaterialPropertyType::FLOAT, Any(metallic)});
+        data.properties.emplace_back(PropertyAssetData{"material.roughness", MaterialPropertyType::FLOAT, Any(roughness)});
+        data.properties.emplace_back(PropertyAssetData{"material.alphaCutoff", MaterialPropertyType::FLOAT, Any(alphaCutoff)});
+
         materialAsset->SetData(std::move(data));
         subMesh.material = materialAsset;
     }
@@ -379,6 +385,9 @@ namespace sky {
         outScene.nodes.emplace_back(PrefabAssetNode{});
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
+        if (parent != ~(0U)) {
+            outScene.nodes[parent].children.emplace_back(index);
+        }
 
         current.transform = FromAssimp(node->mTransformation);
 

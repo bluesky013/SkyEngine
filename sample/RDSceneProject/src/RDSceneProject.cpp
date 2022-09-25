@@ -70,7 +70,7 @@ namespace sky {
 
             Matrix4 translation = Matrix4::Identity();
             translation.Translate(position);
-            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-30.f), angle, 0.f}));
+            auto rotation  = Cast(Matrix3::FromEulerYXZ({ToRadian(-10.f), angle, 0.f}));
 
 //            rotation.Translate(position);
 //            auto transform = glm::translate(glm::identity<Matrix4>(), position);
@@ -106,14 +106,12 @@ namespace sky {
     private:
         float         radius    = 5.f;
         float         angle     = 0.f;
-        Vector3       position  = Vector3(0.f, 2.f, 0.f);
+        Vector3       position  = Vector3(0.f, 2.5f, 0.f);
         RenderCamera *camera    = nullptr;
         StaticMesh  **meshes    = nullptr;
         Transform    *trans     = nullptr;
         uint32_t      meshNum   = 0;
     };
-
-    static const char *BUFFER_PATH = "data\\models\\DamagedHelmet_buffer0.buffer";
 
     void RDSceneProject::Init()
     {
@@ -174,6 +172,8 @@ namespace sky {
 
 
         auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
+//        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\AlphaBlendModeTest.prefab");
+//        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Sponza.prefab");
         auto prefab = prefabAsset->CreateInstance();
         prefab->LoadToScene(*scene);
 

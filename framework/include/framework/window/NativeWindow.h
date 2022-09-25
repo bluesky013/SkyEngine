@@ -16,7 +16,7 @@ namespace sky {
     class NativeWindow {
     public:
         NativeWindow();
-        ~NativeWindow();
+        virtual ~NativeWindow();
 
         struct Descriptor {
             uint32_t    width  = 1366;
@@ -29,16 +29,11 @@ namespace sky {
 
         void *GetNativeHandle() const;
 
-        void PollEvent(bool &quit);
+        virtual void PollEvent(bool &quit) = 0;
 
-    private:
-        bool Init(const Descriptor &);
+        virtual bool Init(const Descriptor &desc) = 0;
 
-        void Dispatch(const SDL_Event &event, bool &quit);
-
-        void Dispatch(const SDL_WindowEvent &event);
-
-        SDL_Window *window    = nullptr;
-        void       *winHandle = nullptr;
+    protected:
+        void *winHandle = nullptr;
     };
 } // namespace sky

@@ -9,7 +9,6 @@
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/window/NativeWindow.h>
 #include <memory>
 
 namespace sky {
@@ -24,19 +23,19 @@ namespace sky {
         Application(const Application &)            = delete;
         Application &operator=(const Application &) = delete;
 
-        bool Init(StartInfo &);
+        virtual bool Init(StartInfo &);
+
+        virtual void Shutdown();
+
+        virtual void PreTick() {};
 
         void Mainloop();
-
-        void Shutdown();
 
         void SetExit() override;
 
         const SettingRegistry &GetSettings() const override;
 
-        const NativeWindow *GetViewport() const override;
-
-    private:
+    protected:
         void LoadDynamicModules(const StartInfo &start);
 
         void UnloadDynamicModules();
@@ -45,7 +44,6 @@ namespace sky {
         std::vector<std::unique_ptr<DynamicModule>> dynLibs;
         std::vector<std::unique_ptr<IModule>>       modules;
         SettingRegistry                             settings;
-        std::unique_ptr<NativeWindow>               nativeWindow;
         bool                                        exit = false;
     };
 

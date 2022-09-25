@@ -149,7 +149,9 @@ namespace sky {
             builder.AddVertexBuffer(vb.CreateBufferView());
         }
         for (auto &subMesh : data.subMeshes) {
-            builder.AddSubMesh(subMesh.ToSubMesh());
+            if (subMesh.material) {
+                builder.AddSubMesh(subMesh.ToSubMesh());
+            }
         }
         return mesh;
     }
