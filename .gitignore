@@ -6,7 +6,7 @@
 /build-release/
 /output/
 /glTF-Sample-Models-master/
-/thirdparty/build/
+/thirdparty/build*/
 /venv/
 /test/framework/t1.json
 /assets/shaders/output/

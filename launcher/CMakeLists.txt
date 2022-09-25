@@ -6,14 +6,16 @@ endif()
 file(GLOB_RECURSE COMMON_SRC common/*)
 
 if (NOT ANDROID)
-sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
-    SOURCES
-        ${PLATFORM_SRC}
-        ${COMMON_SRC}
-    INCS
-        common
-    LIBS
-        Framework
-        ${PLATFORM_EXT_LIBS}
-)
+    sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
+        SOURCES
+            ${PLATFORM_SRC}
+            ${COMMON_SRC}
+        INCS
+            common
+        LIBS
+            Framework
+            ${PLATFORM_EXT_LIBS}
+    )
+else()
+    add_subdirectory(android/app/src/main/cpp)
 endif()

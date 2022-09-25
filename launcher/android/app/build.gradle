@@ -14,7 +14,7 @@ android {
         versionName "1.0"
         externalNativeBuild {
             cmake {
-                arguments '-std=c++17'
+                arguments "-D3RD_PATH=${SKY_3RD_PATH}"
             }
         }
     }
@@ -32,8 +32,8 @@ android {
 
     externalNativeBuild {
         cmake {
-            version '3.10.2'
-            path 'src/main/cpp/CMakeLists.txt'
+            version '3.18.1'
+            path '../../../CMakeLists.txt'
         }
     }
     buildFeatures {
@@ -45,5 +45,5 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.3.0'
     implementation 'com.google.android.material:material:1.4.0'
-    implementation 'androidx.games:games-activity:1.0.0-rc01'
+    implementation 'androidx.games:games-activity:1.1.0'
 }
