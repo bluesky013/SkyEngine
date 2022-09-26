@@ -52,3 +52,6 @@
 [submodule "thirdparty/freetype"]
 	path = thirdparty/freetype
 	url = git@github.com:freetype/freetype.git
+[submodule "thirdparty/volk"]
+	path = thirdparty/volk
+	url = git@github.com:zeux/volk.git
