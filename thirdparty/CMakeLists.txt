@@ -227,6 +227,12 @@ sky_add_external_3rd(TARGET sdl
     -DSDL_SHARED=OFF)
 endif()
 
+sky_add_external_3rd(TARGET volk
+    DIR volk
+    COMPILE_OPTIONS
+    -DVOLK_HEADERS_ONLY=ON
+    -DVOLK_INSTALL=ON)
+
 sky_add_external_3rd(TARGET freetype
     DIR freetype
     COMPILE_OPTIONS)
