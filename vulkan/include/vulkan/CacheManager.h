@@ -6,6 +6,7 @@
 #include <functional>
 #include <mutex>
 #include <unordered_map>
+#include <vulkan/vulkan.h>
 
 namespace sky::drv {
 

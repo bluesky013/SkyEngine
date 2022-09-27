@@ -10,7 +10,7 @@ static const char* TAG = "SDLPlatform";
 
 namespace sky {
 
-    bool SDLPlatform::Init()
+    bool SDLPlatform::Init(const Descriptor &desc)
     {
         if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
             LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());

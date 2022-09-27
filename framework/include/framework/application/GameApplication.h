@@ -18,7 +18,7 @@ namespace sky {
         void Shutdown() override;
         void PreTick() override;
 
-        const NativeWindow *GetViewport() const;
+        const NativeWindow *GetViewport() const override;
 
     private:
         std::unique_ptr<NativeWindow> nativeWindow;

@@ -17,7 +17,7 @@ namespace sky::drv {
 
     Shader::~Shader()
     {
-        if (shaderModule != nullptr) {
+        if (shaderModule != VK_NULL_HANDLE) {
             vkDestroyShaderModule(device.GetNativeHandle(), shaderModule, VKL_ALLOC);
         }
     }

@@ -11,6 +11,14 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         platform/sdl/*
         platform/windows/*)
     set(PLATFORM_EXT_LIB 3rdParty::sdl)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    find_package(game-activity REQUIRED CONFIG)
+    file(GLOB_RECURSE PLATFORM_SRC
+            platform/android/*)
+    set(PLATFORM_EXT_LIB
+            android
+            log
+            game-activity::game-activity)
 endif ()
 
 sky_add_library(TARGET Framework STATIC

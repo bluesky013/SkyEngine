@@ -10,6 +10,7 @@
 #include <render/resources/Technique.h>
 #include <render/resources/Texture.h>
 #include <core/type/Any.h>
+#include <vector>
 
 namespace sky {
 
@@ -127,6 +128,18 @@ namespace sky {
         }
     };
 
+    template <>
+    struct AssetTraits<MaterialType> {
+        using DataType                                = MaterialType;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("05CEFCD1-9D0F-4AE3-9232-9349F76562FF");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
+
+        static std::shared_ptr<MaterialType> CreateFromData(const DataType &data)
+        {
+            return {};
+        }
+    };
+
     struct MaterialAssetData {
         std::vector<PropertyAssetData> properties;
         MaterialTypeAssetPtr materialType;
@@ -210,16 +223,4 @@ namespace sky {
         }
     };
     using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
-
-    template <>
-    struct AssetTraits<MaterialType> {
-        using DataType                                = MaterialType;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("05CEFCD1-9D0F-4AE3-9232-9349F76562FF");
-        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
-
-        static std::shared_ptr<MaterialType> CreateFromData(const DataType &data)
-        {
-            return {};
-        }
-    };
 } // namespace sky

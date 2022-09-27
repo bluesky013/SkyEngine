@@ -14,7 +14,7 @@ namespace sky::drv {
 
     FrameBuffer::~FrameBuffer()
     {
-        if (frameBuffer != nullptr) {
+        if (frameBuffer != VK_NULL_HANDLE) {
             vkDestroyFramebuffer(device.GetNativeHandle(), frameBuffer, VKL_ALLOC);
         }
     }

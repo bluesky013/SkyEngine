@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace sky {
 
     class PlatformBase {
@@ -11,7 +13,11 @@ namespace sky {
         PlatformBase() = default;
         virtual ~PlatformBase() = default;
 
-        virtual bool Init() = 0;
+        struct Descriptor {
+            void* application = nullptr;
+        };
+
+        virtual bool Init(const Descriptor&) = 0;
 
         virtual void Shutdown() = 0;
 
