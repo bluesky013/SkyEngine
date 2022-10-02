@@ -21,10 +21,12 @@ if (APPLE)
     set(PLATFORM_EXT_LIBS
         "-framework Cocoa"
         "-framework IOKit"
+        "-framework CoreAudio"
         "-framework CoreFoundation")
 elseif (ANDROID)
     set(PLATFORM_EXT_LIBS
-        android)
+        android
+        log)
 endif()
 
 enable_testing()
@@ -36,7 +38,7 @@ add_subdirectory(vulkan)
 add_subdirectory(engine)
 add_subdirectory(render)
 
-if (WIN32)
+if (NOT ANDROID)
     add_subdirectory(editor)
     add_subdirectory(sample)
     add_subdirectory(tools)

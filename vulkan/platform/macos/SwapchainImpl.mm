@@ -10,7 +10,13 @@
 namespace sky::drv {
 
 bool SwapChain::CreateSurface() {
-  auto view = static_cast<NSView *>(descriptor.window);
+  auto nsWin = static_cast<NSWindow *>(descriptor.window);
+
+  NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
+  CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
+  NSView* view = nsWin.contentView;
+  [view setLayer: layer];
+  [view setWantsLayer: YES];
 
   VkMacOSSurfaceCreateInfoMVK createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;

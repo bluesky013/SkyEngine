@@ -91,12 +91,16 @@ namespace sky {
     {
         auto &queryPool = scene.GetQueryPool();
 
-        commandBuffer->ResetQueryPool(queryPool, 0, 1);
-        commandBuffer->BeginQuery(queryPool, 0);
+        if (queryPool != nullptr) {
+            commandBuffer->ResetQueryPool(queryPool, 0, 1);
+            commandBuffer->BeginQuery(queryPool, 0);
+        }
 
         RenderPipeline::DoFrame(frameGraph, commandBuffer);
         frameGraph.Execute(commandBuffer);
 
-        commandBuffer->EndQuery(queryPool, 0);
+        if (queryPool != nullptr) {
+            commandBuffer->EndQuery(queryPool, 0);
+        }
     }
 } // namespace sky

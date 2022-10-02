@@ -8,9 +8,9 @@
 
 namespace sky {
 
-    class Win32Platform : public SDLPlatform {
+    class MacosPlatform : public SDLPlatform {
     public:
-        Win32Platform() = default;
-        ~Win32Platform() = default;
+        MacosPlatform() = default;
+        ~MacosPlatform() = default;
     };
 }

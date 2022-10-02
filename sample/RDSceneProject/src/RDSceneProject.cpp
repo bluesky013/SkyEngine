@@ -171,7 +171,7 @@ namespace sky {
         mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
 
-        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
+        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Bump Mapped Walls.prefab");
 //        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\AlphaBlendModeTest.prefab");
 //        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Sponza.prefab");
         auto prefab = prefabAsset->CreateInstance();

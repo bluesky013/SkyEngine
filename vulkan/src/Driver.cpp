@@ -44,7 +44,8 @@ namespace sky::drv {
         "VK_KHR_surface",
 #if _WIN32
         "VK_KHR_win32_surface",
-#else
+#elif __APPLE__
+        "VK_KHR_portability_enumeration",
         "VK_MVK_macos_surface",
         "VK_EXT_metal_surface",
 #endif
@@ -109,6 +110,9 @@ namespace sky::drv {
         app.apiVersion         = version;
 
         VkInstanceCreateInfo instInfo    = {};
+#ifdef __APPLE__
+        instInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
         instInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         instInfo.pApplicationInfo        = &app;
         instInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());

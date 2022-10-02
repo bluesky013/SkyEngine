@@ -430,6 +430,10 @@ namespace sky {
     void ModelBuilder::Build(const std::string& projectPath, const std::filesystem::path& path) const
     {
         Assimp::Importer importer;
+        if (!std::filesystem::exists(path)) {
+            return;
+        }
+
         const aiScene* scene = importer.ReadFile(path.string(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
             return;
