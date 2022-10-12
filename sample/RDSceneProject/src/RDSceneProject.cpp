@@ -106,7 +106,7 @@ namespace sky {
     private:
         float         radius    = 5.f;
         float         angle     = 0.f;
-        Vector3       position  = Vector3(0.f, 2.5f, 0.f);
+        Vector3       position  = Vector3(0.f, 0.f, 0.f);
         RenderCamera *camera    = nullptr;
         StaticMesh  **meshes    = nullptr;
         Transform    *trans     = nullptr;
@@ -171,7 +171,7 @@ namespace sky {
         mainCamera->SetAspect(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 
 
-        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Bump Mapped Walls.prefab");
+        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\DamagedHelmet.prefab");
 //        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\AlphaBlendModeTest.prefab");
 //        auto prefabAsset = AssetManager::Get()->LoadAsset<Prefab>("data\\models\\Sponza.prefab");
         auto prefab = prefabAsset->CreateInstance();
