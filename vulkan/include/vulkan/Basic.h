@@ -14,4 +14,12 @@ namespace sky::drv {
         VkAccessFlags        dstAccessMask;
     };
 
+    struct MemoryRequirement {
+        VkDeviceSize size;
+        VkDeviceSize alignment;
+        uint32_t     memoryIndex;
+        bool prefersDedicated;
+        bool requiresDedicated;
+    };
+
 } // namespace sky::drv

@@ -55,10 +55,13 @@ namespace sky::drv {
 
         void WaitIdle() const;
 
-        void GetBufferMemoryRequirements(VkBuffer buffer) const;
+        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
 
     private:
         bool Init(const Descriptor &, bool enableDebug);
+
+        bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
 
         friend class Driver;
         Device(Driver &);

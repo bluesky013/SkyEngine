@@ -302,7 +302,22 @@ namespace sky::drv {
         vkDeviceWaitIdle(device);
     }
 
-    void Device::GetBufferMemoryRequirements(VkBuffer buffer) const
+    bool Device::FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const
+    {
+        int32_t index = FindProperties(&memoryProperties.memoryProperties, requirements.memoryRequirements.memoryTypeBits, flags);
+        if (index < 0) {
+            return false;
+        }
+
+        out.size = requirements.memoryRequirements.size;
+        out.alignment = requirements.memoryRequirements.alignment;
+        out.memoryIndex = static_cast<uint32_t>(index);
+        out.prefersDedicated = dedicated.prefersDedicatedAllocation;
+        out.requiresDedicated = dedicated.requiresDedicatedAllocation;
+        return true;
+    }
+
+    bool Device::GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const
     {
         VkBufferMemoryRequirementsInfo2 memoryReqsInfo = {};
         memoryReqsInfo.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
@@ -315,6 +330,25 @@ namespace sky::drv {
         memoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
         memoryReqs2.pNext = &memDedicatedReq;
         vkGetBufferMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
+
+        return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
+    }
+
+    bool Device::GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const
+    {
+        VkImageMemoryRequirementsInfo2 memoryReqsInfo = {};
+        memoryReqsInfo.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+        memoryReqsInfo.image = image;
+
+        VkMemoryDedicatedRequirements memDedicatedReq = {};
+        memDedicatedReq.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+        VkMemoryRequirements2 memoryReqs2 = {};
+        memoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+        memoryReqs2.pNext = &memDedicatedReq;
+        vkGetImageMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
+
+        return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
     }
 
 } // namespace sky::drv
