@@ -8,5 +8,4 @@
 
 namespace sky {
     static std::string ENGINE_ROOT  = "@CMAKE_SOURCE_DIR@";
-    static std::string PROJECT_ROOT = "@CMAKE_CURRENT_SOURCE_DIR@";
 } // namespace sky

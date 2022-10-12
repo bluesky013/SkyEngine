@@ -3,7 +3,7 @@
 //
 
 #include <RDSceneProject.h>
-#include <RDSceneProject/EngineRoot.h>
+#include <RDSceneProject/ProjectRoot.h>
 #include <filesystem>
 #include <framework/asset/AssetManager.h>
 #include <framework/window/NativeWindow.h>

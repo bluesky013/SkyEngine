@@ -23,8 +23,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         game-activity::game-activity)
 endif ()
 
-message('123' ${PLATFORM_EXT_LIBS})
-
 sky_add_library(TARGET Framework STATIC
     SOURCES
         ${PLATFORM_SRC}

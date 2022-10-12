@@ -29,6 +29,9 @@ elseif (ANDROID)
         log)
 endif()
 
+configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/EngineRoot.h)
+include_directories(${CMAKE_BINARY_DIR}/Gen)
+
 enable_testing()
 
 add_subdirectory(launcher)

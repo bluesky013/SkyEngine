@@ -3,7 +3,7 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 set(TARGET_NAME RDSceneProject)
 
-configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/${TARGET_NAME}/EngineRoot.h)
+configure_file(ProjectRoot.h.in ${CMAKE_BINARY_DIR}/Gen/${TARGET_NAME}/ProjectRoot.h)
 include_directories(${CMAKE_BINARY_DIR}/Gen)
 
 sky_add_library(TARGET ${TARGET_NAME} SHARED
