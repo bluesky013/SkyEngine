@@ -153,7 +153,9 @@ function(sky_add_external_3rd)
 endfunction()
 
 sky_add_external_3rd(TARGET vma
-    DIR VulkanMemoryAllocator)
+    DIR VulkanMemoryAllocator
+    COMPILE_OPTIONS
+    -DVMA_STATIC_VULKAN_FUNCTIONS=OFF)
 
 sky_add_external_3rd(TARGET rapidjson
     DIR rapidjson
@@ -195,6 +197,7 @@ sky_add_external_3rd(TARGET assimp
     DIR assimp
     COMPILE_OPTIONS
     -DASSIMP_BUILD_TESTS=OFF
+    -DASSIMP_BUILD_ZLIB=ON
     -DBUILD_SHARED_LIBS=OFF)
 
 #sky_add_external_3rd(TARGET shaderc
@@ -224,8 +227,14 @@ sky_add_external_3rd(TARGET sdl
     DIR sdl
     COMPILE_OPTIONS
     -DSDL_TEST=OFF
-    -DSDL_SHARED=OFF)
+    -DSDL_SHARED=ON)
 endif()
+
+sky_add_external_3rd(TARGET volk
+    DIR volk
+    COMPILE_OPTIONS
+    -DVOLK_HEADERS_ONLY=ON
+    -DVOLK_INSTALL=ON)
 
 sky_add_external_3rd(TARGET freetype
     DIR freetype

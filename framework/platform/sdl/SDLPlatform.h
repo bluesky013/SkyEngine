@@ -15,7 +15,7 @@ namespace sky {
         ~SDLPlatform() = default;
 
     private:
-        bool Init() override;
+        bool Init(const Descriptor &desc) override;
         void Shutdown() override;
 
         uint64_t GetPerformanceFrequency() const override;

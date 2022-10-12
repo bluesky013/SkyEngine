@@ -3,7 +3,7 @@
 //
 
 #include <RDSceneProject.h>
-#include <RDSceneProject/EngineRoot.h>
+#include <RDSceneProject/ProjectRoot.h>
 #include <filesystem>
 #include <framework/asset/AssetManager.h>
 #include <framework/window/NativeWindow.h>
@@ -106,7 +106,7 @@ namespace sky {
     private:
         float         radius    = 5.f;
         float         angle     = 0.f;
-        Vector3       position  = Vector3(0.f, 2.5f, 0.f);
+        Vector3       position  = Vector3(0.f, 0.f, 0.f);
         RenderCamera *camera    = nullptr;
         StaticMesh  **meshes    = nullptr;
         Transform    *trans     = nullptr;

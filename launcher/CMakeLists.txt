@@ -14,7 +14,6 @@ if (NOT ANDROID)
             common
         LIBS
             Framework
-            ${PLATFORM_EXT_LIBS}
     )
 else()
     add_subdirectory(android/app/src/main/cpp)

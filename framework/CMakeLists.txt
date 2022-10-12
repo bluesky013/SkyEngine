@@ -2,15 +2,25 @@ file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    set(EXT_LIBRARY winmm imm32 version setupapi)
     file(GLOB_RECURSE PLATFORM_SRC
         platform/sdl/*
         platform/windows/*)
-    set(PLATFORM_EXT_LIB 3rdParty::sdl)
+    set(FM_EXT_LIB
+        3rdParty::sdl
+        ${EXT_LIBRARY})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/sdl/*
-        platform/windows/*)
-    set(PLATFORM_EXT_LIB 3rdParty::sdl)
+        platform/macos/*)
+    set(FM_EXT_LIB
+        3rdParty::sdl)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    find_package(game-activity REQUIRED CONFIG)
+    file(GLOB_RECURSE PLATFORM_SRC
+        platform/android/*)
+    set(FM_EXT_LIB
+        game-activity::game-activity)
 endif ()
 
 sky_add_library(TARGET Framework STATIC
@@ -25,5 +35,6 @@ sky_add_library(TARGET Framework STATIC
     LINK_LIBS
         Core
         3rdParty::cereal
-        ${PLATFORM_EXT_LIB}
+        ${FM_EXT_LIB}
+        ${PLATFORM_EXT_LIBS}
     )

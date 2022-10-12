@@ -12,7 +12,7 @@ int main(int argc, char **argv)
     sky::ProcessCommand(argc, argv, cmdInfo);
 
     sky::PlatformBase* platform = sky::PlatformBase::GetPlatform();
-    if (!platform->Init()) {
+    if (!platform->Init({})) {
         return 1;
     }
 

@@ -21,11 +21,16 @@ if (APPLE)
     set(PLATFORM_EXT_LIBS
         "-framework Cocoa"
         "-framework IOKit"
+        "-framework CoreAudio"
         "-framework CoreFoundation")
 elseif (ANDROID)
     set(PLATFORM_EXT_LIBS
-        android)
+        android
+        log)
 endif()
+
+configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/EngineRoot.h)
+include_directories(${CMAKE_BINARY_DIR}/Gen)
 
 enable_testing()
 
@@ -36,9 +41,9 @@ add_subdirectory(vulkan)
 add_subdirectory(engine)
 add_subdirectory(render)
 
-if (WIN32)
-add_subdirectory(editor)
-add_subdirectory(sample)
-add_subdirectory(tools)
-add_subdirectory(test)
+if (NOT ANDROID)
+    add_subdirectory(editor)
+    add_subdirectory(sample)
+    add_subdirectory(tools)
+    add_subdirectory(test)
 endif()

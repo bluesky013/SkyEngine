@@ -2,6 +2,7 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
+#include <EngineRoot.h>
 #include <Triangle.h>
 #include <core/file/FileIO.h>
 
@@ -51,8 +52,8 @@ namespace sky {
 
         ResetFrameBuffer();
 
-        LoadShader(VK_SHADER_STAGE_VERTEX_BIT, "shaders/Triangle.vert.spv");
-        LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, "shaders/Triangle.frag.spv");
+        LoadShader(VK_SHADER_STAGE_VERTEX_BIT, ENGINE_ROOT + "/assets/shaders/output/Triangle.vert.spv");
+        LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, ENGINE_ROOT + "/assets/shaders/output/Triangle.frag.spv");
 
         vertexInput = drv::VertexInput::Builder().Begin().Build();
 
@@ -64,6 +65,8 @@ namespace sky {
         program.shaders.emplace_back(fs);
 
         drv::GraphicsPipeline::State state = {};
+        state.raster.cullMode = VK_CULL_MODE_NONE;
+        state.blends.blendStates.emplace_back(drv::GraphicsPipeline::BlendState{});
 
         drv::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.program                           = &program;

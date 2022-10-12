@@ -44,7 +44,8 @@ namespace sky::drv {
         "VK_KHR_surface",
 #if _WIN32
         "VK_KHR_win32_surface",
-#else
+#elif __APPLE__
+        "VK_KHR_portability_enumeration",
         "VK_MVK_macos_surface",
         "VK_EXT_metal_surface",
 #endif
@@ -96,15 +97,22 @@ namespace sky::drv {
 
     bool Driver::Init(const Descriptor &des)
     {
+        uint32_t version = 0;
+        VkResult result = vkEnumerateInstanceVersion(&version);
+        LOG_I(TAG, "Vulkan Core apiVersion %u.%u.%u", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version),  VK_API_VERSION_PATCH(version));
+
         VkApplicationInfo app  = {};
         app.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app.pApplicationName   = des.appName.c_str();
         app.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         app.pEngineName        = des.engineName.c_str();
         app.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
-        app.apiVersion         = VK_MAKE_API_VERSION(0, 1, 3, 0);
+        app.apiVersion         = version;
 
         VkInstanceCreateInfo instInfo    = {};
+#ifdef __APPLE__
+        instInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
         instInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         instInfo.pApplicationInfo        = &app;
         instInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
