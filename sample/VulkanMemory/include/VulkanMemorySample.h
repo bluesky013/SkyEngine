@@ -4,26 +4,20 @@
 
 #pragma once
 
-#include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
-#include <framework/window/NativeWindow.h>
+#include "VulkanSampleBase.h"
 
 namespace sky {
     class NativeWindow;
 
-    class VulkanMemorySample : public IModule {
+    class VulkanMemorySample : public VulkanSampleBase {
     public:
         VulkanMemorySample()  = default;
         ~VulkanMemorySample() = default;
 
-        void Init() override;
-
-        void Start() override;
-
-        void Stop() override;
-
         void Tick(float delta) override;
+
+        void OnStart() override;
+        void OnStop() override;
 
     private:
     };

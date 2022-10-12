@@ -2,26 +2,25 @@
 // Created by Zach Lee on 2022/6/16.
 //
 
-#include <VulkanMemorySample.h>
-#include <vulkan/MemoryPool.h>
+#include "VulkanMemorySample.h"
 
 namespace sky {
 
-    void VulkanMemorySample::Init()
-    {
-    }
-
-    void VulkanMemorySample::Start()
-    {
-    }
-
-    void VulkanMemorySample::Stop()
-    {
-    }
-
     void VulkanMemorySample::Tick(float delta)
     {
+
     }
+
+    void VulkanMemorySample::OnStart()
+    {
+
+    }
+
+    void VulkanMemorySample::OnStop()
+    {
+
+    }
+
 } // namespace sky
 
 REGISTER_MODULE(sky::VulkanMemorySample)

@@ -19,6 +19,18 @@ const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
 const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 namespace sky::drv {
+    static int32_t FindProperties(const VkPhysicalDeviceMemoryProperties* properties, uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties)
+    {
+        const uint32_t memoryCount = properties->memoryTypeCount;
+        for (uint32_t i = 0; i < memoryCount; ++i) {
+            const bool isRequiredMemoryType  = memoryTypeBits & (1 << i);
+            const bool hasRequiredProperties = (properties->memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties;
+            if (isRequiredMemoryType && hasRequiredProperties)
+                return static_cast<int32_t>(i);
+        }
+        return -1;
+    }
+
 
     Device::Device(Driver &drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
@@ -148,9 +160,11 @@ namespace sky::drv {
             queues[i]->Setup();
         }
 
+        memoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+        vkGetPhysicalDeviceMemoryProperties2(phyDev, &memoryProperties);
+
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.device                 = device;
-        ;
         allocatorInfo.physicalDevice   = phyDev;
         allocatorInfo.instance         = driver.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
@@ -286,6 +300,21 @@ namespace sky::drv {
     void Device::WaitIdle() const
     {
         vkDeviceWaitIdle(device);
+    }
+
+    void Device::GetBufferMemoryRequirements(VkBuffer buffer) const
+    {
+        VkBufferMemoryRequirementsInfo2 memoryReqsInfo = {};
+        memoryReqsInfo.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+        memoryReqsInfo.buffer = buffer;
+
+        VkMemoryDedicatedRequirements memDedicatedReq = {};
+        memDedicatedReq.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+        VkMemoryRequirements2 memoryReqs2 = {};
+        memoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+        memoryReqs2.pNext = &memDedicatedReq;
+        vkGetBufferMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
     }
 
 } // namespace sky::drv

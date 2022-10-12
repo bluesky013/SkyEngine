@@ -10,8 +10,7 @@ sky_add_library(TARGET VulkanTriangleSample SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        Driver
-        Framework
+        VulkanSampleBase
     )
 
 add_dependencies(Launcher VulkanTriangleSample)

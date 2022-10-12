@@ -55,6 +55,8 @@ namespace sky::drv {
 
         void WaitIdle() const;
 
+        void GetBufferMemoryRequirements(VkBuffer buffer) const;
+
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
@@ -65,9 +67,10 @@ namespace sky::drv {
         VkDevice         device;
         VmaAllocator     allocator;
 
-        VkPhysicalDeviceProperties phyProps;
+        VkPhysicalDeviceProperties phyProps = {};
         VkPhysicalDeviceFeatures2  phyFeatures = {};
         VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures = {};
+        VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
