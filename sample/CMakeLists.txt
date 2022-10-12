@@ -1,3 +1,3 @@
 add_subdirectory(VulkanTriangle)
-add_subdirectory(VulkanMemoryAliasing)
+add_subdirectory(VulkanMemory)
 add_subdirectory(RDSceneProject)

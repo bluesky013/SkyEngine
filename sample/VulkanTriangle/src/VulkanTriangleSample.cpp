@@ -3,12 +3,12 @@
 //
 
 #include <EngineRoot.h>
-#include <Triangle.h>
+#include <VulkanTriangleSample.h>
 #include <core/file/FileIO.h>
 
 namespace sky {
 
-    void Triangle::Init()
+    void VulkanTriangleSample::Init()
     {
         drv::Driver::Descriptor drvDes = {};
         drvDes.enableDebugLayer        = true;
@@ -22,7 +22,7 @@ namespace sky {
         device                         = driver->CreateDevice(devDes);
     }
 
-    void Triangle::Start()
+    void VulkanTriangleSample::Start()
     {
         if (device == nullptr) {
             return;
@@ -90,13 +90,13 @@ namespace sky {
         Event<IWindowEvent>::Connect(swcDesc.window, this);
     }
 
-    void Triangle::Stop()
+    void VulkanTriangleSample::Stop()
     {
         device->WaitIdle();
         Event<IWindowEvent>::DisConnect(this);
     }
 
-    void Triangle::Tick(float delta)
+    void VulkanTriangleSample::Tick(float delta)
     {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
@@ -149,7 +149,7 @@ namespace sky {
         swapChain->Present(presentInfo);
     }
 
-    void Triangle::ResetFrameBuffer()
+    void VulkanTriangleSample::ResetFrameBuffer()
     {
         auto imageCount = swapChain->GetImageCount();
         frameBuffers.resize(imageCount);
@@ -174,7 +174,7 @@ namespace sky {
         renderFinish   = device->CreateDeviceObject<drv::Semaphore>({});
     }
 
-    void Triangle::LoadShader(VkShaderStageFlagBits stage, const std::string &path)
+    void VulkanTriangleSample::LoadShader(VkShaderStageFlagBits stage, const std::string &path)
     {
         std::vector<uint32_t> spv;
         if (!ReadBin(path, spv)) {
@@ -194,7 +194,7 @@ namespace sky {
         }
     }
 
-    void Triangle::OnWindowResize(uint32_t width, uint32_t height)
+    void VulkanTriangleSample::OnWindowResize(uint32_t width, uint32_t height)
     {
         auto &ext = swapChain->GetExtent();
         if (ext.width == width && ext.height == height) {
@@ -206,3 +206,5 @@ namespace sky {
     }
 
 } // namespace sky
+
+REGISTER_MODULE(sky::VulkanTriangleSample)

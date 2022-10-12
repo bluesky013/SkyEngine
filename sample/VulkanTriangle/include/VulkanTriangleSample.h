@@ -21,10 +21,10 @@
 namespace sky {
     class NativeWindow;
 
-    class Triangle : public IModule, public IWindowEvent {
+    class VulkanTriangleSample : public IModule, public IWindowEvent {
     public:
-        Triangle()  = default;
-        ~Triangle() = default;
+        VulkanTriangleSample()  = default;
+        ~VulkanTriangleSample() = default;
 
         void Init() override;
 

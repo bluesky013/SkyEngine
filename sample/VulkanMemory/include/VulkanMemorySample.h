@@ -9,13 +9,13 @@
 #include <framework/interface/Interface.h>
 #include <framework/window/NativeWindow.h>
 
-namespace sky::render {
+namespace sky {
     class NativeWindow;
 
-    class MemoryAliasingSample : public IModule {
+    class VulkanMemorySample : public IModule {
     public:
-        MemoryAliasingSample()  = default;
-        ~MemoryAliasingSample() = default;
+        VulkanMemorySample()  = default;
+        ~VulkanMemorySample() = default;
 
         void Init() override;
 
@@ -28,4 +28,4 @@ namespace sky::render {
     private:
     };
 
-} // namespace sky::render
+} // namespace sky

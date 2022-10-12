@@ -5,7 +5,6 @@ sky_add_library(TARGET VulkanTriangleSample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
-        TriangleModule.cpp
     PRIVATE_INC
         src
     PUBLIC_INC
