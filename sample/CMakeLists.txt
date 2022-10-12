@@ -1,5 +1,3 @@
-add_subdirectory(DrvTriangle)
-add_subdirectory(MemoryAliasing)
-add_subdirectory(FrameGraph)
-add_subdirectory(RDSceneSample)
+add_subdirectory(VulkanTriangle)
+add_subdirectory(VulkanMemoryAliasing)
 add_subdirectory(RDSceneProject)

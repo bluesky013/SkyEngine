@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET MemoryAliasingSample SHARED
+sky_add_library(TARGET VulkanMemoryAliasingSample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -14,4 +14,4 @@ sky_add_library(TARGET MemoryAliasingSample SHARED
         Framework
     )
 
-add_dependencies(Launcher MemoryAliasingSample)
+add_dependencies(Launcher VulkanMemoryAliasingSample)
