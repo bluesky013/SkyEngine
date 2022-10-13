@@ -71,6 +71,7 @@ namespace sky {
 
     void VulkanSampleBase::Tick(float delta)
     {
+        frameIndex = (frameIndex + 1) % 2;
     }
 
     void VulkanSampleBase::OnWindowResize(uint32_t width, uint32_t height)

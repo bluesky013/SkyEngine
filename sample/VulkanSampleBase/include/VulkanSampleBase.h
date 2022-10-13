@@ -57,5 +57,7 @@ namespace sky {
         drv::Queue                      *graphicsQueue;
         std::vector<drv::FrameBufferPtr> frameBuffers;
         std::vector<drv::ImageViewPtr>   colorViews;
+
+        uint32_t frameIndex = 0;
     };
 }
