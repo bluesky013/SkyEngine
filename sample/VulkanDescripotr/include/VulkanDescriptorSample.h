@@ -23,8 +23,10 @@ namespace sky {
         void SetupPso();
         void SetupDescriptorSet();
         void SetupResources();
+        void UpdateDynamicBuffer();
 
         void OnMouseMove(int32_t x, int32_t y) override;
+        void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
 
         drv::PipelineLayoutPtr      pipelineLayout;
         drv::DescriptorSetLayoutPtr descriptorSetLayout;
@@ -40,16 +42,31 @@ namespace sky {
         drv::SamplerPtr sampler;
 
         drv::ImagePtr inputImage0;
-        drv::ImageViewPtr inputImageView0;
-
-        drv::ImagePtr inputImage1;
-        drv::ImageViewPtr inputImageView1;
+        drv::ImageViewPtr imageView0;
+        drv::ImageViewPtr imageView1;
+        drv::ImageViewPtr imageView2;
 
         drv::ImagePtr storageImage;
         drv::ImagePtr storageImageView;
 
         drv::BufferPtr uniformBuffer;
+        drv::BufferPtr constantBuffer;
+        drv::BufferPtr texelBuffer;
         drv::BufferPtr storageBuffer;
+
+        drv::BufferViewPtr bufferView0;
+        drv::BufferViewPtr bufferView1;
+
+        struct Ubo {
+            float x;
+            float y;
+            float scaleX;
+            float scaleY; // padding
+        };
+
+        int32_t scale = 16;
+        int32_t mouseX = 0;
+        int32_t mouseY = 0;
     };
 
 } // namespace sky

@@ -19,7 +19,14 @@ namespace sky {
 
         drv::GraphicsPipeline::State state = {};
         state.raster.cullMode = VK_CULL_MODE_NONE;
+
+
         state.blends.blendStates.emplace_back(drv::GraphicsPipeline::BlendState{});
+        state.blends.blendStates.back().blendEnable = VK_TRUE;
+        state.blends.blendStates.back().srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        state.blends.blendStates.back().dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
         drv::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.program                           = &program;
@@ -33,21 +40,32 @@ namespace sky {
     void VulkanDescriptorSample::SetupDescriptorSet()
     {
         drv::DescriptorSetLayout::Descriptor setLayoutInfo = {};
-//        setLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-//        setLayoutInfo.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-//        setLayoutInfo.bindings.emplace(2, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-//        setLayoutInfo.bindings.emplace(3, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-        setLayoutInfo.bindings.emplace(5, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-//        setLayoutInfo.bindings.emplace(6, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(2, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(3, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(4, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(5, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(6, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(7, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
         drv::PipelineLayout::Descriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
 
         pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(pipelineLayoutInfo);
 
-        VkDescriptorPoolSize sizes[] = {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-        };
+        VkDescriptorPoolSize sizes[] =
+            {
+                {VK_DESCRIPTOR_TYPE_SAMPLER,                1},
+                {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1},
+                {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1},
+                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1},
+                {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1},
+            };
 
         drv::DescriptorSetPool::Descriptor poolInfo = {};
         poolInfo.maxSets = 1;
@@ -64,53 +82,183 @@ namespace sky {
 
     void VulkanDescriptorSample::SetupResources()
     {
-        sampler = device->CreateDeviceObject<drv::Sampler>({});
-
-        drv::Image::Descriptor imageInfo = {};
-        imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-        imageInfo.extent = {2, 2, 1};
-        imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        imageInfo.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        imageInfo.arrayLayers = 2;
-
-        drv::ImageView::Descriptor viewInfo = {};
-        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-
-        viewInfo.subResourceRange.baseArrayLayer = 0;
-        inputImage0 = device->CreateDeviceObject<drv::Image>(imageInfo);
-        inputImageView0 = drv::ImageView::CreateImageView(inputImage0, viewInfo);
-
-        viewInfo.subResourceRange.baseArrayLayer = 1;
-        inputImage1 = device->CreateDeviceObject<drv::Image>(imageInfo);
-        inputImageView1 = drv::ImageView::CreateImageView(inputImage1, viewInfo);
-
-        drv::Buffer::Descriptor bufferInfo = {};
-        bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        bufferInfo.memory = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        bufferInfo.size = 2 * 2 * sizeof(float);
-
-        uniformBuffer = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
-
         auto writer = set->CreateWriter();
-        writer.Write(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBuffer, 0, bufferInfo.size);
+
+        {
+            drv::Image::Descriptor imageInfo = {};
+            imageInfo.format                 = VK_FORMAT_R8G8B8A8_UNORM;
+            imageInfo.extent                 = {128, 128, 1};
+            imageInfo.usage                  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+            imageInfo.memory                 = VMA_MEMORY_USAGE_GPU_ONLY;
+            imageInfo.arrayLayers            = 3;
+            inputImage0                      = device->CreateDeviceObject<drv::Image>(imageInfo);
+
+            uint32_t             imageSize = 128 * 128 * 4;
+            std::vector<uint8_t> data(imageSize * 2, 0);
+            for (uint32_t i = 0; i < imageInfo.extent.width; ++i) {
+                for (uint32_t j = 0; j < imageInfo.extent.height; ++j) {
+                    data[(i * imageInfo.extent.width + j) * 4 + 0] = i * 2 * 9973;
+                    data[(i * imageInfo.extent.width + j) * 4 + 1] = j * 2 * 9973;
+                    data[(i * imageInfo.extent.width + j) * 4 + 2] = 0;
+                    data[(i * imageInfo.extent.width + j) * 4 + 3] = 255;
+                }
+            }
+            for (uint32_t i = 0; i < imageInfo.extent.width; ++i) {
+                for (uint32_t j = 0; j < imageInfo.extent.height; ++j) {
+                    float xOff = i - imageInfo.extent.width / 2.f;
+                    float yOff = j - imageInfo.extent.height / 2.f;
+                    float dist = sqrt(xOff * xOff + yOff * yOff);
+                    if (dist > imageInfo.extent.width / 2.f) {
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 0] = 0;
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 1] = 0;
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 2] = 0;
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 3] = 255;
+                    } else {
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 0] = static_cast<uint8_t>(dist * 2);
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 1] = static_cast<uint8_t>(dist * 2);
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 2] = static_cast<uint8_t>(dist * 2);
+                        data[imageSize + (i * imageInfo.extent.width + j) * 4 + 3] = 255;
+                    }
+                }
+            }
+
+            drv::Buffer::Descriptor bufferInfo = {};
+            bufferInfo.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;
+            bufferInfo.size                    = data.size();
+            auto     staging                   = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
+            uint8_t *dst                       = staging->Map();
+            memcpy(dst, data.data(), data.size());
+            staging->UnMap();
+
+            VkBufferImageCopy copyInfo = {};
+            copyInfo.bufferOffset      = 0;
+            copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 2};
+            copyInfo.imageExtent       = imageInfo.extent;
+
+            auto cmd = commandPool->Allocate({});
+            cmd->Begin();
+
+            cmd->ImageBarrier(inputImage0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2},
+                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            cmd->Copy(staging, inputImage0, copyInfo);
+            cmd->ImageBarrier(inputImage0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2},
+                {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT},
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            cmd->ImageBarrier(inputImage0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 2, 1},
+                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_NONE, VK_ACCESS_SHADER_WRITE_BIT},
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+            cmd->End();
+            cmd->Submit(*graphicsQueue, {});
+            cmd->Wait();
+
+            drv::ImageView::Descriptor viewInfo = {};
+            viewInfo.format                     = VK_FORMAT_R8G8B8A8_UNORM;
+
+            viewInfo.subResourceRange.baseArrayLayer = 0;
+            imageView0                          = drv::ImageView::CreateImageView(inputImage0, viewInfo);
+
+            viewInfo.subResourceRange.baseArrayLayer = 1;
+            imageView1                          = drv::ImageView::CreateImageView(inputImage0, viewInfo);
+
+            viewInfo.subResourceRange.baseArrayLayer = 2;
+            imageView2                          = drv::ImageView::CreateImageView(inputImage0, viewInfo);
+
+            sampler = device->CreateDeviceObject<drv::Sampler>({});
+
+            writer.Write(0, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
+            writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageView0, {});
+            writer.Write(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageView1, sampler);
+            writer.Write(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, imageView2, {});
+        }
+
+        {
+            drv::Buffer::Descriptor bufferInfo = {};
+            bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            {
+                bufferInfo.size                    = 2 * 2 * sizeof(float);
+                uniformBuffer                      = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
+                writer.Write(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBuffer, 0, bufferInfo.size);
+            }
+
+            {
+                bufferInfo.size                    = 2 * sizeof(float);
+                constantBuffer                     = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
+                float *ptr = reinterpret_cast<float *>(constantBuffer->Map());
+                ptr[0] = 128;
+                ptr[1] = 128;
+                constantBuffer->UnMap();
+                writer.Write(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, constantBuffer, 0, bufferInfo.size);
+            }
+        }
+
+        {
+            uint8_t texelData[] = {
+                255, 255, 255, 255,
+                0, 0, 0, 0,
+            };
+
+            drv::Buffer::Descriptor bufferInfo = {};
+            bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+            bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            bufferInfo.size                    = device->GetProperties().limits.minTexelBufferOffsetAlignment * 2;
+            texelBuffer = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
+            uint8_t *ptr = texelBuffer->Map();
+            memcpy(ptr, texelData, sizeof(texelData));
+            texelBuffer->UnMap();
+
+            drv::BufferView::Descriptor viewInfo = {};
+            viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+
+            {
+                viewInfo.offset = 0;
+                viewInfo.range  = sizeof(texelData);
+                bufferView0 = drv::BufferView::CreateBufferView(texelBuffer, viewInfo);
+                writer.Write(6, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, bufferView0);
+            }
+            {
+                viewInfo.offset = bufferInfo.size / 2;
+                viewInfo.range  = sizeof(texelData);
+                bufferView1 = drv::BufferView::CreateBufferView(texelBuffer, viewInfo);
+                writer.Write(7, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, bufferView1);
+            }
+        }
+
         writer.Update();
     }
 
     void VulkanDescriptorSample::OnMouseMove(int32_t x, int32_t y)
     {
-        if (swapChain == nullptr || uniformBuffer == nullptr) {
-            return;
+        mouseX = x;
+        mouseY = y;
+    }
+
+    void VulkanDescriptorSample::OnMouseWheel(int32_t wheelX, int32_t wheelY)
+    {
+        scale += wheelY;
+        scale = std::clamp(scale, 1, 32);
+    }
+
+    void VulkanDescriptorSample::UpdateDynamicBuffer()
+    {
+        if (uniformBuffer) {
+            Ubo *ptr = reinterpret_cast<Ubo *>(uniformBuffer->Map());
+            ptr[frameIndex].x = static_cast<float>(mouseX);
+            ptr[frameIndex].y = static_cast<float>(mouseY);
+            ptr[frameIndex].scaleX = static_cast<float>(scale);
+            uniformBuffer->UnMap();
         }
-
-        float *ptr = reinterpret_cast<float *>(uniformBuffer->Map());
-        ptr[2 * frameIndex + 0] = (float)x;
-        ptr[2 * frameIndex + 1] = (float)y;
-
-        uniformBuffer->UnMap();
     }
 
     void VulkanDescriptorSample::Tick(float delta)
     {
+        UpdateDynamicBuffer();
+
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
@@ -121,9 +269,9 @@ namespace sky {
         auto graphicsEncoder = commandBuffer->EncodeGraphics();
 
         VkClearValue clearValue     = {};
-        clearValue.color.float32[0] = 0.f;
-        clearValue.color.float32[1] = 0.f;
-        clearValue.color.float32[2] = 0.f;
+        clearValue.color.float32[0] = 0.2f;
+        clearValue.color.float32[1] = 0.2f;
+        clearValue.color.float32[2] = 0.2f;
         clearValue.color.float32[3] = 1.f;
 
         drv::CmdDraw args         = {};
@@ -135,11 +283,6 @@ namespace sky {
 
         setBinder->SetOffset(0, 5, frameIndex * 2 * sizeof(float));
 
-        drv::DrawItem item = {};
-        item.pso           = pso;
-        item.drawArgs      = args;
-        item.shaderResources = setBinder;
-
         drv::PassBeginInfo beginInfo = {};
         beginInfo.frameBuffer        = frameBuffers[imageIndex];
         beginInfo.renderPass         = renderPass;
@@ -147,7 +290,11 @@ namespace sky {
         beginInfo.clearValues        = &clearValue;
 
         graphicsEncoder.BeginPass(beginInfo);
-        graphicsEncoder.Encode(item);
+
+        graphicsEncoder.BindPipeline(pso);
+        graphicsEncoder.BindShaderResource(setBinder);
+        graphicsEncoder.DrawLinear(args.linear);
+
         graphicsEncoder.EndPass();
 
         commandBuffer->End();

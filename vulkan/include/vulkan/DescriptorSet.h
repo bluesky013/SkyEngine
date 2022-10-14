@@ -13,6 +13,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/ImageView.h>
 #include <vulkan/Sampler.h>
+#include <vulkan/BufferView.h>
 
 namespace sky::drv {
 
@@ -34,6 +35,8 @@ namespace sky::drv {
             Writer &Write(uint32_t binding, VkDescriptorType, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size);
 
             Writer &Write(uint32_t binding, VkDescriptorType, const ImageViewPtr &view, const SamplerPtr &sampler);
+
+            Writer &Write(uint32_t binding, VkDescriptorType, const BufferViewPtr &view);
 
             void Update();
 
@@ -61,7 +64,7 @@ namespace sky::drv {
         DescriptorSetPoolPtr   pool;
         VkDescriptorSet        handle = VK_NULL_HANDLE;
         bool                   dirty  = false;
-        struct BufferView {
+        struct BufferSubResource {
             BufferPtr    buffer;
             VkDeviceSize size   = 0;
             VkDeviceSize offset = 0;
@@ -72,10 +75,11 @@ namespace sky::drv {
             SamplerPtr   sampler;
         };
 
-        std::unordered_map<uint32_t, BufferView>   buffers;
-        std::unordered_map<uint32_t, ImageSampler> views;
-        std::vector<DescriptorWriteInfo>           writeInfos;
-        std::vector<VkWriteDescriptorSet>          writeEntries;
+        std::unordered_map<uint32_t, BufferSubResource> buffers;
+        std::unordered_map<uint32_t, ImageSampler>      imageViews;
+        std::unordered_map<uint32_t, BufferViewPtr>     bufferViews;
+        std::vector<DescriptorWriteInfo>                writeInfos;
+        std::vector<VkWriteDescriptorSet>               writeEntries;
     };
 
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;

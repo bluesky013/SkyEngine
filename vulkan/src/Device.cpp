@@ -119,10 +119,11 @@ namespace sky::drv {
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.multiViewport           = phyFeatures.features.multiViewport;
-        deviceFeatures.samplerAnisotropy       = phyFeatures.features.samplerAnisotropy;
-        deviceFeatures.pipelineStatisticsQuery = phyFeatures.features.pipelineStatisticsQuery;
-        deviceFeatures.inheritedQueries        = phyFeatures.features.inheritedQueries;
+        deviceFeatures.multiViewport            = phyFeatures.features.multiViewport;
+        deviceFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
+        deviceFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
+        deviceFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
+        deviceFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
 
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
         indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
