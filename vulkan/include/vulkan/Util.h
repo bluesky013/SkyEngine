@@ -51,6 +51,11 @@ namespace sky::drv {
                type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     }
 
+    inline bool IsDynamicDescriptor(VkDescriptorType type)
+    {
+        return type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC || type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    }
+
     inline CmdDraw MakeDrawLinear(const CmdDrawIndexed &indexed)
     {
         CmdDraw draw = {};

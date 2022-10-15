@@ -53,6 +53,7 @@ namespace sky {
         drv::BufferPtr constantBuffer;
         drv::BufferPtr texelBuffer;
         drv::BufferPtr storageBuffer;
+        uint32_t       alignedSize = 0;
 
         drv::BufferViewPtr bufferView0;
         drv::BufferViewPtr bufferView1;

@@ -22,16 +22,16 @@ namespace sky::drv {
 
         void BindSet(uint32_t slot, const DescriptorSetPtr &set);
 
-        void SetOffset(uint32_t slot, uint32_t index, uint32_t offset);
+        void SetOffset(uint32_t slot, uint32_t binding, uint32_t offset);
 
     private:
         PipelineLayoutPtr   pipelineLayout;
         VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-        std::vector<DescriptorSetPtr> sets;
-        std::vector<VkDescriptorSet>  vkSets;
-        std::vector<uint32_t>         offsetIndex;
-        std::vector<uint32_t>         dynamicOffsets;
+        std::vector<DescriptorSetPtr>          sets;
+        std::vector<VkDescriptorSet>           vkSets;
+        std::vector<uint32_t>                  dynamicOffsets;
+        std::unordered_map<uint32_t, uint32_t> offsetIndex;
     };
     using DescriptorSetBinderPtr = std::shared_ptr<DescriptorSetBinder>;
 

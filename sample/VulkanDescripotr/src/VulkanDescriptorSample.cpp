@@ -3,6 +3,7 @@
 //
 
 #include <EngineRoot.h>
+#include <core/util/Memory.h>
 #include "VulkanDescriptorSample.h"
 
 namespace sky {
@@ -83,6 +84,7 @@ namespace sky {
     void VulkanDescriptorSample::SetupResources()
     {
         auto writer = set->CreateWriter();
+        auto &limits = device->GetProperties().limits;
 
         {
             drv::Image::Descriptor imageInfo = {};
@@ -181,9 +183,10 @@ namespace sky {
             bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             {
-                bufferInfo.size                    = 2 * 2 * sizeof(float);
+                alignedSize                        = Align(sizeof(Ubo), static_cast<uint32_t>(limits.minUniformBufferOffsetAlignment));
+                bufferInfo.size                    = 2 * alignedSize;
                 uniformBuffer                      = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
-                writer.Write(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBuffer, 0, bufferInfo.size);
+                writer.Write(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBuffer, 0, sizeof(Ubo));
             }
 
             {
@@ -206,7 +209,7 @@ namespace sky {
             drv::Buffer::Descriptor bufferInfo = {};
             bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            bufferInfo.size                    = device->GetProperties().limits.minTexelBufferOffsetAlignment * 2;
+            bufferInfo.size                    = limits.minTexelBufferOffsetAlignment * 2;
             texelBuffer = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
             uint8_t *ptr = texelBuffer->Map();
             memcpy(ptr, texelData, sizeof(texelData));
@@ -247,16 +250,18 @@ namespace sky {
     void VulkanDescriptorSample::UpdateDynamicBuffer()
     {
         if (uniformBuffer) {
-            Ubo *ptr = reinterpret_cast<Ubo *>(uniformBuffer->Map());
-            ptr[frameIndex].x = static_cast<float>(mouseX);
-            ptr[frameIndex].y = static_cast<float>(mouseY);
-            ptr[frameIndex].scaleX = static_cast<float>(scale);
+            Ubo *ptr = reinterpret_cast<Ubo *>(uniformBuffer->Map() + frameIndex * alignedSize);
+            ptr->x = static_cast<float>(mouseX);
+            ptr->y = static_cast<float>(mouseY);
+            ptr->scaleX = static_cast<float>(scale);
             uniformBuffer->UnMap();
         }
     }
 
     void VulkanDescriptorSample::Tick(float delta)
     {
+        VulkanSampleBase::Tick(delta);
+
         UpdateDynamicBuffer();
 
         uint32_t imageIndex = 0;
@@ -281,7 +286,7 @@ namespace sky {
         args.linear.vertexCount   = 6;
         args.linear.instanceCount = 1;
 
-        setBinder->SetOffset(0, 5, frameIndex * 2 * sizeof(float));
+        setBinder->SetOffset(0, 4, frameIndex * alignedSize);
 
         drv::PassBeginInfo beginInfo = {};
         beginInfo.frameBuffer        = frameBuffers[imageIndex];
