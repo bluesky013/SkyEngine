@@ -53,6 +53,8 @@ namespace sky::drv {
 
         const std::map<uint32_t, SetBinding> &GetDescriptorTable() const;
 
+        const std::vector<uint32_t> &GetVariableDescriptorCounts() const;
+
         const UpdateTemplate &GetUpdateTemplate() const;
 
     private:
@@ -65,6 +67,7 @@ namespace sky::drv {
         uint32_t              dynamicNum;
         uint32_t              descriptorNum;
         uint32_t              hash;
+        std::vector<uint32_t> variableDescriptorCounts;
     };
 
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;

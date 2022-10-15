@@ -59,10 +59,8 @@ namespace sky {
     {
         drv::DescriptorSetLayout::Descriptor setLayoutInfo = {};
         setLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-
-        setLayoutInfo.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                                                                               IMAGE_NUM,
-                                                                               VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,IMAGE_NUM,VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(2, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,IMAGE_NUM,VK_SHADER_STAGE_FRAGMENT_BIT, 0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT});
 
         drv::PipelineLayout::Descriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
@@ -145,6 +143,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < IMAGE_NUM; ++i) {
             writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLER, imageViews[i], {}, i);
+            writer.Write(2, VK_DESCRIPTOR_TYPE_SAMPLER, imageViews[i], {}, i);
         }
         writer.Update();
     }

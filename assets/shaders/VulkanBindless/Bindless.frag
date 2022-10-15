@@ -11,12 +11,12 @@ layout (set = 0, binding = 2) uniform texture2D textures1[];
 void main()
 {
     if (inUv.x < 0.5 && inUv.y < 0.5) {
-        outFragColor = texture(sampler2D(textures0[0], sampler0), inUv);
+        outFragColor = texture(sampler2D(textures1[0], sampler0), inUv);
     } else if (inUv.x > 0.5 && inUv.y < 0.5) {
-        outFragColor = texture(sampler2D(textures0[1], sampler0), inUv);
+        outFragColor = texture(sampler2D(textures1[1], sampler0), inUv);
     } else if (inUv.x > 0.5 && inUv.y > 0.5) {
-        outFragColor = texture(sampler2D(textures0[2], sampler0), inUv);
+        outFragColor = texture(sampler2D(textures1[2], sampler0), inUv);
     } else if (inUv.x < 0.5 && inUv.y > 0.5) {
-        outFragColor = texture(sampler2D(textures0[3], sampler0), inUv);
+        outFragColor = texture(sampler2D(textures1[3], sampler0), inUv);
     }
 }

@@ -51,6 +51,10 @@ namespace sky::drv {
                 ++dynamicNum;
             }
 
+            if ((desInfo.bindingFlags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) == VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {
+                variableDescriptorCounts.emplace_back(desInfo.descriptorCount);
+            }
+
             VkDescriptorUpdateTemplateEntry templateEntry{};
             templateEntry.dstBinding        = binding;
             templateEntry.dstArrayElement   = 0;
@@ -113,6 +117,11 @@ namespace sky::drv {
     const std::map<uint32_t, DescriptorSetLayout::SetBinding> &DescriptorSetLayout::GetDescriptorTable() const
     {
         return info.bindings;
+    }
+
+    const std::vector<uint32_t> &DescriptorSetLayout::GetVariableDescriptorCounts() const
+    {
+        return variableDescriptorCounts;
     }
 
     const UpdateTemplate &DescriptorSetLayout::GetUpdateTemplate() const
