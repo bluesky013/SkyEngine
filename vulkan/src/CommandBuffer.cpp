@@ -337,6 +337,11 @@ namespace sky::drv {
         vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
     }
 
+    void GraphicsEncoder::DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size)
+    {
+        vkCmdDrawIndirect(cmd, buffer->GetNativeHandle(), offset, size / sizeof(VkDrawIndirectCommand), sizeof(VkDrawIndirectCommand));
+    }
+
     void SecondaryCommands::Emplace(const CommandBufferPtr &cmd)
     {
         std::lock_guard<std::mutex> lock(mutex);

@@ -33,13 +33,17 @@ namespace sky {
         drv::DescriptorSetPoolPtr   setPool;
         drv::DescriptorSetBinderPtr setBinder;
 
-        drv::ShaderPtr              vs;
-        drv::ShaderPtr              fs;
-        drv::VertexInputPtr         vertexInput;
+        drv::ShaderPtr      vs;
+        drv::ShaderPtr      fs;
+        drv::VertexInputPtr vertexInput;
 
-        drv::SamplerPtr sampler;
-        drv::ImagePtr images[IMAGE_NUM];
-        drv::ImageViewPtr imageViews[IMAGE_NUM];
+        drv::VertexAssemblyPtr vertexAssembly;
+        drv::BufferPtr         vertexBuffer;
+        drv::BufferPtr         materialBuffer;
+        drv::BufferPtr         indirectBuffer;
+        drv::SamplerPtr        sampler;
+        drv::ImagePtr          images[IMAGE_NUM];
+        drv::ImageViewPtr      imageViews[IMAGE_NUM];
     };
 
 } // namespace sky

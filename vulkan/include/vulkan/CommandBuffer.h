@@ -56,6 +56,8 @@ namespace sky::drv {
 
         void DrawLinear(const CmdDrawLinear &linear);
 
+        void DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
+
         void EndPass();
 
         const VkRenderPassBeginInfo &GetCurrentPass() const;

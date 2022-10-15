@@ -1,22 +1,24 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
 layout (location = 0) in vec2 inUv;
+layout (location = 1) in flat int objId;
 
 layout (location = 0) out vec4 outFragColor;
 
-layout (set = 0, binding = 0) uniform sampler   sampler0;
-layout (set = 0, binding = 1) uniform texture2D textures0[4];
-layout (set = 0, binding = 2) uniform texture2D textures1[];
+struct Material {
+    vec4 baseColor;
+    ivec4 texIndex;
+};
+
+layout (set = 0, binding = 0) buffer Storage {
+    Material materials[];
+};
+
+layout (set = 0, binding = 1) uniform sampler   sampler0;
+layout (set = 0, binding = 2) uniform texture2D textures0[];
 
 void main()
 {
-    if (inUv.x < 0.5 && inUv.y < 0.5) {
-        outFragColor = texture(sampler2D(textures1[0], sampler0), inUv);
-    } else if (inUv.x > 0.5 && inUv.y < 0.5) {
-        outFragColor = texture(sampler2D(textures1[1], sampler0), inUv);
-    } else if (inUv.x > 0.5 && inUv.y > 0.5) {
-        outFragColor = texture(sampler2D(textures1[2], sampler0), inUv);
-    } else if (inUv.x < 0.5 && inUv.y > 0.5) {
-        outFragColor = texture(sampler2D(textures1[3], sampler0), inUv);
-    }
+    outFragColor = texture(sampler2D(textures0[materials[objId].texIndex.x], sampler0), inUv) * materials[objId].baseColor;
 }

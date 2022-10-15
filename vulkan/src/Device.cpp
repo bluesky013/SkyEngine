@@ -124,12 +124,13 @@ namespace sky::drv {
         deviceFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
         deviceFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
         deviceFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
+        deviceFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
 
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
         indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         indexingFeatures.runtimeDescriptorArray                    = phyIndexingFeatures.runtimeDescriptorArray;
         indexingFeatures.descriptorBindingVariableDescriptorCount  = phyIndexingFeatures.descriptorBindingVariableDescriptorCount;
-        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
+//        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
