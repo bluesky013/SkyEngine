@@ -1,5 +1,6 @@
 add_subdirectory(VulkanSampleBase)
 add_subdirectory(VulkanTriangle)
 add_subdirectory(VulkanMemory)
-add_subdirectory(VulkanDescripotr)
+add_subdirectory(VulkanDescriptor)
+add_subdirectory(VulkanBindless)
 add_subdirectory(RDSceneProject)

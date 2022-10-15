@@ -32,11 +32,11 @@ namespace sky::drv {
             {
             }
 
-            Writer &Write(uint32_t binding, VkDescriptorType, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size);
+            Writer &Write(uint32_t binding, VkDescriptorType, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t index = 0);
 
-            Writer &Write(uint32_t binding, VkDescriptorType, const ImageViewPtr &view, const SamplerPtr &sampler);
+            Writer &Write(uint32_t binding, VkDescriptorType, const ImageViewPtr &view, const SamplerPtr &sampler, uint32_t index = 0);
 
-            Writer &Write(uint32_t binding, VkDescriptorType, const BufferViewPtr &view);
+            Writer &Write(uint32_t binding, VkDescriptorType, const BufferViewPtr &view, uint32_t index = 0);
 
             void Update();
 
