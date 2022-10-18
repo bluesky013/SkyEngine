@@ -46,22 +46,20 @@ namespace sky::drv {
             return setCreateFn(back);
         }
 
-        auto  vl                       = layout->GetNativeHandle();
-        auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
-
-        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
-
+        auto                        vl      = layout->GetNativeHandle();
         VkDescriptorSetAllocateInfo setInfo = {};
         setInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         setInfo.descriptorPool              = pool->pool;
         setInfo.descriptorSetCount          = 1;
         setInfo.pSetLayouts                 = &vl;
 
+        auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
+        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
         if (!variableDescriptorCounts.empty()) {
             variableDescriptorCountAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
             variableDescriptorCountAllocInfo.descriptorSetCount = 1;
             variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
-            setInfo.pNext                                       = &variableDescriptorCountAllocInfo;
+            setInfo.pNext                       = &variableDescriptorCountAllocInfo;
         }
 
         VkDescriptorSet set    = VK_NULL_HANDLE;

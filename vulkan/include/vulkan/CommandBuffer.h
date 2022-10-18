@@ -107,7 +107,7 @@ namespace sky::drv {
         void ImageBarrier(
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
 
-        void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset);
+        void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
 

@@ -157,7 +157,7 @@ namespace sky::drv {
         vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
     }
 
-    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset)
+    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset)
     {
         VkBufferMemoryBarrier bufferBarrier = {};
         bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -169,7 +169,7 @@ namespace sky::drv {
         bufferBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
         bufferBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 
-        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
     }
 
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy)
