@@ -182,7 +182,30 @@ namespace sky::drv {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
-    GraphicsEncoder::GraphicsEncoder(CommandBuffer &cb) : cmdBuffer{cb}
+    ComputeEncoder::ComputeEncoder(CommandBuffer &cb) : cmdBuffer(cb)
+    {
+    }
+
+    void ComputeEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
+    {
+        binder->OnBind(cmd);
+    }
+
+    void ComputeEncoder::BindComputePipeline(const ComputePipelinePtr &pso)
+    {
+        auto handle = pso->GetNativeHandle();
+        if (handle != currentPso) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, handle);
+            currentPso = handle;
+        }
+    }
+
+    void ComputeEncoder::Dispatch(uint32_t x, uint32_t y, uint32_t z)
+    {
+        vkCmdDispatch(cmd, x, y, z);
+    }
+
+    GraphicsEncoder::GraphicsEncoder(CommandBuffer &cb) : ComputeEncoder{cb}
     {
         cmd                         = cmdBuffer.GetNativeHandle();
         vkBeginInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -225,6 +248,15 @@ namespace sky::drv {
     void GraphicsEncoder::EndPass()
     {
         vkCmdEndRenderPass(cmd);
+    }
+
+    void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
+    {
+        auto handle = pso->GetNativeHandle();
+        if (handle != currentPso) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
+            currentPso = handle;
+        }
     }
 
     const VkRenderPassBeginInfo &GraphicsEncoder::GetCurrentPass() const
@@ -288,20 +320,6 @@ namespace sky::drv {
             DrawLinear(item.drawArgs.linear);
             break;
         }
-    }
-
-    void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
-    {
-        auto handle = pso->GetNativeHandle();
-        if (handle != currentPso) {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
-            currentPso = handle;
-        }
-    }
-
-    void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
-    {
-        binder->OnBind(cmd);
     }
 
     void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembler)

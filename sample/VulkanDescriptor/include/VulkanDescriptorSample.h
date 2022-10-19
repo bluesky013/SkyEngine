@@ -41,7 +41,7 @@ namespace sky {
 
         drv::SamplerPtr sampler;
 
-        drv::ImagePtr inputImage0;
+        drv::ImagePtr     inputImage0;
         drv::ImageViewPtr imageView0;
         drv::ImageViewPtr imageView1;
         drv::ImageViewPtr imageView2;

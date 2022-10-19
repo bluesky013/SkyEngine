@@ -16,6 +16,8 @@
 #include <vulkan/FrameBuffer.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/Swapchain.h>
+#include <vulkan/ComputePipeline.h>
+#include <vulkan/GraphicsPipeline.h>
 
 namespace sky {
     class NativeWindow;
@@ -46,7 +48,6 @@ namespace sky {
         drv::Driver *driver = nullptr;
         drv::Device *device = nullptr;
 
-        drv::GraphicsPipelinePtr pso;
         drv::SwapChainPtr        swapChain;
         drv::SemaphorePtr        imageAvailable;
         drv::SemaphorePtr        renderFinish;
@@ -59,5 +60,6 @@ namespace sky {
         std::vector<drv::ImageViewPtr>   colorViews;
 
         uint32_t frameIndex = 0;
+        uint32_t frame = 0;
     };
 }
