@@ -14,6 +14,7 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/VertexAssembly.h>
+#include <vulkan/ComputePipeline.h>
 
 namespace sky::drv {
 
@@ -31,7 +32,25 @@ namespace sky::drv {
         VkSubpassContents   contents        = VK_SUBPASS_CONTENTS_INLINE;
     };
 
-    class GraphicsEncoder {
+    class ComputeEncoder {
+    public:
+        ComputeEncoder(CommandBuffer &);
+        ~ComputeEncoder() = default;
+
+        void BindShaderResource(const DescriptorSetBinderPtr &binder);
+
+        void BindComputePipeline(const ComputePipelinePtr &pso);
+
+        void Dispatch(uint32_t x, uint32_t y, uint32_t z);
+
+    protected:
+        friend class CommandBuffer;
+        CommandBuffer        &cmdBuffer;
+        VkCommandBuffer       cmd              = VK_NULL_HANDLE;
+        VkPipeline            currentPso       = VK_NULL_HANDLE;
+    };
+
+    class GraphicsEncoder : public ComputeEncoder {
     public:
         GraphicsEncoder(CommandBuffer &);
         ~GraphicsEncoder() = default;
@@ -41,8 +60,6 @@ namespace sky::drv {
         void BeginPass(const PassBeginInfo &);
 
         void BindPipeline(const GraphicsPipelinePtr &pso);
-
-        void BindShaderResource(const DescriptorSetBinderPtr &binder);
 
         void BindAssembly(const VertexAssemblyPtr &assembly);
 
@@ -55,6 +72,8 @@ namespace sky::drv {
         void DrawIndexed(const CmdDrawIndexed &indexed);
 
         void DrawLinear(const CmdDrawLinear &linear);
+
+        void DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
 
         void EndPass();
 
@@ -70,14 +89,10 @@ namespace sky::drv {
 
     private:
         friend class CommandBuffer;
-        CommandBuffer        &cmdBuffer;
-        VkCommandBuffer       cmd              = VK_NULL_HANDLE;
         VkRenderPassBeginInfo vkBeginInfo      = {};
         VkViewport            viewport{};
         VkRect2D              scissor{};
-
         uint32_t              currentSubPassId = 0;
-        VkPipeline            currentPso       = VK_NULL_HANDLE;
         VertexAssemblyPtr     currentAssembler;
     };
 
@@ -105,7 +120,7 @@ namespace sky::drv {
         void ImageBarrier(
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
 
-        void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset);
+        void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
 

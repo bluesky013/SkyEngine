@@ -47,8 +47,13 @@ namespace sky::drv {
 
     inline bool IsImageDescriptor(VkDescriptorType type)
     {
-        return type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT ||
-               type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        return type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+               type == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    }
+
+    inline bool IsDynamicDescriptor(VkDescriptorType type)
+    {
+        return type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC || type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
     }
 
     inline CmdDraw MakeDrawLinear(const CmdDrawIndexed &indexed)

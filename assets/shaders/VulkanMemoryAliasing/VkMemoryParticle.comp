@@ -1,0 +1,43 @@
+#version 450
+
+layout (local_size_x = 256) in;
+
+struct Particle
+{
+    vec4 pos;
+    vec4 dir;
+};
+
+struct ParticleRender
+{
+    vec4 pos;
+};
+
+layout(std140, binding = 0) uniform FrameData
+{
+    uint frameIndex;
+    float time;
+};
+
+layout(std140, binding = 1) buffer ParticleData
+{
+    Particle particlesIn[];
+};
+
+layout(std140, binding = 2) buffer writeonly ParticleRenderData
+{
+    ParticleRender particlesOut[];
+};
+
+void main()
+{
+    uint particleIndex = gl_GlobalInvocationID.x;
+
+    particlesIn[particleIndex].pos = particlesIn[particleIndex].pos + particlesIn[particleIndex].dir * vec4(time);
+    particlesIn[particleIndex].dir = particlesIn[particleIndex].dir + vec4(0, -1.0 * time, 0.0, 0.0);
+
+    vec2 dir = normalize(particlesIn[particleIndex].dir.xy);
+    float val = atan(dir.y, dir.x) - 90 / 180.0 * 3.14;
+
+    particlesOut[particleIndex].pos = vec4(particlesIn[particleIndex].pos.xy, val, 0.0);
+}

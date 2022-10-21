@@ -32,6 +32,8 @@ namespace sky::drv {
 
     private:
         friend class Device;
+        friend class BufferView;
+
         Buffer(Device &);
 
         bool Init(const Descriptor &);

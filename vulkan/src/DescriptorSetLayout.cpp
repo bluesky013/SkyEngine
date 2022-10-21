@@ -2,16 +2,18 @@
 // Created by Zach Lee on 2022/1/9.
 //
 
+#include <vulkan/DescriptorSetLayout.h>
+#include <vulkan/Device.h>
+#include <vulkan/Util.h>
+
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
 #include <list>
-#include <vulkan/DescriptorSetLayout.h>
-#include <vulkan/Device.h>
 
 namespace sky::drv {
 
     DescriptorSetLayout::DescriptorSetLayout(Device &dev)
-    : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), hash(0)
+    : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), descriptorNum(0), hash(0)
     {
     }
 
@@ -24,13 +26,14 @@ namespace sky::drv {
 
     bool DescriptorSetLayout::Init(const Descriptor &des)
     {
-        descriptor = des;
+        info = des;
 
         std::vector<VkDescriptorSetLayoutBinding>    bindings;
         std::vector<VkDescriptorBindingFlags>        bindingFlags;
         std::vector<VkDescriptorUpdateTemplateEntry> entries;
         std::list<VkSampler>                         samplers;
 
+        descriptorNum = 0;
         for (auto &[binding, desInfo] : des.bindings) {
             HashCombine32(hash, Crc32::Cal(binding));
             HashCombine32(hash, Crc32::Cal(desInfo));
@@ -44,9 +47,12 @@ namespace sky::drv {
             bindings.emplace_back(layoutBinding);
             bindingFlags.emplace_back(desInfo.bindingFlags);
 
-            if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
-                layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
+            if (IsDynamicDescriptor(layoutBinding.descriptorType)) {
                 ++dynamicNum;
+            }
+
+            if ((desInfo.bindingFlags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) == VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {
+                variableDescriptorCounts.emplace_back(desInfo.descriptorCount);
             }
 
             VkDescriptorUpdateTemplateEntry templateEntry{};
@@ -54,10 +60,12 @@ namespace sky::drv {
             templateEntry.dstArrayElement   = 0;
             templateEntry.descriptorCount   = desInfo.descriptorCount;
             templateEntry.descriptorType    = desInfo.descriptorType;
-            templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * entries.size());
+            templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * descriptorNum);
             templateEntry.stride            = sizeof(DescriptorWriteInfo);
-            updateTemplate.indices[binding] = static_cast<uint32_t>(entries.size());
+            updateTemplate.indices[binding] = descriptorNum;
             entries.emplace_back(templateEntry);
+
+            descriptorNum += desInfo.descriptorCount;
         }
 
         VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};
@@ -101,9 +109,19 @@ namespace sky::drv {
         return dynamicNum;
     }
 
+    uint32_t DescriptorSetLayout::GetDescriptorNum() const
+    {
+        return descriptorNum;
+    }
+
     const std::map<uint32_t, DescriptorSetLayout::SetBinding> &DescriptorSetLayout::GetDescriptorTable() const
     {
-        return descriptor.bindings;
+        return info.bindings;
+    }
+
+    const std::vector<uint32_t> &DescriptorSetLayout::GetVariableDescriptorCounts() const
+    {
+        return variableDescriptorCounts;
     }
 
     const UpdateTemplate &DescriptorSetLayout::GetUpdateTemplate() const

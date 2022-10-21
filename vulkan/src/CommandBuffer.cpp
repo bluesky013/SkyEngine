@@ -157,7 +157,7 @@ namespace sky::drv {
         vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
     }
 
-    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, uint32_t size, uint32_t offset)
+    void CommandBuffer::BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset)
     {
         VkBufferMemoryBarrier bufferBarrier = {};
         bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -169,7 +169,7 @@ namespace sky::drv {
         bufferBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
         bufferBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 
-        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+        vkCmdPipelineBarrier(cmdBuffer, barrier.srcStageMask, barrier.dstStageMask, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
     }
 
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy)
@@ -182,7 +182,30 @@ namespace sky::drv {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
-    GraphicsEncoder::GraphicsEncoder(CommandBuffer &cb) : cmdBuffer{cb}
+    ComputeEncoder::ComputeEncoder(CommandBuffer &cb) : cmdBuffer(cb)
+    {
+    }
+
+    void ComputeEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
+    {
+        binder->OnBind(cmd);
+    }
+
+    void ComputeEncoder::BindComputePipeline(const ComputePipelinePtr &pso)
+    {
+        auto handle = pso->GetNativeHandle();
+        if (handle != currentPso) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, handle);
+            currentPso = handle;
+        }
+    }
+
+    void ComputeEncoder::Dispatch(uint32_t x, uint32_t y, uint32_t z)
+    {
+        vkCmdDispatch(cmd, x, y, z);
+    }
+
+    GraphicsEncoder::GraphicsEncoder(CommandBuffer &cb) : ComputeEncoder{cb}
     {
         cmd                         = cmdBuffer.GetNativeHandle();
         vkBeginInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -225,6 +248,15 @@ namespace sky::drv {
     void GraphicsEncoder::EndPass()
     {
         vkCmdEndRenderPass(cmd);
+    }
+
+    void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
+    {
+        auto handle = pso->GetNativeHandle();
+        if (handle != currentPso) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
+            currentPso = handle;
+        }
     }
 
     const VkRenderPassBeginInfo &GraphicsEncoder::GetCurrentPass() const
@@ -290,20 +322,6 @@ namespace sky::drv {
         }
     }
 
-    void GraphicsEncoder::BindPipeline(const GraphicsPipelinePtr &pso)
-    {
-        auto handle = pso->GetNativeHandle();
-        if (handle != currentPso) {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
-            currentPso = handle;
-        }
-    }
-
-    void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
-    {
-        binder->OnBind(cmd);
-    }
-
     void GraphicsEncoder::BindAssembly(const VertexAssemblyPtr &assembler)
     {
         if (currentAssembler != assembler) {
@@ -335,6 +353,11 @@ namespace sky::drv {
     void GraphicsEncoder::DrawLinear(const CmdDrawLinear &linear)
     {
         vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
+    }
+
+    void GraphicsEncoder::DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size)
+    {
+        vkCmdDrawIndirect(cmd, buffer->GetNativeHandle(), offset, size / sizeof(VkDrawIndirectCommand), sizeof(VkDrawIndirectCommand));
     }
 
     void SecondaryCommands::Emplace(const CommandBufferPtr &cmd)

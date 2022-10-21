@@ -3,8 +3,14 @@
 //
 
 #include <vulkan/DescriptorSetBinder.h>
+#include <vulkan/Util.h>
 
 namespace sky::drv {
+
+    static uint32_t CombineSlotBinding(uint32_t set, uint32_t binding)
+    {
+        return ((set & 0xFFFF) << 16) | (binding & 0xFFFF);
+    }
 
     void DescriptorSetBinder::SetPipelineLayout(const PipelineLayoutPtr &layout)
     {
@@ -14,16 +20,18 @@ namespace sky::drv {
         auto dynamicNum = layout->GetDynamicNum();
         sets.resize(layoutNum);
         vkSets.resize(layoutNum);
-        offsetIndex.resize(layoutNum, dynamicNum);
         dynamicOffsets.resize(dynamicNum, 0);
 
         auto    &desLayouts = layout->GetLayouts();
         uint32_t offset     = 0;
         for (uint32_t i = 0; i < layoutNum; ++i) {
-            auto num = desLayouts[i]->GetDynamicNum();
-            if (num != 0) {
-                offsetIndex[i] = offset;
-                offset += num;
+            auto &bindings = desLayouts[i]->GetDescriptorTable();
+            for (auto &[binding, info] : bindings) {
+                if (!IsDynamicDescriptor(info.descriptorType)) {
+                    continue;
+                }
+                offsetIndex[CombineSlotBinding(i, binding)] = offset;
+                ++offset;
             }
         }
     }
@@ -52,9 +60,10 @@ namespace sky::drv {
 
     void DescriptorSetBinder::SetOffset(uint32_t slot, uint32_t index, uint32_t offset)
     {
-        uint32_t idx = offsetIndex[slot] + index;
-        if (idx < dynamicOffsets.size()) {
-            dynamicOffsets[idx] = offset;
+        uint32_t idx = CombineSlotBinding(slot, index);
+        auto iter = offsetIndex.find(idx);
+        if (iter != offsetIndex.end() && iter->second < dynamicOffsets.size()) {
+            dynamicOffsets[iter->second] = offset;
         }
     }
 

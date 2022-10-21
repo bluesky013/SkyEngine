@@ -55,8 +55,13 @@ namespace sky::drv {
 
         void WaitIdle() const;
 
+        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+
     private:
         bool Init(const Descriptor &, bool enableDebug);
+
+        bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
 
         friend class Driver;
         Device(Driver &);
@@ -65,9 +70,10 @@ namespace sky::drv {
         VkDevice         device;
         VmaAllocator     allocator;
 
-        VkPhysicalDeviceProperties phyProps;
+        VkPhysicalDeviceProperties phyProps = {};
         VkPhysicalDeviceFeatures2  phyFeatures = {};
         VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures = {};
+        VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;

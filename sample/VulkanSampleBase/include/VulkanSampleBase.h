@@ -1,6 +1,8 @@
 //
-// Created by Zach Lee on 2022/6/16.
+// Created by Zach Lee on 2022/10/13.
 //
+
+#pragma once
 
 #pragma once
 
@@ -12,19 +14,18 @@
 #include <vulkan/Device.h>
 #include <vulkan/Driver.h>
 #include <vulkan/FrameBuffer.h>
-#include <vulkan/GraphicsPipeline.h>
 #include <vulkan/Semaphore.h>
-#include <vulkan/Shader.h>
 #include <vulkan/Swapchain.h>
-#include <vulkan/VertexInput.h>
+#include <vulkan/ComputePipeline.h>
+#include <vulkan/GraphicsPipeline.h>
 
 namespace sky {
     class NativeWindow;
 
-    class Triangle : public IModule, public IWindowEvent {
+    class VulkanSampleBase : public IModule, public IWindowEvent {
     public:
-        Triangle()  = default;
-        ~Triangle() = default;
+        VulkanSampleBase()  = default;
+        ~VulkanSampleBase() = default;
 
         void Init() override;
 
@@ -36,29 +37,29 @@ namespace sky {
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
-    private:
-        void LoadShader(VkShaderStageFlagBits stage, const std::string &path);
+        virtual void OnStart() {}
+        virtual void OnStop() {}
 
+        drv::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
+
+    protected:
         void ResetFrameBuffer();
 
         drv::Driver *driver = nullptr;
         drv::Device *device = nullptr;
 
-        drv::GraphicsPipelinePtr pso;
-        drv::PipelineLayoutPtr   pipelineLayout;
-        drv::ShaderPtr           vs;
-        drv::ShaderPtr           fs;
-        drv::VertexInputPtr      vertexInput;
         drv::SwapChainPtr        swapChain;
-        drv::RenderPassPtr       renderPass;
         drv::SemaphorePtr        imageAvailable;
         drv::SemaphorePtr        renderFinish;
+        drv::RenderPassPtr       renderPass;
 
         drv::CommandPoolPtr              commandPool;
         drv::CommandBufferPtr            commandBuffer;
         drv::Queue                      *graphicsQueue;
         std::vector<drv::FrameBufferPtr> frameBuffers;
         std::vector<drv::ImageViewPtr>   colorViews;
-    };
 
-} // namespace sky
+        uint32_t frameIndex = 0;
+        uint32_t frame = 0;
+    };
+}

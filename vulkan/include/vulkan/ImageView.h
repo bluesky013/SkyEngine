@@ -31,7 +31,7 @@ namespace sky::drv {
 
         static Descriptor Make2DDepthStencil(VkFormat);
 
-        static std::shared_ptr<ImageView> CreateImageView(ImagePtr image, ImageView::Descriptor &des);
+        static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::Descriptor &des);
 
         VkImageView GetNativeHandle() const;
 

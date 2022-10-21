@@ -49,7 +49,11 @@ namespace sky::drv {
 
         uint32_t GetDynamicNum() const;
 
+        uint32_t GetDescriptorNum() const;
+
         const std::map<uint32_t, SetBinding> &GetDescriptorTable() const;
+
+        const std::vector<uint32_t> &GetVariableDescriptorCounts() const;
 
         const UpdateTemplate &GetUpdateTemplate() const;
 
@@ -57,11 +61,13 @@ namespace sky::drv {
         friend class Device;
         DescriptorSetLayout(Device &);
 
-        Descriptor            descriptor;
+        Descriptor            info;
         VkDescriptorSetLayout layout;
         UpdateTemplate        updateTemplate;
         uint32_t              dynamicNum;
+        uint32_t              descriptorNum;
         uint32_t              hash;
+        std::vector<uint32_t> variableDescriptorCounts;
     };
 
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;

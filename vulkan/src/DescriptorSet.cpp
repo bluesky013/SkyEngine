@@ -49,10 +49,18 @@ namespace sky::drv {
         auto                        vl      = layout->GetNativeHandle();
         VkDescriptorSetAllocateInfo setInfo = {};
         setInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        setInfo.pNext                       = nullptr;
         setInfo.descriptorPool              = pool->pool;
         setInfo.descriptorSetCount          = 1;
         setInfo.pSetLayouts                 = &vl;
+
+        auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
+        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
+        if (!variableDescriptorCounts.empty()) {
+            variableDescriptorCountAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+            variableDescriptorCountAllocInfo.descriptorSetCount = 1;
+            variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
+            setInfo.pNext                       = &variableDescriptorCountAllocInfo;
+        }
 
         VkDescriptorSet set    = VK_NULL_HANDLE;
         auto            result = vkAllocateDescriptorSets(pool->device.GetNativeHandle(), &setInfo, &set);
@@ -73,7 +81,7 @@ namespace sky::drv {
         auto &table      = layout->GetDescriptorTable();
         auto &indicesMap = layout->GetUpdateTemplate();
 
-        writeInfos.resize(table.size(), {});
+        writeInfos.resize(layout->GetDescriptorNum(), {});
         for (auto &[binding, info] : table) {
             writeEntries.emplace_back(VkWriteDescriptorSet{});
             VkWriteDescriptorSet &entry = writeEntries.back();
@@ -85,25 +93,29 @@ namespace sky::drv {
             entry.descriptorCount       = info.descriptorCount;
             entry.descriptorType        = info.descriptorType;
 
-            uint32_t index = indicesMap.indices.at(binding);
-            if (IsBufferDescriptor(info.descriptorType)) {
-                entry.pBufferInfo = &writeInfos[index].buffer;
-            } else if (IsImageDescriptor(info.descriptorType)) {
-                auto &imageInfo = writeInfos[index].image;
-                if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            uint32_t offset = indicesMap.indices.at(binding);
+            for (uint32_t i = 0; i < entry.descriptorCount; ++i) {
+                uint32_t index = offset + i;
+
+                if (IsBufferDescriptor(info.descriptorType)) {
+                    entry.pBufferInfo = &writeInfos[index].buffer;
+                } else if (IsImageDescriptor(info.descriptorType)) {
+                    auto &imageInfo = writeInfos[index].image;
+                    if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || info.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) {
+                        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+                        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+                    }
+                    entry.pImageInfo = &imageInfo;
+                } else {
+                    entry.pTexelBufferView = &writeInfos[index].bufferView;
                 }
-                entry.pImageInfo = &imageInfo;
-            } else {
-                entry.pTexelBufferView = &writeInfos[index].bufferView;
             }
         }
     }
 
     DescriptorSet::Writer &
-    DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size)
+    DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t index)
     {
         if (!buffer) {
             return *this;
@@ -124,7 +136,7 @@ namespace sky::drv {
             return *this;
         }
 
-        auto &bufferInfo  = set.writeInfos[iter->second].buffer;
+        auto &bufferInfo  = set.writeInfos[iter->second + index].buffer;
         bufferInfo.buffer = buffer->GetNativeHandle();
         bufferInfo.offset = offset;
         bufferInfo.range  = size;
@@ -132,20 +144,16 @@ namespace sky::drv {
         return *this;
     }
 
-    DescriptorSet::Writer &DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const ImageViewPtr &view, const SamplerPtr &sampler)
+    DescriptorSet::Writer &DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const ImageViewPtr &view, const SamplerPtr &sampler, uint32_t index)
     {
-        if (!view || !sampler) {
+        auto &viewInfo     = set.imageViews[binding];
+        auto viewHandleFn = [](const ImageViewPtr &view) -> VkImageView { return view ? view->GetNativeHandle() : VK_NULL_HANDLE; };
+        auto samplerHandleFn = [](const SamplerPtr &sampler) -> VkSampler { return sampler ? sampler->GetNativeHandle() : VK_NULL_HANDLE; };
+
+        if (viewInfo.view.get() == view.get() && viewInfo.sampler.get() == sampler.get()) {
             return *this;
         }
 
-        auto &viewInfo     = set.views[binding];
-        auto  viewHandleFn = [&viewInfo]() -> VkImageView { return viewInfo.view ? viewInfo.view->GetNativeHandle() : VK_NULL_HANDLE; };
-
-        auto samplerHandleFn = [&viewInfo]() -> VkSampler { return viewInfo.sampler ? viewInfo.sampler->GetNativeHandle() : VK_NULL_HANDLE; };
-
-        if (viewHandleFn() == view->GetNativeHandle() && samplerHandleFn() == sampler->GetNativeHandle()) {
-            return *this;
-        }
         viewInfo.view    = view;
         viewInfo.sampler = sampler;
 
@@ -154,10 +162,28 @@ namespace sky::drv {
             return *this;
         }
 
-        auto &imageInfo     = set.writeInfos[iter->second].image;
-        imageInfo.sampler   = sampler->GetNativeHandle();
-        imageInfo.imageView = view->GetNativeHandle();
+        auto &imageInfo     = set.writeInfos[iter->second + index].image;
+        imageInfo.sampler   = samplerHandleFn(sampler);
+        imageInfo.imageView = viewHandleFn(view);
 
+        set.dirty = true;
+        return *this;
+    }
+
+    DescriptorSet::Writer &DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType, const BufferViewPtr &view, uint32_t index)
+    {
+        auto &viewInfo     = set.bufferViews[binding];
+        if (viewInfo.get() == view.get()) {
+            return *this;
+        }
+
+        viewInfo = view;
+        auto iter = updateTemplate.indices.find(binding);
+        if (iter == updateTemplate.indices.end()) {
+            return *this;
+        }
+
+        set.writeInfos[iter->second + index].bufferView = view->GetNativeHandle();
         set.dirty = true;
         return *this;
     }

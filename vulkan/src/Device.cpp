@@ -19,6 +19,18 @@ const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
 const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 namespace sky::drv {
+    static int32_t FindProperties(const VkPhysicalDeviceMemoryProperties* properties, uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties)
+    {
+        const uint32_t memoryCount = properties->memoryTypeCount;
+        for (uint32_t i = 0; i < memoryCount; ++i) {
+            const bool isRequiredMemoryType  = memoryTypeBits & (1 << i);
+            const bool hasRequiredProperties = (properties->memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties;
+            if (isRequiredMemoryType && hasRequiredProperties)
+                return static_cast<int32_t>(i);
+        }
+        return -1;
+    }
+
 
     Device::Device(Driver &drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
@@ -107,16 +119,18 @@ namespace sky::drv {
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.multiViewport           = phyFeatures.features.multiViewport;
-        deviceFeatures.samplerAnisotropy       = phyFeatures.features.samplerAnisotropy;
-        deviceFeatures.pipelineStatisticsQuery = phyFeatures.features.pipelineStatisticsQuery;
-        deviceFeatures.inheritedQueries        = phyFeatures.features.inheritedQueries;
+        deviceFeatures.multiViewport            = phyFeatures.features.multiViewport;
+        deviceFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
+        deviceFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
+        deviceFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
+        deviceFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
+        deviceFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
 
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
         indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         indexingFeatures.runtimeDescriptorArray                    = phyIndexingFeatures.runtimeDescriptorArray;
         indexingFeatures.descriptorBindingVariableDescriptorCount  = phyIndexingFeatures.descriptorBindingVariableDescriptorCount;
-        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
+//        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -148,9 +162,11 @@ namespace sky::drv {
             queues[i]->Setup();
         }
 
+        memoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+        vkGetPhysicalDeviceMemoryProperties2(phyDev, &memoryProperties);
+
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.device                 = device;
-        ;
         allocatorInfo.physicalDevice   = phyDev;
         allocatorInfo.instance         = driver.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
@@ -286,6 +302,55 @@ namespace sky::drv {
     void Device::WaitIdle() const
     {
         vkDeviceWaitIdle(device);
+    }
+
+    bool Device::FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const
+    {
+        int32_t index = FindProperties(&memoryProperties.memoryProperties, requirements.memoryRequirements.memoryTypeBits, flags);
+        if (index < 0) {
+            return false;
+        }
+
+        out.size = requirements.memoryRequirements.size;
+        out.alignment = requirements.memoryRequirements.alignment;
+        out.memoryIndex = static_cast<uint32_t>(index);
+        out.prefersDedicated = dedicated.prefersDedicatedAllocation;
+        out.requiresDedicated = dedicated.requiresDedicatedAllocation;
+        return true;
+    }
+
+    bool Device::GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const
+    {
+        VkBufferMemoryRequirementsInfo2 memoryReqsInfo = {};
+        memoryReqsInfo.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+        memoryReqsInfo.buffer = buffer;
+
+        VkMemoryDedicatedRequirements memDedicatedReq = {};
+        memDedicatedReq.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+        VkMemoryRequirements2 memoryReqs2 = {};
+        memoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+        memoryReqs2.pNext = &memDedicatedReq;
+        vkGetBufferMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
+
+        return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
+    }
+
+    bool Device::GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const
+    {
+        VkImageMemoryRequirementsInfo2 memoryReqsInfo = {};
+        memoryReqsInfo.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+        memoryReqsInfo.image = image;
+
+        VkMemoryDedicatedRequirements memDedicatedReq = {};
+        memDedicatedReq.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+        VkMemoryRequirements2 memoryReqs2 = {};
+        memoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+        memoryReqs2.pNext = &memDedicatedReq;
+        vkGetImageMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
+
+        return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
     }
 
 } // namespace sky::drv

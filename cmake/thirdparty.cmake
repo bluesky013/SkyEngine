@@ -17,6 +17,22 @@ function(sky_find_3rd)
     endif()
 endfunction()
 
+set(SKY_3RD_REMOTE "114.116.71.111")
+set(SKY_3RD_REMOTE_URL ${SKY_3RD_REMOTE}/Sky3rd-Windows.rar)
+set(SKY_3RD_SAVE_PATH ${3RD_PATH}/Sky3rd-Windows.rar)
+
+message("[3rdPath]:" ${SKY_3RD_SAVE_PATH})
+if (NOT EXISTS ${SKY_3RD_SAVE_PATH})
+    file(DOWNLOAD
+        ${SKY_3RD_REMOTE_URL} ${SKY_3RD_SAVE_PATH}
+        SHOW_PROGRESS
+    )
+    file(ARCHIVE_EXTRACT
+        INPUT ${SKY_3RD_SAVE_PATH}
+        DESTINATION ${3RD_PATH}
+    )
+endif()
+
 if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET rapidjson     DIR rapidjson)
     sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
