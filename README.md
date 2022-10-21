@@ -6,6 +6,11 @@ cmake -S . -B build -G "Visual Studio 17 2022" -D3RD_PATH=path_to_3rd
 cmake --build build
 ```
 
+## Compile Shader
+```shell
+python .\assets\shaders\compileshaders.py
+```
+
 ## Run Sample
 ```shell
 Launcher.exe --module module_name
