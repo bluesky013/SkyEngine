@@ -76,7 +76,7 @@ namespace sky {
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
             auto device = DriverManager::Get()->GetDevice();
-            auto queue  = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
+            auto queue  = device->GetGraphicsQueue();
 
             drv::Buffer::Descriptor stagingDes = {};
             stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;

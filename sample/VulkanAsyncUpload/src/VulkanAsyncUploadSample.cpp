@@ -88,7 +88,7 @@ namespace sky {
         sampler = device->CreateDeviceObject<drv::Sampler>({});
 
         object.future = std::async([this]() {
-            auto uploadQueue = device->GetQueue(VK_QUEUE_TRANSFER_BIT);
+            auto uploadQueue = device->GetAsyncTransferQueue()->GetQueue();
             drv::Buffer::Descriptor bufferDesc = {};
             bufferDesc.size      = 128 * 128 * 4;
             bufferDesc.usage     = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

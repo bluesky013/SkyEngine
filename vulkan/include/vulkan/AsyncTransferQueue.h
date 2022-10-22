@@ -15,6 +15,7 @@
 namespace sky::drv {
 
     class Device;
+    class Queue;
 
     struct TransferTask {
         uint32_t taskId;
@@ -29,16 +30,6 @@ namespace sky::drv {
 
         void Setup();
         void Shutdown();
-
-        uint32_t GetQueueFamilyIndex() const
-        {
-            return queueFamilyIndex;
-        }
-
-        VkQueue GetNativeHandle() const
-        {
-            return queue;
-        }
 
         template <typename T>
         TransferTaskHandle CreateTask(T&& task)
@@ -55,17 +46,21 @@ namespace sky::drv {
             return taskQueue.back().taskId;
         }
 
-        bool HasComplete(TransferTaskHandle handle)
+        bool HasComplete(TransferTaskHandle handle) const
         {
             return lastTaskId.load() >= handle;
         }
 
+        Queue *GetQueue() const
+        {
+            return queue;
+        }
+
     private:
         friend class Device;
-        AsyncTransferQueue(Device &dev, VkQueue q, uint32_t family)
+        AsyncTransferQueue(Device &dev, Queue *que)
             : DevObject(dev)
-            , queueFamilyIndex(family)
-            , queue(q)
+            , queue(que)
             , exit(false)
             , currentTaskId(0)
             , lastTaskId(0)
@@ -76,9 +71,7 @@ namespace sky::drv {
         bool EmitSingleTask();
         bool HasTask();
 
-        uint32_t       queueFamilyIndex;
-        VkQueue        queue;
-        CommandPoolPtr pool;
+        Queue *queue;
 
         std::atomic_bool         exit;
         uint32_t                 currentTaskId;

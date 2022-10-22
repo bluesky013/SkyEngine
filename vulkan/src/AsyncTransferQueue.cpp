@@ -3,6 +3,7 @@
 //
 
 #include <vulkan/AsyncTransferQueue.h>
+#include <vulkan/Queue.h>
 
 namespace sky::drv {
 

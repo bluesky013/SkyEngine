@@ -53,7 +53,6 @@ namespace sky {
         drv::SemaphorePtr        renderFinish;
         drv::RenderPassPtr       renderPass;
 
-        drv::CommandPoolPtr              commandPool;
         drv::CommandBufferPtr            commandBuffer;
         drv::Queue                      *graphicsQueue;
         std::vector<drv::FrameBufferPtr> frameBuffers;
