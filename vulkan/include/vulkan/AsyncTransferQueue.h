@@ -47,21 +47,9 @@ namespace sky::drv {
             return taskQueue.back().taskId;
         }
 
-        struct BufferRequest {
-            const uint8_t *data;
-            uint64_t       offset;
-            uint64_t       size;
-        };
+        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);
 
-        struct ImageRequest {
-            const uint8_t *data;
-            uint64_t       offset;
-            uint64_t       size;
-        };
-
-        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferRequest &request);
-
-        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageRequest &request);
+        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
 
         bool HasComplete(TransferTaskHandle handle) const
         {
