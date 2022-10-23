@@ -175,21 +175,11 @@ namespace sky::drv {
             return false;
         }
 
-        queues.resize(count);
-        for (i = 0; i < count; ++i) {
-            VkQueue queue = VK_NULL_HANDLE;
-            vkGetDeviceQueue(device, i, 0, &queue);
-            queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
-            queues[i]->Setup();
-        }
-        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
-        SetupAsyncTransferQueue();
-
         memoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
         vkGetPhysicalDeviceMemoryProperties2(phyDev, &memoryProperties);
 
         VmaAllocatorCreateInfo allocatorInfo = {};
-        allocatorInfo.device                 = device;
+        allocatorInfo.device           = device;
         allocatorInfo.physicalDevice   = phyDev;
         allocatorInfo.instance         = driver.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
@@ -199,6 +189,15 @@ namespace sky::drv {
             return false;
         }
 
+        queues.resize(count);
+        for (i = 0; i < count; ++i) {
+            VkQueue queue = VK_NULL_HANDLE;
+            vkGetDeviceQueue(device, i, 0, &queue);
+            queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
+            queues[i]->Setup();
+        }
+        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
+        SetupAsyncTransferQueue();
         return true;
     }
 
