@@ -91,7 +91,7 @@ namespace sky::drv {
         currentFrameId = (currentFrameId + 1) % INFLIGHT_NUM;
     }
 
-    TransferTaskHandle AsyncTransferQueue::UploadBuffer(const BufferPtr &buffer, const BufferRequest &request)
+    TransferTaskHandle AsyncTransferQueue::UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request)
     {
         return CreateTask([this, buffer, request]() {
             uint32_t copyNum   = static_cast<uint32_t>(std::ceil(request.size / static_cast<double>(BLOCK_SIZE)));
@@ -118,12 +118,9 @@ namespace sky::drv {
         });
     }
 
-    TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const ImageRequest &request)
+    TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const ImageUploadRequest &request)
     {
         return CreateTask([]() {
-
-            VkBufferImageCopy copy;
-
         });
     }
 
