@@ -8,6 +8,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/CacheManager.h>
 #include <vulkan/Queue.h>
+#include <vulkan/AsyncTransferQueue.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::drv {
@@ -39,7 +40,11 @@ namespace sky::drv {
 
         VkInstance GetInstance() const;
 
-        Queue *GetQueue(VkQueueFlags preferred) const;
+        Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
+
+        Queue *GetGraphicsQueue() const;
+
+        AsyncTransferQueue *GetAsyncTransferQueue() const;
 
         VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
 
@@ -61,6 +66,8 @@ namespace sky::drv {
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
+        void SetupAsyncTransferQueue();
+
         bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
 
         friend class Driver;
@@ -77,6 +84,8 @@ namespace sky::drv {
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
+        Queue*                               graphicsQueue;
+        AsyncTransferQueuePtr                transferQueue;
 
         CacheManager<VkSampler>             samplers;
         CacheManager<VkDescriptorSetLayout> setLayouts;

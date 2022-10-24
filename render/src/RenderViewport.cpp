@@ -23,17 +23,10 @@ namespace sky {
         nativeHandle = info.wHandle;
         Event<IWindowEvent>::Connect(descriptor.window, this);
 
-        graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
-        ;
-        drv::CommandPool::Descriptor cmdPoolDesc = {};
-        cmdPoolDesc.flag                         = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmdPoolDesc.queueFamilyIndex             = graphicsQueue->GetQueueFamilyIndex();
-
-        commandPool = device->CreateDeviceObject<drv::CommandPool>(cmdPoolDesc);
-
+        graphicsQueue = device->GetGraphicsQueue();
         drv::CommandBuffer::Descriptor cmdDesc = {};
         for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
-            commandBuffer[i]  = commandPool->Allocate(cmdDesc);
+            commandBuffer[i]  = graphicsQueue->AllocateCommandBuffer(cmdDesc);
             imageAvailable[i] = device->CreateDeviceObject<drv::Semaphore>({});
             renderFinish[i]   = device->CreateDeviceObject<drv::Semaphore>({});
         }
@@ -58,7 +51,6 @@ namespace sky {
             renderFinish[i]   = nullptr;
             commandBuffer[i]  = nullptr;
         }
-        commandPool   = nullptr;
         graphicsQueue = nullptr;
         scene         = nullptr;
         Event<IWindowEvent>::DisConnect(this);

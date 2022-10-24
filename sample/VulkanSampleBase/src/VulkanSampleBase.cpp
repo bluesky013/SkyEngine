@@ -20,7 +20,7 @@ namespace sky {
         drv::Device::Descriptor devDes = {};
         device                         = driver->CreateDevice(devDes);
 
-        graphicsQueue = device->GetQueue(VK_QUEUE_GRAPHICS_BIT);
+        graphicsQueue = device->GetGraphicsQueue();
     }
 
     void VulkanSampleBase::Start()
@@ -50,14 +50,8 @@ namespace sky {
 
         ResetFrameBuffer();
 
-        drv::CommandPool::Descriptor cmdPoolDesc = {};
-        cmdPoolDesc.flag                         = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmdPoolDesc.queueFamilyIndex             = graphicsQueue->GetQueueFamilyIndex();
-
-        commandPool = device->CreateDeviceObject<drv::CommandPool>(cmdPoolDesc);
-
         drv::CommandBuffer::Descriptor cmdDesc = {};
-        commandBuffer                          = commandPool->Allocate(cmdDesc);
+        commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
 
         OnStart();
     }

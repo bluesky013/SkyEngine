@@ -7,6 +7,9 @@
 #include <EngineRoot.h>
 #include <core/util/Memory.h>
 #include <core/math/Vector4.h>
+#include <core/file/FileIO.h>
+#include <core/logger/Logger.h>
+#include <vulkan/Decode.h>
 #include <future>
 
 namespace sky {
@@ -74,80 +77,107 @@ namespace sky {
 
     void VulkanAsyncUploadSample::SetupResources()
     {
-        drv::Image::Descriptor imageDesc = {};
-        imageDesc.format    = VK_FORMAT_R8G8B8A8_UNORM;
-        imageDesc.extent    = {128, 128, 1};
-        imageDesc.usage     = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        imageDesc.memory    = VMA_MEMORY_USAGE_GPU_ONLY;
-        image = device->CreateDeviceObject<drv::Image>(imageDesc);
+        std::vector<uint8_t> data;
+        ReadBin(ENGINE_ROOT + "/assets/images/Logo.dds", data);
+
+        drv::Image::Descriptor               imageDesc = {};
+        std::vector<drv::ImageUploadRequest> requests;
+        ProcessDDS(data.data(), data.size(), imageDesc, requests);
+
+        imageDesc.usage  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        imageDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
+        image            = device->CreateDeviceObject<drv::Image>(imageDesc);
 
         drv::ImageView::Descriptor viewDesc = {};
-        viewDesc.format = VK_FORMAT_R8G8B8A8_UNORM;
-        view = drv::ImageView::CreateImageView(image, viewDesc);
+        viewDesc.format                     = imageDesc.format;
+        view                                = drv::ImageView::CreateImageView(image, viewDesc);
 
-        sampler = device->CreateDeviceObject<drv::Sampler>({});
+        drv::Sampler::Descriptor samplerDesc = {};
+        samplerDesc.minLod = 0.f;
+        samplerDesc.maxLod = 13;
+        sampler = device->CreateDeviceObject<drv::Sampler>(samplerDesc);
 
-        object.future = std::async([this]() {
-            auto uploadQueue = device->GetQueue(VK_QUEUE_TRANSFER_BIT);
-            drv::Buffer::Descriptor bufferDesc = {};
-            bufferDesc.size      = 128 * 128 * 4;
-            bufferDesc.usage     = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            bufferDesc.memory    = VMA_MEMORY_USAGE_CPU_ONLY;
-            auto stagingBuffer = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
-            std::vector<ColorU8> colors(128 * 128);
-            for (uint32_t i = 0; i < 128; ++i) {
-                for (uint32_t j = 0; j < 128; ++j) {
-                    colors[i * 128 + j].value[0] = rand() % 255;
-                    colors[i * 128 + j].value[1] = rand() % 255;
-                    colors[i * 128 + j].value[2] = rand() % 255;
-                    colors[i * 128 + j].value[3] = rand() % 255;
-                }
-            }
+        object.future = std::async([this, &imageDesc, &requests]() {
+            std::vector<drv::BufferPtr> stagingBuffers;
 
-            auto ptr = stagingBuffer->Map();
-            memcpy(ptr, colors.data(), colors.size() * sizeof(ColorU8));
-            stagingBuffer->UnMap();
-
-            VkImageSubresourceRange subResourceRange = {};
-            subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            subResourceRange.baseMipLevel = 0;
-            subResourceRange.levelCount = 1;
-            subResourceRange.baseArrayLayer = 0;
-            subResourceRange.layerCount = 1;
-
-            VkBufferImageCopy copy = {};
-            copy.bufferOffset = 0;
-            copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-            copy.imageOffset = {0, 0, 0};
-            copy.imageExtent = {128 , 128, 1};
-
-            drv::Barrier barrier = {};
+            auto     uploadQueue = device->GetAsyncTransferQueue()->GetQueue();
+            auto *imageInfo = drv::GetImageInfoByFormat(imageDesc.format);
+            auto bufferBlockLengthFn = [](uint32_t length, uint32_t blockLength) {
+                return (length + blockLength - 1) / blockLength;
+            };
 
             auto cmd = uploadQueue->AllocateCommandBuffer({});
             cmd->Begin();
-            {
-                barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
-                barrier.srcAccessMask = 0;
-                barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            }
 
-            cmd->Copy(stagingBuffer, image, copy);
+            for (auto &request : requests) {
+                VkImageSubresourceRange subResourceRange = {};
+                subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
+                subResourceRange.baseMipLevel            = request.mipLevel;
+                subResourceRange.levelCount              = 1;
+                subResourceRange.baseArrayLayer          = 0;
+                subResourceRange.layerCount              = 1;
+                drv::Barrier barrier                     = {};
+                {
+                    barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                    barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                    barrier.srcAccessMask = 0;
+                    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                }
 
-            {
-                barrier.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-                barrier.dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                barrier.dstAccessMask = 0;
-                cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
+                uint32_t height = std::max(imageDesc.extent.height >> request.mipLevel, 1U);
+
+                uint32_t rowLength   = bufferBlockLengthFn(width, imageInfo->blockWidth);
+                uint32_t imageHeight = bufferBlockLengthFn(height, imageInfo->blockHeight);
+
+                static constexpr uint64_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
+                uint32_t                  blockNum           = rowLength * imageHeight;
+                uint64_t                  srcSize            = blockNum * imageInfo->blockSize;
+                uint64_t                  rowBlockSize       = rowLength * imageInfo->blockSize;
+                uint32_t                  copyBlockHeight    = static_cast<uint32_t>(STAGING_BLOCK_SIZE / rowBlockSize);
+                uint32_t                  copyNum            = (imageHeight + copyBlockHeight - 1) / copyBlockHeight;
+
+                uint64_t bufferStep = copyBlockHeight * rowBlockSize;
+                uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
+
+                for (uint32_t i = 0; i < copyNum; ++i) {
+                    drv::Buffer::Descriptor bufferDesc = {};
+                    bufferDesc.size                    = STAGING_BLOCK_SIZE;
+                    bufferDesc.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+                    bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;
+                    auto stagingBuffer                 = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
+                    stagingBuffers.emplace_back(stagingBuffer);
+
+                    auto     ptr      = stagingBuffer->Map();
+                    uint64_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
+                    memcpy(ptr, request.data + request.offset + bufferStep * i, copySize);
+                    stagingBuffer->UnMap();
+
+                    VkBufferImageCopy copy = {};
+                    copy.bufferOffset      = 0;
+                    copy.bufferRowLength   = rowLength * imageInfo->blockWidth;
+                    copy.bufferImageHeight = imageHeight * imageInfo->blockHeight;
+                    copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
+                    copy.imageOffset       = {0, static_cast<int32_t>(heightStep * i), 0};
+                    copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};
+
+                    cmd->Copy(stagingBuffer, image, copy);
+                }
+
+                {
+                    barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                    barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    barrier.dstAccessMask = 0;
+                    cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                }
             }
 
             cmd->End();
             cmd->Submit(*uploadQueue, {});
             cmd->Wait();
-
-            std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(2000));
 
             auto writer = set->CreateWriter();
             writer.Write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, view, sampler);
@@ -155,6 +185,7 @@ namespace sky {
 
             object.isReady = true;
         });
+        object.future.wait();
     }
 
     void VulkanAsyncUploadSample::Tick(float delta)
@@ -188,7 +219,7 @@ namespace sky {
         drawLinear.firstVertex   = 0;
         drawLinear.firstInstance = 0;
         drawLinear.vertexCount   = 6;
-        drawLinear.instanceCount = 1;
+        drawLinear.instanceCount = 13;
 
         graphicsEncoder.BindPipeline(pso);
 

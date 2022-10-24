@@ -23,7 +23,7 @@ namespace sky {
             drv::SecondaryCommands secondaryCommands;
             for (uint32_t i = 0; i < group; ++i) {
                 flow.emplace([i, size, &encoder, &secondaryCommands, this]() {
-                    auto     queue     = DriverManager::Get()->GetDevice()->GetQueue(VK_QUEUE_GRAPHICS_BIT);
+                    auto     queue     = DriverManager::Get()->GetDevice()->GetGraphicsQueue();
                     auto    &passInfo  = encoder.GetCurrentPass();
                     uint32_t subPassId = encoder.GetSubPassId();
 

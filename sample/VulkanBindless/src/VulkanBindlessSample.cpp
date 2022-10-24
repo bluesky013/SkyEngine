@@ -109,7 +109,7 @@ namespace sky {
         sampler = device->CreateDeviceObject<drv::Sampler>({});
         writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
 
-        auto cmd = commandPool->Allocate({});
+        auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
         cmd->Begin();
 
         drv::Image::Descriptor imageInfo = {};

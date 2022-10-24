@@ -15,6 +15,7 @@
 namespace sky::drv {
 
     class Device;
+    class Queue;
 
     struct TransferTask {
         uint32_t taskId;
@@ -25,50 +26,45 @@ namespace sky::drv {
 
     class AsyncTransferQueue : public DevObject {
     public:
-        ~AsyncTransferQueue() noexcept;
+        ~AsyncTransferQueue() noexcept = default;
 
         void Setup();
         void Shutdown();
 
-        uint32_t GetQueueFamilyIndex() const
-        {
-            return queueFamilyIndex;
-        }
-
-        VkQueue GetNativeHandle() const
-        {
-            return queue;
-        }
-
         template <typename T>
-        TransferTaskHandle CreateTask(T&& task)
+        TransferTaskHandle CreateTask(T &&task)
         {
-            return CreateTask(std::forward<T>(task), {});
+            return CreateTask(std::forward<T>(task), nullptr);
         }
 
         template <typename T, typename C>
-        TransferTaskHandle CreateTask(T && task, C && callback)
+        TransferTaskHandle CreateTask(T &&task, C &&callback)
         {
-            std::lock_guard<std::mutex> lock(taskMutex);
             ++currentTaskId;
-            taskQueue.emplace_back(currentTaskId++, std::move(task), std::move(callback));
+            std::lock_guard<std::mutex> lock(taskMutex);
+            taskQueue.emplace_back(TransferTask{currentTaskId, std::move(task), std::move(callback)});
+            cv.notify_all();
             return taskQueue.back().taskId;
         }
 
-        bool HasComplete(TransferTaskHandle handle)
+        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);
+
+        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
+
+        bool HasComplete(TransferTaskHandle handle) const
         {
             return lastTaskId.load() >= handle;
         }
 
+        Queue *GetQueue() const
+        {
+            return queue;
+        }
+
     private:
         friend class Device;
-        AsyncTransferQueue(Device &dev, VkQueue q, uint32_t family)
-            : DevObject(dev)
-            , queueFamilyIndex(family)
-            , queue(q)
-            , exit(false)
-            , currentTaskId(0)
-            , lastTaskId(0)
+        AsyncTransferQueue(Device &dev, Queue *que)
+            : DevObject(dev), queue(que), exit(false), currentTaskId(0), currentFrameId(0), mapped(nullptr), lastTaskId(0)
         {
         }
 
@@ -76,13 +72,22 @@ namespace sky::drv {
         bool EmitSingleTask();
         bool HasTask();
 
-        uint32_t       queueFamilyIndex;
-        VkQueue        queue;
-        CommandPoolPtr pool;
+        uint64_t BeginFrame();
+        void EndFrame();
+
+        static constexpr uint64_t BLOCK_SIZE   = 16 * 1024 * 1024;
+        static constexpr uint32_t INFLIGHT_NUM = 3;
+
+        Queue *queue;
 
         std::atomic_bool         exit;
         uint32_t                 currentTaskId;
+        uint32_t                 currentFrameId;
+        uint8_t                 *mapped{nullptr};
         std::atomic_uint32_t     lastTaskId;
+        BufferPtr                stagingBuffer;
+        CommandBufferPtr         inflightCommands[INFLIGHT_NUM];
+
         std::thread              thread;
         std::mutex               taskMutex;
         std::mutex               mutex;

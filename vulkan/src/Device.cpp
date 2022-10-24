@@ -51,6 +51,11 @@ namespace sky::drv {
             vmaDestroyAllocator(allocator);
         }
 
+        if (transferQueue) {
+            transferQueue->Shutdown();
+            transferQueue = nullptr;
+        }
+
         queues.clear();
 
         samplers.Shutdown();
@@ -61,6 +66,22 @@ namespace sky::drv {
 
         if (device != VK_NULL_HANDLE) {
             vkDestroyDevice(device, VKL_ALLOC);
+        }
+    }
+
+    void Device::SetupAsyncTransferQueue()
+    {
+        std::pair<VkQueueFlags, VkQueueFlags> flagPairs[] = {
+            {VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT},
+            {VK_QUEUE_TRANSFER_BIT, 0},
+        };
+        for (auto& [preferred, excluded] : flagPairs) {
+            auto *queue = GetQueue(preferred, excluded);
+            if (queue != nullptr) {
+                transferQueue.reset(new AsyncTransferQueue(*this, queue));
+                transferQueue->Setup();
+                break;
+            }
         }
     }
 
@@ -154,19 +175,11 @@ namespace sky::drv {
             return false;
         }
 
-        queues.resize(count);
-        for (i = 0; i < count; ++i) {
-            VkQueue queue = VK_NULL_HANDLE;
-            vkGetDeviceQueue(device, i, 0, &queue);
-            queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
-            queues[i]->Setup();
-        }
-
         memoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
         vkGetPhysicalDeviceMemoryProperties2(phyDev, &memoryProperties);
 
         VmaAllocatorCreateInfo allocatorInfo = {};
-        allocatorInfo.device                 = device;
+        allocatorInfo.device           = device;
         allocatorInfo.physicalDevice   = phyDev;
         allocatorInfo.instance         = driver.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
@@ -176,6 +189,15 @@ namespace sky::drv {
             return false;
         }
 
+        queues.resize(count);
+        for (i = 0; i < count; ++i) {
+            VkQueue queue = VK_NULL_HANDLE;
+            vkGetDeviceQueue(device, i, 0, &queue);
+            queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
+            queues[i]->Setup();
+        }
+        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
+        SetupAsyncTransferQueue();
         return true;
     }
 
@@ -199,19 +221,26 @@ namespace sky::drv {
         return driver.GetInstance();
     }
 
-    Queue *Device::GetQueue(VkQueueFlags preferred) const
+    Queue *Device::GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const
     {
         Queue *res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-            if ((queueFamilies[i].queueFlags & preferred) == preferred) {
+            auto& flag = queueFamilies[i].queueFlags;
+            if (((flag & preferred) == preferred) && ((flag & excluded) == 0)) {
                 res = queues[i].get();
-            }
-
-            if (queueFamilies[i].queueFlags == preferred) {
-                return queues[i].get();
             }
         }
         return res;
+    }
+
+    Queue *Device::GetGraphicsQueue() const
+    {
+        return graphicsQueue;
+    }
+
+    AsyncTransferQueue *Device::GetAsyncTransferQueue() const
+    {
+        return transferQueue.get();
     }
 
     VkSampler Device::GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo)

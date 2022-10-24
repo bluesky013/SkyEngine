@@ -48,7 +48,6 @@ namespace sky {
         drv::SemaphorePtr     imageAvailable[INFLIGHT_FRAME];
         drv::SemaphorePtr     renderFinish[INFLIGHT_FRAME];
         drv::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
-        drv::CommandPoolPtr   commandPool;
         drv::SwapChainPtr     swapChain;
         drv::Queue           *graphicsQueue{nullptr};
     };

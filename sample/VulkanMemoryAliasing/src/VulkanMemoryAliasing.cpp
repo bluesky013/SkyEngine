@@ -175,7 +175,7 @@ namespace sky {
             copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             copyInfo.imageExtent       = imageDesc.extent;
 
-            auto cmd = commandPool->Allocate({});
+            auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
             cmd->Begin();
 
             cmd->ImageBarrier(image, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
