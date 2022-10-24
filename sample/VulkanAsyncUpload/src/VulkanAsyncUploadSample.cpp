@@ -8,6 +8,7 @@
 #include <core/util/Memory.h>
 #include <core/math/Vector4.h>
 #include <core/file/FileIO.h>
+#include <core/logger/Logger.h>
 #include <vulkan/Decode.h>
 #include <future>
 
@@ -91,7 +92,10 @@ namespace sky {
         viewDesc.format                     = imageDesc.format;
         view                                = drv::ImageView::CreateImageView(image, viewDesc);
 
-        sampler = device->CreateDeviceObject<drv::Sampler>({});
+        drv::Sampler::Descriptor samplerDesc = {};
+        samplerDesc.minLod = 0.f;
+        samplerDesc.maxLod = 13;
+        sampler = device->CreateDeviceObject<drv::Sampler>(samplerDesc);
 
         object.future = std::async([this, &imageDesc, &requests]() {
             std::vector<drv::BufferPtr> stagingBuffers;
@@ -112,7 +116,7 @@ namespace sky {
                 subResourceRange.levelCount              = 1;
                 subResourceRange.baseArrayLayer          = 0;
                 subResourceRange.layerCount              = 1;
-                drv::Barrier barrier = {};
+                drv::Barrier barrier                     = {};
                 {
                     barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                     barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -121,23 +125,21 @@ namespace sky {
                     cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
                 }
 
-
-                uint32_t width = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
+                uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
                 uint32_t height = std::max(imageDesc.extent.height >> request.mipLevel, 1U);
 
                 uint32_t rowLength   = bufferBlockLengthFn(width, imageInfo->blockWidth);
                 uint32_t imageHeight = bufferBlockLengthFn(height, imageInfo->blockHeight);
 
-                static constexpr uint64_t STAGING_BLOCK_SIZE = 64 * 1024 * 1024;
-                uint32_t blockNum = rowLength * imageHeight;
-                uint64_t srcSize = blockNum * imageInfo->blockSize;
-                uint32_t copyNum = 1;
-                uint32_t blockPerCopy = blockNum;
-                uint32_t currentBlock = 0;
-                if (srcSize > STAGING_BLOCK_SIZE) {
-                    blockPerCopy = STAGING_BLOCK_SIZE / imageInfo->blockSize;
-                    copyNum = blockNum / blockPerCopy;
-                }
+                static constexpr uint64_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
+                uint32_t                  blockNum           = rowLength * imageHeight;
+                uint64_t                  srcSize            = blockNum * imageInfo->blockSize;
+                uint64_t                  rowBlockSize       = rowLength * imageInfo->blockSize;
+                uint32_t                  copyBlockHeight    = static_cast<uint32_t>(STAGING_BLOCK_SIZE / rowBlockSize);
+                uint32_t                  copyNum            = (imageHeight + copyBlockHeight - 1) / copyBlockHeight;
+
+                uint64_t bufferStep = copyBlockHeight * rowBlockSize;
+                uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
 
                 for (uint32_t i = 0; i < copyNum; ++i) {
                     drv::Buffer::Descriptor bufferDesc = {};
@@ -147,25 +149,21 @@ namespace sky {
                     auto stagingBuffer                 = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
                     stagingBuffers.emplace_back(stagingBuffer);
 
-                    auto ptr = stagingBuffer->Map();
-                    uint64_t bufferLeft = std::min(STAGING_BLOCK_SIZE, (blockNum - currentBlock) * static_cast<uint64_t>(imageInfo->blockSize));
-                    memcpy(ptr, request.data + request.offset + currentBlock * imageInfo->blockSize, bufferLeft);
+                    auto     ptr      = stagingBuffer->Map();
+                    uint64_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
+                    memcpy(ptr, request.data + request.offset + bufferStep * i, copySize);
                     stagingBuffer->UnMap();
 
                     VkBufferImageCopy copy = {};
                     copy.bufferOffset      = 0;
-                    copy.bufferRowLength   = rowLength * imageInfo->blockSize;
-                    copy.bufferImageHeight = imageHeight * imageInfo->blockSize;
+                    copy.bufferRowLength   = rowLength * imageInfo->blockWidth;
+                    copy.bufferImageHeight = imageHeight * imageInfo->blockHeight;
                     copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
-                    copy.imageOffset       = {static_cast<int32_t>(currentBlock % imageInfo->blockWidth),
-                                              static_cast<int32_t>((currentBlock + imageInfo->blockWidth - 1) / imageInfo->blockWidth), 0};
-                    copy.imageExtent       = {width, height, 1};
+                    copy.imageOffset       = {0, static_cast<int32_t>(heightStep * i), 0};
+                    copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};
 
                     cmd->Copy(stagingBuffer, image, copy);
-
-                    currentBlock += blockPerCopy;
                 }
-
 
                 {
                     barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -221,7 +219,7 @@ namespace sky {
         drawLinear.firstVertex   = 0;
         drawLinear.firstInstance = 0;
         drawLinear.vertexCount   = 6;
-        drawLinear.instanceCount = 1;
+        drawLinear.instanceCount = 13;
 
         graphicsEncoder.BindPipeline(pso);
 
