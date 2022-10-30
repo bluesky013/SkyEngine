@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <vector>
 #include <vulkan/Basic.h>
 #include <vulkan/Image.h>
 

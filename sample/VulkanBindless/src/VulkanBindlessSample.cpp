@@ -84,13 +84,14 @@ namespace sky {
         pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(pipelineLayoutInfo);
 
         VkDescriptorPoolSize sizes[] = {
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
             {VK_DESCRIPTOR_TYPE_SAMPLER, 1},
             {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMAGE_NUM},
         };
 
         drv::DescriptorSetPool::Descriptor poolInfo = {};
         poolInfo.maxSets                            = 1;
-        poolInfo.num                                = 1;
+        poolInfo.num                                = 3;
         poolInfo.sizes                              = sizes;
         setPool                                     = device->CreateDeviceObject<drv::DescriptorSetPool>(poolInfo);
         set                                         = pipelineLayout->Allocate(setPool, 0);
