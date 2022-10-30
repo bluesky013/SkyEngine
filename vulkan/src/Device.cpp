@@ -11,6 +11,7 @@
 
 static const char              *TAG         = "Driver";
 const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
+                                               "VK_EXT_descriptor_indexing",
 #ifdef __APPLE__
                                                "VK_KHR_portability_subset"
 #endif
@@ -151,7 +152,7 @@ namespace sky::drv {
         indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         indexingFeatures.runtimeDescriptorArray                    = phyIndexingFeatures.runtimeDescriptorArray;
         indexingFeatures.descriptorBindingVariableDescriptorCount  = phyIndexingFeatures.descriptorBindingVariableDescriptorCount;
-//        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
+        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

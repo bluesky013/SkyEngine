@@ -75,6 +75,10 @@ namespace sky {
         object.setBinder->BindSet(0, set);
     }
 
+    static uint32_t Ceil(uint32_t v0, uint32_t v1) {
+        return (v0 + v1 - 1) / v1;
+    }
+
     void VulkanAsyncUploadSample::SetupResources()
     {
         std::vector<uint8_t> data;
@@ -102,9 +106,6 @@ namespace sky {
 
             auto     uploadQueue = device->GetAsyncTransferQueue()->GetQueue();
             auto *imageInfo = drv::GetImageInfoByFormat(imageDesc.format);
-            auto bufferBlockLengthFn = [](uint32_t length, uint32_t blockLength) {
-                return (length + blockLength - 1) / blockLength;
-            };
 
             auto cmd = uploadQueue->AllocateCommandBuffer({});
             cmd->Begin();
@@ -128,17 +129,17 @@ namespace sky {
                 uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
                 uint32_t height = std::max(imageDesc.extent.height >> request.mipLevel, 1U);
 
-                uint32_t rowLength   = bufferBlockLengthFn(width, imageInfo->blockWidth);
-                uint32_t imageHeight = bufferBlockLengthFn(height, imageInfo->blockHeight);
+                uint32_t rowLength   = Ceil(width, imageInfo->blockWidth);
+                uint32_t imageHeight = Ceil(height, imageInfo->blockHeight);
 
-                static constexpr uint64_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
+                static constexpr uint32_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
                 uint32_t                  blockNum           = rowLength * imageHeight;
-                uint64_t                  srcSize            = blockNum * imageInfo->blockSize;
-                uint64_t                  rowBlockSize       = rowLength * imageInfo->blockSize;
-                uint32_t                  copyBlockHeight    = static_cast<uint32_t>(STAGING_BLOCK_SIZE / rowBlockSize);
-                uint32_t                  copyNum            = (imageHeight + copyBlockHeight - 1) / copyBlockHeight;
+                uint32_t                  srcSize            = blockNum * imageInfo->blockSize;
+                uint32_t                  rowBlockSize       = rowLength * imageInfo->blockSize;
+                uint32_t                  copyBlockHeight    = STAGING_BLOCK_SIZE / rowBlockSize;
+                uint32_t                  copyNum            = Ceil(imageHeight, copyBlockHeight);
 
-                uint64_t bufferStep = copyBlockHeight * rowBlockSize;
+                uint32_t bufferStep = copyBlockHeight * rowBlockSize;
                 uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
 
                 for (uint32_t i = 0; i < copyNum; ++i) {
@@ -150,7 +151,7 @@ namespace sky {
                     stagingBuffers.emplace_back(stagingBuffer);
 
                     auto     ptr      = stagingBuffer->Map();
-                    uint64_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
+                    uint32_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
                     memcpy(ptr, request.data + request.offset + bufferStep * i, copySize);
                     stagingBuffer->UnMap();
 
