@@ -11,7 +11,7 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class Queue;
@@ -78,4 +78,4 @@ namespace sky::drv {
 
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -5,7 +5,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/Queue.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     void Queue::Setup()
     {
@@ -37,4 +37,4 @@ namespace sky::drv {
         return pool;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

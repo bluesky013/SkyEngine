@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -69,4 +69,4 @@ namespace sky::drv {
         std::function<void(T &)>        deleteFn;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

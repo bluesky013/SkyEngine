@@ -7,7 +7,7 @@
 #include <core/util/Memory.h>
 #include <vulkan/ShaderOption.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     void ShaderOption::Builder::AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size)
     {
@@ -78,4 +78,4 @@ namespace sky::drv {
             hash = Crc32::Cal(storage.get(), size);
         }
     }
-} // namespace sky::drv
+} // namespace sky::vk

@@ -31,11 +31,11 @@ namespace sky {
 
         void Compile();
 
-        drv::ImagePtr GetImage() const;
+        vk::ImagePtr GetImage() const;
 
     private:
         friend class FrameGraphBuilder;
-        drv::ImagePtr image;
+        vk::ImagePtr image;
     };
 
     class FrameGraphBuffer : public FrameGraphResource {
@@ -45,11 +45,11 @@ namespace sky {
 
         void Compile();
 
-        drv::BufferPtr GetBuffer() const;
+        vk::BufferPtr GetBuffer() const;
 
     private:
         friend class FrameGraphBuilder;
-        drv::BufferPtr buffer;
+        vk::BufferPtr buffer;
     };
 
 } // namespace sky

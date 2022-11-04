@@ -8,7 +8,7 @@
 
 static const char* TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
     ComputePipeline::ComputePipeline(Device &dev) : DevObject(dev), pipeline(VK_NULL_HANDLE), hash(0)
     {
 
@@ -45,4 +45,4 @@ namespace sky::drv {
         return 0;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

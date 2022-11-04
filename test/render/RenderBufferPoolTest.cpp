@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/MaterialDatabase.h>
 
 using namespace sky;
@@ -16,7 +16,7 @@ struct TestData {
 
 TEST(RenderTest, RenderBufferPoolTest)
 {
-    DriverManager::Get()->Initialize({});
+    RHIManager::Get()->Initialize({});
 
     uint32_t count = std::min(MAX_MATERIAL_COUNT_PER_BLOCK, static_cast<uint32_t>(DEFAULT_MATERIAL_BUFFER_BLOCK / sizeof(TestData)));
 
@@ -57,5 +57,5 @@ TEST(RenderTest, RenderBufferPoolTest)
         ASSERT_EQ(ptr[0].c, t.c);
     }
 
-    DriverManager::Get()->Destroy();
+    RHIManager::Get()->Destroy();
 }

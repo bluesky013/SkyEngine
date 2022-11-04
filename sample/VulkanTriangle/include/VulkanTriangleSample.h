@@ -22,11 +22,11 @@ namespace sky {
         void OnStart() override;
         void OnStop() override;
     private:
-        drv::GraphicsPipelinePtr pso;
-        drv::PipelineLayoutPtr   pipelineLayout;
-        drv::ShaderPtr           vs;
-        drv::ShaderPtr           fs;
-        drv::VertexInputPtr      vertexInput;
+        vk::GraphicsPipelinePtr pso;
+        vk::PipelineLayoutPtr   pipelineLayout;
+        vk::ShaderPtr           vs;
+        vk::ShaderPtr           fs;
+        vk::VertexInputPtr      vertexInput;
     };
 
 } // namespace sky

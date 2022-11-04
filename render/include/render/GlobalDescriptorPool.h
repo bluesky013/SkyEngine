@@ -12,7 +12,7 @@ namespace sky {
 
     class GlobalDescriptorPool : public Singleton<GlobalDescriptorPool> {
     public:
-        RDDescriptorPoolPtr GetPool(drv::DescriptorSetLayoutPtr layout);
+        RDDescriptorPoolPtr GetPool(vk::DescriptorSetLayoutPtr layout);
 
     private:
         friend class Singleton<GlobalDescriptorPool>;

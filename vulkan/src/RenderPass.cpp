@@ -8,9 +8,9 @@
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     RenderPass::RenderPass(Device &dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0), psoHash(0)
     {
@@ -280,4 +280,4 @@ namespace sky::drv {
         return *this;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

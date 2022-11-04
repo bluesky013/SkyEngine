@@ -3,7 +3,7 @@
 //
 
 #include <core/file/FileIO.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/GlobalDescriptorPool.h>
 #include <render/resources/Shader.h>
 
@@ -34,11 +34,11 @@ namespace sky {
     {
         BuildReflection();
 
-        drv::Shader::Descriptor desc = {};
+        vk::Shader::Descriptor desc = {};
         desc.size                    = static_cast<uint32_t>(spv.size()) * sizeof(uint32_t);
         desc.spv                     = spv.data();
         desc.stage                   = descriptor.stage;
-        rhiShader                    = DriverManager::Get()->CreateDeviceObject<drv::Shader>(desc);
+        rhiShader                    = RHIManager::Get()->CreateDeviceObject<vk::Shader>(desc);
     }
 
     bool Shader::IsValid() const
@@ -46,7 +46,7 @@ namespace sky {
         return !!rhiShader;
     }
 
-    drv::ShaderPtr Shader::GetShader() const
+    vk::ShaderPtr Shader::GetShader() const
     {
         return rhiShader;
     }
@@ -162,7 +162,7 @@ namespace sky {
             return;
         }
 
-        drv::PipelineLayout::Descriptor desc = {};
+        vk::PipelineLayout::Descriptor desc = {};
 
         VkPushConstantRange range{};
         // merge shader resources.
@@ -202,11 +202,11 @@ namespace sky {
                 }
             }
         }
-        auto device    = DriverManager::Get()->GetDevice();
-        pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(desc);
+        auto device    = RHIManager::Get()->GetDevice();
+        pipelineLayout = device->CreateDeviceObject<vk::PipelineLayout>(desc);
     }
 
-    drv::PipelineLayoutPtr ShaderTable::GetPipelineLayout() const
+    vk::PipelineLayoutPtr ShaderTable::GetPipelineLayout() const
     {
         return pipelineLayout;
     }
@@ -218,7 +218,7 @@ namespace sky {
             return {};
         }
 
-        drv::DescriptorSetLayoutPtr layout = pipelineLayout->GetLayout(slot);
+        vk::DescriptorSetLayoutPtr layout = pipelineLayout->GetLayout(slot);
         if (!layout) {
             return {};
         }
@@ -229,7 +229,7 @@ namespace sky {
         return res;
     }
 
-    void ShaderTable::FillProgram(drv::GraphicsPipeline::Program &program)
+    void ShaderTable::FillProgram(vk::GraphicsPipeline::Program &program)
     {
         for (auto &shader : shaders) {
             program.shaders.emplace_back(shader->GetShader());

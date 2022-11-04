@@ -5,7 +5,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/MemoryPool.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     MemoryPool::MemoryPool(Device &dev) : DevObject(dev), pool(VK_NULL_HANDLE)
     {
@@ -18,4 +18,4 @@ namespace sky::drv {
         return true;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

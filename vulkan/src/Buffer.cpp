@@ -5,10 +5,11 @@
 #include "vulkan/Buffer.h"
 #include "core/logger/Logger.h"
 #include "vulkan/Device.h"
+#include "vk_mem_alloc.h"
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Buffer::Buffer(Device &dev) : DevObject(dev), buffer(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE), bufferInfo{}
     {
@@ -69,4 +70,16 @@ namespace sky::drv {
     void Buffer::UnMap()
     {
     }
-} // namespace sky::drv
+
+    void Buffer::BindMemory(VmaAllocation alloc)
+    {
+        allocation = alloc;
+        vmaBindBufferMemory(device.GetAllocator(), allocation, buffer);
+    }
+
+    void Buffer::ReleaseMemory()
+    {
+        vmaFreeMemory(device.GetAllocator(), allocation);
+        allocation = VK_NULL_HANDLE;
+    }
+} // namespace sky::vk

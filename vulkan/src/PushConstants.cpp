@@ -4,7 +4,7 @@
 
 #include <vulkan/PushConstants.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     void PushConstants::OnBind(VkCommandBuffer cmdBuffer) const
     {
@@ -41,4 +41,4 @@ namespace sky::drv {
         reference.data.resize(size);
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

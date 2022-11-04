@@ -26,11 +26,11 @@ namespace sky {
     };
 
     struct ParticleSystem {
-        drv::BufferPtr         input;
-        drv::BufferPtr         output;
-        drv::BufferPtr         ubo;
-        drv::VertexInputPtr    vertexInput;
-        drv::VertexAssemblyPtr vertexAssembly;
+        vk::BufferPtr         input;
+        vk::BufferPtr         output;
+        vk::BufferPtr         ubo;
+        vk::VertexInputPtr    vertexInput;
+        vk::VertexAssemblyPtr vertexAssembly;
     };
 
     class VulkanMemoryAliasing : public VulkanSampleBase {
@@ -40,6 +40,8 @@ namespace sky {
 
         void Tick(float delta) override;
 
+        void OnKeyUp(KeyButtonType button) override;
+
         void OnStart() override;
         void OnStop() override;
 
@@ -48,56 +50,57 @@ namespace sky {
         void SetupDescriptorSet();
         void SetupResources();
         void SetupPass();
+        void ResetParticlePool();
 
         static constexpr uint32_t DISPATCH     = 10;
         static constexpr uint32_t DISPATCH_GRP = 256;
         static constexpr uint32_t PARTICLE_NUM = DISPATCH_GRP * DISPATCH;
 
-        drv::DescriptorSetPoolPtr setPool;
+        vk::DescriptorSetPoolPtr setPool;
 
-        drv::PipelineLayoutPtr   gfxLayout;
-        drv::GraphicsPipelinePtr gfxPipeline;
+        vk::PipelineLayoutPtr   gfxLayout;
+        vk::GraphicsPipelinePtr gfxPipeline;
 
-        drv::PipelineLayoutPtr  compLayout;
-        drv::ComputePipelinePtr compPipeline;
+        vk::PipelineLayoutPtr  compLayout;
+        vk::ComputePipelinePtr compPipeline;
 
-        drv::PipelineLayoutPtr   compositeLayout;
-        drv::GraphicsPipelinePtr compositePipeline;
+        vk::PipelineLayoutPtr   compositeLayout;
+        vk::GraphicsPipelinePtr compositePipeline;
 
-        drv::DescriptorSetPtr gfxSet;
-        drv::DescriptorSetPtr compSet;
-        drv::DescriptorSetPtr fullScreenSet;
-        drv::DescriptorSetPtr compositeSet;
+        vk::DescriptorSetPtr gfxSet;
+        vk::DescriptorSetPtr compSet;
+        vk::DescriptorSetPtr fullScreenSet;
+        vk::DescriptorSetPtr compositeSet;
 
-        drv::DescriptorSetBinderPtr gfxBinder;
-        drv::DescriptorSetBinderPtr compBinder;
-        drv::DescriptorSetBinderPtr fullScreenSetBinder;
-        drv::DescriptorSetBinderPtr compositeSetBinder;
+        vk::DescriptorSetBinderPtr gfxBinder;
+        vk::DescriptorSetBinderPtr compBinder;
+        vk::DescriptorSetBinderPtr fullScreenSetBinder;
+        vk::DescriptorSetBinderPtr compositeSetBinder;
 
-        drv::ShaderPtr vs;
-        drv::ShaderPtr fs;
-        drv::ShaderPtr cs;
-        drv::ShaderPtr fullScreenVs;
-        drv::ShaderPtr fullScreenFs;
-        drv::ShaderPtr compositeFS;
+        vk::ShaderPtr vs;
+        vk::ShaderPtr fs;
+        vk::ShaderPtr cs;
+        vk::ShaderPtr fullScreenVs;
+        vk::ShaderPtr fullScreenFs;
+        vk::ShaderPtr compositeFS;
 
-        drv::SamplerPtr   sampler;
-        drv::ImageViewPtr view;
-        drv::ImagePtr     image;
+        vk::SamplerPtr   sampler;
+        vk::ImageViewPtr view;
+        vk::ImagePtr     image;
 
-        drv::RenderPassPtr sampledPass;
+        vk::RenderPassPtr sampledPass;
 
-        drv::ImagePtr            rasterTarget;
-        drv::ImageViewPtr        rasterTargetView;
-        drv::FrameBufferPtr      rasterFb;
+        vk::ImagePtr            rasterTarget;
+        vk::ImageViewPtr        rasterTargetView;
+        vk::FrameBufferPtr      rasterFb;
 
-        drv::ImagePtr            fullScreenTarget;
-        drv::ImageViewPtr        fullScreenTargetView;
-        drv::FrameBufferPtr      fullScreenFb;
-        drv::GraphicsPipelinePtr fullScreenPso;
-        drv::VertexInputPtr      fullScreenInput;
+        vk::ImagePtr            fullScreenTarget;
+        vk::ImageViewPtr        fullScreenTargetView;
+        vk::FrameBufferPtr      fullScreenFb;
+        vk::GraphicsPipelinePtr fullScreenPso;
+        vk::VertexInputPtr      fullScreenInput;
 
-        drv::GraphicsPipelinePtr compositePso;
+        vk::GraphicsPipelinePtr compositePso;
         VmaAllocation alloc;
 
         ParticleSystem particleSystem;

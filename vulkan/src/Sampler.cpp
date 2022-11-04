@@ -7,9 +7,9 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
 #include <vulkan/Sampler.h>
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Sampler::Sampler(Device &dev) : DevObject(dev), sampler(VK_NULL_HANDLE)
     {
@@ -52,4 +52,4 @@ namespace sky::drv {
         return sampler;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

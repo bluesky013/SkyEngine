@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    void DevObjManager::FreeDeviceObject(drv::DevPtr object)
+    void DevObjManager::FreeDeviceObject(vk::DevPtr object)
     {
         std::lock_guard<std::mutex> lock(mutex);
         freeList[currentIndex].emplace_back(object);

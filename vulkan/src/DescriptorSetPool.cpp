@@ -6,7 +6,7 @@
 #include <vulkan/DescriptorSetPool.h>
 #include <vulkan/Device.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     DescriptorSetPool::DescriptorSetPool(Device &dev) : DevObject(dev)
     {
@@ -45,4 +45,4 @@ namespace sky::drv {
             set.handle = VK_NULL_HANDLE;
         }
     }
-} // namespace sky::drv
+} // namespace sky::vk

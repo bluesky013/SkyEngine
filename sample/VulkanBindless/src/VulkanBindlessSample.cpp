@@ -39,49 +39,50 @@ namespace sky {
 
     void VulkanBindlessSample::SetupPso()
     {
-        vertexInput = drv::VertexInput::Builder().Begin()
+        vertexInput = vk::VertexInput::Builder().Begin()
                           .AddStream(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_INSTANCE)
                           .AddAttribute(0, 0, 0, VK_FORMAT_R32G32_SFLOAT)
                           .AddAttribute(1, 0, 8, VK_FORMAT_R32_SINT)
                           .Build();
 
-        drv::GraphicsPipeline::Program program;
+        vk::GraphicsPipeline::Program program;
         vs = LoadShader(VK_SHADER_STAGE_VERTEX_BIT, ENGINE_ROOT + "/assets/shaders/output/Bindless.vert.spv");
         fs = LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, ENGINE_ROOT + "/assets/shaders/output/Bindless.frag.spv");
         program.shaders.emplace_back(vs);
         program.shaders.emplace_back(fs);
 
-        drv::GraphicsPipeline::State state = {};
+        vk::GraphicsPipeline::State state = {};
         state.raster.cullMode = VK_CULL_MODE_NONE;
 
 
-        state.blends.blendStates.emplace_back(drv::GraphicsPipeline::BlendState{});
+        state.blends.blendStates.emplace_back(vk::GraphicsPipeline::BlendState{});
         state.blends.blendStates.back().blendEnable = VK_TRUE;
         state.blends.blendStates.back().srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-        drv::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.program                           = &program;
         psoDesc.state                             = &state;
         psoDesc.pipelineLayout                    = pipelineLayout;
         psoDesc.vertexInput                       = vertexInput;
         psoDesc.renderPass                        = renderPass;
-        pso                                       = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        pso                                       = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
     }
 
     void VulkanBindlessSample::SetupDescriptorSet()
     {
-        drv::DescriptorSetLayout::Descriptor setLayoutInfo = {};
-        setLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-        setLayoutInfo.bindings.emplace(1, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-        setLayoutInfo.bindings.emplace(2, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,IMAGE_NUM,VK_SHADER_STAGE_FRAGMENT_BIT, 0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT});
+        vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+        setLayoutInfo.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(1, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        setLayoutInfo.bindings.emplace(2,
+                                       vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,IMAGE_NUM,VK_SHADER_STAGE_FRAGMENT_BIT, 0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT});
 
-        drv::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+        vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
 
-        pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(pipelineLayoutInfo);
+        pipelineLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
 
         VkDescriptorPoolSize sizes[] = {
             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
@@ -89,14 +90,14 @@ namespace sky {
             {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMAGE_NUM},
         };
 
-        drv::DescriptorSetPool::Descriptor poolInfo = {};
+        vk::DescriptorSetPool::Descriptor poolInfo = {};
         poolInfo.maxSets                            = 1;
         poolInfo.num                                = 3;
         poolInfo.sizes                              = sizes;
-        setPool                                     = device->CreateDeviceObject<drv::DescriptorSetPool>(poolInfo);
+        setPool                                     = device->CreateDeviceObject<vk::DescriptorSetPool>(poolInfo);
         set                                         = pipelineLayout->Allocate(setPool, 0);
 
-        setBinder = std::make_shared<drv::DescriptorSetBinder>();
+        setBinder = std::make_shared<vk::DescriptorSetBinder>();
         setBinder->SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         setBinder->SetPipelineLayout(pipelineLayout);
         setBinder->BindSet(0, set);
@@ -107,31 +108,31 @@ namespace sky {
         auto  writer = set->CreateWriter();
         auto &limits = device->GetProperties().limits;
 
-        sampler = device->CreateDeviceObject<drv::Sampler>({});
+        sampler = device->CreateDeviceObject<vk::Sampler>({});
         writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
 
         auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
         cmd->Begin();
 
-        drv::Image::Descriptor imageInfo = {};
+        vk::Image::Descriptor imageInfo = {};
         imageInfo.memory                 = VMA_MEMORY_USAGE_GPU_ONLY;
         imageInfo.usage                  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        std::vector<drv::BufferPtr> stagingBuffer;
+        std::vector<vk::BufferPtr> stagingBuffer;
 
-        drv::ImageView::Descriptor viewInfo = {};
+        vk::ImageView::Descriptor viewInfo = {};
         for (uint32_t i = 0; i < IMAGE_NUM; ++i) {
             imageInfo.format = g_infos[i].format;
             imageInfo.extent = g_infos[i].extent;
-            images[i]        = device->CreateDeviceObject<drv::Image>(imageInfo);
+            images[i]        = device->CreateDeviceObject<vk::Image>(imageInfo);
 
             std::vector<ColorU8> data(imageInfo.extent.width * imageInfo.extent.height, g_infos[i].color);
 
-            drv::Buffer::Descriptor bufferInfo = {};
+            vk::Buffer::Descriptor bufferInfo = {};
             bufferInfo.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;
             bufferInfo.size                    = data.size() * sizeof(ColorU8);
-            auto staging                       = device->CreateDeviceObject<drv::Buffer>(bufferInfo);
+            auto staging                       = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
             stagingBuffer.emplace_back(staging);
             uint8_t *dst = staging->Map();
             memcpy(dst, data.data(), bufferInfo.size);
@@ -152,7 +153,7 @@ namespace sky {
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             viewInfo.format = imageInfo.format;
-            imageViews[i]   = drv::ImageView::CreateImageView(images[i], viewInfo);
+            imageViews[i]   = vk::ImageView::CreateImageView(images[i], viewInfo);
         }
         cmd->End();
         cmd->Submit(*graphicsQueue, {});
@@ -170,11 +171,11 @@ namespace sky {
                 {6, 1, 0, 3},
             };
 
-            drv::Buffer::Descriptor bufferDesc = {};
+            vk::Buffer::Descriptor bufferDesc = {};
             bufferDesc.size      = 4 * sizeof(VkDrawIndirectCommand);
             bufferDesc.usage     = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
             bufferDesc.memory    = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            indirectBuffer = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
+            indirectBuffer = device->CreateDeviceObject<vk::Buffer>(bufferDesc);
 
             uint8_t *ptr = indirectBuffer->Map();
             memcpy(ptr, commands.data(), commands.size() * sizeof(VkDrawIndirectCommand));
@@ -189,17 +190,17 @@ namespace sky {
                 { 0.5,  0.5, 2, 0},
                 { 0.5, -0.5, 3, 0}};
 
-            drv::Buffer::Descriptor bufferDesc = {};
+            vk::Buffer::Descriptor bufferDesc = {};
             bufferDesc.size                    = 4 * sizeof(Vertex);
             bufferDesc.usage                   = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
             bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            vertexBuffer                       = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
+            vertexBuffer                       = device->CreateDeviceObject<vk::Buffer>(bufferDesc);
 
             uint8_t *ptr = vertexBuffer->Map();
             memcpy(ptr, vertices.data(), bufferDesc.size);
             vertexBuffer->UnMap();
 
-            vertexAssembly = std::make_shared<drv::VertexAssembly>();
+            vertexAssembly = std::make_shared<vk::VertexAssembly>();
             vertexAssembly->SetVertexInput(vertexInput);
             vertexAssembly->AddVertexBuffer(vertexBuffer);
         }
@@ -212,11 +213,11 @@ namespace sky {
                 {{0.7f, 0.7f, 0.7f, 1.f}, {3, 0, 0, 0}},
             };
 
-            drv::Buffer::Descriptor bufferDesc = {};
+            vk::Buffer::Descriptor bufferDesc = {};
             bufferDesc.size                    = 4 * sizeof(Material);
             bufferDesc.usage                   = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            materialBuffer                     = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
+            materialBuffer                     = device->CreateDeviceObject<vk::Buffer>(bufferDesc);
 
             uint8_t *ptr = materialBuffer->Map();
             memcpy(ptr, materials.data(), bufferDesc.size);
@@ -246,7 +247,7 @@ namespace sky {
         clearValue.color.float32[2] = 0.2f;
         clearValue.color.float32[3] = 1.f;
 
-        drv::PassBeginInfo beginInfo = {};
+        vk::PassBeginInfo beginInfo = {};
         beginInfo.frameBuffer        = frameBuffers[imageIndex];
         beginInfo.renderPass         = renderPass;
         beginInfo.clearValueCount    = 1;
@@ -263,14 +264,14 @@ namespace sky {
 
         commandBuffer->End();
 
-        drv::CommandBuffer::SubmitInfo submitInfo = {};
+        vk::CommandBuffer::SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+            std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 
-        drv::SwapChain::PresentInfo presentInfo = {};
+        vk::SwapChain::PresentInfo presentInfo = {};
         presentInfo.imageIndex                  = imageIndex;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(presentInfo);
@@ -285,7 +286,27 @@ namespace sky {
 
     void VulkanBindlessSample::OnStop()
     {
+        pipelineLayout = nullptr;
+        descriptorSetLayout = nullptr;
+        pso = nullptr;
+        set = nullptr;
+        setPool = nullptr;
+        setBinder = nullptr;
 
+        vs = nullptr;
+        fs = nullptr;
+        vertexInput = nullptr;
+
+        vertexAssembly = nullptr;
+        vertexBuffer = nullptr;
+        materialBuffer = nullptr;
+        indirectBuffer = nullptr;
+        sampler = nullptr;
+
+        for (uint32_t i = 0; i < IMAGE_NUM; ++i) {
+            images[i] = nullptr;
+            imageViews[i] = nullptr;
+        }
     }
 
 } // namespace sky

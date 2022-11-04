@@ -9,7 +9,7 @@
 #include <thread>
 #include <unordered_map>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -50,4 +50,4 @@ namespace sky::drv {
     };
 
     using QueuePtr = std::unique_ptr<Queue>;
-} // namespace sky::drv
+} // namespace sky::vk

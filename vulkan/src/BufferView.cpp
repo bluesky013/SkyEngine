@@ -6,9 +6,9 @@
 #include <vulkan/Device.h>
 #include <core/logger/Logger.h>
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     BufferView::BufferView(Device &dev) : DevObject(dev), source{}, view{VK_NULL_HANDLE}, viewInfo{}
     {

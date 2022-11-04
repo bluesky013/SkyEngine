@@ -3,7 +3,7 @@
 //
 
 #include <render/DevObjManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/framegraph/FrameGraphPass.h>
 
 namespace sky {
@@ -61,10 +61,10 @@ namespace sky {
 
     void FrameGraphGraphicPass::Compile()
     {
-        drv::FrameBuffer::Descriptor fbDesc = {};
+        vk::FrameBuffer::Descriptor fbDesc = {};
 
-        using AF = drv::RenderPassFactory::AttachmentImpl;
-        drv::RenderPassFactory factory;
+        using AF = vk::RenderPassFactory::AttachmentImpl;
+        vk::RenderPassFactory factory;
         auto                   subPassFactory = factory().AddSubPass();
         auto                   attachmentFn   = [&fbDesc](AF af, FrameGraphImageAttachment *attachment) {
             attachment->Compile();
@@ -102,15 +102,15 @@ namespace sky {
             .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_ACCESS_MEMORY_READ_BIT});
 
-        auto device = DriverManager::Get()->GetDevice();
+        auto device = RHIManager::Get()->GetDevice();
         fbDesc.pass = passInfo.renderPass = subPassFactory.Create(*device);
-        passInfo.frameBuffer              = device->CreateDeviceObject<drv::FrameBuffer>(fbDesc);
+        passInfo.frameBuffer              = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         passInfo.clearValueCount          = static_cast<uint32_t>(clearValues.size());
         passInfo.clearValues              = clearValues.data();
         passInfo.contents                 = VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS;
     }
 
-    void FrameGraphGraphicPass::Execute(const drv::CommandBufferPtr &commandBuffer)
+    void FrameGraphGraphicPass::Execute(const vk::CommandBufferPtr &commandBuffer)
     {
         auto drvEncoder = commandBuffer->EncodeGraphics();
         if (encoder) {
@@ -129,7 +129,7 @@ namespace sky {
         encoder = value;
     }
 
-    drv::RenderPassPtr FrameGraphGraphicPass::GetPass() const
+    vk::RenderPassPtr FrameGraphGraphicPass::GetPass() const
     {
         return passInfo.renderPass;
     }

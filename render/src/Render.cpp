@@ -6,7 +6,7 @@
 #include <core/logger/Logger.h>
 #include <framework/asset/AssetManager.h>
 #include <render/DevObjManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/GlobalDescriptorPool.h>
 #include <render/Render.h>
 #include <render/RenderConstants.h>
@@ -35,13 +35,13 @@ namespace sky {
         GlobalDescriptorPool::Get()->Destroy();
         ShapeManager::Get()->Destroy();
         DevObjManager::Get()->Destroy();
-        DriverManager::Get()->Destroy();
+        RHIManager::Get()->Destroy();
     }
 
     bool Render::Init(const StartInfo &info)
     {
         LOG_I(TAG, "Init Render");
-        if (!DriverManager::Get()->Initialize({info.appName})) {
+        if (!RHIManager::Get()->Initialize({info.appName})) {
             LOG_E(TAG, "Init Driver Failed");
             return false;
         }
@@ -94,26 +94,25 @@ namespace sky {
         return defaultTexture;
     }
 
-    drv::SamplerPtr Render::GetDefaultSampler() const
+    vk::SamplerPtr Render::GetDefaultSampler() const
     {
         return defaultSampler;
     }
 
     void Render::InitGlobalPool()
     {
-        drv::DescriptorSetLayout::Descriptor layoutDesc = {};
-        layoutDesc.bindings.emplace(0,
-                                    drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT});
+        vk::DescriptorSetLayout::Descriptor layoutDesc = {};
+        layoutDesc.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT});
         layoutDesc.bindings.emplace(1,
-                                    drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
-        auto layout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
+                                    vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        auto layout = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetLayout>(layoutDesc);
         globalPool.reset(DescriptorPool::CreatePool(layout, {MAX_RENDER_SCENE}));
     }
 
     void Render::InitDefaultResource()
     {
-        drv::Sampler::Descriptor samplerDesc = {};
-        defaultSampler                       = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Sampler>(samplerDesc);
+        vk::Sampler::Descriptor samplerDesc = {};
+        defaultSampler                       = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::Sampler>(samplerDesc);
 
         uint8_t data[] = {
             127,

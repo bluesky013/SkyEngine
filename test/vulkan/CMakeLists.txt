@@ -4,6 +4,6 @@ sky_add_test(TARGET VulkanTest
     SOURCES
         ${TEST_SRC}
     LIBS
-        Driver
+        VulkanRHI
         3rdParty::googletest
     )

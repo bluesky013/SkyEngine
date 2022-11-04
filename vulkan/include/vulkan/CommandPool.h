@@ -6,7 +6,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -31,4 +31,4 @@ namespace sky::drv {
     };
 
     using CommandPoolPtr = std::shared_ptr<CommandPool>;
-} // namespace sky::drv
+} // namespace sky::vk

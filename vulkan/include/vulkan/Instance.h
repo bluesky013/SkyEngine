@@ -8,9 +8,9 @@
 #include "vulkan/vulkan.h"
 #include <string>
 
-namespace sky::drv {
+namespace sky::vk {
 
-    class Driver {
+    class Instance {
     public:
         struct Descriptor {
             std::string appName;
@@ -18,16 +18,16 @@ namespace sky::drv {
             bool        enableDebugLayer;
         };
 
-        static Driver *Create(const Descriptor &);
-        static void    Destroy(Driver *);
+        static Instance *Create(const Descriptor &);
+        static void    Destroy(Instance *);
 
         Device *CreateDevice(const Device::Descriptor &);
 
         VkInstance GetInstance() const;
 
     private:
-        Driver();
-        ~Driver();
+        Instance();
+        ~Instance();
 
         bool Init(const Descriptor &);
 
@@ -37,4 +37,4 @@ namespace sky::drv {
         VkDebugUtilsMessengerEXT debug;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

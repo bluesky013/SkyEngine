@@ -8,7 +8,7 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Image.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     ImageFormatInfo *GetImageInfoByFormat(VkFormat format);
 

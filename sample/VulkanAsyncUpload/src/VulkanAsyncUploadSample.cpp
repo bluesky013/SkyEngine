@@ -20,56 +20,56 @@ namespace sky {
 
     void VulkanAsyncUploadSample::SetupPso()
     {
-        vertexInput = drv::VertexInput::Builder().Begin().Build();
+        vertexInput = vk::VertexInput::Builder().Begin().Build();
 
-        drv::GraphicsPipeline::Program program;
+        vk::GraphicsPipeline::Program program;
         vs = LoadShader(VK_SHADER_STAGE_VERTEX_BIT, ENGINE_ROOT + "/assets/shaders/output/AsyncUpload.vert.spv");
         fs = LoadShader(VK_SHADER_STAGE_FRAGMENT_BIT, ENGINE_ROOT + "/assets/shaders/output/AsyncUpload.frag.spv");
         program.shaders.emplace_back(vs);
         program.shaders.emplace_back(fs);
 
-        drv::GraphicsPipeline::State state = {};
+        vk::GraphicsPipeline::State state = {};
         state.raster.cullMode = VK_CULL_MODE_NONE;
 
-        state.blends.blendStates.emplace_back(drv::GraphicsPipeline::BlendState{});
+        state.blends.blendStates.emplace_back(vk::GraphicsPipeline::BlendState{});
         state.blends.blendStates.back().blendEnable = VK_TRUE;
         state.blends.blendStates.back().srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-        drv::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.program                           = &program;
         psoDesc.state                             = &state;
         psoDesc.pipelineLayout                    = pipelineLayout;
         psoDesc.vertexInput                       = vertexInput;
         psoDesc.renderPass                        = renderPass;
-        pso                                       = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        pso                                       = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
     }
 
     void VulkanAsyncUploadSample::SetupDescriptorSet()
     {
-        drv::DescriptorSetLayout::Descriptor setLayoutInfo = {};
-        setLayoutInfo.bindings.emplace(0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
+        vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+        setLayoutInfo.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
-        drv::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+        vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
 
-        pipelineLayout = device->CreateDeviceObject<drv::PipelineLayout>(pipelineLayoutInfo);
+        pipelineLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
 
         VkDescriptorPoolSize sizes[] =
             {
                 {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
             };
 
-        drv::DescriptorSetPool::Descriptor poolInfo = {};
+        vk::DescriptorSetPool::Descriptor poolInfo = {};
         poolInfo.maxSets = 1;
         poolInfo.num = 1;
         poolInfo.sizes = sizes;
-        setPool = device->CreateDeviceObject<drv::DescriptorSetPool>(poolInfo);
+        setPool = device->CreateDeviceObject<vk::DescriptorSetPool>(poolInfo);
         set = pipelineLayout->Allocate(setPool, 0);
 
-        object.setBinder = std::make_shared<drv::DescriptorSetBinder>();
+        object.setBinder = std::make_shared<vk::DescriptorSetBinder>();
         object.setBinder->SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         object.setBinder->SetPipelineLayout(pipelineLayout);
         object.setBinder->BindSet(0, set);
@@ -84,28 +84,28 @@ namespace sky {
         std::vector<uint8_t> data;
         ReadBin(ENGINE_ROOT + "/assets/images/Logo.dds", data);
 
-        drv::Image::Descriptor               imageDesc = {};
-        std::vector<drv::ImageUploadRequest> requests;
+        vk::Image::Descriptor               imageDesc = {};
+        std::vector<vk::ImageUploadRequest> requests;
         ProcessDDS(data.data(), data.size(), imageDesc, requests);
 
         imageDesc.usage  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        image            = device->CreateDeviceObject<drv::Image>(imageDesc);
+        image            = device->CreateDeviceObject<vk::Image>(imageDesc);
 
-        drv::ImageView::Descriptor viewDesc = {};
+        vk::ImageView::Descriptor viewDesc = {};
         viewDesc.format                     = imageDesc.format;
-        view                                = drv::ImageView::CreateImageView(image, viewDesc);
+        view                                = vk::ImageView::CreateImageView(image, viewDesc);
 
-        drv::Sampler::Descriptor samplerDesc = {};
+        vk::Sampler::Descriptor samplerDesc = {};
         samplerDesc.minLod = 0.f;
         samplerDesc.maxLod = 13;
-        sampler = device->CreateDeviceObject<drv::Sampler>(samplerDesc);
+        sampler = device->CreateDeviceObject<vk::Sampler>(samplerDesc);
 
         object.future = std::async([this, &imageDesc, &requests]() {
-            std::vector<drv::BufferPtr> stagingBuffers;
+            std::vector<vk::BufferPtr> stagingBuffers;
 
             auto     uploadQueue = device->GetAsyncTransferQueue()->GetQueue();
-            auto *imageInfo = drv::GetImageInfoByFormat(imageDesc.format);
+            auto *imageInfo = vk::GetImageInfoByFormat(imageDesc.format);
 
             auto cmd = uploadQueue->AllocateCommandBuffer({});
             cmd->Begin();
@@ -117,7 +117,7 @@ namespace sky {
                 subResourceRange.levelCount              = 1;
                 subResourceRange.baseArrayLayer          = 0;
                 subResourceRange.layerCount              = 1;
-                drv::Barrier barrier                     = {};
+                vk::Barrier barrier                     = {};
                 {
                     barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                     barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -143,11 +143,11 @@ namespace sky {
                 uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
 
                 for (uint32_t i = 0; i < copyNum; ++i) {
-                    drv::Buffer::Descriptor bufferDesc = {};
+                    vk::Buffer::Descriptor bufferDesc = {};
                     bufferDesc.size                    = STAGING_BLOCK_SIZE;
                     bufferDesc.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
                     bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;
-                    auto stagingBuffer                 = device->CreateDeviceObject<drv::Buffer>(bufferDesc);
+                    auto stagingBuffer                 = device->CreateDeviceObject<vk::Buffer>(bufferDesc);
                     stagingBuffers.emplace_back(stagingBuffer);
 
                     auto     ptr      = stagingBuffer->Map();
@@ -208,7 +208,7 @@ namespace sky {
         clearValue.color.float32[2] = 0.2f;
         clearValue.color.float32[3] = 1.f;
 
-        drv::PassBeginInfo beginInfo = {};
+        vk::PassBeginInfo beginInfo = {};
         beginInfo.frameBuffer        = frameBuffers[imageIndex];
         beginInfo.renderPass         = renderPass;
         beginInfo.clearValueCount    = 1;
@@ -216,7 +216,7 @@ namespace sky {
 
         graphicsEncoder.BeginPass(beginInfo);
 
-        drv::CmdDrawLinear drawLinear = {};
+        vk::CmdDrawLinear drawLinear = {};
         drawLinear.firstVertex   = 0;
         drawLinear.firstInstance = 0;
         drawLinear.vertexCount   = 6;
@@ -233,14 +233,14 @@ namespace sky {
 
         commandBuffer->End();
 
-        drv::CommandBuffer::SubmitInfo submitInfo = {};
+        vk::CommandBuffer::SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+            std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 
-        drv::SwapChain::PresentInfo presentInfo = {};
+        vk::SwapChain::PresentInfo presentInfo = {};
         presentInfo.imageIndex                  = imageIndex;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(presentInfo);

@@ -12,7 +12,7 @@
 #include <vector>
 #include <array>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -42,4 +42,4 @@ namespace sky::drv {
 
     using ComputePipelinePtr = std::shared_ptr<ComputePipeline>;
 
-} // namespace sky::drv
+} // namespace sky::vk

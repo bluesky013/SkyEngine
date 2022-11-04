@@ -5,7 +5,7 @@
 #include <framework/asset/AssetManager.h>
 #include <fstream>
 #include <render/DevObjManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/resources/Buffer.h>
 
 namespace sky {
@@ -39,11 +39,11 @@ namespace sky {
             return;
         }
 
-        drv::Buffer::Descriptor desc = {};
+        vk::Buffer::Descriptor desc = {};
         desc.size                    = realSize = descriptor.size * descriptor.inflight;
         desc.memory                  = descriptor.memory;
         desc.usage                   = descriptor.usage;
-        rhiBuffer                    = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Buffer>(desc);
+        rhiBuffer                    = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::Buffer>(desc);
         if (descriptor.keepMap) {
             mapPtr = rhiBuffer->Map();
         }
@@ -75,14 +75,14 @@ namespace sky {
         }
 
         if (descriptor.memory == VMA_MEMORY_USAGE_GPU_ONLY) {
-            auto device = DriverManager::Get()->GetDevice();
+            auto device = RHIManager::Get()->GetDevice();
             auto queue  = device->GetGraphicsQueue();
 
-            drv::Buffer::Descriptor stagingDes = {};
+            vk::Buffer::Descriptor stagingDes = {};
             stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             stagingDes.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             stagingDes.size                    = range;
-            auto     stagingBuffer             = device->CreateDeviceObject<drv::Buffer>(stagingDes);
+            auto     stagingBuffer             = device->CreateDeviceObject<vk::Buffer>(stagingDes);
             uint8_t *dst                       = stagingBuffer->Map();
             memcpy(dst, data, range);
             stagingBuffer->UnMap();
@@ -123,7 +123,7 @@ namespace sky {
         return rawData.data();
     }
 
-    drv::BufferPtr Buffer::GetRHIBuffer() const
+    vk::BufferPtr Buffer::GetRHIBuffer() const
     {
         return rhiBuffer;
     }

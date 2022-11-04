@@ -6,9 +6,9 @@
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Fence::Fence(Device &dev) : DevObject(dev), fence(VK_NULL_HANDLE)
     {
@@ -49,4 +49,4 @@ namespace sky::drv {
         return fence;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

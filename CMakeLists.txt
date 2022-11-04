@@ -41,8 +41,11 @@ add_subdirectory(vulkan)
 add_subdirectory(engine)
 add_subdirectory(render)
 
+if (APPLE)
+    add_subdirectory(metal)
+endif()
+
 if (NOT ANDROID)
-    add_subdirectory(editor)
     add_subdirectory(sample)
     add_subdirectory(tools)
     add_subdirectory(test)

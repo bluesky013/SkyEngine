@@ -18,28 +18,28 @@ namespace cereal {
     }
 
     template <class Archive>
-    void serialize(Archive &ar, sky::drv::GraphicsPipeline::DepthStencilState &s)
+    void serialize(Archive &ar, sky::vk::GraphicsPipeline::DepthStencilState &s)
     {
         ar(s.depthTestEnable, s.depthWriteEnable, s.depthCompareOp, s.depthBoundsTestEnable, s.stencilTestEnable, s.front, s.back, s.minDepthBounds,
            s.maxDepthBounds);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, sky::drv::GraphicsPipeline::Raster &s)
+    void serialize(Archive &ar, sky::vk::GraphicsPipeline::Raster &s)
     {
         ar(s.depthClampEnable, s.rasterizerDiscardEnable, s.polygonMode, s.cullMode, s.frontFace, s.depthBiasEnable, s.depthBiasConstantFactor,
            s.depthBiasClamp, s.depthBiasSlopeFactor, s.lineWidth);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, sky::drv::GraphicsPipeline::BlendState &s)
+    void serialize(Archive &ar, sky::vk::GraphicsPipeline::BlendState &s)
     {
         ar(s.blendEnable, s.srcColorBlendFactor, s.dstColorBlendFactor, s.colorBlendOp, s.srcAlphaBlendFactor, s.dstAlphaBlendFactor, s.alphaBlendOp,
            s.colorWriteMask);
     }
 
     template <class Archive>
-    void serialize(Archive &ar, sky::drv::GraphicsPipeline::ColorBlend &s)
+    void serialize(Archive &ar, sky::vk::GraphicsPipeline::ColorBlend &s)
     {
         ar(s.blendStates);
     }
@@ -49,19 +49,19 @@ namespace cereal {
     };
 
     template <class Archive>
-    struct specialize<Archive, sky::drv::GraphicsPipeline::BlendState, cereal::specialization::non_member_serialize> {
+    struct specialize<Archive, sky::vk::GraphicsPipeline::BlendState, cereal::specialization::non_member_serialize> {
     };
 
     template <class Archive>
-    struct specialize<Archive, sky::drv::GraphicsPipeline::ColorBlend, cereal::specialization::non_member_serialize> {
+    struct specialize<Archive, sky::vk::GraphicsPipeline::ColorBlend, cereal::specialization::non_member_serialize> {
     };
 
     template <class Archive>
-    struct specialize<Archive, sky::drv::GraphicsPipeline::DepthStencilState, cereal::specialization::non_member_serialize> {
+    struct specialize<Archive, sky::vk::GraphicsPipeline::DepthStencilState, cereal::specialization::non_member_serialize> {
     };
 
     template <class Archive>
-    struct specialize<Archive, sky::drv::GraphicsPipeline::Raster, cereal::specialization::non_member_serialize> {
+    struct specialize<Archive, sky::vk::GraphicsPipeline::Raster, cereal::specialization::non_member_serialize> {
     };
 }
 
@@ -70,9 +70,9 @@ namespace sky {
     struct GfxTechniqueAssetData {
         ShaderAssetPtr vs;
         ShaderAssetPtr fs;
-        drv::GraphicsPipeline::DepthStencilState depthStencilState;
-        drv::GraphicsPipeline::Raster raster;
-        drv::GraphicsPipeline::ColorBlend blends;
+        vk::GraphicsPipeline::DepthStencilState depthStencilState;
+        vk::GraphicsPipeline::Raster raster;
+        vk::GraphicsPipeline::ColorBlend blends;
         uint32_t viewTag;
         uint32_t drawTag;
         std::unordered_map<Uuid, std::string> assetPathMap;
@@ -106,9 +106,9 @@ namespace sky {
 
         void SetRenderPass(const RDPassPtr &pass, uint32_t subPass = 0);
 
-        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr &vertexInput);
+        vk::GraphicsPipelinePtr AcquirePso(const vk::VertexInputPtr &vertexInput);
 
-        drv::GraphicsPipelinePtr AcquirePso(const drv::VertexInputPtr &vi, const drv::ShaderOptionPtr &option);
+        vk::GraphicsPipelinePtr AcquirePso(const vk::VertexInputPtr &vi, const vk::ShaderOptionPtr &option);
 
         void SetViewTag(uint32_t tag);
 
@@ -120,19 +120,19 @@ namespace sky {
 
         const RDGfxShaderTablePtr &GetShaderTable() const;
 
-        drv::DescriptorSetBinderPtr CreateSetBinder() const;
+        vk::DescriptorSetBinderPtr CreateSetBinder() const;
 
         void SetDepthTestEn(bool enable);
 
         void SetDepthWriteEn(bool enable);
 
-        void SetDepthStencilState(const drv::GraphicsPipeline::DepthStencilState &ds);
+        void SetDepthStencilState(const vk::GraphicsPipeline::DepthStencilState &ds);
 
-        void SetBlendState(const drv::GraphicsPipeline::ColorBlend &blends);
+        void SetBlendState(const vk::GraphicsPipeline::ColorBlend &blends);
 
-        void SetRasterState(const drv::GraphicsPipeline::Raster &raster);
+        void SetRasterState(const vk::GraphicsPipeline::Raster &raster);
 
-        drv::GraphicsPipeline::State &GetState();
+        vk::GraphicsPipeline::State &GetState();
 
         static std::shared_ptr<GraphicsTechnique> CreateFromData(const GfxTechniqueAssetData& data);
 
@@ -142,8 +142,8 @@ namespace sky {
         uint32_t                                               viewTag      = 0;
         uint32_t                                               drawTag      = 0;
         RDPassPtr                                              pass;
-        drv::GraphicsPipeline::State                           pipelineState;
-        std::unordered_map<uint32_t, drv::GraphicsPipelinePtr> psoCache;
+        vk::GraphicsPipeline::State                           pipelineState;
+        std::unordered_map<uint32_t, vk::GraphicsPipelinePtr> psoCache;
     };
     using RDGfxTechniquePtr = std::shared_ptr<GraphicsTechnique>;
 

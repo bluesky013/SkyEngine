@@ -26,7 +26,7 @@ namespace sky {
 
         void Shutdown();
 
-        drv::SwapChainPtr GetSwapChain() const;
+        vk::SwapChainPtr GetSwapChain() const;
 
         void *GetNativeHandle() const;
 
@@ -45,11 +45,11 @@ namespace sky {
         uint32_t              currentFrame      = 0;
         uint32_t              currentImageIndex = 0;
         RDScenePtr            scene;
-        drv::SemaphorePtr     imageAvailable[INFLIGHT_FRAME];
-        drv::SemaphorePtr     renderFinish[INFLIGHT_FRAME];
-        drv::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
-        drv::SwapChainPtr     swapChain;
-        drv::Queue           *graphicsQueue{nullptr};
+        vk::SemaphorePtr     imageAvailable[INFLIGHT_FRAME];
+        vk::SemaphorePtr     renderFinish[INFLIGHT_FRAME];
+        vk::CommandBufferPtr commandBuffer[INFLIGHT_FRAME];
+        vk::SwapChainPtr     swapChain;
+        vk::Queue           *graphicsQueue{nullptr};
     };
     using RDViewportPtr = std::shared_ptr<RenderViewport>;
 } // namespace sky

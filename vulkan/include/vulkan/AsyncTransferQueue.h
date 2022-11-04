@@ -12,7 +12,7 @@
 #include <functional>
 #include <unordered_map>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class Queue;
@@ -95,4 +95,4 @@ namespace sky::drv {
         std::deque<TransferTask> taskQueue;
     };
     using AsyncTransferQueuePtr = std::unique_ptr<AsyncTransferQueue>;
-} // namespace sky::drv
+} // namespace sky::vk

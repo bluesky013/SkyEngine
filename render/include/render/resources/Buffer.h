@@ -61,7 +61,7 @@ namespace sky {
 
         void Update(uint64_t offset, uint64_t rawOffset, uint64_t range, bool release = false);
 
-        drv::BufferPtr GetRHIBuffer() const;
+        vk::BufferPtr GetRHIBuffer() const;
 
         const uint8_t *Data() const;
 
@@ -71,7 +71,7 @@ namespace sky {
         VkDeviceSize         realSize = 0;
         Descriptor           descriptor;
         std::vector<uint8_t> rawData;
-        drv::BufferPtr       rhiBuffer;
+        vk::BufferPtr       rhiBuffer;
         uint8_t             *mapPtr = nullptr;
     };
     using RDBufferPtr = std::shared_ptr<Buffer>;

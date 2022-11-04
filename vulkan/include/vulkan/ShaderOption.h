@@ -10,7 +10,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class ShaderOption {
     public:
@@ -69,4 +69,4 @@ namespace sky::drv {
     };
     using ShaderOptionPtr = std::shared_ptr<ShaderOption>;
 
-} // namespace sky::drv
+} // namespace sky::vk

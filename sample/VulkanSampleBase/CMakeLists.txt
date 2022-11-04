@@ -10,6 +10,6 @@ sky_add_library(TARGET VulkanSampleBase STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Driver
+        VulkanRHI
         Framework
     )

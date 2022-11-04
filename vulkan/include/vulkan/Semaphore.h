@@ -5,7 +5,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -28,4 +28,4 @@ namespace sky::drv {
 
     using SemaphorePtr = std::shared_ptr<Semaphore>;
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -7,7 +7,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class MemoryPool : public DevObject {
     public:
@@ -23,4 +23,4 @@ namespace sky::drv {
         VmaPool pool;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

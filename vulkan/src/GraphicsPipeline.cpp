@@ -7,7 +7,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/GraphicsPipeline.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     uint32_t GraphicsPipeline::CalculateHash(const Descriptor &desc)
     {
@@ -156,4 +156,4 @@ namespace sky::drv {
     {
         return pipelineLayout;
     }
-} // namespace sky::drv
+} // namespace sky::vk

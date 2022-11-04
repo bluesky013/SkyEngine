@@ -15,11 +15,11 @@ namespace sky {
     class Mesh;
 
     struct GraphicsTechniqueProxy {
-        drv::DescriptorSetBinderPtr setBinder;
-        drv::VertexAssemblyPtr      assembly;
-        drv::VertexInputPtr         vertexInput;
-        drv::GraphicsPipelinePtr    pso;
-        drv::CmdDraw                args    = {};
+        vk::DescriptorSetBinderPtr setBinder;
+        vk::VertexAssemblyPtr      assembly;
+        vk::VertexInputPtr         vertexInput;
+        vk::GraphicsPipelinePtr    pso;
+        vk::CmdDraw                args    = {};
         uint32_t                    drawTag = 0;
     };
     using RDGfxTechniqueProxyPtr = std::unique_ptr<GraphicsTechniqueProxy>;
@@ -33,7 +33,7 @@ namespace sky {
 
         void SetMesh(Mesh &value, uint32_t subMesh = 0);
 
-        inline void SetVertexAssembly(drv::VertexAssemblyPtr value)
+        inline void SetVertexAssembly(vk::VertexAssemblyPtr value)
         {
             vertexAssembly = value;
         }
@@ -53,8 +53,8 @@ namespace sky {
     protected:
         uint32_t                            subMeshIndex = 0;
         RDDesGroupPtr                       matSet;
-        drv::CmdDraw                        args{};
-        drv::VertexAssemblyPtr              vertexAssembly;
+        vk::CmdDraw                        args{};
+        vk::VertexAssemblyPtr              vertexAssembly;
         std::vector<RDGfxTechniqueProxyPtr> graphicTechniques;
     };
 } // namespace sky

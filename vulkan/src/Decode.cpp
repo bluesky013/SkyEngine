@@ -6,7 +6,7 @@
 #include <vulkan/ASTC.h>
 #include <vulkan/DDS.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     std::unordered_map<VkFormat, ImageFormatInfo> FORMAT_INFO =
         {

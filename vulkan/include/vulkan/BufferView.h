@@ -7,7 +7,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/Buffer.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class Image;
@@ -41,4 +41,4 @@ namespace sky::drv {
     };
 
     using BufferViewPtr = std::shared_ptr<BufferView>;
-} // namespace sky::drv
+} // namespace sky::vk

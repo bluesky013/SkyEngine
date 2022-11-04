@@ -7,7 +7,7 @@
 #include <vector>
 #include <vulkan/PipelineLayout.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class DescriptorSetBinder {
     public:
@@ -35,4 +35,4 @@ namespace sky::drv {
     };
     using DescriptorSetBinderPtr = std::shared_ptr<DescriptorSetBinder>;
 
-} // namespace sky::drv
+} // namespace sky::vk

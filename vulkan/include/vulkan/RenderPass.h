@@ -9,7 +9,7 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -125,4 +125,4 @@ namespace sky::drv {
         RenderPass::Descriptor descriptor;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

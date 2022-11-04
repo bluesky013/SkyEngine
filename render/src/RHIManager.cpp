@@ -2,39 +2,39 @@
 // Created by Zach Lee on 2021/12/21.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 
 namespace sky {
 
-    void DriverManager::ShutDown()
+    void RHIManager::ShutDown()
     {
         if (device != nullptr) {
             delete device;
             device = nullptr;
         }
         if (driver != nullptr) {
-            drv::Driver::Destroy(driver);
+            vk::Instance::Destroy(driver);
             driver = nullptr;
         }
     }
 
-    drv::Device *DriverManager::GetDevice() const
+    vk::Device *RHIManager::GetDevice() const
     {
         return device;
     }
 
-    drv::Driver *DriverManager::GetDriver() const
+    vk::Instance *RHIManager::GetDriver() const
     {
         return driver;
     }
 
-    bool DriverManager::Initialize(const Descriptor &des)
+    bool RHIManager::Initialize(const Descriptor &des)
     {
         if (driver != nullptr) {
             return true;
         }
 
-        drv::Driver::Descriptor drvDes = {};
+        vk::Instance::Descriptor drvDes = {};
         drvDes.appName                 = "SkyEngine";
 #ifdef _DEBUG
         drvDes.enableDebugLayer = true;
@@ -42,12 +42,12 @@ namespace sky {
         drvDes.enableDebugLayer = false;
 #endif
         drvDes.appName = des.appName;
-        driver         = drv::Driver::Create(drvDes);
+        driver         = vk::Instance::Create(drvDes);
         if (driver == nullptr) {
             return false;
         }
 
-        drv::Device::Descriptor devDes = {};
+        vk::Device::Descriptor devDes = {};
         device                         = driver->CreateDevice(devDes);
         if (device == nullptr) {
             return false;

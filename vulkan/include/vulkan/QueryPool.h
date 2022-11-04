@@ -8,7 +8,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan_core.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class QueryPool : public DevObject {
     public:
@@ -43,4 +43,4 @@ namespace sky::drv {
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 
-} // namespace sky::drv
+} // namespace sky::vk

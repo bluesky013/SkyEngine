@@ -7,9 +7,9 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     CommandPool::CommandPool(Device &dev) : DevObject(dev), pool(VK_NULL_HANDLE)
     {
@@ -58,4 +58,4 @@ namespace sky::drv {
         }
         return std::shared_ptr<CommandBuffer>(cmdBuffer);
     }
-} // namespace sky::drv
+} // namespace sky::vk

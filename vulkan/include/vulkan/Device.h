@@ -11,9 +11,9 @@
 #include <vulkan/AsyncTransferQueue.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
-    class Driver;
+    class Instance;
 
     class Device {
     public:
@@ -62,7 +62,7 @@ namespace sky::drv {
 
         bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-
+        int32_t FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
@@ -70,9 +70,9 @@ namespace sky::drv {
 
         bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
 
-        friend class Driver;
-        Device(Driver &);
-        Driver          &driver;
+        friend class Instance;
+        Device(Instance &);
+        Instance        &instance;
         VkPhysicalDevice phyDev;
         VkDevice         device;
         VmaAllocator     allocator;
@@ -94,4 +94,4 @@ namespace sky::drv {
         CacheManager<VkRenderPass>          renderPasses;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

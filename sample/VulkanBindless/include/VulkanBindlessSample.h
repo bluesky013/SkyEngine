@@ -26,24 +26,24 @@ namespace sky {
         void SetupDescriptorSet();
         void SetupResources();
 
-        drv::PipelineLayoutPtr      pipelineLayout;
-        drv::DescriptorSetLayoutPtr descriptorSetLayout;
-        drv::GraphicsPipelinePtr    pso;
-        drv::DescriptorSetPtr       set;
-        drv::DescriptorSetPoolPtr   setPool;
-        drv::DescriptorSetBinderPtr setBinder;
+        vk::PipelineLayoutPtr      pipelineLayout;
+        vk::DescriptorSetLayoutPtr descriptorSetLayout;
+        vk::GraphicsPipelinePtr    pso;
+        vk::DescriptorSetPtr       set;
+        vk::DescriptorSetPoolPtr   setPool;
+        vk::DescriptorSetBinderPtr setBinder;
 
-        drv::ShaderPtr      vs;
-        drv::ShaderPtr      fs;
-        drv::VertexInputPtr vertexInput;
+        vk::ShaderPtr      vs;
+        vk::ShaderPtr      fs;
+        vk::VertexInputPtr vertexInput;
 
-        drv::VertexAssemblyPtr vertexAssembly;
-        drv::BufferPtr         vertexBuffer;
-        drv::BufferPtr         materialBuffer;
-        drv::BufferPtr         indirectBuffer;
-        drv::SamplerPtr        sampler;
-        drv::ImagePtr          images[IMAGE_NUM];
-        drv::ImageViewPtr      imageViews[IMAGE_NUM];
+        vk::VertexAssemblyPtr vertexAssembly;
+        vk::BufferPtr         vertexBuffer;
+        vk::BufferPtr         materialBuffer;
+        vk::BufferPtr         indirectBuffer;
+        vk::SamplerPtr        sampler;
+        vk::ImagePtr          images[IMAGE_NUM];
+        vk::ImageViewPtr      imageViews[IMAGE_NUM];
     };
 
 } // namespace sky

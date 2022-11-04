@@ -32,11 +32,11 @@ namespace sky {
 
         void BindViewport(RenderViewport &viewport);
 
-        void UpdateOutput(const drv::ImagePtr &output);
+        void UpdateOutput(const vk::ImagePtr &output);
 
         void OnPreRender(float time);
 
-        void OnRender(const drv::CommandBufferPtr &commandBuffer);
+        void OnRender(const vk::CommandBufferPtr &commandBuffer);
 
         void OnPostRender();
 
@@ -69,7 +69,7 @@ namespace sky {
 
         const RDDesGroupPtr &GetSceneSet() const;
 
-        const drv::QueryPoolPtr &GetQueryPool() const;
+        const vk::QueryPoolPtr &GetQueryPool() const;
 
         void AddView(const RDViewPtr &view);
 
@@ -87,7 +87,7 @@ namespace sky {
             return res;
         }
 
-        void FillSetBinder(drv::DescriptorSetBinder &binder);
+        void FillSetBinder(vk::DescriptorSetBinder &binder);
 
     private:
         void InitSceneResource();
@@ -103,7 +103,7 @@ namespace sky {
         RDDesGroupPtr          sceneSet;
         RDDynBufferViewPtr     sceneInfo;
         RDDynBufferViewPtr     mainViewInfo;
-        drv::QueryPoolPtr      queryPool;
+        vk::QueryPoolPtr      queryPool;
     };
     using RDScenePtr = std::shared_ptr<RenderScene>;
 } // namespace sky

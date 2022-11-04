@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace sky::drv {
+namespace sky::vk {
     using DWORD = uint32_t;
     using BYTE  = char;
 

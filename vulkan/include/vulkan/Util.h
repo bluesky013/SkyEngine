@@ -8,7 +8,7 @@
 #include <vulkan/ImageView.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     inline VkClearValue MakeClearColor(float r, float g, float b, float a)
     {
@@ -64,4 +64,4 @@ namespace sky::drv {
         return draw;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

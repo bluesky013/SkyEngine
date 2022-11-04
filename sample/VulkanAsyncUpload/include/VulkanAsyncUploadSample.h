@@ -11,13 +11,13 @@ namespace sky {
     class NativeWindow;
 
     struct UploadEvent {
-        virtual void OnBufferUploaded(drv::BufferPtr &buffer) = 0;
+        virtual void OnBufferUploaded(vk::BufferPtr &buffer) = 0;
     };
 
     struct Object {
         std::atomic_bool            isReady = false;
         std::future<void>           future;
-        drv::DescriptorSetBinderPtr setBinder;
+        vk::DescriptorSetBinderPtr setBinder;
     };
 
     class VulkanAsyncUploadSample : public VulkanSampleBase {
@@ -35,18 +35,18 @@ namespace sky {
         void SetupDescriptorSet();
         void SetupResources();
 
-        drv::PipelineLayoutPtr      pipelineLayout;
-        drv::DescriptorSetLayoutPtr descriptorSetLayout;
-        drv::GraphicsPipelinePtr    pso;
-        drv::DescriptorSetPtr       set;
-        drv::DescriptorSetPoolPtr   setPool;
+        vk::PipelineLayoutPtr      pipelineLayout;
+        vk::DescriptorSetLayoutPtr descriptorSetLayout;
+        vk::GraphicsPipelinePtr    pso;
+        vk::DescriptorSetPtr       set;
+        vk::DescriptorSetPoolPtr   setPool;
 
-        drv::ShaderPtr      vs;
-        drv::ShaderPtr      fs;
-        drv::VertexInputPtr vertexInput;
-        drv::SamplerPtr     sampler;
-        drv::ImageViewPtr   view;
-        drv::ImagePtr       image;
+        vk::ShaderPtr      vs;
+        vk::ShaderPtr      fs;
+        vk::VertexInputPtr vertexInput;
+        vk::SamplerPtr     sampler;
+        vk::ImageViewPtr   view;
+        vk::ImagePtr       image;
 
         Object object;
     };

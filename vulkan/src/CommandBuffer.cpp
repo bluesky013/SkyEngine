@@ -7,9 +7,9 @@
 #include "vulkan/Device.h"
 #include "vulkan/Fence.h"
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     CommandBuffer::CommandBuffer(Device &dev, VkCommandPool cp, VkCommandBuffer cb) : DevObject(dev), pool(cp), cmdBuffer(cb), fence()
     {
@@ -371,4 +371,4 @@ namespace sky::drv {
     {
         vkCmdExecuteCommands(main, static_cast<uint32_t>(cmdHandlers.size()), cmdHandlers.data());
     }
-} // namespace sky::drv
+} // namespace sky::vk

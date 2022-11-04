@@ -28,35 +28,35 @@ namespace sky {
         void OnMouseMove(int32_t x, int32_t y) override;
         void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
 
-        drv::PipelineLayoutPtr      pipelineLayout;
-        drv::DescriptorSetLayoutPtr descriptorSetLayout;
-        drv::GraphicsPipelinePtr    pso;
-        drv::DescriptorSetPtr       set;
-        drv::DescriptorSetPoolPtr   setPool;
-        drv::DescriptorSetBinderPtr setBinder;
+        vk::PipelineLayoutPtr      pipelineLayout;
+        vk::DescriptorSetLayoutPtr descriptorSetLayout;
+        vk::GraphicsPipelinePtr    pso;
+        vk::DescriptorSetPtr       set;
+        vk::DescriptorSetPoolPtr   setPool;
+        vk::DescriptorSetBinderPtr setBinder;
 
-        drv::ShaderPtr              vs;
-        drv::ShaderPtr              fs;
-        drv::VertexInputPtr         vertexInput;
+        vk::ShaderPtr              vs;
+        vk::ShaderPtr              fs;
+        vk::VertexInputPtr         vertexInput;
 
-        drv::SamplerPtr sampler;
+        vk::SamplerPtr sampler;
 
-        drv::ImagePtr     inputImage0;
-        drv::ImageViewPtr imageView0;
-        drv::ImageViewPtr imageView1;
-        drv::ImageViewPtr imageView2;
+        vk::ImagePtr     inputImage0;
+        vk::ImageViewPtr imageView0;
+        vk::ImageViewPtr imageView1;
+        vk::ImageViewPtr imageView2;
 
-        drv::ImagePtr storageImage;
-        drv::ImagePtr storageImageView;
+        vk::ImagePtr storageImage;
+        vk::ImagePtr storageImageView;
 
-        drv::BufferPtr uniformBuffer;
-        drv::BufferPtr constantBuffer;
-        drv::BufferPtr texelBuffer;
-        drv::BufferPtr storageBuffer;
+        vk::BufferPtr uniformBuffer;
+        vk::BufferPtr constantBuffer;
+        vk::BufferPtr texelBuffer;
+        vk::BufferPtr storageBuffer;
         uint32_t       alignedSize = 0;
 
-        drv::BufferViewPtr bufferView0;
-        drv::BufferViewPtr bufferView1;
+        vk::BufferViewPtr bufferView0;
+        vk::BufferViewPtr bufferView1;
 
         struct Ubo {
             float x;

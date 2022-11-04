@@ -5,30 +5,30 @@
 #include <gtest/gtest.h>
 #include <vulkan/DescriptorSetLayout.h>
 #include <vulkan/Device.h>
-#include <vulkan/Driver.h>
+#include <vulkan/Instance.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Sampler.h>
 #include <vulkan/ShaderOption.h>
 #include <vulkan/VertexInput.h>
 
-using namespace sky::drv;
+using namespace sky::vk;
 
-static Driver *driver = nullptr;
+static Instance *instance = nullptr;
 static Device *device = nullptr;
 
 class VulkanTest : public ::testing::Test {
 public:
     static void SetUpTestSuite()
     {
-        Driver::Descriptor drvDes = {};
+        Instance::Descriptor drvDes = {};
         drvDes.engineName         = "SkyEngine";
         drvDes.appName            = "Test";
         drvDes.enableDebugLayer   = true;
 
-        driver = Driver::Create(drvDes);
+        instance = Instance::Create(drvDes);
 
         Device::Descriptor devDes = {};
-        device = driver->CreateDevice(devDes);
+        device = instance->CreateDevice(devDes);
     }
 
     static void TearDownTestSuite()
@@ -37,7 +37,7 @@ public:
             delete device;
             device = nullptr;
         }
-        Driver::Destroy(driver);
+        Instance::Destroy(instance);
     }
 
     void SetUp()

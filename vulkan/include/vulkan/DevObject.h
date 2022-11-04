@@ -7,7 +7,7 @@
 #include <memory>
 #include <vulkan/Basic.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -23,4 +23,4 @@ namespace sky::drv {
     };
     using DevPtr = std::shared_ptr<DevObject>;
 
-} // namespace sky::drv
+} // namespace sky::vk

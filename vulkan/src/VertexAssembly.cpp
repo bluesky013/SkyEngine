@@ -4,7 +4,7 @@
 
 #include <vulkan/VertexAssembly.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     void VertexAssembly::SetVertexInput(VertexInputPtr input)
     {
@@ -51,4 +51,4 @@ namespace sky::drv {
         return !!indexBuffer;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

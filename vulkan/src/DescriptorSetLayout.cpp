@@ -10,7 +10,7 @@
 #include <core/hash/Hash.h>
 #include <list>
 
-namespace sky::drv {
+namespace sky::vk {
 
     DescriptorSetLayout::DescriptorSetLayout(Device &dev)
     : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), descriptorNum(0), hash(0)
@@ -129,4 +129,4 @@ namespace sky::drv {
         return updateTemplate;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

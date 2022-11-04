@@ -39,7 +39,7 @@ namespace sky {
         auto  layout = set->GetLayout();
         auto &table  = layout->GetDescriptorTable();
 
-        auto bindingFn = [&table](uint32_t binding) -> const drv::DescriptorSetLayout::SetBinding * {
+        auto bindingFn = [&table](uint32_t binding) -> const vk::DescriptorSetLayout::SetBinding * {
             auto iter = table.find(binding);
             if (iter == table.end()) {
                 return nullptr;
@@ -72,7 +72,7 @@ namespace sky {
         return !!set && !dirty;
     }
 
-    drv::DescriptorSetPtr DescriptorGroup::GetRHISet() const
+    vk::DescriptorSetPtr DescriptorGroup::GetRHISet() const
     {
         return set;
     }
@@ -92,9 +92,9 @@ namespace sky {
         auto  layout = set->GetLayout();
         auto &table  = layout->GetDescriptorTable();
         for (auto &[slot, binding] : table) {
-            if (drv::IsBufferDescriptor(binding.descriptorType)) {
+            if (vk::IsBufferDescriptor(binding.descriptorType)) {
                 buffers.emplace(slot, nullptr);
-            } else if (drv::IsImageDescriptor(binding.descriptorType)) {
+            } else if (vk::IsImageDescriptor(binding.descriptorType)) {
                 textures.emplace(slot, nullptr);
             }
         }

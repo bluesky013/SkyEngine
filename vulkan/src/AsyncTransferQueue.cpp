@@ -7,7 +7,7 @@
 #include <vulkan/Device.h>
 #include <algorithm>
 
-namespace sky::drv {
+namespace sky::vk {
 
     bool AsyncTransferQueue::HasTask()
     {
@@ -54,7 +54,7 @@ namespace sky::drv {
             bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
             bufferInfo.memory = VMA_MEMORY_USAGE_CPU_ONLY;
 
-            stagingBuffer = device.CreateDeviceObject<drv::Buffer>(bufferInfo);
+            stagingBuffer = device.CreateDeviceObject<vk::Buffer>(bufferInfo);
             mapped = stagingBuffer->Map();
 
             for (uint32_t i = 0; i < INFLIGHT_NUM; ++i) {

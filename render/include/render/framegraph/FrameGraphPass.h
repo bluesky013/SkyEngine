@@ -35,7 +35,7 @@ namespace sky {
         {
         }
 
-        void Execute(const drv::CommandBufferPtr &commandBuffer) override
+        void Execute(const vk::CommandBufferPtr &commandBuffer) override
         {
         }
 
@@ -55,16 +55,16 @@ namespace sky {
 
         void Compile() override;
 
-        void Execute(const drv::CommandBufferPtr &commandBuffer) override;
+        void Execute(const vk::CommandBufferPtr &commandBuffer) override;
 
         void SetEncoder(RenderEncoder *encoder);
 
-        drv::RenderPassPtr GetPass() const;
+        vk::RenderPassPtr GetPass() const;
 
     private:
         void AddClearValue(FrameGraphImageAttachment *attachment);
 
-        drv::PassBeginInfo                       passInfo = {};
+        vk::PassBeginInfo                       passInfo = {};
         std::vector<VkClearValue>                clearValues;
         std::vector<FrameGraphImageAttachment *> colors;
         std::vector<FrameGraphImageAttachment *> resolves;

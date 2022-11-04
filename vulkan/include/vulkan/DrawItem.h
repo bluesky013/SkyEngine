@@ -11,7 +11,7 @@
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     struct CmdDrawIndexed {
         uint32_t indexCount    = 0;
@@ -71,4 +71,4 @@ namespace sky::drv {
         VertexAssemblyPtr      vertexAssembly;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

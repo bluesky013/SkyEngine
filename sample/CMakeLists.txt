@@ -5,4 +5,9 @@ add_subdirectory(VulkanDescriptor)
 add_subdirectory(VulkanBindless)
 add_subdirectory(VulkanAsyncUpload)
 add_subdirectory(VulkanMemoryAliasing)
+
+if (APPLE)
+    add_subdirectory(MetalSampleBase)
+endif()
+
 add_subdirectory(RDSceneProject)

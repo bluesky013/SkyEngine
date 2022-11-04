@@ -16,7 +16,7 @@ elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
 endif()
 
-sky_add_library(TARGET Driver STATIC
+sky_add_library(TARGET VulkanRHI STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}

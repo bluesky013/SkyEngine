@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    RDDescriptorPoolPtr GlobalDescriptorPool::GetPool(drv::DescriptorSetLayoutPtr layout)
+    RDDescriptorPoolPtr GlobalDescriptorPool::GetPool(vk::DescriptorSetLayoutPtr layout)
     {
         auto hash = layout->GetHash();
         auto iter = pools.find(hash);

@@ -2,13 +2,13 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "vulkan/Driver.h"
+#include "vulkan/Instance.h"
 #include "core/logger/Logger.h"
 #include <vector>
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance                                instance,
                                                  const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -53,24 +53,24 @@ namespace sky::drv {
 
     const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-    Driver *Driver::Create(const Descriptor &des)
+    Instance *Instance::Create(const Descriptor &des)
     {
-        auto driver = new Driver();
-        if (!driver->Init(des)) {
-            delete driver;
-            driver = nullptr;
+        auto instance = new Instance();
+        if (!instance->Init(des)) {
+            delete instance;
+            instance = nullptr;
         }
-        return driver;
+        return instance;
     }
 
-    void Driver::Destroy(Driver *driver)
+    void Instance::Destroy(Instance *instance)
     {
-        if (driver != nullptr) {
-            delete driver;
+        if (instance != nullptr) {
+            delete instance;
         }
     }
 
-    Device *Driver::CreateDevice(const Device::Descriptor &des)
+    Device *Instance::CreateDevice(const Device::Descriptor &des)
     {
         auto device = new Device(*this);
         if (!device->Init(des, debug != VK_NULL_HANDLE)) {
@@ -80,11 +80,11 @@ namespace sky::drv {
         return device;
     }
 
-    Driver::Driver() : instance(VK_NULL_HANDLE), debug(VK_NULL_HANDLE)
+    Instance::Instance() : instance(VK_NULL_HANDLE), debug(VK_NULL_HANDLE)
     {
     }
 
-    Driver::~Driver()
+    Instance::~Instance()
     {
         if (debug != VK_NULL_HANDLE) {
             DestroyDebugUtilsMessengerEXT(instance, debug, VKL_ALLOC);
@@ -95,7 +95,7 @@ namespace sky::drv {
         }
     }
 
-    bool Driver::Init(const Descriptor &des)
+    bool Instance::Init(const Descriptor &des)
     {
         uint32_t version = 0;
         VkResult result = vkEnumerateInstanceVersion(&version);
@@ -145,12 +145,12 @@ namespace sky::drv {
         return true;
     }
 
-    VkInstance Driver::GetInstance() const
+    VkInstance Instance::GetInstance() const
     {
         return instance;
     }
 
-    void Driver::PrintSupportedExtensions() const
+    void Instance::PrintSupportedExtensions() const
     {
         uint32_t count;
         vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
@@ -161,4 +161,4 @@ namespace sky::drv {
         }
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -74,10 +74,10 @@ namespace sky {
         return indexType;
     }
 
-    drv::VertexInputPtr Mesh::BuildVertexInput(Shader &shader) const
+    vk::VertexInputPtr Mesh::BuildVertexInput(Shader &shader) const
     {
         auto                     &shaderInputs = shader.GetStageInputs();
-        drv::VertexInput::Builder builder;
+        vk::VertexInput::Builder builder;
         builder.Begin();
         for (auto &attribute : vertexDescriptions) {
             auto iter = shaderInputs.find(attribute.name);
@@ -93,19 +93,19 @@ namespace sky {
         return builder.Build();
     }
 
-    drv::CmdDraw Mesh::BuildDrawArgs(uint32_t index) const
+    vk::CmdDraw Mesh::BuildDrawArgs(uint32_t index) const
     {
-        drv::CmdDraw res{};
+        vk::CmdDraw res{};
         auto        &subMesh = subMeshes[index];
         if (indexBuffer && indexBuffer->IsValid()) {
-            res.type                  = drv::CmdDrawType::INDEXED;
+            res.type                  = vk::CmdDrawType::INDEXED;
             res.indexed.firstInstance = 0;
             res.indexed.instanceCount = 1;
             res.indexed.firstIndex    = subMesh.drawData.firstIndex;
             res.indexed.indexCount    = subMesh.drawData.indexCount;
             res.indexed.vertexOffset  = subMesh.drawData.firstVertex;
         } else {
-            res.type                 = drv::CmdDrawType::LINEAR;
+            res.type                 = vk::CmdDrawType::LINEAR;
             res.linear.firstInstance = 0;
             res.linear.instanceCount = 1;
             res.linear.firstVertex   = subMesh.drawData.firstVertex;
