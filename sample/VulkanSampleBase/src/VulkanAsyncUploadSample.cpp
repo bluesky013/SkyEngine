@@ -189,10 +189,8 @@ namespace sky {
         object.future.wait();
     }
 
-    void VulkanAsyncUploadSample::Tick(float delta)
+    void VulkanAsyncUploadSample::OnTick(float delta)
     {
-        VulkanSampleBase::Tick(delta);
-
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
@@ -244,10 +242,12 @@ namespace sky {
         presentInfo.imageIndex                  = imageIndex;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(presentInfo);
+        VulkanSampleBase::OnTick(delta);
     }
 
     void VulkanAsyncUploadSample::OnStart()
     {
+        VulkanSampleBase::OnStart();
         SetupDescriptorSet();
         SetupPso();
         SetupResources();
@@ -255,8 +255,22 @@ namespace sky {
 
     void VulkanAsyncUploadSample::OnStop()
     {
+        device->WaitIdle();
+
+        pipelineLayout      = nullptr;
+        descriptorSetLayout = nullptr;
+        pso                 = nullptr;
+        set                 = nullptr;
+        setPool             = nullptr;
+        vs                  = nullptr;
+        fs                  = nullptr;
+        vertexInput         = nullptr;
+        sampler             = nullptr;
+        view                = nullptr;
+        image               = nullptr;
+        object.setBinder    = nullptr;
+
+        VulkanSampleBase::OnStop();
     }
 
 } // namespace sky
-
-REGISTER_MODULE(sky::VulkanAsyncUploadSample)

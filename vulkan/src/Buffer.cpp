@@ -22,6 +22,11 @@ namespace sky::vk {
                 vmaUnmapMemory(device.GetAllocator(), allocation);
             }
             vmaDestroyBuffer(device.GetAllocator(), buffer, allocation);
+            buffer = VK_NULL_HANDLE;
+            allocation = VK_NULL_HANDLE;
+        }
+        if (buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device.GetNativeHandle(), buffer, VKL_ALLOC);
         }
     }
 

@@ -11,7 +11,13 @@ static const char* TAG = "Vulkan";
 namespace sky::vk {
     ComputePipeline::ComputePipeline(Device &dev) : DevObject(dev), pipeline(VK_NULL_HANDLE), hash(0)
     {
+    }
 
+    ComputePipeline::~ComputePipeline()
+    {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device.GetNativeHandle(), pipeline, VKL_ALLOC);
+        }
     }
 
     bool ComputePipeline::Init(const Descriptor &desc)

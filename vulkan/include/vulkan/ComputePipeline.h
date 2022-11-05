@@ -18,7 +18,7 @@ namespace sky::vk {
 
     class ComputePipeline : public DevObject {
     public:
-        ~ComputePipeline() = default;
+        ~ComputePipeline();
 
         struct Descriptor {
             ShaderPtr         shader;

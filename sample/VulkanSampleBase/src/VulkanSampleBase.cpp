@@ -7,7 +7,7 @@
 
 namespace sky {
 
-    void VulkanSampleBase::Init()
+    void VulkanSampleBase::OnStart()
     {
         vk::Instance::Descriptor drvDes = {};
         drvDes.enableDebugLayer         = true;
@@ -21,10 +21,7 @@ namespace sky {
         device                        = instance->CreateDevice(devDes);
 
         graphicsQueue = device->GetGraphicsQueue();
-    }
 
-    void VulkanSampleBase::Start()
-    {
         auto                       nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         vk::SwapChain::Descriptor swcDesc      = {};
         swcDesc.window                          = nativeWindow->GetNativeHandle();
@@ -52,14 +49,10 @@ namespace sky {
 
         vk::CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
-
-        OnStart();
     }
 
-    void VulkanSampleBase::Stop()
+    void VulkanSampleBase::OnStop()
     {
-        device->WaitIdle();
-        OnStop();
         swapChain = nullptr;
         imageAvailable = nullptr;
         renderFinish = nullptr;
@@ -76,7 +69,7 @@ namespace sky {
         Event<IWindowEvent>::DisConnect(this);
     }
 
-    void VulkanSampleBase::Tick(float delta)
+    void VulkanSampleBase::OnTick(float delta)
     {
         frameIndex = frame % 2;
         ++frame;

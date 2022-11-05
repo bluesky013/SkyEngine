@@ -38,10 +38,9 @@ namespace sky {
         VulkanMemoryAliasing()  = default;
         ~VulkanMemoryAliasing() = default;
 
-        void Tick(float delta) override;
-
         void OnKeyUp(KeyButtonType button) override;
 
+        void OnTick(float delta) override;
         void OnStart() override;
         void OnStop() override;
 
@@ -90,9 +89,9 @@ namespace sky {
 
         vk::RenderPassPtr sampledPass;
 
-        vk::ImagePtr            rasterTarget;
-        vk::ImageViewPtr        rasterTargetView;
-        vk::FrameBufferPtr      rasterFb;
+        vk::ImagePtr       rasterTarget;
+        vk::ImageViewPtr   rasterTargetView;
+        vk::FrameBufferPtr rasterFb;
 
         vk::ImagePtr            fullScreenTarget;
         vk::ImageViewPtr        fullScreenTargetView;
@@ -101,9 +100,9 @@ namespace sky {
         vk::VertexInputPtr      fullScreenInput;
 
         vk::GraphicsPipelinePtr compositePso;
-        VmaAllocation alloc;
+        VmaAllocation           alloc;
 
-        ParticleSystem particleSystem;
+        std::unique_ptr<ParticleSystem> particleSystem;
     };
 
 } // namespace sky

@@ -260,10 +260,8 @@ namespace sky {
         }
     }
 
-    void VulkanDescriptorSample::Tick(float delta)
+    void VulkanDescriptorSample::OnTick(float delta)
     {
-        VulkanSampleBase::Tick(delta);
-
         UpdateDynamicBuffer();
 
         uint32_t imageIndex = 0;
@@ -317,10 +315,12 @@ namespace sky {
         presentInfo.imageIndex                  = imageIndex;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(presentInfo);
+        VulkanSampleBase::OnTick(delta);
     }
 
     void VulkanDescriptorSample::OnStart()
     {
+        VulkanSampleBase::OnStart();
         SetupDescriptorSet();
         SetupPso();
         SetupResources();
@@ -328,9 +328,29 @@ namespace sky {
 
     void VulkanDescriptorSample::OnStop()
     {
-
+        device->WaitIdle();
+        pipelineLayout      = nullptr;
+        descriptorSetLayout = nullptr;
+        pso                 = nullptr;
+        set                 = nullptr;
+        setPool             = nullptr;
+        setBinder           = nullptr;
+        vs                  = nullptr;
+        fs                  = nullptr;
+        vertexInput         = nullptr;
+        sampler             = nullptr;
+        inputImage0         = nullptr;
+        imageView0          = nullptr;
+        imageView1          = nullptr;
+        imageView2          = nullptr;
+        storageImage        = nullptr;
+        storageImageView    = nullptr;
+        uniformBuffer       = nullptr;
+        constantBuffer      = nullptr;
+        texelBuffer         = nullptr;
+        storageBuffer       = nullptr;
+        bufferView0         = nullptr;
+        bufferView1         = nullptr;
+        VulkanSampleBase::OnStop();
     }
-
 } // namespace sky
-
-REGISTER_MODULE(sky::VulkanDescriptorSample)

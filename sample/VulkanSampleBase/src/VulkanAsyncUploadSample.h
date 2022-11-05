@@ -25,7 +25,7 @@ namespace sky {
         VulkanAsyncUploadSample()  = default;
         ~VulkanAsyncUploadSample() = default;
 
-        void Tick(float delta) override;
+        void OnTick(float delta) override;
 
         void OnStart() override;
         void OnStop() override;

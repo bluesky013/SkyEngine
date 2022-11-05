@@ -20,28 +20,21 @@
 namespace sky {
     class NativeWindow;
 
-    class VulkanSampleBase : public IModule, public IWindowEvent {
+    class VulkanSampleBase : public IWindowEvent {
     public:
         VulkanSampleBase()  = default;
         ~VulkanSampleBase() = default;
 
-        void Init() override;
-
-        void Start() override;
-
-        void Stop() override;
-
-        void Tick(float delta) override;
-
-        void OnWindowResize(uint32_t width, uint32_t height) override;
-
-        virtual void OnStart() {}
-        virtual void OnStop() {}
+        virtual void OnStart();
+        virtual void OnStop();
+        virtual void OnTick(float delta);
 
         vk::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
 
     protected:
         void ResetFrameBuffer();
+
+        void OnWindowResize(uint32_t width, uint32_t height) override;
 
         vk::Instance *instance = nullptr;
         vk::Device *device = nullptr;

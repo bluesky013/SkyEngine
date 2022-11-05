@@ -228,10 +228,8 @@ namespace sky {
     }
 
 
-    void VulkanBindlessSample::Tick(float delta)
+    void VulkanBindlessSample::OnTick(float delta)
     {
-        VulkanSampleBase::Tick(delta);
-
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
@@ -275,10 +273,13 @@ namespace sky {
         presentInfo.imageIndex                  = imageIndex;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(presentInfo);
+
+        VulkanSampleBase::OnTick(delta);
     }
 
     void VulkanBindlessSample::OnStart()
     {
+        VulkanSampleBase::OnStart();
         SetupDescriptorSet();
         SetupPso();
         SetupResources();
@@ -286,29 +287,28 @@ namespace sky {
 
     void VulkanBindlessSample::OnStop()
     {
-        pipelineLayout = nullptr;
+        device->WaitIdle();
+        pipelineLayout      = nullptr;
         descriptorSetLayout = nullptr;
-        pso = nullptr;
-        set = nullptr;
-        setPool = nullptr;
-        setBinder = nullptr;
-
-        vs = nullptr;
-        fs = nullptr;
-        vertexInput = nullptr;
-
-        vertexAssembly = nullptr;
-        vertexBuffer = nullptr;
-        materialBuffer = nullptr;
-        indirectBuffer = nullptr;
-        sampler = nullptr;
+        pso                 = nullptr;
+        set                 = nullptr;
+        setPool             = nullptr;
+        setBinder           = nullptr;
+        vs                  = nullptr;
+        fs                  = nullptr;
+        vertexInput         = nullptr;
+        vertexAssembly      = nullptr;
+        vertexBuffer        = nullptr;
+        materialBuffer      = nullptr;
+        indirectBuffer      = nullptr;
+        sampler             = nullptr;
 
         for (uint32_t i = 0; i < IMAGE_NUM; ++i) {
-            images[i] = nullptr;
+            images[i]     = nullptr;
             imageViews[i] = nullptr;
         }
+
+        VulkanSampleBase::OnStop();
     }
 
 } // namespace sky
-
-REGISTER_MODULE(sky::VulkanBindlessSample)
