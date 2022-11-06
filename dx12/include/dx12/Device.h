@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <dx12/Basic.h>
+#include <dx12/Queue.h>
 
 namespace sky::dx {
     class Instance;
@@ -27,14 +28,21 @@ namespace sky::dx {
             return std::shared_ptr<T>(res);
         }
 
+        ID3D12Device *GetDevice() const;
+
+        IDXGIFactory2 *GetDXGIFactory() const;
+
+        Queue *GetGraphicsQueue() const;
+
     private:
         friend class Instance;
-        bool Init(const Descriptor &, CompPtr<IDXGIAdapter1> adaptor);
+        bool Init(const Descriptor &, ComPtr<IDXGIAdapter1> &adaptor);
 
         Device(Instance &);
         Instance &instance;
 
-        CompPtr<ID3D12Device> device;
+        ComPtr<ID3D12Device> device;
+        QueuePtr graphicsQueue;
     };
 
 }

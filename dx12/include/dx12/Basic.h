@@ -11,5 +11,5 @@
 namespace sky::dx {
 
     template <typename T>
-    using CompPtr = Microsoft::WRL::ComPtr<T>;
+    using ComPtr = Microsoft::WRL::ComPtr<T>;
 }

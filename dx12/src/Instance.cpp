@@ -68,4 +68,9 @@ namespace sky::dx {
         }
         return device;
     }
+
+    IDXGIFactory2 *Instance::GetDXGIFactory() const
+    {
+        return dxgiFactory.Get();
+    }
 }

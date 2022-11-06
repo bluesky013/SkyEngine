@@ -9,7 +9,18 @@ namespace sky {
     void DX12SampleBase::OnStart()
     {
         instance = dx::Instance::Create({});
-        device = instance->CreateDevice({});
+        device   = instance->CreateDevice({});
+
+        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+
+        dx::SwapChain::Descriptor swcDesc = {};
+
+        swcDesc.window = nativeWindow->GetNativeHandle();
+        swcDesc.width  = nativeWindow->GetWidth();
+        swcDesc.height = nativeWindow->GetHeight();
+        swapChain      = device->CreateDeviceObject<dx::SwapChain>(swcDesc);
+
+        Event<IWindowEvent>::Connect(swcDesc.window, this);
     }
 
     void DX12SampleBase::OnStop()

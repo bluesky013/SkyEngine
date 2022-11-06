@@ -24,14 +24,16 @@ namespace sky::dx {
 
         Device *CreateDevice(const Device::Descriptor &);
 
+        IDXGIFactory2 *GetDXGIFactory() const;
+
     private:
         Instance() = default;
         ~Instance() = default;
 
         bool Init(const Descriptor &);
 
-        CompPtr<IDXGIFactory6> dxgiFactory;
-        std::vector<CompPtr<IDXGIAdapter1>> adapters;
+        ComPtr<IDXGIFactory2> dxgiFactory;
+        std::vector<ComPtr<IDXGIAdapter1>> adapters;
     };
 
 }

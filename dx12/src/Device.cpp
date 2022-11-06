@@ -3,6 +3,7 @@
 //
 
 #include <dx12/Device.h>
+#include <dx12/Instance.h>
 
 namespace sky::dx {
 
@@ -10,11 +11,30 @@ namespace sky::dx {
     {
     }
 
-    bool Device::Init(const Descriptor &desc, CompPtr<IDXGIAdapter1> adaptor)
+    bool Device::Init(const Descriptor &desc, ComPtr<IDXGIAdapter1> &adaptor)
     {
-        if (!FAILED(D3D12CreateDevice(adaptor.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(device.GetAddressOf())))) {
+        if (FAILED(D3D12CreateDevice(adaptor.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(device.GetAddressOf())))) {
             return false;
         }
+
+        graphicsQueue = std::make_unique<Queue>(*this);
+        graphicsQueue->Init({});
+
         return true;
+    }
+
+    ID3D12Device *Device::GetDevice() const
+    {
+        return device.Get();
+    }
+
+    IDXGIFactory2 *Device::GetDXGIFactory() const
+    {
+        return instance.GetDXGIFactory();
+    }
+
+    Queue *Device::GetGraphicsQueue() const
+    {
+        return graphicsQueue.get();
     }
 }

@@ -11,6 +11,7 @@
 #include <framework/window/NativeWindow.h>
 #include <dx12/Device.h>
 #include <dx12/Instance.h>
+#include <dx12/Swapchain.h>
 
 namespace sky {
     class NativeWindow;
@@ -28,6 +29,9 @@ namespace sky {
         void OnWindowResize(uint32_t width, uint32_t height) override;
         dx::Instance *instance = nullptr;
         dx::Device *device = nullptr;
+
+        dx::SwapChainPtr swapChain;
+
         uint32_t frameIndex = 0;
         uint32_t frame = 0;
     };

@@ -15,6 +15,7 @@ namespace sky {
 
     bool SDLWindow::Init(const Descriptor &desc)
     {
+        descriptor = desc;
         window = SDL_CreateWindow(desc.titleName.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, desc.width, desc.height,
                                   SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_CAPTURE |
                                       SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS | SDL_WINDOW_VULKAN);
