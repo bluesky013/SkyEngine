@@ -4,7 +4,7 @@
 
 #include <core/jobsystem/JobSystem.h>
 #include <render/DevObjManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/RenderEncoder.h>
 
 namespace sky {
@@ -14,20 +14,20 @@ namespace sky {
         return producers.size() > MIN_DRAW_ITEM_PER_THREAD;
     }
 
-    void RenderRasterEncoder::Encode(drv::GraphicsEncoder &encoder)
+    void RenderRasterEncoder::Encode(vk::GraphicsEncoder &encoder)
     {
         tf::Taskflow flow;
         uint32_t     size = static_cast<uint32_t>(producers.size());
         if (MultiThreadEncode()) {
             uint32_t               group = static_cast<uint32_t>(size / MIN_DRAW_ITEM_PER_THREAD + 1);
-            drv::SecondaryCommands secondaryCommands;
+            vk::SecondaryCommands secondaryCommands;
             for (uint32_t i = 0; i < group; ++i) {
                 flow.emplace([i, size, &encoder, &secondaryCommands, this]() {
-                    auto     queue     = DriverManager::Get()->GetDevice()->GetGraphicsQueue();
+                    auto     queue     = RHIManager::Get()->GetDevice()->GetGraphicsQueue();
                     auto    &passInfo  = encoder.GetCurrentPass();
                     uint32_t subPassId = encoder.GetSubPassId();
 
-                    drv::CommandBuffer::Descriptor desc    = {};
+                    vk::CommandBuffer::Descriptor desc    = {};
                     desc.level                             = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
                     desc.needFence                         = false;
                     auto                           command = queue->AllocateTlsCommandBuffer(desc);
@@ -60,7 +60,7 @@ namespace sky {
         producers.clear();
     }
 
-    void RenderRasterEncoder::Emplace(const drv::DrawItem &item)
+    void RenderRasterEncoder::Emplace(const vk::DrawItem &item)
     {
         producers.emplace_back(new ItemDrawCallProducer(item)); // TODO : Pool
     }
@@ -75,7 +75,7 @@ namespace sky {
         return drawTag;
     }
 
-    void ItemDrawCallProducer::Process(drv::GraphicsEncoder &encoder)
+    void ItemDrawCallProducer::Process(vk::GraphicsEncoder &encoder)
     {
         encoder.Encode(item);
     }

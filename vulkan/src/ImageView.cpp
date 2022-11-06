@@ -7,9 +7,9 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/Image.h"
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     ImageView::ImageView(Device &dev) : DevObject(dev), source{}, view{VK_NULL_HANDLE}, viewInfo{}
     {
@@ -80,4 +80,4 @@ namespace sky::drv {
         }
         return {};
     }
-} // namespace sky::drv
+} // namespace sky::vk

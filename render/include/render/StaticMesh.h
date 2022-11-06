@@ -27,8 +27,8 @@ namespace sky {
         friend class StaticMeshFeature;
         StaticMesh() = default;
         RDMeshPtr              mesh;
-        drv::VertexAssemblyPtr vertexAssembly;
-        drv::VertexInputPtr    vertexInput;
+        vk::VertexAssemblyPtr vertexAssembly;
+        vk::VertexInputPtr    vertexInput;
 
         using RenderPrimitivePtr = std::unique_ptr<RenderMeshPrimitive>;
         std::vector<RenderPrimitivePtr> primitives;

@@ -12,13 +12,13 @@
 #include <vector>
 #include <array>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
     class ComputePipeline : public DevObject {
     public:
-        ~ComputePipeline() = default;
+        ~ComputePipeline();
 
         struct Descriptor {
             ShaderPtr         shader;
@@ -42,4 +42,4 @@ namespace sky::drv {
 
     using ComputePipelinePtr = std::shared_ptr<ComputePipeline>;
 
-} // namespace sky::drv
+} // namespace sky::vk

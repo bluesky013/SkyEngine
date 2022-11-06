@@ -15,7 +15,7 @@
 #include <vector>
 #include <array>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -118,4 +118,4 @@ namespace sky::drv {
 
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -10,7 +10,7 @@
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/vulkan_core.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class PushConstants {
     public:
@@ -56,4 +56,4 @@ namespace sky::drv {
     };
     using PushConstantsPtr = std::shared_ptr<PushConstants>;
 
-} // namespace sky::drv
+} // namespace sky::vk

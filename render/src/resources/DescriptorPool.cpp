@@ -4,12 +4,12 @@
 
 #include <algorithm>
 #include <iterator>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/resources/DescriptorPool.h>
 
 namespace sky {
 
-    DescriptorPool *DescriptorPool::CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor &descriptor)
+    DescriptorPool *DescriptorPool::CreatePool(vk::DescriptorSetLayoutPtr layout, const Descriptor &descriptor)
     {
         auto pool    = new DescriptorPool(descriptor);
         pool->layout = layout;
@@ -30,11 +30,11 @@ namespace sky {
 
     RDDesGroupPtr DescriptorPool::Allocate()
     {
-        drv::DescriptorSetPtr result;
+        vk::DescriptorSetPtr result;
         for (uint32_t i = 0; i < pools.size(); ++i) {
             uint32_t ringIndex = (index + i) % pools.size();
             auto    &drvPool   = pools[ringIndex];
-            result             = drv::DescriptorSet::Allocate(drvPool, layout);
+            result             = vk::DescriptorSet::Allocate(drvPool, layout);
             if (result) {
                 index = ringIndex;
                 break;
@@ -43,7 +43,7 @@ namespace sky {
         if (!result) {
             pools.emplace_back(CreateInternal());
             index  = static_cast<uint32_t>(pools.size()) - 1;
-            result = drv::DescriptorSet::Allocate(pools.back(), layout);
+            result = vk::DescriptorSet::Allocate(pools.back(), layout);
         }
         if (!result) {
             return {};
@@ -55,14 +55,14 @@ namespace sky {
         return group;
     }
 
-    drv::DescriptorSetPoolPtr DescriptorPool::CreateInternal()
+    vk::DescriptorSetPoolPtr DescriptorPool::CreateInternal()
     {
-        drv::DescriptorSetPool::Descriptor poolDesc = {};
+        vk::DescriptorSetPool::Descriptor poolDesc = {};
         poolDesc.maxSets                            = descriptor.maxSet;
         poolDesc.num                                = static_cast<uint32_t>(sizes.size());
         poolDesc.sizes                              = sizes.data();
 
-        auto pool = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetPool>(poolDesc);
+        auto pool = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetPool>(poolDesc);
         return pool;
     }
 

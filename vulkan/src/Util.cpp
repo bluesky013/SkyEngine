@@ -4,6 +4,6 @@
 
 #include <vulkan/Util.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
 }

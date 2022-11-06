@@ -61,7 +61,7 @@ namespace sky {
         return asset;
     }
 
-    static void ProcessDepthStencil(const rapidjson::Document &document, drv::GraphicsPipeline::DepthStencilState &ds)
+    static void ProcessDepthStencil(const rapidjson::Document &document, vk::GraphicsPipeline::DepthStencilState &ds)
     {
         if (document.HasMember("depth_stencil")) {
             auto& dsObject = document["depth_stencil"];
@@ -74,7 +74,7 @@ namespace sky {
         }
     }
 
-    static void ProcessBlendStates(const rapidjson::Document &document, drv::GraphicsPipeline::ColorBlend &blendState)
+    static void ProcessBlendStates(const rapidjson::Document &document, vk::GraphicsPipeline::ColorBlend &blendState)
     {
         auto processBlendFactor = [](const rapidjson::Value &value, const char* factor)-> VkBlendFactor {
             VkBlendFactor ret = VK_BLEND_FACTOR_ZERO;
@@ -92,7 +92,7 @@ namespace sky {
             auto& blendStates = document["blend_state"];
             auto array = blendStates.GetArray();
             for (auto& src : array) {
-                drv::GraphicsPipeline::BlendState blend;
+                vk::GraphicsPipeline::BlendState blend;
 
                 if (src.HasMember("blendEnable")) {
                     blend.blendEnable = src["blendEnable"].GetBool();
@@ -106,7 +106,7 @@ namespace sky {
         }
     }
 
-    static void ProcessRasterStates(const rapidjson::Document &document, drv::GraphicsPipeline::Raster &raster)
+    static void ProcessRasterStates(const rapidjson::Document &document, vk::GraphicsPipeline::Raster &raster)
     {
         if (document.HasMember("raster_state")) {
             auto& rasterObject = document["raster_state"];

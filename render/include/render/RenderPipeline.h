@@ -31,13 +31,13 @@ namespace sky {
             encoders.clear();
         }
 
-        virtual void DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &cmdBuffer);
+        virtual void DoFrame(FrameGraph &frameGraph, const vk::CommandBufferPtr &cmdBuffer);
 
         virtual void ViewportChange(const RenderViewport &viewport)
         {
         }
 
-        virtual void SetOutput(const drv::ImagePtr &output)
+        virtual void SetOutput(const vk::ImagePtr &output)
         {
         }
 

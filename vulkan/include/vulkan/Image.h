@@ -9,7 +9,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class ImageView;
@@ -38,6 +38,9 @@ namespace sky::drv {
 
         VkImage GetNativeHandle() const;
 
+        void BindMemory(VmaAllocation allocation);
+        void ReleaseMemory();
+
     private:
         friend class Device;
         friend class ImageView;
@@ -59,4 +62,4 @@ namespace sky::drv {
 
     using ImagePtr = std::shared_ptr<Image>;
 
-} // namespace sky::drv
+} // namespace sky::vk

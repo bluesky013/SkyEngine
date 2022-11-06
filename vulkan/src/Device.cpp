@@ -5,11 +5,11 @@
 #include <core/logger/Logger.h>
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
-#include <vulkan/Driver.h>
+#include <vulkan/Instance.h>
 
 #include <vector>
 
-static const char              *TAG         = "Driver";
+static const char              *TAG         = "Vulkan";
 const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
                                                "VK_EXT_descriptor_indexing",
 #ifdef __APPLE__
@@ -19,21 +19,23 @@ const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
 
 const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
-namespace sky::drv {
-    static int32_t FindProperties(const VkPhysicalDeviceMemoryProperties* properties, uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties)
+namespace sky::vk {
+    int32_t Device::FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const
     {
-        const uint32_t memoryCount = properties->memoryTypeCount;
+        auto &properties = memoryProperties.memoryProperties;
+        const uint32_t memoryCount = properties.memoryTypeCount;
         for (uint32_t i = 0; i < memoryCount; ++i) {
-            const bool isRequiredMemoryType  = memoryTypeBits & (1 << i);
-            const bool hasRequiredProperties = (properties->memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties;
-            if (isRequiredMemoryType && hasRequiredProperties)
+            const bool isRequiredMemoryType  = static_cast<bool>(memoryTypeBits & (1 << i));
+            const bool hasRequiredProperties = (properties.memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties;
+            if (isRequiredMemoryType && hasRequiredProperties) {
                 return static_cast<int32_t>(i);
+            }
         }
         return -1;
     }
 
 
-    Device::Device(Driver &drv) : driver(drv), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
+    Device::Device(Instance &inst) : instance(inst), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
         samplers.SetUp([this](VkSampler sampler) { vkDestroySampler(device, sampler, VKL_ALLOC); });
 
@@ -48,13 +50,13 @@ namespace sky::drv {
 
     Device::~Device()
     {
-        if (allocator != VK_NULL_HANDLE) {
-            vmaDestroyAllocator(allocator);
-        }
-
         if (transferQueue) {
             transferQueue->Shutdown();
             transferQueue = nullptr;
+        }
+
+        if (allocator != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator);
         }
 
         queues.clear();
@@ -88,18 +90,18 @@ namespace sky::drv {
 
     bool Device::Init(const Descriptor &des, bool enableDebug)
     {
-        auto instance = driver.GetInstance();
+        auto *vkInstance = instance.GetInstance();
 
         uint32_t count = 0;
 
         // Pick Physical Device
-        vkEnumeratePhysicalDevices(instance, &count, nullptr);
+        vkEnumeratePhysicalDevices(vkInstance, &count, nullptr);
         if (count == 0) {
             return false;
         }
 
         std::vector<VkPhysicalDevice> phyDevices(count);
-        vkEnumeratePhysicalDevices(instance, &count, phyDevices.data());
+        vkEnumeratePhysicalDevices(vkInstance, &count, phyDevices.data());
 
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 
@@ -108,7 +110,7 @@ namespace sky::drv {
 
         uint32_t i = 0;
         for (; i < count; ++i) {
-            auto pDev = phyDevices[i];
+            auto *pDev = phyDevices[i];
             vkGetPhysicalDeviceFeatures2(pDev, &phyFeatures);
             vkGetPhysicalDeviceProperties(pDev, &phyProps);
 
@@ -182,7 +184,7 @@ namespace sky::drv {
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.device           = device;
         allocatorInfo.physicalDevice   = phyDev;
-        allocatorInfo.instance         = driver.GetInstance();
+        allocatorInfo.instance         = instance.GetInstance();
         allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
         rst                            = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (rst != VK_SUCCESS) {
@@ -219,14 +221,14 @@ namespace sky::drv {
 
     VkInstance Device::GetInstance() const
     {
-        return driver.GetInstance();
+        return instance.GetInstance();
     }
 
     Queue *Device::GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const
     {
         Queue *res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-            auto& flag = queueFamilies[i].queueFlags;
+            const auto& flag = queueFamilies[i].queueFlags;
             if (((flag & preferred) == preferred) && ((flag & excluded) == 0)) {
                 res = queues[i].get();
             }
@@ -336,7 +338,7 @@ namespace sky::drv {
 
     bool Device::FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const
     {
-        int32_t index = FindProperties(&memoryProperties.memoryProperties, requirements.memoryRequirements.memoryTypeBits, flags);
+        int32_t index = FindProperties(requirements.memoryRequirements.memoryTypeBits, flags);
         if (index < 0) {
             return false;
         }
@@ -344,8 +346,8 @@ namespace sky::drv {
         out.size = requirements.memoryRequirements.size;
         out.alignment = requirements.memoryRequirements.alignment;
         out.memoryIndex = static_cast<uint32_t>(index);
-        out.prefersDedicated = dedicated.prefersDedicatedAllocation;
-        out.requiresDedicated = dedicated.requiresDedicatedAllocation;
+        out.prefersDedicated = static_cast<bool>(dedicated.prefersDedicatedAllocation);
+        out.requiresDedicated = static_cast<bool>(dedicated.requiresDedicatedAllocation);
         return true;
     }
 
@@ -383,4 +385,4 @@ namespace sky::drv {
         return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -7,7 +7,7 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -40,4 +40,4 @@ namespace sky::drv {
 
     using ShaderPtr = std::shared_ptr<Shader>;
 
-} // namespace sky::drv
+} // namespace sky::vk

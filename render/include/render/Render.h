@@ -12,8 +12,8 @@
 
 namespace sky {
 
-    namespace drv {
-        class Driver;
+    namespace vk {
+        class Instance;
         class Device;
     } // namespace drv
 
@@ -33,7 +33,7 @@ namespace sky {
 
         RDTexturePtr GetDefaultTexture() const;
 
-        drv::SamplerPtr GetDefaultSampler() const;
+        vk::SamplerPtr GetDefaultSampler() const;
 
     private:
         friend class Singleton<Render>;
@@ -55,7 +55,7 @@ namespace sky {
         std::vector<RDViewportPtr>      viewports;
         std::unique_ptr<DescriptorPool> globalPool;
         RDTexturePtr                    defaultTexture;
-        drv::SamplerPtr                 defaultSampler;
+        vk::SamplerPtr                 defaultSampler;
     };
 
 } // namespace sky

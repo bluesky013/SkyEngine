@@ -47,7 +47,7 @@ namespace sky {
 
         VkFormat GetFormat() const;
 
-        drv::ImagePtr GetRHIImage() const;
+        vk::ImagePtr GetRHIImage() const;
 
         void Update(const uint8_t *ptr, uint64_t size);
 
@@ -55,7 +55,7 @@ namespace sky {
 
     private:
         Descriptor    descriptor;
-        drv::ImagePtr rhiImage;
+        vk::ImagePtr rhiImage;
     };
     using RDImagePtr = std::shared_ptr<Image>;
 

@@ -10,9 +10,9 @@
 #include <windows.h>
 #include <vulkan/vulkan_win32.h>
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     bool SwapChain::CreateSurface()
     {
@@ -28,4 +28,4 @@ namespace sky::drv {
         return true;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

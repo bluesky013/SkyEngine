@@ -45,7 +45,7 @@ namespace sky {
 
         void Compile();
 
-        void Execute(drv::CommandBufferPtr commandBuffer);
+        void Execute(vk::CommandBufferPtr commandBuffer);
 
         void PrintGraph();
 

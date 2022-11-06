@@ -7,31 +7,28 @@
 
 namespace sky {
 
-    void VulkanSampleBase::Init()
+    void VulkanSampleBase::OnStart()
     {
-        drv::Driver::Descriptor drvDes = {};
-        drvDes.enableDebugLayer        = true;
-        drvDes.appName                 = "Triangle";
-        driver                         = drv::Driver::Create(drvDes);
-        if (driver == nullptr) {
+        vk::Instance::Descriptor drvDes = {};
+        drvDes.enableDebugLayer         = true;
+        drvDes.appName                  = "Triangle";
+        instance                        = vk::Instance::Create(drvDes);
+        if (instance == nullptr) {
             return;
         }
 
-        drv::Device::Descriptor devDes = {};
-        device                         = driver->CreateDevice(devDes);
+        vk::Device::Descriptor devDes = {};
+        device                        = instance->CreateDevice(devDes);
 
         graphicsQueue = device->GetGraphicsQueue();
-    }
 
-    void VulkanSampleBase::Start()
-    {
         auto                       nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        drv::SwapChain::Descriptor swcDesc      = {};
+        vk::SwapChain::Descriptor swcDesc      = {};
         swcDesc.window                          = nativeWindow->GetNativeHandle();
-        swapChain                               = device->CreateDeviceObject<drv::SwapChain>(swcDesc);
+        swapChain                               = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
         Event<IWindowEvent>::Connect(swcDesc.window, this);
 
-        renderPass = drv::RenderPassFactory()()
+        renderPass = vk::RenderPassFactory()()
                          .AddSubPass()
                          .AddColor()
                          .Format(swapChain->GetFormat())
@@ -50,20 +47,29 @@ namespace sky {
 
         ResetFrameBuffer();
 
-        drv::CommandBuffer::Descriptor cmdDesc = {};
+        vk::CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
-
-        OnStart();
     }
 
-    void VulkanSampleBase::Stop()
+    void VulkanSampleBase::OnStop()
     {
-        OnStop();
-        device->WaitIdle();
+        swapChain = nullptr;
+        imageAvailable = nullptr;
+        renderFinish = nullptr;
+        renderPass = nullptr;
+        commandBuffer = nullptr;
+        frameBuffers.clear();
+        colorViews.clear();
+
+        delete device;
+        vk::Instance::Destroy(instance);
+        device = nullptr;
+        instance = nullptr;
+
         Event<IWindowEvent>::DisConnect(this);
     }
 
-    void VulkanSampleBase::Tick(float delta)
+    void VulkanSampleBase::OnTick(float delta)
     {
         frameIndex = frame % 2;
         ++frame;
@@ -86,37 +92,37 @@ namespace sky {
         frameBuffers.resize(imageCount);
         colorViews.resize(imageCount);
 
-        drv::FrameBuffer::Descriptor fbDesc = {};
+        vk::FrameBuffer::Descriptor fbDesc = {};
         fbDesc.extent                       = swapChain->GetExtent();
         fbDesc.pass                         = renderPass;
 
-        drv::ImageView::Descriptor viewDesc = {};
+        vk::ImageView::Descriptor viewDesc = {};
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;
         viewDesc.format                     = swapChain->GetFormat();
 
         for (uint32_t i = 0; i < imageCount; ++i) {
             auto image      = swapChain->GetImage(i);
-            colorViews[i]   = drv::ImageView::CreateImageView(image, viewDesc);
-            fbDesc.views    = std::vector<drv::ImageViewPtr>{colorViews[i]};
-            frameBuffers[i] = device->CreateDeviceObject<drv::FrameBuffer>(fbDesc);
+            colorViews[i]   = vk::ImageView::CreateImageView(image, viewDesc);
+            fbDesc.views    = std::vector<vk::ImageViewPtr>{colorViews[i]};
+            frameBuffers[i] = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
-        imageAvailable = device->CreateDeviceObject<drv::Semaphore>({});
-        renderFinish   = device->CreateDeviceObject<drv::Semaphore>({});
+        imageAvailable = device->CreateDeviceObject<vk::Semaphore>({});
+        renderFinish   = device->CreateDeviceObject<vk::Semaphore>({});
     }
 
-    drv::ShaderPtr VulkanSampleBase::LoadShader(VkShaderStageFlagBits stage, const std::string &path)
+    vk::ShaderPtr VulkanSampleBase::LoadShader(VkShaderStageFlagBits stage, const std::string &path)
     {
         std::vector<uint32_t> spv;
         if (!ReadBin(path, spv)) {
             return {};
         }
 
-        drv::Shader::Descriptor shaderDesc = {};
+        vk::Shader::Descriptor shaderDesc = {};
         shaderDesc.stage                   = stage;
         shaderDesc.size                    = static_cast<uint32_t>(spv.size()) * sizeof(uint32_t);
         shaderDesc.spv                     = spv.data();
 
-        return device->CreateDeviceObject<drv::Shader>(shaderDesc);
+        return device->CreateDeviceObject<vk::Shader>(shaderDesc);
     }
 }

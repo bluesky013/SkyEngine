@@ -10,9 +10,9 @@
 #include "vulkan/Queue.h"
 #include "vulkan/Semaphore.h"
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     SwapChain::SwapChain(Device &dev)
     : DevObject(dev), surface(VK_NULL_HANDLE), swapChain(VK_NULL_HANDLE), queue(nullptr), imageCount(0), extent{1, 1}
@@ -215,4 +215,4 @@ namespace sky::drv {
     {
         return imageCount;
     }
-} // namespace sky::drv
+} // namespace sky::vk

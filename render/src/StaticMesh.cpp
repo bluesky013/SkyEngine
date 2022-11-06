@@ -29,7 +29,7 @@ namespace sky {
         mesh           = m;
         auto &vbs      = mesh->GetVertexBuffers();
         auto  ib       = mesh->GetIndexBuffer();
-        vertexAssembly = std::make_shared<drv::VertexAssembly>();
+        vertexAssembly = std::make_shared<vk::VertexAssembly>();
 
         for (auto &vb : vbs) {
             vertexAssembly->AddVertexBuffer(vb->GetBuffer()->GetRHIBuffer(), vb->GetOffset());

@@ -27,14 +27,14 @@ namespace sky {
     private:
         friend class GuiRenderer;
         RDDesGroupPtr               set;
-        drv::GraphicsPipelinePtr    pso;
-        drv::DescriptorSetBinderPtr setBinder;
-        drv::VertexAssemblyPtr      assembly;
-        drv::PushConstantsPtr       constants;
+        vk::GraphicsPipelinePtr    pso;
+        vk::DescriptorSetBinderPtr setBinder;
+        vk::VertexAssemblyPtr      assembly;
+        vk::PushConstantsPtr       constants;
         uint32_t                    drawTag;
         struct DrawCall {
             VkRect2D            scissor;
-            drv::CmdDrawIndexed indexed;
+            vk::CmdDrawIndexed indexed;
         };
 
         std::vector<DrawCall> dc;

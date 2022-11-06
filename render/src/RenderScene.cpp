@@ -3,7 +3,7 @@
 //
 
 #include <core/util/Memory.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/Render.h>
 #include <render/RenderConstants.h>
 #include <render/RenderPipelineForward.h>
@@ -24,7 +24,7 @@ namespace sky {
         }
     }
 
-    void RenderScene::OnRender(const drv::CommandBufferPtr &commandBuffer)
+    void RenderScene::OnRender(const vk::CommandBufferPtr &commandBuffer)
     {
         if (!pipeline) {
             return;
@@ -71,7 +71,7 @@ namespace sky {
         ViewportChange(viewport);
     }
 
-    void RenderScene::UpdateOutput(const drv::ImagePtr &output)
+    void RenderScene::UpdateOutput(const vk::ImagePtr &output)
     {
         if (pipeline) {
             pipeline->SetOutput(output);
@@ -89,7 +89,7 @@ namespace sky {
         return views;
     }
 
-    void RenderScene::FillSetBinder(drv::DescriptorSetBinder &binder)
+    void RenderScene::FillSetBinder(vk::DescriptorSetBinder &binder)
     {
         binder.BindSet(0, sceneSet->GetRHISet());
         binder.SetOffset(0, 0, mainViewInfo->GetDynamicOffset());
@@ -106,7 +106,7 @@ namespace sky {
         auto globalPool = Render::Get()->GetGlobalSetPool();
         sceneSet        = globalPool->Allocate();
 
-        auto &deviceProperties = DriverManager::Get()->GetDevice()->GetProperties();
+        auto &deviceProperties = RHIManager::Get()->GetDevice()->GetProperties();
 
         Buffer::Descriptor bufferDesc      = {};
         uint32_t           sceneInfoStride = Align(sizeof(SceneInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
@@ -128,10 +128,10 @@ namespace sky {
         sceneSet->UpdateBuffer(1, sceneInfo);
         sceneSet->Update();
 
-        drv::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
+        vk::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
         objSetLayoutInfo.bindings.emplace(
-            0, drv::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT});
-        auto objSetLayout = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(objSetLayoutInfo);
+            0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT});
+        auto objSetLayout = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetLayout>(objSetLayoutInfo);
         objectPool.reset(DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM}));
 
         uint32_t objectInfoSize = Align(sizeof(ObjectInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
@@ -145,7 +145,7 @@ namespace sky {
         objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
 
         if (!queryPool) {
-            drv::QueryPool::Descriptor queryDesc = {};
+            vk::QueryPool::Descriptor queryDesc = {};
             queryDesc.queryType                  = VK_QUERY_TYPE_PIPELINE_STATISTICS;
             queryDesc.queryCount                 = 7;
             queryDesc.pipelineStatistics =
@@ -153,7 +153,7 @@ namespace sky {
                 VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT | VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
                 VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT | VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
                 VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
-            queryPool = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::QueryPool>(queryDesc);
+            queryPool = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::QueryPool>(queryDesc);
         } else {
             queryPool->Reset();
         }
@@ -184,7 +184,7 @@ namespace sky {
         return sceneSet;
     }
 
-    const drv::QueryPoolPtr &RenderScene::GetQueryPool() const
+    const vk::QueryPoolPtr &RenderScene::GetQueryPool() const
     {
         return queryPool;
     }

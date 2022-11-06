@@ -9,7 +9,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
     class DescriptorSet;
 
     class DescriptorSetPool : public DevObject {
@@ -35,4 +35,4 @@ namespace sky::drv {
     };
     using DescriptorSetPoolPtr = std::shared_ptr<DescriptorSetPool>;
 
-} // namespace sky::drv
+} // namespace sky::vk

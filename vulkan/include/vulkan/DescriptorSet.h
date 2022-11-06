@@ -15,7 +15,7 @@
 #include <vulkan/Sampler.h>
 #include <vulkan/BufferView.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class DescriptorSet : public DevObject {
     public:
@@ -84,4 +84,4 @@ namespace sky::drv {
 
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;
 
-} // namespace sky::drv
+} // namespace sky::vk

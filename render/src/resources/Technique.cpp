@@ -4,7 +4,7 @@
 
 #include <core/hash/Hash.h>
 #include <framework/asset/AssetManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/resources/Technique.h>
 
 namespace sky {
@@ -21,12 +21,12 @@ namespace sky {
         pass->ValidatePipelineState(pipelineState, subPass);
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr &vertexInput)
+    vk::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const vk::VertexInputPtr &vertexInput)
     {
         return AcquirePso(vertexInput, {});
     }
 
-    drv::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const drv::VertexInputPtr &vi, const drv::ShaderOptionPtr &option)
+    vk::GraphicsPipelinePtr GraphicsTechnique::AcquirePso(const vk::VertexInputPtr &vi, const vk::ShaderOptionPtr &option)
     {
         uint32_t hash = 0;
         HashCombine32(hash, vi->GetHash());
@@ -39,11 +39,11 @@ namespace sky {
             return iter->second;
         }
 
-        drv::GraphicsPipeline::Program program;
+        vk::GraphicsPipeline::Program program;
         table->FillProgram(program);
         program.shaderOption = option;
 
-        drv::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.renderPass                        = pass->GetRenderPass();
         psoDesc.program                           = &program;
         psoDesc.state                             = &pipelineState;
@@ -51,8 +51,8 @@ namespace sky {
         psoDesc.pipelineLayout                    = table->GetPipelineLayout();
         psoDesc.subPassIndex                      = subPassIndex;
 
-        auto device = DriverManager::Get()->GetDevice();
-        auto pso    = device->CreateDeviceObject<drv::GraphicsPipeline>(psoDesc);
+        auto device = RHIManager::Get()->GetDevice();
+        auto pso    = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
         psoCache.emplace(hash, pso);
         return pso;
     }
@@ -82,10 +82,10 @@ namespace sky {
         return table;
     }
 
-    drv::DescriptorSetBinderPtr GraphicsTechnique::CreateSetBinder() const
+    vk::DescriptorSetBinderPtr GraphicsTechnique::CreateSetBinder() const
     {
         auto layout = table->GetPipelineLayout();
-        auto res    = std::make_shared<drv::DescriptorSetBinder>();
+        auto res    = std::make_shared<vk::DescriptorSetBinder>();
         res->SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         res->SetPipelineLayout(layout);
         return res;
@@ -101,22 +101,22 @@ namespace sky {
         pipelineState.depthStencil.depthWriteEnable = enable;
     }
 
-    void GraphicsTechnique::SetDepthStencilState(const drv::GraphicsPipeline::DepthStencilState &ds)
+    void GraphicsTechnique::SetDepthStencilState(const vk::GraphicsPipeline::DepthStencilState &ds)
     {
         pipelineState.depthStencil = ds;
     }
 
-    void GraphicsTechnique::SetBlendState(const drv::GraphicsPipeline::ColorBlend &blends)
+    void GraphicsTechnique::SetBlendState(const vk::GraphicsPipeline::ColorBlend &blends)
     {
         pipelineState.blends = blends;
     }
 
-    void GraphicsTechnique::SetRasterState(const drv::GraphicsPipeline::Raster &raster)
+    void GraphicsTechnique::SetRasterState(const vk::GraphicsPipeline::Raster &raster)
     {
         pipelineState.raster = raster;
     }
 
-    drv::GraphicsPipeline::State &GraphicsTechnique::GetState()
+    vk::GraphicsPipeline::State &GraphicsTechnique::GetState()
     {
         return pipelineState;
     }

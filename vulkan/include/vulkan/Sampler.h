@@ -7,7 +7,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -43,4 +43,4 @@ namespace sky::drv {
 
     using SamplerPtr = std::shared_ptr<Sampler>;
 
-} // namespace sky::drv
+} // namespace sky::vk

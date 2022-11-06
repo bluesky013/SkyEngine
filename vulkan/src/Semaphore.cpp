@@ -6,9 +6,9 @@
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Semaphore::Semaphore(Device &dev) : DevObject(dev), semaphore(VK_NULL_HANDLE)
     {
@@ -37,4 +37,4 @@ namespace sky::drv {
     {
         return semaphore;
     }
-} // namespace sky::drv
+} // namespace sky::vk

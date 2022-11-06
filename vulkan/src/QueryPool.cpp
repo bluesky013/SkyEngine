@@ -5,7 +5,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/QueryPool.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     QueryPool::QueryPool(Device &dev) : DevObject(dev)
     {
@@ -64,4 +64,4 @@ namespace sky::drv {
         return pipelineStaticsFlags;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

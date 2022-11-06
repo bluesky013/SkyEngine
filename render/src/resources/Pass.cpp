@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/7/30.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/resources/Pass.h>
 
 namespace sky {
@@ -13,11 +13,11 @@ namespace sky {
             return;
         }
 
-        using AF = drv::RenderPassFactory::AttachmentImpl;
-        using DF = drv::RenderPassFactory::DependencyImpl;
-        using PF = drv::RenderPassFactory::Impl;
+        using AF = vk::RenderPassFactory::AttachmentImpl;
+        using DF = vk::RenderPassFactory::DependencyImpl;
+        using PF = vk::RenderPassFactory::Impl;
 
-        drv::RenderPassFactory factory;
+        vk::RenderPassFactory factory;
         PF                     pF = factory();
 
         auto attachmentFn = [](AF af, VkFormat format, VkSampleCountFlagBits samples, VkImageLayout layout) {
@@ -28,7 +28,7 @@ namespace sky {
                 .Samples(samples);
         };
 
-        auto dependencyFn = [](DF df, const PassDependencyInfo &info, const drv::Barrier& barrier) {
+        auto dependencyFn = [](DF df, const PassDependencyInfo &info, const vk::Barrier& barrier) {
             df.SetLinkage(info.src, info.dst).SetBarrier(barrier).SetFlags(VK_DEPENDENCY_BY_REGION_BIT);
         };
 
@@ -66,7 +66,7 @@ namespace sky {
                                           {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                                            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT});
 
-        auto device = DriverManager::Get()->GetDevice();
+        auto device = RHIManager::Get()->GetDevice();
         renderPass  = pF.Create(*device);
     }
 
@@ -80,12 +80,12 @@ namespace sky {
         subPasses.emplace_back(subPassInfo);
     }
 
-    drv::RenderPassPtr Pass::GetRenderPass() const
+    vk::RenderPassPtr Pass::GetRenderPass() const
     {
         return renderPass;
     }
 
-    void Pass::ValidatePipelineState(drv::GraphicsPipeline::State &state, uint32_t index)
+    void Pass::ValidatePipelineState(vk::GraphicsPipeline::State &state, uint32_t index)
     {
         if (index >= subPasses.size()) {
             return;

@@ -7,7 +7,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Memory : public DevObject {
     public:
@@ -21,4 +21,4 @@ namespace sky::drv {
         bool Init(const Descriptor &);
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

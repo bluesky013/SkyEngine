@@ -17,7 +17,7 @@ namespace sky {
         RenderEncoder()          = default;
         virtual ~RenderEncoder() = default;
 
-        virtual void Encode(drv::GraphicsEncoder &encoder)
+        virtual void Encode(vk::GraphicsEncoder &encoder)
         {
         }
 
@@ -32,22 +32,22 @@ namespace sky {
         DrawCallProducer()          = default;
         virtual ~DrawCallProducer() = default;
 
-        virtual void Process(drv::GraphicsEncoder &encoder) = 0;
+        virtual void Process(vk::GraphicsEncoder &encoder) = 0;
 
         SKY_DISABLE_COPY(DrawCallProducer)
     };
 
     class ItemDrawCallProducer : public DrawCallProducer {
     public:
-        ItemDrawCallProducer(const drv::DrawItem &v) : item(v)
+        ItemDrawCallProducer(const vk::DrawItem &v) : item(v)
         {
         }
         ~ItemDrawCallProducer() override = default;
 
-        void Process(drv::GraphicsEncoder &encoder) override;
+        void Process(vk::GraphicsEncoder &encoder) override;
 
     private:
-        drv::DrawItem item;
+        vk::DrawItem item;
     };
 
     template <typename T>
@@ -58,13 +58,13 @@ namespace sky {
         }
         ~LambdaDrawCallProducer() = default;
 
-        void Process(drv::GraphicsEncoder &encoder) override
+        void Process(vk::GraphicsEncoder &encoder) override
         {
             function(encoder);
         }
 
     private:
-        std::function<void(drv::GraphicsEncoder &encoder)> function;
+        std::function<void(vk::GraphicsEncoder &encoder)> function;
     };
 
     class RenderRasterEncoder : public RenderEncoder {
@@ -72,9 +72,9 @@ namespace sky {
         RenderRasterEncoder()  = default;
         ~RenderRasterEncoder() = default;
 
-        void Encode(drv::GraphicsEncoder &encoder) override;
+        void Encode(vk::GraphicsEncoder &encoder) override;
 
-        void Emplace(const drv::DrawItem &item);
+        void Emplace(const vk::DrawItem &item);
 
         bool MultiThreadEncode() const override;
 

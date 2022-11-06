@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/12/26.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/RenderPipeline.h>
 #include <render/RenderScene.h>
 #include <render/framegraph/FrameGraph.h>
@@ -11,10 +11,10 @@ namespace sky {
 
     RenderPipeline::~RenderPipeline()
     {
-        DriverManager::Get()->GetDevice()->WaitIdle();
+        RHIManager::Get()->GetDevice()->WaitIdle();
     }
 
-    void RenderPipeline::DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &cmdBuffer)
+    void RenderPipeline::DoFrame(FrameGraph &frameGraph, const vk::CommandBufferPtr &cmdBuffer)
     {
         frameGraph.Compile();
 

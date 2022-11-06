@@ -39,7 +39,7 @@ namespace sky {
             if ((encoder->GetDrawTag() & tech->drawTag) == 0) {
                 continue;
             }
-            drv::DrawItem item;
+            vk::DrawItem item;
             item.pso             = tech->pso;
             item.vertexAssembly  = tech->assembly;
             item.drawArgs        = tech->args;

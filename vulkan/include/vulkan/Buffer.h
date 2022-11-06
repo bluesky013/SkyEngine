@@ -6,7 +6,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -30,6 +30,9 @@ namespace sky::drv {
 
         void UnMap();
 
+        void BindMemory(VmaAllocation allocation);
+        void ReleaseMemory();
+
     private:
         friend class Device;
         friend class BufferView;
@@ -48,4 +51,4 @@ namespace sky::drv {
 
     using BufferPtr = std::shared_ptr<Buffer>;
 
-} // namespace sky::drv
+} // namespace sky::vk

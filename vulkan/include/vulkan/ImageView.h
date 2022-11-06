@@ -7,7 +7,7 @@
 #include <vulkan/Image.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class Image;
@@ -49,4 +49,4 @@ namespace sky::drv {
     };
 
     using ImageViewPtr = std::shared_ptr<ImageView>;
-} // namespace sky::drv
+} // namespace sky::vk

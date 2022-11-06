@@ -8,7 +8,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/Util.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     DescriptorSet::~DescriptorSet()
     {
@@ -202,4 +202,4 @@ namespace sky::drv {
         set.dirty = false;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/6/21.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/RenderViewport.h>
 
 namespace sky {
@@ -14,21 +14,21 @@ namespace sky {
 
     void RenderViewport::Setup(const ViewportInfo &info)
     {
-        drv::SwapChain::Descriptor descriptor = {};
+        vk::SwapChain::Descriptor descriptor = {};
         descriptor.window                     = info.wHandle;
         descriptor.preferredMode              = VK_PRESENT_MODE_FIFO_KHR;
 
-        auto device  = DriverManager::Get()->GetDevice();
-        swapChain    = device->CreateDeviceObject<drv::SwapChain>(descriptor);
+        auto device  = RHIManager::Get()->GetDevice();
+        swapChain    = device->CreateDeviceObject<vk::SwapChain>(descriptor);
         nativeHandle = info.wHandle;
         Event<IWindowEvent>::Connect(descriptor.window, this);
 
         graphicsQueue = device->GetGraphicsQueue();
-        drv::CommandBuffer::Descriptor cmdDesc = {};
+        vk::CommandBuffer::Descriptor cmdDesc = {};
         for (uint32_t i = 0; i < INFLIGHT_FRAME; ++i) {
             commandBuffer[i]  = graphicsQueue->AllocateCommandBuffer(cmdDesc);
-            imageAvailable[i] = device->CreateDeviceObject<drv::Semaphore>({});
-            renderFinish[i]   = device->CreateDeviceObject<drv::Semaphore>({});
+            imageAvailable[i] = device->CreateDeviceObject<vk::Semaphore>({});
+            renderFinish[i]   = device->CreateDeviceObject<vk::Semaphore>({});
         }
     }
 
@@ -41,7 +41,7 @@ namespace sky {
     void RenderViewport::Shutdown()
     {
         if (swapChain != nullptr) {
-            auto device = DriverManager::Get()->GetDevice();
+            auto device = RHIManager::Get()->GetDevice();
             device->WaitIdle();
             swapChain = nullptr;
         }
@@ -56,7 +56,7 @@ namespace sky {
         Event<IWindowEvent>::DisConnect(this);
     }
 
-    drv::SwapChainPtr RenderViewport::GetSwapChain() const
+    vk::SwapChainPtr RenderViewport::GetSwapChain() const
     {
         return swapChain;
     }
@@ -90,13 +90,13 @@ namespace sky {
     {
         commandBuffer[currentFrame]->End();
 
-        drv::CommandBuffer::SubmitInfo submitInfo = {};
+        vk::CommandBuffer::SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish[currentFrame]);
         submitInfo.waits.emplace_back(
-            std::pair<VkPipelineStageFlags, drv::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]});
+            std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable[currentFrame]});
         commandBuffer[currentFrame]->Submit(*graphicsQueue, submitInfo);
 
-        drv::SwapChain::PresentInfo presentInfo = {};
+        vk::SwapChain::PresentInfo presentInfo = {};
         presentInfo.imageIndex                  = currentImageIndex;
         presentInfo.signals.emplace_back(renderFinish[currentFrame]);
 

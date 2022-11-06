@@ -16,7 +16,7 @@
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/ComputePipeline.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class Queue;
@@ -24,8 +24,8 @@ namespace sky::drv {
     class SecondaryCommands;
 
     struct PassBeginInfo {
-        drv::FrameBufferPtr frameBuffer;
-        drv::RenderPassPtr  renderPass;
+        vk::FrameBufferPtr frameBuffer;
+        vk::RenderPassPtr  renderPass;
         uint32_t            clearValueCount = 0;
         VkClearValue       *clearValues     = nullptr;
         VkRect2D           *renderArea      = nullptr;
@@ -177,4 +177,4 @@ namespace sky::drv {
         std::vector<VkCommandBuffer> cmdHandlers;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

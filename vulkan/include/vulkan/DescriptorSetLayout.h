@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -72,4 +72,4 @@ namespace sky::drv {
 
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 
-} // namespace sky::drv
+} // namespace sky::vk

@@ -8,7 +8,7 @@
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/PushConstants.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     PipelineLayout::PipelineLayout(Device &dev) : DevObject(dev), layout(VK_NULL_HANDLE), dynamicNum(0), hash(0)
     {
@@ -94,4 +94,4 @@ namespace sky::drv {
         }
         return DescriptorSet::Allocate(pool, desLayouts[slot]);
     }
-} // namespace sky::drv
+} // namespace sky::vk

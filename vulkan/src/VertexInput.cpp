@@ -6,7 +6,7 @@
 #include <core/hash/Hash.h>
 #include <vulkan/VertexInput.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     VertexInput::Builder &VertexInput::Builder::Begin()
     {
@@ -57,4 +57,4 @@ namespace sky::drv {
         return hash;
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

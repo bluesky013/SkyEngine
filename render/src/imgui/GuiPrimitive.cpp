@@ -18,7 +18,7 @@ namespace sky {
             return;
         }
 
-        encoder->EmplaceLambda([this](drv::GraphicsEncoder &gfx) {
+        encoder->EmplaceLambda([this](vk::GraphicsEncoder &gfx) {
             gfx.BindPipeline(pso);
             gfx.BindAssembly(assembly);
             gfx.BindShaderResource(setBinder);

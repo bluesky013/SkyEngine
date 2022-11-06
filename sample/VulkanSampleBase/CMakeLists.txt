@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET VulkanSampleBase STATIC
+sky_add_library(TARGET VulkanSample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,6 +10,8 @@ sky_add_library(TARGET VulkanSampleBase STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Driver
+        VulkanRHI
         Framework
     )
+
+add_dependencies(Launcher VulkanSample)

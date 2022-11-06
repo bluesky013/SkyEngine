@@ -37,7 +37,7 @@ namespace sky {
         }
         ~FrameGraphImageAttachment() = default;
 
-        void Execute(const drv::CommandBufferPtr &commandBuffer) override
+        void Execute(const vk::CommandBufferPtr &commandBuffer) override
         {
         }
 
@@ -56,7 +56,7 @@ namespace sky {
         ImageBindFlag           finalFlag = ImageBindFlag::UNDEFINED;
         VkImageSubresourceRange range     = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         FrameGraphImage        *source    = nullptr;
-        drv::ImageViewPtr       imageView;
+        vk::ImageViewPtr       imageView;
         VkClearValue            clearValue;
         VkAttachmentLoadOp      loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         VkAttachmentStoreOp     storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -73,7 +73,7 @@ namespace sky {
         }
         ~FrameGraphBufferAttachment() = default;
 
-        void Execute(const drv::CommandBufferPtr &commandBuffer) override;
+        void Execute(const vk::CommandBufferPtr &commandBuffer) override;
 
         void Compile();
 
@@ -82,7 +82,7 @@ namespace sky {
         FrameGraphBuffer *source    = nullptr;
         BufferBindFlag    bindFlag  = BufferBindFlag::SHADER_READ;
         BufferBindFlag    finalFlag = BufferBindFlag::SHADER_READ;
-        drv::Barrier      barrier   = {};
+        vk::Barrier      barrier   = {};
     };
 
 } // namespace sky

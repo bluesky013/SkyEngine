@@ -22,7 +22,7 @@ namespace sky {
         return image->GetImageInfo();
     }
 
-    drv::ImagePtr FrameGraphImage::GetImage() const
+    vk::ImagePtr FrameGraphImage::GetImage() const
     {
         return image;
     }
@@ -31,7 +31,7 @@ namespace sky {
     {
     }
 
-    drv::BufferPtr FrameGraphBuffer::GetBuffer() const
+    vk::BufferPtr FrameGraphBuffer::GetBuffer() const
     {
         return buffer;
     }

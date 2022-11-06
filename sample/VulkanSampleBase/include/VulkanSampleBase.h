@@ -4,15 +4,13 @@
 
 #pragma once
 
-#pragma once
-
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/window/IWindowEvent.h>
 #include <framework/window/NativeWindow.h>
 #include <vulkan/Device.h>
-#include <vulkan/Driver.h>
+#include <vulkan/Instance.h>
 #include <vulkan/FrameBuffer.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/Swapchain.h>
@@ -22,41 +20,34 @@
 namespace sky {
     class NativeWindow;
 
-    class VulkanSampleBase : public IModule, public IWindowEvent {
+    class VulkanSampleBase : public IWindowEvent {
     public:
         VulkanSampleBase()  = default;
         ~VulkanSampleBase() = default;
 
-        void Init() override;
+        virtual void OnStart();
+        virtual void OnStop();
+        virtual void OnTick(float delta);
 
-        void Start() override;
-
-        void Stop() override;
-
-        void Tick(float delta) override;
-
-        void OnWindowResize(uint32_t width, uint32_t height) override;
-
-        virtual void OnStart() {}
-        virtual void OnStop() {}
-
-        drv::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
+        vk::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
 
     protected:
         void ResetFrameBuffer();
 
-        drv::Driver *driver = nullptr;
-        drv::Device *device = nullptr;
+        void OnWindowResize(uint32_t width, uint32_t height) override;
 
-        drv::SwapChainPtr        swapChain;
-        drv::SemaphorePtr        imageAvailable;
-        drv::SemaphorePtr        renderFinish;
-        drv::RenderPassPtr       renderPass;
+        vk::Instance *instance = nullptr;
+        vk::Device *device = nullptr;
 
-        drv::CommandBufferPtr            commandBuffer;
-        drv::Queue                      *graphicsQueue;
-        std::vector<drv::FrameBufferPtr> frameBuffers;
-        std::vector<drv::ImageViewPtr>   colorViews;
+        vk::SwapChainPtr        swapChain;
+        vk::SemaphorePtr        imageAvailable;
+        vk::SemaphorePtr        renderFinish;
+        vk::RenderPassPtr       renderPass;
+
+        vk::CommandBufferPtr            commandBuffer;
+        vk::Queue                      *graphicsQueue;
+        std::vector<vk::FrameBufferPtr> frameBuffers;
+        std::vector<vk::ImageViewPtr>   colorViews;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

@@ -16,7 +16,7 @@ namespace sky {
         }
     }
 
-    void FrameGraph::Execute(drv::CommandBufferPtr commandBuffer)
+    void FrameGraph::Execute(vk::CommandBufferPtr commandBuffer)
     {
         for (auto &node : nodes) {
             node->Execute(commandBuffer);

@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 #define VKL_ALLOC nullptr
 
-namespace sky::drv {
+namespace sky::vk {
 
     struct Barrier {
         VkPipelineStageFlags srcStageMask;
@@ -42,4 +42,4 @@ namespace sky::drv {
         bool isCompressed;
     };
 
-} // namespace sky::drv
+} // namespace sky::vk

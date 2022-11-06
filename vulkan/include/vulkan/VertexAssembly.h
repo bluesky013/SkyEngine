@@ -8,7 +8,7 @@
 #include <vulkan/Buffer.h>
 #include <vulkan/VertexInput.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class VertexAssembly {
     public:
@@ -40,4 +40,4 @@ namespace sky::drv {
     };
     using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 
-} // namespace sky::drv
+} // namespace sky::vk

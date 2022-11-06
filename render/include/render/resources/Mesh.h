@@ -163,9 +163,9 @@ namespace sky {
 
         VkIndexType GetIndexType() const;
 
-        drv::VertexInputPtr BuildVertexInput(Shader &vertexShader) const;
+        vk::VertexInputPtr BuildVertexInput(Shader &vertexShader) const;
 
-        drv::CmdDraw BuildDrawArgs(uint32_t subMesh) const;
+        vk::CmdDraw BuildDrawArgs(uint32_t subMesh) const;
 
         uint32_t GetSubMeshCount() const;
 

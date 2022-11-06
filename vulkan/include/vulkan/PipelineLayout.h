@@ -11,7 +11,7 @@
 #include <map>
 #include <vector>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
     class PushConstants;
@@ -56,4 +56,4 @@ namespace sky::drv {
 
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;
 
-} // namespace sky::drv
+} // namespace sky::vk

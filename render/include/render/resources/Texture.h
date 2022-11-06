@@ -26,16 +26,16 @@ namespace sky {
 
         ~Texture() = default;
 
-        void SetSampler(drv::SamplerPtr sampler);
+        void SetSampler(vk::SamplerPtr sampler);
 
-        void SetImageView(drv::ImageViewPtr imageView);
+        void SetImageView(vk::ImageViewPtr imageView);
 
-        drv::SamplerPtr GetSampler() const
+        vk::SamplerPtr GetSampler() const
         {
             return sampler;
         }
 
-        drv::ImageViewPtr GetImageView() const
+        vk::ImageViewPtr GetImageView() const
         {
             return imageView;
         }
@@ -47,8 +47,8 @@ namespace sky {
     private:
         Descriptor        descriptor;
         RDImagePtr        sourceImage;
-        drv::SamplerPtr   sampler;
-        drv::ImageViewPtr imageView;
+        vk::SamplerPtr   sampler;
+        vk::ImageViewPtr imageView;
     };
     using RDTexturePtr = std::shared_ptr<Texture>;
 

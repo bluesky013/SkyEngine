@@ -19,7 +19,7 @@ namespace sky {
 
         ~DescriptorPool() = default;
 
-        static DescriptorPool *CreatePool(drv::DescriptorSetLayoutPtr layout, const Descriptor &desc);
+        static DescriptorPool *CreatePool(vk::DescriptorSetLayoutPtr layout, const Descriptor &desc);
 
         RDDesGroupPtr Allocate();
 
@@ -28,12 +28,12 @@ namespace sky {
         {
         }
 
-        drv::DescriptorSetPoolPtr CreateInternal();
+        vk::DescriptorSetPoolPtr CreateInternal();
 
         Descriptor                             descriptor;
-        drv::DescriptorSetLayoutPtr            layout;
+        vk::DescriptorSetLayoutPtr            layout;
         std::vector<VkDescriptorPoolSize>      sizes;
-        std::vector<drv::DescriptorSetPoolPtr> pools;
+        std::vector<vk::DescriptorSetPoolPtr> pools;
         uint32_t                               index = 0;
     };
     using RDDescriptorPoolPtr = std::shared_ptr<DescriptorPool>;

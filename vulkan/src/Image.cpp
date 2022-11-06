@@ -3,14 +3,14 @@
 //
 
 #include "vulkan/Image.h"
-#include "core/hash/Crc32.h"
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
+#include "vk_mem_alloc.h"
 
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Image::Image(Device &dev) : DevObject(dev), image(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE), imageInfo{}
     {
@@ -87,4 +87,16 @@ namespace sky::drv {
     {
         return image;
     }
-} // namespace sky::drv
+
+    void Image::BindMemory(VmaAllocation alloc)
+    {
+        allocation = alloc;
+        vmaBindImageMemory(device.GetAllocator(), allocation, image);
+    }
+
+    void Image::ReleaseMemory()
+    {
+        vmaFreeMemory(device.GetAllocator(), allocation);
+        allocation = VK_NULL_HANDLE;
+    }
+} // namespace sky::vk

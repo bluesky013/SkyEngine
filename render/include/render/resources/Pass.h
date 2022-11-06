@@ -43,14 +43,14 @@ namespace sky {
 
         void AddSubPass(const SubPassInfo &subPassInfo);
 
-        drv::RenderPassPtr GetRenderPass() const;
+        vk::RenderPassPtr GetRenderPass() const;
 
-        void ValidatePipelineState(drv::GraphicsPipeline::State &state, uint32_t subPass);
+        void ValidatePipelineState(vk::GraphicsPipeline::State &state, uint32_t subPass);
 
     private:
         std::vector<SubPassInfo>        subPasses;
         std::vector<PassDependencyInfo> dependencies;
-        drv::RenderPassPtr              renderPass;
+        vk::RenderPassPtr              renderPass;
     };
     using RDPassPtr = std::shared_ptr<Pass>;
 } // namespace sky

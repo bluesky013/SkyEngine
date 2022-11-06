@@ -5,7 +5,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -33,4 +33,4 @@ namespace sky::drv {
 
     using FencePtr = std::shared_ptr<Fence>;
 
-} // namespace sky::drv
+} // namespace sky::vk

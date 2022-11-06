@@ -5,7 +5,7 @@
 #include <vulkan/DescriptorSetBinder.h>
 #include <vulkan/Util.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     static uint32_t CombineSlotBinding(uint32_t set, uint32_t binding)
     {
@@ -67,4 +67,4 @@ namespace sky::drv {
         }
     }
 
-} // namespace sky::drv
+} // namespace sky::vk

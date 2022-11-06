@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/6/2.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/framegraph/FrameGraph.h>
 #include <render/framegraph/FrameGraphAttachment.h>
 #include <render/framegraph/FrameGraphBuilder.h>
@@ -10,17 +10,17 @@
 
 namespace sky {
 
-    void FrameGraphBuilder::ImportImage(const std::string &name, drv::ImagePtr image)
+    void FrameGraphBuilder::ImportImage(const std::string &name, vk::ImagePtr image)
     {
         FrameGraphImage *fgImage = graph.AddImage<FrameGraphImage>(name);
         fgImage->image           = image;
     }
 
-    void FrameGraphBuilder::CreateImage(const std::string &name, const drv::Image::Descriptor &imageDesc)
+    void FrameGraphBuilder::CreateImage(const std::string &name, const vk::Image::Descriptor &imageDesc)
     {
-        auto             device  = DriverManager::Get()->GetDevice();
+        auto             device  = RHIManager::Get()->GetDevice();
         FrameGraphImage *fgImage = graph.AddImage<FrameGraphImage>(name);
-        fgImage->image           = device->CreateDeviceObject<drv::Image>(imageDesc);
+        fgImage->image           = device->CreateDeviceObject<vk::Image>(imageDesc);
     }
 
     FrameGraphImageAttachment *FrameGraphBuilder::CreateImageAttachment(const std::string &source, const std::string &name, VkImageAspectFlags flag)

@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace sky::drv {
+namespace sky::vk {
 
     struct ASTCHeader {
         uint8_t magic[4];

@@ -27,7 +27,7 @@ namespace sky {
         primitive->SetViewTag(MAIN_CAMERA_TAG);
         primitive->SetDrawTag(UI_TAG);
 
-        drv::VertexInput::Builder builder;
+        vk::VertexInput::Builder builder;
         auto                      vi = builder.Begin()
                       .AddAttribute(0, 0, offsetof(ImDrawVert, pos), VK_FORMAT_R32G32_SFLOAT)
                       .AddAttribute(1, 0, offsetof(ImDrawVert, uv), VK_FORMAT_R32G32_SFLOAT)
@@ -50,7 +50,7 @@ namespace sky {
 
         primitive->pso       = technique->AcquirePso(vi);
         primitive->setBinder = technique->CreateSetBinder();
-        primitive->constants = drv::PushConstants::CreateFromPipelineLayout(layout);
+        primitive->constants = vk::PushConstants::CreateFromPipelineLayout(layout);
 
         pool.reset(DescriptorPool::CreatePool(layout->GetLayout(0), {1}));
         primitive->set = pool->Allocate();
@@ -59,7 +59,7 @@ namespace sky {
 
         primitive->setBinder->BindSet(0, primitive->set->GetRHISet());
 
-        primitive->assembly = std::make_shared<drv::VertexAssembly>();
+        primitive->assembly = std::make_shared<vk::VertexAssembly>();
 
         inited = true;
     }

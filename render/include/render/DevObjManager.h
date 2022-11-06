@@ -15,7 +15,7 @@ namespace sky {
 
     class DevObjManager : public Singleton<DevObjManager> {
     public:
-        void FreeDeviceObject(drv::DevPtr object);
+        void FreeDeviceObject(vk::DevPtr object);
 
         void TickFreeList();
 
@@ -25,6 +25,6 @@ namespace sky {
         ~DevObjManager() = default;
         std::mutex             mutex;
         uint32_t               currentIndex = 0;
-        std::list<drv::DevPtr> freeList[INFLIGHT_FRAME + 1];
+        std::list<vk::DevPtr> freeList[INFLIGHT_FRAME + 1];
     };
 } // namespace sky

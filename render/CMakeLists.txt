@@ -12,7 +12,7 @@ sky_add_library(TARGET SkyRender STATIC
     LINK_LIBS
         Core
         Framework
-        Driver
+        VulkanRHI
         3rdParty::SPIRVCross
         3rdParty::stb
 #        3rdParty::freetype

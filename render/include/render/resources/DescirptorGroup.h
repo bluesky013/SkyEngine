@@ -36,7 +36,7 @@ namespace sky {
 
         bool IsValid() const override;
 
-        drv::DescriptorSetPtr GetRHISet() const;
+        vk::DescriptorSetPtr GetRHISet() const;
 
         void SetPropertyTable(PropertyTablePtr table);
 
@@ -46,7 +46,7 @@ namespace sky {
         friend class DescriptorPool;
         void Init();
 
-        drv::DescriptorSetPtr                         set;
+        vk::DescriptorSetPtr                         set;
         std::unordered_map<uint32_t, RDTexturePtr>    textures;
         std::unordered_map<uint32_t, RDBufferViewPtr> buffers;
         PropertyTablePtr                              properTable;

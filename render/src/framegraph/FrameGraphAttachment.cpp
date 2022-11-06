@@ -16,11 +16,11 @@ namespace sky {
         auto  image     = source->GetImage();
         auto &imageInfo = image->GetImageInfo();
 
-        drv::ImageView::Descriptor viewDesc = {};
+        vk::ImageView::Descriptor viewDesc = {};
         viewDesc.format                     = imageInfo.format;
         viewDesc.subResourceRange           = range;
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;
-        imageView                           = drv::ImageView::CreateImageView(image, viewDesc);
+        imageView                           = vk::ImageView::CreateImageView(image, viewDesc);
     }
 
     FrameGraphImageAttachment &FrameGraphImageAttachment::SetColorOp(VkAttachmentLoadOp load, VkAttachmentStoreOp store)
@@ -36,7 +36,7 @@ namespace sky {
         return *this;
     }
 
-    void FrameGraphBufferAttachment::Execute(const drv::CommandBufferPtr &commandBuffer)
+    void FrameGraphBufferAttachment::Execute(const vk::CommandBufferPtr &commandBuffer)
     {
     }
 

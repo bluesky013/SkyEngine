@@ -41,7 +41,7 @@ namespace sky {
         Shader(const Descriptor &desc);
         ~Shader() = default;
 
-        using DescriptorTable = std::unordered_map<uint32_t, drv::DescriptorSetLayout::Descriptor>;
+        using DescriptorTable = std::unordered_map<uint32_t, vk::DescriptorSetLayout::Descriptor>;
         using NameTable       = std::unordered_map<uint32_t, PropertyTablePtr>;
         using StageInputTable = std::map<std::string, StageInputInfo>;
 
@@ -55,7 +55,7 @@ namespace sky {
 
         bool IsValid() const override;
 
-        drv::ShaderPtr GetShader() const;
+        vk::ShaderPtr GetShader() const;
 
         const DescriptorTable &GetDescriptorTable() const;
 
@@ -72,7 +72,7 @@ namespace sky {
 
         Descriptor            descriptor;
         std::vector<uint32_t> spv;
-        drv::ShaderPtr        rhiShader;
+        vk::ShaderPtr        rhiShader;
         StageInputTable       stageInputs;
         NameTable             nameTable;
         DescriptorTable       descriptorTable;
@@ -87,16 +87,16 @@ namespace sky {
 
         void InitRHI();
 
-        drv::PipelineLayoutPtr GetPipelineLayout() const;
+        vk::PipelineLayoutPtr GetPipelineLayout() const;
 
         RDDesGroupPtr CreateDescriptorGroup(uint32_t slot) const;
 
-        void FillProgram(drv::GraphicsPipeline::Program &program);
+        void FillProgram(vk::GraphicsPipeline::Program &program);
 
     protected:
         std::vector<RDShaderPtr> shaders;
         Shader::NameTable        nameTable;
-        drv::PipelineLayoutPtr   pipelineLayout;
+        vk::PipelineLayoutPtr   pipelineLayout;
     };
     using RDShaderTablePtr = std::shared_ptr<ShaderTable>;
 

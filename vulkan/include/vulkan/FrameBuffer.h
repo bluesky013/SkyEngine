@@ -10,7 +10,7 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class Device;
 
@@ -42,4 +42,4 @@ namespace sky::drv {
 
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 
-} // namespace sky::drv
+} // namespace sky::vk

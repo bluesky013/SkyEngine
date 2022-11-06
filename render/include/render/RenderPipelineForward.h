@@ -18,16 +18,16 @@ namespace sky {
 
         void ViewportChange(const RenderViewport &viewport) override;
 
-        void SetOutput(const drv::ImagePtr &output) override;
+        void SetOutput(const vk::ImagePtr &output) override;
 
         void BeginFrame(FrameGraph &frameGraph) override;
 
-        void DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &cmdBuffer) override;
+        void DoFrame(FrameGraph &frameGraph, const vk::CommandBufferPtr &cmdBuffer) override;
 
     private:
-        drv::ImagePtr msaaColor;
-        drv::ImagePtr colorOut;
-        drv::ImagePtr depthStencil;
+        vk::ImagePtr msaaColor;
+        vk::ImagePtr colorOut;
+        vk::ImagePtr depthStencil;
     };
 
 } // namespace sky

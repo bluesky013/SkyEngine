@@ -9,7 +9,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     class VertexInput {
     public:
@@ -49,4 +49,4 @@ namespace sky::drv {
     };
     using VertexInputPtr = std::shared_ptr<VertexInput>;
 
-} // namespace sky::drv
+} // namespace sky::vk

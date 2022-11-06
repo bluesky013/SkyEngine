@@ -7,7 +7,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/vulkan_macos.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
 bool SwapChain::CreateSurface() {
   auto nsWin = static_cast<NSWindow *>(descriptor.window);

@@ -6,7 +6,7 @@
 #include <vulkan/FrameBuffer.h>
 #include <vulkan/RenderPass.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     FrameBuffer::FrameBuffer(Device &dev) : DevObject(dev), frameBuffer(VK_NULL_HANDLE)
     {
@@ -58,4 +58,4 @@ namespace sky::drv {
     {
         return static_cast<uint32_t>(descriptor.views.size());
     }
-} // namespace sky::drv
+} // namespace sky::vk

@@ -4,7 +4,7 @@
 
 #include <cereal/archives/binary.hpp>
 #include <framework/asset/AssetManager.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/resources/Image.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -17,7 +17,7 @@ namespace sky {
             return;
         }
 
-        drv::Image::Descriptor imageDesc = {};
+        vk::Image::Descriptor imageDesc = {};
         imageDesc.format                 = descriptor.format;
         imageDesc.mipLevels              = descriptor.mipLevels;
         imageDesc.arrayLayers            = descriptor.layers;
@@ -27,7 +27,7 @@ namespace sky {
         imageDesc.memory    = VMA_MEMORY_USAGE_GPU_ONLY;
         imageDesc.samples   = VK_SAMPLE_COUNT_1_BIT;
         imageDesc.imageType = VK_IMAGE_TYPE_2D;
-        rhiImage            = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::Image>(imageDesc);
+        rhiImage            = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::Image>(imageDesc);
     }
 
     bool Image::IsValid() const
@@ -40,21 +40,21 @@ namespace sky {
         return descriptor.format;
     }
 
-    drv::ImagePtr Image::GetRHIImage() const
+    vk::ImagePtr Image::GetRHIImage() const
     {
         return rhiImage;
     }
 
     void Image::Update(const uint8_t *data, uint64_t size)
     {
-        auto device = DriverManager::Get()->GetDevice();
+        auto device = RHIManager::Get()->GetDevice();
         auto queue  = device->GetGraphicsQueue();
 
-        drv::Buffer::Descriptor stagingDes = {};
+        vk::Buffer::Descriptor stagingDes = {};
         stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
         stagingDes.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         stagingDes.size                    = size;
-        auto     stagingBuffer             = device->CreateDeviceObject<drv::Buffer>(stagingDes);
+        auto     stagingBuffer             = device->CreateDeviceObject<vk::Buffer>(stagingDes);
         uint8_t *dst                       = stagingBuffer->Map();
         memcpy(dst, data, size);
         stagingBuffer->UnMap();
@@ -64,7 +64,7 @@ namespace sky {
 
         VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         {
-            drv::Barrier barrier = {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT};
+            vk::Barrier barrier = {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT};
             cmd->ImageBarrier(rhiImage, range, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         }
 
@@ -74,7 +74,7 @@ namespace sky {
         cmd->Copy(stagingBuffer, rhiImage, imageCopy);
 
         {
-            drv::Barrier barrier = {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+            vk::Barrier barrier = {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                                     VK_ACCESS_SHADER_READ_BIT};
             cmd->ImageBarrier(rhiImage, range, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }

@@ -15,7 +15,7 @@ namespace sky {
         }
         virtual ~FrameGraphNode() = default;
 
-        virtual void Execute(const drv::CommandBufferPtr &commandBuffer) = 0;
+        virtual void Execute(const vk::CommandBufferPtr &commandBuffer) = 0;
 
     private:
         friend class FrameGraph;

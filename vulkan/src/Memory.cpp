@@ -4,7 +4,7 @@
 
 #include <vulkan/Memory.h>
 
-namespace sky::drv {
+namespace sky::vk {
 
     Memory::Memory(Device &dev) : DevObject(dev)
     {
@@ -14,4 +14,4 @@ namespace sky::drv {
     {
         return true;
     }
-} // namespace sky::drv
+} // namespace sky::vk

@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/7/18.
 //
 
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/RenderPipelineForward.h>
 #include <render/RenderScene.h>
 #include <render/RenderViewport.h>
@@ -16,24 +16,24 @@ namespace sky {
     {
         auto  swapChain = viewport.GetSwapChain();
         auto &ext       = swapChain->GetExtent();
-        auto  device    = DriverManager::Get()->GetDevice();
+        auto  device    = RHIManager::Get()->GetDevice();
 
-        drv::Image::Descriptor dsDesc = {};
+        vk::Image::Descriptor dsDesc = {};
         dsDesc.format                 = VK_FORMAT_D32_SFLOAT;
         dsDesc.extent.width           = ext.width;
         dsDesc.extent.height          = ext.height;
         dsDesc.samples                = VK_SAMPLE_COUNT_4_BIT;
         dsDesc.usage                  = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         dsDesc.memory                 = VMA_MEMORY_USAGE_GPU_ONLY;
-        depthStencil                  = device->CreateDeviceObject<drv::Image>(dsDesc);
+        depthStencil                  = device->CreateDeviceObject<vk::Image>(dsDesc);
 
         dsDesc.format = swapChain->GetFormat();
         dsDesc.usage  = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         dsDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
-        msaaColor     = device->CreateDeviceObject<drv::Image>(dsDesc);
+        msaaColor     = device->CreateDeviceObject<vk::Image>(dsDesc);
     }
 
-    void RenderPipelineForward::SetOutput(const drv::ImagePtr &output)
+    void RenderPipelineForward::SetOutput(const vk::ImagePtr &output)
     {
         colorOut = output;
     }
@@ -41,8 +41,8 @@ namespace sky {
     void RenderPipelineForward::BeginFrame(FrameGraph &frameGraph)
     {
         RenderPipeline::BeginFrame(frameGraph);
-        auto clearColor = drv::MakeClearColor(0.5f, 0.5f, 0.5f, 1.f);
-        auto clearDS    = drv::MakeClearDepthStencil(1.f, 0);
+        auto clearColor = vk::MakeClearColor(0.5f, 0.5f, 0.5f, 1.f);
+        auto clearDS    = vk::MakeClearDepthStencil(1.f, 0);
 
         frameGraph.AddPass<FrameGraphEmptyPass>("preparePass", [&](FrameGraphBuilder &builder) {
             builder.ImportImage("ColorMSAAImage", msaaColor);
@@ -87,7 +87,7 @@ namespace sky {
                                                 [&](FrameGraphBuilder &builder) { builder.ReadAttachment("ColorOutput", ImageBindFlag::PRESENT); });
     }
 
-    void RenderPipelineForward::DoFrame(FrameGraph &frameGraph, const drv::CommandBufferPtr &commandBuffer)
+    void RenderPipelineForward::DoFrame(FrameGraph &frameGraph, const vk::CommandBufferPtr &commandBuffer)
     {
         auto &queryPool = scene.GetQueryPool();
 

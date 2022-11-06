@@ -7,9 +7,9 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
 #include <vulkan/Shader.h>
-static const char *TAG = "Driver";
+static const char *TAG = "Vulkan";
 
-namespace sky::drv {
+namespace sky::vk {
 
     Shader::Shader(Device &dev) : DevObject(dev), shaderModule(VK_NULL_HANDLE), stage(VK_SHADER_STAGE_VERTEX_BIT), hash(0)
     {
@@ -53,4 +53,4 @@ namespace sky::drv {
     {
         return hash;
     }
-} // namespace sky::drv
+} // namespace sky::vk

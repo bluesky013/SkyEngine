@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-#include <render/DriverManager.h>
+#include <render/RHIManager.h>
 #include <render/Render.h>
 #include <render/resources/DescirptorGroup.h>
 #include <render/resources/DescriptorPool.h>
@@ -100,14 +100,14 @@ TEST_F(EngineRenderResourceTest, ImageTest)
 
 TEST_F(EngineRenderResourceTest, DescriptorSetTest)
 {
-    drv::DescriptorSetLayout::Descriptor layoutDesc = {{
+    vk::DescriptorSetLayout::Descriptor layoutDesc = {{
         {0, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
         {1, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT}},
         {2, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
         {3, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
         {4, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT}},
     }};
-    auto                                 layout     = DriverManager::Get()->GetDevice()->CreateDeviceObject<drv::DescriptorSetLayout>(layoutDesc);
+    auto                                 layout     = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetLayout>(layoutDesc);
     ASSERT_EQ(!!layout, true);
 
     DescriptorPool::Descriptor desc = {2};

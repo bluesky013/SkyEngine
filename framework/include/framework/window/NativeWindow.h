@@ -33,7 +33,11 @@ namespace sky {
 
         virtual bool Init(const Descriptor &desc) = 0;
 
+        uint32_t GetWidth() const;
+        uint32_t GetHeight() const;
+
     protected:
         void *winHandle = nullptr;
+        Descriptor descriptor;
     };
 } // namespace sky
