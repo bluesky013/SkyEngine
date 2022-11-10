@@ -6,19 +6,15 @@
 
 #include <string>
 #include <vector>
+#include <RHI/Instance.h>
+
 #include <dx12/Basic.h>
 #include <dx12/Device.h>
 
 namespace sky::dx {
 
-    class Instance {
+    class Instance : public rhi::Instance {
     public:
-        struct Descriptor {
-            std::string appName;
-            std::string engineName;
-            bool        enableDebugLayer;
-        };
-
         static Instance *Create(const Descriptor &);
         static void    Destroy(Instance *);
 
@@ -28,7 +24,7 @@ namespace sky::dx {
 
     private:
         Instance() = default;
-        ~Instance() = default;
+        ~Instance() override = default;
 
         bool Init(const Descriptor &);
 

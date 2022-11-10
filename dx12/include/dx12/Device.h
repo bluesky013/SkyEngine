@@ -4,18 +4,17 @@
 
 #pragma once
 
-#include <memory>
+#include <RHI/Device.h>
+
 #include <dx12/Basic.h>
 #include <dx12/Queue.h>
 
 namespace sky::dx {
     class Instance;
 
-    class Device {
+    class Device : public rhi::Device {
     public:
-        ~Device() = default;
-
-        struct Descriptor {};
+        ~Device() override = default;
 
         template <typename T>
         inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)

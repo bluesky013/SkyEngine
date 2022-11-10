@@ -4,18 +4,16 @@
 
 #pragma once
 
+#include <rhi/CommandBuffer.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
     class Device;
 
-    class CommandBuffer : public DevObject {
+    class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
         CommandBuffer(Device &dev);
-        ~CommandBuffer();
-
-        struct Descriptor {
-        };
+        ~CommandBuffer() override;
 
 //        D3D12_RESOURCE_TRANSITION_BARRIER Transition;
 //        D3D12_RESOURCE_ALIASING_BARRIER Aliasing;
