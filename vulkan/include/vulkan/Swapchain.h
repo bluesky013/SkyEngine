@@ -6,6 +6,7 @@
 
 #include <set>
 #include <vector>
+#include <rhi/Swapchain.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/Image.h>
 #include <vulkan/Semaphore.h>
@@ -15,9 +16,8 @@ namespace sky::vk {
 
     class Device;
     class Queue;
-    class SwapChain;
 
-    class SwapChain : public DevObject {
+    class SwapChain : public rhi::SwapChain, public DevObject {
     public:
         ~SwapChain();
 
@@ -35,8 +35,6 @@ namespace sky::vk {
             std::vector<SemaphorePtr> signals;
             uint32_t                  imageIndex = 0;
         };
-
-        bool Init(const VkDescriptor &);
 
         VkSwapchainKHR GetNativeHandle() const;
 
@@ -57,6 +55,9 @@ namespace sky::vk {
     private:
         friend class Device;
         SwapChain(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         bool CreateSurface();
         void DestroySurface();

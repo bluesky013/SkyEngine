@@ -3,22 +3,16 @@
 //
 #pragma once
 
+#include "rhi/Instance.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/vulkan.h"
-#include <string>
 
 namespace sky::vk {
 
-    class Instance {
+    class Instance : public rhi::Instance {
     public:
-        struct VkDescriptor {
-            std::string appName;
-            std::string engineName;
-            bool        enableDebugLayer;
-        };
-
-        static Instance *Create(const VkDescriptor &);
+        static Instance *Create(const Descriptor &);
         static void    Destroy(Instance *);
 
         Device *CreateDevice(const Device::VkDescriptor &);
@@ -29,7 +23,7 @@ namespace sky::vk {
         Instance();
         ~Instance();
 
-        bool Init(const VkDescriptor &);
+        bool Init(const Descriptor &);
 
         void PrintSupportedExtensions() const;
 

@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <rhi/Core.h>
+#include <vector>
+
 namespace sky::rhi {
 
     class Shader {
@@ -12,8 +15,9 @@ namespace sky::rhi {
         virtual ~Shader() = default;
 
         struct Descriptor {
-
+            ShaderStageFlagBit stage;
+            std::vector<uint32_t> data;
         };
     };
-
+    using ShaderPtr = std::shared_ptr<Shader>;
 }

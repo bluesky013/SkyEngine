@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace sky::rhi {
 
     class Instance {

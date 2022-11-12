@@ -9,7 +9,7 @@ namespace sky {
 
     void VulkanSampleBase::OnStart()
     {
-        vk::Instance::VkDescriptor drvDes = {};
+        vk::Instance::Descriptor drvDes = {};
         drvDes.enableDebugLayer         = true;
         drvDes.appName                  = "Triangle";
         instance                        = vk::Instance::Create(drvDes);

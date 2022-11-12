@@ -54,7 +54,7 @@ namespace sky::vk {
 
     const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-    Instance *Instance::Create(const VkDescriptor &des)
+    Instance *Instance::Create(const Descriptor &des)
     {
         auto instance = new Instance();
         if (!instance->Init(des)) {
@@ -96,7 +96,7 @@ namespace sky::vk {
         }
     }
 
-    bool Instance::Init(const VkDescriptor &des)
+    bool Instance::Init(const Descriptor &des)
     {
         uint32_t version = 0;
         VkResult result = vkEnumerateInstanceVersion(&version);

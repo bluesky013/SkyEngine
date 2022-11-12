@@ -48,6 +48,14 @@ namespace sky::vk {
         {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK,     VK_FORMAT_ASTC_12x12_SRGB_BLOCK,   },
     };
 
+    std::unordered_map<rhi::WrapMode, VkSamplerAddressMode> SAMPLER_ADDRESS_TABLE = {
+            {rhi::WrapMode::REPEAT,               VK_SAMPLER_ADDRESS_MODE_REPEAT},
+            {rhi::WrapMode::MIRRORED_REPEAT,      VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT},
+            {rhi::WrapMode::CLAMP_TO_EDGE,        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE},
+            {rhi::WrapMode::CLAMP_TO_BORDER,      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER},
+            {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE},
+    };
+
     VkImageType FromRHI(rhi::ImageType type)
     {
         if (type == rhi::ImageType::IMAGE_2D) {
@@ -94,6 +102,51 @@ namespace sky::vk {
             return VMA_MEMORY_USAGE_GPU_TO_CPU;
         }
         return VMA_MEMORY_USAGE_GPU_ONLY;
+    }
+
+    VkFilter FromRHI(rhi::Filter filter)
+    {
+        if (filter == rhi::Filter::LINEAR) {
+            return VK_FILTER_LINEAR;
+        }
+        if (filter == rhi::Filter::NEAREST) {
+            return VK_FILTER_NEAREST;
+        }
+        return VK_FILTER_NEAREST;
+    }
+
+    VkSamplerMipmapMode FromRHI(rhi::MipFilter filter)
+    {
+        if (filter == rhi::MipFilter::LINEAR) {
+            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        }
+        if (filter == rhi::MipFilter::NEAREST) {
+            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        }
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    }
+
+    VkSamplerAddressMode FromRHI(rhi::WrapMode mode)
+    {
+        auto iter = SAMPLER_ADDRESS_TABLE.find(mode);
+        return iter == SAMPLER_ADDRESS_TABLE.end() ? VK_SAMPLER_ADDRESS_MODE_REPEAT : iter->second;
+    }
+
+    VkShaderStageFlags FromRHI(rhi::ShaderStageFlags flags)
+    {
+        VkShaderStageFlags res = {};
+        static const std::unordered_map<rhi::ShaderStageFlagBit, VkShaderStageFlagBits> flagMap =
+        { {rhi::ShaderStageFlagBit::VS, VK_SHADER_STAGE_VERTEX_BIT},
+          {rhi::ShaderStageFlagBit::FS, VK_SHADER_STAGE_FRAGMENT_BIT},
+          {rhi::ShaderStageFlagBit::CS, VK_SHADER_STAGE_COMPUTE_BIT},
+        };
+
+        for (const auto &[usageBit, vkUsageBit] : flagMap) {
+            if (flags & usageBit) {
+                res |= vkUsageBit;
+            }
+        }
+        return res;
     }
 
     VkImageUsageFlags FromRHI(rhi::ImageUsageFlags flags)

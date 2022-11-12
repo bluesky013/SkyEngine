@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "rhi/GraphicsPipeline.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/PipelineLayout.h"
 #include "vulkan/RenderPass.h"
@@ -19,7 +20,7 @@ namespace sky::vk {
 
     class Device;
 
-    class GraphicsPipeline : public DevObject {
+    class GraphicsPipeline : public rhi::GraphicsPipeline, public DevObject {
     public:
         ~GraphicsPipeline() = default;
 

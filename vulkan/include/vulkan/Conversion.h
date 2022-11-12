@@ -22,5 +22,8 @@ namespace sky::vk {
     VmaMemoryUsage FromRHI(rhi::MemoryType type);
     VkImageUsageFlags FromRHI(rhi::ImageUsageFlags);
     VkBufferUsageFlags FromRHI(rhi::BufferUsageFlags);
-
+    VkFilter FromRHI(rhi::Filter);
+    VkSamplerMipmapMode FromRHI(rhi::MipFilter);
+    VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
+    VkShaderStageFlags FromRHI(rhi::ShaderStageFlags);
 }

@@ -84,6 +84,29 @@ namespace sky::rhi {
         GPU_TO_CPU
     };
 
+    enum class Filter : uint32_t {
+        NEAREST = 0,
+        LINEAR = 1,
+    };
+
+    enum class MipFilter : uint32_t {
+        NEAREST = 0,
+        LINEAR = 1,
+    };
+
+    enum class WrapMode : uint32_t {
+        REPEAT               = 0,
+        MIRRORED_REPEAT      = 1,
+        CLAMP_TO_EDGE        = 2,
+        CLAMP_TO_BORDER      = 3,
+        MIRROR_CLAMP_TO_EDGE = 4,
+    };
+
+    enum class PresentMode : uint32_t {
+        IMMEDIATE = 0,
+        VSYNC     = 1
+    };
+
     // flag bit
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,
@@ -119,6 +142,14 @@ namespace sky::rhi {
     };
     using BufferUsageFlags = Flags<BufferUsageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(BufferUsageFlagBit)
+
+    enum class ShaderStageFlagBit : uint32_t {
+        VS,
+        FS,
+        CS,
+    };
+    using ShaderStageFlags = Flags<ShaderStageFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
 
     // structs
     struct Extent3D {

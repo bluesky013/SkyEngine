@@ -34,7 +34,7 @@ namespace sky {
             return true;
         }
 
-        vk::Instance::VkDescriptor drvDes = {};
+        vk::Instance::Descriptor drvDes = {};
         drvDes.appName                 = "SkyEngine";
 #ifdef _DEBUG
         drvDes.enableDebugLayer = true;

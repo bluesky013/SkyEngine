@@ -7,6 +7,7 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
 #include <vulkan/Sampler.h>
+#include <vulkan/Conversion.h>
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -17,6 +18,34 @@ namespace sky::vk {
 
     Sampler::~Sampler()
     {
+    }
+
+    bool Sampler::Init(const Descriptor &des)
+    {
+        hash = Crc32::Cal(reinterpret_cast<const uint8_t *>(&des), sizeof(Descriptor));
+
+        VkSamplerCreateInfo samplerInfo = {};
+        samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter           = FromRHI(des.magFilter);
+        samplerInfo.minFilter           = FromRHI(des.minFilter);
+        samplerInfo.mipmapMode          = FromRHI(des.mipmapMode);
+        samplerInfo.addressModeU        = FromRHI(des.addressModeU);
+        samplerInfo.addressModeV        = FromRHI(des.addressModeV);
+        samplerInfo.addressModeW        = FromRHI(des.addressModeW);
+        samplerInfo.anisotropyEnable    = des.anisotropyEnable;
+        samplerInfo.maxAnisotropy       = des.maxAnisotropy;
+        samplerInfo.compareEnable       = VK_FALSE;
+        samplerInfo.compareOp           = VK_COMPARE_OP_NEVER;
+        samplerInfo.minLod              = des.minLod;
+        samplerInfo.maxLod              = des.maxLod;
+        samplerInfo.borderColor         = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+
+        sampler = device.GetSampler(hash, &samplerInfo);
+        if (sampler == VK_NULL_HANDLE) {
+            return false;
+        }
+
+        return true;
     }
 
     bool Sampler::Init(const VkDescriptor &des)

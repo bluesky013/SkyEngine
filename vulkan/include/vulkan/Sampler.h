@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "rhi/Sampler.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
 
@@ -11,7 +12,7 @@ namespace sky::vk {
 
     class Device;
 
-    class Sampler : public DevObject {
+    class Sampler : public rhi::Sampler, public DevObject {
     public:
         ~Sampler();
 
@@ -29,13 +30,14 @@ namespace sky::vk {
             VkBorderColor        borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         };
 
-        bool Init(const VkDescriptor &);
-
         VkSampler GetNativeHandle() const;
 
     private:
         friend class Device;
         Sampler(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkSampler sampler;
         uint32_t  hash = 0;

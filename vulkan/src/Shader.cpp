@@ -7,6 +7,7 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
 #include <vulkan/Shader.h>
+#include <vulkan/Conversion.h>
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -20,6 +21,23 @@ namespace sky::vk {
         if (shaderModule != VK_NULL_HANDLE) {
             vkDestroyShaderModule(device.GetNativeHandle(), shaderModule, VKL_ALLOC);
         }
+    }
+
+    bool Shader::Init(const Descriptor &des)
+    {
+        VkShaderModuleCreateInfo shaderInfo = {};
+        shaderInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        shaderInfo.codeSize                 = des.data.size();
+        shaderInfo.pCode                    = des.data.data();
+        stage                               = static_cast<VkShaderStageFlagBits>(FromRHI(des.stage));
+
+        auto rst = vkCreateShaderModule(device.GetNativeHandle(), &shaderInfo, VKL_ALLOC, &shaderModule);
+        if (rst != VK_SUCCESS) {
+            LOG_E(TAG, "create shader module failed %d", rst);
+            return false;
+        }
+        hash = Crc32::Cal(reinterpret_cast<const uint8_t *>(shaderInfo.pCode), static_cast<uint32_t>(shaderInfo.codeSize));
+        return true;
     }
 
     bool Shader::Init(const VkDescriptor &des)
