@@ -9,8 +9,9 @@
 #include <core/math/Vector4.h>
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
-#include <vulkan/Decode.h>
+#include <rhi/Decode.h>
 #include <future>
+#include <vulkan/Conversion.h>
 
 namespace sky {
 
@@ -38,7 +39,7 @@ namespace sky {
         state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-        vk::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::VkDescriptor psoDesc = {};
         psoDesc.program                           = &program;
         psoDesc.state                             = &state;
         psoDesc.pipelineLayout                    = pipelineLayout;
@@ -49,10 +50,10 @@ namespace sky {
 
     void VulkanAsyncUploadSample::SetupDescriptorSet()
     {
-        vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+        vk::DescriptorSetLayout::VkDescriptor setLayoutInfo = {};
         setLayoutInfo.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
-        vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+        vk::PipelineLayout::VkDescriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
 
         pipelineLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
@@ -62,7 +63,7 @@ namespace sky {
                 {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
             };
 
-        vk::DescriptorSetPool::Descriptor poolInfo = {};
+        vk::DescriptorSetPool::VkDescriptor poolInfo = {};
         poolInfo.maxSets = 1;
         poolInfo.num = 1;
         poolInfo.sizes = sizes;
@@ -84,28 +85,35 @@ namespace sky {
         std::vector<uint8_t> data;
         ReadBin(ENGINE_ROOT + "/assets/images/Logo.dds", data);
 
-        vk::Image::Descriptor               imageDesc = {};
-        std::vector<vk::ImageUploadRequest> requests;
-        ProcessDDS(data.data(), data.size(), imageDesc, requests);
+        vk::Image::Descriptor tmpDesc = {};
+        std::vector<rhi::ImageUploadRequest> requests;
+        ProcessDDS(data.data(), data.size(), tmpDesc, requests);
+
+        vk::Image::VkDescriptor imageDesc = {};
+        imageDesc.imageType   = vk::FromRHI(tmpDesc.imageType);
+        imageDesc.format      = vk::FromRHI(tmpDesc.format);
+        imageDesc.extent      = {tmpDesc.extent.width, tmpDesc.extent.height, tmpDesc.extent.depth};
+        imageDesc.mipLevels   = tmpDesc.mipLevels;
+        imageDesc.arrayLayers = tmpDesc.arrayLayers;
 
         imageDesc.usage  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageDesc.memory = VMA_MEMORY_USAGE_GPU_ONLY;
         image            = device->CreateDeviceObject<vk::Image>(imageDesc);
 
-        vk::ImageView::Descriptor viewDesc = {};
-        viewDesc.format                     = imageDesc.format;
-        view                                = vk::ImageView::CreateImageView(image, viewDesc);
+        vk::ImageView::VkDescriptor viewDesc = {};
+        viewDesc.format = imageDesc.format;
+        view = vk::ImageView::CreateImageView(image, viewDesc);
 
-        vk::Sampler::Descriptor samplerDesc = {};
+        vk::Sampler::VkDescriptor samplerDesc = {};
         samplerDesc.minLod = 0.f;
         samplerDesc.maxLod = 13;
         sampler = device->CreateDeviceObject<vk::Sampler>(samplerDesc);
 
-        object.future = std::async([this, &imageDesc, &requests]() {
+        object.future = std::async([this, &requests, tmpDesc]() {
             std::vector<vk::BufferPtr> stagingBuffers;
 
             auto     uploadQueue = device->GetAsyncTransferQueue()->GetQueue();
-            auto *imageInfo = vk::GetImageInfoByFormat(imageDesc.format);
+            auto *imageInfo = GetImageInfoByFormat(tmpDesc.format);
 
             auto cmd = uploadQueue->AllocateCommandBuffer({});
             cmd->Begin();
@@ -126,8 +134,8 @@ namespace sky {
                     cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
                 }
 
-                uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
-                uint32_t height = std::max(imageDesc.extent.height >> request.mipLevel, 1U);
+                uint32_t width  = std::max(tmpDesc.extent.width >> request.mipLevel, 1U);
+                uint32_t height = std::max(tmpDesc.extent.height >> request.mipLevel, 1U);
 
                 uint32_t rowLength   = Ceil(width, imageInfo->blockWidth);
                 uint32_t imageHeight = Ceil(height, imageInfo->blockHeight);
@@ -143,7 +151,7 @@ namespace sky {
                 uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
 
                 for (uint32_t i = 0; i < copyNum; ++i) {
-                    vk::Buffer::Descriptor bufferDesc = {};
+                    vk::Buffer::VkDescriptor bufferDesc = {};
                     bufferDesc.size                    = STAGING_BLOCK_SIZE;
                     bufferDesc.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
                     bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;

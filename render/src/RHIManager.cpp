@@ -34,7 +34,7 @@ namespace sky {
             return true;
         }
 
-        vk::Instance::Descriptor drvDes = {};
+        vk::Instance::VkDescriptor drvDes = {};
         drvDes.appName                 = "SkyEngine";
 #ifdef _DEBUG
         drvDes.enableDebugLayer = true;
@@ -47,7 +47,7 @@ namespace sky {
             return false;
         }
 
-        vk::Device::Descriptor devDes = {};
+        vk::Device::VkDescriptor devDes = {};
         device                         = driver->CreateDevice(devDes);
         if (device == nullptr) {
             return false;

@@ -27,7 +27,7 @@ namespace sky::vk {
     bool CommandBuffer::Init(const Descriptor &des)
     {
         if (des.needFence) {
-            Fence::Descriptor fenceDes = {};
+            Fence::VkDescriptor fenceDes = {};
             fenceDes.flag              = VK_FENCE_CREATE_SIGNALED_BIT;
             fence                      = device.CreateDeviceObject<Fence>(fenceDes);
             if (!fence) {

@@ -15,7 +15,7 @@ namespace sky::vk {
     public:
         ~Sampler();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkFilter             magFilter        = VK_FILTER_NEAREST;
             VkFilter             minFilter        = VK_FILTER_NEAREST;
             VkSamplerMipmapMode  mipmapMode       = VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -29,7 +29,7 @@ namespace sky::vk {
             VkBorderColor        borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkSampler GetNativeHandle() const;
 

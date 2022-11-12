@@ -57,7 +57,7 @@ namespace sky {
 
     vk::DescriptorSetPoolPtr DescriptorPool::CreateInternal()
     {
-        vk::DescriptorSetPool::Descriptor poolDesc = {};
+        vk::DescriptorSetPool::VkDescriptor poolDesc = {};
         poolDesc.maxSets                            = descriptor.maxSet;
         poolDesc.num                                = static_cast<uint32_t>(sizes.size());
         poolDesc.sizes                              = sizes.data();

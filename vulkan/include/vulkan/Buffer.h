@@ -14,7 +14,7 @@ namespace sky::vk {
     public:
         ~Buffer();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkDeviceSize        size      = 0;
             VkBufferUsageFlags  usage     = 0;
             VmaMemoryUsage      memory    = VMA_MEMORY_USAGE_UNKNOWN;
@@ -39,12 +39,12 @@ namespace sky::vk {
 
         Buffer(Device &);
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkBuffer           buffer;
         VmaAllocation      allocation;
         VkBufferCreateInfo bufferInfo;
-        Descriptor         desc        = {};
+        VkDescriptor       desc        = {};
         bool               isTransient = false;
         uint8_t*           mappedPtr   = nullptr;
     };

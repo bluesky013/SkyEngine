@@ -9,7 +9,7 @@ namespace sky::vk {
 
     void Queue::Setup()
     {
-        CommandPool::Descriptor des = {};
+        CommandPool::VkDescriptor des = {};
         des.queueFamilyIndex        = queueFamilyIndex;
         des.flag                    = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 

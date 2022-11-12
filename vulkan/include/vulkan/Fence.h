@@ -13,11 +13,11 @@ namespace sky::vk {
     public:
         ~Fence();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkFenceCreateFlags flag = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         void Wait(uint64_t timeout = UINT64_MAX);
 

@@ -20,7 +20,7 @@ namespace sky::vk {
         }
     }
 
-    bool ComputePipeline::Init(const Descriptor &desc)
+    bool ComputePipeline::Init(const VkDescriptor &desc)
     {
         VkComputePipelineCreateInfo pipelineInfo = {};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -46,7 +46,7 @@ namespace sky::vk {
         return pipeline;
     }
 
-    uint32_t ComputePipeline::CalculateHash(const Descriptor &desc)
+    uint32_t ComputePipeline::CalculateHash(const VkDescriptor &desc)
     {
         return 0;
     }

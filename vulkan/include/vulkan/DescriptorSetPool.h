@@ -17,13 +17,13 @@ namespace sky::vk {
         DescriptorSetPool(Device &dev);
         ~DescriptorSetPool();
 
-        struct Descriptor {
+        struct VkDescriptor {
             uint32_t              maxSets = 0;
             uint32_t              num     = 0;
             VkDescriptorPoolSize *sizes   = nullptr;
         };
 
-        bool Init(const Descriptor &desc);
+        bool Init(const VkDescriptor &desc);
 
     private:
         friend class DescriptorSet;

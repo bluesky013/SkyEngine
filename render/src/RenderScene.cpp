@@ -128,7 +128,7 @@ namespace sky {
         sceneSet->UpdateBuffer(1, sceneInfo);
         sceneSet->Update();
 
-        vk::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
+        vk::DescriptorSetLayout::VkDescriptor objSetLayoutInfo = {};
         objSetLayoutInfo.bindings.emplace(
             0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT});
         auto objSetLayout = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetLayout>(objSetLayoutInfo);
@@ -145,7 +145,7 @@ namespace sky {
         objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
 
         if (!queryPool) {
-            vk::QueryPool::Descriptor queryDesc = {};
+            vk::QueryPool::VkDescriptor queryDesc = {};
             queryDesc.queryType                  = VK_QUERY_TYPE_PIPELINE_STATISTICS;
             queryDesc.queryCount                 = 7;
             queryDesc.pipelineStatistics =

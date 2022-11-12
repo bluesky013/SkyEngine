@@ -9,7 +9,7 @@ namespace sky {
 
     void VulkanSampleBase::OnStart()
     {
-        vk::Instance::Descriptor drvDes = {};
+        vk::Instance::VkDescriptor drvDes = {};
         drvDes.enableDebugLayer         = true;
         drvDes.appName                  = "Triangle";
         instance                        = vk::Instance::Create(drvDes);
@@ -17,13 +17,13 @@ namespace sky {
             return;
         }
 
-        vk::Device::Descriptor devDes = {};
+        vk::Device::VkDescriptor devDes = {};
         device                        = instance->CreateDevice(devDes);
 
         graphicsQueue = device->GetGraphicsQueue();
 
         auto                       nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        vk::SwapChain::Descriptor swcDesc      = {};
+        vk::SwapChain::VkDescriptor swcDesc      = {};
         swcDesc.window                          = nativeWindow->GetNativeHandle();
         swapChain                               = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
         Event<IWindowEvent>::Connect(swcDesc.window, this);
@@ -92,11 +92,11 @@ namespace sky {
         frameBuffers.resize(imageCount);
         colorViews.resize(imageCount);
 
-        vk::FrameBuffer::Descriptor fbDesc = {};
+        vk::FrameBuffer::VkDescriptor fbDesc = {};
         fbDesc.extent                       = swapChain->GetExtent();
         fbDesc.pass                         = renderPass;
 
-        vk::ImageView::Descriptor viewDesc = {};
+        vk::ImageView::VkDescriptor viewDesc = {};
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;
         viewDesc.format                     = swapChain->GetFormat();
 
@@ -118,7 +118,7 @@ namespace sky {
             return {};
         }
 
-        vk::Shader::Descriptor shaderDesc = {};
+        vk::Shader::VkDescriptor shaderDesc = {};
         shaderDesc.stage                   = stage;
         shaderDesc.size                    = static_cast<uint32_t>(spv.size()) * sizeof(uint32_t);
         shaderDesc.spv                     = spv.data();

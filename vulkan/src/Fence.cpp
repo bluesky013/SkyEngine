@@ -21,7 +21,7 @@ namespace sky::vk {
         }
     }
 
-    bool Fence::Init(const Descriptor &des)
+    bool Fence::Init(const VkDescriptor &des)
     {
         VkFenceCreateInfo fenceInfo = {};
         fenceInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

@@ -4,7 +4,9 @@
 
 #pragma once
 
-namespace sky::vk {
+#include <cstdint>
+
+namespace sky::rhi {
     using DWORD = uint32_t;
     using BYTE  = char;
 

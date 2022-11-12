@@ -31,7 +31,7 @@ namespace sky::vk {
         return viewInfo;
     }
 
-    bool BufferView::Init(const Descriptor &des)
+    bool BufferView::Init(const VkDescriptor &des)
     {
         viewInfo.sType            = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
         viewInfo.buffer           = source->GetNativeHandle();
@@ -45,7 +45,7 @@ namespace sky::vk {
         return true;
     }
 
-    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, BufferView::Descriptor &des)
+    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, BufferView::VkDescriptor &des)
     {
         BufferViewPtr ptr = std::make_shared<BufferView>(buffer->device);
         ptr->source       = buffer;

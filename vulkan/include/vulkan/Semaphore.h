@@ -13,9 +13,9 @@ namespace sky::vk {
     public:
         ~Semaphore();
 
-        struct Descriptor {};
+        struct VkDescriptor {};
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkSemaphore GetNativeHandle() const;
 

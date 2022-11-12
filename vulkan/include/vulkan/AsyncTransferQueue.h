@@ -47,9 +47,9 @@ namespace sky::vk {
             return taskQueue.back().taskId;
         }
 
-        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);
+        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const rhi::BufferUploadRequest &request);
 
-        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
+        TransferTaskHandle UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request);
 
         bool HasComplete(TransferTaskHandle handle) const
         {

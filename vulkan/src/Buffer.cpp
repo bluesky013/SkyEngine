@@ -30,7 +30,7 @@ namespace sky::vk {
         }
     }
 
-    bool Buffer::Init(const Descriptor &des)
+    bool Buffer::Init(const VkDescriptor &des)
     {
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size  = des.size;

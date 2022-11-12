@@ -12,7 +12,7 @@ namespace sky {
         VulkanSampleBase::OnStart();
         vertexInput = vk::VertexInput::Builder().Begin().Build();
 
-        vk::PipelineLayout::Descriptor pDesc = {};
+        vk::PipelineLayout::VkDescriptor pDesc = {};
         pipelineLayout                       = device->CreateDeviceObject<vk::PipelineLayout>(pDesc);
 
         vk::GraphicsPipeline::Program program;
@@ -25,7 +25,7 @@ namespace sky {
         state.raster.cullMode             = VK_CULL_MODE_NONE;
         state.blends.blendStates.emplace_back(vk::GraphicsPipeline::BlendState{});
 
-        vk::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::VkDescriptor psoDesc = {};
         psoDesc.program                          = &program;
         psoDesc.state                            = &state;
         psoDesc.pipelineLayout                   = pipelineLayout;

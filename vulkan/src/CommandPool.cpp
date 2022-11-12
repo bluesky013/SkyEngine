@@ -22,7 +22,7 @@ namespace sky::vk {
         }
     }
 
-    bool CommandPool::Init(const Descriptor &des)
+    bool CommandPool::Init(const VkDescriptor &des)
     {
         VkCommandPoolCreateInfo poolInfo = {};
         poolInfo.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;

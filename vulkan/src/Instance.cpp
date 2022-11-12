@@ -31,6 +31,7 @@ namespace sky::vk {
         }
     }
 
+
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
                                                         VkDebugUtilsMessageTypeFlagsEXT             messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
@@ -53,7 +54,7 @@ namespace sky::vk {
 
     const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-    Instance *Instance::Create(const Descriptor &des)
+    Instance *Instance::Create(const VkDescriptor &des)
     {
         auto instance = new Instance();
         if (!instance->Init(des)) {
@@ -70,7 +71,7 @@ namespace sky::vk {
         }
     }
 
-    Device *Instance::CreateDevice(const Device::Descriptor &des)
+    Device *Instance::CreateDevice(const Device::VkDescriptor &des)
     {
         auto device = new Device(*this);
         if (!device->Init(des, debug != VK_NULL_HANDLE)) {
@@ -95,7 +96,7 @@ namespace sky::vk {
         }
     }
 
-    bool Instance::Init(const Descriptor &des)
+    bool Instance::Init(const VkDescriptor &des)
     {
         uint32_t version = 0;
         VkResult result = vkEnumerateInstanceVersion(&version);

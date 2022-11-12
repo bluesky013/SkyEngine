@@ -14,13 +14,13 @@ namespace sky::vk {
     public:
         ~QueryPool();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkQueryType                   queryType          = VK_QUERY_TYPE_PIPELINE_STATISTICS;
             uint32_t                      queryCount         = 0;
             VkQueryPipelineStatisticFlags pipelineStatistics = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkQueryPool GetNativeHandle() const;
 

@@ -9,7 +9,7 @@
 
 namespace sky::vk {
 
-    uint32_t GraphicsPipeline::CalculateHash(const Descriptor &desc)
+    uint32_t GraphicsPipeline::CalculateHash(const VkDescriptor &desc)
     {
         uint32_t hash = 0;
         HashCombine32(hash, Crc32::Cal(*desc.state));
@@ -30,7 +30,7 @@ namespace sky::vk {
     {
     }
 
-    bool GraphicsPipeline::Init(const Descriptor &des)
+    bool GraphicsPipeline::Init(const VkDescriptor &des)
     {
         if (des.state == nullptr || des.program == nullptr || !des.vertexInput || !des.pipelineLayout || !des.renderPass) {
             return false;

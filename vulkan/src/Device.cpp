@@ -88,7 +88,7 @@ namespace sky::vk {
         }
     }
 
-    bool Device::Init(const Descriptor &des, bool enableDebug)
+    bool Device::Init(const VkDescriptor &des, bool enableDebug)
     {
         auto *vkInstance = instance.GetInstance();
 

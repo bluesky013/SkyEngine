@@ -17,13 +17,13 @@ namespace sky::vk {
         BufferView(Device &);
         ~BufferView();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkFormat format = VK_FORMAT_UNDEFINED;
             VkDeviceSize offset = 0;
             VkDeviceSize range  = 0;
         };
 
-        static std::shared_ptr<BufferView> CreateBufferView(const BufferPtr &buffer, BufferView::Descriptor &des);
+        static std::shared_ptr<BufferView> CreateBufferView(const BufferPtr &buffer, BufferView::VkDescriptor &des);
 
         VkBufferView GetNativeHandle() const;
 
@@ -33,7 +33,7 @@ namespace sky::vk {
         friend class Image;
         friend class SwapChain;
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         BufferPtr              source;
         VkBufferView           view;

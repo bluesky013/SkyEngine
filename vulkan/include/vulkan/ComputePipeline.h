@@ -20,20 +20,20 @@ namespace sky::vk {
     public:
         ~ComputePipeline();
 
-        struct Descriptor {
+        struct VkDescriptor {
             ShaderPtr         shader;
             ShaderOptionPtr   shaderOption;
             PipelineLayoutPtr pipelineLayout;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkPipeline GetNativeHandle() const;
     private:
         friend class Device;
         ComputePipeline(Device &);
 
-        static uint32_t CalculateHash(const Descriptor &);
+        static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;
         uint32_t          hash;

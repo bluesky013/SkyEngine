@@ -18,7 +18,7 @@ namespace sky::vk {
         }
     }
 
-    bool QueryPool::Init(const Descriptor &desc)
+    bool QueryPool::Init(const VkDescriptor &desc)
     {
         VkQueryPoolCreateInfo poolInfo = {};
         poolInfo.sType                 = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;

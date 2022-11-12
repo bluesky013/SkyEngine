@@ -18,7 +18,7 @@ namespace sky {
         auto &ext       = swapChain->GetExtent();
         auto  device    = RHIManager::Get()->GetDevice();
 
-        vk::Image::Descriptor dsDesc = {};
+        vk::Image::VkDescriptor dsDesc = {};
         dsDesc.format                 = VK_FORMAT_D32_SFLOAT;
         dsDesc.extent.width           = ext.width;
         dsDesc.extent.height          = ext.height;

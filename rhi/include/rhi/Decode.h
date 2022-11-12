@@ -5,12 +5,11 @@
 #pragma once
 
 #include <vector>
-#include <vulkan/Basic.h>
-#include <vulkan/Image.h>
+#include <rhi/Image.h>
 
-namespace sky::vk {
+namespace sky::rhi {
 
-    ImageFormatInfo *GetImageInfoByFormat(VkFormat format);
+    ImageFormatInfo *GetImageInfoByFormat(PixelFormat format);
 
     void ProcessASTC(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests);
 

@@ -27,6 +27,7 @@ sky_add_library(TARGET VulkanRHI STATIC
         include
     LINK_LIBS
         Core
+        RHI
         VulkanSdk
         3rdParty::vma
         ${PLATFORM_EXT_LIBS}

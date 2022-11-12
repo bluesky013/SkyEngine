@@ -6,6 +6,7 @@
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
+#include "vulkan/Conversion.h"
 #include "vk_mem_alloc.h"
 
 static const char *TAG = "Vulkan";
@@ -27,6 +28,43 @@ namespace sky::vk {
 
     bool Image::Init(const Descriptor &des)
     {
+        imageDesc = des;
+
+        imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.mipLevels     = des.mipLevels;
+        imageInfo.arrayLayers   = des.arrayLayers;
+        imageInfo.format        = FromRHI(des.format);
+        imageInfo.extent        = FromRHI(des.extent);
+        imageInfo.imageType     = FromRHI(des.imageType);
+        imageInfo.usage         = FromRHI(des.usage);
+        imageInfo.samples       = static_cast<VkSampleCountFlagBits>(des.samples);
+        imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        VkImageFormatProperties properties{};
+        auto res = vkGetPhysicalDeviceImageFormatProperties(device.GetGpuHandle(), imageInfo.format, imageInfo.imageType, imageInfo.tiling, imageInfo.usage, imageInfo.flags, &properties);
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "image not supported %d", res);
+        }
+
+        if (des.allocateMem) {
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage                   = FromRHI(des.memory);
+
+            res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
+        } else {
+            res = vkCreateImage(device.GetNativeHandle(), &imageInfo, nullptr, &image);
+        }
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "create image failed %d", res);
+            return false;
+        }
+        return true;
+    }
+
+    bool Image::Init(const VkDescriptor &des)
+    {
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.mipLevels     = des.mipLevels;
         imageInfo.arrayLayers   = des.arrayLayers;
@@ -45,7 +83,7 @@ namespace sky::vk {
             LOG_E(TAG, "image not supported %d", res);
         }
 
-        if (!des.transient) {
+        if (des.allocateMem) {
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage                   = des.memory;
 
@@ -57,8 +95,6 @@ namespace sky::vk {
             LOG_E(TAG, "create image failed %d", res);
             return false;
         }
-
-        isTransient = des.transient;
         return true;
     }
 
@@ -75,7 +111,7 @@ namespace sky::vk {
 
     bool Image::IsTransient() const
     {
-        return isTransient;
+        return allocation == VK_NULL_HANDLE;
     }
 
     const VkImageCreateInfo &Image::GetImageInfo() const

@@ -20,12 +20,12 @@ namespace sky::vk {
     public:
         ~PipelineLayout();
 
-        struct Descriptor {
-            std::vector<DescriptorSetLayout::Descriptor> desLayouts;
+        struct VkDescriptor {
+            std::vector<DescriptorSetLayout::VkDescriptor> desLayouts;
             std::vector<VkPushConstantRange>             pushConstants;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkPipelineLayout GetNativeHandle() const;
 

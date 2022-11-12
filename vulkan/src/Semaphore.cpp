@@ -21,7 +21,7 @@ namespace sky::vk {
         }
     }
 
-    bool Semaphore::Init(const Descriptor &des)
+    bool Semaphore::Init(const VkDescriptor &des)
     {
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

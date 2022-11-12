@@ -6,6 +6,7 @@
 #include <core/template/ReferenceObject.h>
 #include <vector>
 #include <vk_mem_alloc.h>
+#include <rhi/Device.h>
 #include <vulkan/CacheManager.h>
 #include <vulkan/Queue.h>
 #include <vulkan/AsyncTransferQueue.h>
@@ -15,14 +16,14 @@ namespace sky::vk {
 
     class Instance;
 
-    class Device {
+    class Device : public rhi::Device {
     public:
-        ~Device();
+        ~Device() override;
 
-        struct Descriptor {};
+        struct VkDescriptor {};
 
         template <typename T>
-        inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
+        inline std::shared_ptr<T> CreateDeviceObject(const typename T::VkDescriptor &des)
         {
             auto res = new T(*this);
             if (!res->Init(des)) {
@@ -64,7 +65,7 @@ namespace sky::vk {
         bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         int32_t FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
     private:
-        bool Init(const Descriptor &, bool enableDebug);
+        bool Init(const VkDescriptor &, bool enableDebug);
 
         void SetupAsyncTransferQueue();
 

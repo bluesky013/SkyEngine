@@ -3,6 +3,8 @@
 //
 #pragma once
 #include <vk_mem_alloc.h>
+#include <rhi/ImageView.h>
+
 #include <vulkan/DevObject.h>
 #include <vulkan/Image.h>
 #include <vulkan/vulkan.h>
@@ -12,12 +14,12 @@ namespace sky::vk {
     class Device;
     class Image;
 
-    class ImageView : public DevObject {
+    class ImageView : public rhi::ImageView, public DevObject {
     public:
         ImageView(Device &);
         ~ImageView();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkImageViewType         viewType         = VK_IMAGE_VIEW_TYPE_2D;
             VkFormat                format           = VK_FORMAT_UNDEFINED;
             VkComponentMapping      components       = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -25,13 +27,8 @@ namespace sky::vk {
             VkImageSubresourceRange subResourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         };
 
-        static Descriptor Make2DColor(VkFormat);
-
-        static Descriptor Make2DDepth(VkFormat);
-
-        static Descriptor Make2DDepthStencil(VkFormat);
-
         static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::Descriptor &des);
+        static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des);
 
         VkImageView GetNativeHandle() const;
 
@@ -42,6 +39,7 @@ namespace sky::vk {
         friend class SwapChain;
 
         bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         ImagePtr              source;
         VkImageView           view;

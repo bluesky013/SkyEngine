@@ -21,7 +21,7 @@ namespace sky::vk {
     public:
         ~SwapChain();
 
-        struct Descriptor {
+        struct VkDescriptor {
             void                         *window          = nullptr;
             uint32_t                      width           = 1;
             uint32_t                      height          = 1;
@@ -36,7 +36,7 @@ namespace sky::vk {
             uint32_t                  imageIndex = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkSwapchainKHR GetNativeHandle() const;
 
@@ -73,7 +73,7 @@ namespace sky::vk {
         VkSurfaceFormatKHR       format;
         VkPresentModeKHR         mode;
         std::vector<ImagePtr>    images;
-        Descriptor               descriptor;
+        VkDescriptor             descriptor;
     };
 
     using SwapChainPtr = std::shared_ptr<SwapChain>;

@@ -19,9 +19,9 @@ namespace sky::vk {
     {
     }
 
-    bool Sampler::Init(const Descriptor &des)
+    bool Sampler::Init(const VkDescriptor &des)
     {
-        hash = Crc32::Cal(reinterpret_cast<const uint8_t *>(&des), sizeof(Descriptor));
+        hash = Crc32::Cal(reinterpret_cast<const uint8_t *>(&des), sizeof(VkDescriptor));
 
         VkSamplerCreateInfo samplerInfo = {};
         samplerInfo.sType               = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

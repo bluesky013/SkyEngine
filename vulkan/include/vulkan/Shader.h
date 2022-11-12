@@ -15,13 +15,13 @@ namespace sky::vk {
     public:
         ~Shader();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkShaderStageFlagBits stage;
             uint32_t             *spv  = nullptr;
             uint32_t              size = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkShaderModule GetNativeHandle() const;
 

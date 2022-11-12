@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace sky::vk {
+namespace sky::rhi {
 
     struct ASTCHeader {
         uint8_t magic[4];

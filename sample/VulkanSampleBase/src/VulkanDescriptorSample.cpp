@@ -29,7 +29,7 @@ namespace sky {
         state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-        vk::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::VkDescriptor psoDesc = {};
         psoDesc.program                           = &program;
         psoDesc.state                             = &state;
         psoDesc.pipelineLayout                    = pipelineLayout;
@@ -40,7 +40,7 @@ namespace sky {
 
     void VulkanDescriptorSample::SetupDescriptorSet()
     {
-        vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+        vk::DescriptorSetLayout::VkDescriptor setLayoutInfo = {};
         setLayoutInfo.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         setLayoutInfo.bindings.emplace(1, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         setLayoutInfo.bindings.emplace(2, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
@@ -52,7 +52,7 @@ namespace sky {
         setLayoutInfo.bindings.emplace(7,
                                        vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
-        vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+        vk::PipelineLayout::VkDescriptor pipelineLayoutInfo = {};
         pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
 
         pipelineLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
@@ -70,7 +70,7 @@ namespace sky {
                 {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1},
             };
 
-        vk::DescriptorSetPool::Descriptor poolInfo = {};
+        vk::DescriptorSetPool::VkDescriptor poolInfo = {};
         poolInfo.maxSets = 1;
         poolInfo.num = 1;
         poolInfo.sizes = sizes;
@@ -89,7 +89,7 @@ namespace sky {
         auto &limits = device->GetProperties().limits;
 
         {
-            vk::Image::Descriptor imageInfo = {};
+            vk::Image::VkDescriptor imageInfo = {};
             imageInfo.format                 = VK_FORMAT_R8G8B8A8_UNORM;
             imageInfo.extent                 = {128, 128, 1};
             imageInfo.usage                  = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
@@ -126,7 +126,7 @@ namespace sky {
                 }
             }
 
-            vk::Buffer::Descriptor bufferInfo = {};
+            vk::Buffer::VkDescriptor bufferInfo = {};
             bufferInfo.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_ONLY;
             bufferInfo.size                    = data.size();
@@ -160,7 +160,7 @@ namespace sky {
             cmd->Submit(*graphicsQueue, {});
             cmd->Wait();
 
-            vk::ImageView::Descriptor viewInfo = {};
+            vk::ImageView::VkDescriptor viewInfo = {};
             viewInfo.format                     = VK_FORMAT_R8G8B8A8_UNORM;
 
             viewInfo.subResourceRange.baseArrayLayer = 0;
@@ -181,7 +181,7 @@ namespace sky {
         }
 
         {
-            vk::Buffer::Descriptor bufferInfo = {};
+            vk::Buffer::VkDescriptor bufferInfo = {};
             bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             {
@@ -208,7 +208,7 @@ namespace sky {
                 0, 0, 0, 0,
             };
 
-            vk::Buffer::Descriptor bufferInfo = {};
+            vk::Buffer::VkDescriptor bufferInfo = {};
             bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             bufferInfo.size                    = limits.minTexelBufferOffsetAlignment * 2;
@@ -217,7 +217,7 @@ namespace sky {
             memcpy(ptr, texelData, sizeof(texelData));
             texelBuffer->UnMap();
 
-            vk::BufferView::Descriptor viewInfo = {};
+            vk::BufferView::VkDescriptor viewInfo = {};
             viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 
             {

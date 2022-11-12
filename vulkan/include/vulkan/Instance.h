@@ -12,16 +12,16 @@ namespace sky::vk {
 
     class Instance {
     public:
-        struct Descriptor {
+        struct VkDescriptor {
             std::string appName;
             std::string engineName;
             bool        enableDebugLayer;
         };
 
-        static Instance *Create(const Descriptor &);
+        static Instance *Create(const VkDescriptor &);
         static void    Destroy(Instance *);
 
-        Device *CreateDevice(const Device::Descriptor &);
+        Device *CreateDevice(const Device::VkDescriptor &);
 
         VkInstance GetInstance() const;
 
@@ -29,7 +29,7 @@ namespace sky::vk {
         Instance();
         ~Instance();
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         void PrintSupportedExtensions() const;
 

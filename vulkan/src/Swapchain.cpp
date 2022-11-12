@@ -25,7 +25,7 @@ namespace sky::vk {
         DestroySurface();
     }
 
-    bool SwapChain::Init(const Descriptor &des)
+    bool SwapChain::Init(const VkDescriptor &des)
     {
         descriptor = des;
         if (!CreateSurface()) {

@@ -50,7 +50,7 @@ namespace sky {
         state.blends.blendStates.back().srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         state.blends.blendStates.back().dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-        vk::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::VkDescriptor psoDesc = {};
         psoDesc.program                          = &program;
         psoDesc.state                            = &state;
         psoDesc.pipelineLayout                   = gfxLayout;
@@ -80,7 +80,7 @@ namespace sky {
         psoDesc.renderPass     = renderPass;
         compositePso           = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
 
-        vk::ComputePipeline::Descriptor compDesc = {};
+        vk::ComputePipeline::VkDescriptor compDesc = {};
         compDesc.shader                          = cs;
         compDesc.pipelineLayout                  = compLayout;
         compPipeline                             = device->CreateDeviceObject<vk::ComputePipeline>(compDesc);
@@ -94,18 +94,18 @@ namespace sky {
             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
         };
 
-        vk::DescriptorSetPool::Descriptor poolInfo = {};
+        vk::DescriptorSetPool::VkDescriptor poolInfo = {};
         poolInfo.maxSets                           = 4;
         poolInfo.num                               = sizeof(sizes) / sizeof(VkDescriptorPoolSize);
         poolInfo.sizes                             = sizes;
         setPool                                    = device->CreateDeviceObject<vk::DescriptorSetPool>(poolInfo);
 
         {
-            vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+            vk::DescriptorSetLayout::VkDescriptor setLayoutInfo = {};
             setLayoutInfo.bindings.emplace(
                 0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
-            vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+            vk::PipelineLayout::VkDescriptor pipelineLayoutInfo = {};
             pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
             gfxLayout     = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
             gfxSet        = gfxLayout->Allocate(setPool, 0);
@@ -113,25 +113,25 @@ namespace sky {
         }
 
         {
-            vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+            vk::DescriptorSetLayout::VkDescriptor setLayoutInfo = {};
             setLayoutInfo.bindings.emplace(
                 0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
             setLayoutInfo.bindings.emplace(
                 1, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
 
-            vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+            vk::PipelineLayout::VkDescriptor pipelineLayoutInfo = {};
             pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
             compositeLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
             compositeSet    = compositeLayout->Allocate(setPool, 0);
         }
 
         {
-            vk::DescriptorSetLayout::Descriptor setLayoutInfo = {};
+            vk::DescriptorSetLayout::VkDescriptor setLayoutInfo = {};
             setLayoutInfo.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT});
             setLayoutInfo.bindings.emplace(1, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT});
             setLayoutInfo.bindings.emplace(2, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT});
 
-            vk::PipelineLayout::Descriptor pipelineLayoutInfo = {};
+            vk::PipelineLayout::VkDescriptor pipelineLayoutInfo = {};
             pipelineLayoutInfo.desLayouts.emplace_back(setLayoutInfo);
             compLayout = device->CreateDeviceObject<vk::PipelineLayout>(pipelineLayoutInfo);
             compSet    = compLayout->Allocate(setPool, 0);
@@ -141,7 +141,7 @@ namespace sky {
     void VulkanMemoryAliasing::SetupResources()
     {
         {
-            vk::Image::Descriptor imageDesc = {};
+            vk::Image::VkDescriptor imageDesc = {};
             imageDesc.format                = VK_FORMAT_R8G8B8A8_UNORM;
             imageDesc.extent                = {128, 128, 1};
             imageDesc.usage                 = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -163,7 +163,7 @@ namespace sky {
                     }
                 }
             }
-            vk::Buffer::Descriptor bufferInfo = {};
+            vk::Buffer::VkDescriptor bufferInfo = {};
             bufferInfo.usage                  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
             bufferInfo.memory                 = VMA_MEMORY_USAGE_CPU_ONLY;
             bufferInfo.size                   = data.size() * sizeof(ColorU8);
@@ -193,7 +193,7 @@ namespace sky {
             cmd->Submit(*graphicsQueue, {});
             cmd->Wait();
 
-            vk::ImageView::Descriptor viewDesc = {};
+            vk::ImageView::VkDescriptor viewDesc = {};
             viewDesc.format                    = VK_FORMAT_R8G8B8A8_UNORM;
             view                               = vk::ImageView::CreateImageView(image, viewDesc);
             sampler                            = device->CreateDeviceObject<vk::Sampler>({});
@@ -207,7 +207,7 @@ namespace sky {
         }
 
         {
-            vk::Buffer::Descriptor descriptor = {};
+            vk::Buffer::VkDescriptor descriptor = {};
             descriptor.size                   = PARTICLE_NUM * sizeof(Particle);
             descriptor.usage                  = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             descriptor.memory                 = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -222,25 +222,25 @@ namespace sky {
         }
 
         {
-            vk::Image::Descriptor imageDesc = {};
+            vk::Image::VkDescriptor imageDesc = {};
             imageDesc.format                = swapChain->GetFormat();
             imageDesc.extent                = {swapChain->GetExtent().width, swapChain->GetExtent().height, 1};
             imageDesc.usage                 = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageDesc.memory                = VMA_MEMORY_USAGE_GPU_ONLY;
             rasterTarget                    = device->CreateDeviceObject<vk::Image>(imageDesc);
 
-            vk::ImageView::Descriptor viewDesc = {};
+            vk::ImageView::VkDescriptor viewDesc = {};
             viewDesc.format                    = swapChain->GetFormat();
             rasterTargetView                   = vk::ImageView::CreateImageView(rasterTarget, viewDesc);
 
-            vk::FrameBuffer::Descriptor fbDesc = {swapChain->GetExtent(), renderPass, {rasterTargetView}};
+            vk::FrameBuffer::VkDescriptor fbDesc = {swapChain->GetExtent(), renderPass, {rasterTargetView}};
             rasterFb                           = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
         {
             VkMemoryRequirements   requirements1 = {};
             VkMemoryRequirements   requirements2 = {};
-            vk::Buffer::Descriptor descriptor    = {};
+            vk::Buffer::VkDescriptor descriptor    = {};
             descriptor.memory                    = VMA_MEMORY_USAGE_CPU_TO_GPU;
             descriptor.size                      = PARTICLE_NUM * sizeof(Particle);
             descriptor.usage                     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -248,12 +248,12 @@ namespace sky {
             particleSystem->output                = device->CreateDeviceObject<vk::Buffer>(descriptor);
             vkGetBufferMemoryRequirements(device->GetNativeHandle(), particleSystem->output->GetNativeHandle(), &requirements1);
 
-            vk::Image::Descriptor imageDesc = {};
+            vk::Image::VkDescriptor imageDesc = {};
             imageDesc.format                = swapChain->GetFormat();
             imageDesc.extent                = {128, 128, 1};
             imageDesc.usage                 = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageDesc.memory                = VMA_MEMORY_USAGE_GPU_ONLY;
-            imageDesc.transient             = true;
+            imageDesc.allocateMem           = false;
             fullScreenTarget                = device->CreateDeviceObject<vk::Image>(imageDesc);
             vkGetImageMemoryRequirements(device->GetNativeHandle(), fullScreenTarget->GetNativeHandle(), &requirements2);
 
@@ -269,11 +269,11 @@ namespace sky {
             vmaBindBufferMemory(device->GetAllocator(), alloc, particleSystem->output->GetNativeHandle());
             vmaBindImageMemory(device->GetAllocator(), alloc, fullScreenTarget->GetNativeHandle());
 
-            vk::ImageView::Descriptor viewDesc = {};
+            vk::ImageView::VkDescriptor viewDesc = {};
             viewDesc.format                    = swapChain->GetFormat();
             fullScreenTargetView               = vk::ImageView::CreateImageView(fullScreenTarget, viewDesc);
 
-            vk::FrameBuffer::Descriptor fbDesc = {VkExtent2D{128, 128}, renderPass, {fullScreenTargetView}};
+            vk::FrameBuffer::VkDescriptor fbDesc = {VkExtent2D{128, 128}, renderPass, {fullScreenTargetView}};
             fullScreenFb                       = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 

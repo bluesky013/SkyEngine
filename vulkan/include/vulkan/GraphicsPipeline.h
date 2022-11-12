@@ -89,7 +89,7 @@ namespace sky::vk {
             ShaderOptionPtr        shaderOption;
         };
 
-        struct Descriptor {
+        struct VkDescriptor {
             const State      *state   = nullptr;
             const Program    *program = nullptr;
             VertexInputPtr    vertexInput;
@@ -98,7 +98,7 @@ namespace sky::vk {
             uint32_t          subPassIndex = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkPipeline GetNativeHandle() const;
 
@@ -108,7 +108,7 @@ namespace sky::vk {
         friend class Device;
         GraphicsPipeline(Device &);
 
-        static uint32_t CalculateHash(const Descriptor &);
+        static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;
         uint32_t          hash;

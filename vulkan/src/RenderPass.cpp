@@ -20,7 +20,7 @@ namespace sky::vk {
     {
     }
 
-    bool RenderPass::Init(const Descriptor &des)
+    bool RenderPass::Init(const VkDescriptor &des)
     {
         hash = 0;
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
@@ -116,11 +116,11 @@ namespace sky::vk {
     /**
      * Render Pass Compatibility
      */
-    void RenderPass::CalculateHashForPSO(const Descriptor &desc)
+    void RenderPass::CalculateHashForPSO(const VkDescriptor &desc)
     {
         psoHash = 0;
 
-        auto calc = [this](const Descriptor &desc, const VkAttachmentReference &ref) {
+        auto calc = [this](const VkDescriptor &desc, const VkAttachmentReference &ref) {
             auto &attachment = desc.attachments[ref.attachment];
             HashCombine32(psoHash, attachment.format);
             HashCombine32(psoHash, attachment.samples);
@@ -164,7 +164,7 @@ namespace sky::vk {
         return RenderPassFactory::DependencyImpl(descriptor, (uint32_t)descriptor.dependencies.size() - 1);
     }
 
-    RenderPassFactory::DependencyImpl::DependencyImpl(RenderPass::Descriptor &des, uint32_t dep) : Impl(des), dependency(dep)
+    RenderPassFactory::DependencyImpl::DependencyImpl(RenderPass::VkDescriptor &des, uint32_t dep) : Impl(des), dependency(dep)
     {
     }
 
@@ -193,7 +193,7 @@ namespace sky::vk {
         return *this;
     }
 
-    RenderPassFactory::SubImpl::SubImpl(RenderPass::Descriptor &des, uint32_t index) : Impl(des), subPass(index)
+    RenderPassFactory::SubImpl::SubImpl(RenderPass::VkDescriptor &des, uint32_t index) : Impl(des), subPass(index)
     {
     }
 
@@ -237,7 +237,7 @@ namespace sky::vk {
         return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
-    RenderPassFactory::AttachmentImpl::AttachmentImpl(uint32_t index, RenderPass::Descriptor &des, uint32_t sub)
+    RenderPassFactory::AttachmentImpl::AttachmentImpl(uint32_t index, RenderPass::VkDescriptor &des, uint32_t sub)
     : SubImpl(des, sub), attachment(index)
     {
     }

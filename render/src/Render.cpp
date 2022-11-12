@@ -101,7 +101,7 @@ namespace sky {
 
     void Render::InitGlobalPool()
     {
-        vk::DescriptorSetLayout::Descriptor layoutDesc = {};
+        vk::DescriptorSetLayout::VkDescriptor layoutDesc = {};
         layoutDesc.bindings.emplace(0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT});
         layoutDesc.bindings.emplace(1,
                                     vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
@@ -111,7 +111,7 @@ namespace sky {
 
     void Render::InitDefaultResource()
     {
-        vk::Sampler::Descriptor samplerDesc = {};
+        vk::Sampler::VkDescriptor samplerDesc = {};
         defaultSampler                       = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::Sampler>(samplerDesc);
 
         uint8_t data[] = {

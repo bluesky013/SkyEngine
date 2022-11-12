@@ -16,11 +16,11 @@ namespace sky::vk {
     public:
         ~TransientPool() = default;
 
-        struct Descriptor {
+        struct VkDescriptor {
             uint32_t blockSize = 16 * 1024 * 1024;
         };
 
-        bool Init(const Descriptor &desc);
+        bool Init(const VkDescriptor &desc);
 
         void BeginFrame();
         void EndFrame();

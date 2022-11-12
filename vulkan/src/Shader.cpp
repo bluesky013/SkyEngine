@@ -22,7 +22,7 @@ namespace sky::vk {
         }
     }
 
-    bool Shader::Init(const Descriptor &des)
+    bool Shader::Init(const VkDescriptor &des)
     {
         VkShaderModuleCreateInfo shaderInfo = {};
         shaderInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

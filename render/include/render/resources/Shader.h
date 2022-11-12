@@ -41,7 +41,7 @@ namespace sky {
         Shader(const Descriptor &desc);
         ~Shader() = default;
 
-        using DescriptorTable = std::unordered_map<uint32_t, vk::DescriptorSetLayout::Descriptor>;
+        using DescriptorTable = std::unordered_map<uint32_t, vk::DescriptorSetLayout::VkDescriptor>;
         using NameTable       = std::unordered_map<uint32_t, PropertyTablePtr>;
         using StageInputTable = std::map<std::string, StageInputInfo>;
 

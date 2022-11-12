@@ -24,7 +24,7 @@ namespace sky::vk {
         }
     }
 
-    bool DescriptorSetLayout::Init(const Descriptor &des)
+    bool DescriptorSetLayout::Init(const VkDescriptor &des)
     {
         info = des;
 
