@@ -3,3 +3,12 @@
 //
 
 #include <rhi/ImageView.h>
+
+namespace sky::rhi {
+
+    const ImageView::Descriptor &ImageView::GetDescriptor() const
+    {
+        return viewDesc;
+    }
+
+}

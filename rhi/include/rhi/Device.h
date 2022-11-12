@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include <memory>
+#include <rhi/Image.h>
+#include <rhi/ImageView.h>
 
 namespace sky::rhi {
 
@@ -25,6 +26,7 @@ namespace sky::rhi {
             }
             return std::shared_ptr<T>(res);
         }
+
     };
 
 }

@@ -21,5 +21,6 @@ namespace sky::vk {
     VkFormat FromRHI(rhi::PixelFormat format);
     VmaMemoryUsage FromRHI(rhi::MemoryType type);
     VkImageUsageFlags FromRHI(rhi::ImageUsageFlags);
+    VkBufferUsageFlags FromRHI(rhi::BufferUsageFlags);
 
 }

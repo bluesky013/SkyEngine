@@ -4,6 +4,7 @@
 
 #pragma once
 #include <vk_mem_alloc.h>
+#include <rhi/BufferView.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/Buffer.h>
 
@@ -12,7 +13,7 @@ namespace sky::vk {
     class Device;
     class Image;
 
-    class BufferView : public DevObject {
+    class BufferView : public rhi::BufferView, public DevObject {
     public:
         BufferView(Device &);
         ~BufferView();
@@ -33,6 +34,7 @@ namespace sky::vk {
         friend class Image;
         friend class SwapChain;
 
+        bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);
 
         BufferPtr              source;

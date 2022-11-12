@@ -30,5 +30,6 @@ namespace sky::rhi {
     protected:
         Descriptor imageDesc;
     };
+    using ImagePtr = std::shared_ptr<Image>;
 
 }

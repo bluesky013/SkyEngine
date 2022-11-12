@@ -244,7 +244,7 @@ namespace sky {
             descriptor.memory                    = VMA_MEMORY_USAGE_CPU_TO_GPU;
             descriptor.size                      = PARTICLE_NUM * sizeof(Particle);
             descriptor.usage                     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-            descriptor.transient                 = true;
+            descriptor.allocateMem               = false;
             particleSystem->output                = device->CreateDeviceObject<vk::Buffer>(descriptor);
             vkGetBufferMemoryRequirements(device->GetNativeHandle(), particleSystem->output->GetNativeHandle(), &requirements1);
 

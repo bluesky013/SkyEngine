@@ -22,7 +22,7 @@ namespace sky::rhi {
         const Descriptor &GetDescriptor() const;
 
     protected:
-        Descriptor imageDesc;
+        Descriptor viewDesc;
     };
-
+    using ImageViewPtr = std::shared_ptr<ImageView>;
 }

@@ -4,6 +4,7 @@
 
 #include "vulkan/Buffer.h"
 #include "core/logger/Logger.h"
+#include "vulkan/Conversion.h"
 #include "vulkan/Device.h"
 #include "vk_mem_alloc.h"
 
@@ -30,6 +31,29 @@ namespace sky::vk {
         }
     }
 
+    bool Buffer::Init(const Descriptor &des)
+    {
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size  = des.size;
+        bufferInfo.usage = FromRHI(des.usage);
+
+        VkResult res;
+        if (des.allocateMem) {
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage                   = FromRHI(des.memory);
+            res                               = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+        } else {
+            res = vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, nullptr, &buffer);
+        }
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "create buffer failed, %d", res);
+            return false;
+        }
+
+        bufferDesc = des;
+        return true;
+    }
+
     bool Buffer::Init(const VkDescriptor &des)
     {
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -37,7 +61,7 @@ namespace sky::vk {
         bufferInfo.usage = des.usage;
 
         VkResult res;
-        if (!des.transient) {
+        if (des.allocateMem) {
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage                   = des.memory;
             res                               = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
@@ -48,9 +72,6 @@ namespace sky::vk {
             LOG_E(TAG, "create buffer failed, %d", res);
             return false;
         }
-
-        isTransient = des.transient;
-        desc        = des;
         return true;
     }
 
@@ -61,7 +82,7 @@ namespace sky::vk {
 
     bool Buffer::IsTransient() const
     {
-        return isTransient;
+        return allocation == VK_NULL_HANDLE;
     }
 
     uint8_t *Buffer::Map()

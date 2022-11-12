@@ -118,6 +118,27 @@ namespace sky::vk {
         return res;
     }
 
+    VkBufferUsageFlags FromRHI(rhi::BufferUsageFlags flags)
+    {
+        VkBufferUsageFlags res = {};
+        static const std::unordered_map<rhi::BufferUsageFlagBit, VkBufferUsageFlagBits> usageMap = {
+            {rhi::BufferUsageFlagBit::TRANSFER_SRC, VK_BUFFER_USAGE_TRANSFER_SRC_BIT},
+            {rhi::BufferUsageFlagBit::TRANSFER_DST, VK_BUFFER_USAGE_TRANSFER_DST_BIT},
+            {rhi::BufferUsageFlagBit::UNIFORM     , VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT},
+            {rhi::BufferUsageFlagBit::STORAGE     , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT},
+            {rhi::BufferUsageFlagBit::VERTEX      , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT},
+            {rhi::BufferUsageFlagBit::INDEX       , VK_BUFFER_USAGE_INDEX_BUFFER_BIT},
+            {rhi::BufferUsageFlagBit::INDIRECT    , VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT},
+        };
+
+        for (const auto &[usageBit, vkUsageBit] : usageMap) {
+            if (flags & usageBit) {
+                res |= vkUsageBit;
+            }
+        }
+        return res;
+    }
+
     VkImageAspectFlags FromRHI(rhi::AspectFlags flags)
     {
         VkImageAspectFlags res = {};

@@ -5,9 +5,25 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <core/template/Flags.h>
 
 namespace sky::rhi {
+
+#define ENABLE_FLAG_BIT_OPERATOR(Type) \
+    constexpr Flags<Type> operator&(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) & rhs; \
+    } \
+    constexpr Flags<Type> operator|(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) | rhs; \
+    } \
+    constexpr Flags<Type> operator^(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) ^ rhs; \
+    }
+
 
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,
@@ -81,6 +97,7 @@ namespace sky::rhi {
         INPUT_ATTACHMENT = 0x00000080,
     };
     using ImageUsageFlags = Flags<ImageUsageFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(ImageUsageFlagBit)
 
     enum class AspectFlagBit : uint32_t {
         COLOR_BIT   = 0x00000001,
@@ -88,6 +105,20 @@ namespace sky::rhi {
         STENCIL_BIT = 0x00000004,
     };
     using AspectFlags = Flags<AspectFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(AspectFlagBit)
+
+    enum class BufferUsageFlagBit : uint32_t {
+        NONE            = 0x00000000,
+        TRANSFER_SRC    = 0x00000001,
+        TRANSFER_DST    = 0x00000002,
+        UNIFORM         = 0x00000004,
+        STORAGE         = 0x00000008,
+        VERTEX          = 0x00000010,
+        INDEX           = 0x00000020,
+        INDIRECT        = 0x00000040,
+    };
+    using BufferUsageFlags = Flags<BufferUsageFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(BufferUsageFlagBit)
 
     // structs
     struct Extent3D {
