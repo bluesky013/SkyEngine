@@ -99,8 +99,6 @@ namespace sky::vk {
             uint32_t          subPassIndex = 0;
         };
 
-        bool Init(const VkDescriptor &);
-
         VkPipeline GetNativeHandle() const;
 
         PipelineLayoutPtr GetPipelineLayout() const;
@@ -108,6 +106,9 @@ namespace sky::vk {
     private:
         friend class Device;
         GraphicsPipeline(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         static uint32_t CalculateHash(const VkDescriptor &);
 

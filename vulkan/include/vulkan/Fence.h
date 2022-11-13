@@ -4,20 +4,19 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "rhi/Fence.h"
 
 namespace sky::vk {
 
     class Device;
 
-    class Fence : public DevObject {
+    class Fence : public rhi::Fence, public DevObject {
     public:
         ~Fence();
 
         struct VkDescriptor {
             VkFenceCreateFlags flag = 0;
         };
-
-        bool Init(const VkDescriptor &);
 
         void Wait(uint64_t timeout = UINT64_MAX);
 
@@ -28,6 +27,10 @@ namespace sky::vk {
     private:
         friend class Device;
         Fence(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
+
         VkFence fence;
     };
 

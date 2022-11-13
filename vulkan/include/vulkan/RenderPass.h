@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "rhi/RenderPass.h"
 #include "vulkan/Basic.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
@@ -13,7 +14,7 @@ namespace sky::vk {
 
     class Device;
 
-    class RenderPass : public DevObject {
+    class RenderPass : public rhi::RenderPass, public DevObject {
     public:
         ~RenderPass();
 
@@ -30,23 +31,19 @@ namespace sky::vk {
             std::vector<VkSubpassDependency>     dependencies;
         };
 
-        bool Init(const VkDescriptor &);
-
         VkRenderPass GetNativeHandle() const;
 
         uint32_t GetHash() const;
-
-        uint32_t GetPsoHash() const;
 
     private:
         friend class Device;
         RenderPass(Device &);
 
-        void CalculateHashForPSO(const VkDescriptor &);
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkRenderPass pass;
         uint32_t     hash;
-        uint32_t     psoHash;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

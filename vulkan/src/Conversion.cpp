@@ -132,6 +132,30 @@ namespace sky::vk {
         return iter == SAMPLER_ADDRESS_TABLE.end() ? VK_SAMPLER_ADDRESS_MODE_REPEAT : iter->second;
     }
 
+    VkSampleCountFlagBits FromRHI(rhi::SampleCount sample)
+    {
+        return static_cast<VkSampleCountFlagBits>(sample);
+    }
+
+    VkAttachmentLoadOp FromRHI(rhi::LoadOp op)
+    {
+        if (op == rhi::LoadOp::LOAD) {
+            return VK_ATTACHMENT_LOAD_OP_LOAD;
+        }
+        if (op == rhi::LoadOp::CLEAR) {
+            return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+
+    VkAttachmentStoreOp FromRHI(rhi::StoreOp op)
+    {
+        if (op == rhi::StoreOp::STORE) {
+            return VK_ATTACHMENT_STORE_OP_STORE;
+        }
+        return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    }
+
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags flags)
     {
         VkShaderStageFlags res = {};

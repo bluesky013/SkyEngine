@@ -26,4 +26,7 @@ namespace sky::vk {
     VkSamplerMipmapMode FromRHI(rhi::MipFilter);
     VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags);
+    VkSampleCountFlagBits FromRHI(rhi::SampleCount);
+    VkAttachmentLoadOp FromRHI(rhi::LoadOp);
+    VkAttachmentStoreOp FromRHI(rhi::StoreOp);
 }

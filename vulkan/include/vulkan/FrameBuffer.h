@@ -3,6 +3,8 @@
 //
 
 #pragma once
+
+#include "rhi/FrameBuffer.h"
 #include "vulkan/Basic.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/ImageView.h"
@@ -14,7 +16,7 @@ namespace sky::vk {
 
     class Device;
 
-    class FrameBuffer : public DevObject {
+    class FrameBuffer : public rhi::FrameBuffer, public DevObject {
     public:
         ~FrameBuffer();
 
@@ -23,8 +25,6 @@ namespace sky::vk {
             RenderPassPtr             pass;
             std::vector<ImageViewPtr> views;
         };
-
-        bool Init(const VkDescriptor &);
 
         VkFramebuffer GetNativeHandle() const;
 
@@ -35,6 +35,9 @@ namespace sky::vk {
     private:
         friend class Device;
         FrameBuffer(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkFramebuffer frameBuffer;
         VkDescriptor  descriptor;

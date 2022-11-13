@@ -107,6 +107,90 @@ namespace sky::rhi {
         VSYNC     = 1
     };
 
+    enum class BlendFactor : uint32_t {
+        ZERO                     = 0,
+        ONE                      = 1,
+        SRC_COLOR                = 2,
+        ONE_MINUS_SRC_COLOR      = 3,
+        DST_COLOR                = 4,
+        ONE_MINUS_DST_COLOR      = 5,
+        SRC_ALPHA                = 6,
+        ONE_MINUS_SRC_ALPHA      = 7,
+        DST_ALPHA                = 8,
+        ONE_MINUS_DST_ALPHA      = 9,
+        CONSTANT_COLOR           = 10,
+        ONE_MINUS_CONSTANT_COLOR = 11,
+        CONSTANT_ALPHA           = 12,
+        ONE_MINUS_CONSTANT_ALPHA = 13,
+        SRC_ALPHA_SATURATE       = 14,
+        SRC1_COLOR               = 15,
+        ONE_MINUS_SRC1_COLOR     = 16,
+        SRC1_ALPHA               = 17,
+        ONE_MINUS_SRC1_ALPHA     = 18,
+    };
+
+    enum class BlendOp : uint32_t {
+        ADD      = 0,
+        SUBTRACT = 1,
+    };
+
+    enum class CompareOp : uint32_t {
+        NEVER            = 0,
+        LESS             = 1,
+        EQUAL            = 2,
+        LESS_OR_EQUAL    = 3,
+        GREATER          = 4,
+        NOT_EQUAL        = 5,
+        GREATER_OR_EQUAL = 6,
+        ALWAYS           = 7,
+    };
+
+    enum class SampleCount : uint32_t {
+        X1  = 0x00000001,
+        X2  = 0x00000002,
+        X4  = 0x00000004,
+        X8  = 0x00000008,
+        X16 = 0x00000010,
+        X32 = 0x00000020,
+        X64 = 0x00000040,
+    };
+
+    enum class PrimitiveTopology : uint32_t {
+        POINT_LIST                    = 0,
+        LINE_LIST                     = 1,
+        LINE_STRIP                    = 2,
+        TRIANGLE_LIST                 = 3,
+        TRIANGLE_STRIP                = 4,
+        TRIANGLE_FAN                  = 5,
+        LINE_LIST_WITH_ADJACENCY      = 6,
+        LINE_STRIP_WITH_ADJACENCY     = 7,
+        TRIANGLE_LIST_WITH_ADJACENCY  = 8,
+        TRIANGLE_STRIP_WITH_ADJACENCY = 9,
+        PATCH_LIST                    = 10,
+    };
+
+    enum class PolygonMode : uint32_t {
+        FILL  = 0,
+        LINE  = 1,
+        POINT = 2,
+    };
+
+    enum class FrontFace : uint32_t {
+        CW  = 0,
+        CCW = 1,
+    };
+
+    enum class LoadOp : uint32_t {
+        DONT_CARE = 0,
+        LOAD  = 1,
+        CLEAR = 2
+    };
+
+    enum class StoreOp : uint32_t {
+        DONT_CARE = 0,
+        STORE = 1,
+    };
+
     // flag bit
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,
@@ -144,14 +228,26 @@ namespace sky::rhi {
     ENABLE_FLAG_BIT_OPERATOR(BufferUsageFlagBit)
 
     enum class ShaderStageFlagBit : uint32_t {
-        VS,
-        FS,
-        CS,
+        VS = 0x01,
+        FS = 0x02,
+        CS = 0x04,
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
 
+    enum class CullModeFlagBits : uint32_t {
+        FRONT = 0x00000001,
+        BACK  = 0x00000002,
+    };
+    using CullingModeFlags = Flags<CullModeFlagBits>;
+    ENABLE_FLAG_BIT_OPERATOR(CullModeFlagBits)
+
     // structs
+    struct Extent2D {
+        uint32_t width;
+        uint32_t height;
+    };
+
     struct Extent3D {
         uint32_t width;
         uint32_t height;
@@ -179,9 +275,51 @@ namespace sky::rhi {
     };
 
     struct ImageSubRange {
-        uint32_t baseLevel;
-        uint32_t levels;
-        uint32_t baseLayer;
-        uint32_t layers;
+        uint32_t baseLevel = 0;
+        uint32_t levels    = 1;
+        uint32_t baseLayer = 0;
+        uint32_t layers    = 1;
+    };
+
+    struct DepthStencil {
+        bool depthTest      = false;
+        bool depthEnable    = false;
+        bool depthBoundTest = false;
+        bool stencilTest    = false;
+        CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
+    };
+
+    struct BlendState {
+        bool blendEn         = false;
+        uint8_t writeMask    = 0xF;
+        uint8_t padding[2]   = {0};
+        BlendFactor srcColor = BlendFactor::ZERO;
+        BlendFactor dstColor = BlendFactor::ZERO;
+        BlendFactor srcAlpha = BlendFactor::ZERO;
+        BlendFactor dstAlpha = BlendFactor::ZERO;
+        BlendOp colorBlendOp = BlendOp::ADD;
+        BlendOp alphaBlendOp = BlendOp::ADD;
+    };
+
+    struct RasterState {
+        bool             depthClampEnable        = false;
+        bool             rasterizerDiscardEnable = false;
+        bool             depthBiasEnable         = false;
+        bool             padding                 = false;
+        float            depthBiasConstantFactor = 0.f;
+        float            depthBiasClamp          = 0.f;
+        float            depthBiasSlopeFactor    = 0.f;
+        float            lineWidth               = 1.f;
+        CullingModeFlags cullMode;
+        FrontFace        frontFace   = FrontFace::CCW;
+        PolygonMode      polygonMode = PolygonMode::FILL;
+    };
+
+    struct InputAssembly {
+        PrimitiveTopology topology = PrimitiveTopology::TRIANGLE_LIST;
+    };
+
+    struct MultiSample {
+        SampleCount sampleCount;
     };
 }

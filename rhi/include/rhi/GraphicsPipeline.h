@@ -14,6 +14,11 @@ namespace sky::rhi {
         virtual ~GraphicsPipeline() = default;
 
         struct Descriptor {
+            DepthStencil            depthStencil;
+            MultiSample             multiSample;
+            InputAssembly           inputAssembly;
+            RasterState             rasterState;
+            std::vector<BlendState> blendStates;
         };
     };
 

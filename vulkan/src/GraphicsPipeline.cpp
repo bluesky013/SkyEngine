@@ -20,7 +20,7 @@ namespace sky::vk {
             HashCombine32(hash, desc.program->shaderOption->GetHash());
         }
         HashCombine32(hash, desc.pipelineLayout->GetHash());
-        HashCombine32(hash, desc.renderPass->GetPsoHash());
+        HashCombine32(hash, desc.renderPass->GetHash());
         HashCombine32(hash, desc.vertexInput->GetHash());
         HashCombine32(hash, desc.subPassIndex);
         return hash;
@@ -28,6 +28,11 @@ namespace sky::vk {
 
     GraphicsPipeline::GraphicsPipeline(Device &dev) : DevObject(dev), pipeline(VK_NULL_HANDLE), hash(0)
     {
+    }
+
+    bool GraphicsPipeline::Init(const Descriptor &des)
+    {
+        return true;
     }
 
     bool GraphicsPipeline::Init(const VkDescriptor &des)

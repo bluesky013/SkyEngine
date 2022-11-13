@@ -19,6 +19,11 @@ namespace sky::vk {
         }
     }
 
+    bool FrameBuffer::Init(const Descriptor &)
+    {
+        return true;
+    }
+
     bool FrameBuffer::Init(const VkDescriptor &des)
     {
         std::vector<VkImageView> views(des.views.size());
