@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <rhi/Core.h>
+
 namespace sky::rhi {
 
     class PipelineLayout {
@@ -14,5 +16,5 @@ namespace sky::rhi {
         struct Descriptor {
         };
     };
-
+    using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;
 }

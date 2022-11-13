@@ -5,20 +5,26 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/VertexInput.h>
+#include <rhi/RenderPass.h>
+#include <rhi/PipelineLayout.h>
+#include <rhi/Shader.h>
 
 namespace sky::rhi {
 
     class GraphicsPipeline {
     public:
-        GraphicsPipeline() = default;
+        GraphicsPipeline()          = default;
         virtual ~GraphicsPipeline() = default;
 
         struct Descriptor {
-            DepthStencil            depthStencil;
-            MultiSample             multiSample;
-            InputAssembly           inputAssembly;
-            RasterState             rasterState;
-            std::vector<BlendState> blendStates;
+            PipelineState     state;
+            ShaderPtr         vs;
+            ShaderPtr         fs;
+            VertexInputPtr    vertexInput;
+            RenderPassPtr     renderPass;
+            PipelineLayoutPtr pipelineLayout;
+            uint32_t          subPassIndex = 0;
         };
     };
 

@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include <core/template/Flags.h>
 
 namespace sky::rhi {
@@ -321,5 +322,13 @@ namespace sky::rhi {
 
     struct MultiSample {
         SampleCount sampleCount;
+    };
+
+    struct PipelineState {
+        DepthStencil            depthStencil;
+        MultiSample             multiSample;
+        InputAssembly           inputAssembly;
+        RasterState             rasterState;
+        std::vector<BlendState> blendStates;
     };
 }
