@@ -1,3 +1,4 @@
+
 //
 // Created by Zach Lee on 2022/11/19.
 //
@@ -22,7 +23,7 @@ namespace sky {
         TLSFPool()  = default;
         ~TLSFPool() = default;
 
-        void Init();
+        void Init(uint64_t size);
 
         /**
          * 2*63 : MAX_FIRST_LEVEL_INDEX
@@ -35,22 +36,20 @@ namespace sky {
          * 2^8 : MIN_BLOCK_SIZE(256), FIRST_LEVEL_OFFSET(8)
          */
         static constexpr uint32_t MAX_FIRST_LEVEL_INDEX = 63;
-        static constexpr uint32_t MIN_BLOCK_SIZE        = 256; // MBS
+        static constexpr uint32_t MIN_BLOCK_SIZE        = 256;                                         // MBS
         static constexpr uint32_t FIRST_LEVEL_OFFSET    = Log2(MIN_BLOCK_SIZE);
-        static constexpr uint32_t POOL_SIZE             = 1024 * 1024 * 4;                          // 4M
+        static constexpr uint32_t POOL_SIZE             = 1024 * 1024 * 4;                             // 4M
         static constexpr uint32_t FIRST_LEVEL_INDEX     = Log2(POOL_SIZE) - FIRST_LEVEL_OFFSET + 1; // FLI
-        static constexpr uint32_t SECOND_LEVEL_INDEX    = 5;                                        // SLI, 4 or 5
+        static constexpr uint32_t SECOND_LEVEL_INDEX    = 5;                                           // SLI, 4 or 5
 
         static uint32_t SizeToFLIndex(uint64_t size)
         {
-            if (size > MIN_BLOCK_SIZE)
-                return BitScanReverse(size) - FIRST_LEVEL_OFFSET;
-            return 0;
+            return size > MIN_BLOCK_SIZE ? BitScanReverse(size) - FIRST_LEVEL_OFFSET : 0;
         }
 
         static uint32_t SizeToSLIndex(uint32_t fl, uint64_t size)
         {
-            return ((size >> (fl + FIRST_LEVEL_OFFSET - SECOND_LEVEL_INDEX)) ^ (1U << SECOND_LEVEL_INDEX));
+            return (static_cast<uint32_t>(size >> (fl + FIRST_LEVEL_OFFSET - SECOND_LEVEL_INDEX)) ^ (1U << SECOND_LEVEL_INDEX));
         }
 
         struct Block {
@@ -62,12 +61,27 @@ namespace sky {
 
             Block *prevFree = nullptr;
             Block *nextFree = nullptr;
+
+            bool IsFree() const { return prevFree != this; }
         };
 
+        void Allocate(uint64_t size, uint64_t alignment);
+
     private:
+        bool TryBlock(const Block &block, uint64_t size, uint64_t alignment, uint64_t &alignOffset);
+        void AllocateFromBlock(Block &block, uint64_t alignOffset);
+        void InsertFreeBlock(Block &);
+        void RemoveFreeBlock(Block &);
+
+        void InsertFreeBlock(Block &, uint32_t fl, uint32_t sl);
+        void RemoveFreeBlock(Block &, uint32_t fl, uint32_t sl);
+
         Block           *nullBlock;
+        uint64_t         poolSize;
+        uint32_t         firstLevelIndex;
         uint32_t         flBitmap;
         uint32_t         slBitmaps[FIRST_LEVEL_INDEX];
+        uint32_t         freeListCount;
         Block           *blockFreeList[FIRST_LEVEL_INDEX][SECOND_LEVEL_INDEX];
         std::list<Block> blocks;
     };

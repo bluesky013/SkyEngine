@@ -20,7 +20,7 @@ class VulkanTest : public ::testing::Test {
 public:
     static void SetUpTestSuite()
     {
-        Instance::VkDescriptor drvDes = {};
+        Instance::Descriptor drvDes = {};
         drvDes.engineName         = "SkyEngine";
         drvDes.appName            = "Test";
         drvDes.enableDebugLayer   = true;

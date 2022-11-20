@@ -12,7 +12,7 @@ namespace sky::vk {
     void ShaderOption::Builder::AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size)
     {
         auto &map = constants[stage];
-        map[id]   = Align(size, 4);
+        map[id]   = Align(size, 4U);
     }
 
     std::shared_ptr<ShaderOption> ShaderOption::Builder::Build()

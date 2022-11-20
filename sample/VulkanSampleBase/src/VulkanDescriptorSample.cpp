@@ -185,7 +185,7 @@ namespace sky {
             bufferInfo.usage                   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
             bufferInfo.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             {
-                alignedSize                        = Align(sizeof(Ubo), static_cast<uint32_t>(limits.minUniformBufferOffsetAlignment));
+                alignedSize                        = Align(static_cast<uint32_t>(sizeof(Ubo)), static_cast<uint32_t>(limits.minUniformBufferOffsetAlignment));
                 bufferInfo.size                    = 2 * alignedSize;
                 uniformBuffer                      = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
                 writer.Write(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBuffer, 0, sizeof(Ubo));

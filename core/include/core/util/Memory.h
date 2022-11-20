@@ -11,7 +11,8 @@
 
 namespace sky {
 
-    inline uint32_t Align(uint32_t size, uint32_t alignment)
+    template <typename T>
+    inline T Align(T size, T alignment)
     {
         return ((size + alignment - 1) & (~(alignment - 1)));
     }
@@ -65,7 +66,7 @@ namespace sky {
     inline uint8_t BitScan(uint64_t bitMap)
     {
 #ifdef _MSC_VER
-        uint64_t pos;
+        unsigned long pos;
         if (_BitScanForward64(&pos, bitMap))
             return static_cast<uint8_t>(pos);
         return UINT8_MAX;
@@ -87,8 +88,8 @@ namespace sky {
     inline uint8_t BitScanReverse(uint64_t bitMap)
     {
 #ifdef _MSC_VER
-        uint64_t pos;
-        if (_BitScanReverse(&pos, bitMap)) {
+        unsigned long pos;
+        if (_BitScanReverse64(&pos, bitMap)) {
             return static_cast<uint8_t>(pos);
         }
 #elif defined __GNUC__ || defined __clang__
