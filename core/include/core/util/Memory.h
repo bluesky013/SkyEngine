@@ -67,8 +67,9 @@ namespace sky {
     {
 #ifdef _MSC_VER
         unsigned long pos;
-        if (_BitScanForward64(&pos, bitMap))
+        if (_BitScanForward64(&pos, bitMap)) {
             return static_cast<uint8_t>(pos);
+        }
         return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
         return static_cast<uint8_t>(__builtin_ffs(bitMap)) - 1U;

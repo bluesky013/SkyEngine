@@ -9,8 +9,8 @@ namespace sky {
 
     void TLSFPool::Init(uint64_t size)
     {
-        poolSize      = size == 0 ? POOL_SIZE : size;
-        freeListCount = 0;
+        poolSize        = size == 0 ? POOL_SIZE : size;
+        freeListCount   = 0;
 
         nullBlock           = &blocks.emplace_back();
         nullBlock->offset   = 0;
@@ -29,35 +29,26 @@ namespace sky {
 
     void TLSFPool::Allocate(uint64_t size, uint64_t alignment)
     {
+        uint64_t allocSize = Align(size, std::max(alignment, static_cast<uint64_t>(SMALL_BUFFER_STEP)));
 
         uint64_t alignOffset = 0;
         if (freeListCount == 0) {
-            if (!TryBlock(*nullBlock, size, alignment, alignOffset)) {
+            if (TryBlock(*nullBlock, allocSize, alignment, alignOffset)) {
+                AllocateFromBlock(*nullBlock, allocSize, alignOffset);
                 return;
             }
-            AllocateFromBlock(*nullBlock, alignOffset);
         }
-
-        uint32_t fl = SizeToFLIndex(size);
-        uint32_t sl = SizeToSLIndex(fl, size);
     }
 
     bool TLSFPool::TryBlock(const Block &block, uint64_t size, uint64_t alignment, uint64_t &alignOffset)
     {
         // buffer image granularity
         alignOffset = Align(block.offset, alignment);
-        if (alignOffset + size > block.offset + block.size) {
-            return false;
-        }
-        return true;
+        return alignOffset + size <= block.offset + block.size;
     }
 
-    void TLSFPool::AllocateFromBlock(Block &current, uint64_t alignOffset)
+    void TLSFPool::AdjustAlignOffset(Block &current, uint64_t alignOffset)
     {
-        if (&current != nullBlock) {
-            RemoveFreeBlock(current);
-        }
-
         uint64_t padding = alignOffset - current.offset;
         if (padding != 0) {
             // There should be no padding at the first allocation, prevPhy should not be nullptr;
@@ -72,12 +63,10 @@ namespace sky {
              * if prevPhy is taken, add a padding block.
              */
             if (prevPhy->IsFree()) {
-                uint32_t oldFl = SizeToFLIndex(prevPhy->size);
-                uint32_t oldSl = SizeToSLIndex(oldFl, prevPhy->size);
-
                 uint64_t newSize = prevPhy->size + padding;
-                uint32_t newFl = SizeToFLIndex(newSize);
-                uint32_t newSl = SizeToSLIndex(newFl, newSize);
+
+                auto [oldFl, oldSl] = LevelMapping(prevPhy->size);
+                auto [newFl, newSl] = LevelMapping(newSize);
 
                 if (oldFl != newFl || oldSl != newSl) {
                     RemoveFreeBlock(*prevPhy, oldFl, oldSl);
@@ -88,39 +77,163 @@ namespace sky {
                 Block &newBlock   = blocks.emplace_back();
                 current.prevPhy   = &newBlock;
                 prevPhy->nextPhy  = &newBlock;
-                newBlock.prevPhy  = prevPhy;
-                newBlock.nextPhy  = &current;
+
                 newBlock.size     = padding;
                 newBlock.offset   = current.offset;
+                newBlock.prevPhy  = prevPhy;
+                newBlock.nextPhy  = &current;
                 newBlock.nextFree = nullptr;
                 newBlock.prevFree = nullptr;
-
                 InsertFreeBlock(newBlock);
             }
 
             current.size -= padding;
             current.offset += padding;
         }
-
     }
 
-    void TLSFPool::InsertFreeBlock(Block &)
+    void TLSFPool::UpdateBlock(Block &current, uint64_t size)
     {
+        uint64_t blockLeftSize = current.size - size;
+        if (blockLeftSize == 0) {
+            if (nullBlock == &current) {
+                nullBlock           = &blocks.emplace_back();
+                nullBlock->size     = 0;
+                nullBlock->offset   = current.offset + size;
+                nullBlock->prevPhy  = &current;
+                nullBlock->nextPhy  = nullptr;
+                nullBlock->prevFree = nullptr;
+                nullBlock->nextFree = nullptr;
 
+                current.nextPhy  = nullBlock;
+                current.prevFree = &current;
+            }
+        } else {
+            auto &newBlock    = blocks.emplace_back();
+            newBlock.size     = blockLeftSize;
+            newBlock.offset   = current.offset + size;
+            newBlock.prevPhy  = &current;
+            newBlock.nextPhy  = current.nextPhy;
+            newBlock.prevFree = nullptr;
+            newBlock.nextFree = nullptr;
+
+            current.nextPhy = &newBlock;
+            current.size    = size;
+            if (nullBlock == &current) {
+                nullBlock = &newBlock;
+                current.prevPhy = &current;
+            } else {
+                newBlock.nextPhy->prevPhy = &newBlock;
+                InsertFreeBlock(newBlock);
+            }
+        }
     }
 
-    void TLSFPool::RemoveFreeBlock(Block &)
+    void TLSFPool::AllocateFromBlock(Block &current, uint64_t size, uint64_t alignOffset)
     {
+        if (&current != nullBlock) {
+            RemoveFreeBlock(current);
+        }
 
+        AdjustAlignOffset(current, alignOffset);
+        UpdateBlock(current, size);
     }
 
-    void TLSFPool::InsertFreeBlock(Block &, uint32_t fl, uint32_t sl)
+    void TLSFPool::InsertFreeBlock(Block &block)
     {
-
+        auto [fl, sl] = LevelMapping(block.size);
+        InsertFreeBlock(block, fl, sl);
     }
 
-    void TLSFPool::RemoveFreeBlock(Block &, uint32_t fl, uint32_t sl)
+    void TLSFPool::RemoveFreeBlock(Block &block)
     {
+        auto [fl, sl] = LevelMapping(block.size);
+        RemoveFreeBlock(block, fl, sl);
+    }
 
+    void TLSFPool::LevelMapping(uint64_t size, uint32_t &fl, uint32_t &sl)
+    {
+        if (size <= MIN_BLOCK_SIZE) {
+            fl = 0;
+            sl = static_cast<uint32_t>(size - 1) / SMALL_BUFFER_STEP;
+        } else {
+            fl = SizeToFLIndex(size);
+            sl = SizeToSLIndex(fl, size);
+        }
+    }
+
+    std::pair<uint32_t, uint32_t> TLSFPool::LevelMapping(uint64_t size)
+    {
+        uint32_t fl = 0;
+        uint32_t sl = 0;
+        LevelMapping(size, fl, sl);
+        return {fl, sl};
+    }
+
+    std::pair<uint32_t, uint32_t> TLSFPool::LevelMappingRoundUp(uint64_t size)
+    {
+        uint64_t roundSize = size;
+        if (size > MIN_BLOCK_SIZE) {
+            roundSize += (1ULL << (BitScanReverse(size) - SECOND_LEVEL_INDEX));
+        }
+        return LevelMapping(roundSize);
+    }
+
+    void TLSFPool::InsertFreeBlock(Block &block, uint32_t fl, uint32_t sl)
+    {
+        /**
+         * blockFreeList[i][j] --next--> [free1] --next--> [free2]
+         * |
+         * insert new block here
+         */
+        block.prevFree = nullptr;
+        block.nextFree = blockFreeList[fl][sl];
+        if (block.nextFree != nullptr) {
+            block.nextFree->prevFree = &block;
+        } else {
+            // set bitmap
+            flBitmap |= (1U << fl);
+            slBitmaps[fl] |= (1U << sl);
+        }
+        blockFreeList[fl][sl] = &block;
+        ++freeListCount;
+    }
+
+    void TLSFPool::RemoveFreeBlock(Block &block, uint32_t fl, uint32_t sl)
+    {
+        /**
+         * 1. remove first block
+         * blockFreeList[i][j] --next--> [free1] --next--> [free2]
+         *        |
+         *        remove this block
+         *
+         * 2. remove middle block
+         * blockFreeList[i][j] --next--> [free1] --next--> [free2]
+         *                                  |
+         *                                  remove this block
+         */
+
+        // update tail
+        if (block.nextFree != nullptr) {
+            block.nextFree->prevFree = block.prevFree;
+        }
+
+        // update head
+        if (block.prevFree != nullptr) {
+            block.prevFree->nextFree = block.nextFree;
+        } else {
+            blockFreeList[fl][sl] = block.nextFree;
+
+            // update bitmap
+            if (block.nextFree == nullptr) {
+                slBitmaps[fl] &= ~(1U << sl);
+                if (slBitmaps[fl] == 0) {
+                    flBitmap &= ~(1U << fl);
+                }
+            }
+        }
+        block.prevFree = &block;
+        block.nextFree = nullptr;
+        --freeListCount;
     }
 }
