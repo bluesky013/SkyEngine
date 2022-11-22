@@ -7,36 +7,57 @@
 
 namespace sky {
 
-    void TLSFPool::Init(uint64_t size)
+    void TLSFPool::Init()
     {
-        poolSize        = size == 0 ? POOL_SIZE : size;
-        freeListCount   = 0;
+        freeListCount = 0;
 
-        nullBlock           = &blocks.emplace_back();
+        nullBlock           = blocks.Allocate();
         nullBlock->offset   = 0;
-        nullBlock->size     = poolSize;
+        nullBlock->size     = DEFAULT_POOL_SIZE;
         nullBlock->prevPhy  = nullptr;
         nullBlock->nextPhy  = nullptr;
         nullBlock->prevFree = nullptr;
         nullBlock->nextFree = nullptr;
 
-        firstLevelIndex = static_cast<uint32_t>(Log2(poolSize)) - FIRST_LEVEL_OFFSET + 1U;
-        flBitmap        = 0;
-        for (uint32_t i = 0; i < FIRST_LEVEL_INDEX; ++i) {
+        flBitmap = 0;
+        for (uint32_t i = 0; i < FIRST_LEVEL_INDEX_COUNT; ++i) {
             slBitmaps[i] = 0;
+            for (uint32_t j = 0; j < SECOND_LEVEL_INDEX_COUNT; ++j) {
+                blockFreeList[i][j] = nullptr;
+            }
         }
     }
 
-    void TLSFPool::Allocate(uint64_t size, uint64_t alignment)
+    TLSFPool::Block* TLSFPool::Allocate(uint64_t size, uint64_t alignment)
     {
         uint64_t allocSize = Align(size, std::max(alignment, static_cast<uint64_t>(SMALL_BUFFER_STEP)));
 
         uint64_t alignOffset = 0;
-        if (freeListCount == 0) {
-            if (TryBlock(*nullBlock, allocSize, alignment, alignOffset)) {
-                AllocateFromBlock(*nullBlock, allocSize, alignOffset);
-                return;
-            }
+        Block* block = SearchDefault(allocSize, alignment, alignOffset);
+        if (block != nullptr) {
+            AllocateFromBlock(*block, allocSize, alignOffset);
+        }
+        return block;
+    }
+
+    void TLSFPool::Free(Block *block)
+    {
+        if (block->prevPhy != nullptr && block->prevPhy->IsFree()) {
+            // pre Phy block should be nullBlock
+            RemoveFreeBlock(*block->prevPhy);
+            MergePrevBlockToCurrent(*block, *block->prevPhy);
+        }
+
+        // block->nextPhy should not be nullptr
+        if (!block->nextPhy->IsFree()) {
+            InsertFreeBlock(*block);
+        } else if (block->nextPhy == nullBlock){
+            MergePrevBlockToCurrent(*block->nextPhy, *block);
+        } else {
+            Block *next = block->nextPhy;
+            RemoveFreeBlock(*next);
+            MergePrevBlockToCurrent(*next, *block);
+            InsertFreeBlock(*next);
         }
     }
 
@@ -74,17 +95,17 @@ namespace sky {
                     InsertFreeBlock(*prevPhy, newFl, newSl);
                 }
             } else {
-                Block &newBlock   = blocks.emplace_back();
-                current.prevPhy   = &newBlock;
-                prevPhy->nextPhy  = &newBlock;
+                Block *newBlock  = blocks.Allocate();
+                current.prevPhy  = newBlock;
+                prevPhy->nextPhy = newBlock;
 
-                newBlock.size     = padding;
-                newBlock.offset   = current.offset;
-                newBlock.prevPhy  = prevPhy;
-                newBlock.nextPhy  = &current;
-                newBlock.nextFree = nullptr;
-                newBlock.prevFree = nullptr;
-                InsertFreeBlock(newBlock);
+                newBlock->size     = padding;
+                newBlock->offset   = current.offset;
+                newBlock->prevPhy  = prevPhy;
+                newBlock->nextPhy  = &current;
+                newBlock->nextFree = nullptr;
+                newBlock->prevFree = nullptr;
+                InsertFreeBlock(*newBlock);
             }
 
             current.size -= padding;
@@ -92,12 +113,23 @@ namespace sky {
         }
     }
 
+    void TLSFPool::MergePrevBlockToCurrent(Block &current, Block &prev)
+    {
+        current.offset = prev.offset;
+        current.size += prev.size;
+        current.prevPhy = prev.prevPhy;
+        if (current.prevPhy != nullptr) {
+            current.prevPhy->nextPhy = &current;
+        }
+        blocks.Free(&prev);
+    }
+
     void TLSFPool::UpdateBlock(Block &current, uint64_t size)
     {
         uint64_t blockLeftSize = current.size - size;
         if (blockLeftSize == 0) {
             if (nullBlock == &current) {
-                nullBlock           = &blocks.emplace_back();
+                nullBlock           = blocks.Allocate();
                 nullBlock->size     = 0;
                 nullBlock->offset   = current.offset + size;
                 nullBlock->prevPhy  = &current;
@@ -109,22 +141,22 @@ namespace sky {
                 current.prevFree = &current;
             }
         } else {
-            auto &newBlock    = blocks.emplace_back();
-            newBlock.size     = blockLeftSize;
-            newBlock.offset   = current.offset + size;
-            newBlock.prevPhy  = &current;
-            newBlock.nextPhy  = current.nextPhy;
-            newBlock.prevFree = nullptr;
-            newBlock.nextFree = nullptr;
+            auto *newBlock    = blocks.Allocate();
+            newBlock->size     = blockLeftSize;
+            newBlock->offset   = current.offset + size;
+            newBlock->prevPhy  = &current;
+            newBlock->nextPhy  = current.nextPhy;
+            newBlock->prevFree = nullptr;
+            newBlock->nextFree = nullptr;
 
-            current.nextPhy = &newBlock;
+            current.nextPhy = newBlock;
             current.size    = size;
             if (nullBlock == &current) {
-                nullBlock = &newBlock;
-                current.prevPhy = &current;
+                nullBlock = newBlock;
+                current.prevFree = &current;
             } else {
-                newBlock.nextPhy->prevPhy = &newBlock;
-                InsertFreeBlock(newBlock);
+                newBlock->nextPhy->prevPhy = newBlock;
+                InsertFreeBlock(*newBlock);
             }
         }
     }
@@ -153,12 +185,13 @@ namespace sky {
 
     void TLSFPool::LevelMapping(uint64_t size, uint32_t &fl, uint32_t &sl)
     {
-        if (size <= MIN_BLOCK_SIZE) {
+        if (size < MIN_BLOCK_SIZE) {
             fl = 0;
-            sl = static_cast<uint32_t>(size - 1) / SMALL_BUFFER_STEP;
+            sl = static_cast<uint32_t>(size) / SMALL_BUFFER_STEP;
         } else {
-            fl = SizeToFLIndex(size);
-            sl = SizeToSLIndex(fl, size);
+            fl = BitScanReverse(size);
+            sl = static_cast<uint32_t>(size >> (fl - SECOND_LEVEL_INDEX)) ^ (1U << SECOND_LEVEL_INDEX);
+            fl -= (FIRST_LEVEL_OFFSET - 1);
         }
     }
 
@@ -170,13 +203,71 @@ namespace sky {
         return {fl, sl};
     }
 
-    std::pair<uint32_t, uint32_t> TLSFPool::LevelMappingRoundUp(uint64_t size)
+    uint64_t TLSFPool::RoundUpSize(uint64_t size)
     {
         uint64_t roundSize = size;
-        if (size > MIN_BLOCK_SIZE) {
-            roundSize += (1ULL << (BitScanReverse(size) - SECOND_LEVEL_INDEX));
+        if (size >= MIN_BLOCK_SIZE) {
+            roundSize += (1ULL << (BitScanReverse(size) - SECOND_LEVEL_INDEX)) - 1;
+        } else {
+            roundSize += SMALL_BUFFER_STEP - 1;
         }
-        return LevelMapping(roundSize);
+        return roundSize;
+    }
+
+    TLSFPool::Block* TLSFPool::SearchDefault(uint64_t size, uint64_t alignment, uint64_t &alignOffset)
+    {
+        // quick check free list
+        if (freeListCount == 0) {
+            return TryBlock(*nullBlock, size, alignment, alignOffset) ? nullBlock : nullptr;
+        }
+
+        // try next level
+        {
+            uint64_t roundupSize = RoundUpSize(size);
+            auto [fl, sl]        = LevelMapping(roundupSize);
+            auto *freeBlock = SearchFreeBlock(roundupSize, fl, sl);
+            while (freeBlock != nullptr) {
+                if (TryBlock(*freeBlock, size, alignment, alignOffset)) {
+                    return freeBlock;
+                }
+                freeBlock = freeBlock->nextFree;
+            }
+        }
+
+        // try null block again
+        if (TryBlock(*nullBlock, size, alignment, alignOffset)) {
+            return nullBlock;
+        }
+
+        // try best fit
+        {
+            auto [fl, sl]        = LevelMapping(size);
+            auto *freeBlock = SearchFreeBlock(size, fl, sl);
+            while (freeBlock != nullptr) {
+                if (TryBlock(*freeBlock, size, alignment, alignOffset)) {
+                    return freeBlock;
+                }
+                freeBlock = freeBlock->nextFree;
+            }
+        }
+        return nullptr;
+    }
+
+    TLSFPool::Block *TLSFPool::SearchFreeBlock(uint64_t size, uint32_t &fl, uint32_t &sl)
+    {
+        uint32_t slMap = slBitmaps[fl] & (~(0U) << sl);
+        if (slMap == 0) {
+            uint32_t flMap = flBitmap & (~(0U) << (fl + 1));
+            if (flMap == 0) {
+                // no available free blocks
+                return nullptr;
+            }
+
+            fl = BitScan(flMap);
+            slMap = slBitmaps[fl];
+        }
+        sl = BitScan(slMap);
+        return blockFreeList[fl][sl];
     }
 
     void TLSFPool::InsertFreeBlock(Block &block, uint32_t fl, uint32_t sl)
