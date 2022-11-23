@@ -110,6 +110,7 @@ namespace sky::vk {
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);
 
+        static uint32_t CalculateHash(const Descriptor &);
         static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;

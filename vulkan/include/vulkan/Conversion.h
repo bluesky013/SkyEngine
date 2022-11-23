@@ -29,4 +29,13 @@ namespace sky::vk {
     VkSampleCountFlagBits FromRHI(rhi::SampleCount);
     VkAttachmentLoadOp FromRHI(rhi::LoadOp);
     VkAttachmentStoreOp FromRHI(rhi::StoreOp);
+    VkCompareOp FromRHI(rhi::CompareOp);
+    VkPrimitiveTopology FromRHI(rhi::PrimitiveTopology);
+    VkPolygonMode FromRHI(rhi::PolygonMode);
+    VkCullModeFlags FromRHI(rhi::CullingModeFlags);
+    VkFrontFace FromRHI(rhi::FrontFace);
+    VkBlendFactor FromRHI(rhi::BlendFactor);
+    VkBlendOp FromRHI(rhi::BlendOp);
+    VkStencilOp FromRHI(rhi::StencilOp);
+    VkStencilOpState FromRHI(const rhi::StencilState&);
 }

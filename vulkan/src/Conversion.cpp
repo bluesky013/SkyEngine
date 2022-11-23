@@ -156,6 +156,105 @@ namespace sky::vk {
         return VK_ATTACHMENT_STORE_OP_DONT_CARE;
     }
 
+    VkCompareOp FromRHI(rhi::CompareOp compare)
+    {
+        static const std::unordered_map<rhi::CompareOp, VkCompareOp> compareMap =
+            {
+                {rhi::CompareOp:: NEVER           , VK_COMPARE_OP_NEVER},
+                {rhi::CompareOp:: LESS            , VK_COMPARE_OP_LESS},
+                {rhi::CompareOp:: EQUAL           , VK_COMPARE_OP_EQUAL},
+                {rhi::CompareOp:: LESS_OR_EQUAL   , VK_COMPARE_OP_LESS_OR_EQUAL},
+                {rhi::CompareOp:: GREATER         , VK_COMPARE_OP_GREATER},
+                {rhi::CompareOp:: NOT_EQUAL       , VK_COMPARE_OP_NOT_EQUAL},
+                {rhi::CompareOp:: GREATER_OR_EQUAL, VK_COMPARE_OP_GREATER_OR_EQUAL},
+                {rhi::CompareOp:: ALWAYS          , VK_COMPARE_OP_ALWAYS},
+            };
+        auto iter = compareMap.find(compare);
+        return iter == compareMap.end() ? VK_COMPARE_OP_NEVER : iter->second;
+    }
+
+    VkPrimitiveTopology FromRHI(rhi::PrimitiveTopology topo)
+    {
+        static const std::unordered_map<rhi::PrimitiveTopology, VkPrimitiveTopology> topoMap =
+            {
+                {rhi::PrimitiveTopology::POINT_LIST                   , VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
+                {rhi::PrimitiveTopology::LINE_LIST                    , VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
+                {rhi::PrimitiveTopology::LINE_STRIP                   , VK_PRIMITIVE_TOPOLOGY_LINE_STRIP},
+                {rhi::PrimitiveTopology::TRIANGLE_LIST                , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST},
+                {rhi::PrimitiveTopology::TRIANGLE_STRIP               , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP},
+                {rhi::PrimitiveTopology::TRIANGLE_FAN                 , VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN},
+            };
+        auto iter = topoMap.find(topo);
+        return iter == topoMap.end() ? VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : iter->second;
+    }
+
+    VkPolygonMode FromRHI(rhi::PolygonMode mode)
+    {
+        static const std::unordered_map<rhi::PolygonMode, VkPolygonMode> modeMap =
+            {
+                {rhi::PolygonMode::FILL  , VK_POLYGON_MODE_FILL},
+                {rhi::PolygonMode::LINE  , VK_POLYGON_MODE_LINE},
+                {rhi::PolygonMode::POINT , VK_POLYGON_MODE_POINT},
+            };
+        auto iter = modeMap.find(mode);
+        return iter == modeMap.end() ? VK_POLYGON_MODE_FILL : iter->second;
+    }
+
+    VkFrontFace FromRHI(rhi::FrontFace front)
+    {
+        return front == rhi::FrontFace::CW ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    }
+
+    VkBlendFactor FromRHI(rhi::BlendFactor factor)
+    {
+        static const std::unordered_map<rhi::BlendFactor, VkBlendFactor> blendFactorMap =
+            {
+                {rhi::BlendFactor::ZERO                    , VK_BLEND_FACTOR_ZERO                    },
+                {rhi::BlendFactor::ONE                     , VK_BLEND_FACTOR_ONE                     },
+                {rhi::BlendFactor::SRC_COLOR               , VK_BLEND_FACTOR_SRC_COLOR               },
+                {rhi::BlendFactor::ONE_MINUS_SRC_COLOR     , VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR     },
+                {rhi::BlendFactor::DST_COLOR               , VK_BLEND_FACTOR_DST_COLOR               },
+                {rhi::BlendFactor::ONE_MINUS_DST_COLOR     , VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR     },
+                {rhi::BlendFactor::SRC_ALPHA               , VK_BLEND_FACTOR_SRC_ALPHA               },
+                {rhi::BlendFactor::ONE_MINUS_SRC_ALPHA     , VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA     },
+                {rhi::BlendFactor::DST_ALPHA               , VK_BLEND_FACTOR_DST_ALPHA               },
+                {rhi::BlendFactor::ONE_MINUS_DST_ALPHA     , VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA     },
+                {rhi::BlendFactor::CONSTANT_COLOR          , VK_BLEND_FACTOR_CONSTANT_COLOR          },
+                {rhi::BlendFactor::ONE_MINUS_CONSTANT_COLOR, VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR},
+                {rhi::BlendFactor::CONSTANT_ALPHA          , VK_BLEND_FACTOR_CONSTANT_ALPHA          },
+                {rhi::BlendFactor::ONE_MINUS_CONSTANT_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA},
+                {rhi::BlendFactor::SRC_ALPHA_SATURATE      , VK_BLEND_FACTOR_SRC_ALPHA_SATURATE      },
+                {rhi::BlendFactor::SRC1_COLOR              , VK_BLEND_FACTOR_SRC1_COLOR              },
+                {rhi::BlendFactor::ONE_MINUS_SRC1_COLOR    , VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR    },
+                {rhi::BlendFactor::SRC1_ALPHA              , VK_BLEND_FACTOR_SRC1_ALPHA              },
+                {rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    , VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA    },
+            };
+        auto iter = blendFactorMap.find(factor);
+        return iter == blendFactorMap.end() ? VK_BLEND_FACTOR_ZERO : iter->second;
+    }
+
+    VkBlendOp FromRHI(rhi::BlendOp op)
+    {
+        return op == rhi::BlendOp::ADD ? VK_BLEND_OP_ADD : VK_BLEND_OP_SUBTRACT;
+    }
+
+    VkStencilOp FromRHI(rhi::StencilOp op)
+    {
+        static const std::unordered_map<rhi::StencilOp, VkStencilOp> blendFactorMap =
+            {
+                {rhi::StencilOp::KEEP               , VK_STENCIL_OP_KEEP               },
+                {rhi::StencilOp::ZERO               , VK_STENCIL_OP_ZERO               },
+                {rhi::StencilOp::REPLACE            , VK_STENCIL_OP_REPLACE            },
+                {rhi::StencilOp::INCREMENT_AND_CLAMP, VK_STENCIL_OP_INCREMENT_AND_CLAMP},
+                {rhi::StencilOp::DECREMENT_AND_CLAMP, VK_STENCIL_OP_DECREMENT_AND_CLAMP},
+                {rhi::StencilOp::INVERT             , VK_STENCIL_OP_INVERT             },
+                {rhi::StencilOp::INCREMENT_AND_WRAP , VK_STENCIL_OP_INCREMENT_AND_WRAP },
+                {rhi::StencilOp::DECREMENT_AND_WRAP , VK_STENCIL_OP_DECREMENT_AND_WRAP },
+            };
+        auto iter = blendFactorMap.find(op);
+        return iter == blendFactorMap.end() ? VK_STENCIL_OP_KEEP : iter->second;
+    }
+
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags flags)
     {
         VkShaderStageFlags res = {};
@@ -233,5 +332,29 @@ namespace sky::vk {
         return res;
     }
 
+    VkCullModeFlags FromRHI(rhi::CullingModeFlags flags)
+    {
+        VkCullModeFlags ret = VK_CULL_MODE_NONE;
+        if (flags & rhi::CullModeFlagBits::FRONT) {
+            ret |= VK_CULL_MODE_FRONT_BIT;
+        }
+        if (flags & rhi::CullModeFlagBits::BACK) {
+            ret |= VK_CULL_MODE_BACK_BIT;
+        }
+        return ret;
+    }
+
+    VkStencilOpState FromRHI(const rhi::StencilState& stencil)
+    {
+        VkStencilOpState ret = {};
+        ret.failOp      = FromRHI(stencil.failOp);
+        ret.passOp      = FromRHI(stencil.passOp);
+        ret.depthFailOp = FromRHI(stencil.depthFailOp);
+        ret.compareOp   = FromRHI(stencil.compareOp);
+        ret.compareMask = stencil.compareMask;
+        ret.writeMask   = stencil.writeMask;
+        ret.reference   = stencil.reference;
+        return ret;
+    }
 
 }

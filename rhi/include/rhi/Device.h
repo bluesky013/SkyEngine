@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include <rhi/Image.h>
-#include <rhi/ImageView.h>
+#include <memory>
 
 namespace sky::rhi {
 

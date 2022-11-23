@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "rhi/PipelineLayout.h"
 #include "vulkan/DescriptorSet.h"
 #include "vulkan/DescriptorSetLayout.h"
 #include "vulkan/DescriptorSetPool.h"
@@ -16,7 +17,7 @@ namespace sky::vk {
     class Device;
     class PushConstants;
 
-    class PipelineLayout : public DevObject {
+    class PipelineLayout : public rhi::PipelineLayout, public DevObject {
     public:
         ~PipelineLayout();
 
@@ -24,8 +25,6 @@ namespace sky::vk {
             std::vector<DescriptorSetLayout::VkDescriptor> desLayouts;
             std::vector<VkPushConstantRange>             pushConstants;
         };
-
-        bool Init(const VkDescriptor &);
 
         VkPipelineLayout GetNativeHandle() const;
 
@@ -46,6 +45,9 @@ namespace sky::vk {
     private:
         friend class Device;
         PipelineLayout(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkPipelineLayout                    layout;
         uint32_t                            dynamicNum;

@@ -146,6 +146,17 @@ namespace sky::rhi {
         ALWAYS           = 7,
     };
 
+    enum class StencilOp : uint32_t {
+        KEEP                = 0,
+        ZERO                = 1,
+        REPLACE             = 2,
+        INCREMENT_AND_CLAMP = 3,
+        DECREMENT_AND_CLAMP = 4,
+        INVERT              = 5,
+        INCREMENT_AND_WRAP  = 6,
+        DECREMENT_AND_WRAP  = 7,
+    };
+
     enum class SampleCount : uint32_t {
         X1  = 0x00000001,
         X2  = 0x00000002,
@@ -163,11 +174,6 @@ namespace sky::rhi {
         TRIANGLE_LIST                 = 3,
         TRIANGLE_STRIP                = 4,
         TRIANGLE_FAN                  = 5,
-        LINE_LIST_WITH_ADJACENCY      = 6,
-        LINE_STRIP_WITH_ADJACENCY     = 7,
-        TRIANGLE_LIST_WITH_ADJACENCY  = 8,
-        TRIANGLE_STRIP_WITH_ADJACENCY = 9,
-        PATCH_LIST                    = 10,
     };
 
     enum class PolygonMode : uint32_t {
@@ -282,12 +288,26 @@ namespace sky::rhi {
         uint32_t layers    = 1;
     };
 
+    struct StencilState {
+        StencilOp failOp = StencilOp::KEEP;
+        StencilOp passOp = StencilOp::KEEP;
+        StencilOp depthFailOp = StencilOp::KEEP;
+        CompareOp compareOp   = CompareOp::NEVER;
+        uint32_t  compareMask = 0;
+        uint32_t  writeMask   = 0;
+        uint32_t  reference   = 0;
+    };
+
     struct DepthStencil {
         bool depthTest      = false;
-        bool depthEnable    = false;
+        bool depthWrite     = false;
         bool depthBoundTest = false;
         bool stencilTest    = false;
         CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
+        float minDepth      = 0.f;
+        float maxDepth      = 1.f;
+        StencilState        front;
+        StencilState        back;
     };
 
     struct BlendState {
