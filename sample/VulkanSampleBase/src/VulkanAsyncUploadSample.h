@@ -15,8 +15,7 @@ namespace sky {
     };
 
     struct Object {
-        std::atomic_bool            isReady = false;
-        std::future<void>           future;
+        vk::TransferTaskHandle uploadHandle;
         vk::DescriptorSetBinderPtr setBinder;
     };
 

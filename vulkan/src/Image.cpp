@@ -4,6 +4,7 @@
 
 #include "vulkan/Image.h"
 #include "core/logger/Logger.h"
+#include "rhi/Decode.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/Conversion.h"
@@ -12,6 +13,50 @@
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
+
+    std::unordered_map<VkFormat, rhi::ImageFormatInfo> FORMAT_INFO =
+        {
+            {VK_FORMAT_R8G8B8A8_UNORM,            {4, 1, 1, false}},
+            {VK_FORMAT_R8G8B8A8_SRGB,             {4, 1, 1, false}},
+            {VK_FORMAT_B8G8R8A8_UNORM,            {4, 1, 1, false}},
+            {VK_FORMAT_B8G8R8A8_SRGB,             {4, 1, 1, false}},
+            {VK_FORMAT_BC1_RGB_UNORM_BLOCK,       {8, 4, 4, true}},
+            {VK_FORMAT_BC1_RGB_SRGB_BLOCK,        {8, 4, 4, true}},
+            {VK_FORMAT_BC1_RGBA_UNORM_BLOCK,      {8, 4, 4, true}},
+            {VK_FORMAT_BC1_RGBA_SRGB_BLOCK,       {8, 4, 4, true}},
+            {VK_FORMAT_BC2_UNORM_BLOCK,           {16, 4, 4, true}},
+            {VK_FORMAT_BC2_SRGB_BLOCK,            {16, 4, 4, true}},
+            {VK_FORMAT_BC3_UNORM_BLOCK,           {16, 4, 4, true}},
+            {VK_FORMAT_BC3_SRGB_BLOCK,            {16, 4, 4, true}},
+            {VK_FORMAT_BC4_UNORM_BLOCK,           {8, 4, 4, true}},
+            {VK_FORMAT_BC4_SNORM_BLOCK,           {8, 4, 4, true}},
+            {VK_FORMAT_BC5_UNORM_BLOCK,           {16, 4, 4, true}},
+            {VK_FORMAT_BC5_SNORM_BLOCK,           {16, 4, 4, true}},
+            {VK_FORMAT_BC6H_UFLOAT_BLOCK,         {16, 4, 4, true}},
+            {VK_FORMAT_BC6H_SFLOAT_BLOCK,         {16, 4, 4, true}},
+            {VK_FORMAT_BC7_UNORM_BLOCK,           {16, 4, 4, true}},
+            {VK_FORMAT_BC7_SRGB_BLOCK,            {16, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,   {8, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,    {8, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK, {8, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,  {8, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK, {16, 4, 4, true}},
+            {VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK,  {16, 4, 4, true}},
+            {VK_FORMAT_ASTC_4x4_UNORM_BLOCK  ,    {16, 4, 4, true}},
+            {VK_FORMAT_ASTC_4x4_SRGB_BLOCK   ,    {16, 4, 4, true}},
+            {VK_FORMAT_ASTC_8x8_UNORM_BLOCK  ,    {16, 8,  8,  true}},
+            {VK_FORMAT_ASTC_8x8_SRGB_BLOCK   ,    {16, 8,  8,  true}},
+            {VK_FORMAT_ASTC_10x10_UNORM_BLOCK,    {16, 10, 10, true}},
+            {VK_FORMAT_ASTC_10x10_SRGB_BLOCK ,    {16, 10, 10, true}},
+            {VK_FORMAT_ASTC_12x12_UNORM_BLOCK,    {16, 12, 12, true}},
+            {VK_FORMAT_ASTC_12x12_SRGB_BLOCK ,    {16, 12, 12, true}},
+    };
+
+    rhi::ImageFormatInfo *GetImageInfoByFormat(VkFormat format)
+    {
+        auto iter = FORMAT_INFO.find(format);
+        return iter == FORMAT_INFO.end() ? nullptr : &iter->second;
+    }
 
     Image::Image(Device &dev) : DevObject(dev), image(VK_NULL_HANDLE), allocation(VK_NULL_HANDLE), imageInfo{}
     {
@@ -60,6 +105,11 @@ namespace sky::vk {
             LOG_E(TAG, "create image failed %d", res);
             return false;
         }
+
+        auto *tmpInfo = rhi::GetImageInfoByFormat(imageDesc.format);
+        if (tmpInfo != nullptr) {
+            formatInfo = *tmpInfo;
+        }
         return true;
     }
 
@@ -94,6 +144,11 @@ namespace sky::vk {
         if (res != VK_SUCCESS) {
             LOG_E(TAG, "create image failed %d", res);
             return false;
+        }
+
+        auto *tmpInfo = GetImageInfoByFormat(imageInfo.format);
+        if (tmpInfo != nullptr) {
+            formatInfo = *tmpInfo;
         }
         return true;
     }

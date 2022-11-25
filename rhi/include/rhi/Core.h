@@ -262,23 +262,24 @@ namespace sky::rhi {
     };
 
     struct BufferUploadRequest {
-        const uint8_t *data;
-        uint64_t       offset;
-        uint64_t       size;
+        const uint8_t *data   = nullptr;
+        uint64_t       offset = 0;
+        uint64_t       size   = 0;
     };
 
     struct ImageUploadRequest {
-        const uint8_t *data;
-        uint64_t       offset;
-        uint32_t       mipLevel;
-        uint32_t       layer;
+        const uint8_t *data     = nullptr;
+        uint64_t       offset   = 0;
+        uint64_t       size     = 0;
+        uint32_t       mipLevel = 1;
+        uint32_t       layer    = 1;
     };
 
     struct ImageFormatInfo {
-        uint32_t blockSize;
-        uint32_t blockWidth;
-        uint32_t blockHeight;
-        bool isCompressed;
+        uint32_t blockSize   = 4;
+        uint32_t blockWidth  = 1;
+        uint32_t blockHeight = 1;
+        bool isCompressed    = false;
     };
 
     struct ImageSubRange {

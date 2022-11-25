@@ -122,12 +122,12 @@ namespace sky::vk {
 
     TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request)
     {
-        return CreateTask([this, &image, &request]() {
+        return CreateTask([this, image, request]() {
             std::vector<vk::BufferPtr> stagingBuffers;
 
-            auto *uploadQueue     = GetQueue();
-            auto &imageDesc = image->GetDescriptor();
-            auto *imageInfo       = rhi::GetImageInfoByFormat(imageDesc.format);
+            auto *uploadQueue = GetQueue();
+            auto &imageDesc   = image->GetImageInfo();
+            auto &formatInfo  = image->GetFormatInfo();
 
             auto cmd = uploadQueue->AllocateCommandBuffer({});
             cmd->Begin();
@@ -150,18 +150,18 @@ namespace sky::vk {
             uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
             uint32_t height = std::max(imageDesc.extent.height >> request.mipLevel, 1U);
 
-            uint32_t rowLength   = Ceil(width, imageInfo->blockWidth);
-            uint32_t imageHeight = Ceil(height, imageInfo->blockHeight);
+            uint32_t rowLength   = Ceil(width, formatInfo.blockWidth);
+            uint32_t imageHeight = Ceil(height, formatInfo.blockHeight);
 
             static constexpr uint32_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
             uint32_t                  blockNum           = rowLength * imageHeight;
-            uint32_t                  srcSize            = blockNum * imageInfo->blockSize;
-            uint32_t                  rowBlockSize       = rowLength * imageInfo->blockSize;
+            uint32_t                  srcSize            = blockNum * formatInfo.blockSize;
+            uint32_t                  rowBlockSize       = rowLength * formatInfo.blockSize;
             uint32_t                  copyBlockHeight    = STAGING_BLOCK_SIZE / rowBlockSize;
             uint32_t                  copyNum            = Ceil(imageHeight, copyBlockHeight);
 
             uint32_t bufferStep = copyBlockHeight * rowBlockSize;
-            uint32_t heightStep = copyBlockHeight * imageInfo->blockHeight;
+            uint32_t heightStep = copyBlockHeight * formatInfo.blockHeight;
 
             for (uint32_t i = 0; i < copyNum; ++i) {
                 vk::Buffer::VkDescriptor bufferDesc = {};
@@ -178,8 +178,8 @@ namespace sky::vk {
 
                 VkBufferImageCopy copy = {};
                 copy.bufferOffset      = 0;
-                copy.bufferRowLength   = rowLength * imageInfo->blockWidth;
-                copy.bufferImageHeight = imageHeight * imageInfo->blockHeight;
+                copy.bufferRowLength   = rowLength * formatInfo.blockWidth;
+                copy.bufferImageHeight = imageHeight * formatInfo.blockHeight;
                 copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
                 copy.imageOffset       = {0, static_cast<int32_t>(heightStep * i), 0};
                 copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};

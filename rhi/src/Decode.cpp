@@ -11,60 +11,40 @@ namespace sky::rhi {
 
     std::unordered_map<PixelFormat, ImageFormatInfo> FORMAT_INFO =
         {
-            {PixelFormat::RGBA8_UNORM, {4, 1, 1, false}},
-            {PixelFormat::RGBA8_SRGB, {4, 1, 1, false}},
-            {PixelFormat::BGRA8_UNORM, {4, 1, 1, false}},
-            {PixelFormat::BGRA8_SRGB, {4, 1, 1, false}},
-            {PixelFormat::BC1_RGB_UNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC1_RGB_SRGB_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC1_RGBA_UNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC1_RGBA_SRGB_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC2_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC2_SRGB_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC3_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC3_SRGB_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC4_UNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC4_SNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::BC5_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC5_SNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC6H_UFLOAT_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC6H_SFLOAT_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC7_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::BC7_SRGB_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::ETC2_R8G8B8_UNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::ETC2_R8G8B8_SRGB_BLOCK, {8, 4, 4, true}},
+            {PixelFormat::RGBA8_UNORM,               {4, 1, 1, false}},
+            {PixelFormat::RGBA8_SRGB,                {4, 1, 1, false}},
+            {PixelFormat::BGRA8_UNORM,               {4, 1, 1, false}},
+            {PixelFormat::BGRA8_SRGB,                {4, 1, 1, false}},
+            {PixelFormat::BC1_RGB_UNORM_BLOCK,       {8, 4, 4, true}},
+            {PixelFormat::BC1_RGB_SRGB_BLOCK,        {8, 4, 4, true}},
+            {PixelFormat::BC1_RGBA_UNORM_BLOCK,      {8, 4, 4, true}},
+            {PixelFormat::BC1_RGBA_SRGB_BLOCK,       {8, 4, 4, true}},
+            {PixelFormat::BC2_UNORM_BLOCK,           {16, 4, 4, true}},
+            {PixelFormat::BC2_SRGB_BLOCK,            {16, 4, 4, true}},
+            {PixelFormat::BC3_UNORM_BLOCK,           {16, 4, 4, true}},
+            {PixelFormat::BC3_SRGB_BLOCK,            {16, 4, 4, true}},
+            {PixelFormat::BC4_UNORM_BLOCK,           {8, 4, 4, true}},
+            {PixelFormat::BC4_SNORM_BLOCK,           {8, 4, 4, true}},
+            {PixelFormat::BC5_UNORM_BLOCK,           {16, 4, 4, true}},
+            {PixelFormat::BC5_SNORM_BLOCK,           {16, 4, 4, true}},
+            {PixelFormat::BC6H_UFLOAT_BLOCK,         {16, 4, 4, true}},
+            {PixelFormat::BC6H_SFLOAT_BLOCK,         {16, 4, 4, true}},
+            {PixelFormat::BC7_UNORM_BLOCK,           {16, 4, 4, true}},
+            {PixelFormat::BC7_SRGB_BLOCK,            {16, 4, 4, true}},
+            {PixelFormat::ETC2_R8G8B8_UNORM_BLOCK,   {8, 4, 4, true}},
+            {PixelFormat::ETC2_R8G8B8_SRGB_BLOCK,    {8, 4, 4, true}},
             {PixelFormat::ETC2_R8G8B8A1_UNORM_BLOCK, {8, 4, 4, true}},
-            {PixelFormat::ETC2_R8G8B8A1_SRGB_BLOCK, {8, 4, 4, true}},
+            {PixelFormat::ETC2_R8G8B8A1_SRGB_BLOCK,  {8, 4, 4, true}},
             {PixelFormat::ETC2_R8G8B8A8_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::ETC2_R8G8B8A8_SRGB_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::ASTC_4x4_UNORM_BLOCK, {16, 4, 4, true}},
-            {PixelFormat::ASTC_4x4_SRGB_BLOCK, {16, 4, 4, true}},
-//            {PixelFormat::ASTC_5x4_UNORM_BLOCK,      {16, 5,  4,  true }},
-//            {PixelFormat::ASTC_5x4_SRGB_BLOCK,       {16, 5,  4,  true }},
-//            {PixelFormat::ASTC_5x5_UNORM_BLOCK,      {16, 5,  5,  true }},
-//            {PixelFormat::ASTC_5x5_SRGB_BLOCK,       {16, 5,  5,  true }},
-//            {PixelFormat::ASTC_6x5_UNORM_BLOCK,      {16, 6,  5,  true }},
-//            {PixelFormat::ASTC_6x5_SRGB_BLOCK,       {16, 6,  5,  true }},
-//            {PixelFormat::ASTC_6x6_UNORM_BLOCK,      {16, 6,  6,  true }},
-//            {PixelFormat::ASTC_6x6_SRGB_BLOCK,       {16, 6,  6,  true }},
-//            {PixelFormat::ASTC_8x5_UNORM_BLOCK,      {16, 8,  5,  true }},
-//            {PixelFormat::ASTC_8x5_SRGB_BLOCK,       {16, 8,  5,  true }},
-//            {PixelFormat::ASTC_8x6_UNORM_BLOCK,      {16, 8,  6,  true }},
-//            {PixelFormat::ASTC_8x6_SRGB_BLOCK,       {16, 8,  6,  true }},
-//            {PixelFormat::ASTC_8x8_UNORM_BLOCK,      {16, 8,  8,  true }},
-//            {PixelFormat::ASTC_8x8_SRGB_BLOCK,       {16, 8,  8,  true }},
-//            {PixelFormat::ASTC_10x5_UNORM_BLOCK,     {16, 10, 5,  true }},
-//            {PixelFormat::ASTC_10x5_SRGB_BLOCK,      {16, 10, 5,  true }},
-//            {PixelFormat::ASTC_10x6_UNORM_BLOCK,     {16, 10, 6,  true }},
-//            {PixelFormat::ASTC_10x6_SRGB_BLOCK,      {16, 10, 6,  true }},
-//            {PixelFormat::ASTC_10x8_UNORM_BLOCK,     {16, 10, 8,  true }},
-//            {PixelFormat::ASTC_10x8_SRGB_BLOCK,      {16, 10, 8,  true }},
-            {PixelFormat::ASTC_10x10_UNORM_BLOCK, {16, 10, 10, true}},
-            {PixelFormat::ASTC_10x10_SRGB_BLOCK, {16, 10, 10, true}},
-            //            {PixelFormat::ASTC_12x10_UNORM_BLOCK,    {16, 12, 10, true }},
-            //            {PixelFormat::ASTC_12x10_SRGB_BLOCK,     {16, 12, 10, true }},
-            {PixelFormat::ASTC_12x12_UNORM_BLOCK, {16, 12, 12, true}},
-            {PixelFormat::ASTC_12x12_SRGB_BLOCK, {16, 12, 12, true}},
+            {PixelFormat::ETC2_R8G8B8A8_SRGB_BLOCK,  {16, 4, 4, true}},
+            {PixelFormat::ASTC_4x4_UNORM_BLOCK,      {16, 4, 4, true}},
+            {PixelFormat::ASTC_4x4_SRGB_BLOCK,       {16, 4, 4, true}},
+            {PixelFormat::ASTC_8x8_UNORM_BLOCK,      {16, 8,  8,  true }},
+            {PixelFormat::ASTC_8x8_SRGB_BLOCK,       {16, 8,  8,  true }},
+            {PixelFormat::ASTC_10x10_UNORM_BLOCK,    {16, 10, 10, true}},
+            {PixelFormat::ASTC_10x10_SRGB_BLOCK,     {16, 10, 10, true}},
+            {PixelFormat::ASTC_12x12_UNORM_BLOCK,    {16, 12, 12, true}},
+            {PixelFormat::ASTC_12x12_SRGB_BLOCK,     {16, 12, 12, true}},
     };
 
     std::unordered_map<DXGI_FORMAT, PixelFormat> DXGI_FORMAT_TABLE =
@@ -104,7 +84,7 @@ namespace sky::rhi {
     void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
     {
         DDSContent *content = reinterpret_cast<DDSContent *>(input);
-        if (content->magic != 0x20534444) {
+        if (content == nullptr || content->magic != 0x20534444) {
             return;
         }
 
@@ -142,13 +122,13 @@ namespace sky::rhi {
         request.layer = 0;
 
         for (uint32_t i = 0; i < imageDesc.mipLevels; ++i) {
-            request.offset = offset;
-            request.mipLevel = i;
-
             uint32_t rowLength   = (width + blockWidth - 1) / blockWidth;
             uint32_t imageHeight = (height + blockHeight - 1) / blockHeight;
             uint32_t currentSize = rowLength * imageHeight * blockSize;
 
+            request.offset = offset;
+            request.size = currentSize;
+            request.mipLevel = i;
             offset += currentSize;
             width = std::max(width >> 1, 1U);
             height = std::max(height >> 1, 1U);

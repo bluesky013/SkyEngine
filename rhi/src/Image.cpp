@@ -11,4 +11,8 @@ namespace sky::rhi {
         return imageDesc;
     }
 
+    const ImageFormatInfo &Image::GetFormatInfo() const
+    {
+        return formatInfo;
+    }
 }

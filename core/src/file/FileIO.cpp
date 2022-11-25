@@ -17,6 +17,20 @@ namespace sky {
         file.write(data, size);
     }
 
+    bool ReadBin(const std::string &path, uint8_t *&out, uint32_t &size)
+    {
+        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        if (!file.is_open()) {
+            return false;
+        }
+        size = (uint32_t)file.tellg();
+        out = new uint8_t[size];
+        file.seekg(0);
+        file.read((char *)out, size);
+        file.close();
+        return true;
+    }
+
     bool ReadBin(const std::string &path, std::vector<uint8_t> &out)
     {
         std::ifstream file(path, std::ios::ate | std::ios::binary);

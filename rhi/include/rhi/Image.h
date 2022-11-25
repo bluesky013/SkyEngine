@@ -26,9 +26,11 @@ namespace sky::rhi {
         };
 
         const Descriptor &GetDescriptor() const;
+        const ImageFormatInfo &GetFormatInfo() const;
 
     protected:
         Descriptor imageDesc;
+        ImageFormatInfo formatInfo;
     };
     using ImagePtr = std::shared_ptr<Image>;
 
