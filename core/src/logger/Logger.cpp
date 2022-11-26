@@ -28,7 +28,7 @@ namespace sky {
         wchar_t        buffer[MAX_SIZE];
         va_list        params;
         va_start(params, fmt);
-        _vsnwprintf_s(buffer, MAX_SIZE - 1, fmt, params);
+        vswprintf(buffer, MAX_SIZE - 1, fmt, params);
         va_end(params);
         buffer[MAX_SIZE - 1] = '\0';
         wprintf(L"[%ls] [%ls] : %ls\n", tag, type, buffer);
