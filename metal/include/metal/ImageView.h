@@ -4,11 +4,12 @@
 
 #pragma once
 
+#include <rhi/ImageView.h>
 #include <metal/DevObject.h>
 
 namespace sky::mtl {
 
-    class ImageView : public DevObject {
+    class ImageView : public rhi::ImageView, public DevObject {
     public:
         ImageView() = default;
         ~ImageView() = default;

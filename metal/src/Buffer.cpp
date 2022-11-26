@@ -13,8 +13,7 @@ namespace sky::mtl {
 
     bool Buffer::Init(const Descriptor &desc)
     {
-        info = desc;
-
+        bufferDesc = desc;
         auto *mtlDevice = device.GetMetalDevice();
 
         MTL::ResourceOptions options = {};

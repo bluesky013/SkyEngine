@@ -4,13 +4,14 @@
 
 #pragma once
 
+#include <rhi/BufferView.h>
 #include <metal/DevObject.h>
 
 namespace sky::mtl {
 
     class Device;
 
-    class BufferView : public DevObject {
+    class BufferView : public rhi::BufferView, public DevObject {
     public:
         BufferView() = default;
         ~BufferView() = default;

@@ -6,4 +6,13 @@
 
 namespace sky::mtl {
 
+    Image::Image(Device &dev) : DevObject(dev)
+    {
+    }
+
+    bool Image::Init(const Descriptor &desc)
+    {
+        imageDesc = desc;
+    }
+
 }

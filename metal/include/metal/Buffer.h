@@ -4,26 +4,21 @@
 
 #pragma once
 
+#include <rhi/Buffer.h>
 #include <metal/DevObject.h>
 #include <Metal/MTLBuffer.hpp>
 
 namespace sky::mtl {
     class Device;
 
-    class Buffer : public DevObject {
+    class Buffer : public rhi::Buffer, public DevObject {
     public:
-        struct Descriptor {
-            uint32_t size;
-        };
-
         ~Buffer() = default;
 
     private:
         Buffer(Device &);
-
         bool Init(const Descriptor &);
 
-        Descriptor info = {};
         MTL::Buffer *buffer = nullptr;
     };
 }
