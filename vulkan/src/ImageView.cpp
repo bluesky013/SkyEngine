@@ -34,6 +34,7 @@ namespace sky::vk {
         VkResult rst              = vkCreateImageView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create image view failed, -%d", rst);
+            return false;
         }
         return true;
     }
@@ -75,21 +76,28 @@ namespace sky::vk {
 
     std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des)
     {
-        ImageViewPtr ptr = std::make_shared<ImageView>(image->device);
-        ptr->source      = image;
-        if (ptr->Init(des)) {
-            return ptr;
+        ImageViewPtr ret;
+        if (image) {
+            ret = std::make_shared<ImageView>(image->device);
+            ret->source      = image;
+            if (!ret->Init(des)) {
+                ret = nullptr;
+            }
         }
-        return {};
+        return ret;
     }
 
     std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::Descriptor &des)
     {
-        ImageViewPtr ptr = std::make_shared<ImageView>(image->device);
-        ptr->source      = image;
-        if (ptr->Init(des)) {
-            return ptr;
+        ImageViewPtr ret;
+        if (image) {
+            ret = std::make_shared<ImageView>(image->device);
+            ret->source      = image;
+            if (!ret->Init(des)) {
+                ret = nullptr;
+            }
         }
-        return {};
+
+        return ret;
     }
 } // namespace sky::vk

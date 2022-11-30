@@ -8,6 +8,7 @@
 #include "VulkanDescriptorSample.h"
 #include "VulkanBindlessSample.h"
 #include "VulkanAsyncUploadSample.h"
+#include "VulkanSparseImageSample.h"
 
 namespace sky {
 
@@ -18,6 +19,7 @@ namespace sky {
         RegisterSample<VulkanDescriptorSample>();
         RegisterSample<VulkanBindlessSample>();
         RegisterSample<VulkanAsyncUploadSample>();
+        RegisterSample<VulkanSparseImageSample>();
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);

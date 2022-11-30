@@ -30,6 +30,7 @@ namespace sky::vk {
             VkSampleCountFlagBits samples     = VK_SAMPLE_COUNT_1_BIT;
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
+            VkImageCreateFlags    flags       = 0;
             bool                  allocateMem = true;
         };
 

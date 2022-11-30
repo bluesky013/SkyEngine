@@ -116,6 +116,7 @@ namespace sky::vk {
     bool Image::Init(const VkDescriptor &des)
     {
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.flags         = des.flags;
         imageInfo.mipLevels     = des.mipLevels;
         imageInfo.arrayLayers   = des.arrayLayers;
         imageInfo.format        = des.format;
