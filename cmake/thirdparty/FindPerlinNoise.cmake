@@ -1,4 +1,4 @@
-set(LIB_NAME "vma")
+set(LIB_NAME "PerlinNoise")
 set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
 if (TARGET ${TARGET_WITH_NAMESPACE})
     return()
