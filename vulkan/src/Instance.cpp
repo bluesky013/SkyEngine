@@ -71,7 +71,7 @@ namespace sky::vk {
         }
     }
 
-    Device *Instance::CreateDevice(const Device::VkDescriptor &des)
+    Device *Instance::CreateDevice(const Device::Descriptor &des)
     {
         auto device = new Device(*this);
         if (!device->Init(des, debug != VK_NULL_HANDLE)) {

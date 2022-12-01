@@ -7,12 +7,25 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/Image.h>
 #include <vulkan/ImageView.h>
+#include <vulkan/CommandBuffer.h>
+#include <core/template/ObjectPool.h>
 
 namespace sky::vk {
 
     class SparseImage : public DevObject {
     public:
-        ~SparseImage() = default;
+        ~SparseImage();
+
+        struct VkPageInfo {
+            VkOffset3D offset = {};
+            VkExtent3D extent = {};
+            uint32_t layer = 0;
+            uint32_t level = 0;
+        };
+
+        struct Page : public VkPageInfo {
+            VmaAllocation allocation = VK_NULL_HANDLE;
+        };
 
         struct VkDescriptor {
             VkImageType       imageType   = VK_IMAGE_TYPE_2D;
@@ -23,15 +36,17 @@ namespace sky::vk {
             VkImageUsageFlags usage       = 0;
             VmaMemoryUsage    memory      = VMA_MEMORY_USAGE_GPU_ONLY;
             VkImageViewType   viewType    = VK_IMAGE_VIEW_TYPE_2D;
-            VkExtent3D        pageSize    = {1, 1, 1};
         };
 
-        struct VkPage {
-            VkOffset3D offset;
-            VkExtent3D extent;
-        };
+        Page* AddPage(const VkPageInfo &info);
+        void RemovePage(Page*);
 
-        void addPage(const VkPage &page);
+        void UpdateBinding();
+
+        bool IsSingleMipTail() const;
+
+        ImagePtr GetImage() const;
+        ImageViewPtr GetImageView() const;
 
     private:
         friend class Device;
@@ -39,9 +54,18 @@ namespace sky::vk {
         SparseImage(Device &dev) : DevObject(dev) {}
 
         bool Init(const VkDescriptor &);
+        void InitMipTail();
 
         ImagePtr image;
         ImageViewPtr view;
+        VkSparseImageMemoryRequirements sparseMemReq = {};
+        VkMemoryRequirements memReq = {};
+        ObjectPool<Page> pageMemory;
+        std::vector<Page*> pageTable;
+
+        std::vector<VmaAllocation> mipTailAllocations;
+        std::vector<VkSparseMemoryBind> opaqueBinds;
+        std::vector<VkSparseImageMemoryBind> sparseImageBinds;
     };
 
     using SparseImagePtr = std::shared_ptr<SparseImage>;

@@ -26,6 +26,8 @@ namespace sky {
         void SetupDescriptorSet();
         void SetupResources();
 
+        void InitFeature() override;
+
         vk::PipelineLayoutPtr      pipelineLayout;
         vk::DescriptorSetLayoutPtr descriptorSetLayout;
         vk::GraphicsPipelinePtr    pso;

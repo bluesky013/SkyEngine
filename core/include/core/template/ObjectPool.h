@@ -9,7 +9,7 @@ namespace sky {
     template <typename T>
     class ObjectPool {
     public:
-        ObjectPool(uint32_t npp) : numberPerStorage(npp), currentNumber(0), capacity(0) {}
+        ObjectPool(uint32_t npp = 16) : numberPerStorage(npp), currentNumber(0), capacity(0) {}
         ~ObjectPool() = default;
 
         template <typename ...Args>

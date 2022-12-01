@@ -20,8 +20,6 @@ namespace sky::vk {
     public:
         ~Device() override;
 
-        struct VkDescriptor {};
-
         template <typename T>
         inline std::shared_ptr<T> CreateDeviceObject(const typename T::VkDescriptor &des)
         {
@@ -61,15 +59,21 @@ namespace sky::vk {
 
         void WaitIdle() const;
 
-        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        int32_t FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
+        bool    GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
+
     private:
-        bool Init(const VkDescriptor &, bool enableDebug);
+        bool Init(const Descriptor &, bool enableDebug);
+
+        void ValidateFeature(const DeviceFeature &feature);
 
         void SetupAsyncTransferQueue();
 
-        bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
+        bool FillMemoryRequirements(VkMemoryRequirements2               &requirements,
+                                    const VkMemoryDedicatedRequirements &dedicated,
+                                    VkMemoryPropertyFlags                flags,
+                                    MemoryRequirement                   &out) const;
 
         friend class Instance;
         Device(Instance &);
@@ -78,14 +82,17 @@ namespace sky::vk {
         VkDevice         device;
         VmaAllocator     allocator;
 
-        VkPhysicalDeviceProperties phyProps = {};
-        VkPhysicalDeviceFeatures2  phyFeatures = {};
-        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures = {};
+        VkPhysicalDeviceProperties                 phyProps                   = {};
+        VkPhysicalDeviceFeatures2                  phyFeatures                = {};
+        VkPhysicalDeviceFeatures                   enabledPhyFeatures         = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures        = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures enabledPhyIndexingFeatures = {};
+
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
-        Queue*                               graphicsQueue;
+        Queue                               *graphicsQueue;
         AsyncTransferQueuePtr                transferQueue;
 
         CacheManager<VkSampler>             samplers;

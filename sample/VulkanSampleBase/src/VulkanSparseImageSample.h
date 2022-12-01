@@ -22,15 +22,23 @@ namespace sky {
 
         void OnStart() override;
         void OnStop() override;
+
     private:
         void InitSparseImage();
+        void SetupDescriptorSet();
 
-        vk::GraphicsPipelinePtr pso;
-        vk::PipelineLayoutPtr   pipelineLayout;
-        vk::ShaderPtr           vs;
-        vk::ShaderPtr           fs;
-        vk::VertexInputPtr      vertexInput;
-        vk::SparseImagePtr      sparseImage;
+        void InitFeature() override;
+
+        vk::GraphicsPipelinePtr      pso;
+        vk::PipelineLayoutPtr        pipelineLayout;
+        vk::ShaderPtr                vs;
+        vk::ShaderPtr                fs;
+        vk::VertexInputPtr           vertexInput;
+        vk::SparseImagePtr           sparseImage;
+        vk::SamplerPtr               sampler;
+        vk::DescriptorSetPtr         set;
+        vk::DescriptorSetPoolPtr     setPool;
+        vk::DescriptorSetBinderPtr   setBinder;
     };
 
 } // namespace sky

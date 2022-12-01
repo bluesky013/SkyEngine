@@ -47,8 +47,8 @@ namespace sky {
             return false;
         }
 
-        vk::Device::VkDescriptor devDes = {};
-        device                         = driver->CreateDevice(devDes);
+        vk::Device::Descriptor devDes = {};
+        device = driver->CreateDevice(devDes);
         if (device == nullptr) {
             return false;
         }

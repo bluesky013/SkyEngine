@@ -72,6 +72,44 @@ namespace sky::vk {
         }
     }
 
+    template <typename ...Args>
+    VkBool32 CheckFeature(bool required, bool &out, Args ...args)
+    {
+        VkBool32 combined = VK_TRUE;
+        ((combined &= args), ...);
+        out = required & static_cast<bool>(combined);
+        return out;
+    }
+
+    void Device::ValidateFeature(const DeviceFeature &feature)
+    {
+        enabledPhyFeatures.multiViewport            = phyFeatures.features.multiViewport;
+        enabledPhyFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
+        enabledPhyFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
+        enabledPhyFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
+        enabledPhyFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
+        enabledPhyFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
+
+        bool sparseBinding = CheckFeature(feature.sparseBinding, enabledFeature.sparseBinding,
+            phyFeatures.features.sparseBinding,
+            phyFeatures.features.sparseResidencyBuffer,
+            phyFeatures.features.sparseResidencyImage2D,
+            phyFeatures.features.shaderResourceResidency);
+        enabledPhyFeatures.sparseBinding           = sparseBinding;
+        enabledPhyFeatures.sparseResidencyBuffer   = sparseBinding;
+        enabledPhyFeatures.sparseResidencyImage2D  = sparseBinding;
+        enabledPhyFeatures.shaderResourceResidency = sparseBinding;
+
+        auto indexingFeature = CheckFeature(feature.descriptorIndexing, enabledFeature.descriptorIndexing,
+            phyIndexingFeatures.runtimeDescriptorArray,
+            phyIndexingFeatures.descriptorBindingVariableDescriptorCount,
+            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing);
+        enabledPhyIndexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        enabledPhyIndexingFeatures.runtimeDescriptorArray                    = indexingFeature;
+        enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = indexingFeature;
+        enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = indexingFeature;
+    }
+
     void Device::SetupAsyncTransferQueue()
     {
         std::pair<VkQueueFlags, VkQueueFlags> flagPairs[] = {
@@ -88,12 +126,11 @@ namespace sky::vk {
         }
     }
 
-    bool Device::Init(const VkDescriptor &des, bool enableDebug)
+    bool Device::Init(const Descriptor &des, bool enableDebug)
     {
         auto *vkInstance = instance.GetInstance();
 
         uint32_t count = 0;
-
         // Pick Physical Device
         vkEnumeratePhysicalDevices(vkInstance, &count, nullptr);
         if (count == 0) {
@@ -141,26 +178,13 @@ namespace sky::vk {
             queueCreateInfos.emplace_back(queueInfo);
             LOG_I(TAG, "queue family index %u, count %u, flags %u", i, queueFamilies[i].queueCount, queueFamilies[i].queueFlags);
         }
-
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.multiViewport            = phyFeatures.features.multiViewport;
-        deviceFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
-        deviceFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
-        deviceFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
-        deviceFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
-        deviceFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
-
-        VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
-        indexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        indexingFeatures.runtimeDescriptorArray                    = phyIndexingFeatures.runtimeDescriptorArray;
-        indexingFeatures.descriptorBindingVariableDescriptorCount  = phyIndexingFeatures.descriptorBindingVariableDescriptorCount;
-        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing;
+        ValidateFeature(des.feature);
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        devInfo.pNext              = &indexingFeatures;
+        devInfo.pNext              = &enabledPhyIndexingFeatures;
 
-        devInfo.pEnabledFeatures        = &deviceFeatures;
+        devInfo.pEnabledFeatures        = &enabledPhyFeatures;
         devInfo.enabledExtensionCount   = (uint32_t)DEVICE_EXTS.size();
         devInfo.ppEnabledExtensionNames = DEVICE_EXTS.data();
 

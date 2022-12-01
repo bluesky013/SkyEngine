@@ -13,7 +13,14 @@ namespace sky::rhi {
         Device() = default;
         virtual ~Device() = default;
 
-        struct Descriptor {};
+        struct DeviceFeature {
+            bool sparseBinding      = false;
+            bool descriptorIndexing = false;
+        };
+
+        struct Descriptor {
+            DeviceFeature feature;
+        };
 
         template <typename T>
         inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
@@ -26,6 +33,8 @@ namespace sky::rhi {
             return std::shared_ptr<T>(res);
         }
 
+    protected:
+        DeviceFeature enabledFeature;
     };
 
 }

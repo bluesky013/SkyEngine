@@ -72,7 +72,7 @@ namespace sky {
         }
         return UINT8_MAX;
 #elif defined __GNUC__ || defined __clang__
-        return static_cast<uint8_t>(__builtin_ffs(bitMap)) - 1U;
+        return static_cast<uint8_t>(__builtin_ffsll(bitMap)) - 1U;
 #else
         uint8_t pos = 0;
         uint64_t bit = 1;
@@ -95,7 +95,7 @@ namespace sky {
         }
 #elif defined __GNUC__ || defined __clang__
         if (bitMap) {
-            return 63 - static_cast<uint8_t>(__builtin_clz(bitMap));
+            return 63 - static_cast<uint8_t>(__builtin_clzll(bitMap));
         }
 #else
         uint8_t pos = 63;

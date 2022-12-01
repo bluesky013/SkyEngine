@@ -17,8 +17,8 @@ namespace sky {
             return;
         }
 
-        vk::Device::VkDescriptor devDes = {};
-        device                        = instance->CreateDevice(devDes);
+        InitFeature();
+        device = instance->CreateDevice(deviceInfo);
 
         graphicsQueue = device->GetGraphicsQueue();
 

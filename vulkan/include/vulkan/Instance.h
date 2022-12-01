@@ -15,7 +15,7 @@ namespace sky::vk {
         static Instance *Create(const Descriptor &);
         static void    Destroy(Instance *);
 
-        Device *CreateDevice(const Device::VkDescriptor &);
+        Device *CreateDevice(const Device::Descriptor &);
 
         VkInstance GetInstance() const;
 

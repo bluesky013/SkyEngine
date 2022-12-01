@@ -311,4 +311,9 @@ namespace sky {
         VulkanSampleBase::OnStop();
     }
 
+    void VulkanBindlessSample::InitFeature()
+    {
+        deviceInfo.feature.descriptorIndexing = true;
+    }
+
 } // namespace sky
