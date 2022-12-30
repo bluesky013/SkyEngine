@@ -52,7 +52,7 @@ namespace sky::vk {
 
         CreateTask([this]() {
             Buffer::VkDescriptor bufferInfo = {};
-            bufferInfo.size               = 16;
+            bufferInfo.size               = BLOCK_SIZE * INFLIGHT_NUM;
             bufferInfo.usage              = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
             bufferInfo.memory             = VMA_MEMORY_USAGE_CPU_ONLY;
 
@@ -107,8 +107,7 @@ namespace sky::vk {
                 copy.srcOffset    = BeginFrame();
                 copy.dstOffset    = dstOffset;
 
-                uint64_t offset = BeginFrame();
-                memcpy(mapped + offset, src + copy.size, copy.size);
+                memcpy(mapped + copy.srcOffset, src + copy.size, copy.size);
 
                 inflightCommands[currentFrameId]->Copy(stagingBuffer, buffer, copy);
 
@@ -123,14 +122,9 @@ namespace sky::vk {
     TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request)
     {
         return CreateTask([this, image, request]() {
-            std::vector<vk::BufferPtr> stagingBuffers;
-
             auto *uploadQueue = GetQueue();
             auto &imageDesc   = image->GetImageInfo();
             auto &formatInfo  = image->GetFormatInfo();
-
-            auto cmd = uploadQueue->AllocateCommandBuffer({});
-            cmd->Begin();
 
             VkImageSubresourceRange subResourceRange = {};
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -140,11 +134,13 @@ namespace sky::vk {
             subResourceRange.layerCount              = 1;
             vk::Barrier barrier                      = {};
             {
+                BeginFrame();
                 barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                 barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
                 barrier.srcAccessMask = 0;
                 barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                inflightCommands[currentFrameId]->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                EndFrame();
             }
 
             uint32_t width  = std::max(imageDesc.extent.width >> request.mipLevel, 1U);
@@ -153,51 +149,43 @@ namespace sky::vk {
             uint32_t rowLength   = Ceil(width, formatInfo.blockWidth);
             uint32_t imageHeight = Ceil(height, formatInfo.blockHeight);
 
-            static constexpr uint32_t STAGING_BLOCK_SIZE = 1 * 1024 * 1024;
             uint32_t                  blockNum           = rowLength * imageHeight;
             uint32_t                  srcSize            = blockNum * formatInfo.blockSize;
             uint32_t                  rowBlockSize       = rowLength * formatInfo.blockSize;
-            uint32_t                  copyBlockHeight    = STAGING_BLOCK_SIZE / rowBlockSize;
+            uint32_t                  copyBlockHeight    = BLOCK_SIZE / rowBlockSize;
             uint32_t                  copyNum            = Ceil(imageHeight, copyBlockHeight);
 
             uint32_t bufferStep = copyBlockHeight * rowBlockSize;
             uint32_t heightStep = copyBlockHeight * formatInfo.blockHeight;
 
             for (uint32_t i = 0; i < copyNum; ++i) {
-                vk::Buffer::VkDescriptor bufferDesc = {};
-                bufferDesc.size                   = STAGING_BLOCK_SIZE;
-                bufferDesc.usage                  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-                bufferDesc.memory                 = VMA_MEMORY_USAGE_CPU_ONLY;
-                auto stagingBuffer                = device.CreateDeviceObject<vk::Buffer>(bufferDesc);
-                stagingBuffers.emplace_back(stagingBuffer);
+                uint64_t offset = BeginFrame();
 
-                auto     ptr      = stagingBuffer->Map();
                 uint32_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
-                memcpy(ptr, request.data + request.offset + bufferStep * i, copySize);
-                stagingBuffer->UnMap();
+                memcpy(mapped + offset, request.data + request.offset + bufferStep * i, copySize);
 
                 VkBufferImageCopy copy = {};
-                copy.bufferOffset      = 0;
+                copy.bufferOffset      = offset;
                 copy.bufferRowLength   = rowLength * formatInfo.blockWidth;
                 copy.bufferImageHeight = imageHeight * formatInfo.blockHeight;
                 copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
                 copy.imageOffset       = {0, static_cast<int32_t>(heightStep * i), 0};
                 copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};
 
-                cmd->Copy(stagingBuffer, image, copy);
+                inflightCommands[currentFrameId]->Copy(stagingBuffer, image, copy);
+
+                EndFrame();
             }
 
             {
+                BeginFrame();
                 barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
                 barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                 barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
                 barrier.dstAccessMask = 0;
-                cmd->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                inflightCommands[currentFrameId]->ImageBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                EndFrame();
             }
-
-            cmd->End();
-            cmd->Submit(*uploadQueue, {});
-            cmd->Wait();
         });
     }
 
