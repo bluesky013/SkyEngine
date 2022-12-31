@@ -8,5 +8,7 @@ sky_add_exe(TARGET TerrainGenerator ${PLATFORM_TYPE}
         LIBS
             3rdParty::cxxopts
             3rdParty::stb
+            3rdParty::ktx
             3rdParty::PerlinNoise
+            VulkanRHI
         )

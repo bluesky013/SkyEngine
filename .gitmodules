@@ -58,3 +58,6 @@
 [submodule "thirdparty/PerlinNoise"]
 	path = thirdparty/PerlinNoise
 	url = git@github.com:Reputeless/PerlinNoise.git
+[submodule "thirdparty/ktx"]
+	path = thirdparty/ktx
+	url = git@github.com:KhronosGroup/KTX-Software.git
