@@ -23,6 +23,8 @@ namespace sky::vk {
             bool                allocateMem = true;
         };
 
+        uint64_t GetSize() const;
+
         VkBuffer GetNativeHandle() const;
 
         bool IsTransient() const;

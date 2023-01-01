@@ -271,8 +271,8 @@ namespace sky::rhi {
         const uint8_t *data     = nullptr;
         uint64_t       offset   = 0;
         uint64_t       size     = 0;
-        uint32_t       mipLevel = 1;
-        uint32_t       layer    = 1;
+        uint32_t       mipLevel = 0;
+        uint32_t       layer    = 0;
     };
 
     struct ImageFormatInfo {

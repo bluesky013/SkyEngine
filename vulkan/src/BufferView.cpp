@@ -61,7 +61,7 @@ namespace sky::vk {
         return true;
     }
 
-    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, BufferView::VkDescriptor &des)
+    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, const BufferView::VkDescriptor &des)
     {
         BufferViewPtr ptr = std::make_shared<BufferView>(buffer->device);
         ptr->source       = buffer;

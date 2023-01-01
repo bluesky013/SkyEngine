@@ -12,6 +12,7 @@ sky_add_library(TARGET VulkanSample SHARED
     LINK_LIBS
         VulkanRHI
         Framework
+        3rdParty::ktx
     )
 
 add_dependencies(Launcher VulkanSample)

@@ -75,6 +75,11 @@ namespace sky::vk {
         return true;
     }
 
+    uint64_t Buffer::GetSize() const
+    {
+        return bufferInfo.size;
+    }
+
     VkBuffer Buffer::GetNativeHandle() const
     {
         return buffer;

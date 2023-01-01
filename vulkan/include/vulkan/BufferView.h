@@ -24,7 +24,7 @@ namespace sky::vk {
             VkDeviceSize range  = 0;
         };
 
-        static std::shared_ptr<BufferView> CreateBufferView(const BufferPtr &buffer, BufferView::VkDescriptor &des);
+        static std::shared_ptr<BufferView> CreateBufferView(const BufferPtr &buffer, const BufferView::VkDescriptor &des);
 
         VkBufferView GetNativeHandle() const;
 

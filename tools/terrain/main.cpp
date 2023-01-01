@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Project Path: " << projectPath << std::endl;
 
-    const siv::PerlinNoise::seed_type seed = 123456u;
+    const siv::PerlinNoise::seed_type seed = 113344u;
     const siv::PerlinNoise perlin{ seed };
 
     auto fn = [&](uint32_t x, uint32_t y) {

@@ -190,7 +190,7 @@ namespace sky::vk {
             sparseBinding.imageBindCount = 1;
             sparseBinding.pImageBinds = &imageMemoryBindInfo;
         }
-        vkQueueBindSparse(device.GetGraphicsQueue()->GetNativeHandle(), 1, &sparseBinding, VK_NULL_HANDLE);
+        vkQueueBindSparse(device.GetAsyncTransferQueue()->GetQueue()->GetNativeHandle(), 1, &sparseBinding, VK_NULL_HANDLE);
 
         sparseImageBinds.clear();
         opaqueBinds.clear();

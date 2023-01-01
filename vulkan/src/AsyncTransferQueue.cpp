@@ -130,7 +130,7 @@ namespace sky::vk {
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
             subResourceRange.baseMipLevel            = request.mipLevel;
             subResourceRange.levelCount              = 1;
-            subResourceRange.baseArrayLayer          = 0;
+            subResourceRange.baseArrayLayer          = request.layer;
             subResourceRange.layerCount              = 1;
             vk::Barrier barrier                      = {};
             {
