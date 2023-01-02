@@ -127,10 +127,10 @@ namespace sky::vk {
 
     SparseImage::Page* SparseImage::AddPage(const VkPageInfo &info)
     {
-        auto extent = image->GetImageInfo().extent;
-        extent.width  = std::max(extent.width >> info.level, 1U);
-        extent.height = std::max(extent.height >> info.level, 1U);
-        extent.depth  = std::max(extent.depth >> info.level, 1U);
+        VkExtent3D extent = {0, 0, 0};
+        extent.width  = std::max(info.extent.width >> info.level, 1U);
+        extent.height = std::max(info.extent.height >> info.level, 1U);
+        extent.depth  = std::max(info.extent.depth >> info.level, 1U);
 
         if (!CheckPage(extent, info, sparseMemReq.formatProperties.imageGranularity)) {
             return nullptr;

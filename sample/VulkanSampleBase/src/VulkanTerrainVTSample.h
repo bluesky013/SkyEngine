@@ -15,7 +15,9 @@ namespace sky {
     namespace sample {
         struct TerrainQuadData {
             uint32_t level;
-            uint32_t padding[3];
+            uint32_t offsetX;
+            uint32_t offsetY;
+            uint32_t padding;
         };
 
         struct TerrainLocalData {

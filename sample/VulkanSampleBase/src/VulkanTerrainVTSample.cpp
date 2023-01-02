@@ -11,13 +11,13 @@
 #define KHRONOS_STATIC
 #include <ktx.h>
 
-//#define STATIC_BINDING 0
+//#define STATIC_BINDING
 
 namespace sky {
     const uint32_t widthNum = 16;
     const uint32_t heightNum = 16;
-    const uint32_t blockWidth = 256;
-    const uint32_t blockHeight = 256;
+    const uint32_t blockWidth = 1024;
+    const uint32_t blockHeight = 1024;
     const uint32_t terrainWidth = 1024;
     const uint32_t terrainHeight = 1024;
 
@@ -282,7 +282,6 @@ namespace sky {
         bufferDesc.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         bufferDesc.memory      = VMA_MEMORY_USAGE_CPU_TO_GPU;
         terrain.quadBuffer = device->CreateDeviceObject<vk::Buffer>(bufferDesc);
-        terrain.quadData.resize(widthNum * heightNum);
 
         globalSet = pipelineLayout->Allocate(setPool, 0);
         globalSet->CreateWriter()
@@ -333,6 +332,16 @@ namespace sky {
         desc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
         terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
+
+        terrain.quadData.resize(widthNum * heightNum);
+        for (uint32_t i = 0; i < widthNum; ++i) {
+            for (uint32_t j = 0; j < heightNum; ++j) {
+                auto &quad = Visit(terrain.quadData, widthNum, i, j);
+                quad.level = 2;
+                quad.offsetX = i * (terrainWidth / widthNum);
+                quad.offsetY = j * (terrainHeight / heightNum);
+            }
+        }
 
 #ifdef STATIC_BINDING
         std::vector<vk::BufferPtr> tmpBuffers;

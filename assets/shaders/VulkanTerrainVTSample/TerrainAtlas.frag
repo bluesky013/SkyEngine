@@ -8,8 +8,8 @@ layout (location = 0) out vec4 outFragColor;
 
 struct QuadData {
     uint level;
-    uint padding1;
-    uint padding2;
+    uint offsetX;
+    uint offsetY;
     uint padding3;
 };
 
@@ -22,15 +22,28 @@ layout (set = 2, binding = 0) uniform LocalData {
     vec4 ext;
 } local;
 
+#define EP 2
+
 void main()
 {
     uint i = uint(local.ext.z * inUv.x);
     uint j = uint(local.ext.w * inUv.y);
-    uint level = quads.data[j * uint(local.ext.z) + i].level;
+
+    uint x = uint(local.ext.x * inUv.x);
+    uint y = uint(local.ext.y * inUv.y);
+
+    uint m = uint(local.ext.x / local.ext.z);
+    uint n = uint(local.ext.y / local.ext.w);
+
+    QuadData quad = quads.data[j * uint(local.ext.z) + i];
+    uint level = quad.level;
+    if (((x % m) < EP) || ((y % n) < EP) || (((x + EP) % m) < EP) || (((y + EP) % n) < EP)) {
+        outFragColor = vec4(1, 1, 0, 1);
+        return;
+    }
     vec4 factor = vec4(1, 1, 1, 1);
     if (level == 0) factor = vec4(1.0, 0.0, 0.0, 1.0);
     else if (level == 1) factor = vec4(0.0, 1.0, 0.0, 1.0);
-    else factor = vec4(1.0, 1.0, 0.0, 1.0);
 
     vec4 color = vec4(0.0);
     sparseTextureARB(inTexture, inUv, color, 0);
