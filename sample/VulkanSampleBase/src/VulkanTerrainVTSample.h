@@ -14,11 +14,17 @@ namespace sky {
 
     namespace sample {
         struct TerrainQuadData {
-            Vector4 data;
+            uint32_t level;
+            uint32_t padding[3];
         };
 
         struct TerrainLocalData {
             Vector4 data;
+        };
+
+        struct TerrainPage {
+            vk::SparseImage::Page *page = nullptr;
+            uint32_t level = ~(0U);
         };
 
         struct TerrainData {
@@ -33,6 +39,7 @@ namespace sky {
             vk::BufferPtr                localBuffer;
             vk::BufferPtr                quadBuffer;
             std::vector<TerrainQuadData> quadData;
+            std::vector<TerrainPage>     pages;
             std::vector<std::string>     path;
         };
 
@@ -64,6 +71,8 @@ namespace sky {
         void SetupDescriptorSet();
 
         void PlayerUpdate(float delta);
+        void UpdateBinding();
+        void UpdateTerrainData();
         void InitFeature() override;
 
         void OnKeyUp(KeyButtonType button) override;

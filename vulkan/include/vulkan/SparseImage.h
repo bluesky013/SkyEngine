@@ -39,7 +39,7 @@ namespace sky::vk {
         };
 
         Page* AddPage(const VkPageInfo &info);
-        void RemovePage(Page*);
+        void RemovePage(Page*, bool resetBinding);
 
         void UpdateBinding();
 

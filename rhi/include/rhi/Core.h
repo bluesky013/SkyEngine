@@ -250,6 +250,12 @@ namespace sky::rhi {
     ENABLE_FLAG_BIT_OPERATOR(CullModeFlagBits)
 
     // structs
+    struct Offset3D {
+        int32_t x;
+        int32_t y;
+        int32_t z;
+    };
+
     struct Extent2D {
         uint32_t width;
         uint32_t height;
@@ -273,6 +279,8 @@ namespace sky::rhi {
         uint64_t       size     = 0;
         uint32_t       mipLevel = 0;
         uint32_t       layer    = 0;
+        Offset3D       imageOffset;
+        Extent3D       imageExtent;
     };
 
     struct ImageFormatInfo {

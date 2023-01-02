@@ -108,6 +108,8 @@ namespace sky::vk {
         enabledPhyIndexingFeatures.runtimeDescriptorArray                    = indexingFeature;
         enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = indexingFeature;
         enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = indexingFeature;
+
+        enabledPhyIndexingFeatures.pNext = &sync2Feature;
     }
 
     void Device::SetupAsyncTransferQueue()
@@ -141,9 +143,11 @@ namespace sky::vk {
         vkEnumeratePhysicalDevices(vkInstance, &count, phyDevices.data());
 
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        phyIndexingFeatures.pNext = &sync2Feature;
+        sync2Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        sync2Feature.synchronization2 = VK_TRUE;
 
         phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        phyFeatures.pNext = &phyIndexingFeatures;
 
         uint32_t i = 0;
         for (; i < count; ++i) {

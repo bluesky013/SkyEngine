@@ -7,7 +7,10 @@ layout (location = 0) in vec2 inUv;
 layout (location = 0) out vec4 outFragColor;
 
 struct QuadData {
-    vec4 act;
+    uint level;
+    uint padding1;
+    uint padding2;
+    uint padding3;
 };
 
 layout (set = 1, binding = 0) uniform sampler2D inTexture;
@@ -23,11 +26,11 @@ void main()
 {
     uint i = uint(local.ext.z * inUv.x);
     uint j = uint(local.ext.w * inUv.y);
-    float data = quads.data[i * uint(local.ext.z) + j].act.x;
+    uint level = quads.data[j * uint(local.ext.z) + i].level;
 
     vec4 factor = vec4(1, 1, 1, 1);
-    if (data < 0.1) factor = vec4(1.0, 0.0, 0.0, 1.0);
-    else if (data < 0.3) factor = vec4(0.0, 1.0, 0.0, 1.0);
+    if (level == 0) factor = vec4(1.0, 0.0, 0.0, 1.0);
+    else if (level == 1) factor = vec4(0.0, 1.0, 0.0, 1.0);
     else factor = vec4(1.0, 1.0, 0.0, 1.0);
 
     vec4 color = vec4(0.0);

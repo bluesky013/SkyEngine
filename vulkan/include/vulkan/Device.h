@@ -85,6 +85,7 @@ namespace sky::vk {
         VkPhysicalDeviceProperties                 phyProps                   = {};
         VkPhysicalDeviceFeatures2                  phyFeatures                = {};
         VkPhysicalDeviceFeatures                   enabledPhyFeatures         = {};
+        VkPhysicalDeviceSynchronization2Features   sync2Feature               = {};
         VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures        = {};
         VkPhysicalDeviceDescriptorIndexingFeatures enabledPhyIndexingFeatures = {};
 

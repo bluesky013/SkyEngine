@@ -30,7 +30,12 @@ namespace sky::vk {
         }
 
         task.func();
-        lastTaskId.store(task.taskId);
+
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            lastTaskId.store(task.taskId);
+        }
+        taskCv.notify_all();
         return true;
     }
 
@@ -119,6 +124,81 @@ namespace sky::vk {
         });
     }
 
+    TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests)
+    {
+        return CreateTask([this, image, requests]() {
+            auto *uploadQueue = GetQueue();
+            auto &imageInfo = image->GetImageInfo();
+            auto &formatInfo  = image->GetFormatInfo();
+
+            BeginFrame();
+            VkImageSubresourceRange subResourceRange = {};
+            subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
+            subResourceRange.baseMipLevel            = 0;
+            subResourceRange.levelCount              = imageInfo.mipLevels;
+            subResourceRange.baseArrayLayer          = 0;
+            subResourceRange.layerCount              = imageInfo.arrayLayers;
+            vk::Barrier barrier                      = {};
+            barrier.srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            inflightCommands[currentFrameId]->FlushBarrier();
+            EndFrame();
+            inflightCommands[currentFrameId]->Wait();
+
+            for (auto &request : requests) {
+                uint32_t width  = std::max(request.imageExtent.width >> request.mipLevel, 1U);
+                uint32_t height = std::max(request.imageExtent.height >> request.mipLevel, 1U);
+
+                uint32_t rowLength   = Ceil(width, formatInfo.blockWidth);
+                uint32_t imageHeight = Ceil(height, formatInfo.blockHeight);
+
+                uint32_t blockNum        = rowLength * imageHeight;
+                uint32_t srcSize         = blockNum * formatInfo.blockSize;
+                uint32_t rowBlockSize    = rowLength * formatInfo.blockSize;
+                uint32_t copyBlockHeight = BLOCK_SIZE / rowBlockSize;
+                uint32_t copyNum         = Ceil(imageHeight, copyBlockHeight);
+
+                uint32_t bufferStep = copyBlockHeight * rowBlockSize;
+                uint32_t heightStep = copyBlockHeight * formatInfo.blockHeight;
+
+                for (uint32_t i = 0; i < copyNum; ++i) {
+                    uint64_t offset = BeginFrame();
+
+                    uint32_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
+                    memcpy(mapped + offset, request.data + request.offset + bufferStep * i, copySize);
+
+                    VkOffset3D offset3D = {request.imageOffset.x, request.imageOffset.y, request.imageOffset.z};
+                    offset3D.y += static_cast<int32_t>(heightStep * i);
+
+                    VkBufferImageCopy copy = {};
+                    copy.bufferOffset      = offset;
+                    copy.bufferRowLength   = rowLength * formatInfo.blockWidth;
+                    copy.bufferImageHeight = imageHeight * formatInfo.blockHeight;
+                    copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
+                    copy.imageOffset       = offset3D;
+                    copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};
+
+                    inflightCommands[currentFrameId]->Copy(stagingBuffer, image, copy);
+
+                    EndFrame();
+                }
+            }
+
+            BeginFrame();
+            barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = 0;
+            inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            inflightCommands[currentFrameId]->FlushBarrier();
+            EndFrame();
+            inflightCommands[currentFrameId]->Wait();
+        });
+    }
+
     TransferTaskHandle AsyncTransferQueue::UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request)
     {
         return CreateTask([this, image, request]() {
@@ -149,11 +229,11 @@ namespace sky::vk {
             uint32_t rowLength   = Ceil(width, formatInfo.blockWidth);
             uint32_t imageHeight = Ceil(height, formatInfo.blockHeight);
 
-            uint32_t                  blockNum           = rowLength * imageHeight;
-            uint32_t                  srcSize            = blockNum * formatInfo.blockSize;
-            uint32_t                  rowBlockSize       = rowLength * formatInfo.blockSize;
-            uint32_t                  copyBlockHeight    = BLOCK_SIZE / rowBlockSize;
-            uint32_t                  copyNum            = Ceil(imageHeight, copyBlockHeight);
+            uint32_t blockNum        = rowLength * imageHeight;
+            uint32_t srcSize         = blockNum * formatInfo.blockSize;
+            uint32_t rowBlockSize    = rowLength * formatInfo.blockSize;
+            uint32_t copyBlockHeight = BLOCK_SIZE / rowBlockSize;
+            uint32_t copyNum         = Ceil(imageHeight, copyBlockHeight);
 
             uint32_t bufferStep = copyBlockHeight * rowBlockSize;
             uint32_t heightStep = copyBlockHeight * formatInfo.blockHeight;
@@ -189,4 +269,9 @@ namespace sky::vk {
         });
     }
 
+    void AsyncTransferQueue::Wait(TransferTaskHandle handle)
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        taskCv.wait(lock, [&]() {return HasComplete(handle); });
+    }
 }

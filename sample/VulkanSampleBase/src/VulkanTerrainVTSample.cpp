@@ -12,8 +12,8 @@
 #include <ktx.h>
 
 namespace sky {
-    const uint32_t widthNum = 16;
-    const uint32_t heightNum = 16;
+    const uint32_t widthNum = 8;
+    const uint32_t heightNum = 8;
     const uint32_t blockWidth = 256;
     const uint32_t blockHeight = 256;
     const uint32_t terrainWidth = 1024;
@@ -32,12 +32,15 @@ namespace sky {
 
     void VulkanTerrainVTSample::OnTick(float delta)
     {
-        PlayerUpdate(delta);
 
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
         commandBuffer->Wait();
+        PlayerUpdate(delta);
+        UpdateBinding();
+        UpdateTerrainData();
+
         commandBuffer->Begin();
 
         auto cmd             = commandBuffer->GetNativeHandle();
@@ -305,6 +308,8 @@ namespace sky {
         terrain.width = widthNum;
         terrain.height = heightNum;
         terrain.path.resize(widthNum * heightNum);
+        terrain.pages.resize(widthNum * heightNum);
+
         for (uint32_t i = 0; i < widthNum; ++i) {
             for (uint32_t j = 0; j < heightNum; ++j) {
                 std::stringstream ss;
@@ -323,67 +328,142 @@ namespace sky {
         desc.memory      = VMA_MEMORY_USAGE_GPU_ONLY;
         desc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
+        terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
 
-        std::vector<vk::BufferPtr> tmpBuffers;
+//        std::vector<vk::BufferPtr> tmpBuffers;
 
-        auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
-        cmd->Begin();
+//        auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
+//        cmd->Begin();
+//
+//        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+//                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+//                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+//
+//        for (uint32_t i = 0; i < widthNum; ++i) {
+//            for (uint32_t j = 0; j < heightNum; ++j) {
+//                ktxTexture* texture;
+//                KTX_error_code result;
+//                ktx_size_t offset;
+//                ktx_uint8_t* image;
+//                ktx_uint32_t level, layer, faceSlice;
+//                result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, i, j)).c_str(),
+//                                                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+//                                                        &texture);
+//
+//                uint32_t numLevels = texture->numLevels;
+//                uint32_t baseWidth = texture->baseWidth;
+//                ktx_bool_t isArray = texture->isArray;
+//
+//                level = 0; layer = 0; faceSlice = 0;
+//                result = ktxTexture_GetImageOffset(texture, level, layer, faceSlice, &offset);
+//                image = ktxTexture_GetData(texture) + offset;
+//
+//                vk::Buffer::VkDescriptor bufferInfo = {};
+//                bufferInfo.usage  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+//                bufferInfo.memory = VMA_MEMORY_USAGE_CPU_ONLY;
+//                bufferInfo.size = ktxTexture_GetImageSize(texture, 0);
+//                auto staging      = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
+//                tmpBuffers.emplace_back(staging);
+//                uint8_t *dst = staging->Map();
+//                memcpy(dst, image, bufferInfo.size);
+//                staging->UnMap();
+//                ktxTexture_Destroy(texture);
+//
+//                auto *page = terrain.atlas->AddPage({{(int)(blockWidth * j), (int)(blockHeight * i)}, {blockWidth, blockHeight, 1}});
+//                terrain.atlas->UpdateBinding();
+//
+//                VkBufferImageCopy copyInfo = {};
+//                copyInfo.bufferOffset      = 0;
+//                copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+//                copyInfo.imageOffset       = page->offset;
+//                copyInfo.imageExtent       = page->extent;
+//                cmd->Copy(staging, terrain.atlas->GetImage(), copyInfo);
+//            }
+//        }
+//
+//        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+//                          {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT},
+//                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+//
+//        cmd->End();
+//        cmd->Submit(*graphicsQueue, {});
+//        cmd->Wait();
+    }
 
-        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
-                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    void VulkanTerrainVTSample::UpdateTerrainData()
+    {
+        uint8_t *ptr = terrain.quadBuffer->Map();
+        memcpy(ptr, terrain.quadData.data(), terrain.quadData.size() * sizeof(sample::TerrainQuadData));
+        terrain.quadBuffer->UnMap();
+    }
 
+    void VulkanTerrainVTSample::UpdateBinding()
+    {
+        std::vector<ktxTexture *>            textures;
+        std::vector<rhi::ImageUploadRequest> uploadRequest;
+
+        uint32_t tWidth  = terrainWidth / widthNum;
+        uint32_t tHeight = terrainHeight / heightNum;
         for (uint32_t i = 0; i < widthNum; ++i) {
             for (uint32_t j = 0; j < heightNum; ++j) {
-                ktxTexture* texture;
-                KTX_error_code result;
-                ktx_size_t offset;
-                ktx_uint8_t* image;
-                ktx_uint32_t level, layer, faceSlice;
-                result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, i, j)).c_str(),
-                                                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-                                                        &texture);
+                auto &quad = Visit(terrain.quadData, widthNum, i, j);
 
-                uint32_t numLevels = texture->numLevels;
-                uint32_t baseWidth = texture->baseWidth;
-                ktx_bool_t isArray = texture->isArray;
+                float x = (i + 0.5f) * tWidth;
+                float y = (j + 0.5f) * tHeight;
 
-                level = 0; layer = 0; faceSlice = 0;
-                result = ktxTexture_GetImageOffset(texture, level, layer, faceSlice, &offset);
-                image = ktxTexture_GetData(texture) + offset;
+                float px = player.localData.data.x + (terrainWidth / 2.f) - x;
+                float py = (terrainHeight / 2.f) - player.localData.data.y + -y;
 
-                vk::Buffer::VkDescriptor bufferInfo = {};
-                bufferInfo.usage  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-                bufferInfo.memory = VMA_MEMORY_USAGE_CPU_ONLY;
-                bufferInfo.size = ktxTexture_GetImageSize(texture, 0);
-                auto staging      = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
-                tmpBuffers.emplace_back(staging);
-                uint8_t *dst = staging->Map();
-                memcpy(dst, image, bufferInfo.size);
-                staging->UnMap();
-                ktxTexture_Destroy(texture);
+                float    dist  = sqrt(px * px + py * py) / terrainWidth;
+                uint32_t dstLevel = dist < 0.1f ? 0 : (dist < 0.3f ? 1 : 2);
+                quad.level = dstLevel;
+                auto &pageInfo = Visit(terrain.pages, widthNum, i, j);
 
-                auto *page = terrain.atlas->AddPage({{(int)(blockWidth * j), (int)(blockHeight * i)}, {blockWidth, blockHeight, 1}});
-                terrain.atlas->UpdateBinding();
+                dstLevel = dist < 0.3f ? 0 : 2;
+                if (pageInfo.level != dstLevel) {
+                    terrain.atlas->RemovePage(pageInfo.page, dstLevel == 2);
+                    if (dstLevel <= 1) {
+                        pageInfo.page = terrain.atlas->AddPage({{(int)(blockWidth * i), (int)(blockHeight * j)}, {blockWidth, blockHeight, 1}});
 
-                VkBufferImageCopy copyInfo = {};
-                copyInfo.bufferOffset      = 0;
-                copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-                copyInfo.imageOffset       = page->offset;
-                copyInfo.imageExtent       = page->extent;
-                cmd->Copy(staging, terrain.atlas->GetImage(), copyInfo);
+                        ktxTexture* texture;
+                        KTX_error_code result;
+                        ktx_size_t offset = 0;
+                        ktx_uint8_t* image = nullptr;
+                        result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, j, i)).c_str(),
+                                                                KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+                                                                &texture);
+
+//                        uint32_t numLevels = texture->numLevels;
+//                        uint32_t baseWidth = texture->baseWidth;
+//                        ktx_bool_t isArray = texture->isArray;
+
+                        result = ktxTexture_GetImageOffset(texture, 0, 0, 0, &offset);
+                        image = ktxTexture_GetData(texture) + offset;
+                        textures.emplace_back(texture);
+
+                        uploadRequest.emplace_back(rhi::ImageUploadRequest {
+                            image, 0, ktxTexture_GetImageSize(texture, 0), 0, 0,
+                            {
+                                pageInfo.page->offset.x, pageInfo.page->offset.y, pageInfo.page->offset.z
+                            },
+                            {
+                                pageInfo.page->extent.width, pageInfo.page->extent.height, pageInfo.page->extent.depth
+                            }
+                        });
+                    }
+                    pageInfo.level = dstLevel;
+                }
             }
         }
+        terrain.atlas->UpdateBinding();
 
-        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                          {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT},
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        auto uploadQueue = device->GetAsyncTransferQueue();
+        auto handle = uploadQueue->UploadImage(terrain.atlas->GetImage(), uploadRequest);
+        uploadQueue->Wait(handle);
 
-        cmd->End();
-        cmd->Submit(*graphicsQueue, {});
-        cmd->Wait();
-
-        terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
+        for (auto tex : textures) {
+            ktxTexture_Destroy(tex);
+        }
     }
 
     void VulkanTerrainVTSample::PlayerUpdate(float delta)
@@ -397,35 +477,13 @@ namespace sky {
             player.localData.data.y += dy;
         }
         if (keys[KeyButton::KEY_LEFT]) {
-            player.localData.data.z += delta * 50 / 180.f * 3.14;
+            player.localData.data.z += delta * 50 / 180.f * 3.14f;
         }
         if (keys[KeyButton::KEY_RIGHT]) {
-            player.localData.data.z -= delta * 50 / 180.f * 3.14;
+            player.localData.data.z -= delta * 50 / 180.f * 3.14f;
         }
 
-
-        uint32_t tWidth = terrainWidth / widthNum;
-        uint32_t tHeight = terrainHeight / heightNum;
-        for (uint32_t i = 0; i < widthNum; ++i) {
-            for (uint32_t j = 0; j < heightNum; ++j) {
-                auto &quad = Visit(terrain.quadData, widthNum, i, j);
-
-                float x = (i + 0.5) * tWidth;
-                float y = (j + 0.5) * tHeight;
-
-                float px = player.localData.data.x + (terrainWidth / 2.f) - x;
-                float py = (terrainHeight / 2.f) - player.localData.data.y +  - y;
-
-                float dist = sqrt(px * px + py * py);
-
-                terrain.quadData[i * widthNum + j].data.x = dist / terrainWidth;
-            }
-        }
-        uint8_t *ptr = terrain.quadBuffer->Map();
-        memcpy(ptr, terrain.quadData.data(), terrain.quadData.size() * sizeof(sample::TerrainQuadData));
-        terrain.quadBuffer->UnMap();
-
-        ptr = player.localBuffer->Map();
+        auto *ptr = player.localBuffer->Map();
         memcpy(ptr, &player.localData, sizeof(sample::PlayerLocalData));
         player.localBuffer->UnMap();
     }

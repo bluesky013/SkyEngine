@@ -27,11 +27,11 @@ namespace sky::vk {
 
         auto allocator = device.GetAllocator();
         for (auto &page : pageTable) {
-            vmaFreeMemory(allocator, page->allocation);
+            vmaFreeMemoryPages(allocator, 1, &page->allocation);
         }
 
         for (auto &mipTail : mipTailAllocations) {
-            vmaFreeMemory(allocator, mipTail);
+            vmaFreeMemoryPages(allocator, 1, &mipTail);
         }
     }
 
@@ -91,7 +91,7 @@ namespace sky::vk {
 
             VmaAllocation allocation = VK_NULL_HANDLE;
             VmaAllocationInfo allocationInfo = {};
-            vmaAllocateMemory(allocator, &requirements, &allocationCreateInfo, &allocation, &allocationInfo);
+            vmaAllocateMemoryPages(allocator, &requirements, &allocationCreateInfo, 1, &allocation, &allocationInfo);
 
             VkSparseMemoryBind bind = {};
             bind.resourceOffset = offset;
@@ -130,7 +130,12 @@ namespace sky::vk {
         uint32_t nHeight = AlignDivision(extent.height, sparseMemReq.formatProperties.imageGranularity.height);
         uint32_t nDepth = AlignDivision(extent.depth, sparseMemReq.formatProperties.imageGranularity.depth);
 
-        auto *page = pageMemory.Allocate(Page{info});
+        auto *page = pageMemory.Allocate(Page{});
+        page->allocation =  VK_NULL_HANDLE;
+        page->extent = info.extent;
+        page->offset = info.offset;
+        page->level = info.level;
+        page->layer = info.layer;
 
         auto allocator = device.GetAllocator();
         VmaAllocationCreateInfo allocationCreateInfo = {};
@@ -142,7 +147,7 @@ namespace sky::vk {
         requirements.memoryTypeBits = memReq.memoryTypeBits;
 
         VmaAllocationInfo allocationInfo = {};
-        vmaAllocateMemory(allocator, &requirements, &allocationCreateInfo, &page->allocation, &allocationInfo);
+        vmaAllocateMemoryPages(allocator, &requirements, &allocationCreateInfo, 1, &page->allocation, &allocationInfo);
 
         sparseImageBinds.emplace_back(VkSparseImageMemoryBind{});
         VkSparseImageMemoryBind &imageMemoryBind = sparseImageBinds.back();
@@ -156,11 +161,25 @@ namespace sky::vk {
         return page;
     }
 
-    void SparseImage::RemovePage(Page* page)
+    void SparseImage::RemovePage(Page* page, bool resetBinding)
     {
-        vmaFreeMemory(device.GetAllocator(), page->allocation);
+        auto iter = std::find(pageTable.begin(), pageTable.end(), page);
+        if (iter == pageTable.end()) {
+            return;
+        }
+        vmaFreeMemoryPages(device.GetAllocator(), 1, &page->allocation);
         pageTable.erase(std::find(pageTable.begin(), pageTable.end(), page), pageTable.end());
         pageMemory.Free(page);
+
+        if (resetBinding) {
+            sparseImageBinds.emplace_back(VkSparseImageMemoryBind{});
+            VkSparseImageMemoryBind &imageMemoryBind = sparseImageBinds.back();
+            imageMemoryBind.subresource = {sparseMemReq.formatProperties.aspectMask, page->level, page->layer};
+            imageMemoryBind.offset = page->offset;
+            imageMemoryBind.extent = page->extent;
+            imageMemoryBind.memory = VK_NULL_HANDLE;
+            imageMemoryBind.memoryOffset = 0;
+        }
     }
 
     bool SparseImage::IsSingleMipTail() const

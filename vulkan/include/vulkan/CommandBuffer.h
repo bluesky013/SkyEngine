@@ -119,8 +119,11 @@ namespace sky::vk {
 
         void ImageBarrier(
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
-
         void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
+
+        void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
+        void QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
+        void FlushBarrier();
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
 
@@ -158,6 +161,8 @@ namespace sky::vk {
         VkCommandPool   pool;
         VkCommandBuffer cmdBuffer;
         FencePtr        fence;
+        std::vector<VkBufferMemoryBarrier2> bufferBarriers;
+        std::vector<VkImageMemoryBarrier2> imageBarriers;
     };
 
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;

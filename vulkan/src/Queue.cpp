@@ -37,4 +37,9 @@ namespace sky::vk {
         return pool;
     }
 
+    void Queue::WaitIdle()
+    {
+        vkQueueWaitIdle(queue);
+    }
+
 } // namespace sky::vk
