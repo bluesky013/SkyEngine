@@ -27,7 +27,6 @@ void main()
     uint i = uint(local.ext.z * inUv.x);
     uint j = uint(local.ext.w * inUv.y);
     uint level = quads.data[j * uint(local.ext.z) + i].level;
-
     vec4 factor = vec4(1, 1, 1, 1);
     if (level == 0) factor = vec4(1.0, 0.0, 0.0, 1.0);
     else if (level == 1) factor = vec4(0.0, 1.0, 0.0, 1.0);

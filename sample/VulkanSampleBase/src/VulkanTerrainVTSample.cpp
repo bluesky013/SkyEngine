@@ -11,6 +11,8 @@
 #define KHRONOS_STATIC
 #include <ktx.h>
 
+//#define STATIC_BINDING 0
+
 namespace sky {
     const uint32_t widthNum = 16;
     const uint32_t heightNum = 16;
@@ -218,6 +220,9 @@ namespace sky {
         player.setBinder->SetPipelineLayout(playerLayout);
         player.setBinder->BindSet(0, globalSet);
         player.setBinder->BindSet(1, player.set);
+
+        player.localData.data.x = 0;
+        player.localData.data.y = -512;
     }
 
     void VulkanTerrainVTSample::SetupDescriptorSet()
@@ -329,64 +334,64 @@ namespace sky {
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
         terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
 
-//        std::vector<vk::BufferPtr> tmpBuffers;
+#ifdef STATIC_BINDING
+        std::vector<vk::BufferPtr> tmpBuffers;
+        auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
+        cmd->Begin();
+        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-//        auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
-//        cmd->Begin();
-//
-//        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-//                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
-//                          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-//
-//        for (uint32_t i = 0; i < widthNum; ++i) {
-//            for (uint32_t j = 0; j < heightNum; ++j) {
-//                ktxTexture* texture;
-//                KTX_error_code result;
-//                ktx_size_t offset;
-//                ktx_uint8_t* image;
-//                ktx_uint32_t level, layer, faceSlice;
-//                result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, i, j)).c_str(),
-//                                                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-//                                                        &texture);
-//
-//                uint32_t numLevels = texture->numLevels;
-//                uint32_t baseWidth = texture->baseWidth;
-//                ktx_bool_t isArray = texture->isArray;
-//
-//                level = 0; layer = 0; faceSlice = 0;
-//                result = ktxTexture_GetImageOffset(texture, level, layer, faceSlice, &offset);
-//                image = ktxTexture_GetData(texture) + offset;
-//
-//                vk::Buffer::VkDescriptor bufferInfo = {};
-//                bufferInfo.usage  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-//                bufferInfo.memory = VMA_MEMORY_USAGE_CPU_ONLY;
-//                bufferInfo.size = ktxTexture_GetImageSize(texture, 0);
-//                auto staging      = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
-//                tmpBuffers.emplace_back(staging);
-//                uint8_t *dst = staging->Map();
-//                memcpy(dst, image, bufferInfo.size);
-//                staging->UnMap();
-//                ktxTexture_Destroy(texture);
-//
-//                auto *page = terrain.atlas->AddPage({{(int)(blockWidth * j), (int)(blockHeight * i)}, {blockWidth, blockHeight, 1}});
-//                terrain.atlas->UpdateBinding();
-//
-//                VkBufferImageCopy copyInfo = {};
-//                copyInfo.bufferOffset      = 0;
-//                copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-//                copyInfo.imageOffset       = page->offset;
-//                copyInfo.imageExtent       = page->extent;
-//                cmd->Copy(staging, terrain.atlas->GetImage(), copyInfo);
-//            }
-//        }
-//
-//        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-//                          {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT},
-//                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-//
-//        cmd->End();
-//        cmd->Submit(*graphicsQueue, {});
-//        cmd->Wait();
+        for (uint32_t i = 0; i < widthNum; ++i) {
+            for (uint32_t j = 0; j < heightNum; ++j) {
+                ktxTexture* texture;
+                KTX_error_code result;
+                ktx_size_t offset;
+                ktx_uint8_t* image;
+                ktx_uint32_t level, layer, faceSlice;
+                result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, i, j)).c_str(),
+                                                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+                                                        &texture);
+
+                uint32_t numLevels = texture->numLevels;
+                uint32_t baseWidth = texture->baseWidth;
+                ktx_bool_t isArray = texture->isArray;
+
+                level = 0; layer = 0; faceSlice = 0;
+                result = ktxTexture_GetImageOffset(texture, level, layer, faceSlice, &offset);
+                image = ktxTexture_GetData(texture) + offset;
+
+                vk::Buffer::VkDescriptor bufferInfo = {};
+                bufferInfo.usage  = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+                bufferInfo.memory = VMA_MEMORY_USAGE_CPU_ONLY;
+                bufferInfo.size = ktxTexture_GetImageSize(texture, 0);
+                auto staging      = device->CreateDeviceObject<vk::Buffer>(bufferInfo);
+                tmpBuffers.emplace_back(staging);
+                uint8_t *dst = staging->Map();
+                memcpy(dst, image, bufferInfo.size);
+                staging->UnMap();
+                ktxTexture_Destroy(texture);
+
+                auto *page = terrain.atlas->AddPage({{(int)(blockWidth * i), (int)(blockHeight * j)}, {blockWidth, blockHeight, 1}});
+                terrain.atlas->UpdateBinding();
+
+                VkBufferImageCopy copyInfo = {};
+                copyInfo.bufferOffset      = 0;
+                copyInfo.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+                copyInfo.imageOffset       = page->offset;
+                copyInfo.imageExtent       = page->extent;
+                cmd->Copy(staging, terrain.atlas->GetImage(), copyInfo);
+            }
+        }
+
+        cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                          {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT},
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        cmd->End();
+        cmd->Submit(*graphicsQueue, {});
+        cmd->Wait();
+#endif
     }
 
     void VulkanTerrainVTSample::UpdateTerrainData()
@@ -398,6 +403,7 @@ namespace sky {
 
     void VulkanTerrainVTSample::UpdateBinding()
     {
+#ifndef STATIC_BINDING
         std::vector<ktxTexture *>            textures;
         std::vector<rhi::ImageUploadRequest> uploadRequest;
 
@@ -460,6 +466,7 @@ namespace sky {
         for (auto tex : textures) {
             ktxTexture_Destroy(tex);
         }
+#endif
     }
 
     void VulkanTerrainVTSample::PlayerUpdate(float delta)
