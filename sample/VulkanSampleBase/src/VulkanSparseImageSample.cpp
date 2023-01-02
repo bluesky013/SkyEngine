@@ -25,7 +25,6 @@ namespace sky {
         imageDesc.mipLevels   = 1;
         imageDesc.arrayLayers = 1;
         imageDesc.usage       = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        imageDesc.memory      = VMA_MEMORY_USAGE_GPU_ONLY;
         imageDesc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
 
         sparseImage = device->CreateDeviceObject<vk::SparseImage>(imageDesc);

@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
         for (uint64_t i = 0; i < blockWidth; ++i) {
             for (uint64_t j = 0; j < blockWidth; ++j) {
                 const double noise       = perlin.noise2D_01((xOffset + i) * 0.002, (yOffset + j) * 0.002);
-                data[i * blockWidth + j] = noise * 65535;
+                data[j * blockWidth + i] = noise * 65535;
             }
         }
 

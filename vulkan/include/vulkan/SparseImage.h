@@ -34,7 +34,6 @@ namespace sky::vk {
             uint32_t          mipLevels   = 1;
             uint32_t          arrayLayers = 1;
             VkImageUsageFlags usage       = 0;
-            VmaMemoryUsage    memory      = VMA_MEMORY_USAGE_GPU_ONLY;
             VkImageViewType   viewType    = VK_IMAGE_VIEW_TYPE_2D;
         };
 
@@ -60,8 +59,8 @@ namespace sky::vk {
         ImageViewPtr view;
         VkSparseImageMemoryRequirements sparseMemReq = {};
         VkMemoryRequirements memReq = {};
-        ObjectPool<Page> pageMemory;
-        std::vector<Page*> pageTable;
+        VmaPool pool = VK_NULL_HANDLE;
+        std::list<Page> pageMemory;
 
         std::vector<VmaAllocation> mipTailAllocations;
         std::vector<VkSparseMemoryBind> opaqueBinds;

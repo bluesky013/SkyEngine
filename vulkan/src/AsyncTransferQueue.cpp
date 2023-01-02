@@ -131,7 +131,8 @@ namespace sky::vk {
             auto &imageInfo = image->GetImageInfo();
             auto &formatInfo  = image->GetFormatInfo();
 
-            BeginFrame();
+            inflightCommands[currentFrameId]->Wait();
+            inflightCommands[currentFrameId]->Begin();
             VkImageSubresourceRange subResourceRange = {};
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
             subResourceRange.baseMipLevel            = 0;
@@ -145,7 +146,8 @@ namespace sky::vk {
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             inflightCommands[currentFrameId]->FlushBarrier();
-            EndFrame();
+            inflightCommands[currentFrameId]->End();
+            inflightCommands[currentFrameId]->Submit(*queue, {});
             inflightCommands[currentFrameId]->Wait();
 
             for (auto &request : requests) {
@@ -187,14 +189,16 @@ namespace sky::vk {
                 }
             }
 
-            BeginFrame();
+            inflightCommands[currentFrameId]->Wait();
+            inflightCommands[currentFrameId]->Begin();
             barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
             barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = 0;
             inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             inflightCommands[currentFrameId]->FlushBarrier();
-            EndFrame();
+            inflightCommands[currentFrameId]->End();
+            inflightCommands[currentFrameId]->Submit(*queue, {});
             inflightCommands[currentFrameId]->Wait();
         });
     }

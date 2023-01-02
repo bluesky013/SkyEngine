@@ -12,8 +12,8 @@
 #include <ktx.h>
 
 namespace sky {
-    const uint32_t widthNum = 8;
-    const uint32_t heightNum = 8;
+    const uint32_t widthNum = 16;
+    const uint32_t heightNum = 16;
     const uint32_t blockWidth = 256;
     const uint32_t blockHeight = 256;
     const uint32_t terrainWidth = 1024;
@@ -325,7 +325,6 @@ namespace sky {
         desc.mipLevels   = 1;
         desc.arrayLayers = 1;
         desc.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        desc.memory      = VMA_MEMORY_USAGE_GPU_ONLY;
         desc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
         terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
@@ -421,24 +420,22 @@ namespace sky {
 
                 dstLevel = dist < 0.3f ? 0 : 2;
                 if (pageInfo.level != dstLevel) {
-                    terrain.atlas->RemovePage(pageInfo.page, dstLevel == 2);
+                    if (pageInfo.page != nullptr) {
+                        terrain.atlas->RemovePage(pageInfo.page, dstLevel == 2);
+                        pageInfo.page = nullptr;
+                    }
+                    pageInfo.level = dstLevel;
+
                     if (dstLevel <= 1) {
-                        pageInfo.page = terrain.atlas->AddPage({{(int)(blockWidth * i), (int)(blockHeight * j)}, {blockWidth, blockHeight, 1}});
+                        pageInfo.page = terrain.atlas->AddPage({{(int)(blockWidth * i), (int)(blockHeight * j), 0}, {blockWidth, blockHeight, 1}});
 
                         ktxTexture* texture;
-                        KTX_error_code result;
-                        ktx_size_t offset = 0;
-                        ktx_uint8_t* image = nullptr;
-                        result = ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, j, i)).c_str(),
+                        ktxTexture_CreateFromNamedFile((ENGINE_ROOT + "/assets/" + Visit(terrain.path, widthNum, i, j)).c_str(),
                                                                 KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
                                                                 &texture);
-
-//                        uint32_t numLevels = texture->numLevels;
-//                        uint32_t baseWidth = texture->baseWidth;
-//                        ktx_bool_t isArray = texture->isArray;
-
-                        result = ktxTexture_GetImageOffset(texture, 0, 0, 0, &offset);
-                        image = ktxTexture_GetData(texture) + offset;
+                        ktx_size_t offset = 0;
+                        ktxTexture_GetImageOffset(texture, 0, 0, 0, &offset);
+                        ktx_uint8_t* image = ktxTexture_GetData(texture) + offset;
                         textures.emplace_back(texture);
 
                         uploadRequest.emplace_back(rhi::ImageUploadRequest {
@@ -451,7 +448,6 @@ namespace sky {
                             }
                         });
                     }
-                    pageInfo.level = dstLevel;
                 }
             }
         }

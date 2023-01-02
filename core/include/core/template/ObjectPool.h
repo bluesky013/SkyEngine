@@ -10,8 +10,12 @@ namespace sky {
     class ObjectPool {
     public:
         ObjectPool(uint32_t npp = 16) : numberPerStorage(npp), currentNumber(0), capacity(0) {}
-        ~ObjectPool() = default;
-
+        ~ObjectPool()
+        {
+            for (auto &storage : storages) {
+                delete []storage.data;
+            }
+        }
         template <typename ...Args>
         T* Allocate(Args &&...args)
         {
@@ -27,7 +31,7 @@ namespace sky {
             uint32_t storageIndex = currentNumber / numberPerStorage;
             uint32_t storageOffset = currentNumber % numberPerStorage;
             ++currentNumber;
-            T* data = reinterpret_cast<T*>(&storages[storageIndex].data[storageOffset * sizeof(T)]);
+            T* data = reinterpret_cast<T*>(storages[storageIndex].data + storageOffset * sizeof(T));
             new (data) T(std::forward<Args>(args)...);
             return data;
         }
@@ -40,13 +44,13 @@ namespace sky {
 
     private:
         struct Storage {
-            std::vector<uint8_t> data;
+            uint8_t *data = nullptr;
         };
 
         void AllocateStorage()
         {
             auto &back = storages.emplace_back();
-            back.data.resize(numberPerStorage * sizeof(T));
+            back.data = new uint8_t[numberPerStorage * sizeof(T)];
             capacity = static_cast<uint32_t>(storages.size() * numberPerStorage);
         }
 
