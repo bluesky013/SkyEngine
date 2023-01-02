@@ -27,7 +27,7 @@ public:
 
         instance = Instance::Create(drvDes);
 
-        Device::VkDescriptor devDes = {};
+        Device::Descriptor devDes = {};
         device = instance->CreateDevice(devDes);
     }
 

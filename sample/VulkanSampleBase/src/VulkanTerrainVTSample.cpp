@@ -11,13 +11,13 @@
 #define KHRONOS_STATIC
 #include <ktx.h>
 
-//#define STATIC_BINDING
+#define STATIC_BINDING
 
 namespace sky {
     const uint32_t widthNum = 16;
     const uint32_t heightNum = 16;
-    const uint32_t blockWidth = 1024;
-    const uint32_t blockHeight = 1024;
+    const uint32_t blockWidth = 2048;
+    const uint32_t blockHeight = 2048;
     const uint32_t terrainWidth = 1024;
     const uint32_t terrainHeight = 1024;
 
