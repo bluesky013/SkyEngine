@@ -67,6 +67,14 @@ namespace sky::rhi {
         ASTC_12x12_SRGB_BLOCK,
     };
 
+    enum class Format : uint32_t {
+        UNDEFINED = 0,
+        F_R32     = 1,
+        F_RG32    = 2,
+        F_RGB32   = 3,
+        F_RGBA32  = 4
+    };
+
     enum class ImageType : uint32_t {
         IMAGE_2D,
         IMAGE_3D
@@ -196,6 +204,23 @@ namespace sky::rhi {
     enum class StoreOp : uint32_t {
         DONT_CARE = 0,
         STORE = 1,
+    };
+
+    enum class DescriptorType : uint32_t {
+        SAMPLER                = 0,
+        COMBINED_IMAGE_SAMPLER = 1,
+        SAMPLED_IMAGE          = 2,
+        STORAGE_IMAGE          = 3,
+        UNIFORM_BUFFER         = 4,
+        STORAGE_BUFFER         = 5,
+        UNIFORM_BUFFER_DYNAMIC = 6,
+        STORAGE_BUFFER_DYNAMIC = 7,
+        INPUT_ATTACHMENT       = 8,
+    };
+
+    enum class VertexInputRate : uint32_t {
+        PER_VERTEX   = 0,
+        PER_INSTANCE = 1
     };
 
     // flag bit
@@ -359,5 +384,18 @@ namespace sky::rhi {
         InputAssembly           inputAssembly;
         RasterState             rasterState;
         std::vector<BlendState> blendStates;
+    };
+
+    struct VertexAttributeDesc {
+        uint32_t location = 0;
+        uint32_t binding  = 0;
+        uint32_t offset   = 0;
+        Format   format   = Format::UNDEFINED;
+    };
+
+    struct VertexBindingDesc {
+        uint32_t        binding   = 0;
+        uint32_t        stride    = 0;
+        VertexInputRate inputRate = VertexInputRate::PER_VERTEX;
     };
 }

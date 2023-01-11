@@ -20,6 +20,10 @@ namespace sky::rhi {
             RenderPassPtr             pass;
             std::vector<ImageViewPtr> views;
         };
+
+    private:
+        Extent2D extent = {1, 1};
+        std::vector<ImageViewPtr> views;
     };
 
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;

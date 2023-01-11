@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/DescriptorSetLayout.h>
 
 namespace sky::rhi {
 
@@ -14,6 +15,7 @@ namespace sky::rhi {
         virtual ~PipelineLayout() = default;
 
         struct Descriptor {
+            std::vector<DescriptorSetLayoutPtr> layouts;
         };
     };
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;

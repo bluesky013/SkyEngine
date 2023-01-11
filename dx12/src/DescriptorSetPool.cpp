@@ -2,20 +2,20 @@
 // Created by Zach Lee on 2022/11/5.
 //
 
-#include <dx12/DescriptorPool.h>
+#include <dx12/DescriptorSetPool.h>
 #include <dx12/Device.h>
 
 namespace sky::dx {
 
-    DescriptorPool::DescriptorPool(Device &dev) : DevObject(dev)
+    DescriptorSetPool::DescriptorSetPool(Device &dev) : DevObject(dev)
     {
     }
 
-    DescriptorPool::~DescriptorPool()
+    DescriptorSetPool::~DescriptorSetPool()
     {
     }
 
-    bool DescriptorPool::Init(const Descriptor &)
+    bool DescriptorSetPool::Init(const Descriptor &)
     {
         D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
 
@@ -26,7 +26,7 @@ namespace sky::dx {
         return true;
     }
 
-    ID3D12DescriptorHeap *DescriptorPool::GetHeap() const
+    ID3D12DescriptorHeap *DescriptorSetPool::GetHeap() const
     {
         return heap.Get();
     }

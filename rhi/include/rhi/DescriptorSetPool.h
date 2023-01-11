@@ -8,6 +8,22 @@
 
 namespace sky::rhi {
 
+    class DescriptorSetPool {
+    public:
+        DescriptorSetPool() = default;
+        ~DescriptorSetPool() = default;
 
+        struct PoolSize {
+            DescriptorType type = DescriptorType::SAMPLER;
+            uint32_t count      = 0;
+        };
+
+        struct Descriptor {
+            uint32_t              maxSets = 0;
+            std::vector<PoolSize> sizes;
+        };
+
+    protected:
+    };
 
 }

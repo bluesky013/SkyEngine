@@ -6,6 +6,12 @@
 
 namespace sky::dx {
 
+    Buffer::Buffer(Device &dev) : DevObject(dev)
+    {
+    }
 
+    Buffer::~Buffer()
+    {
+    }
 
 }

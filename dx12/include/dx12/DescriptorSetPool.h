@@ -4,18 +4,16 @@
 
 #pragma once
 
+#include <rhi/DescriptorSetPool.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
     class Device;
 
-    class DescriptorPool : public DevObject {
+    class DescriptorSetPool : public rhi::DescriptorSetPool, public DevObject {
     public:
-        DescriptorPool(Device &dev);
-        ~DescriptorPool();
-
-        struct Descriptor {
-        };
+        DescriptorSetPool(Device &dev);
+        ~DescriptorSetPool();
 
         ID3D12DescriptorHeap *GetHeap() const;
 
