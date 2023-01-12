@@ -5,10 +5,8 @@
 #pragma once
 
 #include <core/math/Rect.h>
-#include <engine/ServiceManager.h>
+#include <core/std/Container.h>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace sky {
 
@@ -27,18 +25,16 @@ namespace sky {
 
         void Tick(float);
 
-        const std::vector<GameObject *> &GetGameObjects() const;
+        const PmrVector<GameObject *> &GetGameObjects() const;
 
         GameObject *GetRoot();
-
-        ServiceManager *GetServiceManager() const;
 
         static void Reflect();
 
     private:
-        GameObject                     *root;
-        std::unique_ptr<ServiceManager> serviceManager;
-        std::vector<GameObject *>       gameObjects;
+        GameObject             *root;
+        PmrUnSyncPoolRes        memoryResource;
+        PmrVector<GameObject *> gameObjects;
     };
 
 } // namespace sky

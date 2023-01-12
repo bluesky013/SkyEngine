@@ -7,6 +7,7 @@
 #include <core/environment/Singleton.h>
 #include <core/type/Rtti.h>
 #include <core/type/Type.h>
+#include <core/std/Container.h>
 #include <framework/serialization/SerializationContext.h>
 #include <set>
 #include <string_view>
@@ -60,9 +61,9 @@ namespace sky {
         static constexpr std::string_view name = TypeInfo<T>::Name();
         static constexpr uint32_t         id   = TypeInfo<T>::Hash();
 
-        static T *CreateComponent()
+        static T *CreateComponent(void *ptr)
         {
-            return new T();
+            return new (ptr) T();
         }
 
         static std::string_view GetName()

@@ -11,8 +11,9 @@ namespace sky {
 
     GameObject::~GameObject()
     {
-        for (auto iter : components) {
-            delete iter;
+        for (auto comp : components) {
+            comp->~Component();
+            resource->deallocate(comp, comp->GetTypeInfo()->size);
         }
         components.clear();
     }
@@ -34,8 +35,11 @@ namespace sky {
 
     void GameObject::SetParent(GameObject *gameObject)
     {
-        auto trans  = GetComponent<TransformComponent>();
-        auto parent = gameObject == nullptr ? world->GetRoot()->GetComponent<TransformComponent>() : gameObject->GetComponent<TransformComponent>();
+        auto trans = GetComponent<TransformComponent>();
+        if (gameObject == nullptr) {
+            gameObject = world->GetRoot();
+        }
+        TransformComponent *parent = gameObject != nullptr ? gameObject->GetComponent<TransformComponent>() : nullptr;
         trans->SetParent(parent);
     }
 

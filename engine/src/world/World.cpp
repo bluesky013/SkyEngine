@@ -9,19 +9,16 @@
 
 namespace sky {
 
-    World::World() : root(new GameObject("root"))
+    World::World() : root(nullptr), gameObjects(&memoryResource)
     {
-        serviceManager = std::make_unique<ServiceManager>();
-
-        root->AddComponent<TransformComponent>();
-        root->world = this;
-        gameObjects.emplace_back(root);
+        root = CreateGameObject("root");
     }
 
     World::~World()
     {
         for (auto &go : gameObjects) {
-            delete go;
+            go->~GameObject();
+            memoryResource.deallocate(go, sizeof(GameObject));
         }
         gameObjects.clear();
     }
@@ -30,8 +27,9 @@ namespace sky {
     {
         static std::atomic_uint32_t index = 0;
         index.fetch_add(1);
-
-        auto go   = new GameObject(name);
+        auto ptr = memoryResource.allocate(sizeof(GameObject));
+        auto go = new (ptr) GameObject(name);
+        go->resource = &memoryResource;
         go->world = this;
         go->objId = index.load();
         go->AddComponent<TransformComponent>();
@@ -44,8 +42,9 @@ namespace sky {
     {
         auto iter = std::find(gameObjects.begin(), gameObjects.end(), go);
         if (iter != gameObjects.end()) {
-            delete (*iter);
+            (*iter)->~GameObject();
             gameObjects.erase(iter);
+            memoryResource.deallocate((*iter), sizeof(GameObject));
         }
     }
 
@@ -54,12 +53,9 @@ namespace sky {
         for (auto &obj : gameObjects) {
             obj->Tick(time);
         }
-        if (serviceManager) {
-            serviceManager->Tick(time);
-        }
     }
 
-    const std::vector<GameObject *> &World::GetGameObjects() const
+    const PmrVector<GameObject *> &World::GetGameObjects() const
     {
         return gameObjects;
     }
@@ -67,11 +63,6 @@ namespace sky {
     GameObject *World::GetRoot()
     {
         return root;
-    }
-
-    ServiceManager *World::GetServiceManager() const
-    {
-        return serviceManager.get();
     }
 
     void World::Reflect()

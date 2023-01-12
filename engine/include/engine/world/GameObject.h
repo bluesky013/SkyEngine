@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/type/Rtti.h>
+#include <core/std/Container.h>
 #include <engine/world/Component.h>
 #include <list>
 #include <string>
@@ -14,6 +15,9 @@ namespace sky {
 
     class GameObject {
     public:
+        GameObject(GameObject &&) noexcept = default;
+        GameObject &operator=(GameObject&&) noexcept = default;
+
         GameObject(const GameObject &)            = delete;
         GameObject &operator=(const GameObject &) = delete;
 
@@ -23,7 +27,7 @@ namespace sky {
             auto info = TypeInfoObj<T>::Get()->RtInfo();
             auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
             if (iter == components.end()) {
-                auto comp    = ComponentFactory<T>::CreateComponent();
+                auto comp    = ComponentFactory<T>::CreateComponent(resource->allocate(sizeof(T)));
                 comp->object = this;
                 comp->OnActive();
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
@@ -39,9 +43,10 @@ namespace sky {
             auto info = TypeInfoObj<T>::Get()->RtInfo();
             auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
             if (iter != components.end()) {
-                (*iter)->OnDestroy();
                 ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
-                delete *iter;
+                (*iter)->OnDestroy();
+                (*iter)->~Component();
+                resource->deallocate(*iter, info->size);
                 components.erase(iter);
             }
         }
@@ -51,7 +56,6 @@ namespace sky {
         {
             auto info = TypeInfoObj<T>::Get()->RtInfo();
             auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) {
-                auto ci = comp->GetTypeInfo();
                 return comp->GetTypeInfo() == info;
             });
             if (iter != components.end()) {
@@ -81,17 +85,18 @@ namespace sky {
 
         void Tick(float time);
 
-        using ComponentList = std::list<Component *>;
+        using ComponentList = PmrList<Component *>;
         ComponentList &GetComponents();
 
     private:
         friend class World;
         ~GameObject();
-
         GameObject(const std::string &str) : name(str)
         {
         }
+
         World        *world = nullptr;
+        PmrResource  *resource = nullptr;
         uint32_t      objId = 0;
         std::string   name;
         ComponentList components;
