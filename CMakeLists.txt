@@ -39,6 +39,7 @@ add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(engine)
 add_subdirectory(render)
+add_subdirectory(render2)
 add_subdirectory(rhi)
 add_subdirectory(vulkan)
 
