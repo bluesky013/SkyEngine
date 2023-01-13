@@ -70,13 +70,16 @@ function(sky_add_library)
                     list(APPEND LINK_LIBRARIES ${tmpLib})
                 endif()
 
-                get_target_property(tmpDll ${dep} DYN_LIBS)
-                if (tmpDll)
-                    add_custom_command(TARGET ${TMP_TARGET} POST_BUILD
-                            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                                ${tmpDll}
-                                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>
-                            )
+                get_target_property(tmpDlls ${dep} DYN_LIBS)
+                if (tmpDlls)
+                    foreach(dll ${tmpDlls})
+                        get_filename_component(dllName ${dll} NAME)
+                        add_custom_command(TARGET ${TMP_TARGET} POST_BUILD
+                                COMMAND ${CMAKE_COMMAND} -E copy
+                                ${dll}
+                                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/${dllName}
+                                )
+                    endforeach()
                 endif()
             endif()
         endif()

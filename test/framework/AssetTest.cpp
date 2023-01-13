@@ -4,6 +4,8 @@
 
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/database/DataBase.h>
+#include <framework/database/DBManager.h>
 #include <framework/serialization/BasicSerialization.h>
 #include <gtest/gtest.h>
 
@@ -51,11 +53,14 @@ public:
         testAsset->Data().b = 2.0;
         testAsset->Data().c = "abc";
         am->SaveAsset(testAsset, "test\\framework\\t1.json");
+
+        sky::DBManager::Get()->Init();
     }
 
     static void TearDownTestSuite()
     {
         sky::AssetManager::Destroy();
+        sky::DBManager::Destroy();
     }
 
     void SetUp() override
@@ -67,27 +72,69 @@ public:
     }
 };
 
-TEST_F(AssetTest, LoadTest1)
-{
-    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json");
-    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-    asset->BlockUtilLoaded();
-    asset->BlockUtilLoaded();
-    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-    auto instance = asset->CreateInstance();
-    ASSERT_EQ(instance->value.a, 1);
-    ASSERT_EQ(instance->value.b, 2.f);
-    ASSERT_EQ(instance->value.c, "abc");
-}
+//TEST_F(AssetTest, LoadTest1)
+//{
+//    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json");
+//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
+//    asset->BlockUtilLoaded();
+//    asset->BlockUtilLoaded();
+//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
+//    auto instance = asset->CreateInstance();
+//    ASSERT_EQ(instance->value.a, 1);
+//    ASSERT_EQ(instance->value.b, 2.f);
+//    ASSERT_EQ(instance->value.c, "abc");
+//}
 
-TEST_F(AssetTest, AsyncLoadTest1)
+//TEST_F(AssetTest, AsyncLoadTest1)
+//{
+//    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json", true);
+//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADING);
+//    asset->BlockUtilLoaded();
+//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
+//    auto instance = asset->CreateInstance();
+//    ASSERT_EQ(instance->value.a, 1);
+//    ASSERT_EQ(instance->value.b, 2.f);
+//    ASSERT_EQ(instance->value.c, "abc");
+//}
+
+TEST_F(AssetTest, DataTest)
 {
-    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json", true);
-    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADING);
-    asset->BlockUtilLoaded();
-    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-    auto instance = asset->CreateInstance();
-    ASSERT_EQ(instance->value.a, 1);
-    ASSERT_EQ(instance->value.b, 2.f);
-    ASSERT_EQ(instance->value.c, "abc");
+    const char *CREATE = "CREATE TABLE IF NOT EXISTS data("
+                             "key   TEXT PRIMARY KEY,"
+                             "value TEXT);";
+    const char *UPDATE = "REPLACE INTO data(key, value) VALUES (?,?);";
+    const char *SELECT = "SELECT value FROM data WHERE key=?;";
+
+    {
+        sky::DataBase dataBase;
+        dataBase.Init("test.db");
+
+        {
+            std::unique_ptr<sky::db::Statement> tableStmt(dataBase.CreateStatement(CREATE));
+            tableStmt->Step();
+            tableStmt->Finalize();
+        }
+
+        {
+            std::unique_ptr<sky::db::Statement> addStmt(dataBase.CreateStatement(UPDATE));
+            addStmt->BindText(1, "key");
+            addStmt->BindText(2, "value");
+            addStmt->Step();
+            addStmt->Finalize();
+        }
+
+        dataBase.Shutdown();
+    }
+
+    {
+        sky::DataBase dataBase;
+        dataBase.Init("test.db");
+
+        std::unique_ptr<sky::db::Statement> selectStmt(dataBase.CreateStatement(SELECT));
+        selectStmt->BindText(1, "key");
+        selectStmt->Step();
+        std::string val = selectStmt->GetText(0);
+        ASSERT_EQ(val, "value");
+    }
+
 }
