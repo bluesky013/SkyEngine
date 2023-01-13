@@ -17,6 +17,8 @@ namespace sky {
 
         void Init();
 
+        void Tick();
+
         LayoutDataBase *GetLayoutDataBase() const;
 
     private:
