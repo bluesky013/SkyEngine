@@ -5,15 +5,25 @@
 #pragma once
 
 #include <core/util/DynamicModule.h>
-#include <framework/interface/IEngine.h>
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
 #include <memory>
+#include <functional>
 
 namespace sky {
 
     class Environment;
+
+    struct StartInfo {
+        std::string              appName;
+        std::vector<std::string> modules;
+        SettingRegistry          setting;
+
+        uint32_t windowWidth  = 1366;
+        uint32_t windowHeight = 768;
+    };
 
     class Application : public ISystemNotify {
     public:
@@ -31,9 +41,17 @@ namespace sky {
 
         void Mainloop();
 
+        void Loop();
+
         void SetExit() override;
 
         const SettingRegistry &GetSettings() const override;
+
+        template <typename T>
+        void BindTick(T &&val)
+        {
+            tickFn = std::forward<T>(val);
+        }
 
     protected:
         void LoadDynamicModules(const StartInfo &start);
@@ -44,6 +62,7 @@ namespace sky {
         std::vector<std::unique_ptr<DynamicModule>> dynLibs;
         std::vector<std::unique_ptr<IModule>>       modules;
         SettingRegistry                             settings;
+        std::function<void(float)>                  tickFn;
         bool                                        exit = false;
     };
 

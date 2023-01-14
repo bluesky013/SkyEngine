@@ -34,6 +34,17 @@ namespace sky::editor {
         } else {
             Read();
         }
+
+        auto mkdir = [&](const QString &path) {
+            QDir dir(file.path());
+            QDir tmp(file.path() + QDir::separator() + path);
+            if (!tmp.exists()) {
+                dir.mkdir(path);
+            }
+        };
+        mkdir("assets");
+        mkdir("levels");
+
         SetFlag(DocumentFlagBit::PROJECT_OPEN);
     }
 

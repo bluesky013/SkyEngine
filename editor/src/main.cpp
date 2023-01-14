@@ -11,8 +11,12 @@ using namespace sky::editor;
 
 int main(int argc, char *argv[])
 {
-    EditorApplication a(argc, argv);
-    a.Setup();
+    QApplication a(argc, argv);
+
+    EditorApplication editorApp;
+    sky::StartInfo    startInfo = {};
+    startInfo.appName           = "SkyEditor";
+    editorApp.Init(startInfo);
 
     sky::editor::MainWindow mainWindow;
     mainWindow.show();

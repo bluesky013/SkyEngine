@@ -20,7 +20,7 @@
 
 namespace sky::editor {
 
-    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), engine(nullptr), timer(nullptr)
+    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     {
         Init();
         InitMenu();
@@ -31,29 +31,6 @@ namespace sky::editor {
         if (actionManager != nullptr) {
             delete actionManager;
             actionManager = nullptr;
-        }
-    }
-
-    void MainWindow::InitEngine()
-    {
-        engine = SkyEngine::Get();
-    }
-
-    void MainWindow::ShutdownEngine()
-    {
-        engine->DeInit();
-        SkyEngine::Destroy();
-        engine = nullptr;
-    }
-
-    void MainWindow::OnTick()
-    {
-        static auto timePoint = std::chrono::high_resolution_clock::now();
-        auto        current   = std::chrono::high_resolution_clock::now();
-        auto        delta     = std::chrono::duration<float>(current - timePoint).count();
-        timePoint             = current;
-        if (engine != nullptr) {
-            engine->Tick(delta);
         }
     }
 
@@ -93,13 +70,12 @@ namespace sky::editor {
     void MainWindow::OnCloseProject()
     {
         document.reset();
+        assetBrowser->OnProjectChange("");
         UpdateActions();
     }
 
     void MainWindow::Init()
     {
-        InitEngine();
-
         setWindowState(Qt::WindowMaximized);
 
         auto centralWidget = new CentralWidget(this);
@@ -122,10 +98,6 @@ namespace sky::editor {
         assetBrowser = new AssetWidget(this);
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, assetBrowser);
         dockMgr->Register((uint32_t)DockId::BROWSER, *assetBrowser);
-
-        timer = new QTimer(this);
-        timer->start(0);
-        connect(timer, &QTimer::timeout, this, &MainWindow::OnTick);
     }
 
     void MainWindow::InitMenu()
@@ -183,6 +155,7 @@ namespace sky::editor {
         auto fileMenu = new QMenu("File", menuBar);
         fileMenu->addAction(newProjectAct);
         fileMenu->addAction(openProjectAct);
+        fileMenu->addAction(closeProjectAct);
         fileMenu->addSeparator();
         fileMenu->addAction(newLevelAct);
         fileMenu->addAction(openLevelAct);

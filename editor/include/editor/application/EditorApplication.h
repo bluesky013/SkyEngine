@@ -3,7 +3,9 @@
 //
 
 #pragma once
-#include <QApplication>
+#include <framework/application/Application.h>
+#include <QTimer>
+#include <QObject>
 
 namespace sky {
     class SkyEngine;
@@ -11,21 +13,16 @@ namespace sky {
 
 namespace sky::editor {
 
-    class EditorApplication : public QApplication {
+    class EditorApplication : public QObject, public Application {
         Q_OBJECT
     public:
-        EditorApplication(int &argc, char **argv, int flag = ApplicationFlags)
-            : QApplication(argc, argv, flag)
-            , engine(nullptr)
-        {
-        }
-
+        EditorApplication();
         ~EditorApplication();
 
-        void Setup();
-
+        bool Init(StartInfo &) override;
     private:
-        SkyEngine* engine;
+        QTimer *timer = nullptr;
+        SkyEngine *engine = nullptr;
     };
 
 }

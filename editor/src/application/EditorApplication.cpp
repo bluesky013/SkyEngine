@@ -3,31 +3,39 @@
 //
 
 #include <editor/application/EditorApplication.h>
-#include <engine/SkyEngine.h>
 #include <core/environment/Environment.h>
+#include <engine/SkyEngine.h>
 
 namespace sky::editor {
 
-    EditorApplication::~EditorApplication() noexcept
+    EditorApplication::EditorApplication()
     {
-        if (engine != nullptr) {
-            engine->DeInit();
-            SkyEngine::Destroy();
-            engine = nullptr;
-        }
+
     }
 
-    void EditorApplication::Setup()
+    EditorApplication::~EditorApplication() noexcept
     {
-        sky::StartInfo start = {};
-        start.appName = "Editor";
-        start.modules = {
-        };
+        engine->DeInit();
+        SkyEngine::Destroy();
+    }
 
-        Environment::Get();
+    bool EditorApplication::Init(StartInfo &info)
+    {
+        Application::Init(info);
 
-        SkyEngine::Reflect();
         engine = SkyEngine::Get();
-        engine->Init(start);
+        engine->Init();
+
+        BindTick([this](float delta) {
+            engine->Tick(delta);
+        });
+
+        timer = new QTimer(this);
+        timer->start(0);
+        connect(timer, &QTimer::timeout, this, [this]() {
+            Loop();
+        });
+
+        return true;
     }
 }

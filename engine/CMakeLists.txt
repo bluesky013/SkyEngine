@@ -12,16 +12,4 @@ sky_add_library(TARGET SkyEngine STATIC
     LINK_LIBS
         Core
         Framework
-        SkyRender
-    )
-
-sky_add_library(TARGET SkyEngineModule SHARED
-    SOURCES
-        SkyEngineModule.cpp
-    PRIVATE_INC
-        src
-    PUBLIC_INC
-        include
-    LINK_LIBS
-        SkyEngine
     )

@@ -4,8 +4,8 @@
 
 #pragma once
 #include <core/environment/Singleton.h>
-#include <framework/interface/IEngine.h>
 #include <framework/window/IWindowEvent.h>
+
 #include <memory>
 #include <vector>
 
@@ -21,13 +21,13 @@ namespace sky {
         }
     };
 
-    class SkyEngine : public IEngine, public Singleton<SkyEngine> {
+    class SkyEngine : public Singleton<SkyEngine> {
     public:
-        virtual bool Init(const StartInfo &) override;
+        bool Init();
 
-        virtual void Tick(float) override;
+        void Tick(float);
 
-        virtual void DeInit() override;
+        void DeInit();
 
         static void Reflect();
 

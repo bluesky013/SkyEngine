@@ -9,11 +9,6 @@
 
 class QDockWidget;
 class QMenuBar;
-class QTimer;
-
-namespace sky {
-    class SkyEngine;
-}
 
 namespace sky::editor {
 
@@ -32,10 +27,7 @@ namespace sky::editor {
         void Init();
 
     private:
-        void InitEngine();
         void InitMenu();
-
-        void ShutdownEngine();
 
         void OnTick();
 
@@ -45,8 +37,6 @@ namespace sky::editor {
 
         void UpdateActions();
 
-        SkyEngine     *engine        = nullptr;
-        QTimer        *timer         = nullptr;
         QMenuBar      *menuBar       = nullptr;
         ActionManager *actionManager = nullptr;
 
