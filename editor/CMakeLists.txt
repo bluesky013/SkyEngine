@@ -7,6 +7,8 @@ if (Qt5_FOUND)
 
     set(QtLibs Qt5::Widgets)
 
+    add_subdirectory(framework)
+
     file(GLOB_RECURSE EDITOR_SRC src/*)
     file(GLOB_RECURSE EDITOR_INC include/*)
 
@@ -18,7 +20,7 @@ if (Qt5_FOUND)
             include
         LIBS
             SkyEngine
-            ${QtLibs}
+            EditorFramework
         )
 
     if (WIN32)

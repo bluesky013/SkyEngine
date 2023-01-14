@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(ENGINE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 include(${ENGINE_ROOT}/cmake/functions.cmake)
+include(${ENGINE_ROOT}/cmake/options.cmake)
 include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 include(${ENGINE_ROOT}/cmake/configuration.cmake)
 
@@ -15,18 +16,6 @@ if (NOT ANDROID)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/lib)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/bin)
-endif()
-
-if (APPLE)
-    set(PLATFORM_EXT_LIBS
-        "-framework Cocoa"
-        "-framework IOKit"
-        "-framework CoreAudio"
-        "-framework CoreFoundation")
-elseif (ANDROID)
-    set(PLATFORM_EXT_LIBS
-        android
-        log)
 endif()
 
 configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/EngineRoot.h)
@@ -55,4 +44,8 @@ if (NOT ANDROID)
     add_subdirectory(sample)
     add_subdirectory(tools)
     add_subdirectory(test)
+endif()
+
+if (SKY_BUILD_EDITOR)
+    add_subdirectory(editor)
 endif()

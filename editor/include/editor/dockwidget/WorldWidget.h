@@ -33,8 +33,8 @@ namespace sky::editor {
     private:
         void Refresh();
 
+        World* world = nullptr;
         QTimer* refreshTimer;
-        World* world;
         QTreeWidget* worldTree;
         WorldItem* rootItem;
     };

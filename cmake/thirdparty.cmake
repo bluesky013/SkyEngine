@@ -1,5 +1,3 @@
-SET(3RD_PATH "" CACHE STRING "SkyEngine 3rd path")
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/thirdparty)
 
 function(sky_find_3rd)

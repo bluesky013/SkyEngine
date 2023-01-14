@@ -37,6 +37,10 @@ namespace sky::editor {
             QMenu menu(tr("World Action"), this);
             auto addAct = new QAction(tr("Add"), &menu);
             connect(addAct, &QAction::triggered, this, [this]() {
+                if (world == nullptr) {
+                    return;
+                }
+
                 auto go = world->CreateGameObject("GameObject");
                 auto items = worldTree->selectedItems();
                 auto parent = static_cast<WorldItem*>(items.empty() ? rootItem : items[0]);
