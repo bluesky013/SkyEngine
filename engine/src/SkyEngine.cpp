@@ -20,6 +20,9 @@ namespace sky {
 
     void SkyEngine::Tick(float time)
     {
+        for (auto &world : worlds) {
+            world->Tick(time);
+        }
     }
 
     void SkyEngine::DeInit()
@@ -28,4 +31,13 @@ namespace sky {
         DBManager::Destroy();
     }
 
+    void SkyEngine::AddWorld(WorldPtr world)
+    {
+        worlds.emplace(world);
+    }
+
+    void SkyEngine::RemoveWorld(WorldPtr world)
+    {
+        worlds.erase(world);
+    }
 } // namespace sky

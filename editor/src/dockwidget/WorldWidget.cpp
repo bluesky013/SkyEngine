@@ -7,8 +7,9 @@
 #include <QMenu>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/inspector/InspectorWidget.h>
+
+#include <engine/base/GameObject.h>
 #include <engine/world/World.h>
-#include <engine/world/GameObject.h>
 #include <engine/world/TransformComponent.h>
 
 namespace sky::editor {

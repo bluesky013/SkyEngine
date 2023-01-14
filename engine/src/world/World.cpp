@@ -3,7 +3,7 @@
 //
 
 #include <atomic>
-#include <engine/world/GameObject.h>
+#include <engine/base/GameObject.h>
 #include <engine/world/TransformComponent.h>
 #include <engine/world/World.h>
 

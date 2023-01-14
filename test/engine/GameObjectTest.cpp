@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/12/3.
 //
 
-#include <engine/world/GameObject.h>
+#include <engine/base/GameObject.h>
 #include <engine/world/TransformComponent.h>
 #include <engine/world/World.h>
 #include <gtest/gtest.h>

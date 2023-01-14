@@ -7,9 +7,9 @@
 #include <editor/inspector/InspectorBase.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/inspector/PropertyUtil.h>
-#include <engine/world/GameObject.h>
 
-#include <editor/inspector/PropertyTransform.h>
+#include <engine/base/Component.h>
+#include <engine/base/GameObject.h>
 
 namespace sky::editor {
 

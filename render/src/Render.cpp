@@ -38,7 +38,7 @@ namespace sky {
         RHIManager::Get()->Destroy();
     }
 
-    bool Render::Init(const StartInfo &info)
+    bool Render::Init(const RenderInfo &info)
     {
         LOG_I(TAG, "Init Render");
         if (!RHIManager::Get()->Initialize({info.appName})) {

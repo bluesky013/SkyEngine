@@ -6,14 +6,15 @@
 
 #include <core/type/Rtti.h>
 #include <core/std/Container.h>
-#include <engine/world/Component.h>
+#include <engine/base/Component.h>
+#include <engine/base/Object.h>
 #include <list>
 #include <string>
 
 namespace sky {
     class World;
 
-    class GameObject {
+    class GameObject : public Object {
     public:
         GameObject(GameObject &&) noexcept = default;
         GameObject &operator=(GameObject&&) noexcept = default;

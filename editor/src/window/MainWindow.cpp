@@ -16,13 +16,12 @@
 #include <editor/dockwidget/AssetWidget.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <engine/SkyEngine.h>
-#include <engine/world/GameObject.h>
 
 namespace sky::editor {
 
     MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     {
-        Init();
+        InitWidgets();
         InitMenu();
     }
 
@@ -74,7 +73,7 @@ namespace sky::editor {
         UpdateActions();
     }
 
-    void MainWindow::Init()
+    void MainWindow::InitWidgets()
     {
         setWindowState(Qt::WindowMaximized);
 

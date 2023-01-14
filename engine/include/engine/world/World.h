@@ -36,5 +36,6 @@ namespace sky {
         PmrUnSyncPoolRes        memoryResource;
         PmrVector<GameObject *> gameObjects;
     };
+    using WorldPtr = std::shared_ptr<World>;
 
 } // namespace sky

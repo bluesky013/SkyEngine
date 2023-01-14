@@ -5,31 +5,24 @@
 #pragma once
 #include <core/environment/Singleton.h>
 #include <framework/window/IWindowEvent.h>
+#include <engine/world/World.h>
 
 #include <memory>
-#include <vector>
+#include <set>
 
 namespace sky {
 
-    struct IEngineEvent {
-        virtual void OnTick(float time)
-        {
-        }
-
-        virtual void OnWindowResize(void *hwnd, uint32_t, uint32_t)
-        {
-        }
-    };
-
     class SkyEngine : public Singleton<SkyEngine> {
     public:
+        static void Reflect();
+
         bool Init();
+        void DeInit();
 
         void Tick(float);
 
-        void DeInit();
-
-        static void Reflect();
+        void AddWorld(WorldPtr world);
+        void RemoveWorld(WorldPtr world);
 
     private:
         template <typename T>
@@ -37,6 +30,8 @@ namespace sky {
 
         SkyEngine()  = default;
         ~SkyEngine() = default;
+
+        std::set<WorldPtr> worlds;
     };
 
 } // namespace sky

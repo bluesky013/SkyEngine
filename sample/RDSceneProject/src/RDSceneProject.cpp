@@ -118,7 +118,7 @@ namespace sky {
         AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT);
         AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT);
 
-        StartInfo info = {};
+        Render::RenderInfo info = {};
         info.appName   = "RDSceneSample";
 
         Render::Get()->Init(info);

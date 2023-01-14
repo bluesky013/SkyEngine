@@ -4,7 +4,6 @@
 
 #pragma once
 #include <core/environment/Singleton.h>
-#include <framework/interface/IEngine.h>
 #include <render/RenderScene.h>
 #include <render/RenderView.h>
 #include <render/RenderViewport.h>
@@ -21,7 +20,11 @@ namespace sky {
 
     class Render : public Singleton<Render> {
     public:
-        bool Init(const StartInfo &);
+        struct RenderInfo {
+            std::string appName;
+        };
+
+        bool Init(const RenderInfo &);
 
         void OnTick(float time);
 

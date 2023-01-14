@@ -24,9 +24,8 @@ namespace sky::editor {
         MainWindow(QWidget *parent = nullptr);
         ~MainWindow();
 
-        void Init();
-
     private:
+        void InitWidgets();
         void InitMenu();
 
         void OnTick();

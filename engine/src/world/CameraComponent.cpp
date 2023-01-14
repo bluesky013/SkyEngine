@@ -2,8 +2,7 @@
 // Created by Zach Lee on 2021/12/1.
 //
 
-#include <engine/feature/camera/CameraComponent.h>
-#include <engine/world/GameObject.h>
+#include <engine/world/CameraComponent.h>
 #include <engine/world/World.h>
 #include <core/math/MathUtil.h>
 

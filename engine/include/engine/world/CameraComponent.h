@@ -5,8 +5,7 @@
 #pragma once
 
 #include <core/math/Matrix4.h>
-#include <cstdint>
-#include <engine/world/Component.h>
+#include <engine/base/Component.h>
 
 namespace sky {
 
