@@ -42,7 +42,7 @@ namespace sky {
     class DataBase {
     public:
         DataBase() = default;
-        ~DataBase() = default;
+        ~DataBase();
 
         bool Init(const std::string &);
         void Shutdown();

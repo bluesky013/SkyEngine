@@ -12,7 +12,7 @@ namespace sky {
     namespace db {
         Statement::~Statement()
         {
-            stmt = nullptr;
+            Finalize();
         }
 
         bool Statement::BindBlob(int col, void *data, int dataSize)
@@ -81,6 +81,7 @@ namespace sky {
         void Statement::Finalize()
         {
             sqlite3_finalize(stmt);
+            stmt = nullptr;
         }
 
         void Statement::Reset()
@@ -88,6 +89,11 @@ namespace sky {
             sqlite3_reset(stmt);
             sqlite3_clear_bindings(stmt);
         }
+    }
+
+    DataBase::~DataBase()
+    {
+        Shutdown();
     }
 
     bool DataBase::Init(const std::string &path)
