@@ -11,5 +11,6 @@ sky_add_library(TARGET EditorFramework STATIC
         include
     LINK_LIBS
         Core
+        3rdParty::cereal
         ${QtLibs}
 )

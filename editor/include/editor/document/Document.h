@@ -10,10 +10,24 @@
 
 namespace sky::editor {
 
+    struct ProjectData {
+        uint32_t version = 0;
+
+        template <typename Archive>
+        void serialize(Archive &ar)
+        {
+            ar(version);
+        }
+    };
+
     class Document {
     public:
-        Document(const QString &path) : projectPath(path) {}
+        Document(const QString &path) : projectFullPath(path) {}
         ~Document() = default;
+
+        void Init();
+        void Read();
+        void Save();
 
         void SetFlag(DocumentFlagBit bit);
         void ResetFlag(DocumentFlagBit bit);
@@ -21,7 +35,8 @@ namespace sky::editor {
 
     private:
         DocFlagArray flags;
-        QString projectPath;
+        QString projectFullPath;
+        ProjectData projectData;
     };
 
 } // namespace sky::editor

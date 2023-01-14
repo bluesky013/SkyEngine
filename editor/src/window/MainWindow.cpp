@@ -60,8 +60,11 @@ namespace sky::editor {
     void MainWindow::OnOpenProject(const QString &path)
     {
         document = std::make_unique<Document>(path);
-        document->SetFlag(DocumentFlagBit::PROJECT_OPEN);
-        assetBrowser->OnProjectChange(path);
+        document->Init();
+
+        QFileInfo file(path);
+        auto dir = file.path().toStdString();
+        assetBrowser->OnProjectChange(file.path());
         UpdateActions();
     }
 
