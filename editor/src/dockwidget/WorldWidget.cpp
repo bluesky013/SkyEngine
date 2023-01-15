@@ -76,9 +76,9 @@ namespace sky::editor {
         RefreshTree(*root, rootItem);
     }
 
-    void WorldWidget::SetWorld(World& w)
+    void WorldWidget::SetWorld(const WorldPtr &w)
     {
-        world = &w;
+        world = w;
         Refresh();
 
 //        refreshTimer = new QTimer(this);

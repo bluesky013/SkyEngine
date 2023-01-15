@@ -3,17 +3,34 @@
 //
 
 #include "LevelDialog.h"
+#include <QVBoxLayout>
+#include <QLineEdit>
+#include <QLabel>
+#include <QDir>
+#include <QPushButton>
 
 namespace sky::editor {
 
     LevelDialog::LevelDialog()
     {
+        setWindowTitle(tr("New Level"));
+        setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Expanding);
 
-    }
+        auto layout = new QVBoxLayout(this);
+        auto levelText = new QLineEdit(this);
+        connect(levelText, &QLineEdit::textEdited, this, [this](const QString name) {
+            levelName = name + ".level";
+        });
 
-    const QString &LevelDialog::LevelPath() const
-    {
-        return levelPath;
+        auto btn = new QPushButton(tr("New"), this);
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            accept();
+        });
+
+        layout->addWidget(new QLabel(tr("Level:"), this));
+        layout->addWidget(levelText);
+        layout->addWidget(btn);
+        setLayout(layout);
     }
 
     const QString &LevelDialog::LevelName() const

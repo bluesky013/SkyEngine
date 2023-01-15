@@ -31,6 +31,11 @@ namespace sky {
 
         static void Reflect();
 
+        template <typename Archive>
+        void serialize(Archive &ar)
+        {
+        }
+
     private:
         GameObject             *root;
         PmrUnSyncPoolRes        memoryResource;

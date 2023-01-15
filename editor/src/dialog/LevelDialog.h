@@ -15,11 +15,9 @@ namespace sky::editor {
         LevelDialog();
         ~LevelDialog() = default;
 
-        const QString &LevelPath() const;
         const QString &LevelName() const;
 
     private:
-        QString levelPath;
         QString levelName;
     };
 

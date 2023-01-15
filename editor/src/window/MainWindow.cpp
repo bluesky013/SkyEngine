@@ -6,6 +6,7 @@
 #include "ActionManager.h"
 #include "CentralWidget.h"
 #include "../dialog/ProjectDialog.h"
+#include "../dialog/LevelDialog.h"
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
@@ -31,6 +32,24 @@ namespace sky::editor {
             delete actionManager;
             actionManager = nullptr;
         }
+    }
+
+    void MainWindow::OnOpenLevel(const QString &path)
+    {
+        document->OpenLevel(path, false);
+        worldWidget->SetWorld(document->GetMainWorld());
+    }
+
+    void MainWindow::OnNewLevel(const QString &name)
+    {
+        document->OpenLevel(name, true);
+        worldWidget->SetWorld(document->GetMainWorld());
+    }
+
+    void MainWindow::OnCloseLevel()
+    {
+        document->CloseLevel();
+        worldWidget->SetWorld(nullptr);
     }
 
     void MainWindow::OnOpenProject(const QString &path)
@@ -105,16 +124,41 @@ namespace sky::editor {
 
         menuBar = new QMenuBar(this);
 
+        // level
         ActionWithFlag *openLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Open Level");
-
         ActionWithFlag *closeLevelAct = new ActionWithFlag(DocumentFlagBit::LEVEL_OPEN, "Close Level");
-
         ActionWithFlag *newLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "New Level");
 
+        connect(openLevelAct, &QAction::triggered, this, [this](bool /**/) {
+            QFileDialog dialog(this);
+            dialog.setFileMode(QFileDialog::AnyFile);
+            dialog.setNameFilter(tr("Level (*.level)"));
+            dialog.setViewMode(QFileDialog::Detail);
+            QStringList fileNames;
+            if (dialog.exec()) {
+                fileNames = dialog.selectedFiles();
+                if (!fileNames.empty()) {
+                    OnOpenLevel(fileNames[0]);
+                }
+            }
+        });
+
+        connect(newLevelAct, &QAction::triggered, this, [this](bool /**/) {
+            LevelDialog dialog;
+            if (dialog.exec()) {
+                auto name = dialog.LevelName();
+                if (!name.isEmpty()) {
+                    OnNewLevel(name);
+                }
+            }
+        });
+
+        connect(closeLevelAct, &QAction::triggered, this, [this]() {
+            OnCloseLevel();
+        });
+
         ActionWithFlag *openProjectAct = new ActionWithFlag({}, "Open Project", this);
-
         ActionWithFlag *newProjectAct = new ActionWithFlag({}, "New Project", this);
-
         ActionWithFlag *closeProjectAct = new ActionWithFlag({}, "Close Project", this);
 
         // project

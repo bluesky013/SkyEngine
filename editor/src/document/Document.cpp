@@ -11,6 +11,11 @@
 
 namespace sky::editor {
 
+    Document::Document(const QString &path)
+    {
+        projectFullPath = path;
+    }
+
     void Document::SetFlag(DocumentFlagBit bit)
     {
         flags.SetBit(bit);
@@ -26,6 +31,11 @@ namespace sky::editor {
         return flags;
     }
 
+    const WorldPtr &Document::GetMainWorld() const
+    {
+        return currentLevel->GetWorld();
+    }
+
     void Document::Init()
     {
         QFileInfo file(projectFullPath);
@@ -35,9 +45,10 @@ namespace sky::editor {
             Read();
         }
 
+        projectHome = file.path();
         auto mkdir = [&](const QString &path) {
-            QDir dir(file.path());
-            QDir tmp(file.path() + QDir::separator() + path);
+            QDir dir(projectHome);
+            QDir tmp(projectHome + QDir::separator() + path);
             if (!tmp.exists()) {
                 dir.mkdir(path);
             }
@@ -62,6 +73,21 @@ namespace sky::editor {
         std::ofstream file(str, std::ios::binary);
         cereal::JSONOutputArchive archive(file);
         archive << projectData;
+    }
+
+    void Document::OpenLevel(const QString &path, bool newLevel)
+    {
+        currentLevel.reset(new Level());
+        if (newLevel) {
+            currentLevel->New(projectHome + QDir::separator() + "levels" + QDir::separator() + path);
+        } else {
+            currentLevel->Open(path);
+        }
+    }
+
+    void Document::CloseLevel()
+    {
+        currentLevel.reset();
     }
 
 } // namespace sky::editor

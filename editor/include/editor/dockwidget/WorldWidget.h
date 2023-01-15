@@ -7,11 +7,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QTimer>
-
-namespace sky {
-    class World;
-    class GameObject;
-}
+#include <engine/world/World.h>
 
 namespace sky::editor {
 
@@ -28,12 +24,12 @@ namespace sky::editor {
         WorldWidget(QWidget* parent = nullptr);
         ~WorldWidget() = default;
 
-        void SetWorld(World& world);
+        void SetWorld(const WorldPtr& world);
 
     private:
         void Refresh();
 
-        World* world = nullptr;
+        WorldPtr world;
         QTimer* refreshTimer;
         QTreeWidget* worldTree;
         WorldItem* rootItem;

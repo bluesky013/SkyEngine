@@ -34,6 +34,10 @@ namespace sky::editor {
         void OnNewProject(const QString &path, const QString &name);
         void OnCloseProject();
 
+        void OnOpenLevel(const QString &path);
+        void OnNewLevel(const QString &name);
+        void OnCloseLevel();
+
         void UpdateActions();
 
         QMenuBar      *menuBar       = nullptr;
