@@ -7,9 +7,8 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/ImageView.h"
-#include "vulkan/Queue.h"
 #include "vulkan/Semaphore.h"
-
+#include "vulkan/Conversion.h"
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -26,6 +25,26 @@ namespace sky::vk {
     }
 
     bool SwapChain::Init(const Descriptor &des)
+    {
+        descriptor.window          = des.window;
+        descriptor.width           = des.width;
+        descriptor.height          = des.height;
+        descriptor.preferredFormat = FromRHI(des.preferredFormat);
+        descriptor.preferredMode   = des.preferredMode == rhi::PresentMode::IMMEDIATE ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+        descriptor.preTransform    = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+        descriptor.compositeAlpha  = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+        if (!CreateSurface()) {
+            return false;
+        }
+
+        if (!CreateSwapChain()) {
+            return false;
+        }
+        return true;
+    }
+
+    bool SwapChain::Init(const VkDescriptor &des)
     {
         descriptor = des;
         if (!CreateSurface()) {

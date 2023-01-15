@@ -33,6 +33,9 @@ namespace sky {
             return false;
         }
 
+        // merge settings
+        settings.Swap(start.setting);
+
         Interface<ISystemNotify>::Get()->Register(*this);
 
         LOG_I(TAG, "Load Engine Module...");
@@ -53,12 +56,12 @@ namespace sky {
                     LOG_E(TAG, "Load Module : %s failed", module.c_str());
                     continue;
                 }
-                auto module = startFn(Environment::Get());
-                if (module == nullptr) {
+                auto mod = startFn(Environment::Get());
+                if (mod == nullptr) {
                     continue;
                 }
-                module->Init();
-                modules.emplace_back(std::unique_ptr<IModule>(module));
+                mod->Init();
+                modules.emplace_back(std::unique_ptr<IModule>(mod));
                 dynLibs.emplace_back(std::move(dynModule));
             }
             LOG_I(TAG, "Load Module : %s success", module.c_str());
@@ -99,20 +102,29 @@ namespace sky {
         Interface<ISystemNotify>::Get()->UnRegister();
     }
 
+    void Application::Loop()
+    {
+        PreTick();
+
+        uint64_t        frequency      = PlatformBase::GetPlatform()->GetPerformanceFrequency();
+        uint64_t        currentCounter = PlatformBase::GetPlatform()->GetPerformanceCounter();
+        static uint64_t current        = 0;
+        float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
+        current               = currentCounter;
+
+        for (auto &module : modules) {
+            module->Tick(delta);
+        }
+
+        if (tickFn) {
+            tickFn(delta);
+        }
+    }
+
     void Application::Mainloop()
     {
         while (!exit) {
-            PreTick();
-
-            uint64_t        frequency      = PlatformBase::GetPlatform()->GetPerformanceFrequency();
-            uint64_t        currentCounter = PlatformBase::GetPlatform()->GetPerformanceCounter();
-            static uint64_t current        = 0;
-            float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
-            current               = currentCounter;
-
-            for (auto &module : modules) {
-                module->Tick(delta);
-            }
+            Loop();
         }
     }
 

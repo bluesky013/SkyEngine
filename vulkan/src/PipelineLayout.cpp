@@ -20,6 +20,11 @@ namespace sky::vk {
 
     bool PipelineLayout::Init(const Descriptor &des)
     {
+        return true;
+    }
+
+    bool PipelineLayout::Init(const VkDescriptor &des)
+    {
         desLayouts.resize(des.desLayouts.size());
         pushConstants = des.pushConstants;
         std::vector<VkDescriptorSetLayout> layouts(des.desLayouts.size());

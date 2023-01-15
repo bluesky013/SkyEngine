@@ -35,7 +35,7 @@ namespace sky::editor {
         case QEvent::Resize: break;
         default: break;
         }
-        return true;
+        return QWidget::event(event);
     }
 
 } // namespace sky::editor

@@ -6,6 +6,7 @@
 #include <core/template/ReferenceObject.h>
 #include <vector>
 #include <vk_mem_alloc.h>
+#include <rhi/Device.h>
 #include <vulkan/CacheManager.h>
 #include <vulkan/Queue.h>
 #include <vulkan/AsyncTransferQueue.h>
@@ -15,14 +16,12 @@ namespace sky::vk {
 
     class Instance;
 
-    class Device {
+    class Device : public rhi::Device {
     public:
-        ~Device();
-
-        struct Descriptor {};
+        ~Device() override;
 
         template <typename T>
-        inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
+        inline std::shared_ptr<T> CreateDeviceObject(const typename T::VkDescriptor &des)
         {
             auto res = new T(*this);
             if (!res->Init(des)) {
@@ -60,15 +59,21 @@ namespace sky::vk {
 
         void WaitIdle() const;
 
-        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        int32_t FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
+        bool    GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
+
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
+        void ValidateFeature(const DeviceFeature &feature);
+
         void SetupAsyncTransferQueue();
 
-        bool FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const;
+        bool FillMemoryRequirements(VkMemoryRequirements2               &requirements,
+                                    const VkMemoryDedicatedRequirements &dedicated,
+                                    VkMemoryPropertyFlags                flags,
+                                    MemoryRequirement                   &out) const;
 
         friend class Instance;
         Device(Instance &);
@@ -77,14 +82,18 @@ namespace sky::vk {
         VkDevice         device;
         VmaAllocator     allocator;
 
-        VkPhysicalDeviceProperties phyProps = {};
-        VkPhysicalDeviceFeatures2  phyFeatures = {};
-        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures = {};
+        VkPhysicalDeviceProperties                 phyProps                   = {};
+        VkPhysicalDeviceFeatures2                  phyFeatures                = {};
+        VkPhysicalDeviceFeatures                   enabledPhyFeatures         = {};
+        VkPhysicalDeviceSynchronization2Features   sync2Feature               = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures        = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures enabledPhyIndexingFeatures = {};
+
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
-        Queue*                               graphicsQueue;
+        Queue                               *graphicsQueue;
         AsyncTransferQueuePtr                transferQueue;
 
         CacheManager<VkSampler>             samplers;

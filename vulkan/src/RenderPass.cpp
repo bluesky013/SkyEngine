@@ -8,11 +8,12 @@
 #include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
+#include "vulkan/Conversion.h"
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
 
-    RenderPass::RenderPass(Device &dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0), psoHash(0)
+    RenderPass::RenderPass(Device &dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0)
     {
     }
 
@@ -21,6 +22,112 @@ namespace sky::vk {
     }
 
     bool RenderPass::Init(const Descriptor &des)
+    {
+        hash = 0;
+        std::vector<VkAttachmentDescription> attachments;
+        std::vector<VkSubpassDescription>    subPasses;
+        std::vector<VkSubpassDependency>     dependencies;
+        std::vector<VkAttachmentReference>   references;
+
+        attachments.reserve(des.attachments.size());
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
+                                       static_cast<uint32_t>(des.attachments.size() * sizeof(Attachment))));
+        for (auto &attachment : des.attachments) {
+            attachments.emplace_back();
+            auto &vkAt          = attachments.back();
+            vkAt.format         = FromRHI(attachment.format);
+            vkAt.samples        = FromRHI(attachment.sample);
+            vkAt.loadOp         = FromRHI(attachment.load);
+            vkAt.storeOp        = FromRHI(attachment.store);
+            vkAt.stencilLoadOp  = FromRHI(attachment.stencilLoad);
+            vkAt.stencilStoreOp = FromRHI(attachment.stencilStore);
+        }
+
+        auto refFn = [&references, &attachments](uint32_t index, VkImageLayout layout) {
+            references.emplace_back();
+            auto &vkRef = references.back();
+            vkRef.attachment = index;
+            vkRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            attachments[index].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            attachments[index].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        };
+
+        subPasses.reserve(des.subPasses.size());
+        uint32_t offset = 0;
+        for (auto &subPass : des.subPasses) {
+            subPasses.emplace_back();
+            auto &vkSub = subPasses.back();
+            uint32_t colorOffset = offset;
+            for (auto &ref : subPass.colors) {
+                refFn(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            }
+            vkSub.colorAttachmentCount = static_cast<uint32_t>(subPass.colors.size());
+
+            offset += vkSub.colorAttachmentCount;
+            uint32_t resolveOffset = offset;
+            for (auto &ref : subPass.resolves) {
+                refFn(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            }
+
+            offset += vkSub.colorAttachmentCount;
+            uint32_t inputsOffset = offset;
+            for (auto &ref : subPass.inputs) {
+                refFn(ref, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
+            vkSub.inputAttachmentCount = static_cast<uint32_t>(subPass.inputs.size());
+            offset += vkSub.inputAttachmentCount;
+
+            if (subPass.depthStencil != ~(0U)) {
+                refFn(subPass.depthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            }
+
+            vkSub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            vkSub.pInputAttachments       = subPass.inputs.empty() ? nullptr : &references[inputsOffset];
+            vkSub.pColorAttachments       = subPass.colors.empty() ? nullptr : &references[colorOffset];
+            vkSub.pResolveAttachments     = subPass.resolves.empty() ? nullptr : &references[resolveOffset];
+            vkSub.pDepthStencilAttachment = subPass.depthStencil == -1 ? nullptr : &references[offset];
+
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.colors.data()),
+                                           static_cast<uint32_t>(subPass.colors.size() * sizeof(uint32_t))));
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.resolves.data()),
+                                           static_cast<uint32_t>(subPass.resolves.size() * sizeof(uint32_t))));
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.inputs.data()),
+                                           static_cast<uint32_t>(subPass.inputs.size() * sizeof(uint32_t))));
+            HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
+        }
+
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.dependencies.data()),
+                                       static_cast<uint32_t>(des.dependencies.size() * sizeof(Dependency))));
+
+        for (auto &dep : des.dependencies) {
+            dependencies.emplace_back();
+            auto &vkDep           = dependencies.back();
+            vkDep.srcSubpass      = dep.src;
+            vkDep.dstSubpass      = dep.dst;
+            vkDep.srcStageMask    = VK_PIPELINE_STAGE_NONE;
+            vkDep.dstStageMask    = VK_PIPELINE_STAGE_NONE;
+            vkDep.srcAccessMask   = VK_ACCESS_NONE;
+            vkDep.dstAccessMask   = VK_ACCESS_NONE;
+            vkDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        }
+
+        VkRenderPassCreateInfo passInfo = {};
+        passInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        passInfo.attachmentCount        = static_cast<uint32_t>(attachments.size());
+        passInfo.pAttachments           = attachments.data();
+        passInfo.subpassCount           = static_cast<uint32_t>(subPasses.size());
+        passInfo.pSubpasses             = subPasses.data();
+        passInfo.dependencyCount        = static_cast<uint32_t>(dependencies.size());
+        passInfo.pDependencies          = dependencies.data();
+
+        pass = device.GetRenderPass(hash, &passInfo);
+        if (pass == VK_NULL_HANDLE) {
+            return false;
+        }
+        return true;
+    }
+
+    bool RenderPass::Init(const VkDescriptor &des)
     {
         hash = 0;
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
@@ -78,11 +185,6 @@ namespace sky::vk {
         return hash;
     }
 
-    uint32_t RenderPass::GetPsoHash() const
-    {
-        return psoHash;
-    }
-
     static void InitAttachmentInfo(VkAttachmentDescription &attachment)
     {
         attachment.flags          = 0;
@@ -113,33 +215,6 @@ namespace sky::vk {
         dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
     }
 
-    /**
-     * Render Pass Compatibility
-     */
-    void RenderPass::CalculateHashForPSO(const Descriptor &desc)
-    {
-        psoHash = 0;
-
-        auto calc = [this](const Descriptor &desc, const VkAttachmentReference &ref) {
-            auto &attachment = desc.attachments[ref.attachment];
-            HashCombine32(psoHash, attachment.format);
-            HashCombine32(psoHash, attachment.samples);
-        };
-
-        for (auto &subPass : desc.subPasses) {
-            for (auto &attachment : subPass.colors) {
-                calc(desc, attachment);
-            }
-            for (auto &attachment : subPass.resolves) {
-                calc(desc, attachment);
-            }
-            for (auto &attachment : subPass.inputs) {
-                calc(desc, attachment);
-            }
-            calc(desc, subPass.depthStencil);
-        }
-    }
-
     RenderPassFactory::Impl RenderPassFactory::operator()()
     {
         return RenderPassFactory::Impl(descriptor);
@@ -164,7 +239,7 @@ namespace sky::vk {
         return RenderPassFactory::DependencyImpl(descriptor, (uint32_t)descriptor.dependencies.size() - 1);
     }
 
-    RenderPassFactory::DependencyImpl::DependencyImpl(RenderPass::Descriptor &des, uint32_t dep) : Impl(des), dependency(dep)
+    RenderPassFactory::DependencyImpl::DependencyImpl(RenderPass::VkDescriptor &des, uint32_t dep) : Impl(des), dependency(dep)
     {
     }
 
@@ -193,7 +268,7 @@ namespace sky::vk {
         return *this;
     }
 
-    RenderPassFactory::SubImpl::SubImpl(RenderPass::Descriptor &des, uint32_t index) : Impl(des), subPass(index)
+    RenderPassFactory::SubImpl::SubImpl(RenderPass::VkDescriptor &des, uint32_t index) : Impl(des), subPass(index)
     {
     }
 
@@ -237,7 +312,7 @@ namespace sky::vk {
         return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
     }
 
-    RenderPassFactory::AttachmentImpl::AttachmentImpl(uint32_t index, RenderPass::Descriptor &des, uint32_t sub)
+    RenderPassFactory::AttachmentImpl::AttachmentImpl(uint32_t index, RenderPass::VkDescriptor &des, uint32_t sub)
     : SubImpl(des, sub), attachment(index)
     {
     }

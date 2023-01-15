@@ -92,10 +92,22 @@ namespace sky {
 
 #define TYPE_RTTI_BASE virtual const sky::TypeInfoRT *GetTypeInfo() const = 0;
 
-#define TYPE_RTTI_WITH_VT(name)                                                                                                                      \
+#define TYPE_RTTI_WITH_VT(name, uuid)                                                                                                                \
     const sky::TypeInfoRT *GetTypeInfo() const override                                                                                              \
     {                                                                                                                                                \
         static const sky::TypeInfoRT *info = sky::TypeInfoObj<name>::Get()->RtInfo();                                                                \
         return info;                                                                                                                                 \
     }                                                                                                                                                \
-    TYPE_RTTI(name)
+    TYPE_RTTI(name)                                                                                                                                  \
+    static constexpr std::string_view S_TYPE = uuid;                                                                                                 \
+    static constexpr sky::Uuid TYPE = sky::Uuid::CreateFromString(uuid);                                                                             \
+    sky::Uuid GetType() const override                                                                                                               \
+    {                                                                                                                                                \
+        return TYPE;                                                                                                                                 \
+    }                                                                                                                                                \
+    std::string_view GetTypeStr() const override                                                                                                     \
+    {                                                                                                                                                \
+        return S_TYPE;                                                                                                                               \
+    }
+
+

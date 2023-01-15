@@ -14,12 +14,12 @@ namespace sky::vk {
     public:
         ~CommandPool();
 
-        struct Descriptor {
+        struct VkDescriptor {
             uint32_t                 queueFamilyIndex = 0;
             VkCommandPoolCreateFlags flag             = 0;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         CommandBufferPtr Allocate(const CommandBuffer::Descriptor &);
 

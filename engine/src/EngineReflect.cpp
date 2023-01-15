@@ -43,8 +43,8 @@ namespace sky {
 
     void SkyEngine::Reflect()
     {
-        World::Reflect();
         BasicReflect();
+        World::Reflect();
     }
 
 } // namespace sky

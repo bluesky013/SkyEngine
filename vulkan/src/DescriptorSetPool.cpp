@@ -19,7 +19,7 @@ namespace sky::vk {
         }
     }
 
-    bool DescriptorSetPool::Init(const Descriptor &desc)
+    bool DescriptorSetPool::Init(const VkDescriptor &desc)
     {
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

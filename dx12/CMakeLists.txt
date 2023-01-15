@@ -11,4 +11,5 @@ sky_add_library(TARGET DX12RHI STATIC
         include
     LINK_LIBS
         Core
+        RHI
     )

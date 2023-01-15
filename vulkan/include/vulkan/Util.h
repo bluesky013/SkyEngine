@@ -28,17 +28,6 @@ namespace sky::vk {
         return res;
     }
 
-    inline Image::Descriptor MakeImage2D(VkFormat format, const VkExtent2D &ext, uint32_t layers = 1, uint32_t levels = 1)
-    {
-        Image::Descriptor des;
-        des.imageType     = VK_IMAGE_TYPE_2D;
-        des.format        = format;
-        des.extent.width  = ext.width;
-        des.extent.height = ext.height;
-        des.extent.depth  = 1;
-        return des;
-    }
-
     inline bool IsBufferDescriptor(VkDescriptorType type)
     {
         return type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER || type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||

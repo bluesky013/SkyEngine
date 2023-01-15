@@ -4,17 +4,15 @@
 
 #pragma once
 
+#include <rhi/GraphicsPipeline.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
 
-    class GraphicsPipeline : public DevObject {
+    class GraphicsPipeline : public rhi::GraphicsPipeline, public DevObject {
     public:
         GraphicsPipeline(Device &dev);
         ~GraphicsPipeline();
-
-        struct Descriptor {
-        };
 
     private:
         friend class Device;

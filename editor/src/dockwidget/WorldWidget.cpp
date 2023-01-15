@@ -7,8 +7,9 @@
 #include <QMenu>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/inspector/InspectorWidget.h>
+
+#include <engine/base/GameObject.h>
 #include <engine/world/World.h>
-#include <engine/world/GameObject.h>
 #include <engine/world/TransformComponent.h>
 
 namespace sky::editor {
@@ -37,6 +38,10 @@ namespace sky::editor {
             QMenu menu(tr("World Action"), this);
             auto addAct = new QAction(tr("Add"), &menu);
             connect(addAct, &QAction::triggered, this, [this]() {
+                if (world == nullptr) {
+                    return;
+                }
+
                 auto go = world->CreateGameObject("GameObject");
                 auto items = worldTree->selectedItems();
                 auto parent = static_cast<WorldItem*>(items.empty() ? rootItem : items[0]);
@@ -71,9 +76,9 @@ namespace sky::editor {
         RefreshTree(*root, rootItem);
     }
 
-    void WorldWidget::SetWorld(World& w)
+    void WorldWidget::SetWorld(const WorldPtr &w)
     {
-        world = &w;
+        world = w;
         Refresh();
 
 //        refreshTimer = new QTimer(this);

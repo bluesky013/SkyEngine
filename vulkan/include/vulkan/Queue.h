@@ -6,6 +6,7 @@
 
 #include "vulkan/CommandPool.h"
 #include "vulkan/vulkan.h"
+#include "rhi/Queue.h"
 #include <thread>
 #include <unordered_map>
 
@@ -13,7 +14,7 @@ namespace sky::vk {
 
     class Device;
 
-    class Queue : public DevObject {
+    class Queue : public rhi::Queue, public DevObject {
     public:
         ~Queue() = default;
 
@@ -32,6 +33,8 @@ namespace sky::vk {
         CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor &desc);
 
         CommandBufferPtr AllocateTlsCommandBuffer(const CommandBuffer::Descriptor &desc);
+
+        void WaitIdle();
 
     private:
         const CommandPoolPtr &GetOrCreatePool();

@@ -61,7 +61,7 @@ namespace sky {
 
     void FrameGraphGraphicPass::Compile()
     {
-        vk::FrameBuffer::Descriptor fbDesc = {};
+        vk::FrameBuffer::VkDescriptor fbDesc = {};
 
         using AF = vk::RenderPassFactory::AttachmentImpl;
         vk::RenderPassFactory factory;

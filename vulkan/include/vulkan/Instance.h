@@ -3,21 +3,15 @@
 //
 #pragma once
 
+#include "rhi/Instance.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/vulkan.h"
-#include <string>
 
 namespace sky::vk {
 
-    class Instance {
+    class Instance : public rhi::Instance {
     public:
-        struct Descriptor {
-            std::string appName;
-            std::string engineName;
-            bool        enableDebugLayer;
-        };
-
         static Instance *Create(const Descriptor &);
         static void    Destroy(Instance *);
 

@@ -5,23 +5,22 @@
 #pragma once
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
+#include "rhi/Shader.h"
 #include <vector>
 
 namespace sky::vk {
 
     class Device;
 
-    class Shader : public DevObject {
+    class Shader : public rhi::Shader, public DevObject {
     public:
         ~Shader();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkShaderStageFlagBits stage;
             uint32_t             *spv  = nullptr;
             uint32_t              size = 0;
         };
-
-        bool Init(const Descriptor &);
 
         VkShaderModule GetNativeHandle() const;
 
@@ -32,6 +31,9 @@ namespace sky::vk {
     private:
         friend class Device;
         Shader(Device &);
+
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkShaderModule        shaderModule;
         VkShaderStageFlagBits stage;

@@ -4,15 +4,16 @@
 
 #pragma once
 
+#include <rhi/Swapchain.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
     class Device;
 
-    class SwapChain : public DevObject {
+    class SwapChain : public rhi::SwapChain, public DevObject {
     public:
         SwapChain(Device &device);
-        ~SwapChain();
+        ~SwapChain() override;
 
         struct Descriptor {
             void *window = nullptr;

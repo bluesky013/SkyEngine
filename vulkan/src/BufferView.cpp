@@ -4,6 +4,7 @@
 
 #include <vulkan/BufferView.h>
 #include <vulkan/Device.h>
+#include <vulkan/Conversion.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "Vulkan";
@@ -33,19 +34,34 @@ namespace sky::vk {
 
     bool BufferView::Init(const Descriptor &des)
     {
-        viewInfo.sType            = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
-        viewInfo.buffer           = source->GetNativeHandle();
-        viewInfo.format           = des.format;
-        viewInfo.offset          = des.offset;
-        viewInfo.range = des.range;
-        VkResult rst              = vkCreateBufferView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
+        viewInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+        viewInfo.buffer = source->GetNativeHandle();
+        viewInfo.format = FromRHI(des.format);
+        viewInfo.offset = des.offset;
+        viewInfo.range  = des.range;
+        VkResult rst    = vkCreateBufferView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
+        if (rst != VK_SUCCESS) {
+            LOG_E(TAG, "create image view failed, -%d", rst);
+        }
+        viewDesc = des;
+        return true;
+    }
+
+    bool BufferView::Init(const VkDescriptor &des)
+    {
+        viewInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+        viewInfo.buffer = source->GetNativeHandle();
+        viewInfo.format = des.format;
+        viewInfo.offset = des.offset;
+        viewInfo.range  = des.range;
+        VkResult rst    = vkCreateBufferView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create image view failed, -%d", rst);
         }
         return true;
     }
 
-    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, BufferView::Descriptor &des)
+    std::shared_ptr<BufferView> BufferView::CreateBufferView(const BufferPtr &buffer, const BufferView::VkDescriptor &des)
     {
         BufferViewPtr ptr = std::make_shared<BufferView>(buffer->device);
         ptr->source       = buffer;

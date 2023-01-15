@@ -22,6 +22,28 @@ namespace sky::vk {
 
     bool ComputePipeline::Init(const Descriptor &desc)
     {
+        pipelineLayout = std::static_pointer_cast<PipelineLayout>(desc.pipelineLayout);
+
+        VkComputePipelineCreateInfo pipelineInfo = {};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.layout = pipelineLayout->GetNativeHandle();
+
+        auto shader = std::static_pointer_cast<Shader>(desc.shader);
+        pipelineInfo.stage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        pipelineInfo.stage.stage  = shader->GetShaderStage();
+        pipelineInfo.stage.module = shader->GetNativeHandle();
+        pipelineInfo.stage.pName  = "main";
+        pipelineInfo.stage.pSpecializationInfo = nullptr;
+
+        auto rst = vkCreateComputePipelines(device.GetNativeHandle(), VK_NULL_HANDLE, 1, &pipelineInfo, VKL_ALLOC, &pipeline);
+        if (rst != VK_SUCCESS) {
+            LOG_E(TAG, "create Pipeline failed, %d", rst);
+        }
+        return pipeline;
+    }
+
+    bool ComputePipeline::Init(const VkDescriptor &desc)
+    {
         VkComputePipelineCreateInfo pipelineInfo = {};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         pipelineInfo.layout = desc.pipelineLayout->GetNativeHandle();
@@ -46,7 +68,7 @@ namespace sky::vk {
         return pipeline;
     }
 
-    uint32_t ComputePipeline::CalculateHash(const Descriptor &desc)
+    uint32_t ComputePipeline::CalculateHash(const VkDescriptor &desc)
     {
         return 0;
     }

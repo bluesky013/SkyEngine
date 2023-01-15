@@ -36,6 +36,8 @@ namespace sky {
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
+        virtual void InitFeature() {}
+        vk::Device::Descriptor deviceInfo;
         vk::Instance *instance = nullptr;
         vk::Device *device = nullptr;
 

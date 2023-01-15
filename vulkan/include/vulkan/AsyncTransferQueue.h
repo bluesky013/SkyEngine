@@ -47,9 +47,12 @@ namespace sky::vk {
             return taskQueue.back().taskId;
         }
 
-        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);
+        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const rhi::BufferUploadRequest &request);
 
-        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
+        TransferTaskHandle UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request);
+        TransferTaskHandle UploadImage(const ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests);
+
+        void Wait(TransferTaskHandle handle);
 
         bool HasComplete(TransferTaskHandle handle) const
         {
@@ -92,6 +95,7 @@ namespace sky::vk {
         std::mutex               taskMutex;
         std::mutex               mutex;
         std::condition_variable  cv;
+        std::condition_variable  taskCv;
         std::deque<TransferTask> taskQueue;
     };
     using AsyncTransferQueuePtr = std::unique_ptr<AsyncTransferQueue>;

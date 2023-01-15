@@ -18,6 +18,7 @@ sky_add_library(TARGET MetalRHI STATIC
         include
     LINK_LIBS
         Core
+        RHI
         3rdParty::metal-cpp
         ${PLATFORM_EXT_LIBS}
         ${METAL_EXT_LIBS}

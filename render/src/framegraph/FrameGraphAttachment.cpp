@@ -16,7 +16,7 @@ namespace sky {
         auto  image     = source->GetImage();
         auto &imageInfo = image->GetImageInfo();
 
-        vk::ImageView::Descriptor viewDesc = {};
+        vk::ImageView::VkDescriptor viewDesc = {};
         viewDesc.format                     = imageInfo.format;
         viewDesc.subResourceRange           = range;
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;

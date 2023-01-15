@@ -22,24 +22,4 @@ namespace sky::vk {
         bool requiresDedicated;
     };
 
-    struct BufferUploadRequest {
-        const uint8_t *data;
-        uint64_t       offset;
-        uint64_t       size;
-    };
-
-    struct ImageUploadRequest {
-        const uint8_t *data;
-        uint64_t       offset;
-        uint32_t       mipLevel;
-        uint32_t       layer;
-    };
-
-    struct ImageFormatInfo {
-        uint32_t blockSize;
-        uint32_t blockWidth;
-        uint32_t blockHeight;
-        bool isCompressed;
-    };
-
 } // namespace sky::vk

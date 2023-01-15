@@ -3,11 +3,12 @@
 //
 
 #pragma once
-#include "vulkan/DevObject.h"
-#include "vulkan/PipelineLayout.h"
-#include "vulkan/Shader.h"
-#include "vulkan/ShaderOption.h"
-#include "vulkan/vulkan.h"
+#include <rhi/ComputePipeline.h>
+#include <vulkan/DevObject.h>
+#include <vulkan/PipelineLayout.h>
+#include <vulkan/Shader.h>
+#include <vulkan/ShaderOption.h>
+#include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
 #include <array>
@@ -16,24 +17,25 @@ namespace sky::vk {
 
     class Device;
 
-    class ComputePipeline : public DevObject {
+    class ComputePipeline : public rhi::ComputePipeline, public DevObject {
     public:
         ~ComputePipeline();
 
-        struct Descriptor {
+        struct VkDescriptor {
             ShaderPtr         shader;
             ShaderOptionPtr   shaderOption;
             PipelineLayoutPtr pipelineLayout;
         };
-
-        bool Init(const Descriptor &);
 
         VkPipeline GetNativeHandle() const;
     private:
         friend class Device;
         ComputePipeline(Device &);
 
-        static uint32_t CalculateHash(const Descriptor &);
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
+
+        static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;
         uint32_t          hash;

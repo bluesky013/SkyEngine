@@ -7,6 +7,7 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/Image.h"
+#include "vulkan/Conversion.h"
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -22,7 +23,7 @@ namespace sky::vk {
         }
     }
 
-    bool ImageView::Init(const Descriptor &des)
+    bool ImageView::Init(const VkDescriptor &des)
     {
         viewInfo.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image            = source->GetNativeHandle();
@@ -30,6 +31,32 @@ namespace sky::vk {
         viewInfo.format           = des.format;
         viewInfo.components       = des.components;
         viewInfo.subresourceRange = des.subResourceRange;
+        VkResult rst              = vkCreateImageView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
+        if (rst != VK_SUCCESS) {
+            LOG_E(TAG, "create image view failed, -%d", rst);
+            return false;
+        }
+        return true;
+    }
+
+    bool ImageView::Init(const Descriptor &des)
+    {
+        viewInfo.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image            = source->GetNativeHandle();
+        viewInfo.viewType         = FromRHI(des.viewType);
+        viewInfo.format           = source->GetImageInfo().format;
+
+        viewInfo.components       = {VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY};
+
+        viewInfo.subresourceRange = {FromRHI(des.mask),
+                                     des.subRange.baseLevel,
+                                     des.subRange.levels,
+                                     des.subRange.baseLayer,
+                                     des.subRange.layers};
+
         VkResult rst              = vkCreateImageView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create image view failed, -%d", rst);
@@ -47,37 +74,30 @@ namespace sky::vk {
         return viewInfo;
     }
 
-    ImageView::Descriptor ImageView::Make2DColor(VkFormat format)
+    std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des)
     {
-        ImageView::Descriptor desc       = {};
-        desc.format                      = format;
-        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        return desc;
-    }
-
-    ImageView::Descriptor ImageView::Make2DDepth(VkFormat format)
-    {
-        ImageView::Descriptor desc       = {};
-        desc.format                      = format;
-        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        return desc;
-    }
-
-    ImageView::Descriptor ImageView::Make2DDepthStencil(VkFormat format)
-    {
-        ImageView::Descriptor desc       = {};
-        desc.format                      = format;
-        desc.subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-        return desc;
+        ImageViewPtr ret;
+        if (image) {
+            ret = std::make_shared<ImageView>(image->device);
+            ret->source      = image;
+            if (!ret->Init(des)) {
+                ret = nullptr;
+            }
+        }
+        return ret;
     }
 
     std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::Descriptor &des)
     {
-        ImageViewPtr ptr = std::make_shared<ImageView>(image->device);
-        ptr->source      = image;
-        if (ptr->Init(des)) {
-            return ptr;
+        ImageViewPtr ret;
+        if (image) {
+            ret = std::make_shared<ImageView>(image->device);
+            ret->source      = image;
+            if (!ret->Init(des)) {
+                ret = nullptr;
+            }
         }
-        return {};
+
+        return ret;
     }
 } // namespace sky::vk

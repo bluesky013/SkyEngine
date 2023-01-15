@@ -109,7 +109,7 @@ namespace sky {
         auto &deviceProperties = RHIManager::Get()->GetDevice()->GetProperties();
 
         Buffer::Descriptor bufferDesc      = {};
-        uint32_t           sceneInfoStride = Align(sizeof(SceneInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        uint32_t           sceneInfoStride = Align(static_cast<uint32_t>(sizeof(SceneInfo)), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
         bufferDesc.size                    = sceneInfoStride * INFLIGHT_FRAME;
         bufferDesc.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
         bufferDesc.usage                   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -118,7 +118,7 @@ namespace sky {
         sceneBuffer->InitRHI();
         sceneInfo = std::make_shared<DynamicBufferView>(sceneBuffer, sizeof(SceneInfo), 0, INFLIGHT_FRAME, sceneInfoStride);
 
-        uint32_t viewInfoSize = Align(sizeof(ViewInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        uint32_t viewInfoSize = Align(static_cast<uint32_t>(sizeof(ViewInfo)), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
         bufferDesc.size       = viewInfoSize * INFLIGHT_FRAME;
         auto viewBuffer       = std::make_shared<Buffer>(bufferDesc);
         viewBuffer->InitRHI();
@@ -128,13 +128,13 @@ namespace sky {
         sceneSet->UpdateBuffer(1, sceneInfo);
         sceneSet->Update();
 
-        vk::DescriptorSetLayout::Descriptor objSetLayoutInfo = {};
+        vk::DescriptorSetLayout::VkDescriptor objSetLayoutInfo = {};
         objSetLayoutInfo.bindings.emplace(
             0, vk::DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT});
         auto objSetLayout = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::DescriptorSetLayout>(objSetLayoutInfo);
         objectPool.reset(DescriptorPool::CreatePool(objSetLayout, {DEFAULT_OBJECT_SET_NUM}));
 
-        uint32_t objectInfoSize = Align(sizeof(ObjectInfo), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
+        uint32_t objectInfoSize = Align(static_cast<uint32_t>(sizeof(ObjectInfo)), static_cast<uint32_t>(deviceProperties.limits.minUniformBufferOffsetAlignment));
         RenderBufferPool::Descriptor bufferPoolInfo = {};
         bufferPoolInfo.count                        = DEFAULT_OBJECT_BLOCK_NUM;
         bufferPoolInfo.stride                       = objectInfoSize;
@@ -145,7 +145,7 @@ namespace sky {
         objectBufferPool = std::make_unique<RenderBufferPool>(bufferPoolInfo);
 
         if (!queryPool) {
-            vk::QueryPool::Descriptor queryDesc = {};
+            vk::QueryPool::VkDescriptor queryDesc = {};
             queryDesc.queryType                  = VK_QUERY_TYPE_PIPELINE_STATISTICS;
             queryDesc.queryCount                 = 7;
             queryDesc.pipelineStatistics =

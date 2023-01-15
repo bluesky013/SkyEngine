@@ -23,12 +23,6 @@ namespace sky {
 
         vk::Instance *GetDriver() const;
 
-        template <typename T>
-        std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
-        {
-            return device->CreateDeviceObject<T>(des);
-        }
-
     private:
         friend class Singleton<RHIManager>;
         RHIManager()     = default;

@@ -4,8 +4,15 @@
 
 #pragma once
 
+#include <rhi/BufferView.h>
+#include <dx12/DevObject.h>
+
 namespace sky::dx {
 
-
+    class BufferView : public rhi::BufferView, public DevObject {
+    public:
+        BufferView(Device &dev);
+        ~BufferView() override;
+    };
 
 }

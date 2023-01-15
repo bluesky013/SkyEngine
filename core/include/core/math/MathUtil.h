@@ -123,4 +123,8 @@ namespace sky {
         return ret;
     }
 
+    inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
+        return (v0 + v1 - 1) / v1;
+    }
+
 } // namespace sky

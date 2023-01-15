@@ -1,5 +1,3 @@
-SET(3RD_PATH "" CACHE STRING "SkyEngine 3rd path")
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/thirdparty)
 
 function(sky_find_3rd)
@@ -48,8 +46,11 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET stb           DIR stb)
     sky_find_3rd(TARGET cxxopts       DIR cxxopts)
     sky_find_3rd(TARGET volk          DIR volk)
-    if (NOT ANDROID)
+    sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
+    if (WIN32)
         sky_find_3rd(TARGET sdl           DIR sdl)
+        sky_find_3rd(TARGET ktx           DIR ktx)
+        sky_find_3rd(TARGET sqlite        DIR sqlite)
     endif()
     if (APPLE)
         sky_find_3rd(TARGET metal-cpp     DIR metal-cpp)

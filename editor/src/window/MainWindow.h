@@ -5,19 +5,18 @@
 
 #pragma once
 #include <QMainWindow>
+#include <editor/document/Document.h>
 
 class QDockWidget;
 class QMenuBar;
-class QTimer;
-
-namespace sky {
-    class SkyEngine;
-}
 
 namespace sky::editor {
 
     class ActionManager;
     class ViewportWidget;
+    class WorldWidget;
+    class InspectorWidget;
+    class AssetWidget;
 
     class MainWindow : public QMainWindow {
         Q_OBJECT
@@ -25,25 +24,32 @@ namespace sky::editor {
         MainWindow(QWidget *parent = nullptr);
         ~MainWindow();
 
-        void Init();
-
     private:
-        void InitEngine();
-
+        void InitWidgets();
         void InitMenu();
-
-        void ShutdownEngine();
 
         void OnTick();
 
         void OnOpenProject(const QString &path);
+        void OnNewProject(const QString &path, const QString &name);
+        void OnCloseProject();
 
-        SkyEngine                    *engine        = nullptr;
-        QTimer                       *timer         = nullptr;
-        QMenuBar                     *menuBar       = nullptr;
-        ActionManager                *actionManager = nullptr;
+        void OnOpenLevel(const QString &path);
+        void OnNewLevel(const QString &name);
+        void OnCloseLevel();
+
+        void UpdateActions();
+
+        QMenuBar      *menuBar       = nullptr;
+        ActionManager *actionManager = nullptr;
+
+        WorldWidget     *worldWidget  = nullptr;
+        InspectorWidget *inspector    = nullptr;
+        AssetWidget     *assetBrowser = nullptr;
+
         std::vector<ViewportWidget *> viewports;
         std::list<QDockWidget *>      docks;
+        std::unique_ptr<Document>     document;
     };
 
 } // namespace sky::editor

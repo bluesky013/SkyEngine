@@ -26,7 +26,7 @@ namespace sky {
     RDTexturePtr Texture::CreateFromImage(const RDImagePtr &image, const Texture::Descriptor &desc)
     {
         auto                       texture       = std::make_shared<Texture>(desc);
-        vk::ImageView::Descriptor viewDesc      = {};
+        vk::ImageView::VkDescriptor viewDesc      = {};
         viewDesc.format                          = image->GetFormat();
         viewDesc.subResourceRange.baseMipLevel   = desc.baseMipLevel;
         viewDesc.subResourceRange.levelCount     = desc.levelCount;

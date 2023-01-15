@@ -7,15 +7,16 @@
 #include <editor/inspector/InspectorBase.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/inspector/PropertyUtil.h>
-#include <engine/world/GameObject.h>
 
-#include <editor/inspector/PropertyTransform.h>
+#include <engine/base/Component.h>
+#include <engine/base/GameObject.h>
 
 namespace sky::editor {
 
     InspectorWidget::InspectorWidget(QWidget *parent) : QDockWidget(parent)
     {
         setWindowTitle(tr("Inspector"));
+
         auto widget = new QWidget(this);
         setWidget(widget);
         auto rootLayout = new QVBoxLayout(widget);
@@ -25,15 +26,12 @@ namespace sky::editor {
         auto button = new QPushButton(tr("Add Component"), widget);
         groupWidget = new QWidget(widget);
 
-        rootLayout->setContentsMargins(0, 0, 0, 0);
-        rootLayout->setSpacing(0);
         rootLayout->addWidget(groupWidget);
         rootLayout->addWidget(button);
 
         layout = new QVBoxLayout(groupWidget);
         layout->setAlignment(Qt::AlignTop);
         layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(0);
     }
 
     void InspectorWidget::AddComponent(Component *comp)

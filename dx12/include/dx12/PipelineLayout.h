@@ -4,18 +4,17 @@
 
 #pragma once
 
+#include <vector>
+#include <rhi/PipelineLayout.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
     class Device;
 
-    class PipelineLayout : public DevObject {
+    class PipelineLayout : public rhi::PipelineLayout, public DevObject {
     public:
         PipelineLayout(Device &dev);
-        ~PipelineLayout();
-
-        struct Descriptor {
-        };
+        ~PipelineLayout() override;
 
         const ID3D12RootSignature *GetRootSignature() const;
 
@@ -24,6 +23,7 @@ namespace sky::dx {
         bool Init(const Descriptor &desc);
 
         ComPtr<ID3D12RootSignature> rootSignature;
+        std::vector<D3D12_ROOT_PARAMETER> parameters;
     };
 
 }

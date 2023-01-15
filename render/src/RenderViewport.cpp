@@ -14,7 +14,7 @@ namespace sky {
 
     void RenderViewport::Setup(const ViewportInfo &info)
     {
-        vk::SwapChain::Descriptor descriptor = {};
+        vk::SwapChain::VkDescriptor descriptor = {};
         descriptor.window                     = info.wHandle;
         descriptor.preferredMode              = VK_PRESENT_MODE_FIFO_KHR;
 

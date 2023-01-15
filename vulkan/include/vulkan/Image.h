@@ -6,6 +6,8 @@
 #include <mutex>
 #include <unordered_map>
 #include <vk_mem_alloc.h>
+
+#include <rhi/Image.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
@@ -14,11 +16,11 @@ namespace sky::vk {
     class Device;
     class ImageView;
 
-    class Image : public DevObject {
+    class Image : public rhi::Image, public DevObject {
     public:
         ~Image();
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkImageType           imageType   = VK_IMAGE_TYPE_2D;
             VkFormat              format      = VK_FORMAT_UNDEFINED;
             VkExtent3D            extent      = {1, 1, 1};
@@ -28,8 +30,8 @@ namespace sky::vk {
             VkSampleCountFlagBits samples     = VK_SAMPLE_COUNT_1_BIT;
             VkImageTiling         tiling      = VK_IMAGE_TILING_OPTIMAL;
             VmaMemoryUsage        memory      = VMA_MEMORY_USAGE_UNKNOWN;
-            bool                  transient   = false;
-            char                  rsv[3]      = {0};
+            VkImageCreateFlags    flags       = 0;
+            bool                  allocateMem = true;
         };
 
         bool IsTransient() const;
@@ -50,13 +52,13 @@ namespace sky::vk {
         Image(Device &, VkImage);
 
         bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         void Reset();
 
         VkImage           image;
         VmaAllocation     allocation;
         VkImageCreateInfo imageInfo;
-        bool              isTransient = false;
         bool              isOwn       = true;
     };
 

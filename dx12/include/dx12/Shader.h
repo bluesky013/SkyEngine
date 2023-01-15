@@ -4,18 +4,16 @@
 
 #pragma once
 
+#include <rhi/Shader.h>
 #include <dx12/DevObject.h>
 
 namespace sky::dx {
     class Device;
 
-    class Shader : public DevObject {
+    class Shader : public rhi::Shader, public DevObject {
     public:
         Shader(Device &);
         ~Shader();
-
-        struct Descriptor {
-        };
 
     private:
         friend class Device;

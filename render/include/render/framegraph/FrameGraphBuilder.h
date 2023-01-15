@@ -21,7 +21,7 @@ namespace sky {
 
         void ImportImage(const std::string &name, vk::ImagePtr);
 
-        void CreateImage(const std::string &name, const vk::Image::Descriptor &imageDesc);
+        void CreateImage(const std::string &name, const vk::Image::VkDescriptor &imageDesc);
 
         FrameGraphImageAttachment *CreateImageAttachment(const std::string &source, const std::string &name, VkImageAspectFlags flag);
 

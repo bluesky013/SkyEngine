@@ -52,7 +52,7 @@ namespace sky::vk {
         return device.FindProperties(bufferReq.memoryTypeBits & imageReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     }
 
-    bool TransientPool::Init(const Descriptor &desc)
+    bool TransientPool::Init(const VkDescriptor &desc)
     {
         int32_t memIndex = GetMemoryTypeIndex(device);
         if (memIndex < 0) {

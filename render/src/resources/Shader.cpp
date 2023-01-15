@@ -34,11 +34,11 @@ namespace sky {
     {
         BuildReflection();
 
-        vk::Shader::Descriptor desc = {};
+        vk::Shader::VkDescriptor desc = {};
         desc.size                    = static_cast<uint32_t>(spv.size()) * sizeof(uint32_t);
         desc.spv                     = spv.data();
         desc.stage                   = descriptor.stage;
-        rhiShader                    = RHIManager::Get()->CreateDeviceObject<vk::Shader>(desc);
+        rhiShader                    = RHIManager::Get()->GetDevice()->CreateDeviceObject<vk::Shader>(desc);
     }
 
     bool Shader::IsValid() const
@@ -162,7 +162,7 @@ namespace sky {
             return;
         }
 
-        vk::PipelineLayout::Descriptor desc = {};
+        vk::PipelineLayout::VkDescriptor desc = {};
 
         VkPushConstantRange range{};
         // merge shader resources.

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "rhi/GraphicsPipeline.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/PipelineLayout.h"
 #include "vulkan/RenderPass.h"
@@ -19,7 +20,7 @@ namespace sky::vk {
 
     class Device;
 
-    class GraphicsPipeline : public DevObject {
+    class GraphicsPipeline : public rhi::GraphicsPipeline, public DevObject {
     public:
         ~GraphicsPipeline() = default;
 
@@ -89,7 +90,7 @@ namespace sky::vk {
             ShaderOptionPtr        shaderOption;
         };
 
-        struct Descriptor {
+        struct VkDescriptor {
             const State      *state   = nullptr;
             const Program    *program = nullptr;
             VertexInputPtr    vertexInput;
@@ -97,8 +98,6 @@ namespace sky::vk {
             PipelineLayoutPtr pipelineLayout;
             uint32_t          subPassIndex = 0;
         };
-
-        bool Init(const Descriptor &);
 
         VkPipeline GetNativeHandle() const;
 
@@ -108,7 +107,11 @@ namespace sky::vk {
         friend class Device;
         GraphicsPipeline(Device &);
 
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
+
         static uint32_t CalculateHash(const Descriptor &);
+        static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;
         uint32_t          hash;

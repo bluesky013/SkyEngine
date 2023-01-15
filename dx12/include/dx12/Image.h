@@ -4,8 +4,15 @@
 
 #pragma once
 
+#include <rhi/Image.h>
+#include <dx12/DevObject.h>
+
 namespace sky::dx {
 
-
+    class Image : public rhi::Image, public DevObject {
+    public:
+        Image(Device &dev);
+        ~Image() override;
+    };
 
 }

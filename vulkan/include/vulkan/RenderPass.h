@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "rhi/RenderPass.h"
 #include "vulkan/Basic.h"
 #include "vulkan/DevObject.h"
 #include "vulkan/vulkan.h"
@@ -13,7 +14,7 @@ namespace sky::vk {
 
     class Device;
 
-    class RenderPass : public DevObject {
+    class RenderPass : public rhi::RenderPass, public DevObject {
     public:
         ~RenderPass();
 
@@ -24,29 +25,25 @@ namespace sky::vk {
             VkAttachmentReference              depthStencil;
         };
 
-        struct Descriptor {
+        struct VkDescriptor {
             std::vector<VkAttachmentDescription> attachments;
             std::vector<SubPass>                 subPasses;
             std::vector<VkSubpassDependency>     dependencies;
         };
 
-        bool Init(const Descriptor &);
-
         VkRenderPass GetNativeHandle() const;
 
         uint32_t GetHash() const;
-
-        uint32_t GetPsoHash() const;
 
     private:
         friend class Device;
         RenderPass(Device &);
 
-        void CalculateHashForPSO(const Descriptor &);
+        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkRenderPass pass;
         uint32_t     hash;
-        uint32_t     psoHash;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;
@@ -62,7 +59,7 @@ namespace sky::vk {
 
         class Impl {
         public:
-            Impl(RenderPass::Descriptor &des) : descriptor(des)
+            Impl(RenderPass::VkDescriptor &des) : descriptor(des)
             {
             }
             ~Impl() = default;
@@ -74,12 +71,12 @@ namespace sky::vk {
             RenderPassPtr Create(Device &device);
 
         protected:
-            RenderPass::Descriptor &descriptor;
+            RenderPass::VkDescriptor &descriptor;
         };
 
         class DependencyImpl : public Impl {
         public:
-            DependencyImpl(RenderPass::Descriptor &des, uint32_t dep);
+            DependencyImpl(RenderPass::VkDescriptor &des, uint32_t dep);
             ~DependencyImpl() = default;
 
             DependencyImpl &SetLinkage(uint32_t src, uint32_t dst);
@@ -92,7 +89,7 @@ namespace sky::vk {
 
         class SubImpl : public Impl {
         public:
-            SubImpl(RenderPass::Descriptor &des, uint32_t sub);
+            SubImpl(RenderPass::VkDescriptor &des, uint32_t sub);
             ~SubImpl() = default;
 
             AttachmentImpl AddColor();
@@ -106,7 +103,7 @@ namespace sky::vk {
 
         class AttachmentImpl : public SubImpl {
         public:
-            AttachmentImpl(uint32_t index, RenderPass::Descriptor &des, uint32_t sub);
+            AttachmentImpl(uint32_t index, RenderPass::VkDescriptor &des, uint32_t sub);
             ~AttachmentImpl() = default;
 
             AttachmentImpl &Format(VkFormat);
@@ -122,7 +119,7 @@ namespace sky::vk {
         Impl operator()();
 
     private:
-        RenderPass::Descriptor descriptor;
+        RenderPass::VkDescriptor descriptor;
     };
 
 } // namespace sky::vk

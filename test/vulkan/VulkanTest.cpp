@@ -58,10 +58,10 @@ struct Vertex {
 
 TEST_F(VulkanTest, PipelineLayoutTest)
 {
-    PipelineLayout::Descriptor pipelineLayoutDes = {};
+    PipelineLayout::VkDescriptor pipelineLayoutDes = {};
 
     {
-        DescriptorSetLayout::Descriptor descriptor = {};
+        DescriptorSetLayout::VkDescriptor descriptor = {};
         descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
         descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         descriptor.bindings.emplace(2, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
@@ -69,7 +69,7 @@ TEST_F(VulkanTest, PipelineLayoutTest)
     }
 
     {
-        DescriptorSetLayout::Descriptor descriptor = {};
+        DescriptorSetLayout::VkDescriptor descriptor = {};
         descriptor.bindings.emplace(0, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT});
         descriptor.bindings.emplace(1, DescriptorSetLayout::SetBinding{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT});
         pipelineLayoutDes.desLayouts.emplace_back(descriptor);
@@ -143,7 +143,7 @@ TEST_F(VulkanTest, VertexInputTest)
 
 TEST_F(VulkanTest, VulkanDescriptorIndexingTest)
 {
-    DescriptorSetLayout::Descriptor desc = {};
+    DescriptorSetLayout::VkDescriptor desc = {};
     desc.bindings.emplace(0, DescriptorSetLayout::SetBinding{
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                  10,

@@ -37,11 +37,11 @@ namespace sky::vk {
             VkDescriptorBindingFlags bindingFlags    = 0;
         };
 
-        struct Descriptor {
+        struct VkDescriptor {
             std::map<uint32_t, SetBinding> bindings;
         };
 
-        bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkDescriptorSetLayout GetNativeHandle() const;
 
@@ -61,7 +61,7 @@ namespace sky::vk {
         friend class Device;
         DescriptorSetLayout(Device &);
 
-        Descriptor            info;
+        VkDescriptor          info;
         VkDescriptorSetLayout layout;
         UpdateTemplate        updateTemplate;
         uint32_t              dynamicNum;

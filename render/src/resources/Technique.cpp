@@ -43,7 +43,7 @@ namespace sky {
         table->FillProgram(program);
         program.shaderOption = option;
 
-        vk::GraphicsPipeline::Descriptor psoDesc = {};
+        vk::GraphicsPipeline::VkDescriptor psoDesc = {};
         psoDesc.renderPass                        = pass->GetRenderPass();
         psoDesc.program                           = &program;
         psoDesc.state                             = &pipelineState;

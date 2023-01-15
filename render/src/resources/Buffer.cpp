@@ -39,7 +39,7 @@ namespace sky {
             return;
         }
 
-        vk::Buffer::Descriptor desc = {};
+        vk::Buffer::VkDescriptor desc = {};
         desc.size                    = realSize = descriptor.size * descriptor.inflight;
         desc.memory                  = descriptor.memory;
         desc.usage                   = descriptor.usage;
@@ -78,7 +78,7 @@ namespace sky {
             auto device = RHIManager::Get()->GetDevice();
             auto queue  = device->GetGraphicsQueue();
 
-            vk::Buffer::Descriptor stagingDes = {};
+            vk::Buffer::VkDescriptor stagingDes = {};
             stagingDes.memory                  = VMA_MEMORY_USAGE_CPU_TO_GPU;
             stagingDes.usage                   = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             stagingDes.size                    = range;

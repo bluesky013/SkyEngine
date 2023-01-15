@@ -5,22 +5,24 @@
 #include "MainWindow.h"
 #include "ActionManager.h"
 #include "CentralWidget.h"
-#include "Constants.h"
+#include "../dialog/ProjectDialog.h"
+#include "../dialog/LevelDialog.h"
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
 #include <QTimer>
+#include <QMessageBox>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
+#include <editor/dockwidget/AssetWidget.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <engine/SkyEngine.h>
-#include <engine/world/GameObject.h>
 
 namespace sky::editor {
 
-    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), engine(nullptr), timer(nullptr)
+    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     {
-        Init();
+        InitWidgets();
         InitMenu();
     }
 
@@ -32,38 +34,66 @@ namespace sky::editor {
         }
     }
 
-    void MainWindow::InitEngine()
+    void MainWindow::OnOpenLevel(const QString &path)
     {
-        engine = SkyEngine::Get();
+        document->OpenLevel(path, false);
+        worldWidget->SetWorld(document->GetMainWorld());
     }
 
-    void MainWindow::ShutdownEngine()
+    void MainWindow::OnNewLevel(const QString &name)
     {
-        engine->DeInit();
-        SkyEngine::Destroy();
-        engine = nullptr;
+        document->OpenLevel(name, true);
+        worldWidget->SetWorld(document->GetMainWorld());
     }
 
-    void MainWindow::OnTick()
+    void MainWindow::OnCloseLevel()
     {
-        static auto timePoint = std::chrono::high_resolution_clock::now();
-        auto        current   = std::chrono::high_resolution_clock::now();
-        auto        delta     = std::chrono::duration<float>(current - timePoint).count();
-        timePoint             = current;
-        if (engine != nullptr) {
-            engine->Tick(delta);
-        }
+        document->CloseLevel();
+        worldWidget->SetWorld(nullptr);
     }
 
     void MainWindow::OnOpenProject(const QString &path)
     {
-        actionManager->Update(1 << PROJECT_OPEN_BIT);
+        document = std::make_unique<Document>(path);
+        document->Init();
+
+        QFileInfo file(path);
+        auto dir = file.path().toStdString();
+        assetBrowser->OnProjectChange(file.path());
+        UpdateActions();
     }
 
-    void MainWindow::Init()
+    void MainWindow::OnNewProject(const QString &path, const QString &name)
     {
-        InitEngine();
+        QDir dir(path);
+        QDir fullPath(path + QDir::separator() + name);
+        QDir fullPathFile(path + QDir::separator() + name + QDir::separator() + name + tr(".sproj"));
 
+        if (dir.exists()){
+            QDir check(path);
+            if (fullPath.exists()) {
+                QMessageBox msgWarning;
+                msgWarning.setText("Error!\nDirectory Exists.");
+                msgWarning.setIcon(QMessageBox::Critical);
+                msgWarning.setWindowTitle("Caution");
+                msgWarning.exec();
+                return;
+            }
+
+            dir.mkdir(name);
+        }
+        OnOpenProject(fullPathFile.path());
+    }
+
+    void MainWindow::OnCloseProject()
+    {
+        document.reset();
+        assetBrowser->OnProjectChange("");
+        UpdateActions();
+    }
+
+    void MainWindow::InitWidgets()
+    {
         setWindowState(Qt::WindowMaximized);
 
         auto centralWidget = new CentralWidget(this);
@@ -75,19 +105,17 @@ namespace sky::editor {
         }
 
         auto dockMgr     = DockManager::Get();
-        auto worldWidget = new WorldWidget(this);
+        worldWidget = new WorldWidget(this);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
 
-        auto inspector = new InspectorWidget(this);
+        inspector = new InspectorWidget(this);
         addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, inspector);
         dockMgr->Register((uint32_t)DockId::INSPECTOR, *inspector);
 
-        addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, new QDockWidget(this));
-
-        timer = new QTimer(this);
-        timer->start(0);
-        connect(timer, &QTimer::timeout, this, &MainWindow::OnTick);
+        assetBrowser = new AssetWidget(this);
+        addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, assetBrowser);
+        dockMgr->Register((uint32_t)DockId::BROWSER, *assetBrowser);
     }
 
     void MainWindow::InitMenu()
@@ -96,13 +124,44 @@ namespace sky::editor {
 
         menuBar = new QMenuBar(this);
 
-        ActionWithFlag *openLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "Open Level");
+        // level
+        ActionWithFlag *openLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Open Level");
+        ActionWithFlag *closeLevelAct = new ActionWithFlag(DocumentFlagBit::LEVEL_OPEN, "Close Level");
+        ActionWithFlag *newLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "New Level");
 
-        ActionWithFlag *closeLevelAct = new ActionWithFlag(1 << LEVEL_OPEN_BIT, "Close Level");
+        connect(openLevelAct, &QAction::triggered, this, [this](bool /**/) {
+            QFileDialog dialog(this);
+            dialog.setFileMode(QFileDialog::AnyFile);
+            dialog.setNameFilter(tr("Level (*.level)"));
+            dialog.setViewMode(QFileDialog::Detail);
+            QStringList fileNames;
+            if (dialog.exec()) {
+                fileNames = dialog.selectedFiles();
+                if (!fileNames.empty()) {
+                    OnOpenLevel(fileNames[0]);
+                }
+            }
+        });
 
-        ActionWithFlag *newLevelAct = new ActionWithFlag(1 << PROJECT_OPEN_BIT, "New Level");
+        connect(newLevelAct, &QAction::triggered, this, [this](bool /**/) {
+            LevelDialog dialog;
+            if (dialog.exec()) {
+                auto name = dialog.LevelName();
+                if (!name.isEmpty()) {
+                    OnNewLevel(name);
+                }
+            }
+        });
 
-        ActionWithFlag *openProjectAct = new ActionWithFlag(0, "Open Project", this);
+        connect(closeLevelAct, &QAction::triggered, this, [this]() {
+            OnCloseLevel();
+        });
+
+        ActionWithFlag *openProjectAct = new ActionWithFlag({}, "Open Project", this);
+        ActionWithFlag *newProjectAct = new ActionWithFlag({}, "New Project", this);
+        ActionWithFlag *closeProjectAct = new ActionWithFlag({}, "Close Project", this);
+
+        // project
         connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
             QFileDialog dialog(this);
             dialog.setFileMode(QFileDialog::AnyFile);
@@ -117,11 +176,29 @@ namespace sky::editor {
             }
         });
 
-        ActionWithFlag *closeAct = new ActionWithFlag(0, "Close", this);
+        connect(newProjectAct, &QAction::triggered, this, [this](bool /**/) {
+            ProjectDialog dialog;
+            if (dialog.exec()) {
+                auto projectPath = dialog.ProjectPath();
+                auto projectName = dialog.ProjectName();
+                if (!projectPath.isEmpty() && !projectName.isEmpty()) {
+                    OnNewProject(projectPath, projectName);
+                }
+            }
+        });
+
+        connect(closeProjectAct, &QAction::triggered, this, [this](bool /**/) {
+            OnCloseProject();
+        });
+
+        // close editor
+        ActionWithFlag *closeAct = new ActionWithFlag({}, "Close", this);
         connect(closeAct, &QAction::triggered, this, [this](bool /**/) { close(); });
 
         auto fileMenu = new QMenu("File", menuBar);
+        fileMenu->addAction(newProjectAct);
         fileMenu->addAction(openProjectAct);
+        fileMenu->addAction(closeProjectAct);
         fileMenu->addSeparator();
         fileMenu->addAction(newLevelAct);
         fileMenu->addAction(openLevelAct);
@@ -137,6 +214,11 @@ namespace sky::editor {
         actionManager->AddAction(newLevelAct);
         actionManager->AddAction(openProjectAct);
         actionManager->AddAction(closeAct);
-        actionManager->Update(0);
+        UpdateActions();
+    }
+
+    void MainWindow::UpdateActions()
+    {
+        actionManager->Update(document ? document->GetFlag() : DocFlagArray{});
     }
 } // namespace sky::editor

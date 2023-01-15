@@ -16,7 +16,7 @@ namespace sky {
         fgImage->image           = image;
     }
 
-    void FrameGraphBuilder::CreateImage(const std::string &name, const vk::Image::Descriptor &imageDesc)
+    void FrameGraphBuilder::CreateImage(const std::string &name, const vk::Image::VkDescriptor &imageDesc)
     {
         auto             device  = RHIManager::Get()->GetDevice();
         FrameGraphImage *fgImage = graph.AddImage<FrameGraphImage>(name);

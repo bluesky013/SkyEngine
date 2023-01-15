@@ -16,7 +16,7 @@ namespace sky {
 
         virtual const SettingRegistry &GetSettings() const = 0;
 
-        virtual const NativeWindow *GetViewport() const = 0;
+        virtual const NativeWindow *GetViewport() const { return nullptr; }
     };
 
 } // namespace sky

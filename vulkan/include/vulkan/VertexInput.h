@@ -6,12 +6,13 @@
 
 #include <memory>
 #include <vector>
+#include <rhi/VertexInput.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
 
-    class VertexInput {
+    class VertexInput : public rhi::VertexInput {
     public:
         VertexInput()  = default;
         ~VertexInput() = default;
@@ -40,7 +41,7 @@ namespace sky::vk {
         uint32_t GetHash() const;
 
     private:
-        friend class VertexInput::Builder;
+        friend class vk::VertexInput::Builder;
 
         std::vector<VkVertexInputAttributeDescription> attributes;
         std::vector<VkVertexInputBindingDescription>   bindings;
