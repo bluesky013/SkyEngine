@@ -13,6 +13,9 @@ namespace sky {
         Object() = default;
         ~Object() = default;
 
+        void SetUuid(const Uuid &id) { uuid = id; }
+        const Uuid &GetUuid() const { return uuid; }
+
     protected:
         Uuid uuid;
     };

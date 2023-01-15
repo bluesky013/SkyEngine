@@ -22,6 +22,11 @@ namespace sky {
         return objId;
     }
 
+    void GameObject::SetName(const std::string &name_)
+    {
+        name = name_;
+    }
+
     const std::string &GameObject::GetName() const
     {
         return name;
@@ -40,6 +45,12 @@ namespace sky {
         }
         TransformComponent *parent = gameObject != nullptr ? gameObject->GetComponent<TransformComponent>() : nullptr;
         trans->SetParent(parent);
+    }
+
+    GameObject *GameObject::GetParent() const
+    {
+        auto trans = GetComponent<TransformComponent>();
+        return trans != nullptr ? trans->object : nullptr;
     }
 
     void GameObject::Tick(float time)

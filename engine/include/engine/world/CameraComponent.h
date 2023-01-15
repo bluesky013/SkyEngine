@@ -16,7 +16,7 @@ namespace sky {
         CameraComponent()  = default;
         ~CameraComponent() = default;
 
-        TYPE_RTTI_WITH_VT(CameraComponent)
+        TYPE_RTTI_WITH_VT(CameraComponent, "473D65D7-2D8D-48E3-86FE-0C20016A387D")
 
         static void Reflect();
 

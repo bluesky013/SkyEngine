@@ -8,6 +8,7 @@
 #include <core/type/Rtti.h>
 #include <core/type/Type.h>
 #include <core/std/Container.h>
+#include <core/util/Uuid.h>
 #include <framework/serialization/SerializationContext.h>
 #include <set>
 #include <string_view>
@@ -37,6 +38,9 @@ namespace sky {
         virtual void OnDestroy()
         {
         }
+
+        virtual Uuid GetType() const = 0;
+        virtual std::string_view GetTypeStr() const = 0;
 
     protected:
         friend class GameObject;

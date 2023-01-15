@@ -78,20 +78,37 @@ namespace sky {
 
         uint32_t GetId() const;
 
+        void SetName(const std::string &name);
         const std::string &GetName() const;
 
         World *GetWorld() const;
 
         void SetParent(GameObject *gameObject);
 
+        GameObject *GetParent() const;
+
         void Tick(float time);
 
         using ComponentList = PmrList<Component *>;
         ComponentList &GetComponents();
 
+        template <typename Archive>
+        void save(Archive &ar) const
+        {
+            ar(uuid, name, GetParent()->GetUuid());
+        }
+
+        template <typename Archive>
+        void load(Archive &ar)
+        {
+            Uuid parent;
+            ar(uuid, name, parent);
+        }
+
     private:
         friend class World;
         ~GameObject();
+        GameObject() = default;
         GameObject(const std::string &str) : name(str)
         {
         }

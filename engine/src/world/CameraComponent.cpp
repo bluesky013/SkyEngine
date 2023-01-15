@@ -5,8 +5,27 @@
 #include <engine/world/CameraComponent.h>
 #include <engine/world/World.h>
 #include <core/math/MathUtil.h>
+#include <framework/serialization/PropertyCommon.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky {
+
+    void CameraComponent::Reflect()
+    {
+        SerializationContext::Get()
+            ->Register<ProjectType>(TypeInfo<ProjectType>::Name())()
+            .Property(ProjectType::PROJECTIVE, std::string("PROJECTIVE"))
+            .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
+
+        SerializationContext::Get()
+            ->Register<CameraComponent>(S_TYPE)
+            .Member<&CameraComponent::near>("near")
+            .Member<&CameraComponent::far>("far")
+            .Member<&CameraComponent::fov>("fov")
+            .Member<&CameraComponent::aspect>("aspect")
+            .Member<&CameraComponent::type>("projectType")
+            .Property(UI_PROP_VISIBLE, false);
+    }
 
     void CameraComponent::Perspective(float near_, float far_, float fov_, float aspect_)
     {

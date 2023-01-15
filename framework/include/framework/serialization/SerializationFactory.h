@@ -194,6 +194,12 @@ namespace sky {
         {
         }
 
+        template <typename T>
+        TypeFactory &Property(const T &key, const Any &any)
+        {
+            return Property(static_cast<uint32_t>(key), any);
+        }
+
         TypeFactory &Property(uint32_t key, const Any &any)
         {
             property.emplace(key, any);

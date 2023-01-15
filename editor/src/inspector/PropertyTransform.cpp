@@ -40,7 +40,7 @@ namespace sky::editor {
         }
 
         {
-            auto iter = node->members.find("pos");
+            auto iter = node->members.find("translation");
             static_cast<PropertyVec<3>*>(pos)->SetInstance(trans, iter->first.data(), iter->second);
         }
 

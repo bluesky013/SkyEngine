@@ -23,6 +23,7 @@ namespace sky::editor {
     {
         Application::Init(info);
 
+        SkyEngine::Reflect();
         engine = SkyEngine::Get();
         engine->Init();
 

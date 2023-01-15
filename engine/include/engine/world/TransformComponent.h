@@ -15,7 +15,7 @@ namespace sky {
         TransformComponent() = default;
         ~TransformComponent();
 
-        TYPE_RTTI_WITH_VT(TransformComponent)
+        TYPE_RTTI_WITH_VT(TransformComponent, "A416C740-0466-4D7F-A918-668C0341C176")
 
         static void Reflect();
 
