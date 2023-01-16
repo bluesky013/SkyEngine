@@ -49,7 +49,7 @@ namespace sky {
 
     GameObject *GameObject::GetParent() const
     {
-        auto trans = GetComponent<TransformComponent>();
+        auto trans = GetComponent<TransformComponent>()->GetParent();
         return trans != nullptr ? trans->object : nullptr;
     }
 

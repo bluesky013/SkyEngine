@@ -103,6 +103,7 @@ namespace sky {
         {
             Uuid parent;
             ar(uuid, name, parent);
+            SetParent(world->GetGameObjectByUuid(parent));
         }
 
     private:

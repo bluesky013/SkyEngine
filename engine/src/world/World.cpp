@@ -99,7 +99,9 @@ namespace sky {
         while (!queue.empty()) {
             auto tgo = queue.front();
             queue.pop_front();
-            fn(tgo);
+            if (tgo != root) {
+                fn(tgo);
+            }
 
             auto trans = tgo->GetComponent<TransformComponent>();
             auto &children = trans->GetChildren();

@@ -41,7 +41,7 @@ namespace sky {
         template <typename Archive>
         void save(Archive &ar) const
         {
-            ar(static_cast<uint32_t>(gameObjects.size()));
+            ar(static_cast<uint32_t>(gameObjects.size()) - 1);
             ForEachBFS(root, [&ar](GameObject *go) {
                 ar(*go);
             });
