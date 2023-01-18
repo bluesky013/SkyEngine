@@ -25,4 +25,13 @@ namespace sky {
         return Any{};
     }
 
+    Any GetAny(const Any &source, const std::string &str)
+    {
+        auto node = GetTypeMember(str, source.Info());
+        if (node != nullptr && node->getterConstFn != nullptr) {
+            return node->getterConstFn(source.Data());
+        }
+        return Any{};
+    }
+
 } // namespace sky

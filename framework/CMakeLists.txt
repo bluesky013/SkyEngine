@@ -34,7 +34,7 @@ sky_add_library(TARGET Framework STATIC
         include
     LINK_LIBS
         Core
-        3rdParty::cereal
+        3rdParty::rapidjson
         3rdParty::sqlite
         ${FM_EXT_LIB}
         ${PLATFORM_EXT_LIBS}

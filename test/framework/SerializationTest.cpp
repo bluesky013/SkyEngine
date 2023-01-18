@@ -5,6 +5,8 @@
 #include <core/logger/Logger.h>
 #include <framework/serialization/AnyRT.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
+#include <fstream>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -46,16 +48,16 @@ TEST(SerializationTest, TypeTest)
     auto testReflect = context->FindType("TestReflect");
     ASSERT_NE(testReflect, nullptr);
     ASSERT_EQ(testReflect->members.size(), 7);
-    LOG_I(TAG, "name %s", testReflect->info->typeId.data());
+    LOG_I(TAG, "name %s", testReflect->info->markedName.data());
 
     auto testMember = context->FindType("TestMember");
     ASSERT_NE(testMember, nullptr);
     ASSERT_EQ(testMember->members.size(), 2);
-    LOG_I(TAG, "name %s", testMember->info->typeId.data());
+    LOG_I(TAG, "name %s", testMember->info->markedName.data());
 
     for (auto &member : testReflect->members) {
         auto &memberNode = member.second;
-        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->typeId.data(),
+        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->markedName.data(),
               memberNode.info->isFundamental, memberNode.isStatic, memberNode.isConst);
     }
 
@@ -141,4 +143,66 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d.c, 3.0);
         ASSERT_EQ(ptr->d.d, true);
     }
+}
+
+struct TestObject {
+    uint64_t uv1 = 1;
+    uint32_t uv2 = 2;
+    uint16_t uv3 = 3;
+    uint8_t  uv4 = 4;
+    int64_t  iv1 = 5;
+    int32_t  iv2 = 6;
+    int16_t  iv3 = 7;
+    int8_t   iv4 = 9;
+    float    fv1 = 10;
+    double   dv1 = 11;
+    bool     bv1 = true;
+    bool     bv2 = false;
+};
+
+struct TestStruct {
+    TestObject t1;
+    std::string t2 = "123";
+};
+
+TEST(ArchiveTest, JsonArchiveTest)
+{
+    std::ofstream stream("test.json");
+    JsonOutputArchive archive(stream);
+
+    SerializationContext::Get()->Register<TestObject>("TestObject")
+        .Member<&TestObject::uv1>("uv1")
+        .Member<&TestObject::uv2>("uv2")
+        .Member<&TestObject::uv3>("uv3")
+        .Member<&TestObject::uv4>("uv4")
+        .Member<&TestObject::iv1>("iv1")
+        .Member<&TestObject::iv2>("iv2")
+        .Member<&TestObject::iv3>("iv3")
+        .Member<&TestObject::iv4>("iv4")
+        .Member<&TestObject::fv1>("fv1")
+        .Member<&TestObject::dv1>("dv1")
+        .Member<&TestObject::bv1>("bv1")
+        .Member<&TestObject::bv2>("bv2");
+
+    SerializationContext::Get()->Register<TestStruct>("Test")
+        .Member<&TestStruct::t1>("t1")
+        .Member<&TestStruct::t2>("t2");
+
+    archive.StartObject();
+    archive.Key("name");
+    archive.SaveValue(1);
+
+    archive.Key("ttt");
+    archive.StartArray();
+    archive.SaveValue(1);
+    archive.SaveValue(2);
+    archive.SaveValue(3);
+    archive.SaveValue(4);
+    archive.EndArray();
+
+    TestStruct obj;
+
+    archive.Key("testObject");
+    archive.SaveValue(Any(obj));
+    archive.EndObject();
 }

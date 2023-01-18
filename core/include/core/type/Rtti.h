@@ -51,9 +51,9 @@ namespace sky {
     using CopyFn      = void (*)(const void *src, void *dst);
 
     struct TypeInfoRT {
-        std::string_view       typeId;
-        const std::string_view name;
-        const uint32_t         hash;
+        std::string_view       markedName;
+        const std::string_view signature;
+        const uint32_t         typeId;
         const size_t           rank;
         const size_t           size;
         const bool             isFundamental;
@@ -94,11 +94,6 @@ namespace sky {
             if constexpr (DTOR) {
                 ((T *)ptr)->~T();
             }
-        }
-
-        static void Copy(const void *src, void *dst)
-        {
-            new (dst) T{*((T *)src)};
         }
     };
 

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <core/environment/Singleton.h>
+#include <core/platform/Platform.h>
 #include <framework/serialization/SerializationFactory.h>
 
 namespace sky {
@@ -15,13 +16,16 @@ namespace sky {
         template <typename T>
         auto Register(const std::string_view &key)
         {
-            auto &type        = types[key];
-            type.info         = TypeInfoObj<T>::Get()->RtInfo();
-            type.info->typeId = key;
+            auto info = TypeInfoObj<T>::Get()->RtInfo();
+            SKY_ASSERT(!types.count(info->typeId))
+            auto &type      = types[info->typeId];
+            type.info       = info;
+            SKY_ASSERT(lookupTable.emplace(key, &type).second)
             return TypeFactory<T>(type);
         }
 
         TypeNode *FindType(const std::string &key);
+        TypeNode *FindTypeById(uint32_t id);
 
     private:
         friend class Singleton<SerializationContext>;
@@ -29,7 +33,8 @@ namespace sky {
         SerializationContext()  = default;
         ~SerializationContext() = default;
 
-        std::unordered_map<std::string_view, TypeNode> types;
+        std::unordered_map<uint32_t, TypeNode>  types;
+        std::unordered_map<std::string_view, TypeNode*> lookupTable;
     };
 
     template <typename T, typename... Args>
@@ -40,7 +45,7 @@ namespace sky {
         if (rtInfo == nullptr) {
             return {};
         }
-        TypeNode *node = context->FindType(rtInfo->typeId.data());
+        TypeNode *node = context->FindTypeById(rtInfo->typeId);
         if (node == nullptr || node->constructList.empty()) {
             return {};
         }
@@ -55,7 +60,7 @@ namespace sky {
             return nullptr;
         }
         auto context = SerializationContext::Get();
-        return context->FindType(rtInfo->typeId.data());
+        return context->FindTypeById(rtInfo->typeId);
     }
 
     inline const TypeNode *GetTypeNode(const TypeInfoRT *rtInfo)
@@ -64,7 +69,7 @@ namespace sky {
             return nullptr;
         }
         auto context = SerializationContext::Get();
-        return context->FindType(rtInfo->typeId.data());
+        return context->FindTypeById(rtInfo->typeId);
     }
 
     inline TypeMemberNode *GetTypeMember(const std::string &str, const TypeInfoRT *info)
@@ -73,7 +78,7 @@ namespace sky {
             return nullptr;
         }
         auto context = SerializationContext::Get();
-        auto node    = context->FindType(info->typeId.data());
+        auto node    = context->FindTypeById(info->typeId);
         if (node == nullptr) {
             return nullptr;
         }

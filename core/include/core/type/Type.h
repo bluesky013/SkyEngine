@@ -17,8 +17,8 @@ namespace sky {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (info == nullptr) {
                     info = new TypeInfoRT{
-                        "",                                   // typeId
-                        TypeInfo<T>::Name(),                  // name
+                        "",                                   // name
+                        TypeInfo<T>::Name(),                  // typeId
                         TypeInfo<T>::Hash(),                  // hash
                         std::rank_v<T>,                       // rank
                         sizeof(T),                            // size
@@ -39,7 +39,6 @@ namespace sky {
                         std::is_trivial_v<T>,                 // isTrivial;
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
                         TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr,
                     };
                 }
             }

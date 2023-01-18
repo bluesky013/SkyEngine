@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2022/3/13.
 //
 
-#include <cereal/external/rapidjson/prettywriter.h>
+#include <rapidjson/prettywriter.h>
 #include <framework/application/SettingRegistry.h>
 
 using namespace rapidjson;

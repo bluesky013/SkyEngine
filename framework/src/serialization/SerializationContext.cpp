@@ -8,11 +8,14 @@ namespace sky {
 
     TypeNode *SerializationContext::FindType(const std::string &key)
     {
-        auto iter = types.find(key);
-        if (iter == types.end()) {
-            return nullptr;
-        }
-        return &(iter->second);
+        auto iter = lookupTable.find(key);
+        return iter == lookupTable.end() ? nullptr : iter->second;
+    }
+
+    TypeNode *SerializationContext::FindTypeById(uint32_t id)
+    {
+        auto iter = types.find(id);
+        return iter == types.end() ? nullptr : &iter->second;
     }
 
 } // namespace sky

@@ -4,9 +4,6 @@
 
 #pragma once
 
-#include <cereal/archives/binary.hpp>
-#include <cereal/archives/json.hpp>
-#include <cereal/archives/xml.hpp>
 #include <core/jobsystem/JobSystem.h>
 #include <core/util/Uuid.h>
 #include <memory>
@@ -155,44 +152,44 @@ namespace sky {
 
         void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            std::ifstream file(GetRealPath(path), std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-
-            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
-            DataType assetData;
-            if (SERIALIZE_TYPE == SerializeType::JSON) {
-                cereal::JSONInputArchive archive(file);
-                archive >> assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                cereal::BinaryInputArchive archive(file);
-                archive >> assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::XML) {
-                cereal::XMLInputArchive archive(file);
-                archive >> assetData;
-            }
-            asset->SetData(std::move(assetData));
+//            std::ifstream file(GetRealPath(path), std::ios::binary);
+//            if (!file.is_open()) {
+//                return;
+//            }
+//
+//            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
+//            DataType assetData;
+//            if (SERIALIZE_TYPE == SerializeType::JSON) {
+//                cereal::JSONInputArchive archive(file);
+//                archive >> assetData;
+//            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
+//                cereal::BinaryInputArchive archive(file);
+//                archive >> assetData;
+//            } else if (SERIALIZE_TYPE == SerializeType::XML) {
+//                cereal::XMLInputArchive archive(file);
+//                archive >> assetData;
+//            }
+//            asset->SetData(std::move(assetData));
         }
 
         void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
-            auto         &assetData = asset->Data();
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-            if (SERIALIZE_TYPE == SerializeType::JSON) {
-                cereal::JSONOutputArchive archive(file);
-                archive << assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                cereal::BinaryOutputArchive archive(file);
-                archive << assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::XML) {
-                cereal::XMLOutputArchive archive(file);
-                archive << assetData;
-            }
+//            auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
+//            auto         &assetData = asset->Data();
+//            std::ofstream file(path, std::ios::binary);
+//            if (!file.is_open()) {
+//                return;
+//            }
+//            if (SERIALIZE_TYPE == SerializeType::JSON) {
+//                cereal::JSONOutputArchive archive(file);
+//                archive << assetData;
+//            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
+//                cereal::BinaryOutputArchive archive(file);
+//                archive << assetData;
+//            } else if (SERIALIZE_TYPE == SerializeType::XML) {
+//                cereal::XMLOutputArchive archive(file);
+//                archive << assetData;
+//            }
         }
     };
 } // namespace sky
