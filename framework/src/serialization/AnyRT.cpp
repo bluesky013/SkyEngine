@@ -9,29 +9,36 @@ namespace sky {
 
     bool SetAny(Any &source, const std::string &str, const Any &any)
     {
-        auto node = GetTypeMember(str, source.Info());
+        return SetAny(const_cast<void *>(source.Data()), source.Info()->typeId, str, any);
+    }
+
+    bool SetAny(void *ptr, uint32_t id, const std::string &str, const Any &any)
+    {
+        auto node = GetTypeMember(str, id);
         if (node != nullptr && node->setterFn != nullptr) {
-            return node->setterFn(source.Data(), any);
+            return node->setterFn(ptr, any);
         }
         return false;
     }
 
-    Any GetAny(Any &source, const std::string &str)
+
+    Any GetAny(const void *ptr, uint32_t id, const std::string &str)
     {
-        auto node = GetTypeMember(str, source.Info());
+        auto node = GetTypeMember(str, id);
         if (node != nullptr && node->getterFn != nullptr) {
-            return node->getterFn(source.Data(), false);
+            return node->getterFn(const_cast<void*>(ptr), false);
         }
         return Any{};
     }
 
+    Any GetAny(Any &source, const std::string &str)
+    {
+        return GetAny(source.Data(), source.Info()->typeId, str);
+    }
+
     Any GetAny(const Any &source, const std::string &str)
     {
-        auto node = GetTypeMember(str, source.Info());
-        if (node != nullptr && node->getterConstFn != nullptr) {
-            return node->getterConstFn(source.Data());
-        }
-        return Any{};
+        return GetAny(source.Data(), source.Info()->typeId, str);
     }
 
 } // namespace sky

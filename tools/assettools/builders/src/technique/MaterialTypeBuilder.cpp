@@ -3,9 +3,10 @@
 //
 
 #include <builders/technique/MaterialTypeBuilder.h>
-#include <render/resources/Material.h>
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
+#include <rapidjson/document.h>
+#include <render/resources/Material.h>
 
 namespace sky {
 

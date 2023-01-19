@@ -95,6 +95,13 @@ namespace sky {
                 ((T *)ptr)->~T();
             }
         }
+
+        static void Copy(const void *src, void *dst)
+        {
+            if constexpr (COPY) {
+                new (dst) T{*((T *)src)};
+            }
+        }
     };
 
 } // namespace sky

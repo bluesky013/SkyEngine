@@ -39,6 +39,7 @@ namespace sky {
                         std::is_trivial_v<T>,                 // isTrivial;
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
                         TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
+                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
                     };
                 }
             }
@@ -48,6 +49,31 @@ namespace sky {
     private:
         std::mutex  mutex;
         TypeInfoRT *info = nullptr;
+    };
+
+    template <typename...>
+    struct FuncTraits;
+
+    template <typename Ret, typename Cls, typename... Args>
+    struct FuncTraits<Ret (Cls::*)(Args...)> {
+        using CLASS_TYPE            = Cls;
+        using RET_TYPE              = Ret;
+        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
+        static constexpr bool CONST = false;
+    };
+
+    template <typename Ret, typename Cls, typename... Args>
+    struct FuncTraits<Ret (Cls::*)(Args...) const> {
+        using CLASS_TYPE            = Cls;
+        using RET_TYPE              = Ret;
+        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
+        static constexpr bool CONST = true;
+    };
+
+    template <typename Ret, typename... Args>
+    struct FuncTraits<Ret(Args...)> {
+        using RET_TYPE  = Ret;
+        using ARGS_TYPE = std::tuple<Args...>;
     };
 
 } // namespace sky

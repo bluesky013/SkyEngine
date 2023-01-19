@@ -4,56 +4,169 @@
 
 #pragma once
 
-#include <framework/serialization/Archive.h>
 #include <rapidjson/rapidjson.h>
+#include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
 #include <core/type/Any.h>
+#include <core/platform/Platform.h>
+#include <iostream>
 
 namespace sky {
 
     namespace impl {
+
         template <typename StreamType>
-        class StreamWrapper {
+        class InputStreamWrapper {
         public:
-            typedef typename StreamType::char_type Ch;
-            StreamWrapper(StreamType &stream) : stream_(stream)
+            using Ch = typename StreamType::char_type;
+            InputStreamWrapper(StreamType &s) : stream(s)
             {
             }
 
-            StreamWrapper(const StreamWrapper &) = delete;
-            StreamWrapper &operator=(const StreamWrapper &) = delete;
+            InputStreamWrapper(const InputStreamWrapper &)            = delete;
+            InputStreamWrapper &operator=(const InputStreamWrapper &) = delete;
+
+            Ch Peek() const
+            {
+                int c = stream.peek();
+                return c == std::char_traits<char>::eof() ? '\0' : static_cast<Ch>(c);
+            }
+
+            Ch Take()
+            {
+                int c = stream.get();
+                return c == std::char_traits<char>::eof() ? '\0' : static_cast<Ch>(c);
+            }
+
+            size_t Tell() const
+            {
+                return static_cast<size_t>(stream.tellg());
+            }
+
+            Ch *PutBegin()      { SKY_ASSERT(false); return 0; }
+            void Put(Ch)        { SKY_ASSERT(false); }
+            void Flush()        { SKY_ASSERT(false); }
+            size_t PutEnd(Ch *) { SKY_ASSERT(false); return 0; }
+
+        private:
+            StreamType &stream;
+        };
+
+
+        template <typename StreamType>
+        class OutputStreamWrapper {
+        public:
+            using Ch = typename StreamType::char_type;
+            OutputStreamWrapper(StreamType &s) : stream(s)
+            {
+            }
+
+            OutputStreamWrapper(const OutputStreamWrapper &) = delete;
+            OutputStreamWrapper &operator=(const OutputStreamWrapper &) = delete;
 
             void Put(Ch c)
             {
-                stream_.put(c);
+                stream.put(c);
             }
 
             void Flush()
             {
-                stream_.flush();
+                stream.flush();
             }
 
         private:
-            StreamType &stream_;
+            StreamType &stream;
         };
     }
 
-    class JsonInputArchive : public InputArchive {
+    class JsonInputArchive {
     public:
-        JsonInputArchive(std::istream &s) : stream(s) {}
+        using Value = rapidjson::GenericValue<rapidjson::UTF8<>>;
+        using MemberIterator = Value::ConstMemberIterator;
+        using ValueIterator = Value::ConstValueIterator ;
+        using ValueArray = Value::ConstArray;
+        using Stream = impl::InputStreamWrapper<std::istream>;
+
+        JsonInputArchive(std::istream &s) : stream(s)
+        {
+            document.ParseStream(stream);
+            stack.emplace_back(&document);
+        }
+
         ~JsonInputArchive() = default;
 
+        bool Start(const std::string &name)
+        {
+            auto &parent = *stack.back();
+            auto iter = parent.FindMember(name.c_str());
+            if (iter == parent.MemberEnd()) {
+                return false;
+            }
+            stack.emplace_back(&iter->value);
+            return true;
+        }
+
+        void End()
+        {
+            if (!stack.empty()) {
+                stack.pop_back();
+            }
+        }
+
+        bool LoadBool();
+        int32_t LoadInt();
+        uint32_t LoadUint();
+        int64_t LoadInt64();
+        uint64_t LoadUint64();
+        double LoadDouble();
+        std::string LoadString();
+        Any LoadValue(uint32_t typeId);
+        void LoadValue(void *ptr, uint32_t typeId);
+
+        template <typename T>
+        void LoadValue(T &value)
+        {
+            value = *(LoadValue(TypeInfo<T>::Hash()).GetAs<T>());
+        }
+
+        uint32_t LoadArray()
+        {
+            SKY_ASSERT(!stack.empty());
+            auto value = stack.back();
+            SKY_ASSERT(value != nullptr && value->IsArray());
+            auto array = value->GetArray();
+            begin = array.begin();
+            end = array.end();
+            return static_cast<uint32_t>(array.Size());
+        }
+
+        template <typename T>
+        void LoadArrayElement(T &value)
+        {
+            SKY_ASSERT(begin != end);
+            stack.emplace_back(begin);
+            value = *(LoadValue(TypeInfo<T>::Hash()).GetAs<T>());
+            stack.pop_back();
+            ++begin;
+        }
+
     private:
-        std::istream &stream;
+        Stream stream;
+        rapidjson::Document document;
+        std::vector<const Value*> stack;
+        ValueIterator begin = nullptr;
+        ValueIterator end = nullptr;
     };
 
-    class JsonOutputArchive : public OutputArchive {
+    class JsonOutputArchive {
     public:
-        using Stream = impl::StreamWrapper<std::ostream>;
+        using Stream = impl::OutputStreamWrapper<std::ostream>;
         using Writter = rapidjson::PrettyWriter<Stream>;
 
         JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
         ~JsonOutputArchive() = default;
+
+        void SaveValue(const void *ptr, uint32_t id);
 
         void SaveValue(const Any &any);
 

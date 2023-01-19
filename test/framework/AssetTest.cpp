@@ -6,7 +6,6 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DataBase.h>
 #include <framework/database/DBManager.h>
-#include <framework/serialization/BasicSerialization.h>
 #include <gtest/gtest.h>
 
 struct Test1Data {

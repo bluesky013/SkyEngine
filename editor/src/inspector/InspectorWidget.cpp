@@ -42,7 +42,7 @@ namespace sky::editor {
             return;
         }
         auto inspector = new InspectorBase(groupWidget);
-        inspector->SetName(node->info->typeId.data());
+        inspector->SetName(node->info->markedName.data());
 
         layout->addWidget(inspector);
         for (auto &mem : node->members) {
