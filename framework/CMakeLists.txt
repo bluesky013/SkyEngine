@@ -12,7 +12,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         platform/sdl/*
         platform/macos/*)
     set(FM_EXT_LIB
-        3rdParty::sdl)
+        3rdParty::sdl
+        3rdParty::boost_container)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_package(game-activity REQUIRED CONFIG)
     file(GLOB_RECURSE PLATFORM_SRC
