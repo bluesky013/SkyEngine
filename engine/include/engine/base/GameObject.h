@@ -84,6 +84,7 @@ namespace sky {
         World *GetWorld() const;
 
         void SetParent(GameObject *gameObject);
+        void SetParent(const Uuid &gameObject);
 
         GameObject *GetParent() const;
 
@@ -103,7 +104,7 @@ namespace sky {
         {
             Uuid parent;
             ar(uuid, name, parent);
-            SetParent(world->GetGameObjectByUuid(parent));
+            SetParent(parent);
         }
 
     private:

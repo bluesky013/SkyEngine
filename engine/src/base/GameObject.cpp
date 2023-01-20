@@ -47,6 +47,11 @@ namespace sky {
         trans->SetParent(parent);
     }
 
+    void GameObject::SetParent(const Uuid &gameObject)
+    {
+        SetParent(world->GetGameObjectByUuid(gameObject));
+    }
+
     GameObject *GameObject::GetParent() const
     {
         auto trans = GetComponent<TransformComponent>()->GetParent();
