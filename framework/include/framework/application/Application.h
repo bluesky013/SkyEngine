@@ -11,6 +11,7 @@
 #include <framework/application/SettingRegistry.h>
 #include <memory>
 #include <functional>
+#include <vector>
 
 namespace sky {
 

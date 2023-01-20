@@ -254,6 +254,7 @@ struct TestSerAE {
 };
 
 struct TestSerFunc {
+    virtual ~TestSerFunc() = default;
 
     virtual void Load(JsonInputArchive &archive) = 0;
 

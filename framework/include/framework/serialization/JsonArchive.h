@@ -10,6 +10,7 @@
 #include <core/type/Any.h>
 #include <core/platform/Platform.h>
 #include <iostream>
+#include <vector>
 
 namespace sky {
 
@@ -126,7 +127,7 @@ namespace sky {
         template <typename T>
         void LoadValue(T &value)
         {
-            value = *(LoadValue(TypeInfo<T>::Hash()).GetAs<T>());
+            value = *(LoadValue(TypeInfo<T>::Hash()).template GetAs<T>());
         }
 
         uint32_t LoadArray()
@@ -145,7 +146,7 @@ namespace sky {
         {
             SKY_ASSERT(begin != end);
             stack.emplace_back(begin);
-            value = *(LoadValue(TypeInfo<T>::Hash()).GetAs<T>());
+            value = *(LoadValue(TypeInfo<T>::Hash()).template GetAs<T>());
             stack.pop_back();
             ++begin;
         }
