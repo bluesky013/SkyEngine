@@ -15,13 +15,15 @@ namespace sky {
 
     void VulkanSample::Init()
     {
-        RegisterSample<VulkanTerrainVTSample>();
         RegisterSample<VulkanTriangleSample>();
         RegisterSample<VulkanMemoryAliasing>();
-        RegisterSample<VulkanDescriptorSample>();
-        RegisterSample<VulkanBindlessSample>();
         RegisterSample<VulkanAsyncUploadSample>();
+#ifdef WIN32
+        RegisterSample<VulkanDescriptorSample>();
+        RegisterSample<VulkanTerrainVTSample>();
+        RegisterSample<VulkanBindlessSample>();
         RegisterSample<VulkanSparseImageSample>();
+#endif
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
@@ -68,10 +70,10 @@ namespace sky {
 
     void VulkanSample::OnKeyUp(KeyButtonType button)
     {
-        if (button == KeyButton::KEY_PAGEUP) {
+        if (button == KeyButton::KEY_F2) {
             NextSample();
             StartSample();
-        } else if (button == KeyButton::KEY_PAGEDOWN) {
+        } else if (button == KeyButton::KEY_F3) {
             PrevSample();
             StartSample();
         }

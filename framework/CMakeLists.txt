@@ -2,13 +2,11 @@ file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    set(EXT_LIBRARY winmm imm32 version setupapi)
     file(GLOB_RECURSE PLATFORM_SRC
         platform/sdl/*
         platform/windows/*)
     set(FM_EXT_LIB
-        3rdParty::sdl
-        ${EXT_LIBRARY})
+        3rdParty::sdl)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/sdl/*

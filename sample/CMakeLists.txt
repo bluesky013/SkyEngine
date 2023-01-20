@@ -9,4 +9,4 @@ if (WIN32)
 endif()
 
 
-add_subdirectory(RDSceneProject)
+#add_subdirectory(RDSceneProject)

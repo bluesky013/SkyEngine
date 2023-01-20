@@ -5,7 +5,6 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
-#include <framework/serialization/BasicSerialization.h>
 #include <render/resources/GlobalResource.h>
 #include <render/resources/RenderResource.h>
 #include <vector>
