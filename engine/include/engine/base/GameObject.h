@@ -14,6 +14,9 @@
 namespace sky {
     class World;
 
+    class JsonOutputArchive;
+    class JsonInputArchive;
+
     class GameObject : public Object {
     public:
         GameObject(GameObject &&) noexcept = default;
@@ -21,6 +24,8 @@ namespace sky {
 
         GameObject(const GameObject &)            = delete;
         GameObject &operator=(const GameObject &) = delete;
+
+        static void Reflect();
 
         template <typename T>
         inline T *AddComponent()
@@ -92,6 +97,9 @@ namespace sky {
 
         using ComponentList = PmrList<Component *>;
         ComponentList &GetComponents();
+
+        void Save(JsonOutputArchive &ar) const;
+        void Load(JsonInputArchive &ar);
 
         template <typename Archive>
         void save(Archive &ar) const

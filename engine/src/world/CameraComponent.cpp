@@ -7,7 +7,7 @@
 #include <core/math/MathUtil.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
-
+#include <framework/serialization/JsonArchive.h>
 namespace sky {
 
     void CameraComponent::Reflect()
@@ -68,5 +68,16 @@ namespace sky {
 
     void CameraComponent::OnDestroy()
     {
+    }
+
+    void CameraComponent::Save(JsonOutputArchive &ar) const
+    {
+        ar.Key("type");
+        ar.SaveValue("v");
+    }
+
+    void CameraComponent::Load(JsonInputArchive &ar)
+    {
+
     }
 } // namespace sky

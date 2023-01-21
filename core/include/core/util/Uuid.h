@@ -69,13 +69,6 @@ namespace sky {
         }
 
         std::string ToString() const;
-
-        template <class Archive>
-        void serialize(Archive &ar)
-        {
-            ar(word[0], word[1]);
-        }
-
     private:
         friend struct std::hash<sky::Uuid>;
         friend struct std::equal_to<sky::Uuid>;

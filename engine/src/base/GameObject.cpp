@@ -6,7 +6,16 @@
 #include <engine/world/TransformComponent.h>
 #include <engine/world/World.h>
 
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
 namespace sky {
+
+    void GameObject::Reflect()
+    {
+        SerializationContext::Get()->Register<GameObject>("GameObject")
+            .JsonLoad<&GameObject::Load>()
+            .JsonSave<&GameObject::Save>();
+    }
 
     GameObject::~GameObject()
     {
@@ -69,4 +78,29 @@ namespace sky {
     {
         return components;
     }
+
+    void GameObject::Save(JsonOutputArchive &ar) const
+    {
+        ar.Key("uuid");
+        ar.SaveValue(uuid.ToString());
+
+        ar.Key("parent");
+        ar.SaveValue(GetParent()->GetUuid().ToString());
+
+        ar.Key("name");
+        ar.SaveValue(name);
+
+        ar.Key("components");
+        ar.StartArray();
+        for (auto &comp : components) {
+            ar.SaveValueObject(*comp);
+        }
+        ar.EndArray();
+    }
+
+    void GameObject::Load(JsonInputArchive &ar)
+    {
+
+    }
+
 } // namespace sky

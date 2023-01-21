@@ -32,6 +32,9 @@ namespace sky {
 
         void OnDestroy() override;
 
+        void Save(JsonOutputArchive &ar) const override;
+        void Load(JsonInputArchive &ar) override;
+
     private:
         float near   = 0.1f;
         float far    = 100.f;

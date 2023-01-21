@@ -3,17 +3,22 @@
 //
 
 #include <editor/application/EditorApplication.h>
+#include <editor/document/Document.h>
 #include <core/environment/Environment.h>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
 
-    EditorApplication::EditorApplication()
+    static void EditorReflect()
     {
-
+        Document::Reflect();
     }
 
-    EditorApplication::~EditorApplication() noexcept
+    EditorApplication::EditorApplication()
+    {
+    }
+
+    EditorApplication::~EditorApplication()
     {
         engine->DeInit();
         SkyEngine::Destroy();
@@ -23,7 +28,9 @@ namespace sky::editor {
     {
         Application::Init(info);
 
+        EditorReflect();
         SkyEngine::Reflect();
+
         engine = SkyEngine::Get();
         engine->Init();
 

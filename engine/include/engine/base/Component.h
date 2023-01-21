@@ -17,6 +17,8 @@
 namespace sky {
 
     class GameObject;
+    class JsonOutputArchive;
+    class JsonInputArchive;
 
     class Component {
     public:
@@ -41,6 +43,9 @@ namespace sky {
 
         virtual Uuid GetType() const = 0;
         virtual std::string_view GetTypeStr() const = 0;
+
+        virtual void Save(JsonOutputArchive &ar) const {}
+        virtual void Load(JsonInputArchive &ar) {}
 
     protected:
         friend class GameObject;

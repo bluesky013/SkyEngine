@@ -7,6 +7,7 @@
 #include <engine/world/TransformComponent.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
 #include <string>
 
 namespace sky {
@@ -159,4 +160,16 @@ namespace sky {
     {
         return world;
     }
+
+    void TransformComponent::Save(JsonOutputArchive &ar) const
+    {
+        ar.Key("type");
+        ar.SaveValue("TransformComponent");
+    }
+
+    void TransformComponent::Load(JsonInputArchive &ar)
+    {
+
+    }
+
 } // namespace sky

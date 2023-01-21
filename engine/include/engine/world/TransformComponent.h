@@ -38,6 +38,9 @@ namespace sky {
 
         void Print();
 
+        void Save(JsonOutputArchive &ar) const override;
+        void Load(JsonInputArchive &ar) override;
+
     private:
         static void PrintChild(TransformComponent &comp, std::string str);
 

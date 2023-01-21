@@ -121,14 +121,6 @@ namespace sky {
         uint64_t LoadUint64();
         double LoadDouble();
         std::string LoadString();
-        Any LoadValue(uint32_t typeId);
-        void LoadValue(void *ptr, uint32_t typeId);
-
-        template <typename T>
-        void LoadValue(T &value)
-        {
-            value = *(LoadValue(TypeInfo<T>::Hash()).template GetAs<T>());
-        }
 
         uint32_t LoadArray()
         {
@@ -146,9 +138,18 @@ namespace sky {
         {
             SKY_ASSERT(begin != end);
             stack.emplace_back(begin);
-            value = *(LoadValue(TypeInfo<T>::Hash()).template GetAs<T>());
+            value = *(LoadValueById(TypeInfo<T>::Hash()).template GetAs<T>());
             stack.pop_back();
             ++begin;
+        }
+
+        Any LoadValueById(uint32_t typeId);
+        void LoadValueObject(void *ptr, uint32_t typeId);
+
+        template <typename T>
+        void LoadValueObject(T &value)
+        {
+            LoadValueObject(&value, TypeInfo<T>::Hash());
         }
 
     private:
@@ -167,9 +168,13 @@ namespace sky {
         JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
         ~JsonOutputArchive() = default;
 
-        void SaveValue(const void *ptr, uint32_t id);
-
-        void SaveValue(const Any &any);
+        void SaveValueObject(const Any &any);
+        void SaveValueObject(const void *ptr, uint32_t id);
+        template <typename T, typename = std::enable_if<!std::is_same_v<T, Any>, void>>
+        void SaveValueObject(const T& value)
+        {
+            SaveValueObject(&value, TypeInfo<T>::Hash());
+        }
 
         void StartObject() { writer.StartObject(); }
         void EndObject()   { writer.EndObject(); };

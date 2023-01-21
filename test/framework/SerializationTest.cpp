@@ -219,7 +219,7 @@ TEST(ArchiveTest, JsonArchiveTest)
         obj.t1.bv2 = true;
         obj.t2 = "test2";
 
-        archive.SaveValue(Any(obj));
+        archive.SaveValueObject(obj);
     }
 
     {
@@ -227,7 +227,7 @@ TEST(ArchiveTest, JsonArchiveTest)
         JsonInputArchive archive(stream);
 
         TestStruct obj;
-        archive.LoadValue(obj);
+        archive.LoadValueObject(obj);
 
         TestStruct dft{};
 
@@ -287,7 +287,7 @@ struct TestSerFuncDerv : public TestSerFunc {
         archive.Key("c");
         archive.StartArray();
         for (auto &v : c) {
-            archive.SaveValue(v);
+            archive.SaveValueObject(v);
         }
         archive.EndArray();
     }
@@ -334,7 +334,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
         JsonOutputArchive archive(file);
 
         TestSerFunc &f = test;
-        archive.SaveValue(&f, TypeInfo<TestSerFunc>::Hash());
+        archive.SaveValueObject(&f, TypeInfo<TestSerFunc>::Hash());
     }
 
     {
@@ -343,7 +343,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
         JsonInputArchive archive(file);
 
         TestSerFunc &f = test;
-        archive.LoadValue(&f, TypeInfo<TestSerFunc>::Hash());
+        archive.LoadValueObject(&f, TypeInfo<TestSerFunc>::Hash());
 
         std::cout << test.a << std::endl;
     }

@@ -3,10 +3,11 @@
 //
 
 #include <editor/document/Level.h>
-#include <cereal/archives/json.hpp>
 #include <fstream>
 #include <engine/base/GameObject.h>
 #include <engine/world/CameraComponent.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::editor {
 
@@ -35,16 +36,16 @@ namespace sky::editor {
     {
         auto str = path.toStdString();
         std::ifstream file(str, std::ios::binary);
-        cereal::JSONInputArchive archive(file);
-        archive >> *world;
+        JsonInputArchive archive(file);
+        archive.LoadValueObject(*world);
     }
 
     void Level::Save()
     {
         auto str = path.toStdString();
         std::ofstream file(str, std::ios::binary);
-        cereal::JSONOutputArchive archive(file);
-        archive << *world;
+        JsonOutputArchive archive(file);
+        archive.SaveValueObject(*world);
     }
 
     const WorldPtr &Level::GetWorld() const

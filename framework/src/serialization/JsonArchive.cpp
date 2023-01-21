@@ -8,12 +8,12 @@
 
 namespace sky {
 
-    void JsonOutputArchive::SaveValue(const Any &any)
+    void JsonOutputArchive::SaveValueObject(const Any &any)
     {
-        SaveValue(any.Data(), any.Info()->typeId);
+        SaveValueObject(any.Data(), any.Info()->typeId);
     }
 
-    void JsonOutputArchive::SaveValue(const void *ptr, uint32_t typeId)
+    void JsonOutputArchive::SaveValueObject(const void *ptr, uint32_t typeId)
     {
         if (typeId == TypeInfo<bool>::Hash()) {
             SaveValue(*static_cast<const bool*>(ptr));
@@ -63,14 +63,14 @@ namespace sky {
                 std::string memberName = member.first.data();
                 Key(memberName.c_str());
                 auto memberValue = GetAny(ptr, typeId, memberName);
-                SaveValue(memberValue);
+                SaveValueObject(memberValue);
             }
             EndObject();
             EndObject();
         }
     }
 
-    void JsonInputArchive::LoadValue(void *ptr, uint32_t typeId)
+    void JsonInputArchive::LoadValueObject(void *ptr, uint32_t typeId)
     {
         SKY_ASSERT(!stack.empty());
         auto value = stack.back();
@@ -122,7 +122,7 @@ namespace sky {
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
                 SKY_ASSERT(Start(memberName));
-                SetAny(ptr, typeId, memberName, LoadValue(member.second.info->typeId));
+                SetAny(ptr, typeId, memberName, LoadValueById(member.second.info->typeId));
                 End();
             }
 
@@ -130,10 +130,10 @@ namespace sky {
         }
     }
 
-    Any JsonInputArchive::LoadValue(uint32_t typeId)
+    Any JsonInputArchive::LoadValueById(uint32_t typeId)
     {
         auto res = MakeAny(typeId);
-        LoadValue(res.Data(), typeId);
+        LoadValueObject(res.Data(), typeId);
         return res;
     }
 

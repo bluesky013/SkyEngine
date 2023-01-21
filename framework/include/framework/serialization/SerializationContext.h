@@ -25,7 +25,7 @@ namespace sky {
                 type.constructList.emplace_back(
                     ConstructNode{0,
                                   [](Any *args) { return true; },
-                                  [](Any *args) -> Any { return Any(T{}); }});
+                                  [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
             }
 
             SKY_ASSERT(lookupTable.emplace(key, &type).second)

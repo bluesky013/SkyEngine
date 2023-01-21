@@ -8,6 +8,8 @@
 #include <core/math/Vector4.h>
 #include <core/math/Quaternion.h>
 #include <core/math/Transform.h>
+#include <core/util/Uuid.h>
+
 #include <engine/SkyEngine.h>
 #include <engine/world/World.h>
 #include <framework/serialization/SerializationContext.h>

@@ -6,10 +6,29 @@
 #include <engine/world/TransformComponent.h>
 #include <engine/world/CameraComponent.h>
 #include <engine/world/World.h>
+
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
+
 #include <atomic>
 #include <deque>
 
 namespace sky {
+
+    void World::Reflect()
+    {
+        SerializationContext::Get()->Register<World>("World")
+            .JsonLoad<&World::Load>()
+            .JsonSave<&World::Save>();
+
+        SerializationContext::Get()->Register<Component>("Component")
+            .JsonLoad<&Component::Load>()
+            .JsonSave<&Component::Save>();
+
+        GameObject::Reflect();
+        TransformComponent::Reflect();
+        CameraComponent::Reflect();
+    }
 
     World::World() : root(nullptr), gameObjects(&memoryResource), objectLut(&memoryResource)
     {
@@ -109,12 +128,20 @@ namespace sky {
                 queue.emplace_back(child->object);
             }
         }
-
     }
 
-    void World::Reflect()
+    void World::Save(JsonOutputArchive &ar) const
     {
-        TransformComponent::Reflect();
-        CameraComponent::Reflect();
+        ar.Key("objects");
+        ar.StartArray();
+        ForEachBFS(root, [&ar](GameObject *go) {
+            ar.SaveValueObject(*go);
+        });
+        ar.EndArray();
+    }
+
+    void World::Load(JsonInputArchive &ar)
+    {
+
     }
 } // namespace sky

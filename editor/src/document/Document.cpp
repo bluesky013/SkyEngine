@@ -6,8 +6,8 @@
 #include <QFileInfo>
 #include <QDir>
 #include <fstream>
-#include <cereal/cereal.hpp>
-#include <cereal/archives/json.hpp>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::editor {
 
@@ -34,6 +34,12 @@ namespace sky::editor {
     const WorldPtr &Document::GetMainWorld() const
     {
         return currentLevel->GetWorld();
+    }
+
+    void Document::Reflect()
+    {
+        SerializationContext::Get()->Register<ProjectData>("ProjectData")
+            .Member<&ProjectData::version>("version");
     }
 
     void Document::Init()
@@ -63,16 +69,16 @@ namespace sky::editor {
     {
         auto str = projectFullPath.toStdString();
         std::ifstream file(str, std::ios::binary);
-        cereal::JSONInputArchive archive(file);
-        archive >> projectData;
+        JsonInputArchive archive(file);
+        archive.LoadValueObject(projectData);
     }
 
     void Document::Save()
     {
         auto str = projectFullPath.toStdString();
         std::ofstream file(str, std::ios::binary);
-        cereal::JSONOutputArchive archive(file);
-        archive << projectData;
+        JsonOutputArchive archive(file);
+        archive.SaveValueObject(projectData);
     }
 
     void Document::OpenLevel(const QString &path, bool newLevel)
