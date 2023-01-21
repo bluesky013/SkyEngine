@@ -18,7 +18,7 @@ namespace sky::editor {
     class Document {
     public:
         Document(const QString &path);
-        ~Document() = default;
+        ~Document();
 
         static void Reflect();
 

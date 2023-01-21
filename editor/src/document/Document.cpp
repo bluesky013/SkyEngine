@@ -16,6 +16,12 @@ namespace sky::editor {
         projectFullPath = path;
     }
 
+    Document::~Document()
+    {
+        ResetFlag(DocumentFlagBit::PROJECT_OPEN);
+        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
+    }
+
     void Document::SetFlag(DocumentFlagBit bit)
     {
         flags.SetBit(bit);
@@ -89,11 +95,13 @@ namespace sky::editor {
         } else {
             currentLevel->Open(path);
         }
+        SetFlag(DocumentFlagBit::LEVEL_OPEN);
     }
 
     void Document::CloseLevel()
     {
         currentLevel.reset();
+        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
     }
 
 } // namespace sky::editor

@@ -69,11 +69,13 @@ namespace sky::editor {
 
     void WorldWidget::Refresh()
     {
-        auto root = world->GetRoot();
         worldTree->clear();
-        rootItem = new WorldItem(worldTree);
-        rootItem->go = root;
-        RefreshTree(*root, rootItem);
+        if (world != nullptr) {
+            auto root = world->GetRoot();
+            rootItem = new WorldItem(worldTree);
+            rootItem->go = root;
+            RefreshTree(*root, rootItem);
+        }
     }
 
     void WorldWidget::SetWorld(const WorldPtr &w)
