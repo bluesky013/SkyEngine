@@ -83,9 +83,6 @@ namespace sky {
     class JsonInputArchive {
     public:
         using Value = rapidjson::GenericValue<rapidjson::UTF8<>>;
-        using MemberIterator = Value::ConstMemberIterator;
-        using ValueIterator = Value::ConstValueIterator ;
-        using ValueArray = Value::ConstArray;
         using Stream = impl::InputStreamWrapper<std::istream>;
 
         JsonInputArchive(std::istream &s) : stream(s)
@@ -103,8 +100,24 @@ namespace sky {
             if (iter == parent.MemberEnd()) {
                 return false;
             }
-            stack.emplace_back(&iter->value);
+            if (iter->value.IsArray()) {
+                stack.emplace_back(iter->value.GetArray().begin());
+            } else {
+                stack.emplace_back(&iter->value);
+            }
             return true;
+        }
+
+        uint32_t StartArray(const std::string &name)
+        {
+            auto &parent = *stack.back();
+            auto iter = parent.FindMember(name.c_str());
+            if (iter != parent.MemberEnd() && iter->value.IsArray()) {
+                auto array = iter->value.GetArray();
+                stack.emplace_back(array.begin());
+                return array.Size();
+            }
+            return 0;
         }
 
         void End()
@@ -122,42 +135,47 @@ namespace sky {
         double LoadDouble();
         std::string LoadString();
 
-        uint32_t LoadArray()
-        {
-            SKY_ASSERT(!stack.empty());
-            auto value = stack.back();
-            SKY_ASSERT(value != nullptr && value->IsArray());
-            auto array = value->GetArray();
-            begin = array.begin();
-            end = array.end();
-            return static_cast<uint32_t>(array.Size());
-        }
-
         template <typename T>
         void LoadArrayElement(T &value)
         {
-            SKY_ASSERT(begin != end);
-            stack.emplace_back(begin);
-            value = *(LoadValueById(TypeInfo<T>::Hash()).template GetAs<T>());
-            stack.pop_back();
-            ++begin;
+            LoadValueById(&value, TypeInfo<T>::Hash());
+            stack.back()++;
+        }
+
+        void NextArrayElement()
+        {
+            stack.back()++;
         }
 
         Any LoadValueById(uint32_t typeId);
-        void LoadValueObject(void *ptr, uint32_t typeId);
+        void LoadValueById(void *ptr, uint32_t typeId);
 
         template <typename T>
         void LoadValueObject(T &value)
         {
-            LoadValueObject(&value, TypeInfo<T>::Hash());
+            LoadValueById(&value, TypeInfo<T>::Hash());
+        }
+
+        template <typename T>
+        void LoadKeyValue(const std::string &name, T &value)
+        {
+            Start(name);
+            if constexpr (std::is_enum_v<T>) {
+                using UType = std::underlying_type_t<T>;
+                UType v = 0;
+                LoadValueObject(v);
+                value = static_cast<T>(v);
+            } else {
+                LoadValueObject(value);
+            }
+
+            End();
         }
 
     private:
         Stream stream;
         rapidjson::Document document;
         std::vector<const Value*> stack;
-        ValueIterator begin = nullptr;
-        ValueIterator end = nullptr;
     };
 
     class JsonOutputArchive {
@@ -167,14 +185,6 @@ namespace sky {
 
         JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
         ~JsonOutputArchive() = default;
-
-        void SaveValueObject(const Any &any);
-        void SaveValueObject(const void *ptr, uint32_t id);
-        template <typename T, typename = std::enable_if<!std::is_same_v<T, Any>, void>>
-        void SaveValueObject(const T& value)
-        {
-            SaveValueObject(&value, TypeInfo<T>::Hash());
-        }
 
         void StartObject() { writer.StartObject(); }
         void EndObject()   { writer.EndObject(); };
@@ -192,6 +202,26 @@ namespace sky {
         void SaveValue(std::string const & s) { writer.String(s.c_str(), static_cast<rapidjson::SizeType>(s.size())); }
         void SaveValue(char const * s)        { writer.String(s); }
         void SaveValue(std::nullptr_t)        { writer.Null(); }
+
+        void SaveValueObject(const Any &any);
+        void SaveValueObject(const void *ptr, uint32_t id);
+        template <typename T, typename = std::enable_if<!std::is_same_v<T, Any>, void>>
+        void SaveValueObject(const T& value)
+        {
+            SaveValueObject(&value, TypeInfo<T>::Hash());
+        }
+
+        template <typename T>
+        void SaveValueObject(const std::string &key, const T&value)
+        {
+            Key(key.c_str());
+            if constexpr (std::is_enum_v<T>) {
+                SaveValueObject(static_cast<std::underlying_type_t<T>>(value));
+            } else {
+                SaveValueObject(value);
+            }
+
+        }
 
         void Key(const char* key) { writer.Key(key); }
 

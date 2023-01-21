@@ -271,8 +271,7 @@ struct TestSerFuncDerv : public TestSerFunc {
         b = static_cast<float>(archive.LoadDouble());
         archive.End();
 
-        archive.Start("c");
-        c.resize(archive.LoadArray());
+        archive.StartArray("c");
         for (uint32_t i = 0; i < c.size(); ++i) {
             archive.LoadArrayElement(c[i]);
         }
@@ -280,6 +279,7 @@ struct TestSerFuncDerv : public TestSerFunc {
     }
 
     void Save(JsonOutputArchive &archive) const override {
+        archive.StartObject();
         archive.Key("a");
         archive.SaveValue(a);
         archive.Key("b");
@@ -290,6 +290,7 @@ struct TestSerFuncDerv : public TestSerFunc {
             archive.SaveValueObject(v);
         }
         archive.EndArray();
+        archive.EndObject();
     }
 
     int a;
@@ -343,7 +344,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
         JsonInputArchive archive(file);
 
         TestSerFunc &f = test;
-        archive.LoadValueObject(&f, TypeInfo<TestSerFunc>::Hash());
+        archive.LoadValueById(&f, TypeInfo<TestSerFunc>::Hash());
 
         std::cout << test.a << std::endl;
     }

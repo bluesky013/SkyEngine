@@ -21,6 +21,8 @@ namespace sky {
             .Member<&TransformComponent::local>("local")
             .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);
+
+        ComponentFactory::Get()->RegisterComponent<TransformComponent>();
     }
 
     TransformComponent::~TransformComponent()
@@ -163,13 +165,14 @@ namespace sky {
 
     void TransformComponent::Save(JsonOutputArchive &ar) const
     {
-        ar.Key("type");
-        ar.SaveValue("TransformComponent");
+        ar.StartObject();
+        ar.SaveValueObject("transform", local);
+        ar.EndObject();
     }
 
     void TransformComponent::Load(JsonInputArchive &ar)
     {
-
+        ar.LoadKeyValue("transform", local);
     }
 
 } // namespace sky

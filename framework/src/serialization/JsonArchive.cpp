@@ -47,9 +47,7 @@ namespace sky {
                 return;
             }
             if (node->serialization.jsonSave != nullptr) {
-                StartObject();
                 node->serialization.jsonSave(ptr, *this);
-                EndObject();
                 return;
             }
 
@@ -70,7 +68,7 @@ namespace sky {
         }
     }
 
-    void JsonInputArchive::LoadValueObject(void *ptr, uint32_t typeId)
+    void JsonInputArchive::LoadValueById(void *ptr, uint32_t typeId)
     {
         SKY_ASSERT(!stack.empty());
         auto value = stack.back();
@@ -100,8 +98,6 @@ namespace sky {
         } else if (typeId == TypeInfo<std::string>::Hash()) {
             *static_cast<std::string *>(ptr) = std::string(value->GetString());
         } else {
-            SKY_ASSERT(value != nullptr && value->IsObject());
-
             auto node = GetTypeNode(typeId);
             SKY_ASSERT(node != nullptr && "type not registered");
             if (node == nullptr) {
@@ -112,7 +108,7 @@ namespace sky {
                 node->serialization.jsonLoad(ptr, *this);
                 return;
             }
-
+            SKY_ASSERT(value != nullptr && value->IsObject());
             SKY_ASSERT(Start("classId"));
             uint32_t id = LoadUint();
             SKY_ASSERT(id == typeId);
@@ -133,7 +129,7 @@ namespace sky {
     Any JsonInputArchive::LoadValueById(uint32_t typeId)
     {
         auto res = MakeAny(typeId);
-        LoadValueObject(res.Data(), typeId);
+        LoadValueById(res.Data(), typeId);
         return res;
     }
 

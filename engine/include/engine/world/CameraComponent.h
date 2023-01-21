@@ -22,7 +22,7 @@ namespace sky {
 
         void Perspective(float near, float far, float fov, float aspect);
 
-        void Otho(float left, float right, float top, float bottom, float near, float far);
+        void Otho(float height);
 
         void UpdateProjection();
 
@@ -40,14 +40,9 @@ namespace sky {
         float far    = 100.f;
         float fov    = 60;
         float aspect = 1.f;
-
-        float left   = -1.f;
-        float right  = 1.f;
-        float top    = 1.f;
-        float bottom = -1.f;
-
+        float othoH  = 1.f;
         ProjectType type;
-        Matrix4     projection;
+        Matrix4    projection;
     };
 
 } // namespace sky

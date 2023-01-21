@@ -27,18 +27,35 @@ namespace sky {
 
         static void Reflect();
 
+        inline Component *AddComponent(const Uuid &id)
+        {
+            auto iter = std::find_if(components.begin(), components.end(), [&id](Component *comp) { return comp->GetType() == id; });
+            if (iter != components.end()) {
+                return *iter;
+            }
+
+            auto comp = ComponentFactory::Get()->CreateComponent(resource, id);
+            if (comp != nullptr) {
+                comp->object = this;
+                comp->OnActive();
+                ComponentFactory::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
+                components.emplace_back(comp);
+            }
+            return comp;
+        }
+
         template <typename T>
         inline T *AddComponent()
         {
             auto info = TypeInfoObj<T>::Get()->RtInfo();
             auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
             if (iter == components.end()) {
-                auto comp    = ComponentFactory<T>::CreateComponent(resource->allocate(sizeof(T)));
+                auto comp    = ComponentFactory::CreateComponent<T>(resource);
                 comp->object = this;
                 comp->OnActive();
-                ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
+                ComponentFactory::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
                 components.emplace_back(comp);
-                return comp;
+                return static_cast<T*>(comp);
             }
             return static_cast<T *>(*iter);
         }
@@ -49,7 +66,7 @@ namespace sky {
             auto info = TypeInfoObj<T>::Get()->RtInfo();
             auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
             if (iter != components.end()) {
-                ComponentFactory<T>::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
+                ComponentFactory::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
                 (*iter)->OnDestroy();
                 (*iter)->~Component();
                 resource->deallocate(*iter, info->size);
@@ -100,20 +117,6 @@ namespace sky {
 
         void Save(JsonOutputArchive &ar) const;
         void Load(JsonInputArchive &ar);
-
-        template <typename Archive>
-        void save(Archive &ar) const
-        {
-            ar(uuid, name, GetParent()->GetUuid());
-        }
-
-        template <typename Archive>
-        void load(Archive &ar)
-        {
-            Uuid parent;
-            ar(uuid, name, parent);
-            SetParent(parent);
-        }
 
     private:
         friend class World;

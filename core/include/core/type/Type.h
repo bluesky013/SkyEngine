@@ -66,12 +66,12 @@ namespace sky {
     struct FuncTraits<Ret (Cls::*)(Args...) const> {
         using CLASS_TYPE            = Cls;
         using RET_TYPE              = Ret;
-        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
+        using ARGS_TYPE             = std::tuple<const Cls *, Args...>;
         static constexpr bool CONST = true;
     };
 
     template <typename Ret, typename... Args>
-    struct FuncTraits<Ret(Args...)> {
+    struct FuncTraits<Ret(*)(Args...)> {
         using RET_TYPE  = Ret;
         using ARGS_TYPE = std::tuple<Args...>;
     };

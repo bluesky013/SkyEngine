@@ -60,37 +60,40 @@ namespace sky {
         }
     };
 
-    template <typename T>
-    class ComponentFactory : public Singleton<ComponentFactory<T>> {
+    class ComponentFactory : public Singleton<ComponentFactory> {
     public:
-        static_assert(std::is_base_of_v<Component, T>);
         ComponentFactory()  = default;
         ~ComponentFactory() = default;
 
-        static constexpr std::string_view name = TypeInfo<T>::Name();
-        static constexpr uint32_t         id   = TypeInfo<T>::Hash();
-
-        static T *CreateComponent(void *ptr)
+        template <typename T>
+        static Component *CreateComponent(PmrResource *resource)
         {
+            auto ptr = resource->allocate(sizeof(T));
             return new (ptr) T();
         }
-
-        static std::string_view GetName()
-        {
-            return name;
-        }
-
-        static uint32_t GetId()
-        {
-            return id;
-        }
+        using CompFn = Component*(*)(PmrResource *resource);
 
         template <auto F>
         void ForEach(GameObject *go, Component *component)
         {
             for (auto &listener : listeners) {
-                std::invoke(F, listener, go, static_cast<T *>(component));
+                std::invoke(F, listener, go, component);
             }
+        }
+
+        template <typename T>
+        void RegisterComponent()
+        {
+            ctorMap.emplace(T::TYPE, &ComponentFactory::CreateComponent<T>);
+        }
+
+        Component *CreateComponent(PmrResource *resource, const Uuid &id)
+        {
+            auto iter = ctorMap.find(id);
+            if (iter != ctorMap.end()) {
+                return iter->second(resource);
+            }
+            return nullptr;
         }
 
         void RegisterListener(IComponentListener *listener)
@@ -107,6 +110,7 @@ namespace sky {
 
     private:
         std::set<IComponentListener *> listeners;
+        std::unordered_map<Uuid, CompFn> ctorMap;
     };
 
 } // namespace sky

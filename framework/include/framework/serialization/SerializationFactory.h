@@ -73,8 +73,14 @@ namespace sky {
                 Cls *ptr = static_cast<Cls*>(p);
                 std::invoke(Func, ptr, archive);
             }};
+        } else {
+            using Args = typename FuncTraits<Type>::ARGS_TYPE;
+            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](void* p, Archive &archive) {
+                Cls *ptr = static_cast<Cls*>(p);
+                std::invoke(Func, *ptr, archive);
+            }};
         }
-        return RetType{nullptr};
     }
 
     template <auto Func, typename Archive>
@@ -88,8 +94,14 @@ namespace sky {
                 const Cls *ptr = static_cast<const Cls *>(p);
                 std::invoke(Func, ptr, archive);
             }};
+        } else {
+            using Args = typename FuncTraits<Type>::ARGS_TYPE;
+            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](const void* p, Archive &archive) {
+                const Cls *ptr = static_cast<const Cls*>(p);
+                std::invoke(Func, *ptr, archive);
+            }};
         }
-        return RetType{nullptr};
     }
 
     template <typename T, auto D>
@@ -161,7 +173,7 @@ namespace sky {
         template <typename... Args>
         TypeFactory &Constructor()
         {
-            using FuncType = FuncTraits<Any(Args...)>;
+            using FuncType = FuncTraits<Any(*)(Args...)>;
             using ArgsType = typename FuncType::ARGS_TYPE;
 
             type.constructList.emplace_back(

@@ -81,26 +81,47 @@ namespace sky {
 
     void GameObject::Save(JsonOutputArchive &ar) const
     {
-        ar.Key("uuid");
-        ar.SaveValue(uuid.ToString());
-
-        ar.Key("parent");
-        ar.SaveValue(GetParent()->GetUuid().ToString());
-
-        ar.Key("name");
-        ar.SaveValue(name);
+        ar.StartObject();
+        ar.SaveValueObject("uuid", uuid.ToString());
+        ar.SaveValueObject("parent", GetParent()->GetUuid().ToString());
+        ar.SaveValueObject("name", name);
 
         ar.Key("components");
         ar.StartArray();
         for (auto &comp : components) {
+            ar.StartObject();
+            ar.SaveValueObject("type", comp->GetType().ToString());
+            ar.Key("data");
             ar.SaveValueObject(*comp);
+            ar.EndObject();
         }
         ar.EndArray();
+        ar.EndObject();
     }
 
     void GameObject::Load(JsonInputArchive &ar)
     {
+        std::string id;
+        ar.LoadKeyValue("uuid", id);
+        uuid = Uuid::CreateFromString(id.c_str());
 
+        std::string parentId;
+        ar.LoadKeyValue("parent", parentId);
+        auto parent = Uuid::CreateFromString(parentId.c_str());
+
+        ar.LoadKeyValue("name", name);
+
+        uint32_t size = ar.StartArray("components");
+        for (uint32_t i = 0; i < size; ++i) {
+            std::string type;
+            ar.LoadKeyValue("type", type);
+            auto typeId = Uuid::CreateFromString(type);
+            auto *comp = AddComponent(typeId);
+            ar.LoadKeyValue("data", *comp);
+            ar.NextArrayElement();
+        }
+        ar.End();
+        SetParent(parent);
     }
 
 } // namespace sky

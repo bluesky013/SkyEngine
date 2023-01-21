@@ -132,16 +132,23 @@ namespace sky {
 
     void World::Save(JsonOutputArchive &ar) const
     {
+        ar.StartObject();
         ar.Key("objects");
         ar.StartArray();
         ForEachBFS(root, [&ar](GameObject *go) {
             ar.SaveValueObject(*go);
         });
         ar.EndArray();
+        ar.EndObject();
     }
 
     void World::Load(JsonInputArchive &ar)
     {
-
+        uint32_t size = ar.StartArray("objects");
+        for (uint32_t i = 0; i < size; ++i) {
+            auto go = CreateGameObject("");
+            ar.LoadArrayElement(*go);
+        }
+        ar.End();
     }
 } // namespace sky
