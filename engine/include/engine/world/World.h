@@ -12,7 +12,6 @@
 
 namespace sky {
 
-    class Viewport;
     class World;
     class GameObject;
 

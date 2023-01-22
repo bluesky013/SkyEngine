@@ -5,18 +5,19 @@
 #pragma once
 
 #include <string>
+#include <framework/window/IWindow.h>
 
-struct SDL_Window;
-union SDL_Event;
-struct SDL_WindowEvent;
+//struct SDL_Window;
+//union SDL_Event;
+//struct SDL_WindowEvent;
 
 namespace sky {
     class IWindowEvent;
 
-    class NativeWindow {
+    class NativeWindow : public IWindow {
     public:
         NativeWindow();
-        virtual ~NativeWindow();
+        ~NativeWindow() override;
 
         struct Descriptor {
             uint32_t    width  = 1366;
@@ -27,14 +28,11 @@ namespace sky {
 
         static NativeWindow *Create(const Descriptor &);
 
-        void *GetNativeHandle() const;
+        void *GetNativeHandle() const override;
 
         virtual void PollEvent(bool &quit) = 0;
 
         virtual bool Init(const Descriptor &desc) = 0;
-
-        uint32_t GetWidth() const;
-        uint32_t GetHeight() const;
 
     protected:
         void *winHandle = nullptr;

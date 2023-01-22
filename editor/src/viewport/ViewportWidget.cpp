@@ -26,9 +26,4 @@ namespace sky::editor {
         layout->addWidget(container);
     }
 
-    sky::Viewport *ViewportWidget::GetNativeViewport() const
-    {
-        return window->GetNativeViewport();
-    }
-
 } // namespace sky::editor

@@ -5,7 +5,6 @@
 #pragma once
 
 #include <QWindow>
-#include <engine/world/Viewport.h>
 
 namespace sky::editor {
 
@@ -17,12 +16,9 @@ namespace sky::editor {
 
         void Init();
 
-        sky::Viewport* GetNativeViewport() const;
-
         bool event(QEvent *event) override;
 
     private:
-        sky::Viewport* viewport;
     };
 
 }
