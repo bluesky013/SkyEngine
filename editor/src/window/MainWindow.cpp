@@ -28,10 +28,7 @@ namespace sky::editor {
 
     MainWindow::~MainWindow()
     {
-        if (actionManager != nullptr) {
-            delete actionManager;
-            actionManager = nullptr;
-        }
+        ActionManager::Destroy();
     }
 
     void MainWindow::OnOpenLevel(const QString &path)
@@ -123,7 +120,7 @@ namespace sky::editor {
 
     void MainWindow::InitMenu()
     {
-        actionManager = new ActionManager();
+        actionManager = ActionManager::Get();
 
         menuBar = new QMenuBar(this);
 

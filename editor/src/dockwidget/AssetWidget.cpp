@@ -4,6 +4,9 @@
 
 #include <editor/dockwidget/AssetWidget.h>
 #include <QHBoxLayout>
+#include <QMenu>
+#include <QFileDialog>
+#include "../window/ActionManager.h"
 
 namespace sky::editor {
 
@@ -24,6 +27,28 @@ namespace sky::editor {
         rootLayout->setContentsMargins(0, 0, 0, 0);
         rootLayout->setSpacing(0);
         rootLayout->addWidget(treeView);
+
+        auto importAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, tr("Import"), this);
+        connect(importAct, &ActionWithFlag::triggered, this, [this]() {
+            QFileDialog dialog(this);
+            dialog.setFileMode(QFileDialog::AnyFile);
+            dialog.setViewMode(QFileDialog::Detail);
+            if (dialog.exec()) {
+                auto fileNames = dialog.selectedFiles();
+                if (!fileNames.empty()) {
+                }
+            }
+        });
+
+        ActionManager::Get()->AddAction(importAct);
+
+        setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(this, &QWidget::customContextMenuRequested, this, [this, importAct](const QPoint &pos) {
+            QMenu menu(tr("Assets"), this);
+            menu.addAction(importAct);
+
+            menu.exec(mapToGlobal(pos));
+        });
     }
 
     void AssetWidget::OnProjectChange(const QString &projectPath)
