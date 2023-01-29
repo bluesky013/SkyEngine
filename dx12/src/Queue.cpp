@@ -17,23 +17,12 @@ namespace sky::dx {
 
     CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::Descriptor &cmdDesc)
     {
-        ComPtr<ID3D12GraphicsCommandList> commandList;
-        if (SUCCEEDED(device.GetDevice()->CreateCommandList(0, desc.Type, allocator.Get(), nullptr, IID_PPV_ARGS(commandList.GetAddressOf())))) {
-            auto cmdBuffer = std::make_shared<CommandBuffer>(device);
-            cmdBuffer->Init(cmdDesc, commandList);
-            return cmdBuffer;
-        }
-        return {};
+        return pool->Allocate(cmdDesc);
     }
 
     ID3D12CommandQueue *Queue::GetNativeQueue() const
     {
         return queue.Get();
-    }
-
-    ID3D12CommandAllocator *Queue::GetCommandAllocator() const
-    {
-        return allocator.Get();
     }
 
     bool Queue::Init(const Descriptor &)
@@ -50,10 +39,7 @@ namespace sky::dx {
             return false;
         }
 
-        if (FAILED(device.GetDevice()->CreateCommandAllocator(desc.Type, IID_PPV_ARGS(allocator.GetAddressOf())))) {
-            return false;
-        }
-
-        return true;
+        pool = device.CreateDeviceObject<CommandPool>({});
+        return !!pool;
     }
 }

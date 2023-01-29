@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dx12/DevObject.h>
-#include <dx12/CommandBuffer.h>
+#include <dx12/CommandPool.h>
 
 namespace sky::dx {
     class Device;
@@ -21,7 +21,6 @@ namespace sky::dx {
         CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor &desc);
 
         ID3D12CommandQueue *GetNativeQueue() const;
-        ID3D12CommandAllocator *GetCommandAllocator() const;
 
     private:
         friend class Device;
@@ -29,7 +28,7 @@ namespace sky::dx {
 
         D3D12_COMMAND_QUEUE_DESC desc;
         ComPtr<ID3D12CommandQueue> queue;
-        ComPtr<ID3D12CommandAllocator> allocator;
+        CommandPoolPtr pool;
     };
     using QueuePtr = std::unique_ptr<Queue>;
 }

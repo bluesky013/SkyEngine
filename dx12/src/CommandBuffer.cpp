@@ -43,9 +43,14 @@ namespace sky::dx {
         commandList->ResourceBarrier(1, &barrier);
     }
 
-    bool CommandBuffer::Init(const Descriptor &desc, ComPtr<ID3D12GraphicsCommandList> &cmdList)
+    bool CommandBuffer::Init(const Descriptor &desc, ComPtr<ID3D12CommandAllocator> &pool, D3D12_COMMAND_LIST_TYPE tp)
     {
-        commandList = cmdList;
+        type = tp;
+        allocator = pool;
+        if (!SUCCEEDED(device.GetDevice()->CreateCommandList(1, type, allocator.Get(), nullptr, IID_PPV_ARGS(commandList.GetAddressOf())))) {
+            return false;
+        }
+
         return true;
     }
 }

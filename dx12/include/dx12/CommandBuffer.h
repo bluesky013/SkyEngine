@@ -15,9 +15,6 @@ namespace sky::dx {
         CommandBuffer(Device &dev);
         ~CommandBuffer() override;
 
-//        D3D12_RESOURCE_TRANSITION_BARRIER Transition;
-//        D3D12_RESOURCE_ALIASING_BARRIER Aliasing;
-//        D3D12_RESOURCE_UAV_BARRIER UAV;
         void TransitionBarrier();
         void AliasingBarrier();
         void UAVBarrier();
@@ -26,8 +23,11 @@ namespace sky::dx {
 
     private:
         friend class Queue;
-        bool Init(const Descriptor &, ComPtr<ID3D12GraphicsCommandList> &cmdList);
+        friend class CommandPool;
+        bool Init(const Descriptor &, ComPtr<ID3D12CommandAllocator> &allocator, D3D12_COMMAND_LIST_TYPE type);
 
+        D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        ComPtr<ID3D12CommandAllocator> allocator;
         ComPtr<ID3D12GraphicsCommandList> commandList;
     };
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
