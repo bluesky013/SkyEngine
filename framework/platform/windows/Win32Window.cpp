@@ -29,14 +29,4 @@ namespace sky {
         }
         return window;
     }
-
-    uint32_t NativeWindow::GetWidth() const
-    {
-        return descriptor.width;
-    }
-
-    uint32_t NativeWindow::GetHeight() const
-    {
-        return descriptor.height;
-    }
 }

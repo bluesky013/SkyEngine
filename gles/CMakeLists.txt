@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET MetalSampleBase SHARED
+sky_add_library(TARGET GLESRHI SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,8 +10,9 @@ sky_add_library(TARGET MetalSampleBase SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        MetalRHI
-        Framework
-    )
+        Core
+        RHI
+        ${PLATFORM_EXT_LIBS}
+)
 
-add_dependencies(Launcher MetalSampleBase)
+add_dependencies(Launcher GLESRHI)

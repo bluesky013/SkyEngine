@@ -9,17 +9,17 @@
 #include <framework/interface/Interface.h>
 #include <framework/window/IWindowEvent.h>
 #include <framework/window/NativeWindow.h>
-#include <dx12/Device.h>
-#include <dx12/Instance.h>
-#include <dx12/Swapchain.h>
+#include <rhi/Device.h>
+#include <rhi/Instance.h>
+#include <rhi/Swapchain.h>
 
-namespace sky {
+namespace sky::rhi {
     class NativeWindow;
 
-    class DX12SampleBase : public IWindowEvent {
+    class RHISampleBase : public IWindowEvent {
     public:
-        DX12SampleBase()  = default;
-        ~DX12SampleBase() = default;
+        RHISampleBase()  = default;
+        ~RHISampleBase() = default;
 
         virtual void OnStart();
         virtual void OnStop();
@@ -27,10 +27,10 @@ namespace sky {
 
     protected:
         void OnWindowResize(uint32_t width, uint32_t height) override;
-        dx::Instance *instance = nullptr;
-        dx::Device *device = nullptr;
+        rhi::Instance *instance = nullptr;
+        rhi::Device *device = nullptr;
 
-        dx::SwapChainPtr swapChain;
+        rhi::SwapChainPtr swapChain;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

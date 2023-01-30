@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET DXSample SHARED
+sky_add_library(TARGET RHISample SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,10 +10,8 @@ sky_add_library(TARGET DXSample SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        DX12RHI
+        RHI
         Framework
-        d3d12
-        dxgi
     )
 
-add_dependencies(Launcher DXSample)
+add_dependencies(Launcher RHISample)

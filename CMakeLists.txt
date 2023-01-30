@@ -46,6 +46,10 @@ if (NOT ANDROID)
     add_subdirectory(test)
 endif()
 
+if (SKY_BUILD_GLES)
+    add_subdirectory(gles)
+endif()
+
 if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
 endif()

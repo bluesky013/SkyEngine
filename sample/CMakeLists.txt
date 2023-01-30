@@ -5,7 +5,7 @@ if (APPLE)
 endif()
 
 if (WIN32)
-    add_subdirectory(DXSampleBase)
+    add_subdirectory(RHISampleBase)
 endif()
 
 

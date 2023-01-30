@@ -2,25 +2,25 @@
 // Created by Zach Lee on 2022/11/5.
 //
 
-#include "DXSample.h"
-#include "DXSampleBase.h"
+#include "RHISample.h"
+#include "RHISampleBase.h"
 
-namespace sky {
+namespace sky::rhi {
 
-    void DX12Sample::Init()
+    void RHISample::Init()
     {
-        RegisterSample<DX12SampleBase>();
+        RegisterSample<RHISampleBase>();
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
     }
 
-    void DX12Sample::Start()
+    void RHISample::Start()
     {
         StartSample();
     }
 
-    void DX12Sample::Stop()
+    void RHISample::Stop()
     {
         if (currentSample) {
             currentSample->OnStop();
@@ -29,14 +29,14 @@ namespace sky {
         Event<IWindowEvent>::DisConnect(this);
     }
 
-    void DX12Sample::Tick(float delta)
+    void RHISample::Tick(float delta)
     {
         if (currentSample) {
             currentSample->OnTick(delta);
         }
     }
 
-    void DX12Sample::StartSample()
+    void RHISample::StartSample()
     {
         if (currentSample) {
             currentSample->OnStop();
@@ -44,17 +44,17 @@ namespace sky {
         currentSample.reset(samples[currentIndex]());
     }
 
-    void DX12Sample::NextSample()
+    void RHISample::NextSample()
     {
         currentIndex = (currentIndex + 1) % samples.size();
     }
 
-    void DX12Sample::PrevSample()
+    void RHISample::PrevSample()
     {
         currentIndex = (currentIndex + static_cast<uint32_t>(samples.size()) - 1) % samples.size();
     }
 
-    void DX12Sample::OnKeyUp(KeyButtonType button)
+    void RHISample::OnKeyUp(KeyButtonType button)
     {
         if (button == KeyButton::KEY_RIGHT) {
             NextSample();
@@ -66,4 +66,4 @@ namespace sky {
     }
 
 }
-REGISTER_MODULE(sky::DX12Sample)
+REGISTER_MODULE(sky::rhi::RHISample)
