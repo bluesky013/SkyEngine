@@ -4,7 +4,9 @@
 
 #pragma once
 
-#include <RHI/Device.h>
+#include <rhi/Device.h>
+#include <gles/Context.h>
+#include <memory>
 
 namespace sky::gles {
 
@@ -14,6 +16,11 @@ namespace sky::gles {
         ~Device() = default;
 
         bool Init(const Descriptor &desc);
+
+    private:
+        std::unique_ptr<Context> mainContext;
+        std::unique_ptr<Context> graphicsContext;
+        std::unique_ptr<Context> transferContext;
     };
 
 }

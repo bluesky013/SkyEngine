@@ -29,8 +29,14 @@ namespace sky::rhi {
             return false;
         }
         auto instance = instanceFunc();
-        instance->module = std::move(module);
-        return instance;
+        if (instance != nullptr && instance->Init(desc)) {
+            instance->module = std::move(module);
+            return instance;
+        }
+        if (instance != nullptr) {
+            delete instance;
+        }
+        return nullptr;
     }
 
     void Instance::Destroy(Instance *instance)

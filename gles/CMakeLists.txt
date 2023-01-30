@@ -12,7 +12,7 @@ sky_add_library(TARGET GLESRHI SHARED
     LINK_LIBS
         Core
         RHI
-        ${PLATFORM_EXT_LIBS}
+        3rdParty::gles
 )
 
 add_dependencies(Launcher GLESRHI)

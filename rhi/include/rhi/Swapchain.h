@@ -20,6 +20,8 @@ namespace sky::rhi {
             PixelFormat preferredFormat = PixelFormat::BGRA8_UNORM;
             PresentMode preferredMode   = PresentMode::IMMEDIATE;
         };
+
+        virtual bool Init(const Descriptor &desc) = 0;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

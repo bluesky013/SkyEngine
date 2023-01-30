@@ -31,7 +31,7 @@ namespace sky::rhi {
         static void    Destroy(Instance *);
 
         virtual Device *CreateDevice(const Device::Descriptor &desc) { return nullptr; }
-
+        virtual bool Init(const Descriptor &) { return false; }
     protected:
         Instance() = default;
         virtual ~Instance() = default;

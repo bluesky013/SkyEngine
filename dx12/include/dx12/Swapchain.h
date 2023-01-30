@@ -15,15 +15,9 @@ namespace sky::dx {
         SwapChain(Device &device);
         ~SwapChain() override;
 
-        struct Descriptor {
-            void *window = nullptr;
-            uint32_t width = 0;
-            uint32_t height = 0;
-        };
-
     private:
         friend class Device;
-        bool Init(const Descriptor &);
+        bool Init(const Descriptor &) override;
 
         ComPtr<IDXGISwapChain1> swapChain;
     };
