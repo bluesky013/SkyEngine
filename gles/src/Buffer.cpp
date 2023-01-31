@@ -7,4 +7,12 @@
 
 namespace sky::gles {
 
+    Buffer::~Buffer()
+    {
+    }
+
+    bool Buffer::Init(const Descriptor &desc)
+    {
+        return true;
+    }
 }

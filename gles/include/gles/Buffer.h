@@ -9,5 +9,13 @@
 
 namespace sky::gles {
 
+    class Buffer : public rhi::Buffer, public DevObject {
+    public:
+        Buffer(Device &dev) : DevObject(dev) {};
+        ~Buffer();
+
+        bool Init(const Descriptor &desc);
+
+    };
 
 }

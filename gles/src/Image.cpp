@@ -3,13 +3,15 @@
 //
 
 #include <gles/Image.h>
+#include <gles/Conversion.h>
 #include <gles/Device.h>
 
 namespace sky::gles {
 
     bool Image::Init(const Descriptor &desc)
     {
-        glGenTextures(1, &texId);
+//        glGenTextures(1, &texId);
+        return true;
     }
 
 }

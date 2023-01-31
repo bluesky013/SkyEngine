@@ -21,9 +21,8 @@ namespace sky::rhi {
             std::vector<ImageViewPtr> views;
         };
 
-    private:
-        Extent2D extent = {1, 1};
-        std::vector<ImageViewPtr> views;
+    protected:
+        Descriptor descriptor;
     };
 
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;

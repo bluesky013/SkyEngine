@@ -9,4 +9,13 @@
 
 namespace sky::gles {
 
+    class BufferView : public rhi::BufferView, public DevObject {
+    public:
+        BufferView(Device &dev) : DevObject(dev) {}
+        ~BufferView() = default;
+
+        bool Init(const Descriptor &desc);
+    };
+
 }
+

@@ -6,6 +6,7 @@
 
 #include <rhi/Image.h>
 #include <gles/DevObject.h>
+#include <gles/Conversion.h>
 
 namespace sky::gles {
 
