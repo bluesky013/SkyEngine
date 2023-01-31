@@ -196,7 +196,7 @@ namespace sky {
             vk::ImageView::VkDescriptor viewDesc = {};
             viewDesc.format                    = VK_FORMAT_R8G8B8A8_UNORM;
             view                               = vk::ImageView::CreateImageView(image, viewDesc);
-            sampler                            = device->CreateDeviceObject<vk::Sampler>({});
+            sampler                            = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
             gfxSet->CreateWriter().Write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, view, sampler).Update();
 
@@ -389,7 +389,7 @@ namespace sky {
 
             graphicsEncoder.BeginPass(beginInfo);
 
-            vk::CmdDrawLinear drawLinear = {};
+            rhi::CmdDrawLinear drawLinear = {};
             drawLinear.firstVertex       = 0;
             drawLinear.firstInstance     = 0;
             drawLinear.vertexCount       = 6;
@@ -419,7 +419,7 @@ namespace sky {
 
             graphicsEncoder.BeginPass(beginInfo);
 
-            vk::CmdDrawLinear drawLinear = {};
+            rhi::CmdDrawLinear drawLinear = {};
             drawLinear.firstVertex       = 0;
             drawLinear.firstInstance     = 0;
             drawLinear.vertexCount       = 3;
@@ -447,7 +447,7 @@ namespace sky {
 
             graphicsEncoder.BeginPass(beginInfo);
 
-            vk::CmdDrawLinear drawLinear = {};
+            rhi::CmdDrawLinear drawLinear = {};
             drawLinear.firstVertex       = 0;
             drawLinear.firstInstance     = 0;
             drawLinear.vertexCount       = 3;

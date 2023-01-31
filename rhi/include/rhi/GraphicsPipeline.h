@@ -27,5 +27,5 @@ namespace sky::rhi {
             uint32_t          subPassIndex = 0;
         };
     };
-
+    using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 }

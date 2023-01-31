@@ -172,7 +172,7 @@ namespace sky {
             viewInfo.subResourceRange.baseArrayLayer = 2;
             imageView2                          = vk::ImageView::CreateImageView(inputImage0, viewInfo);
 
-            sampler = device->CreateDeviceObject<vk::Sampler>({});
+            sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
             writer.Write(0, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
             writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageView0, {});
@@ -279,8 +279,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.2f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args         = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args         = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.vertexCount   = 6;

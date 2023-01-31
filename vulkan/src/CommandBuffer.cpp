@@ -341,10 +341,10 @@ namespace sky::vk {
         }
 
         switch (item.drawArgs.type) {
-        case CmdDrawType::INDEXED:
+        case rhi::CmdDrawType::INDEXED:
             DrawIndexed(item.drawArgs.indexed);
             break;
-        case CmdDrawType::LINEAR:
+        case rhi::CmdDrawType::LINEAR:
             DrawLinear(item.drawArgs.linear);
             break;
         }
@@ -373,12 +373,12 @@ namespace sky::vk {
         vkCmdSetScissor(cmd, 0, count, scissor);
     }
 
-    void GraphicsEncoder::DrawIndexed(const CmdDrawIndexed &indexed)
+    void GraphicsEncoder::DrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
         vkCmdDrawIndexed(cmd, indexed.indexCount, indexed.instanceCount, indexed.firstIndex, indexed.vertexOffset, indexed.firstInstance);
     }
 
-    void GraphicsEncoder::DrawLinear(const CmdDrawLinear &linear)
+    void GraphicsEncoder::DrawLinear(const rhi::CmdDrawLinear &linear)
     {
         vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
     }

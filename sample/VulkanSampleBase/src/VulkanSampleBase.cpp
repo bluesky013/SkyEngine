@@ -107,8 +107,8 @@ namespace sky {
             frameBuffers[i] = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
-        imageAvailable = device->CreateDeviceObject<vk::Semaphore>({});
-        renderFinish   = device->CreateDeviceObject<vk::Semaphore>({});
+        imageAvailable = device->CreateDeviceObject<vk::Semaphore>(vk::Semaphore::VkDescriptor{});
+        renderFinish   = device->CreateDeviceObject<vk::Semaphore>(vk::Semaphore::VkDescriptor{});
     }
 
     vk::ShaderPtr VulkanSampleBase::LoadShader(VkShaderStageFlagBits stage, const std::string &path)

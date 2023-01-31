@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <memory>
 
 namespace sky::rhi {
 
@@ -23,5 +24,5 @@ namespace sky::rhi {
     protected:
         Descriptor bufferDesc;
     };
-
+    using BufferPtr = std::shared_ptr<Buffer>;
 }

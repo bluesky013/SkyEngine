@@ -108,7 +108,7 @@ namespace sky {
         auto  writer = set->CreateWriter();
         auto &limits = device->GetProperties().limits;
 
-        sampler = device->CreateDeviceObject<vk::Sampler>({});
+        sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
         writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
 
         auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});

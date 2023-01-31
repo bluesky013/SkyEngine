@@ -5,6 +5,13 @@
 #pragma once
 
 #include <memory>
+#include <rhi/Swapchain.h>
+
+#define CREATE_DEV_OBJ(name) \
+    std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
+    {                                                                                   \
+        return std::static_pointer_cast<rhi::name>(CreateDeviceObject<name>(desc));     \
+    }
 
 namespace sky::rhi {
 
@@ -22,16 +29,7 @@ namespace sky::rhi {
             DeviceFeature feature;
         };
 
-        template <typename T>
-        inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
-        {
-            auto res = new T(*this);
-            if (!res->Init(des)) {
-                delete res;
-                res = nullptr;
-            }
-            return std::shared_ptr<T>(res);
-        }
+        virtual SwapChainPtr CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
 
     protected:
         DeviceFeature enabledFeature;

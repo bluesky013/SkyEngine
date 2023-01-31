@@ -62,8 +62,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args          = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args          = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.vertexCount   = 3;

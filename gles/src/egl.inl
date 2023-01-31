@@ -39,6 +39,12 @@ EGLSurface eglCreateWindowSurface(EGLDisplay dpy, EGLConfig config, EGLNativeWin
     return access(dpy, config, win, attrib_list);
 }
 
+EGLSurface eglCreatePlatformWindowSurface(EGLDisplay dpy, EGLConfig config, void *native_window, const EGLAttrib *attrib_list)
+{
+    ACCESS(g_Egl, eglCreatePlatformWindowSurface)
+    return access(dpy, config, native_window, attrib_list);
+}
+
 EGLBoolean eglDestroyContext(EGLDisplay dpy, EGLContext ctx)
 {
     ACCESS(g_Egl, eglDestroyContext)
@@ -145,6 +151,5 @@ EGLContext eglGetCurrentContext(void)
 //EGLImage eglCreateImage(EGLDisplay dpy, EGLContext ctx, EGLenum target, EGLClientBuffer buffer, const EGLAttrib *attrib_list);
 //EGLBoolean eglDestroyImage(EGLDisplay dpy, EGLImage image);
 //EGLDisplay eglGetPlatformDisplay(EGLenum platform, void *native_display, const EGLAttrib *attrib_list);
-//EGLSurface eglCreatePlatformWindowSurface(EGLDisplay dpy, EGLConfig config, void *native_window, const EGLAttrib *attrib_list);
 //EGLSurface eglCreatePlatformPixmapSurface(EGLDisplay dpy, EGLConfig config, void *native_pixmap, const EGLAttrib *attrib_list);
 //EGLBoolean eglWaitSync(EGLDisplay dpy, EGLSync sync, EGLint flags);

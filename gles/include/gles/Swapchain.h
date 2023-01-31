@@ -6,15 +6,18 @@
 
 #include <rhi/Swapchain.h>
 #include <gles/Forward.h>
+#include <gles/DevObject.h>
+#include <gles/Surface.h>
 
 namespace sky::gles {
+    class Device;
 
-    class SwapChain : public rhi::SwapChain {
+    class SwapChain : public rhi::SwapChain, public DevObject, public Surface {
     public:
-        SwapChain() = default;
-        ~SwapChain() = default;
+        SwapChain(Device &dev) : DevObject(dev) {}
+        ~SwapChain();
 
         bool Init(const Descriptor &desc) override;
     };
-
+    using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

@@ -3,12 +3,20 @@
 //
 
 #include <gles/Swapchain.h>
+#include <gles/Device.h>
 
 namespace sky::gles {
 
+    SwapChain::~SwapChain()
+    {
+    }
+
     bool SwapChain::Init(const Descriptor &desc)
     {
-//        eglCreateWindowSurface()
-        return true;
+        descriptor = desc;
+        Config cfg = {};
+        auto config = device.GetMainContext()->QueryConfig(cfg);
+        surface = eglCreatePlatformWindowSurface(eglGetDisplay(EGL_DEFAULT_DISPLAY), config, desc.window, nullptr);
+        return surface != EGL_NO_SURFACE;
     }
 }

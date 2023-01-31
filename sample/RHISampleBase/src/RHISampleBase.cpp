@@ -13,12 +13,12 @@ namespace sky::rhi {
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
-//        SwapChain::Descriptor swcDesc = {};
+        SwapChain::Descriptor swcDesc = {};
 
-//        swcDesc.window = nativeWindow->GetNativeHandle();
-//        swcDesc.width  = nativeWindow->GetWidth();
-//        swcDesc.height = nativeWindow->GetHeight();
-//        swapChain      = device->CreateDeviceObject<SwapChain>(swcDesc);
+        swcDesc.window = nativeWindow->GetNativeHandle();
+        swcDesc.width  = nativeWindow->GetWidth();
+        swcDesc.height = nativeWindow->GetHeight();
+        swapChain      = device->CreateSwapChain(swcDesc);
     }
 
     void RHISampleBase::OnStop()

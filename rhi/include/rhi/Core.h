@@ -275,6 +275,11 @@ namespace sky::rhi {
     ENABLE_FLAG_BIT_OPERATOR(CullModeFlagBits)
 
     // structs
+    struct Offset2D {
+        int32_t x;
+        int32_t y;
+    };
+
     struct Offset3D {
         int32_t x;
         int32_t y;
@@ -290,6 +295,36 @@ namespace sky::rhi {
         uint32_t width;
         uint32_t height;
         uint32_t depth;
+    };
+
+    struct Rect2D {
+        Offset2D offset;
+        Extent2D extent;
+    };
+
+    struct Viewport {
+        float x = 0.f;
+        float y = 0.f;
+        float width = 1.f;
+        float height = 1.f;
+        float minDepth = 0.f;
+        float maxDepth = 1.f;
+    };
+
+    struct ClearColorValue {
+        float       float32[4];
+        int32_t     int32[4];
+        uint32_t    uint32[4];
+    };
+
+    struct ClearDepthStencilValue {
+        float    depth;
+        uint32_t stencil;
+    };
+
+    union ClearValue {
+        ClearColorValue        color;
+        ClearDepthStencilValue depthStencil;
     };
 
     struct BufferUploadRequest {

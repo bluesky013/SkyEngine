@@ -54,8 +54,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args          = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args          = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.instanceCount = 1;
@@ -331,7 +331,7 @@ namespace sky {
         desc.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         desc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
-        terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
+        terrain.sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
         terrain.quadData.resize(widthNum * heightNum);
         for (uint32_t i = 0; i < widthNum; ++i) {

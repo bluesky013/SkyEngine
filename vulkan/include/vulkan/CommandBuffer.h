@@ -69,9 +69,9 @@ namespace sky::vk {
 
         void SetScissor(uint32_t count, const VkRect2D *scissor);
 
-        void DrawIndexed(const CmdDrawIndexed &indexed);
+        void DrawIndexed(const rhi::CmdDrawIndexed &indexed);
 
-        void DrawLinear(const CmdDrawLinear &linear);
+        void DrawLinear(const rhi::CmdDrawLinear &linear);
 
         void DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
 

@@ -146,7 +146,7 @@ namespace sky {
 
         graphicsEncoder.BeginPass(beginInfo);
 
-        vk::CmdDrawLinear drawLinear = {};
+        rhi::CmdDrawLinear drawLinear = {};
         drawLinear.firstVertex       = 0;
         drawLinear.firstInstance     = 0;
         drawLinear.vertexCount       = 6;

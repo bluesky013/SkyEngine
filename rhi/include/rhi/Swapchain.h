@@ -22,6 +22,9 @@ namespace sky::rhi {
         };
 
         virtual bool Init(const Descriptor &desc) = 0;
+
+    protected:
+        Descriptor descriptor;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

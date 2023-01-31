@@ -16,30 +16,8 @@ namespace sky::gles {
         }
     }
 
-    bool Context::Init(EGLContext sharedContext)
+    void Context::PrintConfigs()
     {
-        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        EGLint defaultAttribs[]{
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
-            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
-            EGL_BLUE_SIZE, 8,
-            EGL_GREEN_SIZE, 8,
-            EGL_RED_SIZE, 8,
-            EGL_ALPHA_SIZE, 8,
-            EGL_DEPTH_SIZE, 24,
-            EGL_STENCIL_SIZE, 8,
-            EGL_SAMPLE_BUFFERS, 0,
-            EGL_SAMPLES, 0,
-            EGL_NONE};
-        EGLint num = 0;
-        eglChooseConfig(display, defaultAttribs, nullptr, 0, &num);
-        configs.resize(num);
-
-        EGLint count = num;
-        eglChooseConfig(display, defaultAttribs, configs.data(), count, &num);
-        config = configs[0];
-
-
         /**
          * Special: EGL_CONFIG_CAVEAT
          * Special: EGL_COLOR_BUFFER_TYPE
@@ -53,7 +31,7 @@ namespace sky::gles {
          * Special: EGL_NATIVE_VISUAL_TYPE
          * Smaller EGL_CONFIG_ID
          */
-        for (uint32_t i = 0;i < num; i++) {
+        for (uint32_t i = 0;i < configs.size(); i++) {
             EGLint alphaSize = 0;
             EGLint depthSize = 0;
             EGLint stencilSize = 0;
@@ -66,6 +44,30 @@ namespace sky::gles {
 
             LOG_I(TAG, "egl config: alphaSize %d, depthSize %d, stencilSize %d, samples %d", alphaSize, depthSize, stencilSize, samples);
         }
+    }
+
+    bool Context::Init(const Descriptor &desc, EGLContext sharedContext)
+    {
+        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        EGLint defaultAttribs[]{
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
+            EGL_BLUE_SIZE, desc.defaultConfig.rgb,
+            EGL_GREEN_SIZE, desc.defaultConfig.rgb,
+            EGL_RED_SIZE, desc.defaultConfig.rgb,
+            EGL_ALPHA_SIZE, desc.defaultConfig.alpha,
+            EGL_DEPTH_SIZE, desc.defaultConfig.depth,
+            EGL_STENCIL_SIZE, desc.defaultConfig.stencil,
+            EGL_SAMPLE_BUFFERS, 0,
+            EGL_SAMPLES, desc.defaultConfig.sample,
+            EGL_NONE};
+        EGLint num = 0;
+        eglChooseConfig(display, defaultAttribs, nullptr, 0, &num);
+        configs.resize(num);
+
+        EGLint count = num;
+        eglChooseConfig(display, defaultAttribs, configs.data(), count, &num);
+        config = configs[0];
 
         EGLint contextAttributes[] {
             EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
@@ -80,4 +82,33 @@ namespace sky::gles {
         return context;
     }
 
+    EGLConfig Context::QueryConfig(const Config &config) const
+    {
+        for (auto &cfg : configs) {
+            EGLint alphaSize = 0;
+            EGLint depthSize = 0;
+            EGLint stencilSize = 0;
+            EGLint samples = 0;
+
+            eglGetConfigAttrib(display, cfg, EGL_ALPHA_SIZE,   &alphaSize);
+            eglGetConfigAttrib(display, cfg, EGL_DEPTH_SIZE,   &depthSize);
+            eglGetConfigAttrib(display, cfg, EGL_STENCIL_SIZE, &stencilSize);
+            eglGetConfigAttrib(display, cfg, EGL_SAMPLES,      &samples);
+            bool res = true;
+            res &= alphaSize >= config.alpha;
+            res &= depthSize >= config.depth;
+            res &= stencilSize >= config.stencil;
+            res &= samples >= config.sample;
+            if (res) {
+                return cfg;
+            }
+        }
+        return EGL_NO_CONFIG_KHR;
+    }
+
+    void Context::MakeCurrent(const Surface &surface)
+    {
+        auto eglSurface = surface.GetSurface();
+        eglMakeCurrent(display, eglSurface, eglSurface, context);
+    }
 }

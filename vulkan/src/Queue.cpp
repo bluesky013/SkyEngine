@@ -32,7 +32,7 @@ namespace sky::vk {
         std::lock_guard<std::mutex> lock(mutex);
         auto                       &pool = tlsPools[std::this_thread::get_id()];
         if (!pool) {
-            pool = device.CreateDeviceObject<CommandPool>({});
+            pool = device.CreateDeviceObject<CommandPool>(CommandPool::VkDescriptor{});
         }
         return pool;
     }

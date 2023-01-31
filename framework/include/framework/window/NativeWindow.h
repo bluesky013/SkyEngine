@@ -34,6 +34,9 @@ namespace sky {
 
         virtual bool Init(const Descriptor &desc) = 0;
 
+        uint32_t GetWidth() const { return descriptor.width; }
+        uint32_t GetHeight() const { return descriptor.height; }
+
     protected:
         void *winHandle = nullptr;
         Descriptor descriptor;

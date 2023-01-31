@@ -28,7 +28,7 @@ namespace sky {
         imageDesc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
 
         sparseImage = device->CreateDeviceObject<vk::SparseImage>(imageDesc);
-        sampler = device->CreateDeviceObject<vk::Sampler>({});
+        sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
         vk::SparseImage::VkPageInfo pageInfo = {};
         pageInfo.offset = {0, 0, 0};
@@ -195,8 +195,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args          = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args          = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.vertexCount   = 6;

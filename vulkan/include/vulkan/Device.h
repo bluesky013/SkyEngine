@@ -10,6 +10,7 @@
 #include <vulkan/CacheManager.h>
 #include <vulkan/Queue.h>
 #include <vulkan/AsyncTransferQueue.h>
+#include <vulkan/Swapchain.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -20,8 +21,8 @@ namespace sky::vk {
     public:
         ~Device() override;
 
-        template <typename T>
-        inline std::shared_ptr<T> CreateDeviceObject(const typename T::VkDescriptor &des)
+        template <typename T, typename Desc>
+        inline std::shared_ptr<T> CreateDeviceObject(const Desc &des)
         {
             auto res = new T(*this);
             if (!res->Init(des)) {
@@ -63,6 +64,9 @@ namespace sky::vk {
         bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
 
+
+        // Device Object
+        CREATE_DEV_OBJ(SwapChain)
     private:
         bool Init(const Descriptor &, bool enableDebug);
 

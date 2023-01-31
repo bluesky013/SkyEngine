@@ -17,6 +17,10 @@ namespace sky::gles {
     {
         auto device = std::make_unique<Device>();
         if (device->Init(desc)) {
+            if (!g_Gles) {
+                InitGL();
+            }
+
             return device.release();
         }
         return nullptr;
@@ -49,6 +53,7 @@ namespace sky::gles {
         }
         if (g_Egl && g_Egl->IsLoaded()) {
             gladLoadEGL();
+            InitConfig();
             return true;
         }
         return false;
@@ -68,10 +73,6 @@ namespace sky::gles {
         if (!InitEGL()) {
             return false;
         }
-        if (!InitGL()) {
-            return false;
-        }
-        InitConfig();
         return true;
     }
 }
