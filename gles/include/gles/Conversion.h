@@ -9,13 +9,19 @@
 
 namespace sky::gles {
 
-    struct FormatType {
+    struct InternalFormat {
         GLenum internal = 0;
         GLenum format   = 0;
         GLenum type     = 0;
     };
 
-    const FormatType &GetFormatInfo(rhi::PixelFormat format);
+    struct FormatFeature {
+        bool texture      = false;
+        bool renderBuffer = false;
+        bool compressed   = false;
+    };
 
+    const InternalFormat &GetInternalFormat(rhi::PixelFormat format);
+    const FormatFeature &GetFormatFeature(rhi::PixelFormat format);
 
 }

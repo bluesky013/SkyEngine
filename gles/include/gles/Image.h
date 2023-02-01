@@ -18,7 +18,8 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
 
     private:
-        GLuint texId;
+        GLuint texId = 0;
+        bool renderBuffer = false;
     };
 
 }

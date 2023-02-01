@@ -67,6 +67,7 @@ namespace sky::vk {
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
+        CREATE_DEV_OBJ(Image)
     private:
         bool Init(const Descriptor &, bool enableDebug);
 

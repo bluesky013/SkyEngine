@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <rhi/Swapchain.h>
+#include <rhi/Image.h>
 
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
@@ -30,6 +31,7 @@ namespace sky::rhi {
         };
 
         virtual SwapChainPtr CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
+        virtual ImagePtr CreateImage(const Image::Descriptor &desc) = 0;
 
     protected:
         DeviceFeature enabledFeature;

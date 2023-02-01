@@ -7,7 +7,7 @@
 
 namespace sky::gles {
 
-    const std::unordered_map<rhi::PixelFormat, FormatType> FORMAT_MAP = {
+    const std::unordered_map<rhi::PixelFormat, InternalFormat> FORMAT_MAP = {
         {rhi::PixelFormat::UNDEFINED,                 {0,               0,       0}},
         {rhi::PixelFormat::RGBA8_UNORM,               {GL_RGBA8,        GL_RGBA, GL_UNSIGNED_BYTE}},
         {rhi::PixelFormat::RGBA8_SRGB,                {GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE}},
@@ -59,9 +59,56 @@ namespace sky::gles {
         {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK,     {GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR}},
     };
 
-    const FormatType &GetFormatInfo(rhi::PixelFormat format)
+    const std::unordered_map<rhi::PixelFormat, FormatFeature> FORMAT_FEATURE = {
+        //                                             texture, render, compressed
+        {rhi::PixelFormat::UNDEFINED,                 {false,   false,  false}},
+        {rhi::PixelFormat::RGBA8_UNORM,               {true,    true,   false}},
+        {rhi::PixelFormat::RGBA8_SRGB,                {true,    true,   false}},
+        {rhi::PixelFormat::BGRA8_UNORM,               {true,    true,   false}},
+        {rhi::PixelFormat::BGRA8_SRGB,                {true,    true,   false}},
+        {rhi::PixelFormat::D32,                       {true,    true,   false}},
+        {rhi::PixelFormat::D24_S8,                    {true,    true,   false}},
+        {rhi::PixelFormat::D32_S8,                    {true,    true,   false}},
+        {rhi::PixelFormat::BC1_RGB_UNORM_BLOCK,       {true,    false,  true}},
+        {rhi::PixelFormat::BC1_RGB_SRGB_BLOCK,        {true,    false,  true}},
+        {rhi::PixelFormat::BC1_RGBA_UNORM_BLOCK,      {true,    false,  true}},
+        {rhi::PixelFormat::BC1_RGBA_SRGB_BLOCK,       {true,    false,  true}},
+        {rhi::PixelFormat::BC2_UNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC2_SRGB_BLOCK,            {true,    false,  true}},
+        {rhi::PixelFormat::BC3_UNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC3_SRGB_BLOCK,            {true,    false,  true}},
+        {rhi::PixelFormat::BC4_UNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC4_SNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC5_UNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC5_SNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC6H_UFLOAT_BLOCK,         {true,    false,  true}},
+        {rhi::PixelFormat::BC6H_SFLOAT_BLOCK,         {true,    false,  true}},
+        {rhi::PixelFormat::BC7_UNORM_BLOCK,           {true,    false,  true}},
+        {rhi::PixelFormat::BC7_SRGB_BLOCK,            {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8_UNORM_BLOCK,   {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8_SRGB_BLOCK,    {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8A1_UNORM_BLOCK, {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8A1_SRGB_BLOCK,  {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8A8_UNORM_BLOCK, {true,    false,  true}},
+        {rhi::PixelFormat::ETC2_R8G8B8A8_SRGB_BLOCK,  {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK,      {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_4x4_SRGB_BLOCK,       {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_8x8_UNORM_BLOCK,      {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_8x8_SRGB_BLOCK,       {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_10x10_UNORM_BLOCK,    {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_10x10_SRGB_BLOCK,     {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_12x12_UNORM_BLOCK,    {true,    false,  true}},
+        {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK,     {true,    false,  true}},
+    };
+
+    const InternalFormat &GetInternalFormat(rhi::PixelFormat format)
     {
         return FORMAT_MAP.find(format)->second;
+    }
+
+    const FormatFeature &GetFormatFeature(rhi::PixelFormat format)
+    {
+        return FORMAT_FEATURE.find(format)->second;
     }
 
 }

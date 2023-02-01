@@ -19,6 +19,16 @@ namespace sky::rhi {
         swcDesc.width  = nativeWindow->GetWidth();
         swcDesc.height = nativeWindow->GetHeight();
         swapChain      = device->CreateSwapChain(swcDesc);
+
+        rhi::Image::Descriptor imageDesc = {};
+        imageDesc.format      = PixelFormat::RGBA8_UNORM;
+        imageDesc.extent      = {4, 4, 1};
+        imageDesc.mipLevels   = 2;
+        imageDesc.arrayLayers = 6;
+        imageDesc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
+        imageDesc.memory      = MemoryType::GPU_ONLY;
+        auto image = device->CreateImage(imageDesc);
+
     }
 
     void RHISampleBase::OnStop()

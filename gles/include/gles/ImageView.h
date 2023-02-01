@@ -9,4 +9,12 @@
 
 namespace sky::gles {
 
+    class ImageView : public rhi::ImageView, public DevObject {
+    public:
+        ImageView(Device &dev) : DevObject(dev) {}
+        ~ImageView() = default;
+
+        bool Init(const Descriptor &desc);
+    };
+
 }

@@ -78,6 +78,12 @@ namespace sky::vk {
         if (type == rhi::ImageViewType::VIEW_CUBE) {
             return VK_IMAGE_VIEW_TYPE_CUBE;
         }
+        if (type == rhi::ImageViewType::VIEW_2D_ARRAY) {
+            return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        }
+        if (type == rhi::ImageViewType::VIEW_CUBE_ARRAY) {
+            return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+        }
         return VK_IMAGE_VIEW_TYPE_2D;
     }
 

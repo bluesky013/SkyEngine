@@ -8,6 +8,7 @@
 #include <gles/Context.h>
 #include <gles/PBuffer.h>
 #include <gles/Swapchain.h>
+#include <gles/Image.h>
 #include <memory>
 
 namespace sky::gles {
@@ -36,6 +37,7 @@ namespace sky::gles {
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
+        CREATE_DEV_OBJ(Image)
 
     private:
         std::unique_ptr<PBuffer> pBuffer;

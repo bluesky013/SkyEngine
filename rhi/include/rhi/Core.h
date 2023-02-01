@@ -82,8 +82,10 @@ namespace sky::rhi {
 
     enum class ImageViewType : uint32_t {
         VIEW_2D,
+        VIEW_2D_ARRAY,
+        VIEW_CUBE,
+        VIEW_CUBE_ARRAY,
         VIEW_3D,
-        VIEW_CUBE
     };
 
     enum class MemoryType : uint32_t {

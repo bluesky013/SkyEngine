@@ -7,4 +7,10 @@
 
 namespace sky::gles {
 
+    bool ImageView::Init(const Descriptor &desc)
+    {
+        viewDesc = desc;
+        return true;
+    }
+
 }
