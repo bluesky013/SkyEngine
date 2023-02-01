@@ -435,4 +435,16 @@ namespace sky::rhi {
         uint32_t        stride    = 0;
         VertexInputRate inputRate = VertexInputRate::PER_VERTEX;
     };
+
+    struct ImageViewDesc {
+        ImageViewType viewType = ImageViewType::VIEW_2D;
+        ImageSubRange subRange = {0, 1, 0, 1};
+        AspectFlags   mask = rhi::AspectFlagBit::COLOR_BIT;
+    };
+
+    struct BufferViewDesc {
+        PixelFormat format = PixelFormat::UNDEFINED;
+        uint64_t offset = 0;
+        uint64_t range  = 0;
+    };
 }

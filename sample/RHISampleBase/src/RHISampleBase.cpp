@@ -28,11 +28,14 @@ namespace sky::rhi {
         imageDesc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
         imageDesc.memory      = MemoryType::GPU_ONLY;
         auto image = device->CreateImage(imageDesc);
+        auto view = image->CreateView({});
 
     }
 
     void RHISampleBase::OnStop()
     {
+        swapChain = nullptr;
+
         delete device;
         device = nullptr;
 

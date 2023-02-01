@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/Image.h>
 
 namespace sky::rhi {
 

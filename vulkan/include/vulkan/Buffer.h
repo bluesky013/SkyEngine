@@ -11,7 +11,7 @@ namespace sky::vk {
 
     class Device;
 
-    class Buffer : public rhi::Buffer, public DevObject {
+    class Buffer : public rhi::Buffer, public DevObject, public std::enable_shared_from_this<Buffer> {
     public:
         ~Buffer();
 
@@ -23,18 +23,16 @@ namespace sky::vk {
             bool                allocateMem = true;
         };
 
+        rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
+
         uint64_t GetSize() const;
-
-        VkBuffer GetNativeHandle() const;
-
         bool IsTransient() const;
-
         uint8_t *Map();
-
         void UnMap();
-
         void BindMemory(VmaAllocation allocation);
         void ReleaseMemory();
+
+        VkBuffer GetNativeHandle() const;
 
     private:
         friend class Device;

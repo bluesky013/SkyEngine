@@ -27,7 +27,6 @@ namespace sky::vk {
             VkImageSubresourceRange subResourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         };
 
-        static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::Descriptor &des);
         static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des);
 
         VkImageView GetNativeHandle() const;
@@ -38,7 +37,7 @@ namespace sky::vk {
         friend class Image;
         friend class SwapChain;
 
-        bool Init(const Descriptor &);
+        bool Init(const rhi::ImageViewDesc &);
         bool Init(const VkDescriptor &);
 
         ImagePtr              source;

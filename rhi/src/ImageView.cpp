@@ -6,9 +6,4 @@
 
 namespace sky::rhi {
 
-    const ImageView::Descriptor &ImageView::GetDescriptor() const
-    {
-        return viewDesc;
-    }
-
 }

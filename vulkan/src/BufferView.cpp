@@ -32,7 +32,7 @@ namespace sky::vk {
         return viewInfo;
     }
 
-    bool BufferView::Init(const Descriptor &des)
+    bool BufferView::Init(const rhi::BufferViewDesc &des)
     {
         viewInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
         viewInfo.buffer = source->GetNativeHandle();

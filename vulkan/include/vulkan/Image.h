@@ -16,7 +16,7 @@ namespace sky::vk {
     class Device;
     class ImageView;
 
-    class Image : public rhi::Image, public DevObject {
+    class Image : public rhi::Image, public DevObject, public std::enable_shared_from_this<Image> {
     public:
         ~Image();
 
@@ -47,6 +47,8 @@ namespace sky::vk {
         friend class Device;
         friend class ImageView;
         friend class SwapChain;
+        rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc) override;
+
         Image(Device &);
 
         Image(Device &, VkImage);

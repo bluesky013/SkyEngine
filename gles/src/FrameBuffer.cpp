@@ -10,7 +10,7 @@ namespace sky::gles {
     bool FrameBuffer::Init(const Descriptor &desc)
     {
         descriptor = desc;
-
+        
         glGenFramebuffers(1, &fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 

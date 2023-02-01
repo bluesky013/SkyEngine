@@ -35,8 +35,6 @@ namespace sky::rhi {
     protected:
         Instance() = default;
         virtual ~Instance() = default;
-
-        std::unique_ptr<DynamicModule> module;
     };
 
 }

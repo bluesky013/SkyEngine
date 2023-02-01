@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/BufferView.h>
 #include <memory>
 
 namespace sky::rhi {
@@ -20,6 +21,7 @@ namespace sky::rhi {
             MemoryType                memory      = MemoryType::GPU_ONLY;
             bool                      allocateMem = true;
         };
+        virtual rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) = 0;
 
     protected:
         Descriptor bufferDesc;

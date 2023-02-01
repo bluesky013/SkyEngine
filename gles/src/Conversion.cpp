@@ -101,6 +101,15 @@ namespace sky::gles {
         {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK,     {true,    false,  true}},
     };
 
+    const std::unordered_map<rhi::Format, VertexFormat> VERTEX_FORMAT_TABLE = {
+        //                            size   type   normalized
+        {rhi::Format::UNDEFINED, {0, 0,        0}},
+        {rhi::Format::F_R32,     {1, GL_FLOAT, GL_FALSE}},
+        {rhi::Format::F_RG32,    {2, GL_FLOAT, GL_FALSE}},
+        {rhi::Format::F_RGB32,   {3, GL_FLOAT, GL_FALSE}},
+        {rhi::Format::F_RGBA32,  {4, GL_FLOAT, GL_FALSE}},
+    };
+
     const InternalFormat &GetInternalFormat(rhi::PixelFormat format)
     {
         return FORMAT_MAP.find(format)->second;
@@ -109,6 +118,11 @@ namespace sky::gles {
     const FormatFeature &GetFormatFeature(rhi::PixelFormat format)
     {
         return FORMAT_FEATURE.find(format)->second;
+    }
+
+    const VertexFormat &GetVertexFormat(rhi::Format format)
+    {
+        return VERTEX_FORMAT_TABLE.find(format)->second;
     }
 
 }

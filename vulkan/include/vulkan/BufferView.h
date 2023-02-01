@@ -31,10 +31,10 @@ namespace sky::vk {
         const VkBufferViewCreateInfo &GetViewInfo() const;
 
     private:
-        friend class Image;
+        friend class Buffer;
         friend class SwapChain;
 
-        bool Init(const Descriptor &);
+        bool Init(const rhi::BufferViewDesc &);
         bool Init(const VkDescriptor &);
 
         BufferPtr              source;

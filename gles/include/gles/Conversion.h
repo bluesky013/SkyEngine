@@ -21,7 +21,14 @@ namespace sky::gles {
         bool compressed   = false;
     };
 
+    struct VertexFormat {
+        GLint     size = 0;
+        GLenum    type = 0;
+        GLboolean normalized = 0;
+    };
+
     const InternalFormat &GetInternalFormat(rhi::PixelFormat format);
     const FormatFeature &GetFormatFeature(rhi::PixelFormat format);
+    const VertexFormat &GetVertexFormat(rhi::Format format);
 
 }

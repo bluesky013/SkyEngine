@@ -7,7 +7,7 @@
 
 namespace sky::gles {
 
-    bool BufferView::Init(const Descriptor &desc)
+    bool BufferView::Init(const rhi::BufferViewDesc &desc)
     {
         viewDesc = desc;
         return true;

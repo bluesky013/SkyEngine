@@ -39,11 +39,13 @@ namespace sky::vk {
         return true;
     }
 
-    bool ImageView::Init(const Descriptor &des)
+    bool ImageView::Init(const rhi::ImageViewDesc &desc)
     {
+        viewDesc = desc;
+
         viewInfo.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image            = source->GetNativeHandle();
-        viewInfo.viewType         = FromRHI(des.viewType);
+        viewInfo.viewType         = FromRHI(desc.viewType);
         viewInfo.format           = source->GetImageInfo().format;
 
         viewInfo.components       = {VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -51,11 +53,11 @@ namespace sky::vk {
                                      VK_COMPONENT_SWIZZLE_IDENTITY,
                                      VK_COMPONENT_SWIZZLE_IDENTITY};
 
-        viewInfo.subresourceRange = {FromRHI(des.mask),
-                                     des.subRange.baseLevel,
-                                     des.subRange.levels,
-                                     des.subRange.baseLayer,
-                                     des.subRange.layers};
+        viewInfo.subresourceRange = {FromRHI(desc.mask),
+                                     desc.subRange.baseLevel,
+                                     desc.subRange.levels,
+                                     desc.subRange.baseLayer,
+                                     desc.subRange.layers};
 
         VkResult rst              = vkCreateImageView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
         if (rst != VK_SUCCESS) {
@@ -87,17 +89,4 @@ namespace sky::vk {
         return ret;
     }
 
-    std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::Descriptor &des)
-    {
-        ImageViewPtr ret;
-        if (image) {
-            ret = std::make_shared<ImageView>(image->device);
-            ret->source      = image;
-            if (!ret->Init(des)) {
-                ret = nullptr;
-            }
-        }
-
-        return ret;
-    }
 } // namespace sky::vk

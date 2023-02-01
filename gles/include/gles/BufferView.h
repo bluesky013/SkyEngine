@@ -6,6 +6,7 @@
 
 #include <rhi/BufferView.h>
 #include <gles/DevObject.h>
+#include <gles/Buffer.h>
 
 namespace sky::gles {
 
@@ -14,8 +15,15 @@ namespace sky::gles {
         BufferView(Device &dev) : DevObject(dev) {}
         ~BufferView() = default;
 
-        bool Init(const Descriptor &desc);
+        bool Init(const rhi::BufferViewDesc &desc);
+
+        GLuint GetNativeHandle() const { return source->GetNativeHandle(); }
+
+    private:
+        friend class Buffer;
+        BufferPtr source;
     };
+    using BufferViewPtr = std::shared_ptr<BufferView>;
 
 }
 

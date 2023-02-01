@@ -36,20 +36,16 @@ namespace sky::vk {
             uint32_t                  imageIndex = 0;
         };
 
-        VkSwapchainKHR GetNativeHandle() const;
-
-        VkFormat GetFormat() const;
-
-        const VkExtent2D &GetExtent() const;
-
-        void Present(const PresentInfo &) const;
-
-        VkResult AcquireNext(SemaphorePtr semaphore, uint32_t &next) const;
-
         void Resize(uint32_t width, uint32_t height);
 
-        ImagePtr GetImage(uint32_t image) const;
+        // for vulkan
+        VkSwapchainKHR GetNativeHandle() const;
+        VkFormat GetFormat() const;
+        const VkExtent2D &GetExtent() const;
+        void Present(const PresentInfo &) const;
+        VkResult AcquireNext(SemaphorePtr semaphore, uint32_t &next) const;
 
+        ImagePtr GetImage(uint32_t image) const;
         uint32_t GetImageCount() const;
 
     private:

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/ImageView.h>
 
 namespace sky::rhi {
 
@@ -27,6 +28,8 @@ namespace sky::rhi {
 
         const Descriptor &GetDescriptor() const;
         const ImageFormatInfo &GetFormatInfo() const;
+
+        virtual ImageViewPtr CreateView(const ImageViewDesc &desc) = 0;
 
     protected:
         Descriptor imageDesc;

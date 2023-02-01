@@ -10,16 +10,18 @@
 
 namespace sky::gles {
 
-    class Image : public rhi::Image, public DevObject {
+    class Image : public rhi::Image, public DevObject, public std::enable_shared_from_this<Image> {
     public:
         Image(Device &dev) : DevObject(dev) {}
         ~Image();
 
         bool Init(const Descriptor &desc);
+        rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc) override;
 
     private:
         GLuint texId = 0;
         bool renderBuffer = false;
     };
 
+    using ImagePtr = std::shared_ptr<Image>;
 }

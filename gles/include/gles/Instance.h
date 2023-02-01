@@ -15,7 +15,7 @@ namespace sky::gles {
     class Instance : public rhi::Instance {
     public:
         Instance() = default;
-        ~Instance();
+        ~Instance() override;
 
         rhi::Device *CreateDevice(const rhi::Device::Descriptor &desc) override;
 

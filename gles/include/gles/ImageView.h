@@ -6,6 +6,7 @@
 
 #include <rhi/ImageView.h>
 #include <gles/DevObject.h>
+#include <gles/Image.h>
 
 namespace sky::gles {
 
@@ -14,7 +15,13 @@ namespace sky::gles {
         ImageView(Device &dev) : DevObject(dev) {}
         ~ImageView() = default;
 
-        bool Init(const Descriptor &desc);
+        bool Init(const rhi::ImageViewDesc &desc);
+
+    private:
+        friend class Image;
+        ImagePtr source;
     };
+
+    using ImageViewPtr = std::shared_ptr<ImageView>;
 
 }

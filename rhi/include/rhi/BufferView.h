@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <memory>
 
 namespace sky::rhi {
 
@@ -13,14 +14,8 @@ namespace sky::rhi {
         BufferView() = default;
         ~BufferView() = default;
 
-        struct Descriptor {
-            PixelFormat format = PixelFormat::UNDEFINED;
-            uint64_t offset = 0;
-            uint64_t range  = 0;
-        };
-
     protected:
-        Descriptor viewDesc;
+        BufferViewDesc viewDesc;
     };
-
+    using BufferViewPtr = std::shared_ptr<BufferView>;
 }

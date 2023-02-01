@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <string>
 
+std::unique_ptr<sky::DynamicModule> g_RHI;
+
 namespace sky::rhi {
     using Func = Instance*(*)();
 
@@ -20,17 +22,16 @@ namespace sky::rhi {
         };
 
         auto api = nameMap[static_cast<uint32_t>(desc.api)];
-        auto module = std::make_unique<DynamicModule>(api);
-        if (!module->Load()) {
+        g_RHI = std::make_unique<DynamicModule>(api);
+        if (!g_RHI->Load()) {
             return false;
         }
-        auto instanceFunc = reinterpret_cast<Func>(module->GetAddress("CreateInstance"));
+        auto instanceFunc = reinterpret_cast<Func>(g_RHI->GetAddress("CreateInstance"));
         if (instanceFunc == nullptr) {
             return false;
         }
         auto instance = instanceFunc();
         if (instance != nullptr && instance->Init(desc)) {
-            instance->module = std::move(module);
             return instance;
         }
         if (instance != nullptr) {
