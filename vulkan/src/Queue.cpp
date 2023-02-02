@@ -16,12 +16,12 @@ namespace sky::vk {
         pool = device.CreateDeviceObject<CommandPool>(des);
     }
 
-    CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::Descriptor &des)
+    CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::VkDescriptor &des)
     {
         return pool->Allocate(des);
     }
 
-    CommandBufferPtr Queue::AllocateTlsCommandBuffer(const CommandBuffer::Descriptor &des)
+    CommandBufferPtr Queue::AllocateTlsCommandBuffer(const CommandBuffer::VkDescriptor &des)
     {
         auto &tlsPool = GetOrCreatePool();
         return tlsPool->Allocate(des);

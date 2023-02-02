@@ -30,12 +30,10 @@ namespace sky::vk {
             return queue;
         }
 
-        CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor &desc);
-
-        CommandBufferPtr AllocateTlsCommandBuffer(const CommandBuffer::Descriptor &desc);
+        CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::VkDescriptor &desc);
+        CommandBufferPtr AllocateTlsCommandBuffer(const CommandBuffer::VkDescriptor &desc);
 
         void WaitIdle();
-        void Submit(const rhi::CommandBufferPtr &cmd) override {}
     private:
         const CommandPoolPtr &GetOrCreatePool();
 

@@ -10,6 +10,10 @@
 #include <gles/Swapchain.h>
 #include <gles/Image.h>
 #include <gles/Queue.h>
+#include <gles/RenderPass.h>
+#include <gles/FrameBuffer.h>
+#include <gles/CommandBuffer.h>
+#include <gles/Fence.h>
 #include <memory>
 
 namespace sky::gles {
@@ -35,10 +39,15 @@ namespace sky::gles {
         Context *GetMainContext() const;
         Queue *GetGraphicsQueue() const;
         Queue *GetTransferQueue() const;
+        Queue* GetQueue(rhi::QueueType type) const override;
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
+        CREATE_DEV_OBJ(RenderPass)
+        CREATE_DEV_OBJ(FrameBuffer)
+        CREATE_DEV_OBJ(CommandBuffer)
+        CREATE_DEV_OBJ(Fence)
 
     private:
         std::unique_ptr<Context> mainContext;

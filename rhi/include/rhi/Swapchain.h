@@ -24,7 +24,8 @@ namespace sky::rhi {
 
         virtual PixelFormat GetFormat() const = 0;
         virtual const Extent2D &GetExtent() const = 0;
-        virtual rhi::ImagePtr AcquireNextImage() const = 0;
+        virtual uint32_t AcquireNextImage() const = 0;
+        virtual ImagePtr GetImage(uint32_t index) const = 0;
         virtual uint32_t GetImageCount() const = 0;
 
         virtual bool HasDepthStencilImage() const = 0;

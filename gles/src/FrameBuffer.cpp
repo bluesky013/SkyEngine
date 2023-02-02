@@ -8,6 +8,15 @@
 
 namespace sky::gles {
 
+    FrameBuffer::~FrameBuffer()
+    {
+        for (auto &fb : fboList) {
+            if (fb.fbo != 0) {
+                glDeleteFramebuffers(1, &fb.fbo);
+            }
+        }
+    }
+
     bool FrameBuffer::Init(const Descriptor &desc)
     {
         renderPass = std::static_pointer_cast<RenderPass>(desc.pass);
@@ -74,7 +83,7 @@ namespace sky::gles {
                     CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, att, GL_TEXTURE_2D, handle, attachment->GetDescriptor().subRange.baseLevel));
                 }
             }
-
+            fboList.emplace_back(FBOWithSurface{fbo, {}});
             CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
         }
         return true;

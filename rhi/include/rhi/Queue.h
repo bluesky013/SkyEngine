@@ -39,13 +39,18 @@ namespace sky::rhi {
         TransferTaskHandle CreateTask(T &&task, C &&callback)
         {
             ++currentTaskId;
-            std::lock_guard<std::mutex> lock(taskMutex);
-            taskQueue.emplace_back(TransferTask{currentTaskId, std::move(task), std::move(callback)});
-            cv.notify_all();
-            return taskQueue.back().taskId;
+            {
+                std::lock_guard<std::mutex> lock(taskMutex);
+                taskQueue.emplace_back(TransferTask{currentTaskId, std::move(task), std::move(callback)});
+            }
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                cv.notify_all();
+            }
+            return currentTaskId;
         }
 
-        virtual void Submit(const CommandBufferPtr &cmd) = 0;
+        rhi::QueueType GetQueueType() const { return type; }
 
     protected:
         void ThreadMain();
@@ -55,6 +60,7 @@ namespace sky::rhi {
         std::atomic_bool         exit;
         std::atomic_uint32_t     currentTaskId;
         std::atomic_uint32_t     lastTaskId;
+        rhi::QueueType           type;
 
         std::thread              thread;
         std::mutex               taskMutex;

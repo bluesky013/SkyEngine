@@ -44,13 +44,14 @@ namespace sky::vk {
         const VkExtent2D &GetVkExtent() const;
         void Present(const PresentInfo &) const;
         VkResult AcquireNext(SemaphorePtr semaphore, uint32_t &next) const;
-        ImagePtr GetImage(uint32_t image) const;
+        ImagePtr GetVkImage(uint32_t image) const;
 
         // for rhi
         uint32_t GetImageCount() const override;
         rhi::PixelFormat GetFormat() const override;
         const rhi::Extent2D &GetExtent() const override;
-        rhi::ImagePtr AcquireNextImage() const override;
+        uint32_t AcquireNextImage() const override;
+        rhi::ImagePtr GetImage(uint32_t index) const override;
 
         bool HasDepthStencilImage() const override { return false; }
         rhi::ImagePtr GetDepthStencilImage() const override { return {}; }

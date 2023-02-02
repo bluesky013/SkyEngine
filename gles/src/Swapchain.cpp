@@ -50,9 +50,4 @@ namespace sky::gles {
 
         return true;
     }
-
-    rhi::ImagePtr SwapChain::AcquireNextImage() const
-    {
-        return color;
-    }
 }

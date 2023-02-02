@@ -6,7 +6,7 @@
 
 namespace sky::rhi {
 
-    Queue::Queue() : exit(false), currentTaskId(0), lastTaskId(0)
+    Queue::Queue() : exit(false), currentTaskId(0), lastTaskId(0), type(rhi::QueueType::GRAPHICS)
     {
     }
 
@@ -68,8 +68,8 @@ namespace sky::rhi {
         {
             std::unique_lock<std::mutex> lock(mutex);
             lastTaskId.store(task.taskId);
+            taskCv.notify_all();
         }
-        taskCv.notify_all();
         return true;
     }
 

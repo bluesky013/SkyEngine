@@ -16,10 +16,10 @@ namespace sky::gles {
         Queue(Device &dev) : DevObject(dev) {}
         ~Queue() = default;
 
-        bool Init(const Context::Descriptor &cfg);
+        bool Init(const Context::Descriptor &cfg, rhi::QueueType type);
+        Context *GetContext() const { return context.get(); }
 
-        void Submit(const rhi::CommandBufferPtr &cmd) override;
-    private:
+    protected:
         std::unique_ptr<Context> context;
     };
 

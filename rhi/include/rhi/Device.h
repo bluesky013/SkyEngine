@@ -7,6 +7,10 @@
 #include <memory>
 #include <rhi/Swapchain.h>
 #include <rhi/Image.h>
+#include <rhi/RenderPass.h>
+#include <rhi/FrameBuffer.h>
+#include <rhi/CommandBuffer.h>
+#include <rhi/Fence.h>
 
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
@@ -32,6 +36,12 @@ namespace sky::rhi {
 
         virtual SwapChainPtr CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
         virtual ImagePtr CreateImage(const Image::Descriptor &desc) = 0;
+        virtual RenderPassPtr CreateRenderPass(const RenderPass::Descriptor &desc) = 0;
+        virtual FrameBufferPtr CreateFrameBuffer(const FrameBuffer::Descriptor &desc) = 0;
+        virtual CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) = 0;
+        virtual FencePtr CreateFence(const Fence::Descriptor &desc) = 0;
+
+        virtual Queue* GetQueue(QueueType type) const = 0;
 
     protected:
         DeviceFeature enabledFeature;

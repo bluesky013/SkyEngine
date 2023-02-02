@@ -18,9 +18,8 @@ namespace sky::vk {
             VkFenceCreateFlags flag = 0;
         };
 
-        void Wait(uint64_t timeout = UINT64_MAX);
-
-        void Reset();
+        void Wait() override;
+        void Reset() override;
 
         VkFence GetNativeHandle() const;
 

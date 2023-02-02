@@ -11,6 +11,10 @@
 #include <vulkan/Queue.h>
 #include <vulkan/AsyncTransferQueue.h>
 #include <vulkan/Swapchain.h>
+#include <vulkan/RenderPass.h>
+#include <vulkan/FrameBuffer.h>
+#include <vulkan/CommandBuffer.h>
+#include <vulkan/Fence.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -32,42 +36,41 @@ namespace sky::vk {
             return std::shared_ptr<T>(res);
         }
 
-        VmaAllocator GetAllocator() const;
-
-        VkDevice GetNativeHandle() const;
-
-        VkPhysicalDevice GetGpuHandle() const;
-
-        VkInstance GetInstance() const;
-
-        Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
-
-        Queue *GetGraphicsQueue() const;
-
-        AsyncTransferQueue *GetAsyncTransferQueue() const;
-
-        VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
-
-        VkPipelineLayout GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo * = nullptr);
-
-        VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
-
-        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo * = nullptr);
-
-        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
-
-        const VkPhysicalDeviceProperties &GetProperties() const;
-
         void WaitIdle() const;
 
-        bool    GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        VmaAllocator GetAllocator() const;
+        VkDevice GetNativeHandle() const;
+        VkPhysicalDevice GetGpuHandle() const;
+        VkInstance GetInstance() const;
+
+        // Queue
+        Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
+        Queue *GetGraphicsQueue() const;
+        AsyncTransferQueue *GetAsyncTransferQueue() const;
+
+        // Cache object
+        VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
+        VkPipelineLayout GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo * = nullptr);
+        VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
+        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo * = nullptr);
+        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
+
+        // features
+        const VkPhysicalDeviceProperties &GetProperties() const;
+        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
 
+        // rhi
+        rhi::Queue* GetQueue(rhi::QueueType type) const override { return graphicsQueue; }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
+        CREATE_DEV_OBJ(RenderPass)
+        CREATE_DEV_OBJ(FrameBuffer)
+        CREATE_DEV_OBJ(CommandBuffer)
+        CREATE_DEV_OBJ(Fence)
     private:
         bool Init(const Descriptor &, bool enableDebug);
 

@@ -225,6 +225,11 @@ namespace sky::rhi {
         PER_INSTANCE = 1
     };
 
+    enum class QueueType : uint32_t {
+        GRAPHICS,
+        TRANSFER,
+    };
+
     // flag bit
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,

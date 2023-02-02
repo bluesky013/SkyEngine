@@ -225,7 +225,7 @@ namespace sky::vk {
         CreateSwapChain();
     }
 
-    ImagePtr SwapChain::GetImage(uint32_t image) const
+    ImagePtr SwapChain::GetVkImage(uint32_t image) const
     {
         return images[image];
     }
@@ -248,8 +248,14 @@ namespace sky::vk {
         return *static_cast<const rhi::Extent2D*>(reinterpret_cast<const void*>(&extent));
     }
 
-    rhi::ImagePtr SwapChain::AcquireNextImage() const
+    uint32_t SwapChain::AcquireNextImage() const
     {
-        return {};
+        return 0;
     }
+
+    rhi::ImagePtr SwapChain::GetImage(uint32_t index) const
+    {
+        return images[index];
+    }
+
 } // namespace sky::vk

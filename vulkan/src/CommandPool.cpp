@@ -36,7 +36,7 @@ namespace sky::vk {
         return true;
     }
 
-    CommandBufferPtr CommandPool::Allocate(const CommandBuffer::Descriptor &des)
+    CommandBufferPtr CommandPool::Allocate(const CommandBuffer::VkDescriptor &des)
     {
         VkCommandBufferAllocateInfo cbInfo = {};
         cbInfo.sType                       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -51,11 +51,13 @@ namespace sky::vk {
             return nullptr;
         }
 
-        auto cmdBuffer = new CommandBuffer(device, pool, buffer);
+        auto cmdBuffer = new CommandBuffer(device);
         if (!cmdBuffer->Init(des)) {
             delete cmdBuffer;
             cmdBuffer = nullptr;
         }
+        cmdBuffer->pool = pool;
+        cmdBuffer->cmdBuffer = buffer;
         return std::shared_ptr<CommandBuffer>(cmdBuffer);
     }
 } // namespace sky::vk

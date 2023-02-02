@@ -47,9 +47,9 @@ namespace sky::vk {
         return true;
     }
 
-    void Fence::Wait(uint64_t timeout)
+    void Fence::Wait()
     {
-        vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, timeout);
+        vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, UINT64_MAX);
     }
 
     void Fence::Reset()

@@ -47,7 +47,7 @@ namespace sky {
 
         ResetFrameBuffer();
 
-        vk::CommandBuffer::Descriptor cmdDesc = {};
+        vk::CommandBuffer::VkDescriptor cmdDesc = {};
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
     }
 
@@ -101,7 +101,7 @@ namespace sky {
         viewDesc.format                     = swapChain->GetVkFormat();
 
         for (uint32_t i = 0; i < imageCount; ++i) {
-            auto image      = swapChain->GetImage(i);
+            auto image      = swapChain->GetVkImage(i);
             colorViews[i]   = vk::ImageView::CreateImageView(image, viewDesc);
             fbDesc.views    = std::vector<vk::ImageViewPtr>{colorViews[i]};
             frameBuffers[i] = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);

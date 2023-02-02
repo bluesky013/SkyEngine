@@ -38,7 +38,7 @@ namespace sky {
                     inheritanceInfo.subpass     = subPassId;
                     command->Begin(inheritanceInfo);
 
-                    auto tlsEncoder = command->EncodeGraphics();
+                    auto tlsEncoder = command->EncodeVkGraphics();
                     tlsEncoder.SetViewport(1, &encoder.GetCurrentViewport());
                     tlsEncoder.SetScissor(1, &encoder.GetCurrentScissor());
 

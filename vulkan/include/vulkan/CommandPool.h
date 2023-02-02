@@ -21,7 +21,7 @@ namespace sky::vk {
 
         bool Init(const VkDescriptor &);
 
-        CommandBufferPtr Allocate(const CommandBuffer::Descriptor &);
+        CommandBufferPtr Allocate(const CommandBuffer::VkDescriptor &);
 
     private:
         friend class Device;

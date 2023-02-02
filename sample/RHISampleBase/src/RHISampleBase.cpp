@@ -20,16 +20,35 @@ namespace sky::rhi {
         swcDesc.height = nativeWindow->GetHeight();
         swapChain      = device->CreateSwapChain(swcDesc);
 
-        rhi::Image::Descriptor imageDesc = {};
-        imageDesc.format      = PixelFormat::RGBA8_UNORM;
-        imageDesc.extent      = {4, 4, 1};
-        imageDesc.mipLevels   = 2;
-        imageDesc.arrayLayers = 6;
-        imageDesc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
-        imageDesc.memory      = MemoryType::GPU_ONLY;
-        auto image = device->CreateImage(imageDesc);
-        auto view = image->CreateView({});
+        auto format = swapChain->GetFormat();
+        auto &ext = swapChain->GetExtent();
+        uint32_t count = swapChain->GetImageCount();
 
+        rhi::RenderPass::Descriptor passDesc = {};
+        passDesc.attachments.emplace_back(RenderPass::Attachment{
+            format,
+            SampleCount::X1,
+            LoadOp::CLEAR,
+            StoreOp::STORE,
+            LoadOp::DONT_CARE,
+            StoreOp::DONT_CARE,
+        });
+        passDesc.subPasses.emplace_back(RenderPass::SubPass {
+            {0}, {}, {}, ~(0U)
+        });
+        renderPass = device->CreateRenderPass(passDesc);
+
+        rhi::FrameBuffer::Descriptor fbDesc = {};
+        fbDesc.extent = ext;
+        fbDesc.pass = renderPass;
+        frameBuffers.reserve(count);
+        for (uint32_t i = 0; i < count; ++i) {
+            fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
+            frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
+        }
+
+        rhi::CommandBuffer::Descriptor cmdDesc = {};
+        commandBuffer = device->CreateCommandBuffer(cmdDesc);
     }
 
     void RHISampleBase::OnStop()
@@ -45,7 +64,19 @@ namespace sky::rhi {
 
     void RHISampleBase::OnTick(float delta)
     {
+        rhi::ClearValue clear = {};
+        clear.color.float32[0] = 1.f;
+        clear.color.float32[1] = 0.f;
+        clear.color.float32[2] = 0.f;
+        clear.color.float32[3] = 1.f;
 
+        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        uint32_t index = swapChain->AcquireNextImage();
+        commandBuffer->Begin();
+        commandBuffer->EncodeGraphics()->BeginPass(frameBuffers[index], renderPass, 1, &clear)
+            .EndPass();
+        commandBuffer->End();
+        commandBuffer->Submit(*queue);
     }
 
     void RHISampleBase::OnWindowResize(uint32_t width, uint32_t height)

@@ -22,14 +22,14 @@ namespace sky::gles {
         ctxDesc.sharedContext = mainContext->GetNativeHandle();
         graphicsQueue = std::make_unique<Queue>(*this);
         graphicsQueue->StartThread();
-        graphicsQueue->Init(ctxDesc);
+        graphicsQueue->Init(ctxDesc, rhi::QueueType::GRAPHICS);
 
         ctxDesc.defaultConfig.rgb     = 8;
         ctxDesc.defaultConfig.depth   = 0;
         ctxDesc.defaultConfig.stencil = 0;
         transferQueue = std::make_unique<Queue>(*this);
         transferQueue->StartThread();
-        transferQueue->Init(ctxDesc);
+        transferQueue->Init(ctxDesc, rhi::QueueType::TRANSFER);
         return true;
     }
 
@@ -46,6 +46,11 @@ namespace sky::gles {
     Queue *Device::GetTransferQueue() const
     {
         return transferQueue.get();
+    }
+
+    Queue* Device::GetQueue(rhi::QueueType type) const
+    {
+        return type == rhi::QueueType::GRAPHICS ? graphicsQueue.get() : transferQueue.get();
     }
 
 }

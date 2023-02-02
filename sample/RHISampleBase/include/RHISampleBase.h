@@ -12,6 +12,9 @@
 #include <rhi/Device.h>
 #include <rhi/Instance.h>
 #include <rhi/Swapchain.h>
+#include <rhi/RenderPass.h>
+#include <rhi/FrameBuffer.h>
+#include <rhi/CommandBuffer.h>
 
 namespace sky::rhi {
     class NativeWindow;
@@ -31,6 +34,9 @@ namespace sky::rhi {
         rhi::Device *device = nullptr;
 
         rhi::SwapChainPtr swapChain;
+        rhi::RenderPassPtr renderPass;
+        std::vector<rhi::FrameBufferPtr> frameBuffers;
+        rhi::CommandBufferPtr commandBuffer;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

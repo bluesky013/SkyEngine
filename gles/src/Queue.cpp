@@ -7,22 +7,14 @@
 
 namespace sky::gles {
 
-    bool Queue::Init(const Context::Descriptor &cfg)
+    bool Queue::Init(const Context::Descriptor &cfg, rhi::QueueType t)
     {
+        type = t;
         context = std::make_unique<Context>();
         CreateTask([this, cfg]() {
             context->Init(cfg);
         });
-
         return true;
-    }
-
-    void Queue::Submit(const rhi::CommandBufferPtr &cmd)
-    {
-        CreateTask([cmd]() {
-            auto commandBuffer = std::static_pointer_cast<CommandBuffer>(cmd);
-            commandBuffer->Execute();
-        });
     }
 }
 

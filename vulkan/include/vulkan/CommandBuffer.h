@@ -15,6 +15,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/VertexAssembly.h>
 #include <vulkan/ComputePipeline.h>
+#include <rhi/CommandBuffer.h>
 
 namespace sky::vk {
 
@@ -96,20 +97,15 @@ namespace sky::vk {
         VertexAssemblyPtr     currentAssembler;
     };
 
-    class CommandBuffer : public DevObject {
+    class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
+        CommandBuffer(Device &);
         ~CommandBuffer() override;
 
-        struct Descriptor {
+        struct VkDescriptor {
             VkCommandBufferLevel level     = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             bool                 needFence = true;
         };
-
-        void Wait(uint64_t timeout = UINT64_MAX);
-
-        void Begin();
-
-        void Begin(const VkCommandBufferInheritanceInfo &inheritanceInfo);
 
         template <typename Func>
         void Encode(Func &&fun)
@@ -120,43 +116,44 @@ namespace sky::vk {
         void ImageBarrier(
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
         void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
-
         void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
         void QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
         void FlushBarrier();
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
-
         void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy);
-
         void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy &copy);
 
         void BeginQuery(const QueryPoolPtr &pool, uint32_t queryId);
-
         void EndQuery(const QueryPoolPtr &pool, uint32_t queryId);
-
         void ResetQueryPool(const QueryPoolPtr &pool, uint32_t first, uint32_t count);
-
-        void End();
 
         struct SubmitInfo {
             std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
             std::vector<SemaphorePtr>                                  submitSignals;
         };
 
+        // vk
+        void Wait();
+        void Begin(const VkCommandBufferInheritanceInfo &inheritanceInfo);
         void Submit(Queue &queue, const SubmitInfo &submit);
 
-        void ExecuteSecondary(const SecondaryCommands &);
+        // rhi
+        void Begin() override;
+        void End() override;
+        void Submit(rhi::Queue &queue) override;
+        std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return {}; };
 
-        GraphicsEncoder EncodeGraphics();
+        void ExecuteSecondary(const SecondaryCommands &);
+        GraphicsEncoder EncodeVkGraphics();
 
         VkCommandBuffer GetNativeHandle() const;
-
     private:
         friend class CommandPool;
-        CommandBuffer(Device &, VkCommandPool, VkCommandBuffer);
+        friend class Device;
 
         bool Init(const Descriptor &);
+        bool Init(const VkDescriptor &);
 
         VkCommandPool   pool;
         VkCommandBuffer cmdBuffer;

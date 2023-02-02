@@ -11,7 +11,7 @@ static const char *TAG = "Vulkan";
 
 namespace sky::vk {
 
-    CommandBuffer::CommandBuffer(Device &dev, VkCommandPool cp, VkCommandBuffer cb) : DevObject(dev), pool(cp), cmdBuffer(cb), fence()
+    CommandBuffer::CommandBuffer(Device &dev) : DevObject(dev), pool(VK_NULL_HANDLE), cmdBuffer(VK_NULL_HANDLE), fence()
     {
     }
 
@@ -26,6 +26,11 @@ namespace sky::vk {
 
     bool CommandBuffer::Init(const Descriptor &des)
     {
+        return true;
+    }
+
+    bool CommandBuffer::Init(const VkDescriptor &des)
+    {
         if (des.needFence) {
             Fence::VkDescriptor fenceDes = {};
             fenceDes.flag              = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -38,10 +43,10 @@ namespace sky::vk {
         return true;
     }
 
-    void CommandBuffer::Wait(uint64_t timeout)
+    void CommandBuffer::Wait()
     {
         if (fence) {
-            fence->Wait(timeout);
+            fence->Wait();
         }
     }
 
@@ -84,6 +89,10 @@ namespace sky::vk {
     void CommandBuffer::End()
     {
         vkEndCommandBuffer(cmdBuffer);
+    }
+
+    void CommandBuffer::Submit(rhi::Queue &queue)
+    {
     }
 
     void CommandBuffer::ExecuteSecondary(const SecondaryCommands &buffers)
@@ -130,7 +139,7 @@ namespace sky::vk {
         return cmdBuffer;
     }
 
-    GraphicsEncoder CommandBuffer::EncodeGraphics()
+    GraphicsEncoder CommandBuffer::EncodeVkGraphics()
     {
         return GraphicsEncoder(*this);
     }

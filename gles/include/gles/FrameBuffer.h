@@ -22,6 +22,7 @@ namespace sky::gles {
         ~FrameBuffer();
 
         bool Init(const Descriptor &desc);
+        const std::vector<FBOWithSurface> &GetNativeHandles() const { return fboList; }
 
     private:
         RenderPassPtr renderPass;

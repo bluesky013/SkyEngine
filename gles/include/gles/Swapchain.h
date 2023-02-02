@@ -36,10 +36,10 @@ namespace sky::gles {
         rhi::PixelFormat GetFormat() const override { return format; }
         const rhi::Extent2D &GetExtent() const override { return surface->GetExtent(); }
         uint32_t GetImageCount() const override { return 1; }
-        rhi::ImagePtr AcquireNextImage() const override;
-
         bool HasDepthStencilImage() const override { return true; }
         rhi::ImagePtr GetDepthStencilImage() const override { return depth; }
+        rhi::ImagePtr GetImage(uint32_t index) const override { return color; }
+        uint32_t AcquireNextImage() const override { return 0; }
     private:
         std::shared_ptr<WindowSurface> surface;
         rhi::PixelFormat format = rhi::PixelFormat::RGBA8_UNORM;

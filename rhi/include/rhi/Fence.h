@@ -16,8 +16,10 @@ namespace sky::rhi {
         struct Descriptor {
             bool createSignaled = true;
         };
+
+        virtual void Wait() = 0;
+        virtual void Reset() = 0;
     };
 
     using FencePtr = std::shared_ptr<Fence>;
-
 }

@@ -355,7 +355,7 @@ namespace sky {
 
         commandBuffer->Begin();
         auto cmd             = commandBuffer->GetNativeHandle();
-        auto graphicsEncoder = commandBuffer->EncodeGraphics();
+        auto graphicsEncoder = commandBuffer->EncodeVkGraphics();
 
         // pass 1: Compute
         {
