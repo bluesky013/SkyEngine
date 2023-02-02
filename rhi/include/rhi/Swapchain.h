@@ -22,10 +22,13 @@ namespace sky::rhi {
             PresentMode preferredMode   = PresentMode::IMMEDIATE;
         };
 
-        virtual bool Init(const Descriptor &desc) = 0;
+        virtual PixelFormat GetFormat() const = 0;
+        virtual const Extent2D &GetExtent() const = 0;
+        virtual rhi::ImagePtr AcquireNextImage() const = 0;
+        virtual uint32_t GetImageCount() const = 0;
 
-    protected:
-        Descriptor descriptor;
+        virtual bool HasDepthStencilImage() const = 0;
+        virtual rhi::ImagePtr GetDepthStencilImage() const = 0;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

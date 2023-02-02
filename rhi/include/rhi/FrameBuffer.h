@@ -21,10 +21,10 @@ namespace sky::rhi {
             std::vector<ImageViewPtr> views;
         };
 
+        const Extent2D &GetExtent() const { return extent; }
+
     protected:
-        Descriptor descriptor;
+        Extent2D extent;
     };
-
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
-
 };

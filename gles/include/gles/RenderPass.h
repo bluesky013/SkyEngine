@@ -16,8 +16,12 @@ namespace sky::gles {
 
         bool Init(const Descriptor &desc);
 
-    private:
-        Descriptor descriptor;
-    };
+        const std::vector<Attachment> &GetAttachments() const { return attachments; };
+        const std::vector<SubPass> &GetSubPasses() const { return subPasses; }
 
+    private:
+        std::vector<Attachment> attachments;
+        std::vector<SubPass>    subPasses;
+    };
+    using RenderPassPtr = std::shared_ptr<RenderPass>;
 }

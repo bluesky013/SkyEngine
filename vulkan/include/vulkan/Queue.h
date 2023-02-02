@@ -35,7 +35,7 @@ namespace sky::vk {
         CommandBufferPtr AllocateTlsCommandBuffer(const CommandBuffer::Descriptor &desc);
 
         void WaitIdle();
-
+        void Submit(const rhi::CommandBufferPtr &cmd) override {}
     private:
         const CommandPoolPtr &GetOrCreatePool();
 

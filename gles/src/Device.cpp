@@ -7,31 +7,29 @@
 
 namespace sky::gles {
 
+    Device::~Device()
+    {
+        graphicsQueue->Shutdown();
+        transferQueue->Shutdown();
+    }
+
     bool Device::Init(const Descriptor &desc)
     {
-        {
-            Context::Descriptor ctxDesc = {};
-            mainContext = std::make_unique<Context>();
-            mainContext->Init(ctxDesc);
-            pBuffer = std::make_unique<PBuffer>();
-            auto cfg = mainContext->QueryConfig(ctxDesc.defaultConfig);
-            pBuffer->Init(cfg);
-            mainContext->MakeCurrent(*pBuffer);
+        Context::Descriptor ctxDesc = {};
+        mainContext = std::make_unique<Context>();
+        mainContext->Init(ctxDesc);
 
-            graphicsContext = std::make_unique<Context>();
-            graphicsContext->Init(ctxDesc, mainContext->GetNativeHandle());
-        }
+        ctxDesc.sharedContext = mainContext->GetNativeHandle();
+        graphicsQueue = std::make_unique<Queue>(*this);
+        graphicsQueue->StartThread();
+        graphicsQueue->Init(ctxDesc);
 
-        {
-            Context::Descriptor ctxDesc = {};
-            ctxDesc.defaultConfig.rgb     = 8;
-            ctxDesc.defaultConfig.depth   = 0;
-            ctxDesc.defaultConfig.stencil = 0;
-
-            transferContext = std::make_unique<Context>();
-            transferContext->Init(ctxDesc, transferContext->GetNativeHandle());
-        }
-
+        ctxDesc.defaultConfig.rgb     = 8;
+        ctxDesc.defaultConfig.depth   = 0;
+        ctxDesc.defaultConfig.stencil = 0;
+        transferQueue = std::make_unique<Queue>(*this);
+        transferQueue->StartThread();
+        transferQueue->Init(ctxDesc);
         return true;
     }
 
@@ -40,14 +38,14 @@ namespace sky::gles {
         return mainContext.get();
     }
 
-    Context *Device::GetGraphicsContext() const
+    Queue *Device::GetGraphicsQueue() const
     {
-        return graphicsContext.get();
+        return graphicsQueue.get();
     }
 
-    Context *Device::GetTransferContext() const
+    Queue *Device::GetTransferQueue() const
     {
-        return transferContext.get();
+        return transferQueue.get();
     }
 
 }

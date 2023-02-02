@@ -44,4 +44,5 @@ namespace sky::rhi {
         virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() { return {}; }
     };
 
+    using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
 }

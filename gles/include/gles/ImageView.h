@@ -16,6 +16,7 @@ namespace sky::gles {
         ~ImageView() = default;
 
         bool Init(const rhi::ImageViewDesc &desc);
+        const ImagePtr &GetImage() const { return source; }
 
     private:
         friend class Image;

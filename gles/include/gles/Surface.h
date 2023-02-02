@@ -5,6 +5,7 @@
 #pragma once
 
 #include <gles/Forward.h>
+#include <memory>
 
 namespace sky::gles {
 
@@ -18,5 +19,5 @@ namespace sky::gles {
     protected:
         EGLSurface surface = EGL_NO_SURFACE;
     };
-
+    using SurfacePtr = std::shared_ptr<Surface>;
 }

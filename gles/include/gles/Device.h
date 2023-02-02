@@ -9,6 +9,7 @@
 #include <gles/PBuffer.h>
 #include <gles/Swapchain.h>
 #include <gles/Image.h>
+#include <gles/Queue.h>
 #include <memory>
 
 namespace sky::gles {
@@ -16,7 +17,7 @@ namespace sky::gles {
     class Device : public rhi::Device {
     public:
         Device() = default;
-        ~Device() = default;
+        ~Device();
 
         template <typename T, typename Desc>
         inline std::shared_ptr<T> CreateDeviceObject(const Desc &des)
@@ -32,18 +33,17 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
 
         Context *GetMainContext() const;
-        Context *GetGraphicsContext() const;
-        Context *GetTransferContext() const;
+        Queue *GetGraphicsQueue() const;
+        Queue *GetTransferQueue() const;
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
 
     private:
-        std::unique_ptr<PBuffer> pBuffer;
         std::unique_ptr<Context> mainContext;
-        std::unique_ptr<Context> graphicsContext;
-        std::unique_ptr<Context> transferContext;
+        std::unique_ptr<Queue> graphicsQueue;
+        std::unique_ptr<Queue> transferQueue;
     };
 
 }

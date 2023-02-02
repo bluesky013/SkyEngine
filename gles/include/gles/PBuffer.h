@@ -16,6 +16,6 @@ namespace sky::gles {
         PBuffer() = default;
         ~PBuffer() = default;
 
-        void Init(EGLConfig config);
+        bool Init(EGLConfig config);
     };
 }

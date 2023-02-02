@@ -46,7 +46,7 @@ namespace sky::gles {
         }
     }
 
-    bool Context::Init(const Descriptor &desc, EGLContext sharedContext)
+    bool Context::Init(const Descriptor &desc)
     {
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         EGLint defaultAttribs[]{
@@ -73,13 +73,12 @@ namespace sky::gles {
             EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
             EGL_CONTEXT_MINOR_VERSION_KHR, 2,
             EGL_NONE};
-        context = eglCreateContext(display, config, sharedContext, contextAttributes);
-        return true;
-    }
+        context = eglCreateContext(display, config, desc.sharedContext, contextAttributes);
 
-    EGLContext Context::GetNativeHandle() const
-    {
-        return context;
+        pBuffer = std::make_unique<PBuffer>();
+        pBuffer->Init(config);
+        MakeCurrent(*pBuffer);
+        return true;
     }
 
     EGLConfig Context::QueryConfig(const Config &config) const
@@ -108,7 +107,7 @@ namespace sky::gles {
 
     void Context::MakeCurrent(const Surface &surface)
     {
-        auto eglSurface = surface.GetSurface();
-        eglMakeCurrent(display, eglSurface, eglSurface, context);
+        currentSurface = surface.GetSurface();
+        eglMakeCurrent(display, currentSurface, currentSurface, context);
     }
 }

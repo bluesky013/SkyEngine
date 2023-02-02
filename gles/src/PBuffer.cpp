@@ -6,7 +6,7 @@
 
 namespace sky::gles {
 
-    void PBuffer::Init(EGLConfig config)
+    bool PBuffer::Init(EGLConfig config)
     {
         EGLint attributes[] = {
             EGL_WIDTH, 1,
@@ -14,6 +14,7 @@ namespace sky::gles {
             EGL_NONE
         };
         surface = eglCreatePbufferSurface(eglGetDisplay(EGL_DEFAULT_DISPLAY), config, attributes);
+        return surface != EGL_NO_SURFACE;
     }
 
 }

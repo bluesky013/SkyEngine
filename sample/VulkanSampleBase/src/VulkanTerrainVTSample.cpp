@@ -257,8 +257,8 @@ namespace sky {
         Matrix4 projectMatrix = Matrix4::Identity();
         float near = 0.f;
         float far = 10.f;
-        projectMatrix[0][0] = 1.f / swapChain->GetExtent().width;
-        projectMatrix[1][1] = 1.f / swapChain->GetExtent().height;
+        projectMatrix[0][0] = 1.f / swapChain->GetVkExtent().width;
+        projectMatrix[1][1] = 1.f / swapChain->GetVkExtent().height;
         projectMatrix[2][2] = -2.f / (far - near);
         projectMatrix[3][2] = (far + near) / (far - near);
         projectMatrix[3][3] = 1.f;

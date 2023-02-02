@@ -4,12 +4,64 @@
 
 #pragma once
 
+#include <thread>
+#include <deque>
+#include <functional>
+#include <condition_variable>
+#include <rhi/CommandBuffer.h>
+
 namespace sky::rhi {
+
+    using TransferTaskHandle = uint32_t;
+    struct TransferTask {
+        TransferTaskHandle taskId;
+        std::function<void()> func;
+        std::function<void(uint32_t)> callback;
+    };
 
     class Queue {
     public:
-        Queue() = default;
+        Queue();
         virtual ~Queue() = default;
+
+        void StartThread();
+        void Shutdown();
+        void Wait(TransferTaskHandle handle);
+        bool HasComplete(TransferTaskHandle handle) const;
+
+        template <typename T>
+        TransferTaskHandle CreateTask(T &&task)
+        {
+            return CreateTask(std::forward<T>(task), nullptr);
+        }
+
+        template <typename T, typename C>
+        TransferTaskHandle CreateTask(T &&task, C &&callback)
+        {
+            ++currentTaskId;
+            std::lock_guard<std::mutex> lock(taskMutex);
+            taskQueue.emplace_back(TransferTask{currentTaskId, std::move(task), std::move(callback)});
+            cv.notify_all();
+            return taskQueue.back().taskId;
+        }
+
+        virtual void Submit(const CommandBufferPtr &cmd) = 0;
+
+    protected:
+        void ThreadMain();
+        bool EmitSingleTask();
+        bool HasTask();
+
+        std::atomic_bool         exit;
+        std::atomic_uint32_t     currentTaskId;
+        std::atomic_uint32_t     lastTaskId;
+
+        std::thread              thread;
+        std::mutex               taskMutex;
+        std::mutex               mutex;
+        std::condition_variable  cv;
+        std::condition_variable  taskCv;
+        std::deque<TransferTask> taskQueue;
     };
 
 }

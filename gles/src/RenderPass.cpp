@@ -8,7 +8,8 @@ namespace sky::gles {
 
     bool RenderPass::Init(const Descriptor &desc)
     {
-        descriptor = desc;
+        attachments = desc.attachments;
+        subPasses = desc.subPasses;
         return true;
     }
 

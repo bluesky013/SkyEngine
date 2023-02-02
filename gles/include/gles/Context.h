@@ -7,6 +7,7 @@
 #include <gles/Forward.h>
 #include <gles/Config.h>
 #include <gles/Surface.h>
+#include <gles/PBuffer.h>
 #include <vector>
 
 namespace sky::gles {
@@ -18,21 +19,23 @@ namespace sky::gles {
 
         struct Descriptor {
             Config defaultConfig;
+            EGLContext sharedContext = EGL_NO_CONTEXT;
         };
 
-        bool Init(const Descriptor &desc, EGLContext sharedContext = EGL_NO_CONTEXT);
+        bool Init(const Descriptor &desc);
         void MakeCurrent(const Surface &surface);
 
         EGLConfig QueryConfig(const Config &config) const;
-
-        EGLContext GetNativeHandle() const;
+        EGLContext GetNativeHandle() const { return context; }
+        EGLSurface GetCurrentSurface() const { return currentSurface; }
 
     private:
         void PrintConfigs();
-
-        EGLContext context{EGL_NO_CONTEXT};
-        EGLDisplay display{EGL_NO_DISPLAY};
-        EGLConfig config{EGL_NO_CONFIG_KHR};
+        std::unique_ptr<PBuffer> pBuffer;
+        EGLContext context = EGL_NO_CONTEXT;
+        EGLDisplay display = EGL_NO_DISPLAY;
+        EGLSurface currentSurface = EGL_NO_SURFACE;
+        EGLConfig config = EGL_NO_CONFIG_KHR;
         std::vector<EGLConfig> configs;
     };
 

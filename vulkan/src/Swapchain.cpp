@@ -70,12 +70,12 @@ namespace sky::vk {
         }
     }
 
-    VkFormat SwapChain::GetFormat() const
+    VkFormat SwapChain::GetVkFormat() const
     {
         return format.format;
     }
 
-    const VkExtent2D &SwapChain::GetExtent() const
+    const VkExtent2D &SwapChain::GetVkExtent() const
     {
         return extent;
     }
@@ -233,5 +233,23 @@ namespace sky::vk {
     uint32_t SwapChain::GetImageCount() const
     {
         return imageCount;
+    }
+
+    rhi::PixelFormat SwapChain::GetFormat() const
+    {
+        if (format.format == VK_FORMAT_B8G8R8A8_UNORM) {
+            return rhi::PixelFormat::BGRA8_UNORM;
+        }
+        return rhi::PixelFormat::RGBA8_UNORM;
+    }
+
+    const rhi::Extent2D &SwapChain::GetExtent() const
+    {
+        return *static_cast<const rhi::Extent2D*>(reinterpret_cast<const void*>(&extent));
+    }
+
+    rhi::ImagePtr SwapChain::AcquireNextImage() const
+    {
+        return {};
     }
 } // namespace sky::vk

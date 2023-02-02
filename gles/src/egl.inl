@@ -129,11 +129,16 @@ EGLContext eglGetCurrentContext(void)
     return access();
 }
 
+EGLBoolean eglQuerySurface(EGLDisplay dpy, EGLSurface surface, EGLint attribute, EGLint *value)
+{
+    ACCESS(g_Egl, eglQuerySurface)
+    return access(dpy, surface, attribute, value);
+}
+
 //EGLBoolean eglCopyBuffers(EGLDisplay dpy, EGLSurface surface, EGLNativePixmapType target);
 //EGLSurface eglCreatePixmapSurface(EGLDisplay dpy, EGLConfig config, EGLNativePixmapType pixmap, const EGLint *attrib_list);
 //EGLBoolean eglQueryContext(EGLDisplay dpy, EGLContext ctx, EGLint attribute, EGLint *value);
 //const char *eglQueryString(EGLDisplay dpy, EGLint name);
-//EGLBoolean eglQuerySurface(EGLDisplay dpy, EGLSurface surface, EGLint attribute, EGLint *value);
 //EGLBoolean eglWaitGL(void);
 //EGLBoolean eglWaitNative(EGLint engine);
 //EGLBoolean eglBindTexImage(EGLDisplay dpy, EGLSurface surface, EGLint buffer);

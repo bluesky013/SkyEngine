@@ -40,14 +40,20 @@ namespace sky::vk {
 
         // for vulkan
         VkSwapchainKHR GetNativeHandle() const;
-        VkFormat GetFormat() const;
-        const VkExtent2D &GetExtent() const;
+        VkFormat          GetVkFormat() const;
+        const VkExtent2D &GetVkExtent() const;
         void Present(const PresentInfo &) const;
         VkResult AcquireNext(SemaphorePtr semaphore, uint32_t &next) const;
-
         ImagePtr GetImage(uint32_t image) const;
-        uint32_t GetImageCount() const;
 
+        // for rhi
+        uint32_t GetImageCount() const override;
+        rhi::PixelFormat GetFormat() const override;
+        const rhi::Extent2D &GetExtent() const override;
+        rhi::ImagePtr AcquireNextImage() const override;
+
+        bool HasDepthStencilImage() const override { return false; }
+        rhi::ImagePtr GetDepthStencilImage() const override { return {}; }
     private:
         friend class Device;
         SwapChain(Device &);

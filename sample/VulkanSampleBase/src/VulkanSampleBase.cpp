@@ -31,7 +31,7 @@ namespace sky {
         renderPass = vk::RenderPassFactory()()
                          .AddSubPass()
                          .AddColor()
-                         .Format(swapChain->GetFormat())
+                         .Format(swapChain->GetVkFormat())
                          .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
                          .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                          .Samples(VK_SAMPLE_COUNT_1_BIT)
@@ -77,7 +77,7 @@ namespace sky {
 
     void VulkanSampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
-        auto &ext = swapChain->GetExtent();
+        auto &ext = swapChain->GetVkExtent();
         if (ext.width == width && ext.height == height) {
             return;
         }
@@ -93,12 +93,12 @@ namespace sky {
         colorViews.resize(imageCount);
 
         vk::FrameBuffer::VkDescriptor fbDesc = {};
-        fbDesc.extent                       = swapChain->GetExtent();
+        fbDesc.extent                       = swapChain->GetVkExtent();
         fbDesc.pass                         = renderPass;
 
         vk::ImageView::VkDescriptor viewDesc = {};
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;
-        viewDesc.format                     = swapChain->GetFormat();
+        viewDesc.format                     = swapChain->GetVkFormat();
 
         for (uint32_t i = 0; i < imageCount; ++i) {
             auto image      = swapChain->GetImage(i);

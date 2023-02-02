@@ -6,8 +6,15 @@
 
 #include <rhi/FrameBuffer.h>
 #include <gles/DevObject.h>
+#include <gles/ImageView.h>
+#include <gles/RenderPass.h>
 
 namespace sky::gles {
+
+    struct FBOWithSurface {
+        GLuint fbo;
+        SurfacePtr surface;
+    };
 
     class FrameBuffer : public rhi::FrameBuffer, public DevObject {
     public:
@@ -17,7 +24,9 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
 
     private:
-        GLuint fbo = 0;
+        RenderPassPtr renderPass;
+        std::vector<ImageViewPtr> attachments;
+        std::vector<FBOWithSurface> fboList;
     };
 
 }

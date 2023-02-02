@@ -223,17 +223,17 @@ namespace sky {
 
         {
             vk::Image::VkDescriptor imageDesc = {};
-            imageDesc.format                = swapChain->GetFormat();
-            imageDesc.extent                = {swapChain->GetExtent().width, swapChain->GetExtent().height, 1};
+            imageDesc.format                = swapChain->GetVkFormat();
+            imageDesc.extent                = {swapChain->GetVkExtent().width, swapChain->GetVkExtent().height, 1};
             imageDesc.usage                 = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageDesc.memory                = VMA_MEMORY_USAGE_GPU_ONLY;
             rasterTarget                    = device->CreateDeviceObject<vk::Image>(imageDesc);
 
             vk::ImageView::VkDescriptor viewDesc = {};
-            viewDesc.format                    = swapChain->GetFormat();
+            viewDesc.format                    = swapChain->GetVkFormat();
             rasterTargetView                   = vk::ImageView::CreateImageView(rasterTarget, viewDesc);
 
-            vk::FrameBuffer::VkDescriptor fbDesc = {swapChain->GetExtent(), renderPass, {rasterTargetView}};
+            vk::FrameBuffer::VkDescriptor fbDesc = {swapChain->GetVkExtent(), renderPass, {rasterTargetView}};
             rasterFb                           = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
@@ -249,7 +249,7 @@ namespace sky {
             vkGetBufferMemoryRequirements(device->GetNativeHandle(), particleSystem->output->GetNativeHandle(), &requirements1);
 
             vk::Image::VkDescriptor imageDesc = {};
-            imageDesc.format                = swapChain->GetFormat();
+            imageDesc.format                = swapChain->GetVkFormat();
             imageDesc.extent                = {128, 128, 1};
             imageDesc.usage                 = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageDesc.memory                = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -270,7 +270,7 @@ namespace sky {
             vmaBindImageMemory(device->GetAllocator(), alloc, fullScreenTarget->GetNativeHandle());
 
             vk::ImageView::VkDescriptor viewDesc = {};
-            viewDesc.format                    = swapChain->GetFormat();
+            viewDesc.format                    = swapChain->GetVkFormat();
             fullScreenTargetView               = vk::ImageView::CreateImageView(fullScreenTarget, viewDesc);
 
             vk::FrameBuffer::VkDescriptor fbDesc = {VkExtent2D{128, 128}, renderPass, {fullScreenTargetView}};
@@ -300,7 +300,7 @@ namespace sky {
         sampledPass = vk::RenderPassFactory()()
                           .AddSubPass()
                           .AddColor()
-                          .Format(swapChain->GetFormat())
+                          .Format(swapChain->GetVkFormat())
                           .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                           .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                           .Samples(VK_SAMPLE_COUNT_1_BIT)

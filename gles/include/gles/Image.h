@@ -7,6 +7,7 @@
 #include <rhi/Image.h>
 #include <gles/DevObject.h>
 #include <gles/Conversion.h>
+#include <gles/Surface.h>
 
 namespace sky::gles {
 
@@ -18,9 +19,16 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
         rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc) override;
 
+        const SurfacePtr &GetSurface() const { return surface; }
+        GLuint GetNativeHandle() const { return texId; }
+        bool IsRenderBuffer() const { return renderBuffer; }
+
     private:
+        friend class SwapChain;
+
         GLuint texId = 0;
         bool renderBuffer = false;
+        SurfacePtr surface;
     };
 
     using ImagePtr = std::shared_ptr<Image>;
