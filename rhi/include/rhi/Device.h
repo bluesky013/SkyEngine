@@ -11,6 +11,8 @@
 #include <rhi/FrameBuffer.h>
 #include <rhi/CommandBuffer.h>
 #include <rhi/Fence.h>
+#include <rhi/Shader.h>
+#include <rhi/GraphicsPipeline.h>
 
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
@@ -40,6 +42,8 @@ namespace sky::rhi {
         virtual FrameBufferPtr CreateFrameBuffer(const FrameBuffer::Descriptor &desc) = 0;
         virtual CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) = 0;
         virtual FencePtr CreateFence(const Fence::Descriptor &desc) = 0;
+        virtual ShaderPtr CreateShader(const Shader::Descriptor &desc) = 0;
+        virtual GraphicsPipelinePtr CreateGraphicsPipeline(const GraphicsPipeline::Descriptor &desc) = 0;
 
         virtual Queue* GetQueue(QueueType type) const = 0;
 

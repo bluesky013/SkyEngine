@@ -19,6 +19,7 @@ namespace sky::gles {
 
     bool FrameBuffer::Init(const Descriptor &desc)
     {
+        extent = desc.extent;
         renderPass = std::static_pointer_cast<RenderPass>(desc.pass);
         attachments.reserve(desc.views.size());
         for (auto &attachment : desc.views) {

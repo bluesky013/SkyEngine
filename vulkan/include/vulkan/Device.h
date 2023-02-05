@@ -71,6 +71,8 @@ namespace sky::vk {
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
         CREATE_DEV_OBJ(Fence)
+        CREATE_DEV_OBJ(Shader)
+        CREATE_DEV_OBJ(GraphicsPipeline)
     private:
         bool Init(const Descriptor &, bool enableDebug);
 

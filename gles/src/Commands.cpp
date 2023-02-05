@@ -3,6 +3,7 @@
 //
 
 #include <gles/CommandContext.h>
+#include <gles/Core.h>
 
 namespace sky::gles {
 
@@ -25,11 +26,12 @@ namespace sky::gles {
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(clear.color.float32[0], clear.color.float32[1], clear.color.float32[2], clear.color.float32[3]);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        
-        if (fb0.surface) {
-            eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), fb0.surface->GetSurface());
-        }
+        auto &ext = glesFb->GetExtent();
+        glViewport(0, 0, ext.width, ext.height);
+        glScissor(0, 0, ext.width, ext.height);
+
+        fbo = fb0.fbo;
+        surface = fb0.surface;
     }
 
     void CommandContext::CmdBindPipeline(const GraphicsPipelinePtr &pso)
@@ -70,7 +72,7 @@ namespace sky::gles {
 
     void CommandContext::CmdDrawLinear(const rhi::CmdDrawLinear &linear)
     {
-//        glDrawArraysInstanced();
+        CHECK(glDrawArraysInstanced(GL_TRIANGLES, linear.firstVertex, linear.vertexCount, linear.instanceCount));
     }
 
     void CommandContext::CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size)
@@ -79,6 +81,8 @@ namespace sky::gles {
 
     void CommandContext::CmdEndPass()
     {
-
+        if (fbo == 0 && surface) {
+            eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), surface->GetSurface());
+        }
     }
 }

@@ -75,6 +75,7 @@ namespace sky::gles {
 
     rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
     {
+        commandBuffer.EnqueueMessage(&CommandContext::CmdEndPass, context);
         return *this;
     }
 

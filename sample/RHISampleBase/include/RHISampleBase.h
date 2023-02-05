@@ -37,6 +37,7 @@ namespace sky::rhi {
         rhi::RenderPassPtr renderPass;
         std::vector<rhi::FrameBufferPtr> frameBuffers;
         rhi::CommandBufferPtr commandBuffer;
+        rhi::GraphicsPipelinePtr pso;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

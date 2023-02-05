@@ -6,6 +6,42 @@
 
 namespace sky::rhi {
 
+    const char* VS = "#version 320 es\n"
+                     "layout(location = 0) out vec2 vUv;"
+                     "vec2 positions[3] = vec2[]("
+                     "    vec2(-1.0,  3.0),"
+                     "    vec2(-1.0, -1.0),"
+                     "    vec2( 3.0, -1.0)"
+                     ");"
+                     "vec2 uv[3] = vec2[]("
+                     "    vec2(0.0, 2.0),"
+                     "    vec2(0.0, 0.0),"
+                     "    vec2(2.0, 0.0)"
+                     ");"
+                     "void main()"
+                     "{"
+                     "    gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);"
+                     "    vUv = uv[gl_VertexID];"
+                     "}";
+
+    const char* FS = "#version 320 es\n"
+                     "precision highp float;"
+                     "layout(location = 0) in vec2 vUv;"
+                     "layout(location = 0) out vec4 outColor;"
+                     "void main()"
+                     "{"
+                     "    outColor = vec4(0, 0, 1, 1);"
+                     "}";
+
+    ShaderPtr CreateShader(Device &device, ShaderStageFlagBit stage, const char* source)
+    {
+        Shader::Descriptor shaderDesc = {};
+        shaderDesc.stage = stage;
+        shaderDesc.data.resize(strlen(source) + 1);
+        memcpy(shaderDesc.data.data(), source, strlen(source) + 1);
+        return device.CreateShader(shaderDesc);
+    }
+
     void RHISampleBase::OnStart()
     {
         instance = Instance::Create({"", "", false, API::GLES});
@@ -24,7 +60,7 @@ namespace sky::rhi {
         auto &ext = swapChain->GetExtent();
         uint32_t count = swapChain->GetImageCount();
 
-        rhi::RenderPass::Descriptor passDesc = {};
+        RenderPass::Descriptor passDesc = {};
         passDesc.attachments.emplace_back(RenderPass::Attachment{
             format,
             SampleCount::X1,
@@ -38,7 +74,7 @@ namespace sky::rhi {
         });
         renderPass = device->CreateRenderPass(passDesc);
 
-        rhi::FrameBuffer::Descriptor fbDesc = {};
+        FrameBuffer::Descriptor fbDesc = {};
         fbDesc.extent = ext;
         fbDesc.pass = renderPass;
         frameBuffers.reserve(count);
@@ -47,8 +83,17 @@ namespace sky::rhi {
             frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
         }
 
-        rhi::CommandBuffer::Descriptor cmdDesc = {};
+        CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = device->CreateCommandBuffer(cmdDesc);
+
+        GraphicsPipeline::Descriptor psoDesc = {};
+        psoDesc.state;
+        psoDesc.vs = CreateShader(*device, ShaderStageFlagBit::VS, VS);
+        psoDesc.fs = CreateShader(*device, ShaderStageFlagBit::FS, FS);
+        psoDesc.renderPass = renderPass;
+        psoDesc.pipelineLayout;
+        psoDesc.vertexInput;
+        pso = device->CreateGraphicsPipeline(psoDesc);
     }
 
     void RHISampleBase::OnStop()
@@ -64,7 +109,7 @@ namespace sky::rhi {
 
     void RHISampleBase::OnTick(float delta)
     {
-        rhi::ClearValue clear = {};
+        ClearValue clear = {};
         clear.color.float32[0] = 1.f;
         clear.color.float32[1] = 0.f;
         clear.color.float32[2] = 0.f;
@@ -74,6 +119,8 @@ namespace sky::rhi {
         uint32_t index = swapChain->AcquireNextImage();
         commandBuffer->Begin();
         commandBuffer->EncodeGraphics()->BeginPass(frameBuffers[index], renderPass, 1, &clear)
+            .BindPipeline(pso)
+            .DrawLinear({3, 1, 0, 0})
             .EndPass();
         commandBuffer->End();
         commandBuffer->Submit(*queue);

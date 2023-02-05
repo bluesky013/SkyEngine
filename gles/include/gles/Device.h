@@ -14,6 +14,7 @@
 #include <gles/FrameBuffer.h>
 #include <gles/CommandBuffer.h>
 #include <gles/Fence.h>
+#include <gles/Shader.h>
 #include <memory>
 
 namespace sky::gles {
@@ -48,6 +49,8 @@ namespace sky::gles {
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
         CREATE_DEV_OBJ(Fence)
+        CREATE_DEV_OBJ(Shader)
+        CREATE_DEV_OBJ(GraphicsPipeline)
 
     private:
         std::unique_ptr<Context> mainContext;

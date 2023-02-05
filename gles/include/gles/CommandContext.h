@@ -37,5 +37,7 @@ namespace sky::gles {
 
         GLuint vao = 0;
         GLuint program = 0;
+        GLuint fbo = 0;
+        SurfacePtr surface;
     };
 }
