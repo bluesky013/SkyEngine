@@ -128,6 +128,11 @@ namespace sky::gles {
         }
     }
 
+    CommandBuffer::~CommandBuffer() noexcept
+    {
+        fence->Wait();
+    }
+
     void CommandBuffer::Begin()
     {
         fence->Wait();

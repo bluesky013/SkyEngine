@@ -39,7 +39,7 @@ namespace sky::gles {
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
         CommandBuffer(Device &dev) : DevObject(dev) {}
-        ~CommandBuffer() = default;
+        ~CommandBuffer();
 
         void Begin() override;
         void End() override;

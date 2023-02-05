@@ -137,7 +137,12 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStop()
     {
+        commandBuffer = nullptr;
+        pso = nullptr;
+        image = nullptr;
         swapChain = nullptr;
+        renderPass = nullptr;
+        frameBuffers.clear();
 
         delete device;
         device = nullptr;
