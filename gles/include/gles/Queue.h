@@ -19,6 +19,8 @@ namespace sky::gles {
         bool Init(const Context::Descriptor &cfg, rhi::QueueType type);
         Context *GetContext() const { return context.get(); }
 
+        rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request) override;
+
     protected:
         std::unique_ptr<Context> context;
     };

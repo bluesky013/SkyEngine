@@ -3,6 +3,7 @@
 //
 
 #include "RHISampleBase.h"
+#include <rhi/Queue.h>
 
 namespace sky::rhi {
 
@@ -94,6 +95,44 @@ namespace sky::rhi {
         psoDesc.pipelineLayout;
         psoDesc.vertexInput;
         pso = device->CreateGraphicsPipeline(psoDesc);
+
+        rhi::Image::Descriptor imageDesc = {};
+        imageDesc.imageType   = ImageType::IMAGE_2D;
+        imageDesc.format      = PixelFormat::RGBA8_UNORM;
+        imageDesc.extent      = {4, 4, 1};
+        imageDesc.usage       = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
+        image = device->CreateImage(imageDesc);
+
+        struct RGBA8 {
+            union {
+                uint8_t data[4];
+                struct {
+                    uint8_t r;
+                    uint8_t g;
+                    uint8_t b;
+                    uint8_t a;
+                };
+            };
+        };
+        RGBA8 data[4][4];
+        for (uint32_t i = 0; i < 4; ++i) {
+            for (uint32_t j = 0; j < 4; ++j) {
+                auto &dat = data[i][j];
+                dat.r = i * (256 / 4);
+                dat.g = j * (256 / 4);
+                dat.b = 255;
+                dat.a = 255;
+            }
+        }
+        auto tq = device->GetQueue(QueueType::TRANSFER);
+        rhi::ImageUploadRequest uploadRequest = {};
+        uploadRequest.data     = reinterpret_cast<const uint8_t*>(data);
+        uploadRequest.size     = 16 * sizeof(RGBA8);
+        uploadRequest.imageOffset = {0, 0, 0};
+        uploadRequest.imageExtent = {4, 4, 1};
+
+        auto handle = tq->UploadImage(image, uploadRequest);
+        tq->Wait(handle);
     }
 
     void RHISampleBase::OnStop()

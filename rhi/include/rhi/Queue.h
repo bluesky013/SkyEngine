@@ -9,6 +9,8 @@
 #include <functional>
 #include <condition_variable>
 #include <rhi/CommandBuffer.h>
+#include <rhi/Buffer.h>
+#include <rhi/Image.h>
 
 namespace sky::rhi {
 
@@ -51,6 +53,9 @@ namespace sky::rhi {
         }
 
         rhi::QueueType GetQueueType() const { return type; }
+
+        virtual TransferTaskHandle UploadImage(const ImagePtr &image, const rhi::ImageUploadRequest &request) { return 0; }
+
 
     protected:
         void ThreadMain();

@@ -39,6 +39,8 @@ namespace sky::rhi {
         rhi::CommandBufferPtr commandBuffer;
         rhi::GraphicsPipelinePtr pso;
 
+        rhi::ImagePtr image;
+
         uint32_t frameIndex = 0;
         uint32_t frame = 0;
     };
