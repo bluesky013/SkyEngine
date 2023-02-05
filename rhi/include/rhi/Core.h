@@ -318,7 +318,7 @@ namespace sky::rhi {
         float maxDepth = 1.f;
     };
 
-    struct ClearColorValue {
+    union ClearColorValue {
         float       float32[4];
         int32_t     int32[4];
         uint32_t    uint32[4];

@@ -15,8 +15,9 @@ namespace sky::gles {
         ~VertexAssembly();
 
         bool Init(const Descriptor &desc);
+        GLuint GetNativeHandle() const { return vao; }
     private:
         GLuint vao = 0;
     };
-
+    using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 }

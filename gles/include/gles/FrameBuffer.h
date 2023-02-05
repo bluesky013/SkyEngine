@@ -29,5 +29,6 @@ namespace sky::gles {
         std::vector<ImageViewPtr> attachments;
         std::vector<FBOWithSurface> fboList;
     };
+    using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 
 }

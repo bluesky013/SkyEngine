@@ -10,6 +10,7 @@
 #include <gles/CommandStorage.h>
 #include <gles/Context.h>
 #include <gles/Fence.h>
+#include <gles/CommandContext.h>
 
 namespace sky::gles {
     class Device;
@@ -17,7 +18,7 @@ namespace sky::gles {
 
     class GraphicsEncoder : public rhi::GraphicsEncoder {
     public:
-        GraphicsEncoder(CommandBuffer &cmd) : commandBuffer(cmd) {}
+        GraphicsEncoder(CommandBuffer &cmd, CommandContext *ctx) : commandBuffer(cmd), context(ctx) {}
         ~GraphicsEncoder() = default;
 
         rhi::GraphicsEncoder &BeginPass(const rhi::FrameBufferPtr &frameBuffer, const rhi::RenderPassPtr &renderPass, uint32_t clearCount, rhi::ClearValue *clearValues) override;
@@ -32,6 +33,7 @@ namespace sky::gles {
 
     private:
         CommandBuffer &commandBuffer;
+        CommandContext *context = nullptr;
     };
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
@@ -54,11 +56,12 @@ namespace sky::gles {
         template <typename Func, typename ...Args>
         class Task : public TaskBase {
         public:
-            using Parameters = std::tuple<Args...>;
+            using Parameters = std::tuple<std::remove_reference_t<Args>...>;
+            using FuncType = Func;
 
             Task(Func &&f, Args &&...args) : func(f), params(std::forward<Args>(args)...) {}
 
-            Func func;
+            FuncType   func;
             Parameters params;
 
             void Execute() override
@@ -95,7 +98,7 @@ namespace sky::gles {
         Iterator iterator = storages.end();
         TaskBase* head = nullptr;
         TaskBase** current = &head;
-        Context *context = nullptr;
+        std::unique_ptr<CommandContext> context;
         FencePtr fence;
     };
 

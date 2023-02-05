@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <rhi/Core.h>
 #include <gles/Forward.h>
 #include <gles/Config.h>
 #include <gles/Surface.h>
@@ -29,6 +30,7 @@ namespace sky::gles {
         EGLContext GetNativeHandle() const { return context; }
         EGLSurface GetCurrentSurface() const { return currentSurface; }
 
+        rhi::PipelineState gfxState;
     private:
         void PrintConfigs();
         std::unique_ptr<PBuffer> pBuffer;

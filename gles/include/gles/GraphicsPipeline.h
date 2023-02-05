@@ -15,6 +15,8 @@ namespace sky::gles {
         ~GraphicsPipeline() = default;
 
         bool Init(const Descriptor &desc);
+        GLuint GetProgram() const { return program; }
+        const rhi::PipelineState &GetPipelineState() const { return state; }
 
     private:
         bool InitProgram(const Descriptor &desc);
@@ -22,5 +24,6 @@ namespace sky::gles {
         rhi::PipelineState state;
         GLuint program = 0;
     };
+    using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 
 }

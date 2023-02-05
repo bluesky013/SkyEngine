@@ -14,48 +14,24 @@ namespace sky::gles {
         uint32_t copySize = clearCount * sizeof(rhi::ClearValue);
         rhi::ClearValue *copyValues = reinterpret_cast<rhi::ClearValue*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, clearValues, copySize);
-        commandBuffer.EnqueueMessage([](const rhi::FrameBufferPtr &fb, const rhi::RenderPassPtr &pass, uint32_t count, rhi::ClearValue *values) {
-            auto glesFb = std::static_pointer_cast<FrameBuffer>(fb);
-            auto &fbs = glesFb->GetNativeHandles();
-
-            auto fb0 = fbs[0];
-            auto clear = values[0];
-
-            if (fb0.surface) {
-                auto surface = fb0.surface->GetSurface();
-                EGLSurface current = eglGetCurrentSurface(EGL_DRAW);
-                EGLContext context = eglGetCurrentContext();
-                if (surface != current) {
-                    eglMakeCurrent(eglGetDisplay(EGL_DEFAULT_DISPLAY), surface, surface, context);
-                }
-            }
-
-            glBindFramebuffer(GL_FRAMEBUFFER, fb0.fbo);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glClearColor(clear.color.float32[0], clear.color.float32[1], clear.color.float32[2], clear.color.float32[3]);
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-            if (fb0.surface) {
-                eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), fb0.surface->GetSurface());
-            }
-            CHECK();
-
-        }, frameBuffer, renderPass, clearCount, copyValues);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdBeginPass, context,
+                                     std::static_pointer_cast<FrameBuffer>(frameBuffer),
+                                     std::static_pointer_cast<RenderPass>(renderPass),
+                                     clearCount, copyValues);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindPipeline(const rhi::GraphicsPipelinePtr &pso)
     {
-        commandBuffer.EnqueueMessage([](const rhi::GraphicsPipelinePtr &pso) {
-        }, pso);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdBindPipeline, context,
+                                     std::static_pointer_cast<GraphicsPipeline>(pso));
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindAssembly(const rhi::VertexAssemblyPtr &assembly)
     {
-        commandBuffer.EnqueueMessage([](const rhi::VertexAssemblyPtr &assembly) {
-        }, assembly);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdBindAssembly, context,
+                                     std::static_pointer_cast<VertexAssembly>(assembly));
         return *this;
     }
 
@@ -64,8 +40,7 @@ namespace sky::gles {
         uint32_t copySize = count * sizeof(rhi::Viewport);
         rhi::Viewport *copyValues = reinterpret_cast<rhi::Viewport*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, viewport, copySize);
-        commandBuffer.EnqueueMessage([](uint32_t count, const rhi::Viewport *viewport) {
-        }, count, copyValues);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdSetViewport, context, count, copyValues);
         return *this;
     }
 
@@ -74,29 +49,27 @@ namespace sky::gles {
         uint32_t copySize = count * sizeof(rhi::Rect2D);
         rhi::Rect2D *copyValues = reinterpret_cast<rhi::Rect2D*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, scissor, copySize);
-        commandBuffer.EnqueueMessage([](uint32_t count, const rhi::Rect2D *scissor) {
-        }, count, scissor);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdSetScissor, context, count, scissor);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
-        commandBuffer.EnqueueMessage([](const rhi::CmdDrawIndexed &indexed) {
-        }, indexed);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdDrawIndexed, context, indexed);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawLinear(const rhi::CmdDrawLinear &linear)
     {
-        commandBuffer.EnqueueMessage([](const rhi::CmdDrawLinear &linear) {
-        }, linear);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdDrawLinear, context, linear);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size)
     {
-        commandBuffer.EnqueueMessage([](const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size) {
-        }, buffer, offset, size);
+        commandBuffer.EnqueueMessage(&CommandContext::CmdDrawIndirect, context,
+                                     std::static_pointer_cast<Buffer>(buffer),
+                                     offset, size);
         return *this;
     }
 
@@ -140,6 +113,7 @@ namespace sky::gles {
     {
         AllocateStorage();
         fence = std::static_pointer_cast<Fence>(device.CreateFence({}));
+        context = std::make_unique<CommandContext>();
         return true;
     }
 
@@ -167,16 +141,15 @@ namespace sky::gles {
     void CommandBuffer::Submit(rhi::Queue &queue)
     {
         auto &glesQueue = static_cast<Queue&>(queue);
-        context = glesQueue.GetContext();
+        context->SetContext(glesQueue.GetContext());
         glesQueue.CreateTask([this]() {
             Execute();
-            context = nullptr;
             fence->Signal();
         });
     }
 
     std::shared_ptr<rhi::GraphicsEncoder> CommandBuffer::EncodeGraphics()
     {
-        return std::static_pointer_cast<rhi::GraphicsEncoder>(std::make_shared<GraphicsEncoder>(*this));
+        return std::static_pointer_cast<rhi::GraphicsEncoder>(std::make_shared<GraphicsEncoder>(*this, context.get()));
     }
 }
