@@ -9,7 +9,6 @@ namespace sky::gles {
 
     bool DescriptorSetLayout::Init(const Descriptor &desc)
     {
-        descriptor = desc;
         return true;
     }
 }

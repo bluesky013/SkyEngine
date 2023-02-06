@@ -5,6 +5,12 @@
 #include <gles/DescriptorSet.h>
 
 namespace sky::gles {
+    bool DescriptorSet::Init(const Descriptor &desc)
+    {
+        layout = std::static_pointer_cast<DescriptorSetLayout>(desc.layout);
+        return true;
+    }
+
     void DescriptorSet::BindBuffer(uint32_t binding, rhi::DescriptorType type, const rhi::BufferViewPtr &view, uint32_t index)
     {
 

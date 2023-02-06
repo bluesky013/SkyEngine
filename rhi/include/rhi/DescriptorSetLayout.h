@@ -23,9 +23,6 @@ namespace sky::rhi {
         struct Descriptor {
             std::vector<SetBinding> bindings;
         };
-
-    protected:
-        Descriptor descriptor;
     };
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 }

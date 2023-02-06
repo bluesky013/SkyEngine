@@ -21,9 +21,6 @@ namespace sky::rhi {
         RegisterSample<RHISampleBase>();
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
-        auto nativeWindow = systemApi->GetViewport();
-        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
-
         auto &settings = systemApi->GetSettings();
         auto rhi = settings.VisitString("rhi");
         if (rhi == "gles") {
@@ -35,7 +32,12 @@ namespace sky::rhi {
         } else if (rhi == "metal") {
             api = API::METAL;
         }
-        return API_CHECK[static_cast<uint32_t>(api)];
+        if (API_CHECK[static_cast<uint32_t>(api)]) {
+            auto nativeWindow = systemApi->GetViewport();
+            Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+            return true;
+        }
+        return false;
     }
 
     void RHISample::Start()

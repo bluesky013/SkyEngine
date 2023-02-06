@@ -16,5 +16,6 @@ namespace sky::gles {
 
         bool Init(const Descriptor &desc);
     };
+    using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 
 }
