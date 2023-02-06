@@ -26,8 +26,8 @@ namespace sky::rhi {
             bool            allocateMem = true;
         };
 
-        const Descriptor &GetDescriptor() const;
-        const ImageFormatInfo &GetFormatInfo() const;
+        const Descriptor &GetDescriptor() const { return imageDesc; };
+        const ImageFormatInfo &GetFormatInfo() const { return formatInfo; };
 
         virtual ImageViewPtr CreateView(const ImageViewDesc &desc) = 0;
 

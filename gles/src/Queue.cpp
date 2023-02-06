@@ -21,7 +21,7 @@ namespace sky::gles {
     rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request)
     {
         auto glesImage = std::static_pointer_cast<Image>(image);
-        CreateTask([glesImage, request]() {
+        auto handle = CreateTask([glesImage, request]() {
             auto &desc = glesImage->GetDescriptor();
             auto &fmt = GetInternalFormat(desc.format);
             glBindTexture(GL_TEXTURE_2D, glesImage->GetNativeHandle());
@@ -33,7 +33,7 @@ namespace sky::gles {
                 fmt.type,
                 reinterpret_cast<const GLvoid *>(request.data + request.offset)));
         });
-        return 0;
+        return handle;
     };
 }
 
