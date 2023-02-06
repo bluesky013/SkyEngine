@@ -46,7 +46,7 @@ namespace sky {
 
         void SetExit() override;
 
-        const SettingRegistry &GetSettings() const override;
+        SettingRegistry &GetSettings() override;
 
         template <typename T>
         void BindTick(T &&val)

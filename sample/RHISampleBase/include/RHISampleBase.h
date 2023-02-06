@@ -27,6 +27,7 @@ namespace sky::rhi {
         virtual void OnStart();
         virtual void OnStop();
         virtual void OnTick(float delta);
+        void SetAPI(API api) { rhi = api; }
 
     protected:
         void OnWindowResize(uint32_t width, uint32_t height) override;
@@ -43,5 +44,6 @@ namespace sky::rhi {
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;
+        API rhi = API::DEFAULT;
     };
 }

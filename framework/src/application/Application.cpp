@@ -60,7 +60,9 @@ namespace sky {
                 if (mod == nullptr) {
                     continue;
                 }
-                mod->Init();
+                if (!mod->Init()) {
+                    continue;
+                }
                 modules.emplace_back(std::unique_ptr<IModule>(mod));
                 dynLibs.emplace_back(std::move(dynModule));
             }
@@ -91,7 +93,7 @@ namespace sky {
         exit = true;
     }
 
-    const SettingRegistry &Application::GetSettings() const
+    SettingRegistry &Application::GetSettings()
     {
         return settings;
     }

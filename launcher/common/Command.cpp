@@ -5,6 +5,7 @@
 #include "Command.h"
 #include <iostream>
 #include <string>
+#include <framework/application/SettingRegistry.h>
 
 namespace sky {
 
@@ -17,6 +18,13 @@ namespace sky {
                 if (i < argc) {
                     auto str = argv[i];
                     output.modules.emplace_back(str);
+                }
+            }
+
+            if (std::string(str) == "--rhi") {
+                i++;
+                if (i < argc) {
+                    output.values.emplace("rhi", argv[i]);
                 }
             }
         }

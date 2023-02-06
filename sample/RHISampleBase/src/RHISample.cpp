@@ -4,15 +4,38 @@
 
 #include "RHISample.h"
 #include "RHISampleBase.h"
+#include <framework/application/SettingRegistry.h>
 
 namespace sky::rhi {
 
-    void RHISample::Init()
+    static const bool API_CHECK[] = {
+        false,
+        true,
+        false,
+        false,
+        true
+    };
+
+    bool RHISample::Init()
     {
         RegisterSample<RHISampleBase>();
 
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
+        auto nativeWindow = systemApi->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+
+        auto &settings = systemApi->GetSettings();
+        auto rhi = settings.VisitString("rhi");
+        if (rhi == "gles") {
+            api = API::GLES;
+        } else if (rhi == "vulkan") {
+            api = API::VULKAN;
+        } else if (rhi == "dx12") {
+            api = API::DX12;
+        } else if (rhi == "metal") {
+            api = API::METAL;
+        }
+        return API_CHECK[static_cast<uint32_t>(api)];
     }
 
     void RHISample::Start()

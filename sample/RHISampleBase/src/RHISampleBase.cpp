@@ -29,9 +29,10 @@ namespace sky::rhi {
                      "precision highp float;"
                      "layout(location = 0) in vec2 vUv;"
                      "layout(location = 0) out vec4 outColor;"
+                     "layout(binding = 0) uniform sampler2D tex;"
                      "void main()"
                      "{"
-                     "    outColor = vec4(0, 0, 1, 1);"
+                     "    outColor = texture(tex, vUv);"
                      "}";
 
     ShaderPtr CreateShader(Device &device, ShaderStageFlagBit stage, const char* source)
@@ -45,10 +46,11 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStart()
     {
-        instance = Instance::Create({"", "", false, API::GLES});
+        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
+        instance = Instance::Create({"", "", false, rhi});
         device   = instance->CreateDevice({});
 
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        auto nativeWindow = systemApi->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
         SwapChain::Descriptor swcDesc = {};
 
@@ -161,6 +163,7 @@ namespace sky::rhi {
 
         auto queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage();
+
         commandBuffer->Begin();
         commandBuffer->EncodeGraphics()->BeginPass(frameBuffers[index], renderPass, 1, &clear)
             .BindPipeline(pso)

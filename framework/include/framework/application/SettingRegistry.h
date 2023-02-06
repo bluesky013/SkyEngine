@@ -14,21 +14,28 @@ namespace sky {
 
     class SettingRegistry {
     public:
-        SettingRegistry()  = default;
+        SettingRegistry() { document.SetObject(); }
         ~SettingRegistry() = default;
 
         template <typename T>
         void SetValue(std::string_view key, const T &value)
         {
-            rapidjson::Pointer pointer(key.data(), key.length());
-            if (pointer.IsValid()) {
-                if constexpr (std::is_same_v<T, std::string_view>) {
-                    rapidjson::Value &setting = pointer.Create(document, document.GetAllocator());
-                    setting.SetString(value.data(), static_cast<rapidjson::SizeType>(value.length()), document.GetAllocator());
-                } else {
-                    pointer.Set(document, value);
-                }
+            rapidjson::Value kValue(key.data(), static_cast<rapidjson::SizeType>(key.length()), document.GetAllocator());
+            rapidjson::Value rValue;
+            if constexpr (std::is_same_v<T, std::string_view> || std::is_same_v<T, std::string>) {
+                rValue.SetString(value.data(), document.GetAllocator());
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                rValue.SetUint64(value, document.GetAllocator());
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                rValue.SetInt64(value, document.GetAllocator());
+            } else if constexpr (std::is_floating_point_v<T>) {
+                rValue.SetDouble(value, document.GetAllocator());
+            } else if constexpr (std::is_signed_v<T>) {
+                rValue.SetInt(static_cast<int32_t>(value));
+            } else if constexpr (std::is_unsigned_v<T>) {
+                rValue.SetUint(static_cast<uint32_t>(value));
             }
+            document.AddMember(kValue, rValue, document.GetAllocator());
         }
 
         std::string VisitString(std::string_view key) const
@@ -39,6 +46,7 @@ namespace sky {
                     return std::string(value.GetString());
                 }
             }
+            auto member = document.MemberCount();
             return {};
         }
 

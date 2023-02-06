@@ -19,7 +19,7 @@ namespace sky {
         VulkanSample() = default;
         ~VulkanSample() = default;
 
-        void Init() override;
+        bool Init() override;
 
         void Start() override;
 

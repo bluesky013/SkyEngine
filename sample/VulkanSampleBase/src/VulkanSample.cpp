@@ -13,7 +13,7 @@
 
 namespace sky {
 
-    void VulkanSample::Init()
+    bool VulkanSample::Init()
     {
         RegisterSample<VulkanTriangleSample>();
         RegisterSample<VulkanMemoryAliasing>();
@@ -27,6 +27,8 @@ namespace sky {
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+
+        return true;
     }
 
     void VulkanSample::Start()

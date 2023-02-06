@@ -20,7 +20,7 @@ namespace sky::rhi {
         RHISample() = default;
         ~RHISample() = default;
 
-        void Init() override;
+        bool Init() override;
 
         void Start() override;
 
@@ -31,8 +31,9 @@ namespace sky::rhi {
         template <typename T>
         void RegisterSample()
         {
-            samples.emplace_back([]() -> RHISampleBase* {
+            samples.emplace_back([this]() -> RHISampleBase* {
                 auto *sample =  new T();
+                sample->SetAPI(api);
                 sample->OnStart();
                 return sample;
             });
@@ -47,6 +48,7 @@ namespace sky::rhi {
         std::vector<std::function<RHISampleBase*()>> samples;
         uint32_t currentIndex = 0;
         std::unique_ptr<RHISampleBase> currentSample;
+        API api = API::DEFAULT;
     };
 
 }
