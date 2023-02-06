@@ -31,4 +31,8 @@ namespace sky::gles {
     const FormatFeature &GetFormatFeature(rhi::PixelFormat format);
     const VertexFormat &GetVertexFormat(rhi::Format format);
 
+    GLenum FromRHI(rhi::Filter, rhi::MipFilter);
+    GLenum FromRHI(rhi::Filter);
+    GLenum FromRHI(rhi::WrapMode mode);
+
 }

@@ -23,7 +23,7 @@ namespace sky::rhi {
             float     minLod           = 0.f;
             float     maxLod           = 0.25f;
             float     maxAnisotropy    = 0.f;
-            bool      anisotropyEnable = VK_FALSE;
+            bool      anisotropyEnable = false;
         };
     };
     using SamplerPtr = std::shared_ptr<Sampler>;

@@ -110,6 +110,14 @@ namespace sky::gles {
         {rhi::Format::F_RGBA32,  {4, GL_FLOAT, GL_FALSE}},
     };
 
+    const std::unordered_map<rhi::WrapMode, GLenum> WRAP_MODE_MAP = {
+        {rhi::WrapMode::REPEAT,               GL_REPEAT},
+        {rhi::WrapMode::MIRRORED_REPEAT,      GL_MIRRORED_REPEAT},
+        {rhi::WrapMode::CLAMP_TO_EDGE,        GL_CLAMP_TO_EDGE},
+        {rhi::WrapMode::CLAMP_TO_BORDER,      GL_CLAMP_TO_BORDER},
+        {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, GL_MIRROR_CLAMP_TO_EDGE_EXT},
+    };
+
     const InternalFormat &GetInternalFormat(rhi::PixelFormat format)
     {
         return FORMAT_MAP.find(format)->second;
@@ -125,4 +133,24 @@ namespace sky::gles {
         return VERTEX_FORMAT_TABLE.find(format)->second;
     }
 
+    GLenum FromRHI(rhi::Filter filter, rhi::MipFilter mipFilter)
+    {
+        if (mipFilter == rhi::MipFilter::LINEAR) {
+            if (filter == rhi::Filter::LINEAR)  return GL_LINEAR_MIPMAP_LINEAR;
+            return GL_NEAREST_MIPMAP_LINEAR;
+        } else {
+            if (filter == rhi::Filter::LINEAR) return GL_LINEAR_MIPMAP_NEAREST;
+            return GL_NEAREST_MIPMAP_NEAREST;
+        }
+    }
+
+    GLenum FromRHI(rhi::Filter filter)
+    {
+        return filter == rhi::Filter::LINEAR ? GL_LINEAR : GL_NEAREST;
+    }
+
+    GLenum FromRHI(rhi::WrapMode mode)
+    {
+        return WRAP_MODE_MAP.find(mode)->second;
+    }
 }
