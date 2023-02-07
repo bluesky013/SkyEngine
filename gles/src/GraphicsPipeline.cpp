@@ -6,10 +6,29 @@
 #include <gles/Shader.h>
 #include <gles/Core.h>
 #include <core/logger/Logger.h>
+#include <unordered_set>
 
 static const char* TAG = "GLES";
 
 namespace sky::gles {
+
+    static std::unordered_set<GLenum> SAMPLER_TYPE = {
+        GL_SAMPLER_2D,
+        GL_SAMPLER_3D,
+        GL_SAMPLER_CUBE,
+        GL_SAMPLER_2D_SHADOW,
+        GL_SAMPLER_2D_ARRAY,
+        GL_SAMPLER_2D_ARRAY_SHADOW,
+        GL_SAMPLER_CUBE_SHADOW,
+        GL_INT_SAMPLER_2D,
+        GL_INT_SAMPLER_3D,
+        GL_INT_SAMPLER_CUBE,
+        GL_INT_SAMPLER_2D_ARRAY,
+        GL_UNSIGNED_INT_SAMPLER_2D,
+        GL_UNSIGNED_INT_SAMPLER_3D,
+        GL_UNSIGNED_INT_SAMPLER_CUBE,
+        GL_UNSIGNED_INT_SAMPLER_2D_ARRAY
+    };
 
     bool GraphicsPipeline::InitProgram(const Descriptor &desc)
     {
@@ -36,6 +55,33 @@ namespace sky::gles {
             LOG_E(TAG, "link program failed. error%s", data.get());
             return false;
         }
+
+        GLint value = 0;
+
+        glGetProgramInterfaceiv(program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &value);
+        LOG_I(TAG, "active uniform block %d", value);
+        for (GLint i = 0; i < value; ++i) {
+            GLsizei length = 0;
+            char test[32];
+            glGetActiveUniformBlockName(program, i, 255, &length, test);
+            GLuint index = glGetUniformBlockIndex(program, test);
+            glUniformBlockBinding(program, index, 0);
+
+            LOG_I(TAG, "uniform block index %d, length %d, %s, index%u", i, length, test, index);
+        }
+
+        glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &value);
+        glGetProgramInterfaceiv(program, GL_UNIFORM, GL_ACTIVE_RESOURCES, &value);
+        for (GLint i = 0; i < value; ++i) {
+            GLsizei length = 0;
+            char test[32];
+            GLsizei size = 0;
+            GLenum type = 0;
+            glGetActiveUniform(program, i, 255, &length, &size, &type, test);
+            LOG_I(TAG, "uniform index %d, length %d, %s", i, length, test);
+        }
+
+
         return true;
     }
 

@@ -29,10 +29,13 @@ namespace sky::rhi {
                      "precision highp float;"
                      "layout(location = 0) in vec2 vUv;"
                      "layout(location = 0) out vec4 outColor;"
-                     "layout(binding = 0) uniform sampler2D tex;"
+                     "uniform sampler2D tex[2];"
+                     "uniform Matrix {"
+                     "    mat4 value;"
+                     "} matrix[4];"
                      "void main()"
                      "{"
-                     "    outColor = texture(tex, vUv);"
+                     "    outColor = texture(tex[0], vUv) * texture(tex[1], vUv);"
                      "}";
 
     ShaderPtr CreateShader(Device &device, ShaderStageFlagBit stage, const char* source)
