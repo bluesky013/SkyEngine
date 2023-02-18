@@ -16,7 +16,7 @@ elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
 endif()
 
-sky_add_library(TARGET VulkanRHI STATIC
+sky_add_library(TARGET VulkanRHI.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -32,3 +32,14 @@ sky_add_library(TARGET VulkanRHI STATIC
         3rdParty::vma
         ${PLATFORM_EXT_LIBS}
 )
+
+sky_add_library(TARGET VulkanRHI SHARED
+    SOURCES
+        Export.cpp
+    PRIVATE_INC
+        include
+    PUBLIC_INC
+    LINK_LIBS
+        VulkanRHI.Static
+    )
+add_dependencies(Launcher VulkanRHI)

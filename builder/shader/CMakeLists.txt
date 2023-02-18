@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET VulkanSample SHARED
+sky_add_library(TARGET ShaderBuilder STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,9 +10,7 @@ sky_add_library(TARGET VulkanSample SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        VulkanRHI.Static
         Framework
-        3rdParty::ktx
+        3rdParty::shaderc
+        3rdParty::SPIRVCross
     )
-
-add_dependencies(Launcher VulkanSample)

@@ -43,18 +43,15 @@ namespace sky {
         }
 
         std::shared_ptr<AssetBase> GetOrCreate(const Uuid &type, const Uuid &uuid, bool async);
-
         void SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path);
-
         void RegisterAsset(const Uuid &id, const std::string &path);
 
         void RegisterSearchPath(const std::string &path);
-
         void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
-
         AssetHandlerBase *GetAssetHandler(const Uuid &type);
 
         std::string GetRealPath(const std::string &relative) const;
+        const std::vector<std::string> &GetSearchPaths() const { return searchPaths; }
 
     private:
         friend class Singleton<AssetManager>;

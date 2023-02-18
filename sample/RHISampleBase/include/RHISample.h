@@ -44,6 +44,8 @@ namespace sky::rhi {
         void NextSample();
         void PrevSample();
 
+        void RegisterPath();
+
         void OnKeyUp(KeyButtonType) override;
         std::vector<std::function<RHISampleBase*()>> samples;
         uint32_t currentIndex = 0;

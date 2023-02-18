@@ -4,52 +4,34 @@
 
 #include "RHISampleBase.h"
 #include <rhi/Queue.h>
+#include <core/file/FileIO.h>
+#include <builder/shader/ShaderCompiler.h>
+#include <filesystem>
 
 namespace sky::rhi {
 
-    const char* VS = "#version 320 es\n"
-                     "layout(location = 0) in vec4 vPos;"
-                     "layout(location = 0) out vec2 vUv;"
-                     "vec2 positions[3] = vec2[]("
-                     "    vec2(-1.0,  3.0),"
-                     "    vec2(-1.0, -1.0),"
-                     "    vec2( 3.0, -1.0)"
-                     ");"
-                     "vec2 uv[3] = vec2[]("
-                     "    vec2(0.0, 2.0),"
-                     "    vec2(0.0, 0.0),"
-                     "    vec2(2.0, 0.0)"
-                     ");"
-                     "void main()"
-                     "{"
-                     "    gl_Position = vPos + vec4(positions[gl_VertexID], 0.0, 1.0);"
-                     "    vUv = uv[gl_VertexID];"
-                     "}";
-
-    const char* FS = "#version 320 es\n"
-                     "precision highp float;"
-                     "layout(location = 0) in vec2 vUv;"
-                     "layout(location = 0) out vec4 outColor;"
-                     "uniform sampler2D tex[2];"
-                     "uniform Matrix {"
-                     "    mat4 value;"
-                     "} matrix[4];"
-                     "void main()"
-                     "{"
-                     "    outColor = texture(tex[0], vUv) * texture(tex[1], vUv);"
-                     "}";
-
-    ShaderPtr CreateShader(Device &device, ShaderStageFlagBit stage, const char* source)
+    ShaderPtr CreateShader(API api, Device &device, ShaderStageFlagBit stage, const std::string &path)
     {
         Shader::Descriptor shaderDesc = {};
         shaderDesc.stage = stage;
-        shaderDesc.data.resize(strlen(source) + 1);
-        memcpy(shaderDesc.data.data(), source, strlen(source) + 1);
+
+        std::string shaderPath = path;
+        if (api == API::VULKAN) {
+            shaderPath += ".spv";
+        } else if (api == API::METAL) {
+            shaderPath += ".msl";
+        } else if (api == API::GLES) {
+            shaderPath += ".gles";
+        }
+        ReadBin(shaderPath, shaderDesc.data);
         return device.CreateShader(shaderDesc);
     }
 
     void RHISampleBase::OnStart()
     {
+        builder::ShaderCompiler::CompileShader("fullscreen.glsl", {"shaders/rhiSample/fullscreen.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("descriptor_fs.glsl", {"shaders/rhiSample/descriptor_fs.shader", builder::ShaderType::FS});
+
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         instance = Instance::Create({"", "", false, rhi});
         device   = instance->CreateDevice({});
@@ -95,8 +77,8 @@ namespace sky::rhi {
 
         GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state;
-        psoDesc.vs = CreateShader(*device, ShaderStageFlagBit::VS, VS);
-        psoDesc.fs = CreateShader(*device, ShaderStageFlagBit::FS, FS);
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/fullscreen.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/descriptor_fs.shader");
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout;
         psoDesc.vertexInput;

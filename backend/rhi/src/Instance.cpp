@@ -15,7 +15,7 @@ namespace sky::rhi {
     {
         std::string nameMap[] = {
             "VULKANRHI",
-            "VULKANRHI",
+            "VulkanRHI",
             "METALRHI",
             "DX12RHI",
             "GLESRHI",

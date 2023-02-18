@@ -16,7 +16,7 @@ namespace sky::rhi {
 
         struct Descriptor {
             ShaderStageFlagBit stage;
-            std::vector<uint32_t> data;
+            std::vector<uint8_t> data;
         };
     };
     using ShaderPtr = std::shared_ptr<Shader>;

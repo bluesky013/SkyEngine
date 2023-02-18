@@ -5,6 +5,10 @@
 #include "RHISample.h"
 #include "RHISampleBase.h"
 #include <framework/application/SettingRegistry.h>
+#include <framework/asset/AssetManager.h>
+#include <EngineRoot.h>
+#include <RHISample/ProjectRoot.h>
+#include <filesystem>
 
 namespace sky::rhi {
 
@@ -18,6 +22,8 @@ namespace sky::rhi {
 
     bool RHISample::Init()
     {
+        RegisterPath();
+
         RegisterSample<RHISampleBase>();
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
@@ -90,5 +96,12 @@ namespace sky::rhi {
         StartSample();
     }
 
+    void RHISample::RegisterPath()
+    {
+        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets/shaderlibs");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/shaders");
+
+        std::filesystem::create_directories("shaders/RHISample");
+    }
 }
 REGISTER_MODULE(sky::rhi::RHISample)

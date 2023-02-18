@@ -12,6 +12,9 @@ namespace sky::vk {
 
     class Instance : public rhi::Instance {
     public:
+        Instance();
+        ~Instance();
+
         static Instance *Create(const Descriptor &);
         static void    Destroy(Instance *);
 
@@ -20,8 +23,6 @@ namespace sky::vk {
         VkInstance GetInstance() const;
 
     private:
-        Instance();
-        ~Instance();
 
         bool Init(const Descriptor &);
 
