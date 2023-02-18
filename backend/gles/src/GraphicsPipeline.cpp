@@ -188,9 +188,11 @@ namespace sky::gles {
         if (!InitProgram(desc)) {
             return false;
         }
+        CHECK(glUseProgram(program));
         InitVertexInput();
         InitDescriptorIndices(desc);
         InitGLState(desc);
+        CHECK(glUseProgram(0));
         return true;
     }
 

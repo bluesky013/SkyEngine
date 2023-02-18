@@ -363,4 +363,20 @@ namespace sky::vk {
         return ret;
     }
 
+    VkDescriptorType FromRHI(const rhi::DescriptorType type)
+    {
+        static const std::unordered_map<rhi::DescriptorType, VkDescriptorType> DESCRIPTOR_TYPE_MAP = {
+            {rhi::DescriptorType::SAMPLER               , VK_DESCRIPTOR_TYPE_SAMPLER},
+            {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},
+            {rhi::DescriptorType::SAMPLED_IMAGE         , VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE},
+            {rhi::DescriptorType::STORAGE_IMAGE         , VK_DESCRIPTOR_TYPE_STORAGE_IMAGE},
+            {rhi::DescriptorType::UNIFORM_BUFFER        , VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
+            {rhi::DescriptorType::STORAGE_BUFFER        , VK_DESCRIPTOR_TYPE_STORAGE_BUFFER},
+            {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC},
+            {rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC},
+            {rhi::DescriptorType::INPUT_ATTACHMENT      , VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT},
+        };
+        auto iter = DESCRIPTOR_TYPE_MAP.find(type);
+        return iter == DESCRIPTOR_TYPE_MAP.end() ? VK_DESCRIPTOR_TYPE_SAMPLER : iter->second;
+    }
 }

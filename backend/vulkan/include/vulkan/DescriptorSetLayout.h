@@ -6,6 +6,7 @@
 #include "vulkan/DevObject.h"
 #include "vulkan/Sampler.h"
 #include "vulkan/vulkan.h"
+#include "rhi/DescriptorSetLayout.h"
 #include <map>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace sky::vk {
         std::map<uint32_t, uint32_t> indices;
     };
 
-    class DescriptorSetLayout : public DevObject {
+    class DescriptorSetLayout : public rhi::DescriptorSetLayout, public DevObject {
     public:
         ~DescriptorSetLayout();
 
@@ -41,6 +42,7 @@ namespace sky::vk {
             std::map<uint32_t, SetBinding> bindings;
         };
 
+        bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);
 
         VkDescriptorSetLayout GetNativeHandle() const;

@@ -39,6 +39,7 @@ namespace sky::rhi {
         std::vector<rhi::FrameBufferPtr> frameBuffers;
         rhi::CommandBufferPtr commandBuffer;
         rhi::GraphicsPipelinePtr pso;
+        rhi::PipelineLayoutPtr pipelineLayout;
 
         rhi::ImagePtr image;
 

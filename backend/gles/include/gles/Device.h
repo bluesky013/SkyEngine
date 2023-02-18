@@ -15,6 +15,9 @@
 #include <gles/CommandBuffer.h>
 #include <gles/Fence.h>
 #include <gles/Shader.h>
+#include <gles/DescriptorSetLayout.h>
+#include <gles/PipelineLayout.h>
+#include <gles/VertexInput.h>
 #include <memory>
 
 namespace sky::gles {
@@ -35,6 +38,16 @@ namespace sky::gles {
             return std::shared_ptr<T>(res);
         }
 
+        template <typename T, typename Desc>
+        inline std::shared_ptr<T> CreateDescObject(const Desc &des)
+        {
+            auto res = std::make_shared<T>();
+            if (!res->Init(des)) {
+                res = nullptr;
+            }
+            return res;
+        }
+
         bool Init(const Descriptor &desc);
 
         Context *GetMainContext() const;
@@ -51,6 +64,10 @@ namespace sky::gles {
         CREATE_DEV_OBJ(Fence)
         CREATE_DEV_OBJ(Shader)
         CREATE_DEV_OBJ(GraphicsPipeline)
+        CREATE_DEV_OBJ(DescriptorSetLayout)
+        CREATE_DEV_OBJ(PipelineLayout)
+
+        CREATE_DESC_OBJ(VertexInput)
 
     private:
         std::unique_ptr<Context> mainContext;

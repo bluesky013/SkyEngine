@@ -5,6 +5,7 @@
 #include <vulkan/DescriptorSetLayout.h>
 #include <vulkan/Device.h>
 #include <vulkan/Util.h>
+#include <vulkan/Conversion.h>
 
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
@@ -22,6 +23,19 @@ namespace sky::vk {
         if (updateTemplate.handle != VK_NULL_HANDLE) {
             vkDestroyDescriptorUpdateTemplate(device.GetNativeHandle(), updateTemplate.handle, VKL_ALLOC);
         }
+    }
+
+    bool DescriptorSetLayout::Init(const Descriptor &desc)
+    {
+        VkDescriptor vkDesc = {};
+        for (auto &binding : desc.bindings) {
+            SetBinding vkBinding = {};
+            vkBinding.descriptorType  = FromRHI(binding.type);
+            vkBinding.descriptorCount = binding.count;
+            vkBinding.stageFlags      = FromRHI(binding.visibility);
+            vkDesc.bindings.emplace(binding.binding, vkBinding);
+        }
+        return Init(vkDesc);
     }
 
     bool DescriptorSetLayout::Init(const VkDescriptor &des)

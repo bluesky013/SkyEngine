@@ -75,13 +75,36 @@ namespace sky::rhi {
         CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = device->CreateCommandBuffer(cmdDesc);
 
+        rhi::PipelineLayout::Descriptor pLayoutDesc = {};
+        {
+            {
+                rhi::DescriptorSetLayout::Descriptor desc = {};
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 2, 0, ShaderStageFlagBit::FS, "tex"});
+                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
+            {
+                rhi::DescriptorSetLayout::Descriptor desc = {};
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::STORAGE_BUFFER, 2, 0, ShaderStageFlagBit::FS, "storage1"});
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::UNIFORM_BUFFER, 2, 1, ShaderStageFlagBit::FS, "matrix"});
+                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
+            {
+                rhi::DescriptorSetLayout::Descriptor desc = {};
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::STORAGE_BUFFER, 2, 0, ShaderStageFlagBit::FS, "storage2"});
+                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
+        }
+        pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
+
+        auto vertexInput = device->CreateVertexInput({});
+
         GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state;
         psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/fullscreen.shader");
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/descriptor_fs.shader");
         psoDesc.renderPass = renderPass;
-        psoDesc.pipelineLayout;
-        psoDesc.vertexInput;
+        psoDesc.pipelineLayout = pipelineLayout;
+        psoDesc.vertexInput = vertexInput;
         pso = device->CreateGraphicsPipeline(psoDesc);
 
         rhi::Image::Descriptor imageDesc = {};

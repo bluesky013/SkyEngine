@@ -34,11 +34,11 @@ namespace sky::vk {
             std::shared_ptr<VertexInput> vertexInput;
         };
 
-        const std::vector<VkVertexInputAttributeDescription> &GetAttributeDescriptions() const;
+        bool Init(const Descriptor &desc);
 
-        const VkPipelineVertexInputStateCreateInfo *GetInfo() const;
-
-        uint32_t GetHash() const;
+        const std::vector<VkVertexInputAttributeDescription> &GetAttributeDescriptions() const { return attributes; }
+        const VkPipelineVertexInputStateCreateInfo *GetInfo() const { return &vInputInfo; }
+        uint32_t GetHash() const { return hash; }
 
     private:
         friend class vk::VertexInput::Builder;

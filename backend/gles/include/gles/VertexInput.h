@@ -9,6 +9,7 @@
 #include <gles/Conversion.h>
 
 namespace sky::gles {
+    class Device;
 
     struct VertexAttribute {
         uint32_t  location = 0;

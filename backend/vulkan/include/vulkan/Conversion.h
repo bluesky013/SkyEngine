@@ -38,4 +38,5 @@ namespace sky::vk {
     VkBlendOp FromRHI(rhi::BlendOp);
     VkStencilOp FromRHI(rhi::StencilOp);
     VkStencilOpState FromRHI(const rhi::StencilState&);
+    VkDescriptorType FromRHI(const rhi::DescriptorType);
 }

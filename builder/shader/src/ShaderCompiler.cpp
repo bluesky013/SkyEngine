@@ -120,6 +120,7 @@ namespace sky::builder {
         shaderc::CompileOptions options;
         options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
         options.SetIncluder(std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new IncluderImpl()));
+        options.SetInvertY(true);
 
         auto realPath = GetFullPath(path);
         if (realPath.empty()) {

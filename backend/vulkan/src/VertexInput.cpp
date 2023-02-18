@@ -8,6 +8,14 @@
 
 namespace sky::vk {
 
+    bool VertexInput::Init(const Descriptor &desc)
+    {
+        for (auto &attribute : desc.attributes) {
+
+        }
+        return true;
+    }
+
     VertexInput::Builder &VertexInput::Builder::Begin()
     {
         vertexInput = std::make_shared<VertexInput>();
@@ -40,21 +48,6 @@ namespace sky::vk {
                       Crc32::Cal((uint8_t *)vertexInput->attributes.data(), static_cast<uint32_t>(vertexInput->attributes.size())));
         HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t *)vertexInput->bindings.data(), static_cast<uint32_t>(vertexInput->bindings.size())));
         return vertexInput;
-    }
-
-    const std::vector<VkVertexInputAttributeDescription> &VertexInput::GetAttributeDescriptions() const
-    {
-        return attributes;
-    }
-
-    const VkPipelineVertexInputStateCreateInfo *VertexInput::GetInfo() const
-    {
-        return &vInputInfo;
-    }
-
-    uint32_t VertexInput::GetHash() const
-    {
-        return hash;
     }
 
 } // namespace sky::vk
