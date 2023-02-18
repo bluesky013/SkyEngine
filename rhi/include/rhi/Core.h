@@ -377,7 +377,6 @@ namespace sky::rhi {
     struct DepthStencil {
         bool depthTest      = false;
         bool depthWrite     = false;
-        bool depthBoundTest = false;
         bool stencilTest    = false;
         CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
         float minDepth      = 0.f;

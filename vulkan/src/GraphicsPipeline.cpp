@@ -120,7 +120,7 @@ namespace sky::vk {
         dsInfo.depthTestEnable          = des.state.depthStencil.depthTest;
         dsInfo.depthWriteEnable         = des.state.depthStencil.depthWrite;
         dsInfo.depthCompareOp           = FromRHI(des.state.depthStencil.compareOp);
-        dsInfo.depthBoundsTestEnable    = des.state.depthStencil.depthBoundTest;
+        dsInfo.depthBoundsTestEnable    = VK_FALSE;
         dsInfo.stencilTestEnable        = des.state.depthStencil.stencilTest;
         dsInfo.front                    = FromRHI(des.state.depthStencil.front);
         dsInfo.back                     = FromRHI(des.state.depthStencil.back);

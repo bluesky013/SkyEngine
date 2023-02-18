@@ -5,7 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
-#include <gles/Forward.h>
+#include <gles/Core.h>
 
 namespace sky::gles {
 
@@ -34,5 +34,11 @@ namespace sky::gles {
     GLenum FromRHI(rhi::Filter, rhi::MipFilter);
     GLenum FromRHI(rhi::Filter);
     GLenum FromRHI(rhi::WrapMode mode);
+    GLenum FromRHI(rhi::CompareOp compare);
+    GLenum FromRHI(rhi::CullingModeFlags flags);
+    GLenum FromRHI(rhi::FrontFace frontFace);
+    GLenum FromRHI(rhi::PrimitiveTopology topo);
 
+    GLStencil FromRHI(const rhi::StencilState &state);
+    GLBlend FromRHI(const rhi::BlendState &state);
 }

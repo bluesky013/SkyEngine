@@ -5,6 +5,8 @@
 #include <gles/GraphicsPipeline.h>
 #include <gles/Shader.h>
 #include <gles/Core.h>
+#include <gles/Conversion.h>
+#include <gles/PipelineLayout.h>
 #include <core/logger/Logger.h>
 #include <unordered_set>
 
@@ -43,7 +45,6 @@ namespace sky::gles {
         attachShader(desc.fs);
 
         CHECK(glLinkProgram(program));
-
         GLint status = 0;
         glGetProgramiv(program, GL_LINK_STATUS, &status);
         if (status != GL_TRUE) {
@@ -55,34 +56,131 @@ namespace sky::gles {
             LOG_E(TAG, "link program failed. error%s", data.get());
             return false;
         }
-
-        GLint value = 0;
-
-        glGetProgramInterfaceiv(program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &value);
-        LOG_I(TAG, "active uniform block %d", value);
-        for (GLint i = 0; i < value; ++i) {
-            GLsizei length = 0;
-            char test[32];
-            glGetActiveUniformBlockName(program, i, 255, &length, test);
-            GLuint index = glGetUniformBlockIndex(program, test);
-            glUniformBlockBinding(program, index, 0);
-
-            LOG_I(TAG, "uniform block index %d, length %d, %s, index%u", i, length, test, index);
-        }
-
-        glGetProgramInterfaceiv(program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &value);
-        glGetProgramInterfaceiv(program, GL_UNIFORM, GL_ACTIVE_RESOURCES, &value);
-        for (GLint i = 0; i < value; ++i) {
-            GLsizei length = 0;
-            char test[32];
-            GLsizei size = 0;
-            GLenum type = 0;
-            glGetActiveUniform(program, i, 255, &length, &size, &type, test);
-            LOG_I(TAG, "uniform index %d, length %d, %s", i, length, test);
-        }
-
-
         return true;
+    }
+
+    void GraphicsPipeline::InitVertexInput()
+    {
+        GLint activeAttributes = 0;
+        GLint maxLength = 0;
+        CHECK(glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &activeAttributes));
+        CHECK(glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxLength));
+
+        attributes.resize(activeAttributes);
+        for (uint32_t i = 0; i < activeAttributes; ++i) {
+            auto &attribute = attributes[i];
+
+            GLsizei length = 0;
+            GLint size = 0;
+            GLenum type = 0;
+            attribute.name.resize(maxLength, 0);
+            CHECK(glGetActiveAttrib(program, i, maxLength, &length, &size, &type, attribute.name.data()));
+
+            GLint location = glGetAttribLocation(program, attribute.name.c_str());
+            attribute.location = location;
+        }
+
+    }
+
+    void GraphicsPipeline::InitDescriptorIndices(const Descriptor &desc)
+    {
+        if (!desc.pipelineLayout) {
+            return;
+        }
+
+        auto pipelineLayout = std::static_pointer_cast<PipelineLayout>(desc.pipelineLayout);
+        auto &descLayouts = pipelineLayout->GetLayouts();
+
+        for (uint32_t set = 0, offset1 = 0; set < descLayouts.size(); ++set) {
+            descriptorOffsets.emplace_back(offset1);
+            auto &layout = descLayouts[set];
+            auto &bindings = layout->GetBindings();
+
+            uint32_t offset2 = 0;
+            for (auto &binding : bindings) {
+                descriptorIndices.resize(descriptorIndices.size() + binding.count);
+                auto *indicesBase = &descriptorIndices[offset1 + offset2];
+
+                if (binding.type == rhi::DescriptorType::UNIFORM_BUFFER ||
+                    binding.type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
+                    GLuint blockIndex = glGetProgramResourceIndex(program, GL_UNIFORM_BLOCK, binding.name.c_str());
+                    for (uint32_t i = 0; i < binding.count && blockIndex != ~(0U); ++i) {
+                        auto &desIndex = indicesBase[i];
+                        GLenum prop = GL_BUFFER_BINDING;
+                        GLint index = 0;
+                        CHECK(glGetProgramResourceiv(program, GL_UNIFORM_BLOCK, blockIndex, 1, &prop, 1, nullptr, &index));
+                        desIndex.binding = index;
+                    }
+
+                } else if (binding.type == rhi::DescriptorType::STORAGE_BUFFER ||
+                           binding.type == rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC) {
+                    GLuint bufferIndex = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, binding.name.c_str());
+                    for (uint32_t i = 0; i < binding.count && bufferIndex != ~(0U); ++i) {
+                        auto &desIndex = indicesBase[i];
+                        GLenum prop = GL_BUFFER_BINDING;
+                        GLint index = 0;
+                        CHECK(glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, bufferIndex, 1, &prop, 1, nullptr, &index));
+                        desIndex.binding = index;
+                    }
+                } else if (binding.type == rhi::DescriptorType::SAMPLED_IMAGE ||
+                           binding.type == rhi::DescriptorType::COMBINED_IMAGE_SAMPLER ||
+                           binding.type == rhi::DescriptorType::STORAGE_IMAGE) {
+                    GLuint loc = glGetUniformLocation(program, binding.name.c_str());
+                    std::vector<GLint> units;
+                    for (uint32_t i = 0; i < binding.count && loc != GL_INVALID_INDEX; ++i) {
+                        auto &desIndex = indicesBase[i];
+                        desIndex.unit = loc + i;
+                        units.emplace_back(i);
+                    }
+                    if (!units.empty()) {
+                        CHECK(glUniform1iv(loc, static_cast<GLsizei>(units.size()), units.data()));
+                        units.clear();
+                    }
+                }
+                offset2 += binding.count;
+            }
+            offset1 += layout->GetDescriptorCount();
+        }
+    }
+
+    void GraphicsPipeline::InitGLState(const Descriptor &desc)
+    {
+        // depthStencil;
+        state.depthTestEn = desc.state.depthStencil.depthTest;
+        state.depthMask   = desc.state.depthStencil.depthWrite;
+        state.minDepth    = desc.state.depthStencil.minDepth;
+        state.maxDepth    = desc.state.depthStencil.maxDepth;
+        state.depthFunc   = FromRHI(desc.state.depthStencil.compareOp);
+        state.stencilTest = desc.state.depthStencil.stencilTest;
+        state.front       = FromRHI(desc.state.depthStencil.front);
+        state.back        = FromRHI(desc.state.depthStencil.back);
+
+        // multiSample;
+
+        // vertexDesc;
+        state.primitive = FromRHI(desc.state.inputAssembly.topology);
+
+        /*
+         * rasterState, unsupported
+         *     depthClampEnable
+         *     depthBiasClamp
+         *     polygonMode
+         */
+        state.rasterizerDiscard = desc.state.rasterState.rasterizerDiscardEnable;
+        state.polygonOffsetEn = desc.state.rasterState.depthBiasEnable;
+        state.polygonConstant = desc.state.rasterState.depthBiasConstantFactor;
+        state.polygonUnits    = desc.state.rasterState.depthBiasSlopeFactor;
+        state.lineWidth       = desc.state.rasterState.lineWidth;
+
+        state.cullingFaceEn   = !!desc.state.rasterState.cullMode;
+        state.cullingMode     = FromRHI(desc.state.rasterState.cullMode);
+        state.frontFace       = FromRHI(desc.state.rasterState.frontFace);
+
+        // blendStates;
+        state.blendStates.reserve(desc.state.blendStates.size());
+        for (auto &blend : desc.state.blendStates) {
+            state.blendStates.emplace_back(FromRHI(blend));
+        }
     }
 
     bool GraphicsPipeline::Init(const Descriptor &desc)
@@ -90,7 +188,9 @@ namespace sky::gles {
         if (!InitProgram(desc)) {
             return false;
         }
-        state = desc.state;
+        InitVertexInput();
+        InitDescriptorIndices(desc);
+        InitGLState(desc);
         return true;
     }
 

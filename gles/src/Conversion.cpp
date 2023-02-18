@@ -118,6 +118,64 @@ namespace sky::gles {
         {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, GL_MIRROR_CLAMP_TO_EDGE_EXT},
     };
 
+    const std::unordered_map<rhi::CompareOp, GLenum> COMPARE_OP_MAP = {
+        {rhi::CompareOp::NEVER           , GL_NEVER},
+        {rhi::CompareOp::LESS            , GL_LESS},
+        {rhi::CompareOp::EQUAL           , GL_EQUAL},
+        {rhi::CompareOp::LESS_OR_EQUAL   , GL_LEQUAL},
+        {rhi::CompareOp::GREATER         , GL_GREATER},
+        {rhi::CompareOp::NOT_EQUAL       , GL_NOTEQUAL},
+        {rhi::CompareOp::GREATER_OR_EQUAL, GL_GEQUAL},
+        {rhi::CompareOp::ALWAYS          , GL_ALWAYS},
+    };
+
+    const std::unordered_map<rhi::StencilOp, GLenum> STENCIL_OP_MAP = {
+        {rhi::StencilOp::KEEP                , GL_KEEP},
+        {rhi::StencilOp::ZERO                , GL_ZERO},
+        {rhi::StencilOp::REPLACE             , GL_REPLACE},
+        {rhi::StencilOp::INCREMENT_AND_CLAMP , GL_INCR},
+        {rhi::StencilOp::DECREMENT_AND_CLAMP , GL_DECR},
+        {rhi::StencilOp::INVERT              , GL_INVERT},
+        {rhi::StencilOp::INCREMENT_AND_WRAP  , GL_INCR_WRAP},
+        {rhi::StencilOp::DECREMENT_AND_WRAP  , GL_DECR_WRAP},
+    };
+
+    const std::unordered_map<rhi::BlendFactor, GLenum> BLEND_FACTOR_MAP = {
+        {rhi::BlendFactor::ZERO                     , GL_ZERO},
+        {rhi::BlendFactor::ONE                      , GL_ONE},
+        {rhi::BlendFactor::SRC_COLOR                , GL_SRC_COLOR},
+        {rhi::BlendFactor::ONE_MINUS_SRC_COLOR      , GL_ONE_MINUS_SRC_COLOR},
+        {rhi::BlendFactor::DST_COLOR                , GL_DST_COLOR},
+        {rhi::BlendFactor::ONE_MINUS_DST_COLOR      , GL_ONE_MINUS_DST_COLOR},
+        {rhi::BlendFactor::SRC_ALPHA                , GL_SRC_ALPHA},
+        {rhi::BlendFactor::ONE_MINUS_SRC_ALPHA      , GL_ONE_MINUS_SRC_ALPHA},
+        {rhi::BlendFactor::DST_ALPHA                , GL_DST_ALPHA},
+        {rhi::BlendFactor::ONE_MINUS_DST_ALPHA      , GL_ONE_MINUS_DST_ALPHA},
+        {rhi::BlendFactor::CONSTANT_COLOR           , GL_CONSTANT_COLOR},
+        {rhi::BlendFactor::ONE_MINUS_CONSTANT_COLOR , GL_ONE_MINUS_CONSTANT_COLOR},
+        {rhi::BlendFactor::CONSTANT_ALPHA           , GL_CONSTANT_ALPHA},
+        {rhi::BlendFactor::ONE_MINUS_CONSTANT_ALPHA , GL_ONE_MINUS_CONSTANT_ALPHA},
+        {rhi::BlendFactor::SRC_ALPHA_SATURATE       , GL_SRC_ALPHA_SATURATE},
+        {rhi::BlendFactor::SRC1_COLOR               , GL_SRC1_COLOR_EXT},
+        {rhi::BlendFactor::ONE_MINUS_SRC1_COLOR     , GL_ONE_MINUS_SRC1_COLOR_EXT},
+        {rhi::BlendFactor::SRC1_ALPHA               , GL_SRC1_ALPHA_EXT},
+        {rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA     , GL_ONE_MINUS_SRC1_ALPHA_EXT},
+    };
+
+    const std::unordered_map<rhi::BlendOp, GLenum> BLEND_OP_MAP = {
+        {rhi::BlendOp::ADD,      GL_FUNC_ADD},
+        {rhi::BlendOp::SUBTRACT, GL_FUNC_SUBTRACT}
+    };
+
+    const std::unordered_map<rhi::PrimitiveTopology, GLenum> TOPO_MAP = {
+        {rhi::PrimitiveTopology::POINT_LIST     , GL_POINTS},
+        {rhi::PrimitiveTopology::LINE_LIST      , GL_LINES},
+        {rhi::PrimitiveTopology::LINE_STRIP     , GL_LINE_STRIP},
+        {rhi::PrimitiveTopology::TRIANGLE_LIST  , GL_TRIANGLES},
+        {rhi::PrimitiveTopology::TRIANGLE_STRIP , GL_TRIANGLE_STRIP},
+        {rhi::PrimitiveTopology::TRIANGLE_FAN   , GL_TRIANGLE_FAN},
+    };
+
     const InternalFormat &GetInternalFormat(rhi::PixelFormat format)
     {
         return FORMAT_MAP.find(format)->second;
@@ -152,5 +210,67 @@ namespace sky::gles {
     GLenum FromRHI(rhi::WrapMode mode)
     {
         return WRAP_MODE_MAP.find(mode)->second;
+    }
+
+    GLenum FromRHI(rhi::CompareOp compare)
+    {
+        return COMPARE_OP_MAP.find(compare)->second;
+    }
+
+    GLenum FromRHI(rhi::CullingModeFlags flags)
+    {
+        if (flags == (rhi::CullModeFlagBits::FRONT | rhi::CullModeFlagBits::BACK)) return GL_FRONT_AND_BACK;
+        return flags == rhi::CullModeFlagBits::FRONT ? GL_FRONT : GL_BACK;
+    }
+
+    GLenum FromRHI(rhi::FrontFace frontFace)
+    {
+        return frontFace == rhi::FrontFace::CW ? GL_CW : GL_CCW;
+    }
+
+    GLenum FromRHI(rhi::PrimitiveTopology topo)
+    {
+        return TOPO_MAP.find(topo)->second;
+    }
+
+    GLenum FromRHI(rhi::StencilOp op)
+    {
+        return STENCIL_OP_MAP.find(op)->second;
+    }
+
+    GLenum FromRHI(rhi::BlendFactor factor)
+    {
+        return BLEND_FACTOR_MAP.find(factor)->second;
+    }
+
+    GLenum FromRHI(rhi::BlendOp op)
+    {
+        return BLEND_OP_MAP.find(op)->second;
+    }
+
+    GLStencil FromRHI(const rhi::StencilState &state)
+    {
+        GLStencil stencil;
+        stencil.compFunc  = FromRHI(state.compareOp);
+        stencil.reference = state.reference;
+        stencil.readMask  = state.compareMask;
+        stencil.writeMask = state.writeMask;
+        stencil.failOP    = FromRHI(state.failOp);
+        stencil.dpFailOp  = FromRHI(state.depthFailOp);
+        stencil.dpPassOp  = FromRHI(state.passOp);;
+        return stencil;
+    }
+
+    GLBlend FromRHI(const rhi::BlendState &state)
+    {
+        GLBlend blend;
+        blend.writeMask      = state.writeMask;
+        blend.blendFuncColor = FromRHI(state.colorBlendOp);
+        blend.blendFuncAlpha = FromRHI(state.alphaBlendOp);
+        blend.blendSrcColor  = FromRHI(state.srcColor);
+        blend.blendDstColor  = FromRHI(state.dstColor);
+        blend.blendSrcAlpha  = FromRHI(state.srcAlpha);
+        blend.blendDstAlpha  = FromRHI(state.dstAlpha);
+        return blend;
     }
 }

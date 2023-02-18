@@ -8,6 +8,7 @@
 namespace sky::rhi {
 
     const char* VS = "#version 320 es\n"
+                     "layout(location = 0) in vec4 vPos;"
                      "layout(location = 0) out vec2 vUv;"
                      "vec2 positions[3] = vec2[]("
                      "    vec2(-1.0,  3.0),"
@@ -21,7 +22,7 @@ namespace sky::rhi {
                      ");"
                      "void main()"
                      "{"
-                     "    gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);"
+                     "    gl_Position = vPos + vec4(positions[gl_VertexID], 0.0, 1.0);"
                      "    vUv = uv[gl_VertexID];"
                      "}";
 
