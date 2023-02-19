@@ -8,6 +8,11 @@
 
 namespace sky {
 
+    AssetManager::~AssetManager()
+    {
+        SaveAssets();
+    }
+
     std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid &type, const Uuid &uuid, bool async)
     {
         auto hIter = assetHandlers.find(type);
@@ -102,4 +107,26 @@ namespace sky {
         }
         return relative;
     }
+
+    void AssetManager::Reset(const std::string &name)
+    {
+        if (dataBase) {
+            SaveAssets();
+        }
+
+        dataBase = std::make_unique<AssetDataBase>();
+        dataBase->Init(name);
+        RegisterAssets();
+    }
+
+    void AssetManager::SaveAssets()
+    {
+
+    }
+
+    void AssetManager::RegisterAssets()
+    {
+
+    }
+
 } // namespace sky

@@ -223,4 +223,5 @@ namespace sky::editor {
     {
         actionManager->Update(document ? document->GetFlag() : DocFlagArray{});
     }
+
 } // namespace sky::editor

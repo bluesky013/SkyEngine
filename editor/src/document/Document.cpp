@@ -8,6 +8,7 @@
 #include <fstream>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky::editor {
 
@@ -69,6 +70,8 @@ namespace sky::editor {
         mkdir("levels");
 
         SetFlag(DocumentFlagBit::PROJECT_OPEN);
+
+        AssetManager::Get()->Reset(projectHome.toStdString() + "/assets.db");
     }
 
     void Document::Read()

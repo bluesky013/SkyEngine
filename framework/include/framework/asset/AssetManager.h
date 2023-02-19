@@ -7,6 +7,7 @@
 #include <core/environment/Singleton.h>
 #include <core/jobsystem/JobSystem.h>
 #include <framework/asset/Asset.h>
+#include <framework/asset/AssetDataBase.h>
 #include <mutex>
 #include <unordered_map>
 
@@ -14,7 +15,7 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-        ~AssetManager() = default;
+        ~AssetManager();
 
         template <class T>
         std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, bool async = false)
@@ -43,26 +44,34 @@ namespace sky {
         }
 
         std::shared_ptr<AssetBase> GetOrCreate(const Uuid &type, const Uuid &uuid, bool async);
-        void SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path);
-        void RegisterAsset(const Uuid &id, const std::string &path);
+        void  SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path);
+        void  RegisterAsset(const Uuid &id, const std::string &path);
 
-        void RegisterSearchPath(const std::string &path);
-        void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
+        void  RegisterSearchPath(const std::string &path);
+        void  RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
         AssetHandlerBase *GetAssetHandler(const Uuid &type);
 
         std::string GetRealPath(const std::string &relative) const;
         const std::vector<std::string> &GetSearchPaths() const { return searchPaths; }
 
+        void Reset(const std::string &dataBase);
+
     private:
         friend class Singleton<AssetManager>;
         AssetManager() = default;
 
-        std::unordered_map<Uuid, std::string>                       pathMap;
-        std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
-        std::vector<std::string>                                    searchPaths;
+        void SaveAssets();
+        void RegisterAssets();
+
+        std::unordered_map<Uuid, std::string>              pathMap;
+        std::vector<std::string>                           searchPaths;
 
         mutable std::mutex                                 assetMutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assetMap;
+
+        std::unique_ptr<AssetDataBase> dataBase;
+
+        std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
     };
 
 } // namespace sky
