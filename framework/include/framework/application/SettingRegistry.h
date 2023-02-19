@@ -25,11 +25,11 @@ namespace sky {
             if constexpr (std::is_same_v<T, std::string_view> || std::is_same_v<T, std::string>) {
                 rValue.SetString(value.data(), document.GetAllocator());
             } else if constexpr (std::is_same_v<T, uint64_t>) {
-                rValue.SetUint64(value, document.GetAllocator());
+                rValue.SetUint64(value);
             } else if constexpr (std::is_same_v<T, int64_t>) {
-                rValue.SetInt64(value, document.GetAllocator());
+                rValue.SetInt64(value);
             } else if constexpr (std::is_floating_point_v<T>) {
-                rValue.SetDouble(value, document.GetAllocator());
+                rValue.SetDouble(value);
             } else if constexpr (std::is_signed_v<T>) {
                 rValue.SetInt(static_cast<int32_t>(value));
             } else if constexpr (std::is_unsigned_v<T>) {

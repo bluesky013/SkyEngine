@@ -2,10 +2,12 @@
 // Created by Zach Lee on 2021/12/9.
 //
 
+
 #include <core/logger/Logger.h>
 #include <framework/serialization/AnyRT.h>
-#include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/BinaryArchive.h>
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -331,7 +333,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
             test.c[i].v2 = i * 3 + 1;
             test.c[i].v3 = i * 3 + 2;
         }
-        std::ofstream     file("art.json");
+        std::ofstream     file("json-serialization-test.json", std::ios::binary);
         JsonOutputArchive archive(file);
 
         TestSerFunc &f = test;
@@ -340,12 +342,61 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
 
     {
         TestSerFuncDerv  test;
-        std::ifstream    file("art.json");
+        std::ifstream    file("json-serialization-test.json", std::ios::binary);
         JsonInputArchive archive(file);
 
         TestSerFunc &f = test;
         archive.LoadValueById(&f, TypeInfo<TestSerFunc>::Hash());
 
         std::cout << test.a << std::endl;
+    }
+}
+
+TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
+{
+    {
+        std::ofstream file("binary-fundamental-test.bin", std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveValue(-1);
+        archive.SaveValue(2U);
+        archive.SaveValue(3.F);
+        archive.SaveValue(std::string("abcd"));
+        archive.SaveValue(5LLU);
+        archive.SaveValue(true);
+    }
+
+    {
+        std::ifstream file("binary-fundamental-test.bin", std::ios::binary);
+        BinaryInputArchive archive(file);
+        {
+            int value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, -1);
+        }
+        {
+            uint32_t value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 2U);
+        }
+        {
+            float value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 3.F);
+        }
+        {
+            std::string value;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, std::string("abcd"));
+        }
+        {
+            uint64_t value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 5LLU);
+        }
+        {
+            bool value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, true);
+        }
     }
 }

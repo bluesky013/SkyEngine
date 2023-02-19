@@ -21,7 +21,7 @@ namespace sky {
     static void LoadN(float *v, JsonInputArchive &ar)
     {
         for (uint32_t i = 0; i < N; ++i) {
-            ar.template LoadArrayElement(v[i]);
+            ar.LoadArrayElement(v[i]);
         }
     }
 
