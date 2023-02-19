@@ -4,7 +4,7 @@
 
 
 #include <core/logger/Logger.h>
-#include <framework/serialization/AnyRT.h>
+#include <framework/serialization/SerializationUtil.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/BinaryArchive.h>
@@ -65,22 +65,30 @@ TEST(SerializationTest, TypeTest)
 
     LOG_I(TAG, "%u, %u, %u, %u", std::is_trivial_v<TestMember>, std::is_trivial_v<TestReflect>, std::is_trivial_v<int>, std::is_trivial_v<int *>);
 
-    Any       v(std::in_place_type<TestReflect>);
+    TestReflect v = {};
+    uint32_t typeId = TypeInfo<TestReflect>::Hash();
     uint32_t *ptr = nullptr;
-    ASSERT_EQ(SetAny(v, "a", 5u), true);
-    ASSERT_EQ(SetAny(v, "b", 6.f), true);
-    ASSERT_EQ(SetAny(v, "c", ptr), true);
-    auto val = v.GetAs<TestReflect>();
-    ASSERT_EQ(val->a, 5u);
-    ASSERT_EQ(val->b, 6.f);
-    ASSERT_EQ(val->c, nullptr);
+    ASSERT_EQ(SetValue(v, "a", 5u), true);
+    ASSERT_EQ(SetValue(v, "b", 6.f), true);
+    ASSERT_EQ(SetValue(v, "c", ptr), true);
+    ASSERT_EQ(SetValue(v, "d", ptr), true);
+    ASSERT_EQ(SetValue(v, "e", 7.0), false);
 
-    Any va = GetAny(v, "a");
-    ASSERT_EQ(*va.GetAs<uint32_t>(), 5u);
-    Any vb = GetAny(v, "b");
-    ASSERT_EQ(*vb.GetAs<float>(), 6.f);
-    Any vc = GetAny(v, "c");
-    ASSERT_EQ(*vc.GetAs<uint32_t *>(), nullptr);
+    ASSERT_EQ(v.a, 5u);
+    ASSERT_EQ(v.b, 6.f);
+    ASSERT_EQ(v.c, nullptr);
+
+   void *va = GetValue(reinterpret_cast<void*>(&v), typeId, "a");
+   ASSERT_NE(va, nullptr);
+   ASSERT_EQ(*static_cast<uint32_t*>(va), 5U);
+
+   void *vb = GetValue(reinterpret_cast<void*>(&v), typeId, "b");
+   ASSERT_NE(vb, nullptr);
+   ASSERT_EQ(*static_cast<float*>(vb), 6.f);
+
+   void *vc = GetValue(reinterpret_cast<void*>(&v), typeId, "c");
+   ASSERT_NE(vc, nullptr);
+   ASSERT_EQ(*static_cast<uint32_t**>(vc), nullptr);
 }
 
 struct Ctor1 {

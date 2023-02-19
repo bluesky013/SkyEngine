@@ -42,14 +42,14 @@ namespace sky::editor {
                 } else if constexpr (std::is_unsigned_v<T>) {
                     T val = static_cast<T>(s.toUInt());
                 }
-                memberNode->setterFn(instance, val);
+                memberNode->setterFn(instance, &val);
             });
         }
 
         void Refresh() override
         {
-            Any val = memberNode->getterFn(instance, false);
-            T* data = static_cast<T*>(val.Data());
+            const void *val = memberNode->getterFn(instance);
+            const T* data = static_cast<const T*>(val);
             line->setText(QString::number(*data));
         }
 
@@ -79,7 +79,7 @@ namespace sky::editor {
 
                 connect(line[i], &QLineEdit::textEdited, this, [i, this](const QString &s) {
                     float val = static_cast<float>(s.toDouble());
-                    memberNode->setterFn(instance, val);
+                    memberNode->setterFn(instance, &val);
                 });
             }
         }
@@ -99,15 +99,15 @@ namespace sky::editor {
 
         void Refresh() override
         {
-            Any val = memberNode->getterFn(instance, false);
-            auto member = GetTypeNode(val);
+            const void *val = memberNode->getterConstFn(instance);
+            auto member = GetTypeNode(memberNode->info->typeId);
             if (member == nullptr) {
                 return;
             }
             uint32_t i = 0;
             for (auto& mem : member->members) {
-                auto memVal = mem.second.getterFn(val.Data(), false);
-                line[i++]->setText(QString::number(*memVal.GetAs<float>()));
+                const auto *memVal = mem.second.getterConstFn(val);
+                line[i++]->setText(QString::number(*static_cast<const float *>(memVal)));
             }
         }
 

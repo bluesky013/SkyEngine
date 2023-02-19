@@ -23,7 +23,7 @@ namespace sky {
             SKY_ASSERT(writtenSize == size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_fundamental_v<T>>>
+        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T>>>
         void LoadValue(T &v)
         {
             LoadValue(reinterpret_cast<char*>(std::addressof(v)), sizeof(T));
@@ -36,6 +36,8 @@ namespace sky {
             v.resize(length, 0);
             LoadValue(v.data(), length);
         }
+
+        void LoadObject(void *ptr, uint32_t id);
     protected:
         std::istream &stream;
     };
@@ -53,7 +55,7 @@ namespace sky {
             SKY_ASSERT(writtenSize == size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_fundamental_v<T>>>
+        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T>>>
         void SaveValue(const T &v)
         {
             SaveValue(reinterpret_cast<const char*>(std::addressof(v)), sizeof(T));
@@ -64,6 +66,8 @@ namespace sky {
             SaveValue(static_cast<uint32_t>(v.length()));
             SaveValue(v.data(), static_cast<uint32_t>(v.length()));
         }
+
+        void SaveObject(const void* data, uint32_t id);
     protected:
         std::ostream &stream;
     };

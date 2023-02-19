@@ -18,9 +18,9 @@ namespace sky {
     class BinaryOutputArchive;
 
     using PropertyMap     = std::unordered_map<uint32_t, Any>;
-    using SetterFn        = bool (*)(void *ptr, const Any &);
-    using GetterFn        = Any (*)(void *ptr, bool asRef);
-    using GetterConstFn   = Any (*)(const void *ptr);
+    using SetterFn        = bool (*)(void *ptr, const void *);
+    using GetterFn        = void *(*)(void *ptr);
+    using GetterConstFn   = const void*(*)(const void *ptr);
     using ConstructibleFn = bool (*)(Any *);
     using ConstructFn     = Any (*)(Any *);
     using JsonInFn        = void (*)(void *p, JsonInputArchive& archive);
@@ -105,14 +105,14 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    bool Setter(void *p, const Any &value)
+    bool Setter(void *p, const void *value) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             using ValType = std::remove_reference_t<decltype(std::declval<T>().*D)>;
 
             if constexpr (!std::is_const_v<ValType>) {
                 if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                    std::invoke(D, *ptr) = *value.GetAsConst<ValType>();
+                    std::invoke(D, *ptr) = *static_cast<const ValType *>(value);
                     return true;
                 }
             }
@@ -121,29 +121,25 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    Any Getter(void *p, bool asRef)
+    void* Getter(void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                if (asRef) {
-                    return std::ref(std::invoke(D, *ptr));
-                } else {
-                    return Any(std::invoke(D, *ptr));
-                }
+                return reinterpret_cast<void *>(std::addressof(std::invoke(D, *ptr)));
             }
         }
-        return Any();
+        return nullptr;
     }
 
     template <typename T, auto D>
-    Any GetterConst(const void *p)
+    const void *GetterConst(const void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<const T *>(p); ptr != nullptr) {
-                return Any(std::invoke(D, *ptr));
+                return reinterpret_cast<const void *>(std::addressof(std::invoke(D, *ptr)));
             }
         }
-        return Any();
+        return nullptr;
     }
 
     template <typename T, typename... Args, size_t... I>
@@ -209,15 +205,27 @@ namespace sky {
         auto Member(const std::string_view &key)
         {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
-            auto it    = type.members.emplace(key, TypeMemberNode{
-                                                    TypeInfoObj<Type>::Get()->RtInfo(),
-                                                    std::is_const_v<Type>,
-                                                    !std::is_member_object_pointer_v<Type>,
-                                                    &Setter<T, S>,
-                                                    &Getter<T, G>,
-                                                    &GetterConst<T, G>,
-                                                });
-            return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            if constexpr (std::is_const_v<Type>) {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        std::is_const_v<Type>,
+                                                        !std::is_member_object_pointer_v<Type>,
+                                                        &Setter<T, S>,
+                                                        nullptr,
+                                                        &GetterConst<T, G>,
+                                                    });
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            } else {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        std::is_const_v<Type>,
+                                                        !std::is_member_object_pointer_v<Type>,
+                                                        &Setter<T, S>,
+                                                        &Getter<T, G>,
+                                                        &GetterConst<T, G>,
+                                                    });
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            }
         }
 
         template <auto Func>

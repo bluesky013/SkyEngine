@@ -32,7 +32,7 @@ add_subdirectory(builder)
 
 if (NOT ANDROID)
     add_subdirectory(sample)
-    add_subdirectory(tools)
+#    add_subdirectory(tools)
     add_subdirectory(test)
 endif()
 if (SKY_BUILD_EDITOR)

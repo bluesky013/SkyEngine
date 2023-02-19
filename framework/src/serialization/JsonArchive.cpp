@@ -4,7 +4,7 @@
 
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/AnyRT.h>
+#include <framework/serialization/SerializationUtil.h>
 
 namespace sky {
 
@@ -60,8 +60,8 @@ namespace sky {
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
                 Key(memberName.c_str());
-                auto memberValue = GetAny(ptr, typeId, memberName);
-                SaveValueObject(memberValue);
+                auto memberValue = GetValueConst(ptr, typeId, memberName);
+                SaveValueObject(memberValue, member.second.info->typeId);
             }
             EndObject();
             EndObject();
@@ -118,7 +118,8 @@ namespace sky {
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
                 SKY_ASSERT(Start(memberName));
-                SetAny(ptr, typeId, memberName, LoadValueById(member.second.info->typeId));
+                auto *memberAddress = GetValue(ptr, typeId, memberName);
+                LoadValueById(memberAddress, member.second.info->typeId);
                 End();
             }
 
