@@ -50,4 +50,12 @@ namespace sky::gles {
 
         return true;
     }
+
+    void SwapChain::Present(rhi::Queue &queue, const rhi::PresentInfo &info)
+    {
+        auto tmp = surface;
+        queue.CreateTask([tmp]() {
+            eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), tmp->GetSurface());
+        });
+    }
 }

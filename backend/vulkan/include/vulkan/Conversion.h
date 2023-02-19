@@ -19,6 +19,8 @@ namespace sky::vk {
     VkImageViewType FromRHI(rhi::ImageViewType type);
     VkImageAspectFlags FromRHI(rhi::AspectFlags flags);
     VkFormat FromRHI(rhi::PixelFormat format);
+    VkFormat FromRHI(rhi::Format format);
+    VkVertexInputRate FromRHI(rhi::VertexInputRate rate);
     VmaMemoryUsage FromRHI(rhi::MemoryType type);
     VkImageUsageFlags FromRHI(rhi::ImageUsageFlags);
     VkBufferUsageFlags FromRHI(rhi::BufferUsageFlags);
@@ -26,6 +28,8 @@ namespace sky::vk {
     VkSamplerMipmapMode FromRHI(rhi::MipFilter);
     VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags);
+    VkPipelineStageFlags FromRHI(rhi::PipelineStageFlags);
+    VkAccessFlags FromRHI(rhi::AccessFlag);
     VkSampleCountFlagBits FromRHI(rhi::SampleCount);
     VkAttachmentLoadOp FromRHI(rhi::LoadOp);
     VkAttachmentStoreOp FromRHI(rhi::StoreOp);

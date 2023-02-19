@@ -50,7 +50,7 @@ namespace sky::vk {
     {
     }
 
-    static void FillShaderStageInfo(std::vector<VkPipelineShaderStageCreateInfo> shaderStageInfo, const rhi::ShaderPtr &shader)
+    static void FillShaderStageInfo(std::vector<VkPipelineShaderStageCreateInfo> &shaderStageInfo, const rhi::ShaderPtr &shader)
     {
         if (!shader) {
             return;

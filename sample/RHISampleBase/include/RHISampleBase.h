@@ -41,7 +41,8 @@ namespace sky::rhi {
         rhi::GraphicsPipelinePtr pso;
         rhi::PipelineLayoutPtr pipelineLayout;
 
-        rhi::ImagePtr image;
+        rhi::SemaphorePtr imageAvailable;
+        rhi::SemaphorePtr renderFinish;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

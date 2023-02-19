@@ -18,6 +18,7 @@
 #include <gles/DescriptorSetLayout.h>
 #include <gles/PipelineLayout.h>
 #include <gles/VertexInput.h>
+#include <gles/Semaphore.h>
 #include <memory>
 
 namespace sky::gles {
@@ -66,6 +67,7 @@ namespace sky::gles {
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(DescriptorSetLayout)
         CREATE_DEV_OBJ(PipelineLayout)
+        CREATE_DEV_OBJ_FUNC(Semaphore, Sema) // avoid CreateSemaphore conflict with windows macro
 
         CREATE_DESC_OBJ(VertexInput)
 

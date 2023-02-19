@@ -18,6 +18,7 @@
 #include <vulkan/DescriptorSetLayout.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/VertexInput.h>
+#include <vulkan/Semaphore.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -82,13 +83,21 @@ namespace sky::vk {
         CREATE_DEV_OBJ(Image)
         CREATE_DEV_OBJ(RenderPass)
         CREATE_DEV_OBJ(FrameBuffer)
-        CREATE_DEV_OBJ(CommandBuffer)
         CREATE_DEV_OBJ(Fence)
         CREATE_DEV_OBJ(Shader)
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(DescriptorSetLayout)
         CREATE_DEV_OBJ(PipelineLayout)
+        CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
+
+        // Special Device Object
+        std::shared_ptr<rhi::CommandBuffer> CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override
+        {
+            return std::static_pointer_cast<rhi::CommandBuffer>(static_cast<Queue *>(GetQueue(desc.queueType))->AllocateCommandBuffer({}));
+        }
+
+        // Desc Object
         CREATE_DESC_OBJ(VertexInput)
     private:
         bool Init(const Descriptor &, bool enableDebug);

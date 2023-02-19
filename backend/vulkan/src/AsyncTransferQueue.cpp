@@ -145,7 +145,7 @@ namespace sky::vk {
             barrier.srcAccessMask = 0;
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            inflightCommands[currentFrameId]->FlushBarrier();
+            inflightCommands[currentFrameId]->FlushBarriers();
             inflightCommands[currentFrameId]->End();
             inflightCommands[currentFrameId]->Submit(*queue, {});
             inflightCommands[currentFrameId]->Wait();
@@ -196,7 +196,7 @@ namespace sky::vk {
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = 0;
             inflightCommands[currentFrameId]->QueueBarrier(image, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            inflightCommands[currentFrameId]->FlushBarrier();
+            inflightCommands[currentFrameId]->FlushBarriers();
             inflightCommands[currentFrameId]->End();
             inflightCommands[currentFrameId]->Submit(*queue, {});
             inflightCommands[currentFrameId]->Wait();

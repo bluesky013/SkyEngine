@@ -5,15 +5,34 @@
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
 #include <vulkan/VertexInput.h>
+#include <vulkan/Conversion.h>
 
 namespace sky::vk {
 
     bool VertexInput::Init(const Descriptor &desc)
     {
         for (auto &attribute : desc.attributes) {
-
+            attributes.emplace_back(VkVertexInputAttributeDescription{attribute.location, attribute.binding, FromRHI(attribute.format), attribute.offset});
         }
+        for (auto &binding : desc.bindings) {
+            bindings.emplace_back(VkVertexInputBindingDescription{binding.binding, binding.stride, FromRHI(binding.inputRate)});
+        }
+        Build();
         return true;
+    }
+
+    void VertexInput::Build()
+    {
+        vInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vInputInfo.flags                           = 0;
+        vInputInfo.pNext                           = nullptr;
+        vInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+        vInputInfo.pVertexAttributeDescriptions    = attributes.data();
+        vInputInfo.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
+        vInputInfo.pVertexBindingDescriptions      = bindings.data();
+        hash                                       = 0;
+        HashCombine32(hash, Crc32::Cal((uint8_t *)attributes.data(), static_cast<uint32_t>(attributes.size())));
+        HashCombine32(hash, Crc32::Cal((uint8_t *)bindings.data(), static_cast<uint32_t>(bindings.size())));
     }
 
     VertexInput::Builder &VertexInput::Builder::Begin()
@@ -36,17 +55,7 @@ namespace sky::vk {
 
     std::shared_ptr<VertexInput> VertexInput::Builder::Build()
     {
-        vertexInput->vInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInput->vInputInfo.flags                           = 0;
-        vertexInput->vInputInfo.pNext                           = nullptr;
-        vertexInput->vInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInput->attributes.size());
-        vertexInput->vInputInfo.pVertexAttributeDescriptions    = vertexInput->attributes.data();
-        vertexInput->vInputInfo.vertexBindingDescriptionCount   = static_cast<uint32_t>(vertexInput->bindings.size());
-        vertexInput->vInputInfo.pVertexBindingDescriptions      = vertexInput->bindings.data();
-        vertexInput->hash                                       = 0;
-        HashCombine32(vertexInput->hash,
-                      Crc32::Cal((uint8_t *)vertexInput->attributes.data(), static_cast<uint32_t>(vertexInput->attributes.size())));
-        HashCombine32(vertexInput->hash, Crc32::Cal((uint8_t *)vertexInput->bindings.data(), static_cast<uint32_t>(vertexInput->bindings.size())));
+        vertexInput->Build();
         return vertexInput;
     }
 

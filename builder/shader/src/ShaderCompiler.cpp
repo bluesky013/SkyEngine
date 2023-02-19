@@ -44,6 +44,7 @@ namespace sky::builder {
         spirv_cross::CompilerGLSL::Options options;
         options.version = 320;
         options.es = true;
+        options.vertex.flip_vert_y = true;
         compiler.set_common_options(options);
         auto fn            = [&compiler](const SpvResources &resources) {
             for (auto &res : resources) {
@@ -120,7 +121,7 @@ namespace sky::builder {
         shaderc::CompileOptions options;
         options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
         options.SetIncluder(std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new IncluderImpl()));
-        options.SetInvertY(true);
+        options.SetInvertY(true); // hlsl only
 
         auto realPath = GetFullPath(path);
         if (realPath.empty()) {

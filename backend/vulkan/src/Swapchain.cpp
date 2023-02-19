@@ -248,9 +248,21 @@ namespace sky::vk {
         return *static_cast<const rhi::Extent2D*>(reinterpret_cast<const void*>(&extent));
     }
 
-    uint32_t SwapChain::AcquireNextImage() const
+    uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore) const
     {
-        return 0;
+        uint32_t next = 0;
+        AcquireNext(std::static_pointer_cast<Semaphore>(semaphore), next);
+        return next;
+    }
+
+    void SwapChain::Present(rhi::Queue &queue, const rhi::PresentInfo &info)
+    {
+        PresentInfo presentInfo = {};
+        presentInfo.imageIndex = info.imageIndex;
+        for (auto &sema : info.signals) {
+            presentInfo.signals.emplace_back(std::static_pointer_cast<Semaphore>(sema));
+        }
+        Present(presentInfo);
     }
 
     rhi::ImagePtr SwapChain::GetImage(uint32_t index) const

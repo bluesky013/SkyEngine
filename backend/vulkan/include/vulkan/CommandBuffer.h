@@ -33,63 +33,53 @@ namespace sky::vk {
         VkSubpassContents   contents        = VK_SUBPASS_CONTENTS_INLINE;
     };
 
-    class ComputeEncoder {
+    class ComputeEncoder : public rhi::ComputeEncoder {
     public:
         ComputeEncoder(CommandBuffer &);
         ~ComputeEncoder() = default;
 
         void BindShaderResource(const DescriptorSetBinderPtr &binder);
-
-        void BindComputePipeline(const ComputePipelinePtr &pso);
-
+        void BindPipeline(const ComputePipelinePtr &pso);
         void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 
-    protected:
+    private:
         friend class CommandBuffer;
         CommandBuffer        &cmdBuffer;
         VkCommandBuffer       cmd              = VK_NULL_HANDLE;
         VkPipeline            currentPso       = VK_NULL_HANDLE;
     };
 
-    class GraphicsEncoder : public ComputeEncoder {
+    class GraphicsEncoder : public rhi::GraphicsEncoder {
     public:
         GraphicsEncoder(CommandBuffer &);
         ~GraphicsEncoder() = default;
 
+        void BindShaderResource(const DescriptorSetBinderPtr &binder);
         void Encode(const DrawItem &item);
-
         void BeginPass(const PassBeginInfo &);
-
         void BindPipeline(const GraphicsPipelinePtr &pso);
-
         void BindAssembly(const VertexAssemblyPtr &assembly);
-
         void PushConstant(const PushConstantsPtr &constants);
-
         void SetViewport(uint32_t count, const VkViewport *viewport);
-
         void SetScissor(uint32_t count, const VkRect2D *scissor);
-
-        void DrawIndexed(const rhi::CmdDrawIndexed &indexed);
-
-        void DrawLinear(const rhi::CmdDrawLinear &linear);
-
         void DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
 
-        void EndPass();
 
-        const VkRenderPassBeginInfo &GetCurrentPass() const;
-
-        uint32_t GetSubPassId() const;
-
-        const VkViewport &GetCurrentViewport() const;
-
-        const VkRect2D &GetCurrentScissor() const;
-
-        CommandBuffer &GetCommandBuffer();
+        rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &info) override;
+        rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
+        rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
+        rhi::GraphicsEncoder &SetViewport(uint32_t count, const rhi::Viewport *viewport) override;
+        rhi::GraphicsEncoder &SetScissor(uint32_t count, const rhi::Rect2D *scissor) override;
+        rhi::GraphicsEncoder &DrawIndexed(const rhi::CmdDrawIndexed &indexed) override;
+        rhi::GraphicsEncoder &DrawLinear(const rhi::CmdDrawLinear &linear) override;
+        rhi::GraphicsEncoder &DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size) override;
+        rhi::GraphicsEncoder &EndPass() override;
 
     private:
         friend class CommandBuffer;
+        CommandBuffer        &cmdBuffer;
+        VkCommandBuffer       cmd              = VK_NULL_HANDLE;
+        VkPipeline            currentPso       = VK_NULL_HANDLE;
         VkRenderPassBeginInfo vkBeginInfo      = {};
         VkViewport            viewport{};
         VkRect2D              scissor{};
@@ -118,7 +108,6 @@ namespace sky::vk {
         void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
         void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
         void QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
-        void FlushBarrier();
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
         void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy);
@@ -141,11 +130,14 @@ namespace sky::vk {
         // rhi
         void Begin() override;
         void End() override;
-        void Submit(rhi::Queue &queue) override;
-        std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return {}; };
+        void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override;
+        std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override;
+        void QueueBarrier(const rhi::ImageBarrier &imageBarrier) override;
+        void FlushBarriers() override;
 
         void ExecuteSecondary(const SecondaryCommands &);
         GraphicsEncoder EncodeVkGraphics();
+        ComputeEncoder EncodeVKCompute();
 
         VkCommandBuffer GetNativeHandle() const;
     private:

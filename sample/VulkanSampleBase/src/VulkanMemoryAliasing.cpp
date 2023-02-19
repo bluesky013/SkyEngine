@@ -359,9 +359,10 @@ namespace sky {
 
         // pass 1: Compute
         {
-            graphicsEncoder.BindComputePipeline(compPipeline);
-            graphicsEncoder.BindShaderResource(compBinder);
-            graphicsEncoder.Dispatch(DISPATCH, 1, 1);
+            auto computeEncoder = commandBuffer->EncodeVKCompute();
+            computeEncoder.BindPipeline(compPipeline);
+            computeEncoder.BindShaderResource(compBinder);
+            computeEncoder.Dispatch(DISPATCH, 1, 1);
         }
 
         {

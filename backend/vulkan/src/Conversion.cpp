@@ -7,53 +7,59 @@
 
 namespace sky::vk {
 
-    std::unordered_map<rhi::PixelFormat, VkFormat> FORMAT_TABLE = {
-        {rhi::PixelFormat::UNDEFINED,                 VK_FORMAT_UNDEFINED                },
-        {rhi::PixelFormat::RGBA8_UNORM,               VK_FORMAT_R8G8B8A8_UNORM           },
-        {rhi::PixelFormat::RGBA8_SRGB,                VK_FORMAT_R8G8B8A8_SRGB            },
-        {rhi::PixelFormat::BGRA8_UNORM,               VK_FORMAT_B8G8R8A8_UNORM           },
-        {rhi::PixelFormat::BGRA8_SRGB,                VK_FORMAT_B8G8R8A8_SRGB            },
-        {rhi::PixelFormat::D32,                       VK_FORMAT_D32_SFLOAT               },
-        {rhi::PixelFormat::D24_S8,                    VK_FORMAT_D24_UNORM_S8_UINT        },
-        {rhi::PixelFormat::D32_S8,                    VK_FORMAT_D32_SFLOAT_S8_UINT       },
-        {rhi::PixelFormat::BC1_RGB_UNORM_BLOCK,       VK_FORMAT_BC1_RGB_UNORM_BLOCK      },
-        {rhi::PixelFormat::BC1_RGB_SRGB_BLOCK,        VK_FORMAT_BC1_RGB_SRGB_BLOCK       },
-        {rhi::PixelFormat::BC1_RGBA_UNORM_BLOCK,      VK_FORMAT_BC1_RGBA_UNORM_BLOCK     },
-        {rhi::PixelFormat::BC1_RGBA_SRGB_BLOCK,       VK_FORMAT_BC1_RGBA_SRGB_BLOCK      },
-        {rhi::PixelFormat::BC2_UNORM_BLOCK,           VK_FORMAT_BC2_UNORM_BLOCK          },
-        {rhi::PixelFormat::BC2_SRGB_BLOCK,            VK_FORMAT_BC2_SRGB_BLOCK           },
-        {rhi::PixelFormat::BC3_UNORM_BLOCK,           VK_FORMAT_BC3_UNORM_BLOCK          },
-        {rhi::PixelFormat::BC3_SRGB_BLOCK,            VK_FORMAT_BC3_SRGB_BLOCK           },
-        {rhi::PixelFormat::BC4_UNORM_BLOCK,           VK_FORMAT_BC4_UNORM_BLOCK          },
-        {rhi::PixelFormat::BC4_SNORM_BLOCK,           VK_FORMAT_BC4_SNORM_BLOCK          },
-        {rhi::PixelFormat::BC5_UNORM_BLOCK,           VK_FORMAT_BC5_UNORM_BLOCK          },
-        {rhi::PixelFormat::BC5_SNORM_BLOCK,           VK_FORMAT_BC5_SNORM_BLOCK          },
-        {rhi::PixelFormat::BC6H_UFLOAT_BLOCK,         VK_FORMAT_BC6H_UFLOAT_BLOCK        },
-        {rhi::PixelFormat::BC6H_SFLOAT_BLOCK,         VK_FORMAT_BC6H_SFLOAT_BLOCK        },
-        {rhi::PixelFormat::BC7_UNORM_BLOCK,           VK_FORMAT_BC7_UNORM_BLOCK          },
-        {rhi::PixelFormat::BC7_SRGB_BLOCK,            VK_FORMAT_BC7_SRGB_BLOCK           },
-        {rhi::PixelFormat::ETC2_R8G8B8_UNORM_BLOCK,   VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK  },
-        {rhi::PixelFormat::ETC2_R8G8B8_SRGB_BLOCK,    VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK   },
+    std::unordered_map<rhi::PixelFormat, VkFormat> PIXEL_FORMAT_TABLE = {
+        {rhi::PixelFormat::UNDEFINED, VK_FORMAT_UNDEFINED},
+        {rhi::PixelFormat::RGBA8_UNORM, VK_FORMAT_R8G8B8A8_UNORM},
+        {rhi::PixelFormat::RGBA8_SRGB, VK_FORMAT_R8G8B8A8_SRGB},
+        {rhi::PixelFormat::BGRA8_UNORM, VK_FORMAT_B8G8R8A8_UNORM},
+        {rhi::PixelFormat::BGRA8_SRGB, VK_FORMAT_B8G8R8A8_SRGB},
+        {rhi::PixelFormat::D32, VK_FORMAT_D32_SFLOAT},
+        {rhi::PixelFormat::D24_S8, VK_FORMAT_D24_UNORM_S8_UINT},
+        {rhi::PixelFormat::D32_S8, VK_FORMAT_D32_SFLOAT_S8_UINT},
+        {rhi::PixelFormat::BC1_RGB_UNORM_BLOCK, VK_FORMAT_BC1_RGB_UNORM_BLOCK},
+        {rhi::PixelFormat::BC1_RGB_SRGB_BLOCK, VK_FORMAT_BC1_RGB_SRGB_BLOCK},
+        {rhi::PixelFormat::BC1_RGBA_UNORM_BLOCK, VK_FORMAT_BC1_RGBA_UNORM_BLOCK},
+        {rhi::PixelFormat::BC1_RGBA_SRGB_BLOCK, VK_FORMAT_BC1_RGBA_SRGB_BLOCK},
+        {rhi::PixelFormat::BC2_UNORM_BLOCK, VK_FORMAT_BC2_UNORM_BLOCK},
+        {rhi::PixelFormat::BC2_SRGB_BLOCK, VK_FORMAT_BC2_SRGB_BLOCK},
+        {rhi::PixelFormat::BC3_UNORM_BLOCK, VK_FORMAT_BC3_UNORM_BLOCK},
+        {rhi::PixelFormat::BC3_SRGB_BLOCK, VK_FORMAT_BC3_SRGB_BLOCK},
+        {rhi::PixelFormat::BC4_UNORM_BLOCK, VK_FORMAT_BC4_UNORM_BLOCK},
+        {rhi::PixelFormat::BC4_SNORM_BLOCK, VK_FORMAT_BC4_SNORM_BLOCK},
+        {rhi::PixelFormat::BC5_UNORM_BLOCK, VK_FORMAT_BC5_UNORM_BLOCK},
+        {rhi::PixelFormat::BC5_SNORM_BLOCK, VK_FORMAT_BC5_SNORM_BLOCK},
+        {rhi::PixelFormat::BC6H_UFLOAT_BLOCK, VK_FORMAT_BC6H_UFLOAT_BLOCK},
+        {rhi::PixelFormat::BC6H_SFLOAT_BLOCK, VK_FORMAT_BC6H_SFLOAT_BLOCK},
+        {rhi::PixelFormat::BC7_UNORM_BLOCK, VK_FORMAT_BC7_UNORM_BLOCK},
+        {rhi::PixelFormat::BC7_SRGB_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK},
+        {rhi::PixelFormat::ETC2_R8G8B8_UNORM_BLOCK, VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK},
+        {rhi::PixelFormat::ETC2_R8G8B8_SRGB_BLOCK, VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK},
         {rhi::PixelFormat::ETC2_R8G8B8A1_UNORM_BLOCK, VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK},
-        {rhi::PixelFormat::ETC2_R8G8B8A1_SRGB_BLOCK,  VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK },
+        {rhi::PixelFormat::ETC2_R8G8B8A1_SRGB_BLOCK, VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK},
         {rhi::PixelFormat::ETC2_R8G8B8A8_UNORM_BLOCK, VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK},
-        {rhi::PixelFormat::ETC2_R8G8B8A8_SRGB_BLOCK,  VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK },
-        {rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK,      VK_FORMAT_ASTC_4x4_UNORM_BLOCK     },
-        {rhi::PixelFormat::ASTC_4x4_SRGB_BLOCK,       VK_FORMAT_ASTC_4x4_SRGB_BLOCK      },
-        {rhi::PixelFormat::ASTC_8x8_UNORM_BLOCK,      VK_FORMAT_ASTC_8x8_UNORM_BLOCK     },
-        {rhi::PixelFormat::ASTC_8x8_SRGB_BLOCK,       VK_FORMAT_ASTC_8x8_SRGB_BLOCK      },
-        {rhi::PixelFormat::ASTC_10x10_UNORM_BLOCK,    VK_FORMAT_ASTC_10x10_UNORM_BLOCK   },
-        {rhi::PixelFormat::ASTC_10x10_SRGB_BLOCK,     VK_FORMAT_ASTC_10x10_SRGB_BLOCK    },
-        {rhi::PixelFormat::ASTC_12x12_UNORM_BLOCK,    VK_FORMAT_ASTC_12x12_UNORM_BLOCK   },
-        {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK,     VK_FORMAT_ASTC_12x12_SRGB_BLOCK    },
+        {rhi::PixelFormat::ETC2_R8G8B8A8_SRGB_BLOCK, VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK},
+        {rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK, VK_FORMAT_ASTC_4x4_UNORM_BLOCK},
+        {rhi::PixelFormat::ASTC_4x4_SRGB_BLOCK, VK_FORMAT_ASTC_4x4_SRGB_BLOCK},
+        {rhi::PixelFormat::ASTC_8x8_UNORM_BLOCK, VK_FORMAT_ASTC_8x8_UNORM_BLOCK},
+        {rhi::PixelFormat::ASTC_8x8_SRGB_BLOCK, VK_FORMAT_ASTC_8x8_SRGB_BLOCK},
+        {rhi::PixelFormat::ASTC_10x10_UNORM_BLOCK, VK_FORMAT_ASTC_10x10_UNORM_BLOCK},
+        {rhi::PixelFormat::ASTC_10x10_SRGB_BLOCK, VK_FORMAT_ASTC_10x10_SRGB_BLOCK},
+        {rhi::PixelFormat::ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_UNORM_BLOCK},
+        {rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK},
+    };
+
+    std::unordered_map<rhi::Format, VkFormat> FORMAT_TABLE = {
+        {rhi::Format::UNDEFINED, VK_FORMAT_UNDEFINED},          {rhi::Format::F_R32, VK_FORMAT_R32_SFLOAT},
+        {rhi::Format::F_RG32, VK_FORMAT_R32G32_SFLOAT},         {rhi::Format::F_RGB32, VK_FORMAT_R32G32B32_SFLOAT},
+        {rhi::Format::F_RGBA32, VK_FORMAT_R32G32B32A32_SFLOAT},
     };
 
     std::unordered_map<rhi::WrapMode, VkSamplerAddressMode> SAMPLER_ADDRESS_TABLE = {
-            {rhi::WrapMode::REPEAT,               VK_SAMPLER_ADDRESS_MODE_REPEAT},
-            {rhi::WrapMode::MIRRORED_REPEAT,      VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT},
-            {rhi::WrapMode::CLAMP_TO_EDGE,        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE},
-            {rhi::WrapMode::CLAMP_TO_BORDER,      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER},
-            {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE},
+        {rhi::WrapMode::REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT},
+        {rhi::WrapMode::MIRRORED_REPEAT, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT},
+        {rhi::WrapMode::CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE},
+        {rhi::WrapMode::CLAMP_TO_BORDER, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER},
+        {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE},
     };
 
     VkImageType FromRHI(rhi::ImageType type)
@@ -89,8 +95,19 @@ namespace sky::vk {
 
     VkFormat FromRHI(rhi::PixelFormat format)
     {
+        auto iter = PIXEL_FORMAT_TABLE.find(format);
+        return iter == PIXEL_FORMAT_TABLE.end() ? VK_FORMAT_UNDEFINED : iter->second;
+    }
+
+    VkFormat FromRHI(rhi::Format format)
+    {
         auto iter = FORMAT_TABLE.find(format);
         return iter == FORMAT_TABLE.end() ? VK_FORMAT_UNDEFINED : iter->second;
+    }
+
+    VkVertexInputRate FromRHI(rhi::VertexInputRate rate)
+    {
+        return rate == rhi::VertexInputRate::PER_INSTANCE ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
     }
 
     VmaMemoryUsage FromRHI(rhi::MemoryType type)
@@ -348,6 +365,57 @@ namespace sky::vk {
             ret |= VK_CULL_MODE_BACK_BIT;
         }
         return ret;
+    }
+
+    VkPipelineStageFlags FromRHI(const rhi::PipelineStageFlags flags)
+    {
+        VkPipelineStageFlags res = {};
+        static const std::unordered_map<rhi::PipelineStageBit, VkPipelineStageFlagBits> STAGE_FLAG_MAP = {
+            {rhi::PipelineStageBit::TOP            , VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT},
+            {rhi::PipelineStageBit::DRAW_INDIRECT  , VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
+            {rhi::PipelineStageBit::VERTEX_INPUT   , VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
+            {rhi::PipelineStageBit::VERTEX_SHADER  , VK_PIPELINE_STAGE_VERTEX_SHADER_BIT},
+            {rhi::PipelineStageBit::FRAGMENT_SHADER, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
+            {rhi::PipelineStageBit::EARLY_FRAGMENT , VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT},
+            {rhi::PipelineStageBit::LATE_FRAGMENT  , VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
+            {rhi::PipelineStageBit::COLOR_OUTPUT   , VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+            {rhi::PipelineStageBit::COMPUTE_SHADER , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
+            {rhi::PipelineStageBit::TRANSFER       , VK_PIPELINE_STAGE_TRANSFER_BIT},
+            {rhi::PipelineStageBit::BOTTOM         , VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT},
+        };
+
+        for (const auto &[bit, vkBit] : STAGE_FLAG_MAP) {
+            if (flags & bit) {
+                res |= vkBit;
+            }
+        }
+        return res;
+    }
+
+    VkAccessFlags FromRHI(rhi::AccessFlag flag)
+    {
+        VkAccessFlags res = {};
+        static const std::unordered_map<rhi::AccessFlag, VkAccessFlagBits> ACCESS_FLAG_MAP = {
+            {rhi::AccessFlag::INDIRECT_COMMAND_READ, VK_ACCESS_INDIRECT_COMMAND_READ_BIT},
+            {rhi::AccessFlag::INDEX_READ           , VK_ACCESS_INDEX_READ_BIT},
+            {rhi::AccessFlag::VERTEX_ATTRIBUTE_READ, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT},
+            {rhi::AccessFlag::UNIFORM_READ         , VK_ACCESS_UNIFORM_READ_BIT},
+            {rhi::AccessFlag::INPUT_ATTACHMENT_READ, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT},
+            {rhi::AccessFlag::SHADER_READ          , VK_ACCESS_SHADER_READ_BIT},
+            {rhi::AccessFlag::SHADER_WRITE         , VK_ACCESS_SHADER_WRITE_BIT},
+            {rhi::AccessFlag::COLOR_READ           , VK_ACCESS_COLOR_ATTACHMENT_READ_BIT},
+            {rhi::AccessFlag::COLOR_WRITE          , VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT},
+            {rhi::AccessFlag::DEPTH_STENCIL_READ   , VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT},
+            {rhi::AccessFlag::DEPTH_STENCIL_WRITE  , VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT},
+            {rhi::AccessFlag::TRANSFER_READ        , VK_ACCESS_TRANSFER_READ_BIT},
+            {rhi::AccessFlag::TRANSFER_WRITE       , VK_ACCESS_TRANSFER_WRITE_BIT},
+            {rhi::AccessFlag::HOST_READ            , VK_ACCESS_HOST_READ_BIT},
+            {rhi::AccessFlag::HOST_WRITE           , VK_ACCESS_HOST_WRITE_BIT},
+            {rhi::AccessFlag::MEMORY_READ          , VK_ACCESS_MEMORY_READ_BIT},
+            {rhi::AccessFlag::MEMORY_WRITE         , VK_ACCESS_MEMORY_WRITE_BIT},
+        };
+        auto iter = ACCESS_FLAG_MAP.find(flag);
+        return iter == ACCESS_FLAG_MAP.end() ? 0 : iter->second;
     }
 
     VkStencilOpState FromRHI(const rhi::StencilState& stencil)

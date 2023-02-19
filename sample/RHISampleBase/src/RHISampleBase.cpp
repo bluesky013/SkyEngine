@@ -29,11 +29,11 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStart()
     {
-        builder::ShaderCompiler::CompileShader("fullscreen.glsl", {"shaders/rhiSample/fullscreen.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("descriptor_fs.glsl", {"shaders/rhiSample/descriptor_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("triangle_vs.glsl", {"shaders/rhiSample/triangle_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("triangle_fs.glsl", {"shaders/rhiSample/triangle_fs.shader", builder::ShaderType::FS});
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
-        instance = Instance::Create({"", "", false, rhi});
+        instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({});
 
         auto nativeWindow = systemApi->GetViewport();
@@ -63,11 +63,11 @@ namespace sky::rhi {
         });
         renderPass = device->CreateRenderPass(passDesc);
 
-        FrameBuffer::Descriptor fbDesc = {};
-        fbDesc.extent = ext;
-        fbDesc.pass = renderPass;
         frameBuffers.reserve(count);
         for (uint32_t i = 0; i < count; ++i) {
+            FrameBuffer::Descriptor fbDesc = {};
+            fbDesc.extent = ext;
+            fbDesc.pass = renderPass;
             fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
             frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
         }
@@ -76,83 +76,31 @@ namespace sky::rhi {
         commandBuffer = device->CreateCommandBuffer(cmdDesc);
 
         rhi::PipelineLayout::Descriptor pLayoutDesc = {};
-        {
-            {
-                rhi::DescriptorSetLayout::Descriptor desc = {};
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 2, 0, ShaderStageFlagBit::FS, "tex"});
-                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
-            }
-            {
-                rhi::DescriptorSetLayout::Descriptor desc = {};
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::STORAGE_BUFFER, 2, 0, ShaderStageFlagBit::FS, "storage1"});
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::UNIFORM_BUFFER, 2, 1, ShaderStageFlagBit::FS, "matrix"});
-                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
-            }
-            {
-                rhi::DescriptorSetLayout::Descriptor desc = {};
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{DescriptorType::STORAGE_BUFFER, 2, 0, ShaderStageFlagBit::FS, "storage2"});
-                pLayoutDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
-            }
-        }
         pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
 
         auto vertexInput = device->CreateVertexInput({});
 
         GraphicsPipeline::Descriptor psoDesc = {};
-        psoDesc.state;
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/fullscreen.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/descriptor_fs.shader");
+        psoDesc.state.blendStates.emplace_back(rhi::BlendState{});
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/triangle_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/triangle_fs.shader");
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = pipelineLayout;
         psoDesc.vertexInput = vertexInput;
         pso = device->CreateGraphicsPipeline(psoDesc);
 
-        rhi::Image::Descriptor imageDesc = {};
-        imageDesc.imageType   = ImageType::IMAGE_2D;
-        imageDesc.format      = PixelFormat::RGBA8_UNORM;
-        imageDesc.extent      = {4, 4, 1};
-        imageDesc.usage       = ImageUsageFlagBit::TRANSFER_DST | ImageUsageFlagBit::SAMPLED;
-        image = device->CreateImage(imageDesc);
-
-        struct RGBA8 {
-            union {
-                uint8_t data[4];
-                struct {
-                    uint8_t r;
-                    uint8_t g;
-                    uint8_t b;
-                    uint8_t a;
-                };
-            };
-        };
-        RGBA8 data[4][4];
-        for (uint32_t i = 0; i < 4; ++i) {
-            for (uint32_t j = 0; j < 4; ++j) {
-                auto &dat = data[i][j];
-                dat.r = i * (256 / 4);
-                dat.g = j * (256 / 4);
-                dat.b = 255;
-                dat.a = 255;
-            }
-        }
-        auto tq = device->GetQueue(QueueType::TRANSFER);
-        rhi::ImageUploadRequest uploadRequest = {};
-        uploadRequest.data     = reinterpret_cast<const uint8_t*>(data);
-        uploadRequest.size     = 16 * sizeof(RGBA8);
-        uploadRequest.imageOffset = {0, 0, 0};
-        uploadRequest.imageExtent = {4, 4, 1};
-
-        auto handle = tq->UploadImage(image, uploadRequest);
-        tq->Wait(handle);
+        imageAvailable = device->CreateSema({});
+        renderFinish = device->CreateSema({});
     }
 
     void RHISampleBase::OnStop()
     {
         commandBuffer = nullptr;
         pso = nullptr;
-        image = nullptr;
         swapChain = nullptr;
         renderPass = nullptr;
+        renderFinish = nullptr;
+        imageAvailable = nullptr;
         frameBuffers.clear();
 
         delete device;
@@ -165,21 +113,54 @@ namespace sky::rhi {
     void RHISampleBase::OnTick(float delta)
     {
         ClearValue clear = {};
-        clear.color.float32[0] = 1.f;
+        clear.color.float32[0] = 0.f;
         clear.color.float32[1] = 0.f;
         clear.color.float32[2] = 0.f;
         clear.color.float32[3] = 1.f;
 
         auto queue = device->GetQueue(QueueType::GRAPHICS);
-        uint32_t index = swapChain->AcquireNextImage();
+        uint32_t index = swapChain->AcquireNextImage(imageAvailable);
+
+        SubmitInfo submitInfo = {};
+        submitInfo.submitSignals.emplace_back(renderFinish);
+        submitInfo.waits.emplace_back(
+            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+
+        ImageBarrier barrier = {};
+        barrier.srcStage = PipelineStageBit::TOP;
+        barrier.dstStage = PipelineStageBit::COLOR_OUTPUT;
+        barrier.srcFlag = AccessFlag::NONE;
+        barrier.dstFlag = AccessFlag::COLOR_WRITE;
+        barrier.srcQueueFamily = (~0U);
+        barrier.dstQueueFamily = (~0U);
+        barrier.mask      = rhi::AspectFlagBit::COLOR_BIT;
+        barrier.subRange  = {0, 1, 0, 1};
+        barrier.image = swapChain->GetImage(index);
 
         commandBuffer->Begin();
-        commandBuffer->EncodeGraphics()->BeginPass(frameBuffers[index], renderPass, 1, &clear)
+
+        commandBuffer->QueueBarrier(barrier);
+        commandBuffer->FlushBarriers();
+
+        commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 1, &clear})
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
             .EndPass();
+
+        barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
+        barrier.dstStage = PipelineStageBit::BOTTOM;
+        barrier.srcFlag = AccessFlag::COLOR_WRITE;
+        barrier.dstFlag = AccessFlag::PRESENT;
+        commandBuffer->QueueBarrier(barrier);
+        commandBuffer->FlushBarriers();
+
         commandBuffer->End();
-        commandBuffer->Submit(*queue);
+        commandBuffer->Submit(*queue, submitInfo);
+
+        PresentInfo presentInfo = {};
+        presentInfo.imageIndex = index;
+        presentInfo.signals.emplace_back(renderFinish);
+        swapChain->Present(*queue, presentInfo);
     }
 
     void RHISampleBase::OnWindowResize(uint32_t width, uint32_t height)

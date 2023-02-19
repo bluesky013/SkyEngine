@@ -230,6 +230,33 @@ namespace sky::rhi {
         TRANSFER,
     };
 
+    enum class SubPassContent : uint32_t {
+        INLINE = 0,
+        SECONDARY_COMMAND_BUFFERS = 1,
+    };
+
+    enum class AccessFlag : uint32_t{
+        NONE                  = 0,
+        INDIRECT_COMMAND_READ = 1,
+        INDEX_READ            = 2,
+        VERTEX_ATTRIBUTE_READ = 3,
+        UNIFORM_READ          = 4,
+        INPUT_ATTACHMENT_READ = 5,
+        SHADER_READ           = 6,
+        SHADER_WRITE          = 7,
+        COLOR_READ            = 8,
+        COLOR_WRITE           = 9,
+        DEPTH_STENCIL_READ    = 10,
+        DEPTH_STENCIL_WRITE   = 11,
+        TRANSFER_READ         = 12,
+        TRANSFER_WRITE        = 13,
+        HOST_READ             = 14,
+        HOST_WRITE            = 15,
+        MEMORY_READ           = 16,
+        MEMORY_WRITE          = 17,
+        PRESENT               = 18
+    };
+
     // flag bit
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,
@@ -280,6 +307,23 @@ namespace sky::rhi {
     };
     using CullingModeFlags = Flags<CullModeFlagBits>;
     ENABLE_FLAG_BIT_OPERATOR(CullModeFlagBits)
+
+    enum class PipelineStageBit : uint32_t {
+        NONE            = 0x00000000,
+        TOP             = 0x00000001,
+        DRAW_INDIRECT   = 0x00000002,
+        VERTEX_INPUT    = 0x00000004,
+        VERTEX_SHADER   = 0x00000008,
+        FRAGMENT_SHADER = 0x00000010,
+        EARLY_FRAGMENT  = 0x00000020,
+        LATE_FRAGMENT   = 0x00000040,
+        COLOR_OUTPUT    = 0x00000080,
+        COMPUTE_SHADER  = 0x00000100,
+        TRANSFER        = 0x00000200,
+        BOTTOM          = 0x00000400
+    };
+    using PipelineStageFlags = Flags<PipelineStageBit>;
+    ENABLE_FLAG_BIT_OPERATOR(PipelineStageBit)
 
     // structs
     struct Offset2D {
@@ -416,7 +460,7 @@ namespace sky::rhi {
     };
 
     struct MultiSample {
-        SampleCount sampleCount;
+        SampleCount sampleCount = SampleCount::X1;
     };
 
     struct PipelineState {

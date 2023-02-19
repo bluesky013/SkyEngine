@@ -6,8 +6,15 @@
 
 #include <rhi/Core.h>
 #include <rhi/Image.h>
+#include <rhi/Semaphore.h>
 
 namespace sky::rhi {
+    class Queue;
+
+    struct PresentInfo {
+        std::vector<SemaphorePtr> signals;
+        uint32_t                  imageIndex = 0;
+    };
 
     class SwapChain {
     public:
@@ -24,12 +31,14 @@ namespace sky::rhi {
 
         virtual PixelFormat GetFormat() const = 0;
         virtual const Extent2D &GetExtent() const = 0;
-        virtual uint32_t AcquireNextImage() const = 0;
+        virtual uint32_t AcquireNextImage(const SemaphorePtr &semaphore) const = 0;
         virtual ImagePtr GetImage(uint32_t index) const = 0;
         virtual uint32_t GetImageCount() const = 0;
 
         virtual bool HasDepthStencilImage() const = 0;
         virtual rhi::ImagePtr GetDepthStencilImage() const = 0;
+
+        virtual void Present(Queue &queue, const PresentInfo &info) = 0;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

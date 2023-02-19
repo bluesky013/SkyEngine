@@ -31,8 +31,12 @@ namespace sky::rhi {
         };
 
         struct Dependency {
-            uint32_t src;
-            uint32_t dst;
+            uint32_t src = (~0U);
+            uint32_t dst = (~0U);
+            PipelineStageFlags srcStage;
+            PipelineStageFlags dstStage;
+            AccessFlag srcFlag = AccessFlag::NONE;
+            AccessFlag dstFlag = AccessFlag::NONE;
         };
 
         struct Descriptor {

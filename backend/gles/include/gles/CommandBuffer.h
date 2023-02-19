@@ -21,7 +21,7 @@ namespace sky::gles {
         GraphicsEncoder(CommandBuffer &cmd, CommandContext *ctx) : commandBuffer(cmd), context(ctx) {}
         ~GraphicsEncoder() = default;
 
-        rhi::GraphicsEncoder &BeginPass(const rhi::FrameBufferPtr &frameBuffer, const rhi::RenderPassPtr &renderPass, uint32_t clearCount, rhi::ClearValue *clearValues) override;
+        rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &beginInfo) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
         rhi::GraphicsEncoder &SetViewport(uint32_t count, const rhi::Viewport *viewport) override;
@@ -43,7 +43,7 @@ namespace sky::gles {
 
         void Begin() override;
         void End() override;
-        void Submit(rhi::Queue &queue) override;
+        void Submit(rhi::Queue &queue, const rhi::SubmitInfo &info) override;
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override;
 
         struct TaskBase {

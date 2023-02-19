@@ -81,8 +81,5 @@ namespace sky::gles {
 
     void CommandContext::CmdEndPass()
     {
-        if (fbo == 0 && surface) {
-            eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), surface->GetSurface());
-        }
     }
 }

@@ -24,10 +24,7 @@ namespace sky::vk {
     bool RenderPass::Init(const Descriptor &des)
     {
         hash = 0;
-        std::vector<VkAttachmentDescription> attachments;
-        std::vector<VkSubpassDescription>    subPasses;
-        std::vector<VkSubpassDependency>     dependencies;
-        std::vector<VkAttachmentReference>   references;
+        std::vector<VkAttachmentReference> references;
 
         attachments.reserve(des.attachments.size());
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
@@ -43,7 +40,7 @@ namespace sky::vk {
             vkAt.stencilStoreOp = FromRHI(attachment.stencilStore);
         }
 
-        auto refFn = [&references, &attachments](uint32_t index, VkImageLayout layout) {
+        auto refFn = [&references, this](uint32_t index, VkImageLayout layout) {
             references.emplace_back();
             auto &vkRef = references.back();
             vkRef.attachment = index;
@@ -104,10 +101,10 @@ namespace sky::vk {
             auto &vkDep           = dependencies.back();
             vkDep.srcSubpass      = dep.src;
             vkDep.dstSubpass      = dep.dst;
-            vkDep.srcStageMask    = VK_PIPELINE_STAGE_NONE;
-            vkDep.dstStageMask    = VK_PIPELINE_STAGE_NONE;
-            vkDep.srcAccessMask   = VK_ACCESS_NONE;
-            vkDep.dstAccessMask   = VK_ACCESS_NONE;
+            vkDep.srcStageMask    = FromRHI(dep.srcStage);
+            vkDep.dstStageMask    = FromRHI(dep.dstStage);
+            vkDep.srcAccessMask   = FromRHI(dep.srcFlag);
+            vkDep.dstAccessMask   = FromRHI(dep.dstFlag);
             vkDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
         }
 
@@ -133,7 +130,9 @@ namespace sky::vk {
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
                                        static_cast<uint32_t>(des.attachments.size() * sizeof(VkAttachmentDescription))));
 
-        std::vector<VkSubpassDescription> subPasses(des.subPasses.size());
+        attachments = des.attachments;
+        dependencies = des.dependencies;
+        subPasses.resize(des.subPasses.size());
         for (uint32_t i = 0; i < subPasses.size(); ++i) {
             auto &vSubPass = subPasses[i];
             auto &subPass  = des.subPasses[i];
@@ -161,28 +160,18 @@ namespace sky::vk {
 
         VkRenderPassCreateInfo passInfo = {};
         passInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        passInfo.attachmentCount        = (uint32_t)des.attachments.size();
-        passInfo.pAttachments           = des.attachments.data();
+        passInfo.attachmentCount        = (uint32_t)attachments.size();
+        passInfo.pAttachments           = attachments.data();
         passInfo.subpassCount           = (uint32_t)des.subPasses.size();
         passInfo.pSubpasses             = subPasses.data();
-        passInfo.dependencyCount        = (uint32_t)des.dependencies.size();
-        passInfo.pDependencies          = des.dependencies.data();
+        passInfo.dependencyCount        = (uint32_t)dependencies.size();
+        passInfo.pDependencies          = dependencies.data();
 
         pass = device.GetRenderPass(hash, &passInfo);
         if (pass == VK_NULL_HANDLE) {
             return false;
         }
         return true;
-    }
-
-    VkRenderPass RenderPass::GetNativeHandle() const
-    {
-        return pass;
-    }
-
-    uint32_t RenderPass::GetHash() const
-    {
-        return hash;
     }
 
     static void InitAttachmentInfo(VkAttachmentDescription &attachment)

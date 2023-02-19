@@ -31,9 +31,9 @@ namespace sky::vk {
             std::vector<VkSubpassDependency>     dependencies;
         };
 
-        VkRenderPass GetNativeHandle() const;
-
-        uint32_t GetHash() const;
+        VkRenderPass GetNativeHandle() const { return pass; }
+        uint32_t GetHash() const { return hash; }
+        const std::vector<VkAttachmentDescription> &GetAttachments() const { return attachments; }
 
     private:
         friend class Device;
@@ -44,6 +44,9 @@ namespace sky::vk {
 
         VkRenderPass pass;
         uint32_t     hash;
+        std::vector<VkAttachmentDescription> attachments;
+        std::vector<VkSubpassDescription>    subPasses;
+        std::vector<VkSubpassDependency>     dependencies;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

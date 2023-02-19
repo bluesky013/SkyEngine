@@ -31,8 +31,8 @@ namespace sky::gles {
         glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, parameter.wrapT);
         glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, parameter.wrapR);
 
-        glSamplerParameteri(sampler, GL_TEXTURE_MIN_LOD, parameter.minLod);
-        glSamplerParameteri(sampler, GL_TEXTURE_MAX_LOD, parameter.maxLod);
+        glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, parameter.minLod);
+        glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, parameter.maxLod);
 
         return true;
     }

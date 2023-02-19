@@ -41,6 +41,7 @@ namespace sky::vk {
         uint32_t GetHash() const { return hash; }
 
     private:
+        void Build();
         friend class vk::VertexInput::Builder;
 
         std::vector<VkVertexInputAttributeDescription> attributes;

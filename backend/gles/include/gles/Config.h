@@ -9,10 +9,10 @@
 namespace sky::gles {
 
     struct Config {
-        EGLint rgb     = 8;
-        EGLint alpha   = 8;
-        EGLint depth   = 24;
-        EGLint stencil = 8;
-        EGLint sample  = 0;
+        int32_t rgb     = 8;
+        int32_t alpha   = 8;
+        int32_t depth   = 24;
+        int32_t stencil = 8;
+        int32_t sample  = 0;
     };
 }

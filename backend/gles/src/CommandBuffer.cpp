@@ -9,15 +9,15 @@
 #include <gles/Core.h>
 
 namespace sky::gles {
-    rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::FrameBufferPtr &frameBuffer, const rhi::RenderPassPtr &renderPass, uint32_t clearCount, rhi::ClearValue *clearValues)
+    rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &beginInfo)
     {
-        uint32_t copySize = clearCount * sizeof(rhi::ClearValue);
+        uint32_t copySize = beginInfo.clearCount * sizeof(rhi::ClearValue);
         rhi::ClearValue *copyValues = reinterpret_cast<rhi::ClearValue*>(commandBuffer.Allocate(copySize));
-        memcpy(copyValues, clearValues, copySize);
+        memcpy(copyValues, beginInfo.clearValues, copySize);
         commandBuffer.EnqueueMessage(&CommandContext::CmdBeginPass, context,
-                                     std::static_pointer_cast<FrameBuffer>(frameBuffer),
-                                     std::static_pointer_cast<RenderPass>(renderPass),
-                                     clearCount, copyValues);
+                                     std::static_pointer_cast<FrameBuffer>(beginInfo.frameBuffer),
+                                     std::static_pointer_cast<RenderPass>(beginInfo.renderPass),
+                                     beginInfo.clearCount, copyValues);
         return *this;
     }
 
@@ -144,7 +144,7 @@ namespace sky::gles {
     {
     }
 
-    void CommandBuffer::Submit(rhi::Queue &queue)
+    void CommandBuffer::Submit(rhi::Queue &queue, const rhi::SubmitInfo &info)
     {
         auto &glesQueue = static_cast<Queue&>(queue);
         context->SetContext(glesQueue.GetContext());

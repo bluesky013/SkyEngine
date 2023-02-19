@@ -20,6 +20,25 @@ namespace sky::vk {
 
     bool PipelineLayout::Init(const Descriptor &des)
     {
+        hash = 0;
+        std::vector<VkDescriptorSetLayout> layouts;
+        for (auto &layout : des.layouts) {
+            desLayouts.emplace_back(std::static_pointer_cast<DescriptorSetLayout>(layout));
+            layouts.emplace_back(desLayouts.back()->GetNativeHandle());
+            HashCombine32(hash, desLayouts.back()->GetHash());
+        }
+
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+        pipelineLayoutCreateInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutCreateInfo.setLayoutCount             = static_cast<uint32_t>(layouts.size());
+        pipelineLayoutCreateInfo.pSetLayouts                = layouts.data();
+        pipelineLayoutCreateInfo.pushConstantRangeCount     = 0;
+        pipelineLayoutCreateInfo.pPushConstantRanges        = nullptr;
+
+        layout = device.GetPipelineLayout(hash, &pipelineLayoutCreateInfo);
+        if (layout == VK_NULL_HANDLE) {
+            return false;
+        }
         return true;
     }
 

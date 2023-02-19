@@ -10,6 +10,8 @@
 #include <rhi/GraphicsPipeline.h>
 #include <rhi/VertexAssembly.h>
 #include <rhi/Buffer.h>
+#include <rhi/Image.h>
+#include <rhi/Semaphore.h>
 
 namespace sky::rhi {
 
