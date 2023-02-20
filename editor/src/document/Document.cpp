@@ -9,6 +9,10 @@
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
+#include <EngineRoot.h>
 
 namespace sky::editor {
 
@@ -72,6 +76,9 @@ namespace sky::editor {
         SetFlag(DocumentFlagBit::PROJECT_OPEN);
 
         AssetManager::Get()->Reset(projectHome.toStdString() + "/assets.db");
+        AssetManager::Get()->RegisterSearchPath(projectHome.toStdString());
+        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
+        Interface<ISystemNotify>::Get()->GetApi()->GetSettings().SetValue("PROJECT_PATH", projectHome.toStdString());
     }
 
     void Document::Read()

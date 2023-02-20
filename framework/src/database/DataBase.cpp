@@ -3,10 +3,9 @@
 //
 
 #include <framework/database/DataBase.h>
+#include <framework/database/DBManager.h>
 #include <sqlite/sqlite3.h>
 #include <sqlite/sqlite3ext.h>
-
-SQLITE_EXTENSION_INIT3
 
 namespace sky {
     namespace db {
@@ -98,6 +97,7 @@ namespace sky {
 
     bool DataBase::Init(const std::string &path)
     {
+        sqlite3_api = DBManager::Get()->GetRoutines();
         if (db != nullptr) {
             sqlite3_close(db);
             db = nullptr;

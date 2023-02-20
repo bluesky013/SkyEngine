@@ -31,12 +31,14 @@ add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(engine)
 add_subdirectory(backend)
+
+if (SKY_BUILD_EDITOR)
+    add_subdirectory(editor)
+endif()
+
 add_subdirectory(builder)
 
 if (NOT ANDROID)
     add_subdirectory(sample)
-#    add_subdirectory(tools)
-endif()
-if (SKY_BUILD_EDITOR)
-    add_subdirectory(editor)
+    #    add_subdirectory(tools)
 endif()

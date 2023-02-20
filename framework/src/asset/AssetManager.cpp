@@ -5,6 +5,9 @@
 #include <core/file/FileIO.h>
 #include <filesystem>
 #include <framework/asset/AssetManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
 
 namespace sky {
 
@@ -74,6 +77,34 @@ namespace sky {
         pathMap[id] = path;
     }
 
+    void AssetManager::RegisterBuilder(const std::string &key, AssetBuilder *builder)
+    {
+        if (builder == nullptr) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(assetMutex);
+        assetBuilders[key].emplace_back(std::move(builder));
+    }
+
+    void AssetManager::ImportAsset(const std::string &path)
+    {
+        std::filesystem::path fs(path);
+        auto ext = fs.extension().string();
+        auto iter = assetBuilders.find(ext);
+
+        BuildRequest request = {};
+        request.fullPath = path;
+        request.ext = ext;
+        request.name = fs.filename().string();
+        request.projectDir = Interface<ISystemNotify>::Get()->GetApi()->GetSettings().VisitString("PROJECT_PATH") + "/cache";
+        if (iter != assetBuilders.end()) {
+            auto &builders = iter->second;
+            for (auto &builder : builders) {
+                builder->Request(request);
+            }
+        }
+    }
+
     void AssetManager::RegisterSearchPath(const std::string &path)
     {
         searchPaths.emplace_back(path);
@@ -86,6 +117,7 @@ namespace sky {
 
     AssetHandlerBase *AssetManager::GetAssetHandler(const Uuid &type)
     {
+        std::lock_guard<std::mutex> lock(assetMutex);
         auto iter = assetHandlers.find(type);
         if (iter == assetHandlers.end()) {
             return nullptr;

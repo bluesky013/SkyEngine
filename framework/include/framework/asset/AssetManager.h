@@ -8,6 +8,7 @@
 #include <core/jobsystem/JobSystem.h>
 #include <framework/asset/Asset.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilder.h>
 #include <mutex>
 #include <unordered_map>
 
@@ -47,6 +48,9 @@ namespace sky {
         void  SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path);
         void  RegisterAsset(const Uuid &id, const std::string &path);
 
+        void  RegisterBuilder(const std::string &key, AssetBuilder *builder);
+        void  ImportAsset(const std::string &path);
+
         void  RegisterSearchPath(const std::string &path);
         void  RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
         AssetHandlerBase *GetAssetHandler(const Uuid &type);
@@ -66,12 +70,13 @@ namespace sky {
         std::unordered_map<Uuid, std::string>              pathMap;
         std::vector<std::string>                           searchPaths;
 
-        mutable std::mutex                                 assetMutex;
+        mutable std::mutex assetMutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assetMap;
 
-        std::unique_ptr<AssetDataBase> dataBase;
-
         std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
+        std::unordered_map<std::string, std::vector<AssetBuilder *>> assetBuilders;
+
+        std::unique_ptr<AssetDataBase> dataBase;
     };
 
 } // namespace sky

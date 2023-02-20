@@ -8,6 +8,7 @@
 
 struct sqlite3;
 struct sqlite3_stmt;
+struct sqlite3_api_routines;
 
 namespace sky {
 
@@ -36,6 +37,7 @@ namespace sky {
 
         private:
             sqlite3_stmt *stmt;
+            sqlite3_api_routines *sqlite3_api = nullptr;
         };
     }
 
@@ -51,6 +53,7 @@ namespace sky {
 
     private:
         sqlite3 *db = nullptr;
+        sqlite3_api_routines *sqlite3_api = nullptr;
     };
 
 } // namespace sky

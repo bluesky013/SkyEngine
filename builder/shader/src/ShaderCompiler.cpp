@@ -20,11 +20,15 @@ namespace sky::builder {
 
     static std::string GetFullPath(const std::string &relative)
     {
+        std::filesystem::path rPath(relative);
+        if (rPath.is_absolute()) {
+            return relative;
+        }
+
         const auto &pathList = AssetManager::Get()->GetSearchPaths();
         for (const auto &path : pathList) {
             std::filesystem::path fPath(path);
             fPath.append(relative);
-
             if (!std::filesystem::exists(fPath)) {
                 continue;
             }
@@ -115,7 +119,7 @@ namespace sky::builder {
         std::unordered_map<std::string, Data> sourceMap;
     };
 
-    void ShaderCompiler::CompileShader(const std::string &path, const Option &option)
+    void ShaderCompiler::BuildSpirV(const std::string &path, ShaderType type, std::vector<uint32_t> &out)
     {
         shaderc::Compiler       compiler;
         shaderc::CompileOptions options;
@@ -130,15 +134,57 @@ namespace sky::builder {
 
         std::string source;
         ReadString(realPath, source);
-        auto result = compiler.CompileGlslToSpv(source, GetShaderKind(option.type), realPath.c_str(), options);
+        auto result = compiler.CompileGlslToSpv(source, GetShaderKind(type), realPath.c_str(), options);
         if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
             LOG_E(TAG, "compile result, shader %s, result %d\n, error info: %s", realPath.c_str(), result.GetCompilationStatus(),
                   result.GetErrorMessage().c_str());
             return;
         }
-        std::vector<uint32_t> spv(result.begin(), result.end());
+        out.assign(result.begin(), result.end());
+    }
+
+    void ShaderCompiler::CompileShader(const std::string &path, const Option &option)
+    {
+        std::vector<uint32_t> spv;
+        BuildSpirV(path, option.type, spv);
 
         SaveSpv(option.output + ".spv", spv);
         SaveGLES(option.output + ".gles", spv);
+    }
+
+    void ShaderCompiler::Request(const BuildRequest &request)
+    {
+        ShaderType type;
+        std::string outExt;
+        if (request.ext == ".vert") {
+            type = ShaderType::VS;
+        } else if (request.ext == ".frag") {
+            type = ShaderType::FS;
+        } else if (request.ext == ".comp") {
+            type = ShaderType::CS;
+        } else {
+            return;
+        }
+        std::vector<uint32_t> spv;
+        BuildSpirV(request.fullPath, type, spv);
+        if (spv.empty()) {
+            return;
+        }
+
+        std::string outDir = request.projectDir + "/shaders";
+        std::filesystem::create_directories(outDir);
+        // save spv
+        {
+            std::filesystem::path outPath(outDir);
+            outPath.append(request.name + ".spv");
+            SaveSpv(outPath.string(), spv);
+        }
+
+        // save gles
+        {
+            std::filesystem::path outPath(outDir);
+            outPath.append(request.name + ".gles");
+            SaveGLES(outPath.string(), spv);
+        }
     }
 }

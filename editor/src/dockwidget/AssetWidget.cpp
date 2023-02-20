@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QMenu>
 #include <QFileDialog>
+#include <framework/asset/AssetManager.h>
 #include "../window/ActionManager.h"
 
 namespace sky::editor {
@@ -36,6 +37,9 @@ namespace sky::editor {
             if (dialog.exec()) {
                 auto fileNames = dialog.selectedFiles();
                 if (!fileNames.empty()) {
+                    for (auto &fileName : fileNames) {
+                        AssetManager::Get()->ImportAsset(fileName.toStdString());
+                    }
                 }
             }
         });

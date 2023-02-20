@@ -6,6 +6,7 @@
 
 namespace sky {
     class SettingRegistry;
+    class NativeWindow;
 
     class ISystemNotify {
     public:
