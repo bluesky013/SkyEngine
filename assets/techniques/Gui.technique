@@ -4,8 +4,10 @@
         "vert": "data/shaders/Gui.vert.shader",
         "frag": "data/shaders/Gui.frag.shader"
     },
-    "draw_tag": 2,
-    "view_tag": 1,
+    "pass": {
+        "tag": "ui",
+        "sub_pass": 0
+    },
     "blend_state": [
         {
             "blendEnable": true,

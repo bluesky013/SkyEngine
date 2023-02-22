@@ -30,6 +30,6 @@ namespace sky::builder {
         static void BuildSpirV(const std::string &path, ShaderType type, std::vector<uint32_t> &out);
         static void CompileShader(const std::string &path, const Option &option);
 
-        void Request(const BuildRequest &build) override;
+        void Request(BuildRequest &build) override;
     };
 }

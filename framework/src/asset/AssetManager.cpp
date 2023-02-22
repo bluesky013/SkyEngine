@@ -16,6 +16,20 @@ namespace sky {
         SaveAssets();
     }
 
+    std::shared_ptr<AssetBase> AssetManager::Create(const Uuid &type, const Uuid &uuid)
+    {
+        auto hIter = assetHandlers.find(type);
+        if (hIter == assetHandlers.end()) {
+            return {};
+        }
+        auto assetHandler = hIter->second.get();
+        auto asset = assetHandler->CreateAsset();
+        asset->SetUuid(uuid);
+        asset->status = AssetBase::Status::LOADING;
+        assetMap.emplace(uuid, asset);
+        return asset;
+    }
+
     std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid &type, const Uuid &uuid, bool async)
     {
         auto hIter = assetHandlers.find(type);
@@ -62,16 +76,6 @@ namespace sky {
         return asset;
     }
 
-    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path)
-    {
-        auto hIter = assetHandlers.find(type);
-        if (hIter == assetHandlers.end()) {
-            return;
-        }
-        auto assetHandler = hIter->second.get();
-        assetHandler->SaveToPath(path, asset);
-    }
-
     void AssetManager::RegisterAsset(const Uuid &id, const std::string &path)
     {
         pathMap[id] = path;
@@ -86,7 +90,7 @@ namespace sky {
         assetBuilders[key].emplace_back(std::move(builder));
     }
 
-    void AssetManager::ImportAsset(const std::string &path)
+    void AssetManager::ImportSource(const std::string &path)
     {
         std::filesystem::path fs(path);
         auto ext = fs.extension().string();
@@ -97,12 +101,26 @@ namespace sky {
         request.ext = ext;
         request.name = fs.filename().string();
         request.projectDir = Interface<ISystemNotify>::Get()->GetApi()->GetSettings().VisitString("PROJECT_PATH") + "/cache";
+
         if (iter != assetBuilders.end()) {
             auto &builders = iter->second;
             for (auto &builder : builders) {
                 builder->Request(request);
             }
         }
+        dataBase->AddSource(path, fs.parent_path().string());
+    }
+
+    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)
+    {
+        auto hIter = assetHandlers.find(asset->GetType());
+        if (hIter == assetHandlers.end()) {
+            return;
+        }
+        auto assetHandler = hIter->second.get();
+        assetHandler->SaveToPath(asset->GetPath(), asset);
+
+        dataBase->AddProduct(asset->GetUuid(), asset->GetPath());
     }
 
     void AssetManager::RegisterSearchPath(const std::string &path)

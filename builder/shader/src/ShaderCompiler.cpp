@@ -13,6 +13,8 @@
 
 #include <filesystem>
 
+#include <render/assets/Shader.h>
+
 static const char* TAG = "ShaderCompiler";
 
 namespace sky::builder {
@@ -42,7 +44,12 @@ namespace sky::builder {
         WriteBin(path, reinterpret_cast<const char *>(spv.data()), spv.size() * sizeof(uint32_t));
     }
 
-    static void SaveGLES(const std::string &path, const std::vector<uint32_t> &spv)
+    static void SaveGLES(const std::string &path, const std::string &source)
+    {
+        WriteString(path, source);
+    }
+
+    static std::string BuildGLES(const std::vector<uint32_t> &spv)
     {
         spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
         spirv_cross::CompilerGLSL::Options options;
@@ -50,23 +57,24 @@ namespace sky::builder {
         options.es = true;
         options.vertex.flip_vert_y = true;
         compiler.set_common_options(options);
-        auto fn            = [&compiler](const SpvResources &resources) {
-            for (auto &res : resources) {
-                auto  set     = compiler.get_decoration(res.id, spv::DecorationDescriptorSet);
-                auto  binding = compiler.get_decoration(res.id, spv::DecorationBinding);
-                auto &name    = compiler.get_name(res.id);
-
-                LOG_I(TAG, "shader resource set %u, binding %u, name %s", set, binding, name.c_str());
-            }
-        };
-        auto resources = compiler.get_shader_resources();
-        fn(resources.uniform_buffers);
-        fn(resources.storage_buffers);
-        fn(resources.sampled_images);
-        fn(resources.storage_images);
-
-        std::string src = compiler.compile();
-        WriteString(path, src);
+        return compiler.compile();
+//        auto fn            = [&compiler](const SpvResources &resources) {
+//            for (auto &res : resources) {
+//                auto  set     = compiler.get_decoration(res.id, spv::DecorationDescriptorSet);
+//                auto  binding = compiler.get_decoration(res.id, spv::DecorationBinding);
+//                auto &name    = compiler.get_name(res.id);
+//
+//                LOG_I(TAG, "shader resource set %u, binding %u, name %s", set, binding, name.c_str());
+//            }
+//        };
+//        auto resources = compiler.get_shader_resources();
+//        fn(resources.uniform_buffers);
+//        fn(resources.storage_buffers);
+//        fn(resources.sampled_images);
+//        fn(resources.storage_images);
+//
+//        std::string src = compiler.compile();
+//        WriteString(path, src);
     }
 
     static shaderc_shader_kind GetShaderKind(ShaderType type)
@@ -147,12 +155,13 @@ namespace sky::builder {
     {
         std::vector<uint32_t> spv;
         BuildSpirV(path, option.type, spv);
-
         SaveSpv(option.output + ".spv", spv);
-        SaveGLES(option.output + ".gles", spv);
+
+        std::string glslSrc = BuildGLES(spv);
+        SaveGLES(option.output + ".gles", glslSrc);
     }
 
-    void ShaderCompiler::Request(const BuildRequest &request)
+    void ShaderCompiler::Request(BuildRequest &request)
     {
         ShaderType type;
         std::string outExt;
@@ -165,11 +174,14 @@ namespace sky::builder {
         } else {
             return;
         }
-        std::vector<uint32_t> spv;
-        BuildSpirV(request.fullPath, type, spv);
-        if (spv.empty()) {
+
+        std::vector<uint32_t> spvData;
+        BuildSpirV(request.fullPath, type, spvData);
+        if (spvData.empty()) {
             return;
         }
+
+        auto *am = AssetManager::Get();
 
         std::string outDir = request.projectDir + "/shaders";
         std::filesystem::create_directories(outDir);
@@ -177,14 +189,28 @@ namespace sky::builder {
         {
             std::filesystem::path outPath(outDir);
             outPath.append(request.name + ".spv");
-            SaveSpv(outPath.string(), spv);
+            std::string outFullPath = outPath.string();
+
+            auto asset = am->CreateAsset<Shader>(outFullPath);
+            asset->Data().data = spvData;
+            request.products.emplace_back(asset->GetUuid());
+            am->SaveAsset(asset);
         }
 
         // save gles
         {
+            std::string glslSrc = BuildGLES(spvData);
+
             std::filesystem::path outPath(outDir);
             outPath.append(request.name + ".gles");
-            SaveGLES(outPath.string(), spv);
+            std::string outFullPath = outPath.string();
+
+            auto asset = am->CreateAsset<Shader>(outFullPath);
+            asset->Data().data.resize(glslSrc.size());
+            memcpy(asset->Data().data.data(), glslSrc.data(), glslSrc.size());
+
+            request.products.emplace_back(asset->GetUuid());
+            am->SaveAsset(asset);
         }
     }
 }

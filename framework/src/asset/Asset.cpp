@@ -12,14 +12,9 @@ namespace sky {
         uuid = id;
     }
 
-    const Uuid &AssetBase::GetUuid() const
+    void AssetBase::SetPath(const std::string &fullPath)
     {
-        return uuid;
-    }
-
-    AssetBase::Status AssetBase::GetStatus() const
-    {
-        return status;
+        path = fullPath;
     }
 
     std::string AssetHandlerBase::GetRealPath(const std::string &path)

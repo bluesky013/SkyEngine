@@ -4,8 +4,10 @@
         "vert": "data/shaders/Standard.vert.shader",
         "frag": "data/shaders/BaseColor.frag.shader"
     },
-    "draw_tag": 1,
-    "view_tag": 1,
+    "pass": {
+        "tag": "frowardColor",
+        "sub_pass": 0
+    },
     "depth_stencil": {
         "depthTestEnable": true,
         "depthWriteEnable": true

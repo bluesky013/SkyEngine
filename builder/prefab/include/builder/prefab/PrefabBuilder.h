@@ -13,7 +13,7 @@ namespace sky::builder {
         PrefabBuilder() = default;
         ~PrefabBuilder() = default;
 
-        void Request(const BuildRequest &build) override {}
+        void Request(BuildRequest &build) override {}
     };
 
 } // namespace sky::builder

@@ -15,7 +15,7 @@ namespace sky {
     namespace db {
         class Statement {
         public:
-            Statement(sqlite3_stmt *handle) : stmt(handle) {}
+            Statement(sqlite3_stmt *handle, sqlite3_api_routines *api) : stmt(handle), sqlite3_api(api) {}
             ~Statement();
 
             bool BindBlob(int col, void* data, int dataSize);

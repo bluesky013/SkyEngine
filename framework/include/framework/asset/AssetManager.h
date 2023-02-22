@@ -19,6 +19,30 @@ namespace sky {
         ~AssetManager();
 
         template <class T>
+        void RegisterAssetHandler()
+        {
+            RegisterAssetHandler(AssetTraits<T>::ASSET_TYPE, new AssetHandler<T>());
+        }
+
+
+        template <class T>
+        std::shared_ptr<Asset<T>> CreateAsset(const std::string &path)
+        {
+            auto hIter = assetHandlers.find(AssetTraits<T>::ASSET_TYPE);
+            if (hIter == assetHandlers.end()) {
+                return {};
+            }
+            auto assetHandler = hIter->second.get();
+
+            auto id = Uuid::CreateWithSeed(Fnv1a32(path));
+            auto asset = Create(AssetTraits<T>::ASSET_TYPE, id);
+            asset->SetPath(path);
+            RegisterAsset(id, path);
+            return std::static_pointer_cast<Asset<T>>(asset);
+        }
+
+
+        template <class T>
         std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, bool async = false)
         {
             auto id = Uuid::CreateWithSeed(Fnv1a32(path));
@@ -32,27 +56,17 @@ namespace sky {
             return std::static_pointer_cast<Asset<T>>(GetOrCreate(AssetTraits<T>::ASSET_TYPE, uuid, async));
         }
 
-        template <class T>
-        void RegisterAssetHandler()
-        {
-            RegisterAssetHandler(AssetTraits<T>::ASSET_TYPE, new AssetHandler<T>());
-        }
-
-        template <class T>
-        void SaveAsset(const std::shared_ptr<Asset<T>> &asset, const std::string &path)
-        {
-            SaveAsset(asset, AssetTraits<T>::ASSET_TYPE, path);
-        }
-
         std::shared_ptr<AssetBase> GetOrCreate(const Uuid &type, const Uuid &uuid, bool async);
-        void  SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path);
-        void  RegisterAsset(const Uuid &id, const std::string &path);
+        std::shared_ptr<AssetBase> Create(const Uuid &type, const Uuid &uuid);
 
-        void  RegisterBuilder(const std::string &key, AssetBuilder *builder);
-        void  ImportAsset(const std::string &path);
+        void RegisterAsset(const Uuid &id, const std::string &path);
+        void SaveAsset(const std::shared_ptr<AssetBase> &asset);
 
-        void  RegisterSearchPath(const std::string &path);
-        void  RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
+        void RegisterBuilder(const std::string &key, AssetBuilder *builder);
+        void ImportSource(const std::string &path);
+
+        void RegisterSearchPath(const std::string &path);
+        void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
         AssetHandlerBase *GetAssetHandler(const Uuid &type);
 
         std::string GetRealPath(const std::string &relative) const;

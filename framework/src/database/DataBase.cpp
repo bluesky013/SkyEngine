@@ -4,8 +4,11 @@
 
 #include <framework/database/DataBase.h>
 #include <framework/database/DBManager.h>
+#include <core/logger/Logger.h>
 #include <sqlite/sqlite3.h>
 #include <sqlite/sqlite3ext.h>
+
+static const char *TAG = "Asset";
 
 namespace sky {
     namespace db {
@@ -124,9 +127,10 @@ namespace sky {
         sqlite3_stmt *sqlite3Stmt = nullptr;
         int res = sqlite3_prepare_v2(db, stmt.c_str(), static_cast<int32_t>(stmt.length() + 1), &sqlite3Stmt, NULL);
         if (res != SQLITE_OK) {
+            LOG_E(TAG, "prepare statement failed. %s", sqlite3_errmsg(db));
             return nullptr;
         }
-        return new db::Statement(sqlite3Stmt);
+        return new db::Statement(sqlite3Stmt, sqlite3_api);
     }
 
 } // namespace sky

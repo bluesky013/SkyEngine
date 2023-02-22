@@ -241,6 +241,19 @@ namespace sky {
             return *this;
         }
 
+        template <auto Func>
+        auto BinLoad()
+        {
+            type.serialization.binaryLoad = SerializationInArchive<Func, BinaryInputArchive>();
+            return *this;
+        }
+        template <auto Func>
+        auto BinSave()
+        {
+            type.serialization.binarySave = SerializationOutArchive<Func, BinaryOutputArchive>();
+            return *this;
+        }
+
         auto operator()()
         {
             return TypeFactory<T, T>(type, type.properties);

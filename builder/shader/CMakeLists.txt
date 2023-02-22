@@ -11,6 +11,7 @@ sky_add_library(TARGET ShaderBuilder STATIC
         include
     LINK_LIBS
         Framework
+        SkyRender.Static
         3rdParty::shaderc
         3rdParty::SPIRVCross
     )

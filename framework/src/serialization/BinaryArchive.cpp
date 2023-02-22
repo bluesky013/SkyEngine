@@ -82,7 +82,16 @@ namespace sky {
         } else if (typeId == TypeInfo<std::string>::Hash()) {
             SaveValue(*static_cast<const std::string *>(ptr));
         } else {
+            auto node = GetTypeNode(typeId);
+            SKY_ASSERT(node != nullptr && "type not registered");
+            if (node == nullptr) {
+                return;
+            }
 
+            if (node->serialization.binarySave != nullptr) {
+                node->serialization.binarySave(ptr, *this);
+                return;
+            }
         }
     }
 }

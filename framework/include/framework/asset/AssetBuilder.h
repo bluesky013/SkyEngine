@@ -4,6 +4,8 @@
 
 #pragma once
 #include <string>
+#include <vector>
+#include <core/util/Uuid.h>
 
 namespace sky {
 
@@ -12,6 +14,7 @@ namespace sky {
         std::string name;
         std::string ext;
         std::string projectDir;
+        std::vector<Uuid> products;
     };
 
     class AssetBuilder {
@@ -19,7 +22,7 @@ namespace sky {
         AssetBuilder() = default;
         virtual ~AssetBuilder() = default;
 
-        virtual void Request(const BuildRequest &build) = 0;
+        virtual void Request(BuildRequest &build) = 0;
     };
 
 }

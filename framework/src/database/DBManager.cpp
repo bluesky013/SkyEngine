@@ -29,6 +29,7 @@ namespace sky {
         routines->open = decltype(routines->open)(module->GetAddress("sqlite3_open"));
         routines->close = decltype(routines->close)(module->GetAddress("sqlite3_close"));
         routines->prepare_v2 = decltype(routines->prepare_v2)(module->GetAddress("sqlite3_prepare_v2"));
+        routines->errmsg = decltype(routines->errmsg)(module->GetAddress("sqlite3_errmsg"));
 
         routines->bind_blob   = decltype(routines->bind_blob)(module->GetAddress("sqlite3_bind_blob"));
         routines->bind_double = decltype(routines->bind_double)(module->GetAddress("sqlite3_bind_double"));
