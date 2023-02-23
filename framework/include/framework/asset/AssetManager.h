@@ -28,19 +28,13 @@ namespace sky {
         template <class T>
         std::shared_ptr<Asset<T>> CreateAsset(const std::string &path)
         {
-            auto hIter = assetHandlers.find(AssetTraits<T>::ASSET_TYPE);
-            if (hIter == assetHandlers.end()) {
-                return {};
-            }
-            auto assetHandler = hIter->second.get();
-
             auto id = Uuid::CreateWithSeed(Fnv1a32(path));
-            auto asset = Create(AssetTraits<T>::ASSET_TYPE, id);
-            asset->SetPath(path);
+            auto asset = CreateAsset(AssetTraits<T>::ASSET_TYPE, id);
+            asset->path = path;
             RegisterAsset(id, path);
             return std::static_pointer_cast<Asset<T>>(asset);
         }
-
+        std::shared_ptr<AssetBase> CreateAsset(const Uuid &type, const Uuid &uuid);
 
         template <class T>
         std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, bool async = false)
@@ -53,17 +47,17 @@ namespace sky {
         template <class T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid &uuid, bool async = false)
         {
-            return std::static_pointer_cast<Asset<T>>(GetOrCreate(AssetTraits<T>::ASSET_TYPE, uuid, async));
+            return std::static_pointer_cast<Asset<T>>(LoadAsset(AssetTraits<T>::ASSET_TYPE, uuid, async));
         }
 
-        std::shared_ptr<AssetBase> GetOrCreate(const Uuid &type, const Uuid &uuid, bool async);
-        std::shared_ptr<AssetBase> Create(const Uuid &type, const Uuid &uuid);
+        std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const Uuid &uuid, bool async);
 
         void RegisterAsset(const Uuid &id, const std::string &path);
         void SaveAsset(const std::shared_ptr<AssetBase> &asset);
 
         void RegisterBuilder(const std::string &key, AssetBuilder *builder);
         void ImportSource(const std::string &path);
+        bool IsImported(const std::string &path) const;
 
         void RegisterSearchPath(const std::string &path);
         void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
@@ -90,6 +84,7 @@ namespace sky {
         std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::unordered_map<std::string, std::vector<AssetBuilder *>> assetBuilders;
 
+        mutable std::mutex dbMutex;
         std::unique_ptr<AssetDataBase> dataBase;
     };
 

@@ -11,7 +11,7 @@ namespace sky {
                                                    "    Folder  TEXT NOT NULL COLLATE NOCASE);";
 
     static const char *INSERT_SOURCE = "INSERT OR REPLACE INTO SourceTable (Path, Folder) VALUES (:path, :folder);";
-
+    static const char *SELECT_SOURCE = "SELECT Folder FROM SourceTable WHERE Path = :path;";
 
     static const char *CREATE_PRODUCT_ASSET_TABLE = "CREATE TABLE IF NOT EXISTS ProductTable ("
                                                     "    Uuid   TEXT PRIMARY KEY, "
@@ -38,6 +38,7 @@ namespace sky {
             createSourceTableStat->Reset();
 
             insertSourceTableStat.reset(dataBase->CreateStatement(INSERT_SOURCE));
+            selectSourceTableStat.reset(dataBase->CreateStatement(SELECT_SOURCE));
         }
 
         {
@@ -56,6 +57,15 @@ namespace sky {
         insertSourceTableStat->BindText(2, folder);
         insertSourceTableStat->Step();
         insertSourceTableStat->Reset();
+    }
+
+    bool AssetDataBase::HasSource(const std::string &path) const
+    {
+        selectSourceTableStat->BindText(1, path);
+        selectSourceTableStat->Step();
+        auto text = selectSourceTableStat->GetText(2);
+        selectSourceTableStat->Reset();
+        return !text.empty();
     }
 
     void AssetDataBase::AddProduct(const Uuid &uuid, const std::string &path)

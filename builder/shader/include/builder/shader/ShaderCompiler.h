@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <framework/asset/AssetBuilder.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -17,7 +16,7 @@ namespace sky::builder {
         CS
     };
 
-    class ShaderCompiler : public AssetBuilder {
+    class ShaderCompiler {
     public:
         ShaderCompiler() = default;
         ~ShaderCompiler() = default;
@@ -28,8 +27,8 @@ namespace sky::builder {
         };
 
         static void BuildSpirV(const std::string &path, ShaderType type, std::vector<uint32_t> &out);
-        static void CompileShader(const std::string &path, const Option &option);
+        static std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv);
 
-        void Request(BuildRequest &build) override;
+        static void CompileShader(const std::string &path, const Option &option);
     };
 }

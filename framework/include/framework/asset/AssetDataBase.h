@@ -18,6 +18,7 @@ namespace sky {
         void Init(const std::string &name);
 
         void AddSource(const std::string &path, const std::string &folder);
+        bool HasSource(const std::string &path) const;
 
         void AddProduct(const Uuid &uuid, const std::string &path);
 
@@ -27,6 +28,7 @@ namespace sky {
         // source table
         std::unique_ptr<db::Statement> createSourceTableStat;
         std::unique_ptr<db::Statement> insertSourceTableStat;
+        std::unique_ptr<db::Statement> selectSourceTableStat;
 
         // product table
         std::unique_ptr<db::Statement> createProductTableStat;

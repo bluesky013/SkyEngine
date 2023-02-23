@@ -9,12 +9,16 @@
 
 namespace sky {
 
+    struct BuildProduct {
+        Uuid uuid;
+    };
+
     struct BuildRequest {
         std::string fullPath;
         std::string name;
         std::string ext;
         std::string projectDir;
-        std::vector<Uuid> products;
+        std::vector<BuildProduct> products;
     };
 
     class AssetBuilder {

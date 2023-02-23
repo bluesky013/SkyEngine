@@ -16,7 +16,7 @@ namespace sky {
         SaveAssets();
     }
 
-    std::shared_ptr<AssetBase> AssetManager::Create(const Uuid &type, const Uuid &uuid)
+    std::shared_ptr<AssetBase> AssetManager::CreateAsset(const Uuid &type, const Uuid &uuid)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
@@ -26,11 +26,14 @@ namespace sky {
         auto asset = assetHandler->CreateAsset();
         asset->SetUuid(uuid);
         asset->status = AssetBase::Status::LOADING;
-        assetMap.emplace(uuid, asset);
+        {
+            std::lock_guard<std::mutex> lock(assetMutex);
+            assetMap.emplace(uuid, asset);
+        }
         return asset;
     }
 
-    std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid &type, const Uuid &uuid, bool async)
+    std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const Uuid &uuid, bool async)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
@@ -108,7 +111,16 @@ namespace sky {
                 builder->Request(request);
             }
         }
-        dataBase->AddSource(path, fs.parent_path().string());
+        {
+            std::lock_guard<std::mutex> lock(dbMutex);
+            dataBase->AddSource(fs.make_preferred().string(), fs.parent_path().make_preferred().string());
+        }
+    }
+
+    bool AssetManager::IsImported(const std::string &path) const
+    {
+        std::lock_guard<std::mutex> lock(dbMutex);
+        return dataBase->HasSource(path);
     }
 
     void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)
@@ -151,7 +163,7 @@ namespace sky {
                 std::filesystem::path tmpPath(sp);
                 tmpPath.append(path.string());
                 if (std::filesystem::exists(tmpPath)) {
-                    return tmpPath.string();
+                    return tmpPath.make_preferred().string();
                 }
             }
         }

@@ -10,7 +10,56 @@
 #include <render/assets/Shader.h>
 #include <render/assets/Technique.h>
 
+#include <rhi/Core.h>
+
 namespace sky {
+
+    static void ReflectRenderAsset(SerializationContext *context)
+    {
+        context->Register<ShaderAssetData>("ShaderAssetData")
+            .BinLoad<&ShaderAssetData::Load>()
+            .BinSave<&ShaderAssetData::Save>();
+
+        context->Register<MaterialAssetData>("MaterialAssetData")
+            .BinLoad<&MaterialAssetData::Load>()
+            .BinSave<&MaterialAssetData::Save>();
+
+        context->Register<MaterialInstanceAssetData>("MaterialInstanceAssetData")
+            .BinLoad<&MaterialInstanceAssetData::Load>()
+            .BinSave<&MaterialInstanceAssetData::Save>();
+
+        context->Register<TechniqueAssetData>("TechniqueAssetData")
+            .BinLoad<&TechniqueAssetData::Load>()
+            .BinSave<&TechniqueAssetData::Save>();
+
+        auto *am = AssetManager::Get();
+        am->RegisterAssetHandler<Shader>();
+        am->RegisterAssetHandler<Material>();
+        am->RegisterAssetHandler<MaterialInstance>();
+        am->RegisterAssetHandler<Technique>();
+    }
+
+    static void ReflectRHI(SerializationContext *context)
+    {
+        context->Register<rhi::StencilState>("RHI_StencilState")
+            .Member<&rhi::StencilState::failOp>("failOp")
+            .Member<&rhi::StencilState::passOp>("passOp")
+            .Member<&rhi::StencilState::depthFailOp>("depthFailOp")
+            .Member<&rhi::StencilState::compareOp>("compareOp")
+            .Member<&rhi::StencilState::compareMask>("compareMask")
+            .Member<&rhi::StencilState::writeMask>("writeMask")
+            .Member<&rhi::StencilState::reference>("reference");
+
+        context->Register<rhi::DepthStencil>("RHI_DepthStencil")
+            .Member<&rhi::DepthStencil::depthTest>("depthTest")
+            .Member<&rhi::DepthStencil::depthWrite>("depthWrite")
+            .Member<&rhi::DepthStencil::stencilTest>("stencilTest")
+            .Member<&rhi::DepthStencil::compareOp>("compareOp")
+            .Member<&rhi::DepthStencil::minDepth>("minDepth")
+            .Member<&rhi::DepthStencil::maxDepth>("maxDepth")
+            .Member<&rhi::DepthStencil::front>("front")
+            .Member<&rhi::DepthStencil::back>("back");
+    }
 
     class RenderModule : public IModule {
     public:
@@ -31,27 +80,8 @@ namespace sky {
     void RenderModule::Start()
     {
         auto *serializationContext = SerializationContext::Get();
-        serializationContext->Register<ShaderAssetData>("ShaderAssetData")
-            .BinLoad<&ShaderAssetData::Load>()
-            .BinSave<&ShaderAssetData::Save>();
-
-        serializationContext->Register<MaterialAssetData>("MaterialAssetData")
-            .BinLoad<&MaterialAssetData::Load>()
-            .BinSave<&MaterialAssetData::Save>();
-
-        serializationContext->Register<MaterialInstanceAssetData>("MaterialInstanceAssetData")
-            .BinLoad<&MaterialInstanceAssetData::Load>()
-            .BinSave<&MaterialInstanceAssetData::Save>();
-
-        serializationContext->Register<TechniqueAssetData>("TechniqueAssetData")
-            .BinLoad<&TechniqueAssetData::Load>()
-            .BinSave<&TechniqueAssetData::Save>();
-
-        auto *am = AssetManager::Get();
-        am->RegisterAssetHandler<Shader>();
-        am->RegisterAssetHandler<Material>();
-        am->RegisterAssetHandler<MaterialInstance>();
-        am->RegisterAssetHandler<Technique>();
+        ReflectRenderAsset(serializationContext);
+        ReflectRHI(serializationContext);
     }
 }
 REGISTER_MODULE(sky::RenderModule)

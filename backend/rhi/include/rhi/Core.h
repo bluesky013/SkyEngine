@@ -302,6 +302,7 @@ namespace sky::rhi {
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
 
     enum class CullModeFlagBits : uint32_t {
+        NONE  = 0x00000000,
         FRONT = 0x00000001,
         BACK  = 0x00000002,
     };
@@ -445,12 +446,11 @@ namespace sky::rhi {
         bool             depthClampEnable        = false;
         bool             rasterizerDiscardEnable = false;
         bool             depthBiasEnable         = false;
-        bool             padding                 = false;
         float            depthBiasConstantFactor = 0.f;
         float            depthBiasClamp          = 0.f;
         float            depthBiasSlopeFactor    = 0.f;
         float            lineWidth               = 1.f;
-        CullingModeFlags cullMode;
+        CullingModeFlags cullMode                = CullModeFlagBits::NONE;
         FrontFace        frontFace   = FrontFace::CCW;
         PolygonMode      polygonMode = PolygonMode::FILL;
     };

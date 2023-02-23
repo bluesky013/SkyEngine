@@ -1,11 +1,11 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "data/shaders/Standard.vert.shader",
-        "frag": "data/shaders/BaseColor.frag.shader"
+        "vert": "shaderlibs/standard.vert",
+        "frag": "shaderlibs/unlit.frag"
     },
     "pass": {
-        "tag": "frowardColor",
+        "tag": "forward_color",
         "sub_pass": 0
     },
     "depth_stencil": {

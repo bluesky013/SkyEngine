@@ -1,4 +1,5 @@
 add_subdirectory(shader)
+add_subdirectory(render)
 add_subdirectory(prefab)
 
 sky_add_library(TARGET BuiltinBuilder SHARED
@@ -10,7 +11,7 @@ sky_add_library(TARGET BuiltinBuilder SHARED
         include
     LINK_LIBS
         PrefabBuilder
-        ShaderBuilder
+        RenderBuilder
     )
 add_dependencies(Launcher BuiltinBuilder)
 add_dependencies(Editor BuiltinBuilder)
