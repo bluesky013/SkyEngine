@@ -10,8 +10,32 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
+    struct ShaderVariantData {
+        std::string gles;
+        std::vector<uint32_t> spv;
+
+        void Load(BinaryInputArchive &archive);
+        void Save(BinaryOutputArchive &archive) const;
+    };
+
+    class ShaderVariant {
+    public:
+        ShaderVariant() = default;
+        ~ShaderVariant() = default;
+    };
+
+    template <>
+    struct AssetTraits<ShaderVariant> {
+        using DataType                                = ShaderVariantData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("AEFF7E05-0211-4585-9381-1DF3AC5E5E78");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+    };
+    using ShaderVariantAssetPtr = std::shared_ptr<Asset<ShaderVariant>>;
+
+
     struct ShaderAssetData {
-        std::vector<uint32_t> data;
+        std::string source;
+        std::unordered_map<std::string, ShaderVariantAssetPtr> variants;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

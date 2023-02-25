@@ -38,7 +38,7 @@ namespace sky::editor {
                 auto fileNames = dialog.selectedFiles();
                 if (!fileNames.empty()) {
                     for (auto &fileName : fileNames) {
-                        AssetManager::Get()->ImportSource(fileName.toStdString());
+                        AssetManager::Get()->ImportSource(fileName.toStdString(), SourceAssetImportOption{});
                     }
                 }
             }

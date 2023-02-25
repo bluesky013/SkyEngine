@@ -16,6 +16,10 @@ namespace sky {
 
     static void ReflectRenderAsset(SerializationContext *context)
     {
+        context->Register<ShaderVariantData>("ShaderVariantData")
+            .BinLoad<&ShaderVariantData::Load>()
+            .BinSave<&ShaderVariantData::Save>();
+
         context->Register<ShaderAssetData>("ShaderAssetData")
             .BinLoad<&ShaderAssetData::Load>()
             .BinSave<&ShaderAssetData::Save>();
@@ -34,6 +38,7 @@ namespace sky {
 
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Shader>();
+        am->RegisterAssetHandler<ShaderVariant>();
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<MaterialInstance>();
         am->RegisterAssetHandler<Technique>();

@@ -10,6 +10,18 @@
 
 namespace sky {
 
+    struct SourceData {
+        std::string path;
+        std::string folder;
+        std::string productKey;
+        Uuid uuid;
+    };
+
+    struct ProductData {
+        Uuid uuid;
+        std::string path;
+    };
+
     class AssetDataBase {
     public:
         AssetDataBase() = default;
@@ -17,10 +29,11 @@ namespace sky {
 
         void Init(const std::string &name);
 
-        void AddSource(const std::string &path, const std::string &folder);
-        bool HasSource(const std::string &path) const;
+        void AddSource(const SourceData &sourceData);
+        bool QueryProduct(const std::string &sourcePath, const std::string &key, Uuid &uuid) const;
+        bool QueryProduct(const Uuid &uuid, std::string &out);
 
-        void AddProduct(const Uuid &uuid, const std::string &path);
+        void AddProduct(const ProductData &productData);
 
     private:
         std::unique_ptr<DataBase> dataBase;
@@ -33,6 +46,7 @@ namespace sky {
         // product table
         std::unique_ptr<db::Statement> createProductTableStat;
         std::unique_ptr<db::Statement> insertProductTableStat;
+        std::unique_ptr<db::Statement> selectProductTableStat;
     };
 
 }

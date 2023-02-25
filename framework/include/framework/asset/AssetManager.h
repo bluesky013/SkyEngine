@@ -14,6 +14,10 @@
 
 namespace sky {
 
+    struct SourceAssetImportOption {
+        std::string buildKey;
+    };
+
     class AssetManager : public Singleton<AssetManager> {
     public:
         ~AssetManager();
@@ -31,7 +35,6 @@ namespace sky {
             auto id = Uuid::CreateWithSeed(Fnv1a32(path));
             auto asset = CreateAsset(AssetTraits<T>::ASSET_TYPE, id);
             asset->path = path;
-            RegisterAsset(id, path);
             return std::static_pointer_cast<Asset<T>>(asset);
         }
         std::shared_ptr<AssetBase> CreateAsset(const Uuid &type, const Uuid &uuid);
@@ -40,7 +43,6 @@ namespace sky {
         std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, bool async = false)
         {
             auto id = Uuid::CreateWithSeed(Fnv1a32(path));
-            RegisterAsset(id, path);
             return LoadAsset<T>(id, async);
         }
 
@@ -52,12 +54,13 @@ namespace sky {
 
         std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const Uuid &uuid, bool async);
 
-        void RegisterAsset(const Uuid &id, const std::string &path);
         void SaveAsset(const std::shared_ptr<AssetBase> &asset);
 
+        std::string GetPathByUuid(const Uuid &id);
+
         void RegisterBuilder(const std::string &key, AssetBuilder *builder);
-        void ImportSource(const std::string &path);
-        bool IsImported(const std::string &path) const;
+        void ImportSource(const std::string &path, const SourceAssetImportOption &option);
+        bool QueryOrImportSource(const std::string &path, const std::string &key, Uuid &out);
 
         void RegisterSearchPath(const std::string &path);
         void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
@@ -75,7 +78,6 @@ namespace sky {
         void SaveAssets();
         void RegisterAssets();
 
-        std::unordered_map<Uuid, std::string>              pathMap;
         std::vector<std::string>                           searchPaths;
 
         mutable std::mutex assetMutex;
@@ -86,6 +88,7 @@ namespace sky {
 
         mutable std::mutex dbMutex;
         std::unique_ptr<AssetDataBase> dataBase;
+        std::unordered_map<Uuid, std::string> pathMap;
     };
 
 } // namespace sky

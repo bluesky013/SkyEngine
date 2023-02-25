@@ -10,6 +10,7 @@
 namespace sky {
 
     struct BuildProduct {
+        std::string productKey;
         Uuid uuid;
     };
 
@@ -18,6 +19,10 @@ namespace sky {
         std::string name;
         std::string ext;
         std::string projectDir;
+        std::string buildKey;
+    };
+
+    struct BuildResult {
         std::vector<BuildProduct> products;
     };
 
@@ -26,7 +31,7 @@ namespace sky {
         AssetBuilder() = default;
         virtual ~AssetBuilder() = default;
 
-        virtual void Request(BuildRequest &build) = 0;
+        virtual void Request(const BuildRequest &build, BuildResult &result) = 0;
     };
 
 }

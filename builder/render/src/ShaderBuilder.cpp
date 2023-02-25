@@ -12,7 +12,7 @@
 
 namespace sky::builder {
 
-    void ShaderBuilder::Request(BuildRequest &request)
+    void ShaderBuilder::Request(const BuildRequest &request, BuildResult &result)
     {
         ShaderType type;
         std::string outExt;
@@ -25,43 +25,28 @@ namespace sky::builder {
         } else {
             return;
         }
+        auto *am = AssetManager::Get();
+        std::filesystem::path outDir = request.projectDir + "/shaders";
+        std::filesystem::create_directories(outDir);
+        std::string fullPath = outDir.append(request.name).make_preferred().string();
+        std::string outFullPath = fullPath + ".bin";
+        std::string outVariantPath = fullPath + ".variant";
+        auto asset = am->CreateAsset<Shader>(outFullPath);
+        auto defaultVariant = am->CreateAsset<ShaderVariant>(outVariantPath);
 
-        std::vector<uint32_t> spvData;
-        ShaderCompiler::BuildSpirV(request.fullPath, type, spvData);
-        if (spvData.empty()) {
+        auto &variantData = defaultVariant->Data();
+        // save spv
+        ShaderCompiler::BuildSpirV(request.fullPath, type, variantData.spv);
+        if (variantData.spv.empty()) {
             return;
         }
 
-        auto *am = AssetManager::Get();
-
-        std::string outDir = request.projectDir + "/shaders";
-        std::filesystem::create_directories(outDir);
-        // save spv
-        {
-            std::filesystem::path outPath(outDir);
-            outPath.append(request.name + ".spv");
-            std::string outFullPath = outPath.make_preferred().string();
-
-            auto asset = am->CreateAsset<Shader>(outFullPath);
-            asset->Data().data = spvData;
-            request.products.emplace_back(BuildProduct{asset->GetUuid()});
-            am->SaveAsset(asset);
-        }
-
         // save gles
-        {
-            std::string glslSrc = ShaderCompiler::BuildGLES(spvData);
+        variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
+        asset->Data().variants.emplace("", defaultVariant);
 
-            std::filesystem::path outPath(outDir);
-            outPath.append(request.name + ".gles");
-            std::string outFullPath = outPath.make_preferred().string();
-
-            auto asset = am->CreateAsset<Shader>(outFullPath);
-            asset->Data().data.resize(glslSrc.size());
-            memcpy(asset->Data().data.data(), glslSrc.data(), glslSrc.size());
-
-            request.products.emplace_back(BuildProduct{asset->GetUuid()});
-            am->SaveAsset(asset);
-        }
+        result.products.emplace_back(BuildProduct{"GFX_SHADER", asset->GetUuid()});
+        am->SaveAsset(asset);
+        am->SaveAsset(defaultVariant);
     }
 }

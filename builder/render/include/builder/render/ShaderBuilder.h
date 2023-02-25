@@ -13,7 +13,9 @@ namespace sky::builder {
         ShaderBuilder() = default;
         ~ShaderBuilder() = default;
 
-        void Request(BuildRequest &build) override;
+        static constexpr char* KEY = "GFX_SHADER";
+
+        void Request(const BuildRequest &build, BuildResult &result) override;
     };
 
 }

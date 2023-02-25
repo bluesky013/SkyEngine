@@ -18,20 +18,22 @@ namespace sky {
             Statement(sqlite3_stmt *handle, sqlite3_api_routines *api) : stmt(handle), sqlite3_api(api) {}
             ~Statement();
 
-            bool BindBlob(int col, void* data, int dataSize);
-            bool BindDouble(int col, double data);
-            bool BindInt(int col, int32_t data);
-            bool BindText(int col, const std::string &data);
-            bool BindInt64(int col, int64_t data);
+            int GetNamedParamIdx(const char* name) const;
 
-            int GetInt(int col);
-            double GetDouble(int col);
-            const void* GetBlob(int col);
-            int GetBlobBytes(int col);
-            int64_t GetInt64(int col);
-            std::string GetText(int col);
+            bool BindBlob(int col, void* data, int dataSize) const;
+            bool BindDouble(int col, double data) const;
+            bool BindInt(int col, int32_t data) const;
+            bool BindText(int col, const std::string &data) const;
+            bool BindInt64(int col, int64_t data) const;
 
-            void Step();
+            int GetInt(int col) const;
+            double GetDouble(int col) const;
+            const void* GetBlob(int col) const;
+            int GetBlobBytes(int col) const;
+            int64_t GetInt64(int col) const;
+            std::string GetText(int col) const;
+
+            int Step();
             void Finalize();
             void Reset();
 

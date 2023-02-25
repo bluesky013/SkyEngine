@@ -13,7 +13,7 @@ namespace sky::builder {
         MaterialBuilder() = default;
         ~MaterialBuilder() = default;
 
-        void Request(BuildRequest &build) override {}
+        void Request(const BuildRequest &build, BuildResult &result) override {}
     };
 
 }

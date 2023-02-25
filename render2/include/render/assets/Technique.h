@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <framework/asset/AssetManager.h>
 #include <rhi/Core.h>
+#include <framework/asset/AssetManager.h>
+#include <render/assets/Shader.h>
 #include <string>
 #include <vector>
 
@@ -14,7 +15,7 @@ namespace sky {
     class BinaryOutputArchive;
 
     struct TechniqueAssetData {
-        std::vector<std::string>     shaders;
+        std::vector<ShaderAssetPtr>  shaders;
         rhi::DepthStencil            depthStencil;
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
@@ -32,7 +33,7 @@ namespace sky {
     struct AssetTraits<Technique> {
         using DataType                                = TechniqueAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("79F513A7-8BC1-48B4-B086-FB2E78798D60");
-        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using TechniquePtr = std::shared_ptr<Asset<Technique>>;
 }

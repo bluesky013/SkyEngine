@@ -149,24 +149,19 @@ namespace sky {
 
         void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
         {
-//            std::ifstream file(GetRealPath(path), std::ios::binary);
-//            if (!file.is_open()) {
-//                return;
-//            }
-//
-//            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
-//            DataType assetData;
-//            if (SERIALIZE_TYPE == SerializeType::JSON) {
-//                cereal::JSONInputArchive archive(file);
-//                archive >> assetData;
-//            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-//                cereal::BinaryInputArchive archive(file);
-//                archive >> assetData;
-//            } else if (SERIALIZE_TYPE == SerializeType::XML) {
-//                cereal::XMLInputArchive archive(file);
-//                archive >> assetData;
-//            }
-//            asset->SetData(std::move(assetData));
+            std::ifstream file(GetRealPath(path), std::ios::binary);
+            if (!file.is_open()) {
+                return;
+            }
+
+            auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
+            DataType &assetData = asset->Data();
+            if (SERIALIZE_TYPE == SerializeType::JSON) {
+                JsonInputArchive archive(file);
+            } else if (SERIALIZE_TYPE == SerializeType::BIN) {
+                BinaryInputArchive archive(file);
+                archive.LoadObject(&assetData, TypeInfo<DataType>::Hash());
+            }
         }
 
         void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override

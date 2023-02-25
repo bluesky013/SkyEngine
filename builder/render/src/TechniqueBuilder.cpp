@@ -4,6 +4,7 @@
 //
 
 #include <builder/render/TechniqueBuilder.h>
+#include <builder/render/ShaderBuilder.h>
 #include <render/assets/Technique.h>
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
@@ -34,7 +35,7 @@ namespace sky::builder {
         {"ONE_MINUS_SRC1_ALPHA    ", rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
     };
 
-    static std::string GetShader(TechniqueAssetData &data, rapidjson::Document &document, const std::string &shaderStage)
+    static ShaderAssetPtr GetShader(TechniqueAssetData &data, rapidjson::Document &document, const std::string &shaderStage)
     {
         auto *am = AssetManager::Get();
 
@@ -42,12 +43,12 @@ namespace sky::builder {
         if (val.HasMember(shaderStage.c_str())) {
             auto relativePath = val[shaderStage.c_str()].GetString();
             std::string fullPath = am->GetRealPath(relativePath);
-//            if (!am->IsImported(fullPath)) {
-                AssetManager::Get()->ImportSource(fullPath);
-//            }
-            return fullPath;
+            Uuid shaderId;
+            if (am->QueryOrImportSource(fullPath, ShaderBuilder::KEY, shaderId)) {
+                return am->LoadAsset<Shader>(shaderId);
+            }
         }
-        return "";
+        return {};
     }
 
     static void ProcessDepthStencil(const rapidjson::Document &document, rhi::DepthStencil &ds)
@@ -151,8 +152,12 @@ namespace sky::builder {
         ProcessRasterStates(document, data.rasterState);
     }
 
-    void TechniqueBuilder::Request(BuildRequest &request)
+    void TechniqueBuilder::Request(const BuildRequest &request, BuildResult &result)
     {
+        if (!request.buildKey.empty() && request.buildKey != std::string(KEY)) {
+            return;
+        }
+
         std::string json;
         ReadString(request.fullPath, json);
 
@@ -172,11 +177,10 @@ namespace sky::builder {
         outPath.append(request.name);
         std::string type = document["type"].GetString();
         if (type == "graphics") {
-
             auto asset = am->CreateAsset<Technique>(outPath.make_preferred().string());
             TechniqueAssetData &assetData = asset->Data();
             ProcessGraphics(request.fullPath, document, assetData);
-            request.products.emplace_back(BuildProduct{asset->GetUuid()});
+            result.products.emplace_back(BuildProduct{"GFX_TECH", asset->GetUuid()});
             am->SaveAsset(asset);
         }
     }
