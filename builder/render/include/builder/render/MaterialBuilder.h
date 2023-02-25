@@ -13,7 +13,9 @@ namespace sky::builder {
         MaterialBuilder() = default;
         ~MaterialBuilder() = default;
 
-        void Request(const BuildRequest &build, BuildResult &result) override {}
+        static constexpr char* KEY = "GFX_MATERIAL";
+
+        void Request(const BuildRequest &build, BuildResult &result) override;
     };
 
 }

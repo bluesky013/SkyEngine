@@ -5,8 +5,7 @@
         "frag": "data/shaders/StandardPBR.frag.shader"
     },
     "pass": {
-        "tag": "frowardColor",
-        "sub_pass": 0
+        "tag": "frowardColor"
     },
     "depth_stencil": {
         "depthTestEnable": true,

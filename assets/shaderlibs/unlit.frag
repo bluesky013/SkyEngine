@@ -9,10 +9,16 @@ layout (location = 5) in vec2 uv;
 
 layout (location = 0) out vec4 outFragColor;
 
+layout (set = 2, binding = 0) uniform Material {
+    vec4 baseColor;
+};
+layout (set = 2, binding = 1) uniform sampler2D mainColor;
+
+
 void main()
 {
     vec3 L = normalize(vec3(0, 20, 0) - pos);
     vec3 N = normalize(normal);
     float nDotL = clamp(dot(N, L), 0, 1);
-    outFragColor = color * nDotL;
+    outFragColor = color * baseColor * texture(mainColor, uv) * nDotL;
 }

@@ -7,6 +7,7 @@
 #include <framework/asset/AssetManager.h>
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
+#include <builder/render/MaterialBuilder.h>
 #include <builder/prefab/PrefabBuilder.h>
 
 namespace sky::builder {
@@ -25,12 +26,14 @@ namespace sky::builder {
         std::unique_ptr<ShaderBuilder> shaderBuilder;
         std::unique_ptr<PrefabBuilder> prefabBuilder;
         std::unique_ptr<TechniqueBuilder> techBuilder;
+        std::unique_ptr<MaterialBuilder> materialBuilder;
     };
 
     bool BuilderModule::Init()
     {
         shaderBuilder = std::make_unique<ShaderBuilder>();
         techBuilder = std::make_unique<TechniqueBuilder>();
+        materialBuilder = std::make_unique<MaterialBuilder>();
         prefabBuilder = std::make_unique<PrefabBuilder>();
 
         AssetManager::Get()->RegisterBuilder(".vert", shaderBuilder.get());
@@ -38,6 +41,7 @@ namespace sky::builder {
         AssetManager::Get()->RegisterBuilder(".comp", shaderBuilder.get());
 
         AssetManager::Get()->RegisterBuilder(".tech", techBuilder.get());
+        AssetManager::Get()->RegisterBuilder(".mat", materialBuilder.get());
 
         AssetManager::Get()->RegisterBuilder(".gltf", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".fbx", prefabBuilder.get());

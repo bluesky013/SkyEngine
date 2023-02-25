@@ -16,6 +16,7 @@ namespace sky {
 
     struct TechniqueAssetData {
         std::vector<ShaderAssetPtr>  shaders;
+        std::string                  rasterTag;
         rhi::DepthStencil            depthStencil;
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
@@ -35,5 +36,5 @@ namespace sky {
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("79F513A7-8BC1-48B4-B086-FB2E78798D60");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
-    using TechniquePtr = std::shared_ptr<Asset<Technique>>;
+    using TechniqueAssetPtr = std::shared_ptr<Asset<Technique>>;
 }

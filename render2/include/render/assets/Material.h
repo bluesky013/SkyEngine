@@ -3,17 +3,15 @@
 //
 
 #pragma once
+#include <render/assets/Technique.h>
 
 namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
     struct MaterialAssetData {
-        void Load(BinaryInputArchive &archive) {}
-        void Save(BinaryOutputArchive &archive) const {}
-    };
+        std::vector<TechniqueAssetPtr> techniques;
 
-    struct MaterialInstanceAssetData {
         void Load(BinaryInputArchive &archive) {}
         void Save(BinaryOutputArchive &archive) const {}
     };
@@ -24,8 +22,11 @@ namespace sky {
         ~Material() = default;
     };
 
-    class MaterialInstance {
-        MaterialInstance() = default;
-        ~MaterialInstance() = default;
+    template <>
+    struct AssetTraits<Material> {
+        using DataType                                = MaterialAssetData;
+        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("7A82A577-959A-4735-8175-A14C26D33B6B");
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
+    using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
 }

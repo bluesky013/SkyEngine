@@ -5,8 +5,7 @@
         "frag": "data/shaders/Gui.frag.shader"
     },
     "pass": {
-        "tag": "ui",
-        "sub_pass": 0
+        "tag": "ui"
     },
     "blend_state": [
         {

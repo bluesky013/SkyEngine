@@ -28,10 +28,6 @@ namespace sky {
             .BinLoad<&MaterialAssetData::Load>()
             .BinSave<&MaterialAssetData::Save>();
 
-        context->Register<MaterialInstanceAssetData>("MaterialInstanceAssetData")
-            .BinLoad<&MaterialInstanceAssetData::Load>()
-            .BinSave<&MaterialInstanceAssetData::Save>();
-
         context->Register<TechniqueAssetData>("TechniqueAssetData")
             .BinLoad<&TechniqueAssetData::Load>()
             .BinSave<&TechniqueAssetData::Save>();
@@ -40,7 +36,6 @@ namespace sky {
         am->RegisterAssetHandler<Shader>();
         am->RegisterAssetHandler<ShaderVariant>();
         am->RegisterAssetHandler<Material>();
-        am->RegisterAssetHandler<MaterialInstance>();
         am->RegisterAssetHandler<Technique>();
     }
 

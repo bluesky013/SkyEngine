@@ -26,7 +26,7 @@ namespace sky {
     {
         archive.SaveValue(static_cast<uint32_t>(shaders.size()));
         for (auto &shader : shaders) {
-            archive.SaveValue(shader ? shader->GetUuid() : Uuid{});
+            archive.SaveValue(shader ? shader->GetUuid().ToString() : Uuid{}.ToString());
         }
 
         archive.SaveValue(depthStencil.depthWrite);

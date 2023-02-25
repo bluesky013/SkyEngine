@@ -22,10 +22,10 @@ layout (set = 0, binding = 0) uniform ViewInfo {
     vec3 position;
 } viewInfo;
 
-layout (set = 1, binding = 0) uniform ObjectInfo {
+layout (set = 2, binding = 0) uniform ObjectInfo {
     mat4 worldMatrix;
     mat4 inverseTranspose;
-} objectInfo;
+} localData;
 
 out gl_PerVertex
 {
@@ -34,13 +34,13 @@ out gl_PerVertex
 
 void main()
 {
-    vec4 worldPos = objectInfo.worldMatrix * inPos;
+    vec4 worldPos = localData.worldMatrix * inPos;
     gl_Position = viewInfo.worldToClipMatrix * worldPos;
 
     outPos = worldPos.xyz / worldPos.w;
-    outNormal = mat3(objectInfo.inverseTranspose) * inNormal.xyz;
-    outTangent = normalize(mat3(objectInfo.inverseTranspose) * inTangent.xyz);
-    outBiTangent = normalize(mat3(objectInfo.inverseTranspose) * inBiTangent.xyz);
+    outNormal = mat3(localData.inverseTranspose) * inNormal.xyz;
+    outTangent = normalize(mat3(localData.inverseTranspose) * inTangent.xyz);
+    outBiTangent = normalize(mat3(localData.inverseTranspose) * inBiTangent.xyz);
     outColor = inColor;
     outUv = inUv;
 }

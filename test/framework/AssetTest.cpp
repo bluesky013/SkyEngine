@@ -47,11 +47,11 @@ public:
         auto am = sky::AssetManager::Get();
         am->RegisterAssetHandler<Test1>();
 
-        auto testAsset      = std::make_shared<sky::Asset<Test1>>();
+        auto testAsset      = am->CreateAsset<Test1>("test\\framework\\t1.json");
         testAsset->Data().a = 1;
         testAsset->Data().b = 2.0;
         testAsset->Data().c = "abc";
-        am->SaveAsset(testAsset, "test\\framework\\t1.json");
+        am->SaveAsset(testAsset);
 
         sky::DBManager::Get()->Init();
     }
