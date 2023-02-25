@@ -28,6 +28,8 @@ namespace sky::rhi {
 
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,
+        RGB8_UNORM,
+        RGB8_SRGB,
         RGBA8_UNORM,
         RGBA8_SRGB,
         BGRA8_UNORM,

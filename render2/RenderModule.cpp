@@ -9,6 +9,8 @@
 #include <render/assets/Material.h>
 #include <render/assets/Shader.h>
 #include <render/assets/Technique.h>
+#include <render/assets/Mesh.h>
+#include <render/assets/Image.h>
 
 #include <rhi/Core.h>
 
@@ -32,11 +34,21 @@ namespace sky {
             .BinLoad<&TechniqueAssetData::Load>()
             .BinSave<&TechniqueAssetData::Save>();
 
+        context->Register<ImageAssetData>("ImageAssetData")
+            .BinLoad<&ImageAssetData::Load>()
+            .BinSave<&ImageAssetData::Save>();
+
+        context->Register<MeshAssetData>("MeshAssetData")
+            .BinLoad<&MeshAssetData::Load>()
+            .BinSave<&MeshAssetData::Save>();
+
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Shader>();
         am->RegisterAssetHandler<ShaderVariant>();
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<Technique>();
+        am->RegisterAssetHandler<Mesh>();
+        am->RegisterAssetHandler<Image>();
     }
 
     static void ReflectRHI(SerializationContext *context)

@@ -8,7 +8,8 @@
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/MaterialBuilder.h>
-#include <builder/prefab/PrefabBuilder.h>
+#include <builder/render/ImageBuilder.h>
+#include <builder/render/PrefabBuilder.h>
 
 namespace sky::builder {
 
@@ -27,6 +28,7 @@ namespace sky::builder {
         std::unique_ptr<PrefabBuilder> prefabBuilder;
         std::unique_ptr<TechniqueBuilder> techBuilder;
         std::unique_ptr<MaterialBuilder> materialBuilder;
+        std::unique_ptr<ImageBuilder> imageBuilder;
     };
 
     bool BuilderModule::Init()
@@ -34,11 +36,17 @@ namespace sky::builder {
         shaderBuilder = std::make_unique<ShaderBuilder>();
         techBuilder = std::make_unique<TechniqueBuilder>();
         materialBuilder = std::make_unique<MaterialBuilder>();
+        imageBuilder = std::make_unique<ImageBuilder>();
         prefabBuilder = std::make_unique<PrefabBuilder>();
 
         AssetManager::Get()->RegisterBuilder(".vert", shaderBuilder.get());
         AssetManager::Get()->RegisterBuilder(".frag", shaderBuilder.get());
         AssetManager::Get()->RegisterBuilder(".comp", shaderBuilder.get());
+
+        AssetManager::Get()->RegisterBuilder(".jpg", imageBuilder.get());
+        AssetManager::Get()->RegisterBuilder(".jpeg", imageBuilder.get());
+        AssetManager::Get()->RegisterBuilder(".png", imageBuilder.get());
+
 
         AssetManager::Get()->RegisterBuilder(".tech", techBuilder.get());
         AssetManager::Get()->RegisterBuilder(".mat", materialBuilder.get());
