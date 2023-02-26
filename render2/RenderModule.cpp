@@ -11,6 +11,7 @@
 #include <render/assets/Technique.h>
 #include <render/assets/Mesh.h>
 #include <render/assets/Image.h>
+#include <render/assets/RenderPrefab.h>
 
 #include <rhi/Core.h>
 
@@ -27,8 +28,10 @@ namespace sky {
             .BinSave<&ShaderAssetData::Save>();
 
         context->Register<MaterialAssetData>("MaterialAssetData")
-            .BinLoad<&MaterialAssetData::Load>()
-            .BinSave<&MaterialAssetData::Save>();
+            .BinLoad<&MaterialAssetData::LoadBin>()
+            .BinSave<&MaterialAssetData::SaveBin>()
+            .JsonLoad<&MaterialAssetData::LoadJson>()
+            .JsonSave<&MaterialAssetData::SaveJson>();
 
         context->Register<TechniqueAssetData>("TechniqueAssetData")
             .BinLoad<&TechniqueAssetData::Load>()
@@ -42,6 +45,10 @@ namespace sky {
             .BinLoad<&MeshAssetData::Load>()
             .BinSave<&MeshAssetData::Save>();
 
+        context->Register<RenderPrefabAssetData>("RenderPrefabAssetData")
+            .BinLoad<&RenderPrefabAssetData::Load>()
+            .BinSave<&RenderPrefabAssetData::Save>();
+
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Shader>();
         am->RegisterAssetHandler<ShaderVariant>();
@@ -49,6 +56,7 @@ namespace sky {
         am->RegisterAssetHandler<Technique>();
         am->RegisterAssetHandler<Mesh>();
         am->RegisterAssetHandler<Image>();
+        am->RegisterAssetHandler<RenderPrefab>();
     }
 
     static void ReflectRHI(SerializationContext *context)

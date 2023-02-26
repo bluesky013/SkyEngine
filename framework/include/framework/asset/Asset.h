@@ -174,7 +174,7 @@ namespace sky {
             }
             if (SERIALIZE_TYPE == SerializeType::JSON) {
                 JsonOutputArchive archive(file);
-
+                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::Hash());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryOutputArchive archive(file);
                 archive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::Hash());

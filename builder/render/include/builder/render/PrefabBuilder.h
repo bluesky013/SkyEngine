@@ -13,7 +13,9 @@ namespace sky::builder {
         PrefabBuilder() = default;
         ~PrefabBuilder() = default;
 
-        void Request(const BuildRequest &build, BuildResult &result) override {}
+        static constexpr char* KEY = "GFX_PREFAB";
+
+        void Request(const BuildRequest &build, BuildResult &result) override;
     };
 
 } // namespace sky::builder

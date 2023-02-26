@@ -14,4 +14,5 @@ sky_add_library(TARGET RenderBuilder STATIC
         ShaderCompiler
         SkyRender.Static
         3rdParty::stb
+        3rdParty::assimp
     )
