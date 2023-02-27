@@ -4,6 +4,7 @@
 
 #pragma once
 #include <render/assets/Technique.h>
+#include <render/assets/Image.h>
 #include <unordered_map>
 #include <vector>
 
@@ -14,8 +15,13 @@ namespace sky {
     class JsonInputArchive;
     class JsonOutputArchive;
 
+    struct MaterialTexture {
+        uint32_t texIndex;
+    };
+
     struct MaterialAssetData {
         std::vector<TechniqueAssetPtr> techniques;
+        std::vector<ImageAssetPtr> images;
         std::unordered_map<std::string, Any> valueMap;
 
         void LoadBin(BinaryInputArchive &archive);

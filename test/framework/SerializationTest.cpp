@@ -408,3 +408,55 @@ TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
         }
     }
 }
+
+struct TestBinArchive_B1 {
+    int a = 0;
+    float b = 0.f;
+};
+
+struct TestBinArchive_B2 {
+    uint32_t c = 0;
+    double d = 0.0;
+};
+
+struct TestBinArchive {
+    TestBinArchive_B1 b1;
+    TestBinArchive_B2 b2;
+};
+
+TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
+{
+    auto *context = SerializationContext::Get();
+
+    context->Register<TestBinArchive_B1>("TestBinArchive_B1")
+        .Member<&TestBinArchive_B1::a>("a")
+        .Member<&TestBinArchive_B1::b>("b");
+
+    context->Register<TestBinArchive_B2>("TestBinArchive_B2")
+        .Member<&TestBinArchive_B2::c>("c")
+        .Member<&TestBinArchive_B2::d>("d");
+
+    context->Register<TestBinArchive>("TestBinArchive")
+        .Member<&TestBinArchive::b1>("b1")
+        .Member<&TestBinArchive::b2>("b2");
+
+    {
+        TestBinArchive test = {{1, 2.f}, {3, 4.0}};
+        std::ofstream file("binary-class-test.bin", std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveObject(&test, TypeInfo<TestBinArchive>::Hash());
+    }
+
+    {
+        std::ifstream file("binary-class-test.bin", std::ios::binary);
+        BinaryInputArchive archive(file);
+
+        TestBinArchive test = {};
+        archive.LoadObject(&test, TypeInfo<TestBinArchive>::Hash());
+
+        ASSERT_EQ(test.b1.a, 1);
+        ASSERT_EQ(test.b1.b, 2.f);
+        ASSERT_EQ(test.b2.c, 3);
+        ASSERT_EQ(test.b2.d, 4.0);
+    }
+}

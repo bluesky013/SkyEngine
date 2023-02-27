@@ -19,6 +19,9 @@ namespace sky {
 
     static void ReflectRenderAsset(SerializationContext *context)
     {
+        context->Register<MaterialTexture>("MaterialTexture")
+            .Member<&MaterialTexture::texIndex>("texIndex");
+
         context->Register<ShaderVariantData>("ShaderVariantData")
             .BinLoad<&ShaderVariantData::Load>()
             .BinSave<&ShaderVariantData::Save>();

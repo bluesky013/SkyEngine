@@ -4,6 +4,7 @@
 
 #include <framework/serialization/BinaryArchive.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/SerializationUtil.h>
 
 namespace sky {
 
@@ -44,13 +45,10 @@ namespace sky {
                 node->serialization.binaryLoad(ptr, *this);
                 return;
             }
-            uint32_t id = 0, size = 0;
-            LoadValue(id);
-            LoadValue(size);
-            SKY_ASSERT(id == typeId);
-
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
+                void *memPtr = GetValue(ptr, typeId, memberName);
+                LoadObject(memPtr, member.second.info->typeId);
             }
         }
     }
@@ -91,6 +89,12 @@ namespace sky {
             if (node->serialization.binarySave != nullptr) {
                 node->serialization.binarySave(ptr, *this);
                 return;
+            }
+
+            for (auto &member : node->members) {
+                std::string memberName = member.first.data();
+                const void *memPtr = GetValueConst(ptr, typeId, memberName);
+                SaveObject(memPtr, member.second.info->typeId);
             }
         }
     }

@@ -62,19 +62,6 @@ namespace sky::builder {
                 return am->LoadAsset<Image>(texId);
             }
         } else {
-
-        }
-        return {};
-//        int width = 0;
-//        int height = 0;
-//        int channel = 0;
-//        ImageAssetData assetData;
-//
-//        auto modelPath = std::filesystem::path(outScene.directory).append(texture->mFilename);
-//        stbi_uc * srcData = nullptr;
-//        if (std::filesystem::exists(modelPath)) {
-//            srcData = stbi_load(modelPath.string().data(), &width, &height, &channel, 4);
-//        } else {
 //            const auto *tex = scene->GetEmbeddedTexture(path.data);
 //            if (tex == nullptr) {
 //                return;
@@ -86,24 +73,8 @@ namespace sky::builder {
 //                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
 //                                                            &width, &height, &channel, 4);
 //            }
-//        }
-//        if (srcData == nullptr) {
-//            return;
-//        }
-//
-//        assetData.width = static_cast<uint32_t>(width);
-//        assetData.height = static_cast<uint32_t>(height);
-//        assetData.format = VK_FORMAT_R8G8B8A8_SRGB;
-//
-//        uint64_t dataSize = width * height * 4;
-//        assetData.data.resize(dataSize);
-//        memcpy(assetData.data.data(), srcData, dataSize);
-//        stbi_image_free(srcData);
-//
-//        auto texAsset = std::make_shared<Asset<Image>>();
-//        texAsset->SetData(std::move(assetData));
-//        outScene.images.emplace(path.data, texAsset);
-//        data.properties.emplace_back(PropertyAssetData{name, MaterialPropertyType::TEXTURE, Any(texAsset.get())});
+        }
+        return {};
     }
 
     static MaterialAssetPtr CreateAssetStandardPBRMaterial(const std::string &fullPath)
@@ -212,27 +183,32 @@ namespace sky::builder {
 
             data.valueMap.emplace("useAOMap", Any(useAOMap));
             if (useAOMap) {
-//                data.valueMap.emplace("aOMap", Any(aoMap->GetUuid()));
+                data.valueMap.emplace("aOMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
+                data.images.emplace_back(aoMap);
             }
 
             data.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
             if (useEmissiveMap) {
-//                data.valueMap.emplace("emissiveMap", Any(emissiveMap->GetUuid()));
+                data.valueMap.emplace("emissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
+                data.images.emplace_back(emissiveMap);
             }
 
             data.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
             if (useBaseColorMap) {
-//                data.valueMap.emplace("baseColorMap", Any(baseColorMap->GetUuid()));
+                data.valueMap.emplace("baseColorMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
+                data.images.emplace_back(baseColorMap);
             }
 
             data.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
             if (useMetallicRoughnessMap) {
-//                data.valueMap.emplace("metallicRoughnessMap", Any(metallicRoughnessMap->GetUuid().ToString()));
+                data.valueMap.emplace("metallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
+                data.images.emplace_back(metallicRoughnessMap);
             }
 
             data.valueMap.emplace("useNormalMap", Any(useNormalMap));
             if (useNormalMap) {
-//                data.valueMap.emplace("normalMap", Any(normalMap->GetUuid()));
+                data.valueMap.emplace("normalMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
+                data.images.emplace_back(normalMap);
             }
 
             data.valueMap.emplace("useMask",     Any(useMask));
