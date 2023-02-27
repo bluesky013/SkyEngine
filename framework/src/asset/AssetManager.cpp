@@ -112,7 +112,7 @@ namespace sky {
         request.fullPath = path;
         request.ext = ext;
         request.name = fs.filename().string();
-        request.projectDir = Interface<ISystemNotify>::Get()->GetApi()->GetSettings().VisitString("PROJECT_PATH") + "/cache";
+        request.outDir = option.outDir.empty() ? Interface<ISystemNotify>::Get()->GetApi()->GetSettings().VisitString("PROJECT_PATH") + "/cache" : option.outDir;
 
         BuildResult result = {};
         if (iter != assetBuilders.end()) {
@@ -129,10 +129,13 @@ namespace sky {
         }
     }
 
-    bool AssetManager::QueryOrImportSource(const std::string &path, const std::string &key, Uuid &out)
+    bool AssetManager::QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out)
     {
-        ImportSource(path, SourceAssetImportOption{key});
-        return dataBase->QueryProduct(path, key, out);
+        if (!option.reImport && dataBase->QueryProduct(path, option.buildKey, out)) {
+            return true;
+        }
+        ImportSource(path, option);
+        return dataBase->QueryProduct(path, option.buildKey, out);
     }
 
     void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)

@@ -52,7 +52,7 @@ namespace sky {
 
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    enum class SerializeType : uint8_t { JSON, BIN, XML };
+    enum class SerializeType : uint8_t { JSON, BIN };
 
     template <typename T>
     struct AssetTraits {

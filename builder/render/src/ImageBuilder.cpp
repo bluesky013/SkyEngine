@@ -1,4 +1,3 @@
-
 //
 // Created by Zach Lee on 2023/2/26.
 //
@@ -22,7 +21,7 @@ namespace sky::builder {
             return;
         }
         AssetManager *am = AssetManager::Get();
-        std::filesystem::path outPath(request.projectDir);
+        std::filesystem::path outPath(request.outDir);
         outPath.append("images");
         std::filesystem::create_directories(outPath);
         outPath.append(request.name);

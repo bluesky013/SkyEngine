@@ -16,6 +16,8 @@ namespace sky {
 
     struct SourceAssetImportOption {
         std::string buildKey;
+        std::string outDir;
+        bool reImport = true;
     };
 
     class AssetManager : public Singleton<AssetManager> {
@@ -60,7 +62,7 @@ namespace sky {
 
         void RegisterBuilder(const std::string &key, AssetBuilder *builder);
         void ImportSource(const std::string &path, const SourceAssetImportOption &option);
-        bool QueryOrImportSource(const std::string &path, const std::string &key, Uuid &out);
+        bool QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out);
 
         void RegisterSearchPath(const std::string &path);
         void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);

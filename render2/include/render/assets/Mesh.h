@@ -15,16 +15,24 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
+    struct VertexDesc {
+        std::string name;
+        uint32_t    index  = 0;
+        uint32_t    offset = 0;
+        rhi::Format format = rhi::Format::UNDEFINED;
+    };
+
     struct SubMeshAssetData {
         uint32_t firstVertex = 0;
         uint32_t vertexCount = 0;
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
         MaterialAssetPtr material;
-        Box box;
+        Box aabb;
     };
 
     struct MeshAssetData {
+        std::vector<VertexDesc> vertexDescriptions;
         std::vector<SubMeshAssetData> subMeshes;
         std::vector<std::vector<uint8_t>> vertexBuffers;
         std::vector<uint8_t> indexBuffer;

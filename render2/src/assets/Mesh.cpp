@@ -11,6 +11,17 @@ namespace sky {
     {
         uint32_t size = 0;
         archive.LoadValue(size);
+        vertexDescriptions.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            VertexDesc &vDesc = vertexDescriptions[i];
+            archive.LoadValue(vDesc.name);
+            archive.LoadValue(vDesc.index);
+            archive.LoadValue(vDesc.offset);
+            archive.LoadValue(vDesc.format);
+        }
+
+        size = 0;
+        archive.LoadValue(size);
         subMeshes.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
             SubMeshAssetData &subMesh = subMeshes[i];
@@ -26,6 +37,14 @@ namespace sky {
 
     void MeshAssetData::Save(BinaryOutputArchive &archive) const
     {
+        archive.SaveValue(static_cast<uint32_t>(vertexDescriptions.size()));
+        for (auto &vDesc : vertexDescriptions) {
+            archive.SaveValue(vDesc.name);
+            archive.SaveValue(vDesc.index);
+            archive.SaveValue(vDesc.offset);
+            archive.SaveValue(vDesc.format);
+        }
+
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));
         for (auto &subMesh : subMeshes) {
             archive.SaveValue(subMesh.firstVertex);

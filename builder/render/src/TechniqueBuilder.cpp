@@ -44,7 +44,7 @@ namespace sky::builder {
             auto relativePath = val[shaderStage.c_str()].GetString();
             std::string fullPath = am->GetRealPath(relativePath);
             Uuid shaderId;
-            if (am->QueryOrImportSource(fullPath, ShaderBuilder::KEY, shaderId)) {
+            if (am->QueryOrImportSource(fullPath, {ShaderBuilder::KEY}, shaderId)) {
                 return am->LoadAsset<Shader>(shaderId);
             }
         }
@@ -170,7 +170,7 @@ namespace sky::builder {
 
         AssetManager *am = AssetManager::Get();
         std::filesystem::path fullPath(request.fullPath);
-        std::filesystem::path outPath(request.projectDir);
+        std::filesystem::path outPath(request.outDir);
         outPath.append("techniques");
         std::filesystem::create_directories(outPath);
 

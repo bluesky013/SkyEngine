@@ -26,7 +26,7 @@ namespace sky::builder {
             return;
         }
         auto *am = AssetManager::Get();
-        std::filesystem::path outDir = request.projectDir + "/shaders";
+        std::filesystem::path outDir = request.outDir + "/shaders";
         std::filesystem::create_directories(outDir);
         std::string fullPath = outDir.append(request.name).make_preferred().string();
         std::string outFullPath = fullPath + ".bin";

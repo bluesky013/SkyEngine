@@ -18,7 +18,7 @@ namespace sky {
         std::string fullPath;
         std::string name;
         std::string ext;
-        std::string projectDir;
+        std::string outDir;
         std::string buildKey;
     };
 

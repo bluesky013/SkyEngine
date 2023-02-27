@@ -18,17 +18,17 @@ namespace sky {
     struct RenderPrefabNode {
         uint32_t meshIndex = ~(0u);
         uint32_t parentIndex = ~(0u);
-        std::vector<uint32_t> children;
         Matrix4 localMatrix;
     };
 
     struct RenderPrefabAssetData {
-        std::vector<RenderPrefabNode> nodes;
         std::vector<ImageAssetPtr> images;
         std::vector<MeshAssetPtr> meshes;
+        std::vector<MaterialAssetPtr> materials;
+        std::vector<RenderPrefabNode> nodes;
 
-        void Load(BinaryInputArchive &archive) {}
-        void Save(BinaryOutputArchive &archive) const {}
+        void Load(BinaryInputArchive &archive);
+        void Save(BinaryOutputArchive &archive) const;
     };
 
     class RenderPrefab {

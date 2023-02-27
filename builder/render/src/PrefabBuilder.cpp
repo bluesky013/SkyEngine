@@ -28,8 +28,17 @@ namespace sky::builder {
         TANGENT,
         BITANGENT,
         COLOR,
-        UV0,
+        UV,
         NUM,
+    };
+
+    struct MeshVertexData {
+        std::vector<Vector4> position;
+        std::vector<Vector4> normal;
+        std::vector<Vector4> tangent;
+        std::vector<Vector4> biTangent;
+        std::vector<Vector4> color;
+        std::vector<Vector4> UV;
     };
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
@@ -49,7 +58,7 @@ namespace sky::builder {
         auto texPath = std::filesystem::path(sourceFolder).append(str.C_Str());
         if (std::filesystem::exists(texPath)) {
             Uuid texId;
-            if (am->QueryOrImportSource(texPath.make_preferred().string(), ImageBuilder::KEY, texId)) {
+            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY, productFolder, false}, texId)) {
                 return am->LoadAsset<Image>(texId);
             }
         } else {
@@ -103,7 +112,7 @@ namespace sky::builder {
         auto asset = am->CreateAsset<Material>(fullPath);
         std::string techPath = am->GetRealPath("techniques/standard_forward.tech");
         Uuid techId;
-        if (am->QueryOrImportSource(techPath, TechniqueBuilder::KEY, techId)) {
+        if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY}, techId)) {
             asset->Data().techniques.emplace_back(am->LoadAsset<Technique>(techId));
         }
         return asset;
@@ -147,6 +156,11 @@ namespace sky::builder {
             Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
             float metallic = 1.f;
             float roughness = 1.f;
+            ImageAssetPtr normalMap;
+            ImageAssetPtr emissiveMap;
+            ImageAssetPtr aoMap;
+            ImageAssetPtr baseColorMap;
+            ImageAssetPtr metallicRoughnessMap;
 
             aiString aiAlphaMode;
             if (!material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode)) {
@@ -160,21 +174,21 @@ namespace sky::builder {
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, alphaCutoff);
 
             if (!material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str)) {
-                useNormalMap = true;
                 // normalMap
-                ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                normalMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                useNormalMap = !!normalMap;
             }
 
             if (!material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str)) {
-                useEmissiveMap = true;
                 // emissiveMap
-                ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                emissiveMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                useEmissiveMap = !!emissiveMap;
             }
 
             if (!material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str)) {
-                useAOMap = true;
                 // aoMap;
-                ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                aoMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                useAOMap = !!aoMap;
             }
 
             if (shadingModel == aiShadingMode_PBR_BRDF) {
@@ -184,118 +198,199 @@ namespace sky::builder {
 
 
                 if (!material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str)) {
-                    useBaseColorMap = true;
                     // baseColorMap
-                    ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                    baseColorMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                    useBaseColorMap = !!baseColorMap;
                 }
 
                 if (!material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str)) {
-                    useMetallicRoughnessMap = true;
                     // metallicRoughnessMap
-                    ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                    metallicRoughnessMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
+                    useMetallicRoughnessMap = !!metallicRoughnessMap;
                 }
             }
 
-            data.valueMap.emplace("useAOMap",                Any(useAOMap));
-            data.valueMap.emplace("useEmissiveMap",          Any(useEmissiveMap));
-            data.valueMap.emplace("useBaseColorMap",         Any(useBaseColorMap));
+            data.valueMap.emplace("useAOMap", Any(useAOMap));
+            if (useAOMap) {
+//                data.valueMap.emplace("aOMap", Any(aoMap->GetUuid()));
+            }
+
+            data.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
+            if (useEmissiveMap) {
+//                data.valueMap.emplace("emissiveMap", Any(emissiveMap->GetUuid()));
+            }
+
+            data.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
+            if (useBaseColorMap) {
+//                data.valueMap.emplace("baseColorMap", Any(baseColorMap->GetUuid()));
+            }
+
             data.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
-            data.valueMap.emplace("useNormalMap",            Any(useNormalMap));
-            data.valueMap.emplace("useMask",                 Any(useMask));
+            if (useMetallicRoughnessMap) {
+//                data.valueMap.emplace("metallicRoughnessMap", Any(metallicRoughnessMap->GetUuid().ToString()));
+            }
+
+            data.valueMap.emplace("useNormalMap", Any(useNormalMap));
+            if (useNormalMap) {
+//                data.valueMap.emplace("normalMap", Any(normalMap->GetUuid()));
+            }
+
+            data.valueMap.emplace("useMask",     Any(useMask));
 
             data.valueMap.emplace("baseColor",   Any(baseColor));
             data.valueMap.emplace("metallic",    Any(metallic));
             data.valueMap.emplace("roughness",   Any(roughness));
             data.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
             AssetManager::Get()->SaveAsset(matAsset);
+
+            outScene.materials.emplace_back(matAsset);
         }
     }
 
-    static void ProcessMeshes(const aiScene *scene, RenderPrefabAssetData& outScene)
+    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, RenderPrefabAssetData& outScene, MeshAssetData &meshData, uint32_t &vertexOffset, uint32_t &indexOffset)
     {
-//        MeshAssetData data;
-//        data.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].offset = outScene.rawData.positions.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].stride = sizeof(Vector4);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size   = 0;
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].offset = outScene.rawData.normals.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].stride = sizeof(Vector4);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size   = 0;
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].offset = outScene.rawData.tangents.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].stride = sizeof(Vector4);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size   = 0;
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].offset = outScene.rawData.biTangents.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].stride = sizeof(Vector4);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].size   = 0;
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].offset = outScene.rawData.colors.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].stride = sizeof(Vector4);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size   = 0;
-//
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].buffer = outScene.buffer;
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].offset = outScene.rawData.uvs.size() * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].stride = 2 * sizeof(float);
-//        data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size   = 0;
-//
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inPos", 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inNormal", 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inTangent", 2, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inBiTangent", 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inColor", 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT});
-//        data.vertexDescriptions.emplace_back(VertexDesc{"inUv", 5, 0, VK_FORMAT_R32G32_SFLOAT});
-//
-//        data.indexBuffer.buffer = outScene.buffer;
-//        data.indexBuffer.offset = outScene.indices.size() * sizeof(uint32_t);
-//        data.indexBuffer.stride = sizeof(uint32_t);
-//        data.indexBuffer.size   = 0;
+        uint32_t vertexNum   = mesh->mNumVertices;
+        uint32_t currentSize = vertexOffset + vertexNum;
 
-//        data.indexType = VK_INDEX_TYPE_UINT32;
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].resize(currentSize * sizeof(Vector4));
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].resize(currentSize * sizeof(Vector4));
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].resize(currentSize * sizeof(Vector4));
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].resize(currentSize * sizeof(Vector4));
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].resize(currentSize * sizeof(Vector4));
+        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].resize(currentSize * sizeof(Vector4));
 
-//        uint32_t indexOffset  = 0;
-//        uint32_t vertexOffset = 0;
-//        for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-//            aiMesh  *mesh      = scene->mMeshes[node->mMeshes[i]];
-//            uint32_t vertexNum = mesh->mNumVertices;
-//
-//            ProcessSubMesh(mesh, scene, data, outScene, vertexOffset, indexOffset);
-//
-//            data.indexBuffer.size += mesh->mNumFaces * 3 * sizeof(uint32_t);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].size += vertexNum * sizeof(Vector4);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].size += vertexNum * sizeof(Vector4);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].size += vertexNum * sizeof(Vector4);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].size += vertexNum * sizeof(Vector4);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].size += vertexNum * sizeof(Vector4);
-//            data.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV0)].size += vertexNum * 2 * sizeof(float);
-//        }
+        Vector4 *position = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].data())[vertexOffset];
+        Vector4 *normal = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].data())[vertexOffset];
+        Vector4 *tangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].data())[vertexOffset];
+        Vector4 *biTangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].data())[vertexOffset];
+        Vector4 *color = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].data())[vertexOffset];
+        Vector4 *uv = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].data())[vertexOffset];
+
+        for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+            auto &p = mesh->mVertices[i];
+            auto &n = mesh->mNormals[i];
+            auto &t = mesh->mTangents[i];
+            auto &b = mesh->mBitangents[i];
+
+            position->x = p.x;
+            position->y = p.y;
+            position->z = p.z;
+            position->x = 1.f;
+
+            normal->x = n.x;
+            normal->y = n.y;
+            normal->z = n.z;
+            normal->x = 1.f;
+
+            tangent->x = t.x;
+            tangent->y = t.y;
+            tangent->z = t.z;
+            tangent->x = 1.f;
+
+            biTangent->x = b.x;
+            biTangent->y = b.y;
+            biTangent->z = b.z;
+            biTangent->x = 1.f;
+
+            if (mesh->HasVertexColors(0)) {
+                auto &c  = mesh->mColors[0][i];
+                color->x = c.r;
+                color->y = c.g;
+                color->z = c.b;
+                color->w = c.a;
+            } else {
+                color->x = 1.f;
+                color->y = 1.f;
+                color->z = 1.f;
+                color->w = 1.f;
+            }
+
+            if (mesh->HasTextureCoords(0)) {
+                auto &u = mesh->mTextureCoords[0][i];
+                uv->x   = u.x;
+                uv->y   = u.y;
+            } else {
+                uv->x = 0.f;
+                uv->y = 0.f;
+            }
+        }
+
+        SubMeshAssetData subMesh;
+        subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
+        subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
+        subMesh.firstVertex = vertexOffset;
+        subMesh.vertexCount = mesh->mNumVertices;
+        subMesh.firstIndex = indexOffset;
+        subMesh.indexCount = mesh->mNumFaces * 3;
+        subMesh.material = outScene.materials[mesh->mMaterialIndex];
+
+        uint32_t currentIndexSize = indexOffset + subMesh.indexCount;
+        meshData.indexBuffer.resize(currentIndexSize * sizeof(uint32_t));
+        uint32_t *indices = &reinterpret_cast<uint32_t *>(meshData.indexBuffer.data())[indexOffset];
+        for(unsigned int i = 0; i < mesh->mNumFaces; i++)
+        {
+            aiFace face = mesh->mFaces[i];
+            indices[i + 0] = face.mIndices[0];
+            indices[i + 1] = face.mIndices[1];
+            indices[i + 2] = face.mIndices[2];
+        }
+
+        meshData.subMeshes.emplace_back(subMesh);
+
+        indexOffset += subMesh.indexCount;
+        vertexOffset += subMesh.vertexCount;
     }
 
-    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, RenderPrefabAssetData& outScene)
+    static void ProcessMesh(const aiScene *scene, const aiNode *node, RenderPrefabAssetData& outScene, MeshAssetData &meshData)
     {
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"POSITION", 0, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"NORMAL", 1, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"TANGENT", 2, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"BITANGENT", 3, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"COLOR", 4, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescriptions.emplace_back(VertexDesc{"UV", 5, 0, rhi::Format::F_RGBA32});
+
+        meshData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+
+        uint32_t meshNum = node->mNumMeshes;
+        uint32_t vertexOffset = 0;
+        uint32_t indexOffset = 0;
+        for (uint32_t i = 0; i < meshNum; i++) {
+            aiMesh  *mesh      = scene->mMeshes[node->mMeshes[i]];
+            ProcessSubMesh(mesh, scene, outScene, meshData, vertexOffset, indexOffset);
+        }
+    }
+
+    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, RenderPrefabAssetData& outScene, const std::filesystem::path &source, const std::string &productFolder)
+    {
+        auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(outScene.nodes.size());
         outScene.nodes.emplace_back(RenderPrefabNode{});
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
-        if (parent != ~(0U)) {
-            outScene.nodes[parent].children.emplace_back(index);
-        }
-
+//        if (parent != ~(0U)) {
+//            outScene.nodes[parent].children.emplace_back(index);
+//        }
         current.localMatrix = FromAssimp(node->mTransformation);
 
         if (node->mNumMeshes != 0) {
             current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
+
+            std::filesystem::path productMatPath(productFolder);
+            productMatPath.append(source.filename().replace_extension().string());
+
+            std::stringstream ss;
+            ss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << ".mesh";
+            auto meshAsset = am->CreateAsset<Mesh>(ss.str());
+            MeshAssetData &meshAssetData = meshAsset->Data();
+            ProcessMesh(scene, node, outScene, meshAssetData);
+
+            outScene.meshes.emplace_back(meshAsset);
+            am->SaveAsset(meshAsset);
         }
 
         for(unsigned int i = 0; i < node->mNumChildren; i++) {
-            ProcessNode(node->mChildren[i], scene, index, outScene);
+            ProcessNode(node->mChildren[i], scene, index, outScene, source, productFolder);
         }
     }
 
@@ -315,20 +410,16 @@ namespace sky::builder {
         std::filesystem::path fullPath(request.fullPath);
         fullPath.make_preferred();
 
-        std::filesystem::path outPath(request.projectDir);
+        std::filesystem::path outPath(request.outDir);
         std::string outFolder = outPath.append(request.name).replace_extension().string();
         std::filesystem::create_directories(outPath);
         outPath.append(request.name);
 
-        auto asset = am->CreateAsset<RenderPrefab>(outPath.make_preferred().string());
+        auto asset = am->CreateAsset<RenderPrefab>(outPath.make_preferred().replace_extension().string() + ".prefab");
         auto &assetData = asset->Data();
 
         ProcessMaterials(scene, assetData, fullPath, outFolder);
-//        ProcessMeshes(scene, assetData);
-
-//        ProcessNode(scene->mRootNode, scene, -1, assetData);
-
-
+        ProcessNode(scene->mRootNode, scene, -1, assetData, fullPath, outFolder);
 
         result.products.emplace_back(BuildProduct{KEY, asset->GetUuid()});
         am->SaveAsset(asset);
