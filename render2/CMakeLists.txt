@@ -22,7 +22,10 @@ sky_add_library(TARGET SkyRender SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyRender.Static
+        SkyRenderAdaptor
     )
+
+add_subdirectory(adaptor)
+
 add_dependencies(Launcher SkyRender)
 add_dependencies(Editor SkyRender)
