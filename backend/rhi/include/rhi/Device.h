@@ -41,8 +41,9 @@ namespace sky::rhi {
         virtual ~Device() = default;
 
         struct DeviceFeature {
-            bool sparseBinding      = false;
-            bool descriptorIndexing = false;
+            bool sparseBinding       = false;
+            bool descriptorIndexing  = false;
+            bool variableRateShading = false;
         };
 
         struct Descriptor {

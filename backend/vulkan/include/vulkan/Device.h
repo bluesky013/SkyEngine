@@ -52,31 +52,34 @@ namespace sky::vk {
 
         void WaitIdle() const;
 
-        VmaAllocator GetAllocator() const;
-        VkDevice GetNativeHandle() const;
+        VmaAllocator     GetAllocator() const;
+        VkDevice         GetNativeHandle() const;
         VkPhysicalDevice GetGpuHandle() const;
-        VkInstance GetInstance() const;
+        VkInstance       GetInstance() const;
 
         // Queue
-        Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
-        Queue *GetGraphicsQueue() const;
+        Queue              *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
+        Queue              *GetGraphicsQueue() const;
         AsyncTransferQueue *GetAsyncTransferQueue() const;
 
         // Cache object
-        VkSampler GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
-        VkPipelineLayout GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo * = nullptr);
+        VkSampler             GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
+        VkPipelineLayout      GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo      * = nullptr);
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
-        VkRenderPass GetRenderPass(uint32_t hash, VkRenderPassCreateInfo * = nullptr);
-        VkPipeline GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
+        VkRenderPass          GetRenderPass(uint32_t hash, VkRenderPassCreateInfo          * = nullptr);
+        VkPipeline            GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo            * = nullptr);
 
         // features
         const VkPhysicalDeviceProperties &GetProperties() const;
-        bool GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
-        bool GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool    GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
+        bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
 
         // rhi
-        rhi::Queue* GetQueue(rhi::QueueType type) const override { return graphicsQueue; }
+        rhi::Queue *GetQueue(rhi::QueueType type) const override
+        {
+            return graphicsQueue;
+        }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
@@ -90,7 +93,6 @@ namespace sky::vk {
         CREATE_DEV_OBJ(PipelineLayout)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
-
         // Special Device Object
         std::shared_ptr<rhi::CommandBuffer> CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override
         {
@@ -102,7 +104,7 @@ namespace sky::vk {
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
-        void ValidateFeature(const DeviceFeature &feature);
+        void ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions);
 
         void SetupAsyncTransferQueue();
 
@@ -118,12 +120,19 @@ namespace sky::vk {
         VkDevice         device;
         VmaAllocator     allocator;
 
-        VkPhysicalDeviceProperties                 phyProps                   = {};
-        VkPhysicalDeviceFeatures2                  phyFeatures                = {};
-        VkPhysicalDeviceFeatures                   enabledPhyFeatures         = {};
-        VkPhysicalDeviceSynchronization2Features   sync2Feature               = {};
-        VkPhysicalDeviceDescriptorIndexingFeatures phyIndexingFeatures        = {};
-        VkPhysicalDeviceDescriptorIndexingFeatures enabledPhyIndexingFeatures = {};
+        std::vector<VkExtensionProperties> supportedExtensions;
+
+        VkPhysicalDeviceProperties2                      phyProps         = {};
+        VkPhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProps = {};
+
+        VkPhysicalDeviceFeatures2                      phyFeatures         = {};
+        VkPhysicalDeviceSynchronization2Features       sync2Feature        = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
+        VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
+
+        VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
+        VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};
+        VkPhysicalDeviceFragmentShadingRateFeaturesKHR enabledShadingRateFeatures = {};
 
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 

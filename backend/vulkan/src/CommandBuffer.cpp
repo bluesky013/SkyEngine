@@ -294,6 +294,7 @@ namespace sky::vk {
 
     ComputeEncoder::ComputeEncoder(CommandBuffer &cb) : cmdBuffer(cb)
     {
+        cmd = cmdBuffer.GetNativeHandle();
     }
 
     void ComputeEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)

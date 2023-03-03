@@ -11,7 +11,6 @@
 
 static const char              *TAG         = "Vulkan";
 const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
-                                               "VK_EXT_descriptor_indexing",
 #ifdef __APPLE__
                                                "VK_KHR_portability_subset"
 #endif
@@ -73,15 +72,21 @@ namespace sky::vk {
     }
 
     template <typename ...Args>
-    VkBool32 CheckFeature(bool required, bool &out, Args ...args)
+    static VkBool32 CheckFeature(bool required, Args ...args)
     {
         VkBool32 combined = VK_TRUE;
         ((combined &= args), ...);
-        out = required & static_cast<bool>(combined);
-        return out;
+        return required & static_cast<bool>(combined);
     }
 
-    void Device::ValidateFeature(const DeviceFeature &feature)
+    static bool CheckExtension(const std::vector<VkExtensionProperties> &extensions, const char* ext)
+    {
+        return std::any_of(extensions.begin(), extensions.end(), [ext](const VkExtensionProperties &prop) {
+            return strcmp(prop.extensionName, ext) == 0;
+        });
+    }
+
+    void Device::ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions)
     {
         enabledPhyFeatures.multiViewport            = phyFeatures.features.multiViewport;
         enabledPhyFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
@@ -90,26 +95,41 @@ namespace sky::vk {
         enabledPhyFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
         enabledPhyFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
 
-        bool sparseBinding = CheckFeature(feature.sparseBinding, enabledFeature.sparseBinding,
+        enabledFeature.sparseBinding = CheckFeature(feature.sparseBinding,
             phyFeatures.features.sparseBinding,
             phyFeatures.features.sparseResidencyBuffer,
             phyFeatures.features.sparseResidencyImage2D,
             phyFeatures.features.shaderResourceResidency);
-        enabledPhyFeatures.sparseBinding           = sparseBinding;
-        enabledPhyFeatures.sparseResidencyBuffer   = sparseBinding;
-        enabledPhyFeatures.sparseResidencyImage2D  = sparseBinding;
-        enabledPhyFeatures.shaderResourceResidency = sparseBinding;
+        enabledPhyFeatures.sparseBinding           = enabledFeature.sparseBinding;
+        enabledPhyFeatures.sparseResidencyBuffer   = enabledFeature.sparseBinding;
+        enabledPhyFeatures.sparseResidencyImage2D  = enabledFeature.sparseBinding;
+        enabledPhyFeatures.shaderResourceResidency = enabledFeature.sparseBinding;
 
-        auto indexingFeature = CheckFeature(feature.descriptorIndexing, enabledFeature.descriptorIndexing,
+        enabledFeature.descriptorIndexing = CheckFeature(feature.descriptorIndexing,
             phyIndexingFeatures.runtimeDescriptorArray,
             phyIndexingFeatures.descriptorBindingVariableDescriptorCount,
-            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing);
+            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing) && CheckExtension(supportedExtensions, "VK_EXT_descriptor_indexing");
         enabledPhyIndexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        enabledPhyIndexingFeatures.runtimeDescriptorArray                    = indexingFeature;
-        enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = indexingFeature;
-        enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = indexingFeature;
-
+        enabledPhyIndexingFeatures.runtimeDescriptorArray                    = enabledFeature.descriptorIndexing;
+        enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = enabledFeature.descriptorIndexing;
+        enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = enabledFeature.descriptorIndexing;
         enabledPhyIndexingFeatures.pNext = &sync2Feature;
+        if (enabledFeature.descriptorIndexing) {
+            outExtensions.emplace_back("VK_EXT_descriptor_indexing");
+        }
+
+        sync2Feature.pNext = &shadingRateFeatures;
+
+        enabledFeature.variableRateShading = CheckFeature(feature.variableRateShading,
+            shadingRateFeatures.attachmentFragmentShadingRate,
+            shadingRateFeatures.pipelineFragmentShadingRate,
+            shadingRateFeatures.primitiveFragmentShadingRate) && CheckExtension(supportedExtensions, "VK_KHR_fragment_shading_rate");
+        enabledShadingRateFeatures.attachmentFragmentShadingRate = enabledFeature.variableRateShading;
+        shadingRateFeatures.pipelineFragmentShadingRate          = enabledFeature.variableRateShading;
+        shadingRateFeatures.primitiveFragmentShadingRate         = enabledFeature.variableRateShading;
+        if (enabledFeature.variableRateShading) {
+            outExtensions.emplace_back("VK_KHR_fragment_shading_rate");
+        }
     }
 
     void Device::SetupAsyncTransferQueue()
@@ -142,24 +162,36 @@ namespace sky::vk {
         std::vector<VkPhysicalDevice> phyDevices(count);
         vkEnumeratePhysicalDevices(vkInstance, &count, phyDevices.data());
 
+        phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        phyFeatures.pNext = &phyIndexingFeatures;
+
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         phyIndexingFeatures.pNext = &sync2Feature;
-        sync2Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        sync2Feature.synchronization2 = VK_TRUE;
 
-        phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        sync2Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        sync2Feature.pNext = &shadingRateFeatures;
+
+        shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+
+        phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        phyProps.pNext = &shadingRateProps;
+        shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
 
         uint32_t i = 0;
         for (; i < count; ++i) {
             auto *pDev = phyDevices[i];
             vkGetPhysicalDeviceFeatures2(pDev, &phyFeatures);
-            vkGetPhysicalDeviceProperties(pDev, &phyProps);
+            vkGetPhysicalDeviceProperties2(pDev, &phyProps);
 
-            if (phyProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            if (phyProps.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 break;
             }
         }
         phyDev = phyDevices[i >= count ? 0 : i];
+
+        vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, nullptr);
+        supportedExtensions.resize(count);
+        vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, supportedExtensions.data());
 
         count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(phyDev, &count, nullptr);
@@ -182,7 +214,8 @@ namespace sky::vk {
             queueCreateInfos.emplace_back(queueInfo);
             LOG_I(TAG, "queue family index %u, count %u, flags %u", i, queueFamilies[i].queueCount, queueFamilies[i].queueFlags);
         }
-        ValidateFeature(des.feature);
+        std::vector<const char*> extensions = DEVICE_EXTS;
+        ValidateFeature(des.feature, extensions);
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -356,7 +389,7 @@ namespace sky::vk {
 
     const VkPhysicalDeviceProperties &Device::GetProperties() const
     {
-        return phyProps;
+        return phyProps.properties;
     }
 
     void Device::WaitIdle() const

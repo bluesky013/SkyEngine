@@ -17,10 +17,10 @@ namespace sky {
     {
         RegisterSample<VulkanTriangleSample>();
         RegisterSample<VulkanMemoryAliasing>();
-        RegisterSample<VulkanAsyncUploadSample>();
+//        RegisterSample<VulkanAsyncUploadSample>();
 #ifdef WIN32
         RegisterSample<VulkanDescriptorSample>();
-        RegisterSample<VulkanTerrainVTSample>();
+//        RegisterSample<VulkanTerrainVTSample>();
         RegisterSample<VulkanBindlessSample>();
         RegisterSample<VulkanSparseImageSample>();
 #endif
