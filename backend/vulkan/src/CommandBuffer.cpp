@@ -237,12 +237,10 @@ namespace sky::vk {
 
     void CommandBuffer::QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst)
     {
-        imageBarriers.emplace_back(VkImageMemoryBarrier2{});
+        imageBarriers.emplace_back(VkImageMemoryBarrier{});
         auto &imageMemoryBarrier = imageBarriers.back();
-        imageMemoryBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-        imageMemoryBarrier.srcStageMask         = barrier.srcStageMask;
+        imageMemoryBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         imageMemoryBarrier.srcAccessMask        = barrier.srcAccessMask;
-        imageMemoryBarrier.dstStageMask         = barrier.dstStageMask;
         imageMemoryBarrier.dstAccessMask        = barrier.dstAccessMask;
         imageMemoryBarrier.image                = image->GetNativeHandle();
         imageMemoryBarrier.subresourceRange     = subresourceRange;
@@ -250,36 +248,36 @@ namespace sky::vk {
         imageMemoryBarrier.newLayout            = dst;
         imageMemoryBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
         imageMemoryBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        srcStageMask |= barrier.srcStageMask;
+        dstStageMask |= barrier.dstStageMask;
     }
 
     void CommandBuffer::QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset)
     {
-        bufferBarriers.emplace_back(VkBufferMemoryBarrier2{});
+        bufferBarriers.emplace_back(VkBufferMemoryBarrier{});
         auto &bufferBarrier = bufferBarriers.back();
-        bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-        bufferBarrier.srcStageMask          = barrier.srcStageMask;
+        bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         bufferBarrier.srcAccessMask         = barrier.srcAccessMask;
-        bufferBarrier.dstStageMask          = barrier.dstStageMask;
         bufferBarrier.dstAccessMask         = barrier.dstAccessMask;
         bufferBarrier.buffer                = buffer->GetNativeHandle();
         bufferBarrier.offset                = offset;
         bufferBarrier.size                  = size;
         bufferBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
         bufferBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+        srcStageMask |= barrier.srcStageMask;
+        dstStageMask |= barrier.dstStageMask;
     }
 
     void CommandBuffer::FlushBarriers()
     {
-        VkDependencyInfo dependencyInfo = {};
-        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-        dependencyInfo.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-        dependencyInfo.bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size());
-        dependencyInfo.pBufferMemoryBarriers = bufferBarriers.data();
-        dependencyInfo.imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriers.size());
-        dependencyInfo.pImageMemoryBarriers = imageBarriers.data();
-        vkCmdPipelineBarrier2(cmdBuffer, &dependencyInfo);
+        vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, VK_DEPENDENCY_BY_REGION_BIT,
+                             0, nullptr,
+                             static_cast<uint32_t>(bufferBarriers.size()), bufferBarriers.data(),
+                             static_cast<uint32_t>(imageBarriers.size()), imageBarriers.data());
         bufferBarriers.clear();
         imageBarriers.clear();
+        srcStageMask = 0;
+        dstStageMask = 0;
     }
 
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy)

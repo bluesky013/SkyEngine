@@ -68,6 +68,8 @@ namespace sky::rhi {
 
         virtual Queue* GetQueue(QueueType type) const = 0;
 
+        const DeviceFeature &GetFeatures() const { return enabledFeature; }
+
     protected:
         DeviceFeature enabledFeature;
     };

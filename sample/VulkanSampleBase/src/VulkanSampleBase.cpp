@@ -75,6 +75,14 @@ namespace sky {
         ++frame;
     }
 
+    bool VulkanSampleBase::CheckFeature() const
+    {
+        auto &features = device->GetFeatures();
+        return features.sparseBinding == deviceInfo.feature.sparseBinding &&
+            features.descriptorIndexing == deviceInfo.feature.descriptorIndexing &&
+            features.variableRateShading == deviceInfo.feature.variableRateShading;
+    }
+
     void VulkanSampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
         auto &ext = swapChain->GetVkExtent();

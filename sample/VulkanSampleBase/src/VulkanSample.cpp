@@ -10,6 +10,7 @@
 #include "VulkanAsyncUploadSample.h"
 #include "VulkanSparseImageSample.h"
 #include "VulkanTerrainVTSample.h"
+#include "VulkanVariableRateShading.h"
 
 namespace sky {
 
@@ -23,6 +24,7 @@ namespace sky {
 //        RegisterSample<VulkanTerrainVTSample>();
         RegisterSample<VulkanBindlessSample>();
         RegisterSample<VulkanSparseImageSample>();
+        RegisterSample<VulkanVariableRateShading>();
 #endif
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
@@ -52,12 +54,13 @@ namespace sky {
         }
     }
 
-    void VulkanSample::StartSample()
+    bool VulkanSample::StartSample()
     {
         if (currentSample) {
             currentSample->OnStop();
         }
         currentSample.reset(samples[currentIndex]());
+        return currentSample->CheckFeature();
     }
 
     void VulkanSample::NextSample()
@@ -74,7 +77,9 @@ namespace sky {
     {
         if (button == KeyButton::KEY_F2) {
             NextSample();
-            StartSample();
+            while (!StartSample()) {
+                NextSample();
+            }
         } else if (button == KeyButton::KEY_F3) {
             PrevSample();
             StartSample();

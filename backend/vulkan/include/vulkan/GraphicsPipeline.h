@@ -62,6 +62,12 @@ namespace sky::vk {
             float            maxDepthBounds        = 1.f;
         };
 
+        struct VariableRateShading {
+            VkExtent2D                            fragmentSize   = {1, 1};
+            VkFragmentShadingRateCombinerOpKHR    combinerOps[2] = {VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR,
+                                                                    VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR};
+        };
+
         struct BlendState {
             VkBool32              blendEnable         = VK_FALSE;
             VkBlendFactor         srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -78,11 +84,12 @@ namespace sky::vk {
         };
 
         struct State {
-            InputAssembly     inputAssembly;
-            Raster            raster;
-            MultiSample       multiSample;
-            ColorBlend        blends;
-            DepthStencilState depthStencil;
+            InputAssembly       inputAssembly;
+            Raster              raster;
+            MultiSample         multiSample;
+            ColorBlend          blends;
+            DepthStencilState   depthStencil;
+            VariableRateShading vrs;
         };
 
         struct Program {

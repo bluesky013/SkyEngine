@@ -31,6 +31,7 @@ namespace sky {
 
         vk::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
 
+        bool CheckFeature() const;
     protected:
         void ResetFrameBuffer();
 

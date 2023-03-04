@@ -150,8 +150,10 @@ namespace sky::vk {
         VkCommandPool   pool;
         VkCommandBuffer cmdBuffer;
         FencePtr        fence;
-        std::vector<VkBufferMemoryBarrier2> bufferBarriers;
-        std::vector<VkImageMemoryBarrier2> imageBarriers;
+        std::vector<VkBufferMemoryBarrier> bufferBarriers;
+        std::vector<VkImageMemoryBarrier> imageBarriers;
+        VkPipelineStageFlags srcStageMask = 0;
+        VkPipelineStageFlags dstStageMask = 0;
     };
 
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;

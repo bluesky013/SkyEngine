@@ -19,21 +19,23 @@ namespace sky::vk {
         ~RenderPass();
 
         struct SubPass {
-            std::vector<VkAttachmentReference> colors;
-            std::vector<VkAttachmentReference> resolves;
-            std::vector<VkAttachmentReference> inputs;
-            VkAttachmentReference              depthStencil;
+            std::vector<VkAttachmentReference2> colors;
+            std::vector<VkAttachmentReference2> resolves;
+            std::vector<VkAttachmentReference2> inputs;
+            VkAttachmentReference2              depthStencil = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)};
+            VkAttachmentReference2              shadingRate = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)};
+            VkExtent2D                          shadingRateTexelSize = {16, 16};
         };
 
         struct VkDescriptor {
-            std::vector<VkAttachmentDescription> attachments;
-            std::vector<SubPass>                 subPasses;
-            std::vector<VkSubpassDependency>     dependencies;
+            std::vector<VkAttachmentDescription2> attachments;
+            std::vector<SubPass>                  subPasses;
+            std::vector<VkSubpassDependency2>     dependencies;
         };
 
         VkRenderPass GetNativeHandle() const { return pass; }
         uint32_t GetHash() const { return hash; }
-        const std::vector<VkAttachmentDescription> &GetAttachments() const { return attachments; }
+        const std::vector<VkAttachmentDescription2> &GetAttachments() const { return attachments; }
 
     private:
         friend class Device;
@@ -44,9 +46,10 @@ namespace sky::vk {
 
         VkRenderPass pass;
         uint32_t     hash;
-        std::vector<VkAttachmentDescription> attachments;
-        std::vector<VkSubpassDescription>    subPasses;
-        std::vector<VkSubpassDependency>     dependencies;
+        std::vector<VkAttachmentDescription2>  attachments;
+        std::vector<VkSubpassDescription2>     subPasses;
+        std::vector<VkSubpassDependency2>      dependencies;
+        VkFragmentShadingRateAttachmentInfoKHR shadingRateInfo = {VK_STRUCTURE_TYPE_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR};
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

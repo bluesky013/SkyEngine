@@ -64,10 +64,10 @@ namespace sky::vk {
 
         // Cache object
         VkSampler             GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
-        VkPipelineLayout      GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo      * = nullptr);
+        VkPipelineLayout      GetPipelineLayout(uint32_t hash, VkPipelineLayoutCreateInfo * = nullptr);
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
-        VkRenderPass          GetRenderPass(uint32_t hash, VkRenderPassCreateInfo          * = nullptr);
-        VkPipeline            GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo            * = nullptr);
+        VkRenderPass          GetRenderPass(uint32_t hash, VkRenderPassCreateInfo2 * = nullptr);
+        VkPipeline            GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
 
         // features
         const VkPhysicalDeviceProperties &GetProperties() const;
@@ -121,14 +121,15 @@ namespace sky::vk {
         VmaAllocator     allocator;
 
         std::vector<VkExtensionProperties> supportedExtensions;
+        std::vector<VkPhysicalDeviceFragmentShadingRateKHR> shadingRates;
 
         VkPhysicalDeviceProperties2                      phyProps         = {};
         VkPhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProps = {};
 
         VkPhysicalDeviceFeatures2                      phyFeatures         = {};
-        VkPhysicalDeviceSynchronization2Features       sync2Feature        = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
+        VkPhysicalDeviceSynchronization2Features       sync2Feature        = {};
 
         VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};

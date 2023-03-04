@@ -16,20 +16,26 @@ namespace sky::vk {
         ~Instance();
 
         static Instance *Create(const Descriptor &);
-        static void    Destroy(Instance *);
+        static void      Destroy(Instance *);
 
         Device *CreateDevice(const Device::Descriptor &);
 
         VkInstance GetInstance() const;
 
-    private:
+        VkResult GetPhysicalDeviceFragmentShadingRates(VkPhysicalDevice                        physicalDevice,
+                                                       uint32_t                               *pFragmentShadingRateCount,
+                                                       VkPhysicalDeviceFragmentShadingRateKHR *pFragmentShadingRates);
 
+    private:
         bool Init(const Descriptor &);
 
+        void InitFunctions();
         void PrintSupportedExtensions() const;
 
         VkInstance               instance;
         VkDebugUtilsMessengerEXT debug;
+
+        PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR getPhysicalDeviceFragmentShadingRate = nullptr;
     };
 
 } // namespace sky::vk

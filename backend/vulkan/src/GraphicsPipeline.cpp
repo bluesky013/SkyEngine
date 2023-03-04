@@ -266,6 +266,18 @@ namespace sky::vk {
         blendInfo.blendConstants[3]                   = 0;
         pipelineInfo.pColorBlendState                 = &blendInfo;
 
+        VkPipelineFragmentShadingRateStateCreateInfoKHR fragmentShadingRateState = {};
+        if (device.GetFeatures().variableRateShading) {
+            fragmentShadingRateState.sType = VK_STRUCTURE_TYPE_PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR;
+            fragmentShadingRateState.pNext = nullptr;
+            fragmentShadingRateState.fragmentSize   = des.state->vrs.fragmentSize;
+            // Combiner for pipeline (A) and primitive (B)
+            fragmentShadingRateState.combinerOps[0] = des.state->vrs.combinerOps[0];
+            // Combiner for pipeline (A) and attachment (B)
+            fragmentShadingRateState.combinerOps[1] = des.state->vrs.combinerOps[1];
+            pipelineInfo.pNext = &fragmentShadingRateState;
+        }
+
         VkPipelineDynamicStateCreateInfo dynStates = {};
         dynStates.sType                            = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         VkDynamicState dynStatesData[]             = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};

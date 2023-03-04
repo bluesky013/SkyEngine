@@ -38,7 +38,7 @@ namespace sky {
         }
 
     private:
-        void StartSample();
+        bool StartSample();
         void NextSample();
         void PrevSample();
 

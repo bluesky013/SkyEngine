@@ -27,7 +27,7 @@ namespace sky::vk {
             VkImageSubresourceRange subResourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         };
 
-        static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des);
+        static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, const ImageView::VkDescriptor &des);
 
         VkImageView GetNativeHandle() const;
 

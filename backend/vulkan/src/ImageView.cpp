@@ -76,7 +76,7 @@ namespace sky::vk {
         return viewInfo;
     }
 
-    std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, ImageView::VkDescriptor &des)
+    std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, const ImageView::VkDescriptor &des)
     {
         ImageViewPtr ret;
         if (image) {

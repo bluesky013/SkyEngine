@@ -142,6 +142,7 @@ namespace sky::vk {
             CreateDebugUtilsMessengerEXT(instance, &debugInfo, VKL_ALLOC, &debug);
         }
 
+        InitFunctions();
         PrintSupportedExtensions();
         return true;
     }
@@ -149,6 +150,18 @@ namespace sky::vk {
     VkInstance Instance::GetInstance() const
     {
         return instance;
+    }
+
+    void Instance::InitFunctions()
+    {
+        getPhysicalDeviceFragmentShadingRate = (PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR");
+    }
+
+    VkResult Instance::GetPhysicalDeviceFragmentShadingRates(VkPhysicalDevice physicalDevice, uint32_t *pFragmentShadingRateCount,
+                                                   VkPhysicalDeviceFragmentShadingRateKHR *pFragmentShadingRates)
+    {
+        return getPhysicalDeviceFragmentShadingRate == nullptr ? VK_ERROR_UNKNOWN :
+            getPhysicalDeviceFragmentShadingRate(physicalDevice,pFragmentShadingRateCount, pFragmentShadingRates);
     }
 
     void Instance::PrintSupportedExtensions() const

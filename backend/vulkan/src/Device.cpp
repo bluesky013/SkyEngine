@@ -113,22 +113,21 @@ namespace sky::vk {
         enabledPhyIndexingFeatures.runtimeDescriptorArray                    = enabledFeature.descriptorIndexing;
         enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = enabledFeature.descriptorIndexing;
         enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = enabledFeature.descriptorIndexing;
-        enabledPhyIndexingFeatures.pNext = &sync2Feature;
         if (enabledFeature.descriptorIndexing) {
             outExtensions.emplace_back("VK_EXT_descriptor_indexing");
         }
-
-        sync2Feature.pNext = &shadingRateFeatures;
 
         enabledFeature.variableRateShading = CheckFeature(feature.variableRateShading,
             shadingRateFeatures.attachmentFragmentShadingRate,
             shadingRateFeatures.pipelineFragmentShadingRate,
             shadingRateFeatures.primitiveFragmentShadingRate) && CheckExtension(supportedExtensions, "VK_KHR_fragment_shading_rate");
+        enabledShadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
         enabledShadingRateFeatures.attachmentFragmentShadingRate = enabledFeature.variableRateShading;
-        shadingRateFeatures.pipelineFragmentShadingRate          = enabledFeature.variableRateShading;
-        shadingRateFeatures.primitiveFragmentShadingRate         = enabledFeature.variableRateShading;
+        enabledShadingRateFeatures.pipelineFragmentShadingRate   = enabledFeature.variableRateShading;
+        enabledShadingRateFeatures.primitiveFragmentShadingRate  = enabledFeature.variableRateShading;
         if (enabledFeature.variableRateShading) {
             outExtensions.emplace_back("VK_KHR_fragment_shading_rate");
+            enabledPhyIndexingFeatures.pNext = &enabledShadingRateFeatures;
         }
     }
 
@@ -193,6 +192,10 @@ namespace sky::vk {
         supportedExtensions.resize(count);
         vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, supportedExtensions.data());
 
+        instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, nullptr);
+        shadingRates.resize(count, {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_KHR});
+        instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, shadingRates.data());
+
         count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(phyDev, &count, nullptr);
         if (count == 0) {
@@ -222,8 +225,8 @@ namespace sky::vk {
         devInfo.pNext              = &enabledPhyIndexingFeatures;
 
         devInfo.pEnabledFeatures        = &enabledPhyFeatures;
-        devInfo.enabledExtensionCount   = (uint32_t)DEVICE_EXTS.size();
-        devInfo.ppEnabledExtensionNames = DEVICE_EXTS.data();
+        devInfo.enabledExtensionCount   = (uint32_t)extensions.size();
+        devInfo.ppEnabledExtensionNames = extensions.data();
 
         devInfo.queueCreateInfoCount = (uint32_t)queueCreateInfos.size();
         devInfo.pQueueCreateInfos    = queueCreateInfos.data();
@@ -355,7 +358,7 @@ namespace sky::vk {
         });
     }
 
-    VkRenderPass Device::GetRenderPass(uint32_t hash, VkRenderPassCreateInfo *passInfo)
+    VkRenderPass Device::GetRenderPass(uint32_t hash, VkRenderPassCreateInfo2 *passInfo)
     {
         if (passInfo == nullptr) {
             return renderPasses.Find(hash);
@@ -363,7 +366,7 @@ namespace sky::vk {
 
         return renderPasses.FindOrEmplace(hash, [this, passInfo]() {
             VkRenderPass pass = VK_NULL_HANDLE;
-            auto         rst  = vkCreateRenderPass(device, passInfo, VKL_ALLOC, &pass);
+            auto         rst  = vkCreateRenderPass2(device, passInfo, VKL_ALLOC, &pass);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create RenderPass failed, %d", rst);
             }
