@@ -192,9 +192,11 @@ namespace sky::vk {
         supportedExtensions.resize(count);
         vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, supportedExtensions.data());
 
-        instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, nullptr);
-        shadingRates.resize(count, {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_KHR});
-        instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, shadingRates.data());
+        if (enabledFeature.variableRateShading) {
+            instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, nullptr);
+            shadingRates.resize(count, {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_KHR});
+            instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, shadingRates.data());
+        }
 
         count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(phyDev, &count, nullptr);

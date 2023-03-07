@@ -280,8 +280,9 @@ namespace sky::vk {
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddColor()
     {
         auto &sub = descriptor.subPasses[subPass];
-        sub.colors.emplace_back(
-            VkAttachmentReference2{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, static_cast<uint32_t>(descriptor.attachments.size()), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+        sub.colors.emplace_back(VkAttachmentReference2{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr,
+                                                       static_cast<uint32_t>(descriptor.attachments.size()), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                       VK_IMAGE_ASPECT_COLOR_BIT});
         descriptor.attachments.emplace_back();
         InitAttachmentInfo(descriptor.attachments.back());
         return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);
@@ -290,8 +291,9 @@ namespace sky::vk {
     RenderPassFactory::AttachmentImpl RenderPassFactory::SubImpl::AddResolve()
     {
         auto &sub = descriptor.subPasses[subPass];
-        sub.resolves.emplace_back(
-            VkAttachmentReference2{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, static_cast<uint32_t>(descriptor.attachments.size()), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+        sub.resolves.emplace_back(VkAttachmentReference2{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr,
+                                                         static_cast<uint32_t>(descriptor.attachments.size()),
+                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT});
         descriptor.attachments.emplace_back();
         InitAttachmentInfo(descriptor.attachments.back());
         return RenderPassFactory::AttachmentImpl((uint32_t)descriptor.attachments.size() - 1, descriptor, subPass);

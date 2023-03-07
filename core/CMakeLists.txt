@@ -5,6 +5,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/windows/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    file(GLOB_RECURSE CORE_PLATFORM_SRC
+        platform/macos/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 endif ()
 

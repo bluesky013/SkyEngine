@@ -36,8 +36,10 @@ if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
 endif()
 
-add_subdirectory(builder)
-add_subdirectory(render2)
+if (WIN32)
+    add_subdirectory(builder)
+    add_subdirectory(render2)
+endif()
 
 if (NOT ANDROID)
     add_subdirectory(sample)

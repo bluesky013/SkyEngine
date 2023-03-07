@@ -154,14 +154,23 @@ namespace sky::vk {
 
     void Instance::InitFunctions()
     {
-        getPhysicalDeviceFragmentShadingRate = (PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR");
+        getPhysicalDeviceFragmentShadingRate = PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR"));
+        createRenderPass2                    = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2"));
     }
 
     VkResult Instance::GetPhysicalDeviceFragmentShadingRates(VkPhysicalDevice physicalDevice, uint32_t *pFragmentShadingRateCount,
                                                    VkPhysicalDeviceFragmentShadingRateKHR *pFragmentShadingRates)
     {
         return getPhysicalDeviceFragmentShadingRate == nullptr ? VK_ERROR_UNKNOWN :
-            getPhysicalDeviceFragmentShadingRate(physicalDevice,pFragmentShadingRateCount, pFragmentShadingRates);
+            getPhysicalDeviceFragmentShadingRate(physicalDevice, pFragmentShadingRateCount, pFragmentShadingRates);
+    }
+
+    VkResult Instance::CreateRenderPass2(VkDevice device,
+                               const VkRenderPassCreateInfo2* pCreateInfo,
+                               const VkAllocationCallbacks* pAllocator,
+                               VkRenderPass* pRenderPass)
+    {
+        return createRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
     }
 
     void Instance::PrintSupportedExtensions() const

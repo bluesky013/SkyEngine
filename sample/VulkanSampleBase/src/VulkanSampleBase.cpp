@@ -28,23 +28,24 @@ namespace sky {
         swapChain                               = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
         Event<IWindowEvent>::Connect(swcDesc.window, this);
 
-        renderPass = vk::RenderPassFactory()()
-                         .AddSubPass()
-                         .AddColor()
-                         .Format(swapChain->GetVkFormat())
-                         .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-                         .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                         .Samples(VK_SAMPLE_COUNT_1_BIT)
-                         .AddDependency()
-                         .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-                         .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
-                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
-                         .AddDependency()
-                         .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-                         .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
-                         .Create(*device);
+//        renderPass = vk::RenderPassFactory()()
+//                         .AddSubPass()
+//                         .AddColor()
+//                         .Format(swapChain->GetVkFormat())
+//                         .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+//                         .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+//                         .Samples(VK_SAMPLE_COUNT_1_BIT)
+//                         .AddDependency()
+//                         .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+//                         .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
+//                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
+//                         .AddDependency()
+//                         .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+//                         .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+//                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
+//                         .Create(*device);
 
+        InitRenderPass();
         ResetFrameBuffer();
 
         vk::CommandBuffer::VkDescriptor cmdDesc = {};
@@ -92,6 +93,43 @@ namespace sky {
 
         swapChain->Resize(width, height);
         ResetFrameBuffer();
+    }
+
+    void VulkanSampleBase::InitRenderPass()
+    {
+        vk::RenderPass::VkDescriptor passDesc = {};
+        passDesc.attachments.emplace_back(VkAttachmentDescription2{
+            VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2, nullptr, 0,
+            swapChain->GetVkFormat(),
+            VK_SAMPLE_COUNT_1_BIT,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        });
+        passDesc.subPasses.emplace_back(vk::RenderPass::SubPass{
+            {{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT}}, {}, {},
+            {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)},
+        });
+
+        passDesc.dependencies.emplace_back(VkSubpassDependency2 {
+            VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr,
+            VK_SUBPASS_EXTERNAL, 0,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_DEPENDENCY_BY_REGION_BIT, 0
+        });
+
+        passDesc.dependencies.emplace_back(VkSubpassDependency2 {
+            VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr,
+            0, VK_SUBPASS_EXTERNAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+            VK_DEPENDENCY_BY_REGION_BIT, 0
+        });
+        renderPass = device->CreateDeviceObject<vk::RenderPass>(passDesc);
     }
 
     void VulkanSampleBase::ResetFrameBuffer()

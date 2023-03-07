@@ -22,10 +22,15 @@ namespace sky::vk {
 
         VkInstance GetInstance() const;
 
+        // functions
         VkResult GetPhysicalDeviceFragmentShadingRates(VkPhysicalDevice                        physicalDevice,
                                                        uint32_t                               *pFragmentShadingRateCount,
                                                        VkPhysicalDeviceFragmentShadingRateKHR *pFragmentShadingRates);
 
+        VkResult CreateRenderPass2(VkDevice device,
+                                   const VkRenderPassCreateInfo2* pCreateInfo,
+                                   const VkAllocationCallbacks* pAllocator,
+                                   VkRenderPass* pRenderPass);
     private:
         bool Init(const Descriptor &);
 
@@ -36,6 +41,7 @@ namespace sky::vk {
         VkDebugUtilsMessengerEXT debug;
 
         PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR getPhysicalDeviceFragmentShadingRate = nullptr;
+        PFN_vkCreateRenderPass2 createRenderPass2 = nullptr;
     };
 
 } // namespace sky::vk

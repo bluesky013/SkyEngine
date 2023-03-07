@@ -33,6 +33,7 @@ namespace sky {
 
         bool CheckFeature() const;
     protected:
+        void InitRenderPass();
         void ResetFrameBuffer();
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
