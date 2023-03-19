@@ -7,7 +7,7 @@ set(METAL_EXT_LIBS
     "-framework Metal"
     )
 
-sky_add_library(TARGET MetalRHI STATIC
+sky_add_library(TARGET MetalRHI SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -23,3 +23,4 @@ sky_add_library(TARGET MetalRHI STATIC
         ${PLATFORM_EXT_LIBS}
         ${METAL_EXT_LIBS}
     )
+add_dependencies(Launcher MetalRHI)

@@ -5,6 +5,8 @@
 #include <metal/Instance.h>
 #include <metal/Device.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
+#include <core/util/DynamicModule.h>
 
 static const char* TAG = "Metal";
 
@@ -23,29 +25,19 @@ namespace sky::mtl {
         LOG_I(TAG, "/**********Device Info End**********/");
     }
 
-    Instance *Instance::Create(const Descriptor &des)
+    Instance::~Instance() noexcept
     {
-        auto *instance = new Instance();
-        if (!instance->Init(des)) {
-            delete instance;
-            instance = nullptr;
-        }
-        return instance;
     }
 
-    void Instance::Destroy(Instance *instance)
+    rhi::Device *Instance::CreateDevice(const rhi::Device::Descriptor &des)
     {
-        delete instance;
-    }
-
-    Device *Instance::CreateDevice(const Device::Descriptor &des)
-    {
-        auto *device = new Device(*this);
-        if (!device->Init(des)) {
-            delete device;
-            device = nullptr;
-        }
-        return device;
+//        auto *device = new Device(*this);
+//        if (!device->Init(des)) {
+//            delete device;
+//            device = nullptr;
+//        }
+//        return device;
+        return nullptr;
     }
 
     bool Instance::Init(const Descriptor &des)
@@ -67,3 +59,9 @@ namespace sky::mtl {
         return devices;
     }
 }
+
+extern "C" SKY_EXPORT sky::rhi::Instance *CreateInstance()
+{
+    return new sky::mtl::Instance();
+}
+

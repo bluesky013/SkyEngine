@@ -27,7 +27,7 @@ namespace sky::builder {
         };
 
         static void BuildSpirV(const std::string &path, ShaderType type, std::vector<uint32_t> &out);
-        static std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv);
+        static std::string BuildGLES(const std::vector<uint32_t> &spv);
 
         static void CompileShader(const std::string &path, const Option &option);
     };

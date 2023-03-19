@@ -14,9 +14,9 @@ namespace sky::rhi {
     Instance *Instance::Create(const Descriptor &desc)
     {
         std::string nameMap[] = {
-            "VULKANRHI",
             "VulkanRHI",
-            "METALRHI",
+            "VulkanRHI",
+            "MetalRHI",
             "DX12RHI",
             "GLESRHI",
         };

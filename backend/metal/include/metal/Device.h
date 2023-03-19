@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <rhi/Device.h>
 #include <Metal/Metal.hpp>
 #include <memory>
+
 
 namespace sky::mtl {
     class Instance;

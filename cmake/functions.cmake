@@ -123,3 +123,23 @@ function(sky_add_test)
         WORKING_DIRECTORY ${TMP_WORKING_DIR}
     )
 endfunction()
+
+function(sky_add_dependency)
+    cmake_parse_arguments(TMP
+        ""
+        "TARGET"
+        "DEPENDENCIES"
+        ${ARGN}
+        )
+
+    if (NOT TMP_TARGET)
+        message("target not set")
+    endif()
+
+    foreach (dep ${TMP_DEPENDENCIES})
+        get_property(GLOBAL PROPERTY ${dep}_DEP CURR_PROP)
+        
+    endforeach()
+
+    set_property(GLOBAL PROPERTY ${TMP_TARGET}_DEP ${TMP_DEPENDENCIES})
+endfunction()

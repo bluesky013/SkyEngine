@@ -15,7 +15,7 @@ namespace sky::rhi {
     static const bool API_CHECK[] = {
         false,
         true,
-        false,
+        true,
         false,
         true
     };
