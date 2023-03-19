@@ -11,4 +11,5 @@ sky_add_library(TARGET SkyRenderAdaptor STATIC
         include
     LINK_LIBS
         SkyRender.Static
+        SkyEngine
     )
