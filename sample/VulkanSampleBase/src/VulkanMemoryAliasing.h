@@ -87,6 +87,7 @@ namespace sky {
         vk::ImageViewPtr view;
         vk::ImagePtr     image;
 
+        vk::RenderPassPtr colorPass;
         vk::RenderPassPtr sampledPass;
 
         vk::ImagePtr       rasterTarget;

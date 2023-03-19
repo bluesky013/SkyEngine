@@ -55,7 +55,7 @@ namespace sky {
         psoDesc.state                            = &state;
         psoDesc.pipelineLayout                   = gfxLayout;
         psoDesc.vertexInput                      = particleSystem->vertexInput;
-        psoDesc.renderPass                       = renderPass;
+        psoDesc.renderPass                       = sampledPass;
         gfxPipeline                              = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
 
         program.shaders.clear();
@@ -66,7 +66,7 @@ namespace sky {
         psoDesc.state          = &state;
         psoDesc.pipelineLayout = gfxLayout;
         psoDesc.vertexInput    = fullScreenInput;
-        psoDesc.renderPass     = renderPass;
+        psoDesc.renderPass     = sampledPass;
         fullScreenPso          = device->CreateDeviceObject<vk::GraphicsPipeline>(psoDesc);
 
         program.shaders.clear();
@@ -233,7 +233,7 @@ namespace sky {
             viewDesc.format                    = swapChain->GetVkFormat();
             rasterTargetView                   = vk::ImageView::CreateImageView(rasterTarget, viewDesc);
 
-            vk::FrameBuffer::VkDescriptor fbDesc = {swapChain->GetVkExtent(), renderPass, {rasterTargetView}};
+            vk::FrameBuffer::VkDescriptor fbDesc = {swapChain->GetVkExtent(), sampledPass, {rasterTargetView}};
             rasterFb                           = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
@@ -273,7 +273,7 @@ namespace sky {
             viewDesc.format                    = swapChain->GetVkFormat();
             fullScreenTargetView               = vk::ImageView::CreateImageView(fullScreenTarget, viewDesc);
 
-            vk::FrameBuffer::VkDescriptor fbDesc = {VkExtent2D{128, 128}, renderPass, {fullScreenTargetView}};
+            vk::FrameBuffer::VkDescriptor fbDesc = {VkExtent2D{128, 128}, sampledPass, {fullScreenTargetView}};
             fullScreenFb                       = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
@@ -293,26 +293,6 @@ namespace sky {
             particleSystem->vertexAssembly->SetVertexInput(particleSystem->vertexInput);
             particleSystem->vertexAssembly->AddVertexBuffer(particleSystem->output);
         }
-    }
-
-    void VulkanMemoryAliasing::SetupPass()
-    {
-        sampledPass = vk::RenderPassFactory()()
-                          .AddSubPass()
-                          .AddColor()
-                          .Format(swapChain->GetVkFormat())
-                          .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-                          .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                          .Samples(VK_SAMPLE_COUNT_1_BIT)
-                          .AddDependency()
-                          .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-                          .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
-                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
-                          .AddDependency()
-                          .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-                          .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
-                          .Create(*device);
 
         {
             fullScreenSet->CreateWriter().Write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, rasterTargetView, sampler).Update();
@@ -334,6 +314,26 @@ namespace sky {
             compositeSetBinder->SetPipelineLayout(compositeLayout);
             compositeSetBinder->BindSet(0, compositeSet);
         }
+    }
+
+    void VulkanMemoryAliasing::SetupPass()
+    {
+        sampledPass = vk::RenderPassFactory()()
+                          .AddSubPass()
+                          .AddColor()
+                          .Format(swapChain->GetVkFormat())
+                          .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                          .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                          .Samples(VK_SAMPLE_COUNT_1_BIT)
+                          .AddDependency()
+                          .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+                          .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                       VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
+                          .AddDependency()
+                          .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+                          .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
+                          .Create(*device);
     }
 
     void VulkanMemoryAliasing::OnKeyUp(KeyButtonType button)
@@ -503,9 +503,9 @@ namespace sky {
 
         particleSystem = std::make_unique<ParticleSystem>();
         SetupDescriptorSet();
+        SetupPass();
         SetupPso();
         SetupResources();
-        SetupPass();
     }
 
     void VulkanMemoryAliasing::OnStop()
