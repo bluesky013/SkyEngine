@@ -26,6 +26,4 @@ sky_add_library(TARGET SkyRender SHARED
     )
 
 add_subdirectory(adaptor)
-
-add_dependencies(Launcher SkyRender)
-add_dependencies(Editor SkyRender)
+sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

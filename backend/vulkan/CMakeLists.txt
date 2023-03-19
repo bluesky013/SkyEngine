@@ -42,4 +42,4 @@ sky_add_library(TARGET VulkanRHI SHARED
     LINK_LIBS
         VulkanRHI.Static
     )
-add_dependencies(Launcher VulkanRHI)
+sky_add_dependency(TARGET VulkanRHI DEPENDENCIES Editor Launcher)

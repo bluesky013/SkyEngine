@@ -15,4 +15,4 @@ sky_add_library(TARGET VulkanSample SHARED
         3rdParty::ktx
     )
 
-add_dependencies(Launcher VulkanSample)
+sky_add_dependency(TARGET VulkanSample DEPENDENCIES Launcher)

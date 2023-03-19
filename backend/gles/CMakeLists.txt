@@ -15,4 +15,4 @@ sky_add_library(TARGET GLESRHI SHARED
         3rdParty::gles
 )
 
-add_dependencies(Launcher GLESRHI)
+sky_add_dependency(TARGET GLESRHI DEPENDENCIES Launcher Editor)

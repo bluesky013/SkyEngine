@@ -26,18 +26,13 @@ if (SKY_BUILD_TEST)
     add_subdirectory(test)
 endif()
 
-add_subdirectory(launcher)
 add_subdirectory(framework)
 add_subdirectory(core)
 add_subdirectory(engine)
 add_subdirectory(backend)
-
-if (SKY_BUILD_EDITOR)
-    add_subdirectory(editor)
-endif()
+add_subdirectory(builder)
 
 if (WIN32)
-    add_subdirectory(builder)
     add_subdirectory(render2)
 endif()
 
@@ -45,3 +40,12 @@ if (NOT ANDROID)
     add_subdirectory(sample)
     #    add_subdirectory(tools)
 endif()
+
+add_subdirectory(Launcher)
+if (SKY_BUILD_EDITOR)
+    add_subdirectory(editor)
+endif()
+
+
+sky_set_dependency(TARGET Launcher)
+sky_set_dependency(TARGET Editor)

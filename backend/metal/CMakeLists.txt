@@ -23,4 +23,4 @@ sky_add_library(TARGET MetalRHI SHARED
         ${PLATFORM_EXT_LIBS}
         ${METAL_EXT_LIBS}
     )
-add_dependencies(Launcher MetalRHI)
+sky_add_dependency(TARGET MetalRHI DEPENDENCIES Launcher Editor)

@@ -11,5 +11,4 @@ sky_add_library(TARGET BuiltinBuilder SHARED
     LINK_LIBS
         RenderBuilder
     )
-add_dependencies(Launcher BuiltinBuilder)
-add_dependencies(Editor BuiltinBuilder)
+sky_add_dependency(TARGET BuiltinBuilder DEPENDENCIES Launcher Editor)
