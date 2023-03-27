@@ -4,3 +4,13 @@
 
 #include <core/logger/Logger.h>
 #include <gtest/gtest.h>
+#include <render/rdg/RenderGraph.h>
+
+using namespace sky;
+
+TEST(RenderGraphTest, NodeGraphTest01)
+{
+    RenderGraph graph;
+    graph.Compile();
+
+}

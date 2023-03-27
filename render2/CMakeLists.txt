@@ -12,6 +12,7 @@ sky_add_library(TARGET SkyRender.Static STATIC
     LINK_LIBS
         Framework
         RHI
+        3rdParty::boost
     )
 
 sky_add_library(TARGET SkyRender SHARED
