@@ -25,12 +25,14 @@ namespace sky::vk {
             VkAttachmentReference2              depthStencil = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)};
             VkAttachmentReference2              shadingRate = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)};
             VkExtent2D                          shadingRateTexelSize = {16, 16};
+            uint32_t                            viewMask = 0;
         };
 
         struct VkDescriptor {
             std::vector<VkAttachmentDescription2> attachments;
             std::vector<SubPass>                  subPasses;
             std::vector<VkSubpassDependency2>     dependencies;
+            std::vector<uint32_t>                 correlatedViewMasks;
         };
 
         VkRenderPass GetNativeHandle() const { return pass; }

@@ -24,7 +24,6 @@ namespace sky::vk {
     {
         hash = 0;
         std::vector<VkAttachmentReference2> references;
-
         attachments.reserve(des.attachments.size());
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
                                        static_cast<uint32_t>(des.attachments.size() * sizeof(Attachment))));
@@ -49,6 +48,8 @@ namespace sky::vk {
             attachments[index].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             attachments[index].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         };
+
+        auto mvSupported = device.GetFeatures().multiView;
 
         subPasses.reserve(des.subPasses.size());
         uint32_t offset = 0;
@@ -80,7 +81,8 @@ namespace sky::vk {
                 refFn(subPass.depthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             }
 
-            vkSub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            vkSub.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            vkSub.viewMask                = mvSupported ? subPass.viewMask : 0;
             vkSub.pInputAttachments       = subPass.inputs.empty() ? nullptr : &references[inputsOffset];
             vkSub.pColorAttachments       = subPass.colors.empty() ? nullptr : &references[colorOffset];
             vkSub.pResolveAttachments     = subPass.resolves.empty() ? nullptr : &references[resolveOffset];
@@ -93,10 +95,14 @@ namespace sky::vk {
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.inputs.data()),
                                            static_cast<uint32_t>(subPass.inputs.size() * sizeof(uint32_t))));
             HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
+            HashCombine32(hash, Crc32::Cal(subPass.viewMask));
         }
 
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.dependencies.data()),
                                        static_cast<uint32_t>(des.dependencies.size() * sizeof(Dependency))));
+
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.correlatedViewMasks.data()),
+                                       static_cast<uint32_t>(des.correlatedViewMasks.size() * sizeof(uint32_t))));
 
         for (auto &dep : des.dependencies) {
             dependencies.emplace_back(VkSubpassDependency2{});
@@ -112,13 +118,15 @@ namespace sky::vk {
         }
 
         VkRenderPassCreateInfo2 passInfo = {};
-        passInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
-        passInfo.attachmentCount        = static_cast<uint32_t>(attachments.size());
-        passInfo.pAttachments           = attachments.data();
-        passInfo.subpassCount           = static_cast<uint32_t>(subPasses.size());
-        passInfo.pSubpasses             = subPasses.data();
-        passInfo.dependencyCount        = static_cast<uint32_t>(dependencies.size());
-        passInfo.pDependencies          = dependencies.data();
+        passInfo.sType                   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
+        passInfo.attachmentCount         = static_cast<uint32_t>(attachments.size());
+        passInfo.pAttachments            = attachments.data();
+        passInfo.subpassCount            = static_cast<uint32_t>(subPasses.size());
+        passInfo.pSubpasses              = subPasses.data();
+        passInfo.dependencyCount         = static_cast<uint32_t>(dependencies.size());
+        passInfo.pDependencies           = dependencies.data();
+        passInfo.correlatedViewMaskCount = static_cast<uint32_t>(des.correlatedViewMasks.size());
+        passInfo.pCorrelatedViewMasks    = des.correlatedViewMasks.data();
 
         pass = device.GetRenderPass(hash, &passInfo);
         if (pass == VK_NULL_HANDLE) {
@@ -135,6 +143,9 @@ namespace sky::vk {
 
         attachments = des.attachments;
         dependencies = des.dependencies;
+
+        auto mvSupported = device.GetFeatures().multiView;
+
         subPasses.resize(des.subPasses.size(), VkSubpassDescription2{});
         for (uint32_t i = 0; i < subPasses.size(); ++i) {
             auto &vSubPass = subPasses[i];
@@ -142,6 +153,7 @@ namespace sky::vk {
 
             vSubPass.sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
             vSubPass.flags                   = 0;
+            vSubPass.viewMask                = mvSupported ? subPass.viewMask : 0;
             vSubPass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
             vSubPass.inputAttachmentCount    = (uint32_t)subPass.inputs.size();
             vSubPass.pInputAttachments       = subPass.inputs.empty() ? nullptr : subPass.inputs.data();
@@ -165,19 +177,24 @@ namespace sky::vk {
             HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
             HashCombine32(hash, Crc32::Cal(subPass.shadingRate));
             HashCombine32(hash, Crc32::Cal(subPass.shadingRateTexelSize));
+            HashCombine32(hash, Crc32::Cal(subPass.viewMask));
         }
 
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.dependencies.data()),
                                        static_cast<uint32_t>(des.dependencies.size() * sizeof(VkSubpassDependency2))));
+        HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.correlatedViewMasks.data()),
+                                       static_cast<uint32_t>(des.correlatedViewMasks.size() * sizeof(uint32_t))));
 
         VkRenderPassCreateInfo2 passInfo = {};
-        passInfo.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
-        passInfo.attachmentCount        = (uint32_t)attachments.size();
-        passInfo.pAttachments           = attachments.data();
-        passInfo.subpassCount           = (uint32_t)des.subPasses.size();
-        passInfo.pSubpasses             = subPasses.data();
-        passInfo.dependencyCount        = (uint32_t)dependencies.size();
-        passInfo.pDependencies          = dependencies.data();
+        passInfo.sType                   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
+        passInfo.attachmentCount         = static_cast<uint32_t>(attachments.size());
+        passInfo.pAttachments            = attachments.data();
+        passInfo.subpassCount            = static_cast<uint32_t>(des.subPasses.size());
+        passInfo.pSubpasses              = subPasses.data();
+        passInfo.dependencyCount         = static_cast<uint32_t>(dependencies.size());
+        passInfo.pDependencies           = dependencies.data();
+        passInfo.correlatedViewMaskCount = static_cast<uint32_t>(des.correlatedViewMasks.size());
+        passInfo.pCorrelatedViewMasks    = des.correlatedViewMasks.data();
 
         pass = device.GetRenderPass(hash, &passInfo);
         if (pass == VK_NULL_HANDLE) {

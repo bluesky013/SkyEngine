@@ -130,10 +130,12 @@ namespace sky::vk {
         VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
         VkPhysicalDeviceSynchronization2Features       sync2Feature        = {};
+        VkPhysicalDeviceMultiviewFeatures              mvrFeature          = {};
 
         VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR enabledShadingRateFeatures = {};
+        VkPhysicalDeviceMultiviewFeatures              enabledMvrFeature          = {};
 
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 

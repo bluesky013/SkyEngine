@@ -28,6 +28,7 @@ namespace sky::rhi {
             std::vector<uint32_t> resolves;
             std::vector<uint32_t> inputs;
             uint32_t              depthStencil = ~(0U);
+            uint32_t              viewMask     = 0;
         };
 
         struct Dependency {
@@ -43,6 +44,7 @@ namespace sky::rhi {
             std::vector<Attachment> attachments;
             std::vector<SubPass>    subPasses;
             std::vector<Dependency> dependencies;
+            std::vector<uint32_t>   correlatedViewMasks;
         };
     };
 

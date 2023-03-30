@@ -125,9 +125,18 @@ namespace sky::vk {
         enabledShadingRateFeatures.attachmentFragmentShadingRate = enabledFeature.variableRateShading;
         enabledShadingRateFeatures.pipelineFragmentShadingRate   = enabledFeature.variableRateShading;
         enabledShadingRateFeatures.primitiveFragmentShadingRate  = enabledFeature.variableRateShading;
+        enabledPhyIndexingFeatures.pNext = &enabledShadingRateFeatures;
         if (enabledFeature.variableRateShading) {
             outExtensions.emplace_back("VK_KHR_fragment_shading_rate");
-            enabledPhyIndexingFeatures.pNext = &enabledShadingRateFeatures;
+        }
+
+        enabledFeature.multiView = CheckFeature(feature.multiView,
+            mvrFeature.multiview) && CheckExtension(supportedExtensions, "VK_KHR_multiview");
+        enabledMvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
+        enabledMvrFeature.multiview = enabledFeature.multiView;
+        enabledShadingRateFeatures.pNext = &enabledMvrFeature;
+        if (enabledFeature.multiView) {
+            outExtensions.emplace_back("VK_KHR_multiview");
         }
     }
 
@@ -171,6 +180,9 @@ namespace sky::vk {
         sync2Feature.pNext = &shadingRateFeatures;
 
         shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+        shadingRateFeatures.pNext = &mvrFeature;
+
+        mvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
 
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         phyProps.pNext = &shadingRateProps;

@@ -44,6 +44,7 @@ namespace sky::rhi {
             bool sparseBinding       = false;
             bool descriptorIndexing  = false;
             bool variableRateShading = false;
+            bool multiView           = false;
         };
 
         struct Descriptor {

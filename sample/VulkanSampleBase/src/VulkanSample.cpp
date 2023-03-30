@@ -11,6 +11,7 @@
 #include "VulkanSparseImageSample.h"
 #include "VulkanTerrainVTSample.h"
 #include "VulkanVariableRateShading.h"
+#include "VulkanMultiViewSample.h"
 
 namespace sky {
 
@@ -18,6 +19,7 @@ namespace sky {
     {
         RegisterSample<VulkanTriangleSample>();
         RegisterSample<VulkanMemoryAliasing>();
+        RegisterSample<VulkanMultiViewSample>();
 //        RegisterSample<VulkanAsyncUploadSample>();
 #ifdef WIN32
         RegisterSample<VulkanDescriptorSample>();
