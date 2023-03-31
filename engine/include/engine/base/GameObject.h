@@ -27,7 +27,7 @@ namespace sky {
 
         static void Reflect();
 
-        inline Component *AddComponent(const Uuid &id)
+        inline Component *AddComponent(uint32_t id)
         {
             auto iter = std::find_if(components.begin(), components.end(), [&id](Component *comp) { return comp->GetType() == id; });
             if (iter != components.end()) {

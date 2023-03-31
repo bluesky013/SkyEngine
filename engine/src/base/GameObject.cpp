@@ -90,7 +90,8 @@ namespace sky {
         ar.StartArray();
         for (auto &comp : components) {
             ar.StartObject();
-            ar.SaveValueObject("type", comp->GetType().ToString());
+            ar.Key("type");
+            ar.SaveValue(comp->GetType());
             ar.Key("data");
             ar.SaveValueObject(*comp);
             ar.EndObject();
@@ -113,9 +114,8 @@ namespace sky {
 
         uint32_t size = ar.StartArray("components");
         for (uint32_t i = 0; i < size; ++i) {
-            std::string type;
-            ar.LoadKeyValue("type", type);
-            auto typeId = Uuid::CreateFromString(type);
+            uint32_t typeId = 0;
+            ar.LoadKeyValue("type", typeId);
             auto *comp = AddComponent(typeId);
             ar.LoadKeyValue("data", *comp);
             ar.NextArrayElement();

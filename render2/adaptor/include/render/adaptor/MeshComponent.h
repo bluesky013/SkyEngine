@@ -12,14 +12,14 @@ namespace sky {
     class MeshComponent : public Component {
     public:
         MeshComponent() = default;
-        ~MeshComponent();
+        ~MeshComponent() = default;
 
-        TYPE_RTTI_WITH_VT(MeshComponent, "EF68148A-907C-4D99-A401-CBEC6F939949")
+        TYPE_RTTI_WITH_VT(MeshComponent)
 
         static void Reflect();
 
-        void Save(JsonOutputArchive &ar) const override {}
-        void Load(JsonInputArchive &ar) override {}
+        void Save(JsonOutputArchive &ar) const override;
+        void Load(JsonInputArchive &ar) override;
 
     private:
         MeshAssetPtr mesh;

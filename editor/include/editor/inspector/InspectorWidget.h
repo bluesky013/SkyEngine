@@ -10,6 +10,7 @@
 #include <editor/inspector/InspectorBase.h>
 
 class QVBoxLayout;
+class QPushButton;
 
 namespace sky {
     class World;
@@ -36,6 +37,7 @@ namespace sky::editor {
         WorldItem* selectedItem;
         QVBoxLayout* layout;
         QWidget* groupWidget;
+        QPushButton *button;
         std::vector<InspectorBase*> groups;
     };
 

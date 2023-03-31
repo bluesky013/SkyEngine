@@ -17,7 +17,7 @@ namespace sky {
     void TransformComponent::Reflect()
     {
         SerializationContext::Get()
-            ->Register<TransformComponent>(TypeName())
+            ->Register<TransformComponent>(NAME)
             .Member<&TransformComponent::local>("local")
             .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);

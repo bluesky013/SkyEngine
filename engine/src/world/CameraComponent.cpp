@@ -18,7 +18,7 @@ namespace sky {
             .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
 
         SerializationContext::Get()
-            ->Register<CameraComponent>(TypeName())
+            ->Register<CameraComponent>(NAME)
             .Member<&CameraComponent::near>("near")
             .Member<&CameraComponent::far>("far")
             .Member<&CameraComponent::fov>("fov")

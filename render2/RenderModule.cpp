@@ -15,6 +15,10 @@
 
 #include <rhi/Core.h>
 
+#include <engine/base/Component.h>
+#include <render/adaptor/LightComponent.h>
+#include <render/adaptor/MeshComponent.h>
+
 namespace sky {
 
     static void ReflectRenderAsset(SerializationContext *context)
@@ -84,6 +88,12 @@ namespace sky {
             .Member<&rhi::DepthStencil::back>("back");
     }
 
+    static void RegisterComponents()
+    {
+        LightComponent::Reflect();
+        MeshComponent::Reflect();
+    }
+
     class RenderModule : public IModule {
     public:
         RenderModule() = default;
@@ -105,6 +115,7 @@ namespace sky {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
         ReflectRHI(serializationContext);
+        RegisterComponents();
     }
 }
 REGISTER_MODULE(sky::RenderModule)

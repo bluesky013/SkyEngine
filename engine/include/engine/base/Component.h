@@ -41,7 +41,7 @@ namespace sky {
         {
         }
 
-        virtual Uuid GetType() const = 0;
+        virtual uint32_t GetType() const = 0;
         virtual std::string_view GetTypeStr() const = 0;
 
         virtual void Save(JsonOutputArchive &ar) const {}
@@ -72,6 +72,10 @@ namespace sky {
             return new (ptr) T();
         }
         using CompFn = Component*(*)(PmrResource *resource);
+        struct CompInfo {
+            CompFn fn;
+            std::string_view name;
+        };
 
         template <auto F>
         void ForEach(GameObject *go, Component *component)
@@ -87,7 +91,7 @@ namespace sky {
             ctorMap.emplace(T::TYPE, &ComponentFactory::CreateComponent<T>);
         }
 
-        Component *CreateComponent(PmrResource *resource, const Uuid &id)
+        Component *CreateComponent(PmrResource *resource, const uint32_t &id)
         {
             auto iter = ctorMap.find(id);
             if (iter != ctorMap.end()) {
@@ -108,9 +112,14 @@ namespace sky {
             listeners.erase(listener);
         }
 
+        const std::unordered_map<uint32_t, CompFn> &GetComponentTypes() const
+        {
+            return ctorMap;
+        }
+
     private:
         std::set<IComponentListener *> listeners;
-        std::unordered_map<Uuid, CompFn> ctorMap;
+        std::unordered_map<uint32_t, CompFn> ctorMap;
     };
 
 } // namespace sky

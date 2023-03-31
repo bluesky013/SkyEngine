@@ -77,9 +77,3 @@ namespace sky {
     };
 
 } // namespace sky
-
-#define TYPE_RTTI(name)                                                                                                                              \
-    static const char *TypeName()                                                                                                                    \
-    {                                                                                                                                                \
-        return #name;                                                                                                                                \
-    }

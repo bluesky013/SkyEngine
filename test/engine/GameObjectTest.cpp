@@ -12,7 +12,7 @@ public:
     TestComponent()  = default;
     ~TestComponent() = default;
 
-    TYPE_RTTI_WITH_VT(TestComponent, "3B8FBAA9-547A-4550-86E0-441D9174E53C")
+    TYPE_RTTI_WITH_VT(TestComponent)
 };
 
 using namespace sky;
