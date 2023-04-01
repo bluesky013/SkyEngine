@@ -4,6 +4,7 @@
 
 #include <gles/CommandContext.h>
 #include <gles/Core.h>
+#include <gles/Queue.h>
 
 namespace sky::gles {
 
@@ -15,11 +16,8 @@ namespace sky::gles {
         auto clear = values[0];
 
         if (fb0.surface) {
-            auto       surface = fb0.surface->GetSurface();
-            EGLSurface current = eglGetCurrentSurface(EGL_DRAW);
-            EGLContext eglContext = eglGetCurrentContext();
-            if (surface != current) {
-                eglMakeCurrent(eglGetDisplay(EGL_DEFAULT_DISPLAY), surface, surface, eglContext);
+            if (fb0.surface->GetSurface() != context->GetCurrentSurface()) {
+                context->MakeCurrent(*fb0.surface);
             }
         }
         glBindFramebuffer(GL_FRAMEBUFFER, fb0.fbo);
@@ -30,24 +28,28 @@ namespace sky::gles {
         glViewport(0, 0, ext.width, ext.height);
         glScissor(0, 0, ext.width, ext.height);
 
-        fbo = fb0.fbo;
-        surface = fb0.surface;
+        cache->drawBuffer = fb0.fbo;
+    }
+
+    void CommandContext::CmdBindDescriptorSet(uint32_t setId, const DescriptorSetPtr &set)
+    {
+
     }
 
     void CommandContext::CmdBindPipeline(const GraphicsPipelinePtr &pso)
     {
-        auto pgm = pso->GetProgram();
-        if (program != pgm) {
-            program = pgm;
+        auto program = pso->GetProgram();
+        if (cache->program != program) {
+            cache->program = program;
             glUseProgram(program);
         }
     }
 
     void CommandContext::CmdBindAssembly(const VertexAssemblyPtr &assembly)
     {
-        auto handle = assembly->GetNativeHandle();
-        if (vao != handle) {
-            vao = handle;
+        auto vao = assembly->GetNativeHandle();
+        if (cache->vao != vao) {
+            cache->vao = vao;
             glBindVertexArray(vao);
         }
     }
@@ -81,5 +83,11 @@ namespace sky::gles {
 
     void CommandContext::CmdEndPass()
     {
+    }
+
+    void CommandContext::Attach(Queue &queue)
+    {
+        context = queue.GetContext();
+        cache = queue.GetCacheState();
     }
 }

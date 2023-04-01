@@ -147,7 +147,7 @@ namespace sky::gles {
     void CommandBuffer::Submit(rhi::Queue &queue, const rhi::SubmitInfo &info)
     {
         auto &glesQueue = static_cast<Queue&>(queue);
-        context->SetContext(glesQueue.GetContext());
+        context->Attach(glesQueue);
         glesQueue.CreateTask([this]() {
             Execute();
             fence->Signal();

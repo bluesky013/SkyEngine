@@ -22,9 +22,9 @@ namespace sky::rhi {
             DescriptorSetLayoutPtr layout;
         };
 
-        virtual void BindBuffer(uint32_t binding, DescriptorType type, const BufferViewPtr &view, uint32_t index = 0) = 0;
-        virtual void BindImageView(uint32_t binding, DescriptorType type, const ImageViewPtr &view, uint32_t index = 0) = 0;
-        virtual void BindSampler(uint32_t binding, DescriptorType type, const SamplerPtr &sampler, uint32_t index = 0) = 0;
+        virtual void BindBuffer(uint32_t binding, const BufferViewPtr &view, uint32_t index = 0) = 0;
+        virtual void BindImageView(uint32_t binding, const ImageViewPtr &view, uint32_t index = 0) = 0;
+        virtual void BindSampler(uint32_t binding, const SamplerPtr &sampler, uint32_t index = 0) = 0;
     };
-
+    using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;
 }

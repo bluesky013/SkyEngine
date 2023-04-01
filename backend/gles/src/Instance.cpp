@@ -9,7 +9,7 @@
 std::unique_ptr<sky::DynamicModule> g_Gles;
 std::unique_ptr<sky::DynamicModule> g_Egl;
 
-#include "egl.inl"
+#include "egl/egl.inl"
 
 namespace sky::gles {
 

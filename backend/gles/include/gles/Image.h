@@ -7,7 +7,7 @@
 #include <rhi/Image.h>
 #include <gles/DevObject.h>
 #include <gles/Conversion.h>
-#include <gles/Surface.h>
+#include <gles/egl/Surface.h>
 
 namespace sky::gles {
 

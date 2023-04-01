@@ -24,9 +24,9 @@ namespace sky::gles {
         BufferViewPtr view;
     };
 
-    union Descriptor {
-        TextureDescriptor texDesc;
-        BufferDescriptor bufferDesc;
+    struct SetDescriptor {
+        TextureDescriptor texture;
+        BufferDescriptor buffer;
     };
 
     class DescriptorSet : public rhi::DescriptorSet, public DevObject {
@@ -34,13 +34,17 @@ namespace sky::gles {
         DescriptorSet(Device &dev) : DevObject(dev) {}
         ~DescriptorSet() = default;
 
-        void BindBuffer(uint32_t binding, rhi::DescriptorType type, const rhi::BufferViewPtr &view, uint32_t index) override;
-        void BindImageView(uint32_t binding, rhi::DescriptorType type, const rhi::ImageViewPtr &view, uint32_t index) override;
-        void BindSampler(uint32_t binding, rhi::DescriptorType type, const rhi::SamplerPtr &sampler, uint32_t index) override;
+        void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index) override;
+        void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index) override;
+        void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;
 
     private:
         bool Init(const Descriptor &desc);
-        DescriptorSetLayoutPtr layout;
-    };
+        SetDescriptor &Get(uint32_t binding, uint32_t index);
 
+        DescriptorSetLayoutPtr layout;
+
+        std::vector<SetDescriptor> descriptors;
+    };
+    using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;
 }

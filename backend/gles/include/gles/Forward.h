@@ -8,3 +8,5 @@
 #include <glad/glad.h>
 #include <glad/glad_egl.h>
 #endif
+
+#include <rhi/Core.h>

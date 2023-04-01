@@ -8,23 +8,11 @@
 #include <rhi/Swapchain.h>
 #include <gles/Forward.h>
 #include <gles/DevObject.h>
-#include <gles/Surface.h>
 #include <gles/Image.h>
+#include <gles/egl/WindowSurface.h>
 
 namespace sky::gles {
     class Device;
-
-    class WindowSurface : public Surface {
-    public:
-        WindowSurface() = default;
-        ~WindowSurface() = default;
-
-        bool Init(EGLConfig config, void *window);
-        const rhi::Extent2D &GetExtent() const { return extent; }
-
-    private:
-        rhi::Extent2D extent;
-    };
 
     class SwapChain : public rhi::SwapChain, public DevObject {
     public:

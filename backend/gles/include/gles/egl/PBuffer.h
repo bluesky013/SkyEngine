@@ -6,8 +6,8 @@
 
 #include <memory>
 #include <gles/Forward.h>
-#include <gles/Config.h>
-#include <gles/Surface.h>
+#include <gles/egl/Config.h>
+#include <gles/egl/Surface.h>
 
 namespace sky::gles {
 

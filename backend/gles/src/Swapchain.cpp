@@ -8,20 +8,6 @@
 
 namespace sky::gles {
 
-    bool WindowSurface::Init(EGLConfig config, void *window)
-    {
-        auto display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        surface = eglCreatePlatformWindowSurface(display, config, window, nullptr);
-        EGLint width;
-        EGLint height;
-        eglQuerySurface(display, surface, EGL_WIDTH, &width);
-        eglQuerySurface(display, surface, EGL_HEIGHT, &height);
-        extent.width = static_cast<uint32_t>(width);
-        extent.height = static_cast<uint32_t>(height);
-
-        return surface != EGL_NO_SURFACE;
-    }
-
     SwapChain::~SwapChain()
     {
     }

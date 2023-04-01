@@ -12,6 +12,7 @@ namespace sky::gles {
     {
         type = t;
         context = std::make_unique<Context>();
+        state = std::make_unique<PipelineCacheState>();
         CreateTask([this, cfg]() {
             context->Init(cfg);
         });

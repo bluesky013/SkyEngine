@@ -5,8 +5,9 @@
 #pragma once
 
 #include <rhi/Device.h>
-#include <gles/Context.h>
-#include <gles/PBuffer.h>
+#include <gles/egl/Context.h>
+#include <gles/egl/PBuffer.h>
+
 #include <gles/Swapchain.h>
 #include <gles/Image.h>
 #include <gles/Queue.h>

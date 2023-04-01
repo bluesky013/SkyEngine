@@ -6,9 +6,9 @@
 
 #include <rhi/Core.h>
 #include <gles/Forward.h>
-#include <gles/Config.h>
-#include <gles/Surface.h>
-#include <gles/PBuffer.h>
+#include <gles/egl/Config.h>
+#include <gles/egl/Surface.h>
+#include <gles/egl/PBuffer.h>
 #include <vector>
 
 namespace sky::gles {

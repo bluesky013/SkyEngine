@@ -6,9 +6,10 @@
 
 #include <list>
 #include <rhi/CommandBuffer.h>
+#include <gles/egl/Context.h>
+
 #include <gles/DevObject.h>
 #include <gles/CommandStorage.h>
-#include <gles/Context.h>
 #include <gles/Fence.h>
 #include <gles/CommandContext.h>
 

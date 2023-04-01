@@ -6,7 +6,8 @@
 
 #include <rhi/Queue.h>
 #include <gles/DevObject.h>
-#include <gles/Context.h>
+#include <gles/PipelineStateCache.h>
+#include <gles/egl/Context.h>
 
 namespace sky::gles {
     class Device;
@@ -18,11 +19,13 @@ namespace sky::gles {
 
         bool Init(const Context::Descriptor &cfg, rhi::QueueType type);
         Context *GetContext() const { return context.get(); }
+        PipelineCacheState *GetCacheState() const { return state.get(); }
 
         rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request) override;
 
     protected:
         std::unique_ptr<Context> context;
+        std::unique_ptr<PipelineCacheState> state;
     };
 
 }

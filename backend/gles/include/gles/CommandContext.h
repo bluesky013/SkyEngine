@@ -10,17 +10,21 @@
 #include <gles/VertexAssembly.h>
 #include <gles/FrameBuffer.h>
 #include <gles/Buffer.h>
-#include <gles/Context.h>
+#include <gles/DescriptorSet.h>
+#include <gles/PipelineStateCache.h>
+#include <gles/egl/Context.h>
 #include <memory>
 
 namespace sky::gles {
+    class Queue;
 
     class CommandContext {
     public:
-        CommandContext() = default;
+        CommandContext()  = default;
         ~CommandContext() = default;
 
         void CmdBeginPass(const FrameBufferPtr &frameBuffer, const RenderPassPtr &renderPass, uint32_t clearCount, rhi::ClearValue *clearValues);
+        void CmdBindDescriptorSet(uint32_t setId, const DescriptorSetPtr &set);
         void CmdBindPipeline(const GraphicsPipelinePtr &pso);
         void CmdBindAssembly(const VertexAssemblyPtr &assembly);
         void CmdSetViewport(uint32_t count, const rhi::Viewport *viewport);
@@ -30,14 +34,11 @@ namespace sky::gles {
         void CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
         void CmdEndPass();
 
-        void SetContext(Context *ctx) { context = ctx; }
-        Context *GetContext() const { return context; }
-    private:
-        Context *context = nullptr;
+        void Attach(Queue &queue);
 
-        GLuint vao = 0;
-        GLuint program = 0;
-        GLuint fbo = 0;
-        SurfacePtr surface;
+    private:
+
+        Context *context = nullptr;
+        PipelineCacheState *cache = nullptr;
     };
 }
