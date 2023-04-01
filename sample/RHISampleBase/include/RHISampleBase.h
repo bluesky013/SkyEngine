@@ -29,6 +29,7 @@ namespace sky::rhi {
         virtual void OnTick(float delta);
         void SetAPI(API api) { rhi = api; }
 
+        virtual bool CheckFeature() const;
     protected:
         void OnWindowResize(uint32_t width, uint32_t height) override;
         rhi::Instance *instance = nullptr;

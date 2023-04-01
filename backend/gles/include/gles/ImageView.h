@@ -17,6 +17,7 @@ namespace sky::gles {
 
         bool Init(const rhi::ImageViewDesc &desc);
         const ImagePtr &GetImage() const { return source; }
+        GLuint GetNativeHandle() const { return source->GetNativeHandle(); }
 
     private:
         friend class Image;

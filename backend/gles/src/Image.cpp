@@ -36,8 +36,8 @@ namespace sky::gles {
 
         renderBuffer = feature.renderBuffer && usageAttachment && !usageSample;
         if (renderBuffer) {
-            glGenRenderbuffers(1, &texId);
-            glBindRenderbuffer(GL_RENDERBUFFER, texId);
+            CHECK(glGenRenderbuffers(1, &texId));
+            CHECK(glBindRenderbuffer(GL_RENDERBUFFER, texId));
             if (imageDesc.samples > 1) {
                 CHECK(glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             } else {
@@ -49,9 +49,21 @@ namespace sky::gles {
             if (imageDesc.arrayLayers == 1) {
                 glBindTexture(GL_TEXTURE_2D, texId);
                 if (imageDesc.samples > 1) {
-                    CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, GL_FALSE));
+                    CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, GL_FALSE));
                 } else {
                     CHECK(glTexStorage2D(GL_TEXTURE_2D, imageDesc.mipLevels, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
+                }
+            } else {
+                bool is3D = imageDesc.extent.depth != 1;
+                auto target = is3D ? GL_TEXTURE_3D : GL_TEXTURE_2D_ARRAY;
+                bool depth = is3D ? imageDesc.extent.depth : imageDesc.arrayLayers;
+
+                CHECK(glBindTexture(target, texId));
+
+                if (imageDesc.samples > 1) {
+                    CHECK(glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, depth, GL_FALSE));
+                } else {
+                    CHECK(glTexStorage3D(target, imageDesc.mipLevels, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, depth));
                 }
             }
         }

@@ -24,7 +24,8 @@ namespace sky::gles {
         ~CommandContext() = default;
 
         void CmdBeginPass(const FrameBufferPtr &frameBuffer, const RenderPassPtr &renderPass, uint32_t clearCount, rhi::ClearValue *clearValues);
-        void CmdBindDescriptorSet(uint32_t setId, const DescriptorSetPtr &set);
+        void CmdNextPass();
+        void CmdBindDescriptorSet(uint32_t setId, const DescriptorSetPtr &set, uint32_t offsetCount, uint32_t *offsetValues);
         void CmdBindPipeline(const GraphicsPipelinePtr &pso);
         void CmdBindAssembly(const VertexAssemblyPtr &assembly);
         void CmdSetViewport(uint32_t count, const rhi::Viewport *viewport);
@@ -36,9 +37,19 @@ namespace sky::gles {
 
         void Attach(Queue &queue);
 
+        static constexpr uint32_t MAX_SET_ID = 4;
+
     private:
+        void BeginPassInternal();
 
         Context *context = nullptr;
         PipelineCacheState *cache = nullptr;
+        rhi::ClearValue *clearValues = nullptr;
+        uint32_t clearCount = 0;
+
+        GraphicsPipelinePtr currentPso;
+        FrameBufferPtr currentFramebuffer;
+        uint32_t currentSubPassId = 0;
+        std::vector<DescriptorSetPtr> sets;
     };
 }

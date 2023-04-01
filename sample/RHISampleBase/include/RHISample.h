@@ -40,7 +40,7 @@ namespace sky::rhi {
         }
 
     private:
-        void StartSample();
+        bool StartSample();
         void NextSample();
         void PrevSample();
 

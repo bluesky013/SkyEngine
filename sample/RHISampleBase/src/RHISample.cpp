@@ -67,12 +67,13 @@ namespace sky::rhi {
         }
     }
 
-    void RHISample::StartSample()
+    bool RHISample::StartSample()
     {
         if (currentSample) {
             currentSample->OnStop();
         }
         currentSample.reset(samples[currentIndex]());
+        return currentSample->CheckFeature();
     }
 
     void RHISample::NextSample()
@@ -87,13 +88,15 @@ namespace sky::rhi {
 
     void RHISample::OnKeyUp(KeyButtonType button)
     {
-        if (button == KeyButton::KEY_RIGHT) {
+        if (button == KeyButton::KEY_F2) {
             NextSample();
-        } else if (button == KeyButton::KEY_LEFT) {
+            while (!StartSample()) {
+                NextSample();
+            }
+        } else if (button == KeyButton::KEY_F3) {
             PrevSample();
+            StartSample();
         }
-
-        StartSample();
     }
 
     void RHISample::RegisterPath()

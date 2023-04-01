@@ -108,6 +108,8 @@ namespace sky::rhi {
 
         Instance::Destroy(instance);
         instance = nullptr;
+
+        Event<IWindowEvent>::DisConnect(this);
     }
 
     void RHISampleBase::OnTick(float delta)
@@ -166,5 +168,10 @@ namespace sky::rhi {
     void RHISampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
 
+    }
+
+    bool RHISampleBase::CheckFeature() const
+    {
+        return true;
     }
 }

@@ -13,7 +13,7 @@ namespace sky::rhi {
         ImageView()          = default;
         virtual ~ImageView() = default;
 
-        const ImageViewDesc &GetDescriptor() const { return viewDesc; }
+        const ImageViewDesc &GetViewDesc() const { return viewDesc; }
 
     protected:
         ImageViewDesc viewDesc;

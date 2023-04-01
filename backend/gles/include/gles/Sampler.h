@@ -23,6 +23,8 @@ namespace sky::gles {
         Sampler(Device &dev) : DevObject(dev) {}
         ~Sampler();
 
+        GLuint GetNativeHandle() const { return sampler; }
+
     private:
         bool Init(const Descriptor &);
 

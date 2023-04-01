@@ -6,6 +6,7 @@
 
 #include <rhi/GraphicsPipeline.h>
 #include <gles/DevObject.h>
+#include <gles/PipelineLayout.h>
 #include <gles/Core.h>
 #include <vector>
 #include <string>
@@ -24,6 +25,10 @@ namespace sky::gles {
 
         bool Init(const Descriptor &desc);
         GLuint GetProgram() const { return program; }
+        const PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
+        const std::vector<uint32_t> &GetDescriptorOffsets() const { return descriptorOffsets; }
+        const std::vector<GLDescriptorIndex> &GetDescriptorIndices() const { return descriptorIndices; }
+        const GLState &GetGLState() { return state; }
 
     private:
         bool InitProgram(const Descriptor &desc);
@@ -35,6 +40,7 @@ namespace sky::gles {
         std::vector<GLAttribute> attributes;
         std::vector<GLDescriptorIndex> descriptorIndices; // binding or location
         std::vector<uint32_t> descriptorOffsets;          // set offset to descriptors [set, offset]
+        PipelineLayoutPtr pipelineLayout;
         GLuint program = 0;
     };
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;

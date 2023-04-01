@@ -53,7 +53,7 @@ namespace sky::gles {
                 if (image->IsRenderBuffer()) {
                     CHECK(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_RENDERBUFFER, handle));
                 } else {
-                    CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_TEXTURE_2D, handle, attachment->GetDescriptor().subRange.baseLevel));
+                    CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_TEXTURE_2D, handle, attachment->GetViewDesc().subRange.baseLevel));
                 }
                 index++;
             }
@@ -63,7 +63,7 @@ namespace sky::gles {
                 auto &attachment = attachments[resolve];
                 auto &image = attachment->GetImage();
                 auto &imageDesc = image->GetDescriptor();
-                auto &viewDesc = attachment->GetDescriptor();
+                auto &viewDesc = attachment->GetViewDesc();
 
                 CHECK(glFramebufferTexture2DMultisampleEXT(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_TEXTURE_2D,
                                                            image->GetNativeHandle(),
@@ -75,13 +75,13 @@ namespace sky::gles {
             if (sub.depthStencil != ~(0U)) {
                 auto &attachment = attachments[sub.depthStencil];
                 auto &image = attachment->GetImage();
-                auto &viewDesc = attachment->GetDescriptor();
+                auto &viewDesc = attachment->GetViewDesc();
                 auto handle = image->GetNativeHandle();
                 GLenum att = viewDesc.mask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
                 if (image->IsRenderBuffer()) {
                     CHECK(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
                 } else {
-                    CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, att, GL_TEXTURE_2D, handle, attachment->GetDescriptor().subRange.baseLevel));
+                    CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, att, GL_TEXTURE_2D, handle, attachment->GetViewDesc().subRange.baseLevel));
                 }
             }
             fboList.emplace_back(FBOWithSurface{fbo, {}});

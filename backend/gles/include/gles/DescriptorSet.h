@@ -38,6 +38,8 @@ namespace sky::gles {
         void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index) override;
         void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;
 
+        const std::vector<SetDescriptor> &GetDescriptors() const { return descriptors; }
+
     private:
         bool Init(const Descriptor &desc);
         SetDescriptor &Get(uint32_t binding, uint32_t index);

@@ -193,6 +193,8 @@ namespace sky::gles {
         InitDescriptorIndices(desc);
         InitGLState(desc);
         CHECK(glUseProgram(0));
+
+        pipelineLayout = std::static_pointer_cast<PipelineLayout>(desc.pipelineLayout);
         return true;
     }
 

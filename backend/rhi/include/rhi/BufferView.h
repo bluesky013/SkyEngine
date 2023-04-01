@@ -14,6 +14,8 @@ namespace sky::rhi {
         BufferView() = default;
         ~BufferView() = default;
 
+        const BufferViewDesc &GetViewDesc() const { return viewDesc; }
+
     protected:
         BufferViewDesc viewDesc;
     };
