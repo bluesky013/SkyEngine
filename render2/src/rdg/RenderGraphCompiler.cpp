@@ -4,6 +4,6 @@
 
 #include <render/rdg/RenderGraphCompiler.h>
 
-namespace sky {
+namespace sky::rdg {
 
 }

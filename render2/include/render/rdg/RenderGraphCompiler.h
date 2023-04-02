@@ -8,7 +8,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <render/rdg/RenderGraph.h>
 
-namespace sky {
+namespace sky::rdg {
 
     class RenderGraphCompiler : public boost::dfs_visitor<> {
     public:
