@@ -41,6 +41,7 @@ namespace sky::gles {
 
     private:
         void BeginPassInternal();
+        void EndPassInternal();
 
         Context *context = nullptr;
         PipelineCacheState *cache = nullptr;
@@ -49,7 +50,9 @@ namespace sky::gles {
 
         GraphicsPipelinePtr currentPso;
         FrameBufferPtr currentFramebuffer;
+        RenderPassPtr currentRenderPass;
         uint32_t currentSubPassId = 0;
         std::vector<DescriptorSetPtr> sets;
+        std::vector<GLenum> invalidAttachments;
     };
 }
