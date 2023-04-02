@@ -45,6 +45,13 @@ namespace sky::rhi {
             bool descriptorIndexing  = false;
             bool variableRateShading = false;
             bool multiView           = false;
+            bool framebufferFetch    = false;
+            bool pixelLocalStorage   = false;
+        };
+
+        struct Limitation {
+            uint32_t maxShaderPixelStorage = 0;
+            uint32_t maxFastShaderPixelStorage = 0;
         };
 
         struct Descriptor {
@@ -73,6 +80,7 @@ namespace sky::rhi {
 
     protected:
         DeviceFeature enabledFeature;
+        Limitation limitation;
     };
 
 }

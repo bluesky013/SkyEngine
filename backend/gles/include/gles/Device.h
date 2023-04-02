@@ -73,9 +73,12 @@ namespace sky::gles {
         CREATE_DESC_OBJ(VertexInput)
 
     private:
+        void InitLimitation();
+        void InitDeviceFeature();
         std::unique_ptr<Context> mainContext;
         std::unique_ptr<Queue> graphicsQueue;
         std::unique_ptr<Queue> transferQueue;
+        std::vector<std::string> extensions;
     };
 
 }

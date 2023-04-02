@@ -11,10 +11,6 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname)
     return access(procname);
 }
 
-void * gladLoadProcAddress(const char *procName) {
-    return g_Gles->GetAddress(procName);
-}
-
 EGLBoolean eglChooseConfig(EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *configs, EGLint config_size, EGLint *num_config)
 {
     ACCESS(g_Egl, eglChooseConfig)

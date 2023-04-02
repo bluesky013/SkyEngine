@@ -6,7 +6,6 @@
 #include <gles/Device.h>
 #include <core/platform/Platform.h>
 #include <core/util/DynamicModule.h>
-std::unique_ptr<sky::DynamicModule> g_Gles;
 std::unique_ptr<sky::DynamicModule> g_Egl;
 
 #include "egl/egl.inl"
@@ -17,10 +16,6 @@ namespace sky::gles {
     {
         auto device = std::make_unique<Device>();
         if (device->Init(desc)) {
-            if (!g_Gles) {
-                InitGL();
-            }
-
             return device.release();
         }
         return nullptr;
@@ -29,20 +24,6 @@ namespace sky::gles {
     Instance::~Instance()
     {
         eglTerminate(eglDisplay);
-    }
-
-    bool Instance::InitGL()
-    {
-        if (!g_Gles) {
-            g_Gles = std::make_unique<DynamicModule>("libGLESV2.dll");
-            g_Gles->Load();
-        }
-        if (g_Gles && g_Gles->IsLoaded()) {
-            gladLoadGLES2Loader(gladLoadProcAddress);
-            return true;
-        }
-
-        return false;
     }
 
     bool Instance::InitEGL()

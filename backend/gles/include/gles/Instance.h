@@ -22,7 +22,6 @@ namespace sky::gles {
     private:
         bool Init(const Descriptor &) override;
 
-        bool InitGL();
         bool InitEGL();
         void InitConfig();
 
