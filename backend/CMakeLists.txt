@@ -2,7 +2,7 @@ add_subdirectory(rhi)
 add_subdirectory(vulkan)
 
 if (WIN32)
-#    add_subdirectory(dx12)
+    add_subdirectory(dx12)
 endif()
 
 if (APPLE)

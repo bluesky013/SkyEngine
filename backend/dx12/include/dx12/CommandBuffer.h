@@ -15,6 +15,12 @@ namespace sky::dx {
         CommandBuffer(Device &dev);
         ~CommandBuffer() override;
 
+        void Begin() override {}
+        void End() override {}
+        void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override {}
+
+        std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return nullptr; }
+
         void TransitionBarrier();
         void AliasingBarrier();
         void UAVBarrier();

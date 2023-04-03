@@ -16,7 +16,7 @@ namespace sky::rhi {
         false,
         true,
         true,
-        false,
+        true,
         true
     };
 

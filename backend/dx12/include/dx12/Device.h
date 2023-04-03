@@ -28,10 +28,23 @@ namespace sky::dx {
         }
 
         ID3D12Device *GetDevice() const;
-
         IDXGIFactory2 *GetDXGIFactory() const;
-
         Queue *GetGraphicsQueue() const;
+
+        rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
+        // device object
+        rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
+        rhi::ImagePtr CreateImage(const rhi::Image::Descriptor &desc) override { return nullptr; }
+        rhi::RenderPassPtr CreateRenderPass(const rhi::RenderPass::Descriptor &desc) override { return nullptr; }
+        rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
+        rhi::CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) override { return nullptr; }
+        rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
+        rhi::ShaderPtr CreateShader(const rhi::Shader::Descriptor &desc) override { return nullptr; }
+        rhi::GraphicsPipelinePtr CreateGraphicsPipeline(const rhi::GraphicsPipeline::Descriptor &desc) override { return nullptr; }
+        rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
+        rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
+        rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
+        rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
 
     private:
         friend class Instance;

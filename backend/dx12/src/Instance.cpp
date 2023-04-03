@@ -2,8 +2,9 @@
 // Created by Zach Lee on 2022/11/5.
 //
 
-#include <dx12/Instance.h>
+#include "core/platform/Platform.h"
 #include <core/logger/Logger.h>
+#include <dx12/Instance.h>
 
 static const char* TAG = "DX12";
 static const wchar_t * TAGW = L"DX12";
@@ -20,23 +21,6 @@ namespace sky::dx {
         LOG_I(TAG, "Device DedicatedVideoMemory: %llu", desc.DedicatedVideoMemory);
         LOG_I(TAG, "Device SharedSystemMemory: %llu", desc.SharedSystemMemory);
         LOG_I(TAG, "/**********Device Info End**********/");
-    }
-
-    Instance *Instance::Create(const Descriptor &des)
-    {
-        auto instance = new Instance();
-        if (!instance->Init(des)) {
-            delete instance;
-            instance = nullptr;
-        }
-        return instance;
-    }
-
-    void Instance::Destroy(Instance *instance)
-    {
-        if (instance != nullptr) {
-            delete instance;
-        }
     }
 
     bool Instance::Init(const Descriptor &)
@@ -73,4 +57,9 @@ namespace sky::dx {
     {
         return dxgiFactory.Get();
     }
+}
+
+extern "C" SKY_EXPORT sky::rhi::Instance *CreateInstance()
+{
+    return new sky::dx::Instance();
 }

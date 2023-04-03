@@ -17,7 +17,7 @@ namespace sky::dx {
 
     private:
         friend class Device;
-        bool Init(const Descriptor &) override;
+        bool Init(const Descriptor &);
 
         ComPtr<IDXGISwapChain1> swapChain;
     };
