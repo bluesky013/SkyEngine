@@ -14,24 +14,28 @@ namespace sky::gles {
     VertexAssembly::~VertexAssembly()
     {
         if (vao != 0) {
-            glDeleteVertexArrays(1, &vao);
+            CHECK(glDeleteVertexArrays(1, &vao));
         }
     }
 
     bool VertexAssembly::Init(const Descriptor &desc)
     {
         descriptor = desc;
+        return true;
+    }
 
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+    void VertexAssembly::InitInternal()
+    {
+        CHECK(glGenVertexArrays(1, &vao));
+        CHECK(glBindVertexArray(vao));
 
-        auto vi = std::static_pointer_cast<VertexInput>(desc.vertexInput);
+        auto vi = std::static_pointer_cast<VertexInput>(descriptor.vertexInput);
         auto &attributes = vi->GetAttributes();
         auto &bindings = vi->GetBindings();
 
         auto iter = attributes.begin();
         for (auto &binding : bindings) {
-            auto bufferView = std::static_pointer_cast<BufferView>(desc.vertexBuffers[binding.binding]);
+            auto bufferView = std::static_pointer_cast<BufferView>(descriptor.vertexBuffers[binding.binding]);
             CHECK(glBindBuffer(GL_ARRAY_BUFFER, bufferView->GetNativeHandle()));
             for (; iter != attributes.end() && (*iter).binding == binding.binding; ++iter) {
                 auto &attribute = *iter;
@@ -41,14 +45,15 @@ namespace sky::gles {
             }
         }
 
-        if (desc.indexBuffer) {
-            CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, std::static_pointer_cast<BufferView>(desc.indexBuffer)->GetNativeHandle()));
+        if (descriptor.indexBuffer) {
+            CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, std::static_pointer_cast<BufferView>(descriptor.indexBuffer)->GetNativeHandle()));
         }
 
         // resume
         CHECK(glBindVertexArray(0));
         CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
         CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-        return true;
+
+        inited = true;
     }
 }

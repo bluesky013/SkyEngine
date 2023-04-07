@@ -27,9 +27,11 @@ namespace sky::rhi {
         };
 
         uint32_t GetDescriptorCount() const { return descriptorCount; }
+        const std::vector<SetBinding> &GetBindings() const { return bindings; }
 
     protected:
         uint32_t descriptorCount = 0;
+        std::vector<SetBinding> bindings;
     };
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 }

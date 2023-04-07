@@ -14,7 +14,29 @@ namespace sky::gles {
 
     bool Buffer::Init(const Descriptor &desc)
     {
-        glGenBuffers(1, &buffer);
+        bufferDesc = desc;
+        CHECK(glGenBuffers(1, &buffer));
+
+        // general helper target
+        if (bufferDesc.usage & rhi::BufferUsageFlagBit::VERTEX) {
+            target = GL_ARRAY_BUFFER;
+        } else if (bufferDesc.usage & rhi::BufferUsageFlagBit::INDEX) {
+            target = GL_ELEMENT_ARRAY_BUFFER;
+        } else if (bufferDesc.usage & rhi::BufferUsageFlagBit::UNIFORM) {
+            target = GL_UNIFORM_BUFFER;
+        } else if (bufferDesc.usage & rhi::BufferUsageFlagBit::STORAGE) {
+            target = GL_SHADER_STORAGE_BUFFER;
+        }
+
+        if (desc.memory == rhi::MemoryType::GPU_ONLY) {
+            usage = GL_STATIC_DRAW;
+        } else {
+            usage = GL_DYNAMIC_DRAW;
+        }
+
+        CHECK(glBindBuffer(target, buffer));
+        CHECK(glBufferData(target, desc.size, nullptr, usage));
+        CHECK(glBindBuffer(target, 0));
         return true;
     }
 
@@ -26,5 +48,17 @@ namespace sky::gles {
             ret = nullptr;
         }
         return std::static_pointer_cast<rhi::BufferView>(ret);
+    }
+
+    uint8_t *Buffer::Map()
+    {
+        CHECK(glBindBuffer(target, buffer));
+        return static_cast<uint8_t *>(glMapBufferRange(target, 0, bufferDesc.size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+    }
+
+    void Buffer::UnMap()
+    {
+        CHECK(glUnmapBuffer(target));
+        CHECK(glBindBuffer(target, 0));
     }
 }

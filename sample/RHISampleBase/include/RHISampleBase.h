@@ -15,11 +15,14 @@
 #include <rhi/RenderPass.h>
 #include <rhi/FrameBuffer.h>
 #include <rhi/CommandBuffer.h>
+#include <IRHI.h>
 
 namespace sky::rhi {
     class NativeWindow;
 
-    class RHISampleBase : public IWindowEvent {
+    ShaderPtr CreateShader(API api, Device &device, ShaderStageFlagBit stage, const std::string &path);
+
+    class RHISampleBase : public IWindowEvent, public IRHI {
     public:
         RHISampleBase()  = default;
         ~RHISampleBase() = default;
@@ -32,6 +35,13 @@ namespace sky::rhi {
         virtual bool CheckFeature() const;
     protected:
         void OnWindowResize(uint32_t width, uint32_t height) override;
+
+        virtual void SetupBase();
+
+        void SetupPass();
+        void SetupTriangle();
+        rhi::Device * GetDevice() const override { return device; }
+
         rhi::Instance *instance = nullptr;
         rhi::Device *device = nullptr;
 

@@ -73,6 +73,15 @@ namespace sky::gles {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
+    {
+        commandBuffer.EnqueueMessage(&CommandContext::CmdBindDescriptorSet, context,
+                                     id,
+                                     std::static_pointer_cast<DescriptorSet>(set),
+                                     0, nullptr);
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
     {
         commandBuffer.EnqueueMessage(&CommandContext::CmdEndPass, context);

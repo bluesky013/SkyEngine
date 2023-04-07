@@ -542,6 +542,11 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
+    {
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
     {
         vkCmdEndRenderPass(cmd);

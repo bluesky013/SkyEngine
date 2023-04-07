@@ -105,7 +105,7 @@ namespace sky::vk {
             uint64_t size      = request.size;
             uint64_t dstOffset = 0;
 
-            const uint8_t *src = request.data + request.offset;
+            const uint8_t *src = request.source->GetData(request.offset);
             for (uint32_t i = 0; i < copyNum; ++i) {
                 VkBufferCopy copy = {};
                 copy.size         = std::min(BLOCK_SIZE, size);

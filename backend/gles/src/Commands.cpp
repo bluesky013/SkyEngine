@@ -236,7 +236,7 @@ namespace sky::gles {
 
     void CommandContext::CmdBindDescriptorSet(uint32_t setId, const DescriptorSetPtr &set, uint32_t dynamicCount, uint32_t *dynamicOffsets)
     {
-        SKY_ASSERT(setId >= MAX_SET_ID);
+        SKY_ASSERT(setId < MAX_SET_ID);
         if (sets.empty()) {
             sets.resize(MAX_SET_ID);
         }
@@ -302,6 +302,10 @@ namespace sky::gles {
 
     void CommandContext::CmdBindAssembly(const VertexAssemblyPtr &assembly)
     {
+        if (!assembly->IsInited()) {
+            assembly->InitInternal();
+        }
+
         auto vao = assembly->GetNativeHandle();
         if (cache->vao != vao) {
             cache->vao = vao;
@@ -324,6 +328,8 @@ namespace sky::gles {
 
     void CommandContext::CmdDrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
+        // TODO(index type)
+        CHECK(glDrawElementsInstanced(cache->primitive, indexed.indexCount, GL_UNSIGNED_SHORT, 0, indexed.instanceCount));
     }
 
     void CommandContext::CmdDrawLinear(const rhi::CmdDrawLinear &linear)

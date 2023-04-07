@@ -123,6 +123,27 @@ namespace sky::builder {
     std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv)
     {
         spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+        auto remap = [&compiler](auto &resources) {
+            for (auto &resource : resources) {
+                unsigned set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                unsigned binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
+
+                // Modify the decoration to prepare it for GLSL.
+                compiler.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+
+                // Some arbitrary remapping if we want.
+                compiler.set_decoration(resource.id, spv::DecorationBinding, set * 8 + binding);
+            }
+        };
+
+        remap(resources.uniform_buffers);
+        remap(resources.storage_buffers);
+        remap(resources.sampled_images);
+        remap(resources.storage_images);
+
+
         spirv_cross::CompilerGLSL::Options options;
         options.version = 320;
         options.es = true;

@@ -37,10 +37,12 @@ namespace sky::gles {
         void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index) override;
         void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index) override;
         void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;
+        void Update() override;
 
         const std::vector<SetDescriptor> &GetDescriptors() const { return descriptors; }
 
     private:
+        friend class Device;
         bool Init(const Descriptor &desc);
         SetDescriptor &Get(uint32_t binding, uint32_t index);
 

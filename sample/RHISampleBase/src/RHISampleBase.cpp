@@ -29,13 +29,10 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStart()
     {
-        builder::ShaderCompiler::CompileShader("triangle_vs.glsl", {"shaders/rhiSample/triangle_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("triangle_fs.glsl", {"shaders/rhiSample/triangle_fs.shader", builder::ShaderType::FS});
-
-        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({});
 
+        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         auto nativeWindow = systemApi->GetViewport();
         Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
         SwapChain::Descriptor swcDesc = {};
@@ -45,52 +42,14 @@ namespace sky::rhi {
         swcDesc.height = nativeWindow->GetHeight();
         swapChain      = device->CreateSwapChain(swcDesc);
 
-        auto format = swapChain->GetFormat();
-        auto &ext = swapChain->GetExtent();
-        uint32_t count = swapChain->GetImageCount();
-
-        RenderPass::Descriptor passDesc = {};
-        passDesc.attachments.emplace_back(RenderPass::Attachment{
-            format,
-            SampleCount::X1,
-            LoadOp::CLEAR,
-            StoreOp::STORE,
-            LoadOp::DONT_CARE,
-            StoreOp::DONT_CARE,
-        });
-        passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {0}, {}, {}, ~(0U)
-        });
-        renderPass = device->CreateRenderPass(passDesc);
-
-        frameBuffers.reserve(count);
-        for (uint32_t i = 0; i < count; ++i) {
-            FrameBuffer::Descriptor fbDesc = {};
-            fbDesc.extent = ext;
-            fbDesc.pass = renderPass;
-            fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
-            frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
-        }
-
         CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = device->CreateCommandBuffer(cmdDesc);
 
-        rhi::PipelineLayout::Descriptor pLayoutDesc = {};
-        pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
-
-        auto vertexInput = device->CreateVertexInput({});
-
-        GraphicsPipeline::Descriptor psoDesc = {};
-        psoDesc.state.blendStates.emplace_back(rhi::BlendState{});
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/triangle_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/triangle_fs.shader");
-        psoDesc.renderPass = renderPass;
-        psoDesc.pipelineLayout = pipelineLayout;
-        psoDesc.vertexInput = vertexInput;
-        pso = device->CreateGraphicsPipeline(psoDesc);
-
         imageAvailable = device->CreateSema({});
         renderFinish = device->CreateSema({});
+
+        Interface<IRHI>::Get()->Register(*this);
+        SetupBase();
     }
 
     void RHISampleBase::OnStop()
@@ -110,6 +69,7 @@ namespace sky::rhi {
         instance = nullptr;
 
         Event<IWindowEvent>::DisConnect(this);
+        Interface<IRHI>::Get()->UnRegister();
     }
 
     void RHISampleBase::OnTick(float delta)
@@ -163,6 +123,61 @@ namespace sky::rhi {
         presentInfo.imageIndex = index;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
+    }
+
+    void RHISampleBase::SetupTriangle()
+    {
+        rhi::PipelineLayout::Descriptor pLayoutDesc = {};
+        pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
+
+        auto vertexInput = device->CreateVertexInput({});
+
+        builder::ShaderCompiler::CompileShader("triangle_vs.glsl", {"shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("triangle_fs.glsl", {"shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
+        GraphicsPipeline::Descriptor psoDesc = {};
+        psoDesc.state.blendStates.emplace_back(rhi::BlendState{});
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/triangle_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/triangle_fs.shader");
+        psoDesc.renderPass = renderPass;
+        psoDesc.pipelineLayout = pipelineLayout;
+        psoDesc.vertexInput = vertexInput;
+        pso = device->CreateGraphicsPipeline(psoDesc);
+    }
+
+    void RHISampleBase::SetupBase()
+    {
+        SetupPass();
+        SetupTriangle();
+    }
+
+    void RHISampleBase::SetupPass()
+    {
+        auto format = swapChain->GetFormat();
+        auto &ext = swapChain->GetExtent();
+        uint32_t count = swapChain->GetImageCount();
+
+        RenderPass::Descriptor passDesc = {};
+        passDesc.attachments.emplace_back(RenderPass::Attachment{
+            format,
+            SampleCount::X1,
+            LoadOp::CLEAR,
+            StoreOp::STORE,
+            LoadOp::DONT_CARE,
+            StoreOp::DONT_CARE,
+        });
+        passDesc.subPasses.emplace_back(RenderPass::SubPass {
+            {0}, {}, {}, ~(0U)
+        });
+        renderPass = device->CreateRenderPass(passDesc);
+
+        frameBuffers.reserve(count);
+        for (uint32_t i = 0; i < count; ++i) {
+            FrameBuffer::Descriptor fbDesc = {};
+            fbDesc.extent = ext;
+            fbDesc.pass = renderPass;
+            fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
+            frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
+        }
     }
 
     void RHISampleBase::OnWindowResize(uint32_t width, uint32_t height)

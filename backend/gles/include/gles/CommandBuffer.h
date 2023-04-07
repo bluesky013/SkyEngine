@@ -30,6 +30,7 @@ namespace sky::gles {
         rhi::GraphicsEncoder &DrawIndexed(const rhi::CmdDrawIndexed &indexed) override;
         rhi::GraphicsEncoder &DrawLinear(const rhi::CmdDrawLinear &linear) override;
         rhi::GraphicsEncoder &DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size) override;
+        rhi::GraphicsEncoder &BindSet(uint32_t id, const rhi::DescriptorSetPtr &set) override;
         rhi::GraphicsEncoder &EndPass() override;
 
     private:

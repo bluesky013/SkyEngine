@@ -60,6 +60,7 @@ namespace sky::gles {
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
+        CREATE_DEV_OBJ(Buffer)
         CREATE_DEV_OBJ(RenderPass)
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
@@ -68,6 +69,8 @@ namespace sky::gles {
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(DescriptorSetLayout)
         CREATE_DEV_OBJ(PipelineLayout)
+        CREATE_DEV_OBJ(DescriptorSet)
+        CREATE_DEV_OBJ(VertexAssembly)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema) // avoid CreateSemaphore conflict with windows macro
 
         CREATE_DESC_OBJ(VertexInput)

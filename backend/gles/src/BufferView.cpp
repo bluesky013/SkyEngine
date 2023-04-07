@@ -13,4 +13,16 @@ namespace sky::gles {
         return true;
     }
 
+    uint8_t *BufferView::Map()
+    {
+        CHECK(glBindBuffer(source->GetGLTarget(), source->GetNativeHandle()));
+        return static_cast<uint8_t *>(glMapBufferRange(source->GetGLTarget(), viewDesc.offset, viewDesc.range, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+    }
+
+    void BufferView::UnMap()
+    {
+        CHECK(glUnmapBuffer(source->GetGLTarget()));
+        CHECK(glBindBuffer(source->GetGLTarget(), 0));
+    }
+
 }

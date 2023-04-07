@@ -14,10 +14,11 @@
 #include <vulkan/ImageView.h>
 #include <vulkan/Sampler.h>
 #include <vulkan/BufferView.h>
+#include <rhi/DescriptorSet.h>
 
 namespace sky::vk {
 
-    class DescriptorSet : public DevObject {
+    class DescriptorSet : public rhi::DescriptorSet, public DevObject {
     public:
         DescriptorSet(Device &device) : DevObject(device)
         {
@@ -53,11 +54,18 @@ namespace sky::vk {
         Writer CreateWriter();
 
         static std::shared_ptr<DescriptorSet> Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout);
-
         DescriptorSetLayoutPtr GetLayout() const;
 
+        void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index = 0) override {}
+        void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index = 0) override {}
+        void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index = 0) override {}
+        void Update() override {}
+
     private:
+        friend class Device;
         friend class DescriptorSetPool;
+
+        bool Init(const Descriptor &desc);
         void Setup();
 
         DescriptorSetLayoutPtr layout;

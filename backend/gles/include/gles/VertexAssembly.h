@@ -15,9 +15,16 @@ namespace sky::gles {
         ~VertexAssembly();
 
         bool Init(const Descriptor &desc);
+
         GLuint GetNativeHandle() const { return vao; }
+        bool IsInited() const { return inited; }
+        void InitInternal();
+
     private:
+        // OpenGL-ES explicitly disallows sharing of VAO objects
+
         GLuint vao = 0;
+        bool inited = false;
     };
     using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 }

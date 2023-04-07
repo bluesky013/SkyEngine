@@ -22,8 +22,9 @@ namespace sky::gles {
         PipelineCacheState *GetCacheState() const { return state.get(); }
 
         rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request) override;
+        rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &buffer, const rhi::BufferUploadRequest &request) override;
 
-    protected:
+    private:
         std::unique_ptr<Context> context;
         std::unique_ptr<PipelineCacheState> state;
     };

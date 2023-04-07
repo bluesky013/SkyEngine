@@ -35,6 +35,7 @@ namespace sky::dx {
         // device object
         rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
         rhi::ImagePtr CreateImage(const rhi::Image::Descriptor &desc) override { return nullptr; }
+        rhi::BufferPtr CreateBuffer(const rhi::Buffer::Descriptor &desc) override { return nullptr; }
         rhi::RenderPassPtr CreateRenderPass(const rhi::RenderPass::Descriptor &desc) override { return nullptr; }
         rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
         rhi::CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) override { return nullptr; }
@@ -45,7 +46,8 @@ namespace sky::dx {
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
         rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
-
+        rhi::DescriptorSetPtr CreateDescriptorSet(const rhi::DescriptorSet::Descriptor &desc) override { return nullptr; }
+        rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
     private:
         friend class Instance;
         bool Init(const Descriptor &, ComPtr<IDXGIAdapter1> &adaptor);

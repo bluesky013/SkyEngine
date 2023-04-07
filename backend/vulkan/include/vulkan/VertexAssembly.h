@@ -7,12 +7,15 @@
 #include <vector>
 #include <vulkan/Buffer.h>
 #include <vulkan/VertexInput.h>
+#include <vulkan/DevObject.h>
+#include <rhi/VertexAssembly.h>
 
 namespace sky::vk {
+    class Device;
 
-    class VertexAssembly {
+    class VertexAssembly : public rhi::VertexAssembly, public DevObject {
     public:
-        VertexAssembly()  = default;
+        VertexAssembly(Device &dev) : DevObject(dev) {}
         ~VertexAssembly() = default;
 
         void SetVertexInput(VertexInputPtr input);
@@ -30,6 +33,9 @@ namespace sky::vk {
         bool IsIndexed() const;
 
     private:
+        friend class Device;
+        bool Init(const Descriptor &desc) { return true; }
+
         VertexInputPtr            vertexInput;
         std::vector<BufferPtr>    vertexBuffers;
         std::vector<VkBuffer>     vkBuffers;

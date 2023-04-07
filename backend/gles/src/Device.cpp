@@ -59,10 +59,10 @@ namespace sky::gles {
 
         std::string extStr = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
         extensions = Split(extStr, ' ');
-        LOG_I(TAG, "*******************extensions****************");
-        for (auto &ext : extensions) {
-            LOG_I(TAG, "%s", ext.c_str());
-        }
+//        LOG_I(TAG, "*******************extensions****************");
+//        for (auto &ext : extensions) {
+//            LOG_I(TAG, "%s", ext.c_str());
+//        }
         InitLimitation();
         InitDeviceFeature();
 

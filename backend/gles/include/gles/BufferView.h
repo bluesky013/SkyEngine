@@ -18,6 +18,8 @@ namespace sky::gles {
         bool Init(const rhi::BufferViewDesc &desc);
 
         GLuint GetNativeHandle() const { return source->GetNativeHandle(); }
+        uint8_t *Map() override;
+        void UnMap() override;
 
     private:
         friend class Buffer;

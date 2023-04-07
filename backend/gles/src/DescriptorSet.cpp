@@ -49,4 +49,8 @@ namespace sky::gles {
         auto &desc = Get(binding, index);
         desc.texture.sampler = std::static_pointer_cast<Sampler>(sampler);
     }
+
+    void DescriptorSet::Update()
+    {
+    }
 }

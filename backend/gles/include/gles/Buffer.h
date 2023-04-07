@@ -17,9 +17,16 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
         rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
         GLuint GetNativeHandle() const { return buffer; }
+        GLenum GetGLTarget() const { return target; }
+        GLenum GetGLUsage() const { return usage; }
+
+        uint8_t *Map() override;
+        void UnMap() override;
 
     private:
         GLuint buffer = 0;
+        GLenum target = GL_NONE;
+        GLenum usage = GL_NONE;
     };
     using BufferPtr = std::shared_ptr<Buffer>;
 }

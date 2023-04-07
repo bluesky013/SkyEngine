@@ -381,8 +381,14 @@ namespace sky::rhi {
         ClearDepthStencilValue depthStencil;
     };
 
+    struct BufferProvider {
+        BufferProvider() = default;
+        virtual ~BufferProvider() = default;
+        virtual const uint8_t* GetData(uint64_t offset) const = 0;
+    };
+
     struct BufferUploadRequest {
-        const uint8_t *data   = nullptr;
+        std::shared_ptr<BufferProvider> source;
         uint64_t       offset = 0;
         uint64_t       size   = 0;
     };
@@ -493,8 +499,8 @@ namespace sky::rhi {
     };
 
     struct BufferViewDesc {
-        PixelFormat format = PixelFormat::UNDEFINED;
         uint64_t offset = 0;
         uint64_t range  = 0;
+        PixelFormat format = PixelFormat::UNDEFINED;
     };
 }

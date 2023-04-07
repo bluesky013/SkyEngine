@@ -25,7 +25,7 @@ namespace sky::gles {
         auto handle = CreateTask([glesImage, request]() {
             auto &desc = glesImage->GetDescriptor();
             auto &fmt = GetInternalFormat(desc.format);
-            glBindTexture(GL_TEXTURE_2D, glesImage->GetNativeHandle());
+            CHECK(glBindTexture(GL_TEXTURE_2D, glesImage->GetNativeHandle()));
             CHECK(glTexSubImage2D(GL_TEXTURE_2D,
                 request.mipLevel,
                 request.imageOffset.x, request.imageOffset.y,
@@ -33,8 +33,22 @@ namespace sky::gles {
                 fmt.format,
                 fmt.type,
                 reinterpret_cast<const GLvoid *>(request.data + request.offset)));
+            CHECK(glBindTexture(GL_TEXTURE_2D, 0));
         });
         return handle;
     };
+
+    rhi::TransferTaskHandle Queue::UploadBuffer(const rhi::BufferPtr &buffer, const rhi::BufferUploadRequest &request)
+    {
+        auto glesBuffer = std::static_pointer_cast<Buffer>(buffer);
+        auto handle = CreateTask([glesBuffer, request]() {
+            auto target = glesBuffer->GetGLTarget();
+
+            CHECK(glBindBuffer(target, glesBuffer->GetNativeHandle()));
+            CHECK(glBufferData(target, request.size, request.source->GetData(request.offset), glesBuffer->GetGLUsage()));
+            CHECK(glBindBuffer(target, 0));
+        });
+        return handle;
+    }
 }
 

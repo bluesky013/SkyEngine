@@ -76,6 +76,11 @@ namespace sky::vk {
         return layout;
     }
 
+    bool DescriptorSet::Init(const Descriptor &desc)
+    {
+        return true;
+    }
+
     void DescriptorSet::Setup()
     {
         auto &table      = layout->GetDescriptorTable();

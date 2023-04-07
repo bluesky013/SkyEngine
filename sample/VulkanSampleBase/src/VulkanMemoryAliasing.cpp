@@ -289,7 +289,7 @@ namespace sky {
             compBinder->SetPipelineLayout(compLayout);
             compBinder->BindSet(0, compSet);
 
-            particleSystem->vertexAssembly = std::make_shared<vk::VertexAssembly>();
+            particleSystem->vertexAssembly = std::make_shared<vk::VertexAssembly>(*device);
             particleSystem->vertexAssembly->SetVertexInput(particleSystem->vertexInput);
             particleSystem->vertexAssembly->AddVertexBuffer(particleSystem->output);
         }

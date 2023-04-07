@@ -15,6 +15,8 @@ namespace sky::rhi {
         ~BufferView() = default;
 
         const BufferViewDesc &GetViewDesc() const { return viewDesc; }
+        virtual uint8_t *Map() { return nullptr; }
+        virtual void UnMap() {}
 
     protected:
         BufferViewDesc viewDesc;

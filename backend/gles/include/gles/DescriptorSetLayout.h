@@ -16,12 +16,10 @@ namespace sky::gles {
         ~DescriptorSetLayout() = default;
 
         bool Init(const Descriptor &desc);
-        const std::vector<SetBinding> &GetBindings() const { return bindings; }
         const std::unordered_map<uint32_t, uint32_t> &GetBindingMap() const { return bindingOffsetMap; }
 
     private:
         std::unordered_map<uint32_t, uint32_t> bindingOffsetMap;
-        std::vector<SetBinding> bindings;
     };
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 

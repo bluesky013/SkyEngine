@@ -12,6 +12,7 @@
 #include <rhi/Buffer.h>
 #include <rhi/Image.h>
 #include <rhi/Semaphore.h>
+#include <rhi/DescriptorSet.h>
 
 namespace sky::rhi {
 

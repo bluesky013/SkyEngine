@@ -200,7 +200,7 @@ namespace sky {
             memcpy(ptr, vertices.data(), bufferDesc.size);
             vertexBuffer->UnMap();
 
-            vertexAssembly = std::make_shared<vk::VertexAssembly>();
+            vertexAssembly = std::make_shared<vk::VertexAssembly>(*device);
             vertexAssembly->SetVertexInput(vertexInput);
             vertexAssembly->AddVertexBuffer(vertexBuffer);
         }

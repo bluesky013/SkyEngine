@@ -22,6 +22,10 @@ namespace sky::rhi {
             bool                      allocateMem = true;
         };
         virtual rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) = 0;
+        virtual uint8_t *Map() { return nullptr; }
+        virtual void UnMap() {}
+
+        const Descriptor &GetBufferDesc() const { return bufferDesc; }
 
     protected:
         Descriptor bufferDesc;

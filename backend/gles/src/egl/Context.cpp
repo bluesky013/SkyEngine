@@ -4,6 +4,7 @@
 
 #include <gles/egl/Context.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
 
 static const char* TAG = "Context";
 
@@ -109,5 +110,6 @@ namespace sky::gles {
     {
         currentSurface = surface.GetSurface();
         eglMakeCurrent(display, currentSurface, currentSurface, context);
+        SKY_ASSERT(eglGetError() == EGL_SUCCESS);
     }
 }
