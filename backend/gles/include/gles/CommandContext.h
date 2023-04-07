@@ -40,8 +40,24 @@ namespace sky::gles {
         static constexpr uint32_t MAX_SET_ID = 4;
 
     private:
+        enum StencilFace : uint8_t {
+            FRONT,
+            BACK
+        };
+
         void BeginPassInternal();
         void EndPassInternal();
+        void SetDepthStencil(const DepthStencilState &ds);
+        void SetRasterizerState(const RasterizerState &rs);
+
+        void SetStencilWriteMask(StencilFace face, uint32_t mask);
+        void SetStencilCompareMask(StencilFace face, uint32_t ref, uint32_t mask);
+        void SetStencilFunc(StencilFace face, GLenum func, uint32_t ref, uint32_t mask);
+        void SetStencilOp(StencilFace face, GLenum sFail, GLenum dpFail, GLenum dpPass);
+        void SetDepthBound(float minBounds, float maxBounds);
+        void SetLineWidth(float width);
+        void SetDepthBias(float constant, float clamp, float slope);
+        void SetBlendState(const BlendState &bs);
 
         Context *context = nullptr;
         PipelineCacheState *cache = nullptr;

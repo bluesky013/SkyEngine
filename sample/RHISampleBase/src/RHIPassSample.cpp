@@ -118,6 +118,8 @@ namespace sky::rhi {
         gfxTech->SetVertexInput(vertexInput);
         gfxTech->SetPipelineLayout(pipelineLayout);
         gfxTech->SetRenderPass(renderPass);
+        gfxTech->psoDesc.state.depthStencil.depthTest = true;
+        gfxTech->psoDesc.state.depthStencil.depthWrite = true;
         gfxTech->BuildPso();
 
         mesh = std::make_shared<Mesh>();
@@ -131,7 +133,12 @@ namespace sky::rhi {
         auto &ext = swapChain->GetExtent();
         camera = std::make_shared<Camera>();
         camera->MakeProjective(60.f / 180.f * 3.14f, ext.width / static_cast<float>(ext.height), 0.1f, 100.f);
-        camera->SetTransform(Matrix4::Identity());
+
+        auto matrix = Matrix4::Identity();
+        matrix[3][0] = 0.f;
+        matrix[3][1] = 2.f;
+        matrix[3][2] = 5.f;
+        camera->SetTransform(matrix);
         camera->Update();
 
         Buffer::Descriptor bufferDesc = {};

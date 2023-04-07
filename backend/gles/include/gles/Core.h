@@ -21,56 +21,63 @@ namespace sky::gles {
         GLfloat alpha = 0.f;
     };
 
-    struct GLStencil {
-        GLenum compFunc  = GL_ALWAYS;
-        GLint reference  = 0;
-        GLuint readMask  = 0xFFFFFFFF;
-        GLuint writeMask = 0xFFFFFFFF;
-        GLenum failOP    = GL_KEEP;
-        GLenum dpFailOp  = GL_KEEP;
-        GLenum dpPassOp  = GL_KEEP;
+    struct RasterizerState {
+        bool   cullingEn = false;
+        GLenum cullFace  = GL_BACK;
+        GLenum frontFace = GL_CCW;
+
+        GLfloat depthBias     = 0.F;
+        GLfloat depthBiasSlop = 0.F;
+        GLfloat lineWidth     = 1.F;
     };
 
-    struct GLBlend {
-        GLuint writeMask      = 0xF;
-        GLenum blendFuncColor = GL_FUNC_ADD;
-        GLenum blendFuncAlpha = GL_FUNC_ADD;
-        GLenum blendSrcColor  = GL_ONE;
-        GLenum blendDstColor  = GL_ZERO;
-        GLenum blendSrcAlpha  = GL_ONE;
-        GLenum blendDstAlpha  = GL_ZERO;
+    struct StencilState {
+        GLenum   func      = GL_ALWAYS;
+        uint32_t readMask  = 0xffffffff;
+        uint32_t writemask = 0xffffffff;
+        uint32_t reference = 0;
+        GLenum   failOp    = GL_KEEP;
+        GLenum   zPassOp   = GL_KEEP;
+        GLenum   zFailOp   = GL_KEEP;
+    };
+
+    struct DepthState {
+        bool    depthWrite = true;
+        bool    depthTest  = false;
+        GLenum  depthFunc  = GL_LESS;
+        GLfloat minDepth   = 0.F;
+        GLfloat maxDepth   = 1.F;
+    };
+
+    struct BlendTarget {
+        bool    blendEnable   = false;
+        uint8_t writeMask     = 0xF;
+        GLenum  blendOp       = GL_FUNC_ADD;
+        GLenum  blendSrc      = GL_ONE;
+        GLenum  blendDst      = GL_ZERO;
+        GLenum  blendAlphaOp  = GL_FUNC_ADD;
+        GLenum  blendSrcAlpha = GL_ONE;
+        GLenum  blendDstAlpha = GL_ZERO;
+    };
+
+    struct BlendState {
+        bool        isA2C    = false;
+        GLColor     color;
+        std::vector<BlendTarget> target;
+    };
+
+    struct DepthStencilState {
+        DepthState   depth;
+        bool         stencilTest = false;
+        StencilState front;
+        StencilState back;
     };
 
     struct GLState {
-        bool cullingFaceEn      = false; //        GL_CULL_FACE
-        bool depthTestEn        = false; //        GL_DEPTH_TEST
-        bool ditherEn           = true;  //        GL_DITHER
-        bool polygonOffsetEn    = false; //        GL_POLYGON_OFFSET_FILL
-        bool primitiveRestartEn = false; //        GL_PRIMITIVE_RESTART_FIXED_INDEX
-        bool rasterizerDiscard  = false; //        GL_RASTERIZER_DISCARD
-        bool alphaToCoverage    = false; //        GL_SAMPLE_ALPHA_TO_COVERAGE
-        bool samplerCoverage    = false; //        GL_SAMPLE_COVERAGE
-        bool scissorTest        = false; //        GL_SCISSOR_TEST
-        bool stencilTest        = false; //        GL_STENCIL_TEST
-
-        bool depthMask   = true;
-        GLenum depthFunc = GL_LESS;
-        GLfloat minDepth = 0.f;
-        GLfloat maxDepth = 1.f;
-
-        GLStencil front;
-        GLStencil back;
-
-        GLenum cullingMode = GL_BACK;
-        GLenum frontFace   = GL_CCW;
-        GLfloat polygonConstant = 0.f;
-        GLfloat polygonUnits    = 0.f;
-        GLfloat lineWidth       = 1.f;
-
+        RasterizerState   rs;
+        DepthStencilState ds;
+        BlendState        bs;
         GLenum primitive = GL_TRIANGLES;
-
-        GLColor blendColor;
-        std::vector<GLBlend> blendStates;
     };
 
     struct GLDescriptorIndex {

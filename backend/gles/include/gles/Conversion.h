@@ -39,6 +39,6 @@ namespace sky::gles {
     GLenum FromRHI(rhi::FrontFace frontFace);
     GLenum FromRHI(rhi::PrimitiveTopology topo);
 
-    GLStencil FromRHI(const rhi::StencilState &state);
-    GLBlend FromRHI(const rhi::BlendState &state);
+    StencilState FromRHI(const rhi::StencilState &state);
+    BlendTarget FromRHI(const rhi::BlendState &state);
 }

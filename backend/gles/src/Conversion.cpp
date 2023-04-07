@@ -253,27 +253,27 @@ namespace sky::gles {
         return BLEND_OP_MAP.find(op)->second;
     }
 
-    GLStencil FromRHI(const rhi::StencilState &state)
+    StencilState FromRHI(const rhi::StencilState &state)
     {
-        GLStencil stencil;
-        stencil.compFunc  = FromRHI(state.compareOp);
+        StencilState stencil;
+        stencil.func      = FromRHI(state.compareOp);
         stencil.reference = state.reference;
         stencil.readMask  = state.compareMask;
-        stencil.writeMask = state.writeMask;
-        stencil.failOP    = FromRHI(state.failOp);
-        stencil.dpFailOp  = FromRHI(state.depthFailOp);
-        stencil.dpPassOp  = FromRHI(state.passOp);;
+        stencil.writemask = state.writeMask;
+        stencil.failOp    = FromRHI(state.failOp);
+        stencil.zFailOp   = FromRHI(state.depthFailOp);
+        stencil.zPassOp   = FromRHI(state.passOp);
         return stencil;
     }
 
-    GLBlend FromRHI(const rhi::BlendState &state)
+    BlendTarget FromRHI(const rhi::BlendState &state)
     {
-        GLBlend blend;
+        BlendTarget blend;
         blend.writeMask      = state.writeMask;
-        blend.blendFuncColor = FromRHI(state.colorBlendOp);
-        blend.blendFuncAlpha = FromRHI(state.alphaBlendOp);
-        blend.blendSrcColor  = FromRHI(state.srcColor);
-        blend.blendDstColor  = FromRHI(state.dstColor);
+        blend.blendOp        = FromRHI(state.colorBlendOp);
+        blend.blendAlphaOp   = FromRHI(state.alphaBlendOp);
+        blend.blendSrc       = FromRHI(state.srcColor);
+        blend.blendDst       = FromRHI(state.dstColor);
         blend.blendSrcAlpha  = FromRHI(state.srcAlpha);
         blend.blendDstAlpha  = FromRHI(state.dstAlpha);
         return blend;

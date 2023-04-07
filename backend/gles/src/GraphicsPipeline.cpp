@@ -146,14 +146,14 @@ namespace sky::gles {
     void GraphicsPipeline::InitGLState(const Descriptor &desc)
     {
         // depthStencil;
-        state.depthTestEn = desc.state.depthStencil.depthTest;
-        state.depthMask   = desc.state.depthStencil.depthWrite;
-        state.minDepth    = desc.state.depthStencil.minDepth;
-        state.maxDepth    = desc.state.depthStencil.maxDepth;
-        state.depthFunc   = FromRHI(desc.state.depthStencil.compareOp);
-        state.stencilTest = desc.state.depthStencil.stencilTest;
-        state.front       = FromRHI(desc.state.depthStencil.front);
-        state.back        = FromRHI(desc.state.depthStencil.back);
+        state.ds.depth.depthTest = desc.state.depthStencil.depthTest;
+        state.ds.depth.depthWrite   = desc.state.depthStencil.depthWrite;
+        state.ds.depth.minDepth    = desc.state.depthStencil.minDepth;
+        state.ds.depth.maxDepth    = desc.state.depthStencil.maxDepth;
+        state.ds.depth.depthFunc   = FromRHI(desc.state.depthStencil.compareOp);
+        state.ds.stencilTest = desc.state.depthStencil.stencilTest;
+        state.ds.front       = FromRHI(desc.state.depthStencil.front);
+        state.ds.back        = FromRHI(desc.state.depthStencil.back);
 
         // multiSample;
 
@@ -166,20 +166,20 @@ namespace sky::gles {
          *     depthBiasClamp
          *     polygonMode
          */
-        state.rasterizerDiscard = desc.state.rasterState.rasterizerDiscardEnable;
-        state.polygonOffsetEn = desc.state.rasterState.depthBiasEnable;
-        state.polygonConstant = desc.state.rasterState.depthBiasConstantFactor;
-        state.polygonUnits    = desc.state.rasterState.depthBiasSlopeFactor;
-        state.lineWidth       = desc.state.rasterState.lineWidth;
+//        state.rs.rasterizerDiscard = desc.state.rasterState.rasterizerDiscardEnable;
+//        state.rs.polygonOffsetEn = desc.state.rasterState.depthBiasEnable;
+//        state.rs.polygonConstant = desc.state.rasterState.depthBiasConstantFactor;
+//        state.rs.polygonUnits    = desc.state.rasterState.depthBiasSlopeFactor;
+        state.rs.lineWidth       = desc.state.rasterState.lineWidth;
 
-        state.cullingFaceEn   = !!desc.state.rasterState.cullMode;
-        state.cullingMode     = FromRHI(desc.state.rasterState.cullMode);
-        state.frontFace       = FromRHI(desc.state.rasterState.frontFace);
+        state.rs.cullingEn   = !!desc.state.rasterState.cullMode;
+        state.rs.cullFace     = FromRHI(desc.state.rasterState.cullMode);
+        state.rs.frontFace       = FromRHI(desc.state.rasterState.frontFace);
 
         // blendStates;
-        state.blendStates.reserve(desc.state.blendStates.size());
+        state.bs.target.reserve(desc.state.blendStates.size());
         for (auto &blend : desc.state.blendStates) {
-            state.blendStates.emplace_back(FromRHI(blend));
+            state.bs.target.emplace_back(FromRHI(blend));
         }
     }
 

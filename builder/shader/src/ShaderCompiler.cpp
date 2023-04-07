@@ -147,7 +147,7 @@ namespace sky::builder {
         spirv_cross::CompilerGLSL::Options options;
         options.version = 320;
         options.es = true;
-        options.vertex.flip_vert_y = true;
+        options.vertex.flip_vert_y = false;
         compiler.set_common_options(options);
         return compiler.compile();
         //        auto fn            = [&compiler](const SpvResources &resources) {

@@ -9,6 +9,14 @@
 
 namespace sky::gles {
 
+    static void SetEnable(bool status, GLenum flag) {
+        if (status) {
+            CHECK(glEnable(flag));
+        } else {
+            CHECK(glDisable(flag));
+        }
+    }
+
     static bool IsDynamicBuffer(rhi::DescriptorType type)
     {
         return type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC || type == rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;
@@ -284,6 +292,191 @@ namespace sky::gles {
         }
     }
 
+    void CommandContext::SetStencilWriteMask(StencilFace face, uint32_t mask) {
+        auto stencilFn = [](StencilState &state, GLenum face, uint32_t mask) {
+            if (state.writemask != mask) {
+                CHECK(glStencilMaskSeparate(face, mask));
+                state.writemask = mask;
+            }
+        };
+
+        if (face == StencilFace::FRONT) {
+            stencilFn(cache->ds.front, GL_FRONT, mask);
+        } else {
+            stencilFn(cache->ds.back, GL_BACK, mask);
+        }
+    }
+
+    void CommandContext::SetStencilCompareMask(StencilFace face, uint32_t ref, uint32_t mask) {
+        auto stencilFn = [](StencilState &state, GLenum face, uint32_t ref, uint32_t mask) {
+            if (state.readMask != mask || state.reference != ref) {
+                CHECK(glStencilFuncSeparate(face, state.func, ref, mask));
+                state.readMask = mask;
+                state.reference = ref;
+            }
+        };
+        if (face == StencilFace::FRONT) {
+            stencilFn(cache->ds.front, GL_FRONT, ref, mask);
+        } else {
+            stencilFn(cache->ds.back, GL_BACK, ref, mask);
+        }
+    }
+
+    void CommandContext::SetStencilFunc(StencilFace face, GLenum func, uint32_t ref, uint32_t mask) {
+        auto stencilFn = [](StencilState &state, GLenum face, GLenum func, uint32_t ref, uint32_t mask) {
+            if (state.readMask != mask || state.reference != ref || state.func != func) {
+                CHECK(glStencilFuncSeparate(face, func, ref, mask));
+                state.readMask = mask;
+                state.reference = ref;
+                state.func = func;
+            }
+        };
+        if (face == StencilFace::FRONT) {
+            stencilFn(cache->ds.front, GL_FRONT, func, ref, mask);
+        } else {
+            stencilFn(cache->ds.back, GL_BACK, func, ref, mask);
+        }
+    }
+
+    void CommandContext::SetStencilOp(StencilFace face, GLenum sFail, GLenum dpFail, GLenum dpPass) {
+        auto stencilFn = [](StencilState &state, GLenum face, GLenum sFail, GLenum dpFail, GLenum dpPass) {
+            if (state.failOp != sFail || state.zPassOp != dpPass || state.zFailOp != dpFail) {
+                CHECK(glStencilOpSeparate(face, sFail, dpFail, dpPass));
+                state.failOp = sFail;
+                state.zPassOp = dpPass;
+                state.zFailOp = dpFail;
+            }
+        };
+        if (face == StencilFace::FRONT) {
+            stencilFn(cache->ds.front, GL_FRONT, sFail, dpFail, dpPass);
+        } else {
+            stencilFn(cache->ds.back, GL_BACK, sFail, dpFail, dpPass);
+        }
+    }
+
+    void CommandContext::SetDepthBound(float minBounds, float maxBounds) {
+        if (cache->ds.depth.minDepth != minBounds || cache->ds.depth.maxDepth != maxBounds) {
+            CHECK(glDepthRangef(minBounds, maxBounds));
+            cache->ds.depth.minDepth = minBounds;
+            cache->ds.depth.maxDepth = maxBounds;
+        }
+    }
+
+    void CommandContext::SetLineWidth(float width) {
+        if (cache->rs.lineWidth != width) {
+            CHECK(glLineWidth(width));
+            cache->rs.lineWidth = width;
+        }
+    }
+
+    void CommandContext::SetDepthBias(float constant, float clamp, float slope) {
+        std::ignore = clamp;
+        if (cache->rs.depthBias != constant || cache->rs.depthBiasSlop != slope) {
+            CHECK(glPolygonOffset(constant, slope));
+            cache->rs.depthBias = constant;
+            cache->rs.depthBiasSlop = slope;
+        }
+    }
+
+    void CommandContext::SetBlendState(const BlendState &bs) {
+        auto &currentBs = cache->bs;
+        if (currentBs.isA2C != bs.isA2C) {
+            SetEnable(bs.isA2C, GL_SAMPLE_ALPHA_TO_COVERAGE);
+            currentBs.isA2C = bs.isA2C;
+        }
+
+        auto &color = cache->bs.color;
+        if (memcmp(&color, &bs.color, sizeof(GLColor))) {
+            CHECK(glBlendColor(bs.color.red, bs.color.green, bs.color.blue, bs.color.alpha));
+            color = bs.color;
+        }
+
+//        if (bs.hasColor) {
+//            if (currentBs.target.blendEnable != bs.target.blendEnable) {
+//                setEnable(bs.target.blendEnable, GL_BLEND);
+//                currentBs.target.blendEnable = bs.target.blendEnable;
+//            }
+//            if (currentBs.target.writeMask != bs.target.writeMask) {
+//                GL_CHECK(glColorMask(bs.target.writeMask & 0x01, bs.target.writeMask & 0x02, bs.target.writeMask & 0x04, bs.target.writeMask & 0x08));
+//                currentBs.target.writeMask = bs.target.writeMask;
+//            }
+//            if (currentBs.target.blendOp != bs.target.blendOp ||
+//                currentBs.target.blendAlphaOp != bs.target.blendAlphaOp) {
+//                GL_CHECK(glBlendEquationSeparate(bs.target.blendOp, bs.target.blendAlphaOp));
+//                currentBs.target.blendOp = bs.target.blendOp;
+//                currentBs.target.blendAlphaOp = bs.target.blendAlphaOp;
+//            }
+//            if (currentBs.target.blendSrc != bs.target.blendSrc ||
+//                currentBs.target.blendDst != bs.target.blendDst ||
+//                currentBs.target.blendSrcAlpha != bs.target.blendSrcAlpha ||
+//                currentBs.target.blendDstAlpha != bs.target.blendDstAlpha) {
+//                GL_CHECK(glBlendFuncSeparate(bs.target.blendSrc, bs.target.blendDst, bs.target.blendSrcAlpha, bs.target.blendDstAlpha));
+//                currentBs.target.blendSrc      = bs.target.blendSrc;
+//                currentBs.target.blendDst      = bs.target.blendDst;
+//                currentBs.target.blendSrcAlpha = bs.target.blendSrcAlpha;
+//                currentBs.target.blendDstAlpha = bs.target.blendDstAlpha;
+//            }
+//        }
+    }
+
+    void CommandContext::SetRasterizerState(const RasterizerState &rs) {
+        auto &currentRs = cache->rs;
+        if (currentRs.cullingEn != rs.cullingEn) {
+            SetEnable(rs.cullingEn, GL_CULL_FACE);
+            currentRs.cullingEn = rs.cullingEn;
+        }
+
+        if (rs.cullingEn) {
+            if (currentRs.cullFace != rs.cullFace) {
+                CHECK(glCullFace(rs.cullFace));
+                currentRs.cullFace = rs.cullFace;
+            }
+        }
+
+        if (currentRs.frontFace != rs.frontFace) {
+            CHECK(glFrontFace(rs.frontFace));
+            currentRs.frontFace = rs.frontFace;
+        }
+
+        SetDepthBias(rs.depthBias, 0, rs.depthBiasSlop);
+        SetLineWidth(rs.lineWidth);
+    }
+
+    void CommandContext::SetDepthStencil(const DepthStencilState &ds) {
+        auto &currentDS = cache->ds.depth;
+        if (currentDS.depthTest != ds.depth.depthTest) {
+            SetEnable(ds.depth.depthTest, GL_DEPTH_TEST);
+            currentDS.depthTest = ds.depth.depthTest;
+        }
+
+        if (currentDS.depthWrite != ds.depth.depthWrite) {
+            CHECK(glDepthMask(ds.depth.depthWrite));
+            currentDS.depthWrite = ds.depth.depthWrite;
+        }
+
+        if (currentDS.depthFunc != ds.depth.depthFunc) {
+            CHECK(glDepthFunc(ds.depth.depthFunc));
+            currentDS.depthFunc = ds.depth.depthFunc;
+        }
+
+        SetDepthBound(ds.depth.minDepth, ds.depth.maxDepth);
+
+        if (cache->ds.stencilTest != ds.stencilTest) {
+            SetEnable(ds.stencilTest, GL_STENCIL_TEST);
+            cache->ds.stencilTest = ds.stencilTest;
+        }
+
+        // front
+        SetStencilFunc(StencilFace::FRONT, ds.front.func, ds.front.reference, ds.front.readMask);
+        SetStencilWriteMask(StencilFace::FRONT, ds.front.writemask);
+        SetStencilOp(StencilFace::FRONT, ds.front.failOp, ds.front.zFailOp, ds.front.zPassOp);
+
+        // back
+        SetStencilFunc(StencilFace::BACK, ds.back.func, ds.back.reference, ds.back.readMask);
+        SetStencilWriteMask(StencilFace::BACK, ds.back.writemask);
+        SetStencilOp(StencilFace::BACK, ds.back.failOp, ds.back.zFailOp, ds.back.zPassOp);
+    }
+
     void CommandContext::CmdBindPipeline(const GraphicsPipelinePtr &pso)
     {
         currentPso = pso;
@@ -297,7 +490,9 @@ namespace sky::gles {
         auto &state = pso->GetGLState();
         cache->primitive = state.primitive;
 
-
+        SetDepthStencil(state.ds);
+        SetRasterizerState(state.rs);
+        SetBlendState(state.bs);
     }
 
     void CommandContext::CmdBindAssembly(const VertexAssemblyPtr &assembly)
