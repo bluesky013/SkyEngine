@@ -55,6 +55,7 @@ namespace sky::rhi {
     void RHISampleBase::OnStop()
     {
         commandBuffer = nullptr;
+        pipelineLayout = nullptr;
         pso = nullptr;
         swapChain = nullptr;
         renderPass = nullptr;

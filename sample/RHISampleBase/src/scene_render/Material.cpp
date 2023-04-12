@@ -67,6 +67,8 @@ namespace sky::rhi {
 
     void Material::Update()
     {
+        memcpy(bufferView->Map(), rawData.data(), rawData.size());
+
         for (auto &[binding, tex] : textures) {
             batchSet->BindImageView(binding, tex.view, 0);
             batchSet->BindSampler(binding, tex.sampler, 0);

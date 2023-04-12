@@ -16,8 +16,10 @@ layout(set = 1, binding = 0) uniform Constant {
 
 void main()
 {
-    vec3 L = normalize(vec3(0, 5, 0) - inPos);
+    vec3 L = normalize(vec3(5, 5, 5) - inPos);
     vec3 V = normalize(cam.position.xyz - inPos);
     vec3 N = normalize(inNormal);
-    outColor = vec4(vec3(dot(N, L)), 1);
+
+    vec3 color = baseColor.xyz * dot(N, L);
+    outColor = vec4(vec3(dot(N, L)), baseColor.w);
 }

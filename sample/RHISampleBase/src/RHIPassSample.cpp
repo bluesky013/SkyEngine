@@ -41,7 +41,7 @@ namespace sky::rhi {
         material = std::make_shared<Material>();
         material->SetLayout(layout, sizeof(MaterialData));
         material->AddConnection("baseColor", {0, 0});
-        material->SetValue("baseColor", Color{1.f, 0.f, 0.f, 1.f});
+        material->SetValue("baseColor", Color{1.f, 1.f, 1.f, 1.f});
         material->Update();
     }
 
@@ -49,28 +49,62 @@ namespace sky::rhi {
     {
         VertexInput::Descriptor viDesc = {};
         viDesc.attributes.emplace_back(VertexAttributeDesc{0, 0, 0, Format::F_RGBA32});
-        viDesc.attributes.emplace_back(VertexAttributeDesc{1, 0, 0, Format::F_RGBA32});
+        viDesc.attributes.emplace_back(VertexAttributeDesc{1, 0, sizeof(Vector4), Format::F_RGBA32});
         viDesc.bindings.emplace_back(VertexBindingDesc{0, sizeof(MeshVertex)});
         auto vertexInput = device->CreateVertexInput(viDesc);
 
         std::vector<MeshVertex> vertices = {
-            {{-0.5f, -0.5f,  0.5f, 1.f}, {-1.f, -1.f,  1.f, 1.f}},
-            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 1.f, -1.f,  1.f, 1.f}},
-            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 1.f,  1.f,  1.f, 1.f}},
-            {{-0.5f,  0.5f,  0.5f, 1.f}, {-1.f,  1.f,  1.f, 1.f}},
-            {{-0.5f, -0.5f, -0.5f, 1.f}, {-1.f, -1.f, -1.f, 1.f}},
-            {{ 0.5f, -0.5f, -0.5f, 1.f}, { 1.f, -1.f, -1.f, 1.f}},
-            {{ 0.5f,  0.5f, -0.5f, 1.f}, { 1.f,  1.f, -1.f, 1.f}},
-            {{-0.5f,  0.5f, -0.5f, 1.f}, {-1.f,  1.f, -1.f, 1.f}},
+            {{-0.5f, -0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+            {{-0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+            {{-0.5f, -0.5f,  0.5f, 1.f}, { 0.f,  0.f,  1.f, 1.f}},
+
+            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+            {{ 0.5f, -0.5f, -0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+            {{ 0.5f,  0.5f, -0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+            {{ 0.5f,  0.5f, -0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 1.f,  0.f,  0.f, 1.f}},
+
+            {{ 0.5f, -0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+            {{-0.5f, -0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+            {{-0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+            {{-0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+            {{ 0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+            {{ 0.5f, -0.5f, -0.5f, 1.f}, { 0.f,  0.f, -1.f, 1.f}},
+
+            {{-0.5f, -0.5f, -0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+            {{-0.5f, -0.5f,  0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f,  0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f,  0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f, -0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+            {{-0.5f, -0.5f, -0.5f, 1.f}, {-1.f,  0.f,  0.f, 1.f}},
+
+            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+            {{ 0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f, -0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+            {{-0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+            {{ 0.5f,  0.5f,  0.5f, 1.f}, { 0.f,  1.f,  0.f, 1.f}},
+
+            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
+            {{ 0.5f, -0.5f, -0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
+            {{-0.5f, -0.5f, -0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
+            {{-0.5f, -0.5f, -0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
+            {{-0.5f, -0.5f,  0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
+            {{ 0.5f, -0.5f,  0.5f, 1.f}, { 0.f, -1.f,  0.f, 1.f}},
         };
         std::vector<uint16_t> indices = {
-            0, 1, 2, 2, 3, 0,
-            1, 5, 6, 6, 2, 1,
-            5, 4, 7, 7, 6, 5,
-            4, 0, 3, 3, 7, 4,
-            2, 6, 7, 7, 3, 2,
-            1, 5, 4, 4, 0, 1
+             0,  1,  2,  3,  4,  5,
+             6,  7,  8,  9, 10, 11,
+            12, 13, 14, 15, 16, 17,
+            18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29,
+            30, 31, 32, 33, 34, 35
         };
+
         uint64_t vertexSize = vertices.size() * sizeof(MeshVertex);
         uint64_t indexSize = indices.size() * sizeof(uint16_t);
         auto *queue = device->GetQueue(QueueType::TRANSFER);
@@ -136,7 +170,7 @@ namespace sky::rhi {
 
         auto matrix = Matrix4::Identity();
         matrix[3][0] = 0.f;
-        matrix[3][1] = 2.f;
+        matrix[3][1] = 1.0f;
         matrix[3][2] = 5.f;
         camera->SetTransform(matrix);
         camera->Update();
@@ -216,9 +250,9 @@ namespace sky::rhi {
     void RHIPassSample::OnTick(float delta)
     {
         ClearValue clear = {};
-        clear.color.float32[0] = 0.f;
-        clear.color.float32[1] = 0.f;
-        clear.color.float32[2] = 0.f;
+        clear.color.float32[0] = 0.2f;
+        clear.color.float32[1] = 0.2f;
+        clear.color.float32[2] = 0.2f;
         clear.color.float32[3] = 1.f;
 
         auto queue = device->GetQueue(QueueType::GRAPHICS);
