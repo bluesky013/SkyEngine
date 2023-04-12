@@ -154,6 +154,7 @@ namespace sky::rhi {
         gfxTech->SetRenderPass(renderPass);
         gfxTech->psoDesc.state.depthStencil.depthTest = true;
         gfxTech->psoDesc.state.depthStencil.depthWrite = true;
+        gfxTech->psoDesc.state.blendStates.emplace_back(BlendState{});
         gfxTech->BuildPso();
 
         mesh = std::make_shared<Mesh>();
@@ -249,12 +250,6 @@ namespace sky::rhi {
 
     void RHIPassSample::OnTick(float delta)
     {
-        ClearValue clear = {};
-        clear.color.float32[0] = 0.2f;
-        clear.color.float32[1] = 0.2f;
-        clear.color.float32[2] = 0.2f;
-        clear.color.float32[3] = 1.f;
-
         auto queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
@@ -280,13 +275,13 @@ namespace sky::rhi {
         commandBuffer->FlushBarriers();
 
         auto encoder = commandBuffer->EncodeGraphics();
-        encoder->BeginPass({frameBuffers[index], renderPass, 1, &clear});
+        encoder->BeginPass({frameBuffers[index], renderPass, 2, clears.data()});
         for (auto &subMesh : mesh->subMeshes) {
             encoder->BindPipeline(subMesh.tech->pso);
-            encoder->BindAssembly(mesh->vao);
             encoder->BindSet(0, scene->GetGlobalSet());
             encoder->BindSet(1, subMesh.material->GetSet());
             encoder->BindSet(2, mesh->descriptorSet);
+            encoder->BindAssembly(mesh->vao);
             encoder->DrawIndexed({subMesh.indexCount, 1, 0, 0, 0});
         }
         encoder->EndPass();

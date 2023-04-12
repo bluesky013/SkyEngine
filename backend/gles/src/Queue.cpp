@@ -50,5 +50,15 @@ namespace sky::gles {
         });
         return handle;
     }
+
+    void Queue::Present(const SurfacePtr &surface)
+    {
+        CreateTask([this, surface]() {
+//            context->MakeCurrent(*surface);
+//            eglSwapInterval(context->GetDisplay(), 0);
+            eglSwapBuffers(context->GetDisplay(), surface->GetSurface());
+            SKY_ASSERT(eglGetError() == EGL_SUCCESS);
+        });
+    }
 }
 

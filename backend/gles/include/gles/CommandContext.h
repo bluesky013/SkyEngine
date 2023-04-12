@@ -51,7 +51,6 @@ namespace sky::gles {
         void SetRasterizerState(const RasterizerState &rs);
 
         void SetStencilWriteMask(StencilFace face, uint32_t mask);
-        void SetStencilCompareMask(StencilFace face, uint32_t ref, uint32_t mask);
         void SetStencilFunc(StencilFace face, GLenum func, uint32_t ref, uint32_t mask);
         void SetStencilOp(StencilFace face, GLenum sFail, GLenum dpFail, GLenum dpPass);
         void SetDepthBound(float minBounds, float maxBounds);

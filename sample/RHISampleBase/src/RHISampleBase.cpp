@@ -75,12 +75,6 @@ namespace sky::rhi {
 
     void RHISampleBase::OnTick(float delta)
     {
-        ClearValue clear = {};
-        clear.color.float32[0] = 0.f;
-        clear.color.float32[1] = 0.f;
-        clear.color.float32[2] = 0.f;
-        clear.color.float32[3] = 1.f;
-
         auto queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
@@ -105,7 +99,7 @@ namespace sky::rhi {
         commandBuffer->QueueBarrier(barrier);
         commandBuffer->FlushBarriers();
 
-        commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 1, &clear})
+        commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()})
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
             .EndPass();
@@ -166,10 +160,27 @@ namespace sky::rhi {
             LoadOp::DONT_CARE,
             StoreOp::DONT_CARE,
         });
+        passDesc.attachments.emplace_back(RenderPass::Attachment{
+            PixelFormat::D24_S8,
+            SampleCount::X1,
+            LoadOp::CLEAR,
+            StoreOp::DONT_CARE,
+            LoadOp::CLEAR,
+            StoreOp::DONT_CARE,
+        });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {0}, {}, {}, ~(0U)
+            {0}, {}, {}, 1
         });
         renderPass = device->CreateRenderPass(passDesc);
+
+        clears.resize(2);
+        clears[0].color.float32[0] = 0.f;
+        clears[0].color.float32[1] = 0.f;
+        clears[0].color.float32[2] = 0.f;
+        clears[0].color.float32[3] = 1.f;
+
+        clears[1].depthStencil.depth = 1.f;
+        clears[1].depthStencil.stencil = 0;
 
         frameBuffers.reserve(count);
         for (uint32_t i = 0; i < count; ++i) {

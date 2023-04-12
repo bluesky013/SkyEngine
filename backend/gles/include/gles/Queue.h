@@ -24,6 +24,8 @@ namespace sky::gles {
         rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request) override;
         rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &buffer, const rhi::BufferUploadRequest &request) override;
 
+        void Present(const SurfacePtr &surface);
+
     private:
         std::unique_ptr<Context> context;
         std::unique_ptr<PipelineCacheState> state;

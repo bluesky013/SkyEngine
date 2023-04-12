@@ -113,10 +113,8 @@ namespace sky::gles {
 
         auto &subPass = subPasses[currentSubPassId];
         auto &fb   = fbs[currentSubPassId];
-        if (fb.surface) {
-            if (fb.surface->GetSurface() != context->GetCurrentSurface()) {
-                context->MakeCurrent(*fb.surface);
-            }
+        if (fb.surface && fb.surface->GetSurface() != context->GetCurrentSurface()) {
+            context->MakeCurrent(*fb.surface);
         }
 
         if (cache->drawBuffer != fb.fbo) {
@@ -125,7 +123,7 @@ namespace sky::gles {
         }
 
         GLbitfield clearBit = 0;
-        auto attachmentFunc = [this, &clearBit](const rhi::RenderPass::Attachment &attachment, uint32_t index) {
+        auto attachmentFunc = [this, &clearBit](const rhi::RenderPass::Attachment &attachment, uint32_t index, uint32_t colorIndex) {
             auto &feature = GetFormatFeature(attachment.format);
             bool hasDepth = HasDepth(attachment.format);
             bool hasStencil = HasStencil(attachment.format);
@@ -137,10 +135,15 @@ namespace sky::gles {
                     invalidAttachments.emplace_back(isDefaultFb ? GL_DEPTH : GL_DEPTH_ATTACHMENT);
                 }
                 if (isColor) {
-                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + index);
+                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + colorIndex);
                 }
             } else if (attachment.load == rhi::LoadOp::CLEAR) {
                 auto &clearColor = clearValues[index];
+                if (cache->target.writeMask != 0xF) {
+                    CHECK(glColorMask(true, true, true, true));
+                    cache->target.writeMask = 0xF;
+                }
+
                 if (isColor) {
                     CHECK(glClearBufferfv(GL_COLOR, index, clearColor.color.float32));
                 }
@@ -176,10 +179,10 @@ namespace sky::gles {
         for (uint32_t i = 0; i < subPass.colors.size(); ++i) {
             auto color = subPass.colors[i];
             auto &attachment = attachments[color];
-            attachmentFunc(attachment, color);
+            attachmentFunc(attachment, color, i);
         }
         if (subPass.depthStencil != ~(0U)) {
-            attachmentFunc(attachments[subPass.depthStencil], 0);
+            attachmentFunc(attachments[subPass.depthStencil], subPass.depthStencil, 0);
         }
         if (clearBit != 0) {
             CHECK(glClear(clearBit));
@@ -307,21 +310,6 @@ namespace sky::gles {
         }
     }
 
-    void CommandContext::SetStencilCompareMask(StencilFace face, uint32_t ref, uint32_t mask) {
-        auto stencilFn = [](StencilState &state, GLenum face, uint32_t ref, uint32_t mask) {
-            if (state.readMask != mask || state.reference != ref) {
-                CHECK(glStencilFuncSeparate(face, state.func, ref, mask));
-                state.readMask = mask;
-                state.reference = ref;
-            }
-        };
-        if (face == StencilFace::FRONT) {
-            stencilFn(cache->ds.front, GL_FRONT, ref, mask);
-        } else {
-            stencilFn(cache->ds.back, GL_BACK, ref, mask);
-        }
-    }
-
     void CommandContext::SetStencilFunc(StencilFace face, GLenum func, uint32_t ref, uint32_t mask) {
         auto stencilFn = [](StencilState &state, GLenum face, GLenum func, uint32_t ref, uint32_t mask) {
             if (state.readMask != mask || state.reference != ref || state.func != func) {
@@ -379,44 +367,46 @@ namespace sky::gles {
     }
 
     void CommandContext::SetBlendState(const BlendState &bs) {
-        auto &currentBs = cache->bs;
-        if (currentBs.isA2C != bs.isA2C) {
+        auto &isA2C = cache->isA2C;
+        if (isA2C != bs.isA2C) {
             SetEnable(bs.isA2C, GL_SAMPLE_ALPHA_TO_COVERAGE);
-            currentBs.isA2C = bs.isA2C;
+            isA2C = bs.isA2C;
         }
 
-        auto &color = cache->bs.color;
+        auto &color = cache->color;
         if (memcmp(&color, &bs.color, sizeof(GLColor))) {
             CHECK(glBlendColor(bs.color.red, bs.color.green, bs.color.blue, bs.color.alpha));
             color = bs.color;
         }
 
-//        if (bs.hasColor) {
-//            if (currentBs.target.blendEnable != bs.target.blendEnable) {
-//                setEnable(bs.target.blendEnable, GL_BLEND);
-//                currentBs.target.blendEnable = bs.target.blendEnable;
-//            }
-//            if (currentBs.target.writeMask != bs.target.writeMask) {
-//                GL_CHECK(glColorMask(bs.target.writeMask & 0x01, bs.target.writeMask & 0x02, bs.target.writeMask & 0x04, bs.target.writeMask & 0x08));
-//                currentBs.target.writeMask = bs.target.writeMask;
-//            }
-//            if (currentBs.target.blendOp != bs.target.blendOp ||
-//                currentBs.target.blendAlphaOp != bs.target.blendAlphaOp) {
-//                GL_CHECK(glBlendEquationSeparate(bs.target.blendOp, bs.target.blendAlphaOp));
-//                currentBs.target.blendOp = bs.target.blendOp;
-//                currentBs.target.blendAlphaOp = bs.target.blendAlphaOp;
-//            }
-//            if (currentBs.target.blendSrc != bs.target.blendSrc ||
-//                currentBs.target.blendDst != bs.target.blendDst ||
-//                currentBs.target.blendSrcAlpha != bs.target.blendSrcAlpha ||
-//                currentBs.target.blendDstAlpha != bs.target.blendDstAlpha) {
-//                GL_CHECK(glBlendFuncSeparate(bs.target.blendSrc, bs.target.blendDst, bs.target.blendSrcAlpha, bs.target.blendDstAlpha));
-//                currentBs.target.blendSrc      = bs.target.blendSrc;
-//                currentBs.target.blendDst      = bs.target.blendDst;
-//                currentBs.target.blendSrcAlpha = bs.target.blendSrcAlpha;
-//                currentBs.target.blendDstAlpha = bs.target.blendDstAlpha;
-//            }
-//        }
+        if (!bs.target.empty()) {
+            auto &target = bs.target[0];
+            auto &currentTarget = cache->target;
+            if (target.blendEnable != currentTarget.blendEnable) {
+                SetEnable(target.blendEnable, GL_BLEND);
+                currentTarget.blendEnable = target.blendEnable;
+            }
+            if (target.writeMask != currentTarget.writeMask) {
+                CHECK(glColorMask(target.writeMask & 0x01, target.writeMask & 0x02, target.writeMask & 0x04, target.writeMask & 0x08));
+                currentTarget.writeMask = target.writeMask;
+            }
+            if (currentTarget.blendOp != target.blendOp ||
+                currentTarget.blendAlphaOp != target.blendAlphaOp) {
+                CHECK(glBlendEquationSeparate(target.blendOp, target.blendAlphaOp));
+                currentTarget.blendOp = target.blendOp;
+                currentTarget.blendAlphaOp = target.blendAlphaOp;
+            }
+            if (currentTarget.blendSrc != target.blendSrc ||
+                currentTarget.blendDst != target.blendDst ||
+                currentTarget.blendSrcAlpha != target.blendSrcAlpha ||
+                currentTarget.blendDstAlpha != target.blendDstAlpha) {
+                CHECK(glBlendFuncSeparate(target.blendSrc, target.blendDst, target.blendSrcAlpha, target.blendDstAlpha));
+                currentTarget.blendSrc      = target.blendSrc;
+                currentTarget.blendDst      = target.blendDst;
+                currentTarget.blendSrcAlpha = target.blendSrcAlpha;
+                currentTarget.blendDstAlpha = target.blendDstAlpha;
+            }
+        }
     }
 
     void CommandContext::SetRasterizerState(const RasterizerState &rs) {
@@ -500,7 +490,6 @@ namespace sky::gles {
         if (!assembly->IsInited()) {
             assembly->InitInternal();
         }
-
         auto vao = assembly->GetNativeHandle();
         if (cache->vao != vao) {
             cache->vao = vao;
@@ -539,6 +528,11 @@ namespace sky::gles {
     void CommandContext::CmdEndPass()
     {
         EndPassInternal();
+        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        cache->drawBuffer = 0;
+
+        CHECK(glBindVertexArray(cache->vao));
+        cache->vao        = 0;
 
         currentFramebuffer = nullptr;
         currentRenderPass  = nullptr;

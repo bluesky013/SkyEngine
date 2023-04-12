@@ -107,6 +107,12 @@ EGLBoolean eglSwapBuffers(EGLDisplay dpy, EGLSurface surface)
     return access(dpy, surface);
 }
 
+EGLBoolean eglSwapInterval(EGLDisplay dpy, EGLint interval)
+{
+    ACCESS(g_Egl, eglSwapInterval)
+    return access(dpy, interval);
+}
+
 EGLBoolean eglTerminate(EGLDisplay dpy)
 {
     ACCESS(g_Egl, eglTerminate)

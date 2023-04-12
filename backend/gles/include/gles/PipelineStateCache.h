@@ -12,7 +12,9 @@ namespace sky::gles {
     struct PipelineCacheState {
         RasterizerState   rs;
         DepthStencilState ds;
-        BlendState        bs;
+        GLColor           color;
+        BlendTarget       target;
+        bool              isA2C      = false;
         GLenum            primitive   = GL_TRIANGLES;
         GLuint            program     = 0;
         GLuint            drawBuffer  = 0;

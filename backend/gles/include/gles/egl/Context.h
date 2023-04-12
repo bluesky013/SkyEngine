@@ -29,6 +29,7 @@ namespace sky::gles {
         EGLConfig QueryConfig(const Config &config) const;
         EGLContext GetNativeHandle() const { return context; }
         EGLSurface GetCurrentSurface() const { return currentSurface; }
+        EGLDisplay GetDisplay() const { return display; }
 
         rhi::PipelineState gfxState;
     private:

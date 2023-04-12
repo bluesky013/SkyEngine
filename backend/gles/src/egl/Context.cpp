@@ -108,8 +108,11 @@ namespace sky::gles {
 
     void Context::MakeCurrent(const Surface &surface)
     {
-        currentSurface = surface.GetSurface();
-        eglMakeCurrent(display, currentSurface, currentSurface, context);
-        SKY_ASSERT(eglGetError() == EGL_SUCCESS);
+        auto handle = surface.GetSurface();
+        if (currentSurface != handle) {
+            currentSurface = handle;
+            eglMakeCurrent(display, currentSurface, currentSurface, context);
+            SKY_ASSERT(eglGetError() == EGL_SUCCESS);
+        }
     }
 }

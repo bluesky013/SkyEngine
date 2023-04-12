@@ -51,6 +51,7 @@ namespace sky::rhi {
         rhi::CommandBufferPtr commandBuffer;
         rhi::GraphicsPipelinePtr pso;
         rhi::PipelineLayoutPtr pipelineLayout;
+        std::vector<ClearValue> clears;
 
         rhi::SemaphorePtr imageAvailable;
         rhi::SemaphorePtr renderFinish;

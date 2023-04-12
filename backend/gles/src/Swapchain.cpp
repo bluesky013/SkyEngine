@@ -39,9 +39,7 @@ namespace sky::gles {
 
     void SwapChain::Present(rhi::Queue &queue, const rhi::PresentInfo &info)
     {
-        auto tmp = surface;
-        queue.CreateTask([tmp]() {
-            eglSwapBuffers(eglGetDisplay(EGL_DEFAULT_DISPLAY), tmp->GetSurface());
-        });
+        auto &glesQueue = static_cast<Queue&>(queue);
+        glesQueue.Present(surface);
     }
 }
