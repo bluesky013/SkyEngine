@@ -3,10 +3,15 @@
 //
 
 #include "vulkan/Instance.h"
-#include "core/logger/Logger.h"
 #include <vector>
+#include <vulkan/vulkan_core.h>
+#include "core/logger/Logger.h"
 
 static const char *TAG = "Vulkan";
+
+#define SKY_VK_API_VERSION_MAJOR(version) (((uint32_t)(version) >> 22) & 0x7FU)
+#define SKY_VK_API_VERSION_MINOR(version) (((uint32_t)(version) >> 12) & 0x3FFU)
+#define SKY_VK_API_VERSION_PATCH(version) ((uint32_t)(version) & 0xFFFU)
 
 namespace sky::vk {
 
@@ -101,7 +106,7 @@ namespace sky::vk {
     {
         uint32_t version = 0;
         VkResult result = vkEnumerateInstanceVersion(&version);
-        LOG_I(TAG, "Vulkan Core apiVersion %u.%u.%u", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version),  VK_API_VERSION_PATCH(version));
+        LOG_I(TAG, "Vulkan Core apiVersion %u.%u.%u", SKY_VK_API_VERSION_MAJOR(version), SKY_VK_API_VERSION_MINOR(version),  SKY_VK_API_VERSION_PATCH(version));
 
         VkApplicationInfo app  = {};
         app.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;

@@ -174,10 +174,7 @@ namespace sky::vk {
         phyFeatures.pNext = &phyIndexingFeatures;
 
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        phyIndexingFeatures.pNext = &sync2Feature;
-
-        sync2Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        sync2Feature.pNext = &shadingRateFeatures;
+        phyIndexingFeatures.pNext = &shadingRateFeatures;
 
         shadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
         shadingRateFeatures.pNext = &mvrFeature;
@@ -263,7 +260,6 @@ namespace sky::vk {
         allocatorInfo.device           = device;
         allocatorInfo.physicalDevice   = phyDev;
         allocatorInfo.instance         = instance.GetInstance();
-        allocatorInfo.vulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
         rst                            = vmaCreateAllocator(&allocatorInfo, &allocator);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create allocator failed -%d", rst);
@@ -380,7 +376,7 @@ namespace sky::vk {
 
         return renderPasses.FindOrEmplace(hash, [this, passInfo]() {
             VkRenderPass pass = VK_NULL_HANDLE;
-            auto         rst  = vkCreateRenderPass2(device, passInfo, VKL_ALLOC, &pass);
+            auto         rst  = instance.CreateRenderPass2(device, passInfo, VKL_ALLOC, &pass);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create RenderPass failed, %d", rst);
             }

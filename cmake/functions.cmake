@@ -70,7 +70,7 @@ function(sky_add_library)
                     list(APPEND LINK_LIBRARIES ${tmpLib})
                 endif()
 
-                get_target_property(tmpDlls ${dep} DYN_LIBS)
+                get_target_property(tmpDlls ${dep} INTERFACE_DYN_LIBS)
                 if (tmpDlls)
                     foreach(dll ${tmpDlls})
                         get_filename_component(dllName ${dll} NAME)

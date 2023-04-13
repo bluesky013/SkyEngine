@@ -6,9 +6,13 @@
 #include <gles/Device.h>
 #include <core/platform/Platform.h>
 #include <core/util/DynamicModule.h>
-std::unique_ptr<sky::DynamicModule> g_Egl;
 
-#include "egl/egl.inl"
+#ifndef ANDROID
+std::unique_ptr<sky::DynamicModule> g_Egl;
+#include "egl/egl_win32.inl"
+#else
+#include "egl/egl_android.inl"
+#endif
 
 namespace sky::gles {
 
@@ -28,6 +32,7 @@ namespace sky::gles {
 
     bool Instance::InitEGL()
     {
+#ifndef ANDROID
         if (!g_Egl) {
             g_Egl = std::make_unique<DynamicModule>("libEGL.dll");
             g_Egl->Load();
@@ -38,6 +43,8 @@ namespace sky::gles {
             return true;
         }
         return false;
+#endif
+        return true;
     }
 
     void Instance::InitConfig()

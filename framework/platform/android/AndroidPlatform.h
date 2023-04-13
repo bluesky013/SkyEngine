@@ -22,6 +22,8 @@ namespace sky {
 
         uint64_t GetPerformanceCounter() const override;
 
+        std::string GetInternalPath() const override;
+
         android_app *app = nullptr;
     };
 }

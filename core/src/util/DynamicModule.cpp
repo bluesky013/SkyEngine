@@ -10,8 +10,13 @@
     #include <dlfcn.h>
 #endif
 
-static const std::string APPLE_DYN_PREFIX = "lib";
-static const std::string APPLE_DYN_SUFFIX = ".dylib";
+#ifdef APPLE
+static const std::string DYN_PREFIX = "lib";
+static const std::string DYN_SUFFIX = ".dylib";
+#elif defined(ANDROID)
+static const std::string DYN_PREFIX = "lib";
+static const std::string DYN_SUFFIX = ".so";
+#endif
 
 namespace sky {
 
@@ -32,7 +37,7 @@ namespace sky {
 #ifdef _WIN32
             handle = ::LoadLibraryExA(ptr.c_str(), nullptr, 0);
 #else
-            std::string libName = APPLE_DYN_PREFIX + ptr + APPLE_DYN_SUFFIX;
+            std::string libName = DYN_PREFIX + ptr + DYN_SUFFIX;
             handle              = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
             if (handle != nullptr) {

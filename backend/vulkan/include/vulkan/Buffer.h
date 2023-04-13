@@ -27,8 +27,8 @@ namespace sky::vk {
 
         uint64_t GetSize() const;
         bool IsTransient() const;
-        uint8_t *Map();
-        void UnMap();
+        uint8_t *Map() override;
+        void UnMap() override;
         void BindMemory(VmaAllocation allocation);
         void ReleaseMemory();
 

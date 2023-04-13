@@ -25,6 +25,6 @@ namespace sky::gles {
         bool InitEGL();
         void InitConfig();
 
-        EGLDisplay eglDisplay{EGL_NO_DISPLAY};
+        void *eglDisplay{nullptr};
     };
 }

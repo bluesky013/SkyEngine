@@ -34,12 +34,6 @@ namespace sky::vk {
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                  //    PRESENT
     };
 
-
-    static VkImageLayout GetImageLayout(rhi::AccessFlag flag)
-    {
-
-    }
-
     static bool IsDepthStencil(VkFormat format)
     {
         return format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT ||

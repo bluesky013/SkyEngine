@@ -23,4 +23,5 @@ sky_add_library(TARGET Core STATIC
         3rdParty::sfmt
         3rdParty::crc32
         3rdParty::taskflow
+        3rdParty::boost
     )

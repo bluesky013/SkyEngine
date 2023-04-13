@@ -25,6 +25,7 @@ namespace sky::gles {
         return g_Gles->GetAddress(procName);
     }
 
+#ifndef ANDROID
     static bool InitGL()
     {
         if (g_Gles && g_Gles->IsLoaded()) {
@@ -36,6 +37,7 @@ namespace sky::gles {
         gladLoadGLES2Loader(GladLoadProcAddress);
         return g_Gles->IsLoaded();
     }
+#endif
 
     Device::~Device()
     {
@@ -53,9 +55,11 @@ namespace sky::gles {
         mainContext = std::make_unique<Context>();
         mainContext->Init(ctxDesc);
 
+#ifndef ANDROID
         if (!InitGL()) {
             return false;
         }
+#endif
 
         std::string extStr = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
         extensions = Split(extStr, ' ');

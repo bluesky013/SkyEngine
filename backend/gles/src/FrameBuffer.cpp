@@ -65,10 +65,10 @@ namespace sky::gles {
                 auto &imageDesc = image->GetDescriptor();
                 auto &viewDesc = attachment->GetViewDesc();
 
-                CHECK(glFramebufferTexture2DMultisampleEXT(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_TEXTURE_2D,
-                                                           image->GetNativeHandle(),
-                                                           viewDesc.subRange.baseLevel,
-                                                           imageDesc.samples));
+//                CHECK(glFramebufferTexture2DMultisampleEXT(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index), GL_TEXTURE_2D,
+//                                                           image->GetNativeHandle(),
+//                                                           viewDesc.subRange.baseLevel,
+//                                                           imageDesc.samples));
                 index++;
             }
 

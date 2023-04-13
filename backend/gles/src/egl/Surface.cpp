@@ -29,7 +29,11 @@ namespace sky::gles {
     bool WindowSurface::Init(EGLConfig config, void *window)
     {
         auto display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#ifdef ANDROID
+        surface = eglCreateWindowSurface(display, config, static_cast<EGLNativeWindowType>(window), nullptr);
+#else
         surface = eglCreatePlatformWindowSurface(display, config, window, nullptr);
+#endif
         EGLint width;
         EGLint height;
         eglQuerySurface(display, surface, EGL_WIDTH, &width);

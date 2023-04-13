@@ -72,7 +72,7 @@ namespace sky {
         cmd->Begin();
 
         cmd->ImageBarrier(sparseImage->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT},
                           VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         VkBufferImageCopy copyInfo = {};

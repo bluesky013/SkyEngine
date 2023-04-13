@@ -39,7 +39,7 @@ namespace sky::gles {
             CHECK(glGenRenderbuffers(1, &texId));
             CHECK(glBindRenderbuffer(GL_RENDERBUFFER, texId));
             if (imageDesc.samples > 1) {
-                CHECK(glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
+                CHECK(glRenderbufferStorageMultisample(GL_RENDERBUFFER, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             } else {
                 CHECK(glRenderbufferStorage(GL_RENDERBUFFER, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             }

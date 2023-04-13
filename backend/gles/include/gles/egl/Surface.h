@@ -4,8 +4,14 @@
 
 #pragma once
 
-#include <gles/Forward.h>
 #include <memory>
+
+#ifdef ANDROID
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#endif
+
+#include <gles/Forward.h>
 
 namespace sky::gles {
 

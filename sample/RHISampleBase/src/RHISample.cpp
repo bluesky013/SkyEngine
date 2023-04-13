@@ -7,6 +7,7 @@
 #include "RHIPassSample.h"
 #include <framework/application/SettingRegistry.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/platform/PlatformBase.h>
 #include <EngineRoot.h>
 #include <RHISample/ProjectRoot.h>
 #include <filesystem>
@@ -14,7 +15,7 @@
 namespace sky::rhi {
 
     static const bool API_CHECK[] = {
-        false,
+            true,
         true,
         true,
         true,
@@ -25,7 +26,7 @@ namespace sky::rhi {
     {
         RegisterPath();
 
-        RegisterSample<RHISampleBase>();
+//        RegisterSample<RHISampleBase>();
         RegisterSample<RHIPassSample>();
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
@@ -39,6 +40,8 @@ namespace sky::rhi {
             api = API::DX12;
         } else if (rhi == "metal") {
             api = API::METAL;
+        } else {
+            api = API::GLES;
         }
         if (API_CHECK[static_cast<uint32_t>(api)]) {
             auto nativeWindow = systemApi->GetViewport();
@@ -106,7 +109,8 @@ namespace sky::rhi {
         AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
         AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/shaders");
 
-        std::filesystem::create_directories("shaders/RHISample");
+        auto path = PlatformBase::GetPlatform()->GetInternalPath();
+        std::filesystem::create_directories(path + "/shaders/RHISample");
     }
 }
 REGISTER_MODULE(sky::rhi::RHISample)

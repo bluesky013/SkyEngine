@@ -31,21 +31,13 @@ add_subdirectory(core)
 add_subdirectory(engine)
 add_subdirectory(backend)
 add_subdirectory(builder)
-
-if (WIN32)
-    add_subdirectory(render2)
-endif()
-
-if (NOT ANDROID)
-    add_subdirectory(sample)
-    #    add_subdirectory(tools)
-endif()
+add_subdirectory(render2)
+add_subdirectory(sample)
 
 add_subdirectory(Launcher)
+sky_set_dependency(TARGET Launcher)
+
 if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
+    sky_set_dependency(TARGET Editor)
 endif()
-
-
-sky_set_dependency(TARGET Launcher)
-sky_set_dependency(TARGET Editor)

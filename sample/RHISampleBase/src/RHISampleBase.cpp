@@ -136,6 +136,9 @@ namespace sky::rhi {
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = pipelineLayout;
         psoDesc.vertexInput = vertexInput;
+        psoDesc.state.depthStencil.depthTest = true;
+        psoDesc.state.depthStencil.depthWrite = true;
+        psoDesc.state.blendStates.emplace_back(BlendState{});
         pso = device->CreateGraphicsPipeline(psoDesc);
     }
 

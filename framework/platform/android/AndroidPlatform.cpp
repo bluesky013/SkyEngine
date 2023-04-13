@@ -3,13 +3,9 @@
 //
 
 #include "AndroidPlatform.h"
-
 #include <android/window.h>
 #include <game-activity/GameActivity.cpp>
 #include <game-text-input/gametextinput.cpp>
-extern "C" {
-#include <game-activity/native_app_glue/android_native_app_glue.c>
-}
 
 static const char* TAG = "AndroidPlatform";
 
@@ -82,6 +78,11 @@ namespace sky {
     uint64_t AndroidPlatform::GetPerformanceCounter() const
     {
         return 0;
+    }
+
+    std::string AndroidPlatform::GetInternalPath() const
+    {
+        return app->activity->internalDataPath;
     }
 
 }

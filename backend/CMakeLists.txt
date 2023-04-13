@@ -9,6 +9,6 @@ if (APPLE)
     add_subdirectory(metal)
 endif()
 
-if (SKY_BUILD_GLES)
+if (SKY_BUILD_GLES OR ANDROID)
     add_subdirectory(gles)
 endif()

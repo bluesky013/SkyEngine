@@ -14,6 +14,8 @@ if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC platform/windows/*)
 elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
+else()
+    file(GLOB_RECURSE PLATFORM_SRC platform/android/*)
 endif()
 
 sky_add_library(TARGET VulkanRHI.Static STATIC

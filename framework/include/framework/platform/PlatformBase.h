@@ -5,6 +5,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <core/environment/Singleton.h>
 
 namespace sky {
 
@@ -24,6 +26,8 @@ namespace sky {
         virtual uint64_t GetPerformanceFrequency() const = 0;
 
         virtual uint64_t GetPerformanceCounter() const = 0;
+
+        virtual std::string GetInternalPath() const { return ""; }
 
         static PlatformBase *GetPlatform();
     };

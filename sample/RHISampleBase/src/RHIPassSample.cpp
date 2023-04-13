@@ -132,7 +132,7 @@ namespace sky::rhi {
         VertexAssembly::Descriptor vaDesc;
         vaDesc.vertexInput = vertexInput;
         vaDesc.vertexBuffers.emplace_back(vb->CreateView({0, vertexSize}));
-        vaDesc.indexBuffer = ib->CreateView({0, indexSize});
+//        vaDesc.indexBuffer = ib->CreateView({0, indexSize});
         auto va = device->CreateVertexAssembly(vaDesc);
         auto localSet = device->CreateDescriptorSet({localLayout});
 
@@ -282,8 +282,10 @@ namespace sky::rhi {
             encoder->BindSet(1, subMesh.material->GetSet());
             encoder->BindSet(2, mesh->descriptorSet);
             encoder->BindAssembly(mesh->vao);
-            encoder->DrawIndexed({subMesh.indexCount, 1, 0, 0, 0});
+            encoder->DrawLinear({36, 1, 0, 0});
         }
+        encoder->BindPipeline(pso);
+        encoder->DrawLinear({3, 1, 0, 0});
         encoder->EndPass();
 
         barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;

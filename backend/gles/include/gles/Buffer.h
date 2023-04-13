@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Buffer.h>
+#include <gles/Forward.h>
 #include <gles/DevObject.h>
 
 namespace sky::gles {

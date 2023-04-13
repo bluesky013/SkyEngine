@@ -51,7 +51,7 @@ namespace sky::vk {
 
     void QueryPool::Reset()
     {
-        vkResetQueryPool(device.GetNativeHandle(), pool, 0, queryCount);
+//        vkResetQueryPool(device.GetNativeHandle(), pool, 0, queryCount);
     }
 
     const std::vector<uint64_t> &QueryPool::GetData() const
