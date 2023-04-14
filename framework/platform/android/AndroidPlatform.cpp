@@ -13,12 +13,17 @@ namespace sky {
 
     void HandleCommand(struct android_app* app, int32_t cmd)
     {
+        AndroidPlatform *platform = static_cast<AndroidPlatform*>(app->userData);
+
         switch (cmd) {
             case APP_CMD_SAVE_STATE:
                 break;
             case APP_CMD_INIT_WINDOW:
-                if (app->window != nullptr) {
+                if (!platform->IsLaunched()) {
+                    platform->SetMainWinHandle(app->window);
+                    platform->Launch();
                 }
+
                 break;
 //        case APP_CMD_TERM_WINDOW:
 //            break;
@@ -44,13 +49,25 @@ namespace sky {
         }
     }
 
-    PlatformBase *PlatformBase::GetPlatform()
+    void AndroidPlatform::SetMainWinHandle(ANativeWindow *handle)
     {
-        static AndroidPlatform platform;
-        return &platform;
+        mainWindow = handle;
     }
 
-    bool AndroidPlatform::Init(const Descriptor& desc)
+    void AndroidPlatform::Launch()
+    {
+        if (launchCallback) {
+            launchCallback();
+        }
+        launched = true;
+    }
+
+    bool AndroidPlatform::IsLaunched() const
+    {
+        return launched;
+    }
+
+    bool AndroidPlatform::Init(const PlatformInfo& desc)
     {
         app = reinterpret_cast<android_app*>(desc.application);
         app->userData = this;
@@ -63,11 +80,6 @@ namespace sky {
                 AWINDOW_FLAG_FULLSCREEN | AWINDOW_FLAG_SHOW_WHEN_LOCKED,
                 0);
         return true;
-    }
-
-    void AndroidPlatform::Shutdown()
-    {
-
     }
 
     uint64_t AndroidPlatform::GetPerformanceFrequency() const
@@ -83,6 +95,17 @@ namespace sky {
     std::string AndroidPlatform::GetInternalPath() const
     {
         return app->activity->internalDataPath;
+    }
+
+    void *AndroidPlatform::GetMainWinHandle() const
+    {
+        return mainWindow;
+    }
+
+    bool Platform::Init(const PlatformInfo& info)
+    {
+        platform = std::make_unique<AndroidPlatform>();
+        return platform->Init(info);
     }
 
 }

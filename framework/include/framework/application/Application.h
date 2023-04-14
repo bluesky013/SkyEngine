@@ -24,6 +24,7 @@ namespace sky {
 
         uint32_t windowWidth  = 1366;
         uint32_t windowHeight = 768;
+        void*    mainWindow   = nullptr;
     };
 
     class Application : public ISystemNotify {

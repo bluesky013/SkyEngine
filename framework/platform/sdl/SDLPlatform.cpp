@@ -10,18 +10,18 @@ static const char* TAG = "SDLPlatform";
 
 namespace sky {
 
-    bool SDLPlatform::Init(const Descriptor &desc)
+    SDLPlatform::~SDLPlatform()
+    {
+        SDL_Quit();
+    }
+
+    bool SDLPlatform::Init(const PlatformInfo &desc)
     {
         if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
             LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());
             return false;
         }
         return true;
-    }
-
-    void SDLPlatform::Shutdown()
-    {
-        SDL_Quit();
     }
 
     uint64_t SDLPlatform::GetPerformanceFrequency() const
@@ -32,5 +32,10 @@ namespace sky {
     uint64_t SDLPlatform::GetPerformanceCounter() const
     {
         return SDL_GetPerformanceCounter();
+    }
+
+    std::string SDLPlatform::GetInternalPath() const
+    {
+        return "";
     }
 }

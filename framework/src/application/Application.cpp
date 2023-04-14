@@ -108,8 +108,8 @@ namespace sky {
     {
         PreTick();
 
-        uint64_t        frequency      = PlatformBase::GetPlatform()->GetPerformanceFrequency();
-        uint64_t        currentCounter = PlatformBase::GetPlatform()->GetPerformanceCounter();
+        uint64_t        frequency      = Platform::Get()->GetPerformanceFrequency();
+        uint64_t        currentCounter = Platform::Get()->GetPerformanceCounter();
         static uint64_t current        = 0;
         float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
         current               = currentCounter;

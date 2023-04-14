@@ -14,19 +14,20 @@ extern  "C" {
 }
 
 void android_main(struct android_app *app) {
-    sky::PlatformBase* platform = sky::PlatformBase::GetPlatform();
-    if (!platform->Init({app})) {
-        return;
-    }
-
-    sky::StartInfo start = {};
-    start.appName        = "AndroidLauncher";
-    start.modules.emplace_back("RHISample");
-
-    auto path = app->activity->internalDataPath;
+    sky::Platform* platform = sky::Platform::Get();
+    platform->Init({app});
 
     sky::GameApplication application;
-    application.Init(start);
+    bool started = false;
+    platform->setLaunchCallback([&application, &started, platform]() {
+        sky::StartInfo start = {};
+        start.appName = "AndroidLauncher";
+        start.mainWindow = platform->GetMainWinHandle();
+        start.modules.emplace_back("RHISample");
+        application.Init(start);
+
+        started = true;
+    });
 
     do {
         int events;
@@ -38,7 +39,9 @@ void android_main(struct android_app *app) {
             }
         }
 
-        application.Loop();
+        if (started) {
+            application.Loop();
+        }
     } while (app->destroyRequested == 0);
 
     application.Shutdown();

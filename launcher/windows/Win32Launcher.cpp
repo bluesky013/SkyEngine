@@ -11,7 +11,7 @@ int main(int argc, char **argv)
     sky::CommandInfo cmdInfo = {};
     sky::ProcessCommand(argc, argv, cmdInfo);
 
-    sky::PlatformBase* platform = sky::PlatformBase::GetPlatform();
+    sky::Platform* platform = sky::Platform::Get();
     if (!platform->Init({})) {
         return 1;
     }
@@ -30,7 +30,6 @@ int main(int argc, char **argv)
     }
 
     app.Shutdown();
-
     platform->Shutdown();
 
     return 0;

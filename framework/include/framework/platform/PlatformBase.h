@@ -6,29 +6,49 @@
 
 #include <cstdint>
 #include <string>
+#include <memory>
 #include <core/environment/Singleton.h>
 
 namespace sky {
+
+    struct PlatformInfo {
+        void* application = nullptr;
+    };
+
+    using LaunchCallback = std::function<void()>;
 
     class PlatformBase {
     public:
         PlatformBase() = default;
         virtual ~PlatformBase() = default;
 
-        struct Descriptor {
-            void* application = nullptr;
-        };
-
-        virtual bool Init(const Descriptor&) = 0;
-
-        virtual void Shutdown() = 0;
-
+        virtual bool Init(const PlatformInfo &info) = 0;
         virtual uint64_t GetPerformanceFrequency() const = 0;
-
         virtual uint64_t GetPerformanceCounter() const = 0;
+        virtual std::string GetInternalPath() const = 0;
+        virtual void *GetMainWinHandle() const { return nullptr; };
+        void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
-        virtual std::string GetInternalPath() const { return ""; }
+    protected:
+        LaunchCallback launchCallback;
+    };
 
-        static PlatformBase *GetPlatform();
+    class Platform : public Singleton<Platform> {
+    public:
+        bool Init(const PlatformInfo&);
+        void Shutdown();
+
+        uint64_t GetPerformanceFrequency() const;
+        uint64_t GetPerformanceCounter() const;
+        std::string GetInternalPath() const;
+        void *GetMainWinHandle() const;
+
+        template <typename T>
+        void setLaunchCallback(T &&cb)
+        {
+            platform->setLaunchCallback(std::forward<T>(cb));
+        }
+    private:
+        std::unique_ptr<PlatformBase> platform;
     };
 }

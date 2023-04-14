@@ -8,7 +8,7 @@ namespace sky {
 
     bool GameApplication::Init(StartInfo &start)
     {
-        nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName}));
+        nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName, start.mainWindow}));
 
         if (!Application::Init(start)) {
             return false;

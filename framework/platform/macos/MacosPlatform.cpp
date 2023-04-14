@@ -7,9 +7,9 @@ static const char* TAG = "Win32Platform";
 
 namespace sky {
 
-    PlatformBase *PlatformBase::GetPlatform()
+    bool Platform::Init(const PlatformInfo& info)
     {
-        static MacosPlatform platform;
-        return &platform;
+        platform = std::make_unique<MacosPlatform>();
+        return platform->Init(info);
     }
 }

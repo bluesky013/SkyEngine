@@ -14,16 +14,20 @@ namespace sky {
         AndroidPlatform() = default;
         ~AndroidPlatform() = default;
 
+        void SetMainWinHandle(ANativeWindow *handle);
+
+        bool IsLaunched() const;
+        void Launch();
     private:
-        bool Init(const Descriptor& desc) override;
-        void Shutdown() override;
+        bool Init(const PlatformInfo& desc) override;
 
         uint64_t GetPerformanceFrequency() const override;
-
         uint64_t GetPerformanceCounter() const override;
-
         std::string GetInternalPath() const override;
+        void *GetMainWinHandle() const override;
 
         android_app *app = nullptr;
+        ANativeWindow *mainWindow = nullptr;
+        bool launched = false;
     };
 }

@@ -3,10 +3,14 @@
 //
 
 #include "RHISampleBase.h"
-#include <rhi/Queue.h>
-#include <core/file/FileIO.h>
-#include <builder/shader/ShaderCompiler.h>
 #include <filesystem>
+
+#include <core/file/FileIO.h>
+#include <framework/platform/PlatformBase.h>
+
+#include <rhi/Queue.h>
+
+#include <builder/shader/ShaderCompiler.h>
 
 namespace sky::rhi {
 
@@ -127,12 +131,13 @@ namespace sky::rhi {
 
         auto vertexInput = device->CreateVertexInput({});
 
-        builder::ShaderCompiler::CompileShader("triangle_vs.glsl", {"shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("triangle_fs.glsl", {"shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
+        auto path = Platform::Get()->GetInternalPath();
+        builder::ShaderCompiler::CompileShader("triangle_vs.glsl", {path + "shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("triangle_fs.glsl", {path + "shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
         GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.blendStates.emplace_back(rhi::BlendState{});
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/triangle_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/triangle_fs.shader");
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "shaders/RHISample/triangle_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "shaders/RHISample/triangle_fs.shader");
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = pipelineLayout;
         psoDesc.vertexInput = vertexInput;
