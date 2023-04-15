@@ -6,6 +6,7 @@
 #include <RHIPassSample.h>
 #include <core/math/Vector4.h>
 #include <core/math/Color.h>
+#include <framework/platform/PlatformBase.h>
 #include <rhi/Buffer.h>
 #include <rhi/Queue.h>
 #include <builder/shader/ShaderCompiler.h>
@@ -143,12 +144,13 @@ namespace sky::rhi {
         }};
         auto pipelineLayout = device->CreatePipelineLayout(ppLayoutDesc);
 
-        builder::ShaderCompiler::CompileShader("pos_normal_vs.glsl", {"shaders/RHISample/pos_normal_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("base_color_fs.glsl", {"shaders/RHISample/base_color_fs.shader", builder::ShaderType::FS});
+        auto path = Platform::Get()->GetInternalPath();
+        builder::ShaderCompiler::CompileShader("shaders/pos_normal_vs.glsl", {path + "/shaders/RHISample/pos_normal_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/base_color_fs.glsl", {path + "/shaders/RHISample/base_color_fs.shader", builder::ShaderType::FS});
 
         gfxTech = std::make_shared<GraphicsTechnique>();
-        gfxTech->SetShader(CreateShader(rhi, *device, ShaderStageFlagBit::VS, "shaders/RHISample/pos_normal_vs.shader"),
-                           CreateShader(rhi, *device, ShaderStageFlagBit::FS, "shaders/RHISample/base_color_fs.shader"));
+        gfxTech->SetShader(CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/pos_normal_vs.shader"),
+                           CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/base_color_fs.shader"));
         gfxTech->SetVertexInput(vertexInput);
         gfxTech->SetPipelineLayout(pipelineLayout);
         gfxTech->SetRenderPass(renderPass);
@@ -284,8 +286,6 @@ namespace sky::rhi {
             encoder->BindAssembly(mesh->vao);
             encoder->DrawLinear({36, 1, 0, 0});
         }
-        encoder->BindPipeline(pso);
-        encoder->DrawLinear({3, 1, 0, 0});
         encoder->EndPass();
 
         barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;

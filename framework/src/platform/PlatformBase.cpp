@@ -29,4 +29,9 @@ namespace sky {
     {
         return platform->GetMainWinHandle();
     }
+
+    void *Platform::GetNativeApp() const
+    {
+        return platform->GetNativeApp();
+    }
 }

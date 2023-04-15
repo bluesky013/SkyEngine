@@ -37,6 +37,7 @@ android {
             path '../../../CMakeLists.txt'
         }
     }
+
     buildFeatures {
         prefab true
     }

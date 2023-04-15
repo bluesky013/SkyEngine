@@ -107,7 +107,7 @@ namespace sky::rhi {
     void RHISample::RegisterPath()
     {
         AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
-        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/shaders");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/assets");
 
         auto path = Platform::Get()->GetInternalPath();
         std::filesystem::create_directories(path + "/shaders/RHISample");

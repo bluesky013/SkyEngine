@@ -102,6 +102,11 @@ namespace sky {
         return mainWindow;
     }
 
+    void *AndroidPlatform::GetNativeApp() const
+    {
+        return app;
+    }
+
     bool Platform::Init(const PlatformInfo& info)
     {
         platform = std::make_unique<AndroidPlatform>();

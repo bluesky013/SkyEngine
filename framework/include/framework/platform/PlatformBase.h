@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <memory>
+#include <functional>
 #include <core/environment/Singleton.h>
 
 namespace sky {
@@ -27,6 +28,7 @@ namespace sky {
         virtual uint64_t GetPerformanceCounter() const = 0;
         virtual std::string GetInternalPath() const = 0;
         virtual void *GetMainWinHandle() const { return nullptr; };
+        virtual void *GetNativeApp() const { return nullptr; }
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
     protected:
@@ -42,6 +44,7 @@ namespace sky {
         uint64_t GetPerformanceCounter() const;
         std::string GetInternalPath() const;
         void *GetMainWinHandle() const;
+        void *GetNativeApp() const;
 
         template <typename T>
         void setLaunchCallback(T &&cb)

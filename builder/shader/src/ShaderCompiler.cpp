@@ -10,6 +10,7 @@
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetStream.h>
 
 #include <filesystem>
 
@@ -33,7 +34,7 @@ namespace sky::builder {
             }
             return fPath.string();
         }
-        return "";
+        return relative;
     }
 
     static void SaveSpv(const std::string &path, const std::vector<uint32_t> &spv)
@@ -109,8 +110,7 @@ namespace sky::builder {
             return;
         }
 
-        std::string source;
-        ReadString(realPath, source);
+        std::string source = AssetStream(realPath).ReadString();
         auto result = compiler.CompileGlslToSpv(source, GetShaderKind(type), realPath.c_str(), options);
         if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
             LOG_E(TAG, "compile result, shader %s, result %d\n, error info: %s", realPath.c_str(), result.GetCompilationStatus(),

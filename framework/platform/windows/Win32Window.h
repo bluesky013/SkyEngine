@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../sdl/SDLWindow.h"
+#include "../genetic/SDLWindow.h"
 
 namespace sky {
 
