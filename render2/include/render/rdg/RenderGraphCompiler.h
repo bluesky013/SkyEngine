@@ -10,17 +10,21 @@
 
 namespace sky::rdg {
 
+    class RenderResourceCompiler : public boost::dfs_visitor<> {
+    public:
+        RenderResourceCompiler() = default;
+        ~RenderResourceCompiler() = default;
+
+        using Vertex = boost::graph_traits<ResourceGraph>::vertex_descriptor;
+        using Graph = ResourceGraph;
+
+        void discover_vertex(Vertex u, const Graph& g);
+    };
+
     class RenderGraphCompiler : public boost::dfs_visitor<> {
     public:
         RenderGraphCompiler() = default;
         ~RenderGraphCompiler() = default;
-
-        using Vertex = boost::graph_traits<RenderGraph::NodeGraph>::vertex_descriptor;
-        using Graph = RenderGraph::NodeGraph;
-
-        void discover_vertex(Vertex u, const Graph& g)
-        {
-        }
     };
 
 }

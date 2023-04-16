@@ -6,4 +6,9 @@
 
 namespace sky::rdg {
 
+
+    void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
+    {
+
+    }
 }

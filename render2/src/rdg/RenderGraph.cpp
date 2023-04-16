@@ -7,48 +7,66 @@
 
 namespace sky::rdg {
 
-    void RenderGraph::AddTexture(const std::string &name, const TextureAttachmentDesc &texture)
+    void RenderGraph::AddImage(const char *name, const GraphImage &image)
     {
+        AddVertex(name, image, *this);
     }
 
-    void RenderGraph::ImportTexture(const std::string &name, const rhi::ImagePtr &image)
+    void RenderGraph::ImportImage(const char *name, const rhi::ImagePtr &image)
     {
+        AddVertex(name, GraphImportImage{image}, *this);
     }
 
-    void RenderGraph::AddBuffer(const std::string &name, const BufferAttachmentDesc &buffer)
+    void RenderGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
     {
+        auto src = FindVertex(source);
+        SKY_ASSERT(src != INVALID_VERTEX);
+        auto dst = AddVertex(name, view, *this);
+        AddEdge(src, dst, resourceGraph);
     }
 
-    void RenderGraph::ImportBuffer(const std::string &name, const rhi::BufferPtr &buffer)
+    void RenderGraph::AddBuffer(const char *name, const GraphBuffer &buffer)
     {
+        AddVertex(name, buffer, *this);
     }
 
-    RasterPassBuilder RenderGraph::AddRasterPass(const std::string &name)
+    void RenderGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer)
     {
-        return RasterPassBuilder{};
+        AddVertex(name, GraphImportBuffer{buffer}, *this);
     }
 
-    ComputePassBuilder RenderGraph::AddComputePass(const std::string &name)
+    void RenderGraph::AddBufferView(const char *name, const char *source, const GraphBufferView &view)
     {
-        return ComputePassBuilder{};
+        auto src = FindVertex(source);
+        SKY_ASSERT(src != INVALID_VERTEX);
+        auto dst = AddVertex(name, view, *this);
+        AddEdge(src, dst, resourceGraph);
     }
 
-    CopyPassBuilder RenderGraph::AddCopyPass(const std::string &name)
+    RasterPassBuilder RenderGraph::AddRasterPass(const char *name)
     {
-        return CopyPassBuilder{};
+        return RasterPassBuilder{*this};
     }
 
+    ComputePassBuilder RenderGraph::AddComputePass(const char *name)
+    {
+        return ComputePassBuilder{*this};
+    }
+
+    CopyPassBuilder RenderGraph::AddCopyPass(const char *name)
+    {
+        return CopyPassBuilder{*this};
+    }
+
+    VertexType RenderGraph::FindVertex(const char *name)
+    {
+        auto iter = std::find(names.begin(), names.end(), name);
+        return iter == names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(names.begin(), iter));
+    }
 
     void RenderGraph::Compile()
     {
-        RenderGraphCompiler compiler;
-
-        auto v1 = boost::add_vertex(nodeGraph);
-        auto v2 = boost::add_vertex(nodeGraph);
-
-        boost::add_edge(v1, v2, nodeGraph);
-
-        boost::depth_first_search(nodeGraph, boost::visitor(compiler));
+        RenderResourceCompiler compiler;
+//        boost::depth_first_search(resourceGraph, boost::visitor(compiler));
     }
-
 }

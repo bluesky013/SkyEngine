@@ -4,88 +4,151 @@
 
 #pragma once
 
-#include<boost/graph/adjacency_list.hpp>
-#include<boost/graph/properties.hpp>
-#include<boost/property_map/property_map.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/properties.hpp>
+#include <boost/property_map/property_map.hpp>
 
-#include <render/rdg/RenderGraphTypes.h>
+#include <core/template/Overloaded.h>
+#include <core/platform/Platform.h>
 #include <rhi/Image.h>
 #include <rhi/Buffer.h>
+#include <render/rdg/RenderGraphTypes.h>
 
 namespace sky::rdg {
-
-    struct RasterView {
-        std::string attachmentName;
-        ResourceAccess access = ResourceAccess::READ;
-        rhi::ImageSubRange range;
-        rhi::ClearValue clear;
-        rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
-        rhi::StoreOp storeOp = rhi::StoreOp::DONT_CARE;
-        rhi::LoadOp  stencilLoad = rhi::LoadOp::DONT_CARE;
-        rhi::StoreOp stencilStore = rhi::StoreOp::DONT_CARE;
-    };
-
-    struct ComputeView {
-        std::string attachmentName;
-        ResourceAccess access = ResourceAccess::READ;
-        bool isUAV = false;
-    };
-
-    struct CopyView {
-        std::string srcName;
-        rhi::ImageSubRange srcRange;
-        rhi::Extent3D srcExtent;
-        rhi::Offset3D srcOffset;
-
-        std::string dstName;
-        rhi::ImageSubRange dstRange;
-        rhi::Extent3D dstExtent;
-        rhi::Offset3D dstOffset;
-    };
+    struct RenderGraph;
 
     struct RasterPassBuilder {
         void AddRasterView(const RasterView &view);
         void AddComputeView(const ComputeView &view);
+
+        RenderGraph &graph;
+        VertexType vertex;
     };
 
     struct ComputePassBuilder {
         void AddComputeView(const ComputeView &view);
+
+        RenderGraph &graph;
+        VertexType vertex;
     };
 
     struct CopyPassBuilder {
         void AddCopyView(const CopyView &view);
+
+        RenderGraph &graph;
+        VertexType vertex;
     };
 
-    class RenderGraph {
+    struct RenderGraph {
     public:
-        RenderGraph()  = default;
+        RenderGraph(PmrResource *res) : resources(res), vertices(resources)
+        {
+        }
+
         ~RenderGraph() = default;
 
-        // pass node dag
-        using NodeGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS>;
+        using Tag = std::variant<RasterPassTag,
+                                 RasterSubPassTag,
+                                 ComputePassTag,
+                                 CopyBlitTag,
+                                 PresentTag,
+                                 ImageTag,
+                                 ImageViewTag,
+                                 ImportImageTag,
+                                 BufferTag,
+                                 ImportBufferTag,
+                                 BufferViewTag>;
 
-        // dependency graph
-        using DependencyGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
+        void AddImage(const char *name, const GraphImage &image);
+        void ImportImage(const char *name, const rhi::ImagePtr &image);
+        void AddImageView(const char *name, const char *source, const GraphImageView &view);
 
-        // resource graph
-        using ResourceGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS>;
+        void AddBuffer(const char *name, const GraphBuffer &attachment);
+        void ImportBuffer(const char *name, const rhi::BufferPtr &buffer);
+        void AddBufferView(const char *name, const char *source, const GraphBufferView &view);
 
-        void AddTexture(const std::string &name, const TextureAttachmentDesc &texture);
-        void ImportTexture(const std::string &name, const rhi::ImagePtr &image);
-
-        void AddBuffer(const std::string &name, const BufferAttachmentDesc &attachment);
-        void ImportBuffer(const std::string &name, const rhi::BufferPtr &buffer);
-
-        RasterPassBuilder AddRasterPass(const std::string &name);
-        ComputePassBuilder AddComputePass(const std::string &name);
-        CopyPassBuilder AddCopyPass(const std::string &name);
+        VertexType FindVertex(const char *name);
 
         void Compile();
+        void Execute();
 
-    private:
-        NodeGraph nodeGraph;
+        RasterPassBuilder  AddRasterPass(const char *name);
+        ComputePassBuilder AddComputePass(const char *name);
+        CopyPassBuilder    AddCopyPass(const char *name);
+
+        PmrVector<VertexType> vertices;
+
+        // components
+        PmrVector<PmrString> names;
+        PmrVector<Tag>       tags;
+        PmrVector<size_t>    polymorphicDatas;
+
+        // resources
+        PmrVector<GraphImage>        images;
+        PmrVector<GraphImportImage>  importImages;
+        PmrVector<GraphImageView>    imageViews;
+        PmrVector<GraphBuffer>       buffers;
+        PmrVector<GraphImportBuffer> importBuffers;
+        PmrVector<GraphBufferView>   bufferViews;
+
+        // passes
+        PmrVector<RasterPass>    rasterPasses;
+        PmrVector<RasterSubPass> subPasses;
+        PmrVector<ComputePass>   computePasses;
+        PmrVector<CopyBlitPass>  copyBlitPasses;
+        PmrVector<PresentPass>   presentPasses;
+
+        PmrResource    *resources;
+        ResourceGraph   resourceGraph;
         DependencyGraph depGraph;
-        ResourceGraph resourceGraph;
+        PassGraph       nodeGraph;
     };
 
+    template <typename D>
+    VertexType AddVertex(const char *name, const D &val, RenderGraph &graph)
+    {
+        using Tag = typename D::Tag;
+
+        VertexType vertex = static_cast<VertexType>(graph.vertices.size());
+        graph.vertices.emplace_back();
+        graph.tags.emplace_back(Tag{});
+        graph.names.emplace_back(PmrString(name, graph.resources));
+
+        if constexpr (std::is_same_v<Tag, ImageTag>) {
+            graph.polymorphicDatas.emplace_back(graph.images.size());
+            graph.images.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, ImageViewTag>) {
+            graph.polymorphicDatas.emplace_back(graph.imageViews.size());
+            graph.imageViews.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, ImportImageTag>) {
+            graph.polymorphicDatas.emplace_back(graph.importImages.size());
+            graph.importImages.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, BufferTag>) {
+            graph.polymorphicDatas.emplace_back(graph.buffers.size());
+            graph.buffers.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, ImportBufferTag>) {
+            graph.polymorphicDatas.emplace_back(graph.importBuffers.size());
+            graph.importBuffers.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, BufferViewTag>) {
+            graph.polymorphicDatas.emplace_back(graph.bufferViews.size());
+            graph.bufferViews.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, RasterPassTag>) {
+            graph.polymorphicDatas.emplace_back(graph.rasterPasses.size());
+            graph.rasterPasses.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, RasterSubPass>) {
+            graph.polymorphicDatas.emplace_back(graph.subPasses.size());
+            graph.subPasses.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, ComputePassTag>) {
+            graph.polymorphicDatas.emplace_back(graph.computePasses.size());
+            graph.computePasses.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, CopyBlitTag>) {
+            graph.polymorphicDatas.emplace_back(graph.copyBlitPasses.size());
+            graph.copyBlitPasses.emplace_back(val);
+        } else if constexpr (std::is_same_v<Tag, PresentTag>) {
+            graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
+            graph.presentPasses.emplace_back(val);
+        }
+
+        return vertex;
+    }
 } // namespace sky
