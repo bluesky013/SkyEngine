@@ -39,9 +39,22 @@ namespace sky::rdg {
         VertexType vertex;
     };
 
+    using ResourceGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
+
     struct RenderGraph {
     public:
-        RenderGraph(PmrResource *res) : resources(res), vertices(resources)
+        explicit RenderGraph(PmrResource *res)
+            : resources(res)
+            , vertices(res)
+            , names(res)
+            , tags(res)
+            , polymorphicDatas(res)
+            , images(res)
+            , importImages(res)
+            , imageViews(res)
+            , buffers(res)
+            , importBuffers(res)
+            , bufferViews(res)
         {
         }
 
@@ -76,7 +89,11 @@ namespace sky::rdg {
         ComputePassBuilder AddComputePass(const char *name);
         CopyPassBuilder    AddCopyPass(const char *name);
 
-        PmrVector<VertexType> vertices;
+        // memory
+        PmrResource    *resources;
+
+        // vertex
+        VertexList vertices;
 
         // components
         PmrVector<PmrString> names;
@@ -98,10 +115,9 @@ namespace sky::rdg {
         PmrVector<CopyBlitPass>  copyBlitPasses;
         PmrVector<PresentPass>   presentPasses;
 
-        PmrResource    *resources;
         ResourceGraph   resourceGraph;
-        DependencyGraph depGraph;
-        PassGraph       nodeGraph;
+//        DependencyGraph depGraph;
+//        PassGraph       nodeGraph;
     };
 
     template <typename D>
@@ -109,7 +125,7 @@ namespace sky::rdg {
     {
         using Tag = typename D::Tag;
 
-        VertexType vertex = static_cast<VertexType>(graph.vertices.size());
+        auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
         graph.names.emplace_back(PmrString(name, graph.resources));

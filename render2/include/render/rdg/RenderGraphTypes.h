@@ -148,33 +148,30 @@ namespace sky::rdg {
 
     using VertexType = uint32_t;
     static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
+    using VertexList = PmrVector<VertexType>;
 
-    struct PassGraph {
-        using vertex_descriptor = VertexType;
+    template <class Key>
+    struct ColorMap : public boost::put_get_helper<boost::default_color_type &, ColorMap<Key>> {
+        using value_type = boost::default_color_type;
+        using reference = boost::default_color_type &;
+        using key_type = Key;
+        using category = boost::lvalue_property_map_tag;
+
+        explicit ColorMap(PmrVector<Key> &vec) noexcept
+            : container{vec} {}
+
+        inline reference operator[](const size_t &v) const noexcept {
+            return container[v];
+        }
+        inline reference operator()(const size_t &v) const noexcept {
+            return operator[](v);
+        }
+
+        PmrVector<Key> &container;
     };
 
-    struct ResourceGraph {
-        using vertex_descriptor = VertexType;
-        using directed_category = boost::directed_tag;
-        using edge_parallel_category = boost::allow_parallel_edge_tag;
-        using traversal_category = boost::vertex_list_graph_tag;
-        using edge_descriptor = VertexType;
-
-        using OutEdgeList = PmrVector<edge_descriptor>;
-        using out_edge_iterator = OutEdgeList::iterator;
-
-        PmrHashMap<VertexType, OutEdgeList> outEdges;
-    };
-
-    template <typename Graph>
-    struct DirectedGraphHelper : public boost::directed_graph_helper<Graph> {
-        using graph_type = Graph;
-        Graph &graph;
-    };
-
-    struct DependencyGraph {
-        using vertex_descriptor = VertexType;
-    };
+    template <class T>
+    ColorMap(PmrVector<T>&) -> ColorMap<T>;
 
     template <typename Graph>
     void AddEdge(typename Graph::vertex_descriptor u, typename Graph::vertex_descriptor v, Graph &graph)

@@ -10,7 +10,8 @@ using namespace sky;
 
 TEST(RenderGraphTest, NodeGraphTest01)
 {
-    RenderGraph graph;
+    PmrUnSyncPoolRes res;
+    rdg::RenderGraph graph(&res);
     graph.Compile();
 
 }

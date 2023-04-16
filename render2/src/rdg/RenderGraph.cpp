@@ -22,7 +22,7 @@ namespace sky::rdg {
         auto src = FindVertex(source);
         SKY_ASSERT(src != INVALID_VERTEX);
         auto dst = AddVertex(name, view, *this);
-        AddEdge(src, dst, resourceGraph);
+        add_edge(src, dst, resourceGraph);
     }
 
     void RenderGraph::AddBuffer(const char *name, const GraphBuffer &buffer)
@@ -40,7 +40,7 @@ namespace sky::rdg {
         auto src = FindVertex(source);
         SKY_ASSERT(src != INVALID_VERTEX);
         auto dst = AddVertex(name, view, *this);
-        AddEdge(src, dst, resourceGraph);
+        add_edge(src, dst, resourceGraph);
     }
 
     RasterPassBuilder RenderGraph::AddRasterPass(const char *name)
@@ -66,7 +66,14 @@ namespace sky::rdg {
 
     void RenderGraph::Compile()
     {
+        AddImage("test", {});
+        AddImageView("test_1", "test", {});
+        AddImageView("test_2", "test",{});
+        AddImage("test2", {});
+
         RenderResourceCompiler compiler;
-//        boost::depth_first_search(resourceGraph, boost::visitor(compiler));
+
+        PmrVector<boost::default_color_type> colors(vertices.size(), resources);
+        boost::depth_first_search(resourceGraph, compiler, ColorMap(colors));
     }
 }
