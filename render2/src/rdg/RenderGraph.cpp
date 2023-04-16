@@ -59,19 +59,34 @@ namespace sky::rdg {
         add_edge(src, dst, resourceGraph);
     }
 
-    RasterPassBuilder RenderGraph::AddRasterPass(const char *name)
+    RasterPassBuilder RenderGraph::AddRasterPass(const char *name, uint32_t width, uint32_t height)
     {
-        return RasterPassBuilder{*this};
+        auto vtx = AddVertex(name, RasterPass(width, height, &context->resources), *this);
+        add_edge(0, vtx, passGraph);
+        return RasterPassBuilder{*this, rasterPasses[polymorphicDatas[vtx]], vtx};
+    }
+
+    RasterSubPassBuilder RenderGraph::AddRasterSubPass(const char *name, const char *pass)
+    {
+        auto src = FindVertex(pass);
+        SKY_ASSERT(src != INVALID_VERTEX);
+        auto dst = AddVertex(name, RasterSubPass{&context->resources}, *this);
+        add_edge(src, dst, passGraph);
+        return RasterSubPassBuilder{*this, rasterPasses[polymorphicDatas[src]], subPasses[polymorphicDatas[dst]], dst};
     }
 
     ComputePassBuilder RenderGraph::AddComputePass(const char *name)
     {
-        return ComputePassBuilder{*this};
+        auto vtx = AddVertex(name, ComputePass{&context->resources}, *this);
+        add_edge(0, vtx, passGraph);
+        return ComputePassBuilder{*this, vtx};
     }
 
     CopyPassBuilder RenderGraph::AddCopyPass(const char *name)
     {
-        return CopyPassBuilder{*this};
+        auto vtx = AddVertex(name, CopyBlitPass{&context->resources}, *this);
+        add_edge(0, vtx, passGraph);
+        return CopyPassBuilder{*this, vtx};
     }
 
     VertexType RenderGraph::FindVertex(const char *name)
@@ -80,4 +95,34 @@ namespace sky::rdg {
         return iter == names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(names.begin(), iter));
     }
 
+
+    RasterPassBuilder &RasterPassBuilder::AddRasterView(const char *name, const RasterView &view)
+    {
+        auto res = graph.FindVertex(name);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
+        pass.rasterViews.emplace_back(view);
+        if (view.access & ResourceAccessBit::READ) {
+            add_edge(res, vertex, graph.dependencyGraph);
+        }
+        if (view.access & ResourceAccessBit::WRITE) {
+            add_edge(vertex, res, graph.dependencyGraph);
+        }
+        return *this;
+    }
+
+    RasterPassBuilder &RasterPassBuilder::AddComputeView(const char *name, const ComputeView &view)
+    {
+        auto res = graph.FindVertex(name);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
+        pass.computeViews.emplace_back(view);
+        if (view.access & ResourceAccessBit::READ) {
+            add_edge(res, vertex, graph.dependencyGraph);
+        }
+        if (view.access & ResourceAccessBit::WRITE) {
+            add_edge(vertex, res, graph.dependencyGraph);
+        }
+        return *this;
+    }
 }

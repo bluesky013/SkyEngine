@@ -24,9 +24,25 @@ namespace sky::rdg {
         RenderGraph &graph;
     };
 
-    struct RenderGraphCompiler : boost::dfs_visitor<> {
-        RenderGraphCompiler() = default;
-        ~RenderGraphCompiler() = default;
+    struct RenderGraphPassCompiler : boost::dfs_visitor<> {
+        RenderGraphPassCompiler(RenderGraph &g) : graph(g) {}
+
+        using Vertex = boost::graph_traits<PassGraph>::vertex_descriptor;
+        using Edge = boost::graph_traits<PassGraph>::edge_descriptor;
+        using Graph = PassGraph;
+
+        void discover_vertex(Vertex u, const Graph& g);
+
+        void CompilePass(RasterPass &pass);
+        void CompilePass(ComputePass &pass);
+        void CompilePass(CopyBlitPass &pass);
+
+        RenderGraph &graph;
+    };
+
+    struct RenderDependencyCompiler : boost::dfs_visitor<> {
+        RenderDependencyCompiler() = default;
+        ~RenderDependencyCompiler() = default;
     };
 
 }

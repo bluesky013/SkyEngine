@@ -377,6 +377,21 @@ namespace sky::rhi {
     };
 
     union ClearValue {
+        ClearValue() noexcept = default;
+        ClearValue(float r, float g, float b, float a) noexcept
+        {
+            color.float32[0] = r;
+            color.float32[1] = g;
+            color.float32[2] = b;
+            color.float32[3] = a;
+        }
+
+        ClearValue(float d, uint32_t s) noexcept
+        {
+            depthStencil.depth = d;
+            depthStencil.stencil = s;
+        }
+
         ClearColorValue        color;
         ClearDepthStencilValue depthStencil;
     };
@@ -503,4 +518,4 @@ namespace sky::rhi {
         uint64_t range  = 0;
         PixelFormat format = PixelFormat::UNDEFINED;
     };
-}
+} // namespace sky

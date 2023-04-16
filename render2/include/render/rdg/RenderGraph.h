@@ -10,8 +10,6 @@
 
 #include <core/template/Overloaded.h>
 #include <core/platform/Platform.h>
-#include <rhi/Image.h>
-#include <rhi/Buffer.h>
 #include <render/rdg/RenderGraphContext.h>
 #include <render/rdg/RenderGraphTypes.h>
 
@@ -19,28 +17,41 @@ namespace sky::rdg {
     struct RenderGraph;
 
     struct RasterPassBuilder {
-        void AddRasterView(const RasterView &view);
-        void AddComputeView(const ComputeView &view);
+        RasterPassBuilder &AddRasterView(const char *name, const RasterView &view);
+        RasterPassBuilder &AddComputeView(const char *name, const ComputeView &view);
 
         RenderGraph &graph;
+        RasterPass &pass;
+        VertexType vertex;
+    };
+
+    struct RasterSubPassBuilder {
+        RasterSubPassBuilder &AddRasterView(const char *name, const RasterView &view);
+        RasterSubPassBuilder &AddComputeView(const char *name, const ComputeView &view);
+
+        RenderGraph &graph;
+        RasterPass &pass;
+        RasterSubPass &subPass;
         VertexType vertex;
     };
 
     struct ComputePassBuilder {
-        void AddComputeView(const ComputeView &view);
+        ComputePassBuilder &AddComputeView(const char *name, const ComputeView &view);
 
         RenderGraph &graph;
         VertexType vertex;
     };
 
     struct CopyPassBuilder {
-        void AddCopyView(const CopyView &view);
+        CopyPassBuilder &AddCopyView(const CopyView &view);
 
         RenderGraph &graph;
         VertexType vertex;
     };
 
     using ResourceGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
+    using PassGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
+    using DependencyGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
 
     struct RenderGraph {
     public:
@@ -70,9 +81,10 @@ namespace sky::rdg {
 
         VertexType FindVertex(const char *name);
 
-        RasterPassBuilder  AddRasterPass(const char *name);
-        ComputePassBuilder AddComputePass(const char *name);
-        CopyPassBuilder    AddCopyPass(const char *name);
+        RasterPassBuilder    AddRasterPass(const char *name, uint32_t width, uint32_t height);
+        RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
+        ComputePassBuilder   AddComputePass(const char *name);
+        CopyPassBuilder      AddCopyPass(const char *name);
 
         // memory
         RenderGraphContext *context;
@@ -101,8 +113,8 @@ namespace sky::rdg {
         PmrVector<PresentPass>   presentPasses;
 
         ResourceGraph resourceGraph;
-//        DependencyGraph depGraph;
-//        PassGraph       nodeGraph;
+        PassGraph     passGraph;
+        DependencyGraph dependencyGraph;
     };
 
     template <typename D>

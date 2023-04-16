@@ -10,7 +10,10 @@
 #include <rhi/Core.h>
 #include <rhi/Image.h>
 #include <rhi/Buffer.h>
+#include <rhi/RenderPass.h>
+#include <rhi/FrameBuffer.h>
 #include <rhi/Swapchain.h>
+#include <rhi/ComputePipeline.h>
 
 namespace sky::rdg {
 
@@ -19,26 +22,36 @@ namespace sky::rdg {
         PERSISTENT,
     };
 
-    enum class ResourceAccess {
-        READ,
-        WRITE,
-        READ_WRITE
+    enum class RenderTargetType {
+        COLOR,
+        RESOLVE,
+        INPUT,
+        RESERVE,
+        DEPTH_STENCIL,
     };
 
+    enum class ResourceAccessBit : uint32_t {
+        READ = 0x01,
+        WRITE = 0x02,
+        READ_WRITE = READ | WRITE
+    };
+    using ResourceAccess = Flags<ResourceAccessBit>;
+    ENABLE_FLAG_BIT_OPERATOR(ResourceAccessBit)
+
     struct RasterView {
-        std::string attachmentName;
-        ResourceAccess access = ResourceAccess::READ;
-        rhi::ImageSubRange range;
+        RenderTargetType type;
+        ResourceAccess access = ResourceAccessBit::READ;
         rhi::ClearValue clear;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp storeOp = rhi::StoreOp::DONT_CARE;
         rhi::LoadOp  stencilLoad = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp stencilStore = rhi::StoreOp::DONT_CARE;
+        rhi::SampleCount sampleCount = rhi::SampleCount::X1;
     };
 
     struct ComputeView {
         std::string attachmentName;
-        ResourceAccess access = ResourceAccess::READ;
+        ResourceAccess access = ResourceAccessBit::READ;
         bool isUAV = false;
     };
 
@@ -73,31 +86,44 @@ namespace sky::rdg {
     };
 
     struct RasterSubPass {
+        RasterSubPass(PmrResource *res) : rasterViews(res), computeViews(res) {}
+
         using Tag = RasterSubPassTag;
 
-        PmrHashMap<std::string, RasterView> rasterViews;
-        PmrHashMap<std::string, ComputeView> computeViews;
+        PmrVector<RasterView> rasterViews;
+        PmrVector<ComputeView> computeViews;
     };
 
     struct RasterPass {
-        using Tag = RasterPassTag;
+        RasterPass(uint32_t w, uint32_t h, PmrResource *res)
+            : width(w)
+            , height(h)
+            , attachments(res)
+            , rasterViews(res)
+            , computeViews(res) {}
 
-        PmrHashMap<std::string, RasterView> rasterViews;
-        PmrHashMap<std::string, ComputeView> computeViews;
+        using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
+        PmrHashMap<std::string, rhi::ImageViewPtr> attachments;
+        PmrVector<RasterView> rasterViews;
+        PmrVector<ComputeView> computeViews;
+        rhi::RenderPassPtr renderPass;
+        rhi::FrameBufferPtr frameBuffer;
     };
 
     struct ComputePass {
-        using Tag = ComputePassTag;
+        ComputePass(PmrResource *res) : computeViews(res) {}
 
+        using Tag = ComputePassTag;
         PmrHashMap<std::string, ComputeView> computeViews;
     };
 
     struct CopyBlitPass {
-        using Tag = CopyBlitTag;
+        CopyBlitPass(PmrResource *res) : views(res) {}
 
-        std::vector<CopyView> views;
+        using Tag = CopyBlitTag;
+        PmrVector<CopyView> views;
     };
 
     struct PresentPass {

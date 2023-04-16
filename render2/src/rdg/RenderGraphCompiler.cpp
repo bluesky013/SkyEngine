@@ -85,4 +85,45 @@ namespace sky::rdg {
                        [&](const auto &) {}
         }, graph.tags[u]);
     }
+
+    void RenderGraphPassCompiler::CompilePass(RasterPass &pass)
+    {
+        rhi::RenderPass::Descriptor passDesc = {};
+
+
+    }
+
+    void RenderGraphPassCompiler::CompilePass(ComputePass &pass)
+    {
+
+    }
+
+    void RenderGraphPassCompiler::CompilePass(CopyBlitPass &pass)
+    {
+
+    }
+
+    void RenderGraphPassCompiler::discover_vertex(Vertex u, const Graph& g)
+    {
+        LOG_I(TAG, "compile passes %s....", graph.names[u].c_str());
+        std::visit(Overloaded{
+                       [&](const RasterPassTag &) {
+                           auto &raster = graph.rasterPasses[graph.polymorphicDatas[u]];
+                           CompilePass(raster);
+                       },
+                       [&](const RasterSubPassTag &) {
+                           auto &sub = graph.subPasses[graph.polymorphicDatas[u]];
+                       },
+                       [&](const ComputePassTag &) {
+                           auto &compute = graph.computePasses[graph.polymorphicDatas[u]];
+                       },
+                       [&](const CopyBlitTag &) {
+                           auto &cb = graph.copyBlitPasses[graph.polymorphicDatas[u]];
+                       },
+                       [&](const PresentTag &) {
+                           auto &present = graph.presentPasses[graph.polymorphicDatas[u]];
+                       },
+                       [&](const auto &) {}
+                   }, graph.tags[u]);
+    }
 }
