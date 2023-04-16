@@ -15,15 +15,14 @@ namespace sky::rhi {
         virtual ~Image() = default;
 
         struct Descriptor {
-            ImageType       imageType   = ImageType::IMAGE_2D;
-            PixelFormat     format      = PixelFormat::UNDEFINED;
-            Extent3D        extent      = {1, 1, 1};
-            uint32_t        mipLevels   = 1;
-            uint32_t        arrayLayers = 1;
-            uint32_t        samples     = 1;
-            ImageUsageFlags usage       = ImageUsageFlagBit::NONE;
-            MemoryType      memory      = MemoryType::GPU_ONLY;
-            bool            allocateMem = true;
+            ImageType        imageType   = ImageType::IMAGE_2D;
+            PixelFormat      format      = PixelFormat::UNDEFINED;
+            Extent3D         extent      = {1, 1, 1};
+            uint32_t         mipLevels   = 1;
+            uint32_t         arrayLayers = 1;
+            rhi::SampleCount samples     = rhi::SampleCount::X1;
+            ImageUsageFlags  usage       = ImageUsageFlagBit::NONE;
+            MemoryType       memory      = MemoryType::GPU_ONLY;
         };
 
         const Descriptor &GetDescriptor() const { return imageDesc; };

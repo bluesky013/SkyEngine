@@ -19,6 +19,8 @@ namespace sky::gles {
         const ImagePtr &GetImage() const { return source; }
         GLuint GetNativeHandle() const { return source->GetNativeHandle(); }
 
+        std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const override;
+
     private:
         friend class Image;
         ImagePtr source;

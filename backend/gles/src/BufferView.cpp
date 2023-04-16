@@ -25,4 +25,9 @@ namespace sky::gles {
         CHECK(glBindBuffer(source->GetGLTarget(), 0));
     }
 
+    std::shared_ptr<rhi::BufferView> BufferView::CreateView(const rhi::BufferViewDesc &desc) const
+    {
+        return source->CreateView(desc);
+    }
+
 }

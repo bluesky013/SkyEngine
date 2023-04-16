@@ -6,6 +6,7 @@
 
 #include <rhi/ImageView.h>
 #include <dx12/DevObject.h>
+#include <dx12/Image.h>
 
 namespace sky::dx {
 
@@ -13,6 +14,12 @@ namespace sky::dx {
     public:
         ImageView(Device &dev);
         ~ImageView() override;
+
+        std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const;
+
+    private:
+        friend class Image;
+        ImagePtr source;
     };
 
 }

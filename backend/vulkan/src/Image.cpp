@@ -94,14 +94,10 @@ namespace sky::vk {
             LOG_E(TAG, "image not supported %d", res);
         }
 
-        if (des.allocateMem) {
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage                   = FromRHI(des.memory);
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.usage                   = FromRHI(des.memory);
 
-            res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
-        } else {
-            res = vkCreateImage(device.GetNativeHandle(), &imageInfo, nullptr, &image);
-        }
+        res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
         if (res != VK_SUCCESS) {
             LOG_E(TAG, "create image failed %d", res);
             return false;

@@ -54,6 +54,7 @@ namespace sky::rdg {
         rhi::Offset3D dstOffset;
     };
 
+    struct RootTag {};
     struct RasterPassTag {};
     struct RasterSubPassTag {};
     struct ComputePassTag {};
@@ -63,9 +64,13 @@ namespace sky::rdg {
     struct ImageTag {};
     struct ImportImageTag {};
     struct ImageViewTag {};
-    struct ImportBufferTag {};
     struct BufferTag {};
+    struct ImportBufferTag {};
     struct BufferViewTag {};
+
+    struct Root {
+        using Tag = RootTag;
+    };
 
     struct RasterSubPass {
         using Tag = RasterSubPassTag;
@@ -104,20 +109,23 @@ namespace sky::rdg {
     struct GraphImportImage {
         using Tag = ImportImageTag;
 
-        rhi::ImagePtr image;
+        rhi::ImagePtr      image;
+        rhi::ImageViewType viewType = rhi::ImageViewType::VIEW_2D;
+        rhi::AspectFlags   mask     = rhi::AspectFlagBit::COLOR_BIT;
     };
 
     struct GraphImage {
         using Tag = ImageTag;
 
-        rhi::Extent3D extent = {1, 1, 1};
-        uint32_t mipLevel = 1;
-        uint32_t arrayLayer = 1;
-
-        rhi::SampleCount sample = rhi::SampleCount::X1;
-        rhi::PixelFormat format = rhi::PixelFormat::RGBA8_UNORM;
-        rhi::ImageUsageFlags usage = rhi::ImageUsageFlagBit::NONE;
-        ResourceResidency residency = ResourceResidency::PERSISTENT;
+        rhi::Extent3D        extent      = {1, 1, 1};
+        uint32_t             mipLevels   = 1;
+        uint32_t             arrayLayers = 1;
+        rhi::PixelFormat     format      = rhi::PixelFormat::RGBA8_UNORM;
+        rhi::ImageUsageFlags usage       = rhi::ImageUsageFlagBit::NONE;
+        rhi::AspectFlags     mask        = rhi::AspectFlagBit::COLOR_BIT;
+        rhi::SampleCount     samples     = rhi::SampleCount::X1;
+        rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
+        ResourceResidency    residency   = ResourceResidency::PERSISTENT;
     };
 
     struct GraphImageView {
@@ -172,6 +180,22 @@ namespace sky::rdg {
 
     template <class T>
     ColorMap(PmrVector<T>&) -> ColorMap<T>;
+
+    template <typename T>
+    struct ImageViewRes {
+        ImageViewRes(const T &v) : desc(v) {}
+
+        T desc;
+        rhi::ImageViewPtr res;
+    };
+
+    template <typename T>
+    struct BufferViewRes {
+        BufferViewRes(const T &v) : desc(v) {}
+
+        T desc;
+        rhi::BufferViewPtr res;
+    };
 
     template <typename Graph>
     void AddEdge(typename Graph::vertex_descriptor u, typename Graph::vertex_descriptor v, Graph &graph)

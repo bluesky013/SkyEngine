@@ -493,9 +493,9 @@ namespace sky::rhi {
     };
 
     struct ImageViewDesc {
-        ImageViewType viewType = ImageViewType::VIEW_2D;
         ImageSubRange subRange = {0, 1, 0, 1};
         AspectFlags   mask = rhi::AspectFlagBit::COLOR_BIT;
+        ImageViewType viewType = ImageViewType::VIEW_2D;
     };
 
     struct BufferViewDesc {

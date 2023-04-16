@@ -6,6 +6,7 @@
 
 #include <rhi/BufferView.h>
 #include <dx12/DevObject.h>
+#include <dx12/Buffer.h>
 
 namespace sky::dx {
 
@@ -13,6 +14,11 @@ namespace sky::dx {
     public:
         BufferView(Device &dev);
         ~BufferView() override;
+
+        std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
+
+    private:
+        BufferPtr source;
     };
 
-}
+} // namespace sky::dx

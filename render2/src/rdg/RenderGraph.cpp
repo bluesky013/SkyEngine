@@ -7,14 +7,30 @@
 
 namespace sky::rdg {
 
+    RenderGraph::RenderGraph(RenderGraphContext *ctx)
+        : context(ctx)
+        , vertices(&ctx->resources)
+        , names(&ctx->resources)
+        , tags(&ctx->resources)
+        , polymorphicDatas(&ctx->resources)
+        , images(&ctx->resources)
+        , importImages(&ctx->resources)
+        , imageViews(&ctx->resources)
+        , buffers(&ctx->resources)
+        , importBuffers(&ctx->resources)
+        , bufferViews(&ctx->resources)
+    {
+        AddVertex("root", Root{}, *this);
+    }
+
     void RenderGraph::AddImage(const char *name, const GraphImage &image)
     {
-        AddVertex(name, image, *this);
+        add_edge(0, AddVertex(name, image, *this), resourceGraph);
     }
 
     void RenderGraph::ImportImage(const char *name, const rhi::ImagePtr &image)
     {
-        AddVertex(name, GraphImportImage{image}, *this);
+        add_edge(0, AddVertex(name, GraphImportImage{image}, *this), resourceGraph);
     }
 
     void RenderGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
@@ -27,12 +43,12 @@ namespace sky::rdg {
 
     void RenderGraph::AddBuffer(const char *name, const GraphBuffer &buffer)
     {
-        AddVertex(name, buffer, *this);
+        add_edge(0, AddVertex(name, buffer, *this), resourceGraph);
     }
 
     void RenderGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer)
     {
-        AddVertex(name, GraphImportBuffer{buffer}, *this);
+        add_edge(0, AddVertex(name, GraphImportBuffer{buffer}, *this), resourceGraph);
     }
 
     void RenderGraph::AddBufferView(const char *name, const char *source, const GraphBufferView &view)
@@ -64,16 +80,4 @@ namespace sky::rdg {
         return iter == names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(names.begin(), iter));
     }
 
-    void RenderGraph::Compile()
-    {
-        AddImage("test", {});
-        AddImageView("test_1", "test", {});
-        AddImageView("test_2", "test",{});
-        AddImage("test2", {});
-
-        RenderResourceCompiler compiler;
-
-        PmrVector<boost::default_color_type> colors(vertices.size(), resources);
-        boost::depth_first_search(resourceGraph, compiler, ColorMap(colors));
-    }
 }

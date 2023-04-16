@@ -18,6 +18,8 @@ namespace sky::rhi {
         virtual uint8_t *Map() { return nullptr; }
         virtual void UnMap() {}
 
+        virtual std::shared_ptr<BufferView> CreateView(const BufferViewDesc &) const = 0;
+
     protected:
         BufferViewDesc viewDesc;
     };

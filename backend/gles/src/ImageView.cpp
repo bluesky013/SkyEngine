@@ -13,4 +13,8 @@ namespace sky::gles {
         return true;
     }
 
+    std::shared_ptr<rhi::ImageView> ImageView::CreateView(const rhi::ImageViewDesc &desc) const
+    {
+        return source->CreateView(desc);
+    }
 }

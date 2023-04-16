@@ -19,7 +19,6 @@ namespace sky::rhi {
             uint64_t                  size = 0;
             Flags<BufferUsageFlagBit> usage;
             MemoryType                memory      = MemoryType::GPU_ONLY;
-            bool                      allocateMem = true;
         };
         virtual rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) = 0;
         virtual uint8_t *Map() { return nullptr; }

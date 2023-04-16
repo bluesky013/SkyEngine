@@ -28,6 +28,7 @@ namespace sky::vk {
         };
 
         static std::shared_ptr<ImageView> CreateImageView(const ImagePtr &image, const ImageView::VkDescriptor &des);
+        std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const override;
 
         VkImageView GetNativeHandle() const;
 

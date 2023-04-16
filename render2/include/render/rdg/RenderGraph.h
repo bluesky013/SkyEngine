@@ -12,6 +12,7 @@
 #include <core/platform/Platform.h>
 #include <rhi/Image.h>
 #include <rhi/Buffer.h>
+#include <render/rdg/RenderGraphContext.h>
 #include <render/rdg/RenderGraphTypes.h>
 
 namespace sky::rdg {
@@ -43,24 +44,11 @@ namespace sky::rdg {
 
     struct RenderGraph {
     public:
-        explicit RenderGraph(PmrResource *res)
-            : resources(res)
-            , vertices(res)
-            , names(res)
-            , tags(res)
-            , polymorphicDatas(res)
-            , images(res)
-            , importImages(res)
-            , imageViews(res)
-            , buffers(res)
-            , importBuffers(res)
-            , bufferViews(res)
-        {
-        }
-
+        explicit RenderGraph(RenderGraphContext *ctx);
         ~RenderGraph() = default;
 
-        using Tag = std::variant<RasterPassTag,
+        using Tag = std::variant<RootTag,
+                                 RasterPassTag,
                                  RasterSubPassTag,
                                  ComputePassTag,
                                  CopyBlitTag,
@@ -82,15 +70,12 @@ namespace sky::rdg {
 
         VertexType FindVertex(const char *name);
 
-        void Compile();
-        void Execute();
-
         RasterPassBuilder  AddRasterPass(const char *name);
         ComputePassBuilder AddComputePass(const char *name);
         CopyPassBuilder    AddCopyPass(const char *name);
 
         // memory
-        PmrResource    *resources;
+        RenderGraphContext *context;
 
         // vertex
         VertexList vertices;
@@ -101,12 +86,12 @@ namespace sky::rdg {
         PmrVector<size_t>    polymorphicDatas;
 
         // resources
-        PmrVector<GraphImage>        images;
-        PmrVector<GraphImportImage>  importImages;
-        PmrVector<GraphImageView>    imageViews;
-        PmrVector<GraphBuffer>       buffers;
-        PmrVector<GraphImportBuffer> importBuffers;
-        PmrVector<GraphBufferView>   bufferViews;
+        PmrVector<ImageViewRes<GraphImage>>         images;
+        PmrVector<ImageViewRes<GraphImportImage>>   importImages;
+        PmrVector<ImageViewRes<GraphImageView>>     imageViews;
+        PmrVector<BufferViewRes<GraphBuffer>>       buffers;
+        PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
+        PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
 
         // passes
         PmrVector<RasterPass>    rasterPasses;
@@ -115,7 +100,7 @@ namespace sky::rdg {
         PmrVector<CopyBlitPass>  copyBlitPasses;
         PmrVector<PresentPass>   presentPasses;
 
-        ResourceGraph   resourceGraph;
+        ResourceGraph resourceGraph;
 //        DependencyGraph depGraph;
 //        PassGraph       nodeGraph;
     };
@@ -128,7 +113,7 @@ namespace sky::rdg {
         auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
-        graph.names.emplace_back(PmrString(name, graph.resources));
+        graph.names.emplace_back(PmrString(name, &graph.context->resources));
 
         if constexpr (std::is_same_v<Tag, ImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.images.size());
@@ -163,6 +148,8 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
             graph.presentPasses.emplace_back(val);
+        } else {
+            graph.polymorphicDatas.emplace_back(0);
         }
 
         return vertex;

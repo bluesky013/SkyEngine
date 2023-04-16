@@ -38,8 +38,8 @@ namespace sky::gles {
         if (renderBuffer) {
             CHECK(glGenRenderbuffers(1, &texId));
             CHECK(glBindRenderbuffer(GL_RENDERBUFFER, texId));
-            if (imageDesc.samples > 1) {
-                CHECK(glRenderbufferStorageMultisample(GL_RENDERBUFFER, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
+            if (imageDesc.samples > rhi::SampleCount::X1) {
+                CHECK(glRenderbufferStorageMultisample(GL_RENDERBUFFER, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             } else {
                 CHECK(glRenderbufferStorage(GL_RENDERBUFFER, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             }
@@ -48,8 +48,8 @@ namespace sky::gles {
 
             if (imageDesc.arrayLayers == 1) {
                 glBindTexture(GL_TEXTURE_2D, texId);
-                if (imageDesc.samples > 1) {
-                    CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, GL_FALSE));
+                if (imageDesc.samples > rhi::SampleCount::X1) {
+                    CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height, GL_FALSE));
                 } else {
                     CHECK(glTexStorage2D(GL_TEXTURE_2D, imageDesc.mipLevels, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
                 }
@@ -60,8 +60,8 @@ namespace sky::gles {
 
                 CHECK(glBindTexture(target, texId));
 
-                if (imageDesc.samples > 1) {
-                    CHECK(glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, imageDesc.samples, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, depth, GL_FALSE));
+                if (imageDesc.samples > rhi::SampleCount::X1) {
+                    CHECK(glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height, depth, GL_FALSE));
                 } else {
                     CHECK(glTexStorage3D(target, imageDesc.mipLevels, fmt.internal, imageDesc.extent.width, imageDesc.extent.height, depth));
                 }

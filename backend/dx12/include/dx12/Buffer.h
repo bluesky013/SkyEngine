@@ -14,5 +14,5 @@ namespace sky::dx {
         Buffer(Device &dev);
         ~Buffer() override;
     };
-
+    using BufferPtr = std::shared_ptr<Buffer>;
 }

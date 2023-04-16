@@ -14,5 +14,5 @@ namespace sky::dx {
         Image(Device &dev);
         ~Image() override;
     };
-
+    using ImagePtr = std::shared_ptr<Image>;
 }

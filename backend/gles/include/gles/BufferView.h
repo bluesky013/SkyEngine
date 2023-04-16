@@ -21,6 +21,8 @@ namespace sky::gles {
         uint8_t *Map() override;
         void UnMap() override;
 
+        std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
+
     private:
         friend class Buffer;
         BufferPtr source;

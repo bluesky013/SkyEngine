@@ -15,6 +15,8 @@ namespace sky::rhi {
 
         const ImageViewDesc &GetViewDesc() const { return viewDesc; }
 
+        virtual std::shared_ptr<ImageView> CreateView(const ImageViewDesc &desc) const = 0;
+
     protected:
         ImageViewDesc viewDesc;
     };
