@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <string_view>
 #include <framework/asset/AssetBuilder.h>
 
 namespace sky::builder {

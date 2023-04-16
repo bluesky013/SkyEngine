@@ -8,7 +8,7 @@
 #include <vector>
 #include <rhi/Instance.h>
 #include <rhi/Device.h>
-#include <metal/Device.h>
+#include <mtl/Device.h>
 
 namespace MTL {
     class Device;

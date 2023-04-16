@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/11/4.
 //
 
-#include <metal/Device.h>
-#include <metal/Instance.h>
+#include <mtl/Device.h>
+#include <mtl/Instance.h>
 
 static const char* TAG = "Metal";
 
@@ -17,6 +17,7 @@ namespace sky::mtl {
     {
         const auto &mtlDevices = instance.GetMtlDevices();
         device = mtlDevices.front();
+        return true;
     }
 
     MTL::Device *Device::GetMetalDevice() const

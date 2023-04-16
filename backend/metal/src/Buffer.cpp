@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/11/4.
 //
 
-#include <metal/Buffer.h>
-#include <metal/Device.h>
+#include <mtl/Buffer.h>
+#include <mtl/Device.h>
 
 namespace sky::mtl {
 

@@ -20,6 +20,7 @@ sky_add_library(TARGET MetalRHI SHARED
         Core
         RHI
         3rdParty::metal-cpp
+        3rdParty::metal-cpp-extensions
         ${PLATFORM_EXT_LIBS}
         ${METAL_EXT_LIBS}
     )

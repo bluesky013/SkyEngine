@@ -5,7 +5,8 @@
 #pragma once
 
 #include <rhi/Image.h>
-#include <metal/DevObject.h>
+#include <mtl/DevObject.h>
+
 #include <Metal/MTLTexture.hpp>
 
 namespace sky::mtl {

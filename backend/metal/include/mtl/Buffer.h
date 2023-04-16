@@ -5,7 +5,8 @@
 #pragma once
 
 #include <rhi/Buffer.h>
-#include <metal/DevObject.h>
+#include <mtl/DevObject.h>
+
 #include <Metal/MTLBuffer.hpp>
 
 namespace sky::mtl {

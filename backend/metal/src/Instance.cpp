@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2022/11/4.
 //
 
-#include <metal/Instance.h>
-#include <metal/Device.h>
+#include <mtl/Instance.h>
+#include <mtl/Device.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 #include <core/util/DynamicModule.h>
@@ -31,13 +31,12 @@ namespace sky::mtl {
 
     rhi::Device *Instance::CreateDevice(const rhi::Device::Descriptor &des)
     {
-//        auto *device = new Device(*this);
-//        if (!device->Init(des)) {
-//            delete device;
-//            device = nullptr;
-//        }
-//        return device;
-        return nullptr;
+        auto *device = new Device(*this);
+        if (!device->Init(des)) {
+            delete device;
+            device = nullptr;
+        }
+        return device;
     }
 
     bool Instance::Init(const Descriptor &des)
