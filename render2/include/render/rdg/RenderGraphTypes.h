@@ -67,6 +67,10 @@ namespace sky::rdg {
         rhi::Offset3D dstOffset;
     };
 
+    using VertexType = uint32_t;
+    static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
+    using VertexList = PmrVector<VertexType>;
+
     struct RootTag {};
     struct RasterPassTag {};
     struct RasterSubPassTag {};
@@ -98,16 +102,13 @@ namespace sky::rdg {
         RasterPass(uint32_t w, uint32_t h, PmrResource *res)
             : width(w)
             , height(h)
-            , attachments(res)
-            , rasterViews(res)
-            , computeViews(res) {}
+            , attachments(res) {}
 
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
-        PmrHashMap<std::string, rhi::ImageViewPtr> attachments;
-        PmrVector<RasterView> rasterViews;
-        PmrVector<ComputeView> computeViews;
+        PmrHashMap<std::string, VertexType> attachments;
+
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };
@@ -151,7 +152,7 @@ namespace sky::rdg {
         rhi::AspectFlags     mask        = rhi::AspectFlagBit::COLOR_BIT;
         rhi::SampleCount     samples     = rhi::SampleCount::X1;
         rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
-        ResourceResidency    residency   = ResourceResidency::PERSISTENT;
+        ResourceResidency    residency   = ResourceResidency::TRANSIENT;
     };
 
     struct GraphImageView {
@@ -179,10 +180,6 @@ namespace sky::rdg {
 
         rhi::BufferViewDesc view;
     };
-
-    using VertexType = uint32_t;
-    static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
-    using VertexList = PmrVector<VertexType>;
 
     template <class Key>
     struct ColorMap : public boost::put_get_helper<boost::default_color_type &, ColorMap<Key>> {

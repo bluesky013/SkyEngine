@@ -96,12 +96,12 @@ namespace sky::rdg {
     }
 
 
-    RasterPassBuilder &RasterPassBuilder::AddRasterView(const char *name, const RasterView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const char *name, const RasterView &view)
     {
         auto res = graph.FindVertex(name);
         SKY_ASSERT(res != INVALID_VERTEX);
 
-        pass.rasterViews.emplace_back(view);
+        subPass.rasterViews.emplace_back(view);
         if (view.access & ResourceAccessBit::READ) {
             add_edge(res, vertex, graph.dependencyGraph);
         }
@@ -111,12 +111,12 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::AddComputeView(const char *name, const ComputeView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const char *name, const ComputeView &view)
     {
         auto res = graph.FindVertex(name);
         SKY_ASSERT(res != INVALID_VERTEX);
 
-        pass.computeViews.emplace_back(view);
+        subPass.computeViews.emplace_back(view);
         if (view.access & ResourceAccessBit::READ) {
             add_edge(res, vertex, graph.dependencyGraph);
         }

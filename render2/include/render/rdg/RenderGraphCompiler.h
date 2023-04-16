@@ -31,6 +31,7 @@ namespace sky::rdg {
         using Edge = boost::graph_traits<PassGraph>::edge_descriptor;
         using Graph = PassGraph;
 
+        void tree_edge(Edge e, const Graph &g);
         void discover_vertex(Vertex u, const Graph& g);
 
         void CompilePass(RasterPass &pass);

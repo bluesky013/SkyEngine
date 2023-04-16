@@ -17,9 +17,6 @@ namespace sky::rdg {
     struct RenderGraph;
 
     struct RasterPassBuilder {
-        RasterPassBuilder &AddRasterView(const char *name, const RasterView &view);
-        RasterPassBuilder &AddComputeView(const char *name, const ComputeView &view);
-
         RenderGraph &graph;
         RasterPass &pass;
         VertexType vertex;
@@ -118,9 +115,9 @@ namespace sky::rdg {
     };
 
     template <typename D>
-    VertexType AddVertex(const char *name, const D &val, RenderGraph &graph)
+    VertexType AddVertex(const char *name, D &&val, RenderGraph &graph)
     {
-        using Tag = typename D::Tag;
+        using Tag = typename std::remove_reference<D>::type::Tag;
 
         auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
@@ -129,37 +126,37 @@ namespace sky::rdg {
 
         if constexpr (std::is_same_v<Tag, ImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.images.size());
-            graph.images.emplace_back(val);
+            graph.images.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, ImageViewTag>) {
             graph.polymorphicDatas.emplace_back(graph.imageViews.size());
-            graph.imageViews.emplace_back(val);
+            graph.imageViews.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, ImportImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.importImages.size());
-            graph.importImages.emplace_back(val);
+            graph.importImages.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, BufferTag>) {
             graph.polymorphicDatas.emplace_back(graph.buffers.size());
-            graph.buffers.emplace_back(val);
+            graph.buffers.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, ImportBufferTag>) {
             graph.polymorphicDatas.emplace_back(graph.importBuffers.size());
-            graph.importBuffers.emplace_back(val);
+            graph.importBuffers.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, BufferViewTag>) {
             graph.polymorphicDatas.emplace_back(graph.bufferViews.size());
-            graph.bufferViews.emplace_back(val);
+            graph.bufferViews.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, RasterPassTag>) {
             graph.polymorphicDatas.emplace_back(graph.rasterPasses.size());
-            graph.rasterPasses.emplace_back(val);
-        } else if constexpr (std::is_same_v<Tag, RasterSubPass>) {
+            graph.rasterPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, RasterSubPassTag>) {
             graph.polymorphicDatas.emplace_back(graph.subPasses.size());
-            graph.subPasses.emplace_back(val);
+            graph.subPasses.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, ComputePassTag>) {
             graph.polymorphicDatas.emplace_back(graph.computePasses.size());
-            graph.computePasses.emplace_back(val);
+            graph.computePasses.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, CopyBlitTag>) {
             graph.polymorphicDatas.emplace_back(graph.copyBlitPasses.size());
-            graph.copyBlitPasses.emplace_back(val);
+            graph.copyBlitPasses.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
-            graph.presentPasses.emplace_back(val);
+            graph.presentPasses.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }
