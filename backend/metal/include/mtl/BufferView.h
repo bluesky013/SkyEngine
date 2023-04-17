@@ -6,6 +6,7 @@
 
 #include <rhi/BufferView.h>
 #include <mtl/DevObject.h>
+#include <mtl/Buffer.h>
 
 namespace sky::mtl {
 
@@ -13,11 +14,15 @@ namespace sky::mtl {
 
     class BufferView : public rhi::BufferView, public DevObject {
     public:
-        BufferView() = default;
+        BufferView(Device &dev) : DevObject(dev) {}
         ~BufferView() = default;
 
+        std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
     private:
-        Device &device;
-    };
+        friend class Buffer;
+        bool Init(const rhi::BufferViewDesc &desc);
 
+        BufferPtr source;
+    };
+    using BufferViewPtr = std::shared_ptr<BufferView>;
 }

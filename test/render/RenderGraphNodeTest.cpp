@@ -14,7 +14,11 @@ using namespace sky::rdg;
 
 TEST(RenderGraphTest, NodeGraphTest01)
 {
+#ifdef __APPLE__
+    RHI::Get()->InitInstance({"test", "", true, rhi::API::METAL});
+#else
     RHI::Get()->InitInstance({"test", "", true, rhi::API::GLES});
+#endif
     RHI::Get()->InitDevice({});
 
     RenderGraphContext context;

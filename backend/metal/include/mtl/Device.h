@@ -7,6 +7,8 @@
 #include <memory>
 #include <rhi/Device.h>
 #include <mtl/Swapchain.h>
+#include <mtl/Buffer.h>
+#include <mtl/Image.h>
 #include <Metal/Metal.hpp>
 
 namespace sky::mtl {
@@ -31,8 +33,8 @@ namespace sky::mtl {
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
-        rhi::ImagePtr CreateImage(const rhi::Image::Descriptor &desc) override { return nullptr; }
-        rhi::BufferPtr CreateBuffer(const rhi::Buffer::Descriptor &desc) override { return nullptr; }
+        CREATE_DEV_OBJ(Image)
+        CREATE_DEV_OBJ(Buffer)
         rhi::RenderPassPtr CreateRenderPass(const rhi::RenderPass::Descriptor &desc) override { return nullptr; }
         rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
         rhi::CommandBufferPtr CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override { return nullptr; }

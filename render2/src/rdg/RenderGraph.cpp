@@ -101,7 +101,7 @@ namespace sky::rdg {
         auto res = graph.FindVertex(name);
         SKY_ASSERT(res != INVALID_VERTEX);
 
-        subPass.rasterViews.emplace_back(view);
+        subPass.rasterViews.emplace(name, view);
         if (view.access & ResourceAccessBit::READ) {
             add_edge(res, vertex, graph.dependencyGraph);
         }
@@ -116,7 +116,7 @@ namespace sky::rdg {
         auto res = graph.FindVertex(name);
         SKY_ASSERT(res != INVALID_VERTEX);
 
-        subPass.computeViews.emplace_back(view);
+        subPass.computeViews.emplace(name, view);
         if (view.access & ResourceAccessBit::READ) {
             add_edge(res, vertex, graph.dependencyGraph);
         }

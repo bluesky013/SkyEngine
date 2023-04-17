@@ -21,7 +21,7 @@ namespace sky {
         if (fp == nullptr) {
             return false;
         }
-        res = fread(data, 1, dataSize, fp);
+        res = fread(data, 1, static_cast<size_t>(dataSize), fp);
         fclose(fp);
         if (res != dataSize) {
             return false;

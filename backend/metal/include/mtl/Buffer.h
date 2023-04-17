@@ -12,14 +12,14 @@
 namespace sky::mtl {
     class Device;
 
-    class Buffer : public rhi::Buffer, public DevObject {
+    class Buffer : public rhi::Buffer, public DevObject, public std::enable_shared_from_this<Buffer> {
     public:
-        ~Buffer() = default;
-
+        Buffer(Device &dev) : DevObject(dev) {};
+        rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
     private:
-        Buffer(Device &);
+        friend class Device;
         bool Init(const Descriptor &);
-
         MTL::Buffer *buffer = nullptr;
     };
+    using BufferPtr = std::shared_ptr<Buffer>;
 }

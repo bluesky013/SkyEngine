@@ -10,7 +10,7 @@
     #include <dlfcn.h>
 #endif
 
-#ifdef APPLE
+#ifdef __APPLE__
 static const std::string DYN_PREFIX = "lib";
 static const std::string DYN_SUFFIX = ".dylib";
 #elif defined(ANDROID)

@@ -94,21 +94,21 @@ namespace sky::rdg {
 
         using Tag = RasterSubPassTag;
 
-        PmrVector<RasterView> rasterViews;
-        PmrVector<ComputeView> computeViews;
+        PmrHashMap<std::string, RasterView> rasterViews;
+        PmrHashMap<std::string, ComputeView> computeViews;
     };
 
     struct RasterPass {
         RasterPass(uint32_t w, uint32_t h, PmrResource *res)
             : width(w)
             , height(h)
-            , attachments(res) {}
+            , subPasses(res) {}
 
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
-        PmrHashMap<std::string, VertexType> attachments;
 
+        PmrVector<VertexType> subPasses;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };

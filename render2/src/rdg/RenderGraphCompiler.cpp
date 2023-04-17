@@ -86,24 +86,24 @@ namespace sky::rdg {
         }, graph.tags[u]);
     }
 
-    void RenderGraphPassCompiler::CompilePass(RasterPass &pass)
+    void RenderGraphPassCompiler::Compile(RasterPass &pass)
     {
     }
 
-    void RenderGraphPassCompiler::CompilePass(ComputePass &pass)
+    void RenderGraphPassCompiler::Compile(ComputePass &pass)
     {
     }
 
-    void RenderGraphPassCompiler::CompilePass(CopyBlitPass &pass)
+    void RenderGraphPassCompiler::Compile(CopyBlitPass &pass)
     {
     }
 
     void RenderGraphPassCompiler::tree_edge(Edge e, const Graph &g)
     {
         std::visit(
-            Overloaded{[&](const RasterPass &) {
+            Overloaded{[&](const RasterPassTag &) {
                            auto &raster = graph.rasterPasses[graph.polymorphicDatas[e.m_source]];
-                           auto &sub = graph.subPasses[graph.polymorphicDatas[e.m_target]];
+                           raster.subPasses.emplace_back(e.m_target);
                        },
                        [&](const auto &) {}},
             graph.tags[e.m_source]);

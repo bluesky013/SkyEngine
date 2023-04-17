@@ -4,13 +4,9 @@
 
 #include <mtl/Buffer.h>
 #include <mtl/Device.h>
+#include <mtl/BufferView.h>
 
 namespace sky::mtl {
-
-    Buffer::Buffer(Device &dev) : DevObject(dev)
-    {
-    }
-
     bool Buffer::Init(const Descriptor &desc)
     {
         bufferDesc = desc;
@@ -20,4 +16,13 @@ namespace sky::mtl {
         buffer = mtlDevice->newBuffer(desc.size, options);
     }
 
+    rhi::BufferViewPtr Buffer::CreateView(const rhi::BufferViewDesc &desc)
+    {
+        BufferViewPtr ret = std::make_shared<BufferView>(device);
+        ret->source      = shared_from_this();
+        if (!ret->Init(desc)) {
+            ret = nullptr;
+        }
+        return std::static_pointer_cast<rhi::BufferView>(ret);
+    }
 }

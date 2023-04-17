@@ -34,9 +34,9 @@ namespace sky::rdg {
         void tree_edge(Edge e, const Graph &g);
         void discover_vertex(Vertex u, const Graph& g);
 
-        void CompilePass(RasterPass &pass);
-        void CompilePass(ComputePass &pass);
-        void CompilePass(CopyBlitPass &pass);
+        void Compile(RasterPass &pass);
+        void Compile(ComputePass &pass);
+        void Compile(CopyBlitPass &pass);
 
         RenderGraph &graph;
     };
