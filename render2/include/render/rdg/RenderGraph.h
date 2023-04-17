@@ -55,6 +55,8 @@ namespace sky::rdg {
         explicit RenderGraph(RenderGraphContext *ctx);
         ~RenderGraph() = default;
 
+        using vertex_descriptor = VertexType;
+
         using Tag = std::variant<RootTag,
                                  RasterPassTag,
                                  RasterSubPassTag,
@@ -162,5 +164,26 @@ namespace sky::rdg {
         }
 
         return vertex;
+    }
+
+
+    // component visitors
+
+    template <typename V, typename G>
+    PmrString &name(V v, G &g)
+    {
+        return g.names[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    RenderGraph::Tag &tag(V v, G &g)
+    {
+        return g.tags[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    size_t index(V v, G &g)
+    {
+        return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
     }
 } // namespace sky

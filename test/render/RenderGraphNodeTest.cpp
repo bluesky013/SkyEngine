@@ -53,4 +53,9 @@ TEST(RenderGraphTest, NodeGraphTest01)
         PmrVector<boost::default_color_type> colors(graph.vertices.size(), &graph.context->resources);
         boost::depth_first_search(graph.passGraph, compiler, ColorMap(colors));
     }
+    {
+        RenderDependencyCompiler compiler(graph);
+        PmrVector<boost::default_color_type> colors(graph.vertices.size(), &graph.context->resources);
+        boost::depth_first_search(graph.dependencyGraph, compiler, ColorMap(colors));
+    }
 }

@@ -28,6 +28,7 @@ namespace sky::rdg {
         INPUT,
         RESERVE,
         DEPTH_STENCIL,
+        SHADING_RATE,
     };
 
     enum class ResourceAccessBit : uint32_t {

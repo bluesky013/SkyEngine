@@ -42,8 +42,14 @@ namespace sky::rdg {
     };
 
     struct RenderDependencyCompiler : boost::dfs_visitor<> {
-        RenderDependencyCompiler() = default;
-        ~RenderDependencyCompiler() = default;
+        RenderDependencyCompiler(RenderGraph &g) : graph(g) {}
+
+        using Vertex = boost::graph_traits<PassGraph>::vertex_descriptor;
+        using Edge = boost::graph_traits<PassGraph>::edge_descriptor;
+        using Graph = PassGraph;
+
+        void forward_or_cross_edge(Edge u, const Graph& g);
+        RenderGraph &graph;
     };
 
 }
