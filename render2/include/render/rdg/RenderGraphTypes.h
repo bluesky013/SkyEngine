@@ -51,7 +51,7 @@ namespace sky::rdg {
     };
 
     struct ComputeView {
-        std::string attachmentName;
+        std::string name;
         ResourceAccess access = ResourceAccessBit::READ;
         bool isUAV = false;
     };
@@ -78,6 +78,7 @@ namespace sky::rdg {
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
+    struct RefNodeTag {};
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -134,6 +135,12 @@ namespace sky::rdg {
         rhi::SwapChainPtr swapChain;
     };
 
+    struct RefNode {
+        using Tag = RefNodeTag;
+
+        VertexType resID = INVALID_VERTEX;
+    };
+
     struct GraphImportImage {
         using Tag = ImportImageTag;
 
@@ -180,6 +187,12 @@ namespace sky::rdg {
         using Tag = BufferViewTag;
 
         rhi::BufferViewDesc view;
+    };
+
+    struct LifeTime {
+        VertexType begin = INVALID_VERTEX;
+        VertexType end   = INVALID_VERTEX;
+        uint32_t reference = 0;
     };
 
     template <class Key>

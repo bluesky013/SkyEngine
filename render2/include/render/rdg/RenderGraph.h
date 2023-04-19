@@ -46,29 +46,17 @@ namespace sky::rdg {
         VertexType vertex;
     };
 
-    using ResourceGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
+
     using PassGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
     using DependencyGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
 
-    struct RenderGraph {
-    public:
-        explicit RenderGraph(RenderGraphContext *ctx);
-        ~RenderGraph() = default;
+    struct ResourceGraph {
+        explicit ResourceGraph(RenderGraphContext *ctx);
+        ~ResourceGraph() = default;
 
+        using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
         using vertex_descriptor = VertexType;
-
-        using Tag = std::variant<RootTag,
-                                 RasterPassTag,
-                                 RasterSubPassTag,
-                                 ComputePassTag,
-                                 CopyBlitTag,
-                                 PresentTag,
-                                 ImageTag,
-                                 ImageViewTag,
-                                 ImportImageTag,
-                                 BufferTag,
-                                 ImportBufferTag,
-                                 BufferViewTag>;
+        using Tag   = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
 
         void AddImage(const char *name, const GraphImage &image);
         void ImportImage(const char *name, const rhi::ImagePtr &image);
@@ -78,12 +66,41 @@ namespace sky::rdg {
         void ImportBuffer(const char *name, const rhi::BufferPtr &buffer);
         void AddBufferView(const char *name, const char *source, const GraphBufferView &view);
 
-        VertexType FindVertex(const char *name);
+        // memory
+        RenderGraphContext *context;
+
+        // vertex
+        VertexList vertices;
+
+        // components
+        PmrVector<PmrString> names;
+        PmrVector<Tag>       tags;
+        PmrVector<size_t>    polymorphicDatas;
+        PmrVector<LifeTime>  lifeTimes;
+
+        // resources
+        PmrVector<ImageViewRes<GraphImage>>         images;
+        PmrVector<ImageViewRes<GraphImportImage>>   importImages;
+        PmrVector<ImageViewRes<GraphImageView>>     imageViews;
+        PmrVector<BufferViewRes<GraphBuffer>>       buffers;
+        PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
+        PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
+
+        Graph graph;
+    };
+
+    struct RenderGraph {
+        explicit RenderGraph(RenderGraphContext *ctx);
+        ~RenderGraph() = default;
+
+        using vertex_descriptor = VertexType;
+        using Tag = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RefNodeTag>;
 
         RasterPassBuilder    AddRasterPass(const char *name, uint32_t width, uint32_t height);
         RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
+        void AddDependency(const char *name, VertexType passId, ResourceAccess access);
 
         // memory
         RenderGraphContext *context;
@@ -96,14 +113,6 @@ namespace sky::rdg {
         PmrVector<Tag>       tags;
         PmrVector<size_t>    polymorphicDatas;
 
-        // resources
-        PmrVector<ImageViewRes<GraphImage>>         images;
-        PmrVector<ImageViewRes<GraphImportImage>>   importImages;
-        PmrVector<ImageViewRes<GraphImageView>>     imageViews;
-        PmrVector<BufferViewRes<GraphBuffer>>       buffers;
-        PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
-        PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
-
         // passes
         PmrVector<RasterPass>    rasterPasses;
         PmrVector<RasterSubPass> subPasses;
@@ -111,20 +120,23 @@ namespace sky::rdg {
         PmrVector<CopyBlitPass>  copyBlitPasses;
         PmrVector<PresentPass>   presentPasses;
 
-        ResourceGraph resourceGraph;
-        PassGraph     passGraph;
+        // refNode
+        PmrVector<RefNode> referenceNodes;
+
+        ResourceGraph   resourceGraph;
+        PassGraph       passGraph;
         DependencyGraph dependencyGraph;
     };
 
     template <typename D>
-    VertexType AddVertex(const char *name, D &&val, RenderGraph &graph)
+    VertexType AddVertex(const char *name, D &&val, ResourceGraph &graph)
     {
         using Tag = typename std::remove_reference<D>::type::Tag;
-
         auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
         graph.names.emplace_back(PmrString(name, &graph.context->resources));
+        graph.lifeTimes.emplace_back(LifeTime{});
 
         if constexpr (std::is_same_v<Tag, ImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.images.size());
@@ -144,7 +156,24 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, BufferViewTag>) {
             graph.polymorphicDatas.emplace_back(graph.bufferViews.size());
             graph.bufferViews.emplace_back(std::forward<D>(val));
-        } else if constexpr (std::is_same_v<Tag, RasterPassTag>) {
+        } else {
+            graph.polymorphicDatas.emplace_back(0);
+        }
+
+        return vertex;
+    }
+
+    template <typename D>
+    VertexType AddVertex(const char *name, D &&val, RenderGraph &graph)
+    {
+        using Tag = typename std::remove_reference<D>::type::Tag;
+
+        auto vertex = static_cast<VertexType>(graph.vertices.size());
+        graph.vertices.emplace_back();
+        graph.tags.emplace_back(Tag{});
+        graph.names.emplace_back(PmrString(name, &graph.context->resources));
+
+        if constexpr (std::is_same_v<Tag, RasterPassTag>) {
             graph.polymorphicDatas.emplace_back(graph.rasterPasses.size());
             graph.rasterPasses.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, RasterSubPassTag>) {
@@ -159,31 +188,46 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
             graph.presentPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, RefNodeTag>) {
+            graph.polymorphicDatas.emplace_back(graph.referenceNodes.size());
+            graph.referenceNodes.emplace_back(std::forward<D>(val));
         } else {
-            graph.polymorphicDatas.emplace_back(0);
+                graph.polymorphicDatas.emplace_back(0);
         }
 
         return vertex;
     }
 
+    template <typename Graph>
+    VertexType FindVertex(const char *name, Graph &g)
+    {
+        auto iter = std::find(g.names.begin(), g.names.end(), name);
+        return iter == g.names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(g.names.begin(), iter));
+    }
 
     // component visitors
 
     template <typename V, typename G>
-    PmrString &name(V v, G &g)
+    PmrString &Name(V v, G &g)
     {
         return g.names[static_cast<typename G::vertex_descriptor>(v)];
     }
 
     template <typename V, typename G>
-    RenderGraph::Tag &tag(V v, G &g)
+    typename G::Tag &Tag(V v, G &g)
     {
         return g.tags[static_cast<typename G::vertex_descriptor>(v)];
     }
 
     template <typename V, typename G>
-    size_t index(V v, G &g)
+    size_t Index(V v, G &g)
     {
         return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    LifeTime &Life(V v, G &g)
+    {
+        return g.lifeTimes[static_cast<typename G::vertex_descriptor>(v)];
     }
 } // namespace sky
