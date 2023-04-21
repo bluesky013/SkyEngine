@@ -29,6 +29,7 @@ namespace sky {
         virtual std::string GetInternalPath() const = 0;
         virtual void *GetMainWinHandle() const { return nullptr; };
         virtual void *GetNativeApp() const { return nullptr; }
+        virtual bool RunCmd(const std::string &str, std::string &out) const { return true; }
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
     protected:
@@ -45,6 +46,7 @@ namespace sky {
         std::string GetInternalPath() const;
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
+        bool RunCmd(const std::string &str, std::string &out) const;
 
         template <typename T>
         void setLaunchCallback(T &&cb)

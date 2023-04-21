@@ -6,16 +6,21 @@
 
 namespace sky {
 
-    std::vector<std::string> Split(const std::string &s, char separator)
+    std::vector<std::string> Split(const std::string &s, const char *separator)
     {
         std::vector<std::string> output;
         std::string::size_type prev = 0, pos = 0;
-        while ((pos = s.find(separator, pos)) != std::string::npos) {
-            std::string substring(s.substr(prev, pos - prev));
-            output.push_back(substring);
+        while ((pos = s.find_first_of(std::string(separator), pos)) != std::string::npos) {
+            if (pos > prev) {
+                std::string substring(s.substr(prev, pos - prev));
+                output.push_back(substring);
+            }
             prev = ++pos;
         }
-        output.push_back(s.substr(prev, pos - prev));
+
+        if (prev <= s.length()) {
+            output.push_back(s.substr(prev, pos - prev));
+        }
         return output;
     }
 

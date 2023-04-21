@@ -12,5 +12,7 @@ namespace sky {
     public:
         Win32Platform() = default;
         ~Win32Platform() = default;
+
+        bool RunCmd(const std::string &str, std::string &out) const;
     };
 }

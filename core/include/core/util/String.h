@@ -8,5 +8,5 @@
 #include <string>
 
 namespace sky {
-    std::vector<std::string> Split(const std::string& s, char separator);
+    std::vector<std::string> Split(const std::string& s, const char *separator);
 }

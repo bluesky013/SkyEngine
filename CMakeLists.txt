@@ -41,3 +41,7 @@ if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
     sky_set_dependency(TARGET Editor)
 endif()
+
+if (SKY_BUILD_TOOL)
+    add_subdirectory(tools)
+endif()
