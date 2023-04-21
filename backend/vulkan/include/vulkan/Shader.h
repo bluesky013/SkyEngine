@@ -18,7 +18,7 @@ namespace sky::vk {
 
         struct VkDescriptor {
             VkShaderStageFlagBits stage;
-            uint32_t             *spv  = nullptr;
+            const uint32_t       *spv  = nullptr;
             uint32_t              size = 0;
         };
 

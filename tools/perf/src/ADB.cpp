@@ -57,7 +57,6 @@ namespace sky::perf {
         auto tokens = Split(out, "\r\n");
         if (!tokens.empty()) {
             adb = tokens[0] + " ";
-            printf("%s", out.c_str());
             return true;
         }
         return false;

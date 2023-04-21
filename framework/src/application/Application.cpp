@@ -45,6 +45,12 @@ namespace sky {
         return true;
     }
 
+    void Application::RegisterModule(std::unique_ptr<IModule> &&module)
+    {
+        module->Init();
+        modules.emplace_back(std::move(module));
+    }
+
     void Application::LoadDynamicModules(const StartInfo &startInfo)
     {
         for (auto &module : startInfo.modules) {

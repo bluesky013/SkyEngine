@@ -20,7 +20,6 @@ namespace sky::vk {
             VkBufferUsageFlags  usage       = 0;
             VmaMemoryUsage      memory      = VMA_MEMORY_USAGE_UNKNOWN;
             VkBufferCreateFlags flags       = 0;
-            bool                allocateMem = true;
         };
 
         rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;

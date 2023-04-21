@@ -55,6 +55,8 @@ namespace sky {
             tickFn = std::forward<T>(val);
         }
 
+        void RegisterModule(std::unique_ptr<IModule> &&module);
+
     protected:
         void LoadDynamicModules(const StartInfo &start);
 

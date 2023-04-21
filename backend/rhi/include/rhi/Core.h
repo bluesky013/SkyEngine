@@ -74,7 +74,11 @@ namespace sky::rhi {
         F_R32     = 1,
         F_RG32    = 2,
         F_RGB32   = 3,
-        F_RGBA32  = 4
+        F_RGBA32  = 4,
+        F_R8     = 5,
+        F_RG8    = 6,
+        F_RGB8   = 7,
+        F_RGBA8  = 8
     };
 
     enum class ImageType : uint32_t {

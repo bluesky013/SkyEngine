@@ -9,4 +9,6 @@ sky_add_exe(TARGET PerfTool ${PLATFORM_TYPE}
         include
     LIBS
         Framework
+        VulkanRHI.Static
+        3rdParty::imgui
     )

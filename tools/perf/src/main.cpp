@@ -5,7 +5,9 @@
 #include <stdio.h>
 
 #include <framework/platform/PlatformBase.h>
+#include <framework/application/GameApplication.h>
 #include <perf/ADB.h>
+#include <perf/Module.h>
 
 using namespace sky;
 
@@ -13,17 +15,17 @@ int main(int argc, char **argv)
 {
     Platform::Get()->Init({});
 
-    perf::ADB adb;
-    adb.Init();
-    auto devices = adb.SearchDevices();
-    if (!devices.empty()) {
-        adb.EnableWireless(devices[0]);
+    StartInfo start = {};
+    start.appName        = "PerfTool";
 
-        perf::Device device;
-        adb.UpdateDeviceInfo(device, devices[0]);
+    GameApplication app;
+    app.RegisterModule(std::make_unique<perf::Module>());
 
-        perf::PrintDeviceInfo(device);
+    if (app.Init(start)) {
+        app.Mainloop();
     }
 
+    app.Shutdown();
+    Platform::Get()->Shutdown();
     return 0;
 }
