@@ -61,3 +61,6 @@
 [submodule "thirdparty/ktx"]
 	path = thirdparty/ktx
 	url = git@github.com:KhronosGroup/KTX-Software.git
+[submodule "thirdparty/implot"]
+	path = thirdparty/implot
+	url = git@github.com:epezent/implot.git
