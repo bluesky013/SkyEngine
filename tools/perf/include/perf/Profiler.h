@@ -24,6 +24,12 @@ namespace sky::perf {
         virtual void Render(ADB &adb) = 0;
     };
 
+    struct FPS : Widget {
+        void Render(ADB &adb) override;
+
+        const char* currentSurfaceView = nullptr;
+    };
+
     struct CPUMemoryWidget : Widget {
         void Render(ADB &adb) override;
     };

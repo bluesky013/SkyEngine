@@ -137,6 +137,22 @@ namespace sky::perf {
         ImGui::End();
     }
 
+    void FPS::Render(ADB &adb)
+    {
+        if (!opened) {
+            return;
+        }
+
+        ImGui::Begin("FPS", &opened);
+
+        if (currentDevice != nullptr && currentPackage != nullptr && startCapture) {
+            auto fps = std::stoi(adb.Fps(currentDevice, currentPackage));
+            ImGui::Text("fps : %f", static_cast<float>(1000000000.0 / fps));
+        }
+
+        ImGui::End();
+    }
+
     void CPUMemoryWidget::Render(ADB &adb)
     {
         if (!opened) {
@@ -186,11 +202,13 @@ namespace sky::perf {
         auto *device = static_cast<DeviceWidget*>(widgets.emplace("DeviceWidget", std::make_unique<DeviceWidget>()).first->second.get());
         auto *frequency = static_cast<CPUFrequencyWidget*>(widgets.emplace("CPUFrequency", std::make_unique<CPUFrequencyWidget>()).first->second.get());
         auto *memory = static_cast<CPUMemoryWidget*>(widgets.emplace("CPUMemory", std::make_unique<CPUMemoryWidget>()).first->second.get());
+        auto *fps = static_cast<FPS*>(widgets.emplace("FPS", std::make_unique<FPS>()).first->second.get());
 
         auto *start = static_cast<StartWidget*>(widgets.emplace("StartWidget", std::make_unique<StartWidget>()).first->second.get());
         start->widgets.emplace_back(device);
         start->widgets.emplace_back(frequency);
         start->widgets.emplace_back(memory);
+        start->widgets.emplace_back(fps);
     }
 
     void Profiler::Views()

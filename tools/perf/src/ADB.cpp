@@ -119,11 +119,19 @@ namespace sky::perf {
         }
     }
 
-    std::vector<std::string> ADB::SearchViews(const std::string &id, const std::string &package) const
+    std::string ADB::Fps(const std::string &id, const std::string &package) const
     {
         std::stringstream ss;
-        ss << "-s " << id << " shell dumpsys SurfaceFlinger --list";
+        ss << "-s " << id << " shell dumpsys SurfaceFlinger --list | grep \"" << package.c_str() << "\"";
         auto lines = Execute(ss.str());
+        for (auto &line : lines) {
+            if (line.find("SurfaceView") != std::string::npos) {
+                std::stringstream fss;
+                fss << "-s " << id << " shell dumpsys SurfaceFlinger --latency " << line;
+                auto res = Execute(fss.str());
+                return res.empty() ? "" : res[0];
+            }
+        }
 
         return {};
     }
