@@ -2,9 +2,12 @@
 // Created by Zach Lee on 2023/4/22.
 //
 
-#include <perf/gui/Gui.h>
-#include <imgui.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/window/NativeWindow.h>
+#include <imgui.h>
+#include <perf/gui/Gui.h>
 
 namespace sky::perf {
     namespace {
@@ -124,10 +127,14 @@ namespace sky::perf {
 
         render->device->WaitIdle();
 
+        backVB = nullptr;
+        backIB = nullptr;
         res = nullptr;
         render->Stop();
         render = nullptr;
         ImGui::DestroyContext();
+
+        Event<IWindowEvent>::DisConnect(this);
     }
 
     void Gui::Init()
@@ -142,10 +149,16 @@ namespace sky::perf {
         res = std::make_unique<UIRes>();
         InitFont();
         InitPso();
+
+        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
     }
 
-    void Gui::Tick(float time)
+    void Gui::Tick(float time, ADB& adb, std::function<void(ADB &)> && func)
     {
+        backVB = nullptr;
+        backIB = nullptr;
+
         ImGuiIO& io = ImGui::GetIO();
         auto &ext = render->GetSwapchain()->GetExtent();
 
@@ -155,14 +168,15 @@ namespace sky::perf {
 
         ImGui::NewFrame();
 
-        bool open = true;
-        ImGui::ShowDemoWindow(&open);
+        func(adb);
 
         ImGui::Render();
         ImDrawData* drawData = ImGui::GetDrawData();
 
         if (drawData->TotalVtxCount > 0)
         {
+            backVB = res->vb;
+            backIB = res->ib;
             auto vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
             auto indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
             bool resize = CreateOrResize(res->vb, vertexSize, true);
@@ -368,5 +382,45 @@ namespace sky::perf {
         queue->Wait(handle);
         io.Fonts->SetTexID((ImTextureID)(intptr_t)res->fontImage->GetNativeHandle());
     }
+
+    void Gui::OnMouseWheel(int32_t wheelX, int32_t wheelY)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        if (wheelX > 0) io.MouseWheelH += 1;
+        if (wheelX < 0) io.MouseWheelH -= 1;
+        if (wheelY > 0) io.MouseWheel += 1;
+        if (wheelY < 0) io.MouseWheel -= 1;
+    }
+
+    void Gui::OnMouseMove(int32_t x, int32_t y)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));
+    }
+
+    void Gui::OnMouseButtonDown(MouseButtonType button)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDown[button - 1] = true;
+    }
+
+    void Gui::OnMouseButtonUp(MouseButtonType button)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDown[button - 1] = false;
+    }
+
+    void Gui::OnKeyUp(KeyButtonType)
+    {
+    }
+
+    void Gui::OnKeyDown(KeyButtonType)
+    {
+    }
+
+    void Gui::OnTextInput(const char *text)
+    {
+    }
+
 
 } // namespace sky::perf

@@ -8,6 +8,7 @@
 #include <framework/window/IWindowEvent.h>
 #include <perf/gui/Gui.h>
 #include <perf/ADB.h>
+#include <perf/Profiler.h>
 
 namespace sky::perf {
 
@@ -24,6 +25,7 @@ namespace sky::perf {
     private:
         std::unique_ptr<ADB> adb;
         std::unique_ptr<Gui> gui;
+        std::unique_ptr<Profiler> profiler;
     };
 
 } // namespace sky::perf

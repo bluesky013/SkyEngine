@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     Platform::Get()->Init({});
 
     StartInfo start = {};
-    start.appName        = "PerfTool";
+    start.appName        = "PerfCat";
 
     GameApplication app;
     app.RegisterModule(std::make_unique<perf::Module>());

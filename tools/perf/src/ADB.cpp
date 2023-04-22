@@ -62,7 +62,7 @@ namespace sky::perf {
         return false;
     }
 
-    std::vector<std::string> ADB::SearchDevices()
+    std::vector<std::string> ADB::SearchDevices() const
     {
         std::vector<std::string> res;
         auto lines = Execute("devices");
@@ -77,12 +77,45 @@ namespace sky::perf {
 
     void ADB::EnableWireless(const std::string &id) const
     {
-        std::stringstream ss;
-        // love from chat gpt
-        ss << "-s " << id << " shell \"ifconfig | grep -A 1 'wlan0' | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\"";
-        auto res = Execute(ss.str());
-        if (!res.empty()) {
-            printf("ip address. %s\n", res[0].c_str());
+        std::string ip;
+        {
+            std::stringstream ss;
+            // love from chat gpt
+            ss << "-s " << id << " shell \"ifconfig | grep -A 1 'wlan0' | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1\"";
+            auto res = Execute(ss.str());
+            if (!res.empty()) {
+                ip = res[0];
+                printf("ip address. %s\n", res[0].c_str());
+            }
+        }
+        {
+            std::stringstream ss;
+            ss << " tcpip 5555";
+            Execute(ss.str());
+        }
+        {
+            std::stringstream ss;
+            ss << " connect " << ip.c_str() << ":5555";
+            Execute(ss.str());
+        }
+    }
+
+    void ADB::StartApplication(const std::string &id, const std::string &package) const
+    {
+        std::string activity;
+        {
+            std::stringstream ss;
+            ss << "-s " << id << " shell cmd package resolve-activity --brief " << package;
+            auto res = Execute(ss.str());
+            if (!res.empty()) {
+                activity = res[1];
+                printf("start activity. %s\n", activity.c_str());
+            }
+        }
+        {
+            std::stringstream ss;
+            ss << "-s " << id << " shell am start --activity-single-top " << activity;
+            Execute(ss.str());
         }
     }
 

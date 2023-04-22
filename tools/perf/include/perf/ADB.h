@@ -14,8 +14,10 @@ namespace sky::perf {
         ~ADB() = default;
 
         bool Init();
-        std::vector<std::string> SearchDevices();
+        std::vector<std::string> SearchDevices() const;
         std::vector<std::string> SearchPackages(const std::string &id) const;
+        void StartApplication(const std::string &id, const std::string &package) const;
+
         void EnableWireless(const std::string &id) const;
         std::string GetDeviceName(const std::string &id) const;
         void UpdateDeviceInfo(Device &dev, const std::string &id) const;
@@ -26,7 +28,6 @@ namespace sky::perf {
         void ProcessCPUInfo(Device &dev) const;
 
         std::string adb;
-        std::vector<Device> devices;
     };
 
 

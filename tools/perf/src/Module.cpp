@@ -3,6 +3,7 @@
 //
 
 #include <perf/Module.h>
+#include <imgui.h>
 
 namespace sky::perf {
 
@@ -10,16 +11,6 @@ namespace sky::perf {
     {
         adb = std::make_unique<ADB>();
         adb->Init();
-//        auto devices = adb.SearchDevices();
-//        if (!devices.empty()) {
-//            adb.EnableWireless(devices[0]);
-//
-//            perf::Device device;
-//            adb.UpdateDeviceInfo(device, devices[0]);
-//
-//            perf::PrintDeviceInfo(device);
-//        }
-
         return true;
     }
 
@@ -27,6 +18,9 @@ namespace sky::perf {
     {
         gui = std::make_unique<Gui>();
         gui->Init();
+
+        profiler = std::make_unique<Profiler>();
+        profiler->Init();
     }
 
     void Module::Stop()
@@ -36,7 +30,9 @@ namespace sky::perf {
 
     void Module::Tick(float delta)
     {
-        gui->Tick(delta);
+        gui->Tick(delta, *adb, [this](ADB &adb) {
+            profiler->Render(adb);
+        });
     }
 
 
