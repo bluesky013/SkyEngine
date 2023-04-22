@@ -15,26 +15,37 @@ namespace sky::perf {
         ~Widget() = default;
 
         bool opened = true;
+        bool startCapture = false;
+        const char* currentDevice = nullptr;
+        const char* currentPackage = nullptr;
 
+        virtual void UpdateDevice(ADB &adb, const char *dev) { currentDevice = dev; }
+        virtual void UpdateDeviceDetail(ADB &adb) {}
         virtual void Render(ADB &adb) = 0;
     };
 
+    struct CPUMemoryWidget : Widget {
+        void Render(ADB &adb) override;
+    };
+
+    struct CPUFrequencyWidget : Widget {
+        void Render(ADB &adb) override;
+    };
+
     struct DeviceWidget : Widget {
+        void UpdateDeviceDetail(ADB &adb) override;
         void Render(ADB &adb) override;
 
-        const char* currentDevice = nullptr;
         std::unique_ptr<Device> device;
     };
 
     struct StartWidget : Widget {
         void Render(ADB &adb) override;
 
-        const char* currentPackage = nullptr;
-        const char* currentDevice = nullptr;
         std::vector<std::string> devices;
         std::vector<std::string> packages;
 
-        DeviceWidget* deviceWidget;
+        std::vector<Widget*> widgets;
     };
 
     class Profiler {

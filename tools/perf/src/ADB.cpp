@@ -45,7 +45,7 @@ namespace sky::perf {
     // surface_flinger: shell dumpsys gfxinfo [package] framestats
     // memory: shell dumpsys meminfo [package]
     // cpu-frequency: shell cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
-    // cpu-usage: shell cat /proc/%d/stat
+    // cpu-usage: shell cat /proc/[pid]]/stat
 
     // start app: shell am start --activity-single-top [package]
 
@@ -119,6 +119,15 @@ namespace sky::perf {
         }
     }
 
+    std::vector<std::string> ADB::SearchViews(const std::string &id, const std::string &package) const
+    {
+        std::stringstream ss;
+        ss << "-s " << id << " shell dumpsys SurfaceFlinger --list";
+        auto lines = Execute(ss.str());
+
+        return {};
+    }
+
     std::vector<std::string> ADB::SearchPackages(const std::string &id) const
     {
         std::vector<std::string> res;
@@ -136,6 +145,24 @@ namespace sky::perf {
 
         std::sort(res.begin(), res.end());
         return res;
+    }
+
+    std::vector<std::string> ADB::Frequencies(const std::string &id) const
+    {
+        std::vector<std::string> res;
+
+        std::stringstream ss;
+        ss << "-s " << id << " shell cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq";
+        return Execute(ss.str());
+    }
+
+    std::vector<std::string> ADB::Memory(const std::string &id, const std::string &package) const
+    {
+        std::vector<std::string> res;
+
+        std::stringstream ss;
+        ss << "-s " << id << " shell dumpsys meminfo " << package << " | grep \":\"";
+        return Execute(ss.str());
     }
 
     std::vector<std::string> ADB::Execute(const std::string &cmd) const

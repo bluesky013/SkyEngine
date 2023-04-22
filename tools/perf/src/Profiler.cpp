@@ -4,6 +4,8 @@
 
 #include <perf/Profiler.h>
 #include <imgui.h>
+#include <implot.h>
+#include <core/util/String.h>
 
 namespace sky::perf {
 
@@ -26,8 +28,10 @@ namespace sky::perf {
 
         if (ImGui::Button("Search Devices")) {
             devices = adb.SearchDevices();
-            deviceWidget->device = nullptr;
             currentDevice = nullptr;
+            for (auto &widget : widgets) {
+                widget->UpdateDevice(adb, currentDevice);
+            }
         }
 
         ImGui::SameLine();
@@ -40,6 +44,9 @@ namespace sky::perf {
                 bool selected = (currentDevice == device.c_str());
                 if (ImGui::Selectable(device.c_str(), selected)) {
                     currentDevice = device.c_str();
+                    for (auto &widget : widgets) {
+                        widget->UpdateDevice(adb, currentDevice);
+                    }
                 }
                 if (selected) {
                     ImGui::SetItemDefaultFocus();
@@ -58,6 +65,9 @@ namespace sky::perf {
                 bool selected = (currentPackage == package.c_str());
                 if (ImGui::Selectable(package.c_str(), selected)) {
                     currentPackage = package.c_str();
+                    for (auto &widget : widgets) {
+                        widget->currentPackage = currentPackage;
+                    }
                 }
                 if (selected) {
                     ImGui::SetItemDefaultFocus();
@@ -66,17 +76,39 @@ namespace sky::perf {
             ImGui::EndCombo();
         }
 
+        if (ImGui::Button("Device Details") && currentDevice != nullptr) {
+            for (auto &widget : widgets) {
+                widget->UpdateDeviceDetail(adb);
+            }
+        }
+
         if (ImGui::Button("Start Application") && currentDevice != nullptr && currentPackage != nullptr) {
             adb.StartApplication(currentDevice, currentPackage);
         }
 
-        if (ImGui::Button("Device Details") && currentDevice != nullptr) {
-            deviceWidget->currentDevice = currentDevice;
-            deviceWidget->device = std::make_unique<Device>();
-            adb.UpdateDeviceInfo(*deviceWidget->device, currentDevice);
+        if (ImGui::Button("Start Capture") && currentDevice != nullptr) {
+            for (auto &widget : widgets) {
+                widget->startCapture = true;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Stop Capture") && currentDevice != nullptr) {
+            for (auto &widget : widgets) {
+                widget->startCapture = false;
+            }
         }
 
         ImGui::End();
+    }
+
+    void DeviceWidget::UpdateDeviceDetail(ADB &adb)
+    {
+        if (!device) {
+            device = std::make_unique<Device>();
+        }
+        if (currentDevice != nullptr) {
+            adb.UpdateDeviceInfo(*device, currentDevice);
+        }
     }
 
     void DeviceWidget::Render(ADB &adb)
@@ -105,12 +137,60 @@ namespace sky::perf {
         ImGui::End();
     }
 
+    void CPUMemoryWidget::Render(ADB &adb)
+    {
+        if (!opened) {
+            return;
+        }
+
+        ImGui::Begin("CPU Memory", &opened);
+
+        if (currentDevice != nullptr && currentPackage != nullptr && startCapture) {
+            auto lines = adb.Memory(currentDevice, currentPackage);
+            for (auto &line : lines) {
+                auto tokens = Split(line, ": ");
+                if (tokens.size() == 4 && tokens[1] == "Heap") {
+                    ImGui::Text("%s : %s", tokens[0].c_str(), tokens[3].c_str());
+                } else if (tokens.size() == 3 && tokens[0] == "Graphics") {
+                    ImGui::Text("Graphics : %s", tokens[1].c_str());
+                }
+            }
+        }
+        ImGui::End();
+    }
+
+    void CPUFrequencyWidget::Render(ADB &adb)
+    {
+        if (!opened) {
+            return;
+        }
+
+        ImGui::Begin("CPU Frequency", &opened);
+
+        if (currentDevice != nullptr && startCapture) {
+            std::vector<std::string> frequencies = adb.Frequencies(currentDevice);
+            for (uint32_t i = 0; i < frequencies.size(); ++i) {
+                auto &freq = frequencies[i];
+                if (freq.empty()) {
+                    continue;
+                }
+                ImGui::Text("cpu %u: freq %s", i, freq.c_str());
+            }
+        }
+
+        ImGui::End();
+    }
+
     void Profiler::Init()
     {
         auto *device = static_cast<DeviceWidget*>(widgets.emplace("DeviceWidget", std::make_unique<DeviceWidget>()).first->second.get());
-        auto *start = static_cast<StartWidget*>(widgets.emplace("StartWidget", std::make_unique<StartWidget>()).first->second.get());
+        auto *frequency = static_cast<CPUFrequencyWidget*>(widgets.emplace("CPUFrequency", std::make_unique<CPUFrequencyWidget>()).first->second.get());
+        auto *memory = static_cast<CPUMemoryWidget*>(widgets.emplace("CPUMemory", std::make_unique<CPUMemoryWidget>()).first->second.get());
 
-        start->deviceWidget = device;
+        auto *start = static_cast<StartWidget*>(widgets.emplace("StartWidget", std::make_unique<StartWidget>()).first->second.get());
+        start->widgets.emplace_back(device);
+        start->widgets.emplace_back(frequency);
+        start->widgets.emplace_back(memory);
     }
 
     void Profiler::Views()

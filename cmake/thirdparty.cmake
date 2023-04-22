@@ -52,6 +52,10 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET boost         DIR boost)
     sky_find_3rd(TARGET sqlite        DIR sqlite)
 
+    if (SKY_BUILD_PERF_TOOL)
+        sky_find_3rd(TARGET implot        DIR implot)
+    endif()
+
     if (WIN32 OR ANDROID)
         sky_find_3rd(TARGET gles          DIR gles)
     endif()

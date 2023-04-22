@@ -87,6 +87,23 @@ sky_add_custom_3rd(TARGET Imgui STATIC
         ${IMGUI_DIR}/imconfig.h
 )
 
+set(IMPLOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/implot)
+set(IMPLOT_SRC
+    ${IMPLOT_DIR}/implot.h
+    ${IMPLOT_DIR}/implot.cpp
+    ${IMPLOT_DIR}/implot_demo.cpp
+    ${IMPLOT_DIR}/implot_internal.h
+    ${IMPLOT_DIR}/implot_items.cpp
+    )
+
+sky_add_custom_3rd(TARGET Implot STATIC
+    SOURCES ${IMPLOT_SRC}
+    PUBLIC_HEADERS
+    ${IMPLOT_DIR}/implot.h
+    )
+target_include_directories(Implot PRIVATE ${IMGUI_DIR})
+target_link_libraries(Implot PRIVATE Imgui)
+
 set(STB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 set(STB_SRC
     ${STB_DIR}/stb_image.h

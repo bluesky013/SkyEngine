@@ -16,11 +16,16 @@ namespace sky::perf {
         bool Init();
         std::vector<std::string> SearchDevices() const;
         std::vector<std::string> SearchPackages(const std::string &id) const;
+        std::vector<std::string> SearchViews(const std::string &id, const std::string &package) const;
         void StartApplication(const std::string &id, const std::string &package) const;
 
         void EnableWireless(const std::string &id) const;
         std::string GetDeviceName(const std::string &id) const;
         void UpdateDeviceInfo(Device &dev, const std::string &id) const;
+
+        // real-time data
+        std::vector<std::string> Frequencies(const std::string &id) const;
+        std::vector<std::string> Memory(const std::string &id, const std::string &package) const;
 
         std::vector<std::string> Execute(const std::string &cmd) const;
 
