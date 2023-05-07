@@ -150,8 +150,8 @@ namespace sky::vk {
         Barrier barrier = {};
         barrier.srcStageMask = FromRHI(imageBarrier.srcStage);
         barrier.dstStageMask = FromRHI(imageBarrier.dstStage);
-        barrier.srcAccessMask = FromRHI(imageBarrier.srcFlag);
-        barrier.dstAccessMask = FromRHI(imageBarrier.dstFlag);
+//        barrier.srcAccessMask = FromRHI(imageBarrier.srcFlag);
+//        barrier.dstAccessMask = FromRHI(imageBarrier.dstFlag);
         QueueBarrier(std::static_pointer_cast<Image>(imageBarrier.image), range, barrier,
                      LAYOUT_MAP[static_cast<uint32_t>(imageBarrier.srcFlag)],
                      LAYOUT_MAP[static_cast<uint32_t>(imageBarrier.dstFlag)]);

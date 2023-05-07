@@ -260,7 +260,8 @@ namespace sky::rhi {
         HOST_WRITE            = 15,
         MEMORY_READ           = 16,
         MEMORY_WRITE          = 17,
-        PRESENT               = 18
+        PRESENT               = 18,
+        SHADING_RATE          = 19,
     };
 
     // flag bit

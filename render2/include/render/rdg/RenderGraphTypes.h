@@ -31,6 +31,18 @@ namespace sky::rdg {
         SHADING_RATE,
     };
 
+    enum class ComputeType {
+        CBV,
+        SRV,
+        UAV,
+    };
+
+    enum class TransferType {
+        SRC,
+        DST,
+    };
+    using AttachmentType = std::variant<RenderTargetType, ComputeType, TransferType>;
+
     enum class ResourceAccessBit : uint32_t {
         READ = 0x01,
         WRITE = 0x02,
@@ -52,8 +64,9 @@ namespace sky::rdg {
 
     struct ComputeView {
         std::string name;
+        ComputeType type = ComputeType::UAV;
         ResourceAccess access = ResourceAccessBit::READ;
-        bool isUAV = false;
+        rhi::ShaderStageFlags visibility;
     };
 
     struct CopyView {
@@ -73,12 +86,13 @@ namespace sky::rdg {
     using VertexList = PmrVector<VertexType>;
 
     struct RootTag {};
+
     struct RasterPassTag {};
     struct RasterSubPassTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
-    struct RefNodeTag {};
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -86,6 +100,11 @@ namespace sky::rdg {
     struct BufferTag {};
     struct ImportBufferTag {};
     struct BufferViewTag {};
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
+
+    struct AccessPassTag {};
+    struct AccessResTag {};
+    using AccessGraphTags = std::variant<AccessPassTag, AccessResTag>;
 
     struct Root {
         using Tag = RootTag;
@@ -135,10 +154,28 @@ namespace sky::rdg {
         rhi::SwapChainPtr swapChain;
     };
 
-    struct RefNode {
-        using Tag = RefNodeTag;
+    struct AccessEdge {
+        AttachmentType type;
+        ResourceAccess access;
+        rhi::ShaderStageFlags visibility;
+    };
 
+    struct AccessPass {
+        using Tag = AccessPassTag;
+        VertexType vertexID = INVALID_VERTEX;
+    };
+
+    struct AccessRes {
+        using Tag = AccessResTag;
         VertexType resID = INVALID_VERTEX;
+        std::vector<rhi::AccessFlag> prevAccess;
+        std::vector<rhi::AccessFlag> nextAccess;
+    };
+
+    struct LifeTime {
+        VertexType begin = INVALID_VERTEX;
+        VertexType end   = INVALID_VERTEX;
+        uint32_t reference = 0;
     };
 
     struct GraphImportImage {
@@ -161,6 +198,7 @@ namespace sky::rdg {
         rhi::SampleCount     samples     = rhi::SampleCount::X1;
         rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
+        LifeTime             lifeTime;
     };
 
     struct GraphImageView {
@@ -181,18 +219,13 @@ namespace sky::rdg {
         uint64_t size = 0;
         rhi::BufferUsageFlags usage = rhi::BufferUsageFlagBit::NONE;
         ResourceResidency residency = ResourceResidency::PERSISTENT;
+        LifeTime lifeTime;
     };
 
     struct GraphBufferView {
         using Tag = BufferViewTag;
 
         rhi::BufferViewDesc view;
-    };
-
-    struct LifeTime {
-        VertexType begin = INVALID_VERTEX;
-        VertexType end   = INVALID_VERTEX;
-        uint32_t reference = 0;
     };
 
     template <class Key>
@@ -224,6 +257,7 @@ namespace sky::rdg {
 
         T desc;
         rhi::ImageViewPtr res;
+        rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
     };
 
     template <typename T>
@@ -232,6 +266,7 @@ namespace sky::rdg {
 
         T desc;
         rhi::BufferViewPtr res;
+        rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
     };
 
     template <typename Graph>

@@ -11,16 +11,16 @@
 namespace sky::rdg {
     struct RenderGraph;
 
-    struct LifeTimeVisitor : boost::dfs_visitor<> {
-        LifeTimeVisitor(RenderGraph &g) : graph(g.resourceGraph) {}
+    struct AccessCompiler : boost::dfs_visitor<> {
+        AccessCompiler(RenderGraph &g) : rdg(g) {}
 
-        using Vertex = boost::graph_traits<ResourceGraph::Graph>::vertex_descriptor;
-        using Edge = boost::graph_traits<ResourceGraph::Graph>::edge_descriptor;
-        using Graph = ResourceGraph::Graph;
+        using Vertex = boost::graph_traits<AccessGraph::Graph>::vertex_descriptor;
+        using Edge = boost::graph_traits<AccessGraph::Graph>::edge_descriptor;
+        using Graph = AccessGraph::Graph;
 
-        void tree_edge(Edge e, const Graph &g);
+        void examine_edge(Edge u, const Graph& g);
 
-        ResourceGraph &graph;
+        RenderGraph &rdg;
     };
 
     struct ResourceGraphCompiler : boost::dfs_visitor<> {
@@ -39,9 +39,9 @@ namespace sky::rdg {
     struct RenderGraphPassCompiler : boost::dfs_visitor<> {
         RenderGraphPassCompiler(RenderGraph &g) : graph(g) {}
 
-        using Vertex = boost::graph_traits<PassGraph>::vertex_descriptor;
-        using Edge = boost::graph_traits<PassGraph>::edge_descriptor;
-        using Graph = PassGraph;
+        using Graph = RenderGraph::Graph;
+        using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
+        using Edge = boost::graph_traits<Graph>::edge_descriptor;
 
         void tree_edge(Edge e, const Graph &g);
         void discover_vertex(Vertex u, const Graph& g);
@@ -50,17 +50,6 @@ namespace sky::rdg {
         void Compile(ComputePass &pass);
         void Compile(CopyBlitPass &pass);
 
-        RenderGraph &graph;
-    };
-
-    struct RenderDependencyCompiler : boost::dfs_visitor<> {
-        RenderDependencyCompiler(RenderGraph &g) : graph(g) {}
-
-        using Vertex = boost::graph_traits<PassGraph>::vertex_descriptor;
-        using Edge = boost::graph_traits<PassGraph>::edge_descriptor;
-        using Graph = PassGraph;
-
-        void examine_edge(Edge u, const Graph& g);
         RenderGraph &graph;
     };
 

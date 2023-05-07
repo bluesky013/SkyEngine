@@ -112,8 +112,8 @@ namespace sky::vk {
             vkDep.dstSubpass      = dep.dst;
             vkDep.srcStageMask    = FromRHI(dep.srcStage);
             vkDep.dstStageMask    = FromRHI(dep.dstStage);
-            vkDep.srcAccessMask   = FromRHI(dep.srcFlag);
-            vkDep.dstAccessMask   = FromRHI(dep.dstFlag);
+//            vkDep.srcAccessMask   = FromRHI(dep.srcFlag);
+//            vkDep.dstAccessMask   = FromRHI(dep.dstFlag);
             vkDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
         }
 

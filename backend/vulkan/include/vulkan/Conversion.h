@@ -29,7 +29,7 @@ namespace sky::vk {
     VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags);
     VkPipelineStageFlags FromRHI(rhi::PipelineStageFlags);
-    VkAccessFlags FromRHI(rhi::AccessFlag);
+//    VkAccessFlags FromRHI(rhi::AccessFlag);
     VkSampleCountFlagBits FromRHI(rhi::SampleCount);
     VkAttachmentLoadOp FromRHI(rhi::LoadOp);
     VkAttachmentStoreOp FromRHI(rhi::StoreOp);

@@ -421,6 +421,7 @@ namespace sky::vk {
             {rhi::AccessFlag::HOST_WRITE           , VK_ACCESS_HOST_WRITE_BIT},
             {rhi::AccessFlag::MEMORY_READ          , VK_ACCESS_MEMORY_READ_BIT},
             {rhi::AccessFlag::MEMORY_WRITE         , VK_ACCESS_MEMORY_WRITE_BIT},
+            {rhi::AccessFlag::SHADING_RATE         , VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR},
         };
         auto iter = ACCESS_FLAG_MAP.find(flag);
         return iter == ACCESS_FLAG_MAP.end() ? 0 : iter->second;
