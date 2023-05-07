@@ -116,6 +116,8 @@ namespace sky::vk {
                                     VkMemoryPropertyFlags                flags,
                                     MemoryRequirement                   &out) const;
 
+        void PrintSupportedExtensions() const;
+
         friend class Instance;
         Device(Instance &);
         Instance        &instance;

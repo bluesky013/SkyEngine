@@ -57,9 +57,14 @@ namespace sky::vk {
         bufferInfo.usage = des.usage;
 
         VkResult res;
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage                   = des.memory;
-        res                               = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+        if (des.allocateMem) {
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = des.memory;
+            res = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer,
+                                  &allocation, nullptr);
+        } else {
+            vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, VKL_ALLOC, &buffer);
+        }
         if (res != VK_SUCCESS) {
             LOG_E(TAG, "create buffer failed, %d", res);
             return false;

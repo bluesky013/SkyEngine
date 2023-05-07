@@ -275,6 +275,7 @@ namespace sky::vk {
         }
         graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
         SetupAsyncTransferQueue();
+        PrintSupportedExtensions();
         return true;
     }
 
@@ -457,6 +458,13 @@ namespace sky::vk {
         vkGetImageMemoryRequirements2(device, &memoryReqsInfo, &memoryReqs2);
 
         return FillMemoryRequirements(memoryReqs2, memDedicatedReq, flags, requirement);
+    }
+
+    void Device::PrintSupportedExtensions() const
+    {
+        for (auto &ext : supportedExtensions) {
+            LOG_I(TAG, "supported device extensions name %s, version %u", ext.extensionName, ext.specVersion);
+        }
     }
 
 } // namespace sky::vk

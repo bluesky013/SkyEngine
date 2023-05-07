@@ -12,7 +12,9 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         "-framework IOKit"
         "-framework Metal")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-    set(PLATFORM_EXT_LIBS  android log)
+    find_library(log-lib log)
+
+    set(PLATFORM_EXT_LIBS  android ${log-lib})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PLATFORM_EXT_LIBS winmm imm32 version setupapi)
 endif()

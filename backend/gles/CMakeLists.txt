@@ -13,6 +13,7 @@ sky_add_library(TARGET GLESRHI SHARED
         Core
         RHI
         3rdParty::gles
+        ${PLATFORM_EXT_LIBS}
 )
 
 sky_add_dependency(TARGET GLESRHI DEPENDENCIES Launcher Editor)

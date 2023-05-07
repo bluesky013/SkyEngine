@@ -96,6 +96,7 @@ namespace sky::vk {
     {
         std::pair<VkQueueFlags, VkQueueFlags> preferred[] = {
             {VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0},
+            {VK_QUEUE_GRAPHICS_BIT, 0},
             {VK_QUEUE_TRANSFER_BIT, 0}
         };
         VkPhysicalDevice gpu          = device.GetGpuHandle();

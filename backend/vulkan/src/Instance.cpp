@@ -51,6 +51,8 @@ namespace sky::vk {
         "VK_KHR_get_physical_device_properties2",
 #if _WIN32
         "VK_KHR_win32_surface",
+#elif __ANDROID__
+        "VK_KHR_android_surface",
 #elif __APPLE__
         "VK_KHR_portability_enumeration",
         "VK_MVK_macos_surface",
@@ -58,7 +60,11 @@ namespace sky::vk {
 #endif
     };
 
+#if !defined(__ANDROID__)
     const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+#else
+    const std::vector<const char *> validationLayers;
+#endif
 
     Instance *Instance::Create(const Descriptor &des)
     {
