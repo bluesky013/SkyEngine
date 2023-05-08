@@ -9,39 +9,6 @@ static const char *TAG = "RDG";
 
 namespace sky::rdg {
 
-    // NONE
-    // INDIRECT_BUFFER
-    // INDEX_BUFFER
-    // VERTEX_BUFFER
-
-    // VERTEX_CBV
-    // VERTEX_SRV
-    // VERTEX_READ_UAV
-    // VERTEX_WRITE_UAV
-
-    // FRAGMENT_CBV
-    // FRAGMENT_SRV
-    // FRAGMENT_READ_UAV
-    // FRAGMENT_WRITE_UAV
-
-    // COMPUTE_CBV
-    // COMPUTE_SRV
-    // COMPUTE_READ_UAV
-    // COMPUTE_WRITE_UAV
-
-    // SHADING_RATE
-    // COLOR_INPUT
-    // DEPTH_STENCIL_INPUT
-    // COLOR_READ
-    // COLOR_WRITE
-    // DEPTH_STENCIL_READ
-    // DEPTH_STENCIL_WRITE
-
-    // TRANSFER_READ
-    // TRANSFER_WRITE
-    // PRESENT
-    // GENERAL
-
     namespace {
         /**
          *  |            AttachmentType                 |      RW      |   VISIBILITY   |
@@ -62,7 +29,6 @@ namespace sky::rdg {
 
 
         rhi::AccessFlag GetAccessFlag(const AccessEdge &edge) {
-
         }
     }
 

@@ -22,14 +22,16 @@ namespace sky::rdg {
         PERSISTENT,
     };
 
-    enum class RenderTargetType {
-        COLOR,
-        RESOLVE,
-        INPUT,
-        RESERVE,
-        DEPTH_STENCIL,
-        SHADING_RATE,
+    enum class RasterTypeBit {
+        COLOR          = 0x01,
+        RESOLVE        = 0x02,
+        INPUT          = 0x04,
+        RESERVE        = 0x08,
+        DEPTH_STENCIL  = 0x10,
+        SHADING_RATE   = 0x20,
     };
+    using RasterType = Flags<RasterTypeBit>;
+    ENABLE_FLAG_BIT_OPERATOR(RasterTypeBit)
 
     enum class ComputeType {
         CBV,
@@ -41,7 +43,7 @@ namespace sky::rdg {
         SRC,
         DST,
     };
-    using AttachmentType = std::variant<RenderTargetType, ComputeType, TransferType>;
+    using AttachmentType = std::variant<RasterType, ComputeType, TransferType>;
 
     enum class ResourceAccessBit : uint32_t {
         READ = 0x01,
@@ -52,7 +54,7 @@ namespace sky::rdg {
     ENABLE_FLAG_BIT_OPERATOR(ResourceAccessBit)
 
     struct RasterView {
-        RenderTargetType type;
+        RasterType type;
         ResourceAccess access = ResourceAccessBit::READ;
         rhi::ClearValue clear;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;

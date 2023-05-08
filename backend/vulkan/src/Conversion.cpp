@@ -400,33 +400,6 @@ namespace sky::vk {
         return res;
     }
 
-    VkAccessFlags FromRHI(rhi::AccessFlag flag)
-    {
-        VkAccessFlags res = {};
-        static const std::unordered_map<rhi::AccessFlag, VkAccessFlagBits> ACCESS_FLAG_MAP = {
-            {rhi::AccessFlag::INDIRECT_COMMAND_READ, VK_ACCESS_INDIRECT_COMMAND_READ_BIT},
-            {rhi::AccessFlag::INDEX_READ           , VK_ACCESS_INDEX_READ_BIT},
-            {rhi::AccessFlag::VERTEX_ATTRIBUTE_READ, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT},
-            {rhi::AccessFlag::UNIFORM_READ         , VK_ACCESS_UNIFORM_READ_BIT},
-            {rhi::AccessFlag::INPUT_ATTACHMENT_READ, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT},
-            {rhi::AccessFlag::SHADER_READ          , VK_ACCESS_SHADER_READ_BIT},
-            {rhi::AccessFlag::SHADER_WRITE         , VK_ACCESS_SHADER_WRITE_BIT},
-            {rhi::AccessFlag::COLOR_READ           , VK_ACCESS_COLOR_ATTACHMENT_READ_BIT},
-            {rhi::AccessFlag::COLOR_WRITE          , VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT},
-            {rhi::AccessFlag::DEPTH_STENCIL_READ   , VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT},
-            {rhi::AccessFlag::DEPTH_STENCIL_WRITE  , VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT},
-            {rhi::AccessFlag::TRANSFER_READ        , VK_ACCESS_TRANSFER_READ_BIT},
-            {rhi::AccessFlag::TRANSFER_WRITE       , VK_ACCESS_TRANSFER_WRITE_BIT},
-            {rhi::AccessFlag::HOST_READ            , VK_ACCESS_HOST_READ_BIT},
-            {rhi::AccessFlag::HOST_WRITE           , VK_ACCESS_HOST_WRITE_BIT},
-            {rhi::AccessFlag::MEMORY_READ          , VK_ACCESS_MEMORY_READ_BIT},
-            {rhi::AccessFlag::MEMORY_WRITE         , VK_ACCESS_MEMORY_WRITE_BIT},
-            {rhi::AccessFlag::SHADING_RATE         , VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR},
-        };
-        auto iter = ACCESS_FLAG_MAP.find(flag);
-        return iter == ACCESS_FLAG_MAP.end() ? 0 : iter->second;
-    }
-
     VkStencilOpState FromRHI(const rhi::StencilState& stencil)
     {
         VkStencilOpState ret = {};
