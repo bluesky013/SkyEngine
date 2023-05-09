@@ -9,6 +9,7 @@
 #include <memory>
 #include <functional>
 #include <core/environment/Singleton.h>
+#include <framework/performance/AdaptivePerfManager.h>
 
 namespace sky {
 
@@ -29,6 +30,7 @@ namespace sky {
         virtual std::string GetInternalPath() const = 0;
         virtual void *GetMainWinHandle() const { return nullptr; };
         virtual void *GetNativeApp() const { return nullptr; }
+        virtual AdaptivePerfManager *GetPerformanceManager() const { return nullptr; }
         virtual bool RunCmd(const std::string &str, std::string &out) const { return true; }
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
@@ -46,6 +48,7 @@ namespace sky {
         std::string GetInternalPath() const;
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
+        AdaptivePerfManager *GetPerformanceManager() const;
         bool RunCmd(const std::string &str, std::string &out) const;
 
         template <typename T>

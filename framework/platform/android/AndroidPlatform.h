@@ -6,6 +6,7 @@
 
 #include <framework/platform/PlatformBase.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
+#include "AndroidPerfManager.h"
 
 namespace sky {
 
@@ -26,9 +27,11 @@ namespace sky {
         std::string GetInternalPath() const override;
         void *GetMainWinHandle() const override;
         void *GetNativeApp() const override;
+        AdaptivePerfManager *GetPerformanceManager() const override;
 
         android_app *app = nullptr;
         ANativeWindow *mainWindow = nullptr;
         bool launched = false;
+        std::unique_ptr<AdaptivePerfManager> perfManager;
     };
 }

@@ -3,12 +3,16 @@ plugins {
 }
 
 android {
-    compileSdk 32
-    ndkVersion '24.0.8215888'
+    signingConfigs {
+        release {
+        }
+    }
+    compileSdk 33
+    ndkVersion '25.2.9519653'
 
     defaultConfig {
         applicationId "com.skyengine.launcher"
-        minSdk 28
+        minSdk 31
         targetSdk 32
         versionCode 1
         versionName "1.0"

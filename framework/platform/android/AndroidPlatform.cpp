@@ -79,6 +79,9 @@ namespace sky {
                 AWINDOW_FLAG_KEEP_SCREEN_ON | AWINDOW_FLAG_TURN_SCREEN_ON |
                 AWINDOW_FLAG_FULLSCREEN | AWINDOW_FLAG_SHOW_WHEN_LOCKED,
                 0);
+
+        perfManager = std::make_unique<AndroidPerfManager>();
+        perfManager->Init();
         return true;
     }
 
@@ -105,6 +108,11 @@ namespace sky {
     void *AndroidPlatform::GetNativeApp() const
     {
         return app;
+    }
+
+    AdaptivePerfManager *AndroidPlatform::GetPerformanceManager() const
+    {
+        return perfManager.get();
     }
 
     bool Platform::Init(const PlatformInfo& info)

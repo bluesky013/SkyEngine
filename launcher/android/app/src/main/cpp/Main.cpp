@@ -29,6 +29,14 @@ void android_main(struct android_app *app) {
         started = true;
     });
 
+    auto *perfManager = platform->GetPerformanceManager();
+    auto *iThermal = perfManager->GetIThermal();
+    if (iThermal != nullptr) {
+        iThermal->RegisterStatusChangeCallback("Key", [](sky::ThermalStatus status) {
+
+        });
+    }
+
     do {
         int events;
         struct android_poll_source *source;

@@ -35,6 +35,11 @@ namespace sky {
         return platform->GetNativeApp();
     }
 
+    AdaptivePerfManager *Platform::GetPerformanceManager() const
+    {
+        return platform->GetPerformanceManager();
+    }
+
     bool Platform::RunCmd(const std::string &str, std::string &out) const
     {
         return platform->RunCmd(str, out);

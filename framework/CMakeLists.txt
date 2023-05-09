@@ -5,6 +5,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/genetic/*
         platform/windows/*)
+
     set(FM_EXT_LIB
         3rdParty::sdl)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
@@ -15,6 +16,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         3rdParty::sdl)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_package(game-activity REQUIRED CONFIG)
+
     file(GLOB_RECURSE PLATFORM_SRC
         platform/android/*)
     set(FM_EXT_LIB
