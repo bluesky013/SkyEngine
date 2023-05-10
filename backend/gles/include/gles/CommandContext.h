@@ -60,6 +60,7 @@ namespace sky::gles {
 
         Context *context = nullptr;
         PipelineCacheState *cache = nullptr;
+        rhi::QueueType type = rhi::QueueType::GRAPHICS;
         rhi::ClearValue *clearValues = nullptr;
         uint32_t clearCount = 0;
 

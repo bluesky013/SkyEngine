@@ -86,4 +86,17 @@ namespace sky::gles {
             uint32_t unit;
         };
     };
+
+    inline bool HasDepth(rhi::PixelFormat format)
+    {
+        return format == rhi::PixelFormat::D24_S8 ||
+               format == rhi::PixelFormat::D32 ||
+               format == rhi::PixelFormat::D32_S8;
+    }
+
+    inline bool HasStencil(rhi::PixelFormat format)
+    {
+        return format == rhi::PixelFormat::D32_S8 ||
+               format == rhi::PixelFormat::D24_S8;
+    }
 }

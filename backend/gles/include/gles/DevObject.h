@@ -23,4 +23,6 @@ namespace sky::gles {
     };
     using DevPtr = std::shared_ptr<DevObject>;
 
+    static constexpr uint32_t INVALID_INDEX = ~(0U);
+
 } // namespace sky::gles

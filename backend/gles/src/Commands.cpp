@@ -68,19 +68,6 @@ namespace sky::gles {
         return 0;
     }
 
-    static bool HasDepth(rhi::PixelFormat format)
-    {
-        return format == rhi::PixelFormat::D24_S8 ||
-            format == rhi::PixelFormat::D32 ||
-            format == rhi::PixelFormat::D32_S8;
-    }
-
-    static bool HasStencil(rhi::PixelFormat format)
-    {
-        return format == rhi::PixelFormat::D32_S8 ||
-            format == rhi::PixelFormat::D24_S8;
-    }
-
     void CommandContext::CmdBeginPass(const FrameBufferPtr &frameBuffer, const RenderPassPtr &renderPass, uint32_t count, rhi::ClearValue *values)
     {
         currentFramebuffer = frameBuffer;
@@ -93,49 +80,55 @@ namespace sky::gles {
         CHECK(glScissor(0, 0, ext.width, ext.height));
 
         BeginPassInternal();
+
+        auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
+        if (drawBuffer.size() > 1) {
+            CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()))
+        }
     }
 
     void CommandContext::CmdNextPass()
     {
-        EndPassInternal();
         ++currentSubPassId;
-        BeginPassInternal();
+
+        auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
+        if (drawBuffer.size() > 1) {
+            CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()))
+        }
     }
 
     void CommandContext::BeginPassInternal()
     {
-        auto &fbs    = currentFramebuffer->GetNativeHandles();
         auto &subPasses = currentRenderPass->GetSubPasses();
         auto &attachments = currentRenderPass->GetAttachments();
+        auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
 
-        SKY_ASSERT(currentSubPassId < fbs.size());
         SKY_ASSERT(currentSubPassId < subPasses.size());
 
-        auto &subPass = subPasses[currentSubPassId];
-        auto &fb   = fbs[currentSubPassId];
-        if (fb.surface && fb.surface->GetSurface() != context->GetCurrentSurface()) {
-            context->MakeCurrent(*fb.surface);
+        auto &surface = currentFramebuffer->GetSurface();
+        GLuint fbo = 0;
+        if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
+            context->MakeCurrent(*surface);
         }
-
-        if (cache->drawBuffer != fb.fbo) {
-            CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fbo));
-            cache->drawBuffer = fb.fbo;
+        if (!surface) {
+            fbo = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
+        }
+        if (cache->drawBuffer != fbo) {
+            CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
+            cache->drawBuffer = fbo;
         }
 
         GLbitfield clearBit = 0;
-        auto attachmentFunc = [this, &clearBit](const rhi::RenderPass::Attachment &attachment, uint32_t index, uint32_t colorIndex) {
-            auto &feature = GetFormatFeature(attachment.format);
-            bool hasDepth = HasDepth(attachment.format);
-            bool hasStencil = HasStencil(attachment.format);
-            bool isColor = !(hasDepth || hasStencil);
+        auto attachmentFunc = [this, &clearBit](const rhi::RenderPass::Attachment &attachment, const RenderPass::AttachmentGLInfo &info, uint32_t index) {
+            bool isColor = !(info.hasDepth || info.hasStencil);
             bool isDefaultFb = cache->drawBuffer == 0;
 
             if (attachment.load == rhi::LoadOp::DONT_CARE) {
-                if (hasDepth) {
+                if (info.hasDepth) {
                     invalidAttachments.emplace_back(isDefaultFb ? GL_DEPTH : GL_DEPTH_ATTACHMENT);
                 }
                 if (isColor) {
-                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + colorIndex);
+                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + info.index);
                 }
             } else if (attachment.load == rhi::LoadOp::CLEAR) {
                 auto &clearColor = clearValues[index];
@@ -145,9 +138,9 @@ namespace sky::gles {
                 }
 
                 if (isColor) {
-                    CHECK(glClearBufferfv(GL_COLOR, index, clearColor.color.float32));
+                    CHECK(glClearBufferfv(GL_COLOR, info.index, clearColor.color.float32));
                 }
-                if (hasDepth) {
+                if (info.hasDepth) {
                     if (cache->ds.depth.depthWrite != true) {
                         CHECK(glDepthMask(true));
                         cache->ds.depth.depthWrite = true;
@@ -157,7 +150,7 @@ namespace sky::gles {
                 }
             }
 
-            if (hasStencil) {
+            if (info.hasStencil) {
                 if (attachment.stencilLoad == rhi::LoadOp::DONT_CARE) {
                     invalidAttachments.emplace_back(isDefaultFb ? GL_STENCIL : GL_STENCIL_ATTACHMENT);
                 } else if (attachment.stencilLoad == rhi::LoadOp::CLEAR) {
@@ -176,14 +169,10 @@ namespace sky::gles {
             }
         };
 
-        for (uint32_t i = 0; i < subPass.colors.size(); ++i) {
-            auto color = subPass.colors[i];
-            auto &attachment = attachments[color];
-            attachmentFunc(attachment, color, i);
+        for (uint32_t i = 0; i < attachments.size(); ++i) {
+            attachmentFunc(attachments[i], attachmentInfos[i], i);
         }
-        if (subPass.depthStencil != ~(0U)) {
-            attachmentFunc(attachments[subPass.depthStencil], subPass.depthStencil, 0);
-        }
+
         if (clearBit != 0) {
             CHECK(glClear(clearBit));
         }
@@ -192,51 +181,37 @@ namespace sky::gles {
             CHECK(glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<uint32_t>(invalidAttachments.size()), invalidAttachments.data()));
             invalidAttachments.clear();
         }
-
-        cache->drawBuffer = fb.fbo;
     }
 
     void CommandContext::EndPassInternal()
     {
-        auto &fbs    = currentFramebuffer->GetNativeHandles();
         auto &subPasses = currentRenderPass->GetSubPasses();
         auto &attachments = currentRenderPass->GetAttachments();
+        auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
 
-        SKY_ASSERT(currentSubPassId < fbs.size());
         SKY_ASSERT(currentSubPassId < subPasses.size());
 
-        auto &subPass = subPasses[currentSubPassId];
-        auto &fb   = fbs[currentSubPassId];
-
-        auto attachmentFunc = [this](const rhi::RenderPass::Attachment &attachment, uint32_t index) {
-            auto &feature = GetFormatFeature(attachment.format);
-            bool hasDepth = HasDepth(attachment.format);
-            bool hasStencil = HasStencil(attachment.format);
-            bool isColor = !(hasDepth || hasStencil);
+        auto attachmentFunc = [this](const rhi::RenderPass::Attachment &attachment, const RenderPass::AttachmentGLInfo &info) {
+            bool isColor = !(info.hasDepth || info.hasStencil);
             bool isDefaultFb = cache->drawBuffer == 0;
 
             if (attachment.store == rhi::StoreOp::DONT_CARE) {
-                if (hasDepth) {
+                if (info.hasDepth) {
                     invalidAttachments.emplace_back(isDefaultFb ? GL_DEPTH : GL_DEPTH_ATTACHMENT);
                 }
                 if (isColor) {
-                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + index);
+                    invalidAttachments.emplace_back(isDefaultFb ? GL_COLOR : GL_COLOR_ATTACHMENT0 + info.index);
                 }
             }
 
-            if (hasStencil && attachment.stencilStore == rhi::StoreOp::DONT_CARE) {
+            if (info.hasStencil && attachment.stencilStore == rhi::StoreOp::DONT_CARE) {
                 invalidAttachments.emplace_back(isDefaultFb ? GL_STENCIL : GL_STENCIL_ATTACHMENT);
             }
         };
 
         // perform attachment store op
-        for (uint32_t i = 0; i < subPass.colors.size(); ++i) {
-            auto color = subPass.colors[i];
-            auto &attachment = attachments[color];
-            attachmentFunc(attachment, color);
-        }
-        if (subPass.depthStencil != ~(0U)) {
-            attachmentFunc(attachments[subPass.depthStencil], 0);
+        for (uint32_t i = 0; i < attachments.size(); ++i) {
+            attachmentFunc(attachments[i], attachmentInfos[i]);
         }
 
         if (!invalidAttachments.empty()) {
@@ -487,10 +462,7 @@ namespace sky::gles {
 
     void CommandContext::CmdBindAssembly(const VertexAssemblyPtr &assembly)
     {
-        if (!assembly->IsInited()) {
-            assembly->InitInternal();
-        }
-        auto vao = assembly->GetNativeHandle();
+        auto vao = assembly->AcquireNativeHandle(static_cast<uint32_t>(type));
         if (cache->vao != vao) {
             cache->vao = vao;
             CHECK(glBindVertexArray(vao));
@@ -544,6 +516,7 @@ namespace sky::gles {
     {
         context = queue.GetContext();
         cache = queue.GetCacheState();
+        type = queue.GetQueueType();
         sets.clear();
     }
 }

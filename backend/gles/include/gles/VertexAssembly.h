@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <thread>
+#include <unordered_map>
 #include <rhi/VertexAssembly.h>
 #include <gles/DevObject.h>
 
@@ -16,15 +19,13 @@ namespace sky::gles {
 
         bool Init(const Descriptor &desc);
 
-        GLuint GetNativeHandle() const { return vao; }
-        bool IsInited() const { return inited; }
-        void InitInternal();
+        GLuint AcquireNativeHandle(uint32_t queueIndex);
 
     private:
-        // OpenGL-ES explicitly disallows sharing of VAO objects
+        void InitInternal(GLuint vao);
 
-        GLuint vao = 0;
-        bool inited = false;
+        // OpenGL-ES explicitly disallows sharing of VAO objects
+        std::vector<GLuint> objects;
     };
     using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 }

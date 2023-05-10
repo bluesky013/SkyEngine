@@ -56,6 +56,7 @@ namespace sky::gles {
         Queue *GetGraphicsQueue() const;
         Queue *GetTransferQueue() const;
         Queue* GetQueue(rhi::QueueType type) const override;
+        uint32_t getQueueNumber() const { return 2; }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)

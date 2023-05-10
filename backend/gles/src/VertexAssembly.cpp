@@ -6,6 +6,7 @@
 #include <gles/BufferView.h>
 #include <gles/VertexInput.h>
 #include <gles/Core.h>
+#include <gles/Device.h>
 
 namespace sky::gles {
 
@@ -13,22 +14,39 @@ namespace sky::gles {
 
     VertexAssembly::~VertexAssembly()
     {
-        if (vao != 0) {
-            CHECK(glDeleteVertexArrays(1, &vao));
+        auto deleteVAO = [](Queue &queue, GLuint vao) {
+            queue.CreateTask([vao]() {
+                CHECK(glDeleteVertexArrays(1, &vao));
+            });
+        };
+        for (uint32_t i = 0; i < objects.size(); ++i) {
+            auto &vao = objects[i];
+            if (vao != 0) {
+                deleteVAO(*device.GetQueue(static_cast<rhi::QueueType>(i)), vao);
+            }
         }
     }
 
     bool VertexAssembly::Init(const Descriptor &desc)
     {
         descriptor = desc;
+        objects.resize(device.getQueueNumber(), 0);
         return true;
     }
 
-    void VertexAssembly::InitInternal()
+    GLuint VertexAssembly::AcquireNativeHandle(uint32_t queueIndex)
     {
-        CHECK(glGenVertexArrays(1, &vao));
-        CHECK(glBindVertexArray(vao));
+        auto &vao = objects[queueIndex];
+        if (vao == 0) {
+            CHECK(glGenVertexArrays(1, &vao));
+            InitInternal(vao);
+        }
+        return vao;
+    }
 
+    void VertexAssembly::InitInternal(GLuint vao)
+    {
+        CHECK(glBindVertexArray(vao));
         auto vi = std::static_pointer_cast<VertexInput>(descriptor.vertexInput);
         auto &attributes = vi->GetAttributes();
         auto &bindings = vi->GetBindings();
@@ -53,7 +71,5 @@ namespace sky::gles {
         CHECK(glBindVertexArray(0));
         CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
         CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-
-        inited = true;
     }
 }

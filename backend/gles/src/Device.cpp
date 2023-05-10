@@ -108,6 +108,8 @@ namespace sky::gles {
     {
         glGetIntegerv(GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_FAST_SIZE_EXT, reinterpret_cast<GLint*>(&limitation.maxFastShaderPixelStorage));
         glGetIntegerv(GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_SIZE_EXT, reinterpret_cast<GLint*>(&limitation.maxShaderPixelStorage));
+
+        glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&limitation.maxColorAttachments));
     }
 
     void Device::InitDeviceFeature()
