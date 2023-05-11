@@ -69,6 +69,7 @@ namespace sky::gles {
 //        }
         InitLimitation();
         InitDeviceFeature();
+        InitDefaultObjects();
 
         ctxDesc.sharedContext = mainContext->GetNativeHandle();
         graphicsQueue = std::make_unique<Queue>(*this);
@@ -110,12 +111,18 @@ namespace sky::gles {
         glGetIntegerv(GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_SIZE_EXT, reinterpret_cast<GLint*>(&limitation.maxShaderPixelStorage));
 
         glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&limitation.maxColorAttachments));
+        glGetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&limitation.maxDrawBuffers));
     }
 
     void Device::InitDeviceFeature()
     {
         enabledFeature.framebufferFetch = enabledFeature.framebufferFetch && CheckExtension(extensions, "shader_framebuffer_fetch");
         enabledFeature.pixelLocalStorage = enabledFeature.pixelLocalStorage && CheckExtension(extensions, "shader_pixel_local_storage");
+    }
+
+    void Device::InitDefaultObjects()
+    {
+        defaultSampler = CreateDeviceObject<Sampler>(Sampler::Descriptor{});
     }
 
 }

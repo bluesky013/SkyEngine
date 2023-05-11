@@ -87,33 +87,12 @@ namespace sky::rhi {
         submitInfo.waits.emplace_back(
             std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
 
-        ImageBarrier barrier = {};
-        barrier.srcStage = PipelineStageBit::TOP;
-        barrier.dstStage = PipelineStageBit::COLOR_OUTPUT;
-        barrier.srcFlag = AccessFlag::NONE;
-        barrier.dstFlag = AccessFlag::COLOR_WRITE;
-        barrier.srcQueueFamily = (~0U);
-        barrier.dstQueueFamily = (~0U);
-        barrier.mask      = rhi::AspectFlagBit::COLOR_BIT;
-        barrier.subRange  = {0, 1, 0, 1};
-        barrier.image = swapChain->GetImage(index);
-
         commandBuffer->Begin();
-
-        commandBuffer->QueueBarrier(barrier);
-        commandBuffer->FlushBarriers();
 
         commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()})
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
             .EndPass();
-
-        barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
-        barrier.dstStage = PipelineStageBit::BOTTOM;
-        barrier.srcFlag = AccessFlag::COLOR_WRITE;
-        barrier.dstFlag = AccessFlag::PRESENT;
-        commandBuffer->QueueBarrier(barrier);
-        commandBuffer->FlushBarriers();
 
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);
@@ -129,7 +108,7 @@ namespace sky::rhi {
         rhi::PipelineLayout::Descriptor pLayoutDesc = {};
         pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
 
-        auto vertexInput = device->CreateVertexInput({});
+        emptyInput = device->CreateVertexInput({});
 
         auto path = Platform::Get()->GetInternalPath();
         builder::ShaderCompiler::CompileShader("shaders/triangle_vs.glsl", {path + "/shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
@@ -140,7 +119,7 @@ namespace sky::rhi {
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/triangle_fs.shader");
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = pipelineLayout;
-        psoDesc.vertexInput = vertexInput;
+        psoDesc.vertexInput = emptyInput;
         psoDesc.state.depthStencil.depthTest = true;
         psoDesc.state.depthStencil.depthWrite = true;
         psoDesc.state.blendStates.emplace_back(BlendState{});

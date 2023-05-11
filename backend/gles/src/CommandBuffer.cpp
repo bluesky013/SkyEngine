@@ -82,6 +82,12 @@ namespace sky::gles {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::NextSubPass()
+    {
+        commandBuffer.EnqueueMessage(&CommandContext::CmdNextPass, context);
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
     {
         commandBuffer.EnqueueMessage(&CommandContext::CmdEndPass, context);

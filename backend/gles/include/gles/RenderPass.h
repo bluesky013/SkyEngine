@@ -19,7 +19,7 @@ namespace sky::gles {
         ~RenderPass() = default;
 
         struct AttachmentGLInfo {
-            uint32_t index; // index to color buffers
+            uint32_t index = INVALID_INDEX; // index to color buffers
             bool hasDepth = false;
             bool hasStencil = false;
         };

@@ -125,8 +125,22 @@ namespace sky::builder {
         spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
         spirv_cross::ShaderResources resources = compiler.get_shader_resources();
 
-        auto remap = [&compiler](auto &resources) {
+        auto remap = [&compiler](auto &resources, bool subpass = false) {
             for (auto &resource : resources) {
+                if (subpass) {
+                    auto id = compiler.get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
+//                    compiler.require_extension("GL_EXT_shader_framebuffer_fetch");
+//                    compiler.set_remapped_variable_state(resource.id, true);
+//                    compiler.set_name(resource.id, "gl_LastFragData");
+//                    compiler.set_subpass_input_remapped_components(resource.id, id);
+                    compiler.remap_ext_framebuffer_fetch(id, id, true);
+                    std::stringstream ss;
+
+
+//                    compiler.add_header_line()
+                    continue;
+                }
+
                 unsigned set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 unsigned binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
 
@@ -142,6 +156,7 @@ namespace sky::builder {
         remap(resources.storage_buffers);
         remap(resources.sampled_images);
         remap(resources.storage_images);
+        remap(resources.subpass_inputs, true);
 
 
         spirv_cross::CompilerGLSL::Options options;

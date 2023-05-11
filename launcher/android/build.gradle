@@ -9,6 +9,6 @@ task clean(type: Delete) {
 }
 
 task copyFiles(type: Copy) {
-    from 'D:/Code/Engine/SkyEngine/sample/RHISampleBase/assets'
+    from '../../sample/RHISampleBase/assets'
     into 'app/src/main/assets'
 }

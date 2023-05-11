@@ -58,6 +58,8 @@ namespace sky::gles {
         Queue* GetQueue(rhi::QueueType type) const override;
         uint32_t getQueueNumber() const { return 2; }
 
+        const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
+
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
@@ -79,10 +81,14 @@ namespace sky::gles {
     private:
         void InitLimitation();
         void InitDeviceFeature();
+        void InitDefaultObjects();
+
         std::unique_ptr<Context> mainContext;
         std::unique_ptr<Queue> graphicsQueue;
         std::unique_ptr<Queue> transferQueue;
         std::vector<std::string> extensions;
+
+        SamplerPtr defaultSampler;
     };
 
 }

@@ -5,6 +5,7 @@
 #include "RHISample.h"
 #include "RHISampleBase.h"
 #include "RHIPassSample.h"
+#include "RHISubPassSample.h"
 #include <framework/application/SettingRegistry.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
@@ -27,7 +28,8 @@ namespace sky::rhi {
         RegisterPath();
 
 //        RegisterSample<RHISampleBase>();
-        RegisterSample<RHIPassSample>();
+//        RegisterSample<RHIPassSample>();
+        RegisterSample<RHISubPassSample>();
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         auto &settings = systemApi->GetSettings();

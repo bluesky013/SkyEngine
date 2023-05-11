@@ -82,8 +82,8 @@ namespace sky::gles {
         BeginPassInternal();
 
         auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
-        if (drawBuffer.size() > 1) {
-            CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()))
+        if (cache->drawBuffer != 0) {
+            CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()));
         }
     }
 
@@ -92,9 +92,7 @@ namespace sky::gles {
         ++currentSubPassId;
 
         auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
-        if (drawBuffer.size() > 1) {
-            CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()))
-        }
+        CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()));
     }
 
     void CommandContext::BeginPassInternal()

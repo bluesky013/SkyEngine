@@ -53,6 +53,7 @@ namespace sky::rhi {
 
         struct Limitation {
             uint32_t maxColorAttachments = 1;
+            uint32_t maxDrawBuffers = 1;
             uint32_t maxShaderPixelStorage = 0;
             uint32_t maxFastShaderPixelStorage = 0;
         };

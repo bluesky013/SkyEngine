@@ -26,6 +26,7 @@ namespace sky::gles {
         GLuint GetNativeHandle() const { return sampler; }
 
     private:
+        friend class Device;
         bool Init(const Descriptor &);
 
         GLuint sampler = 0;

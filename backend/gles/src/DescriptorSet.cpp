@@ -3,6 +3,7 @@
 //
 
 #include <gles/DescriptorSet.h>
+#include <gles/Device.h>
 
 namespace sky::gles {
     bool DescriptorSet::Init(const Descriptor &desc)
@@ -42,6 +43,7 @@ namespace sky::gles {
     {
         auto &desc = Get(binding, index);
         desc.texture.view = std::static_pointer_cast<ImageView>(view);
+        desc.texture.sampler = device.GetDefaultSampler();
     }
 
     void DescriptorSet::BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index)
