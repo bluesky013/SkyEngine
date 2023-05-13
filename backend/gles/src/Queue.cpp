@@ -47,6 +47,7 @@ namespace sky::gles {
             CHECK(glBindBuffer(target, glesBuffer->GetNativeHandle()));
             CHECK(glBufferData(target, request.size, request.source->GetData(request.offset), glesBuffer->GetGLUsage()));
             CHECK(glBindBuffer(target, 0));
+            CHECK(glFlush());
         });
         return handle;
     }

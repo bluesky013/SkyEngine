@@ -20,6 +20,7 @@ namespace sky::rhi {
             std::vector<BufferViewPtr> vertexBuffers;
             BufferViewPtr indexBuffer;
             VertexInputPtr vertexInput;
+            IndexType indexType = IndexType::U16;
         };
 
     protected:

@@ -81,6 +81,11 @@ namespace sky::rhi {
         F_RGBA8  = 8
     };
 
+    enum class IndexType : uint32_t {
+        U16 = 0,
+        U32,
+    };
+
     enum class ImageType : uint32_t {
         IMAGE_2D,
         IMAGE_3D

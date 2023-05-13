@@ -30,6 +30,7 @@ namespace sky::gles {
     bool VertexAssembly::Init(const Descriptor &desc)
     {
         descriptor = desc;
+        indexType = desc.indexType == rhi::IndexType::U16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
         objects.resize(device.getQueueNumber(), 0);
         return true;
     }

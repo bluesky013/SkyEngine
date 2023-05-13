@@ -133,7 +133,6 @@ namespace sky::rhi {
         VertexAssembly::Descriptor vaDesc;
         vaDesc.vertexInput = vertexInput;
         vaDesc.vertexBuffers.emplace_back(vb->CreateView({0, vertexSize}));
-//        vaDesc.indexBuffer = ib->CreateView({0, indexSize});
         auto va = device->CreateVertexAssembly(vaDesc);
         auto localSet = device->CreateDescriptorSet({localLayout});
 
@@ -260,24 +259,11 @@ namespace sky::rhi {
         submitInfo.waits.emplace_back(
             std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
 
-        ImageBarrier barrier = {};
-        barrier.srcStage = PipelineStageBit::TOP;
-        barrier.dstStage = PipelineStageBit::COLOR_OUTPUT;
-        barrier.srcFlag = AccessFlag::NONE;
-        barrier.dstFlag = AccessFlag::COLOR_WRITE;
-        barrier.srcQueueFamily = (~0U);
-        barrier.dstQueueFamily = (~0U);
-        barrier.mask      = rhi::AspectFlagBit::COLOR_BIT;
-        barrier.subRange  = {0, 1, 0, 1};
-        barrier.image = swapChain->GetImage(index);
-
         commandBuffer->Begin();
-
-        commandBuffer->QueueBarrier(barrier);
-        commandBuffer->FlushBarriers();
 
         auto encoder = commandBuffer->EncodeGraphics();
         encoder->BeginPass({frameBuffers[index], renderPass, 2, clears.data()});
+
         for (auto &subMesh : mesh->subMeshes) {
             encoder->BindPipeline(subMesh.tech->pso);
             encoder->BindSet(0, scene->GetGlobalSet());
@@ -286,14 +272,8 @@ namespace sky::rhi {
             encoder->BindAssembly(mesh->vao);
             encoder->DrawLinear({36, 1, 0, 0});
         }
-        encoder->EndPass();
 
-        barrier.srcStage = PipelineStageBit::COLOR_OUTPUT;
-        barrier.dstStage = PipelineStageBit::BOTTOM;
-        barrier.srcFlag = AccessFlag::COLOR_WRITE;
-        barrier.dstFlag = AccessFlag::PRESENT;
-        commandBuffer->QueueBarrier(barrier);
-        commandBuffer->FlushBarriers();
+        encoder->EndPass();
 
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);

@@ -45,19 +45,20 @@ namespace sky::gles {
 
     static GLenum GetBufferTarget(rhi::DescriptorType type) {
         switch (type) {
-        case rhi::DescriptorType::STORAGE_BUFFER:
-        case rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC:
-            return GL_SHADER_STORAGE_BUFFER;
-        case rhi::DescriptorType::UNIFORM_BUFFER:
-        case rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC:
-            return GL_UNIFORM_BUFFER;
+            case rhi::DescriptorType::STORAGE_BUFFER:
+            case rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC:
+                return GL_SHADER_STORAGE_BUFFER;
+            case rhi::DescriptorType::UNIFORM_BUFFER:
+            case rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC:
+                return GL_UNIFORM_BUFFER;
+            default:
+                return 0;
         }
-        return 0;
     }
 
     static GLenum GetTextureTarget(const ImageViewPtr &imageView)
     {
-        auto &viewInfo = imageView->GetViewDesc();
+        const auto &viewInfo = imageView->GetViewDesc();
         switch (viewInfo.viewType) {
         case rhi::ImageViewType::VIEW_2D: return GL_TEXTURE_2D;
         case rhi::ImageViewType::VIEW_2D_ARRAY: return GL_TEXTURE_2D_ARRAY;
@@ -75,13 +76,13 @@ namespace sky::gles {
         clearValues = values;
         clearCount = count;
 
-        auto &ext = currentFramebuffer->GetExtent();
+        const auto &ext = currentFramebuffer->GetExtent();
         CHECK(glViewport(0, 0, ext.width, ext.height));
         CHECK(glScissor(0, 0, ext.width, ext.height));
 
         BeginPassInternal();
 
-        auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
+        const auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
         if (cache->drawBuffer != 0) {
             CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()));
         }
@@ -91,19 +92,19 @@ namespace sky::gles {
     {
         ++currentSubPassId;
 
-        auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
+        const auto &drawBuffer = currentRenderPass->GetDrawBuffer(currentSubPassId);
         CHECK(glDrawBuffers(static_cast<GLsizei>(drawBuffer.size()), drawBuffer.data()));
     }
 
     void CommandContext::BeginPassInternal()
     {
-        auto &subPasses = currentRenderPass->GetSubPasses();
-        auto &attachments = currentRenderPass->GetAttachments();
-        auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
+        const auto &subPasses = currentRenderPass->GetSubPasses();
+        const auto &attachments = currentRenderPass->GetAttachments();
+        const auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
 
         SKY_ASSERT(currentSubPassId < subPasses.size());
 
-        auto &surface = currentFramebuffer->GetSurface();
+        const auto &surface = currentFramebuffer->GetSurface();
         GLuint fbo = 0;
         if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
             context->MakeCurrent(*surface);
@@ -112,7 +113,7 @@ namespace sky::gles {
             fbo = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
         }
         if (cache->drawBuffer != fbo) {
-            CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
+            CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
             cache->drawBuffer = fbo;
         }
 
@@ -139,7 +140,7 @@ namespace sky::gles {
                     CHECK(glClearBufferfv(GL_COLOR, info.index, clearColor.color.float32));
                 }
                 if (info.hasDepth) {
-                    if (cache->ds.depth.depthWrite != true) {
+                    if (!cache->ds.depth.depthWrite) {
                         CHECK(glDepthMask(true));
                         cache->ds.depth.depthWrite = true;
                     }
@@ -183,9 +184,9 @@ namespace sky::gles {
 
     void CommandContext::EndPassInternal()
     {
-        auto &subPasses = currentRenderPass->GetSubPasses();
-        auto &attachments = currentRenderPass->GetAttachments();
-        auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
+        const auto &subPasses = currentRenderPass->GetSubPasses();
+        const auto &attachments = currentRenderPass->GetAttachments();
+        const auto &attachmentInfos = currentRenderPass->GetAttachmentGLInfos();
 
         SKY_ASSERT(currentSubPassId < subPasses.size());
 
@@ -226,18 +227,18 @@ namespace sky::gles {
         }
         sets[setId] = set;
 
-        auto &descriptorOffsets = currentPso->GetDescriptorOffsets();
-        auto &descriptorIndices = currentPso->GetDescriptorIndices();
+        const auto &descriptorOffsets = currentPso->GetDescriptorOffsets();
+        const auto &descriptorIndices = currentPso->GetDescriptorIndices();
 
         auto pipelineLayout = currentPso->GetPipelineLayout();
-        auto &setLayouts = pipelineLayout->GetLayouts();
+        const auto &setLayouts = pipelineLayout->GetLayouts();
 
-        auto &descriptorSetLayout = setLayouts[setId];
-        auto &bindings = descriptorSetLayout->GetBindings();
-        auto &bindingMap = descriptorSetLayout->GetBindingMap();
+        const auto &descriptorSetLayout = setLayouts[setId];
+        const auto &bindings = descriptorSetLayout->GetBindings();
+        const auto &bindingMap = descriptorSetLayout->GetBindingMap();
 
         uint32_t dynamicIndex = 0;
-        for (auto &binding : bindings) {
+        for (const auto &binding : bindings) {
             auto offsetToSet            = bindingMap.at(binding.binding);
             auto offsetToPipelineLayout = descriptorOffsets[setId];
 
@@ -247,16 +248,16 @@ namespace sky::gles {
                 dynamicIndex += binding.count;
             }
 
-            auto *descriptorIndexBase = &descriptorIndices[offsetToSet + offsetToPipelineLayout];
-            auto *descriptorBase      = &set->GetDescriptors()[offsetToSet];
+            const auto *descriptorIndexBase = &descriptorIndices[offsetToSet + offsetToPipelineLayout];
+            const auto *descriptorBase      = &set->GetDescriptors()[offsetToSet];
 
             for (uint32_t i = 0; i < binding.count; ++i) {
-                auto &descriptor      = descriptorBase[i];
-                auto &descriptorIndex = descriptorIndexBase[i];
+                const auto &descriptor      = descriptorBase[i];
+                const auto &descriptorIndex = descriptorIndexBase[i];
                 if (IsBufferType(binding.type) && CheckBuffer(descriptor)) {
                     uint32_t dynamicOffset = dynamicOffsetPtr != nullptr ? dynamicOffsetPtr[i] : 0;
-                    auto &bufferView = descriptor.buffer.view;
-                    auto &viewInfo = bufferView->GetViewDesc();
+                    const auto &bufferView = descriptor.buffer.view;
+                    const auto &viewInfo = bufferView->GetViewDesc();
                     CHECK(glBindBufferRange(GetBufferTarget(binding.type), descriptorIndex.binding, bufferView->GetNativeHandle(),
                         viewInfo.offset + dynamicOffset, viewInfo.range));
                 } else if (IsCombinedSampler(binding.type) && CheckTexture(descriptor)) {
@@ -347,13 +348,13 @@ namespace sky::gles {
         }
 
         auto &color = cache->color;
-        if (memcmp(&color, &bs.color, sizeof(GLColor))) {
+        if (color.red != bs.color.red || color.blue != bs.color.blue || color.green != bs.color.green || color.alpha != bs.color.green) {
             CHECK(glBlendColor(bs.color.red, bs.color.green, bs.color.blue, bs.color.alpha));
             color = bs.color;
         }
 
         if (!bs.target.empty()) {
-            auto &target = bs.target[0];
+            const auto &target = bs.target[0];
             auto &currentTarget = cache->target;
             if (target.blendEnable != currentTarget.blendEnable) {
                 SetEnable(target.blendEnable, GL_BLEND);
@@ -450,7 +451,7 @@ namespace sky::gles {
             CHECK(glUseProgram(program));
         }
 
-        auto &state = pso->GetGLState();
+        const auto &state = pso->GetGLState();
         cache->primitive = state.primitive;
 
         SetDepthStencil(state.ds);
@@ -461,6 +462,7 @@ namespace sky::gles {
     void CommandContext::CmdBindAssembly(const VertexAssemblyPtr &assembly)
     {
         auto vao = assembly->AcquireNativeHandle(static_cast<uint32_t>(type));
+        cache->indexType = assembly->GetIndexType();
         if (cache->vao != vao) {
             cache->vao = vao;
             CHECK(glBindVertexArray(vao));
@@ -482,8 +484,7 @@ namespace sky::gles {
 
     void CommandContext::CmdDrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
-        // TODO(index type)
-        CHECK(glDrawElementsInstanced(cache->primitive, indexed.indexCount, GL_UNSIGNED_SHORT, 0, indexed.instanceCount));
+        CHECK(glDrawElementsInstanced(cache->primitive, indexed.indexCount, cache->indexType, 0, indexed.instanceCount));
     }
 
     void CommandContext::CmdDrawLinear(const rhi::CmdDrawLinear &linear)
