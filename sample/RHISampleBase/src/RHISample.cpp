@@ -47,7 +47,7 @@ namespace sky::rhi {
         }
         if (API_CHECK[static_cast<uint32_t>(api)]) {
             auto nativeWindow = systemApi->GetViewport();
-            Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+            Event<IWindowEvent>::Connect(nativeWindow, this);
             return true;
         }
         return false;

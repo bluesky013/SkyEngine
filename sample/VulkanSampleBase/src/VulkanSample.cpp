@@ -30,7 +30,7 @@ namespace sky {
 #endif
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+        Event<IWindowEvent>::Connect(nativeWindow, this);
 
         return true;
     }

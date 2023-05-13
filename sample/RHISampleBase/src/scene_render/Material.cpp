@@ -26,11 +26,8 @@ namespace sky::rhi {
                 bufferDesc.usage = rhi::BufferUsageFlagBit::UNIFORM;
                 bufferDesc.memory = rhi::MemoryType::CPU_TO_GPU;
                 auto buffer = device->CreateBuffer(bufferDesc);
-
-                rhi::BufferViewDesc viewDesc = {};
-                viewDesc.range = size;
-                bufferView = buffer->CreateView(viewDesc);
-                rawData.resize(size);
+                buffers.emplace(binding.binding, buffer);
+                rawDatas.emplace(binding.binding, RawData(size));
                 break;
             }
         }
@@ -42,7 +39,7 @@ namespace sky::rhi {
         connection.accessors.emplace(str, accessor);
     }
 
-    Material::Accessor Material::GetAccessor(const std::string &key)
+    Material::Accessor Material::GetAccessor(const std::string &key) const
     {
         auto iter = connection.accessors.find(key);
         return iter != connection.accessors.end() ? iter->second : Accessor{~(0U)};
@@ -52,8 +49,11 @@ namespace sky::rhi {
     {
         auto accessor = GetAccessor(key);
         SKY_ASSERT(accessor.binding != ~(0U))
-        SKY_ASSERT(accessor.offset + size <= rawData.size());
+        SKY_ASSERT(buffers.count(accessor.binding));
+        SKY_ASSERT(rawDatas.count(accessor.binding));
 
+        auto &rawData = rawDatas.at(accessor.binding);
+        SKY_ASSERT(accessor.offset + size <= rawData.size());
         memcpy(rawData.data() + accessor.offset, data, size);
     }
 
@@ -63,17 +63,31 @@ namespace sky::rhi {
         SKY_ASSERT(accessor.binding != ~(0U))
 
         textures[accessor.binding] = tex;
+
+        needUpdateSet = true;
     }
 
     void Material::Update()
     {
-        memcpy(bufferView->Map(), rawData.data(), rawData.size());
+        for (auto &[binding, buffer] : buffers) {
+            auto &rawData = rawDatas[binding];
+            memcpy(buffer->Map(), rawData.data(), rawData.size());
+        }
 
+        if (!needUpdateSet) {
+            return;
+        }
         for (auto &[binding, tex] : textures) {
             batchSet->BindImageView(binding, tex.view, 0);
             batchSet->BindSampler(binding, tex.sampler, 0);
         }
-        batchSet->BindBuffer(bufferBinding, bufferView);
+        rhi::BufferViewDesc viewDesc = {};
+        for (auto &[binding, buffer] : buffers) {
+            viewDesc.range = buffer->GetBufferDesc().size;
+            batchSet->BindBuffer(bufferBinding, buffer->CreateView(viewDesc));
+        }
+
         batchSet->Update();
+        needUpdateSet = false;
     }
 }

@@ -166,8 +166,11 @@ namespace sky::rhi {
 
     void RHIPassSample::SetupCamera()
     {
+        if (!camera) {
+            camera = std::make_shared<Camera>();
+        }
+
         auto &ext = swapChain->GetExtent();
-        camera = std::make_shared<Camera>();
         camera->MakeProjective(60.f / 180.f * 3.14f, ext.width / static_cast<float>(ext.height), 0.1f, 100.f);
 
         auto matrix = Matrix4::Identity();
@@ -177,11 +180,14 @@ namespace sky::rhi {
         camera->SetTransform(matrix);
         camera->Update();
 
-        Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size = sizeof(CameraData);
-        bufferDesc.usage = BufferUsageFlagBit::UNIFORM;
-        bufferDesc.memory = MemoryType::CPU_TO_GPU;
-        cameraBuffer = device->CreateBuffer(bufferDesc);
+        if (!cameraBuffer) {
+            Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size = sizeof(CameraData);
+            bufferDesc.usage = BufferUsageFlagBit::UNIFORM;
+            bufferDesc.memory = MemoryType::CPU_TO_GPU;
+            cameraBuffer = device->CreateBuffer(bufferDesc);
+        }
+
         uint8_t *ptr = cameraBuffer->Map();
         memcpy(ptr, &camera->GetData(), sizeof(CameraData));
         cameraBuffer->UnMap();
@@ -282,5 +288,11 @@ namespace sky::rhi {
         presentInfo.imageIndex = index;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
+    }
+
+    void RHIPassSample::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        RHISampleBase::OnWindowResize(width, height);
+        SetupCamera();
     }
 }

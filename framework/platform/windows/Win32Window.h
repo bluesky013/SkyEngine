@@ -15,6 +15,7 @@ namespace sky {
 
     private:
         bool Init(const Descriptor &desc) override;
+        void UpdateWindow() override;
     };
 
 

@@ -13,11 +13,16 @@ namespace sky {
             return false;
         }
 
+        UpdateWindow();
+        return winHandle != nullptr;
+    }
+
+    void Win32Window::UpdateWindow()
+    {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
         winHandle = reinterpret_cast<void *>(wmInfo.info.win.window);
-        return winHandle != nullptr;
     }
 
     NativeWindow *NativeWindow::Create(const Descriptor &des)

@@ -17,36 +17,6 @@ namespace sky::gles {
         }
     }
 
-    void Context::PrintConfigs()
-    {
-        /**
-         * Special: EGL_CONFIG_CAVEAT
-         * Special: EGL_COLOR_BUFFER_TYPE
-         * Special: larger total number of color bits
-         * Smaller EGL_BUFFER_SIZE.
-         * Smaller EGL_SAMPLE_BUFFERS.
-         * Smaller EGL_SAMPLES.
-         * Smaller EGL_DEPTH_SIZE.
-         * Smaller EGL_STENCIL_SIZE.
-         * Smaller EGL_ALPHA_MASK_SIZE.
-         * Special: EGL_NATIVE_VISUAL_TYPE
-         * Smaller EGL_CONFIG_ID
-         */
-        for (uint32_t i = 0;i < configs.size(); i++) {
-            EGLint alphaSize = 0;
-            EGLint depthSize = 0;
-            EGLint stencilSize = 0;
-            EGLint samples = 0;
-
-            eglGetConfigAttrib(display, configs[i], EGL_ALPHA_SIZE,   &alphaSize);
-            eglGetConfigAttrib(display, configs[i], EGL_DEPTH_SIZE,   &depthSize);
-            eglGetConfigAttrib(display, configs[i], EGL_STENCIL_SIZE, &stencilSize);
-            eglGetConfigAttrib(display, configs[i], EGL_SAMPLES,      &samples);
-
-            LOG_I(TAG, "egl config: alphaSize %d, depthSize %d, stencilSize %d, samples %d", alphaSize, depthSize, stencilSize, samples);
-        }
-    }
-
     bool Context::Init(const Descriptor &desc)
     {
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -64,7 +34,7 @@ namespace sky::gles {
             EGL_NONE};
         EGLint num = 0;
         eglChooseConfig(display, defaultAttribs, nullptr, 0, &num);
-        configs.resize(num);
+        std::vector<EGLConfig> configs(num);
 
         EGLint count = num;
         eglChooseConfig(display, defaultAttribs, configs.data(), count, &num);
@@ -82,28 +52,9 @@ namespace sky::gles {
         return true;
     }
 
-    EGLConfig Context::QueryConfig(const Config &config) const
+    EGLConfig Context::GetConfig() const
     {
-        for (auto &cfg : configs) {
-            EGLint alphaSize = 0;
-            EGLint depthSize = 0;
-            EGLint stencilSize = 0;
-            EGLint samples = 0;
-
-            eglGetConfigAttrib(display, cfg, EGL_ALPHA_SIZE,   &alphaSize);
-            eglGetConfigAttrib(display, cfg, EGL_DEPTH_SIZE,   &depthSize);
-            eglGetConfigAttrib(display, cfg, EGL_STENCIL_SIZE, &stencilSize);
-            eglGetConfigAttrib(display, cfg, EGL_SAMPLES,      &samples);
-            bool res = true;
-            res &= alphaSize >= config.alpha;
-            res &= depthSize >= config.depth;
-            res &= stencilSize >= config.stencil;
-            res &= samples >= config.sample;
-            if (res) {
-                return cfg;
-            }
-        }
-        return EGL_NO_CONFIG_KHR;
+        return config;
     }
 
     void Context::MakeCurrent(const Surface &surface)

@@ -37,13 +37,13 @@ namespace sky::rhi {
         device   = instance->CreateDevice({});
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
-        auto nativeWindow = systemApi->GetViewport();
-        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+        window = systemApi->GetViewport();
+        Event<IWindowEvent>::Connect(window, this);
         SwapChain::Descriptor swcDesc = {};
 
-        swcDesc.window = nativeWindow->GetNativeHandle();
-        swcDesc.width  = nativeWindow->GetWidth();
-        swcDesc.height = nativeWindow->GetHeight();
+        swcDesc.window = window->GetNativeHandle();
+        swcDesc.width  = window->GetWidth();
+        swcDesc.height = window->GetHeight();
         swapChain      = device->CreateSwapChain(swcDesc);
 
         CommandBuffer::Descriptor cmdDesc = {};
@@ -65,6 +65,8 @@ namespace sky::rhi {
         renderPass = nullptr;
         renderFinish = nullptr;
         imageAvailable = nullptr;
+        emptyInput = nullptr;
+        depthStencilImage = nullptr;
         frameBuffers.clear();
 
         delete device;
@@ -114,7 +116,6 @@ namespace sky::rhi {
         builder::ShaderCompiler::CompileShader("shaders/triangle_vs.glsl", {path + "/shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
         builder::ShaderCompiler::CompileShader("shaders/triangle_fs.glsl", {path + "/shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
         GraphicsPipeline::Descriptor psoDesc = {};
-        psoDesc.state.blendStates.emplace_back(rhi::BlendState{});
         psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/triangle_vs.shader");
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/triangle_fs.shader");
         psoDesc.renderPass = renderPass;
@@ -136,7 +137,6 @@ namespace sky::rhi {
     {
         auto format = swapChain->GetFormat();
         auto &ext = swapChain->GetExtent();
-        uint32_t count = swapChain->GetImageCount();
 
         RenderPass::Descriptor passDesc = {};
         passDesc.attachments.emplace_back(RenderPass::Attachment{
@@ -169,19 +169,39 @@ namespace sky::rhi {
         clears[1].depthStencil.depth = 1.f;
         clears[1].depthStencil.stencil = 0;
 
-        frameBuffers.reserve(count);
+        ResetFramebuffer();
+    }
+
+    void RHISampleBase::ResetFramebuffer()
+    {
+        auto &ext = swapChain->GetExtent();
+        uint32_t count = swapChain->GetImageCount();
+
+        rhi::Image::Descriptor imageDesc = {};
+        imageDesc.format      = PixelFormat::D24_S8;
+        imageDesc.extent      = {ext.width, ext.height, 1};
+        imageDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
+        auto image = device->CreateImage(imageDesc);
+
+        rhi::ImageViewDesc viewDesc = {};
+        viewDesc.mask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
+        depthStencilImage = image->CreateView(viewDesc);
+
+        frameBuffers.resize(count);
         for (uint32_t i = 0; i < count; ++i) {
             FrameBuffer::Descriptor fbDesc = {};
             fbDesc.extent = ext;
             fbDesc.pass = renderPass;
             fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
-            frameBuffers.emplace_back(device->CreateFrameBuffer(fbDesc));
+            fbDesc.views.emplace_back(depthStencilImage);
+            frameBuffers[i] = device->CreateFrameBuffer(fbDesc);
         }
     }
 
     void RHISampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
-
+        swapChain->Resize(width, height, window->GetNativeHandle());
+        ResetFramebuffer();
     }
 
     bool RHISampleBase::CheckFeature() const

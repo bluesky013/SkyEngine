@@ -17,6 +17,7 @@ namespace sky {
         void PollEvent(bool &quit) override;
 
         bool Init(const Descriptor &desc) override;
+        virtual void UpdateWindow() {}
 
     protected:
         void Dispatch(const SDL_WindowEvent &event);

@@ -215,10 +215,11 @@ namespace sky::vk {
         return vkAcquireNextImageKHR(device.GetNativeHandle(), swapChain, UINT64_MAX, semaphore->GetNativeHandle(), VK_NULL_HANDLE, &next);
     }
 
-    void SwapChain::Resize(uint32_t width, uint32_t height)
+    void SwapChain::Resize(uint32_t width, uint32_t height, void* window)
     {
         descriptor.width  = width;
         descriptor.height = height;
+        descriptor.window = window;
         if (queue != nullptr) {
             vkQueueWaitIdle(queue->GetNativeHandle());
         }

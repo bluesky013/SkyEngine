@@ -14,10 +14,7 @@ namespace sky::gles {
 
     bool SwapChain::Init(const Descriptor &desc)
     {
-        Config cfg = {};
-        auto config = device.GetMainContext()->QueryConfig(cfg);
-        surface = std::make_shared<WindowSurface>();
-        if (!surface->Init(config, desc.window)) {
+        if (!CreateSurface(desc.window)) {
             return false;
         }
         auto &ext = surface->GetExtent();
@@ -41,5 +38,30 @@ namespace sky::gles {
     {
         auto &glesQueue = static_cast<Queue&>(queue);
         glesQueue.Present(surface);
+    }
+
+    bool SwapChain::CreateSurface(void *window)
+    {
+        auto config = device.GetMainContext()->GetConfig();
+        surface = std::make_shared<WindowSurface>();
+        if (!surface->Init(config, window)) {
+            return false;
+        }
+        return true;
+    }
+
+    void SwapChain::Resize(uint32_t width, uint32_t height, void* window)
+    {
+        auto *graphicsQueue = device.GetGraphicsQueue();
+        auto handle = graphicsQueue->CreateTask([this]() {
+            surface = nullptr;
+        });
+
+        graphicsQueue->Wait(handle);
+        if (!CreateSurface(window)) {
+            return;
+        }
+        color->surface = surface;
+        depth->surface = surface;
     }
 }

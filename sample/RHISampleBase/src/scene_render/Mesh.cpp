@@ -15,10 +15,10 @@ namespace sky::rhi {
         bufferDesc.usage = BufferUsageFlagBit::UNIFORM;
         bufferDesc.memory = MemoryType::CPU_TO_GPU;
 
-        localBuffer = Interface<IRHI>::Get()->GetApi()->GetDevice()->CreateBuffer(bufferDesc)->CreateView({0, sizeof(LocalData)});
+        localBuffer = Interface<IRHI>::Get()->GetApi()->GetDevice()->CreateBuffer(bufferDesc);
         Update();
 
-        descriptorSet->BindBuffer(0, localBuffer);
+        descriptorSet->BindBuffer(0, localBuffer->CreateView({0, sizeof(LocalData)}));
         descriptorSet->Update();
     }
 

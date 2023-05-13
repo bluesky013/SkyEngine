@@ -44,9 +44,9 @@ namespace sky::vk {
             auto &vkRef = references.back();
             vkRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
             vkRef.attachment = index;
-            vkRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            attachments[index].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            attachments[index].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            vkRef.layout = layout;
+            attachments[index].initialLayout = layout;
+            attachments[index].finalLayout = layout;
         };
 
         auto mvSupported = device.GetFeatures().multiView;
@@ -69,7 +69,7 @@ namespace sky::vk {
                 refFn(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             }
 
-            offset += vkSub.colorAttachmentCount;
+            offset += static_cast<uint32_t>(subPass.resolves.size());
             uint32_t inputsOffset = offset;
             for (auto &ref : subPass.inputs) {
                 refFn(ref, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

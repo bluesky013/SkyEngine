@@ -17,8 +17,11 @@
 #include <rhi/CommandBuffer.h>
 #include <IRHI.h>
 
-namespace sky::rhi {
+namespace sky {
     class NativeWindow;
+}
+
+namespace sky::rhi {
 
     ShaderPtr CreateShader(API api, Device &device, ShaderStageFlagBit stage, const std::string &path);
 
@@ -40,6 +43,7 @@ namespace sky::rhi {
 
         void SetupPass();
         void SetupTriangle();
+        void ResetFramebuffer();
         rhi::Device * GetDevice() const override { return device; }
 
         rhi::Instance *instance = nullptr;
@@ -52,7 +56,9 @@ namespace sky::rhi {
         rhi::GraphicsPipelinePtr pso;
         rhi::PipelineLayoutPtr pipelineLayout;
         rhi::VertexInputPtr emptyInput;
+        rhi::ImageViewPtr depthStencilImage;
         std::vector<ClearValue> clears;
+        const NativeWindow* window = nullptr;
 
         rhi::SemaphorePtr imageAvailable;
         rhi::SemaphorePtr renderFinish;

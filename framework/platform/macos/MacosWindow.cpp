@@ -13,11 +13,16 @@ namespace sky {
             return false;
         }
 
+        UpdateWindow();
+        return winHandle != nullptr;
+    }
+
+    void MacosWindow::UpdateWindow()
+    {
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
         winHandle = reinterpret_cast<void *>(wmInfo.info.cocoa.window);
-        return winHandle != nullptr;
     }
 
     NativeWindow *NativeWindow::Create(const Descriptor &des)

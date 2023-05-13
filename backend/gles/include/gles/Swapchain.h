@@ -30,7 +30,10 @@ namespace sky::gles {
         uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) const override { return 0; }
 
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
+        void Resize(uint32_t width, uint32_t height, void* window) override;
     private:
+        bool CreateSurface(void *window);
+
         std::shared_ptr<WindowSurface> surface;
         rhi::PixelFormat format = rhi::PixelFormat::RGBA8_UNORM;
         ImagePtr color;

@@ -26,7 +26,7 @@ namespace sky::gles {
         bool Init(const Descriptor &desc);
         void MakeCurrent(const Surface &surface);
 
-        EGLConfig QueryConfig(const Config &config) const;
+        EGLConfig GetConfig() const;
         EGLContext GetNativeHandle() const { return context; }
         EGLSurface GetCurrentSurface() const { return currentSurface; }
         EGLDisplay GetDisplay() const { return display; }
@@ -39,7 +39,6 @@ namespace sky::gles {
         EGLDisplay display = EGL_NO_DISPLAY;
         EGLSurface currentSurface = EGL_NO_SURFACE;
         EGLConfig config = EGL_NO_CONFIG_KHR;
-        std::vector<EGLConfig> configs;
     };
 
 }

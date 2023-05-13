@@ -22,11 +22,11 @@ namespace sky {
 
         graphicsQueue = device->GetGraphicsQueue();
 
-        auto                       nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        window = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         vk::SwapChain::VkDescriptor swcDesc      = {};
-        swcDesc.window                          = nativeWindow->GetNativeHandle();
+        swcDesc.window                          = window->GetNativeHandle();
         swapChain                               = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
-        Event<IWindowEvent>::Connect(swcDesc.window, this);
+        Event<IWindowEvent>::Connect(window, this);
 
 //        renderPass = vk::RenderPassFactory()()
 //                         .AddSubPass()
@@ -86,12 +86,7 @@ namespace sky {
 
     void VulkanSampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
-        auto &ext = swapChain->GetVkExtent();
-        if (ext.width == width && ext.height == height) {
-            return;
-        }
-
-        swapChain->Resize(width, height);
+        swapChain->Resize(width, height, window->GetNativeHandle());
         ResetFrameBuffer();
     }
 

@@ -42,6 +42,7 @@ namespace sky {
         vk::Device::Descriptor deviceInfo;
         vk::Instance *instance = nullptr;
         vk::Device *device = nullptr;
+        const NativeWindow* window = nullptr;
 
         vk::SwapChainPtr        swapChain;
         vk::SemaphorePtr        imageAvailable;

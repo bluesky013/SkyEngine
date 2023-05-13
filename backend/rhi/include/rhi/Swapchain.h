@@ -38,6 +38,7 @@ namespace sky::rhi {
         virtual bool HasDepthStencilImage() const = 0;
         virtual rhi::ImagePtr GetDepthStencilImage() const = 0;
 
+        virtual void Resize(uint32_t width, uint32_t height, void* window) = 0;
         virtual void Present(Queue &queue, const PresentInfo &info) = 0;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;

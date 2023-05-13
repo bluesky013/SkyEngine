@@ -36,7 +36,7 @@ namespace sky::vk {
             uint32_t                  imageIndex = 0;
         };
 
-        void Resize(uint32_t width, uint32_t height);
+        void Resize(uint32_t width, uint32_t height, void* window) override;
 
         // for vulkan
         VkSwapchainKHR GetNativeHandle() const;

@@ -26,6 +26,8 @@ namespace sky::rhi {
         void SetupScene();
         void SetupPipeline();
 
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
         MaterialPtr material;
         CameraPtr camera;
         MeshPtr mesh;

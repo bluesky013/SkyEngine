@@ -33,7 +33,7 @@ namespace sky::rhi {
         LocalData localData;
         VertexAssemblyPtr vao;
         DescriptorSetPtr descriptorSet;
-        BufferViewPtr localBuffer;
+        BufferPtr localBuffer;
         std::vector<SubMesh> subMeshes;
     };
     using MeshPtr = std::shared_ptr<Mesh>;

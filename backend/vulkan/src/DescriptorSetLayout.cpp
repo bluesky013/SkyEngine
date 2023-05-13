@@ -27,6 +27,8 @@ namespace sky::vk {
 
     bool DescriptorSetLayout::Init(const Descriptor &desc)
     {
+        descriptorCount = 0;
+        bindings = desc.bindings;
         VkDescriptor vkDesc = {};
         for (auto &binding : desc.bindings) {
             SetBinding vkBinding = {};
@@ -34,6 +36,7 @@ namespace sky::vk {
             vkBinding.descriptorCount = binding.count;
             vkBinding.stageFlags      = FromRHI(binding.visibility);
             vkDesc.bindings.emplace(binding.binding, vkBinding);
+            descriptorCount += binding.count;
         }
         return Init(vkDesc);
     }

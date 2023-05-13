@@ -18,8 +18,6 @@ namespace sky::gles {
         bool Init(const rhi::BufferViewDesc &desc);
 
         GLuint GetNativeHandle() const { return source->GetNativeHandle(); }
-        uint8_t *Map() override;
-        void UnMap() override;
 
         std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
 

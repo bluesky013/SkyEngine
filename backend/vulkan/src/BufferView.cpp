@@ -34,16 +34,19 @@ namespace sky::vk {
 
     bool BufferView::Init(const rhi::BufferViewDesc &des)
     {
-        viewInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
-        viewInfo.buffer = source->GetNativeHandle();
-        viewInfo.format = FromRHI(des.format);
-        viewInfo.offset = des.offset;
-        viewInfo.range  = des.range;
-        VkResult rst    = vkCreateBufferView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
-        if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create image view failed, -%d", rst);
-        }
         viewDesc = des;
+        if (des.format != rhi::PixelFormat::UNDEFINED) {
+            viewInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+            viewInfo.buffer = source->GetNativeHandle();
+            viewInfo.format = FromRHI(des.format);
+            viewInfo.offset = des.offset;
+            viewInfo.range  = des.range;
+            VkResult rst    = vkCreateBufferView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
+            if (rst != VK_SUCCESS) {
+                LOG_E(TAG, "create image view failed, -%d", rst);
+                return false;
+            }
+        }
         return true;
     }
 

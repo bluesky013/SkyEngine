@@ -50,16 +50,19 @@ namespace sky::rhi {
         const DescriptorSetPtr &GetSet() const { return batchSet; }
 
     private:
-        Accessor GetAccessor(const std::string &key);
+        Accessor GetAccessor(const std::string &key) const;
+        using RawData = std::vector<uint8_t>;
 
-        BufferViewPtr bufferView;
         DescriptorSetPtr batchSet;
         DescriptorSetLayoutPtr layout;
         Connection connection;
 
         uint32_t bufferBinding = 0;
         std::unordered_map<uint32_t, Texture> textures;
-        std::vector<uint8_t> rawData;
+        std::unordered_map<uint32_t, RawData> rawDatas;
+        std::unordered_map<uint32_t, BufferPtr> buffers;
+
+        bool needUpdateSet = true;
     };
     using MaterialPtr = std::shared_ptr<Material>;
 

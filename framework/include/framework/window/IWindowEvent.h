@@ -7,6 +7,7 @@
 #include <framework/event/Event.h>
 
 namespace sky {
+    class NativeWindow;
 
     namespace MouseButton {
         static constexpr uint8_t MOUSE_BUTTON_LEFT   = 1;
@@ -117,7 +118,7 @@ namespace sky {
 
     class IWindowEvent : public EventTraits {
     public:
-        using KeyType = void *;
+        using KeyType = const NativeWindow*;
 
         IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
