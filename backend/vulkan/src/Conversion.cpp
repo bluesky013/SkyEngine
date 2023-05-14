@@ -6,7 +6,6 @@
 #include <unordered_map>
 
 namespace sky::vk {
-
     std::unordered_map<rhi::PixelFormat, VkFormat> PIXEL_FORMAT_TABLE = {
         {rhi::PixelFormat::UNDEFINED, VK_FORMAT_UNDEFINED},
         {rhi::PixelFormat::RGB8_UNORM, VK_FORMAT_R8G8B8_UNORM},
@@ -267,6 +266,11 @@ namespace sky::vk {
     VkBlendOp FromRHI(rhi::BlendOp op)
     {
         return op == rhi::BlendOp::ADD ? VK_BLEND_OP_ADD : VK_BLEND_OP_SUBTRACT;
+    }
+
+    VkIndexType FromRHI(rhi::IndexType type)
+    {
+        return type == rhi::IndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
     }
 
     VkStencilOp FromRHI(rhi::StencilOp op)

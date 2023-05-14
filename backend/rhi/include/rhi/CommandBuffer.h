@@ -50,16 +50,20 @@ namespace sky::rhi {
         std::vector<SemaphorePtr> submitSignals;
     };
 
-    struct ImageBarrier {
-        PipelineStageFlags srcStage;
-        PipelineStageFlags dstStage;
-        AccessFlag srcFlag = AccessFlag::NONE;
-        AccessFlag dstFlag = AccessFlag::NONE;
+    struct BufferBarrier {
+        std::vector<AccessFlag> srcFlags;
+        std::vector<AccessFlag> dstFlags;
         uint32_t srcQueueFamily = (~0U);
         uint32_t dstQueueFamily = (~0U);
-        AspectFlags   mask      = rhi::AspectFlagBit::COLOR_BIT;
-        ImageSubRange subRange  = {0, 1, 0, 1};
-        ImagePtr image;
+        BufferViewPtr view;
+    };
+
+    struct ImageBarrier {
+        std::vector<AccessFlag> srcFlags;
+        std::vector<AccessFlag> dstFlags;
+        uint32_t srcQueueFamily = (~0U);
+        uint32_t dstQueueFamily = (~0U);
+        ImageViewPtr view;
     };
 
     class CommandBuffer {
@@ -80,6 +84,5 @@ namespace sky::rhi {
 
         virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() = 0;
     };
-
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
 }

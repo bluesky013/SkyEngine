@@ -1,7 +1,7 @@
 #version 450
 
-layout (input_attachment_index = 0, binding = 0) uniform subpassInput inColor0;
-layout (input_attachment_index = 1, binding = 1) uniform subpassInput inColor1;
+layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inColor0;
+layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inColor1;
 
 layout (location = 0) out vec4 outColor0;
 layout (location = 1) out vec4 outColor1;

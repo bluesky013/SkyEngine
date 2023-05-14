@@ -58,6 +58,8 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStop()
     {
+        device->WaitIdle();
+
         commandBuffer = nullptr;
         pipelineLayout = nullptr;
         pso = nullptr;
@@ -67,6 +69,8 @@ namespace sky::rhi {
         imageAvailable = nullptr;
         emptyInput = nullptr;
         depthStencilImage = nullptr;
+        pool = nullptr;
+        colorViews.clear();
         frameBuffers.clear();
 
         delete device;
@@ -91,10 +95,37 @@ namespace sky::rhi {
 
         commandBuffer->Begin();
 
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.view = colorViews[index];
+            commandBuffer->QueueBarrier(barrier);
+        }
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.view = depthStencilImage;
+            commandBuffer->QueueBarrier(barrier);
+        }
+
+        commandBuffer->FlushBarriers();
         commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()})
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
             .EndPass();
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.view = colorViews[index];
+            commandBuffer->QueueBarrier(barrier);
+            commandBuffer->FlushBarriers();
+        }
 
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);
@@ -107,11 +138,6 @@ namespace sky::rhi {
 
     void RHISampleBase::SetupTriangle()
     {
-        rhi::PipelineLayout::Descriptor pLayoutDesc = {};
-        pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
-
-        emptyInput = device->CreateVertexInput({});
-
         auto path = Platform::Get()->GetInternalPath();
         builder::ShaderCompiler::CompileShader("shaders/triangle_vs.glsl", {path + "/shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
         builder::ShaderCompiler::CompileShader("shaders/triangle_fs.glsl", {path + "/shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
@@ -130,7 +156,22 @@ namespace sky::rhi {
     void RHISampleBase::SetupBase()
     {
         SetupPass();
+        SetupPool();
         SetupTriangle();
+    }
+
+    void RHISampleBase::SetupPool()
+    {
+        rhi::DescriptorSetPool::Descriptor poolDesc = {};
+        poolDesc.maxSets = 16;
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::COMBINED_IMAGE_SAMPLER, 128});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_IMAGE, 32});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER, 128});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER_DYNAMIC, 128});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER, 32});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER_DYNAMIC, 32});
+        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::INPUT_ATTACHMENT, 32});
+        pool = device->CreateDescriptorSetPool(poolDesc);
     }
 
     void RHISampleBase::SetupPass()
@@ -156,7 +197,8 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {0}, {}, {}, 1
+            {{0, {AccessFlag::COLOR_WRITE}}}, {}, {},
+            {1, {AccessFlag::DEPTH_STENCIL_WRITE}}
         });
         renderPass = device->CreateRenderPass(passDesc);
 
@@ -170,6 +212,10 @@ namespace sky::rhi {
         clears[1].depthStencil.stencil = 0;
 
         ResetFramebuffer();
+
+        rhi::PipelineLayout::Descriptor pLayoutDesc = {};
+        pipelineLayout = device->CreatePipelineLayout(pLayoutDesc);
+        emptyInput = device->CreateVertexInput({});
     }
 
     void RHISampleBase::ResetFramebuffer()
@@ -188,11 +234,13 @@ namespace sky::rhi {
         depthStencilImage = image->CreateView(viewDesc);
 
         frameBuffers.resize(count);
+        colorViews.resize(count);
         for (uint32_t i = 0; i < count; ++i) {
             FrameBuffer::Descriptor fbDesc = {};
             fbDesc.extent = ext;
             fbDesc.pass = renderPass;
-            fbDesc.views.emplace_back(swapChain->GetImage(i)->CreateView({}));
+            colorViews[i] = swapChain->GetImage(i)->CreateView({});
+            fbDesc.views.emplace_back(colorViews[i]);
             fbDesc.views.emplace_back(depthStencilImage);
             frameBuffers[i] = device->CreateFrameBuffer(fbDesc);
         }

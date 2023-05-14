@@ -39,7 +39,7 @@ namespace sky::gles {
         desc.buffer.view = std::static_pointer_cast<BufferView>(view);
     }
 
-    void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index)
+    void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flag)
     {
         auto &desc = Get(binding, index);
         desc.texture.view = std::static_pointer_cast<ImageView>(view);

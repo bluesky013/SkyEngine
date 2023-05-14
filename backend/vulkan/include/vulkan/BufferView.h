@@ -27,9 +27,8 @@ namespace sky::vk {
         std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
         static std::shared_ptr<BufferView> CreateBufferView(const BufferPtr &buffer, const BufferView::VkDescriptor &des);
 
-        VkBufferView GetNativeHandle() const;
-
-        const VkBufferViewCreateInfo &GetViewInfo() const;
+        const BufferPtr &GetBuffer() const { return source; }
+        VkBufferView GetNativeHandle() const { return view; }
 
     private:
         friend class Buffer;

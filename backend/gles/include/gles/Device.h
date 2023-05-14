@@ -20,6 +20,7 @@
 #include <gles/PipelineLayout.h>
 #include <gles/VertexInput.h>
 #include <gles/Semaphore.h>
+#include <gles/DescriptorSetPool.h>
 #include <memory>
 
 namespace sky::gles {
@@ -72,8 +73,9 @@ namespace sky::gles {
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(DescriptorSetLayout)
         CREATE_DEV_OBJ(PipelineLayout)
-        CREATE_DEV_OBJ(DescriptorSet)
         CREATE_DEV_OBJ(VertexAssembly)
+        CREATE_DEV_OBJ(Sampler)
+        CREATE_DEV_OBJ(DescriptorSetPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema) // avoid CreateSemaphore conflict with windows macro
 
         CREATE_DESC_OBJ(VertexInput)
@@ -82,6 +84,8 @@ namespace sky::gles {
         void InitLimitation();
         void InitDeviceFeature();
         void InitDefaultObjects();
+
+        void WaitIdle() const {}
 
         std::unique_ptr<Context> mainContext;
         std::unique_ptr<Queue> graphicsQueue;

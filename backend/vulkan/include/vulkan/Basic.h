@@ -5,6 +5,9 @@
 #include <vulkan/vulkan.h>
 #define VKL_ALLOC nullptr
 
+#include <vector>
+#include <algorithm>
+
 namespace sky::vk {
 
     struct Barrier {
@@ -14,6 +17,12 @@ namespace sky::vk {
         VkAccessFlags        dstAccessMask;
     };
 
+    struct AccessInfo {
+        VkPipelineStageFlags pipelineStages;
+        VkAccessFlags accessFlags;
+        VkImageLayout imageLayout;
+    };
+
     struct MemoryRequirement {
         VkDeviceSize size;
         VkDeviceSize alignment;
@@ -21,5 +30,12 @@ namespace sky::vk {
         bool prefersDedicated;
         bool requiresDedicated;
     };
+
+    inline bool CheckExtension(const std::vector<VkExtensionProperties> &extensions, const char* ext)
+    {
+        return std::any_of(extensions.begin(), extensions.end(), [ext](const VkExtensionProperties &prop) {
+            return strcmp(prop.extensionName, ext) == 0;
+        });
+    }
 
 } // namespace sky::vk

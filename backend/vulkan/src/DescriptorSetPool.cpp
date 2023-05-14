@@ -5,6 +5,7 @@
 #include <vulkan/DescriptorSet.h>
 #include <vulkan/DescriptorSetPool.h>
 #include <vulkan/Device.h>
+#include <vulkan/Conversion.h>
 
 namespace sky::vk {
 
@@ -17,6 +18,19 @@ namespace sky::vk {
         if (pool != VK_NULL_HANDLE) {
             vkDestroyDescriptorPool(device.GetNativeHandle(), pool, VKL_ALLOC);
         }
+    }
+
+    bool DescriptorSetPool::Init(const Descriptor &desc)
+    {
+        VkDescriptor vkDesc = {};
+        std::vector<VkDescriptorPoolSize> sizes;
+        for (auto &[type, size] : desc.sizes) {
+            sizes.emplace_back(VkDescriptorPoolSize{FromRHI(type), size});
+        }
+        vkDesc.maxSets = desc.maxSets;
+        vkDesc.num = static_cast<uint32_t>(sizes.size());
+        vkDesc.sizes = sizes.data();
+        return Init(vkDesc);
     }
 
     bool DescriptorSetPool::Init(const VkDescriptor &desc)
@@ -44,5 +58,10 @@ namespace sky::vk {
             list.emplace_back(set.handle);
             set.handle = VK_NULL_HANDLE;
         }
+    }
+
+    rhi::DescriptorSetPtr DescriptorSetPool::Allocate(const rhi::DescriptorSet::Descriptor &desc)
+    {
+        return DescriptorSet::Allocate(shared_from_this(), std::static_pointer_cast<DescriptorSetLayout>(desc.layout));
     }
 } // namespace sky::vk

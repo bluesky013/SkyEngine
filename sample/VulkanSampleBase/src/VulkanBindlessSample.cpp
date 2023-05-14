@@ -202,7 +202,7 @@ namespace sky {
 
             vertexAssembly = std::make_shared<vk::VertexAssembly>(*device);
             vertexAssembly->SetVertexInput(vertexInput);
-            vertexAssembly->AddVertexBuffer(vertexBuffer);
+            vertexAssembly->AddVertexBuffer(vk::BufferView::CreateBufferView(vertexBuffer, {}));
         }
 
         {

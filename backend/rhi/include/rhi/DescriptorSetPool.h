@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <rhi/DescriptorSet.h>
 
 namespace sky::rhi {
 
@@ -23,7 +24,7 @@ namespace sky::rhi {
             std::vector<PoolSize> sizes;
         };
 
-    protected:
+        virtual DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) = 0;
     };
-
-}
+    using DescriptorSetPoolPtr = std::shared_ptr<DescriptorSetPool>;
+} // namespace sky::rhi

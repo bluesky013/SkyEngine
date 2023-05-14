@@ -16,7 +16,7 @@ namespace sky::dx {
         ~DescriptorSetPool();
 
         ID3D12DescriptorHeap *GetHeap() const;
-
+        rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override { return nullptr; }
     private:
         friend class Device;
         bool Init(const Descriptor &);

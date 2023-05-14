@@ -291,7 +291,7 @@ namespace sky {
 
             particleSystem->vertexAssembly = std::make_shared<vk::VertexAssembly>(*device);
             particleSystem->vertexAssembly->SetVertexInput(particleSystem->vertexInput);
-            particleSystem->vertexAssembly->AddVertexBuffer(particleSystem->output);
+            particleSystem->vertexAssembly->AddVertexBuffer(vk::BufferView::CreateBufferView(particleSystem->output, {}));
         }
 
         {

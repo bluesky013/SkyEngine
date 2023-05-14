@@ -2,10 +2,11 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
+#include <vulkan/Device.h>
 #include <core/logger/Logger.h>
 #include <vulkan/Basic.h>
-#include <vulkan/Device.h>
 #include <vulkan/Instance.h>
+#include <vulkan/Barrier.h>
 
 #include <vector>
 
@@ -37,13 +38,9 @@ namespace sky::vk {
     Device::Device(Instance &inst) : instance(inst), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
         samplers.SetUp([this](VkSampler sampler) { vkDestroySampler(device, sampler, VKL_ALLOC); });
-
         setLayouts.SetUp([this](VkDescriptorSetLayout layout) { vkDestroyDescriptorSetLayout(device, layout, VKL_ALLOC); });
-
         pipelineLayouts.SetUp([this](VkPipelineLayout layout) { vkDestroyPipelineLayout(device, layout, VKL_ALLOC); });
-
         renderPasses.SetUp([this](VkRenderPass pass) { vkDestroyRenderPass(device, pass, VKL_ALLOC); });
-
         pipelines.SetUp([this](VkPipeline pipeline) { vkDestroyPipeline(device, pipeline, VKL_ALLOC); });
     }
 
@@ -77,13 +74,6 @@ namespace sky::vk {
         VkBool32 combined = VK_TRUE;
         ((combined &= args), ...);
         return required & static_cast<bool>(combined);
-    }
-
-    static bool CheckExtension(const std::vector<VkExtensionProperties> &extensions, const char* ext)
-    {
-        return std::any_of(extensions.begin(), extensions.end(), [ext](const VkExtensionProperties &prop) {
-            return strcmp(prop.extensionName, ext) == 0;
-        });
     }
 
     void Device::ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions)
@@ -275,7 +265,13 @@ namespace sky::vk {
         }
         graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
         SetupAsyncTransferQueue();
-        PrintSupportedExtensions();
+
+        // update barrier map
+        ValidateAccessInfoMapByExtension(supportedExtensions);
+
+        SetupDefaultResources();
+
+//        PrintSupportedExtensions();
         return true;
     }
 
@@ -465,6 +461,11 @@ namespace sky::vk {
         for (auto &ext : supportedExtensions) {
             LOG_I(TAG, "supported device extensions name %s, version %u", ext.extensionName, ext.specVersion);
         }
+    }
+
+    void Device::SetupDefaultResources()
+    {
+        defaultSampler = CreateDeviceObject<Sampler>(Sampler::VkDescriptor{});
     }
 
 } // namespace sky::vk

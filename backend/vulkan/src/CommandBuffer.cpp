@@ -1,12 +1,12 @@
 //
 // Created by Zach Lee on 2021/11/7.
 //
-
 #include "vulkan/CommandBuffer.h"
 #include "core/logger/Logger.h"
 #include "vulkan/Device.h"
 #include "vulkan/Fence.h"
 #include "vulkan/Conversion.h"
+#include "vulkan/Barrier.h"
 
 static const char *TAG = "Vulkan";
 
@@ -140,21 +140,10 @@ namespace sky::vk {
 
     void CommandBuffer::QueueBarrier(const rhi::ImageBarrier &imageBarrier)
     {
-        VkImageSubresourceRange range = {};
-        range.aspectMask     = FromRHI(imageBarrier.mask);
-        range.baseMipLevel   = imageBarrier.subRange.baseLevel;
-        range.levelCount     = imageBarrier.subRange.levels;
-        range.baseArrayLayer = imageBarrier.subRange.baseLayer;
-        range.layerCount     = imageBarrier.subRange.layers;
-
-        Barrier barrier = {};
-        barrier.srcStageMask = FromRHI(imageBarrier.srcStage);
-        barrier.dstStageMask = FromRHI(imageBarrier.dstStage);
-//        barrier.srcAccessMask = FromRHI(imageBarrier.srcFlag);
-//        barrier.dstAccessMask = FromRHI(imageBarrier.dstFlag);
-        QueueBarrier(std::static_pointer_cast<Image>(imageBarrier.image), range, barrier,
-                     LAYOUT_MAP[static_cast<uint32_t>(imageBarrier.srcFlag)],
-                     LAYOUT_MAP[static_cast<uint32_t>(imageBarrier.dstFlag)]);
+        const auto &view = std::static_pointer_cast<ImageView>(imageBarrier.view);
+        auto srcAccess = GetAccessInfo(imageBarrier.srcFlags);
+        auto dstAccess = GetAccessInfo(imageBarrier.dstFlags);
+        QueueBarrier(view, srcAccess, dstAccess);
     }
 
     void CommandBuffer::ExecuteSecondary(const SecondaryCommands &buffers)
@@ -244,6 +233,23 @@ namespace sky::vk {
         imageMemoryBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
         srcStageMask |= barrier.srcStageMask;
         dstStageMask |= barrier.dstStageMask;
+    }
+
+    void CommandBuffer::QueueBarrier(const ImageViewPtr &view, const AccessInfo &src, const AccessInfo &dst)
+    {
+        imageBarriers.emplace_back(VkImageMemoryBarrier{});
+        auto &imageMemoryBarrier = imageBarriers.back();
+        imageMemoryBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageMemoryBarrier.srcAccessMask        = src.accessFlags;
+        imageMemoryBarrier.dstAccessMask        = dst.accessFlags;
+        imageMemoryBarrier.image                = view->GetImage()->GetNativeHandle();
+        imageMemoryBarrier.subresourceRange     = view->GetSubRange();
+        imageMemoryBarrier.oldLayout            = src.imageLayout;
+        imageMemoryBarrier.newLayout            = dst.imageLayout;
+        imageMemoryBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        imageMemoryBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        srcStageMask |= src.pipelineStages;
+        dstStageMask |= dst.pipelineStages;
     }
 
     void CommandBuffer::QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset)
@@ -474,16 +480,20 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindPipeline(const rhi::GraphicsPipelinePtr &pso)
     {
-        auto *handle = std::static_pointer_cast<GraphicsPipeline>(pso)->GetNativeHandle();
+        auto vkPso = std::static_pointer_cast<GraphicsPipeline>(pso);
+        auto *handle = vkPso->GetNativeHandle();
         if (handle != currentPso) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
             currentPso = handle;
         }
+        binder.SetPipelineLayout(vkPso->GetPipelineLayout());
+        binder.SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindAssembly(const rhi::VertexAssemblyPtr &assembly)
     {
+        std::static_pointer_cast<VertexAssembly>(assembly)->OnBind(cmd);
         return *this;
     }
 
@@ -527,6 +537,7 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawLinear(const rhi::CmdDrawLinear &linear)
     {
+        binder.OnBind(cmd);
         vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
         return *this;
     }
@@ -538,6 +549,13 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
     {
+        binder.BindSet(id, std::static_pointer_cast<DescriptorSet>(set));
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::NextSubPass()
+    {
+        vkCmdNextSubpass(cmd, VK_SUBPASS_CONTENTS_INLINE);
         return *this;
     }
 

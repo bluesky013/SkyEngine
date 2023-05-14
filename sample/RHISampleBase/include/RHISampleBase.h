@@ -41,6 +41,7 @@ namespace sky::rhi {
 
         virtual void SetupBase();
 
+        void SetupPool();
         void SetupPass();
         void SetupTriangle();
         void ResetFramebuffer();
@@ -49,8 +50,10 @@ namespace sky::rhi {
         rhi::Instance *instance = nullptr;
         rhi::Device *device = nullptr;
 
+        rhi::DescriptorSetPoolPtr pool;
         rhi::SwapChainPtr swapChain;
         rhi::RenderPassPtr renderPass;
+        std::vector<rhi::ImageViewPtr> colorViews;
         std::vector<rhi::FrameBufferPtr> frameBuffers;
         rhi::CommandBufferPtr commandBuffer;
         rhi::GraphicsPipelinePtr pso;

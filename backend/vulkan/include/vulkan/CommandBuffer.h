@@ -74,7 +74,7 @@ namespace sky::vk {
         rhi::GraphicsEncoder &DrawLinear(const rhi::CmdDrawLinear &linear) override;
         rhi::GraphicsEncoder &DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size) override;
         rhi::GraphicsEncoder &BindSet(uint32_t id, const rhi::DescriptorSetPtr &set) override;
-        rhi::GraphicsEncoder &NextSubPass() override { return *this; }
+        rhi::GraphicsEncoder &NextSubPass() override;
         rhi::GraphicsEncoder &EndPass() override;
 
     private:
@@ -87,6 +87,7 @@ namespace sky::vk {
         VkRect2D              scissor{};
         uint32_t              currentSubPassId = 0;
         VertexAssemblyPtr     currentAssembler;
+        DescriptorSetBinder   binder;
     };
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
@@ -109,6 +110,7 @@ namespace sky::vk {
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
         void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
         void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
+        void QueueBarrier(const ImageViewPtr &view, const AccessInfo &src, const AccessInfo &dst);
         void QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);

@@ -10,11 +10,12 @@
 
 namespace sky::rhi {
 
-    void Material::SetLayout(const rhi::DescriptorSetLayoutPtr &l, uint32_t size)
+    void Material::SetLayout(const rhi::DescriptorSetLayoutPtr &l, const rhi::DescriptorSetPoolPtr &p, uint32_t size)
     {
         auto *device = Interface<IRHI>::Get()->GetApi()->GetDevice();
 
         layout = l;
+        pool = p;
         auto &bindings = layout->GetBindings();
         for (auto &binding : bindings) {
             if (binding.type == rhi::DescriptorType::UNIFORM_BUFFER ||
@@ -31,7 +32,7 @@ namespace sky::rhi {
                 break;
             }
         }
-        batchSet = device->CreateDescriptorSet({layout});
+        batchSet = pool->Allocate({layout});
     }
 
     void Material::AddConnection(const std::string &str, const Accessor &accessor)

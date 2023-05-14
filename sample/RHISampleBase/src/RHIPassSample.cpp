@@ -40,7 +40,7 @@ namespace sky::rhi {
         });
         auto layout = device->CreateDescriptorSetLayout(layoutDesc);
         material = std::make_shared<Material>();
-        material->SetLayout(layout, sizeof(MaterialData));
+        material->SetLayout(layout, pool, sizeof(MaterialData));
         material->AddConnection("baseColor", {0, 0});
         material->SetValue("baseColor", Color{1.f, 1.f, 1.f, 1.f});
         material->Update();
@@ -134,7 +134,7 @@ namespace sky::rhi {
         vaDesc.vertexInput = vertexInput;
         vaDesc.vertexBuffers.emplace_back(vb->CreateView({0, vertexSize}));
         auto va = device->CreateVertexAssembly(vaDesc);
-        auto localSet = device->CreateDescriptorSet({localLayout});
+        auto localSet = pool->Allocate({localLayout});
 
         PipelineLayout::Descriptor ppLayoutDesc = {{
             globalLayout,
@@ -212,7 +212,7 @@ namespace sky::rhi {
         }
 
         {
-            auto set = device->CreateDescriptorSet({globalLayout});
+            auto set = pool->Allocate({globalLayout});
             set->BindBuffer(0, cameraBuffer->CreateView({0, sizeof(CameraData)}), 0);
             set->Update();
 
@@ -235,6 +235,7 @@ namespace sky::rhi {
     void RHIPassSample::SetupBase()
     {
         SetupPass();
+        SetupPool();
         SetupTriangle();
 
         SetupScene();
@@ -242,6 +243,7 @@ namespace sky::rhi {
 
     void RHIPassSample::OnStop()
     {
+        device->WaitIdle();
         material = nullptr;
         camera   = nullptr;
         mesh     = nullptr;
@@ -268,6 +270,25 @@ namespace sky::rhi {
         commandBuffer->Begin();
 
         auto encoder = commandBuffer->EncodeGraphics();
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.view = colorViews[index];
+            commandBuffer->QueueBarrier(barrier);
+        }
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.view = depthStencilImage;
+            commandBuffer->QueueBarrier(barrier);
+        }
+        commandBuffer->FlushBarriers();
+
         encoder->BeginPass({frameBuffers[index], renderPass, 2, clears.data()});
 
         for (auto &subMesh : mesh->subMeshes) {
@@ -280,6 +301,15 @@ namespace sky::rhi {
         }
 
         encoder->EndPass();
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.view = colorViews[index];
+            commandBuffer->QueueBarrier(barrier);
+        }
+        commandBuffer->FlushBarriers();
 
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);

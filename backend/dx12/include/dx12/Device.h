@@ -31,6 +31,7 @@ namespace sky::dx {
         IDXGIFactory2 *GetDXGIFactory() const;
         Queue *GetGraphicsQueue() const;
 
+        void WaitIdle() const {}
         rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
         // device object
         rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
@@ -46,8 +47,9 @@ namespace sky::dx {
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
         rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
-        rhi::DescriptorSetPtr CreateDescriptorSet(const rhi::DescriptorSet::Descriptor &desc) override { return nullptr; }
         rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
+        rhi::SamplerPtr CreateSampler(const rhi::Sampler::Descriptor &desc) override { return nullptr; }
+        rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
     private:
         friend class Instance;
         bool Init(const Descriptor &, ComPtr<IDXGIAdapter1> &adaptor);

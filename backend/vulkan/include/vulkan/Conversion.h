@@ -29,7 +29,7 @@ namespace sky::vk {
     VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
     VkShaderStageFlags FromRHI(rhi::ShaderStageFlags);
     VkPipelineStageFlags FromRHI(rhi::PipelineStageFlags);
-//    VkAccessFlags FromRHI(rhi::AccessFlag);
+    VkAccessFlags FromRHI(rhi::AccessFlag);
     VkSampleCountFlagBits FromRHI(rhi::SampleCount);
     VkAttachmentLoadOp FromRHI(rhi::LoadOp);
     VkAttachmentStoreOp FromRHI(rhi::StoreOp);
@@ -41,6 +41,7 @@ namespace sky::vk {
     VkBlendFactor FromRHI(rhi::BlendFactor);
     VkBlendOp FromRHI(rhi::BlendOp);
     VkStencilOp FromRHI(rhi::StencilOp);
+    VkIndexType FromRHI(rhi::IndexType);
     VkStencilOpState FromRHI(const rhi::StencilState&);
     VkDescriptorType FromRHI(const rhi::DescriptorType);
 }

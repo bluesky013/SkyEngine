@@ -349,6 +349,13 @@ namespace sky::rhi {
     using PipelineStageFlags = Flags<PipelineStageBit>;
     ENABLE_FLAG_BIT_OPERATOR(PipelineStageBit)
 
+    enum class DescriptorBindFlagBit : uint32_t {
+        NONE          = 0x00000000,
+        FEEDBACK_LOOP = 0x00000001
+    };
+    using DescriptorBindFlags = Flags<DescriptorBindFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(DescriptorBindFlagBit)
+
     // structs
     struct Offset2D {
         int32_t x;

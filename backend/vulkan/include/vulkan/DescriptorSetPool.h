@@ -6,13 +6,14 @@
 
 #include <list>
 #include <unordered_map>
+#include <rhi/DescriptorSetPool.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
     class DescriptorSet;
 
-    class DescriptorSetPool : public DevObject {
+    class DescriptorSetPool : public rhi::DescriptorSetPool, public DevObject, public std::enable_shared_from_this<DescriptorSetPool> {
     public:
         DescriptorSetPool(Device &dev);
         ~DescriptorSetPool();
@@ -23,11 +24,14 @@ namespace sky::vk {
             VkDescriptorPoolSize *sizes   = nullptr;
         };
 
-        bool Init(const VkDescriptor &desc);
+        virtual rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
 
     private:
+        friend class Device;
         friend class DescriptorSet;
         void Free(DescriptorSet &set);
+        bool Init(const Descriptor &desc);
+        bool Init(const VkDescriptor &desc);
 
         VkDescriptorPool pool;
         using SetList = std::list<VkDescriptorSet>;

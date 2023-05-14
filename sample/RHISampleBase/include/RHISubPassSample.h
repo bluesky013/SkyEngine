@@ -15,13 +15,16 @@ namespace sky::rhi {
     private:
         rhi::RenderPassPtr tiedPass;
         rhi::FrameBufferPtr fb;
+        std::vector<rhi::ImageViewPtr> subpassViews;
         std::vector<ClearValue> fbClears;
 
         rhi::GraphicsPipelinePtr pso1;
         rhi::GraphicsPipelinePtr pso2;
         rhi::GraphicsPipelinePtr fullScreen;
         rhi::PipelineLayoutPtr fullScreenLayout;
+        rhi::PipelineLayoutPtr subpassLayout;
         rhi::DescriptorSetPtr fullScreenSet;
+        rhi::DescriptorSetPtr subpassSet;
     };
 
 } // namespace sky::rhi

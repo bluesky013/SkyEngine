@@ -22,16 +22,6 @@ namespace sky::vk {
         }
     }
 
-    VkBufferView BufferView::GetNativeHandle() const
-    {
-        return view;
-    }
-
-    const VkBufferViewCreateInfo &BufferView::GetViewInfo() const
-    {
-        return viewInfo;
-    }
-
     bool BufferView::Init(const rhi::BufferViewDesc &des)
     {
         viewDesc = des;

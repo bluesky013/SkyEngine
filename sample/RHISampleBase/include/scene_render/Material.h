@@ -13,6 +13,7 @@
 #include <rhi/Sampler.h>
 #include <rhi/DescriptorSet.h>
 #include <rhi/Buffer.h>
+#include <rhi/DescriptorSetPool.h>
 
 namespace sky::rhi {
     struct Texture {
@@ -34,7 +35,7 @@ namespace sky::rhi {
             std::unordered_map<std::string, Accessor> accessors;
         };
 
-        void SetLayout(const rhi::DescriptorSetLayoutPtr &layout, uint32_t size);
+        void SetLayout(const rhi::DescriptorSetLayoutPtr &l, const rhi::DescriptorSetPoolPtr &p, uint32_t size);
         void AddConnection(const std::string &str, const Accessor &accessor);
 
         template <typename T>
@@ -55,6 +56,7 @@ namespace sky::rhi {
 
         DescriptorSetPtr batchSet;
         DescriptorSetLayoutPtr layout;
+        DescriptorSetPoolPtr pool;
         Connection connection;
 
         uint32_t bufferBinding = 0;

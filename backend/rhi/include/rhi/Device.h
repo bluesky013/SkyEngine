@@ -16,6 +16,7 @@
 #include <rhi/Semaphore.h>
 #include <rhi/DescriptorSet.h>
 #include <rhi/VertexAssembly.h>
+#include <rhi/DescriptorSetPool.h>
 
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
@@ -61,6 +62,7 @@ namespace sky::rhi {
         struct Descriptor {
             DeviceFeature feature;
         };
+        virtual void WaitIdle() const = 0;
 
         // device object
         virtual SwapChainPtr CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
@@ -75,8 +77,9 @@ namespace sky::rhi {
         virtual DescriptorSetLayoutPtr CreateDescriptorSetLayout(const DescriptorSetLayout::Descriptor &desc) = 0;
         virtual PipelineLayoutPtr CreatePipelineLayout(const PipelineLayout::Descriptor &desc) = 0;
         virtual SemaphorePtr CreateSema(const Semaphore::Descriptor &desc) = 0;
-        virtual DescriptorSetPtr CreateDescriptorSet(const DescriptorSet::Descriptor &desc) = 0;
         virtual VertexAssemblyPtr CreateVertexAssembly(const VertexAssembly::Descriptor &desc) = 0;
+        virtual SamplerPtr CreateSampler(const Sampler::Descriptor &desc) = 0;
+        virtual DescriptorSetPoolPtr CreateDescriptorSetPool(const DescriptorSetPool::Descriptor &desc) = 0;
 
         // layout object
         virtual VertexInputPtr CreateVertexInput(const VertexInput::Descriptor &desc) = 0;

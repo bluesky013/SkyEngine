@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <vulkan/Buffer.h>
+#include <vulkan/BufferView.h>
 #include <vulkan/VertexInput.h>
 #include <vulkan/DevObject.h>
 #include <rhi/VertexAssembly.h>
@@ -22,9 +23,9 @@ namespace sky::vk {
 
         void ResetVertexBuffer();
 
-        void AddVertexBuffer(const BufferPtr &buffer, VkDeviceSize offset = 0);
+        void AddVertexBuffer(const BufferViewPtr &buffer);
 
-        void SetIndexBuffer(const BufferPtr &buffer, VkDeviceSize offset = 0);
+        void SetIndexBuffer(const BufferViewPtr &buffer);
 
         void SetIndexType(VkIndexType);
 
@@ -34,15 +35,15 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        bool Init(const Descriptor &desc) { return true; }
+        bool Init(const Descriptor &desc);
 
-        VertexInputPtr            vertexInput;
-        std::vector<BufferPtr>    vertexBuffers;
-        std::vector<VkBuffer>     vkBuffers;
-        std::vector<VkDeviceSize> offsets;
-        BufferPtr                 indexBuffer;
-        VkDeviceSize              indexOffset = 0;
-        VkIndexType               indexType   = VK_INDEX_TYPE_UINT32;
+        VertexInputPtr             vertexInput;
+        std::vector<BufferViewPtr> vertexBuffers;
+        std::vector<VkBuffer>      vkBuffers;
+        std::vector<VkDeviceSize>  offsets;
+        BufferViewPtr              indexBuffer;
+        VkDeviceSize               indexOffset = 0;
+        VkIndexType                indexType   = VK_INDEX_TYPE_UINT32;
     };
     using VertexAssemblyPtr = std::shared_ptr<VertexAssembly>;
 

@@ -19,6 +19,7 @@
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/VertexInput.h>
 #include <vulkan/Semaphore.h>
+#include <vulkan/DescriptorSetPool.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -50,7 +51,7 @@ namespace sky::vk {
             return res;
         }
 
-        void WaitIdle() const;
+        void WaitIdle() const  override;
 
         VmaAllocator     GetAllocator() const;
         VkDevice         GetNativeHandle() const;
@@ -92,9 +93,12 @@ namespace sky::vk {
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(DescriptorSetLayout)
         CREATE_DEV_OBJ(PipelineLayout)
-        CREATE_DEV_OBJ(DescriptorSet)
         CREATE_DEV_OBJ(VertexAssembly)
+        CREATE_DEV_OBJ(Sampler)
+        CREATE_DEV_OBJ(DescriptorSetPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
+
+        const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
 
         // Special Device Object
         std::shared_ptr<rhi::CommandBuffer> CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override
@@ -117,6 +121,7 @@ namespace sky::vk {
                                     MemoryRequirement                   &out) const;
 
         void PrintSupportedExtensions() const;
+        void SetupDefaultResources();
 
         friend class Instance;
         Device(Instance &);
@@ -124,6 +129,8 @@ namespace sky::vk {
         VkPhysicalDevice phyDev;
         VkDevice         device;
         VmaAllocator     allocator;
+
+        SamplerPtr defaultSampler;
 
         std::vector<VkExtensionProperties> supportedExtensions;
         std::vector<VkPhysicalDeviceFragmentShadingRateKHR> shadingRates;

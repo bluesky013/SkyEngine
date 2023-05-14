@@ -9,6 +9,7 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/Conversion.h"
+#include "vulkan/Barrier.h"
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -23,7 +24,7 @@ namespace sky::vk {
     bool RenderPass::Init(const Descriptor &des)
     {
         hash = 0;
-        std::vector<VkAttachmentReference2> references;
+        std::vector<std::vector<VkAttachmentReference2>> subpassReferences;
         attachments.reserve(des.attachments.size());
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
                                        static_cast<uint32_t>(des.attachments.size() * sizeof(Attachment))));
@@ -37,48 +38,73 @@ namespace sky::vk {
             vkAt.storeOp        = FromRHI(attachment.store);
             vkAt.stencilLoadOp  = FromRHI(attachment.stencilLoad);
             vkAt.stencilStoreOp = FromRHI(attachment.stencilStore);
+            vkAt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            vkAt.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         }
 
-        auto refFn = [&references, this](uint32_t index, VkImageLayout layout) {
+        for (auto &dep : des.dependencies) {
+            auto srcInfo = GetAccessInfo(dep.srcAccess, true);
+            auto dstInfo = GetAccessInfo(dep.dstAccess, true);
+
+            dependencies.emplace_back(VkSubpassDependency2{});
+            auto &vkDep           = dependencies.back();
+            vkDep.sType           = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
+            vkDep.srcSubpass      = dep.src;
+            vkDep.dstSubpass      = dep.dst;
+            vkDep.srcStageMask    = srcInfo.pipelineStages;
+            vkDep.dstStageMask    = dstInfo.pipelineStages;
+            vkDep.srcAccessMask   = srcInfo.accessFlags;
+            vkDep.dstAccessMask   = dstInfo.accessFlags;
+            vkDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        }
+
+        auto refFn = [this](std::vector<VkAttachmentReference2>& references, const AttachmentRef &ref) {
+            auto accessInfo = GetAccessInfo(ref.access);
+
             references.emplace_back(VkAttachmentReference2{});
             auto &vkRef = references.back();
             vkRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-            vkRef.attachment = index;
-            vkRef.layout = layout;
-            attachments[index].initialLayout = layout;
-            attachments[index].finalLayout = layout;
+            vkRef.attachment = ref.index;
+            vkRef.layout = accessInfo.imageLayout;
+            vkRef.aspectMask = FromRHI(ref.mask);
+
+            auto &attachment = attachments[ref.index];
+            if (attachment.finalLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+                attachment.initialLayout = vkRef.layout;
+            }
+            attachment.finalLayout = vkRef.layout;
         };
 
         auto mvSupported = device.GetFeatures().multiView;
 
         subPasses.reserve(des.subPasses.size());
-        uint32_t offset = 0;
         for (auto &subPass : des.subPasses) {
+            subpassReferences.emplace_back();
             subPasses.emplace_back(VkSubpassDescription2{});
+
+            auto &references = subpassReferences.back();
             auto &vkSub = subPasses.back();
             vkSub.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-            uint32_t colorOffset = offset;
+            uint32_t colorOffset = static_cast<uint32_t>(references.size());
             for (auto &ref : subPass.colors) {
-                refFn(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                refFn(references, ref);
             }
             vkSub.colorAttachmentCount = static_cast<uint32_t>(subPass.colors.size());
 
-            offset += vkSub.colorAttachmentCount;
-            uint32_t resolveOffset = offset;
+            uint32_t resolveOffset = static_cast<uint32_t>(references.size());
             for (auto &ref : subPass.resolves) {
-                refFn(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                refFn(references, ref);
             }
 
-            offset += static_cast<uint32_t>(subPass.resolves.size());
-            uint32_t inputsOffset = offset;
+            uint32_t inputsOffset = static_cast<uint32_t>(references.size());
             for (auto &ref : subPass.inputs) {
-                refFn(ref, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                refFn(references, ref);
             }
             vkSub.inputAttachmentCount = static_cast<uint32_t>(subPass.inputs.size());
-            offset += vkSub.inputAttachmentCount;
 
-            if (subPass.depthStencil != ~(0U)) {
-                refFn(subPass.depthStencil, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            uint32_t depthStencilOffset = static_cast<uint32_t>(references.size());
+            if (subPass.depthStencil.index != ~(0U)) {
+                refFn(references, subPass.depthStencil);
             }
 
             vkSub.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -86,14 +112,14 @@ namespace sky::vk {
             vkSub.pInputAttachments       = subPass.inputs.empty() ? nullptr : &references[inputsOffset];
             vkSub.pColorAttachments       = subPass.colors.empty() ? nullptr : &references[colorOffset];
             vkSub.pResolveAttachments     = subPass.resolves.empty() ? nullptr : &references[resolveOffset];
-            vkSub.pDepthStencilAttachment = subPass.depthStencil == -1 ? nullptr : &references[offset];
+            vkSub.pDepthStencilAttachment = subPass.depthStencil.index == ~(0U) ? nullptr : &references[depthStencilOffset];
 
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.colors.data()),
-                                           static_cast<uint32_t>(subPass.colors.size() * sizeof(uint32_t))));
+                                           static_cast<uint32_t>(subPass.colors.size() * sizeof(AttachmentRef))));
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.resolves.data()),
-                                           static_cast<uint32_t>(subPass.resolves.size() * sizeof(uint32_t))));
+                                           static_cast<uint32_t>(subPass.resolves.size() * sizeof(AttachmentRef))));
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.inputs.data()),
-                                           static_cast<uint32_t>(subPass.inputs.size() * sizeof(uint32_t))));
+                                           static_cast<uint32_t>(subPass.inputs.size() * sizeof(AttachmentRef))));
             HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
             HashCombine32(hash, Crc32::Cal(subPass.viewMask));
         }
@@ -103,19 +129,6 @@ namespace sky::vk {
 
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.correlatedViewMasks.data()),
                                        static_cast<uint32_t>(des.correlatedViewMasks.size() * sizeof(uint32_t))));
-
-        for (auto &dep : des.dependencies) {
-            dependencies.emplace_back(VkSubpassDependency2{});
-            auto &vkDep           = dependencies.back();
-            vkDep.sType           = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-            vkDep.srcSubpass      = dep.src;
-            vkDep.dstSubpass      = dep.dst;
-            vkDep.srcStageMask    = FromRHI(dep.srcStage);
-            vkDep.dstStageMask    = FromRHI(dep.dstStage);
-//            vkDep.srcAccessMask   = FromRHI(dep.srcFlag);
-//            vkDep.dstAccessMask   = FromRHI(dep.dstFlag);
-            vkDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-        }
 
         VkRenderPassCreateInfo2 passInfo = {};
         passInfo.sType                   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;

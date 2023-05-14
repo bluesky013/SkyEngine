@@ -54,9 +54,8 @@ namespace sky::vk {
         setInfo.pSetLayouts                 = &vl;
 
         auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
-        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
+        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO};
         if (!variableDescriptorCounts.empty()) {
-            variableDescriptorCountAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
             variableDescriptorCountAllocInfo.descriptorSetCount = 1;
             variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
             setInfo.pNext                       = &variableDescriptorCountAllocInfo;
@@ -69,16 +68,6 @@ namespace sky::vk {
         }
 
         return setCreateFn(set);
-    }
-
-    DescriptorSetLayoutPtr DescriptorSet::GetLayout() const
-    {
-        return layout;
-    }
-
-    bool DescriptorSet::Init(const Descriptor &desc)
-    {
-        return true;
     }
 
     void DescriptorSet::Setup()
@@ -106,7 +95,7 @@ namespace sky::vk {
                     entry.pBufferInfo = &writeInfos[index].buffer;
                 } else if (IsImageDescriptor(info.descriptorType)) {
                     auto &imageInfo = writeInfos[index].image;
-                    if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || info.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) {
+                    if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || info.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || info.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                     } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -207,4 +196,64 @@ namespace sky::vk {
         set.dirty = false;
     }
 
+    void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index)
+    {
+        auto &indices = layout->GetUpdateTemplate().indices;
+        auto iter = indices.find(binding);
+        SKY_ASSERT(iter != indices.end());
+
+        auto vkBufferView = std::static_pointer_cast<BufferView>(view);
+        auto &writeInfo = writeInfos[iter->second + index];
+        auto &viewInfo = vkBufferView->GetViewDesc();
+        writeInfo.bufferView = vkBufferView->GetNativeHandle();
+        writeInfo.buffer.buffer = vkBufferView->GetBuffer()->GetNativeHandle();
+        writeInfo.buffer.range = viewInfo.range;
+        writeInfo.buffer.offset = viewInfo.offset;
+        dirty = true;
+    }
+
+    void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
+    {
+        auto &indices = layout->GetUpdateTemplate().indices;
+        auto iter = indices.find(binding);
+        SKY_ASSERT(iter != indices.end());
+
+        auto vkImageView = std::static_pointer_cast<ImageView>(view);
+        auto &writeInfo = writeInfos[iter->second + index];
+        auto &viewInfo = vkImageView->GetSubRange();
+        writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
+        writeInfo.image.imageView = vkImageView->GetNativeHandle();
+
+        if (flags & rhi::DescriptorBindFlagBit::FEEDBACK_LOOP) {
+            writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT
+        }
+        dirty = true;
+    }
+
+    void DescriptorSet::BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index)
+    {
+        auto &indices = layout->GetUpdateTemplate().indices;
+        auto iter = indices.find(binding);
+        SKY_ASSERT(iter != indices.end());
+
+        auto vkSampler = std::static_pointer_cast<Sampler>(sampler);
+        auto &writeInfo = writeInfos[iter->second + index];
+        writeInfo.image.sampler = vkSampler->GetNativeHandle();
+        dirty = true;
+    }
+
+    void DescriptorSet::Update()
+    {
+        if (!dirty) {
+            return;
+        }
+
+        auto &updateTemplate = layout->GetUpdateTemplate();
+        if (updateTemplate.handle == VK_NULL_HANDLE) {
+            vkUpdateDescriptorSets(device.GetNativeHandle(), static_cast<uint32_t>(writeEntries.size()), writeEntries.data(), 0, nullptr);
+        } else {
+            vkUpdateDescriptorSetWithTemplate(device.GetNativeHandle(), handle, updateTemplate.handle, writeInfos.data());
+        }
+        dirty = false;
+    }
 } // namespace sky::vk
