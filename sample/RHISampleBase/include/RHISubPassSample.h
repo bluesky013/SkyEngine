@@ -20,11 +20,14 @@ namespace sky::rhi {
 
         rhi::GraphicsPipelinePtr pso1;
         rhi::GraphicsPipelinePtr pso2;
+        rhi::GraphicsPipelinePtr pso3;
         rhi::GraphicsPipelinePtr fullScreen;
         rhi::PipelineLayoutPtr fullScreenLayout;
-        rhi::PipelineLayoutPtr subpassLayout;
+        rhi::PipelineLayoutPtr subpassLayout1;
+        rhi::PipelineLayoutPtr subpassLayout2;
         rhi::DescriptorSetPtr fullScreenSet;
-        rhi::DescriptorSetPtr subpassSet;
+        rhi::DescriptorSetPtr subpassSet1;
+        rhi::DescriptorSetPtr subpassSet2;
     };
 
 } // namespace sky::rhi

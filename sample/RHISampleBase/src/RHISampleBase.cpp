@@ -197,7 +197,7 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {{0, {AccessFlag::COLOR_WRITE}}}, {}, {},
+            {{0, {AccessFlag::COLOR_WRITE}}}, {}, {}, {},
             {1, {AccessFlag::DEPTH_STENCIL_WRITE}}
         });
         renderPass = device->CreateRenderPass(passDesc);

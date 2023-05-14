@@ -63,7 +63,7 @@ namespace sky::vk {
             res = vmaCreateBuffer(device.GetAllocator(), &bufferInfo, &allocInfo, &buffer,
                                   &allocation, nullptr);
         } else {
-            vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, VKL_ALLOC, &buffer);
+            res = vkCreateBuffer(device.GetNativeHandle(), &bufferInfo, VKL_ALLOC, &buffer);
         }
         if (res != VK_SUCCESS) {
             LOG_E(TAG, "create buffer failed, %d", res);

@@ -102,6 +102,9 @@ namespace sky::vk {
             }
             vkSub.inputAttachmentCount = static_cast<uint32_t>(subPass.inputs.size());
 
+            uint32_t preserveOffset = static_cast<uint32_t>(references.size());
+            vkSub.preserveAttachmentCount = static_cast<uint32_t>(subPass.preserves.size());
+
             uint32_t depthStencilOffset = static_cast<uint32_t>(references.size());
             if (subPass.depthStencil.index != ~(0U)) {
                 refFn(references, subPass.depthStencil);
@@ -112,6 +115,7 @@ namespace sky::vk {
             vkSub.pInputAttachments       = subPass.inputs.empty() ? nullptr : &references[inputsOffset];
             vkSub.pColorAttachments       = subPass.colors.empty() ? nullptr : &references[colorOffset];
             vkSub.pResolveAttachments     = subPass.resolves.empty() ? nullptr : &references[resolveOffset];
+            vkSub.pPreserveAttachments    = subPass.preserves.data();
             vkSub.pDepthStencilAttachment = subPass.depthStencil.index == ~(0U) ? nullptr : &references[depthStencilOffset];
 
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.colors.data()),
@@ -120,6 +124,8 @@ namespace sky::vk {
                                            static_cast<uint32_t>(subPass.resolves.size() * sizeof(AttachmentRef))));
             HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.inputs.data()),
                                            static_cast<uint32_t>(subPass.inputs.size() * sizeof(AttachmentRef))));
+            HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.preserves.data()),
+                                           static_cast<uint32_t>(subPass.preserves.size() * sizeof(uint32_t))));
             HashCombine32(hash, Crc32::Cal(subPass.depthStencil));
             HashCombine32(hash, Crc32::Cal(subPass.viewMask));
         }

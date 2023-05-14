@@ -21,7 +21,7 @@ namespace sky::vk {
         struct VkDescriptor {
             VkFormat format = VK_FORMAT_UNDEFINED;
             VkDeviceSize offset = 0;
-            VkDeviceSize range  = 0;
+            VkDeviceSize range  = VK_WHOLE_SIZE;
         };
 
         std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;

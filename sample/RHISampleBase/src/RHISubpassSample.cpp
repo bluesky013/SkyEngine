@@ -12,21 +12,50 @@ namespace sky::rhi {
         RenderPass::Descriptor passDesc = {};
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-                {{0, {AccessFlag::COLOR_WRITE},AspectFlagBit::COLOR_BIT},{1, {AccessFlag::COLOR_WRITE}, AspectFlagBit::COLOR_BIT}}, {}, {},
+                {
+                    {0, {AccessFlag::COLOR_WRITE}},
+                    {1, {AccessFlag::COLOR_WRITE}},
+                    {2, {AccessFlag::COLOR_WRITE}},
+                    {3, {AccessFlag::COLOR_WRITE}},
+                 }, {}, {},
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-                {{0, {AccessFlag::COLOR_INOUT_WRITE}}, {1, {AccessFlag::COLOR_INOUT_WRITE}}, {2, {AccessFlag::COLOR_WRITE}}},
+                {
+                        {4, {AccessFlag::COLOR_WRITE}}
+                        },
                 {},
-                {{0, {AccessFlag::COLOR_INOUT_WRITE}}, {1, {AccessFlag::COLOR_INOUT_WRITE}}},
+                {
+                        {0, {AccessFlag::COLOR_INPUT}},
+                        {1, {AccessFlag::COLOR_INPUT}}
+                        },
+                { 2, 3 },
+        });
+        passDesc.subPasses.emplace_back(RenderPass::SubPass {
+                {
+                        {4, {AccessFlag::COLOR_INOUT_WRITE}}
+                        },
+                {},
+                {
+                        {2, {AccessFlag::COLOR_INPUT}},
+                        {3, {AccessFlag::COLOR_INPUT}},
+                        {4, {AccessFlag::COLOR_INOUT_WRITE}},
+                        },
         });
 
         passDesc.dependencies.emplace_back(RenderPass::Dependency{{0}, {1},
-                                           {AccessFlag::COLOR_WRITE},
-                                           {AccessFlag::COLOR_INOUT_READ}});
-
+                                                                  {AccessFlag::COLOR_WRITE},
+                                                                  {AccessFlag::COLOR_INPUT}});
+        passDesc.dependencies.emplace_back(RenderPass::Dependency{{0}, {2},
+                                                                  {AccessFlag::COLOR_WRITE},
+                                                                  {AccessFlag::COLOR_INPUT}});
+        passDesc.dependencies.emplace_back(RenderPass::Dependency{{1}, {2},
+                                                                  {AccessFlag::COLOR_WRITE},
+                                                                  {AccessFlag::COLOR_INOUT_WRITE}});
         tiedPass = device->CreateRenderPass(passDesc);
 
         auto &ext = swapChain->GetExtent();
@@ -37,10 +66,10 @@ namespace sky::rhi {
         fbDesc.extent = ext;
         fbDesc.pass = tiedPass;
 
-        for (uint32_t i = 0; i < 3; ++i)
+        for (uint32_t i = 0; i < 5; ++i)
         {
-            if (i == 2) {
-                imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::SAMPLED;
+            if (i == 4) {
+                imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
             } else {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
             }
@@ -65,7 +94,7 @@ namespace sky::rhi {
 
             DescriptorSet::Descriptor setDesc = { localLayout };
             fullScreenSet = pool->Allocate(setDesc);
-            fullScreenSet->BindImageView(0, fbDesc.views[2], 0);
+            fullScreenSet->BindImageView(0, fbDesc.views[4], 0);
             fullScreenSet->Update();
 
             fullScreenLayout = device->CreatePipelineLayout(pLayoutDesc);
@@ -73,19 +102,34 @@ namespace sky::rhi {
 
         {
             DescriptorSetLayout::Descriptor layoutDesc = {};
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS, "inColor0"});
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS, "inColor1"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS,"inColor0"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS,"inColor1"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
+            DescriptorSet::Descriptor setDesc = {passlayout};
+            subpassSet1 = pool->Allocate(setDesc);
+            subpassSet1->BindImageView(0, fbDesc.views[0], 0);
+            subpassSet1->BindImageView(1, fbDesc.views[1], 0);
+            subpassSet1->Update();
+            subpassLayout1 = device->CreatePipelineLayout(pLayoutDesc);
+        }
 
-            DescriptorSet::Descriptor setDesc = { passlayout };
-            subpassSet = pool->Allocate(setDesc);
-            subpassSet->BindImageView(0, fbDesc.views[0], 0, DescriptorBindFlagBit::FEEDBACK_LOOP);
-            subpassSet->BindImageView(1, fbDesc.views[1], 0, DescriptorBindFlagBit::FEEDBACK_LOOP);
-            subpassSet->Update();
-
-            subpassLayout = device->CreatePipelineLayout(pLayoutDesc);
+        {
+            DescriptorSetLayout::Descriptor layoutDesc = {};
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS,"inColor0"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS,"inColor1"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 2, ShaderStageFlagBit::FS,"inColor2"});
+            auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
+            PipelineLayout::Descriptor pLayoutDesc = {};
+            pLayoutDesc.layouts.emplace_back(passlayout);
+            DescriptorSet::Descriptor setDesc = {passlayout};
+            subpassSet2 = pool->Allocate(setDesc);
+            subpassSet2->BindImageView(0, fbDesc.views[2], 0);
+            subpassSet2->BindImageView(1, fbDesc.views[3], 0);
+            subpassSet2->BindImageView(2, fbDesc.views[4], 0, DescriptorBindFlagBit::FEEDBACK_LOOP);
+            subpassSet2->Update();
+            subpassLayout2 = device->CreatePipelineLayout(pLayoutDesc);
         }
 
         // shaders
@@ -94,6 +138,7 @@ namespace sky::rhi {
         builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
         builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_fs.glsl", {path + "/shaders/RHISample/sub01_fs.shader", builder::ShaderType::FS});
         builder::ShaderCompiler::CompileShader("shaders/subpass/sub02_fs.glsl", {path + "/shaders/RHISample/sub02_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub03_fs.glsl", {path + "/shaders/RHISample/sub03_fs.shader", builder::ShaderType::FS});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.blendStates.emplace_back(BlendState{});
@@ -106,21 +151,29 @@ namespace sky::rhi {
         fullScreen = device->CreateGraphicsPipeline(psoDesc);
 
         psoDesc.renderPass = tiedPass;
-        psoDesc.pipelineLayout = pipelineLayout;
-        psoDesc.state.blendStates.emplace_back(BlendState{});
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/sub01_fs.shader");
-        psoDesc.subPassIndex = 0;
-
-        pso1 = device->CreateGraphicsPipeline(psoDesc);
-
-        psoDesc.pipelineLayout = subpassLayout;
-        psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.pipelineLayout = subpassLayout1;
         psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/sub02_fs.shader");
         psoDesc.subPassIndex = 1;
 
         pso2 = device->CreateGraphicsPipeline(psoDesc);
+
+        psoDesc.pipelineLayout = subpassLayout2;
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/sub03_fs.shader");
+        psoDesc.subPassIndex = 2;
+
+        pso3 = device->CreateGraphicsPipeline(psoDesc);
+
+
+        psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.pipelineLayout = pipelineLayout;
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/sub01_fs.shader");
+        psoDesc.subPassIndex = 0;
+        pso1 = device->CreateGraphicsPipeline(psoDesc);
     }
 
     void RHISubPassSample::OnTick(float delta)
@@ -147,6 +200,10 @@ namespace sky::rhi {
             commandBuffer->QueueBarrier(barrier);
             barrier.view = subpassViews[2];
             commandBuffer->QueueBarrier(barrier);
+            barrier.view = subpassViews[3];
+            commandBuffer->QueueBarrier(barrier);
+            barrier.view = subpassViews[4];
+            commandBuffer->QueueBarrier(barrier);
         }
         commandBuffer->FlushBarriers();
 
@@ -158,16 +215,22 @@ namespace sky::rhi {
         encoder->NextSubPass();
 
         encoder->BindPipeline(pso2);
-        encoder->BindSet(0, subpassSet);
+        encoder->BindSet(0, subpassSet1);
+        encoder->DrawLinear({3, 1, 0, 0});
+
+        encoder->NextSubPass();
+
+        encoder->BindPipeline(pso3);
+        encoder->BindSet(0, subpassSet2);
         encoder->DrawLinear({3, 1, 0, 0});
 
         encoder->EndPass();
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_INOUT_WRITE);
             barrier.dstFlags.emplace_back(rhi::AccessFlag::FRAGMENT_SRV);
-            barrier.view = subpassViews[2];
+            barrier.view = subpassViews[4];
             commandBuffer->QueueBarrier(barrier);
         }
 
@@ -222,8 +285,11 @@ namespace sky::rhi {
         fb = nullptr;
         pso1 = nullptr;
         pso2 = nullptr;
-        subpassSet = nullptr;
-        subpassLayout = nullptr;
+        pso3 = nullptr;
+        subpassSet1 = nullptr;
+        subpassSet2 = nullptr;
+        subpassLayout1 = nullptr;
+        subpassLayout2 = nullptr;
         subpassViews.clear();
 
         fullScreen = nullptr;

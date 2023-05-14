@@ -166,7 +166,7 @@ namespace sky::builder {
         BuildSpirV(path, option.type, spv);
         SaveSpv(option.output + ".spv", spv);
 
-        std::string glslSrc = BuildGLES(spv);
-        SaveGLES(option.output + ".gles", glslSrc);
+//        std::string glslSrc = BuildGLES(spv);
+//        SaveGLES(option.output + ".gles", glslSrc);
     }
 }
