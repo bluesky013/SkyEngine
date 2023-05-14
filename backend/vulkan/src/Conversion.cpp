@@ -117,10 +117,10 @@ namespace sky::vk {
         return rate == rhi::VertexInputRate::PER_INSTANCE ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
     }
 
-    VmaMemoryUsage FromRHI(rhi::MemoryType type)
+    VmaMemoryUsage FromRHI(rhi::MemoryType type, rhi::ImageUsageFlags usage)
     {
         if (type == rhi::MemoryType::GPU_ONLY) {
-            return VMA_MEMORY_USAGE_GPU_ONLY;
+            return (usage & rhi::ImageUsageFlagBit::TRANSIENT) ? VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED : VMA_MEMORY_USAGE_GPU_ONLY;
         }
         if (type == rhi::MemoryType::CPU_ONLY) {
             return VMA_MEMORY_USAGE_CPU_ONLY;

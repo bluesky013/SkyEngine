@@ -17,4 +17,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(PLATFORM_EXT_LIBS  android ${log-lib})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PLATFORM_EXT_LIBS winmm imm32 version setupapi)
+
+    add_compile_definitions(NOMINMAX)
 endif()

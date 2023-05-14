@@ -46,15 +46,13 @@ namespace sky::vk {
 
     Device::~Device()
     {
-        if (transferQueue) {
-            transferQueue->Shutdown();
-            transferQueue = nullptr;
+        for (auto &queue : queues) {
+            queue->Shutdown();
         }
 
         if (allocator != VK_NULL_HANDLE) {
             vmaDestroyAllocator(allocator);
         }
-
         queues.clear();
 
         samplers.Shutdown();
@@ -127,22 +125,6 @@ namespace sky::vk {
         enabledShadingRateFeatures.pNext = &enabledMvrFeature;
         if (enabledFeature.multiView) {
             outExtensions.emplace_back("VK_KHR_multiview");
-        }
-    }
-
-    void Device::SetupAsyncTransferQueue()
-    {
-        std::pair<VkQueueFlags, VkQueueFlags> flagPairs[] = {
-            {VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT},
-            {VK_QUEUE_TRANSFER_BIT, 0},
-        };
-        for (auto& [preferred, excluded] : flagPairs) {
-            auto *queue = GetQueue(preferred, excluded);
-            if (queue != nullptr) {
-                transferQueue.reset(new AsyncTransferQueue(*this, queue));
-                transferQueue->Setup();
-                break;
-            }
         }
     }
 
@@ -261,10 +243,10 @@ namespace sky::vk {
             VkQueue queue = VK_NULL_HANDLE;
             vkGetDeviceQueue(device, i, 0, &queue);
             queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
-            queues[i]->Setup();
+            queues[i]->StartThread();
         }
         graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
-        SetupAsyncTransferQueue();
+        transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, 0);
 
         // update barrier map
         ValidateAccessInfoMapByExtension(supportedExtensions);
@@ -312,9 +294,9 @@ namespace sky::vk {
         return graphicsQueue;
     }
 
-    AsyncTransferQueue *Device::GetAsyncTransferQueue() const
+    Queue *Device::GetTransferQueue() const
     {
-        return transferQueue.get();
+        return transferQueue;
     }
 
     VkSampler Device::GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo)

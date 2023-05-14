@@ -33,7 +33,6 @@ namespace sky::rhi {
         rhi::Image::Descriptor imageDesc = {};
         imageDesc.format      = PixelFormat::RGBA8_UNORM;
         imageDesc.extent      = {ext.width, ext.height, 1};
-        imageDesc.usage       = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT;
         rhi::FrameBuffer::Descriptor fbDesc = {};
         fbDesc.extent = ext;
         fbDesc.pass = tiedPass;
@@ -41,7 +40,9 @@ namespace sky::rhi {
         for (uint32_t i = 0; i < 3; ++i)
         {
             if (i == 2) {
-                imageDesc.usage |= ImageUsageFlagBit::SAMPLED;
+                imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::SAMPLED;
+            } else {
+                imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
             }
 
             auto image = device->CreateImage(imageDesc);

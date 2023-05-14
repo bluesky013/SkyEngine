@@ -12,6 +12,7 @@ namespace sky::rhi {
 
     void Queue::StartThread()
     {
+        SetupInternal();
         thread = std::thread(&Queue::ThreadMain, this);
     }
 
@@ -25,6 +26,7 @@ namespace sky::rhi {
         if (thread.joinable()) {
             thread.join();
         }
+        ShutdownInternal();
     }
 
     void Queue::Wait(TransferTaskHandle handle)
@@ -77,4 +79,19 @@ namespace sky::rhi {
     {
         return lastTaskId.load() >= handle;
     }
+
+    TransferTaskHandle Queue::UploadImage(const ImagePtr &image, const ImageUploadRequest &request)
+    {
+        std::vector<ImageUploadRequest> requests;
+        requests.emplace_back(request);
+        return UploadImage(image, requests);
+    }
+
+    TransferTaskHandle Queue::UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request)
+    {
+        std::vector<BufferUploadRequest> requests;
+        requests.emplace_back(request);
+        return UploadBuffer(buffer, requests);
+    }
+
 }

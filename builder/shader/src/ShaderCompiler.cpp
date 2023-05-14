@@ -129,15 +129,8 @@ namespace sky::builder {
             for (auto &resource : resources) {
                 if (subpass) {
                     auto id = compiler.get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
-//                    compiler.require_extension("GL_EXT_shader_framebuffer_fetch");
-//                    compiler.set_remapped_variable_state(resource.id, true);
-//                    compiler.set_name(resource.id, "gl_LastFragData");
-//                    compiler.set_subpass_input_remapped_components(resource.id, id);
                     compiler.remap_ext_framebuffer_fetch(id, id, true);
                     std::stringstream ss;
-
-
-//                    compiler.add_header_line()
                     continue;
                 }
 
@@ -165,23 +158,6 @@ namespace sky::builder {
         options.vertex.flip_vert_y = false;
         compiler.set_common_options(options);
         return compiler.compile();
-        //        auto fn            = [&compiler](const SpvResources &resources) {
-        //            for (auto &res : resources) {
-        //                auto  set     = compiler.get_decoration(res.id, spv::DecorationDescriptorSet);
-        //                auto  binding = compiler.get_decoration(res.id, spv::DecorationBinding);
-        //                auto &name    = compiler.get_name(res.id);
-        //
-        //                LOG_I(TAG, "shader resource set %u, binding %u, name %s", set, binding, name.c_str());
-        //            }
-        //        };
-        //        auto resources = compiler.get_shader_resources();
-        //        fn(resources.uniform_buffers);
-        //        fn(resources.storage_buffers);
-        //        fn(resources.sampled_images);
-        //        fn(resources.storage_images);
-        //
-        //        std::string src = compiler.compile();
-        //        WriteString(path, src);
     }
 
     void ShaderCompiler::CompileShader(const std::string &path, const Option &option)

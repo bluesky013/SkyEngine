@@ -19,35 +19,40 @@ namespace sky::gles {
         return true;
     }
 
-    rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request)
+    rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests)
     {
         auto glesImage = std::static_pointer_cast<Image>(image);
-        auto handle = CreateTask([glesImage, request]() {
-            auto &desc = glesImage->GetDescriptor();
-            auto &fmt = GetInternalFormat(desc.format);
+        auto handle = CreateTask([glesImage, requests]() {
             CHECK(glBindTexture(GL_TEXTURE_2D, glesImage->GetNativeHandle()));
-            CHECK(glTexSubImage2D(GL_TEXTURE_2D,
-                request.mipLevel,
-                request.imageOffset.x, request.imageOffset.y,
-                request.imageExtent.width, request.imageExtent.height,
-                fmt.format,
-                fmt.type,
-                reinterpret_cast<const GLvoid *>(request.data + request.offset)));
+
+            for (auto &request : requests) {
+                auto &desc = glesImage->GetDescriptor();
+                auto &fmt = GetInternalFormat(desc.format);
+                CHECK(glTexSubImage2D(GL_TEXTURE_2D,
+                                      request.mipLevel,
+                                      request.imageOffset.x, request.imageOffset.y,
+                                      request.imageExtent.width, request.imageExtent.height,
+                                      fmt.format,
+                                      fmt.type,
+                                      reinterpret_cast<const GLvoid *>(request.data + request.offset)));
+            }
             CHECK(glBindTexture(GL_TEXTURE_2D, 0));
         });
         return handle;
     };
 
-    rhi::TransferTaskHandle Queue::UploadBuffer(const rhi::BufferPtr &buffer, const rhi::BufferUploadRequest &request)
+    rhi::TransferTaskHandle Queue::UploadBuffer(const rhi::BufferPtr &buffer, const std::vector<rhi::BufferUploadRequest> &requests)
     {
         auto glesBuffer = std::static_pointer_cast<Buffer>(buffer);
-        auto handle = CreateTask([glesBuffer, request]() {
+        auto handle = CreateTask([glesBuffer, requests]() {
             auto target = glesBuffer->GetGLTarget();
-
             CHECK(glBindBuffer(target, glesBuffer->GetNativeHandle()));
-            CHECK(glBufferData(target, request.size, request.source->GetData(request.offset), glesBuffer->GetGLUsage()));
-            CHECK(glBindBuffer(target, 0));
-            CHECK(glFlush());
+
+            for (auto &request : requests) {
+                CHECK(glBufferData(target, request.size, request.source->GetData(request.offset), glesBuffer->GetGLUsage()));
+                CHECK(glBindBuffer(target, 0));
+                CHECK(glFlush());
+            }
         });
         return handle;
     }

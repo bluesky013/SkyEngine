@@ -113,10 +113,8 @@ namespace sky {
         writer.Write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, view, sampler);
         writer.Update();
 
-        for (auto &req : requests) {
-            device->GetAsyncTransferQueue()->UploadImage(image, req);
-        }
-        object.uploadHandle = device->GetAsyncTransferQueue()->CreateTask([ptr](){
+        device->GetTransferQueue()->UploadImage(image, requests);
+        object.uploadHandle = device->GetTransferQueue()->CreateTask([ptr](){
             delete []ptr;
         });
     }
@@ -154,7 +152,7 @@ namespace sky {
 
         graphicsEncoder.BindPipeline(pso);
 
-        if (device->GetAsyncTransferQueue()->HasComplete(object.uploadHandle)) {
+        if (device->GetTransferQueue()->HasComplete(object.uploadHandle)) {
             graphicsEncoder.BindShaderResource(object.setBinder);
             graphicsEncoder.DrawLinear(drawLinear);
         }

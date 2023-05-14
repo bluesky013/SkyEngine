@@ -15,7 +15,7 @@ namespace sky {
     };
 
     struct Object {
-        vk::TransferTaskHandle uploadHandle;
+        rhi::TransferTaskHandle uploadHandle;
         vk::DescriptorSetBinderPtr setBinder;
     };
 

@@ -21,8 +21,8 @@ namespace sky::gles {
         Context *GetContext() const { return context.get(); }
         PipelineCacheState *GetCacheState() const { return state.get(); }
 
-        rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const rhi::ImageUploadRequest &request) override;
-        rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &buffer, const rhi::BufferUploadRequest &request) override;
+        rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests) override;
+        rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &image, const std::vector<rhi::BufferUploadRequest> &requests) override;
 
         void Present(const SurfacePtr &surface);
 

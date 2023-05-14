@@ -77,13 +77,13 @@ namespace sky::vk {
         imageDesc = des;
 
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.mipLevels     = des.mipLevels;
-        imageInfo.arrayLayers   = des.arrayLayers;
-        imageInfo.format        = FromRHI(des.format);
-        imageInfo.extent        = FromRHI(des.extent);
-        imageInfo.imageType     = FromRHI(des.imageType);
-        imageInfo.usage         = FromRHI(des.usage);
-        imageInfo.samples       = static_cast<VkSampleCountFlagBits>(des.samples);
+        imageInfo.mipLevels     = imageDesc.mipLevels;
+        imageInfo.arrayLayers   = imageDesc.arrayLayers;
+        imageInfo.format        = FromRHI(imageDesc.format);
+        imageInfo.extent        = FromRHI(imageDesc.extent);
+        imageInfo.imageType     = FromRHI(imageDesc.imageType);
+        imageInfo.usage         = FromRHI(imageDesc.usage);
+        imageInfo.samples       = static_cast<VkSampleCountFlagBits>(imageDesc.samples);
         imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -95,12 +95,22 @@ namespace sky::vk {
         }
 
         VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage                   = FromRHI(des.memory);
+        allocInfo.usage                   = FromRHI(imageDesc.memory, imageDesc.usage);
 
         res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
         if (res != VK_SUCCESS) {
-            LOG_E(TAG, "create image failed %d", res);
-            return false;
+            if (res == VK_ERROR_FEATURE_NOT_PRESENT && (allocInfo.usage == VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED)) {
+                LOG_W(TAG, "Memoryless is not supported.");
+                imageDesc.usage &= ~(rhi::ImageUsageFlags(rhi::ImageUsageFlagBit::TRANSIENT));
+                imageInfo.usage = FromRHI(imageDesc.usage);
+                allocInfo.usage = FromRHI(imageDesc.memory, imageDesc.usage);
+                res = vmaCreateImage(device.GetAllocator(), &imageInfo, &allocInfo, &image, &allocation, nullptr);
+            }
+
+            if (res != VK_SUCCESS) {
+                LOG_E(TAG, "create image failed %d", res);
+                return false;
+            }
         }
 
         auto *tmpInfo = rhi::GetImageInfoByFormat(imageDesc.format);

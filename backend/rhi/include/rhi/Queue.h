@@ -54,10 +54,16 @@ namespace sky::rhi {
 
         rhi::QueueType GetQueueType() const { return type; }
 
-        virtual TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request) { return 0; }
-        virtual TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request) { return 0; }
+        virtual TransferTaskHandle UploadImage(const ImagePtr &image, const std::vector<ImageUploadRequest> &requests) = 0;
+        virtual TransferTaskHandle UploadBuffer(const BufferPtr &image, const std::vector<BufferUploadRequest> &requests) = 0;
+
+        TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
+        TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);
 
     protected:
+        virtual void SetupInternal() {}
+        virtual void ShutdownInternal() {}
+
         void ThreadMain();
         bool EmitSingleTask();
         bool HasTask();

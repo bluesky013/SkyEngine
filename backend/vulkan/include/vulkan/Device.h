@@ -9,7 +9,6 @@
 #include <rhi/Device.h>
 #include <vulkan/CacheManager.h>
 #include <vulkan/Queue.h>
-#include <vulkan/AsyncTransferQueue.h>
 #include <vulkan/Swapchain.h>
 #include <vulkan/RenderPass.h>
 #include <vulkan/FrameBuffer.h>
@@ -59,9 +58,9 @@ namespace sky::vk {
         VkInstance       GetInstance() const;
 
         // Queue
-        Queue              *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
-        Queue              *GetGraphicsQueue() const;
-        AsyncTransferQueue *GetAsyncTransferQueue() const;
+        Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
+        Queue *GetGraphicsQueue() const;
+        Queue *GetTransferQueue() const;
 
         // Cache object
         VkSampler             GetSampler(uint32_t hash, VkSamplerCreateInfo *samplerInfo = nullptr);
@@ -113,8 +112,6 @@ namespace sky::vk {
 
         void ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions);
 
-        void SetupAsyncTransferQueue();
-
         bool FillMemoryRequirements(VkMemoryRequirements2               &requirements,
                                     const VkMemoryDedicatedRequirements &dedicated,
                                     VkMemoryPropertyFlags                flags,
@@ -153,7 +150,7 @@ namespace sky::vk {
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
         Queue                               *graphicsQueue;
-        AsyncTransferQueuePtr                transferQueue;
+        Queue                               *transferQueue;
 
         CacheManager<VkSampler>             samplers;
         CacheManager<VkDescriptorSetLayout> setLayouts;
