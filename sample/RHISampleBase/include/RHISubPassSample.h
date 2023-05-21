@@ -16,6 +16,8 @@ namespace sky::rhi {
         rhi::RenderPassPtr tiedPass;
         rhi::FrameBufferPtr fb;
         std::vector<rhi::ImageViewPtr> subpassViews;
+        rhi::ImageViewPtr depthView;
+        rhi::ImageViewPtr stencilView;
         std::vector<ClearValue> fbClears;
 
         rhi::GraphicsPipelinePtr pso1;

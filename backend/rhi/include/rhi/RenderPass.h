@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <rhi/Core.h>
 #include <vector>
+#include <unordered_map>
+#include <rhi/Core.h>
 
 namespace sky::rhi {
 
@@ -51,6 +52,21 @@ namespace sky::rhi {
             std::vector<Dependency> dependencies;
             std::vector<uint32_t>   correlatedViewMasks;
         };
+        using BindingMap = std::vector<uint32_t>;
+        const BindingMap &GetInputMap(uint32_t subpass) const { return subpassInputMaps[subpass]; }
+        const BindingMap &GetOutputMap(uint32_t subpass) const { return subpassOutputMaps[subpass]; }
+        const std::vector<uint32_t> &GetAttachmentColorMap() const { return attachmentMap; }
+
+    protected:
+        void InitInputMap(const Descriptor &desc);
+
+        std::vector<BindingMap> subpassInputMaps;
+        std::vector<BindingMap> subpassOutputMaps;
+
+        std::vector<uint32_t> attachmentMap; // index of color & resolve
+        std::vector<uint32_t> colors;
+        std::vector<uint32_t> resolves;
+        uint32_t depthStencil = INVALID_INDEX;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

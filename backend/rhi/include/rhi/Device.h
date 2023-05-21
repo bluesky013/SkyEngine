@@ -55,8 +55,6 @@ namespace sky::rhi {
         struct Limitation {
             uint32_t maxColorAttachments = 1;
             uint32_t maxDrawBuffers = 1;
-            uint32_t maxShaderPixelStorage = 0;
-            uint32_t maxFastShaderPixelStorage = 0;
         };
 
         struct Descriptor {
@@ -87,6 +85,7 @@ namespace sky::rhi {
         virtual Queue* GetQueue(QueueType type) const = 0;
 
         const DeviceFeature &GetFeatures() const { return enabledFeature; }
+        const Limitation &GetLimitations() const { return limitation; }
 
     protected:
         DeviceFeature enabledFeature;

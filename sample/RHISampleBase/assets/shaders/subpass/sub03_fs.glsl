@@ -3,8 +3,12 @@
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inColor0;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inColor1;
 layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inColor2;
+layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inDepth;
+layout (input_attachment_index = 4, set = 0, binding = 4) uniform usubpassInput inStencil;
 
 layout (location = 0) out vec4 outColor;
+layout (location = 1) out vec4 dummy1;
+layout (location = 2) out vec4 dummy2;
 
 void main()
 {

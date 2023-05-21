@@ -214,6 +214,7 @@ namespace sky::vk {
 
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
     {
+        auto &table      = layout->GetDescriptorTable();
         auto &indices = layout->GetUpdateTemplate().indices;
         auto iter = indices.find(binding);
         SKY_ASSERT(iter != indices.end());
@@ -223,6 +224,21 @@ namespace sky::vk {
         auto &viewInfo = vkImageView->GetSubRange();
         writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
+
+        auto vIter = table.find(binding);
+        SKY_ASSERT(vIter != table.end());
+
+        auto mask = view->GetViewDesc().mask;
+        auto descriptorType = vIter->second.descriptorType;
+        if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
+            if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {
+                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            } else {
+                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            }
+        } else if (descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+            writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
 
         if (flags & rhi::DescriptorBindFlagBit::FEEDBACK_LOOP) {
             writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT

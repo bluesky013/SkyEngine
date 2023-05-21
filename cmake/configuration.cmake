@@ -20,3 +20,5 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
     add_compile_definitions(NOMINMAX)
 endif()
+
+add_compile_definitions("$<$<CONFIG:Debug>:_DEBUG;DEBUG>")

@@ -17,7 +17,17 @@
 static const char* TAG = "ShaderCompiler";
 
 namespace sky::builder {
-    using SpvResources = spirv_cross::SmallVector<spirv_cross::Resource>;
+    static std::size_t ReplaceAll(std::string& inout, std::string_view what, std::string_view with)
+    {
+        std::size_t count{};
+        for (std::string::size_type pos{};
+             inout.npos != (pos = inout.find(what.data(), pos, what.length()));
+             pos += with.length(), ++count)
+            inout.replace(pos, what.length(), with.data(), with.length());
+        return count;
+    }
+
+
     static std::string GetFullPath(const std::string &relative)
     {
         std::filesystem::path rPath(relative);
@@ -120,17 +130,26 @@ namespace sky::builder {
         out.assign(result.begin(), result.end());
     }
 
-    std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv)
+    std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv, const Option &option)
     {
         spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
         spirv_cross::ShaderResources resources = compiler.get_shader_resources();
 
-        auto remap = [&compiler](auto &resources, bool subpass = false) {
+        std::vector<uint32_t> outputs;
+        auto remap = [&compiler, &option](auto &resources, bool subpass = false) {
             for (auto &resource : resources) {
                 if (subpass) {
                     auto id = compiler.get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
-                    compiler.remap_ext_framebuffer_fetch(id, id, true);
-                    std::stringstream ss;
+                    auto loc = option.inputMap[id];
+                    if (loc == 0xFD || loc == 0xFE) {
+                        const std::string name = loc == 0xFD ? "gl_LastFragDepthARM" : "gl_LastFragStencilARM";
+                        compiler.require_extension("GL_ARM_shader_framebuffer_fetch_depth_stencil");
+                        compiler.set_remapped_variable_state(resource.id, true);
+                        compiler.set_name(resource.id, name);
+                        compiler.set_subpass_input_remapped_components(resource.id, 1);
+                    } else {
+                        compiler.remap_ext_framebuffer_fetch(id, option.inputMap[id], true);
+                    }
                     continue;
                 }
 
@@ -151,13 +170,40 @@ namespace sky::builder {
         remap(resources.storage_images);
         remap(resources.subpass_inputs, true);
 
-
         spirv_cross::CompilerGLSL::Options options;
         options.version = 320;
         options.es = true;
         options.vertex.flip_vert_y = false;
         compiler.set_common_options(options);
-        return compiler.compile();
+        auto source = compiler.compile();
+
+        for (uint32_t i = 0; i < option.outputMap.size(); ++i) {
+            if (option.outputMap[i] == 0xFF) {
+                continue;
+            }
+
+            const char* LAYOUT_PREFIX = "layout(location = ";
+
+            std::stringstream ss1;
+            ss1 << LAYOUT_PREFIX << i << ") out";
+
+            std::stringstream ss2;
+            ss2 << LAYOUT_PREFIX << i << ") inout";
+
+            auto iter = source.find(ss1.str());
+            if (iter == std::string::npos) {
+                iter = source.find(ss2.str());
+            }
+
+            if (iter != std::string::npos) {
+                auto loc = iter + strlen(LAYOUT_PREFIX);
+                source[loc] = option.outputMap[i] + '0';
+            }
+        }
+
+        ReplaceAll(source, "_RESERVED_IDENTIFIER_FIXUP_gl_LastFragDepthARM", "gl_LastFragDepthARM");
+        ReplaceAll(source, "_RESERVED_IDENTIFIER_FIXUP_gl_LastFragStencilARM", "gl_LastFragStencilARM");
+        return source;
     }
 
     void ShaderCompiler::CompileShader(const std::string &path, const Option &option)
@@ -166,7 +212,9 @@ namespace sky::builder {
         BuildSpirV(path, option.type, spv);
         SaveSpv(option.output + ".spv", spv);
 
-//        std::string glslSrc = BuildGLES(spv);
-//        SaveGLES(option.output + ".gles", glslSrc);
+        if (option.compileGLES) {
+            std::string glslSrc = BuildGLES(spv, option);
+            SaveGLES(option.output + ".gles", glslSrc);
+        }
     }
 }

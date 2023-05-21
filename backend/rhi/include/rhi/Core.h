@@ -9,6 +9,10 @@
 #include <vector>
 #include <core/template/Flags.h>
 
+namespace sky {
+    static constexpr uint32_t INVALID_INDEX = ~(0U);
+}
+
 namespace sky::rhi {
 
 #define ENABLE_FLAG_BIT_OPERATOR(Type) \

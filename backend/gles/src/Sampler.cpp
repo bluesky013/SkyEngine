@@ -23,16 +23,14 @@ namespace sky::gles {
         parameter.minLod = desc.minLod;
         parameter.maxLod = desc.maxLod;
 
-        glGenSamplers(1, &sampler);
-        glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, parameter.minFilter);
-        glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, parameter.magFilter);
-
-        glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, parameter.wrapS);
-        glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, parameter.wrapT);
-        glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, parameter.wrapR);
-
-        glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, parameter.minLod);
-        glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, parameter.maxLod);
+        CHECK(glGenSamplers(1, &sampler));
+        CHECK(glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, parameter.minFilter));
+        CHECK(glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, parameter.magFilter));
+        CHECK(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, parameter.wrapS));
+        CHECK(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, parameter.wrapT));
+        CHECK(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, parameter.wrapR));
+        CHECK(glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, parameter.minLod));
+        CHECK(glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, parameter.maxLod));
 
         return true;
     }

@@ -65,6 +65,7 @@ namespace sky::rhi {
 
         rhi::SemaphorePtr imageAvailable;
         rhi::SemaphorePtr renderFinish;
+        bool compileGLES = true;
 
         uint32_t frameIndex = 0;
         uint32_t frame = 0;

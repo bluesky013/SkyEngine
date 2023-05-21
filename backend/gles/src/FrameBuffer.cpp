@@ -12,6 +12,9 @@
 #include <gles/Device.h>
 
 namespace sky::gles {
+    namespace {
+        const char* TAG = "GLES";
+    }
 
     FrameBuffer::~FrameBuffer()
     {
@@ -63,12 +66,13 @@ namespace sky::gles {
     }
 
     void FrameBuffer::InitInternal(GLuint fbo) {
-        CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
+        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
 
         auto &colors = renderPass->GetGLColors();
         auto &resolves = renderPass->GetGLResolves();
         auto depthStencil = renderPass->GetGLDepthStencil();
 
+        std::vector<GLenum> drawBuffers(colors.size());
         for (uint32_t i = 0; i < colors.size(); ++i) {
             const auto &color = colors[i];
 
@@ -94,12 +98,13 @@ namespace sky::gles {
 
 
             if (image->IsRenderBuffer()) {
-                CHECK(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
+                CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
                                                 GL_RENDERBUFFER, handle));
             } else {
-                CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
+                CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
                                              GL_TEXTURE_2D, handle, baseLevel));
             }
+            drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
         }
 
         if (depthStencil != INVALID_INDEX) {
@@ -110,11 +115,18 @@ namespace sky::gles {
             GLenum att =
                 viewDesc.mask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
             if (image->IsRenderBuffer()) {
-                CHECK(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
+                CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
             } else {
-                CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, att, GL_TEXTURE_2D, handle,
+                CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, att, GL_TEXTURE_2D, handle,
                                              attachment->GetViewDesc().subRange.baseLevel));
             }
+        }
+        CHECK(glDrawBuffers(static_cast<uint32_t>(drawBuffers.size()), drawBuffers.data()));
+
+        GLenum status;
+        CHECK(status = glCheckFramebufferStatus(GL_FRAMEBUFFER));
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            LOG_E(TAG, "check frame buffer status error - %x", status);
         }
         CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }

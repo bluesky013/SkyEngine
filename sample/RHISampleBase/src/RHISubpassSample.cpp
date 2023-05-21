@@ -15,6 +15,7 @@ namespace sky::rhi {
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::D24_S8,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
@@ -22,7 +23,8 @@ namespace sky::rhi {
                     {1, {AccessFlag::COLOR_WRITE}},
                     {2, {AccessFlag::COLOR_WRITE}},
                     {3, {AccessFlag::COLOR_WRITE}},
-                 }, {}, {},
+                 }, {}, {}, {},
+                {5, {AccessFlag::DEPTH_STENCIL_WRITE}},
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
@@ -31,7 +33,9 @@ namespace sky::rhi {
                 {},
                 {
                         {0, {AccessFlag::COLOR_INPUT}},
-                        {1, {AccessFlag::COLOR_INPUT}}
+                        {1, {AccessFlag::COLOR_INPUT}},
+                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::DEPTH_BIT},
+                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::STENCIL_BIT},
                         },
                 { 2, 3 },
         });
@@ -44,6 +48,8 @@ namespace sky::rhi {
                         {2, {AccessFlag::COLOR_INPUT}},
                         {3, {AccessFlag::COLOR_INPUT}},
                         {4, {AccessFlag::COLOR_INOUT_WRITE}},
+                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::DEPTH_BIT},
+                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::STENCIL_BIT},
                         },
         });
 
@@ -66,20 +72,36 @@ namespace sky::rhi {
         fbDesc.extent = ext;
         fbDesc.pass = tiedPass;
 
-        for (uint32_t i = 0; i < 5; ++i)
+        for (uint32_t i = 0; i < 6; ++i)
         {
-            if (i == 4) {
+            rhi::ImageViewDesc viewDesc = {};
+            if (i == 5) {
+                viewDesc.mask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
+                imageDesc.format = PixelFormat::D24_S8;
+                imageDesc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
+                fbClears.emplace_back(rhi::ClearValue(1, 0));
+            } else if (i == 4) {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
+                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
             } else {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
+                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
             }
 
             auto image = device->CreateImage(imageDesc);
-            auto view = image->CreateView({});
+            auto view = image->CreateView(viewDesc);
             fbDesc.views.emplace_back(view);
             subpassViews.emplace_back(view);
-            fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
+
+            if (i == 5) {
+                rhi::ImageViewDesc dsViewDesc = {};
+                dsViewDesc.mask = AspectFlagBit::DEPTH_BIT;
+                depthView = image->CreateView(dsViewDesc);
+                dsViewDesc.mask = AspectFlagBit::STENCIL_BIT;
+                stencilView = image->CreateView(dsViewDesc);
+            }
         }
+
         fb = device->CreateFrameBuffer(fbDesc);
 
         // pipeline layouts
@@ -104,6 +126,8 @@ namespace sky::rhi {
             DescriptorSetLayout::Descriptor layoutDesc = {};
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS,"inColor0"});
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS,"inColor1"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 2, ShaderStageFlagBit::FS,"inDepth"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 3, ShaderStageFlagBit::FS,"inStencil"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
@@ -111,6 +135,8 @@ namespace sky::rhi {
             subpassSet1 = pool->Allocate(setDesc);
             subpassSet1->BindImageView(0, fbDesc.views[0], 0);
             subpassSet1->BindImageView(1, fbDesc.views[1], 0);
+            subpassSet1->BindImageView(2, depthView, 0);
+            subpassSet1->BindImageView(3, stencilView, 0);
             subpassSet1->Update();
             subpassLayout1 = device->CreatePipelineLayout(pLayoutDesc);
         }
@@ -120,6 +146,8 @@ namespace sky::rhi {
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS,"inColor0"});
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS,"inColor1"});
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 2, ShaderStageFlagBit::FS,"inColor2"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 3, ShaderStageFlagBit::FS,"inDepth"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 4, ShaderStageFlagBit::FS,"inStencil"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
@@ -128,17 +156,20 @@ namespace sky::rhi {
             subpassSet2->BindImageView(0, fbDesc.views[2], 0);
             subpassSet2->BindImageView(1, fbDesc.views[3], 0);
             subpassSet2->BindImageView(2, fbDesc.views[4], 0, DescriptorBindFlagBit::FEEDBACK_LOOP);
+            subpassSet2->BindImageView(3, depthView, 0);
+            subpassSet2->BindImageView(4, stencilView, 0);
             subpassSet2->Update();
             subpassLayout2 = device->CreatePipelineLayout(pLayoutDesc);
         }
 
         // shaders
         auto path = Platform::Get()->GetInternalPath();
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_fs.glsl", {path + "/shaders/RHISample/sub01_fs.shader", builder::ShaderType::FS});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub02_fs.glsl", {path + "/shaders/RHISample/sub02_fs.shader", builder::ShaderType::FS});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub03_fs.glsl", {path + "/shaders/RHISample/sub03_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS, compileGLES});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS, compileGLES});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_vs.glsl", {path + "/shaders/RHISample/sub01_vs.shader", builder::ShaderType::VS, compileGLES});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_fs.glsl", {path + "/shaders/RHISample/sub01_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(0), tiedPass->GetOutputMap(0)});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub02_fs.glsl", {path + "/shaders/RHISample/sub02_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(1), tiedPass->GetOutputMap(1)});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub03_fs.glsl", {path + "/shaders/RHISample/sub03_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(2), tiedPass->GetOutputMap(2)});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.blendStates.emplace_back(BlendState{});
@@ -169,8 +200,18 @@ namespace sky::rhi {
         psoDesc.state.blendStates.emplace_back(BlendState{});
         psoDesc.state.blendStates.emplace_back(BlendState{});
         psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.state.depthStencil.depthWrite = true;
+        psoDesc.state.depthStencil.depthTest = true;
+        psoDesc.state.depthStencil.stencilTest = true;
+        psoDesc.state.depthStencil.front.reference = 0x80;
+        psoDesc.state.depthStencil.front.writeMask = 0xFF;
+        psoDesc.state.depthStencil.front.compareMask = 0xFF;
+        psoDesc.state.depthStencil.front.passOp = StencilOp::REPLACE;
+        psoDesc.state.depthStencil.front.compareOp = CompareOp::ALWAYS;
+        psoDesc.state.depthStencil.back = psoDesc.state.depthStencil.front;
+
         psoDesc.pipelineLayout = pipelineLayout;
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/sub01_vs.shader");
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/sub01_fs.shader");
         psoDesc.subPassIndex = 0;
         pso1 = device->CreateGraphicsPipeline(psoDesc);
@@ -203,6 +244,13 @@ namespace sky::rhi {
             barrier.view = subpassViews[3];
             commandBuffer->QueueBarrier(barrier);
             barrier.view = subpassViews[4];
+            commandBuffer->QueueBarrier(barrier);
+        }
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.view = subpassViews[5];
             commandBuffer->QueueBarrier(barrier);
         }
         commandBuffer->FlushBarriers();
@@ -291,6 +339,8 @@ namespace sky::rhi {
         subpassLayout1 = nullptr;
         subpassLayout2 = nullptr;
         subpassViews.clear();
+        depthView = nullptr;
+        stencilView = nullptr;
 
         fullScreen = nullptr;
         fullScreenLayout = nullptr;

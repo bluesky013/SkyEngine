@@ -3,7 +3,6 @@
 //
 
 #include <gles/Instance.h>
-#include <gles/Device.h>
 #include <core/platform/Platform.h>
 #include <core/util/DynamicModule.h>
 
@@ -13,6 +12,11 @@ std::unique_ptr<sky::DynamicModule> g_Egl;
 #else
 #include "egl/egl_android.inl"
 #endif
+
+#include <gles/Device.h>
+#include <gles/Ext.h>
+
+PFN_FramebufferFetchBarrier FramebufferFetchBarrier;
 
 namespace sky::gles {
 
@@ -61,11 +65,12 @@ namespace sky::gles {
         if (!InitEGL()) {
             return false;
         }
+        if (FramebufferFetchBarrier == nullptr) {
+            FramebufferFetchBarrier = reinterpret_cast<PFN_FramebufferFetchBarrier>(eglGetProcAddress("glFramebufferFetchBarrierQCOM"));
+        }
+        if (FramebufferFetchBarrier == nullptr) {
+            FramebufferFetchBarrier = reinterpret_cast<PFN_FramebufferFetchBarrier>(eglGetProcAddress("glFramebufferFetchBarrierEXT"));
+        }
         return true;
     }
-}
-
-extern "C" SKY_EXPORT sky::rhi::Instance *CreateInstance()
-{
-    return new sky::gles::Instance();
 }

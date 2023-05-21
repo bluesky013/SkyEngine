@@ -23,6 +23,7 @@ namespace sky::vk {
 
     bool RenderPass::Init(const Descriptor &des)
     {
+        InitInputMap(des);
         hash = 0;
         std::vector<std::vector<VkAttachmentReference2>> subpassReferences;
         attachments.reserve(des.attachments.size());

@@ -12,7 +12,7 @@ namespace sky::gles {
 
     static bool UsageSampled(rhi::ImageUsageFlags usage) { return (usage & rhi::ImageUsageFlagBit::SAMPLED) == rhi::ImageUsageFlagBit::SAMPLED; }
     static bool UsageStorage(rhi::ImageUsageFlags usage) { return (usage & rhi::ImageUsageFlagBit::STORAGE) == rhi::ImageUsageFlagBit::STORAGE; }
-    static bool UsageAttachment(rhi::ImageUsageFlags usage) { return (usage & USAGE_COLOR_OR_DS) == USAGE_COLOR_OR_DS; }
+    static bool UsageAttachment(rhi::ImageUsageFlags usage) { return (usage & USAGE_COLOR_OR_DS) != rhi::ImageUsageFlagBit::NONE; }
 
     Image::~Image()
     {
@@ -47,7 +47,7 @@ namespace sky::gles {
             CHECK(glGenTextures(1, &texId));
 
             if (imageDesc.arrayLayers == 1) {
-                glBindTexture(GL_TEXTURE_2D, texId);
+                CHECK(glBindTexture(GL_TEXTURE_2D, texId));
                 if (imageDesc.samples > rhi::SampleCount::X1) {
                     CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height, GL_FALSE));
                 } else {

@@ -67,6 +67,7 @@ namespace sky::gles {
         for (auto &ext : extensions) {
             LOG_I(TAG, "%s", ext.c_str());
         }
+
         InitLimitation();
         InitDeviceFeature();
         InitDefaultObjects();
@@ -82,6 +83,8 @@ namespace sky::gles {
         transferQueue = std::make_unique<Queue>(*this);
         transferQueue->StartThread();
         transferQueue->Init(ctxDesc, rhi::QueueType::TRANSFER);
+
+        LOG_I(TAG, "Init GLES device success.");
         return true;
     }
 
@@ -107,11 +110,8 @@ namespace sky::gles {
 
     void Device::InitLimitation()
     {
-        glGetIntegerv(GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_FAST_SIZE_EXT, reinterpret_cast<GLint*>(&limitation.maxFastShaderPixelStorage));
-        glGetIntegerv(GL_MAX_SHADER_PIXEL_LOCAL_STORAGE_SIZE_EXT, reinterpret_cast<GLint*>(&limitation.maxShaderPixelStorage));
-
-        glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&limitation.maxColorAttachments));
-        glGetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&limitation.maxDrawBuffers));
+        CHECK(glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&limitation.maxColorAttachments)));
+        CHECK(glGetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&limitation.maxDrawBuffers)));
     }
 
     void Device::InitDeviceFeature()

@@ -57,7 +57,6 @@ namespace sky::gles {
         void SetLineWidth(float width);
         void SetDepthBias(float constant, float clamp, float slope);
         void SetBlendState(const BlendState &bs);
-
         Context *context = nullptr;
         PipelineCacheState *cache = nullptr;
         rhi::QueueType type = rhi::QueueType::GRAPHICS;

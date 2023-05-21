@@ -35,6 +35,7 @@ namespace sky::rhi {
     {
         instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({});
+        compileGLES = rhi == API::GLES;
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         window = systemApi->GetViewport();

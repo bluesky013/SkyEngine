@@ -5,12 +5,13 @@
 #pragma once
 
 #include <core/platform/Platform.h>
+#include <core/logger/Logger.h>
 #include <gles/Forward.h>
 
 namespace sky::gles {
 
 #ifdef _DEBUG
-#define CHECK(x) do { x; SKY_ASSERT(glGetError() == GL_NO_ERROR); } while(0);
+#define CHECK(x) do { x; auto error = glGetError(); if (error != GL_NO_ERROR) { LOG_I("GLES", "gl error %u", error); SKY_ASSERT(false); } } while(0);
 #else
 #define CHECK(x) do { x; } while(0);
 #endif
