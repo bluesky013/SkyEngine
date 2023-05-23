@@ -17,5 +17,9 @@ void main()
     vec4 v2 = subpassLoad(inColor2);
     vec3 color1 = v0.rgb * v0.a;
     vec3 color2 = v1.rgb * v1.a;
+
+    float depth = subpassLoad(inDepth).x * 1.0;
+    float stencil = subpassLoad(inStencil).x / 256.0;
+
     outColor = v2 + vec4(color1 + color2, v0.a + v1.a);
 }

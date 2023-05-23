@@ -34,8 +34,6 @@ namespace sky::rhi {
                 {
                         {0, {AccessFlag::COLOR_INPUT}},
                         {1, {AccessFlag::COLOR_INPUT}},
-                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::DEPTH_BIT},
-                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::STENCIL_BIT},
                         },
                 { 2, 3 },
         });
@@ -126,8 +124,6 @@ namespace sky::rhi {
             DescriptorSetLayout::Descriptor layoutDesc = {};
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS,"inColor0"});
             layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 1, ShaderStageFlagBit::FS,"inColor1"});
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 2, ShaderStageFlagBit::FS,"inDepth"});
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 3, ShaderStageFlagBit::FS,"inStencil"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
@@ -135,8 +131,6 @@ namespace sky::rhi {
             subpassSet1 = pool->Allocate(setDesc);
             subpassSet1->BindImageView(0, fbDesc.views[0], 0);
             subpassSet1->BindImageView(1, fbDesc.views[1], 0);
-            subpassSet1->BindImageView(2, depthView, 0);
-            subpassSet1->BindImageView(3, stencilView, 0);
             subpassSet1->Update();
             subpassLayout1 = device->CreatePipelineLayout(pLayoutDesc);
         }
