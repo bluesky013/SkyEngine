@@ -177,6 +177,7 @@ namespace sky::builder {
         compiler.set_common_options(options);
         auto source = compiler.compile();
 
+        std::string::size_type offset = 0;
         for (uint32_t i = 0; i < option.outputMap.size(); ++i) {
             if (option.outputMap[i] == 0xFF) {
                 continue;
@@ -190,14 +191,15 @@ namespace sky::builder {
             std::stringstream ss2;
             ss2 << LAYOUT_PREFIX << i << ") inout";
 
-            auto iter = source.find(ss1.str());
+            auto iter = source.find(ss1.str(), offset);
             if (iter == std::string::npos) {
-                iter = source.find(ss2.str());
+                iter = source.find(ss2.str(), offset);
             }
 
             if (iter != std::string::npos) {
                 auto loc = iter + strlen(LAYOUT_PREFIX);
                 source[loc] = option.outputMap[i] + '0';
+                offset = loc;
             }
         }
 
