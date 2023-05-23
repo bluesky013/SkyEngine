@@ -34,7 +34,7 @@ namespace sky::rdg {
     ENABLE_FLAG_BIT_OPERATOR(RasterTypeBit)
 
     enum class ComputeType {
-        CBV,
+        CBV = 0,
         SRV,
         UAV,
     };

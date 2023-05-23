@@ -250,7 +250,7 @@ namespace sky::rhi {
         SECONDARY_COMMAND_BUFFERS = 1,
     };
 
-    enum class AccessFlag : uint32_t{
+    enum class AccessFlag : uint32_t {
         NONE = 0x00,
         INDIRECT_BUFFER,
         INDEX_BUFFER,

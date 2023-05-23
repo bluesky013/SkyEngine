@@ -94,6 +94,11 @@ namespace sky {
             return value != 0;
         }
 
+        explicit constexpr operator ValueType() const noexcept
+        {
+            return value;
+        }
+
         ValueType value;
     };
 
