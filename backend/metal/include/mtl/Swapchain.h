@@ -25,6 +25,8 @@ namespace sky::mtl {
         uint32_t GetImageCount() const override;
         bool HasDepthStencilImage() const override;
         rhi::ImagePtr GetDepthStencilImage() const override;
+
+        void Resize(uint32_t width, uint32_t height, void* window) override {}
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
 
     private:
