@@ -189,7 +189,7 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.attachments.emplace_back(RenderPass::Attachment{
-            PixelFormat::D32_S8,
+            dsFormat,
             SampleCount::X1,
             LoadOp::CLEAR,
             StoreOp::DONT_CARE,
@@ -224,11 +224,7 @@ namespace sky::rhi {
         uint32_t count = swapChain->GetImageCount();
 
         rhi::Image::Descriptor imageDesc = {};
-#if __APPLE__
-        imageDesc.format      = PixelFormat::D32_S8;
-#else
-        imageDesc.format      = PixelFormat::D24_S8;
-#endif
+        imageDesc.format      = dsFormat;
         imageDesc.extent      = {ext.width, ext.height, 1};
         imageDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
         auto image = device->CreateImage(imageDesc);

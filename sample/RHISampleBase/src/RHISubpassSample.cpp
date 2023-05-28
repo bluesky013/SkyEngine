@@ -15,7 +15,7 @@ namespace sky::rhi {
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::D24_S8,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat,SampleCount::X1,LoadOp::CLEAR,StoreOp::DONT_CARE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
@@ -75,7 +75,7 @@ namespace sky::rhi {
             rhi::ImageViewDesc viewDesc = {};
             if (i == 5) {
                 viewDesc.mask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
-                imageDesc.format = PixelFormat::D24_S8;
+                imageDesc.format = dsFormat;
                 imageDesc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
                 fbClears.emplace_back(rhi::ClearValue(1, 0));
             } else if (i == 4) {

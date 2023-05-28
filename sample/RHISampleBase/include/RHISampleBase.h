@@ -27,7 +27,7 @@ namespace sky::rhi {
 
     class RHISampleBase : public IWindowEvent, public IRHI {
     public:
-        RHISampleBase()  = default;
+        RHISampleBase() = default;
         ~RHISampleBase() = default;
 
         virtual void OnStart();
@@ -69,5 +69,10 @@ namespace sky::rhi {
         uint32_t frameIndex = 0;
         uint32_t frame = 0;
         API rhi = API::DEFAULT;
+#if __APPLE__
+        rhi::PixelFormat dsFormat = rhi::PixelFormat::D32_S8;
+#else
+        rhi::PixelFormat dsFormat = rhi::PixelFormat::D24_S8;
+#endif
     };
 }
