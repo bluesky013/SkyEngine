@@ -9,7 +9,11 @@
 #include <mtl/Swapchain.h>
 #include <mtl/Buffer.h>
 #include <mtl/Image.h>
-#include <Metal/Metal.hpp>
+#include <mtl/Queue.h>
+#include <mtl/Sampler.h>
+#include <mtl/GraphicsPipeline.h>
+#include <mtl/RenderPass.h>
+#include <Metal/MTLDevice.h>
 
 namespace sky::mtl {
     class Instance;
@@ -29,27 +33,27 @@ namespace sky::mtl {
             return std::shared_ptr<T>(res);
         }
 
-        MTL::Device *GetMetalDevice() const;
+        id<MTLDevice> GetMetalDevice() const { return device; }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
         CREATE_DEV_OBJ(Image)
         CREATE_DEV_OBJ(Buffer)
-        rhi::RenderPassPtr CreateRenderPass(const rhi::RenderPass::Descriptor &desc) override { return nullptr; }
+        CREATE_DEV_OBJ(RenderPass)
+        CREATE_DEV_OBJ(GraphicsPipeline)
+        CREATE_DEV_OBJ(Sampler)
         rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
         rhi::CommandBufferPtr CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override { return nullptr; }
         rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
         rhi::ShaderPtr CreateShader(const rhi::Shader::Descriptor &desc) override { return nullptr; }
-        rhi::GraphicsPipelinePtr CreateGraphicsPipeline(const rhi::GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
         rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
         rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
-        rhi::SamplerPtr CreateSampler(const rhi::Sampler::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
 
-        rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
+        rhi::Queue* GetQueue(rhi::QueueType type) const override;
 
         void WaitIdle() const override {}
 
@@ -59,6 +63,11 @@ namespace sky::mtl {
 
         Device(Instance &);
         Instance    &instance;
-        MTL::Device *device = nullptr;
+
+        id<MTLDevice> device;
+
+        std::vector<QueuePtr> queues;
+        Queue *graphicsQueue = nullptr;
+        Queue *transferQueue = nullptr;
     };
 }

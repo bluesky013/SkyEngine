@@ -4,11 +4,13 @@
 
 #pragma once
 
+#include <vector>
 #include <rhi/Swapchain.h>
 #include <mtl/DevObject.h>
-
-#include <AppKit/NSView.hpp>
-#include <QuartzCore/CAMetalDrawable.hpp>
+#include <mtl/MetalView.h>
+#include <mtl/Image.h>
+#import <AppKit/NSWindow.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 namespace sky::mtl {
     class Device;
@@ -16,15 +18,16 @@ namespace sky::mtl {
     class SwapChain : public rhi::SwapChain, public DevObject {
     public:
         SwapChain(Device &dev) : DevObject(dev) {}
-        ~SwapChain() = default;
+        ~SwapChain();
 
-        rhi::PixelFormat GetFormat() const override;
-        const rhi::Extent2D &GetExtent() const override;
         uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) const override;
         rhi::ImagePtr GetImage(uint32_t index) const override;
-        uint32_t GetImageCount() const override;
-        bool HasDepthStencilImage() const override;
-        rhi::ImagePtr GetDepthStencilImage() const override;
+
+        rhi::PixelFormat GetFormat() const override { return rhi::PixelFormat::BGRA8_UNORM; }
+        const rhi::Extent2D &GetExtent() const override { return extent; };
+        uint32_t GetImageCount() const override { return backBufferCount; }
+        bool HasDepthStencilImage() const override { return false; }
+        rhi::ImagePtr GetDepthStencilImage() const override { return {}; }
 
         void Resize(uint32_t width, uint32_t height, void* window) override {}
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
@@ -33,7 +36,12 @@ namespace sky::mtl {
         friend class Device;
         bool Init(const Descriptor &desc);
 
-        NS::View* view = nullptr;
+        MetalView* view = nullptr;
+        uint32_t currentImageIndex = 0;
+        uint32_t backBufferCount = 2;
+        rhi::Extent2D extent = {1, 1};
+
+        std::vector<ImagePtr> colorImages;
     };
 
 }

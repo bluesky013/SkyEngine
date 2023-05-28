@@ -7,6 +7,10 @@ set(METAL_EXT_LIBS
     "-framework Metal"
     )
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
+endif()
+
 sky_add_library(TARGET MetalRHI SHARED
     SOURCES
         ${SRC_FILES}
@@ -19,8 +23,6 @@ sky_add_library(TARGET MetalRHI SHARED
     LINK_LIBS
         Core
         RHI
-        3rdParty::metal-cpp
-        3rdParty::metal-cpp-extensions
         ${PLATFORM_EXT_LIBS}
         ${METAL_EXT_LIBS}
     )

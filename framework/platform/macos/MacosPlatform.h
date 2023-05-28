@@ -12,5 +12,7 @@ namespace sky {
     public:
         MacosPlatform() = default;
         ~MacosPlatform() = default;
+
+        std::string GetInternalPath() const override;
     };
 }

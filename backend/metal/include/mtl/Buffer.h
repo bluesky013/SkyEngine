@@ -7,8 +7,6 @@
 #include <rhi/Buffer.h>
 #include <mtl/DevObject.h>
 
-#include <Metal/MTLBuffer.hpp>
-
 namespace sky::mtl {
     class Device;
 
@@ -19,7 +17,6 @@ namespace sky::mtl {
     private:
         friend class Device;
         bool Init(const Descriptor &);
-        MTL::Buffer *buffer = nullptr;
     };
     using BufferPtr = std::shared_ptr<Buffer>;
 }

@@ -12,8 +12,7 @@ namespace sky::mtl {
         bufferDesc = desc;
         auto *mtlDevice = device.GetMetalDevice();
 
-        MTL::ResourceOptions options = {};
-        buffer = mtlDevice->newBuffer(desc.size, options);
+//        [mtlDevice newBufferWithBytes:]
     }
 
     rhi::BufferViewPtr Buffer::CreateView(const rhi::BufferViewDesc &desc)

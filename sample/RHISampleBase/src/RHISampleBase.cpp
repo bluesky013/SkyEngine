@@ -190,7 +190,7 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.attachments.emplace_back(RenderPass::Attachment{
-            PixelFormat::D24_S8,
+            PixelFormat::D32_S8,
             SampleCount::X1,
             LoadOp::CLEAR,
             StoreOp::DONT_CARE,

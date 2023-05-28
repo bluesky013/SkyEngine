@@ -10,23 +10,20 @@
 #include <rhi/Device.h>
 #include <mtl/Device.h>
 
-namespace MTL {
-    class Device;
-}
-
 namespace sky::mtl {
     class Instance : public rhi::Instance {
     public:
         Instance() = default;
-        ~Instance() override;
+        ~Instance() noexcept override;
 
         rhi::Device *CreateDevice(const rhi::Device::Descriptor &desc) override;
 
-        const std::vector<MTL::Device*> &GetMtlDevices() const;
+        const std::vector<id<MTLDevice>> &GetMtlDevices() const { return devices; }
 
     private:
         bool Init(const Descriptor &) override;
-        std::vector<MTL::Device*> devices;
+
+        std::vector<id<MTLDevice>> devices;
     };
 
 }
