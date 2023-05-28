@@ -23,6 +23,9 @@ namespace sky::mtl {
 
     rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &beginInfo)
     {
+        currentRenderPass = std::static_pointer_cast<RenderPass>(beginInfo.renderPass);
+        currentFramebuffer = std::static_pointer_cast<FrameBuffer>(beginInfo.frameBuffer);
+//        encoder = [commandBuffer.GetNativeHandle() renderCommandEncoderWithDescriptor: currentRenderPass->Get]
         return *this;
     }
 

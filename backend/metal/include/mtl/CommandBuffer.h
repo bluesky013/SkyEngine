@@ -6,6 +6,8 @@
 
 #include <rhi/CommandBuffer.h>
 #include <mtl/DevObject.h>
+#include <mtl/RenderPass.h>
+#include <mtl/FrameBuffer.h>
 #import <Metal/MTLCommandBuffer.h>
 
 namespace sky::mtl {
@@ -31,6 +33,9 @@ namespace sky::mtl {
 
     private:
         CommandBuffer &commandBuffer;
+        RenderPassPtr currentRenderPass;
+        FrameBufferPtr currentFramebuffer;
+        id<MTLRenderCommandEncoder> encoder;
     };
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
@@ -43,6 +48,7 @@ namespace sky::mtl {
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override {}
 
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return std::make_shared<GraphicsEncoder>(*this); }
+        id<MTLCommandBuffer> GetNativeHandle() const { return commandBuffer; }
 
     private:
         friend class Device;
