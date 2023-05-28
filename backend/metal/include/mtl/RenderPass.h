@@ -39,5 +39,6 @@ namespace sky::mtl {
         bool hasStencil = false;
         NSUInteger samplerCount = 1;
     };
+    using RenderPassPtr = std::shared_ptr<RenderPass>;
 
 } // namespace sky::mtl

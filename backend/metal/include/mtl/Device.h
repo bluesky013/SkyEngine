@@ -13,6 +13,10 @@
 #include <mtl/Sampler.h>
 #include <mtl/GraphicsPipeline.h>
 #include <mtl/RenderPass.h>
+#include <mtl/Shader.h>
+#include <mtl/VertexInput.h>
+#include <mtl/FrameBuffer.h>
+#include <mtl/CommandBuffer.h>
 #include <Metal/MTLDevice.h>
 
 namespace sky::mtl {
@@ -20,7 +24,7 @@ namespace sky::mtl {
 
     class Device : public rhi::Device {
     public:
-        ~Device() = default;
+        ~Device();
 
         template <typename T>
         inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
@@ -33,6 +37,16 @@ namespace sky::mtl {
             return std::shared_ptr<T>(res);
         }
 
+        template <typename T, typename Desc>
+        inline std::shared_ptr<T> CreateDescObject(const Desc &des)
+        {
+            auto res = std::make_shared<T>();
+            if (!res->Init(des)) {
+                res = nullptr;
+            }
+            return res;
+        }
+
         id<MTLDevice> GetMetalDevice() const { return device; }
 
         // Device Object
@@ -42,14 +56,16 @@ namespace sky::mtl {
         CREATE_DEV_OBJ(RenderPass)
         CREATE_DEV_OBJ(GraphicsPipeline)
         CREATE_DEV_OBJ(Sampler)
-        rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
-        rhi::CommandBufferPtr CreateCommandBuffer(const rhi::CommandBuffer::Descriptor &desc) override { return nullptr; }
+        CREATE_DEV_OBJ(Shader)
+        CREATE_DEV_OBJ(FrameBuffer)
+        CREATE_DEV_OBJ(CommandBuffer)
+
+        CREATE_DESC_OBJ(VertexInput)
+
         rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
-        rhi::ShaderPtr CreateShader(const rhi::Shader::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
-        rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
         rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
 
