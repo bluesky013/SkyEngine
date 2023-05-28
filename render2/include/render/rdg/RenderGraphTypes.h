@@ -26,9 +26,8 @@ namespace sky::rdg {
         COLOR          = 0x01,
         RESOLVE        = 0x02,
         INPUT          = 0x04,
-        RESERVE        = 0x08,
-        DEPTH_STENCIL  = 0x10,
-        SHADING_RATE   = 0x20,
+        DEPTH_STENCIL  = 0x08,
+        SHADING_RATE   = 0x10,
     };
     using RasterType = Flags<RasterTypeBit>;
     ENABLE_FLAG_BIT_OPERATOR(RasterTypeBit)
@@ -200,7 +199,6 @@ namespace sky::rdg {
         rhi::SampleCount     samples     = rhi::SampleCount::X1;
         rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
-        LifeTime             lifeTime;
     };
 
     struct GraphImageView {
@@ -221,7 +219,6 @@ namespace sky::rdg {
         uint64_t size = 0;
         rhi::BufferUsageFlags usage = rhi::BufferUsageFlagBit::NONE;
         ResourceResidency residency = ResourceResidency::PERSISTENT;
-        LifeTime lifeTime;
     };
 
     struct GraphBufferView {
@@ -258,6 +255,7 @@ namespace sky::rdg {
         ImageViewRes(const T &v) : desc(v) {}
 
         T desc;
+        LifeTime lifeTime;
         rhi::ImageViewPtr res;
         rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
     };
@@ -267,6 +265,7 @@ namespace sky::rdg {
         BufferViewRes(const T &v) : desc(v) {}
 
         T desc;
+        LifeTime lifeTime;
         rhi::BufferViewPtr res;
         rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
     };

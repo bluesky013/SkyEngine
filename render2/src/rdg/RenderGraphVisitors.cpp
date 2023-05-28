@@ -84,8 +84,8 @@ namespace sky::rdg {
         std::vector<rhi::AccessFlag> GetAccessFlag(const AccessEdge &edge) {
             SKY_ASSERT(AttachmentMask.count(edge.type));
             auto accessMask = AttachmentMask.at(edge.type);
-            SKY_ASSERT(edge.access & ResourceAccess(accessMask.writeMask));
-            SKY_ASSERT(edge.visibility & rhi::ShaderStageFlags(accessMask.visibilityMask));
+            SKY_ASSERT((edge.access & ResourceAccess(accessMask.writeMask)) == edge.access);
+            SKY_ASSERT((edge.visibility & rhi::ShaderStageFlags(accessMask.visibilityMask)) == edge.visibility);
 
             std::vector<rhi::AccessFlag> res;
             std::visit(Overloaded{
@@ -134,12 +134,14 @@ namespace sky::rdg {
             [&](const AccessPassTag&, const AccessResTag&) {
                 auto &src = rdg.accessGraph.passes[Index(u.m_source, rdg.accessGraph)];
                 auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
+                dst.prevAccess = GetAccessFlag(ep);`
                 passID = src.vertexID;
                 resID = dst.resID;
             },
             [&](const AccessResTag&, const AccessPassTag&) {
                 auto &src = rdg.accessGraph.resources[Index(u.m_source, rdg.accessGraph)];
                 auto &dst = rdg.accessGraph.passes[Index(u.m_target, rdg.accessGraph)];
+                src.nextAccess = GetAccessFlag(ep);
                 resID = src.resID;
                 passID = dst.vertexID;
             },
@@ -154,11 +156,11 @@ namespace sky::rdg {
         std::visit(Overloaded{
             [&](const ImageTag &) {
                 auto &src = rdg.resourceGraph.images[Index(sourceId, rdg.resourceGraph)];
-                lifeTime = &src.desc.lifeTime;
+                lifeTime = &src.lifeTime;
             },
             [&](const BufferTag &) {
                 auto &src = rdg.resourceGraph.buffers[Index(sourceId, rdg.resourceGraph)];
-                lifeTime = &src.desc.lifeTime;
+                lifeTime = &src.lifeTime;
             },
             [&](const auto &) {}
         }, Tag(sourceId, rdg.resourceGraph));
@@ -166,9 +168,8 @@ namespace sky::rdg {
 
         if (lifeTime->begin == INVALID_VERTEX) {
             lifeTime->begin = passID;
-        } else {
-            lifeTime->end = passID;
         }
+        lifeTime->end = passID;
     }
 
     void ResourceGraphCompiler::tree_edge(Edge u, const Graph &g) {
@@ -220,13 +221,13 @@ namespace sky::rdg {
                 auto &image = graph.images[Index(u, graph)];
                 image.res = graph.context->pool->requestImage(image.desc);
                 LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(u, graph).c_str(),
-                      image.desc.lifeTime.begin, image.desc.lifeTime.end);
+                      image.lifeTime.begin, image.lifeTime.end);
             },
             [&](const BufferTag &) {
                 auto &buffer = graph.buffers[Index(u, graph)];
                 buffer.res = graph.context->pool->requestBuffer(buffer.desc);
                 LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(u, graph).c_str(),
-                      buffer.desc.lifeTime.begin, buffer.desc.lifeTime.end);
+                      buffer.lifeTime.begin, buffer.lifeTime.end);
             },
             [&](const ImportImageTag &) {
                 auto &image = graph.importImages[Index(u, graph)];
@@ -249,18 +250,6 @@ namespace sky::rdg {
             },
             [&](const auto &) {}
         }, Tag(u, graph));
-    }
-
-    void RenderGraphPassCompiler::Compile(RasterPass &pass)
-    {
-    }
-
-    void RenderGraphPassCompiler::Compile(ComputePass &pass)
-    {
-    }
-
-    void RenderGraphPassCompiler::Compile(CopyBlitPass &pass)
-    {
     }
 
     void RenderGraphPassCompiler::tree_edge(Edge e, const Graph &g) {
