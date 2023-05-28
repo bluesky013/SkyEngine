@@ -6,6 +6,7 @@
 
 #include <shaderc/shaderc.hpp>
 #include <spirv_cross/spirv_cpp.hpp>
+#include <spirv_cross/spirv_msl.hpp>
 
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
@@ -135,7 +136,6 @@ namespace sky::builder {
         spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
         spirv_cross::ShaderResources resources = compiler.get_shader_resources();
 
-        std::vector<uint32_t> outputs;
         auto remap = [&compiler, &option](auto &resources, bool subpass = false) {
             for (auto &resource : resources) {
                 if (subpass) {
@@ -208,15 +208,45 @@ namespace sky::builder {
         return source;
     }
 
+    std::string ShaderCompiler::BuildMSL(const std::vector<uint32_t> &spv, const Option &option)
+    {
+        spirv_cross::CompilerMSL compiler(spv.data(), spv.size());
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+        auto remap = [&compiler, &option](auto &resources, bool subpass = false) {
+            for (auto &resource : resources) {
+                unsigned set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                unsigned binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
+
+                // Modify the decoration to prepare it for GLSL.
+//                compiler.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+
+                // Some arbitrary remapping if we want.
+//                compiler.set_decoration(resource.id, spv::DecorationBinding, set * 8 + binding);
+            }
+        };
+
+        remap(resources.uniform_buffers);
+        remap(resources.storage_buffers);
+        remap(resources.sampled_images);
+        remap(resources.storage_images);
+        remap(resources.subpass_inputs, true);
+
+        spirv_cross::CompilerMSL::Options options;
+        compiler.set_msl_options(options);
+        return compiler.compile();
+    }
+
     void ShaderCompiler::CompileShader(const std::string &path, const Option &option)
     {
         std::vector<uint32_t> spv;
         BuildSpirV(path, option.type, spv);
         SaveSpv(option.output + ".spv", spv);
 
-        if (option.compileGLES) {
-            std::string glslSrc = BuildGLES(spv, option);
-            SaveGLES(option.output + ".gles", glslSrc);
-        }
+        std::string glslSrc = BuildGLES(spv, option);
+        SaveGLES(option.output + ".gles", glslSrc);
+
+        std::string mslSrc = BuildMSL(spv, option);
+        SaveGLES(option.output + ".msl", mslSrc);
     }
 }

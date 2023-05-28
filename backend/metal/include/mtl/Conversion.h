@@ -20,6 +20,10 @@ namespace sky::mtl {
     MTLWinding FromRHI(rhi::FrontFace mode);
     MTLCullMode FromRHI(rhi::CullingModeFlags mode);
     MTLTriangleFillMode FromRHI(rhi::PolygonMode mode);
+    MTLColorWriteMask FromRHI(uint32_t writeMask);
+    MTLBlendOperation FromRHI(rhi::BlendOp op);
+    MTLBlendFactor FromRHI(rhi::BlendFactor factor);
+    MTLPrimitiveTopologyClass FromRHI(rhi::PrimitiveTopology topology);
 
 
 } // namespace sky::mtl

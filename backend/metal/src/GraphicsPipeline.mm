@@ -11,6 +11,8 @@
 
 namespace sky::mtl {
 
+    static const rhi::BlendState EMPTY_BLEND = {};
+
     GraphicsPipeline::~GraphicsPipeline()
     {
         if (pso) {
@@ -36,6 +38,33 @@ namespace sky::mtl {
 
             // rendering pipelineState
             auto renderPass = std::static_pointer_cast<RenderPass>(desc.renderPass);
+            const auto &colors = renderPass->GetColorAttachments();
+            pipelineDesc.sampleCount = renderPass->GetSamplerCount();
+            for (uint32_t i = 0; i < colors.size(); ++i) {
+                const auto &blendState = i < desc.state.blendStates.size() ? desc.state.blendStates[i] : EMPTY_BLEND;
+                pipelineDesc.colorAttachments[i].pixelFormat = colors[i].format;
+                pipelineDesc.colorAttachments[i].writeMask = FromRHI(blendState.writeMask);
+
+                pipelineDesc.colorAttachments[i].blendingEnabled = blendState.blendEn;
+                pipelineDesc.colorAttachments[i].alphaBlendOperation = FromRHI(blendState.alphaBlendOp);
+                pipelineDesc.colorAttachments[i].rgbBlendOperation = FromRHI(blendState.colorBlendOp);
+
+                pipelineDesc.colorAttachments[i].destinationAlphaBlendFactor = FromRHI(blendState.dstAlpha);
+                pipelineDesc.colorAttachments[i].destinationRGBBlendFactor = FromRHI(blendState.dstColor);
+                pipelineDesc.colorAttachments[i].sourceAlphaBlendFactor = FromRHI(blendState.srcAlpha);
+                pipelineDesc.colorAttachments[i].sourceRGBBlendFactor = FromRHI(blendState.srcColor);
+            }
+
+            const auto &dsAttachment = renderPass->GetDepthStencilAttachment();
+            if (renderPass->HasDepth()) {
+                pipelineDesc.depthAttachmentPixelFormat = dsAttachment.format;
+            }
+            if (renderPass->HasStencil()) {
+                pipelineDesc.stencilAttachmentPixelFormat = dsAttachment.format;
+            }
+
+            // input primitive topology
+            pipelineDesc.inputPrimitiveTopology = FromRHI(desc.state.inputAssembly.topology);
 
             // rasterizer
             auto &rs = desc.state.rasterState;

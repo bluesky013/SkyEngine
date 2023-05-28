@@ -27,9 +27,9 @@ namespace sky::rhi {
     {
         RegisterPath();
 
-//        RegisterSample<RHISampleBase>();
+        RegisterSample<RHISampleBase>();
 //        RegisterSample<RHIPassSample>();
-        RegisterSample<RHISubPassSample>();
+//        RegisterSample<RHISubPassSample>();
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         auto &settings = systemApi->GetSettings();

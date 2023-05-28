@@ -158,12 +158,12 @@ namespace sky::rhi {
 
         // shaders
         auto path = Platform::Get()->GetInternalPath();
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS, compileGLES});
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS, compileGLES});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_vs.glsl", {path + "/shaders/RHISample/sub01_vs.shader", builder::ShaderType::VS, compileGLES});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_fs.glsl", {path + "/shaders/RHISample/sub01_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(0), tiedPass->GetOutputMap(0)});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub02_fs.glsl", {path + "/shaders/RHISample/sub02_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(1), tiedPass->GetOutputMap(1)});
-        builder::ShaderCompiler::CompileShader("shaders/subpass/sub03_fs.glsl", {path + "/shaders/RHISample/sub03_fs.shader", builder::ShaderType::FS, compileGLES, tiedPass->GetInputMap(2), tiedPass->GetOutputMap(2)});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_vs.glsl", {path + "/shaders/RHISample/sub01_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub01_fs.glsl", {path + "/shaders/RHISample/sub01_fs.shader", builder::ShaderType::FS, tiedPass->GetInputMap(0), tiedPass->GetOutputMap(0)});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub02_fs.glsl", {path + "/shaders/RHISample/sub02_fs.shader", builder::ShaderType::FS, tiedPass->GetInputMap(1), tiedPass->GetOutputMap(1)});
+        builder::ShaderCompiler::CompileShader("shaders/subpass/sub03_fs.glsl", {path + "/shaders/RHISample/sub03_fs.shader", builder::ShaderType::FS, tiedPass->GetInputMap(2), tiedPass->GetOutputMap(2)});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.blendStates.emplace_back(BlendState{});

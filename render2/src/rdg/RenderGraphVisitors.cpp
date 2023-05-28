@@ -134,7 +134,7 @@ namespace sky::rdg {
             [&](const AccessPassTag&, const AccessResTag&) {
                 auto &src = rdg.accessGraph.passes[Index(u.m_source, rdg.accessGraph)];
                 auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
-                dst.prevAccess = GetAccessFlag(ep);`
+                dst.prevAccess = GetAccessFlag(ep);
                 passID = src.vertexID;
                 resID = dst.resID;
             },

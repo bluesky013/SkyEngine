@@ -35,7 +35,6 @@ namespace sky::rhi {
     {
         instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({});
-        compileGLES = rhi == API::GLES;
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         window = systemApi->GetViewport();
@@ -225,7 +224,11 @@ namespace sky::rhi {
         uint32_t count = swapChain->GetImageCount();
 
         rhi::Image::Descriptor imageDesc = {};
+#if __APPLE__
+        imageDesc.format      = PixelFormat::D32_S8;
+#else
         imageDesc.format      = PixelFormat::D24_S8;
+#endif
         imageDesc.extent      = {ext.width, ext.height, 1};
         imageDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
         auto image = device->CreateImage(imageDesc);
