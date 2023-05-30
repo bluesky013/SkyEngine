@@ -542,8 +542,34 @@ namespace sky::vk {
         return *this;
     }
 
-    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size)
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexedIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
     {
+        binder.OnBind(cmd);
+
+        if (cmdBuffer.GetDevice().GetFeatures().multiDrawIndirect) {
+            vkCmdDrawIndexedIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), offset, count, stride);
+        } else {
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t off = offset + i * stride;
+                vkCmdDrawIndexedIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), off, 1, stride);
+            }
+        }
+
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
+    {
+        binder.OnBind(cmd);
+
+        if (cmdBuffer.GetDevice().GetFeatures().multiDrawIndirect) {
+            vkCmdDrawIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), offset, count, stride);
+        } else {
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t off = offset + i * stride;
+                vkCmdDrawIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), off, 1, stride);
+            }
+        }
         return *this;
     }
 

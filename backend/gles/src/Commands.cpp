@@ -9,6 +9,7 @@
 #include <gles/Core.h>
 #include <gles/Queue.h>
 #include <gles/GraphicsPipeline.h>
+#include <gles/Device.h>
 
 namespace sky::gles {
 
@@ -492,8 +493,32 @@ namespace sky::gles {
         CHECK(glDrawArraysInstanced(cache->primitive, linear.firstVertex, linear.vertexCount, linear.instanceCount));
     }
 
-    void CommandContext::CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size)
+    void CommandContext::CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
     {
+        CHECK(glBindBuffer(GL_DRAW_INDIRECT_BUFFER, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle()));
+
+        if (currentPso->GetDevice().GetFeatures().multiDrawIndirect) {
+            CHECK(MultiDrawArraysIndirectEXT(cache->primitive, reinterpret_cast<const void*>(offset), count, stride));
+        } else {
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t off = offset + i * stride;
+                CHECK(glDrawArraysIndirect(cache->primitive, reinterpret_cast<const void*>(off)));
+            }
+        }
+    }
+
+    void CommandContext::CmdDrawIndexedIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
+    {
+        CHECK(glBindBuffer(GL_DRAW_INDIRECT_BUFFER, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle()));
+
+        if (currentPso->GetDevice().GetFeatures().multiDrawIndirect) {
+            CHECK(MultiDrawElementsIndirectEXT(cache->primitive, cache->indexType, reinterpret_cast<const void*>(offset), count, stride));
+        } else {
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t off = offset + i * stride;
+                CHECK(glDrawElementsIndirect(cache->primitive, cache->indexType, reinterpret_cast<const void*>(off)));
+            }
+        }
     }
 
     void CommandContext::CmdEndPass()

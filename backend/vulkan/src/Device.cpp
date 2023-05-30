@@ -76,12 +76,13 @@ namespace sky::vk {
 
     void Device::ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions)
     {
-        enabledPhyFeatures.multiViewport            = phyFeatures.features.multiViewport;
-        enabledPhyFeatures.samplerAnisotropy        = phyFeatures.features.samplerAnisotropy;
-        enabledPhyFeatures.pipelineStatisticsQuery  = phyFeatures.features.pipelineStatisticsQuery;
-        enabledPhyFeatures.inheritedQueries         = phyFeatures.features.inheritedQueries;
-        enabledPhyFeatures.fragmentStoresAndAtomics = phyFeatures.features.fragmentStoresAndAtomics;
-        enabledPhyFeatures.multiDrawIndirect        = phyFeatures.features.multiDrawIndirect;
+        enabledPhyFeatures.multiViewport             = feature.multiView && phyFeatures.features.multiViewport;
+        enabledPhyFeatures.samplerAnisotropy         = phyFeatures.features.samplerAnisotropy;
+        enabledPhyFeatures.pipelineStatisticsQuery   = phyFeatures.features.pipelineStatisticsQuery;
+        enabledPhyFeatures.inheritedQueries          = phyFeatures.features.inheritedQueries;
+        enabledPhyFeatures.fragmentStoresAndAtomics  = phyFeatures.features.fragmentStoresAndAtomics;
+        enabledPhyFeatures.multiDrawIndirect         = feature.multiDrawIndirect && phyFeatures.features.multiDrawIndirect;
+        enabledPhyFeatures.drawIndirectFirstInstance = feature.firstInstanceIndirect && phyFeatures.features.drawIndirectFirstInstance;
 
         enabledFeature.sparseBinding = CheckFeature(feature.sparseBinding,
             phyFeatures.features.sparseBinding,
@@ -126,6 +127,13 @@ namespace sky::vk {
         if (enabledFeature.multiView) {
             outExtensions.emplace_back("VK_KHR_multiview");
         }
+    }
+
+    void Device::UpdateDeviceLimits()
+    {
+        limitation.maxColorAttachments  = phyProps.properties.limits.maxColorAttachments;
+        limitation.maxDrawBuffers       = phyProps.properties.limits.maxFragmentOutputAttachments;
+        limitation.maxDrawIndirectCount = phyProps.properties.limits.maxDrawIndirectCount;
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)
@@ -202,6 +210,7 @@ namespace sky::vk {
         }
         std::vector<const char*> extensions = DEVICE_EXTS;
         ValidateFeature(des.feature, extensions);
+        UpdateDeviceLimits();
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

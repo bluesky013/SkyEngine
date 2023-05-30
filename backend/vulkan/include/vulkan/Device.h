@@ -111,6 +111,7 @@ namespace sky::vk {
         bool Init(const Descriptor &, bool enableDebug);
 
         void ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions);
+        void UpdateDeviceLimits();
 
         bool FillMemoryRequirements(VkMemoryRequirements2               &requirements,
                                     const VkMemoryDedicatedRequirements &dedicated,

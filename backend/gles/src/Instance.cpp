@@ -17,6 +17,8 @@ std::unique_ptr<sky::DynamicModule> g_Egl;
 #include <gles/Ext.h>
 
 PFN_FramebufferFetchBarrier FramebufferFetchBarrier;
+PFN_MultiDrawArraysIndirectEXT MultiDrawArraysIndirectEXT;
+PFN_MultiDrawElementsIndirectEXT MultiDrawElementsIndirectEXT;
 
 namespace sky::gles {
 
@@ -70,6 +72,14 @@ namespace sky::gles {
         }
         if (FramebufferFetchBarrier == nullptr) {
             FramebufferFetchBarrier = reinterpret_cast<PFN_FramebufferFetchBarrier>(eglGetProcAddress("glFramebufferFetchBarrierEXT"));
+        }
+
+        if (MultiDrawArraysIndirectEXT == nullptr) {
+            MultiDrawArraysIndirectEXT = reinterpret_cast<PFN_MultiDrawArraysIndirectEXT>(eglGetProcAddress("glMultiDrawArraysIndirectEXT"));
+        }
+
+        if (MultiDrawElementsIndirectEXT == nullptr) {
+            MultiDrawElementsIndirectEXT = reinterpret_cast<PFN_MultiDrawElementsIndirectEXT>(eglGetProcAddress("glMultiDrawElementsIndirectEXT"));
         }
         return true;
     }

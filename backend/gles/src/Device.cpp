@@ -112,12 +112,14 @@ namespace sky::gles {
     {
         CHECK(glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&limitation.maxColorAttachments)));
         CHECK(glGetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&limitation.maxDrawBuffers)));
+        limitation.maxDrawIndirectCount = (2 << 16) - 1;
     }
 
     void Device::InitDeviceFeature()
     {
         enabledFeature.framebufferFetch = enabledFeature.framebufferFetch && CheckExtension(extensions, "shader_framebuffer_fetch");
         enabledFeature.pixelLocalStorage = enabledFeature.pixelLocalStorage && CheckExtension(extensions, "shader_pixel_local_storage");
+        enabledFeature.multiDrawIndirect = enabledFeature.multiDrawIndirect && CheckExtension(extensions, "EXT_multi_draw_indirect");
     }
 
     void Device::InitDefaultObjects()

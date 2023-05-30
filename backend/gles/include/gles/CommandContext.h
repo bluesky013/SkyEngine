@@ -32,7 +32,8 @@ namespace sky::gles {
         void CmdSetScissor(uint32_t count, const rhi::Rect2D *scissor);
         void CmdDrawIndexed(const rhi::CmdDrawIndexed &indexed);
         void CmdDrawLinear(const rhi::CmdDrawLinear &linear);
-        void CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
+        void CmdDrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride);
+        void CmdDrawIndexedIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride);
         void CmdEndPass();
 
         void Attach(Queue &queue);

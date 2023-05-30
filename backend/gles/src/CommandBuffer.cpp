@@ -65,11 +65,19 @@ namespace sky::gles {
         return *this;
     }
 
-    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size)
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexedIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
+    {
+        commandBuffer.EnqueueMessage(&CommandContext::CmdDrawIndexedIndirect, context,
+                                     std::static_pointer_cast<Buffer>(buffer),
+                                     offset, count, stride);
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
     {
         commandBuffer.EnqueueMessage(&CommandContext::CmdDrawIndirect, context,
                                      std::static_pointer_cast<Buffer>(buffer),
-                                     offset, size);
+                                     offset, count, stride);
         return *this;
     }
 

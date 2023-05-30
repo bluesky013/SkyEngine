@@ -26,6 +26,8 @@ namespace sky::gles {
             target = GL_UNIFORM_BUFFER;
         } else if (bufferDesc.usage & rhi::BufferUsageFlagBit::STORAGE) {
             target = GL_SHADER_STORAGE_BUFFER;
+        } else if (bufferDesc.usage & rhi::BufferUsageFlagBit::INDIRECT) {
+            target = GL_DRAW_INDIRECT_BUFFER;
         }
 
         if (desc.memory == rhi::MemoryType::GPU_ONLY) {

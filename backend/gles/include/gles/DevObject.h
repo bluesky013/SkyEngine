@@ -18,6 +18,8 @@ namespace sky::gles {
         }
         virtual ~DevObject() = default;
 
+        Device &GetDevice() const { return device; }
+
     protected:
         Device &device;
     };

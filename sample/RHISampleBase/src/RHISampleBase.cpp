@@ -33,8 +33,9 @@ namespace sky::rhi {
 
     void RHISampleBase::OnStart()
     {
+        SetFeature();
         instance = Instance::Create({"", "", true, rhi});
-        device   = instance->CreateDevice({});
+        device   = instance->CreateDevice({deviceFeature});
 
         auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
         window = systemApi->GetViewport();
@@ -174,6 +175,12 @@ namespace sky::rhi {
         pool = device->CreateDescriptorSetPool(poolDesc);
     }
 
+    bool RHISampleBase::CheckFeature() const
+    {
+        const auto &feature = device->GetFeatures();
+        return memcmp(&deviceFeature, &feature, sizeof(Device::DeviceFeature)) == 0;
+    }
+
     void RHISampleBase::SetupPass()
     {
         auto format = swapChain->GetFormat();
@@ -250,10 +257,5 @@ namespace sky::rhi {
     {
         swapChain->Resize(width, height, window->GetNativeHandle());
         ResetFramebuffer();
-    }
-
-    bool RHISampleBase::CheckFeature() const
-    {
-        return true;
     }
 }
