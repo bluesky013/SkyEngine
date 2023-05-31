@@ -8,6 +8,7 @@ namespace sky::rhi {
 
     void RenderPass::InitInputMap(const Descriptor &desc)
     {
+        subPassNum = static_cast<uint32_t>(desc.subPasses.size());
         subpassOutputMaps.resize(desc.subPasses.size());
         subpassInputMaps.resize(desc.subPasses.size());
 

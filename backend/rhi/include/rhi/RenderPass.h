@@ -60,6 +60,7 @@ namespace sky::rhi {
         const std::vector<uint32_t> &GetColors() const { return colors; }
         const std::vector<uint32_t> &GetResolves() const { return resolves; }
         uint32_t GetDepthStencil() const { return depthStencil; }
+        uint32_t GetSubPassNum() const { return subPassNum; }
 
     protected:
         void InitInputMap(const Descriptor &desc);
@@ -71,6 +72,7 @@ namespace sky::rhi {
         std::vector<uint32_t> colors;
         std::vector<uint32_t> resolves;
         uint32_t depthStencil = INVALID_INDEX;
+        uint32_t subPassNum = 1;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

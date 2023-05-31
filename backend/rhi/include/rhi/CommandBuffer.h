@@ -23,7 +23,7 @@ namespace sky::rhi {
         rhi::RenderPassPtr renderPass;
         uint32_t clearCount = 0;
         rhi::ClearValue *clearValues = nullptr;
-        SubPassContent contents;
+        SubPassContent contents = SubPassContent::INLINE;
     };
 
     class GraphicsEncoder {

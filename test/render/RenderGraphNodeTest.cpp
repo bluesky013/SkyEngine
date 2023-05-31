@@ -7,6 +7,8 @@
 #include <render/RHI.h>
 #include <render/rdg/RenderGraph.h>
 #include <render/rdg/RenderGraphVisitors.h>
+#include <render/rdg/AccessGraphCompiler.h>
+#include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/TransientObjectPool.h>
 
 using namespace sky;

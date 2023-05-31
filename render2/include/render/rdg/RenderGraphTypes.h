@@ -124,13 +124,17 @@ namespace sky::rdg {
         RasterPass(uint32_t w, uint32_t h, PmrResource *res)
             : width(w)
             , height(h)
-            , subPasses(res) {}
+            , subPasses(res)
+            , clearValues(res)
+            {}
 
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
 
         PmrVector<VertexType> subPasses;
+        PmrVector<rhi::ClearValue> clearValues;
+        rhi::RenderPass::Descriptor passDesc;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };
