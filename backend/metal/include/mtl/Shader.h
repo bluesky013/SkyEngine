@@ -19,6 +19,7 @@ namespace sky::mtl {
         id<MTLFunction> GetNativeHandle() const { return function; }
 
     private:
+        friend class Device;
         bool Init(const Descriptor &desc);
 
         id<MTLFunction> function = nil;

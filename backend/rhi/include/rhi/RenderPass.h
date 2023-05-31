@@ -57,6 +57,9 @@ namespace sky::rhi {
         const BindingMap &GetInputMap(uint32_t subpass) const { return subpassInputMaps[subpass]; }
         const BindingMap &GetOutputMap(uint32_t subpass) const { return subpassOutputMaps[subpass]; }
         const std::vector<uint32_t> &GetAttachmentColorMap() const { return attachmentMap; }
+        const std::vector<uint32_t> &GetColors() const { return colors; }
+        const std::vector<uint32_t> &GetResolves() const { return resolves; }
+        uint32_t GetDepthStencil() const { return depthStencil; }
 
     protected:
         void InitInputMap(const Descriptor &desc);

@@ -21,6 +21,8 @@ namespace sky::mtl {
         void SetDrawable(id<CAMetalDrawable> drawable);
         void ResetDrawable();
 
+        id<MTLTexture> GetNativeHandle() const { return texture; }
+
     private:
         friend class Device;
         friend class SwapChain;

@@ -24,6 +24,8 @@ namespace sky::mtl {
     MTLBlendOperation FromRHI(rhi::BlendOp op);
     MTLBlendFactor FromRHI(rhi::BlendFactor factor);
     MTLPrimitiveTopologyClass FromRHI(rhi::PrimitiveTopology topology);
+    MTLLoadAction FromRHI(rhi::LoadOp op);
+    MTLStoreAction FromRHI(rhi::StoreOp op);
 
 
 } // namespace sky::mtl

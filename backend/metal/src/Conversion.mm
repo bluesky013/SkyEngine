@@ -133,6 +133,17 @@ namespace sky::mtl {
         MTLBlendOperationSubtract
     };
 
+    static const MTLLoadAction LOAD_OP_MAP[] = {
+        MTLLoadActionDontCare,
+        MTLLoadActionLoad,
+        MTLLoadActionClear
+    };
+
+    static const MTLStoreAction STORE_OP_MAP[] = {
+        MTLStoreActionDontCare,
+        MTLStoreActionStore
+    };
+
     MTLPixelFormat FromRHI(rhi::PixelFormat format)
     {
         auto iter = PIXEL_FORMAT_TABLE.find(format);
@@ -240,5 +251,16 @@ namespace sky::mtl {
         auto iter = PRIMITIVE_TOPOLOGY_TABLE.find(topology);
         return iter != PRIMITIVE_TOPOLOGY_TABLE.end() ? iter->second : MTLPrimitiveTopologyClassUnspecified;
     }
+
+    MTLLoadAction FromRHI(rhi::LoadOp op)
+    {
+        return LOAD_OP_MAP[static_cast<uint32_t>(op)];
+    }
+
+    MTLStoreAction FromRHI(rhi::StoreOp op)
+    {
+        return STORE_OP_MAP[static_cast<uint32_t>(op)];
+    }
+
 
 }

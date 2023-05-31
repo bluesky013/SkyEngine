@@ -13,18 +13,26 @@ namespace sky::mtl {
     {
     }
 
+    Device::~Device()
+    {
+        for (auto &queue : queues) {
+            queue->Shutdown();
+        }
+        queues.clear();
+    }
+
     bool Device::Init(const Descriptor &des)
     {
         const auto &mtlDevices = instance.GetMtlDevices();
         device = mtlDevices.front();
 
         queues.resize(2);
-        queues[0] = std::unique_ptr<Queue>(new Queue(*this));
-        queues[0]->StartThread();
+        for (uint32_t i = 0; i < 2; ++i) {
+            queues[i] = std::unique_ptr<Queue>(new Queue(*this));
+            queues[i]->queue = [device newCommandQueue];
+            queues[i]->StartThread();
+        }
         graphicsQueue = queues[0].get();
-
-        queues[1] = std::unique_ptr<Queue>(new Queue(*this));
-        queues[1]->StartThread();
         transferQueue = queues[1].get();
 
         return true;

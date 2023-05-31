@@ -55,12 +55,11 @@ namespace sky::mtl {
                 pipelineDesc.colorAttachments[i].sourceRGBBlendFactor = FromRHI(blendState.srcColor);
             }
 
-            const auto &dsAttachment = renderPass->GetDepthStencilAttachment();
             if (renderPass->HasDepth()) {
-                pipelineDesc.depthAttachmentPixelFormat = dsAttachment.format;
+                pipelineDesc.depthAttachmentPixelFormat = renderPass->GetDepthAttachment().format;
             }
             if (renderPass->HasStencil()) {
-                pipelineDesc.stencilAttachmentPixelFormat = dsAttachment.format;
+                pipelineDesc.stencilAttachmentPixelFormat = renderPass->GetStencilAttachment().format;
             }
 
             // input primitive topology

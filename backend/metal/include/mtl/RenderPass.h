@@ -8,12 +8,15 @@
 #include <rhi/Decode.h>
 #include <mtl/DevObject.h>
 #import <Metal/MTLPixelFormat.h>
+#import <Metal/MTLRenderPass.h>
 
 namespace sky::mtl {
     class Device;
 
     struct MTLAttachment {
         MTLPixelFormat format;
+        MTLLoadAction load;
+        MTLStoreAction store;
     };
 
     class RenderPass : public rhi::RenderPass, public DevObject {
@@ -24,7 +27,8 @@ namespace sky::mtl {
         bool HasDepth() const { return hasDepth; }
         bool HasStencil() const { return hasStencil; }
         const std::vector<MTLAttachment> &GetColorAttachments() const { return colorAttachments; }
-        const MTLAttachment &GetDepthStencilAttachment() const { return dsAttachment; }
+        const MTLAttachment &GetDepthAttachment() const { return depthAttachment; }
+        const MTLAttachment &GetStencilAttachment() const { return stencilAttachment; }
         NSUInteger GetSamplerCount() const { return samplerCount; }
 
     private:
@@ -34,10 +38,12 @@ namespace sky::mtl {
 
         std::vector<MTLAttachment> colorAttachments;
         std::vector<MTLAttachment> resolveAttachments;
-        MTLAttachment dsAttachment;
+        MTLAttachment depthAttachment;
+        MTLAttachment stencilAttachment;
         bool hasDepth = false;
         bool hasStencil = false;
         NSUInteger samplerCount = 1;
     };
+    using RenderPassPtr = std::shared_ptr<RenderPass>;
 
 } // namespace sky::mtl

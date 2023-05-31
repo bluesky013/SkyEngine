@@ -21,5 +21,6 @@ namespace sky::mtl {
     private:
         MTLVertexDescriptor* descriptor = nil;
     };
+    using VertexInputPtr = std::shared_ptr<VertexInput>;
 
 } // namespace sky::mtl

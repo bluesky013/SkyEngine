@@ -15,6 +15,7 @@ namespace sky::mtl {
         ImageView(Device &dev) : DevObject(dev) {}
         ~ImageView() = default;
 
+        id<MTLTexture> GetNativeHandle() const { return source->GetNativeHandle(); }
     private:
         bool Init(const rhi::ImageViewDesc &desc);
         std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const override;

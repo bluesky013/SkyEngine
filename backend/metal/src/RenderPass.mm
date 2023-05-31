@@ -20,6 +20,8 @@ namespace sky::mtl {
             auto &attachment = colorAttachments.back();
 
             attachment.format = FromRHI(desc.attachments[color].format);
+            attachment.load = FromRHI(desc.attachments[color].load);
+            attachment.store = FromRHI(desc.attachments[color].store);
             samplerCount = static_cast<uint32_t>(desc.attachments[color].sample);
         }
 
@@ -28,6 +30,8 @@ namespace sky::mtl {
             auto &attachment = colorAttachments.back();
 
             attachment.format = FromRHI(desc.attachments[resolve].format);
+            attachment.load = FromRHI(desc.attachments[resolve].load);
+            attachment.store = FromRHI(desc.attachments[resolve].store);
             SKY_ASSERT(desc.attachments[resolve].sample == rhi::SampleCount::X1);
         }
 
@@ -36,7 +40,19 @@ namespace sky::mtl {
             auto *formatInfo = rhi::GetImageInfoByFormat(ds.format);
             hasDepth = formatInfo->hasDepth;
             hasStencil = formatInfo->hasStencil;
-            dsAttachment.format = FromRHI(ds.format);
+
+            if (hasDepth) {
+                depthAttachment.format = FromRHI(ds.format);
+                depthAttachment.load = FromRHI(ds.load);
+                depthAttachment.store = FromRHI(ds.store);
+            }
+
+            if (hasStencil) {
+                stencilAttachment.format = FromRHI(ds.format);
+                stencilAttachment.load = FromRHI(ds.stencilLoad);
+                stencilAttachment.store = FromRHI(ds.stencilStore);
+            }
+
             samplerCount = static_cast<uint32_t>(ds.sample);
         }
 

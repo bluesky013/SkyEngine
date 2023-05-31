@@ -80,10 +80,10 @@ namespace sky::rhi {
         virtual void End() = 0;
         virtual void Submit(Queue &queue, const SubmitInfo &submit) = 0;
 
+        virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() = 0;
+
         virtual void QueueBarrier(const ImageBarrier &imageBarrier) {}
         virtual void FlushBarriers() {}
-
-        virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() = 0;
     };
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;
 }

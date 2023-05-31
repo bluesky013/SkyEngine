@@ -8,6 +8,9 @@ namespace sky::mtl {
 
     Queue::~Queue()
     {
+        if (queue) {
+            [queue release];
+        }
     }
 
     rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests)
