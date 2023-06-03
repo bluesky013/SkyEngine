@@ -17,12 +17,13 @@ namespace sky::mtl {
         FrameBuffer(Device &dev) : DevObject(dev) {}
         ~FrameBuffer();
 
+        MTLRenderPassDescriptor *RequestRenderPassDescriptor(const RenderPassPtr &pass, uint32_t clearCount, rhi::ClearValue *clears);
+
     private:
         friend class Device;
         bool Init(const Descriptor &desc);
 
         std::vector<ImageViewPtr> attachments;
-        MTLRenderPassDescriptor *passDesc = nil;
     };
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 

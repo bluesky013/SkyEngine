@@ -17,7 +17,11 @@
 #include <mtl/VertexInput.h>
 #include <mtl/FrameBuffer.h>
 #include <mtl/CommandBuffer.h>
-#include <Metal/MTLDevice.h>
+#include <mtl/Fence.h>
+#include <mtl/Semaphore.h>
+#include <mtl/VertexAssembly.h>
+#import <Metal/MTLDevice.h>
+#import <Metal/MTLEvent.h>
 
 namespace sky::mtl {
     class Instance;
@@ -48,6 +52,7 @@ namespace sky::mtl {
         }
 
         id<MTLDevice> GetMetalDevice() const { return device; }
+        MTLSharedEventListener *GetSharedEventListener() const { return sharedEventListener; }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
@@ -59,14 +64,14 @@ namespace sky::mtl {
         CREATE_DEV_OBJ(Shader)
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
+        CREATE_DEV_OBJ(Fence)
+        CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
         CREATE_DESC_OBJ(VertexInput)
+        CREATE_DESC_OBJ(VertexAssembly)
 
-        rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
-        rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
-        rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
 
         rhi::Queue* GetQueue(rhi::QueueType type) const override;
@@ -81,6 +86,7 @@ namespace sky::mtl {
         Instance    &instance;
 
         id<MTLDevice> device;
+        MTLSharedEventListener *sharedEventListener = nullptr;
 
         std::vector<QueuePtr> queues;
         Queue *graphicsQueue = nullptr;

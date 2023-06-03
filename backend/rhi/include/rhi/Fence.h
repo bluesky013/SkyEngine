@@ -19,6 +19,12 @@ namespace sky::rhi {
 
         virtual void Wait() = 0;
         virtual void Reset() = 0;
+
+        void WaitAndReset()
+        {
+            Wait();
+            Reset();
+        }
     };
 
     using FencePtr = std::shared_ptr<Fence>;

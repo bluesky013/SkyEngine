@@ -13,9 +13,13 @@ namespace sky {
         Semaphore(int initial = 0);
         ~Semaphore();
 
-        void Acquire();
-        void Release(uint32_t count = 1);
+        void Wait();
+        void Signal(int32_t count = 1);
 
-        void *handle = nullptr;
+        union {
+            void *handle;
+            uint32_t uHandle;
+        };
+
     };
 }

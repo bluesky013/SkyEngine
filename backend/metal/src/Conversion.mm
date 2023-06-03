@@ -122,6 +122,14 @@ namespace sky::mtl {
         {rhi::PrimitiveTopology::TRIANGLE_LIST, MTLPrimitiveTopologyClassTriangle},
     };
 
+    std::unordered_map<rhi::PrimitiveTopology, MTLPrimitiveType> PRIMITIVE_TYPE_TABLE = {
+        {rhi::PrimitiveTopology::POINT_LIST, MTLPrimitiveTypePoint},
+        {rhi::PrimitiveTopology::LINE_LIST, MTLPrimitiveTypeLine},
+        {rhi::PrimitiveTopology::LINE_STRIP, MTLPrimitiveTypeLineStrip},
+        {rhi::PrimitiveTopology::TRIANGLE_LIST, MTLPrimitiveTypeTriangle},
+        {rhi::PrimitiveTopology::TRIANGLE_STRIP, MTLPrimitiveTypeTriangleStrip},
+    };
+
     static const MTLCullMode CULL_MODE_TABLE[] = {
         MTLCullModeNone,
         MTLCullModeFront,
@@ -171,6 +179,19 @@ namespace sky::mtl {
         }
 
         return MTLStorageModeManaged;
+    }
+
+    MTLResourceOptions FromRHI(rhi::BufferUsageFlags usage, rhi::MemoryType memory)
+    {
+        if (memory == rhi::MemoryType::GPU_ONLY) {
+            return MTLResourceStorageModePrivate;
+        }
+
+        if (memory == rhi::MemoryType::CPU_TO_GPU) {
+            return MTLResourceStorageModeShared;
+        }
+
+        return MTLResourceStorageModeManaged;
     }
 
     MTLSamplerAddressMode FromRHI(rhi::WrapMode mode)
@@ -246,10 +267,10 @@ namespace sky::mtl {
         return iter->second;
     }
 
-    MTLPrimitiveTopologyClass FromRHI(rhi::PrimitiveTopology topology)
+    MTLPrimitiveType FromRHI(rhi::PrimitiveTopology topology)
     {
-        auto iter = PRIMITIVE_TOPOLOGY_TABLE.find(topology);
-        return iter != PRIMITIVE_TOPOLOGY_TABLE.end() ? iter->second : MTLPrimitiveTopologyClassUnspecified;
+        auto iter = PRIMITIVE_TYPE_TABLE.find(topology);
+        return iter != PRIMITIVE_TYPE_TABLE.end() ? iter->second : MTLPrimitiveTypeTriangle;
     }
 
     MTLLoadAction FromRHI(rhi::LoadOp op)

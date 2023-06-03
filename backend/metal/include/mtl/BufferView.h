@@ -18,6 +18,8 @@ namespace sky::mtl {
         ~BufferView() = default;
 
         std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;
+
+        id<MTLBuffer> GetNativeHandle() const { return source->GetNativeHandle(); }
     private:
         friend class Buffer;
         bool Init(const rhi::BufferViewDesc &desc);

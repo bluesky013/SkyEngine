@@ -50,10 +50,16 @@ namespace sky {
 
         vk::CommandBuffer::VkDescriptor cmdDesc = {};
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
+
+        vk::Fence::VkDescriptor fenceDesc = {};
+        fenceDesc.flag = VK_FENCE_CREATE_SIGNALED_BIT;
+        fence = device->CreateDeviceObject<vk::Fence>(fenceDesc);
     }
 
     void VulkanSampleBase::OnStop()
     {
+        fence->Wait();
+        fence = nullptr;
         swapChain = nullptr;
         imageAvailable = nullptr;
         renderFinish = nullptr;

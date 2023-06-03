@@ -23,24 +23,29 @@ namespace sky::mtl {
         extent.height = static_cast<uint32_t>(window.frame.size.height);
 
         view = [[MetalView alloc] initWithFrame:window device:device.GetMetalDevice()];
+        [window setContentView: view];
         [view retain];
 
-        colorImages.resize(backBufferCount);
+        drawables.resize(backBufferCount, nil);
+        colorImages.resize(backBufferCount, nullptr);
         for (uint32_t i = 0; i < backBufferCount; ++i) {
             colorImages[i] = std::make_shared<Image>(device);
             colorImages[i]->imageDesc.extent = {extent.width, extent.height, 1};
             colorImages[i]->imageDesc.usage = rhi::ImageUsageFlagBit::RENDER_TARGET;
-            colorImages[i]->imageDesc.format = rhi::PixelFormat::RGBA8_UNORM;
+            colorImages[i]->imageDesc.format = rhi::PixelFormat::BGRA8_UNORM;
+            colorImages[i]->swapchain = this;
+            colorImages[i]->imageIndex = i;
         }
+
 
         return true;
     }
 
-    uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore) const
+    uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore)
     {
-        auto drawable = [view.metalLayer nextDrawable];
-        colorImages[currentImageIndex]->SetDrawable(drawable);
-        return currentImageIndex;
+        uint32_t index = currentImageIndex;
+        currentImageIndex = (currentImageIndex + 1) % backBufferCount;
+        return index;
     }
 
     rhi::ImagePtr SwapChain::GetImage(uint32_t index) const
@@ -48,13 +53,29 @@ namespace sky::mtl {
         return colorImages[index];
     }
 
+    id<CAMetalDrawable> SwapChain::RequestDrawable(uint32_t index)
+    {
+        drawables[index] = [view.metalLayer nextDrawable];
+        [drawables[index] retain];
+        return drawables[index];
+    }
+
     void SwapChain::Present(rhi::Queue &queue, const rhi::PresentInfo &info)
     {
         // do present
-
+        auto &mtlQueue = static_cast<Queue&>(queue);
+        
+        @autoreleasepool {
+            auto cmd = [mtlQueue.GetNativeHandle() commandBuffer];
+            for (auto &signal : info.signals) {
+                std::static_pointer_cast<Semaphore>(signal)->Wait(cmd);
+            }
+            [cmd presentDrawable: drawables[info.imageIndex]];
+            [cmd commit];
+        }
         // release drawable
-        colorImages[currentImageIndex]->ResetDrawable();
-        currentImageIndex = (currentImageIndex + 1) % backBufferCount;
+        [drawables[info.imageIndex] release];
+        drawables[info.imageIndex] = nil;
     }
 
 

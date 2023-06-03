@@ -3,11 +3,14 @@
 //
 
 #include <mtl/GraphicsPipeline.h>
+#include <core/logger/Logger.h>
 #include <mtl/VertexInput.h>
 #include <mtl/RenderPass.h>
 #include <mtl/Conversion.h>
 #include <mtl/Shader.h>
 #include <mtl/Device.h>
+
+static const char *TAG = "Metal";
 
 namespace sky::mtl {
 
@@ -17,10 +20,12 @@ namespace sky::mtl {
     {
         if (pso) {
             [pso release];
+            pso = nil;
         }
 
         if (dsState) {
             [dsState release];
+            dsState = nil;
         }
     }
 
@@ -39,7 +44,7 @@ namespace sky::mtl {
             // rendering pipelineState
             auto renderPass = std::static_pointer_cast<RenderPass>(desc.renderPass);
             const auto &colors = renderPass->GetColorAttachments();
-            pipelineDesc.sampleCount = renderPass->GetSamplerCount();
+            pipelineDesc.rasterSampleCount = renderPass->GetSamplerCount();
             for (uint32_t i = 0; i < colors.size(); ++i) {
                 const auto &blendState = i < desc.state.blendStates.size() ? desc.state.blendStates[i] : EMPTY_BLEND;
                 pipelineDesc.colorAttachments[i].pixelFormat = colors[i].format;
@@ -63,7 +68,8 @@ namespace sky::mtl {
             }
 
             // input primitive topology
-            pipelineDesc.inputPrimitiveTopology = FromRHI(desc.state.inputAssembly.topology);
+//            pipelineDesc.inputPrimitiveTopology = FromRHI(desc.state.inputAssembly.topology);
+            primitiveType = FromRHI(desc.state.inputAssembly.topology);
 
             // rasterizer
             auto &rs = desc.state.rasterState;
@@ -74,6 +80,13 @@ namespace sky::mtl {
             rasterizerState.depthBias = rs.depthBiasEnable ? rs.depthBiasConstantFactor : 0.f;
             rasterizerState.depthBiasClamp = rs.depthBiasEnable ? rs.depthBiasClamp : 0.f;
             rasterizerState.depthSlopeScale = rs.depthBiasEnable ? rs.depthBiasSlopeFactor : 0.f;
+
+            NSError *error = nil;
+            pso = [device.GetMetalDevice() newRenderPipelineStateWithDescriptor: pipelineDesc
+                                                                          error: &error];
+            if (error) {
+                LOG_E(TAG, "create pipeline state failed. %s", [error.localizedDescription UTF8String]);
+            }
             [pipelineDesc release];
         }
 
@@ -92,6 +105,7 @@ namespace sky::mtl {
             front.depthFailureOperation = FromRHI(desc.state.depthStencil.front.depthFailOp);
             front.writeMask = desc.state.depthStencil.front.writeMask;
             front.readMask = desc.state.depthStencil.front.compareMask;
+            frontReference = desc.state.depthStencil.front.reference;
 
             auto *back = [[MTLStencilDescriptor alloc] init];
             back.stencilCompareFunction = desc.state.depthStencil.stencilTest ?
@@ -101,6 +115,7 @@ namespace sky::mtl {
             back.depthFailureOperation = FromRHI(desc.state.depthStencil.back.depthFailOp);
             back.writeMask = desc.state.depthStencil.back.writeMask;
             back.readMask = desc.state.depthStencil.back.compareMask;
+            backReference = desc.state.depthStencil.back.reference;
 
             dsDesc.frontFaceStencil = front;
             dsDesc.backFaceStencil = back;

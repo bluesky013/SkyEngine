@@ -20,7 +20,7 @@ namespace sky::mtl {
         SwapChain(Device &dev) : DevObject(dev) {}
         ~SwapChain();
 
-        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) const override;
+        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override;
         rhi::ImagePtr GetImage(uint32_t index) const override;
 
         rhi::PixelFormat GetFormat() const override { return rhi::PixelFormat::BGRA8_UNORM; }
@@ -28,6 +28,7 @@ namespace sky::mtl {
         uint32_t GetImageCount() const override { return backBufferCount; }
         bool HasDepthStencilImage() const override { return false; }
         rhi::ImagePtr GetDepthStencilImage() const override { return {}; }
+        id<CAMetalDrawable> RequestDrawable(uint32_t index);
 
         void Resize(uint32_t width, uint32_t height, void* window) override {}
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
@@ -37,11 +38,12 @@ namespace sky::mtl {
         bool Init(const Descriptor &desc);
 
         MetalView* view = nullptr;
-        uint32_t currentImageIndex = 0;
         uint32_t backBufferCount = 2;
         rhi::Extent2D extent = {1, 1};
-
         std::vector<ImagePtr> colorImages;
+        std::vector<id<CAMetalDrawable>> drawables;
+        
+        uint32_t currentImageIndex = 0;
     };
 
 }

@@ -12,6 +12,7 @@ namespace sky::mtl {
     {
         if (state != nil) {
             [state release];
+            state = nil;
         }
     }
 

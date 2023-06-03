@@ -191,7 +191,7 @@ namespace sky {
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             cmd->End();
             cmd->Submit(*graphicsQueue, {});
-            cmd->Wait();
+            graphicsQueue->WaitIdle();
 
             vk::ImageView::VkDescriptor viewDesc = {};
             viewDesc.format                    = VK_FORMAT_R8G8B8A8_UNORM;
@@ -347,7 +347,10 @@ namespace sky {
     {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
-        commandBuffer->Wait();
+
+        fence->Wait();
+        fence->Reset();
+
         FrameData *data  = (FrameData *)(particleSystem->ubo->Map());
         data->frameIndex = frame;
         data->delta      = delta;
@@ -466,6 +469,7 @@ namespace sky {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+        submitInfo.fence = fence;
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 

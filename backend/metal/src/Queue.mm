@@ -10,6 +10,7 @@ namespace sky::mtl {
     {
         if (queue) {
             [queue release];
+            queue = nil;
         }
     }
 

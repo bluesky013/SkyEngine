@@ -1,5 +1,5 @@
 
-#include "RHISubpassSample.h"
+#include "RHISubPassSample.h"
 #include "framework/platform/PlatformBase.h"
 #include "builder/shader/ShaderCompiler.h"
 
@@ -51,13 +51,13 @@ namespace sky::rhi {
                         },
         });
 
-        passDesc.dependencies.emplace_back(RenderPass::Dependency{{0}, {1},
+        passDesc.dependencies.emplace_back(RenderPass::Dependency{0, 1,
                                                                   {AccessFlag::COLOR_WRITE},
                                                                   {AccessFlag::COLOR_INPUT}});
-        passDesc.dependencies.emplace_back(RenderPass::Dependency{{0}, {2},
+        passDesc.dependencies.emplace_back(RenderPass::Dependency{0, 2,
                                                                   {AccessFlag::COLOR_WRITE},
                                                                   {AccessFlag::COLOR_INPUT}});
-        passDesc.dependencies.emplace_back(RenderPass::Dependency{{1}, {2},
+        passDesc.dependencies.emplace_back(RenderPass::Dependency{1, 2,
                                                                   {AccessFlag::COLOR_WRITE},
                                                                   {AccessFlag::COLOR_INOUT_WRITE}});
         tiedPass = device->CreateRenderPass(passDesc);
@@ -220,7 +220,9 @@ namespace sky::rhi {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
                 std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+        submitInfo.fence = fence;
 
+        fence->WaitAndReset();
         commandBuffer->Begin();
 
         auto encoder = commandBuffer->EncodeGraphics();

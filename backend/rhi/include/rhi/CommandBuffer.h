@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Commands.h>
+#include <rhi/Fence.h>
 
 namespace sky::rhi {
     class Queue;
@@ -49,6 +50,7 @@ namespace sky::rhi {
     struct SubmitInfo {
         std::vector<std::pair<PipelineStageFlags, SemaphorePtr>> waits;
         std::vector<SemaphorePtr> submitSignals;
+        FencePtr fence;
     };
 
     struct BufferBarrier {

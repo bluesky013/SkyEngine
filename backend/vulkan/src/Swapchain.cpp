@@ -250,7 +250,7 @@ namespace sky::vk {
         return *static_cast<const rhi::Extent2D*>(reinterpret_cast<const void*>(&extent));
     }
 
-    uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore) const
+    uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore)
     {
         uint32_t next = 0;
         AcquireNext(std::static_pointer_cast<Semaphore>(semaphore), next);

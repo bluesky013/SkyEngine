@@ -46,8 +46,6 @@ namespace sky::vk {
 
     CommandBuffer::~CommandBuffer()
     {
-        Wait();
-
         if (pool != VK_NULL_HANDLE && cmdBuffer != VK_NULL_HANDLE) {
             vkFreeCommandBuffers(device.GetNativeHandle(), pool, 1, &cmdBuffer);
         }
@@ -60,32 +58,11 @@ namespace sky::vk {
 
     bool CommandBuffer::Init(const VkDescriptor &des)
     {
-        if (des.needFence) {
-            Fence::VkDescriptor fenceDes = {};
-            fenceDes.flag              = VK_FENCE_CREATE_SIGNALED_BIT;
-            fence                      = device.CreateDeviceObject<Fence>(fenceDes);
-            if (!fence) {
-                return false;
-            }
-        }
-
         return true;
-    }
-
-    void CommandBuffer::Wait()
-    {
-        if (fence) {
-            fence->Wait();
-        }
     }
 
     void CommandBuffer::Begin()
     {
-        if (fence) {
-            fence->Wait();
-            fence->Reset();
-        }
-
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -130,6 +107,7 @@ namespace sky::vk {
         for (const auto &sig : submit.submitSignals) {
             vkSubmitInfo.submitSignals.emplace_back(std::static_pointer_cast<Semaphore>(sig));
         }
+        vkSubmitInfo.fence = std::static_pointer_cast<Fence>(submit.fence);
         Submit(static_cast<Queue&>(queue), vkSubmitInfo);
     }
 
@@ -182,7 +160,7 @@ namespace sky::vk {
             submitInfo.pWaitDstStageMask  = waitStages.data();
             submitInfo.pWaitSemaphores    = waitSemaphores.data();
         }
-        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, fence ? fence->GetNativeHandle() : VK_NULL_HANDLE);
+        vkQueueSubmit(queue.GetNativeHandle(), 1, &submitInfo, submit.fence ? submit.fence->GetNativeHandle() : VK_NULL_HANDLE);
     }
 
     VkCommandBuffer CommandBuffer::GetNativeHandle() const

@@ -53,6 +53,7 @@ namespace sky::vk {
 
         uint8_t          *mapped = nullptr;
         BufferPtr        stagingBuffer;
+        FencePtr         fences[INFLIGHT_NUM];
         CommandBufferPtr inflightCommands[INFLIGHT_NUM];
 
         mutable std::mutex                                  mutex;

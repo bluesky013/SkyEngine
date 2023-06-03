@@ -6,6 +6,7 @@
 #include <mtl/ImageView.h>
 #include <mtl/Device.h>
 #include <mtl/Conversion.h>
+#include <mtl/Swapchain.h>
 
 namespace sky::mtl {
 
@@ -55,6 +56,12 @@ namespace sky::mtl {
     {
         if (textureDesc) {
             [textureDesc release];
+            textureDesc = nil;
+        }
+
+        if (texture) {
+            [texture release];
+            texture = nil;
         }
     }
 
@@ -90,17 +97,9 @@ namespace sky::mtl {
         return std::static_pointer_cast<rhi::ImageView>(ret);
     }
 
-    void Image::SetDrawable(id<CAMetalDrawable> drawable)
+    id<MTLTexture> Image::GetNativeHandle() const
     {
-        [currentDrawable retain];
-        currentDrawable = drawable;
+        return swapchain != nullptr ? swapchain->RequestDrawable(imageIndex).texture : texture;
     }
-
-    void Image::ResetDrawable()
-    {
-        [currentDrawable release];
-        currentDrawable = nil;
-    }
-
 
 }

@@ -9,25 +9,25 @@
 
 namespace sky::vk {
 
-bool SwapChain::CreateSurface() {
-  auto nsWin = static_cast<NSWindow *>(descriptor.window);
+    bool SwapChain::CreateSurface()
+    {
+        auto nsWin = static_cast<NSWindow *>(descriptor.window);
 
-  NSBundle* bundle = [NSBundle bundleWithPath: @"/System/Library/Frameworks/QuartzCore.framework"];
-  CALayer* layer = [[bundle classNamed: @"CAMetalLayer"] layer];
-  NSView* view = nsWin.contentView;
-  [view setLayer: layer];
-  [view setWantsLayer: YES];
+        NSBundle *bundle = [NSBundle bundleWithPath:@"/System/Library/Frameworks/QuartzCore.framework"];
+        CALayer  *layer  = [[bundle classNamed:@"CAMetalLayer"] layer];
+        NSView   *view   = nsWin.contentView;
+        [view setLayer:layer];
+        [view setWantsLayer:YES];
 
-  VkMacOSSurfaceCreateInfoMVK createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-  createInfo.pView = view;
-  createInfo.pNext = nullptr;
+        VkMacOSSurfaceCreateInfoMVK createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
+        createInfo.pView = view;
+        createInfo.pNext = nullptr;
 
-  if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr,
-                              &surface) != VK_SUCCESS) {
-    return false;
-  }
-  return true;
-}
+        if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr, &surface) != VK_SUCCESS) {
+            return false;
+        }
+        return true;
+    }
 
 }

@@ -125,10 +125,10 @@ namespace sky::vk {
         struct SubmitInfo {
             std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
             std::vector<SemaphorePtr>                                  submitSignals;
+            FencePtr                                                   fence;
         };
 
         // vk
-        void Wait();
         void Begin(const VkCommandBufferInheritanceInfo &inheritanceInfo);
         void Submit(Queue &queue, const SubmitInfo &submit);
 
@@ -154,7 +154,6 @@ namespace sky::vk {
 
         VkCommandPool   pool;
         VkCommandBuffer cmdBuffer;
-        FencePtr        fence;
         std::vector<VkBufferMemoryBarrier> bufferBarriers;
         std::vector<VkImageMemoryBarrier> imageBarriers;
         VkPipelineStageFlags srcStageMask = 0;

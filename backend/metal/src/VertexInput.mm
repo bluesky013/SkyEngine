@@ -11,6 +11,7 @@ namespace sky::mtl {
     {
         if (descriptor) {
             [descriptor release];
+            descriptor = nil;
         }
     }
 

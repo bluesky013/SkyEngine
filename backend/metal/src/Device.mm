@@ -19,6 +19,11 @@ namespace sky::mtl {
             queue->Shutdown();
         }
         queues.clear();
+
+        if (sharedEventListener != nullptr) {
+            [sharedEventListener release];
+            sharedEventListener = nil;
+        }
     }
 
     bool Device::Init(const Descriptor &des)
@@ -35,6 +40,7 @@ namespace sky::mtl {
         graphicsQueue = queues[0].get();
         transferQueue = queues[1].get();
 
+        sharedEventListener = [[MTLSharedEventListener alloc] init];
         return true;
     }
 

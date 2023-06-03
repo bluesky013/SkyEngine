@@ -56,6 +56,7 @@ namespace sky::rhi {
         rhi::RenderPassPtr renderPass;
         std::vector<rhi::ImageViewPtr> colorViews;
         std::vector<rhi::FrameBufferPtr> frameBuffers;
+        rhi::FencePtr fence;
         rhi::CommandBufferPtr commandBuffer;
         rhi::GraphicsPipelinePtr pso;
         rhi::PipelineLayoutPtr pipelineLayout;

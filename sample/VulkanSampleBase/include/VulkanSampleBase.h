@@ -49,6 +49,7 @@ namespace sky {
         vk::SemaphorePtr        renderFinish;
         vk::RenderPassPtr       renderPass;
 
+        vk::FencePtr                    fence;
         vk::CommandBufferPtr            commandBuffer;
         vk::Queue                      *graphicsQueue;
         std::vector<vk::FrameBufferPtr> frameBuffers;

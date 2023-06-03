@@ -45,6 +45,7 @@ namespace sky {
 
         void Loop();
 
+        bool IsExit() const { return exit; }
         void SetExit() override;
 
         SettingRegistry &GetSettings() override;

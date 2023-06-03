@@ -15,6 +15,7 @@ namespace sky::mtl {
     {
         if (function) {
             [function release];
+            function = nil;
         }
     }
 

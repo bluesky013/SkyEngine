@@ -18,12 +18,12 @@ namespace sky {
         CloseHandle(handle);
     }
 
-    void Semaphore::Acquire()
+    void Semaphore::Wait()
     {
         WaitForSingleObject(handle, 0xffffffff);
     }
 
-    void Semaphore::Release(uint32_t count)
+    void Semaphore::Signal(int32_t count)
     {
         ReleaseSemaphore(handle, count, nullptr);
     }

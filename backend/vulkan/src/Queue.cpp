@@ -50,8 +50,12 @@ namespace sky::vk {
             stagingBuffer = device.CreateDeviceObject<vk::Buffer>(bufferInfo);
             mapped        = stagingBuffer->Map();
 
+            Fence::VkDescriptor fenceInfo = {};
+            fenceInfo.flag = VK_FENCE_CREATE_SIGNALED_BIT;
+
             for (uint32_t i = 0; i < INFLIGHT_NUM; ++i) {
                 inflightCommands[i] = AllocateCommandBuffer({});
+
             }
         });
     }
@@ -64,7 +68,7 @@ namespace sky::vk {
 
     uint64_t Queue::BeginFrame()
     {
-        inflightCommands[currentFrameId]->Wait();
+        fences[currentFrameId]->Wait();
         inflightCommands[currentFrameId]->Begin();
         return currentFrameId * BLOCK_SIZE;
     }
@@ -72,7 +76,7 @@ namespace sky::vk {
     void Queue::EndFrame()
     {
         inflightCommands[currentFrameId]->End();
-        inflightCommands[currentFrameId]->Submit(*this, {});
+        inflightCommands[currentFrameId]->Submit(*this, {{}, {}, {fences[currentFrameId]}});
         currentFrameId = (currentFrameId + 1) % INFLIGHT_NUM;
     }
 
@@ -83,7 +87,6 @@ namespace sky::vk {
             auto &imageInfo = vkImage->GetImageInfo();
             auto &formatInfo  = vkImage->GetFormatInfo();
 
-            inflightCommands[currentFrameId]->Wait();
             inflightCommands[currentFrameId]->Begin();
             VkImageSubresourceRange subResourceRange = {};
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -100,8 +103,8 @@ namespace sky::vk {
             inflightCommands[currentFrameId]->FlushBarriers();
 
             inflightCommands[currentFrameId]->End();
-            inflightCommands[currentFrameId]->Submit(*this, {});
-            inflightCommands[currentFrameId]->Wait();
+            inflightCommands[currentFrameId]->Submit(*this, {{}, {}, fences[currentFrameId]});
+            fences[currentFrameId]->Wait();
 
             for (auto &request : requests) {
                 uint32_t width  = std::max(request.imageExtent.width >> request.mipLevel, 1U);
@@ -141,7 +144,6 @@ namespace sky::vk {
                 }
             }
 
-            inflightCommands[currentFrameId]->Wait();
             inflightCommands[currentFrameId]->Begin();
             barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
             barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -152,8 +154,8 @@ namespace sky::vk {
             inflightCommands[currentFrameId]->FlushBarriers();
 
             inflightCommands[currentFrameId]->End();
-            inflightCommands[currentFrameId]->Submit(*this, {});
-            inflightCommands[currentFrameId]->Wait();
+            inflightCommands[currentFrameId]->Submit(*this, {{}, {}, fences[currentFrameId]});
+            fences[currentFrameId]->Wait();
         });
     }
 

@@ -50,6 +50,10 @@ namespace sky::rhi {
         CommandBuffer::Descriptor cmdDesc = {};
         commandBuffer = device->CreateCommandBuffer(cmdDesc);
 
+        Fence::Descriptor fenceDesc = {};
+        fenceDesc.createSignaled = true;
+        fence = device->CreateFence(fenceDesc);
+
         imageAvailable = device->CreateSema({});
         renderFinish = device->CreateSema({});
 
@@ -61,6 +65,7 @@ namespace sky::rhi {
     {
         device->WaitIdle();
 
+        fence = nullptr;
         commandBuffer = nullptr;
         pipelineLayout = nullptr;
         pso = nullptr;
@@ -93,7 +98,9 @@ namespace sky::rhi {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+        submitInfo.fence = fence;
 
+        fence->WaitAndReset();
         commandBuffer->Begin();
 
         {

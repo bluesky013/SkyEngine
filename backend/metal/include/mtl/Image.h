@@ -10,6 +10,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 
 namespace sky::mtl {
+    class SwapChain;
 
     class Image : public rhi::Image, public DevObject, public std::enable_shared_from_this<Image> {
     public:
@@ -18,10 +19,7 @@ namespace sky::mtl {
 
         rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc);
 
-        void SetDrawable(id<CAMetalDrawable> drawable);
-        void ResetDrawable();
-
-        id<MTLTexture> GetNativeHandle() const { return texture; }
+        id<MTLTexture> GetNativeHandle() const;
 
     private:
         friend class Device;
@@ -29,8 +27,9 @@ namespace sky::mtl {
         bool Init(const Descriptor &);
 
         id<MTLTexture> texture = nil;
-        id<CAMetalDrawable> currentDrawable = nil;
         MTLTextureDescriptor *textureDesc = nil;
+        SwapChain *swapchain = nullptr;
+        uint32_t imageIndex = 0;
     };
     using ImagePtr = std::shared_ptr<Image>;
 }

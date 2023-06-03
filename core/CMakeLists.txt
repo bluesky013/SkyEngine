@@ -8,6 +8,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/macos/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    file(GLOB_RECURSE CORE_PLATFORM_SRC
+        platform/unix/async/*)
 endif ()
 
 sky_add_library(TARGET Core STATIC

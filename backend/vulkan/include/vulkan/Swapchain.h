@@ -47,7 +47,7 @@ namespace sky::vk {
         ImagePtr GetVkImage(uint32_t image) const;
 
         // for rhi
-        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) const override;
+        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override;
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
 
         uint32_t GetImageCount() const override;
