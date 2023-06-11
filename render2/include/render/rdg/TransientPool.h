@@ -70,8 +70,11 @@ namespace sky::rdg {
         TransientPool() = default;
         virtual ~TransientPool() = default;
 
-        virtual rhi::ImageViewPtr requestImage(const rdg::GraphImage &desc) = 0;
-        virtual rhi::BufferViewPtr requestBuffer(const rdg::GraphBuffer &desc) = 0;
+        virtual rhi::ImageViewPtr RequestImage(const rdg::GraphImage &desc) = 0;
+        virtual rhi::BufferViewPtr RequestBuffer(const rdg::GraphBuffer &desc) = 0;
+
+        virtual void RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc) = 0;
+        virtual void RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc) = 0;
     };
 
 } // namespace sky::rdg

@@ -58,27 +58,20 @@ TEST(RenderGraphTest, NodeGraphTest01)
 
     rdg.AddRasterPass("color0", 128, 128);
     rdg.AddRasterSubPass("color0_sub0", "color0")
-        .AddRasterView("test_1_1", {RasterTypeBit::COLOR, ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR,
-                                    rhi::StoreOp::STORE})
-        .AddRasterView("test_1_2", {RasterTypeBit::COLOR, ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR,
-                                    rhi::StoreOp::STORE})
-        .AddRasterView("test_2_1", {RasterTypeBit::COLOR, ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR,
-                                    rhi::StoreOp::STORE})
-        .AddRasterView("test_2_2", {RasterTypeBit::COLOR, ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR,
-                                    rhi::StoreOp::STORE})
-        .AddRasterView("test2",
-                       {RasterTypeBit::DEPTH_STENCIL, ResourceAccessBit::WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE});
+        .AddColor({"test_1_1", ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE})
+        .AddColor({"test_1_2", ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE})
+        .AddColor({"test_2_1", ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE})
+        .AddColor({"test_2_2", ResourceAccessBit::WRITE, rhi::ClearValue(0.f, 0.f, 0.f, 0.f), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE})
+        .AddDepthStencil({"test2", ResourceAccessBit::WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE});
 
     rdg.AddRasterPass("color1", 128, 128);
     rdg.AddRasterSubPass("color1_sub0", "color1")
-        .AddRasterView("test2", {RasterTypeBit::DEPTH_STENCIL, ResourceAccessBit::READ_WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::LOAD,
-                                 rhi::StoreOp::STORE})
+        .AddDepthStencil({"test2", ResourceAccessBit::READ_WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::LOAD, rhi::StoreOp::STORE})
         .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ});
 
     rdg.AddRasterPass("color2", 128, 128);
     rdg.AddRasterSubPass("color2_sub0", "color2")
-        .AddRasterView("test2", {RasterTypeBit::DEPTH_STENCIL, ResourceAccessBit::READ_WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::LOAD,
-                                 rhi::StoreOp::STORE});
+        .AddDepthStencil({"test2", ResourceAccessBit::READ_WRITE, rhi::ClearValue(1.f, 0), rhi::LoadOp::LOAD, rhi::StoreOp::STORE});
 
     {
         AccessCompiler             compiler(rdg);
@@ -88,9 +81,9 @@ TEST(RenderGraphTest, NodeGraphTest01)
 
 
     {
-        ResourceGraphCompiler                compiler(rdg);
-        PmrVector<boost::default_color_type> colors(rdg.resourceGraph.vertices.size(), &rdg.context->resources);
-        boost::depth_first_search(rdg.resourceGraph.graph, compiler, ColorMap(colors));
+        RenderResourceCompiler               compiler(rdg);
+        PmrVector<boost::default_color_type> colors(rdg.accessGraph.vertices.size(), &rdg.context->resources);
+        boost::depth_first_search(rdg.accessGraph.graph, compiler, ColorMap(colors));
     }
 
     {

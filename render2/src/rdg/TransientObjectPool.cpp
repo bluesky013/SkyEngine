@@ -6,7 +6,7 @@
 #include <render/RHI.h>
 
 namespace sky::rdg {
-    rhi::ImageViewPtr TransientObjectPool::requestImage(const rdg::GraphImage &desc)
+    rhi::ImageViewPtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
     {
         auto iter = images.find(desc);
         if (iter != images.end()) {
@@ -34,7 +34,7 @@ namespace sky::rdg {
         return images.emplace(desc, image->CreateView(viewDesc)).first->second;
     }
 
-    rhi::BufferViewPtr TransientObjectPool::requestBuffer(const rdg::GraphBuffer &desc)
+    rhi::BufferViewPtr TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
         auto iter = buffers.find(desc);
         if (iter != buffers.end()) {
@@ -55,4 +55,15 @@ namespace sky::rdg {
 
         return buffers.emplace(desc, buffer->CreateView(viewDesc)).first->second;
     }
+
+    void TransientObjectPool::RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc)
+    {
+
+    }
+
+    void TransientObjectPool::RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc)
+    {
+
+    }
+
 } // namespace sky::rdg

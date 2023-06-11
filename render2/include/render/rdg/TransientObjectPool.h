@@ -15,8 +15,11 @@ namespace sky::rdg {
         ~TransientObjectPool() override = default;
 
     private:
-        rhi::ImageViewPtr requestImage(const rdg::GraphImage &desc) override;
-        rhi::BufferViewPtr requestBuffer(const rdg::GraphBuffer &desc) override;
+        rhi::ImageViewPtr RequestImage(const rdg::GraphImage &desc) override;
+        rhi::BufferViewPtr RequestBuffer(const rdg::GraphBuffer &desc) override;
+
+        void RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc) override;
+        void RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc) override;
 
         std::unordered_map<rdg::GraphImage, rhi::ImageViewPtr> images;
         std::unordered_map<rdg::GraphBuffer, rhi::BufferViewPtr> buffers;

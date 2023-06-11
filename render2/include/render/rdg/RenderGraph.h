@@ -23,17 +23,23 @@ namespace sky::rdg {
     };
 
     struct RasterSubPassBuilder {
-        RasterSubPassBuilder &AddRasterView(const char *name, const RasterView &view);
-        RasterSubPassBuilder &AddComputeView(const char *name, const ComputeView &view);
+        RasterSubPassBuilder &AddColor(const RasterAttachment &view);
+        RasterSubPassBuilder &AddResolve(const RasterAttachment &view);
+        RasterSubPassBuilder &AddInput(const RasterAttachment &view);
+        RasterSubPassBuilder &AddDepthStencil(const RasterAttachment &view);
+        RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
 
         RenderGraph &graph;
         RasterPass &pass;
         RasterSubPass &subPass;
         VertexType vertex;
+
+    protected:
+        RasterSubPassBuilder &AddRasterView(const std::string &name, const RasterView &view);
     };
 
     struct ComputePassBuilder {
-        ComputePassBuilder &AddComputeView(const char *name, const ComputeView &view);
+        ComputePassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
 
         RenderGraph &graph;
         VertexType vertex;
@@ -54,7 +60,7 @@ namespace sky::rdg {
     }
 
     template <typename V, typename G>
-    typename G::Tag &Tag(V v, G &g)
+    const typename G::Tag &Tag(V v, const G &g)
     {
         return g.tags[static_cast<typename G::vertex_descriptor>(v)];
     }

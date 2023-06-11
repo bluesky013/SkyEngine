@@ -10,17 +10,18 @@
 
 namespace sky::rdg {
 
-    struct ResourceGraphCompiler : boost::dfs_visitor<> {
-        ResourceGraphCompiler(RenderGraph &g) : graph(g.resourceGraph) {}
+    struct RenderResourceCompiler : boost::dfs_visitor<> {
+        RenderResourceCompiler(RenderGraph &g) : rdg(g) {}
 
-        using Vertex = boost::graph_traits<ResourceGraph::Graph>::vertex_descriptor;
-        using Edge = boost::graph_traits<ResourceGraph::Graph>::edge_descriptor;
-        using Graph = ResourceGraph::Graph;
+        using Vertex = boost::graph_traits<AccessGraph::Graph>::vertex_descriptor;
+        using Graph = AccessGraph::Graph;
 
-        void tree_edge(Edge e, const Graph &g);
         void discover_vertex(Vertex u, const Graph& g);
 
-        ResourceGraph &graph;
+        RenderGraph &rdg;
+
+    protected:
+        void MountResource(Vertex u, ResourceGraph::vertex_descriptor res);
     };
 
 } // namespace sky::rdg

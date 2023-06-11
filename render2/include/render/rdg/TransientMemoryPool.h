@@ -15,8 +15,11 @@ namespace sky::rdg {
         ~TransientMemoryPool() override = default;
 
     private:
-        rhi::ImageViewPtr requestImage(const rdg::GraphImage &desc) override;
-        rhi::BufferViewPtr requestBuffer(const rdg::GraphBuffer &desc) override;
+        rhi::ImageViewPtr RequestImage(const rdg::GraphImage &desc) override;
+        rhi::BufferViewPtr RequestBuffer(const rdg::GraphBuffer &desc) override;
+
+        void RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc) override;
+        void RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc) override;
     };
 
 } // namespace sky::rdg

@@ -6,13 +6,24 @@
 
 namespace sky::rdg {
 
-    rhi::ImageViewPtr TransientMemoryPool::requestImage(const rdg::GraphImage &desc)
+    rhi::ImageViewPtr TransientMemoryPool::RequestImage(const rdg::GraphImage &desc)
     {
         return {};
     }
 
-    rhi::BufferViewPtr TransientMemoryPool::requestBuffer(const rdg::GraphBuffer &desc)
+    rhi::BufferViewPtr TransientMemoryPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
         return {};
     }
+
+    void TransientMemoryPool::RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc)
+    {
+
+    }
+
+    void TransientMemoryPool::RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc)
+    {
+
+    }
+
 } // namespace sky::rdg

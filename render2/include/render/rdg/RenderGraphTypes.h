@@ -52,15 +52,19 @@ namespace sky::rdg {
     using ResourceAccess = Flags<ResourceAccessBit>;
     ENABLE_FLAG_BIT_OPERATOR(ResourceAccessBit)
 
-    struct RasterView {
-        RasterType type;
+    struct RasterAttachment {
+        std::string name;
         ResourceAccess access = ResourceAccessBit::READ;
         rhi::ClearValue clear;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp storeOp = rhi::StoreOp::DONT_CARE;
         rhi::LoadOp  stencilLoad = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp stencilStore = rhi::StoreOp::DONT_CARE;
-        rhi::SampleCount sampleCount = rhi::SampleCount::X1;
+    };
+
+    struct RasterView {
+        RasterType type = RasterTypeBit::COLOR;
+        ResourceAccess access = ResourceAccessBit::READ;
     };
 
     struct ComputeView {
@@ -112,10 +116,14 @@ namespace sky::rdg {
     };
 
     struct RasterSubPass {
-        RasterSubPass(PmrResource *res) : rasterViews(res), computeViews(res) {}
+        RasterSubPass(PmrResource *res) : colors(res), resolves(res), inputs(res), rasterViews(res), computeViews(res) {}
 
         using Tag = RasterSubPassTag;
 
+        PmrVector<RasterAttachment> colors;
+        PmrVector<RasterAttachment> resolves;
+        PmrVector<RasterAttachment> inputs;
+        RasterAttachment depthStencil;
         PmrHashMap<std::string, RasterView> rasterViews;
         PmrHashMap<std::string, ComputeView> computeViews;
     };

@@ -157,17 +157,41 @@ namespace sky::rdg {
         }
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const char *name, const RasterView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const RasterAttachment &view)
+    {
+        subPass.colors.emplace_back(view);
+        return AddRasterView(view.name, RasterView{RasterTypeBit::COLOR, view.access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const RasterAttachment &view)
+    {
+        subPass.resolves.emplace_back(view);
+        return AddRasterView(view.name, RasterView{RasterTypeBit::RESOLVE, view.access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const RasterAttachment &view)
+    {
+        subPass.inputs.emplace_back(view);
+        return AddRasterView(view.name, RasterView{RasterTypeBit::INPUT, view.access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const RasterAttachment &view)
+    {
+        subPass.depthStencil = view;
+        return AddRasterView(view.name, RasterView{RasterTypeBit::DEPTH_STENCIL, view.access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, const RasterView &view)
     {
         subPass.rasterViews.emplace(name, view);
-        graph.AddDependency(name, vertex, AccessEdge{view.type, view.access, {}});
+        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, {}});
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const char *name, const ComputeView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const std::string &name, const ComputeView &view)
     {
         subPass.computeViews.emplace(name, view);
-        graph.AddDependency(name, vertex, AccessEdge{view.type, view.access, view.visibility});
+        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, view.visibility});
         return *this;
     }
 }
