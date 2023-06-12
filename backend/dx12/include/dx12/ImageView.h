@@ -16,7 +16,8 @@ namespace sky::dx {
         ~ImageView() override;
 
         std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const;
-
+        rhi::PixelFormat GetFormat() const override;
+        const rhi::Extent3D &GetExtent() const override;
     private:
         friend class Image;
         ImagePtr source;

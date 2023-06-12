@@ -17,4 +17,15 @@ namespace sky::gles {
     {
         return source->CreateView(desc);
     }
+
+    rhi::PixelFormat ImageView::GetFormat() const
+    {
+        return source->GetDescriptor().format;
+    }
+
+    const rhi::Extent3D &ImageView::GetExtent() const
+    {
+        return source->GetDescriptor().extent;
+    }
+
 }

@@ -6,64 +6,79 @@
 #include <render/RHI.h>
 
 namespace sky::rdg {
-    rhi::ImageViewPtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
+    void TransientObjectPool::ResetPool()
     {
-        auto iter = images.find(desc);
-        if (iter != images.end()) {
-            return iter->second;
+        for (auto &[desc, list] : images) {
+            auto iter = list.begin();
+            for (; iter != list.end(); ++iter) {
+                iter->allocated = false;
+                iter->count ++;
+                if (iter->count >= 60) {
+                    iter = list.erase(iter);
+                }
+            }
         }
 
-        rhi::Device *device = RHI::Get()->GetDevice();
+        for (auto &[desc, list] : buffers) {
+            auto iter = list.begin();
+            for (; iter != list.end(); ++iter) {
+                iter->allocated = false;
+                iter->count ++;
+                if (iter->count >= 60) {
+                    iter = list.erase(iter);
+                }
+            }
+        }
+    }
 
-        rhi::Image::Descriptor imageDesc = {};
-        imageDesc.imageType   = desc.viewType == rhi::ImageViewType::VIEW_3D ? rhi::ImageType::IMAGE_3D : rhi::ImageType::IMAGE_2D;
-        imageDesc.format      = desc.format;
-        imageDesc.extent      = desc.extent;
-        imageDesc.mipLevels   = desc.mipLevels;
-        imageDesc.arrayLayers = desc.arrayLayers;
-        imageDesc.samples     = desc.samples;
-        imageDesc.usage       = desc.usage;
-        imageDesc.memory      = rhi::MemoryType::GPU_ONLY;
+    rhi::ImageViewPtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
+    {
+        auto &list = images[desc];
+        for (auto &cacheItem : list) {
+            if (!cacheItem.allocated) {
+                cacheItem.allocated = true;
+                cacheItem.count = 0;
+                return cacheItem.item;
+            }
+        }
 
-        auto image = device->CreateImage(imageDesc);
-        rhi::ImageViewDesc viewDesc = {};
-        viewDesc.viewType = desc.viewType;
-        viewDesc.subRange = {0, desc.mipLevels, 0, desc.arrayLayers};
-        viewDesc.mask = desc.mask;
-
-        return images.emplace(desc, image->CreateView(viewDesc)).first->second;
+        auto image = CreateImageByDesc(desc);
+        list.emplace_back(CacheItem<rhi::ImageViewPtr>{image, 0, true});
+        return image;
     }
 
     rhi::BufferViewPtr TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
-        auto iter = buffers.find(desc);
-        if (iter != buffers.end()) {
-            return iter->second;
+        auto &list = buffers[desc];
+        for (auto &cacheItem : list) {
+            if (!cacheItem.allocated) {
+                cacheItem.allocated = true;
+                cacheItem.count = 0;
+                return cacheItem.item;
+            }
         }
 
-        rhi::Device *device = RHI::Get()->GetDevice();
-
-        rhi::Buffer::Descriptor bufferDesc = {};
-        bufferDesc.size     = desc.size;
-        bufferDesc.usage       = desc.usage;
-        bufferDesc.memory      = rhi::MemoryType::GPU_ONLY;
-
-        auto buffer = device->CreateBuffer(bufferDesc);
-        rhi::BufferViewDesc viewDesc = {};
-        viewDesc.offset = 0;
-        viewDesc.range = desc.size;
-
-        return buffers.emplace(desc, buffer->CreateView(viewDesc)).first->second;
+        auto buffer = CreateBufferByDesc(desc);
+        list.emplace_back(CacheItem<rhi::BufferViewPtr>{buffer, 0, true});
+        return buffer;
     }
 
     void TransientObjectPool::RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc)
     {
-
+        auto &list = images[desc];
+        auto iter = std::find_if(list.begin(), list.end(), [&image](const auto &cacheItem) {
+            return cacheItem.item.get() == image.get();
+        });
+        iter->allocated = false;
     }
 
     void TransientObjectPool::RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc)
     {
-
+        auto &list = buffers[desc];
+        auto iter = std::find_if(list.begin(), list.end(), [&buffer](const auto &cacheItem) {
+            return cacheItem.item.get() == buffer.get();
+        });
+        iter->allocated = false;
     }
 
 } // namespace sky::rdg

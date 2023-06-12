@@ -84,4 +84,14 @@ namespace sky::vk {
         return ret;
     }
 
+    rhi::PixelFormat ImageView::GetFormat() const
+    {
+        return source->GetDescriptor().format;
+    }
+
+    const rhi::Extent3D &ImageView::GetExtent() const
+    {
+        return source->GetDescriptor().extent;
+    }
+
 } // namespace sky::vk

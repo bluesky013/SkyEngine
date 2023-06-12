@@ -41,7 +41,8 @@ struct std::equal_to<sky::rdg::GraphImage> {
                lhs.arrayLayers == rhs.arrayLayers &&
                lhs.samples == rhs.samples &&
                lhs.usage == rhs.usage &&
-               lhs.mask == rhs.mask;
+               lhs.mask == rhs.mask &&
+               lhs.residency == rhs.residency;
     }
 };
 
@@ -59,7 +60,7 @@ template<>
 struct std::equal_to<sky::rdg::GraphBuffer> {
     constexpr bool operator()(const sky::rdg::GraphBuffer& lhs, const sky::rdg::GraphBuffer& rhs) const
     {
-        return lhs.size == rhs.size && lhs.usage == rhs.usage;
+        return lhs.size == rhs.size && lhs.usage == rhs.usage && lhs.residency == rhs.residency;
     };
 };
 
@@ -70,11 +71,23 @@ namespace sky::rdg {
         TransientPool() = default;
         virtual ~TransientPool() = default;
 
+        virtual void ResetPool() = 0;
+
         virtual rhi::ImageViewPtr RequestImage(const rdg::GraphImage &desc) = 0;
         virtual rhi::BufferViewPtr RequestBuffer(const rdg::GraphBuffer &desc) = 0;
 
         virtual void RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc) = 0;
         virtual void RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc) = 0;
+
+        rhi::ImageViewPtr RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc);
+        rhi::BufferViewPtr RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
+
+    protected:
+        rhi::ImageViewPtr CreateImageByDesc(const rdg::GraphImage &desc);
+        rhi::BufferViewPtr CreateBufferByDesc(const rdg::GraphBuffer &desc);
+
+        std::unordered_map<std::string, rhi::ImageViewPtr> persistentImages;
+        std::unordered_map<std::string, rhi::BufferViewPtr> persistentBuffers;
     };
 
 } // namespace sky::rdg

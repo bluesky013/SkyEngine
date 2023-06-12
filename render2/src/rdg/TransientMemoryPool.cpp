@@ -6,6 +6,10 @@
 
 namespace sky::rdg {
 
+    void TransientMemoryPool::ResetPool()
+    {
+    }
+
     rhi::ImageViewPtr TransientMemoryPool::RequestImage(const rdg::GraphImage &desc)
     {
         return {};
