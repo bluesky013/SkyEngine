@@ -7,6 +7,7 @@
 #include "RHIPassSample.h"
 #include "RHISubPassSample.h"
 #include "RHIDrawIndirectSample.h"
+#include "RHISubpassMSAA.h"
 #include <framework/application/SettingRegistry.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
@@ -29,7 +30,8 @@ namespace sky::rhi {
         RegisterPath();
 
 //        RegisterSample<RHISampleBase>();
-        RegisterSample<RHIDrawIndirectSample>();
+        RegisterSample<RHISubPassMSAA>();
+//        RegisterSample<RHIDrawIndirectSample>();
 //        RegisterSample<RHIPassSample>();
 //        RegisterSample<RHISubPassSample>();
 

@@ -25,7 +25,7 @@ namespace sky::rhi {
         };
 
         struct AttachmentRef {
-            uint32_t index;
+            uint32_t index = ~(0U);
             std::vector<AccessFlag> access;
             AspectFlags mask = AspectFlagBit::COLOR_BIT;
         };
@@ -37,7 +37,7 @@ namespace sky::rhi {
 
             std::vector<uint32_t>      preserves;
             AttachmentRef              depthStencil = {~(0U), {AccessFlag::DEPTH_STENCIL_WRITE, AccessFlag::DEPTH_STENCIL_READ}, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
-            uint32_t              viewMask     = 0;
+            uint32_t                   viewMask     = 0;
         };
 
         struct Dependency {
