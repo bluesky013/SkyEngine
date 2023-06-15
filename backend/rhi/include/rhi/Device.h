@@ -52,6 +52,7 @@ namespace sky::rhi {
             bool pixelLocalStorage     = false;
             bool multiDrawIndirect     = false;
             bool firstInstanceIndirect = false;
+            bool depthStencilResolve   = false;
         };
 
         struct Limitation {

@@ -127,6 +127,8 @@ namespace sky::vk {
         if (enabledFeature.multiView) {
             outExtensions.emplace_back("VK_KHR_multiview");
         }
+
+        enabledFeature.depthStencilResolve = CheckExtension(supportedExtensions, "VK_KHR_depth_stencil_resolve");
     }
 
     void Device::UpdateDeviceLimits()
@@ -164,6 +166,9 @@ namespace sky::vk {
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         phyProps.pNext = &shadingRateProps;
         shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
+
+        shadingRateProps.pNext = &dsResolveProps;
+        dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
 
         uint32_t i = 0;
         for (; i < count; ++i) {

@@ -16,18 +16,25 @@ namespace sky::rhi {
 
         auto sample1 = SampleCount::X4;
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat,sample1,LoadOp::CLEAR,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
             {
                 {0, {AccessFlag::COLOR_WRITE}},
+                {2, {AccessFlag::COLOR_WRITE}},
             },
             {
                 {1, {AccessFlag::COLOR_WRITE}},
+                {3, {AccessFlag::COLOR_WRITE}},
             },
             {},
             {},
-            {},
+            {4, {AccessFlag::DEPTH_STENCIL_WRITE}},
+            {5, {AccessFlag::DEPTH_STENCIL_WRITE}},
         });
 
         tiedPass = device->CreateRenderPass(passDesc);
@@ -47,25 +54,60 @@ namespace sky::rhi {
         {
             desc.samples = sample1;
             desc.usage   = ImageUsageFlagBit::RENDER_TARGET;
-            auto image = device->CreateImage(desc);
-            ms1 = image->CreateView(viewDesc);
+            {
+                auto image = device->CreateImage(desc);
+                ms1 = image->CreateView(viewDesc);
+            }
+            {
+                auto image = device->CreateImage(desc);
+                ms2 = image->CreateView(viewDesc);
+            }
         }
         {
             desc.samples = rhi::SampleCount::X1;
             desc.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
-            auto image = device->CreateImage(desc);
-            resolve1 = image->CreateView(viewDesc);
+            {
+                auto image = device->CreateImage(desc);
+                resolve1 = image->CreateView(viewDesc);
+            }
+            {
+                auto image = device->CreateImage(desc);
+                resolve2 = image->CreateView(viewDesc);
+            }
+        }
+        {
+            desc.samples = sample1;
+            desc.format  = dsFormat;
+            desc.usage   = ImageUsageFlagBit::DEPTH_STENCIL;
+
+            viewDesc.mask = AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT;
+            {
+                auto image = device->CreateImage(desc);
+                ds = image->CreateView(viewDesc);
+            }
+            {
+                desc.samples = rhi::SampleCount::X1;
+                auto image = device->CreateImage(desc);
+                dsResolve = image->CreateView(viewDesc);
+            }
         }
 
         rhi::FrameBuffer::Descriptor fbDesc = {};
         fbDesc.extent = ext;
         fbDesc.pass = tiedPass;
-        fbDesc.views.resize(2);
+        fbDesc.views.resize(6);
         fbDesc.views[0] = ms1;
         fbDesc.views[1] = resolve1;
+        fbDesc.views[2] = ms2;
+        fbDesc.views[3] = resolve2;
+        fbDesc.views[4] = ds;
+        fbDesc.views[5] = dsResolve;
         fb = device->CreateFrameBuffer(fbDesc);
 
-        fbClears.resize(2, ClearValue(0, 0, 0, 0));
+        fbClears.resize(6, ClearValue(0, 0, 0, 0));
+        fbClears[4] = ClearValue(1.0, 0);
+        fbClears[5] = ClearValue(1.0, 0);
+
         // pipeline layouts
         {
             PipelineLayout::Descriptor pLayoutDesc = {};
@@ -89,22 +131,12 @@ namespace sky::rhi {
         auto path = Platform::Get()->GetInternalPath();
         builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS});
         builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
-        builder::ShaderCompiler::CompileShader("shaders/triangle_vs.glsl", {path + "/shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("shaders/triangle_fs.glsl", {path + "/shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_vs.glsl", {path + "/shaders/RHISample/triangle_msaa_vs.shader", builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_fs.glsl", {path + "/shaders/RHISample/triangle_msaa_fs.shader", builder::ShaderType::FS});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.rasterState.cullMode = rhi::CullModeFlagBits::NONE;
         psoDesc.state.blendStates.emplace_back(BlendState{});
-
-        psoDesc.state.multiSample.sampleCount = sample1;
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/triangle_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/triangle_fs.shader");
-        psoDesc.renderPass = tiedPass;
-        psoDesc.pipelineLayout = emptyLayout;
-        psoDesc.vertexInput = emptyInput;
-        psoDesc.subPassIndex = 0;
-        pso1 = device->CreateGraphicsPipeline(psoDesc);
-
         psoDesc.state.multiSample.sampleCount = rhi::SampleCount::X1;
         psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
         psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/full_screen_fs.shader");
@@ -113,6 +145,18 @@ namespace sky::rhi {
         psoDesc.vertexInput = emptyInput;
         psoDesc.subPassIndex = 0;
         pso2 = device->CreateGraphicsPipeline(psoDesc);
+
+        psoDesc.state.blendStates.emplace_back(BlendState{});
+        psoDesc.state.multiSample.sampleCount = sample1;
+        psoDesc.state.depthStencil.depthWrite = true;
+        psoDesc.state.depthStencil.depthTest = true;
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/triangle_msaa_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/triangle_msaa_fs.shader");
+        psoDesc.renderPass = tiedPass;
+        psoDesc.pipelineLayout = emptyLayout;
+        psoDesc.vertexInput = emptyInput;
+        psoDesc.subPassIndex = 0;
+        pso1 = device->CreateGraphicsPipeline(psoDesc);
     }
 
     void RHISubPassMSAA::OnTick(float delta)
@@ -135,7 +179,20 @@ namespace sky::rhi {
             barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
             barrier.view = ms1;
             commandBuffer->QueueBarrier(barrier);
+            barrier.view = ms2;
+            commandBuffer->QueueBarrier(barrier);
             barrier.view = resolve1;
+            commandBuffer->QueueBarrier(barrier);
+            barrier.view = resolve2;
+            commandBuffer->QueueBarrier(barrier);
+        }
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.view = ds;
+            commandBuffer->QueueBarrier(barrier);
+            barrier.view = dsResolve;
             commandBuffer->QueueBarrier(barrier);
         }
         {
@@ -145,7 +202,6 @@ namespace sky::rhi {
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
         }
-
         {
             ImageBarrier barrier = {};
             barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
@@ -203,7 +259,11 @@ namespace sky::rhi {
         fbClears.clear();
 
         ms1 = nullptr;
+        ms2 = nullptr;
         resolve1 = nullptr;
+        resolve2 = nullptr;
+        ds = nullptr;
+        dsResolve = nullptr;
         pso1 = nullptr;
         pso2 = nullptr;
         fullScreenLayout = nullptr;

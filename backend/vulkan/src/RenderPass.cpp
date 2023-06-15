@@ -26,6 +26,9 @@ namespace sky::vk {
         InitInputMap(des);
         hash = 0;
         std::vector<std::vector<VkAttachmentReference2>> subpassReferences;
+        std::vector<VkSubpassDescriptionDepthStencilResolve> depthStencilResolves;
+        depthStencilResolves.reserve(des.subPasses.size());
+
         attachments.reserve(des.attachments.size());
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
                                        static_cast<uint32_t>(des.attachments.size() * sizeof(Attachment))));
@@ -103,12 +106,25 @@ namespace sky::vk {
             }
             vkSub.inputAttachmentCount = static_cast<uint32_t>(subPass.inputs.size());
 
-            uint32_t preserveOffset = static_cast<uint32_t>(references.size());
             vkSub.preserveAttachmentCount = static_cast<uint32_t>(subPass.preserves.size());
 
             uint32_t depthStencilOffset = static_cast<uint32_t>(references.size());
             if (subPass.depthStencil.index != ~(0U)) {
                 refFn(references, subPass.depthStencil);
+            }
+
+            uint32_t dsResolveOffset = static_cast<uint32_t>(references.size());
+            if (subPass.dsResolve.index != ~(0U)) {
+                refFn(references, subPass.dsResolve);
+
+                depthStencilResolves.emplace_back();
+                auto &dsResolve = depthStencilResolves.back();
+                dsResolve.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR;
+                dsResolve.pNext = nullptr;
+                dsResolve.depthResolveMode   = VK_RESOLVE_MODE_MAX_BIT;
+                dsResolve.stencilResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
+                dsResolve.pDepthStencilResolveAttachment = &references[dsResolveOffset];
+                vkSub.pNext = &dsResolve;
             }
 
             vkSub.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;

@@ -22,6 +22,10 @@ namespace sky::rhi {
 
         rhi::ImageViewPtr ms1;
         rhi::ImageViewPtr resolve1;
+        rhi::ImageViewPtr ms2;
+        rhi::ImageViewPtr resolve2;
+        rhi::ImageViewPtr ds;
+        rhi::ImageViewPtr dsResolve;
 
         std::vector<ClearValue> fbClears;
 

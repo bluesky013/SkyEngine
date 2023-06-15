@@ -135,11 +135,13 @@ namespace sky::vk {
 
         VkPhysicalDeviceProperties2                      phyProps         = {};
         VkPhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProps = {};
+        VkPhysicalDeviceDepthStencilResolvePropertiesKHR dsResolveProps   = {};
 
         VkPhysicalDeviceFeatures2                      phyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
         VkPhysicalDeviceMultiviewFeatures              mvrFeature          = {};
+
 
         VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};
