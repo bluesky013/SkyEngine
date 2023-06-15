@@ -6,6 +6,7 @@
 #include <gles/Device.h>
 #include <gles/Core.h>
 #include <gles/ImageView.h>
+#include <gles/Ext.h>
 
 namespace sky::gles {
     static const rhi::ImageUsageFlags USAGE_COLOR_OR_DS = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::DEPTH_STENCIL;
@@ -39,7 +40,7 @@ namespace sky::gles {
             CHECK(glGenRenderbuffers(1, &texId));
             CHECK(glBindRenderbuffer(GL_RENDERBUFFER, texId));
             if (imageDesc.samples > rhi::SampleCount::X1) {
-                CHECK(glRenderbufferStorageMultisample(GL_RENDERBUFFER, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
+                CHECK(RenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, static_cast<GLsizei>(imageDesc.samples), fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             } else {
                 CHECK(glRenderbufferStorage(GL_RENDERBUFFER, fmt.internal, imageDesc.extent.width, imageDesc.extent.height));
             }

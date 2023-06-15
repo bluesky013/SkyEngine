@@ -18,7 +18,7 @@ namespace sky::rhi {
         void OnStop() override;
     private:
         rhi::RenderPassPtr tiedPass;
-        std::vector<rhi::FrameBufferPtr> fbs;
+        rhi::FrameBufferPtr fb;
 
         rhi::ImageViewPtr ms1;
         rhi::ImageViewPtr resolve1;
@@ -29,7 +29,7 @@ namespace sky::rhi {
         rhi::GraphicsPipelinePtr pso2;
         rhi::PipelineLayoutPtr fullScreenLayout;
         rhi::PipelineLayoutPtr emptyLayout;
-        rhi::DescriptorSetPtr  set;
+        rhi::DescriptorSetPtr  set1;
     };
 
 } // namespace sky::rhi

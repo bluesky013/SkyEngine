@@ -14,10 +14,9 @@ namespace sky::rhi {
         SetupPool();
         RenderPass::Descriptor passDesc = {};
 
-        auto sample1 = SampleCount::X8;
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::DONT_CARE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::DONT_CARE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::BGRA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
+        auto sample1 = SampleCount::X4;
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::CLEAR,StoreOp::STORE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
             {
@@ -30,21 +29,7 @@ namespace sky::rhi {
             {},
             {},
         });
-        passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {
-                {2, {AccessFlag::COLOR_WRITE}},
-            },
-            {},
-            {
-                {1, {AccessFlag::COLOR_INPUT}},
-            },
-            {},
-            {},
-        });
 
-        passDesc.dependencies.emplace_back(RenderPass::Dependency{{0}, {1},
-                                                                  {AccessFlag::COLOR_WRITE},
-                                                                  {AccessFlag::COLOR_INPUT, AccessFlag::COLOR_WRITE}});
         tiedPass = device->CreateRenderPass(passDesc);
 
         auto count = swapChain->GetImageCount();
@@ -67,7 +52,7 @@ namespace sky::rhi {
         }
         {
             desc.samples = rhi::SampleCount::X1;
-            desc.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT;
+            desc.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
             auto image = device->CreateImage(desc);
             resolve1 = image->CreateView(viewDesc);
         }
@@ -75,18 +60,12 @@ namespace sky::rhi {
         rhi::FrameBuffer::Descriptor fbDesc = {};
         fbDesc.extent = ext;
         fbDesc.pass = tiedPass;
-        fbDesc.views.resize(3);
+        fbDesc.views.resize(2);
         fbDesc.views[0] = ms1;
         fbDesc.views[1] = resolve1;
+        fb = device->CreateFrameBuffer(fbDesc);
 
-        fbs.resize(count);
-        for (uint32_t i = 0; i < count; ++i) {
-            fbDesc.views[2] = colorViews[i];
-            fbs[i] = device->CreateFrameBuffer(fbDesc);
-        }
-
-        fbClears.resize(3, ClearValue(0, 0, 0, 0));
-
+        fbClears.resize(2, ClearValue(0, 0, 0, 0));
         // pipeline layouts
         {
             PipelineLayout::Descriptor pLayoutDesc = {};
@@ -95,25 +74,26 @@ namespace sky::rhi {
 
         {
             DescriptorSetLayout::Descriptor layoutDesc = {};
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::INPUT_ATTACHMENT, 1, 0, ShaderStageFlagBit::FS, "colorImage"});
+            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 0, ShaderStageFlagBit::FS, "colorImage"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
             DescriptorSet::Descriptor setDesc = {passlayout};
-            set = pool->Allocate(setDesc);
-            set->BindImageView(0, resolve1, 0);
-            set->Update();
+            set1 = pool->Allocate(setDesc);
+            set1->BindImageView(0, resolve1, 0);
+            set1->Update();
             fullScreenLayout = device->CreatePipelineLayout(pLayoutDesc);
         }
 
 
         auto path = Platform::Get()->GetInternalPath();
         builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs_tiled.glsl", {path + "/shaders/RHISample/full_screen_fs_tiled.shader", builder::ShaderType::FS, tiedPass->GetInputMap(1), tiedPass->GetOutputMap(1)});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
         builder::ShaderCompiler::CompileShader("shaders/triangle_vs.glsl", {path + "/shaders/RHISample/triangle_vs.shader", builder::ShaderType::VS});
         builder::ShaderCompiler::CompileShader("shaders/triangle_fs.glsl", {path + "/shaders/RHISample/triangle_fs.shader", builder::ShaderType::FS});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
+        psoDesc.state.rasterState.cullMode = rhi::CullModeFlagBits::NONE;
         psoDesc.state.blendStates.emplace_back(BlendState{});
 
         psoDesc.state.multiSample.sampleCount = sample1;
@@ -127,11 +107,11 @@ namespace sky::rhi {
 
         psoDesc.state.multiSample.sampleCount = rhi::SampleCount::X1;
         psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/full_screen_fs_tiled.shader");
-        psoDesc.renderPass = tiedPass;
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/full_screen_fs.shader");
+        psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = fullScreenLayout;
         psoDesc.vertexInput = emptyInput;
-        psoDesc.subPassIndex = 1;
+        psoDesc.subPassIndex = 0;
         pso2 = device->CreateGraphicsPipeline(psoDesc);
     }
 
@@ -157,21 +137,44 @@ namespace sky::rhi {
             commandBuffer->QueueBarrier(barrier);
             barrier.view = resolve1;
             commandBuffer->QueueBarrier(barrier);
+        }
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
             barrier.view = colorViews[index];
+            commandBuffer->QueueBarrier(barrier);
+        }
+
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.view = depthStencilImage;
             commandBuffer->QueueBarrier(barrier);
         }
         commandBuffer->FlushBarriers();
 
-        encoder->BeginPass({fbs[index], tiedPass, static_cast<uint32_t>(fbClears.size()), fbClears.data()});
+        encoder->BeginPass({fb, tiedPass, static_cast<uint32_t>(fbClears.size()), fbClears.data()});
 
         encoder->BindPipeline(pso1);
         encoder->DrawLinear({3, 1, 0, 0});
 
-        encoder->NextSubPass();
-        encoder->BindPipeline(pso2);
-        encoder->BindSet(0, set);
-        encoder->DrawLinear({3, 1, 0, 0});
+        encoder->EndPass();
 
+        {
+            ImageBarrier barrier = {};
+            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.dstFlags.emplace_back(rhi::AccessFlag::FRAGMENT_SRV);
+            barrier.view = resolve1;
+            commandBuffer->QueueBarrier(barrier);
+        }
+        commandBuffer->FlushBarriers();
+
+        commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()});
+        encoder->BindPipeline(pso2);
+        encoder->BindSet(0, set1);
+        encoder->DrawLinear({3, 1, 0, 0});
         encoder->EndPass();
 
         {
@@ -196,7 +199,7 @@ namespace sky::rhi {
     {
         device->WaitIdle();
         tiedPass = nullptr;
-        fbs.clear();
+        fb = nullptr;
         fbClears.clear();
 
         ms1 = nullptr;
@@ -205,7 +208,7 @@ namespace sky::rhi {
         pso2 = nullptr;
         fullScreenLayout = nullptr;
         emptyLayout = nullptr;
-        set = nullptr;
+        set1 = nullptr;
         RHISampleBase::OnStop();
     }
 

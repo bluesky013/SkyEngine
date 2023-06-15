@@ -10,6 +10,7 @@
 
 #include <gles/Core.h>
 #include <gles/Device.h>
+#include <gles/Ext.h>
 
 namespace sky::gles {
     namespace {
@@ -18,11 +19,6 @@ namespace sky::gles {
 
     FrameBuffer::~FrameBuffer()
     {
-//        for (auto &fb : fboList) {
-//            if (fb.fbo != 0) {
-//                glDeleteFramebuffers(1, &fb.fbo);
-//            }
-//        }
         auto deleteFB = [](Queue &queue, GLuint fbo) {
             queue.CreateTask([fbo]() {
                 CHECK(glDeleteFramebuffers(1, &fbo));
@@ -80,22 +76,24 @@ namespace sky::gles {
             const auto &image = attachment->GetImage();
             const auto &imageDesc = image->GetDescriptor();
             const auto &viewDesc = attachment->GetViewDesc();
+            const auto &attachmentDesc = renderPass->GetAttachments()[color];
             auto handle = image->GetNativeHandle();
             GLint baseLevel = static_cast<GLint>(viewDesc.subRange.baseLevel);
+            drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
 
             if (imageDesc.samples != rhi::SampleCount::X1) {
-//                CHECK(glFramebufferTexture2DMultisampleEXT(GL_DRAW_FRAMEBUFFER,
-//                                                           static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i), GL_TEXTURE_2D,
-//                                                           image->GetNativeHandle(),
-//                                                           viewDesc.subRange.baseLevel,
-//                                                           static_cast<GLsizei>(imageDesc.samples)));
-//
-//                const auto &resolve = resolves[i];
-//                attachment = attachments[resolve];
-//                handle = attachment->GetImage()->GetNativeHandle();
-//                baseLevel = attachment->GetViewDesc().subRange.baseLevel;
-            }
+                const auto &resolve = resolves[i];
+                const auto &resolveAttachment = attachments[resolve];
+                auto resolveHandle = resolveAttachment->GetImage()->GetNativeHandle();
+                auto resolveBaseLevel = resolveAttachment->GetViewDesc().subRange.baseLevel;
 
+                CHECK(FramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER,
+                                                           static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i), GL_TEXTURE_2D,
+                                                           resolveHandle,
+                                                           resolveBaseLevel,
+                                                           static_cast<GLsizei>(imageDesc.samples)));
+                continue;
+            }
 
             if (image->IsRenderBuffer()) {
                 CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
@@ -104,7 +102,6 @@ namespace sky::gles {
                 CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
                                              GL_TEXTURE_2D, handle, baseLevel));
             }
-            drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
         }
 
         if (depthStencil != INVALID_INDEX) {

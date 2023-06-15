@@ -19,6 +19,8 @@ std::unique_ptr<sky::DynamicModule> g_Egl;
 PFN_FramebufferFetchBarrier FramebufferFetchBarrier;
 PFN_MultiDrawArraysIndirectEXT MultiDrawArraysIndirectEXT;
 PFN_MultiDrawElementsIndirectEXT MultiDrawElementsIndirectEXT;
+PFN_RenderbufferStorageMultisampleEXT RenderbufferStorageMultisampleEXT;
+PFN_FramebufferTexture2DMultisampleEXT FramebufferTexture2DMultisampleEXT;
 
 namespace sky::gles {
 
@@ -62,6 +64,11 @@ namespace sky::gles {
         eglBindAPI(EGL_OPENGL_ES_API);
     }
 
+#define GLES_GET_API(name, key)   \
+    if (name == nullptr) {      \
+        name = reinterpret_cast<PFN_##name>(eglGetProcAddress(key)); \
+    }
+
     bool Instance::Init(const Descriptor &desc)
     {
         if (!InitEGL()) {
@@ -81,6 +88,9 @@ namespace sky::gles {
         if (MultiDrawElementsIndirectEXT == nullptr) {
             MultiDrawElementsIndirectEXT = reinterpret_cast<PFN_MultiDrawElementsIndirectEXT>(eglGetProcAddress("glMultiDrawElementsIndirectEXT"));
         }
+
+        GLES_GET_API(RenderbufferStorageMultisampleEXT, "glRenderbufferStorageMultisampleEXT");
+        GLES_GET_API(FramebufferTexture2DMultisampleEXT, "glFramebufferTexture2DMultisampleEXT");
         return true;
     }
 }
