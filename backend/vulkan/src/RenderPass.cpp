@@ -121,7 +121,7 @@ namespace sky::vk {
                 auto &dsResolve = depthStencilResolves.back();
                 dsResolve.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR;
                 dsResolve.pNext = nullptr;
-                dsResolve.depthResolveMode   = VK_RESOLVE_MODE_MAX_BIT;
+                dsResolve.depthResolveMode   = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
                 dsResolve.stencilResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
                 dsResolve.pDepthStencilResolveAttachment = &references[dsResolveOffset];
                 vkSub.pNext = &dsResolve;

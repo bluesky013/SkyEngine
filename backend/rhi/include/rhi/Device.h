@@ -44,15 +44,16 @@ namespace sky::rhi {
         virtual ~Device() = default;
 
         struct DeviceFeature {
-            bool sparseBinding         = false;
-            bool descriptorIndexing    = false;
-            bool variableRateShading   = false;
-            bool multiView             = false;
-            bool framebufferFetch      = false;
-            bool pixelLocalStorage     = false;
-            bool multiDrawIndirect     = false;
+            bool sparseBinding = false;
+            bool descriptorIndexing = false;
+            bool variableRateShading = false;
+            bool multiView = false;
+            bool framebufferFetch = false;
+            bool frameBufferFetchDS = false;
+            bool frameBufferFetchNoCoherent = false;
+            bool multiDrawIndirect = false;
             bool firstInstanceIndirect = false;
-            bool depthStencilResolve   = false;
+            bool depthStencilResolve = false;
         };
 
         struct Limitation {

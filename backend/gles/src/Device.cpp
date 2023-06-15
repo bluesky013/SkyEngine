@@ -117,9 +117,13 @@ namespace sky::gles {
 
     void Device::InitDeviceFeature()
     {
-        enabledFeature.framebufferFetch = enabledFeature.framebufferFetch && CheckExtension(extensions, "shader_framebuffer_fetch");
-        enabledFeature.pixelLocalStorage = enabledFeature.pixelLocalStorage && CheckExtension(extensions, "shader_pixel_local_storage");
-        enabledFeature.multiDrawIndirect = enabledFeature.multiDrawIndirect && CheckExtension(extensions, "EXT_multi_draw_indirect");
+        enabledFeature.framebufferFetch = CheckExtension(extensions, "shader_framebuffer_fetch");
+        enabledFeature.frameBufferFetchDS = CheckExtension(extensions, "shader_framebuffer_fetch_depth_stencil");
+        enabledFeature.frameBufferFetchNoCoherent = CheckExtension(extensions, "shader_framebuffer_fetch_non_coherent");
+        enabledFeature.multiDrawIndirect = CheckExtension(extensions, "EXT_multi_draw_indirect");
+
+        internalFeature.msaa1 = CheckExtension(extensions, "multisampled_render_to_texture");
+        internalFeature.msaa2 = CheckExtension(extensions, "multisampled_render_to_texture2");
     }
 
     void Device::InitDefaultObjects()

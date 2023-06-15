@@ -130,7 +130,7 @@ namespace sky::gles {
                     for (uint32_t i = 0; i < binding.count && loc != GL_INVALID_INDEX; ++i) {
                         auto &desIndex = indicesBase[i];
                         desIndex.unit = loc + i;
-                        units.emplace_back(i);
+                        units.emplace_back(loc + i);
                     }
                     if (!units.empty()) {
                         CHECK(glUniform1iv(loc, static_cast<GLsizei>(units.size()), units.data()));

@@ -25,6 +25,13 @@
 
 namespace sky::gles {
 
+    namespace internal {
+        struct DeviceFeature {
+            bool msaa1 = false;
+            bool msaa2 = false;
+        };
+    }
+
     class Device : public rhi::Device {
     public:
         Device() = default;
@@ -60,6 +67,7 @@ namespace sky::gles {
         uint32_t getQueueNumber() const { return 2; }
 
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
+        const internal::DeviceFeature &GetInternalFeature() const { return internalFeature; }
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)
@@ -84,7 +92,6 @@ namespace sky::gles {
         void InitLimitation();
         void InitDeviceFeature();
         void InitDefaultObjects();
-        void InitExtFunctions();
 
         void WaitIdle() const override { CHECK(glFinish()); }
 
@@ -94,6 +101,7 @@ namespace sky::gles {
         std::vector<std::string> extensions;
 
         SamplerPtr defaultSampler;
+        internal::DeviceFeature internalFeature;
     };
 
 }

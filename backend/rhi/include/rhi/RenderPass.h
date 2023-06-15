@@ -73,6 +73,7 @@ namespace sky::rhi {
         std::vector<uint32_t> colors;
         std::vector<uint32_t> resolves;
         uint32_t depthStencil = INVALID_INDEX;
+        uint32_t dsResolve    = INVALID_INDEX;
         uint32_t subPassNum = 1;
     };
 

@@ -26,6 +26,14 @@ namespace sky::gles {
                 attachmentInfo.hasStencil = HasStencil(attachment.format);
                 depthStencil = sub.depthStencil.index;
             }
+            if (sub.dsResolve.index != INVALID_INDEX) {
+                auto &attachment = attachments[sub.dsResolve.index];
+                auto &attachmentInfo = attachmentGLInfos[sub.dsResolve.index];
+                const auto &feature = GetFormatFeature(attachment.format);
+                attachmentInfo.hasDepth = HasDepth(attachment.format);
+                attachmentInfo.hasStencil = HasStencil(attachment.format);
+                dsResolve = sub.dsResolve.index;
+            }
         }
         return true;
     }

@@ -44,6 +44,10 @@ namespace sky::rhi {
                 depthStencil = sub.depthStencil.index;
             }
 
+            if (sub.dsResolve.index != INVALID_INDEX) {
+                dsResolve = sub.dsResolve.index;
+            }
+
             for (auto &input : sub.inputs) {
                 if (input.index == depthStencil) {
                     if (input.mask & AspectFlagBit::DEPTH_BIT) {

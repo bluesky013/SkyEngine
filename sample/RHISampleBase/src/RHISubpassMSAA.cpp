@@ -8,33 +8,32 @@
 
 namespace sky::rhi {
 
-    void RHISubPassMSAA::SetupBase()
-    {
+    void RHISubPassMSAA::SetupBase() {
         SetupPass();
         SetupPool();
         RenderPass::Descriptor passDesc = {};
 
         auto sample1 = SampleCount::X4;
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,sample1,LoadOp::CLEAR,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat,sample1,LoadOp::CLEAR,StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat,SampleCount::X1,LoadOp::DONT_CARE,StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat, sample1,         LoadOp::CLEAR, StoreOp::STORE, LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE, LoadOp::CLEAR, StoreOp::STORE});
 
-        passDesc.subPasses.emplace_back(RenderPass::SubPass {
+        passDesc.subPasses.emplace_back(RenderPass::SubPass{
             {
                 {0, {AccessFlag::COLOR_WRITE}},
-                {2, {AccessFlag::COLOR_WRITE}},
+                   {2, {AccessFlag::COLOR_WRITE}},
             },
             {
                 {1, {AccessFlag::COLOR_WRITE}},
-                {3, {AccessFlag::COLOR_WRITE}},
+                   {3, {AccessFlag::COLOR_WRITE}},
             },
             {},
             {},
-            {4, {AccessFlag::DEPTH_STENCIL_WRITE}},
-            {5, {AccessFlag::DEPTH_STENCIL_WRITE}},
+            {   4, {AccessFlag::DEPTH_STENCIL_WRITE}},
+            {   5, {AccessFlag::DEPTH_STENCIL_WRITE}},
         });
 
         tiedPass = device->CreateRenderPass(passDesc);
@@ -43,17 +42,17 @@ namespace sky::rhi {
         auto &ext = swapChain->GetExtent();
 
         rhi::Image::Descriptor desc = {};
-        desc.imageType   = ImageType::IMAGE_2D;
-        desc.format      = PixelFormat::RGBA8_UNORM;
-        desc.extent      = {ext.width, ext.height, 1};
-        desc.mipLevels   = 1;
+        desc.imageType = ImageType::IMAGE_2D;
+        desc.format = PixelFormat::RGBA8_UNORM;
+        desc.extent = {ext.width, ext.height, 1};
+        desc.mipLevels = 1;
         desc.arrayLayers = 1;
-        desc.memory      = MemoryType::GPU_ONLY;
+        desc.memory = MemoryType::GPU_ONLY;
 
         rhi::ImageViewDesc viewDesc = {};
         {
             desc.samples = sample1;
-            desc.usage   = ImageUsageFlagBit::RENDER_TARGET;
+            desc.usage = ImageUsageFlagBit::RENDER_TARGET;
             {
                 auto image = device->CreateImage(desc);
                 ms1 = image->CreateView(viewDesc);
@@ -65,7 +64,8 @@ namespace sky::rhi {
         }
         {
             desc.samples = rhi::SampleCount::X1;
-            desc.usage   = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
+            desc.usage =
+                ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
             {
                 auto image = device->CreateImage(desc);
                 resolve1 = image->CreateView(viewDesc);
@@ -77,14 +77,16 @@ namespace sky::rhi {
         }
         {
             desc.samples = sample1;
-            desc.format  = dsFormat;
-            desc.usage   = ImageUsageFlagBit::DEPTH_STENCIL;
+            desc.format = dsFormat;
+            desc.usage = ImageUsageFlagBit::DEPTH_STENCIL;
 
             viewDesc.mask = AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT;
             {
                 auto image = device->CreateImage(desc);
                 ds = image->CreateView(viewDesc);
             }
+
+            desc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::SAMPLED;
             {
                 desc.samples = rhi::SampleCount::X1;
                 auto image = device->CreateImage(desc);
@@ -116,30 +118,44 @@ namespace sky::rhi {
 
         {
             DescriptorSetLayout::Descriptor layoutDesc = {};
-            layoutDesc.bindings.emplace_back(DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 0, ShaderStageFlagBit::FS, "colorImage"});
+            layoutDesc.bindings.emplace_back(
+                DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 0, ShaderStageFlagBit::FS, "colorImage1"});
+            layoutDesc.bindings.emplace_back(
+                DescriptorSetLayout::SetBinding{DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 1, ShaderStageFlagBit::FS, "colorImage2"});
             auto passlayout = device->CreateDescriptorSetLayout(layoutDesc);
             PipelineLayout::Descriptor pLayoutDesc = {};
             pLayoutDesc.layouts.emplace_back(passlayout);
             DescriptorSet::Descriptor setDesc = {passlayout};
             set1 = pool->Allocate(setDesc);
             set1->BindImageView(0, resolve1, 0);
+            set1->BindImageView(1, resolve2, 0);
             set1->Update();
             fullScreenLayout = device->CreatePipelineLayout(pLayoutDesc);
         }
 
 
         auto path = Platform::Get()->GetInternalPath();
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl", {path + "/shaders/RHISample/full_screen_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs.glsl", {path + "/shaders/RHISample/full_screen_fs.shader", builder::ShaderType::FS});
-        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_vs.glsl", {path + "/shaders/RHISample/triangle_msaa_vs.shader", builder::ShaderType::VS});
-        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_fs.glsl", {path + "/shaders/RHISample/triangle_msaa_fs.shader", builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_vs.glsl",
+                                               {path + "/shaders/RHISample/full_screen_vs.shader",
+                                                builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/full_screen_fs_2.glsl",
+                                               {path + "/shaders/RHISample/full_screen_fs_2.shader",
+                                                builder::ShaderType::FS});
+        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_vs.glsl",
+                                               {path + "/shaders/RHISample/triangle_msaa_vs.shader",
+                                                builder::ShaderType::VS});
+        builder::ShaderCompiler::CompileShader("shaders/triangle_msaa_fs.glsl",
+                                               {path + "/shaders/RHISample/triangle_msaa_fs.shader",
+                                                builder::ShaderType::FS});
 
         rhi::GraphicsPipeline::Descriptor psoDesc = {};
         psoDesc.state.rasterState.cullMode = rhi::CullModeFlagBits::NONE;
         psoDesc.state.blendStates.emplace_back(BlendState{});
         psoDesc.state.multiSample.sampleCount = rhi::SampleCount::X1;
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/full_screen_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/full_screen_fs.shader");
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS,
+                                  path + "/shaders/RHISample/full_screen_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS,
+                                  path + "/shaders/RHISample/full_screen_fs_2.shader");
         psoDesc.renderPass = renderPass;
         psoDesc.pipelineLayout = fullScreenLayout;
         psoDesc.vertexInput = emptyInput;
@@ -150,8 +166,10 @@ namespace sky::rhi {
         psoDesc.state.multiSample.sampleCount = sample1;
         psoDesc.state.depthStencil.depthWrite = true;
         psoDesc.state.depthStencil.depthTest = true;
-        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS, path + "/shaders/RHISample/triangle_msaa_vs.shader");
-        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS, path + "/shaders/RHISample/triangle_msaa_fs.shader");
+        psoDesc.vs = CreateShader(rhi, *device, ShaderStageFlagBit::VS,
+                                  path + "/shaders/RHISample/triangle_msaa_vs.shader");
+        psoDesc.fs = CreateShader(rhi, *device, ShaderStageFlagBit::FS,
+                                  path + "/shaders/RHISample/triangle_msaa_fs.shader");
         psoDesc.renderPass = tiedPass;
         psoDesc.pipelineLayout = emptyLayout;
         psoDesc.vertexInput = emptyInput;
@@ -223,6 +241,8 @@ namespace sky::rhi {
             barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
             barrier.dstFlags.emplace_back(rhi::AccessFlag::FRAGMENT_SRV);
             barrier.view = resolve1;
+            commandBuffer->QueueBarrier(barrier);
+            barrier.view = resolve2;
             commandBuffer->QueueBarrier(barrier);
         }
         commandBuffer->FlushBarriers();

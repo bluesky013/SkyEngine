@@ -29,10 +29,8 @@ namespace sky::gles {
 
         const std::vector<uint32_t> &GetGLColors() const { return colors; }
         const std::vector<uint32_t> &GetGLResolves() const { return resolves; }
-        uint32_t GetGLDepthStencil() const
-        {
-            return depthStencil;
-        }
+        uint32_t GetGLDepthStencil() const { return depthStencil; }
+        uint32_t GetGLDSResolve() const { return dsResolve; }
 
     private:
         std::vector<Attachment> attachments;

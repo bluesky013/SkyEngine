@@ -106,11 +106,12 @@ namespace sky::gles {
 
         const auto &surface = currentFramebuffer->GetSurface();
         GLuint fbo = 0;
+        GLuint resolveFbo = 0;
         if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
             context->MakeCurrent(*surface);
         }
         if (!surface) {
-            fbo = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
+            std::tie(fbo, resolveFbo) = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
         }
         if (cache->drawBuffer != fbo) {
             CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
@@ -217,6 +218,60 @@ namespace sky::gles {
         if (!invalidAttachments.empty()) {
             CHECK(glInvalidateFramebuffer(GL_FRAMEBUFFER, static_cast<uint32_t>(invalidAttachments.size()), invalidAttachments.data()));
             invalidAttachments.clear();
+        }
+
+        // external resolve
+        const auto &blitPairs = currentFramebuffer->GetBlitPairs();
+        if (!blitPairs.empty()) {
+            const auto &surface = currentFramebuffer->GetSurface();
+
+            GLuint fbo = 0;
+            GLuint resolveFbo = 0;
+            if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
+                context->MakeCurrent(*surface);
+            }
+            if (!surface) {
+                std::tie(fbo, resolveFbo) = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
+            }
+
+            if (cache->readBuffer != fbo) {
+                CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo));
+                cache->readBuffer = fbo;
+            }
+
+            if (cache->drawBuffer != resolveFbo) {
+                CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFbo));
+                cache->drawBuffer = resolveFbo;
+            }
+
+            for (uint32_t i = 0; i < blitPairs.size(); ++i) {
+                uint32_t src = blitPairs[i].first;
+                uint32_t dst = blitPairs[i].second;
+
+                auto &srcTex = currentFramebuffer->GetAttachment(src);
+                auto &dstTex = currentFramebuffer->GetAttachment(dst);
+                auto &ext = srcTex->GetImage()->GetDescriptor().extent;
+
+                auto mask = srcTex->GetViewDesc().mask;
+                GLbitfield bufferMask = 0;
+                if (mask & rhi::AspectFlagBit::COLOR_BIT) bufferMask |= GL_COLOR_BUFFER_BIT;
+                if (mask & rhi::AspectFlagBit::DEPTH_BIT) bufferMask |= GL_DEPTH_BUFFER_BIT;
+                if (mask & rhi::AspectFlagBit::STENCIL_BIT) bufferMask |= GL_STENCIL_BUFFER_BIT;
+
+                auto index = currentFramebuffer->GetColorIndex(dst);
+                if (index != INVALID_INDEX && (mask & rhi::AspectFlagBit::COLOR_BIT)) {
+                    std::vector<GLenum> drawBuffers(i + 1, GL_NONE);
+                    drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
+
+                    CHECK(glReadBuffer(GL_COLOR_ATTACHMENT0 + index));
+                    CHECK(glDrawBuffers(i + 1, drawBuffers.data()));
+                }
+
+                CHECK(glBlitFramebuffer(
+                    0, 0, ext.width, ext.height,
+                    0, 0, ext.width, ext.height,
+                    bufferMask, GL_NEAREST));
+            }
         }
     }
 

@@ -19,6 +19,7 @@ namespace sky::gles {
         GLenum            indexType   = GL_UNSIGNED_INT;
         GLuint            program     = 0;
         GLuint            drawBuffer  = 0;
+        GLuint            readBuffer  = 0;
         GLuint            vao         = 0;
         bool              scissorTest = false;
         rhi::Viewport     viewport    = {0, 0, 1, 1, 0.f, 1.f};
