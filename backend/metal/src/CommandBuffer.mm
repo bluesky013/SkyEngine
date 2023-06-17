@@ -1,0 +1,188 @@
+//
+// Created by Zach Lee on 2023/5/28.
+//
+
+#include <mtl/CommandBuffer.h>
+#include <mtl/Device.h>
+#include <mtl/Fence.h>
+#include <mtl/Semaphore.h>
+#include <mtl/Buffer.h>
+#include <mtl/VertexAssembly.h>
+
+namespace sky::mtl {
+    CommandBuffer::~CommandBuffer()
+    {
+    }
+
+    bool CommandBuffer::Init(const Descriptor &desc)
+    {
+        auto *mtlQueue = static_cast<Queue*>(device.GetQueue(desc.queueType));
+        queue = mtlQueue->GetNativeHandle();
+        return true;
+    }
+
+    void CommandBuffer::Begin()
+    {
+        releasePool = [[NSAutoreleasePool alloc] init];
+        currentCommandBuffer = [queue commandBuffer];
+    }
+
+    void CommandBuffer::End()
+    {
+    }
+
+    void CommandBuffer::Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit)
+    {
+        for (auto &[stage, sem] : submit.waits) {
+            std::static_pointer_cast<Semaphore>(sem)->Wait(currentCommandBuffer);
+        }
+        for (auto &signal : submit.submitSignals) {
+            std::static_pointer_cast<Semaphore>(signal)->Signal(currentCommandBuffer);
+        }
+        if (submit.fence) {
+            std::static_pointer_cast<Fence>(submit.fence)->Signal(currentCommandBuffer);
+        }
+        [currentCommandBuffer commit];
+
+        [releasePool release];
+        releasePool = nil;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &beginInfo)
+    {
+        currentRenderPass = std::static_pointer_cast<RenderPass>(beginInfo.renderPass);
+        currentFramebuffer = std::static_pointer_cast<FrameBuffer>(beginInfo.frameBuffer);
+        passDesc = currentFramebuffer->RequestRenderPassDescriptor(currentRenderPass, beginInfo.clearCount, beginInfo.clearValues);
+        encoder = [commandBuffer.GetNativeHandle() renderCommandEncoderWithDescriptor: passDesc];
+        currentSubpass = 0;
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BindPipeline(const rhi::GraphicsPipelinePtr &pso)
+    {
+        auto pipeline = std::static_pointer_cast<GraphicsPipeline>(pso);
+        auto &rasterizerState = pipeline->GetRasterizerState();
+
+        // pipeline state
+        primitive = pipeline->GetPrimitiveType();
+        [encoder setRenderPipelineState: pipeline->GetRenderPipelineState()];
+        [encoder setFrontFacingWinding: rasterizerState.frontFace];
+        [encoder setCullMode: rasterizerState.cullMode];
+        [encoder setTriangleFillMode: rasterizerState.fillMode];
+        [encoder setDepthClipMode: rasterizerState.depthClipMode];
+        [encoder setDepthBias: rasterizerState.depthBias
+                   slopeScale: rasterizerState.depthSlopeScale
+                        clamp: rasterizerState.depthBiasClamp];
+
+        // depth stencil
+        [encoder setDepthStencilState: pipeline->GetDepthStencilState()];
+        [encoder setStencilFrontReferenceValue: pipeline->GetFrontReference()
+                            backReferenceValue: pipeline->GetBackReference()];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BindAssembly(const rhi::VertexAssemblyPtr &assembly)
+    {
+        currentVa = std::static_pointer_cast<VertexAssembly>(assembly);
+        currentVa->OnBind(encoder);
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::SetViewport(uint32_t count, const rhi::Viewport *viewports)
+    {
+        MTLViewport mtlViewport = {};
+        auto       &viewport    = viewports[0];
+        mtlViewport.width       = viewport.width;
+        mtlViewport.height      = viewport.height;
+        mtlViewport.originX     = viewport.x;
+        mtlViewport.originY     = viewport.y;
+        mtlViewport.znear       = viewport.minDepth;
+        mtlViewport.zfar        = viewport.maxDepth;
+
+        [encoder setViewport: mtlViewport];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::SetScissor(uint32_t count, const rhi::Rect2D *scissors)
+    {
+        MTLScissorRect mtlScissor = {};
+        auto &scissor = scissors[0];
+        mtlScissor.x = scissor.offset.x;
+        mtlScissor.y = scissor.offset.y;
+        mtlScissor.width = scissor.extent.width;
+        mtlScissor.height = scissor.extent.height;
+
+        [encoder setScissorRect: mtlScissor];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexed(const rhi::CmdDrawIndexed &indexed)
+    {
+        auto indexType = currentVa->GetIndexType();
+        NSUInteger offset = indexed.firstIndex * (indexType == MTLIndexTypeUInt32 ? 4 : 2) + currentVa->GetIndexBufferOffset();
+        [encoder drawIndexedPrimitives: primitive
+                            indexCount: indexed.indexCount
+                             indexType: indexType
+                           indexBuffer: currentVa->GetIndexBuffer()
+                     indexBufferOffset: offset
+                         instanceCount: indexed.instanceCount
+                            baseVertex: indexed.vertexOffset
+                          baseInstance: indexed.firstInstance];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawLinear(const rhi::CmdDrawLinear &linear)
+    {
+        [encoder drawPrimitives: primitive
+                    vertexStart: linear.firstVertex
+                    vertexCount: linear.vertexCount
+                  instanceCount: linear.instanceCount];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexedIndirect(const rhi::BufferPtr &buffer,
+                                                               uint32_t offset, uint32_t count, uint32_t stride)
+    {
+        auto mtlBuffer = std::static_pointer_cast<Buffer>(buffer);
+        for (uint32_t i = 0; i < count; ++i) {
+            const auto off = offset + i * stride;
+            [encoder drawIndexedPrimitives: primitive
+                                 indexType: currentVa->GetIndexType()
+                               indexBuffer: currentVa->GetIndexBuffer()
+                         indexBufferOffset: currentVa->GetIndexBufferOffset()
+                            indirectBuffer: mtlBuffer->GetNativeHandle()
+                      indirectBufferOffset: off];
+        };
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer,
+                                                        uint32_t offset, uint32_t count, uint32_t stride)
+    {
+        auto mtlBuffer = std::static_pointer_cast<Buffer>(buffer);
+        for (uint32_t i = 0; i < count; ++i) {
+            const auto off = offset + i * stride;
+            [encoder drawPrimitives: primitive
+                      indirectBuffer: mtlBuffer->GetNativeHandle()
+                indirectBufferOffset: off];
+        };
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
+    {
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::NextSubPass()
+    {
+        ++currentSubpass;
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
+    {
+        [encoder endEncoding];
+        return *this;
+    }
+} // namespace sky::mtl

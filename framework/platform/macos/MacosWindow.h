@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../sdl/SDLWindow.h"
+#include "../genetic/SDLWindow.h"
 
 namespace sky {
 
@@ -15,6 +15,7 @@ namespace sky {
 
     private:
         bool Init(const Descriptor &desc) override;
+        void UpdateWindow() override;
     };
 
 

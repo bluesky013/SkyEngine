@@ -82,7 +82,7 @@ namespace sky {
         template <typename T>
         const T *GetAsConst() const
         {
-            if (info != nullptr && TypeInfo<T>::Hash() == info->hash) {
+            if (info != nullptr && TypeInfo<T>::Hash() == info->typeId) {
                 return static_cast<const T *>(Data());
             }
             return nullptr;

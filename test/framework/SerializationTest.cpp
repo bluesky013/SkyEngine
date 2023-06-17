@@ -2,9 +2,13 @@
 // Created by Zach Lee on 2021/12/9.
 //
 
+
 #include <core/logger/Logger.h>
-#include <framework/serialization/AnyRT.h>
+#include <framework/serialization/SerializationUtil.h>
+#include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/BinaryArchive.h>
+#include <fstream>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -46,37 +50,45 @@ TEST(SerializationTest, TypeTest)
     auto testReflect = context->FindType("TestReflect");
     ASSERT_NE(testReflect, nullptr);
     ASSERT_EQ(testReflect->members.size(), 7);
-    LOG_I(TAG, "name %s", testReflect->info->typeId.data());
+    LOG_I(TAG, "name %s", testReflect->info->markedName.data());
 
     auto testMember = context->FindType("TestMember");
     ASSERT_NE(testMember, nullptr);
     ASSERT_EQ(testMember->members.size(), 2);
-    LOG_I(TAG, "name %s", testMember->info->typeId.data());
+    LOG_I(TAG, "name %s", testMember->info->markedName.data());
 
     for (auto &member : testReflect->members) {
         auto &memberNode = member.second;
-        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->typeId.data(),
+        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->markedName.data(),
               memberNode.info->isFundamental, memberNode.isStatic, memberNode.isConst);
     }
 
     LOG_I(TAG, "%u, %u, %u, %u", std::is_trivial_v<TestMember>, std::is_trivial_v<TestReflect>, std::is_trivial_v<int>, std::is_trivial_v<int *>);
 
-    Any       v(std::in_place_type<TestReflect>);
+    TestReflect v = {};
+    uint32_t typeId = TypeInfo<TestReflect>::Hash();
     uint32_t *ptr = nullptr;
-    ASSERT_EQ(SetAny(v, "a", 5u), true);
-    ASSERT_EQ(SetAny(v, "b", 6.f), true);
-    ASSERT_EQ(SetAny(v, "c", ptr), true);
-    auto val = v.GetAs<TestReflect>();
-    ASSERT_EQ(val->a, 5u);
-    ASSERT_EQ(val->b, 6.f);
-    ASSERT_EQ(val->c, nullptr);
+    ASSERT_EQ(SetValue(v, "a", 5u), true);
+    ASSERT_EQ(SetValue(v, "b", 6.f), true);
+    ASSERT_EQ(SetValue(v, "c", ptr), true);
+    ASSERT_EQ(SetValue(v, "d", ptr), true);
+    ASSERT_EQ(SetValue(v, "e", 7.0), false);
 
-    Any va = GetAny(v, "a");
-    ASSERT_EQ(*va.GetAs<uint32_t>(), 5u);
-    Any vb = GetAny(v, "b");
-    ASSERT_EQ(*vb.GetAs<float>(), 6.f);
-    Any vc = GetAny(v, "c");
-    ASSERT_EQ(*vc.GetAs<uint32_t *>(), nullptr);
+    ASSERT_EQ(v.a, 5u);
+    ASSERT_EQ(v.b, 6.f);
+    ASSERT_EQ(v.c, nullptr);
+
+   void *va = GetValue(reinterpret_cast<void*>(&v), typeId, "a");
+   ASSERT_NE(va, nullptr);
+   ASSERT_EQ(*static_cast<uint32_t*>(va), 5U);
+
+   void *vb = GetValue(reinterpret_cast<void*>(&v), typeId, "b");
+   ASSERT_NE(vb, nullptr);
+   ASSERT_EQ(*static_cast<float*>(vb), 6.f);
+
+   void *vc = GetValue(reinterpret_cast<void*>(&v), typeId, "c");
+   ASSERT_NE(vc, nullptr);
+   ASSERT_EQ(*static_cast<uint32_t**>(vc), nullptr);
 }
 
 struct Ctor1 {
@@ -128,6 +140,21 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d, true);
     }
 
+    {
+        Any    any1 = MakeAny(TypeInfo<Ctor1>::Hash(), 1, 2.f, 3.0, true);
+        Ctor1 *ptr  = any1.GetAs<Ctor1>();
+        ASSERT_NE(ptr, nullptr);
+        ASSERT_EQ(ptr->a, 1);
+        ASSERT_EQ(ptr->b, 2.f);
+        ASSERT_EQ(ptr->c, 3.0);
+        ASSERT_EQ(ptr->d, true);
+    }
+
+    {
+        Any    any1 = MakeAny(TypeInfo<Ctor1>::Hash(), 1, 2.f, 3.0, 4.0);
+        ASSERT_EQ(!any1, true);
+    }
+
     std::string output;
     {
         Any    any2 = MakeAny<Ctor2>(1.0, 3llu, -1ll, Ctor1{1, 2.0f, 3.0, true});
@@ -140,5 +167,296 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d.b, 2.0f);
         ASSERT_EQ(ptr->d.c, 3.0);
         ASSERT_EQ(ptr->d.d, true);
+    }
+}
+
+struct TestObject {
+    uint64_t uv1 = 1;
+    uint32_t uv2 = 2;
+    uint16_t uv3 = 3;
+    uint8_t  uv4 = 4;
+    int64_t  iv1 = 5;
+    int32_t  iv2 = 6;
+    int16_t  iv3 = 7;
+    int8_t   iv4 = 9;
+    float    fv1 = 10;
+    double   dv1 = 11;
+    bool     bv1 = true;
+    bool     bv2 = false;
+};
+
+struct TestStruct {
+    TestObject t1;
+    std::string t2 = "123";
+};
+
+TEST(ArchiveTest, JsonArchiveTest)
+{
+    SerializationContext::Get()->Register<TestObject>("TestObject")
+        .Member<&TestObject::uv1>("uv1")
+        .Member<&TestObject::uv2>("uv2")
+        .Member<&TestObject::uv3>("uv3")
+        .Member<&TestObject::uv4>("uv4")
+        .Member<&TestObject::iv1>("iv1")
+        .Member<&TestObject::iv2>("iv2")
+        .Member<&TestObject::iv3>("iv3")
+        .Member<&TestObject::iv4>("iv4")
+        .Member<&TestObject::fv1>("fv1")
+        .Member<&TestObject::dv1>("dv1")
+        .Member<&TestObject::bv1>("bv1")
+        .Member<&TestObject::bv2>("bv2");
+
+    SerializationContext::Get()->Register<TestStruct>("Test")
+        .Member<&TestStruct::t1>("t1")
+        .Member<&TestStruct::t2>("t2");
+
+    {
+        std::ofstream stream("test.json");
+        JsonOutputArchive archive(stream);
+
+        TestStruct obj;
+        obj.t1.uv1 += 10;
+        obj.t1.uv2 += 10;
+        obj.t1.uv3 += 10;
+        obj.t1.uv4 += 10;
+        obj.t1.iv1 += 10;
+        obj.t1.iv2 += 10;
+        obj.t1.iv3 += 10;
+        obj.t1.iv4 += 10;
+        obj.t1.fv1 += 10;
+        obj.t1.dv1 += 10;
+        obj.t1.bv1 = false;
+        obj.t1.bv2 = true;
+        obj.t2 = "test2";
+
+        archive.SaveValueObject(obj);
+    }
+
+    {
+        std::ifstream stream("test.json");
+        JsonInputArchive archive(stream);
+
+        TestStruct obj;
+        archive.LoadValueObject(obj);
+
+        TestStruct dft{};
+
+        ASSERT_EQ(obj.t1.uv1, dft.t1.uv1 += 10);
+        ASSERT_EQ(obj.t1.uv2, dft.t1.uv2 += 10);
+        ASSERT_EQ(obj.t1.uv3, dft.t1.uv3 += 10);
+        ASSERT_EQ(obj.t1.uv4, dft.t1.uv4 += 10);
+        ASSERT_EQ(obj.t1.iv1, dft.t1.iv1 += 10);
+        ASSERT_EQ(obj.t1.iv2, dft.t1.iv2 += 10);
+        ASSERT_EQ(obj.t1.iv3, dft.t1.iv3 += 10);
+        ASSERT_EQ(obj.t1.iv4, dft.t1.iv4 += 10);
+        ASSERT_EQ(obj.t1.fv1, dft.t1.fv1 += 10);
+        ASSERT_EQ(obj.t1.dv1, dft.t1.dv1 += 10);
+        ASSERT_EQ(obj.t1.bv1, false);
+        ASSERT_EQ(obj.t1.bv2, true);
+        ASSERT_EQ(obj.t2, "test2");
+    }
+}
+
+struct TestSerAE {
+    int v1 = 0;
+    int v2 = 0;
+    int v3 = 0;
+};
+
+struct TestSerFunc {
+    virtual ~TestSerFunc() = default;
+
+    virtual void Load(JsonInputArchive &archive) = 0;
+
+    virtual void Save(JsonOutputArchive &archive) const = 0;
+};
+
+struct TestSerFuncDerv : public TestSerFunc {
+    void Load(JsonInputArchive &archive) override {
+        archive.Start("a");
+        a = archive.LoadInt();
+        archive.End();
+
+        archive.Start("b");
+        b = static_cast<float>(archive.LoadDouble());
+        archive.End();
+
+        archive.StartArray("c");
+        for (uint32_t i = 0; i < c.size(); ++i) {
+            archive.LoadArrayElement(c[i]);
+        }
+        archive.End();
+    }
+
+    void Save(JsonOutputArchive &archive) const override {
+        archive.StartObject();
+        archive.Key("a");
+        archive.SaveValue(a);
+        archive.Key("b");
+        archive.SaveValue(b);
+        archive.Key("c");
+        archive.StartArray();
+        for (auto &v : c) {
+            archive.SaveValueObject(v);
+        }
+        archive.EndArray();
+        archive.EndObject();
+    }
+
+    int a;
+    float b;
+    std::vector<TestSerAE> c;
+};
+
+
+TEST(ArchiveTest, JsonArchiveRegisterTest)
+{
+
+    SerializationContext::Get()
+        ->Register<TestSerAE>("TestSerAE")
+        .Member<&TestSerAE::v1>("v1")
+        .Member<&TestSerAE::v2>("v2")
+        .Member<&TestSerAE::v3>("v3");
+
+    SerializationContext::Get()
+        ->Register<TestSerFunc>("TestSerFunc")
+        .JsonLoad<&TestSerFunc::Load>()
+        .JsonSave<&TestSerFunc::Save>();
+
+    SerializationContext::Get()
+        ->Register<TestSerFuncDerv>("TestSerFuncDerv")
+        .Member<&TestSerFuncDerv::a>("a")
+        .Member<&TestSerFuncDerv::b>("b")
+        .Member<&TestSerFuncDerv::c>("c")
+        .JsonLoad<&TestSerFunc::Load>()
+        .JsonSave<&TestSerFunc::Save>();
+
+    {
+        TestSerFuncDerv test;
+        test.a = 1;
+        test.b = 2.f;
+        test.c.resize(5, {});
+        for (uint32_t i = 0; i < 5; ++i) {
+            test.c[i].v1 = i * 3;
+            test.c[i].v2 = i * 3 + 1;
+            test.c[i].v3 = i * 3 + 2;
+        }
+        std::ofstream     file("json-serialization-test.json", std::ios::binary);
+        JsonOutputArchive archive(file);
+
+        TestSerFunc &f = test;
+        archive.SaveValueObject(&f, TypeInfo<TestSerFunc>::Hash());
+    }
+
+    {
+        TestSerFuncDerv  test;
+        std::ifstream    file("json-serialization-test.json", std::ios::binary);
+        JsonInputArchive archive(file);
+
+        TestSerFunc &f = test;
+        archive.LoadValueById(&f, TypeInfo<TestSerFunc>::Hash());
+
+        std::cout << test.a << std::endl;
+    }
+}
+
+TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
+{
+    {
+        std::ofstream file("binary-fundamental-test.bin", std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveValue(-1);
+        archive.SaveValue(2U);
+        archive.SaveValue(3.F);
+        archive.SaveValue(std::string("abcd"));
+        archive.SaveValue(5LLU);
+        archive.SaveValue(true);
+    }
+
+    {
+        std::ifstream file("binary-fundamental-test.bin", std::ios::binary);
+        BinaryInputArchive archive(file);
+        {
+            int value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, -1);
+        }
+        {
+            uint32_t value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 2U);
+        }
+        {
+            float value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 3.F);
+        }
+        {
+            std::string value;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, std::string("abcd"));
+        }
+        {
+            uint64_t value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, 5LLU);
+        }
+        {
+            bool value = 0;
+            archive.LoadValue(value);
+            ASSERT_EQ(value, true);
+        }
+    }
+}
+
+struct TestBinArchive_B1 {
+    int a = 0;
+    float b = 0.f;
+};
+
+struct TestBinArchive_B2 {
+    uint32_t c = 0;
+    double d = 0.0;
+};
+
+struct TestBinArchive {
+    TestBinArchive_B1 b1;
+    TestBinArchive_B2 b2;
+};
+
+TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
+{
+    auto *context = SerializationContext::Get();
+
+    context->Register<TestBinArchive_B1>("TestBinArchive_B1")
+        .Member<&TestBinArchive_B1::a>("a")
+        .Member<&TestBinArchive_B1::b>("b");
+
+    context->Register<TestBinArchive_B2>("TestBinArchive_B2")
+        .Member<&TestBinArchive_B2::c>("c")
+        .Member<&TestBinArchive_B2::d>("d");
+
+    context->Register<TestBinArchive>("TestBinArchive")
+        .Member<&TestBinArchive::b1>("b1")
+        .Member<&TestBinArchive::b2>("b2");
+
+    {
+        TestBinArchive test = {{1, 2.f}, {3, 4.0}};
+        std::ofstream file("binary-class-test.bin", std::ios::binary);
+        BinaryOutputArchive archive(file);
+        archive.SaveObject(&test, TypeInfo<TestBinArchive>::Hash());
+    }
+
+    {
+        std::ifstream file("binary-class-test.bin", std::ios::binary);
+        BinaryInputArchive archive(file);
+
+        TestBinArchive test = {};
+        archive.LoadObject(&test, TypeInfo<TestBinArchive>::Hash());
+
+        ASSERT_EQ(test.b1.a, 1);
+        ASSERT_EQ(test.b1.b, 2.f);
+        ASSERT_EQ(test.b2.c, 3);
+        ASSERT_EQ(test.b2.d, 4.0);
     }
 }

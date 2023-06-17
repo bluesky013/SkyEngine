@@ -14,7 +14,7 @@ import com.google.androidgamesdk.GameActivity;
 public class SkyEngineActivity extends GameActivity {
 
     static {
-        System.loadLibrary("AndroidLauncher");
+        System.loadLibrary("Launcher");
     }
 
     private void hideSystemUI() {
@@ -37,7 +37,6 @@ public class SkyEngineActivity extends GameActivity {
     protected void onCreate(Bundle savedInstanceState) {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         hideSystemUI();
-
         super.onCreate(savedInstanceState);
     }
 }

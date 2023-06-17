@@ -16,13 +16,13 @@ namespace sky {
         CameraComponent()  = default;
         ~CameraComponent() = default;
 
-        TYPE_RTTI_WITH_VT(CameraComponent, "473D65D7-2D8D-48E3-86FE-0C20016A387D")
+        TYPE_RTTI_WITH_VT(CameraComponent)
 
         static void Reflect();
 
         void Perspective(float near, float far, float fov, float aspect);
 
-        void Otho(float left, float right, float top, float bottom, float near, float far);
+        void Otho(float height);
 
         void UpdateProjection();
 
@@ -32,19 +32,17 @@ namespace sky {
 
         void OnDestroy() override;
 
+        void Save(JsonOutputArchive &ar) const override;
+        void Load(JsonInputArchive &ar) override;
+
     private:
         float near   = 0.1f;
         float far    = 100.f;
         float fov    = 60;
         float aspect = 1.f;
-
-        float left   = -1.f;
-        float right  = 1.f;
-        float top    = 1.f;
-        float bottom = -1.f;
-
+        float othoH  = 1.f;
         ProjectType type;
-        Matrix4     projection;
+        Matrix4    projection;
     };
 
 } // namespace sky

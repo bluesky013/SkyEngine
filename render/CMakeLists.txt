@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET SkyRender STATIC
+sky_add_library(TARGET SkyRender.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,11 +10,20 @@ sky_add_library(TARGET SkyRender STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Core
         Framework
-        VulkanRHI
-        3rdParty::SPIRVCross
-        3rdParty::stb
-#        3rdParty::freetype
-        3rdParty::imgui
+        RHI
     )
+
+sky_add_library(TARGET SkyRender SHARED
+    SOURCES
+        RenderModule.cpp
+    PRIVATE_INC
+        src
+    PUBLIC_INC
+        include
+    LINK_LIBS
+        SkyRenderAdaptor
+    )
+
+add_subdirectory(adaptor)
+sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

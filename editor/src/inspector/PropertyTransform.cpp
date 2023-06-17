@@ -29,9 +29,7 @@ namespace sky::editor {
     {
         PropertyWidget::SetInstance(instance, "", memberNode);
         // TODO
-        Any any = memberNode.getterFn(instance, false);
-        Transform* trans = any.GetAs<Transform>();
-//        Transform* trans = *static_cast<Transform**>(any.Data());
+        Transform* trans = static_cast<Transform *>(memberNode.getterFn(instance));
 
         auto info = TypeInfoObj<Transform>::Get()->RtInfo();
         auto node = GetTypeNode(info);

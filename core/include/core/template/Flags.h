@@ -11,7 +11,12 @@ namespace sky {
     template <typename T>
     class Flags {
     public:
-        using ValueType = typename std::underlying_type<T>::type;
+        using ValueType = typename std::make_unsigned<std::underlying_type_t<T>>::type ;
+
+        static constexpr ValueType AllFlagBits()
+        {
+            return std::numeric_limits<ValueType>::max();
+        }
 
         constexpr Flags() noexcept : value{0}
         {
@@ -54,6 +59,11 @@ namespace sky {
             return Flags<T>(value ^ rhs.value);
         }
 
+        constexpr Flags<T> operator~() const noexcept
+        {
+            return Flags<T>(value ^ AllFlagBits());
+        }
+
         // assignment operators
         constexpr Flags<T> & operator=(Flags<T> const& rhs) noexcept
         {
@@ -82,6 +92,11 @@ namespace sky {
         explicit constexpr operator bool() const noexcept
         {
             return value != 0;
+        }
+
+        explicit constexpr operator ValueType() const noexcept
+        {
+            return value;
         }
 
         ValueType value;

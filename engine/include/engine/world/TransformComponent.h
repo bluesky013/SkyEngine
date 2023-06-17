@@ -15,7 +15,7 @@ namespace sky {
         TransformComponent() = default;
         ~TransformComponent();
 
-        TYPE_RTTI_WITH_VT(TransformComponent, "A416C740-0466-4D7F-A918-668C0341C176")
+        TYPE_RTTI_WITH_VT(TransformComponent)
 
         static void Reflect();
 
@@ -37,6 +37,9 @@ namespace sky {
         const Transform &GetWorld() const;
 
         void Print();
+
+        void Save(JsonOutputArchive &ar) const override;
+        void Load(JsonInputArchive &ar) override;
 
     private:
         static void PrintChild(TransformComponent &comp, std::string str);

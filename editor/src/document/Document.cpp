@@ -6,14 +6,25 @@
 #include <QFileInfo>
 #include <QDir>
 #include <fstream>
-#include <cereal/cereal.hpp>
-#include <cereal/archives/json.hpp>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
+#include <EngineRoot.h>
 
 namespace sky::editor {
 
     Document::Document(const QString &path)
     {
         projectFullPath = path;
+    }
+
+    Document::~Document()
+    {
+        ResetFlag(DocumentFlagBit::PROJECT_OPEN);
+        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
     }
 
     void Document::SetFlag(DocumentFlagBit bit)
@@ -34,6 +45,12 @@ namespace sky::editor {
     const WorldPtr &Document::GetMainWorld() const
     {
         return currentLevel->GetWorld();
+    }
+
+    void Document::Reflect()
+    {
+        SerializationContext::Get()->Register<ProjectData>("ProjectData")
+            .Member<&ProjectData::version>("version");
     }
 
     void Document::Init()
@@ -57,22 +74,27 @@ namespace sky::editor {
         mkdir("levels");
 
         SetFlag(DocumentFlagBit::PROJECT_OPEN);
+
+        AssetManager::Get()->Reset(projectHome.toStdString() + "/assets.db");
+        AssetManager::Get()->RegisterSearchPath(projectHome.toStdString());
+        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
+        Interface<ISystemNotify>::Get()->GetApi()->GetSettings().SetValue("PROJECT_PATH", projectHome.toStdString());
     }
 
     void Document::Read()
     {
         auto str = projectFullPath.toStdString();
         std::ifstream file(str, std::ios::binary);
-        cereal::JSONInputArchive archive(file);
-        archive >> projectData;
+        JsonInputArchive archive(file);
+        archive.LoadValueObject(projectData);
     }
 
     void Document::Save()
     {
         auto str = projectFullPath.toStdString();
         std::ofstream file(str, std::ios::binary);
-        cereal::JSONOutputArchive archive(file);
-        archive << projectData;
+        JsonOutputArchive archive(file);
+        archive.SaveValueObject(projectData);
     }
 
     void Document::OpenLevel(const QString &path, bool newLevel)
@@ -83,11 +105,13 @@ namespace sky::editor {
         } else {
             currentLevel->Open(path);
         }
+        SetFlag(DocumentFlagBit::LEVEL_OPEN);
     }
 
     void Document::CloseLevel()
     {
         currentLevel.reset();
+        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
     }
 
 } // namespace sky::editor

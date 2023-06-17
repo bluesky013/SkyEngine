@@ -6,7 +6,16 @@
 #include <engine/world/TransformComponent.h>
 #include <engine/world/World.h>
 
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
 namespace sky {
+
+    void GameObject::Reflect()
+    {
+        SerializationContext::Get()->Register<GameObject>("GameObject")
+            .JsonLoad<&GameObject::Load>()
+            .JsonSave<&GameObject::Save>();
+    }
 
     GameObject::~GameObject()
     {
@@ -47,9 +56,14 @@ namespace sky {
         trans->SetParent(parent);
     }
 
+    void GameObject::SetParent(const Uuid &gameObject)
+    {
+        SetParent(world->GetGameObjectByUuid(gameObject));
+    }
+
     GameObject *GameObject::GetParent() const
     {
-        auto trans = GetComponent<TransformComponent>();
+        auto trans = GetComponent<TransformComponent>()->GetParent();
         return trans != nullptr ? trans->object : nullptr;
     }
 
@@ -64,4 +78,50 @@ namespace sky {
     {
         return components;
     }
+
+    void GameObject::Save(JsonOutputArchive &ar) const
+    {
+        ar.StartObject();
+        ar.SaveValueObject("uuid", uuid.ToString());
+        ar.SaveValueObject("parent", GetParent()->GetUuid().ToString());
+        ar.SaveValueObject("name", name);
+
+        ar.Key("components");
+        ar.StartArray();
+        for (auto &comp : components) {
+            ar.StartObject();
+            ar.Key("type");
+            ar.SaveValue(comp->GetType());
+            ar.Key("data");
+            ar.SaveValueObject(*comp);
+            ar.EndObject();
+        }
+        ar.EndArray();
+        ar.EndObject();
+    }
+
+    void GameObject::Load(JsonInputArchive &ar)
+    {
+        std::string id;
+        ar.LoadKeyValue("uuid", id);
+        uuid = Uuid::CreateFromString(id.c_str());
+
+        std::string parentId;
+        ar.LoadKeyValue("parent", parentId);
+        auto parent = Uuid::CreateFromString(parentId.c_str());
+
+        ar.LoadKeyValue("name", name);
+
+        uint32_t size = ar.StartArray("components");
+        for (uint32_t i = 0; i < size; ++i) {
+            uint32_t typeId = 0;
+            ar.LoadKeyValue("type", typeId);
+            auto *comp = AddComponent(typeId);
+            ar.LoadKeyValue("data", *comp);
+            ar.NextArrayElement();
+        }
+        ar.End();
+        SetParent(parent);
+    }
+
 } // namespace sky

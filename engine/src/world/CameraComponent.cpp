@@ -7,24 +7,26 @@
 #include <core/math/MathUtil.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
-
+#include <framework/serialization/JsonArchive.h>
 namespace sky {
 
     void CameraComponent::Reflect()
     {
         SerializationContext::Get()
-            ->Register<ProjectType>(TypeInfo<ProjectType>::Name())()
+            ->Register<ProjectType>("ProjectType")()
             .Property(ProjectType::PROJECTIVE, std::string("PROJECTIVE"))
             .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
 
         SerializationContext::Get()
-            ->Register<CameraComponent>(S_TYPE)
+            ->Register<CameraComponent>(NAME)
             .Member<&CameraComponent::near>("near")
             .Member<&CameraComponent::far>("far")
             .Member<&CameraComponent::fov>("fov")
             .Member<&CameraComponent::aspect>("aspect")
             .Member<&CameraComponent::type>("projectType")
             .Property(UI_PROP_VISIBLE, false);
+
+        ComponentFactory::Get()->RegisterComponent<CameraComponent>();
     }
 
     void CameraComponent::Perspective(float near_, float far_, float fov_, float aspect_)
@@ -37,14 +39,9 @@ namespace sky {
         UpdateProjection();
     }
 
-    void CameraComponent::Otho(float left_, float right_, float top_, float bottom_, float near_, float far_)
+    void CameraComponent::Otho(float height)
     {
-        left   = left_;
-        right  = right_;
-        top    = top_;
-        bottom = bottom_;
-        near   = near_;
-        far    = far_;
+        othoH = height;
         type   = ProjectType::ORTHOGONAL;
         UpdateProjection();
     }
@@ -54,7 +51,9 @@ namespace sky {
         if (type == ProjectType::PROJECTIVE) {
             projection = MakePerspective(fov / 180.f * 3.14f, aspect, near, far);
         } else {
-            projection = MakeOrthogonal(left, right, top, bottom, near, far);
+            const float x = othoH * aspect;
+            const float y = othoH;
+            projection = MakeOrthogonal(-x, x, y, -y, near, far);
         }
     }
 
@@ -68,5 +67,27 @@ namespace sky {
 
     void CameraComponent::OnDestroy()
     {
+    }
+
+    void CameraComponent::Save(JsonOutputArchive &ar) const
+    {
+        ar.StartObject();
+        ar.SaveValueObject(std::string("near"), near);
+        ar.SaveValueObject(std::string("far"), far);
+        ar.SaveValueObject(std::string("fov"), fov);
+        ar.SaveValueObject(std::string("aspect"), aspect);
+        ar.SaveValueObject(std::string("othoH"), othoH);
+        ar.SaveValueObject(std::string("type"), type);
+        ar.EndObject();
+    }
+
+    void CameraComponent::Load(JsonInputArchive &ar)
+    {
+        ar.LoadKeyValue("near", near);
+        ar.LoadKeyValue("far", far);
+        ar.LoadKeyValue("fov", fov);
+        ar.LoadKeyValue("aspect", aspect);
+        ar.LoadKeyValue("othoH", othoH);
+        ar.LoadKeyValue("type", type);
     }
 } // namespace sky

@@ -50,11 +50,12 @@ namespace sky {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
-        commandBuffer->Wait();
+        fence->Wait();
+        fence->Reset();
         commandBuffer->Begin();
 
         auto cmd             = commandBuffer->GetNativeHandle();
-        auto graphicsEncoder = commandBuffer->EncodeGraphics();
+        auto graphicsEncoder = commandBuffer->EncodeVkGraphics();
 
         VkClearValue clearValue     = {};
         clearValue.color.float32[0] = 0.f;
@@ -62,8 +63,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args          = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args          = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.vertexCount   = 3;
@@ -89,6 +90,7 @@ namespace sky {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+        submitInfo.fence = fence;
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 

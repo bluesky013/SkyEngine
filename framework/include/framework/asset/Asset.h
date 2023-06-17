@@ -4,11 +4,10 @@
 
 #pragma once
 
-#include <cereal/archives/binary.hpp>
-#include <cereal/archives/json.hpp>
-#include <cereal/archives/xml.hpp>
 #include <core/jobsystem/JobSystem.h>
 #include <core/util/Uuid.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/BinaryArchive.h>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -25,10 +24,15 @@ namespace sky {
         enum class Status { INITIAL, LOADING, LOADED };
 
         void SetUuid(const Uuid &id);
+        const Uuid &GetUuid() const { return uuid; }
 
-        const Uuid &GetUuid() const;
+        void SetPath(const std::string &fullPath);
+        const std::string &GetPath() const { return path; }
 
-        Status GetStatus() const;
+        virtual const Uuid &GetType() const = 0;
+        Status GetStatus() const { return status; }
+
+        virtual const uint8_t *GetData() const = 0;
 
         void BlockUtilLoaded()
         {
@@ -43,11 +47,12 @@ namespace sky {
         Uuid             uuid;
         Status           status = Status::INITIAL;
         tf::Future<void> future;
+        std::string      path;
     };
 
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    enum class SerializeType : uint8_t { JSON, BIN, XML };
+    enum class SerializeType : uint8_t { JSON, BIN };
 
     template <typename T>
     struct AssetTraits {
@@ -70,14 +75,9 @@ namespace sky {
 
         using DataType = typename AssetTraits<T>::DataType;
 
-        void SetData(const DataType &input)
+        const Uuid &GetType() const override
         {
-            data = input;
-        }
-
-        void SetData(DataType &&input)
-        {
-            data = std::move(input);
+            return AssetTraits<T>::ASSET_TYPE;
         }
 
         std::shared_ptr<T> CreateInstance(bool useDefault = true)
@@ -100,18 +100,12 @@ namespace sky {
         {
             return data;
         }
-
         DataType &Data()
         {
             return data;
         }
 
-        template <class Archiver>
-        void serialize(Archiver &ar)
-        {
-            ar(uuid);
-        }
-
+        const uint8_t *GetData() const override { return reinterpret_cast<const uint8_t *>(&data); }
     private:
         friend class AssetManager;
 
@@ -161,18 +155,13 @@ namespace sky {
             }
 
             auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
-            DataType assetData;
+            DataType &assetData = asset->Data();
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-                cereal::JSONInputArchive archive(file);
-                archive >> assetData;
+                JsonInputArchive archive(file);
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                cereal::BinaryInputArchive archive(file);
-                archive >> assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::XML) {
-                cereal::XMLInputArchive archive(file);
-                archive >> assetData;
+                BinaryInputArchive archive(file);
+                archive.LoadObject(&assetData, TypeInfo<DataType>::Hash());
             }
-            asset->SetData(std::move(assetData));
         }
 
         void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
@@ -184,14 +173,11 @@ namespace sky {
                 return;
             }
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-                cereal::JSONOutputArchive archive(file);
-                archive << assetData;
+                JsonOutputArchive archive(file);
+                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::Hash());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                cereal::BinaryOutputArchive archive(file);
-                archive << assetData;
-            } else if (SERIALIZE_TYPE == SerializeType::XML) {
-                cereal::XMLOutputArchive archive(file);
-                archive << assetData;
+                BinaryOutputArchive archive(file);
+                archive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::Hash());
             }
         }
     };

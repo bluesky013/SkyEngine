@@ -4,6 +4,7 @@
 
 #include <core/template/FixedChunkArray.h>
 #include <core/template/ObjectPool.h>
+#include <core/template/Flags.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -65,4 +66,25 @@ TEST(TemplateTest, ObjectPoolTest)
     ASSERT_EQ(p4->b, 6.f);
     ASSERT_EQ(p5->a, 7);
     ASSERT_EQ(p5->b, 8.f);
+}
+
+enum class E_U8 : uint8_t { V1 = 0x1 };
+enum class E_I8 : int8_t { V1 = 0x1 };
+enum class E_U16 : uint16_t { V1 = 0x1 };
+enum class E_I16 : int16_t { V1 = 0x1 };
+enum class E_U32 : uint32_t { V1 = 0x1 };
+enum class E_I32 : int32_t { V1 = 0x1 };
+enum class E_U64 : uint64_t { V1 = 0x1 };
+enum class E_I64 : int64_t { V1 = 0x1 };
+
+TEST(TemplateTest, FlagTest)
+{
+    { Flags<E_U8> v(E_U8::V1); ASSERT_EQ((~v).value, 0xFE); }
+    { Flags<E_I8> v(E_I8::V1); ASSERT_EQ((~v).value, 0xFE); }
+    { Flags<E_U16> v(E_U16::V1); ASSERT_EQ((~v).value, 0xFFFE); }
+    { Flags<E_I16> v(E_I16::V1); ASSERT_EQ((~v).value, 0xFFFE); }
+    { Flags<E_U32> v(E_U32::V1); ASSERT_EQ((~v).value, 0xFFFFFFFE); }
+    { Flags<E_I32> v(E_I32::V1); ASSERT_EQ((~v).value, 0xFFFFFFFE); }
+    { Flags<E_U64> v(E_U64::V1); ASSERT_EQ((~v).value, 0xFFFFFFFFFFFFFFFE); }
+    { Flags<E_I64> v(E_I64::V1); ASSERT_EQ((~v).value, 0xFFFFFFFFFFFFFFFE); }
 }

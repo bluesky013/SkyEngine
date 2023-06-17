@@ -6,7 +6,6 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DataBase.h>
 #include <framework/database/DBManager.h>
-#include <framework/serialization/BasicSerialization.h>
 #include <gtest/gtest.h>
 
 struct Test1Data {
@@ -45,15 +44,6 @@ class AssetTest : public ::testing::Test {
 public:
     static void SetUpTestSuite()
     {
-        auto am = sky::AssetManager::Get();
-        am->RegisterAssetHandler<Test1>();
-
-        auto testAsset      = std::make_shared<sky::Asset<Test1>>();
-        testAsset->Data().a = 1;
-        testAsset->Data().b = 2.0;
-        testAsset->Data().c = "abc";
-        am->SaveAsset(testAsset, "test\\framework\\t1.json");
-
         sky::DBManager::Get()->Init();
     }
 
@@ -71,31 +61,6 @@ public:
     {
     }
 };
-
-//TEST_F(AssetTest, LoadTest1)
-//{
-//    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json");
-//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-//    asset->BlockUtilLoaded();
-//    asset->BlockUtilLoaded();
-//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-//    auto instance = asset->CreateInstance();
-//    ASSERT_EQ(instance->value.a, 1);
-//    ASSERT_EQ(instance->value.b, 2.f);
-//    ASSERT_EQ(instance->value.c, "abc");
-//}
-
-//TEST_F(AssetTest, AsyncLoadTest1)
-//{
-//    auto asset = sky::AssetManager::Get()->LoadAsset<Test1>("test\\framework\\t1.json", true);
-//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADING);
-//    asset->BlockUtilLoaded();
-//    ASSERT_EQ(asset->GetStatus(), sky::AssetBase::Status::LOADED);
-//    auto instance = asset->CreateInstance();
-//    ASSERT_EQ(instance->value.a, 1);
-//    ASSERT_EQ(instance->value.b, 2.f);
-//    ASSERT_EQ(instance->value.c, "abc");
-//}
 
 TEST_F(AssetTest, DataTest)
 {

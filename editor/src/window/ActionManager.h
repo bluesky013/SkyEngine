@@ -8,6 +8,7 @@
 #include <QMap>
 #include <QString>
 #include <editor/document/Constants.h>
+#include <core/environment/Singleton.h>
 
 namespace sky::editor {
 
@@ -23,16 +24,18 @@ namespace sky::editor {
         DocFlagArray flags;
     };
 
-    class ActionManager {
+    class ActionManager : public Singleton<ActionManager> {
     public:
-        ActionManager()  = default;
-        ~ActionManager() = default;
-
         void AddAction(ActionWithFlag *action);
 
         void Update(const DocFlagArray &flag);
 
     private:
+        friend class Singleton<ActionManager>;
+
+        ActionManager()  = default;
+        ~ActionManager() = default;
+
         QMap<QString, ActionWithFlag *> actions;
     };
 

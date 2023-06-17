@@ -7,16 +7,14 @@
 #include <sqlite/sqlite3.h>
 #include <sqlite/sqlite3ext.h>
 
-SQLITE_EXTENSION_INIT1
-
 namespace sky {
     static const char* TAG = "DBManager";
 
     DBManager::~DBManager()
     {
-        if (sqlite3_api != nullptr) {
-            delete sqlite3_api;
-            sqlite3_api = nullptr;
+        if (routines != nullptr) {
+            delete routines;
+            routines = nullptr;
         }
     }
 
@@ -27,10 +25,11 @@ namespace sky {
             LOG_E(TAG, "load sqlite failed");
             return;
         }
-        auto* routines = new sqlite3_api_routines();
+        routines = new sqlite3_api_routines();
         routines->open = decltype(routines->open)(module->GetAddress("sqlite3_open"));
         routines->close = decltype(routines->close)(module->GetAddress("sqlite3_close"));
         routines->prepare_v2 = decltype(routines->prepare_v2)(module->GetAddress("sqlite3_prepare_v2"));
+        routines->errmsg = decltype(routines->errmsg)(module->GetAddress("sqlite3_errmsg"));
 
         routines->bind_blob   = decltype(routines->bind_blob)(module->GetAddress("sqlite3_bind_blob"));
         routines->bind_double = decltype(routines->bind_double)(module->GetAddress("sqlite3_bind_double"));
@@ -50,8 +49,6 @@ namespace sky {
         routines->finalize = decltype(routines->finalize)(module->GetAddress("sqlite3_finalize"));
 
         routines->clear_bindings = decltype(routines->clear_bindings)(module->GetAddress("sqlite3_clear_bindings"));
-
-        sqlite3_api = routines;
     }
 
 }

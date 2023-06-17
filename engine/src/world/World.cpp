@@ -6,10 +6,29 @@
 #include <engine/world/TransformComponent.h>
 #include <engine/world/CameraComponent.h>
 #include <engine/world/World.h>
+
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
+
 #include <atomic>
 #include <deque>
 
 namespace sky {
+
+    void World::Reflect()
+    {
+        SerializationContext::Get()->Register<World>("World")
+            .JsonLoad<&World::Load>()
+            .JsonSave<&World::Save>();
+
+        SerializationContext::Get()->Register<Component>("Component")
+            .JsonLoad<&Component::Load>()
+            .JsonSave<&Component::Save>();
+
+        GameObject::Reflect();
+        TransformComponent::Reflect();
+        CameraComponent::Reflect();
+    }
 
     World::World() : root(nullptr), gameObjects(&memoryResource), objectLut(&memoryResource)
     {
@@ -99,7 +118,9 @@ namespace sky {
         while (!queue.empty()) {
             auto tgo = queue.front();
             queue.pop_front();
-            fn(tgo);
+            if (tgo != root) {
+                fn(tgo);
+            }
 
             auto trans = tgo->GetComponent<TransformComponent>();
             auto &children = trans->GetChildren();
@@ -107,12 +128,27 @@ namespace sky {
                 queue.emplace_back(child->object);
             }
         }
-
     }
 
-    void World::Reflect()
+    void World::Save(JsonOutputArchive &ar) const
     {
-        TransformComponent::Reflect();
-        CameraComponent::Reflect();
+        ar.StartObject();
+        ar.Key("objects");
+        ar.StartArray();
+        ForEachBFS(root, [&ar](GameObject *go) {
+            ar.SaveValueObject(*go);
+        });
+        ar.EndArray();
+        ar.EndObject();
+    }
+
+    void World::Load(JsonInputArchive &ar)
+    {
+        uint32_t size = ar.StartArray("objects");
+        for (uint32_t i = 0; i < size; ++i) {
+            auto go = CreateGameObject("");
+            ar.LoadArrayElement(*go);
+        }
+        ar.End();
     }
 } // namespace sky

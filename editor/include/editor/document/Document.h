@@ -13,18 +13,14 @@ namespace sky::editor {
 
     struct ProjectData {
         uint32_t version = 0;
-
-        template <typename Archive>
-        void serialize(Archive &ar)
-        {
-            ar(version);
-        }
     };
 
     class Document {
     public:
         Document(const QString &path);
-        ~Document() = default;
+        ~Document();
+
+        static void Reflect();
 
         void Init();
         void Read();

@@ -31,7 +31,9 @@ namespace sky {
 
         vk::ShaderPtr LoadShader(VkShaderStageFlagBits stage, const std::string &path);
 
+        bool CheckFeature() const;
     protected:
+        void InitRenderPass();
         void ResetFrameBuffer();
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
@@ -40,12 +42,14 @@ namespace sky {
         vk::Device::Descriptor deviceInfo;
         vk::Instance *instance = nullptr;
         vk::Device *device = nullptr;
+        const NativeWindow* window = nullptr;
 
         vk::SwapChainPtr        swapChain;
         vk::SemaphorePtr        imageAvailable;
         vk::SemaphorePtr        renderFinish;
         vk::RenderPassPtr       renderPass;
 
+        vk::FencePtr                    fence;
         vk::CommandBufferPtr            commandBuffer;
         vk::Queue                      *graphicsQueue;
         std::vector<vk::FrameBufferPtr> frameBuffers;

@@ -38,7 +38,9 @@ namespace sky {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
-        commandBuffer->Wait();
+        fence->Wait();
+        fence->Reset();
+
         PlayerUpdate(delta);
         UpdateBinding();
         UpdateTerrainData();
@@ -46,7 +48,7 @@ namespace sky {
         commandBuffer->Begin();
 
         auto cmd             = commandBuffer->GetNativeHandle();
-        auto graphicsEncoder = commandBuffer->EncodeGraphics();
+        auto graphicsEncoder = commandBuffer->EncodeVkGraphics();
 
         VkClearValue clearValue     = {};
         clearValue.color.float32[0] = 0.f;
@@ -54,8 +56,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args          = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args          = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.instanceCount = 1;
@@ -84,6 +86,7 @@ namespace sky {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+        submitInfo.fence = fence;
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 
@@ -257,8 +260,8 @@ namespace sky {
         Matrix4 projectMatrix = Matrix4::Identity();
         float near = 0.f;
         float far = 10.f;
-        projectMatrix[0][0] = 1.f / swapChain->GetExtent().width;
-        projectMatrix[1][1] = 1.f / swapChain->GetExtent().height;
+        projectMatrix[0][0] = 1.f / swapChain->GetVkExtent().width;
+        projectMatrix[1][1] = 1.f / swapChain->GetVkExtent().height;
         projectMatrix[2][2] = -2.f / (far - near);
         projectMatrix[3][2] = (far + near) / (far - near);
         projectMatrix[3][3] = 1.f;
@@ -331,7 +334,7 @@ namespace sky {
         desc.usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         desc.viewType    = VK_IMAGE_VIEW_TYPE_2D;
         terrain.atlas = device->CreateDeviceObject<vk::SparseImage>(desc);
-        terrain.sampler = device->CreateDeviceObject<vk::Sampler>({});
+        terrain.sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
         terrain.quadData.resize(widthNum * heightNum);
         for (uint32_t i = 0; i < widthNum; ++i) {
@@ -348,7 +351,7 @@ namespace sky {
         auto cmd = device->GetGraphicsQueue()->AllocateCommandBuffer({});
         cmd->Begin();
         cmd->ImageBarrier(terrain.atlas->GetImage(), {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
-                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+                          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT},
                           VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         for (uint32_t i = 0; i < widthNum; ++i) {
@@ -399,7 +402,7 @@ namespace sky {
 
         cmd->End();
         cmd->Submit(*graphicsQueue, {});
-        cmd->Wait();
+        graphicsQueue->WaitIdle();
 #endif
     }
 

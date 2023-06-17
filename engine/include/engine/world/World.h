@@ -12,14 +12,21 @@
 
 namespace sky {
 
-    class Viewport;
     class World;
     class GameObject;
+
+    class JsonOutputArchive;
+    class JsonInputArchive;
 
     class World {
     public:
         World();
         ~World();
+
+        World(const World&) = delete;
+        World &operator=(const World&) = delete;
+
+        static void Reflect();
 
         GameObject *CreateGameObject(const std::string &name);
         GameObject *CreateGameObject(const std::string &name, const Uuid &uuid);
@@ -36,27 +43,8 @@ namespace sky {
 
         void ForEachBFS(GameObject *go, std::function<void(GameObject *)> && fn) const;
 
-        static void Reflect();
-
-        template <typename Archive>
-        void save(Archive &ar) const
-        {
-            ar(static_cast<uint32_t>(gameObjects.size()));
-            ForEachBFS(root, [&ar](GameObject *go) {
-                ar(*go);
-            });
-        }
-
-        template <typename Archive>
-        void load(Archive &ar)
-        {
-            uint32_t size = 0;
-            ar(size);
-            for (uint32_t i = 0; i < size; ++i) {
-                auto go = CreateGameObject("");
-                ar(*go);
-            }
-        }
+        void Save(JsonOutputArchive &ar) const;
+        void Load(JsonInputArchive &ar);
 
     private:
         GameObject *AllocateGameObject();

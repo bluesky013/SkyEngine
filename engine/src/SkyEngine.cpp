@@ -13,7 +13,6 @@ namespace sky {
     bool SkyEngine::Init()
     {
         DBManager::Get()->Init();
-        AssetManager::Get();
 
         return true;
     }

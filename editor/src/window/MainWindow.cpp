@@ -28,28 +28,28 @@ namespace sky::editor {
 
     MainWindow::~MainWindow()
     {
-        if (actionManager != nullptr) {
-            delete actionManager;
-            actionManager = nullptr;
-        }
+        ActionManager::Destroy();
     }
 
     void MainWindow::OnOpenLevel(const QString &path)
     {
         document->OpenLevel(path, false);
         worldWidget->SetWorld(document->GetMainWorld());
+        UpdateActions();
     }
 
     void MainWindow::OnNewLevel(const QString &name)
     {
         document->OpenLevel(name, true);
         worldWidget->SetWorld(document->GetMainWorld());
+        UpdateActions();
     }
 
     void MainWindow::OnCloseLevel()
     {
         document->CloseLevel();
         worldWidget->SetWorld(nullptr);
+        UpdateActions();
     }
 
     void MainWindow::OnOpenProject(const QString &path)
@@ -120,7 +120,7 @@ namespace sky::editor {
 
     void MainWindow::InitMenu()
     {
-        actionManager = new ActionManager();
+        actionManager = ActionManager::Get();
 
         menuBar = new QMenuBar(this);
 
@@ -159,7 +159,7 @@ namespace sky::editor {
 
         ActionWithFlag *openProjectAct = new ActionWithFlag({}, "Open Project", this);
         ActionWithFlag *newProjectAct = new ActionWithFlag({}, "New Project", this);
-        ActionWithFlag *closeProjectAct = new ActionWithFlag({}, "Close Project", this);
+        ActionWithFlag *closeProjectAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Close Project", this);
 
         // project
         connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
@@ -212,7 +212,9 @@ namespace sky::editor {
         actionManager->AddAction(openLevelAct);
         actionManager->AddAction(closeLevelAct);
         actionManager->AddAction(newLevelAct);
+        actionManager->AddAction(newProjectAct);
         actionManager->AddAction(openProjectAct);
+        actionManager->AddAction(closeProjectAct);
         actionManager->AddAction(closeAct);
         UpdateActions();
     }
@@ -221,4 +223,5 @@ namespace sky::editor {
     {
         actionManager->Update(document ? document->GetFlag() : DocFlagArray{});
     }
+
 } // namespace sky::editor

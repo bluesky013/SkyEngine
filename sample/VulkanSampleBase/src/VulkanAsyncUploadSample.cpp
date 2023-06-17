@@ -113,10 +113,8 @@ namespace sky {
         writer.Write(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, view, sampler);
         writer.Update();
 
-        for (auto &req : requests) {
-            device->GetAsyncTransferQueue()->UploadImage(image, req);
-        }
-        object.uploadHandle = device->GetAsyncTransferQueue()->CreateTask([ptr](){
+        device->GetTransferQueue()->UploadImage(image, requests);
+        object.uploadHandle = device->GetTransferQueue()->CreateTask([ptr](){
             delete []ptr;
         });
     }
@@ -126,11 +124,12 @@ namespace sky {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
-        commandBuffer->Wait();
+        fence->Wait();
+        fence->Reset();
         commandBuffer->Begin();
 
         auto *cmd             = commandBuffer->GetNativeHandle();
-        auto  graphicsEncoder = commandBuffer->EncodeGraphics();
+        auto  graphicsEncoder = commandBuffer->EncodeVkGraphics();
 
         VkClearValue clearValue     = {};
         clearValue.color.float32[0] = 0.2f;
@@ -146,7 +145,7 @@ namespace sky {
 
         graphicsEncoder.BeginPass(beginInfo);
 
-        vk::CmdDrawLinear drawLinear = {};
+        rhi::CmdDrawLinear drawLinear = {};
         drawLinear.firstVertex       = 0;
         drawLinear.firstInstance     = 0;
         drawLinear.vertexCount       = 6;
@@ -154,7 +153,7 @@ namespace sky {
 
         graphicsEncoder.BindPipeline(pso);
 
-        if (device->GetAsyncTransferQueue()->HasComplete(object.uploadHandle)) {
+        if (device->GetTransferQueue()->HasComplete(object.uploadHandle)) {
             graphicsEncoder.BindShaderResource(object.setBinder);
             graphicsEncoder.DrawLinear(drawLinear);
         }
@@ -167,6 +166,7 @@ namespace sky {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+        submitInfo.fence = fence;
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 

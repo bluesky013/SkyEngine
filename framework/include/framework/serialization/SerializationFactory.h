@@ -11,12 +11,22 @@
 #include <unordered_map>
 
 namespace sky {
+    class JsonInputArchive;
+    class JsonOutputArchive;
 
-    using PropertyMap   = std::unordered_map<uint32_t, Any>;
-    using SetterFn      = bool (*)(void *ptr, const Any &);
-    using GetterFn      = Any (*)(void *ptr, bool asRef);
-    using GetterConstFn = Any (*)(const void *ptr);
-    using ConstructFn   = Any (*)(Any *);
+    class BinaryInputArchive;
+    class BinaryOutputArchive;
+
+    using PropertyMap     = std::unordered_map<uint32_t, Any>;
+    using SetterFn        = bool (*)(void *ptr, const void *);
+    using GetterFn        = void *(*)(void *ptr);
+    using GetterConstFn   = const void*(*)(const void *ptr);
+    using ConstructibleFn = bool (*)(Any *);
+    using ConstructFn     = Any (*)(Any *);
+    using JsonInFn        = void (*)(void *p, JsonInputArchive& archive);
+    using JsonOutFn       = void (*)(const void *p, JsonOutputArchive& archive);
+    using BinaryInFn      = void (*)(void *p, BinaryInputArchive& archive);
+    using BinaryOutFn     = void (*)(const void *p, BinaryOutputArchive& archive);
 
     struct TypeMemberNode {
         TypeInfoRT   *info = nullptr;
@@ -29,29 +39,80 @@ namespace sky {
     };
 
     struct ConstructNode {
-        const uint32_t argsNum;
-        ConstructFn    constructFn = nullptr;
+        const uint32_t  argsNum;
+        ConstructibleFn checkFn     = nullptr;
+        ConstructFn     constructFn = nullptr;
+    };
+
+    struct SerializationNode {
+        JsonInFn    jsonLoad    = nullptr;
+        JsonOutFn   jsonSave    = nullptr;
+        BinaryInFn  binaryLoad  = nullptr;
+        BinaryOutFn binarySave  = nullptr;
     };
 
     using MemberMap     = std::unordered_map<std::string_view, TypeMemberNode>;
     using ConstructList = std::list<ConstructNode>;
     struct TypeNode {
-        TypeInfoRT   *base = nullptr;
-        TypeInfoRT   *info = nullptr;
-        MemberMap     members;
-        PropertyMap   properties;
-        ConstructList constructList;
+        TypeInfoRT       *base = nullptr;
+        TypeInfoRT       *info = nullptr;
+        MemberMap         members;
+        PropertyMap       properties;
+        ConstructList     constructList;
+        SerializationNode serialization;
     };
 
+    template <auto Func, typename Archive>
+    auto SerializationInArchive()
+    {
+        using Type = decltype(Func);
+        using RetType = void (*)(void *p, Archive& archive);
+        if constexpr (std::is_member_function_pointer_v<Type>) {
+            using Cls = typename FuncTraits<Type>::CLASS_TYPE;
+            return RetType{[](void* p, Archive &archive) {
+                Cls *ptr = static_cast<Cls*>(p);
+                std::invoke(Func, ptr, archive);
+            }};
+        } else {
+            using Args = typename FuncTraits<Type>::ARGS_TYPE;
+            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](void* p, Archive &archive) {
+                Cls *ptr = static_cast<Cls*>(p);
+                std::invoke(Func, *ptr, archive);
+            }};
+        }
+    }
+
+    template <auto Func, typename Archive>
+    auto SerializationOutArchive()
+    {
+        using Type    = decltype(Func);
+        using RetType = void (*)(const void *p, Archive &archive);
+        if constexpr (std::is_member_function_pointer_v<Type>) {
+            using Cls = typename FuncTraits<Type>::CLASS_TYPE;
+            return RetType{[](const void *p, Archive &archive) {
+                const Cls *ptr = static_cast<const Cls *>(p);
+                std::invoke(Func, ptr, archive);
+            }};
+        } else {
+            using Args = typename FuncTraits<Type>::ARGS_TYPE;
+            using Cls = std::remove_const_t<std::remove_reference_t<typename std::tuple_element_t<0, Args>>>;
+            return RetType{[](const void* p, Archive &archive) {
+                const Cls *ptr = static_cast<const Cls*>(p);
+                std::invoke(Func, *ptr, archive);
+            }};
+        }
+    }
+
     template <typename T, auto D>
-    bool Setter(void *p, const Any &value)
+    bool Setter(void *p, const void *value) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             using ValType = std::remove_reference_t<decltype(std::declval<T>().*D)>;
 
             if constexpr (!std::is_const_v<ValType>) {
                 if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                    std::invoke(D, *ptr) = *value.GetAsConst<ValType>();
+                    std::invoke(D, *ptr) = *static_cast<const ValType *>(value);
                     return true;
                 }
             }
@@ -60,61 +121,37 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    Any Getter(void *p, bool asRef)
+    void* Getter(void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                if (asRef) {
-                    return std::ref(std::invoke(D, *ptr));
-                } else {
-                    return Any(std::invoke(D, *ptr));
-                }
+                return reinterpret_cast<void *>(std::addressof(std::invoke(D, *ptr)));
             }
         }
-        return Any();
+        return nullptr;
     }
 
     template <typename T, auto D>
-    Any GetterConst(const void *p)
+    const void *GetterConst(const void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
             if (auto ptr = static_cast<const T *>(p); ptr != nullptr) {
-                return Any(std::invoke(D, *ptr));
+                return reinterpret_cast<const void *>(std::addressof(std::invoke(D, *ptr)));
             }
         }
-        return Any();
+        return nullptr;
     }
 
-    template <typename...>
-    struct FuncTraits;
-
-    template <typename Ret, typename Cls, typename... Args>
-    struct FuncTraits<Ret (Cls::*)(Args...)> {
-        using RET_TYPE              = Ret;
-        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
-        static constexpr bool CONST = false;
-    };
-
-    template <typename Ret, typename Cls, typename... Args>
-    struct FuncTraits<Ret (Cls::*)(Args...) const> {
-        using RET_TYPE              = Ret;
-        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
-        static constexpr bool CONST = true;
-    };
-
-    template <typename Ret, typename... Args>
-    struct FuncTraits<Ret(Args...)> {
-        using RET_TYPE  = Ret;
-        using ARGS_TYPE = std::tuple<Args...>;
-    };
+    template <typename T, typename... Args, size_t... I>
+    bool ConstructCheck(Any *args, std::index_sequence<I...>)
+    {
+        return ((args[I].GetAs<Args>() != nullptr) && ...);
+    }
 
     template <typename T, typename... Args, size_t... I>
     Any Construct(Any *args, std::index_sequence<I...>)
     {
-        if (((args[I].GetAs<Args>() != nullptr) && ...)) {
-            return Any(std::in_place_type<T>, *args[I].GetAs<Args>()...);
-        }
-        return {};
+        return Any(std::in_place_type<T>, *args[I].GetAs<Args>()...);
     }
 
     template <typename...>
@@ -132,11 +169,12 @@ namespace sky {
         template <typename... Args>
         TypeFactory &Constructor()
         {
-            using FuncType = FuncTraits<Any(Args...)>;
+            using FuncType = FuncTraits<Any(*)(Args...)>;
             using ArgsType = typename FuncType::ARGS_TYPE;
 
             type.constructList.emplace_back(
                 ConstructNode{std::tuple_size_v<ArgsType>,
+                              [](Any *args) -> bool { return ConstructCheck<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); },
                               [](Any *args) -> Any { return Construct<T, Args...>(args, std::make_index_sequence<std::tuple_size_v<ArgsType>>{}); }});
             return *this;
         }
@@ -167,15 +205,53 @@ namespace sky {
         auto Member(const std::string_view &key)
         {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
-            auto it    = type.members.emplace(key, TypeMemberNode{
-                                                    TypeInfoObj<Type>::Get()->RtInfo(),
-                                                    std::is_const_v<Type>,
-                                                    !std::is_member_object_pointer_v<Type>,
-                                                    &Setter<T, S>,
-                                                    &Getter<T, G>,
-                                                    &GetterConst<T, G>,
-                                                });
-            return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            if constexpr (std::is_const_v<Type>) {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        std::is_const_v<Type>,
+                                                        !std::is_member_object_pointer_v<Type>,
+                                                        &Setter<T, S>,
+                                                        nullptr,
+                                                        &GetterConst<T, G>,
+                                                    });
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            } else {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        std::is_const_v<Type>,
+                                                        !std::is_member_object_pointer_v<Type>,
+                                                        &Setter<T, S>,
+                                                        &Getter<T, G>,
+                                                        &GetterConst<T, G>,
+                                                    });
+                return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            }
+        }
+
+        template <auto Func>
+        auto JsonLoad()
+        {
+            type.serialization.jsonLoad = SerializationInArchive<Func, JsonInputArchive>();
+            return *this;
+        }
+        template <auto Func>
+        auto JsonSave()
+        {
+            type.serialization.jsonSave = SerializationOutArchive<Func, JsonOutputArchive>();
+            return *this;
+        }
+
+        template <auto Func>
+        auto BinLoad()
+        {
+            type.serialization.binaryLoad = SerializationInArchive<Func, BinaryInputArchive>();
+            return *this;
+        }
+        template <auto Func>
+        auto BinSave()
+        {
+            type.serialization.binarySave = SerializationOutArchive<Func, BinaryOutputArchive>();
+            return *this;
         }
 
         auto operator()()
@@ -184,6 +260,7 @@ namespace sky {
         }
 
     protected:
+
         TypeNode &type;
     };
 
@@ -194,8 +271,8 @@ namespace sky {
         {
         }
 
-        template <typename T>
-        TypeFactory &Property(const T &key, const Any &any)
+        template <typename U>
+        TypeFactory &Property(const U &key, const Any &any)
         {
             return Property(static_cast<uint32_t>(key), any);
         }

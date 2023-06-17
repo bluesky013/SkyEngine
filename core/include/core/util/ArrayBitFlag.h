@@ -77,7 +77,7 @@ namespace sky {
         }
 
         bool operator==(const ArrayBit& val) const noexcept {
-            return _CSTD memcmp(&values[0], &val.values[0], sizeof(values)) == 0;
+            return memcmp(&values[0], &val.values[0], sizeof(values)) == 0;
         }
     private:
         std::array<uint32_t, NUM> values;

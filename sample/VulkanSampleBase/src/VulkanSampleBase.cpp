@@ -22,37 +22,44 @@ namespace sky {
 
         graphicsQueue = device->GetGraphicsQueue();
 
-        auto                       nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        window = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         vk::SwapChain::VkDescriptor swcDesc      = {};
-        swcDesc.window                          = nativeWindow->GetNativeHandle();
+        swcDesc.window                          = window->GetNativeHandle();
         swapChain                               = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
-        Event<IWindowEvent>::Connect(swcDesc.window, this);
+        Event<IWindowEvent>::Connect(window, this);
 
-        renderPass = vk::RenderPassFactory()()
-                         .AddSubPass()
-                         .AddColor()
-                         .Format(swapChain->GetFormat())
-                         .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-                         .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                         .Samples(VK_SAMPLE_COUNT_1_BIT)
-                         .AddDependency()
-                         .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
-                         .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
-                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
-                         .AddDependency()
-                         .SetLinkage(0, VK_SUBPASS_EXTERNAL)
-                         .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
-                         .Create(*device);
+//        renderPass = vk::RenderPassFactory()()
+//                         .AddSubPass()
+//                         .AddColor()
+//                         .Format(swapChain->GetVkFormat())
+//                         .Layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+//                         .ColorOp(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+//                         .Samples(VK_SAMPLE_COUNT_1_BIT)
+//                         .AddDependency()
+//                         .SetLinkage(VK_SUBPASS_EXTERNAL, 0)
+//                         .SetBarrier({VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
+//                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT})
+//                         .AddDependency()
+//                         .SetLinkage(0, VK_SUBPASS_EXTERNAL)
+//                         .SetBarrier({VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+//                                      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT})
+//                         .Create(*device);
 
+        InitRenderPass();
         ResetFrameBuffer();
 
-        vk::CommandBuffer::Descriptor cmdDesc = {};
+        vk::CommandBuffer::VkDescriptor cmdDesc = {};
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
+
+        vk::Fence::VkDescriptor fenceDesc = {};
+        fenceDesc.flag = VK_FENCE_CREATE_SIGNALED_BIT;
+        fence = device->CreateDeviceObject<vk::Fence>(fenceDesc);
     }
 
     void VulkanSampleBase::OnStop()
     {
+        fence->Wait();
+        fence = nullptr;
         swapChain = nullptr;
         imageAvailable = nullptr;
         renderFinish = nullptr;
@@ -75,15 +82,55 @@ namespace sky {
         ++frame;
     }
 
+    bool VulkanSampleBase::CheckFeature() const
+    {
+        auto &features = device->GetFeatures();
+        return features.sparseBinding == deviceInfo.feature.sparseBinding &&
+            features.descriptorIndexing == deviceInfo.feature.descriptorIndexing &&
+            features.variableRateShading == deviceInfo.feature.variableRateShading;
+    }
+
     void VulkanSampleBase::OnWindowResize(uint32_t width, uint32_t height)
     {
-        auto &ext = swapChain->GetExtent();
-        if (ext.width == width && ext.height == height) {
-            return;
-        }
-
-        swapChain->Resize(width, height);
+        swapChain->Resize(width, height, window->GetNativeHandle());
         ResetFrameBuffer();
+    }
+
+    void VulkanSampleBase::InitRenderPass()
+    {
+        vk::RenderPass::VkDescriptor passDesc = {};
+        passDesc.attachments.emplace_back(VkAttachmentDescription2{
+            VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2, nullptr, 0,
+            swapChain->GetVkFormat(),
+            VK_SAMPLE_COUNT_1_BIT,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        });
+        passDesc.subPasses.emplace_back(vk::RenderPass::SubPass{
+            {{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT}}, {}, {},
+            {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, ~(0U)},
+        });
+
+        passDesc.dependencies.emplace_back(VkSubpassDependency2 {
+            VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr,
+            VK_SUBPASS_EXTERNAL, 0,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_DEPENDENCY_BY_REGION_BIT, 0
+        });
+
+        passDesc.dependencies.emplace_back(VkSubpassDependency2 {
+            VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr,
+            0, VK_SUBPASS_EXTERNAL,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+            VK_DEPENDENCY_BY_REGION_BIT, 0
+        });
+        renderPass = device->CreateDeviceObject<vk::RenderPass>(passDesc);
     }
 
     void VulkanSampleBase::ResetFrameBuffer()
@@ -93,22 +140,22 @@ namespace sky {
         colorViews.resize(imageCount);
 
         vk::FrameBuffer::VkDescriptor fbDesc = {};
-        fbDesc.extent                       = swapChain->GetExtent();
+        fbDesc.extent                       = swapChain->GetVkExtent();
         fbDesc.pass                         = renderPass;
 
         vk::ImageView::VkDescriptor viewDesc = {};
         viewDesc.viewType                   = VK_IMAGE_VIEW_TYPE_2D;
-        viewDesc.format                     = swapChain->GetFormat();
+        viewDesc.format                     = swapChain->GetVkFormat();
 
         for (uint32_t i = 0; i < imageCount; ++i) {
-            auto image      = swapChain->GetImage(i);
+            auto image      = swapChain->GetVkImage(i);
             colorViews[i]   = vk::ImageView::CreateImageView(image, viewDesc);
             fbDesc.views    = std::vector<vk::ImageViewPtr>{colorViews[i]};
             frameBuffers[i] = device->CreateDeviceObject<vk::FrameBuffer>(fbDesc);
         }
 
-        imageAvailable = device->CreateDeviceObject<vk::Semaphore>({});
-        renderFinish   = device->CreateDeviceObject<vk::Semaphore>({});
+        imageAvailable = device->CreateDeviceObject<vk::Semaphore>(vk::Semaphore::VkDescriptor{});
+        renderFinish   = device->CreateDeviceObject<vk::Semaphore>(vk::Semaphore::VkDescriptor{});
     }
 
     vk::ShaderPtr VulkanSampleBase::LoadShader(VkShaderStageFlagBits stage, const std::string &path)

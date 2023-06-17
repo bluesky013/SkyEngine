@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../sdl/SDLPlatform.h"
+#include "../genetic/SDLPlatform.h"
 
 namespace sky {
 
@@ -12,5 +12,7 @@ namespace sky {
     public:
         MacosPlatform() = default;
         ~MacosPlatform() = default;
+
+        std::string GetInternalPath() const override;
     };
 }

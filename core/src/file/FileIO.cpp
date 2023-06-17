@@ -17,6 +17,15 @@ namespace sky {
         file.write(data, size);
     }
 
+    void WriteString(const std::string &path, const std::string &out)
+    {
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        if (!file.is_open()) {
+            return;
+        }
+        file.write(out.data(), out.size() + 1);
+    }
+
     bool ReadBin(const std::string &path, uint8_t *&out, uint32_t &size)
     {
         std::ifstream file(path, std::ios::ate | std::ios::binary);

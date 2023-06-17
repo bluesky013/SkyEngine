@@ -5,22 +5,61 @@
 #include <core/file/FileIO.h>
 #include <filesystem>
 #include <framework/asset/AssetManager.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
 
 namespace sky {
 
-    std::shared_ptr<AssetBase> AssetManager::GetOrCreate(const Uuid &type, const Uuid &uuid, bool async)
+    AssetManager::~AssetManager()
+    {
+        SaveAssets();
+    }
+
+    std::shared_ptr<AssetBase> AssetManager::CreateAsset(const Uuid &type, const Uuid &uuid)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
             return {};
         }
         auto assetHandler = hIter->second.get();
+        auto asset = assetHandler->CreateAsset();
+        asset->SetUuid(uuid);
+        asset->status = AssetBase::Status::LOADING;
+        {
+            std::lock_guard<std::mutex> lock(assetMutex);
+            assetMap.emplace(uuid, asset);
+        }
+        return asset;
+    }
 
-        auto pIter = pathMap.find(uuid);
-        if (pIter == pathMap.end()) {
+    std::string AssetManager::GetPathByUuid(const Uuid &id)
+    {
+        std::lock_guard<std::mutex> lock(dbMutex);
+        auto iter = pathMap.find(id);
+        if (iter != pathMap.end()) {
+            return iter->second;
+        }
+
+        std::string result;
+        dataBase->QueryProduct(id, result);
+        if (!result.empty()) {
+            pathMap.emplace(id, result);
+        }
+        return result;
+    }
+
+    std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const Uuid &uuid, bool async)
+    {
+        auto hIter = assetHandlers.find(type);
+        if (hIter == assetHandlers.end()) {
             return {};
         }
-        std::string path = pIter->second;
+        auto assetHandler = hIter->second.get();
+        std::string path = GetPathByUuid(uuid);
+        if (path.empty()) {
+            return {};
+        }
 
         std::shared_ptr<AssetBase> asset;
         {
@@ -54,19 +93,60 @@ namespace sky {
         return asset;
     }
 
-    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset, const Uuid &type, const std::string &path)
+    void AssetManager::RegisterBuilder(const std::string &key, AssetBuilder *builder)
     {
-        auto hIter = assetHandlers.find(type);
+        if (builder == nullptr) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(assetMutex);
+        assetBuilders[key].emplace_back(std::move(builder));
+    }
+
+    void AssetManager::ImportSource(const std::string &path, const SourceAssetImportOption &option)
+    {
+        std::filesystem::path fs(path);
+        auto ext = fs.extension().string();
+        auto iter = assetBuilders.find(ext);
+
+        BuildRequest request = {};
+        request.fullPath = path;
+        request.ext = ext;
+        request.name = fs.filename().string();
+        request.outDir = option.outDir.empty() ? Interface<ISystemNotify>::Get()->GetApi()->GetSettings().VisitString("PROJECT_PATH") + "/cache" : option.outDir;
+
+        BuildResult result = {};
+        if (iter != assetBuilders.end()) {
+            auto &builders = iter->second;
+            for (auto &builder : builders) {
+                builder->Request(request, result);
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock(dbMutex);
+            for (auto &pdt : result.products) {
+                dataBase->AddSource(SourceData{fs.make_preferred().string(), fs.parent_path().make_preferred().string(), pdt.productKey, pdt.uuid});
+            }
+        }
+    }
+
+    bool AssetManager::QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out)
+    {
+        if (!option.reImport && dataBase->QueryProduct(path, option.buildKey, out)) {
+            return true;
+        }
+        ImportSource(path, option);
+        return dataBase->QueryProduct(path, option.buildKey, out);
+    }
+
+    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)
+    {
+        auto hIter = assetHandlers.find(asset->GetType());
         if (hIter == assetHandlers.end()) {
             return;
         }
         auto assetHandler = hIter->second.get();
-        assetHandler->SaveToPath(path, asset);
-    }
-
-    void AssetManager::RegisterAsset(const Uuid &id, const std::string &path)
-    {
-        pathMap[id] = path;
+        assetHandler->SaveToPath(asset->GetPath(), asset);
+        dataBase->AddProduct({asset->GetUuid(), asset->GetPath()});
     }
 
     void AssetManager::RegisterSearchPath(const std::string &path)
@@ -81,6 +161,7 @@ namespace sky {
 
     AssetHandlerBase *AssetManager::GetAssetHandler(const Uuid &type)
     {
+        std::lock_guard<std::mutex> lock(assetMutex);
         auto iter = assetHandlers.find(type);
         if (iter == assetHandlers.end()) {
             return nullptr;
@@ -96,10 +177,32 @@ namespace sky {
                 std::filesystem::path tmpPath(sp);
                 tmpPath.append(path.string());
                 if (std::filesystem::exists(tmpPath)) {
-                    return tmpPath.string();
+                    return tmpPath.make_preferred().string();
                 }
             }
         }
         return relative;
     }
+
+    void AssetManager::Reset(const std::string &name)
+    {
+        if (dataBase) {
+            SaveAssets();
+        }
+
+        dataBase = std::make_unique<AssetDataBase>();
+        dataBase->Init(name);
+        RegisterAssets();
+    }
+
+    void AssetManager::SaveAssets()
+    {
+
+    }
+
+    void AssetManager::RegisterAssets()
+    {
+
+    }
+
 } // namespace sky

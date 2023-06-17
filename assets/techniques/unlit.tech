@@ -1,0 +1,14 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/standard.vert",
+        "frag": "shaderlibs/unlit.frag"
+    },
+    "pass": {
+        "tag": "forward_color"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    }
+}

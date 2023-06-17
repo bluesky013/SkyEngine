@@ -10,21 +10,29 @@
 #include "VulkanAsyncUploadSample.h"
 #include "VulkanSparseImageSample.h"
 #include "VulkanTerrainVTSample.h"
+#include "VulkanVariableRateShading.h"
+#include "VulkanMultiViewSample.h"
 
 namespace sky {
 
-    void VulkanSample::Init()
+    bool VulkanSample::Init()
     {
-        RegisterSample<VulkanTerrainVTSample>();
         RegisterSample<VulkanTriangleSample>();
         RegisterSample<VulkanMemoryAliasing>();
+        RegisterSample<VulkanMultiViewSample>();
+//        RegisterSample<VulkanAsyncUploadSample>();
+#ifdef WIN32
         RegisterSample<VulkanDescriptorSample>();
+//        RegisterSample<VulkanTerrainVTSample>();
         RegisterSample<VulkanBindlessSample>();
-        RegisterSample<VulkanAsyncUploadSample>();
         RegisterSample<VulkanSparseImageSample>();
+        RegisterSample<VulkanVariableRateShading>();
+#endif
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+        Event<IWindowEvent>::Connect(nativeWindow, this);
+
+        return true;
     }
 
     void VulkanSample::Start()
@@ -48,12 +56,13 @@ namespace sky {
         }
     }
 
-    void VulkanSample::StartSample()
+    bool VulkanSample::StartSample()
     {
         if (currentSample) {
             currentSample->OnStop();
         }
         currentSample.reset(samples[currentIndex]());
+        return currentSample->CheckFeature();
     }
 
     void VulkanSample::NextSample()
@@ -68,10 +77,12 @@ namespace sky {
 
     void VulkanSample::OnKeyUp(KeyButtonType button)
     {
-        if (button == KeyButton::KEY_PAGEUP) {
+        if (button == KeyButton::KEY_F2) {
             NextSample();
-            StartSample();
-        } else if (button == KeyButton::KEY_PAGEDOWN) {
+            while (!StartSample()) {
+                NextSample();
+            }
+        } else if (button == KeyButton::KEY_F3) {
             PrevSample();
             StartSample();
         }

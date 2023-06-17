@@ -11,6 +11,7 @@
 #include <framework/application/SettingRegistry.h>
 #include <memory>
 #include <functional>
+#include <vector>
 
 namespace sky {
 
@@ -23,6 +24,7 @@ namespace sky {
 
         uint32_t windowWidth  = 1366;
         uint32_t windowHeight = 768;
+        void*    mainWindow   = nullptr;
     };
 
     class Application : public ISystemNotify {
@@ -43,15 +45,18 @@ namespace sky {
 
         void Loop();
 
+        bool IsExit() const { return exit; }
         void SetExit() override;
 
-        const SettingRegistry &GetSettings() const override;
+        SettingRegistry &GetSettings() override;
 
         template <typename T>
         void BindTick(T &&val)
         {
             tickFn = std::forward<T>(val);
         }
+
+        void RegisterModule(std::unique_ptr<IModule> &&module);
 
     protected:
         void LoadDynamicModules(const StartInfo &start);

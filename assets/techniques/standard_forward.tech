@@ -1,0 +1,14 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/standard.vert",
+        "frag": "shaderlibs/unlit.frag"
+    },
+    "pass": {
+        "tag": "frowardColor"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    }
+}

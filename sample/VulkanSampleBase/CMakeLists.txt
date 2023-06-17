@@ -10,9 +10,9 @@ sky_add_library(TARGET VulkanSample SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        VulkanRHI
+        VulkanRHI.Static
         Framework
         3rdParty::ktx
     )
 
-add_dependencies(Launcher VulkanSample)
+sky_add_dependency(TARGET VulkanSample DEPENDENCIES Launcher)

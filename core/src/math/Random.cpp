@@ -21,12 +21,22 @@ namespace sky {
         if (fp == nullptr) {
             return false;
         }
-        res = fread(data, 1, dataSize, fp);
+        res = fread(data, 1, static_cast<size_t>(dataSize), fp);
         fclose(fp);
         if (res != dataSize) {
             return false;
         }
 #else
+        HCRYPTPROV handle;
+        if (!CryptAcquireContext(&handle, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+            return false;
+        }
+
+        if (!CryptGenRandom(handle, static_cast<DWORD>(dataSize), static_cast<PBYTE>(data))) {
+            return false;
+        }
+
+        CryptReleaseContext(handle, 0);
 #endif
         return true;
     }

@@ -6,7 +6,7 @@
 #include <engine/GlobalVariable.h>
 #include <engine/SkyEngine.h>
 #include <engine/world/TransformComponent.h>
-#include <framework/serialization/AnyRT.h>
+#include <framework/serialization/SerializationUtil.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -26,26 +26,26 @@ TEST(EngineReflect, TestBasic)
     Component        *comp = new TransformComponent();
     const TypeInfoRT *info = comp->GetTypeInfo();
 
-    auto node = GetTypeMember("local", info);
+    auto node = GetTypeMember("local", info->typeId);
     ASSERT_NE(node, nullptr);
 
-    auto local    = node->getterFn(comp, false);
-    auto rotation = GetAny(local, "rotation");
-    auto pos      = GetAny(local, "translation");
-    auto scale    = GetAny(local, "scale");
+    auto local    = node->getterFn(comp);
+    auto rotation = GetValue(local, node->info->typeId, "rotation");
+    auto pos      = GetValue(local, node->info->typeId, "translation");
+    auto scale    = GetValue(local, node->info->typeId, "scale");
 
-    ASSERT_EQ(*GetAny(pos, "x").GetAs<float>(), 0.f);
-    ASSERT_EQ(*GetAny(pos, "y").GetAs<float>(), 0.f);
-    ASSERT_EQ(*GetAny(pos, "z").GetAs<float>(), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(pos, TypeInfo<Vector3>::Hash(), "x")), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(pos, TypeInfo<Vector3>::Hash(), "y")), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(pos, TypeInfo<Vector3>::Hash(), "z")), 0.f);
 
-    ASSERT_EQ(*GetAny(scale, "x").GetAs<float>(), 1.f);
-    ASSERT_EQ(*GetAny(scale, "y").GetAs<float>(), 1.f);
-    ASSERT_EQ(*GetAny(scale, "z").GetAs<float>(), 1.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(scale, TypeInfo<Vector3>::Hash(), "x")), 1.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(scale, TypeInfo<Vector3>::Hash(), "y")), 1.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(scale, TypeInfo<Vector3>::Hash(), "z")), 1.f);
 
-    ASSERT_EQ(*GetAny(rotation, "x").GetAs<float>(), 0.f);
-    ASSERT_EQ(*GetAny(rotation, "y").GetAs<float>(), 0.f);
-    ASSERT_EQ(*GetAny(rotation, "z").GetAs<float>(), 0.f);
-    ASSERT_EQ(*GetAny(rotation, "w").GetAs<float>(), 1.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(rotation, TypeInfo<Quaternion>::Hash(), "x")), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(rotation, TypeInfo<Quaternion>::Hash(), "y")), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(rotation, TypeInfo<Quaternion>::Hash(), "z")), 0.f);
+    ASSERT_EQ(*static_cast<float *>(GetValue(rotation, TypeInfo<Quaternion>::Hash(), "w")), 1.f);
 
     struct Test {
         int a;

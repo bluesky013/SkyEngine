@@ -7,6 +7,7 @@
 #include <engine/world/TransformComponent.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
 #include <string>
 
 namespace sky {
@@ -16,10 +17,12 @@ namespace sky {
     void TransformComponent::Reflect()
     {
         SerializationContext::Get()
-            ->Register<TransformComponent>(TypeName())
+            ->Register<TransformComponent>(NAME)
             .Member<&TransformComponent::local>("local")
             .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);
+
+        ComponentFactory::Get()->RegisterComponent<TransformComponent>();
     }
 
     TransformComponent::~TransformComponent()
@@ -159,4 +162,17 @@ namespace sky {
     {
         return world;
     }
+
+    void TransformComponent::Save(JsonOutputArchive &ar) const
+    {
+        ar.StartObject();
+        ar.SaveValueObject("transform", local);
+        ar.EndObject();
+    }
+
+    void TransformComponent::Load(JsonInputArchive &ar)
+    {
+        ar.LoadKeyValue("transform", local);
+    }
+
 } // namespace sky

@@ -70,7 +70,7 @@ function(sky_add_library)
                     list(APPEND LINK_LIBRARIES ${tmpLib})
                 endif()
 
-                get_target_property(tmpDlls ${dep} DYN_LIBS)
+                get_target_property(tmpDlls ${dep} INTERFACE_DYN_LIBS)
                 if (tmpDlls)
                     foreach(dll ${tmpDlls})
                         get_filename_component(dllName ${dll} NAME)
@@ -122,4 +122,37 @@ function(sky_add_test)
         COMMAND ${TMP_TARGET}
         WORKING_DIRECTORY ${TMP_WORKING_DIR}
     )
+endfunction()
+
+function(sky_add_dependency)
+    cmake_parse_arguments(TMP
+        ""
+        "TARGET"
+        "DEPENDENCIES"
+        ${ARGN}
+        )
+
+    if (NOT TMP_TARGET)
+        message("target not set")
+    endif()
+
+    foreach (dep ${TMP_DEPENDENCIES})
+        get_property(CURR_PROP GLOBAL PROPERTY ${dep}_DEP)
+        list(APPEND CURR_PROP ${TMP_TARGET})
+        set_property(GLOBAL PROPERTY ${dep}_DEP "${CURR_PROP}")
+    endforeach()
+endfunction()
+
+function(sky_set_dependency)
+    cmake_parse_arguments(TMP
+        ""
+        "TARGET"
+        ""
+        ${ARGN}
+        )
+
+    if (TMP_TARGET)
+        get_property(CURR_PROP GLOBAL PROPERTY ${TMP_TARGET}_DEP)
+        add_dependencies(${TMP_TARGET} ${CURR_PROP})
+    endif()
 endfunction()

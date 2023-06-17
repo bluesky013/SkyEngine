@@ -16,6 +16,8 @@ int main(int argc, char *argv[])
     EditorApplication editorApp;
     sky::StartInfo    startInfo = {};
     startInfo.appName           = "SkyEditor";
+    startInfo.modules.emplace_back("BuiltinBuilder");
+    startInfo.modules.emplace_back("SkyRender");
     editorApp.Init(startInfo);
 
     sky::editor::MainWindow mainWindow;

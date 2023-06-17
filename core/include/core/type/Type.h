@@ -17,8 +17,8 @@ namespace sky {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (info == nullptr) {
                     info = new TypeInfoRT{
-                        "",                                   // typeId
-                        TypeInfo<T>::Name(),                  // name
+                        "",                                   // name
+                        TypeInfo<T>::Name(),                  // typeId
                         TypeInfo<T>::Hash(),                  // hash
                         std::rank_v<T>,                       // rank
                         sizeof(T),                            // size
@@ -39,7 +39,7 @@ namespace sky {
                         std::is_trivial_v<T>,                 // isTrivial;
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
                         TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr,
+                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
                     };
                 }
             }
@@ -51,10 +51,29 @@ namespace sky {
         TypeInfoRT *info = nullptr;
     };
 
-} // namespace sky
+    template <typename...>
+    struct FuncTraits;
 
-#define TYPE_RTTI(name)                                                                                                                              \
-    static const char *TypeName()                                                                                                                    \
-    {                                                                                                                                                \
-        return #name;                                                                                                                                \
-    }
+    template <typename Ret, typename Cls, typename... Args>
+    struct FuncTraits<Ret (Cls::*)(Args...)> {
+        using CLASS_TYPE            = Cls;
+        using RET_TYPE              = Ret;
+        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
+        static constexpr bool CONST = false;
+    };
+
+    template <typename Ret, typename Cls, typename... Args>
+    struct FuncTraits<Ret (Cls::*)(Args...) const> {
+        using CLASS_TYPE            = Cls;
+        using RET_TYPE              = Ret;
+        using ARGS_TYPE             = std::tuple<const Cls *, Args...>;
+        static constexpr bool CONST = true;
+    };
+
+    template <typename Ret, typename... Args>
+    struct FuncTraits<Ret(*)(Args...)> {
+        using RET_TYPE  = Ret;
+        using ARGS_TYPE = std::tuple<Args...>;
+    };
+
+} // namespace sky

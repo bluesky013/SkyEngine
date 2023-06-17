@@ -4,8 +4,12 @@
 
 #pragma once
 
+#ifdef _DEBUG
 #include <cassert>
 #define SKY_ASSERT(val) assert(val);
+#else
+#define SKY_ASSERT(val)
+#endif
 
 #ifdef _MSC_VER
     #define SKY_EXPORT __declspec(dllexport)

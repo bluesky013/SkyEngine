@@ -144,7 +144,7 @@ namespace sky {
             cmd->Begin();
 
             cmd->ImageBarrier(inputImage0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2},
-                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT},
+                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT},
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             cmd->Copy(staging, inputImage0, copyInfo);
@@ -153,12 +153,12 @@ namespace sky {
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             cmd->ImageBarrier(inputImage0, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 2, 1},
-                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_NONE, VK_ACCESS_SHADER_WRITE_BIT},
+                {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, VK_ACCESS_SHADER_WRITE_BIT},
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
             cmd->End();
             cmd->Submit(*graphicsQueue, {});
-            cmd->Wait();
+            graphicsQueue->WaitIdle();
 
             vk::ImageView::VkDescriptor viewInfo = {};
             viewInfo.format                     = VK_FORMAT_R8G8B8A8_UNORM;
@@ -172,7 +172,7 @@ namespace sky {
             viewInfo.subResourceRange.baseArrayLayer = 2;
             imageView2                          = vk::ImageView::CreateImageView(inputImage0, viewInfo);
 
-            sampler = device->CreateDeviceObject<vk::Sampler>({});
+            sampler = device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
             writer.Write(0, VK_DESCRIPTOR_TYPE_SAMPLER, {}, sampler);
             writer.Write(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageView0, {});
@@ -267,11 +267,12 @@ namespace sky {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
-        commandBuffer->Wait();
+        fence->Wait();
+        fence->Reset();
         commandBuffer->Begin();
 
         auto cmd             = commandBuffer->GetNativeHandle();
-        auto graphicsEncoder = commandBuffer->EncodeGraphics();
+        auto graphicsEncoder = commandBuffer->EncodeVkGraphics();
 
         VkClearValue clearValue     = {};
         clearValue.color.float32[0] = 0.2f;
@@ -279,8 +280,8 @@ namespace sky {
         clearValue.color.float32[2] = 0.2f;
         clearValue.color.float32[3] = 1.f;
 
-        vk::CmdDraw args         = {};
-        args.type                 = vk::CmdDrawType::LINEAR;
+        rhi::CmdDraw args         = {};
+        args.type                 = rhi::CmdDrawType::LINEAR;
         args.linear.firstVertex   = 0;
         args.linear.firstInstance = 0;
         args.linear.vertexCount   = 6;
@@ -308,6 +309,7 @@ namespace sky {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
+        submitInfo.fence = fence;
 
         commandBuffer->Submit(*graphicsQueue, submitInfo);
 

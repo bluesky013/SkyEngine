@@ -16,8 +16,6 @@ namespace sky::editor {
 
         void Init();
 
-        sky::Viewport* GetNativeViewport() const;
-
     private:
         Viewport* window;
     };
