@@ -16,6 +16,9 @@ namespace sky::mtl {
         ~ImageView() = default;
 
         id<MTLTexture> GetNativeHandle() const { return source->GetNativeHandle(); }
+
+        rhi::PixelFormat GetFormat() const override { return source->GetDescriptor().format; };
+        const rhi::Extent3D &GetExtent() const override { return source->GetDescriptor().extent; }
     private:
         bool Init(const rhi::ImageViewDesc &desc);
         std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const override;
