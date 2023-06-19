@@ -17,7 +17,7 @@ namespace sky::gles {
         ~FrameBuffer();
 
         bool Init(const Descriptor &desc);
-        std::pair<GLuint, GLuint> AcquireNativeHandle(uint32_t queueIndex);
+        GLuint AcquireNativeHandle(uint32_t queueIndex);
         const ImageViewPtr &GetAttachment(uint32_t index) const { return attachments[index]; }
         uint32_t GetColorIndex(uint32_t attachmentIndex) const { return renderPass->GetAttachmentColorMap()[attachmentIndex]; }
 
@@ -25,7 +25,7 @@ namespace sky::gles {
         const SurfacePtr &GetSurface() const { return surface; }
 
     private:
-        void InitInternal(GLuint fbo, GLuint &resolve);
+        void InitInternal(GLuint fbo);
 
         RenderPassPtr renderPass;
         std::vector<ImageViewPtr> attachments;
@@ -34,7 +34,6 @@ namespace sky::gles {
         SurfacePtr surface;
         // OpenGL-ES explicitly disallows sharing of fbo objects
         std::vector<GLuint> objects;
-        std::vector<GLuint> resolveObjects;
     };
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 

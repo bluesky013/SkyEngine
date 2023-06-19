@@ -64,7 +64,7 @@ namespace sky::gles {
         Queue *GetGraphicsQueue() const;
         Queue *GetTransferQueue() const;
         Queue* GetQueue(rhi::QueueType type) const override;
-        uint32_t getQueueNumber() const { return 2; }
+        uint32_t GetQueueNumber() const { return 2; }
 
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
         const internal::DeviceFeature &GetInternalFeature() const { return internalFeature; }

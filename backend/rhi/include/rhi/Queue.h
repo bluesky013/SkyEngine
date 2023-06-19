@@ -62,7 +62,9 @@ namespace sky::rhi {
 
     protected:
         virtual void SetupInternal() {}
-        virtual void ShutdownInternal() {}
+
+        virtual void PreShutdown() {}
+        virtual void PostShutdown() {}
 
         void ThreadMain();
         bool EmitSingleTask();

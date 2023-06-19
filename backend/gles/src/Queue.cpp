@@ -15,6 +15,7 @@ namespace sky::gles {
         state = std::make_unique<PipelineCacheState>();
         CreateTask([this, cfg]() {
             context->Init(cfg);
+            GenerateBlitFrameBuffer();
         });
         return true;
     }
@@ -63,6 +64,24 @@ namespace sky::gles {
             eglSwapBuffers(context->GetDisplay(), surface->GetSurface());
             SKY_ASSERT(eglGetError() == EGL_SUCCESS);
         });
+    }
+
+    void Queue::PreShutdown()
+    {
+        CreateTask([this]() {
+           DestroyBlitFrameBuffer();
+        });
+    }
+
+    void Queue::GenerateBlitFrameBuffer()
+    {
+        CHECK(glGenFramebuffers(1, &blitFrameBuffer));
+        state->blitFbo = blitFrameBuffer;
+    }
+
+    void Queue::DestroyBlitFrameBuffer()
+    {
+        CHECK(glDeleteFramebuffers(1, &blitFrameBuffer));
     }
 }
 

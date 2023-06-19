@@ -18,6 +18,7 @@ namespace sky::rhi {
 
     void Queue::Shutdown()
     {
+        PreShutdown();
         exit.store(true);
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -26,7 +27,7 @@ namespace sky::rhi {
         if (thread.joinable()) {
             thread.join();
         }
-        ShutdownInternal();
+        PostShutdown();
     }
 
     void Queue::Wait(TransferTaskHandle handle)

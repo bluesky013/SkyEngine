@@ -33,7 +33,7 @@ namespace sky::vk {
         const CommandPoolPtr &GetOrCreatePool();
 
         void SetupInternal() override;
-        void ShutdownInternal() override;
+        void PostShutdown() override;
 
         uint64_t BeginFrame();
         void EndFrame();

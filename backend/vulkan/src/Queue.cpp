@@ -60,7 +60,7 @@ namespace sky::vk {
         });
     }
 
-    void Queue::ShutdownInternal()
+    void Queue::PostShutdown()
     {
         stagingBuffer->UnMap();
         stagingBuffer = nullptr;

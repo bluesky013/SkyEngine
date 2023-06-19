@@ -21,6 +21,7 @@ namespace sky::gles {
         GLuint            drawBuffer  = 0;
         GLuint            readBuffer  = 0;
         GLuint            vao         = 0;
+        GLuint            blitFbo     = 0;
         bool              scissorTest = false;
         rhi::Viewport     viewport    = {0, 0, 1, 1, 0.f, 1.f};
         rhi::Rect2D       scissor     = {0, 0, 1, 1};

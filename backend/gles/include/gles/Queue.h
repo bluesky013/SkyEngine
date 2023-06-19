@@ -27,8 +27,14 @@ namespace sky::gles {
         void Present(const SurfacePtr &surface);
 
     private:
+        void PreShutdown() override;
+
+        void GenerateBlitFrameBuffer();
+        void DestroyBlitFrameBuffer();
+
         std::unique_ptr<Context> context;
         std::unique_ptr<PipelineCacheState> state;
+        GLuint blitFrameBuffer = 0;
     };
 
 }

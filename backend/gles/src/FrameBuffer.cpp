@@ -29,10 +29,6 @@ namespace sky::gles {
             if (fbo != 0) {
                 deleteFB(*device.GetQueue(static_cast<rhi::QueueType>(i)), fbo);
             }
-            auto &resolve = resolveObjects[i];
-            if (resolve != 0) {
-                deleteFB(*device.GetQueue(static_cast<rhi::QueueType>(i)), resolve);
-            }
         }
     }
 
@@ -40,8 +36,7 @@ namespace sky::gles {
     {
         extent = desc.extent;
         renderPass = std::static_pointer_cast<RenderPass>(desc.pass);
-        objects.resize(device.getQueueNumber(), 0);
-        resolveObjects.resize(device.getQueueNumber(), 0);
+        objects.resize(device.GetQueueNumber(), 0);
 
         attachments.reserve(desc.views.size());
         for (auto &attachment : desc.views) {
@@ -55,18 +50,17 @@ namespace sky::gles {
         return true;
     }
 
-    std::pair<GLuint, GLuint> FrameBuffer::AcquireNativeHandle(uint32_t queueIndex)
+    GLuint FrameBuffer::AcquireNativeHandle(uint32_t queueIndex)
     {
         auto &fbo = objects[queueIndex];
-        auto &resolveFbo = resolveObjects[queueIndex];
         if (fbo == 0) {
             CHECK(glGenFramebuffers(1, &fbo));
-            InitInternal(fbo, resolveFbo);
+            InitInternal(fbo);
         }
-        return {fbo, resolveFbo};
+        return fbo;
     }
 
-    void FrameBuffer::InitInternal(GLuint fbo, GLuint &resolveFbo) {
+    void FrameBuffer::InitInternal(GLuint fbo) {
         CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
 
         auto &colors = renderPass->GetGLColors();
@@ -91,7 +85,7 @@ namespace sky::gles {
             GLint baseLevel = static_cast<GLint>(viewDesc.subRange.baseLevel);
             drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
 
-            if (imageDesc.samples != rhi::SampleCount::X1) {
+            if (imageDesc.samples != rhi::SampleCount::X1 && resolves[i] != INVALID_INDEX) {
                 if (supportResolve && (i == 0 || supportResolveMRT)) {
                     const auto &resolve = resolves[i];
                     const auto &resolveAttachment = attachments[resolve];
@@ -158,35 +152,6 @@ namespace sky::gles {
             LOG_E(TAG, "check frame buffer status error - %x", status);
         }
         CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-        // resolve framebuffer
-        if (!blitPairs.empty()) {
-            CHECK(glGenFramebuffers(1, &resolveFbo));
-            CHECK(glBindFramebuffer(GL_FRAMEBUFFER, resolveFbo));
-
-            uint32_t i = 0;
-            for (auto &[source, dst] : blitPairs) {
-                auto &attachment = attachments[dst];
-                auto &image = attachment->GetImage();
-                auto &viewDesc = attachment->GetViewDesc();
-                auto handle = image->GetNativeHandle();
-
-                GLenum att = GL_COLOR_ATTACHMENT0;
-                if (viewDesc.subRange.aspectMask & rhi::AspectFlagBit::COLOR_BIT) {
-                    att += i;
-                    ++i;
-                } else {
-                    att = viewDesc.subRange.aspectMask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
-                }
-
-                if (image->IsRenderBuffer()) {
-                    CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
-                } else {
-                    CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, att, GL_TEXTURE_2D, handle, viewDesc.subRange.baseLevel));
-                }
-            }
-            CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-        }
     }
 
 }

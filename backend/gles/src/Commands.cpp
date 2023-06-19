@@ -10,6 +10,7 @@
 #include <gles/Queue.h>
 #include <gles/GraphicsPipeline.h>
 #include <gles/Device.h>
+#include <gles/FrameBufferBlitHelper.h>
 
 namespace sky::gles {
 
@@ -106,17 +107,14 @@ namespace sky::gles {
 
         const auto &surface = currentFramebuffer->GetSurface();
         GLuint fbo = 0;
-        GLuint resolveFbo = 0;
         if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
             context->MakeCurrent(*surface);
         }
         if (!surface) {
-            std::tie(fbo, resolveFbo) = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
+            fbo = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
         }
-        if (cache->drawBuffer != fbo) {
-            CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
-            cache->drawBuffer = fbo;
-        }
+        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+        cache->drawBuffer = fbo;
 
         GLbitfield clearBit = 0;
         auto attachmentFunc = [this, &clearBit](const rhi::RenderPass::Attachment &attachment, const RenderPass::AttachmentGLInfo &info, uint32_t colorIndex, uint32_t index) {
@@ -223,54 +221,15 @@ namespace sky::gles {
         // external resolve
         const auto &blitPairs = currentFramebuffer->GetBlitPairs();
         if (!blitPairs.empty()) {
-            const auto &surface = currentFramebuffer->GetSurface();
+            FrameBufferBlitHelper blitHelper;
+            for (auto &[src, dst] : blitPairs) {
+                auto index = currentFramebuffer->GetColorIndex(src);
+                blitHelper.Reset();
 
-            GLuint fbo = 0;
-            GLuint resolveFbo = 0;
-            if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
-                context->MakeCurrent(*surface);
-            }
-            if (!surface) {
-                std::tie(fbo, resolveFbo) = currentFramebuffer->AcquireNativeHandle(static_cast<uint32_t>(type));
-            }
-
-            if (cache->readBuffer != fbo) {
-                CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo));
-                cache->readBuffer = fbo;
-            }
-
-            if (cache->drawBuffer != resolveFbo) {
-                CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFbo));
-                cache->drawBuffer = resolveFbo;
-            }
-
-            for (uint32_t i = 0; i < blitPairs.size(); ++i) {
-                uint32_t src = blitPairs[i].first;
-                uint32_t dst = blitPairs[i].second;
-
-                auto &srcTex = currentFramebuffer->GetAttachment(src);
-                auto &dstTex = currentFramebuffer->GetAttachment(dst);
-                auto &ext = srcTex->GetImage()->GetDescriptor().extent;
-
-                auto mask = srcTex->GetViewDesc().subRange.aspectMask;
-                GLbitfield bufferMask = 0;
-                if (mask & rhi::AspectFlagBit::COLOR_BIT) bufferMask |= GL_COLOR_BUFFER_BIT;
-                if (mask & rhi::AspectFlagBit::DEPTH_BIT) bufferMask |= GL_DEPTH_BUFFER_BIT;
-                if (mask & rhi::AspectFlagBit::STENCIL_BIT) bufferMask |= GL_STENCIL_BUFFER_BIT;
-
-                auto index = currentFramebuffer->GetColorIndex(dst);
-                if (index != INVALID_INDEX && (mask & rhi::AspectFlagBit::COLOR_BIT)) {
-                    std::vector<GLenum> drawBuffers(i + 1, GL_NONE);
-                    drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
-
-                    CHECK(glReadBuffer(GL_COLOR_ATTACHMENT0 + index));
-                    CHECK(glDrawBuffers(i + 1, drawBuffers.data()));
-                }
-
-                CHECK(glBlitFramebuffer(
-                    0, 0, ext.width, ext.height,
-                    0, 0, ext.width, ext.height,
-                    bufferMask, GL_NEAREST));
+                blitHelper.SetSrcTarget(cache->drawBuffer, index)
+                    .SetDrawFrameBuffer(cache->blitFbo)
+                    .SetDstTarget(currentFramebuffer->GetAttachment(dst))
+                    .Blit(currentFramebuffer->GetExtent());
             }
         }
     }
@@ -552,12 +511,13 @@ namespace sky::gles {
     {
         CHECK(glBindBuffer(GL_DRAW_INDIRECT_BUFFER, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle()));
 
+        uint8_t *ptr = nullptr;
         if (currentPso->GetDevice().GetFeatures().multiDrawIndirect) {
-            CHECK(MultiDrawArraysIndirectEXT(cache->primitive, reinterpret_cast<const void*>(offset), count, stride));
+            CHECK(MultiDrawArraysIndirectEXT(cache->primitive, ptr + offset, count, stride));
         } else {
             for (uint32_t i = 0; i < count; ++i) {
                 uint32_t off = offset + i * stride;
-                CHECK(glDrawArraysIndirect(cache->primitive, reinterpret_cast<const void*>(off)));
+                CHECK(glDrawArraysIndirect(cache->primitive, ptr + off));
             }
         }
     }
@@ -566,12 +526,13 @@ namespace sky::gles {
     {
         CHECK(glBindBuffer(GL_DRAW_INDIRECT_BUFFER, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle()));
 
+        uint8_t *ptr = nullptr;
         if (currentPso->GetDevice().GetFeatures().multiDrawIndirect) {
-            CHECK(MultiDrawElementsIndirectEXT(cache->primitive, cache->indexType, reinterpret_cast<const void*>(offset), count, stride));
+            CHECK(MultiDrawElementsIndirectEXT(cache->primitive, cache->indexType, ptr + offset, count, stride));
         } else {
             for (uint32_t i = 0; i < count; ++i) {
                 uint32_t off = offset + i * stride;
-                CHECK(glDrawElementsIndirect(cache->primitive, cache->indexType, reinterpret_cast<const void*>(off)));
+                CHECK(glDrawElementsIndirect(cache->primitive, cache->indexType, ptr + off));
             }
         }
     }
