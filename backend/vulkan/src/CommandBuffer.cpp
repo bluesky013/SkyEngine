@@ -8,6 +8,7 @@
 #include "vulkan/Conversion.h"
 #include "vulkan/Barrier.h"
 #include "vulkan/Conversion.h"
+#include "vulkan/Ext.h"
 
 static const char *TAG = "Vulkan";
 
@@ -624,7 +625,7 @@ namespace sky::vk {
         blitInfo.pRegions = blit.data();
         blitInfo.filter = FromRHI(filter);
 
-        vkCmdBlitImage2(cmdBuffer.GetNativeHandle(), &blitInfo);
+        CmdBlitImage2(cmdBuffer.GetNativeHandle(), &blitInfo);
         return *this;
     }
 
@@ -650,7 +651,7 @@ namespace sky::vk {
         resolveInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         resolveInfo.regionCount = static_cast<uint32_t>(resolves.size());
         resolveInfo.pRegions = resolves.data();
-        vkCmdResolveImage2(cmdBuffer.GetNativeHandle(), &resolveInfo);
+        CmdResolveImage2(cmdBuffer.GetNativeHandle(), &resolveInfo);
         return *this;
     }
 

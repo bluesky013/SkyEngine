@@ -7,6 +7,7 @@
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/vulkan.h"
+#include "vulkan/Ext.h"
 
 namespace sky::vk {
 
@@ -21,27 +22,12 @@ namespace sky::vk {
         Device *CreateDevice(const Device::Descriptor &);
 
         VkInstance GetInstance() const;
-
-        // functions
-        VkResult GetPhysicalDeviceFragmentShadingRates(VkPhysicalDevice                        physicalDevice,
-                                                       uint32_t                               *pFragmentShadingRateCount,
-                                                       VkPhysicalDeviceFragmentShadingRateKHR *pFragmentShadingRates);
-
-        VkResult CreateRenderPass2(VkDevice device,
-                                   const VkRenderPassCreateInfo2* pCreateInfo,
-                                   const VkAllocationCallbacks* pAllocator,
-                                   VkRenderPass* pRenderPass);
     private:
         bool Init(const Descriptor &);
-
-        void InitFunctions();
         void PrintSupportedExtensions() const;
 
         VkInstance               instance;
         VkDebugUtilsMessengerEXT debug;
-
-        PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR getPhysicalDeviceFragmentShadingRate = nullptr;
-        PFN_vkCreateRenderPass2 createRenderPass2 = nullptr;
     };
 
 } // namespace sky::vk

@@ -187,9 +187,9 @@ namespace sky::vk {
         vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, supportedExtensions.data());
 
         if (enabledFeature.variableRateShading) {
-            instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, nullptr);
+            GetPhysicalDeviceFragmentShadingRates(phyDev, &count, nullptr);
             shadingRates.resize(count, {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_KHR});
-            instance.GetPhysicalDeviceFragmentShadingRates(phyDev, &count, shadingRates.data());
+            GetPhysicalDeviceFragmentShadingRates(phyDev, &count, shadingRates.data());
         }
 
         count = 0;
@@ -266,7 +266,7 @@ namespace sky::vk {
         ValidateAccessInfoMapByExtension(supportedExtensions);
 
         SetupDefaultResources();
-
+        LoadDevice(device);
 //        PrintSupportedExtensions();
         return true;
     }
@@ -369,7 +369,7 @@ namespace sky::vk {
 
         return renderPasses.FindOrEmplace(hash, [this, passInfo]() {
             VkRenderPass pass = VK_NULL_HANDLE;
-            auto         rst  = instance.CreateRenderPass2(device, passInfo, VKL_ALLOC, &pass);
+            auto         rst  = CreateRenderPass2(device, passInfo, VKL_ALLOC, &pass);
             if (rst != VK_SUCCESS) {
                 LOG_E(TAG, "create RenderPass failed, %d", rst);
             }
