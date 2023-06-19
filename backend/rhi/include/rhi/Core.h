@@ -464,6 +464,29 @@ namespace sky::rhi {
         uint32_t levels    = 1;
         uint32_t baseLayer = 0;
         uint32_t layers    = 1;
+        AspectFlags aspectMask;
+    };
+
+    struct ImageSubRangeLayers {
+        uint32_t level     = 0;
+        uint32_t baseLayer = 0;
+        uint32_t layers    = 1;
+        AspectFlags aspectMask;
+    };
+
+    struct BlitInfo {
+        ImageSubRangeLayers srcRange;
+        ImageSubRangeLayers dstRange;
+        Offset3D            srcOffsets[2];
+        Offset3D            dstOffsets[2];
+    };
+
+    struct ResolveInfo {
+        ImageSubRangeLayers srcRange;
+        ImageSubRangeLayers dstRange;
+        Offset3D            srcOffset;
+        Offset3D            dstOffset;
+        Extent3D            extent;
     };
 
     struct StencilState {
@@ -542,8 +565,7 @@ namespace sky::rhi {
     };
 
     struct ImageViewDesc {
-        ImageSubRange subRange = {0, 1, 0, 1};
-        AspectFlags   mask = rhi::AspectFlagBit::COLOR_BIT;
+        ImageSubRange subRange = {0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT};
         ImageViewType viewType = ImageViewType::VIEW_2D;
     };
 

@@ -7,6 +7,7 @@
 #include "vulkan/Fence.h"
 #include "vulkan/Conversion.h"
 #include "vulkan/Barrier.h"
+#include "vulkan/Conversion.h"
 
 static const char *TAG = "Vulkan";
 
@@ -114,6 +115,11 @@ namespace sky::vk {
     std::shared_ptr<rhi::GraphicsEncoder> CommandBuffer::EncodeGraphics()
     {
         return std::make_shared<GraphicsEncoder>(*this);
+    }
+
+    std::shared_ptr<rhi::BlitEncoder> CommandBuffer::EncodeBlit()
+    {
+        return std::make_shared<BlitEncoder>(*this);
     }
 
     void CommandBuffer::QueueBarrier(const rhi::ImageBarrier &imageBarrier)
@@ -569,6 +575,84 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::BlitEncoder &BlitEncoder::CopyTexture()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyTextureToBuffer()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyBufferToTexture()
+    {
+        return *this;
+    }
+
+    /**
+     * for copy and blit command:
+     * src layout must be VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL
+     * dst layout must be VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL
+     *
+     * use fixed VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL and VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+     */
+
+    rhi::BlitEncoder &BlitEncoder::BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter)
+    {
+        blit.resize(blitInputs.size());
+
+        for (uint32_t i = 0; i < blitInputs.size(); ++i) {
+            auto &VkBlit = blit[i];
+            auto &rBlit = blitInputs[i];
+
+            VkBlit.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+            VkBlit.pNext = nullptr;
+            VkBlit.srcSubresource = FromRHI(rBlit.srcRange);
+            VkBlit.dstSubresource = FromRHI(rBlit.dstRange);
+            VkBlit.srcOffsets[0]  = FromRHI(rBlit.srcOffsets[0]);
+            VkBlit.srcOffsets[1]  = FromRHI(rBlit.srcOffsets[1]);
+            VkBlit.dstOffsets[0]  = FromRHI(rBlit.dstOffsets[0]);
+            VkBlit.dstOffsets[1]  = FromRHI(rBlit.dstOffsets[1]);
+        }
+
+        blitInfo.srcImage = std::static_pointer_cast<Image>(src)->GetNativeHandle();
+        blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        blitInfo.dstImage = std::static_pointer_cast<Image>(dst)->GetNativeHandle();
+        blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        blitInfo.regionCount = static_cast<uint32_t>(blit.size());
+        blitInfo.pRegions = blit.data();
+        blitInfo.filter = FromRHI(filter);
+
+        vkCmdBlitImage2(cmdBuffer.GetNativeHandle(), &blitInfo);
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::ResolveInfo> &resolveInputs)
+    {
+        resolves.resize(resolveInputs.size());
+        for (uint32_t i = 0; i < resolveInputs.size(); ++i) {
+            auto &vkResolve = resolves[i];
+            auto &rResolve = resolveInputs[i];
+
+            vkResolve.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
+            vkResolve.pNext = nullptr;
+            vkResolve.srcSubresource = FromRHI(rResolve.srcRange);
+            vkResolve.srcOffset      = FromRHI(rResolve.srcOffset);
+            vkResolve.dstSubresource = FromRHI(rResolve.dstRange);
+            vkResolve.dstOffset      = FromRHI(rResolve.dstOffset);
+            vkResolve.extent         = FromRHI(rResolve.extent);
+        }
+
+        resolveInfo.srcImage = std::static_pointer_cast<Image>(src)->GetNativeHandle();
+        resolveInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        resolveInfo.dstImage = std::static_pointer_cast<Image>(dst)->GetNativeHandle();
+        resolveInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        resolveInfo.regionCount = static_cast<uint32_t>(resolves.size());
+        resolveInfo.pRegions = resolves.data();
+        vkCmdResolveImage2(cmdBuffer.GetNativeHandle(), &resolveInfo);
+        return *this;
+    }
 
     void SecondaryCommands::Emplace(const CommandBufferPtr &cmd)
     {

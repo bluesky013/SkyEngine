@@ -20,6 +20,7 @@ namespace sky::dx {
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override {}
 
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return nullptr; }
+        std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override { return nullptr; }
 
         void TransitionBarrier();
         void AliasingBarrier();

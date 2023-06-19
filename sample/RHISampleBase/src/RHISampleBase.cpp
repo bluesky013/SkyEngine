@@ -244,7 +244,7 @@ namespace sky::rhi {
         auto image = device->CreateImage(imageDesc);
 
         rhi::ImageViewDesc viewDesc = {};
-        viewDesc.mask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
+        viewDesc.subRange.aspectMask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
         depthStencilImage = image->CreateView(viewDesc);
 
         frameBuffers.resize(count);

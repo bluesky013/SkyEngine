@@ -80,7 +80,7 @@ namespace sky::rhi {
             desc.format = dsFormat;
             desc.usage = ImageUsageFlagBit::DEPTH_STENCIL;
 
-            viewDesc.mask = AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT;
+            viewDesc.subRange.aspectMask = AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT;
             {
                 auto image = device->CreateImage(desc);
                 ds = image->CreateView(viewDesc);

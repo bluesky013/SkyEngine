@@ -40,6 +40,24 @@ namespace sky::gles {
         CommandContext *context = nullptr;
     };
 
+    class BlitEncoder : public rhi::BlitEncoder {
+    public:
+        BlitEncoder(CommandBuffer &cmd, CommandContext *ctx) : cmdBuffer(cmd), context(ctx) {}
+        ~BlitEncoder() = default;
+
+        rhi::BlitEncoder &CopyTexture() override;
+        rhi::BlitEncoder &CopyTextureToBuffer() override;
+        rhi::BlitEncoder &CopyBufferToTexture() override;
+        rhi::BlitEncoder &BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter) override;
+        rhi::BlitEncoder &ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::ResolveInfo> &resolves) override;
+
+    private:
+        friend class CommandBuffer;
+        CommandBuffer        &cmdBuffer;
+        CommandContext *context = nullptr;
+    };
+
+
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
         CommandBuffer(Device &dev) : DevObject(dev) {}
@@ -49,6 +67,7 @@ namespace sky::gles {
         void End() override;
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &info) override;
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override;
+        std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override;
 
         struct TaskBase {
             TaskBase() = default;

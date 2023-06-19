@@ -91,6 +91,26 @@ namespace sky::vk {
         DescriptorSetBinder   binder;
     };
 
+    class BlitEncoder : public rhi::BlitEncoder {
+    public:
+        BlitEncoder(CommandBuffer &cmd) : cmdBuffer(cmd) {}
+        ~BlitEncoder() = default;
+
+        rhi::BlitEncoder &CopyTexture() override;
+        rhi::BlitEncoder &CopyTextureToBuffer() override;
+        rhi::BlitEncoder &CopyBufferToTexture() override;
+        rhi::BlitEncoder &BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter) override;
+        rhi::BlitEncoder &ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::ResolveInfo> &resolveInputs) override;
+
+    private:
+        friend class CommandBuffer;
+        CommandBuffer        &cmdBuffer;
+        VkResolveImageInfo2  resolveInfo = {VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2, nullptr};
+        VkBlitImageInfo2     blitInfo = {VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, nullptr};
+        std::vector<VkImageResolve2> resolves;
+        std::vector<VkImageBlit2> blit;
+    };
+
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
         CommandBuffer(Device &);
@@ -137,6 +157,7 @@ namespace sky::vk {
         void End() override;
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override;
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override;
+        std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override;
         void QueueBarrier(const rhi::ImageBarrier &imageBarrier) override;
         void FlushBarriers() override;
 

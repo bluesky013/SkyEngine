@@ -102,6 +102,32 @@ namespace sky::gles {
         return *this;
     }
 
+    rhi::BlitEncoder &BlitEncoder::CopyTexture()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyTextureToBuffer()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyBufferToTexture()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter)
+    {
+//        glBlitFramebuffer()
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst, const std::vector<rhi::ResolveInfo> &resolves)
+    {
+        return *this;
+    }
+
     void CommandBuffer::Reset()
     {
         for (auto &storage : storages) {
@@ -180,5 +206,10 @@ namespace sky::gles {
     std::shared_ptr<rhi::GraphicsEncoder> CommandBuffer::EncodeGraphics()
     {
         return std::static_pointer_cast<rhi::GraphicsEncoder>(std::make_shared<GraphicsEncoder>(*this, context.get()));
+    }
+
+    std::shared_ptr<rhi::BlitEncoder> CommandBuffer::EncodeBlit()
+    {
+        return std::static_pointer_cast<rhi::BlitEncoder>(std::make_shared<BlitEncoder>(*this, context.get()));
     }
 }

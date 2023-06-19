@@ -10,11 +10,8 @@
 
 namespace sky::vk {
 
-    inline VkExtent3D FromRHI(const rhi::Extent3D &ext)
-    {
-        return {ext.width, ext.height, ext.depth};
-    }
-
+    inline VkExtent3D FromRHI(const rhi::Extent3D &ext) { return {ext.width, ext.height, ext.depth}; }
+    inline VkOffset3D FromRHI(const rhi::Offset3D &off) { return {off.x, off.y, off.z}; }
     VkImageType FromRHI(rhi::ImageType type);
     VkImageViewType FromRHI(rhi::ImageViewType type);
     VkImageAspectFlags FromRHI(rhi::AspectFlags flags);
@@ -44,4 +41,5 @@ namespace sky::vk {
     VkIndexType FromRHI(rhi::IndexType);
     VkStencilOpState FromRHI(const rhi::StencilState&);
     VkDescriptorType FromRHI(const rhi::DescriptorType);
+    VkImageSubresourceLayers FromRHI(const rhi::ImageSubRangeLayers &res);
 }

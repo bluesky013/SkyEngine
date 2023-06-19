@@ -74,7 +74,7 @@ namespace sky::rhi {
         {
             rhi::ImageViewDesc viewDesc = {};
             if (i == 5) {
-                viewDesc.mask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
+                viewDesc.subRange.aspectMask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
                 imageDesc.format = dsFormat;
                 imageDesc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
                 fbClears.emplace_back(rhi::ClearValue(1, 0));
@@ -93,9 +93,9 @@ namespace sky::rhi {
 
             if (i == 5) {
                 rhi::ImageViewDesc dsViewDesc = {};
-                dsViewDesc.mask = AspectFlagBit::DEPTH_BIT;
+                dsViewDesc.subRange.aspectMask = AspectFlagBit::DEPTH_BIT;
                 depthView = image->CreateView(dsViewDesc);
-                dsViewDesc.mask = AspectFlagBit::STENCIL_BIT;
+                dsViewDesc.subRange.aspectMask = AspectFlagBit::STENCIL_BIT;
                 stencilView = image->CreateView(dsViewDesc);
             }
         }

@@ -252,7 +252,7 @@ namespace sky::gles {
                 auto &dstTex = currentFramebuffer->GetAttachment(dst);
                 auto &ext = srcTex->GetImage()->GetDescriptor().extent;
 
-                auto mask = srcTex->GetViewDesc().mask;
+                auto mask = srcTex->GetViewDesc().subRange.aspectMask;
                 GLbitfield bufferMask = 0;
                 if (mask & rhi::AspectFlagBit::COLOR_BIT) bufferMask |= GL_COLOR_BUFFER_BIT;
                 if (mask & rhi::AspectFlagBit::DEPTH_BIT) bufferMask |= GL_DEPTH_BUFFER_BIT;

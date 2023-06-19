@@ -46,6 +46,18 @@ namespace sky::rhi {
         virtual GraphicsEncoder &EndPass() = 0;
     };
 
+    class BlitEncoder {
+    public:
+        BlitEncoder() = default;
+        virtual ~BlitEncoder() = default;
+
+        virtual BlitEncoder &CopyTexture() = 0;
+        virtual BlitEncoder &CopyTextureToBuffer() = 0;
+        virtual BlitEncoder &CopyBufferToTexture() = 0;
+        virtual BlitEncoder &BlitTexture(const ImagePtr &src, const ImagePtr &dst, const std::vector<BlitInfo> &blitInputs, rhi::Filter filter) = 0;
+        virtual BlitEncoder &ResoleTexture(const ImagePtr &src, const ImagePtr &dst, const std::vector<ResolveInfo> &resolveInputs) = 0;
+    };
+
 
     struct SubmitInfo {
         std::vector<std::pair<PipelineStageFlags, SemaphorePtr>> waits;
@@ -83,6 +95,7 @@ namespace sky::rhi {
         virtual void Submit(Queue &queue, const SubmitInfo &submit) = 0;
 
         virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() = 0;
+        virtual std::shared_ptr<BlitEncoder> EncodeBlit() = 0;
 
         virtual void QueueBarrier(const ImageBarrier &imageBarrier) {}
         virtual void FlushBarriers() {}

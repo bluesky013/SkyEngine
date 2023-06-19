@@ -143,8 +143,7 @@ namespace sky::gles {
             auto &image = attachment->GetImage();
             auto &viewDesc = attachment->GetViewDesc();
             auto handle = image->GetNativeHandle();
-            GLenum att =
-                viewDesc.mask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+            GLenum att = viewDesc.subRange.aspectMask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
             if (image->IsRenderBuffer()) {
                 CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
             } else {
@@ -173,11 +172,11 @@ namespace sky::gles {
                 auto handle = image->GetNativeHandle();
 
                 GLenum att = GL_COLOR_ATTACHMENT0;
-                if (viewDesc.mask & rhi::AspectFlagBit::COLOR_BIT) {
+                if (viewDesc.subRange.aspectMask & rhi::AspectFlagBit::COLOR_BIT) {
                     att += i;
                     ++i;
                 } else {
-                    att = viewDesc.mask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
+                    att = viewDesc.subRange.aspectMask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
                 }
 
                 if (image->IsRenderBuffer()) {

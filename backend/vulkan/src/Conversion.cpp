@@ -433,4 +433,14 @@ namespace sky::vk {
         auto iter = DESCRIPTOR_TYPE_MAP.find(type);
         return iter == DESCRIPTOR_TYPE_MAP.end() ? VK_DESCRIPTOR_TYPE_SAMPLER : iter->second;
     }
+
+    VkImageSubresourceLayers FromRHI(const rhi::ImageSubRangeLayers &res)
+    {
+        return VkImageSubresourceLayers {
+            FromRHI(res.aspectMask),
+            res.level,
+            res.baseLayer,
+            res.layers
+        };
+    }
 }

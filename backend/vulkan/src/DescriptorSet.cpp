@@ -228,7 +228,7 @@ namespace sky::vk {
         auto vIter = table.find(binding);
         SKY_ASSERT(vIter != table.end());
 
-        auto mask = view->GetViewDesc().mask;
+        auto mask = view->GetViewDesc().subRange.aspectMask;
         auto descriptorType = vIter->second.descriptorType;
         if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
             if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {

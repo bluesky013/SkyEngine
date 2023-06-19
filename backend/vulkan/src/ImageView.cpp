@@ -53,7 +53,7 @@ namespace sky::vk {
                                      VK_COMPONENT_SWIZZLE_IDENTITY,
                                      VK_COMPONENT_SWIZZLE_IDENTITY};
 
-        viewInfo.subresourceRange = {FromRHI(desc.mask),
+        viewInfo.subresourceRange = {FromRHI(desc.subRange.aspectMask),
                                      desc.subRange.baseLevel,
                                      desc.subRange.levels,
                                      desc.subRange.baseLayer,

@@ -59,8 +59,7 @@ namespace sky::rdg {
 
                 if (!image.res) {
                     rhi::ImageViewDesc viewDesc = {};
-                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers};
-                    viewDesc.mask = image.desc.mask;
+                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, image.desc.mask};
                     viewDesc.viewType = image.desc.viewType;
                     image.res = image.desc.image->CreateView(viewDesc);
                 }
