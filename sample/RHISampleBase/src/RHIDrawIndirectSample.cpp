@@ -109,7 +109,9 @@ namespace sky::rhi {
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+        submitInfo.fence = fence;
 
+        fence->WaitAndReset();
         commandBuffer->Begin();
 
         {

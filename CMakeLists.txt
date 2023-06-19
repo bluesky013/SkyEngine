@@ -31,7 +31,7 @@ add_subdirectory(core)
 add_subdirectory(engine)
 add_subdirectory(backend)
 add_subdirectory(builder)
-add_subdirectory(render2)
+add_subdirectory(render)
 add_subdirectory(sample)
 
 add_subdirectory(Launcher)

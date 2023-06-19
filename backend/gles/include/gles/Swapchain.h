@@ -27,7 +27,7 @@ namespace sky::gles {
         bool HasDepthStencilImage() const override { return true; }
         rhi::ImagePtr GetDepthStencilImage() const override { return depth; }
         rhi::ImagePtr GetImage(uint32_t index) const override { return color; }
-        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) const override { return 0; }
+        uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override { return 0; }
 
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
         void Resize(uint32_t width, uint32_t height, void* window) override;

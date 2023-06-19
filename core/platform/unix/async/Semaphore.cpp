@@ -21,7 +21,7 @@ namespace sky {
 
     }
 
-    void Semaphore::Signal(int32_t count = 1)
+    void Semaphore::Signal(int32_t count)
     {
     }
 } // namespace sky
