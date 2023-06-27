@@ -122,7 +122,6 @@ namespace sky::gles {
         TaskBase* head = nullptr;
         TaskBase** current = &head;
         std::unique_ptr<CommandContext> context;
-        FencePtr fence;
     };
 
 }

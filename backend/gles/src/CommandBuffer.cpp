@@ -162,7 +162,6 @@ namespace sky::gles {
     bool CommandBuffer::Init(const Descriptor &desc)
     {
         AllocateStorage();
-        fence = std::static_pointer_cast<Fence>(device.CreateFence({}));
         context = std::make_unique<CommandContext>();
         return true;
     }
@@ -179,13 +178,10 @@ namespace sky::gles {
 
     CommandBuffer::~CommandBuffer() noexcept
     {
-        fence->Wait();
     }
 
     void CommandBuffer::Begin()
     {
-        fence->Wait();
-        fence->Reset();
         Reset();
     }
 
@@ -197,9 +193,9 @@ namespace sky::gles {
     {
         auto &glesQueue = static_cast<Queue&>(queue);
         context->Attach(glesQueue);
-        glesQueue.CreateTask([this]() {
+        glesQueue.CreateTask([this, info]() {
             Execute();
-            fence->Signal();
+            std::static_pointer_cast<Fence>(info.fence)->Signal();
         });
     }
 

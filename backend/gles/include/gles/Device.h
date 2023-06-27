@@ -93,7 +93,7 @@ namespace sky::gles {
         void InitDeviceFeature();
         void InitDefaultObjects();
 
-        void WaitIdle() const override { CHECK(glFinish()); }
+        void WaitIdle() const override;
 
         std::unique_ptr<Context> mainContext;
         std::unique_ptr<Queue> graphicsQueue;

@@ -131,4 +131,15 @@ namespace sky::gles {
         defaultSampler = CreateDeviceObject<Sampler>(Sampler::Descriptor{});
     }
 
+    void Device::WaitIdle() const
+    {
+        CHECK(glFinish());
+        graphicsQueue->Wait(graphicsQueue->CreateTask([]() {
+            CHECK(glFinish());
+        }));
+        transferQueue->Wait(transferQueue->CreateTask([]() {
+            CHECK(glFinish());
+        }));
+    }
+
 }
