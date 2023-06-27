@@ -13,16 +13,55 @@ namespace sky::rdg {
     void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
-            [&](const AccessPassTag &) {
-                auto &pass = rdg.accessGraph.passes[Index(u, rdg.accessGraph)];
+            [&](const RasterPassTag &) {
+                auto &raster = rdg.rasterPasses[Index(u, rdg)];
+                Compile(u, raster);
             },
-            [&](const AccessResTag &) {
-                auto &res = rdg.accessGraph.resources[Index(u, rdg.accessGraph)];
-                MountResource(u, res.resID);
+            [&](const ComputePassTag &) {
+                auto &compute = rdg.computePasses[Index(u, rdg)];
+                Compile(u, compute);
+            },
+            [&](const CopyBlitTag &) {
+                auto &cb = rdg.copyBlitPasses[Index(u, rdg)];
+                Compile(u, cb);
+            },
+            [&](const PresentTag &) {
+                auto &present = rdg.presentPasses[Index(u, rdg)];
             },
             [&](const auto &) {}
-        }, Tag(u, rdg.accessGraph));
+        }, Tag(u, rdg));
     }
+
+    void RenderResourceCompiler::Compile(Vertex u, RasterPass &pass)
+    {
+        for (auto &attachment : pass.attachmentVertex) {
+            MountResource(u, Source(attachment, rdg.resourceGraph));
+        }
+    }
+
+    void RenderResourceCompiler::Compile(Vertex u, ComputePass &pass)
+    {
+
+    }
+
+    void RenderResourceCompiler::Compile(Vertex u, CopyBlitPass &pass)
+    {
+
+    }
+
+//    void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
+//    {
+//        std::visit(Overloaded{
+//            [&](const AccessPassTag &) {
+//                auto &pass = rdg.accessGraph.passes[Index(u, rdg.accessGraph)];
+//            },
+//            [&](const AccessResTag &) {
+//                auto &res = rdg.accessGraph.resources[Index(u, rdg.accessGraph)];
+//                MountResource(u, res.resID);
+//            },
+//            [&](const auto &) {}
+//        }, Tag(u, rdg.accessGraph));
+//    }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)
     {
@@ -35,10 +74,6 @@ namespace sky::rdg {
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           image.lifeTime.begin, image.lifeTime.end);
                 }
-                if (image.res && u >= image.lifeTime.end) {
-                    rdg.context->pool->RecycleImage(image.res, image.desc);
-                    image.res = nullptr;
-                }
             },
             [&](const BufferTag &) {
                 auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
@@ -47,10 +82,6 @@ namespace sky::rdg {
                     buffer.res = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           buffer.lifeTime.begin, buffer.lifeTime.end);
-                }
-                if (buffer.res && u >= buffer.lifeTime.end) {
-                    rdg.context->pool->RecycleBuffer(buffer.res, buffer.desc);
-                    buffer.res = nullptr;
                 }
             },
             [&](const ImportImageTag &) {

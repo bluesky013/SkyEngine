@@ -9,16 +9,6 @@ static const char *TAG = "RDG";
 
 namespace sky::rdg {
 
-    void RenderGraphPassCompiler::tree_edge(Edge e, const Graph &g) {
-        std::visit(Overloaded{
-            [&](const RasterPassTag &) {
-                auto &raster = graph.rasterPasses[Index(e.m_source, graph)];
-                raster.subPasses.emplace_back(static_cast<VertexType>(e.m_target));
-            },
-            [&](const auto &) {}
-        }, Tag(e.m_source, graph));
-    }
-
     void RenderGraphPassCompiler::discover_vertex(Vertex u, const Graph& g) {
         LOG_I(TAG, "compile passes %s....", Name(u, graph).c_str());
         std::visit(Overloaded{

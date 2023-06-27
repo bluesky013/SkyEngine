@@ -134,7 +134,7 @@ namespace sky::rdg {
                 auto &src = rdg.accessGraph.passes[Index(u.m_source, rdg.accessGraph)];
                 auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
                 dst.prevAccess = GetAccessFlag(ep);
-                passID = static_cast<VertexType>(u.m_source);
+                passID = src.vertexID;
                 resID = dst.resID;
             },
             [&](const AccessResTag&, const AccessPassTag&) {
@@ -142,7 +142,7 @@ namespace sky::rdg {
                 auto &dst = rdg.accessGraph.passes[Index(u.m_target, rdg.accessGraph)];
                 src.nextAccess = GetAccessFlag(ep);
                 resID = src.resID;
-                passID = static_cast<VertexType>(u.m_target);
+                passID = dst.vertexID;
             },
             [](const auto&, const auto &) {
                 SKY_ASSERT(false);
@@ -165,10 +165,11 @@ namespace sky::rdg {
         }, Tag(sourceId, rdg.resourceGraph));
         SKY_ASSERT(lifeTime != nullptr);
 
+        auto parentPassID = rdg.subPasses[Index(passID, rdg)].parent;
         if (lifeTime->begin == INVALID_VERTEX) {
-            lifeTime->begin = passID;
+            lifeTime->begin = parentPassID;
         }
-        lifeTime->end = passID;
+        lifeTime->end = parentPassID;
     }
 
 } // namespace sky::rdg

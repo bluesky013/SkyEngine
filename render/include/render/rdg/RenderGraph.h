@@ -17,17 +17,20 @@ namespace sky::rdg {
     struct RenderGraph;
 
     struct RasterPassBuilder {
+        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
+
         RenderGraph &graph;
         RasterPass &pass;
         VertexType vertex;
     };
 
     struct RasterSubPassBuilder {
-        RasterSubPassBuilder &AddColor(const RasterAttachment &view);
-        RasterSubPassBuilder &AddResolve(const RasterAttachment &view);
-        RasterSubPassBuilder &AddInput(const RasterAttachment &view);
-        RasterSubPassBuilder &AddDepthStencil(const RasterAttachment &view);
+        RasterSubPassBuilder &AddColor(const std::string &name, ResourceAccess access);
+        RasterSubPassBuilder &AddResolve(const std::string &name, ResourceAccess access);
+        RasterSubPassBuilder &AddInput(const std::string &name, ResourceAccess access);
+        RasterSubPassBuilder &AddDepthStencil(const std::string &name, ResourceAccess access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        uint32_t GetAttachmentIndex(const std::string &name);
 
         RenderGraph &graph;
         RasterPass &pass;
@@ -35,7 +38,7 @@ namespace sky::rdg {
         VertexType vertex;
 
     protected:
-        RasterSubPassBuilder &AddRasterView(const std::string &name, const RasterView &view);
+        RasterSubPassBuilder &AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view);
     };
 
     struct ComputePassBuilder {
@@ -51,25 +54,6 @@ namespace sky::rdg {
         RenderGraph &graph;
         VertexType vertex;
     };
-
-    // component visitors
-    template <typename V, typename G>
-    PmrString &Name(V v, G &g)
-    {
-        return g.names[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
-    template <typename V, typename G>
-    const typename G::Tag &Tag(V v, const G &g)
-    {
-        return g.tags[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
-    template <typename V, typename G>
-    size_t Index(V v, G &g)
-    {
-        return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
-    }
 
     struct AccessGraph {
         explicit AccessGraph(RenderGraphContext *ctx);
@@ -148,7 +132,7 @@ namespace sky::rdg {
         RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
-        void AddDependency(const char *name, VertexType passId, const AccessEdge &edge);
+        void AddDependency(VertexType resVertex, VertexType passId, const AccessEdge &edge);
 
         // memory
         RenderGraphContext *context;
@@ -272,5 +256,30 @@ namespace sky::rdg {
     {
         auto iter = std::find(g.names.begin(), g.names.end(), name);
         return iter == g.names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(g.names.begin(), iter));
+    }
+
+    // component visitors
+    template <typename V, typename G>
+    PmrString &Name(V v, G &g)
+    {
+        return g.names[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    const typename G::Tag &Tag(V v, const G &g)
+    {
+        return g.tags[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    size_t Index(V v, G &g)
+    {
+        return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    VertexType Source(V v, G &g)
+    {
+        return g.sources[static_cast<typename G::vertex_descriptor>(v)];
     }
 } // namespace sky

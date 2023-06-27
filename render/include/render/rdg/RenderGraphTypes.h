@@ -54,12 +54,16 @@ namespace sky::rdg {
 
     struct RasterAttachment {
         std::string name;
-        ResourceAccess access = ResourceAccessBit::READ;
-        rhi::ClearValue clear;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp storeOp = rhi::StoreOp::DONT_CARE;
         rhi::LoadOp  stencilLoad = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp stencilStore = rhi::StoreOp::DONT_CARE;
+    };
+
+    struct RasterAttachmentRef {
+        std::string name;
+        ResourceAccess access = ResourceAccessBit::READ;
+        uint32_t index = INVALID_INDEX;
     };
 
     struct RasterView {
@@ -120,10 +124,11 @@ namespace sky::rdg {
 
         using Tag = RasterSubPassTag;
 
-        PmrVector<RasterAttachment> colors;
-        PmrVector<RasterAttachment> resolves;
-        PmrVector<RasterAttachment> inputs;
-        RasterAttachment depthStencil;
+        VertexType parent = INVALID_VERTEX;
+        PmrVector<RasterAttachmentRef> colors;
+        PmrVector<RasterAttachmentRef> resolves;
+        PmrVector<RasterAttachmentRef> inputs;
+        RasterAttachmentRef depthStencil;
         PmrHashMap<std::string, RasterView> rasterViews;
         PmrHashMap<std::string, ComputeView> computeViews;
     };
@@ -132,6 +137,8 @@ namespace sky::rdg {
         RasterPass(uint32_t w, uint32_t h, PmrResource *res)
             : width(w)
             , height(h)
+            , attachments(res)
+            , attachmentVertex(res)
             , subPasses(res)
             , clearValues(res)
             {}
@@ -140,6 +147,8 @@ namespace sky::rdg {
         uint32_t width{0};
         uint32_t height{0};
 
+        PmrVector<RasterAttachment> attachments;
+        PmrVector<VertexType> attachmentVertex;
         PmrVector<VertexType> subPasses;
         PmrVector<rhi::ClearValue> clearValues;
         rhi::RenderPass::Descriptor passDesc;

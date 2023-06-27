@@ -97,7 +97,11 @@ namespace sky::rdg {
         SKY_ASSERT(src != INVALID_VERTEX);
         auto dst = AddVertex(name, RasterSubPass{&context->resources}, *this);
         add_edge(src, dst, graph);
-        return RasterSubPassBuilder{*this, rasterPasses[polymorphicDatas[src]], subPasses[polymorphicDatas[dst]], dst};
+        auto &rasterPass = rasterPasses[polymorphicDatas[src]];
+        auto &subPass = subPasses[polymorphicDatas[dst]];
+        rasterPass.subPasses.emplace_back(dst);
+        subPass.parent = src;
+        return RasterSubPassBuilder{*this, rasterPass, subPass, dst};
     }
 
     ComputePassBuilder RenderGraph::AddComputePass(const char *name)
@@ -122,18 +126,8 @@ namespace sky::rdg {
     {
     }
 
-    static std::string GetRefNodeName(const char *resName, const char *passName, uint32_t refId)
+    void RenderGraph::AddDependency(VertexType res, VertexType passId, const AccessEdge &edge)
     {
-        std::stringstream ss;
-        ss << passName << '/' << resName << '[' << refId << ']';
-        return ss.str();
-    }
-
-    void RenderGraph::AddDependency(const char *name, VertexType passId, const AccessEdge &edge)
-    {
-        auto res = FindVertex(name, resourceGraph);
-        SKY_ASSERT(res != INVALID_VERTEX);
-
         auto read = edge.access & ResourceAccessBit::READ;
         auto write = edge.access & ResourceAccessBit::WRITE;
 
@@ -157,41 +151,68 @@ namespace sky::rdg {
         }
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const RasterAttachment &view)
+    RasterPassBuilder &RasterPassBuilder::AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear)
     {
-        subPass.colors.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::COLOR, view.access});
+        auto res = FindVertex(attachment.name.c_str(), graph.resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
+        pass.attachmentVertex.emplace_back(res);
+        pass.attachments.emplace_back(attachment);
+        pass.clearValues.emplace_back(clear);
+        return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const RasterAttachment &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, ResourceAccess access)
     {
-        subPass.resolves.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::RESOLVE, view.access});
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.colors.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::COLOR, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const RasterAttachment &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const std::string &name, ResourceAccess access)
     {
-        subPass.inputs.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::INPUT, view.access});
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.resolves.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::RESOLVE, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const RasterAttachment &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const std::string &name, ResourceAccess access)
     {
-        subPass.depthStencil = view;
-        return AddRasterView(view.name, RasterView{RasterTypeBit::DEPTH_STENCIL, view.access});
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.inputs.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, const RasterView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, ResourceAccess access)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.depthStencil = RasterAttachmentRef{name, access, attachmentIndex};
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::DEPTH_STENCIL, access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
     {
         subPass.rasterViews.emplace(name, view);
-        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, {}});
+        graph.AddDependency(resVertex, vertex, AccessEdge{view.type, view.access, {}});
         return *this;
+    }
+
+    uint32_t RasterSubPassBuilder::GetAttachmentIndex(const std::string &name)
+    {
+        auto iter = std::find_if(pass.attachments.begin(), pass.attachments.end(), [&name](const RasterAttachment &attachment){
+            return name == attachment.name;
+        });
+        SKY_ASSERT(iter != pass.attachments.end());
+        return static_cast<uint32_t>(std::distance(pass.attachments.begin(), iter));
     }
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const std::string &name, const ComputeView &view)
     {
+        auto res = FindVertex(name.c_str(), graph.resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
         subPass.computeViews.emplace(name, view);
-        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, view.visibility});
+        graph.AddDependency(res, vertex, AccessEdge{view.type, view.access, view.visibility});
         return *this;
     }
 }
