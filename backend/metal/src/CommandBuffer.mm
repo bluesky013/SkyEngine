@@ -185,4 +185,31 @@ namespace sky::mtl {
         [encoder endEncoding];
         return *this;
     }
+
+    rhi::BlitEncoder &BlitEncoder::CopyTexture()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyTextureToBuffer()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::CopyBufferToTexture()
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst,
+                                  const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter)
+    {
+        return *this;
+    }
+
+    rhi::BlitEncoder &BlitEncoder::ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst,
+                                    const std::vector<rhi::ResolveInfo> &resolveInputs)
+    {
+        return *this;
+    }
 } // namespace sky::mtl

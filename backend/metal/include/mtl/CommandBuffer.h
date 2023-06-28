@@ -45,6 +45,23 @@ namespace sky::mtl {
         uint32_t currentSubpass = 0;
     };
 
+    class BlitEncoder : public rhi::BlitEncoder {
+    public:
+        BlitEncoder(CommandBuffer &cmd) : commandBuffer(cmd) {}
+        virtual ~BlitEncoder() = default;
+
+        rhi::BlitEncoder &CopyTexture() override;
+        rhi::BlitEncoder &CopyTextureToBuffer() override;
+        rhi::BlitEncoder &CopyBufferToTexture() override;
+        rhi::BlitEncoder &BlitTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst,
+                                      const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter) override;
+        rhi::BlitEncoder &ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst,
+                                        const std::vector<rhi::ResolveInfo> &resolveInputs) override;
+
+    private:
+        CommandBuffer &commandBuffer;
+    };
+
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
         CommandBuffer(Device &dev) : DevObject(dev) {}
@@ -55,6 +72,7 @@ namespace sky::mtl {
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override;
 
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return std::make_shared<GraphicsEncoder>(*this); }
+        std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override { return std::make_shared<BlitEncoder>(*this); }
         id<MTLCommandBuffer> GetNativeHandle() const { return currentCommandBuffer; }
 
     private:
