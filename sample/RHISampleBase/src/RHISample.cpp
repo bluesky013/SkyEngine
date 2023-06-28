@@ -47,7 +47,7 @@ namespace sky::rhi {
         } else if (rhi == "metal") {
             api = API::METAL;
         } else {
-            api = API::GLES;
+            api = API::VULKAN;
         }
         if (API_CHECK[static_cast<uint32_t>(api)]) {
             auto nativeWindow = systemApi->GetViewport();

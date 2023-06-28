@@ -259,8 +259,11 @@ namespace sky::vk {
             queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
             queues[i]->StartThread();
         }
-        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
-        transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, 0);
+        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0);
+        transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
+        if (transferQueue == nullptr) {
+            transferQueue = graphicsQueue;
+        }
 
         // update barrier map
         ValidateAccessInfoMapByExtension(supportedExtensions);

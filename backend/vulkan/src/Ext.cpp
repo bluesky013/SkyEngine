@@ -10,9 +10,14 @@ PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentShadingR
 PFN_vkCmdBlitImage2KHR CmdBlitImage2;
 PFN_vkCmdResolveImage2KHR CmdResolveImage2;
 
-void LoadInstance(VkInstance instance)
+void LoadInstance(VkInstance instance, uint32_t minorVersion)
 {
-    CreateRenderPass2                     = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2"));
+    if (minorVersion > 1) {
+        CreateRenderPass2 = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2"));
+    } else {
+        CreateRenderPass2 = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2KHR"));
+    }
+
     GetPhysicalDeviceFragmentShadingRates = PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR"));
 }
 
