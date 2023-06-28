@@ -8,7 +8,7 @@
 #include <vector>
 #include <RHI/Instance.h>
 
-#include <dx12/Basic.h>
+#include <dx12/Base.h>
 #include <dx12/Device.h>
 
 namespace sky::dx {

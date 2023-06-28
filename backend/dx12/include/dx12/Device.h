@@ -6,7 +6,7 @@
 
 #include <RHI/Device.h>
 
-#include <dx12/Basic.h>
+#include <dx12/Base.h>
 #include <dx12/Queue.h>
 
 namespace sky::dx {
