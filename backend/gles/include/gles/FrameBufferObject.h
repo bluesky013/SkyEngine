@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace sky::gles {
+    class Context;
 
     struct FramebufferObject : public DevObject {
         FramebufferObject(Device &dev);
@@ -14,7 +15,7 @@ namespace sky::gles {
 
         using Attachment = rhi::RenderPass::Attachment;
 
-        GLuint AcquireNativeHandle(uint32_t queueIndex);
+        GLuint AcquireNativeHandle(Context &context, uint32_t queueIndex);
         void InitInternal();
 
         void BindColor(const ImageViewPtr &view, const Attachment &attachment, uint32_t colorIndex, rhi::SampleCount samples = rhi::SampleCount::X1);

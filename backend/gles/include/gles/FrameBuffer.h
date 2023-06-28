@@ -11,6 +11,7 @@
 #include <gles/FrameBufferObject.h>
 
 namespace sky::gles {
+    class Context;
 
     class FrameBuffer : public rhi::FrameBuffer, public DevObject {
     public:
@@ -21,7 +22,7 @@ namespace sky::gles {
         FramebufferObject *GetFbo() const;
 
         bool NeedResolve() const;
-        void DoResolve(uint32_t queueIndex) const;
+        void DoResolve(Context &context, uint32_t queueIndex) const;
     private:
         RenderPassPtr renderPass;
         std::vector<ImageViewPtr> attachments;

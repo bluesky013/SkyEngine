@@ -72,8 +72,13 @@ namespace sky::gles {
         depthStencilResolve = samples;
     }
 
-    GLuint FramebufferObject::AcquireNativeHandle(uint32_t queueIndex)
+    GLuint FramebufferObject::AcquireNativeHandle(Context &context, uint32_t queueIndex)
     {
+        if (surface) {
+            context.MakeCurrent(*surface);
+            return 0; // default framebuffer
+        }
+
         auto &fbo = objects[queueIndex];
         if (fbo == 0) {
             CHECK(glGenFramebuffers(1, &fbo));

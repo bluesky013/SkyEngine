@@ -106,15 +106,8 @@ namespace sky::gles {
 
         auto *fbo = currentFramebuffer->GetFbo();
         const auto &surface = fbo->surface;
-        GLuint fboHandle = 0;
-        if (surface && surface->GetSurface() != context->GetCurrentSurface()) {
-            context->MakeCurrent(*surface);
-        }
-        if (!surface) {
-            fboHandle = fbo->AcquireNativeHandle(static_cast<uint32_t>(type));
-        }
+        GLuint fboHandle = fbo->AcquireNativeHandle(*context, static_cast<uint32_t>(type));
         CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fboHandle));
-
         if (!fbo->preInvalidates.empty()) {
             CHECK(glInvalidateFramebuffer(GL_FRAMEBUFFER, static_cast<uint32_t>(fbo->preInvalidates.size()), fbo->preInvalidates.data()));
         }
@@ -179,14 +172,14 @@ namespace sky::gles {
 
         SKY_ASSERT(currentSubPassId < subPasses.size());
 
-        auto *fbo = currentFramebuffer->GetFbo();
-        if (!fbo->postInvalidates.empty()) {
-            CHECK(glInvalidateFramebuffer(GL_FRAMEBUFFER, static_cast<uint32_t>(fbo->postInvalidates.size()), fbo->postInvalidates.data()));
-        }
-
         // external resolve
         if (currentFramebuffer->NeedResolve()) {
-            currentFramebuffer->DoResolve(static_cast<uint32_t>(type));
+            currentFramebuffer->DoResolve(*context, static_cast<uint32_t>(type));
+        } else {
+            auto *fbo = currentFramebuffer->GetFbo();
+            if (!fbo->postInvalidates.empty()) {
+                CHECK(glInvalidateFramebuffer(GL_FRAMEBUFFER, static_cast<uint32_t>(fbo->postInvalidates.size()), fbo->postInvalidates.data()));
+            }
         }
     }
 

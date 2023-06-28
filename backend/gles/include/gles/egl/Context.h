@@ -28,7 +28,8 @@ namespace sky::gles {
 
         EGLConfig GetConfig() const;
         EGLContext GetNativeHandle() const { return context; }
-        EGLSurface GetCurrentSurface() const { return currentSurface; }
+        EGLSurface GetReadSurface() const { return readSurface; }
+        EGLSurface GetDrawSurface() const { return drawSurface; }
         EGLDisplay GetDisplay() const { return display; }
 
         rhi::PipelineState gfxState;
@@ -37,7 +38,8 @@ namespace sky::gles {
         std::unique_ptr<PBuffer> pBuffer;
         EGLContext context = EGL_NO_CONTEXT;
         EGLDisplay display = EGL_NO_DISPLAY;
-        EGLSurface currentSurface = EGL_NO_SURFACE;
+        EGLSurface readSurface = EGL_NO_SURFACE;
+        EGLSurface drawSurface = EGL_NO_SURFACE;
         EGLConfig config = EGL_NO_CONFIG_KHR;
     };
 

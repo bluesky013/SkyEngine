@@ -14,21 +14,21 @@ namespace sky::rhi {
         RenderPass::Descriptor passDesc = {};
 
         auto sample1 = SampleCount::X4;
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, sample1,         LoadOp::CLEAR, StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{PixelFormat::RGBA8_UNORM, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE});
-        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat, sample1,         LoadOp::CLEAR, StoreOp::STORE, LoadOp::CLEAR, StoreOp::STORE});
+        passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat, sample1,         LoadOp::CLEAR, StoreOp::DONT_CARE, LoadOp::CLEAR, StoreOp::DONT_CARE});
         passDesc.attachments.emplace_back(RenderPass::Attachment{dsFormat, SampleCount::X1, LoadOp::CLEAR, StoreOp::STORE, LoadOp::CLEAR, StoreOp::STORE});
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass{
             {
                 {0, {AccessFlag::COLOR_WRITE}},
-                   {2, {AccessFlag::COLOR_WRITE}},
+                {2, {AccessFlag::COLOR_WRITE}},
             },
             {
                 {1, {AccessFlag::COLOR_WRITE}},
-                   {3, {AccessFlag::COLOR_WRITE}},
+                {3, {AccessFlag::COLOR_WRITE}},
             },
             {},
             {},
@@ -52,7 +52,7 @@ namespace sky::rhi {
         rhi::ImageViewDesc viewDesc = {};
         {
             desc.samples = sample1;
-            desc.usage = ImageUsageFlagBit::RENDER_TARGET;
+            desc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::TRANSIENT;
             {
                 auto image = device->CreateImage(desc);
                 ms1 = image->CreateView(viewDesc);
@@ -78,7 +78,7 @@ namespace sky::rhi {
         {
             desc.samples = sample1;
             desc.format = dsFormat;
-            desc.usage = ImageUsageFlagBit::DEPTH_STENCIL;
+            desc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::TRANSIENT;
 
             viewDesc.subRange.aspectMask = AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT;
             {

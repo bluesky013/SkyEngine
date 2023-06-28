@@ -33,7 +33,8 @@ namespace sky::gles {
             attachments.emplace_back(std::static_pointer_cast<ImageView>(attachment));
         }
 
-        uint32_t count = device.GetInternalFeature().msaa1 ? (device.GetInternalFeature().msaa2 ? 255 : 1) : 0;
+//        uint32_t count = device.GetInternalFeature().msaa1 ? (device.GetInternalFeature().msaa2 ? 255 : 1) : 0;
+        uint32_t count = 1;
 
         const auto &attDescriptions = renderPass->GetAttachments();
         const auto &colors = renderPass->GetColors();
@@ -66,7 +67,6 @@ namespace sky::gles {
                     framebuffer->BindColor(resolveView, resolveDesc, colorIndex, desc.sample);
                 } else {
                     colorBlitPairs.emplace_back(std::pair{colorIndex, resolveIndex});
-
                     framebuffer->BindColor(view, desc, colorIndex, rhi::SampleCount::X1);
                     resolveFramebuffer->BindColor(resolveView, resolveDesc, resolveIndex, rhi::SampleCount::X1);
                     ++resolveIndex;
@@ -114,10 +114,10 @@ namespace sky::gles {
         return !colorBlitPairs.empty() || dsResolveMask != 0;
     }
 
-    void FrameBuffer::DoResolve(uint32_t queueIndex) const
+    void FrameBuffer::DoResolve(Context &context, uint32_t queueIndex) const
     {
-        auto srcFb = framebuffer->AcquireNativeHandle(queueIndex);
-        auto dstFb = resolveFramebuffer->AcquireNativeHandle(queueIndex);
+        auto srcFb = framebuffer->AcquireNativeHandle(context, queueIndex);
+        auto dstFb = resolveFramebuffer->AcquireNativeHandle(context, queueIndex);
         CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFb));
         CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFb));
 
@@ -142,5 +142,13 @@ namespace sky::gles {
                 0, 0, extent.width, extent.height,
                 dsResolveMask, GL_NEAREST));
         }
+
+        if (!framebuffer->postInvalidates.empty()) {
+            CHECK(glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, static_cast<uint32_t>(framebuffer->postInvalidates.size()), framebuffer->postInvalidates.data()));
+        }
+        if (!resolveFramebuffer->postInvalidates.empty()) {
+            CHECK(glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<uint32_t>(resolveFramebuffer->postInvalidates.size()), resolveFramebuffer->postInvalidates.data()));
+        }
+
     }
 }
