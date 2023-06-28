@@ -16,15 +16,9 @@ namespace sky::gles {
 
         ~RenderPass() = default;
 
-        struct AttachmentGLInfo {
-            bool hasDepth = false;
-            bool hasStencil = false;
-        };
-
         bool Init(const Descriptor &desc);
 
         const std::vector<Attachment> &GetAttachments() const { return attachments; };
-        const std::vector<AttachmentGLInfo> &GetAttachmentGLInfos() const { return attachmentGLInfos; };
         const std::vector<SubPass> &GetSubPasses() const { return subPasses; }
 
         const std::vector<uint32_t> &GetGLColors() const { return colors; }
@@ -35,8 +29,6 @@ namespace sky::gles {
     private:
         std::vector<Attachment> attachments;
         std::vector<SubPass> subPasses;
-
-        std::vector<AttachmentGLInfo> attachmentGLInfos;
     };
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;

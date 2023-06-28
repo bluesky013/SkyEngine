@@ -18,8 +18,6 @@ namespace sky::gles {
         GLenum            primitive   = GL_TRIANGLES;
         GLenum            indexType   = GL_UNSIGNED_INT;
         GLuint            program     = 0;
-        GLuint            drawBuffer  = 0;
-        GLuint            readBuffer  = 0;
         GLuint            vao         = 0;
         GLuint            blitFbo     = 0;
         bool              scissorTest = false;

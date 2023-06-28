@@ -30,8 +30,8 @@ namespace sky::rhi {
         RegisterPath();
 
 //        RegisterSample<RHISampleBase>();
-//        RegisterSample<RHISubPassMSAA>();
-        RegisterSample<RHIDrawIndirectSample>();
+        RegisterSample<RHISubPassMSAA>();
+//        RegisterSample<RHIDrawIndirectSample>();
 //        RegisterSample<RHIPassSample>();
 //        RegisterSample<RHISubPassSample>();
 

@@ -69,6 +69,5 @@ namespace sky::gles {
         RenderPassPtr currentRenderPass;
         uint32_t currentSubPassId = 0;
         std::vector<DescriptorSetPtr> sets;
-        std::vector<GLenum> invalidAttachments;
     };
 }

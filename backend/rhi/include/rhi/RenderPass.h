@@ -61,6 +61,7 @@ namespace sky::rhi {
         const std::vector<uint32_t> &GetColors() const { return colors; }
         const std::vector<uint32_t> &GetResolves() const { return resolves; }
         uint32_t GetDepthStencil() const { return depthStencil; }
+        uint32_t GetDepthStencilResolve() const { return dsResolve; }
         uint32_t GetSubPassNum() const { return subPassNum; }
 
     protected:
