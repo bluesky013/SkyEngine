@@ -10,12 +10,20 @@ static const char *TAG = "RDG";
 
 namespace sky::rdg {
 
+    namespace {
+
+    }
+
     void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
             [&](const RasterPassTag &) {
                 auto &raster = rdg.rasterPasses[Index(u, rdg)];
                 Compile(u, raster);
+            },
+            [&](const RasterSubPassTag &) {
+                auto &subPass = rdg.subPasses[Index(u, rdg)];
+                Compile(u, subPass);
             },
             [&](const ComputePassTag &) {
                 auto &compute = rdg.computePasses[Index(u, rdg)];
@@ -32,10 +40,19 @@ namespace sky::rdg {
         }, Tag(u, rdg));
     }
 
-    void RenderResourceCompiler::Compile(Vertex u, RasterPass &pass)
+    void RenderResourceCompiler::Compile(Vertex u, RasterPass &rasterPass)
     {
-        for (auto &attachment : pass.attachmentVertex) {
+        for (auto &attachment : rasterPass.attachmentVertex) {
             MountResource(u, Source(attachment, rdg.resourceGraph));
+        }
+
+        rhi::RenderPass::Descriptor desc = {};
+    }
+
+    void RenderResourceCompiler::Compile(Vertex u, RasterSubPass &subPass)
+    {
+        for (auto &[name, compute] : subPass.computeViews) {
+            MountResource(u, Source(FindVertex(name.c_str(), rdg.resourceGraph), rdg.resourceGraph));
         }
     }
 
@@ -48,20 +65,6 @@ namespace sky::rdg {
     {
 
     }
-
-//    void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
-//    {
-//        std::visit(Overloaded{
-//            [&](const AccessPassTag &) {
-//                auto &pass = rdg.accessGraph.passes[Index(u, rdg.accessGraph)];
-//            },
-//            [&](const AccessResTag &) {
-//                auto &res = rdg.accessGraph.resources[Index(u, rdg.accessGraph)];
-//                MountResource(u, res.resID);
-//            },
-//            [&](const auto &) {}
-//        }, Tag(u, rdg.accessGraph));
-//    }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)
     {

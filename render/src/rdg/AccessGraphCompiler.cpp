@@ -2,8 +2,6 @@
 // Created by Zach Lee on 2023/5/31.
 //
 
-#pragma once
-
 #include <render/rdg/AccessGraphCompiler.h>
 
 namespace std {
@@ -136,6 +134,13 @@ namespace sky::rdg {
                 dst.prevAccess = GetAccessFlag(ep);
                 passID = src.vertexID;
                 resID = dst.resID;
+
+                // subPass dependencies
+                boost::graph_traits<AccessGraph::Graph>::out_edge_iterator begin, end;
+                for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
+                     begin != end; ++begin) {
+                    auto nextPass = boost::target(*begin, rdg.accessGraph.graph);
+                }
             },
             [&](const AccessResTag&, const AccessPassTag&) {
                 auto &src = rdg.accessGraph.resources[Index(u.m_source, rdg.accessGraph)];

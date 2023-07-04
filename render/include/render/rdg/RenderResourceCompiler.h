@@ -22,6 +22,7 @@ namespace sky::rdg {
 
     protected:
         void Compile(Vertex u, RasterPass &pass);
+        void Compile(Vertex u, RasterSubPass &pass);
         void Compile(Vertex u, ComputePass &pass);
         void Compile(Vertex u, CopyBlitPass &pass);
 
