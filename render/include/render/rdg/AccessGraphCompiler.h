@@ -18,6 +18,7 @@ namespace sky::rdg {
         using Graph = AccessGraph::Graph;
 
         void examine_edge(Edge u, const Graph& g);
+        void UpdateLifeTime(VertexType passID, VertexType resID);
 
         RenderGraph &rdg;
     };

@@ -56,20 +56,18 @@ namespace sky::rdg {
         };
 
         const std::unordered_map<AttachmentType, AccessFlagMask> AttachmentMask {
-            {RasterTypeBit::COLOR,         {0x3, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
-            {RasterTypeBit::RESOLVE,       {0x3, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
-            {RasterTypeBit::INPUT,         {0x1, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
-            {RasterTypeBit::DEPTH_STENCIL, {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_READ,       rhi::AccessFlag::DEPTH_STENCIL_WRITE}},
-            {RasterTypeBit::COLOR |
-             RasterTypeBit::INPUT,         {0x3, 0x2, rhi::AccessFlag::COLOR_INOUT_READ,         rhi::AccessFlag::COLOR_INOUT_WRITE}},
-            {RasterTypeBit::DEPTH_STENCIL |
-             RasterTypeBit::INPUT,         {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_INOUT_READ, rhi::AccessFlag::DEPTH_STENCIL_INOUT_WRITE}},
-            {RasterTypeBit::SHADING_RATE,  {0x1, 0x2, rhi::AccessFlag::SHADING_RATE,             rhi::AccessFlag::NONE}},
-            {ComputeType::CBV,             {0x1, 0xFF}},
-            {ComputeType::SRV,             {0x1, 0xFF}},
-            {ComputeType::UAV,             {0x3, 0xFF}},
-            {TransferType::SRC,            {0x3, 0xFF}},
-            {TransferType::DST,            {0x3, 0xFF}},
+            {RasterTypeBit::COLOR,                                {0x3, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
+            {RasterTypeBit::RESOLVE,                              {0x3, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
+            {RasterTypeBit::INPUT,                                {0x1, 0x2, rhi::AccessFlag::COLOR_READ,               rhi::AccessFlag::COLOR_WRITE}},
+            {RasterTypeBit::DEPTH_STENCIL,                        {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_READ,       rhi::AccessFlag::DEPTH_STENCIL_WRITE}},
+            {RasterTypeBit::COLOR | RasterTypeBit::INPUT,         {0x3, 0x2, rhi::AccessFlag::COLOR_INOUT_READ,         rhi::AccessFlag::COLOR_INOUT_WRITE}},
+            {RasterTypeBit::DEPTH_STENCIL | RasterTypeBit::INPUT, {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_INOUT_READ, rhi::AccessFlag::DEPTH_STENCIL_INOUT_WRITE}},
+            {RasterTypeBit::SHADING_RATE,                         {0x1, 0x2, rhi::AccessFlag::SHADING_RATE,             rhi::AccessFlag::NONE}},
+            {ComputeType::CBV,                                    {0x1, 0xFF}},
+            {ComputeType::SRV,                                    {0x1, 0xFF}},
+            {ComputeType::UAV,                                    {0x3, 0xFF}},
+            {TransferType::SRC,                                   {0x3, 0xFF}},
+            {TransferType::DST,                                   {0x3, 0xFF}},
         };
 
         const std::unordered_map<rhi::ShaderStageFlagBit, rhi::AccessFlag> CBVMap {
@@ -119,43 +117,10 @@ namespace sky::rdg {
         }
     }
 
-    void AccessCompiler::examine_edge(Edge u, const Graph& g) {
-        auto &srcTag = Tag(u.m_source, rdg.accessGraph);
-        auto &dstTag = Tag(u.m_target, rdg.accessGraph);
-
-        VertexType passID = INVALID_VERTEX;
-        VertexType resID = INVALID_VERTEX;
-        auto &ep = rdg.accessGraph.graph[u];
-
-        std::visit(Overloaded{
-            [&](const AccessPassTag&, const AccessResTag&) {
-                auto &src = rdg.accessGraph.passes[Index(u.m_source, rdg.accessGraph)];
-                auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
-                dst.prevAccess = GetAccessFlag(ep);
-                passID = src.vertexID;
-                resID = dst.resID;
-
-                // subPass dependencies
-                boost::graph_traits<AccessGraph::Graph>::out_edge_iterator begin, end;
-                for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
-                     begin != end; ++begin) {
-                    auto nextPass = boost::target(*begin, rdg.accessGraph.graph);
-                }
-            },
-            [&](const AccessResTag&, const AccessPassTag&) {
-                auto &src = rdg.accessGraph.resources[Index(u.m_source, rdg.accessGraph)];
-                auto &dst = rdg.accessGraph.passes[Index(u.m_target, rdg.accessGraph)];
-                src.nextAccess = GetAccessFlag(ep);
-                resID = src.resID;
-                passID = dst.vertexID;
-            },
-            [](const auto&, const auto &) {
-                SKY_ASSERT(false);
-            }
-        }, srcTag, dstTag);
-
+    void AccessCompiler::UpdateLifeTime(VertexType passID, VertexType resID)
+    {
         auto sourceId = rdg.resourceGraph.sources[resID];
-
+        // update life time
         LifeTime *lifeTime = nullptr;
         std::visit(Overloaded{
             [&](const ImageTag &) {
@@ -175,6 +140,93 @@ namespace sky::rdg {
             lifeTime->begin = parentPassID;
         }
         lifeTime->end = parentPassID;
+    }
+
+    void AccessCompiler::examine_edge(Edge u, const Graph& g)
+    {
+        auto &srcTag = Tag(u.m_source, rdg.accessGraph);
+        auto &dstTag = Tag(u.m_target, rdg.accessGraph);
+
+        VertexType passID = INVALID_VERTEX;
+        VertexType resID = INVALID_VERTEX;
+        auto &ep = rdg.accessGraph.graph[u];
+
+        std::visit(Overloaded{
+            [&](const AccessPassTag&, const AccessResTag&) {
+                const auto &src = rdg.accessGraph.passes[Index(u.m_source, rdg.accessGraph)];
+                const auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
+                passID = src.vertexID;
+                resID = dst.resID;
+                UpdateLifeTime(passID, resID);
+
+                // subPass dependencies
+                boost::graph_traits<AccessGraph::Graph>::out_edge_iterator begin, end;
+                for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
+                     begin != end; ++begin) {
+                    auto nextEdge = *begin;
+                    auto nextAccess = GetAccessFlag(rdg.accessGraph.graph[nextEdge]); // nextAccess
+                    auto nextPassAccessID = boost::target(nextEdge, rdg.accessGraph.graph);
+                    auto nextPassID = rdg.accessGraph.passes[Index(nextPassAccessID, rdg.accessGraph)].vertexID;
+                    UpdateLifeTime(nextPassID, resID);
+
+                    const RasterSubPassTag *srcTag = std::get_if<RasterSubPassTag>(&Tag(passID, rdg));
+                    const RasterSubPassTag *dstTag = std::get_if<RasterSubPassTag>(&Tag(nextPassID, rdg));
+
+                    bool isSubPassDependency = false;
+                    if (srcTag != nullptr && dstTag != nullptr) {
+                        const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
+                        const auto &dstSubPass = rdg.subPasses[Index(nextPassID, rdg)];
+
+                        // subPass dependency
+                        if (srcSubPass.parent == dstSubPass.parent) {
+                            auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
+                            auto &dep = parent.dependencies.emplace_back();
+                            dep.src = srcSubPass.subPassID;
+                            dep.dst = dstSubPass.subPassID;
+                            dep.preAccess = GetAccessFlag(ep); // prevAccess
+                            dep.nextAccess.insert(dep.nextAccess.end(), nextAccess.begin(), nextAccess.end());
+                            isSubPassDependency = true;
+                        }
+                    }
+
+                    // barrier
+                    if (!isSubPassDependency) {
+                        std::visit(Overloaded{
+                            [&](const RasterSubPassTag &) {
+                                const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
+                                auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
+                                auto &srcFlags = parent.rearBarriers[resID].srcFlags;
+                                auto &dstFlags = parent.rearBarriers[resID].dstFlags;
+                                srcFlags = GetAccessFlag(ep);
+                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                            },
+                            [&](const ComputePassTag &) {
+                                auto &computePass = rdg.computePasses[Index(passID, rdg)];
+                                auto &srcFlags = computePass.rearBarriers[resID].srcFlags;
+                                auto &dstFlags = computePass.rearBarriers[resID].dstFlags;
+                                srcFlags = GetAccessFlag(ep);
+                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                            },
+                            [&](const CopyBlitTag &) {
+                                auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
+                                auto &srcFlags = copyBlitPass.rearBarriers[resID].srcFlags;
+                                auto &dstFlags = copyBlitPass.rearBarriers[resID].dstFlags;
+                                srcFlags = GetAccessFlag(ep);
+                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                            },
+                            [&](const auto &) {
+                            }
+                        }, Tag(passID, rdg));
+                    }
+                }
+            },
+            [&](const AccessResTag&, const AccessPassTag&) {
+                // process external dependency
+            },
+            [](const auto&, const auto &) {
+                SKY_ASSERT(false);
+            }
+        }, srcTag, dstTag);
     }
 
 } // namespace sky::rdg

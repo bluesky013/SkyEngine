@@ -99,8 +99,9 @@ namespace sky::rdg {
         add_edge(src, dst, graph);
         auto &rasterPass = rasterPasses[polymorphicDatas[src]];
         auto &subPass = subPasses[polymorphicDatas[dst]];
-        rasterPass.subPasses.emplace_back(dst);
         subPass.parent = src;
+        subPass.subPassID = static_cast<uint32_t>(rasterPass.subPasses.size());
+        rasterPass.subPasses.emplace_back(dst);
         return RasterSubPassBuilder{*this, rasterPass, subPass, dst};
     }
 

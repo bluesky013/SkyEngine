@@ -52,6 +52,10 @@ namespace sky::rdg {
     using ResourceAccess = Flags<ResourceAccessBit>;
     ENABLE_FLAG_BIT_OPERATOR(ResourceAccessBit)
 
+    using VertexType = uint32_t;
+    static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
+    using VertexList = PmrVector<VertexType>;
+
     struct RasterAttachment {
         std::string name;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
@@ -64,6 +68,20 @@ namespace sky::rdg {
         std::string name;
         ResourceAccess access = ResourceAccessBit::READ;
         uint32_t index = INVALID_INDEX;
+    };
+
+    struct SubPassDependency {
+        uint32_t src = INVALID_VERTEX;
+        uint32_t dst = INVALID_VERTEX;
+        std::vector<rhi::AccessFlag> preAccess;
+        std::vector<rhi::AccessFlag> nextAccess;
+    };
+
+    struct GraphBarrier {
+        std::vector<rhi::AccessFlag> srcFlags;
+        std::vector<rhi::AccessFlag> dstFlags;
+        uint32_t srcQueueFamily = (~0U);
+        uint32_t dstQueueFamily = (~0U);
     };
 
     struct RasterView {
@@ -89,10 +107,6 @@ namespace sky::rdg {
         rhi::Extent3D dstExtent;
         rhi::Offset3D dstOffset;
     };
-
-    using VertexType = uint32_t;
-    static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
-    using VertexList = PmrVector<VertexType>;
 
     struct RootTag {};
 
@@ -124,6 +138,7 @@ namespace sky::rdg {
 
         using Tag = RasterSubPassTag;
 
+        uint32_t subPassID = 0;
         VertexType parent = INVALID_VERTEX;
         PmrVector<RasterAttachmentRef> colors;
         PmrVector<RasterAttachmentRef> resolves;
@@ -141,6 +156,9 @@ namespace sky::rdg {
             , attachmentVertex(res)
             , subPasses(res)
             , clearValues(res)
+            , dependencies(res)
+            , frontBarriers(res)
+            , rearBarriers(res)
             {}
 
         using Tag = RasterPassTag;
@@ -151,23 +169,38 @@ namespace sky::rdg {
         PmrVector<VertexType> attachmentVertex;
         PmrVector<VertexType> subPasses;
         PmrVector<rhi::ClearValue> clearValues;
-        rhi::RenderPass::Descriptor passDesc;
+        PmrVector<SubPassDependency> dependencies;
+        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
+        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
+
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };
 
     struct ComputePass {
-        ComputePass(PmrResource *res) : computeViews(res) {}
+        ComputePass(PmrResource *res)
+            : computeViews(res)
+            , frontBarriers(res)
+            , rearBarriers(res)
+            {}
 
         using Tag = ComputePassTag;
         PmrHashMap<std::string, ComputeView> computeViews;
+        PmrVector<GraphBarrier> frontBarriers;
+        PmrVector<GraphBarrier> rearBarriers;
     };
 
     struct CopyBlitPass {
-        CopyBlitPass(PmrResource *res) : views(res) {}
+        CopyBlitPass(PmrResource *res)
+            : views(res)
+            , frontBarriers(res)
+            , rearBarriers(res)
+            {}
 
         using Tag = CopyBlitTag;
         PmrVector<CopyView> views;
+        PmrVector<GraphBarrier> frontBarriers;
+        PmrVector<GraphBarrier> rearBarriers;
     };
 
     struct PresentPass {
@@ -190,8 +223,6 @@ namespace sky::rdg {
     struct AccessRes {
         using Tag = AccessResTag;
         VertexType resID = INVALID_VERTEX;
-        std::vector<rhi::AccessFlag> prevAccess;
-        std::vector<rhi::AccessFlag> nextAccess;
     };
 
     struct LifeTime {

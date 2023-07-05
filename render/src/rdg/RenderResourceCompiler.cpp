@@ -10,10 +10,6 @@ static const char *TAG = "RDG";
 
 namespace sky::rdg {
 
-    namespace {
-
-    }
-
     void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
@@ -45,8 +41,6 @@ namespace sky::rdg {
         for (auto &attachment : rasterPass.attachmentVertex) {
             MountResource(u, Source(attachment, rdg.resourceGraph));
         }
-
-        rhi::RenderPass::Descriptor desc = {};
     }
 
     void RenderResourceCompiler::Compile(Vertex u, RasterSubPass &subPass)
@@ -72,7 +66,7 @@ namespace sky::rdg {
             [&](const ImageTag &) {
                 auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
 
-                if (!image.res && u >= image.lifeTime.begin && u < image.lifeTime.end) {
+                if (!image.res && u >= image.lifeTime.begin && u <= image.lifeTime.end) {
                     image.res = rdg.context->pool->RequestImage(image.desc);
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           image.lifeTime.begin, image.lifeTime.end);
@@ -81,7 +75,7 @@ namespace sky::rdg {
             [&](const BufferTag &) {
                 auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
 
-                if (!buffer.res && u >= buffer.lifeTime.begin && u < buffer.lifeTime.end) {
+                if (!buffer.res && u >= buffer.lifeTime.begin && u <= buffer.lifeTime.end) {
                     buffer.res = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           buffer.lifeTime.begin, buffer.lifeTime.end);

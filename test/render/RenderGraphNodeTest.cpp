@@ -62,7 +62,6 @@ TEST(RenderGraphTest, NodeGraphTest01)
         .AddAttachment({"test_2_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test_2_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-
     rdg.AddRasterSubPass("color0_sub0", "color0")
         .AddColor("test_1_1", ResourceAccessBit::WRITE)
         .AddColor("test_1_2", ResourceAccessBit::WRITE)
