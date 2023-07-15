@@ -5,6 +5,7 @@
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/RenderGraph.h>
 #include <core/logger/Logger.h>
+#include <rhi/Decode.h>
 
 static const char *TAG = "RDG";
 
@@ -87,7 +88,7 @@ namespace sky::rdg {
 
                 if (!image.res) {
                     rhi::ImageViewDesc viewDesc = {};
-                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, image.desc.mask};
+                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
                     viewDesc.viewType = image.desc.viewType;
                     image.res = image.desc.image->CreateView(viewDesc);
                 }

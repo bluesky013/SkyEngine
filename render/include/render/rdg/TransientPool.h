@@ -23,7 +23,6 @@ struct std::hash<sky::rdg::GraphImage> {
         sky::HashCombine32(data, sky::Crc32::Cal(desc.arrayLayers));
         sky::HashCombine32(data, sky::Crc32::Cal(desc.samples));
         sky::HashCombine32(data, sky::Crc32::Cal(desc.usage));
-        sky::HashCombine32(data, sky::Crc32::Cal(desc.mask));
         return data;
     }
 };
@@ -41,7 +40,6 @@ struct std::equal_to<sky::rdg::GraphImage> {
                lhs.arrayLayers == rhs.arrayLayers &&
                lhs.samples == rhs.samples &&
                lhs.usage == rhs.usage &&
-               lhs.mask == rhs.mask &&
                lhs.residency == rhs.residency;
     }
 };

@@ -4,6 +4,7 @@
 
 #include <render/rdg/TransientPool.h>
 #include <render/RHI.h>
+#include <rhi/Decode.h>
 
 namespace sky::rdg {
 
@@ -24,7 +25,7 @@ namespace sky::rdg {
         auto image = device->CreateImage(imageDesc);
 
         rhi::ImageViewDesc viewDesc = {};
-        viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, desc.mask};
+        viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, rhi::GetAspectFlagsByFormat(desc.format)};
         viewDesc.viewType = desc.viewType;
 
         return image->CreateView(viewDesc);

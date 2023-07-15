@@ -222,7 +222,8 @@ namespace sky::rdg {
 
     struct AccessRes {
         using Tag = AccessResTag;
-        VertexType resID = INVALID_VERTEX;
+        VertexType resID    = INVALID_VERTEX;
+        rhi::ImageSubRange subRange = {0, 0, 0, 0};
     };
 
     struct LifeTime {
@@ -236,7 +237,6 @@ namespace sky::rdg {
 
         rhi::ImagePtr      image;
         rhi::ImageViewType viewType = rhi::ImageViewType::VIEW_2D;
-        rhi::AspectFlags   mask     = rhi::AspectFlagBit::COLOR_BIT;
     };
 
     struct GraphImage {
@@ -247,7 +247,6 @@ namespace sky::rdg {
         uint32_t             arrayLayers = 1;
         rhi::PixelFormat     format      = rhi::PixelFormat::RGBA8_UNORM;
         rhi::ImageUsageFlags usage       = rhi::ImageUsageFlagBit::NONE;
-        rhi::AspectFlags     mask        = rhi::AspectFlagBit::COLOR_BIT;
         rhi::SampleCount     samples     = rhi::SampleCount::X1;
         rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
