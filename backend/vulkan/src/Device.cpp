@@ -467,4 +467,28 @@ namespace sky::vk {
         defaultSampler = CreateDeviceObject<Sampler>(Sampler::VkDescriptor{});
     }
 
+    uint32_t Device::CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res)
+    {
+        static constexpr rhi::PipelineStatisticFlagBits supportedFlags[] = {
+            rhi::PipelineStatisticFlagBits::IA_VERTICES,
+            rhi::PipelineStatisticFlagBits::IA_PRIMITIVES,
+            rhi::PipelineStatisticFlagBits::VS_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CLIP_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CLIP_PRIMITIVES,
+            rhi::PipelineStatisticFlagBits::FS_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CS_INVOCATIONS,
+        };
+
+        uint32_t count = 0;
+        res = rhi::PipelineStatisticFlags {0};
+
+        for (auto &support : supportedFlags) {
+            if (val & support) {
+                res |= support;
+                ++count;
+            }
+        }
+        return count;
+    }
+
 } // namespace sky::vk

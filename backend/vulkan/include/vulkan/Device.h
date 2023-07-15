@@ -19,6 +19,7 @@
 #include <vulkan/VertexInput.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/DescriptorSetPool.h>
+#include <vulkan/QueryPool.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -95,6 +96,7 @@ namespace sky::vk {
         CREATE_DEV_OBJ(VertexAssembly)
         CREATE_DEV_OBJ(Sampler)
         CREATE_DEV_OBJ(DescriptorSetPool)
+        CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
@@ -121,8 +123,10 @@ namespace sky::vk {
         void PrintSupportedExtensions() const;
         void SetupDefaultResources();
 
+        uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
+
         friend class Instance;
-        Device(Instance &);
+        explicit Device(Instance &);
         Instance        &instance;
         VkPhysicalDevice phyDev;
         VkDevice         device;

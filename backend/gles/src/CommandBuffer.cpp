@@ -9,10 +9,26 @@
 #include <gles/Core.h>
 
 namespace sky::gles {
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::EndQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id)
+    {
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &beginInfo)
     {
         uint32_t copySize = beginInfo.clearCount * sizeof(rhi::ClearValue);
-        rhi::ClearValue *copyValues = reinterpret_cast<rhi::ClearValue*>(commandBuffer.Allocate(copySize));
+        auto *copyValues = reinterpret_cast<rhi::ClearValue*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, beginInfo.clearValues, copySize);
         commandBuffer.EnqueueMessage(&CommandContext::CmdBeginPass, context,
                                      std::static_pointer_cast<FrameBuffer>(beginInfo.frameBuffer),
@@ -38,7 +54,7 @@ namespace sky::gles {
     rhi::GraphicsEncoder &GraphicsEncoder::SetViewport(uint32_t count, const rhi::Viewport *viewport)
     {
         uint32_t copySize = count * sizeof(rhi::Viewport);
-        rhi::Viewport *copyValues = reinterpret_cast<rhi::Viewport*>(commandBuffer.Allocate(copySize));
+        auto *copyValues = reinterpret_cast<rhi::Viewport*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, viewport, copySize);
         commandBuffer.EnqueueMessage(&CommandContext::CmdSetViewport, context, count, copyValues);
         return *this;
@@ -47,7 +63,7 @@ namespace sky::gles {
     rhi::GraphicsEncoder &GraphicsEncoder::SetScissor(uint32_t count, const rhi::Rect2D *scissor)
     {
         uint32_t copySize = count * sizeof(rhi::Rect2D);
-        rhi::Rect2D *copyValues = reinterpret_cast<rhi::Rect2D*>(commandBuffer.Allocate(copySize));
+        auto *copyValues = reinterpret_cast<rhi::Rect2D*>(commandBuffer.Allocate(copySize));
         memcpy(copyValues, scissor, copySize);
         commandBuffer.EnqueueMessage(&CommandContext::CmdSetScissor, context, count, scissor);
         return *this;
@@ -169,15 +185,11 @@ namespace sky::gles {
     void CommandBuffer::Execute()
     {
         while (head != nullptr) {
-            auto ptr = head->next;
+            auto *ptr = head->next;
             head->Execute();
             head->~TaskBase();
             head = ptr;
         }
-    }
-
-    CommandBuffer::~CommandBuffer() noexcept
-    {
     }
 
     void CommandBuffer::Begin()

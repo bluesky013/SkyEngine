@@ -284,6 +284,12 @@ namespace sky::rhi {
         GENERAL,
     };
 
+    enum class QueryType : uint32_t {
+        PIPELINE_STATISTICS = 0,
+        TIME_STAMP,
+        OCCLUSION,
+    };
+
     // flag bit
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,
@@ -359,6 +365,19 @@ namespace sky::rhi {
     };
     using DescriptorBindFlags = Flags<DescriptorBindFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(DescriptorBindFlagBit)
+
+    enum class PipelineStatisticFlagBits : uint32_t {
+        IA_VERTICES      = 0x00000001,
+        IA_PRIMITIVES    = 0x00000002,
+        VS_INVOCATIONS   = 0x00000004,
+        CLIP_INVOCATIONS = 0x00000008,
+        CLIP_PRIMITIVES  = 0x00000010,
+        FS_INVOCATIONS   = 0x00000020,
+        CS_INVOCATIONS   = 0x00000040,
+        ALL = IA_VERTICES | IA_PRIMITIVES | VS_INVOCATIONS | CLIP_INVOCATIONS | CLIP_PRIMITIVES | FS_INVOCATIONS | CS_INVOCATIONS
+    };
+    using PipelineStatisticFlags = Flags<PipelineStatisticFlagBits>;
+    ENABLE_FLAG_BIT_OPERATOR(PipelineStatisticFlagBits)
 
     // structs
     struct Offset2D {

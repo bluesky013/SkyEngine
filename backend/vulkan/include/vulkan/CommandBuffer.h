@@ -35,8 +35,8 @@ namespace sky::vk {
 
     class ComputeEncoder : public rhi::ComputeEncoder {
     public:
-        ComputeEncoder(CommandBuffer &);
-        ~ComputeEncoder() = default;
+        explicit ComputeEncoder(CommandBuffer &);
+        ~ComputeEncoder() override = default;
 
         void BindShaderResource(const DescriptorSetBinderPtr &binder);
         void BindPipeline(const ComputePipelinePtr &pso);
@@ -51,8 +51,8 @@ namespace sky::vk {
 
     class GraphicsEncoder : public rhi::GraphicsEncoder {
     public:
-        GraphicsEncoder(CommandBuffer &);
-        ~GraphicsEncoder() = default;
+        explicit GraphicsEncoder(CommandBuffer &);
+        ~GraphicsEncoder() override = default;
 
         void BindShaderResource(const DescriptorSetBinderPtr &binder);
         void Encode(const DrawItem &item);
@@ -64,7 +64,9 @@ namespace sky::vk {
         void SetScissor(uint32_t count, const VkRect2D *scissor);
         void DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size);
 
-
+        rhi::GraphicsEncoder &BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &EndQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id) override;
         rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &info) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
@@ -86,15 +88,14 @@ namespace sky::vk {
         VkRenderPassBeginInfo vkBeginInfo      = {};
         VkViewport            viewport{};
         VkRect2D              scissor{};
-        uint32_t              currentSubPassId = 0;
         VertexAssemblyPtr     currentAssembler;
-        DescriptorSetBinder   binder;
+        DescriptorSetBinder   currentBinder;
     };
 
     class BlitEncoder : public rhi::BlitEncoder {
     public:
-        BlitEncoder(CommandBuffer &cmd) : cmdBuffer(cmd) {}
-        ~BlitEncoder() = default;
+        explicit BlitEncoder(CommandBuffer &cmd) : cmdBuffer(cmd) {}
+        ~BlitEncoder() override = default;
 
         rhi::BlitEncoder &CopyTexture() override;
         rhi::BlitEncoder &CopyTextureToBuffer() override;
@@ -113,7 +114,7 @@ namespace sky::vk {
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
-        CommandBuffer(Device &);
+        explicit CommandBuffer(Device &);
         ~CommandBuffer() override;
 
         struct VkDescriptor {
@@ -140,7 +141,7 @@ namespace sky::vk {
 
         void BeginQuery(const QueryPoolPtr &pool, uint32_t queryId);
         void EndQuery(const QueryPoolPtr &pool, uint32_t queryId);
-        void ResetQueryPool(const QueryPoolPtr &pool, uint32_t first, uint32_t count);
+        void ResetQueryPool(const QueryPoolPtr &queryPool, uint32_t first, uint32_t count);
 
         struct SubmitInfo {
             std::vector<std::pair<VkPipelineStageFlags, SemaphorePtr>> waits;
@@ -160,6 +161,9 @@ namespace sky::vk {
         std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override;
         void QueueBarrier(const rhi::ImageBarrier &imageBarrier) override;
         void FlushBarriers() override;
+        void ResetQueryPool(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count) override;
+        void GetQueryResult(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count,
+           const rhi::BufferPtr &result, uint32_t offset, uint32_t stride) override;
 
         void ExecuteSecondary(const SecondaryCommands &);
         GraphicsEncoder EncodeVkGraphics();

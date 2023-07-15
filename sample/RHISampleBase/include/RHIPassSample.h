@@ -13,7 +13,7 @@ namespace sky::rhi {
     class RHIPassSample : public RHISampleBase {
     public:
         RHIPassSample() = default;
-        ~RHIPassSample() = default;
+        ~RHIPassSample() override = default;
 
         void SetupBase() override;
         void OnTick(float delta) override;
@@ -24,7 +24,6 @@ namespace sky::rhi {
         void SetupCamera();
         void SetupLayout();
         void SetupScene();
-        void SetupPipeline();
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
 

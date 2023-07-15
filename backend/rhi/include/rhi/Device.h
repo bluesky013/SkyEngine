@@ -17,6 +17,7 @@
 #include <rhi/DescriptorSet.h>
 #include <rhi/VertexAssembly.h>
 #include <rhi/DescriptorSetPool.h>
+#include <rhi/QueryPool.h>
 
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
@@ -83,6 +84,10 @@ namespace sky::rhi {
         virtual VertexAssemblyPtr CreateVertexAssembly(const VertexAssembly::Descriptor &desc) = 0;
         virtual SamplerPtr CreateSampler(const Sampler::Descriptor &desc) = 0;
         virtual DescriptorSetPoolPtr CreateDescriptorSetPool(const DescriptorSetPool::Descriptor &desc) = 0;
+        virtual QueryPoolPtr CreateQueryPool(const QueryPool::Descriptor &desc) = 0;
+
+        // query
+        virtual uint32_t CheckPipelineStatisticFlags(const PipelineStatisticFlags &val, PipelineStatisticFlags &res) { return 0; }
 
         // layout object
         virtual VertexInputPtr CreateVertexInput(const VertexInput::Descriptor &desc) = 0;

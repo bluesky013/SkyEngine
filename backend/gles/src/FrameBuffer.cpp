@@ -127,7 +127,7 @@ namespace sky::gles {
             for (auto &[src, dst] : colorBlitPairs) {
                 drawBuffers[dst] = GL_COLOR_ATTACHMENT0 + dst;
                 CHECK(glReadBuffer(GL_COLOR_ATTACHMENT0 + src));
-                CHECK(glDrawBuffers(resolveColorNum, drawBuffers.data()));
+                CHECK(glDrawBuffers(static_cast<GLsizei>(resolveColorNum), drawBuffers.data()));
 
                 CHECK(glBlitFramebuffer(
                     0, 0, extent.width, extent.height,

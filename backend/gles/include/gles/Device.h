@@ -21,6 +21,7 @@
 #include <gles/VertexInput.h>
 #include <gles/Semaphore.h>
 #include <gles/DescriptorSetPool.h>
+#include <gles/QueryPool.h>
 #include <memory>
 
 namespace sky::gles {
@@ -35,7 +36,7 @@ namespace sky::gles {
     class Device : public rhi::Device {
     public:
         Device() = default;
-        ~Device();
+        ~Device() override;
 
         template <typename T, typename Desc>
         inline std::shared_ptr<T> CreateDeviceObject(const Desc &des)
@@ -64,7 +65,7 @@ namespace sky::gles {
         Queue *GetGraphicsQueue() const;
         Queue *GetTransferQueue() const;
         Queue* GetQueue(rhi::QueueType type) const override;
-        uint32_t GetQueueNumber() const { return 2; }
+        uint32_t GetQueueNumber() const { return queueCount; }
 
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
         const internal::DeviceFeature &GetInternalFeature() const { return internalFeature; }
@@ -84,6 +85,7 @@ namespace sky::gles {
         CREATE_DEV_OBJ(VertexAssembly)
         CREATE_DEV_OBJ(Sampler)
         CREATE_DEV_OBJ(DescriptorSetPool)
+        CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema) // avoid CreateSemaphore conflict with windows macro
 
         CREATE_DESC_OBJ(VertexInput)
@@ -100,6 +102,7 @@ namespace sky::gles {
         std::unique_ptr<Queue> transferQueue;
         std::vector<std::string> extensions;
 
+        uint32_t queueCount = 2;
         SamplerPtr defaultSampler;
         internal::DeviceFeature internalFeature;
     };

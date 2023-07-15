@@ -39,7 +39,7 @@ namespace sky::rhi {
         tiedPass = device->CreateRenderPass(passDesc);
 
         auto count = swapChain->GetImageCount();
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
 
         rhi::Image::Descriptor desc = {};
         desc.imageType = ImageType::IMAGE_2D;
@@ -179,13 +179,13 @@ namespace sky::rhi {
 
     void RHISubPassMSAA::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+            PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();

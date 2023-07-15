@@ -76,6 +76,10 @@ namespace sky::rhi {
         emptyInput = nullptr;
         depthStencilImage = nullptr;
         pool = nullptr;
+        psPool = nullptr;
+        psResult = nullptr;
+        timeStampPool = nullptr;
+        timeStampResult = nullptr;
         colorViews.clear();
         frameBuffers.clear();
 
@@ -91,17 +95,20 @@ namespace sky::rhi {
 
     void RHISampleBase::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+            PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();
+
         commandBuffer->Begin();
+        commandBuffer->ResetQueryPool(psPool, 0, 1);
+        commandBuffer->ResetQueryPool(timeStampPool, 0, timeStampCount);
 
         {
             ImageBarrier barrier = {};
@@ -122,8 +129,14 @@ namespace sky::rhi {
 
         commandBuffer->FlushBarriers();
         commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()})
+            .BeginQuery(psPool, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::VERTEX_INPUT, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::VERTEX_SHADER, 1)
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
+            .EndQuery(psPool, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::FRAGMENT_SHADER, 2)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::COLOR_OUTPUT, 3)
             .EndPass();
 
         {
@@ -135,6 +148,8 @@ namespace sky::rhi {
             commandBuffer->FlushBarriers();
         }
 
+        commandBuffer->GetQueryResult(psPool, 0, 1, psResult, frameIndex * psResultStride, psResultStride);
+        commandBuffer->GetQueryResult(timeStampPool, 0, timeStampCount, timeStampResult, frameIndex * timeStampResultStride, sizeof(uint64_t));
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);
 
@@ -142,6 +157,21 @@ namespace sky::rhi {
         presentInfo.imageIndex = index;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
+
+        uint32_t lastFrame = (frameIndex + maxFrameInflight - 1) % maxFrameInflight;
+        {
+            uint8_t *ptr = psResult->Map();
+            memcpy(psSysResult.data(), ptr + lastFrame * psResultStride, psResultStride);
+            psResult->UnMap();
+        }
+
+        {
+            uint8_t *ptr = timeStampResult->Map();
+            memcpy(timeStampSysResult.data(), ptr + lastFrame * timeStampResultStride, timeStampResultStride);
+            timeStampResult->UnMap();
+        }
+
+        frameIndex = (frameIndex + 1 ) % maxFrameInflight;
     }
 
     void RHISampleBase::SetupTriangle()
@@ -161,11 +191,47 @@ namespace sky::rhi {
         pso = device->CreateGraphicsPipeline(psoDesc);
     }
 
+    void RHISampleBase::SetupQueryPool()
+    {
+        {
+            rhi::QueryPool::Descriptor poolDesc = {};
+            poolDesc.type                       = QueryType::PIPELINE_STATISTICS;
+            poolDesc.queryCount                 = 1;
+            uint32_t count = device->CheckPipelineStatisticFlags(rhi::PipelineStatisticFlagBits::ALL, poolDesc.pipelineStatisticFlags);
+
+            psPool         = device->CreateQueryPool(poolDesc);
+            psResultStride = count * sizeof(uint64_t);
+
+            rhi::Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size                    = psResultStride * maxFrameInflight;
+            bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
+            bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
+            psResult                           = device->CreateBuffer(bufferDesc);
+            psSysResult.resize(count);
+        }
+        {
+            rhi::QueryPool::Descriptor poolDesc = {};
+            poolDesc.type                       = QueryType::TIME_STAMP;
+            poolDesc.queryCount                 = timeStampCount;
+
+            timeStampPool         = device->CreateQueryPool(poolDesc);
+            timeStampResultStride = timeStampCount * sizeof(uint64_t);
+
+            rhi::Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size                    = timeStampResultStride * maxFrameInflight;
+            bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
+            bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
+            timeStampResult                    = device->CreateBuffer(bufferDesc);
+            timeStampSysResult.resize(timeStampCount);
+        }
+    }
+
     void RHISampleBase::SetupBase()
     {
         SetupPass();
         SetupPool();
         SetupTriangle();
+        SetupQueryPool();
     }
 
     void RHISampleBase::SetupPool()
@@ -191,7 +257,7 @@ namespace sky::rhi {
     void RHISampleBase::SetupPass()
     {
         auto format = swapChain->GetFormat();
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
 
         RenderPass::Descriptor passDesc = {};
         passDesc.attachments.emplace_back(RenderPass::Attachment{
@@ -234,7 +300,7 @@ namespace sky::rhi {
 
     void RHISampleBase::ResetFramebuffer()
     {
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
         uint32_t count = swapChain->GetImageCount();
 
         rhi::Image::Descriptor imageDesc = {};

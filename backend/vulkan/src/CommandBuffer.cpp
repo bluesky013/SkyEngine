@@ -7,7 +7,6 @@
 #include "vulkan/Fence.h"
 #include "vulkan/Conversion.h"
 #include "vulkan/Barrier.h"
-#include "vulkan/Conversion.h"
 #include "vulkan/Ext.h"
 
 static const char *TAG = "Vulkan";
@@ -104,7 +103,7 @@ namespace sky::vk {
     {
         SubmitInfo vkSubmitInfo = {};
         for (const auto &[stage, semaphore] : submit.waits) {
-            vkSubmitInfo.waits.emplace_back(std::make_pair(FromRHI(stage), std::static_pointer_cast<Semaphore>(semaphore)));
+            vkSubmitInfo.waits.emplace_back(FromRHI(stage), std::static_pointer_cast<Semaphore>(semaphore));
         }
         for (const auto &sig : submit.submitSignals) {
             vkSubmitInfo.submitSignals.emplace_back(std::static_pointer_cast<Semaphore>(sig));
@@ -265,6 +264,21 @@ namespace sky::vk {
         dstStageMask = 0;
     }
 
+    void CommandBuffer::ResetQueryPool(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count)
+    {
+        vkCmdResetQueryPool(cmdBuffer, std::static_pointer_cast<QueryPool>(queryPool)->GetNativeHandle(), first, count);
+    }
+
+    void CommandBuffer::GetQueryResult(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count,
+                                       const rhi::BufferPtr &buffer, uint32_t offset, uint32_t stride)
+    {
+        vkCmdCopyQueryPoolResults(cmdBuffer, std::static_pointer_cast<QueryPool>(queryPool)->GetNativeHandle(),
+                                  first, count,
+                                  std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(),
+                                  offset, stride,
+                                  VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    }
+
     void CommandBuffer::Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy)
     {
         vkCmdCopyImage(cmdBuffer, src, srcLayout, dst, dstLayout, 1, &copy);
@@ -399,14 +413,14 @@ namespace sky::vk {
         constants->OnBind(cmd);
     }
 
-    void GraphicsEncoder::SetViewport(uint32_t count, const VkViewport *viewport)
+    void GraphicsEncoder::SetViewport(uint32_t count, const VkViewport *vp)
     {
-        vkCmdSetViewport(cmd, 0, count, viewport);
+        vkCmdSetViewport(cmd, 0, count, vp);
     }
 
-    void GraphicsEncoder::SetScissor(uint32_t count, const VkRect2D *scissor)
+    void GraphicsEncoder::SetScissor(uint32_t count, const VkRect2D *sc)
     {
-        vkCmdSetScissor(cmd, 0, count, scissor);
+        vkCmdSetScissor(cmd, 0, count, sc);
     }
 
     void GraphicsEncoder::BindShaderResource(const DescriptorSetBinderPtr &binder)
@@ -417,6 +431,24 @@ namespace sky::vk {
     void GraphicsEncoder::DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t size)
     {
         vkCmdDrawIndirect(cmd, buffer->GetNativeHandle(), offset, size / sizeof(VkDrawIndirectCommand), sizeof(VkDrawIndirectCommand));
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        vkCmdBeginQuery(cmd, std::static_pointer_cast<QueryPool>(query)->GetNativeHandle(), id, 0);
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::EndQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        vkCmdEndQuery(cmd, std::static_pointer_cast<QueryPool>(query)->GetNativeHandle(), id);
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id)
+    {
+        vkCmdWriteTimestamp(cmd, FromRHI(stage), std::static_pointer_cast<QueryPool>(query)->GetNativeHandle(), id);
+        return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &info)
@@ -471,8 +503,8 @@ namespace sky::vk {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
             currentPso = handle;
         }
-        binder.SetPipelineLayout(vkPso->GetPipelineLayout());
-        binder.SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
+        currentBinder.SetPipelineLayout(vkPso->GetPipelineLayout());
+        currentBinder.SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
         return *this;
     }
 
@@ -522,14 +554,14 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawLinear(const rhi::CmdDrawLinear &linear)
     {
-        binder.OnBind(cmd);
+        currentBinder.OnBind(cmd);
         vkCmdDraw(cmd, linear.vertexCount, linear.instanceCount, linear.firstVertex, linear.firstInstance);
         return *this;
     }
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexedIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
     {
-        binder.OnBind(cmd);
+        currentBinder.OnBind(cmd);
 
         if (cmdBuffer.GetDevice().GetFeatures().multiDrawIndirect) {
             vkCmdDrawIndexedIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), offset, count, stride);
@@ -545,7 +577,7 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride)
     {
-        binder.OnBind(cmd);
+        currentBinder.OnBind(cmd);
 
         if (cmdBuffer.GetDevice().GetFeatures().multiDrawIndirect) {
             vkCmdDrawIndirect(cmd, std::static_pointer_cast<Buffer>(buffer)->GetNativeHandle(), offset, count, stride);
@@ -560,7 +592,7 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
     {
-        binder.BindSet(id, std::static_pointer_cast<DescriptorSet>(set));
+        currentBinder.BindSet(id, std::static_pointer_cast<DescriptorSet>(set));
         return *this;
     }
 
@@ -605,7 +637,7 @@ namespace sky::vk {
 
         for (uint32_t i = 0; i < blitInputs.size(); ++i) {
             auto &VkBlit = blit[i];
-            auto &rBlit = blitInputs[i];
+            const auto &rBlit = blitInputs[i];
 
             VkBlit.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
             VkBlit.pNext = nullptr;
@@ -634,7 +666,7 @@ namespace sky::vk {
         resolves.resize(resolveInputs.size());
         for (uint32_t i = 0; i < resolveInputs.size(); ++i) {
             auto &vkResolve = resolves[i];
-            auto &rResolve = resolveInputs[i];
+            const auto &rResolve = resolveInputs[i];
 
             vkResolve.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
             vkResolve.pNext = nullptr;

@@ -15,6 +15,7 @@
 #include <rhi/RenderPass.h>
 #include <rhi/FrameBuffer.h>
 #include <rhi/CommandBuffer.h>
+#include <rhi/QueryPool.h>
 #include <IRHI.h>
 
 namespace sky {
@@ -28,7 +29,7 @@ namespace sky::rhi {
     class RHISampleBase : public IWindowEvent, public IRHI {
     public:
         RHISampleBase() = default;
-        ~RHISampleBase() = default;
+        ~RHISampleBase() override = default;
 
         virtual void OnStart();
         virtual void OnStop();
@@ -45,6 +46,7 @@ namespace sky::rhi {
         void SetupPool();
         void SetupPass();
         void SetupTriangle();
+        void SetupQueryPool();
         void ResetFramebuffer();
         rhi::Device * GetDevice() const override { return device; }
 
@@ -69,8 +71,20 @@ namespace sky::rhi {
         rhi::SemaphorePtr renderFinish;
         rhi::Device::DeviceFeature deviceFeature = {};
 
+        rhi::QueryPoolPtr psPool;
+        rhi::BufferPtr psResult;
+        uint32_t psResultStride = 0;
+        std::vector<uint64_t> psSysResult;
+
+        rhi::QueryPoolPtr timeStampPool;
+        rhi::BufferPtr timeStampResult;
+        uint32_t timeStampResultStride = 0;
+        uint32_t timeStampCount = 4;
+        std::vector<uint64_t> timeStampSysResult;
+
         uint32_t frameIndex = 0;
-        uint32_t frame = 0;
+        uint32_t maxFrameInflight = 2;
+
         API rhi = API::DEFAULT;
 #if __APPLE__
         rhi::PixelFormat dsFormat = rhi::PixelFormat::D32_S8;

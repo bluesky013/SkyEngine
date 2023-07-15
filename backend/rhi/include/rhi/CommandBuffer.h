@@ -6,6 +6,7 @@
 
 #include <rhi/Commands.h>
 #include <rhi/Fence.h>
+#include <rhi/QueryPool.h>
 
 namespace sky::rhi {
     class Queue;
@@ -32,6 +33,9 @@ namespace sky::rhi {
         GraphicsEncoder() = default;
         virtual ~GraphicsEncoder() = default;
 
+        virtual GraphicsEncoder &BeginQuery(const QueryPoolPtr &query, uint32_t id) = 0;
+        virtual GraphicsEncoder &EndQuery(const QueryPoolPtr &query, uint32_t id) = 0;
+        virtual GraphicsEncoder &WriteTimeStamp(const QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id) = 0;
         virtual GraphicsEncoder &BeginPass(const PassBeginInfo &beginInfo) = 0;
         virtual GraphicsEncoder &BindPipeline(const GraphicsPipelinePtr &pso) = 0;
         virtual GraphicsEncoder &BindAssembly(const VertexAssemblyPtr &assembly) = 0;
@@ -83,20 +87,23 @@ namespace sky::rhi {
 
     class CommandBuffer {
     public:
-        CommandBuffer() = default;
+        CommandBuffer()          = default;
         virtual ~CommandBuffer() = default;
 
         struct Descriptor {
             QueueType queueType = QueueType::GRAPHICS;
         };
 
-        virtual void Begin() = 0;
-        virtual void End() = 0;
+        virtual void Begin()                                        = 0;
+        virtual void End()                                          = 0;
         virtual void Submit(Queue &queue, const SubmitInfo &submit) = 0;
 
         virtual std::shared_ptr<GraphicsEncoder> EncodeGraphics() = 0;
-        virtual std::shared_ptr<BlitEncoder> EncodeBlit() = 0;
+        virtual std::shared_ptr<BlitEncoder>     EncodeBlit()     = 0;
 
+        virtual void ResetQueryPool(const QueryPoolPtr &queryPool, uint32_t first, uint32_t count) {}
+        virtual void
+        GetQueryResult(const QueryPoolPtr &queryPool, uint32_t first, uint32_t count, const BufferPtr &result, uint32_t offset, uint32_t stride) {}
         virtual void QueueBarrier(const ImageBarrier &imageBarrier) {}
         virtual void FlushBarriers() {}
     };

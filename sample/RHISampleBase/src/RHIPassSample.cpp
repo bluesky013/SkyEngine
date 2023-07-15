@@ -24,7 +24,7 @@ namespace sky::rhi {
 
     template <typename T>
     struct VectorProvider : public BufferProvider {
-        const uint8_t* GetData(uint64_t offset) const
+        const uint8_t* GetData(uint64_t offset) const override
         {
             return reinterpret_cast<const uint8_t *>(data.data()) + offset;
         }
@@ -170,8 +170,8 @@ namespace sky::rhi {
             camera = std::make_shared<Camera>();
         }
 
-        auto &ext = swapChain->GetExtent();
-        camera->MakeProjective(60.f / 180.f * 3.14f, ext.width / static_cast<float>(ext.height), 0.1f, 100.f);
+        const auto &ext = swapChain->GetExtent();
+        camera->MakeProjective(60.f / 180.f * 3.14f, static_cast<float>(ext.width) / static_cast<float>(ext.height), 0.1f, 100.f);
 
         auto matrix = Matrix4::Identity();
         matrix[3][0] = 0.f;
@@ -259,13 +259,13 @@ namespace sky::rhi {
 
     void RHIPassSample::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+            PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();

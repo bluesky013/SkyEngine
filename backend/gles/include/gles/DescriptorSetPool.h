@@ -12,10 +12,10 @@ namespace sky::gles {
     class DescriptorSetPool : public rhi::DescriptorSetPool, public DevObject, public std::enable_shared_from_this<DescriptorSetPool> {
     public:
         explicit DescriptorSetPool(Device &dev) : DevObject(dev) {}
-        ~DescriptorSetPool() = default;
+        ~DescriptorSetPool() override = default;
 
 
-        virtual rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
+        rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
 
     private:
         friend class Device;
