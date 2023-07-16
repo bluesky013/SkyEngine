@@ -159,11 +159,8 @@ namespace sky::rhi {
         swapChain->Present(*queue, presentInfo);
 
         uint32_t lastFrame = (frameIndex + maxFrameInflight - 1) % maxFrameInflight;
-        {
-            uint8_t *ptr = psResult->Map();
-            memcpy(psSysResult.data(), ptr + lastFrame * psResultStride, psResultStride);
-            psResult->UnMap();
-        }
+        rhi::PipelineStatisticData data = {};
+        psPool->ConvertPipelineStatisticData(psResult, lastFrame * psResultStride, psResultStride, data);
 
         {
             uint8_t *ptr = timeStampResult->Map();
@@ -205,7 +202,6 @@ namespace sky::rhi {
             bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
             bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
             psResult                           = device->CreateBuffer(bufferDesc);
-            psSysResult.resize(psResultStride / sizeof(uint64_t));
         }
         {
             rhi::QueryPool::Descriptor poolDesc = {};

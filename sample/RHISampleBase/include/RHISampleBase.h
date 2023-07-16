@@ -74,7 +74,6 @@ namespace sky::rhi {
         rhi::QueryPoolPtr psPool;
         rhi::BufferPtr psResult;
         uint32_t psResultStride = 0;
-        std::vector<uint64_t> psSysResult;
 
         rhi::QueryPoolPtr timeStampPool;
         rhi::BufferPtr timeStampResult;

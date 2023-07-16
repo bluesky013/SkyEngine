@@ -33,8 +33,12 @@ namespace sky::vk {
         bool Init(const VkDescriptor &);
         bool Init(const Descriptor &);
 
+        void ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,
+                                          rhi::PipelineStatisticData &result) const override;
+
         VkQueryPool pool;
         uint32_t    pipelineStatisticCount = 0;
+        VkQueryPipelineStatisticFlags vkFlags = 0;
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 

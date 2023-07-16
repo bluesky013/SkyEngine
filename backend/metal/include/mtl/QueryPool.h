@@ -22,6 +22,9 @@ namespace sky::mtl {
         friend class Device;
         bool Init(const Descriptor &desc);
 
+        void ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,
+                                          rhi::PipelineStatisticData &result) const override;
+
         id<MTLCounterSampleBuffer> sampleBuffer = nil;
         uint32_t pipelineStatisticCount = 0;
     };

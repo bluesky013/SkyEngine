@@ -49,5 +49,22 @@ namespace sky::mtl {
         return sampleBuffer != nil && error == nil;
     }
 
+    void QueryPool::ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,
+                                      rhi::PipelineStatisticData &result) const
+    {
+        MTLCounterResultStatistic mtlData[2];
+        uint8_t *ptr = buffer->Map();
+        memcpy(&mtlData, ptr + offset, size);
+        buffer->UnMap();
+
+        result.iaVertices      = 0;
+        result.iaPrimitives    = 0;
+        result.vsInvocations   = mtlData[1].vertexInvocations - mtlData[0].vertexInvocations;
+        result.clipInvocations = mtlData[1].clipperInvocations - mtlData[0].clipperInvocations;
+        result.clipPrimitives  = mtlData[1].clipperPrimitivesOut - mtlData[0].clipperPrimitivesOut;
+        result.fsInvocations   = mtlData[1].fragmentInvocations - mtlData[0].fragmentInvocations;
+        result.csInvocations   = mtlData[1].computeKernelInvocations - mtlData[0].computeKernelInvocations;
+    }
+
 } // namespace sky::mtl
 

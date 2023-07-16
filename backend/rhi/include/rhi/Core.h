@@ -593,4 +593,14 @@ namespace sky::rhi {
         uint64_t range  = 0;
         PixelFormat format = PixelFormat::UNDEFINED;
     };
-} // namespace sky
+
+    struct PipelineStatisticData {
+        uint64_t iaVertices      = 0;
+        uint64_t iaPrimitives    = 0;
+        uint64_t vsInvocations   = 0;
+        uint64_t clipInvocations = 0;
+        uint64_t clipPrimitives  = 0;
+        uint64_t fsInvocations   = 0;
+        uint64_t csInvocations   = 0;
+    };
+}; // namespace sky

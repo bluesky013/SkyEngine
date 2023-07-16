@@ -47,7 +47,7 @@ namespace sky::vk {
 
         if (poolInfo.queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS) {
             pipelineStatisticCount = device.CheckPipelineStatisticFlags(desc.pipelineStatisticFlags, descriptor.pipelineStatisticFlags);
-            poolInfo.pipelineStatistics = FromRHI(descriptor.pipelineStatisticFlags);
+            poolInfo.pipelineStatistics = vkFlags = FromRHI(descriptor.pipelineStatisticFlags);
         }
 
         if (vkCreateQueryPool(device.GetNativeHandle(), &poolInfo, VKL_ALLOC, &pool) != VK_SUCCESS) {
@@ -77,4 +77,21 @@ namespace sky::vk {
         vkResetQueryPool(device.GetNativeHandle(), pool, first, count);
     }
 
+    void QueryPool::ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,
+                                                 rhi::PipelineStatisticData &result) const
+    {
+        std::vector<uint64_t> data(size / sizeof(uint64_t));
+        uint8_t *ptr = buffer->Map();
+        memcpy(data.data(), ptr + offset, size);
+        buffer->UnMap();
+
+        uint32_t index = 0;
+        result.iaVertices      = vkFlags & VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT ? data[index++] : 0;
+        result.iaPrimitives    = vkFlags & VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT ? data[index++] : 0;
+        result.vsInvocations   = vkFlags & VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT ? data[index++] : 0;
+        result.clipInvocations = vkFlags & VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT ? data[index++] : 0;
+        result.clipPrimitives  = vkFlags & VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT ? data[index++] : 0;
+        result.fsInvocations   = vkFlags & VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT ? data[index++] : 0;
+        result.csInvocations   = vkFlags & VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT ? data[index++] : 0;
+    }
 } // namespace sky::vk

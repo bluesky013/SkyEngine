@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <rhi/Core.h>
+#include <rhi/Buffer.h>
 
 namespace sky::rhi {
 
@@ -22,6 +23,7 @@ namespace sky::rhi {
 
         virtual void Reset(uint32_t first, uint32_t count) const {}
         virtual uint32_t GetStride() const = 0;
+        virtual void ConvertPipelineStatisticData(const BufferPtr &buffer, uint32_t offset, uint32_t size, PipelineStatisticData &result) const = 0;
 
         QueryType GetQueryType() const { return descriptor.type; }
         uint32_t GetQueryCount() const { return descriptor.queryCount; }
