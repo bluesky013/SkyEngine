@@ -194,6 +194,7 @@ namespace sky::rhi {
             rhi::QueryPool::Descriptor poolDesc = {};
             poolDesc.type                       = QueryType::PIPELINE_STATISTICS;
             poolDesc.queryCount                 = 1;
+            poolDesc.pipelineStatisticFlags     = rhi::PipelineStatisticFlagBits::ALL;
             psPool         = device->CreateQueryPool(poolDesc);
             psResultStride = psPool->GetStride();
 

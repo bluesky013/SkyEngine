@@ -23,7 +23,7 @@ namespace sky::vk {
 
         VkQueryPool GetNativeHandle() const;
 
-        uint32_t GetStride() const;
+        uint32_t GetStride() const override;
         void     Reset(uint32_t first, uint32_t count) const override;
 
     private:
