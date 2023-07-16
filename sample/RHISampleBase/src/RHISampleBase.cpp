@@ -197,17 +197,15 @@ namespace sky::rhi {
             rhi::QueryPool::Descriptor poolDesc = {};
             poolDesc.type                       = QueryType::PIPELINE_STATISTICS;
             poolDesc.queryCount                 = 1;
-            uint32_t count = device->CheckPipelineStatisticFlags(rhi::PipelineStatisticFlagBits::ALL, poolDesc.pipelineStatisticFlags);
-
             psPool         = device->CreateQueryPool(poolDesc);
-            psResultStride = count * sizeof(uint64_t);
+            psResultStride = psPool->GetStride();
 
             rhi::Buffer::Descriptor bufferDesc = {};
             bufferDesc.size                    = psResultStride * maxFrameInflight;
             bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
             bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
             psResult                           = device->CreateBuffer(bufferDesc);
-            psSysResult.resize(count);
+            psSysResult.resize(psResultStride / sizeof(uint64_t));
         }
         {
             rhi::QueryPool::Descriptor poolDesc = {};

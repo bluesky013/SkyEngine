@@ -20,8 +20,10 @@
 #include <mtl/Fence.h>
 #include <mtl/Semaphore.h>
 #include <mtl/VertexAssembly.h>
+#include <mtl/QueryPool.h>
 #import <Metal/MTLDevice.h>
 #import <Metal/MTLEvent.h>
+#import <Metal/MTLCounters.h>
 
 namespace sky::mtl {
     class Instance;
@@ -65,6 +67,7 @@ namespace sky::mtl {
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
         CREATE_DEV_OBJ(Fence)
+        CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
         CREATE_DESC_OBJ(VertexInput)
@@ -75,17 +78,27 @@ namespace sky::mtl {
         rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
 
         rhi::Queue* GetQueue(rhi::QueueType type) const override;
-
+        id<MTLCounterSet> GetPipelineStatisticCounterSte() const { return pipelineStatisticCounterSet; }
+        id<MTLCounterSet> GetTimeStampCounterSet() const { return timeStampCounterSet; }
         void WaitIdle() const override {}
 
     private:
         friend class Instance;
         bool Init(const Descriptor &);
 
+        void UpdateCounterSet();
+        id<MTLCounterSet> QueryCounterSet(MTLCommonCounterSet counterSet) const;
+        id<MTLCounter> CheckCounterName(id<MTLCounterSet> set, MTLCommonCounter counter) const;
+        uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
+
         Device(Instance &);
         Instance    &instance;
 
         id<MTLDevice> device;
+        id<MTLCounterSet> pipelineStatisticCounterSet = nil;
+        id<MTLCounterSet> timeStampCounterSet = nil;
+        rhi::PipelineStatisticFlags supportedPipelineStatistics;
+
         MTLSharedEventListener *sharedEventListener = nullptr;
 
         std::vector<QueuePtr> queues;

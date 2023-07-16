@@ -21,6 +21,13 @@ namespace sky::rhi {
         };
 
         virtual void Reset(uint32_t first, uint32_t count) const {}
+        virtual uint32_t GetStride() const = 0;
+
+        QueryType GetQueryType() const { return descriptor.type; }
+        uint32_t GetQueryCount() const { return descriptor.queryCount; }
+
+    protected:
+        Descriptor descriptor;
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 

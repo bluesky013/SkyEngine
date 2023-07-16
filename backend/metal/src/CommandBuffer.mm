@@ -48,6 +48,52 @@ namespace sky::mtl {
         releasePool = nil;
     }
 
+    void CommandBuffer::ResetQueryPool(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count)
+    {
+    }
+
+    void CommandBuffer::GetQueryResult(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count,
+                        const rhi::BufferPtr &result, uint32_t offset, uint32_t stride)
+    {
+        const auto &mtlPool = std::static_pointer_cast<QueryPool>(queryPool);
+        uint32_t queryFirst = mtlPool->GetQueryType() == rhi::QueryType::TIME_STAMP ? first : first * 2;
+        uint32_t queryCount = mtlPool->GetQueryType() == rhi::QueryType::TIME_STAMP ? count : count * 2;
+
+        auto encoder = [currentCommandBuffer blitCommandEncoder];
+        [encoder resolveCounters: mtlPool->GetCounterSamplerBuffer()
+                         inRange: NSMakeRange(queryFirst, queryCount)
+               destinationBuffer: std::static_pointer_cast<Buffer>(result)->GetNativeHandle()
+               destinationOffset: offset];
+        [encoder endEncoding];
+    };
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        const auto &mtlQuery = std::static_pointer_cast<QueryPool>(query);
+        [encoder sampleCountersInBuffer: mtlQuery->GetCounterSamplerBuffer()
+                          atSampleIndex: id * 2
+                            withBarrier: NO];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::EndQuery(const rhi::QueryPoolPtr &query, uint32_t id)
+    {
+        const auto &mtlQuery = std::static_pointer_cast<QueryPool>(query);
+        [encoder sampleCountersInBuffer: mtlQuery->GetCounterSamplerBuffer()
+                          atSampleIndex: id * 2 + 1
+                            withBarrier: NO];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id)
+    {
+        const auto &mtlQuery = std::static_pointer_cast<QueryPool>(query);
+        [encoder sampleCountersInBuffer: mtlQuery->GetCounterSamplerBuffer()
+                          atSampleIndex: id
+                            withBarrier: NO];
+        return *this;
+    };
+
     rhi::GraphicsEncoder &GraphicsEncoder::BeginPass(const rhi::PassBeginInfo &beginInfo)
     {
         currentRenderPass = std::static_pointer_cast<RenderPass>(beginInfo.renderPass);
@@ -184,6 +230,11 @@ namespace sky::mtl {
     {
         [encoder endEncoding];
         return *this;
+    }
+
+    BlitEncoder::BlitEncoder(CommandBuffer &cmd) : commandBuffer(cmd)
+    {
+        encoder = [commandBuffer.GetNativeHandle() blitCommandEncoder];
     }
 
     rhi::BlitEncoder &BlitEncoder::CopyTexture()

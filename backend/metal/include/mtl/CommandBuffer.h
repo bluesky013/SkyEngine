@@ -21,6 +21,9 @@ namespace sky::mtl {
         GraphicsEncoder(CommandBuffer &cmd) : commandBuffer(cmd) {}
         ~GraphicsEncoder() = default;
 
+        rhi::GraphicsEncoder &BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &EndQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id) override;
         rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &beginInfo) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
@@ -47,8 +50,8 @@ namespace sky::mtl {
 
     class BlitEncoder : public rhi::BlitEncoder {
     public:
-        BlitEncoder(CommandBuffer &cmd) : commandBuffer(cmd) {}
-        virtual ~BlitEncoder() = default;
+        BlitEncoder(CommandBuffer &cmd);
+        ~BlitEncoder() override = default;
 
         rhi::BlitEncoder &CopyTexture() override;
         rhi::BlitEncoder &CopyTextureToBuffer() override;
@@ -59,6 +62,7 @@ namespace sky::mtl {
                                         const std::vector<rhi::ResolveInfo> &resolveInputs) override;
 
     private:
+        id<MTLBlitCommandEncoder> encoder = nil;
         CommandBuffer &commandBuffer;
     };
 
@@ -71,6 +75,9 @@ namespace sky::mtl {
         void End() override;
         void Submit(rhi::Queue &queue, const rhi::SubmitInfo &submit) override;
 
+        void ResetQueryPool(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count) override;
+        void GetQueryResult(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count,
+            const rhi::BufferPtr &result, uint32_t offset, uint32_t stride) override;
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return std::make_shared<GraphicsEncoder>(*this); }
         std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override { return std::make_shared<BlitEncoder>(*this); }
         id<MTLCommandBuffer> GetNativeHandle() const { return currentCommandBuffer; }

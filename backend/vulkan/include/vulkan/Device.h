@@ -109,6 +109,8 @@ namespace sky::vk {
 
         // Desc Object
         CREATE_DESC_OBJ(VertexInput)
+
+        uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
@@ -122,9 +124,6 @@ namespace sky::vk {
 
         void PrintSupportedExtensions() const;
         void SetupDefaultResources();
-
-        uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
-
         friend class Instance;
         explicit Device(Instance &);
         Instance        &instance;

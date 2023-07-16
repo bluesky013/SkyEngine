@@ -23,11 +23,8 @@ namespace sky::vk {
 
         VkQueryPool GetNativeHandle() const;
 
-        void Reset(uint32_t first, uint32_t count) const override;
-
-        void ReadResults(uint32_t first, uint32_t count);
-
-        const std::vector<uint64_t> &GetData() const;
+        uint32_t GetStride() const;
+        void     Reset(uint32_t first, uint32_t count) const override;
 
     private:
         friend class Device;
@@ -36,8 +33,8 @@ namespace sky::vk {
         bool Init(const VkDescriptor &);
         bool Init(const Descriptor &);
 
-        VkQueryPool           pool;
-        std::vector<uint64_t> results;
+        VkQueryPool pool;
+        uint32_t    pipelineStatisticCount = 0;
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 
