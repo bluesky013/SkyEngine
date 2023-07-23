@@ -11,7 +11,7 @@
 namespace sky::rdg {
 
     struct AccessCompiler : boost::dfs_visitor<> {
-        AccessCompiler(RenderGraph &g) : rdg(g) {}
+        explicit AccessCompiler(RenderGraph &g) : rdg(g) {}
 
         using Vertex = boost::graph_traits<AccessGraph::Graph>::vertex_descriptor;
         using Edge = boost::graph_traits<AccessGraph::Graph>::edge_descriptor;

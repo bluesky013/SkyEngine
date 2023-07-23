@@ -209,6 +209,18 @@ namespace sky::rdg {
         rhi::SwapChainPtr swapChain;
     };
 
+    /*
+     * Buffer: [base range]
+     * Image: [level, levelCount]
+     */
+    struct AccessRange {
+        uint64_t base   = 0;
+        uint64_t range  = 0;
+        uint32_t layer  = 0;
+        uint32_t layers = 0;
+        rhi::AspectFlags aspectMask;
+    };
+
     struct AccessEdge {
         AttachmentType type;
         ResourceAccess access;
@@ -222,13 +234,14 @@ namespace sky::rdg {
 
     struct AccessRes {
         using Tag = AccessResTag;
-        VertexType resID    = INVALID_VERTEX;
-        rhi::ImageSubRange subRange = {0, 0, 0, 0};
+        VertexType resID = INVALID_VERTEX;
+        AccessRange subRange;
+        rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
     };
 
     struct LifeTime {
         VertexType begin = INVALID_VERTEX;
-        VertexType end   = INVALID_VERTEX;
+        VertexType end   = 0;
         uint32_t reference = 0;
     };
 

@@ -284,6 +284,20 @@ namespace sky::rhi {
         GENERAL,
     };
 
+    enum class ImageLayout : uint32_t {
+        UNDEFINED,
+        GENERAL,
+        COLOR_ATTACHMENT,
+        DEPTH_STENCIL_ATTACHMENT,
+        DEPTH_STENCIL_READ_ONLY,
+        SHADER_READ_ONLY,
+        TRANSFER_SRC,
+        TRANSFER_DST,
+        PRESENT,
+        FRAGMENT_SHADING_RATE_ATTACHMENT,
+        FEEDBACK_LOOP
+    };
+
     enum class QueryType : uint32_t {
         PIPELINE_STATISTICS = 0,
         TIME_STAMP,

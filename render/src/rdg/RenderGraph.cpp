@@ -5,6 +5,7 @@
 #include <render/rdg/RenderGraph.h>
 #include <rhi/Decode.h>
 #include <sstream>
+#include <render/rdg/AccessUtils.h>
 
 namespace sky::rdg {
 
@@ -127,101 +128,122 @@ namespace sky::rdg {
     {
     }
 
-    static void MergeSubRange(rhi::ImageSubRange &result, const rhi::ImageSubRange &val)
+    AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID)
     {
-        result.aspectMask |= val.aspectMask;
-        auto maxLevel = std::max(result.baseLevel + result.levels, val.baseLevel + val.levels);
-        result.baseLevel = std::min(result.baseLevel, val.baseLevel);
-        result.levels = maxLevel - result.baseLevel;
+        const auto &resourceGraph = graph.resourceGraph;
+        AccessRange range = {};
 
-        auto maxLayer = std::max(result.baseLayer + result.layers, val.baseLayer + val.layers);
-        result.baseLayer = std::min(result.baseLayer, val.baseLayer);
-        result.layers = maxLayer - result.baseLayer;
+        std::visit(Overloaded{
+            [&](const ImageTag &tag) {
+                const auto &image = resourceGraph.images[Index(resID, resourceGraph)];
+                range = {
+                    0, image.desc.mipLevels,
+                    0, image.desc.arrayLayers,
+                    rhi::GetAspectFlagsByFormat(image.desc.format)
+                };
+            },
+            [&](const ImportImageTag &tag) {
+                const auto &image = resourceGraph.importImages[Index(resID, resourceGraph)];
+                const auto &desc = image.desc.image->GetDescriptor();
+                range = {
+                    0, desc.mipLevels,
+                    0, desc.arrayLayers,
+                    rhi::GetAspectFlagsByFormat(desc.format)
+                };
+            },
+            [&](const ImageViewTag &tag) {
+                const auto &view = resourceGraph.imageViews[Index(resID, resourceGraph)];
+                range = {
+                    view.desc.view.subRange.baseLevel, view.desc.view.subRange.levels,
+                    view.desc.view.subRange.baseLayer, view.desc.view.subRange.layers,
+                    view.desc.view.subRange.aspectMask
+                };
+            },
+            [&](const BufferTag &tag) {
+                const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
+                range.range = buffer.desc.size;
+            },
+            [&](const ImportBufferTag &tag) {
+                const auto &buffer = resourceGraph.importBuffers[Index(resID, resourceGraph)];
+                const auto &desc = buffer.desc.buffer->GetBufferDesc();
+                range.range = desc.size;
+            },
+            [&](const BufferViewTag &tag) {
+                const auto &view = resourceGraph.bufferViews[Index(resID, resourceGraph)];
+                range.base = view.desc.view.offset;
+                range.range = view.desc.view.range;
+            },
+            [&](const auto &) {}
+        }, rdg::Tag(resID, resourceGraph));
+        return range;
     }
 
-    static bool Intersection(const rhi::ImageSubRange &lhs, const rhi::ImageSubRange &rhs)
+    static void MergeSubRange(AccessRange &result, const AccessRange &val)
+    {
+        result.aspectMask |= val.aspectMask;
+        auto maxLevel = std::max(result.base + result.range, val.base + val.range);
+        result.base = std::min(result.base, val.base);
+        result.range = maxLevel - result.base;
+
+        auto maxLayer = std::max(result.layer + result.layers, val.layer + val.layers);
+        result.layer = std::min(result.layer, val.layer);
+        result.layers = maxLayer - result.layer;
+    }
+
+    static bool Intersection(const AccessRange &lhs, const AccessRange &rhs)
     {
         if (!(lhs.aspectMask & rhs.aspectMask)) {
             return false;
         }
-        if ((lhs.baseLayer > (rhs.baseLayer + rhs.layers)) ||
-            (rhs.baseLayer > (lhs.baseLayer + lhs.layers))) {
+        if ((lhs.layer > (rhs.layer + rhs.layers)) ||
+            (rhs.layer > (lhs.layer + lhs.layers))) {
             return false;
         }
-        if ((lhs.baseLevel > (rhs.baseLevel + rhs.levels)) ||
-            (rhs.baseLevel > (lhs.baseLevel + lhs.levels))) {
+        if ((lhs.base > (rhs.base + rhs.range)) ||
+            (rhs.base > (lhs.base + lhs.range))) {
             return false;
         }
         return true;
     }
 
-    void RenderGraph::AddDependency(VertexType res, VertexType passId, const AccessEdge &edge)
+    void RenderGraph::AddDependency(VertexType resID, VertexType passId, const AccessEdge &edge)
     {
+        VertexType sourceID = Source(resID, resourceGraph);
+        auto passAccessID = accessNodes[passId];
+        auto &resAccessID = resourceGraph.lastAccesses[sourceID];
+        auto subRange = GetAccessRange(*this, resID);
+
+        if (resAccessID == INVALID_VERTEX) {
+            resAccessID = AddVertex(AccessRes{sourceID, subRange}, accessGraph);
+        }
+        auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
+
         auto read = edge.access & ResourceAccessBit::READ;
         auto write = edge.access & ResourceAccessBit::WRITE;
+        auto layout = GetImageLayout(edge);
 
-        VertexType sourceID = Source(res, resourceGraph);
-        auto &lastAccess = resourceGraph.lastAccesses[sourceID];
-        auto lastResAccessID = lastAccess;
-        auto passAccessID = accessNodes[passId];
+        auto intersection = Intersection(lastAccessRes.subRange, subRange);
+        auto versionChanged = (lastAccessRes.layout != layout) || (write && intersection);
 
-        AccessRes accessRes = {res};
-        bool intersection = false;
-
-        std::visit(Overloaded{
-            [&](const ImageTag &tag) {
-                const auto &image = resourceGraph.images[Index(res, resourceGraph)];
-                rhi::ImageSubRange range = {
-                    0, image.desc.mipLevels,
-                    0, image.desc.arrayLayers,
-                    rhi::GetAspectFlagsByFormat(image.desc.format)
-                };
-                if (intersection = Intersection(accessRes.subRange, range); !intersection) {
-                    MergeSubRange(accessRes.subRange, range);
-                }
-            },
-            [&](const ImportImageTag &tag) {
-                const auto &image = resourceGraph.importImages[Index(res, resourceGraph)];
-                const auto &desc = image.desc.image->GetDescriptor();
-                rhi::ImageSubRange range = {
-                    0, desc.mipLevels,
-                    0, desc.arrayLayers,
-                    rhi::GetAspectFlagsByFormat(desc.format)
-                };
-                if (intersection = Intersection(accessRes.subRange, range); !intersection) {
-                    MergeSubRange(accessRes.subRange, range);
-                }
-            },
-            [&](const ImageViewTag &tag) {
-                auto &view = resourceGraph.imageViews[Index(sourceID, resourceGraph)];
-                if (intersection = Intersection(accessRes.subRange, view.desc.view.subRange); !intersection) {
-                    MergeSubRange(accessRes.subRange, view.desc.view.subRange);
-                }
-            },
-            [&](const BufferTag &tag) {
-            },
-            [&](const ImportBufferTag &tag) {
-            },
-            [&](const BufferViewTag &tag) {
-            },
-            [&](const auto &) {}
-        }, rdg::Tag(res, resourceGraph));
-
-        if (read && lastResAccessID == INVALID_VERTEX) {
-            lastAccess = AddVertex(accessRes, accessGraph);
-        }
-        if (read || lastResAccessID != INVALID_VERTEX) {
-            auto [ed, sec] = add_edge(lastAccess, passAccessID, accessGraph.graph);
-            accessGraph.graph[ed] = edge;
-        }
-        if (write) {
-            if (intersection || !accessRes.subRange.aspectMask) {
-                lastAccess = AddVertex(accessRes, accessGraph);
-                auto [ed, sec] = add_edge(passAccessID, lastAccess, accessGraph.graph);
+        if (versionChanged) {
+            {
+                auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
+                accessGraph.graph[ed] = edge;
+            }
+            resAccessID = AddVertex(AccessRes{sourceID, subRange, layout}, accessGraph);
+            {
+                auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
+                accessGraph.graph[ed] = edge;
+            }
+        } else {
+            if (write) {
+                auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
                 accessGraph.graph[ed] = edge;
             } else {
-
+                auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
+                accessGraph.graph[ed] = edge;
             }
+            MergeSubRange(lastAccessRes.subRange, subRange);
         }
     }
 

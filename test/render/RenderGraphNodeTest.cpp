@@ -11,6 +11,8 @@
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/TransientObjectPool.h>
 
+#include <memory>
+
 using namespace sky;
 using namespace sky::rdg;
 
@@ -24,7 +26,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
     RHI::Get()->InitDevice({});
 
     RenderGraphContext context;
-    context.pool.reset(new TransientObjectPool());
+    context.pool = std::make_unique<TransientObjectPool>();
 
     RenderGraph rdg(&context);
     auto       &rg = rdg.resourceGraph;
@@ -72,13 +74,13 @@ TEST(RenderGraphTest, NodeGraphTest01)
     rdg.AddRasterPass("color1", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     rdg.AddRasterSubPass("color1_sub0", "color1")
-        .AddDepthStencil("test2", ResourceAccessBit::READ_WRITE)
+        .AddDepthStencil("test2", ResourceAccessBit::WRITE)
         .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ});
 
     rdg.AddRasterPass("color2", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     rdg.AddRasterSubPass("color2_sub0", "color2")
-        .AddDepthStencil("test2", ResourceAccessBit::READ_WRITE);
+        .AddDepthStencil("test2", ResourceAccessBit::WRITE);
 
     {
         AccessCompiler             compiler(rdg);
