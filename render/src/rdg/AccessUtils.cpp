@@ -53,83 +53,82 @@ namespace sky::rdg {
     struct AccessFlagMask {
         uint32_t        writeMask;
         uint32_t        visibilityMask;
-        rhi::AccessFlag readAccess;
-        rhi::AccessFlag writeAccess;
+        rhi::AccessFlagBit readAccess;
+        rhi::AccessFlagBit writeAccess;
     };
 
     const std::unordered_map<AttachmentType, AccessFlagMask> AttachmentMask{
-        {RasterTypeBit::COLOR, {0x3, 0x2, rhi::AccessFlag::COLOR_READ, rhi::AccessFlag::COLOR_WRITE}},
-        {RasterTypeBit::RESOLVE, {0x3, 0x2, rhi::AccessFlag::COLOR_READ, rhi::AccessFlag::COLOR_WRITE}},
-        {RasterTypeBit::INPUT, {0x1, 0x2, rhi::AccessFlag::COLOR_READ, rhi::AccessFlag::COLOR_WRITE}},
-        {RasterTypeBit::DEPTH_STENCIL, {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_READ, rhi::AccessFlag::DEPTH_STENCIL_WRITE}},
-        {RasterTypeBit::COLOR | RasterTypeBit::INPUT, {0x3, 0x2, rhi::AccessFlag::COLOR_INOUT_READ, rhi::AccessFlag::COLOR_INOUT_WRITE}},
-        {RasterTypeBit::DEPTH_STENCIL | RasterTypeBit::INPUT,
-         {0x3, 0x2, rhi::AccessFlag::DEPTH_STENCIL_INOUT_READ, rhi::AccessFlag::DEPTH_STENCIL_INOUT_WRITE}},
-        {RasterTypeBit::SHADING_RATE, {0x1, 0x2, rhi::AccessFlag::SHADING_RATE, rhi::AccessFlag::NONE}},
-        {ComputeType::CBV, {0x1, 0xFF}},
-        {ComputeType::SRV, {0x1, 0xFF}},
-        {ComputeType::UAV, {0x3, 0xFF}},
-        {TransferType::SRC, {0x3, 0xFF}},
-        {TransferType::DST, {0x3, 0xFF}},
+        {RasterTypeBit::COLOR,                                {0x3, 0x2, rhi::AccessFlagBit::COLOR_READ, rhi::AccessFlagBit::COLOR_WRITE}},
+        {RasterTypeBit::RESOLVE,                              {0x3, 0x2, rhi::AccessFlagBit::COLOR_READ, rhi::AccessFlagBit::COLOR_WRITE}},
+        {RasterTypeBit::INPUT,                                {0x1, 0x2, rhi::AccessFlagBit::COLOR_READ, rhi::AccessFlagBit::COLOR_WRITE}},
+        {RasterTypeBit::DEPTH_STENCIL,                        {0x3, 0x2, rhi::AccessFlagBit::DEPTH_STENCIL_READ, rhi::AccessFlagBit::DEPTH_STENCIL_WRITE}},
+        {RasterTypeBit::COLOR | RasterTypeBit::INPUT,         {0x3, 0x2, rhi::AccessFlagBit::COLOR_INOUT_READ, rhi::AccessFlagBit::COLOR_INOUT_WRITE}},
+        {RasterTypeBit::DEPTH_STENCIL | RasterTypeBit::INPUT, {0x3, 0x2, rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_READ, rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE}},
+        {RasterTypeBit::SHADING_RATE,                         {0x1, 0x2, rhi::AccessFlagBit::SHADING_RATE, rhi::AccessFlagBit::NONE}},
+        {ComputeType::CBV,                                    {0x1, 0xFF}},
+        {ComputeType::SRV,                                    {0x1, 0xFF}},
+        {ComputeType::UAV,                                    {0x3, 0xFF}},
+        {TransferType::SRC,                                   {0x3, 0xFF}},
+        {TransferType::DST,                                   {0x3, 0xFF}},
     };
 
-    const std::unordered_map<rhi::ShaderStageFlagBit, rhi::AccessFlag> CBVMap{
-        {rhi::ShaderStageFlagBit::VS, rhi::AccessFlag::VERTEX_CBV},
-        {rhi::ShaderStageFlagBit::FS, rhi::AccessFlag::FRAGMENT_CBV},
-        {rhi::ShaderStageFlagBit::CS, rhi::AccessFlag::COMPUTE_CBV},
+    const std::unordered_map<rhi::ShaderStageFlagBit, rhi::AccessFlagBit> CBVMap{
+        {rhi::ShaderStageFlagBit::VS, rhi::AccessFlagBit::VERTEX_CBV},
+        {rhi::ShaderStageFlagBit::FS, rhi::AccessFlagBit::FRAGMENT_CBV},
+        {rhi::ShaderStageFlagBit::CS, rhi::AccessFlagBit::COMPUTE_CBV},
     };
 
-    std::vector<rhi::AccessFlag> GetAccessFlag(const AccessEdge &edge)
+    rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps)
     {
-        SKY_ASSERT(AttachmentMask.count(edge.type));
-        auto accessMask = AttachmentMask.at(edge.type);
-        SKY_ASSERT((edge.access & ResourceAccess(accessMask.writeMask)) == edge.access);
-        SKY_ASSERT((edge.visibility & rhi::ShaderStageFlags(accessMask.visibilityMask)) == edge.visibility);
+        SKY_ASSERT(AttachmentMask.count(deps.type));
+        auto accessMask = AttachmentMask.at(deps.type);
+        SKY_ASSERT((deps.access & ResourceAccess(accessMask.writeMask)) == deps.access);
+        SKY_ASSERT((deps.visibility & rhi::ShaderStageFlags(accessMask.visibilityMask)) == deps.visibility);
 
-        std::vector<rhi::AccessFlag> res;
+        rhi::AccessFlags res;
         std::visit(Overloaded{
             [&](const RasterType &type) {
-                if (edge.access & ResourceAccessBit::READ) {
-                    res.emplace_back(accessMask.readAccess);
+                if (deps.access & ResourceAccessBit::READ) {
+                    res |= accessMask.readAccess;
                 }
-                if (edge.access & ResourceAccessBit::WRITE) {
-                    res.emplace_back(accessMask.writeAccess);
+                if (deps.access & ResourceAccessBit::WRITE) {
+                    res |= accessMask.writeAccess;
                 }
             },
             [&](const ComputeType &type) {
                 auto fn = [&](rhi::ShaderStageFlagBit stage, ComputeType type) {
-                    auto base = static_cast<uint32_t>(CBVMap.at(stage)) + static_cast<uint32_t>(type);
-                    if (edge.access & ResourceAccessBit::READ) {
-                        res.emplace_back(static_cast<rhi::AccessFlag>(base));
+                    auto base = static_cast<uint32_t>(CBVMap.at(stage));
+                    if (deps.access & ResourceAccessBit::READ) {
+                        res |= static_cast<rhi::AccessFlags>(base << static_cast<uint32_t>(type));
                     }
-                    if (edge.access & ResourceAccessBit::WRITE) {
-                        res.emplace_back(static_cast<rhi::AccessFlag>(base + 1));
+                    if (deps.access & ResourceAccessBit::WRITE) {
+                        res |= static_cast<rhi::AccessFlags>(base << (static_cast<uint32_t>(type) + 1));
                     }
                 };
 
-                if (edge.visibility & rhi::ShaderStageFlagBit::VS) {
+                if (deps.visibility & rhi::ShaderStageFlagBit::VS) {
                     fn(rhi::ShaderStageFlagBit::VS, type);
                 }
-                if (edge.visibility & rhi::ShaderStageFlagBit::FS) {
+                if (deps.visibility & rhi::ShaderStageFlagBit::FS) {
                     fn(rhi::ShaderStageFlagBit::FS, type);
                 }
-                if (edge.visibility & rhi::ShaderStageFlagBit::CS) {
+                if (deps.visibility & rhi::ShaderStageFlagBit::CS) {
                     fn(rhi::ShaderStageFlagBit::CS, type);
                 }
             },
             [&](const TransferType &type) {
-                res.emplace_back(type == TransferType::SRC ? rhi::AccessFlag::TRANSFER_READ : rhi::AccessFlag::TRANSFER_WRITE);
-            }}, edge.type);
+                res = type == TransferType::SRC ? rhi::AccessFlagBit::TRANSFER_READ : rhi::AccessFlagBit::TRANSFER_WRITE;
+            }}, deps.type);
         return res;
     }
 
-    rhi::ImageLayout GetImageLayout(const AccessEdge &edge) {
+    rhi::ImageLayout GetImageLayout(const DependencyInfo &deps) {
         rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
 
         std::visit(Overloaded{
         [&](const RasterType &type) {
             if (type & RasterTypeBit::INPUT) {
-                if (edge.access & ResourceAccessBit::WRITE) {
+                if (deps.access & ResourceAccessBit::WRITE) {
                     layout = rhi::ImageLayout::FEEDBACK_LOOP;
                 } else if (type & RasterTypeBit::COLOR) {
                     layout = rhi::ImageLayout::SHADER_READ_ONLY;
@@ -151,7 +150,7 @@ namespace sky::rdg {
         [&](const TransferType &type) {
             if (type == TransferType::SRC) { layout = rhi::ImageLayout::TRANSFER_SRC; }
             else if (type == TransferType::DST) { layout = rhi::ImageLayout::TRANSFER_DST; }
-        }}, edge.type);
+        }}, deps.type);
         return layout;
     }
 

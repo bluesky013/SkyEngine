@@ -37,7 +37,7 @@ namespace sky::rhi {
         instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({deviceFeature});
 
-        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
+        auto *systemApi = Interface<ISystemNotify>::Get()->GetApi();
         window = systemApi->GetViewport();
         Event<IWindowEvent>::Connect(window, this);
         SwapChain::Descriptor swcDesc = {};
@@ -112,17 +112,16 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::COLOR_WRITE;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
         }
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             barrier.view = depthStencilImage;
             commandBuffer->QueueBarrier(barrier);
         }
@@ -141,8 +140,8 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.srcFlags = rhi::AccessFlagBit::COLOR_WRITE;
+            barrier.dstFlags = rhi::AccessFlagBit::PRESENT;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
             commandBuffer->FlushBarriers();
@@ -272,8 +271,10 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {{0, {AccessFlag::COLOR_WRITE}}}, {}, {}, {},
-            {1, {AccessFlag::DEPTH_STENCIL_WRITE}}
+            {
+                {0, AccessFlagBit::COLOR_WRITE}
+            }, {}, {}, {},
+            {1, AccessFlagBit::DEPTH_STENCIL_WRITE}
         });
         renderPass = device->CreateRenderPass(passDesc);
 

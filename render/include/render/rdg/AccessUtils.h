@@ -9,7 +9,7 @@
 
 namespace sky::rdg {
 
-    std::vector<rhi::AccessFlag> GetAccessFlag(const AccessEdge &edge);
-    rhi::ImageLayout GetImageLayout(const AccessEdge &edge);
+    rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps);
+    rhi::ImageLayout GetImageLayout(const DependencyInfo &edge);
 
 } // namespace sky::rdg

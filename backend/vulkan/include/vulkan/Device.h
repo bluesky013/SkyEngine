@@ -69,6 +69,7 @@ namespace sky::vk {
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
         VkRenderPass          GetRenderPass(uint32_t hash, VkRenderPassCreateInfo2 * = nullptr);
         VkPipeline            GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
+        const AccessInfo     &GetAccessInfo(const rhi::AccessFlags& flags);
 
         // features
         const VkPhysicalDeviceProperties &GetProperties() const;
@@ -158,11 +159,12 @@ namespace sky::vk {
         Queue                               *graphicsQueue;
         Queue                               *transferQueue;
 
-        CacheManager<VkSampler>             samplers;
-        CacheManager<VkDescriptorSetLayout> setLayouts;
-        CacheManager<VkPipelineLayout>      pipelineLayouts;
-        CacheManager<VkPipeline>            pipelines;
-        CacheManager<VkRenderPass>          renderPasses;
+        CacheManager<VkSampler, uint32_t>             samplers;
+        CacheManager<VkDescriptorSetLayout, uint32_t> setLayouts;
+        CacheManager<VkPipelineLayout, uint32_t>      pipelineLayouts;
+        CacheManager<VkPipeline, uint32_t>            pipelines;
+        CacheManager<VkRenderPass, uint32_t>          renderPasses;
+        CacheManager<AccessInfo, uint64_t>            accessInfos;
     };
 
 } // namespace sky::vk

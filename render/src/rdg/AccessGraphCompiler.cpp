@@ -4,6 +4,7 @@
 
 #include <render/rdg/AccessGraphCompiler.h>
 #include <render/rdg/AccessUtils.h>
+#include <rhi/Device.h>
 
 namespace sky::rdg {
     void AccessCompiler::UpdateLifeTime(VertexType passID, VertexType resID)
@@ -52,7 +53,7 @@ namespace sky::rdg {
                 for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
                      begin != end; ++begin) {
                     auto nextEdge = *begin;
-                    auto nextAccess = GetAccessFlag(rdg.accessGraph.graph[nextEdge]); // nextAccess
+                    auto nextAccess = GetAccessFlags(rdg.accessGraph.graph[nextEdge].dependencyInfo); // nextAccess
                     auto nextPassAccessID = boost::target(nextEdge, rdg.accessGraph.graph);
                     auto nextPassID = rdg.accessGraph.passes[Index(nextPassAccessID, rdg.accessGraph)].vertexID;
                     UpdateLifeTime(nextPassID, resID);
@@ -71,8 +72,8 @@ namespace sky::rdg {
                             auto &dep = parent.dependencies.emplace_back();
                             dep.src = srcSubPass.subPassID;
                             dep.dst = dstSubPass.subPassID;
-                            dep.preAccess = GetAccessFlag(ep); // prevAccess
-                            dep.nextAccess.insert(dep.nextAccess.end(), nextAccess.begin(), nextAccess.end());
+                            dep.preAccess = GetAccessFlags(ep.dependencyInfo); // prevAccess
+                            dep.nextAccess |= nextAccess;
                             isSubPassDependency = true;
                         }
                     }
@@ -83,24 +84,24 @@ namespace sky::rdg {
                             [&](const RasterSubPassTag &) {
                                 const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
                                 auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
-                                auto &srcFlags = parent.rearBarriers[resID].srcFlags;
-                                auto &dstFlags = parent.rearBarriers[resID].dstFlags;
-                                srcFlags = GetAccessFlag(ep);
-                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                                auto &rearBarrier = parent.rearBarriers[resID];
+                                rearBarrier.range = ep.range;
+                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
+                                rearBarrier.dstFlags |= nextAccess;
                             },
                             [&](const ComputePassTag &) {
                                 auto &computePass = rdg.computePasses[Index(passID, rdg)];
-                                auto &srcFlags = computePass.rearBarriers[resID].srcFlags;
-                                auto &dstFlags = computePass.rearBarriers[resID].dstFlags;
-                                srcFlags = GetAccessFlag(ep);
-                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                                auto &rearBarrier = computePass.rearBarriers[resID];
+                                rearBarrier.range = ep.range;
+                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
+                                rearBarrier.dstFlags |= nextAccess;
                             },
                             [&](const CopyBlitTag &) {
                                 auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
-                                auto &srcFlags = copyBlitPass.rearBarriers[resID].srcFlags;
-                                auto &dstFlags = copyBlitPass.rearBarriers[resID].dstFlags;
-                                srcFlags = GetAccessFlag(ep);
-                                dstFlags.insert(dstFlags.end(), nextAccess.begin(), nextAccess.end());
+                                auto &rearBarrier = copyBlitPass.rearBarriers[resID];
+                                rearBarrier.range = ep.range;
+                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
+                                rearBarrier.dstFlags |= nextAccess;
                             },
                             [&](const auto &) {
                             }

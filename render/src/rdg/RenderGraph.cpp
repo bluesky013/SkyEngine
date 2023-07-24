@@ -206,7 +206,7 @@ namespace sky::rdg {
         return true;
     }
 
-    void RenderGraph::AddDependency(VertexType resID, VertexType passId, const AccessEdge &edge)
+    void RenderGraph::AddDependency(VertexType resID, VertexType passId, const DependencyInfo &deps)
     {
         VertexType sourceID = Source(resID, resourceGraph);
         auto passAccessID = accessNodes[passId];
@@ -218,9 +218,9 @@ namespace sky::rdg {
         }
         auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
 
-        auto read = edge.access & ResourceAccessBit::READ;
-        auto write = edge.access & ResourceAccessBit::WRITE;
-        auto layout = GetImageLayout(edge);
+        auto read = deps.access & ResourceAccessBit::READ;
+        auto write = deps.access & ResourceAccessBit::WRITE;
+        auto layout = GetImageLayout(deps);
 
         auto intersection = Intersection(lastAccessRes.subRange, subRange);
         auto versionChanged = (lastAccessRes.layout != layout) || (write && intersection);
@@ -228,20 +228,20 @@ namespace sky::rdg {
         if (versionChanged) {
             {
                 auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
-                accessGraph.graph[ed] = edge;
+                accessGraph.graph[ed] = {deps, subRange};
             }
             resAccessID = AddVertex(AccessRes{sourceID, subRange, layout}, accessGraph);
             {
                 auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
-                accessGraph.graph[ed] = edge;
+                accessGraph.graph[ed] = {deps, subRange};
             }
         } else {
             if (write) {
                 auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
-                accessGraph.graph[ed] = edge;
+                accessGraph.graph[ed] = {deps, subRange};
             } else {
                 auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
-                accessGraph.graph[ed] = edge;
+                accessGraph.graph[ed] = {deps, subRange};
             }
             MergeSubRange(lastAccessRes.subRange, subRange);
         }
@@ -258,28 +258,28 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, ResourceAccess access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.colors.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::COLOR, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const std::string &name, ResourceAccess access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const std::string &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.resolves.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::RESOLVE, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const std::string &name, ResourceAccess access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const std::string &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.inputs.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, ResourceAccess access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.depthStencil = RasterAttachmentRef{name, access, attachmentIndex};
@@ -289,7 +289,7 @@ namespace sky::rdg {
     RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
     {
         subPass.rasterViews.emplace(name, view);
-        graph.AddDependency(resVertex, vertex, AccessEdge{view.type, view.access, {}});
+        graph.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
         return *this;
     }
 
@@ -308,7 +308,7 @@ namespace sky::rdg {
         SKY_ASSERT(res != INVALID_VERTEX);
 
         subPass.computeViews.emplace(name, view);
-        graph.AddDependency(res, vertex, AccessEdge{view.type, view.access, view.visibility});
+        graph.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
         return *this;
     }
 }

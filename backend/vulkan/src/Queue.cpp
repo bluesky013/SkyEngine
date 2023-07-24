@@ -41,6 +41,10 @@ namespace sky::vk {
 
         pool = device.CreateDeviceObject<CommandPool>(des);
 
+        for (auto & fence : fences) {
+            fence = std::static_pointer_cast<Fence>(device.CreateFence({}));
+        }
+
         CreateTask([this]() {
             Buffer::VkDescriptor bufferInfo = {};
             bufferInfo.size               = BLOCK_SIZE * INFLIGHT_NUM;
@@ -53,9 +57,8 @@ namespace sky::vk {
             Fence::VkDescriptor fenceInfo = {};
             fenceInfo.flag = VK_FENCE_CREATE_SIGNALED_BIT;
 
-            for (uint32_t i = 0; i < INFLIGHT_NUM; ++i) {
-                inflightCommands[i] = AllocateCommandBuffer({});
-
+            for (auto & inflightCommand : inflightCommands) {
+                inflightCommand = AllocateCommandBuffer({});
             }
         });
     }
@@ -68,7 +71,7 @@ namespace sky::vk {
 
     uint64_t Queue::BeginFrame()
     {
-        fences[currentFrameId]->Wait();
+        fences[currentFrameId]->WaitAndReset();
         inflightCommands[currentFrameId]->Begin();
         return currentFrameId * BLOCK_SIZE;
     }

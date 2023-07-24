@@ -25,10 +25,10 @@ namespace sky::rdg {
     };
 
     struct RasterSubPassBuilder {
-        RasterSubPassBuilder &AddColor(const std::string &name, ResourceAccess access);
-        RasterSubPassBuilder &AddResolve(const std::string &name, ResourceAccess access);
-        RasterSubPassBuilder &AddInput(const std::string &name, ResourceAccess access);
-        RasterSubPassBuilder &AddDepthStencil(const std::string &name, ResourceAccess access);
+        RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddResolve(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddInput(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
         uint32_t GetAttachmentIndex(const std::string &name);
 
@@ -132,7 +132,7 @@ namespace sky::rdg {
         RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
-        void AddDependency(VertexType resVertex, VertexType passId, const AccessEdge &edge);
+        void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
 
         // memory
         RenderGraphContext *context;

@@ -19,50 +19,50 @@ namespace sky::rhi {
 
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
-                    {0, {AccessFlag::COLOR_WRITE}},
-                    {1, {AccessFlag::COLOR_WRITE}},
-                    {2, {AccessFlag::COLOR_WRITE}},
-                    {3, {AccessFlag::COLOR_WRITE}},
+                    {0, AccessFlagBit::COLOR_WRITE},
+                    {1, AccessFlagBit::COLOR_WRITE},
+                    {2, AccessFlagBit::COLOR_WRITE},
+                    {3, AccessFlagBit::COLOR_WRITE},
                  }, {}, {}, {},
-                {5, {AccessFlag::DEPTH_STENCIL_WRITE}},
+                {5, AccessFlagBit::DEPTH_STENCIL_WRITE},
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
-                        {4, {AccessFlag::COLOR_WRITE}}
-                        },
+                        {4, AccessFlagBit::COLOR_WRITE}
+                },
                 {},
                 {
-                        {0, {AccessFlag::COLOR_INPUT}},
-                        {1, {AccessFlag::COLOR_INPUT}},
+                        {0, AccessFlagBit::COLOR_INPUT},
+                        {1, AccessFlagBit::COLOR_INPUT},
                         },
                 { 2, 3 },
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
                 {
-                        {4, {AccessFlag::COLOR_INOUT_WRITE}}
-                        },
+                        {4, AccessFlagBit::COLOR_INOUT_WRITE}
+                },
                 {},
                 {
-                        {2, {AccessFlag::COLOR_INPUT}},
-                        {3, {AccessFlag::COLOR_INPUT}},
-                        {4, {AccessFlag::COLOR_INOUT_WRITE}},
-                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::DEPTH_BIT},
-                        {5, {AccessFlag::DEPTH_STENCIL_INPUT}, rhi::AspectFlagBit::STENCIL_BIT},
-                        },
+                        {2, AccessFlagBit::COLOR_INPUT},
+                        {3, AccessFlagBit::COLOR_INPUT},
+                        {4, AccessFlagBit::COLOR_INOUT_WRITE},
+                        {5, AccessFlagBit::DEPTH_STENCIL_INPUT, rhi::AspectFlagBit::DEPTH_BIT},
+                        {5, AccessFlagBit::DEPTH_STENCIL_INPUT, rhi::AspectFlagBit::STENCIL_BIT},
+                },
         });
 
         passDesc.dependencies.emplace_back(RenderPass::Dependency{0, 1,
-                                                                  {AccessFlag::COLOR_WRITE},
-                                                                  {AccessFlag::COLOR_INPUT}});
+                                                                  AccessFlagBit::COLOR_WRITE,
+                                                                  AccessFlagBit::COLOR_INPUT});
         passDesc.dependencies.emplace_back(RenderPass::Dependency{0, 2,
-                                                                  {AccessFlag::COLOR_WRITE},
-                                                                  {AccessFlag::COLOR_INPUT}});
+                                                                  AccessFlagBit::COLOR_WRITE,
+                                                                  AccessFlagBit::COLOR_INPUT});
         passDesc.dependencies.emplace_back(RenderPass::Dependency{1, 2,
-                                                                  {AccessFlag::COLOR_WRITE},
-                                                                  {AccessFlag::COLOR_INOUT_WRITE}});
+                                                                  AccessFlagBit::COLOR_WRITE,
+                                                                  AccessFlagBit::COLOR_INOUT_WRITE});
         tiedPass = device->CreateRenderPass(passDesc);
 
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
         rhi::Image::Descriptor imageDesc = {};
         imageDesc.format      = PixelFormat::RGBA8_UNORM;
         imageDesc.extent      = {ext.width, ext.height, 1};
@@ -77,13 +77,13 @@ namespace sky::rhi {
                 viewDesc.subRange.aspectMask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
                 imageDesc.format = dsFormat;
                 imageDesc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
-                fbClears.emplace_back(rhi::ClearValue(1, 0));
+                fbClears.emplace_back(1, 0);
             } else if (i == 4) {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
-                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
+                fbClears.emplace_back(0, 0, 0, 1);
             } else {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
-                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
+                fbClears.emplace_back(0, 0, 0, 1);
             }
 
             auto image = device->CreateImage(imageDesc);
@@ -213,13 +213,12 @@ namespace sky::rhi {
 
     void RHISubPassSample::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
-        submitInfo.waits.emplace_back(
-                std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+        submitInfo.waits.emplace_back(PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();
@@ -229,8 +228,8 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::COLOR_WRITE;
             barrier.view = subpassViews[0];
             commandBuffer->QueueBarrier(barrier);
             barrier.view = subpassViews[1];
@@ -244,8 +243,8 @@ namespace sky::rhi {
         }
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             barrier.view = subpassViews[5];
             commandBuffer->QueueBarrier(barrier);
         }
@@ -272,25 +271,24 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_INOUT_WRITE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::FRAGMENT_SRV);
+            barrier.srcFlags = rhi::AccessFlagBit::COLOR_INOUT_WRITE;
+            barrier.dstFlags = rhi::AccessFlagBit::FRAGMENT_SRV;
             barrier.view = subpassViews[4];
             commandBuffer->QueueBarrier(barrier);
         }
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::COLOR_WRITE;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
         }
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             barrier.view = depthStencilImage;
             commandBuffer->QueueBarrier(barrier);
         }
@@ -306,8 +304,8 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.srcFlags = rhi::AccessFlagBit::COLOR_WRITE;
+            barrier.dstFlags = rhi::AccessFlagBit::PRESENT;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
             commandBuffer->FlushBarriers();

@@ -125,8 +125,8 @@ namespace sky::vk {
     void CommandBuffer::QueueBarrier(const rhi::ImageBarrier &imageBarrier)
     {
         const auto &view = std::static_pointer_cast<ImageView>(imageBarrier.view);
-        auto srcAccess = GetAccessInfo(imageBarrier.srcFlags);
-        auto dstAccess = GetAccessInfo(imageBarrier.dstFlags);
+        const auto &srcAccess = device.GetAccessInfo(imageBarrier.srcFlags);
+        const auto &dstAccess = device.GetAccessInfo(imageBarrier.dstFlags);
         QueueBarrier(view, srcAccess, dstAccess);
     }
 

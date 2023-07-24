@@ -56,6 +56,68 @@ namespace sky::rdg {
     static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
     using VertexList = PmrVector<VertexType>;
 
+    struct RootTag {};
+
+    struct RasterPassTag {};
+    struct RasterSubPassTag {};
+    struct ComputePassTag {};
+    struct CopyBlitTag {};
+    struct PresentTag {};
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag>;
+
+    struct ImageTag {};
+    struct ImportImageTag {};
+    struct ImageViewTag {};
+    struct BufferTag {};
+    struct ImportBufferTag {};
+    struct BufferViewTag {};
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
+
+    struct AccessPassTag {};
+    struct AccessResTag {};
+    using AccessGraphTags = std::variant<AccessPassTag, AccessResTag>;
+
+    struct DependencyInfo {
+        AttachmentType type;
+        ResourceAccess access;
+        rhi::ShaderStageFlags visibility;
+    };
+
+    /*
+     * Buffer: [base range]
+     * Image: [level, levelCount]
+     */
+    struct AccessRange {
+        uint64_t base   = 0;
+        uint64_t range  = 0;
+        uint32_t layer  = 0;
+        uint32_t layers = 0;
+        rhi::AspectFlags aspectMask;
+    };
+
+    struct AccessEdge {
+        DependencyInfo dependencyInfo;
+        AccessRange range;
+    };
+
+    struct AccessPass {
+        using Tag = AccessPassTag;
+        VertexType vertexID = INVALID_VERTEX;
+    };
+
+    struct AccessRes {
+        using Tag = AccessResTag;
+        VertexType resID = INVALID_VERTEX;
+        AccessRange subRange;
+        rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
+    };
+
+    struct LifeTime {
+        VertexType begin = INVALID_VERTEX;
+        VertexType end   = 0;
+        uint32_t reference = 0;
+    };
+
     struct RasterAttachment {
         std::string name;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
@@ -73,15 +135,16 @@ namespace sky::rdg {
     struct SubPassDependency {
         uint32_t src = INVALID_VERTEX;
         uint32_t dst = INVALID_VERTEX;
-        std::vector<rhi::AccessFlag> preAccess;
-        std::vector<rhi::AccessFlag> nextAccess;
+        rhi::AccessFlags preAccess;
+        rhi::AccessFlags nextAccess;
     };
 
     struct GraphBarrier {
-        std::vector<rhi::AccessFlag> srcFlags;
-        std::vector<rhi::AccessFlag> dstFlags;
+        rhi::AccessFlags srcFlags;
+        rhi::AccessFlags dstFlags;
         uint32_t srcQueueFamily = (~0U);
         uint32_t dstQueueFamily = (~0U);
+        AccessRange range;
     };
 
     struct RasterView {
@@ -108,33 +171,12 @@ namespace sky::rdg {
         rhi::Offset3D dstOffset;
     };
 
-    struct RootTag {};
-
-    struct RasterPassTag {};
-    struct RasterSubPassTag {};
-    struct ComputePassTag {};
-    struct CopyBlitTag {};
-    struct PresentTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag>;
-
-    struct ImageTag {};
-    struct ImportImageTag {};
-    struct ImageViewTag {};
-    struct BufferTag {};
-    struct ImportBufferTag {};
-    struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
-
-    struct AccessPassTag {};
-    struct AccessResTag {};
-    using AccessGraphTags = std::variant<AccessPassTag, AccessResTag>;
-
     struct Root {
         using Tag = RootTag;
     };
 
     struct RasterSubPass {
-        RasterSubPass(PmrResource *res) : colors(res), resolves(res), inputs(res), rasterViews(res), computeViews(res) {}
+        explicit RasterSubPass(PmrResource *res) : colors(res), resolves(res), inputs(res), rasterViews(res), computeViews(res) {}
 
         using Tag = RasterSubPassTag;
 
@@ -178,7 +220,7 @@ namespace sky::rdg {
     };
 
     struct ComputePass {
-        ComputePass(PmrResource *res)
+        explicit ComputePass(PmrResource *res)
             : computeViews(res)
             , frontBarriers(res)
             , rearBarriers(res)
@@ -191,7 +233,7 @@ namespace sky::rdg {
     };
 
     struct CopyBlitPass {
-        CopyBlitPass(PmrResource *res)
+        explicit CopyBlitPass(PmrResource *res)
             : views(res)
             , frontBarriers(res)
             , rearBarriers(res)
@@ -207,42 +249,6 @@ namespace sky::rdg {
         using Tag = CopyBlitTag;
 
         rhi::SwapChainPtr swapChain;
-    };
-
-    /*
-     * Buffer: [base range]
-     * Image: [level, levelCount]
-     */
-    struct AccessRange {
-        uint64_t base   = 0;
-        uint64_t range  = 0;
-        uint32_t layer  = 0;
-        uint32_t layers = 0;
-        rhi::AspectFlags aspectMask;
-    };
-
-    struct AccessEdge {
-        AttachmentType type;
-        ResourceAccess access;
-        rhi::ShaderStageFlags visibility;
-    };
-
-    struct AccessPass {
-        using Tag = AccessPassTag;
-        VertexType vertexID = INVALID_VERTEX;
-    };
-
-    struct AccessRes {
-        using Tag = AccessResTag;
-        VertexType resID = INVALID_VERTEX;
-        AccessRange subRange;
-        rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
-    };
-
-    struct LifeTime {
-        VertexType begin = INVALID_VERTEX;
-        VertexType end   = 0;
-        uint32_t reference = 0;
     };
 
     struct GraphImportImage {
@@ -316,22 +322,22 @@ namespace sky::rdg {
 
     template <typename T>
     struct ImageViewRes {
-        ImageViewRes(const T &v) : desc(v) {}
+        explicit ImageViewRes(const T &v) : desc(v) {}
 
         T desc;
         LifeTime lifeTime;
         rhi::ImageViewPtr res;
-        rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
+        rhi::AccessFlags  lastUsage = rhi::AccessFlagBit::NONE; // for persistent image
     };
 
     template <typename T>
     struct BufferViewRes {
-        BufferViewRes(const T &v) : desc(v) {}
+        explicit BufferViewRes(const T &v) : desc(v) {}
 
         T desc;
         LifeTime lifeTime;
         rhi::BufferViewPtr res;
-        rhi::AccessFlag lastUsage = rhi::AccessFlag::NONE; // for persistent image
+        rhi::AccessFlags   lastUsage = rhi::AccessFlagBit::NONE; // for persistent image
     };
 
     template <typename Graph>

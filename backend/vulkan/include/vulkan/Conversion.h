@@ -27,7 +27,7 @@ namespace sky::vk {
     VkShaderStageFlags FromRHI(const rhi::ShaderStageFlags&);
     VkPipelineStageFlags FromRHI(const rhi::PipelineStageFlags&);
     VkPipelineStageFlagBits FromRHI(const rhi::PipelineStageBit&);
-    VkAccessFlags FromRHI(rhi::AccessFlag);
+    VkAccessFlags FromRHI(rhi::AccessFlags);
     VkSampleCountFlagBits FromRHI(rhi::SampleCount);
     VkAttachmentLoadOp FromRHI(rhi::LoadOp);
     VkAttachmentStoreOp FromRHI(rhi::StoreOp);

@@ -46,9 +46,9 @@ namespace sky::vk {
             vkAt.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         }
 
-        for (auto &dep : des.dependencies) {
-            auto srcInfo = GetAccessInfo(dep.srcAccess, true);
-            auto dstInfo = GetAccessInfo(dep.dstAccess, true);
+        for (const auto &dep : des.dependencies) {
+            const auto &srcInfo = device.GetAccessInfo(dep.srcAccess);
+            const auto &dstInfo = device.GetAccessInfo(dep.dstAccess);
 
             dependencies.emplace_back(VkSubpassDependency2{});
             auto &vkDep           = dependencies.back();
@@ -63,7 +63,7 @@ namespace sky::vk {
         }
 
         auto refFn = [this](std::vector<VkAttachmentReference2>& references, const AttachmentRef &ref) {
-            auto accessInfo = GetAccessInfo(ref.access);
+            const auto &accessInfo = device.GetAccessInfo(ref.access);
 
             references.emplace_back(VkAttachmentReference2{});
             auto &vkRef = references.back();

@@ -26,7 +26,7 @@ namespace sky::rhi {
 
         struct AttachmentRef {
             uint32_t index = ~(0U);
-            std::vector<AccessFlag> access;
+            AccessFlags access = AccessFlagBit::COLOR_WRITE;
             AspectFlags mask = AspectFlagBit::COLOR_BIT;
         };
 
@@ -36,16 +36,16 @@ namespace sky::rhi {
             std::vector<AttachmentRef> inputs;
 
             std::vector<uint32_t>      preserves;
-            AttachmentRef              depthStencil = {~(0U), {AccessFlag::DEPTH_STENCIL_WRITE, AccessFlag::DEPTH_STENCIL_READ}, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
-            AttachmentRef              dsResolve    = {~(0U), {AccessFlag::DEPTH_STENCIL_WRITE, AccessFlag::DEPTH_STENCIL_READ}, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
+            AttachmentRef              depthStencil = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE | AccessFlagBit::DEPTH_STENCIL_READ, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
+            AttachmentRef              dsResolve    = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE | AccessFlagBit::DEPTH_STENCIL_READ, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
             uint32_t                   viewMask     = 0;
         };
 
         struct Dependency {
             uint32_t src = (~0U);
             uint32_t dst = (~0U);
-            std::vector<AccessFlag> srcAccess;
-            std::vector<AccessFlag> dstAccess;
+            AccessFlags srcAccess;
+            AccessFlags dstAccess;
         };
 
         struct Descriptor {

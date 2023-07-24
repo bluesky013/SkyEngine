@@ -102,13 +102,12 @@ namespace sky::rhi {
 
     void RHIDrawIndirectSample::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
-        submitInfo.waits.emplace_back(
-            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+        submitInfo.waits.emplace_back(PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();
@@ -116,17 +115,16 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::COLOR_WRITE;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
         }
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             barrier.view = depthStencilImage;
             commandBuffer->QueueBarrier(barrier);
         }
@@ -140,8 +138,8 @@ namespace sky::rhi {
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.srcFlags = rhi::AccessFlagBit::COLOR_WRITE;
+            barrier.dstFlags = rhi::AccessFlagBit::PRESENT;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
             commandBuffer->FlushBarriers();

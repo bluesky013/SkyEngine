@@ -396,6 +396,13 @@ namespace sky::vk {
         });
     }
 
+    const AccessInfo &Device::GetAccessInfo(const rhi::AccessFlags& flags)
+    {
+        return accessInfos.FindOrEmplaceRef(flags.value, [&flags]() {
+            return vk::GetAccessInfo(flags);
+        });
+    }
+
     const VkPhysicalDeviceProperties &Device::GetProperties() const
     {
         return phyProps.properties;

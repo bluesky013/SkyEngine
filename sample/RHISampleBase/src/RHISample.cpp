@@ -30,12 +30,12 @@ namespace sky::rhi {
         RegisterPath();
 
         RegisterSample<RHISampleBase>();
-//        RegisterSample<RHISubPassMSAA>();
-//        RegisterSample<RHIDrawIndirectSample>();
-//        RegisterSample<RHIPassSample>();
-//        RegisterSample<RHISubPassSample>();
+        RegisterSample<RHISubPassMSAA>();
+        RegisterSample<RHIDrawIndirectSample>();
+        RegisterSample<RHIPassSample>();
+        RegisterSample<RHISubPassSample>();
 
-        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
+        auto *systemApi = Interface<ISystemNotify>::Get()->GetApi();
         auto &settings = systemApi->GetSettings();
         auto rhi = settings.VisitString("rhi");
         if (rhi == "gles") {
@@ -50,7 +50,7 @@ namespace sky::rhi {
             api = API::VULKAN;
         }
         if (API_CHECK[static_cast<uint32_t>(api)]) {
-            auto nativeWindow = systemApi->GetViewport();
+            const auto *nativeWindow = systemApi->GetViewport();
             Event<IWindowEvent>::Connect(nativeWindow, this);
             return true;
         }

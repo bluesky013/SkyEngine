@@ -70,16 +70,16 @@ namespace sky::rhi {
     };
 
     struct BufferBarrier {
-        std::vector<AccessFlag> srcFlags;
-        std::vector<AccessFlag> dstFlags;
+        AccessFlags srcFlags;
+        AccessFlags dstFlags;
         uint32_t srcQueueFamily = (~0U);
         uint32_t dstQueueFamily = (~0U);
         BufferViewPtr view;
     };
 
     struct ImageBarrier {
-        std::vector<AccessFlag> srcFlags;
-        std::vector<AccessFlag> dstFlags;
+        AccessFlags srcFlags;
+        AccessFlags dstFlags;
         uint32_t srcQueueFamily = (~0U);
         uint32_t dstQueueFamily = (~0U);
         ImageViewPtr view;
