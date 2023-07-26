@@ -110,6 +110,7 @@ namespace sky::rdg {
         VertexType resID = INVALID_VERTEX;
         AccessRange subRange;
         rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
+        bool visited = false;
     };
 
     struct LifeTime {

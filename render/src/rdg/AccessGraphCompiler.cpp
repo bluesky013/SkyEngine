@@ -7,6 +7,14 @@
 #include <rhi/Device.h>
 
 namespace sky::rdg {
+    namespace {
+        template <typename V>
+        void SetResourceVisited(V resAccessID, RenderGraph &graph) {
+            auto &resAccess = graph.accessGraph.resources[Index(resAccessID, graph.accessGraph)];
+            resAccess.visited = true;
+        }
+    }
+
     void AccessCompiler::UpdateLifeTime(VertexType passID, VertexType resID)
     {
         // update lifeTime
@@ -44,6 +52,7 @@ namespace sky::rdg {
                 const auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
                 passID = src.vertexID;
                 resID = dst.resID;
+                SetResourceVisited(u.m_target, rdg);
                 UpdateLifeTime(passID, resID);
 
                 // subPass dependencies
@@ -111,6 +120,40 @@ namespace sky::rdg {
             },
             [&](const AccessResTag&, const AccessPassTag&) {
                 // process external dependency
+                const auto &src = rdg.accessGraph.resources[Index(u.m_source, rdg.accessGraph)];
+                const auto &dst = rdg.accessGraph.passes[Index(u.m_target, rdg.accessGraph)];
+                if (src.visited) {
+                    return;
+                }
+                resID = src.resID;
+                passID = dst.vertexID;
+
+                std::visit(Overloaded{
+                    [&](const RasterSubPassTag &) {
+                        const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
+                        auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
+                        auto &frontBarrier = parent.frontBarriers[resID];
+                        frontBarrier.range = ep.range;
+                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
+                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                    },
+                    [&](const ComputePassTag &) {
+                        auto &computePass = rdg.computePasses[Index(passID, rdg)];
+                        auto &frontBarrier = computePass.frontBarriers[resID];
+                        frontBarrier.range = ep.range;
+                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
+                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                    },
+                    [&](const CopyBlitTag &) {
+                        auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
+                        auto &frontBarriers = copyBlitPass.frontBarriers[resID];
+                        frontBarriers.range = ep.range;
+                        frontBarriers.srcFlags = rhi::AccessFlagBit::NONE;
+                        frontBarriers.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                    },
+                    [&](const auto &) {
+                    }
+                }, Tag(passID, rdg));
             },
             [](const auto&, const auto &) {
                 SKY_ASSERT(false);
