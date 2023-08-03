@@ -10,6 +10,10 @@
 #include <render/rdg/TransientPool.h>
 #include <render/RenderQueue.h>
 
+namespace sky::rhi {
+    class Device;
+}
+
 namespace sky::rdg {
 
     struct RenderGraphContext {
@@ -17,6 +21,7 @@ namespace sky::rdg {
         std::unique_ptr<TransientPool> pool;
         std::unordered_map<std::string, RenderQueuePtr> renderQueues;
 
+        rhi::Device *device = nullptr;
         rhi::Queue *graphicsQueue = nullptr;
         rhi::Queue *transferQueue = nullptr;
         rhi::CommandBufferPtr mainCommandBuffer;

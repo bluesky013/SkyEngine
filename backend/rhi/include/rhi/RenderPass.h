@@ -36,8 +36,8 @@ namespace sky::rhi {
             std::vector<AttachmentRef> inputs;
 
             std::vector<uint32_t>      preserves;
-            AttachmentRef              depthStencil = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE | AccessFlagBit::DEPTH_STENCIL_READ, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
-            AttachmentRef              dsResolve    = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE | AccessFlagBit::DEPTH_STENCIL_READ, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
+            AttachmentRef              depthStencil = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
+            AttachmentRef              dsResolve    = {~(0U), AccessFlagBit::DEPTH_STENCIL_WRITE, AspectFlagBit::DEPTH_BIT | AspectFlagBit::STENCIL_BIT};
             uint32_t                   viewMask     = 0;
         };
 

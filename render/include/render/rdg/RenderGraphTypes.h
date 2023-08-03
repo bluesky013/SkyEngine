@@ -23,6 +23,7 @@ namespace sky::rdg {
     };
 
     enum class RasterTypeBit {
+        NONE           = 0x00,
         COLOR          = 0x01,
         RESOLVE        = 0x02,
         INPUT          = 0x04,

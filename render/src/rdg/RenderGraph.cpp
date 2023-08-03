@@ -279,6 +279,14 @@ namespace sky::rdg {
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT, access});
     }
 
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColorInOut(const std::string &name)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.inputs.emplace_back(RasterAttachmentRef{name, ResourceAccessBit::READ_WRITE, attachmentIndex});
+        subPass.colors.emplace_back(RasterAttachmentRef{name, ResourceAccessBit::READ_WRITE, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT | RasterTypeBit::COLOR, ResourceAccessBit::READ_WRITE});
+    }
+
     RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
@@ -288,7 +296,7 @@ namespace sky::rdg {
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
     {
-        subPass.rasterViews.emplace(name, view);
+        SKY_ASSERT(subPass.rasterViews.emplace(name, view).second);
         graph.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
         return *this;
     }

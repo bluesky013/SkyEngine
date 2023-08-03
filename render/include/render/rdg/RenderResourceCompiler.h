@@ -11,7 +11,7 @@
 namespace sky::rdg {
 
     struct RenderResourceCompiler : boost::dfs_visitor<> {
-        RenderResourceCompiler(RenderGraph &g) : rdg(g) {}
+        explicit RenderResourceCompiler(RenderGraph &g) : rdg(g) {}
 
         using Vertex = boost::graph_traits<RenderGraph::Graph>::vertex_descriptor;
         using Graph = RenderGraph::Graph;
@@ -27,6 +27,6 @@ namespace sky::rdg {
         void Compile(Vertex u, CopyBlitPass &pass);
 
         void MountResource(Vertex u, ResourceGraph::vertex_descriptor res);
+        void CreateRenderPassAndFramebuffer(Vertex u, RasterPass &rasterPass);
     };
-
 } // namespace sky::rdg

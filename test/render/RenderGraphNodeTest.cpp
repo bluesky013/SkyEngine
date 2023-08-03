@@ -21,12 +21,13 @@ TEST(RenderGraphTest, NodeGraphTest01)
 #ifdef __APPLE__
     RHI::Get()->InitInstance({"test", "", true, rhi::API::METAL});
 #else
-    RHI::Get()->InitInstance({"test", "", true, rhi::API::GLES});
+    RHI::Get()->InitInstance({"test", "", true, rhi::API::VULKAN});
 #endif
     RHI::Get()->InitDevice({});
 
     RenderGraphContext context;
     context.pool = std::make_unique<TransientObjectPool>();
+    context.device = RHI::Get()->GetDevice();
 
     RenderGraph rdg(&context);
     auto       &rg = rdg.resourceGraph;
@@ -48,13 +49,13 @@ TEST(RenderGraphTest, NodeGraphTest01)
 
 
     rg.AddImage("test",
-        GraphImage{{128, 128, 1}, 2, 2, rhi::PixelFormat::RGBA8_UNORM, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED});
-    rg.AddImageView("test_1", "test", GraphImageView{{0, 1, 0, 2}});
-    rg.AddImageView("test_1_1", "test_1", GraphImageView{{0, 1, 0, 1}});
-    rg.AddImageView("test_1_2", "test_1", GraphImageView{{0, 1, 1, 1}});
-    rg.AddImageView("test_2", "test", GraphImageView{1, 1, 0, 2});
-    rg.AddImageView("test_2_1", "test_2", GraphImageView{1, 1, 0, 1});
-    rg.AddImageView("test_2_2", "test_2", GraphImageView{1, 1, 1, 1});
+        GraphImage{{128, 128, 1}, 2, 2, rhi::PixelFormat::RGBA8_UNORM, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, rhi::ImageViewType::VIEW_2D_ARRAY});
+    rg.AddImageView("test_1", "test", GraphImageView{{0, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
+    rg.AddImageView("test_1_1", "test_1", GraphImageView{{0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
+    rg.AddImageView("test_1_2", "test_1", GraphImageView{{0, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
+    rg.AddImageView("test_2", "test", GraphImageView{{1, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
+    rg.AddImageView("test_2_1", "test_2", GraphImageView{{1, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
+    rg.AddImageView("test_2_2", "test_2", GraphImageView{{1, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
     rg.AddImage("test2",
                 GraphImage{{128, 128, 1}, 1, 1, rhi::PixelFormat::D24_S8, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED});
 

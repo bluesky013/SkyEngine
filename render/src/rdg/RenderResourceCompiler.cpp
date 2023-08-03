@@ -6,6 +6,7 @@
 #include <render/rdg/RenderGraph.h>
 #include <core/logger/Logger.h>
 #include <rhi/Decode.h>
+#include <rhi/Device.h>
 
 static const char *TAG = "RDG";
 
@@ -42,6 +43,7 @@ namespace sky::rdg {
         for (auto &attachment : rasterPass.attachmentVertex) {
             MountResource(u, Source(attachment, rdg.resourceGraph));
         }
+        CreateRenderPassAndFramebuffer(u, rasterPass);
     }
 
     void RenderResourceCompiler::Compile(Vertex u, RasterSubPass &subPass)
@@ -108,84 +110,83 @@ namespace sky::rdg {
         }, Tag(res, rdg.resourceGraph));
     }
 
-//    void ResourceGraphCompiler::tree_edge(Edge u, const Graph &g) {
-//        std::variant<std::monostate, rhi::ImageViewPtr, rhi::BufferViewPtr> source;
-//        std::visit(Overloaded{
-//            [&](const ImageTag &) {
-//                auto &src = graph.images[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const BufferTag &) {
-//                auto &src = graph.buffers[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const ImageViewTag &) {
-//                auto &src = graph.imageViews[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const BufferViewTag &) {
-//                auto &src = graph.bufferViews[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const ImportImageTag &) {
-//                auto &src = graph.importImages[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const ImportBufferTag &) {
-//                auto &src = graph.importBuffers[Index(u.m_source, graph)];
-//                source = src.res;
-//            },
-//            [&](const auto &) {}
-//        }, Tag(u.m_source, graph));
-//
-//        std::visit(Overloaded{
-//            [&](const rhi::ImageViewPtr &view) {
-//                auto &dst = graph.imageViews[Index(u.m_target, graph)];
-//                dst.res = view->CreateView(dst.desc.view);
-//            },
-//            [&](const rhi::BufferViewPtr &view) {
-//                auto &dst = graph.bufferViews[Index(u.m_target, graph)];
-//                dst.res = view->CreateView(dst.desc.view);
-//            },
-//            [&](const auto &) {}
-//        }, source);
-//    }
-//
-//    void ResourceGraphCompiler::discover_vertex(Vertex u, const Graph& g) {
-//        std::visit(Overloaded{
-//            [&](const ImageTag &) {
-//                auto &image = graph.images[Index(u, graph)];
-//                image.res = graph.context->pool->requestImage(image.desc);
-//                LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(u, graph).c_str(),
-//                      image.lifeTime.begin, image.lifeTime.end);
-//            },
-//            [&](const BufferTag &) {
-//                auto &buffer = graph.buffers[Index(u, graph)];
-//                buffer.res = graph.context->pool->requestBuffer(buffer.desc);
-//                LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(u, graph).c_str(),
-//                      buffer.lifeTime.begin, buffer.lifeTime.end);
-//            },
-//            [&](const ImportImageTag &) {
-//                auto &image = graph.importImages[Index(u, graph)];
-//                const auto &info = image.desc.image->GetDescriptor();
-//
-//                rhi::ImageViewDesc viewDesc = {};
-//                viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers};
-//                viewDesc.mask = image.desc.mask;
-//                viewDesc.viewType = image.desc.viewType;
-//                image.res = image.desc.image->CreateView(viewDesc);
-//            },
-//            [&](const ImportBufferTag &) {
-//                auto &buffer = graph.importBuffers[Index(u, graph)];
-//                const auto &info = buffer.desc.buffer->GetBufferDesc();
-//
-//                rhi::BufferViewDesc viewDesc = {};
-//                viewDesc.offset = 0;
-//                viewDesc.range = info.size;
-//                buffer.res = buffer.desc.buffer->CreateView(viewDesc);
-//            },
-//            [&](const auto &) {}
-//        }, Tag(u, graph));
-//    }
+    void RenderResourceCompiler::CreateRenderPassAndFramebuffer(Vertex u, RasterPass &rasterPass)
+    {
+        rhi::RenderPass::Descriptor passDesc = {};
+        rhi::FrameBuffer::Descriptor fbDesc = {};
 
+        auto attachmentSize = rasterPass.attachmentVertex.size();
+        auto subPassSize = rasterPass.subPasses.size();
+        auto dependencySize = rasterPass.dependencies.size();
+
+        passDesc.attachments.resize(attachmentSize);
+        fbDesc.views.resize(attachmentSize);
+
+        for (uint32_t i = 0; i < attachmentSize; ++i) {
+            auto &attachment = rasterPass.attachmentVertex[i];
+            auto &attachmentDesc = rasterPass.attachments[i];
+
+            auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
+            auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
+            if (!view.res) {
+                view.res = source.res->CreateView(view.desc.view);
+            }
+            fbDesc.views[i] = view.res;
+            auto &att = passDesc.attachments[i];
+            att.format = source.desc.format;
+            att.sample = source.desc.samples;
+            att.load = attachmentDesc.loadOp;
+            att.store = attachmentDesc.storeOp;
+            att.stencilLoad = attachmentDesc.stencilLoad;
+            att.stencilStore = attachmentDesc.stencilStore;
+        }
+
+        passDesc.subPasses.resize(subPassSize);
+        for (uint32_t i = 0; i < subPassSize; ++i) {
+            auto &sub = passDesc.subPasses[i];
+            auto &subVtx = rdg.subPasses[Index(rasterPass.subPasses[i], rdg)];
+
+            for (auto &input : subVtx.inputs) {
+                auto &ref = sub.inputs.emplace_back();
+                ref.index = input.index;
+                auto &attachmentDesc = rasterPass.attachments[ref.index];
+                ref.access = subVtx.rasterViews.at(attachmentDesc.name).type == (RasterTypeBit::INPUT | RasterTypeBit::COLOR) ?
+                    rhi::AccessFlagBit::COLOR_INOUT_WRITE : rhi::AccessFlagBit::COLOR_WRITE;
+            }
+
+            for (auto &color : subVtx.colors) {
+                auto &ref = sub.colors.emplace_back();
+                ref.index = color.index;
+                auto &attachmentDesc = rasterPass.attachments[ref.index];
+                ref.access = subVtx.rasterViews.at(attachmentDesc.name).type == (RasterTypeBit::INPUT | RasterTypeBit::COLOR) ?
+                    rhi::AccessFlagBit::COLOR_INOUT_WRITE : rhi::AccessFlagBit::COLOR_WRITE;
+            }
+
+            for (auto &resolve : subVtx.resolves) {
+                auto &ref = sub.resolves.emplace_back();
+                ref.index = resolve.index;
+                ref.access = rhi::AccessFlagBit::COLOR_WRITE;
+            }
+
+            if (subVtx.depthStencil.index != INVALID_INDEX) {
+                sub.depthStencil.index = subVtx.depthStencil.index;
+                auto &attachmentDesc = rasterPass.attachments[subVtx.depthStencil.index];
+                sub.depthStencil.access = subVtx.rasterViews.at(attachmentDesc.name).type == (RasterTypeBit::INPUT | RasterTypeBit::DEPTH_STENCIL) ?
+                    rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE : rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
+            }
+        }
+
+        passDesc.dependencies.resize(dependencySize);
+        for (uint32_t i = 0; i < dependencySize; ++i) {
+            auto &dep = passDesc.dependencies[i];
+            auto &depVtx = rasterPass.dependencies[i];
+
+            dep.src = depVtx.src;
+            dep.dst = depVtx.dst;
+            dep.srcAccess = depVtx.preAccess;
+            dep.dstAccess = depVtx.nextAccess;
+        }
+        auto pass = rdg.context->device->CreateRenderPass(passDesc);
+        fbDesc.pass = pass;
+    }
 } // namespace sky::rdg
