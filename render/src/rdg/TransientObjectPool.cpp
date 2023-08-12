@@ -31,7 +31,7 @@ namespace sky::rdg {
         }
     }
 
-    rhi::ImageViewPtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
+    rhi::ImagePtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
     {
         auto &list = images[desc];
         for (auto &cacheItem : list) {
@@ -43,11 +43,11 @@ namespace sky::rdg {
         }
 
         auto image = CreateImageByDesc(desc);
-        list.emplace_back(CacheItem<rhi::ImageViewPtr>{image, 0, true});
+        list.emplace_back(CacheItem<rhi::ImagePtr>{image, 0, true});
         return image;
     }
 
-    rhi::BufferViewPtr TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
+    rhi::BufferPtr TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
         auto &list = buffers[desc];
         for (auto &cacheItem : list) {
@@ -59,11 +59,11 @@ namespace sky::rdg {
         }
 
         auto buffer = CreateBufferByDesc(desc);
-        list.emplace_back(CacheItem<rhi::BufferViewPtr>{buffer, 0, true});
+        list.emplace_back(CacheItem<rhi::BufferPtr>{buffer, 0, true});
         return buffer;
     }
 
-    void TransientObjectPool::RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc)
+    void TransientObjectPool::RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc)
     {
         auto &list = images[desc];
         auto iter = std::find_if(list.begin(), list.end(), [&image](const auto &cacheItem) {
@@ -72,7 +72,7 @@ namespace sky::rdg {
         iter->allocated = false;
     }
 
-    void TransientObjectPool::RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc)
+    void TransientObjectPool::RecycleBuffer(rhi::BufferPtr &buffer, const rdg::GraphBuffer &desc)
     {
         auto &list = buffers[desc];
         auto iter = std::find_if(list.begin(), list.end(), [&buffer](const auto &cacheItem) {

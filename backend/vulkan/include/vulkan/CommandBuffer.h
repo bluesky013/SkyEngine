@@ -132,8 +132,10 @@ namespace sky::vk {
             const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
         void BufferBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
         void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const Barrier &barrier, VkImageLayout src, VkImageLayout dst);
-        void QueueBarrier(const ImageViewPtr &view, const AccessInfo &src, const AccessInfo &dst);
         void QueueBarrier(const BufferPtr &buffer, const Barrier &barrier, VkDeviceSize size, VkDeviceSize offset);
+
+        void QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const AccessInfo &src, const AccessInfo &dst);
+        void QueueBarrier(const BufferPtr &buffer, uint64_t offset, uint64_t size, const AccessInfo &src, const AccessInfo &dst);
 
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
         void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy);
@@ -160,6 +162,8 @@ namespace sky::vk {
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override;
         std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override;
         void QueueBarrier(const rhi::ImageBarrier &imageBarrier) override;
+        void QueueBarrier(const rhi::ImagePtr &image, const rhi::ImageSubRange &range, const rhi::BarrierInfo &barrierInfo) override;
+        void QueueBarrier(const rhi::BufferPtr &buffer, uint64_t offset, uint64_t range, const rhi::BarrierInfo &barrierInfo) override;
         void FlushBarriers() override;
         void ResetQueryPool(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count) override;
         void GetQueryResult(const rhi::QueryPoolPtr &queryPool, uint32_t first, uint32_t count,

@@ -8,7 +8,7 @@
 
 namespace sky::rdg {
 
-    rhi::ImageViewPtr TransientPool::CreateImageByDesc(const rdg::GraphImage &desc)
+    rhi::ImagePtr TransientPool::CreateImageByDesc(const rdg::GraphImage &desc)
     {
         rhi::Device *device = RHI::Get()->GetDevice();
 
@@ -22,16 +22,10 @@ namespace sky::rdg {
         imageDesc.usage       = desc.usage;
         imageDesc.memory      = rhi::MemoryType::GPU_ONLY;
 
-        auto image = device->CreateImage(imageDesc);
-
-        rhi::ImageViewDesc viewDesc = {};
-        viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, rhi::GetAspectFlagsByFormat(desc.format)};
-        viewDesc.viewType = desc.viewType;
-
-        return image->CreateView(viewDesc);
+        return device->CreateImage(imageDesc);
     }
 
-    rhi::BufferViewPtr TransientPool::CreateBufferByDesc(const rdg::GraphBuffer &desc)
+    rhi::BufferPtr TransientPool::CreateBufferByDesc(const rdg::GraphBuffer &desc)
     {
         rhi::Device *device = RHI::Get()->GetDevice();
 
@@ -40,24 +34,18 @@ namespace sky::rdg {
         bufferDesc.usage = desc.usage;
         bufferDesc.memory = rhi::MemoryType::GPU_ONLY;
 
-        auto buffer = device->CreateBuffer(bufferDesc);
-
-        rhi::BufferViewDesc viewDesc = {};
-        viewDesc.offset = 0;
-        viewDesc.range = bufferDesc.size;
-        return buffer->CreateView(viewDesc);
+        return device->CreateBuffer(bufferDesc);
     }
 
-    rhi::ImageViewPtr TransientPool::RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc)
+    rhi::ImagePtr TransientPool::RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc)
     {
         auto iter = persistentImages.find(name);
         if (iter != persistentImages.end()) {
-            auto &ext = iter->second->GetExtent();
-            auto format = iter->second->GetFormat();
-            if (desc.extent.width == ext.width &&
-                desc.extent.height == ext.height &&
-                desc.extent.depth == ext.depth &&
-                desc.format == format) {
+            const auto &imageDesc = iter->second->GetDescriptor();
+            if (desc.extent.width == imageDesc.extent.width &&
+                desc.extent.height == imageDesc.extent.height &&
+                desc.extent.depth == imageDesc.extent.depth &&
+                desc.format == imageDesc.format) {
                 return iter->second;
             }
         }
@@ -66,13 +54,12 @@ namespace sky::rdg {
         return image;
     }
 
-    rhi::BufferViewPtr TransientPool::RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc)
+    rhi::BufferPtr TransientPool::RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc)
     {
         auto iter = persistentBuffers.find(name);
         if (iter != persistentBuffers.end()) {
-            auto &vd = iter->second->GetViewDesc();
-
-            if (vd.range >= desc.size) {
+            const auto &bufferDesc = iter->second->GetBufferDesc();
+            if (bufferDesc.size >= desc.size) {
                 return iter->second;
             }
         }

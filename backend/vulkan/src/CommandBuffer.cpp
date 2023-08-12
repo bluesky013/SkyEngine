@@ -127,7 +127,24 @@ namespace sky::vk {
         const auto &view = std::static_pointer_cast<ImageView>(imageBarrier.view);
         const auto &srcAccess = device.GetAccessInfo(imageBarrier.srcFlags);
         const auto &dstAccess = device.GetAccessInfo(imageBarrier.dstFlags);
-        QueueBarrier(view, srcAccess, dstAccess);
+        QueueBarrier(view->GetImage(), view->GetSubRange(), srcAccess, dstAccess);
+    }
+
+    void CommandBuffer::QueueBarrier(const rhi::ImagePtr &image, const rhi::ImageSubRange &range, const rhi::BarrierInfo &barrierInfo)
+    {
+        const auto &img = std::static_pointer_cast<Image>(image);
+        const auto &srcAccess = device.GetAccessInfo(barrierInfo.srcFlags);
+        const auto &dstAccess = device.GetAccessInfo(barrierInfo.dstFlags);
+        QueueBarrier(img, VkImageSubresourceRange{FromRHI(range.aspectMask), range.baseLevel, range.levels, range.baseLayer, range.layers},
+                     srcAccess, dstAccess);
+    }
+
+    void CommandBuffer::QueueBarrier(const rhi::BufferPtr &buffer, uint64_t offset, uint64_t range, const rhi::BarrierInfo &barrierInfo)
+    {
+        const auto &buf = std::static_pointer_cast<Buffer>(buffer);
+        const auto &srcAccess = device.GetAccessInfo(barrierInfo.srcFlags);
+        const auto &dstAccess = device.GetAccessInfo(barrierInfo.dstFlags);
+        QueueBarrier(buf, offset, range, srcAccess, dstAccess);
     }
 
     void CommandBuffer::ExecuteSecondary(const SecondaryCommands &buffers)
@@ -219,19 +236,35 @@ namespace sky::vk {
         dstStageMask |= barrier.dstStageMask;
     }
 
-    void CommandBuffer::QueueBarrier(const ImageViewPtr &view, const AccessInfo &src, const AccessInfo &dst)
+    void CommandBuffer::QueueBarrier(const ImagePtr &image, const VkImageSubresourceRange &subresourceRange, const AccessInfo &src, const AccessInfo &dst)
     {
         imageBarriers.emplace_back(VkImageMemoryBarrier{});
         auto &imageMemoryBarrier = imageBarriers.back();
         imageMemoryBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         imageMemoryBarrier.srcAccessMask        = src.accessFlags;
         imageMemoryBarrier.dstAccessMask        = dst.accessFlags;
-        imageMemoryBarrier.image                = view->GetImage()->GetNativeHandle();
-        imageMemoryBarrier.subresourceRange     = view->GetSubRange();
+        imageMemoryBarrier.image                = image->GetNativeHandle();
+        imageMemoryBarrier.subresourceRange     = subresourceRange;
         imageMemoryBarrier.oldLayout            = src.imageLayout;
         imageMemoryBarrier.newLayout            = dst.imageLayout;
         imageMemoryBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
         imageMemoryBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        srcStageMask |= src.pipelineStages;
+        dstStageMask |= dst.pipelineStages;
+    }
+
+    void CommandBuffer::QueueBarrier(const BufferPtr &buffer, uint64_t offset, uint64_t size, const AccessInfo &src, const AccessInfo &dst)
+    {
+        bufferBarriers.emplace_back(VkBufferMemoryBarrier{});
+        auto &bufferBarrier = bufferBarriers.back();
+        bufferBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask         = src.accessFlags;
+        bufferBarrier.dstAccessMask         = dst.accessFlags;
+        bufferBarrier.buffer                = buffer->GetNativeHandle();
+        bufferBarrier.offset                = offset;
+        bufferBarrier.size                  = size;
+        bufferBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
         srcStageMask |= src.pipelineStages;
         dstStageMask |= dst.pipelineStages;
     }
@@ -254,6 +287,9 @@ namespace sky::vk {
 
     void CommandBuffer::FlushBarriers()
     {
+        if (bufferBarriers.empty() && imageBarriers.empty()) {
+            return;
+        }
         vkCmdPipelineBarrier(cmdBuffer, srcStageMask, dstStageMask, VK_DEPENDENCY_BY_REGION_BIT,
                              0, nullptr,
                              static_cast<uint32_t>(bufferBarriers.size()), bufferBarriers.data(),

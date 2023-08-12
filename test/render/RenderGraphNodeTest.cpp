@@ -7,6 +7,7 @@
 #include <render/RHI.h>
 #include <render/rdg/RenderGraph.h>
 #include <render/rdg/RenderGraphVisitors.h>
+#include <render/rdg/RenderGraphExecutor.h>
 #include <render/rdg/AccessGraphCompiler.h>
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/TransientObjectPool.h>
@@ -28,6 +29,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
     RenderGraphContext context;
     context.pool = std::make_unique<TransientObjectPool>();
     context.device = RHI::Get()->GetDevice();
+    context.mainCommandBuffer = context.device->CreateCommandBuffer({});
 
     RenderGraph rdg(&context);
     auto       &rg = rdg.resourceGraph;
@@ -101,4 +103,16 @@ TEST(RenderGraphTest, NodeGraphTest01)
         PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
         boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
     }
+
+    {
+        context.mainCommandBuffer->Begin();
+        RenderGraphExecutor executor(rdg);
+        PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
+        boost::depth_first_search(rdg.graph, executor, ColorMap(colors));
+        context.mainCommandBuffer->End();
+
+        auto *queue = context.device->GetQueue(rhi::QueueType::GRAPHICS);
+        context.mainCommandBuffer->Submit(*queue, {});
+    }
+    context.device->WaitIdle();
 }

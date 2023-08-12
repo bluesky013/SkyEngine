@@ -16,8 +16,8 @@ namespace sky::vk {
 
     class ImageView : public rhi::ImageView, public DevObject {
     public:
-        ImageView(Device &);
-        ~ImageView();
+        explicit ImageView(Device &);
+        ~ImageView() override;
 
         struct VkDescriptor {
             VkImageViewType         viewType         = VK_IMAGE_VIEW_TYPE_2D;

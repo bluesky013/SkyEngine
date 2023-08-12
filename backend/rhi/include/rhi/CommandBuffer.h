@@ -85,6 +85,13 @@ namespace sky::rhi {
         ImageViewPtr view;
     };
 
+    struct BarrierInfo {
+        AccessFlags srcFlags;
+        AccessFlags dstFlags;
+        uint32_t srcQueueFamily = (~0U);
+        uint32_t dstQueueFamily = (~0U);
+    };
+
     class CommandBuffer {
     public:
         CommandBuffer()          = default;
@@ -105,6 +112,8 @@ namespace sky::rhi {
         virtual void
         GetQueryResult(const QueryPoolPtr &queryPool, uint32_t first, uint32_t count, const BufferPtr &result, uint32_t offset, uint32_t stride) {}
         virtual void QueueBarrier(const ImageBarrier &imageBarrier) {}
+        virtual void QueueBarrier(const ImagePtr &image, const ImageSubRange &range, const BarrierInfo &barrierInfo) {}
+        virtual void QueueBarrier(const BufferPtr &buffer, uint64_t offset, uint64_t range, const BarrierInfo &barrierInfo) {}
         virtual void FlushBarriers() {}
     };
     using CommandBufferPtr = std::shared_ptr<CommandBuffer>;

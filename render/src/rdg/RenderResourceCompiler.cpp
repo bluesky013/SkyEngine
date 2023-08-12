@@ -69,8 +69,14 @@ namespace sky::rdg {
             [&](const ImageTag &) {
                 auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
 
-                if (!image.res && u >= image.lifeTime.begin && u <= image.lifeTime.end) {
-                    image.res = rdg.context->pool->RequestImage(image.desc);
+                if (!image.desc.image && u >= image.lifeTime.begin && u <= image.lifeTime.end) {
+                    image.desc.image = rdg.context->pool->RequestImage(image.desc);
+                    const auto &imageDesc = image.desc;
+                    rhi::ImageViewDesc viewDesc = {};
+                    viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, GetAspectFlagsByFormat(imageDesc.format)};
+                    viewDesc.viewType = image.desc.viewType;
+                    image.res = image.desc.image->CreateView(viewDesc);
+
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           image.lifeTime.begin, image.lifeTime.end);
                 }
@@ -78,8 +84,8 @@ namespace sky::rdg {
             [&](const BufferTag &) {
                 auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
 
-                if (!buffer.res && u >= buffer.lifeTime.begin && u <= buffer.lifeTime.end) {
-                    buffer.res = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
+                if (!buffer.desc.buffer && u >= buffer.lifeTime.begin && u <= buffer.lifeTime.end) {
+                    buffer.desc.buffer = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
                     LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
                           buffer.lifeTime.begin, buffer.lifeTime.end);
                 }
@@ -93,17 +99,6 @@ namespace sky::rdg {
                     viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
                     viewDesc.viewType = image.desc.viewType;
                     image.res = image.desc.image->CreateView(viewDesc);
-                }
-            },
-            [&](const ImportBufferTag &) {
-                auto &buffer = rdg.resourceGraph.importBuffers[Index(res, rdg.resourceGraph)];
-                const auto &info = buffer.desc.buffer->GetBufferDesc();
-
-                if (!buffer.res) {
-                    rhi::BufferViewDesc viewDesc = {};
-                    viewDesc.offset = 0;
-                    viewDesc.range = info.size;
-                    buffer.res = buffer.desc.buffer->CreateView(viewDesc);
                 }
             },
             [&](const auto &) {}
@@ -127,11 +122,26 @@ namespace sky::rdg {
             auto &attachmentDesc = rasterPass.attachments[i];
 
             auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
-            auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
-            if (!view.res) {
-                view.res = source.res->CreateView(view.desc.view);
-            }
-            fbDesc.views[i] = view.res;
+
+            std::visit(Overloaded{
+                [&](const ImageTag &) {
+                    auto &image = rdg.resourceGraph.images[Index(attachment, rdg.resourceGraph)];
+                    fbDesc.views[i] = image.res;
+                },
+                [&](const ImportImageTag &) {
+                    auto &image = rdg.resourceGraph.importImages[Index(attachment, rdg.resourceGraph)];
+                    fbDesc.views[i] = image.res;
+                },
+                [&](const ImageViewTag &) {
+                    auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
+                    if (!view.res) {
+                        view.res = source.res->CreateView(view.desc.view);
+                    }
+                    fbDesc.views[i] = view.res;
+                },
+                [&](const auto &) {}
+            }, Tag(attachment, rdg.resourceGraph));
+
             auto &att = passDesc.attachments[i];
             att.format = source.desc.format;
             att.sample = source.desc.samples;
@@ -186,7 +196,8 @@ namespace sky::rdg {
             dep.srcAccess = depVtx.preAccess;
             dep.dstAccess = depVtx.nextAccess;
         }
-        auto pass = rdg.context->device->CreateRenderPass(passDesc);
-        fbDesc.pass = pass;
+        rasterPass.renderPass = rdg.context->device->CreateRenderPass(passDesc);
+        fbDesc.pass = rasterPass.renderPass;
+        rasterPass.frameBuffer = rdg.context->device->CreateFrameBuffer(fbDesc);
     }
 } // namespace sky::rdg

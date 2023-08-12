@@ -230,8 +230,8 @@ namespace sky::rdg {
 
         using Tag = ComputePassTag;
         PmrHashMap<std::string, ComputeView> computeViews;
-        PmrVector<GraphBarrier> frontBarriers;
-        PmrVector<GraphBarrier> rearBarriers;
+        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
+        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
     };
 
     struct CopyBlitPass {
@@ -243,14 +243,16 @@ namespace sky::rdg {
 
         using Tag = CopyBlitTag;
         PmrVector<CopyView> views;
-        PmrVector<GraphBarrier> frontBarriers;
-        PmrVector<GraphBarrier> rearBarriers;
+        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
+        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
     };
 
     struct PresentPass {
         using Tag = CopyBlitTag;
 
         rhi::SwapChainPtr swapChain;
+        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
+        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
     };
 
     struct GraphImportImage {
@@ -271,6 +273,8 @@ namespace sky::rdg {
         rhi::SampleCount     samples     = rhi::SampleCount::X1;
         rhi::ImageViewType   viewType    = rhi::ImageViewType::VIEW_2D;
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
+
+        rhi::ImagePtr      image;
     };
 
     struct GraphImageView {
@@ -291,6 +295,7 @@ namespace sky::rdg {
         uint64_t size = 0;
         rhi::BufferUsageFlags usage = rhi::BufferUsageFlagBit::NONE;
         ResourceResidency residency = ResourceResidency::PERSISTENT;
+        rhi::BufferPtr buffer;
     };
 
     struct GraphBufferView {
@@ -338,7 +343,6 @@ namespace sky::rdg {
 
         T desc;
         LifeTime lifeTime;
-        rhi::BufferViewPtr res;
         rhi::AccessFlags   lastUsage = rhi::AccessFlagBit::NONE; // for persistent image
     };
 
