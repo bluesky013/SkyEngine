@@ -76,7 +76,7 @@ namespace sky::rdg {
                         const auto &dstSubPass = rdg.subPasses[Index(nextPassID, rdg)];
 
                         // subPass dependency
-                        if (srcSubPass.parent == dstSubPass.parent) {
+                        if (srcSubPass.parent == dstSubPass.parent && srcSubPass.subPassID != dstSubPass.subPassID) {
                             auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
                             auto &dep = parent.dependencies.emplace_back();
                             dep.src = srcSubPass.subPassID;
