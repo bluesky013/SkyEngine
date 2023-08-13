@@ -85,6 +85,13 @@ namespace sky::rdg {
             },
             [&](const RasterQueueTag &) {
                 auto &queue = graph.rasterQueues[Index(u, graph)];
+
+//                currentEncoder->BindPipeline(nullptr);
+//                currentEncoder->BindSet(0, nullptr);
+//                currentEncoder->BindSet(1, nullptr);
+//                currentEncoder->BindSet(2, nullptr);
+//                currentEncoder->BindAssembly(nullptr);
+//                currentEncoder->DrawLinear({});
             },
             [&](const auto &) {}
         }, Tag(u, graph));
