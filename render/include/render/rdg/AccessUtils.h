@@ -11,5 +11,7 @@ namespace sky::rdg {
 
     rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps);
     rhi::ImageLayout GetImageLayout(const DependencyInfo &edge);
+    void MergeSubRange(AccessRange &result, const AccessRange &val);
+    bool Intersection(const AccessRange &lhs, const AccessRange &rhs);
 
 } // namespace sky::rdg

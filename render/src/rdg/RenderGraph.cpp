@@ -178,34 +178,6 @@ namespace sky::rdg {
         return range;
     }
 
-    static void MergeSubRange(AccessRange &result, const AccessRange &val)
-    {
-        result.aspectMask |= val.aspectMask;
-        auto maxLevel = std::max(result.base + result.range, val.base + val.range);
-        result.base = std::min(result.base, val.base);
-        result.range = maxLevel - result.base;
-
-        auto maxLayer = std::max(result.layer + result.layers, val.layer + val.layers);
-        result.layer = std::min(result.layer, val.layer);
-        result.layers = maxLayer - result.layer;
-    }
-
-    static bool Intersection(const AccessRange &lhs, const AccessRange &rhs)
-    {
-        if (!(lhs.aspectMask & rhs.aspectMask)) {
-            return false;
-        }
-        if ((lhs.layer > (rhs.layer + rhs.layers)) ||
-            (rhs.layer > (lhs.layer + lhs.layers))) {
-            return false;
-        }
-        if ((lhs.base > (rhs.base + rhs.range)) ||
-            (rhs.base > (lhs.base + lhs.range))) {
-            return false;
-        }
-        return true;
-    }
-
     void RenderGraph::AddDependency(VertexType resID, VertexType passId, const DependencyInfo &deps)
     {
         VertexType sourceID = Source(resID, resourceGraph);
@@ -214,6 +186,7 @@ namespace sky::rdg {
         auto subRange = GetAccessRange(*this, resID);
 
         if (resAccessID == INVALID_VERTEX) {
+            subRange = GetAccessRange(*this, sourceID);
             resAccessID = AddVertex(AccessRes{sourceID, subRange}, accessGraph);
         }
         auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];

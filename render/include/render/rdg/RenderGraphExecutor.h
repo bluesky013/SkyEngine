@@ -17,6 +17,8 @@ namespace sky::rdg {
         using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 
         [[maybe_unused]] void discover_vertex(Vertex u, const Graph& g);
+        [[maybe_unused]] void finish_vertex(Vertex u, const Graph& g);
+
         void Barriers(const PmrHashMap<VertexType, GraphBarrier>& barriers) const;
 
         RenderGraph &graph;

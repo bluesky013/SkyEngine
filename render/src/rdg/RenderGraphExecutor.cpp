@@ -66,9 +66,6 @@ namespace sky::rdg {
                 ++currentSubPassIndex;
                 if (currentSubPassIndex < currentSubPassNum) {
                     currentEncoder->NextSubPass();
-                } else {
-                    currentEncoder->EndPass();
-                    Barriers(graph.rasterPasses[Index(rasterSub.parent, graph)].rearBarriers);
                 }
             },
             [&](const ComputePassTag &) {
@@ -84,6 +81,30 @@ namespace sky::rdg {
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.frontBarriers);
+                Barriers(present.rearBarriers);
+            },
+            [&](const auto &) {}
+        }, Tag(u, graph));
+    }
+
+    [[maybe_unused]] void RenderGraphExecutor::finish_vertex(Vertex u, const Graph& g)
+    {
+        std::visit(Overloaded{
+            [&](const RasterPassTag &) {
+                auto &raster = graph.rasterPasses[Index(u, graph)];
+                currentEncoder->EndPass();
+                Barriers(raster.rearBarriers);
+            },
+            [&](const ComputePassTag &) {
+                auto &compute = graph.computePasses[Index(u, graph)];
+                Barriers(compute.rearBarriers);
+            },
+            [&](const CopyBlitTag &) {
+                auto &cb = graph.copyBlitPasses[Index(u, graph)];
+                Barriers(cb.rearBarriers);
+            },
+            [&](const PresentTag &) {
+                auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.rearBarriers);
             },
             [&](const auto &) {}
