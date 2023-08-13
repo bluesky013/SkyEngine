@@ -92,20 +92,6 @@ namespace sky::rdg {
         return RasterPassBuilder{*this, rasterPasses[polymorphicDatas[vtx]], vtx};
     }
 
-    RasterSubPassBuilder RenderGraph::AddRasterSubPass(const char *name, const char *pass)
-    {
-        auto src = FindVertex(pass, *this);
-        SKY_ASSERT(src != INVALID_VERTEX);
-        auto dst = AddVertex(name, RasterSubPass{&context->resources}, *this);
-        add_edge(src, dst, graph);
-        auto &rasterPass = rasterPasses[polymorphicDatas[src]];
-        auto &subPass = subPasses[polymorphicDatas[dst]];
-        subPass.parent = src;
-        subPass.subPassID = static_cast<uint32_t>(rasterPass.subPasses.size());
-        rasterPass.subPasses.emplace_back(dst);
-        return RasterSubPassBuilder{*this, rasterPass, subPass, dst};
-    }
-
     ComputePassBuilder RenderGraph::AddComputePass(const char *name)
     {
         auto vtx = AddVertex(name, ComputePass{&context->resources}, *this);
@@ -222,13 +208,25 @@ namespace sky::rdg {
 
     RasterPassBuilder &RasterPassBuilder::AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear)
     {
-        auto res = FindVertex(attachment.name.c_str(), graph.resourceGraph);
+        auto res = FindVertex(attachment.name.c_str(), rdg.resourceGraph);
         SKY_ASSERT(res != INVALID_VERTEX);
 
         pass.attachmentVertex.emplace_back(res);
         pass.attachments.emplace_back(attachment);
         pass.clearValues.emplace_back(clear);
         return *this;
+    }
+
+    RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const std::string &name)
+    {
+        auto dst = AddVertex(name.c_str(), RasterSubPass{&rdg.context->resources}, rdg);
+        add_edge(vertex, dst, rdg.graph);
+        auto &rasterPass = rdg.rasterPasses[rdg.polymorphicDatas[vertex]];
+        auto &subPass = rdg.subPasses[rdg.polymorphicDatas[dst]];
+        subPass.parent = vertex;
+        subPass.subPassID = static_cast<uint32_t>(rasterPass.subPasses.size());
+        rasterPass.subPasses.emplace_back(dst);
+        return RasterSubPassBuilder{rdg, rasterPass, subPass, dst};
     }
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, const ResourceAccess& access)
@@ -270,7 +268,7 @@ namespace sky::rdg {
     RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
     {
         SKY_ASSERT(subPass.rasterViews.emplace(name, view).second);
-        graph.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
+        rdg.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
         return *this;
     }
 
@@ -285,11 +283,21 @@ namespace sky::rdg {
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const std::string &name, const ComputeView &view)
     {
-        auto res = FindVertex(name.c_str(), graph.resourceGraph);
+        auto res = FindVertex(name.c_str(), rdg.resourceGraph);
         SKY_ASSERT(res != INVALID_VERTEX);
 
         subPass.computeViews.emplace(name, view);
-        graph.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
+        rdg.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
+        return *this;
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddQueue(const std::string &name, const std::string &viewID)
+    {
+        auto queue = RasterQueue(&rdg.context->resources);
+        queue.viewIDStr = viewID;
+
+        auto dst = AddVertex(name.c_str(), queue, rdg);
+        add_edge(vertex, dst, rdg.graph);
         return *this;
     }
 }

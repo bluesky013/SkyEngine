@@ -83,6 +83,9 @@ namespace sky::rdg {
                 Barriers(present.frontBarriers);
                 Barriers(present.rearBarriers);
             },
+            [&](const RasterQueueTag &) {
+                auto &queue = graph.rasterQueues[Index(u, graph)];
+            },
             [&](const auto &) {}
         }, Tag(u, graph));
     }

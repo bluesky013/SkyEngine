@@ -61,28 +61,29 @@ TEST(RenderGraphTest, NodeGraphTest01)
     rg.AddImage("test2",
                 GraphImage{{128, 128, 1}, 1, 1, rhi::PixelFormat::D24_S8, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED});
 
-    rdg.AddRasterPass("color0", 128, 128)
+    auto pass1 = rdg.AddRasterPass("color0", 128, 128)
         .AddAttachment({"test_1_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test_1_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test_2_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test_2_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    rdg.AddRasterSubPass("color0_sub0", "color0")
+    pass1.AddRasterSubPass("color0_sub0")
         .AddColor("test_1_1", ResourceAccessBit::WRITE)
         .AddColor("test_1_2", ResourceAccessBit::WRITE)
         .AddColor("test_2_1", ResourceAccessBit::WRITE)
         .AddColor("test_2_2", ResourceAccessBit::WRITE)
-        .AddDepthStencil("test2", ResourceAccessBit::WRITE);
+        .AddDepthStencil("test2", ResourceAccessBit::WRITE)
+        .AddQueue("queue1", "v1");
 
-    rdg.AddRasterPass("color1", 128, 128)
+    auto pass2 = rdg.AddRasterPass("color1", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    rdg.AddRasterSubPass("color1_sub0", "color1")
+    pass2.AddRasterSubPass("color1_sub0")
         .AddDepthStencil("test2", ResourceAccessBit::WRITE)
         .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ});
 
-    rdg.AddRasterPass("color2", 128, 128)
+    auto pass3 = rdg.AddRasterPass("color2", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    rdg.AddRasterSubPass("color2_sub0", "color2")
+    pass3.AddRasterSubPass("color2_sub0")
         .AddDepthStencil("test2", ResourceAccessBit::WRITE);
 
     {

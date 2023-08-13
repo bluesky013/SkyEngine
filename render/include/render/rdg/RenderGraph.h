@@ -16,14 +16,6 @@
 namespace sky::rdg {
     struct RenderGraph;
 
-    struct RasterPassBuilder {
-        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
-
-        RenderGraph &graph;
-        RasterPass &pass;
-        VertexType vertex;
-    };
-
     struct RasterSubPassBuilder {
         RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddResolve(const std::string &name, const ResourceAccess& access);
@@ -31,15 +23,25 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddColorInOut(const std::string &name);
         RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        RasterSubPassBuilder &AddQueue(const std::string &name, const std::string &viewID);
         uint32_t GetAttachmentIndex(const std::string &name);
 
-        RenderGraph &graph;
+        RenderGraph &rdg;
         RasterPass &pass;
         RasterSubPass &subPass;
         VertexType vertex;
 
     protected:
         RasterSubPassBuilder &AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view);
+    };
+
+    struct RasterPassBuilder {
+        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
+        RasterSubPassBuilder AddRasterSubPass(const std::string &name);
+
+        RenderGraph &rdg;
+        RasterPass &pass;
+        VertexType vertex;
     };
 
     struct ComputePassBuilder {
@@ -130,7 +132,6 @@ namespace sky::rdg {
         using Tag = RenderGraphTags;
 
         RasterPassBuilder    AddRasterPass(const char *name, uint32_t width, uint32_t height);
-        RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
         void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
@@ -150,6 +151,8 @@ namespace sky::rdg {
         // passes
         PmrVector<RasterPass>    rasterPasses;
         PmrVector<RasterSubPass> subPasses;
+        PmrVector<RasterQueue>   rasterQueues;
+
         PmrVector<ComputePass>   computePasses;
         PmrVector<CopyBlitPass>  copyBlitPasses;
         PmrVector<PresentPass>   presentPasses;
@@ -246,6 +249,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
             graph.presentPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, RasterQueueTag>) {
+            graph.polymorphicDatas.emplace_back(graph.rasterQueues.size());
+            graph.rasterQueues.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }

@@ -61,10 +61,11 @@ namespace sky::rdg {
 
     struct RasterPassTag {};
     struct RasterSubPassTag {};
+    struct RasterQueueTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag>;
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -190,6 +191,15 @@ namespace sky::rdg {
         RasterAttachmentRef depthStencil;
         PmrHashMap<std::string, RasterView> rasterViews;
         PmrHashMap<std::string, ComputeView> computeViews;
+    };
+
+    struct RasterQueue {
+        explicit RasterQueue(PmrResource *res) : viewIDStr(res) {}
+
+        using Tag = RasterQueueTag;
+
+        PmrString viewIDStr;
+        uint32_t viewID = 0;
     };
 
     struct RasterPass {
