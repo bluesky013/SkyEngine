@@ -291,12 +291,12 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddQueue(const std::string &name, const std::string &viewID)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const ViewPtr &sceneView)
     {
-        auto queue = RasterQueue(&rdg.context->resources);
-        queue.viewIDStr = viewID;
+        auto rsv = RasterSceneView(&rdg.context->resources);
+        rsv.sceneView = sceneView;
 
-        auto dst = AddVertex(name.c_str(), queue, rdg);
+        auto dst = AddVertex(name.c_str(), rsv, rdg);
         add_edge(vertex, dst, rdg.graph);
         return *this;
     }

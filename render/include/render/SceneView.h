@@ -18,7 +18,7 @@ namespace sky {
         explicit SceneView(uint32_t view = 1, PmrResource *resource = nullptr);
         ~SceneView() = default;
 
-        void SetViewTag(const std::string &id) { viewTag = id; }
+        void SetViewTag(const std::string &id) { viewTag = id.c_str(); }
         const PmrString &GetViewTag() const { return viewTag; }
 
         void SetViewMatrix(const Matrix4 &mat, uint32_t viewID = 0);

@@ -14,6 +14,7 @@
 #include <rhi/FrameBuffer.h>
 #include <rhi/Swapchain.h>
 #include <rhi/ComputePipeline.h>
+#include <render/SceneView.h>
 
 namespace sky::rdg {
 
@@ -61,11 +62,11 @@ namespace sky::rdg {
 
     struct RasterPassTag {};
     struct RasterSubPassTag {};
-    struct RasterQueueTag {};
+    struct RasterSceneViewTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag>;
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterSceneViewTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -193,13 +194,12 @@ namespace sky::rdg {
         PmrHashMap<std::string, ComputeView> computeViews;
     };
 
-    struct RasterQueue {
-        explicit RasterQueue(PmrResource *res) : viewIDStr(res) {}
+    struct RasterSceneView {
+        explicit RasterSceneView(PmrResource *res) {}
 
-        using Tag = RasterQueueTag;
+        using Tag = RasterSceneViewTag;
 
-        PmrString viewIDStr;
-        uint32_t viewID = 0;
+        ViewPtr sceneView;
     };
 
     struct RasterPass {
