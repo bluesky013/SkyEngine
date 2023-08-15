@@ -4,8 +4,9 @@
 
 #include <render/rdg/AccessUtils.h>
 
-#include <unordered_map>
+#include <rhi/Decode.h>
 #include <render/rdg/RenderGraph.h>
+#include <unordered_map>
 
 namespace std {
 
@@ -77,6 +78,56 @@ namespace sky::rdg {
         {rhi::ShaderStageFlagBit::FS, rhi::AccessFlagBit::FRAGMENT_CBV},
         {rhi::ShaderStageFlagBit::CS, rhi::AccessFlagBit::COMPUTE_CBV},
     };
+
+    AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID)
+    {
+        const auto &resourceGraph = graph.resourceGraph;
+        AccessRange range = {};
+
+        std::visit(Overloaded{
+            [&](const ImageTag &tag) {
+                const auto &image = resourceGraph.images[Index(resID, resourceGraph)];
+                range = {
+                    0, image.desc.mipLevels,
+                    0, image.desc.arrayLayers,
+                    rhi::GetAspectFlagsByFormat(image.desc.format)
+                };
+            },
+            [&](const ImportImageTag &tag) {
+                const auto &image = resourceGraph.importImages[Index(resID, resourceGraph)];
+                const auto &desc = image.desc.image->GetDescriptor();
+                range = {
+                    0, desc.mipLevels,
+                    0, desc.arrayLayers,
+                    rhi::GetAspectFlagsByFormat(desc.format)
+                };
+            },
+            [&](const ImageViewTag &tag) {
+                const auto &view = resourceGraph.imageViews[Index(resID, resourceGraph)];
+                range = {
+                    view.desc.view.subRange.baseLevel, view.desc.view.subRange.levels,
+                    view.desc.view.subRange.baseLayer, view.desc.view.subRange.layers,
+                    view.desc.view.subRange.aspectMask
+                };
+            },
+            [&](const BufferTag &tag) {
+                const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
+                range.range = buffer.desc.size;
+            },
+            [&](const ImportBufferTag &tag) {
+                const auto &buffer = resourceGraph.importBuffers[Index(resID, resourceGraph)];
+                const auto &desc = buffer.desc.buffer->GetBufferDesc();
+                range.range = desc.size;
+            },
+            [&](const BufferViewTag &tag) {
+                const auto &view = resourceGraph.bufferViews[Index(resID, resourceGraph)];
+                range.base = view.desc.view.offset;
+                range.range = view.desc.view.range;
+            },
+            [&](const auto &) {}
+        }, rdg::Tag(resID, resourceGraph));
+        return range;
+    }
 
     rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps)
     {
@@ -166,15 +217,8 @@ namespace sky::rdg {
         result.layers = maxLayer - result.layer;
     }
 
-    bool Intersection(const AccessRange &lhs, const AccessRange &rhs)
+    bool BufferIntersection(const AccessRange &lhs, const AccessRange &rhs)
     {
-        if (!(lhs.aspectMask & rhs.aspectMask)) {
-            return false;
-        }
-        if ((lhs.layer > (rhs.layer + rhs.layers)) ||
-            (rhs.layer > (lhs.layer + lhs.layers))) {
-            return false;
-        }
         if ((lhs.base > (rhs.base + rhs.range)) ||
             (rhs.base > (lhs.base + lhs.range))) {
             return false;

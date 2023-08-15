@@ -114,54 +114,41 @@ namespace sky::rdg {
     {
     }
 
-    AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID)
+    bool RenderGraph::CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange)
     {
-        const auto &resourceGraph = graph.resourceGraph;
-        AccessRange range = {};
+        auto write = deps.access & ResourceAccessBit::WRITE;
+        if (lastAccess.subRange.layers == 0) { // for buffer
+            return write && BufferIntersection(lastAccess.subRange, subRange);
+        }
+        const auto accessFlag = GetAccessFlags(deps);
+        for (auto i = subRange.base; i < subRange.range; ++i) {
+            for (auto j = subRange.layer; j < subRange.layers; ++j) {
+                if (lastAccess.accesses[i * subRange.layers + j] != accessFlag) {
+                    return true;
+                }
+            }
+        }
 
-        std::visit(Overloaded{
-            [&](const ImageTag &tag) {
-                const auto &image = resourceGraph.images[Index(resID, resourceGraph)];
-                range = {
-                    0, image.desc.mipLevels,
-                    0, image.desc.arrayLayers,
-                    rhi::GetAspectFlagsByFormat(image.desc.format)
-                };
-            },
-            [&](const ImportImageTag &tag) {
-                const auto &image = resourceGraph.importImages[Index(resID, resourceGraph)];
-                const auto &desc = image.desc.image->GetDescriptor();
-                range = {
-                    0, desc.mipLevels,
-                    0, desc.arrayLayers,
-                    rhi::GetAspectFlagsByFormat(desc.format)
-                };
-            },
-            [&](const ImageViewTag &tag) {
-                const auto &view = resourceGraph.imageViews[Index(resID, resourceGraph)];
-                range = {
-                    view.desc.view.subRange.baseLevel, view.desc.view.subRange.levels,
-                    view.desc.view.subRange.baseLayer, view.desc.view.subRange.layers,
-                    view.desc.view.subRange.aspectMask
-                };
-            },
-            [&](const BufferTag &tag) {
-                const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
-                range.range = buffer.desc.size;
-            },
-            [&](const ImportBufferTag &tag) {
-                const auto &buffer = resourceGraph.importBuffers[Index(resID, resourceGraph)];
-                const auto &desc = buffer.desc.buffer->GetBufferDesc();
-                range.range = desc.size;
-            },
-            [&](const BufferViewTag &tag) {
-                const auto &view = resourceGraph.bufferViews[Index(resID, resourceGraph)];
-                range.base = view.desc.view.offset;
-                range.range = view.desc.view.range;
-            },
-            [&](const auto &) {}
-        }, rdg::Tag(resID, resourceGraph));
-        return range;
+        return static_cast<bool>(write);
+    }
+
+    void RenderGraph::FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const
+    {
+        const auto sourceRange = GetAccessRange(*this, res.resID);
+        for (auto i = 0U; i < subRange.range; ++i) {
+            const auto mip = subRange.base + i;
+            for (auto j = 0U; j < subRange.layers; ++j) {
+                const auto layer = subRange.layer + j;
+                res.accesses[mip * sourceRange.layers + layer] = accessFlag;
+            }
+        }
+    }
+
+    AccessRes RenderGraph::GetMergedAccessRes(const AccessRes &lastAccess, const rhi::AccessFlags& accessFlag, const AccessRange &subRange, VertexType passAccessID) const
+    {
+        AccessRes res = {lastAccess.resID, passAccessID, subRange, lastAccess.accesses};
+        FillAccessFlag(res, subRange, accessFlag);
+        return res;
     }
 
     void RenderGraph::AddDependency(VertexType resID, VertexType passId, const DependencyInfo &deps)
@@ -172,37 +159,39 @@ namespace sky::rdg {
         auto subRange = GetAccessRange(*this, resID);
 
         if (resAccessID == INVALID_VERTEX) {
-            subRange = GetAccessRange(*this, sourceID);
-            resAccessID = AddVertex(AccessRes{sourceID, subRange}, accessGraph);
+            const auto sourceRange = GetAccessRange(*this, sourceID);
+            resAccessID = AddVertex(AccessRes{sourceID, INVALID_VERTEX, sourceRange}, accessGraph);
+            accessGraph.resources[Index(resAccessID, accessGraph)].accesses.resize(sourceRange.range * sourceRange.layers, rhi::AccessFlagBit::NONE);
         }
         auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
 
-        auto read = deps.access & ResourceAccessBit::READ;
         auto write = deps.access & ResourceAccessBit::WRITE;
-        auto layout = GetImageLayout(deps);
+        bool crossPass = lastAccessRes.inPassID != passAccessID;
+        auto versionChanged = CheckVersionChanged(lastAccessRes, deps, subRange) && crossPass;
 
-        auto intersection = Intersection(lastAccessRes.subRange, subRange);
-        auto versionChanged = (lastAccessRes.layout != layout) || (write && intersection);
-
+        const auto accessFlag = GetAccessFlags(deps);
         if (versionChanged) {
             {
                 auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
                 accessGraph.graph[ed] = {deps, subRange};
             }
-            resAccessID = AddVertex(AccessRes{sourceID, subRange, layout}, accessGraph);
+            resAccessID = AddVertex(GetMergedAccessRes(lastAccessRes, accessFlag, subRange, passAccessID), accessGraph);
             {
                 auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
                 accessGraph.graph[ed] = {deps, subRange};
             }
         } else {
-            if (write) {
+            MergeSubRange(lastAccessRes.subRange, subRange);
+            FillAccessFlag(lastAccessRes, subRange, accessFlag);
+            if (!crossPass) {
+                // do nothing
+            } else if (write) {
                 auto [ed, sec] = add_edge(passAccessID, resAccessID, accessGraph.graph);
                 accessGraph.graph[ed] = {deps, subRange};
             } else {
                 auto [ed, sec] = add_edge(resAccessID, passAccessID, accessGraph.graph);
                 accessGraph.graph[ed] = {deps, subRange};
             }
-            MergeSubRange(lastAccessRes.subRange, subRange);
         }
     }
 

@@ -136,6 +136,10 @@ namespace sky::rdg {
         CopyPassBuilder      AddCopyPass(const char *name);
         void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
 
+        static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
+        void FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const;
+        AccessRes GetMergedAccessRes(const AccessRes &lastAccess, const rhi::AccessFlags& accessFlag, const AccessRange &subRange, VertexType passAccessID) const;
+
         // memory
         RenderGraphContext *context;
 

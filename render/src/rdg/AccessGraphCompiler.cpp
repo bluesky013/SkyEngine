@@ -13,6 +13,28 @@ namespace sky::rdg {
             auto &resAccess = graph.accessGraph.resources[Index(resAccessID, graph.accessGraph)];
             resAccess.visited = true;
         }
+
+        void MergeBarrier(std::vector<GraphBarrier> &barriers, const AccessRes &res, const AccessCompiler::Graph ::edge_bundled &ep,
+                          const rhi::AccessFlags& nextAccess,
+                          RenderGraph &rdg)
+        {
+            GraphBarrier barrier = {};
+            const auto sourceRange = GetAccessRange(rdg, res.resID);
+            for (uint32_t i = 0; i < ep.range.range; ++i) {
+                const auto mip = ep.range.base + i;
+                for (uint32_t j = 0; j < ep.range.layers; ++j) {
+                    const auto layer = ep.range.layer + j;
+                    auto &back = barriers.emplace_back();
+                    back.range.base = mip;
+                    back.range.range = 1;
+                    back.range.layer = layer;
+                    back.range.layers = 1;
+                    back.range.aspectMask = ep.range.aspectMask;
+                    back.srcFlags = res.accesses[mip * sourceRange.layers + layer];
+                    back.dstFlags |= nextAccess;
+                }
+            }
+        }
     }
 
     void AccessCompiler::UpdateLifeTime(VertexType passID, VertexType resID)
@@ -62,7 +84,8 @@ namespace sky::rdg {
                 for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
                      begin != end; ++begin) {
                     auto nextEdge = *begin;
-                    auto nextAccess = GetAccessFlags(rdg.accessGraph.graph[nextEdge].dependencyInfo); // nextAccess
+                    const auto &nextEp = rdg.accessGraph.graph[nextEdge];
+                    auto nextAccess = GetAccessFlags(nextEp.dependencyInfo); // nextAccess
                     auto nextPassAccessID = boost::target(nextEdge, rdg.accessGraph.graph);
                     auto nextPassID = rdg.accessGraph.passes[Index(nextPassAccessID, rdg.accessGraph)].vertexID;
                     UpdateLifeTime(nextPassID, resID);
@@ -93,24 +116,23 @@ namespace sky::rdg {
                             [&](const RasterSubPassTag &) {
                                 const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
                                 auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
-                                auto &rearBarrier = parent.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+                                auto &rearBarriers = parent.rearBarriers[resID];
+                                const auto &tmp = nextEp;
+                                MergeBarrier(rearBarriers, dst, tmp, nextAccess, rdg);
                             },
                             [&](const ComputePassTag &) {
                                 auto &computePass = rdg.computePasses[Index(passID, rdg)];
                                 auto &rearBarrier = computePass.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+//                                MergeSubRange(rearBarrier.range, ep.range);
+//                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
+//                                rearBarrier.dstFlags |= nextAccess;
                             },
                             [&](const CopyBlitTag &) {
                                 auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
                                 auto &rearBarrier = copyBlitPass.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+//                                MergeSubRange(rearBarrier.range, ep.range);
+//                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
+//                                rearBarrier.dstFlags |= nextAccess;
                             },
                             [&](const auto &) {
                             }
@@ -133,23 +155,26 @@ namespace sky::rdg {
                         const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
                         auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
                         auto &frontBarrier = parent.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                        auto &back = frontBarrier.emplace_back();
+                        back.range = ep.range;
+                        back.srcFlags = rhi::AccessFlagBit::NONE;
+                        back.dstFlags = GetAccessFlags(ep.dependencyInfo);
                     },
                     [&](const ComputePassTag &) {
                         auto &computePass = rdg.computePasses[Index(passID, rdg)];
                         auto &frontBarrier = computePass.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                        auto &back = frontBarrier.emplace_back();
+                        back.range = ep.range;
+                        back.srcFlags = rhi::AccessFlagBit::NONE;
+                        back.dstFlags = GetAccessFlags(ep.dependencyInfo);
                     },
                     [&](const CopyBlitTag &) {
                         auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
                         auto &frontBarrier = copyBlitPass.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
+                        auto &back = frontBarrier.emplace_back();
+                        back.range = ep.range;
+                        back.srcFlags = rhi::AccessFlagBit::NONE;
+                        back.dstFlags = GetAccessFlags(ep.dependencyInfo);
                     },
                     [&](const auto &) {
                     }

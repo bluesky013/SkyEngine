@@ -79,7 +79,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     pass2.AddRasterSubPass("color1_sub0")
         .AddDepthStencil("test2", ResourceAccessBit::WRITE)
-        .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ});
+        .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ, rhi::ShaderStageFlagBit::FS});
 
     auto pass3 = rdg.AddRasterPass("color2", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));

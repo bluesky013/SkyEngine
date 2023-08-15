@@ -111,8 +111,9 @@ namespace sky::rdg {
     struct AccessRes {
         using Tag = AccessResTag;
         VertexType resID = INVALID_VERTEX;
+        VertexType inPassID = INVALID_VERTEX;
         AccessRange subRange;
-        rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
+        std::vector<rhi::AccessFlags> accesses;
         bool visited = false;
     };
 
@@ -224,8 +225,8 @@ namespace sky::rdg {
         PmrVector<VertexType> subPasses;
         PmrVector<rhi::ClearValue> clearValues;
         PmrVector<SubPassDependency> dependencies;
-        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
-        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
@@ -240,8 +241,8 @@ namespace sky::rdg {
 
         using Tag = ComputePassTag;
         PmrHashMap<std::string, ComputeView> computeViews;
-        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
-        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };
 
     struct CopyBlitPass {
@@ -253,16 +254,16 @@ namespace sky::rdg {
 
         using Tag = CopyBlitTag;
         PmrVector<CopyView> views;
-        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
-        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };
 
     struct PresentPass {
         using Tag = CopyBlitTag;
 
         rhi::SwapChainPtr swapChain;
-        PmrHashMap<VertexType, GraphBarrier> frontBarriers; // key resID
-        PmrHashMap<VertexType, GraphBarrier> rearBarriers;  // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };
 
     struct GraphImportImage {
