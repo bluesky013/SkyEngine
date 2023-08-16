@@ -8,10 +8,41 @@
 
 namespace sky::rdg {
     namespace {
-        template <typename V>
-        void SetResourceVisited(V resAccessID, RenderGraph &graph) {
-            auto &resAccess = graph.accessGraph.resources[Index(resAccessID, graph.accessGraph)];
-            resAccess.visited = true;
+        void MergeBarrier(std::vector<GraphBarrier> &barriers, const AccessRes &prev, const AccessRes &next, RenderGraph &rdg)
+        {
+            const auto sourceRange = GetAccessRange(rdg, prev.resID);
+
+            for (uint32_t i = 0; i < next.subRange.range; ++i) {
+                const auto mip = next.subRange.base + i;
+
+                rhi::AccessFlags lastPrevFlags = rhi::AccessFlagBit::NONE;
+                rhi::AccessFlags lastNextFlags = rhi::AccessFlagBit::NONE;
+
+                std::vector<GraphBarrier> rowBarriers;
+                for (uint32_t j = 0; j < next.subRange.layers; ++j) {
+                    const auto layer = next.subRange.layer + j;
+                    const auto &prevFlags = prev.accesses[mip * sourceRange.layers + layer];
+                    const auto &nextFlags = next.accesses[mip * sourceRange.layers + layer];
+
+                    if ((lastPrevFlags != prevFlags && lastNextFlags != nextFlags) || rowBarriers.empty()) {
+                        rowBarriers.emplace_back(GraphBarrier{prevFlags, nextFlags, {mip, 1, layer, 1}});
+                    } else {
+                        rowBarriers.back().range.layers++;
+                    }
+                    lastPrevFlags = prevFlags;
+                    lastNextFlags = nextFlags;
+                }
+
+                // try merge level barrier
+                if (!barriers.empty() && rowBarriers.size() == 1) {
+                    auto &back = barriers.back();
+                    if (back.range.layers == sourceRange.layers) {
+                        back.range.range++;
+                    }
+                } else {
+                    barriers.insert(barriers.end(), rowBarriers.begin(), rowBarriers.end());
+                }
+            }
         }
     }
 
@@ -44,7 +75,6 @@ namespace sky::rdg {
 
         VertexType passID = INVALID_VERTEX;
         VertexType resID = INVALID_VERTEX;
-        auto &ep = rdg.accessGraph.graph[u];
 
         std::visit(Overloaded{
             [&](const AccessPassTag&, const AccessResTag&) {
@@ -52,7 +82,6 @@ namespace sky::rdg {
                 const auto &dst = rdg.accessGraph.resources[Index(u.m_target, rdg.accessGraph)];
                 passID = src.vertexID;
                 resID = dst.resID;
-                SetResourceVisited(u.m_target, rdg);
                 UpdateLifeTime(passID, resID);
 
                 // subPass dependencies
@@ -62,10 +91,14 @@ namespace sky::rdg {
                 for (boost::tie(begin, end) = boost::out_edges(u.m_target, rdg.accessGraph.graph);
                      begin != end; ++begin) {
                     auto nextEdge = *begin;
-                    auto nextAccess = GetAccessFlags(rdg.accessGraph.graph[nextEdge].dependencyInfo); // nextAccess
                     auto nextPassAccessID = boost::target(nextEdge, rdg.accessGraph.graph);
                     auto nextPassID = rdg.accessGraph.passes[Index(nextPassAccessID, rdg.accessGraph)].vertexID;
                     UpdateLifeTime(nextPassID, resID);
+
+                    if (dst.nextAccessResID == INVALID_VERTEX) {
+                        continue;
+                    }
+                    const auto &nextAccessRes = rdg.accessGraph.resources[Index(dst.nextAccessResID, rdg.accessGraph)];
 
                     const RasterSubPassTag *srcTag = std::get_if<RasterSubPassTag>(&Tag(passID, rdg));
                     const RasterSubPassTag *dstTag = std::get_if<RasterSubPassTag>(&Tag(nextPassID, rdg));
@@ -79,10 +112,10 @@ namespace sky::rdg {
                         if (srcSubPass.parent == dstSubPass.parent && srcSubPass.subPassID != dstSubPass.subPassID) {
                             auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
                             auto &dep = parent.dependencies.emplace_back();
-                            dep.src = srcSubPass.subPassID;
-                            dep.dst = dstSubPass.subPassID;
-                            dep.preAccess = GetAccessFlags(ep.dependencyInfo); // prevAccess
-                            dep.nextAccess |= nextAccess;
+//                            dep.src = srcSubPass.subPassID;
+//                            dep.dst = dstSubPass.subPassID;
+//                            dep.preAccess = ep.flags; // prevAccess
+//                            dep.nextAccess |= nextAccess;
                             isSubPassDependency = true;
                         }
                     }
@@ -90,27 +123,27 @@ namespace sky::rdg {
                     // barrier
                     if (!isSubPassDependency) {
                         std::visit(Overloaded{
+                            [&](const RootTag &) {
+                                const auto &srcSubPass = rdg.subPasses[Index(nextPassID, rdg)];
+                                auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
+                                auto &frontBarriers = parent.frontBarriers[resID];  // use front barriers for external barrier.
+                                MergeBarrier(frontBarriers, dst, nextAccessRes, rdg);
+                            },
                             [&](const RasterSubPassTag &) {
                                 const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
                                 auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
-                                auto &rearBarrier = parent.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+                                auto &rearBarriers = parent.rearBarriers[resID];
+                                MergeBarrier(rearBarriers, dst, nextAccessRes, rdg);
                             },
                             [&](const ComputePassTag &) {
                                 auto &computePass = rdg.computePasses[Index(passID, rdg)];
-                                auto &rearBarrier = computePass.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+                                auto &rearBarriers = computePass.rearBarriers[resID];
+                                MergeBarrier(rearBarriers, dst, nextAccessRes, rdg);
                             },
                             [&](const CopyBlitTag &) {
                                 auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
-                                auto &rearBarrier = copyBlitPass.rearBarriers[resID];
-                                MergeSubRange(rearBarrier.range, ep.range);
-                                rearBarrier.srcFlags = GetAccessFlags(ep.dependencyInfo);
-                                rearBarrier.dstFlags |= nextAccess;
+                                auto &rearBarriers = copyBlitPass.rearBarriers[resID];
+                                MergeBarrier(rearBarriers, dst, nextAccessRes, rdg);
                             },
                             [&](const auto &) {
                             }
@@ -118,45 +151,7 @@ namespace sky::rdg {
                     }
                 }
             },
-            [&](const AccessResTag&, const AccessPassTag&) {
-                // process external dependency
-                const auto &src = rdg.accessGraph.resources[Index(u.m_source, rdg.accessGraph)];
-                const auto &dst = rdg.accessGraph.passes[Index(u.m_target, rdg.accessGraph)];
-                if (src.visited) {
-                    return;
-                }
-                resID = src.resID;
-                passID = dst.vertexID;
-
-                std::visit(Overloaded{
-                    [&](const RasterSubPassTag &) {
-                        const auto &srcSubPass = rdg.subPasses[Index(passID, rdg)];
-                        auto &parent = rdg.rasterPasses[Index(srcSubPass.parent, rdg)];
-                        auto &frontBarrier = parent.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
-                    },
-                    [&](const ComputePassTag &) {
-                        auto &computePass = rdg.computePasses[Index(passID, rdg)];
-                        auto &frontBarrier = computePass.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
-                    },
-                    [&](const CopyBlitTag &) {
-                        auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
-                        auto &frontBarrier = copyBlitPass.frontBarriers[resID];
-                        MergeSubRange(frontBarrier.range, ep.range);
-                        frontBarrier.srcFlags = rhi::AccessFlagBit::NONE;
-                        frontBarrier.dstFlags = GetAccessFlags(ep.dependencyInfo);
-                    },
-                    [&](const auto &) {
-                    }
-                }, Tag(passID, rdg));
-            },
             [](const auto&, const auto &) {
-                SKY_ASSERT(false);
             }
         }, srcTag, dstTag);
     }

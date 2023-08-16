@@ -3,36 +3,52 @@
 //
 
 #include <render/rdg/RenderGraphExecutor.h>
+#include <rhi/Decode.h>
 
 namespace sky::rdg {
 
-    void RenderGraphExecutor::Barriers(const PmrHashMap<VertexType, GraphBarrier>& barriers) const
+    void RenderGraphExecutor::Barriers(const PmrHashMap<VertexType, std::vector<GraphBarrier>>& barrierSet) const
     {
-        for (const auto &[first, second] : barriers) {
+        for (const auto &[first, second] : barrierSet) {
             const auto resID = first;
-            const auto &barrier = second;
+            const auto &barriers = second;
             std::visit(Overloaded{
                 [&](const ImageTag &) {
                     auto &image = graph.resourceGraph.images[Index(resID, graph.resourceGraph)];
-                    graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
-                        rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range), barrier.range.layer, barrier.range.layers, barrier.range.aspectMask},
-                        rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                            rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                                                                          barrier.range.layer, barrier.range.layers,
+                                                                                          rhi::GetAspectFlagsByFormat(image.desc.format)},
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
                 },
                 [&](const ImportImageTag &) {
                     auto &image = graph.resourceGraph.importImages[Index(resID, graph.resourceGraph)];
-                    graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
-                        rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range), barrier.range.layer, barrier.range.layers, barrier.range.aspectMask},
-                        rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                            rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                                                                          barrier.range.layer, barrier.range.layers,
+                                                                                          rhi::GetAspectFlagsByFormat(image.desc.image->GetDescriptor().format)},
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
                 },
                 [&](const BufferTag &) {
                     auto &buffer = graph.resourceGraph.buffers[Index(resID, graph.resourceGraph)];
-                    graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
-                        rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
                 },
                 [&](const ImportBufferTag &) {
                     auto &buffer = graph.resourceGraph.importBuffers[Index(resID, graph.resourceGraph)];
-                    graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
-                        rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
                 },
                 [&](const auto &) {}
             }, Tag(resID, graph.resourceGraph));
@@ -71,17 +87,14 @@ namespace sky::rdg {
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
                 Barriers(compute.frontBarriers);
-                Barriers(compute.rearBarriers);
             },
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
                 Barriers(cb.frontBarriers);
-                Barriers(cb.rearBarriers);
             },
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.frontBarriers);
-                Barriers(present.rearBarriers);
             },
             [&](const RasterSceneViewTag &) {
                 auto &view = graph.sceneViews[Index(u, graph)];

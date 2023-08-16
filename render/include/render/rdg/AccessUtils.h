@@ -8,10 +8,10 @@
 #include <render/rdg/RenderGraphTypes.h>
 
 namespace sky::rdg {
+    struct RenderGraph;
 
     rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps);
-    rhi::ImageLayout GetImageLayout(const DependencyInfo &edge);
+    AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID);
     void MergeSubRange(AccessRange &result, const AccessRange &val);
-    bool Intersection(const AccessRange &lhs, const AccessRange &rhs);
 
 } // namespace sky::rdg

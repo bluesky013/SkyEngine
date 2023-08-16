@@ -62,7 +62,7 @@ namespace sky::rdg {
         explicit AccessGraph(RenderGraphContext *ctx);
         ~AccessGraph() = default;
 
-        using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, boost::no_property, AccessEdge>;
+        using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, boost::no_property>;
         using vertex_descriptor = VertexType;
         using Tag = AccessGraphTags;
 
@@ -135,6 +135,14 @@ namespace sky::rdg {
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
         void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
+
+        static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
+        void FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const;
+        AccessRes GetMergedAccessRes(const AccessRes &lastAccess,
+                                       const rhi::AccessFlags& accessFlag,
+                                       const AccessRange &subRange,
+                                       VertexType passAccessID,
+                                       VertexType nextAccessResID) const;
 
         // memory
         RenderGraphContext *context;
