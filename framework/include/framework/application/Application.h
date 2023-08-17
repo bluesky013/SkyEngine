@@ -30,7 +30,7 @@ namespace sky {
     class Application : public ISystemNotify {
     public:
         Application();
-        ~Application();
+        ~Application() override;
 
         Application(const Application &)            = delete;
         Application &operator=(const Application &) = delete;

@@ -37,4 +37,6 @@ namespace sky::rhi {
         virtual ~Instance() = default;
     };
 
+    API GetApiByString(const std::string &str);
+
 }

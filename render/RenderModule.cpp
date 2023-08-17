@@ -3,6 +3,9 @@
 //
 
 #include <framework/interface/IModule.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/SettingRegistry.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -13,11 +16,11 @@
 #include <render/assets/Image.h>
 #include <render/assets/RenderPrefab.h>
 
-#include <rhi/Core.h>
-
-#include <engine/base/Component.h>
 #include <render/adaptor/LightComponent.h>
 #include <render/adaptor/MeshComponent.h>
+
+#include <render/RHI.h>
+#include <render/Renderer.h>
 
 namespace sky {
 
@@ -101,8 +104,8 @@ namespace sky {
 
         bool Init() override;
         void Start() override;
-        void Stop() override {}
-        void Tick(float delta) override {}
+        void Stop() override;
+        void Tick(float delta) override;
     };
 
     bool RenderModule::Init()
@@ -115,7 +118,33 @@ namespace sky {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
         ReflectRHI(serializationContext);
+
         RegisterComponents();
+
+        auto *iSys = Interface<ISystemNotify>::Get();
+        auto &reg = iSys->GetApi()->GetSettings();
+
+        rhi::Instance::Descriptor rhiDesc = {};
+        rhiDesc.engineName = "SkyEngine";
+        rhiDesc.appName = "";
+        rhiDesc.api = rhi::GetApiByString(reg.VisitString("rhi"));
+
+        // init rhi
+        RHI::Get()->InitInstance(rhiDesc);
+
+        // init renderer
+        Renderer::Get()->Init();
+    }
+
+    void RenderModule::Stop()
+    {
+        Renderer::Destroy();
+        RHI::Destroy();
+    }
+
+    void RenderModule::Tick(float delta)
+    {
+        Renderer::Get()->Tick(delta);
     }
 }
 REGISTER_MODULE(sky::RenderModule)

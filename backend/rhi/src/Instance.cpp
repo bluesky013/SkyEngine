@@ -11,6 +11,23 @@ std::unique_ptr<sky::DynamicModule> g_RHI;
 namespace sky::rhi {
     using Func = Instance*(*)();
 
+    API GetApiByString(const std::string &rhi)
+    {
+        if (rhi == "gles") {
+            return API::GLES;
+        }
+        if (rhi == "vulkan") {
+            return API::VULKAN;
+        }
+        if (rhi == "dx12") {
+            return API::DX12;
+        }
+        if (rhi == "metal") {
+            return API::METAL;
+        }
+        return API::VULKAN;
+    }
+
     Instance *Instance::Create(const Descriptor &desc)
     {
         std::string nameMap[] = {
