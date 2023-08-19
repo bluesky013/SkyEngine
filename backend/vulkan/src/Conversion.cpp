@@ -117,7 +117,7 @@ namespace sky::vk {
         return rate == rhi::VertexInputRate::PER_INSTANCE ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
     }
 
-    VmaMemoryUsage FromRHI(rhi::MemoryType type, rhi::ImageUsageFlags usage)
+    VmaMemoryUsage FromRHI(rhi::MemoryType type, const rhi::ImageUsageFlags& usage)
     {
         if (type == rhi::MemoryType::GPU_ONLY) {
             return (usage & rhi::ImageUsageFlagBit::TRANSIENT) ? VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED : VMA_MEMORY_USAGE_GPU_ONLY;
@@ -290,7 +290,7 @@ namespace sky::vk {
         return iter == blendFactorMap.end() ? VK_STENCIL_OP_KEEP : iter->second;
     }
 
-    VkShaderStageFlags FromRHI(rhi::ShaderStageFlags flags)
+    VkShaderStageFlags FromRHI(const rhi::ShaderStageFlags& flags)
     {
         VkShaderStageFlags res = {};
         static const std::unordered_map<rhi::ShaderStageFlagBit, VkShaderStageFlagBits> flagMap =
@@ -307,7 +307,7 @@ namespace sky::vk {
         return res;
     }
 
-    VkImageUsageFlags FromRHI(rhi::ImageUsageFlags flags)
+    VkImageUsageFlags FromRHI(const rhi::ImageUsageFlags& flags)
     {
         VkImageUsageFlags res = {};
         static const std::unordered_map<rhi::ImageUsageFlagBit, VkImageUsageFlagBits> usageMap = {
@@ -329,7 +329,7 @@ namespace sky::vk {
         return res;
     }
 
-    VkBufferUsageFlags FromRHI(rhi::BufferUsageFlags flags)
+    VkBufferUsageFlags FromRHI(const rhi::BufferUsageFlags& flags)
     {
         VkBufferUsageFlags res = {};
         static const std::unordered_map<rhi::BufferUsageFlagBit, VkBufferUsageFlagBits> usageMap = {
@@ -350,7 +350,7 @@ namespace sky::vk {
         return res;
     }
 
-    VkImageAspectFlags FromRHI(rhi::AspectFlags flags)
+    VkImageAspectFlags FromRHI(const rhi::AspectFlags& flags)
     {
         VkImageAspectFlags res = {};
         static const std::unordered_map<rhi::AspectFlagBit, VkImageAspectFlagBits> aspectMap = {
@@ -367,7 +367,7 @@ namespace sky::vk {
         return res;
     }
 
-    VkCullModeFlags FromRHI(rhi::CullingModeFlags flags)
+    VkCullModeFlags FromRHI(const rhi::CullingModeFlags& flags)
     {
         VkCullModeFlags ret = VK_CULL_MODE_NONE;
         if (flags & rhi::CullModeFlagBits::FRONT) {
@@ -379,29 +379,33 @@ namespace sky::vk {
         return ret;
     }
 
-    VkPipelineStageFlags FromRHI(const rhi::PipelineStageFlags flags)
+    static const std::unordered_map<rhi::PipelineStageBit, VkPipelineStageFlagBits> STAGE_FLAG_MAP = {
+        {rhi::PipelineStageBit::TOP            , VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT},
+        {rhi::PipelineStageBit::DRAW_INDIRECT  , VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
+        {rhi::PipelineStageBit::VERTEX_INPUT   , VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
+        {rhi::PipelineStageBit::VERTEX_SHADER  , VK_PIPELINE_STAGE_VERTEX_SHADER_BIT},
+        {rhi::PipelineStageBit::FRAGMENT_SHADER, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
+        {rhi::PipelineStageBit::EARLY_FRAGMENT , VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT},
+        {rhi::PipelineStageBit::LATE_FRAGMENT  , VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
+        {rhi::PipelineStageBit::COLOR_OUTPUT   , VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+        {rhi::PipelineStageBit::COMPUTE_SHADER , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
+        {rhi::PipelineStageBit::TRANSFER       , VK_PIPELINE_STAGE_TRANSFER_BIT},
+        {rhi::PipelineStageBit::BOTTOM         , VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT},
+    };
+    VkPipelineStageFlags FromRHI(const rhi::PipelineStageFlags& flags)
     {
         VkPipelineStageFlags res = {};
-        static const std::unordered_map<rhi::PipelineStageBit, VkPipelineStageFlagBits> STAGE_FLAG_MAP = {
-            {rhi::PipelineStageBit::TOP            , VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT},
-            {rhi::PipelineStageBit::DRAW_INDIRECT  , VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
-            {rhi::PipelineStageBit::VERTEX_INPUT   , VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
-            {rhi::PipelineStageBit::VERTEX_SHADER  , VK_PIPELINE_STAGE_VERTEX_SHADER_BIT},
-            {rhi::PipelineStageBit::FRAGMENT_SHADER, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
-            {rhi::PipelineStageBit::EARLY_FRAGMENT , VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT},
-            {rhi::PipelineStageBit::LATE_FRAGMENT  , VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
-            {rhi::PipelineStageBit::COLOR_OUTPUT   , VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-            {rhi::PipelineStageBit::COMPUTE_SHADER , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT},
-            {rhi::PipelineStageBit::TRANSFER       , VK_PIPELINE_STAGE_TRANSFER_BIT},
-            {rhi::PipelineStageBit::BOTTOM         , VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT},
-        };
-
         for (const auto &[bit, vkBit] : STAGE_FLAG_MAP) {
             if (flags & bit) {
                 res |= vkBit;
             }
         }
         return res;
+    }
+
+    VkPipelineStageFlagBits FromRHI(const rhi::PipelineStageBit& bit)
+    {
+        return STAGE_FLAG_MAP.at(bit);
     }
 
     VkStencilOpState FromRHI(const rhi::StencilState& stencil)
@@ -417,7 +421,7 @@ namespace sky::vk {
         return ret;
     }
 
-    VkDescriptorType FromRHI(const rhi::DescriptorType type)
+    VkDescriptorType FromRHI(rhi::DescriptorType type)
     {
         static const std::unordered_map<rhi::DescriptorType, VkDescriptorType> DESCRIPTOR_TYPE_MAP = {
             {rhi::DescriptorType::SAMPLER               , VK_DESCRIPTOR_TYPE_SAMPLER},
@@ -443,4 +447,28 @@ namespace sky::vk {
             res.layers
         };
     }
+
+    VkQueryType FromRHI(rhi::QueryType type)
+    {
+        switch (type) {
+        case rhi::QueryType::PIPELINE_STATISTICS: return VK_QUERY_TYPE_PIPELINE_STATISTICS;
+        case rhi::QueryType::TIME_STAMP: return VK_QUERY_TYPE_TIMESTAMP;
+        case rhi::QueryType::OCCLUSION: return VK_QUERY_TYPE_OCCLUSION;
+        default: return VK_QUERY_TYPE_MAX_ENUM;
+        }
+    }
+
+    VkQueryPipelineStatisticFlags FromRHI(const rhi::PipelineStatisticFlags& flags)
+    {
+        VkQueryPipelineStatisticFlags res = 0;
+        if (flags & rhi::PipelineStatisticFlagBits::IA_VERTICES) { res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::IA_PRIMITIVES) { res |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::VS_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::FS_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::CLIP_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::CLIP_PRIMITIVES) { res |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT;}
+        if (flags & rhi::PipelineStatisticFlagBits::CS_INVOCATIONS) { res |= VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;}
+        return res;
+    }
+
 }

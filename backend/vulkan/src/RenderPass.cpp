@@ -17,10 +17,6 @@ namespace sky::vk {
     {
     }
 
-    RenderPass::~RenderPass()
-    {
-    }
-
     bool RenderPass::Init(const Descriptor &des)
     {
         InitInputMap(des);
@@ -32,7 +28,7 @@ namespace sky::vk {
         attachments.reserve(des.attachments.size());
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t *>(des.attachments.data()),
                                        static_cast<uint32_t>(des.attachments.size() * sizeof(Attachment))));
-        for (auto &attachment : des.attachments) {
+        for (const auto &attachment : des.attachments) {
             attachments.emplace_back(VkAttachmentDescription2{});
             auto &vkAt          = attachments.back();
             vkAt.sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
@@ -46,9 +42,9 @@ namespace sky::vk {
             vkAt.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         }
 
-        for (auto &dep : des.dependencies) {
-            auto srcInfo = GetAccessInfo(dep.srcAccess, true);
-            auto dstInfo = GetAccessInfo(dep.dstAccess, true);
+        for (const auto &dep : des.dependencies) {
+            const auto &srcInfo = device.GetAccessInfo(dep.srcAccess);
+            const auto &dstInfo = device.GetAccessInfo(dep.dstAccess);
 
             dependencies.emplace_back(VkSubpassDependency2{});
             auto &vkDep           = dependencies.back();
@@ -63,7 +59,7 @@ namespace sky::vk {
         }
 
         auto refFn = [this](std::vector<VkAttachmentReference2>& references, const AttachmentRef &ref) {
-            auto accessInfo = GetAccessInfo(ref.access);
+            const auto &accessInfo = device.GetAccessInfo(ref.access);
 
             references.emplace_back(VkAttachmentReference2{});
             auto &vkRef = references.back();
@@ -82,38 +78,38 @@ namespace sky::vk {
         auto mvSupported = device.GetFeatures().multiView;
 
         subPasses.reserve(des.subPasses.size());
-        for (auto &subPass : des.subPasses) {
+        for (const auto &subPass : des.subPasses) {
             subpassReferences.emplace_back();
             subPasses.emplace_back(VkSubpassDescription2{});
 
             auto &references = subpassReferences.back();
             auto &vkSub = subPasses.back();
             vkSub.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-            uint32_t colorOffset = static_cast<uint32_t>(references.size());
-            for (auto &ref : subPass.colors) {
+            auto colorOffset = static_cast<uint32_t>(references.size());
+            for (const auto &ref : subPass.colors) {
                 refFn(references, ref);
             }
             vkSub.colorAttachmentCount = static_cast<uint32_t>(subPass.colors.size());
 
-            uint32_t resolveOffset = static_cast<uint32_t>(references.size());
-            for (auto &ref : subPass.resolves) {
+            auto resolveOffset = static_cast<uint32_t>(references.size());
+            for (const auto &ref : subPass.resolves) {
                 refFn(references, ref);
             }
 
-            uint32_t inputsOffset = static_cast<uint32_t>(references.size());
-            for (auto &ref : subPass.inputs) {
+            auto inputsOffset = static_cast<uint32_t>(references.size());
+            for (const auto &ref : subPass.inputs) {
                 refFn(references, ref);
             }
             vkSub.inputAttachmentCount = static_cast<uint32_t>(subPass.inputs.size());
 
             vkSub.preserveAttachmentCount = static_cast<uint32_t>(subPass.preserves.size());
 
-            uint32_t depthStencilOffset = static_cast<uint32_t>(references.size());
+            auto depthStencilOffset = static_cast<uint32_t>(references.size());
             if (subPass.depthStencil.index != ~(0U)) {
                 refFn(references, subPass.depthStencil);
             }
 
-            uint32_t dsResolveOffset = static_cast<uint32_t>(references.size());
+            auto dsResolveOffset = static_cast<uint32_t>(references.size());
             if (subPass.dsResolve.index != ~(0U)) {
                 refFn(references, subPass.dsResolve);
 
@@ -165,10 +161,7 @@ namespace sky::vk {
         passInfo.pCorrelatedViewMasks    = des.correlatedViewMasks.data();
 
         pass = device.GetRenderPass(hash, &passInfo);
-        if (pass == VK_NULL_HANDLE) {
-            return false;
-        }
-        return true;
+        return pass != VK_NULL_HANDLE;
     }
 
     bool RenderPass::Init(const VkDescriptor &des)

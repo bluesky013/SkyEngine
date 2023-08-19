@@ -3,26 +3,65 @@
 //
 
 #include <render/rdg/RenderGraphExecutor.h>
+#include <rhi/Decode.h>
 
 namespace sky::rdg {
 
-    void RenderGraphExecutor::FrontBarriers(Vertex u, const Graph& g)
+    void RenderGraphExecutor::Barriers(const PmrHashMap<VertexType, std::vector<GraphBarrier>>& barrierSet) const
     {
+        for (const auto &[first, second] : barrierSet) {
+            const auto resID = first;
+            const auto &barriers = second;
+            std::visit(Overloaded{
+                [&](const ImageTag &) {
+                    auto &image = graph.resourceGraph.images[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                            rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                                                                          barrier.range.layer, barrier.range.layers,
+                                                                                          rhi::GetAspectFlagsByFormat(image.desc.format)},
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+                },
+                [&](const ImportImageTag &) {
+                    auto &image = graph.resourceGraph.importImages[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                            rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                                                                          barrier.range.layer, barrier.range.layers,
+                                                                                          rhi::GetAspectFlagsByFormat(image.desc.image->GetDescriptor().format)},
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
+                },
+                [&](const BufferTag &) {
+                    auto &buffer = graph.resourceGraph.buffers[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
+                },
+                [&](const ImportBufferTag &) {
+                    auto &buffer = graph.resourceGraph.importBuffers[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+
+                },
+                [&](const auto &) {}
+            }, Tag(resID, graph.resourceGraph));
+        }
         graph.context->mainCommandBuffer->FlushBarriers();
     }
 
-    void RenderGraphExecutor::RearBarriers(Vertex u, const Graph& g)
-    {
-        graph.context->mainCommandBuffer->FlushBarriers();
-    }
-
-    void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g)
+    [[maybe_unused]] void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
             [&](const RasterPassTag &) {
                 auto &raster = graph.rasterPasses[Index(u, graph)];
-
-                FrontBarriers(u, g);
+                Barriers(raster.frontBarriers);
 
                 rhi::PassBeginInfo beginInfo = {};
                 beginInfo.frameBuffer = raster.frameBuffer;
@@ -34,35 +73,62 @@ namespace sky::rdg {
                 currentEncoder->BeginPass(beginInfo);
 
                 // queue
-
                 currentSubPassIndex = 0;
                 currentSubPassNum = beginInfo.renderPass->GetSubPassNum();
             },
             [&](const RasterSubPassTag &) {
                 auto &rasterSub = graph.subPasses[Index(u, graph)];
 
-                ++currentSubPassNum;
-                if (currentSubPassNum <  currentSubPassNum) {
+                ++currentSubPassIndex;
+                if (currentSubPassIndex < currentSubPassNum) {
                     currentEncoder->NextSubPass();
-                } else {
-                    currentEncoder->EndPass();
-                    RearBarriers(u, g);
                 }
             },
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
-                FrontBarriers(u, g);
-                RearBarriers(u, g);
+                Barriers(compute.frontBarriers);
             },
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
-                FrontBarriers(u, g);
-                RearBarriers(u, g);
+                Barriers(cb.frontBarriers);
             },
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
-                FrontBarriers(u, g);
-                RearBarriers(u, g);
+                Barriers(present.frontBarriers);
+            },
+            [&](const RasterSceneViewTag &) {
+                auto &view = graph.sceneViews[Index(u, graph)];
+
+//                currentEncoder->BindPipeline(nullptr);
+//                currentEncoder->BindSet(0, nullptr);
+//                currentEncoder->BindSet(1, nullptr);
+//                currentEncoder->BindSet(2, nullptr);
+//                currentEncoder->BindAssembly(nullptr);
+//                currentEncoder->DrawLinear({});
+            },
+            [&](const auto &) {}
+        }, Tag(u, graph));
+    }
+
+    [[maybe_unused]] void RenderGraphExecutor::finish_vertex(Vertex u, const Graph& g)
+    {
+        std::visit(Overloaded{
+            [&](const RasterPassTag &) {
+                auto &raster = graph.rasterPasses[Index(u, graph)];
+                currentEncoder->EndPass();
+                Barriers(raster.rearBarriers);
+            },
+            [&](const ComputePassTag &) {
+                auto &compute = graph.computePasses[Index(u, graph)];
+                Barriers(compute.rearBarriers);
+            },
+            [&](const CopyBlitTag &) {
+                auto &cb = graph.copyBlitPasses[Index(u, graph)];
+                Barriers(cb.rearBarriers);
+            },
+            [&](const PresentTag &) {
+                auto &present = graph.presentPasses[Index(u, graph)];
+                Barriers(present.rearBarriers);
             },
             [&](const auto &) {}
         }, Tag(u, graph));

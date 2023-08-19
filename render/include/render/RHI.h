@@ -14,7 +14,7 @@ namespace sky {
     class RHI : public Singleton<RHI> {
     public:
         RHI() = default;
-        ~RHI();
+        ~RHI() override;
 
         void InitInstance(const rhi::Instance::Descriptor &desc);
         void InitDevice(const rhi::Device::Descriptor &desc);
@@ -25,4 +25,4 @@ namespace sky {
         rhi::Instance *instance = nullptr;
         std::unique_ptr<rhi::Device> device;
     };
-}
+} // namespace sky

@@ -28,6 +28,8 @@ namespace sky::vk {
 
         VkInstance               instance;
         VkDebugUtilsMessengerEXT debug;
+        uint32_t majorVersion = 1;
+        uint32_t minorVersion = 0;
     };
 
 } // namespace sky::vk

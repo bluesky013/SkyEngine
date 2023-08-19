@@ -3,8 +3,9 @@
 //
 
 #include <render/rdg/RenderGraph.h>
-#include <render/rdg/RenderGraphVisitors.h>
+#include <rhi/Decode.h>
 #include <sstream>
+#include <render/rdg/AccessUtils.h>
 
 namespace sky::rdg {
 
@@ -91,15 +92,6 @@ namespace sky::rdg {
         return RasterPassBuilder{*this, rasterPasses[polymorphicDatas[vtx]], vtx};
     }
 
-    RasterSubPassBuilder RenderGraph::AddRasterSubPass(const char *name, const char *pass)
-    {
-        auto src = FindVertex(pass, *this);
-        SKY_ASSERT(src != INVALID_VERTEX);
-        auto dst = AddVertex(name, RasterSubPass{&context->resources}, *this);
-        add_edge(src, dst, graph);
-        return RasterSubPassBuilder{*this, rasterPasses[polymorphicDatas[src]], subPasses[polymorphicDatas[dst]], dst};
-    }
-
     ComputePassBuilder RenderGraph::AddComputePass(const char *name)
     {
         auto vtx = AddVertex(name, ComputePass{&context->resources}, *this);
@@ -122,76 +114,176 @@ namespace sky::rdg {
     {
     }
 
-    static std::string GetRefNodeName(const char *resName, const char *passName, uint32_t refId)
+    bool RenderGraph::CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange)
     {
-        std::stringstream ss;
-        ss << passName << '/' << resName << '[' << refId << ']';
-        return ss.str();
+        auto write = deps.access & ResourceAccessBit::WRITE;
+        const auto accessFlag = GetAccessFlags(deps);
+        for (auto i = subRange.base; i < subRange.range; ++i) {
+            for (auto j = subRange.layer; j < subRange.layers; ++j) {
+                if (lastAccess.accesses[i * subRange.layers + j] != accessFlag) {
+                    return true;
+                }
+            }
+        }
+
+        return static_cast<bool>(write);
     }
 
-    void RenderGraph::AddDependency(const char *name, VertexType passId, const AccessEdge &edge)
+    void RenderGraph::FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const
     {
-        auto res = FindVertex(name, resourceGraph);
+        const auto sourceRange = GetAccessRange(*this, res.resID);
+        for (auto i = 0U; i < subRange.range; ++i) {
+            const auto mip = subRange.base + i;
+            for (auto j = 0U; j < subRange.layers; ++j) {
+                const auto layer = subRange.layer + j;
+                res.accesses[mip * sourceRange.layers + layer] = accessFlag;
+            }
+        }
+    }
+
+    AccessRes RenderGraph::GetMergedAccessRes(const AccessRes &lastAccess,
+                                              const rhi::AccessFlags& accessFlag,
+                                              const AccessRange &subRange,
+                                              VertexType passAccessID,
+                                              VertexType nextAccessResID) const
+    {
+        AccessRes res = {lastAccess.resID, passAccessID, nextAccessResID, subRange, lastAccess.accesses};
+        FillAccessFlag(res, subRange, accessFlag);
+        return res;
+    }
+
+    void RenderGraph::AddDependency(VertexType resID, VertexType passId, const DependencyInfo &deps)
+    {
+        VertexType sourceID = Source(resID, resourceGraph);
+        auto passAccessID = accessNodes[passId];
+        auto &resAccessID = resourceGraph.lastAccesses[sourceID];
+        auto subRange = GetAccessRange(*this, resID);
+
+        if (resAccessID == INVALID_VERTEX) {
+            const auto sourceRange = GetAccessRange(*this, sourceID);
+            resAccessID = AddVertex(AccessRes{sourceID, 0, INVALID_VERTEX, sourceRange}, accessGraph);
+            add_edge(0, resAccessID, accessGraph.graph);
+            accessGraph.resources[Index(resAccessID, accessGraph)].accesses.resize(sourceRange.range * sourceRange.layers, rhi::AccessFlagBit::NONE);
+        }
+        auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
+
+        auto write = deps.access & ResourceAccessBit::WRITE;
+        bool crossPass = lastAccessRes.inAccessPassID != passAccessID;
+        auto versionChanged = CheckVersionChanged(lastAccessRes, deps, subRange) && crossPass;
+
+        const auto accessFlag = GetAccessFlags(deps);
+        if (versionChanged) {
+            {
+                add_edge(resAccessID, passAccessID, accessGraph.graph);
+            }
+
+            const auto lastAccessID = resAccessID;
+            resAccessID = AddVertex(GetMergedAccessRes(lastAccessRes, accessFlag, subRange, passAccessID, INVALID_VERTEX), accessGraph);
+            accessGraph.resources[Index(lastAccessID, accessGraph)].nextAccessResID = resAccessID;
+            {
+                add_edge(passAccessID, resAccessID, accessGraph.graph);
+            }
+        } else {
+            MergeSubRange(lastAccessRes.subRange, subRange);
+            FillAccessFlag(lastAccessRes, subRange, accessFlag);
+            if (!write) {
+                add_edge(resAccessID, passAccessID, accessGraph.graph);
+            }
+        }
+    }
+
+    RasterPassBuilder &RasterPassBuilder::AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear)
+    {
+        auto res = FindVertex(attachment.name.c_str(), rdg.resourceGraph);
         SKY_ASSERT(res != INVALID_VERTEX);
 
-        auto read = edge.access & ResourceAccessBit::READ;
-        auto write = edge.access & ResourceAccessBit::WRITE;
-
-        auto &lastAccess = resourceGraph.lastAccesses[res];
-        auto lastResAccessID = lastAccess;
-        auto passAccessID = accessNodes[passId];
-
-        if (read && lastResAccessID == INVALID_VERTEX) {
-            lastAccess = AddVertex(AccessRes{res}, accessGraph);
-        }
-
-        if (read || lastResAccessID != INVALID_VERTEX) {
-            auto [ed, sec] = add_edge(lastAccess, passAccessID, accessGraph.graph);
-            accessGraph.graph[ed] = edge;
-        }
-
-        if (write) {
-            lastAccess = AddVertex(AccessRes{res}, accessGraph);
-            auto [ed, sec] = add_edge(passAccessID, lastAccess, accessGraph.graph);
-            accessGraph.graph[ed] = edge;
-        }
-    }
-
-    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const RasterAttachment &view)
-    {
-        subPass.colors.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::COLOR, view.access});
-    }
-
-    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const RasterAttachment &view)
-    {
-        subPass.resolves.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::RESOLVE, view.access});
-    }
-
-    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const RasterAttachment &view)
-    {
-        subPass.inputs.emplace_back(view);
-        return AddRasterView(view.name, RasterView{RasterTypeBit::INPUT, view.access});
-    }
-
-    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const RasterAttachment &view)
-    {
-        subPass.depthStencil = view;
-        return AddRasterView(view.name, RasterView{RasterTypeBit::DEPTH_STENCIL, view.access});
-    }
-
-    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, const RasterView &view)
-    {
-        subPass.rasterViews.emplace(name, view);
-        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, {}});
+        pass.attachmentVertex.emplace_back(res);
+        pass.attachments.emplace_back(attachment);
+        pass.clearValues.emplace_back(clear);
         return *this;
+    }
+
+    RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const std::string &name)
+    {
+        auto dst = AddVertex(name.c_str(), RasterSubPass{&rdg.context->resources}, rdg);
+        add_edge(vertex, dst, rdg.graph);
+        auto &rasterPass = rdg.rasterPasses[rdg.polymorphicDatas[vertex]];
+        auto &subPass = rdg.subPasses[rdg.polymorphicDatas[dst]];
+        subPass.parent = vertex;
+        subPass.subPassID = static_cast<uint32_t>(rasterPass.subPasses.size());
+        rasterPass.subPasses.emplace_back(dst);
+        return RasterSubPassBuilder{rdg, rasterPass, subPass, dst};
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, const ResourceAccess& access)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.colors.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::COLOR, access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const std::string &name, const ResourceAccess& access)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.resolves.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::RESOLVE, access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const std::string &name, const ResourceAccess& access)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.inputs.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT, access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColorInOut(const std::string &name)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.inputs.emplace_back(RasterAttachmentRef{name, ResourceAccessBit::READ_WRITE, attachmentIndex});
+        subPass.colors.emplace_back(RasterAttachmentRef{name, ResourceAccessBit::READ_WRITE, attachmentIndex});
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT | RasterTypeBit::COLOR, ResourceAccessBit::READ_WRITE});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, const ResourceAccess& access)
+    {
+        uint32_t attachmentIndex = GetAttachmentIndex(name);
+        subPass.depthStencil = RasterAttachmentRef{name, access, attachmentIndex};
+        return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::DEPTH_STENCIL, access});
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
+    {
+        SKY_ASSERT(subPass.rasterViews.emplace(name, view).second);
+        rdg.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
+        return *this;
+    }
+
+    uint32_t RasterSubPassBuilder::GetAttachmentIndex(const std::string &name)
+    {
+        auto iter = std::find_if(pass.attachments.begin(), pass.attachments.end(), [&name](const RasterAttachment &attachment){
+            return name == attachment.name;
+        });
+        SKY_ASSERT(iter != pass.attachments.end());
+        return static_cast<uint32_t>(std::distance(pass.attachments.begin(), iter));
     }
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const std::string &name, const ComputeView &view)
     {
+        auto res = FindVertex(name.c_str(), rdg.resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
         subPass.computeViews.emplace(name, view);
-        graph.AddDependency(name.c_str(), vertex, AccessEdge{view.type, view.access, view.visibility});
+        rdg.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
+        return *this;
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const ViewPtr &sceneView)
+    {
+        auto rsv = RasterSceneView(&rdg.context->resources);
+        rsv.sceneView = sceneView;
+
+        auto dst = AddVertex(name.c_str(), rsv, rdg);
+        add_edge(vertex, dst, rdg.graph);
         return *this;
     }
 }

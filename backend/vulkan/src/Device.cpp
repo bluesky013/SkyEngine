@@ -259,8 +259,11 @@ namespace sky::vk {
             queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
             queues[i]->StartThread();
         }
-        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
-        transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, 0);
+        graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0);
+        transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
+        if (transferQueue == nullptr) {
+            transferQueue = graphicsQueue;
+        }
 
         // update barrier map
         ValidateAccessInfoMapByExtension(supportedExtensions);
@@ -393,6 +396,13 @@ namespace sky::vk {
         });
     }
 
+    const AccessInfo &Device::GetAccessInfo(const rhi::AccessFlags& flags)
+    {
+        return accessInfos.FindOrEmplaceRef(flags.value, [&flags]() {
+            return vk::GetAccessInfo(flags);
+        });
+    }
+
     const VkPhysicalDeviceProperties &Device::GetProperties() const
     {
         return phyProps.properties;
@@ -462,6 +472,30 @@ namespace sky::vk {
     void Device::SetupDefaultResources()
     {
         defaultSampler = CreateDeviceObject<Sampler>(Sampler::VkDescriptor{});
+    }
+
+    uint32_t Device::CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res)
+    {
+        static constexpr rhi::PipelineStatisticFlagBits supportedFlags[] = {
+            rhi::PipelineStatisticFlagBits::IA_VERTICES,
+            rhi::PipelineStatisticFlagBits::IA_PRIMITIVES,
+            rhi::PipelineStatisticFlagBits::VS_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CLIP_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CLIP_PRIMITIVES,
+            rhi::PipelineStatisticFlagBits::FS_INVOCATIONS,
+            rhi::PipelineStatisticFlagBits::CS_INVOCATIONS,
+        };
+
+        uint32_t count = 0;
+        res = rhi::PipelineStatisticFlags {0};
+
+        for (auto &support : supportedFlags) {
+            if (val & support) {
+                res |= support;
+                ++count;
+            }
+        }
+        return count;
     }
 
 } // namespace sky::vk

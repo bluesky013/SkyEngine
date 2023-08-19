@@ -250,41 +250,63 @@ namespace sky::rhi {
         SECONDARY_COMMAND_BUFFERS = 1,
     };
 
-    enum class AccessFlag : uint32_t {
-        NONE = 0x00,
-        INDIRECT_BUFFER,
-        INDEX_BUFFER,
-        VERTEX_BUFFER,
-        VERTEX_CBV,
-        VERTEX_SRV,
-        VERTEX_UAV_READ,
-        VERTEX_UAV_WRITE,
-        FRAGMENT_CBV,
-        FRAGMENT_SRV,
-        FRAGMENT_UAV_READ,
-        FRAGMENT_UAV_WRITE,
-        COMPUTE_CBV,
-        COMPUTE_SRV,
-        COMPUTE_UAV_READ,
-        COMPUTE_UAV_WRITE,
-        SHADING_RATE,
-        COLOR_INPUT,
-        DEPTH_STENCIL_INPUT,
-        COLOR_INOUT_READ,
-        COLOR_INOUT_WRITE,
-        DEPTH_STENCIL_INOUT_READ,
-        DEPTH_STENCIL_INOUT_WRITE,
-        COLOR_READ,
-        COLOR_WRITE,
-        DEPTH_STENCIL_READ,
-        DEPTH_STENCIL_WRITE,
-        TRANSFER_READ,
-        TRANSFER_WRITE,
-        PRESENT,
+    enum class ImageLayout : uint32_t {
+        UNDEFINED,
         GENERAL,
+        COLOR_ATTACHMENT,
+        DEPTH_STENCIL_ATTACHMENT,
+        DEPTH_STENCIL_READ_ONLY,
+        SHADER_READ_ONLY,
+        TRANSFER_SRC,
+        TRANSFER_DST,
+        PRESENT,
+        FRAGMENT_SHADING_RATE_ATTACHMENT,
+        FEEDBACK_LOOP
+    };
+
+    enum class QueryType : uint32_t {
+        PIPELINE_STATISTICS = 0,
+        TIME_STAMP,
+        OCCLUSION,
     };
 
     // flag bit
+    enum class AccessFlagBit : uint64_t {
+        NONE                       = 0x00000000,
+        INDIRECT_BUFFER            = 0x00000001,
+        INDEX_BUFFER               = 0x00000002,
+        VERTEX_BUFFER              = 0x00000004,
+        VERTEX_CBV                 = 0x00000008,
+        VERTEX_SRV                 = 0x00000010,
+        VERTEX_UAV_READ            = 0x00000020,
+        VERTEX_UAV_WRITE           = 0x00000040,
+        FRAGMENT_CBV               = 0x00000080,
+        FRAGMENT_SRV               = 0x00000100,
+        FRAGMENT_UAV_READ          = 0x00000200,
+        FRAGMENT_UAV_WRITE         = 0x00000400,
+        COMPUTE_CBV                = 0x00000800,
+        COMPUTE_SRV                = 0x00001000,
+        COMPUTE_UAV_READ           = 0x00002000,
+        COMPUTE_UAV_WRITE          = 0x00004000,
+        SHADING_RATE               = 0x00008000,
+        COLOR_INPUT                = 0x00010000,
+        DEPTH_STENCIL_INPUT        = 0x00020000,
+        COLOR_INOUT_READ           = 0x00040000,
+        COLOR_INOUT_WRITE          = 0x00080000,
+        DEPTH_STENCIL_INOUT_READ   = 0x00100000,
+        DEPTH_STENCIL_INOUT_WRITE  = 0x00200000,
+        COLOR_READ                 = 0x00400000,
+        COLOR_WRITE                = 0x00800000,
+        DEPTH_STENCIL_READ         = 0x01000000,
+        DEPTH_STENCIL_WRITE        = 0x02000000,
+        TRANSFER_READ              = 0x04000000,
+        TRANSFER_WRITE             = 0x08000000,
+        PRESENT                    = 0x10000000,
+        GENERAL                    = 0x20000000,
+    };
+    using AccessFlags = Flags<AccessFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(AccessFlagBit)
+
     enum class ImageUsageFlagBit : uint32_t {
         NONE             = 0x00000000,
         TRANSFER_SRC     = 0x00000001,
@@ -359,6 +381,19 @@ namespace sky::rhi {
     };
     using DescriptorBindFlags = Flags<DescriptorBindFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(DescriptorBindFlagBit)
+
+    enum class PipelineStatisticFlagBits : uint32_t {
+        IA_VERTICES      = 0x00000001,
+        IA_PRIMITIVES    = 0x00000002,
+        VS_INVOCATIONS   = 0x00000004,
+        CLIP_INVOCATIONS = 0x00000008,
+        CLIP_PRIMITIVES  = 0x00000010,
+        FS_INVOCATIONS   = 0x00000020,
+        CS_INVOCATIONS   = 0x00000040,
+        ALL = IA_VERTICES | IA_PRIMITIVES | VS_INVOCATIONS | CLIP_INVOCATIONS | CLIP_PRIMITIVES | FS_INVOCATIONS | CS_INVOCATIONS
+    };
+    using PipelineStatisticFlags = Flags<PipelineStatisticFlagBits>;
+    ENABLE_FLAG_BIT_OPERATOR(PipelineStatisticFlagBits)
 
     // structs
     struct Offset2D {
@@ -574,4 +609,14 @@ namespace sky::rhi {
         uint64_t range  = 0;
         PixelFormat format = PixelFormat::UNDEFINED;
     };
-} // namespace sky
+
+    struct PipelineStatisticData {
+        uint64_t iaVertices      = 0;
+        uint64_t iaPrimitives    = 0;
+        uint64_t vsInvocations   = 0;
+        uint64_t clipInvocations = 0;
+        uint64_t clipPrimitives  = 0;
+        uint64_t fsInvocations   = 0;
+        uint64_t csInvocations   = 0;
+    };
+}; // namespace sky

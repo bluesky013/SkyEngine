@@ -11,17 +11,22 @@
 namespace sky::rdg {
 
     struct RenderResourceCompiler : boost::dfs_visitor<> {
-        RenderResourceCompiler(RenderGraph &g) : rdg(g) {}
+        explicit RenderResourceCompiler(RenderGraph &g) : rdg(g) {}
 
-        using Vertex = boost::graph_traits<AccessGraph::Graph>::vertex_descriptor;
-        using Graph = AccessGraph::Graph;
+        using Vertex = boost::graph_traits<RenderGraph::Graph>::vertex_descriptor;
+        using Graph = RenderGraph::Graph;
 
         void discover_vertex(Vertex u, const Graph& g);
 
         RenderGraph &rdg;
 
     protected:
-        void MountResource(Vertex u, ResourceGraph::vertex_descriptor res);
-    };
+        void Compile(Vertex u, RasterPass &pass);
+        void Compile(Vertex u, RasterSubPass &pass);
+        void Compile(Vertex u, ComputePass &pass);
+        void Compile(Vertex u, CopyBlitPass &pass);
 
+        void MountResource(Vertex u, ResourceGraph::vertex_descriptor res);
+        void CreateRenderPassAndFramebuffer(Vertex u, RasterPass &rasterPass);
+    };
 } // namespace sky::rdg

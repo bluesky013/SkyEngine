@@ -12,14 +12,13 @@ namespace sky::vk {
 
     class Device;
 
-    template <typename T>
+    template <typename T, typename Key>
     class CacheManager {
     public:
         CacheManager() = default;
+        ~CacheManager() = default;
 
-        ~CacheManager()
-        {
-        }
+        using KeyType = Key;
 
         void Shutdown()
         {
@@ -31,7 +30,7 @@ namespace sky::vk {
             }
         }
 
-        T Find(uint32_t key)
+        T Find(KeyType key)
         {
             std::lock_guard<std::mutex> lock(mutex);
             auto                        iter = caches.find(key);
@@ -42,7 +41,7 @@ namespace sky::vk {
         }
 
         template <typename CreateFn>
-        T FindOrEmplace(uint32_t key, CreateFn &&fn)
+        T FindOrEmplace(KeyType key, CreateFn &&fn)
         {
             std::lock_guard<std::mutex> lock(mutex);
             auto                        iter = caches.find(key);
@@ -57,15 +56,27 @@ namespace sky::vk {
             return handle;
         }
 
+        template <typename CreateFn>
+        const T& FindOrEmplaceRef(KeyType key, CreateFn &&fn)
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            auto                        iter = caches.find(key);
+            if (iter != caches.end()) {
+                return iter->second;
+            }
+
+            return caches.emplace(key, fn()).first->second;
+        }
+
         template <typename DeleteFn>
         void SetUp(DeleteFn &&fn)
         {
-            deleteFn = std::move(fn);
+            deleteFn = std::forward<DeleteFn>(fn);
         }
 
     private:
         std::mutex                      mutex;
-        std::unordered_map<uint32_t, T> caches;
+        std::unordered_map<KeyType, T> caches;
         std::function<void(T &)>        deleteFn;
     };
 

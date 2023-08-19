@@ -14,7 +14,7 @@ namespace sky {
     class CameraComponent : public Component {
     public:
         CameraComponent()  = default;
-        ~CameraComponent() = default;
+        ~CameraComponent() override = default;
 
         TYPE_RTTI_WITH_VT(CameraComponent)
 
@@ -23,8 +23,6 @@ namespace sky {
         void Perspective(float near, float far, float fov, float aspect);
 
         void Otho(float height);
-
-        void UpdateProjection();
 
         void OnTick(float time) override;
 
@@ -42,7 +40,6 @@ namespace sky {
         float aspect = 1.f;
         float othoH  = 1.f;
         ProjectType type;
-        Matrix4    projection;
     };
 
 } // namespace sky

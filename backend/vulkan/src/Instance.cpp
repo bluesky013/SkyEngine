@@ -111,8 +111,11 @@ namespace sky::vk {
     bool Instance::Init(const Descriptor &des)
     {
         uint32_t version = 0;
-        VkResult result = vkEnumerateInstanceVersion(&version);
-        LOG_I(TAG, "Vulkan Core apiVersion %u.%u.%u", SKY_VK_API_VERSION_MAJOR(version), SKY_VK_API_VERSION_MINOR(version),  SKY_VK_API_VERSION_PATCH(version));
+        vkEnumerateInstanceVersion(&version);
+        majorVersion = SKY_VK_API_VERSION_MAJOR(version);
+        minorVersion = SKY_VK_API_VERSION_MINOR(version);
+
+        LOG_I(TAG, "Vulkan Core apiVersion %u.%u.%u", majorVersion, minorVersion,  SKY_VK_API_VERSION_PATCH(version));
 
         VkApplicationInfo app  = {};
         app.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -154,7 +157,7 @@ namespace sky::vk {
             CreateDebugUtilsMessengerEXT(instance, &debugInfo, VKL_ALLOC, &debug);
         }
 
-        LoadInstance(instance);
+        LoadInstance(instance, minorVersion);
         PrintSupportedExtensions();
         return true;
     }

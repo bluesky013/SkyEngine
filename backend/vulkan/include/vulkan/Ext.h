@@ -14,5 +14,5 @@ extern PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentS
 extern PFN_vkCmdBlitImage2KHR CmdBlitImage2;
 extern PFN_vkCmdResolveImage2KHR CmdResolveImage2;
 
-void LoadInstance(VkInstance instance);
+void LoadInstance(VkInstance instance, uint32_t minorVersion);
 void LoadDevice(VkDevice device);

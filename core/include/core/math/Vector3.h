@@ -19,9 +19,9 @@ namespace sky {
             };
         };
 
-        inline Vector3();
-        inline explicit Vector3(float v);
-        inline Vector3(float x_, float y_, float z_);
+        inline constexpr Vector3();
+        inline constexpr explicit Vector3(float v);
+        inline constexpr Vector3(float x_, float y_, float z_);
 
         inline Vector3 Cross(const Vector3 &rhs) const;
         inline float Dot(const Vector3 &rhs) const;
@@ -48,6 +48,14 @@ namespace sky {
         inline float &operator[](uint32_t i);
         inline float operator[](uint32_t i) const;
     };
-}
+} // namespace sky
 
 #include "core/math/Vector3.inl"
+
+namespace sky {
+    static constexpr Vector3 VEC3_ZERO = Vector3();
+    static constexpr Vector3 VEC3_ONE = Vector3(1, 1, 1);
+    static constexpr Vector3 VEC3_X = Vector3(1, 0, 0);
+    static constexpr Vector3 VEC3_Y = Vector3(0, 1, 0);
+    static constexpr Vector3 VEC3_Z = Vector3(0, 0, 1);
+} // namespace sky

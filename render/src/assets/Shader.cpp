@@ -24,7 +24,7 @@ namespace sky {
     void ShaderVariantData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(gles);
-        uint32_t spvSize = static_cast<uint32_t>(spv.size() * sizeof(uint32_t));
+        auto spvSize = static_cast<uint32_t>(spv.size() * sizeof(uint32_t));
         archive.SaveValue(spvSize);
         archive.SaveValue(reinterpret_cast<const char*>(spv.data()), spvSize);
     }

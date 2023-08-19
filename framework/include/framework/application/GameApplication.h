@@ -12,7 +12,7 @@ namespace sky {
     class GameApplication : public Application {
     public:
         GameApplication() = default;
-        ~GameApplication() = default;
+        ~GameApplication() override = default;
 
         bool Init(StartInfo &) override;
         void Shutdown() override;

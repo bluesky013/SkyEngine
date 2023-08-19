@@ -16,26 +16,32 @@
 namespace sky::rdg {
     struct RenderGraph;
 
-    struct RasterPassBuilder {
-        RenderGraph &graph;
-        RasterPass &pass;
-        VertexType vertex;
-    };
-
     struct RasterSubPassBuilder {
-        RasterSubPassBuilder &AddColor(const RasterAttachment &view);
-        RasterSubPassBuilder &AddResolve(const RasterAttachment &view);
-        RasterSubPassBuilder &AddInput(const RasterAttachment &view);
-        RasterSubPassBuilder &AddDepthStencil(const RasterAttachment &view);
+        RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddResolve(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddInput(const std::string &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddColorInOut(const std::string &name);
+        RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        RasterSubPassBuilder &AddSceneView(const std::string &name, const ViewPtr &sceneView);
+        uint32_t GetAttachmentIndex(const std::string &name);
 
-        RenderGraph &graph;
+        RenderGraph &rdg;
         RasterPass &pass;
         RasterSubPass &subPass;
         VertexType vertex;
 
     protected:
-        RasterSubPassBuilder &AddRasterView(const std::string &name, const RasterView &view);
+        RasterSubPassBuilder &AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view);
+    };
+
+    struct RasterPassBuilder {
+        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
+        RasterSubPassBuilder AddRasterSubPass(const std::string &name);
+
+        RenderGraph &rdg;
+        RasterPass &pass;
+        VertexType vertex;
     };
 
     struct ComputePassBuilder {
@@ -52,30 +58,11 @@ namespace sky::rdg {
         VertexType vertex;
     };
 
-    // component visitors
-    template <typename V, typename G>
-    PmrString &Name(V v, G &g)
-    {
-        return g.names[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
-    template <typename V, typename G>
-    const typename G::Tag &Tag(V v, const G &g)
-    {
-        return g.tags[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
-    template <typename V, typename G>
-    size_t Index(V v, G &g)
-    {
-        return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
     struct AccessGraph {
         explicit AccessGraph(RenderGraphContext *ctx);
         ~AccessGraph() = default;
 
-        using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, boost::no_property, AccessEdge>;
+        using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS, boost::no_property>;
         using vertex_descriptor = VertexType;
         using Tag = AccessGraphTags;
 
@@ -145,10 +132,17 @@ namespace sky::rdg {
         using Tag = RenderGraphTags;
 
         RasterPassBuilder    AddRasterPass(const char *name, uint32_t width, uint32_t height);
-        RasterSubPassBuilder AddRasterSubPass(const char *name, const char *pass);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
-        void AddDependency(const char *name, VertexType passId, const AccessEdge &edge);
+        void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
+
+        static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
+        void FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const;
+        AccessRes GetMergedAccessRes(const AccessRes &lastAccess,
+                                       const rhi::AccessFlags& accessFlag,
+                                       const AccessRange &subRange,
+                                       VertexType passAccessID,
+                                       VertexType nextAccessResID) const;
 
         // memory
         RenderGraphContext *context;
@@ -163,8 +157,10 @@ namespace sky::rdg {
         PmrVector<size_t>     polymorphicDatas;
 
         // passes
-        PmrVector<RasterPass>    rasterPasses;
-        PmrVector<RasterSubPass> subPasses;
+        PmrVector<RasterPass>      rasterPasses;
+        PmrVector<RasterSubPass>   subPasses;
+        PmrVector<RasterSceneView> sceneViews;
+
         PmrVector<ComputePass>   computePasses;
         PmrVector<CopyBlitPass>  copyBlitPasses;
         PmrVector<PresentPass>   presentPasses;
@@ -261,6 +257,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
             graph.presentPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, RasterSceneViewTag>) {
+            graph.polymorphicDatas.emplace_back(graph.sceneViews.size());
+            graph.sceneViews.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }
@@ -272,5 +271,30 @@ namespace sky::rdg {
     {
         auto iter = std::find(g.names.begin(), g.names.end(), name);
         return iter == g.names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(g.names.begin(), iter));
+    }
+
+    // component visitors
+    template <typename V, typename G>
+    PmrString &Name(V v, G &g)
+    {
+        return g.names[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    const typename G::Tag &Tag(V v, const G &g)
+    {
+        return g.tags[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    size_t Index(V v, G &g)
+    {
+        return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
+    }
+
+    template <typename V, typename G>
+    VertexType Source(V v, G &g)
+    {
+        return g.sources[static_cast<typename G::vertex_descriptor>(v)];
     }
 } // namespace sky

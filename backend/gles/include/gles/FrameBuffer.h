@@ -8,32 +8,29 @@
 #include <gles/DevObject.h>
 #include <gles/ImageView.h>
 #include <gles/RenderPass.h>
+#include <gles/FrameBufferObject.h>
 
 namespace sky::gles {
+    class Context;
 
     class FrameBuffer : public rhi::FrameBuffer, public DevObject {
     public:
         FrameBuffer(Device &dev) : DevObject(dev) {}
         ~FrameBuffer();
 
-        bool Init(const Descriptor &desc);
-        GLuint AcquireNativeHandle(uint32_t queueIndex);
-        const ImageViewPtr &GetAttachment(uint32_t index) const { return attachments[index]; }
-        uint32_t GetColorIndex(uint32_t attachmentIndex) const { return renderPass->GetAttachmentColorMap()[attachmentIndex]; }
+        bool Init(const Descriptor &fbDesc);
+        FramebufferObject *GetFbo() const;
 
-        std::vector<std::pair<uint32_t, uint32_t>> GetBlitPairs() const { return blitPairs; }
-        const SurfacePtr &GetSurface() const { return surface; }
-
+        bool NeedResolve() const;
+        void DoResolve(Context &context, uint32_t queueIndex) const;
     private:
-        void InitInternal(GLuint fbo);
-
         RenderPassPtr renderPass;
         std::vector<ImageViewPtr> attachments;
-        std::vector<std::pair<uint32_t, uint32_t>> blitPairs;
+        std::vector<std::pair<uint32_t, uint32_t>> colorBlitPairs;
+        GLbitfield dsResolveMask = 0;
 
-        SurfacePtr surface;
-        // OpenGL-ES explicitly disallows sharing of fbo objects
-        std::vector<GLuint> objects;
+        std::unique_ptr<FramebufferObject> framebuffer;
+        std::unique_ptr<FramebufferObject> resolveFramebuffer;
     };
     using FrameBufferPtr = std::shared_ptr<FrameBuffer>;
 

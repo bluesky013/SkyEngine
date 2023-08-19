@@ -190,11 +190,11 @@ namespace sky::vk {
         LOG_I(TAG, "create swapChain format-%d width-%u, height-%u, imageCount-%u", format.format, extent.width, extent.height, imageCount);
 
         std::vector<VkImage> vImages;
-        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, nullptr);
-        vImages.resize(num);
-        images.resize(num);
-        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &num, vImages.data());
-        for (uint32_t i = 0; i < num; ++i) {
+        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &imageCount, nullptr);
+        vImages.resize(imageCount);
+        images.resize(imageCount);
+        vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &imageCount, vImages.data());
+        for (uint32_t i = 0; i < imageCount; ++i) {
             images[i]            = std::shared_ptr<Image>(new Image(device, vImages[i]));
             images[i]->imageInfo = imageInfo;
         }

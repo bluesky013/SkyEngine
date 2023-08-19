@@ -36,25 +36,12 @@ namespace sky {
         fov    = fov_;
         aspect = aspect_;
         type   = ProjectType::PROJECTIVE;
-        UpdateProjection();
     }
 
     void CameraComponent::Otho(float height)
     {
         othoH = height;
         type   = ProjectType::ORTHOGONAL;
-        UpdateProjection();
-    }
-
-    void CameraComponent::UpdateProjection()
-    {
-        if (type == ProjectType::PROJECTIVE) {
-            projection = MakePerspective(fov / 180.f * 3.14f, aspect, near, far);
-        } else {
-            const float x = othoH * aspect;
-            const float y = othoH;
-            projection = MakeOrthogonal(-x, x, y, -y, near, far);
-        }
     }
 
     void CameraComponent::OnTick(float time)

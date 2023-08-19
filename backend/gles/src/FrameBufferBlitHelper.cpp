@@ -77,17 +77,7 @@ namespace sky::gles {
 
     void FrameBufferBlitHelper::Blit(const rhi::Extent2D &ext)
     {
-        if (mask & GL_COLOR_BUFFER_BIT) {
-            CHECK(glReadBuffer(srcAttachment));
-            CHECK(glDrawBuffers(1, &dstAttachment));
-        }
-
-        CHECK(glBlitFramebuffer(
-            0, 0, ext.width, ext.height,
-            0, 0, ext.width, ext.height,
-            mask, blitFilter));
-
-        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        Blit(ext, ext);
     }
 
     void FrameBufferBlitHelper::Blit(const rhi::Extent2D &src, const rhi::Extent2D &dst)
@@ -101,7 +91,6 @@ namespace sky::gles {
             0, 0, src.width, src.height,
             0, 0, dst.width, dst.height,
             mask, blitFilter));
-        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
 } // namespace sky::gles

@@ -19,6 +19,7 @@
 #include <vulkan/VertexInput.h>
 #include <vulkan/Semaphore.h>
 #include <vulkan/DescriptorSetPool.h>
+#include <vulkan/QueryPool.h>
 #include <vulkan/vulkan.h>
 
 namespace sky::vk {
@@ -68,6 +69,7 @@ namespace sky::vk {
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t hash, VkDescriptorSetLayoutCreateInfo * = nullptr);
         VkRenderPass          GetRenderPass(uint32_t hash, VkRenderPassCreateInfo2 * = nullptr);
         VkPipeline            GetPipeline(uint32_t hash, VkGraphicsPipelineCreateInfo * = nullptr);
+        const AccessInfo     &GetAccessInfo(const rhi::AccessFlags& flags);
 
         // features
         const VkPhysicalDeviceProperties &GetProperties() const;
@@ -95,6 +97,7 @@ namespace sky::vk {
         CREATE_DEV_OBJ(VertexAssembly)
         CREATE_DEV_OBJ(Sampler)
         CREATE_DEV_OBJ(DescriptorSetPool)
+        CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
@@ -107,6 +110,8 @@ namespace sky::vk {
 
         // Desc Object
         CREATE_DESC_OBJ(VertexInput)
+
+        uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
     private:
         bool Init(const Descriptor &, bool enableDebug);
 
@@ -120,9 +125,8 @@ namespace sky::vk {
 
         void PrintSupportedExtensions() const;
         void SetupDefaultResources();
-
         friend class Instance;
-        Device(Instance &);
+        explicit Device(Instance &);
         Instance        &instance;
         VkPhysicalDevice phyDev;
         VkDevice         device;
@@ -155,11 +159,12 @@ namespace sky::vk {
         Queue                               *graphicsQueue;
         Queue                               *transferQueue;
 
-        CacheManager<VkSampler>             samplers;
-        CacheManager<VkDescriptorSetLayout> setLayouts;
-        CacheManager<VkPipelineLayout>      pipelineLayouts;
-        CacheManager<VkPipeline>            pipelines;
-        CacheManager<VkRenderPass>          renderPasses;
+        CacheManager<VkSampler, uint32_t>             samplers;
+        CacheManager<VkDescriptorSetLayout, uint32_t> setLayouts;
+        CacheManager<VkPipelineLayout, uint32_t>      pipelineLayouts;
+        CacheManager<VkPipeline, uint32_t>            pipelines;
+        CacheManager<VkRenderPass, uint32_t>          renderPasses;
+        CacheManager<AccessInfo, uint64_t>            accessInfos;
     };
 
 } // namespace sky::vk

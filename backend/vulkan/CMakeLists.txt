@@ -14,7 +14,7 @@ if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC platform/windows/*)
 elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
-else()
+elseif(ANDROID)
     file(GLOB_RECURSE PLATFORM_SRC platform/android/*)
 endif()
 
@@ -34,6 +34,10 @@ sky_add_library(TARGET VulkanRHI.Static STATIC
         3rdParty::vma
         ${PLATFORM_EXT_LIBS}
 )
+
+if(ANDROID)
+    target_compile_definitions(VulkanRHI.Static PUBLIC -DVMA_VULKAN_VERSION=1002000)
+endif()
 
 sky_add_library(TARGET VulkanRHI SHARED
     SOURCES

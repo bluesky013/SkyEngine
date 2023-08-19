@@ -13,29 +13,6 @@ namespace sky::gles {
         InitInputMap(desc);
         attachments = desc.attachments;
         subPasses = desc.subPasses;
-
-        attachmentGLInfos.resize(attachments.size());
-
-        for (uint32_t i = 0; i < subPasses.size(); ++i) {
-            auto &sub = subPasses[i];
-            if (sub.depthStencil.index != INVALID_INDEX) {
-                auto &attachment = attachments[sub.depthStencil.index];
-                auto &attachmentInfo = attachmentGLInfos[sub.depthStencil.index];
-                const auto &feature = GetFormatFeature(attachment.format);
-                attachmentInfo.hasDepth = HasDepth(attachment.format);
-                attachmentInfo.hasStencil = HasStencil(attachment.format);
-                depthStencil = sub.depthStencil.index;
-            }
-            if (sub.dsResolve.index != INVALID_INDEX) {
-                auto &attachment = attachments[sub.dsResolve.index];
-                auto &attachmentInfo = attachmentGLInfos[sub.dsResolve.index];
-                const auto &feature = GetFormatFeature(attachment.format);
-                attachmentInfo.hasDepth = HasDepth(attachment.format);
-                attachmentInfo.hasStencil = HasStencil(attachment.format);
-                dsResolve = sub.dsResolve.index;
-            }
-        }
         return true;
     }
-
 }

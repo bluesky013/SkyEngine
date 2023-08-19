@@ -19,139 +19,136 @@ namespace sky::gles {
 
     FrameBuffer::~FrameBuffer()
     {
-        auto deleteFB = [](Queue &queue, GLuint fbo) {
-            queue.CreateTask([fbo]() {
-                CHECK(glDeleteFramebuffers(1, &fbo));
-            });
-        };
-        for (uint32_t i = 0; i < objects.size(); ++i) {
-            auto &fbo = objects[i];
-            if (fbo != 0) {
-                deleteFB(*device.GetQueue(static_cast<rhi::QueueType>(i)), fbo);
-            }
-        }
+        framebuffer = nullptr;
+        resolveFramebuffer = nullptr;
     }
 
-    bool FrameBuffer::Init(const Descriptor &desc)
+    bool FrameBuffer::Init(const Descriptor &fbDesc)
     {
-        extent = desc.extent;
-        renderPass = std::static_pointer_cast<RenderPass>(desc.pass);
-        objects.resize(device.GetQueueNumber(), 0);
+        extent = fbDesc.extent;
+        renderPass = std::static_pointer_cast<RenderPass>(fbDesc.pass);
 
-        attachments.reserve(desc.views.size());
-        for (auto &attachment : desc.views) {
+        attachments.reserve(fbDesc.views.size());
+        for (auto &attachment : fbDesc.views) {
             attachments.emplace_back(std::static_pointer_cast<ImageView>(attachment));
         }
-        for (auto &attachment : attachments) {
-            if (surface = attachment->GetImage()->GetSurface(); surface) {
-                break;
-            }
-        }
-        return true;
-    }
 
-    GLuint FrameBuffer::AcquireNativeHandle(uint32_t queueIndex)
-    {
-        auto &fbo = objects[queueIndex];
-        if (fbo == 0) {
-            CHECK(glGenFramebuffers(1, &fbo));
-            InitInternal(fbo);
-        }
-        return fbo;
-    }
+//        uint32_t count = device.GetInternalFeature().msaa1 ? (device.GetInternalFeature().msaa2 ? 255 : 1) : 0;
+        uint32_t count = 1;
 
-    void FrameBuffer::InitInternal(GLuint fbo) {
-        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+        const auto &attDescriptions = renderPass->GetAttachments();
+        const auto &colors = renderPass->GetColors();
+        const auto &colorIndices = renderPass->GetAttachmentColorMap();
+        const auto &colorResolves = renderPass->GetResolves();
+        auto depthStencil = renderPass->GetDepthStencil();
+        auto depthStencilResolve = renderPass->GetDepthStencilResolve();
 
-        auto &colors = renderPass->GetGLColors();
-        auto &resolves = renderPass->GetGLResolves();
-        auto depthStencil = renderPass->GetGLDepthStencil();
-        auto dsResolve = renderPass->GetGLDSResolve();
+        uint32_t colorNum = static_cast<uint32_t>(colors.size());
+        framebuffer = std::make_unique<FramebufferObject>(device);
+        resolveFramebuffer = std::make_unique<FramebufferObject>(device);
 
-        bool supportResolve = device.GetInternalFeature().msaa1;
-        bool supportResolveMRT = device.GetInternalFeature().msaa2;
+        uint32_t resolveIndex = 0;
+        for (uint32_t i = 0; i < colorNum; ++i) {
+            const auto &attachmentIndex        = colors[i];
+            const auto &colorIndex             = colorIndices[attachmentIndex];
+            const auto &resolveAttachmentIndex = colorResolves.empty() ? INVALID_INDEX : colorResolves[i];
 
-        blitPairs.clear();
-        std::vector<GLenum> drawBuffers(colors.size());
-        for (uint32_t i = 0; i < colors.size(); ++i) {
-            const auto &color = colors[i];
+            const auto &desc = attDescriptions[attachmentIndex];
+            const auto &view = attachments[attachmentIndex];
+            auto &imageDesc = view->GetImage()->GetDescriptor();
 
-            auto &attachment = attachments[color];
-            const auto &image = attachment->GetImage();
-            const auto &imageDesc = image->GetDescriptor();
-            const auto &viewDesc = attachment->GetViewDesc();
-            const auto &attachmentDesc = renderPass->GetAttachments()[color];
-            auto handle = image->GetNativeHandle();
-            GLint baseLevel = static_cast<GLint>(viewDesc.subRange.baseLevel);
-            drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
+            if (desc.sample != rhi::SampleCount::X1 && resolveAttachmentIndex != INVALID_INDEX) {
+                const auto &resolveDesc = attDescriptions[resolveAttachmentIndex];
+                const auto &resolveView = attachments[resolveAttachmentIndex];
 
-            if (imageDesc.samples != rhi::SampleCount::X1 && resolves[i] != INVALID_INDEX) {
-                if (supportResolve && (i == 0 || supportResolveMRT)) {
-                    const auto &resolve = resolves[i];
-                    const auto &resolveAttachment = attachments[resolve];
-                    auto resolveHandle = resolveAttachment->GetImage()->GetNativeHandle();
-                    auto resolveBaseLevel = resolveAttachment->GetViewDesc().subRange.baseLevel;
-
-                    CHECK(FramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER,
-                                                             static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
-                                                             GL_TEXTURE_2D,
-                                                             resolveHandle,
-                                                             resolveBaseLevel,
-                                                             static_cast<GLsizei>(imageDesc.samples)));
-                    continue;
+                if (imageDesc.usage & rhi::ImageUsageFlagBit::TRANSIENT && // is memoryless resource
+                    !view->GetImage()->GetSurface() &&                     // not back buffer
+                    i < count) {                                           // ext limit
+                    framebuffer->BindColor(resolveView, resolveDesc, colorIndex, desc.sample);
                 } else {
-                    blitPairs.emplace_back(std::pair<uint32_t, uint32_t>{colors[i], resolves[i]});
+                    colorBlitPairs.emplace_back(std::pair{colorIndex, resolveIndex});
+                    framebuffer->BindColor(view, desc, colorIndex, rhi::SampleCount::X1);
+                    resolveFramebuffer->BindColor(resolveView, resolveDesc, resolveIndex, rhi::SampleCount::X1);
+                    ++resolveIndex;
                 }
-            }
-
-            if (image->IsRenderBuffer()) {
-                CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
-                                                GL_RENDERBUFFER, handle));
             } else {
-                CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
-                                             GL_TEXTURE_2D, handle, baseLevel));
-            }
-        }
-
-        if (dsResolve != INVALID_INDEX) {
-            if (supportResolve && supportResolveMRT) {
-                const auto &resolveAttachment = attachments[dsResolve];
-                auto msImageDesc = attachments[depthStencil]->GetImage()->GetDescriptor();
-                auto resolveHandle = resolveAttachment->GetImage()->GetNativeHandle();
-                auto resolveBaseLevel = resolveAttachment->GetViewDesc().subRange.baseLevel;
-
-                CHECK(FramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER,
-                                                         GL_DEPTH_STENCIL_ATTACHMENT ,
-                                                         GL_TEXTURE_2D,
-                                                         resolveHandle,
-                                                         resolveBaseLevel,
-                                                         static_cast<GLsizei>(msImageDesc.samples)));
-                depthStencil = INVALID_INDEX;
-            } else {
-                blitPairs.emplace_back(std::pair<uint32_t, uint32_t>{depthStencil, dsResolve});
+                framebuffer->BindColor(view, desc, colorIndex, rhi::SampleCount::X1);
             }
         }
 
         if (depthStencil != INVALID_INDEX) {
-            auto &attachment = attachments[depthStencil];
-            auto &image = attachment->GetImage();
-            auto &viewDesc = attachment->GetViewDesc();
-            auto handle = image->GetNativeHandle();
-            GLenum att = viewDesc.subRange.aspectMask & rhi::AspectFlagBit::STENCIL_BIT ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
-            if (image->IsRenderBuffer()) {
-                CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, att, GL_RENDERBUFFER, handle));
+            const auto &desc = attDescriptions[depthStencil];
+            const auto &view = attachments[depthStencil];
+            auto &imageDesc = view->GetImage()->GetDescriptor();
+
+            if (desc.sample != rhi::SampleCount::X1 && depthStencilResolve != INVALID_INDEX) {
+                const auto &resolveDesc = attDescriptions[depthStencilResolve];
+                const auto &resolveView = attachments[depthStencilResolve];
+
+                if (imageDesc.usage & rhi::ImageUsageFlagBit::TRANSIENT && // is memoryless resource
+                    !view->GetImage()->GetSurface() &&                     // not back buffer
+                    depthStencil < count) {                                // ext limit
+                    framebuffer->BindDepthStencil(resolveView, resolveDesc, desc.sample);
+                } else {
+                    dsResolveMask |= HasDepth(resolveDesc.format) ? GL_DEPTH_BUFFER_BIT : 0;
+                    dsResolveMask |= HasStencil(resolveDesc.format) ? GL_STENCIL_BUFFER_BIT : 0;
+
+                    framebuffer->BindDepthStencil(view, desc, rhi::SampleCount::X1);
+                    resolveFramebuffer->BindDepthStencil(resolveView, resolveDesc, rhi::SampleCount::X1);
+                }
             } else {
-                CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, att, GL_TEXTURE_2D, handle, viewDesc.subRange.baseLevel));
+                framebuffer->BindDepthStencil(view, desc, rhi::SampleCount::X1);
             }
         }
-        CHECK(glDrawBuffers(static_cast<uint32_t>(drawBuffers.size()), drawBuffers.data()));
 
-        GLenum status;
-        CHECK(status = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            LOG_E(TAG, "check frame buffer status error - %x", status);
-        }
-        CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        return true;
     }
 
+    FramebufferObject *FrameBuffer::GetFbo() const
+    {
+        return framebuffer.get();
+    }
+
+    bool FrameBuffer::NeedResolve() const
+    {
+        return !colorBlitPairs.empty() || dsResolveMask != 0;
+    }
+
+    void FrameBuffer::DoResolve(Context &context, uint32_t queueIndex) const
+    {
+        auto srcFb = framebuffer->AcquireNativeHandle(context, queueIndex);
+        auto dstFb = resolveFramebuffer->AcquireNativeHandle(context, queueIndex);
+        CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFb));
+        CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFb));
+
+        if (!colorBlitPairs.empty()) {
+            auto resolveColorNum = resolveFramebuffer->colorResolves.size();
+            std::vector<GLenum> drawBuffers(resolveColorNum, GL_NONE);
+            for (auto &[src, dst] : colorBlitPairs) {
+                drawBuffers[dst] = GL_COLOR_ATTACHMENT0 + dst;
+                CHECK(glReadBuffer(GL_COLOR_ATTACHMENT0 + src));
+                CHECK(glDrawBuffers(static_cast<GLsizei>(resolveColorNum), drawBuffers.data()));
+
+                CHECK(glBlitFramebuffer(
+                    0, 0, extent.width, extent.height,
+                    0, 0, extent.width, extent.height,
+                    GL_COLOR_BUFFER_BIT, GL_NEAREST));
+                drawBuffers[dst] = GL_NONE;
+            }
+        }
+        if (dsResolveMask != 0) {
+            CHECK(glBlitFramebuffer(
+                0, 0, extent.width, extent.height,
+                0, 0, extent.width, extent.height,
+                dsResolveMask, GL_NEAREST));
+        }
+
+        if (!framebuffer->postInvalidates.empty()) {
+            CHECK(glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, static_cast<uint32_t>(framebuffer->postInvalidates.size()), framebuffer->postInvalidates.data()));
+        }
+        if (!resolveFramebuffer->postInvalidates.empty()) {
+            CHECK(glInvalidateFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<uint32_t>(resolveFramebuffer->postInvalidates.size()), resolveFramebuffer->postInvalidates.data()));
+        }
+
+    }
 }

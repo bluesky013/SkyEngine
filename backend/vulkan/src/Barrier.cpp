@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include <core/util/Memory.h>
 #include <core/platform/Platform.h>
 
 namespace sky::vk {
@@ -58,15 +59,22 @@ namespace sky::vk {
 //        }
     }
 
-    AccessInfo GetAccessInfo(const std::vector<rhi::AccessFlag> &accesses, bool ignoreLayout)
+    AccessInfo GetAccessInfo(const rhi::AccessFlags &flags)
     {
-        AccessInfo accessInfo = {};
-        for (auto &access : accesses) {
-            auto index = static_cast<uint32_t>(access);
-            SKY_ASSERT(index < ACCESS_TABLE.size());
-            auto &info = ACCESS_TABLE[index];
+        if (flags.value == 0) {
+            return ACCESS_TABLE[0];
+        }
 
-            SKY_ASSERT(ignoreLayout || accessInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED || accessInfo.imageLayout == info.imageLayout);
+        AccessInfo accessInfo = {};
+        auto first = BitScan(flags.value);
+        auto second = BitScanReverse(flags.value);
+        for (auto i = first; i <= second; ++i) {
+            if (!(flags & static_cast<rhi::AccessFlagBit>(1 << i))) {
+                continue;
+            }
+
+            const auto &info = ACCESS_TABLE[i + 1];
+            SKY_ASSERT(accessInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED || accessInfo.imageLayout == info.imageLayout);
             accessInfo.pipelineStages |= info.pipelineStages;
             accessInfo.accessFlags |= info.accessFlags;
             accessInfo.imageLayout = info.imageLayout;

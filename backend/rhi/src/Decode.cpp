@@ -76,6 +76,22 @@ namespace sky::rhi {
         return iter == FORMAT_INFO.end() ? nullptr : &iter->second;
     }
 
+    AspectFlags GetAspectFlagsByFormat(PixelFormat format)
+    {
+        auto *formatInfo = GetImageInfoByFormat(format);
+        if (!formatInfo->hasDepth && !formatInfo->hasStencil) {
+            return rhi::AspectFlagBit::COLOR_BIT;
+        }
+        AspectFlags aspectMask;
+        if (formatInfo->hasDepth) {
+            aspectMask |= rhi::AspectFlagBit::DEPTH_BIT;
+        }
+        if (formatInfo->hasStencil) {
+            aspectMask |= rhi::AspectFlagBit::STENCIL_BIT;
+        }
+        return aspectMask;
+    }
+
     void ProcessASTC(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
     {
         ASTCHeader* header = reinterpret_cast<ASTCHeader *>(input);

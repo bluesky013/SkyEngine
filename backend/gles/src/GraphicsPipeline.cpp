@@ -67,7 +67,7 @@ namespace sky::gles {
         CHECK(glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxLength));
 
         attributes.resize(activeAttributes);
-        for (uint32_t i = 0; i < activeAttributes; ++i) {
+        for (uint32_t i = 0; activeAttributes > 0 && i < static_cast<uint32_t>(activeAttributes); ++i) {
             auto &attribute = attributes[i];
 
             GLsizei length = 0;

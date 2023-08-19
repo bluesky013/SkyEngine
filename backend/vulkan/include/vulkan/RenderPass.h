@@ -16,7 +16,7 @@ namespace sky::vk {
 
     class RenderPass : public rhi::RenderPass, public DevObject {
     public:
-        ~RenderPass();
+        ~RenderPass() override = default;
 
         struct SubPass {
             std::vector<VkAttachmentReference2> colors;
@@ -41,7 +41,7 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        RenderPass(Device &);
+        explicit RenderPass(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

@@ -37,7 +37,7 @@ namespace sky::rhi {
         instance = Instance::Create({"", "", true, rhi});
         device   = instance->CreateDevice({deviceFeature});
 
-        auto systemApi = Interface<ISystemNotify>::Get()->GetApi();
+        auto *systemApi = Interface<ISystemNotify>::Get()->GetApi();
         window = systemApi->GetViewport();
         Event<IWindowEvent>::Connect(window, this);
         SwapChain::Descriptor swcDesc = {};
@@ -76,6 +76,10 @@ namespace sky::rhi {
         emptyInput = nullptr;
         depthStencilImage = nullptr;
         pool = nullptr;
+        psPool = nullptr;
+        psResult = nullptr;
+        timeStampPool = nullptr;
+        timeStampResult = nullptr;
         colorViews.clear();
         frameBuffers.clear();
 
@@ -91,50 +95,60 @@ namespace sky::rhi {
 
     void RHISampleBase::OnTick(float delta)
     {
-        auto queue = device->GetQueue(QueueType::GRAPHICS);
+        auto *queue = device->GetQueue(QueueType::GRAPHICS);
         uint32_t index = swapChain->AcquireNextImage(imageAvailable);
 
         SubmitInfo submitInfo = {};
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
-            std::pair<PipelineStageFlags , SemaphorePtr>{PipelineStageBit::COLOR_OUTPUT, imageAvailable});
+            PipelineStageBit::COLOR_OUTPUT, imageAvailable);
         submitInfo.fence = fence;
 
         fence->WaitAndReset();
+
         commandBuffer->Begin();
+        commandBuffer->ResetQueryPool(psPool, 0, 1);
+        commandBuffer->ResetQueryPool(timeStampPool, 0, timeStampCount);
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::COLOR_WRITE;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
         }
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::NONE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_READ);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::DEPTH_STENCIL_WRITE);
+            barrier.srcFlags = rhi::AccessFlagBit::NONE;
+            barrier.dstFlags = rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             barrier.view = depthStencilImage;
             commandBuffer->QueueBarrier(barrier);
         }
 
         commandBuffer->FlushBarriers();
         commandBuffer->EncodeGraphics()->BeginPass({frameBuffers[index], renderPass, 2, clears.data()})
+            .BeginQuery(psPool, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::VERTEX_INPUT, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::VERTEX_SHADER, 1)
             .BindPipeline(pso)
             .DrawLinear({3, 1, 0, 0})
+            .EndQuery(psPool, 0)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::FRAGMENT_SHADER, 2)
+            .WriteTimeStamp(timeStampPool, rhi::PipelineStageBit::COLOR_OUTPUT, 3)
             .EndPass();
 
         {
             ImageBarrier barrier = {};
-            barrier.srcFlags.emplace_back(rhi::AccessFlag::COLOR_WRITE);
-            barrier.dstFlags.emplace_back(rhi::AccessFlag::PRESENT);
+            barrier.srcFlags = rhi::AccessFlagBit::COLOR_WRITE;
+            barrier.dstFlags = rhi::AccessFlagBit::PRESENT;
             barrier.view = colorViews[index];
             commandBuffer->QueueBarrier(barrier);
             commandBuffer->FlushBarriers();
         }
 
+        commandBuffer->GetQueryResult(psPool, 0, 1, psResult, frameIndex * psResultStride, psResultStride);
+        commandBuffer->GetQueryResult(timeStampPool, 0, timeStampCount, timeStampResult, frameIndex * timeStampResultStride, sizeof(uint64_t));
         commandBuffer->End();
         commandBuffer->Submit(*queue, submitInfo);
 
@@ -142,6 +156,18 @@ namespace sky::rhi {
         presentInfo.imageIndex = index;
         presentInfo.signals.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
+
+        uint32_t lastFrame = (frameIndex + maxFrameInflight - 1) % maxFrameInflight;
+        rhi::PipelineStatisticData data = {};
+        psPool->ConvertPipelineStatisticData(psResult, lastFrame * psResultStride, psResultStride, data);
+
+        {
+            uint8_t *ptr = timeStampResult->Map();
+            memcpy(timeStampSysResult.data(), ptr + lastFrame * timeStampResultStride, timeStampResultStride);
+            timeStampResult->UnMap();
+        }
+
+        frameIndex = (frameIndex + 1 ) % maxFrameInflight;
     }
 
     void RHISampleBase::SetupTriangle()
@@ -161,11 +187,45 @@ namespace sky::rhi {
         pso = device->CreateGraphicsPipeline(psoDesc);
     }
 
+    void RHISampleBase::SetupQueryPool()
+    {
+        {
+            rhi::QueryPool::Descriptor poolDesc = {};
+            poolDesc.type                       = QueryType::PIPELINE_STATISTICS;
+            poolDesc.queryCount                 = 1;
+            poolDesc.pipelineStatisticFlags     = rhi::PipelineStatisticFlagBits::ALL;
+            psPool         = device->CreateQueryPool(poolDesc);
+            psResultStride = psPool->GetStride();
+
+            rhi::Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size                    = psResultStride * maxFrameInflight;
+            bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
+            bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
+            psResult                           = device->CreateBuffer(bufferDesc);
+        }
+        {
+            rhi::QueryPool::Descriptor poolDesc = {};
+            poolDesc.type                       = QueryType::TIME_STAMP;
+            poolDesc.queryCount                 = timeStampCount;
+
+            timeStampPool         = device->CreateQueryPool(poolDesc);
+            timeStampResultStride = timeStampCount * sizeof(uint64_t);
+
+            rhi::Buffer::Descriptor bufferDesc = {};
+            bufferDesc.size                    = timeStampResultStride * maxFrameInflight;
+            bufferDesc.usage                   = rhi::BufferUsageFlagBit::TRANSFER_DST;
+            bufferDesc.memory                  = MemoryType::GPU_TO_CPU;
+            timeStampResult                    = device->CreateBuffer(bufferDesc);
+            timeStampSysResult.resize(timeStampCount);
+        }
+    }
+
     void RHISampleBase::SetupBase()
     {
         SetupPass();
         SetupPool();
         SetupTriangle();
+        SetupQueryPool();
     }
 
     void RHISampleBase::SetupPool()
@@ -191,7 +251,7 @@ namespace sky::rhi {
     void RHISampleBase::SetupPass()
     {
         auto format = swapChain->GetFormat();
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
 
         RenderPass::Descriptor passDesc = {};
         passDesc.attachments.emplace_back(RenderPass::Attachment{
@@ -211,8 +271,10 @@ namespace sky::rhi {
             StoreOp::DONT_CARE,
         });
         passDesc.subPasses.emplace_back(RenderPass::SubPass {
-            {{0, {AccessFlag::COLOR_WRITE}}}, {}, {}, {},
-            {1, {AccessFlag::DEPTH_STENCIL_WRITE}}
+            {
+                {0, AccessFlagBit::COLOR_WRITE}
+            }, {}, {}, {},
+            {1, AccessFlagBit::DEPTH_STENCIL_WRITE}
         });
         renderPass = device->CreateRenderPass(passDesc);
 
@@ -234,7 +296,7 @@ namespace sky::rhi {
 
     void RHISampleBase::ResetFramebuffer()
     {
-        auto &ext = swapChain->GetExtent();
+        const auto &ext = swapChain->GetExtent();
         uint32_t count = swapChain->GetImageCount();
 
         rhi::Image::Descriptor imageDesc = {};

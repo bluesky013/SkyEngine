@@ -11,13 +11,15 @@
 namespace sky::rdg {
 
     struct RenderGraphExecutor : boost::dfs_visitor<> {
+        explicit RenderGraphExecutor(RenderGraph &g) : graph(g) {}
+
         using Graph = RenderGraph::Graph;
         using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 
-        void discover_vertex(Vertex u, const Graph& g);
+        [[maybe_unused]] void discover_vertex(Vertex u, const Graph& g);
+        [[maybe_unused]] void finish_vertex(Vertex u, const Graph& g);
 
-        void FrontBarriers(Vertex u, const Graph& g);
-        void RearBarriers(Vertex u, const Graph& g);
+        void Barriers(const PmrHashMap<VertexType, std::vector<GraphBarrier>>& barriers) const;
 
         RenderGraph &graph;
         std::shared_ptr<rhi::GraphicsEncoder> currentEncoder;

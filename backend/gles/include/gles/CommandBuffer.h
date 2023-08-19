@@ -20,8 +20,11 @@ namespace sky::gles {
     class GraphicsEncoder : public rhi::GraphicsEncoder {
     public:
         GraphicsEncoder(CommandBuffer &cmd, CommandContext *ctx) : commandBuffer(cmd), context(ctx) {}
-        ~GraphicsEncoder() = default;
+        ~GraphicsEncoder() override = default;
 
+        rhi::GraphicsEncoder &BeginQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &EndQuery(const rhi::QueryPoolPtr &query, uint32_t id) override;
+        rhi::GraphicsEncoder &WriteTimeStamp(const rhi::QueryPoolPtr &query, rhi::PipelineStageBit stage, uint32_t id) override;
         rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &beginInfo) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
@@ -43,7 +46,7 @@ namespace sky::gles {
     class BlitEncoder : public rhi::BlitEncoder {
     public:
         BlitEncoder(CommandBuffer &cmd, CommandContext *ctx) : cmdBuffer(cmd), context(ctx) {}
-        ~BlitEncoder() = default;
+        ~BlitEncoder() override = default;
 
         rhi::BlitEncoder &CopyTexture() override;
         rhi::BlitEncoder &CopyTextureToBuffer() override;
@@ -60,8 +63,8 @@ namespace sky::gles {
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
-        CommandBuffer(Device &dev) : DevObject(dev) {}
-        ~CommandBuffer() noexcept;
+        explicit CommandBuffer(Device &dev) : DevObject(dev) {}
+        ~CommandBuffer() noexcept override = default;
 
         void Begin() override;
         void End() override;
@@ -82,7 +85,7 @@ namespace sky::gles {
             using Parameters = std::tuple<std::remove_reference_t<Args>...>;
             using FuncType = Func;
 
-            Task(Func &&f, Args &&...args) : func(f), params(std::forward<Args>(args)...) {}
+            explicit Task(Func &&f, Args &&...args) : func(f), params(std::forward<Args>(args)...) {}
 
             FuncType   func;
             Parameters params;
@@ -98,7 +101,7 @@ namespace sky::gles {
         {
             using TaskType = Task<Func, Args...>;
             uint8_t *ptr = Allocate(sizeof(TaskType));
-            TaskType *task = new (ptr) TaskType(std::forward<Func>(func), std::forward<Args>(args)...);
+            auto *task = new (ptr) TaskType(std::forward<Func>(func), std::forward<Args>(args)...);
 
             (*current) = task;
             current = &(task->next);
@@ -122,7 +125,6 @@ namespace sky::gles {
         TaskBase* head = nullptr;
         TaskBase** current = &head;
         std::unique_ptr<CommandContext> context;
-        FencePtr fence;
     };
 
 }

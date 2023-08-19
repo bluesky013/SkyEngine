@@ -60,9 +60,10 @@ namespace sky::gles {
     void Context::MakeCurrent(const Surface &surface)
     {
         auto handle = surface.GetSurface();
-        if (currentSurface != handle) {
-            currentSurface = handle;
-            eglMakeCurrent(display, currentSurface, currentSurface, context);
+        if (drawSurface != handle || readSurface != handle) {
+            readSurface = handle;
+            drawSurface = handle;
+            eglMakeCurrent(display, readSurface, drawSurface, context);
             SKY_ASSERT(eglGetError() == EGL_SUCCESS);
         }
     }

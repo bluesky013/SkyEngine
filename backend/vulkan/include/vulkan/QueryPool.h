@@ -5,14 +5,15 @@
 #pragma once
 
 #include <vector>
+#include <rhi/QueryPool.h>
 #include <vulkan/DevObject.h>
 #include <vulkan/vulkan_core.h>
 
 namespace sky::vk {
 
-    class QueryPool : public DevObject {
+    class QueryPool : public rhi::QueryPool, public DevObject {
     public:
-        ~QueryPool();
+        ~QueryPool() override;
 
         struct VkDescriptor {
             VkQueryType                   queryType          = VK_QUERY_TYPE_PIPELINE_STATISTICS;
@@ -20,26 +21,24 @@ namespace sky::vk {
             VkQueryPipelineStatisticFlags pipelineStatistics = 0;
         };
 
-        bool Init(const VkDescriptor &);
-
         VkQueryPool GetNativeHandle() const;
 
-        void ReadResults(uint32_t queryCount, uint32_t firstQuery = 0);
-
-        const std::vector<uint64_t> &GetData() const;
-
-        VkQueryPipelineStatisticFlags GetFlags() const;
-
-        void Reset();
+        uint32_t GetStride() const override;
+        void     Reset(uint32_t first, uint32_t count) const override;
 
     private:
         friend class Device;
-        QueryPool(Device &);
+        explicit QueryPool(Device &);
 
-        VkQueryPool                   pool;
-        uint32_t                      queryCount           = 0;
-        VkQueryPipelineStatisticFlags pipelineStaticsFlags = 0;
-        std::vector<uint64_t>         results;
+        bool Init(const VkDescriptor &);
+        bool Init(const Descriptor &);
+
+        void ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,
+                                          rhi::PipelineStatisticData &result) const override;
+
+        VkQueryPool pool;
+        uint32_t    pipelineStatisticCount = 0;
+        VkQueryPipelineStatisticFlags vkFlags = 0;
     };
     using QueryPoolPtr = std::shared_ptr<QueryPool>;
 

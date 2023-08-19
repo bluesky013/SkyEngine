@@ -5,7 +5,7 @@
 #pragma once
 
 #include <memory>
-#include <dx12/Basic.h>
+#include <dx12/Base.h>
 
 namespace sky::dx {
 

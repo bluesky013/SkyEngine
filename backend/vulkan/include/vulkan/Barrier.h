@@ -9,8 +9,9 @@
 #include <rhi/Core.h>
 
 namespace sky::vk {
+    class Device;
 
     void ValidateAccessInfoMapByExtension(const std::vector<VkExtensionProperties>& extensions);
-    AccessInfo GetAccessInfo(const std::vector<rhi::AccessFlag> &accesses, bool ignoreLayout = false);
+    AccessInfo GetAccessInfo(const rhi::AccessFlags &flags);
 
 } // namespace sky::vk

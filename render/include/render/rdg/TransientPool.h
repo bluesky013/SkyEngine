@@ -23,7 +23,6 @@ struct std::hash<sky::rdg::GraphImage> {
         sky::HashCombine32(data, sky::Crc32::Cal(desc.arrayLayers));
         sky::HashCombine32(data, sky::Crc32::Cal(desc.samples));
         sky::HashCombine32(data, sky::Crc32::Cal(desc.usage));
-        sky::HashCombine32(data, sky::Crc32::Cal(desc.mask));
         return data;
     }
 };
@@ -41,7 +40,6 @@ struct std::equal_to<sky::rdg::GraphImage> {
                lhs.arrayLayers == rhs.arrayLayers &&
                lhs.samples == rhs.samples &&
                lhs.usage == rhs.usage &&
-               lhs.mask == rhs.mask &&
                lhs.residency == rhs.residency;
     }
 };
@@ -73,21 +71,21 @@ namespace sky::rdg {
 
         virtual void ResetPool() = 0;
 
-        virtual rhi::ImageViewPtr RequestImage(const rdg::GraphImage &desc) = 0;
-        virtual rhi::BufferViewPtr RequestBuffer(const rdg::GraphBuffer &desc) = 0;
+        virtual rhi::ImagePtr RequestImage(const rdg::GraphImage &desc) = 0;
+        virtual rhi::BufferPtr RequestBuffer(const rdg::GraphBuffer &desc) = 0;
 
-        virtual void RecycleImage(rhi::ImageViewPtr &image, const rdg::GraphImage &desc) = 0;
-        virtual void RecycleBuffer(rhi::BufferViewPtr &buffer, const rdg::GraphBuffer &desc) = 0;
+        virtual void RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc) = 0;
+        virtual void RecycleBuffer(rhi::BufferPtr &buffer, const rdg::GraphBuffer &desc) = 0;
 
-        rhi::ImageViewPtr RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc);
-        rhi::BufferViewPtr RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
+        rhi::ImagePtr RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc);
+        rhi::BufferPtr RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
 
     protected:
-        rhi::ImageViewPtr CreateImageByDesc(const rdg::GraphImage &desc);
-        rhi::BufferViewPtr CreateBufferByDesc(const rdg::GraphBuffer &desc);
+        rhi::ImagePtr CreateImageByDesc(const rdg::GraphImage &desc);
+        rhi::BufferPtr CreateBufferByDesc(const rdg::GraphBuffer &desc);
 
-        std::unordered_map<std::string, rhi::ImageViewPtr> persistentImages;
-        std::unordered_map<std::string, rhi::BufferViewPtr> persistentBuffers;
+        std::unordered_map<std::string, rhi::ImagePtr> persistentImages;
+        std::unordered_map<std::string, rhi::BufferPtr> persistentBuffers;
     };
 
 } // namespace sky::rdg

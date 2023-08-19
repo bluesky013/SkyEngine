@@ -6,7 +6,7 @@
 
 #include <RHI/Device.h>
 
-#include <dx12/Basic.h>
+#include <dx12/Base.h>
 #include <dx12/Queue.h>
 
 namespace sky::dx {
@@ -50,6 +50,7 @@ namespace sky::dx {
         rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
         rhi::SamplerPtr CreateSampler(const rhi::Sampler::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
+        rhi::QueryPoolPtr CreateQueryPool(const rhi::QueryPool::Descriptor &desc) override { return nullptr; }
     private:
         friend class Instance;
         bool Init(const Descriptor &, ComPtr<IDXGIAdapter1> &adaptor);
