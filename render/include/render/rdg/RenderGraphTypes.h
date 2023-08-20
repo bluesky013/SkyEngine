@@ -194,7 +194,7 @@ namespace sky::rdg {
 
         using Tag = RasterSceneViewTag;
 
-        ViewPtr sceneView;
+        const SceneView *sceneView = nullptr;
     };
 
     struct RasterPass {

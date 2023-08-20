@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    RenderScene::RenderScene() : sceneViews(&resources)
+    RenderScene::RenderScene() : sceneViews(&resources), primitives(&resources)
     {
     }
 
@@ -20,15 +20,28 @@ namespace sky {
 
     }
 
-    void RenderScene::AddSceneView(const ViewPtr &view)
+    void RenderScene::AddSceneView(SceneView *view)
     {
         sceneViews.emplace_back(view);
     }
 
-    void RenderScene::RemoveSceneView(const ViewPtr &view)
+    void RenderScene::RemoveSceneView(SceneView *view)
     {
         sceneViews.erase(std::remove_if(sceneViews.begin(), sceneViews.end(), [&view](const auto &v) {
-            return view.get() == v.get();
+            return view == v;
         }), sceneViews.end());
     }
+
+    void RenderScene::AddPrimitive(RenderPrimitive *primitive)
+    {
+        primitives.emplace_back(primitive);
+    }
+
+    void RenderScene::RemovePrimitive(RenderPrimitive *primitive)
+    {
+        primitives.erase(std::remove_if(primitives.begin(), primitives.end(), [primitive](const auto &v) {
+            return primitive == v;
+        }));
+    }
+
 } // namespace sky

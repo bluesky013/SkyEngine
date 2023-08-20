@@ -1,0 +1,26 @@
+//
+// Created by Zach Lee on 2023/8/19.
+//
+
+#pragma once
+
+#include <rhi/Device.h>
+#include <render/MaterialProxy.h>
+
+namespace sky {
+
+    class RenderPrimitive {
+    public:
+        RenderPrimitive() = default;
+        ~RenderPrimitive() = default;
+    private:
+        MaterialProxyPtr material;
+
+        rhi::VertexAssemblyPtr va;
+        rhi::GraphicsPipelinePtr pso;
+        rhi::DescriptorSetPtr set;
+        rhi::DescriptorSetLayoutPtr setLayout;
+        rhi::BufferPtr indirectBuffer;
+    };
+
+} // namespace sky

@@ -277,7 +277,7 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const ViewPtr &sceneView)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const SceneView *sceneView)
     {
         auto rsv = RasterSceneView(&rdg.context->resources);
         rsv.sceneView = sceneView;

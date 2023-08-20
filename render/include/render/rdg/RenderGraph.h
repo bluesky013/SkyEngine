@@ -23,7 +23,7 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddColorInOut(const std::string &name);
         RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
-        RasterSubPassBuilder &AddSceneView(const std::string &name, const ViewPtr &sceneView);
+        RasterSubPassBuilder &AddSceneView(const std::string &name, const SceneView *sceneView);
         uint32_t GetAttachmentIndex(const std::string &name);
 
         RenderGraph &rdg;
