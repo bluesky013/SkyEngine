@@ -34,6 +34,16 @@ namespace sky::rdg {
                     }
 
                 },
+                [&](const ImportSwapChainTag &) {
+                    auto &image = graph.resourceGraph.swapChains[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.swapchain->GetImage(image.desc.imageIndex),
+                            rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                               barrier.range.layer, barrier.range.layers,
+                                               rhi::AspectFlagBit::COLOR_BIT},
+                                               rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+                },
                 [&](const BufferTag &) {
                     auto &buffer = graph.resourceGraph.buffers[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {

@@ -108,6 +108,10 @@ namespace sky::rdg {
                     view.desc.view.subRange.baseLayer, view.desc.view.subRange.layers
                 };
             },
+            [&](const ImportSwapChainTag &tag) {
+                range.range = 1;
+                range.layers = 1;
+            },
             [&](const BufferTag &tag) {
                 const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
                 range.range = buffer.desc.size;
