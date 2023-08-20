@@ -77,8 +77,8 @@ namespace sky::rdg {
                     viewDesc.viewType = image.desc.viewType;
                     image.res = image.desc.image->CreateView(viewDesc);
 
-                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
-                          image.lifeTime.begin, image.lifeTime.end);
+//                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
+//                          image.lifeTime.begin, image.lifeTime.end);
                 }
             },
             [&](const BufferTag &) {
@@ -86,8 +86,8 @@ namespace sky::rdg {
 
                 if (!buffer.desc.buffer && u >= buffer.lifeTime.begin && u <= buffer.lifeTime.end) {
                     buffer.desc.buffer = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
-                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
-                          buffer.lifeTime.begin, buffer.lifeTime.end);
+//                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
+//                          buffer.lifeTime.begin, buffer.lifeTime.end);
                 }
             },
             [&](const ImportImageTag &) {
@@ -99,6 +99,17 @@ namespace sky::rdg {
                     viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
                     viewDesc.viewType = image.desc.viewType;
                     image.res = image.desc.image->CreateView(viewDesc);
+                }
+            },
+            [&](const ImportSwapChainTag &) {
+                auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
+                if (!swc.res) {
+                    rhi::ImageViewDesc viewDesc = {};
+                    viewDesc.subRange = {0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT};
+                    viewDesc.viewType = rhi::ImageViewType::VIEW_2D;
+
+                    swc.desc.imageIndex = swc.desc.swapchain->AcquireNextImage(rdg.context->imageAvailableSemaPool.Acquire());
+                    swc.res = swc.desc.swapchain->GetImage(swc.desc.imageIndex)->CreateView(viewDesc);
                 }
             },
             [&](const auto &) {}
@@ -116,23 +127,40 @@ namespace sky::rdg {
 
         passDesc.attachments.resize(attachmentSize);
         fbDesc.views.resize(attachmentSize);
+        fbDesc.extent.width = rasterPass.width;
+        fbDesc.extent.height = rasterPass.height;
 
         for (uint32_t i = 0; i < attachmentSize; ++i) {
             auto &attachment = rasterPass.attachmentVertex[i];
             auto &attachmentDesc = rasterPass.attachments[i];
-
-            auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
+            auto &att = passDesc.attachments[i];
 
             std::visit(Overloaded{
                 [&](const ImageTag &) {
                     auto &image = rdg.resourceGraph.images[Index(attachment, rdg.resourceGraph)];
+                    att.format = image.desc.format;
+                    att.sample = image.desc.samples;
+
                     fbDesc.views[i] = image.res;
                 },
                 [&](const ImportImageTag &) {
                     auto &image = rdg.resourceGraph.importImages[Index(attachment, rdg.resourceGraph)];
+                    const auto &imageDesc = image.desc.image->GetDescriptor();
+                    att.format = imageDesc.format;
+                    att.sample = imageDesc.samples;
+
                     fbDesc.views[i] = image.res;
                 },
+                [&](const ImportSwapChainTag &) {
+                    auto &swc = rdg.resourceGraph.swapChains[Index(attachment, rdg.resourceGraph)];
+                    att.format = swc.desc.swapchain->GetFormat();
+
+                    fbDesc.views[i] = swc.res;
+                },
                 [&](const ImageViewTag &) {
+                    auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
+                    att.format = source.desc.format;
+                    att.sample = source.desc.samples;
                     auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
                     if (!view.res) {
                         view.res = source.res->CreateView(view.desc.view);
@@ -142,9 +170,6 @@ namespace sky::rdg {
                 [&](const auto &) {}
             }, Tag(attachment, rdg.resourceGraph));
 
-            auto &att = passDesc.attachments[i];
-            att.format = source.desc.format;
-            att.sample = source.desc.samples;
             att.load = attachmentDesc.loadOp;
             att.store = attachmentDesc.storeOp;
             att.stencilLoad = attachmentDesc.stencilLoad;

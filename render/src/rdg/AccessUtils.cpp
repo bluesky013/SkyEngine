@@ -71,6 +71,7 @@ namespace sky::rdg {
         {ComputeType::UAV,                                    {0x3, 0xFF}},
         {TransferType::SRC,                                   {0x3, 0xFF}},
         {TransferType::DST,                                   {0x3, 0xFF}},
+        {PresentType::PRESENT,                                {0x3, 0xFF}}
     };
 
     const std::unordered_map<rhi::ShaderStageFlagBit, rhi::AccessFlagBit> CBVMap{
@@ -166,40 +167,12 @@ namespace sky::rdg {
             },
             [&](const TransferType &type) {
                 res = type == TransferType::SRC ? rhi::AccessFlagBit::TRANSFER_READ : rhi::AccessFlagBit::TRANSFER_WRITE;
-            }}, deps.type);
+            },
+            [&](const PresentType &type) {
+                res = rhi::AccessFlagBit::PRESENT;
+            },
+        }, deps.type);
         return res;
-    }
-
-    rhi::ImageLayout GetImageLayout(const DependencyInfo &deps) {
-        rhi::ImageLayout layout = rhi::ImageLayout::UNDEFINED;
-
-        std::visit(Overloaded{
-        [&](const RasterType &type) {
-            if (type & RasterTypeBit::INPUT) {
-                if (deps.access & ResourceAccessBit::WRITE) {
-                    layout = rhi::ImageLayout::FEEDBACK_LOOP;
-                } else if (type & RasterTypeBit::COLOR) {
-                    layout = rhi::ImageLayout::SHADER_READ_ONLY;
-                } else if (type & RasterTypeBit::DEPTH_STENCIL) {
-                    layout = rhi::ImageLayout::DEPTH_STENCIL_READ_ONLY;
-                }
-            } else if ((type & RasterTypeBit::COLOR) || (type & RasterTypeBit::RESOLVE)) {
-                layout = rhi::ImageLayout::COLOR_ATTACHMENT;
-            } else if (type & RasterTypeBit::DEPTH_STENCIL) {
-                layout = rhi::ImageLayout::DEPTH_STENCIL_ATTACHMENT;
-            } else if (type & RasterTypeBit::SHADING_RATE) {
-                layout = rhi::ImageLayout::FRAGMENT_SHADING_RATE_ATTACHMENT;
-            }
-        },
-        [&](const ComputeType &type) {
-            if (type == ComputeType::SRV) { layout = rhi::ImageLayout::SHADER_READ_ONLY; }
-            else if (type == ComputeType::UAV) { layout = rhi::ImageLayout::GENERAL; }
-        },
-        [&](const TransferType &type) {
-            if (type == TransferType::SRC) { layout = rhi::ImageLayout::TRANSFER_SRC; }
-            else if (type == TransferType::DST) { layout = rhi::ImageLayout::TRANSFER_DST; }
-        }}, deps.type);
-        return layout;
     }
 
     void MergeSubRange(AccessRange &result, const AccessRange &val)

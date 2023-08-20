@@ -16,6 +16,14 @@ namespace sky::rhi {
 
 namespace sky::rdg {
 
+    struct SemaphorePool {
+        const rhi::SemaphorePtr &Acquire();
+        void Reset();
+
+        uint32_t index = 0;
+        std::vector<rhi::SemaphorePtr> imageAvailableSemaList;
+    };
+
     struct RenderGraphContext {
         PmrUnSyncPoolRes resources;
         std::unique_ptr<TransientPool> pool;
@@ -26,8 +34,8 @@ namespace sky::rdg {
         rhi::Queue *transferQueue = nullptr;
 
         rhi::FencePtr fence;
-        rhi::SemaphorePtr imageAvailable;
         rhi::SemaphorePtr renderFinish;
+        SemaphorePool imageAvailableSemaPool;
         rhi::CommandBufferPtr mainCommandBuffer;
     };
 

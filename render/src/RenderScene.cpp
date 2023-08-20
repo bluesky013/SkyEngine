@@ -13,7 +13,7 @@ namespace sky {
 
     void RenderScene::PreTick(float time)
     {
-
+        pipeline->FrameSync();
     }
 
     void RenderScene::PostTick(float time)

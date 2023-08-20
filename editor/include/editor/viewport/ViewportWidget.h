@@ -19,5 +19,4 @@ namespace sky::editor {
     private:
         Viewport* window;
     };
-
 }

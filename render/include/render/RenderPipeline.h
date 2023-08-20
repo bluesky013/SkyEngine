@@ -17,6 +17,8 @@ namespace sky {
         virtual ~RenderPipeline() = default;
 
         virtual void OnSetup(rdg::RenderGraph &rdg) = 0;
+
+        void FrameSync();
         void Execute(rdg::RenderGraph &rdg);
 
         rdg::RenderGraphContext *Context() const { return rdgContext.get(); }

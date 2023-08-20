@@ -24,8 +24,14 @@ namespace sky {
         rhi::Fence::Descriptor fenceDesc = {};
         fenceDesc.createSignaled = true;
         rdgContext->fence = rdgContext->device->CreateFence(fenceDesc);
-        rdgContext->imageAvailable = rdgContext->device->CreateSema({});
         rdgContext->renderFinish = rdgContext->device->CreateSema({});
+    }
+
+    void RenderPipeline::FrameSync()
+    {
+        rdgContext->fence->WaitAndReset();
+        rdgContext->imageAvailableSemaPool.Reset();
+        rdgContext->pool->ResetPool();
     }
 
     void RenderPipeline::Execute(rdg::RenderGraph &rdg)
@@ -50,21 +56,33 @@ namespace sky {
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
 
+        auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
-            rdgContext->fence->WaitAndReset();
             rdgContext->mainCommandBuffer->Begin();
             RenderGraphExecutor executor(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, executor, ColorMap(colors));
             rdgContext->mainCommandBuffer->End();
 
-            auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
-
             rhi::SubmitInfo submitInfo = {};
             submitInfo.submitSignals.emplace_back(rdgContext->renderFinish);
-            submitInfo.waits.emplace_back(rhi::PipelineStageBit::COLOR_OUTPUT, rdgContext->imageAvailable);
+
+            auto &semaPool = rdgContext->imageAvailableSemaPool;
+            for (uint32_t i = 0; i < semaPool.index; ++i) {
+                submitInfo.waits.emplace_back(rhi::PipelineStageBit::COLOR_OUTPUT, semaPool.imageAvailableSemaList[i]);
+            }
             submitInfo.fence = rdgContext->fence;
             rdgContext->mainCommandBuffer->Submit(*queue, submitInfo);
+        }
+
+        {
+            rhi::PresentInfo presentInfo = {};
+            presentInfo.semaphores.emplace_back(rdgContext->renderFinish);
+            for (auto &swc : rdg.presentPasses) {
+                auto &res = rdg.resourceGraph.swapChains[Index(swc.imageID, rdg.resourceGraph)];
+                presentInfo.imageIndex = res.desc.imageIndex;
+                swc.swapChain->Present(*queue, presentInfo);
+            }
         }
     }
 

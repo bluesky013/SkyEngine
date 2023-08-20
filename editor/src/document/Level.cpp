@@ -3,17 +3,21 @@
 //
 
 #include <editor/document/Level.h>
-#include <fstream>
 #include <engine/base/GameObject.h>
 #include <engine/world/CameraComponent.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/serialization/SerializationContext.h>
+#include <fstream>
+#include <render/Renderer.h>
+#include <render/pipeline/DefaultForward.h>
+
+#include <editor/viewport/Viewport.h>
 
 namespace sky::editor {
 
     Level::~Level()
     {
         Save();
+        Renderer::Get()->RemoveScene(renderScene);
     }
 
     void Level::New(const QString &level)
@@ -22,6 +26,7 @@ namespace sky::editor {
         world = std::make_shared<World>();
         auto *go = world->CreateGameObject("MainCamera");
         go->AddComponent<CameraComponent>();
+        InitRenderScene();
         Save();
     }
 
@@ -29,6 +34,7 @@ namespace sky::editor {
     {
         path = level;
         world = std::make_shared<World>();
+        InitRenderScene();
         Load();
     }
 
@@ -46,6 +52,16 @@ namespace sky::editor {
         std::ofstream file(str, std::ios::binary);
         JsonOutputArchive archive(file);
         archive.SaveValueObject(*world);
+    }
+
+    void Level::InitRenderScene()
+    {
+        auto *ppl = new DefaultForward();
+        ppl->SetOutput(ViewportManager::Get()->FindViewport(ViewportID::EDITOR_PREVIEW)->GetRenderWindow());
+
+        renderScene = Renderer::Get()->CreateScene();
+        renderScene->SetPipeline(ppl);
+
     }
 
     const WorldPtr &Level::GetWorld() const

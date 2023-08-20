@@ -16,12 +16,15 @@ namespace sky::editor {
     {
         if (window != nullptr) {
             Renderer::Get()->DestroyRenderWindow(window);
+            ViewportManager::Get()->UnRegister(viewportId);
         }
     }
 
-    void Viewport::Init()
+    void Viewport::Init(ViewportID id)
     {
         window = Renderer::Get()->CreateRenderWindow(reinterpret_cast<void *>(winId()), width(), height(), true);
+        viewportId = id;
+        ViewportManager::Get()->Register(viewportId, this);
     }
 
     bool Viewport::event(QEvent *event)
@@ -32,10 +35,27 @@ namespace sky::editor {
                 window->Resize(reinterpret_cast<void *>(winId()), width(), height());
             }
             break;
-        case QEvent::MouseMove: break;
+        case QEvent::MouseMove:
+            break;
+        case QEvent::Close:
+            break;
         default: break;
         }
         return true;
     }
 
+    void ViewportManager::Register(ViewportID key, Viewport* vp)
+    {
+        viewports.emplace(key, vp);
+    }
+
+    void ViewportManager::UnRegister(ViewportID key)
+    {
+        viewports.erase(key);
+    }
+
+    Viewport *ViewportManager::FindViewport(ViewportID key) const
+    {
+        return viewports.at(key);
+    }
 } // namespace sky::editor

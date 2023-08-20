@@ -93,6 +93,7 @@ namespace sky::rdg {
 
         void AddImage(const char *name, const GraphImage &image);
         void ImportImage(const char *name, const rhi::ImagePtr &image);
+        void ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain);
         void AddImageView(const char *name, const char *source, const GraphImageView &view);
 
         void AddBuffer(const char *name, const GraphBuffer &attachment);
@@ -116,6 +117,7 @@ namespace sky::rdg {
         PmrVector<ImageViewRes<GraphImage>>         images;
         PmrVector<ImageViewRes<GraphImportImage>>   importImages;
         PmrVector<ImageViewRes<GraphImageView>>     imageViews;
+        PmrVector<ImageViewRes<GraphSwapChain>>     swapChains;
         PmrVector<BufferViewRes<GraphBuffer>>       buffers;
         PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
         PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
@@ -135,7 +137,7 @@ namespace sky::rdg {
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
 
-        void AddPresentPass(const char *name, const rhi::SwapChainPtr &swapchain);
+        void AddPresentPass(const char *name, const char *resName);
 
         static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
 
@@ -214,6 +216,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, ImportImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.importImages.size());
             graph.importImages.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, ImportSwapChainTag>) {
+            graph.polymorphicDatas.emplace_back(graph.swapChains.size());
+            graph.swapChains.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, BufferTag>) {
             graph.polymorphicDatas.emplace_back(graph.buffers.size());
             graph.buffers.emplace_back(std::forward<D>(val));

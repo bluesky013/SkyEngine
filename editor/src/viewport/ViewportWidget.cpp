@@ -16,7 +16,7 @@ namespace sky::editor {
     void ViewportWidget::Init()
     {
         auto *container = QWidget::createWindowContainer(window, this, Qt::Widget);
-        window->Init();
+        window->Init(ViewportID::EDITOR_PREVIEW);
         auto *layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(container);

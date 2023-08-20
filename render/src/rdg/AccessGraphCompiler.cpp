@@ -61,11 +61,12 @@ namespace sky::rdg {
             },
             [&](const auto &) {}
         }, Tag(resID, rdg.resourceGraph));
-        SKY_ASSERT(lifeTime != nullptr);
 
-        auto parentPassID = rdg.subPasses[Index(passID, rdg)].parent;
-        lifeTime->begin = std::min(lifeTime->begin, parentPassID);
-        lifeTime->end = std::max(lifeTime->end, parentPassID);
+        if (lifeTime != nullptr) {
+            auto parentPassID = rdg.subPasses[Index(passID, rdg)].parent;
+            lifeTime->begin = std::min(lifeTime->begin, parentPassID);
+            lifeTime->end = std::max(lifeTime->end, parentPassID);
+        }
     }
 
     void AccessCompiler::examine_edge(Edge u, const Graph& g)

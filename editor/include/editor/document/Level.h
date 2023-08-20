@@ -4,6 +4,7 @@
 
 #pragma once
 #include <engine/world/World.h>
+#include <render/RenderScene.h>
 #include <QString>
 
 namespace sky::editor {
@@ -21,8 +22,10 @@ namespace sky::editor {
     private:
         void Save();
         void Load();
+        void InitRenderScene();
         QString path;
         WorldPtr world;
+        RenderScene *renderScene = nullptr;
     };
 
 } // namespace sky::editor

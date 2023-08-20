@@ -24,10 +24,7 @@ namespace sky {
         security.bInheritHandle = TRUE;
         security.lpSecurityDescriptor = nullptr;
 
-        if (!CreatePipe(&read, &write, &security, 0)) {
-            return false;
-        }
-        return true;
+        return CreatePipe(&read, &write, &security, 0) != 0;
     }
 
     void Pipe::CloseRead()

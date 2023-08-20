@@ -44,7 +44,11 @@ namespace sky::rdg {
         SRC,
         DST,
     };
-    using AttachmentType = std::variant<RasterType, ComputeType, TransferType>;
+
+    enum class PresentType {
+        PRESENT
+    };
+    using AttachmentType = std::variant<RasterType, ComputeType, TransferType, PresentType>;
 
     enum class ResourceAccessBit : uint32_t {
         READ = 0x01,
@@ -71,10 +75,11 @@ namespace sky::rdg {
     struct ImageTag {};
     struct ImportImageTag {};
     struct ImageViewTag {};
+    struct ImportSwapChainTag {};
     struct BufferTag {};
     struct ImportBufferTag {};
     struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag>;
 
     struct AccessPassTag {};
     struct AccessResTag {};
@@ -253,14 +258,16 @@ namespace sky::rdg {
     };
 
     struct PresentPass {
-        explicit PresentPass(const rhi::SwapChainPtr &swc, PmrResource *res)
-            : swapChain(swc)
+        explicit PresentPass(VertexType resID, const rhi::SwapChainPtr &swc, PmrResource *res)
+            : imageID(resID)
+            , swapChain(swc)
             , frontBarriers(res)
             , rearBarriers(res)
         {}
 
         using Tag = PresentTag;
 
+        VertexType imageID = INVALID_VERTEX;
         rhi::SwapChainPtr swapChain;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
@@ -286,6 +293,13 @@ namespace sky::rdg {
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
 
         rhi::ImagePtr      image;
+    };
+
+    struct GraphSwapChain {
+        using Tag = ImportSwapChainTag;
+
+        rhi::SwapChainPtr swapchain;
+        uint32_t imageIndex = 0;
     };
 
     struct GraphImageView {

@@ -37,6 +37,11 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, GraphImportImage{image}, *this), graph);
     }
 
+    void ResourceGraph::ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain)
+    {
+        add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
+    }
+
     void ResourceGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
     {
         auto src = FindVertex(source, *this);
@@ -106,10 +111,15 @@ namespace sky::rdg {
         return CopyPassBuilder{*this, vtx};
     }
 
-    void RenderGraph::AddPresentPass(const char *name, const rhi::SwapChainPtr &swapchain)
+    void RenderGraph::AddPresentPass(const char *name, const char *resName)
     {
-        auto vtx = AddVertex(name, PresentPass(swapchain, &context->resources), *this);
+        auto res = FindVertex(resName, resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+        const auto &swc = resourceGraph.swapChains[Index(res, resourceGraph)];
+        auto vtx = AddVertex(name, PresentPass(res, swc.desc.swapchain, &context->resources), *this);
         add_edge(0, vtx, graph);
+
+        AddDependency(res, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
     }
 
     AccessGraph::AccessGraph(RenderGraphContext *ctx)

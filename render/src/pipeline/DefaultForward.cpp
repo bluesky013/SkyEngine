@@ -22,11 +22,11 @@ namespace sky {
         const auto format = swapchain->GetFormat();
 
         auto &rg = rdg.resourceGraph;
-        rg.ImportImage("ForwardColor", swapchain->GetImage(0));
+        rg.ImportSwapChain("ForwardColor", swapchain);
         rg.AddImage("ForwardDepthStencil", rdg::GraphImage{{width, height, 1}, 1, 1, rhi::PixelFormat::D24_S8, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED});
 
         auto forwardPass = rdg.AddRasterPass("forwardColor", width, height)
-                         .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
+                         .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                          .AddAttachment({"ForwardDepthStencil", rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0));
 
         forwardPass.AddRasterSubPass("color0_sub0")
@@ -34,7 +34,7 @@ namespace sky {
             .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
             .AddSceneView("queue1", nullptr);
 
-        rdg.AddPresentPass("present", swapchain);
+        rdg.AddPresentPass("present", "ForwardColor");
     }
 
 } // namespace sky
