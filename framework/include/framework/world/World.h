@@ -13,6 +13,7 @@
 namespace sky {
 
     class World;
+    class IRenderScene;
     class GameObject;
 
     class JsonOutputArchive;
@@ -27,6 +28,9 @@ namespace sky {
         World &operator=(const World&) = delete;
 
         static void Reflect();
+
+        void SetRenderScene(IRenderScene *scn) { renderScene = scn; }
+        IRenderScene *GetRenderScene() const { return renderScene; }
 
         GameObject *CreateGameObject(const std::string &name);
         GameObject *CreateGameObject(const std::string &name, const Uuid &uuid);
@@ -49,6 +53,7 @@ namespace sky {
     private:
         GameObject *AllocateGameObject();
         GameObject                    *root;
+        IRenderScene                  *renderScene;
         PmrUnSyncPoolRes               memoryResource;
         PmrVector<GameObject *>        gameObjects;
         PmrHashMap<Uuid, GameObject *> objectLut;

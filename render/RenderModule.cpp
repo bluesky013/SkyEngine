@@ -18,6 +18,7 @@
 
 #include <render/adaptor/LightComponent.h>
 #include <render/adaptor/MeshComponent.h>
+#include <render/adaptor/CameraComponent.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
@@ -95,6 +96,7 @@ namespace sky {
     {
         LightComponent::Reflect();
         MeshComponent::Reflect();
+        CameraComponent::Reflect();
     }
 
     class RenderModule : public IModule {

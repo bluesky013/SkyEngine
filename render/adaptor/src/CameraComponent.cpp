@@ -2,12 +2,13 @@
 // Created by Zach Lee on 2021/12/1.
 //
 
-#include <engine/world/CameraComponent.h>
-#include <engine/world/World.h>
-#include <core/math/MathUtil.h>
+#include <render/adaptor/CameraComponent.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
+#include <framework/world/GameObject.h>
+#include <framework/world/World.h>
+#include <render/Renderer.h>
 namespace sky {
 
     void CameraComponent::Reflect()
@@ -46,14 +47,22 @@ namespace sky {
 
     void CameraComponent::OnTick(float time)
     {
+        if (dirty) {
+            if (type == ProjectType::PROJECTIVE) {
+                sceneView->SetProjective(near, far, fov, aspect);
+            }
+            dirty = false;
+        }
     }
 
     void CameraComponent::OnActive()
     {
+        sceneView = static_cast<RenderScene*>(object->GetWorld()->GetRenderScene())->CreateSceneView(1);
     }
 
     void CameraComponent::OnDestroy()
     {
+        static_cast<RenderScene*>(object->GetWorld()->GetRenderScene())->RemoveSceneView(sceneView);
     }
 
     void CameraComponent::Save(JsonOutputArchive &ar) const

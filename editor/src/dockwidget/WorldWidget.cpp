@@ -8,19 +8,19 @@
 #include <editor/dockwidget/DockManager.h>
 #include <editor/inspector/InspectorWidget.h>
 
-#include <engine/base/GameObject.h>
-#include <engine/world/World.h>
-#include <engine/world/TransformComponent.h>
+#include <framework/world/GameObject.h>
+#include <framework/world/World.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky::editor {
 
     static void RefreshTree(GameObject& object, WorldItem* item)
     {
-        auto trans = object.GetComponent<TransformComponent>();
+        auto *trans = object.GetComponent<TransformComponent>();
         item->setText(0, object.GetName().c_str());
-        auto& children = trans->GetChildren();
-        for (auto& child : children) {
-            auto childItem = new WorldItem(item);
+        const auto& children = trans->GetChildren();
+        for (const auto& child : children) {
+            auto *childItem = new WorldItem(item);
             childItem->go = child->object;
             RefreshTree(*child->object, childItem);
         }

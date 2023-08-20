@@ -12,7 +12,7 @@ namespace sky {
 
     class GlobalVariable : public Singleton<GlobalVariable> {
     public:
-        ~GlobalVariable() = default;
+        ~GlobalVariable() override = default;
 
         template <typename T>
         const T *Find(const std::string &key)

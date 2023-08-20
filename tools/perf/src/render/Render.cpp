@@ -23,13 +23,13 @@ namespace sky::perf {
         device        = instance->CreateDevice(deviceInfo);
         graphicsQueue = device->GetGraphicsQueue();
 
-        auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
 
         vk::SwapChain::VkDescriptor swcDesc      = {};
 
         swcDesc.window = nativeWindow->GetNativeHandle();
         swapChain      = device->CreateDeviceObject<vk::SwapChain>(swcDesc);
-        Event<IWindowEvent>::Connect(swcDesc.window, this);
+        Event<IWindowEvent>::Connect(nativeWindow, this);
 
         InitRenderPass();
         InitDescriptorSetPool();
@@ -38,6 +38,10 @@ namespace sky::perf {
         vk::CommandBuffer::VkDescriptor cmdDesc = {};
 
         commandBuffer = graphicsQueue->AllocateCommandBuffer(cmdDesc);
+
+        vk::Fence::VkDescriptor fenceDesc = {};
+        fenceDesc.flag = VK_FENCE_CREATE_SIGNALED_BIT;
+        fence = device->CreateDeviceObject<vk::Fence>(fenceDesc);
     }
 
     void Render::Stop()
@@ -64,7 +68,6 @@ namespace sky::perf {
         uint32_t imageIndex = 0;
         swapChain->AcquireNext(imageAvailable, imageIndex);
 
-        commandBuffer->Wait();
         commandBuffer->Begin();
 
         auto cmd             = commandBuffer->GetNativeHandle();
@@ -93,6 +96,7 @@ namespace sky::perf {
         commandBuffer->End();
 
         vk::CommandBuffer::SubmitInfo submitInfo = {};
+        submitInfo.fence = fence;
         submitInfo.submitSignals.emplace_back(renderFinish);
         submitInfo.waits.emplace_back(
             std::pair<VkPipelineStageFlags, vk::SemaphorePtr>{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, imageAvailable});
@@ -187,7 +191,8 @@ namespace sky::perf {
             return;
         }
 
-        swapChain->Resize(width, height);
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        swapChain->Resize(width, height, nativeWindow->GetNativeHandle());
         ResetFrameBuffer();
     }
 

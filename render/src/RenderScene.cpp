@@ -33,15 +33,16 @@ namespace sky {
         pipeline.reset(ppl);
     }
 
-    void RenderScene::AddSceneView(SceneView *view)
+    SceneView * RenderScene::CreateSceneView(uint32_t viewCount)
     {
-        sceneViews.emplace_back(view);
+        sceneViews.emplace_back(new SceneView(viewCount, &resources));
+        return sceneViews.back().get();
     }
 
     void RenderScene::RemoveSceneView(SceneView *view)
     {
         sceneViews.erase(std::remove_if(sceneViews.begin(), sceneViews.end(), [&view](const auto &v) {
-            return view == v;
+            return view == v.get();
         }), sceneViews.end());
     }
 

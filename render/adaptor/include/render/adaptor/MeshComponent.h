@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <engine/base/Component.h>
+#include <framework/world/component.h>
 #include <render/assets/Mesh.h>
 
 namespace sky {
@@ -12,7 +12,7 @@ namespace sky {
     class MeshComponent : public Component {
     public:
         MeshComponent() = default;
-        ~MeshComponent() = default;
+        ~MeshComponent() override = default;
 
         TYPE_RTTI_WITH_VT(MeshComponent)
 

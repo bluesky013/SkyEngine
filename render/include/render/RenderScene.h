@@ -9,10 +9,11 @@
 #include <render/SceneView.h>
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
+#include <framework/interface/IRenderScene.h>
 
 namespace sky {
 
-    class RenderScene {
+    class RenderScene : public IRenderScene {
     public:
         void PreTick(float time);
         void PostTick(float time);
@@ -20,7 +21,7 @@ namespace sky {
 
         void SetPipeline(RenderPipeline *pipeline);
 
-        void AddSceneView(SceneView *view);
+        SceneView * CreateSceneView(uint32_t viewCount);
         void RemoveSceneView(SceneView *view);
 
         void AddPrimitive(RenderPrimitive *primitive);
@@ -29,11 +30,11 @@ namespace sky {
     private:
         friend class Renderer;
         RenderScene();
-        ~RenderScene() = default;
+        ~RenderScene() override = default;
 
         PmrUnSyncPoolRes resources;
 
-        PmrVector<SceneView *> sceneViews;
+        PmrVector<std::unique_ptr<SceneView>> sceneViews;
         PmrVector<RenderPrimitive *> primitives;
 
         std::unique_ptr<RenderPipeline> pipeline;

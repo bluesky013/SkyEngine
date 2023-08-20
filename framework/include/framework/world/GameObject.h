@@ -6,10 +6,11 @@
 
 #include <core/type/Rtti.h>
 #include <core/std/Container.h>
-#include <engine/base/Component.h>
-#include <engine/base/Object.h>
+#include <framework/world/Component.h>
+#include <framework/world/Object.h>
 #include <list>
 #include <string>
+#include <utility>
 
 namespace sky {
     class World;
@@ -122,7 +123,7 @@ namespace sky {
         friend class World;
         ~GameObject();
         GameObject() = default;
-        GameObject(const std::string &str) : name(str)
+        explicit GameObject(std::string str) : name(std::move(str))
         {
         }
 

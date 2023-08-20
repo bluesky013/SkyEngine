@@ -5,9 +5,10 @@
 #pragma once
 
 #include <core/math/Matrix4.h>
-#include <engine/base/Component.h>
+#include <framework/world/Component.h>
 
 namespace sky {
+    class SceneView;
 
     enum class ProjectType : uint32_t { ORTHOGONAL, PROJECTIVE };
 
@@ -34,12 +35,17 @@ namespace sky {
         void Load(JsonInputArchive &ar) override;
 
     private:
+        // data
         float near   = 0.1f;
         float far    = 100.f;
         float fov    = 60;
         float aspect = 1.f;
         float othoH  = 1.f;
-        ProjectType type;
+        ProjectType type = ProjectType::PROJECTIVE;
+
+        // status
+        bool dirty = true;
+        SceneView *sceneView = nullptr;
     };
 
 } // namespace sky

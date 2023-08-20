@@ -5,7 +5,7 @@
 #include <core/logger/Logger.h>
 #include <engine/GlobalVariable.h>
 #include <engine/SkyEngine.h>
-#include <engine/world/TransformComponent.h>
+#include <framework/world/TransformComponent.h>
 #include <framework/serialization/SerializationUtil.h>
 #include <gtest/gtest.h>
 

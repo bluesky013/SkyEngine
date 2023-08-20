@@ -3,8 +3,8 @@
 //
 
 #include <core/logger/Logger.h>
-#include <engine/base/GameObject.h>
-#include <engine/world/TransformComponent.h>
+#include <framework/world/GameObject.h>
+#include <framework/world/TransformComponent.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>

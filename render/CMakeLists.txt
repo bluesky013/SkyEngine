@@ -22,6 +22,7 @@ sky_add_library(TARGET SkyRender SHARED
     PUBLIC_INC
         include
     LINK_LIBS
+        SkyEngine
         SkyRenderAdaptor
     )
 

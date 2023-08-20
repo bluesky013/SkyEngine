@@ -20,7 +20,7 @@ if (Qt5_FOUND)
             include
         LIBS
             SkyEngine
-            SkyRender.Static
+            SkyRenderAdaptor
             EditorFramework
         )
 

@@ -3,12 +3,12 @@
 //
 
 #include <editor/document/Level.h>
-#include <engine/base/GameObject.h>
-#include <engine/world/CameraComponent.h>
+#include <framework/world/GameObject.h>
 #include <framework/serialization/JsonArchive.h>
 #include <fstream>
 #include <render/Renderer.h>
 #include <render/pipeline/DefaultForward.h>
+#include <render/adaptor/CameraComponent.h>
 
 #include <editor/viewport/Viewport.h>
 
@@ -61,7 +61,7 @@ namespace sky::editor {
 
         renderScene = Renderer::Get()->CreateScene();
         renderScene->SetPipeline(ppl);
-
+        world->SetRenderScene(renderScene);
     }
 
     const WorldPtr &Level::GetWorld() const

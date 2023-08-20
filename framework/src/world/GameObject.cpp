@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <engine/base/GameObject.h>
-#include <engine/world/TransformComponent.h>
-#include <engine/world/World.h>
+#include <framework/world/GameObject.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/world/World.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>

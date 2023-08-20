@@ -2,10 +2,9 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <engine/base/GameObject.h>
-#include <engine/world/TransformComponent.h>
-#include <engine/world/CameraComponent.h>
-#include <engine/world/World.h>
+#include <framework/world/GameObject.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/world/World.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
@@ -27,10 +26,9 @@ namespace sky {
 
         GameObject::Reflect();
         TransformComponent::Reflect();
-        CameraComponent::Reflect();
     }
 
-    World::World() : root(nullptr), gameObjects(&memoryResource), objectLut(&memoryResource)
+    World::World() : root(nullptr), renderScene(nullptr), gameObjects(&memoryResource), objectLut(&memoryResource)
     {
         root = CreateGameObject("root");
     }

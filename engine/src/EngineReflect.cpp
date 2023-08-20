@@ -11,7 +11,7 @@
 #include <core/util/Uuid.h>
 
 #include <engine/SkyEngine.h>
-#include <engine/world/World.h>
+#include <framework/world/World.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 

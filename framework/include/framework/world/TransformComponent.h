@@ -5,7 +5,7 @@
 #pragma once
 
 #include <core/math/Transform.h>
-#include <engine/base/Component.h>
+#include <framework/world//Component.h>
 #include <vector>
 
 namespace sky {
@@ -13,7 +13,7 @@ namespace sky {
     class TransformComponent : public Component {
     public:
         TransformComponent() = default;
-        ~TransformComponent();
+        ~TransformComponent() override;
 
         TYPE_RTTI_WITH_VT(TransformComponent)
 

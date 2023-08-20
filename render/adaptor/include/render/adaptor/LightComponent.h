@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include <engine/base/Component.h>
+#include <framework/world/Component.h>
 
 namespace sky {
 
     class LightComponent : public Component {
     public:
         LightComponent() = default;
-        ~LightComponent() = default;
+        ~LightComponent() override = default;
 
         TYPE_RTTI_WITH_VT(LightComponent)
 
