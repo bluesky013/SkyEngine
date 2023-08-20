@@ -134,15 +134,18 @@ namespace sky::rdg {
         RasterPassBuilder    AddRasterPass(const char *name, uint32_t width, uint32_t height);
         ComputePassBuilder   AddComputePass(const char *name);
         CopyPassBuilder      AddCopyPass(const char *name);
-        void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
+
+        void AddPresentPass(const char *name, const rhi::SwapChainPtr &swapchain);
 
         static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
+
+        void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
         void FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const;
         AccessRes GetMergedAccessRes(const AccessRes &lastAccess,
-                                       const rhi::AccessFlags& accessFlag,
-                                       const AccessRange &subRange,
-                                       VertexType passAccessID,
-                                       VertexType nextAccessResID) const;
+                                     const rhi::AccessFlags& accessFlag,
+                                     const AccessRange &subRange,
+                                     VertexType passAccessID,
+                                     VertexType nextAccessResID) const;
 
         // memory
         RenderGraphContext *context;

@@ -106,6 +106,12 @@ namespace sky::rdg {
         return CopyPassBuilder{*this, vtx};
     }
 
+    void RenderGraph::AddPresentPass(const char *name, const rhi::SwapChainPtr &swapchain)
+    {
+        auto vtx = AddVertex(name, PresentPass(swapchain, &context->resources), *this);
+        add_edge(0, vtx, graph);
+    }
+
     AccessGraph::AccessGraph(RenderGraphContext *ctx)
         : context(ctx)
         , vertices(&ctx->resources)

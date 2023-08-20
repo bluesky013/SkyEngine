@@ -253,7 +253,13 @@ namespace sky::rdg {
     };
 
     struct PresentPass {
-        using Tag = CopyBlitTag;
+        explicit PresentPass(const rhi::SwapChainPtr &swc, PmrResource *res)
+            : swapChain(swc)
+            , frontBarriers(res)
+            , rearBarriers(res)
+        {}
+
+        using Tag = PresentTag;
 
         rhi::SwapChainPtr swapChain;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID

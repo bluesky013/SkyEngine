@@ -261,7 +261,7 @@ namespace sky::vk {
     {
         PresentInfo presentInfo = {};
         presentInfo.imageIndex = info.imageIndex;
-        for (auto &sema : info.signals) {
+        for (const auto &sema : info.semaphores) {
             presentInfo.signals.emplace_back(std::static_pointer_cast<Semaphore>(sema));
         }
         Present(presentInfo);

@@ -3,6 +3,7 @@
 //
 
 #include <render/RenderScene.h>
+#include <render/rdg/RenderGraph.h>
 
 namespace sky {
 
@@ -18,6 +19,18 @@ namespace sky {
     void RenderScene::PostTick(float time)
     {
 
+    }
+
+    void RenderScene::Render()
+    {
+        rdg::RenderGraph rdg(pipeline->Context());
+        pipeline->OnSetup(rdg);
+        pipeline->Execute(rdg);
+    }
+
+    void RenderScene::SetPipeline(RenderPipeline *ppl)
+    {
+        pipeline.reset(ppl);
     }
 
     void RenderScene::AddSceneView(SceneView *view)
@@ -41,7 +54,7 @@ namespace sky {
     {
         primitives.erase(std::remove_if(primitives.begin(), primitives.end(), [primitive](const auto &v) {
             return primitive == v;
-        }));
+        }), primitives.end());
     }
 
 } // namespace sky

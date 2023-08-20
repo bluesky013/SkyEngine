@@ -316,7 +316,7 @@ namespace sky::rhi {
 
         PresentInfo presentInfo = {};
         presentInfo.imageIndex = index;
-        presentInfo.signals.emplace_back(renderFinish);
+        presentInfo.semaphores.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
     }
 

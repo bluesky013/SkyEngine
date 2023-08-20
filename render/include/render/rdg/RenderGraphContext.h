@@ -24,6 +24,10 @@ namespace sky::rdg {
         rhi::Device *device = nullptr;
         rhi::Queue *graphicsQueue = nullptr;
         rhi::Queue *transferQueue = nullptr;
+
+        rhi::FencePtr fence;
+        rhi::SemaphorePtr imageAvailable;
+        rhi::SemaphorePtr renderFinish;
         rhi::CommandBufferPtr mainCommandBuffer;
     };
 

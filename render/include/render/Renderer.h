@@ -28,7 +28,7 @@ namespace sky {
         RenderScene *CreateScene();
         void RemoveScene(RenderScene *scene);
 
-        RenderWindow *CreateRenderWindow();
+        RenderWindow *CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync);
         void DestroyRenderWindow(RenderWindow *);
 
     private:
@@ -46,7 +46,6 @@ namespace sky {
 
         PmrUnSyncPoolRes mainPool;
 
-        std::unique_ptr<rdg::RenderGraphContext> rdgContext;
         PmrList<std::unique_ptr<RenderScene, decltype(&Renderer::DestroyObj<RenderScene>)>> scenes;
         PmrList<std::unique_ptr<RenderWindow, decltype(&Renderer::DestroyObj<RenderWindow>)>> windows;
     };

@@ -17,7 +17,6 @@ namespace sky {
         MaterialProxyPtr material;
 
         rhi::VertexAssemblyPtr va;
-        rhi::GraphicsPipelinePtr pso;
         rhi::DescriptorSetPtr set;
         rhi::DescriptorSetLayoutPtr setLayout;
         rhi::BufferPtr indirectBuffer;

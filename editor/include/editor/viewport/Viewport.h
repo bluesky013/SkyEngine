@@ -5,6 +5,7 @@
 #pragma once
 
 #include <QWindow>
+#include <render/RenderWindow.h>
 
 namespace sky::editor {
 
@@ -19,6 +20,7 @@ namespace sky::editor {
         bool event(QEvent *event) override;
 
     private:
+        RenderWindow *window = nullptr;
     };
 
 }

@@ -131,6 +131,7 @@ namespace sky {
 
         // init rhi
         RHI::Get()->InitInstance(rhiDesc);
+        RHI::Get()->InitDevice({});
 
         // init renderer
         Renderer::Get()->Init();
