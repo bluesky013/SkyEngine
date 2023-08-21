@@ -7,12 +7,10 @@
 
 namespace sky {
     struct TypeMemberNode;
-}
+} // sky
 
 namespace sky::editor::util {
 
     bool IsVisible(const TypeMemberNode& member);
 
-    PropertyWidget* CreateByTypeMemberInfo(const TypeMemberNode& member, QWidget* parent);
-
-}
+} // sky::editor::util

@@ -160,7 +160,7 @@ namespace sky {
     template <typename T>
     class TypeFactory<T> {
     public:
-        TypeFactory(TypeNode &node) : type(node)
+        explicit TypeFactory(TypeNode &node) : type(node)
         {
         }
 

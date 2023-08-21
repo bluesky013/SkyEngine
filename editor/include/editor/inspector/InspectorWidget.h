@@ -22,8 +22,8 @@ namespace sky::editor {
 
     class InspectorWidget : public QDockWidget {
     public:
-        InspectorWidget(QWidget* parent);
-        ~InspectorWidget() = default;
+        explicit InspectorWidget(QWidget* parent);
+        ~InspectorWidget() override = default;
 
         void SetWorldItem(WorldItem* item);
 

@@ -9,12 +9,12 @@
 
 namespace sky {
 
-    class MeshComponent : public Component {
+    class MeshRenderer : public Component {
     public:
-        MeshComponent() = default;
-        ~MeshComponent() override = default;
+        MeshRenderer() = default;
+        ~MeshRenderer() override = default;
 
-        TYPE_RTTI_WITH_VT(MeshComponent)
+        TYPE_RTTI_WITH_VT(MeshRenderer)
 
         static void Reflect();
 

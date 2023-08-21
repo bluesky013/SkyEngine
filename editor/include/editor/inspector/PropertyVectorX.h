@@ -11,17 +11,17 @@
 #include <editor/inspector/PropertyWidget.h>
 #include <framework/serialization/SerializationContext.h>
 
+namespace sky {
+    struct TypeNode;
+} // namespace sky
 
 namespace sky::editor {
-
-    static const char* LABEL[4] = { "x", "y", "z", "w" };
 
     template <typename T>
     class PropertyScalar : public PropertyWidget {
     public:
-        PropertyScalar(QWidget* parent) : PropertyWidget(parent)
+        explicit PropertyScalar(void *inst, const TypeNode *node, QWidget* parent) : PropertyWidget(inst, node, parent)
         {
-            auto layout = new QHBoxLayout(this);
             layout->setSpacing(0);
             layout->addWidget(label);
 
@@ -29,31 +29,29 @@ namespace sky::editor {
             if constexpr (std::is_floating_point_v<T>) {
                 line->setValidator(new QDoubleValidator(this));
             } else if constexpr (std::is_integral_v<T>) {
-                line->setValidator(new QIntValidator(this));
+                line->setValidator(new QIntValidator(std::numeric_limits<T>::min(), std::numeric_limits<T>::max(), this));
             }
             layout->addWidget(line);
 
             connect(line, &QLineEdit::textEdited, this, [this](const QString &s) {
-                T val = 0;
+                auto *ptr = reinterpret_cast<T *>(instance);
                 if constexpr (std::is_floating_point_v<T>) {
-                    val = static_cast<T>(s.toDouble());
+                    *ptr = static_cast<T>(s.toDouble());
                 } else if constexpr (std::is_signed_v<T>) {
-                    T val = static_cast<T>(s.toInt());
+                    *ptr = static_cast<T>(s.toInt());
                 } else if constexpr (std::is_unsigned_v<T>) {
-                    T val = static_cast<T>(s.toUInt());
+                    *ptr = static_cast<T>(s.toUInt());
                 }
-                memberNode->setterFn(instance, &val);
             });
         }
 
         void Refresh() override
         {
-            const void *val = memberNode->getterFn(instance);
-            const T* data = static_cast<const T*>(val);
+            const T* data = reinterpret_cast<const T*>(instance);
             line->setText(QString::number(*data));
         }
 
-        ~PropertyScalar() = default;
+        ~PropertyScalar() override = default;
 
     private:
         QLineEdit* line;
@@ -62,60 +60,35 @@ namespace sky::editor {
     template <size_t N>
     class PropertyVec : public PropertyWidget {
     public:
-        PropertyVec(QWidget* parent) : PropertyWidget(parent)
+        explicit PropertyVec(QWidget* parent) : PropertyWidget(parent)
         {
-            auto layout = new QHBoxLayout(this);
             layout->setSpacing(0);
-
             layout->addWidget(label);
-            auto validator = new QDoubleValidator(this);
+            auto *validator = new QDoubleValidator(this);
+            const float *val = reinterpret_cast<float *>(instance);
             for (uint32_t i = 0; i < N; ++i) {
                 line[i] = new QLineEdit(this);
                 line[i]->setValidator(validator);
-                memLabel[i] = new QLabel(this);
-                memLabel[i]->setFixedWidth(20);
-                layout->addWidget(memLabel[i]);
                 layout->addWidget(line[i]);
 
                 connect(line[i], &QLineEdit::textEdited, this, [i, this](const QString &s) {
-                    float val = static_cast<float>(s.toDouble());
-                    memberNode->setterFn(instance, &val);
+                    auto val = static_cast<float>(s.toDouble());
                 });
-            }
-        }
-
-        void SetInstance(void* instance, const QString& str, const TypeMemberNode& node) override
-        {
-            PropertyWidget::SetInstance(instance, str, node);
-            auto member = GetTypeNode(memberNode->info);
-            if (member == nullptr) {
-                return;
-            }
-            uint32_t i = 0;
-            for (auto& mem : member->members) {
-                memLabel[i++]->setText(mem.first.data());
             }
         }
 
         void Refresh() override
         {
-            const void *val = memberNode->getterConstFn(instance);
-            auto member = GetTypeNode(memberNode->info->typeId);
-            if (member == nullptr) {
-                return;
-            }
-            uint32_t i = 0;
-            for (auto& mem : member->members) {
-                const auto *memVal = mem.second.getterConstFn(val);
-                line[i++]->setText(QString::number(*static_cast<const float *>(memVal)));
+            const auto *val = reinterpret_cast<const float *>(instance);
+            for (uint32_t i = 0; i < N; ++i) {
+                line[i++]->setText(QString::number(val[i]));
             }
         }
 
-        ~PropertyVec() = default;
+        ~PropertyVec() override = default;
 
     private:
         QLineEdit* line[N];
-        QLabel* memLabel[N];
     };
 
 }

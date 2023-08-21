@@ -5,20 +5,23 @@
 #pragma once
 
 #include <QWidget>
+#include <framework/serialization/SerializationContext.h>
 
 class QLabel;
+class QVBoxLayout;
 
 namespace sky::editor {
 
     class InspectorBase : public QWidget {
     public:
-        InspectorBase(QWidget* parent);
-        ~InspectorBase() = default;
+        explicit InspectorBase(QWidget* parent);
+        ~InspectorBase() override = default;
 
-        void SetName(const QString& str);
+        void SetObject(void *ptr, const TypeNode *node);
 
     private:
         QLabel* label;
+        QVBoxLayout* layout;
     };
 
 }

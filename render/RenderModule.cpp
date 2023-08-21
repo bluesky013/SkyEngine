@@ -16,9 +16,9 @@
 #include <render/assets/Image.h>
 #include <render/assets/RenderPrefab.h>
 
-#include <render/adaptor/LightComponent.h>
-#include <render/adaptor/MeshComponent.h>
 #include <render/adaptor/CameraComponent.h>
+#include <render/adaptor/LightComponent.h>
+#include <render/adaptor/MeshRenderer.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
@@ -95,7 +95,7 @@ namespace sky {
     static void RegisterComponents()
     {
         LightComponent::Reflect();
-        MeshComponent::Reflect();
+        MeshRenderer::Reflect();
         CameraComponent::Reflect();
     }
 

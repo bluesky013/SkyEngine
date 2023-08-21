@@ -2,9 +2,10 @@
 // Created by Zach Lee on 2021/12/15.
 //
 
+#include <QMenu>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QMenu>
+#include <editor/inspector/ComponentInspector.h>
 #include <editor/inspector/InspectorBase.h>
 #include <editor/inspector/InspectorWidget.h>
 #include <editor/inspector/PropertyUtil.h>
@@ -18,9 +19,9 @@ namespace sky::editor {
     {
         setWindowTitle(tr("Inspector"));
 
-        auto widget = new QWidget(this);
+        auto *widget = new QWidget(this);
         setWidget(widget);
-        auto rootLayout = new QVBoxLayout(widget);
+        auto *rootLayout = new QVBoxLayout(widget);
         rootLayout->setContentsMargins(0, 0, 0, 0);
         rootLayout->setAlignment(Qt::AlignTop);
 
@@ -28,17 +29,18 @@ namespace sky::editor {
         connect(button, &QPushButton::clicked, this, [this](bool checked) {
             QMenu menu(tr("Components"), this);
 
-            auto &types = ComponentFactory::Get()->GetComponentTypes();
+            const auto &types = ComponentFactory::Get()->GetComponentTypes();
             auto *serializationContext = SerializationContext::Get();
-            for (auto &type : types) {
+            for (const auto &type : types) {
                 auto *node = serializationContext->FindTypeById(type.first);
                 if (node == nullptr) {
                     continue;
                 }
 
-                auto action = new QAction(node->info->markedName.data(), &menu);
-                connect(action, &QAction::triggered, this, [&](bool checked) {
-                    selectedItem->go->AddComponent(type.first);
+                auto *action = new QAction(node->info->markedName.data(), &menu);
+                const auto typeID = type.first;
+                connect(action, &QAction::triggered, this, [this, typeID](bool checked) {
+                    selectedItem->go->AddComponent(typeID);
                     Refresh();
                 });
 
@@ -60,23 +62,10 @@ namespace sky::editor {
 
     void InspectorWidget::AddComponent(Component *comp)
     {
-        const TypeInfoRT *info = comp->GetTypeInfo();
-        auto              node = GetTypeNode(info);
-        if (node == nullptr) {
-            return;
-        }
-        auto inspector = new InspectorBase(groupWidget);
-        inspector->SetName(node->info->markedName.data());
+        auto *inspector = new ComponentInspector(groupWidget);
+        inspector->SetComponent(comp);
 
         layout->addWidget(inspector);
-        for (auto &mem : node->members) {
-            if (!util::IsVisible(mem.second)) {
-                continue;
-            }
-            auto prop = util::CreateByTypeMemberInfo(mem.second, groupWidget);
-            prop->SetInstance(comp, mem.first.data(), mem.second);
-            layout->addWidget(prop);
-        }
 
         groups.emplace_back(inspector);
     }
@@ -102,7 +91,7 @@ namespace sky::editor {
             return;
         }
         Clear();
-        auto  go    = selectedItem->go;
+        auto *go = selectedItem->go;
         auto &comps = go->GetComponents();
         for (auto &comp : comps) {
             AddComponent(comp);

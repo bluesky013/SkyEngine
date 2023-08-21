@@ -8,12 +8,15 @@
 #include <QStyle>
 #include <QVBoxLayout>
 #include <editor/inspector/InspectorBase.h>
+#include <editor/inspector/PropertyUtil.h>
+#include <editor/inspector/PropertyWidget.h>
+#include <editor/inspector/PropertyVectorX.h>
 
 namespace sky::editor {
 
     InspectorBase::InspectorBase(QWidget *parent) : QWidget(parent)
     {
-        auto layout = new QVBoxLayout(this);
+        layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
@@ -27,8 +30,12 @@ namespace sky::editor {
         layout->addWidget(label);
     }
 
-    void InspectorBase::SetName(const QString &str)
+    void InspectorBase::SetObject(void *ptr, const TypeNode *node)
     {
-        label->setText(str);
+        label->setText(node->info->markedName.data());
+        auto *prop = new PropertyWidget(label);
+        prop->SetInstance(ptr, node);
+        layout->addWidget(prop);
     }
+
 } // namespace sky::editor
