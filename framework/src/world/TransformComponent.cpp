@@ -19,6 +19,7 @@ namespace sky {
         SerializationContext::Get()
             ->Register<TransformComponent>(NAME)
             .Member<&TransformComponent::local>("local")
+            .Property(UI_LABEL_VISIBLE, false)
             .Member<&TransformComponent::world>("world")
             .Property(UI_PROP_VISIBLE, false);
 

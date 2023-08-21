@@ -4,13 +4,11 @@
 
 #pragma once
 #include <editor/inspector/PropertyWidget.h>
-
-namespace sky {
-    struct TypeMemberNode;
-} // sky
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/PropertyCommon.h>
 
 namespace sky::editor::util {
 
-    bool IsVisible(const TypeMemberNode& member);
+    bool CheckProperty(const PropertyMap& properties, CommonPropertyKey key, bool dft = true);
 
 } // sky::editor::util

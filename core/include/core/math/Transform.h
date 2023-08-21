@@ -40,6 +40,9 @@ namespace sky {
             return result;
         }
 
+        inline Vector3 GetRotationEuler() const { return rotation.ToEulerYZX(); }
+        inline void SetRotationFromEuler(const Vector3 &euler) { rotation.FromEulerYZX(euler); }
+
         inline Matrix4 ToMatrix() const
         {
 //            auto matR = glm::mat4_cast(rotation);

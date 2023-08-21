@@ -8,6 +8,7 @@ namespace sky {
 
     enum CommonPropertyKey {
         UI_PROP_VISIBLE,
+        UI_LABEL_VISIBLE
     };
 
 }

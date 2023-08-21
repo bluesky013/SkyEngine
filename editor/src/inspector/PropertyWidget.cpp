@@ -17,6 +17,11 @@ namespace sky::editor {
 
         layout = new QHBoxLayout(this);
         layout->addWidget(label);
+
+        setLayout(layout);
+        setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->setContentsMargins(0, 0, 0, 0);
     }
 
     PropertyWidget::PropertyWidget(QWidget *parent) : PropertyWidget(nullptr, nullptr, parent)
@@ -25,7 +30,7 @@ namespace sky::editor {
 
     void PropertyWidget::SetLabel(const QString &str)
     {
-        label->setFixedWidth(80);
+        label->setFixedWidth(120);
         label->setText(str);
     }
 
@@ -54,9 +59,13 @@ namespace sky::editor {
             auto *childWidget = new QWidget(this);
             auto *childLayout = new QVBoxLayout(childWidget);
             childWidget->setLayout(childLayout);
-            layout->addWidget(childWidget);
+
+            childLayout->setSpacing(0);
+            childLayout->setContentsMargins(0, 0, 0, 0);
+            childWidget->setContentsMargins(0, 0, 0, 0);
+
             for (const auto &member : node->members) {
-                if (!util::IsVisible(member.second)) {
+                if (!util::CheckProperty(member.second.properties, UI_PROP_VISIBLE)) {
                     continue;
                 }
                 const auto *childNode = GetTypeNode(member.second.info);
@@ -65,11 +74,17 @@ namespace sky::editor {
                 }
                 auto *ptr = member.second.getterFn(instance);
                 auto *widget = new PropertyWidget(this);
-                widget->SetLabel(member.first.data());
+
+                if (util::CheckProperty(member.second.properties, UI_LABEL_VISIBLE)) {
+                    widget->SetLabel(member.first.data());
+                }
+
                 widget->SetInstance(ptr, childNode);
-                childLayout->addWidget(widget);
+                childLayout->addWidget(widget, 0, Qt::AlignTop);
                 children.push_back(widget);
             }
+
+            layout->addWidget(childWidget);
         }
 
         Refresh();

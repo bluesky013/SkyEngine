@@ -8,12 +8,12 @@
 
 namespace sky::editor::util {
 
-    bool IsVisible(const TypeMemberNode &member)
+    bool CheckProperty(const PropertyMap &properties, CommonPropertyKey key, bool dft)
     {
-        auto iter = member.properties.find(UI_PROP_VISIBLE);
-        if (iter != member.properties.end()) {
+        auto iter = properties.find(key);
+        if (iter != properties.end()) {
             const auto *val = iter->second.GetAsConst<bool>();
-            return val != nullptr && *val;
+            return val != nullptr ? *val : dft;
         }
         return true;
     }
