@@ -22,7 +22,11 @@ namespace sky {
         void Load(JsonInputArchive &ar) override;
 
     private:
+        bool isStatic = true;
+        bool castShadow = false;
+        bool receiveShadow = false;
+
         MeshAssetPtr mesh;
     };
 
-} // namespace sky
+} // namespace receiveShadow

@@ -8,6 +8,7 @@
 #include <QDoubleValidator>
 #include <QLineEdit>
 #include <QLabel>
+#include <QCheckBox>
 #include <editor/inspector/PropertyWidget.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -16,6 +17,30 @@ namespace sky {
 } // namespace sky
 
 namespace sky::editor {
+
+    class PropertyBool : public PropertyWidget {
+    public:
+        explicit PropertyBool(void *inst, const TypeNode *node, QWidget* parent) : PropertyWidget(inst, node, parent)
+        {
+            layout->setSpacing(0);
+            layout->addWidget(label, 0, Qt::AlignLeft | Qt::AlignTop);
+
+            box = new QCheckBox(this);
+            layout->addWidget(box, 0, Qt::AlignLeft | Qt::AlignTop);
+
+            connect(box, &QCheckBox::stateChanged, this, [this](int v) {
+                *reinterpret_cast<bool *>(instance) = (v == Qt::Checked);
+            });
+        }
+
+        void Refresh() override
+        {
+            box->setCheckState(*reinterpret_cast<bool *>(instance) ? Qt::Checked : Qt::Unchecked);
+        }
+
+    private:
+        QCheckBox* box;
+    };
 
     template <typename T>
     class PropertyScalar : public PropertyWidget {

@@ -39,7 +39,11 @@ namespace sky::editor {
         instance = inst;
         typeNode = node;
 
-        if (node->info->typeId == TypeInfoObj<float>::Get()->RtInfo()->typeId) {
+        if (node->info->typeId == TypeInfoObj<bool>::Get()->RtInfo()->typeId) {
+            auto *widget = new PropertyBool(inst, node, this);
+            layout->addWidget(widget);
+            children.push_back(widget);
+        } else if (node->info->typeId == TypeInfoObj<float>::Get()->RtInfo()->typeId) {
             auto *widget = new PropertyScalar<float>(inst, node, this);
             layout->addWidget(widget);
             children.push_back(widget);
@@ -80,7 +84,7 @@ namespace sky::editor {
                 }
 
                 widget->SetInstance(ptr, childNode);
-                childLayout->addWidget(widget, 0, Qt::AlignTop);
+                childLayout->addWidget(widget, 0, Qt::AlignLeft | Qt::AlignTop);
                 children.push_back(widget);
             }
 
