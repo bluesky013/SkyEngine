@@ -8,12 +8,14 @@
 #include <core/math/Vector4.h>
 #include <core/math/Quaternion.h>
 #include <core/math/Transform.h>
+#include <core/math/Color.h>
 #include <core/util/Uuid.h>
 
 #include <engine/SkyEngine.h>
 #include <framework/world/World.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/PropertyCommon.h>
 
 namespace sky {
 
@@ -86,6 +88,13 @@ namespace sky {
             .Member<&Transform::translation>("translation")
             .Member<&Transform::scale>("scale")
             .Member<&Transform::rotation>("rotation");
+
+        SerializationContext::Get()
+            ->Register<Color>("Color")
+            .Member<&Color::r>("r")
+            .Member<&Color::g>("g")
+            .Member<&Color::b>("b")
+            .Member<&Color::b>("a");
     }
 
     void SkyEngine::Reflect()

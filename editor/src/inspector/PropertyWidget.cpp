@@ -7,6 +7,8 @@
 #include <editor/inspector/PropertyWidget.h>
 #include <editor/inspector/PropertyUtil.h>
 #include <editor/inspector/PropertyVectorX.h>
+#include <editor/inspector/PropertyColorWidget.h>
+#include <core/math/Color.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky::editor {
@@ -59,6 +61,10 @@ namespace sky::editor {
             auto *widget = new PropertyScalar<uint32_t>(inst, node, this);
             layout->addWidget(widget);
             children.push_back(widget);
+        } else if (node->info->typeId == TypeInfoObj<Color>::Get()->RtInfo()->typeId) {
+            auto *widget = new PropertyColorWidget(inst, node, this);
+            layout->addWidget(widget);
+            children.push_back(widget);
         } else {
             auto *childWidget = new QWidget(this);
             auto *childLayout = new QVBoxLayout(childWidget);
@@ -76,7 +82,7 @@ namespace sky::editor {
                 if (childNode == nullptr) {
                     continue;
                 }
-                auto *ptr = member.second.getterFn(instance);
+                auto *ptr    = member.second.getterFn(instance);
                 auto *widget = new PropertyWidget(this);
 
                 if (util::CheckProperty(member.second.properties, UI_LABEL_VISIBLE)) {

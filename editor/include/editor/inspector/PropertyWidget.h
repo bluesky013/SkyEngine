@@ -5,12 +5,12 @@
 #pragma once
 #include <QWidget>
 #include <QGridLayout>
+#include <QLabel>
 
 namespace sky {
     struct TypeNode;
 }
 
-class QLabel;
 class QHBoxLayout;
 
 namespace sky::editor {

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <core/math/Color.h>
 #include <framework/world/Component.h>
 
 namespace sky {
@@ -19,6 +20,9 @@ namespace sky {
 
         void Save(JsonOutputArchive &ar) const override;
         void Load(JsonInputArchive &ar) override;
+
+    private:
+        Color lightColor;
     };
 
 } // namespace sky
