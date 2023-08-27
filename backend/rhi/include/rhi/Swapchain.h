@@ -12,7 +12,7 @@ namespace sky::rhi {
     class Queue;
 
     struct PresentInfo {
-        std::vector<SemaphorePtr> signals;
+        std::vector<SemaphorePtr> semaphores;
         uint32_t                  imageIndex = 0;
     };
 

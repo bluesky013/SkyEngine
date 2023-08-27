@@ -5,11 +5,10 @@
 #pragma once
 
 #include <list>
+#include <core/memory/LinearStorage.h>
 #include <rhi/CommandBuffer.h>
 #include <gles/egl/Context.h>
-
 #include <gles/DevObject.h>
-#include <gles/CommandStorage.h>
 #include <gles/Fence.h>
 #include <gles/CommandContext.h>
 
@@ -113,7 +112,7 @@ namespace sky::gles {
 
     private:
         friend class GraphicsEncoder;
-        using StoragePtr = std::unique_ptr<CommandStorage>;
+        using StoragePtr = std::unique_ptr<LinearStorage>;
         using Iterator = std::list<StoragePtr>::iterator;
 
         void AllocateStorage();

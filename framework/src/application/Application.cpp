@@ -85,6 +85,9 @@ namespace sky {
         for (auto &module : modules) {
             module->Stop();
         }
+        for (auto &module : modules) {
+            module->Shutdown();
+        }
 
         for (auto &lib : dynLibs) {
             auto stopFn = lib->GetAddress<ModuleStop>("StopModule");

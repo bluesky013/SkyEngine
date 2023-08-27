@@ -31,7 +31,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
     context.device = RHI::Get()->GetDevice();
     context.mainCommandBuffer = context.device->CreateCommandBuffer({});
 
-    RenderGraph rdg(&context);
+    RenderGraph rdg(&context, nullptr);
     auto       &rg = rdg.resourceGraph;
 
 
@@ -73,7 +73,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
         .AddColor("test_2_1", ResourceAccessBit::WRITE)
         .AddColor("test_2_2", ResourceAccessBit::WRITE)
         .AddDepthStencil("test2", ResourceAccessBit::WRITE)
-        .AddSceneView("queue1", nullptr);
+        .AddQueue("queue1");
 
     auto pass2 = rdg.AddRasterPass("color1", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));

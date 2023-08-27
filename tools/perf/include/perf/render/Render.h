@@ -49,6 +49,7 @@ namespace sky::perf {
         vk::DescriptorSetPoolPtr pool;
 
         vk::CommandBufferPtr            commandBuffer;
+        vk::FencePtr                    fence;
         vk::Queue                      *graphicsQueue;
         std::vector<vk::FrameBufferPtr> frameBuffers;
         std::vector<vk::ImageViewPtr>   colorViews;

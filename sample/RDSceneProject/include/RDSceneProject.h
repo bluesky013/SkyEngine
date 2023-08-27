@@ -4,41 +4,30 @@
 
 #pragma once
 
+#include <framework/window/IWindowEvent.h>
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 
-#include <render/RenderCamera.h>
-#include <render/RenderScene.h>
-#include <render/RenderViewport.h>
-
 namespace sky {
-    class StaticMesh;
+    class RenderScene;
+    class RenderWindow;
 
-    struct Transform {
-        Vector3 position;
-        Vector3 euler;
-        Vector3 scale;
-    };
-
-    class RDSceneProject : public IModule {
+    class RDSceneProject : public IModule, public IWindowEvent {
     public:
         RDSceneProject()  = default;
-        ~RDSceneProject() = default;
+        ~RDSceneProject() override = default;
 
-        void Init() override;
-
+        bool Init() override;
         void Start() override;
-
         void Stop() override;
-
         void Tick(float delta) override;
 
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
     private:
-        RDScenePtr    scene;
-        RenderCamera *mainCamera = nullptr;
-        std::vector<StaticMesh*> meshes;
-        std::vector<Transform> transforms;
+        RenderScene *scene = nullptr;
+        RenderWindow *window = nullptr;
     };
 
 } // namespace sky

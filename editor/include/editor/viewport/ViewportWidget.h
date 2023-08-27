@@ -11,13 +11,12 @@ namespace sky::editor {
     class ViewportWidget : public QWidget {
         Q_OBJECT
     public:
-        ViewportWidget(QWidget* parent = nullptr);
-        ~ViewportWidget();
+        explicit ViewportWidget(QWidget* parent = nullptr);
+        ~ViewportWidget() override = default;
 
         void Init();
 
     private:
         Viewport* window;
     };
-
 }

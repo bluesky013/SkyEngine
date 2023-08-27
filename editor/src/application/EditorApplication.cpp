@@ -5,6 +5,7 @@
 #include <editor/application/EditorApplication.h>
 #include <editor/document/Document.h>
 #include <core/environment/Environment.h>
+#include <framework/platform/PlatformBase.h>
 #include <engine/SkyEngine.h>
 
 namespace sky::editor {
@@ -26,6 +27,12 @@ namespace sky::editor {
 
     bool EditorApplication::Init(StartInfo &info)
     {
+        // platform
+        sky::Platform* platform = sky::Platform::Get();
+        if (!platform->Init({})) {
+            return false;
+        }
+
         Application::Init(info);
 
         EditorReflect();

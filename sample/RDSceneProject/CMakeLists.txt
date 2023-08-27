@@ -16,7 +16,7 @@ sky_add_library(TARGET ${TARGET_NAME} SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyRender
+        Framework
+        SkyRender.Static
     )
-
-add_dependencies(Launcher ${TARGET_NAME})
+sky_add_dependency(TARGET RDSceneProject DEPENDENCIES Launcher)

@@ -170,8 +170,7 @@ namespace sky::gles {
     void CommandBuffer::AllocateStorage()
     {
         static const uint32_t DEFAULT_SIZE = 8 * 1024 * 1024; // 8M
-        auto storage = std::make_unique<CommandStorage>();
-        storage->Init({DEFAULT_SIZE});
+        auto storage = std::make_unique<LinearStorage>(DEFAULT_SIZE);
         iterator = storages.emplace(iterator, std::move(storage));
     }
 

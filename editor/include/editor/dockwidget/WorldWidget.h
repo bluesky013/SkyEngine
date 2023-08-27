@@ -7,7 +7,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QTimer>
-#include <engine/world/World.h>
+#include <framework/world/World.h>
 
 namespace sky::editor {
 
@@ -21,7 +21,7 @@ namespace sky::editor {
 
     class WorldWidget : public QDockWidget {
     public:
-        WorldWidget(QWidget* parent = nullptr);
+        explicit WorldWidget(QWidget* parent = nullptr);
         ~WorldWidget() = default;
 
         void SetWorld(const WorldPtr& world);

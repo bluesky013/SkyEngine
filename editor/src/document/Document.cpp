@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <fstream>
+#include <memory>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetManager.h>
@@ -99,7 +100,7 @@ namespace sky::editor {
 
     void Document::OpenLevel(const QString &path, bool newLevel)
     {
-        currentLevel.reset(new Level());
+        currentLevel = std::make_unique<Level>();
         if (newLevel) {
             currentLevel->New(projectHome + QDir::separator() + "levels" + QDir::separator() + path);
         } else {

@@ -10,7 +10,7 @@ sky_add_library(TARGET SkyRender.Static STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Framework
+        Core
         RHI
     )
 
@@ -22,8 +22,10 @@ sky_add_library(TARGET SkyRender SHARED
     PUBLIC_INC
         include
     LINK_LIBS
+        SkyEngine
         SkyRenderAdaptor
     )
 
 add_subdirectory(adaptor)
+add_subdirectory(builder)
 sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

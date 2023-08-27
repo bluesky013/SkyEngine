@@ -7,14 +7,9 @@
 #include <limits>
 #include <boost/graph/adjacency_list.hpp>
 #include <core/std/Container.h>
-#include <rhi/Core.h>
-#include <rhi/Image.h>
-#include <rhi/Buffer.h>
-#include <rhi/RenderPass.h>
-#include <rhi/FrameBuffer.h>
-#include <rhi/Swapchain.h>
-#include <rhi/ComputePipeline.h>
+#include <rhi/Device.h>
 #include <render/SceneView.h>
+#include <render/RenderPrimitive.h>
 
 namespace sky::rdg {
 
@@ -44,7 +39,11 @@ namespace sky::rdg {
         SRC,
         DST,
     };
-    using AttachmentType = std::variant<RasterType, ComputeType, TransferType>;
+
+    enum class PresentType {
+        PRESENT
+    };
+    using AttachmentType = std::variant<RasterType, ComputeType, TransferType, PresentType>;
 
     enum class ResourceAccessBit : uint32_t {
         READ = 0x01,
@@ -62,19 +61,20 @@ namespace sky::rdg {
 
     struct RasterPassTag {};
     struct RasterSubPassTag {};
-    struct RasterSceneViewTag {};
+    struct RasterQueueTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterSceneViewTag>;
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
     struct ImageViewTag {};
+    struct ImportSwapChainTag {};
     struct BufferTag {};
     struct ImportBufferTag {};
     struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, BufferTag, ImportBufferTag, BufferViewTag>;
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag>;
 
     struct AccessPassTag {};
     struct AccessResTag {};
@@ -189,12 +189,18 @@ namespace sky::rdg {
         PmrHashMap<std::string, ComputeView> computeViews;
     };
 
-    struct RasterSceneView {
-        explicit RasterSceneView(PmrResource *res) {}
+    struct RasterQueue {
+        explicit RasterQueue(PmrResource *res) : drawItems(res) {}
 
-        using Tag = RasterSceneViewTag;
+        using Tag = RasterQueueTag;
 
-        ViewPtr sceneView;
+        const SceneView *sceneView = nullptr;
+        PmrList<RenderDrawItem> drawItems;
+        uint32_t viewMask = 0xFFFFFFFF;  // mask all
+        uint32_t rasterID = ~(0U);       // invalid id
+
+        bool sort = false;
+        bool culling = false;
     };
 
     struct RasterPass {
@@ -253,8 +259,16 @@ namespace sky::rdg {
     };
 
     struct PresentPass {
-        using Tag = CopyBlitTag;
+        explicit PresentPass(VertexType resID, const rhi::SwapChainPtr &swc, PmrResource *res)
+            : imageID(resID)
+            , swapChain(swc)
+            , frontBarriers(res)
+            , rearBarriers(res)
+        {}
 
+        using Tag = PresentTag;
+
+        VertexType imageID = INVALID_VERTEX;
         rhi::SwapChainPtr swapChain;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
@@ -280,6 +294,13 @@ namespace sky::rdg {
         ResourceResidency    residency   = ResourceResidency::TRANSIENT;
 
         rhi::ImagePtr      image;
+    };
+
+    struct GraphSwapChain {
+        using Tag = ImportSwapChainTag;
+
+        rhi::SwapChainPtr swapchain;
+        uint32_t imageIndex = 0;
     };
 
     struct GraphImageView {

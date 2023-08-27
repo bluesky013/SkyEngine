@@ -16,11 +16,10 @@ namespace sky {
         IModule()          = default;
         virtual ~IModule() = default;
 
-        virtual bool Init() = 0;
-
-        virtual void Start() = 0;
-
-        virtual void Stop() = 0;
+        virtual bool Init() { return true; }
+        virtual void Start() {}
+        virtual void Stop() {}
+        virtual void Shutdown() {}
 
         virtual void Tick(float delta) = 0;
     };

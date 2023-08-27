@@ -96,15 +96,15 @@ namespace sky::editor {
     {
         setWindowState(Qt::WindowMaximized);
 
-        auto centralWidget = new CentralWidget(this);
+        auto *centralWidget = new CentralWidget(this);
         setCentralWidget(centralWidget);
         centralWidget->Init();
-        auto vp = centralWidget->GetViewport();
+        auto *vp = centralWidget->GetViewport();
         if (vp != nullptr) {
             viewports.emplace_back(vp);
         }
 
-        auto dockMgr     = DockManager::Get();
+        auto *dockMgr     = DockManager::Get();
         worldWidget = new WorldWidget(this);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
@@ -125,9 +125,9 @@ namespace sky::editor {
         menuBar = new QMenuBar(this);
 
         // level
-        ActionWithFlag *openLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Open Level");
-        ActionWithFlag *closeLevelAct = new ActionWithFlag(DocumentFlagBit::LEVEL_OPEN, "Close Level");
-        ActionWithFlag *newLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "New Level");
+        auto *openLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Open Level");
+        auto *closeLevelAct = new ActionWithFlag(DocumentFlagBit::LEVEL_OPEN, "Close Level");
+        auto *newLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "New Level");
 
         connect(openLevelAct, &QAction::triggered, this, [this](bool /**/) {
             QFileDialog dialog(this);
@@ -135,7 +135,7 @@ namespace sky::editor {
             dialog.setNameFilter(tr("Level (*.level)"));
             dialog.setViewMode(QFileDialog::Detail);
             QStringList fileNames;
-            if (dialog.exec()) {
+            if (dialog.exec() != 0) {
                 fileNames = dialog.selectedFiles();
                 if (!fileNames.empty()) {
                     OnOpenLevel(fileNames[0]);
@@ -145,8 +145,8 @@ namespace sky::editor {
 
         connect(newLevelAct, &QAction::triggered, this, [this](bool /**/) {
             LevelDialog dialog;
-            if (dialog.exec()) {
-                auto name = dialog.LevelName();
+            if (dialog.exec() != 0) {
+                const auto& name = dialog.LevelName();
                 if (!name.isEmpty()) {
                     OnNewLevel(name);
                 }
@@ -157,9 +157,9 @@ namespace sky::editor {
             OnCloseLevel();
         });
 
-        ActionWithFlag *openProjectAct = new ActionWithFlag({}, "Open Project", this);
-        ActionWithFlag *newProjectAct = new ActionWithFlag({}, "New Project", this);
-        ActionWithFlag *closeProjectAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Close Project", this);
+        auto *openProjectAct = new ActionWithFlag({}, "Open Project", this);
+        auto *newProjectAct = new ActionWithFlag({}, "New Project", this);
+        auto *closeProjectAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Close Project", this);
 
         // project
         connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
@@ -168,7 +168,7 @@ namespace sky::editor {
             dialog.setNameFilter(tr("Projects (*.sproj)"));
             dialog.setViewMode(QFileDialog::Detail);
             QStringList fileNames;
-            if (dialog.exec()) {
+            if (dialog.exec() != 0) {
                 fileNames = dialog.selectedFiles();
                 if (!fileNames.empty()) {
                     OnOpenProject(fileNames[0]);
@@ -178,9 +178,9 @@ namespace sky::editor {
 
         connect(newProjectAct, &QAction::triggered, this, [this](bool /**/) {
             ProjectDialog dialog;
-            if (dialog.exec()) {
-                auto projectPath = dialog.ProjectPath();
-                auto projectName = dialog.ProjectName();
+            if (dialog.exec() != 0) {
+                const auto& projectPath = dialog.ProjectPath();
+                const auto& projectName = dialog.ProjectName();
                 if (!projectPath.isEmpty() && !projectName.isEmpty()) {
                     OnNewProject(projectPath, projectName);
                 }
@@ -192,10 +192,10 @@ namespace sky::editor {
         });
 
         // close editor
-        ActionWithFlag *closeAct = new ActionWithFlag({}, "Close", this);
+        auto *closeAct = new ActionWithFlag({}, "Close", this);
         connect(closeAct, &QAction::triggered, this, [this](bool /**/) { close(); });
 
-        auto fileMenu = new QMenu("File", menuBar);
+        auto *fileMenu = new QMenu("File", menuBar);
         fileMenu->addAction(newProjectAct);
         fileMenu->addAction(openProjectAct);
         fileMenu->addAction(closeProjectAct);

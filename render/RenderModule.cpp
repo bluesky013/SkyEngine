@@ -9,15 +9,16 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
-#include <render/assets/Material.h>
-#include <render/assets/Shader.h>
-#include <render/assets/Technique.h>
-#include <render/assets/Mesh.h>
-#include <render/assets/Image.h>
-#include <render/assets/RenderPrefab.h>
+#include <render/adaptor/assets/Material.h>
+#include <render/adaptor/assets/Shader.h>
+#include <render/adaptor/assets/Technique.h>
+#include <render/adaptor/assets/Mesh.h>
+#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/RenderPrefab.h>
 
-#include <render/adaptor/LightComponent.h>
-#include <render/adaptor/MeshComponent.h>
+#include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/components/LightComponent.h>
+#include <render/adaptor/components/MeshRenderer.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
@@ -94,7 +95,8 @@ namespace sky {
     static void RegisterComponents()
     {
         LightComponent::Reflect();
-        MeshComponent::Reflect();
+        MeshRenderer::Reflect();
+        CameraComponent::Reflect();
     }
 
     class RenderModule : public IModule {
@@ -106,14 +108,10 @@ namespace sky {
         void Start() override;
         void Stop() override;
         void Tick(float delta) override;
+        void Shutdown() override;
     };
 
     bool RenderModule::Init()
-    {
-        return true;
-    }
-
-    void RenderModule::Start()
     {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
@@ -121,6 +119,11 @@ namespace sky {
 
         RegisterComponents();
 
+        return true;
+    }
+
+    void RenderModule::Start()
+    {
         auto *iSys = Interface<ISystemNotify>::Get();
         auto &reg = iSys->GetApi()->GetSettings();
 
@@ -131,12 +134,17 @@ namespace sky {
 
         // init rhi
         RHI::Get()->InitInstance(rhiDesc);
+        RHI::Get()->InitDevice({});
 
         // init renderer
         Renderer::Get()->Init();
     }
 
     void RenderModule::Stop()
+    {
+    }
+
+    void RenderModule::Shutdown()
     {
         Renderer::Destroy();
         RHI::Destroy();

@@ -95,10 +95,7 @@ namespace sky::vk {
     bool SwapChain::CreateSwapChain()
     {
         std::pair<VkQueueFlags, VkQueueFlags> preferred[] = {
-            {VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0},
-            {VK_QUEUE_GRAPHICS_BIT, 0},
-            {VK_QUEUE_TRANSFER_BIT, 0}
-        };
+            {VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0}, {VK_QUEUE_GRAPHICS_BIT, 0}, {VK_QUEUE_TRANSFER_BIT, 0}};
         VkPhysicalDevice gpu          = device.GetGpuHandle();
         auto             surfaceCheck = [this, gpu](uint32_t index) {
             VkBool32 support = VK_FALSE;
@@ -119,7 +116,7 @@ namespace sky::vk {
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR>   presentModes;
 
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &capabilities);
+        VkResult rst = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &capabilities);
 
         uint32_t num = 0;
         vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &num, nullptr);
@@ -181,7 +178,7 @@ namespace sky::vk {
         swcInfo.preTransform                             = descriptor.preTransform;
         swcInfo.compositeAlpha                           = descriptor.compositeAlpha;
 
-        VkResult rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
+        rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create swapChain failed-%d", rst);
             return false;
@@ -261,7 +258,7 @@ namespace sky::vk {
     {
         PresentInfo presentInfo = {};
         presentInfo.imageIndex = info.imageIndex;
-        for (auto &sema : info.signals) {
+        for (const auto &sema : info.semaphores) {
             presentInfo.signals.emplace_back(std::static_pointer_cast<Semaphore>(sema));
         }
         Present(presentInfo);

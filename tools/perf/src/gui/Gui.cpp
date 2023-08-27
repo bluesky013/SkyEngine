@@ -151,7 +151,7 @@ namespace sky::perf {
         InitPso();
 
         auto nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        Event<IWindowEvent>::Connect(nativeWindow->GetNativeHandle(), this);
+        Event<IWindowEvent>::Connect(nativeWindow, this);
     }
 
     void Gui::Tick(float time, ADB& adb, std::function<void(ADB &)> && func)
@@ -184,8 +184,8 @@ namespace sky::perf {
             if (resize) {
                 vk::VertexAssembly::Descriptor desc = {};
                 res->assembler = std::make_shared<vk::VertexAssembly>(*render->device);
-                res->assembler->AddVertexBuffer(res->vb);
-                res->assembler->SetIndexBuffer(res->ib);
+//                res->assembler->AddVertexBuffer(res->vb);
+//                res->assembler->SetIndexBuffer(res->ib);
                 res->assembler->SetIndexType(sizeof(ImDrawIdx) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
             }
 
@@ -374,11 +374,12 @@ namespace sky::perf {
         res->fontImageView = vk::ImageView::CreateImageView(res->fontImage, {VK_IMAGE_VIEW_TYPE_2D, imageDesc.format});
         res->sampler = render->device->CreateDeviceObject<vk::Sampler>(vk::Sampler::VkDescriptor{});
 
-        auto queue = render->device->GetAsyncTransferQueue();
-        auto handle = queue->UploadImage(res->fontImage, rhi::ImageUploadRequest{
-                                                                                 pixels, 0, uploadSize, 0, 0,
-                                                                                 {0, 0, 0}, {imageDesc.extent.width, imageDesc.extent.height, 1}
-                                                                             });
+        auto queue = render->device->GetTransferQueue();
+        auto handle = queue->UploadImage(res->fontImage,
+                                         {rhi::ImageUploadRequest {
+                                             pixels, 0, uploadSize, 0, 0,
+                                             {0, 0, 0}, {imageDesc.extent.width, imageDesc.extent.height, 1}
+                                         }});
         queue->Wait(handle);
         io.Fonts->SetTexID((ImTextureID)(intptr_t)res->fontImage->GetNativeHandle());
     }

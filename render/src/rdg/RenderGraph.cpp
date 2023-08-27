@@ -37,6 +37,11 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, GraphImportImage{image}, *this), graph);
     }
 
+    void ResourceGraph::ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain)
+    {
+        add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
+    }
+
     void ResourceGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
     {
         auto src = FindVertex(source, *this);
@@ -67,8 +72,9 @@ namespace sky::rdg {
         add_edge(src, dst, graph);
     }
 
-    RenderGraph::RenderGraph(RenderGraphContext *ctx)
+    RenderGraph::RenderGraph(RenderGraphContext *ctx, RenderScene *scn)
         : context(ctx)
+        , scene(scn)
         , vertices(&ctx->resources)
         , names(&ctx->resources)
         , accessNodes(&ctx->resources)
@@ -104,6 +110,17 @@ namespace sky::rdg {
         auto vtx = AddVertex(name, CopyBlitPass{&context->resources}, *this);
         add_edge(0, vtx, graph);
         return CopyPassBuilder{*this, vtx};
+    }
+
+    void RenderGraph::AddPresentPass(const char *name, const char *resName)
+    {
+        auto res = FindVertex(resName, resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+        const auto &swc = resourceGraph.swapChains[Index(res, resourceGraph)];
+        auto vtx = AddVertex(name, PresentPass(res, swc.desc.swapchain, &context->resources), *this);
+        add_edge(0, vtx, graph);
+
+        AddDependency(res, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
     }
 
     AccessGraph::AccessGraph(RenderGraphContext *ctx)
@@ -277,13 +294,23 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const ViewPtr &sceneView)
+    RasterQueueBuilder RasterSubPassBuilder::AddQueue(const std::string &name)
     {
-        auto rsv = RasterSceneView(&rdg.context->resources);
-        rsv.sceneView = sceneView;
+        auto res = AddVertex(name.c_str(), RasterQueue(&rdg.context->resources), rdg);
+        auto &queue = rdg.rasterQueues[rdg.polymorphicDatas[res]];
+        add_edge(vertex, res, rdg.graph);
+        return RasterQueueBuilder{rdg, queue, res};
+    }
 
-        auto dst = AddVertex(name.c_str(), rsv, rdg);
-        add_edge(vertex, dst, rdg.graph);
+    RasterQueueBuilder &RasterQueueBuilder::SetViewMask(uint32_t mask)
+    {
+        queue.viewMask = mask;
         return *this;
     }
+
+    RasterQueueBuilder &RasterQueueBuilder::SetRasterID(const std::string &id)
+    {
+        return *this;
+    }
+
 }

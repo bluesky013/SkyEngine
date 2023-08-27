@@ -36,6 +36,5 @@ namespace sky {
         PmrVector<Frustum> frustums;
         PmrVector<bool>    dirty;
     };
-    using ViewPtr = std::shared_ptr<SceneView>;
 
 } // namespace sky

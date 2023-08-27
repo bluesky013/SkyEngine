@@ -5,28 +5,34 @@
 #pragma once
 #include <QWidget>
 #include <QGridLayout>
+#include <QLabel>
 
 namespace sky {
-    struct TypeMemberNode;
+    struct TypeNode;
 }
 
-class QLabel;
+class QHBoxLayout;
 
 namespace sky::editor {
 
     class PropertyWidget : public QWidget {
     public:
-        PropertyWidget(QWidget* parent);
-        ~PropertyWidget() = default;
+        explicit PropertyWidget(void *ptr, const TypeNode *node, QWidget* parent);
+        explicit PropertyWidget(QWidget* parent);
+        ~PropertyWidget() override = default;
 
-        virtual void SetInstance(void* instance, const QString&, const TypeMemberNode& node);
+        void SetInstance(void* instance, const TypeNode *node);
+        void SetLabel(const QString &str);
 
-        virtual void Refresh() {}
+        virtual void Refresh();
 
     protected:
+        QHBoxLayout *layout;
+        QLabel *label = nullptr;
+
         void* instance;
-        const TypeMemberNode* memberNode;
-        QLabel* label;
+        const TypeNode* typeNode;
+        QList<PropertyWidget *> children;
     };
 
 }

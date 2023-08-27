@@ -77,13 +77,13 @@ namespace sky::rhi {
                 viewDesc.subRange.aspectMask = rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT;
                 imageDesc.format = dsFormat;
                 imageDesc.usage = ImageUsageFlagBit::DEPTH_STENCIL | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
-                fbClears.emplace_back(1, 0);
+                fbClears.emplace_back(rhi::ClearValue(1, 0));
             } else if (i == 4) {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::SAMPLED;
-                fbClears.emplace_back(0, 0, 0, 1);
+                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
             } else {
                 imageDesc.usage = ImageUsageFlagBit::RENDER_TARGET | ImageUsageFlagBit::INPUT_ATTACHMENT | ImageUsageFlagBit::TRANSIENT;
-                fbClears.emplace_back(0, 0, 0, 1);
+                fbClears.emplace_back(rhi::ClearValue(0, 0, 0, 1));
             }
 
             auto image = device->CreateImage(imageDesc);
@@ -316,7 +316,7 @@ namespace sky::rhi {
 
         PresentInfo presentInfo = {};
         presentInfo.imageIndex = index;
-        presentInfo.signals.emplace_back(renderFinish);
+        presentInfo.semaphores.emplace_back(renderFinish);
         swapChain->Present(*queue, presentInfo);
     }
 

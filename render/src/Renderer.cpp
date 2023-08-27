@@ -4,8 +4,6 @@
 
 #include <render/Renderer.h>
 #include <render/RHI.h>
-#include <render/rdg/TransientObjectPool.h>
-#include <render/rdg/TransientMemoryPool.h>
 
 namespace sky {
 
@@ -16,18 +14,11 @@ namespace sky {
     Renderer::~Renderer()
     {
         device->WaitIdle();
-
-        rdgContext = nullptr;
     }
 
     void Renderer::Init()
     {
         device = RHI::Get()->GetDevice();
-
-        rdgContext = std::make_unique<rdg::RenderGraphContext>();
-        rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
-        rdgContext->device = device;
-        rdgContext->mainCommandBuffer = device->CreateCommandBuffer({});
     }
 
     void Renderer::Tick(float time)
@@ -46,7 +37,9 @@ namespace sky {
 
     void Renderer::Render()
     {
-
+        for (auto &scn : scenes) {
+            scn->Render();
+        }
     }
 
     void Renderer::AfterRender(float time)
@@ -61,10 +54,12 @@ namespace sky {
         scenes.emplace_back(new RenderScene(), &Renderer::DestroyObj<RenderScene>);
         return scenes.back().get();
     }
-    RenderWindow *Renderer::CreateRenderWindow()
+    RenderWindow *Renderer::CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync)
     {
         windows.emplace_back(new RenderWindow(), &Renderer::DestroyObj<RenderWindow>);
-        return windows.back().get();
+        auto *rw = windows.back().get();
+        rw->Init(hWnd, width, height, vSync);
+        return rw;
     }
 
     void Renderer::RemoveScene(sky::RenderScene *scene)

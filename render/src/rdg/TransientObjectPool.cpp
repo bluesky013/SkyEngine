@@ -10,22 +10,26 @@ namespace sky::rdg {
     {
         for (auto &[desc, list] : images) {
             auto iter = list.begin();
-            for (; iter != list.end(); ++iter) {
+            for (; iter != list.end();) {
                 iter->allocated = false;
                 iter->count ++;
                 if (iter->count >= 60) {
                     iter = list.erase(iter);
+                } else {
+                    ++iter;
                 }
             }
         }
 
         for (auto &[desc, list] : buffers) {
             auto iter = list.begin();
-            for (; iter != list.end(); ++iter) {
+            for (; iter != list.end();) {
                 iter->allocated = false;
                 iter->count ++;
                 if (iter->count >= 60) {
                     iter = list.erase(iter);
+                } else {
+                    ++iter;
                 }
             }
         }

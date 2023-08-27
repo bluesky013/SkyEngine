@@ -13,15 +13,11 @@ namespace sky::editor {
     {
     }
 
-    ViewportWidget::~ViewportWidget()
-    {
-    }
-
     void ViewportWidget::Init()
     {
-        auto container = QWidget::createWindowContainer(window, this, Qt::Widget);
-        window->Init();
-        auto layout = new QVBoxLayout(this);
+        auto *container = QWidget::createWindowContainer(window, this, Qt::Widget);
+        window->Init(ViewportID::EDITOR_PREVIEW);
+        auto *layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(container);
     }
