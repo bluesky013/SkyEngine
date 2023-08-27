@@ -10,7 +10,7 @@ namespace sky {
     class RenderWindow {
     public:
         bool Init(void *hWnd, uint32_t width, uint32_t height, bool vSync);
-        void Resize(void *hWnd, uint32_t width, uint32_t height);
+        void Resize(uint32_t width, uint32_t height);
 
         uint32_t GetWidth() const;
         uint32_t GetHeight() const;
@@ -23,6 +23,7 @@ namespace sky {
         ~RenderWindow() = default;
 
         rhi::SwapChainPtr swapChain;
+        void *winHandle = nullptr;
     };
 
 } // namespace sky

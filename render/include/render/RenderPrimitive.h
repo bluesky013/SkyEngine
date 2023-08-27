@@ -6,6 +6,7 @@
 
 #include <rhi/Device.h>
 #include <render/MaterialProxy.h>
+#include <render/RenderTechnique.h>
 
 namespace sky {
 
@@ -18,7 +19,7 @@ namespace sky {
 
         rhi::VertexAssemblyPtr va;
         rhi::DescriptorSetPtr set;
-        rhi::DescriptorSetLayoutPtr setLayout;
+        rhi::DescriptorSetLayoutPtr localLayout;
         rhi::BufferPtr indirectBuffer;
     };
 

@@ -2,8 +2,9 @@
 // Created by Zach Lee on 2023/2/28.
 //
 
-#include <framework/serialization/JsonArchive.h>
 #include <render/adaptor/components/MeshRenderer.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky {
 
@@ -24,6 +25,7 @@ namespace sky {
         ar.SaveValueObject(std::string("static"), isStatic);
         ar.SaveValueObject(std::string("castShadow"), castShadow);
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
+        ar.SaveValueObject(std::string("mesh"), mesh ? mesh->GetUuid() : Uuid());
         ar.EndObject();
     }
 
@@ -32,6 +34,9 @@ namespace sky {
         ar.LoadKeyValue("static", isStatic);
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
+        Uuid uuid;
+        ar.LoadKeyValue("mesh", uuid);
+        mesh = AssetManager::Get()->LoadAsset<Mesh>(uuid);
     }
 
 } // namespace sky

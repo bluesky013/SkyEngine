@@ -12,12 +12,12 @@ namespace sky {
     void ProcessCommand(int argc, char **argv, CommandInfo &output)
     {
         for (int i = 1; i < argc; ++i) {
-            auto str = argv[i];
+            auto *str = argv[i];
             if (std::string(str) == "--module") {
                 i++;
                 if (i < argc) {
-                    auto str = argv[i];
-                    output.modules.emplace_back(str);
+                    auto *m = argv[i];
+                    output.modules.emplace_back(m);
                 }
             }
 

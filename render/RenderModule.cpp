@@ -108,14 +108,10 @@ namespace sky {
         void Start() override;
         void Stop() override;
         void Tick(float delta) override;
+        void Shutdown() override;
     };
 
     bool RenderModule::Init()
-    {
-        return true;
-    }
-
-    void RenderModule::Start()
     {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
@@ -123,6 +119,11 @@ namespace sky {
 
         RegisterComponents();
 
+        return true;
+    }
+
+    void RenderModule::Start()
+    {
         auto *iSys = Interface<ISystemNotify>::Get();
         auto &reg = iSys->GetApi()->GetSettings();
 
@@ -140,6 +141,10 @@ namespace sky {
     }
 
     void RenderModule::Stop()
+    {
+    }
+
+    void RenderModule::Shutdown()
     {
         Renderer::Destroy();
         RHI::Destroy();

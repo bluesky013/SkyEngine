@@ -5,7 +5,7 @@
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <framework/asset/AssetManager.h>
-#include <render/assets/Material.h>
+#include <render/adaptor/assets/Material.h>
 #include <core/file/FileIO.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>

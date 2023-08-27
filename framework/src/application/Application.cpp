@@ -36,12 +36,6 @@ namespace sky {
         // merge settings
         settings.Swap(start.setting);
 
-        // platform
-        sky::Platform* platform = sky::Platform::Get();
-        if (!platform->Init({})) {
-            return false;
-        }
-
         Interface<ISystemNotify>::Get()->Register(*this);
 
         LOG_I(TAG, "Load Engine Module...");
@@ -90,6 +84,9 @@ namespace sky {
     {
         for (auto &module : modules) {
             module->Stop();
+        }
+        for (auto &module : modules) {
+            module->Shutdown();
         }
 
         for (auto &lib : dynLibs) {

@@ -13,7 +13,9 @@ namespace sky {
 
     void RenderScene::PreTick(float time)
     {
-        pipeline->FrameSync();
+        if (pipeline != nullptr) {
+            pipeline->FrameSync();
+        }
     }
 
     void RenderScene::PostTick(float time)
@@ -23,9 +25,11 @@ namespace sky {
 
     void RenderScene::Render()
     {
-        rdg::RenderGraph rdg(pipeline->Context());
-        pipeline->OnSetup(rdg);
-        pipeline->Execute(rdg);
+        if (pipeline != nullptr) {
+            rdg::RenderGraph rdg(pipeline->Context());
+            pipeline->OnSetup(rdg);
+            pipeline->Execute(rdg);
+        }
     }
 
     void RenderScene::SetPipeline(RenderPipeline *ppl)

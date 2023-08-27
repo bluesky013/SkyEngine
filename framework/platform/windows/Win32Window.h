@@ -11,7 +11,7 @@ namespace sky {
     class Win32Window : public SDLWindow {
     public:
         Win32Window() = default;
-        ~Win32Window() = default;
+        ~Win32Window() override = default;
 
     private:
         bool Init(const Descriptor &desc) override;

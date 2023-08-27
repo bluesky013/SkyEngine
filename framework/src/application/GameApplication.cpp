@@ -3,11 +3,18 @@
 //
 
 #include <framework/application/GameApplication.h>
+#include <framework/platform/PlatformBase.h>
 
 namespace sky {
 
     bool GameApplication::Init(StartInfo &start)
     {
+        // platform
+        sky::Platform* platform = sky::Platform::Get();
+        if (!platform->Init({})) {
+            return false;
+        }
+
         nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{start.windowWidth, start.windowHeight, start.appName, start.appName, start.mainWindow}));
 
         if (!Application::Init(start)) {

@@ -15,15 +15,16 @@ namespace sky {
         desc.width = width;
         desc.height = height;
         desc.preferredMode = vSync ? rhi::PresentMode::VSYNC : rhi::PresentMode::IMMEDIATE;
+        winHandle = hWnd;
 
         swapChain = RHI::Get()->GetDevice()->CreateSwapChain(desc);
         return static_cast<bool>(swapChain);
     }
 
-    void RenderWindow::Resize(void *hWnd, uint32_t width, uint32_t height)
+    void RenderWindow::Resize(uint32_t width, uint32_t height)
     {
         RHI::Get()->GetDevice()->WaitIdle();
-        swapChain->Resize(width, height, hWnd);
+        swapChain->Resize(width, height, winHandle);
     }
 
     uint32_t RenderWindow::GetWidth() const
