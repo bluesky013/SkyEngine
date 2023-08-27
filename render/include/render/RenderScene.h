@@ -9,11 +9,10 @@
 #include <render/SceneView.h>
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
-#include <framework/interface/IRenderScene.h>
 
 namespace sky {
 
-    class RenderScene : public IRenderScene {
+    class RenderScene {
     public:
         void PreTick(float time);
         void PostTick(float time);
@@ -30,7 +29,7 @@ namespace sky {
     private:
         friend class Renderer;
         RenderScene();
-        ~RenderScene() override = default;
+        ~RenderScene() = default;
 
         PmrUnSyncPoolRes resources;
 

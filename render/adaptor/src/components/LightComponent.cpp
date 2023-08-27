@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2023/2/28.
 //
 
-#include <render/adaptor/LightComponent.h>
+#include <render/adaptor/components/LightComponent.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/PropertyCommon.h>
 

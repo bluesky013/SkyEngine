@@ -6,7 +6,7 @@
 
 #include <rhi/Core.h>
 #include <framework/asset/AssetManager.h>
-#include <render/assets/Shader.h>
+#include <render/adaptor/assets/Shader.h>
 #include <string>
 #include <vector>
 

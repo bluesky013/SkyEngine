@@ -9,16 +9,16 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
-#include <render/assets/Material.h>
-#include <render/assets/Shader.h>
-#include <render/assets/Technique.h>
-#include <render/assets/Mesh.h>
-#include <render/assets/Image.h>
-#include <render/assets/RenderPrefab.h>
+#include <render/adaptor/assets/Material.h>
+#include <render/adaptor/assets/Shader.h>
+#include <render/adaptor/assets/Technique.h>
+#include <render/adaptor/assets/Mesh.h>
+#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/RenderPrefab.h>
 
-#include <render/adaptor/CameraComponent.h>
-#include <render/adaptor/LightComponent.h>
-#include <render/adaptor/MeshRenderer.h>
+#include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/components/LightComponent.h>
+#include <render/adaptor/components/MeshRenderer.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>

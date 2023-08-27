@@ -3,7 +3,6 @@
 //
 
 #include <render/RenderWindow.h>
-#include <framework/window/NativeWindow.h>
 
 #include <render/RHI.h>
 

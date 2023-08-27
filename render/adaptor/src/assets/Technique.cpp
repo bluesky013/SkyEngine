@@ -1,7 +1,7 @@
 //
 // Created by Zach Lee on 2023/2/23.
 //
-#include <render/assets/Technique.h>
+#include <render/adaptor/assets/Technique.h>
 
 namespace sky {
 

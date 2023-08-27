@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <render/assets/Material.h>
+#include <render/adaptor/assets/Material.h>
 #include <framework/serialization/SerializationContext.h>
 
 namespace sky {

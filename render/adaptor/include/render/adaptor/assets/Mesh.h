@@ -6,7 +6,7 @@
 
 #include <core/math/Box.h>
 #include <framework/asset/AssetManager.h>
-#include <render/assets/Material.h>
+#include <render/adaptor/assets/Material.h>
 #include <rhi/Core.h>
 #include <string>
 #include <vector>

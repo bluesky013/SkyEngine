@@ -3,7 +3,7 @@
 //
 
 #include <builder/render/ImageBuilder.h>
-#include <render/assets/Image.h>
+#include <render/adaptor/assets/Image.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>

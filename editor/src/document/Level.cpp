@@ -8,7 +8,7 @@
 #include <fstream>
 #include <render/Renderer.h>
 #include <render/pipeline/DefaultForward.h>
-#include <render/adaptor/CameraComponent.h>
+#include <render/adaptor/components/CameraComponent.h>
 
 #include <editor/viewport/Viewport.h>
 
@@ -17,7 +17,6 @@ namespace sky::editor {
     Level::~Level()
     {
         Save();
-        Renderer::Get()->RemoveScene(renderScene);
     }
 
     void Level::New(const QString &level)
@@ -59,9 +58,9 @@ namespace sky::editor {
         auto *ppl = new DefaultForward();
         ppl->SetOutput(ViewportManager::Get()->FindViewport(ViewportID::EDITOR_PREVIEW)->GetRenderWindow());
 
-        renderScene = Renderer::Get()->CreateScene();
-        renderScene->SetPipeline(ppl);
-        world->SetRenderScene(renderScene);
+        renderScene = std::make_unique<RenderSceneProxy>();
+        renderScene->GetRenderScene()->SetPipeline(ppl);
+        world->SetRenderScene(renderScene.get());
     }
 
     const WorldPtr &Level::GetWorld() const

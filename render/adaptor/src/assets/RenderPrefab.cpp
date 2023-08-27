@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2023/2/26.
 //
 
-#include <render/assets/RenderPrefab.h>
+#include <render/adaptor/assets/RenderPrefab.h>
 
 namespace sky {
     void RenderPrefabAssetData::Load(BinaryInputArchive &archive)

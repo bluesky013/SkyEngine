@@ -10,7 +10,7 @@ sky_add_library(TARGET SkyRender.Static STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Framework
+        Core
         RHI
     )
 

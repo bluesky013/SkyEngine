@@ -4,7 +4,7 @@
 
 #pragma once
 #include <framework/world/World.h>
-#include <render/RenderScene.h>
+#include <render/adaptor/RenderSceneProxy.h>
 #include <QString>
 
 namespace sky::editor {
@@ -25,7 +25,7 @@ namespace sky::editor {
         void InitRenderScene();
         QString path;
         WorldPtr world;
-        RenderScene *renderScene = nullptr;
+        std::unique_ptr<RenderSceneProxy> renderScene;
     };
 
 } // namespace sky::editor

@@ -6,10 +6,10 @@
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <framework/asset/AssetManager.h>
-#include <render/assets/RenderPrefab.h>
-#include <render/assets/Image.h>
-#include <render/assets/Material.h>
-#include <render/assets/Mesh.h>
+#include <render/adaptor/assets/RenderPrefab.h>
+#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/Material.h>
+#include <render/adaptor/assets/Mesh.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>

@@ -5,10 +5,9 @@
 
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/ShaderBuilder.h>
-#include <render/assets/Technique.h>
+#include <render/adaptor/assets/Technique.h>
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
-#include <rapidjson/rapidjson.h>
 #include <filesystem>
 
 namespace sky::builder {

@@ -5,10 +5,9 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
-#include <render/assets/Mesh.h>
-#include <render/assets/Image.h>
-#include <render/assets/Material.h>
-#include <render/assets/Material.h>
+#include <render/adaptor/assets/Mesh.h>
+#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/Material.h>
 #include <core/math/Matrix4.h>
 
 namespace sky {

@@ -3,7 +3,7 @@
 //
 
 #include <framework/serialization/JsonArchive.h>
-#include <render/adaptor/MeshRenderer.h>
+#include <render/adaptor/components/MeshRenderer.h>
 
 namespace sky {
 

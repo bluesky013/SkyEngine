@@ -3,8 +3,8 @@
 //
 
 #pragma once
-#include <render/assets/Technique.h>
-#include <render/assets/Image.h>
+#include <render/adaptor/assets/Technique.h>
+#include <render/adaptor/assets/Image.h>
 #include <unordered_map>
 #include <vector>
 

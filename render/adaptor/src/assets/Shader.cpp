@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <render/assets/Shader.h>
+#include <render/adaptor/assets/Shader.h>
 #include <framework/serialization/BinaryArchive.h>
 #include <framework/asset/AssetManager.h>
 

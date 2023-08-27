@@ -7,7 +7,7 @@
 #include <builder/shader/ShaderCompiler.h>
 #include <framework/asset/AssetManager.h>
 
-#include <render/assets/Shader.h>
+#include <render/adaptor/assets/Shader.h>
 #include <filesystem>
 
 namespace sky::builder {

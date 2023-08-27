@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2023/2/26.
 //
 
-#include <render/assets/Mesh.h>
+#include <render/adaptor/assets/Mesh.h>
 #include <framework/asset/AssetManager.h>
-#include <render/assets/Material.h>
+#include <render/adaptor/assets/Material.h>
 
 namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
