@@ -26,7 +26,7 @@ namespace sky {
     void RenderScene::Render()
     {
         if (pipeline != nullptr) {
-            rdg::RenderGraph rdg(pipeline->Context());
+            rdg::RenderGraph rdg(pipeline->Context(), this);
             pipeline->OnSetup(rdg);
             pipeline->Execute(rdg);
         }

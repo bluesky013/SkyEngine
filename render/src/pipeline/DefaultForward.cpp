@@ -32,7 +32,7 @@ namespace sky {
         forwardPass.AddRasterSubPass("color0_sub0")
             .AddColor("ForwardColor", rdg::ResourceAccessBit::WRITE)
             .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
-            .AddSceneView("queue1", nullptr);
+            .AddQueue("queue1");
 
         rdg.AddPresentPass("present", "ForwardColor");
     }

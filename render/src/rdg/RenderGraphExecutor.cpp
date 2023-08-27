@@ -106,15 +106,26 @@ namespace sky::rdg {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.frontBarriers);
             },
-            [&](const RasterSceneViewTag &) {
-                auto &view = graph.sceneViews[Index(u, graph)];
+            [&](const RasterQueueTag &) {
+                auto &queue = graph.rasterQueues[Index(u, graph)];
 
-//                currentEncoder->BindPipeline(nullptr);
-//                currentEncoder->BindSet(0, nullptr);
-//                currentEncoder->BindSet(1, nullptr);
-//                currentEncoder->BindSet(2, nullptr);
-//                currentEncoder->BindAssembly(nullptr);
-//                currentEncoder->DrawLinear({});
+                for (auto &item : queue.drawItems) {
+                    auto &tech = item.primitive->techniques[item.techIndex];
+
+                    currentEncoder->BindPipeline(tech.pso);
+                    currentEncoder->BindSet(0, nullptr);
+                    currentEncoder->BindSet(1, item.primitive->material->GetDescriptorSet());
+                    currentEncoder->BindSet(2, item.primitive->set);
+                    currentEncoder->BindAssembly(item.primitive->va);
+                    std::visit(Overloaded{
+                        [&](const rhi::CmdDrawLinear &v) {
+                            currentEncoder->DrawLinear(v);
+                        },
+                        [&](const rhi::CmdDrawIndexed &v) {
+                            currentEncoder->DrawIndexed(v);
+                        }
+                    }, item.primitive->args);
+                }
             },
             [&](const auto &) {}
         }, Tag(u, graph));

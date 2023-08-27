@@ -8,7 +8,7 @@
 #include <core/std/Container.h>
 #include <rhi/CommandBuffer.h>
 #include <render/rdg/TransientPool.h>
-#include <render/RenderQueue.h>
+#include <render/rdg/RenderGraphTypes.h>
 
 namespace sky::rhi {
     class Device;
@@ -27,7 +27,6 @@ namespace sky::rdg {
     struct RenderGraphContext {
         PmrUnSyncPoolRes resources;
         std::unique_ptr<TransientPool> pool;
-        std::unordered_map<std::string, RenderQueuePtr> renderQueues;
 
         rhi::Device *device = nullptr;
         rhi::Queue *graphicsQueue = nullptr;

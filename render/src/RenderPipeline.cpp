@@ -43,7 +43,6 @@ namespace sky {
             boost::depth_first_search(rdg.accessGraph.graph, compiler, ColorMap(colors));
         }
 
-
         {
             RenderResourceCompiler               compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);

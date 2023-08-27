@@ -8,16 +8,13 @@
 
 namespace sky {
 
-    class RenderTechnique {
+    class RasterTechnique {
     public:
-        RenderTechnique() = default;
-        ~RenderTechnique() = default;
+        RasterTechnique() = default;
+        ~RasterTechnique() = default;
     private:
         rhi::PipelineLayoutPtr pipelineLayout;
-    };
-
-    class TechniqueInstance {
-        rhi::GraphicsPipelinePtr pso;
+        rhi::PipelineState state;
     };
 
 } // namespace sky

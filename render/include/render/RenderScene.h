@@ -26,6 +26,8 @@ namespace sky {
         void AddPrimitive(RenderPrimitive *primitive);
         void RemovePrimitive(RenderPrimitive *primitive);
 
+        const PmrVector<RenderPrimitive *> &GetPrimitives() const { return primitives; }
+
     private:
         friend class Renderer;
         RenderScene();

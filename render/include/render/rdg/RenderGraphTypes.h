@@ -7,14 +7,9 @@
 #include <limits>
 #include <boost/graph/adjacency_list.hpp>
 #include <core/std/Container.h>
-#include <rhi/Core.h>
-#include <rhi/Image.h>
-#include <rhi/Buffer.h>
-#include <rhi/RenderPass.h>
-#include <rhi/FrameBuffer.h>
-#include <rhi/Swapchain.h>
-#include <rhi/ComputePipeline.h>
+#include <rhi/Device.h>
 #include <render/SceneView.h>
+#include <render/RenderPrimitive.h>
 
 namespace sky::rdg {
 
@@ -66,11 +61,11 @@ namespace sky::rdg {
 
     struct RasterPassTag {};
     struct RasterSubPassTag {};
-    struct RasterSceneViewTag {};
+    struct RasterQueueTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterSceneViewTag>;
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -194,12 +189,18 @@ namespace sky::rdg {
         PmrHashMap<std::string, ComputeView> computeViews;
     };
 
-    struct RasterSceneView {
-        explicit RasterSceneView(PmrResource *res) {}
+    struct RasterQueue {
+        explicit RasterQueue(PmrResource *res) : drawItems(res) {}
 
-        using Tag = RasterSceneViewTag;
+        using Tag = RasterQueueTag;
 
         const SceneView *sceneView = nullptr;
+        PmrList<RenderDrawItem> drawItems;
+        uint32_t viewMask = 0xFFFFFFFF;  // mask all
+        uint32_t rasterID = ~(0U);       // invalid id
+
+        bool sort = false;
+        bool culling = false;
     };
 
     struct RasterPass {

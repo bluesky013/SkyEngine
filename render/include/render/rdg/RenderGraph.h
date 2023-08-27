@@ -13,8 +13,21 @@
 #include <render/rdg/RenderGraphContext.h>
 #include <render/rdg/RenderGraphTypes.h>
 
+namespace sky {
+    class RenderScene;
+} // namespace sky
+
 namespace sky::rdg {
     struct RenderGraph;
+
+    struct RasterQueueBuilder {
+        RasterQueueBuilder &SetViewMask(uint32_t mask);
+        RasterQueueBuilder &SetRasterID(const std::string &id);
+
+        RenderGraph &rdg;
+        RasterQueue &queue;
+        VertexType vertex;
+    };
 
     struct RasterSubPassBuilder {
         RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
@@ -23,7 +36,7 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddColorInOut(const std::string &name);
         RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
-        RasterSubPassBuilder &AddSceneView(const std::string &name, const SceneView *sceneView);
+        RasterQueueBuilder AddQueue(const std::string &name);
         uint32_t GetAttachmentIndex(const std::string &name);
 
         RenderGraph &rdg;
@@ -126,7 +139,7 @@ namespace sky::rdg {
     };
 
     struct RenderGraph {
-        explicit RenderGraph(RenderGraphContext *ctx);
+        explicit RenderGraph(RenderGraphContext *ctx, RenderScene *scene);
         ~RenderGraph() = default;
 
         using vertex_descriptor = VertexType;
@@ -151,6 +164,7 @@ namespace sky::rdg {
 
         // memory
         RenderGraphContext *context;
+        RenderScene *scene;
 
         // vertex
         VertexList vertices;
@@ -162,9 +176,9 @@ namespace sky::rdg {
         PmrVector<size_t>     polymorphicDatas;
 
         // passes
-        PmrVector<RasterPass>      rasterPasses;
-        PmrVector<RasterSubPass>   subPasses;
-        PmrVector<RasterSceneView> sceneViews;
+        PmrVector<RasterPass>    rasterPasses;
+        PmrVector<RasterSubPass> subPasses;
+        PmrVector<RasterQueue>   rasterQueues;
 
         PmrVector<ComputePass>   computePasses;
         PmrVector<CopyBlitPass>  copyBlitPasses;
@@ -265,9 +279,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, PresentTag>) {
             graph.polymorphicDatas.emplace_back(graph.presentPasses.size());
             graph.presentPasses.emplace_back(std::forward<D>(val));
-        } else if constexpr (std::is_same_v<Tag, RasterSceneViewTag>) {
-            graph.polymorphicDatas.emplace_back(graph.sceneViews.size());
-            graph.sceneViews.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, RasterQueueTag>) {
+            graph.polymorphicDatas.emplace_back(graph.rasterQueues.size());
+            graph.rasterQueues.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }

@@ -1,19 +1,18 @@
 //
-// Created by Zach on 2023/1/31.
+// Created by Zach Lee on 2023/8/27.
 //
 
-#include <gles/CommandStorage.h>
+#include <core/memory/LinearStorage.h>
 
-namespace sky::gles {
+namespace sky {
 
-    void CommandStorage::Init(const Descriptor &desc)
+    LinearStorage::LinearStorage(uint32_t blockSize) : total(blockSize), offset(0)
     {
-        total = desc.blockSize;
         storage = std::make_unique<uint8_t[]>(total);
         Reset();
     }
 
-    uint8_t *CommandStorage::Allocate(uint32_t size)
+    uint8_t *LinearStorage::Allocate(uint32_t size)
     {
         if (offset + size > total) {
             return nullptr;
@@ -23,9 +22,9 @@ namespace sky::gles {
         return res;
     }
 
-    void CommandStorage::Reset()
+    void LinearStorage::Reset()
     {
         offset = 0;
     }
 
-}
+} // namespace sky

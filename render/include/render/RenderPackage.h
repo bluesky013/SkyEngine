@@ -4,18 +4,16 @@
 
 #pragma once
 
+#include <variant>
+#include <functional>
+#include <rhi/CommandBuffer.h>
+
 namespace sky {
 
     struct RenderPackage {
+        std::function<void(rhi::GraphicsEncoder&)> fn;
     };
 
-    class RenderPackageBuilder {
-    public:
-        explicit RenderPackageBuilder(RenderPackage &pkg) : package(pkg) {}
-        ~RenderPackageBuilder() = default;
-
-    private:
-        RenderPackage &package;
-    };
+    using DrawArgs = std::variant<rhi::CmdDrawLinear, rhi::CmdDrawIndexed>;
 
 } // namespace sky

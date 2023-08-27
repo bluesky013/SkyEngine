@@ -14,6 +14,8 @@ namespace sky {
         MaterialProxy() = default;
         ~MaterialProxy() = default;
 
+        const rhi::DescriptorSetPtr &GetDescriptorSet() const { return set; }
+
     private:
         rhi::DescriptorSetPtr set;
         rhi::DescriptorSetLayout setLayout;

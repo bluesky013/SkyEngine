@@ -72,8 +72,9 @@ namespace sky::rdg {
         add_edge(src, dst, graph);
     }
 
-    RenderGraph::RenderGraph(RenderGraphContext *ctx)
+    RenderGraph::RenderGraph(RenderGraphContext *ctx, RenderScene *scn)
         : context(ctx)
+        , scene(scn)
         , vertices(&ctx->resources)
         , names(&ctx->resources)
         , accessNodes(&ctx->resources)
@@ -293,13 +294,23 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddSceneView(const std::string &name, const SceneView *sceneView)
+    RasterQueueBuilder RasterSubPassBuilder::AddQueue(const std::string &name)
     {
-        auto rsv = RasterSceneView(&rdg.context->resources);
-        rsv.sceneView = sceneView;
+        auto res = AddVertex(name.c_str(), RasterQueue(&rdg.context->resources), rdg);
+        auto &queue = rdg.rasterQueues[rdg.polymorphicDatas[res]];
+        add_edge(vertex, res, rdg.graph);
+        return RasterQueueBuilder{rdg, queue, res};
+    }
 
-        auto dst = AddVertex(name.c_str(), rsv, rdg);
-        add_edge(vertex, dst, rdg.graph);
+    RasterQueueBuilder &RasterQueueBuilder::SetViewMask(uint32_t mask)
+    {
+        queue.viewMask = mask;
         return *this;
     }
+
+    RasterQueueBuilder &RasterQueueBuilder::SetRasterID(const std::string &id)
+    {
+        return *this;
+    }
+
 }
