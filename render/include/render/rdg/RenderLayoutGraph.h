@@ -4,12 +4,17 @@
 
 #pragma once
 
+#include <rhi/Device.h>
+
 namespace sky::rdg {
 
     class RenderLayoutGraph {
     public:
         RenderLayoutGraph() = default;
         ~RenderLayoutGraph() = default;
+
+    private:
+
     };
 
 } // namespace sky::rdg
