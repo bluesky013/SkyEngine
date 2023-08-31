@@ -3,12 +3,12 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <builder/render/TechniqueBuilder.h>
 #include <builder/render/ShaderBuilder.h>
-#include <render/adaptor/assets/Technique.h>
+#include <builder/render/TechniqueBuilder.h>
 #include <core/file/FileIO.h>
-#include <framework/asset/AssetManager.h>
 #include <filesystem>
+#include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky::builder {
 

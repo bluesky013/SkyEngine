@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetManager.h>
+#include <render/resource/Texture.h>
 #include <rhi/Core.h>
 #include <string>
 #include <vector>
@@ -25,16 +26,11 @@ namespace sky {
         void Save(BinaryOutputArchive &archive) const;
     };
 
-    class Image {
-        Image() = default;
-        ~Image() = default;
-    };
-
     template <>
-    struct AssetTraits<Image> {
+    struct AssetTraits<Texture> {
         using DataType                                = ImageAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
-    using ImageAssetPtr = std::shared_ptr<Asset<Image>>;
+    using ImageAssetPtr = std::shared_ptr<Asset<Texture>>;
 }

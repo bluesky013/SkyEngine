@@ -9,12 +9,12 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
-#include <render/adaptor/assets/Material.h>
-#include <render/adaptor/assets/Shader.h>
-#include <render/adaptor/assets/Technique.h>
-#include <render/adaptor/assets/Mesh.h>
-#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
+#include <render/adaptor/assets/ShaderAsset.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
@@ -66,7 +66,7 @@ namespace sky {
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<Technique>();
         am->RegisterAssetHandler<Mesh>();
-        am->RegisterAssetHandler<Image>();
+        am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
     }
 

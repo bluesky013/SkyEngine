@@ -4,12 +4,16 @@
 
 #pragma once
 
-#include <core/math/Box.h>
-#include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/Material.h>
-#include <rhi/Core.h>
 #include <string>
 #include <vector>
+
+#include <core/math/Box.h>
+#include <framework/asset/AssetManager.h>
+
+#include <rhi/Core.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/resource/Mesh.h>
+
 
 namespace sky {
     class BinaryInputArchive;
@@ -39,11 +43,6 @@ namespace sky {
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
-    };
-
-    class Mesh {
-        Mesh() = default;
-        ~Mesh() = default;
     };
 
     template <>

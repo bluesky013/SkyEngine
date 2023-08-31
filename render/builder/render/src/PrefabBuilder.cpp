@@ -2,21 +2,21 @@
 // Created by Zach Lee on 2023/2/20.
 //
 
-#include <builder/render/PrefabBuilder.h>
-#include <builder/render/ImageBuilder.h>
-#include <builder/render/TechniqueBuilder.h>
-#include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/RenderPrefab.h>
-#include <render/adaptor/assets/Image.h>
-#include <render/adaptor/assets/Material.h>
-#include <render/adaptor/assets/Mesh.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include <assimp/GltfMaterial.h>
-#include <filesystem>
-#include <sstream>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <builder/render/ImageBuilder.h>
+#include <builder/render/PrefabBuilder.h>
+#include <builder/render/TechniqueBuilder.h>
 #include <core/logger/Logger.h>
+#include <filesystem>
+#include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/RenderPrefab.h>
+#include <sstream>
 
 static const char* TAG = "PrefabBuilder";
 
@@ -59,7 +59,7 @@ namespace sky::builder {
         if (std::filesystem::exists(texPath)) {
             Uuid texId;
             if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY, productFolder, false}, texId)) {
-                return am->LoadAsset<Image>(texId);
+                return am->LoadAsset<Texture>(texId);
             }
         } else {
 //            const auto *tex = scene->GetEmbeddedTexture(path.data);

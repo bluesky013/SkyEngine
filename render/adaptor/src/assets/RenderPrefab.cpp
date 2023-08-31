@@ -13,7 +13,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            images[i] = AssetManager::Get()->LoadAsset<Image>(Uuid::CreateFromString(idStr));
+            images[i] = AssetManager::Get()->LoadAsset<Texture>(Uuid::CreateFromString(idStr));
         }
 
         size = 0;

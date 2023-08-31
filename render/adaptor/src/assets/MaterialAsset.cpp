@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <render/adaptor/assets/Material.h>
 #include <framework/serialization/SerializationContext.h>
+#include <render/adaptor/assets/MaterialAsset.h>
 
 namespace sky {
     void MaterialAssetData::LoadBin(BinaryInputArchive &archive)
@@ -23,7 +23,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            images[i] = AssetManager::Get()->LoadAsset<Image>(Uuid::CreateFromString(idStr));
+            images[i] = AssetManager::Get()->LoadAsset<Texture>(Uuid::CreateFromString(idStr));
         }
 
         size = 0;

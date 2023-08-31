@@ -3,6 +3,7 @@
 //
 
 #include <core/shapes/Shapes.h>
+#include <algorithm>
 #include <core/math/MathUtil.h>
 
 namespace sky {

@@ -3,8 +3,9 @@
 //
 
 #pragma once
-#include <render/adaptor/assets/Technique.h>
-#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/resource/Material.h>
 #include <unordered_map>
 #include <vector>
 
@@ -29,12 +30,6 @@ namespace sky {
 
         void LoadJson(JsonInputArchive &archive);
         void SaveJson(JsonOutputArchive &archive) const;
-    };
-
-    class Material {
-    public:
-        Material() = default;
-        ~Material() = default;
     };
 
     template <>

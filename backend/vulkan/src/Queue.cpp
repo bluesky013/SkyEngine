@@ -87,8 +87,8 @@ namespace sky::vk {
     {
         return CreateTask([this, image, requests]() {
             auto vkImage = std::static_pointer_cast<Image>(image);
-            auto &imageInfo = vkImage->GetImageInfo();
-            auto &formatInfo  = vkImage->GetFormatInfo();
+            const auto &imageInfo = vkImage->GetImageInfo();
+            const auto &formatInfo  = vkImage->GetFormatInfo();
 
             inflightCommands[currentFrameId]->Begin();
             VkImageSubresourceRange subResourceRange = {};
@@ -109,7 +109,7 @@ namespace sky::vk {
             inflightCommands[currentFrameId]->Submit(*this, {{}, {}, fences[currentFrameId]});
             fences[currentFrameId]->Wait();
 
-            for (auto &request : requests) {
+            for (const auto &request : requests) {
                 uint32_t width  = std::max(request.imageExtent.width >> request.mipLevel, 1U);
                 uint32_t height = std::max(request.imageExtent.height >> request.mipLevel, 1U);
 

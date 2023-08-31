@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/Asset.h>
+#include <render/resource/Shader.h>
 
 namespace sky {
     class BinaryInputArchive;
@@ -39,12 +40,6 @@ namespace sky {
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
-    };
-
-    class Shader {
-    public:
-        Shader() = default;
-        ~Shader() = default;
     };
 
     template <>

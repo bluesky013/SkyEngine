@@ -4,12 +4,12 @@
 
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
-#include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/Material.h>
 #include <core/file/FileIO.h>
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/document.h>
 #include <filesystem>
+#include <framework/asset/AssetManager.h>
+#include <rapidjson/document.h>
+#include <rapidjson/rapidjson.h>
+#include <render/adaptor/assets/MaterialAsset.h>
 
 namespace sky::builder {
 

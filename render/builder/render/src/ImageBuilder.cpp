@@ -3,7 +3,7 @@
 //
 
 #include <builder/render/ImageBuilder.h>
-#include <render/adaptor/assets/Image.h>
+#include <render/adaptor/assets/ImageAsset.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
@@ -27,7 +27,7 @@ namespace sky::builder {
         outPath.append(request.name);
         outPath.replace_extension(".image");
 
-        auto asset = am->CreateAsset<Image>(outPath.make_preferred().string());
+        auto asset = am->CreateAsset<Texture>(outPath.make_preferred().string());
         auto &imageData = asset->Data();
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);

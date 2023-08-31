@@ -2,9 +2,9 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <render/adaptor/assets/Shader.h>
-#include <framework/serialization/BinaryArchive.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/serialization/BinaryArchive.h>
+#include <render/adaptor/assets/ShaderAsset.h>
 
 namespace sky {
 
@@ -47,7 +47,7 @@ namespace sky {
     {
         archive.SaveValue(source);
         archive.SaveValue(static_cast<uint32_t>(variants.size()));
-        for (auto &[key, var] : variants) {
+        for (const auto &[key, var] : variants) {
             archive.SaveValue(key);
             archive.SaveValue(var->GetUuid().ToString());
         }

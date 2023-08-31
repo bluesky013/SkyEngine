@@ -2,8 +2,8 @@
 // Created by Zach Lee on 2023/2/26.
 //
 
-#include <render/adaptor/assets/Image.h>
 #include <framework/serialization/BinaryArchive.h>
+#include <render/adaptor/assets/ImageAsset.h>
 
 namespace sky {
     void ImageAssetData::Load(BinaryInputArchive &archive)

@@ -4,9 +4,10 @@
 
 #pragma once
 
-#include <rhi/Core.h>
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/Shader.h>
+#include <render/adaptor/assets/ShaderAsset.h>
+#include <render/resource/Technique.h>
+#include <rhi/Core.h>
 #include <string>
 #include <vector>
 
@@ -23,11 +24,6 @@ namespace sky {
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
-    };
-
-    class Technique {
-        Technique() = default;
-        ~Technique() = default;
     };
 
     template <>
