@@ -13,7 +13,7 @@ namespace sky {
 
         Vector3 normal = d1.Cross(d2);
         normal.Normalize();
-        return CreatePlaneByNormalAndVertex(normal, d1);
+        return CreatePlaneByNormalAndVertex(normal, v1);
     }
 
     Plane CreatePlaneByNormalAndVertex(const Vector3 &normal, const Vector3 &pt)

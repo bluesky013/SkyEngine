@@ -64,10 +64,10 @@ namespace sky::mtl {
     {
         // do present
         auto &mtlQueue = static_cast<Queue&>(queue);
-        
+
         @autoreleasepool {
             auto cmd = [mtlQueue.GetNativeHandle() commandBuffer];
-            for (auto &signal : info.signals) {
+            for (auto &signal : info.semaphores) {
                 std::static_pointer_cast<Semaphore>(signal)->Wait(cmd);
             }
             [cmd presentDrawable: drawables[info.imageIndex]];

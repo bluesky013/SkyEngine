@@ -32,7 +32,7 @@ namespace sky::editor {
         switch (event->type()) {
         case QEvent::Resize:
             if (window != nullptr) {
-                window->Resize(reinterpret_cast<void *>(winId()), width(), height());
+                window->Resize(width(), height());
             }
             break;
         case QEvent::MouseMove:
