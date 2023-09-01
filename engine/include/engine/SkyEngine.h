@@ -21,8 +21,8 @@ namespace sky {
 
         void Tick(float);
 
-        void AddWorld(WorldPtr world);
-        void RemoveWorld(WorldPtr world);
+        void AddWorld(const WorldPtr& world);
+        void RemoveWorld(const WorldPtr& world);
 
     private:
         template <typename T>

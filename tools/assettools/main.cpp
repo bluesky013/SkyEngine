@@ -8,6 +8,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/application/Application.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/database/DBManager.h>
 
 using namespace sky;
 
@@ -21,7 +22,7 @@ int main(int argc, char *argv[])
         ("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
-    if (result.count("help")) {
+    if (result.count("help") != 0u) {
         std::cout << options.help() << std::endl;
         exit(0);
     }
@@ -32,23 +33,24 @@ int main(int argc, char *argv[])
     }
     StartInfo start = {};
     start.appName        = "AssetTool";
+    start.modules.emplace_back("SkyRender");
     start.modules.emplace_back("RenderBuilder");
 
     Application app;
     app.Init(start);
 
-    std::string projectPath = "";
-    std::string enginePath = "";
-    std::string filePath = "";
-    if (result.count("project")) {
+    std::string projectPath;
+    std::string enginePath;
+    std::string filePath;
+    if (result.count("project") != 0u) {
         projectPath = result["project"].as<std::string>();
     }
 
-    if (result.count("engine")) {
+    if (result.count("engine") != 0u) {
         enginePath = result["engine"].as<std::string>() + "/assets";
     }
 
-    if (result.count("file")) {
+    if (result.count("file") != 0u) {
         filePath = result["file"].as<std::string>();
     }
 
@@ -58,6 +60,7 @@ int main(int argc, char *argv[])
     auto *am = AssetManager::Get();
     am->RegisterSearchPath(projectPath + "/assets");
     am->RegisterSearchPath(enginePath);
+    am->Reset(projectPath + "/assets.db");
     Interface<ISystemNotify>::Get()->GetApi()->GetSettings().SetValue("PROJECT_PATH", projectPath);
 
     am->ImportSource(filePath, {});
@@ -75,6 +78,7 @@ int main(int argc, char *argv[])
 //            builderManager.Build(projectPath, file.string());
 //        }
 //    }
+
     app.Shutdown();
     platform->Shutdown();
     return 0;

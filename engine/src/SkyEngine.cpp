@@ -12,14 +12,12 @@ namespace sky {
 
     bool SkyEngine::Init()
     {
-        DBManager::Get()->Init();
-
         return true;
     }
 
     void SkyEngine::Tick(float time)
     {
-        for (auto &world : worlds) {
+        for (const auto &world : worlds) {
             world->Tick(time);
         }
     }
@@ -27,15 +25,14 @@ namespace sky {
     void SkyEngine::DeInit()
     {
         AssetManager::Destroy();
-        DBManager::Destroy();
     }
 
-    void SkyEngine::AddWorld(WorldPtr world)
+    void SkyEngine::AddWorld(const WorldPtr& world)
     {
         worlds.emplace(world);
     }
 
-    void SkyEngine::RemoveWorld(WorldPtr world)
+    void SkyEngine::RemoveWorld(const WorldPtr& world)
     {
         worlds.erase(world);
     }

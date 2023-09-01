@@ -14,7 +14,7 @@ namespace sky {
     class DBManager : public Singleton<DBManager> {
     public:
         DBManager() = default;
-        ~DBManager();
+        ~DBManager() override;
 
         void Init();
         sqlite3_api_routines *GetRoutines() const { return routines; }

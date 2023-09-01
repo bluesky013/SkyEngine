@@ -7,6 +7,8 @@
 #include <core/logger/Logger.h>
 #include <framework/application/Application.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/database/DBManager.h>
 
 static const char *TAG = "Application";
 
@@ -36,6 +38,7 @@ namespace sky {
         // merge settings
         settings.Swap(start.setting);
 
+        DBManager::Get()->Init();
         Interface<ISystemNotify>::Get()->Register(*this);
 
         LOG_I(TAG, "Load Engine Module...");
@@ -111,6 +114,9 @@ namespace sky {
     {
         UnloadDynamicModules();
         Interface<ISystemNotify>::Get()->UnRegister();
+
+        AssetManager::Destroy();
+        DBManager::Destroy();
     }
 
     void Application::Loop()

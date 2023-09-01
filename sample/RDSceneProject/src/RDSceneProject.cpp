@@ -10,13 +10,15 @@
 
 #include <render/Renderer.h>
 #include <render/pipeline/DefaultForward.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky {
 
     bool RDSceneProject::Init()
     {
-        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT);
-        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT);
+        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/assets");
+        AssetManager::Get()->Reset(PROJECT_ROOT + "/assets.db");
 
         return true;
     }
@@ -40,6 +42,8 @@ namespace sky {
         scene->SetPipeline(ppl);
 
         Event<IWindowEvent>::Connect(nativeWindow, this);
+
+        auto asset = AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech", "GFX_TECH");
     }
 
     void RDSceneProject::Stop()
