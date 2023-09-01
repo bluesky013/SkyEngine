@@ -46,13 +46,13 @@ namespace sky::builder {
                 if (tech.IsString()) {
                     std::string techPath = am->GetRealPath(tech.GetString());
                     Uuid techId;
-                    if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY}, techId)) {
+                    if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY.data()}, techId)) {
                         assetData.techniques.emplace_back(am->LoadAsset<Technique>(techId));
                     }
                 }
             }
         }
-        result.products.emplace_back(BuildProduct{KEY, asset->GetUuid()});
+        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
         am->SaveAsset(asset);
     }
 }

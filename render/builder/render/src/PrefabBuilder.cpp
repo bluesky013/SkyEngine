@@ -58,7 +58,7 @@ namespace sky::builder {
         auto texPath = std::filesystem::path(sourceFolder).append(str.C_Str());
         if (std::filesystem::exists(texPath)) {
             Uuid texId;
-            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY, productFolder, false}, texId)) {
+            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY.data(), productFolder, false}, texId)) {
                 return am->LoadAsset<Texture>(texId);
             }
         } else {
@@ -83,7 +83,7 @@ namespace sky::builder {
         auto asset = am->CreateAsset<Material>(fullPath);
         std::string techPath = am->GetRealPath("techniques/standard_forward.tech");
         Uuid techId;
-        if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY}, techId)) {
+        if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY.data()}, techId)) {
             asset->Data().techniques.emplace_back(am->LoadAsset<Technique>(techId));
         }
         return asset;
@@ -397,7 +397,7 @@ namespace sky::builder {
         ProcessMaterials(scene, assetData, fullPath, outFolder);
         ProcessNode(scene->mRootNode, scene, -1, assetData, fullPath, outFolder);
 
-        result.products.emplace_back(BuildProduct{KEY, asset->GetUuid()});
+        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
         am->SaveAsset(asset);
     }
 

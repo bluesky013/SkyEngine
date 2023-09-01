@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <string_view>
 
 namespace sky::builder {
 
@@ -13,7 +14,7 @@ namespace sky::builder {
         MaterialBuilder() = default;
         ~MaterialBuilder() = default;
 
-        static constexpr char* KEY = "GFX_MATERIAL";
+        static constexpr std::string_view KEY = "GFX_MATERIAL";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
     };

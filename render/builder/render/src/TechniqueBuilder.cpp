@@ -3,11 +3,12 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-#include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <core/file/FileIO.h>
 #include <filesystem>
 #include <framework/asset/AssetManager.h>
+
+#include <builder/render/ShaderBuilder.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky::builder {
@@ -43,7 +44,7 @@ namespace sky::builder {
             auto relativePath = val[shaderStage.c_str()].GetString();
             std::string fullPath = am->GetRealPath(relativePath);
             Uuid shaderId;
-            if (am->QueryOrImportSource(fullPath, {ShaderBuilder::KEY}, shaderId)) {
+            if (am->QueryOrImportSource(fullPath, {ShaderBuilder::KEY.data()}, shaderId)) {
                 return am->LoadAsset<Shader>(shaderId);
             }
         }

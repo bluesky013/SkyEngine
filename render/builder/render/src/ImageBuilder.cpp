@@ -38,7 +38,7 @@ namespace sky::builder {
         imageData.rawData[0].resize(size);
         memcpy(imageData.rawData[0].data(), data, size);
 
-        result.products.emplace_back(BuildProduct{KEY, asset->GetUuid()});
+        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
         am->SaveAsset(asset);
 
         stbi_image_free(data);

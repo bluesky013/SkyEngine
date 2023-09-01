@@ -6,4 +6,9 @@
 
 namespace sky {
 
+    bool Shader::Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size)
+    {
+        return true;
+    }
+
 } // namespace sky
