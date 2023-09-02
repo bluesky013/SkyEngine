@@ -341,7 +341,7 @@ namespace sky::builder {
     {
         auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(outScene.nodes.size());
-        outScene.nodes.emplace_back(RenderPrefabNode{});
+        outScene.nodes.emplace_back();
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
 //        if (parent != ~(0U)) {

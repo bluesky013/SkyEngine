@@ -39,4 +39,16 @@ namespace sky {
         mesh = AssetManager::Get()->LoadAsset<Mesh>(uuid);
     }
 
+    void MeshRenderer::SetMesh(const MeshAssetPtr &mesh_)
+    {
+        mesh = mesh_;
+    }
+
+    void MeshRenderer::OnActive()
+    {
+    }
+
+    void MeshRenderer::OnDestroy()
+    {
+    }
 } // namespace sky

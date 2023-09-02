@@ -9,6 +9,7 @@
 #include <framework/application/Application.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
+#include <framework/serialization/CoreReflection.h>
 
 using namespace sky;
 
@@ -38,6 +39,8 @@ int main(int argc, char *argv[])
 
     Application app;
     app.Init(start);
+
+    CoreReflection();
 
     std::string projectPath;
     std::string enginePath;

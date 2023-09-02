@@ -20,6 +20,7 @@ namespace sky {
 
         virtual bool Start(RenderWindow *window);
         virtual void Shutdown();
+        virtual void Resize(uint32_t width, uint32_t height) {}
 
         virtual void Tick(float time);
 

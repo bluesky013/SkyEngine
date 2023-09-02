@@ -5,6 +5,7 @@
 #include <RDSceneProject.h>
 #include <RDSceneProject/ProjectRoot.h>
 
+#include <framework/serialization/CoreReflection.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/window/NativeWindow.h>
 
@@ -18,6 +19,7 @@ namespace sky {
     {
         AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
         AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/assets");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/cache");
         AssetManager::Get()->Reset(PROJECT_ROOT + "/assets.db");
 
         return true;

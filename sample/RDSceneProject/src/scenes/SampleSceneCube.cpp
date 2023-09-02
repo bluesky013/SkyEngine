@@ -3,6 +3,7 @@
 //
 
 #include "SampleSceneCube.h"
+#include <render/RenderWindow.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <framework/world/TransformComponent.h>
@@ -13,6 +14,8 @@ namespace sky {
     public:
         SimpleRotateComponent() = default;
         ~SimpleRotateComponent() override = default;
+
+        TYPE_RTTI_WITH_VT(SimpleRotateComponent)
 
         void OnTick(float time) override
         {
@@ -32,11 +35,22 @@ namespace sky {
         }
 
         cube = world->CreateGameObject("Cube");
-        cube->AddComponent<MeshRenderer>();
+        auto *mc = cube->AddComponent<MeshRenderer>();
+        auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>("box/box_mesh_0.mesh");
+        mc->SetMesh(meshAsset);
+
+        cube->AddComponent<SimpleRotateComponent>();
+
 
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
-        cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f, 1.f);
+        cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
+        cc->SetAspect(window->GetWidth(), window->GetHeight());
         return true;
+    }
+
+    void SampleSceneCube::Resize(uint32_t width, uint32_t height)
+    {
+        camera->GetComponent<CameraComponent>()->SetAspect(width, height);
     }
 } // namespace sky

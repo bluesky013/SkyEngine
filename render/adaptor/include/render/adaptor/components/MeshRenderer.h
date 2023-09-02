@@ -18,6 +18,10 @@ namespace sky {
 
         static void Reflect();
 
+        void OnActive() override;
+        void OnDestroy() override;
+        void SetMesh(const MeshAssetPtr &mesh);
+
         void Save(JsonOutputArchive &ar) const override;
         void Load(JsonInputArchive &ar) override;
 

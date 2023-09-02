@@ -59,6 +59,23 @@ namespace sky {
         }
 
         template <class T>
+        std::shared_ptr<Asset<T>> LoadAsset(const std::string &productPath, bool async = false)
+        {
+            for (auto &searchPath : searchPaths) {
+                std::filesystem::path sp(searchPath);
+                sp.append(productPath);
+                sp.make_preferred();
+                auto id = Uuid::CreateWithSeed(Fnv1a32(sp.string()));
+                auto asset = LoadAsset<T>(id, async);
+                if (asset) {
+                    return asset;
+                }
+            }
+
+            return nullptr;
+        }
+
+        template <class T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid &uuid, bool async = false)
         {
             return std::static_pointer_cast<Asset<T>>(LoadAsset(AssetTraits<T>::ASSET_TYPE, uuid, async));

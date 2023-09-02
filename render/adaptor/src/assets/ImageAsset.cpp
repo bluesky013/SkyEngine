@@ -23,11 +23,9 @@ namespace sky {
         archive.SaveValue(mipLevels);
         archive.SaveValue(arrayLayers);
         archive.SaveValue(static_cast<uint32_t>(rawData.size()));
-        for (auto &data : rawData) {
+        for (const auto &data : rawData) {
             archive.SaveValue(static_cast<uint32_t>(data.size()));
             archive.SaveValue(reinterpret_cast<const char*>(data.data()), static_cast<uint32_t>(data.size()));
         }
     }
-
-
-}
+} // namespace sky

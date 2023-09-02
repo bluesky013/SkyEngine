@@ -33,12 +33,11 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<CameraComponent>();
     }
 
-    void CameraComponent::Perspective(float near_, float far_, float fov_, float aspect_)
+    void CameraComponent::Perspective(float near_, float far_, float fov_)
     {
         near   = near_;
         far    = far_;
         fov    = fov_;
-        aspect = aspect_;
         type   = ProjectType::PROJECTIVE;
     }
 
@@ -46,6 +45,12 @@ namespace sky {
     {
         othoH = height;
         type   = ProjectType::ORTHOGONAL;
+    }
+
+    void CameraComponent::SetAspect(uint32_t width, uint32_t height)
+    {
+        aspect = static_cast<float>(width)/ static_cast<float>(height);
+        dirty = true;
     }
 
     void CameraComponent::OnTick(float time)
