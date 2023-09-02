@@ -9,8 +9,6 @@
 #include <framework/window/NativeWindow.h>
 
 #include <render/Renderer.h>
-#include <render/pipeline/DefaultForward.h>
-#include <render/adaptor/assets/TechniqueAsset.h>
 
 #include "scenes/SampleSceneCube.h"
 

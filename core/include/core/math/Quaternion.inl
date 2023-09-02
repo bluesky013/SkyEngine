@@ -15,7 +15,10 @@ namespace sky {
         float const half = angle * 0.5f;
         float const s = sin(half);
         float const c = cos(half);
-        Vector3 tmp = axis * s;
+
+        auto tmpAxis = Vector3(axis);
+        tmpAxis.Normalize();
+        Vector3 tmp = tmpAxis * s;
         x = tmp.x;
         y = tmp.y;
         z = tmp.z;

@@ -24,6 +24,12 @@ namespace sky {
     inline Vector3 Max(const Vector3 &lhs, const Vector3 &rhs);
     inline Vector4 Max(const Vector4 &lhs, const Vector4 &rhs);
 
+    template <typename T>
+    T Normalize(const T &v)
+    {
+        return T(v).Normalize();
+    }
+
     inline float ToRadian(float value)
     {
         return value / 180.f * PI;

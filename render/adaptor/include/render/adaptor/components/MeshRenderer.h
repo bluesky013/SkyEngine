@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <framework/world/component.h>
+#include <framework/world/Component.h>
 #include <render/adaptor/assets/MeshAsset.h>
 
 namespace sky {

@@ -5,7 +5,8 @@
 #pragma once
 
 #include <SampleScene.h>
-
+#include <framework/world/World.h>
+#include <framework/world/GameObject.h>
 namespace sky {
 
     class SampleSceneCube : public SampleScene {
@@ -13,7 +14,11 @@ namespace sky {
         SampleSceneCube() = default;
         ~SampleSceneCube() override = default;
 
-        void Tick(float time) override;
+        bool Start(RenderWindow *window) override;
+
+    private:
+        GameObject *cube = nullptr;
+        GameObject *camera = nullptr;
     };
 
 } // namespace sky

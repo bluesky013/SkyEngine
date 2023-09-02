@@ -119,11 +119,6 @@ namespace sky {
 
         RegisterComponents();
 
-        return true;
-    }
-
-    void RenderModule::Start()
-    {
         auto *iSys = Interface<ISystemNotify>::Get();
         auto &reg = iSys->GetApi()->GetSettings();
 
@@ -138,6 +133,11 @@ namespace sky {
 
         // init renderer
         Renderer::Get()->Init();
+        return true;
+    }
+
+    void RenderModule::Start()
+    {
     }
 
     void RenderModule::Stop()

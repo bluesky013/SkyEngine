@@ -4,9 +4,14 @@
 
 #pragma once
 
+#include <memory>
+#include <framework/world/World.h>
+#include <render/adaptor/RenderSceneProxy.h>
+
 namespace sky {
     class RenderScene;
     class RenderWindow;
+    class World;
 
     class SampleScene {
     public:
@@ -16,10 +21,11 @@ namespace sky {
         virtual bool Start(RenderWindow *window);
         virtual void Shutdown();
 
-        virtual void Tick(float time) {}
+        virtual void Tick(float time);
 
     protected:
-        RenderScene *scene = nullptr;
+        std::unique_ptr<World> world;
+        std::unique_ptr<RenderSceneProxy> sceneProxy;
     };
 
 } // namespace sky
