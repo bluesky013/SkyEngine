@@ -12,6 +12,8 @@
 #include <render/pipeline/DefaultForward.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 
+#include "scenes/SampleSceneCube.h"
+
 namespace sky {
 
     bool RDSceneProject::Init()
@@ -36,20 +38,20 @@ namespace sky {
         const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
 
-        scene = renderer->CreateScene();
-        auto *ppl = new DefaultForward();
-        ppl->SetOutput(window);
-        scene->SetPipeline(ppl);
-
         Event<IWindowEvent>::Connect(nativeWindow, this);
 
-        auto asset = AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech", "GFX_TECH");
+        sampleScenes.emplace("Cube", new SampleSceneCube());
+        currentScene = sampleScenes.begin()->second.get();
+        currentScene->Start(window);
     }
 
     void RDSceneProject::Stop()
     {
+        if (currentScene != nullptr) {
+            currentScene->Shutdown();
+        }
+
         auto *renderer = Renderer::Get();
-        renderer->RemoveScene(scene);
         renderer->DestroyRenderWindow(window);
 
         Event<IWindowEvent>::DisConnect(this);
@@ -57,6 +59,9 @@ namespace sky {
 
     void RDSceneProject::Tick(float delta)
     {
+        if (currentScene != nullptr) {
+            currentScene->Tick(delta);
+        }
     }
 
 } // namespace sky

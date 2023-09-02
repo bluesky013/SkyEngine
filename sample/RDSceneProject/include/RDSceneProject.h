@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <framework/window/IWindowEvent.h>
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <SampleScene.h>
 
 namespace sky {
     class RenderScene;
@@ -26,8 +28,9 @@ namespace sky {
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
     private:
-        RenderScene *scene = nullptr;
         RenderWindow *window = nullptr;
+        SampleScene *currentScene = nullptr;
+        std::unordered_map<std::string, std::unique_ptr<SampleScene>> sampleScenes;
     };
 
 } // namespace sky

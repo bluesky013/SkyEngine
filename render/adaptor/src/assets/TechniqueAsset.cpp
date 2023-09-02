@@ -25,7 +25,7 @@ namespace sky {
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(static_cast<uint32_t>(shaders.size()));
-        for (auto &shader : shaders) {
+        for (const auto &shader : shaders) {
             archive.SaveValue(shader ? shader->GetUuid().ToString() : Uuid{}.ToString());
         }
 
