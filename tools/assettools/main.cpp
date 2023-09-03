@@ -10,7 +10,6 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
 #include <framework/serialization/CoreReflection.h>
-
 using namespace sky;
 
 int main(int argc, char *argv[])
@@ -34,7 +33,6 @@ int main(int argc, char *argv[])
     }
     StartInfo start = {};
     start.appName        = "AssetTool";
-    start.modules.emplace_back("SkyRender");
     start.modules.emplace_back("RenderBuilder");
 
     Application app;

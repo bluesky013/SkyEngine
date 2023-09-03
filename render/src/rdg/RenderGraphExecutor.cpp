@@ -114,8 +114,8 @@ namespace sky::rdg {
 
                     currentEncoder->BindPipeline(tech.pso);
                     currentEncoder->BindSet(0, nullptr);
-                    currentEncoder->BindSet(1, item.primitive->material->GetDescriptorSet());
-                    currentEncoder->BindSet(2, item.primitive->set);
+                    currentEncoder->BindSet(1, item.primitive->batchSet);
+                    currentEncoder->BindSet(2, item.primitive->instanceSet);
                     currentEncoder->BindAssembly(item.primitive->va);
                     std::visit(Overloaded{
                         [&](const rhi::CmdDrawLinear &v) {

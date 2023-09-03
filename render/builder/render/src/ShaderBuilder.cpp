@@ -15,13 +15,17 @@ namespace sky::builder {
     void ShaderBuilder::Request(const BuildRequest &request, BuildResult &result)
     {
         ShaderType type;
+        rhi::ShaderStageFlagBit stage;
         std::string outExt;
         if (request.ext == ".vert") {
             type = ShaderType::VS;
+            stage = rhi::ShaderStageFlagBit::VS;
         } else if (request.ext == ".frag") {
             type = ShaderType::FS;
+            stage = rhi::ShaderStageFlagBit::FS;
         } else if (request.ext == ".comp") {
             type = ShaderType::CS;
+            stage = rhi::ShaderStageFlagBit::CS;
         } else {
             return;
         }
@@ -43,6 +47,7 @@ namespace sky::builder {
 
         // save gles
         variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
+        asset->Data().stage = stage;
         asset->Data().variants.emplace("", defaultVariant);
 
         result.products.emplace_back(BuildProduct{"GFX_SHADER", asset->GetUuid()});

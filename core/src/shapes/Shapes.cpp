@@ -38,4 +38,20 @@ namespace sky {
                                return Intersection(aabb, plane).second <= 0;
                            });
     }
+
+
+    Plane CreatePlaneByVertices(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3)
+    {
+        const Vector3 d1 = v2 - v1;
+        const Vector3 d2 = v3 - v1;
+
+        Vector3 normal = d1.Cross(d2);
+        normal.Normalize();
+        return CreatePlaneByNormalAndVertex(normal, v1);
+    }
+
+    Plane CreatePlaneByNormalAndVertex(const Vector3 &normal, const Vector3 &pt)
+    {
+        return Plane{normal, normal.Dot(pt)};
+    }
 } // namespace sky

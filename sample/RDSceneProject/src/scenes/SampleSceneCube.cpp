@@ -41,7 +41,6 @@ namespace sky {
 
         cube->AddComponent<SimpleRotateComponent>();
 
-
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);

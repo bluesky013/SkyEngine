@@ -34,5 +34,16 @@ namespace sky {
         archive.SaveValue(depthStencil.stencilTest);
     }
 
+    std::shared_ptr<Technique> CreateTechnique(const TechniqueAssetData &data)
+    {
+        if (data.shaders.size() > 1) {
+            auto tech = std::make_shared<GraphicsTechnique>();
+            for (const auto &shader : data.shaders) {
+                tech->AddShader(shader->CreateInstance());
+            }
 
+            return tech;
+        }
+        return nullptr;
+    }
 }

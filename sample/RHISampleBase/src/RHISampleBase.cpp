@@ -27,7 +27,9 @@ namespace sky::rhi {
         } else if (api == API::GLES) {
             shaderPath += ".gles";
         }
-        ReadBin(shaderPath, shaderDesc.data);
+        uint8_t *data = nullptr;
+        ReadBin(shaderPath, data, shaderDesc.size);
+        shaderDesc.data = data;
         return device.CreateShader(shaderDesc);
     }
 

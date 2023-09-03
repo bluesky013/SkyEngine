@@ -19,12 +19,6 @@ namespace sky {
         void Save(BinaryOutputArchive &archive) const;
     };
 
-    class ShaderVariant {
-    public:
-        ShaderVariant() = default;
-        ~ShaderVariant() = default;
-    };
-
     template <>
     struct AssetTraits<ShaderVariant> {
         using DataType                                = ShaderVariantData;
@@ -35,18 +29,25 @@ namespace sky {
 
 
     struct ShaderAssetData {
-        std::string source;
+        rhi::ShaderStageFlagBit stage;
         std::unordered_map<std::string, ShaderVariantAssetPtr> variants;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };
 
+    std::shared_ptr<Shader> CreateShader(const ShaderAssetData &data);
+
     template <>
     struct AssetTraits<Shader> {
         using DataType                                = ShaderAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E71838F5-40F3-470A-883C-401D8796B5FD");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
+        static std::shared_ptr<Shader> CreateFromData(const DataType &data)
+        {
+            return CreateShader(data);
+        }
     };
     using ShaderAssetPtr = std::shared_ptr<Asset<Shader>>;
 }

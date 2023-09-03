@@ -5,8 +5,8 @@
 #pragma once
 
 #include <rhi/Device.h>
-#include <render/MaterialProxy.h>
-#include <render/RenderTechnique.h>
+#include <render/resource/Material.h>
+#include <render/resource/Technique.h>
 #include <render/RenderPackage.h>
 
 namespace sky {
@@ -14,20 +14,20 @@ namespace sky {
     struct TechniqueInstance {
         uint32_t viewMask = 0xFFFFFFFF;  // mask all
         uint32_t rasterID = ~(0U);       // invalid id
+
         rhi::GraphicsPipelinePtr pso;
     };
 
     struct RenderPrimitive {
-        MaterialProxyPtr material;
         std::vector<TechniqueInstance> techniques;
 
         uint32_t sortKey = 0;
 
-        rhi::VertexAssemblyPtr va;
-        rhi::DescriptorSetPtr set;
-        rhi::DescriptorSetLayoutPtr localLayout;
-        rhi::BufferPtr indirectBuffer;
+        rhi::DescriptorSetPtr batchSet;
+        rhi::DescriptorSetPtr instanceSet;
 
+        rhi::VertexAssemblyPtr va;
+        rhi::BufferPtr indirectBuffer;
         DrawArgs args;
     };
 

@@ -5,11 +5,13 @@
 
 #include <framework/interface/IModule.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/serialization/SerializationContext.h>
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/PrefabBuilder.h>
+#include <render/adaptor/Reflection.h>
 
 namespace sky::builder {
 
@@ -33,6 +35,10 @@ namespace sky::builder {
 
     bool BuilderModule::Init()
     {
+        auto *serializationContext = SerializationContext::Get();
+        ReflectRenderAsset(serializationContext);
+        ReflectRHI(serializationContext);
+
         shaderBuilder = std::make_unique<ShaderBuilder>();
         techBuilder = std::make_unique<TechniqueBuilder>();
         materialBuilder = std::make_unique<MaterialBuilder>();
@@ -54,8 +60,6 @@ namespace sky::builder {
         AssetManager::Get()->RegisterBuilder(".gltf", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".glb", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".fbx", prefabBuilder.get());
-
-
         return true;
     }
 }

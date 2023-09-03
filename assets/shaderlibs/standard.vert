@@ -14,18 +14,8 @@ layout (location = 3) out vec3 outBiTangent;
 layout (location = 4) out vec4 outColor;
 layout (location = 5) out vec2 outUv;
 
-layout (set = 0, binding = 0) uniform ViewInfo {
-    mat4 viewToWorldMatrix;
-    mat4 worldToViewMatrix;
-    mat4 viewToClipMatrix;
-    mat4 worldToClipMatrix;
-    vec3 position;
-} viewInfo;
-
-layout (set = 2, binding = 0) uniform ObjectInfo {
-    mat4 worldMatrix;
-    mat4 inverseTranspose;
-} localData;
+#include <shaderlibs/layouts/standard_perpass.glsl>
+#include <shaderlibs/layouts/standard_local_vs.glsl>
 
 out gl_PerVertex
 {

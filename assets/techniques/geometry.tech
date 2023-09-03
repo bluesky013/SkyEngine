@@ -1,0 +1,10 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/geometry/geometry.vert",
+        "frag": "shaderlibs/geometry/geometry.frag"
+    },
+    "pass": {
+        "tag": "forward"
+    }
+}

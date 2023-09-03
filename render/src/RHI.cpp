@@ -16,6 +16,7 @@ namespace sky {
     void RHI::InitInstance(const rhi::Instance::Descriptor &desc)
     {
         instance = rhi::Instance::Create(desc);
+        api = desc.api;
     }
 
     void RHI::InitDevice(const rhi::Device::Descriptor &desc)

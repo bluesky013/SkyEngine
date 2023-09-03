@@ -10,17 +10,26 @@
 
 namespace sky {
 
+    class ShaderVariant {
+    public:
+        ShaderVariant() = default;
+        ~ShaderVariant() = default;
+
+        bool Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size);
+
+    private:
+        rhi::ShaderPtr shader;
+    };
+    using ShaderVariantPtr = std::shared_ptr<ShaderVariant>;
+
     class Shader {
     public:
         Shader() = default;
         ~Shader() = default;
 
-        bool Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size);
-
+        void AddVariant(const std::string &key, const ShaderVariantPtr &variant);
     private:
-        std::vector<uint32_t> data; // spv, glsl or msl
-        rhi::Shader::Descriptor shaderDesc;
-        rhi::ShaderPtr shader;
+        std::unordered_map<std::string, ShaderVariantPtr> variants;
     };
     using RDShaderPtr = std::shared_ptr<Shader>;
 
@@ -31,6 +40,7 @@ namespace sky {
 
     private:
         std::vector<rhi::ShaderPtr> shaders;
+        rhi::PipelineLayoutPtr pipelineLayout;
     };
     using RDProgramPtr = std::shared_ptr<Program>;
 

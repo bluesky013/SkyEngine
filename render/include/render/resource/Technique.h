@@ -13,6 +13,11 @@ namespace sky {
     public:
         Technique() = default;
         virtual ~Technique() = default;
+
+        void AddShader(const RDShaderPtr &shader);
+
+    protected:
+        std::vector<RDShaderPtr> shaders;
     };
 
     class GraphicsTechnique : public Technique {
@@ -20,14 +25,22 @@ namespace sky {
         GraphicsTechnique() = default;
         ~GraphicsTechnique() override = default;
 
+        void SetDepthStencil(const rhi::DepthStencil &ds);
+        void SetRasterState(const rhi::RasterState &rs);
+        void SetBlendState(const std::vector<rhi::BlendState> &blends);
+
     private:
-        rhi::GraphicsPipeline::Descriptor desc;
+        rhi::PipelineState state;
+        rhi::RenderPassPtr renderPass;
+        uint32_t subPassID = 0;
     };
+    using RDGfxTechPtr = std::shared_ptr<GraphicsTechnique>;
 
     class ComputeTechnique : public Technique {
     public:
         ComputeTechnique() = default;
         ~ComputeTechnique() override = default;
     };
+    using RDCompTechPtr = std::shared_ptr<ComputeTechnique>;
 
 } // namespace sky

@@ -25,7 +25,7 @@ namespace sky::gles {
         else if (desc.stage == rhi::ShaderStageFlagBit::CS) shaderType = GL_COMPUTE_SHADER;
 
         shader = glCreateShader(shaderType);
-        const char *source = reinterpret_cast<const char*>(desc.data.data());
+        const char *source = reinterpret_cast<const char*>(desc.data);
         CHECK(glShaderSource(shader, 1, (const GLchar **)&source, nullptr));
         CHECK(glCompileShader(shader));
 

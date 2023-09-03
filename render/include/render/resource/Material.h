@@ -15,7 +15,14 @@ namespace sky {
         Material()  = default;
         ~Material() = default;
 
+        const rhi::DescriptorSetPtr &GetDescriptorSet() const { return set; }
+
     private:
-        std::unordered_map<std::string, Any> properties;
+        rhi::DescriptorSetPtr set;
+        rhi::DescriptorSetLayout setLayout;
+        std::vector<rhi::BufferPtr> buffer;
+        std::vector<rhi::ImageViewPtr> textures;
     };
+
+    using RDMaterialPtr = std::shared_ptr<Material>;
 } // namespace sky

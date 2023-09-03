@@ -5,7 +5,7 @@
 #pragma once
 
 #include <array>
-#include <core/shapes/Plane.h>
+#include <core/shapes/Base.h>
 #include <core/math/Matrix4.h>
 
 namespace sky {

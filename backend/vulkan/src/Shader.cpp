@@ -27,8 +27,8 @@ namespace sky::vk {
     {
         VkShaderModuleCreateInfo shaderInfo = {};
         shaderInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        shaderInfo.codeSize                 = des.data.size();
-        shaderInfo.pCode                    = reinterpret_cast<const uint32_t *>(des.data.data());
+        shaderInfo.codeSize                 = des.size;
+        shaderInfo.pCode                    = reinterpret_cast<const uint32_t *>(des.data);
         stage                               = static_cast<VkShaderStageFlagBits>(FromRHI(des.stage));
 
         auto rst = vkCreateShaderModule(device.GetNativeHandle(), &shaderInfo, VKL_ALLOC, &shaderModule);
