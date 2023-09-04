@@ -10,15 +10,35 @@
 
 namespace sky {
 
+    struct ShaderBufferMember {
+        std::string name;
+        uint32_t offset;
+        uint32_t size;
+    };
+
+    struct ShaderResource {
+        std::string name;
+        uint32_t set;
+        uint32_t binding;
+        rhi::DescriptorType type;
+        std::vector<ShaderBufferMember> members;
+    };
+
     class ShaderVariant {
     public:
         ShaderVariant() = default;
         ~ShaderVariant() = default;
 
         bool Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size);
+        void SetShaderResources(const std::vector<ShaderResource> &res);
+        const std::vector<ShaderResource> &GetShaderResources() const { return resources; }
+        const rhi::ShaderPtr &GetShader() const { return shader; }
+        rhi::ShaderStageFlagBit GetStage() const { return stage; }
 
     private:
         rhi::ShaderPtr shader;
+        rhi::ShaderStageFlagBit stage;
+        std::vector<ShaderResource> resources;
     };
     using ShaderVariantPtr = std::shared_ptr<ShaderVariant>;
 
@@ -28,6 +48,7 @@ namespace sky {
         ~Shader() = default;
 
         void AddVariant(const std::string &key, const ShaderVariantPtr &variant);
+        const ShaderVariantPtr &GetVariant(const std::string &key) const;
     private:
         std::unordered_map<std::string, ShaderVariantPtr> variants;
     };
@@ -38,8 +59,11 @@ namespace sky {
         Program() = default;
         ~Program() = default;
 
+        void AddShader(const ShaderVariantPtr &shader);
+        void BuildPipelineLayout();
+
     private:
-        std::vector<rhi::ShaderPtr> shaders;
+        std::vector<ShaderVariantPtr> shaders;
         rhi::PipelineLayoutPtr pipelineLayout;
     };
     using RDProgramPtr = std::shared_ptr<Program>;

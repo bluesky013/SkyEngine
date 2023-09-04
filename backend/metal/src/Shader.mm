@@ -21,7 +21,7 @@ namespace sky::mtl {
 
     bool Shader::Init(const Descriptor &desc)
     {
-        NSString *nsSource = [NSString stringWithUTF8String: reinterpret_cast<const char*>(desc.data.data())];
+        NSString *nsSource = [NSString stringWithUTF8String: reinterpret_cast<const char*>(desc.data)];
 
         MTLCompileOptions *mtlOptions = [MTLCompileOptions alloc];
         mtlOptions.fastMathEnabled    = YES;

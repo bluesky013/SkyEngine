@@ -15,9 +15,11 @@ namespace sky {
         virtual ~Technique() = default;
 
         void AddShader(const RDShaderPtr &shader);
+        void BuildMainProgram();
 
     protected:
         std::vector<RDShaderPtr> shaders;
+        std::unordered_map<std::string, RDProgramPtr> programs;
     };
 
     class GraphicsTechnique : public Technique {

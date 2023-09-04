@@ -32,6 +32,10 @@ namespace sky {
 
     void ShaderAssetData::Load(BinaryInputArchive &archive)
     {
+        uint32_t tmp = 0;
+        archive.LoadValue(tmp);
+        stage = static_cast<rhi::ShaderStageFlagBit>(tmp);
+
         uint32_t size = 0;
         archive.LoadValue(size);
         for (uint32_t i = 0; i < size; ++i) {
@@ -41,19 +45,48 @@ namespace sky {
             archive.LoadValue(uuid);
             variants.emplace(key, AssetManager::Get()->LoadAsset<ShaderVariant>(Uuid::CreateFromString(uuid)));
         }
-        uint32_t tmp = 0;
-        archive.LoadValue(tmp);
-        stage = static_cast<rhi::ShaderStageFlagBit>(tmp);
+
+        archive.LoadValue(size);
+        resources.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            auto &res = resources[i];
+            archive.LoadValue(res.name);
+            archive.LoadValue(res.set);
+            archive.LoadValue(res.binding);
+            archive.LoadValue(tmp);
+            res.type = static_cast<rhi::DescriptorType>(tmp);
+            archive.LoadValue(tmp);
+            res.members.resize(tmp);
+            for (uint32_t j = 0; j < tmp; ++j) {
+                auto &member = res.members[j];
+                archive.LoadValue(member.name);
+                archive.LoadValue(member.offset);
+                archive.LoadValue(member.size);
+            }
+        }
     }
 
     void ShaderAssetData::Save(BinaryOutputArchive &archive) const
     {
+        archive.SaveValue(static_cast<uint32_t>(stage));
         archive.SaveValue(static_cast<uint32_t>(variants.size()));
         for (const auto &[key, var] : variants) {
             archive.SaveValue(key);
             archive.SaveValue(var->GetUuid().ToString());
         }
-        archive.SaveValue(static_cast<uint32_t>(stage));
+        archive.SaveValue(static_cast<uint32_t>(resources.size()));
+        for (const auto &res : resources) {
+            archive.SaveValue(res.name);
+            archive.SaveValue(res.set);
+            archive.SaveValue(res.binding);
+            archive.SaveValue(static_cast<uint32_t>(res.type));
+            archive.SaveValue(static_cast<uint32_t>(res.members.size()));
+            for (const auto &member : res.members) {
+                archive.SaveValue(member.name);
+                archive.SaveValue(member.offset);
+                archive.SaveValue(member.size);
+            }
+        }
     }
 
     std::shared_ptr<Shader> CreateShader(const ShaderAssetData &data)
@@ -67,6 +100,7 @@ namespace sky {
             if (api == rhi::API::VULKAN) {
                 sv->Init(data.stage, reinterpret_cast<const uint8_t *>(svData.spv.data()), static_cast<uint32_t>(svData.spv.size() * sizeof(uint32_t)));
             }
+            sv->SetShaderResources(data.resources);
             shader->AddVariant(key, sv);
         }
         return shader;

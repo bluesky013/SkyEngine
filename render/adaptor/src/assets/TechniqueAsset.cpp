@@ -41,7 +41,7 @@ namespace sky {
             for (const auto &shader : data.shaders) {
                 tech->AddShader(shader->CreateInstance());
             }
-
+            tech->BuildMainProgram();
             return tech;
         }
         return nullptr;

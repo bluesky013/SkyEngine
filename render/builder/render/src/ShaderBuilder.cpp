@@ -5,12 +5,46 @@
 
 #include <builder/render/ShaderBuilder.h>
 #include <builder/shader/ShaderCompiler.h>
+#include <spirv_cross/spirv_glsl.hpp>
 #include <framework/asset/AssetManager.h>
 
 #include <filesystem>
 #include <render/adaptor/assets/ShaderAsset.h>
 
 namespace sky::builder {
+
+    void BuildReflection(const std::vector<uint32_t> &spv, ShaderAssetData &data)
+    {
+        spirv_cross::CompilerGLSL compiler(spv.data(), spv.size());
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+        auto visitor = [&compiler, &data](auto &resources, rhi::DescriptorType type) {
+            for (auto &resource : resources) {
+                data.resources.emplace_back();
+                auto &descriptor    = data.resources.back();
+                descriptor.type     = type;
+                descriptor.set      = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                descriptor.binding  = compiler.get_decoration(resource.id, spv::DecorationBinding);
+                descriptor.name     = compiler.get_name(resource.id);
+                const auto &spvType = compiler.get_type(resource.base_type_id);
+
+                for (uint32_t index = 0; index < spvType.member_types.size(); ++index) {
+                    const auto  memberOffset = compiler.type_struct_member_offset(spvType, index);
+                    const auto  memberSize   = compiler.get_declared_struct_member_size(spvType, index);
+                    const auto &memberName   = compiler.get_member_name(resource.base_type_id, index);
+
+                    descriptor.members.emplace_back(
+                        ShaderBufferMember{memberName, memberOffset, static_cast<uint32_t>(memberSize)});
+                }
+            }
+        };
+
+        visitor(resources.sampled_images, rhi::DescriptorType::COMBINED_IMAGE_SAMPLER);
+        visitor(resources.storage_images, rhi::DescriptorType::STORAGE_IMAGE);
+        visitor(resources.uniform_buffers, rhi::DescriptorType::UNIFORM_BUFFER);
+        visitor(resources.storage_buffers, rhi::DescriptorType::STORAGE_BUFFER);
+        visitor(resources.subpass_inputs, rhi::DescriptorType::INPUT_ATTACHMENT);
+    }
 
     void ShaderBuilder::Request(const BuildRequest &request, BuildResult &result)
     {
@@ -44,6 +78,7 @@ namespace sky::builder {
         if (variantData.spv.empty()) {
             return;
         }
+        BuildReflection(variantData.spv, asset->Data());
 
         // save gles
         variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);

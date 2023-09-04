@@ -8,3 +8,4 @@ sky_add_exe(TARGET AssetTool ${PLATFORM_TYPE}
         3rdParty::cxxopts
         3rdParty::assimp
     )
+sky_set_dependency(TARGET AssetTool)

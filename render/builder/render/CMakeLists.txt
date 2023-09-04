@@ -16,3 +16,5 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
         3rdParty::stb
         3rdParty::assimp
     )
+
+sky_add_dependency(TARGET RenderBuilder DEPENDENCIES AssetTool Editor)
