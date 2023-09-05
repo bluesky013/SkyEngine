@@ -136,6 +136,7 @@ namespace sky::vk {
         limitation.maxColorAttachments  = phyProps.properties.limits.maxColorAttachments;
         limitation.maxDrawBuffers       = phyProps.properties.limits.maxFragmentOutputAttachments;
         limitation.maxDrawIndirectCount = phyProps.properties.limits.maxDrawIndirectCount;
+        limitation.minUniformBufferOffsetAlignment = static_cast<uint32_t>(phyProps.properties.limits.minUniformBufferOffsetAlignment);
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)

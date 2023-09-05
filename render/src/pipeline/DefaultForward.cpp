@@ -33,6 +33,8 @@ namespace sky {
             .AddColor("ForwardColor", rdg::ResourceAccessBit::WRITE)
             .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
             .AddQueue("queue1");
+//                .SetViewMask(0xFF)
+//                .SetRasterID("ForwardColor");
 
         rdg.AddPresentPass("present", "ForwardColor");
     }

@@ -34,7 +34,7 @@ TEST(TransformTest, MatrixTest)
     trans.rotation    = Quaternion(30.f / 180.f * 3.1415926f, axis);
 
     Matrix4   matrix = trans.ToMatrix();
-    Transform result = Transform::FromMatrix(matrix);
+//    Transform result = Transform::FromMatrix(matrix);
 
     // TODO
 //    ASSERT_FLOAT_EQ(result.translation.x, trans.translation.x);

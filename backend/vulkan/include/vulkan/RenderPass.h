@@ -47,7 +47,6 @@ namespace sky::vk {
         bool Init(const VkDescriptor &);
 
         VkRenderPass pass;
-        uint32_t     hash;
         std::vector<VkAttachmentDescription2>  attachments;
         std::vector<VkSubpassDescription2>     subPasses;
         std::vector<VkSubpassDependency2>      dependencies;

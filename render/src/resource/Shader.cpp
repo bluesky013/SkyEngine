@@ -4,6 +4,7 @@
 
 #include <render/resource/Shader.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
 
 namespace sky {
 
@@ -71,7 +72,11 @@ namespace sky {
         auto *device = RHI::Get()->GetDevice();
         rhi::PipelineLayout::Descriptor plDesc = {};
         for (auto &desc : layoutDesc) {
-            plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            if (desc.bindings.empty()) {
+                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout);
+            } else {
+                plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
         }
         pipelineLayout = device->CreatePipelineLayout(plDesc);
     }

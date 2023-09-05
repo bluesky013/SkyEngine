@@ -138,7 +138,7 @@ namespace sky::vk {
                     copy.bufferOffset      = offset;
                     copy.bufferRowLength   = rowLength * formatInfo.blockWidth;
                     copy.bufferImageHeight = imageHeight * formatInfo.blockHeight;
-                    copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, 0, 1};
+                    copy.imageSubresource  = {VK_IMAGE_ASPECT_COLOR_BIT, request.mipLevel, request.layer, 1};
                     copy.imageOffset       = offset3D;
                     copy.imageExtent       = {width, std::min(height - heightStep * i, heightStep), 1};
 

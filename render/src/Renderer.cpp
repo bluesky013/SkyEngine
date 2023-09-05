@@ -14,11 +14,17 @@ namespace sky {
     Renderer::~Renderer()
     {
         device->WaitIdle();
+        defaultRHIResource.Reset();
     }
 
     void Renderer::Init()
     {
         device = RHI::Get()->GetDevice();
+        defaultRHIResource.Init();
+        delayReleaseCollections.resize(inflightFrameCount);
+        for (uint32_t i = 0; i < inflightFrameCount; ++i) {
+            delayReleaseCollections[i] = std::make_unique<RenderResourceGC>();
+        }
     }
 
     void Renderer::Tick(float time)
@@ -47,6 +53,11 @@ namespace sky {
         for (auto &scn : scenes) {
             scn->PostTick(time);
         }
+
+        delayReleaseCollections[(frameIndex + inflightFrameCount - 1) % inflightFrameCount]->Clear();
+
+        totalFrame++;
+        frameIndex = totalFrame % inflightFrameCount;
     }
 
     RenderScene *Renderer::CreateScene()

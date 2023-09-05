@@ -5,6 +5,6 @@
         "frag": "shaderlibs/geometry/geometry.frag"
     },
     "pass": {
-        "tag": "forward"
+        "tag": "ForwardColor"
     }
 }

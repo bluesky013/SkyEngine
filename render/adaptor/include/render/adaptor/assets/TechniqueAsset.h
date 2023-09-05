@@ -20,6 +20,7 @@ namespace sky {
         rhi::DepthStencil            depthStencil;
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
+        std::string                  passTag;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

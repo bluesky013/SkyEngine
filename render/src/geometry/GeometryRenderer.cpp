@@ -32,6 +32,12 @@ namespace sky {
         return *this;
     }
 
+    GeometryRenderer &GeometryRenderer::Clear()
+    {
+        batchVertices.clear();
+        return *this;
+    }
+
     void GeometryRenderer::AddVertex(const GeometryBatchVertex &vtx)
     {
     }

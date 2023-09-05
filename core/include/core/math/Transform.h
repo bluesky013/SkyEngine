@@ -45,27 +45,26 @@ namespace sky {
 
         inline Matrix4 ToMatrix() const
         {
-//            auto matR = glm::mat4_cast(rotation);
-//            matR[0] *= scale.x;
-//            matR[1] *= scale.y;
-//            matR[2] *= scale.z;
-//
-//            matR[3][0] = translation.x;
-//            matR[3][1] = translation.y;
-//            matR[3][2] = translation.z;
-//            return matR;
-            return {};
+            auto matR = rotation.ToMatrix();
+            matR[0] *= scale.x;
+            matR[1] *= scale.y;
+            matR[2] *= scale.z;
+
+            matR[3][0] = translation.x;
+            matR[3][1] = translation.y;
+            matR[3][2] = translation.z;
+            return matR;
         }
 
-        static Transform FromMatrix(const Matrix4 &matrix)
-        {
+//        static Transform FromMatrix(const Matrix4 &matrix)
+//        {
 //            Transform result;
 //            glm::vec3 skew;
 //            glm::vec4 perspective;
 //            glm::decompose(matrix, result.scale, result.rotation, result.translation, skew, perspective);
 //            return result;
-            return {};
-        }
+//            return {};
+//        }
 
         static const Transform &GetIdentity()
         {

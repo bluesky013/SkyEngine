@@ -5,22 +5,19 @@
 #include "vulkan/RenderPass.h"
 #include "core/hash/Crc32.h"
 #include "core/hash/Hash.h"
-#include "core/logger/Logger.h"
 #include "vulkan/Basic.h"
 #include "vulkan/Device.h"
 #include "vulkan/Conversion.h"
-#include "vulkan/Barrier.h"
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
-    RenderPass::RenderPass(Device &dev) : DevObject(dev), pass(VK_NULL_HANDLE), hash(0)
+    RenderPass::RenderPass(Device &dev) : DevObject(dev), pass(VK_NULL_HANDLE)
     {
     }
 
     bool RenderPass::Init(const Descriptor &des)
     {
         InitInputMap(des);
-        hash = 0;
         std::vector<std::vector<VkAttachmentReference2>> subpassReferences;
         std::vector<VkSubpassDescriptionDepthStencilResolve> depthStencilResolves;
         depthStencilResolves.reserve(des.subPasses.size());

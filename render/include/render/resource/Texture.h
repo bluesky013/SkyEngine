@@ -11,7 +11,7 @@ namespace sky {
     class Texture {
     public:
         Texture();
-        virtual ~Texture() = default;
+        virtual ~Texture();
 
         void Upload(uint8_t *ptr, uint32_t size);
 
@@ -20,8 +20,10 @@ namespace sky {
         rhi::Image::Descriptor imageDesc = {};
 
         rhi::ImagePtr image;
+        rhi::SamplerPtr sampler;
         rhi::ImageViewPtr imageView;
     };
+    using RDTexturePtr = std::shared_ptr<Texture>;
 
     class Texture2D : public Texture {
     public:

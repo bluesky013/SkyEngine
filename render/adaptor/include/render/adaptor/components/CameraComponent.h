@@ -43,7 +43,6 @@ namespace sky {
         ProjectType type = ProjectType::PROJECTIVE;
 
         // status
-        bool dirty = true;
         SceneView *sceneView = nullptr;
     };
 

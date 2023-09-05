@@ -15,7 +15,7 @@ namespace sky {
         virtual ~Technique() = default;
 
         void AddShader(const RDShaderPtr &shader);
-        void BuildMainProgram();
+        RDProgramPtr RequestProgram(const std::string &key);
 
     protected:
         std::vector<RDShaderPtr> shaders;
@@ -30,11 +30,18 @@ namespace sky {
         void SetDepthStencil(const rhi::DepthStencil &ds);
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
+        void SetRasterTag(const std::string &tag);
+        uint32_t GetRasterID() const { return rasterID; }
+
+        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
+                                                 const rhi::VertexInputPtr &vertexDesc,
+                                                 const rhi::RenderPassPtr &pass,
+                                                 uint32_t subPassID,
+                                                 const std::string &programKey = "");
 
     private:
         rhi::PipelineState state;
-        rhi::RenderPassPtr renderPass;
-        uint32_t subPassID = 0;
+        uint32_t rasterID;
     };
     using RDGfxTechPtr = std::shared_ptr<GraphicsTechnique>;
 
@@ -44,5 +51,4 @@ namespace sky {
         ~ComputeTechnique() override = default;
     };
     using RDCompTechPtr = std::shared_ptr<ComputeTechnique>;
-
 } // namespace sky

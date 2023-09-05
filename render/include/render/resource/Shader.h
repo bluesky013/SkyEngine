@@ -61,6 +61,8 @@ namespace sky {
 
         void AddShader(const ShaderVariantPtr &shader);
         void BuildPipelineLayout();
+        const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
+        const std::vector<ShaderVariantPtr> &GetShaders() const { return shaders; }
 
     private:
         std::vector<ShaderVariantPtr> shaders;

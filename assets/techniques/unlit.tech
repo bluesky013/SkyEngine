@@ -5,7 +5,7 @@
         "frag": "shaderlibs/unlit.frag"
     },
     "pass": {
-        "tag": "forward_color"
+        "tag": "ForwardColor"
     },
     "depth_stencil": {
         "depthTestEnable": true,

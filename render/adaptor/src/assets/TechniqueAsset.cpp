@@ -20,6 +20,7 @@ namespace sky {
         archive.LoadValue(depthStencil.depthWrite);
         archive.LoadValue(depthStencil.depthTest);
         archive.LoadValue(depthStencil.stencilTest);
+        archive.LoadValue(passTag);
     }
 
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
@@ -32,6 +33,7 @@ namespace sky {
         archive.SaveValue(depthStencil.depthWrite);
         archive.SaveValue(depthStencil.depthTest);
         archive.SaveValue(depthStencil.stencilTest);
+        archive.SaveValue(passTag);
     }
 
     std::shared_ptr<Technique> CreateTechnique(const TechniqueAssetData &data)
@@ -41,7 +43,7 @@ namespace sky {
             for (const auto &shader : data.shaders) {
                 tech->AddShader(shader->CreateInstance());
             }
-            tech->BuildMainProgram();
+
             return tech;
         }
         return nullptr;

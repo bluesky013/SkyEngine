@@ -5,8 +5,15 @@
 #include <render/resource/Texture.h>
 #include <rhi/Queue.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
 
 namespace sky {
+
+    Texture::~Texture()
+    {
+        imageView = nullptr;
+        Renderer::Get()->GetResourceGC()->CollectImage(image);
+    }
 
     Texture::Texture()
     {

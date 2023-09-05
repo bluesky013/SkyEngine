@@ -9,32 +9,39 @@
 #include <string>
 #include <core/math/Matrix4.h>
 #include <core/shapes/Frustum.h>
+#include <core/shapes/AABB.h>
 #include <core/std/Container.h>
+#include <rhi/Buffer.h>
+#include <render/resource/Buffer.h>
 
 namespace sky {
+
+    struct SceneViewInfo {
+        Matrix4 worldMatrix;
+        Matrix4 viewMatrix;
+        Matrix4 projectMatrix;
+        Matrix4 viewProjectMatrix;
+    };
 
     class SceneView {
     public:
         explicit SceneView(uint32_t view = 1, PmrResource *resource = nullptr);
         ~SceneView() = default;
 
-        void SetViewTag(const std::string &id) { viewTag = id.c_str(); }
-        const PmrString &GetViewTag() const { return viewTag; }
-
-        void SetViewMatrix(const Matrix4 &mat, uint32_t viewID = 0);
+        void SetMatrix(const Matrix4 &mat, uint32_t viewID = 0);
         void SetProjective(float near, float far, float fov, float aspect, uint32_t viewID = 0);
         void Update();
 
+        bool FrustumCulling(const AABB &aabb) const;
+
     private:
         uint32_t viewCount;
-        PmrString viewTag;
-        PmrVector<Matrix4> matView;
-        PmrVector<Matrix4> matProj;
-        PmrVector<Matrix4> matProjInv;
-        PmrVector<Matrix4> matViewProj;
-        PmrVector<Matrix4> matViewProjInv;
+
+        PmrVector<SceneViewInfo> viewInfo;
         PmrVector<Frustum> frustums;
-        PmrVector<bool>    dirty;
+        bool dirty;
+
+        RDUniformBufferPtr viewUbo;
     };
 
 } // namespace sky

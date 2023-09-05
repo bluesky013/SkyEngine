@@ -14,6 +14,8 @@
 #include <render/RenderWindow.h>
 
 #include <render/rdg/RenderGraphContext.h>
+#include <render/RenderDefaultResource.h>
+#include <render/RenderResourceGC.h>
 
 namespace sky {
 
@@ -31,6 +33,10 @@ namespace sky {
         RenderWindow *CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync);
         void DestroyRenderWindow(RenderWindow *);
 
+        uint32_t GetInflightFrameCount() const { return inflightFrameCount; }
+        RenderResourceGC *GetResourceGC() const { return delayReleaseCollections[frameIndex].get(); }
+
+        const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
     private:
         template <typename T>
         static void DestroyObj(T *ptr)
@@ -46,6 +52,12 @@ namespace sky {
 
         PmrUnSyncPoolRes mainPool;
 
+        uint32_t totalFrame = 0;
+        uint32_t inflightFrameCount = 2;
+        uint32_t frameIndex = 0;
+        std::vector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
+
+        RenderDefaultResource defaultRHIResource;
         PmrList<std::unique_ptr<RenderScene, decltype(&Renderer::DestroyObj<RenderScene>)>> scenes;
         PmrList<std::unique_ptr<RenderWindow, decltype(&Renderer::DestroyObj<RenderWindow>)>> windows;
     };

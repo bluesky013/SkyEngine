@@ -3,8 +3,41 @@
 //
 
 #include <rhi/RenderPass.h>
+#include <core/hash/Crc32.h>
+#include <core/hash/Hash.h>
 
 namespace sky::rhi {
+
+    void RenderPass::CalculateHash(const Descriptor &desc)
+    {
+        hash = 0;
+        for (const auto &attachment : desc.attachments) {
+            HashCombine32(compatibleHash, static_cast<uint32_t>(attachment.format));
+            HashCombine32(compatibleHash, static_cast<uint32_t>(attachment.sample));
+        }
+        for (const auto &subPass : desc.subPasses) {
+            for (const auto &color : subPass.colors) {
+                HashCombine32(compatibleHash, color.index);
+            }
+            for (const auto &resolve : subPass.resolves) {
+                HashCombine32(compatibleHash, resolve.index);
+            }
+            for (const auto &input : subPass.inputs) {
+                HashCombine32(compatibleHash, input.index);
+            }
+            HashCombine32(compatibleHash, Crc32::Cal(reinterpret_cast<const uint8_t *>(subPass.preserves.data()),
+                                                     static_cast<uint32_t>(subPass.preserves.size()) * sizeof(uint32_t)));
+            HashCombine32(compatibleHash, subPass.depthStencil.index);
+            HashCombine32(compatibleHash, subPass.dsResolve.index);
+            HashCombine32(compatibleHash, subPass.viewMask);
+        }
+        for (const auto &dep : desc.dependencies) {
+            HashCombine32(compatibleHash, dep.src);
+            HashCombine32(compatibleHash, dep.dst);
+        }
+        HashCombine32(compatibleHash, Crc32::Cal(reinterpret_cast<const uint8_t *>(desc.correlatedViewMasks.data()),
+                                                 static_cast<uint32_t>(desc.correlatedViewMasks.size()) * sizeof(uint32_t)));
+    }
 
     void RenderPass::InitInputMap(const Descriptor &desc)
     {
@@ -15,15 +48,15 @@ namespace sky::rhi {
         attachmentMap.resize(desc.attachments.size(), INVALID_INDEX);
 
         for (uint32_t i = 0; i < desc.subPasses.size(); ++i) {
-            auto &sub = desc.subPasses[i];
+            const auto &sub = desc.subPasses[i];
             auto &outputMap = subpassOutputMaps[i];
             outputMap.resize(8, 0xFF);
 
-            uint32_t outputOffset = static_cast<uint32_t>(sub.colors.size());
+            auto outputOffset = static_cast<uint32_t>(sub.colors.size());
             auto &inputMap = subpassInputMaps[i];
 
             uint32_t drawBufferIndex = 0;
-            for (auto &color : sub.colors) {
+            for (const auto &color : sub.colors) {
                 auto &index = attachmentMap[color.index];
                 if (index == INVALID_INDEX) {
                     index = static_cast<uint32_t>(colors.size());
@@ -32,7 +65,7 @@ namespace sky::rhi {
                 outputMap[drawBufferIndex++] = index;
             }
 
-            for (auto &resolve : sub.resolves) {
+            for (const auto &resolve : sub.resolves) {
                 auto &index = attachmentMap[resolve.index];
                 if (index == INVALID_INDEX) {
                     index = static_cast<uint32_t>(resolves.size());
@@ -48,7 +81,7 @@ namespace sky::rhi {
                 dsResolve = sub.dsResolve.index;
             }
 
-            for (auto &input : sub.inputs) {
+            for (const auto &input : sub.inputs) {
                 if (input.index == depthStencil) {
                     if (input.mask & AspectFlagBit::DEPTH_BIT) {
                         inputMap.emplace_back(0xFD);
@@ -68,6 +101,7 @@ namespace sky::rhi {
                 inputMap.emplace_back(iter == sub.colors.end() ? outputOffset++ : static_cast<uint32_t>(std::distance(sub.colors.begin(), iter)));
             }
         }
+        CalculateHash(desc);
     }
 
 }

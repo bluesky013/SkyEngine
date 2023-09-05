@@ -61,6 +61,7 @@ namespace sky::rhi {
             uint32_t maxColorAttachments = 1;
             uint32_t maxDrawBuffers = 1;
             uint32_t maxDrawIndirectCount = 1;
+            uint32_t minUniformBufferOffsetAlignment = 256;
         };
 
         struct Descriptor {

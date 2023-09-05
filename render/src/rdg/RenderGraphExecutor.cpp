@@ -113,9 +113,9 @@ namespace sky::rdg {
                     auto &tech = item.primitive->techniques[item.techIndex];
 
                     currentEncoder->BindPipeline(tech.pso);
-                    currentEncoder->BindSet(0, nullptr);
-                    currentEncoder->BindSet(1, item.primitive->batchSet);
-                    currentEncoder->BindSet(2, item.primitive->instanceSet);
+                    currentEncoder->BindSet(0, item.primitive->passSet ? item.primitive->passSet : nullptr); // todo per pass set
+                    currentEncoder->BindSet(1, item.primitive->batchSet ? item.primitive->batchSet : nullptr);
+                    currentEncoder->BindSet(2, item.primitive->instanceSet ? item.primitive->instanceSet : nullptr);
                     currentEncoder->BindAssembly(item.primitive->va);
                     std::visit(Overloaded{
                         [&](const rhi::CmdDrawLinear &v) {

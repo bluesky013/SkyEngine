@@ -11,6 +11,7 @@
 #include <render/rdg/RenderGraphExecutor.h>
 #include <render/rdg/AccessGraphCompiler.h>
 #include <render/rdg/RenderResourceCompiler.h>
+#include <render/rdg/RenderSceneVisitor.h>
 
 namespace sky {
 
@@ -54,6 +55,12 @@ namespace sky {
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
+
+//        {
+//            RenderSceneVisitor sceneVisitor(rdg);
+//            sceneVisitor.BuildRenderQueue();
+//        }
+
 
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {

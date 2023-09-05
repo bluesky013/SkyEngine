@@ -3,6 +3,8 @@
 //
 
 #include <render/resource/Technique.h>
+#include <render/RHI.h>
+#include <render/RenderNameHandle.h>
 
 namespace sky {
 
@@ -11,13 +13,19 @@ namespace sky {
         shaders.emplace_back(shader);
     }
 
-    void Technique::BuildMainProgram()
+    RDProgramPtr Technique::RequestProgram(const std::string &key)
     {
         auto program = std::make_shared<Program>();
         for (auto &shader : shaders) {
-            program->AddShader(shader->GetVariant(""));
+            auto variant = shader->GetVariant(key);
+            if (!variant) {
+                return nullptr;
+            }
+            program->AddShader(variant);
         }
         program->BuildPipelineLayout();
+        programs.emplace(key, program);
+        return program;
     }
 
     void GraphicsTechnique::SetDepthStencil(const rhi::DepthStencil &ds)
@@ -33,5 +41,35 @@ namespace sky {
     void GraphicsTechnique::SetBlendState(const std::vector<rhi::BlendState> &blends)
     {
         state.blendStates = blends;
+    }
+
+    void GraphicsTechnique::SetRasterTag(const std::string &tag)
+    {
+        rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
+    }
+
+    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
+                                      const rhi::VertexInputPtr &vertexDesc,
+                                      const rhi::RenderPassPtr &pass,
+                                      uint32_t subPassID,
+                                      const std::string &programKey)
+    {
+        auto program = tech.RequestProgram(programKey);
+        if (!program) {
+            return nullptr;
+        }
+
+        const auto &shaders = program->GetShaders();
+
+        rhi::GraphicsPipeline::Descriptor descriptor = {};
+        descriptor.state = tech.state;
+        descriptor.renderPass = pass;
+        descriptor.subPassIndex = subPassID;
+        descriptor.pipelineLayout = program->GetPipelineLayout();
+        descriptor.vertexInput = vertexDesc;
+        descriptor.vs = shaders[0]->GetShader();
+        descriptor.fs = shaders[1]->GetShader();
+
+        return RHI::Get()->GetDevice()->CreateGraphicsPipeline(descriptor);
     }
 } // namespace sky

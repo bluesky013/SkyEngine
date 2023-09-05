@@ -18,12 +18,6 @@ namespace sky {
         Vector3 color;
     };
 
-    struct GeometryDrawBatch {
-        std::vector<GeometryBatchVertex> batchVertices;
-        std::unique_ptr<RenderPrimitive> primitive;
-        DrawArgs args;
-    };
-
     class GeometryRenderer {
     public:
         GeometryRenderer() = default;
@@ -37,15 +31,19 @@ namespace sky {
         GeometryRenderer &DrawLine(const Line &);
         GeometryRenderer &DrawTriangle(const Triangle &triangle);
         GeometryRenderer &DrawQuad(const Quad &quad);
+        GeometryRenderer &Clear();
+
     private:
         void AddVertex(const GeometryBatchVertex &vtx);
 
         RDGfxTechPtr technique;
 
         Color currentColor = Color{1.f, 1.f, 1.f, 1.f};
-        rhi::PipelineState batchKey;
 
-        GeometryDrawBatch *currentBatch = nullptr;
+        uint32_t vertexCapacity = 0;
+        std::vector<GeometryBatchVertex> batchVertices;
+        std::unique_ptr<RenderPrimitive> primitive;
+        DrawArgs args;
     };
 
 } // namespace sky

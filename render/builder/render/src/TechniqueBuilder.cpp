@@ -51,6 +51,14 @@ namespace sky::builder {
         return {};
     }
 
+    static void GetPassInfo(rapidjson::Document &document, TechniqueAssetData &data)
+    {
+        auto &val = document["pass"];
+        if (val.HasMember("tag")) {
+            data.passTag = val["tag"].GetString();
+        }
+    }
+
     static void ProcessDepthStencil(const rapidjson::Document &document, rhi::DepthStencil &ds)
     {
         if (document.HasMember("depth_stencil")) {
@@ -150,6 +158,7 @@ namespace sky::builder {
         ProcessDepthStencil(document, data.depthStencil);
         ProcessBlendStates(document, data.blendStates);
         ProcessRasterStates(document, data.rasterState);
+        GetPassInfo(document, data);
     }
 
     void TechniqueBuilder::Request(const BuildRequest &request, BuildResult &result)

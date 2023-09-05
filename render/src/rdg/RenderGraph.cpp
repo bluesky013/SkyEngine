@@ -6,6 +6,7 @@
 #include <rhi/Decode.h>
 #include <sstream>
 #include <render/rdg/AccessUtils.h>
+#include <render/RenderNameHandle.h>
 
 namespace sky::rdg {
 
@@ -296,7 +297,7 @@ namespace sky::rdg {
 
     RasterQueueBuilder RasterSubPassBuilder::AddQueue(const std::string &name)
     {
-        auto res = AddVertex(name.c_str(), RasterQueue(&rdg.context->resources), rdg);
+        auto res = AddVertex(name.c_str(), RasterQueue(&rdg.context->resources, vertex), rdg);
         auto &queue = rdg.rasterQueues[rdg.polymorphicDatas[res]];
         add_edge(vertex, res, rdg.graph);
         return RasterQueueBuilder{rdg, queue, res};
@@ -310,6 +311,7 @@ namespace sky::rdg {
 
     RasterQueueBuilder &RasterQueueBuilder::SetRasterID(const std::string &id)
     {
+        queue.rasterID = RenderNameHandle::Get()->GetOrRegisterName(id);
         return *this;
     }
 

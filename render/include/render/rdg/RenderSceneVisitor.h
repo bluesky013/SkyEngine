@@ -10,14 +10,13 @@
 namespace sky::rdg {
     class RenderScene;
 
-    struct RenderSceneVisitor : boost::dfs_visitor<> {
+    struct RenderSceneVisitor{
         explicit RenderSceneVisitor(RenderGraph &g) : graph(g) {}
 
         using Graph = RenderGraph::Graph;
         using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 
-        [[maybe_unused]] void discover_vertex(Vertex u, const Graph& g);
-//        [[maybe_unused]] void finish_vertex(Vertex u, const Graph& g);
+        [[maybe_unused]] void BuildRenderQueue();
 
         RenderGraph &graph;
     };

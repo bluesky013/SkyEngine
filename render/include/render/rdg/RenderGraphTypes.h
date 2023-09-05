@@ -10,6 +10,7 @@
 #include <rhi/Device.h>
 #include <render/SceneView.h>
 #include <render/RenderPrimitive.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky::rdg {
 
@@ -190,17 +191,26 @@ namespace sky::rdg {
     };
 
     struct RasterQueue {
-        explicit RasterQueue(PmrResource *res) : drawItems(res) {}
+        explicit RasterQueue(PmrResource *res, uint32_t pass)
+            : sceneView(nullptr)
+            , passID(pass)
+            , viewMask(0xFFFFFFFF)
+            , rasterID(INVALID_INDEX)
+            , drawItems(res)
+            , sort(false)
+            , culling(true)
+        {}
 
         using Tag = RasterQueueTag;
 
-        const SceneView *sceneView = nullptr;
+        const SceneView *sceneView;
+        uint32_t passID;
+        uint32_t viewMask;   // mask all
+        uint32_t rasterID;   // invalid id
         PmrList<RenderDrawItem> drawItems;
-        uint32_t viewMask = 0xFFFFFFFF;  // mask all
-        uint32_t rasterID = ~(0U);       // invalid id
 
-        bool sort = false;
-        bool culling = false;
+        bool sort;
+        bool culling;
     };
 
     struct RasterPass {
@@ -228,6 +238,7 @@ namespace sky::rdg {
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 
+        RDResourceGroupPtr resourceGroup;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };
