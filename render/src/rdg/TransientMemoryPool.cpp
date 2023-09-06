@@ -10,14 +10,14 @@ namespace sky::rdg {
     {
     }
 
-    rhi::ImagePtr TransientMemoryPool::RequestImage(const rdg::GraphImage &desc)
+    ImageObject *TransientMemoryPool::RequestImage(const rdg::GraphImage &desc)
     {
-        return {};
+        return nullptr;
     }
 
-    rhi::BufferPtr TransientMemoryPool::RequestBuffer(const rdg::GraphBuffer &desc)
+    BufferObject *TransientMemoryPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
-        return {};
+        return nullptr;
     }
 
     void TransientMemoryPool::RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc)

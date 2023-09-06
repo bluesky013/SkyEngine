@@ -19,7 +19,7 @@ namespace sky::vk {
 
     class SwapChain : public rhi::SwapChain, public DevObject {
     public:
-        ~SwapChain();
+        ~SwapChain() override;
 
         struct VkDescriptor {
             void                         *window          = nullptr;
@@ -43,7 +43,7 @@ namespace sky::vk {
         VkFormat          GetVkFormat() const;
         const VkExtent2D &GetVkExtent() const;
         void Present(const PresentInfo &) const;
-        VkResult AcquireNext(SemaphorePtr semaphore, uint32_t &next) const;
+        VkResult AcquireNext(const SemaphorePtr& semaphore, uint32_t &next) const;
         ImagePtr GetVkImage(uint32_t image) const;
 
         // for rhi
@@ -53,13 +53,14 @@ namespace sky::vk {
         uint32_t GetImageCount() const override;
         rhi::PixelFormat GetFormat() const override;
         const rhi::Extent2D &GetExtent() const override;
-        rhi::ImagePtr GetImage(uint32_t index) const override;
+        rhi::ImagePtr GetImage(uint32_t index) const override { return images[index]; }
+        rhi::ImageViewPtr GetImageView(uint32_t index) const override { return imageViews[index]; }
 
         bool HasDepthStencilImage() const override { return false; }
         rhi::ImagePtr GetDepthStencilImage() const override { return {}; }
     private:
         friend class Device;
-        SwapChain(Device &);
+        explicit SwapChain(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);
@@ -79,6 +80,7 @@ namespace sky::vk {
         VkSurfaceFormatKHR       format;
         VkPresentModeKHR         mode;
         std::vector<ImagePtr>    images;
+        std::vector<rhi::ImageViewPtr> imageViews;
         VkDescriptor             descriptor;
     };
 

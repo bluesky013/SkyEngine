@@ -83,7 +83,7 @@ namespace sky::vk {
     void SwapChain::Present(const PresentInfo &info) const
     {
         std::vector<VkSemaphore> semaphores;
-        for (auto &sem : info.signals) {
+        for (const auto &sem : info.signals) {
             semaphores.emplace_back(sem->GetNativeHandle());
         }
 
@@ -105,7 +105,7 @@ namespace sky::vk {
 
         for (auto &pref : preferred) {
             queue = device.GetQueue(pref.first, pref.second);
-            if (queue != nullptr && surfaceCheck(queue->GetQueueFamilyIndex())) {
+            if (queue != nullptr && (surfaceCheck(queue->GetQueueFamilyIndex()) != 0u)) {
                 break;
             }
         }
@@ -190,10 +190,12 @@ namespace sky::vk {
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &imageCount, nullptr);
         vImages.resize(imageCount);
         images.resize(imageCount);
+        imageViews.resize(imageCount);
         vkGetSwapchainImagesKHR(device.GetNativeHandle(), swapChain, &imageCount, vImages.data());
         for (uint32_t i = 0; i < imageCount; ++i) {
             images[i]            = std::shared_ptr<Image>(new Image(device, vImages[i]));
             images[i]->imageInfo = imageInfo;
+            imageViews[i] = images[i]->CreateView({});
         }
 
         return true;
@@ -207,7 +209,7 @@ namespace sky::vk {
         }
     }
 
-    VkResult SwapChain::AcquireNext(SemaphorePtr semaphore, uint32_t &next) const
+    VkResult SwapChain::AcquireNext(const SemaphorePtr& semaphore, uint32_t &next) const
     {
         return vkAcquireNextImageKHR(device.GetNativeHandle(), swapChain, UINT64_MAX, semaphore->GetNativeHandle(), VK_NULL_HANDLE, &next);
     }
@@ -262,11 +264,6 @@ namespace sky::vk {
             presentInfo.signals.emplace_back(std::static_pointer_cast<Semaphore>(sema));
         }
         Present(presentInfo);
-    }
-
-    rhi::ImagePtr SwapChain::GetImage(uint32_t index) const
-    {
-        return images[index];
     }
 
 } // namespace sky::vk

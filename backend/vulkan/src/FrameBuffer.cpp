@@ -25,7 +25,7 @@ namespace sky::vk {
         descriptor.pass = std::static_pointer_cast<RenderPass>(des.pass);
 
         std::vector<VkImageView> views;
-        for (auto &view : des.views) {
+        for (const auto &view : des.views) {
             descriptor.views.emplace_back(std::static_pointer_cast<ImageView>(view));
             views.emplace_back(descriptor.views.back()->GetNativeHandle());
         }

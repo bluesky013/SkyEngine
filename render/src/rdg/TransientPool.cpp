@@ -37,34 +37,72 @@ namespace sky::rdg {
         return device->CreateBuffer(bufferDesc);
     }
 
-    rhi::ImagePtr TransientPool::RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc)
+    ImageObject *TransientPool::RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc)
     {
         auto iter = persistentImages.find(name);
         if (iter != persistentImages.end()) {
-            const auto &imageDesc = iter->second->GetDescriptor();
+            const auto &imageDesc = iter->second->image->GetDescriptor();
             if (desc.extent.width == imageDesc.extent.width &&
                 desc.extent.height == imageDesc.extent.height &&
                 desc.extent.depth == imageDesc.extent.depth &&
-                desc.format == imageDesc.format) {
-                return iter->second;
+                desc.format == imageDesc.format &&
+                desc.usage == imageDesc.usage &&
+                desc.samples == imageDesc.samples) {
+                return iter->second.get();
             }
         }
-        auto image = CreateImageByDesc(desc);
-        persistentImages[name] = image;
-        return image;
+
+//        persistentImages[name] = std::make_unique<ImageObject>(CreateImageByDesc(desc));
+        return nullptr;
     }
 
-    rhi::BufferPtr TransientPool::RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc)
+    BufferObject *TransientPool::RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc)
     {
         auto iter = persistentBuffers.find(name);
         if (iter != persistentBuffers.end()) {
-            const auto &bufferDesc = iter->second->GetBufferDesc();
+            const auto &bufferDesc = iter->second->buffer->GetBufferDesc();
             if (bufferDesc.size >= desc.size) {
-                return iter->second;
+                return iter->second.get();
             }
         }
-        auto buffer = CreateBufferByDesc(desc);
-        persistentBuffers[name] = buffer;
-        return buffer;
+//        persistentBuffers[name] =std::make_unique<BufferObject>(CreateBufferByDesc(desc));
+        return nullptr;
+    }
+
+    const rhi::FrameBufferPtr &TransientPool::RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc)
+    {
+        auto iter = frameBuffers.find(desc);
+        if (iter != frameBuffers.end()) {
+            iter->second.count = 0;
+            return iter->second.item;
+        }
+
+        CacheItem<rhi::FrameBufferPtr> fbItem = {};
+        fbItem.item = RHI::Get()->GetDevice()->CreateFrameBuffer(desc);
+        fbItem.count = 0;
+        return frameBuffers.emplace(desc, fbItem).first->second.item;
+    }
+
+    void TransientPool::ResetPool()
+    {
+        for (auto iter = frameBuffers.begin(); iter != frameBuffers.end();) {
+            iter->second.count++;
+            if (iter->second.count >= 60) {
+                iter = frameBuffers.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+    }
+
+    rhi::ImageViewPtr ImageObject::RequestView(const rhi::ImageViewDesc &desc)
+    {
+        auto iter = views.find(desc);
+        if (iter != views.end()) {
+            return iter->second;
+        }
+
+        auto view = image->CreateView(desc);
+        return views.emplace(desc, view).first->second;
     }
 } // namespace sky::rdg

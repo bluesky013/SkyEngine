@@ -70,24 +70,21 @@ namespace sky::rdg {
                 auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
 
                 if (!image.desc.image && u >= image.lifeTime.begin && u <= image.lifeTime.end) {
-                    image.desc.image = rdg.context->pool->RequestImage(image.desc);
+                    auto *imageObject = rdg.context->pool->RequestImage(image.desc);
+                    image.desc.image = imageObject->image;
                     const auto &imageDesc = image.desc;
                     rhi::ImageViewDesc viewDesc = {};
                     viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, GetAspectFlagsByFormat(imageDesc.format)};
                     viewDesc.viewType = image.desc.viewType;
-                    image.res = image.desc.image->CreateView(viewDesc);
-
-//                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
-//                          image.lifeTime.begin, image.lifeTime.end);
+                    image.res = imageObject->RequestView(viewDesc);
                 }
             },
             [&](const BufferTag &) {
                 auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
 
                 if (!buffer.desc.buffer && u >= buffer.lifeTime.begin && u <= buffer.lifeTime.end) {
-                    buffer.desc.buffer = rdg.resourceGraph.context->pool->RequestBuffer(buffer.desc);
-//                    LOG_I(TAG, "compile resource %s, lifeTime[%u, %u]...", Name(res, rdg.resourceGraph).c_str(),
-//                          buffer.lifeTime.begin, buffer.lifeTime.end);
+                    auto *bufferObject = rdg.context->pool->RequestBuffer(buffer.desc);
+                    buffer.desc.buffer = bufferObject->buffer;
                 }
             },
             [&](const ImportImageTag &) {
@@ -104,12 +101,8 @@ namespace sky::rdg {
             [&](const ImportSwapChainTag &) {
                 auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
                 if (!swc.res) {
-                    rhi::ImageViewDesc viewDesc = {};
-                    viewDesc.subRange = {0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT};
-                    viewDesc.viewType = rhi::ImageViewType::VIEW_2D;
-
                     swc.desc.imageIndex = swc.desc.swapchain->AcquireNextImage(rdg.context->imageAvailableSemaPool.Acquire());
-                    swc.res = swc.desc.swapchain->GetImage(swc.desc.imageIndex)->CreateView(viewDesc);
+                    swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
                 }
             },
             [&](const auto &) {}
@@ -223,6 +216,6 @@ namespace sky::rdg {
         }
         rasterPass.renderPass = rdg.context->device->CreateRenderPass(passDesc);
         fbDesc.pass = rasterPass.renderPass;
-        rasterPass.frameBuffer = rdg.context->device->CreateFrameBuffer(fbDesc);
+        rasterPass.frameBuffer = rdg.context->pool->RequestFrameBuffer(fbDesc);
     }
 } // namespace sky::rdg

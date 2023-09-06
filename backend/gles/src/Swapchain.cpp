@@ -17,7 +17,7 @@ namespace sky::gles {
         if (!CreateSurface(desc.window)) {
             return false;
         }
-        auto &ext = surface->GetExtent();
+        const auto &ext = surface->GetExtent();
 
         color = std::make_shared<Image>(device);
         color->imageDesc.extent = {ext.width, ext.height, 1};
@@ -25,11 +25,15 @@ namespace sky::gles {
         color->imageDesc.format = rhi::PixelFormat::RGBA8_UNORM;
         color->surface = surface;
 
+        colorView = color->CreateView({});
+
         depth = std::make_shared<Image>(device);
         depth->imageDesc.extent = {ext.width, ext.height, 1};
         depth->imageDesc.usage = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
         depth->imageDesc.format = rhi::PixelFormat::D24_S8;
         depth->surface = surface;
+
+        dsView = depth->CreateView({});
 
         return true;
     }

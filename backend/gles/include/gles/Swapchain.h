@@ -9,6 +9,7 @@
 #include <gles/Forward.h>
 #include <gles/DevObject.h>
 #include <gles/Image.h>
+#include <gles/ImageView.h>
 #include <gles/egl/WindowSurface.h>
 
 namespace sky::gles {
@@ -16,8 +17,8 @@ namespace sky::gles {
 
     class SwapChain : public rhi::SwapChain, public DevObject {
     public:
-        SwapChain(Device &dev) : DevObject(dev) {}
-        ~SwapChain();
+        explicit SwapChain(Device &dev) : DevObject(dev) {}
+        ~SwapChain() override;
 
         bool Init(const Descriptor &desc);
 
@@ -27,6 +28,7 @@ namespace sky::gles {
         bool HasDepthStencilImage() const override { return true; }
         rhi::ImagePtr GetDepthStencilImage() const override { return depth; }
         rhi::ImagePtr GetImage(uint32_t index) const override { return color; }
+        rhi::ImageViewPtr GetImageView(uint32_t index) const override { return colorView; }
         uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override { return 0; }
 
         void Present(rhi::Queue &queue, const rhi::PresentInfo &info) override;
@@ -38,6 +40,8 @@ namespace sky::gles {
         rhi::PixelFormat format = rhi::PixelFormat::RGBA8_UNORM;
         ImagePtr color;
         ImagePtr depth;
+        rhi::ImageViewPtr colorView;
+        rhi::ImageViewPtr dsView;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
 }

@@ -8,6 +8,7 @@
 namespace sky::rdg {
     void TransientObjectPool::ResetPool()
     {
+        TransientPool::ResetPool();
         for (auto &[desc, list] : images) {
             auto iter = list.begin();
             for (; iter != list.end();) {
@@ -35,43 +36,47 @@ namespace sky::rdg {
         }
     }
 
-    rhi::ImagePtr TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
+    ImageObject *TransientObjectPool::RequestImage(const rdg::GraphImage &desc)
     {
         auto &list = images[desc];
         for (auto &cacheItem : list) {
             if (!cacheItem.allocated) {
                 cacheItem.allocated = true;
                 cacheItem.count = 0;
-                return cacheItem.item;
+                return cacheItem.item.get();
             }
         }
 
-        auto image = CreateImageByDesc(desc);
-        list.emplace_back(CacheItem<rhi::ImagePtr>{image, 0, true});
-        return image;
+        auto &object = list.emplace_back();
+        object.item = std::make_unique<ImageObject>(CreateImageByDesc(desc));
+        object.allocated = true;
+        object.count = 0;
+        return list.back().item.get();
     }
 
-    rhi::BufferPtr TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
+    BufferObject *TransientObjectPool::RequestBuffer(const rdg::GraphBuffer &desc)
     {
         auto &list = buffers[desc];
         for (auto &cacheItem : list) {
             if (!cacheItem.allocated) {
                 cacheItem.allocated = true;
                 cacheItem.count = 0;
-                return cacheItem.item;
+                return cacheItem.item.get();
             }
         }
 
-        auto buffer = CreateBufferByDesc(desc);
-        list.emplace_back(CacheItem<rhi::BufferPtr>{buffer, 0, true});
-        return buffer;
+        auto &object = list.emplace_back();
+        object.item = std::make_unique<BufferObject>( CreateBufferByDesc(desc));
+        object.allocated = true;
+        object.count = 0;
+        return list.back().item.get();
     }
 
     void TransientObjectPool::RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc)
     {
         auto &list = images[desc];
         auto iter = std::find_if(list.begin(), list.end(), [&image](const auto &cacheItem) {
-            return cacheItem.item.get() == image.get();
+            return cacheItem.item->image.get() == image.get();
         });
         iter->allocated = false;
     }
@@ -80,9 +85,8 @@ namespace sky::rdg {
     {
         auto &list = buffers[desc];
         auto iter = std::find_if(list.begin(), list.end(), [&buffer](const auto &cacheItem) {
-            return cacheItem.item.get() == buffer.get();
+            return cacheItem.item->buffer.get() == buffer.get();
         });
         iter->allocated = false;
     }
-
 } // namespace sky::rdg

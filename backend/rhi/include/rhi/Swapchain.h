@@ -33,6 +33,7 @@ namespace sky::rhi {
         virtual const Extent2D &GetExtent() const = 0;
         virtual uint32_t AcquireNextImage(const SemaphorePtr &semaphore) = 0;
         virtual ImagePtr GetImage(uint32_t index) const = 0;
+        virtual ImageViewPtr GetImageView(uint32_t index) const = 0;
         virtual uint32_t GetImageCount() const = 0;
 
         virtual bool HasDepthStencilImage() const = 0;

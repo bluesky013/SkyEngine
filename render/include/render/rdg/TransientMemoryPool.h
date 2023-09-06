@@ -17,8 +17,8 @@ namespace sky::rdg {
     private:
         void ResetPool() override;
 
-        rhi::ImagePtr RequestImage(const rdg::GraphImage &desc) override;
-        rhi::BufferPtr RequestBuffer(const rdg::GraphBuffer &desc) override;
+        ImageObject *RequestImage(const rdg::GraphImage &desc) override;
+        BufferObject *RequestBuffer(const rdg::GraphBuffer &desc) override;
 
         void RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc) override;
         void RecycleBuffer(rhi::BufferPtr &buffer, const rdg::GraphBuffer &desc) override;

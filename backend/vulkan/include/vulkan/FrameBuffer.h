@@ -18,7 +18,7 @@ namespace sky::vk {
 
     class FrameBuffer : public rhi::FrameBuffer, public DevObject {
     public:
-        ~FrameBuffer();
+        ~FrameBuffer() override;
 
         struct VkDescriptor {
             VkExtent2D                extent = {1, 1};
@@ -34,7 +34,7 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        FrameBuffer(Device &);
+        explicit FrameBuffer(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

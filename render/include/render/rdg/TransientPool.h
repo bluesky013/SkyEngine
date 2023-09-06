@@ -12,6 +12,11 @@
 #include <core/hash/Crc32.h>
 #include <render/rdg/RenderGraphTypes.h>
 
+#include <rhi/Core.h>
+#include <rhi/Hash.h>
+
+#include <utility>
+
 template<>
 struct std::hash<sky::rdg::GraphImage> {
     size_t operator()(const sky::rdg::GraphImage &desc) const {
@@ -64,28 +69,52 @@ struct std::equal_to<sky::rdg::GraphBuffer> {
 
 namespace sky::rdg {
 
+    struct ImageObject {
+        explicit ImageObject(rhi::ImagePtr img) : image(std::move(img)) {}
+        rhi::ImageViewPtr RequestView(const rhi::ImageViewDesc &desc);
+
+        rhi::ImagePtr image;
+        std::unordered_map<rhi::ImageViewDesc, rhi::ImageViewPtr> views;
+    };
+
+    struct BufferObject {
+        explicit BufferObject(rhi::BufferPtr buf) : buffer(std::move(buf)) {}
+
+        rhi::BufferPtr buffer;
+    };
+
     class TransientPool {
     public:
         TransientPool() = default;
         virtual ~TransientPool() = default;
 
-        virtual void ResetPool() = 0;
+        virtual void ResetPool();
 
-        virtual rhi::ImagePtr RequestImage(const rdg::GraphImage &desc) = 0;
-        virtual rhi::BufferPtr RequestBuffer(const rdg::GraphBuffer &desc) = 0;
+        virtual ImageObject *RequestImage(const rdg::GraphImage &desc) = 0;
+        virtual BufferObject *RequestBuffer(const rdg::GraphBuffer &desc) = 0;
 
         virtual void RecycleImage(rhi::ImagePtr &image, const rdg::GraphImage &desc) = 0;
         virtual void RecycleBuffer(rhi::BufferPtr &buffer, const rdg::GraphBuffer &desc) = 0;
 
-        rhi::ImagePtr RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc);
-        rhi::BufferPtr RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
+        ImageObject *RequestPersistentImage(const std::string &name, const rdg::GraphImage &desc);
+        BufferObject *RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
+
+        const rhi::FrameBufferPtr &RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc);
+
+        template <typename T>
+        struct CacheItem {
+            T item;
+            uint32_t count = 0;
+            bool allocated = false;
+        };
 
     protected:
         rhi::ImagePtr CreateImageByDesc(const rdg::GraphImage &desc);
         rhi::BufferPtr CreateBufferByDesc(const rdg::GraphBuffer &desc);
 
-        std::unordered_map<std::string, rhi::ImagePtr> persistentImages;
-        std::unordered_map<std::string, rhi::BufferPtr> persistentBuffers;
+        std::unordered_map<rhi::FrameBuffer::Descriptor, CacheItem<rhi::FrameBufferPtr>> frameBuffers;
+        std::unordered_map<std::string, std::unique_ptr<ImageObject>> persistentImages;
+        std::unordered_map<std::string, std::unique_ptr<BufferObject>> persistentBuffers;
     };
 
 } // namespace sky::rdg
