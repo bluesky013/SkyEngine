@@ -34,6 +34,9 @@ namespace sky {
         ResourceGroup() = default;
         ~ResourceGroup();
 
+        void Bind(rhi::GraphicsEncoder& encoder, uint32_t index);
+        void Bind(rhi::ComputeEncoder& encoder, uint32_t index);
+
     private:
         rhi::DescriptorSetPtr set;
         RDGResourceLayoutPtr layout;

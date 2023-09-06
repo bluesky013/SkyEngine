@@ -12,4 +12,12 @@ namespace sky {
         Renderer::Get()->GetResourceGC()->CollectDescriptorSet(set);
     }
 
+    void ResourceGroup::Bind(rhi::GraphicsEncoder& encoder, uint32_t index)
+    {
+        encoder.BindSet(index, set);
+    }
+
+    void ResourceGroup::Bind(rhi::ComputeEncoder& encoder, uint32_t index)
+    {
+    }
 } // namespace sky

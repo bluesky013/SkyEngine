@@ -22,11 +22,11 @@ namespace sky::vk {
         vkSets.resize(layoutNum);
         dynamicOffsets.resize(dynamicNum, 0);
 
-        auto    &desLayouts = layout->GetLayouts();
-        uint32_t offset     = 0;
+        const auto &desLayouts = layout->GetLayouts();
+        uint32_t    offset     = 0;
         for (uint32_t i = 0; i < layoutNum; ++i) {
-            auto &bindings = desLayouts[i]->GetDescriptorTable();
-            for (auto &[binding, info] : bindings) {
+            const auto &bindings = desLayouts[i]->GetDescriptorTable();
+            for (const auto &[binding, info] : bindings) {
                 if (!IsDynamicDescriptor(info.descriptorType)) {
                     continue;
                 }

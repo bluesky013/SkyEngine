@@ -239,6 +239,7 @@ namespace sky::rdg {
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 
         RDResourceGroupPtr resourceGroup;
+        RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
     };
