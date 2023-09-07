@@ -41,7 +41,7 @@ namespace sky::gles {
     }
 
     static bool CheckBuffer(const SetDescriptor &desc) {
-        return desc.buffer.view && desc.buffer.view && desc.buffer.view->GetNativeHandle() != 0 && desc.buffer.view->GetViewDesc().range != 0;
+        return desc.buffer.buffer && desc.buffer.buffer->GetNativeHandle() != 0 && desc.buffer.size != 0;
     }
 
     static bool CheckTexture(const SetDescriptor& desc) {
@@ -220,10 +220,9 @@ namespace sky::gles {
                 const auto &descriptorIndex = descriptorIndexBase[i];
                 if (IsBufferType(binding.type) && CheckBuffer(descriptor)) {
                     uint32_t dynamicOffset = dynamicOffsetPtr != nullptr ? dynamicOffsetPtr[i] : 0;
-                    const auto &bufferView = descriptor.buffer.view;
-                    const auto &viewInfo = bufferView->GetViewDesc();
-                    CHECK(glBindBufferRange(GetBufferTarget(binding.type), descriptorIndex.binding, bufferView->GetNativeHandle(),
-                        viewInfo.offset + dynamicOffset, viewInfo.range));
+                    const auto &buffer = descriptor.buffer;
+                    CHECK(glBindBufferRange(GetBufferTarget(binding.type), descriptorIndex.binding, buffer.buffer->GetNativeHandle(),
+                                            buffer.offset + dynamicOffset, buffer.size));
                 } else if (IsCombinedSampler(binding.type) && CheckTexture(descriptor)) {
                     CHECK(glActiveTexture(GL_TEXTURE0 + descriptorIndex.unit));
                     CHECK(glBindTexture(GetTextureTarget(descriptor.texture.view), descriptor.texture.view->GetNativeHandle()));

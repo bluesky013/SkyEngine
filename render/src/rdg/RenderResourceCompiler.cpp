@@ -4,7 +4,6 @@
 
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/RenderGraph.h>
-#include <core/logger/Logger.h>
 #include <rhi/Decode.h>
 #include <rhi/Device.h>
 
@@ -44,28 +43,27 @@ namespace sky::rdg {
 
     static void BindResourceGroup(const RenderGraph &rdg, const PmrHashMap<std::string, ComputeView> &computeViews, const RDResourceGroupPtr &rsg)
     {
-        const auto &layout = rsg->GetLayout();
         for (const auto &[name, computeView] : computeViews) {
             auto res = FindVertex(name.c_str(), rdg.resourceGraph);
-            auto &view = computeView;
+            const auto &view = computeView;
             std::visit(Overloaded{
                 [&](const ImageTag &) {
-                    auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
+                    const auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
                     rsg->BindTexture(view.name, image.res, 0);
                 },
                 [&](const ImageViewTag &) {
-                    auto &imageView = rdg.resourceGraph.imageViews[Index(res, rdg.resourceGraph)];
+                    const auto &imageView = rdg.resourceGraph.imageViews[Index(res, rdg.resourceGraph)];
                     rsg->BindTexture(view.name, imageView.res, 0);
                 },
                 [&](const BufferTag &) {
-                    auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
+                    const auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
                 },
                 [&](const ImportImageTag &) {
-                    auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
+                    const auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
                     rsg->BindTexture(view.name, image.res, 0);
                 },
                 [&](const ImportSwapChainTag &) {
-                    auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
+                    const auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
                     rsg->BindTexture(view.name, swc.res, 0);
                 },
                 [&](const auto &) {}
@@ -101,7 +99,7 @@ namespace sky::rdg {
 
     }
 
-    void RenderResourceCompiler::Compile(unsigned long u, sky::rdg::RasterQueue &queue)
+    void RenderResourceCompiler::Compile(Vertex u, sky::rdg::RasterQueue &queue)
     {
         const auto &subPass = rdg.subPasses[Index(queue.passID, rdg)];
         BindResourceGroup(rdg, subPass.computeViews, queue.resourceGroup);

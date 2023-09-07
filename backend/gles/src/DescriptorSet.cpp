@@ -36,7 +36,17 @@ namespace sky::gles {
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index)
     {
         auto &desc = Get(binding, index);
-        desc.buffer.view = std::static_pointer_cast<BufferView>(view);
+        desc.buffer.buffer = std::static_pointer_cast<BufferView>(view)->GetBuffer();
+        desc.buffer.offset = view->GetViewDesc().offset;
+        desc.buffer.size = view->GetViewDesc().range;
+    }
+
+    void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index)
+    {
+        auto &desc = Get(binding, index);
+        desc.buffer.buffer = std::static_pointer_cast<Buffer>(buffer);
+        desc.buffer.offset = offset;
+        desc.buffer.size = size;
     }
 
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flag)

@@ -21,7 +21,9 @@ namespace sky::gles {
 
     struct BufferDescriptor {
         GLenum type;
-        BufferViewPtr view;
+        BufferPtr buffer;
+        uint64_t offset;
+        uint64_t size;
     };
 
     struct SetDescriptor {
@@ -31,10 +33,11 @@ namespace sky::gles {
 
     class DescriptorSet : public rhi::DescriptorSet, public DevObject {
     public:
-        DescriptorSet(Device &dev) : DevObject(dev) {}
-        ~DescriptorSet() = default;
+        explicit DescriptorSet(Device &dev) : DevObject(dev) {}
+        ~DescriptorSet() override = default;
 
         void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index) override;
+        void BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index) override;
         void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags) override;
         void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;
         void Update() override;
