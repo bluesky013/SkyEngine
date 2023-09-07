@@ -24,6 +24,8 @@ namespace sky {
         rdg::RenderGraphContext *Context() const { return rdgContext.get(); }
 
     private:
+        uint32_t frameIndex;
+        uint32_t inflightFrameCount;
         std::unique_ptr<rdg::RenderGraphContext> rdgContext;
     };
 

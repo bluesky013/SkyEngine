@@ -22,7 +22,7 @@ namespace sky::vk {
 
         void BindSet(uint32_t slot, const DescriptorSetPtr &set);
 
-        void SetOffset(uint32_t slot, uint32_t binding, uint32_t offset);
+        void SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset);
 
     private:
         PipelineLayoutPtr   pipelineLayout;

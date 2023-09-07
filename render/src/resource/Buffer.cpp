@@ -19,7 +19,7 @@ namespace sky {
         device = RHI::Get()->GetDevice();
     }
 
-    void Buffer::Init(uint32_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType)
+    void Buffer::Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType)
     {
         bufferDesc.size   = size;
         bufferDesc.usage  = rhi::BufferUsageFlagBit::UNIFORM;
@@ -53,10 +53,10 @@ namespace sky {
 
     bool DynamicUniformBuffer::Init(uint32_t size, uint32_t inflightCount)
     {
-        frameSize = Align(size, device->GetLimitations().minUniformBufferOffsetAlignment);
-        totalSize = frameSize * inflightCount;
+        frameSize = size;
+        auto alignedFrameSize = Align(size, device->GetLimitations().minUniformBufferOffsetAlignment);
 
-        Buffer::Init(totalSize, rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
+        Buffer::Init(alignedFrameSize * inflightCount, rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
 
         data.resize(size, 0);
         ptr = data.data();

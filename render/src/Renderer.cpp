@@ -7,7 +7,11 @@
 
 namespace sky {
 
-    Renderer::Renderer() : scenes(&mainPool), windows(&mainPool)
+    Renderer::Renderer()
+        : scenes(&mainPool)
+        , windows(&mainPool)
+        , delayReleaseCollections(&mainPool)
+        , features(&mainPool)
     {
     }
 
@@ -63,6 +67,10 @@ namespace sky {
     RenderScene *Renderer::CreateScene()
     {
         scenes.emplace_back(new RenderScene(), &Renderer::DestroyObj<RenderScene>);
+        auto &scene = scenes.back();
+        for (auto &feature : features) {
+
+        }
         return scenes.back().get();
     }
     RenderWindow *Renderer::CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync)

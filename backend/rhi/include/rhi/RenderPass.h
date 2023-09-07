@@ -86,4 +86,5 @@ namespace sky::rhi {
 
     using RenderPassPtr = std::shared_ptr<RenderPass>;
 
+    void CalculateRenderPassHash(const RenderPass::Descriptor &desc);
 };

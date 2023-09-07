@@ -31,7 +31,7 @@ namespace sky::vk {
                     continue;
                 }
                 offsetIndex[CombineSlotBinding(i, binding)] = offset;
-                ++offset;
+                offset += info.descriptorCount;
             }
         }
     }
@@ -58,12 +58,12 @@ namespace sky::vk {
         vkSets[slot] = set->GetNativeHandle();
     }
 
-    void DescriptorSetBinder::SetOffset(uint32_t slot, uint32_t index, uint32_t offset)
+    void DescriptorSetBinder::SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset)
     {
-        uint32_t idx = CombineSlotBinding(slot, index);
+        uint32_t idx = CombineSlotBinding(set, index);
         auto iter = offsetIndex.find(idx);
         if (iter != offsetIndex.end() && iter->second < dynamicOffsets.size()) {
-            dynamicOffsets[iter->second] = offset;
+            dynamicOffsets[iter->second + index] = offset;
         }
     }
 

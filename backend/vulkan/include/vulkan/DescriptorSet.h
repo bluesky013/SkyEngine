@@ -57,6 +57,7 @@ namespace sky::vk {
         DescriptorSetLayoutPtr GetLayout() const { return layout; }
 
         void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index) override;
+        void BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index = 0) override;
         void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags) override;
         void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;
         void Update() override;

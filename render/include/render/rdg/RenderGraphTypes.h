@@ -208,6 +208,7 @@ namespace sky::rdg {
         uint32_t viewMask;   // mask all
         uint32_t rasterID;   // invalid id
         PmrList<RenderDrawItem> drawItems;
+        RDResourceGroupPtr resourceGroup;
 
         bool sort;
         bool culling;
@@ -238,7 +239,6 @@ namespace sky::rdg {
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 
-        RDResourceGroupPtr resourceGroup;
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
@@ -255,6 +255,8 @@ namespace sky::rdg {
         PmrHashMap<std::string, ComputeView> computeViews;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
+
+        RDResourceGroupPtr resourceGroup;
     };
 
     struct CopyBlitPass {

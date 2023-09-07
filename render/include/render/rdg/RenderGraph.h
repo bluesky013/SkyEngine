@@ -23,6 +23,7 @@ namespace sky::rdg {
     struct RasterQueueBuilder {
         RasterQueueBuilder &SetViewMask(uint32_t mask);
         RasterQueueBuilder &SetRasterID(const std::string &id);
+        RasterQueueBuilder &SetPassResourceGroup(const RDResourceGroupPtr &rsg);
 
         RenderGraph &rdg;
         RasterQueue &queue;

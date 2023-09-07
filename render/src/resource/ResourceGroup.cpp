@@ -7,17 +7,73 @@
 
 namespace sky {
 
+    void ResourceGroupLayout::AddNameHandler(const std::string &key, uint32_t binding)
+    {
+        handlers.emplace(key, binding);
+    }
+
+    std::pair<bool, uint32_t> ResourceGroupLayout::GetBindingByeName(const std::string &key) const
+    {
+        auto iter = handlers.find(key);
+        if (iter != handlers.end()) {
+            return {true, iter->second};
+        }
+        return {false, INVALID_INDEX};
+    }
+
     ResourceGroup::~ResourceGroup()
     {
         Renderer::Get()->GetResourceGC()->CollectDescriptorSet(set);
     }
 
-    void ResourceGroup::Bind(rhi::GraphicsEncoder& encoder, uint32_t index)
+    void ResourceGroup::Init(const RDGResourceLayoutPtr &layout_)
+    {
+        layout = layout_;
+    }
+
+    void ResourceGroup::Update()
+    {
+        set->Update();
+    }
+
+    void ResourceGroup::BindBuffer(const std::string &key, const rhi::BufferPtr &buffer, uint32_t index)
+    {
+        auto res = layout->GetBindingByeName(key);
+        if (res.first) {
+            set->BindBuffer(res.second, buffer, 0, buffer->GetBufferDesc().size, index);
+        }
+    }
+
+    void ResourceGroup::BindDynamicUBO(const std::string &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index)
+    {
+        auto res = layout->GetBindingByeName(key);
+        if (res.first) {
+            const auto &rhiBuffer = buffer->GetRHIBuffer();
+            set->BindBuffer(res.second, buffer->GetRHIBuffer(), 0, buffer->GetRange(), index);
+            dynamicUBOS.emplace_back(res.second, buffer);
+        }
+    }
+
+    void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index)
+    {
+        BindTexture(key, view, Renderer::Get()->GetDefaultRHIResource().defaultSampler, index);
+    }
+
+    void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index)
+    {
+        auto res = layout->GetBindingByeName(key);
+        if (res.first) {
+            set->BindImageView(res.second, view, index);
+        }
+    }
+
+    void ResourceGroup::OnBind(rhi::GraphicsEncoder& encoder, uint32_t index)
     {
         encoder.BindSet(index, set);
     }
 
-    void ResourceGroup::Bind(rhi::ComputeEncoder& encoder, uint32_t index)
+    void ResourceGroup::OnBind(rhi::ComputeEncoder& encoder, uint32_t index)
     {
     }
+
 } // namespace sky

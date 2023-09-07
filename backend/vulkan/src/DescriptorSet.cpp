@@ -212,6 +212,21 @@ namespace sky::vk {
         dirty = true;
     }
 
+    void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index)
+    {
+        auto &indices = layout->GetUpdateTemplate().indices;
+        auto iter = indices.find(binding);
+        SKY_ASSERT(iter != indices.end());
+
+        auto vkBuffer = std::static_pointer_cast<Buffer>(buffer);
+        auto &writeInfo = writeInfos[iter->second + index];
+        writeInfo.bufferView = VK_NULL_HANDLE;
+        writeInfo.buffer.buffer = vkBuffer->GetNativeHandle();
+        writeInfo.buffer.range = size;
+        writeInfo.buffer.offset = offset;
+        dirty = true;
+    }
+
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
     {
         auto &table      = layout->GetDescriptorTable();

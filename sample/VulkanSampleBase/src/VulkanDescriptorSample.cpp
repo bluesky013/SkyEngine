@@ -287,7 +287,7 @@ namespace sky {
         args.linear.vertexCount   = 6;
         args.linear.instanceCount = 1;
 
-        setBinder->SetOffset(0, 4, frameIndex * alignedSize);
+        setBinder->SetOffset(0, 4, 0, frameIndex * alignedSize);
 
         vk::PassBeginInfo beginInfo = {};
         beginInfo.frameBuffer        = frameBuffers[imageIndex];

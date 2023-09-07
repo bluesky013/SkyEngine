@@ -9,6 +9,7 @@ namespace sky::rdg {
 
     void RenderGraphExecutor::Barriers(const PmrHashMap<VertexType, std::vector<GraphBarrier>>& barrierSet) const
     {
+        auto &mainCommandBuffer = graph.context->MainCommandBuffer();
         for (const auto &[first, second] : barrierSet) {
             const auto resID = first;
             const auto &barriers = second;
@@ -16,7 +17,7 @@ namespace sky::rdg {
                 [&](const ImageTag &) {
                     auto &image = graph.resourceGraph.images[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
-                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                        mainCommandBuffer->QueueBarrier(image.desc.image,
                             rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
                                                                                           barrier.range.layer, barrier.range.layers,
                                                                                           rhi::GetAspectFlagsByFormat(image.desc.format)},
@@ -26,7 +27,7 @@ namespace sky::rdg {
                 [&](const ImportImageTag &) {
                     auto &image = graph.resourceGraph.importImages[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
-                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.image,
+                        mainCommandBuffer->QueueBarrier(image.desc.image,
                             rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
                                                                                           barrier.range.layer, barrier.range.layers,
                                                                                           rhi::GetAspectFlagsByFormat(image.desc.image->GetDescriptor().format)},
@@ -37,7 +38,7 @@ namespace sky::rdg {
                 [&](const ImportSwapChainTag &) {
                     auto &image = graph.resourceGraph.swapChains[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
-                        graph.context->mainCommandBuffer->QueueBarrier(image.desc.swapchain->GetImage(image.desc.imageIndex),
+                        mainCommandBuffer->QueueBarrier(image.desc.swapchain->GetImage(image.desc.imageIndex),
                             rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
                                                barrier.range.layer, barrier.range.layers,
                                                rhi::AspectFlagBit::COLOR_BIT},
@@ -47,7 +48,7 @@ namespace sky::rdg {
                 [&](const BufferTag &) {
                     auto &buffer = graph.resourceGraph.buffers[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
-                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                        mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
                             rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
                     }
 
@@ -55,7 +56,7 @@ namespace sky::rdg {
                 [&](const ImportBufferTag &) {
                     auto &buffer = graph.resourceGraph.importBuffers[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
-                        graph.context->mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
+                        mainCommandBuffer->QueueBarrier(buffer.desc.buffer, barrier.range.base, barrier.range.range,
                             rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
                     }
 
@@ -63,11 +64,12 @@ namespace sky::rdg {
                 [&](const auto &) {}
             }, Tag(resID, graph.resourceGraph));
         }
-        graph.context->mainCommandBuffer->FlushBarriers();
+        mainCommandBuffer->FlushBarriers();
     }
 
     [[maybe_unused]] void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g)
     {
+        auto &mainCommandBuffer = graph.context->MainCommandBuffer();
         std::visit(Overloaded{
             [&](const RasterPassTag &) {
                 auto &raster = graph.rasterPasses[Index(u, graph)];
@@ -79,7 +81,7 @@ namespace sky::rdg {
                 beginInfo.clearCount  = static_cast<uint32_t>(raster.clearValues.size());
                 beginInfo.clearValues = raster.clearValues.data();
 
-                currentEncoder = graph.context->mainCommandBuffer->EncodeGraphics();
+                currentEncoder = mainCommandBuffer->EncodeGraphics();
                 currentEncoder->BeginPass(beginInfo);
 
                 // queue

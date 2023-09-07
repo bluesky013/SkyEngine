@@ -28,6 +28,7 @@ namespace sky::mtl {
 
         drawables.resize(backBufferCount, nil);
         colorImages.resize(backBufferCount, nullptr);
+        colorViews.resize(backBufferCount, nullptr);
         for (uint32_t i = 0; i < backBufferCount; ++i) {
             colorImages[i] = std::make_shared<Image>(device);
             colorImages[i]->imageDesc.extent = {extent.width, extent.height, 1};
@@ -35,6 +36,8 @@ namespace sky::mtl {
             colorImages[i]->imageDesc.format = rhi::PixelFormat::BGRA8_UNORM;
             colorImages[i]->swapchain = this;
             colorImages[i]->imageIndex = i;
+
+            colorViews[i] = colorImages[i]->CreateView({});
         }
 
 
@@ -46,11 +49,6 @@ namespace sky::mtl {
         uint32_t index = currentImageIndex;
         currentImageIndex = (currentImageIndex + 1) % backBufferCount;
         return index;
-    }
-
-    rhi::ImagePtr SwapChain::GetImage(uint32_t index) const
-    {
-        return colorImages[index];
     }
 
     id<CAMetalDrawable> SwapChain::RequestDrawable(uint32_t index)

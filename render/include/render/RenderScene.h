@@ -9,6 +9,7 @@
 #include <render/SceneView.h>
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
+#include <render/FeatureProcessor.h>
 
 namespace sky {
 
@@ -28,6 +29,17 @@ namespace sky {
 
         const PmrVector<RenderPrimitive *> &GetPrimitives() const { return primitives; }
 
+        void AddFeature(IFeatureProcessor *feature);
+
+        template <typename T>
+        T *GetFeature() const
+        {
+            auto iter = features.find(TypeInfo<T>::Hash());
+            if (iter != features.end()) {
+                return static_cast<T*>(iter->second.get());
+            }
+            return nullptr;
+        }
     private:
         friend class Renderer;
         RenderScene();
@@ -35,6 +47,7 @@ namespace sky {
 
         PmrUnSyncPoolRes resources;
 
+        PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;
         PmrVector<RenderPrimitive *> primitives;
 

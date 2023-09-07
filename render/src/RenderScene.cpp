@@ -7,7 +7,10 @@
 
 namespace sky {
 
-    RenderScene::RenderScene() : sceneViews(&resources), primitives(&resources)
+    RenderScene::RenderScene()
+        : features(&resources)
+        , sceneViews(&resources)
+        , primitives(&resources)
     {
     }
 
@@ -60,6 +63,11 @@ namespace sky {
         primitives.erase(std::remove_if(primitives.begin(), primitives.end(), [primitive](const auto &v) {
             return primitive == v;
         }), primitives.end());
+    }
+
+    void RenderScene::AddFeature(IFeatureProcessor *feature)
+    {
+        features.emplace(feature->GetTypeID(), feature);
     }
 
 } // namespace sky

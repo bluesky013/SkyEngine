@@ -32,10 +32,16 @@ namespace sky::rdg {
         rhi::Queue *graphicsQueue = nullptr;
         rhi::Queue *transferQueue = nullptr;
 
-        rhi::FencePtr fence;
-        rhi::SemaphorePtr renderFinish;
-        SemaphorePool imageAvailableSemaPool;
-        rhi::CommandBufferPtr mainCommandBuffer;
+        uint32_t frameIndex = 0;
+        std::vector<rhi::FencePtr> fences;
+        std::vector<rhi::CommandBufferPtr> commandBuffers;
+        std::vector<rhi::SemaphorePtr> renderFinishSemaphores;
+        std::vector<SemaphorePool> imageAvailableSemaPools;
+
+        const rhi::FencePtr &Fence() const { return fences[frameIndex]; }
+        const rhi::CommandBufferPtr &MainCommandBuffer() const { return commandBuffers[frameIndex]; }
+        const rhi::SemaphorePtr &RenderFinishSemaphore() const { return renderFinishSemaphores[frameIndex]; }
+        SemaphorePool &ImageAvailableSemaPool() { return imageAvailableSemaPools[frameIndex]; }
     };
 
 } // namespace sky::rdg

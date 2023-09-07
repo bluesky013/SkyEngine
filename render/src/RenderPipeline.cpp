@@ -12,6 +12,7 @@
 #include <render/rdg/AccessGraphCompiler.h>
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/RenderSceneVisitor.h>
+#include <render/Renderer.h>
 
 namespace sky {
 
@@ -20,18 +21,28 @@ namespace sky {
         rdgContext = std::make_unique<rdg::RenderGraphContext>();
         rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
         rdgContext->device = RHI::Get()->GetDevice();
-        rdgContext->mainCommandBuffer = rdgContext->device->CreateCommandBuffer({});
+
+        frameIndex = 0;
+        inflightFrameCount = Renderer::Get()->GetInflightFrameCount();
+        rdgContext->fences.resize(inflightFrameCount);
+        rdgContext->commandBuffers.resize(inflightFrameCount);
+        rdgContext->renderFinishSemaphores.resize(inflightFrameCount);
+        rdgContext->imageAvailableSemaPools.resize(inflightFrameCount);
 
         rhi::Fence::Descriptor fenceDesc = {};
         fenceDesc.createSignaled = true;
-        rdgContext->fence = rdgContext->device->CreateFence(fenceDesc);
-        rdgContext->renderFinish = rdgContext->device->CreateSema({});
+        for (uint32_t i = 0; i <inflightFrameCount; ++i) {
+            rdgContext->commandBuffers[i] = rdgContext->device->CreateCommandBuffer({});
+            rdgContext->fences[i] = rdgContext->device->CreateFence(fenceDesc);
+            rdgContext->renderFinishSemaphores[i] = rdgContext->device->CreateSema({});
+        }
     }
 
     void RenderPipeline::FrameSync()
     {
-        rdgContext->fence->WaitAndReset();
-        rdgContext->imageAvailableSemaPool.Reset();
+        rdgContext->frameIndex = frameIndex;
+        rdgContext->Fence()->WaitAndReset();
+        rdgContext->ImageAvailableSemaPool().Reset();
         rdgContext->pool->ResetPool();
     }
 
@@ -62,34 +73,38 @@ namespace sky {
 //        }
 
 
+        auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
-            rdgContext->mainCommandBuffer->Begin();
+            commandBuffer->Begin();
             RenderGraphExecutor executor(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, executor, ColorMap(colors));
-            rdgContext->mainCommandBuffer->End();
+            commandBuffer->End();
 
             rhi::SubmitInfo submitInfo = {};
-            submitInfo.submitSignals.emplace_back(rdgContext->renderFinish);
+            submitInfo.submitSignals.emplace_back(rdgContext->RenderFinishSemaphore());
 
-            auto &semaPool = rdgContext->imageAvailableSemaPool;
+            auto &semaPool = rdgContext->ImageAvailableSemaPool();
             for (uint32_t i = 0; i < semaPool.index; ++i) {
                 submitInfo.waits.emplace_back(rhi::PipelineStageBit::COLOR_OUTPUT, semaPool.imageAvailableSemaList[i]);
             }
-            submitInfo.fence = rdgContext->fence;
-            rdgContext->mainCommandBuffer->Submit(*queue, submitInfo);
+            submitInfo.fence = rdgContext->Fence();
+            commandBuffer->Submit(*queue, submitInfo);
         }
 
         {
             rhi::PresentInfo presentInfo = {};
-            presentInfo.semaphores.emplace_back(rdgContext->renderFinish);
+            presentInfo.semaphores.emplace_back(rdgContext->RenderFinishSemaphore());
             for (auto &swc : rdg.presentPasses) {
                 auto &res = rdg.resourceGraph.swapChains[Index(swc.imageID, rdg.resourceGraph)];
                 presentInfo.imageIndex = res.desc.imageIndex;
                 swc.swapChain->Present(*queue, presentInfo);
             }
         }
+
+
+        frameIndex = (frameIndex + 1) % inflightFrameCount;
     }
 
 } // namespace sky

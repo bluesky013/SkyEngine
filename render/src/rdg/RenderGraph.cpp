@@ -303,6 +303,12 @@ namespace sky::rdg {
         return RasterQueueBuilder{rdg, queue, res};
     }
 
+    RasterQueueBuilder &RasterQueueBuilder::SetPassResourceGroup(const RDResourceGroupPtr &rsg)
+    {
+        queue.resourceGroup = rsg;
+        return *this;
+    }
+
     RasterQueueBuilder &RasterQueueBuilder::SetViewMask(uint32_t mask)
     {
         queue.viewMask = mask;

@@ -65,7 +65,7 @@ namespace sky::vk {
             bindingFlags.emplace_back(desInfo.bindingFlags);
 
             if (IsDynamicDescriptor(layoutBinding.descriptorType)) {
-                ++dynamicNum;
+                dynamicNum += desInfo.descriptorCount;
             }
 
             if ((desInfo.bindingFlags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) == VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {

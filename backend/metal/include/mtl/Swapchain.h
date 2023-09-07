@@ -21,7 +21,8 @@ namespace sky::mtl {
         ~SwapChain();
 
         uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override;
-        rhi::ImagePtr GetImage(uint32_t index) const override;
+        rhi::ImagePtr GetImage(uint32_t index) const override { return colorImages[index]; }
+        rhi::ImageViewPtr GetImageView(uint32_t index) const override { return colorViews[index]; }
 
         rhi::PixelFormat GetFormat() const override { return rhi::PixelFormat::BGRA8_UNORM; }
         const rhi::Extent2D &GetExtent() const override { return extent; };
@@ -41,8 +42,9 @@ namespace sky::mtl {
         uint32_t backBufferCount = 2;
         rhi::Extent2D extent = {1, 1};
         std::vector<ImagePtr> colorImages;
+        std::vector<rhi::ImageViewPtr> colorViews;
         std::vector<id<CAMetalDrawable>> drawables;
-        
+
         uint32_t currentImageIndex = 0;
     };
 

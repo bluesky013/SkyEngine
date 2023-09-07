@@ -17,14 +17,12 @@ namespace sky {
         ResourceGroupLayout() = default;
         ~ResourceGroupLayout() = default;
 
-        struct Handler {
-            uint32_t binding;
-            uint32_t offset;
-            uint32_t size;
-        };
+        void AddNameHandler(const std::string &key, uint32_t binding);
+        std::pair<bool, uint32_t> GetBindingByeName(const std::string &key) const;
+        const rhi::DescriptorSetLayoutPtr &GetRHILayout() const { return layout; }
 
     private:
-        std::unordered_map<std::string, Handler> handlers;
+        std::unordered_map<std::string, uint32_t> handlers; // name -> binding
         rhi::DescriptorSetLayoutPtr layout;
     };
     using RDGResourceLayoutPtr = std::shared_ptr<ResourceGroupLayout>;
@@ -34,16 +32,23 @@ namespace sky {
         ResourceGroup() = default;
         ~ResourceGroup();
 
-        void Bind(rhi::GraphicsEncoder& encoder, uint32_t index);
-        void Bind(rhi::ComputeEncoder& encoder, uint32_t index);
+        void Init(const RDGResourceLayoutPtr &layout);
+        void Update();
 
+        void BindBuffer(const std::string &key, const rhi::BufferPtr &buffer, uint32_t index);
+        void BindDynamicUBO(const std::string &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index);
+        void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index);
+        void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
+
+        void OnBind(rhi::GraphicsEncoder& encoder, uint32_t index);
+        void OnBind(rhi::ComputeEncoder& encoder, uint32_t index);
+
+        const RDGResourceLayoutPtr &GetLayout() const { return layout; }
     private:
         rhi::DescriptorSetPtr set;
         RDGResourceLayoutPtr layout;
 
-        std::vector<RDTexturePtr> textures;
-        std::vector<RDUniformBufferPtr> uniformBuffers;
-        std::vector<RDBufferPtr> storageBuffers;
+        std::vector<std::pair<uint32_t, RDDynamicUniformBufferPtr>> dynamicUBOS;
     };
     using RDResourceGroupPtr = std::shared_ptr<ResourceGroup>;
 

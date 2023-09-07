@@ -16,6 +16,7 @@
 #include <render/rdg/RenderGraphContext.h>
 #include <render/RenderDefaultResource.h>
 #include <render/RenderResourceGC.h>
+#include <render/FeatureProcessor.h>
 
 namespace sky {
 
@@ -37,6 +38,12 @@ namespace sky {
         RenderResourceGC *GetResourceGC() const { return delayReleaseCollections[frameIndex].get(); }
 
         const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
+
+        template <typename T>
+        void RegisterRenderFeature()
+        {
+            features.emplace_back(new FeatureProcessorBuilder<T>());
+        }
     private:
         template <typename T>
         static void DestroyObj(T *ptr)
@@ -55,10 +62,11 @@ namespace sky {
         uint32_t totalFrame = 0;
         uint32_t inflightFrameCount = 2;
         uint32_t frameIndex = 0;
-        std::vector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
-
         RenderDefaultResource defaultRHIResource;
+
         PmrList<std::unique_ptr<RenderScene, decltype(&Renderer::DestroyObj<RenderScene>)>> scenes;
         PmrList<std::unique_ptr<RenderWindow, decltype(&Renderer::DestroyObj<RenderWindow>)>> windows;
+        PmrVector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
+        PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
     };
 } // namespace sky
