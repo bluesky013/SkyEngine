@@ -23,10 +23,12 @@ namespace sky {
 
         rdg::RenderGraphContext *Context() const { return rdgContext.get(); }
 
-    private:
+    protected:
         uint32_t frameIndex;
         uint32_t inflightFrameCount;
         std::unique_ptr<rdg::RenderGraphContext> rdgContext;
     };
+
+    std::string GetDefaultSceneViewUBOName(const SceneView &view);
 
 } // namespace sky

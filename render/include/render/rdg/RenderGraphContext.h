@@ -33,6 +33,7 @@ namespace sky::rdg {
         rhi::Queue *transferQueue = nullptr;
 
         uint32_t frameIndex = 0;
+        rhi::DescriptorSetPtr emptySet;
         std::vector<rhi::FencePtr> fences;
         std::vector<rhi::CommandBufferPtr> commandBuffers;
         std::vector<rhi::SemaphorePtr> renderFinishSemaphores;

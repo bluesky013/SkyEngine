@@ -9,8 +9,10 @@
 
 namespace sky {
 
-    SceneView::SceneView(uint32_t view, PmrResource *resource)
-        : viewCount(view)
+    SceneView::SceneView(uint32_t id, uint32_t count, PmrResource *resource)
+        : viewID(id)
+        , viewCount(count)
+        , viewMask(0xFF)
         , viewInfo(resource)
         , frustums(resource)
         , dirty(true)
@@ -22,16 +24,16 @@ namespace sky {
         viewUbo->Init(sizeof(SceneViewInfo));
     }
 
-    void SceneView::SetMatrix(const Matrix4 &mat, uint32_t viewID)
+    void SceneView::SetMatrix(const Matrix4 &mat, uint32_t index)
     {
-        viewInfo[viewID].worldMatrix = mat;
-        viewInfo[viewID].viewMatrix = mat.Inverse();
+        viewInfo[index].worldMatrix = mat;
+        viewInfo[index].viewMatrix = mat.Inverse();
         dirty = true;
     }
 
-    void SceneView::SetProjective(float near, float far, float fov, float aspect, uint32_t viewID)
+    void SceneView::SetProjective(float near, float far, float fov, float aspect, uint32_t index)
     {
-        viewInfo[viewID].projectMatrix = MakePerspective(fov, aspect, near, far);
+        viewInfo[index].projectMatrix = MakePerspective(fov, aspect, near, far);
         dirty = true;
     }
 

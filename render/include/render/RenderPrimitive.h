@@ -13,9 +13,6 @@
 namespace sky {
 
     struct TechniqueInstance {
-        uint32_t viewMask = 0xFFFFFFFF;  // mask all
-        uint32_t rasterID = ~(0U);       // invalid id
-        uint32_t subPassID = 0;
         std::string programKey = "";
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;

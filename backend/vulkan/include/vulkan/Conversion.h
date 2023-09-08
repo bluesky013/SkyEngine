@@ -45,4 +45,6 @@ namespace sky::vk {
     VkImageSubresourceLayers FromRHI(const rhi::ImageSubRangeLayers &res);
     VkQueryType FromRHI(rhi::QueryType);
     VkQueryPipelineStatisticFlags FromRHI(const rhi::PipelineStatisticFlags& flags);
+
+    rhi::PixelFormatFeatureFlags ToRHI(VkFormatFeatureFlags flags);
 }

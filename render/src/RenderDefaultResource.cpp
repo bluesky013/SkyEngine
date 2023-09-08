@@ -16,8 +16,9 @@ namespace sky {
     void RenderDefaultResource::Init()
     {
         auto *device = RHI::Get()->GetDevice();
-        defaultPool = device->CreateDescriptorSetPool({});
+        defaultPool = device->CreateDescriptorSetPool({1});
         emptyDesLayout = device->CreateDescriptorSetLayout({});
+        emptySet = defaultPool->Allocate({emptyDesLayout});
         defaultSampler = device->CreateSampler({});
 
         rhi::Image::Descriptor imageDesc = {};

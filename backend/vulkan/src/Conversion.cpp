@@ -69,6 +69,17 @@ namespace sky::vk {
         {rhi::WrapMode::MIRROR_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE},
     };
 
+    std::unordered_map<VkFormatFeatureFlagBits, rhi::PixelFormatFeatureFlagBit> FORMAT_FEATURE_TABLE = {
+        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT,                     rhi::PixelFormatFeatureFlagBit::COLOR         },
+        {VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT,               rhi::PixelFormatFeatureFlagBit::BLEND         },
+        {VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,             rhi::PixelFormatFeatureFlagBit::DEPTH_STENCIL },
+        {VK_FORMAT_FEATURE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR, rhi::PixelFormatFeatureFlagBit::SHADING_RATE  },
+        {VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT,                        rhi::PixelFormatFeatureFlagBit::SAMPLE        },
+        {VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT,          rhi::PixelFormatFeatureFlagBit::SAMPLE_FILTER },
+        {VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT,                        rhi::PixelFormatFeatureFlagBit::STORAGE       },
+        {VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT,                 rhi::PixelFormatFeatureFlagBit::STORAGE_ATOMIC},
+    };
+
     VkImageType FromRHI(rhi::ImageType type)
     {
         if (type == rhi::ImageType::IMAGE_2D) {
@@ -471,4 +482,17 @@ namespace sky::vk {
         return res;
     }
 
-}
+
+
+    rhi::PixelFormatFeatureFlags ToRHI(VkFormatFeatureFlags flags)
+    {
+        rhi::PixelFormatFeatureFlags res;
+        for (const auto &[vk, rhi] : FORMAT_FEATURE_TABLE) {
+            if (flags & vk) {
+                res |= rhi;
+            }
+        }
+        return res;
+    }
+
+} // namespace sky::vk

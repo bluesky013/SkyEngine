@@ -68,7 +68,6 @@ namespace sky::vk {
         UpdateTemplate        updateTemplate;
         uint32_t              dynamicNum;
         uint32_t              descriptorNum;
-        uint32_t              hash;
         std::vector<uint32_t> variableDescriptorCounts;
     };
 

@@ -11,6 +11,8 @@ namespace sky::rdg {
     struct RenderGraph;
 
     rhi::AccessFlags GetAccessFlags(const DependencyInfo &deps);
+    rhi::AccessFlags GetImportAccessFlags(const RenderGraph &graph, VertexType resID);
+
     AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID);
     void MergeSubRange(AccessRange &result, const AccessRange &val);
 

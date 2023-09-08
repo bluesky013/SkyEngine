@@ -263,4 +263,10 @@ namespace sky::mtl {
     {
         return *this;
     }
+
+    rhi::BlitEncoder &BlitEncoder::CopyBuffer(const rhi::BufferPtr &src, const rhi::BufferPtr &dst,
+                                 uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
+    {
+        return *this;
+    }
 } // namespace sky::mtl

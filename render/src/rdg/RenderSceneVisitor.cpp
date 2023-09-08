@@ -5,6 +5,7 @@
 #include <render/rdg/RenderSceneVisitor.h>
 #include <render/RenderScene.h>
 #include <render/RenderPrimitive.h>
+#include <render/rdg/RenderGraph.h>
 
 namespace sky::rdg {
 
@@ -22,7 +23,11 @@ namespace sky::rdg {
                 }
 
                 for (auto &tech : prim->techniques) {
-                    if ((tech.viewMask & queue.viewMask) != tech.viewMask || tech.rasterID != queue.rasterID) {
+                    uint32_t viewMask = tech.technique->GetViewMask();
+                    uint32_t sceneMask = queue.sceneView->GetViewMask();
+                    uint32_t rasterID = tech.technique->GetRasterID();
+
+                    if ((sceneMask & viewMask) != sceneMask || rasterID != queue.rasterID) {
                         continue;
                     }
 

@@ -44,19 +44,6 @@ namespace sky::rhi {
         Device() = default;
         virtual ~Device() = default;
 
-        struct DeviceFeature {
-            bool sparseBinding = false;
-            bool descriptorIndexing = false;
-            bool variableRateShading = false;
-            bool multiView = false;
-            bool framebufferFetch = false;
-            bool frameBufferFetchDS = false;
-            bool frameBufferFetchNoCoherent = false;
-            bool multiDrawIndirect = false;
-            bool firstInstanceIndirect = false;
-            bool depthStencilResolve = false;
-        };
-
         struct Limitation {
             uint32_t maxColorAttachments = 1;
             uint32_t maxDrawBuffers = 1;
@@ -97,10 +84,15 @@ namespace sky::rhi {
 
         const DeviceFeature &GetFeatures() const { return enabledFeature; }
         const Limitation &GetLimitations() const { return limitation; }
+        bool CheckFormatFeature(PixelFormat format, PixelFormatFeatureFlags flag)
+        {
+            return (formatFeatures[static_cast<uint32_t>(format)].optimalFeature & flag) == flag;
+        }
 
     protected:
         DeviceFeature enabledFeature;
         Limitation limitation;
+        std::array<PixelFormatFeature, static_cast<uint32_t>(PixelFormat::MAX)> formatFeatures;
     };
 
 }

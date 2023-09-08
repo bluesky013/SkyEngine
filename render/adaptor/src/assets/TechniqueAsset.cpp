@@ -43,6 +43,10 @@ namespace sky {
             for (const auto &shader : data.shaders) {
                 tech->AddShader(shader->CreateInstance());
             }
+            tech->SetDepthStencil(data.depthStencil);
+            tech->SetBlendState(data.blendStates);
+            tech->SetRasterState(data.rasterState);
+            tech->SetRasterTag(data.passTag);
 
             return tech;
         }

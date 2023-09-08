@@ -13,6 +13,7 @@ namespace sky {
         void Reset();
 
         rhi::DescriptorSetPoolPtr defaultPool;
+        rhi::DescriptorSetPtr emptySet;
         rhi::DescriptorSetLayoutPtr emptyDesLayout;
         rhi::SamplerPtr defaultSampler;
         rhi::ImageViewPtr texture2D;

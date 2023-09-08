@@ -723,6 +723,18 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::BlitEncoder &BlitEncoder::CopyBuffer(const rhi::BufferPtr &src, const rhi::BufferPtr &dst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
+    {
+        VkBufferCopy region = {};
+        region.srcOffset = srcOffset;
+        region.dstOffset = dstOffset;
+        region.size = size;
+        vkCmdCopyBuffer(cmdBuffer.GetNativeHandle(), std::static_pointer_cast<Buffer>(src)->GetNativeHandle(),
+                        std::static_pointer_cast<Buffer>(dst)->GetNativeHandle(),
+                        1, &region);
+        return *this;
+    }
+
     void SecondaryCommands::Emplace(const CommandBufferPtr &cmd)
     {
         std::lock_guard<std::mutex> lock(mutex);

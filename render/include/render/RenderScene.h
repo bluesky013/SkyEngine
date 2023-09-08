@@ -28,6 +28,7 @@ namespace sky {
         void RemovePrimitive(RenderPrimitive *primitive);
 
         const PmrVector<RenderPrimitive *> &GetPrimitives() const { return primitives; }
+        const PmrVector<std::unique_ptr<SceneView>> &GetSceneViews() const { return sceneViews; }
 
         void AddFeature(IFeatureProcessor *feature);
 
@@ -46,6 +47,8 @@ namespace sky {
         ~RenderScene() = default;
 
         PmrUnSyncPoolRes resources;
+
+        uint32_t viewCounter = 0;
 
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;

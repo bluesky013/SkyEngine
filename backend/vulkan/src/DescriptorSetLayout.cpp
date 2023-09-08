@@ -14,7 +14,7 @@
 namespace sky::vk {
 
     DescriptorSetLayout::DescriptorSetLayout(Device &dev)
-    : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), descriptorNum(0), hash(0)
+        : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), descriptorNum(0)
     {
     }
 

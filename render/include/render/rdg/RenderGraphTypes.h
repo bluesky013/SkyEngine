@@ -74,8 +74,9 @@ namespace sky::rdg {
     struct ImportSwapChainTag {};
     struct BufferTag {};
     struct ImportBufferTag {};
+    struct ConstantBufferTag {};
     struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag>;
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag, ConstantBufferTag>;
 
     struct AccessPassTag {};
     struct AccessResTag {};
@@ -155,8 +156,8 @@ namespace sky::rdg {
     struct ComputeView {
         std::string name;
         ComputeType type = ComputeType::UAV;
-        ResourceAccess access = ResourceAccessBit::READ;
         rhi::ShaderStageFlags visibility;
+        ResourceAccess access = ResourceAccessBit::READ;
     };
 
     struct CopyView {
@@ -194,7 +195,6 @@ namespace sky::rdg {
         explicit RasterQueue(PmrResource *res, uint32_t pass)
             : sceneView(nullptr)
             , passID(pass)
-            , viewMask(0xFFFFFFFF)
             , rasterID(INVALID_INDEX)
             , drawItems(res)
             , sort(false)
@@ -205,10 +205,10 @@ namespace sky::rdg {
 
         const SceneView *sceneView;
         uint32_t passID;
-        uint32_t viewMask;   // mask all
         uint32_t rasterID;   // invalid id
         PmrList<RenderDrawItem> drawItems;
-        RDResourceGroupPtr resourceGroup;
+        RDResourceLayoutPtr layout;
+        ResourceGroup *resourceGroup = nullptr;
 
         bool sort;
         bool culling;
@@ -256,7 +256,8 @@ namespace sky::rdg {
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 
-        RDResourceGroupPtr resourceGroup;
+        RDResourceLayoutPtr layout;
+        ResourceGroup *resourceGroup = nullptr;
     };
 
     struct CopyBlitPass {
@@ -293,6 +294,7 @@ namespace sky::rdg {
 
         rhi::ImagePtr      image;
         rhi::ImageViewType viewType = rhi::ImageViewType::VIEW_2D;
+        rhi::AccessFlags   importFlags = rhi::AccessFlagBit::NONE;
     };
 
     struct GraphImage {
@@ -327,6 +329,13 @@ namespace sky::rdg {
         using Tag = ImportBufferTag;
 
         rhi::BufferPtr buffer;
+        rhi::AccessFlags importFlags = rhi::AccessFlagBit::NONE;
+    };
+
+    struct GraphConstantBuffer {
+        using Tag = ConstantBufferTag;
+
+        RDUniformBufferPtr ubo;
     };
 
     struct GraphBuffer {
@@ -374,7 +383,6 @@ namespace sky::rdg {
         T desc;
         LifeTime lifeTime;
         rhi::ImageViewPtr res;
-        rhi::AccessFlags  lastUsage = rhi::AccessFlagBit::NONE; // for persistent image
     };
 
     template <typename T>
@@ -383,7 +391,6 @@ namespace sky::rdg {
 
         T desc;
         LifeTime lifeTime;
-        rhi::AccessFlags   lastUsage = rhi::AccessFlagBit::NONE; // for persistent image
     };
 
     template <typename Graph>

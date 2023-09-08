@@ -33,9 +33,20 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, image, *this), graph);
     }
 
+
     void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image)
     {
-        add_edge(0, AddVertex(name, GraphImportImage{image}, *this), graph);
+        ImportImage(name, image, rhi::ImageViewType::VIEW_2D, rhi::AccessFlagBit::NONE);
+    }
+
+    void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType)
+    {
+        ImportImage(name, image, viewType, rhi::AccessFlagBit::NONE);
+    }
+
+    void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &currentAccess)
+    {
+        add_edge(0, AddVertex(name, GraphImportImage{image, viewType, currentAccess}, *this), graph);
     }
 
     void ResourceGraph::ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain)
@@ -60,7 +71,17 @@ namespace sky::rdg {
 
     void ResourceGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer)
     {
-        add_edge(0, AddVertex(name, GraphImportBuffer{buffer}, *this), graph);
+        ImportBuffer(name, buffer, rhi::AccessFlagBit::NONE);
+    }
+
+    void ResourceGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags)
+    {
+        add_edge(0, AddVertex(name, GraphImportBuffer{buffer, flags}, *this), graph);
+    }
+
+    void ResourceGraph::ImportUBO(const char *name, const RDUniformBufferPtr &ubo)
+    {
+        AddVertex(name, GraphConstantBuffer{ubo}, *this);
     }
 
     void ResourceGraph::AddBufferView(const char *name, const char *source, const GraphBufferView &view)
@@ -181,7 +202,8 @@ namespace sky::rdg {
             const auto sourceRange = GetAccessRange(*this, sourceID);
             resAccessID = AddVertex(AccessRes{sourceID, 0, INVALID_VERTEX, sourceRange}, accessGraph);
             add_edge(0, resAccessID, accessGraph.graph);
-            accessGraph.resources[Index(resAccessID, accessGraph)].accesses.resize(sourceRange.range * sourceRange.layers, rhi::AccessFlagBit::NONE);
+            auto importFlags = GetImportAccessFlags(*this, sourceID);
+            accessGraph.resources[Index(resAccessID, accessGraph)].accesses.resize(sourceRange.range * sourceRange.layers, importFlags);
         }
         auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
 
@@ -303,15 +325,15 @@ namespace sky::rdg {
         return RasterQueueBuilder{rdg, queue, res};
     }
 
-    RasterQueueBuilder &RasterQueueBuilder::SetPassResourceGroup(const RDResourceGroupPtr &rsg)
+    RasterQueueBuilder &RasterQueueBuilder::SetLayout(const RDResourceLayoutPtr &layout)
     {
-        queue.resourceGroup = rsg;
+        queue.layout = layout;
         return *this;
     }
 
-    RasterQueueBuilder &RasterQueueBuilder::SetViewMask(uint32_t mask)
+    RasterQueueBuilder &RasterQueueBuilder::SetView(SceneView *view)
     {
-        queue.viewMask = mask;
+        queue.sceneView = view;
         return *this;
     }
 

@@ -60,7 +60,8 @@ namespace sky::mtl {
                                       const std::vector<rhi::BlitInfo> &blitInputs, rhi::Filter filter) override;
         rhi::BlitEncoder &ResoleTexture(const rhi::ImagePtr &src, const rhi::ImagePtr &dst,
                                         const std::vector<rhi::ResolveInfo> &resolveInputs) override;
-
+        rhi::BlitEncoder &CopyBuffer(const rhi::BufferPtr &src, const rhi::BufferPtr &dst,
+                                     uint64_t size, uint64_t srcOffset, uint64_t dstOffset) override;
     private:
         id<MTLBlitCommandEncoder> encoder = nil;
         CommandBuffer &commandBuffer;

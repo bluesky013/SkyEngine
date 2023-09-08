@@ -80,6 +80,25 @@ namespace sky::rdg {
         {rhi::ShaderStageFlagBit::CS, rhi::AccessFlagBit::COMPUTE_CBV},
     };
 
+    rhi::AccessFlags GetImportAccessFlags(const RenderGraph &graph, VertexType resID)
+    {
+        const auto &resourceGraph = graph.resourceGraph;
+        rhi::AccessFlags flags = rhi::AccessFlagBit::NONE;
+
+        std::visit(Overloaded{
+            [&](const ImportImageTag &tag) {
+                const auto &image = resourceGraph.importImages[Index(resID, resourceGraph)];
+                flags = image.desc.importFlags;
+            },
+            [&](const ImportBufferTag &tag) {
+                const auto &buffer = resourceGraph.importBuffers[Index(resID, resourceGraph)];
+                flags = buffer.desc.importFlags;
+            },
+            [&](const auto &) {}
+        }, rdg::Tag(resID, resourceGraph));
+        return flags;
+    }
+
     AccessRange GetAccessRange(const RenderGraph &graph, VertexType resID)
     {
         const auto &resourceGraph = graph.resourceGraph;

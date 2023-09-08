@@ -7,6 +7,14 @@
 #include <rhi/Decode.h>
 
 namespace sky::rdg {
+    static constexpr uint32_t MAX_SET_PER_POOL = 128;
+    static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
+        {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, MAX_SET_PER_POOL * 2},
+        {rhi::DescriptorType::UNIFORM_BUFFER,         MAX_SET_PER_POOL},
+        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
+        {rhi::DescriptorType::STORAGE_BUFFER,         MAX_SET_PER_POOL},
+        {rhi::DescriptorType::STORAGE_IMAGE,          MAX_SET_PER_POOL},
+    };
 
     rhi::ImagePtr TransientPool::CreateImageByDesc(const rdg::GraphImage &desc)
     {
@@ -52,7 +60,7 @@ namespace sky::rdg {
             }
         }
 
-//        persistentImages[name] = std::make_unique<ImageObject>(CreateImageByDesc(desc));
+        persistentImages[name] = std::make_unique<ImageObject>(CreateImageByDesc(desc));
         return nullptr;
     }
 
@@ -65,8 +73,24 @@ namespace sky::rdg {
                 return iter->second.get();
             }
         }
-//        persistentBuffers[name] =std::make_unique<BufferObject>(CreateBufferByDesc(desc));
+        persistentBuffers[name] = std::make_unique<BufferObject>(CreateBufferByDesc(desc));
         return nullptr;
+    }
+
+    ResourceGroup *TransientPool::RequestResourceGroup(uint64_t id, const RDResourceLayoutPtr &layout)
+    {
+        auto iter = resourceGroups.find(id);
+        if (iter != resourceGroups.end()) {
+            if (iter->second.item->GetLayout()->GetRHILayout()->GetHash() == layout->GetRHILayout()->GetHash()) {
+                iter->second.count = 0;
+                return iter->second.item.get();
+            }
+        }
+
+        resourceGroups[id].item = std::make_unique<ResourceGroup>();
+        resourceGroups[id].item->Init(layout, *setPool);
+        resourceGroups[id].count = 0;
+        return resourceGroups[id].item.get();
     }
 
     const rhi::FrameBufferPtr &TransientPool::RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc)
@@ -83,12 +107,30 @@ namespace sky::rdg {
         return frameBuffers.emplace(desc, fbItem).first->second.item;
     }
 
+    void TransientPool::Init()
+    {
+        rhi::DescriptorSetPool::Descriptor desc = {};
+        desc.maxSets = MAX_SET_PER_POOL;
+        desc.sizeData = SIZES.data();
+        desc.sizeCount = static_cast<uint32_t>(SIZES.size());
+        setPool = RHI::Get()->GetDevice()->CreateDescriptorSetPool(desc);
+    }
+
     void TransientPool::ResetPool()
     {
         for (auto iter = frameBuffers.begin(); iter != frameBuffers.end();) {
             iter->second.count++;
             if (iter->second.count >= 60) {
                 iter = frameBuffers.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+
+        for (auto iter = resourceGroups.begin(); iter != resourceGroups.end();) {
+            iter->second.count++;
+            if (iter->second.count >= 60) {
+                iter = resourceGroups.erase(iter);
             } else {
                 ++iter;
             }

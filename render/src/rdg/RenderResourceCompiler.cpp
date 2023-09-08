@@ -23,7 +23,7 @@ namespace sky::rdg {
                 Compile(u, subPass);
             },
             [&](const RasterQueueTag &) {
-                auto &queue = rdg.rasterPasses[Index(u, rdg)];
+                auto &queue = rdg.rasterQueues[Index(u, rdg)];
                 Compile(u, queue);
             },
             [&](const ComputePassTag &) {
@@ -41,7 +41,7 @@ namespace sky::rdg {
         }, Tag(u, rdg));
     }
 
-    static void BindResourceGroup(const RenderGraph &rdg, const PmrHashMap<std::string, ComputeView> &computeViews, const RDResourceGroupPtr &rsg)
+    static void BindResourceGroup(const RenderGraph &rdg, const PmrHashMap<std::string, ComputeView> &computeViews, ResourceGroup &rsg)
     {
         for (const auto &[name, computeView] : computeViews) {
             auto res = FindVertex(name.c_str(), rdg.resourceGraph);
@@ -49,22 +49,27 @@ namespace sky::rdg {
             std::visit(Overloaded{
                 [&](const ImageTag &) {
                     const auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
-                    rsg->BindTexture(view.name, image.res, 0);
+                    rsg.BindTexture(view.name, image.res, 0);
                 },
                 [&](const ImageViewTag &) {
                     const auto &imageView = rdg.resourceGraph.imageViews[Index(res, rdg.resourceGraph)];
-                    rsg->BindTexture(view.name, imageView.res, 0);
+                    rsg.BindTexture(view.name, imageView.res, 0);
                 },
                 [&](const BufferTag &) {
                     const auto &buffer = rdg.resourceGraph.buffers[Index(res, rdg.resourceGraph)];
+                    rsg.BindBuffer(view.name, buffer.desc.buffer, 0);
                 },
                 [&](const ImportImageTag &) {
                     const auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
-                    rsg->BindTexture(view.name, image.res, 0);
+                    rsg.BindTexture(view.name, image.res, 0);
                 },
                 [&](const ImportSwapChainTag &) {
                     const auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
-                    rsg->BindTexture(view.name, swc.res, 0);
+                    rsg.BindTexture(view.name, swc.res, 0);
+                },
+                [&](const ConstantBufferTag &) {
+                    const auto &cb = rdg.resourceGraph.constantBuffers[Index(res, rdg.resourceGraph)];
+                    rsg.BindBuffer(view.name, cb.ubo->GetRHIBuffer(), 0);
                 },
                 [&](const auto &) {}
             }, Tag(res, rdg.resourceGraph));
@@ -91,7 +96,8 @@ namespace sky::rdg {
         for (auto &[name, compute] : pass.computeViews) {
             MountResource(u, Source(FindVertex(name.c_str(), rdg.resourceGraph), rdg.resourceGraph));
         }
-        BindResourceGroup(rdg, pass.computeViews, pass.resourceGroup);
+        pass.resourceGroup = rdg.context->pool->RequestResourceGroup(u, pass.layout);
+        BindResourceGroup(rdg, pass.computeViews, *pass.resourceGroup);
     }
 
     void RenderResourceCompiler::Compile(Vertex u, CopyBlitPass &pass)
@@ -102,7 +108,8 @@ namespace sky::rdg {
     void RenderResourceCompiler::Compile(Vertex u, sky::rdg::RasterQueue &queue)
     {
         const auto &subPass = rdg.subPasses[Index(queue.passID, rdg)];
-        BindResourceGroup(rdg, subPass.computeViews, queue.resourceGroup);
+        queue.resourceGroup = rdg.context->pool->RequestResourceGroup(u, queue.layout);
+        BindResourceGroup(rdg, subPass.computeViews, *queue.resourceGroup);
     }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)

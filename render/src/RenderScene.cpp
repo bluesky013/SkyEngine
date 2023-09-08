@@ -40,9 +40,9 @@ namespace sky {
         pipeline.reset(ppl);
     }
 
-    SceneView * RenderScene::CreateSceneView(uint32_t viewCount)
+    SceneView *RenderScene::CreateSceneView(uint32_t viewCount)
     {
-        sceneViews.emplace_back(new SceneView(viewCount, &resources));
+        sceneViews.emplace_back(new SceneView(viewCounter++, viewCount, &resources));
         return sceneViews.back().get();
     }
 

@@ -96,6 +96,12 @@ namespace sky {
             return AssetTraits<T>::CreateFromData(data);
         }
 
+        template <typename U>
+        std::shared_ptr<U> CreateInstanceAs(bool useDefault = true)
+        {
+            return std::static_pointer_cast<U>(CreateInstance(useDefault));
+        }
+
         const DataType &Data() const
         {
             return data;

@@ -58,8 +58,11 @@ namespace sky::rhi {
         virtual BlitEncoder &CopyTexture() = 0;
         virtual BlitEncoder &CopyTextureToBuffer() = 0;
         virtual BlitEncoder &CopyBufferToTexture() = 0;
+
         virtual BlitEncoder &BlitTexture(const ImagePtr &src, const ImagePtr &dst, const std::vector<BlitInfo> &blitInputs, rhi::Filter filter) = 0;
         virtual BlitEncoder &ResoleTexture(const ImagePtr &src, const ImagePtr &dst, const std::vector<ResolveInfo> &resolveInputs) = 0;
+
+        virtual BlitEncoder &CopyBuffer(const BufferPtr &src, const BufferPtr &dst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset) = 0;
     };
 
 

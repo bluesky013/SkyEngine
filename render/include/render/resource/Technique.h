@@ -15,7 +15,7 @@ namespace sky {
         virtual ~Technique() = default;
 
         void AddShader(const RDShaderPtr &shader);
-        RDProgramPtr RequestProgram(const std::string &key);
+        RDProgramPtr RequestProgram(const std::string &key = "");
 
     protected:
         std::vector<RDShaderPtr> shaders;
@@ -31,7 +31,10 @@ namespace sky {
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const std::string &tag);
+
         uint32_t GetRasterID() const { return rasterID; }
+        uint32_t GetViewMask() const { return viewMask; }
+        const rhi::PipelineState &GetPipelineState() const { return state; }
 
         static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
                                                  const rhi::VertexInputPtr &vertexDesc,
@@ -41,7 +44,8 @@ namespace sky {
 
     private:
         rhi::PipelineState state;
-        uint32_t rasterID;
+        uint32_t rasterID = 0;
+        uint32_t viewMask = 0xFFFFFFFF;
     };
     using RDGfxTechPtr = std::shared_ptr<GraphicsTechnique>;
 

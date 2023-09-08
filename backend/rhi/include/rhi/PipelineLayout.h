@@ -17,6 +17,8 @@ namespace sky::rhi {
         struct Descriptor {
             std::vector<DescriptorSetLayoutPtr> layouts;
         };
+
+        virtual DescriptorSetLayoutPtr GetSetLayout(uint32_t set) const = 0;
     };
     using PipelineLayoutPtr = std::shared_ptr<PipelineLayout>;
 }

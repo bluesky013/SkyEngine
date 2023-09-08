@@ -26,22 +26,17 @@ namespace sky::vk {
             std::vector<VkPushConstantRange>             pushConstants;
         };
 
-        VkPipelineLayout GetNativeHandle() const;
-
-        uint32_t GetHash() const;
-
         DescriptorSetPtr Allocate(DescriptorSetPoolPtr pool, uint32_t slot);
 
-        uint32_t GetSlotNumber() const;
-
-        uint32_t GetDynamicNum() const;
+        uint32_t GetHash() const { return hash; }
+        uint32_t GetSetNumber() const { return static_cast<uint32_t>(desLayouts.size()); }
+        uint32_t GetDynamicNum() const { return dynamicNum; }
+        VkPipelineLayout GetNativeHandle() const { return layout; }
 
         DescriptorSetLayoutPtr GetLayout(uint32_t slot) const;
-
-        const std::vector<DescriptorSetLayoutPtr> &GetLayouts() const;
-
-        const std::vector<VkPushConstantRange> &GetConstantRanges() const;
-
+        rhi::DescriptorSetLayoutPtr GetSetLayout(uint32_t set) const override;
+        const std::vector<DescriptorSetLayoutPtr> &GetLayouts() const { return desLayouts; }
+        const std::vector<VkPushConstantRange> &GetConstantRanges() const { return pushConstants; }
     private:
         friend class Device;
         PipelineLayout(Device &);

@@ -24,8 +24,9 @@ namespace sky::vk {
     {
         VkDescriptor vkDesc = {};
         std::vector<VkDescriptorPoolSize> sizes;
-        for (auto &[type, size] : desc.sizes) {
-            sizes.emplace_back(VkDescriptorPoolSize{FromRHI(type), size});
+        for (uint32_t i = 0; i < desc.sizeCount; ++i) {
+            auto size = desc.sizeData[i];
+            sizes.emplace_back(VkDescriptorPoolSize{FromRHI(size.type), size.count});
         }
         vkDesc.maxSets = desc.maxSets;
         vkDesc.num = static_cast<uint32_t>(sizes.size());

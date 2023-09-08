@@ -7,6 +7,7 @@
 #include <SampleScene.h>
 #include <framework/world/World.h>
 #include <framework/world/GameObject.h>
+
 namespace sky {
 
     class SampleSceneCube : public SampleScene {

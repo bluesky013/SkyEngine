@@ -7,6 +7,7 @@
 #include <vulkan/Basic.h>
 #include <vulkan/Instance.h>
 #include <vulkan/Barrier.h>
+#include <vulkan/Conversion.h>
 
 #include <vector>
 
@@ -74,7 +75,7 @@ namespace sky::vk {
         return required & static_cast<bool>(combined);
     }
 
-    void Device::ValidateFeature(const DeviceFeature &feature, std::vector<const char*> &outExtensions)
+    void Device::ValidateFeature(const rhi::DeviceFeature &feature, std::vector<const char*> &outExtensions)
     {
         enabledPhyFeatures.multiViewport             = feature.multiView && phyFeatures.features.multiViewport;
         enabledPhyFeatures.samplerAnisotropy         = phyFeatures.features.samplerAnisotropy;
@@ -137,6 +138,17 @@ namespace sky::vk {
         limitation.maxDrawBuffers       = phyProps.properties.limits.maxFragmentOutputAttachments;
         limitation.maxDrawIndirectCount = phyProps.properties.limits.maxDrawIndirectCount;
         limitation.minUniformBufferOffsetAlignment = static_cast<uint32_t>(phyProps.properties.limits.minUniformBufferOffsetAlignment);
+    }
+
+    void Device::UpdateFormatFeatures()
+    {
+        for (auto i = 0; i < static_cast<uint32_t>(rhi::PixelFormat::MAX); ++i) {
+
+            VkFormatProperties feature = {};
+            vkGetPhysicalDeviceFormatProperties(phyDev, FromRHI(static_cast<rhi::PixelFormat>(i)), &feature);
+            formatFeatures[i].optimalFeature = ToRHI(feature.optimalTilingFeatures);
+            formatFeatures[i].linearFeature = ToRHI(feature.linearTilingFeatures);
+        }
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)
@@ -217,6 +229,7 @@ namespace sky::vk {
         std::vector<const char*> extensions = DEVICE_EXTS;
         ValidateFeature(des.feature, extensions);
         UpdateDeviceLimits();
+        UpdateFormatFeatures();
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

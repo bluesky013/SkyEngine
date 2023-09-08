@@ -73,26 +73,6 @@ namespace sky::vk {
         return true;
     }
 
-    VkPipelineLayout PipelineLayout::GetNativeHandle() const
-    {
-        return layout;
-    }
-
-    uint32_t PipelineLayout::GetHash() const
-    {
-        return hash;
-    }
-
-    uint32_t PipelineLayout::GetSlotNumber() const
-    {
-        return static_cast<uint32_t>(desLayouts.size());
-    }
-
-    uint32_t PipelineLayout::GetDynamicNum() const
-    {
-        return dynamicNum;
-    }
-
     DescriptorSetLayoutPtr PipelineLayout::GetLayout(uint32_t slot) const
     {
         if (slot >= desLayouts.size()) {
@@ -101,14 +81,9 @@ namespace sky::vk {
         return desLayouts[slot];
     }
 
-    const std::vector<DescriptorSetLayoutPtr> &PipelineLayout::GetLayouts() const
+    rhi::DescriptorSetLayoutPtr PipelineLayout::GetSetLayout(uint32_t set) const
     {
-        return desLayouts;
-    }
-
-    const std::vector<VkPushConstantRange> &PipelineLayout::GetConstantRanges() const
-    {
-        return pushConstants;
+        return std::static_pointer_cast<DescriptorSetLayout>(GetLayout(set));
     }
 
     DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)

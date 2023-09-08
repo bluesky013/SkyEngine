@@ -88,6 +88,7 @@ namespace sky::rdg {
         TransientPool() = default;
         virtual ~TransientPool() = default;
 
+        void Init();
         virtual void ResetPool();
 
         virtual ImageObject *RequestImage(const rdg::GraphImage &desc) = 0;
@@ -100,6 +101,7 @@ namespace sky::rdg {
         BufferObject *RequestPersistentBuffer(const std::string &name, const rdg::GraphBuffer &desc);
 
         const rhi::FrameBufferPtr &RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc);
+        ResourceGroup *RequestResourceGroup(uint64_t id, const RDResourceLayoutPtr &layout);
 
         template <typename T>
         struct CacheItem {
@@ -112,7 +114,11 @@ namespace sky::rdg {
         rhi::ImagePtr CreateImageByDesc(const rdg::GraphImage &desc);
         rhi::BufferPtr CreateBufferByDesc(const rdg::GraphBuffer &desc);
 
+        rhi::DescriptorSetPoolPtr setPool;
+
         std::unordered_map<rhi::FrameBuffer::Descriptor, CacheItem<rhi::FrameBufferPtr>> frameBuffers;
+        std::unordered_map<uint64_t, CacheItem<std::unique_ptr<ResourceGroup>>> resourceGroups;
+
         std::unordered_map<std::string, std::unique_ptr<ImageObject>> persistentImages;
         std::unordered_map<std::string, std::unique_ptr<BufferObject>> persistentBuffers;
     };

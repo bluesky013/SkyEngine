@@ -8,6 +8,13 @@
 
 namespace sky {
 
+    static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
+    {
+        if (type == rhi::DescriptorType::UNIFORM_BUFFER) return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;
+        if (type == rhi::DescriptorType::STORAGE_BUFFER) return rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;
+        return type;
+    }
+
     bool ShaderVariant::Init(rhi::ShaderStageFlagBit stage_, const uint8_t *data, uint32_t size)
     {
         stage = stage_;
@@ -60,7 +67,7 @@ namespace sky {
                 } else {
                     rhi::DescriptorSetLayout::SetBinding binding = {};
                     binding.name = res.name;
-                    binding.type = res.type;
+                    binding.type = res.set >= 2 ? ReplaceDynamic(res.type) : res.type;
                     binding.count = 1;
                     binding.binding = res.binding;
                     binding.visibility = shader->GetStage();

@@ -71,6 +71,7 @@ namespace sky::rhi {
         ASTC_10x10_SRGB_BLOCK,
         ASTC_12x12_UNORM_BLOCK,
         ASTC_12x12_SRGB_BLOCK,
+        MAX
     };
 
     enum class Format : uint32_t {
@@ -395,6 +396,19 @@ namespace sky::rhi {
     using PipelineStatisticFlags = Flags<PipelineStatisticFlagBits>;
     ENABLE_FLAG_BIT_OPERATOR(PipelineStatisticFlagBits)
 
+    enum class PixelFormatFeatureFlagBit : uint32_t {
+        COLOR           = 0x00000001,
+        BLEND           = 0x00000002,
+        DEPTH_STENCIL   = 0x00000004,
+        SHADING_RATE    = 0x00000008,
+        SAMPLE          = 0x00000010,
+        SAMPLE_FILTER   = 0x00000020,
+        STORAGE         = 0x00000040,
+        STORAGE_ATOMIC  = 0x00000080
+    };
+    using PixelFormatFeatureFlags = Flags<PixelFormatFeatureFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(PixelFormatFeatureFlagBit)
+
     // structs
     struct Offset2D {
         int32_t x;
@@ -618,5 +632,23 @@ namespace sky::rhi {
         uint64_t clipPrimitives  = 0;
         uint64_t fsInvocations   = 0;
         uint64_t csInvocations   = 0;
+    };
+
+    struct DeviceFeature {
+        bool sparseBinding = false;
+        bool descriptorIndexing = false;
+        bool variableRateShading = false;
+        bool multiView = false;
+        bool framebufferFetch = false;
+        bool frameBufferFetchDS = false;
+        bool frameBufferFetchNoCoherent = false;
+        bool multiDrawIndirect = false;
+        bool firstInstanceIndirect = false;
+        bool depthStencilResolve = false;
+    };
+
+    struct PixelFormatFeature {
+        PixelFormatFeatureFlags linearFeature;
+        PixelFormatFeatureFlags optimalFeature;
     };
 }; // namespace sky

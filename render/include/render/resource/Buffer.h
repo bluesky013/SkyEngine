@@ -16,7 +16,10 @@ namespace sky {
         virtual ~Buffer();
 
         void Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType);
+        virtual void Resize(uint64_t size);
         virtual uint64_t GetRange() const { return bufferDesc.size; }
+
+        const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
 
     protected:
         rhi::Device *device = nullptr;
@@ -40,12 +43,13 @@ namespace sky {
             dirty = true;
         }
 
-        const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
+        virtual void Upload(rhi::BlitEncoder &encoder);
 
     protected:
         bool dirty = true;
         uint8_t *ptr = nullptr;
         std::vector<uint8_t> data;
+        rhi::BufferPtr stagingBuffer;
     };
     using RDUniformBufferPtr = std::shared_ptr<UniformBuffer>;
 
@@ -56,6 +60,7 @@ namespace sky {
 
         bool Init(uint32_t size, uint32_t inflightCount);
         void Upload();
+        void Upload(rhi::BlitEncoder &encoder) override;
 
         uint64_t GetRange() const override { return frameSize; }
     private:

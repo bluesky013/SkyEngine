@@ -21,9 +21,9 @@ namespace sky::rdg {
     struct RenderGraph;
 
     struct RasterQueueBuilder {
-        RasterQueueBuilder &SetViewMask(uint32_t mask);
         RasterQueueBuilder &SetRasterID(const std::string &id);
-        RasterQueueBuilder &SetPassResourceGroup(const RDResourceGroupPtr &rsg);
+        RasterQueueBuilder &SetLayout(const RDResourceLayoutPtr &layout);
+        RasterQueueBuilder &SetView(SceneView *view);
 
         RenderGraph &rdg;
         RasterQueue &queue;
@@ -106,12 +106,20 @@ namespace sky::rdg {
         using Tag   = ResourceGraphTags;
 
         void AddImage(const char *name, const GraphImage &image);
+
         void ImportImage(const char *name, const rhi::ImagePtr &image);
+        void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType);
+        void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
+
         void ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain);
         void AddImageView(const char *name, const char *source, const GraphImageView &view);
 
         void AddBuffer(const char *name, const GraphBuffer &attachment);
+
         void ImportBuffer(const char *name, const rhi::BufferPtr &buffer);
+        void ImportBuffer(const char *name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags);
+        void ImportUBO(const char *name, const RDUniformBufferPtr &ubo);
+
         void AddBufferView(const char *name, const char *source, const GraphBufferView &view);
 
         // memory
@@ -135,6 +143,7 @@ namespace sky::rdg {
         PmrVector<BufferViewRes<GraphBuffer>>       buffers;
         PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
         PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
+        PmrVector<GraphConstantBuffer>              constantBuffers;
 
         Graph graph;
     };
@@ -214,7 +223,7 @@ namespace sky::rdg {
     template <typename D>
     VertexType AddVertex(const char *name, D &&val, ResourceGraph &graph)
     {
-        using Tag = typename std::remove_reference<D>::type::Tag;
+        using Tag   = typename std::remove_reference<D>::type::Tag;
         auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
@@ -243,6 +252,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, BufferViewTag>) {
             graph.polymorphicDatas.emplace_back(graph.bufferViews.size());
             graph.bufferViews.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, ConstantBufferTag>) {
+            graph.polymorphicDatas.emplace_back(graph.constantBuffers.size());
+            graph.constantBuffers.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }

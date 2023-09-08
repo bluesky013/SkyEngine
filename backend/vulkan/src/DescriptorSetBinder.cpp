@@ -16,7 +16,7 @@ namespace sky::vk {
     {
         pipelineLayout = layout;
 
-        auto layoutNum  = layout->GetSlotNumber();
+        auto layoutNum  = layout->GetSetNumber();
         auto dynamicNum = layout->GetDynamicNum();
         sets.resize(layoutNum);
         vkSets.resize(layoutNum);

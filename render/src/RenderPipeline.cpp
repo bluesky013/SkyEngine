@@ -3,6 +3,9 @@
 //
 
 #include <render/RenderPipeline.h>
+
+#include <sstream>
+
 #include <render/RHI.h>
 #include <render/rdg/TransientObjectPool.h>
 #include <render/rdg/TransientMemoryPool.h>
@@ -12,6 +15,7 @@
 #include <render/rdg/AccessGraphCompiler.h>
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/RenderSceneVisitor.h>
+#include <render/rdg/RenderGraphUploader.h>
 #include <render/Renderer.h>
 
 namespace sky {
@@ -20,7 +24,9 @@ namespace sky {
     {
         rdgContext = std::make_unique<rdg::RenderGraphContext>();
         rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
+        rdgContext->pool->Init();
         rdgContext->device = RHI::Get()->GetDevice();
+        rdgContext->emptySet = Renderer::Get()->GetDefaultRHIResource().emptySet;
 
         frameIndex = 0;
         inflightFrameCount = Renderer::Get()->GetInflightFrameCount();
@@ -67,16 +73,19 @@ namespace sky {
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
 
-//        {
-//            RenderSceneVisitor sceneVisitor(rdg);
-//            sceneVisitor.BuildRenderQueue();
-//        }
-
+        {
+            RenderSceneVisitor sceneVisitor(rdg);
+            sceneVisitor.BuildRenderQueue();
+        }
 
         auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
             commandBuffer->Begin();
+
+            RenderGraphUploader uploader(rdg);
+            uploader.UploadConstantBuffers();
+
             RenderGraphExecutor executor(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, executor, ColorMap(colors));
@@ -105,6 +114,13 @@ namespace sky {
 
 
         frameIndex = (frameIndex + 1) % inflightFrameCount;
+    }
+
+    std::string GetDefaultSceneViewUBOName(const SceneView &view)
+    {
+        std::stringstream ss;
+        ss << "DEFAULT_VIEW_UBO_" << view.GetViewID();
+        return ss.str();
     }
 
 } // namespace sky

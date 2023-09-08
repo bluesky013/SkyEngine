@@ -22,18 +22,41 @@ namespace sky {
     void Buffer::Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType)
     {
         bufferDesc.size   = size;
-        bufferDesc.usage  = rhi::BufferUsageFlagBit::UNIFORM;
-        bufferDesc.memory = rhi::MemoryType::GPU_ONLY;
+        bufferDesc.usage  = usage;
+        bufferDesc.memory = memoryType;
 
+        buffer = device->CreateBuffer(bufferDesc);
+    }
+
+    void Buffer::Resize(uint64_t size)
+    {
+        Renderer::Get()->GetResourceGC()->CollectBuffer(buffer);
+        bufferDesc.size = size;
         buffer = device->CreateBuffer(bufferDesc);
     }
 
     bool UniformBuffer::Init(uint32_t size)
     {
-        Buffer::Init(size, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::GPU_ONLY);
-        data.resize(size, 0);
+        Buffer::Init(size, rhi::BufferUsageFlagBit::UNIFORM | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+
+        rhi::Buffer::Descriptor desc = {};
+        desc.size = size;
+        desc.memory = rhi::MemoryType::CPU_TO_GPU;
+        desc.usage = rhi::BufferUsageFlagBit::UNIFORM | rhi::BufferUsageFlagBit::TRANSFER_SRC;
+        stagingBuffer = RHI::Get()->GetDevice()->CreateBuffer(desc);
+
+        data.resize(size);
         ptr = data.data();
         return static_cast<bool>(buffer);
+    }
+
+    void UniformBuffer::Upload(rhi::BlitEncoder &encoder)
+    {
+        uint8_t *tmp = stagingBuffer->Map();
+        memcpy(tmp, data.data(), data.size());
+        stagingBuffer->UnMap();
+
+        encoder.CopyBuffer(stagingBuffer, buffer, data.size(), 0, 0);
     }
 
     void DynamicUniformBuffer::Upload()
@@ -49,6 +72,11 @@ namespace sky {
         buffer->UnMap();
 
         dirty = false;
+    }
+
+    void DynamicUniformBuffer::Upload(rhi::BlitEncoder &/*encoder*/)
+    {
+        Upload();
     }
 
     bool DynamicUniformBuffer::Init(uint32_t size, uint32_t inflightCount)

@@ -37,7 +37,7 @@ namespace sky {
 
     inline Vector4 Cast(const Vector3 &vec)
     {
-        return {vec.x, vec.y, vec.z, 0.f};
+        return {vec.x, vec.y, vec.z, 1.f};
     }
 
     inline Matrix4 Cast(const Matrix3 &mat)

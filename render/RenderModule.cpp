@@ -65,8 +65,7 @@ namespace sky {
 
     void RenderModule::Start()
     {
-        auto techAsset = AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech");
-        auto tech = techAsset->CreateInstance();
+        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
     }
 
     void RenderModule::Stop()

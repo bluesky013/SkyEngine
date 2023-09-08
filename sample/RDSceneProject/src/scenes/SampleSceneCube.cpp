@@ -6,9 +6,44 @@
 #include <render/RenderWindow.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/Util.h>
+#include <render/geometry/GeometryRenderer.h>
 #include <framework/world/TransformComponent.h>
 
 namespace sky {
+
+    class SimpleGeometryComponent : public Component {
+    public:
+        SimpleGeometryComponent() = default;
+        ~SimpleGeometryComponent() = default;
+
+        TYPE_RTTI_WITH_VT(SimpleGeometryComponent);
+
+        void OnActive() override
+        {
+            geometry = std::make_unique<GeometryRenderer>();
+            geometry->Init();
+            geometry->DrawQuad(Quad{
+                Vector3{-1, 0, -1},
+                Vector3{ 1, 0, -1},
+                Vector3{ 1, 0,  1},
+                Vector3{-1, 0, 1},
+            });
+            geometry->Upload();
+
+            auto *scene = GetRenderSceneFromGameObject(object);
+            scene->AddPrimitive(geometry->GetPrimitive());
+        }
+
+        void OnTick(float time) override
+        {
+            auto *ts = object->GetComponent<TransformComponent>();
+            geometry->UpdateTransform(ts->GetWorld().ToMatrix());
+        }
+
+    protected:
+        std::unique_ptr<GeometryRenderer> geometry;
+    };
 
     class SimpleRotateComponent : public Component {
     public:
@@ -39,6 +74,7 @@ namespace sky {
         auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>("box/box_mesh_0.mesh");
         mc->SetMesh(meshAsset);
 
+        cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
 
         camera = world->CreateGameObject("MainCamera");

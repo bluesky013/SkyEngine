@@ -29,7 +29,8 @@ TEST(RenderGraphTest, NodeGraphTest01)
     RenderGraphContext context;
     context.pool = std::make_unique<TransientObjectPool>();
     context.device = RHI::Get()->GetDevice();
-    context.mainCommandBuffer = context.device->CreateCommandBuffer({});
+    context.commandBuffers.resize(1);
+    context.commandBuffers[0] = context.device->CreateCommandBuffer({});
 
     RenderGraph rdg(&context, nullptr);
     auto       &rg = rdg.resourceGraph;
@@ -79,7 +80,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     pass2.AddRasterSubPass("color1_sub0")
         .AddDepthStencil("test2", ResourceAccessBit::WRITE)
-        .AddComputeView("test", {"_", ComputeType::SRV, ResourceAccessBit::READ, rhi::ShaderStageFlagBit::FS});
+        .AddComputeView("test", {"_", ComputeType::SRV, rhi::ShaderStageFlagBit::FS, ResourceAccessBit::READ});
 
     auto pass3 = rdg.AddRasterPass("color2", 128, 128)
         .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
@@ -106,14 +107,14 @@ TEST(RenderGraphTest, NodeGraphTest01)
     }
 
     {
-        context.mainCommandBuffer->Begin();
+        context.MainCommandBuffer()->Begin();
         RenderGraphExecutor executor(rdg);
         PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
         boost::depth_first_search(rdg.graph, executor, ColorMap(colors));
-        context.mainCommandBuffer->End();
+        context.MainCommandBuffer()->End();
 
         auto *queue = context.device->GetQueue(rhi::QueueType::GRAPHICS);
-        context.mainCommandBuffer->Submit(*queue, {});
+        context.MainCommandBuffer()->Submit(*queue, {});
     }
     context.device->WaitIdle();
 }

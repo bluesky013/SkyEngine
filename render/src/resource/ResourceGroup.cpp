@@ -26,9 +26,10 @@ namespace sky {
         Renderer::Get()->GetResourceGC()->CollectDescriptorSet(set);
     }
 
-    void ResourceGroup::Init(const RDGResourceLayoutPtr &layout_)
+    void ResourceGroup::Init(const RDResourceLayoutPtr &layout_, rhi::DescriptorSetPool &pool)
     {
         layout = layout_;
+        set = pool.Allocate({layout->GetRHILayout()});
     }
 
     void ResourceGroup::Update()

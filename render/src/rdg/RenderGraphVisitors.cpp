@@ -3,14 +3,12 @@
 //
 
 #include <render/rdg/RenderGraphVisitors.h>
-#include <core/logger/Logger.h>
 
 static const char *TAG = "RDG";
 
 namespace sky::rdg {
 
     void RenderGraphPassCompiler::discover_vertex(Vertex u, const Graph& g) {
-//        LOG_I(TAG, "compile passes %s....", Name(u, graph).c_str());
         std::visit(Overloaded{
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
