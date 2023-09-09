@@ -18,14 +18,15 @@ namespace sky {
         ~ResourceGroupLayout() = default;
 
         void AddNameHandler(const std::string &key, uint32_t binding);
+        void SetRHILayout(const rhi::DescriptorSetLayoutPtr &layout);
 
         std::pair<bool, uint32_t> GetBindingByeName(const std::string &key) const;
+        uint32_t GetDescriptorOffsetByBinding(uint32_t binding) const;
 
-        void SetRHILayout(const rhi::DescriptorSetLayoutPtr &layout_) { layout = layout_; }
         const rhi::DescriptorSetLayoutPtr &GetRHILayout() const { return layout; }
 
     private:
-        std::unordered_map<std::string, uint32_t> handlers; // name -> binding
+        std::unordered_map<std::string, uint32_t> handlers;    // name -> binding
         rhi::DescriptorSetLayoutPtr layout;
     };
     using RDResourceLayoutPtr = std::shared_ptr<ResourceGroupLayout>;
@@ -53,6 +54,7 @@ namespace sky {
         RDResourceLayoutPtr   layout;
 
         std::vector<std::pair<uint32_t, RDDynamicUniformBufferPtr>> dynamicUBOS;
+        std::vector<uint32_t> slotHash;
     };
     using RDResourceGroupPtr = std::shared_ptr<ResourceGroup>;
 

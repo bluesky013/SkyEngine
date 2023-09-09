@@ -12,6 +12,11 @@ namespace sky {
         handlers.emplace(key, binding);
     }
 
+    void ResourceGroupLayout::SetRHILayout(const rhi::DescriptorSetLayoutPtr &layout_)
+    {
+        layout = layout_;
+    }
+
     std::pair<bool, uint32_t> ResourceGroupLayout::GetBindingByeName(const std::string &key) const
     {
         auto iter = handlers.find(key);
@@ -19,6 +24,11 @@ namespace sky {
             return {true, iter->second};
         }
         return {false, INVALID_INDEX};
+    }
+
+    uint32_t ResourceGroupLayout::GetDescriptorOffsetByBinding(uint32_t binding) const
+    {
+        return layout->GetDescriptorSetOffsetByBinding(binding);
     }
 
     ResourceGroup::~ResourceGroup()
@@ -30,6 +40,8 @@ namespace sky {
     {
         layout = layout_;
         set = pool.Allocate({layout->GetRHILayout()});
+
+        slotHash.resize(layout->GetRHILayout()->GetDescriptorCount());
     }
 
     void ResourceGroup::Update()

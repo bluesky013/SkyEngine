@@ -53,21 +53,21 @@ namespace sky {
             taskHandle = queue->UploadImage(image, request);
         }
 
-        {
-            rhi::ImageViewDesc viewDesc = {};
-            imageDesc.arrayLayers = 6;
-            viewDesc.subRange.layers = 6;
-            viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
-
-            auto image = device->CreateImage(imageDesc);
-            textureCube = image->CreateView(viewDesc);
-            std::vector<rhi::ImageUploadRequest> requests;
-            for (uint32_t i = 0; i < 6; ++i) {
-                request.layer = i;
-                requests.emplace_back(request);
-            }
-            taskHandle = queue->UploadImage(image, requests);
-        }
+//        {
+//            rhi::ImageViewDesc viewDesc = {};
+//            imageDesc.arrayLayers = 6;
+//            viewDesc.subRange.layers = 6;
+//            viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
+//
+//            auto image = device->CreateImage(imageDesc);
+//            textureCube = image->CreateView(viewDesc);
+//            std::vector<rhi::ImageUploadRequest> requests;
+//            for (uint32_t i = 0; i < 6; ++i) {
+//                request.layer = i;
+//                requests.emplace_back(request);
+//            }
+//            taskHandle = queue->UploadImage(image, requests);
+//        }
 
         queue->Wait(taskHandle);
     }

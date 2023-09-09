@@ -29,7 +29,7 @@ namespace sky::vk {
 
         struct Writer {
         public:
-            Writer(DescriptorSet &s, const UpdateTemplate &u) : set(s), updateTemplate(u)
+            Writer(DescriptorSet &s) : set(s)
             {
             }
 
@@ -42,13 +42,12 @@ namespace sky::vk {
             void Update();
 
         private:
-            void                  Write(uint32_t                      index,
+            void Write(uint32_t                      index,
                                         uint32_t                      binding,
                                         VkDescriptorType              type,
                                         const VkDescriptorBufferInfo *bufferInfo,
                                         const VkDescriptorImageInfo  *imageInfo);
-            DescriptorSet        &set;
-            const UpdateTemplate &updateTemplate;
+            DescriptorSet &set;
         };
 
         Writer CreateWriter();

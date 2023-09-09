@@ -27,13 +27,19 @@ namespace sky::rhi {
         };
 
         uint32_t GetHash() const { return hash; }
+        uint32_t GetDynamicNum() const { return dynamicNum; }
+        uint32_t GetDescriptorNum() const { return descriptorNum; }
         uint32_t GetDescriptorCount() const { return descriptorCount; }
+        uint32_t GetDescriptorSetOffsetByBinding(uint32_t binding) const { return bindingOffsets.at(binding); }
         const std::vector<SetBinding> &GetBindings() const { return bindings; }
 
     protected:
         uint32_t descriptorCount = 0;
         uint32_t hash = 0;
+        uint32_t dynamicNum = 0;
+        uint32_t descriptorNum = 0;
         std::vector<SetBinding> bindings;
+        std::unordered_map<uint32_t, uint32_t> bindingOffsets;
     };
     using DescriptorSetLayoutPtr = std::shared_ptr<DescriptorSetLayout>;
 }

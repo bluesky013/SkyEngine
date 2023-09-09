@@ -24,7 +24,7 @@ namespace sky::vk {
 
     DescriptorSet::Writer DescriptorSet::CreateWriter()
     {
-        return {*this, layout->GetUpdateTemplate()};
+        return {*this};
     }
 
     DescriptorSetPtr DescriptorSet::Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout)
@@ -73,7 +73,6 @@ namespace sky::vk {
     void DescriptorSet::Setup()
     {
         auto &table      = layout->GetDescriptorTable();
-        auto &indicesMap = layout->GetUpdateTemplate();
 
         writeInfos.resize(layout->GetDescriptorNum(), {});
         for (auto &[binding, info] : table) {
@@ -87,7 +86,7 @@ namespace sky::vk {
             entry.descriptorCount       = info.descriptorCount;
             entry.descriptorType        = info.descriptorType;
 
-            uint32_t offset = indicesMap.indices.at(binding);
+            uint32_t offset = layout->GetDescriptorSetOffsetByBinding(binding);
             for (uint32_t i = 0; i < entry.descriptorCount; ++i) {
                 uint32_t index = offset + i;
 
@@ -125,12 +124,7 @@ namespace sky::vk {
         bufferView.offset = offset;
         bufferView.size   = size;
 
-        auto iter = updateTemplate.indices.find(binding);
-        if (iter == updateTemplate.indices.end()) {
-            return *this;
-        }
-
-        auto &bufferInfo  = set.writeInfos[iter->second + index].buffer;
+        auto &bufferInfo  = set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].buffer;
         bufferInfo.buffer = buffer->GetNativeHandle();
         bufferInfo.offset = offset;
         bufferInfo.range  = size;
@@ -151,12 +145,7 @@ namespace sky::vk {
         viewInfo.view    = view;
         viewInfo.sampler = sampler;
 
-        auto iter = updateTemplate.indices.find(binding);
-        if (iter == updateTemplate.indices.end()) {
-            return *this;
-        }
-
-        auto &imageInfo     = set.writeInfos[iter->second + index].image;
+        auto &imageInfo     = set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].image;
         imageInfo.sampler   = samplerHandleFn(sampler);
         imageInfo.imageView = viewHandleFn(view);
 
@@ -171,13 +160,7 @@ namespace sky::vk {
             return *this;
         }
 
-        viewInfo = view;
-        auto iter = updateTemplate.indices.find(binding);
-        if (iter == updateTemplate.indices.end()) {
-            return *this;
-        }
-
-        set.writeInfos[iter->second + index].bufferView = view->GetNativeHandle();
+        set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].bufferView = view->GetNativeHandle();
         set.dirty = true;
         return *this;
     }
@@ -188,22 +171,19 @@ namespace sky::vk {
             return;
         }
 
-        if (updateTemplate.handle == VK_NULL_HANDLE) {
+        auto updateTemplate = set.GetLayout()->GetUpdateTemplate();
+        if (updateTemplate == VK_NULL_HANDLE) {
             vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(set.writeEntries.size()), set.writeEntries.data(), 0, nullptr);
         } else {
-            vkUpdateDescriptorSetWithTemplate(set.device.GetNativeHandle(), set.GetNativeHandle(), updateTemplate.handle, set.writeInfos.data());
+            vkUpdateDescriptorSetWithTemplate(set.device.GetNativeHandle(), set.GetNativeHandle(), updateTemplate, set.writeInfos.data());
         }
         set.dirty = false;
     }
 
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index)
     {
-        const auto &indices = layout->GetUpdateTemplate().indices;
-        auto iter = indices.find(binding);
-        SKY_ASSERT(iter != indices.end());
-
         auto vkBufferView = std::static_pointer_cast<BufferView>(view);
-        auto &writeInfo = writeInfos[iter->second + index];
+        auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         const auto &viewInfo = vkBufferView->GetViewDesc();
         if (writeInfo.bufferView != vkBufferView->GetNativeHandle() ||
             writeInfo.buffer.buffer != vkBufferView->GetBuffer()->GetNativeHandle() ||
@@ -220,13 +200,8 @@ namespace sky::vk {
 
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index)
     {
-        const auto &indices = layout->GetUpdateTemplate().indices;
-        auto iter = indices.find(binding);
-        SKY_ASSERT(iter != indices.end());
-
         auto vkBuffer = std::static_pointer_cast<Buffer>(buffer);
-        auto &writeInfo = writeInfos[iter->second + index];
-        writeInfo.bufferView = VK_NULL_HANDLE;
+        auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         if (writeInfo.buffer.buffer != vkBuffer->GetNativeHandle() ||
             writeInfo.buffer.offset != offset ||
             writeInfo.buffer.range != size) {
@@ -241,12 +216,8 @@ namespace sky::vk {
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
     {
         const auto &table      = layout->GetDescriptorTable();
-        const auto &indices = layout->GetUpdateTemplate().indices;
-        auto iter = indices.find(binding);
-        SKY_ASSERT(iter != indices.end());
-
         auto vkImageView = std::static_pointer_cast<ImageView>(view);
-        auto &writeInfo = writeInfos[iter->second + index];
+        auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         const auto &viewInfo = vkImageView->GetSubRange();
         writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
@@ -274,12 +245,8 @@ namespace sky::vk {
 
     void DescriptorSet::BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index)
     {
-        const auto &indices = layout->GetUpdateTemplate().indices;
-        auto iter = indices.find(binding);
-        SKY_ASSERT(iter != indices.end());
-
         auto vkSampler = std::static_pointer_cast<Sampler>(sampler);
-        auto &writeInfo = writeInfos[iter->second + index];
+        auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         writeInfo.image.sampler = vkSampler->GetNativeHandle();
         dirty = true;
     }
@@ -290,11 +257,11 @@ namespace sky::vk {
             return;
         }
 
-        const auto &updateTemplate = layout->GetUpdateTemplate();
-        if (updateTemplate.handle == VK_NULL_HANDLE) {
+        auto updateTemplate = layout->GetUpdateTemplate();
+        if (updateTemplate == VK_NULL_HANDLE) {
             vkUpdateDescriptorSets(device.GetNativeHandle(), static_cast<uint32_t>(writeEntries.size()), writeEntries.data(), 0, nullptr);
         } else {
-            vkUpdateDescriptorSetWithTemplate(device.GetNativeHandle(), handle, updateTemplate.handle, writeInfos.data());
+            vkUpdateDescriptorSetWithTemplate(device.GetNativeHandle(), handle, updateTemplate, writeInfos.data());
         }
         dirty = false;
     }

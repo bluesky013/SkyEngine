@@ -21,11 +21,6 @@ namespace sky::vk {
         VkAccelerationStructureKHR accStructure;
     };
 
-    struct UpdateTemplate {
-        VkDescriptorUpdateTemplate   handle;
-        std::map<uint32_t, uint32_t> indices;
-    };
-
     class DescriptorSetLayout : public rhi::DescriptorSetLayout, public DevObject {
     public:
         ~DescriptorSetLayout();
@@ -45,19 +40,11 @@ namespace sky::vk {
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);
 
-        VkDescriptorSetLayout GetNativeHandle() const;
+        VkDescriptorSetLayout GetNativeHandle() const { return layout; }
 
-        uint32_t GetHash() const;
-
-        uint32_t GetDynamicNum() const;
-
-        uint32_t GetDescriptorNum() const;
-
-        const std::map<uint32_t, SetBinding> &GetDescriptorTable() const;
-
-        const std::vector<uint32_t> &GetVariableDescriptorCounts() const;
-
-        const UpdateTemplate &GetUpdateTemplate() const;
+        const std::map<uint32_t, SetBinding> &GetDescriptorTable() const { return info.bindings; }
+        const std::vector<uint32_t> &GetVariableDescriptorCounts() const { return variableDescriptorCounts; }
+        VkDescriptorUpdateTemplate GetUpdateTemplate() const { return updateTemplate; }
 
     private:
         friend class Device;
@@ -65,9 +52,7 @@ namespace sky::vk {
 
         VkDescriptor          info;
         VkDescriptorSetLayout layout;
-        UpdateTemplate        updateTemplate;
-        uint32_t              dynamicNum;
-        uint32_t              descriptorNum;
+        VkDescriptorUpdateTemplate updateTemplate;
         std::vector<uint32_t> variableDescriptorCounts;
     };
 

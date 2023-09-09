@@ -75,6 +75,7 @@ namespace sky {
 
     void RenderModule::Stop()
     {
+        GeometryFeature::Destroy();
     }
 
     void RenderModule::Shutdown()

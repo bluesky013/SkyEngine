@@ -12,7 +12,7 @@ namespace sky::rdg {
         if (index >= imageAvailableSemaList.size()) {
             imageAvailableSemaList.emplace_back(RHI::Get()->GetDevice()->CreateSema({}));
         }
-        return imageAvailableSemaList[index];
+        return imageAvailableSemaList[index++];
     }
 
     void SemaphorePool::Reset()

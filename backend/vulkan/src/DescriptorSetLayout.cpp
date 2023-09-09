@@ -14,14 +14,14 @@
 namespace sky::vk {
 
     DescriptorSetLayout::DescriptorSetLayout(Device &dev)
-        : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}, dynamicNum(0), descriptorNum(0)
+        : DevObject(dev), layout(VK_NULL_HANDLE), updateTemplate{VK_NULL_HANDLE}
     {
     }
 
     DescriptorSetLayout::~DescriptorSetLayout()
     {
-        if (updateTemplate.handle != VK_NULL_HANDLE) {
-            vkDestroyDescriptorUpdateTemplate(device.GetNativeHandle(), updateTemplate.handle, VKL_ALLOC);
+        if (updateTemplate != VK_NULL_HANDLE) {
+            vkDestroyDescriptorUpdateTemplate(device.GetNativeHandle(), updateTemplate, VKL_ALLOC);
         }
     }
 
@@ -30,7 +30,7 @@ namespace sky::vk {
         descriptorCount = 0;
         bindings = desc.bindings;
         VkDescriptor vkDesc = {};
-        for (auto &binding : desc.bindings) {
+        for (const auto &binding : desc.bindings) {
             SetBinding vkBinding = {};
             vkBinding.descriptorType  = FromRHI(binding.type);
             vkBinding.descriptorCount = binding.count;
@@ -51,7 +51,7 @@ namespace sky::vk {
         std::list<VkSampler>                         samplers;
 
         descriptorNum = 0;
-        for (auto &[binding, desInfo] : des.bindings) {
+        for (const auto &[binding, desInfo] : des.bindings) {
             HashCombine32(hash, Crc32::Cal(binding));
             HashCombine32(hash, Crc32::Cal(desInfo));
 
@@ -79,7 +79,7 @@ namespace sky::vk {
             templateEntry.descriptorType    = desInfo.descriptorType;
             templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * descriptorNum);
             templateEntry.stride            = sizeof(DescriptorWriteInfo);
-            updateTemplate.indices[binding] = descriptorNum;
+            bindingOffsets[binding] = descriptorNum;
             entries.emplace_back(templateEntry);
 
             descriptorNum += desInfo.descriptorCount;
@@ -107,45 +107,10 @@ namespace sky::vk {
             templateInfo.pDescriptorUpdateEntries   = entries.data();
             templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
             templateInfo.descriptorSetLayout        = layout;
-            vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
+            vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate);
         }
 
         return true;
-    }
-
-    VkDescriptorSetLayout DescriptorSetLayout::GetNativeHandle() const
-    {
-        return layout;
-    }
-
-    uint32_t DescriptorSetLayout::GetHash() const
-    {
-        return hash;
-    }
-
-    uint32_t DescriptorSetLayout::GetDynamicNum() const
-    {
-        return dynamicNum;
-    }
-
-    uint32_t DescriptorSetLayout::GetDescriptorNum() const
-    {
-        return descriptorNum;
-    }
-
-    const std::map<uint32_t, DescriptorSetLayout::SetBinding> &DescriptorSetLayout::GetDescriptorTable() const
-    {
-        return info.bindings;
-    }
-
-    const std::vector<uint32_t> &DescriptorSetLayout::GetVariableDescriptorCounts() const
-    {
-        return variableDescriptorCounts;
-    }
-
-    const UpdateTemplate &DescriptorSetLayout::GetUpdateTemplate() const
-    {
-        return updateTemplate;
     }
 
 } // namespace sky::vk
