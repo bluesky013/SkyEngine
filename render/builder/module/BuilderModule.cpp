@@ -11,6 +11,7 @@
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/PrefabBuilder.h>
+#include <builder/render/VertexLibraryBuilder.h>
 #include <render/adaptor/Reflection.h>
 
 namespace sky::builder {
@@ -31,6 +32,7 @@ namespace sky::builder {
         std::unique_ptr<TechniqueBuilder> techBuilder;
         std::unique_ptr<MaterialBuilder> materialBuilder;
         std::unique_ptr<ImageBuilder> imageBuilder;
+        std::unique_ptr<VertexLibraryBuilder> vtxLibBuilder;
     };
 
     bool BuilderModule::Init()
@@ -44,6 +46,7 @@ namespace sky::builder {
         materialBuilder = std::make_unique<MaterialBuilder>();
         imageBuilder = std::make_unique<ImageBuilder>();
         prefabBuilder = std::make_unique<PrefabBuilder>();
+        vtxLibBuilder = std::make_unique<VertexLibraryBuilder>();
 
         AssetManager::Get()->RegisterBuilder(".vert", shaderBuilder.get());
         AssetManager::Get()->RegisterBuilder(".frag", shaderBuilder.get());
@@ -60,6 +63,8 @@ namespace sky::builder {
         AssetManager::Get()->RegisterBuilder(".gltf", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".glb", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".fbx", prefabBuilder.get());
+
+        AssetManager::Get()->RegisterBuilder(".vtxlib", vtxLibBuilder.get());
         return true;
     }
 }

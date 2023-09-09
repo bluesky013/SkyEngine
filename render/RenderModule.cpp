@@ -13,9 +13,12 @@
 #include <render/adaptor/Reflection.h>
 
 #include <render/geometry/GeometryFeature.h>
+#include <render/mesh/MeshFeature.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
+#include <render/adaptor/assets/VertexDescLibraryAsset.h>
+#include <render/resource/Technique.h>
 
 namespace sky {
 
@@ -70,12 +73,17 @@ namespace sky {
 
     void RenderModule::Start()
     {
+        auto vtxLibAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex_library.vtxlib");
+        Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vtxLibAsset->Data()));
+
         GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
+        MeshFeature::Get()->Init();
     }
 
     void RenderModule::Stop()
     {
         GeometryFeature::Destroy();
+        MeshFeature::Destroy();
     }
 
     void RenderModule::Shutdown()

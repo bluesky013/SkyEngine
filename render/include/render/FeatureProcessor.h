@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <core/type/Type.h>
+
 namespace sky {
 
     class IFeatureProcessor {

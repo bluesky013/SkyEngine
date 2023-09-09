@@ -21,6 +21,7 @@ namespace sky {
         archive.LoadValue(depthStencil.depthTest);
         archive.LoadValue(depthStencil.stencilTest);
         archive.LoadValue(passTag);
+        archive.LoadValue(vertexDesc);
     }
 
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
@@ -34,6 +35,7 @@ namespace sky {
         archive.SaveValue(depthStencil.depthTest);
         archive.SaveValue(depthStencil.stencilTest);
         archive.SaveValue(passTag);
+        archive.SaveValue(vertexDesc);
     }
 
     std::shared_ptr<Technique> CreateTechnique(const TechniqueAssetData &data)
@@ -47,6 +49,7 @@ namespace sky {
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);
             tech->SetRasterTag(data.passTag);
+            tech->SetVertexLayout(data.vertexDesc);
 
             return tech;
         }

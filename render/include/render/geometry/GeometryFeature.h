@@ -17,13 +17,11 @@ namespace sky {
 
         void Init(const RDGfxTechPtr &tech);
         const RDGfxTechPtr &GetDefaultTech() const { return technique; }
-        const rhi::VertexInputPtr &GetVertexDesc() const { return vertexDesc; }
         RDResourceGroupPtr RequestResourceGroup();
 
     private:
         RDGfxTechPtr technique;
         RDResourceLayoutPtr localLayout;
-        rhi::VertexInputPtr vertexDesc;
         rhi::DescriptorSetPoolPtr pool;
     };
 

@@ -22,7 +22,7 @@ namespace sky::rhi {
         struct Descriptor {
             uint32_t maxSets = 0;
             uint32_t sizeCount = 0;
-            PoolSize *sizeData = nullptr;
+            const PoolSize *sizeData = nullptr;
         };
 
         virtual DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) = 0;

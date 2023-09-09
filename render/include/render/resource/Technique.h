@@ -31,19 +31,20 @@ namespace sky {
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const std::string &tag);
+        void SetVertexLayout(const std::string &key);
 
         uint32_t GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
         static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
-                                                 const rhi::VertexInputPtr &vertexDesc,
                                                  const rhi::RenderPassPtr &pass,
                                                  uint32_t subPassID,
                                                  const std::string &programKey = "");
 
     private:
         rhi::PipelineState state;
+        rhi::VertexInputPtr vertexDesc;
         uint32_t rasterID = 0;
         uint32_t viewMask = 0xFFFFFFFF;
     };

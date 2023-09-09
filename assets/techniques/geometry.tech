@@ -6,5 +6,6 @@
     },
     "pass": {
         "tag": "ForwardColor"
-    }
+    },
+    "vertex": "geometry"
 }

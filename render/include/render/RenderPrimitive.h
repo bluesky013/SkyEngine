@@ -17,7 +17,6 @@ namespace sky {
         std::string programKey;
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
-        rhi::VertexInputPtr vertexDesc;
         rhi::GraphicsPipelinePtr pso;
     };
 

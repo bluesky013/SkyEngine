@@ -59,6 +59,13 @@ namespace sky::builder {
         }
     }
 
+    static void GetVertexDescInfo(rapidjson::Document &document, TechniqueAssetData &data)
+    {
+        if (document.HasMember("vertex")) {
+            data.vertexDesc = document["vertex"].GetString();
+        }
+    }
+
     static void ProcessDepthStencil(const rapidjson::Document &document, rhi::DepthStencil &ds)
     {
         if (document.HasMember("depth_stencil")) {
@@ -159,6 +166,7 @@ namespace sky::builder {
         ProcessBlendStates(document, data.blendStates);
         ProcessRasterStates(document, data.rasterState);
         GetPassInfo(document, data);
+        GetVertexDescInfo(document, data);
     }
 
     void TechniqueBuilder::Request(const BuildRequest &request, BuildResult &result)

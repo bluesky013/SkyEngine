@@ -18,6 +18,8 @@
 #include <render/RenderResourceGC.h>
 #include <render/FeatureProcessor.h>
 
+#include <render/VertexDescLibrary.h>
+
 namespace sky {
 
     class Renderer : public Singleton<Renderer> {
@@ -38,6 +40,9 @@ namespace sky {
         RenderResourceGC *GetResourceGC() const { return delayReleaseCollections[frameIndex].get(); }
 
         const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
+
+        void SetVertexDescLibrary(VertexDescLibrary *lib) { vertexLibrary.reset(lib); }
+        VertexDescLibrary *GetVertexDescLibrary() const { return vertexLibrary.get(); }
 
         template <typename T>
         void RegisterRenderFeature()
@@ -68,5 +73,7 @@ namespace sky {
         PmrList<std::unique_ptr<RenderWindow, decltype(&Renderer::DestroyObj<RenderWindow>)>> windows;
         PmrVector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
         PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
+
+        std::unique_ptr<VertexDescLibrary> vertexLibrary;
     };
 } // namespace sky

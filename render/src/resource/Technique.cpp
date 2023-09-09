@@ -4,6 +4,7 @@
 
 #include <render/resource/Technique.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
 #include <render/RenderNameHandle.h>
 
 namespace sky {
@@ -48,8 +49,12 @@ namespace sky {
         rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
     }
 
+    void GraphicsTechnique::SetVertexLayout(const std::string &key)
+    {
+        vertexDesc = Renderer::Get()->GetVertexDescLibrary()->FindVertexDesc(key);
+    }
+
     rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
-                                      const rhi::VertexInputPtr &vertexDesc,
                                       const rhi::RenderPassPtr &pass,
                                       uint32_t subPassID,
                                       const std::string &programKey)
@@ -66,7 +71,7 @@ namespace sky {
         descriptor.renderPass = pass;
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();
-        descriptor.vertexInput = vertexDesc;
+        descriptor.vertexInput = tech.vertexDesc;
         descriptor.vs = shaders[0]->GetShader();
         descriptor.fs = shaders[1]->GetShader();
 

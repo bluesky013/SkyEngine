@@ -12,6 +12,7 @@
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <render/adaptor/assets/ShaderAsset.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/adaptor/assets/VertexDescLibraryAsset.h>
 
 namespace sky {
 
@@ -50,6 +51,10 @@ namespace sky {
             .BinLoad<&RenderPrefabAssetData::Load>()
             .BinSave<&RenderPrefabAssetData::Save>();
 
+        context->Register<VertexDescLibraryAssetData>("VertexDescLibraryAssetData")
+            .BinLoad<&VertexDescLibraryAssetData::Load>()
+            .BinSave<&VertexDescLibraryAssetData::Save>();
+
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Shader>();
         am->RegisterAssetHandler<ShaderVariant>();
@@ -58,6 +63,7 @@ namespace sky {
         am->RegisterAssetHandler<Mesh>();
         am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
+        am->RegisterAssetHandler<VertexDescLibrary>();
     }
 
     void ReflectRHI(SerializationContext *context)

@@ -7,7 +7,7 @@
 
 namespace sky {
 
-    static constexpr uint32_t MAX_SET_PER_POOL = 32;
+    static constexpr uint32_t MAX_SET_PER_POOL = 8;
     static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
         {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL}
     };
@@ -21,17 +21,6 @@ namespace sky {
         localLayout->AddNameHandler("ObjectInfo", 0);
 
         auto *device = RHI::Get()->GetDevice();
-        {
-            rhi::VertexInput::Descriptor viDesc = {};
-
-            viDesc.attributes.reserve(2);
-            viDesc.attributes.emplace_back(rhi::VertexAttributeDesc{0, 0, 0, rhi::Format::F_RGBA32});
-            viDesc.attributes.emplace_back(rhi::VertexAttributeDesc{1, 0, 16, rhi::Format::F_RGBA32});
-
-            viDesc.bindings.emplace_back(rhi::VertexBindingDesc{0, 32, rhi::VertexInputRate::PER_VERTEX});
-            vertexDesc = device->CreateVertexInput(viDesc);
-        }
-
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};
 

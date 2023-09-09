@@ -21,6 +21,7 @@ namespace sky {
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
         std::string                  passTag;
+        std::string                  vertexDesc;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
