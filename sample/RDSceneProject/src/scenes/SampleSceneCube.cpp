@@ -29,6 +29,7 @@ namespace sky {
                 Vector3{ 1,  1, 0},
                 Vector3{-1,  1, 0},
             });
+//            geometry->DrawAABB(AABB{{-1.f, -1.f, -1.f}, {1.f, 1.f, 1.f}});
             geometry->Upload();
 
             auto *scene = GetRenderSceneFromGameObject(object);
@@ -56,7 +57,7 @@ namespace sky {
         {
             auto *ts = object->GetComponent<TransformComponent>();
             ts->SetLocalRotation(Quaternion(angle, Vector3(1, 1, 1)));
-            angle += 0.1f * time;
+            angle += 0.5f * time;
         }
 
     private:

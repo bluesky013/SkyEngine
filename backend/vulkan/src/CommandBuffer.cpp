@@ -584,6 +584,7 @@ namespace sky::vk {
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
+        currentBinder.OnBind(cmd);
         vkCmdDrawIndexed(cmd, indexed.indexCount, indexed.instanceCount, indexed.firstIndex, indexed.vertexOffset, indexed.firstInstance);
         return *this;
     }

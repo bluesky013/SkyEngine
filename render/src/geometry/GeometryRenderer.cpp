@@ -35,6 +35,7 @@ namespace sky {
 
     void GeometryRenderer::Upload()
     {
+        BuildVertexAssembly();
         uint8_t *ptr = vertexBuffer->GetRHIBuffer()->Map();
         memcpy(ptr, batchVertices.data(), batchVertices.size() * sizeof(GeometryBatchVertex));
         vertexBuffer->GetRHIBuffer()->UnMap();
@@ -61,10 +62,6 @@ namespace sky {
         vertexBuffer->Init(batchVertices.size() * sizeof(GeometryBatchVertex),
                            rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST,
                            rhi::MemoryType::CPU_TO_GPU);
-
-        rhi::VertexAssembly::Descriptor desc = {};
-        desc.vertexBuffers.emplace_back(vertexBuffer->GetRHIBuffer()->CreateView(rhi::BufferViewDesc{0, size}));
-        primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
     }
 
     GeometryRenderer &GeometryRenderer::SetTechnique(const RDGfxTechPtr &tech)
@@ -91,21 +88,76 @@ namespace sky {
 
     GeometryRenderer &GeometryRenderer::DrawQuad(const Quad &quad)
     {
-        AddVertex({Cast(quad.v[0]), currentColor});
-        AddVertex({Cast(quad.v[1]), currentColor});
-        AddVertex({Cast(quad.v[2]), currentColor});
-        AddVertex({Cast(quad.v[2]), currentColor});
-        AddVertex({Cast(quad.v[3]), currentColor});
-        AddVertex({Cast(quad.v[0]), currentColor});
-        args.vertexCount = 6;
+        auto normal = (quad.v[0] - quad.v[1]).Cross((quad.v[2] - quad.v[1]));
+        normal.Normalize();
+
+        AddVertex({Cast(quad.v[0]), Cast(normal), currentColor});
+        AddVertex({Cast(quad.v[1]), Cast(normal), currentColor});
+        AddVertex({Cast(quad.v[2]), Cast(normal), currentColor});
+
+        AddVertex({Cast(quad.v[2]), Cast(normal), currentColor});
+        AddVertex({Cast(quad.v[3]), Cast(normal), currentColor});
+        AddVertex({Cast(quad.v[0]), Cast(normal), currentColor});
+
+        args.vertexCount += 6;
+        return *this;
+    }
+
+    GeometryRenderer &GeometryRenderer::DrawAABB(const AABB &aabb)
+    {
+        //
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+
+        //
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
+
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+
+        //
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+
+        args.vertexCount += 36;
         return *this;
     }
 
     GeometryRenderer &GeometryRenderer::Clear()
     {
         currentVertex = 0;
-        args.firstVertex = 0;
-        args.vertexCount = 0;
+        args = rhi::CmdDrawLinear{};
         return *this;
     }
 
@@ -113,8 +165,19 @@ namespace sky {
     {
         if (currentVertex >= vertexCapacity) {
             ResizeVertex(vertexCapacity * 2);
+            needRebuildVA = true;
         }
         batchVertices[currentVertex++] = vtx;
+    }
+
+    void GeometryRenderer::BuildVertexAssembly()
+    {
+        if (needRebuildVA) {
+            rhi::VertexAssembly::Descriptor desc = {};
+            desc.vertexBuffers.emplace_back(vertexBuffer->GetRHIBuffer()->CreateView(rhi::BufferViewDesc{0, batchVertices.size() * sizeof(GeometryBatchVertex)}));
+            primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
+            needRebuildVA = false;
+        }
     }
 
 } // namespace sky

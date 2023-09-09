@@ -31,12 +31,18 @@
                         "binding": 0,
                         "offset": 16,
                         "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 2,
+                        "binding": 0,
+                        "offset": 32,
+                        "format": "F_RGBA32"
                     }
                 ],
                 "bindings": [
                     {
                         "binding": 0,
-                        "stride": 32,
+                        "stride": 48,
                         "rate": "PER_VERTEX"
                     }
                 ]
