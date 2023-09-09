@@ -15,7 +15,7 @@ namespace sky {
     class SimpleGeometryComponent : public Component {
     public:
         SimpleGeometryComponent() = default;
-        ~SimpleGeometryComponent() = default;
+        ~SimpleGeometryComponent() override = default;
 
         TYPE_RTTI_WITH_VT(SimpleGeometryComponent);
 
@@ -24,10 +24,10 @@ namespace sky {
             geometry = std::make_unique<GeometryRenderer>();
             geometry->Init();
             geometry->DrawQuad(Quad{
-                Vector3{-1, 0, -1},
-                Vector3{ 1, 0, -1},
-                Vector3{ 1, 0,  1},
-                Vector3{-1, 0, 1},
+                Vector3{-1, -1, 0},
+                Vector3{ 1, -1, 0},
+                Vector3{ 1,  1, 0},
+                Vector3{-1,  1, 0},
             });
             geometry->Upload();
 
@@ -56,7 +56,7 @@ namespace sky {
         {
             auto *ts = object->GetComponent<TransformComponent>();
             ts->SetLocalRotation(Quaternion(angle, Vector3(1, 1, 1)));
-            angle += 0.01f * time;
+            angle += 0.1f * time;
         }
 
     private:
@@ -81,6 +81,7 @@ namespace sky {
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
+        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
         return true;
     }
 

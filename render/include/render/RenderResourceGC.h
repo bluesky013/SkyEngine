@@ -11,7 +11,7 @@ namespace sky {
     class RenderResourceGC {
     public:
         RenderResourceGC() = default;
-        ~RenderResourceGC() = default;
+        ~RenderResourceGC();
 
         void CollectBuffer(const rhi::BufferPtr &buffer);
         void CollectImage(const rhi::ImagePtr &image);

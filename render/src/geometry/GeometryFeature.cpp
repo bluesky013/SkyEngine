@@ -15,7 +15,10 @@ namespace sky {
     void GeometryFeature::Init(const RDGfxTechPtr &tech)
     {
         technique = tech;
-        localLayout = technique->RequestProgram()->GetPipelineLayout()->GetSetLayout(2);
+        auto rhiLayout = technique->RequestProgram()->GetPipelineLayout()->GetSetLayout(2);
+        localLayout = std::make_shared<ResourceGroupLayout>();
+        localLayout->SetRHILayout(rhiLayout);
+        localLayout->AddNameHandler("ObjectInfo", 0);
 
         auto *device = RHI::Get()->GetDevice();
         {
@@ -39,9 +42,11 @@ namespace sky {
         }
     }
 
-    rhi::DescriptorSetPtr GeometryFeature::RequestSet() const
+    RDResourceGroupPtr GeometryFeature::RequestResourceGroup()
     {
-        return pool->Allocate({localLayout});
+        auto rsg = std::make_shared<ResourceGroup>();
+        rsg->Init(localLayout, *pool);
+        return rsg;
     }
 
 } // namespace sky

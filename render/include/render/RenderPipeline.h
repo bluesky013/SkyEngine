@@ -14,7 +14,7 @@ namespace sky {
     class RenderPipeline {
     public:
         RenderPipeline();
-        virtual ~RenderPipeline() = default;
+        virtual ~RenderPipeline();
 
         virtual void OnSetup(rdg::RenderGraph &rdg) = 0;
 

@@ -74,6 +74,7 @@ namespace sky::rdg {
                 [&](const auto &) {}
             }, Tag(res, rdg.resourceGraph));
         }
+        rsg.Update();
     }
 
     void RenderResourceCompiler::Compile(Vertex u, RasterPass &rasterPass)

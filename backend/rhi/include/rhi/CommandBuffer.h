@@ -45,9 +45,10 @@ namespace sky::rhi {
         virtual GraphicsEncoder &DrawLinear(const CmdDrawLinear &linear) = 0;
         virtual GraphicsEncoder &DrawIndexedIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride) = 0;
         virtual GraphicsEncoder &DrawIndirect(const BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride) = 0;
-        virtual GraphicsEncoder &BindSet(uint32_t id, const DescriptorSetPtr &set) = 0;
         virtual GraphicsEncoder &NextSubPass() = 0;
         virtual GraphicsEncoder &EndPass() = 0;
+        virtual GraphicsEncoder &BindSet(uint32_t id, const DescriptorSetPtr &set) = 0;
+        virtual GraphicsEncoder &SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset) { return *this; }
     };
 
     class BlitEncoder {

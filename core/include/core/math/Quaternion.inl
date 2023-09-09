@@ -23,6 +23,7 @@ namespace sky {
         y = tmp.y;
         z = tmp.z;
         w = c;
+        tmp.Normalize();
     }
 
     inline void Quaternion::Normalize()

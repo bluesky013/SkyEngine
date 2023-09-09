@@ -198,45 +198,56 @@ namespace sky::vk {
 
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index)
     {
-        auto &indices = layout->GetUpdateTemplate().indices;
+        const auto &indices = layout->GetUpdateTemplate().indices;
         auto iter = indices.find(binding);
         SKY_ASSERT(iter != indices.end());
 
         auto vkBufferView = std::static_pointer_cast<BufferView>(view);
         auto &writeInfo = writeInfos[iter->second + index];
-        auto &viewInfo = vkBufferView->GetViewDesc();
-        writeInfo.bufferView = vkBufferView->GetNativeHandle();
-        writeInfo.buffer.buffer = vkBufferView->GetBuffer()->GetNativeHandle();
-        writeInfo.buffer.range = viewInfo.range;
-        writeInfo.buffer.offset = viewInfo.offset;
-        dirty = true;
+        const auto &viewInfo = vkBufferView->GetViewDesc();
+        if (writeInfo.bufferView != vkBufferView->GetNativeHandle() ||
+            writeInfo.buffer.buffer != vkBufferView->GetBuffer()->GetNativeHandle() ||
+            writeInfo.buffer.offset != viewInfo.offset ||
+            writeInfo.buffer.range != viewInfo.range) {
+            writeInfo.bufferView    = vkBufferView->GetNativeHandle();
+            writeInfo.buffer.buffer = vkBufferView->GetBuffer()->GetNativeHandle();
+            writeInfo.buffer.range  = viewInfo.range;
+            writeInfo.buffer.offset = viewInfo.offset;
+
+            dirty = true;
+        }
     }
 
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index)
     {
-        auto &indices = layout->GetUpdateTemplate().indices;
+        const auto &indices = layout->GetUpdateTemplate().indices;
         auto iter = indices.find(binding);
         SKY_ASSERT(iter != indices.end());
 
         auto vkBuffer = std::static_pointer_cast<Buffer>(buffer);
         auto &writeInfo = writeInfos[iter->second + index];
         writeInfo.bufferView = VK_NULL_HANDLE;
-        writeInfo.buffer.buffer = vkBuffer->GetNativeHandle();
-        writeInfo.buffer.range = size;
-        writeInfo.buffer.offset = offset;
-        dirty = true;
+        if (writeInfo.buffer.buffer != vkBuffer->GetNativeHandle() ||
+            writeInfo.buffer.offset != offset ||
+            writeInfo.buffer.range != size) {
+            writeInfo.buffer.buffer = vkBuffer->GetNativeHandle();
+            writeInfo.buffer.range  = size;
+            writeInfo.buffer.offset = offset;
+
+            dirty = true;
+        }
     }
 
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
     {
-        auto &table      = layout->GetDescriptorTable();
-        auto &indices = layout->GetUpdateTemplate().indices;
+        const auto &table      = layout->GetDescriptorTable();
+        const auto &indices = layout->GetUpdateTemplate().indices;
         auto iter = indices.find(binding);
         SKY_ASSERT(iter != indices.end());
 
         auto vkImageView = std::static_pointer_cast<ImageView>(view);
         auto &writeInfo = writeInfos[iter->second + index];
-        auto &viewInfo = vkImageView->GetSubRange();
+        const auto &viewInfo = vkImageView->GetSubRange();
         writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
 
@@ -263,7 +274,7 @@ namespace sky::vk {
 
     void DescriptorSet::BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index)
     {
-        auto &indices = layout->GetUpdateTemplate().indices;
+        const auto &indices = layout->GetUpdateTemplate().indices;
         auto iter = indices.find(binding);
         SKY_ASSERT(iter != indices.end());
 
@@ -279,7 +290,7 @@ namespace sky::vk {
             return;
         }
 
-        auto &updateTemplate = layout->GetUpdateTemplate();
+        const auto &updateTemplate = layout->GetUpdateTemplate();
         if (updateTemplate.handle == VK_NULL_HANDLE) {
             vkUpdateDescriptorSets(device.GetNativeHandle(), static_cast<uint32_t>(writeEntries.size()), writeEntries.data(), 0, nullptr);
         } else {

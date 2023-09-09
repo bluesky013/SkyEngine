@@ -632,6 +632,12 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset)
+    {
+        currentBinder.SetOffset(set, binding, index, offset);
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::NextSubPass()
     {
         vkCmdNextSubpass(cmd, VK_SUBPASS_CONTENTS_INLINE);

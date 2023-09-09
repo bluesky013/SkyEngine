@@ -49,7 +49,6 @@ namespace sky {
     {
         auto res = layout->GetBindingByeName(key);
         if (res.first) {
-            const auto &rhiBuffer = buffer->GetRHIBuffer();
             set->BindBuffer(res.second, buffer->GetRHIBuffer(), 0, buffer->GetRange(), index);
             dynamicUBOS.emplace_back(res.second, buffer);
         }
@@ -68,9 +67,12 @@ namespace sky {
         }
     }
 
-    void ResourceGroup::OnBind(rhi::GraphicsEncoder& encoder, uint32_t index)
+    void ResourceGroup::OnBind(rhi::GraphicsEncoder& encoder, uint32_t setID)
     {
-        encoder.BindSet(index, set);
+        encoder.BindSet(setID, set);
+        for (auto &dyn : dynamicUBOS) {
+            encoder.SetOffset(setID,  dyn.first, 0, dyn.second->GetOffset());
+        }
     }
 
     void ResourceGroup::OnBind(rhi::ComputeEncoder& encoder, uint32_t index)

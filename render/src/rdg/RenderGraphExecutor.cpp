@@ -69,7 +69,7 @@ namespace sky::rdg {
 
     [[maybe_unused]] void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g)
     {
-        auto &mainCommandBuffer = graph.context->MainCommandBuffer();
+        const auto &mainCommandBuffer = graph.context->MainCommandBuffer();
         std::visit(Overloaded{
             [&](const RasterPassTag &) {
                 auto &raster = graph.rasterPasses[Index(u, graph)];
@@ -115,9 +115,18 @@ namespace sky::rdg {
                     auto &tech = item.primitive->techniques[item.techIndex];
 
                     currentEncoder->BindPipeline(tech.pso);
-                    currentEncoder->BindSet(0, item.primitive->passSet ? item.primitive->passSet : queue.resourceGroup->GetRHISet());
-                    currentEncoder->BindSet(1, item.primitive->batchSet ? item.primitive->batchSet : graph.context->emptySet);
-                    currentEncoder->BindSet(2, item.primitive->instanceSet ? item.primitive->instanceSet : nullptr);
+
+                    queue.resourceGroup->OnBind(*currentEncoder, 0);
+                    if (item.primitive->batchSet) {
+                        item.primitive->batchSet->OnBind(*currentEncoder, 1);
+                    } else {
+                        graph.context->emptySet->OnBind(*currentEncoder, 1);
+                    }
+
+                    if (item.primitive->instanceSet) {
+                        item.primitive->instanceSet->OnBind(*currentEncoder, 2);
+                    }
+
                     currentEncoder->BindAssembly(item.primitive->va);
                     std::visit(Overloaded{
                         [&](const rhi::CmdDrawLinear &v) {

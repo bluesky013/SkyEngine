@@ -14,8 +14,18 @@ namespace sky {
     {
     }
 
+    RenderScene::~RenderScene()
+    {
+        pipeline = nullptr;
+        features.clear();
+    }
+
     void RenderScene::PreTick(float time)
     {
+        for (auto &view : sceneViews) {
+            view->Update();
+        }
+
         if (pipeline != nullptr) {
             pipeline->FrameSync();
         }

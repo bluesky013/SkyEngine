@@ -26,8 +26,8 @@ namespace sky {
         primitive = std::make_unique<RenderPrimitive>();
         primitive->techniques.resize(1);
         primitive->techniques[0].vertexDesc = geomFeature->GetVertexDesc();
-        primitive->instanceSet = geomFeature->RequestSet();
-        primitive->instanceSet->BindBuffer(0, ubo->GetRHIBuffer(), 0, sizeof(InstanceLocal), 0);
+        primitive->instanceSet = geomFeature->RequestResourceGroup();
+        primitive->instanceSet->BindDynamicUBO("ObjectInfo", ubo, 0);
         primitive->instanceSet->Update();
 
         ResetPrimitive(geomFeature->GetDefaultTech());

@@ -5,7 +5,7 @@
 #pragma once
 
 namespace sky::rdg {
-    class RenderGraph;
+    struct RenderGraph;
 
     struct RenderGraphUploader {
         explicit RenderGraphUploader(RenderGraph &g) : rdg(g) {}

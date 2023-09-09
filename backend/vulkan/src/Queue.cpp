@@ -90,6 +90,7 @@ namespace sky::vk {
             const auto &imageInfo = vkImage->GetImageInfo();
             const auto &formatInfo  = vkImage->GetFormatInfo();
 
+            fences[currentFrameId]->Reset();
             inflightCommands[currentFrameId]->Begin();
             VkImageSubresourceRange subResourceRange = {};
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -147,6 +148,7 @@ namespace sky::vk {
                 }
             }
 
+            fences[currentFrameId]->Reset();
             inflightCommands[currentFrameId]->Begin();
             barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
             barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -168,7 +170,7 @@ namespace sky::vk {
             auto vkBuffer = std::static_pointer_cast<Buffer>(buffer);
 
             for (auto &request : requests) {
-                uint32_t copyNum = static_cast<uint32_t>(std::ceil(request.size / static_cast<double>(BLOCK_SIZE)));
+                auto copyNum = static_cast<uint32_t>(std::ceil(request.size / static_cast<double>(BLOCK_SIZE)));
                 uint64_t size = request.size;
                 uint64_t dstOffset = 0;
 

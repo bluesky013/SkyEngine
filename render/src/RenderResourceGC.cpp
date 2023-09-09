@@ -6,6 +6,11 @@
 
 namespace sky {
 
+    RenderResourceGC::~RenderResourceGC()
+    {
+        Clear();
+    }
+
     void RenderResourceGC::CollectBuffer(const rhi::BufferPtr &buffer)
     {
         buffers.emplace_back(buffer);

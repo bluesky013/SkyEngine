@@ -43,8 +43,8 @@ namespace sky {
         void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index);
         void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
 
-        void OnBind(rhi::GraphicsEncoder& encoder, uint32_t index);
-        void OnBind(rhi::ComputeEncoder& encoder, uint32_t index);
+        void OnBind(rhi::GraphicsEncoder& encoder, uint32_t setID);
+        void OnBind(rhi::ComputeEncoder& encoder, uint32_t setID);
 
         const RDResourceLayoutPtr &GetLayout() const { return layout; }
         const rhi::DescriptorSetPtr &GetRHISet() const { return set; }

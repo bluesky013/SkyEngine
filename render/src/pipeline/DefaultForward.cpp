@@ -35,7 +35,7 @@ namespace sky {
 
         auto &rg = rdg.resourceGraph;
 
-        auto &views = rdg.scene->GetSceneViews();
+        const auto &views = rdg.scene->GetSceneViews();
         if (views.empty()) {
             return;
         }

@@ -19,6 +19,10 @@ namespace sky {
     {
         device->WaitIdle();
         defaultRHIResource.Reset();
+        features.clear();
+        scenes.clear();
+        windows.clear();
+        delayReleaseCollections.clear();
     }
 
     void Renderer::Init()

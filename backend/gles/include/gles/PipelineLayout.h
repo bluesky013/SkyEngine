@@ -13,11 +13,15 @@ namespace sky::gles {
 
     class PipelineLayout : public rhi::PipelineLayout, public DevObject {
     public:
-        PipelineLayout(Device &dev) : DevObject(dev) {}
-        ~PipelineLayout() = default;
+        explicit PipelineLayout(Device &dev) : DevObject(dev) {}
+        ~PipelineLayout() override = default;
 
         bool Init(const Descriptor &desc);
         const std::vector<DescriptorSetLayoutPtr> &GetLayouts() const { return layouts; }
+        rhi::DescriptorSetLayoutPtr GetSetLayout(uint32_t set) const override
+        {
+            return std::static_pointer_cast<DescriptorSetLayout>(layouts[set]);
+        }
 
     private:
         std::vector<DescriptorSetLayoutPtr> layouts;

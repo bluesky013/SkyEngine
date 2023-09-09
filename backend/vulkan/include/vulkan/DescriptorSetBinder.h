@@ -15,13 +15,10 @@ namespace sky::vk {
         ~DescriptorSetBinder() = default;
 
         void SetPipelineLayout(const PipelineLayoutPtr &layout);
-
         void SetBindPoint(VkPipelineBindPoint bindPoint);
 
         void OnBind(VkCommandBuffer) const;
-
         void BindSet(uint32_t slot, const DescriptorSetPtr &set);
-
         void SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset);
 
     private:

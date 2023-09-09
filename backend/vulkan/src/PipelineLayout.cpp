@@ -14,17 +14,14 @@ namespace sky::vk {
     {
     }
 
-    PipelineLayout::~PipelineLayout()
-    {
-    }
-
     bool PipelineLayout::Init(const Descriptor &des)
     {
         hash = 0;
         std::vector<VkDescriptorSetLayout> layouts;
-        for (auto &layout : des.layouts) {
-            desLayouts.emplace_back(std::static_pointer_cast<DescriptorSetLayout>(layout));
+        for (const auto &desLayout : des.layouts) {
+            desLayouts.emplace_back(std::static_pointer_cast<DescriptorSetLayout>(desLayout));
             layouts.emplace_back(desLayouts.back()->GetNativeHandle());
+            dynamicNum += desLayouts.back()->GetDynamicNum();
             HashCombine32(hash, desLayouts.back()->GetHash());
         }
 
@@ -36,10 +33,7 @@ namespace sky::vk {
         pipelineLayoutCreateInfo.pPushConstantRanges        = nullptr;
 
         layout = device.GetPipelineLayout(hash, &pipelineLayoutCreateInfo);
-        if (layout == VK_NULL_HANDLE) {
-            return false;
-        }
-        return true;
+        return layout != VK_NULL_HANDLE;
     }
 
     bool PipelineLayout::Init(const VkDescriptor &des)
@@ -48,14 +42,14 @@ namespace sky::vk {
         pushConstants = des.pushConstants;
         std::vector<VkDescriptorSetLayout> layouts(des.desLayouts.size());
         for (uint32_t i = 0; i < des.desLayouts.size(); ++i) {
-            auto layout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);
-            HashCombine32(hash, layout->GetHash());
-            desLayouts[i] = layout;
-            layouts[i]    = layout->GetNativeHandle();
-            dynamicNum += layout->GetDynamicNum();
+            auto desLayout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);
+            HashCombine32(hash, desLayout->GetHash());
+            desLayouts[i] = desLayout;
+            layouts[i]    = desLayout->GetNativeHandle();
+            dynamicNum += desLayout->GetDynamicNum();
         }
 
-        for (auto &push : des.pushConstants) {
+        for (const auto &push : des.pushConstants) {
             HashCombine32(hash, Crc32::Cal(push));
         }
 
@@ -67,10 +61,7 @@ namespace sky::vk {
         pipelineLayoutCreateInfo.pPushConstantRanges        = des.pushConstants.data();
 
         layout = device.GetPipelineLayout(hash, &pipelineLayoutCreateInfo);
-        if (layout == VK_NULL_HANDLE) {
-            return false;
-        }
-        return true;
+        return layout != VK_NULL_HANDLE;
     }
 
     DescriptorSetLayoutPtr PipelineLayout::GetLayout(uint32_t slot) const

@@ -100,13 +100,15 @@ namespace sky::vk {
             return false;
         }
 
-        VkDescriptorUpdateTemplateCreateInfo templateInfo{};
-        templateInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
-        templateInfo.descriptorUpdateEntryCount = static_cast<uint32_t>(entries.size());
-        templateInfo.pDescriptorUpdateEntries   = entries.data();
-        templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
-        templateInfo.descriptorSetLayout        = layout;
-        vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
+        if (!entries.empty()) {
+            VkDescriptorUpdateTemplateCreateInfo templateInfo{};
+            templateInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
+            templateInfo.descriptorUpdateEntryCount = static_cast<uint32_t>(entries.size());
+            templateInfo.pDescriptorUpdateEntries   = entries.data();
+            templateInfo.templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
+            templateInfo.descriptorSetLayout        = layout;
+            vkCreateDescriptorUpdateTemplate(device.GetNativeHandle(), &templateInfo, VKL_ALLOC, &updateTemplate.handle);
+        }
 
         return true;
     }

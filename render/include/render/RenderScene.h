@@ -44,7 +44,7 @@ namespace sky {
     private:
         friend class Renderer;
         RenderScene();
-        ~RenderScene() = default;
+        ~RenderScene();
 
         PmrUnSyncPoolRes resources;
 

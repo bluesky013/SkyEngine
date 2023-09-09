@@ -9,6 +9,7 @@
 #include <rhi/CommandBuffer.h>
 #include <render/rdg/TransientPool.h>
 #include <render/rdg/RenderGraphTypes.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky::rhi {
     class Device;
@@ -33,7 +34,7 @@ namespace sky::rdg {
         rhi::Queue *transferQueue = nullptr;
 
         uint32_t frameIndex = 0;
-        rhi::DescriptorSetPtr emptySet;
+        RDResourceGroupPtr emptySet;
         std::vector<rhi::FencePtr> fences;
         std::vector<rhi::CommandBufferPtr> commandBuffers;
         std::vector<rhi::SemaphorePtr> renderFinishSemaphores;

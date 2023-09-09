@@ -20,13 +20,20 @@
 
 namespace sky {
 
+    RenderPipeline::~RenderPipeline()
+    {
+        rdgContext->device->WaitIdle();
+    }
+
     RenderPipeline::RenderPipeline()
     {
+        const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
+
         rdgContext = std::make_unique<rdg::RenderGraphContext>();
         rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
         rdgContext->pool->Init();
         rdgContext->device = RHI::Get()->GetDevice();
-        rdgContext->emptySet = Renderer::Get()->GetDefaultRHIResource().emptySet;
+        rdgContext->emptySet = defaultRes.emptySet;
 
         frameIndex = 0;
         inflightFrameCount = Renderer::Get()->GetInflightFrameCount();
@@ -78,7 +85,7 @@ namespace sky {
             sceneVisitor.BuildRenderQueue();
         }
 
-        auto &commandBuffer = rdgContext->MainCommandBuffer();
+        const auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
             commandBuffer->Begin();

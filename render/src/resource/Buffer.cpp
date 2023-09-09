@@ -82,7 +82,7 @@ namespace sky {
     bool DynamicUniformBuffer::Init(uint32_t size, uint32_t inflightCount)
     {
         frameSize = size;
-        auto alignedFrameSize = Align(size, device->GetLimitations().minUniformBufferOffsetAlignment);
+        alignedFrameSize = Align(size, device->GetLimitations().minUniformBufferOffsetAlignment);
 
         Buffer::Init(alignedFrameSize * inflightCount, rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
 

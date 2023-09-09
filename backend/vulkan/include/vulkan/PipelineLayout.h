@@ -19,7 +19,7 @@ namespace sky::vk {
 
     class PipelineLayout : public rhi::PipelineLayout, public DevObject {
     public:
-        ~PipelineLayout();
+        ~PipelineLayout() override = default;
 
         struct VkDescriptor {
             std::vector<DescriptorSetLayout::VkDescriptor> desLayouts;
@@ -39,7 +39,7 @@ namespace sky::vk {
         const std::vector<VkPushConstantRange> &GetConstantRanges() const { return pushConstants; }
     private:
         friend class Device;
-        PipelineLayout(Device &);
+        explicit PipelineLayout(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

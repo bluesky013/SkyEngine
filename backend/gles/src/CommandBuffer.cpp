@@ -144,6 +144,11 @@ namespace sky::gles {
         return *this;
     }
 
+    rhi::BlitEncoder &BlitEncoder::CopyBuffer(const rhi::BufferPtr &src, const rhi::BufferPtr &dst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
+    {
+        return *this;
+    }
+
     void CommandBuffer::Reset()
     {
         for (auto &storage : storages) {

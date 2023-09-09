@@ -8,12 +8,13 @@
 #include <rhi/Device.h>
 #include <render/resource/Material.h>
 #include <render/resource/Technique.h>
+#include <render/resource/ResourceGroup.h>
 #include <render/RenderPackage.h>
 
 namespace sky {
 
     struct TechniqueInstance {
-        std::string programKey = "";
+        std::string programKey;
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::VertexInputPtr vertexDesc;
@@ -26,9 +27,8 @@ namespace sky {
         uint32_t sortKey = 0;
         AABB boundingBox {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
 
-        rhi::DescriptorSetPtr passSet; // custom per pass set.
-        rhi::DescriptorSetPtr batchSet;
-        rhi::DescriptorSetPtr instanceSet;
+        RDResourceGroupPtr batchSet;
+        RDResourceGroupPtr instanceSet;
 
         rhi::VertexAssemblyPtr va;
         rhi::BufferPtr indirectBuffer;

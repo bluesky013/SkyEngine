@@ -52,6 +52,7 @@ namespace sky::gles {
         DescriptorSetLayoutPtr layout;
 
         std::vector<SetDescriptor> descriptors;
+        bool dirty = true;
     };
     using DescriptorSetPtr = std::shared_ptr<DescriptorSet>;
 }

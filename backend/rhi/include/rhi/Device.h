@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <array>
 #include <rhi/Swapchain.h>
 #include <rhi/Image.h>
 #include <rhi/RenderPass.h>
@@ -84,9 +85,9 @@ namespace sky::rhi {
 
         const DeviceFeature &GetFeatures() const { return enabledFeature; }
         const Limitation &GetLimitations() const { return limitation; }
-        bool CheckFormatFeature(PixelFormat format, PixelFormatFeatureFlags flag)
+        bool CheckFormatFeature(PixelFormat format, const PixelFormatFeatureFlags& flags) const
         {
-            return (formatFeatures[static_cast<uint32_t>(format)].optimalFeature & flag) == flag;
+            return (formatFeatures[static_cast<uint32_t>(format)].optimalFeature & flags) == flags;
         }
 
     protected:

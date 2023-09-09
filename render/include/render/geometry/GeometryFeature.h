@@ -6,6 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <render/resource/Technique.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky {
 
@@ -17,12 +18,12 @@ namespace sky {
         void Init(const RDGfxTechPtr &tech);
         const RDGfxTechPtr &GetDefaultTech() const { return technique; }
         const rhi::VertexInputPtr &GetVertexDesc() const { return vertexDesc; }
-        rhi::DescriptorSetPtr RequestSet() const;
+        RDResourceGroupPtr RequestResourceGroup();
 
     private:
         RDGfxTechPtr technique;
+        RDResourceLayoutPtr localLayout;
         rhi::VertexInputPtr vertexDesc;
-        rhi::DescriptorSetLayoutPtr localLayout;
         rhi::DescriptorSetPoolPtr pool;
     };
 

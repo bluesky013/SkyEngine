@@ -62,9 +62,11 @@ namespace sky {
         void Upload();
         void Upload(rhi::BlitEncoder &encoder) override;
 
+        uint32_t GetOffset() const { return frameIndex * alignedFrameSize; }
         uint64_t GetRange() const override { return frameSize; }
     private:
         uint32_t frameSize = 0;
+        uint32_t alignedFrameSize;
         uint32_t frameIndex = 0;
         uint32_t inflightCount = 1;
     };

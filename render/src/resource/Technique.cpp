@@ -70,6 +70,10 @@ namespace sky {
         descriptor.vs = shaders[0]->GetShader();
         descriptor.fs = shaders[1]->GetShader();
 
+        if (descriptor.state.blendStates.empty()) {
+            descriptor.state.blendStates.resize(pass->GetColors().size());
+        }
+
         return RHI::Get()->GetDevice()->CreateGraphicsPipeline(descriptor);
     }
 } // namespace sky

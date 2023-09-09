@@ -52,6 +52,11 @@ namespace sky {
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
+#if _DEBUG
+        rhiDesc.enableDebugLayer = true;
+#else
+        rhiDesc.enableDebugLayer = false;
+#endif
         rhiDesc.api = rhi::GetApiByString(reg.VisitString("rhi"));
 
         // init rhi

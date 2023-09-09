@@ -17,8 +17,13 @@ namespace sky {
     {
         auto *device = RHI::Get()->GetDevice();
         defaultPool = device->CreateDescriptorSetPool({1});
-        emptyDesLayout = device->CreateDescriptorSetLayout({});
-        emptySet = defaultPool->Allocate({emptyDesLayout});
+        auto emptyRHIDesLayout = device->CreateDescriptorSetLayout({});
+        emptyDesLayout = std::make_shared<ResourceGroupLayout>();
+        emptyDesLayout->SetRHILayout(emptyRHIDesLayout);
+
+        emptySet = std::make_shared<ResourceGroup>();
+        emptySet->Init(emptyDesLayout, *defaultPool);
+
         defaultSampler = device->CreateSampler({});
 
         rhi::Image::Descriptor imageDesc = {};
@@ -48,21 +53,21 @@ namespace sky {
             taskHandle = queue->UploadImage(image, request);
         }
 
-//        {
-//            rhi::ImageViewDesc viewDesc = {};
-//            imageDesc.arrayLayers = 6;
-//            viewDesc.subRange.layers = 6;
-//            viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
-//
-//            auto image = device->CreateImage(imageDesc);
-//            textureCube = image->CreateView(viewDesc);
-//            std::vector<rhi::ImageUploadRequest> requests;
-//            for (uint32_t i = 0; i < 6; ++i) {
-//                request.layer = i;
-//                requests.emplace_back(request);
-//            }
-//            taskHandle = queue->UploadImage(image, requests);
-//        }
+        {
+            rhi::ImageViewDesc viewDesc = {};
+            imageDesc.arrayLayers = 6;
+            viewDesc.subRange.layers = 6;
+            viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
+
+            auto image = device->CreateImage(imageDesc);
+            textureCube = image->CreateView(viewDesc);
+            std::vector<rhi::ImageUploadRequest> requests;
+            for (uint32_t i = 0; i < 6; ++i) {
+                request.layer = i;
+                requests.emplace_back(request);
+            }
+            taskHandle = queue->UploadImage(image, requests);
+        }
 
         queue->Wait(taskHandle);
     }
@@ -71,6 +76,7 @@ namespace sky {
     {
         defaultPool = nullptr;
         emptyDesLayout = nullptr;
+        emptySet = nullptr;
         defaultSampler = nullptr;
 
         texture2D = nullptr;

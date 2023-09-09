@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Device.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky {
 
@@ -13,8 +14,9 @@ namespace sky {
         void Reset();
 
         rhi::DescriptorSetPoolPtr defaultPool;
-        rhi::DescriptorSetPtr emptySet;
-        rhi::DescriptorSetLayoutPtr emptyDesLayout;
+        RDResourceLayoutPtr emptyDesLayout;
+        RDResourceGroupPtr emptySet;
+
         rhi::SamplerPtr defaultSampler;
         rhi::ImageViewPtr texture2D;
         rhi::ImageViewPtr textureCube;

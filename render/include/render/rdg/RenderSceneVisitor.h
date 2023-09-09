@@ -7,7 +7,7 @@
 #include <boost/graph/graph_traits.hpp>
 
 namespace sky::rdg {
-    class RenderGraph;
+    struct RenderGraph;
 
     struct RenderSceneVisitor{
         explicit RenderSceneVisitor(RenderGraph &g) : graph(g) {}

@@ -10,8 +10,8 @@ namespace sky {
 
     static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
     {
-        if (type == rhi::DescriptorType::UNIFORM_BUFFER) return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;
-        if (type == rhi::DescriptorType::STORAGE_BUFFER) return rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;
+        if (type == rhi::DescriptorType::UNIFORM_BUFFER) { return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;}
+        if (type == rhi::DescriptorType::STORAGE_BUFFER) { return rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;}
         return type;
     }
 
@@ -80,7 +80,7 @@ namespace sky {
         rhi::PipelineLayout::Descriptor plDesc = {};
         for (auto &desc : layoutDesc) {
             if (desc.bindings.empty()) {
-                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout);
+                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout->GetRHILayout());
             } else {
                 plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
             }
