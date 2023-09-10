@@ -23,13 +23,7 @@ namespace sky {
         {
             geometry = std::make_unique<GeometryRenderer>();
             geometry->Init();
-            geometry->DrawQuad(Quad{
-                Vector3{-1, -1, 0},
-                Vector3{ 1, -1, 0},
-                Vector3{ 1,  1, 0},
-                Vector3{-1,  1, 0},
-            });
-//            geometry->DrawAABB(AABB{{-1.f, -1.f, -1.f}, {1.f, 1.f, 1.f}});
+            geometry->DrawAABB(AABB{{-1.f, -1.f, -1.f}, {1.f, 1.f, 1.f}});
             geometry->Upload();
 
             auto *scene = GetRenderSceneFromGameObject(object);

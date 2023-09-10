@@ -151,6 +151,11 @@ namespace sky::vk {
         }
     }
 
+    void Device::UpdateConstants()
+    {
+        constants.flipY = true;
+    }
+
     bool Device::Init(const Descriptor &des, bool enableDebug)
     {
         auto *vkInstance = instance.GetInstance();
@@ -230,6 +235,7 @@ namespace sky::vk {
         ValidateFeature(des.feature, extensions);
         UpdateDeviceLimits();
         UpdateFormatFeatures();
+        UpdateConstants();
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

@@ -6,6 +6,7 @@
 
 #include <core/math/Color.h>
 #include <core/math/Vector3.h>
+#include <core/math/Vector4.h>
 #include <core/shapes/Shapes.h>
 #include <render/RenderPrimitive.h>
 #include <render/resource/Technique.h>
@@ -48,6 +49,7 @@ namespace sky {
         RDGfxTechPtr technique;
 
         Color currentColor = Color{1.f, 1.f, 1.f, 1.f};
+        Vector4 currentCenter = VEC4_ZERO;
 
         uint32_t currentVertex = 0;
         uint32_t vertexCapacity = 0;

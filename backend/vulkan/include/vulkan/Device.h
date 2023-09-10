@@ -118,6 +118,7 @@ namespace sky::vk {
         void ValidateFeature(const rhi::DeviceFeature &feature, std::vector<const char*> &outExtensions);
         void UpdateDeviceLimits();
         void UpdateFormatFeatures();
+        void UpdateConstants();
 
         bool FillMemoryRequirements(VkMemoryRequirements2               &requirements,
                                     const VkMemoryDedicatedRequirements &dedicated,

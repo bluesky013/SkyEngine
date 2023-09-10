@@ -46,6 +46,7 @@ namespace sky {
     void GeometryRenderer::UpdateTransform(const Matrix4 &matrix)
     {
         ubo->Write(0, matrix);
+        ubo->Write(sizeof(Matrix4), matrix.InverseTranspose());
         ubo->Upload();
     }
 
@@ -106,12 +107,13 @@ namespace sky {
     GeometryRenderer &GeometryRenderer::DrawAABB(const AABB &aabb)
     {
         //
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        currentColor = Color(1.f, 0.f, 0.f, 1.f);
         AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
         AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
 
         AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
         AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
@@ -121,33 +123,35 @@ namespace sky {
         AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
 
         //
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        currentColor = Color(0.f, 1.f, 0.f, 1.f);
         AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
         AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
         AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
 
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
         AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
         AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
 
         //
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        currentColor = Color(0.f, 0.f, 1.f, 1.f);
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
 
         AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
         AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
         AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
 
         args.vertexCount += 36;
@@ -167,7 +171,8 @@ namespace sky {
             ResizeVertex(vertexCapacity * 2);
             needRebuildVA = true;
         }
-        batchVertices[currentVertex++] = vtx;
+        batchVertices[currentVertex] = vtx;
+        batchVertices[currentVertex++].position += currentCenter;
     }
 
     void GeometryRenderer::BuildVertexAssembly()

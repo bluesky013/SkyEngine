@@ -86,5 +86,17 @@ namespace sky {
             .Member<&rhi::DepthStencil::maxDepth>("maxDepth")
             .Member<&rhi::DepthStencil::front>("front")
             .Member<&rhi::DepthStencil::back>("back");
+
+        context->Register<rhi::RasterState>("RHI_RasterState")
+            .Member<&rhi::RasterState::depthClampEnable       >("depthClampEnable")
+            .Member<&rhi::RasterState::rasterizerDiscardEnable>("rasterizerDiscardEnable")
+            .Member<&rhi::RasterState::depthBiasEnable        >("depthBiasEnable")
+            .Member<&rhi::RasterState::depthBiasConstantFactor>("depthBiasConstantFactor")
+            .Member<&rhi::RasterState::depthBiasClamp         >("depthBiasClamp")
+            .Member<&rhi::RasterState::depthBiasSlopeFactor   >("depthBiasSlopeFactor")
+            .Member<&rhi::RasterState::lineWidth              >("lineWidth")
+            .Member<&rhi::RasterState::cullMode               >("cullMode")
+            .Member<&rhi::RasterState::frontFace              >("frontFace")
+            .Member<&rhi::RasterState::polygonMode            >("polygonMode");
     }
 } // namespace sky

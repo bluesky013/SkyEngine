@@ -33,7 +33,12 @@ namespace sky {
 
     void SceneView::SetProjective(float near, float far, float fov, float aspect, uint32_t index)
     {
-        viewInfo[index].projectMatrix = MakePerspective(fov, aspect, near, far);
+        Matrix4 p = Matrix4::Identity();
+        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY ? -1.f : 1.f;
+        p[2][2] = 0.5f;
+        p[3][2] = 0.5f;
+
+        viewInfo[index].projectMatrix = p * MakePerspective(fov, aspect, near, far);
         dirty = true;
     }
 

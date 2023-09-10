@@ -20,9 +20,9 @@ namespace sky {
             };
         };
 
-        inline Vector4();
-        inline explicit Vector4(float v);
-        inline Vector4(float x_, float y_, float z_, float w_);
+        inline constexpr Vector4();
+        inline constexpr Vector4(float v);
+        inline constexpr Vector4(float x_, float y_, float z_, float w_);
 
         inline void Normalize();
         inline float Dot(const Vector4 &rhs) const;
@@ -51,3 +51,8 @@ namespace sky {
 }
 
 #include "core/math/Vector4.inl"
+
+namespace sky {
+    static constexpr Vector4 VEC4_ZERO = Vector4();
+    static constexpr Vector4 VEC4_ONE = Vector4(1, 1, 1, 1);
+} // namespace sky

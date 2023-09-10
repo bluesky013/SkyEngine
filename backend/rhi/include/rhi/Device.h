@@ -52,6 +52,10 @@ namespace sky::rhi {
             uint32_t minUniformBufferOffsetAlignment = 256;
         };
 
+        struct Constants {
+            bool flipY = false;
+        };
+
         struct Descriptor {
             DeviceFeature feature;
         };
@@ -85,6 +89,7 @@ namespace sky::rhi {
 
         const DeviceFeature &GetFeatures() const { return enabledFeature; }
         const Limitation &GetLimitations() const { return limitation; }
+        const Constants &GetConstants() const { return constants; }
         bool CheckFormatFeature(PixelFormat format, const PixelFormatFeatureFlags& flags) const
         {
             return (formatFeatures[static_cast<uint32_t>(format)].optimalFeature & flags) == flags;
@@ -93,6 +98,7 @@ namespace sky::rhi {
     protected:
         DeviceFeature enabledFeature;
         Limitation limitation;
+        Constants constants;
         std::array<PixelFormatFeature, static_cast<uint32_t>(PixelFormat::MAX)> formatFeatures;
     };
 

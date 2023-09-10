@@ -20,6 +20,11 @@ namespace sky {
         archive.LoadValue(depthStencil.depthWrite);
         archive.LoadValue(depthStencil.depthTest);
         archive.LoadValue(depthStencil.stencilTest);
+
+        archive.LoadValue(rasterState.cullMode);
+        archive.LoadValue(rasterState.frontFace);
+        archive.LoadValue(rasterState.polygonMode);
+
         archive.LoadValue(passTag);
         archive.LoadValue(vertexDesc);
     }
@@ -34,6 +39,11 @@ namespace sky {
         archive.SaveValue(depthStencil.depthWrite);
         archive.SaveValue(depthStencil.depthTest);
         archive.SaveValue(depthStencil.stencilTest);
+
+        archive.SaveValue(rasterState.cullMode);
+        archive.SaveValue(rasterState.frontFace);
+        archive.SaveValue(rasterState.polygonMode);
+
         archive.SaveValue(passTag);
         archive.SaveValue(vertexDesc);
     }
