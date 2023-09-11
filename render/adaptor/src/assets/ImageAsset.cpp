@@ -13,6 +13,10 @@ namespace sky {
         archive.LoadValue(height);
         archive.LoadValue(mipLevels);
         archive.LoadValue(arrayLayers);
+
+        std::string idStr;
+        archive.LoadValue(idStr);
+        bufferAsset = AssetManager::Get()->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
     }
 
     void ImageAssetData::Save(BinaryOutputArchive &archive) const
@@ -22,10 +26,14 @@ namespace sky {
         archive.SaveValue(height);
         archive.SaveValue(mipLevels);
         archive.SaveValue(arrayLayers);
-        archive.SaveValue(static_cast<uint32_t>(rawData.size()));
-        for (const auto &data : rawData) {
-            archive.SaveValue(static_cast<uint32_t>(data.size()));
-            archive.SaveValue(reinterpret_cast<const char*>(data.data()), static_cast<uint32_t>(data.size()));
-        }
+        archive.SaveValue(bufferAsset ? bufferAsset->GetUuid().ToString() : Uuid().ToString());
+    }
+
+    std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data)
+    {
+        auto texture2D = std::make_shared<Texture2D>();
+        texture2D->Init(data.format, data.width, data.height, data.mipLevels);
+
+        return {};
     }
 } // namespace sky

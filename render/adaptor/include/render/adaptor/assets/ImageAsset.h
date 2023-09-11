@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Texture.h>
 #include <rhi/Core.h>
 #include <string>
@@ -20,17 +21,24 @@ namespace sky {
         uint32_t height      = 1;
         uint32_t mipLevels   = 1;
         uint32_t arrayLayers = 1;
-        std::vector<std::vector<uint8_t>> rawData;
+        BufferAssetPtr bufferAsset;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };
+
+    std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data);
 
     template <>
     struct AssetTraits<Texture> {
         using DataType                                = ImageAssetData;
         static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
+        static std::shared_ptr<Texture> CreateFromData(const DataType &data)
+        {
+            return CreateTexture(data);
+        }
     };
     using ImageAssetPtr = std::shared_ptr<Asset<Texture>>;
 }

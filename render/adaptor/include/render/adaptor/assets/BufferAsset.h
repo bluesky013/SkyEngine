@@ -15,7 +15,6 @@ namespace sky {
     class BinaryOutputArchive;
 
     struct BufferAssetData {
-        rhi::BufferUsageFlags usage;
         std::vector<std::vector<uint8_t>> rawData;
 
         void Load(BinaryInputArchive &archive);

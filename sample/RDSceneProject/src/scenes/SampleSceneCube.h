@@ -7,6 +7,7 @@
 #include <SampleScene.h>
 #include <framework/world/World.h>
 #include <framework/world/GameObject.h>
+#include <render/resource/Texture.h>
 
 namespace sky {
 
@@ -21,6 +22,7 @@ namespace sky {
     private:
         GameObject *cube = nullptr;
         GameObject *camera = nullptr;
+        RDTexturePtr texture;
     };
 
 } // namespace sky

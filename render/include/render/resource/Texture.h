@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Device.h>
+#include <fstream>
 
 namespace sky {
 
@@ -13,6 +14,7 @@ namespace sky {
         Texture();
         virtual ~Texture();
 
+        void Upload(std::fstream &stream);
         void Upload(uint8_t *ptr, uint32_t size);
 
     protected:

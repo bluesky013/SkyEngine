@@ -61,9 +61,9 @@ namespace sky {
 
     VertexDescLibrary *CreateVertexDescLibrary(const VertexDescLibraryAssetData &data)
     {
-        auto vtxLib = new VertexDescLibrary();
+        auto *vtxLib = new VertexDescLibrary();
         auto *device = RHI::Get()->GetDevice();
-        for (auto &[key, desc] : data.descriptions) {
+        for (const auto &[key, desc] : data.descriptions) {
             vtxLib->RegisterVertexDesc(key, device->CreateVertexInput(desc));
         }
         return vtxLib;

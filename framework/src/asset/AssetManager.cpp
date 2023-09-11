@@ -76,6 +76,7 @@ namespace sky {
             asset = assetHandler->CreateAsset();
             asset->SetUuid(uuid);
             asset->status = AssetBase::Status::LOADING;
+            asset->path = path;
             assetMap.emplace(uuid, asset);
         }
 

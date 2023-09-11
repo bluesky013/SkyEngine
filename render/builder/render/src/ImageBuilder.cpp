@@ -21,7 +21,9 @@ namespace sky::builder {
         if (!request.buildKey.empty() && request.buildKey != std::string(KEY)) {
             return;
         }
-        int x,y,n;
+        int x;
+        int y;
+        int n;
         unsigned char *data = stbi_load(request.fullPath.c_str(), &x, &y, &n, 0);
         if (data == nullptr) {
             return;
@@ -38,13 +40,26 @@ namespace sky::builder {
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
         imageData.format = n == 4 ? rhi::PixelFormat::RGBA8_UNORM : rhi::PixelFormat::RGB8_UNORM;
-        imageData.rawData.resize(1);
 
-        size_t size = x * y * n;
-        imageData.rawData[0].resize(size);
-        memcpy(imageData.rawData[0].data(), data, size);
+        outPath.replace_extension(".bin");
+        imageData.bufferAsset = am->CreateAsset<Buffer>(outPath.make_preferred().string());
+        auto &binaryData = imageData.bufferAsset->Data();
+
+        BufferImageInfo info = {};
+        info.width = imageData.width;
+        info.height = imageData.height;
+        info.stride = imageData.width * n;
+
+        CompressOption option = {};
+        option.quality = Quality::FAST;
+        option.targetFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
+
+        imageData.format = option.targetFormat;
+
+        CompressImage(data, info, binaryData.rawData, option);
 
         result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
+        am->SaveAsset(imageData.bufferAsset);
         am->SaveAsset(asset);
 
         stbi_image_free(data);

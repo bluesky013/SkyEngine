@@ -38,7 +38,7 @@ namespace sky {
     void MeshAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(static_cast<uint32_t>(vertexDescriptions.size()));
-        for (auto &vDesc : vertexDescriptions) {
+        for (const auto &vDesc : vertexDescriptions) {
             archive.SaveValue(vDesc.name);
             archive.SaveValue(vDesc.index);
             archive.SaveValue(vDesc.offset);
@@ -46,7 +46,7 @@ namespace sky {
         }
 
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));
-        for (auto &subMesh : subMeshes) {
+        for (const auto &subMesh : subMeshes) {
             archive.SaveValue(subMesh.firstVertex);
             archive.SaveValue(subMesh.vertexCount);
             archive.SaveValue(subMesh.firstIndex);
@@ -55,12 +55,12 @@ namespace sky {
         }
 
         archive.SaveValue(static_cast<uint32_t>(vertexBuffers.size()));
-        for (auto &vb : vertexBuffers) {
-            uint32_t size = static_cast<uint32_t>(vb.size());
+        for (const auto &vb : vertexBuffers) {
+            auto size = static_cast<uint32_t>(vb.size());
             archive.SaveValue(size);
             archive.SaveValue(reinterpret_cast<const char*>(vb.data()), size);
         }
-        uint32_t size = static_cast<uint32_t>(indexBuffer.size());
+        auto size = static_cast<uint32_t>(indexBuffer.size());
         archive.SaveValue(size);
         archive.SaveValue(reinterpret_cast<const char*>(indexBuffer.data()), size);
     }

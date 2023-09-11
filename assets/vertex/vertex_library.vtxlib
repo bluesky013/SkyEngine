@@ -18,6 +18,70 @@
                     }
                 ]
             },
+            "unlit": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 0,
+                        "offset": 16,
+                        "format": "F_RG32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 24,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
+            "standard": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 0,
+                        "offset": 16,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 2,
+                        "binding": 0,
+                        "offset": 32,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 3,
+                        "binding": 0,
+                        "offset": 48,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 4,
+                        "binding": 0,
+                        "offset": 64,
+                        "format": "F_RGBA32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 80,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
             "geometry": {
                 "attributes": [
                     {

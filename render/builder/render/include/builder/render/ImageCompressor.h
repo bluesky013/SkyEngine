@@ -32,5 +32,5 @@ namespace sky::builder {
     };
 
     void InitializeCompressor();
-    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, uint8_t *&out, const CompressOption &options);
+    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<std::vector<uint8_t>> &out, const CompressOption &options);
 } // namespace sky::builder

@@ -23,7 +23,7 @@ namespace sky::rhi {
     };
 
     template <typename T>
-    struct VectorProvider : public BufferProvider {
+    struct VectorProvider : public BufferStream {
         const uint8_t* GetData(uint64_t offset) const override
         {
             return reinterpret_cast<const uint8_t *>(data.data()) + offset;

@@ -33,25 +33,25 @@ using PFN_CompressBlocksASTC = void(*)(const rgba_surface* src, uint8_t* dst, as
 
 namespace sky::builder {
 
-    PFN_GetProfile_ultrafast       GetProfile_BC7_ultrafast       = nullptr;
-    PFN_GetProfile_veryfast        GetProfile_BC7_veryfast        = nullptr;
-    PFN_GetProfile_fast            GetProfile_BC7_fast            = nullptr;
-    PFN_GetProfile_basic           GetProfile_BC7_basic           = nullptr;
-    PFN_GetProfile_slow            GetProfile_BC7_slow            = nullptr;
-    PFN_GetProfile_alpha_ultrafast GetProfile_BC7_alpha_ultrafast = nullptr;
-    PFN_GetProfile_alpha_veryfast  GetProfile_BC7_alpha_veryfast  = nullptr;
-    PFN_GetProfile_alpha_fast      GetProfile_BC7_alpha_fast      = nullptr;
-    PFN_GetProfile_alpha_basic     GetProfile_BC7_alpha_basic     = nullptr;
-    PFN_GetProfile_alpha_slow      GetProfile_BC7_alpha_slow      = nullptr;
+    PFN_GetProfile_ultrafast       S_GetProfile_BC7_ultrafast       = nullptr;
+    PFN_GetProfile_veryfast        S_GetProfile_BC7_veryfast        = nullptr;
+    PFN_GetProfile_fast            S_GetProfile_BC7_fast            = nullptr;
+    PFN_GetProfile_basic           S_GetProfile_BC7_basic           = nullptr;
+    PFN_GetProfile_slow            S_GetProfile_BC7_slow            = nullptr;
+    PFN_GetProfile_alpha_ultrafast S_GetProfile_BC7_alpha_ultrafast = nullptr;
+    PFN_GetProfile_alpha_veryfast  S_GetProfile_BC7_alpha_veryfast  = nullptr;
+    PFN_GetProfile_alpha_fast      S_GetProfile_BC7_alpha_fast      = nullptr;
+    PFN_GetProfile_alpha_basic     S_GetProfile_BC7_alpha_basic     = nullptr;
+    PFN_GetProfile_alpha_slow      S_GetProfile_BC7_alpha_slow      = nullptr;
 
-    PFN_CompressBlocksBC1          CompressBlocksBC1  = nullptr;
-    PFN_CompressBlocksBC3          CompressBlocksBC3  = nullptr;
-    PFN_CompressBlocksBC4          CompressBlocksBC4  = nullptr;
-    PFN_CompressBlocksBC5          CompressBlocksBC5  = nullptr;
-    PFN_CompressBlocksBC6H         CompressBlocksBC6H = nullptr;
-    PFN_CompressBlocksBC7          CompressBlocksBC7  = nullptr;
-    PFN_CompressBlocksETC1         CompressBlocksETC1 = nullptr;
-    PFN_CompressBlocksASTC         CompressBlocksASTC = nullptr;
+    PFN_CompressBlocksBC1          S_CompressBlocksBC1  = nullptr;
+    PFN_CompressBlocksBC3          S_CompressBlocksBC3  = nullptr;
+    PFN_CompressBlocksBC4          S_CompressBlocksBC4  = nullptr;
+    PFN_CompressBlocksBC5          S_CompressBlocksBC5  = nullptr;
+    PFN_CompressBlocksBC6H         S_CompressBlocksBC6H = nullptr;
+    PFN_CompressBlocksBC7          S_CompressBlocksBC7  = nullptr;
+    PFN_CompressBlocksETC1         S_CompressBlocksETC1 = nullptr;
+    PFN_CompressBlocksASTC         S_CompressBlocksASTC = nullptr;
 
     std::unique_ptr<DynamicModule> ISPC_COMP_MODULE;
 
@@ -60,25 +60,25 @@ namespace sky::builder {
         if (!ISPC_COMP_MODULE) {
             ISPC_COMP_MODULE = std::make_unique<DynamicModule>("ispc_texcomp");
             ISPC_COMP_MODULE->Load();
-            GetProfile_BC7_ultrafast       = reinterpret_cast<PFN_GetProfile_ultrafast      >(ISPC_COMP_MODULE->GetAddress("GetProfile_ultrafast"));
-            GetProfile_BC7_veryfast        = reinterpret_cast<PFN_GetProfile_veryfast       >(ISPC_COMP_MODULE->GetAddress("GetProfile_veryfast"));
-            GetProfile_BC7_fast            = reinterpret_cast<PFN_GetProfile_fast           >(ISPC_COMP_MODULE->GetAddress("GetProfile_fast"));
-            GetProfile_BC7_basic           = reinterpret_cast<PFN_GetProfile_basic          >(ISPC_COMP_MODULE->GetAddress("GetProfile_basic"));
-            GetProfile_BC7_slow            = reinterpret_cast<PFN_GetProfile_slow           >(ISPC_COMP_MODULE->GetAddress("GetProfile_slow"));
-            GetProfile_BC7_alpha_ultrafast = reinterpret_cast<PFN_GetProfile_alpha_ultrafast>(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_ultrafast"));
-            GetProfile_BC7_alpha_veryfast  = reinterpret_cast<PFN_GetProfile_alpha_veryfast >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_veryfast"));
-            GetProfile_BC7_alpha_fast      = reinterpret_cast<PFN_GetProfile_alpha_fast     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_fast"));
-            GetProfile_BC7_alpha_basic     = reinterpret_cast<PFN_GetProfile_alpha_basic    >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_basic"));
-            GetProfile_BC7_alpha_slow      = reinterpret_cast<PFN_GetProfile_alpha_slow     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_slow"));
+            S_GetProfile_BC7_ultrafast       = reinterpret_cast<PFN_GetProfile_ultrafast      >(ISPC_COMP_MODULE->GetAddress("GetProfile_ultrafast"));
+            S_GetProfile_BC7_veryfast        = reinterpret_cast<PFN_GetProfile_veryfast       >(ISPC_COMP_MODULE->GetAddress("GetProfile_veryfast"));
+            S_GetProfile_BC7_fast            = reinterpret_cast<PFN_GetProfile_fast           >(ISPC_COMP_MODULE->GetAddress("GetProfile_fast"));
+            S_GetProfile_BC7_basic           = reinterpret_cast<PFN_GetProfile_basic          >(ISPC_COMP_MODULE->GetAddress("GetProfile_basic"));
+            S_GetProfile_BC7_slow            = reinterpret_cast<PFN_GetProfile_slow           >(ISPC_COMP_MODULE->GetAddress("GetProfile_slow"));
+            S_GetProfile_BC7_alpha_ultrafast = reinterpret_cast<PFN_GetProfile_alpha_ultrafast>(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_ultrafast"));
+            S_GetProfile_BC7_alpha_veryfast  = reinterpret_cast<PFN_GetProfile_alpha_veryfast >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_veryfast"));
+            S_GetProfile_BC7_alpha_fast      = reinterpret_cast<PFN_GetProfile_alpha_fast     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_fast"));
+            S_GetProfile_BC7_alpha_basic     = reinterpret_cast<PFN_GetProfile_alpha_basic    >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_basic"));
+            S_GetProfile_BC7_alpha_slow      = reinterpret_cast<PFN_GetProfile_alpha_slow     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_slow"));
 
-            CompressBlocksBC1       = reinterpret_cast<PFN_CompressBlocksBC1 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC1"));
-            CompressBlocksBC3       = reinterpret_cast<PFN_CompressBlocksBC3 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC3"));
-            CompressBlocksBC4       = reinterpret_cast<PFN_CompressBlocksBC4 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC4"));
-            CompressBlocksBC5       = reinterpret_cast<PFN_CompressBlocksBC5 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC5"));
-            CompressBlocksBC6H      = reinterpret_cast<PFN_CompressBlocksBC6H>(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC6H"));
-            CompressBlocksBC7       = reinterpret_cast<PFN_CompressBlocksBC7 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC7"));
-            CompressBlocksETC1      = reinterpret_cast<PFN_CompressBlocksETC1>(ISPC_COMP_MODULE->GetAddress("CompressBlocksETC1"));
-            CompressBlocksASTC      = reinterpret_cast<PFN_CompressBlocksASTC>(ISPC_COMP_MODULE->GetAddress("CompressBlocksASTC"));
+            S_CompressBlocksBC1       = reinterpret_cast<PFN_CompressBlocksBC1 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC1"));
+            S_CompressBlocksBC3       = reinterpret_cast<PFN_CompressBlocksBC3 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC3"));
+            S_CompressBlocksBC4       = reinterpret_cast<PFN_CompressBlocksBC4 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC4"));
+            S_CompressBlocksBC5       = reinterpret_cast<PFN_CompressBlocksBC5 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC5"));
+            S_CompressBlocksBC6H      = reinterpret_cast<PFN_CompressBlocksBC6H>(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC6H"));
+            S_CompressBlocksBC7       = reinterpret_cast<PFN_CompressBlocksBC7 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC7"));
+            S_CompressBlocksETC1      = reinterpret_cast<PFN_CompressBlocksETC1>(ISPC_COMP_MODULE->GetAddress("CompressBlocksETC1"));
+            S_CompressBlocksASTC      = reinterpret_cast<PFN_CompressBlocksASTC>(ISPC_COMP_MODULE->GetAddress("CompressBlocksASTC"));
         }
     }
 
@@ -98,23 +98,23 @@ namespace sky::builder {
         bc7_enc_settings settings = {};
         switch (options.quality) {
         case Quality::ULTRA_FAST:
-            GetProfile_BC7_ultrafast(&settings);
+            S_GetProfile_BC7_alpha_ultrafast(&settings);
             break;
         case Quality::VERY_FAST:
-            GetProfile_BC7_veryfast(&settings);
+            S_GetProfile_BC7_alpha_veryfast(&settings);
             break;
         case Quality::FAST:
-            GetProfile_BC7_fast(&settings);
+            S_GetProfile_BC7_alpha_fast(&settings);
             break;
         case Quality::BASIC:
-            GetProfile_BC7_basic(&settings);
+            S_GetProfile_BC7_alpha_basic(&settings);
             break;
         case Quality::SLOW:
-            GetProfile_BC7_slow(&settings);
+            S_GetProfile_BC7_alpha_slow(&settings);
             break;
         }
 
-        CompressBlocksBC7(&input, out, &settings);
+        S_CompressBlocksBC7(&input, out, &settings);
     }
 
     void CompressImage(const rgba_surface &input,  uint8_t *out, const CompressOption &options)
@@ -124,7 +124,7 @@ namespace sky::builder {
         }
     }
 
-    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, uint8_t *&out, const CompressOption &options)
+    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<std::vector<uint8_t>> &out, const CompressOption &options)
     {
         rgba_surface input = {};
         input.ptr = ptr + copy.offset;
@@ -141,6 +141,11 @@ namespace sky::builder {
         uint32_t imageHeight = Ceil(height, formatInfo->blockHeight);
         uint32_t blockNum = rowLength * imageHeight;
         uint32_t srcSize  = blockNum * formatInfo->blockSize;
+
+        out.resize(1);
+        auto &dst = out[0];
+        dst.resize(srcSize);
+        CompressImage(input, dst.data(), options);
     }
 
 } // namespace sky::builder

@@ -69,6 +69,8 @@ namespace sky {
         auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>("box/box_mesh_0.mesh");
         mc->SetMesh(meshAsset);
 
+        texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
+
         cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
 
