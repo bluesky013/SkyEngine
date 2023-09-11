@@ -31,7 +31,9 @@ set(${LIB_NAME}_LIBRARY
     "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
     "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
 
-add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
+add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL
+		../../render/builder/render/include/builder/render/ImageCompressor.h
+		../../render/builder/render/src/ImageCompressor.cpp)
 target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
 target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
 

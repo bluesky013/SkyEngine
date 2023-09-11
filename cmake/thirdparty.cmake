@@ -56,6 +56,10 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET implot        DIR implot)
     endif()
 
+    if (SKY_BUILD_TOOL)
+        sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
+    endif ()
+
     if (WIN32 OR ANDROID)
         sky_find_3rd(TARGET gles          DIR gles)
     endif()

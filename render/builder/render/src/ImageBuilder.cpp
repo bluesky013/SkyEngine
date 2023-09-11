@@ -4,11 +4,17 @@
 
 #include <builder/render/ImageBuilder.h>
 #include <render/adaptor/assets/ImageAsset.h>
+#include <builder/render/ImageCompressor.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
 
 namespace sky::builder {
+
+    ImageBuilder::ImageBuilder()
+    {
+        InitializeCompressor();
+    }
 
     void ImageBuilder::Request(const BuildRequest &request, BuildResult &result)
     {

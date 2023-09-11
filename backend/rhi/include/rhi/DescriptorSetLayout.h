@@ -6,6 +6,8 @@
 
 #include <rhi/Core.h>
 #include <string>
+#include <vector>
+#include <unordered_map>
 
 namespace sky::rhi {
 

@@ -10,8 +10,8 @@
 namespace sky::builder {
     class ImageBuilder : public AssetBuilder {
     public:
-        ImageBuilder() = default;
-        ~ImageBuilder() = default;
+        ImageBuilder();
+        ~ImageBuilder() override = default;
 
         static constexpr std::string_view KEY = "GFX_IMAGE";
 

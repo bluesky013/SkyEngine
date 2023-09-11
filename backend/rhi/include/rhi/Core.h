@@ -624,6 +624,15 @@ namespace sky::rhi {
         PixelFormat format = PixelFormat::UNDEFINED;
     };
 
+    struct BufferImageCopy {
+        uint64_t bufferOffset      = 0;
+        uint32_t bufferRowLength   = 0;
+        uint32_t bufferImageHeight = 0;
+        ImageSubRangeLayers subRange;
+        Offset3D imageOffset = {0, 0, 0};
+        Extent3D imageExtent = {0, 0, 0};
+    };
+
     struct PipelineStatisticData {
         uint64_t iaVertices      = 0;
         uint64_t iaPrimitives    = 0;
