@@ -65,14 +65,10 @@ namespace sky {
         }
 
         cube = world->CreateGameObject("Cube");
-        auto *mc = cube->AddComponent<MeshRenderer>();
-        auto meshAsset = AssetManager::Get()->LoadAsset<Mesh>("box/box_mesh_0.mesh");
-        mc->SetMesh(meshAsset);
-
-        texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
-
         cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
+
+        // texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
 
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();

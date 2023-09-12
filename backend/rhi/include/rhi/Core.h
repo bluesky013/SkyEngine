@@ -477,20 +477,20 @@ namespace sky::rhi {
         ClearDepthStencilValue depthStencil;
     };
 
-    class ImageStream {
-        ImageStream() = default;
-        virtual ~ImageStream() = default;
-        virtual const uint8_t* GetData(uint32_t layer, uint32_t level) const = 0;
+    struct IImageStream {
+        IImageStream() = default;
+        virtual ~IImageStream() = default;
+        virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
 
-    struct BufferStream {
-        BufferStream() = default;
-        virtual ~BufferStream() = default;
+    struct IBufferStream {
+        IBufferStream() = default;
+        virtual ~IBufferStream() = default;
         virtual const uint8_t* GetData(uint64_t offset) const = 0;
     };
 
     struct BufferUploadRequest {
-        std::shared_ptr<BufferStream> source;
+        std::shared_ptr<IBufferStream> source;
         uint64_t       offset = 0;
         uint64_t       size   = 0;
     };
@@ -666,4 +666,5 @@ namespace sky::rhi {
         PixelFormatFeatureFlags linearFeature;
         PixelFormatFeatureFlags optimalFeature;
     };
+
 }; // namespace sky
