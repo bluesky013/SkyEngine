@@ -4,6 +4,7 @@
 
 #include <render/resource/Texture.h>
 #include <rhi/Queue.h>
+#include <rhi/ImageStream.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
 
@@ -20,11 +21,27 @@ namespace sky {
         device = RHI::Get()->GetDevice();
     }
 
+    void Texture::Upload(const std::string &path)
+    {
+        auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
+        rhi::ImageUploadRequest request = {};
+        request.source   = std::make_shared<rhi::ImageStream>(path);
+        request.offset   = 0;
+        request.mipLevel = 0;
+        request.layer    = 0;
+//        request.size     = size;
+//        request.mipLevel = imageDesc.mipLevels;
+//        request.layer    = imageDesc.arrayLayers;
+        request.imageOffset = {0, 0, 0};
+        request.imageExtent = imageDesc.extent;
+        queue->UploadImage(image, request);
+    }
+
     void Texture::Upload(uint8_t *ptr, uint32_t size)
     {
         auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
         rhi::ImageUploadRequest request = {};
-        request.data     = ptr;
+        request.source   = std::make_shared<rhi::RawImageStream>(ptr);
         request.offset   = 0;
         request.size     = size;
         request.mipLevel = imageDesc.mipLevels;

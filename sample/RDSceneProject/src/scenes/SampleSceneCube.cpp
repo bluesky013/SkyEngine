@@ -68,7 +68,7 @@ namespace sky {
         cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
 
-        // texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
+         texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
 
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();

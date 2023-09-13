@@ -480,6 +480,7 @@ namespace sky::rhi {
     struct IImageStream {
         IImageStream() = default;
         virtual ~IImageStream() = default;
+        virtual const uint8_t *GetData(uint64_t offset) = 0;
         virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
 
@@ -496,7 +497,7 @@ namespace sky::rhi {
     };
 
     struct ImageUploadRequest {
-        const uint8_t *data     = nullptr;
+        std::shared_ptr<IImageStream> source;
         uint64_t       offset   = 0;
         uint64_t       size     = 0;
         uint32_t       mipLevel = 0;

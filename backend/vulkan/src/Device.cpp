@@ -518,4 +518,11 @@ namespace sky::vk {
         return count;
     }
 
+    rhi::Queue *Device::GetQueue(rhi::QueueType type) const
+    {
+        if (type == rhi::QueueType::TRANSFER) return transferQueue;
+        if (type == rhi::QueueType::GRAPHICS) return graphicsQueue;
+        return graphicsQueue;
+    }
+
 } // namespace sky::vk

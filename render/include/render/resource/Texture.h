@@ -14,7 +14,7 @@ namespace sky {
         Texture();
         virtual ~Texture();
 
-        void Upload(std::fstream &stream);
+        void Upload(const std::string &path);
         void Upload(uint8_t *ptr, uint32_t size);
 
     protected:

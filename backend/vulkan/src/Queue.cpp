@@ -130,7 +130,8 @@ namespace sky::vk {
                     uint64_t offset = BeginFrame();
 
                     uint32_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
-                    memcpy(mapped + offset, request.data + request.offset + bufferStep * i, copySize);
+                    request.source->ReadData(request.offset + bufferStep * i, copySize, mapped + offset);
+//                    memcpy(mapped + offset, request.data + request.offset + bufferStep * i, copySize);
 
                     VkOffset3D offset3D = {request.imageOffset.x, request.imageOffset.y, request.imageOffset.z};
                     offset3D.y += static_cast<int32_t>(heightStep * i);

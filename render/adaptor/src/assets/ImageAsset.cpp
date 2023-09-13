@@ -33,6 +33,7 @@ namespace sky {
     {
         auto texture2D = std::make_shared<Texture2D>();
         texture2D->Init(data.format, data.width, data.height, data.mipLevels);
+        texture2D->Upload(data.bufferAsset->GetPath());
 
         return {};
     }

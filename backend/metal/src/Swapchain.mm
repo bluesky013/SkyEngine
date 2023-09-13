@@ -18,7 +18,6 @@ namespace sky::mtl {
     bool SwapChain::Init(const Descriptor &desc)
     {
         auto window = static_cast<NSWindow *>(desc.window);
-
         extent.width = static_cast<uint32_t>(window.frame.size.width);
         extent.height = static_cast<uint32_t>(window.frame.size.height);
 

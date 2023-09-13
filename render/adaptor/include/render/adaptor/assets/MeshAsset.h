@@ -12,19 +12,13 @@
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
 
 
 namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
-
-    struct VertexDesc {
-        std::string name;
-        uint32_t    index  = 0;
-        uint32_t    offset = 0;
-        rhi::Format format = rhi::Format::UNDEFINED;
-    };
 
     struct SubMeshAssetData {
         uint32_t firstVertex = 0;
@@ -36,10 +30,10 @@ namespace sky {
     };
 
     struct MeshAssetData {
-        std::vector<VertexDesc> vertexDescriptions;
         std::vector<SubMeshAssetData> subMeshes;
-        std::vector<std::vector<uint8_t>> vertexBuffers;
-        std::vector<uint8_t> indexBuffer;
+        BufferAssetPtr vertexBuffer;
+        BufferAssetPtr indexBuffer;
+        std::string vertexDescription;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

@@ -78,10 +78,7 @@ namespace sky::vk {
         int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
 
         // rhi
-        rhi::Queue *GetQueue(rhi::QueueType type) const override
-        {
-            return graphicsQueue;
-        }
+        rhi::Queue *GetQueue(rhi::QueueType type) const override;
 
         // Device Object
         CREATE_DEV_OBJ(SwapChain)

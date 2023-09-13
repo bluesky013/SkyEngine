@@ -25,20 +25,18 @@ namespace sky::builder {
     enum class MeshAttributeType : uint32_t {
         POSITION = 0,
         NORMAL,
-        TANGENT,
-        BITANGENT,
-        COLOR,
         UV,
+        TANGENT,
+        COLOR,
         NUM,
     };
 
     struct MeshVertexData {
         std::vector<Vector4> position;
         std::vector<Vector4> normal;
-        std::vector<Vector4> tangent;
-        std::vector<Vector4> biTangent;
-        std::vector<Vector4> color;
         std::vector<Vector4> UV;
+        std::vector<Vector4> tangent;
+        std::vector<Vector4> color;
     };
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
@@ -228,19 +226,23 @@ namespace sky::builder {
         uint32_t vertexNum   = mesh->mNumVertices;
         uint32_t currentSize = vertexOffset + vertexNum;
 
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].resize(currentSize * sizeof(Vector4));
+        auto &VBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::POSITION)];
+        auto &NBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::NORMAL)];
+        auto &TBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::TANGENT)];
+        auto &CBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::COLOR)];
+        auto &UBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::UV)];
 
-        Vector4 *position = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].data())[vertexOffset];
-        Vector4 *normal = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].data())[vertexOffset];
-        Vector4 *tangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].data())[vertexOffset];
-        Vector4 *biTangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].data())[vertexOffset];
-        Vector4 *color = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].data())[vertexOffset];
-        Vector4 *uv = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].data())[vertexOffset];
+        VBuffer.resize(currentSize * sizeof(Vector4));
+        NBuffer.resize(currentSize * sizeof(Vector4));
+        TBuffer.resize(currentSize * sizeof(Vector4));
+        CBuffer.resize(currentSize * sizeof(Vector4));
+        UBuffer.resize(currentSize * sizeof(Vector4));
+
+        Vector4 *position = &reinterpret_cast<Vector4 *>(VBuffer.data())[vertexOffset];
+        Vector4 *normal   = &reinterpret_cast<Vector4 *>(NBuffer.data())[vertexOffset];
+        Vector4 *tangent  = &reinterpret_cast<Vector4 *>(TBuffer.data())[vertexOffset];
+        Vector4 *color    = &reinterpret_cast<Vector4 *>(CBuffer.data())[vertexOffset];
+        Vector4 *uv       = &reinterpret_cast<Vector4 *>(UBuffer.data())[vertexOffset];
 
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
             auto &p = mesh->mVertices[i];
@@ -262,11 +264,6 @@ namespace sky::builder {
             tangent->y = t.y;
             tangent->z = t.z;
             tangent->x = 1.f;
-
-            biTangent->x = b.x;
-            biTangent->y = b.y;
-            biTangent->z = b.z;
-            biTangent->x = 1.f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];
@@ -301,8 +298,10 @@ namespace sky::builder {
         subMesh.material = outScene.materials[mesh->mMaterialIndex];
 
         uint32_t currentIndexSize = indexOffset + subMesh.indexCount;
-        meshData.indexBuffer.resize(currentIndexSize * sizeof(uint32_t));
-        uint32_t *indices = &reinterpret_cast<uint32_t *>(meshData.indexBuffer.data())[indexOffset];
+        auto &indexData = meshData.indexBuffer->Data().rawData;
+        indexData.resize(1);
+        indexData[0].resize(currentIndexSize * sizeof(uint32_t));
+        uint32_t *indices = &reinterpret_cast<uint32_t *>(indexData[0].data())[indexOffset];
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
             aiFace face = mesh->mFaces[i];
@@ -319,14 +318,9 @@ namespace sky::builder {
 
     static void ProcessMesh(const aiScene *scene, const aiNode *node, RenderPrefabAssetData& outScene, MeshAssetData &meshData)
     {
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"POSITION", 0, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"NORMAL", 1, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"TANGENT", 2, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"BITANGENT", 3, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"COLOR", 4, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"UV", 5, 0, rhi::Format::F_RGBA32});
+        meshData.vertexDescription = "standard";
 
-        meshData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+        meshData.vertexBuffer->Data().rawData.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
 
         uint32_t meshNum = node->mNumMeshes;
         uint32_t vertexOffset = 0;
@@ -359,9 +353,20 @@ namespace sky::builder {
             ss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << ".mesh";
             auto meshAsset = am->CreateAsset<Mesh>(ss.str());
             MeshAssetData &meshAssetData = meshAsset->Data();
+
+            std::stringstream vss;
+            vss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_vb.bin";
+            meshAssetData.vertexBuffer = am->CreateAsset<Buffer>(vss.str());
+
+            std::stringstream iss;
+            iss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_ib.bin";
+            meshAssetData.indexBuffer = am->CreateAsset<Buffer>(iss.str());
+
             ProcessMesh(scene, node, outScene, meshAssetData);
 
             outScene.meshes.emplace_back(meshAsset);
+            am->SaveAsset(meshAssetData.vertexBuffer);
+            am->SaveAsset(meshAssetData.indexBuffer);
             am->SaveAsset(meshAsset);
         }
 

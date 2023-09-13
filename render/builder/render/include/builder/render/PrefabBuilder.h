@@ -12,7 +12,7 @@ namespace sky::builder {
     class PrefabBuilder : public AssetBuilder {
     public:
         PrefabBuilder() = default;
-        ~PrefabBuilder() = default;
+        ~PrefabBuilder() override = default;
 
         static constexpr std::string_view KEY = "GFX_PREFAB";
 
