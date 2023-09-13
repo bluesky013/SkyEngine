@@ -37,4 +37,11 @@ namespace sky {
         }
     }
 
+    RDResourceGroupPtr MeshFeature::RequestResourceGroup()
+    {
+        auto rsg = std::make_shared<ResourceGroup>();
+        rsg->Init(localLayout, *pool);
+        return rsg;
+    }
+
 } // namespace sky

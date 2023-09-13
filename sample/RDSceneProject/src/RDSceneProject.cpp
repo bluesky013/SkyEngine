@@ -50,6 +50,7 @@ namespace sky {
         if (currentScene != nullptr) {
             currentScene->Shutdown();
         }
+        sampleScenes.clear();
 
         auto *renderer = Renderer::Get();
         renderer->DestroyRenderWindow(window);

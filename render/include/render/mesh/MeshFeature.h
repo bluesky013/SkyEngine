@@ -16,6 +16,7 @@ namespace sky {
         ~MeshFeature() = default;
 
         void Init();
+        RDResourceGroupPtr RequestResourceGroup();
 
     private:
         RDResourceLayoutPtr localLayout;

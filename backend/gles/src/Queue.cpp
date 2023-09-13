@@ -27,6 +27,7 @@ namespace sky::gles {
             CHECK(glBindTexture(GL_TEXTURE_2D, glesImage->GetNativeHandle()));
 
             for (auto &request : requests) {
+                auto *ptr = request.source->GetData(request.offset);
                 auto &desc = glesImage->GetDescriptor();
                 auto &fmt = GetInternalFormat(desc.format);
                 CHECK(glTexSubImage2D(GL_TEXTURE_2D,
@@ -35,7 +36,7 @@ namespace sky::gles {
                                       request.imageExtent.width, request.imageExtent.height,
                                       fmt.format,
                                       fmt.type,
-                                      reinterpret_cast<const GLvoid *>(request.data + request.offset)));
+                                      reinterpret_cast<const GLvoid *>(ptr + request.offset)));
             }
             CHECK(glBindTexture(GL_TEXTURE_2D, 0));
         });

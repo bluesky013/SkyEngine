@@ -5,7 +5,7 @@
 #include <rhi/ASTC.h>
 #include <rhi/DDS.h>
 #include <rhi/Decode.h>
-#include <rhi/ImageStream.h>
+#include <rhi/Stream.h>
 #include <unordered_map>
 
 namespace sky::rhi {
@@ -138,7 +138,7 @@ namespace sky::rhi {
         uint32_t blockSize = iter->second.blockSize;
 
         ImageUploadRequest request = {};
-        request.source = std::make_shared<RawImageStream>(input);
+        request.source = std::make_shared<RawPtrStream>(input);
         request.layer = 0;
 
         for (uint32_t i = 0; i < imageDesc.mipLevels; ++i) {

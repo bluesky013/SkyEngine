@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Device.h>
+#include <rhi/Queue.h>
 #include <fstream>
 
 namespace sky {
@@ -14,7 +15,7 @@ namespace sky {
         Texture();
         virtual ~Texture();
 
-        void Upload(const std::string &path);
+        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue);
         void Upload(uint8_t *ptr, uint32_t size);
 
     protected:

@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <rhi/Device.h>
+#include <rhi/Queue.h>
 #include <core/platform/Platform.h>
 
 namespace sky {
@@ -20,6 +21,8 @@ namespace sky {
         virtual uint64_t GetRange() const { return bufferDesc.size; }
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
+
+        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue);
 
     protected:
         rhi::Device *device = nullptr;

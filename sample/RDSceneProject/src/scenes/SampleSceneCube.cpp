@@ -6,6 +6,7 @@
 #include <render/RenderWindow.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/Util.h>
 #include <render/geometry/GeometryRenderer.h>
 #include <framework/world/TransformComponent.h>
@@ -67,8 +68,10 @@ namespace sky {
         cube = world->CreateGameObject("Cube");
         cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
+        auto *mesh = cube->AddComponent<MeshRenderer>();
 
-         texture = AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
+        AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
+        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
 
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
@@ -78,8 +81,12 @@ namespace sky {
         return true;
     }
 
+    void SampleSceneCube::Shutdown()
+    {
+    }
+
     void SampleSceneCube::Resize(uint32_t width, uint32_t height)
     {
-        camera->GetComponent<CameraComponent>()->SetAspect(width, height);
+//        camera->GetComponent<CameraComponent>()->SetAspect(width, height);
     }
 } // namespace sky

@@ -18,8 +18,11 @@ namespace sky {
         void Tick(float time);
         void Render(float time);
 
-    private:
+        StaticMeshRenderer *CreateStaticMesh();
+        void RemoveStaticMesh(StaticMeshRenderer *mesh);
 
+    private:
+        std::list<std::unique_ptr<StaticMeshRenderer>> staticMeshes;
     };
 
 } // namespace sky

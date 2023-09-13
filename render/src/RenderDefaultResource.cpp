@@ -4,8 +4,8 @@
 
 #include <render/RHI.h>
 #include <render/RenderDefaultResource.h>
-#include <rhi/ImageStream.h>
 #include <rhi/Queue.h>
+#include <rhi/Stream.h>
 
 namespace sky {
 
@@ -38,7 +38,7 @@ namespace sky {
         rhi::TransferTaskHandle taskHandle = 0;
 
         rhi::ImageUploadRequest request = {};
-        request.source = std::make_shared<rhi::RawImageStream>(DEFAULT_TEX_DATA);
+        request.source = std::make_shared<rhi::RawPtrStream>(DEFAULT_TEX_DATA);
         request.size = sizeof(DEFAULT_TEX_DATA);
         request.imageOffset = {0, 0, 0};
         request.imageExtent = imageDesc.extent;

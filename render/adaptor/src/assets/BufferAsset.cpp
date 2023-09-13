@@ -8,14 +8,12 @@ namespace sky {
 
     void BufferAssetData::Load(BinaryInputArchive &archive)
     {
+        archive.LoadValue(size);
     }
 
     void BufferAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(static_cast<uint32_t>(rawData.size()));
-        for (const auto &data : rawData) {
-            archive.SaveValue(static_cast<uint32_t>(data.size()));
-            archive.SaveValue(reinterpret_cast<const char*>(data.data()), static_cast<uint32_t>(data.size()));
-        }
+        archive.SaveValue(reinterpret_cast<const char*>(rawData.data()), static_cast<uint32_t>(rawData.size()));
     }
 } // namespace sky

@@ -6,6 +6,8 @@
 
 #include <framework/world/Component.h>
 #include <render/adaptor/assets/MeshAsset.h>
+#include <render/resource/Mesh.h>
+#include <render/mesh/StaticMeshRenderer.h>
 
 namespace sky {
 
@@ -20,17 +22,22 @@ namespace sky {
 
         void OnActive() override;
         void OnDestroy() override;
+        void OnTick(float time) override;
+
         void SetMesh(const MeshAssetPtr &mesh);
 
         void Save(JsonOutputArchive &ar) const override;
         void Load(JsonInputArchive &ar) override;
 
     private:
+        void ResetMesh();
+
         bool isStatic = true;
         bool castShadow = false;
         bool receiveShadow = false;
 
-        MeshAssetPtr mesh;
+        MeshAssetPtr meshAsset;
+        StaticMeshRenderer *renderer = nullptr;
     };
 
 } // namespace receiveShadow

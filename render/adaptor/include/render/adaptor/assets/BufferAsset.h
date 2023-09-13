@@ -15,7 +15,8 @@ namespace sky {
     class BinaryOutputArchive;
 
     struct BufferAssetData {
-        std::vector<std::vector<uint8_t>> rawData;
+        uint32_t size = 0;
+        std::vector<uint8_t> rawData;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

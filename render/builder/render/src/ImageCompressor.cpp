@@ -124,7 +124,7 @@ namespace sky::builder {
         }
     }
 
-    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<std::vector<uint8_t>> &out, const CompressOption &options)
+    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<uint8_t> &out, const CompressOption &options)
     {
         rgba_surface input = {};
         input.ptr = ptr + copy.offset;
@@ -142,10 +142,8 @@ namespace sky::builder {
         uint32_t blockNum = rowLength * imageHeight;
         uint32_t srcSize  = blockNum * formatInfo->blockSize;
 
-        out.resize(1);
-        auto &dst = out[0];
-        dst.resize(srcSize);
-        CompressImage(input, dst.data(), options);
+        out.resize(srcSize);
+        CompressImage(input, out.data(), options);
     }
 
 } // namespace sky::builder

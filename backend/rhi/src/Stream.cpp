@@ -2,15 +2,15 @@
 // Created by Zach Lee on 2023/9/12.
 //
 
-#include <rhi/ImageStream.h>
+#include <rhi/Stream.h>
 
 namespace sky::rhi {
 
-    ImageStream::ImageStream(const std::string &path) : stream(path, std::ios::binary)
+    FileStream::FileStream(const std::string &path) : stream(path, std::ios::binary)
     {
     }
 
-    const uint8_t *ImageStream::GetData(uint64_t offset)
+    const uint8_t *FileStream::GetData(uint64_t offset)
     {
         if (!stream.is_open()) {
             return nullptr;
@@ -27,7 +27,7 @@ namespace sky::rhi {
         return hostData.get() + offset;
     }
 
-    void ImageStream::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
+    void FileStream::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
         if (!stream.is_open()) {
             return;
@@ -37,12 +37,12 @@ namespace sky::rhi {
         stream.read(reinterpret_cast<char *>(out), static_cast<int64_t>(size));
     }
 
-    const uint8_t *RawImageStream::GetData(uint64_t offset)
+    const uint8_t *RawPtrStream::GetData(uint64_t offset)
     {
         return data + offset;
     }
 
-    void RawImageStream::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
+    void RawPtrStream::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
         memcpy(out, data + offset, size);
     }

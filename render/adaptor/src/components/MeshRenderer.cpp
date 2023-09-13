@@ -5,6 +5,10 @@
 #include <render/adaptor/components/MeshRenderer.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/asset/AssetManager.h>
+#include <render/adaptor/Util.h>
+#include <render/mesh/MeshFeatureProcessor.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/world/GameObject.h>
 
 namespace sky {
 
@@ -25,7 +29,7 @@ namespace sky {
         ar.SaveValueObject(std::string("static"), isStatic);
         ar.SaveValueObject(std::string("castShadow"), castShadow);
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
-        ar.SaveValueObject(std::string("mesh"), mesh ? mesh->GetUuid() : Uuid());
+        ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
         ar.EndObject();
     }
 
@@ -36,12 +40,23 @@ namespace sky {
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
-        mesh = AssetManager::Get()->LoadAsset<Mesh>(uuid);
+        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
+        ResetMesh();
     }
 
     void MeshRenderer::SetMesh(const MeshAssetPtr &mesh_)
     {
-        mesh = mesh_;
+        meshAsset = mesh_;
+        ResetMesh();
+    }
+
+    void MeshRenderer::ResetMesh()
+    {
+        if (renderer == nullptr) {
+            auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(GetRenderSceneFromGameObject(object));
+            renderer = mf->CreateStaticMesh();
+        }
+        renderer->SetMesh(meshAsset->CreateInstance());
     }
 
     void MeshRenderer::OnActive()
@@ -50,5 +65,14 @@ namespace sky {
 
     void MeshRenderer::OnDestroy()
     {
+        GetFeatureProcessor<MeshFeatureProcessor>(GetRenderSceneFromGameObject(object))->RemoveStaticMesh(renderer);
+    }
+
+    void MeshRenderer::OnTick(float time)
+    {
+        if (renderer != nullptr) {
+            auto *ts = object->GetComponent<TransformComponent>();
+            renderer->UpdateTransform(ts->GetWorld().ToMatrix());
+        }
     }
 } // namespace sky

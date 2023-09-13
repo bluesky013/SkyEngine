@@ -10,10 +10,10 @@
 
 namespace sky::rhi {
 
-    class ImageStream : public IImageStream {
+    class FileStream : public IStream {
     public:
-        explicit ImageStream(const std::string &path);
-        ~ImageStream() override = default;
+        explicit FileStream(const std::string &path);
+        ~FileStream() override = default;
 
         const uint8_t *GetData(uint64_t offset) override;
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
@@ -23,10 +23,10 @@ namespace sky::rhi {
         std::unique_ptr<uint8_t> hostData;
     };
 
-    class RawImageStream : public IImageStream {
+    class RawPtrStream : public IStream {
     public:
-        explicit RawImageStream(const uint8_t *ptr) : data(ptr) {}
-        ~RawImageStream() override = default;
+        explicit RawPtrStream(const uint8_t *ptr) : data(ptr) {}
+        ~RawPtrStream() override = default;
 
         const uint8_t *GetData(uint64_t offset) override;
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;

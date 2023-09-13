@@ -3,9 +3,10 @@
 //
 
 #include <render/resource/Buffer.h>
+#include <core/util/Memory.h>
+#include <rhi/Stream.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <core/util/Memory.h>
 
 namespace sky {
 
@@ -33,6 +34,15 @@ namespace sky {
         Renderer::Get()->GetResourceGC()->CollectBuffer(buffer);
         bufferDesc.size = size;
         buffer = device->CreateBuffer(bufferDesc);
+    }
+
+    rhi::TransferTaskHandle Buffer::Upload(const std::string &path, rhi::Queue &queue)
+    {
+        rhi::BufferUploadRequest request = {};
+        request.source = std::make_shared<rhi::FileStream>(path);
+        request.offset = 0;
+        request.size   = bufferDesc.size;
+        return queue.UploadBuffer(buffer, request);
     }
 
     bool UniformBuffer::Init(uint32_t size)

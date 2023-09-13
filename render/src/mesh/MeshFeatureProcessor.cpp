@@ -16,5 +16,16 @@ namespace sky {
 
     }
 
+    StaticMeshRenderer *MeshFeatureProcessor::CreateStaticMesh()
+    {
+        return staticMeshes.emplace_back(new StaticMeshRenderer()).get();
+    }
+
+    void MeshFeatureProcessor::RemoveStaticMesh(StaticMeshRenderer *mesh)
+    {
+        staticMeshes.remove_if([mesh](const auto &val) {
+            return mesh == val.get();
+        });
+    }
 
 } // namespace sky

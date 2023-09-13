@@ -4,6 +4,7 @@
 
 #include <framework/serialization/BinaryArchive.h>
 #include <render/adaptor/assets/ImageAsset.h>
+#include <render/RHI.h>
 
 namespace sky {
     void ImageAssetData::Load(BinaryInputArchive &archive)
@@ -31,10 +32,11 @@ namespace sky {
 
     std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data)
     {
+        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         auto texture2D = std::make_shared<Texture2D>();
         texture2D->Init(data.format, data.width, data.height, data.mipLevels);
-        texture2D->Upload(data.bufferAsset->GetPath());
+        queue->Wait(texture2D->Upload(data.bufferAsset->GetPath(), *queue));
 
-        return {};
+        return texture2D;
     }
 } // namespace sky

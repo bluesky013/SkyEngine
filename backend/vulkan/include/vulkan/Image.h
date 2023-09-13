@@ -18,7 +18,7 @@ namespace sky::vk {
 
     class Image : public rhi::Image, public DevObject, public std::enable_shared_from_this<Image> {
     public:
-        ~Image();
+        ~Image() override;
 
         struct VkDescriptor {
             VkImageType           imageType   = VK_IMAGE_TYPE_2D;

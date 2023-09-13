@@ -10,13 +10,16 @@
 #include <builder/render/PrefabBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <core/logger/Logger.h>
-#include <filesystem>
+#include <core/math/MathUtil.h>
+
 #include <framework/asset/AssetManager.h>
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
+
 #include <sstream>
+#include <filesystem>
 
 static const char* TAG = "PrefabBuilder";
 
@@ -226,11 +229,11 @@ namespace sky::builder {
         uint32_t vertexNum   = mesh->mNumVertices;
         uint32_t currentSize = vertexOffset + vertexNum;
 
-        auto &VBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::POSITION)];
-        auto &NBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::NORMAL)];
-        auto &TBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::TANGENT)];
-        auto &CBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::COLOR)];
-        auto &UBuffer = meshData.vertexBuffer->Data().rawData[static_cast<uint32_t>(MeshAttributeType::UV)];
+        auto &VBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)]->Data().rawData;
+        auto &NBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)]->Data().rawData;
+        auto &TBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)]->Data().rawData;
+        auto &CBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)]->Data().rawData;
+        auto &UBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)]->Data().rawData;
 
         VBuffer.resize(currentSize * sizeof(Vector4));
         NBuffer.resize(currentSize * sizeof(Vector4));
@@ -244,6 +247,10 @@ namespace sky::builder {
         Vector4 *color    = &reinterpret_cast<Vector4 *>(CBuffer.data())[vertexOffset];
         Vector4 *uv       = &reinterpret_cast<Vector4 *>(UBuffer.data())[vertexOffset];
 
+        SubMeshAssetData subMesh;
+        subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
+        subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
+
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
             auto &p = mesh->mVertices[i];
             auto &n = mesh->mNormals[i];
@@ -254,6 +261,9 @@ namespace sky::builder {
             position->y = p.y;
             position->z = p.z;
             position->x = 1.f;
+            subMesh.aabb.min = Min(subMesh.aabb.min, Vector3(p.x, p.y, p.z));
+            subMesh.aabb.max = Max(subMesh.aabb.max, Vector3(p.x, p.y, p.z));
+
 
             normal->x = n.x;
             normal->y = n.y;
@@ -288,9 +298,6 @@ namespace sky::builder {
             }
         }
 
-        SubMeshAssetData subMesh;
-        subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
-        subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
         subMesh.firstVertex = vertexOffset;
         subMesh.vertexCount = mesh->mNumVertices;
         subMesh.firstIndex = indexOffset;
@@ -299,9 +306,8 @@ namespace sky::builder {
 
         uint32_t currentIndexSize = indexOffset + subMesh.indexCount;
         auto &indexData = meshData.indexBuffer->Data().rawData;
-        indexData.resize(1);
-        indexData[0].resize(currentIndexSize * sizeof(uint32_t));
-        uint32_t *indices = &reinterpret_cast<uint32_t *>(indexData[0].data())[indexOffset];
+        indexData.resize(currentIndexSize * sizeof(uint32_t));
+        uint32_t *indices = &reinterpret_cast<uint32_t *>(indexData.data())[indexOffset];
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
             aiFace face = mesh->mFaces[i];
@@ -318,9 +324,9 @@ namespace sky::builder {
 
     static void ProcessMesh(const aiScene *scene, const aiNode *node, RenderPrefabAssetData& outScene, MeshAssetData &meshData)
     {
-        meshData.vertexDescription = "standard";
-
-        meshData.vertexBuffer->Data().rawData.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+        meshData.vertexDescriptions.emplace_back("standard");
+        meshData.vertexDescriptions.emplace_back("unlit");
+        meshData.vertexDescriptions.emplace_back("position_only");
 
         uint32_t meshNum = node->mNumMeshes;
         uint32_t vertexOffset = 0;
@@ -354,9 +360,13 @@ namespace sky::builder {
             auto meshAsset = am->CreateAsset<Mesh>(ss.str());
             MeshAssetData &meshAssetData = meshAsset->Data();
 
-            std::stringstream vss;
-            vss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_vb.bin";
-            meshAssetData.vertexBuffer = am->CreateAsset<Buffer>(vss.str());
+            meshAssetData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+            for (uint32_t i = 0; i < meshAssetData.vertexBuffers.size(); ++i) {
+                std::stringstream vss;
+                vss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_vb_" << i << ".bin";
+                meshAssetData.vertexBuffers[i] = am->CreateAsset<Buffer>(vss.str());
+            }
+
 
             std::stringstream iss;
             iss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_ib.bin";
@@ -365,7 +375,9 @@ namespace sky::builder {
             ProcessMesh(scene, node, outScene, meshAssetData);
 
             outScene.meshes.emplace_back(meshAsset);
-            am->SaveAsset(meshAssetData.vertexBuffer);
+            for (const auto &vb : meshAssetData.vertexBuffers) {
+                am->SaveAsset(vb);
+            }
             am->SaveAsset(meshAssetData.indexBuffer);
             am->SaveAsset(meshAsset);
         }
