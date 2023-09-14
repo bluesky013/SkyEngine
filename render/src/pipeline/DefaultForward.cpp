@@ -18,12 +18,12 @@ namespace sky {
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {
-            rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS, "ViewInfo"
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "ViewInfo"
         });
 
         forwardLayout = std::make_shared<ResourceGroupLayout>();
         forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-        forwardLayout->AddNameHandler("ViewInfo", 0);
+        forwardLayout->AddNameHandler("ViewInfo", {0, sizeof(SceneViewInfo)});
     }
 
     void DefaultForward::OnSetup(rdg::RenderGraph &rdg)

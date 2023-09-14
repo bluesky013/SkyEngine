@@ -22,7 +22,7 @@ namespace sky {
             archive.LoadValue(subMesh.indexCount);
             std::string idStr;
             archive.LoadValue(idStr);
-            subMesh.material = am->LoadAsset<Material>(Uuid::CreateFromString(idStr));
+            subMesh.material = am->LoadAsset<MaterialInstance>(Uuid::CreateFromString(idStr));
 
             archive.LoadValue(subMesh.aabb.min.x);
             archive.LoadValue(subMesh.aabb.min.y);
@@ -43,6 +43,7 @@ namespace sky {
             archive.LoadValue(idStr);
             indexBuffer = am->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
         }
+        archive.LoadValue(indexType);
         archive.LoadValue(size);
         vertexDescriptions.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
@@ -73,6 +74,7 @@ namespace sky {
             archive.SaveValue(vtx->GetUuid().ToString());
         }
         archive.SaveValue(indexBuffer ? indexBuffer->GetUuid().ToString() : Uuid().ToString());
+        archive.SaveValue(indexType);
         archive.SaveValue(static_cast<uint32_t>(vertexDescriptions.size()));
         for (const auto &vtx : vertexDescriptions) {
             archive.SaveValue(vtx);
@@ -91,12 +93,14 @@ namespace sky {
             handle = buffer->Upload(vb->GetPath(), *queue);
             mesh->AddVertexBuffer(buffer);
         }
+
         if (data.indexBuffer) {
             auto buffer = std::make_shared<Buffer>();
             buffer->Init(data.indexBuffer->Data().size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
             handle = buffer->Upload(data.indexBuffer->GetPath(), *queue);
             mesh->SetIndexBuffer(buffer);
         }
+        mesh->SetIndexType(data.indexType);
 
         for (const auto &sub : data.subMeshes) {
             mesh->AddSubMesh(SubMesh {
@@ -104,7 +108,7 @@ namespace sky {
                 sub.vertexCount,
                 sub.firstIndex,
                 sub.indexCount,
-                nullptr,
+                sub.material->CreateInstance(),
                 sub.aabb
             });
         }

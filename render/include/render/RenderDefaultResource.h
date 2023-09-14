@@ -6,6 +6,7 @@
 
 #include <rhi/Device.h>
 #include <render/resource/ResourceGroup.h>
+#include <render/resource/Texture.h>
 
 namespace sky {
 
@@ -18,8 +19,7 @@ namespace sky {
         RDResourceGroupPtr emptySet;
 
         rhi::SamplerPtr defaultSampler;
-        rhi::ImageViewPtr texture2D;
-        rhi::ImageViewPtr textureCube;
+        RDTexture2DPtr texture2D;
     };
 
 } // namespace sky

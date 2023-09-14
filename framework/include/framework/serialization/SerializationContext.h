@@ -48,7 +48,7 @@ namespace sky {
     template <typename... Args>
     Any MakeAny(uint32_t typeId, Args &&...args)
     {
-        auto context = SerializationContext::Get();
+        auto *context = SerializationContext::Get();
         TypeNode *node = context->FindTypeById(typeId);
         if (node == nullptr || node->constructList.empty()) {
             return {};

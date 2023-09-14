@@ -74,7 +74,7 @@ namespace sky {
         scenes.emplace_back(new RenderScene(), &Renderer::DestroyObj<RenderScene>);
         auto &scene = scenes.back();
         for (auto &feature : features) {
-            scene->AddFeature(feature->BuildFeatureProcessor());
+            scene->AddFeature(feature->BuildFeatureProcessor(scene.get()));
         }
         return scenes.back().get();
     }

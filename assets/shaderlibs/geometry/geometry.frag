@@ -6,6 +6,8 @@ layout (location = 2) in vec3 normal;
 
 layout (location = 0) out vec4 outFragColor;
 
+#include <shaderlibs/layouts/standard_perpass.glsl>
+
 void main()
 {
     vec3 L = normalize(vec3(0, 20, 0) - pos);

@@ -21,5 +21,15 @@ namespace sky {
         indexBuffer = ib;
     }
 
+    void Mesh::SetIndexType(rhi::IndexType type)
+    {
+        indexType = type;
+    }
+
+    void Mesh::AddVertexDescriptions(const std::string &key)
+    {
+        vertexDescriptions.emplace_back(key);
+    }
+
 
 } // namespace sky

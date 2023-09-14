@@ -12,7 +12,7 @@ namespace sky::builder {
     class MaterialBuilder : public AssetBuilder {
     public:
         MaterialBuilder() = default;
-        ~MaterialBuilder() = default;
+        ~MaterialBuilder() override = default;
 
         static constexpr std::string_view KEY = "GFX_MATERIAL";
 

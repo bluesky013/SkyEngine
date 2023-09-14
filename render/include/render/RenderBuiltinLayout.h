@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/math/Matrix4.h>
+
 namespace sky {
 
     struct SceneViewInfo {

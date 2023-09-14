@@ -23,7 +23,7 @@ namespace sky {
     struct RenderPrefabAssetData {
         std::vector<ImageAssetPtr> images;
         std::vector<MeshAssetPtr> meshes;
-        std::vector<MaterialAssetPtr> materials;
+        std::vector<MaterialInstanceAssetPtr> materials;
         std::vector<RenderPrefabNode> nodes;
 
         void Load(BinaryInputArchive &archive);

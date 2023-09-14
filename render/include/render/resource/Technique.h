@@ -35,6 +35,7 @@ namespace sky {
 
         uint32_t GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
+        const std::string &GetVertexDescKey() const { return vertexDescKey; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
         static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
@@ -44,6 +45,7 @@ namespace sky {
 
     private:
         rhi::PipelineState state;
+        std::string vertexDescKey;
         rhi::VertexInputPtr vertexDesc;
         uint32_t rasterID = 0;
         uint32_t viewMask = 0xFFFFFFFF;

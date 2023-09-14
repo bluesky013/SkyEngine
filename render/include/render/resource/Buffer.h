@@ -37,7 +37,7 @@ namespace sky {
         ~UniformBuffer() override = default;
 
         bool Init(uint32_t size);
-
+        void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
         template <typename T>
         void Write(uint32_t offset, const T& val)
         {

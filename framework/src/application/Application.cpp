@@ -9,6 +9,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
+#include <framework/serialization/CoreReflection.h>
 
 static const char *TAG = "Application";
 
@@ -40,6 +41,8 @@ namespace sky {
 
         DBManager::Get()->Init();
         Interface<ISystemNotify>::Get()->Register(*this);
+
+        CoreReflection();
 
         LOG_I(TAG, "Load Engine Module...");
         LoadDynamicModules(start);

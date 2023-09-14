@@ -79,7 +79,7 @@ namespace sky::vk {
             templateEntry.descriptorType    = desInfo.descriptorType;
             templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * descriptorNum);
             templateEntry.stride            = sizeof(DescriptorWriteInfo);
-            bindingOffsets[binding] = descriptorNum;
+            bindingIndices[binding] = {descriptorNum, desInfo.descriptorCount};
             entries.emplace_back(templateEntry);
 
             descriptorNum += desInfo.descriptorCount;

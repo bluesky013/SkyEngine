@@ -22,6 +22,10 @@ namespace sky {
 
     void RenderScene::PreTick(float time)
     {
+        for (auto &feature : features) {
+            feature.second->Tick(time);
+        }
+
         for (auto &view : sceneViews) {
             view->Update();
         }
@@ -38,6 +42,10 @@ namespace sky {
 
     void RenderScene::Render()
     {
+        for (auto &feature : features) {
+            feature.second->Render();
+        }
+
         if (pipeline != nullptr) {
             rdg::RenderGraph rdg(pipeline->Context(), this);
             pipeline->OnSetup(rdg);

@@ -67,7 +67,7 @@ namespace sky {
                 } else {
                     rhi::DescriptorSetLayout::SetBinding binding = {};
                     binding.name = res.name;
-                    binding.type = res.set >= 2 ? ReplaceDynamic(res.type) : res.type;
+                    binding.type = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
                     binding.count = 1;
                     binding.binding = res.binding;
                     binding.visibility = shader->GetStage();

@@ -51,6 +51,7 @@ namespace sky {
 
     void GraphicsTechnique::SetVertexLayout(const std::string &key)
     {
+        vertexDescKey = key;
         vertexDesc = Renderer::Get()->GetVertexDescLibrary()->FindVertexDesc(key);
     }
 

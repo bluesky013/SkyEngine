@@ -33,18 +33,17 @@ namespace sky {
         return queue.UploadImage(image, request);
     }
 
-    void Texture::Upload(uint8_t *ptr, uint32_t size)
+    rhi::TransferTaskHandle Texture::Upload(const uint8_t *ptr, uint32_t size, rhi::Queue &queue)
     {
-        auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
         rhi::ImageUploadRequest request = {};
         request.source   = std::make_shared<rhi::RawPtrStream>(ptr);
         request.offset   = 0;
         request.size     = size;
-        request.mipLevel = imageDesc.mipLevels;
-        request.layer    = imageDesc.arrayLayers;
+        request.mipLevel = 0;
+        request.layer    = 0;
         request.imageOffset = {0, 0, 0};
         request.imageExtent = imageDesc.extent;
-        queue->UploadImage(image, request);
+        return queue.UploadImage(image, request);
     }
 
     bool Texture2D::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel)

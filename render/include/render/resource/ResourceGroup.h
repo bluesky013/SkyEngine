@@ -17,16 +17,29 @@ namespace sky {
         ResourceGroupLayout() = default;
         ~ResourceGroupLayout() = default;
 
-        void AddNameHandler(const std::string &key, uint32_t binding);
+        struct BufferNameHandler {
+            uint32_t binding;
+            uint32_t offset;
+            uint32_t size;
+        };
+
+        struct BindingHandler {
+            uint32_t binding;
+            uint32_t size;
+        };
+
+        void AddNameHandler(const std::string &key, const BindingHandler &handler);
+        void AddBufferNameHandler(const std::string &key, const BufferNameHandler &nameHandler);
         void SetRHILayout(const rhi::DescriptorSetLayoutPtr &layout);
 
-        std::pair<bool, uint32_t> GetBindingByeName(const std::string &key) const;
-        uint32_t GetDescriptorOffsetByBinding(uint32_t binding) const;
-
+        const BindingHandler *GetBindingByeName(const std::string &key) const;
+        const BufferNameHandler *GetBufferMemberByName(const std::string &key) const;
+        const std::unordered_map<std::string, BindingHandler> &GetBindingHandlers() const { return handlers; }
         const rhi::DescriptorSetLayoutPtr &GetRHILayout() const { return layout; }
 
     private:
-        std::unordered_map<std::string, uint32_t> handlers;    // name -> binding
+        std::unordered_map<std::string, BindingHandler> handlers;    // name -> [binding, size]
+        std::unordered_map<std::string, BufferNameHandler> bufferHandlers; // name -> buffer name handler
         rhi::DescriptorSetLayoutPtr layout;
     };
     using RDResourceLayoutPtr = std::shared_ptr<ResourceGroupLayout>;
@@ -44,8 +57,8 @@ namespace sky {
         void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index);
         void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
 
-        void OnBind(rhi::GraphicsEncoder& encoder, uint32_t setID);
-        void OnBind(rhi::ComputeEncoder& encoder, uint32_t setID);
+        void OnBind(rhi::GraphicsEncoder &encoder, uint32_t setID);
+        void OnBind(rhi::ComputeEncoder &encoder, uint32_t setID);
 
         const RDResourceLayoutPtr &GetLayout() const { return layout; }
         const rhi::DescriptorSetPtr &GetRHISet() const { return set; }
@@ -53,7 +66,7 @@ namespace sky {
         rhi::DescriptorSetPtr set;
         RDResourceLayoutPtr   layout;
 
-        std::vector<std::pair<uint32_t, RDDynamicUniformBufferPtr>> dynamicUBOS;
+        std::unordered_map<uint32_t, RDDynamicUniformBufferPtr> dynamicUBOS;
         std::vector<uint32_t> slotHash;
     };
     using RDResourceGroupPtr = std::shared_ptr<ResourceGroup>;

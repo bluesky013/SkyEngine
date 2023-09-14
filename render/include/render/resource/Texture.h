@@ -16,8 +16,9 @@ namespace sky {
         virtual ~Texture();
 
         rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue);
-        void Upload(uint8_t *ptr, uint32_t size);
+        rhi::TransferTaskHandle Upload(const uint8_t *ptr, uint32_t size, rhi::Queue &queue);
 
+        const rhi::ImageViewPtr &GetImageView() const { return imageView; }
     protected:
         rhi::Device *device = nullptr;
         rhi::Image::Descriptor imageDesc = {};
@@ -35,5 +36,6 @@ namespace sky {
 
         bool Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel);
     };
+    using RDTexture2DPtr = std::shared_ptr<Texture2D>;
 
 } // namespace sky

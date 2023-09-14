@@ -8,20 +8,22 @@
 #include <core/type/Type.h>
 
 namespace sky {
+    class RenderScene;
 
     class IFeatureProcessor {
     public:
-        IFeatureProcessor() = default;
+        explicit IFeatureProcessor(RenderScene *scn) : scene(scn) {}
         virtual ~IFeatureProcessor() = default;
 
         virtual void Tick(float time) = 0;
-        virtual void Render(float time) = 0;
+        virtual void Render() = 0;
 
         uint32_t GetTypeID() const { return typeID; }
 
     protected:
         friend class IFeatureProcessorBuilder;
         uint32_t typeID = 0;
+        RenderScene *scene = nullptr;
     };
 
     class IFeatureProcessorBuilder {
@@ -29,7 +31,7 @@ namespace sky {
         IFeatureProcessorBuilder() = default;
         virtual ~IFeatureProcessorBuilder() = default;
 
-        virtual IFeatureProcessor *BuildFeatureProcessor() = 0;
+        virtual IFeatureProcessor *BuildFeatureProcessor(RenderScene *scene) = 0;
     protected:
         static void SetFeatureID(IFeatureProcessor *feature, uint32_t id)
         {
@@ -41,11 +43,11 @@ namespace sky {
     class FeatureProcessorBuilder : public IFeatureProcessorBuilder {
     public:
         FeatureProcessorBuilder() = default;
-        ~FeatureProcessorBuilder() = default;
+        ~FeatureProcessorBuilder() override = default;
 
-        IFeatureProcessor *BuildFeatureProcessor() override
+        IFeatureProcessor *BuildFeatureProcessor(RenderScene *scene) override
         {
-            auto *feature = new T();
+            auto *feature = new T(scene);
             IFeatureProcessorBuilder::SetFeatureID(feature, TypeInfo<T>::Hash());
             return feature;
         }

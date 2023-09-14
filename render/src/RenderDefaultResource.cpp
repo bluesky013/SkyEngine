@@ -44,14 +44,9 @@ namespace sky {
         request.imageExtent = imageDesc.extent;
 
         {
-            rhi::ImageViewDesc viewDesc = {};
-            imageDesc.arrayLayers = 1;
-            viewDesc.subRange.layers = 1;
-            viewDesc.viewType = rhi::ImageViewType::VIEW_2D;
-
-            auto image = device->CreateImage(imageDesc);
-            texture2D = image->CreateView(viewDesc);
-            taskHandle = queue->UploadImage(image, request);
+            texture2D = std::make_shared<Texture2D>();
+            texture2D->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
+            taskHandle = texture2D->Upload(DEFAULT_TEX_DATA, sizeof(DEFAULT_TEX_DATA), *queue);
         }
 
 //        {
@@ -81,6 +76,5 @@ namespace sky {
         defaultSampler = nullptr;
 
         texture2D = nullptr;
-        textureCube = nullptr;
     }
 } // namespace sky

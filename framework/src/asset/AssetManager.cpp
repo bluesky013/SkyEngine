@@ -106,6 +106,11 @@ namespace sky {
 
     void AssetManager::ImportSource(const std::string &path, const SourceAssetImportOption &option)
     {
+        ImportSourceImpl(GetRealPath(path), option);
+    }
+
+    void AssetManager::ImportSourceImpl(const std::string &path, const SourceAssetImportOption &option)
+    {
         std::filesystem::path fs(path);
         auto ext = fs.extension().string();
         auto iter = assetBuilders.find(ext);
@@ -138,11 +143,12 @@ namespace sky {
 
     bool AssetManager::QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out)
     {
-        if (!option.reImport && dataBase->QueryProduct(path, option.buildKey, out)) {
+        std::string realPath = GetRealPath(path);
+        if (!option.reImport && dataBase->QueryProduct(realPath, option.buildKey, out)) {
             return true;
         }
-        ImportSource(path, option);
-        return dataBase->QueryProduct(path, option.buildKey, out);
+        ImportSourceImpl(realPath, option);
+        return dataBase->QueryProduct(realPath, option.buildKey, out);
     }
 
     void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)

@@ -25,7 +25,7 @@ namespace sky {
         uint32_t vertexCount = 0;
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
-        MaterialAssetPtr material;
+        MaterialInstanceAssetPtr material;
         AABB aabb;
     };
 
@@ -33,6 +33,7 @@ namespace sky {
         std::vector<SubMeshAssetData> subMeshes;
         std::vector<BufferAssetPtr> vertexBuffers;
         BufferAssetPtr indexBuffer;
+        rhi::IndexType indexType = rhi::IndexType::U32;
         std::vector<std::string> vertexDescriptions;
 
         void Load(BinaryInputArchive &archive);

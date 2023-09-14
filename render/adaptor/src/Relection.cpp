@@ -32,9 +32,11 @@ namespace sky {
 
         context->Register<MaterialAssetData>("MaterialAssetData")
             .BinLoad<&MaterialAssetData::LoadBin>()
-            .BinSave<&MaterialAssetData::SaveBin>()
-            .JsonLoad<&MaterialAssetData::LoadJson>()
-            .JsonSave<&MaterialAssetData::SaveJson>();
+            .BinSave<&MaterialAssetData::SaveBin>();
+
+        context->Register<MaterialInstanceData>("MaterialInstanceData")
+            .BinLoad<&MaterialInstanceData::LoadBin>()
+            .BinSave<&MaterialInstanceData::SaveBin>();
 
         context->Register<TechniqueAssetData>("TechniqueAssetData")
             .BinLoad<&TechniqueAssetData::Load>()
@@ -64,6 +66,7 @@ namespace sky {
         am->RegisterAssetHandler<Shader>();
         am->RegisterAssetHandler<ShaderVariant>();
         am->RegisterAssetHandler<Material>();
+        am->RegisterAssetHandler<MaterialInstance>();
         am->RegisterAssetHandler<Technique>();
         am->RegisterAssetHandler<Mesh>();
         am->RegisterAssetHandler<Texture>();

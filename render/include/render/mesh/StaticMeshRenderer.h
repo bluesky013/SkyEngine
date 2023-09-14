@@ -9,19 +9,22 @@
 #include <core/math/Matrix4.h>
 
 namespace sky {
+    class RenderScene;
 
     class StaticMeshRenderer {
     public:
         StaticMeshRenderer() = default;
-        ~StaticMeshRenderer() = default;
+        ~StaticMeshRenderer();
 
+        void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh);
         void UpdateTransform(const Matrix4 &matrix);
 
     private:
-        RDMeshPtr mesh;
+        RenderScene *scene = nullptr;
 
-        std::unique_ptr<RenderPrimitive> primitive;
+        RDMeshPtr mesh;
+        std::list<std::unique_ptr<RenderPrimitive>> primitives;
         rhi::VertexAssemblyPtr va;
         RDDynamicUniformBufferPtr ubo;
     };

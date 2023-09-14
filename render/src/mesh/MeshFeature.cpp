@@ -25,7 +25,7 @@ namespace sky {
 
         localLayout = std::make_shared<ResourceGroupLayout>();
         localLayout->SetRHILayout(device->CreateDescriptorSetLayout({BINDINGS}));
-        localLayout->AddNameHandler("ObjectInfo", 0);
+        localLayout->AddNameHandler("ObjectInfo", {0, sizeof(InstanceLocal)});
 
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};

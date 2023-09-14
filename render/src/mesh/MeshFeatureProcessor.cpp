@@ -11,14 +11,16 @@ namespace sky {
 
     }
 
-    void MeshFeatureProcessor::Render(float time)
+    void MeshFeatureProcessor::Render()
     {
 
     }
 
     StaticMeshRenderer *MeshFeatureProcessor::CreateStaticMesh()
     {
-        return staticMeshes.emplace_back(new StaticMeshRenderer()).get();
+        auto *renderer = new StaticMeshRenderer();
+        renderer->AttachScene(scene);
+        return staticMeshes.emplace_back(renderer).get();
     }
 
     void MeshFeatureProcessor::RemoveStaticMesh(StaticMeshRenderer *mesh)

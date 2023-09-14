@@ -9,6 +9,7 @@
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/PrefabBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
+#include <builder/render/MaterialBuilder.h>
 #include <core/logger/Logger.h>
 #include <core/math/MathUtil.h>
 
@@ -27,19 +28,11 @@ namespace sky::builder {
 
     enum class MeshAttributeType : uint32_t {
         POSITION = 0,
-        NORMAL,
         UV,
+        NORMAL,
         TANGENT,
         COLOR,
         NUM,
-    };
-
-    struct MeshVertexData {
-        std::vector<Vector4> position;
-        std::vector<Vector4> normal;
-        std::vector<Vector4> UV;
-        std::vector<Vector4> tangent;
-        std::vector<Vector4> color;
     };
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
@@ -63,31 +56,33 @@ namespace sky::builder {
                 return am->LoadAsset<Texture>(texId);
             }
         } else {
-//            const auto *tex = scene->GetEmbeddedTexture(path.data);
-//            if (tex == nullptr) {
-//                return;
-//            }
-//            if (tex->mHeight != 0) {
-//
-//            } else {
-//                const uint32_t size = tex->mWidth;
+            const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
+            if (tex == nullptr) {
+                return nullptr;
+            }
+            if (tex->mHeight != 0) {
+
+            } else {
+                const uint32_t size = tex->mWidth;
 //                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
 //                                                            &width, &height, &channel, 4);
-//            }
+            }
         }
         return {};
     }
 
-    static MaterialAssetPtr CreateAssetStandardPBRMaterial(const std::string &fullPath)
+    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(const std::string &type, const std::string &path)
     {
         auto *am = AssetManager::Get();
-        auto asset = am->CreateAsset<Material>(fullPath);
-        std::string techPath = am->GetRealPath("techniques/standard_forward.tech");
-        Uuid techId;
-        if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY.data()}, techId)) {
-            asset->Data().techniques.emplace_back(am->LoadAsset<Technique>(techId));
+        Uuid matID;
+        MaterialInstanceAssetPtr materialInstance;
+        if (am->QueryOrImportSource(type, {MaterialBuilder::KEY.data()}, matID)) {
+            auto mat = am->LoadAsset<Material>(matID);
+
+            materialInstance = am->CreateAsset<MaterialInstance>(path);
+            materialInstance->Data().material = mat;
         }
-        return asset;
+        return materialInstance;
     }
 
     static void ProcessMaterials(const aiScene *scene, RenderPrefabAssetData &outScene, const std::filesystem::path &source, const std::string &productFolder)
@@ -113,9 +108,9 @@ namespace sky::builder {
             } else {
                 ss << matName;
             }
-            ss << ".mat";
+            ss << ".mati";
 
-            auto matAsset = CreateAssetStandardPBRMaterial(ss.str());
+            auto matAsset = CreateMaterialInstanceByMaterial("materials/StandardPBR.mat", ss.str());
             auto &data = matAsset->Data();
 
             aiString str;
@@ -182,42 +177,42 @@ namespace sky::builder {
                 }
             }
 
-            data.valueMap.emplace("useAOMap", Any(useAOMap));
+            data.properties.valueMap.emplace("useAOMap", Any(useAOMap));
             if (useAOMap) {
-                data.valueMap.emplace("aOMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(aoMap);
+                data.properties.valueMap.emplace("aOMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(aoMap);
             }
 
-            data.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
+            data.properties.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
             if (useEmissiveMap) {
-                data.valueMap.emplace("emissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(emissiveMap);
+                data.properties.valueMap.emplace("emissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(emissiveMap);
             }
 
-            data.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
+            data.properties.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
             if (useBaseColorMap) {
-                data.valueMap.emplace("baseColorMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(baseColorMap);
+                data.properties.valueMap.emplace("baseColorMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(baseColorMap);
             }
 
-            data.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
+            data.properties.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
             if (useMetallicRoughnessMap) {
-                data.valueMap.emplace("metallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(metallicRoughnessMap);
+                data.properties.valueMap.emplace("metallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(metallicRoughnessMap);
             }
 
-            data.valueMap.emplace("useNormalMap", Any(useNormalMap));
+            data.properties.valueMap.emplace("useNormalMap", Any(useNormalMap));
             if (useNormalMap) {
-                data.valueMap.emplace("normalMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(normalMap);
+                data.properties.valueMap.emplace("normalMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(normalMap);
             }
 
-            data.valueMap.emplace("useMask",     Any(useMask));
+            data.properties.valueMap.emplace("useMask",     Any(useMask));
 
-            data.valueMap.emplace("baseColor",   Any(baseColor));
-            data.valueMap.emplace("metallic",    Any(metallic));
-            data.valueMap.emplace("roughness",   Any(roughness));
-            data.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
+            data.properties.valueMap.emplace("baseColor",   Any(baseColor));
+            data.properties.valueMap.emplace("metallic",    Any(metallic));
+            data.properties.valueMap.emplace("roughness",   Any(roughness));
+            data.properties.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
             AssetManager::Get()->SaveAsset(matAsset);
 
             outScene.materials.emplace_back(matAsset);
@@ -257,44 +252,44 @@ namespace sky::builder {
             auto &t = mesh->mTangents[i];
             auto &b = mesh->mBitangents[i];
 
-            position->x = p.x;
-            position->y = p.y;
-            position->z = p.z;
-            position->x = 1.f;
+            position[i].x = p.x;
+            position[i].y = p.y;
+            position[i].z = p.z;
+            position[i].x = 1.f;
             subMesh.aabb.min = Min(subMesh.aabb.min, Vector3(p.x, p.y, p.z));
             subMesh.aabb.max = Max(subMesh.aabb.max, Vector3(p.x, p.y, p.z));
 
 
-            normal->x = n.x;
-            normal->y = n.y;
-            normal->z = n.z;
-            normal->x = 1.f;
+            normal[i].x = n.x;
+            normal[i].y = n.y;
+            normal[i].z = n.z;
+            normal[i].x = 1.f;
 
-            tangent->x = t.x;
-            tangent->y = t.y;
-            tangent->z = t.z;
-            tangent->x = 1.f;
+            tangent[i].x = t.x;
+            tangent[i].y = t.y;
+            tangent[i].z = t.z;
+            tangent[i].x = 1.f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];
-                color->x = c.r;
-                color->y = c.g;
-                color->z = c.b;
-                color->w = c.a;
+                color[i].x = c.r;
+                color[i].y = c.g;
+                color[i].z = c.b;
+                color[i].w = c.a;
             } else {
-                color->x = 1.f;
-                color->y = 1.f;
-                color->z = 1.f;
-                color->w = 1.f;
+                color[i].x = 1.f;
+                color[i].y = 1.f;
+                color[i].z = 1.f;
+                color[i].w = 1.f;
             }
 
             if (mesh->HasTextureCoords(0)) {
                 auto &u = mesh->mTextureCoords[0][i];
-                uv->x   = u.x;
-                uv->y   = u.y;
+                uv[i].x = u.x;
+                uv[i].y = u.y;
             } else {
-                uv->x = 0.f;
-                uv->y = 0.f;
+                uv[i].x = 0.f;
+                uv[i].y = 0.f;
             }
         }
 

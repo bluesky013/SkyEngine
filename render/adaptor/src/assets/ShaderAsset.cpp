@@ -53,8 +53,8 @@ namespace sky {
             archive.LoadValue(res.name);
             archive.LoadValue(res.set);
             archive.LoadValue(res.binding);
-            archive.LoadValue(tmp);
-            res.type = static_cast<rhi::DescriptorType>(tmp);
+            archive.LoadValue(res.size);
+            archive.LoadValue(res.type);
             archive.LoadValue(tmp);
             res.members.resize(tmp);
             for (uint32_t j = 0; j < tmp; ++j) {
@@ -79,7 +79,8 @@ namespace sky {
             archive.SaveValue(res.name);
             archive.SaveValue(res.set);
             archive.SaveValue(res.binding);
-            archive.SaveValue(static_cast<uint32_t>(res.type));
+            archive.SaveValue(res.size);
+            archive.SaveValue(res.type);
             archive.SaveValue(static_cast<uint32_t>(res.members.size()));
             for (const auto &member : res.members) {
                 archive.SaveValue(member.name);

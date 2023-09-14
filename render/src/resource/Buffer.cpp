@@ -60,6 +60,13 @@ namespace sky {
         return static_cast<bool>(buffer);
     }
 
+    void UniformBuffer::Write(uint32_t offset, const uint8_t *src, uint32_t size)
+    {
+        SKY_ASSERT(offset + size <= bufferDesc.size);
+        memcpy(ptr + offset, src, size);
+        dirty = true;
+    }
+
     void UniformBuffer::Upload(rhi::BlitEncoder &encoder)
     {
         uint8_t *tmp = stagingBuffer->Map();

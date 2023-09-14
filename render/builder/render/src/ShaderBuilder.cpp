@@ -20,13 +20,20 @@ namespace sky::builder {
 
         auto visitor = [&compiler, &data](auto &resources, rhi::DescriptorType type) {
             for (auto &resource : resources) {
+                const auto &spvType = compiler.get_type(resource.base_type_id);
+
                 data.resources.emplace_back();
                 auto &descriptor    = data.resources.back();
                 descriptor.type     = type;
                 descriptor.set      = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 descriptor.binding  = compiler.get_decoration(resource.id, spv::DecorationBinding);
                 descriptor.name     = compiler.get_name(resource.id);
-                const auto &spvType = compiler.get_type(resource.base_type_id);
+                if (descriptor.name.empty()) {
+                    descriptor.name     = compiler.get_name(resource.base_type_id);
+                }
+                if (type == rhi::DescriptorType::UNIFORM_BUFFER || type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
+                    descriptor.size = static_cast<uint32_t>(compiler.get_declared_struct_size(spvType));
+                }
 
                 for (uint32_t index = 0; index < spvType.member_types.size(); ++index) {
                     const auto  memberOffset = compiler.type_struct_member_offset(spvType, index);

@@ -175,21 +175,20 @@ namespace sky::vk {
                 uint64_t size = request.size;
                 uint64_t dstOffset = 0;
 
-                const uint8_t *src = request.source->GetData(request.offset);
                 for (uint32_t i = 0; i < copyNum; ++i) {
                     VkBufferCopy copy = {};
                     copy.size = std::min(BLOCK_SIZE, size);
                     copy.srcOffset = BeginFrame();
                     copy.dstOffset = dstOffset;
 
-                    memcpy(mapped + copy.srcOffset, src + dstOffset, copy.size);
+                    request.source->ReadData(dstOffset, copy.size, mapped + copy.srcOffset);
 
                     inflightCommands[currentFrameId]->Copy(stagingBuffer, vkBuffer, copy);
 
                     EndFrame();
 
                     dstOffset += BLOCK_SIZE;
-                    size -= BLOCK_SIZE;
+                    size = std::max(size, BLOCK_SIZE) - BLOCK_SIZE;
                 }
             }
         });

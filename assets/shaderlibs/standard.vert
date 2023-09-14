@@ -1,18 +1,16 @@
 #version 450 core
 
 layout (location = 0) in vec4 inPos;
-layout (location = 1) in vec4 inNormal;
-layout (location = 2) in vec4 inTangent;
-layout (location = 3) in vec4 inBiTangent;
+layout (location = 1) in vec4 inUv;
+layout (location = 2) in vec4 inNormal;
+layout (location = 3) in vec4 inTangent;
 layout (location = 4) in vec4 inColor;
-layout (location = 5) in vec2 inUv;
 
 layout (location = 0) out vec3 outPos;
 layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec3 outTangent;
-layout (location = 3) out vec3 outBiTangent;
-layout (location = 4) out vec4 outColor;
-layout (location = 5) out vec2 outUv;
+layout (location = 2) out vec4 outTangent;
+layout (location = 3) out vec4 outColor;
+layout (location = 4) out vec2 outUv;
 
 #include <shaderlibs/layouts/standard_perpass.glsl>
 #include <shaderlibs/layouts/standard_local_vs.glsl>
@@ -29,8 +27,7 @@ void main()
 
     outPos = worldPos.xyz / worldPos.w;
     outNormal = mat3(localData.inverseTranspose) * inNormal.xyz;
-    outTangent = normalize(mat3(localData.inverseTranspose) * inTangent.xyz);
-    outBiTangent = normalize(mat3(localData.inverseTranspose) * inBiTangent.xyz);
+    outTangent = vec4(normalize(mat3(localData.inverseTranspose) * inTangent.xyz), inTangent.w);
     outColor = inColor;
-    outUv = inUv;
+    outUv = inUv.xy;
 }

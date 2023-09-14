@@ -20,6 +20,7 @@ namespace sky {
         std::string name;
         uint32_t set;
         uint32_t binding;
+        uint32_t size;
         rhi::DescriptorType type;
         std::vector<ShaderBufferMember> members;
     };

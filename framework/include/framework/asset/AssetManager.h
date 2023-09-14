@@ -107,6 +107,7 @@ namespace sky {
 
         void SaveAssets();
         void RegisterAssets();
+        void ImportSourceImpl(const std::string &path, const SourceAssetImportOption &option);
 
         std::vector<std::string> searchPaths;
 

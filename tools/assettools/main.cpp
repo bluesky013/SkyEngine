@@ -38,8 +38,6 @@ int main(int argc, char *argv[])
     Application app;
     app.Init(start);
 
-    CoreReflection();
-
     std::string projectPath;
     std::string enginePath;
     std::string filePath;

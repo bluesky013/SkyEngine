@@ -12,11 +12,11 @@ namespace sky {
 
     class MeshFeatureProcessor : public IFeatureProcessor {
     public:
-        MeshFeatureProcessor() = default;
-        ~MeshFeatureProcessor() = default;
+        explicit MeshFeatureProcessor(RenderScene *scene) : IFeatureProcessor(scene) {}
+        ~MeshFeatureProcessor() override = default;
 
-        void Tick(float time);
-        void Render(float time);
+        void Tick(float time) override;
+        void Render() override;
 
         StaticMeshRenderer *CreateStaticMesh();
         void RemoveStaticMesh(StaticMeshRenderer *mesh);

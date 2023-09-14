@@ -3,6 +3,7 @@
 //
 
 #include <render/geometry/GeometryFeature.h>
+#include <render/RenderBuiltinLayout.h>
 #include <render/RHI.h>
 
 namespace sky {
@@ -18,7 +19,7 @@ namespace sky {
         auto rhiLayout = technique->RequestProgram()->GetPipelineLayout()->GetSetLayout(2);
         localLayout = std::make_shared<ResourceGroupLayout>();
         localLayout->SetRHILayout(rhiLayout);
-        localLayout->AddNameHandler("ObjectInfo", 0);
+        localLayout->AddNameHandler("ObjectInfo", {0, sizeof(InstanceLocal)});
 
         auto *device = RHI::Get()->GetDevice();
         {

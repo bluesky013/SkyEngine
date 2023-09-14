@@ -2,7 +2,7 @@
     "type": "graphics",
     "shaders": {
         "vert": "shaderlibs/standard.vert",
-        "frag": "shaderlibs/unlit.frag"
+        "frag": "shaderlibs/standard.frag"
     },
     "pass": {
         "tag": "ForwardColor"
