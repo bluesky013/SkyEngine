@@ -2,10 +2,10 @@
 // Created by Zach Lee on 2023/8/20.
 //
 
-#include <render/pipeline/DefaultForward.h>
-#include <render/rdg/RenderGraph.h>
-#include <render/RenderWindow.h>
-#include <render/RenderScene.h>
+#include "render/RenderScene.h"
+#include "render/RenderWindow.h"
+#include "render/rdg/RenderGraph.h"
+#include <render/adaptor/pipeline/DefaultForward.h>
 
 namespace sky {
 

@@ -4,7 +4,7 @@
 
 #include <SampleScene.h>
 #include <render/Renderer.h>
-#include <render/pipeline/DefaultForward.h>
+#include <render/adaptor/pipeline/DefaultForward.h>
 
 namespace sky {
 
