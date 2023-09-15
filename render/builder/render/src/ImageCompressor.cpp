@@ -98,19 +98,39 @@ namespace sky::builder {
         bc7_enc_settings settings = {};
         switch (options.quality) {
         case Quality::ULTRA_FAST:
-            S_GetProfile_BC7_alpha_ultrafast(&settings);
+            if (options.hasAlpha) {
+                S_GetProfile_BC7_alpha_ultrafast(&settings);
+            } else {
+                S_GetProfile_BC7_ultrafast(&settings);
+            }
             break;
         case Quality::VERY_FAST:
-            S_GetProfile_BC7_alpha_veryfast(&settings);
+            if (options.hasAlpha) {
+                S_GetProfile_BC7_alpha_veryfast(&settings);
+            } else {
+                S_GetProfile_BC7_veryfast(&settings);
+            }
             break;
         case Quality::FAST:
-            S_GetProfile_BC7_alpha_fast(&settings);
+            if (options.hasAlpha) {
+                S_GetProfile_BC7_alpha_fast(&settings);
+            } else {
+                S_GetProfile_BC7_fast(&settings);
+            }
             break;
         case Quality::BASIC:
-            S_GetProfile_BC7_alpha_basic(&settings);
+            if (options.hasAlpha) {
+                S_GetProfile_BC7_alpha_basic(&settings);
+            } else {
+                S_GetProfile_BC7_basic(&settings);
+            }
             break;
         case Quality::SLOW:
-            S_GetProfile_BC7_alpha_slow(&settings);
+            if (options.hasAlpha) {
+                S_GetProfile_BC7_alpha_slow(&settings);
+            } else {
+                S_GetProfile_BC7_slow(&settings);
+            }
             break;
         }
 

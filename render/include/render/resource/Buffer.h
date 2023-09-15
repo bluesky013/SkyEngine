@@ -22,7 +22,7 @@ namespace sky {
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
 
-        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue);
+        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
 
     protected:
         rhi::Device *device = nullptr;

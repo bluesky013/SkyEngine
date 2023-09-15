@@ -12,7 +12,7 @@ namespace sky::rhi {
 
     class FileStream : public IStream {
     public:
-        explicit FileStream(const std::string &path);
+        explicit FileStream(const std::string &path, uint32_t baseOffset);
         ~FileStream() override = default;
 
         const uint8_t *GetData(uint64_t offset) override;
@@ -20,6 +20,7 @@ namespace sky::rhi {
 
     private:
         std::ifstream stream;
+        uint32_t baseOffset;
         std::unique_ptr<uint8_t> hostData;
     };
 

@@ -90,8 +90,7 @@ namespace sky::vk {
             const auto &imageInfo = vkImage->GetImageInfo();
             const auto &formatInfo  = vkImage->GetFormatInfo();
 
-            fences[currentFrameId]->Reset();
-            inflightCommands[currentFrameId]->Begin();
+            BeginFrame();
             VkImageSubresourceRange subResourceRange = {};
             subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
             subResourceRange.baseMipLevel            = 0;
@@ -105,10 +104,7 @@ namespace sky::vk {
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             inflightCommands[currentFrameId]->QueueBarrier(vkImage, subResourceRange, barrier, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             inflightCommands[currentFrameId]->FlushBarriers();
-
-            inflightCommands[currentFrameId]->End();
-            inflightCommands[currentFrameId]->Submit(*this, {{}, {}, fences[currentFrameId]});
-            fences[currentFrameId]->Wait();
+            EndFrame();
 
             for (const auto &request : requests) {
                 uint32_t width  = std::max(request.imageExtent.width >> request.mipLevel, 1U);
@@ -131,7 +127,6 @@ namespace sky::vk {
 
                     uint32_t copySize = std::min(bufferStep, srcSize - bufferStep * i);
                     request.source->ReadData(request.offset + bufferStep * i, copySize, mapped + offset);
-//                    memcpy(mapped + offset, request.data + request.offset + bufferStep * i, copySize);
 
                     VkOffset3D offset3D = {request.imageOffset.x, request.imageOffset.y, request.imageOffset.z};
                     offset3D.y += static_cast<int32_t>(heightStep * i);
@@ -149,19 +144,14 @@ namespace sky::vk {
                 }
             }
 
-            fences[currentFrameId]->Reset();
-            inflightCommands[currentFrameId]->Begin();
+            BeginFrame();
             barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
             barrier.dstStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = 0;
-
             inflightCommands[currentFrameId]->QueueBarrier(vkImage, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             inflightCommands[currentFrameId]->FlushBarriers();
-
-            inflightCommands[currentFrameId]->End();
-            inflightCommands[currentFrameId]->Submit(*this, {{}, {}, fences[currentFrameId]});
-            fences[currentFrameId]->Wait();
+            EndFrame();
         });
     }
 

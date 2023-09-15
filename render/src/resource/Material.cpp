@@ -103,8 +103,9 @@ namespace sky {
 
     void MaterialInstance::SetTexture(const std::string &key, const RDTexturePtr &tex, uint32_t index)
     {
-        const auto *handler = resourceGroup->GetLayout()->GetBufferMemberByName(key);
+        const auto *handler = resourceGroup->GetLayout()->GetBindingByeName(key);
         if (handler != nullptr) {
+            resourceGroup->BindTexture(key, tex->GetImageView(), index);
             textures[handler->binding + index] = tex;
             resDirty = true;
         }

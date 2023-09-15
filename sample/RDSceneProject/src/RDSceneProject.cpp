@@ -30,6 +30,9 @@ namespace sky {
         if (window != nullptr) {
             window->Resize(width, height);
         }
+        if (currentScene != nullptr) {
+            currentScene->Resize(width, height);
+        }
     }
 
     void RDSceneProject::Start()

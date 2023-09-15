@@ -15,7 +15,7 @@ namespace sky {
         Texture();
         virtual ~Texture();
 
-        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue);
+        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const uint8_t *ptr, uint32_t size, rhi::Queue &queue);
 
         const rhi::ImageViewPtr &GetImageView() const { return imageView; }

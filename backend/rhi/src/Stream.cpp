@@ -6,7 +6,7 @@
 
 namespace sky::rhi {
 
-    FileStream::FileStream(const std::string &path) : stream(path, std::ios::binary)
+    FileStream::FileStream(const std::string &path, uint32_t offset) : stream(path, std::ios::binary), baseOffset(offset)
     {
     }
 
@@ -19,7 +19,7 @@ namespace sky::rhi {
         if (!hostData) {
             auto fileSize = stream.tellg();
             hostData.reset(new uint8_t[stream.tellg()]);
-            stream.seekg(0);
+            stream.seekg(static_cast<int>(baseOffset + offset), std::ios::beg);
             stream.read((char *)hostData.get(), fileSize);
             stream.close();
         }
@@ -33,7 +33,7 @@ namespace sky::rhi {
             return;
         }
 
-        stream.seekg(static_cast<int>(offset), std::ios::beg);
+        stream.seekg(static_cast<int>(baseOffset + offset), std::ios::beg);
         stream.read(reinterpret_cast<char *>(out), static_cast<int64_t>(size));
     }
 

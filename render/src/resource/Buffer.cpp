@@ -36,10 +36,10 @@ namespace sky {
         buffer = device->CreateBuffer(bufferDesc);
     }
 
-    rhi::TransferTaskHandle Buffer::Upload(const std::string &path, rhi::Queue &queue)
+    rhi::TransferTaskHandle Buffer::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
     {
         rhi::BufferUploadRequest request = {};
-        request.source = std::make_shared<rhi::FileStream>(path);
+        request.source = std::make_shared<rhi::FileStream>(path, offset);
         request.offset = 0;
         request.size   = bufferDesc.size;
         return queue.UploadBuffer(buffer, request);

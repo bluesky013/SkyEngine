@@ -90,14 +90,14 @@ namespace sky {
         for (const auto &vb : data.vertexBuffers) {
             auto buffer = std::make_shared<Buffer>();
             buffer->Init(vb->Data().size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(vb->GetPath(), *queue);
+            handle = buffer->Upload(vb->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
             mesh->AddVertexBuffer(buffer);
         }
 
         if (data.indexBuffer) {
             auto buffer = std::make_shared<Buffer>();
             buffer->Init(data.indexBuffer->Data().size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(data.indexBuffer->GetPath(), *queue);
+            handle = buffer->Upload(data.indexBuffer->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
             mesh->SetIndexBuffer(buffer);
         }
         mesh->SetIndexType(data.indexType);

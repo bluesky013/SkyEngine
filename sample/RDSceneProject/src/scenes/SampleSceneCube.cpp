@@ -51,7 +51,7 @@ namespace sky {
         void OnTick(float time) override
         {
             auto *ts = object->GetComponent<TransformComponent>();
-            ts->SetLocalRotation(Quaternion(angle, Vector3(1, 1, 1)));
+            ts->SetLocalRotation(Quaternion(angle, Vector3(0, 1, 0)));
             angle += 0.5f * time;
         }
 
@@ -66,7 +66,7 @@ namespace sky {
         }
 
         cube = world->CreateGameObject("Cube");
-        cube->AddComponent<SimpleGeometryComponent>();
+//        cube->AddComponent<SimpleGeometryComponent>();
         cube->AddComponent<SimpleRotateComponent>();
         auto *mesh = cube->AddComponent<MeshRenderer>();
 
@@ -87,6 +87,6 @@ namespace sky {
 
     void SampleSceneCube::Resize(uint32_t width, uint32_t height)
     {
-//        camera->GetComponent<CameraComponent>()->SetAspect(width, height);
+        camera->GetComponent<CameraComponent>()->SetAspect(width, height);
     }
 } // namespace sky

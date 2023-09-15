@@ -60,12 +60,22 @@ namespace sky::builder {
             if (tex == nullptr) {
                 return nullptr;
             }
-            if (tex->mHeight != 0) {
 
-            } else {
-                const uint32_t size = tex->mWidth;
-//                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
-//                                                            &width, &height, &channel, 4);
+            BuildRequest request = {};
+            request.fullPath = texPath.make_preferred().string();
+            request.name = std::string("embedded_") + str.C_Str();
+            request.ext = tex->achFormatHint;
+            request.outDir = productFolder;
+            request.buildKey = ImageBuilder::KEY;
+            request.rawData = tex->pcData;
+            request.dataSize = tex->mWidth;
+
+            request.name.erase(std::remove(request.name.begin(), request.name.end(), '*'), request.name.end());
+
+            BuildResult result = {};
+            ImageBuilder().Request(request, result);
+            if (!result.products.empty()) {
+                return am->LoadAsset<Texture>(result.products[0].uuid);
             }
         }
         return {};
@@ -179,7 +189,7 @@ namespace sky::builder {
 
             data.properties.valueMap.emplace("useAOMap", Any(useAOMap));
             if (useAOMap) {
-                data.properties.valueMap.emplace("aOMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("aoMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
                 data.properties.images.emplace_back(aoMap);
             }
 
@@ -255,20 +265,19 @@ namespace sky::builder {
             position[i].x = p.x;
             position[i].y = p.y;
             position[i].z = p.z;
-            position[i].x = 1.f;
+            position[i].w = 1.f;
             subMesh.aabb.min = Min(subMesh.aabb.min, Vector3(p.x, p.y, p.z));
             subMesh.aabb.max = Max(subMesh.aabb.max, Vector3(p.x, p.y, p.z));
-
 
             normal[i].x = n.x;
             normal[i].y = n.y;
             normal[i].z = n.z;
-            normal[i].x = 1.f;
+            normal[i].w = 1.f;
 
             tangent[i].x = t.x;
             tangent[i].y = t.y;
             tangent[i].z = t.z;
-            tangent[i].x = 1.f;
+            tangent[i].w = 1.f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];
@@ -305,10 +314,10 @@ namespace sky::builder {
         uint32_t *indices = &reinterpret_cast<uint32_t *>(indexData.data())[indexOffset];
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
-            aiFace face = mesh->mFaces[i];
-            indices[i + 0] = face.mIndices[0];
-            indices[i + 1] = face.mIndices[1];
-            indices[i + 2] = face.mIndices[2];
+            const aiFace &face = mesh->mFaces[i];
+            indices[3 * i + 0] = face.mIndices[0];
+            indices[3 * i + 1] = face.mIndices[1];
+            indices[3 * i + 2] = face.mIndices[2];
         }
 
         meshData.subMeshes.emplace_back(subMesh);

@@ -18,6 +18,7 @@ namespace sky {
         uint32_t size = 0;
         std::vector<uint8_t> rawData;
 
+        uint32_t GetDataOffset() const { return sizeof(size); }
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };

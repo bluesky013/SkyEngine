@@ -20,6 +20,8 @@ namespace sky::builder {
     struct CompressOption {
         Quality quality = Quality::SLOW;
         rhi::PixelFormat targetFormat = rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK;
+        bool hasAlpha = false;
+        bool genMip = false;
     };
 
     struct BufferImageInfo {
@@ -28,7 +30,6 @@ namespace sky::builder {
         uint32_t width   = 0;
         uint32_t height  = 0;
         uint32_t layer   = 1;
-        bool genMip = true;
     };
 
     void InitializeCompressor();

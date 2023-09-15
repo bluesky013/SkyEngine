@@ -20,6 +20,8 @@ namespace sky {
         std::string ext;
         std::string outDir;
         std::string buildKey;
+        const void *rawData = nullptr;
+        uint32_t dataSize = 0;
     };
 
     struct BuildResult {

@@ -21,10 +21,10 @@ namespace sky {
         device = RHI::Get()->GetDevice();
     }
 
-    rhi::TransferTaskHandle Texture::Upload(const std::string &path, rhi::Queue &queue)
+    rhi::TransferTaskHandle Texture::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
     {
         rhi::ImageUploadRequest request = {};
-        request.source   = std::make_shared<rhi::FileStream>(path);
+        request.source   = std::make_shared<rhi::FileStream>(path, offset);
         request.offset   = 0;
         request.mipLevel = 0;
         request.layer    = 0;
