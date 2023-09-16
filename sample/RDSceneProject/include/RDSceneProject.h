@@ -26,11 +26,14 @@ namespace sky {
         void Tick(float delta) override;
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
-
+        void OnKeyUp(KeyButtonType) override;
     private:
+        void NextScene();
+
         RenderWindow *window = nullptr;
         SampleScene *currentScene = nullptr;
-        std::unordered_map<std::string, std::unique_ptr<SampleScene>> sampleScenes;
+        uint32_t sceneIndex = 0;
+        std::vector<std::unique_ptr<SampleScene>> sampleScenes;
     };
 
 } // namespace sky

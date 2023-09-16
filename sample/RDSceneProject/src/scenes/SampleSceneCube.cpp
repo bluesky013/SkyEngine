@@ -4,12 +4,12 @@
 
 #include "SampleSceneCube.h"
 #include <render/RenderWindow.h>
-#include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/Util.h>
 #include <render/geometry/GeometryRenderer.h>
-#include <framework/world/TransformComponent.h>
+
+#include "SimpleRotateComponent.h"
 
 namespace sky {
 
@@ -41,24 +41,6 @@ namespace sky {
         std::unique_ptr<GeometryRenderer> geometry;
     };
 
-    class SimpleRotateComponent : public Component {
-    public:
-        SimpleRotateComponent() = default;
-        ~SimpleRotateComponent() override = default;
-
-        TYPE_RTTI_WITH_VT(SimpleRotateComponent)
-
-        void OnTick(float time) override
-        {
-            auto *ts = object->GetComponent<TransformComponent>();
-            ts->SetLocalRotation(Quaternion(angle, Vector3(0, 1, 0)));
-            angle += 0.5f * time;
-        }
-
-    private:
-        float angle = 0.f;
-    };
-
     bool SampleSceneCube::Start(sky::RenderWindow *window)
     {
         if (!SampleScene::Start(window)) {
@@ -66,12 +48,9 @@ namespace sky {
         }
 
         cube = world->CreateGameObject("Cube");
-//        cube->AddComponent<SimpleGeometryComponent>();
-        cube->AddComponent<SimpleRotateComponent>();
-        auto *mesh = cube->AddComponent<MeshRenderer>();
-
-        AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
-        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
+        cube->AddComponent<SimpleGeometryComponent>();
+        auto *sr = cube->AddComponent<SimpleRotateComponent>();
+        sr->SetAxis(VEC3_ONE);
 
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
@@ -83,6 +62,7 @@ namespace sky {
 
     void SampleSceneCube::Shutdown()
     {
+        SampleScene::Shutdown();
     }
 
     void SampleSceneCube::Resize(uint32_t width, uint32_t height)

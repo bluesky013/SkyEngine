@@ -12,6 +12,7 @@
 #include <render/Renderer.h>
 
 #include "scenes/SampleSceneCube.h"
+#include "scenes/SampleMesh.h"
 
 namespace sky {
 
@@ -35,6 +36,24 @@ namespace sky {
         }
     }
 
+    void RDSceneProject::OnKeyUp(KeyButtonType type)
+    {
+        if (type == KeyButton::KEY_RIGHT) {
+            NextScene();
+        }
+    }
+
+    void RDSceneProject::NextScene()
+    {
+        if (currentScene != nullptr) {
+            currentScene->Shutdown();
+        }
+        sceneIndex = (sceneIndex + 1) % sampleScenes.size();
+
+        currentScene = sampleScenes[sceneIndex].get();
+        currentScene->Start(window);
+    }
+
     void RDSceneProject::Start()
     {
         auto *renderer = Renderer::Get();
@@ -43,9 +62,10 @@ namespace sky {
 
         Event<IWindowEvent>::Connect(nativeWindow, this);
 
-        sampleScenes.emplace("Cube", new SampleSceneCube());
-        currentScene = sampleScenes.begin()->second.get();
-        currentScene->Start(window);
+        sampleScenes.emplace_back(new SampleSceneCube());
+        sampleScenes.emplace_back(new SampleMesh());
+        sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
+        NextScene();
     }
 
     void RDSceneProject::Stop()
