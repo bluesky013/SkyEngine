@@ -33,30 +33,39 @@ if (NOT EXISTS ${SKY_3RD_SAVE_PATH})
 endif()
 
 if(EXISTS ${3RD_PATH})
-    sky_find_3rd(TARGET rapidjson     DIR rapidjson)
-    sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
-    sky_find_3rd(TARGET vma           DIR VulkanMemoryAllocator)
-    sky_find_3rd(TARGET taskflow      DIR taskflow)
-    sky_find_3rd(TARGET assimp        DIR assimp)
-    sky_find_3rd(TARGET googletest    DIR googletest)
+    # core
     sky_find_3rd(TARGET crc32         DIR crc32c)
-    sky_find_3rd(TARGET imgui         DIR imgui)
     sky_find_3rd(TARGET sfmt          DIR sfmt)
-    sky_find_3rd(TARGET shaderc       DIR shaderc)
-    sky_find_3rd(TARGET stb           DIR stb)
-    sky_find_3rd(TARGET cxxopts       DIR cxxopts)
-    sky_find_3rd(TARGET volk          DIR volk)
-    sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
-    sky_find_3rd(TARGET ktx           DIR ktx)
-    sky_find_3rd(TARGET sdl           DIR sdl)
     sky_find_3rd(TARGET boost         DIR boost)
+    sky_find_3rd(TARGET taskflow      DIR taskflow)
+
+    # framework
+    sky_find_3rd(TARGET rapidjson     DIR rapidjson)
+    sky_find_3rd(TARGET sdl           DIR sdl)
     sky_find_3rd(TARGET sqlite        DIR sqlite)
+
+    # vulkan
+    sky_find_3rd(TARGET volk          DIR volk)
+    sky_find_3rd(TARGET vma           DIR VulkanMemoryAllocator)
+
+    # tmp
+    sky_find_3rd(TARGET imgui         DIR imgui)
+
+    # test
+    sky_find_3rd(TARGET googletest    DIR googletest)
 
     if (SKY_BUILD_PERF_TOOL)
         sky_find_3rd(TARGET implot        DIR implot)
     endif()
 
     if (SKY_BUILD_TOOL)
+        sky_find_3rd(TARGET assimp        DIR assimp)
+        sky_find_3rd(TARGET stb           DIR stb)
+        sky_find_3rd(TARGET shaderc       DIR shaderc)
+        sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
+        sky_find_3rd(TARGET cxxopts       DIR cxxopts)
+        sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
+        sky_find_3rd(TARGET ktx           DIR ktx)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
     endif ()
 

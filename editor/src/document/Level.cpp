@@ -7,7 +7,7 @@
 #include <framework/serialization/JsonArchive.h>
 #include <fstream>
 #include <render/Renderer.h>
-#include <render/pipeline/DefaultForward.h>
+#include <render/adaptor/pipeline/DefaultForward.h>
 #include <render/adaptor/components/CameraComponent.h>
 
 #include <editor/viewport/Viewport.h>
