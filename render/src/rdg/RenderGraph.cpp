@@ -293,7 +293,8 @@ namespace sky::rdg {
 
     RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
     {
-        SKY_ASSERT(subPass.rasterViews.emplace(name, view).second);
+        auto iter = subPass.rasterViews.emplace(name, view);
+        SKY_ASSERT(iter.second);
         rdg.AddDependency(resVertex, vertex, DependencyInfo{view.type, view.access, {}});
         return *this;
     }

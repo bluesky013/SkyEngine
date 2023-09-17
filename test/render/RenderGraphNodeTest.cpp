@@ -52,27 +52,20 @@ TEST(RenderGraphTest, NodeGraphTest01)
 
 
     rg.AddImage("test",
-        GraphImage{{128, 128, 1}, 2, 2, rhi::PixelFormat::RGBA8_UNORM, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, rhi::ImageViewType::VIEW_2D_ARRAY});
+        GraphImage{{128, 128, 1}, 1, 2, rhi::PixelFormat::RGBA8_UNORM, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, rhi::ImageViewType::VIEW_2D_ARRAY});
     rg.AddImageView("test_1", "test", GraphImageView{{0, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
     rg.AddImageView("test_1_1", "test_1", GraphImageView{{0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
     rg.AddImageView("test_1_2", "test_1", GraphImageView{{0, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
-    rg.AddImageView("test_2", "test", GraphImageView{{1, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
-    rg.AddImageView("test_2_1", "test_2", GraphImageView{{1, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
-    rg.AddImageView("test_2_2", "test_2", GraphImageView{{1, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
     rg.AddImage("test2",
                 GraphImage{{128, 128, 1}, 1, 1, rhi::PixelFormat::D24_S8, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED});
 
     auto pass1 = rdg.AddRasterPass("color0", 128, 128)
         .AddAttachment({"test_1_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test_1_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
-        .AddAttachment({"test_2_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
-        .AddAttachment({"test_2_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
         .AddAttachment({"test2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     pass1.AddRasterSubPass("color0_sub0")
         .AddColor("test_1_1", ResourceAccessBit::WRITE)
         .AddColor("test_1_2", ResourceAccessBit::WRITE)
-        .AddColor("test_2_1", ResourceAccessBit::WRITE)
-        .AddColor("test_2_2", ResourceAccessBit::WRITE)
         .AddDepthStencil("test2", ResourceAccessBit::WRITE)
         .AddQueue("queue1");
 

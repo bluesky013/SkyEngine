@@ -9,6 +9,8 @@
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/geometry/GeometryRenderer.h>
 
+#include <render/adaptor/components/ParticleSystemComponent.h>
+
 #include "SimpleRotateComponent.h"
 
 namespace sky {
@@ -21,6 +23,7 @@ namespace sky {
 
         cube = world->CreateGameObject("Cube");
         cube->AddComponent<SimpleRotateComponent>();
+        cube->AddComponent<ParticleSystemComponent>();
 
         auto *mesh = cube->AddComponent<MeshRenderer>();
         AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();

@@ -13,6 +13,7 @@
 #include <render/adaptor/Reflection.h>
 
 #include <render/geometry/GeometryFeature.h>
+#include <render/particle/ParticleFeature.h>
 #include <render/mesh/MeshFeature.h>
 
 #include <render/RHI.h>
@@ -78,12 +79,14 @@ namespace sky {
 
         GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
         MeshFeature::Get()->Init();
+        ParticleFeature::Get()->Init();
     }
 
     void RenderModule::Stop()
     {
         GeometryFeature::Destroy();
         MeshFeature::Destroy();
+        ParticleFeature::Destroy();
     }
 
     void RenderModule::Shutdown()
