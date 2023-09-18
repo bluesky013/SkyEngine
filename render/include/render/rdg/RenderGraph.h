@@ -30,6 +30,15 @@ namespace sky::rdg {
         VertexType vertex;
     };
 
+    struct FullScreenBuilder {
+        FullScreenBuilder &SetTechnique(const RDGfxTechPtr &tech);
+        FullScreenBuilder &SetLayout(const RDResourceLayoutPtr &layout);
+
+        RenderGraph &rdg;
+        FullScreenBlit &fullscreen;
+        VertexType vertex;
+    };
+
     struct RasterSubPassBuilder {
         RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddResolve(const std::string &name, const ResourceAccess& access);
@@ -38,6 +47,7 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
         RasterQueueBuilder AddQueue(const std::string &name);
+        FullScreenBuilder AddFullScreen(const std::string &name);
         uint32_t GetAttachmentIndex(const std::string &name);
 
         RenderGraph &rdg;
@@ -186,9 +196,10 @@ namespace sky::rdg {
         PmrVector<size_t>     polymorphicDatas;
 
         // passes
-        PmrVector<RasterPass>    rasterPasses;
-        PmrVector<RasterSubPass> subPasses;
-        PmrVector<RasterQueue>   rasterQueues;
+        PmrVector<RasterPass>     rasterPasses;
+        PmrVector<RasterSubPass>  subPasses;
+        PmrVector<RasterQueue>    rasterQueues;
+        PmrVector<FullScreenBlit> fullScreens;
 
         PmrVector<ComputePass>   computePasses;
         PmrVector<CopyBlitPass>  copyBlitPasses;
@@ -295,6 +306,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, RasterQueueTag>) {
             graph.polymorphicDatas.emplace_back(graph.rasterQueues.size());
             graph.rasterQueues.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, FullScreenBlitTag>) {
+            graph.polymorphicDatas.emplace_back(graph.fullScreens.size());
+            graph.fullScreens.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }

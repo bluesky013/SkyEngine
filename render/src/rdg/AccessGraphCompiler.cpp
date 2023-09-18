@@ -65,7 +65,7 @@ namespace sky::rdg {
         if (lifeTime != nullptr) {
             auto parentPassID = rdg.subPasses[Index(passID, rdg)].parent;
             lifeTime->begin = std::min(lifeTime->begin, parentPassID);
-            lifeTime->end = std::max(lifeTime->end, parentPassID);
+            lifeTime->end = std::max(lifeTime->end, passID);
         }
     }
 

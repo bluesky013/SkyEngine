@@ -13,6 +13,7 @@
 
 #include "scenes/SampleSceneCube.h"
 #include "scenes/SampleMesh.h"
+#include "scenes/SampleRayMarching.h"
 
 namespace sky {
 
@@ -64,6 +65,7 @@ namespace sky {
 
         sampleScenes.emplace_back(new SampleSceneCube());
         sampleScenes.emplace_back(new SampleMesh());
+        sampleScenes.emplace_back(new SampleRayMarching());
         sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
         NextScene();
     }

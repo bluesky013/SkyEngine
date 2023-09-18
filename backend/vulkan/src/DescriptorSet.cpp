@@ -219,7 +219,13 @@ namespace sky::vk {
         auto vkImageView = std::static_pointer_cast<ImageView>(view);
         auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         const auto &viewInfo = vkImageView->GetSubRange();
-        writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
+        if (writeInfo.image.imageView == vkImageView->GetNativeHandle()) {
+            return;
+        }
+
+        if (writeInfo.image.sampler == VK_NULL_HANDLE) {
+            writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
+        }
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
 
         auto vIter = table.find(binding);
@@ -228,11 +234,11 @@ namespace sky::vk {
         auto mask = view->GetViewDesc().subRange.aspectMask;
         auto descriptorType = vIter->second.descriptorType;
         if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
-            if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {
-                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-            } else {
+//            if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {
+//                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+//            } else {
                 writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            }
+//            }
         } else if (descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
             writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }
@@ -247,6 +253,9 @@ namespace sky::vk {
     {
         auto vkSampler = std::static_pointer_cast<Sampler>(sampler);
         auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
+        if (writeInfo.image.sampler == vkSampler->GetNativeHandle()) {
+            return;
+        }
         writeInfo.image.sampler = vkSampler->GetNativeHandle();
         dirty = true;
     }

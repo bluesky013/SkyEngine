@@ -326,6 +326,14 @@ namespace sky::rdg {
         return RasterQueueBuilder{rdg, queue, res};
     }
 
+    FullScreenBuilder RasterSubPassBuilder::AddFullScreen(const std::string &name)
+    {
+        auto res = AddVertex(name.c_str(), FullScreenBlit(&rdg.context->resources, vertex), rdg);
+        auto &fullscreen = rdg.fullScreens[rdg.polymorphicDatas[res]];
+        add_edge(vertex, res, rdg.graph);
+        return FullScreenBuilder{rdg, fullscreen, res};
+    }
+
     RasterQueueBuilder &RasterQueueBuilder::SetLayout(const RDResourceLayoutPtr &layout)
     {
         queue.layout = layout;
@@ -344,4 +352,15 @@ namespace sky::rdg {
         return *this;
     }
 
-}
+    FullScreenBuilder &FullScreenBuilder::SetTechnique(const RDGfxTechPtr &tech)
+    {
+        fullscreen.technique = tech;
+        return *this;
+    }
+
+    FullScreenBuilder &FullScreenBuilder::SetLayout(const RDResourceLayoutPtr &layout)
+    {
+        fullscreen.layout = layout;
+        return *this;
+    }
+} // namespace sky::rdg

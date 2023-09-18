@@ -21,11 +21,10 @@ namespace sky {
             return false;
         }
 
-        cube = world->CreateGameObject("Cube");
-        cube->AddComponent<SimpleRotateComponent>();
-        cube->AddComponent<ParticleSystemComponent>();
+        meshObj = world->CreateGameObject("Cube");
+        meshObj->AddComponent<SimpleRotateComponent>();
 
-        auto *mesh = cube->AddComponent<MeshRenderer>();
+        auto *mesh = meshObj->AddComponent<MeshRenderer>();
         AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
         mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
 

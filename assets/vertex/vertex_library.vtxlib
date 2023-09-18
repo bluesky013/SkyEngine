@@ -1,6 +1,10 @@
 {
     "descriptions": [
         {
+            "empty": {
+                "attributes": [],
+                "bindings": []
+            },
             "position_only": {
                 "attributes": [
                     {

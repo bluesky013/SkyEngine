@@ -1,5 +1,5 @@
 //
-// Created by Zach Lee on 2023/9/16.
+// Created by blues on 2023/9/18.
 //
 
 #pragma once
@@ -11,10 +11,10 @@
 
 namespace sky {
 
-    class SampleMesh : public SampleScene {
+    class SampleRayMarching : public SampleScene {
     public:
-        SampleMesh() = default;
-        ~SampleMesh() override = default;
+        SampleRayMarching() = default;
+        ~SampleRayMarching() override = default;
 
         bool Start(RenderWindow *window) override;
         void Shutdown() override;

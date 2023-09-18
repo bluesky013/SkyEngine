@@ -26,6 +26,10 @@ namespace sky::rdg {
                 auto &queue = rdg.rasterQueues[Index(u, rdg)];
                 Compile(u, queue);
             },
+            [&](const FullScreenBlitTag &){
+                auto &fullscreen = rdg.fullScreens[Index(u, rdg)];
+                Compile(u, fullscreen);
+            },
             [&](const ComputePassTag &) {
                 auto &compute = rdg.computePasses[Index(u, rdg)];
                 Compile(u, compute);
@@ -113,6 +117,15 @@ namespace sky::rdg {
         BindResourceGroup(rdg, subPass.computeViews, *queue.resourceGroup);
     }
 
+    void RenderResourceCompiler::Compile(Vertex u, FullScreenBlit &fullscreen)
+    {
+        const auto &subPass = rdg.subPasses[Index(fullscreen.passID, rdg)];
+        const auto &pass = rdg.rasterPasses[Index(subPass.parent, rdg)];
+        fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.layout);
+        BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
+        fullscreen.pso = GraphicsTechnique::BuildPso(*fullscreen.technique, pass.renderPass, subPass.subPassID);
+    }
+
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)
     {
         std::visit(Overloaded{
@@ -120,13 +133,22 @@ namespace sky::rdg {
                 auto &image = rdg.resourceGraph.images[Index(res, rdg.resourceGraph)];
 
                 if (!image.desc.image && u >= image.lifeTime.begin && u <= image.lifeTime.end) {
-                    auto *imageObject = rdg.context->pool->RequestImage(image.desc);
+                    ImageObject *imageObject = rdg.context->pool->RequestImage(image.desc);
                     image.desc.image = imageObject->image;
                     const auto &imageDesc = image.desc;
                     rhi::ImageViewDesc viewDesc = {};
                     viewDesc.subRange = {0, imageDesc.mipLevels, 0, imageDesc.arrayLayers, GetAspectFlagsByFormat(imageDesc.format)};
                     viewDesc.viewType = image.desc.viewType;
                     image.res = imageObject->RequestView(viewDesc);
+
+                    boost::graph_traits<ResourceGraph::Graph>::out_edge_iterator begin;
+                    boost::graph_traits<ResourceGraph::Graph>::out_edge_iterator end;
+                    for (boost::tie(begin, end) = boost::out_edges(res, rdg.resourceGraph.graph);
+                         begin != end; ++begin) {
+                        auto child = boost::target(*begin, rdg.resourceGraph.graph);
+                        auto &view = rdg.resourceGraph.imageViews[Index(child, rdg.resourceGraph)];
+                        view.res = imageObject->RequestView(view.desc.view);
+                    }
                 }
             },
             [&](const BufferTag &) {
