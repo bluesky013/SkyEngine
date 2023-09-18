@@ -88,4 +88,29 @@ namespace sky {
         pipelineLayout = device->CreatePipelineLayout(plDesc);
     }
 
+    RDResourceLayoutPtr Program::RequestLayout(uint32_t index) const
+    {
+        auto rhiLayout = pipelineLayout->GetSetLayout(index);
+        if (!rhiLayout) {
+            return {};
+        }
+        auto layout = std::make_shared<ResourceGroupLayout>();
+        layout->SetRHILayout(rhiLayout);
+
+        for (const auto &shader : shaders) {
+            const auto &shaderResources = shader->GetShaderResources();
+            for (const auto &shaderResource : shaderResources) {
+                if (shaderResource.set != index) {
+                    continue;
+                }
+
+                layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
+                for (const auto &member : shaderResource.members) {
+                    layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
+                }
+            }
+        }
+        return layout;
+    }
+
 } // namespace sky

@@ -32,7 +32,6 @@ namespace sky::rdg {
 
     struct FullScreenBuilder {
         FullScreenBuilder &SetTechnique(const RDGfxTechPtr &tech);
-        FullScreenBuilder &SetLayout(const RDResourceLayoutPtr &layout);
 
         RenderGraph &rdg;
         FullScreenBlit &fullscreen;

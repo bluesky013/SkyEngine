@@ -36,12 +36,6 @@ namespace sky {
                 forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
                 forwardLayout->AddNameHandler("ViewInfo", {0, sizeof(SceneViewInfo)});
             }
-
-            {
-                marchingLayout = std::make_shared<ResourceGroupLayout>();
-                marchingLayout->SetRHILayout(rayMarchingTech->RequestProgram()->GetPipelineLayout()->GetSetLayout(0));
-                marchingLayout->AddNameHandler("mainDepth", {0, 0});
-            }
         }
 
         void OnSetup(rdg::RenderGraph &rdg) override
@@ -85,8 +79,7 @@ namespace sky {
                 .AddColor("FinalOut", rdg::ResourceAccessBit::WRITE)
                 .AddComputeView("ForwardDepthStencil_d", {"mainDepth", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
                 .AddFullScreen("marching")
-                    .SetTechnique(rayMarchingTech)
-                    .SetLayout(marchingLayout);
+                    .SetTechnique(rayMarchingTech);
 
             rdg.AddPresentPass("present", "FinalOut");
         }
@@ -95,7 +88,6 @@ namespace sky {
         RenderWindow *output = nullptr;
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
         RDResourceLayoutPtr forwardLayout;
-        RDResourceLayoutPtr marchingLayout;
         RDGfxTechPtr rayMarchingTech;
     };
 

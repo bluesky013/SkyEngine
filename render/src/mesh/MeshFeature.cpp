@@ -15,7 +15,7 @@ namespace sky {
     };
 
     static const std::vector<rhi::DescriptorSetLayout::SetBinding> BINDINGS = {
-        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 0, rhi::ShaderStageFlagBit::VS, "ViewInfo"},
+        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 0, rhi::ShaderStageFlagBit::VS, "ObjectInfo"},
     };
 
     void MeshFeature::Init()

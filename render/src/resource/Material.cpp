@@ -7,8 +7,6 @@
 #include <render/Renderer.h>
 
 namespace sky {
-
-    static constexpr uint32_t BATCH_SET = 1;
     static constexpr uint32_t MAX_SET_PER_POOL = 8;
     static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
         {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
@@ -20,26 +18,7 @@ namespace sky {
         gfxTechniques.emplace_back(technique);
 
         if (!layout) {
-            auto program = gfxTechniques.back()->RequestProgram();
-            auto rhiLayout = program->GetPipelineLayout()->GetSetLayout(BATCH_SET);
-            if (rhiLayout) {
-                layout = std::make_shared<ResourceGroupLayout>();
-                layout->SetRHILayout(rhiLayout);
-
-                for (const auto &shader : program->GetShaders()) {
-                    const auto &shaderResources = shader->GetShaderResources();
-                    for (const auto &shaderResource : shaderResources) {
-                        if (shaderResource.set != BATCH_SET) {
-                            continue;
-                        }
-
-                        layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
-                        for (const auto &member : shaderResource.members) {
-                            layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
-                        }
-                    }
-                }
-            }
+            layout = gfxTechniques.back()->RequestProgram()->RequestLayout(BATCH_SET);
 
             if (!pool) {
                 rhi::DescriptorSetPool::Descriptor poolDesc = {};

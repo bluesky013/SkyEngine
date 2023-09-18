@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <rhi/Device.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky {
 
@@ -62,9 +63,10 @@ namespace sky {
 
         void AddShader(const ShaderVariantPtr &shader);
         void BuildPipelineLayout();
+        RDResourceLayoutPtr RequestLayout(uint32_t index) const;
+
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
         const std::vector<ShaderVariantPtr> &GetShaders() const { return shaders; }
-
     private:
         std::vector<ShaderVariantPtr> shaders;
         rhi::PipelineLayoutPtr pipelineLayout;

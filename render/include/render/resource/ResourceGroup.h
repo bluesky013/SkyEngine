@@ -11,6 +11,9 @@
 #include <render/resource/Texture.h>
 
 namespace sky {
+    static constexpr uint32_t PASS_SET = 0;
+    static constexpr uint32_t BATCH_SET = 1;
+    static constexpr uint32_t INSTANCE_SET = 2;
 
     class ResourceGroupLayout {
     public:
