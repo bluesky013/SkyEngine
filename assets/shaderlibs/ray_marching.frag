@@ -12,6 +12,7 @@ layout (set = 0, binding = 2) uniform ViewInfo {
     mat4 viewToClipMatrix;
     mat4 worldToClipMatrix;
     mat4 clipToWorldMatrix;
+    vec4 worldPos;
     vec4 zParam;
 } viewInfo;
 
@@ -33,7 +34,7 @@ void main()
     vec3 dst = pos.xyz / pos.w;
 
     Ray ray;
-    ray.origin = vec3(viewInfo.viewToWorldMatrix[3].x, viewInfo.viewToWorldMatrix[3].y, viewInfo.viewToWorldMatrix[3].z);
+    ray.origin = viewInfo.worldPos.xyz;
     ray.dir = normalize(dst - ray.origin);
 
     vec2 rayBoxDist = rayBoxDist(box, ray);

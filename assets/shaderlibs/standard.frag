@@ -8,12 +8,7 @@ layout (location = 4) in vec2 uv;
 
 layout (location = 0) out vec4 outFragColor;
 
-layout (set = 0, binding = 0) uniform ViewInfo {
-    mat4 viewToWorldMatrix;
-    mat4 worldToViewMatrix;
-    mat4 viewToClipMatrix;
-    mat4 worldToClipMatrix;
-} viewInfo;
+#include <shaderlibs/layouts/standard_perpass.glsl>
 
 layout (set = 1, binding = 0) uniform MaterialInfo {
     vec4 baseColor;
@@ -117,7 +112,7 @@ void main()
         N = normalize(TBN * tNormal);
     }
 
-    vec3 viewPos = vec3(viewInfo.viewToWorldMatrix[3].x, viewInfo.viewToWorldMatrix[3].y, viewInfo.viewToWorldMatrix[3].z);
+    vec3 viewPos = viewInfo.worldPos.xyz;
     vec3 L = normalize(light.pos.xyz - pos);
     vec3 V = normalize(viewPos - pos);
 

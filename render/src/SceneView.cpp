@@ -29,6 +29,7 @@ namespace sky {
     {
         viewInfo[index].worldMatrix = mat;
         viewInfo[index].viewMatrix = mat.Inverse();
+        viewInfo[index].worldPos = Vector4(mat[3][0], mat[3][1], mat[3][2], 1.0);
         dirty = true;
     }
 
@@ -43,6 +44,7 @@ namespace sky {
         viewInfo[index].zParam.x = 1 - far / near;
         viewInfo[index].zParam.y = far / near;
         viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
+        viewInfo[index].zParam.w = viewInfo[index].zParam.y / far;
         viewInfo[index].zParam.w = viewInfo[index].zParam.y / far;
         dirty = true;
     }
