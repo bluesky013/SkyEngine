@@ -18,12 +18,12 @@ namespace sky {
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {
-            rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "ViewInfo"
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"
         });
 
         forwardLayout = std::make_shared<ResourceGroupLayout>();
         forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-        forwardLayout->AddNameHandler("ViewInfo", {0, sizeof(SceneViewInfo)});
+        forwardLayout->AddNameHandler("viewInfo", {0, sizeof(SceneViewInfo)});
     }
 
     void DefaultForward::OnSetup(rdg::RenderGraph &rdg)
@@ -53,7 +53,7 @@ namespace sky {
         forwardPass.AddRasterSubPass("color0_sub0")
             .AddColor("ForwardColor", rdg::ResourceAccessBit::WRITE)
             .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
-            .AddComputeView(uboName, {"ViewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS})
+            .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS})
             .AddQueue("queue1")
                 .SetRasterID("ForwardColor")
                 .SetView(sceneView)

@@ -1,7 +1,7 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "shaderlibs/standard.vert",
+        "vert": "shaderlibs/vertex/standard.vert",
         "frag": "shaderlibs/standard.frag"
     },
     "pass": {

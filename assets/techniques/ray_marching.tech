@@ -1,7 +1,7 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "shaderlibs/fullscreen.vert",
+        "vert": "shaderlibs/vertex/fullscreen.vert",
         "frag": "shaderlibs/ray_marching.frag"
     },
     "pass": {

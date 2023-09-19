@@ -1,5 +1,5 @@
 #version 450 core
-#include <shaderlibs/vertex_input/fullscreen_triangle.glsl>
+#include <shaderlibs/vertex/fullscreen_triangle.glsl>
 
 layout(location = 0) out vec2 outUv;
 

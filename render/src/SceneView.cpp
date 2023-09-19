@@ -6,6 +6,7 @@
 #include <core/math/MathUtil.h>
 #include <core/shapes/Shapes.h>
 #include <render/RHI.h>
+#include <algorithm>
 
 namespace sky {
 
@@ -39,6 +40,10 @@ namespace sky {
         p[3][2] = 0.5f;
 
         viewInfo[index].projectMatrix = p * MakePerspective(fov, aspect, near, far);
+        viewInfo[index].zParam.x = 1 - far / near;
+        viewInfo[index].zParam.y = far / near;
+        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
+        viewInfo[index].zParam.w = viewInfo[index].zParam.y / far;
         dirty = true;
     }
 
@@ -50,6 +55,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < viewCount; ++i) {
             viewInfo[i].viewProjectMatrix = viewInfo[i].projectMatrix * viewInfo[i].viewMatrix;
+            viewInfo[i].inverseViewProject = viewInfo[i].viewProjectMatrix.Inverse();
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProjectMatrix);
 
             viewUbo->Write(i * sizeof(SceneViewInfo), viewInfo[i]);
@@ -59,12 +65,9 @@ namespace sky {
 
     bool SceneView::FrustumCulling(const AABB &aabb) const
     {
-        for (auto &frustum : frustums) {
-            if (Intersection(aabb, frustum)) {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(frustums.begin(), frustums.end(), [&aabb](const auto &frustum) {
+            return Intersection(aabb, frustum);
+        });
     }
 
 } // namespace sky

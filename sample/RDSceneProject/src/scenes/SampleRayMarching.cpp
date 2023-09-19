@@ -30,11 +30,11 @@ namespace sky {
 
             {
                 rhi::DescriptorSetLayout::Descriptor desc = {};
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "ViewInfo"});
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
 
                 forwardLayout = std::make_shared<ResourceGroupLayout>();
                 forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-                forwardLayout->AddNameHandler("ViewInfo", {0, sizeof(SceneViewInfo)});
+                forwardLayout->AddNameHandler("viewInfo", {0, sizeof(SceneViewInfo)});
             }
         }
 
@@ -66,7 +66,7 @@ namespace sky {
             forwardPass.AddRasterSubPass("color0_sub0")
                 .AddColor("ForwardColor", rdg::ResourceAccessBit::WRITE)
                 .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
-                .AddComputeView(uboName, {"ViewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS})
+                .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS})
                 .AddQueue("queue1")
                     .SetRasterID("ForwardColor")
                     .SetView(sceneView)
@@ -77,7 +77,9 @@ namespace sky {
 
             rayMarchingPass.AddRasterSubPass("rayMarching_sub0")
                 .AddColor("FinalOut", rdg::ResourceAccessBit::WRITE)
+                .AddComputeView("ForwardColor", {"mainColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
                 .AddComputeView("ForwardDepthStencil_d", {"mainDepth", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
+                .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::FS})
                 .AddFullScreen("marching")
                     .SetTechnique(rayMarchingTech);
 
@@ -105,7 +107,10 @@ namespace sky {
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
+
+        auto *cameraTrans = camera->GetComponent<TransformComponent>();
+        cameraTrans->SetWorldTranslation(Vector3(5, 1, 5));
+        cameraTrans->SetWorldRotation(Quaternion(45.f / 180.f * 3.14f, VEC3_Y));
 
         auto *pipeline = new ForwardWithRayMarching();
         pipeline->SetOutput(window);
