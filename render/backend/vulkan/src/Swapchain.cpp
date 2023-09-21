@@ -30,7 +30,7 @@ namespace sky::vk {
         descriptor.width           = des.width;
         descriptor.height          = des.height;
         descriptor.preferredFormat = FromRHI(des.preferredFormat);
-        descriptor.preferredMode   = des.preferredMode == rhi::PresentMode::IMMEDIATE ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+        descriptor.preferredMode   = des.preferredMode == rhi::PresentMode::IMMEDIATE ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_FIFO_KHR;
         descriptor.preTransform    = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         descriptor.compositeAlpha  = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
