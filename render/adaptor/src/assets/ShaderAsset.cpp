@@ -64,6 +64,16 @@ namespace sky {
                 archive.LoadValue(member.size);
             }
         }
+        archive.LoadValue(pushConstant.name);
+        archive.LoadValue(pushConstant.size);
+        archive.LoadValue(tmp);
+        pushConstant.members.resize(tmp);
+        for (uint32_t j = 0; j < tmp; ++j) {
+            auto &member = pushConstant.members[j];
+            archive.LoadValue(member.name);
+            archive.LoadValue(member.offset);
+            archive.LoadValue(member.size);
+        }
     }
 
     void ShaderAssetData::Save(BinaryOutputArchive &archive) const
@@ -88,6 +98,15 @@ namespace sky {
                 archive.SaveValue(member.size);
             }
         }
+
+        archive.SaveValue(pushConstant.name);
+        archive.SaveValue(pushConstant.size);
+        archive.SaveValue(static_cast<uint32_t>(pushConstant.members.size()));
+        for (const auto &member : pushConstant.members) {
+            archive.SaveValue(member.name);
+            archive.SaveValue(member.offset);
+            archive.SaveValue(member.size);
+        }
     }
 
     std::shared_ptr<Shader> CreateShader(const ShaderAssetData &data)
@@ -102,6 +121,7 @@ namespace sky {
                 sv->Init(data.stage, reinterpret_cast<const uint8_t *>(svData.spv.data()), static_cast<uint32_t>(svData.spv.size() * sizeof(uint32_t)));
             }
             sv->SetShaderResources(data.resources);
+            sv->SetConstant(data.pushConstant);
             shader->AddVariant(key, sv);
         }
         return shader;

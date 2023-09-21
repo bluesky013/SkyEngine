@@ -21,6 +21,8 @@
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 #include <render/resource/Technique.h>
 
+#include <imgui/ImGuiFeature.h>
+
 namespace sky {
 
     static void RegisterComponents()
@@ -77,6 +79,7 @@ namespace sky {
         auto vtxLibAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex_library.vtxlib");
         Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vtxLibAsset->Data()));
 
+        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
         GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
         MeshFeature::Get()->Init();
         ParticleFeature::Get()->Init();
@@ -86,6 +89,7 @@ namespace sky {
     {
         GeometryFeature::Destroy();
         MeshFeature::Destroy();
+        ImGuiFeature::Destroy();
         ParticleFeature::Destroy();
     }
 

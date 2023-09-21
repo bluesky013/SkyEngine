@@ -1,0 +1,128 @@
+//
+// Created by Zach Lee on 2023/8/31.
+//
+
+#include <render/resource/Shader.h>
+#include <render/RHI.h>
+#include <render/Renderer.h>
+
+namespace sky {
+
+    static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
+    {
+        if (type == rhi::DescriptorType::UNIFORM_BUFFER) { return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;}
+        if (type == rhi::DescriptorType::STORAGE_BUFFER) { return rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;}
+        return type;
+    }
+
+    bool ShaderVariant::Init(rhi::ShaderStageFlagBit stage_, const uint8_t *data, uint32_t size)
+    {
+        stage = stage_;
+
+        rhi::Shader::Descriptor desc = {};
+        desc.size = size;
+        desc.data = data;
+        desc.stage = stage;
+
+        shader = RHI::Get()->GetDevice()->CreateShader(desc);
+        return static_cast<bool>(shader);
+    }
+
+    void ShaderVariant::SetShaderResources(const std::vector<ShaderResource> &res)
+    {
+        resources = res;
+    }
+
+    void ShaderVariant::SetConstant(const PushConstant &constant)
+    {
+        pushConstant = constant;
+    }
+
+    const ShaderVariantPtr &Shader::GetVariant(const std::string &key) const
+    {
+        return variants.at(key);
+    }
+
+    void Shader::AddVariant(const std::string &key, const ShaderVariantPtr &variant)
+    {
+        variants.emplace(key, variant);
+    }
+
+    void Program::AddShader(const ShaderVariantPtr &shader)
+    {
+        shaders.emplace_back(shader);
+    }
+
+    void Program::BuildPipelineLayout()
+    {
+        rhi::PipelineLayout::Descriptor plDesc = {};
+        std::vector<rhi::DescriptorSetLayout::Descriptor> layoutDesc;
+        for (auto &shader : shaders) {
+            const auto &resources = shader->GetShaderResources();
+            for (auto &res : resources) {
+                if (res.set >= layoutDesc.size()) {
+                    layoutDesc.resize(res.set + 1);
+                }
+
+                auto &bindings = layoutDesc[res.set].bindings;
+                auto iter = std::find_if(bindings.begin(), bindings.end(), [&res](const auto &bd) {
+                    return res.binding == bd.binding;
+                });
+                if (iter != bindings.end()) {
+                    iter->visibility |= shader->GetStage();
+                } else {
+                    rhi::DescriptorSetLayout::SetBinding binding = {};
+                    binding.name = res.name;
+                    binding.type = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
+                    binding.count = 1;
+                    binding.binding = res.binding;
+                    binding.visibility = shader->GetStage();
+                    bindings.emplace_back(binding);
+                }
+            }
+            const auto &constant = shader->GetConstant();
+            if (constant.size != 0) {
+                auto &push = plDesc.constants.emplace_back();
+                push.stageFlags = shader->GetStage();
+                push.offset = 0;
+                push.size = constant.size;
+            }
+        }
+
+        auto *device = RHI::Get()->GetDevice();
+        for (auto &desc : layoutDesc) {
+            if (desc.bindings.empty()) {
+                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout->GetRHILayout());
+            } else {
+                plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
+        }
+        pipelineLayout = device->CreatePipelineLayout(plDesc);
+    }
+
+    RDResourceLayoutPtr Program::RequestLayout(uint32_t index) const
+    {
+        auto rhiLayout = pipelineLayout->GetSetLayout(index);
+        if (!rhiLayout) {
+            return {};
+        }
+        auto layout = std::make_shared<ResourceGroupLayout>();
+        layout->SetRHILayout(rhiLayout);
+
+        for (const auto &shader : shaders) {
+            const auto &shaderResources = shader->GetShaderResources();
+            for (const auto &shaderResource : shaderResources) {
+                if (shaderResource.set != index) {
+                    continue;
+                }
+
+                layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
+                for (const auto &member : shaderResource.members) {
+                    layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
+                }
+            }
+        }
+        return layout;
+    }
+
+} // namespace sky

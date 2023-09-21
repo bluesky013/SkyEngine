@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "../../../../../../backend/rhi/include/rhi/Device.h"
-#include "../../../../../include/render/RenderPipeline.h"
-#include "../../../../../include/render/resource/ResourceGroup.h"
+#include <rhi/Device.h>
+#include <render/RenderPipeline.h>
+#include <render/resource/ResourceGroup.h>
 
 namespace sky {
     class RenderWindow;

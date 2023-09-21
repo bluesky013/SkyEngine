@@ -17,6 +17,10 @@ namespace sky::builder {
         static constexpr std::string_view KEY = "GFX_MATERIAL";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
+
+    private:
+        void BuildMaterial(const BuildRequest &build, BuildResult &result);
+        void BuildMaterialInstance(const BuildRequest &build, BuildResult &result);
     };
 
 }

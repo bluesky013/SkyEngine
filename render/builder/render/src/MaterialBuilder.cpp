@@ -65,6 +65,47 @@ namespace sky::builder {
             return;
         }
 
+        if (request.ext == ".mat") {
+            BuildMaterial(request, result);
+        } else if (request.ext == ".mati") {
+            BuildMaterialInstance(request, result);
+        }
+    }
+
+    void MaterialBuilder::BuildMaterialInstance(const BuildRequest &request, BuildResult &result)
+    {
+        std::string json;
+        ReadString(request.fullPath, json);
+
+        rapidjson::Document document;
+        document.Parse(json.c_str());
+
+        if (!document.HasMember("material")) {
+            return;
+        }
+        AssetManager *am = AssetManager::Get();
+        std::filesystem::path fullPath(request.fullPath);
+        std::filesystem::path outPath(request.outDir);
+        outPath.append("materials");
+        std::filesystem::create_directories(outPath);
+        outPath.append(request.name);
+
+        auto asset = am->CreateAsset<MaterialInstance>(outPath.make_preferred().string());
+        auto &assetData = asset->Data();
+
+        Uuid matId;
+        if (am->QueryOrImportSource(document["material"].GetString(), {MaterialBuilder::KEY.data()}, matId)) {
+            assetData.material = am->LoadAsset<Material>(matId);
+        }
+
+        ProcessProperties(document, assetData.properties, request);
+
+        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
+        am->SaveAsset(asset);
+    }
+
+    void MaterialBuilder::BuildMaterial(const BuildRequest &request, BuildResult &result)
+    {
         std::string json;
         ReadString(request.fullPath, json);
 

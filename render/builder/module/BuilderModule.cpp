@@ -59,6 +59,7 @@ namespace sky::builder {
 
         AssetManager::Get()->RegisterBuilder(".tech", techBuilder.get());
         AssetManager::Get()->RegisterBuilder(".mat", materialBuilder.get());
+        AssetManager::Get()->RegisterBuilder(".mati", materialBuilder.get());
 
         AssetManager::Get()->RegisterBuilder(".gltf", prefabBuilder.get());
         AssetManager::Get()->RegisterBuilder(".glb", prefabBuilder.get());

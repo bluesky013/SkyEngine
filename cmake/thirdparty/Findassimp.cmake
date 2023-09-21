@@ -33,7 +33,14 @@ set(${LIB_NAME}_LIBRARY
 
 add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL
 		../../render/builder/render/include/builder/render/ImageCompressor.h
-		../../render/builder/render/src/ImageCompressor.cpp)
+		../../render/builder/render/src/ImageCompressor.cpp
+        ../../render/imgui/include/imgui/ImGuiFeature.h
+        ../../render/imgui/src/ImGuiFeature.cpp
+        ../../render/imgui/include/imgui/ImGuiFeatureProcessor.h
+        ../../render/imgui/src/ImGuiFeatureProcessor.cpp
+        ../../render/imgui/ImGuiModule.cpp
+        ../../render/imgui/include/imgui/ImGuiInstance.h
+        ../../render/imgui/src/ImGuiInstance.cpp)
 target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
 target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
 

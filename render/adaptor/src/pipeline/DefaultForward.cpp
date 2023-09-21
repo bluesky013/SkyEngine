@@ -17,13 +17,13 @@ namespace sky {
         }
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
-        desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {
-            rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"
-        });
+        desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "passInfo"});
+        desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
 
         forwardLayout = std::make_shared<ResourceGroupLayout>();
         forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-        forwardLayout->AddNameHandler("viewInfo", {0, sizeof(SceneViewInfo)});
+        forwardLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
+        forwardLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
     }
 
     void DefaultForward::OnSetup(rdg::RenderGraph &rdg)

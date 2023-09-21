@@ -47,6 +47,11 @@ namespace sky {
                                                static_cast<uint32_t>(event.data2));
                 break;
             }
+            case SDL_WINDOWEVENT_FOCUS_GAINED:
+            case SDL_WINDOWEVENT_FOCUS_LOST: {
+                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnFocusChanged, event.event == SDL_WINDOWEVENT_FOCUS_GAINED);
+                break;
+            }
             case SDL_WINDOWEVENT_HIDDEN: {
                 break;
             }

@@ -10,7 +10,6 @@
 #include <render/resource/Texture.h>
 
 namespace sky {
-
     class SampleRayMarching : public SampleScene {
     public:
         SampleRayMarching() = default;

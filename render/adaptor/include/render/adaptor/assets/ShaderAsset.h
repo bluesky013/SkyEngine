@@ -32,6 +32,7 @@ namespace sky {
         rhi::ShaderStageFlagBit stage;
         std::unordered_map<std::string, ShaderVariantAssetPtr> variants;
         std::vector<ShaderResource> resources;
+        PushConstant pushConstant;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

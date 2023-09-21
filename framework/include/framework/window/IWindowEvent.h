@@ -127,6 +127,11 @@ namespace sky {
         {
         }
 
+        // focus
+        virtual void OnFocusChanged(bool focus)
+        {
+        }
+
         // mouse
         virtual void OnMouseMove(int32_t x, int32_t y)
         {

@@ -14,25 +14,25 @@
 namespace sky::builder {
 
     std::unordered_map<std::string, rhi::BlendFactor> BLEND_FACTOR_MAP = {
-        {"ZERO                    ", rhi::BlendFactor::ZERO                    },
-        {"ONE                     ", rhi::BlendFactor::ONE                     },
-        {"SRC_COLOR               ", rhi::BlendFactor::SRC_COLOR               },
-        {"ONE_MINUS_SRC_COLOR     ", rhi::BlendFactor::ONE_MINUS_SRC_COLOR     },
-        {"DST_COLOR               ", rhi::BlendFactor::DST_COLOR               },
-        {"ONE_MINUS_DST_COLOR     ", rhi::BlendFactor::ONE_MINUS_DST_COLOR     },
-        {"SRC_ALPHA               ", rhi::BlendFactor::SRC_ALPHA               },
-        {"ONE_MINUS_SRC_ALPHA     ", rhi::BlendFactor::ONE_MINUS_SRC_ALPHA     },
-        {"DST_ALPHA               ", rhi::BlendFactor::DST_ALPHA               },
-        {"ONE_MINUS_DST_ALPHA     ", rhi::BlendFactor::ONE_MINUS_DST_ALPHA     },
-        {"CONSTANT_COLOR          ", rhi::BlendFactor::CONSTANT_COLOR          },
+        {"ZERO",                     rhi::BlendFactor::ZERO                    },
+        {"ONE",                      rhi::BlendFactor::ONE                     },
+        {"SRC_COLOR",                rhi::BlendFactor::SRC_COLOR               },
+        {"ONE_MINUS_SRC_COLOR",      rhi::BlendFactor::ONE_MINUS_SRC_COLOR     },
+        {"DST_COLOR",                rhi::BlendFactor::DST_COLOR               },
+        {"ONE_MINUS_DST_COLOR",      rhi::BlendFactor::ONE_MINUS_DST_COLOR     },
+        {"SRC_ALPHA",                rhi::BlendFactor::SRC_ALPHA               },
+        {"ONE_MINUS_SRC_ALPHA",      rhi::BlendFactor::ONE_MINUS_SRC_ALPHA     },
+        {"DST_ALPHA",                rhi::BlendFactor::DST_ALPHA               },
+        {"ONE_MINUS_DST_ALPHA",      rhi::BlendFactor::ONE_MINUS_DST_ALPHA     },
+        {"CONSTANT_COLOR",           rhi::BlendFactor::CONSTANT_COLOR          },
         {"ONE_MINUS_CONSTANT_COLOR", rhi::BlendFactor::ONE_MINUS_CONSTANT_COLOR},
-        {"CONSTANT_ALPHA          ", rhi::BlendFactor::CONSTANT_ALPHA          },
+        {"CONSTANT_ALPHA",           rhi::BlendFactor::CONSTANT_ALPHA          },
         {"ONE_MINUS_CONSTANT_ALPHA", rhi::BlendFactor::ONE_MINUS_CONSTANT_ALPHA},
-        {"SRC_ALPHA_SATURATE      ", rhi::BlendFactor::SRC_ALPHA_SATURATE      },
-        {"SRC1_COLOR              ", rhi::BlendFactor::SRC1_COLOR              },
-        {"ONE_MINUS_SRC1_COLOR    ", rhi::BlendFactor::ONE_MINUS_SRC1_COLOR    },
-        {"SRC1_ALPHA              ", rhi::BlendFactor::SRC1_ALPHA              },
-        {"ONE_MINUS_SRC1_ALPHA    ", rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
+        {"SRC_ALPHA_SATURATE",       rhi::BlendFactor::SRC_ALPHA_SATURATE      },
+        {"SRC1_COLOR",               rhi::BlendFactor::SRC1_COLOR              },
+        {"ONE_MINUS_SRC1_COLOR",     rhi::BlendFactor::ONE_MINUS_SRC1_COLOR    },
+        {"SRC1_ALPHA",               rhi::BlendFactor::SRC1_ALPHA              },
+        {"ONE_MINUS_SRC1_ALPHA",     rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
     };
 
     static ShaderAssetPtr GetShader(TechniqueAssetData &data, rapidjson::Document &document, const std::string &shaderStage)
@@ -41,7 +41,7 @@ namespace sky::builder {
 
         auto &val = document["shaders"];
         if (val.HasMember(shaderStage.c_str())) {
-            auto relativePath = val[shaderStage.c_str()].GetString();
+            const auto *relativePath = val[shaderStage.c_str()].GetString();
             std::string fullPath = am->GetRealPath(relativePath);
             Uuid shaderId;
             if (am->QueryOrImportSource(fullPath, {ShaderBuilder::KEY.data()}, shaderId)) {
@@ -69,7 +69,7 @@ namespace sky::builder {
     static void ProcessDepthStencil(const rapidjson::Document &document, rhi::DepthStencil &ds)
     {
         if (document.HasMember("depth_stencil")) {
-            auto& dsObject = document["depth_stencil"];
+            const auto& dsObject = document["depth_stencil"];
             if (dsObject.HasMember("depthTestEnable")) {
                 ds.depthTest = dsObject["depthTestEnable"].GetBool();
             }
@@ -93,9 +93,9 @@ namespace sky::builder {
         };
 
         if (document.HasMember("blend_state")) {
-            auto& states = document["blend_state"];
+            const auto& states = document["blend_state"];
             auto array = states.GetArray();
-            for (auto& src : array) {
+            for (const auto& src : array) {
                 rhi::BlendState blend;
 
                 if (src.HasMember("blendEnable")) {
@@ -113,7 +113,7 @@ namespace sky::builder {
     static void ProcessRasterStates(const rapidjson::Document &document, rhi::RasterState &raster)
     {
         if (document.HasMember("raster_state")) {
-            auto& rasterObject = document["raster_state"];
+            const auto& rasterObject = document["raster_state"];
 
             if (rasterObject.HasMember("depthClampEnable")) {
                 raster.depthClampEnable = rasterObject["depthClampEnable"].GetBool();
@@ -150,9 +150,9 @@ namespace sky::builder {
             if (rasterObject.HasMember("cullMode")) {
                 std::string pCull = rasterObject["cullMode"].GetString();
                 if (pCull == "NONE") raster.cullMode = rhi::CullModeFlagBits::NONE;
-                if (pCull == "FRONT") raster.cullMode = rhi::CullModeFlagBits::FRONT;
-                if (pCull == "BACK") raster.cullMode = rhi::CullModeFlagBits::BACK;
-                if (pCull == "FRONT_AND_BACK") raster.cullMode = rhi::CullModeFlagBits::FRONT | rhi::CullModeFlagBits::BACK;
+                else if (pCull == "FRONT") raster.cullMode = rhi::CullModeFlagBits::FRONT;
+                else if (pCull == "BACK") raster.cullMode = rhi::CullModeFlagBits::BACK;
+                else if (pCull == "FRONT_AND_BACK") raster.cullMode = rhi::CullModeFlagBits::FRONT | rhi::CullModeFlagBits::BACK;
             }
         }
     }

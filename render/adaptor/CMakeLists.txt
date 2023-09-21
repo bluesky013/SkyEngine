@@ -10,6 +10,6 @@ sky_add_library(TARGET SkyRenderAdaptor STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyRender.Static
-        SkyEngine
+        SkyRenderCore
+        Framework
     )

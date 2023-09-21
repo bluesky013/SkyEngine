@@ -25,6 +25,20 @@ namespace sky {
         archive.LoadValue(rasterState.frontFace);
         archive.LoadValue(rasterState.polygonMode);
 
+        archive.LoadValue(size);
+        blendStates.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            auto &blend = blendStates[i];
+            archive.LoadValue(blend.blendEn);
+            archive.LoadValue(blend.writeMask);
+            archive.LoadValue(blend.srcColor);
+            archive.LoadValue(blend.dstColor);
+            archive.LoadValue(blend.srcAlpha);
+            archive.LoadValue(blend.dstAlpha);
+            archive.LoadValue(blend.colorBlendOp);
+            archive.LoadValue(blend.alphaBlendOp);
+        }
+
         archive.LoadValue(passTag);
         archive.LoadValue(vertexDesc);
     }
@@ -43,6 +57,18 @@ namespace sky {
         archive.SaveValue(rasterState.cullMode);
         archive.SaveValue(rasterState.frontFace);
         archive.SaveValue(rasterState.polygonMode);
+
+        archive.SaveValue(static_cast<uint32_t>(blendStates.size()));
+        for (const auto &blend : blendStates) {
+            archive.SaveValue(blend.blendEn);
+            archive.SaveValue(blend.writeMask);
+            archive.SaveValue(blend.srcColor);
+            archive.SaveValue(blend.dstColor);
+            archive.SaveValue(blend.srcAlpha);
+            archive.SaveValue(blend.dstAlpha);
+            archive.SaveValue(blend.colorBlendOp);
+            archive.SaveValue(blend.alphaBlendOp);
+        }
 
         archive.SaveValue(passTag);
         archive.SaveValue(vertexDesc);

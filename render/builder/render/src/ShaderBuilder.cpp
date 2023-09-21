@@ -51,6 +51,19 @@ namespace sky::builder {
         visitor(resources.uniform_buffers, rhi::DescriptorType::UNIFORM_BUFFER);
         visitor(resources.storage_buffers, rhi::DescriptorType::STORAGE_BUFFER);
         visitor(resources.subpass_inputs, rhi::DescriptorType::INPUT_ATTACHMENT);
+
+        for (auto &resource : resources.push_constant_buffers) {
+            const auto &spvType = compiler.get_type(resource.base_type_id);
+            data.pushConstant.size = static_cast<uint32_t>(compiler.get_declared_struct_size(spvType));
+
+            for (uint32_t index = 0; index < spvType.member_types.size(); ++index) {
+                const auto  memberOffset = compiler.type_struct_member_offset(spvType, index);
+                const auto  memberSize   = compiler.get_declared_struct_member_size(spvType, index);
+                const auto &memberName   = compiler.get_member_name(resource.base_type_id, index);
+
+                data.pushConstant.members.push_back(ShaderBufferMember{memberName, memberOffset, static_cast<uint32_t>(memberSize)});
+            }
+        }
     }
 
     void ShaderBuilder::Request(const BuildRequest &request, BuildResult &result)
