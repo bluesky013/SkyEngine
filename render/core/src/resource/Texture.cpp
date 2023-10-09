@@ -33,7 +33,7 @@ namespace sky {
         return queue.UploadImage(image, request);
     }
 
-    rhi::TransferTaskHandle Texture::Upload(const uint8_t *ptr, uint32_t size, rhi::Queue &queue)
+    rhi::TransferTaskHandle Texture::Upload(const uint8_t *ptr, uint64_t size, rhi::Queue &queue)
     {
         rhi::ImageUploadRequest request = {};
         request.source   = std::make_shared<rhi::RawPtrStream>(ptr);
@@ -44,6 +44,11 @@ namespace sky {
         request.imageOffset = {0, 0, 0};
         request.imageExtent = imageDesc.extent;
         return queue.UploadImage(image, request);
+    }
+
+    bool Texture::CheckExtent(uint32_t width, uint32_t height,  uint32_t depth) const
+    {
+        return imageDesc.extent.width == width && imageDesc.extent.height == height && imageDesc.extent.depth == depth;
     }
 
     bool Texture2D::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel)
@@ -65,6 +70,32 @@ namespace sky {
         rhi::ImageViewDesc viewDesc = {};
         viewDesc.viewType = rhi::ImageViewType::VIEW_2D;
         viewDesc.subRange.levels = mipLevel;
+        viewDesc.subRange.aspectMask = rhi::AspectFlagBit::COLOR_BIT;
+
+        imageView = image->CreateView(viewDesc);
+
+        return static_cast<bool>(imageView);
+    }
+
+    bool Texture3D::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t depth)
+    {
+        imageDesc.imageType   = rhi::ImageType::IMAGE_3D;
+        imageDesc.format      = format;
+        imageDesc.extent      = {width, height, depth};
+        imageDesc.mipLevels   = 1;
+        imageDesc.arrayLayers = 1;
+        imageDesc.samples     = rhi::SampleCount::X1;
+        imageDesc.usage       = rhi::ImageUsageFlagBit::TRANSFER_DST | rhi::ImageUsageFlagBit::SAMPLED;
+        imageDesc.memory      = rhi::MemoryType::GPU_ONLY;
+
+        image = device->CreateImage(imageDesc);
+        if (!image) {
+            return false;
+        }
+
+        rhi::ImageViewDesc viewDesc = {};
+        viewDesc.viewType = rhi::ImageViewType::VIEW_3D;
+        viewDesc.subRange.levels = 1;
         viewDesc.subRange.aspectMask = rhi::AspectFlagBit::COLOR_BIT;
 
         imageView = image->CreateView(viewDesc);

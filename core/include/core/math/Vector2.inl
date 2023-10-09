@@ -102,4 +102,21 @@ namespace sky {
     {
         return v[i];
     }
+
+    inline float Vector2::Dot(const Vector2 &rhs) const
+    {
+        Vector2 ret = (*this) * rhs;
+        return ret.x + ret.y;
+    }
+
+    inline float Vector2::Length() const
+    {
+        return sqrt(Dot(*this));
+    }
+
+    inline void Vector2::Normalize()
+    {
+        float inverseSqrt = 1 / sqrt(Dot(*this));
+        Vector2::operator*=(inverseSqrt);
+    }
 }

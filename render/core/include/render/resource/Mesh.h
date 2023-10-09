@@ -29,6 +29,7 @@ namespace sky {
         void AddVertexBuffer(const RDBufferPtr &vb);
         void SetIndexBuffer(const RDBufferPtr &ib);
         void SetIndexType(rhi::IndexType type);
+        void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
         void AddVertexDescriptions(const std::string &key);
 
         const std::vector<SubMesh> &GetSubMeshes() const { return subMeshes; }

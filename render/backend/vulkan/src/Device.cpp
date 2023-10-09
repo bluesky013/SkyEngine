@@ -50,11 +50,11 @@ namespace sky::vk {
         for (auto &queue : queues) {
             queue->Shutdown();
         }
+        queues.clear();
 
         if (allocator != VK_NULL_HANDLE) {
             vmaDestroyAllocator(allocator);
         }
-        queues.clear();
 
         samplers.Shutdown();
         setLayouts.Shutdown();

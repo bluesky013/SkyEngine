@@ -1,9 +1,0 @@
-{
-    "techniques": [
-        "techniques/unlit.tech"
-    ],
-    "properties": {
-        "baseColor": [1, 1, 1, 1],
-        "mainColor": "images/test.png"
-    }
-}

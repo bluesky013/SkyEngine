@@ -7,7 +7,9 @@
 #include "vulkan/CommandPool.h"
 #include "vulkan/vulkan.h"
 #include "rhi/Queue.h"
+#include "rhi/BufferPool.h"
 #include <thread>
+#include <array>
 #include <unordered_map>
 
 namespace sky::vk {
@@ -16,7 +18,7 @@ namespace sky::vk {
 
     class Queue : public rhi::Queue, public DevObject {
     public:
-        ~Queue() = default;
+        ~Queue() override = default;
 
         void WaitIdle();
 
@@ -35,10 +37,10 @@ namespace sky::vk {
         void SetupInternal() override;
         void PostShutdown() override;
 
-        uint64_t BeginFrame();
+        void BeginFrame();
         void EndFrame();
 
-        static constexpr uint64_t BLOCK_SIZE   = 16 * 1024 * 1024;
+        static constexpr uint64_t BUFFER_PER_FRAME_SIZE = 64 * 1024;
         static constexpr uint32_t INFLIGHT_NUM = 3;
 
         friend class Device;
@@ -51,10 +53,9 @@ namespace sky::vk {
         VkQueue        queue;
         CommandPoolPtr pool;
 
-        uint8_t          *mapped = nullptr;
-        BufferPtr        stagingBuffer;
-        FencePtr         fences[INFLIGHT_NUM];
-        CommandBufferPtr inflightCommands[INFLIGHT_NUM];
+        std::array<std::unique_ptr<rhi::StagingBufferPool>, INFLIGHT_NUM> stagingBuffers;
+        std::array<FencePtr, INFLIGHT_NUM> fences;
+        std::array<CommandBufferPtr, INFLIGHT_NUM> inflightCommands;
 
         mutable std::mutex                                  mutex;
         std::unordered_map<std::thread::id, CommandPoolPtr> tlsPools;

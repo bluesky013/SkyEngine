@@ -8,12 +8,16 @@
 namespace sky::vk {
     std::unordered_map<rhi::PixelFormat, VkFormat> PIXEL_FORMAT_TABLE = {
         {rhi::PixelFormat::UNDEFINED, VK_FORMAT_UNDEFINED},
+        {rhi::PixelFormat::R8_UNORM, VK_FORMAT_R8_UNORM},
+        {rhi::PixelFormat::R8_SRGB, VK_FORMAT_R8_SRGB},
         {rhi::PixelFormat::RGB8_UNORM, VK_FORMAT_R8G8B8_UNORM},
         {rhi::PixelFormat::RGB8_SRGB, VK_FORMAT_R8G8B8_SRGB},
         {rhi::PixelFormat::RGBA8_UNORM, VK_FORMAT_R8G8B8A8_UNORM},
         {rhi::PixelFormat::RGBA8_SRGB, VK_FORMAT_R8G8B8A8_SRGB},
         {rhi::PixelFormat::BGRA8_UNORM, VK_FORMAT_B8G8R8A8_UNORM},
         {rhi::PixelFormat::BGRA8_SRGB, VK_FORMAT_B8G8R8A8_SRGB},
+        {rhi::PixelFormat::R16_UNORM, VK_FORMAT_R16_UNORM},
+        {rhi::PixelFormat::R32_SFLOAT, VK_FORMAT_R32_SFLOAT},
         {rhi::PixelFormat::D32, VK_FORMAT_D32_SFLOAT},
         {rhi::PixelFormat::D24_S8, VK_FORMAT_D24_UNORM_S8_UINT},
         {rhi::PixelFormat::D32_S8, VK_FORMAT_D32_SFLOAT_S8_UINT},

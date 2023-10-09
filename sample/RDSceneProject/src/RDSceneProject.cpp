@@ -63,8 +63,8 @@ namespace sky {
 
         Event<IWindowEvent>::Connect(nativeWindow, this);
 
-        sampleScenes.emplace_back(new SampleSceneCube());
         sampleScenes.emplace_back(new SampleMesh());
+        sampleScenes.emplace_back(new SampleSceneCube());
         sampleScenes.emplace_back(new SampleRayMarching());
         sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
         NextScene();

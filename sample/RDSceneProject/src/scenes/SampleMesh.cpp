@@ -25,7 +25,6 @@ namespace sky {
         meshObj->AddComponent<SimpleRotateComponent>();
 
         auto *mesh = meshObj->AddComponent<MeshRenderer>();
-        AssetManager::Get()->LoadAsset<Texture>("images/test.image")->CreateInstance();
         mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
 
         camera = world->CreateGameObject("MainCamera");

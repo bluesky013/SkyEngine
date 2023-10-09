@@ -26,6 +26,11 @@ namespace sky {
         indexType = type;
     }
 
+    void Mesh::SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh)
+    {
+        subMeshes[subMesh].material = mat;
+    }
+
     void Mesh::AddVertexDescriptions(const std::string &key)
     {
         vertexDescriptions.emplace_back(key);

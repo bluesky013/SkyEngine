@@ -12,10 +12,14 @@ namespace sky::rhi {
 
     std::unordered_map<PixelFormat, ImageFormatInfo> FORMAT_INFO =
         {
+            {PixelFormat::R8_UNORM,                  {1, 1, 1, false}},
+            {PixelFormat::RGB8_UNORM,                {3, 1, 1, false}},
             {PixelFormat::RGBA8_UNORM,               {4, 1, 1, false}},
             {PixelFormat::RGBA8_SRGB,                {4, 1, 1, false}},
             {PixelFormat::BGRA8_UNORM,               {4, 1, 1, false}},
             {PixelFormat::BGRA8_SRGB,                {4, 1, 1, false}},
+            {PixelFormat::R16_UNORM,                 {2, 1, 1, false}},
+            {PixelFormat::R32_SFLOAT,                {4, 1, 1, false}},
             {PixelFormat::D32,                       {4, 1, 1, false, true, false}},
             {PixelFormat::D24_S8,                    {4, 1, 1, false, true, true}},
             {PixelFormat::D32_S8,                    {5, 1, 1, false, true, true}},

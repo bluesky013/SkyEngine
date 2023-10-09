@@ -31,9 +31,11 @@ namespace sky::rdg {
                         continue;
                     }
 
-                    if (!tech.pso || (tech.renderPass->GetCompatibleHash() != renderPass->GetCompatibleHash())) {
+                    if (tech.rebuildPso || !tech.pso || (tech.renderPass->GetCompatibleHash() != renderPass->GetCompatibleHash())) {
                         tech.renderPass = renderPass;
                         tech.pso = GraphicsTechnique::BuildPso(*tech.technique, renderPass, subPass.subPassID, tech.programKey);
+
+                        tech.rebuildPso = false;
                     }
 
                     queue.drawItems.emplace_back(RenderDrawItem{prim, 0});

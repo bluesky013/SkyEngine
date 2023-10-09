@@ -50,14 +50,18 @@ namespace sky {
                          .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                          .AddAttachment({"ForwardDepthStencil", rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0));
 
-        forwardPass.AddRasterSubPass("color0_sub0")
+        auto sub = forwardPass.AddRasterSubPass("color0_sub0")
             .AddColor("ForwardColor", rdg::ResourceAccessBit::WRITE)
             .AddDepthStencil("ForwardDepthStencil", rdg::ResourceAccessBit::WRITE)
-            .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS})
-            .AddQueue("queue1")
-                .SetRasterID("ForwardColor")
-                .SetView(sceneView)
-                .SetLayout(forwardLayout);
+            .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS});
+
+        sub.AddQueue("queue1")
+            .SetRasterID("ForwardColor")
+            .SetView(sceneView)
+            .SetLayout(forwardLayout);
+
+        sub.AddQueue("ui")
+            .SetRasterID("ui");
 
         rdg.AddPresentPass("present", "ForwardColor");
     }

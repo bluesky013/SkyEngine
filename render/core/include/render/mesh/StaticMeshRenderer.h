@@ -20,11 +20,13 @@ namespace sky {
         void SetMesh(const RDMeshPtr &mesh);
         void UpdateTransform(const Matrix4 &matrix);
 
+        void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
+
     private:
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
-        std::list<std::unique_ptr<RenderPrimitive>> primitives;
+        std::vector<std::unique_ptr<RenderPrimitive>> primitives;
         rhi::VertexAssemblyPtr va;
         RDDynamicUniformBufferPtr ubo;
     };

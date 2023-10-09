@@ -19,6 +19,7 @@ namespace sky {
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::GraphicsPipelinePtr pso;
+        bool rebuildPso = true;
     };
 
     struct RenderPrimitive {

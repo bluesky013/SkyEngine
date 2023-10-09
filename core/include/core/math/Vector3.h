@@ -25,6 +25,7 @@ namespace sky {
 
         inline Vector3 Cross(const Vector3 &rhs) const;
         inline float Dot(const Vector3 &rhs) const;
+        inline float Length() const;
         inline void Normalize();
 
         inline Vector3 operator+(const Vector3& rhs) const;

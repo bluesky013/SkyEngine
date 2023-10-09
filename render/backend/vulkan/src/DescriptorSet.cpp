@@ -22,11 +22,6 @@ namespace sky::vk {
         return handle;
     }
 
-    DescriptorSet::Writer DescriptorSet::CreateWriter()
-    {
-        return {*this};
-    }
-
     DescriptorSetPtr DescriptorSet::Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout)
     {
         auto setCreateFn = [&pool, &layout](VkDescriptorSet set) {
@@ -41,19 +36,19 @@ namespace sky::vk {
         auto hash = layout->GetHash();
         auto iter = pool->freeList.find(hash);
         if (iter != pool->freeList.end() && !iter->second.empty()) {
-            auto back = iter->second.back();
+            auto *back = iter->second.back();
             iter->second.pop_back();
             return setCreateFn(back);
         }
 
-        auto                        vl      = layout->GetNativeHandle();
+        auto * vl = layout->GetNativeHandle();
         VkDescriptorSetAllocateInfo setInfo = {};
         setInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         setInfo.descriptorPool              = pool->pool;
         setInfo.descriptorSetCount          = 1;
         setInfo.pSetLayouts                 = &vl;
 
-        auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
+        const auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
         VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO};
         if (!variableDescriptorCounts.empty()) {
             variableDescriptorCountAllocInfo.descriptorSetCount = 1;
@@ -72,10 +67,10 @@ namespace sky::vk {
 
     void DescriptorSet::Setup()
     {
-        auto &table      = layout->GetDescriptorTable();
+        const auto &table      = layout->GetDescriptorTable();
 
         writeInfos.resize(layout->GetDescriptorNum(), {});
-        for (auto &[binding, info] : table) {
+        for (const auto &[binding, info] : table) {
             writeEntries.emplace_back(VkWriteDescriptorSet{});
             VkWriteDescriptorSet &entry = writeEntries.back();
             entry.sType                 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -105,79 +100,6 @@ namespace sky::vk {
                 }
             }
         }
-    }
-
-    DescriptorSet::Writer &
-    DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const BufferPtr &buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t index)
-    {
-        if (!buffer) {
-            return *this;
-        }
-
-        auto &bufferView = set.buffers[binding];
-        auto  handleFn   = [&bufferView]() -> VkBuffer { return bufferView.buffer ? bufferView.buffer->GetNativeHandle() : VK_NULL_HANDLE; };
-
-        if (handleFn() == buffer->GetNativeHandle() && bufferView.offset == offset && bufferView.size == size) {
-            return *this;
-        }
-        bufferView.buffer = buffer;
-        bufferView.offset = offset;
-        bufferView.size   = size;
-
-        auto &bufferInfo  = set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].buffer;
-        bufferInfo.buffer = buffer->GetNativeHandle();
-        bufferInfo.offset = offset;
-        bufferInfo.range  = size;
-        set.dirty         = true;
-        return *this;
-    }
-
-    DescriptorSet::Writer &DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType type, const ImageViewPtr &view, const SamplerPtr &sampler, uint32_t index)
-    {
-        auto &viewInfo     = set.imageViews[binding];
-        auto viewHandleFn = [](const ImageViewPtr &view) -> VkImageView { return view ? view->GetNativeHandle() : VK_NULL_HANDLE; };
-        auto samplerHandleFn = [](const SamplerPtr &sampler) -> VkSampler { return sampler ? sampler->GetNativeHandle() : VK_NULL_HANDLE; };
-
-        if (viewInfo.view.get() == view.get() && viewInfo.sampler.get() == sampler.get()) {
-            return *this;
-        }
-
-        viewInfo.view    = view;
-        viewInfo.sampler = sampler;
-
-        auto &imageInfo     = set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].image;
-        imageInfo.sampler   = samplerHandleFn(sampler);
-        imageInfo.imageView = viewHandleFn(view);
-
-        set.dirty = true;
-        return *this;
-    }
-
-    DescriptorSet::Writer &DescriptorSet::Writer::Write(uint32_t binding, VkDescriptorType, const BufferViewPtr &view, uint32_t index)
-    {
-        auto &viewInfo     = set.bufferViews[binding];
-        if (viewInfo.get() == view.get()) {
-            return *this;
-        }
-
-        set.writeInfos[set.GetLayout()->GetDescriptorSetOffsetByBinding(binding) + index].bufferView = view->GetNativeHandle();
-        set.dirty = true;
-        return *this;
-    }
-
-    void DescriptorSet::Writer::Update()
-    {
-        if (!set.dirty) {
-            return;
-        }
-
-        auto updateTemplate = set.GetLayout()->GetUpdateTemplate();
-        if (updateTemplate == VK_NULL_HANDLE) {
-            vkUpdateDescriptorSets(set.device.GetNativeHandle(), static_cast<uint32_t>(set.writeEntries.size()), set.writeEntries.data(), 0, nullptr);
-        } else {
-            vkUpdateDescriptorSetWithTemplate(set.device.GetNativeHandle(), set.GetNativeHandle(), updateTemplate, set.writeInfos.data());
-        }
-        set.dirty = false;
     }
 
     void DescriptorSet::BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index)
@@ -266,7 +188,7 @@ namespace sky::vk {
             return;
         }
 
-        auto updateTemplate = layout->GetUpdateTemplate();
+        auto *updateTemplate = layout->GetUpdateTemplate();
         if (updateTemplate == VK_NULL_HANDLE) {
             vkUpdateDescriptorSets(device.GetNativeHandle(), static_cast<uint32_t>(writeEntries.size()), writeEntries.data(), 0, nullptr);
         } else {

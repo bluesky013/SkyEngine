@@ -129,6 +129,36 @@ namespace sky {
         return ret;
     }
 
+    inline Vector2 Floor(const Vector2 &v)
+    {
+        return Vector2 {
+            std::floor(v.x), std::floor(v.y),
+        };
+    }
+
+    inline Vector3 Floor(const Vector3 &v)
+    {
+        return Vector3 {
+            std::floor(v.x), std::floor(v.y), std::floor(v.z)
+        };
+    }
+
+    inline Vector2 Fract(const Vector2 &v)
+    {
+        float tmp;
+        return Vector2 {
+            std::modf(v.x, &tmp), std::modf(v.y, &tmp)
+        };
+    }
+
+    inline Vector3 Fract(const Vector3 &v)
+    {
+        float tmp;
+        return Vector3 {
+            std::modf(v.x, &tmp), std::modf(v.y, &tmp), std::modf(v.z, &tmp)
+        };
+    }
+
     inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
         return (v0 + v1 - 1) / v1;
     }

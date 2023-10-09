@@ -66,8 +66,8 @@ namespace sky {
 
         ImGui::NewFrame();
 
-        for (auto &function : functions) {
-            function(context);
+        for (auto &widget : widgets) {
+            widget->Execute(context);
         }
 
         ImGui::EndFrame();
@@ -180,6 +180,12 @@ namespace sky {
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
+    }
+
+    void ImGuiInstance::OnTextInput(const char *text)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddInputCharactersUTF8(text);
     }
 
     void ImGuiInstance::OnMouseMove(int32_t x, int32_t y)

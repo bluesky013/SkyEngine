@@ -17,6 +17,26 @@ namespace sky {
 
     using UIFunc = std::function<void(ImGuiContext *context)>;
 
+    class ImWidget {
+    public:
+        ImWidget() = default;
+        virtual ~ImWidget() = default;
+
+        virtual void Execute(ImGuiContext *context) = 0;
+    };
+
+    class LambdaWidget : public ImWidget {
+    public:
+        template <typename Func>
+        explicit LambdaWidget(Func &&f) : fn(std::forward<Func>(f)) {}
+        ~LambdaWidget() override = default;
+
+        virtual void Execute(ImGuiContext *context) override { fn(context); }
+
+    private:
+        UIFunc fn;
+    };
+
     class ImGuiInstance : public IWindowEvent {
     public:
         ImGuiInstance();
@@ -25,7 +45,15 @@ namespace sky {
         template <typename Func>
         void AddFunctions(Func &&func)
         {
-            functions.emplace_back(std::forward<Func>(func));
+            widgets.emplace_back(new LambdaWidget(std::forward<Func>(func)));
+        }
+
+        template <typename T, typename ...Args>
+        T *AddWidget(Args &&... args)
+        {
+            auto *widget = new T(std::forward<Args>(args)...);
+            widgets.emplace_back(widget);
+            return widget;
         }
 
         void Tick(float delta);
@@ -41,6 +69,7 @@ namespace sky {
         void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
         void OnFocusChanged(bool focus) override;
         void OnWindowResize(uint32_t width, uint32_t height) override;
+        void OnTextInput(const char *text) override;
 
         void AttachScene(RenderScene *scene);
         void DetachScene();
@@ -63,7 +92,7 @@ namespace sky {
         uint64_t indexSize = 0;
 
         ImDrawData* drawData = nullptr;
-        std::list<UIFunc> functions;
+        std::list<std::unique_ptr<ImWidget>> widgets;
     };
 
 } // namespace sky

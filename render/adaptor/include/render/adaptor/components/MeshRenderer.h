@@ -29,6 +29,8 @@ namespace sky {
         void Save(JsonOutputArchive &ar) const override;
         void Load(JsonInputArchive &ar) override;
 
+        StaticMeshRenderer *GetRenderer() const { return renderer; }
+
     private:
         void ResetMesh();
 

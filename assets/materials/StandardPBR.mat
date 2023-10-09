@@ -1,9 +1,5 @@
 {
     "techniques": [
         "techniques/standard_forward.tech"
-    ],
-    "properties": {
-        "baseColor": [1, 1, 1, 1],
-        "mainColor": "images/test.png"
-    }
+    ]
 }
