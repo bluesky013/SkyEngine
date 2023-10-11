@@ -11,8 +11,13 @@ namespace sky::dx {
 
     class Buffer : public rhi::Buffer, public DevObject {
     public:
-        Buffer(Device &dev);
-        ~Buffer() override;
+        explicit Buffer(Device &dev);
+        ~Buffer() override = default;
+
+    private:
+        bool Init(const Descriptor &);
+
+        ComPtr<ID3D12Resource> resource;
     };
     using BufferPtr = std::shared_ptr<Buffer>;
 }

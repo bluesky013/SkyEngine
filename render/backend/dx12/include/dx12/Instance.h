@@ -22,7 +22,7 @@ namespace sky::dx {
         IDXGIFactory2 *GetDXGIFactory() const;
 
     private:
-        bool Init(const Descriptor &);
+        bool Init(const Descriptor &) override;
         ComPtr<IDXGIFactory2> dxgiFactory;
         std::vector<ComPtr<IDXGIAdapter1>> adapters;
     };

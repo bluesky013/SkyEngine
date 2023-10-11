@@ -55,7 +55,7 @@ namespace sky::dx {
         friend class Instance;
         bool Init(const Descriptor &, ComPtr<IDXGIAdapter1> &adaptor);
 
-        Device(Instance &);
+        explicit Device(Instance &);
         Instance &instance;
 
         ComPtr<ID3D12Device> device;

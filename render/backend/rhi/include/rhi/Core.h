@@ -34,8 +34,6 @@ namespace sky::rhi {
         UNDEFINED = 0,
         R8_UNORM,
         R8_SRGB,
-        RGB8_UNORM,
-        RGB8_SRGB,
         RGBA8_UNORM,
         RGBA8_SRGB,
         BGRA8_UNORM,
@@ -96,6 +94,7 @@ namespace sky::rhi {
     };
 
     enum class ImageType : uint32_t {
+        IMAGE_1D,
         IMAGE_2D,
         IMAGE_3D
     };

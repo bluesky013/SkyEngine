@@ -10,8 +10,6 @@ namespace sky::vk {
         {rhi::PixelFormat::UNDEFINED, VK_FORMAT_UNDEFINED},
         {rhi::PixelFormat::R8_UNORM, VK_FORMAT_R8_UNORM},
         {rhi::PixelFormat::R8_SRGB, VK_FORMAT_R8_SRGB},
-        {rhi::PixelFormat::RGB8_UNORM, VK_FORMAT_R8G8B8_UNORM},
-        {rhi::PixelFormat::RGB8_SRGB, VK_FORMAT_R8G8B8_SRGB},
         {rhi::PixelFormat::RGBA8_UNORM, VK_FORMAT_R8G8B8A8_UNORM},
         {rhi::PixelFormat::RGBA8_SRGB, VK_FORMAT_R8G8B8A8_SRGB},
         {rhi::PixelFormat::BGRA8_UNORM, VK_FORMAT_B8G8R8A8_UNORM},

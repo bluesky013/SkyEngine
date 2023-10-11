@@ -13,7 +13,7 @@ namespace sky::vk {
 
     class Buffer : public rhi::Buffer, public DevObject, public std::enable_shared_from_this<Buffer> {
     public:
-        ~Buffer();
+        ~Buffer() override;
 
         struct VkDescriptor {
             VkDeviceSize        size        = 0;
@@ -38,7 +38,7 @@ namespace sky::vk {
         friend class Device;
         friend class BufferView;
 
-        Buffer(Device &);
+        explicit Buffer(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

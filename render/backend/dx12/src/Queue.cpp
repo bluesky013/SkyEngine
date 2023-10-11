@@ -40,6 +40,6 @@ namespace sky::dx {
         }
 
         pool = device.CreateDeviceObject<CommandPool>({});
-        return !!pool;
+        return static_cast<bool>(pool);
     }
 }

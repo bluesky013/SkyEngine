@@ -11,8 +11,14 @@ namespace sky::dx {
 
     class Image : public rhi::Image, public DevObject {
     public:
-        Image(Device &dev);
-        ~Image() override;
+        explicit Image(Device &dev);
+        ~Image() override = default;
+
+    private:
+        bool Init(const Descriptor &);
+
+        ComPtr<ID3D12Resource> resource;
     };
     using ImagePtr = std::shared_ptr<Image>;
-}
+
+} // namespace sky::dx
