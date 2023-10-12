@@ -12,7 +12,7 @@ namespace sky::vk {
 
     class CommandPool : public DevObject {
     public:
-        ~CommandPool();
+        ~CommandPool() override;
 
         struct VkDescriptor {
             uint32_t                 queueFamilyIndex = 0;
@@ -25,7 +25,7 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        CommandPool(Device &);
+        explicit CommandPool(Device &);
 
         VkCommandPool pool;
     };

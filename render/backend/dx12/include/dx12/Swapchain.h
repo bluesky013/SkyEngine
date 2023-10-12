@@ -12,8 +12,8 @@ namespace sky::dx {
 
     class SwapChain : public rhi::SwapChain, public DevObject {
     public:
-        SwapChain(Device &device);
-        ~SwapChain() override;
+        explicit SwapChain(Device &device);
+        ~SwapChain() override = default;
 
     private:
         friend class Device;

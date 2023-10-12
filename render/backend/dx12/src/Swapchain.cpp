@@ -10,10 +10,6 @@ namespace sky::dx {
     {
     }
 
-    SwapChain::~SwapChain()
-    {
-    }
-
     bool SwapChain::Init(const Descriptor &desc)
     {
         auto *dxgiFactory = device.GetDXGIFactory();

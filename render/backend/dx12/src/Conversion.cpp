@@ -83,4 +83,26 @@ namespace sky::dx {
         return res;
     }
 
+    D3D12_DESCRIPTOR_RANGE_TYPE FromRHI(rhi::DescriptorType type)
+    {
+        if (type == rhi::DescriptorType::UNIFORM_BUFFER ||
+            type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
+            return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+        }
+        if (type == rhi::DescriptorType::COMBINED_IMAGE_SAMPLER ||
+            type == rhi::DescriptorType::SAMPLED_IMAGE) {
+            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        }
+        if (type == rhi::DescriptorType::SAMPLER) {
+            return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+        }
+        if (type == rhi::DescriptorType::STORAGE_BUFFER ||
+            type == rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC ||
+            type == rhi::DescriptorType::STORAGE_IMAGE) {
+            return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+        }
+
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    }
+
 } // namespace sky::dx

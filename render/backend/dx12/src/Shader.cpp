@@ -11,10 +11,6 @@ namespace sky::dx {
     {
     }
 
-    Shader::~Shader()
-    {
-    }
-
     bool Shader::Init(const Descriptor &)
     {
         return true;

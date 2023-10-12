@@ -4,16 +4,17 @@
 
 #pragma once
 
+#include <rhi/Queue.h>
 #include <dx12/DevObject.h>
 #include <dx12/CommandPool.h>
 
 namespace sky::dx {
     class Device;
 
-    class Queue : public DevObject {
+    class Queue : public rhi::Queue, public DevObject {
     public:
-        Queue(Device &device);
-        ~Queue();
+        explicit Queue(Device &device);
+        ~Queue() override = default;
 
         struct Descriptor {
         };
@@ -21,6 +22,9 @@ namespace sky::dx {
         CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor &desc);
 
         ID3D12CommandQueue *GetNativeQueue() const;
+
+        rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests) override { return 0; }
+        rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &image, const std::vector<rhi::BufferUploadRequest> &requests) override { return 0; }
 
     private:
         friend class Device;

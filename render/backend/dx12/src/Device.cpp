@@ -23,7 +23,7 @@ namespace sky::dx {
         return true;
     }
 
-    ID3D12Device *Device::GetDevice() const
+    ID3D12Device1 *Device::GetDevice() const
     {
         return device.Get();
     }

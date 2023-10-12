@@ -12,7 +12,7 @@ namespace sky::dx {
 
     class ImageView : public rhi::ImageView, public DevObject {
     public:
-        ImageView(Device &dev);
+        explicit ImageView(Device &dev);
         ~ImageView() override;
 
         std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const;

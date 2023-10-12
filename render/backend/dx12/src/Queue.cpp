@@ -11,10 +11,6 @@ namespace sky::dx {
     {
     }
 
-    Queue::~Queue()
-    {
-    }
-
     CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::Descriptor &cmdDesc)
     {
         return pool->Allocate(cmdDesc);

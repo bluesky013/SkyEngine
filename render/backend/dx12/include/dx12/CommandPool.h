@@ -3,6 +3,7 @@
 //
 
 #pragma once
+
 #include "dx12/CommandBuffer.h"
 #include "dx12/DevObject.h"
 
@@ -12,7 +13,7 @@ namespace sky::dx {
 
     class CommandPool : public DevObject {
     public:
-        ~CommandPool();
+        ~CommandPool() override = default;
 
         struct Descriptor {
 
@@ -24,7 +25,7 @@ namespace sky::dx {
 
     private:
         friend class Device;
-        CommandPool(Device &);
+        explicit CommandPool(Device &);
 
         ComPtr<ID3D12CommandAllocator> allocator;
         D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;

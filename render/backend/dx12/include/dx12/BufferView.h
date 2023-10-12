@@ -12,7 +12,7 @@ namespace sky::dx {
 
     class BufferView : public rhi::BufferView, public DevObject {
     public:
-        BufferView(Device &dev);
+        explicit BufferView(Device &dev);
         ~BufferView() override;
 
         std::shared_ptr<rhi::BufferView> CreateView(const rhi::BufferViewDesc &) const override;

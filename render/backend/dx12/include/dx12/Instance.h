@@ -18,7 +18,7 @@ namespace sky::dx {
         Instance() = default;
         ~Instance() override = default;
 
-        Device *CreateDevice(const Device::Descriptor &);
+        Device *CreateDevice(const Device::Descriptor &) override;
         IDXGIFactory2 *GetDXGIFactory() const;
 
     private:

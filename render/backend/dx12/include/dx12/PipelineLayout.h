@@ -13,8 +13,8 @@ namespace sky::dx {
 
     class PipelineLayout : public rhi::PipelineLayout, public DevObject {
     public:
-        PipelineLayout(Device &dev);
-        ~PipelineLayout() override;
+        explicit PipelineLayout(Device &dev);
+        ~PipelineLayout() override = default;
 
         const ID3D12RootSignature *GetRootSignature() const;
 

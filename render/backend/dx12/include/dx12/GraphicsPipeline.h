@@ -11,8 +11,8 @@ namespace sky::dx {
 
     class GraphicsPipeline : public rhi::GraphicsPipeline, public DevObject {
     public:
-        GraphicsPipeline(Device &dev);
-        ~GraphicsPipeline();
+        explicit GraphicsPipeline(Device &dev);
+        ~GraphicsPipeline() override = default;
 
     private:
         friend class Device;

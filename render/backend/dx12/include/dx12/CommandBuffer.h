@@ -12,8 +12,8 @@ namespace sky::dx {
 
     class CommandBuffer : public rhi::CommandBuffer, public DevObject {
     public:
-        CommandBuffer(Device &dev);
-        ~CommandBuffer() override;
+        explicit CommandBuffer(Device &dev);
+        ~CommandBuffer() override = default;
 
         void Begin() override {}
         void End() override {}
@@ -21,12 +21,6 @@ namespace sky::dx {
 
         std::shared_ptr<rhi::GraphicsEncoder> EncodeGraphics() override { return nullptr; }
         std::shared_ptr<rhi::BlitEncoder> EncodeBlit() override { return nullptr; }
-
-        void TransitionBarrier();
-        void AliasingBarrier();
-        void UAVBarrier();
-
-        void ResourceBarrier();
 
     private:
         friend class Queue;

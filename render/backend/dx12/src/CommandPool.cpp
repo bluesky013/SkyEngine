@@ -11,18 +11,9 @@ namespace sky::dx {
     {
     }
 
-    CommandPool::~CommandPool()
-    {
-    }
-
-
     bool CommandPool::Init(const Descriptor &desc)
     {
-        if (!SUCCEEDED(device.GetDevice()->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf())))) {
-            return false;
-        }
-
-        return true;
+        return !FAILED(device.GetDevice()->CreateCommandAllocator(type, IID_PPV_ARGS(allocator.GetAddressOf())));
     }
 
     CommandBufferPtr CommandPool::Allocate(const CommandBuffer::Descriptor &desc)

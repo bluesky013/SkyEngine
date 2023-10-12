@@ -33,7 +33,7 @@ namespace sky::dx {
         resourceDesc.Layout     = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         resourceDesc.Flags      = FromRHI(desc.usage);
 
-        return !FAILED(device.GetDevice()->CreateCommittedResource(&heapProperties,
+        return SUCCEEDED(device.GetDevice()->CreateCommittedResource(&heapProperties,
                                                                    D3D12_HEAP_FLAG_NONE,
                                                                    &resourceDesc,
                                                                    D3D12_RESOURCE_STATE_COMMON,

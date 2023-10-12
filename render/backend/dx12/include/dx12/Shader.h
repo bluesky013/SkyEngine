@@ -12,8 +12,8 @@ namespace sky::dx {
 
     class Shader : public rhi::Shader, public DevObject {
     public:
-        Shader(Device &);
-        ~Shader();
+        explicit Shader(Device &);
+        ~Shader() override = default;
 
     private:
         friend class Device;

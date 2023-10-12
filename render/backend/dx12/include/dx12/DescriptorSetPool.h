@@ -12,16 +12,16 @@ namespace sky::dx {
 
     class DescriptorSetPool : public rhi::DescriptorSetPool, public DevObject {
     public:
-        DescriptorSetPool(Device &dev);
-        ~DescriptorSetPool();
+        explicit DescriptorSetPool(Device &dev);
+        ~DescriptorSetPool() override = default;
 
-        ID3D12DescriptorHeap *GetHeap() const;
-        rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override { return nullptr; }
+        rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
     private:
         friend class Device;
         bool Init(const Descriptor &);
 
-        ComPtr<ID3D12DescriptorHeap> heap;
+        ComPtr<ID3D12DescriptorHeap> resHeap;
+        ComPtr<ID3D12DescriptorHeap> samplerHeap;
     };
 
 }

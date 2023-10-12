@@ -15,8 +15,8 @@ namespace sky::vk {
 
     class DescriptorSetPool : public rhi::DescriptorSetPool, public DevObject, public std::enable_shared_from_this<DescriptorSetPool> {
     public:
-        DescriptorSetPool(Device &dev);
-        ~DescriptorSetPool();
+        explicit DescriptorSetPool(Device &dev);
+        ~DescriptorSetPool() override;
 
         struct VkDescriptor {
             uint32_t              maxSets = 0;
@@ -24,7 +24,7 @@ namespace sky::vk {
             VkDescriptorPoolSize *sizes   = nullptr;
         };
 
-        virtual rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
+        rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
 
     private:
         friend class Device;

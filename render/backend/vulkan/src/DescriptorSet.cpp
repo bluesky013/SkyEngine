@@ -107,15 +107,12 @@ namespace sky::vk {
         auto vkBufferView = std::static_pointer_cast<BufferView>(view);
         auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
         const auto &viewInfo = vkBufferView->GetViewDesc();
-        if (writeInfo.bufferView != vkBufferView->GetNativeHandle() ||
-            writeInfo.buffer.buffer != vkBufferView->GetBuffer()->GetNativeHandle() ||
+        if (writeInfo.buffer.buffer != vkBufferView->GetBuffer()->GetNativeHandle() ||
             writeInfo.buffer.offset != viewInfo.offset ||
             writeInfo.buffer.range != viewInfo.range) {
-            writeInfo.bufferView    = vkBufferView->GetNativeHandle();
             writeInfo.buffer.buffer = vkBufferView->GetBuffer()->GetNativeHandle();
             writeInfo.buffer.range  = viewInfo.range;
             writeInfo.buffer.offset = viewInfo.offset;
-
             dirty = true;
         }
     }

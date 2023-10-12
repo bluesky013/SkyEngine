@@ -27,11 +27,11 @@ namespace sky::dx {
             return std::shared_ptr<T>(res);
         }
 
-        ID3D12Device *GetDevice() const;
+        ID3D12Device1 *GetDevice() const;
         IDXGIFactory2 *GetDXGIFactory() const;
         Queue *GetGraphicsQueue() const;
 
-        void WaitIdle() const {}
+        void WaitIdle() const override {}
         rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
         // device object
         rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
@@ -58,7 +58,7 @@ namespace sky::dx {
         explicit Device(Instance &);
         Instance &instance;
 
-        ComPtr<ID3D12Device> device;
+        ComPtr<ID3D12Device1> device;
         QueuePtr graphicsQueue;
     };
 

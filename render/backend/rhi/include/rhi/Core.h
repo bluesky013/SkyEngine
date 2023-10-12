@@ -631,7 +631,6 @@ namespace sky::rhi {
     struct BufferViewDesc {
         uint64_t offset = 0;
         uint64_t range  = 0;
-        PixelFormat format = PixelFormat::UNDEFINED;
     };
 
     struct BufferImageCopy {

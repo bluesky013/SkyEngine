@@ -11,24 +11,44 @@ namespace sky::dx {
     {
     }
 
-    DescriptorSetPool::~DescriptorSetPool()
-    {
-    }
-
-    bool DescriptorSetPool::Init(const Descriptor &)
+    bool DescriptorSetPool::Init(const Descriptor &desc)
     {
         D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+        heapDesc.NodeMask = 1;
+        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-        if (FAILED(device.GetDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(heap.GetAddressOf())))) {
-            return false;
+        uint32_t cbvSrvUavCount = 0;
+        uint32_t samplerCount = 0;
+        for (uint32_t i = 0; i < desc.sizeCount; ++i) {
+            const auto &size = desc.sizeData[i];
+            if (size.type == rhi::DescriptorType::SAMPLED_IMAGE ||
+                size.type == rhi::DescriptorType::STORAGE_IMAGE ||
+                size.type == rhi::DescriptorType::UNIFORM_BUFFER ||
+                size.type == rhi::DescriptorType::STORAGE_BUFFER ||
+                size.type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC ||
+                size.type == rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC) {
+                cbvSrvUavCount += size.count;
+            } else if (size.type == rhi::DescriptorType::SAMPLER) {
+                samplerCount += size.count;
+            }
         }
 
-        return true;
+        bool res = true;
+        {
+            heapDesc.NumDescriptors = cbvSrvUavCount;
+            res &= SUCCEEDED(device.GetDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(resHeap.GetAddressOf())));
+        }
+
+        {
+            heapDesc.NumDescriptors = samplerCount;
+            res &= SUCCEEDED(device.GetDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(samplerHeap.GetAddressOf())));
+        }
+
+        return res;
     }
 
-    ID3D12DescriptorHeap *DescriptorSetPool::GetHeap() const
+    rhi::DescriptorSetPtr DescriptorSetPool::Allocate(const rhi::DescriptorSet::Descriptor &desc)
     {
-        return heap.Get();
+        return {};
     }
-
 }

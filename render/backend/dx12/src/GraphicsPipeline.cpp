@@ -11,40 +11,39 @@ namespace sky::dx {
     {
     }
 
-    GraphicsPipeline::~GraphicsPipeline()
-    {
-    }
-
-    bool GraphicsPipeline::Init(const Descriptor&)
+    bool GraphicsPipeline::Init(const Descriptor &desc)
     {
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc = {};
-        pipelineDesc.pRootSignature;
+
+        // shader
         pipelineDesc.VS;
         pipelineDesc.PS;
-        pipelineDesc.DS;
-        pipelineDesc.HS;
-        pipelineDesc.GS;
+
+        // vertex desc
         pipelineDesc.StreamOutput;
-        pipelineDesc.BlendState;
-        pipelineDesc.SampleMask;
-        pipelineDesc.RasterizerState;
-        pipelineDesc.DepthStencilState;
         pipelineDesc.InputLayout;
         pipelineDesc.IBStripCutValue;
+
+        // pipeline stats
+        pipelineDesc.BlendState;
+        pipelineDesc.RasterizerState;
+        pipelineDesc.DepthStencilState;
         pipelineDesc.PrimitiveTopologyType;
+
+        // render pass
         pipelineDesc.NumRenderTargets;
         pipelineDesc.RTVFormats[8];
         pipelineDesc.DSVFormat;
-        pipelineDesc.SampleDesc;
+
+        // sample
+        pipelineDesc.SampleMask;
+        pipelineDesc.SampleDesc = {static_cast<UINT>(desc.state.multiSample.sampleCount), 0};
+
         pipelineDesc.NodeMask;
         pipelineDesc.CachedPSO;
         pipelineDesc.Flags;
 
-        if (FAILED(device.GetDevice()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(pipelineState.GetAddressOf())))) {
-            return false;
-        }
-
-        return true;
+        return !FAILED(device.GetDevice()->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(pipelineState.GetAddressOf())));
     }
 
 }
