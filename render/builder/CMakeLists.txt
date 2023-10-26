@@ -1,7 +1,7 @@
 add_subdirectory(shader)
 add_subdirectory(render)
 
-sky_add_library(TARGET BuiltinBuilder SHARED
+sky_add_library(TARGET RenderBuilder SHARED
     SOURCES
         module/BuilderModule.cpp
     PRIVATE_INC
@@ -9,6 +9,6 @@ sky_add_library(TARGET BuiltinBuilder SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        RenderBuilder
+        RenderBuilder.Static
     )
-sky_add_dependency(TARGET BuiltinBuilder DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET RenderBuilder DEPENDENCIES Launcher Editor)

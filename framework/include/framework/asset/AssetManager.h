@@ -10,6 +10,7 @@
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilder.h>
 #include <mutex>
+#include <filesystem>
 #include <unordered_map>
 
 namespace sky {
@@ -22,7 +23,7 @@ namespace sky {
 
     class AssetManager : public Singleton<AssetManager> {
     public:
-        ~AssetManager();
+        ~AssetManager() override;
 
         template <class T>
         void RegisterAssetHandler()
@@ -42,10 +43,36 @@ namespace sky {
         std::shared_ptr<AssetBase> CreateAsset(const Uuid &type, const Uuid &uuid);
 
         template <class T>
-        std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, bool async = false)
+        std::shared_ptr<Asset<T>> LoadAsset(const std::string &path, const std::string &key, bool async = false)
         {
-            auto id = Uuid::CreateWithSeed(Fnv1a32(path));
-            return LoadAsset<T>(id, async);
+            for (auto &searchPath : searchPaths) {
+                std::filesystem::path sp(searchPath);
+                sp.append(path);
+                sp.make_preferred();
+
+                Uuid id;
+                if (QueryProductSource(sp.string(), key, id)) {
+                    return LoadAsset<T>(id, async);
+                }
+            }
+            return nullptr;
+        }
+
+        template <class T>
+        std::shared_ptr<Asset<T>> LoadAsset(const std::string &productPath, bool async = false)
+        {
+            for (auto &searchPath : searchPaths) {
+                std::filesystem::path sp(searchPath);
+                sp.append(productPath);
+                sp.make_preferred();
+                auto id = Uuid::CreateWithSeed(Fnv1a32(sp.string()));
+                auto asset = LoadAsset<T>(id, async);
+                if (asset) {
+                    return asset;
+                }
+            }
+
+            return nullptr;
         }
 
         template <class T>
@@ -63,6 +90,7 @@ namespace sky {
         void RegisterBuilder(const std::string &key, AssetBuilder *builder);
         void ImportSource(const std::string &path, const SourceAssetImportOption &option);
         bool QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out);
+        bool QueryProductSource(const std::string &path, const std::string &key, Uuid &out);
 
         void RegisterSearchPath(const std::string &path);
         void RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler);
@@ -79,8 +107,9 @@ namespace sky {
 
         void SaveAssets();
         void RegisterAssets();
+        void ImportSourceImpl(const std::string &path, const SourceAssetImportOption &option);
 
-        std::vector<std::string>                           searchPaths;
+        std::vector<std::string> searchPaths;
 
         mutable std::mutex assetMutex;
         std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assetMap;

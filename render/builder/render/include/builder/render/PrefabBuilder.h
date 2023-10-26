@@ -5,15 +5,16 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <string_view>
 
 namespace sky::builder {
 
     class PrefabBuilder : public AssetBuilder {
     public:
         PrefabBuilder() = default;
-        ~PrefabBuilder() = default;
+        ~PrefabBuilder() override = default;
 
-        static constexpr char* KEY = "GFX_PREFAB";
+        static constexpr std::string_view KEY = "GFX_PREFAB";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
     };

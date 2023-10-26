@@ -1,0 +1,27 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/vertex/position_only.vert",
+        "frag": "shaderlibs/volumes/volume_simple.frag"
+    },
+    "pass": {
+        "tag": "ForwardVolume"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
+    "blend_state": [
+        {
+            "blendEnable": true,
+            "srcColor": "SRC_ALPHA",
+            "dstColor": "ONE_MINUS_SRC_ALPHA",
+            "srcAlpha": "ONE",
+            "dstAlpha": "ONE_MINUS_SRC_ALPHA"
+        }
+    ],
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "position_only"
+}

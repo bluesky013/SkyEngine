@@ -15,11 +15,15 @@ namespace sky {
         float const half = angle * 0.5f;
         float const s = sin(half);
         float const c = cos(half);
-        Vector3 tmp = axis * s;
+
+        auto tmpAxis = Vector3(axis);
+        tmpAxis.Normalize();
+        Vector3 tmp = tmpAxis * s;
         x = tmp.x;
         y = tmp.y;
         z = tmp.z;
         w = c;
+        tmp.Normalize();
     }
 
     inline void Quaternion::Normalize()
@@ -74,5 +78,80 @@ namespace sky {
         y /= d;
         z /= d;
         return *this;
+    }
+
+    inline void Quaternion::FromEulerYZX(Vector3 euler)
+    {
+        float halfToRad = 0.5F * sky::PI / 180.F;
+        euler.x *= halfToRad;
+        euler.y *= halfToRad;
+        euler.z *= halfToRad;
+        float sx = std::sin(euler.x);
+        float cx = std::cos(euler.x);
+        float sy = std::sin(euler.y);
+        float cy = std::cos(y);
+        float sz = std::sin(z);
+        float cz = std::cos(z);
+
+        x = sx * cy * cz + cx * sy * sz;
+        y = cx * sy * cz + sx * cy * sz;
+        z = cx * cy * sz - sx * sy * cz;
+        w = cx * cy * cz - sx * sy * sz;
+    }
+
+    inline Vector3 Quaternion::ToEulerYZX() const
+    {
+        float bank{0};
+        float heading{0};
+        float attitude{0};
+        float test = x * y + z * w;
+        float r2d = 180.F / sky::PI;
+        if (test > 0.499999) {
+            bank = 0;
+            heading = 2 * atan2(x, w) * r2d;
+            attitude = 90;
+        } else if (test < -0.499999) {
+            bank = 0;
+            heading = -2 * atan2(x, w) * r2d;
+            attitude = -90;
+        } else {
+            float sqx = x * x;
+            float sqy = y * y;
+            float sqz = z * z;
+            bank = atan2(2 * x * w - 2 * y * z, 1 - 2 * sqx - 2 * sqz) * r2d;
+            heading = atan2(2 * y * w - 2 * x * z, 1 - 2 * sqy - 2 * sqz) * r2d;
+            attitude = asin(2 * test) * r2d;
+        }
+        return {bank, heading, attitude};
+    }
+
+    inline Matrix4 Quaternion::ToMatrix() const
+    {
+        Matrix4 res;
+        float x2 = x + x;
+        float y2 = y + y;
+        float z2 = z + z;
+
+        res.m[0][0] = 1 - y2 * y - z2 * z;
+        res.m[0][1] = x2 * y + z2 * w;
+        res.m[0][2] = x2 * z - y2 * w;
+        res.m[0][3] = 0.f;
+
+        res.m[1][0] = x2 * y - z2 * w;
+        res.m[1][1] = 1 - x2 * x - z2 * z;
+        res.m[1][2] = y2 * z + x2 * w;
+        res.m[1][3] = 0.f;
+
+        res.m[2][0] = x2 * z + y2 * w;
+        res.m[2][1] = y2 * z - x2 * w;
+        res.m[2][2] = 1 - x2 * x - y2 * y;
+        res.m[2][3] = 0.f;
+
+        res.m[3][0] = 0.f;
+        res.m[3][1] = 0.f;
+        res.m[3][2] = 0.f;
+        res.m[3][3] = 1.f;
+
+        return res;
     }
 }

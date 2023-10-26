@@ -82,18 +82,24 @@ namespace sky {
 
         std::shared_ptr<T> CreateInstance(bool useDefault = true)
         {
-            std::shared_ptr<T> res;
             if (useDefault) {
+                std::shared_ptr<T> res;
                 std::lock_guard<std::mutex> lock(mutex);
                 res = defaultInstance.lock();
                 if (res) {
                     return res;
                 }
-                res             = AssetTraits<T>::CreateFromData(data);
+                res = AssetTraits<T>::CreateFromData(data);
                 defaultInstance = res;
                 return res;
             }
             return AssetTraits<T>::CreateFromData(data);
+        }
+
+        template <typename U>
+        std::shared_ptr<U> CreateInstanceAs(bool useDefault = true)
+        {
+            return std::static_pointer_cast<U>(CreateInstance(useDefault));
         }
 
         const DataType &Data() const

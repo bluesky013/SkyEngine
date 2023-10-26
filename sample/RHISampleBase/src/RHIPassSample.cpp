@@ -23,10 +23,16 @@ namespace sky::rhi {
     };
 
     template <typename T>
-    struct VectorProvider : public BufferProvider {
-        const uint8_t* GetData(uint64_t offset) const override
+    struct VectorProvider : public IStream {
+        const uint8_t* GetData(uint64_t offset) override
         {
             return reinterpret_cast<const uint8_t *>(data.data()) + offset;
+        }
+
+        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override
+        {
+            const uint8_t *ptr = reinterpret_cast<const uint8_t*>(data.data()) + offset;
+            memcpy(out, ptr, size);
         }
 
         std::vector<T> data;

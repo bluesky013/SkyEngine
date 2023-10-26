@@ -16,13 +16,8 @@ if (MSVC)
 		${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}
 		${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}assimp-vc143-mt${CMAKE_STATIC_LIBRARY_SUFFIX})
 elseif(APPLE)
-	set(${LIB_NAME}_LIBRARY_DEBUG
-		${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}
-		${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}assimpd${CMAKE_STATIC_LIBRARY_SUFFIX})
-
-	set(${LIB_NAME}_LIBRARY_RELEASE
-		${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}
-		${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}assimp${CMAKE_STATIC_LIBRARY_SUFFIX})
+	set(${LIB_NAME}_LIBRARY_DEBUG ${${LIB_NAME}_LIBS_DIR}/Debug/libassimpd.dylib)
+	set(${LIB_NAME}_LIBRARY_RELEASE ${${LIB_NAME}_LIBS_DIR}/Release/libassimp.dylib)
 else()
 	set(${LIB_NAME}_LIBRARY_DEBUG
 		${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}
@@ -36,7 +31,16 @@ set(${LIB_NAME}_LIBRARY
     "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
     "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
 
-add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
+add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL
+		../../render/builder/render/include/builder/render/ImageCompressor.h
+		../../render/builder/render/src/ImageCompressor.cpp
+        ../../render/imgui/include/imgui/ImGuiFeature.h
+        ../../render/imgui/src/ImGuiFeature.cpp
+        ../../render/imgui/include/imgui/ImGuiFeatureProcessor.h
+        ../../render/imgui/src/ImGuiFeatureProcessor.cpp
+        ../../render/imgui/ImGuiModule.cpp
+        ../../render/imgui/include/imgui/ImGuiInstance.h
+        ../../render/imgui/src/ImGuiInstance.cpp)
 target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
 target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
 

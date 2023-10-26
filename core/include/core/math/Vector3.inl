@@ -120,6 +120,11 @@ namespace sky {
         return ret.x + ret.y + ret.z;
     }
 
+    inline float Vector3::Length() const
+    {
+        return sqrt(Dot(*this));
+    }
+
     inline void Vector3::Normalize()
     {
         float inverseSqrt = 1 / sqrt(Dot(*this));

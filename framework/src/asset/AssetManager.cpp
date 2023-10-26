@@ -4,10 +4,11 @@
 
 #include <core/file/FileIO.h>
 #include <filesystem>
+#include <framework/application/SettingRegistry.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/database/DBManager.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
-#include <framework/application/SettingRegistry.h>
 
 namespace sky {
 
@@ -22,7 +23,7 @@ namespace sky {
         if (hIter == assetHandlers.end()) {
             return {};
         }
-        auto assetHandler = hIter->second.get();
+        auto *assetHandler = hIter->second.get();
         auto asset = assetHandler->CreateAsset();
         asset->SetUuid(uuid);
         asset->status = AssetBase::Status::LOADING;
@@ -55,7 +56,7 @@ namespace sky {
         if (hIter == assetHandlers.end()) {
             return {};
         }
-        auto assetHandler = hIter->second.get();
+        auto *assetHandler = hIter->second.get();
         std::string path = GetPathByUuid(uuid);
         if (path.empty()) {
             return {};
@@ -75,6 +76,7 @@ namespace sky {
             asset = assetHandler->CreateAsset();
             asset->SetUuid(uuid);
             asset->status = AssetBase::Status::LOADING;
+            asset->path = path;
             assetMap.emplace(uuid, asset);
         }
 
@@ -99,10 +101,15 @@ namespace sky {
             return;
         }
         std::lock_guard<std::mutex> lock(assetMutex);
-        assetBuilders[key].emplace_back(std::move(builder));
+        assetBuilders[key].emplace_back(builder);
     }
 
     void AssetManager::ImportSource(const std::string &path, const SourceAssetImportOption &option)
+    {
+        ImportSourceImpl(GetRealPath(path), option);
+    }
+
+    void AssetManager::ImportSourceImpl(const std::string &path, const SourceAssetImportOption &option)
     {
         std::filesystem::path fs(path);
         auto ext = fs.extension().string();
@@ -121,7 +128,7 @@ namespace sky {
                 builder->Request(request, result);
             }
         }
-        {
+        if (dataBase) {
             std::lock_guard<std::mutex> lock(dbMutex);
             for (auto &pdt : result.products) {
                 dataBase->AddSource(SourceData{fs.make_preferred().string(), fs.parent_path().make_preferred().string(), pdt.productKey, pdt.uuid});
@@ -129,13 +136,19 @@ namespace sky {
         }
     }
 
+    bool AssetManager::QueryProductSource(const std::string &path, const std::string &key, Uuid &out)
+    {
+        return dataBase->QueryProduct(path, key, out);
+    }
+
     bool AssetManager::QueryOrImportSource(const std::string &path, const SourceAssetImportOption &option, Uuid &out)
     {
-        if (!option.reImport && dataBase->QueryProduct(path, option.buildKey, out)) {
+        std::string realPath = GetRealPath(path);
+        if (!option.reImport && dataBase->QueryProduct(realPath, option.buildKey, out)) {
             return true;
         }
-        ImportSource(path, option);
-        return dataBase->QueryProduct(path, option.buildKey, out);
+        ImportSourceImpl(realPath, option);
+        return dataBase->QueryProduct(realPath, option.buildKey, out);
     }
 
     void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset)
@@ -144,9 +157,11 @@ namespace sky {
         if (hIter == assetHandlers.end()) {
             return;
         }
-        auto assetHandler = hIter->second.get();
+        auto *assetHandler = hIter->second.get();
         assetHandler->SaveToPath(asset->GetPath(), asset);
-        dataBase->AddProduct({asset->GetUuid(), asset->GetPath()});
+        if (dataBase) {
+            dataBase->AddProduct({asset->GetUuid(), asset->GetPath()});
+        }
     }
 
     void AssetManager::RegisterSearchPath(const std::string &path)
@@ -173,7 +188,7 @@ namespace sky {
     {
         std::filesystem::path path(relative);
         if (!std::filesystem::exists(path)) {
-            for (auto &sp : searchPaths) {
+            for (const auto &sp : searchPaths) {
                 std::filesystem::path tmpPath(sp);
                 tmpPath.append(path.string());
                 if (std::filesystem::exists(tmpPath)) {

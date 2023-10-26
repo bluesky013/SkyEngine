@@ -69,7 +69,7 @@ namespace sky::rhi {
 
         rhi::SemaphorePtr imageAvailable;
         rhi::SemaphorePtr renderFinish;
-        rhi::Device::DeviceFeature deviceFeature = {};
+        rhi::DeviceFeature deviceFeature = {};
 
         rhi::QueryPoolPtr psPool;
         rhi::BufferPtr psResult;

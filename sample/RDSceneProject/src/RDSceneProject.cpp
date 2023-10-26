@@ -5,18 +5,24 @@
 #include <RDSceneProject.h>
 #include <RDSceneProject/ProjectRoot.h>
 
+#include <framework/serialization/CoreReflection.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/window/NativeWindow.h>
 
 #include <render/Renderer.h>
-#include <render/pipeline/DefaultForward.h>
+
+#include "scenes/SampleSceneCube.h"
+#include "scenes/SampleMesh.h"
+#include "scenes/SampleRayMarching.h"
 
 namespace sky {
 
     bool RDSceneProject::Init()
     {
-        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT);
-        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT);
+        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/assets");
+        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/cache");
+        AssetManager::Get()->Reset(PROJECT_ROOT + "/assets.db");
 
         return true;
     }
@@ -26,6 +32,27 @@ namespace sky {
         if (window != nullptr) {
             window->Resize(width, height);
         }
+        if (currentScene != nullptr) {
+            currentScene->Resize(width, height);
+        }
+    }
+
+    void RDSceneProject::OnKeyUp(KeyButtonType type)
+    {
+        if (type == KeyButton::KEY_RIGHT) {
+            NextScene();
+        }
+    }
+
+    void RDSceneProject::NextScene()
+    {
+        if (currentScene != nullptr) {
+            currentScene->Shutdown();
+        }
+        sceneIndex = (sceneIndex + 1) % sampleScenes.size();
+
+        currentScene = sampleScenes[sceneIndex].get();
+        currentScene->Start(window);
     }
 
     void RDSceneProject::Start()
@@ -34,18 +61,23 @@ namespace sky {
         const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
 
-        scene = renderer->CreateScene();
-        auto *ppl = new DefaultForward();
-        ppl->SetOutput(window);
-        scene->SetPipeline(ppl);
-
         Event<IWindowEvent>::Connect(nativeWindow, this);
+
+        sampleScenes.emplace_back(new SampleMesh());
+        sampleScenes.emplace_back(new SampleSceneCube());
+        sampleScenes.emplace_back(new SampleRayMarching());
+        sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
+        NextScene();
     }
 
     void RDSceneProject::Stop()
     {
+        if (currentScene != nullptr) {
+            currentScene->Shutdown();
+        }
+        sampleScenes.clear();
+
         auto *renderer = Renderer::Get();
-        renderer->RemoveScene(scene);
         renderer->DestroyRenderWindow(window);
 
         Event<IWindowEvent>::DisConnect(this);
@@ -53,6 +85,9 @@ namespace sky {
 
     void RDSceneProject::Tick(float delta)
     {
+        if (currentScene != nullptr) {
+            currentScene->Tick(delta);
+        }
     }
 
 } // namespace sky

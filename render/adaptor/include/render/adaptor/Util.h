@@ -4,10 +4,17 @@
 
 #pragma once
 
+#include <render/RenderScene.h>
+
 namespace sky {
-    class RenderScene;
     class GameObject;
 
     RenderScene *GetRenderSceneFromGameObject(GameObject *go);
+
+    template <typename T>
+    T *GetFeatureProcessor(const RenderScene *scene)
+    {
+        return scene->GetFeature<T>();
+    }
 
 } // namespace sky

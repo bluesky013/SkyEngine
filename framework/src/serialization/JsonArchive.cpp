@@ -40,8 +40,8 @@ namespace sky {
         } else if (typeId == TypeInfo<std::string>::Hash()) {
             SaveValue(*static_cast<const std::string *>(ptr));
         } else {
-            auto context = SerializationContext::Get();
-            auto node = context->FindTypeById(typeId);
+            auto *context = SerializationContext::Get();
+            auto *node = context->FindTypeById(typeId);
             SKY_ASSERT(node != nullptr && "type not registered");
             if (node == nullptr) {
                 return;

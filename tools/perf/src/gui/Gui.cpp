@@ -6,6 +6,7 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/window/NativeWindow.h>
+#include <rhi/Stream.h>
 #include <imgui.h>
 #include <perf/gui/Gui.h>
 
@@ -377,7 +378,7 @@ namespace sky::perf {
         auto queue = render->device->GetTransferQueue();
         auto handle = queue->UploadImage(res->fontImage,
                                          {rhi::ImageUploadRequest {
-                                             pixels, 0, uploadSize, 0, 0,
+                                             std::make_shared<rhi::RawPtrStream>(pixels), 0, uploadSize, 0, 0,
                                              {0, 0, 0}, {imageDesc.extent.width, imageDesc.extent.height, 1}
                                          }});
         queue->Wait(handle);

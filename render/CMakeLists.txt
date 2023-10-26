@@ -1,31 +1,17 @@
-file(GLOB_RECURSE SRC_FILES src/*)
-file(GLOB_RECURSE INC_FILES include/*)
-
-sky_add_library(TARGET SkyRender.Static STATIC
-    SOURCES
-        ${SRC_FILES}
-        ${INC_FILES}
-    PRIVATE_INC
-        src
-    PUBLIC_INC
-        include
-    LINK_LIBS
-        Core
-        RHI
-    )
+add_subdirectory(backend)
+add_subdirectory(core)
+add_subdirectory(adaptor)
+add_subdirectory(builder)
+add_subdirectory(imgui)
 
 sky_add_library(TARGET SkyRender SHARED
     SOURCES
         RenderModule.cpp
     PRIVATE_INC
-        src
     PUBLIC_INC
-        include
     LINK_LIBS
-        SkyEngine
         SkyRenderAdaptor
+        ImGuiRender
     )
 
-add_subdirectory(adaptor)
-add_subdirectory(builder)
 sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

@@ -14,7 +14,7 @@ namespace sky::builder {
         TechniqueBuilder() = default;
         ~TechniqueBuilder() = default;
 
-        static constexpr char* KEY = "GFX_TECH";
+        static constexpr std::string_view KEY = "GFX_TECH";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
     };

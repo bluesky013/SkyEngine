@@ -1,14 +1,18 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "shaderlibs/standard.vert",
-        "frag": "shaderlibs/unlit.frag"
+        "vert": "shaderlibs/vertex/standard.vert",
+        "frag": "shaderlibs/standard.frag"
     },
     "pass": {
-        "tag": "frowardColor"
+        "tag": "ForwardColor"
     },
     "depth_stencil": {
         "depthTestEnable": true,
         "depthWriteEnable": true
-    }
+    },
+    "raster_state": {
+        "cullMode": "BACK"
+    },
+    "vertex": "standard"
 }

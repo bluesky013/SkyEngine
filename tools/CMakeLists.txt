@@ -1,4 +1,5 @@
-#add_subdirectory(assettools)
+add_subdirectory(assettools)
+add_subdirectory(noise)
 #add_subdirectory(terrain)
 if (SKY_BUILD_PERF_TOOL)
     add_subdirectory(perf)

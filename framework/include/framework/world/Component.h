@@ -63,7 +63,7 @@ namespace sky {
     class ComponentFactory : public Singleton<ComponentFactory> {
     public:
         ComponentFactory()  = default;
-        ~ComponentFactory() = default;
+        ~ComponentFactory() override = default;
 
         template <typename T>
         static Component *CreateComponent(PmrResource *resource)

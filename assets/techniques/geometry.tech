@@ -1,0 +1,18 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/geometry/geometry.vert",
+        "frag": "shaderlibs/geometry/geometry.frag"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    },
+    "raster_state": {
+        "cullMode": "BACK"
+    },
+    "pass": {
+        "tag": "ForwardColor"
+    },
+    "vertex": "geometry"
+}

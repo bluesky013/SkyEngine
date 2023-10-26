@@ -24,6 +24,12 @@ namespace sky {
     inline Vector3 Max(const Vector3 &lhs, const Vector3 &rhs);
     inline Vector4 Max(const Vector4 &lhs, const Vector4 &rhs);
 
+    template <typename T>
+    T Normalize(const T &v)
+    {
+        return T(v).Normalize();
+    }
+
     inline float ToRadian(float value)
     {
         return value / 180.f * PI;
@@ -31,7 +37,7 @@ namespace sky {
 
     inline Vector4 Cast(const Vector3 &vec)
     {
-        return {vec.x, vec.y, vec.z, 0.f};
+        return {vec.x, vec.y, vec.z, 1.f};
     }
 
     inline Matrix4 Cast(const Matrix3 &mat)
@@ -121,6 +127,36 @@ namespace sky {
         ret.z = std::fmax(lhs.z, rhs.z);
         ret.w = std::fmax(lhs.w, rhs.w);
         return ret;
+    }
+
+    inline Vector2 Floor(const Vector2 &v)
+    {
+        return Vector2 {
+            std::floor(v.x), std::floor(v.y),
+        };
+    }
+
+    inline Vector3 Floor(const Vector3 &v)
+    {
+        return Vector3 {
+            std::floor(v.x), std::floor(v.y), std::floor(v.z)
+        };
+    }
+
+    inline Vector2 Fract(const Vector2 &v)
+    {
+        float tmp;
+        return Vector2 {
+            std::modf(v.x, &tmp), std::modf(v.y, &tmp)
+        };
+    }
+
+    inline Vector3 Fract(const Vector3 &v)
+    {
+        float tmp;
+        return Vector3 {
+            std::modf(v.x, &tmp), std::modf(v.y, &tmp), std::modf(v.z, &tmp)
+        };
     }
 
     inline uint32_t Ceil(uint32_t v0, uint32_t v1) {

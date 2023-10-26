@@ -27,7 +27,9 @@ namespace sky::rhi {
         } else if (api == API::GLES) {
             shaderPath += ".gles";
         }
-        ReadBin(shaderPath, shaderDesc.data);
+        uint8_t *data = nullptr;
+        ReadBin(shaderPath, data, shaderDesc.size);
+        shaderDesc.data = data;
         return device.CreateShader(shaderDesc);
     }
 
@@ -230,22 +232,26 @@ namespace sky::rhi {
 
     void RHISampleBase::SetupPool()
     {
+        std::vector<DescriptorSetPool::PoolSize> sizes;
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::COMBINED_IMAGE_SAMPLER, 128});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_IMAGE, 32});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER, 128});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER_DYNAMIC, 128});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER, 32});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER_DYNAMIC, 32});
+        sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::INPUT_ATTACHMENT, 32});
+
         rhi::DescriptorSetPool::Descriptor poolDesc = {};
         poolDesc.maxSets = 16;
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::COMBINED_IMAGE_SAMPLER, 128});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_IMAGE, 32});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER, 128});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::UNIFORM_BUFFER_DYNAMIC, 128});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER, 32});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::STORAGE_BUFFER_DYNAMIC, 32});
-        poolDesc.sizes.emplace_back(DescriptorSetPool::PoolSize{DescriptorType::INPUT_ATTACHMENT, 32});
+        poolDesc.sizeData = sizes.data();
+        poolDesc.sizeCount = static_cast<uint32_t>(sizes.size());
         pool = device->CreateDescriptorSetPool(poolDesc);
     }
 
     bool RHISampleBase::CheckFeature() const
     {
         const auto &feature = device->GetFeatures();
-        return memcmp(&deviceFeature, &feature, sizeof(Device::DeviceFeature)) == 0;
+        return memcmp(&deviceFeature, &feature, sizeof(DeviceFeature)) == 0;
     }
 
     void RHISampleBase::SetupPass()

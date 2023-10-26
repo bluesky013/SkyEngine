@@ -2,21 +2,25 @@
 // Created by Zach Lee on 2023/2/20.
 //
 
-#include <builder/render/PrefabBuilder.h>
-#include <builder/render/ImageBuilder.h>
-#include <builder/render/TechniqueBuilder.h>
-#include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/RenderPrefab.h>
-#include <render/adaptor/assets/Image.h>
-#include <render/adaptor/assets/Material.h>
-#include <render/adaptor/assets/Mesh.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include <assimp/GltfMaterial.h>
-#include <filesystem>
-#include <sstream>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <builder/render/ImageBuilder.h>
+#include <builder/render/PrefabBuilder.h>
+#include <builder/render/TechniqueBuilder.h>
+#include <builder/render/MaterialBuilder.h>
 #include <core/logger/Logger.h>
+#include <core/math/MathUtil.h>
+
+#include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/RenderPrefab.h>
+
+#include <sstream>
+#include <filesystem>
 
 static const char* TAG = "PrefabBuilder";
 
@@ -24,21 +28,11 @@ namespace sky::builder {
 
     enum class MeshAttributeType : uint32_t {
         POSITION = 0,
+        UV,
         NORMAL,
         TANGENT,
-        BITANGENT,
         COLOR,
-        UV,
         NUM,
-    };
-
-    struct MeshVertexData {
-        std::vector<Vector4> position;
-        std::vector<Vector4> normal;
-        std::vector<Vector4> tangent;
-        std::vector<Vector4> biTangent;
-        std::vector<Vector4> color;
-        std::vector<Vector4> UV;
     };
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
@@ -58,35 +52,47 @@ namespace sky::builder {
         auto texPath = std::filesystem::path(sourceFolder).append(str.C_Str());
         if (std::filesystem::exists(texPath)) {
             Uuid texId;
-            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY, productFolder, false}, texId)) {
-                return am->LoadAsset<Image>(texId);
+            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY.data(), productFolder, false}, texId)) {
+                return am->LoadAsset<Texture>(texId);
             }
         } else {
-//            const auto *tex = scene->GetEmbeddedTexture(path.data);
-//            if (tex == nullptr) {
-//                return;
-//            }
-//            if (tex->mHeight != 0) {
-//
-//            } else {
-//                const uint32_t size = tex->mWidth;
-//                srcData = stbi_load_from_memory(reinterpret_cast<const stbi_uc *>(tex->pcData), static_cast<int>(size),
-//                                                            &width, &height, &channel, 4);
-//            }
+            const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
+            if (tex == nullptr) {
+                return nullptr;
+            }
+
+            BuildRequest request = {};
+            request.fullPath = texPath.make_preferred().string();
+            request.name = std::string("embedded_") + str.C_Str();
+            request.ext = tex->achFormatHint;
+            request.outDir = productFolder;
+            request.buildKey = ImageBuilder::KEY;
+            request.rawData = tex->pcData;
+            request.dataSize = tex->mWidth;
+
+            request.name.erase(std::remove(request.name.begin(), request.name.end(), '*'), request.name.end());
+
+            BuildResult result = {};
+            ImageBuilder().Request(request, result);
+            if (!result.products.empty()) {
+                return am->LoadAsset<Texture>(result.products[0].uuid);
+            }
         }
         return {};
     }
 
-    static MaterialAssetPtr CreateAssetStandardPBRMaterial(const std::string &fullPath)
+    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(const std::string &type, const std::string &path)
     {
         auto *am = AssetManager::Get();
-        auto asset = am->CreateAsset<Material>(fullPath);
-        std::string techPath = am->GetRealPath("techniques/standard_forward.tech");
-        Uuid techId;
-        if (am->QueryOrImportSource(techPath, {TechniqueBuilder::KEY}, techId)) {
-            asset->Data().techniques.emplace_back(am->LoadAsset<Technique>(techId));
+        Uuid matID;
+        MaterialInstanceAssetPtr materialInstance;
+        if (am->QueryOrImportSource(type, {MaterialBuilder::KEY.data()}, matID)) {
+            auto mat = am->LoadAsset<Material>(matID);
+
+            materialInstance = am->CreateAsset<MaterialInstance>(path);
+            materialInstance->Data().material = mat;
         }
-        return asset;
+        return materialInstance;
     }
 
     static void ProcessMaterials(const aiScene *scene, RenderPrefabAssetData &outScene, const std::filesystem::path &source, const std::string &productFolder)
@@ -112,9 +118,9 @@ namespace sky::builder {
             } else {
                 ss << matName;
             }
-            ss << ".mat";
+            ss << ".mati";
 
-            auto matAsset = CreateAssetStandardPBRMaterial(ss.str());
+            auto matAsset = CreateMaterialInstanceByMaterial("materials/StandardPBR.mat", ss.str());
             auto &data = matAsset->Data();
 
             aiString str;
@@ -181,42 +187,42 @@ namespace sky::builder {
                 }
             }
 
-            data.valueMap.emplace("useAOMap", Any(useAOMap));
+            data.properties.valueMap.emplace("useAOMap", Any(useAOMap));
             if (useAOMap) {
-                data.valueMap.emplace("aOMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(aoMap);
+                data.properties.valueMap.emplace("aoMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(aoMap);
             }
 
-            data.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
+            data.properties.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
             if (useEmissiveMap) {
-                data.valueMap.emplace("emissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(emissiveMap);
+                data.properties.valueMap.emplace("emissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(emissiveMap);
             }
 
-            data.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
+            data.properties.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
             if (useBaseColorMap) {
-                data.valueMap.emplace("baseColorMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(baseColorMap);
+                data.properties.valueMap.emplace("baseColorMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(baseColorMap);
             }
 
-            data.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
+            data.properties.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
             if (useMetallicRoughnessMap) {
-                data.valueMap.emplace("metallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(metallicRoughnessMap);
+                data.properties.valueMap.emplace("metallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(metallicRoughnessMap);
             }
 
-            data.valueMap.emplace("useNormalMap", Any(useNormalMap));
+            data.properties.valueMap.emplace("useNormalMap", Any(useNormalMap));
             if (useNormalMap) {
-                data.valueMap.emplace("normalMap", Any(MaterialTexture{static_cast<uint32_t>(data.images.size())}));
-                data.images.emplace_back(normalMap);
+                data.properties.valueMap.emplace("normalMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.images.emplace_back(normalMap);
             }
 
-            data.valueMap.emplace("useMask",     Any(useMask));
+            data.properties.valueMap.emplace("useMask",     Any(useMask));
 
-            data.valueMap.emplace("baseColor",   Any(baseColor));
-            data.valueMap.emplace("metallic",    Any(metallic));
-            data.valueMap.emplace("roughness",   Any(roughness));
-            data.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
+            data.properties.valueMap.emplace("baseColor",   Any(baseColor));
+            data.properties.valueMap.emplace("metallic",    Any(metallic));
+            data.properties.valueMap.emplace("roughness",   Any(roughness));
+            data.properties.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
             AssetManager::Get()->SaveAsset(matAsset);
 
             outScene.materials.emplace_back(matAsset);
@@ -228,19 +234,27 @@ namespace sky::builder {
         uint32_t vertexNum   = mesh->mNumVertices;
         uint32_t currentSize = vertexOffset + vertexNum;
 
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].resize(currentSize * sizeof(Vector4));
-        meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].resize(currentSize * sizeof(Vector4));
+        auto &VBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)]->Data().rawData;
+        auto &NBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)]->Data().rawData;
+        auto &TBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)]->Data().rawData;
+        auto &CBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)]->Data().rawData;
+        auto &UBuffer = meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)]->Data().rawData;
 
-        Vector4 *position = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::POSITION)].data())[vertexOffset];
-        Vector4 *normal = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::NORMAL)].data())[vertexOffset];
-        Vector4 *tangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::TANGENT)].data())[vertexOffset];
-        Vector4 *biTangent = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::BITANGENT)].data())[vertexOffset];
-        Vector4 *color = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::COLOR)].data())[vertexOffset];
-        Vector4 *uv = &reinterpret_cast<Vector4 *>(meshData.vertexBuffers[static_cast<uint32_t>(MeshAttributeType::UV)].data())[vertexOffset];
+        VBuffer.resize(currentSize * sizeof(Vector4));
+        NBuffer.resize(currentSize * sizeof(Vector4));
+        TBuffer.resize(currentSize * sizeof(Vector4));
+        CBuffer.resize(currentSize * sizeof(Vector4));
+        UBuffer.resize(currentSize * sizeof(Vector4));
+
+        Vector4 *position = &reinterpret_cast<Vector4 *>(VBuffer.data())[vertexOffset];
+        Vector4 *normal   = &reinterpret_cast<Vector4 *>(NBuffer.data())[vertexOffset];
+        Vector4 *tangent  = &reinterpret_cast<Vector4 *>(TBuffer.data())[vertexOffset];
+        Vector4 *color    = &reinterpret_cast<Vector4 *>(CBuffer.data())[vertexOffset];
+        Vector4 *uv       = &reinterpret_cast<Vector4 *>(UBuffer.data())[vertexOffset];
+
+        SubMeshAssetData subMesh;
+        subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
+        subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
 
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
             auto &p = mesh->mVertices[i];
@@ -248,52 +262,46 @@ namespace sky::builder {
             auto &t = mesh->mTangents[i];
             auto &b = mesh->mBitangents[i];
 
-            position->x = p.x;
-            position->y = p.y;
-            position->z = p.z;
-            position->x = 1.f;
+            position[i].x = p.x;
+            position[i].y = p.y;
+            position[i].z = p.z;
+            position[i].w = 1.f;
+            subMesh.aabb.min = Min(subMesh.aabb.min, Vector3(p.x, p.y, p.z));
+            subMesh.aabb.max = Max(subMesh.aabb.max, Vector3(p.x, p.y, p.z));
 
-            normal->x = n.x;
-            normal->y = n.y;
-            normal->z = n.z;
-            normal->x = 1.f;
+            normal[i].x = n.x;
+            normal[i].y = n.y;
+            normal[i].z = n.z;
+            normal[i].w = 1.f;
 
-            tangent->x = t.x;
-            tangent->y = t.y;
-            tangent->z = t.z;
-            tangent->x = 1.f;
-
-            biTangent->x = b.x;
-            biTangent->y = b.y;
-            biTangent->z = b.z;
-            biTangent->x = 1.f;
+            tangent[i].x = t.x;
+            tangent[i].y = t.y;
+            tangent[i].z = t.z;
+            tangent[i].w = 1.f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];
-                color->x = c.r;
-                color->y = c.g;
-                color->z = c.b;
-                color->w = c.a;
+                color[i].x = c.r;
+                color[i].y = c.g;
+                color[i].z = c.b;
+                color[i].w = c.a;
             } else {
-                color->x = 1.f;
-                color->y = 1.f;
-                color->z = 1.f;
-                color->w = 1.f;
+                color[i].x = 1.f;
+                color[i].y = 1.f;
+                color[i].z = 1.f;
+                color[i].w = 1.f;
             }
 
             if (mesh->HasTextureCoords(0)) {
                 auto &u = mesh->mTextureCoords[0][i];
-                uv->x   = u.x;
-                uv->y   = u.y;
+                uv[i].x = u.x;
+                uv[i].y = u.y;
             } else {
-                uv->x = 0.f;
-                uv->y = 0.f;
+                uv[i].x = 0.f;
+                uv[i].y = 0.f;
             }
         }
 
-        SubMeshAssetData subMesh;
-        subMesh.aabb.min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
-        subMesh.aabb.max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
         subMesh.firstVertex = vertexOffset;
         subMesh.vertexCount = mesh->mNumVertices;
         subMesh.firstIndex = indexOffset;
@@ -301,14 +309,15 @@ namespace sky::builder {
         subMesh.material = outScene.materials[mesh->mMaterialIndex];
 
         uint32_t currentIndexSize = indexOffset + subMesh.indexCount;
-        meshData.indexBuffer.resize(currentIndexSize * sizeof(uint32_t));
-        uint32_t *indices = &reinterpret_cast<uint32_t *>(meshData.indexBuffer.data())[indexOffset];
+        auto &indexData = meshData.indexBuffer->Data().rawData;
+        indexData.resize(currentIndexSize * sizeof(uint32_t));
+        uint32_t *indices = &reinterpret_cast<uint32_t *>(indexData.data())[indexOffset];
         for(unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
-            aiFace face = mesh->mFaces[i];
-            indices[i + 0] = face.mIndices[0];
-            indices[i + 1] = face.mIndices[1];
-            indices[i + 2] = face.mIndices[2];
+            const aiFace &face = mesh->mFaces[i];
+            indices[3 * i + 0] = face.mIndices[0];
+            indices[3 * i + 1] = face.mIndices[1];
+            indices[3 * i + 2] = face.mIndices[2];
         }
 
         meshData.subMeshes.emplace_back(subMesh);
@@ -319,14 +328,9 @@ namespace sky::builder {
 
     static void ProcessMesh(const aiScene *scene, const aiNode *node, RenderPrefabAssetData& outScene, MeshAssetData &meshData)
     {
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"POSITION", 0, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"NORMAL", 1, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"TANGENT", 2, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"BITANGENT", 3, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"COLOR", 4, 0, rhi::Format::F_RGBA32});
-        meshData.vertexDescriptions.emplace_back(VertexDesc{"UV", 5, 0, rhi::Format::F_RGBA32});
-
-        meshData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+        meshData.vertexDescriptions.emplace_back("standard");
+        meshData.vertexDescriptions.emplace_back("unlit");
+        meshData.vertexDescriptions.emplace_back("position_only");
 
         uint32_t meshNum = node->mNumMeshes;
         uint32_t vertexOffset = 0;
@@ -341,7 +345,7 @@ namespace sky::builder {
     {
         auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(outScene.nodes.size());
-        outScene.nodes.emplace_back(RenderPrefabNode{});
+        outScene.nodes.emplace_back();
         auto& current = outScene.nodes.back();
         current.parentIndex = parent;
 //        if (parent != ~(0U)) {
@@ -359,9 +363,26 @@ namespace sky::builder {
             ss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << ".mesh";
             auto meshAsset = am->CreateAsset<Mesh>(ss.str());
             MeshAssetData &meshAssetData = meshAsset->Data();
+
+            meshAssetData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
+            for (uint32_t i = 0; i < meshAssetData.vertexBuffers.size(); ++i) {
+                std::stringstream vss;
+                vss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_vb_" << i << ".bin";
+                meshAssetData.vertexBuffers[i] = am->CreateAsset<Buffer>(vss.str());
+            }
+
+
+            std::stringstream iss;
+            iss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_ib.bin";
+            meshAssetData.indexBuffer = am->CreateAsset<Buffer>(iss.str());
+
             ProcessMesh(scene, node, outScene, meshAssetData);
 
             outScene.meshes.emplace_back(meshAsset);
+            for (const auto &vb : meshAssetData.vertexBuffers) {
+                am->SaveAsset(vb);
+            }
+            am->SaveAsset(meshAssetData.indexBuffer);
             am->SaveAsset(meshAsset);
         }
 
@@ -397,7 +418,7 @@ namespace sky::builder {
         ProcessMaterials(scene, assetData, fullPath, outFolder);
         ProcessNode(scene->mRootNode, scene, -1, assetData, fullPath, outFolder);
 
-        result.products.emplace_back(BuildProduct{KEY, asset->GetUuid()});
+        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
         am->SaveAsset(asset);
     }
 

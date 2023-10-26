@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET RenderBuilder STATIC
+sky_add_library(TARGET RenderBuilder.Static STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -15,4 +15,7 @@ sky_add_library(TARGET RenderBuilder STATIC
         SkyRenderAdaptor
         3rdParty::stb
         3rdParty::assimp
+        3rdParty::ispc_texcomp
     )
+
+sky_add_dependency(TARGET RenderBuilder DEPENDENCIES AssetTool Editor)

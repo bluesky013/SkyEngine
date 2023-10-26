@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <framework/window/IWindowEvent.h>
 #include <framework/interface/IModule.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <SampleScene.h>
 
 namespace sky {
     class RenderScene;
@@ -24,10 +26,14 @@ namespace sky {
         void Tick(float delta) override;
 
         void OnWindowResize(uint32_t width, uint32_t height) override;
-
+        void OnKeyUp(KeyButtonType) override;
     private:
-        RenderScene *scene = nullptr;
+        void NextScene();
+
         RenderWindow *window = nullptr;
+        SampleScene *currentScene = nullptr;
+        uint32_t sceneIndex = 0;
+        std::vector<std::unique_ptr<SampleScene>> sampleScenes;
     };
 
 } // namespace sky

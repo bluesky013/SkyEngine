@@ -23,7 +23,7 @@ namespace sky {
             SKY_ASSERT(writtenSize == size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T>>>
+        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
         void LoadValue(T &v)
         {
             LoadValue(reinterpret_cast<char*>(std::addressof(v)), sizeof(T));
@@ -55,7 +55,7 @@ namespace sky {
             SKY_ASSERT(writtenSize == size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T>>>
+        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
         void SaveValue(const T &v)
         {
             SaveValue(reinterpret_cast<const char*>(std::addressof(v)), sizeof(T));

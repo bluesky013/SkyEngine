@@ -4,11 +4,11 @@
 
 #pragma once
 
-#include <framework/asset/Asset.h>
-#include <render/adaptor/assets/Mesh.h>
-#include <render/adaptor/assets/Image.h>
-#include <render/adaptor/assets/Material.h>
 #include <core/math/Matrix4.h>
+#include <framework/asset/Asset.h>
+#include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/MeshAsset.h>
 
 namespace sky {
     class BinaryInputArchive;
@@ -23,7 +23,7 @@ namespace sky {
     struct RenderPrefabAssetData {
         std::vector<ImageAssetPtr> images;
         std::vector<MeshAssetPtr> meshes;
-        std::vector<MaterialAssetPtr> materials;
+        std::vector<MaterialInstanceAssetPtr> materials;
         std::vector<RenderPrefabNode> nodes;
 
         void Load(BinaryInputArchive &archive);

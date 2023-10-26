@@ -1,0 +1,174 @@
+{
+    "descriptions": [
+        {
+            "empty": {
+                "attributes": [],
+                "bindings": []
+            },
+            "position_only": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
+            "unlit": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 1,
+                        "offset": 0,
+                        "format": "F_RG32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    },
+                    {
+                        "binding": 1,
+                        "stride": 8,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
+            "standard": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 1,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 2,
+                        "binding": 2,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 3,
+                        "binding": 3,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 4,
+                        "binding": 4,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    },
+                    {
+                        "binding": 1,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    },
+                    {
+                        "binding": 2,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    },
+                    {
+                        "binding": 3,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    },
+                    {
+                        "binding": 4,
+                        "stride": 16,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
+            "geometry": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 0,
+                        "offset": 16,
+                        "format": "F_RGBA32"
+                    },
+                    {
+                        "location": 2,
+                        "binding": 0,
+                        "offset": 32,
+                        "format": "F_RGBA32"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 48,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            },
+            "gui": {
+                "attributes": [
+                    {
+                        "location": 0,
+                        "binding": 0,
+                        "offset": 0,
+                        "format": "F_RG32"
+                    },
+                    {
+                        "location": 1,
+                        "binding": 0,
+                        "offset": 8,
+                        "format": "F_RG32"
+                    },
+                    {
+                        "location": 2,
+                        "binding": 0,
+                        "offset": 16,
+                        "format": "F_RGBA8"
+                    }
+                ],
+                "bindings": [
+                    {
+                        "binding": 0,
+                        "stride": 20,
+                        "rate": "PER_VERTEX"
+                    }
+                ]
+            }
+        }
+    ]
+}

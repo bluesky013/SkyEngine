@@ -8,6 +8,7 @@
 #include <framework/serialization/JsonArchive.h>
 #include <framework/world/GameObject.h>
 #include <framework/world/World.h>
+#include <framework/world/TransformComponent.h>
 
 #include <render/adaptor/Util.h>
 #include <render/Renderer.h>
@@ -33,12 +34,11 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<CameraComponent>();
     }
 
-    void CameraComponent::Perspective(float near_, float far_, float fov_, float aspect_)
+    void CameraComponent::Perspective(float near_, float far_, float fov_)
     {
         near   = near_;
         far    = far_;
         fov    = fov_;
-        aspect = aspect_;
         type   = ProjectType::PROJECTIVE;
     }
 
@@ -48,13 +48,17 @@ namespace sky {
         type   = ProjectType::ORTHOGONAL;
     }
 
+    void CameraComponent::SetAspect(uint32_t width, uint32_t height)
+    {
+        aspect = static_cast<float>(width) / static_cast<float>(height);
+    }
+
     void CameraComponent::OnTick(float time)
     {
-        if (dirty) {
-            if (type == ProjectType::PROJECTIVE) {
-                sceneView->SetProjective(near, far, fov, aspect);
-            }
-            dirty = false;
+        auto *transform = object->GetComponent<TransformComponent>();
+        sceneView->SetMatrix(transform->GetWorld().ToMatrix());
+        if (type == ProjectType::PROJECTIVE) {
+            sceneView->SetProjective(near, far, fov, aspect);
         }
     }
 

@@ -21,14 +21,13 @@ namespace sky {
 
         static void Reflect();
 
-        void Perspective(float near, float far, float fov, float aspect);
-
+        void Perspective(float near, float far, float fov);
         void Otho(float height);
 
+        void SetAspect(uint32_t width, uint32_t height);
+
         void OnTick(float time) override;
-
         void OnActive() override;
-
         void OnDestroy() override;
 
         void Save(JsonOutputArchive &ar) const override;
@@ -44,7 +43,6 @@ namespace sky {
         ProjectType type = ProjectType::PROJECTIVE;
 
         // status
-        bool dirty = true;
         SceneView *sceneView = nullptr;
     };
 

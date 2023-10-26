@@ -22,6 +22,10 @@ namespace sky {
         inline explicit Vector2(float v);
         inline Vector2(float x_, float y_);
 
+        inline float Dot(const Vector2 &rhs) const;
+        inline float Length() const;
+        inline void Normalize();
+
         inline Vector2 operator+(const Vector2& rhs) const;
 
         inline Vector2 operator-() const;

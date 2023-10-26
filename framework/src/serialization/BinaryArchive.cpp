@@ -35,7 +35,7 @@ namespace sky {
         } else if (typeId == TypeInfo<std::string>::Hash()) {
             LoadValue(*static_cast<std::string*>(ptr));
         } else {
-            auto node = GetTypeNode(typeId);
+            const auto *node = GetTypeNode(typeId);
             SKY_ASSERT(node != nullptr && "type not registered");
             if (node == nullptr) {
                 return;
@@ -45,7 +45,7 @@ namespace sky {
                 node->serialization.binaryLoad(ptr, *this);
                 return;
             }
-            for (auto &member : node->members) {
+            for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
                 void *memPtr = GetValue(ptr, typeId, memberName);
                 LoadObject(memPtr, member.second.info->typeId);
@@ -80,7 +80,7 @@ namespace sky {
         } else if (typeId == TypeInfo<std::string>::Hash()) {
             SaveValue(*static_cast<const std::string *>(ptr));
         } else {
-            auto node = GetTypeNode(typeId);
+            const auto *node = GetTypeNode(typeId);
             SKY_ASSERT(node != nullptr && "type not registered");
             if (node == nullptr) {
                 return;
@@ -91,7 +91,7 @@ namespace sky {
                 return;
             }
 
-            for (auto &member : node->members) {
+            for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
                 const void *memPtr = GetValueConst(ptr, typeId, memberName);
                 SaveObject(memPtr, member.second.info->typeId);
