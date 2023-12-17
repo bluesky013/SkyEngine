@@ -31,16 +31,7 @@ set(${LIB_NAME}_LIBRARY
     "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
     "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
 
-add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL
-		../../render/builder/render/include/builder/render/ImageCompressor.h
-		../../render/builder/render/src/ImageCompressor.cpp
-        ../../render/imgui/include/imgui/ImGuiFeature.h
-        ../../render/imgui/src/ImGuiFeature.cpp
-        ../../render/imgui/include/imgui/ImGuiFeatureProcessor.h
-        ../../render/imgui/src/ImGuiFeatureProcessor.cpp
-        ../../render/imgui/ImGuiModule.cpp
-        ../../render/imgui/include/imgui/ImGuiInstance.h
-        ../../render/imgui/src/ImGuiInstance.cpp)
+add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
 target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
 target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
 

@@ -1,11 +1,12 @@
 #version 450
+#extension GL_GOOGLE_include_directive : enable
 
 layout (location = 0) in vec3 pos;
 layout (location = 0) out vec4 outFragColor;
 
-#include <shaderlibs/layouts/standard_perpass.glsl>
-#include <shaderlibs/shapes/shapes.glsl>
-#include <shaderlibs/view/depth.glsl>
+#include <shaderlibs/glsl/layouts/standard_perpass.glsl>
+#include <shaderlibs/glsl/shapes/shapes.glsl>
+#include <shaderlibs/glsl/view/depth.glsl>
 
 void main()
 {

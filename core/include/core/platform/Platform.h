@@ -11,6 +11,12 @@
 #define SKY_ASSERT(val)
 #endif
 
+#ifdef _DEBUG
+#define SKY_UNEXPECTED assert(false && "unexpected code")
+#else
+#define SKY_UNEXPECTED
+#endif
+
 #ifdef _MSC_VER
     #define SKY_EXPORT __declspec(dllexport)
     #define SKY_IMPORT __declspec(dllimport)

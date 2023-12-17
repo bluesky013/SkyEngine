@@ -1,4 +1,5 @@
 #version 450 core
+#extension GL_GOOGLE_include_directive : enable
 
 layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inUv;
@@ -12,8 +13,8 @@ layout (location = 2) out vec4 outTangent;
 layout (location = 3) out vec4 outColor;
 layout (location = 4) out vec2 outUv;
 
-#include <shaderlibs/layouts/standard_perpass.glsl>
-#include <shaderlibs/layouts/standard_local_vs.glsl>
+#include <shaderlibs/glsl/layouts/standard_perpass.glsl>
+#include <shaderlibs/glsl/layouts/standard_local_vs.glsl>
 
 out gl_PerVertex
 {

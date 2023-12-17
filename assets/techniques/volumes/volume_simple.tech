@@ -1,8 +1,8 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "shaderlibs/vertex/position_only.vert",
-        "frag": "shaderlibs/volumes/volume_simple.frag"
+        "vert": "shaderlibs/glsl/vertex/position_only.vert",
+        "frag": "shaderlibs/glsl/volumes/volume_simple.frag"
     },
     "pass": {
         "tag": "ForwardVolume"

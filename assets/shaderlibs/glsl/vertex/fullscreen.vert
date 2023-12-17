@@ -1,5 +1,6 @@
 #version 450 core
-#include <shaderlibs/vertex/fullscreen_triangle.glsl>
+#extension GL_GOOGLE_include_directive : enable
+#include <shaderlibs/glsl/vertex/fullscreen_triangle.glsl>
 
 layout(location = 0) out vec2 outUv;
 

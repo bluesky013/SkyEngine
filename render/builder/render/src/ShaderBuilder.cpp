@@ -68,17 +68,24 @@ namespace sky::builder {
 
     void ShaderBuilder::Request(const BuildRequest &request, BuildResult &result)
     {
-        ShaderType type;
+        if (!compiler) {
+            compiler = std::make_unique<sl::ShaderCompiler>();
+            for (const auto &path : AssetManager::Get()->GetSearchPaths()) {
+                compiler->AddEngineIncludePath(path);
+            }
+        }
+
+        sl::ShaderType type;
         rhi::ShaderStageFlagBit stage;
         std::string outExt;
         if (request.ext == ".vert") {
-            type = ShaderType::VS;
+            type = sl::ShaderType::VS;
             stage = rhi::ShaderStageFlagBit::VS;
         } else if (request.ext == ".frag") {
-            type = ShaderType::FS;
+            type = sl::ShaderType::FS;
             stage = rhi::ShaderStageFlagBit::FS;
         } else if (request.ext == ".comp") {
-            type = ShaderType::CS;
+            type = sl::ShaderType::CS;
             stage = rhi::ShaderStageFlagBit::CS;
         } else {
             return;
@@ -94,14 +101,17 @@ namespace sky::builder {
 
         auto &variantData = defaultVariant->Data();
         // save spv
-        ShaderCompiler::BuildSpirV(request.fullPath, type, variantData.spv);
+        sl::ShaderCompiler::Option option = {};
+        option.language = sl::Language::GLSL;
+        option.type = type;
+        compiler->BuildSpirV(request.fullPath, variantData.spv, option);
         if (variantData.spv.empty()) {
             return;
         }
         BuildReflection(variantData.spv, asset->Data());
 
         // save gles
-        variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
+//        variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
         asset->Data().stage = stage;
         asset->Data().variants.emplace("", defaultVariant);
 

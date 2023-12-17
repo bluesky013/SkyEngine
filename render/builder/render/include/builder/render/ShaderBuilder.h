@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <builder/shader/ShaderCompiler.h>
 #include <string_view>
 
 namespace sky::builder {
@@ -17,6 +18,9 @@ namespace sky::builder {
         static constexpr std::string_view KEY = "GFX_SHADER";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
+
+    private:
+        std::unique_ptr<sl::ShaderCompiler> compiler;
     };
 
 }

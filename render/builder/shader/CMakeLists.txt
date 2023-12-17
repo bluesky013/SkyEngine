@@ -10,7 +10,7 @@ sky_add_library(TARGET ShaderCompiler STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Framework
-        3rdParty::shaderc
+        Core
+        3rdParty::glslang
         3rdParty::SPIRVCross
     )

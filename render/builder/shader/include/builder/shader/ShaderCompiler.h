@@ -9,7 +9,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace sky::builder {
+namespace sky::sl {
 
     enum class ShaderType {
         VS,
@@ -17,22 +17,37 @@ namespace sky::builder {
         CS
     };
 
+    enum class Language {
+        GLSL,
+        HLSL
+    };
+
     class ShaderCompiler {
     public:
-        ShaderCompiler() = default;
-        ~ShaderCompiler() = default;
+        ShaderCompiler();
+        ~ShaderCompiler();
+
+        class Includer {
+        public:
+            Includer() = default;
+            virtual ~Includer() = default;
+        };
 
         struct Option {
             std::string output;
-            ShaderType type;
-            std::vector<uint32_t> inputMap;
-            std::vector<uint32_t> outputMap;
+            ShaderType type = ShaderType::VS;
+            Language language = Language::GLSL;
         };
 
-        static void BuildSpirV(const std::string &path, ShaderType type, std::vector<uint32_t> &out);
-        static std::string BuildGLES(const std::vector<uint32_t> &spv, const Option &option = {});
-        static std::string BuildMSL(const std::vector<uint32_t> &spv, const Option &option = {});
+        void AddEngineIncludePath(const std::string &path);
 
-        static void CompileShader(const std::string &path, const Option &option);
+        bool BuildSpirV(const std::string &path, std::vector<uint32_t> &out, const Option &option);
+//        void CompileShader(const std::string &path, const Option &option);
+
+//        static std::string BuildGLES(const std::vector<uint32_t> &spv, const Option &option = {});
+//        static std::string BuildMSL(const std::vector<uint32_t> &spv, const Option &option = {});
+
+    private:
+        std::unique_ptr<Includer> includer;
     };
 }
