@@ -14,8 +14,8 @@ namespace sky::rhi {
         virtual ~Sampler() = default;
 
         struct Descriptor {
-            Filter    magFilter        = Filter::LINEAR;
-            Filter    minFilter        = Filter::LINEAR;
+            Filter    magFilter        = Filter::NEAREST;
+            Filter    minFilter        = Filter::NEAREST;
             MipFilter mipmapMode       = MipFilter::NEAREST;
             WrapMode  addressModeU     = WrapMode::REPEAT;
             WrapMode  addressModeV     = WrapMode::REPEAT;

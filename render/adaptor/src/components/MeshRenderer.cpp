@@ -47,6 +47,13 @@ namespace sky {
     void MeshRenderer::SetMesh(const MeshAssetPtr &mesh_)
     {
         meshAsset = mesh_;
+        meshInstance = meshAsset->CreateInstance();
+        ResetMesh();
+    }
+
+    void MeshRenderer::SetMesh(const RDMeshPtr &mesh)
+    {
+        meshInstance = mesh;
         ResetMesh();
     }
 
@@ -56,7 +63,7 @@ namespace sky {
             auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(GetRenderSceneFromGameObject(object));
             renderer = mf->CreateStaticMesh();
         }
-        renderer->SetMesh(meshAsset->CreateInstance());
+        renderer->SetMesh(meshInstance);
     }
 
     void MeshRenderer::OnActive()

@@ -40,9 +40,11 @@ namespace sky::builder {
                     }
                 } else if (obj.IsFloat()) {
                     properties.valueMap[iter->name.GetString()] = obj.GetFloat();
+                } else if (obj.IsBool()) {
+                    properties.valueMap[iter->name.GetString()] = obj.GetBool();
                 } else if (obj.IsArray()) {
-                    auto array = obj.GetArray();
-                    float *v = nullptr;
+                    auto   array = obj.GetArray();
+                    float *v     = nullptr;
                     if (array.Size() == 2) {
                         v = properties.valueMap.emplace(iter->name.GetString(), Vector2{}).first->second.GetAs<Vector2>()->v;
                     } else if (array.Size() == 3) {

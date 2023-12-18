@@ -25,6 +25,7 @@ namespace sky {
         void OnTick(float time) override;
 
         void SetMesh(const MeshAssetPtr &mesh);
+        void SetMesh(const RDMeshPtr &mesh);
 
         void Save(JsonOutputArchive &ar) const override;
         void Load(JsonInputArchive &ar) override;
@@ -39,6 +40,7 @@ namespace sky {
         bool receiveShadow = false;
 
         MeshAssetPtr meshAsset;
+        RDMeshPtr meshInstance;
         StaticMeshRenderer *renderer = nullptr;
     };
 

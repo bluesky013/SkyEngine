@@ -9,7 +9,7 @@
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/geometry/GeometryRenderer.h>
 
-#include <render/adaptor/components/ParticleSystemComponent.h>
+#include <render/mesh/GridRenderer.h>
 
 #include "SimpleRotateComponent.h"
 
@@ -27,11 +27,16 @@ namespace sky {
         auto *mesh = meshObj->AddComponent<MeshRenderer>();
         mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
 
+//        auto mat = AssetManager::Get()->LoadAsset<MaterialInstance>("materials/floor.mati")->CreateInstance();
+//        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);
+//        mesh->SetMesh(floor);
+
         camera = world->CreateGameObject("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
+        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 1, 5));
+
         return true;
     }
 

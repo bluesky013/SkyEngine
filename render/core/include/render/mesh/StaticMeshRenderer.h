@@ -14,7 +14,7 @@ namespace sky {
     class StaticMeshRenderer {
     public:
         StaticMeshRenderer() = default;
-        ~StaticMeshRenderer();
+        virtual ~StaticMeshRenderer();
 
         void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh);
@@ -22,7 +22,7 @@ namespace sky {
 
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
-    private:
+    protected:
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
