@@ -25,7 +25,14 @@ namespace sky {
         emptySet = std::make_shared<ResourceGroup>();
         emptySet->Init(emptyDesLayout, *defaultPool);
 
-        defaultSampler = device->CreateSampler({});
+        rhi::Sampler::Descriptor samplerDesc = {};
+        samplerDesc.minFilter = rhi::Filter::LINEAR;
+        samplerDesc.magFilter = rhi::Filter::LINEAR;
+        samplerDesc.addressModeU = rhi::WrapMode::REPEAT;
+        samplerDesc.addressModeV = rhi::WrapMode::REPEAT;
+        samplerDesc.addressModeW = rhi::WrapMode::REPEAT;
+        samplerDesc.maxLod = 13.f;
+        defaultSampler = device->CreateSampler(samplerDesc);
 
         rhi::Image::Descriptor imageDesc = {};
         imageDesc.imageType = rhi::ImageType::IMAGE_2D;

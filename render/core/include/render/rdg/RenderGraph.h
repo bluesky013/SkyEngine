@@ -70,14 +70,16 @@ namespace sky::rdg {
     struct ComputePassBuilder {
         ComputePassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
 
-        RenderGraph &graph;
+        RenderGraph &rdg;
+        ComputePass &compute;
         VertexType vertex;
     };
 
     struct CopyPassBuilder {
         CopyPassBuilder &AddCopyView(const CopyView &view);
 
-        RenderGraph &graph;
+        RenderGraph &rdg;
+        CopyBlitPass &blit;
         VertexType vertex;
     };
 

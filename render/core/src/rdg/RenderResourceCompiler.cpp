@@ -40,6 +40,7 @@ namespace sky::rdg {
             },
             [&](const PresentTag &) {
                 auto &present = rdg.presentPasses[Index(u, rdg)];
+                Compile(u, present);
             },
             [&](const auto &) {}
         }, Tag(u, rdg));
@@ -108,6 +109,11 @@ namespace sky::rdg {
     void RenderResourceCompiler::Compile(Vertex u, CopyBlitPass &pass)
     {
 
+    }
+
+    void RenderResourceCompiler::Compile(Vertex u, PresentPass &pass)
+    {
+        MountResource(u, Source(pass.imageID, rdg.resourceGraph));
     }
 
     void RenderResourceCompiler::Compile(Vertex u, sky::rdg::RasterQueue &queue)

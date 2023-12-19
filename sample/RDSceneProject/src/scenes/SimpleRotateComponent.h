@@ -18,7 +18,7 @@ namespace sky {
         void OnTick(float time) override
         {
             auto *ts = object->GetComponent<TransformComponent>();
-            ts->SetLocalRotation(Quaternion(angle, axis));
+            ts->SetLocalRotation(Quaternion(angle, axis) * Quaternion(90 / 180.f * 3.14f, VEC3_X));
             angle += 0.5f * time;
         }
 

@@ -77,20 +77,21 @@ vec3 CalculateBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3
 
     vec3 diffuse = (1 - F) * cDiff / PI;
     vec3 specular = F * D * G / (4 * abs(NdotL) * abs(NdotV));
-    return lightColor * (diffuse + specular) * 2.5;
+    return lightColor * (diffuse + specular);
 }
 
 
 struct Light {
     vec4 color;
-    vec4 pos;
+    vec3 dir;
+    float intensity;
 };
 
 void main()
 {
     Light light;
     light.color = vec4(1.0, 1.0, 1.0, 1.0);
-    light.pos = vec4(0, 20, 5, 1.0);
+    light.dir = normalize(vec3(-1, -1, -1));
 
     vec3 N = normalize(normal);
 
@@ -114,7 +115,7 @@ void main()
     }
 
     vec3 viewPos = viewInfo.worldPos.xyz;
-    vec3 L = normalize(light.pos.xyz - pos);
+    vec3 L = -light.dir;
     vec3 V = normalize(viewPos - pos);
 
     float metallic = material.metallic;
@@ -129,15 +130,15 @@ void main()
     vec3 outColor = CalculateBRDF(L, V, N, metallic, roughness, baseColor.rgb, light.color.rgb);
 
     if (material.useAOMap) {
-        float ao = texture(aoMap, uv).r;
-        outColor = outColor * ao;
+//        float ao = texture(aoMap, uv).r;
+//        outColor = outColor * ao;
     }
 
     if (material.useEmissiveMap) {
         vec3 emissive = texture(emissiveMap, uv).rgb;
-        outColor += emissive;
+        outColor += emissive * 1.5;
     }
 
-    outColor = pow(outColor, vec3(1.0f / 2.2));
+//    outColor = pow(outColor, vec3(1.0f / 2.2));
     outFragColor = vec4(outColor, baseColor.a);
 }

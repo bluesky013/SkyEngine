@@ -162,6 +162,7 @@ namespace sky::vk {
         imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         VkSwapchainCreateInfoKHR swcInfo = {};
         swcInfo.sType                    = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -169,8 +170,8 @@ namespace sky::vk {
         swcInfo.imageFormat = imageInfo.format = format.format;
         swcInfo.imageColorSpace                = format.colorSpace;
         swcInfo.imageExtent                    = extent;
-        swcInfo.imageUsage = imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        swcInfo.imageArrayLayers             = 1;
+        swcInfo.imageUsage                     = imageInfo.usage;
+        swcInfo.imageArrayLayers               = 1;
         swcInfo.imageSharingMode = imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swcInfo.presentMode                              = mode;
         swcInfo.clipped                                  = VK_TRUE;

@@ -27,6 +27,7 @@ namespace sky::rdg {
         void Compile(Vertex u, CopyBlitPass &pass);
         void Compile(Vertex u, RasterQueue &queue);
         void Compile(Vertex u, FullScreenBlit &fullscreen);
+        void Compile(Vertex u, PresentPass &present);
 
         void MountResource(Vertex u, ResourceGraph::vertex_descriptor res);
         void CreateRenderPassAndFramebuffer(Vertex u, RasterPass &rasterPass);

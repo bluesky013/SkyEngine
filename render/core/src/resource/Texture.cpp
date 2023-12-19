@@ -51,6 +51,32 @@ namespace sky {
         return imageDesc.extent.width == width && imageDesc.extent.height == height && imageDesc.extent.depth == depth;
     }
 
+    bool TextureCube::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel)
+    {
+        imageDesc.imageType   = rhi::ImageType::IMAGE_3D;
+        imageDesc.format      = format;
+        imageDesc.extent      = {width, height, 1};
+        imageDesc.mipLevels   = mipLevel;
+        imageDesc.arrayLayers = 1;
+        imageDesc.samples     = rhi::SampleCount::X1;
+        imageDesc.usage       = rhi::ImageUsageFlagBit::TRANSFER_DST | rhi::ImageUsageFlagBit::SAMPLED;
+        imageDesc.memory      = rhi::MemoryType::GPU_ONLY;
+
+        image = device->CreateImage(imageDesc);
+        if (!image) {
+            return false;
+        }
+
+        rhi::ImageViewDesc viewDesc = {};
+        viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
+        viewDesc.subRange.levels = mipLevel;
+        viewDesc.subRange.aspectMask = rhi::AspectFlagBit::COLOR_BIT;
+
+        imageView = image->CreateView(viewDesc);
+
+        return static_cast<bool>(imageView);
+    }
+
     bool Texture2D::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel)
     {
         imageDesc.imageType   = rhi::ImageType::IMAGE_2D;

@@ -85,6 +85,7 @@ namespace sky {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
             set->BindImageView(res->binding, view, index);
+            set->BindSampler(res->binding, sampler, index);
         }
     }
 

@@ -22,7 +22,7 @@ namespace sky::vk {
 
     class GraphicsPipeline : public rhi::GraphicsPipeline, public DevObject {
     public:
-        ~GraphicsPipeline() = default;
+        ~GraphicsPipeline() override = default;
 
         struct InputAssembly {
             VkPrimitiveTopology topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -112,7 +112,7 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        GraphicsPipeline(Device &);
+        explicit GraphicsPipeline(Device &);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

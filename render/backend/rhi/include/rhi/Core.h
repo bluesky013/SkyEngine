@@ -38,6 +38,7 @@ namespace sky::rhi {
         RGBA8_SRGB,
         BGRA8_UNORM,
         BGRA8_SRGB,
+        RGBA16_SFLOAT,
         R16_UNORM,
         R32_SFLOAT,
         D32,

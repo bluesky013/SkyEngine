@@ -189,6 +189,9 @@ namespace sky::sl {
 
         glslang::SpvOptions spvOptions = {};
         glslang::GlslangToSpv(*program.getIntermediate(shader.getStage()), out, &spvOptions);
+
+        program.buildReflection();
+
 //        LOG_I("%s \n", reinterpret_cast<char*>(out.data()));
         return true;
     }

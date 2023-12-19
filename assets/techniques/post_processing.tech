@@ -1,0 +1,18 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/glsl/vertex/fullscreen.vert",
+        "frag": "shaderlibs/glsl/final.frag"
+    },
+    "pass": {
+        "tag": "PostProcessing"
+    },
+    "depth_stencil": {
+        "depthTestEnable": false,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "empty"
+}

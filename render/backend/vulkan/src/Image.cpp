@@ -22,6 +22,7 @@ namespace sky::vk {
             {VK_FORMAT_R8G8B8A8_SRGB,             {4, 1, 1, false}},
             {VK_FORMAT_B8G8R8A8_UNORM,            {4, 1, 1, false}},
             {VK_FORMAT_B8G8R8A8_SRGB,             {4, 1, 1, false}},
+            {VK_FORMAT_R16G16B16A16_SFLOAT,       {8, 1, 1, false}},
             {VK_FORMAT_BC1_RGB_UNORM_BLOCK,       {8, 4, 4, true}},
             {VK_FORMAT_BC1_RGB_SRGB_BLOCK,        {8, 4, 4, true}},
             {VK_FORMAT_BC1_RGBA_UNORM_BLOCK,      {8, 4, 4, true}},

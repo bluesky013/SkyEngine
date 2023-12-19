@@ -18,6 +18,7 @@ namespace sky::rhi {
             {PixelFormat::BGRA8_UNORM,               {4, 1, 1, false}},
             {PixelFormat::BGRA8_SRGB,                {4, 1, 1, false}},
             {PixelFormat::R16_UNORM,                 {2, 1, 1, false}},
+            {PixelFormat::RGBA16_SFLOAT,             {8, 1, 1, false}},
             {PixelFormat::R32_SFLOAT,                {4, 1, 1, false}},
             {PixelFormat::D32,                       {4, 1, 1, false, true, false}},
             {PixelFormat::D24_S8,                    {4, 1, 1, false, true, true}},

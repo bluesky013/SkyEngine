@@ -7,9 +7,29 @@
 
 namespace sky::rdg {
 
+    rhi::ImagePtr GetGraphImage(ResourceGraph &resourceGraph, VertexType resID)
+    {
+        rhi::ImagePtr res;
+        std::visit(Overloaded{
+            [&](const ImageTag &) {
+                res = resourceGraph.images[Index(resID, resourceGraph)].desc.image;
+            },
+            [&](const ImportImageTag &) {
+                res = resourceGraph.importImages[Index(resID, resourceGraph)].desc.image;
+            },
+            [&](const ImportSwapChainTag &) {
+                const auto &image = resourceGraph.swapChains[Index(resID, resourceGraph)];
+                res = image.desc.swapchain->GetImage(image.desc.imageIndex);
+            },
+            [&](const auto &) {
+            }
+        }, Tag(resID, resourceGraph));
+        return res;
+    }
+
     void RenderGraphExecutor::Barriers(const PmrHashMap<VertexType, std::vector<GraphBarrier>>& barrierSet) const
     {
-        auto &mainCommandBuffer = graph.context->MainCommandBuffer();
+        const auto &mainCommandBuffer = graph.context->MainCommandBuffer();
         for (const auto &[first, second] : barrierSet) {
             const auto resID = first;
             const auto &barriers = second;
@@ -103,6 +123,19 @@ namespace sky::rdg {
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
                 Barriers(cb.frontBarriers);
+
+                auto blit = mainCommandBuffer->EncodeBlit();
+                rhi::BlitInfo info = {};
+                info.srcRange = cb.srcRange;
+                info.dstRange = cb.dstRange;
+                info.srcOffsets[1].x = cb.srcExt.width;
+                info.srcOffsets[1].y = cb.srcExt.height;
+                info.srcOffsets[1].z = 1;
+
+                info.dstOffsets[1].x = cb.dstExt.width;
+                info.dstOffsets[1].y = cb.dstExt.height;
+                info.dstOffsets[1].z = 1;
+                blit->BlitTexture(GetGraphImage(graph.resourceGraph, cb.src), GetGraphImage(graph.resourceGraph, cb.dst), {info}, rhi::Filter::LINEAR);
             },
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];

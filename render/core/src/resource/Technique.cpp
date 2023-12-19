@@ -69,6 +69,7 @@ namespace sky {
 
         rhi::GraphicsPipeline::Descriptor descriptor = {};
         descriptor.state = tech.state;
+        descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
         descriptor.renderPass = pass;
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();

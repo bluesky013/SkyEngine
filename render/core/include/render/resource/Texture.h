@@ -31,6 +31,15 @@ namespace sky {
     };
     using RDTexturePtr = std::shared_ptr<Texture>;
 
+    class TextureCube : public Texture {
+    public:
+        TextureCube() = default;
+        ~TextureCube() override = default;
+
+        bool Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel);
+    };
+    using RDTextureCubePtr = std::shared_ptr<TextureCube>;
+
     class Texture2D : public Texture {
     public:
         Texture2D() = default;

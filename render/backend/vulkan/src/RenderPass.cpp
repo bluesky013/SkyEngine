@@ -37,6 +37,8 @@ namespace sky::vk {
             vkAt.stencilStoreOp = FromRHI(attachment.stencilStore);
             vkAt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             vkAt.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+            samplerCount = std::max(attachment.sample, samplerCount);
         }
 
         for (const auto &dep : des.dependencies) {
