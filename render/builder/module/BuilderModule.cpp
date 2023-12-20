@@ -55,6 +55,7 @@ namespace sky::builder {
         AssetManager::Get()->RegisterBuilder(".jpg", imageBuilder.get());
         AssetManager::Get()->RegisterBuilder(".jpeg", imageBuilder.get());
         AssetManager::Get()->RegisterBuilder(".png", imageBuilder.get());
+        AssetManager::Get()->RegisterBuilder(".dds", imageBuilder.get());
 
 
         AssetManager::Get()->RegisterBuilder(".tech", techBuilder.get());

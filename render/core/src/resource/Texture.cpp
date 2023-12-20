@@ -53,14 +53,15 @@ namespace sky {
 
     bool TextureCube::Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel)
     {
-        imageDesc.imageType   = rhi::ImageType::IMAGE_3D;
+        imageDesc.imageType   = rhi::ImageType::IMAGE_2D;
         imageDesc.format      = format;
         imageDesc.extent      = {width, height, 1};
         imageDesc.mipLevels   = mipLevel;
-        imageDesc.arrayLayers = 1;
+        imageDesc.arrayLayers = 6;
         imageDesc.samples     = rhi::SampleCount::X1;
         imageDesc.usage       = rhi::ImageUsageFlagBit::TRANSFER_DST | rhi::ImageUsageFlagBit::SAMPLED;
         imageDesc.memory      = rhi::MemoryType::GPU_ONLY;
+        imageDesc.cubeCompatible = true;
 
         image = device->CreateImage(imageDesc);
         if (!image) {
@@ -70,6 +71,7 @@ namespace sky {
         rhi::ImageViewDesc viewDesc = {};
         viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
         viewDesc.subRange.levels = mipLevel;
+        viewDesc.subRange.layers = 6;
         viewDesc.subRange.aspectMask = rhi::AspectFlagBit::COLOR_BIT;
 
         imageView = image->CreateView(viewDesc);

@@ -79,6 +79,7 @@ namespace sky::vk {
         imageDesc = des;
 
         imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.flags         = des.cubeCompatible ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
         imageInfo.mipLevels     = imageDesc.mipLevels;
         imageInfo.arrayLayers   = imageDesc.arrayLayers;
         imageInfo.format        = FromRHI(imageDesc.format);

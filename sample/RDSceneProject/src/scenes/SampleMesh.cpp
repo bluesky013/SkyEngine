@@ -8,13 +8,17 @@
 #include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/Util.h>
-#include <render/geometry/GeometryRenderer.h>
+#include <core/file/FileIO.h>
+#include <rhi/Decode.h>
+#include <render/RHI.h>
 
 #include <render/rdg/RenderGraph.h>
 
 #include <render/mesh/GridRenderer.h>
 
 #include "SimpleRotateComponent.h"
+
+#include <RDSceneProject/ProjectRoot.h>
 
 namespace sky {
     class ForwardMSAAPass : public RenderPipeline {
@@ -44,6 +48,21 @@ namespace sky {
             }
 
             postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
+            skyboxTech = AssetManager::Get()->LoadAsset<Technique>("techniques/skybox.tech")->CreateInstanceAs<GraphicsTechnique>();
+
+            std::vector<uint8_t> data;
+            ReadBin(PROJECT_ROOT + "/assets/skybox/output_skybox.dds", data);
+
+            rhi::Image::Descriptor imageDesc = {};
+            std::vector<rhi::ImageUploadRequest> requests;
+            rhi::ProcessDDS(data.data(), data.size(), imageDesc, requests);
+            imageDesc.format = rhi::PixelFormat::BGRA8_UNORM;
+
+            skybox = std::make_shared<TextureCube>();
+            auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
+            skybox->Init(imageDesc.format, imageDesc.extent.width, imageDesc.extent.height, 1);
+            auto handle = queue->UploadImage(skybox->GetImage(), requests);
+            queue->Wait(handle);
         }
 
         void OnSetup(rdg::RenderGraph &rdg) override
@@ -123,6 +142,9 @@ namespace sky {
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
         RDResourceLayoutPtr forwardLayout;
         RDGfxTechPtr postTech;
+        RDGfxTechPtr skyboxTech;
+        RDTextureCubePtr skybox;
+
         RDUniformBufferPtr globalUbo;
     };
 
@@ -132,7 +154,7 @@ namespace sky {
             return false;
         }
 
-        meshObj = world->CreateGameObject("Cube");
+        meshObj = world->CreateGameObject("Helmet");
         meshObj->GetComponent<TransformComponent>()->SetLocalRotation(
             Quaternion(-30 / 180.f * 3.14f, VEC3_Y) *
             Quaternion(90 / 180.f * 3.14f, VEC3_X));

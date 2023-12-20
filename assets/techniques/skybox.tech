@@ -1,0 +1,18 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/glsl/vertex/skybox.vert",
+        "frag": "shaderlibs/glsl/skybox.frag"
+    },
+    "pass": {
+        "tag": "ForwardColor"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "standard"
+}

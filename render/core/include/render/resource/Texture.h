@@ -21,6 +21,7 @@ namespace sky {
         bool CheckExtent(uint32_t width, uint32_t height, uint32_t depth = 1) const;
 
         const rhi::ImageViewPtr &GetImageView() const { return imageView; }
+        const rhi::ImagePtr GetImage() const { return image; }
     protected:
         rhi::Device *device = nullptr;
         rhi::Image::Descriptor imageDesc = {};
