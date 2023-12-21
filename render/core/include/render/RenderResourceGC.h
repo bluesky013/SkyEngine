@@ -15,12 +15,14 @@ namespace sky {
 
         void CollectBuffer(const rhi::BufferPtr &buffer);
         void CollectImage(const rhi::ImagePtr &image);
+        void CollectImageViews(const rhi::ImageViewPtr &view);
         void CollectDescriptorSet(const rhi::DescriptorSetPtr &set);
         void Clear();
 
     private:
         std::vector<rhi::BufferPtr> buffers;
         std::vector<rhi::ImagePtr> images;
+        std::vector<rhi::ImageViewPtr> imagesViews;
         std::vector<rhi::DescriptorSetPtr> sets;
     };
 

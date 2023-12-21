@@ -129,8 +129,10 @@ namespace sky::rdg {
     {
         const auto &subPass = rdg.subPasses[Index(fullscreen.passID, rdg)];
         const auto &pass = rdg.rasterPasses[Index(subPass.parent, rdg)];
-        fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.layout);
-        BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
+        if (fullscreen.layout) {
+            fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.layout);
+            BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
+        }
         fullscreen.pso = GraphicsTechnique::BuildPso(*fullscreen.technique, pass.renderPass, subPass.subPassID);
     }
 

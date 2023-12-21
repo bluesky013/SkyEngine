@@ -213,6 +213,9 @@ namespace sky::rhi {
     static constexpr uint32_t DDPF_ALPHA       = 0x2;
     static constexpr uint32_t DDPF_FOURCC      = 0x4;
 
+    static constexpr uint32_t DDPF_RGB = 0x00000040;
+    static constexpr uint32_t DDPF_RGBA = 0x00000041;
+
     static constexpr uint32_t DDS_DIMENSION_TEXTURE1D = 2;
     static constexpr uint32_t DDS_DIMENSION_TEXTURE2D = 3;
     static constexpr uint32_t DDS_DIMENSION_TEXTURE3D = 4;

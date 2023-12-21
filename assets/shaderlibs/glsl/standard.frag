@@ -11,6 +11,10 @@ layout (location = 0) out vec4 outFragColor;
 
 #include <shaderlibs/glsl/layouts/standard_perpass.glsl>
 
+layout (set = 0, binding = 2) uniform samplerCube irradianceMap;
+layout (set = 0, binding = 3) uniform samplerCube radianceMap;
+layout (set = 0, binding = 4) uniform sampler2D brdfLutMap;
+
 layout (set = 1, binding = 0) uniform MaterialInfo {
     vec4 baseColor;
     float metallic;
@@ -51,9 +55,9 @@ float Schlicksmith(float NdotL, float NdotV, float alpha2)
     return 4 * g1 * g2;
 }
 
-vec3 SchlickFresnel(vec3 baseColor, float metallic, float VdotH)
+vec3 SchlickFresnel(vec3 elbedo, float metallic, float VdotH)
 {
-    vec3 f0 = mix(vec3(0.04), baseColor, metallic);
+    vec3 f0 = mix(vec3(0.04), elbedo, metallic);
     return f0 + (1 - f0) * pow(1 - abs(VdotH), 5.0);
 }
 
@@ -80,6 +84,16 @@ vec3 CalculateBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3
     return lightColor * (diffuse + specular);
 }
 
+vec3 PrefilteredReflection(vec3 R, float roughness)
+{
+    int levels = textureQueryLevels(radianceMap);
+    float lod = roughness * float(levels);
+    float lodf = floor(lod);
+    float lodc = ceil(lod);
+    vec3 a = textureLod(radianceMap, R, lodf).rgb;
+    vec3 b = textureLod(radianceMap, R, lodc).rgb;
+    return mix(a, b, lod - lodf);
+}
 
 struct Light {
     vec4 color;
@@ -104,6 +118,7 @@ void main()
     if (material.useMask && baseColor.a < material.alphaCutoff) {
         discard;
     }
+    vec3 elbedo = baseColor.rgb;
 
     if (material.useNormalMap) {
         vec3 tNormal = normalize(texture(normalMap, uv).xyz * 2.0 - 1.0);
@@ -127,18 +142,32 @@ void main()
     }
 
     // brdf
-    vec3 outColor = CalculateBRDF(L, V, N, metallic, roughness, baseColor.rgb, light.color.rgb);
+    vec3 outColor = CalculateBRDF(L, V, N, metallic, roughness, elbedo, light.color.rgb);
+
+    // env
+    vec3 R = reflect(-V, N);
+    vec2 brdf = texture(brdfLutMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 reflection = PrefilteredReflection(R, roughness).rgb;
+    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 diffuse = irradiance * elbedo;
+
+    vec3 F = SchlickFresnel(elbedo, metallic, max(dot(N, V), 0.0));
+    vec3 kD = 1.0 - F;
+    kD *= 1.0 - metallic;
+
+    vec3 specular = reflection * (F * brdf.x + brdf.y);
+    vec3 ambient = (kD * diffuse + specular);
+//    vec3 ambient = kD * diffuse;
 
     if (material.useAOMap) {
-//        float ao = texture(aoMap, uv).r;
-//        outColor = outColor * ao;
+        float ao = texture(aoMap, uv).r;
+        ambient = ambient * ao;
     }
+    outColor += ambient;
 
     if (material.useEmissiveMap) {
         vec3 emissive = texture(emissiveMap, uv).rgb;
-        outColor += emissive * 1.5;
+        outColor += emissive * 2.0;
     }
-
-//    outColor = pow(outColor, vec3(1.0f / 2.2));
     outFragColor = vec4(outColor, baseColor.a);
 }

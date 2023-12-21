@@ -180,7 +180,9 @@ namespace sky::rdg {
             [&](const FullScreenBlitTag &) {
                 auto &fullScreen = graph.fullScreens[Index(u, graph)];
                 currentEncoder->BindPipeline(fullScreen.pso);
-                fullScreen.resourceGroup->OnBind(*currentEncoder, 0);
+                if (fullScreen.resourceGroup) {
+                    fullScreen.resourceGroup->OnBind(*currentEncoder, 0);
+                }
                 currentEncoder->DrawLinear({3, 1, 0, 0});
             },
             [&](const auto &) {}

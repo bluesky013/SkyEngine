@@ -63,8 +63,8 @@ layout (set = 0, binding = 1) uniform ViewInfo {
 layout(location = 0) out vec3 outUv;
 
 void main() {
-    vec3 pos = positions[gl_VertexIndex];
+    vec3 pos = positions[gl_VertexIndex] * 10.0;
     vec4 clipPos = viewInfo.worldToClipMatrix * vec4(pos, 1.0);
-    gl_Position = clipPos.xyzz;
+    gl_Position = clipPos.xyww;
     outUv = pos;
 }

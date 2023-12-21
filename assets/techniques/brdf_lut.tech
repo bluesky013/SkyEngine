@@ -1,0 +1,18 @@
+{
+    "type": "graphics",
+    "shaders": {
+        "vert": "shaderlibs/glsl/vertex/fullscreen.vert",
+        "frag": "shaderlibs/glsl/brdf_lut.frag"
+    },
+    "pass": {
+        "tag": "BRDF_LUT"
+    },
+    "depth_stencil": {
+        "depthTestEnable": false,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "empty"
+}

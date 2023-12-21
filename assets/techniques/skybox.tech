@@ -5,7 +5,7 @@
         "frag": "shaderlibs/glsl/skybox.frag"
     },
     "pass": {
-        "tag": "ForwardColor"
+        "tag": "SkyBox"
     },
     "depth_stencil": {
         "depthTestEnable": true,
