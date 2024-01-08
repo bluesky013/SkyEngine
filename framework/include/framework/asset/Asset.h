@@ -26,9 +26,6 @@ namespace sky {
         void SetUuid(const Uuid &id);
         const Uuid &GetUuid() const { return uuid; }
 
-        void SetPath(const std::string &fullPath);
-        const std::string &GetPath() const { return path; }
-
         virtual const Uuid &GetType() const = 0;
         Status GetStatus() const { return status; }
 
@@ -43,11 +40,11 @@ namespace sky {
 
     protected:
         friend class AssetManager;
+        friend class AssetManager;
 
         Uuid             uuid;
         Status           status = Status::INITIAL;
         tf::Future<void> future;
-        std::string      path;
     };
 
     using AssetPtr = std::shared_ptr<AssetBase>;
@@ -134,8 +131,6 @@ namespace sky {
         virtual void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &asset) = 0;
 
         virtual void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &data) = 0;
-
-        static std::string GetRealPath(const std::string &path);
     };
 
     template <typename T>
@@ -155,7 +150,7 @@ namespace sky {
 
         void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            std::ifstream file(GetRealPath(path), std::ios::binary);
+            std::ifstream file(path, std::ios::binary);
             if (!file.is_open()) {
                 return;
             }

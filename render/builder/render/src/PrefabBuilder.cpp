@@ -4,20 +4,19 @@
 
 #include <assimp/GltfMaterial.h>
 #include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/PrefabBuilder.h>
-#include <builder/render/TechniqueBuilder.h>
-#include <builder/render/MaterialBuilder.h>
 #include <core/logger/Logger.h>
 #include <core/math/MathUtil.h>
 
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
+
+//#include <meshoptimizer.h>
 
 #include <sstream>
 #include <filesystem>
@@ -46,56 +45,48 @@ namespace sky::builder {
         return res;
     }
 
-    static ImageAssetPtr ProcessTexture(const aiScene *scene, const aiString& str, RenderPrefabAssetData &outScene, const std::string &sourceFolder, const std::string &productFolder)
+    static Uuid ProcessTexture(const aiScene *scene, const aiString& str, RenderPrefabAssetData &outScene, const BuildRequest &request)
     {
         auto *am = AssetManager::Get();
-        auto texPath = std::filesystem::path(sourceFolder).append(str.C_Str());
+        auto texPath = std::filesystem::path(request.fullPath).parent_path().append(str.C_Str());
         if (std::filesystem::exists(texPath)) {
-            Uuid texId;
-            if (am->QueryOrImportSource(texPath.make_preferred().string(), {ImageBuilder::KEY.data(), productFolder, false}, texId)) {
-                return am->LoadAsset<Texture>(texId);
-            }
-        } else {
-            const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
-            if (tex == nullptr) {
-                return nullptr;
-            }
-
-            BuildRequest request = {};
-            request.fullPath = texPath.make_preferred().string();
-            request.name = std::string("embedded_") + str.C_Str();
-            request.ext = tex->achFormatHint;
-            request.outDir = productFolder;
-            request.buildKey = ImageBuilder::KEY;
-            request.rawData = tex->pcData;
-            request.dataSize = tex->mWidth;
-
-            request.name.erase(std::remove(request.name.begin(), request.name.end(), '*'), request.name.end());
-
-            BuildResult result = {};
-            ImageBuilder().Request(request, result);
-            if (!result.products.empty()) {
-                return am->LoadAsset<Texture>(result.products[0].uuid);
-            }
+            auto path = texPath.make_preferred().string();
+            auto id = am->ImportAndBuildAsset(path);
+            return id;
         }
-        return {};
+
+        const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
+        if (tex == nullptr) {
+            return {};
+        }
+
+        BuildRequest textureRequest = {};
+        textureRequest.name = request.relativePath + std::string("\\embedded_") + str.C_Str();
+        textureRequest.ext = tex->achFormatHint;
+        textureRequest.buildKey = ImageBuilder::KEY;
+        textureRequest.rawData = tex->pcData;
+        textureRequest.dataSize = tex->mWidth;
+        textureRequest.name.erase(std::remove(textureRequest.name.begin(), textureRequest.name.end(), '*'), textureRequest.name.end());
+
+        SourceAssetInfo info = {};
+        auto asset = am->CreateAsset<Texture>(am->GetUUIDByPath(request.name));
+
+        BuildResult result = {};
+        am->BuildAsset(request);
+        return asset->GetUuid();
     }
 
-    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(const std::string &type, const std::string &path)
+    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(aiMaterial* material, const BuildRequest &request)
     {
         auto *am = AssetManager::Get();
-        Uuid matID;
-        MaterialInstanceAssetPtr materialInstance;
-        if (am->QueryOrImportSource(type, {MaterialBuilder::KEY.data()}, matID)) {
-            auto mat = am->LoadAsset<Material>(matID);
 
-            materialInstance = am->CreateAsset<MaterialInstance>(path);
-            materialInstance->Data().material = mat;
-        }
-        return materialInstance;
+        auto mat = am->CreateAsset<MaterialInstance>(am->GetUUIDByPath(request.name + '\\' + material->GetName().C_Str()));
+        mat->Data().material = am->ImportAndBuildAsset("materials/StandardPBR.mat");
+
+        return mat;
     }
 
-    static void ProcessMaterials(const aiScene *scene, RenderPrefabAssetData &outScene, const std::filesystem::path &source, const std::string &productFolder)
+    static void ProcessMaterials(const aiScene *scene, RenderPrefabAssetData &outScene, const BuildRequest &request)
     {
         uint32_t matSize = scene->mNumMaterials;
         for (uint32_t i = 0; i < matSize; ++i) {
@@ -104,23 +95,7 @@ namespace sky::builder {
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
 
             LOG_I(TAG, "shader model %d", shadingModel);
-            std::string sourceFolder = source.parent_path().string();
-
-            std::stringstream ss;
-            std::string matName = material->GetName().C_Str();
-
-            std::filesystem::path productMatPath(productFolder);
-            productMatPath.append(source.filename().replace_extension().string());
-
-            ss << productMatPath.make_preferred().string() << "_mat_";
-            if (matName.empty()) {
-                ss << i;
-            } else {
-                ss << matName;
-            }
-            ss << ".mati";
-
-            auto matAsset = CreateMaterialInstanceByMaterial("materials/StandardPBR.mat", ss.str());
+            auto matAsset = CreateMaterialInstanceByMaterial(material, request);
             auto &data = matAsset->Data();
 
             aiString str;
@@ -133,11 +108,11 @@ namespace sky::builder {
             Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
             float metallic = 1.f;
             float roughness = 1.f;
-            ImageAssetPtr normalMap;
-            ImageAssetPtr emissiveMap;
-            ImageAssetPtr aoMap;
-            ImageAssetPtr baseColorMap;
-            ImageAssetPtr metallicRoughnessMap;
+            Uuid normalMap;
+            Uuid emissiveMap;
+            Uuid aoMap;
+            Uuid baseColorMap;
+            Uuid metallicRoughnessMap;
 
             aiString aiAlphaMode;
             if (!material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode)) {
@@ -152,20 +127,20 @@ namespace sky::builder {
 
             if (!material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str)) {
                 // normalMap
-                normalMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
-                useNormalMap = !!normalMap;
+                normalMap = ProcessTexture(scene, str, outScene, request);
+                useNormalMap = static_cast<bool>(normalMap);
             }
 
             if (!material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str)) {
                 // emissiveMap
-                emissiveMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
-                useEmissiveMap = !!emissiveMap;
+                emissiveMap = ProcessTexture(scene, str, outScene, request);
+                useEmissiveMap = static_cast<bool>(emissiveMap);
             }
 
             if (!material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str)) {
                 // aoMap;
-                aoMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
-                useAOMap = !!aoMap;
+                aoMap = ProcessTexture(scene, str, outScene, request);
+                useAOMap = static_cast<bool>(aoMap);
             }
 
             if (shadingModel == aiShadingMode_PBR_BRDF) {
@@ -176,14 +151,14 @@ namespace sky::builder {
 
                 if (!material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str)) {
                     // baseColorMap
-                    baseColorMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
-                    useBaseColorMap = !!baseColorMap;
+                    baseColorMap = ProcessTexture(scene, str, outScene, request);
+                    useBaseColorMap = static_cast<bool>(baseColorMap);
                 }
 
                 if (!material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str)) {
                     // metallicRoughnessMap
-                    metallicRoughnessMap = ProcessTexture(scene, str, outScene, sourceFolder, productFolder);
-                    useMetallicRoughnessMap = !!metallicRoughnessMap;
+                    metallicRoughnessMap = ProcessTexture(scene, str, outScene, request);
+                    useMetallicRoughnessMap = static_cast<bool>(metallicRoughnessMap);
                 }
             }
 
@@ -223,7 +198,6 @@ namespace sky::builder {
             data.properties.valueMap.emplace("metallic",    Any(metallic));
             data.properties.valueMap.emplace("roughness",   Any(roughness));
             data.properties.valueMap.emplace("alphaCutoff", Any(alphaCutoff));
-            AssetManager::Get()->SaveAsset(matAsset);
 
             outScene.materials.emplace_back(matAsset);
         }
@@ -341,7 +315,7 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, RenderPrefabAssetData& outScene, const std::filesystem::path &source, const std::string &productFolder)
+    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, RenderPrefabAssetData& outScene, const BuildRequest &request)
     {
         auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(outScene.nodes.size());
@@ -356,25 +330,22 @@ namespace sky::builder {
         if (node->mNumMeshes != 0) {
             current.meshIndex = static_cast<uint32_t>(outScene.meshes.size());
 
-            std::filesystem::path productMatPath(productFolder);
-            productMatPath.append(source.filename().replace_extension().string());
-
             std::stringstream ss;
-            ss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << ".mesh";
-            auto meshAsset = am->CreateAsset<Mesh>(ss.str());
+            ss << request.relativePath << "_mesh_" << current.meshIndex << ".mesh";
+            auto meshAsset = am->CreateAsset<Mesh>(am->GetUUIDByPath(ss.str()));
             MeshAssetData &meshAssetData = meshAsset->Data();
 
             meshAssetData.vertexBuffers.resize(static_cast<uint32_t>(MeshAttributeType::NUM));
             for (uint32_t i = 0; i < meshAssetData.vertexBuffers.size(); ++i) {
                 std::stringstream vss;
-                vss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_vb_" << i << ".bin";
-                meshAssetData.vertexBuffers[i] = am->CreateAsset<Buffer>(vss.str());
+                vss << request.relativePath << "_mesh_" << current.meshIndex << "_vb_" << i << ".bin";
+                meshAssetData.vertexBuffers[i] = am->CreateAsset<Buffer>(am->GetUUIDByPath(vss.str()));
             }
 
 
             std::stringstream iss;
-            iss << productMatPath.make_preferred().string() << "_mesh_" << current.meshIndex << "_ib.bin";
-            meshAssetData.indexBuffer = am->CreateAsset<Buffer>(iss.str());
+            iss << request.relativePath << "_mesh_" << current.meshIndex << "_ib.bin";
+            meshAssetData.indexBuffer = am->CreateAsset<Buffer>(am->GetUUIDByPath(iss.str()));
 
             ProcessMesh(scene, node, outScene, meshAssetData);
 
@@ -387,7 +358,7 @@ namespace sky::builder {
         }
 
         for(unsigned int i = 0; i < node->mNumChildren; i++) {
-            ProcessNode(node->mChildren[i], scene, index, outScene, source, productFolder);
+            ProcessNode(node->mChildren[i], scene, index, outScene, request);
         }
     }
 
@@ -403,23 +374,15 @@ namespace sky::builder {
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
             return;
         }
-        AssetManager *am = AssetManager::Get();
-        std::filesystem::path fullPath(request.fullPath);
-        fullPath.make_preferred();
+        auto *am = AssetManager::Get();
 
-        std::filesystem::path outPath(request.outDir);
-        std::string outFolder = outPath.append(request.name).replace_extension().string();
-        std::filesystem::create_directories(outPath);
-        outPath.append(request.name);
-
-        auto asset = am->CreateAsset<RenderPrefab>(outPath.make_preferred().replace_extension().string() + ".prefab");
+        auto asset = am->CreateAsset<RenderPrefab>(request.uuid);
         auto &assetData = asset->Data();
 
-        ProcessMaterials(scene, assetData, fullPath, outFolder);
-        ProcessNode(scene->mRootNode, scene, -1, assetData, fullPath, outFolder);
+        ProcessMaterials(scene, assetData, request);
+        ProcessNode(scene->mRootNode, scene, -1, assetData, request);
 
-        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
-        am->SaveAsset(asset);
+        result.products.emplace_back(BuildProduct{KEY.data(), asset});
     }
 
 } // namespace sky::builder

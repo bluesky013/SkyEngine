@@ -5,6 +5,7 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/BinaryArchive.h>
 #include <render/adaptor/assets/ShaderAsset.h>
+
 #include <render/RHI.h>
 
 namespace sky {
@@ -43,7 +44,7 @@ namespace sky {
             archive.LoadValue(key);
             std::string uuid;
             archive.LoadValue(uuid);
-            variants.emplace(key, AssetManager::Get()->LoadAsset<ShaderVariant>(Uuid::CreateFromString(uuid)));
+//            variants.emplace(key, AssetManager::Get()->LoadAsset<ShaderVariant>(Uuid::CreateFromString(uuid)));
         }
 
         archive.LoadValue(size);

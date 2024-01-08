@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "framework/world/World.h"
 #include <memory>
-#include <framework/world/World.h>
 #include <render/adaptor/RenderSceneProxy.h>
 
 namespace sky {

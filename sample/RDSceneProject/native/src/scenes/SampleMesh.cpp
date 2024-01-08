@@ -3,14 +3,14 @@
 //
 
 #include "SampleMesh.h"
+#include "core/file/FileIO.h"
+#include <render/RHI.h>
 #include <render/RenderWindow.h>
+#include <render/adaptor/Util.h>
+#include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/MeshRenderer.h>
-#include <render/adaptor/assets/MeshAsset.h>
-#include <render/adaptor/Util.h>
-#include <core/file/FileIO.h>
 #include <rhi/Decode.h>
-#include <render/RHI.h>
 
 #include <render/rdg/RenderGraph.h>
 #include <render/env/SkyBoxRenderer.h>
@@ -73,21 +73,21 @@ namespace sky {
                 forwardLayout->AddNameHandler("brdfLutMap", {4, 0});
             }
 
-            postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
-            brdfLutTech = AssetManager::Get()->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
-            auto skyboxTex = LoadCubeMap("/assets/skybox/output_skybox.dds");
-            irradiance = LoadCubeMap("/assets/skybox/output_iem.dds");
-            radiance = LoadCubeMap("/assets/skybox/output_pmrem.dds");
+//            postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
+//            brdfLutTech = AssetManager::Get()->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
+//            auto skyboxTex = LoadCubeMap("/assets/skybox/output_skybox.dds");
+//            irradiance = LoadCubeMap("/assets/skybox/output_iem.dds");
+//            radiance = LoadCubeMap("/assets/skybox/output_pmrem.dds");
+//
+//            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
+//            auto skyboxMatInst = std::make_shared<MaterialInstance>();
+//            skyboxMatInst->SetMaterial(skyboxMat);
+//            skyboxMatInst->SetTexture("skybox", skyboxTex, 0);
+//            skyboxMatInst->Upload();
 
-            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
-            auto skyboxMatInst = std::make_shared<MaterialInstance>();
-            skyboxMatInst->SetMaterial(skyboxMat);
-            skyboxMatInst->SetTexture("skybox", skyboxTex, 0);
-            skyboxMatInst->Upload();
-
-            skybox = std::make_unique<SkyBoxRenderer>();
-            skybox->SetUp(skyboxMatInst);
-            skybox->AttachScene(scene);
+//            skybox = std::make_unique<SkyBoxRenderer>();
+//            skybox->SetUp(skyboxMatInst);
+//            skybox->AttachScene(scene);
         }
 
         void OnSetup(rdg::RenderGraph &rdg) override
@@ -200,7 +200,7 @@ namespace sky {
         meshObj->AddComponent<SimpleRotateComponent>();
 
         auto *mesh = meshObj->AddComponent<MeshRenderer>();
-        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
+//        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
 
 //        auto mat = AssetManager::Get()->LoadAsset<MaterialInstance>("materials/floor.mati")->CreateInstance();
 //        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);

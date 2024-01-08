@@ -2,11 +2,10 @@
 // Created by Zach Lee on 2023/2/23.
 //
 
-
 #include <builder/render/ShaderBuilder.h>
 #include <builder/shader/ShaderCompiler.h>
-#include <spirv_cross/spirv_glsl.hpp>
 #include <framework/asset/AssetManager.h>
+#include <spirv_cross/spirv_glsl.hpp>
 
 #include <filesystem>
 #include <render/adaptor/assets/ShaderAsset.h>
@@ -70,53 +69,56 @@ namespace sky::builder {
     {
         if (!compiler) {
             compiler = std::make_unique<sl::ShaderCompiler>();
-            for (const auto &path : AssetManager::Get()->GetSearchPaths()) {
-                compiler->AddEngineIncludePath(path);
+            for (const auto &path : AssetManager::Get()->GetSearchPathList()) {
+                compiler->AddEngineIncludePath(path.path);
             }
         }
 
-        sl::ShaderType type;
+        sl::ShaderType          type;
         rhi::ShaderStageFlagBit stage;
-        std::string outExt;
+        std::string             outExt;
         if (request.ext == ".vert") {
-            type = sl::ShaderType::VS;
+            type  = sl::ShaderType::VS;
             stage = rhi::ShaderStageFlagBit::VS;
         } else if (request.ext == ".frag") {
-            type = sl::ShaderType::FS;
+            type  = sl::ShaderType::FS;
             stage = rhi::ShaderStageFlagBit::FS;
         } else if (request.ext == ".comp") {
-            type = sl::ShaderType::CS;
+            type  = sl::ShaderType::CS;
             stage = rhi::ShaderStageFlagBit::CS;
         } else {
             return;
         }
-        auto *am = AssetManager::Get();
-        std::filesystem::path outDir = request.outDir + "/shaders";
-        std::filesystem::create_directories(outDir);
-        std::string fullPath = outDir.append(request.name).make_preferred().string();
-        std::string outFullPath = fullPath + ".bin";
-        std::string outVariantPath = fullPath + ".variant";
-        auto asset = am->CreateAsset<Shader>(outFullPath);
-        auto defaultVariant = am->CreateAsset<ShaderVariant>(outVariantPath);
+        auto *am  = AssetManager::Get();
+        auto asset = am->CreateAsset<Shader>(request.uuid);
 
-        auto &variantData = defaultVariant->Data();
         // save spv
         sl::ShaderCompiler::Option option = {};
+
         option.language = sl::Language::GLSL;
-        option.type = type;
-        compiler->BuildSpirV(request.fullPath, variantData.spv, option);
-        if (variantData.spv.empty()) {
+        option.type     = type;
+
+        std::vector<uint32_t> spv;
+        compiler->BuildSpirV(request.fullPath, spv, option);
+        if (spv.empty()) {
             return;
         }
-        BuildReflection(variantData.spv, asset->Data());
+        BuildReflection(spv, asset->Data());
 
-        // save gles
-//        variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
-        asset->Data().stage = stage;
-        asset->Data().variants.emplace("", defaultVariant);
+        result.products.emplace_back(BuildProduct{"GFX_SHADER", asset});
+        result.success = true;
+//
+//        // save gles
+//        //        variantData.gles = ShaderCompiler::BuildGLES(variantData.spv);
+//        asset->Data().stage = stage;
+//        asset->Data().variants.emplace("", defaultVariant);
+//
+//        result.products.emplace_back(BuildProduct{"GFX_SHADER", asset->GetUuid()});
+//        am->SaveAsset(asset);
+//        am->SaveAsset(defaultVariant);
+    }
 
-        result.products.emplace_back(BuildProduct{"GFX_SHADER", asset->GetUuid()});
-        am->SaveAsset(asset);
-        am->SaveAsset(defaultVariant);
+    void ShaderBuilder::LoadConfig(const std::string &path)
+    {
     }
 }

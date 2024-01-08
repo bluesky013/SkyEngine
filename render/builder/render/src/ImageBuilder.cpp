@@ -3,8 +3,10 @@
 //
 
 #include <builder/render/ImageBuilder.h>
-#include <render/adaptor/assets/ImageAsset.h>
 #include <builder/render/ImageCompressor.h>
+#include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/ImageAsset.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <filesystem>
@@ -37,20 +39,14 @@ namespace sky::builder {
         if (data == nullptr) {
             return;
         }
-        AssetManager *am = AssetManager::Get();
-        std::filesystem::path outPath(request.outDir);
-        outPath.append("images");
-        std::filesystem::create_directories(outPath);
-        outPath.append(request.name);
-        outPath.replace_extension(".image");
+        auto *am = AssetManager::Get();
 
-        auto asset = am->CreateAsset<Texture>(outPath.make_preferred().string());
+        auto asset = am->CreateAsset<Texture>(request.uuid);
         auto &imageData = asset->Data();
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
 
-        outPath.replace_extension(".bin");
-        imageData.bufferAsset = am->CreateAsset<Buffer>(outPath.make_preferred().string());
+        imageData.bufferAsset = am->CreateAsset<Buffer>(AssetManager::GetUUIDByPath(request.relativePath + "/data"));
         auto &binaryData = imageData.bufferAsset->Data();
 
         BufferImageInfo info = {};
@@ -72,9 +68,8 @@ namespace sky::builder {
             memcpy(binaryData.rawData.data(), data, binaryData.rawData.size());
         }
 
-        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
-        am->SaveAsset(imageData.bufferAsset);
-        am->SaveAsset(asset);
+        result.products.emplace_back(BuildProduct{KEY.data(), asset});
+        result.products.emplace_back(BuildProduct{KEY.data(), asset});
 
         stbi_image_free(data);
     }

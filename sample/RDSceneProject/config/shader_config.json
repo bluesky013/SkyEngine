@@ -1,0 +1,14 @@
+{
+  "win32": {
+    "rhi": ["vk", "d3d"]
+  },
+  "macos": {
+    "rhi": ["metal"]
+  },
+  "ios": {
+    "rhi": ["metal"]
+  },
+  "android": {
+    "rhi": ["vk", "gl"]
+  }
+}

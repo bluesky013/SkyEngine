@@ -55,6 +55,11 @@ namespace sky {
         return platform->Init(info);
     }
 
+    PlatformType Win32Platform::GetType() const
+    {
+        return PlatformType::WINDOWS;
+    }
+
     bool Win32Platform::RunCmd(const std::string &cmd, std::string &out) const
     {
         auto pipe = std::make_unique<Pipe>();

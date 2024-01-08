@@ -69,10 +69,11 @@ namespace sky {
         }
 
         std::string ToString() const;
-    private:
-        friend struct std::hash<sky::Uuid>;
-        friend struct std::equal_to<sky::Uuid>;
-        friend bool operator==(const Uuid &lhs, const Uuid &rhs);
+
+        operator bool() const
+        {
+            return word[0] == 0 && word[1] == 0;
+        }
 
         union {
             uint64_t word[2];

@@ -13,7 +13,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            images[i] = AssetManager::Get()->LoadAsset<Texture>(Uuid::CreateFromString(idStr));
+//            images[i] = AssetManager::Get()->LoadAsset<Texture>(Uuid::CreateFromString(idStr));
         }
 
         size = 0;
@@ -22,7 +22,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            meshes[i] = AssetManager::Get()->LoadAsset<Mesh>(Uuid::CreateFromString(idStr));
+//            meshes[i] = AssetManager::Get()->LoadAsset<Mesh>(Uuid::CreateFromString(idStr));
         }
 
         size = 0;
@@ -31,7 +31,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            materials[i] = AssetManager::Get()->LoadAsset<MaterialInstance>(Uuid::CreateFromString(idStr));
+//            materials[i] = AssetManager::Get()->LoadAsset<MaterialInstance>(Uuid::CreateFromString(idStr));
         }
 
         size = 0;

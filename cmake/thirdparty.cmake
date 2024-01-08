@@ -64,6 +64,7 @@ if(EXISTS ${3RD_PATH})
 
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)
+        sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
         sky_find_3rd(TARGET stb           DIR stb)
         sky_find_3rd(TARGET cxxopts       DIR cxxopts)
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)

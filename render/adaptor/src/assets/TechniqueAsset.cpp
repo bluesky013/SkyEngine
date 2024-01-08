@@ -14,7 +14,7 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i) {
             std::string idStr;
             archive.LoadValue(idStr);
-            shaders[i] = AssetManager::Get()->LoadAsset<Shader>(Uuid::CreateFromString(idStr));
+//            shaders[i] = AssetManager::Get()->LoadAsset<Shader>(Uuid::CreateFromString(idStr));
         }
 
         archive.LoadValue(depthStencil.depthWrite);

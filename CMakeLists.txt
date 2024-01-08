@@ -30,6 +30,11 @@ add_subdirectory(render)
 add_subdirectory(sample)
 add_subdirectory(Launcher)
 
+set(ACTIVE_PROJECT_PATH ${CMAKE_SOURCE_DIR}/active_project/native)
+if (EXISTS ${ACTIVE_PROJECT_PATH})
+    add_subdirectory(${ACTIVE_PROJECT_PATH})
+endif ()
+
 if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
     sky_set_dependency(TARGET Editor)
@@ -38,4 +43,5 @@ endif()
 if (SKY_BUILD_TOOL)
     add_subdirectory(tools)
 endif()
+
 sky_set_dependency(TARGET Launcher)

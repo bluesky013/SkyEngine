@@ -12,7 +12,7 @@ namespace sky {
     class SDLPlatform : public PlatformBase {
     public:
         SDLPlatform() = default;
-        ~SDLPlatform();
+        ~SDLPlatform() override;
 
     private:
         bool Init(const PlatformInfo &desc) override;

@@ -102,12 +102,10 @@ namespace sky::builder {
             return;
         }
 
-        AssetManager *am = AssetManager::Get();
+        auto *am = AssetManager::Get();
         std::filesystem::path fullPath(request.fullPath);
-        std::filesystem::path outPath(request.outDir);
-        outPath.append(request.name);
 
-        auto asset = am->CreateAsset<VertexDescLibrary>(outPath.make_preferred().string());
+        auto asset = am->CreateAsset<VertexDescLibrary>(request.uuid);
         auto &assetData = asset->Data();
 
         auto array = val.GetArray();
@@ -116,8 +114,7 @@ namespace sky::builder {
                 ProcessDescriptions(assetData.descriptions[iter->name.GetString()], iter->value);
             }
         }
-        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
-        am->SaveAsset(asset);
+        result.products.emplace_back(BuildProduct{KEY.data(), asset});
     }
 
 } // namespace sky::builder

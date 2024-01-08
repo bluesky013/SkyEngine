@@ -4,12 +4,12 @@
 
 #pragma once
 
+#include "SampleScene.h"
+#include "framework/interface/IModule.h"
+#include "framework/interface/ISystem.h"
+#include "framework/interface/Interface.h"
+#include "framework/window/IWindowEvent.h"
 #include <unordered_map>
-#include <framework/window/IWindowEvent.h>
-#include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
-#include <SampleScene.h>
 
 namespace sky {
     class RenderScene;
@@ -20,9 +20,8 @@ namespace sky {
         RDSceneProject()  = default;
         ~RDSceneProject() override = default;
 
-        bool Init() override;
-        void Start() override;
-        void Stop() override;
+        bool Init(const StartArguments &args) override;
+        void Shutdown() override;
         void Tick(float delta) override;
 
         void OnWindowResize(uint32_t width, uint32_t height) override;

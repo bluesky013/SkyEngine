@@ -4,11 +4,12 @@
 //
 
 #include <builder/render/TechniqueBuilder.h>
-#include <core/file/FileIO.h>
+
 #include <filesystem>
+
+#include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
 
-#include <builder/render/ShaderBuilder.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky::builder {
@@ -37,16 +38,14 @@ namespace sky::builder {
 
     static ShaderAssetPtr GetShader(TechniqueAssetData &data, rapidjson::Document &document, const std::string &shaderStage)
     {
-        auto *am = AssetManager::Get();
-
         auto &val = document["shaders"];
         if (val.HasMember(shaderStage.c_str())) {
             const auto *relativePath = val[shaderStage.c_str()].GetString();
-            std::string fullPath = am->GetRealPath(relativePath);
-            Uuid shaderId;
-            if (am->QueryOrImportSource(fullPath, {ShaderBuilder::KEY.data()}, shaderId)) {
-                return am->LoadAsset<Shader>(shaderId);
-            }
+            auto *am = AssetManager::Get();
+            const auto &id = am->ImportAsset(relativePath);
+            auto shader = am->CreateAsset<Shader>(id);
+            am->BuildAsset(id);
+            return shader;
         }
         return {};
     }
@@ -138,21 +137,21 @@ namespace sky::builder {
             }
             if (rasterObject.HasMember("polygonMode")) {
                 std::string pModeStr = rasterObject["polygonMode"].GetString();
-                if (pModeStr == "FILL") raster.polygonMode = rhi::PolygonMode::FILL;
-                else if (pModeStr == "LINE") raster.polygonMode = rhi::PolygonMode::LINE;
-                else if (pModeStr == "POINT") raster.polygonMode = rhi::PolygonMode::POINT;
+                if (pModeStr == "FILL") { raster.polygonMode = rhi::PolygonMode::FILL;
+                } else if (pModeStr == "LINE") { raster.polygonMode = rhi::PolygonMode::LINE;
+                } else if (pModeStr == "POINT") { raster.polygonMode = rhi::PolygonMode::POINT;}
             }
             if (rasterObject.HasMember("frontFace")) {
                 std::string pFront = rasterObject["frontFace"].GetString();
-                if (pFront == "CW") raster.frontFace = rhi::FrontFace::CW;
-                else if (pFront == "CCW") raster.frontFace = rhi::FrontFace::CCW;
+                if (pFront == "CW") { raster.frontFace = rhi::FrontFace::CW;
+                } else if (pFront == "CCW") { raster.frontFace = rhi::FrontFace::CCW; }
             }
             if (rasterObject.HasMember("cullMode")) {
                 std::string pCull = rasterObject["cullMode"].GetString();
-                if (pCull == "NONE") raster.cullMode = rhi::CullModeFlagBits::NONE;
-                else if (pCull == "FRONT") raster.cullMode = rhi::CullModeFlagBits::FRONT;
-                else if (pCull == "BACK") raster.cullMode = rhi::CullModeFlagBits::BACK;
-                else if (pCull == "FRONT_AND_BACK") raster.cullMode = rhi::CullModeFlagBits::FRONT | rhi::CullModeFlagBits::BACK;
+                if (pCull == "NONE") { raster.cullMode = rhi::CullModeFlagBits::NONE;
+                } else if (pCull == "FRONT") { raster.cullMode = rhi::CullModeFlagBits::FRONT;
+                } else if (pCull == "BACK") { raster.cullMode = rhi::CullModeFlagBits::BACK;
+                } else if (pCull == "FRONT_AND_BACK") { raster.cullMode = rhi::CullModeFlagBits::FRONT | rhi::CullModeFlagBits::BACK;}
             }
         }
     }
@@ -185,21 +184,16 @@ namespace sky::builder {
             return;
         }
 
-        AssetManager *am = AssetManager::Get();
+        auto *am = AssetManager::Get();
         std::filesystem::path fullPath(request.fullPath);
-        std::filesystem::path outPath(request.outDir);
-        outPath.append("techniques");
-        std::filesystem::create_directories(outPath);
-
-        outPath.append(request.name);
         std::string type = document["type"].GetString();
         if (type == "graphics") {
-            auto asset = am->CreateAsset<Technique>(outPath.make_preferred().string());
+            auto asset = am->CreateAsset<Technique>(request.uuid);
             TechniqueAssetData &assetData = asset->Data();
             ProcessGraphics(request.fullPath, document, assetData);
-            result.products.emplace_back(BuildProduct{"GFX_TECH", asset->GetUuid()});
-            am->SaveAsset(asset);
+            result.products.emplace_back(BuildProduct{"GFX_TECH", asset});
         }
+        result.success = true;
     }
 
 }

@@ -17,7 +17,7 @@ namespace sky {
 
         std::string idStr;
         archive.LoadValue(idStr);
-        bufferAsset = AssetManager::Get()->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
+//        bufferAsset = AssetManager::Get()->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
     }
 
     void ImageAssetData::Save(BinaryOutputArchive &archive) const
@@ -35,7 +35,7 @@ namespace sky {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         auto texture2D = std::make_shared<Texture2D>();
         texture2D->Init(data.format, data.width, data.height, data.mipLevels);
-        queue->Wait(texture2D->Upload(data.bufferAsset->GetPath(), *queue, data.bufferAsset->Data().GetDataOffset()));
+//        queue->Wait(texture2D->Upload(data.bufferAsset->GetPath(), *queue, data.bufferAsset->Data().GetDataOffset()));
 
         return texture2D;
     }

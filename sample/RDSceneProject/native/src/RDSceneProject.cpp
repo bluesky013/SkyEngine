@@ -5,25 +5,29 @@
 #include <RDSceneProject.h>
 #include <RDSceneProject/ProjectRoot.h>
 
-#include <framework/serialization/CoreReflection.h>
-#include <framework/asset/AssetManager.h>
-#include <framework/window/NativeWindow.h>
+#include "framework/asset/AssetManager.h"
+#include "framework/serialization/CoreReflection.h"
+#include "framework/window/NativeWindow.h"
 
 #include <render/Renderer.h>
 
 #include "scenes/SampleSceneCube.h"
 #include "scenes/SampleMesh.h"
-#include "scenes/SampleRayMarching.h"
 
 namespace sky {
 
-    bool RDSceneProject::Init()
+    bool RDSceneProject::Init(const StartArguments &args)
     {
-        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
-        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/assets");
-        AssetManager::Get()->RegisterSearchPath(PROJECT_ROOT + "/cache");
-        AssetManager::Get()->Reset(PROJECT_ROOT + "/assets.db");
+        auto *renderer = Renderer::Get();
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
 
+        Event<IWindowEvent>::Connect(nativeWindow, this);
+
+        sampleScenes.emplace_back(new SampleMesh());
+//        sampleScenes.emplace_back(new SampleSceneCube());
+        sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
+        NextScene();
         return true;
     }
 
@@ -55,22 +59,7 @@ namespace sky {
         currentScene->Start(window);
     }
 
-    void RDSceneProject::Start()
-    {
-        auto *renderer = Renderer::Get();
-        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
-
-        Event<IWindowEvent>::Connect(nativeWindow, this);
-
-        sampleScenes.emplace_back(new SampleMesh());
-        sampleScenes.emplace_back(new SampleSceneCube());
-        sampleScenes.emplace_back(new SampleRayMarching());
-        sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
-        NextScene();
-    }
-
-    void RDSceneProject::Stop()
+    void RDSceneProject::Shutdown()
     {
         if (currentScene != nullptr) {
             currentScene->Shutdown();

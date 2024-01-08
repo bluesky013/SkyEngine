@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include <framework/asset/AssetManager.h>
 #include <core/shapes/AABB.h>
+#include <framework/asset/AssetManager.h>
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>

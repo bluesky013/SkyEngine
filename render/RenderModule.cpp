@@ -22,6 +22,7 @@
 #include <render/resource/Technique.h>
 
 #include <imgui/ImGuiFeature.h>
+#include <cxxopts.hpp>
 
 namespace sky {
 
@@ -37,14 +38,32 @@ namespace sky {
         RenderModule() = default;
         ~RenderModule() override = default;
 
-        bool Init() override;
-        void Start() override;
-        void Stop() override;
+        bool Init(const StartArguments &args) override;
         void Tick(float delta) override;
         void Shutdown() override;
+        void Start() override;
+    private:
+        void ProcessArgs(const StartArguments &args);
+
+        rhi::API api = rhi::API::DEFAULT;
     };
 
-    bool RenderModule::Init()
+    void RenderModule::ProcessArgs(const StartArguments &args)
+    {
+        cxxopts::Options options("SkyEngine Render Module", "SkyEngine Render Module");
+        options.allow_unrecognised_options();
+
+        options.add_options()
+            ("p,project", "Project Directory", cxxopts::value<std::string>());
+
+        auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+
+        if (result.count("rhi") != 0u) {
+            api = rhi::GetApiByString(result["rhi"].as<std::string>());
+        }
+    }
+
+    bool RenderModule::Init(const StartArguments &args)
     {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
@@ -52,8 +71,7 @@ namespace sky {
 
         RegisterComponents();
 
-        auto *iSys = Interface<ISystemNotify>::Get();
-        auto &reg = iSys->GetApi()->GetSettings();
+        ProcessArgs(args);
 
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
@@ -63,7 +81,7 @@ namespace sky {
 #else
         rhiDesc.enableDebugLayer = false;
 #endif
-        rhiDesc.api = rhi::GetApiByString(reg.VisitString("rhi"));
+        rhiDesc.api = api;
 
         // init rhi
         RHI::Get()->InitInstance(rhiDesc);
@@ -76,25 +94,25 @@ namespace sky {
 
     void RenderModule::Start()
     {
-        auto vtxLibAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex_library.vtxlib");
+        // init assets
+        auto *am = AssetManager::Get();
+        auto vtxLibAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
         Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vtxLibAsset->Data()));
 
-        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
-        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
-        MeshFeature::Get()->Init();
-        ParticleFeature::Get()->Init();
+//        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
+//        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
+
+//        MeshFeature::Get()->Init();
+//        ParticleFeature::Get()->Init();
     }
 
-    void RenderModule::Stop()
+    void RenderModule::Shutdown()
     {
         GeometryFeature::Destroy();
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
         ParticleFeature::Destroy();
-    }
 
-    void RenderModule::Shutdown()
-    {
         Renderer::Destroy();
         RHI::Destroy();
     }

@@ -1,26 +1,27 @@
 //
-// Created by blues on 2023/9/18.
+// Created by Zach Lee on 2023/9/2.
 //
 
 #pragma once
 
+#include "framework/world/GameObject.h"
+#include "framework/world/World.h"
 #include <SampleScene.h>
-#include <framework/world/World.h>
-#include <framework/world/GameObject.h>
 #include <render/resource/Texture.h>
 
 namespace sky {
-    class SampleRayMarching : public SampleScene {
+
+    class SampleSceneCube : public SampleScene {
     public:
-        SampleRayMarching() = default;
-        ~SampleRayMarching() override = default;
+        SampleSceneCube() = default;
+        ~SampleSceneCube() override = default;
 
         bool Start(RenderWindow *window) override;
         void Shutdown() override;
         void Resize(uint32_t width, uint32_t height) override;
 
     private:
-        GameObject *meshObj = nullptr;
+        GameObject *cube = nullptr;
         GameObject *camera = nullptr;
     };
 

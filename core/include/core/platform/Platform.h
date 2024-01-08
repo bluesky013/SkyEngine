@@ -24,3 +24,19 @@
     #define SKY_EXPORT __attribute__((visibility("default")))
     #define SKY_IMPORT __attribute__((visibility("default")))
 #endif
+
+#include <cstdint>
+
+namespace sky {
+
+    enum class PlatformType : uint32_t {
+        DEFAULT,
+        WINDOWS,
+        MACOS,
+        LINUX,
+        ANDROID,
+        IOS,
+        UNDEFINED
+    };
+
+} // namespace sky

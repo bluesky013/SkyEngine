@@ -21,4 +21,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     add_compile_definitions(NOMINMAX)
 endif()
 
+if (SKY_EDITOR OR SKY_BUILD_TOOL)
+    add_compile_definitions(SKY_EDITOR)
+endif ()
+
 add_compile_definitions("$<$<CONFIG:Debug>:_DEBUG;DEBUG>")

@@ -3,9 +3,9 @@
 //
 
 #include <framework/asset/AssetManager.h>
+#include <render/RHI.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
-#include <render/RHI.h>
 
 namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
@@ -22,7 +22,7 @@ namespace sky {
             archive.LoadValue(subMesh.indexCount);
             std::string idStr;
             archive.LoadValue(idStr);
-            subMesh.material = am->LoadAsset<MaterialInstance>(Uuid::CreateFromString(idStr));
+//            subMesh.material = am->LoadAsset<MaterialInstance>(Uuid::CreateFromString(idStr));
 
             archive.LoadValue(subMesh.aabb.min.x);
             archive.LoadValue(subMesh.aabb.min.y);
@@ -36,12 +36,12 @@ namespace sky {
         for (uint32_t i = 0; i < size; ++i){
             std::string idStr;
             archive.LoadValue(idStr);
-            vertexBuffers[i] = am->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
+//            vertexBuffers[i] = am->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
         }
         {
             std::string idStr;
             archive.LoadValue(idStr);
-            indexBuffer = am->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
+//            indexBuffer = am->LoadAsset<Buffer>(Uuid::CreateFromString(idStr));
         }
         archive.LoadValue(indexType);
         archive.LoadValue(size);
@@ -90,14 +90,14 @@ namespace sky {
         for (const auto &vb : data.vertexBuffers) {
             auto buffer = std::make_shared<Buffer>();
             buffer->Init(vb->Data().size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(vb->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
+//            handle = buffer->Upload(vb->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
             mesh->AddVertexBuffer(buffer);
         }
 
         if (data.indexBuffer) {
             auto buffer = std::make_shared<Buffer>();
             buffer->Init(data.indexBuffer->Data().size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(data.indexBuffer->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
+//            handle = buffer->Upload(data.indexBuffer->GetPath(), *queue, data.indexBuffer->Data().GetDataOffset());
             mesh->SetIndexBuffer(buffer);
         }
         mesh->SetIndexType(data.indexType);

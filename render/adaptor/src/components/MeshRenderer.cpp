@@ -2,13 +2,13 @@
 // Created by Zach Lee on 2023/2/28.
 //
 
-#include <render/adaptor/components/MeshRenderer.h>
-#include <framework/serialization/JsonArchive.h>
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/Util.h>
-#include <render/mesh/MeshFeatureProcessor.h>
-#include <framework/world/TransformComponent.h>
+#include <framework/serialization/JsonArchive.h>
 #include <framework/world/GameObject.h>
+#include <framework/world/TransformComponent.h>
+#include <render/adaptor/Util.h>
+#include <render/adaptor/components/MeshRenderer.h>
+#include <render/mesh/MeshFeatureProcessor.h>
 
 namespace sky {
 
@@ -40,7 +40,7 @@ namespace sky {
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
-        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
+//        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
         ResetMesh();
     }
 
