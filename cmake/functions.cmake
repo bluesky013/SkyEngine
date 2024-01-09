@@ -1,6 +1,6 @@
 function(sky_add_exe)
     cmake_parse_arguments(TMP
-        "WIN32"
+        "WIN32;MACOSX_BUNDLE"
         "TARGET"
         "SOURCES;INCS;LIBS"
         ${ARGN}
@@ -13,7 +13,9 @@ function(sky_add_exe)
     unset(TMP_TYPE)
     if (TMP_WIN32)
         set(TMP_TYPE WIN32)
-    endif()
+    elseif(TMP_MACOSX_BUNDLE)
+        set(TMP_TYPE MACOSX_BUNDLE)
+    endif ()
 
     add_executable(${TMP_TARGET} ${TMP_TYPE} ${TMP_SOURCES})
     foreach (dep ${TMP_LINK_LIBS})

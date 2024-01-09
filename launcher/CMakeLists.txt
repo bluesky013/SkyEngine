@@ -6,7 +6,7 @@ endif()
 file(GLOB_RECURSE COMMON_SRC common/*)
 
 if (NOT ANDROID)
-    sky_add_exe(TARGET Launcher ${PLATFORM_TYPE}
+    sky_add_exe(TARGET Launcher ${PLATFORM_BUNDLE}
         SOURCES
             ${PLATFORM_SRC}
             ${COMMON_SRC}

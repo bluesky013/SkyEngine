@@ -1,4 +1,4 @@
-sky_add_exe(TARGET AssetBrowser ${PLATFORM_TYPE}
+sky_add_exe(TARGET AssetBrowser
     SOURCES
         main.cpp
     INCS
