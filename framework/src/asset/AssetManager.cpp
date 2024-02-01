@@ -19,14 +19,20 @@
 #include <framework/platform/PlatformBase.h>
 
 static const char* TAG = "AssetManager";
-static const char* PACKAGE_PATH = "/package.repo";
-static const char* PRODUCTS_PATH = "/products/assets.bin";
-
+static const char* PACKAGE_PATH = "package.repo";
+static const char* PRODUCTS_PATH = "products";
+static const char* PRODUCTS_ASSETS_PATH = "/assets";
+static const char* PRODUCTS_ASSETS_REPO_PATH = "/assets.bin";
 static const char* PROJECT_ASSET_PREFIX = "/assets";
 static const char* ENGINE_ASSET_PREFIX = "/engine_assets";
 
 namespace sky {
     static constexpr Uuid EMPTY_UUID;
+
+    static std::string MakeStandardPath(const std::string &input)
+    {
+        return std::filesystem::path(input).make_preferred().string();
+    }
 
     static std::filesystem::path GetAssetPathByUUID(const std::string &workDir, const Uuid &uuid)
     {
@@ -43,15 +49,17 @@ namespace sky {
         std::string res;
         if (group == AssetGroup::ENGINE) {
             res = ENGINE_ASSET_PREFIX;
+        } else {
+            res = PROJECT_ASSET_PREFIX;
         }
 
         res += "/" + path;
-        return std::filesystem::path(res).make_preferred().string();
+        return MakeStandardPath(res);
     }
 
     Uuid AssetManager::GetUUIDByPath(const std::string &path)
     {
-        return Uuid::CreateWithSeed(Fnv1a32(path));
+        return Uuid::CreateWithSeed(Fnv1a32(MakeStandardPath(path)));
     }
 
     uint32_t AssetManager::CalculateFileHash(const std::string &loadPath)
@@ -68,7 +76,7 @@ namespace sky {
 #endif
 
         if (products) {
-            products->SaveToFile(workDir + PRODUCTS_PATH);
+            products->SaveToFile(workDir + PRODUCTS_ASSETS_REPO_PATH);
         }
     }
 
@@ -76,7 +84,7 @@ namespace sky {
     {
         workDir = path;
         products = std::make_unique<AssetProducts>();
-        products->LoadFromFile(workDir + PRODUCTS_PATH);
+        products->LoadFromFile(workDir + PRODUCTS_ASSETS_REPO_PATH);
     }
 
     std::string AssetManager::GetPlatformPrefix(PlatformType platform)
@@ -105,7 +113,7 @@ namespace sky {
     std::string AssetManager::GetBuildOutputPath(const std::string &parent, PlatformType platform)
     {
         auto prefix = GetPlatformPrefix(platform);
-        return prefix.empty() ? prefix : parent + "/products/" + prefix;
+        return prefix.empty() ? prefix : parent + PRODUCTS_PATH + "/" + prefix + PRODUCTS_ASSETS_PATH;
     }
 
     std::shared_ptr<AssetBase> AssetManager::CreateAsset(const Uuid &type, const Uuid &uuid)
@@ -123,6 +131,11 @@ namespace sky {
         }
 
         return asset;
+    }
+
+    std::string AssetManager::GetAssetPath(const Uuid &uuid)
+    {
+        return GetAssetPathByUUID(workDir, uuid).string();
     }
 
     std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const std::string &path, bool async)
@@ -154,7 +167,7 @@ namespace sky {
         const auto *info = products->GetProduct(uuid);
         if (info == nullptr) {
             // try build asset if exists
-
+            LOG_E(TAG, "Load Asset Failed %s", uuid.ToString().c_str());
             return {};
         }
 
@@ -224,16 +237,20 @@ namespace sky {
 
     void AssetManager::SetProjectPath(const std::string &path)
     {
-        projectPath = path;
+        projectPath = path + "/";
         projectAssetPath = path + PROJECT_ASSET_PREFIX;
         engineAssetPath = path + ENGINE_ASSET_PREFIX;
+
+        searchPathList.emplace_back(AssetSearchPath{projectPath});
         searchPathList.emplace_back(AssetSearchPath{engineAssetPath, AssetGroup::ENGINE});
         searchPathList.emplace_back(AssetSearchPath{projectAssetPath, AssetGroup::PROJECT});
 
         package = std::make_unique<AssetPackage>();
         package->LoadFromFile(projectPath + PACKAGE_PATH);
 
-        LoadConfig(projectPath + "/config/asset.json");
+        LoadConfig(projectPath + "config/asset.json");
+
+        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::DEFAULT));
     }
 
     const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)
@@ -243,7 +260,7 @@ namespace sky {
 
     const Uuid &AssetManager::ImportAndBuildAsset(const std::string &path, PlatformType target)
     {
-        auto &id = ImportAsset(path);
+        const auto &id = ImportAsset(path);
         return BuildAsset(id, target) ? id : EMPTY_UUID;
     }
 

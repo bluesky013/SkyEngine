@@ -115,6 +115,7 @@ namespace sky::builder {
             }
         }
         result.products.emplace_back(BuildProduct{KEY.data(), asset});
+        result.success = true;
     }
 
 } // namespace sky::builder

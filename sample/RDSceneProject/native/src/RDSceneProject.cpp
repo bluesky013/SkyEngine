@@ -23,12 +23,15 @@ namespace sky {
         window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
 
         Event<IWindowEvent>::Connect(nativeWindow, this);
+        return true;
+    }
 
+    void RDSceneProject::Start()
+    {
         sampleScenes.emplace_back(new SampleMesh());
-//        sampleScenes.emplace_back(new SampleSceneCube());
+        //        sampleScenes.emplace_back(new SampleSceneCube());
         sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
         NextScene();
-        return true;
     }
 
     void RDSceneProject::OnWindowResize(uint32_t width, uint32_t height)

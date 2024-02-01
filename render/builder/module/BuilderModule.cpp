@@ -12,6 +12,7 @@
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
 #include <render/adaptor/Reflection.h>
+#include <shader/ShaderCompiler.h>
 
 namespace sky::builder {
 
@@ -30,31 +31,20 @@ namespace sky::builder {
         ReflectRenderAsset(serializationContext);
         ReflectRHI(serializationContext);
 
-//        techBuilder = std::make_unique<TechniqueBuilder>();
-//        materialBuilder = std::make_unique<MaterialBuilder>();
-//        imageBuilder = std::make_unique<ImageBuilder>();
-//        prefabBuilder = std::make_unique<PrefabBuilder>();
-//        vtxLibBuilder = std::make_unique<VertexLibraryBuilder>();
-
         auto *am = AssetManager::Get();
         am->RegisterBuilder(new ShaderBuilder());
         am->RegisterBuilder(new TechniqueBuilder());
+        am->RegisterBuilder(new MaterialBuilder());
+        am->RegisterBuilder(new VertexLibraryBuilder());
+        am->RegisterBuilder(new ImageBuilder());
+        am->RegisterBuilder(new PrefabBuilder());
 
-//        AssetManager::Get()->RegisterBuilder(".jpg", imageBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".jpeg", imageBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".png", imageBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".dds", imageBuilder.get());
-//
-//
-//        AssetManager::Get()->RegisterBuilder(".tech", techBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".mat", materialBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".mati", materialBuilder.get());
-//
-//        AssetManager::Get()->RegisterBuilder(".gltf", prefabBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".glb", prefabBuilder.get());
-//        AssetManager::Get()->RegisterBuilder(".fbx", prefabBuilder.get());
-//
-//        AssetManager::Get()->RegisterBuilder(".vtxlib", vtxLibBuilder.get());
+
+        // init shader compiler
+        auto *compiler = sl::ShaderCompiler::Get();
+        for (const auto &path : am->GetSearchPathList()) {
+            compiler->AddSearchPath(path.path);
+        }
         return true;
     }
 }

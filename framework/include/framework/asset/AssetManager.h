@@ -55,6 +55,7 @@ namespace sky {
 #endif
 
         // load asset
+        std::string GetAssetPath(const Uuid &uuid);
         std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const Uuid &uuid, bool async);
         std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const std::string &path, bool async);
         std::shared_ptr<AssetBase> CreateAsset(const Uuid &type, const Uuid &uuid);

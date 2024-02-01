@@ -133,7 +133,7 @@ namespace sky::rdg {
             fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.layout);
             BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
         }
-        fullscreen.pso = GraphicsTechnique::BuildPso(*fullscreen.technique, pass.renderPass, subPass.subPassID);
+//        fullscreen.pso = GraphicsTechnique::BuildPso(*fullscreen.technique, pass.renderPass, subPass.subPassID);
     }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)

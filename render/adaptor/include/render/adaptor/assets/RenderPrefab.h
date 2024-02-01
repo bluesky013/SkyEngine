@@ -15,15 +15,12 @@ namespace sky {
     class BinaryOutputArchive;
 
     struct RenderPrefabNode {
-        uint32_t meshIndex = ~(0u);
+        Uuid mesh;
         uint32_t parentIndex = ~(0u);
         Matrix4 localMatrix;
     };
 
     struct RenderPrefabAssetData {
-        std::vector<ImageAssetPtr> images;
-        std::vector<MeshAssetPtr> meshes;
-        std::vector<MaterialInstanceAssetPtr> materials;
         std::vector<RenderPrefabNode> nodes;
 
         void Load(BinaryInputArchive &archive);

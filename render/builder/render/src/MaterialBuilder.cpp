@@ -121,7 +121,7 @@ namespace sky::builder {
             auto techArray = val.GetArray();
             for (auto &tech : techArray) {
                 if (tech.IsString()) {
-                    auto techPath = tech.GetString();
+                    const auto *techPath = tech.GetString();
                     auto techId = am->ImportAsset(techPath);
                     am->BuildAsset(techId, request.targetPlatform);
                     deps.emplace_back(techId);
@@ -132,5 +132,6 @@ namespace sky::builder {
 
         ProcessProperties(document, assetData.defaultProperties, request);
         result.products.emplace_back(BuildProduct{KEY.data(), asset, deps});
+        result.success = true;
     }
 }

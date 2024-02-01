@@ -37,6 +37,8 @@ namespace sky {
         virtual PlatformType GetType() const { return PlatformType::UNDEFINED; }
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
+        virtual std::string GetBundlePath() const { return ""; }
+        virtual std::string GetWritablePath() const { return ""; }
     protected:
         LaunchCallback launchCallback;
     };
@@ -52,6 +54,9 @@ namespace sky {
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
         AdaptivePerfManager *GetPerformanceManager() const;
+
+        std::string GetBundlePath() const { return platform->GetBundlePath(); }
+        std::string GetWritablePath() const { return platform->GetWritablePath(); }
 
         bool RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;

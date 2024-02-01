@@ -37,12 +37,6 @@ namespace sky {
 
     bool Application::Init(int argc, char **argv)
     {
-        // platform
-        sky::Platform* platform = sky::Platform::Get();
-        if (!platform->Init({})) {
-            return false;
-        }
-
         LOG_I(TAG, "Application Init Start...");
         env = Environment::Get();
         if (env == nullptr) {
@@ -74,6 +68,7 @@ namespace sky {
             LOG_I(TAG, "Load Engine Module...");
             moduleManager->TopoSort();
             moduleManager->LoadModules(arguments);
+            moduleManager->StartModules();
         }
 
         PostInit();

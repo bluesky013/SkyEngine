@@ -18,9 +18,13 @@ namespace sky::builder {
 
         void Request(const BuildRequest &build, BuildResult &result) override;
 
+        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+
     private:
         void BuildMaterial(const BuildRequest &build, BuildResult &result);
         void BuildMaterialInstance(const BuildRequest &build, BuildResult &result);
+
+        std::vector<std::string> extensions = {".mat", ".mati"};
     };
 
 }

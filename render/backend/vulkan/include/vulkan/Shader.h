@@ -14,26 +14,17 @@ namespace sky::vk {
 
     class Shader : public rhi::Shader, public DevObject {
     public:
-        ~Shader();
-
-        struct VkDescriptor {
-            VkShaderStageFlagBits stage;
-            const uint32_t       *spv  = nullptr;
-            uint32_t              size = 0;
-        };
+        ~Shader() override;
 
         VkShaderModule GetNativeHandle() const;
-
         VkShaderStageFlagBits GetShaderStage() const;
-
         uint32_t GetHash() const;
 
     private:
         friend class Device;
-        Shader(Device &);
+        explicit Shader(Device &);
 
         bool Init(const Descriptor &);
-        bool Init(const VkDescriptor &);
 
         VkShaderModule        shaderModule;
         VkShaderStageFlagBits stage;

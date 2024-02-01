@@ -4,6 +4,7 @@
 #include <framework/application/Application.h>
 #include <framework/application/ToolApplicationBase.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/platform/PlatformBase.h>
 using namespace sky;
 
 int main(int argc, char *argv[])
@@ -28,15 +29,18 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    // platform
+    sky::Platform* platform = sky::Platform::Get();
+    if (!platform->Init({})) {
+        return -1;
+    }
+
     sky::ToolApplicationBase app;
     if (!app.Init(argc, argv)) {
         return -1;
     }
 
     auto* am = AssetManager::Get();
-    am->SetProjectPath(result["project"].as<std::string>());
-    am->SetWorkPath(result["project"].as<std::string>());
-
     std::vector<Uuid> importFileList;
 
     if (result.count("list") != 0u) {

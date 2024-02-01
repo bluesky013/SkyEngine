@@ -5,7 +5,6 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
-#include <builder/shader/ShaderCompiler.h>
 #include <string_view>
 
 namespace sky::builder {
@@ -21,8 +20,7 @@ namespace sky::builder {
         void LoadConfig(const std::string &path) override;
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
     private:
-        std::unique_ptr<sl::ShaderCompiler> compiler;
-        std::vector<std::string> extensions = {".vert", ".frag", ".comp"};
+        std::vector<std::string> extensions = {".hlsl"};
     };
 
 }

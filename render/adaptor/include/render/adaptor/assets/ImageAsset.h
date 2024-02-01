@@ -15,13 +15,19 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
-    struct ImageAssetData {
-        rhi::PixelFormat format = rhi::PixelFormat::UNDEFINED;
+    struct ImageAssetHeader {
+        rhi::PixelFormat format  = rhi::PixelFormat::UNDEFINED;
+        rhi::ImageType imageType = rhi::ImageType::IMAGE_2D;
         uint32_t width       = 1;
         uint32_t height      = 1;
+        uint32_t depth       = 1;
         uint32_t mipLevels   = 1;
         uint32_t arrayLayers = 1;
-        BufferAssetPtr bufferAsset;
+        uint32_t dataSize    = 1;
+    };
+
+    struct ImageAssetData : public ImageAssetHeader {
+        Uuid bufferID;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

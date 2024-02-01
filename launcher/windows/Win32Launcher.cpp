@@ -11,6 +11,12 @@ using namespace sky;
 
 int main(int argc, char **argv)
 {
+    // platform
+    sky::Platform* platform = sky::Platform::Get();
+    if (!platform->Init({})) {
+        return -1;
+    }
+
     sky::GameApplication app;
     if (app.Init(argc, argv)) {
         app.Mainloop();

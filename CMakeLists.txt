@@ -9,8 +9,8 @@ set(ENGINE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 include(${ENGINE_ROOT}/cmake/functions.cmake)
 include(${ENGINE_ROOT}/cmake/options.cmake)
-include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 include(${ENGINE_ROOT}/cmake/configuration.cmake)
+include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 
 if (NOT ANDROID)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/lib)

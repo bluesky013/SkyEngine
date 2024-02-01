@@ -15,10 +15,11 @@
 namespace sky {
 
     struct TechniqueInstance {
-        std::string programKey;
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::GraphicsPipelinePtr pso;
+        std::vector<std::string> processors;
+
         bool rebuildPso = true;
     };
 

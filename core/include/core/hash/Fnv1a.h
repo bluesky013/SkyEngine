@@ -18,7 +18,7 @@ namespace sky {
     inline constexpr uint32_t Fnv1a32(std::string_view str)
     {
         uint32_t res  = FNVOffsetBias32;
-        uint32_t size = static_cast<uint32_t>(str.size());
+        auto size = static_cast<uint32_t>(str.size());
         for (uint32_t i = 0; i < size; ++i) {
             res ^= str[i];
             res *= FNVPrime32;

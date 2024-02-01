@@ -73,13 +73,13 @@ namespace sky {
                 forwardLayout->AddNameHandler("brdfLutMap", {4, 0});
             }
 
-//            postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
-//            brdfLutTech = AssetManager::Get()->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
+            postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
+            brdfLutTech = AssetManager::Get()->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
 //            auto skyboxTex = LoadCubeMap("/assets/skybox/output_skybox.dds");
 //            irradiance = LoadCubeMap("/assets/skybox/output_iem.dds");
 //            radiance = LoadCubeMap("/assets/skybox/output_pmrem.dds");
 //
-//            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
+            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
 //            auto skyboxMatInst = std::make_shared<MaterialInstance>();
 //            skyboxMatInst->SetMaterial(skyboxMat);
 //            skyboxMatInst->SetTexture("skybox", skyboxTex, 0);
@@ -200,7 +200,7 @@ namespace sky {
         meshObj->AddComponent<SimpleRotateComponent>();
 
         auto *mesh = meshObj->AddComponent<MeshRenderer>();
-//        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("DamagedHelmet/DamagedHelmet_mesh_0.mesh"));
+        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("models/DamagedHelmet.glb_node_damagedHelmet_-6514_mesh"));
 
 //        auto mat = AssetManager::Get()->LoadAsset<MaterialInstance>("materials/floor.mati")->CreateInstance();
 //        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);

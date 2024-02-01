@@ -40,6 +40,8 @@ namespace sky {
                 moduleManager->RegisterModule({module, {}});
             }
         }
+
+        AssetManager::Get()->SetProjectPath(projectPath);
     }
 
     void ToolApplicationBase::LoadConfigs()
@@ -76,7 +78,6 @@ namespace sky {
 
     void ToolApplicationBase::PostInit()
     {
-        AssetManager::Get()->SetProjectPath(projectPath);
     }
 #endif
 } // namespace sky

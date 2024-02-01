@@ -16,7 +16,6 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
     set(PLATFORM_BUNDLE MACOSX_BUNDLE)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_library(log-lib log)
-
     set(PLATFORM_EXT_LIBS  android ${log-lib})
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PLATFORM_EXT_LIBS winmm imm32 version setupapi)

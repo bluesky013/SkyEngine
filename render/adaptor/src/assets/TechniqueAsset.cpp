@@ -2,20 +2,21 @@
 // Created by Zach Lee on 2023/2/23.
 //
 #include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/adaptor/assets/ShaderAsset.h>
+#include <shader/ShaderCompiler.h>
 
 namespace sky {
 
     void TechniqueAssetData::Load(BinaryInputArchive &archive)
     {
-        uint32_t size = 0;
-        archive.LoadValue(size);
+        archive.LoadValue(shader.path);
+        archive.LoadValue(shader.objectOrCSMain);
+        archive.LoadValue(shader.vertOrMeshMain);
+        archive.LoadValue(shader.fragmentMain);
 
-        shaders.resize(size);
-        for (uint32_t i = 0; i < size; ++i) {
-            std::string idStr;
-            archive.LoadValue(idStr);
-//            shaders[i] = AssetManager::Get()->LoadAsset<Shader>(Uuid::CreateFromString(idStr));
-        }
+        archive.LoadValue(passTag);
+        archive.LoadValue(vertexDesc);
+        archive.LoadValue(type);
 
         archive.LoadValue(depthStencil.depthWrite);
         archive.LoadValue(depthStencil.depthTest);
@@ -25,6 +26,7 @@ namespace sky {
         archive.LoadValue(rasterState.frontFace);
         archive.LoadValue(rasterState.polygonMode);
 
+        uint32_t size = 0;
         archive.LoadValue(size);
         blendStates.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
@@ -38,17 +40,17 @@ namespace sky {
             archive.LoadValue(blend.colorBlendOp);
             archive.LoadValue(blend.alphaBlendOp);
         }
-
-        archive.LoadValue(passTag);
-        archive.LoadValue(vertexDesc);
     }
 
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
     {
-        archive.SaveValue(static_cast<uint32_t>(shaders.size()));
-        for (const auto &shader : shaders) {
-            archive.SaveValue(shader ? shader->GetUuid().ToString() : Uuid{}.ToString());
-        }
+        archive.SaveValue(shader.path);
+        archive.SaveValue(shader.objectOrCSMain);
+        archive.SaveValue(shader.vertOrMeshMain);
+        archive.SaveValue(shader.fragmentMain);
+        archive.SaveValue(passTag);
+        archive.SaveValue(vertexDesc);
+        archive.SaveValue(type);
 
         archive.SaveValue(depthStencil.depthWrite);
         archive.SaveValue(depthStencil.depthTest);
@@ -69,18 +71,18 @@ namespace sky {
             archive.SaveValue(blend.colorBlendOp);
             archive.SaveValue(blend.alphaBlendOp);
         }
-
-        archive.SaveValue(passTag);
-        archive.SaveValue(vertexDesc);
     }
 
     std::shared_ptr<Technique> CreateTechnique(const TechniqueAssetData &data)
     {
-        if (data.shaders.size() > 1) {
+        if (data.type == TechAssetType::GRAPHIC) {
             auto tech = std::make_shared<GraphicsTechnique>();
-            for (const auto &shader : data.shaders) {
-                tech->AddShader(shader->CreateInstance());
+
+            auto shaderAsset = AssetManager::Get()->LoadAsset<ShaderCollection>(data.shader.path);
+            if (shaderAsset) {
+                tech->SetShader(ShaderRef{shaderAsset->CreateInstance(), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
             }
+
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);

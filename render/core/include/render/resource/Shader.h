@@ -4,10 +4,14 @@
 
 #pragma once
 
+#include <utility>
 #include <vector>
 #include <memory>
+#include <map>
+#include <variant>
 #include <rhi/Device.h>
 #include <render/resource/ResourceGroup.h>
+#include <core/util/Uuid.h>
 
 namespace sky {
 
@@ -17,68 +21,75 @@ namespace sky {
         uint32_t size;
     };
 
+    enum class ShaderResourceType {
+        UNIFORM_BUFFER,
+        TEXTURE,
+        SAMPLER,
+        STORAGE_IMAGE,
+        STORAGE_BUFFER,
+        INPUT_ATTACHMENT,
+        PUSH_CONSTANT
+    };
+
     struct ShaderResource {
         std::string name;
-        uint32_t set;
+        uint32_t space;
         uint32_t binding;
-        uint32_t size;
-        rhi::DescriptorType type;
-        std::vector<ShaderBufferMember> members;
+        ShaderResourceType resourceType;
     };
 
-    struct PushConstant {
-        std::string name;
-        uint32_t size = 0;
-        std::vector<ShaderBufferMember> members;
-    };
-
-    class ShaderVariant {
-    public:
-        ShaderVariant() = default;
-        ~ShaderVariant() = default;
-
-        bool Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size);
-        void SetShaderResources(const std::vector<ShaderResource> &res);
-        void SetConstant(const PushConstant &constant);
-
-        const std::vector<ShaderResource> &GetShaderResources() const { return resources; }
-        const rhi::ShaderPtr &GetShader() const { return shader; }
-        rhi::ShaderStageFlagBit GetStage() const { return stage; }
-        const PushConstant &GetConstant() const { return pushConstant; }
-
-    private:
-        rhi::ShaderPtr shader;
-        rhi::ShaderStageFlagBit stage;
+    struct ShaderReflection {
         std::vector<ShaderResource> resources;
-        PushConstant pushConstant;
     };
-    using ShaderVariantPtr = std::shared_ptr<ShaderVariant>;
 
-    class Shader {
+    class ShaderPreprocessor {
     public:
-        Shader() = default;
-        ~Shader() = default;
+        ShaderPreprocessor() = default;
+        ~ShaderPreprocessor() = default;
 
-        void AddVariant(const std::string &key, const ShaderVariantPtr &variant);
-        const ShaderVariantPtr &GetVariant(const std::string &key) const;
+        struct Def {};
+
+        using ValueType = std::variant<std::string, uint32_t, Def>;
+        void SetValue(const std::string &key, const ValueType &val);
+        void CalculateHash();
+        uint32_t GetHash() const { return hash; }
+
+        std::string BuildSource() const;
+
     private:
-        std::unordered_map<std::string, ShaderVariantPtr> variants;
+        std::map<std::string, ValueType> values;
+        uint32_t hash = 0;
     };
-    using RDShaderPtr = std::shared_ptr<Shader>;
+
+    class ShaderCollection {
+    public:
+        explicit ShaderCollection(std::string val) : source(std::move(val)) {}
+        ~ShaderCollection() = default;
+
+        const std::string &RequestSource() const { return source; }
+        std::string RequestSource(const ShaderPreprocessor &);
+
+        void SetUuid(const Uuid &id) { uuid = id; }
+        const Uuid &GetUuid() const { return uuid; }
+    private:
+        std::string source;
+        Uuid uuid;
+    };
+    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
 
     class Program {
     public:
         Program() = default;
         ~Program() = default;
 
-        void AddShader(const ShaderVariantPtr &shader);
-        void BuildPipelineLayout();
-        RDResourceLayoutPtr RequestLayout(uint32_t index) const;
+        void SetShader(const ShaderCollectionPtr &shader);
 
+        RDResourceLayoutPtr RequestLayout(uint32_t index) const;
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
-        const std::vector<ShaderVariantPtr> &GetShaders() const { return shaders; }
     private:
-        std::vector<ShaderVariantPtr> shaders;
+        ShaderCollectionPtr shader;
+        ShaderReflection reflection;
+
         rhi::PipelineLayoutPtr pipelineLayout;
     };
     using RDProgramPtr = std::shared_ptr<Program>;

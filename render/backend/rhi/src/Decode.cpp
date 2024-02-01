@@ -105,11 +105,11 @@ namespace sky::rhi {
         }
     }
 
-    void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
+    uint32_t ProcessDDSHeader(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc)
     {
         auto *content = reinterpret_cast<DDSContent *>(input);
         if (content == nullptr || content->magic != 0x20534444) {
-            return;
+            return 0;
         }
 
         uint32_t offset = sizeof(DWORD) + content->header.dwSize;
@@ -143,14 +143,14 @@ namespace sky::rhi {
                     }
                 }
                 default:
-                break;
+                    break;
                 };
             }
         }
         {
             auto iter = DXGI_FORMAT_TABLE.find(format);
             if (iter == DXGI_FORMAT_TABLE.end()) {
-                return;
+                return 0;
             }
             imageDesc.format = iter->second;
         }
@@ -159,6 +159,17 @@ namespace sky::rhi {
         imageDesc.extent.width  = content->header.dwWidth;
         imageDesc.extent.height = content->header.dwHeight;
         imageDesc.mipLevels     = content->header.dwMipMapCount;
+
+        if ((content->header.dwCaps2 & DDSCAPS2_CUBEMAP) != 0u) {
+            imageDesc.arrayLayers = 6;
+        }
+
+        return offset;
+    }
+
+    void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
+    {
+        uint32_t offset = ProcessDDSHeader(input, size, imageDesc);
 
         auto iter = FORMAT_INFO.find(imageDesc.format);
         if (iter == FORMAT_INFO.end()) {

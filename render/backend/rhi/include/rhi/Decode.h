@@ -14,5 +14,6 @@ namespace sky::rhi {
 
     void ProcessASTC(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests);
 
+    uint32_t ProcessDDSHeader(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc);
     void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests);
 }

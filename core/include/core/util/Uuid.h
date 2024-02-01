@@ -49,7 +49,7 @@ namespace sky {
         {
             Uuid res;
             if (str.size() != 36) {
-                return Uuid();
+                return {};
             }
 
             uint32_t index = 0;
@@ -60,7 +60,7 @@ namespace sky {
                 auto c1 = GetDigit(str[i++]);
                 auto c2 = GetDigit(str[i]);
                 if (c1 == std::string_view::npos || c2 == std::string_view::npos) {
-                    return Uuid();
+                    return {};
                 }
                 res.data[index] = (c1 << 4) & 0xF0;
                 res.data[index++] |= (c2 & 0x0F);
@@ -70,13 +70,14 @@ namespace sky {
 
         std::string ToString() const;
 
-        operator bool() const
+        explicit operator bool() const
         {
-            return word[0] == 0 && word[1] == 0;
+            return word[0] != 0 || word[1] != 0;
         }
 
         union {
             uint64_t word[2];
+            uint32_t u32[4];
             uint8_t  data[16];
         };
     };

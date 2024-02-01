@@ -22,6 +22,8 @@ namespace sky {
 
         bool Init(const StartArguments &args) override;
         void Shutdown() override;
+        void Start() override;
+
         void Tick(float delta) override;
 
         void OnWindowResize(uint32_t width, uint32_t height) override;

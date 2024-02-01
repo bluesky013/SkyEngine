@@ -36,18 +36,35 @@ namespace sky::builder {
         {"ONE_MINUS_SRC1_ALPHA",     rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
     };
 
-    static ShaderAssetPtr GetShader(TechniqueAssetData &data, rapidjson::Document &document, const std::string &shaderStage)
+    static void ProcessShader(rapidjson::Document &document, ShaderRefData &shader, TechAssetType type)
     {
-        auto &val = document["shaders"];
-        if (val.HasMember(shaderStage.c_str())) {
-            const auto *relativePath = val[shaderStage.c_str()].GetString();
-            auto *am = AssetManager::Get();
-            const auto &id = am->ImportAsset(relativePath);
-            auto shader = am->CreateAsset<Shader>(id);
-            am->BuildAsset(id);
-            return shader;
+        auto &val = document["shader"];
+
+        if (type == TechAssetType::MESH) {
+            if (val.HasMember("object")) {
+                shader.objectOrCSMain = val["object"].GetString();
+            }
+
+            if (val.HasMember("mesh")) {
+                shader.vertOrMeshMain = val["mesh"].GetString();
+            }
+        } else {
+            if (val.HasMember("vertex")) {
+                shader.vertOrMeshMain = val["vertex"].GetString();
+            }
         }
-        return {};
+
+        if (val.HasMember("mesh")) {
+            shader.vertOrMeshMain = val["mesh"].GetString();
+        }
+
+        if (val.HasMember("fragment")) {
+            shader.fragmentMain = val["fragment"].GetString();
+        }
+
+        if (val.HasMember("path")) {
+            shader.path = val["path"].GetString();
+        }
     }
 
     static void GetPassInfo(rapidjson::Document &document, TechniqueAssetData &data)
@@ -156,16 +173,16 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessGraphics(const std::filesystem::path& path, rapidjson::Document &document, TechniqueAssetData &data)
+    static void ProcessGraphics(rapidjson::Document &document, TechniqueAssetData &data, const BuildRequest &request)
     {
-        data.shaders.emplace_back(GetShader(data, document, "vert"));
-        data.shaders.emplace_back(GetShader(data, document, "frag"));
-
+        ProcessShader(document, data.shader, data.type);
         ProcessDepthStencil(document, data.depthStencil);
         ProcessBlendStates(document, data.blendStates);
         ProcessRasterStates(document, data.rasterState);
         GetPassInfo(document, data);
         GetVertexDescInfo(document, data);
+
+        AssetManager::Get()->ImportAndBuildAsset(data.shader.path);
     }
 
     void TechniqueBuilder::Request(const BuildRequest &request, BuildResult &result)
@@ -190,7 +207,7 @@ namespace sky::builder {
         if (type == "graphics") {
             auto asset = am->CreateAsset<Technique>(request.uuid);
             TechniqueAssetData &assetData = asset->Data();
-            ProcessGraphics(request.fullPath, document, assetData);
+            ProcessGraphics(document, assetData, request);
             result.products.emplace_back(BuildProduct{"GFX_TECH", asset});
         }
         result.success = true;

@@ -16,5 +16,9 @@ namespace sky::builder {
         static constexpr std::string_view KEY = "GFX_VLIB";
 
         void Request(const BuildRequest &request, BuildResult &result) override;
+        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+
+    private:
+        std::vector<std::string> extensions = {".vtxlib"};
     };
 } // sky::builder

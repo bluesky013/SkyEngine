@@ -40,23 +40,6 @@ namespace sky::vk {
         return true;
     }
 
-    bool Shader::Init(const VkDescriptor &des)
-    {
-        VkShaderModuleCreateInfo shaderInfo = {};
-        shaderInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        shaderInfo.codeSize                 = des.size;
-        shaderInfo.pCode                    = des.spv;
-        stage                               = des.stage;
-
-        auto rst = vkCreateShaderModule(device.GetNativeHandle(), &shaderInfo, VKL_ALLOC, &shaderModule);
-        if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create shader module failed %d", rst);
-            return false;
-        }
-        hash = Crc32::Cal(reinterpret_cast<const uint8_t *>(shaderInfo.pCode), static_cast<uint32_t>(shaderInfo.codeSize));
-        return true;
-    }
-
     VkShaderModule Shader::GetNativeHandle() const
     {
         return shaderModule;

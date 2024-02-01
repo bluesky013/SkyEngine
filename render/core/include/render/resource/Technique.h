@@ -9,17 +9,28 @@
 
 namespace sky {
 
+    struct ShaderRef {
+        ShaderCollectionPtr shaderCollection;
+        std::string objectOrCSMain;
+        std::string vertOrMeshMain;
+        std::string fragmentMain;
+    };
+
     class Technique {
     public:
         Technique() = default;
         virtual ~Technique() = default;
 
-        void AddShader(const RDShaderPtr &shader);
-        RDProgramPtr RequestProgram(const std::string &key = "");
+        void SetShader(const ShaderRef &shader);
+
+        RDProgramPtr RequestProgram(const ShaderPreprocessor &preprocessor);
+        RDProgramPtr RequestProgram();
 
     protected:
-        std::vector<RDShaderPtr> shaders;
-        std::unordered_map<std::string, RDProgramPtr> programs;
+        virtual void BuildShader(const ShaderPreprocessor &preprocessor) {}
+
+        ShaderRef shaderData;
+        std::unordered_map<uint32_t, RDProgramPtr> cachePrograms;
     };
 
     class GraphicsTechnique : public Technique {
@@ -38,10 +49,9 @@ namespace sky {
         const std::string &GetVertexDescKey() const { return vertexDescKey; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
-        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
-                                                 const rhi::RenderPassPtr &pass,
-                                                 uint32_t subPassID,
-                                                 const std::string &programKey = "");
+//        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
+//                                                 const rhi::RenderPassPtr &pass,
+//                                                 uint32_t subPassID);
 
     private:
         rhi::PipelineState state;

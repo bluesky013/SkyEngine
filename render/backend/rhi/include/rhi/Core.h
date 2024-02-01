@@ -563,6 +563,7 @@ namespace sky::rhi {
         bool depthTest      = false;
         bool depthWrite     = false;
         bool stencilTest    = false;
+        bool rsv            = false;
         CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
         float minDepth      = 0.f;
         float maxDepth      = 1.f;

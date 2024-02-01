@@ -3,9 +3,8 @@
 //
 
 #include <framework/interface/IModule.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
-#include <framework/application/SettingRegistry.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/platform/PlatformBase.h>
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
@@ -19,7 +18,8 @@
 #include <render/RHI.h>
 #include <render/Renderer.h>
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
-#include <render/resource/Technique.h>
+
+#include <shader/ShaderCompiler.h>
 
 #include <imgui/ImGuiFeature.h>
 #include <cxxopts.hpp>
@@ -89,6 +89,7 @@ namespace sky {
 
         // init renderer
         Renderer::Get()->Init();
+        Renderer::Get()->SetCacheFolder(Platform::Get()->GetWritablePath());
         return true;
     }
 
@@ -96,13 +97,22 @@ namespace sky {
     {
         // init assets
         auto *am = AssetManager::Get();
-        auto vtxLibAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
-        Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vtxLibAsset->Data()));
+
+        // init shader compiler
+        auto *compiler = sl::ShaderCompiler::Get();
+        for (const auto &path : am->GetSearchPathList()) {
+            compiler->AddSearchPath(path.path);
+        }
+
+        auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
+        if (vfAsset) {
+            Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
+        }
 
 //        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
 //        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
 
-//        MeshFeature::Get()->Init();
+        MeshFeature::Get()->Init();
 //        ParticleFeature::Get()->Init();
     }
 
