@@ -15,7 +15,7 @@ namespace sky::vk {
     class VertexInput : public rhi::VertexInput {
     public:
         VertexInput()  = default;
-        ~VertexInput() = default;
+        ~VertexInput() override = default;
 
         class Builder {
         public:

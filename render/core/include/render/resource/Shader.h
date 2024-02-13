@@ -10,88 +10,47 @@
 #include <map>
 #include <variant>
 #include <rhi/Device.h>
-#include <render/resource/ResourceGroup.h>
 #include <core/util/Uuid.h>
 
+#include <render/resource/ResourceGroup.h>
+#include <shader/ShaderCompiler.h>
+
 namespace sky {
-
-    struct ShaderBufferMember {
-        std::string name;
-        uint32_t offset;
-        uint32_t size;
-    };
-
-    enum class ShaderResourceType {
-        UNIFORM_BUFFER,
-        TEXTURE,
-        SAMPLER,
-        STORAGE_IMAGE,
-        STORAGE_BUFFER,
-        INPUT_ATTACHMENT,
-        PUSH_CONSTANT
-    };
-
-    struct ShaderResource {
-        std::string name;
-        uint32_t space;
-        uint32_t binding;
-        ShaderResourceType resourceType;
-    };
-
-    struct ShaderReflection {
-        std::vector<ShaderResource> resources;
-    };
-
-    class ShaderPreprocessor {
-    public:
-        ShaderPreprocessor() = default;
-        ~ShaderPreprocessor() = default;
-
-        struct Def {};
-
-        using ValueType = std::variant<std::string, uint32_t, Def>;
-        void SetValue(const std::string &key, const ValueType &val);
-        void CalculateHash();
-        uint32_t GetHash() const { return hash; }
-
-        std::string BuildSource() const;
-
-    private:
-        std::map<std::string, ValueType> values;
-        uint32_t hash = 0;
-    };
-
-    class ShaderCollection {
-    public:
-        explicit ShaderCollection(std::string val) : source(std::move(val)) {}
-        ~ShaderCollection() = default;
-
-        const std::string &RequestSource() const { return source; }
-        std::string RequestSource(const ShaderPreprocessor &);
-
-        void SetUuid(const Uuid &id) { uuid = id; }
-        const Uuid &GetUuid() const { return uuid; }
-    private:
-        std::string source;
-        Uuid uuid;
-    };
-    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
-
     class Program {
     public:
         Program() = default;
         ~Program() = default;
 
-        void SetShader(const ShaderCollectionPtr &shader);
-
         RDResourceLayoutPtr RequestLayout(uint32_t index) const;
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
-    private:
-        ShaderCollectionPtr shader;
-        ShaderReflection reflection;
 
+        void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
+
+    private:
+        ShaderReflection reflection;
         rhi::PipelineLayoutPtr pipelineLayout;
+        std::vector<rhi::ShaderPtr> shaders;
     };
     using RDProgramPtr = std::shared_ptr<Program>;
+
+    class ShaderCollection {
+    public:
+        explicit ShaderCollection(std::string name_, std::string source_, uint32_t hash_)
+            : name(std::move(name_))
+            , source(std::move(source_))
+            , hash(hash_) {}
+        ~ShaderCollection() = default;
+
+        void BuildAndCacheShader(const std::string &entry, rhi::ShaderStageFlagBit stage, const ShaderCompileOption &option, ShaderBuildResult &result);
+
+        const std::string &RequestSource() const { return source; }
+        const std::string &GetName() const { return name; }
+        uint32_t GetHash() const { return hash; }
+    private:
+        std::string name;
+        std::string source;
+        uint32_t hash;
+    };
+    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
 
 } // namespace sky

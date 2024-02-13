@@ -16,7 +16,7 @@ namespace sky::dx {
         explicit PipelineLayout(Device &dev);
         ~PipelineLayout() override = default;
 
-        const ID3D12RootSignature *GetRootSignature() const;
+        ID3D12RootSignature *GetRootSignature();
 
     private:
         friend class Device;

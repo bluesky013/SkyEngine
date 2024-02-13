@@ -7,41 +7,30 @@
 #include <render/Renderer.h>
 #include <render/RenderNameHandle.h>
 #include <shader/ShaderCompiler.h>
+#include <core/archive/FileArchive.h>
 
 namespace sky {
+
+    struct ShaderCacheHeader {
+        std::string signature;
+        uint32_t version;
+    };
 
     void Technique::SetShader(const ShaderRef &shader)
     {
         shaderData = shader;
-
-        const auto &source = shader.shaderCollection->RequestSource();
-        std::vector<std::vector<uint32_t>> out;
-        sl::ShaderReflection reflection = {};
-        sl::ShaderCompiler::Get()->BuildSpirV(source, {
-                                                          {shader.vertOrMeshMain, rhi::ShaderStageFlagBit::VS},
-                                                          {shader.fragmentMain, rhi::ShaderStageFlagBit::FS}
-                                                      }, out, reflection);
-
-        sl::ShaderCompiler::Get()->BuildDXIL(source);
+        RequestProgram(nullptr);
     }
 
-    RDProgramPtr Technique::RequestProgram(const ShaderPreprocessor &preprocessor)
-    {
-        auto iter = cachePrograms.find(preprocessor.GetHash());
-        if (iter != cachePrograms.end()) {
-            return iter->second;
-        }
-
-        auto program = std::make_shared<Program>();
-//        program->SetShader(shaderCollection);
-//        program->BuildPipelineLayout();
-//        cachePrograms.emplace(preprocessor.BuildSource(), program);
-        return program;
-    }
-
-    RDProgramPtr Technique::RequestProgram()
+    RDProgramPtr Technique::RequestProgram(const ShaderPreprocessorPtr &preprocessor)
     {
         auto program = std::make_shared<Program>();
+
+        ShaderCompileOption option = {};
+        option.target = ShaderCompileTarget::SPIRV;
+        option.preprocessor = preprocessor;
+
+        FillProgramInternal(*program, option);
         return program;
     }
 
@@ -69,6 +58,38 @@ namespace sky {
     {
         vertexDescKey = key;
         vertexDesc = Renderer::Get()->GetVertexDescLibrary()->FindVertexDesc(key);
+    }
+
+    void GraphicsTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
+    {
+        rhi::Shader::Descriptor shaderDesc = {};
+        {
+            ShaderBuildResult result = {};
+            shaderData.shaderCollection->BuildAndCacheShader(shaderData.vertOrMeshMain, rhi::ShaderStageFlagBit::VS, option, result);
+
+            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+            shaderDesc.stage = rhi::ShaderStageFlagBit::VS;
+
+            program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
+        }
+
+        {
+            ShaderBuildResult result = {};
+            shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::FS, option, result);
+
+            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+            shaderDesc.stage = rhi::ShaderStageFlagBit::FS;
+
+            program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
+        }
+    }
+
+    void ComputeTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
+    {
+        ShaderBuildResult result = {};
+        shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::CS, option, result);
     }
 
 //    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,

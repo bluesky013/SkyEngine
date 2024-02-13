@@ -24,7 +24,6 @@ namespace sky::builder {
         {"F_RGBA32", rhi::Format::F_RGBA32},
         {"F_R8",     rhi::Format::F_R8    },
         {"F_RG8",    rhi::Format::F_RG8   },
-        {"F_RGB8",   rhi::Format::F_RGB8  },
         {"F_RGBA8",  rhi::Format::F_RGBA8 },
     };
 

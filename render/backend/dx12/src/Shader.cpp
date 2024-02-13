@@ -11,8 +11,15 @@ namespace sky::dx {
     {
     }
 
-    bool Shader::Init(const Descriptor &)
+    bool Shader::Init(const Descriptor &desc)
     {
+        stage = desc.stage;
+
+        storage.resize(desc.size);
+        memcpy(storage.data(), desc.data, desc.size);
+
+        byteCode.BytecodeLength = desc.size;
+        byteCode.pShaderBytecode = storage.data();
         return true;
     }
 }

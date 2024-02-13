@@ -19,6 +19,11 @@ namespace sky::rhi {
             const uint8_t *data = nullptr;
             uint32_t size = 0;
         };
+
+        ShaderStageFlagBit GetStage() const { return stage; }
+
+    protected:
+        ShaderStageFlagBit stage;
     };
     using ShaderPtr = std::shared_ptr<Shader>;
 }

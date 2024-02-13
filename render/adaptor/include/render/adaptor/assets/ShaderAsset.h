@@ -13,6 +13,8 @@ namespace sky {
 
     struct ShaderAssetData {
         std::string shaderSource;
+        std::string name;
+        uint32_t hash;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

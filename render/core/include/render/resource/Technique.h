@@ -23,14 +23,12 @@ namespace sky {
 
         void SetShader(const ShaderRef &shader);
 
-        RDProgramPtr RequestProgram(const ShaderPreprocessor &preprocessor);
-        RDProgramPtr RequestProgram();
+        RDProgramPtr RequestProgram(const ShaderPreprocessorPtr &preprocessor = nullptr);
 
     protected:
-        virtual void BuildShader(const ShaderPreprocessor &preprocessor) {}
+        virtual void FillProgramInternal(Program &program, const ShaderCompileOption &option) {}
 
         ShaderRef shaderData;
-        std::unordered_map<uint32_t, RDProgramPtr> cachePrograms;
     };
 
     class GraphicsTechnique : public Technique {
@@ -54,6 +52,7 @@ namespace sky {
 //                                                 uint32_t subPassID);
 
     private:
+        void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
         rhi::PipelineState state;
         std::string vertexDescKey;
         rhi::VertexInputPtr vertexDesc;
@@ -66,6 +65,11 @@ namespace sky {
     public:
         ComputeTechnique() = default;
         ~ComputeTechnique() override = default;
+
+    private:
+        void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
+
+        rhi::PipelineState state;
     };
     using RDCompTechPtr = std::shared_ptr<ComputeTechnique>;
 } // namespace sky

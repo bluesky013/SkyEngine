@@ -120,4 +120,24 @@ namespace sky {
         return flags.operator^( bit );
     }
 
-}
+} // namespace sky
+
+namespace std {
+
+    template <typename T>
+    struct hash<sky::Flags<T>> {
+        size_t operator()(const sky::Flags<T> &flags) const noexcept
+        {
+            return static_cast<size_t>(flags.value);
+        }
+    };
+
+    template <typename T>
+    struct equal_to<sky::Flags<T>> {
+        bool operator()(const sky::Flags<T> &x, const sky::Flags<T> &y) const noexcept
+        {
+            return x.value == y.value;
+        }
+    };
+
+} // namespace std

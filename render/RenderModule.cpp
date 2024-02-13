@@ -99,7 +99,7 @@ namespace sky {
         auto *am = AssetManager::Get();
 
         // init shader compiler
-        auto *compiler = sl::ShaderCompiler::Get();
+        auto *compiler = ShaderCompiler::Get();
         for (const auto &path : am->GetSearchPathList()) {
             compiler->AddSearchPath(path.path);
         }

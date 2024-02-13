@@ -21,7 +21,6 @@ namespace sky {
         uint64_t GetPerformanceCounter() const override;
         std::string GetInternalPath() const override { return ""; }
 
-        std::string GetBundlePath() const;
-        std::string GetWritablePath() const;
+        std::string GetBundlePath() const override;
     };
 }

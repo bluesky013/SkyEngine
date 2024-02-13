@@ -15,12 +15,14 @@ namespace sky::dx {
         explicit DescriptorSetLayout(Device &dev);
         ~DescriptorSetLayout() override = default;
 
+        const std::unordered_map<rhi::ShaderStageFlags, D3D12_ROOT_DESCRIPTOR_TABLE> &GetDescriptorTableMap() const { return descriptorTableMap; }
+
     private:
         friend class Device;
         bool Init(const Descriptor &desc);
 
-        std::vector<D3D12_DESCRIPTOR_RANGE> ranges;
-        D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable;
+        std::unordered_map<rhi::ShaderStageFlags, std::vector<D3D12_DESCRIPTOR_RANGE>> rangeMap;
+        std::unordered_map<rhi::ShaderStageFlags, D3D12_ROOT_DESCRIPTOR_TABLE> descriptorTableMap;
     };
 
 }

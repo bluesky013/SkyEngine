@@ -38,9 +38,4 @@ namespace sky {
     {
         return SDL_GetBasePath();
     }
-
-    std::string SDLPlatform::GetWritablePath() const
-    {
-        return "";
-    }
 } // namespace sky

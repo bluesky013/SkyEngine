@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <string>
 #include <core/template/Flags.h>
 
 namespace sky {
@@ -85,7 +86,6 @@ namespace sky::rhi {
         F_RGBA32  = 4,
         F_R8     = 5,
         F_RG8    = 6,
-        F_RGB8   = 7,
         F_RGBA8  = 8
     };
 
@@ -587,6 +587,7 @@ namespace sky::rhi {
         bool             depthClampEnable        = false;
         bool             rasterizerDiscardEnable = false;
         bool             depthBiasEnable         = false;
+        bool             depthClipEnable         = false;
         float            depthBiasConstantFactor = 0.f;
         float            depthBiasClamp          = 0.f;
         float            depthBiasSlopeFactor    = 0.f;
@@ -601,6 +602,7 @@ namespace sky::rhi {
     };
 
     struct MultiSample {
+        bool alphaToCoverage = false;
         SampleCount sampleCount = SampleCount::X1;
     };
 
@@ -613,6 +615,7 @@ namespace sky::rhi {
     };
 
     struct VertexAttributeDesc {
+        std::string sematic;
         uint32_t location = 0;
         uint32_t binding  = 0;
         uint32_t offset   = 0;

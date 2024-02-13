@@ -23,7 +23,7 @@ namespace sky::vk {
 
     class DescriptorSetLayout : public rhi::DescriptorSetLayout, public DevObject {
     public:
-        ~DescriptorSetLayout();
+        ~DescriptorSetLayout() override;
 
         struct SetBinding {
             VkDescriptorType         descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
@@ -48,7 +48,7 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        DescriptorSetLayout(Device &);
+        explicit DescriptorSetLayout(Device &);
 
         VkDescriptor          info;
         VkDescriptorSetLayout layout;

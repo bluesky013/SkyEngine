@@ -15,7 +15,7 @@ namespace sky::dx {
         explicit ImageView(Device &dev);
         ~ImageView() override;
 
-        std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const;
+        std::shared_ptr<rhi::ImageView> CreateView(const rhi::ImageViewDesc &desc) const override;
         rhi::PixelFormat GetFormat() const override;
         const rhi::Extent3D &GetExtent() const override;
     private:

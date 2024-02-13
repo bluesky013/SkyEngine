@@ -3,10 +3,29 @@
 //
 
 #include "Win32Platform.h"
+
+#include <xstring>
+#include <filesystem>
+
 #include <windows.h>
+#include <shlobj_core.h>
+
 static const char* TAG = "Win32Platform";
 
 namespace sky {
+
+    std::string StringWideCharToUtf8(const std::wstring_view &strWideChar)
+    {
+        std::string ret;
+        if (!strWideChar.empty()) {
+            int num = WideCharToMultiByte(CP_UTF8, 0, strWideChar.data(), -1, nullptr, 0, nullptr, FALSE);
+            if (num != 0) {
+                ret.resize(num + 1, 0);
+                num = WideCharToMultiByte(CP_UTF8, 0, strWideChar.data(), -1, ret.data(), num + 1, nullptr, FALSE);
+            }
+        }
+        return ret;
+    }
 
     struct Pipe {
         ~Pipe();
@@ -58,6 +77,15 @@ namespace sky {
     PlatformType Win32Platform::GetType() const
     {
         return PlatformType::WINDOWS;
+    }
+
+    std::string Win32Platform::GetWritablePath() const
+    {
+        static const uint32_t MAX_WRITABLE_PATH = 128;
+        wchar_t fullPath[MAX_WRITABLE_PATH + 1];
+        ::GetModuleFileNameW(nullptr, fullPath, MAX_WRITABLE_PATH + 1);
+
+        return std::filesystem::path(StringWideCharToUtf8(fullPath)).parent_path().string();
     }
 
     bool Win32Platform::RunCmd(const std::string &cmd, std::string &out) const

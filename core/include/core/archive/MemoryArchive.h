@@ -18,7 +18,7 @@ namespace sky {
         template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
         bool Save(const T &v)
         {
-            return Save(reinterpret_cast<const char *>(&v), sizeof(T));
+            return Save(reinterpret_cast<const uint8_t *>(&v), sizeof(T));
         }
 
         template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>

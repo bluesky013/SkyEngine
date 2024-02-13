@@ -4,33 +4,22 @@
 
 #include <shader/ShaderCompiler.h>
 
-#include <spirv_cross/spirv_cpp.hpp>
-#include <spirv_cross/spirv_msl.hpp>
-
 #include <core/file/FileIO.h>
-#include <core/logger/Logger.h>
-
-#include <core/platform/Platform.h>
+#include <core/template/Overloaded.h>
+#include <core/hash/Hash.h>
+#include <core/hash/Crc32.h>
 
 #include<boost/tokenizer.hpp>
 
-// glslang
-#include <glslang/Public/ShaderLang.h>
-#include <glslang/Public/ResourceLimits.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
-
-// dxcompiler
-#include <windows.h>
-#include <dxcapi.h>
-#include <wrl/client.h>
-
 #include <filesystem>
 #include <fstream>
+#include <utility>
 
+#include <shader/ShaderCompilerDXC.h>
 
 static const char* TAG = "ShaderCompiler";
 
-namespace sky::sl {
+namespace sky {
     static std::pair<bool, std::string> GetShaderSource(const std::string &path)
     {
         std::fstream f(path, std::ios::binary | std::ios::in);
@@ -52,34 +41,6 @@ namespace sky::sl {
             inout.replace(pos, what.length(), with.data(), with.length());
         }
         return count;
-    }
-
-    static EShLanguage GetLanguage(rhi::ShaderStageFlagBit type)
-    {
-        switch (type) {
-        case rhi::ShaderStageFlagBit::VS: return EShLangVertex;
-        case rhi::ShaderStageFlagBit::FS: return EShLangFragment;
-        case rhi::ShaderStageFlagBit::CS: return EShLangCompute;
-        default:
-            break;
-        }
-        SKY_UNEXPECTED;
-        return EShLangCount;
-    }
-
-    static rhi::ShaderStageFlags GetVisibility(EShLanguageMask mask)
-    {
-        rhi::ShaderStageFlags res = {};
-        if ((mask & EShLangVertexMask) == EShLangVertexMask) {
-            res |= rhi::ShaderStageFlagBit::VS;
-        }
-        if ((mask & EShLangFragmentMask) == EShLangFragmentMask) {
-            res |= rhi::ShaderStageFlagBit::FS;
-        }
-        if ((mask & EShLangComputeMask) == EShLangComputeMask) {
-            res |= rhi::ShaderStageFlagBit::CS;
-        }
-        return res;
     }
 
     std::pair<bool, std::string> GetSourceFromFile(const std::vector<std::string> &searchPaths, const std::string &path)
@@ -163,153 +124,155 @@ namespace sky::sl {
         return ProcessShaderSource(path).second;
     }
 
-    void ShaderCompiler::BuildSpirV(const std::string &source,
-                                    const std::vector<std::pair<std::string, rhi::ShaderStageFlagBit>> &entries,
-                                    std::vector<std::vector<uint32_t>> &out,
-                                    ShaderReflection &reflection)
-    {
-        glslang::InitializeProcess();
-
-        const auto *ptr = source.c_str();
-
-        glslang::TProgram program;
-        std::vector<std::unique_ptr<glslang::TShader>> shaders(entries.size());
-        out.resize(entries.size());
-
-        uint32_t i = 0;
-        for (const auto &[entry, type] : entries) {
-            shaders[i] = std::make_unique<glslang::TShader>(GetLanguage(type));
-            shaders[i]->setStrings(&ptr, 1);
-            shaders[i]->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
-            shaders[i]->setEnvInput(glslang::EShSourceHlsl, shaders[i]->getStage(), glslang::EShClientVulkan, 130);
-            shaders[i]->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
-            shaders[i]->setEntryPoint(entry.c_str());
-            if (!shaders[i]->parse(GetDefaultResources(), 450, false, EShMsgAST)) {
-                LOG_E(TAG, "shader parse failed: path: %s\n", shaders[i]->getInfoLog());
-                return;
-            }
-            program.addShader(shaders[i].get());
-            ++i;
-        }
-
-        if (!program.link(EShMsgDefault)) {
-            LOG_E(TAG, "link shader failed: %s\n", program.getInfoLog());
-            return;
-        }
-
-        program.buildReflection();
-        int uniformBlock = program.getNumUniformBlocks();
-        for (int index = 0; index < uniformBlock; ++index) {
-            const auto &block = program.getUniformBlock(index);
-            ShaderResource res = {};
-            res.name = block.name;
-            res.visibility = GetVisibility(block.stages);
-            res.group = block.getType()->getQualifier().layoutSet;
-            res.binding = block.getBinding();
-            res.size = block.size;
-
-            auto storage = block.getType()->getQualifier().storage;
-            if (storage == glslang::EvqUniform) {
-                res.type = rhi::DescriptorType::UNIFORM_BUFFER;
-
-                if (!block.getType()->isStruct()) {
-                    continue;
-                }
-                const auto *structType = block.getType()->getStruct();
-                for (int j = 0; j < structType->size(); ++j) {
-                    const auto &member = block.getType()->getStruct()->at(j);
-                    ShaderVariable variable = {};
-                    variable.group = res.group;
-                    variable.binding = res.binding;
-                    variable.name = member.type->getFieldName();
-                    reflection.variables.emplace_back(variable);
-                }
-            } else if (storage == glslang::EvqBuffer) {
-                res.type = rhi::DescriptorType::STORAGE_BUFFER;
-            }
-
-            reflection.resources.emplace_back(res);
-        }
-
-        int uniformVariable = program.getNumUniformVariables();
-        for (int index = 0; index < uniformVariable; ++index) {
-            const auto &var = program.getUniform(index);
-            if (var.getType()->isOpaque()) {
-                printf("uniform var: %s, %d, %d\n", var.name.c_str(), var.stages, var.numMembers);
-                ShaderResource res = {};
-                res.name = var.name;
-
-                const auto *type = var.getType();
-                if (type->isTexture()) {
-                    res.type = rhi::DescriptorType::SAMPLED_IMAGE;
-                } else if (type->isImage()) {
-                    res.type = rhi::DescriptorType::STORAGE_IMAGE;
-                } else if (type->getSampler().sampler) {
-                    res.type = rhi::DescriptorType::SAMPLER;
-                } else if (type->isSubpass()) {
-                    res.type = rhi::DescriptorType::INPUT_ATTACHMENT;
-                }
-
-                res.visibility = GetVisibility(var.stages);
-                res.group = type->getQualifier().layoutSet;
-                res.binding = type->getQualifier().layoutBinding;
-                res.size = 0;
-                reflection.resources.emplace_back(res);
-            } else {
-                auto iter = std::find_if(reflection.variables.begin(), reflection.variables.end(), [&](const auto &p) {
-                    return p.name == var.name;
-                });
-                if (iter != reflection.variables.end()) {
-                    iter->offset = var.offset;
-                }
-            }
-        }
-
-        glslang::SpvOptions spvOptions = {};
-        spvOptions.stripDebugInfo = true;
-        spvOptions.disableOptimizer = false;
-        spvOptions.optimizeSize = true;
-        for (i = 0; i < entries.size(); ++i) {
-            glslang::GlslangToSpv(*program.getIntermediate(shaders[i]->getStage()), out[i], &spvOptions);
-        }
-    }
-
-    template <typename T>
-    using ComPtr = Microsoft::WRL::ComPtr<T>;
-
-    void ShaderCompiler::BuildDXIL(const std::string &source)
-    {
-        ComPtr<IDxcUtils> pUtils;
-        DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(pUtils.GetAddressOf()));
-
-        ComPtr<IDxcCompiler3> pCompiler;
-        DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(pCompiler.GetAddressOf()));
-
-        ComPtr<IDxcBlobEncoding> pSource;
-        pUtils->CreateBlob(source.data(), source.size(), CP_UTF8, pSource.GetAddressOf());
-
-        DxcBuffer sourceBuffer;
-        sourceBuffer.Ptr = pSource->GetBufferPointer();
-        sourceBuffer.Size = pSource->GetBufferSize();
-        sourceBuffer.Encoding = 0;
-
-        ComPtr<IDxcResult> pCompileResult;
-        pCompiler->Compile(&sourceBuffer, nullptr, 0, nullptr, IID_PPV_ARGS(pCompileResult.GetAddressOf()));
-
-        // Error Handling. Note that this will also include warnings unless disabled.
-        ComPtr<IDxcBlobUtf8> pErrors;
-        pCompileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(pErrors.GetAddressOf()), nullptr);
-    }
-
     ShaderCompiler::ShaderCompiler()
     {
-        glslang::InitializeProcess();
+        auto dxc = std::make_unique<ShaderCompilerDXC>();
+        if (dxc->Init()) {
+            compiler = std::move(dxc);
+        }
     }
 
     ShaderCompiler::~ShaderCompiler()
     {
-        glslang::FinalizeProcess();
+        compiler = nullptr;
     }
+
+    bool ShaderCompiler::Compile(const ShaderSourceDesc &desc, const ShaderCompileOption &option, ShaderBuildResult &result)
+    {
+        return compiler->CompileBinary(desc, option, result);
+    }
+
+    void ShaderPreprocessor::SetValue(const std::string &key, const MacroValue &val)
+    {
+        values[key] = val;
+        CalculateHash();
+    }
+
+    void ShaderPreprocessor::CalculateHash()
+    {
+        hash = 0;
+        for (auto &[key, val] : values) {
+            std::visit(Overloaded{
+                           [&](const ShaderDef &v) {
+                               HashCombine32(hash, static_cast<uint32_t>(v.enable));
+                           },
+                           [&](const auto &v){
+                               HashCombine32(hash, Crc32::Cal(v));
+                           }
+                       }, val);
+        }
+    }
+
+//    void ShaderCompiler::BuildSpirV(const std::string &source,
+//                                    const std::vector<std::pair<std::string, rhi::ShaderStageFlagBit>> &entries,
+//                                    std::vector<std::vector<uint32_t>> &out,
+//                                    ShaderReflection &reflection)
+//    {
+//        glslang::InitializeProcess();
+//
+//        const auto *ptr = source.c_str();
+//
+//        glslang::TProgram program;
+//        std::vector<std::unique_ptr<glslang::TShader>> shaders(entries.size());
+//        out.resize(entries.size());
+//
+//        uint32_t i = 0;
+//        for (const auto &[entry, type] : entries) {
+//            shaders[i] = std::make_unique<glslang::TShader>(GetLanguage(type));
+//            shaders[i]->setStrings(&ptr, 1);
+//            shaders[i]->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
+//            shaders[i]->setEnvInput(glslang::EShSourceHlsl, shaders[i]->getStage(), glslang::EShClientVulkan, 130);
+//            shaders[i]->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+//            shaders[i]->setEntryPoint(entry.c_str());
+//            if (!shaders[i]->parse(GetDefaultResources(), 450, false, EShMsgAST)) {
+//                LOG_E(TAG, "shader parse failed: path: %s\n", shaders[i]->getInfoLog());
+//                return;
+//            }
+//            program.addShader(shaders[i].get());
+//            ++i;
+//        }
+//
+//        if (!program.link(EShMsgDefault)) {
+//            LOG_E(TAG, "link shader failed: %s\n", program.getInfoLog());
+//            return;
+//        }
+//
+//        program.buildReflection();
+//        int uniformBlock = program.getNumUniformBlocks();
+//        for (int index = 0; index < uniformBlock; ++index) {
+//            const auto &block = program.getUniformBlock(index);
+//            ShaderResource res = {};
+//            res.name = block.name;
+//            res.visibility = GetVisibility(block.stages);
+//            res.group = block.getType()->getQualifier().layoutSet;
+//            res.binding = block.getBinding();
+//            res.size = block.size;
+//
+//            auto storage = block.getType()->getQualifier().storage;
+//            if (storage == glslang::EvqUniform) {
+//                res.type = rhi::DescriptorType::UNIFORM_BUFFER;
+//
+//                if (!block.getType()->isStruct()) {
+//                    continue;
+//                }
+//                const auto *structType = block.getType()->getStruct();
+//                for (int j = 0; j < structType->size(); ++j) {
+//                    const auto &member = block.getType()->getStruct()->at(j);
+//                    ShaderVariable variable = {};
+//                    variable.group = res.group;
+//                    variable.binding = res.binding;
+//                    variable.name = member.type->getFieldName();
+//                    reflection.variables.emplace_back(variable);
+//                }
+//            } else if (storage == glslang::EvqBuffer) {
+//                res.type = rhi::DescriptorType::STORAGE_BUFFER;
+//            }
+//
+//            reflection.resources.emplace_back(res);
+//        }
+//
+//        int uniformVariable = program.getNumUniformVariables();
+//        for (int index = 0; index < uniformVariable; ++index) {
+//            const auto &var = program.getUniform(index);
+//            if (var.getType()->isOpaque()) {
+//                printf("uniform var: %s, %d, %d\n", var.name.c_str(), var.stages, var.numMembers);
+//                ShaderResource res = {};
+//                res.name = var.name;
+//
+//                const auto *type = var.getType();
+//                if (type->isTexture()) {
+//                    res.type = rhi::DescriptorType::SAMPLED_IMAGE;
+//                } else if (type->isImage()) {
+//                    res.type = rhi::DescriptorType::STORAGE_IMAGE;
+//                } else if (type->getSampler().sampler) {
+//                    res.type = rhi::DescriptorType::SAMPLER;
+//                } else if (type->isSubpass()) {
+//                    res.type = rhi::DescriptorType::INPUT_ATTACHMENT;
+//                }
+//
+//                res.visibility = GetVisibility(var.stages);
+//                res.group = type->getQualifier().layoutSet;
+//                res.binding = type->getQualifier().layoutBinding;
+//                res.size = 0;
+//                reflection.resources.emplace_back(res);
+//            } else {
+//                auto iter = std::find_if(reflection.variables.begin(), reflection.variables.end(), [&](const auto &p) {
+//                    return p.name == var.name;
+//                });
+//                if (iter != reflection.variables.end()) {
+//                    iter->offset = var.offset;
+//                }
+//            }
+//        }
+//
+//        glslang::SpvOptions spvOptions = {};
+//        spvOptions.stripDebugInfo = true;
+//        spvOptions.disableOptimizer = false;
+//        spvOptions.optimizeSize = true;
+//        for (i = 0; i < entries.size(); ++i) {
+//            glslang::GlslangToSpv(*program.getIntermediate(shaders[i]->getStage()), out[i], &spvOptions);
+//        }
+//    }
 
 //    std::string ShaderCompiler::BuildGLES(const std::vector<uint32_t> &spv, const Option &option)
 //    {

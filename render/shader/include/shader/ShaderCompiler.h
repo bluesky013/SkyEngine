@@ -8,11 +8,13 @@
 #include <vector>
 #include <memory>
 #include <set>
+#include <map>
+#include <variant>
 #include <unordered_map>
 #include <core/environment/Singleton.h>
 #include <rhi/Core.h>
 
-namespace sky::sl {
+namespace sky {
 
     struct ShaderIncludeContext {
         std::vector<std::string> &searchPaths;
@@ -40,25 +42,75 @@ namespace sky::sl {
         std::vector<ShaderVariable> variables;
     };
 
+    struct ShaderBuildResult {
+        std::vector<uint32_t> data;
+        ShaderReflection reflection;
+    };
+
+    enum class ShaderCompileTarget : uint32_t {
+        SPIRV,
+        DXIL
+    };
+
+    struct ShaderDef { bool enable; };
+    using MacroValue = std::variant<ShaderDef, uint32_t>;
+
+    class ShaderPreprocessor {
+    public:
+        ShaderPreprocessor() = default;
+        ~ShaderPreprocessor() = default;
+
+        void SetValue(const std::string &key, const MacroValue &val);
+        void CalculateHash();
+        uint32_t GetHash() const { return hash; }
+
+    private:
+        std::map<std::string, MacroValue> values;
+        uint32_t hash = 0;
+    };
+    using ShaderPreprocessorPtr = std::shared_ptr<ShaderPreprocessor>;
+
+    struct ShaderCompileOption {
+        ShaderCompileTarget target;
+        ShaderPreprocessorPtr preprocessor;
+    };
+
+    struct ShaderSourceDesc {
+        std::string source;
+        std::string entry;
+        rhi::ShaderStageFlagBit stage;
+    };
+
+    class ShaderCompilerBase {
+    public:
+        ShaderCompilerBase() = default;
+        virtual ~ShaderCompilerBase() = default;
+
+        virtual bool CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result) = 0;
+    };
+
     class ShaderCompiler : public Singleton<ShaderCompiler> {
     public:
         ShaderCompiler();
         ~ShaderCompiler() override;
 
-        std::string LoadShader(const std::string &path);
         void AddSearchPath(const std::string &path) { searchPaths.emplace_back(path); }
 
-        void BuildSpirV(const std::string &source,
-                        const std::vector<std::pair<std::string, rhi::ShaderStageFlagBit>> &entries,
-                        std::vector<std::vector<uint32_t>> &out,
-                        ShaderReflection &reflection);
+        std::string LoadShader(const std::string &path);
 
-        void BuildDXIL(const std::string &source);
+//        void BuildSpirV(const std::string &source,
+//                        const std::vector<std::pair<std::string, rhi::ShaderStageFlagBit>> &entries,
+//                        std::vector<std::vector<uint32_t>> &out,
+//                        ShaderReflection &reflection);
+
+        bool Compile(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result);
 
     private:
         std::pair<bool, std::string> ProcessShaderSource(const std::string &path);
         std::pair<bool, std::string> ProcessHeaderFile(const std::string &path, ShaderIncludeContext &context, uint32_t depth);
 
         std::vector<std::string> searchPaths;
+
+        std::unique_ptr<ShaderCompilerBase> compiler;
     };
 } // namespace sky

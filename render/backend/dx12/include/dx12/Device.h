@@ -8,6 +8,8 @@
 
 #include <dx12/Base.h>
 #include <dx12/Queue.h>
+#include <dx12/Shader.h>
+#include <dx12/GraphicsPipeline.h>
 
 namespace sky::dx {
     class Instance;
@@ -34,6 +36,9 @@ namespace sky::dx {
         void WaitIdle() const override {}
         rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
         // device object
+        CREATE_DEV_OBJ(Shader)
+        CREATE_DEV_OBJ(GraphicsPipeline)
+
         rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
         rhi::ImagePtr CreateImage(const rhi::Image::Descriptor &desc) override { return nullptr; }
         rhi::BufferPtr CreateBuffer(const rhi::Buffer::Descriptor &desc) override { return nullptr; }
@@ -41,8 +46,6 @@ namespace sky::dx {
         rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
         rhi::CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) override { return nullptr; }
         rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
-        rhi::ShaderPtr CreateShader(const rhi::Shader::Descriptor &desc) override { return nullptr; }
-        rhi::GraphicsPipelinePtr CreateGraphicsPipeline(const rhi::GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
         rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
