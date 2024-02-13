@@ -355,6 +355,13 @@ namespace sky::rhi {
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
 
+    enum class DescriptorBindingFlagBit : uint32_t {
+        NONE           = 0x00,
+        VARIABLE_COUNT = 0x01
+    };
+    using DescriptorBindingFlags = Flags<DescriptorBindingFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(DescriptorBindingFlagBit)
+
     enum class CullModeFlagBits : uint32_t {
         NONE  = 0x00000000,
         FRONT = 0x00000001,

@@ -22,6 +22,7 @@ namespace sky::rhi {
             uint32_t         binding = 0;
             ShaderStageFlags visibility;
             std::string      name;
+            DescriptorBindingFlags flags;
         };
 
         struct Descriptor {

@@ -29,21 +29,6 @@ namespace sky::vk {
     {
         descriptorCount = 0;
         bindings = desc.bindings;
-        VkDescriptor vkDesc = {};
-        for (const auto &binding : desc.bindings) {
-            SetBinding vkBinding = {};
-            vkBinding.descriptorType  = FromRHI(binding.type);
-            vkBinding.descriptorCount = binding.count;
-            vkBinding.stageFlags      = FromRHI(binding.visibility);
-            vkDesc.bindings.emplace(binding.binding, vkBinding);
-            descriptorCount += binding.count;
-        }
-        return Init(vkDesc);
-    }
-
-    bool DescriptorSetLayout::Init(const VkDescriptor &des)
-    {
-        info = des;
 
         std::vector<VkDescriptorSetLayoutBinding>    bindings;
         std::vector<VkDescriptorBindingFlags>        bindingFlags;
@@ -51,38 +36,36 @@ namespace sky::vk {
         std::list<VkSampler>                         samplers;
 
         descriptorNum = 0;
-        for (const auto &[binding, desInfo] : des.bindings) {
+        for (const auto &binding : desc.bindings) {
             HashCombine32(hash, Crc32::Cal(binding));
-            HashCombine32(hash, Crc32::Cal(desInfo));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};
-            layoutBinding.binding                      = binding;
-            layoutBinding.descriptorType               = desInfo.descriptorType;
-            layoutBinding.descriptorCount              = desInfo.descriptorCount;
-            layoutBinding.stageFlags                   = desInfo.stageFlags;
-            layoutBinding.pImmutableSamplers           = nullptr;
+            layoutBinding.binding            = binding.binding;
+            layoutBinding.descriptorType     = FromRHI(binding.type);
+            layoutBinding.descriptorCount    = binding.count;
+            layoutBinding.stageFlags         = FromRHI(binding.visibility);
+            layoutBinding.pImmutableSamplers = nullptr;
             bindings.emplace_back(layoutBinding);
-            bindingFlags.emplace_back(desInfo.bindingFlags);
-
+            bindingFlags.emplace_back(FromRHI(binding.flags));
             if (IsDynamicDescriptor(layoutBinding.descriptorType)) {
-                dynamicNum += desInfo.descriptorCount;
+                dynamicNum += binding.count;
             }
 
-            if ((desInfo.bindingFlags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) == VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {
-                variableDescriptorCounts.emplace_back(desInfo.descriptorCount);
+            if ((bindingFlags.back() & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) == VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {
+                variableDescriptorCounts.emplace_back(binding.count);
             }
 
             VkDescriptorUpdateTemplateEntry templateEntry{};
-            templateEntry.dstBinding        = binding;
+            templateEntry.dstBinding        = binding.binding;
             templateEntry.dstArrayElement   = 0;
-            templateEntry.descriptorCount   = desInfo.descriptorCount;
-            templateEntry.descriptorType    = desInfo.descriptorType;
+            templateEntry.descriptorCount   = binding.count;
+            templateEntry.descriptorType    = FromRHI(binding.type);
             templateEntry.offset            = static_cast<uint32_t>(sizeof(DescriptorWriteInfo) * descriptorNum);
             templateEntry.stride            = sizeof(DescriptorWriteInfo);
-            bindingIndices[binding] = {descriptorNum, desInfo.descriptorCount};
+            bindingIndices[binding.binding] = {descriptorNum, binding.count};
             entries.emplace_back(templateEntry);
 
-            descriptorNum += desInfo.descriptorCount;
+            descriptorNum += binding.count;
         }
 
         VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};

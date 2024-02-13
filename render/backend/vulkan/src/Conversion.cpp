@@ -484,7 +484,12 @@ namespace sky::vk {
         return res;
     }
 
-
+    VkDescriptorBindingFlags FromRHI(const rhi::DescriptorBindingFlags &flags)
+    {
+        VkDescriptorBindingFlags res = 0;
+        if (flags & rhi::DescriptorBindingFlagBit::VARIABLE_COUNT) { res |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;}
+        return res;
+    }
 
     rhi::PixelFormatFeatureFlags ToRHI(VkFormatFeatureFlags flags)
     {

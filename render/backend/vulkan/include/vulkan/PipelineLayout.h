@@ -21,11 +21,6 @@ namespace sky::vk {
     public:
         ~PipelineLayout() override = default;
 
-        struct VkDescriptor {
-            std::vector<DescriptorSetLayout::VkDescriptor> desLayouts;
-            std::vector<VkPushConstantRange>             pushConstants;
-        };
-
         DescriptorSetPtr Allocate(DescriptorSetPoolPtr pool, uint32_t slot);
 
         uint32_t GetHash() const { return hash; }
@@ -42,8 +37,6 @@ namespace sky::vk {
         explicit PipelineLayout(Device &);
 
         bool Init(const Descriptor &);
-        bool Init(const VkDescriptor &);
-
         VkPipelineLayout                    layout;
         uint32_t                            dynamicNum;
         uint32_t                            hash;
