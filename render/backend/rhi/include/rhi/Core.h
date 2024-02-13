@@ -247,6 +247,7 @@ namespace sky::rhi {
 
     enum class QueueType : uint32_t {
         GRAPHICS,
+        COMPUTE,
         TRANSFER,
     };
 

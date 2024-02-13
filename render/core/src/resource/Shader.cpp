@@ -9,11 +9,13 @@
 
 #include <sstream>
 #include <filesystem>
+#include <ranges>
 
 #include <core/template/Overloaded.h>
 #include <core/hash/Hash.h>
 #include <core/hash/Fnv1a.h>
 #include <core/archive/FileArchive.h>
+#include <core/archive/MemoryArchive.h>
 
 namespace sky {
 
@@ -131,13 +133,34 @@ namespace sky {
 
                 if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
                     needUpdateShader = false;
+                    archive.Load(result.data);
+                    uint32_t size = 0;
+                    archive.Load(size);
+                    result.reflection.resources.resize(size);
+                    for (auto i : std::views::iota(0U, size)) {
+                        auto &res = result.reflection.resources[i];
 
-                    result.data.resize(shaderHeader.dataSize / sizeof(uint32_t));
-                    archive.Load(reinterpret_cast<char*>(result.data.data()), shaderHeader.dataSize);
+                        archive.Load(res.name);
+                        archive.Load(res.type);
+                        archive.Load(res.visibility.value);
+                        archive.Load(res.group);
+                        archive.Load(res.binding);
+                        archive.Load(res.count);
+                        archive.Load(res.size);
+                    }
+                    archive.Load(size);
+                    result.reflection.variables.resize(size);
+                    for (auto i : std::views::iota(0U, size)) {
+                        auto &var = result.reflection.variables[i];
+                        archive.Load(var.name);
+                        archive.Load(var.group);
+                        archive.Load(var.binding);
+                        archive.Load(var.offset);
+                        archive.Load(var.size);
+                    }
                 }
             }
         }
-
         if (needUpdateShader) {
             ShaderSourceDesc sourceDesc = {};
             sourceDesc.source = source;
@@ -146,13 +169,36 @@ namespace sky {
 
             ShaderCompiler::Get()->Compile(sourceDesc, option, result);
 
+            MemoryArchive mArchive;
+            mArchive.Save(result.data);
+
+            mArchive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
+            for (auto &res : result.reflection.resources) {
+                mArchive.Save(res.name);
+                mArchive.Save(res.type);
+                mArchive.Save(res.visibility.value);
+                mArchive.Save(res.group);
+                mArchive.Save(res.binding);
+                mArchive.Save(res.count);
+                mArchive.Save(res.size);
+            }
+
+            mArchive.Save(static_cast<uint32_t>(result.reflection.variables.size()));
+            for (auto &var : result.reflection.variables) {
+                mArchive.Save(var.name);
+                mArchive.Save(var.group);
+                mArchive.Save(var.binding);
+                mArchive.Save(var.offset);
+                mArchive.Save(var.size);
+            }
+
             shaderHeader.version = hash;
             shaderHeader.magic = ShaderCacheHeader::MAGIC;
-            shaderHeader.dataSize = static_cast<uint32_t>(result.data.size() * sizeof (uint32_t));
+            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.GetData().size());
 
             OFileArchive archive(cachePath);
             archive.Save(reinterpret_cast<const char*>(&shaderHeader), sizeof(ShaderCacheHeader));
-            archive.Save(reinterpret_cast<const char*>(result.data.data()), shaderHeader.dataSize);
+            archive.Save(reinterpret_cast<const char*>(mArchive.GetData().data()), shaderHeader.dataSize);
         }
 
     }

@@ -352,19 +352,19 @@ namespace sky::builder {
 
         // save positions
         size_t size = meshContext.position.size() * sizeof(Vector4);
-        archive.Save(reinterpret_cast<const uint8_t *>(meshContext.position.data()), size);
+        archive.Save(reinterpret_cast<const char *>(meshContext.position.data()), size);
         meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
         offset += size;
 
         // save primitives
         size = meshContext.ext.size() * sizeof(StandardVertexData);
-        archive.Save(reinterpret_cast<const uint8_t *>(meshContext.ext.data()), size);
+        archive.Save(reinterpret_cast<const char *>(meshContext.ext.data()), size);
         meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
         offset += size;
 
         // save indices
         size = meshContext.indices.size() * sizeof(uint32_t);
-        archive.Save(reinterpret_cast<const uint8_t*>(meshContext.indices.data()), size);
+        archive.Save(reinterpret_cast<const char*>(meshContext.indices.data()), size);
         meshData.indexBuffer = BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)};
 
         archive.Swap(bufferData.rawData);

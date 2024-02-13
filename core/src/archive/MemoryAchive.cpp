@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    bool MemoryArchive::Save(const uint8_t *data, size_t size)
+    bool MemoryArchive::Save(const char *data, size_t size)
     {
         auto offset = storage.size();
         storage.resize(offset + size);

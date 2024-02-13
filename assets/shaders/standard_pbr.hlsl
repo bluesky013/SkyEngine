@@ -25,6 +25,7 @@ VSOutput VSMain(VSInput input)
 
 #include "shaders/layout/standard_shading.hlsl"
 
+RWTexture2D<float4> tex;
 
 float4 FSMain(VSOutput input) : SV_TARGET
 {
@@ -33,6 +34,8 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float4 t3 = AoMap.Sample(AoSampler, input.UV.xy);
     float4 t4 = MetallicRoughnessMap.Sample(MetallicRoughnessSampler, input.UV.xy);
     float4 t5 = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
+
+    tex[int2(0, 0)] = float4(1, 1, 1, 1);
 
     return (t1 + t2 + t3 + t4 + t5) * Metallic * Roughness * Albedo;
 }

@@ -4,8 +4,11 @@
 
 #include <dx12/Swapchain.h>
 #include <dx12/Device.h>
+#include <core/logger/Logger.h>
 
 namespace sky::dx {
+    static const char* TAG = "D3D12SwapChain";
+
     SwapChain::SwapChain(Device &dev) : DevObject(dev)
     {
     }
@@ -31,8 +34,11 @@ namespace sky::dx {
          */
         swcDesc.SwapEffect  = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
         swcDesc.AlphaMode   = DXGI_ALPHA_MODE_UNSPECIFIED;
-        if (FAILED(dxgiFactory->CreateSwapChainForHwnd(device.GetGraphicsQueue()->GetNativeQueue(), reinterpret_cast<HWND>(desc.window), &swcDesc,
+
+        auto *queue = static_cast<Queue*>(device.GetQueue(rhi::QueueType::GRAPHICS));
+        if (FAILED(dxgiFactory->CreateSwapChainForHwnd(queue->GetNativeQueue(), reinterpret_cast<HWND>(desc.window), &swcDesc,
                                                        nullptr, nullptr, swapChain.GetAddressOf()))) {
+            LOG_E(TAG, "Create SwapChain Failed.");
             return false;
         }
 

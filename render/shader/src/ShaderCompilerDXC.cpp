@@ -6,6 +6,8 @@
 #include <core/logger/Logger.h>
 
 #include <vector>
+#include <ranges>
+#include <d3d12shader.h>
 
 static const char* TAG = "ShaderCompilerDXC";
 
@@ -32,9 +34,9 @@ namespace sky {
 
         std::vector<std::wstring> dxcArgStrings;
 
-        if (op.target == ShaderCompileTarget::SPIRV) {
-            dxcArgStrings.emplace_back(L"-spirv");
-        }
+//        if (op.target == ShaderCompileTarget::SPIRV) {
+//            dxcArgStrings.emplace_back(L"-spirv");
+//        }
 
         dxcArgStrings.emplace_back(L"-Zpc"); // column major
         dxcArgStrings.emplace_back(L"-Zi"); // debug info
@@ -84,6 +86,65 @@ namespace sky {
             result.data.resize(program->GetBufferSize() / sizeof(uint32_t));
             memcpy(result.data.data(), program->GetBufferPointer(), program->GetBufferSize());
         }
+
+        const DxcBuffer reflectionBuffer {
+            .Ptr      = program->GetBufferPointer(),
+            .Size     = program->GetBufferSize(),
+            .Encoding = 0,
+        };
+
+        // build reflection
+        ComPtr<ID3D12ShaderReflection> shaderReflection;
+        dxcUtils->CreateReflection(&reflectionBuffer, IID_PPV_ARGS(&shaderReflection));
+
+        D3D12_SHADER_DESC shaderDesc{};
+        shaderReflection->GetDesc(&shaderDesc);
+
+        for (auto i : std::views::iota(0U, shaderDesc.BoundResources)) {
+            D3D12_SHADER_INPUT_BIND_DESC shaderInputBindDesc{};
+            shaderReflection->GetResourceBindingDesc(i, &shaderInputBindDesc);
+
+            result.reflection.resources.emplace_back();
+            auto &resource = result.reflection.resources.back();
+            resource.group = shaderInputBindDesc.Space;
+            resource.binding = shaderInputBindDesc.BindPoint;
+            resource.count = shaderInputBindDesc.BindCount;
+            resource.name = shaderInputBindDesc.Name;
+            resource.visibility = desc.stage;
+
+            if (shaderInputBindDesc.Type == D3D_SIT_CBUFFER) {
+                ID3D12ShaderReflectionConstantBuffer* shaderReflectionConstantBuffer = shaderReflection->GetConstantBufferByIndex(i);
+                D3D12_SHADER_BUFFER_DESC constantBufferDesc{};
+                shaderReflectionConstantBuffer->GetDesc(&constantBufferDesc);
+
+                resource.type = rhi::DescriptorType::UNIFORM_BUFFER;
+                resource.size = constantBufferDesc.Size;
+
+                for (auto j : std::views::iota(0U, constantBufferDesc.Variables)) {
+                    ID3D12ShaderReflectionVariable *variable = shaderReflectionConstantBuffer->GetVariableByIndex(j);
+
+                    D3D12_SHADER_VARIABLE_DESC varDesc{};
+                    variable->GetDesc(&varDesc);
+
+                    result.reflection.variables.emplace_back();
+                    auto &var = result.reflection.variables.back();
+                    var.name = varDesc.Name;
+                    var.offset = varDesc.StartOffset;
+                    var.size = varDesc.Size;
+                    var.group = resource.group;
+                    var.binding = resource.binding;
+                }
+            } else if (shaderInputBindDesc.Type == D3D_SIT_SAMPLER) {
+                resource.type = rhi::DescriptorType::SAMPLER;
+            } else if (shaderInputBindDesc.Type == D3D_SIT_TEXTURE) {
+                resource.type = rhi::DescriptorType::SAMPLED_IMAGE;
+            } else if (shaderInputBindDesc.Type == D3D_SIT_UAV_RWTYPED) {
+                resource.type = rhi::DescriptorType::STORAGE_IMAGE;
+            } else if (shaderInputBindDesc.Type == D3D_SIT_UAV_RWSTRUCTURED) {
+                resource.type = rhi::DescriptorType::STORAGE_BUFFER;
+            }
+        }
+
         return true;
     }
 

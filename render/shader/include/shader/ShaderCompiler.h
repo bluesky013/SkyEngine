@@ -27,6 +27,7 @@ namespace sky {
         rhi::ShaderStageFlags visibility;
         uint32_t group;
         uint32_t binding;
+        uint32_t count;
         uint32_t size;
     };
 
@@ -35,6 +36,7 @@ namespace sky {
         uint32_t group;
         uint32_t binding;
         uint32_t offset;
+        uint32_t size;
     };
 
     struct ShaderReflection {

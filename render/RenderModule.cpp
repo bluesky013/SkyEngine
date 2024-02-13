@@ -54,7 +54,8 @@ namespace sky {
         options.allow_unrecognised_options();
 
         options.add_options()
-            ("p,project", "Project Directory", cxxopts::value<std::string>());
+            ("p,project", "Project Directory", cxxopts::value<std::string>())
+            ("r,rhi", "RHI Type", cxxopts::value<std::string>());
 
         auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
 

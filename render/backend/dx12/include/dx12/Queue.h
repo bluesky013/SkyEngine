@@ -17,6 +17,7 @@ namespace sky::dx {
         ~Queue() override = default;
 
         struct Descriptor {
+            rhi::QueueType type;
         };
 
         CommandBufferPtr AllocateCommandBuffer(const CommandBuffer::Descriptor &desc);
@@ -30,7 +31,6 @@ namespace sky::dx {
         friend class Device;
         bool Init(const Descriptor &);
 
-        D3D12_COMMAND_QUEUE_DESC desc;
         ComPtr<ID3D12CommandQueue> queue;
         CommandPoolPtr pool;
     };

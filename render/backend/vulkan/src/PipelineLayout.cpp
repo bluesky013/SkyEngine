@@ -59,7 +59,7 @@ namespace sky::vk {
         return std::static_pointer_cast<DescriptorSetLayout>(GetLayout(set));
     }
 
-    DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
+    DescriptorSetPtr PipelineLayout::Allocate(const DescriptorSetPoolPtr& pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {
             return {};

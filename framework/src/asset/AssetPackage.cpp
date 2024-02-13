@@ -24,10 +24,10 @@ namespace sky {
         archive.Load(number);
         for (uint32_t i = 0; i < number; ++i) {
             std::string id;
-            archive.LoadString(id);
+            archive.Load(id);
 
             SourceAssetInfo info = {};
-            archive.LoadString(info.loadPath);
+            archive.Load(info.loadPath);
             archive.Load(info.hash);
 
             std::lock_guard<std::mutex> lock(mutex);
@@ -43,8 +43,8 @@ namespace sky {
         std::lock_guard<std::mutex> lock(mutex);
         archive.Save(static_cast<uint32_t>(assetLists.size()));
         for (auto &[id, info] : assetLists) {
-            archive.SaveString(id.ToString());
-            archive.SaveString(info.loadPath);
+            archive.Save(id.ToString());
+            archive.Save(info.loadPath);
             archive.Save(info.hash);
         }
     }

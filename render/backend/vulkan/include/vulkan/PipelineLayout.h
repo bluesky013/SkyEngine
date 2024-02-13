@@ -21,7 +21,7 @@ namespace sky::vk {
     public:
         ~PipelineLayout() override = default;
 
-        DescriptorSetPtr Allocate(DescriptorSetPoolPtr pool, uint32_t slot);
+        DescriptorSetPtr Allocate(const DescriptorSetPoolPtr& pool, uint32_t slot);
 
         uint32_t GetHash() const { return hash; }
         uint32_t GetSetNumber() const { return static_cast<uint32_t>(desLayouts.size()); }

@@ -10,13 +10,16 @@
 #include <dx12/Queue.h>
 #include <dx12/Shader.h>
 #include <dx12/GraphicsPipeline.h>
+#include <dx12/DescriptorSetPool.h>
+#include <dx12/DescriptorSetLayout.h>
+#include <dx12/PipelineLayout.h>
 
 namespace sky::dx {
     class Instance;
 
     class Device : public rhi::Device {
     public:
-        ~Device() override = default;
+        ~Device() override;
 
         template <typename T>
         inline std::shared_ptr<T> CreateDeviceObject(const typename T::Descriptor &des)
@@ -31,13 +34,15 @@ namespace sky::dx {
 
         ID3D12Device1 *GetDevice() const;
         IDXGIFactory2 *GetDXGIFactory() const;
-        Queue *GetGraphicsQueue() const;
 
         void WaitIdle() const override {}
-        rhi::Queue* GetQueue(rhi::QueueType type) const override { return nullptr; }
+        rhi::Queue* GetQueue(rhi::QueueType type) const override;
         // device object
         CREATE_DEV_OBJ(Shader)
         CREATE_DEV_OBJ(GraphicsPipeline)
+        CREATE_DEV_OBJ(DescriptorSetPool)
+        CREATE_DEV_OBJ(DescriptorSetLayout)
+        CREATE_DEV_OBJ(PipelineLayout)
 
         rhi::SwapChainPtr CreateSwapChain(const rhi::SwapChain::Descriptor &desc) override { return nullptr; }
         rhi::ImagePtr CreateImage(const rhi::Image::Descriptor &desc) override { return nullptr; }
@@ -46,13 +51,10 @@ namespace sky::dx {
         rhi::FrameBufferPtr CreateFrameBuffer(const rhi::FrameBuffer::Descriptor &desc) override { return nullptr; }
         rhi::CommandBufferPtr CreateCommandBuffer(const CommandBuffer::Descriptor &desc) override { return nullptr; }
         rhi::FencePtr CreateFence(const rhi::Fence::Descriptor &desc) override { return nullptr; }
-        rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
-        rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
         rhi::SemaphorePtr CreateSema(const rhi::Semaphore::Descriptor &desc) override { return nullptr; }
         rhi::VertexInputPtr CreateVertexInput(const rhi::VertexInput::Descriptor &desc) override { return nullptr; }
         rhi::VertexAssemblyPtr CreateVertexAssembly(const rhi::VertexAssembly::Descriptor &desc) override { return nullptr; }
         rhi::SamplerPtr CreateSampler(const rhi::Sampler::Descriptor &desc) override { return nullptr; }
-        rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
         rhi::QueryPoolPtr CreateQueryPool(const rhi::QueryPool::Descriptor &desc) override { return nullptr; }
     private:
         friend class Instance;
@@ -62,7 +64,10 @@ namespace sky::dx {
         Instance &instance;
 
         ComPtr<ID3D12Device1> device;
-        QueuePtr graphicsQueue;
+        std::vector<QueuePtr> queues;
+        Queue *graphicsQueue;
+        Queue *computeQueue;
+        Queue *transferQueue;
     };
 
 }

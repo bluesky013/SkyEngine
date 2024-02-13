@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "ArchiveConcept.h"
 #include <vector>
 
 namespace sky {
@@ -13,15 +14,25 @@ namespace sky {
         MemoryArchive() = default;
         ~MemoryArchive() = default;
 
-        bool Save(const uint8_t *data, size_t size);
+        bool Save(const char *data, size_t size);
 
-        template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+        template <ContainerDataType T>
         bool Save(const T &v)
         {
-            return Save(reinterpret_cast<const uint8_t *>(&v), sizeof(T));
+            auto size = v.size() * sizeof(typename T::value_type);
+            bool res = true;
+            res &= Save(static_cast<uint32_t>(size));
+            res &= Save(reinterpret_cast<const char *>(v.data()), size);
+            return res;
         }
 
-        template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+        template <ArithmeticDataType T>
+        bool Save(const T &v)
+        {
+            return Save(reinterpret_cast<const char *>(&v), sizeof(T));
+        }
+
+        template <ArithmeticDataType T>
         MemoryArchive &operator<<(const T &v)
         {
             Save(v);
@@ -29,6 +40,7 @@ namespace sky {
         }
 
         void Swap(std::vector<uint8_t> &out) { return out.swap(storage); }
+        const std::vector<uint8_t> &GetData() const { return storage; }
 
     private:
         std::vector<uint8_t> storage;
