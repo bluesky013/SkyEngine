@@ -8,18 +8,18 @@ struct ViewInfo {
 };
 
 #define VIEW_COUNT 1
-cbuffer global : register(b0, space0)
+[[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
     float4 Viewport;
 }
 
 #if VIEW_COUNT > 1
-cbuffer view   : register(b1, space0)
+[[vk::binding(1, 0)]] cbuffer view   : register(b1, space0)
 {
     ViewInfo View[VIEW_COUNT];
 }
 #else
-cbuffer view   : register(b1, space0)
+[[vk::binding(1, 0)]] cbuffer view   : register(b1, space0)
 {
     ViewInfo View;
 }

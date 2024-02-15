@@ -25,23 +25,29 @@ namespace sky {
         std::string name;
         rhi::DescriptorType type;
         rhi::ShaderStageFlags visibility;
-        uint32_t group;
+        uint32_t set;
         uint32_t binding;
         uint32_t count;
         uint32_t size;
+        uint32_t typeIndex;
     };
 
     struct ShaderVariable {
         std::string name;
-        uint32_t group;
+        uint32_t set;
         uint32_t binding;
         uint32_t offset;
         uint32_t size;
     };
 
+    struct ShaderStructType {
+        std::string name;
+        std::vector<ShaderVariable> variables;
+    };
+
     struct ShaderReflection {
         std::vector<ShaderResource> resources;
-        std::vector<ShaderVariable> variables;
+        std::vector<ShaderStructType> types;
     };
 
     struct ShaderBuildResult {
@@ -51,7 +57,8 @@ namespace sky {
 
     enum class ShaderCompileTarget : uint32_t {
         SPIRV,
-        DXIL
+        DXIL,
+        MSL
     };
 
     struct ShaderDef { bool enable; };

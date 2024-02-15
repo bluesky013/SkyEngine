@@ -204,7 +204,7 @@ namespace sky {
 //            ShaderResource res = {};
 //            res.name = block.name;
 //            res.visibility = GetVisibility(block.stages);
-//            res.group = block.getType()->getQualifier().layoutSet;
+//            res.set = block.getType()->getQualifier().layoutSet;
 //            res.binding = block.getBinding();
 //            res.size = block.size;
 //
@@ -219,7 +219,7 @@ namespace sky {
 //                for (int j = 0; j < structType->size(); ++j) {
 //                    const auto &member = block.getType()->getStruct()->at(j);
 //                    ShaderVariable variable = {};
-//                    variable.group = res.group;
+//                    variable.set = res.set;
 //                    variable.binding = res.binding;
 //                    variable.name = member.type->getFieldName();
 //                    reflection.variables.emplace_back(variable);
@@ -251,7 +251,7 @@ namespace sky {
 //                }
 //
 //                res.visibility = GetVisibility(var.stages);
-//                res.group = type->getQualifier().layoutSet;
+//                res.set = type->getQualifier().layoutSet;
 //                res.binding = type->getQualifier().layoutBinding;
 //                res.size = 0;
 //                reflection.resources.emplace_back(res);

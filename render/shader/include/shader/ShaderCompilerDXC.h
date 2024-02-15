@@ -25,6 +25,9 @@ namespace sky {
         bool CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result) override;
 
     private:
+        void BuildReflectionDXIL(rhi::ShaderStageFlagBit stage, ShaderBuildResult &result);
+        void BuildReflectionSPIRV(rhi::ShaderStageFlagBit stage, ShaderBuildResult &result);
+
         ComPtr<IDxcUtils> dxcUtils;
         ComPtr<IDxcCompiler3> dxcCompiler;
         ComPtr<IDxcContainerReflection> containerReflection;

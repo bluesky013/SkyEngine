@@ -25,11 +25,13 @@ namespace sky {
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
 
         void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
+        void MergeReflection(ShaderReflection &&refl);
+        void BuildPipelineLayout();
 
     private:
-        ShaderReflection reflection;
         rhi::PipelineLayoutPtr pipelineLayout;
         std::vector<rhi::ShaderPtr> shaders;
+        std::unique_ptr<ShaderReflection> reflection;
     };
     using RDProgramPtr = std::shared_ptr<Program>;
 

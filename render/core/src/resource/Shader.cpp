@@ -38,52 +38,77 @@ namespace sky {
         return type;
     }
 
-    //    void Program::BuildPipelineLayout()
-    //    {
-    //        rhi::PipelineLayout::Descriptor plDesc = {};
-    //        std::vector<rhi::DescriptorSetLayout::Descriptor> layoutDesc;
-    //        for (auto &shader : shaders) {
-    //            const auto &resources = shader->GetShaderResources();
-    //            for (auto &res : resources) {
-    //                if (res.set >= layoutDesc.size()) {
-    //                    layoutDesc.resize(res.set + 1);
-    //                }
-    //
-    //                auto &bindings = layoutDesc[res.set].bindings;
-    //                auto iter = std::find_if(bindings.begin(), bindings.end(), [&res](const auto &bd) {
-    //                    return res.binding == bd.binding;
-    //                });
-    //                if (iter != bindings.end()) {
-    //                    iter->visibility |= shader->GetStage();
-    //                } else {
-    //                    rhi::DescriptorSetLayout::SetBinding binding = {};
-    //                    binding.name = res.name;
-    //                    binding.type = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
-    //                    binding.count = 1;
-    //                    binding.binding = res.binding;
-    //                    binding.visibility = shader->GetStage();
-    //                    bindings.emplace_back(binding);
-    //                }
-    //            }
-    //            const auto &constant = shader->GetConstant();
-    //            if (constant.size != 0) {
-    //                auto &push = plDesc.constants.emplace_back();
-    //                push.stageFlags = shader->GetStage();
-    //                push.offset = 0;
-    //                push.size = constant.size;
-    //            }
-    //        }
-    //
-    //        auto *device = RHI::Get()->GetDevice();
-    //        for (auto &desc : layoutDesc) {
-    //            if (desc.bindings.empty()) {
-    //                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout->GetRHILayout());
-    //            } else {
-    //                plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
-    //            }
-    //        }
-    //        pipelineLayout = device->CreatePipelineLayout(plDesc);
-    //    }
+    void Program::MergeReflection(ShaderReflection &&refl)
+    {
+        if (!reflection) {
+            reflection = std::make_unique<ShaderReflection>(std::move(refl));
+            return;
+        }
+
+        for (auto &resource : refl.resources) {
+            auto iter = std::find_if(reflection->resources.begin(), reflection->resources.end(),
+                [&resource](const ShaderResource &res) -> bool {
+                return resource.name == res.name;
+            });
+            if (iter != reflection->resources.end()) {
+                auto &current = *iter;
+                SKY_ASSERT(current.set == resource.set);
+                SKY_ASSERT(current.binding == resource.binding);
+                SKY_ASSERT(current.type == resource.type);
+                current.visibility |= resource.visibility;
+            } else {
+                reflection->resources.emplace_back(resource);
+            }
+        }
+
+        for (auto &type : refl.types) {
+            auto iter = std::find_if(reflection->types.begin(), reflection->types.end(),
+            [&type](const ShaderStructType &val) -> bool {
+                return type.name == val.name;
+            });
+            if (iter != reflection->types.end()) {
+                reflection->types.emplace_back(type);
+            }
+        }
+    }
+
+    void Program::BuildPipelineLayout()
+    {
+        rhi::PipelineLayout::Descriptor plDesc = {};
+        std::vector<rhi::DescriptorSetLayout::Descriptor> layoutDesc;
+
+        for (const auto &res : reflection->resources) {
+            if (res.set >= layoutDesc.size()) {
+                layoutDesc.resize(res.set + 1);
+            }
+
+            auto &bindings = layoutDesc[res.set].bindings;
+            rhi::DescriptorSetLayout::SetBinding binding = {};
+            binding.name       = res.name;
+            binding.type       = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
+            binding.count      = res.count;
+            binding.binding    = res.binding;
+            binding.visibility = res.visibility;
+            bindings.emplace_back(binding);
+        }
+//            const auto &constant = shader->GetConstant();
+//            if (constant.size != 0) {
+//                auto &push      = plDesc.constants.emplace_back();
+//                push.stageFlags = shader->GetStage();
+//                push.offset     = 0;
+//                push.size       = constant.size;
+//            }
+
+        auto *device = RHI::Get()->GetDevice();
+        for (auto &desc : layoutDesc) {
+            if (desc.bindings.empty()) {
+                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout->GetRHILayout());
+            } else {
+                plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
+            }
+        }
+        pipelineLayout = device->CreatePipelineLayout(plDesc);
+    }
 
     RDResourceLayoutPtr Program::RequestLayout(uint32_t index) const
     {
@@ -94,42 +119,45 @@ namespace sky {
         auto layout = std::make_shared<ResourceGroupLayout>();
         layout->SetRHILayout(rhiLayout);
 
-        //        for (const auto &shader : shaders) {
-        //            const auto &shaderResources = shader->GetShaderResources();
-        //            for (const auto &shaderResource : shaderResources) {
-        //                if (shaderResource.set != index) {
-        //                    continue;
-        //                }
-        //
-        //                layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
-        //                for (const auto &member : shaderResource.members) {
-        //                    layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
-        //                }
-        //            }
-        //        }
+//        for (const auto &shader : shaders) {
+//            const auto &shaderResources = shader->GetShaderResources();
+//            for (const auto &shaderResource : shaderResources) {
+//                if (shaderResource.set != index) {
+//                    continue;
+//                }
+//
+//                layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
+//                for (const auto &member : shaderResource.members) {
+//                    layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
+//                }
+//            }
+//        }
         return layout;
     }
 
-    void ShaderCollection::BuildAndCacheShader(const std::string &entry, rhi::ShaderStageFlagBit stage, const ShaderCompileOption &option, ShaderBuildResult &result)
+    void ShaderCollection::BuildAndCacheShader(const std::string         &entry,
+                                               rhi::ShaderStageFlagBit    stage,
+                                               const ShaderCompileOption &option,
+                                               ShaderBuildResult         &result)
     {
         // calculate signature
         std::stringstream ss;
-        uint32_t variantHash = option.preprocessor ? option.preprocessor->GetHash() : 0;
+        uint32_t          variantHash = option.preprocessor ? option.preprocessor->GetHash() : 0;
         ss << name << '_' << entry << '_' << variantHash << '_' << static_cast<uint32_t>(option.target);
 
-        auto cacheFolder = Renderer::Get()->GetCacheFolder() + "/shaderCache";
-        std::string cachePath = cacheFolder + "/" + ss.str();
+        auto        cacheFolder = Renderer::Get()->GetCacheFolder() + "/shaderCache";
+        std::string cachePath   = cacheFolder + "/" + ss.str();
 
         if (!std::filesystem::exists(cacheFolder)) {
             std::filesystem::create_directories(cacheFolder);
         }
 
-        bool needUpdateShader = true;
-        ShaderCacheHeader shaderHeader = {};
+        bool              needUpdateShader = true;
+        ShaderCacheHeader shaderHeader     = {};
         {
             IFileArchive archive(cachePath);
             if (archive.IsOpen()) {
-                archive.Load(reinterpret_cast<char*>(&shaderHeader), sizeof(ShaderCacheHeader));
+                archive.Load(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
 
                 if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
                     needUpdateShader = false;
@@ -143,29 +171,36 @@ namespace sky {
                         archive.Load(res.name);
                         archive.Load(res.type);
                         archive.Load(res.visibility.value);
-                        archive.Load(res.group);
+                        archive.Load(res.set);
                         archive.Load(res.binding);
                         archive.Load(res.count);
                         archive.Load(res.size);
                     }
                     archive.Load(size);
-                    result.reflection.variables.resize(size);
+                    result.reflection.types.resize(size);
                     for (auto i : std::views::iota(0U, size)) {
-                        auto &var = result.reflection.variables[i];
-                        archive.Load(var.name);
-                        archive.Load(var.group);
-                        archive.Load(var.binding);
-                        archive.Load(var.offset);
-                        archive.Load(var.size);
+                        auto &type = result.reflection.types[i];
+                        archive.Load(type.name);
+                        uint32_t varSize = 0;
+                        archive.Load(varSize);
+                        type.variables.resize(varSize);
+                        for (auto j : std::views::iota(0U, varSize)) {
+                            auto &var = type.variables[j];
+                            archive.Load(var.name);
+                            archive.Load(var.set);
+                            archive.Load(var.binding);
+                            archive.Load(var.offset);
+                            archive.Load(var.size);
+                        }
                     }
                 }
             }
         }
         if (needUpdateShader) {
             ShaderSourceDesc sourceDesc = {};
-            sourceDesc.source = source;
-            sourceDesc.entry = entry;
-            sourceDesc.stage = stage;
+            sourceDesc.source           = source;
+            sourceDesc.entry            = entry;
+            sourceDesc.stage            = stage;
 
             ShaderCompiler::Get()->Compile(sourceDesc, option, result);
 
@@ -177,29 +212,32 @@ namespace sky {
                 mArchive.Save(res.name);
                 mArchive.Save(res.type);
                 mArchive.Save(res.visibility.value);
-                mArchive.Save(res.group);
+                mArchive.Save(res.set);
                 mArchive.Save(res.binding);
                 mArchive.Save(res.count);
                 mArchive.Save(res.size);
             }
 
-            mArchive.Save(static_cast<uint32_t>(result.reflection.variables.size()));
-            for (auto &var : result.reflection.variables) {
-                mArchive.Save(var.name);
-                mArchive.Save(var.group);
-                mArchive.Save(var.binding);
-                mArchive.Save(var.offset);
-                mArchive.Save(var.size);
+            mArchive.Save(static_cast<uint32_t>(result.reflection.types.size()));
+            for (auto &type : result.reflection.types) {
+                mArchive.Save(type.name);
+                mArchive.Save(static_cast<uint32_t>(type.variables.size()));
+                for (auto &var : type.variables) {
+                    mArchive.Save(var.name);
+                    mArchive.Save(var.set);
+                    mArchive.Save(var.binding);
+                    mArchive.Save(var.offset);
+                    mArchive.Save(var.size);
+                }
             }
 
-            shaderHeader.version = hash;
-            shaderHeader.magic = ShaderCacheHeader::MAGIC;
+            shaderHeader.version  = hash;
+            shaderHeader.magic    = ShaderCacheHeader::MAGIC;
             shaderHeader.dataSize = static_cast<uint32_t>(mArchive.GetData().size());
 
             OFileArchive archive(cachePath);
-            archive.Save(reinterpret_cast<const char*>(&shaderHeader), sizeof(ShaderCacheHeader));
-            archive.Save(reinterpret_cast<const char*>(mArchive.GetData().data()), shaderHeader.dataSize);
+            archive.Save(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+            archive.Save(reinterpret_cast<const char *>(mArchive.GetData().data()), shaderHeader.dataSize);
         }
-
     }
-}
+} // namespace sky
