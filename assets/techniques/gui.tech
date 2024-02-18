@@ -1,8 +1,8 @@
 {
     "type": "graphics",
     "shaders": {
-        "vert": "shaderlibs/gui/gui.vert",
-        "frag": "shaderlibs/gui/gui.frag"
+        "vert": "shaderlibs/glsl/gui/gui.vert",
+        "frag": "shaderlibs/glsl/gui/gui.frag"
     },
     "pass": {
         "tag": "ui"

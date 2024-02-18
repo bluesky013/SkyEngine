@@ -1,0 +1,19 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "shaders/post_processing/final.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "PostProcessing"
+    },
+    "depth_stencil": {
+        "depthTestEnable": false,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "empty"
+}

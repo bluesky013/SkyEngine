@@ -12,8 +12,8 @@
 
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/MaterialAsset.h>
 
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/ImageBuilder.h>
@@ -33,16 +33,19 @@ namespace sky::builder {
                 auto &obj = iter->value;
 
                 if (obj.IsString()) {
-                    Uuid texID;
-                    if (am->QueryOrImportSource(obj.GetString(), {ImageBuilder::KEY.data()}, texID)) {
-                        properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
-                        properties.images.emplace_back(am->LoadAsset<Texture>(texID));
-                    }
+                    auto imagePath = obj.GetString();
+                    auto texId = am->ImportAsset(imagePath);
+                    am->BuildAsset(texId, request.targetPlatform);
+                    properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
+                    properties.images.emplace_back(texId);
+
                 } else if (obj.IsFloat()) {
                     properties.valueMap[iter->name.GetString()] = obj.GetFloat();
+                } else if (obj.IsBool()) {
+                    properties.valueMap[iter->name.GetString()] = obj.GetBool();
                 } else if (obj.IsArray()) {
-                    auto array = obj.GetArray();
-                    float *v = nullptr;
+                    auto   array = obj.GetArray();
+                    float *v     = nullptr;
                     if (array.Size() == 2) {
                         v = properties.valueMap.emplace(iter->name.GetString(), Vector2{}).first->second.GetAs<Vector2>()->v;
                     } else if (array.Size() == 3) {
@@ -83,25 +86,16 @@ namespace sky::builder {
         if (!document.HasMember("material")) {
             return;
         }
-        AssetManager *am = AssetManager::Get();
-        std::filesystem::path fullPath(request.fullPath);
-        std::filesystem::path outPath(request.outDir);
-        outPath.append("materials");
-        std::filesystem::create_directories(outPath);
-        outPath.append(request.name);
-
-        auto asset = am->CreateAsset<MaterialInstance>(outPath.make_preferred().string());
+        auto *am = AssetManager::Get();
+        auto asset = am->CreateAsset<MaterialInstance>(request.uuid);
         auto &assetData = asset->Data();
 
-        Uuid matId;
-        if (am->QueryOrImportSource(document["material"].GetString(), {MaterialBuilder::KEY.data()}, matId)) {
-            assetData.material = am->LoadAsset<Material>(matId);
-        }
+        auto materialPath = document["material"].GetString();
+        assetData.material = am->ImportAsset(materialPath);
+        am->BuildAsset(assetData.material , request.targetPlatform);
 
         ProcessProperties(document, assetData.properties, request);
-
-        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
-        am->SaveAsset(asset);
+        result.products.emplace_back(BuildProduct{KEY.data(), asset, {assetData.material}});
     }
 
     void MaterialBuilder::BuildMaterial(const BuildRequest &request, BuildResult &result)
@@ -116,32 +110,28 @@ namespace sky::builder {
             return;
         }
 
-        AssetManager *am = AssetManager::Get();
+        auto *am = AssetManager::Get();
         std::filesystem::path fullPath(request.fullPath);
-        std::filesystem::path outPath(request.outDir);
-        outPath.append("materials");
-        std::filesystem::create_directories(outPath);
-        outPath.append(request.name);
-
-        auto asset = am->CreateAsset<Material>(outPath.make_preferred().string());
+        auto asset = am->CreateAsset<Material>(request.uuid);
         auto &assetData = asset->Data();
 
+        std::vector<Uuid> deps;
         auto &val = document["techniques"];
         if (val.IsArray()) {
             auto techArray = val.GetArray();
             for (auto &tech : techArray) {
                 if (tech.IsString()) {
-                    Uuid techId;
-                    if (am->QueryOrImportSource(tech.GetString(), {TechniqueBuilder::KEY.data()}, techId)) {
-                        assetData.techniques.emplace_back(am->LoadAsset<Technique>(techId));
-                    }
+                    const auto *techPath = tech.GetString();
+                    auto techId = am->ImportAsset(techPath);
+                    am->BuildAsset(techId, request.targetPlatform);
+                    deps.emplace_back(techId);
+                    assetData.techniques.emplace_back(techId);
                 }
             }
         }
 
         ProcessProperties(document, assetData.defaultProperties, request);
-
-        result.products.emplace_back(BuildProduct{KEY.data(), asset->GetUuid()});
-        am->SaveAsset(asset);
+        result.products.emplace_back(BuildProduct{KEY.data(), asset, deps});
+        result.success = true;
     }
 }

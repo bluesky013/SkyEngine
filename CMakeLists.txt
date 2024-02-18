@@ -2,15 +2,15 @@ cmake_minimum_required(VERSION 3.10.0)
 
 PROJECT(SkyEngine)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ENGINE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 include(${ENGINE_ROOT}/cmake/functions.cmake)
 include(${ENGINE_ROOT}/cmake/options.cmake)
-include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 include(${ENGINE_ROOT}/cmake/configuration.cmake)
+include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 
 if (NOT ANDROID)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${ENGINE_ROOT}/output/lib)
@@ -30,6 +30,11 @@ add_subdirectory(render)
 add_subdirectory(sample)
 add_subdirectory(Launcher)
 
+set(ACTIVE_PROJECT_PATH ${CMAKE_SOURCE_DIR}/active_project/native)
+if (EXISTS ${ACTIVE_PROJECT_PATH})
+    add_subdirectory(${ACTIVE_PROJECT_PATH})
+endif ()
+
 if (SKY_BUILD_EDITOR)
     add_subdirectory(editor)
     sky_set_dependency(TARGET Editor)
@@ -38,4 +43,5 @@ endif()
 if (SKY_BUILD_TOOL)
     add_subdirectory(tools)
 endif()
+
 sky_set_dependency(TARGET Launcher)

@@ -11,15 +11,19 @@ namespace sky {
 
     class NativeWindow;
 
+    struct StartArguments {
+        std::list<std::string> values;
+        std::vector<const char*> args;
+    };
+
     class IModule {
     public:
         IModule()          = default;
         virtual ~IModule() = default;
 
-        virtual bool Init() { return true; }
-        virtual void Start() {}
-        virtual void Stop() {}
+        virtual bool Init(const StartArguments &args) { return true; }
         virtual void Shutdown() {}
+        virtual void Start() {}
 
         virtual void Tick(float delta) = 0;
     };

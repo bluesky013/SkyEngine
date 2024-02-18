@@ -124,14 +124,14 @@ namespace sky::rdg {
     {
         auto vtx = AddVertex(name, ComputePass{&context->resources}, *this);
         add_edge(0, vtx, graph);
-        return ComputePassBuilder{*this, vtx};
+        return ComputePassBuilder{*this, computePasses[polymorphicDatas[vtx]], vtx};
     }
 
     CopyPassBuilder RenderGraph::AddCopyPass(const char *name)
     {
         auto vtx = AddVertex(name, CopyBlitPass{&context->resources}, *this);
         add_edge(0, vtx, graph);
-        return CopyPassBuilder{*this, vtx};
+        return CopyPassBuilder{*this, copyBlitPasses[polymorphicDatas[vtx]], vtx};
     }
 
     void RenderGraph::AddUploadPass(const char *name, const UploadPass &upload)
@@ -338,6 +338,24 @@ namespace sky::rdg {
         auto &fullscreen = rdg.fullScreens[rdg.polymorphicDatas[res]];
         add_edge(vertex, res, rdg.graph);
         return FullScreenBuilder{rdg, fullscreen, res};
+    }
+
+    CopyPassBuilder &CopyPassBuilder::AddCopyView(const CopyView &view)
+    {
+        blit.src = FindVertex(view.srcName.c_str(), rdg.resourceGraph);
+        blit.dst = FindVertex(view.dstName.c_str(), rdg.resourceGraph);
+        SKY_ASSERT(blit.src != INVALID_VERTEX);
+        SKY_ASSERT(blit.dst != INVALID_VERTEX);
+
+        blit.srcExt = view.srcExtent;
+        blit.dstExt = view.dstExtent;
+
+        blit.srcRange = view.srcRange;
+        blit.dstRange = view.dstRange;
+
+        rdg.AddDependency(blit.src, vertex, DependencyInfo{TransferType::SRC, ResourceAccessBit::READ, {}});
+        rdg.AddDependency(blit.dst, vertex, DependencyInfo{TransferType::DST, ResourceAccessBit::WRITE, {}});
+        return *this;
     }
 
     RasterQueueBuilder &RasterQueueBuilder::SetLayout(const RDResourceLayoutPtr &layout)

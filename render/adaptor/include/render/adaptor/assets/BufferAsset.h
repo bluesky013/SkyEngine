@@ -14,11 +14,13 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
-    struct BufferAssetData {
-        uint32_t size = 0;
+    struct BufferAssetHeader {
+        uint32_t dataSize;
+    };
+
+    struct BufferAssetData : public BufferAssetHeader {
         std::vector<uint8_t> rawData;
 
-        uint32_t GetDataOffset() const { return sizeof(size); }
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };

@@ -51,8 +51,16 @@ if(EXISTS ${3RD_PATH})
     # tmp
     sky_find_3rd(TARGET imgui         DIR imgui)
 
+    # shader
+    sky_find_3rd(TARGET glslang       DIR glslang)
+    sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
+
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
+
+    if (SKY_BUILD_DXC)
+        sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
+    endif ()
 
     if (SKY_BUILD_PERF_TOOL)
         sky_find_3rd(TARGET implot        DIR implot)
@@ -60,9 +68,8 @@ if(EXISTS ${3RD_PATH})
 
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)
+        sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
         sky_find_3rd(TARGET stb           DIR stb)
-        sky_find_3rd(TARGET shaderc       DIR shaderc)
-        sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
         sky_find_3rd(TARGET cxxopts       DIR cxxopts)
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ktx           DIR ktx)

@@ -63,6 +63,7 @@ namespace sky::rhi {
         uint32_t GetDepthStencil() const { return depthStencil; }
         uint32_t GetDepthStencilResolve() const { return dsResolve; }
         uint32_t GetSubPassNum() const { return subPassNum; }
+        rhi::SampleCount GetSamplerCount() const { return samplerCount; }
 
         uint32_t GetCompatibleHash() const { return compatibleHash; }
 
@@ -79,6 +80,7 @@ namespace sky::rhi {
         uint32_t depthStencil = INVALID_INDEX;
         uint32_t dsResolve    = INVALID_INDEX;
         uint32_t subPassNum = 1;
+        rhi::SampleCount samplerCount = rhi::SampleCount::X1;
 
         uint32_t compatibleHash = 0;
         uint32_t hash = 0;

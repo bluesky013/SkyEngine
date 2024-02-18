@@ -164,12 +164,11 @@ namespace sky::rdg {
 
     struct CopyView {
         std::string srcName;
-        rhi::ImageSubRange srcRange;
+        rhi::ImageSubRangeLayers srcRange;
         rhi::Extent3D srcExtent;
         rhi::Offset3D srcOffset;
-
         std::string dstName;
-        rhi::ImageSubRange dstRange;
+        rhi::ImageSubRangeLayers dstRange;
         rhi::Extent3D dstExtent;
         rhi::Offset3D dstOffset;
     };
@@ -275,13 +274,19 @@ namespace sky::rdg {
 
     struct CopyBlitPass {
         explicit CopyBlitPass(PmrResource *res)
-            : views(res)
+            : src(INVALID_VERTEX)
+            , dst(INVALID_VERTEX)
             , frontBarriers(res)
             , rearBarriers(res)
             {}
 
         using Tag = CopyBlitTag;
-        PmrVector<CopyView> views;
+        VertexType src;
+        VertexType dst;
+        rhi::Extent3D srcExt;
+        rhi::Extent3D dstExt;
+        rhi::ImageSubRangeLayers srcRange;
+        rhi::ImageSubRangeLayers dstRange;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };

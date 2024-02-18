@@ -119,6 +119,13 @@ namespace sky {
             }
         }
 
+        {
+            auto *gc = Renderer::Get()->GetResourceGC();
+            for (auto &res : rdg.resourceGraph.importImages) {
+                gc->CollectImageViews(res.res);
+            }
+        }
+
         frameIndex = (frameIndex + 1) % inflightFrameCount;
     }
 

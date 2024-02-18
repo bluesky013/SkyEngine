@@ -1,2 +1,2 @@
-add_subdirectory(RHISampleBase)
-add_subdirectory(RDSceneProject)
+#add_subdirectory(RHISampleBase)
+#add_subdirectory(RDSceneProject)

@@ -46,34 +46,6 @@ namespace sky::vk {
         return layout != VK_NULL_HANDLE;
     }
 
-    bool PipelineLayout::Init(const VkDescriptor &des)
-    {
-        desLayouts.resize(des.desLayouts.size());
-        pushConstants = des.pushConstants;
-        std::vector<VkDescriptorSetLayout> layouts(des.desLayouts.size());
-        for (uint32_t i = 0; i < des.desLayouts.size(); ++i) {
-            auto desLayout = device.CreateDeviceObject<DescriptorSetLayout>(des.desLayouts[i]);
-            HashCombine32(hash, desLayout->GetHash());
-            desLayouts[i] = desLayout;
-            layouts[i]    = desLayout->GetNativeHandle();
-            dynamicNum += desLayout->GetDynamicNum();
-        }
-
-        for (const auto &push : des.pushConstants) {
-            HashCombine32(hash, Crc32::Cal(push));
-        }
-
-        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-        pipelineLayoutCreateInfo.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutCreateInfo.setLayoutCount             = static_cast<uint32_t>(layouts.size());
-        pipelineLayoutCreateInfo.pSetLayouts                = layouts.data();
-        pipelineLayoutCreateInfo.pushConstantRangeCount     = static_cast<uint32_t>(des.pushConstants.size());
-        pipelineLayoutCreateInfo.pPushConstantRanges        = des.pushConstants.data();
-
-        layout = device.GetPipelineLayout(hash, &pipelineLayoutCreateInfo);
-        return layout != VK_NULL_HANDLE;
-    }
-
     DescriptorSetLayoutPtr PipelineLayout::GetLayout(uint32_t slot) const
     {
         if (slot >= desLayouts.size()) {
@@ -87,7 +59,7 @@ namespace sky::vk {
         return std::static_pointer_cast<DescriptorSetLayout>(GetLayout(set));
     }
 
-    DescriptorSetPtr PipelineLayout::Allocate(DescriptorSetPoolPtr pool, uint32_t slot)
+    DescriptorSetPtr PipelineLayout::Allocate(const DescriptorSetPoolPtr& pool, uint32_t slot)
     {
         if (slot >= desLayouts.size()) {
             return {};

@@ -4,17 +4,14 @@
 
 #include <core/math/Sfmt.h>
 #include <core/util/Uuid.h>
+#include <core/math/Random.h>
 
 namespace sky {
 
-    SFMTRandom random;
-
     Uuid Uuid::Create()
     {
-        Uuid      res;
-        uint64_t *lPtr = reinterpret_cast<uint64_t *>(&res);
-        lPtr[0]        = random.GenU64();
-        lPtr[1]        = random.GenU64();
+        Uuid res;
+        Random::Gen(&res, sizeof(Uuid));
 
         res.data[8] &= 0xBF;
         res.data[8] |= 0x80;

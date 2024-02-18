@@ -1,0 +1,12 @@
+{
+  "modules": [
+    {
+      "name": "ShaderCompiler",
+      "dependencies": []
+    },
+    {
+      "name": "RenderBuilder",
+      "dependencies": []
+    }
+  ]
+}

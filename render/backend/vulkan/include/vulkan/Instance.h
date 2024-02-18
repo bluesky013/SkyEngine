@@ -24,7 +24,7 @@ namespace sky::vk {
         VkInstance GetInstance() const;
     private:
         bool Init(const Descriptor &);
-        void PrintSupportedExtensions() const;
+        static void PrintSupportedExtensions() ;
 
         VkInstance               instance;
         VkDebugUtilsMessengerEXT debug;

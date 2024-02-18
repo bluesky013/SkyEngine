@@ -9,6 +9,8 @@
 #include <memory>
 #include <functional>
 #include <core/environment/Singleton.h>
+#include <core/platform/Platform.h>
+
 #include <framework/performance/AdaptivePerfManager.h>
 
 namespace sky {
@@ -32,8 +34,11 @@ namespace sky {
         virtual void *GetNativeApp() const { return nullptr; }
         virtual AdaptivePerfManager *GetPerformanceManager() const { return nullptr; }
         virtual bool RunCmd(const std::string &str, std::string &out) const { return true; }
+        virtual PlatformType GetType() const { return PlatformType::UNDEFINED; }
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
 
+        virtual std::string GetBundlePath() const { return ""; }
+        virtual std::string GetWritablePath() const { return ""; }
     protected:
         LaunchCallback launchCallback;
     };
@@ -49,7 +54,12 @@ namespace sky {
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
         AdaptivePerfManager *GetPerformanceManager() const;
+
+        std::string GetBundlePath() const { return platform->GetBundlePath(); }
+        std::string GetWritablePath() const { return platform->GetWritablePath(); }
+
         bool RunCmd(const std::string &str, std::string &out) const;
+        PlatformType GetType() const;
 
         template <typename T>
         void setLaunchCallback(T &&cb)

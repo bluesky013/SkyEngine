@@ -44,6 +44,12 @@ namespace sky {
         void SetVertexDescLibrary(VertexDescLibrary *lib) { vertexLibrary.reset(lib); }
         VertexDescLibrary *GetVertexDescLibrary() const { return vertexLibrary.get(); }
 
+        void SetCacheFolder(const std::string &path) { cacheFolder = path; }
+        const std::string &GetCacheFolder() const { return cacheFolder; }
+
+        void SetShaderCompiler(ShaderCompileFunc func) { shaderCompiler = func; }
+        ShaderCompileFunc GetShaderCompiler() const { return shaderCompiler; }
+
         template <typename T>
         void RegisterRenderFeature()
         {
@@ -75,5 +81,9 @@ namespace sky {
         PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
 
         std::unique_ptr<VertexDescLibrary> vertexLibrary;
+
+        ShaderCompileFunc shaderCompiler = nullptr;
+
+        std::string cacheFolder;
     };
 } // namespace sky

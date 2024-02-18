@@ -21,6 +21,11 @@ namespace sky {
         images.emplace_back(image);
     }
 
+    void RenderResourceGC::CollectImageViews(const rhi::ImageViewPtr &view)
+    {
+        imagesViews.emplace_back(view);
+    }
+
     void RenderResourceGC::CollectDescriptorSet(const rhi::DescriptorSetPtr &set)
     {
         sets.emplace_back(set);
@@ -31,5 +36,6 @@ namespace sky {
         buffers.clear();
         images.clear();
         sets.clear();
+        imagesViews.clear();
     }
 } // namespace sky

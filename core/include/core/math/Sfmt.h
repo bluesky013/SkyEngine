@@ -10,8 +10,8 @@ namespace sky {
 
     class SFMTRandom {
     public:
+        explicit SFMTRandom(uint32_t s);
         SFMTRandom();
-        SFMTRandom(uint32_t s);
         ~SFMTRandom() = default;
 
         uint32_t GenU32();

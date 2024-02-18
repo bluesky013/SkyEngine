@@ -4,83 +4,59 @@
 
 #pragma once
 
+#include <utility>
 #include <vector>
 #include <memory>
+#include <map>
+#include <variant>
 #include <rhi/Device.h>
+#include <core/util/Uuid.h>
+
 #include <render/resource/ResourceGroup.h>
+#include <shader/ShaderCompiler.h>
 
 namespace sky {
-
-    struct ShaderBufferMember {
-        std::string name;
-        uint32_t offset;
-        uint32_t size;
-    };
-
-    struct ShaderResource {
-        std::string name;
-        uint32_t set;
-        uint32_t binding;
-        uint32_t size;
-        rhi::DescriptorType type;
-        std::vector<ShaderBufferMember> members;
-    };
-
-    struct PushConstant {
-        std::string name;
-        uint32_t size = 0;
-        std::vector<ShaderBufferMember> members;
-    };
-
-    class ShaderVariant {
-    public:
-        ShaderVariant() = default;
-        ~ShaderVariant() = default;
-
-        bool Init(rhi::ShaderStageFlagBit stage, const uint8_t *data, uint32_t size);
-        void SetShaderResources(const std::vector<ShaderResource> &res);
-        void SetConstant(const PushConstant &constant);
-
-        const std::vector<ShaderResource> &GetShaderResources() const { return resources; }
-        const rhi::ShaderPtr &GetShader() const { return shader; }
-        rhi::ShaderStageFlagBit GetStage() const { return stage; }
-        const PushConstant &GetConstant() const { return pushConstant; }
-
-    private:
-        rhi::ShaderPtr shader;
-        rhi::ShaderStageFlagBit stage;
-        std::vector<ShaderResource> resources;
-        PushConstant pushConstant;
-    };
-    using ShaderVariantPtr = std::shared_ptr<ShaderVariant>;
-
-    class Shader {
-    public:
-        Shader() = default;
-        ~Shader() = default;
-
-        void AddVariant(const std::string &key, const ShaderVariantPtr &variant);
-        const ShaderVariantPtr &GetVariant(const std::string &key) const;
-    private:
-        std::unordered_map<std::string, ShaderVariantPtr> variants;
-    };
-    using RDShaderPtr = std::shared_ptr<Shader>;
+    class ShaderCollection;
+    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
 
     class Program {
     public:
         Program() = default;
         ~Program() = default;
 
-        void AddShader(const ShaderVariantPtr &shader);
-        void BuildPipelineLayout();
         RDResourceLayoutPtr RequestLayout(uint32_t index) const;
-
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
-        const std::vector<ShaderVariantPtr> &GetShaders() const { return shaders; }
+        const std::vector<rhi::ShaderPtr> &GetShaders() const { return shaders; }
+
+        void SetName(const std::string &name_) { name = name_; }
+        void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
+        void MergeReflection(ShaderReflection &&refl);
+        void BuildPipelineLayout();
+
     private:
-        std::vector<ShaderVariantPtr> shaders;
+        std::string name;
         rhi::PipelineLayoutPtr pipelineLayout;
+        std::vector<rhi::ShaderPtr> shaders;
+        std::unique_ptr<ShaderReflection> reflection;
     };
     using RDProgramPtr = std::shared_ptr<Program>;
 
+    class ShaderCollection {
+    public:
+        explicit ShaderCollection(std::string name_, std::string source_, uint32_t hash_)
+            : name(std::move(name_))
+            , source(std::move(source_))
+            , hash(hash_) {}
+        ~ShaderCollection() = default;
+
+        void BuildAndCacheShader(const std::string &entry, rhi::ShaderStageFlagBit stage, const ShaderCompileOption &option, ShaderBuildResult &result);
+
+        const std::string &RequestSource() const { return source; }
+        const std::string &GetName() const { return name; }
+        uint32_t GetHash() const { return hash; }
+    private:
+        std::string name;
+        std::string source;
+        uint32_t hash;
+    };
 } // namespace sky

@@ -40,7 +40,7 @@ namespace sky::vk {
         void BeginFrame();
         void EndFrame();
 
-        static constexpr uint64_t BUFFER_PER_FRAME_SIZE = 64 * 1024;
+        static constexpr uint64_t BUFFER_PER_FRAME_SIZE = 8 * 1024 * 1024;
         static constexpr uint32_t INFLIGHT_NUM = 3;
 
         friend class Device;

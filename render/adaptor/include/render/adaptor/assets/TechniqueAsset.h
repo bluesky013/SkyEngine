@@ -5,8 +5,8 @@
 #pragma once
 
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/ShaderAsset.h>
 #include <render/resource/Technique.h>
+
 #include <rhi/Core.h>
 #include <string>
 #include <vector>
@@ -15,13 +15,28 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
+    enum class TechAssetType : uint32_t {
+        GRAPHIC,
+        MESH,
+        COMPUTE
+    };
+
+    struct ShaderRefData {
+        std::string path;
+        std::string objectOrCSMain;
+        std::string vertOrMeshMain;
+        std::string fragmentMain;
+    };
+
     struct TechniqueAssetData {
-        std::vector<ShaderAssetPtr>  shaders;
+        ShaderRefData shader;
+        std::string passTag;
+        std::string vertexDesc;
+        TechAssetType type;
+
         rhi::DepthStencil            depthStencil;
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
-        std::string                  passTag;
-        std::string                  vertexDesc;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

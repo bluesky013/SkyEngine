@@ -156,6 +156,7 @@ namespace sky::vk {
         std::vector<VkQueueFamilyProperties> queueFamilies;
         std::vector<QueuePtr>                queues;
         Queue                               *graphicsQueue;
+        Queue                               *computeQueue;
         Queue                               *transferQueue;
 
         CacheManager<VkSampler, uint32_t>             samplers;

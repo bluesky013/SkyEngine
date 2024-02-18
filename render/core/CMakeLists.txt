@@ -12,4 +12,5 @@ sky_add_library(TARGET SkyRenderCore STATIC
     LINK_LIBS
         Core
         RHI
+        ShaderCompiler.Static
 )

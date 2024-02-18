@@ -23,9 +23,8 @@ namespace sky::vk {
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
         if (func != nullptr) {
             return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-        } else {
-            return VK_ERROR_EXTENSION_NOT_PRESENT;
         }
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
     static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator)
@@ -49,6 +48,9 @@ namespace sky::vk {
     const std::vector<const char *> extensions = {
         "VK_KHR_surface",
         "VK_KHR_get_physical_device_properties2",
+#if _DEBUG
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
 #if _WIN32
         "VK_KHR_win32_surface",
 #elif __ANDROID__
@@ -68,7 +70,7 @@ namespace sky::vk {
 
     Instance *Instance::Create(const Descriptor &des)
     {
-        auto instance = new Instance();
+        auto *instance = new Instance();
         if (!instance->Init(des)) {
             delete instance;
             instance = nullptr;
@@ -85,7 +87,7 @@ namespace sky::vk {
 
     Device *Instance::CreateDevice(const Device::Descriptor &des)
     {
-        auto device = new Device(*this);
+        auto *device = new Device(*this);
         if (!device->Init(des, debug != VK_NULL_HANDLE)) {
             delete device;
             device = nullptr;
@@ -167,7 +169,7 @@ namespace sky::vk {
         return instance;
     }
 
-    void Instance::PrintSupportedExtensions() const
+    void Instance::PrintSupportedExtensions()
     {
         uint32_t count;
         vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);

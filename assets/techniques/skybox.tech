@@ -1,0 +1,19 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "shaders/skybox.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "SkyBox"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex": "standard"
+}

@@ -4,8 +4,8 @@
 
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
-#include <framework/database/DataBase.h>
 #include <framework/database/DBManager.h>
+#include <framework/database/DataBase.h>
 #include <gtest/gtest.h>
 
 struct Test1Data {

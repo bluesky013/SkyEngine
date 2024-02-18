@@ -4,6 +4,7 @@
 
 #include <vulkan/DescriptorSetBinder.h>
 #include <vulkan/Util.h>
+#include <vulkan/Conversion.h>
 
 namespace sky::vk {
 
@@ -25,13 +26,13 @@ namespace sky::vk {
         const auto &desLayouts = layout->GetLayouts();
         uint32_t    offset     = 0;
         for (uint32_t i = 0; i < layoutNum; ++i) {
-            const auto &bindings = desLayouts[i]->GetDescriptorTable();
-            for (const auto &[binding, info] : bindings) {
-                if (!IsDynamicDescriptor(info.descriptorType)) {
+            const auto &bindings = desLayouts[i]->GetBindings();
+            for (const auto &binding : bindings) {
+                if (!IsDynamicDescriptor(FromRHI(binding.type))) {
                     continue;
                 }
-                offsetIndex[CombineSlotBinding(i, binding)] = offset;
-                offset += info.descriptorCount;
+                offsetIndex[CombineSlotBinding(i, binding.binding)] = offset;
+                offset += binding.count;
             }
         }
     }

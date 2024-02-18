@@ -49,9 +49,8 @@ namespace sky::vk {
         friend class SwapChain;
         rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc) override;
 
-        Image(Device &);
-
-        Image(Device &, VkImage);
+        explicit Image(Device &);
+        explicit Image(Device &, VkImage);
 
         bool Init(const Descriptor &);
         bool Init(const VkDescriptor &);

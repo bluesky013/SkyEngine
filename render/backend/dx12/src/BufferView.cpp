@@ -10,9 +10,7 @@ namespace sky::dx {
     {
     }
 
-    BufferView::~BufferView()
-    {
-    }
+    BufferView::~BufferView() = default;
 
     std::shared_ptr<rhi::BufferView> BufferView::CreateView(const rhi::BufferViewDesc &desc) const
     {

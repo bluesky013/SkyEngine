@@ -2,18 +2,18 @@
 // Created by Zach Lee on 2023/9/3.
 //
 
-#include <render/adaptor/Reflection.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
+#include <render/adaptor/Reflection.h>
 
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
-#include <render/adaptor/assets/ShaderAsset.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
+#include <render/adaptor/assets/ShaderAsset.h>
 
 namespace sky {
 
@@ -21,14 +21,6 @@ namespace sky {
     {
         context->Register<MaterialTexture>("MaterialTexture")
             .Member<&MaterialTexture::texIndex>("texIndex");
-
-        context->Register<ShaderVariantData>("ShaderVariantData")
-            .BinLoad<&ShaderVariantData::Load>()
-            .BinSave<&ShaderVariantData::Save>();
-
-        context->Register<ShaderAssetData>("ShaderAssetData")
-            .BinLoad<&ShaderAssetData::Load>()
-            .BinSave<&ShaderAssetData::Save>();
 
         context->Register<MaterialAssetData>("MaterialAssetData")
             .BinLoad<&MaterialAssetData::LoadBin>()
@@ -62,9 +54,11 @@ namespace sky {
             .BinLoad<&BufferAssetData::Load>()
             .BinSave<&BufferAssetData::Save>();
 
+        context->Register<ShaderAssetData>("ShaderAssetData")
+            .BinLoad<&ShaderAssetData::Load>()
+            .BinSave<&ShaderAssetData::Save>();
+
         auto *am = AssetManager::Get();
-        am->RegisterAssetHandler<Shader>();
-        am->RegisterAssetHandler<ShaderVariant>();
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<MaterialInstance>();
         am->RegisterAssetHandler<Technique>();
@@ -73,6 +67,7 @@ namespace sky {
         am->RegisterAssetHandler<RenderPrefab>();
         am->RegisterAssetHandler<VertexDescLibrary>();
         am->RegisterAssetHandler<Buffer>();
+        am->RegisterAssetHandler<ShaderCollection>();
     }
 
     void ReflectRHI(SerializationContext *context)

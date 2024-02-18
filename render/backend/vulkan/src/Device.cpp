@@ -280,9 +280,13 @@ namespace sky::vk {
             queues[i]->StartThread();
         }
         graphicsQueue = GetQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0);
+        computeQueue = GetQueue(VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT);
         transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
         if (transferQueue == nullptr) {
             transferQueue = graphicsQueue;
+        }
+        if (computeQueue == nullptr) {
+            computeQueue = graphicsQueue;
         }
 
         // update barrier map
@@ -520,8 +524,8 @@ namespace sky::vk {
 
     rhi::Queue *Device::GetQueue(rhi::QueueType type) const
     {
+        if (type == rhi::QueueType::COMPUTE) return computeQueue;
         if (type == rhi::QueueType::TRANSFER) return transferQueue;
-        if (type == rhi::QueueType::GRAPHICS) return graphicsQueue;
         return graphicsQueue;
     }
 

@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/vertex/standard.vert",
-        "frag": "shaderlibs/standard.frag"
+    "shader": {
+        "path": "shaders/standard_pbr.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "ForwardColor"

@@ -3,7 +3,6 @@
 //
 
 #include <engine/SkyEngine.h>
-#include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
 
 static const char *TAG = "SkyEngine";
@@ -24,7 +23,6 @@ namespace sky {
 
     void SkyEngine::DeInit()
     {
-        AssetManager::Destroy();
     }
 
     void SkyEngine::AddWorld(const WorldPtr& world)

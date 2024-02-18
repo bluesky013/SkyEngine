@@ -44,4 +44,9 @@ namespace sky {
     {
         return platform->RunCmd(str, out);
     }
+
+    PlatformType Platform::GetType() const
+    {
+        return platform->GetType();
+    }
 }

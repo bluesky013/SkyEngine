@@ -7,6 +7,7 @@
 #include <vulkan/DescriptorSetPool.h>
 #include <vulkan/Device.h>
 #include <vulkan/Util.h>
+#include <vulkan/Conversion.h>
 
 namespace sky::vk {
 
@@ -53,7 +54,7 @@ namespace sky::vk {
         if (!variableDescriptorCounts.empty()) {
             variableDescriptorCountAllocInfo.descriptorSetCount = 1;
             variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
-            setInfo.pNext                       = &variableDescriptorCountAllocInfo;
+            setInfo.pNext = &variableDescriptorCountAllocInfo;
         }
 
         VkDescriptorSet set    = VK_NULL_HANDLE;
@@ -67,31 +68,33 @@ namespace sky::vk {
 
     void DescriptorSet::Setup()
     {
-        const auto &table      = layout->GetDescriptorTable();
+        const auto &bindings = layout->GetBindings();
 
         writeInfos.resize(layout->GetDescriptorNum(), {});
-        for (const auto &[binding, info] : table) {
+        for (const auto &binding : bindings) {
             writeEntries.emplace_back(VkWriteDescriptorSet{});
             VkWriteDescriptorSet &entry = writeEntries.back();
             entry.sType                 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             entry.pNext                 = nullptr;
             entry.dstSet                = handle;
-            entry.dstBinding            = binding;
+            entry.dstBinding            = binding.binding;
             entry.dstArrayElement       = 0;
-            entry.descriptorCount       = info.descriptorCount;
-            entry.descriptorType        = info.descriptorType;
+            entry.descriptorCount       = binding.count;
+            entry.descriptorType        = FromRHI(binding.type);
 
-            uint32_t offset = layout->GetDescriptorSetOffsetByBinding(binding);
+            uint32_t offset = layout->GetDescriptorSetOffsetByBinding(binding.binding);
             for (uint32_t i = 0; i < entry.descriptorCount; ++i) {
                 uint32_t index = offset + i;
 
-                if (IsBufferDescriptor(info.descriptorType)) {
+                if (IsBufferDescriptor(entry.descriptorType)) {
                     entry.pBufferInfo = &writeInfos[index].buffer;
-                } else if (IsImageDescriptor(info.descriptorType)) {
+                } else if (IsImageDescriptor(entry.descriptorType)) {
                     auto &imageInfo = writeInfos[index].image;
-                    if (info.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || info.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || info.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
+                    if (entry.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+                        entry.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+                        entry.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                    } else if (info.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+                    } else if (entry.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
                     }
                     entry.pImageInfo = &imageInfo;
@@ -134,9 +137,11 @@ namespace sky::vk {
 
     void DescriptorSet::BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags)
     {
-        const auto &table      = layout->GetDescriptorTable();
         auto vkImageView = std::static_pointer_cast<ImageView>(view);
-        auto &writeInfo = writeInfos[layout->GetDescriptorSetOffsetByBinding(binding) + index];
+        uint32_t writeIndex = layout->GetDescriptorSetOffsetByBinding(binding) + index;
+        SKY_ASSERT(writeIndex < writeInfos.size());
+
+        auto &writeInfo = writeInfos[writeIndex];
         const auto &viewInfo = vkImageView->GetSubRange();
         if (writeInfo.image.imageView == vkImageView->GetNativeHandle()) {
             return;
@@ -147,12 +152,14 @@ namespace sky::vk {
         }
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
 
-        auto vIter = table.find(binding);
-        SKY_ASSERT(vIter != table.end());
-
+        SKY_ASSERT(binding < writeEntries.size());
+        const auto &entry = writeEntries[binding];
         auto mask = view->GetViewDesc().subRange.aspectMask;
-        auto descriptorType = vIter->second.descriptorType;
-        if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
+        auto descriptorType = entry.descriptorType;
+
+        if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+            descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+            descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
 //            if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {
 //                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 //            } else {

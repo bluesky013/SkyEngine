@@ -8,7 +8,7 @@ namespace sky {
 
     void BufferAssetData::Load(BinaryInputArchive &archive)
     {
-        archive.LoadValue(size);
+        archive.LoadValue(dataSize);
     }
 
     void BufferAssetData::Save(BinaryOutputArchive &archive) const

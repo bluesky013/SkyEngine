@@ -16,7 +16,6 @@ namespace sky::dx {
         ~CommandPool() override = default;
 
         struct Descriptor {
-
         };
 
         bool Init(const Descriptor &desc);

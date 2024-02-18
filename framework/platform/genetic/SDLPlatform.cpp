@@ -33,4 +33,9 @@ namespace sky {
     {
         return SDL_GetPerformanceCounter();
     }
-}
+
+    std::string SDLPlatform::GetBundlePath() const
+    {
+        return SDL_GetBasePath();
+    }
+} // namespace sky

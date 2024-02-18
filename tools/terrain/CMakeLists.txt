@@ -1,6 +1,6 @@
 file(GLOB_RECURSE TERRAIN_GEN_SRC ./*)
 
-sky_add_exe(TARGET TerrainGenerator ${PLATFORM_TYPE}
+sky_add_exe(TARGET TerrainGenerator ${PLATFORM_BUNDLE}
         SOURCES
             ${TERRAIN_GEN_SRC}
         INCS

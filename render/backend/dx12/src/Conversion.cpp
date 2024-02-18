@@ -4,17 +4,21 @@
 
 #include <dx12/Conversion.h>
 #include <unordered_map>
+#include <core/logger/Logger.h>
 
 namespace sky::dx {
+    static const char* TAG = "D3D12Conv";
 
     std::unordered_map<rhi::PixelFormat, DXGI_FORMAT> PIXEL_FORMAT_TABLE = {
         {rhi::PixelFormat::UNDEFINED,                 DXGI_FORMAT_UNKNOWN},
         {rhi::PixelFormat::R8_UNORM,                  DXGI_FORMAT_R8_UNORM},
+        {rhi::PixelFormat::R8_SRGB,                   DXGI_FORMAT_R8_TYPELESS},
         {rhi::PixelFormat::RGBA8_UNORM,               DXGI_FORMAT_R8G8B8A8_UNORM},
         {rhi::PixelFormat::RGBA8_SRGB,                DXGI_FORMAT_R8G8B8A8_UNORM_SRGB},
         {rhi::PixelFormat::BGRA8_UNORM,               DXGI_FORMAT_B8G8R8A8_UNORM},
         {rhi::PixelFormat::BGRA8_SRGB,                DXGI_FORMAT_B8G8R8A8_UNORM_SRGB},
         {rhi::PixelFormat::R16_UNORM,                 DXGI_FORMAT_R16_UNORM},
+        {rhi::PixelFormat::RGBA16_SFLOAT,             DXGI_FORMAT_R16G16B16A16_FLOAT},
         {rhi::PixelFormat::R32_SFLOAT,                DXGI_FORMAT_R32_FLOAT},
         {rhi::PixelFormat::D32,                       DXGI_FORMAT_D32_FLOAT},
         {rhi::PixelFormat::D24_S8,                    DXGI_FORMAT_D24_UNORM_S8_UINT},
@@ -35,6 +39,70 @@ namespace sky::dx {
         {rhi::PixelFormat::BC6H_SFLOAT_BLOCK,         DXGI_FORMAT_BC6H_SF16},
         {rhi::PixelFormat::BC7_UNORM_BLOCK,           DXGI_FORMAT_BC7_UNORM},
         {rhi::PixelFormat::BC7_SRGB_BLOCK,            DXGI_FORMAT_BC7_UNORM_SRGB},
+    };
+
+    std::unordered_map<rhi::Format, DXGI_FORMAT> FORMAT_TABLE = {
+        {rhi::Format::UNDEFINED, DXGI_FORMAT_UNKNOWN},
+        {rhi::Format::F_R32,     DXGI_FORMAT_R32_FLOAT},
+        {rhi::Format::F_RG32,    DXGI_FORMAT_R32G32_FLOAT},
+        {rhi::Format::F_RGB32,   DXGI_FORMAT_R32G32B32_FLOAT},
+        {rhi::Format::F_RGBA32,  DXGI_FORMAT_R32G32B32A32_FLOAT},
+        {rhi::Format::F_R8,      DXGI_FORMAT_R8_UNORM},
+        {rhi::Format::F_RG8,     DXGI_FORMAT_R8G8_UNORM},
+        {rhi::Format::F_RGBA8,   DXGI_FORMAT_R8G8B8A8_UNORM},
+    };
+
+    D3D12_BLEND BLEND_MAP[] = {
+        D3D12_BLEND_ZERO,
+        D3D12_BLEND_ONE,
+        D3D12_BLEND_SRC_COLOR,
+        D3D12_BLEND_INV_SRC_COLOR,
+        D3D12_BLEND_DEST_COLOR,
+        D3D12_BLEND_INV_DEST_COLOR,
+        D3D12_BLEND_SRC_ALPHA,
+        D3D12_BLEND_INV_SRC_ALPHA,
+        D3D12_BLEND_DEST_ALPHA,
+        D3D12_BLEND_INV_DEST_ALPHA,
+        D3D12_BLEND_BLEND_FACTOR,
+        D3D12_BLEND_INV_BLEND_FACTOR,
+        D3D12_BLEND_ALPHA_FACTOR,
+        D3D12_BLEND_INV_ALPHA_FACTOR,
+        D3D12_BLEND_SRC_ALPHA_SAT,
+        D3D12_BLEND_SRC1_COLOR,
+        D3D12_BLEND_INV_SRC1_ALPHA,
+        D3D12_BLEND_SRC1_ALPHA,
+        D3D12_BLEND_INV_SRC1_ALPHA,
+    };
+
+    D3D12_PRIMITIVE_TOPOLOGY_TYPE PRIMITIVE_TOPO_MAP[] = {
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT,
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED,
+    };
+
+    D3D12_COMPARISON_FUNC COMPARE_FUNC_MAP[] = {
+        D3D12_COMPARISON_FUNC_NEVER,
+        D3D12_COMPARISON_FUNC_LESS,
+        D3D12_COMPARISON_FUNC_EQUAL,
+        D3D12_COMPARISON_FUNC_LESS_EQUAL,
+        D3D12_COMPARISON_FUNC_GREATER,
+        D3D12_COMPARISON_FUNC_NOT_EQUAL,
+        D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+        D3D12_COMPARISON_FUNC_ALWAYS,
+    };
+
+    D3D12_STENCIL_OP STENCIL_OP_MAP[] = {
+        D3D12_STENCIL_OP_KEEP,
+        D3D12_STENCIL_OP_ZERO,
+        D3D12_STENCIL_OP_REPLACE,
+        D3D12_STENCIL_OP_INCR_SAT,
+        D3D12_STENCIL_OP_DECR_SAT,
+        D3D12_STENCIL_OP_INVERT,
+        D3D12_STENCIL_OP_INCR,
+        D3D12_STENCIL_OP_DECR,
     };
 
     D3D12_HEAP_TYPE FromRHI(rhi::MemoryType type)
@@ -63,6 +131,12 @@ namespace sky::dx {
     {
         auto iter = PIXEL_FORMAT_TABLE.find(format);
         return iter == PIXEL_FORMAT_TABLE.end() ? DXGI_FORMAT_UNKNOWN : iter->second;
+    }
+
+    DXGI_FORMAT FromRHI(rhi::Format format)
+    {
+        auto iter = FORMAT_TABLE.find(format);
+        return iter == FORMAT_TABLE.end() ? DXGI_FORMAT_UNKNOWN : iter->second;
     }
 
     D3D12_RESOURCE_FLAGS FromRHI(const rhi::ImageUsageFlags &flags)
@@ -103,6 +177,72 @@ namespace sky::dx {
         }
 
         return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    }
+
+    D3D12_BLEND FromRHI(rhi::BlendFactor factor)
+    {
+        return BLEND_MAP[static_cast<uint32_t>(factor)];
+    }
+
+    D3D12_BLEND_OP FromRHI(rhi::BlendOp op)
+    {
+        return op == rhi::BlendOp::ADD ? D3D12_BLEND_OP_ADD : D3D12_BLEND_OP_SUBTRACT;
+    }
+
+    D3D12_PRIMITIVE_TOPOLOGY_TYPE FromRHI(rhi::PrimitiveTopology topo)
+    {
+        return PRIMITIVE_TOPO_MAP[static_cast<uint32_t>(topo)];
+    }
+
+    D3D12_FILL_MODE FromRHI(rhi::PolygonMode mode)
+    {
+        switch (mode) {
+        case rhi::PolygonMode::FILL: return D3D12_FILL_MODE_SOLID;
+        case rhi::PolygonMode::LINE: return D3D12_FILL_MODE_WIREFRAME;
+        default:
+            break;
+        }
+        LOG_W(TAG, "Polygon Mode not supported %d, fallback to %d", mode, D3D12_FILL_MODE_WIREFRAME);
+        return D3D12_FILL_MODE_WIREFRAME;
+    }
+
+    D3D12_CULL_MODE FromRHI(const rhi::CullingModeFlags& cullMode)
+    {
+        if (cullMode & rhi::CullModeFlagBits::NONE) {
+            return D3D12_CULL_MODE_NONE;
+        }
+        if (cullMode & rhi::CullModeFlagBits::BACK) {
+            return D3D12_CULL_MODE_BACK;
+        }
+        return D3D12_CULL_MODE_FRONT;
+    }
+
+    D3D12_SHADER_VISIBILITY FromRHI(const rhi::ShaderStageFlags &flags)
+    {
+        static const rhi::ShaderStageFlags GRAPHICS_ALL = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS;
+
+        D3D12_SHADER_VISIBILITY visibility = {};
+
+        if (flags == rhi::ShaderStageFlagBit::CS) {
+            visibility = D3D12_SHADER_VISIBILITY_ALL;
+        } else if (flags == GRAPHICS_ALL) {
+            visibility = D3D12_SHADER_VISIBILITY_ALL;
+        } else if (flags == rhi::ShaderStageFlagBit::VS) {
+            visibility = D3D12_SHADER_VISIBILITY_VERTEX;
+        } else if (flags == rhi::ShaderStageFlagBit::FS) {
+            visibility = D3D12_SHADER_VISIBILITY_VERTEX;
+        }
+        return visibility;
+    }
+
+    D3D12_COMPARISON_FUNC FromRHI(rhi::CompareOp compare)
+    {
+        return COMPARE_FUNC_MAP[static_cast<uint32_t>(compare)];
+    }
+
+    D3D12_STENCIL_OP FromRHI(rhi::StencilOp op)
+    {
+        return STENCIL_OP_MAP[static_cast<uint32_t>(op)];
     }
 
 } // namespace sky::dx

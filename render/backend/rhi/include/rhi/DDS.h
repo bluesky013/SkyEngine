@@ -203,6 +203,8 @@ namespace sky::rhi {
     static constexpr uint32_t DDSD_LINEARSIZE  = 0x80000;
     static constexpr uint32_t DDSD_DEPTH       = 0x800000;
 
+    static constexpr uint32_t DDSCAPS2_CUBEMAP = 0x00000200;
+
     static constexpr uint32_t DDS_HEADER_FLAGS_TEXTURE    = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
     static constexpr uint32_t DDS_HEADER_FLAGS_MIPMAP     = DDSD_MIPMAPCOUNT;
     static constexpr uint32_t DDS_HEADER_FLAGS_VOLUME     = DDSD_DEPTH;
@@ -212,6 +214,9 @@ namespace sky::rhi {
     static constexpr uint32_t DDPF_ALPHAPIXELS = 0x1;
     static constexpr uint32_t DDPF_ALPHA       = 0x2;
     static constexpr uint32_t DDPF_FOURCC      = 0x4;
+
+    static constexpr uint32_t DDPF_RGB = 0x00000040;
+    static constexpr uint32_t DDPF_RGBA = 0x00000041;
 
     static constexpr uint32_t DDS_DIMENSION_TEXTURE1D = 2;
     static constexpr uint32_t DDS_DIMENSION_TEXTURE2D = 3;

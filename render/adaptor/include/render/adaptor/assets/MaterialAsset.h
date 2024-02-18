@@ -21,12 +21,12 @@ namespace sky {
     };
 
     struct MaterialProperties {
-        std::vector<ImageAssetPtr> images;
+        std::vector<Uuid> images;
         std::unordered_map<std::string, Any> valueMap;
     };
 
     struct MaterialAssetData {
-        std::vector<TechniqueAssetPtr> techniques;
+        std::vector<Uuid> techniques;
         MaterialProperties defaultProperties;
 
         void LoadBin(BinaryInputArchive &archive);
@@ -49,7 +49,7 @@ namespace sky {
     using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
 
     struct MaterialInstanceData {
-        MaterialAssetPtr material;
+        Uuid material;
         MaterialProperties properties;
 
         void LoadBin(BinaryInputArchive &archive);

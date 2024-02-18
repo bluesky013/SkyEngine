@@ -50,6 +50,19 @@ namespace sky {
         layout = layout_;
         set = pool.Allocate({layout->GetRHILayout()});
 
+        const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
+
+        const auto &bindings = layout->GetRHILayout()->GetBindings();
+        for (const auto &binding : bindings) {
+            for (uint32_t i = 0; i < binding.count; ++i) {
+                if (binding.type == rhi::DescriptorType::SAMPLED_IMAGE) {
+                    set->BindImageView(binding.binding, defaultRes.texture2D->GetImageView(), i);
+                } else if (binding.type == rhi::DescriptorType::SAMPLER) {
+                    set->BindSampler(binding.binding, defaultRes.defaultSampler, i);
+                }
+            }
+        }
+
         slotHash.resize(layout->GetRHILayout()->GetDescriptorCount());
     }
 
@@ -85,6 +98,15 @@ namespace sky {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
             set->BindImageView(res->binding, view, index);
+            set->BindSampler(res->binding, sampler, index);
+        }
+    }
+
+    void ResourceGroup::BindSampler(const std::string &key, const rhi::SamplerPtr &sampler, uint32_t index)
+    {
+        const auto *res = layout->GetBindingByeName(key);
+        if (res != nullptr) {
+            set->BindSampler(res->binding, sampler, index);
         }
     }
 

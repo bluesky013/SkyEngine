@@ -10,25 +10,27 @@ namespace sky::dx {
 
     DescriptorSetLayout::DescriptorSetLayout(Device &dev) : DevObject(dev)
     {
-        descriptorTable.NumDescriptorRanges = 0;
-        descriptorTable.pDescriptorRanges = nullptr;
     }
 
 
     bool DescriptorSetLayout::Init(const Descriptor &desc)
     {
-        ranges.resize(desc.bindings.size());
-        for (uint32_t i = 0; i < ranges.size(); ++i) {
-            auto &range = ranges[i];
-            const auto &binding = desc.bindings[i];
+        for (const auto &binding : desc.bindings) {
+            auto &ranges = rangeMap[binding.visibility];
+            ranges.emplace_back();
+            auto &range = ranges.back();
 
             range.RangeType          = FromRHI(binding.type);
             range.NumDescriptors     = binding.count;
             range.BaseShaderRegister = binding.binding;
             range.RegisterSpace      = 0;
-
             // for unbounded size
             range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+        }
+
+        for (const auto &[vis, ranges] : rangeMap) {
+            descriptorTableMap[vis].pDescriptorRanges = ranges.data();
+            descriptorTableMap[vis].NumDescriptorRanges = static_cast<uint32_t>(ranges.size());
         }
 
         return true;

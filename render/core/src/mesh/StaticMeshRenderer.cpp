@@ -33,7 +33,7 @@ namespace sky {
         const auto &techniques = mat->GetMaterial()->GetGfxTechniques();
         primitive->techniques.reserve(techniques.size());
         for (const auto &tech : techniques) {
-            primitive->techniques.emplace_back(TechniqueInstance{"", tech});
+            primitive->techniques.emplace_back(TechniqueInstance{tech});
         }
 
         primitive->batchSet = mat->GetResourceGroup();

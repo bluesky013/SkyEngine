@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include <framework/asset/AssetManager.h>
 #include <core/shapes/AABB.h>
+#include <framework/asset/AssetManager.h>
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>
@@ -25,14 +25,20 @@ namespace sky {
         uint32_t vertexCount = 0;
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
-        MaterialInstanceAssetPtr material;
+        Uuid material;
         AABB aabb;
+    };
+
+    struct BufferViewData {
+        Uuid buffer;
+        uint32_t offset;
+        uint32_t size;
     };
 
     struct MeshAssetData {
         std::vector<SubMeshAssetData> subMeshes;
-        std::vector<BufferAssetPtr> vertexBuffers;
-        BufferAssetPtr indexBuffer;
+        std::vector<BufferViewData> vertexBuffers;
+        BufferViewData indexBuffer;
         rhi::IndexType indexType = rhi::IndexType::U32;
         std::vector<std::string> vertexDescriptions;
 

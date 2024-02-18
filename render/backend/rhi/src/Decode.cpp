@@ -18,6 +18,7 @@ namespace sky::rhi {
             {PixelFormat::BGRA8_UNORM,               {4, 1, 1, false}},
             {PixelFormat::BGRA8_SRGB,                {4, 1, 1, false}},
             {PixelFormat::R16_UNORM,                 {2, 1, 1, false}},
+            {PixelFormat::RGBA16_SFLOAT,             {8, 1, 1, false}},
             {PixelFormat::R32_SFLOAT,                {4, 1, 1, false}},
             {PixelFormat::D32,                       {4, 1, 1, false, true, false}},
             {PixelFormat::D24_S8,                    {4, 1, 1, false, true, true}},
@@ -104,37 +105,76 @@ namespace sky::rhi {
         }
     }
 
-    void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
+    uint32_t ProcessDDSHeader(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc)
     {
-        DDSContent *content = reinterpret_cast<DDSContent *>(input);
+        auto *content = reinterpret_cast<DDSContent *>(input);
         if (content == nullptr || content->magic != 0x20534444) {
-            return;
+            return 0;
         }
 
         uint32_t offset = sizeof(DWORD) + content->header.dwSize;
-        if (content->header.ddspf.dwFlags & DDPF_FOURCC) {
-            if (content->header.ddspf.dwFourCC == MAKEFOURCC('D', 'X', '1', '0')) {
-                DDSContentExt *contentExt = reinterpret_cast<DDSContentExt *>(input);
-                offset += sizeof(DDS_HEADER_DXT10);
+        const auto *pf = &content->header.ddspf;
+        auto dwFlags = pf->dwFlags;
 
-                auto iter = DXGI_FORMAT_TABLE.find(contentExt->header10.dxgiFormat);
-                if (iter == DXGI_FORMAT_TABLE.end()) {
-                    return;
+        DXGI_FORMAT format = DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
+        if ((dwFlags & DDPF_FOURCC) != 0u) {
+            if (content->header.ddspf.dwFourCC == MAKEFOURCC('D', 'X', '1', '0')) {
+                auto *contentExt = reinterpret_cast<DDSContentExt *>(input);
+                offset += sizeof(DDS_HEADER_DXT10);
+                format = contentExt->header10.dxgiFormat;
+            }
+        } else {
+
+            if ((dwFlags & DDPF_RGB) != 0u) {
+                switch (pf->dwRGBBitCount) {
+                case 32:
+                {
+                    if (pf->dwRBitMask == 0x000000ff &&
+                        pf->dwGBitMask == 0x0000ff00 &&
+                        pf->dwBBitMask == 0x00ff0000 &&
+                        pf->dwABitMask == 0xff000000) {
+                        format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+                    }
+                    if (pf->dwRBitMask == 0x00ff0000 &&
+                        pf->dwGBitMask == 0x0000ff00 &&
+                        pf->dwBBitMask == 0x000000ff &&
+                        pf->dwABitMask == 0xff000000) {
+                        format = DXGI_FORMAT::DXGI_FORMAT_B8G8R8A8_UNORM;
+                    }
                 }
-                imageDesc.format = iter->second;
+                default:
+                    break;
+                };
             }
         }
+        {
+            auto iter = DXGI_FORMAT_TABLE.find(format);
+            if (iter == DXGI_FORMAT_TABLE.end()) {
+                return 0;
+            }
+            imageDesc.format = iter->second;
+        }
+
 
         imageDesc.extent.width  = content->header.dwWidth;
         imageDesc.extent.height = content->header.dwHeight;
         imageDesc.mipLevels     = content->header.dwMipMapCount;
 
+        if ((content->header.dwCaps2 & DDSCAPS2_CUBEMAP) != 0u) {
+            imageDesc.arrayLayers = 6;
+        }
+
+        return offset;
+    }
+
+    void ProcessDDS(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests)
+    {
+        uint32_t offset = ProcessDDSHeader(input, size, imageDesc);
+
         auto iter = FORMAT_INFO.find(imageDesc.format);
         if (iter == FORMAT_INFO.end()) {
             return;
         }
-        uint32_t width  = imageDesc.extent.width;
-        uint32_t height = imageDesc.extent.height;
 
         uint32_t blockWidth = iter->second.blockWidth;
         uint32_t blockHeight = iter->second.blockHeight;
@@ -142,21 +182,26 @@ namespace sky::rhi {
 
         ImageUploadRequest request = {};
         request.source = std::make_shared<RawPtrStream>(input);
-        request.layer = 0;
+        request.imageExtent.width  = imageDesc.extent.width;
+        request.imageExtent.height = imageDesc.extent.height;
 
-        for (uint32_t i = 0; i < imageDesc.mipLevels; ++i) {
-            uint32_t rowLength   = (width + blockWidth - 1) / blockWidth;
-            uint32_t imageHeight = (height + blockHeight - 1) / blockHeight;
-            uint32_t currentSize = rowLength * imageHeight * blockSize;
+        for (uint32_t j = 0; j < imageDesc.arrayLayers; ++j) {
+            for (uint32_t i = 0; i < imageDesc.mipLevels; ++i) {
+                auto width  = std::max(imageDesc.extent.width >> i, 1U);
+                auto height = std::max(imageDesc.extent.height >> i, 1U);
 
-            request.offset = offset;
-            request.size = currentSize;
-            request.mipLevel = i;
-            offset += currentSize;
-            width = std::max(width >> 1, 1U);
-            height = std::max(height >> 1, 1U);
-
-            requests.emplace_back(request);
+                uint32_t rowLength   = (width + blockWidth - 1) / blockWidth;
+                uint32_t imageHeight = (height + blockHeight - 1) / blockHeight;
+                uint32_t currentSize = rowLength * imageHeight * blockSize;
+                request.imageExtent.depth  = 1;
+                request.source             = std::make_shared<RawPtrStream>(input);
+                request.offset             = offset;
+                request.size               = currentSize;
+                request.mipLevel           = i;
+                request.layer              = j;
+                offset += currentSize;
+                requests.emplace_back(request);
+            }
         }
     }
 }

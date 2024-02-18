@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <string>
 #include <core/template/Flags.h>
 
 namespace sky {
@@ -38,6 +39,7 @@ namespace sky::rhi {
         RGBA8_SRGB,
         BGRA8_UNORM,
         BGRA8_SRGB,
+        RGBA16_SFLOAT,
         R16_UNORM,
         R32_SFLOAT,
         D32,
@@ -84,7 +86,6 @@ namespace sky::rhi {
         F_RGBA32  = 4,
         F_R8     = 5,
         F_RG8    = 6,
-        F_RGB8   = 7,
         F_RGBA8  = 8
     };
 
@@ -246,6 +247,7 @@ namespace sky::rhi {
 
     enum class QueueType : uint32_t {
         GRAPHICS,
+        COMPUTE,
         TRANSFER,
     };
 
@@ -353,6 +355,13 @@ namespace sky::rhi {
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
+
+    enum class DescriptorBindingFlagBit : uint32_t {
+        NONE           = 0x00,
+        VARIABLE_COUNT = 0x01
+    };
+    using DescriptorBindingFlags = Flags<DescriptorBindingFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(DescriptorBindingFlagBit)
 
     enum class CullModeFlagBits : uint32_t {
         NONE  = 0x00000000,
@@ -562,6 +571,7 @@ namespace sky::rhi {
         bool depthTest      = false;
         bool depthWrite     = false;
         bool stencilTest    = false;
+        bool rsv            = false;
         CompareOp compareOp = CompareOp::LESS_OR_EQUAL;
         float minDepth      = 0.f;
         float maxDepth      = 1.f;
@@ -585,6 +595,7 @@ namespace sky::rhi {
         bool             depthClampEnable        = false;
         bool             rasterizerDiscardEnable = false;
         bool             depthBiasEnable         = false;
+        bool             depthClipEnable         = false;
         float            depthBiasConstantFactor = 0.f;
         float            depthBiasClamp          = 0.f;
         float            depthBiasSlopeFactor    = 0.f;
@@ -599,6 +610,7 @@ namespace sky::rhi {
     };
 
     struct MultiSample {
+        bool alphaToCoverage = false;
         SampleCount sampleCount = SampleCount::X1;
     };
 
@@ -611,6 +623,7 @@ namespace sky::rhi {
     };
 
     struct VertexAttributeDesc {
+        std::string sematic;
         uint32_t location = 0;
         uint32_t binding  = 0;
         uint32_t offset   = 0;

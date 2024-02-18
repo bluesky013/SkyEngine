@@ -1,0 +1,23 @@
+{
+  "modules": [
+    {
+      "name": "SkyRender",
+      "dependencies": []
+    },
+    {
+      "name": "ShaderCompiler",
+      "dependencies": []
+    },
+    {
+      "name": "RDSceneProject",
+      "dependencies": [
+        "SkyRender",
+        "ShaderCompiler"
+      ]
+    }
+  ],
+  "game": {
+    "width": 1366,
+    "height": 768
+  }
+}

@@ -11,14 +11,8 @@ namespace sky::dx {
     {
     }
 
-    bool DescriptorSetPool::Init(const Descriptor &desc)
+    void ConvertType(const DescriptorSetPool::Descriptor &desc, uint32_t &cbvSrvUavCount, uint32_t &samplerCount)
     {
-        D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-        heapDesc.NodeMask = 1;
-        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-        uint32_t cbvSrvUavCount = 0;
-        uint32_t samplerCount = 0;
         for (uint32_t i = 0; i < desc.sizeCount; ++i) {
             const auto &size = desc.sizeData[i];
             if (size.type == rhi::DescriptorType::SAMPLED_IMAGE ||
@@ -32,6 +26,17 @@ namespace sky::dx {
                 samplerCount += size.count;
             }
         }
+    }
+
+    bool DescriptorSetPool::Init(const Descriptor &desc)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+        heapDesc.NodeMask = 1;
+        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+        uint32_t cbvSrvUavCount = 0;
+        uint32_t samplerCount = 0;
+        ConvertType(desc, cbvSrvUavCount, samplerCount);
 
         bool res = true;
         {
@@ -49,6 +54,8 @@ namespace sky::dx {
 
     rhi::DescriptorSetPtr DescriptorSetPool::Allocate(const rhi::DescriptorSet::Descriptor &desc)
     {
+        uint32_t cbvSrvUavCount = 0;
+        uint32_t samplerCount = 0;
         return {};
     }
 }

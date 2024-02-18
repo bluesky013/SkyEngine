@@ -6,26 +6,46 @@
 #include <render/RHI.h>
 #include <render/Renderer.h>
 #include <render/RenderNameHandle.h>
+#include <shader/ShaderCompiler.h>
+#include <core/archive/FileArchive.h>
 
 namespace sky {
 
-    void Technique::AddShader(const sky::RDShaderPtr &shader)
+    static ShaderCompileTarget GetCompileTarget()
     {
-        shaders.emplace_back(shader);
+        auto api = RHI::Get()->GetBackend();
+        switch (api) {
+        case rhi::API::METAL:
+            return ShaderCompileTarget::MSL;
+        case rhi::API::DX12:
+            return ShaderCompileTarget::DXIL;
+        case rhi::API::VULKAN:
+        default:
+            return ShaderCompileTarget::SPIRV;
+        };
     }
 
-    RDProgramPtr Technique::RequestProgram(const std::string &key)
+    struct ShaderCacheHeader {
+        std::string signature;
+        uint32_t version;
+    };
+
+    void Technique::SetShader(const ShaderRef &shader)
+    {
+        shaderData = shader;
+        RequestProgram(nullptr);
+    }
+
+    RDProgramPtr Technique::RequestProgram(const ShaderPreprocessorPtr &preprocessor)
     {
         auto program = std::make_shared<Program>();
-        for (auto &shader : shaders) {
-            auto variant = shader->GetVariant(key);
-            if (!variant) {
-                return nullptr;
-            }
-            program->AddShader(variant);
-        }
-        program->BuildPipelineLayout();
-        programs.emplace(key, program);
+        program->SetName(shaderData.shaderCollection->GetName());
+
+        ShaderCompileOption option = {};
+        option.target = GetCompileTarget();
+        option.preprocessor = preprocessor;
+
+        FillProgramInternal(*program, option);
         return program;
     }
 
@@ -55,26 +75,70 @@ namespace sky {
         vertexDesc = Renderer::Get()->GetVertexDescLibrary()->FindVertexDesc(key);
     }
 
-    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
-                                      const rhi::RenderPassPtr &pass,
-                                      uint32_t subPassID,
-                                      const std::string &programKey)
+    void GraphicsTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
     {
-        auto program = tech.RequestProgram(programKey);
-        if (!program) {
-            return nullptr;
+        auto *device = RHI::Get()->GetDevice();
+        rhi::Shader::Descriptor shaderDesc = {};
+        {
+            ShaderBuildResult result = {};
+            shaderData.shaderCollection->BuildAndCacheShader(shaderData.vertOrMeshMain, rhi::ShaderStageFlagBit::VS, option, result);
+
+            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+            shaderDesc.stage = rhi::ShaderStageFlagBit::VS;
+
+            auto shader = device->CreateShader(shaderDesc);
+            shader->SetEntry(shaderData.vertOrMeshMain);
+            program.AddShader(shader);
+            program.MergeReflection(std::move(result.reflection));
         }
 
+        {
+            ShaderBuildResult result = {};
+            shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::FS, option, result);
+
+            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+            shaderDesc.stage = rhi::ShaderStageFlagBit::FS;
+
+            auto shader = device->CreateShader(shaderDesc);
+            shader->SetEntry(shaderData.fragmentMain);
+            program.AddShader(shader);
+            program.MergeReflection(std::move(result.reflection));
+        }
+        program.BuildPipelineLayout();
+    }
+
+    void ComputeTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
+    {
+        ShaderBuildResult result = {};
+        shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::CS, option, result);
+
+        rhi::Shader::Descriptor shaderDesc = {};
+        shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+        shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+        shaderDesc.stage = rhi::ShaderStageFlagBit::CS;
+
+        program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
+        program.MergeReflection(std::move(result.reflection));
+    }
+
+    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
+                                      const rhi::RenderPassPtr &pass,
+                                      uint32_t subPassID)
+    {
+        auto program = tech.RequestProgram({});
         const auto &shaders = program->GetShaders();
 
         rhi::GraphicsPipeline::Descriptor descriptor = {};
         descriptor.state = tech.state;
+        descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
         descriptor.renderPass = pass;
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();
         descriptor.vertexInput = tech.vertexDesc;
-        descriptor.vs = shaders[0]->GetShader();
-        descriptor.fs = shaders[1]->GetShader();
+        descriptor.vs = shaders[0];
+        descriptor.fs = shaders[1];
 
         if (descriptor.state.blendStates.empty()) {
             descriptor.state.blendStates.resize(pass->GetColors().size());

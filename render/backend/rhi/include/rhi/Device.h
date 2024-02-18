@@ -78,7 +78,6 @@ namespace sky::rhi {
         virtual SamplerPtr CreateSampler(const Sampler::Descriptor &desc) = 0;
         virtual DescriptorSetPoolPtr CreateDescriptorSetPool(const DescriptorSetPool::Descriptor &desc) = 0;
         virtual QueryPoolPtr CreateQueryPool(const QueryPool::Descriptor &desc) = 0;
-
         // query
         virtual uint32_t CheckPipelineStatisticFlags(const PipelineStatisticFlags &val, PipelineStatisticFlags &res) { return 0; }
 

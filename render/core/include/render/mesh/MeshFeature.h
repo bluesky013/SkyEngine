@@ -13,7 +13,7 @@ namespace sky {
     class MeshFeature : public Singleton<MeshFeature> {
     public:
         MeshFeature() = default;
-        ~MeshFeature() = default;
+        ~MeshFeature() override = default;
 
         void Init();
         RDResourceGroupPtr RequestResourceGroup();

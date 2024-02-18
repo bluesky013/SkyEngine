@@ -2,124 +2,94 @@
 // Created by Zach Lee on 2021/11/11.
 //
 
+#include <framework/application/Application.h>
+
+// 3rd
+#include <cxxopts.hpp>
+
+// std
 #include <chrono>
+
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
-#include <framework/application/Application.h>
-#include <framework/platform/PlatformBase.h>
+#include <core/file/FileIO.h>
+
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
+#include <framework/platform/PlatformBase.h>
 #include <framework/serialization/CoreReflection.h>
 
 static const char *TAG = "Application";
 
 namespace sky {
 
-    using ModuleStart = IModule *(*)(Environment *);
-    using ModuleStop  = void (*)();
-
     Application::Application() : env(nullptr)
     {
     }
 
-    Application::~Application()
+    void Application::SaveArgs(int argc, char **argv)
     {
+        for (int i = 0; i < argc; ++i) {
+            arguments.values.emplace_back(argv[i]);
+            arguments.args.emplace_back(arguments.values.back().c_str());
+        }
     }
 
-    bool Application::Init(StartInfo &start)
+    bool Application::Init(int argc, char **argv)
     {
         LOG_I(TAG, "Application Init Start...");
-
         env = Environment::Get();
         if (env == nullptr) {
             LOG_E(TAG, "Get Environment Failed");
             return false;
         }
 
-        // merge settings
-        settings.Swap(start.setting);
+        // save args
+        SaveArgs(argc, argv);
+
+        // module manager
+        moduleManager = std::make_unique<ModuleManager>();
+
+        // process args
+        ParseStartArgs();
+
+        // load configs
+        LoadConfigs();
 
         DBManager::Get()->Init();
         Interface<ISystemNotify>::Get()->Register(*this);
 
         CoreReflection();
 
-        LOG_I(TAG, "Load Engine Module...");
-        LoadDynamicModules(start);
+        PreInit();
 
+        // load dynamic modules
+        if (moduleManager) {
+            LOG_I(TAG, "Load Engine Module...");
+            moduleManager->TopoSort();
+            moduleManager->LoadModules(arguments);
+            moduleManager->StartModules();
+        }
+
+        PostInit();
         LOG_I(TAG, "Load Engine Module Success");
         return true;
     }
 
-    void Application::RegisterModule(std::unique_ptr<IModule> &&module)
+    void Application::Shutdown()
     {
-        module->Init();
-        modules.emplace_back(std::move(module));
-    }
+        Interface<ISystemNotify>::Get()->UnRegister();
 
-    void Application::LoadDynamicModules(const StartInfo &startInfo)
-    {
-        for (auto &module : startInfo.modules) {
-            auto dynModule = std::make_unique<DynamicModule>(module);
-            LOG_I(TAG, "Load Module : %s", module.c_str());
-            if (dynModule->Load()) {
-                auto startFn = dynModule->GetAddress<ModuleStart>("StartModule");
-                if (startFn == nullptr) {
-                    LOG_E(TAG, "Load Module : %s failed", module.c_str());
-                    continue;
-                }
-                auto mod = startFn(Environment::Get());
-                if (mod == nullptr) {
-                    continue;
-                }
-                if (!mod->Init()) {
-                    continue;
-                }
-                modules.emplace_back(std::unique_ptr<IModule>(mod));
-                dynLibs.emplace_back(std::move(dynModule));
-            }
-            LOG_I(TAG, "Load Module : %s success", module.c_str());
-        }
+        AssetManager::Destroy();
+        DBManager::Destroy();
 
-        for (auto &module : modules) {
-            module->Start();
-        }
-    }
-
-    void Application::UnloadDynamicModules()
-    {
-        for (auto &module : modules) {
-            module->Stop();
-        }
-        for (auto &module : modules) {
-            module->Shutdown();
-        }
-
-        for (auto &lib : dynLibs) {
-            auto stopFn = lib->GetAddress<ModuleStop>("StopModule");
-            if (stopFn != nullptr) {
-                stopFn();
-            }
-        }
+        sky::Platform* platform = sky::Platform::Get();
+        platform->Shutdown();
     }
 
     void Application::SetExit()
     {
         exit = true;
-    }
-
-    SettingRegistry &Application::GetSettings()
-    {
-        return settings;
-    }
-
-    void Application::Shutdown()
-    {
-        UnloadDynamicModules();
-        Interface<ISystemNotify>::Get()->UnRegister();
-
-        AssetManager::Destroy();
-        DBManager::Destroy();
     }
 
     void Application::Loop()
@@ -132,8 +102,8 @@ namespace sky {
         float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
         current               = currentCounter;
 
-        for (auto &module : modules) {
-            module->Tick(delta);
+        if (moduleManager) {
+            moduleManager->Tick(delta);
         }
 
         if (tickFn) {

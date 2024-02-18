@@ -23,6 +23,8 @@ namespace sky::rhi {
             rhi::SampleCount samples     = rhi::SampleCount::X1;
             ImageUsageFlags  usage       = ImageUsageFlagBit::NONE;
             MemoryType       memory      = MemoryType::GPU_ONLY;
+
+            bool cubeCompatible = false;
         };
 
         const Descriptor &GetDescriptor() const { return imageDesc; };

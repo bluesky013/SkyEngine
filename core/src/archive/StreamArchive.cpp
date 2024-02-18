@@ -6,14 +6,14 @@
 
 namespace sky {
 
-    bool IStreamArchive::Load(char *data, uint32_t size)
+    bool IStreamArchive::Load(char *data, size_t size)
     {
-        return stream.rdbuf()->sgetn(data, size) == size;
+        return stream.rdbuf()->sgetn(data, static_cast<std::streamsize>(size)) == size;
     }
 
-    bool OStreamArchive::Save(const char *data, uint32_t size)
+    bool OStreamArchive::Save(const char *data, size_t size)
     {
-        return stream.rdbuf()->sputn(data, size) == size;
+        return stream.rdbuf()->sputn(data, static_cast<std::streamsize>(size)) == size;
     }
 
 } // namespace sky

@@ -15,10 +15,15 @@ namespace sky::dx {
         explicit Shader(Device &);
         ~Shader() override = default;
 
+        using ByteCode = std::vector<uint8_t>;
+
+        const D3D12_SHADER_BYTECODE &GetByteCode() const { return byteCode; }
+
     private:
         friend class Device;
         bool Init(const Descriptor &);
 
+        ByteCode storage;
         D3D12_SHADER_BYTECODE byteCode;
     };
 
