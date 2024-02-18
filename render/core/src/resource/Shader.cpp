@@ -206,7 +206,8 @@ namespace sky {
             sourceDesc.entry            = entry;
             sourceDesc.stage            = stage;
 
-            if (!ShaderCompiler::Get()->Compile(sourceDesc, option, result)) {
+            auto *compiler = Renderer::Get()->GetShaderCompiler();
+            if (compiler == nullptr || !compiler(sourceDesc, option, result)) {
                 return;
             }
 

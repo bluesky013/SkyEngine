@@ -49,6 +49,11 @@ namespace sky {
 
         void StartModules();
 
+        template <typename Func>
+        Func GetFunctionFomModule(const std::string &module, const std::string &func)
+        {
+            return dynLibs[module]->GetAddress<Func>(func);
+        }
     private:
         vertex_descriptor RegisterModuleImpl(const std::string &path);
 
@@ -56,7 +61,7 @@ namespace sky {
         std::vector<std::string> names;
         std::vector<vertex_descriptor> sortedContainer;
 
-        std::vector<std::unique_ptr<DynamicModule>> dynLibs;
+        std::unordered_map<std::string, std::unique_ptr<DynamicModule>> dynLibs;
         std::unordered_map<std::string, std::unique_ptr<IModule>> modules;
     };
 } // namespace sky

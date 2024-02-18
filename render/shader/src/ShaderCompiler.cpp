@@ -15,8 +15,6 @@
 #include <fstream>
 #include <utility>
 
-#include <shader/ShaderCompilerDXC.h>
-
 static const char* TAG = "ShaderCompiler";
 
 namespace sky {
@@ -126,20 +124,10 @@ namespace sky {
 
     ShaderCompiler::ShaderCompiler()
     {
-        auto dxc = std::make_unique<ShaderCompilerDXC>();
-        if (dxc->Init()) {
-            compiler = std::move(dxc);
-        }
     }
 
     ShaderCompiler::~ShaderCompiler()
     {
-        compiler = nullptr;
-    }
-
-    bool ShaderCompiler::Compile(const ShaderSourceDesc &desc, const ShaderCompileOption &option, ShaderBuildResult &result)
-    {
-        return compiler->CompileBinary(desc, option, result);
     }
 
     void ShaderPreprocessor::SetValue(const std::string &key, const MacroValue &val)

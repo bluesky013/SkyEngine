@@ -15,6 +15,6 @@ sky_add_library(TARGET RHISample SHARED
     LINK_LIBS
         RHI
         Framework
-        ShaderCompiler
+        ShaderCompiler.Static
     )
 sky_add_dependency(TARGET RHISample DEPENDENCIES Launcher)

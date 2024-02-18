@@ -105,20 +105,12 @@ namespace sky {
         void AddSearchPath(const std::string &path) { searchPaths.emplace_back(path); }
 
         std::string LoadShader(const std::string &path);
-
-//        void BuildSpirV(const std::string &source,
-//                        const std::vector<std::pair<std::string, rhi::ShaderStageFlagBit>> &entries,
-//                        std::vector<std::vector<uint32_t>> &out,
-//                        ShaderReflection &reflection);
-
-        bool Compile(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result);
-
     private:
         std::pair<bool, std::string> ProcessShaderSource(const std::string &path);
         std::pair<bool, std::string> ProcessHeaderFile(const std::string &path, ShaderIncludeContext &context, uint32_t depth);
 
         std::vector<std::string> searchPaths;
-
-        std::unique_ptr<ShaderCompilerBase> compiler;
     };
+
+    using ShaderCompileFunc = bool (*)(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result);
 } // namespace sky

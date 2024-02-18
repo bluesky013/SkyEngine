@@ -46,6 +46,8 @@ namespace sky {
     protected:
         void SaveArgs(int argc, char **argv);
 
+        ModuleManager* GetModuleManager() const override { return moduleManager.get(); }
+
         Environment                    *env;
         std::unique_ptr<ModuleManager>  moduleManager;
         StartArguments                  arguments;

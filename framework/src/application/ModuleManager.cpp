@@ -68,7 +68,7 @@ namespace sky {
                 }
 
                 modules.emplace(moduleName, std::unique_ptr<IModule>(module));
-                dynLibs.emplace_back(std::move(dynModule));
+                dynLibs.emplace(moduleName, std::move(dynModule));
             }
             LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
         }, sortedContainer);
@@ -91,7 +91,7 @@ namespace sky {
         }, container);
         modules.clear();
 
-        for (auto &lib : dynLibs) {
+        for (auto &[key, lib] : dynLibs) {
             auto stopFn = lib->GetAddress<ModuleStop>("StopModule");
             if (stopFn != nullptr) {
                 stopFn();

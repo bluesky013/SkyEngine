@@ -5,9 +5,14 @@
       "dependencies": []
     },
     {
+      "name": "ShaderCompiler",
+      "dependencies": []
+    },
+    {
       "name": "RDSceneProject",
       "dependencies": [
-        "SkyRender"
+        "SkyRender",
+        "ShaderCompiler"
       ]
     }
   ],

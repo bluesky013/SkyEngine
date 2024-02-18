@@ -10,8 +10,8 @@ parser.add_argument('--engine', help='engine path')
 
 def main():
     args = parser.parse_args()
-    project_path = args.project
-    engine_path = args.engine
+    project_path = os.path.abspath(args.project)
+    engine_path = os.path.abspath(args.engine)
     print("Init Project... \nProject Path: %s\nEngine  Path: %s" % (project_path, engine_path))
 
     if args.init:

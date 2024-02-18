@@ -5,6 +5,9 @@
 #include <framework/interface/IModule.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+#include <framework/application/ModuleManager.h>
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
@@ -96,6 +99,10 @@ namespace sky {
 
     void RenderModule::Start()
     {
+        auto *mm = Interface<ISystemNotify>::Get()->GetApi()->GetModuleManager();
+        auto shaderCompileFunc = mm->GetFunctionFomModule<ShaderCompileFunc>("ShaderCompiler", "CompileBinary");
+        Renderer::Get()->SetShaderCompiler(shaderCompileFunc);
+
         // init assets
         auto *am = AssetManager::Get();
 
