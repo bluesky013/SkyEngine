@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/glsl/vertex/skybox.vert",
-        "frag": "shaderlibs/glsl/skybox.frag"
+    "shader": {
+        "path": "shaders/skybox.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "SkyBox"

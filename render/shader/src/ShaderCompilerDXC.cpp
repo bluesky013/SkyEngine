@@ -125,7 +125,6 @@ namespace sky {
             res.count = shaderInputBindDesc.BindCount;
             res.name = shaderInputBindDesc.Name;
             res.visibility = stage;
-            res.typeIndex = ~(0U);
 
             if (shaderInputBindDesc.Type == D3D_SIT_CBUFFER) {
                 ID3D12ShaderReflectionConstantBuffer* shaderReflectionConstantBuffer = shaderReflection->GetConstantBufferByIndex(i);
@@ -139,7 +138,6 @@ namespace sky {
                     return res.name == type.name;
                 });
                 if (iter == result.reflection.types.end()) {
-                    res.typeIndex = static_cast<uint32_t>(result.reflection.types.size());
                     result.reflection.types.emplace_back();
                     auto &type = result.reflection.types.back();
                     type.name = res.name;
@@ -159,8 +157,6 @@ namespace sky {
                         var.set     = res.set;
                         var.binding = res.binding;
                     }
-                } else {
-                    res.typeIndex = static_cast<uint32_t>(std::distance(result.reflection.types.begin(), iter));
                 }
             } else if (shaderInputBindDesc.Type == D3D_SIT_SAMPLER) {
                 res.type = rhi::DescriptorType::SAMPLER;
@@ -196,7 +192,6 @@ namespace sky {
                 res.name = compiler.get_name(resource.id);
                 res.size = 0;
                 res.count = resType.array.empty() ? 0 : resType.array[0];
-                res.typeIndex = ~(0U);
 
                 if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
                     res.size = static_cast<uint32_t>(compiler.get_declared_struct_size(resType));
@@ -207,7 +202,6 @@ namespace sky {
                     });
 
                     if (iter == result.reflection.types.end()) {
-                        res.typeIndex = static_cast<uint32_t>(result.reflection.types.size());
                         result.reflection.types.emplace_back();
                         auto &structType = result.reflection.types.back();
                         structType.name = res.name;
@@ -222,8 +216,6 @@ namespace sky {
                             var.offset  = compiler.type_struct_member_offset(resType, i);
                             var.name    = compiler.get_member_name(resource.base_type_id, i);
                         }
-                    } else {
-                        res.typeIndex = static_cast<uint32_t>(std::distance(result.reflection.types.begin(), iter));
                     }
                 }
             }

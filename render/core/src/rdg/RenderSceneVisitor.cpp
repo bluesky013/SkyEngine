@@ -33,7 +33,7 @@ namespace sky::rdg {
 
                     if (tech.rebuildPso || !tech.pso || (tech.renderPass->GetCompatibleHash() != renderPass->GetCompatibleHash())) {
                         tech.renderPass = renderPass;
-//                        tech.pso = GraphicsTechnique::BuildPso(*tech.technique, renderPass, subPass.subPassID, tech.programKey);
+                        tech.pso = GraphicsTechnique::BuildPso(*tech.technique, renderPass, subPass.subPassID);
 
                         tech.rebuildPso = false;
                     }

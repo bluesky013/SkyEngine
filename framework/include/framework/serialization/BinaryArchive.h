@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <core/platform/Platform.h>
+#include <core/archive/ArchiveConcept.h>
 
 namespace sky {
 

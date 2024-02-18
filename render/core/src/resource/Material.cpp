@@ -10,7 +10,8 @@ namespace sky {
     static constexpr uint32_t MAX_SET_PER_POOL = 8;
     static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
         {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
-        {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, 6 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::SAMPLED_IMAGE,          6 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::SAMPLER,                6 * MAX_SET_PER_POOL},
     };
 
     void Material::AddTechnique(const RDGfxTechPtr &technique)
@@ -62,9 +63,11 @@ namespace sky {
                     ubo->Init(pair.second.size, Renderer::Get()->GetInflightFrameCount());
                     uniformBuffers.emplace(index + i, ubo);
                     resourceGroup->BindDynamicUBO(pair.first, ubo, i);
-                } else if (iter->type == rhi::DescriptorType::COMBINED_IMAGE_SAMPLER) {
+                } else if (iter->type == rhi::DescriptorType::SAMPLED_IMAGE) {
                     textures.emplace(index + i, defaultRes.texture2D);
                     resourceGroup->BindTexture(pair.first, defaultRes.texture2D->GetImageView(), i);
+                } else if (iter->type == rhi::DescriptorType::SAMPLER) {
+                    resourceGroup->BindSampler(pair.first, defaultRes.defaultSampler, i);
                 }
             }
         }

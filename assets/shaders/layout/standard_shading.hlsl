@@ -3,8 +3,7 @@
 [[vk::binding(0, 1)]] cbuffer shading : register(b0, space1) {
     float Metallic;
     float Roughness;
-    float Test[2][4];
-    float3 Color;
+    float AlphaCutoff;
     float4 Albedo;
 }
 

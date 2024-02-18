@@ -8,6 +8,7 @@
 #include <render/RenderWindow.h>
 #include <render/adaptor/Util.h>
 #include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <rhi/Decode.h>
@@ -58,28 +59,30 @@ namespace sky {
 
             {
                 rhi::DescriptorSetLayout::Descriptor desc = {};
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "passInfo"});
+//                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "passInfo"});
                 desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 2, rhi::ShaderStageFlagBit::FS, "irradianceMap"});
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "radianceMap"});
-                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, 1, 4, rhi::ShaderStageFlagBit::FS, "brdfLutMap"});
+//                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 2, rhi::ShaderStageFlagBit::FS, "irradianceMap"});
+//                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "radianceMap"});
+//                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 4, rhi::ShaderStageFlagBit::FS, "brdfLutMap"});
 
                 forwardLayout = std::make_shared<ResourceGroupLayout>();
                 forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-                forwardLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
+//                forwardLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
                 forwardLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
-                forwardLayout->AddNameHandler("irradianceMap", {2, 0});
-                forwardLayout->AddNameHandler("radianceMap", {3, 0});
-                forwardLayout->AddNameHandler("brdfLutMap", {4, 0});
+//                forwardLayout->AddNameHandler("irradianceMap", {2, 0});
+//                forwardLayout->AddNameHandler("radianceMap", {3, 0});
+//                forwardLayout->AddNameHandler("brdfLutMap", {4, 0});
             }
 
-            postTech = AssetManager::Get()->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
-            brdfLutTech = AssetManager::Get()->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
+            auto *am = AssetManager::Get();
+            postTech = am->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
+            brdfLutTech = am->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
+
+            irradiance = am->LoadAsset<Texture>("skybox/output_iem.dds")->CreateInstanceAs<TextureCube>();
+            radiance = am->LoadAsset<Texture>("skybox/output_pmrem.dds")->CreateInstanceAs<TextureCube>();
+
 //            auto skyboxTex = LoadCubeMap("/assets/skybox/output_skybox.dds");
-//            irradiance = LoadCubeMap("/assets/skybox/output_iem.dds");
-//            radiance = LoadCubeMap("/assets/skybox/output_pmrem.dds");
-//
-            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
+//            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
 //            auto skyboxMatInst = std::make_shared<MaterialInstance>();
 //            skyboxMatInst->SetMaterial(skyboxMat);
 //            skyboxMatInst->SetTexture("skybox", skyboxTex, 0);
@@ -167,7 +170,7 @@ namespace sky {
                       .AddAttachment({"SwapChain", rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, {});
             auto ppSub = pp.AddRasterSubPass("pp_sub0");
             ppSub.AddColor("SwapChain", rdg::ResourceAccessBit::WRITE)
-                .AddComputeView("ForwardColor", {"colorImage", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS});
+                .AddComputeView("ForwardColor", {"InColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS});
             ppSub.AddFullScreen("fullscreen")
                 .SetTechnique(postTech);
 

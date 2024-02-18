@@ -9,7 +9,8 @@
 namespace sky::rdg {
     static constexpr uint32_t MAX_SET_PER_POOL = 128;
     static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
-        {rhi::DescriptorType::COMBINED_IMAGE_SAMPLER, MAX_SET_PER_POOL * 2},
+        {rhi::DescriptorType::SAMPLED_IMAGE,          MAX_SET_PER_POOL * 2},
+        {rhi::DescriptorType::SAMPLER,                MAX_SET_PER_POOL},
         {rhi::DescriptorType::UNIFORM_BUFFER,         MAX_SET_PER_POOL},
         {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
         {rhi::DescriptorType::STORAGE_BUFFER,         MAX_SET_PER_POOL},

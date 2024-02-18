@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>())
         ("p,project", "Project Directory", cxxopts::value<std::string>())
         ("i,import", "Import Source Asset", cxxopts::value<std::vector<std::string>>())
-        ("b,build", "Build Asset")
+        ("f,imports", "Import Source Asset by list", cxxopts::value<std::string>())
         ("l,list", "Project Asset List")
         ("h,help", "Print usage");
     options.allow_unrecognised_options();
@@ -40,9 +40,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    std::string projectPath = result["project"].as<std::string>();
+
     auto* am = AssetManager::Get();
     std::vector<Uuid> importFileList;
-
     if (result.count("list") != 0u) {
         const auto &idMap = am->GetIDMap();
         printf("Asset List: (item %d)\n", static_cast<uint32_t>(idMap.size()));
@@ -52,17 +53,20 @@ int main(int argc, char *argv[])
         goto EXIT;
     }
 
-    if (result.count("import") != 0U) {
-        auto list = result["import"].as<std::vector<std::string>>();
-        for (const auto &path : list) {
-            importFileList.emplace_back(am->ImportAsset(path));
+    if (result.count("imports") != 0U) {
+        auto file = result["imports"].as<std::string>();
+        std::ifstream f(projectPath + "/" + file);
+
+        std::string line;
+        while (std::getline(f, line)) {
+            am->ImportAndBuildAsset(line);
         }
     }
 
-    if (result.count("build") != 0U) {
+    if (result.count("import") != 0U) {
         auto list = result["import"].as<std::vector<std::string>>();
-        for (const auto &id : importFileList) {
-            am->BuildAsset(id);
+        for (const auto &path : list) {
+            am->ImportAndBuildAsset(path);
         }
         goto EXIT;
     }

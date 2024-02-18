@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/glsl/vertex/fullscreen.vert",
-        "frag": "shaderlibs/glsl/final.frag"
+    "shader": {
+        "path": "shaders/post_processing/final.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "PostProcessing"

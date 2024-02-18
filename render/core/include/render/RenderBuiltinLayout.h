@@ -14,8 +14,6 @@ namespace sky {
         Matrix4 projectMatrix;
         Matrix4 viewProjectMatrix;
         Matrix4 inverseViewProject;
-        Vector4 worldPos;
-        Vector4 zParam;
     };
 
     struct InstanceLocal {

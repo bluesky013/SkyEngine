@@ -3,8 +3,6 @@ struct ViewInfo {
     float4x4 ViewToClip;
     float4x4 WorldToView;
     float4x4 WorldToClip;
-    float4 WorldPos;
-    float4 ZParam;
 };
 
 #define VIEW_COUNT 1

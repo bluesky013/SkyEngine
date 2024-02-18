@@ -47,9 +47,9 @@ namespace sky {
         const std::string &GetVertexDescKey() const { return vertexDescKey; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
-//        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
-//                                                 const rhi::RenderPassPtr &pass,
-//                                                 uint32_t subPassID);
+        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
+                                                 const rhi::RenderPassPtr &pass,
+                                                 uint32_t subPassID);
 
     private:
         void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;

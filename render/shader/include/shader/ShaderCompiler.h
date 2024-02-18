@@ -29,7 +29,6 @@ namespace sky {
         uint32_t binding;
         uint32_t count;
         uint32_t size;
-        uint32_t typeIndex;
     };
 
     struct ShaderVariable {

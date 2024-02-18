@@ -25,6 +25,7 @@ namespace sky::rdg {
         std::shared_ptr<rhi::GraphicsEncoder> currentEncoder;
         uint32_t currentSubPassIndex = 0;
         uint32_t currentSubPassNum = 1;
+        std::vector<std::string> callStack;
     };
 
 }

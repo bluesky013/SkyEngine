@@ -37,6 +37,7 @@ namespace sky::vk {
         uint32_t          hash;
         RenderPassPtr     renderPass;
         PipelineLayoutPtr pipelineLayout;
+        VertexInputPtr    inputDesc;
     };
 
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;

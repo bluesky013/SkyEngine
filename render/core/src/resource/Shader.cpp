@@ -66,7 +66,7 @@ namespace sky {
             [&type](const ShaderStructType &val) -> bool {
                 return type.name == val.name;
             });
-            if (iter != reflection->types.end()) {
+            if (iter == reflection->types.end()) {
                 reflection->types.emplace_back(type);
             }
         }
@@ -86,7 +86,7 @@ namespace sky {
             rhi::DescriptorSetLayout::SetBinding binding = {};
             binding.name       = res.name;
             binding.type       = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
-            binding.count      = res.count;
+            binding.count      = std::max(1U, res.count);
             binding.binding    = res.binding;
             binding.visibility = res.visibility;
             bindings.emplace_back(binding);
@@ -119,19 +119,23 @@ namespace sky {
         auto layout = std::make_shared<ResourceGroupLayout>();
         layout->SetRHILayout(rhiLayout);
 
-//        for (const auto &shader : shaders) {
-//            const auto &shaderResources = shader->GetShaderResources();
-//            for (const auto &shaderResource : shaderResources) {
-//                if (shaderResource.set != index) {
-//                    continue;
-//                }
-//
-//                layout->AddNameHandler(shaderResource.name, {shaderResource.binding, shaderResource.size});
-//                for (const auto &member : shaderResource.members) {
-//                    layout->AddBufferNameHandler(member.name, {shaderResource.binding, member.offset, member.size});
-//                }
-//            }
-//        }
+        for (const auto &res : reflection->resources) {
+            if (res.set != index) {
+                continue;
+            }
+
+            layout->AddNameHandler(res.name, {res.binding, res.size});
+            if (res.type == rhi::DescriptorType::UNIFORM_BUFFER || res.type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
+                auto iter = std::find_if(reflection->types.begin(), reflection->types.end(), [&res](const auto &type) -> bool {
+                    return res.name == type.name;
+                });
+                SKY_ASSERT(iter != reflection->types.end());
+
+                for (const auto &var : iter->variables) {
+                    layout->AddBufferNameHandler(var.name, {var.binding, var.offset, var.size});
+                }
+            }
+        }
         return layout;
     }
 
@@ -202,7 +206,9 @@ namespace sky {
             sourceDesc.entry            = entry;
             sourceDesc.stage            = stage;
 
-            ShaderCompiler::Get()->Compile(sourceDesc, option, result);
+            if (!ShaderCompiler::Get()->Compile(sourceDesc, option, result)) {
+                return;
+            }
 
             MemoryArchive mArchive;
             mArchive.Save(result.data);

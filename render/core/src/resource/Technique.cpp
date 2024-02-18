@@ -39,6 +39,7 @@ namespace sky {
     RDProgramPtr Technique::RequestProgram(const ShaderPreprocessorPtr &preprocessor)
     {
         auto program = std::make_shared<Program>();
+        program->SetName(shaderData.shaderCollection->GetName());
 
         ShaderCompileOption option = {};
         option.target = GetCompileTarget();
@@ -76,6 +77,7 @@ namespace sky {
 
     void GraphicsTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
     {
+        auto *device = RHI::Get()->GetDevice();
         rhi::Shader::Descriptor shaderDesc = {};
         {
             ShaderBuildResult result = {};
@@ -85,7 +87,9 @@ namespace sky {
             shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
             shaderDesc.stage = rhi::ShaderStageFlagBit::VS;
 
-            program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
+            auto shader = device->CreateShader(shaderDesc);
+            shader->SetEntry(shaderData.vertOrMeshMain);
+            program.AddShader(shader);
             program.MergeReflection(std::move(result.reflection));
         }
 
@@ -97,7 +101,9 @@ namespace sky {
             shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
             shaderDesc.stage = rhi::ShaderStageFlagBit::FS;
 
-            program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
+            auto shader = device->CreateShader(shaderDesc);
+            shader->SetEntry(shaderData.fragmentMain);
+            program.AddShader(shader);
             program.MergeReflection(std::move(result.reflection));
         }
         program.BuildPipelineLayout();
@@ -117,25 +123,27 @@ namespace sky {
         program.MergeReflection(std::move(result.reflection));
     }
 
-//    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
-//                                      const rhi::RenderPassPtr &pass,
-//                                      uint32_t subPassID,
-//                                      const std::string &programKey)
-//    {
-//        rhi::GraphicsPipeline::Descriptor descriptor = {};
-//        descriptor.state = tech.state;
-//        descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
-//        descriptor.renderPass = pass;
-//        descriptor.subPassIndex = subPassID;
-//        descriptor.pipelineLayout = program->GetPipelineLayout();
-//        descriptor.vertexInput = tech.vertexDesc;
-//        descriptor.vs = shaders[0]->GetShader();
-//        descriptor.fs = shaders[1]->GetShader();
-//
-//        if (descriptor.state.blendStates.empty()) {
-//            descriptor.state.blendStates.resize(pass->GetColors().size());
-//        }
-//
-//        return RHI::Get()->GetDevice()->CreateGraphicsPipeline(descriptor);
-//    }
+    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
+                                      const rhi::RenderPassPtr &pass,
+                                      uint32_t subPassID)
+    {
+        auto program = tech.RequestProgram({});
+        const auto &shaders = program->GetShaders();
+
+        rhi::GraphicsPipeline::Descriptor descriptor = {};
+        descriptor.state = tech.state;
+        descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
+        descriptor.renderPass = pass;
+        descriptor.subPassIndex = subPassID;
+        descriptor.pipelineLayout = program->GetPipelineLayout();
+        descriptor.vertexInput = tech.vertexDesc;
+        descriptor.vs = shaders[0];
+        descriptor.fs = shaders[1];
+
+        if (descriptor.state.blendStates.empty()) {
+            descriptor.state.blendStates.resize(pass->GetColors().size());
+        }
+
+        return RHI::Get()->GetDevice()->CreateGraphicsPipeline(descriptor);
+    }
 } // namespace sky

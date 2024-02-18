@@ -107,6 +107,8 @@ namespace sky::rdg {
                 // queue
                 currentSubPassIndex = 0;
                 currentSubPassNum = beginInfo.renderPass->GetSubPassNum();
+
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const RasterSubPassTag &) {
                 auto &rasterSub = graph.subPasses[Index(u, graph)];
@@ -119,6 +121,7 @@ namespace sky::rdg {
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
                 Barriers(compute.frontBarriers);
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
@@ -136,10 +139,13 @@ namespace sky::rdg {
                 info.dstOffsets[1].y = cb.dstExt.height;
                 info.dstOffsets[1].z = 1;
                 blit->BlitTexture(GetGraphImage(graph.resourceGraph, cb.src), GetGraphImage(graph.resourceGraph, cb.dst), {info}, rhi::Filter::LINEAR);
+
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.frontBarriers);
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const RasterQueueTag &) {
                 auto &queue = graph.rasterQueues[Index(u, graph)];
@@ -196,18 +202,22 @@ namespace sky::rdg {
                 auto &raster = graph.rasterPasses[Index(u, graph)];
                 currentEncoder->EndPass();
                 Barriers(raster.rearBarriers);
+                callStack.pop_back();
             },
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
                 Barriers(compute.rearBarriers);
+                callStack.pop_back();
             },
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
                 Barriers(cb.rearBarriers);
+                callStack.pop_back();
             },
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.rearBarriers);
+                callStack.pop_back();
             },
             [&](const auto &) {}
         }, Tag(u, graph));

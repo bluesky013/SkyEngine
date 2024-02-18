@@ -37,7 +37,12 @@ namespace sky::vk {
 
         descriptorNum = 0;
         for (const auto &binding : desc.bindings) {
-            HashCombine32(hash, Crc32::Cal(binding));
+            HashCombine32(hash, Crc32::Cal(binding.binding));
+            HashCombine32(hash, Crc32::Cal(binding.count));
+            HashCombine32(hash, Crc32::Cal(binding.type));
+            HashCombine32(hash, Crc32::Cal(binding.visibility));
+            HashCombine32(hash, Crc32::Cal(binding.name));
+            HashCombine32(hash, Crc32::Cal(binding.flags));
 
             VkDescriptorSetLayoutBinding layoutBinding = {};
             layoutBinding.binding            = binding.binding;

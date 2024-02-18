@@ -16,6 +16,9 @@
 #include <shader/ShaderCompiler.h>
 
 namespace sky {
+    class ShaderCollection;
+    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
+
     class Program {
     public:
         Program() = default;
@@ -23,12 +26,15 @@ namespace sky {
 
         RDResourceLayoutPtr RequestLayout(uint32_t index) const;
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
+        const std::vector<rhi::ShaderPtr> &GetShaders() const { return shaders; }
 
+        void SetName(const std::string &name_) { name = name_; }
         void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
         void MergeReflection(ShaderReflection &&refl);
         void BuildPipelineLayout();
 
     private:
+        std::string name;
         rhi::PipelineLayoutPtr pipelineLayout;
         std::vector<rhi::ShaderPtr> shaders;
         std::unique_ptr<ShaderReflection> reflection;
@@ -53,6 +59,4 @@ namespace sky {
         std::string source;
         uint32_t hash;
     };
-    using ShaderCollectionPtr = std::shared_ptr<ShaderCollection>;
-
 } // namespace sky

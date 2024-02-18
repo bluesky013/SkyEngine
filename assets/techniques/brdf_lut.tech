@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/glsl/vertex/fullscreen.vert",
-        "frag": "shaderlibs/glsl/brdf_lut.frag"
+    "shader": {
+        "path": "shaders/lighting/brdf_lut.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "BRDF_LUT"

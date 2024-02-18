@@ -43,12 +43,13 @@ namespace sky::builder {
         auto asset = AssetManager::Get()->CreateAsset<Texture>(request.uuid);
         auto &imageData = asset->Data();
 
+        imageData.format = imageDesc.format;
         imageData.width = imageDesc.extent.width;
         imageData.height = imageDesc.extent.height;
         imageData.depth = imageDesc.extent.depth;
         imageData.arrayLayers = imageDesc.arrayLayers;
         imageData.mipLevels = imageDesc.mipLevels;
-        imageData.imageType = imageDesc.imageType;
+        imageData.type = imageData.arrayLayers == 6 ? TextureType::TEXTURE_CUBE : TextureType::TEXTURE_2D;
         imageData.dataSize = static_cast<uint32_t>(data.size() - offset);
         imageData.bufferID = CreateBufferID(request.uuid);
 
@@ -85,7 +86,7 @@ namespace sky::builder {
         auto &imageData = asset->Data();
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
-        imageData.imageType = rhi::ImageType::IMAGE_2D;
+        imageData.type = TextureType::TEXTURE_2D;
         imageData.bufferID = CreateBufferID(request.uuid);
 
         auto buffer = AssetManager::Get()->CreateAsset<Buffer>(imageData.bufferID);
@@ -114,7 +115,7 @@ namespace sky::builder {
         }
 
         result.products.emplace_back(BuildProduct{KEY.data(), asset});
-        result.products.emplace_back(BuildProduct{KEY.data(), buffer});
+        result.products.emplace_back(BuildProduct{"GFX_BUFFER", buffer});
         result.success = true;
 
         stbi_image_free(data);

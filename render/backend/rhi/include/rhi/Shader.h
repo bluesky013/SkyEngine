@@ -20,10 +20,13 @@ namespace sky::rhi {
             uint32_t size = 0;
         };
 
+        void SetEntry(const std::string &name) { entry = name; }
         ShaderStageFlagBit GetStage() const { return stage; }
+        const std::string &GetEntry() const { return entry; }
 
     protected:
         ShaderStageFlagBit stage;
+        std::string entry;
     };
     using ShaderPtr = std::shared_ptr<Shader>;
 }

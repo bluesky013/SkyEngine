@@ -17,7 +17,7 @@ namespace sky {
 
     struct ImageAssetHeader {
         rhi::PixelFormat format  = rhi::PixelFormat::UNDEFINED;
-        rhi::ImageType imageType = rhi::ImageType::IMAGE_2D;
+        TextureType type = TextureType::TEXTURE_2D;
         uint32_t width       = 1;
         uint32_t height      = 1;
         uint32_t depth       = 1;

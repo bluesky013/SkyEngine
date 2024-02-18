@@ -44,7 +44,7 @@ namespace sky::vk {
 
         stageInfo.stage  = vkShader->GetShaderStage();
         stageInfo.module = vkShader->GetNativeHandle();
-        stageInfo.pName  = "main";
+        stageInfo.pName  = shader->GetEntry().c_str();
         shaderStageInfo.emplace_back(stageInfo);
     }
 
@@ -61,7 +61,8 @@ namespace sky::vk {
         pipelineInfo.pStages    = shaderStageInfo.data();
 
         // vertex input
-        pipelineInfo.pVertexInputState = std::static_pointer_cast<VertexInput>(des.vertexInput)->GetInfo();
+        inputDesc = std::static_pointer_cast<VertexInput>(des.vertexInput);
+        pipelineInfo.pVertexInputState = inputDesc->GetInfo();
 
         // input assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
