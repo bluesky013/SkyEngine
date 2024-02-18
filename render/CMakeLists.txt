@@ -2,8 +2,10 @@ add_subdirectory(backend)
 add_subdirectory(shader)
 add_subdirectory(core)
 add_subdirectory(adaptor)
-add_subdirectory(builder)
 add_subdirectory(imgui)
+if ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows"))
+    add_subdirectory(builder)
+endif ()
 
 sky_add_library(TARGET SkyRender SHARED
     SOURCES

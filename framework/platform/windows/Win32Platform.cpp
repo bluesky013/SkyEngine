@@ -76,7 +76,7 @@ namespace sky {
 
     PlatformType Win32Platform::GetType() const
     {
-        return PlatformType::WINDOWS;
+        return PlatformType::Windows;
     }
 
     std::string Win32Platform::GetWritablePath() const

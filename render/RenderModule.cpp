@@ -24,7 +24,6 @@
 
 #include <shader/ShaderCompiler.h>
 
-#include <imgui/ImGuiFeature.h>
 #include <cxxopts.hpp>
 
 namespace sky {
@@ -107,10 +106,12 @@ namespace sky {
         auto *am = AssetManager::Get();
 
         // init shader compiler
+#if SKY_EDITOR
         auto *compiler = ShaderCompiler::Get();
         for (const auto &path : am->GetSearchPathList()) {
             compiler->AddSearchPath(path.path);
         }
+#endif
 
         auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
         if (vfAsset) {
@@ -128,7 +129,6 @@ namespace sky {
     {
         GeometryFeature::Destroy();
         MeshFeature::Destroy();
-        ImGuiFeature::Destroy();
         ParticleFeature::Destroy();
 
         Renderer::Destroy();

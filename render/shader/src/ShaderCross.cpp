@@ -4,7 +4,6 @@
 
 #include <shader/ShaderCross.h>
 #include <spirv_cross/spirv_glsl.hpp>
-#include <ranges>
 
 namespace sky {
 
@@ -45,7 +44,7 @@ namespace sky {
                         structType.name = res.name;
                         auto &variables = structType.variables;
 
-                        for (auto i : std::views::iota(0U, resType.member_types.size())) {
+                        for (auto i  = 0; i < resType.member_types.size(); ++i) {
                             variables.emplace_back();
                             auto &var   = variables.back();
                             var.set     = set;

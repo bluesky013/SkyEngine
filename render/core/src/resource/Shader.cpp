@@ -9,7 +9,6 @@
 
 #include <sstream>
 #include <filesystem>
-#include <ranges>
 
 #include <core/template/Overloaded.h>
 #include <core/hash/Hash.h>
@@ -169,7 +168,7 @@ namespace sky {
                     uint32_t size = 0;
                     archive.Load(size);
                     result.reflection.resources.resize(size);
-                    for (auto i : std::views::iota(0U, size)) {
+                    for (auto i = 0; i < size; ++i) {
                         auto &res = result.reflection.resources[i];
 
                         archive.Load(res.name);
@@ -182,13 +181,13 @@ namespace sky {
                     }
                     archive.Load(size);
                     result.reflection.types.resize(size);
-                    for (auto i : std::views::iota(0U, size)) {
+                    for (auto i = 0; i < size; ++i) {
                         auto &type = result.reflection.types[i];
                         archive.Load(type.name);
                         uint32_t varSize = 0;
                         archive.Load(varSize);
                         type.variables.resize(varSize);
-                        for (auto j : std::views::iota(0U, varSize)) {
+                        for (auto j = 0; j < varSize; ++j) {
                             auto &var = type.variables[j];
                             archive.Load(var.name);
                             archive.Load(var.set);

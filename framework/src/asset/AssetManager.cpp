@@ -89,20 +89,20 @@ namespace sky {
 
     std::string AssetManager::GetPlatformPrefix(PlatformType platform)
     {
-        if (platform == PlatformType::DEFAULT) {
+        if (platform == PlatformType::Default) {
             platform = Platform::Get()->GetType();
         }
 
         switch (platform) {
-        case PlatformType::WINDOWS:
+        case PlatformType::Windows:
             return "win32";
-        case PlatformType::MACOS:
+        case PlatformType::MacOS:
             return "macos";
         case PlatformType::IOS:
             return "ios";
-        case PlatformType::ANDROID:
+        case PlatformType::Android:
             return "android";
-        case PlatformType::LINUX:
+        case PlatformType::Linux:
             return "linux";
         default:
             SKY_ASSERT(false && "invalid platform type");
@@ -250,7 +250,7 @@ namespace sky {
 
         LoadConfig(projectPath + "config/asset.json");
 
-        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::DEFAULT));
+        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::Default));
     }
 
     const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)

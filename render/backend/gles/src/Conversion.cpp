@@ -9,8 +9,6 @@ namespace sky::gles {
 
     const std::unordered_map<rhi::PixelFormat, InternalFormat> FORMAT_MAP = {
         {rhi::PixelFormat::UNDEFINED,                 {0,               0,       0}},
-        {rhi::PixelFormat::RGB8_UNORM,                {GL_RGB8,         GL_RGB,  GL_UNSIGNED_BYTE}},
-        {rhi::PixelFormat::RGB8_SRGB,                 {GL_SRGB8,        GL_RGB,  GL_UNSIGNED_BYTE}},
 
         {rhi::PixelFormat::RGBA8_UNORM,               {GL_RGBA8,        GL_RGBA, GL_UNSIGNED_BYTE}},
         {rhi::PixelFormat::RGBA8_SRGB,                {GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE}},
@@ -65,8 +63,6 @@ namespace sky::gles {
     const std::unordered_map<rhi::PixelFormat, FormatFeature> FORMAT_FEATURE = {
         //                                             texture, render, compressed
         {rhi::PixelFormat::UNDEFINED,                 {false,   false,  false}},
-        {rhi::PixelFormat::RGB8_UNORM,                {true,    true,   false}},
-        {rhi::PixelFormat::RGB8_SRGB,                 {true,    true,   false}},
         {rhi::PixelFormat::RGBA8_UNORM,               {true,    true,   false}},
         {rhi::PixelFormat::RGBA8_SRGB,                {true,    true,   false}},
         {rhi::PixelFormat::BGRA8_UNORM,               {true,    true,   false}},

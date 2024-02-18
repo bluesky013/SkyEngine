@@ -6,6 +6,8 @@
 
 #include <core/environment/Environment.h>
 #include <core/platform/Platform.h>
+#include <list>
+#include <vector>
 
 namespace sky {
 

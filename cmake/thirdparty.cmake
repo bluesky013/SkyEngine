@@ -1,4 +1,4 @@
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/thirdparty)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/thirdparty)
 
 function(sky_find_3rd)
     cmake_parse_arguments(TMP
@@ -54,6 +54,7 @@ if(EXISTS ${3RD_PATH})
     # shader
     sky_find_3rd(TARGET glslang       DIR glslang)
     sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
+    sky_find_3rd(TARGET cxxopts       DIR cxxopts)
 
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
@@ -70,7 +71,6 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET assimp        DIR assimp)
         sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
         sky_find_3rd(TARGET stb           DIR stb)
-        sky_find_3rd(TARGET cxxopts       DIR cxxopts)
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ktx           DIR ktx)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)

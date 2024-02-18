@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <string>
 #include <mutex>
+#include <vector>
 
 #include <core/platform/Platform.h>
 #include <core/util/Uuid.h>
