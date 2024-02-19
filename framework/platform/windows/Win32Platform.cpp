@@ -79,7 +79,7 @@ namespace sky {
         return PlatformType::Windows;
     }
 
-    std::string Win32Platform::GetWritablePath() const
+    std::string Win32Platform::GetInternalPath() const
     {
         static const uint32_t MAX_WRITABLE_PATH = 128;
         wchar_t fullPath[MAX_WRITABLE_PATH + 1];

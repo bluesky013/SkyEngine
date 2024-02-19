@@ -33,7 +33,7 @@ namespace sky::builder {
                 auto &obj = iter->value;
 
                 if (obj.IsString()) {
-                    auto imagePath = obj.GetString();
+                    const auto *imagePath = obj.GetString();
                     auto texId = am->ImportAsset(imagePath);
                     am->BuildAsset(texId, request.targetPlatform);
                     properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
@@ -42,16 +42,16 @@ namespace sky::builder {
                 } else if (obj.IsFloat()) {
                     properties.valueMap[iter->name.GetString()] = obj.GetFloat();
                 } else if (obj.IsBool()) {
-                    properties.valueMap[iter->name.GetString()] = obj.GetBool();
+                    properties.valueMap[iter->name.GetString()] = static_cast<uint32_t>(obj.GetBool());
                 } else if (obj.IsArray()) {
                     auto   array = obj.GetArray();
                     float *v     = nullptr;
                     if (array.Size() == 2) {
-                        v = properties.valueMap.emplace(iter->name.GetString(), Vector2{}).first->second.GetAs<Vector2>()->v;
+                        v = std::get<Vector2>(properties.valueMap.emplace(iter->name.GetString(), Vector2{}).first->second).v;
                     } else if (array.Size() == 3) {
-                        v = properties.valueMap.emplace(iter->name.GetString(), Vector3{}).first->second.GetAs<Vector3>()->v;
+                        v = std::get<Vector3>(properties.valueMap.emplace(iter->name.GetString(), Vector3{}).first->second).v;
                     } else if (array.Size() == 4) {
-                        v = properties.valueMap.emplace(iter->name.GetString(), Vector4{}).first->second.GetAs<Vector4>()->v;
+                        v = std::get<Vector4>(properties.valueMap.emplace(iter->name.GetString(), Vector4{}).first->second).v;
                     }
                     for (auto &val : array) {
                         (*v) = val.GetFloat();

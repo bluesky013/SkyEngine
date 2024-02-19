@@ -197,42 +197,42 @@ namespace sky::builder {
                 }
             }
 
-            data.properties.valueMap.emplace("useAOMap", Any(useAOMap));
+            data.properties.valueMap.emplace("useAOMap", static_cast<uint32_t>(useAOMap));
             if (useAOMap) {
-                data.properties.valueMap.emplace("AoMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("AoMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
                 data.properties.images.emplace_back(aoMap);
             }
 
-            data.properties.valueMap.emplace("useEmissiveMap", Any(useEmissiveMap));
+            data.properties.valueMap.emplace("useEmissiveMap", static_cast<uint32_t>(useEmissiveMap));
             if (useEmissiveMap) {
-                data.properties.valueMap.emplace("EmissiveMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("EmissiveMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
                 data.properties.images.emplace_back(emissiveMap);
             }
 
-            data.properties.valueMap.emplace("useBaseColorMap", Any(useBaseColorMap));
+            data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
             if (useBaseColorMap) {
-                data.properties.valueMap.emplace("AlbedoMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("AlbedoMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
                 data.properties.images.emplace_back(baseColorMap);
             }
 
-            data.properties.valueMap.emplace("useMetallicRoughnessMap", Any(useMetallicRoughnessMap));
+            data.properties.valueMap.emplace("useMetallicRoughnessMap", static_cast<uint32_t>(useMetallicRoughnessMap));
             if (useMetallicRoughnessMap) {
-                data.properties.valueMap.emplace("MetallicRoughnessMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("MetallicRoughnessMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
                 data.properties.images.emplace_back(metallicRoughnessMap);
             }
 
-            data.properties.valueMap.emplace("useNormalMap", Any(useNormalMap));
+            data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
             if (useNormalMap) {
-                data.properties.valueMap.emplace("NormalMap", Any(MaterialTexture{static_cast<uint32_t>(data.properties.images.size())}));
+                data.properties.valueMap.emplace("NormalMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
                 data.properties.images.emplace_back(normalMap);
             }
 
-            data.properties.valueMap.emplace("useMask",     Any(useMask));
+            data.properties.valueMap.emplace("useMask",     static_cast<uint32_t>(useMask));
 
-            data.properties.valueMap.emplace("Albedo",   Any(baseColor));
-            data.properties.valueMap.emplace("Metallic",    Any(metallic));
-            data.properties.valueMap.emplace("Roughness",   Any(roughness));
-            data.properties.valueMap.emplace("AlphaCutoff", Any(alphaCutoff));
+            data.properties.valueMap.emplace("Albedo",   baseColor);
+            data.properties.valueMap.emplace("Metallic",    metallic);
+            data.properties.valueMap.emplace("Roughness",   roughness);
+            data.properties.valueMap.emplace("AlphaCutoff", alphaCutoff);
 
             context.materials.emplace_back(matAsset);
         }

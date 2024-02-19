@@ -6,6 +6,7 @@
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/resource/Material.h>
+
 #include <unordered_map>
 #include <vector>
 
@@ -16,13 +17,9 @@ namespace sky {
     class JsonInputArchive;
     class JsonOutputArchive;
 
-    struct MaterialTexture {
-        uint32_t texIndex;
-    };
-
     struct MaterialProperties {
         std::vector<Uuid> images;
-        std::unordered_map<std::string, Any> valueMap;
+        std::unordered_map<std::string, MaterialValue> valueMap;
     };
 
     struct MaterialAssetData {

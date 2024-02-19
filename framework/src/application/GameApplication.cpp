@@ -14,6 +14,7 @@
 #include <filesystem>
 
 #include <framework/asset/AssetManager.h>
+#include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
 static const char *CONFIG_PATH = "/config/modules_game.json";
@@ -31,6 +32,8 @@ namespace sky {
         if (result.count("project") != 0u) {
             AssetManager::Get()->SetProjectPath(result["project"].as<std::string>());
         }
+#else
+        AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
 #endif
 
         if (!Application::Init(argc, argv)) {
@@ -61,10 +64,13 @@ namespace sky {
     void GameApplication::LoadConfigs()
     {
 #ifdef SKY_EDITOR
-        auto projectPath = AssetManager::Get()->GetProjectPath();
+        auto configPath = AssetManager::Get()->GetProjectPath() + CONFIG_PATH;
+#else
+        auto configPath = Platform::Get()->GetInternalPath() + CONFIG_PATH;
+#endif
 
         std::string json;
-        if (!ReadString(projectPath + CONFIG_PATH, json)) {
+        if (!ReadString(configPath, json)) {
             LOG_W(TAG, "Load Config Failed");
             return;
         }
@@ -101,12 +107,12 @@ namespace sky {
                 height = obj["height"].GetUint();
             }
         }
-#endif
     }
 
     void GameApplication::PreInit()
     {
-        nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{width, height, "SkyGame", "SkyGame", nullptr}));
+        auto handle = Platform::Get()->GetMainWinHandle();
+        nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{width, height, "SkyGame", "SkyGame", handle}));
     }
 
     void GameApplication::PostInit()

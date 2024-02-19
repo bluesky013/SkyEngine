@@ -12,10 +12,9 @@ namespace sky {
         descriptor = desc;
         if (descriptor.nativeHandle != nullptr) {
             winHandle = descriptor.nativeHandle;
+            descriptor.width = ANativeWindow_getWidth(static_cast<ANativeWindow*>(winHandle));
+            descriptor.height = ANativeWindow_getHeight(static_cast<ANativeWindow*>(winHandle));
         }
-
-        descriptor.width = ANativeWindow_getWidth(static_cast<ANativeWindow*>(winHandle));
-        descriptor.height = ANativeWindow_getHeight(static_cast<ANativeWindow*>(winHandle));
         return winHandle != nullptr;
     }
 

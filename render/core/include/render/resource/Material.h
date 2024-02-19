@@ -9,8 +9,27 @@
 #include <render/resource/Texture.h>
 #include <render/resource/Technique.h>
 #include <render/resource/ResourceGroup.h>
+#include <core/math/Vector2.h>
+#include <core/math/Vector3.h>
+#include <core/math/Vector4.h>
 
 namespace sky {
+
+    struct MaterialTexture {
+        uint32_t texIndex;
+    };
+
+    enum class MaterialValueType : uint32_t {
+        TEXTURE,
+        VEC2,
+        VEC3,
+        VEC4,
+        FLOAT,
+        U32,
+        I32
+    };
+
+    using MaterialValue = std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
 
     class Material {
     public:

@@ -48,9 +48,11 @@ namespace sky::vk {
     const std::vector<const char *> extensions = {
         "VK_KHR_surface",
         "VK_KHR_get_physical_device_properties2",
-#if _DEBUG
+
+#if !__ANDROID__ && _DEBUG
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
+
 #if _WIN32
         "VK_KHR_win32_surface",
 #elif __ANDROID__

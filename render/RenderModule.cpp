@@ -59,10 +59,11 @@ namespace sky {
             ("p,project", "Project Directory", cxxopts::value<std::string>())
             ("r,rhi", "RHI Type", cxxopts::value<std::string>());
 
-        auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
-
-        if (result.count("rhi") != 0u) {
-            api = rhi::GetApiByString(result["rhi"].as<std::string>());
+        if (!args.args.empty()) {
+            auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+            if (result.count("rhi") != 0u) {
+                api = rhi::GetApiByString(result["rhi"].as<std::string>());
+            }
         }
     }
 
@@ -79,7 +80,7 @@ namespace sky {
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
-#if _DEBUG
+#if _DEBUG && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
         rhiDesc.enableDebugLayer = false;
@@ -92,7 +93,7 @@ namespace sky {
 
         // init renderer
         Renderer::Get()->Init();
-        Renderer::Get()->SetCacheFolder(Platform::Get()->GetWritablePath());
+        Renderer::Get()->SetCacheFolder(Platform::Get()->GetInternalPath());
         return true;
     }
 

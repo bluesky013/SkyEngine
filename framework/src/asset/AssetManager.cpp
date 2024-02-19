@@ -31,7 +31,13 @@ namespace sky {
 
     static std::string MakeStandardPath(const std::string &input)
     {
-        return std::filesystem::path(input).make_preferred().string();
+        auto path = std::filesystem::path(input).lexically_normal().string();
+        size_t pos = 0;
+        while ((pos = path.find('\\', pos)) != std::string::npos) {
+            path.replace(pos, 1, "/");
+            pos += 2;
+        }
+        return path;
     }
 
     static std::filesystem::path GetAssetPathByUUID(const std::string &workDir, const Uuid &uuid)
@@ -54,7 +60,7 @@ namespace sky {
         }
 
         res += "/" + path;
-        return MakeStandardPath(res);
+        return res;
     }
 
     Uuid AssetManager::GetUUIDByPath(const std::string &path)
