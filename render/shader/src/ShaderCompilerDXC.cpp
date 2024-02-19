@@ -2,6 +2,8 @@
 // Created by blues on 2024/2/3.
 //
 
+#if _WIN32
+
 #include <shader/ShaderCompilerDXC.h>
 #include <shader/ShaderCross.h>
 #include <core/logger/Logger.h>
@@ -169,3 +171,5 @@ namespace sky {
         }
     }
 } // namespace sky
+
+#endif

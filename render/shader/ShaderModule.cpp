@@ -49,17 +49,19 @@ namespace sky {
 
     void ShaderModule::Start()
     {
+#if _WIN32
         auto *dxc = new ShaderCompilerDXC();
         if (dxc->Init()) {
             g_Compilers.emplace_back(dxc);
             g_CompilerMap.emplace(ShaderCompileTarget::DXIL, dxc);
+//            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, dxc);
         }
-
+#endif
         auto *glsl = new ShaderCompilerGlsl();
         if (glsl->Init()) {
             g_Compilers.emplace_back(glsl);
             g_CompilerMap.emplace(ShaderCompileTarget::MSL, glsl);
-            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, dxc);
+            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, glsl);
         }
     }
 

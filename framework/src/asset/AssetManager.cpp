@@ -31,7 +31,13 @@ namespace sky {
 
     static std::string MakeStandardPath(const std::string &input)
     {
-        return std::filesystem::path(input).make_preferred().string();
+        auto path = std::filesystem::path(input).lexically_normal().string();
+        size_t pos = 0;
+        while ((pos = path.find('\\', pos)) != std::string::npos) {
+            path.replace(pos, 1, "/");
+            pos += 2;
+        }
+        return path;
     }
 
     static std::filesystem::path GetAssetPathByUUID(const std::string &workDir, const Uuid &uuid)
@@ -54,7 +60,7 @@ namespace sky {
         }
 
         res += "/" + path;
-        return MakeStandardPath(res);
+        return res;
     }
 
     Uuid AssetManager::GetUUIDByPath(const std::string &path)
@@ -89,20 +95,20 @@ namespace sky {
 
     std::string AssetManager::GetPlatformPrefix(PlatformType platform)
     {
-        if (platform == PlatformType::DEFAULT) {
+        if (platform == PlatformType::Default) {
             platform = Platform::Get()->GetType();
         }
 
         switch (platform) {
-        case PlatformType::WINDOWS:
+        case PlatformType::Windows:
             return "win32";
-        case PlatformType::MACOS:
+        case PlatformType::MacOS:
             return "macos";
         case PlatformType::IOS:
             return "ios";
-        case PlatformType::ANDROID:
+        case PlatformType::Android:
             return "android";
-        case PlatformType::LINUX:
+        case PlatformType::Linux:
             return "linux";
         default:
             SKY_ASSERT(false && "invalid platform type");
@@ -250,7 +256,7 @@ namespace sky {
 
         LoadConfig(projectPath + "config/asset.json");
 
-        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::DEFAULT));
+        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::Default));
     }
 
     const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/math/Vector3.h>
+#include <vector>
 
 namespace sky {
 

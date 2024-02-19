@@ -4,6 +4,8 @@
 
 #pragma once
 
+#if _WIN32
+
 #include <shader/ShaderCompiler.h>
 
 // dxcompiler
@@ -33,3 +35,5 @@ namespace sky {
     };
 
 } // namespace sky
+
+#endif

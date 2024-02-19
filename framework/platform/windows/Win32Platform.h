@@ -14,7 +14,7 @@ namespace sky {
         ~Win32Platform() override = default;
 
     private:
-        std::string GetWritablePath() const override;
+        std::string GetInternalPath() const override;
         bool RunCmd(const std::string &str, std::string &out) const override;
         PlatformType GetType() const override;
     };

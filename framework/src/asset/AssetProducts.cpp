@@ -5,6 +5,7 @@
 #include <framework/asset/AssetProducts.h>
 #include <fstream>
 #include <core/archive/StreamArchive.h>
+#include <core/util/Uuid.h>
 
 namespace sky {
 

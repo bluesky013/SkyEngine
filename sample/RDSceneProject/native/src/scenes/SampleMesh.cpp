@@ -22,6 +22,9 @@
 #include <RDSceneProject/ProjectRoot.h>
 
 namespace sky {
+
+//#define ENABLE_IBL
+
     RDTextureCubePtr LoadCubeMap(const std::string &path)
     {
         std::vector<uint8_t> data;
@@ -127,9 +130,10 @@ namespace sky {
             rg.ImportImage("Radiance", radiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
             rg.ImportImage("Irradiance", irradiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
             rg.AddImage("ForwardColor", rdg::GraphImage{{width, height, 1}, 1, 1, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1});
-            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X8});
-            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X8});
-            rg.AddImage("BRDF_LUT", rdg::GraphImage{{BRDFLutSize, BRDFLutSize, 1}, 1, 1, rhi::PixelFormat::RGBA16_SFLOAT, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X8});
+            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X2});
+            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X2});
+#ifdef ENABLE_IBL
+            rg.AddImage("BRDF_LUT", rdg::GraphImage{{BRDFLutSize, BRDFLutSize, 1}, 1, 1, rhi::PixelFormat::RGBA16_SFLOAT, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED});
 
             auto lut = rdg.AddRasterPass("BRDF_LUT_PASS", 512, 512)
                 .AddAttachment({"BRDF_LUT", rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, {});
@@ -137,6 +141,7 @@ namespace sky {
             lutSub.AddColor("BRDF_LUT", rdg::ResourceAccessBit::WRITE);
             lutSub.AddFullScreen("brdf_lut")
                 .SetTechnique(brdfLutTech);
+#endif
 
             auto forwardPass = rdg.AddRasterPass("forwardColor", width, height)
                                    .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
@@ -149,7 +154,9 @@ namespace sky {
                 .AddResolve("ForwardColor", rdg::ResourceAccessBit::WRITE)
                 .AddComputeView("Irradiance", {"irradianceMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
                 .AddComputeView("Radiance", {"radianceMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
+#ifdef ENABLE_IBL
                 .AddComputeView("BRDF_LUT", {"brdfLutMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
+#endif
                 .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
                 .AddComputeView(globalUboName, {"passInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS});
 

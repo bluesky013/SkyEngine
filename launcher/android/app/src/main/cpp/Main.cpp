@@ -20,12 +20,9 @@ void android_main(struct android_app *app) {
     sky::GameApplication application;
     bool started = false;
     platform->setLaunchCallback([&application, &started, platform]() {
-        sky::StartInfo start = {};
-        start.appName = "AndroidLauncher";
-        start.mainWindow = platform->GetMainWinHandle();
-        start.modules.emplace_back("RHISample");
-        application.Init(start);
+        std::vector<char *> args;
 
+        application.Init(static_cast<int>(args.size()), args.data());
         started = true;
     });
 

@@ -62,9 +62,9 @@ namespace sky {
         }
 
         glslang::SpvOptions spvOptions = {};
-        spvOptions.stripDebugInfo = true;
-        spvOptions.disableOptimizer = false;
-        spvOptions.optimizeSize = true;
+//        spvOptions.stripDebugInfo = false;
+//        spvOptions.disableOptimizer = false;
+//        spvOptions.optimizeSize = false;
         glslang::GlslangToSpv(*program.getIntermediate(shader.getStage()), result.data, &spvOptions);
 
         BuildReflectionSPIRV(desc.stage, result);

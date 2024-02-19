@@ -9,7 +9,7 @@
 namespace sky {
 
     template <class T>
-    concept ContainerDataType = requires(T a, T::value_type b)
+    concept ContainerDataType = requires(T a, typename T::value_type b)
     {
         a.size();
         a.data();

@@ -8,6 +8,7 @@
 #include <render/particle/ParticleModules.h>
 #include <render/particle/ParticleEmitter.h>
 #include <vector>
+#include <list>
 #include <unordered_map>
 
 namespace sky {

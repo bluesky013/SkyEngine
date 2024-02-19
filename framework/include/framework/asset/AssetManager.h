@@ -40,13 +40,13 @@ namespace sky {
 
         // asset actions
         const Uuid &ImportAsset(const std::string &path);
-        const Uuid &ImportAndBuildAsset(const std::string &path, PlatformType target = PlatformType::DEFAULT);
+        const Uuid &ImportAndBuildAsset(const std::string &path, PlatformType target = PlatformType::Default);
         const Uuid &RegisterAsset(const SourceAssetInfo &info);
         void RemoveAsset(const Uuid &uuid);
         bool BuildAsset(const BuildRequest &request);
-        bool BuildAsset(const Uuid &uuid, PlatformType target = PlatformType::DEFAULT);
-        void SaveAsset(const Uuid &uuid, PlatformType target = PlatformType::DEFAULT);
-        void SaveAsset(const std::shared_ptr<AssetBase> &asset, PlatformType target = PlatformType::DEFAULT);
+        bool BuildAsset(const Uuid &uuid, PlatformType target = PlatformType::Default);
+        void SaveAsset(const Uuid &uuid, PlatformType target = PlatformType::Default);
+        void SaveAsset(const std::shared_ptr<AssetBase> &asset, PlatformType target = PlatformType::Default);
         const SourceAssetIDMap &GetIDMap() const { return package->GetIDMap(); }
 
         // asset builders

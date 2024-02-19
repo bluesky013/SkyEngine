@@ -24,7 +24,6 @@
 
 #include <shader/ShaderCompiler.h>
 
-#include <imgui/ImGuiFeature.h>
 #include <cxxopts.hpp>
 
 namespace sky {
@@ -60,10 +59,11 @@ namespace sky {
             ("p,project", "Project Directory", cxxopts::value<std::string>())
             ("r,rhi", "RHI Type", cxxopts::value<std::string>());
 
-        auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
-
-        if (result.count("rhi") != 0u) {
-            api = rhi::GetApiByString(result["rhi"].as<std::string>());
+        if (!args.args.empty()) {
+            auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+            if (result.count("rhi") != 0u) {
+                api = rhi::GetApiByString(result["rhi"].as<std::string>());
+            }
         }
     }
 
@@ -80,7 +80,7 @@ namespace sky {
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
-#if _DEBUG
+#if _DEBUG && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
         rhiDesc.enableDebugLayer = false;
@@ -93,7 +93,7 @@ namespace sky {
 
         // init renderer
         Renderer::Get()->Init();
-        Renderer::Get()->SetCacheFolder(Platform::Get()->GetWritablePath());
+        Renderer::Get()->SetCacheFolder(Platform::Get()->GetInternalPath());
         return true;
     }
 
@@ -107,10 +107,12 @@ namespace sky {
         auto *am = AssetManager::Get();
 
         // init shader compiler
+#if SKY_EDITOR
         auto *compiler = ShaderCompiler::Get();
         for (const auto &path : am->GetSearchPathList()) {
             compiler->AddSearchPath(path.path);
         }
+#endif
 
         auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
         if (vfAsset) {
@@ -128,7 +130,6 @@ namespace sky {
     {
         GeometryFeature::Destroy();
         MeshFeature::Destroy();
-        ImGuiFeature::Destroy();
         ParticleFeature::Destroy();
 
         Renderer::Destroy();

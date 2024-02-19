@@ -30,11 +30,11 @@
 namespace sky {
 
     enum class PlatformType : uint32_t {
-        DEFAULT,
-        WINDOWS,
-        MACOS,
-        LINUX,
-        ANDROID,
+        Default,
+        Windows,
+        MacOS,
+        Linux,
+        Android,
         IOS,
         UNDEFINED
     };
