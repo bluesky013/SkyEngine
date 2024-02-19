@@ -26,7 +26,7 @@ namespace sky {
                 res.binding = binding;
                 res.set = set;
                 res.visibility = stage;
-                res.name = compiler.get_name(resource.id);
+                res.name = resource.name;
                 res.size = 0;
                 res.count = resType.array.empty() ? 0 : resType.array[0];
 

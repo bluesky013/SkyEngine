@@ -54,6 +54,7 @@ namespace sky {
         if (dxc->Init()) {
             g_Compilers.emplace_back(dxc);
             g_CompilerMap.emplace(ShaderCompileTarget::DXIL, dxc);
+//            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, dxc);
         }
 #endif
         auto *glsl = new ShaderCompilerGlsl();
