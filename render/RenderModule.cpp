@@ -22,6 +22,8 @@
 #include <render/Renderer.h>
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 
+#include <imgui/ImGuiFeature.h>
+
 #include <shader/ShaderCompiler.h>
 
 #include <cxxopts.hpp>
@@ -119,7 +121,7 @@ namespace sky {
             Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
         }
 
-//        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
+        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
 //        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
 
         MeshFeature::Get()->Init();

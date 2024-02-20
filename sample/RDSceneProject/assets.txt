@@ -6,4 +6,5 @@ techniques\standard_forward.tech
 techniques\post_processing.tech
 techniques\brdf_lut.tech
 techniques\skybox.tech
+techniques\gui.tech
 vertex\vertex_library.vtxlib

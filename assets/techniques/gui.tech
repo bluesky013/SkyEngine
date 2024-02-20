@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/glsl/gui/gui.vert",
-        "frag": "shaderlibs/glsl/gui/gui.frag"
+    "shader": {
+        "path": "shaders/ui/gui.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "ui"

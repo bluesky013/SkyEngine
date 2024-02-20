@@ -45,8 +45,8 @@ namespace sky {
 
         queue->Wait(uploadHandle);
         globalSet = feature->RequestResourceGroup();
-        globalSet->BindTexture("fontTexture", fontTexture->GetImageView(), 0);
-        globalSet->BindDynamicUBO("pc", ubo, 0);
+        globalSet->BindTexture("FontTexture", fontTexture->GetImageView(), 0);
+        globalSet->BindDynamicUBO("Constants", ubo, 0);
         globalSet->Update();
 
         primitive->batchSet = globalSet;

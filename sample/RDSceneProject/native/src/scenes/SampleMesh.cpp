@@ -13,9 +13,16 @@
 #include <render/adaptor/components/MeshRenderer.h>
 #include <rhi/Decode.h>
 
+#include <framework/window/NativeWindow.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+
 #include <render/rdg/RenderGraph.h>
 #include <render/env/SkyBoxRenderer.h>
 #include <render/mesh/GridRenderer.h>
+
+#include <imgui/ImGuiInstance.h>
+#include <imgui/ImGuiFeatureProcessor.h>
 
 #include "SimpleRotateComponent.h"
 
@@ -170,9 +177,6 @@ namespace sky {
                 .SetView(sceneView)
                 .SetLayout(forwardLayout);
 
-            subpass.AddQueue("queue3")
-                .SetRasterID("ui");
-
             auto pp = rdg.AddRasterPass("PostProcessing", ext.width, ext.height)
                       .AddAttachment({"SwapChain", rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, {});
             auto ppSub = pp.AddRasterSubPass("pp_sub0");
@@ -180,6 +184,8 @@ namespace sky {
                 .AddComputeView("ForwardColor", {"InColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS});
             ppSub.AddFullScreen("fullscreen")
                 .SetTechnique(postTech);
+
+            ppSub.AddQueue("queue").SetRasterID("ui");
 
             rdg.AddPresentPass("present", "SwapChain");
         }
@@ -227,6 +233,15 @@ namespace sky {
         pipeline->SetOutput(window, GetRenderSceneFromGameObject(meshObj));
 
         scene->SetPipeline(pipeline);
+
+        auto *imgui = scene->GetFeature<ImGuiFeatureProcessor>();
+        guiInstance = imgui->CreateGUIInstance();
+        guiInstance->AddWidget<LambdaWidget>([](ImGuiContext *context) {
+            ImGui::SetCurrentContext(context);
+            ImGui::ShowDemoWindow();
+        });
+        guiInstance->BindNativeWindow(Interface<ISystemNotify>::Get()->GetApi()->GetViewport());
+
         return true;
     }
 

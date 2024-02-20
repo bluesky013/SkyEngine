@@ -2,7 +2,9 @@
   "modules": [
     {
       "name": "SkyRender",
-      "dependencies": []
+      "dependencies": [
+        "ShaderCompiler"
+      ]
     },
     {
       "name": "ShaderCompiler",
