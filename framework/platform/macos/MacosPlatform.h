@@ -14,5 +14,8 @@ namespace sky {
         ~MacosPlatform() = default;
 
         std::string GetInternalPath() const override;
+        std::string GetBundlePath() const override;
+
+        PlatformType GetType() const override { return PlatformType::MacOS; }
     };
 }

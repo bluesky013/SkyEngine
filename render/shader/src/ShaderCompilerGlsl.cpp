@@ -5,6 +5,7 @@
 #include <shader/ShaderCompilerGlsl.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
+#include <glslang/Public/ShaderLang.h>
 
 #include <core/platform/Platform.h>
 #include <core/logger/Logger.h>

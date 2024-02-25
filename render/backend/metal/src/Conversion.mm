@@ -11,8 +11,6 @@ namespace sky::mtl {
     std::unordered_map<rhi::PixelFormat, MTLPixelFormat> PIXEL_FORMAT_TABLE =
         {
             {rhi::PixelFormat::UNDEFINED, MTLPixelFormatInvalid},
-            {rhi::PixelFormat::RGB8_UNORM, MTLPixelFormatInvalid},
-            {rhi::PixelFormat::RGB8_SRGB, MTLPixelFormatInvalid},
             {rhi::PixelFormat::RGBA8_UNORM, MTLPixelFormatRGBA8Unorm},
             {rhi::PixelFormat::RGBA8_SRGB, MTLPixelFormatRGBA8Unorm_sRGB},
             {rhi::PixelFormat::BGRA8_UNORM, MTLPixelFormatBGRA8Unorm},
@@ -60,7 +58,6 @@ namespace sky::mtl {
         {rhi::Format::F_RGBA32, MTLVertexFormatFloat4},
         {rhi::Format::F_R8, MTLVertexFormatChar},
         {rhi::Format::F_RG8, MTLVertexFormatChar2},
-        {rhi::Format::F_RGB8, MTLVertexFormatChar3},
         {rhi::Format::F_RGBA8, MTLVertexFormatChar4},
     };
 

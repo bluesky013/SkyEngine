@@ -11,7 +11,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         "-framework GameController"
         "-framework IOKit"
         "-framework Metal")
-    set(PLATFORM_BUNDLE MACOSX_BUNDLE)
+#    set(PLATFORM_BUNDLE MACOSX_BUNDLE)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
     set(PLATFORM_BUNDLE MACOSX_BUNDLE)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Android")

@@ -25,6 +25,11 @@ namespace sky {
         return platform->GetInternalPath();
     }
 
+    std::string Platform::GetBundlePath() const
+    {
+        return platform->GetBundlePath();
+    }
+
     void *Platform::GetMainWinHandle() const
     {
         return platform->GetMainWinHandle();

@@ -31,9 +31,11 @@ namespace sky {
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
             AssetManager::Get()->SetProjectPath(result["project"].as<std::string>());
+        } else {
+            AssetManager::Get()->SetProjectPath(Platform::Get()->GetBundlePath());
         }
 #else
-        AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
+        AssetManager::Get()->SetWorkPath(Platform::Get()->GetBundlePath());
 #endif
 
         if (!Application::Init(argc, argv)) {

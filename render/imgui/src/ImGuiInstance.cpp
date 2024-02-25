@@ -213,7 +213,7 @@ namespace sky {
         auto is = indexCount * sizeof(ImDrawIdx);
 
         if (vs > vertexSize) {
-            vertexSize = std::max(vertexSize * 2, vs);
+            vertexSize = std::max(vertexSize * 2, static_cast<uint64_t>(vs));
             if (!vertexBuffer) {
                 vertexBuffer = std::make_shared<Buffer>();
                 vertexBuffer->Init(vertexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::GPU_ONLY);
@@ -224,7 +224,7 @@ namespace sky {
         }
 
         if (is > indexSize) {
-            indexSize = std::max(indexSize * 2, is);
+            indexSize = std::max(indexSize * 2, static_cast<uint64_t>(is));
             if (!indexBuffer) {
                 indexBuffer = std::make_shared<Buffer>();
                 indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::INDEX, rhi::MemoryType::GPU_ONLY);

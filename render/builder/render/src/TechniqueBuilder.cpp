@@ -54,10 +54,6 @@ namespace sky::builder {
             }
         }
 
-        if (val.HasMember("mesh")) {
-            shader.vertOrMeshMain = val["mesh"].GetString();
-        }
-
         if (val.HasMember("fragment")) {
             shader.fragmentMain = val["fragment"].GetString();
         }

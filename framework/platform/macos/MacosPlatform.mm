@@ -19,8 +19,12 @@ namespace sky {
     {
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
-        std::string strRet = [documentsDirectory UTF8String];
-        strRet.append("/");
-        return strRet;
+        return [documentsDirectory UTF8String];
+    }
+
+    std::string MacosPlatform::GetBundlePath() const
+    {
+        auto *path = [[NSBundle mainBundle] bundlePath];
+        return [path UTF8String];
     }
 }
