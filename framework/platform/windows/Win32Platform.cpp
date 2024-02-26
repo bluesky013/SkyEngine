@@ -88,6 +88,11 @@ namespace sky {
         return std::filesystem::path(StringWideCharToUtf8(fullPath)).parent_path().string();
     }
 
+    std::string Win32Platform::GetBundlePath() const
+    {
+        return GetInternalPath(); // TODO
+    }
+
     bool Win32Platform::RunCmd(const std::string &cmd, std::string &out) const
     {
         auto pipe = std::make_unique<Pipe>();
