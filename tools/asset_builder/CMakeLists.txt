@@ -1,4 +1,4 @@
-sky_add_exe(TARGET AssetBrowser
+sky_add_exe(TARGET AssetBuilder
     SOURCES
         main.cpp
     INCS
@@ -7,4 +7,4 @@ sky_add_exe(TARGET AssetBrowser
         3rdParty::cxxopts
 )
 
-sky_set_dependency(TARGET AssetBrowser)
+sky_set_dependency(TARGET AssetBuilder)
