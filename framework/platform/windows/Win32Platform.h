@@ -16,6 +16,7 @@ namespace sky {
     private:
         std::string GetInternalPath() const override;
         std::string GetBundlePath() const override;
+        std::string GetEnvVariable(const std::string &env) const;
         bool RunCmd(const std::string &str, std::string &out) const override;
         PlatformType GetType() const override;
     };

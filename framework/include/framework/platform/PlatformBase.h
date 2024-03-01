@@ -33,6 +33,7 @@ namespace sky {
         virtual std::string GetBundlePath() const = 0;
         virtual void *GetMainWinHandle() const { return nullptr; };
         virtual void *GetNativeApp() const { return nullptr; }
+        virtual std::string GetEnvVariable(const std::string &env) const { return ""; }
         virtual AdaptivePerfManager *GetPerformanceManager() const { return nullptr; }
         virtual bool RunCmd(const std::string &str, std::string &out) const { return true; }
         virtual PlatformType GetType() const { return PlatformType::UNDEFINED; }
@@ -53,6 +54,7 @@ namespace sky {
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
         AdaptivePerfManager *GetPerformanceManager() const;
+        std::string GetEnvVariable(const std::string &env) const;
 
         bool RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;

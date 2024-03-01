@@ -29,6 +29,7 @@ add_subdirectory(engine)
 add_subdirectory(render)
 add_subdirectory(sample)
 add_subdirectory(Launcher)
+add_subdirectory(plugins)
 
 set(ACTIVE_PROJECT_PATH ${CMAKE_SOURCE_DIR}/active_project/native)
 if (EXISTS ${ACTIVE_PROJECT_PATH})

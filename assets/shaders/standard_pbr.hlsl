@@ -19,7 +19,7 @@ VSOutput VSMain(VSInput input)
     output.Color    = input.Color;
     output.UV       = input.UV;
 
-    output.Pos = mul(VIEW_INFO.WorldToClip, float4(output.WorldPos, 1.0));
+    output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
     return output;
 }
 
@@ -40,7 +40,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     N = normalize(mul(TBN, tNormal));
 
-    float3 viewPos = float3(VIEW_INFO.ViewToWorld[0][3], VIEW_INFO.ViewToWorld[1][3], VIEW_INFO.ViewToWorld[2][3]);
+    float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
     float3 L = -light.Direction.xyz;
     float3 V = normalize(viewPos - input.WorldPos);
 

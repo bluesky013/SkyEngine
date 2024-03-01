@@ -47,7 +47,7 @@ namespace sky::rhi {
         if (instanceFunc == nullptr) {
             return nullptr;
         }
-        auto instance = instanceFunc();
+        auto *instance = instanceFunc();
         if (instance != nullptr && instance->Init(desc)) {
             return instance;
         }

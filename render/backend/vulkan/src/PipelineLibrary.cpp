@@ -26,7 +26,7 @@ namespace sky::vk {
         cacheInfo.pInitialData = desc.data;
         auto res = vkCreatePipelineCache(device.GetNativeHandle(), &cacheInfo, VKL_ALLOC, &cache);
         if (res != VK_SUCCESS) {
-            LOG_E(TAG, "create buffer failed, %d", res);
+            LOG_E(TAG, "create pipeline cache failed, %d", res);
             return false;
         }
 

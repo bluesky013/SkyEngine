@@ -35,6 +35,10 @@ sky_add_library(TARGET VulkanRHI.Static STATIC
         ${PLATFORM_EXT_LIBS}
 )
 
+if (SKY_BUILD_XR)
+    target_compile_definitions(VulkanRHI.Static PUBLIC -DXR_USE_GRAPHICS_API_VULKAN)
+endif ()
+
 if(ANDROID)
     target_compile_definitions(VulkanRHI.Static PUBLIC -DVMA_VULKAN_VERSION=1002000)
 endif()

@@ -12,6 +12,11 @@
 #include <vulkan/Semaphore.h>
 #include <vulkan/vulkan.h>
 
+#ifdef SKY_ENABLE_XR
+#include <rhi/XRInterface.h>
+#endif
+
+
 namespace sky::vk {
 
     class Device;
@@ -31,20 +36,11 @@ namespace sky::vk {
             VkCompositeAlphaFlagBitsKHR   compositeAlpha  = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         };
 
-        struct PresentInfo {
-            std::vector<SemaphorePtr> signals;
-            uint32_t                  imageIndex = 0;
-        };
-
         void Resize(uint32_t width, uint32_t height, void* window) override;
 
         // for vulkan
-        VkSwapchainKHR GetNativeHandle() const;
-        VkFormat          GetVkFormat() const;
-        const VkExtent2D &GetVkExtent() const;
-        void Present(const PresentInfo &) const;
+        VkSwapchainKHR GetNativeHandle() const { return swapChain; };
         VkResult AcquireNext(const SemaphorePtr& semaphore, uint32_t &next) const;
-        ImagePtr GetVkImage(uint32_t image) const;
 
         // for rhi
         uint32_t AcquireNextImage(const rhi::SemaphorePtr &semaphore) override;
@@ -63,7 +59,6 @@ namespace sky::vk {
         explicit SwapChain(Device &);
 
         bool Init(const Descriptor &);
-        bool Init(const VkDescriptor &);
 
         bool CreateSurface();
         void DestroySurface();
@@ -85,5 +80,33 @@ namespace sky::vk {
     };
 
     using SwapChainPtr = std::shared_ptr<SwapChain>;
+
+#ifdef SKY_ENABLE_XR
+    class XRSwapChain : public rhi::XRSwapChain, public DevObject {
+    public:
+        explicit XRSwapChain(Device &dev);
+        ~XRSwapChain() override;
+
+        uint32_t AcquireNextImage() override;
+        void Present() override;
+
+        uint32_t GetArrayLayers() const override { return arrayLayers; }
+        uint32_t GetImageCount() const override { return static_cast<uint32_t>(images.size()); }
+        rhi::PixelFormat GetFormat() const override { return format; }
+        rhi::ImagePtr GetImage(uint32_t index) const override { return images[index]; }
+        rhi::ImageViewPtr GetImageView(uint32_t index) const override { return imageViews[index]; }
+        const rhi::Extent2D &GetExtent() const override { return extent; }
+    private:
+        friend class Device;
+        bool Init(const Descriptor &);
+
+        rhi::PixelFormat format;
+        rhi::Extent2D extent;
+        uint32_t arrayLayers;
+        std::vector<ImagePtr> images;
+        std::vector<rhi::ImageViewPtr> imageViews;
+    };
+#endif
+    using XRSwapChainPtr = std::shared_ptr<XRSwapChain>;
 
 } // namespace sky::vk

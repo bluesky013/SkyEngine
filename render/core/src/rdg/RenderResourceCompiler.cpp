@@ -72,6 +72,10 @@ namespace sky::rdg {
                     const auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
                     rsg.BindTexture(view.name, swc.res, 0);
                 },
+                [&](const ImportXRSwapChainTag &) {
+                    const auto &swc = rdg.resourceGraph.xrSwapChains[Index(res, rdg.resourceGraph)];
+                    rsg.BindTexture(view.name, swc.res, 0);
+                },
                 [&](const ConstantBufferTag &) {
                     const auto &cb = rdg.resourceGraph.constantBuffers[Index(res, rdg.resourceGraph)];
                     rsg.BindBuffer(view.name, cb.ubo->GetRHIBuffer(), 0);
@@ -187,6 +191,13 @@ namespace sky::rdg {
                     swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
                 }
             },
+            [&](const ImportXRSwapChainTag &) {
+                auto &swc = rdg.resourceGraph.xrSwapChains[Index(res, rdg.resourceGraph)];
+                if (!swc.res) {
+                    swc.desc.imageIndex = swc.desc.swapchain->AcquireNextImage();
+                    swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
+                }
+            },
             [&](const auto &) {}
         }, Tag(res, rdg.resourceGraph));
     }
@@ -229,7 +240,11 @@ namespace sky::rdg {
                 [&](const ImportSwapChainTag &) {
                     auto &swc = rdg.resourceGraph.swapChains[Index(attachment, rdg.resourceGraph)];
                     att.format = swc.desc.swapchain->GetFormat();
-
+                    fbDesc.views[i] = swc.res;
+                },
+                [&](const ImportXRSwapChainTag &) {
+                    auto &swc = rdg.resourceGraph.xrSwapChains[Index(attachment, rdg.resourceGraph)];
+                    att.format = swc.desc.swapchain->GetFormat();
                     fbDesc.views[i] = swc.res;
                 },
                 [&](const ImageViewTag &) {

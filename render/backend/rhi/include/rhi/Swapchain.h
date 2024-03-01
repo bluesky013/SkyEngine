@@ -8,6 +8,10 @@
 #include <rhi/Image.h>
 #include <rhi/Semaphore.h>
 
+#ifdef SKY_ENABLE_XR
+#include <rhi/XRInterface.h>
+#endif
+
 namespace sky::rhi {
     class Queue;
 
@@ -43,4 +47,34 @@ namespace sky::rhi {
         virtual void Present(Queue &queue, const PresentInfo &info) = 0;
     };
     using SwapChainPtr = std::shared_ptr<SwapChain>;
-}
+
+#ifdef SKY_ENABLE_XR
+    class XRSwapChain {
+    public:
+        XRSwapChain()          = default;
+        virtual ~XRSwapChain() = default;
+
+        struct Descriptor {
+            PixelFormat format;
+        };
+
+        virtual PixelFormat GetFormat() const = 0;
+        virtual const Extent2D &GetExtent() const = 0;
+        virtual ImagePtr GetImage(uint32_t index) const = 0;
+        virtual ImageViewPtr GetImageView(uint32_t index) const = 0;
+        virtual uint32_t GetImageCount() const = 0;
+        virtual uint32_t GetArrayLayers() const = 0;
+        virtual uint32_t AcquireNextImage() = 0;
+        virtual void Present() = 0;
+
+        bool RequestViewData(const XRViewInput &input, std::vector<XRViewData> &data)
+        {
+            return swapChain->RequestViewData(input, data);
+        }
+
+    protected:
+        rhi::IXRSwapChain *swapChain = nullptr;
+    };
+    using XRSwapChainPtr = std::shared_ptr<XRSwapChain>;
+#endif
+} // namespace sky::rhi

@@ -13,8 +13,9 @@ namespace sky {
         instance = nullptr;
     }
 
-    void RHI::InitInstance(const rhi::Instance::Descriptor &desc)
+    void RHI::InitInstance(rhi::Instance::Descriptor desc)
     {
+        desc.xrInterface = xrInterface;
         instance = rhi::Instance::Create(desc);
         api = desc.api;
     }

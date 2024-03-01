@@ -2,13 +2,19 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "vulkan/Swapchain.h"
-#include "core/logger/Logger.h"
-#include "vulkan/Basic.h"
-#include "vulkan/Device.h"
-#include "vulkan/ImageView.h"
-#include "vulkan/Semaphore.h"
-#include "vulkan/Conversion.h"
+#include <vulkan/Swapchain.h>
+#include <core/logger/Logger.h>
+#include <vulkan/Basic.h>
+#include <vulkan/Device.h>
+#include <vulkan/ImageView.h>
+#include <vulkan/Semaphore.h>
+#include <vulkan/Conversion.h>
+#include <vulkan/Instance.h>
+
+#ifdef SKY_ENABLE_XR
+#include <openxr/openxr_platform.h>
+#endif
+
 static const char *TAG = "Vulkan";
 
 namespace sky::vk {
@@ -44,52 +50,12 @@ namespace sky::vk {
         return true;
     }
 
-    bool SwapChain::Init(const VkDescriptor &des)
-    {
-        descriptor = des;
-        if (!CreateSurface()) {
-            return false;
-        }
-
-        if (!CreateSwapChain()) {
-            return false;
-        }
-        return true;
-    }
-
-    VkSwapchainKHR SwapChain::GetNativeHandle() const
-    {
-        return swapChain;
-    }
-
     void SwapChain::DestroySurface()
     {
         if (surface != VK_NULL_HANDLE) {
-            vkDestroySurfaceKHR(device.GetInstance(), surface, VKL_ALLOC);
+            vkDestroySurfaceKHR(device.GetInstanceId(), surface, VKL_ALLOC);
             surface = VK_NULL_HANDLE;
         }
-    }
-
-    VkFormat SwapChain::GetVkFormat() const
-    {
-        return format.format;
-    }
-
-    const VkExtent2D &SwapChain::GetVkExtent() const
-    {
-        return extent;
-    }
-
-    void SwapChain::Present(const PresentInfo &info) const
-    {
-        std::vector<VkSemaphore> semaphores;
-        for (const auto &sem : info.signals) {
-            semaphores.emplace_back(sem->GetNativeHandle());
-        }
-
-        VkPresentInfoKHR presentInfo = {
-            VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, nullptr, (uint32_t)semaphores.size(), semaphores.data(), 1, &swapChain, &info.imageIndex};
-        vkQueuePresentKHR(queue->GetNativeHandle(), &presentInfo);
     }
 
     bool SwapChain::CreateSwapChain()
@@ -116,7 +82,7 @@ namespace sky::vk {
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR>   presentModes;
 
-        VkResult rst = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &capabilities);
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &capabilities);
 
         uint32_t num = 0;
         vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &num, nullptr);
@@ -179,7 +145,7 @@ namespace sky::vk {
         swcInfo.preTransform                             = descriptor.preTransform;
         swcInfo.compositeAlpha                           = descriptor.compositeAlpha;
 
-        rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
+        auto rst = vkCreateSwapchainKHR(device.GetNativeHandle(), &swcInfo, VKL_ALLOC, &swapChain);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create swapChain failed-%d", rst);
             return false;
@@ -227,11 +193,6 @@ namespace sky::vk {
         CreateSwapChain();
     }
 
-    ImagePtr SwapChain::GetVkImage(uint32_t image) const
-    {
-        return images[image];
-    }
-
     uint32_t SwapChain::GetImageCount() const
     {
         return imageCount;
@@ -257,14 +218,89 @@ namespace sky::vk {
         return next;
     }
 
-    void SwapChain::Present(rhi::Queue &queue, const rhi::PresentInfo &info)
+    void SwapChain::Present(rhi::Queue &presentQueue, const rhi::PresentInfo &info)
     {
-        PresentInfo presentInfo = {};
-        presentInfo.imageIndex = info.imageIndex;
-        for (const auto &sema : info.semaphores) {
-            presentInfo.signals.emplace_back(std::static_pointer_cast<Semaphore>(sema));
+        std::vector<VkSemaphore> semaphores;
+        for (const auto &sem : info.semaphores) {
+            semaphores.emplace_back(std::static_pointer_cast<Semaphore>(sem)->GetNativeHandle());
         }
-        Present(presentInfo);
+
+        VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+        presentInfo.waitSemaphoreCount = static_cast<uint32_t>(semaphores.size());
+        presentInfo.pWaitSemaphores = semaphores.data();
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &swapChain;
+        presentInfo.pImageIndices = &info.imageIndex;
+        vkQueuePresentKHR(static_cast<Queue&>(presentQueue).GetNativeHandle(), &presentInfo);
     }
+
+#ifdef SKY_ENABLE_XR
+    XRSwapChain::XRSwapChain(Device &dev) : DevObject(dev)
+    {
+    }
+
+    XRSwapChain::~XRSwapChain()
+    {
+        auto *xrInterface = device.GetInstance().GetXRInterface();
+        xrInterface->DestroyXrSwapChain(swapChain);
+    }
+
+    uint32_t XRSwapChain::AcquireNextImage()
+    {
+        return swapChain->AcquireNextImage();
+    }
+
+    void XRSwapChain::Present()
+    {
+        swapChain->Present();
+    }
+
+    bool XRSwapChain::Init(const Descriptor &desc)
+    {
+        auto *xrInterface = device.GetInstance().GetXRInterface();
+        swapChain = xrInterface->CreateXrSwapChain({static_cast<int64_t>(FromRHI(desc.format))});
+        XrSwapchain xrSwapChain = swapChain->GetHandle(0);
+
+        auto fn = reinterpret_cast<PFN_xrEnumerateSwapchainImages>(xrInterface->GetFunction("xrEnumerateSwapchainImages"));
+        uint32_t imageCount = 0;
+        fn(xrSwapChain, 0, &imageCount, nullptr);
+        std::vector<XrSwapchainImageVulkanKHR> xrImages(imageCount);
+        std::vector<XrSwapchainImageBaseHeader*> headers(imageCount);
+        for (uint32_t i = 0; i < imageCount; ++i) {
+            xrImages[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+            headers[i] = reinterpret_cast<XrSwapchainImageBaseHeader*>(&xrImages[i]);
+        }
+        fn(xrSwapChain, imageCount, &imageCount, headers[0]);
+
+        extent = {swapChain->GetWidth(), swapChain->GetHeight()};
+        arrayLayers = swapChain->GetArrayLayers();
+
+        VkImageCreateInfo imageInfo = {};
+        imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType         = VK_IMAGE_TYPE_2D;
+        imageInfo.extent            = VkExtent3D{swapChain->GetWidth(), swapChain->GetHeight(), 1};
+        imageInfo.mipLevels         = 1;
+        imageInfo.arrayLayers       = arrayLayers;
+        imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.format            = static_cast<VkFormat>(swapChain->GetFormat());
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        rhi::ImageViewDesc viewInfo = {};
+        viewInfo.subRange.layers = arrayLayers;
+        viewInfo.viewType = rhi::ImageViewType::VIEW_2D_ARRAY;
+
+        images.resize(imageCount);
+        imageViews.resize(imageCount);
+        for (uint32_t i = 0; i < imageCount; ++i) {
+            images[i]            = std::shared_ptr<Image>(new Image(device, xrImages[i].image));
+            images[i]->imageInfo = imageInfo;
+            imageViews[i] = images[i]->CreateView(viewInfo);
+        }
+
+        return swapChain != nullptr;
+    }
+#endif
 
 } // namespace sky::vk

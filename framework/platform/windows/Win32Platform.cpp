@@ -14,17 +14,48 @@ static const char* TAG = "Win32Platform";
 
 namespace sky {
 
-    std::string StringWideCharToUtf8(const std::wstring_view &strWideChar)
+    static std::wstring UTF8ToWide(const std::string& utf8Text)
     {
-        std::string ret;
-        if (!strWideChar.empty()) {
-            int num = WideCharToMultiByte(CP_UTF8, 0, strWideChar.data(), -1, nullptr, 0, nullptr, FALSE);
-            if (num != 0) {
-                ret.resize(num + 1, 0);
-                num = WideCharToMultiByte(CP_UTF8, 0, strWideChar.data(), -1, ret.data(), num + 1, nullptr, FALSE);
-            }
+        if (utf8Text.empty()) {
+            return {};
         }
-        return ret;
+
+        std::wstring wideText;
+        const int wideLength = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), (int)utf8Text.size(), nullptr, 0);
+        if (wideLength == 0) {
+            return {};
+        }
+
+        wideText.resize(wideLength, 0);
+        auto* wideString = const_cast<wchar_t*>(wideText.data());
+        const int length = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), (int)utf8Text.size(), wideString, wideLength);
+        if (length != wideLength) {
+            return {};
+        }
+
+        return wideText;
+    }
+
+    static std::string WideToUTF8(const std::wstring& wideText)
+    {
+        if (wideText.empty()) {
+            return {};
+        }
+
+        std::string narrowText;
+        int narrowLength = ::WideCharToMultiByte(CP_UTF8, 0, wideText.data(), (int)wideText.size(), nullptr, 0, nullptr, nullptr);
+        if (narrowLength == 0) {
+            return {};
+        }
+
+        narrowText.resize(narrowLength, 0);
+        char* narrowString = const_cast<char*>(narrowText.data());
+        const int length = ::WideCharToMultiByte(CP_UTF8, 0, wideText.data(), (int)wideText.size(), narrowString, narrowLength, nullptr, nullptr);
+        if (length != narrowLength) {
+            return {};
+        }
+
+        return narrowText;
     }
 
     struct Pipe {
@@ -85,12 +116,28 @@ namespace sky {
         wchar_t fullPath[MAX_WRITABLE_PATH + 1];
         ::GetModuleFileNameW(nullptr, fullPath, MAX_WRITABLE_PATH + 1);
 
-        return std::filesystem::path(StringWideCharToUtf8(fullPath)).parent_path().string();
+        return std::filesystem::path(WideToUTF8(fullPath)).parent_path().string();
     }
 
     std::string Win32Platform::GetBundlePath() const
     {
         return GetInternalPath(); // TODO
+    }
+
+    std::string Win32Platform::GetEnvVariable(const std::string &name) const
+    {
+        const std::wstring envKey = UTF8ToWide(name);
+        const DWORD size = ::GetEnvironmentVariableW(envKey.c_str(), nullptr, 0);
+        if (size == 0 || size == 1) {
+            return {};
+        }
+        std::wstring envValue(size, 0);
+        const DWORD length = ::GetEnvironmentVariableW(envKey.data(), envValue.data(), (DWORD)envValue.size());
+        if ((length == 0) || (length >= envValue.size())) {
+            return {};
+        }
+        envValue.resize(length);
+        return WideToUTF8(envValue);
     }
 
     bool Win32Platform::RunCmd(const std::string &cmd, std::string &out) const

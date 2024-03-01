@@ -16,7 +16,7 @@ namespace sky {
         RenderPipeline();
         virtual ~RenderPipeline();
 
-        virtual void OnSetup(rdg::RenderGraph &rdg) = 0;
+        virtual bool OnSetup(rdg::RenderGraph &rdg) = 0;
 
         void FrameSync();
         void Execute(rdg::RenderGraph &rdg);

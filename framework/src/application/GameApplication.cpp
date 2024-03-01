@@ -35,7 +35,7 @@ namespace sky {
             AssetManager::Get()->SetProjectPath(Platform::Get()->GetBundlePath());
         }
 #else
-        AssetManager::Get()->SetWorkPath(Platform::Get()->GetBundlePath());
+        AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
 #endif
 
         if (!Application::Init(argc, argv)) {
@@ -113,7 +113,7 @@ namespace sky {
 
     void GameApplication::PreInit()
     {
-        auto handle = Platform::Get()->GetMainWinHandle();
+        auto *handle = Platform::Get()->GetMainWinHandle();
         nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{width, height, "SkyGame", "SkyGame", handle}));
     }
 

@@ -2,10 +2,17 @@
 // Created by Zach Lee on 2021/11/7.
 //
 
-#include "vulkan/Instance.h"
-#include <vector>
+#include <vulkan/Instance.h>
 #include <vulkan/vulkan_core.h>
-#include "core/logger/Logger.h"
+#include <core/logger/Logger.h>
+
+#include <rhi/Util.h>
+
+#ifdef SKY_ENABLE_XR
+#include <openxr/openxr_platform.h>
+#endif
+
+#include <vector>
 
 static const char *TAG = "Vulkan";
 
@@ -44,31 +51,6 @@ namespace sky::vk {
         LOG_I(TAG, "vulkan debug layer %s", pCallbackData->pMessage);
         return VK_FALSE;
     }
-
-    const std::vector<const char *> extensions = {
-        "VK_KHR_surface",
-        "VK_KHR_get_physical_device_properties2",
-
-#if !__ANDROID__ && _DEBUG
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#endif
-
-#if _WIN32
-        "VK_KHR_win32_surface",
-#elif __ANDROID__
-        "VK_KHR_android_surface",
-#elif __APPLE__
-        "VK_KHR_portability_enumeration",
-        "VK_MVK_macos_surface",
-        "VK_EXT_metal_surface",
-#endif
-    };
-
-#if !defined(__ANDROID__)
-    const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-#else
-    const std::vector<const char *> validationLayers;
-#endif
 
     Instance *Instance::Create(const Descriptor &des)
     {
@@ -114,6 +96,35 @@ namespace sky::vk {
 
     bool Instance::Init(const Descriptor &des)
     {
+        uint32_t count;
+        vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+        std::vector<VkExtensionProperties> supported(count);
+        vkEnumerateInstanceExtensionProperties(nullptr, &count, supported.data());
+
+        auto extensions = GetInstanceExtensions();
+
+#ifdef SKY_ENABLE_XR
+        xrInterface = des.xrInterface;
+        std::vector<char> extensionNames;
+        if (xrInterface != nullptr) {
+            PFN_xrGetVulkanInstanceExtensionsKHR func = reinterpret_cast<PFN_xrGetVulkanInstanceExtensionsKHR>(xrInterface->GetFunction("xrGetVulkanInstanceExtensionsKHR"));
+            uint32_t extensionNamesSize = 0;
+            func(xrInterface->GetXrInstanceHandle(), xrInterface->GetXrSystemId(), 0, &extensionNamesSize, nullptr);
+            extensionNames.resize(extensionNamesSize);
+            func(xrInterface->GetXrInstanceHandle(), xrInterface->GetXrSystemId(), extensionNamesSize, &extensionNamesSize, extensionNames.data());
+
+            std::vector<const char*> xrExtensions = rhi::ParseExtensionString(extensionNames.data());
+            for (auto &ext : xrExtensions) {
+                auto iter = std::find_if(supported.begin(), supported.end(), [ext](const auto &prop) {
+                    return strcmp(ext, prop.extensionName) == 0;
+                });
+                if (iter != supported.end()) {
+                    extensions.emplace_back(ext);
+                }
+            }
+        }
+#endif
+
         uint32_t version = 0;
         vkEnumerateInstanceVersion(&version);
         majorVersion = SKY_VK_API_VERSION_MAJOR(version);
@@ -140,8 +151,9 @@ namespace sky::vk {
 
         VkDebugUtilsMessengerCreateInfoEXT debugInfo = {};
         if (des.enableDebugLayer) {
-            instInfo.enabledLayerCount   = static_cast<uint32_t>(validationLayers.size());
-            instInfo.ppEnabledLayerNames = validationLayers.data();
+            const auto &layers = GetValidationLayers();
+            instInfo.enabledLayerCount   = static_cast<uint32_t>(layers.size());
+            instInfo.ppEnabledLayerNames = layers.data();
 
             debugInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -162,7 +174,6 @@ namespace sky::vk {
         }
 
         LoadInstance(instance, minorVersion);
-        PrintSupportedExtensions();
         return true;
     }
 
@@ -170,16 +181,4 @@ namespace sky::vk {
     {
         return instance;
     }
-
-    void Instance::PrintSupportedExtensions()
-    {
-        uint32_t count;
-        vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
-        std::vector<VkExtensionProperties> supported(count);
-        vkEnumerateInstanceExtensionProperties(nullptr, &count, supported.data());
-        for (auto &ext : supported) {
-            LOG_I(TAG, "supported extensions name %s, version %u", ext.extensionName, ext.specVersion);
-        }
-    }
-
 } // namespace sky::vk

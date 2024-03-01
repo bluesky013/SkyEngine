@@ -21,6 +21,10 @@ namespace sky::rdg {
                 const auto &image = resourceGraph.swapChains[Index(resID, resourceGraph)];
                 res = image.desc.swapchain->GetImage(image.desc.imageIndex);
             },
+            [&](const ImportXRSwapChainTag &) {
+                const auto &image = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
+                res = image.desc.swapchain->GetImage(image.desc.imageIndex);
+            },
             [&](const auto &) {
             }
         }, Tag(resID, resourceGraph));
@@ -63,6 +67,16 @@ namespace sky::rdg {
                                                barrier.range.layer, barrier.range.layers,
                                                rhi::AspectFlagBit::COLOR_BIT},
                                                rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
+                    }
+                },
+                [&](const ImportXRSwapChainTag &) {
+                    auto &image = graph.resourceGraph.xrSwapChains[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        mainCommandBuffer->QueueBarrier(image.desc.swapchain->GetImage(image.desc.imageIndex),
+                                                        rhi::ImageSubRange{static_cast<uint32_t>(barrier.range.base), static_cast<uint32_t>(barrier.range.range),
+                                                        barrier.range.layer, barrier.range.layers,
+                                                        rhi::AspectFlagBit::COLOR_BIT},
+                                                        rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
                     }
                 },
                 [&](const BufferTag &) {

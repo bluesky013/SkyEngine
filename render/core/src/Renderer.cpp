@@ -86,6 +86,16 @@ namespace sky {
         return rw;
     }
 
+    RenderWindow *Renderer::CreateRenderWindowByXR()
+    {
+        auto *renderWindow = new RenderWindow();
+        if (!renderWindow->InitByXR(RHI::Get()->GetDevice()->CreateXRSwapChain({rhi::PixelFormat::BGRA8_UNORM}))) {
+            return nullptr;
+        }
+        windows.emplace_back(renderWindow, &Renderer::DestroyObj<RenderWindow>);
+        return renderWindow;
+    }
+
     void Renderer::RemoveScene(sky::RenderScene *scene)
     {
         scenes.remove_if([scene](const auto &scn) {

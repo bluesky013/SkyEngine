@@ -54,6 +54,11 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
     }
 
+    void ResourceGraph::ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain)
+    {
+        add_edge(0, AddVertex(name, GraphXRSwapChain{swapchain}, *this), graph);
+    }
+
     void ResourceGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
     {
         auto src = FindVertex(source, *this);
@@ -142,13 +147,24 @@ namespace sky::rdg {
 
     void RenderGraph::AddPresentPass(const char *name, const char *resName)
     {
-        auto res = FindVertex(resName, resourceGraph);
-        SKY_ASSERT(res != INVALID_VERTEX);
-        const auto &swc = resourceGraph.swapChains[Index(res, resourceGraph)];
-        auto vtx = AddVertex(name, PresentPass(res, swc.desc.swapchain, &context->resources), *this);
-        add_edge(0, vtx, graph);
+        auto resID = FindVertex(resName, resourceGraph);
+        SKY_ASSERT(resID != INVALID_VERTEX);
 
-        AddDependency(res, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
+        std::visit(Overloaded{
+            [&](const ImportSwapChainTag &tag) {
+                const auto &res = resourceGraph.swapChains[Index(resID, resourceGraph)];
+            },
+            [&](const ImportXRSwapChainTag &tag) {
+                const auto &res = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
+            },
+            [&](const auto &) {}
+        }, rdg::Tag(resID, resourceGraph));
+
+        // TODO
+        const auto &swc = resourceGraph.swapChains[Index(resID, resourceGraph)];
+        auto vtx = AddVertex(name, PresentPass(resID, swc.desc.swapchain, &context->resources), *this);
+        add_edge(0, vtx, graph);
+        AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
     }
 
     AccessGraph::AccessGraph(RenderGraphContext *ctx)
@@ -249,6 +265,12 @@ namespace sky::rdg {
         return *this;
     }
 
+    RasterPassBuilder &RasterPassBuilder::AddCoRelationMasks(uint32_t mask)
+    {
+        pass.correlationMasks.emplace_back(mask);
+        return *this;
+    }
+
     RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const std::string &name)
     {
         auto dst = AddVertex(name.c_str(), RasterSubPass{&rdg.context->resources}, rdg);
@@ -321,6 +343,12 @@ namespace sky::rdg {
 
         subPass.computeViews.emplace(name, view);
         rdg.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
+        return *this;
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::SetViewMask(uint32_t mask)
+    {
+        subPass.viewMask = mask;
         return *this;
     }
 

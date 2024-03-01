@@ -3,7 +3,8 @@
     {
       "name": "SkyRender",
       "dependencies": [
-        "ShaderCompiler"
+        "ShaderCompiler",
+        "XRModule"
       ]
     },
     {
@@ -11,10 +12,13 @@
       "dependencies": []
     },
     {
+      "name": "XRModule",
+      "dependencies": []
+    },
+    {
       "name": "RDSceneProject",
       "dependencies": [
-        "SkyRender",
-        "ShaderCompiler"
+        "SkyRender"
       ]
     }
   ],

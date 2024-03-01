@@ -74,11 +74,12 @@ namespace sky::rdg {
     struct ImportImageTag {};
     struct ImageViewTag {};
     struct ImportSwapChainTag {};
+    struct ImportXRSwapChainTag {};
     struct BufferTag {};
     struct ImportBufferTag {};
     struct ConstantBufferTag {};
     struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag, ConstantBufferTag>;
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, ImportXRSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag, ConstantBufferTag>;
 
     struct AccessPassTag {};
     struct AccessResTag {};
@@ -183,6 +184,7 @@ namespace sky::rdg {
         using Tag = RasterSubPassTag;
 
         uint32_t subPassID = 0;
+        uint32_t viewMask = 0;
         VertexType parent = INVALID_VERTEX;
         PmrVector<RasterAttachmentRef> colors;
         PmrVector<RasterAttachmentRef> resolves;
@@ -233,6 +235,7 @@ namespace sky::rdg {
             , attachments(res)
             , attachmentVertex(res)
             , subPasses(res)
+            , correlationMasks{res}
             , clearValues(res)
             , dependencies(res)
             , frontBarriers(res)
@@ -246,11 +249,11 @@ namespace sky::rdg {
         PmrVector<RasterAttachment> attachments;
         PmrVector<VertexType> attachmentVertex;
         PmrVector<VertexType> subPasses;
+        PmrVector<uint32_t> correlationMasks;
         PmrVector<rhi::ClearValue> clearValues;
         PmrVector<SubPassDependency> dependencies;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
-
         RDGfxTechPtr technique;
         rhi::RenderPassPtr renderPass;
         rhi::FrameBufferPtr frameBuffer;
@@ -344,6 +347,13 @@ namespace sky::rdg {
         using Tag = ImportSwapChainTag;
 
         rhi::SwapChainPtr swapchain;
+        uint32_t imageIndex = 0;
+    };
+
+    struct GraphXRSwapChain {
+        using Tag = ImportXRSwapChainTag;
+
+        rhi::XRSwapChainPtr swapchain;
         uint32_t imageIndex = 0;
     };
 

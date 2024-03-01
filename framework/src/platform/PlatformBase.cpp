@@ -45,6 +45,11 @@ namespace sky {
         return platform->GetPerformanceManager();
     }
 
+    std::string Platform::GetEnvVariable(const std::string &env) const
+    {
+        return platform->GetEnvVariable(env);
+    }
+
     bool Platform::RunCmd(const std::string &str, std::string &out) const
     {
         return platform->RunCmd(str, out);

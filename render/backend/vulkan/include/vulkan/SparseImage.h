@@ -50,7 +50,7 @@ namespace sky::vk {
     private:
         friend class Device;
 
-        SparseImage(Device &dev) : DevObject(dev) {}
+        explicit SparseImage(Device &dev) : DevObject(dev) {}
 
         bool Init(const VkDescriptor &);
         void InitMipTail();

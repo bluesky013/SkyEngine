@@ -48,8 +48,9 @@ namespace sky {
                 feature.second->Render(rdg);
             }
 
-            pipeline->OnSetup(rdg);
-            pipeline->Execute(rdg);
+            if (pipeline->OnSetup(rdg)) {
+                pipeline->Execute(rdg);
+            }
         }
     }
 

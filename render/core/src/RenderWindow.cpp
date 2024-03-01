@@ -21,24 +21,38 @@ namespace sky {
         return static_cast<bool>(swapChain);
     }
 
+#ifdef SKY_ENABLE_XR
+    bool RenderWindow::InitByXR(const rhi::XRSwapChainPtr &xr)
+    {
+        xrSwapChain = xr;
+        return static_cast<bool>(xrSwapChain);
+    }
+#endif
+
     void RenderWindow::Resize(uint32_t width, uint32_t height)
     {
         RHI::Get()->GetDevice()->WaitIdle();
-        swapChain->Resize(width, height, winHandle);
+
+        if (swapChain) {
+            swapChain->Resize(width, height, winHandle);
+        }
     }
 
     uint32_t RenderWindow::GetWidth() const
     {
-        return swapChain->GetExtent().width;
+#ifdef SKY_ENABLE_XR
+        return swapChain ? swapChain->GetExtent().width : xrSwapChain->GetExtent().width;
+#elif
+        return swapChain->GetExent().width;
+#endif
     }
 
     uint32_t RenderWindow::GetHeight() const
     {
-        return swapChain->GetExtent().height;
-    }
-
-    rhi::PixelFormat RenderWindow::GetOutputFormat() const
-    {
-        return swapChain->GetFormat();
+#ifdef SKY_ENABLE_XR
+        return swapChain ? swapChain->GetExtent().height : xrSwapChain->GetExtent().height;
+#elif
+        return swapChain->GetExent().height;
+#endif
     }
 } // namespace sky
