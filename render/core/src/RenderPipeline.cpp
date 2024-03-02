@@ -18,6 +18,8 @@
 #include <render/rdg/RenderGraphUploader.h>
 #include <render/Renderer.h>
 
+#include <core/profile/Profiler.h>
+
 namespace sky {
 
     RenderPipeline::~RenderPipeline()
@@ -53,6 +55,7 @@ namespace sky {
 
     void RenderPipeline::FrameSync()
     {
+        SKY_PROFILE_NAME("FrameSync");
         rdgContext->frameIndex = frameIndex;
         rdgContext->Fence()->WaitAndReset();
         rdgContext->ImageAvailableSemaPool().Reset();
@@ -63,24 +66,28 @@ namespace sky {
     {
         using namespace rdg;
         {
+            SKY_PROFILE_NAME("AccessCompiler");
             AccessCompiler             compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.accessGraph.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.accessGraph.graph, compiler, ColorMap(colors));
         }
 
         {
+            SKY_PROFILE_NAME("RenderResourceCompiler");
             RenderResourceCompiler               compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
 
         {
+            SKY_PROFILE_NAME("RenderGraphPassCompiler");
             RenderGraphPassCompiler              compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
 
         {
+            SKY_PROFILE_NAME("RenderSceneVisitor");
             RenderSceneVisitor sceneVisitor(rdg);
             sceneVisitor.BuildRenderQueue();
         }
@@ -88,6 +95,8 @@ namespace sky {
         const auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
+            SKY_PROFILE_NAME("Encode");
+
             commandBuffer->Begin();
 
             RenderGraphUploader uploader(rdg);

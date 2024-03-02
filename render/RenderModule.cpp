@@ -22,6 +22,8 @@
 #include <render/Renderer.h>
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 
+#include <core/profile/Profiler.h>
+
 #include <imgui/ImGuiFeature.h>
 
 #include <shader/ShaderCompiler.h>
@@ -140,6 +142,7 @@ namespace sky {
 
     void RenderModule::Tick(float delta)
     {
+        SKY_PROFILE_SCOPE;
         Renderer::Get()->Tick(delta);
     }
 }

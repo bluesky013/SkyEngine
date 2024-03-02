@@ -4,8 +4,7 @@
 
 #include <framework/application/Application.h>
 
-// 3rd
-#include <cxxopts.hpp>
+#include <core/profile/Profiler.h>
 
 // std
 #include <chrono>
@@ -94,6 +93,7 @@ namespace sky {
 
     void Application::Loop()
     {
+        SKY_PROFILE_FRAME;
         PreTick();
 
         uint64_t        frequency      = Platform::Get()->GetPerformanceFrequency();

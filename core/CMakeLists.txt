@@ -12,6 +12,11 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         platform/unix/async/*)
 endif ()
 
+set(CORE_OPT_LIBS)
+if (SKY_USE_TRACY)
+    list(APPEND CORE_OPT_LIBS   3rdParty::tracy)
+endif ()
+
 sky_add_library(TARGET Core STATIC
     SOURCES
         ${SRC_FILES}
@@ -26,4 +31,5 @@ sky_add_library(TARGET Core STATIC
         3rdParty::crc32
         3rdParty::taskflow
         3rdParty::boost
+        ${CORE_OPT_LIBS}
     )

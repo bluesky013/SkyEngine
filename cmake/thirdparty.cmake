@@ -59,6 +59,11 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    if (SKY_USE_TRACY)
+        sky_find_3rd(TARGET tracy         DIR tracy)
+        add_definitions(-DTRACY_ENABLE)
+    endif ()
+
     if (SKY_BUILD_DXC)
         sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
     endif ()
