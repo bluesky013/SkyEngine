@@ -25,30 +25,42 @@ namespace sky {
         void PostTick(float delta) override;
 
     private:
-        void ProcessArgs(const StartArguments &args);
+        bool ProcessArgs(const StartArguments &args);
 
         std::unique_ptr<XRInstance> instance;
         rhi::API api = rhi::API::DEFAULT;
     };
 
-    void XRModule::ProcessArgs(const StartArguments &args)
+    bool XRModule::ProcessArgs(const StartArguments &args)
     {
         cxxopts::Options options("SkyEngine XR Plugin", "SkyEngine XR Plugin");
         options.allow_unrecognised_options();
 
         options.add_options()("r,rhi", "RHI Type", cxxopts::value<std::string>());
+        options.add_options()("a,app", "App Type", cxxopts::value<std::string>());
 
-        if (!args.args.empty()) {
-            auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
-            if (result.count("rhi") != 0u) {
-                api = rhi::GetApiByString(result["rhi"].as<std::string>());
-            }
+        if (args.args.empty()) {
+            return false;
         }
+
+        auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
+
+        if (result.count("app") == 0u || result["app"].as<std::string>() != "xr") {
+            return false;
+        }
+
+        if (result.count("rhi") != 0u) {
+            api = rhi::GetApiByString(result["rhi"].as<std::string>());
+        }
+
+        return true;
     }
 
     bool XRModule::Init(const StartArguments &args)
     {
-        ProcessArgs(args);
+        if (!ProcessArgs(args)) {
+            return false;
+        }
 
         instance = std::make_unique<XRInstance>();
         return instance->Init({api});

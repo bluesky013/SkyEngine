@@ -159,6 +159,12 @@ namespace sky::rdg {
             [&](const PresentTag &) {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.frontBarriers);
+
+#ifdef SKY_ENABLE_XR
+                if (present.xrSwapChain) {
+                    present.xrSwapChain->Present();
+                }
+#endif
                 callStack.emplace_back(graph.names[u]);
             },
             [&](const RasterQueueTag &) {

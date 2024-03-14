@@ -93,7 +93,10 @@ namespace sky {
 
         // init rhi
         RHI::Get()->InitInstance(rhiDesc);
-        RHI::Get()->InitDevice({});
+
+        rhi::DeviceFeature feature = {};
+        feature.multiView = true;
+        RHI::Get()->InitDevice({feature});
 
         // init renderer
         Renderer::Get()->Init();

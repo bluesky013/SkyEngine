@@ -70,19 +70,4 @@ namespace sky::vk {
         descriptor = des;
         return true;
     }
-
-    VkFramebuffer FrameBuffer::GetNativeHandle() const
-    {
-        return frameBuffer;
-    }
-
-    const VkExtent2D &FrameBuffer::GetExtent() const
-    {
-        return descriptor.extent;
-    }
-
-    uint32_t FrameBuffer::GetAttachmentCount() const
-    {
-        return static_cast<uint32_t>(descriptor.views.size());
-    }
 } // namespace sky::vk

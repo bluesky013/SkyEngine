@@ -9,7 +9,11 @@
 #define VIEW_INFO View
 #endif
 
-VSOutput VSMain(VSInput input)
+VSOutput VSMain(VSInput input
+#if VIEW_COUNT > 1
+    , uint ViewIndex : SV_ViewID
+#endif
+)
 {
     VSOutput output = (VSOutput)0;
 
@@ -20,6 +24,10 @@ VSOutput VSMain(VSInput input)
     output.UV       = input.UV;
 
     output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
+
+#if VIEW_COUNT > 1
+    output.ViewIndex = input.ViewIndex;
+#endif
     return output;
 }
 

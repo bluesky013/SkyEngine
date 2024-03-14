@@ -260,6 +260,7 @@ namespace sky::vk {
         auto *xrInterface = device.GetInstance().GetXRInterface();
         swapChain = xrInterface->CreateXrSwapChain({static_cast<int64_t>(FromRHI(desc.format))});
         XrSwapchain xrSwapChain = swapChain->GetHandle(0);
+        format = desc.format;
 
         auto fn = reinterpret_cast<PFN_xrEnumerateSwapchainImages>(xrInterface->GetFunction("xrEnumerateSwapchainImages"));
         uint32_t imageCount = 0;

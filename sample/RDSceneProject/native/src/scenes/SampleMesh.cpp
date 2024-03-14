@@ -141,15 +141,12 @@ namespace sky {
                 renderHeight = ext.height * 2;
 
                 viewCount = xrSwapChain->GetArrayLayers();
-                rg.ImportXRSwapChain("SwapChain", xrSwapChain);
-
                 std::vector<rhi::XRViewData> viewData;
                 rhi::XRViewInput input = {0.01f, 100.f};
                 if (!xrSwapChain->RequestViewData(input, viewData)) {
                     return false;
                 }
-
-                printf("test\n");
+                rg.ImportXRSwapChain("SwapChain", xrSwapChain);
             }
 
 
@@ -166,11 +163,13 @@ namespace sky {
             rhi::PixelFormat hdrFormat = rhi::PixelFormat::RGBA16_SFLOAT;
             const uint32_t BRDFLutSize = 512;
 
+            auto viewType = viewCount > 1 ? rhi::ImageViewType::VIEW_2D_ARRAY : rhi::ImageViewType::VIEW_2D;
+
             rg.ImportImage("Radiance", radiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
             rg.ImportImage("Irradiance", irradiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
-            rg.AddImage("ForwardColor", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1});
-            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X2});
-            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X2});
+            rg.AddImage("ForwardColor", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, viewType});
+            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X2, viewType});
+            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X2, viewType});
 #ifdef ENABLE_IBL
             rg.AddImage("BRDF_LUT", rdg::GraphImage{{BRDFLutSize, BRDFLutSize, 1}, 1, 1, rhi::PixelFormat::RGBA16_SFLOAT, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED});
 
@@ -186,7 +185,7 @@ namespace sky {
                                    .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                                    .AddAttachment({"ForwardColorMSAA", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                                    .AddAttachment({"ForwardDSMSAA", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-            forwardPass.AddCoRelationMasks(0x11);
+//            forwardPass.AddCoRelationMasks(viewMask);
 
             auto subpass = forwardPass.AddRasterSubPass("color0_sub0");
             subpass.AddColor("ForwardColorMSAA", rdg::ResourceAccessBit::WRITE)
@@ -200,7 +199,7 @@ namespace sky {
                 .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
                 .AddComputeView(globalUboName, {"passInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS});
 
-            subpass.SetViewMask(0x11);
+            subpass.SetViewMask(viewMask);
 
             subpass.AddQueue("queue1")
                 .SetRasterID("ForwardColor")
@@ -222,9 +221,12 @@ namespace sky {
 
             ppSub.AddQueue("queue").SetRasterID("ui");
             rdg.AddPresentPass("present", "SwapChain");
+
+            return true;
         }
 
     private:
+        uint32_t viewMask = 0; // 0b11;
         RenderWindow *output = nullptr;
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
         RDResourceLayoutPtr forwardLayout;
@@ -271,13 +273,13 @@ namespace sky {
 
         const auto *viewport = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
         if (viewport != nullptr) {
-            guiInstance->BindNativeWindow(viewport);
             auto *imgui = scene->GetFeature<ImGuiFeatureProcessor>();
             guiInstance = imgui->CreateGUIInstance();
             guiInstance->AddWidget<LambdaWidget>([](ImGuiContext *context) {
                 ImGui::SetCurrentContext(context);
                 ImGui::ShowDemoWindow();
             });
+            guiInstance->BindNativeWindow(viewport);
         }
 
 

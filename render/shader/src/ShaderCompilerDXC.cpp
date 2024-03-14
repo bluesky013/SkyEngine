@@ -53,11 +53,11 @@ namespace sky {
         // stage
         dxcArgStrings.emplace_back(L"-T");
         if (desc.stage == rhi::ShaderStageFlagBit::VS) {
-            dxcArgStrings.emplace_back(L"vs_6_0");
+            dxcArgStrings.emplace_back(L"vs_6_1");
         } else if (desc.stage == rhi::ShaderStageFlagBit::FS) {
-            dxcArgStrings.emplace_back(L"ps_6_0");
+            dxcArgStrings.emplace_back(L"ps_6_1");
         } else if (desc.stage == rhi::ShaderStageFlagBit::CS) {
-            dxcArgStrings.emplace_back(L"cs_6_0");
+            dxcArgStrings.emplace_back(L"cs_6_1");
         }
 
         std::vector<const wchar_t *> dxcArgs;

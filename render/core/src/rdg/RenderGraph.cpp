@@ -153,18 +153,18 @@ namespace sky::rdg {
         std::visit(Overloaded{
             [&](const ImportSwapChainTag &tag) {
                 const auto &res = resourceGraph.swapChains[Index(resID, resourceGraph)];
+                auto vtx = AddVertex(name, PresentPass(resID, res.desc.swapchain, &context->resources), *this);
+                add_edge(0, vtx, graph);
+                AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
             },
             [&](const ImportXRSwapChainTag &tag) {
                 const auto &res = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
+                auto vtx = AddVertex(name, PresentPass(resID, res.desc.swapchain, &context->resources), *this);
+                add_edge(0, vtx, graph);
+                AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
             },
             [&](const auto &) {}
         }, rdg::Tag(resID, resourceGraph));
-
-        // TODO
-        const auto &swc = resourceGraph.swapChains[Index(resID, resourceGraph)];
-        auto vtx = AddVertex(name, PresentPass(resID, swc.desc.swapchain, &context->resources), *this);
-        add_edge(0, vtx, graph);
-        AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
     }
 
     AccessGraph::AccessGraph(RenderGraphContext *ctx)

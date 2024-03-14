@@ -26,11 +26,8 @@ namespace sky::vk {
             std::vector<ImageViewPtr> views;
         };
 
-        VkFramebuffer GetNativeHandle() const;
-
-        const VkExtent2D &GetExtent() const;
-
-        uint32_t GetAttachmentCount() const;
+        VkFramebuffer GetNativeHandle() const { return frameBuffer; }
+        const VkExtent2D &GetVkExtent() const { return descriptor.extent; }
 
     private:
         friend class Device;

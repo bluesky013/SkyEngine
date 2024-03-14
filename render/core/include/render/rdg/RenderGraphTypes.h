@@ -301,11 +301,21 @@ namespace sky::rdg {
             , frontBarriers(res)
             , rearBarriers(res)
         {}
-
+#ifdef SKY_ENABLE_XR
+        explicit PresentPass(VertexType resID, const rhi::XRSwapChainPtr &swc, PmrResource *res)
+                : imageID(resID)
+                , xrSwapChain(swc)
+                , frontBarriers(res)
+                , rearBarriers(res)
+        {}
+#endif
         using Tag = PresentTag;
 
         VertexType imageID = INVALID_VERTEX;
         rhi::SwapChainPtr swapChain;
+#ifdef SKY_ENABLE_XR
+        rhi::XRSwapChainPtr xrSwapChain;
+#endif
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };

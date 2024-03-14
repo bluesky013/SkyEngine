@@ -10,7 +10,6 @@
 static const char *TAG = "RDG";
 
 namespace sky::rdg {
-
     void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
@@ -299,9 +298,12 @@ namespace sky::rdg {
                 sub.depthStencil.access = subVtx.rasterViews.at(attachmentDesc.name).type == (RasterTypeBit::INPUT | RasterTypeBit::DEPTH_STENCIL) ?
                     rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE : rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             }
+
+            sub.viewMask = subVtx.viewMask;
         }
 
         passDesc.dependencies.resize(dependencySize);
+        passDesc.correlatedViewMasks.assign(rasterPass.correlationMasks.begin(), rasterPass.correlationMasks.end());
         for (uint32_t i = 0; i < dependencySize; ++i) {
             auto &dep = passDesc.dependencies[i];
             auto &depVtx = rasterPass.dependencies[i];

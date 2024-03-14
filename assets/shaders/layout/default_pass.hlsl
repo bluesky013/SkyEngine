@@ -5,7 +5,6 @@ struct ViewInfo {
     float4x4 ViewProj;
 };
 
-#define VIEW_COUNT 1
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
     float4 Viewport;

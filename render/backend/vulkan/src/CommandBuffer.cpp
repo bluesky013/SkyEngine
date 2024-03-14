@@ -364,7 +364,7 @@ namespace sky::vk {
     void GraphicsEncoder::BeginPass(const PassBeginInfo &beginInfo)
     {
         vkBeginInfo.renderPass = beginInfo.renderPass->GetNativeHandle();
-        const auto &extent           = beginInfo.frameBuffer->GetExtent();
+        const auto &extent           = beginInfo.frameBuffer->GetVkExtent();
 
         if (beginInfo.renderArea != nullptr) {
             vkBeginInfo.renderArea = *beginInfo.renderArea;
@@ -507,7 +507,7 @@ namespace sky::vk {
         }
 
         vkBeginInfo.renderPass = pass->GetNativeHandle();
-        const auto &extent = fb->GetExtent();
+        const auto &extent = fb->GetVkExtent();
 
         vkBeginInfo.framebuffer         = fb->GetNativeHandle();
         vkBeginInfo.renderArea.offset.x = 0;
