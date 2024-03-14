@@ -39,7 +39,7 @@ namespace sky {
         width = configViews[0].recommendedImageRectWidth;
         height = configViews[0].recommendedImageRectHeight;
         format = iter != formats.end() ? *iter : formats[0];
-        views.resize(viewCount);
+        views.resize(viewCount, {XR_TYPE_VIEW});
 
         XrSwapchainCreateInfo swcCreateInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swcCreateInfo.arraySize = viewCount;

@@ -134,7 +134,7 @@ namespace sky::rdg {
             [&](const ImportXRSwapChainTag &tag) {
                 const auto &res = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
                 range.range = 1;
-                range.layers = res.desc.swapchain->GetImageCount();
+                range.layers = res.desc.swapchain->GetArrayLayers();
             },
             [&](const BufferTag &tag) {
                 const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
