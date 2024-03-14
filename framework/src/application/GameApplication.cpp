@@ -31,6 +31,8 @@ namespace sky {
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
             AssetManager::Get()->SetProjectPath(result["project"].as<std::string>());
+        } else {
+            AssetManager::Get()->SetProjectPath(Platform::Get()->GetBundlePath());
         }
 #else
         AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
@@ -111,7 +113,7 @@ namespace sky {
 
     void GameApplication::PreInit()
     {
-        auto handle = Platform::Get()->GetMainWinHandle();
+        auto *handle = Platform::Get()->GetMainWinHandle();
         nativeWindow.reset(NativeWindow::Create(NativeWindow::Descriptor{width, height, "SkyGame", "SkyGame", handle}));
     }
 

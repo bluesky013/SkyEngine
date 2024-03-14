@@ -13,9 +13,16 @@
 #include <render/adaptor/components/MeshRenderer.h>
 #include <rhi/Decode.h>
 
+#include <framework/window/NativeWindow.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
+
 #include <render/rdg/RenderGraph.h>
 #include <render/env/SkyBoxRenderer.h>
 #include <render/mesh/GridRenderer.h>
+
+#include <imgui/ImGuiInstance.h>
+#include <imgui/ImGuiFeatureProcessor.h>
 
 #include "SimpleRotateComponent.h"
 
@@ -96,28 +103,58 @@ namespace sky {
 //            skybox->AttachScene(scene);
         }
 
-        void OnSetup(rdg::RenderGraph &rdg) override
+        bool OnSetup(rdg::RenderGraph &rdg) override
         {
-            const auto &swapchain = output->GetSwaChain();
-            const auto &ext = swapchain->GetExtent();
-            const auto width  = ext.width * 2;
-            const auto height = ext.height * 2;
-
             auto &rg = rdg.resourceGraph;
-
             const auto &views = rdg.scene->GetSceneViews();
             if (views.empty()) {
-                return;
+                return false;
             }
             auto *sceneView = views[0].get();
             const auto uboName = GetDefaultSceneViewUBOName(*sceneView);
             const auto *const globalUboName = "globalUBO";
 
+            uint32_t renderWidth;
+            uint32_t renderHeight;
+
+            uint32_t outWidth;
+            uint32_t outHeight;
+
+            uint32_t viewCount = 1;
+            const auto &swapChain = output->GetSwaChain();
+
+            if (swapChain) {
+                const auto &ext = swapChain->GetExtent();
+                outWidth = ext.width;
+                outHeight = ext.height;
+
+                renderWidth  = ext.width * 2;
+                renderHeight = ext.height * 2;
+                rg.ImportSwapChain("SwapChain", swapChain);
+            } else {
+                auto xrSwapChain = output->GetXRSwaChain();
+                const auto &ext = xrSwapChain->GetExtent();
+                outWidth = ext.width;
+                outHeight = ext.height;
+
+                renderWidth  = ext.width * 2;
+                renderHeight = ext.height * 2;
+
+                viewCount = xrSwapChain->GetArrayLayers();
+                std::vector<rhi::XRViewData> viewData;
+                rhi::XRViewInput input = {0.01f, 100.f};
+                if (!xrSwapChain->RequestViewData(input, viewData)) {
+                    return false;
+                }
+                rg.ImportXRSwapChain("SwapChain", xrSwapChain);
+            }
+
+
             ShaderPassInfo passInfo = {};
             passInfo.viewport.x = 0;
             passInfo.viewport.y = 0;
-            passInfo.viewport.z = static_cast<float>(width);
-            passInfo.viewport.w = static_cast<float>(height);
+            passInfo.viewport.z = static_cast<float>(renderWidth);
+            passInfo.viewport.w = static_cast<float>(renderHeight);
             globalUbo->Write(0, passInfo);
 
             rg.ImportUBO(uboName.c_str(), sceneView->GetUBO());
@@ -126,12 +163,13 @@ namespace sky {
             rhi::PixelFormat hdrFormat = rhi::PixelFormat::RGBA16_SFLOAT;
             const uint32_t BRDFLutSize = 512;
 
-            rg.ImportSwapChain("SwapChain", swapchain);
+            auto viewType = viewCount > 1 ? rhi::ImageViewType::VIEW_2D_ARRAY : rhi::ImageViewType::VIEW_2D;
+
             rg.ImportImage("Radiance", radiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
             rg.ImportImage("Irradiance", irradiance->GetImage(), radiance->GetImageView()->GetViewDesc().viewType);
-            rg.AddImage("ForwardColor", rdg::GraphImage{{width, height, 1}, 1, 1, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1});
-            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X2});
-            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{width, height, 1}, 1, 1, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X2});
+            rg.AddImage("ForwardColor", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, viewType});
+            rg.AddImage("ForwardColorMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, hdrFormat, rhi::ImageUsageFlagBit::RENDER_TARGET, rhi::SampleCount::X2, viewType});
+            rg.AddImage("ForwardDSMSAA", rdg::GraphImage{{renderWidth, renderHeight, 1}, 1, viewCount, depthStencilFormat, rhi::ImageUsageFlagBit::DEPTH_STENCIL, rhi::SampleCount::X2, viewType});
 #ifdef ENABLE_IBL
             rg.AddImage("BRDF_LUT", rdg::GraphImage{{BRDFLutSize, BRDFLutSize, 1}, 1, 1, rhi::PixelFormat::RGBA16_SFLOAT, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED});
 
@@ -143,10 +181,11 @@ namespace sky {
                 .SetTechnique(brdfLutTech);
 #endif
 
-            auto forwardPass = rdg.AddRasterPass("forwardColor", width, height)
+            auto forwardPass = rdg.AddRasterPass("forwardColor", renderWidth, renderHeight)
                                    .AddAttachment({"ForwardColor", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                                    .AddAttachment({"ForwardColorMSAA", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 1.f))
                                    .AddAttachment({"ForwardDSMSAA", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
+            forwardPass.AddCoRelationMasks(0b11);
 
             auto subpass = forwardPass.AddRasterSubPass("color0_sub0");
             subpass.AddColor("ForwardColorMSAA", rdg::ResourceAccessBit::WRITE)
@@ -160,6 +199,8 @@ namespace sky {
                 .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
                 .AddComputeView(globalUboName, {"passInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS});
 
+            subpass.SetViewMask(0b11);
+
             subpass.AddQueue("queue1")
                 .SetRasterID("ForwardColor")
                 .SetView(sceneView)
@@ -170,10 +211,7 @@ namespace sky {
                 .SetView(sceneView)
                 .SetLayout(forwardLayout);
 
-            subpass.AddQueue("queue3")
-                .SetRasterID("ui");
-
-            auto pp = rdg.AddRasterPass("PostProcessing", ext.width, ext.height)
+            auto pp = rdg.AddRasterPass("PostProcessing", outWidth, outHeight)
                       .AddAttachment({"SwapChain", rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, {});
             auto ppSub = pp.AddRasterSubPass("pp_sub0");
             ppSub.AddColor("SwapChain", rdg::ResourceAccessBit::WRITE)
@@ -181,7 +219,10 @@ namespace sky {
             ppSub.AddFullScreen("fullscreen")
                 .SetTechnique(postTech);
 
+            ppSub.AddQueue("queue").SetRasterID("ui");
             rdg.AddPresentPass("present", "SwapChain");
+
+            return true;
         }
 
     private:
@@ -227,6 +268,20 @@ namespace sky {
         pipeline->SetOutput(window, GetRenderSceneFromGameObject(meshObj));
 
         scene->SetPipeline(pipeline);
+
+
+        const auto *viewport = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        if (viewport != nullptr) {
+            guiInstance->BindNativeWindow(viewport);
+            auto *imgui = scene->GetFeature<ImGuiFeatureProcessor>();
+            guiInstance = imgui->CreateGUIInstance();
+            guiInstance->AddWidget<LambdaWidget>([](ImGuiContext *context) {
+                ImGui::SetCurrentContext(context);
+                ImGui::ShowDemoWindow();
+            });
+        }
+
+
         return true;
     }
 

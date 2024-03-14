@@ -7,13 +7,11 @@
 #include <core/math/Matrix4.h>
 
 namespace sky {
-
     struct SceneViewInfo {
-        Matrix4 worldMatrix;
-        Matrix4 viewMatrix;
-        Matrix4 projectMatrix;
-        Matrix4 viewProjectMatrix;
-        Matrix4 inverseViewProject;
+        Matrix4 world;
+        Matrix4 view;
+        Matrix4 project;
+        Matrix4 viewProject;
     };
 
     struct InstanceLocal {

@@ -20,6 +20,10 @@
 #include <rhi/DescriptorSetPool.h>
 #include <rhi/QueryPool.h>
 
+#ifdef SKY_ENABLE_XR
+#include <rhi/XRInterface.h>
+#endif
+
 #define CREATE_DEV_OBJ(name) \
     std::shared_ptr<rhi::name> Create##name(const rhi::name::Descriptor &desc) override \
     {                                                                                   \
@@ -78,6 +82,10 @@ namespace sky::rhi {
         virtual SamplerPtr CreateSampler(const Sampler::Descriptor &desc) = 0;
         virtual DescriptorSetPoolPtr CreateDescriptorSetPool(const DescriptorSetPool::Descriptor &desc) = 0;
         virtual QueryPoolPtr CreateQueryPool(const QueryPool::Descriptor &desc) = 0;
+#ifdef SKY_ENABLE_XR
+        virtual XRSwapChainPtr CreateXRSwapChain(const XRSwapChain::Descriptor &desc) { return nullptr; };
+#endif
+
         // query
         virtual uint32_t CheckPipelineStatisticFlags(const PipelineStatisticFlags &val, PipelineStatisticFlags &res) { return 0; }
 
@@ -101,4 +109,4 @@ namespace sky::rhi {
         std::array<PixelFormatFeature, static_cast<uint32_t>(PixelFormat::MAX)> formatFeatures;
     };
 
-}
+} // namespace sky::rhi

@@ -45,6 +45,7 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddColorInOut(const std::string &name);
         RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        RasterSubPassBuilder &SetViewMask(uint32_t mask);
         RasterQueueBuilder AddQueue(const std::string &name);
         FullScreenBuilder AddFullScreen(const std::string &name);
         uint32_t GetAttachmentIndex(const std::string &name);
@@ -60,6 +61,7 @@ namespace sky::rdg {
 
     struct RasterPassBuilder {
         RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
+        RasterPassBuilder &AddCoRelationMasks(uint32_t mask);
         RasterSubPassBuilder AddRasterSubPass(const std::string &name);
 
         RenderGraph &rdg;
@@ -123,6 +125,7 @@ namespace sky::rdg {
         void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
 
         void ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain);
+        void ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain);
         void AddImageView(const char *name, const char *source, const GraphImageView &view);
 
         void AddBuffer(const char *name, const GraphBuffer &attachment);
@@ -151,6 +154,7 @@ namespace sky::rdg {
         PmrVector<ImageViewRes<GraphImportImage>>   importImages;
         PmrVector<ImageViewRes<GraphImageView>>     imageViews;
         PmrVector<ImageViewRes<GraphSwapChain>>     swapChains;
+        PmrVector<ImageViewRes<GraphXRSwapChain>>   xrSwapChains;
         PmrVector<BufferViewRes<GraphBuffer>>       buffers;
         PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
         PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
@@ -257,6 +261,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, ImportSwapChainTag>) {
             graph.polymorphicDatas.emplace_back(graph.swapChains.size());
             graph.swapChains.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, ImportXRSwapChainTag>) {
+            graph.polymorphicDatas.emplace_back(graph.xrSwapChains.size());
+            graph.xrSwapChains.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, BufferTag>) {
             graph.polymorphicDatas.emplace_back(graph.buffers.size());
             graph.buffers.emplace_back(std::forward<D>(val));

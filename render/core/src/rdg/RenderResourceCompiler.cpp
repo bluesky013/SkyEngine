@@ -10,7 +10,6 @@
 static const char *TAG = "RDG";
 
 namespace sky::rdg {
-
     void RenderResourceCompiler::discover_vertex(Vertex u, const Graph& g)
     {
         std::visit(Overloaded{
@@ -70,6 +69,10 @@ namespace sky::rdg {
                 },
                 [&](const ImportSwapChainTag &) {
                     const auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
+                    rsg.BindTexture(view.name, swc.res, 0);
+                },
+                [&](const ImportXRSwapChainTag &) {
+                    const auto &swc = rdg.resourceGraph.xrSwapChains[Index(res, rdg.resourceGraph)];
                     rsg.BindTexture(view.name, swc.res, 0);
                 },
                 [&](const ConstantBufferTag &) {
@@ -187,6 +190,13 @@ namespace sky::rdg {
                     swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
                 }
             },
+            [&](const ImportXRSwapChainTag &) {
+                auto &swc = rdg.resourceGraph.xrSwapChains[Index(res, rdg.resourceGraph)];
+                if (!swc.res) {
+                    swc.desc.imageIndex = swc.desc.swapchain->AcquireNextImage();
+                    swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
+                }
+            },
             [&](const auto &) {}
         }, Tag(res, rdg.resourceGraph));
     }
@@ -229,7 +239,11 @@ namespace sky::rdg {
                 [&](const ImportSwapChainTag &) {
                     auto &swc = rdg.resourceGraph.swapChains[Index(attachment, rdg.resourceGraph)];
                     att.format = swc.desc.swapchain->GetFormat();
-
+                    fbDesc.views[i] = swc.res;
+                },
+                [&](const ImportXRSwapChainTag &) {
+                    auto &swc = rdg.resourceGraph.xrSwapChains[Index(attachment, rdg.resourceGraph)];
+                    att.format = swc.desc.swapchain->GetFormat();
                     fbDesc.views[i] = swc.res;
                 },
                 [&](const ImageViewTag &) {
@@ -284,9 +298,12 @@ namespace sky::rdg {
                 sub.depthStencil.access = subVtx.rasterViews.at(attachmentDesc.name).type == (RasterTypeBit::INPUT | RasterTypeBit::DEPTH_STENCIL) ?
                     rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE : rhi::AccessFlagBit::DEPTH_STENCIL_WRITE;
             }
+
+            sub.viewMask = subVtx.viewMask;
         }
 
         passDesc.dependencies.resize(dependencySize);
+        passDesc.correlatedViewMasks.assign(rasterPass.correlationMasks.begin(), rasterPass.correlationMasks.end());
         for (uint32_t i = 0; i < dependencySize; ++i) {
             auto &dep = passDesc.dependencies[i];
             auto &depVtx = rasterPass.dependencies[i];

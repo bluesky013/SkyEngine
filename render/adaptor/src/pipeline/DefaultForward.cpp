@@ -26,7 +26,7 @@ namespace sky {
         forwardLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
     }
 
-    void DefaultForward::OnSetup(rdg::RenderGraph &rdg)
+    bool DefaultForward::OnSetup(rdg::RenderGraph &rdg)
     {
         const auto &swapchain = output->GetSwaChain();
         const auto &ext = swapchain->GetExtent();
@@ -37,7 +37,7 @@ namespace sky {
 
         const auto &views = rdg.scene->GetSceneViews();
         if (views.empty()) {
-            return;
+            return false;
         }
         auto *sceneView = views[0].get();
         const auto uboName = GetDefaultSceneViewUBOName(*sceneView);
@@ -64,6 +64,8 @@ namespace sky {
             .SetRasterID("ui");
 
         rdg.AddPresentPass("present", "ForwardColor");
+
+        return true;
     }
 
 } // namespace sky

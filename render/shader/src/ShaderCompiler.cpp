@@ -78,7 +78,7 @@ namespace sky {
 
             auto begin = line.find_first_of('\"');
             auto end = line.find_first_of('\"', begin + 1);
-            auto fileName = std::string("\\") + line.substr(begin + 1, (end - begin - 1));
+            auto fileName = std::string("/") + line.substr(begin + 1, (end - begin - 1));
 
             auto [ret1, tmpHeader] = GetSourceFromFile(context.searchPaths, fileName);
             if (!ret1) {

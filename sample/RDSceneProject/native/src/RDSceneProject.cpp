@@ -5,11 +5,13 @@
 #include <RDSceneProject.h>
 #include <RDSceneProject/ProjectRoot.h>
 
-#include "framework/asset/AssetManager.h"
-#include "framework/serialization/CoreReflection.h"
-#include "framework/window/NativeWindow.h"
+#include <cxxopts.hpp>
+
+#include <framework/asset/AssetManager.h>
+#include <framework/window/NativeWindow.h>
 
 #include <render/Renderer.h>
+#include <render/RHI.h>
 
 #include "scenes/SampleSceneCube.h"
 #include "scenes/SampleMesh.h"
@@ -18,18 +20,32 @@ namespace sky {
 
     bool RDSceneProject::Init(const StartArguments &args)
     {
-        auto *renderer = Renderer::Get();
-        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
+        cxxopts::Options options("SkyEngine Launcher", "SkyEngine Launcher");
+        options.allow_unrecognised_options();
+        options.add_options()("a, app", "app mode", cxxopts::value<std::string>());
+        auto result = options.parse(static_cast<int>(args.args.size()), args.args.data());
+        bool isXRMode = (result.count("app") != 0u) && result["app"].as<std::string>() == "xr";
 
-        Event<IWindowEvent>::Connect(nativeWindow, this);
-        return true;
+        auto *renderer = Renderer::Get();
+
+        if (!isXRMode) {
+            const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+            window = renderer->CreateRenderWindow(nativeWindow->GetNativeHandle(), nativeWindow->GetWidth(), nativeWindow->GetHeight(), false);
+            Event<IWindowEvent>::Connect(nativeWindow, this);
+        }
+#ifdef SKY_ENABLE_XR
+        else {
+            window = renderer->CreateRenderWindowByXR();
+        }
+#endif
+
+        return window != nullptr;
     }
 
     void RDSceneProject::Start()
     {
         sampleScenes.emplace_back(new SampleMesh());
-        //        sampleScenes.emplace_back(new SampleSceneCube());
+//        sampleScenes.emplace_back(new SampleSceneCube());
         sceneIndex = static_cast<uint32_t>(sampleScenes.size()) - 1;
         NextScene();
     }

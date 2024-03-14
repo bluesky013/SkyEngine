@@ -38,4 +38,4 @@ sky_add_library(TARGET ShaderCompiler SHARED
         ShaderCompiler.Static
 )
 
-sky_add_dependency(TARGET ShaderCompiler DEPENDENCIES Launcher AssetBrowser Editor)
+sky_add_dependency(TARGET ShaderCompiler DEPENDENCIES Launcher AssetBuilder Editor)

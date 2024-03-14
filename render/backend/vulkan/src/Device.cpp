@@ -3,27 +3,29 @@
 //
 
 #include <vulkan/Device.h>
-#include <core/logger/Logger.h>
 #include <vulkan/Basic.h>
 #include <vulkan/Instance.h>
 #include <vulkan/Barrier.h>
 #include <vulkan/Conversion.h>
 
+#include <core/logger/Logger.h>
+
+#include <rhi/Util.h>
+
+#ifdef SKY_ENABLE_XR
+#include <openxr/openxr_platform.h>
+#endif
+
 #include <vector>
 
-static const char              *TAG         = "Vulkan";
-const std::vector<const char *> DEVICE_EXTS = {"VK_KHR_swapchain",
-#ifdef __APPLE__
-                                               "VK_KHR_portability_subset"
-#endif
-};
+static const char *TAG = "Vulkan";
 
 const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 namespace sky::vk {
     int32_t Device::FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const
     {
-        auto &properties = memoryProperties.memoryProperties;
+        const auto &properties = memoryProperties.memoryProperties;
         const uint32_t memoryCount = properties.memoryTypeCount;
         for (uint32_t i = 0; i < memoryCount; ++i) {
             const bool isRequiredMemoryType  = static_cast<bool>(memoryTypeBits & (1 << i));
@@ -156,20 +158,8 @@ namespace sky::vk {
         constants.flipY = true;
     }
 
-    bool Device::Init(const Descriptor &des, bool enableDebug)
+    void Device::InitPropAndFeatureChain()
     {
-        auto *vkInstance = instance.GetInstance();
-
-        uint32_t count = 0;
-        // Pick Physical Device
-        vkEnumeratePhysicalDevices(vkInstance, &count, nullptr);
-        if (count == 0) {
-            return false;
-        }
-
-        std::vector<VkPhysicalDevice> phyDevices(count);
-        vkEnumeratePhysicalDevices(vkInstance, &count, phyDevices.data());
-
         phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         phyFeatures.pNext = &phyIndexingFeatures;
 
@@ -187,18 +177,66 @@ namespace sky::vk {
 
         shadingRateProps.pNext = &dsResolveProps;
         dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
+    }
 
-        uint32_t i = 0;
-        for (; i < count; ++i) {
-            auto *pDev = phyDevices[i];
-            vkGetPhysicalDeviceFeatures2(pDev, &phyFeatures);
-            vkGetPhysicalDeviceProperties2(pDev, &phyProps);
+    bool Device::Init(const Descriptor &des, bool enableDebug)
+    {
+        VkInstance vkInstance = instance.GetInstance();
 
-            if (phyProps.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                break;
+        InitPropAndFeatureChain();
+        std::vector<const char*> extensions = GetDeviceExtensions();
+#ifdef SKY_ENABLE_XR
+        auto *xrInterface = instance.GetXRInterface();
+        std::vector<char> extensionNames;
+        if (xrInterface != nullptr) {
+            auto xrInstance = xrInterface->GetXrInstanceHandle();
+            auto xrSystemId = xrInterface->GetXrSystemId();
+
+            XrGraphicsRequirementsVulkanKHR requirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR};
+            auto gfxReqFunc = reinterpret_cast<PFN_xrGetVulkanGraphicsRequirementsKHR>(xrInterface->GetFunction("xrGetVulkanGraphicsRequirementsKHR"));
+            gfxReqFunc(xrInstance, xrSystemId, &requirements);
+
+            auto devExtFunc = reinterpret_cast<PFN_xrGetVulkanDeviceExtensionsKHR>(xrInterface->GetFunction("xrGetVulkanDeviceExtensionsKHR"));
+            uint32_t extensionNamesSize = 0;
+            devExtFunc(xrInstance, xrSystemId, 0, &extensionNamesSize, nullptr);
+            extensionNames.resize(extensionNamesSize);
+            devExtFunc(xrInstance, xrSystemId, extensionNamesSize, &extensionNamesSize, extensionNames.data());
+
+            std::vector<const char*> xrExtensions = rhi::ParseExtensionString(extensionNames.data());
+            for (auto &ext : xrExtensions) {
+                extensions.emplace_back(ext);
             }
+
+            auto func = reinterpret_cast<PFN_xrGetVulkanGraphicsDeviceKHR>(xrInterface->GetFunction("xrGetVulkanGraphicsDeviceKHR"));
+            func(xrInstance, xrSystemId, vkInstance, &phyDev);
+
+            vkGetPhysicalDeviceFeatures2(phyDev, &phyFeatures);
+            vkGetPhysicalDeviceProperties2(phyDev, &phyProps);
         }
-        phyDev = phyDevices[i >= count ? 0 : i];
+#endif
+
+        uint32_t count = 0;
+        if (phyDev == VK_NULL_HANDLE) {
+            // Pick Physical Device
+            vkEnumeratePhysicalDevices(vkInstance, &count, nullptr);
+            if (count == 0) {
+                return false;
+            }
+
+            std::vector<VkPhysicalDevice> phyDevices(count);
+            vkEnumeratePhysicalDevices(vkInstance, &count, phyDevices.data());
+            uint32_t i = 0;
+            for (; i < count; ++i) {
+                auto *pDev = phyDevices[i];
+                vkGetPhysicalDeviceFeatures2(pDev, &phyFeatures);
+                vkGetPhysicalDeviceProperties2(pDev, &phyProps);
+
+                if (phyProps.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                    break;
+                }
+            }
+            phyDev = phyDevices[i >= count ? 0 : i];
+        }
 
         vkEnumerateDeviceExtensionProperties(phyDev, nullptr, &count, nullptr);
         supportedExtensions.resize(count);
@@ -224,14 +262,13 @@ namespace sky::vk {
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         VkDeviceQueueCreateInfo              queueInfo = {};
         queueInfo.sType                                = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        for (i = 0; i < count; ++i) {
+        for (uint32_t i = 0; i < count; ++i) {
             queueInfo.queueFamilyIndex = i;
             queueInfo.queueCount       = 1;
             queueInfo.pQueuePriorities = &queuePriority;
             queueCreateInfos.emplace_back(queueInfo);
             LOG_I(TAG, "queue family index %u, count %u, flags %u", i, queueFamilies[i].queueCount, queueFamilies[i].queueFlags);
         }
-        std::vector<const char*> extensions = DEVICE_EXTS;
         ValidateFeature(des.feature, extensions);
         UpdateDeviceLimits();
         UpdateFormatFeatures();
@@ -273,7 +310,7 @@ namespace sky::vk {
         }
 
         queues.resize(count);
-        for (i = 0; i < count; ++i) {
+        for (uint32_t i = 0; i < count; ++i) {
             VkQueue queue = VK_NULL_HANDLE;
             vkGetDeviceQueue(device, i, 0, &queue);
             queues[i] = std::unique_ptr<Queue>(new Queue(*this, queue, i));
@@ -291,6 +328,19 @@ namespace sky::vk {
 
         // update barrier map
         ValidateAccessInfoMapByExtension(supportedExtensions);
+
+#ifdef SKY_ENABLE_XR
+        if (xrInterface != nullptr) {
+            XrGraphicsBindingVulkanKHR binding{XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR};
+            binding.instance = vkInstance;
+            binding.physicalDevice = phyDev;
+            binding.device = device;
+            binding.queueFamilyIndex = graphicsQueue->GetQueueFamilyIndex();
+            binding.queueIndex = 0;
+
+            xrInterface->SetSessionGraphicsBinding(&binding);
+        }
+#endif
 
         SetupDefaultResources();
         LoadDevice(device);
@@ -313,7 +363,7 @@ namespace sky::vk {
         return phyDev;
     }
 
-    VkInstance Device::GetInstance() const
+    VkInstance Device::GetInstanceId() const
     {
         return instance.GetInstance();
     }
@@ -488,7 +538,7 @@ namespace sky::vk {
 
     void Device::PrintSupportedExtensions() const
     {
-        for (auto &ext : supportedExtensions) {
+        for (const auto &ext : supportedExtensions) {
             LOG_I(TAG, "supported device extensions name %s, version %u", ext.extensionName, ext.specVersion);
         }
     }
@@ -513,7 +563,7 @@ namespace sky::vk {
         uint32_t count = 0;
         res = rhi::PipelineStatisticFlags {0};
 
-        for (auto &support : supportedFlags) {
+        for (const auto &support : supportedFlags) {
             if (val & support) {
                 res |= support;
                 ++count;
@@ -524,8 +574,12 @@ namespace sky::vk {
 
     rhi::Queue *Device::GetQueue(rhi::QueueType type) const
     {
-        if (type == rhi::QueueType::COMPUTE) return computeQueue;
-        if (type == rhi::QueueType::TRANSFER) return transferQueue;
+        if (type == rhi::QueueType::COMPUTE) {
+            return computeQueue;
+        }
+        if (type == rhi::QueueType::TRANSFER) {
+            return transferQueue;
+        }
         return graphicsQueue;
     }
 

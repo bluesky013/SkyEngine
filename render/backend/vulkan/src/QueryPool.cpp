@@ -74,7 +74,8 @@ namespace sky::vk {
 
     void QueryPool::Reset(uint32_t first, uint32_t count) const
     {
-        vkResetQueryPool(device.GetNativeHandle(), pool, first, count);
+        // TODO: Android SDK 29
+//        vkResetQueryPool(device.GetNativeHandle(), pool, first, count);
     }
 
     void QueryPool::ConvertPipelineStatisticData(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size,

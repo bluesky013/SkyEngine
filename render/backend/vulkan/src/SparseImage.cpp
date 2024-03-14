@@ -10,7 +10,7 @@ namespace sky::vk {
 
     static bool Check1D(uint32_t length, int32_t offset, uint32_t total, uint32_t granularity)
     {
-        return length % granularity == 0 ? true : (length + offset) == total;
+        return length % granularity == 0 || (length + offset) == total;
     }
 
     static bool CheckPage(const VkExtent3D &extent, const SparseImage::VkPageInfo &pageExtent, const VkExtent3D &imageGranularity)
@@ -25,7 +25,7 @@ namespace sky::vk {
         image = nullptr;
         view = nullptr;
 
-        auto allocator = device.GetAllocator();
+        auto *allocator = device.GetAllocator();
         for (auto &page : pageMemory) {
             vmaFreeMemoryPages(allocator, 1, &page.allocation);
         }
@@ -58,7 +58,7 @@ namespace sky::vk {
         imageDesc.allocateMem = false;
 
         image           = device.CreateDeviceObject<Image>(imageDesc);
-        auto &imageInfo = image->GetImageInfo();
+        const auto &imageInfo = image->GetImageInfo();
 
         vkGetImageMemoryRequirements(device.GetNativeHandle(), image->GetNativeHandle(), &memReq);
 
@@ -73,11 +73,12 @@ namespace sky::vk {
             InitMipTail();
         }
 
-        ImageView::VkDescriptor viewDesc = {};
-        viewDesc.format                  = imageInfo.format;
-        viewDesc.viewType                = desc.viewType;
-        viewDesc.subResourceRange        = {sparseMemReq.formatProperties.aspectMask, 0, imageInfo.mipLevels, 0, imageInfo.arrayLayers};
-        view = ImageView::CreateImageView(image, viewDesc);
+        // TODO
+//        ImageView::VkDescriptor viewDesc = {};
+//        viewDesc.format                  = imageInfo.format;
+//        viewDesc.viewType                = desc.viewType;
+//        viewDesc.subResourceRange        = {sparseMemReq.formatProperties.aspectMask, 0, imageInfo.mipLevels, 0, imageInfo.arrayLayers};
+//        view = ImageView::CreateImageView(image, viewDesc);
 
         VmaPoolCreateInfo poolInfo = {};
         poolInfo.memoryTypeIndex = device.FindProperties(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -88,7 +89,7 @@ namespace sky::vk {
 
     void SparseImage::InitMipTail()
     {
-        auto allocator = device.GetAllocator();
+        auto *allocator = device.GetAllocator();
         auto allocateFn = [this, allocator](VkDeviceSize offset) {
             VmaAllocationCreateInfo allocationCreateInfo = {};
             allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -147,7 +148,7 @@ namespace sky::vk {
         page.level = info.level;
         page.layer = info.layer;
 
-        auto allocator = device.GetAllocator();
+        auto *allocator = device.GetAllocator();
         VmaAllocationCreateInfo allocationCreateInfo = {};
         allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         allocationCreateInfo.pool = pool;

@@ -25,6 +25,11 @@ namespace sky {
         return platform->GetInternalPath();
     }
 
+    std::string Platform::GetBundlePath() const
+    {
+        return platform->GetBundlePath();
+    }
+
     void *Platform::GetMainWinHandle() const
     {
         return platform->GetMainWinHandle();
@@ -38,6 +43,11 @@ namespace sky {
     AdaptivePerfManager *Platform::GetPerformanceManager() const
     {
         return platform->GetPerformanceManager();
+    }
+
+    std::string Platform::GetEnvVariable(const std::string &env) const
+    {
+        return platform->GetEnvVariable(env);
     }
 
     bool Platform::RunCmd(const std::string &str, std::string &out) const

@@ -40,7 +40,7 @@ namespace sky {
         if (data.type == TextureType::TEXTURE_2D) {
             auto texture2D = std::make_shared<Texture2D>();
             texture2D->Init(data.format, data.width, data.height, data.mipLevels);
-            auto handle = texture2D->Upload(bufferPath, *queue, 0);
+            auto handle = texture2D->Upload(bufferPath, *queue, sizeof(uint32_t));
             queue->Wait(handle);
             return texture2D;
         }

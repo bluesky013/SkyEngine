@@ -59,6 +59,11 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    if (SKY_USE_TRACY)
+        sky_find_3rd(TARGET tracy         DIR tracy)
+        add_definitions(-DTRACY_ENABLE)
+    endif ()
+
     if (SKY_BUILD_DXC)
         sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
     endif ()
@@ -79,6 +84,10 @@ if(EXISTS ${3RD_PATH})
     if (WIN32 OR ANDROID)
         sky_find_3rd(TARGET gles          DIR gles)
     endif()
+
+    if (SKY_BUILD_XR)
+        sky_find_3rd(TARGET OpenXR        DIR OpenXR_SDK)
+    endif ()
 else()
     message(FATAL_ERROR "3rdParty folder: ${3RD_PATH} does not exist, call cmake defining a valid 3RD_PATH")
 endif()

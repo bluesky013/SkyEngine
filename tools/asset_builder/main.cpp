@@ -9,7 +9,7 @@ using namespace sky;
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("AssetBrowser", "SkyEngine AssetBrowser");
+    cxxopts::Options options("AssetBuilder", "SkyEngine AssetBuilder");
     options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>())
         ("p,project", "Project Directory", cxxopts::value<std::string>())
         ("i,import", "Import Source Asset", cxxopts::value<std::vector<std::string>>())

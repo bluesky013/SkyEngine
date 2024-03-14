@@ -100,6 +100,11 @@ namespace sky {
         return app->activity->internalDataPath;
     }
 
+    std::string AndroidPlatform::GetBundlePath() const
+    {
+        return "";
+    }
+
     void *AndroidPlatform::GetMainWinHandle() const
     {
         return mainWindow;

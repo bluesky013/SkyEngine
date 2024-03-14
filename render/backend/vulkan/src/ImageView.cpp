@@ -23,22 +23,6 @@ namespace sky::vk {
         }
     }
 
-    bool ImageView::Init(const VkDescriptor &des)
-    {
-        viewInfo.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image            = source->GetNativeHandle();
-        viewInfo.viewType         = des.viewType;
-        viewInfo.format           = des.format;
-        viewInfo.components       = des.components;
-        viewInfo.subresourceRange = des.subResourceRange;
-        VkResult rst              = vkCreateImageView(device.GetNativeHandle(), &viewInfo, VKL_ALLOC, &view);
-        if (rst != VK_SUCCESS) {
-            LOG_E(TAG, "create image view failed, -%d", rst);
-            return false;
-        }
-        return true;
-    }
-
     bool ImageView::Init(const rhi::ImageViewDesc &desc)
     {
         viewDesc = desc;
@@ -69,19 +53,6 @@ namespace sky::vk {
     std::shared_ptr<rhi::ImageView> ImageView::CreateView(const rhi::ImageViewDesc &desc) const
     {
         return source->CreateView(desc);
-    }
-
-    std::shared_ptr<ImageView> ImageView::CreateImageView(const ImagePtr &image, const ImageView::VkDescriptor &des)
-    {
-        ImageViewPtr ret;
-        if (image) {
-            ret = std::make_shared<ImageView>(image->device);
-            ret->source      = image;
-            if (!ret->Init(des)) {
-                ret = nullptr;
-            }
-        }
-        return ret;
     }
 
     rhi::PixelFormat ImageView::GetFormat() const

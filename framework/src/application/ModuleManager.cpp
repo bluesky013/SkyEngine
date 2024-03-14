@@ -47,7 +47,15 @@ namespace sky {
     void ModuleManager::Tick(float time)
     {
         WalkModules([this, time](const std::string &moduleName) {
+            modules[moduleName]->PreTick(time);
+        }, sortedContainer);
+
+        WalkModules([this, time](const std::string &moduleName) {
             modules[moduleName]->Tick(time);
+        }, sortedContainer);
+
+        WalkModules([this, time](const std::string &moduleName) {
+            modules[moduleName]->PostTick(time);
         }, sortedContainer);
     }
 

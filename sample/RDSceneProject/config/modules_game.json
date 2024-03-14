@@ -2,17 +2,23 @@
   "modules": [
     {
       "name": "SkyRender",
-      "dependencies": []
+      "dependencies": [
+        "ShaderCompiler",
+        "XRModule"
+      ]
     },
     {
       "name": "ShaderCompiler",
       "dependencies": []
     },
     {
+      "name": "XRModule",
+      "dependencies": []
+    },
+    {
       "name": "RDSceneProject",
       "dependencies": [
-        "SkyRender",
-        "ShaderCompiler"
+        "SkyRender"
       ]
     }
   ],

@@ -47,6 +47,7 @@ namespace sky::vk {
         friend class Device;
         friend class ImageView;
         friend class SwapChain;
+        friend class XRSwapChain;
         rhi::ImageViewPtr CreateView(const rhi::ImageViewDesc &desc) override;
 
         explicit Image(Device &);

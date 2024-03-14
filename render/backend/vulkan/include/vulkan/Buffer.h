@@ -15,14 +15,6 @@ namespace sky::vk {
     public:
         ~Buffer() override;
 
-        struct VkDescriptor {
-            VkDeviceSize        size        = 0;
-            VkBufferUsageFlags  usage       = 0;
-            VmaMemoryUsage      memory      = VMA_MEMORY_USAGE_UNKNOWN;
-            VkBufferCreateFlags flags       = 0;
-            bool allocateMem = true;
-        };
-
         rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
 
         uint64_t GetSize() const;
@@ -41,7 +33,6 @@ namespace sky::vk {
         explicit Buffer(Device &);
 
         bool Init(const Descriptor &);
-        bool Init(const VkDescriptor &);
 
         VkBuffer           buffer;
         VmaAllocation      allocation;

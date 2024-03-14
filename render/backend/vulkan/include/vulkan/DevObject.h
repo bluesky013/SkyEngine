@@ -13,7 +13,7 @@ namespace sky::vk {
 
     class DevObject {
     public:
-        DevObject(Device &dev) : device(dev)
+        explicit DevObject(Device &dev) : device(dev)
         {
         }
         virtual ~DevObject() = default;

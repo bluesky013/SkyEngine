@@ -20,7 +20,7 @@ namespace sky::vk {
         surfaceInfo.sType                       = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         surfaceInfo.hwnd                        = (HWND)descriptor.window;
         surfaceInfo.hinstance                   = GetModuleHandle(0);
-        VkResult rst                            = vkCreateWin32SurfaceKHR(device.GetInstance(), &surfaceInfo, VKL_ALLOC, &surface);
+        VkResult rst                            = vkCreateWin32SurfaceKHR(device.GetInstanceId(), &surfaceInfo, VKL_ALLOC, &surface);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create win32 surface failed, %d", rst);
             return false;

@@ -27,9 +27,8 @@ namespace sky {
 
     void SceneView::SetMatrix(const Matrix4 &mat, uint32_t index)
     {
-        viewInfo[index].worldMatrix = mat;
-        viewInfo[index].viewMatrix = mat.Inverse();
-//        viewInfo[index].worldPos = Vector4(mat[3][0], mat[3][1], mat[3][2], 1.0);
+        viewInfo[index].world = mat;
+        viewInfo[index].view = mat.Inverse();
         dirty = true;
     }
 
@@ -40,7 +39,7 @@ namespace sky {
         p[2][2] = 0.5f;
         p[3][2] = 0.5f;
 
-        viewInfo[index].projectMatrix = p * MakePerspective(fov, aspect, near, far);
+        viewInfo[index].project = p * MakePerspective(fov, aspect, near, far);
 //        viewInfo[index].zParam.x = 1 - far / near;
 //        viewInfo[index].zParam.y = far / near;
 //        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
@@ -55,9 +54,8 @@ namespace sky {
         }
 
         for (uint32_t i = 0; i < viewCount; ++i) {
-            viewInfo[i].viewProjectMatrix = viewInfo[i].projectMatrix * viewInfo[i].viewMatrix;
-            viewInfo[i].inverseViewProject = viewInfo[i].viewProjectMatrix.Inverse();
-            frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProjectMatrix);
+            viewInfo[i].viewProject = viewInfo[i].project * viewInfo[i].view;
+            frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 
             viewUbo->Write(i * sizeof(SceneViewInfo), viewInfo[i]);
         }

@@ -22,6 +22,10 @@
 #include <render/Renderer.h>
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 
+#include <core/profile/Profiler.h>
+
+#include <imgui/ImGuiFeature.h>
+
 #include <shader/ShaderCompiler.h>
 
 #include <cxxopts.hpp>
@@ -89,7 +93,10 @@ namespace sky {
 
         // init rhi
         RHI::Get()->InitInstance(rhiDesc);
-        RHI::Get()->InitDevice({});
+
+        rhi::DeviceFeature feature = {};
+        feature.multiView = true;
+        RHI::Get()->InitDevice({feature});
 
         // init renderer
         Renderer::Get()->Init();
@@ -119,7 +126,7 @@ namespace sky {
             Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
         }
 
-//        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
+        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
 //        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
 
         MeshFeature::Get()->Init();
@@ -138,6 +145,7 @@ namespace sky {
 
     void RenderModule::Tick(float delta)
     {
+        SKY_PROFILE_SCOPE;
         Renderer::Get()->Tick(delta);
     }
 }

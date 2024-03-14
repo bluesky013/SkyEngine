@@ -10,4 +10,4 @@ sky_add_library(TARGET RenderBuilder SHARED
     LINK_LIBS
         RenderBuilder.Static
     )
-sky_add_dependency(TARGET RenderBuilder DEPENDENCIES Launcher Editor AssetBrowser)
+sky_add_dependency(TARGET RenderBuilder DEPENDENCIES Launcher Editor AssetBuilder)

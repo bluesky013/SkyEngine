@@ -34,6 +34,10 @@ namespace sky {
         void RemoveScene(RenderScene *scene);
 
         RenderWindow *CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync);
+#ifdef SKY_ENABLE_XR
+        RenderWindow *CreateRenderWindowByXR();
+#endif
+
         void DestroyRenderWindow(RenderWindow *);
 
         uint32_t GetInflightFrameCount() const { return inflightFrameCount; }

@@ -16,7 +16,11 @@ namespace sky {
         RHI() = default;
         ~RHI() override;
 
-        void InitInstance(const rhi::Instance::Descriptor &desc);
+#ifdef SKY_ENABLE_XR
+        void SetXRInterface(rhi::XRInterface *interface) { xrInterface = interface; }
+#endif
+
+        void InitInstance(rhi::Instance::Descriptor desc);
         void InitDevice(const rhi::Device::Descriptor &desc);
 
         rhi::API GetBackend() const { return api; }
@@ -25,7 +29,9 @@ namespace sky {
     private:
         rhi::Instance *instance = nullptr;
         rhi::API api = rhi::API::DEFAULT;
-
+#ifdef SKY_ENABLE_XR
+        rhi::XRInterface *xrInterface = nullptr;
+#endif
         std::unique_ptr<rhi::Device> device;
     };
 } // namespace sky

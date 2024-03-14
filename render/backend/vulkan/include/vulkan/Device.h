@@ -56,7 +56,9 @@ namespace sky::vk {
         VmaAllocator     GetAllocator() const;
         VkDevice         GetNativeHandle() const;
         VkPhysicalDevice GetGpuHandle() const;
-        VkInstance       GetInstance() const;
+        VkInstance       GetInstanceId() const;
+
+        Instance &GetInstance() const { return instance; }
 
         // Queue
         Queue *GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const;
@@ -97,6 +99,10 @@ namespace sky::vk {
         CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
+#ifdef SKY_ENABLE_XR
+        CREATE_DEV_OBJ(XRSwapChain)
+#endif
+
         const SamplerPtr &GetDefaultSampler() const { return defaultSampler; }
 
         // Special Device Object
@@ -111,7 +117,7 @@ namespace sky::vk {
         uint32_t CheckPipelineStatisticFlags(const rhi::PipelineStatisticFlags &val, rhi::PipelineStatisticFlags &res) override;
     private:
         bool Init(const Descriptor &, bool enableDebug);
-
+        void InitPropAndFeatureChain();
         void ValidateFeature(const rhi::DeviceFeature &feature, std::vector<const char*> &outExtensions);
         void UpdateDeviceLimits();
         void UpdateFormatFeatures();
@@ -166,5 +172,7 @@ namespace sky::vk {
         CacheManager<VkRenderPass, uint32_t>          renderPasses;
         CacheManager<AccessInfo, uint64_t>            accessInfos;
     };
+
+    const std::vector<const char *> &GetDeviceExtensions();
 
 } // namespace sky::vk

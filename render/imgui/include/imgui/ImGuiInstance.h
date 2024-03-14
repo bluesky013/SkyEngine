@@ -31,7 +31,7 @@ namespace sky {
         explicit LambdaWidget(Func &&f) : fn(std::forward<Func>(f)) {}
         ~LambdaWidget() override = default;
 
-        virtual void Execute(ImGuiContext *context) override { fn(context); }
+        void Execute(ImGuiContext *context) override { fn(context); }
 
     private:
         UIFunc fn;
