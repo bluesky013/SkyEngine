@@ -26,7 +26,7 @@ namespace sky {
         forwardLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
     }
 
-    bool DefaultForward::OnSetup(rdg::RenderGraph &rdg)
+    bool DefaultForward::OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes)
     {
         const auto &swapchain = output->GetSwaChain();
         const auto &ext = swapchain->GetExtent();
@@ -35,7 +35,7 @@ namespace sky {
 
         auto &rg = rdg.resourceGraph;
 
-        const auto &views = rdg.scene->GetSceneViews();
+        const auto &views = scenes[0]->GetSceneViews();
         if (views.empty()) {
             return false;
         }

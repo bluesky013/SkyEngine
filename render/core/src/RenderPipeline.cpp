@@ -22,11 +22,6 @@
 
 namespace sky {
 
-    RenderPipeline::~RenderPipeline()
-    {
-        rdgContext->device->WaitIdle();
-    }
-
     RenderPipeline::RenderPipeline()
     {
         const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
@@ -62,7 +57,7 @@ namespace sky {
         rdgContext->pool->ResetPool();
     }
 
-    void RenderPipeline::Execute(rdg::RenderGraph &rdg)
+    void RenderPipeline::Compile(rdg::RenderGraph &rdg)
     {
         using namespace rdg;
         {
@@ -85,13 +80,21 @@ namespace sky {
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
+    }
 
-        {
-            SKY_PROFILE_NAME("RenderSceneVisitor");
-            RenderSceneVisitor sceneVisitor(rdg);
+    void RenderPipeline::Collect(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes)
+    {
+        using namespace rdg;
+        SKY_PROFILE_NAME("RenderSceneVisitor");
+        for (auto *scene : scenes) {
+            RenderSceneVisitor sceneVisitor(rdg, scene);
             sceneVisitor.BuildRenderQueue();
         }
+    }
 
+    void RenderPipeline::Execute(rdg::RenderGraph &rdg)
+    {
+        using namespace rdg;
         const auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {

@@ -80,6 +80,8 @@ namespace sky {
 
     void RDSceneProject::Shutdown()
     {
+        Renderer::Get()->StopRender();
+
         if (currentScene != nullptr) {
             currentScene->Shutdown();
         }

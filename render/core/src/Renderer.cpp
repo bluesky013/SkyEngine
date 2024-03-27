@@ -4,6 +4,7 @@
 
 #include <render/Renderer.h>
 #include <render/RHI.h>
+#include <render/rdg/RenderGraph.h>
 
 namespace sky {
 
@@ -17,7 +18,7 @@ namespace sky {
 
     Renderer::~Renderer()
     {
-        device->WaitIdle();
+        pipeline = nullptr;
         defaultRHIResource.Reset();
         features.clear();
         scenes.clear();
@@ -50,11 +51,31 @@ namespace sky {
         }
     }
 
+    void Renderer::SetPipeline(RenderPipeline *ppl)
+    {
+        pipeline.reset(ppl);
+    }
+
     void Renderer::Render()
     {
-        for (auto &scn : scenes) {
-            scn->Render();
+        if (pipeline == nullptr) {
+            return;
         }
+        pipeline->FrameSync();
+
+        rdg::RenderGraph rdg(pipeline->Context());
+
+        std::vector<RenderScene*> renderScenes;
+        for (auto &scn : scenes) {
+            scn->Render(rdg);
+
+            renderScenes.emplace_back(scn.get());
+        }
+
+        pipeline->OnSetup(rdg, renderScenes);
+        pipeline->Compile(rdg);
+        pipeline->Collect(rdg, renderScenes);
+        pipeline->Execute(rdg);
     }
 
     void Renderer::AfterRender(float time)
@@ -67,6 +88,11 @@ namespace sky {
 
         totalFrame++;
         frameIndex = totalFrame % inflightFrameCount;
+    }
+
+    void Renderer::StopRender()
+    {
+        device->WaitIdle();
     }
 
     RenderScene *Renderer::CreateScene()

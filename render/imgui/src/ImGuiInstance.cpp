@@ -6,7 +6,6 @@
 #include <framework/window/NativeWindow.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <render/RenderScene.h>
 #include <imgui/ImGuiFeature.h>
 #include <render/rdg/RenderGraph.h>
 
@@ -250,23 +249,5 @@ namespace sky {
                 stagingBuffer->Resize(vertexSize + indexSize);
             }
         }
-    }
-
-    void ImGuiInstance::AttachScene(RenderScene *scene)
-    {
-        if (renderScene != nullptr) {
-            renderScene->RemovePrimitive(primitive.get());
-        } else {
-            renderScene = scene;
-            renderScene->AddPrimitive(primitive.get());
-        }
-    }
-
-    void ImGuiInstance::DetachScene()
-    {
-        if (renderScene != nullptr) {
-            renderScene->RemovePrimitive(primitive.get());
-        }
-        renderScene = nullptr;
     }
 } // namespace sky

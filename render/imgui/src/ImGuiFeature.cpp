@@ -5,7 +5,6 @@
 #include <imgui/ImGuiFeature.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <imgui/ImGuiFeatureProcessor.h>
 
 namespace sky {
 
@@ -33,8 +32,6 @@ namespace sky {
 
             pool = device->CreateDescriptorSetPool(poolDesc);
         }
-
-        Renderer::Get()->RegisterRenderFeature<ImGuiFeatureProcessor>();
     }
 
     RDResourceGroupPtr ImGuiFeature::RequestResourceGroup()

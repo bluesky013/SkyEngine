@@ -20,9 +20,9 @@
 #include <render/rdg/RenderGraph.h>
 #include <render/env/SkyBoxRenderer.h>
 #include <render/mesh/GridRenderer.h>
+#include <render/Renderer.h>
 
 #include <imgui/ImGuiInstance.h>
-#include <imgui/ImGuiFeatureProcessor.h>
 
 #include "SimpleRotateComponent.h"
 
@@ -101,15 +101,29 @@ namespace sky {
 //            skybox = std::make_unique<SkyBoxRenderer>();
 //            skybox->SetUp(skyboxMatInst);
 //            skybox->AttachScene(scene);
+
+            gui = std::make_unique<ImGuiInstance>();
+            gui->AddFunctions([](ImGuiContext *context) {
+                ImGui::ShowDemoWindow();
+            });
+
+            const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+            gui->BindNativeWindow(nativeWindow);
         }
 
-        bool OnSetup(rdg::RenderGraph &rdg) override
+        bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override
         {
+            gui->Tick(0.1);
+            gui->Render(rdg);
+
             auto &rg = rdg.resourceGraph;
-            const auto &views = rdg.scene->GetSceneViews();
+            const auto &views = scenes[0]->GetSceneViews();
             if (views.empty()) {
                 return false;
             }
+
+            scenes[0]->AddPrimitive(gui->GetPrimitive());
+
             auto *sceneView = views[0].get();
             const auto uboName = GetDefaultSceneViewUBOName(*sceneView);
             const auto *const globalUboName = "globalUBO";
@@ -235,8 +249,10 @@ namespace sky {
         RDTextureCubePtr radiance;
         RDTextureCubePtr irradiance;
 
+
         RDUniformBufferPtr globalUbo;
         std::unique_ptr<SkyBoxRenderer> skybox;
+        std::unique_ptr<ImGuiInstance> gui;
     };
 
     bool SampleMesh::Start(sky::RenderWindow *window)
@@ -268,21 +284,7 @@ namespace sky {
         auto *pipeline = new ForwardMSAAPass();
         pipeline->SetOutput(window, GetRenderSceneFromGameObject(meshObj));
 
-        scene->SetPipeline(pipeline);
-
-
-        const auto *viewport = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-        if (viewport != nullptr) {
-            auto *imgui = scene->GetFeature<ImGuiFeatureProcessor>();
-            guiInstance = imgui->CreateGUIInstance();
-            guiInstance->AddWidget<LambdaWidget>([](ImGuiContext *context) {
-                ImGui::SetCurrentContext(context);
-                ImGui::ShowDemoWindow();
-            });
-            guiInstance->BindNativeWindow(viewport);
-        }
-
-
+        Renderer::Get()->SetPipeline(pipeline);
         return true;
     }
 

@@ -11,6 +11,12 @@
       "dependencies": []
     },
     {
+      "name": "EditorModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    },
+    {
       "name": "RDSceneProject",
       "dependencies": [
         "SkyRender"

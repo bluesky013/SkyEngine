@@ -17,7 +17,7 @@ namespace sky {
         ~DefaultForward() override = default;
 
         void SetOutput(RenderWindow *wnd);
-        bool OnSetup(rdg::RenderGraph &rdg) override;
+        bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override;
 
     private:
         RenderWindow *output = nullptr;

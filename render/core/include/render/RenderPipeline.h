@@ -14,11 +14,12 @@ namespace sky {
     class RenderPipeline {
     public:
         RenderPipeline();
-        virtual ~RenderPipeline();
-
-        virtual bool OnSetup(rdg::RenderGraph &rdg) = 0;
+        virtual ~RenderPipeline() = default;
 
         void FrameSync();
+        virtual bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) = 0;
+        void Compile(rdg::RenderGraph &rdg);
+        void Collect(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes);
         void Execute(rdg::RenderGraph &rdg);
 
         rdg::RenderGraphContext *Context() const { return rdgContext.get(); }

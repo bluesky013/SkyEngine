@@ -19,6 +19,7 @@
 #include <render/FeatureProcessor.h>
 
 #include <render/VertexDescLibrary.h>
+#include <render/RenderPipeline.h>
 
 namespace sky {
 
@@ -29,6 +30,8 @@ namespace sky {
 
         void Init();
         void Tick(float time);
+
+        void StopRender();
 
         RenderScene *CreateScene();
         void RemoveScene(RenderScene *scene);
@@ -53,6 +56,8 @@ namespace sky {
 
         void SetShaderCompiler(ShaderCompileFunc func) { shaderCompiler = func; }
         ShaderCompileFunc GetShaderCompiler() const { return shaderCompiler; }
+
+        void SetPipeline(RenderPipeline *pipeline);
 
         template <typename T>
         void RegisterRenderFeature()
@@ -85,6 +90,7 @@ namespace sky {
         PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
 
         std::unique_ptr<VertexDescLibrary> vertexLibrary;
+        std::unique_ptr<RenderPipeline> pipeline;
 
         ShaderCompileFunc shaderCompiler = nullptr;
 

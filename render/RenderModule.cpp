@@ -127,17 +127,20 @@ namespace sky {
         }
 
         ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
-//        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
-
         MeshFeature::Get()->Init();
+//        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
 //        ParticleFeature::Get()->Init();
     }
 
     void RenderModule::Shutdown()
     {
-        GeometryFeature::Destroy();
+        Renderer::Get()->StopRender();
+
+//        ParticleFeature::Destroy();
+//        GeometryFeature::Destroy();
         MeshFeature::Destroy();
-        ParticleFeature::Destroy();
+        ImGuiFeature::Destroy();
+
 
         Renderer::Destroy();
         RHI::Destroy();

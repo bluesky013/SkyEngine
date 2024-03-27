@@ -11,7 +11,7 @@ namespace sky::rdg {
 
     void RenderSceneVisitor::BuildRenderQueue()
     {
-        const auto &primitives = graph.scene->GetPrimitives();
+        const auto &primitives = scene->GetPrimitives();
         for (auto &queue : graph.rasterQueues) {
             const auto &subPass    = graph.subPasses[Index(queue.passID, graph)];
             const auto &rasterPass = graph.rasterPasses[Index(subPass.parent, graph)];

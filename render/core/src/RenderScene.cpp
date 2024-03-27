@@ -16,7 +16,6 @@ namespace sky {
 
     RenderScene::~RenderScene()
     {
-        pipeline = nullptr;
         features.clear();
     }
 
@@ -30,9 +29,9 @@ namespace sky {
             view->Update();
         }
 
-        if (pipeline != nullptr) {
-            pipeline->FrameSync();
-        }
+//        if (pipeline != nullptr) {
+//            pipeline->FrameSync();
+//        }
     }
 
     void RenderScene::PostTick(float time)
@@ -40,22 +39,11 @@ namespace sky {
 
     }
 
-    void RenderScene::Render()
+    void RenderScene::Render(rdg::RenderGraph& rdg)
     {
-        if (pipeline != nullptr) {
-            rdg::RenderGraph rdg(pipeline->Context(), this);
-            for (auto &feature : features) {
-                feature.second->Render(rdg);
-            }
-
-            pipeline->OnSetup(rdg);
-            pipeline->Execute(rdg);
+        for (auto &feature : features) {
+            feature.second->Render(rdg);
         }
-    }
-
-    void RenderScene::SetPipeline(RenderPipeline *ppl)
-    {
-        pipeline.reset(ppl);
     }
 
     SceneView *RenderScene::CreateSceneView(uint32_t viewCount)

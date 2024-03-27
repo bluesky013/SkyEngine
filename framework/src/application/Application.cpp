@@ -77,6 +77,10 @@ namespace sky {
 
     void Application::Shutdown()
     {
+        if (moduleManager) {
+            moduleManager->UnLoadModules();
+        }
+
         Interface<ISystemNotify>::Get()->UnRegister();
 
         AssetManager::Destroy();

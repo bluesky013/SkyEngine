@@ -10,8 +10,6 @@
 #include <render/resource/Texture.h>
 
 namespace sky {
-    class ImGuiInstance;
-
     class SampleMesh : public SampleScene {
     public:
         SampleMesh() = default;
@@ -24,8 +22,6 @@ namespace sky {
     private:
         GameObject *meshObj = nullptr;
         GameObject *camera = nullptr;
-
-        ImGuiInstance *guiInstance = nullptr;
     };
 
 } // namespace sky

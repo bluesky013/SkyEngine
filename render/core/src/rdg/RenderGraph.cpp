@@ -99,9 +99,8 @@ namespace sky::rdg {
         add_edge(src, dst, graph);
     }
 
-    RenderGraph::RenderGraph(RenderGraphContext *ctx, RenderScene *scn)
+    RenderGraph::RenderGraph(RenderGraphContext *ctx)
         : context(ctx)
-        , scene(scn)
         , vertices(&ctx->resources)
         , names(&ctx->resources)
         , accessNodes(&ctx->resources)

@@ -60,7 +60,6 @@ namespace sky {
         void Render(rdg::RenderGraph &rdg);
 
         void MakeCurrent();
-
         void BindNativeWindow(const NativeWindow *window);
 
         void OnMouseMove(int32_t x, int32_t y) override;
@@ -71,13 +70,10 @@ namespace sky {
         void OnWindowResize(uint32_t width, uint32_t height) override;
         void OnTextInput(const char *text) override;
 
-        void AttachScene(RenderScene *scene);
-        void DetachScene();
-
+        RenderPrimitive *GetPrimitive() const { return primitive.get(); }
     private:
         void CheckVertexBuffers(uint32_t vertexCount, uint32_t indexCount);
 
-        RenderScene *renderScene = nullptr;
         ImGuiContext *context = nullptr;
         std::unique_ptr<RenderPrimitive> primitive;
         RDBufferPtr stagingBuffer;

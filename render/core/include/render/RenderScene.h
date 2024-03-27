@@ -17,9 +17,7 @@ namespace sky {
     public:
         void PreTick(float time);
         void PostTick(float time);
-        void Render();
-
-        void SetPipeline(RenderPipeline *pipeline);
+        void Render(rdg::RenderGraph& rdg);
 
         SceneView * CreateSceneView(uint32_t viewCount);
         void RemoveSceneView(SceneView *view);
@@ -53,8 +51,6 @@ namespace sky {
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;
         PmrVector<RenderPrimitive *> primitives;
-
-        std::unique_ptr<RenderPipeline> pipeline;
     };
 
 } // namespace sky

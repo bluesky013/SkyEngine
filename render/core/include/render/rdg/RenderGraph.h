@@ -164,7 +164,7 @@ namespace sky::rdg {
     };
 
     struct RenderGraph {
-        explicit RenderGraph(RenderGraphContext *ctx, RenderScene *scene);
+        explicit RenderGraph(RenderGraphContext *ctx);
         ~RenderGraph() = default;
 
         using vertex_descriptor = VertexType;
@@ -190,7 +190,7 @@ namespace sky::rdg {
 
         // memory
         RenderGraphContext *context;
-        RenderScene *scene;
+//        RenderScene *scene;
 
         // vertex
         VertexList vertices;

@@ -25,7 +25,7 @@ endif()
 
 add_subdirectory(framework)
 add_subdirectory(core)
-add_subdirectory(engine)
+#add_subdirectory(engine)
 add_subdirectory(render)
 add_subdirectory(sample)
 add_subdirectory(Launcher)
