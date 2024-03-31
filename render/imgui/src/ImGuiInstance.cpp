@@ -8,6 +8,7 @@
 #include <render/Renderer.h>
 #include <imgui/ImGuiFeature.h>
 #include <render/rdg/RenderGraph.h>
+#include <imgui.h>
 
 namespace sky {
     struct UITransform {
@@ -15,12 +16,56 @@ namespace sky {
         ImVec2 translate;
     };
 
+    void ImContext::Init()
+    {
+        imContext = ImGui::CreateContext();
+        plotContext = ImPlot::CreateContext();
+    }
+
+    void ImContext::Destroy()
+    {
+        ImGui::DestroyContext(imContext);
+        ImPlot::DestroyContext(plotContext);
+        imContext = nullptr;
+        plotContext = nullptr;
+    }
+
+    void ImContext::MakeCurrent() const
+    {
+        ImGui::SetCurrentContext(imContext);
+        ImPlot::SetCurrentContext(plotContext);
+    }
+
     ImGuiInstance::ImGuiInstance()
     {
         IMGUI_CHECKVERSION();
-        context = ImGui::CreateContext();
-        ImGui::SetCurrentContext(context);
+        context.Init();
+        context.MakeCurrent();
+
         ImGuiIO& io = ImGui::GetIO();
+
+        io.KeyMap[ImGuiKey_Tab] = KeyButton::KEY_TAB;
+        io.KeyMap[ImGuiKey_LeftArrow] = KeyButton::KEY_LEFT;
+        io.KeyMap[ImGuiKey_RightArrow] = KeyButton::KEY_RIGHT;
+        io.KeyMap[ImGuiKey_UpArrow] = KeyButton::KEY_UP;
+        io.KeyMap[ImGuiKey_DownArrow] = KeyButton::KEY_DOWN;
+        io.KeyMap[ImGuiKey_PageUp] = KeyButton::KEY_PAGEUP;
+        io.KeyMap[ImGuiKey_PageDown] = KeyButton::KEY_PAGEDOWN;
+        io.KeyMap[ImGuiKey_Home] = KeyButton::KEY_HOME;
+        io.KeyMap[ImGuiKey_End] = KeyButton::KEY_END;
+        io.KeyMap[ImGuiKey_Insert] = KeyButton::KEY_INSERT;
+        io.KeyMap[ImGuiKey_Delete] = KeyButton::KEY_DELETE;
+        io.KeyMap[ImGuiKey_Backspace] = KeyButton::KEY_BACKSPACE;
+        io.KeyMap[ImGuiKey_Space] = KeyButton::KEY_SPACE;
+        io.KeyMap[ImGuiKey_Enter] = KeyButton::KEY_RETURN;
+        io.KeyMap[ImGuiKey_Escape] = KeyButton::KEY_ESCAPE;
+        io.KeyMap[ImGuiKey_KeyPadEnter] = KeyButton::KEY_KP_ENTER;
+        io.KeyMap[ImGuiKey_A];
+        io.KeyMap[ImGuiKey_C];
+        io.KeyMap[ImGuiKey_V];
+        io.KeyMap[ImGuiKey_X];
+        io.KeyMap[ImGuiKey_Y];
+        io.KeyMap[ImGuiKey_Z];
 
         unsigned char *pixels;
         int width;
@@ -53,13 +98,19 @@ namespace sky {
 
     ImGuiInstance::~ImGuiInstance()
     {
-        ImGui::DestroyContext(context);
+        context.Destroy();
         Event<IWindowEvent>::DisConnect( this);
+    }
+
+    void ImGuiInstance::AddWidget(ImWidget *widget)
+    {
+        widgets.emplace_back(widget);
     }
 
     void ImGuiInstance::Tick(float delta)
     {
         MakeCurrent();
+
         ImGuiIO& io = ImGui::GetIO();
         io.DeltaTime = delta;
 
@@ -72,11 +123,13 @@ namespace sky {
         ImGui::EndFrame();
 
         ImGui::Render();
-        drawData = ImGui::GetDrawData();
     }
 
     void ImGuiInstance::Render(rdg::RenderGraph &rdg)
     {
+        MakeCurrent();
+
+        drawData = ImGui::GetDrawData();
         UITransform transform;
         transform.scale.x = 2.0f / drawData->DisplaySize.x;
         transform.scale.y = 2.0f / drawData->DisplaySize.y;
@@ -146,7 +199,7 @@ namespace sky {
 
     void ImGuiInstance::MakeCurrent()
     {
-        ImGui::SetCurrentContext(context);
+        context.MakeCurrent();
     }
 
     void ImGuiInstance::BindNativeWindow(const NativeWindow *nativeWindow)
@@ -179,6 +232,18 @@ namespace sky {
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
+    }
+
+    void ImGuiInstance::OnKeyUp(KeyButtonType key)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.KeysDown[key] = false;
+    }
+
+    void ImGuiInstance::OnKeyDown(KeyButtonType key)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.KeysDown[key] = true;
     }
 
     void ImGuiInstance::OnTextInput(const char *text)

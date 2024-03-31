@@ -3,7 +3,7 @@
 //
 
 #include <core/logger/Logger.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>

@@ -4,7 +4,7 @@
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <render/adaptor/Util.h>
 #include <render/adaptor/components/MeshRenderer.h>

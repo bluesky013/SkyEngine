@@ -22,7 +22,7 @@
 #include <render/mesh/GridRenderer.h>
 #include <render/Renderer.h>
 
-#include <imgui/ImGuiInstance.h>
+#include <imgui/ImGuiFeature.h>
 
 #include "SimpleRotateComponent.h"
 
@@ -101,28 +101,28 @@ namespace sky {
 //            skybox = std::make_unique<SkyBoxRenderer>();
 //            skybox->SetUp(skyboxMatInst);
 //            skybox->AttachScene(scene);
-
-            gui = std::make_unique<ImGuiInstance>();
-            gui->AddFunctions([](ImGuiContext *context) {
-                ImGui::ShowDemoWindow();
-            });
-
-            const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
-            gui->BindNativeWindow(nativeWindow);
         }
 
         bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override
         {
-            gui->Tick(0.1);
-            gui->Render(rdg);
-
             auto &rg = rdg.resourceGraph;
+
             const auto &views = scenes[0]->GetSceneViews();
             if (views.empty()) {
                 return false;
             }
 
-            scenes[0]->AddPrimitive(gui->GetPrimitive());
+            if (gui == nullptr) {
+                gui = ImGuiFeature::Get()->GetGuiInstance();
+                if (gui != nullptr) {
+                    scenes[0]->AddPrimitive(gui->GetPrimitive());
+                }
+            }
+
+            if (gui != nullptr) {
+                gui->Render(rdg);
+            }
+
 
             auto *sceneView = views[0].get();
             const auto uboName = GetDefaultSceneViewUBOName(*sceneView);
@@ -249,10 +249,9 @@ namespace sky {
         RDTextureCubePtr radiance;
         RDTextureCubePtr irradiance;
 
-
+        ImGuiInstance *gui = nullptr;
         RDUniformBufferPtr globalUbo;
         std::unique_ptr<SkyBoxRenderer> skybox;
-        std::unique_ptr<ImGuiInstance> gui;
     };
 
     bool SampleMesh::Start(sky::RenderWindow *window)
@@ -261,7 +260,7 @@ namespace sky {
             return false;
         }
 
-        meshObj = world->CreateGameObject("Helmet");
+        meshObj = world->CreateActor("Helmet");
         meshObj->GetComponent<TransformComponent>()->SetLocalRotation(
             Quaternion(-30 / 180.f * 3.14f, VEC3_Y) *
             Quaternion(90 / 180.f * 3.14f, VEC3_X));
@@ -274,7 +273,7 @@ namespace sky {
 //        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);
 //        mesh->SetMesh(floor);
 
-        camera = world->CreateGameObject("MainCamera");
+        camera = world->CreateActor("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());

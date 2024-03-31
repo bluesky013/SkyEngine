@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "framework/world/GameObject.h"
+#include "framework/world/Actor.h"
 #include "framework/world/World.h"
 #include <SampleScene.h>
 #include <render/resource/Texture.h>
@@ -21,8 +21,8 @@ namespace sky {
         void Resize(uint32_t width, uint32_t height) override;
 
     private:
-        GameObject *cube = nullptr;
-        GameObject *camera = nullptr;
+        Actor *cube = nullptr;
+        Actor *camera = nullptr;
     };
 
 } // namespace sky

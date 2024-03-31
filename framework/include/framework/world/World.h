@@ -13,51 +13,61 @@
 namespace sky {
 
     class World;
+
     class IRenderScene;
-    class GameObject;
+
+    class Actor;
 
     class JsonOutputArchive;
+
     class JsonInputArchive;
 
     class World {
     public:
         World();
+
         ~World();
 
-        World(const World&) = delete;
-        World &operator=(const World&) = delete;
+        World(const World &) = delete;
+
+        World &operator=(const World &) = delete;
 
         static void Reflect();
 
         void SetRenderScene(IRenderScene *scn) { renderScene = scn; }
+
         IRenderScene *GetRenderScene() const { return renderScene; }
 
-        GameObject *CreateGameObject(const std::string &name);
-        GameObject *CreateGameObject(const std::string &name, const Uuid &uuid);
+        Actor *CreateActor(const std::string &name);
 
-        void DestroyGameObject(GameObject *);
+        Actor *CreateActor(const std::string &name, const Uuid &uuid);
+
+        void DestroyActor(Actor *);
 
         void Tick(float);
 
-        const PmrVector<GameObject *> &GetGameObjects() const;
+        const PmrVector<Actor *> &GetActors() const;
 
-        GameObject *GetGameObjectByUuid(const Uuid &id) const;
+        Actor *GetActorByUuid(const Uuid &id) const;
 
-        GameObject *GetRoot();
+        Actor *GetRoot();
 
-        void ForEachBFS(GameObject *go, std::function<void(GameObject *)> && fn) const;
+        void ForEachBFS(Actor *go, std::function<void(Actor *)> &&fn) const;
 
         void Save(JsonOutputArchive &ar) const;
+
         void Load(JsonInputArchive &ar);
 
     private:
-        GameObject *AllocateGameObject();
-        GameObject                    *root;
-        IRenderScene                  *renderScene;
-        PmrUnSyncPoolRes               memoryResource;
-        PmrVector<GameObject *>        gameObjects;
-        PmrHashMap<Uuid, GameObject *> objectLut;
+        Actor *AllocateGameObject();
+
+        Actor *root;
+        IRenderScene *renderScene;
+        PmrUnSyncPoolRes memoryResource;
+        PmrVector<Actor *> actors;
+        PmrHashMap<Uuid, Actor *> objectLut;
     };
+
     using WorldPtr = std::shared_ptr<World>;
 
 } // namespace sky

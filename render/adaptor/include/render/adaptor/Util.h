@@ -7,9 +7,9 @@
 #include <render/RenderScene.h>
 
 namespace sky {
-    class GameObject;
+    class Actor;
 
-    RenderScene *GetRenderSceneFromGameObject(GameObject *go);
+    RenderScene *GetRenderSceneFromGameObject(Actor *go);
 
     template <typename T>
     T *GetFeatureProcessor(const RenderScene *scene)

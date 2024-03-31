@@ -148,8 +148,14 @@ namespace sky {
 
     void RenderModule::Tick(float delta)
     {
-        SKY_PROFILE_SCOPE;
-        Renderer::Get()->Tick(delta);
+        {
+            SKY_PROFILE_SCOPE;
+            ImGuiFeature::Get()->Tick(delta);
+        }
+        {
+            SKY_PROFILE_SCOPE;
+            Renderer::Get()->Tick(delta);
+        }
     }
 }
 REGISTER_MODULE(sky::RenderModule)

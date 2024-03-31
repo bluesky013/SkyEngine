@@ -6,7 +6,7 @@
 #include <android/native_window.h>
 #include <framework/platform/PlatformBase.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
-#include <framework/event/Event.h>
+#include "core/event/Event.h"
 #include <framework/window/IWindowEvent.h>
 
 namespace sky {

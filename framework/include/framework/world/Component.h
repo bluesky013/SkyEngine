@@ -16,7 +16,7 @@
 
 namespace sky {
 
-    class GameObject;
+    class Actor;
     class JsonOutputArchive;
     class JsonInputArchive;
 
@@ -27,7 +27,7 @@ namespace sky {
 
         TYPE_RTTI_BASE
 
-        GameObject *object = nullptr;
+        Actor *object = nullptr;
 
         virtual void OnActive()
         {
@@ -48,14 +48,14 @@ namespace sky {
         virtual void Load(JsonInputArchive &ar) {}
 
     protected:
-        friend class GameObject;
+        friend class Actor;
     };
 
     struct IComponentListener {
-        virtual void OnAddComponent(GameObject *go, Component *)
+        virtual void OnAddComponent(Actor *go, Component *)
         {
         }
-        virtual void OnRemoveComponent(GameObject *go, Component *)
+        virtual void OnRemoveComponent(Actor *go, Component *)
         {
         }
     };
@@ -78,7 +78,7 @@ namespace sky {
         };
 
         template <auto F>
-        void ForEach(GameObject *go, Component *component)
+        void ForEach(Actor *go, Component *component)
         {
             for (auto &listener : listeners) {
                 std::invoke(F, listener, go, component);

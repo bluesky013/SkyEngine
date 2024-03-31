@@ -2,8 +2,11 @@
 // Created by Zach on 2024/3/17.
 //
 
-#include <framework/interface/IModule.h>
 #include <editor/EditorInstance.h>
+#include <imgui/ImGuiFeature.h>
+#include <framework/interface/IModule.h>
+#include <framework/interface/Interface.h>
+#include <framework/interface/ISystem.h>
 
 namespace sky::editor {
 
@@ -15,6 +18,9 @@ namespace sky::editor {
         void Shutdown() override;
         void Start() override;
         void Tick(float delta) override;
+
+    private:
+        ImGuiInstance *guiInstance = nullptr;
     };
 
     void EditorModule::Shutdown()
@@ -23,11 +29,17 @@ namespace sky::editor {
     }
     void EditorModule::Start()
     {
-        EditorInstance::Get()->Init();
+        const auto *nativeWindow = Interface<ISystemNotify>::Get()->GetApi()->GetViewport();
+        if (nativeWindow != nullptr) {
+            guiInstance = ImGuiFeature::Get()->GetGuiInstance();
+            guiInstance->MakeCurrent();
+            guiInstance->BindNativeWindow(nativeWindow);
+            EditorInstance::Get()->Init(guiInstance);
+        }
     }
     void EditorModule::Tick(float delta)
     {
-        EditorInstance::Get()->Tick(delta);
+        guiInstance->Tick(delta);
     }
 } // namespace sky
 REGISTER_MODULE(sky::editor::EditorModule)

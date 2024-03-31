@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 
@@ -24,93 +24,93 @@ namespace sky {
             .JsonLoad<&Component::Load>()
             .JsonSave<&Component::Save>();
 
-        GameObject::Reflect();
+        Actor::Reflect();
         TransformComponent::Reflect();
     }
 
-    World::World() : root(nullptr), renderScene(nullptr), gameObjects(&memoryResource), objectLut(&memoryResource)
+    World::World() : root(nullptr), renderScene(nullptr), actors(&memoryResource), objectLut(&memoryResource)
     {
-        root = CreateGameObject("root");
+        root = CreateActor("root");
     }
 
     World::~World()
     {
-        for (auto &go : gameObjects) {
-            go->~GameObject();
-            memoryResource.deallocate(go, sizeof(GameObject));
+        for (auto &go : actors) {
+            go->~Actor();
+            memoryResource.deallocate(go, sizeof(Actor));
         }
-        gameObjects.clear();
+        actors.clear();
     }
 
-    GameObject *World::AllocateGameObject()
+    Actor *World::AllocateGameObject()
     {
         static std::atomic_uint32_t index = 0;
         index.fetch_add(1);
-        auto ptr = memoryResource.allocate(sizeof(GameObject));
-        auto go = new (ptr) GameObject();
+        auto ptr = memoryResource.allocate(sizeof(Actor));
+        auto go = new (ptr) Actor();
         go->resource = &memoryResource;
         go->world = this;
         go->objId = index.load();
         return go;
     }
 
-    GameObject *World::CreateGameObject(const std::string &name, const Uuid &uuid)
+    Actor *World::CreateActor(const std::string &name, const Uuid &uuid)
     {
         auto go = AllocateGameObject();
         go->AddComponent<TransformComponent>();
         go->SetParent(root);
         go->SetUuid(uuid);
         go->SetName(name);
-        gameObjects.emplace_back(go);
+        actors.emplace_back(go);
         objectLut.emplace(uuid, go);
         return go;
     }
 
-    GameObject *World::CreateGameObject(const std::string &name)
+    Actor *World::CreateActor(const std::string &name)
     {
-        return CreateGameObject(name, Uuid::Create());
+        return CreateActor(name, Uuid::Create());
     }
 
-    void World::DestroyGameObject(GameObject *go)
+    void World::DestroyActor(Actor *actor)
     {
-        if (go == root) {
+        if (actor == root) {
             return;
         }
 
-        auto iter = std::find(gameObjects.begin(), gameObjects.end(), go);
-        if (iter != gameObjects.end()) {
-            (*iter)->~GameObject();
-            gameObjects.erase(iter);
-            memoryResource.deallocate((*iter), sizeof(GameObject));
+        auto iter = std::find(actors.begin(), actors.end(), actor);
+        if (iter != actors.end()) {
+            (*iter)->~Actor();
+            actors.erase(iter);
+            memoryResource.deallocate((*iter), sizeof(Actor));
         }
     }
 
     void World::Tick(float time)
     {
-        for (auto &obj : gameObjects) {
+        for (auto &obj : actors) {
             obj->Tick(time);
         }
     }
 
-    const PmrVector<GameObject *> &World::GetGameObjects() const
+    const PmrVector<Actor *> &World::GetActors() const
     {
-        return gameObjects;
+        return actors;
     }
 
-    GameObject *World::GetGameObjectByUuid(const Uuid &id) const
+    Actor *World::GetActorByUuid(const Uuid &id) const
     {
         auto iter = objectLut.find(id);
         return iter != objectLut.end() ? iter->second : nullptr;
     }
 
-    GameObject *World::GetRoot()
+    Actor *World::GetRoot()
     {
         return root;
     }
 
-    void World::ForEachBFS(GameObject *go, std::function<void(GameObject *)> && fn) const
+    void World::ForEachBFS(Actor *go, std::function<void(Actor *)> && fn) const
     {
-        std::deque<GameObject*> queue;
+        std::deque<Actor*> queue;
         queue.emplace_back(go);
 
         while (!queue.empty()) {
@@ -133,7 +133,7 @@ namespace sky {
         ar.StartObject();
         ar.Key("objects");
         ar.StartArray();
-        ForEachBFS(root, [&ar](GameObject *go) {
+        ForEachBFS(root, [&ar](Actor *go) {
             ar.SaveValueObject(*go);
         });
         ar.EndArray();
@@ -144,7 +144,7 @@ namespace sky {
     {
         uint32_t size = ar.StartArray("objects");
         for (uint32_t i = 0; i < size; ++i) {
-            auto go = CreateGameObject("");
+            auto go = CreateActor("");
             ar.LoadArrayElement(*go);
         }
         ar.End();

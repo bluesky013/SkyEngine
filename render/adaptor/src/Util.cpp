@@ -5,11 +5,11 @@
 #include <render/adaptor/Util.h>
 #include <render/adaptor/RenderSceneProxy.h>
 #include <framework/world/World.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 
 namespace sky {
 
-    RenderScene *GetRenderSceneFromGameObject(GameObject *go)
+    RenderScene *GetRenderSceneFromGameObject(Actor *go)
     {
         return static_cast<RenderSceneProxy*>(go->GetWorld()->GetRenderScene())->GetRenderScene();
     }

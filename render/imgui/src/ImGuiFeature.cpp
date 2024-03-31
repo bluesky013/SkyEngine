@@ -16,6 +16,10 @@ namespace sky {
             {rhi::DescriptorType::SAMPLER,                MAX_SET_PER_POOL}
     };
 
+    void ImGuiFeature::Tick(float delta)
+    {
+        guiInstance->Tick(delta);
+    }
 
     void ImGuiFeature::Init(const RDGfxTechPtr &tech)
     {
@@ -32,6 +36,8 @@ namespace sky {
 
             pool = device->CreateDescriptorSetPool(poolDesc);
         }
+
+        guiInstance = std::make_unique<ImGuiInstance>();
     }
 
     RDResourceGroupPtr ImGuiFeature::RequestResourceGroup()

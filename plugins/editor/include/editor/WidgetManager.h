@@ -4,23 +4,23 @@
 
 #pragma once
 
-#include <editor/widgets/IWidget.h>
+#include <imgui/ImGuiInstance.h>
 #include <unordered_map>
 
 namespace sky::editor {
 
-    class WidgetManager {
+    class WidgetManager : public ImWidget {
     public:
-        WidgetManager() = default;
-        ~WidgetManager() = default;
+        WidgetManager() : ImWidget("parent") {}
+        ~WidgetManager() override = default;
 
-        void RegisterWidget(const std::string &key, IWidget*);
+        void RegisterWidget(ImWidget*);
         void RemoveWidget(const std::string &key);
 
-        void Render();
+        void Execute(ImContext &context);
 
     private:
-        std::unordered_map<std::string, IWidget*> widgets;
+        std::unordered_map<std::string, std::unique_ptr<ImWidget>> widgets;
     };
 
 } // namespace sky::editor

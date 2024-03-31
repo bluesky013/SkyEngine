@@ -50,6 +50,7 @@ if(EXISTS ${3RD_PATH})
 
     # tmp
     sky_find_3rd(TARGET imgui         DIR imgui)
+    sky_find_3rd(TARGET implot        DIR implot)
 
     # shader
     sky_find_3rd(TARGET glslang       DIR glslang)
@@ -67,10 +68,6 @@ if(EXISTS ${3RD_PATH})
     if (SKY_BUILD_DXC)
         sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
     endif ()
-
-    if (SKY_BUILD_PERF_TOOL)
-        sky_find_3rd(TARGET implot        DIR implot)
-    endif()
 
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)

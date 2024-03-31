@@ -3,18 +3,45 @@
 //
 
 #include <editor/EditorInstance.h>
+#include <editor/widgets/DemoWidget.h>
+#include <editor/widgets/DirectoryBrowser.h>
+#include <editor/widgets/AssetWidget.h>
+
+#include <framework/asset/AssetManager.h>
 
 namespace sky::editor {
 
-    void EditorInstance::Init()
+    void EditorInstance::Init(ImGuiInstance *instance)
     {
         wm = std::make_unique<WidgetManager>();
-        wm->RegisterWidget(menuBar.GetName(), &menuBar);
-    }
 
-    void EditorInstance::Tick(float time)
-    {
-        wm->Render();
+        menuBar = new MainMenuBar();
+        wm->RegisterWidget(menuBar);
+
+        // menu
+        auto *fileMenu = menuBar->AddMenu("File");
+        fileMenu->AddItem("Import", BTN_MENU_FILE_IMPORT);
+
+        auto *viewMenu = menuBar->AddMenu("View");
+        viewMenu->AddItem("Assets", BTN_MENU_VIEW_SHOW_ASSETS, false);
+        viewMenu->AddItem("Demo", BTN_MENU_VIEW_SHOW_DEMO, false);
+
+        auto *demoWidget = new DemoWidget();
+        demoWidget->BindEvent(BTN_MENU_VIEW_SHOW_DEMO);
+
+        auto *assetWidget = new AssetWidget();
+        assetWidget->BindEvent(BTN_MENU_VIEW_SHOW_ASSETS);
+
+        auto *dirWidget = new DirectoryBrowser();
+        dirWidget->AddPath(AssetManager::Get()->GetProjectAssetPath());
+        dirWidget->AddPath(AssetManager::Get()->GetEngineAssetPath());
+        dirWidget->BindEvent(BTN_MENU_FILE_IMPORT);
+
+        wm->RegisterWidget(demoWidget);
+        wm->RegisterWidget(assetWidget);
+        wm->RegisterWidget(dirWidget);
+
+        instance->AddWidget(wm.get());
     }
 
 } // namespace sky::editor

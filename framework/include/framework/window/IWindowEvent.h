@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <framework/event/Event.h>
+#include "core/event/Event.h"
 
 namespace sky {
     class NativeWindow;

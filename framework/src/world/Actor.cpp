@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 
@@ -10,14 +10,14 @@
 #include <framework/serialization/JsonArchive.h>
 namespace sky {
 
-    void GameObject::Reflect()
+    void Actor::Reflect()
     {
-        SerializationContext::Get()->Register<GameObject>("GameObject")
-            .JsonLoad<&GameObject::Load>()
-            .JsonSave<&GameObject::Save>();
+        SerializationContext::Get()->Register<Actor>("Actor")
+            .JsonLoad<&Actor::Load>()
+            .JsonSave<&Actor::Save>();
     }
 
-    GameObject::~GameObject()
+    Actor::~Actor()
     {
         for (auto comp : components) {
             comp->~Component();
@@ -26,60 +26,60 @@ namespace sky {
         components.clear();
     }
 
-    uint32_t GameObject::GetId() const
+    uint32_t Actor::GetId() const
     {
         return objId;
     }
 
-    void GameObject::SetName(const std::string &name_)
+    void Actor::SetName(const std::string &name_)
     {
         name = name_;
     }
 
-    const std::string &GameObject::GetName() const
+    const std::string &Actor::GetName() const
     {
         return name;
     }
 
-    World *GameObject::GetWorld() const
+    World *Actor::GetWorld() const
     {
         return world;
     }
 
-    void GameObject::SetParent(GameObject *gameObject)
+    void Actor::SetParent(Actor *actor)
     {
         auto trans = GetComponent<TransformComponent>();
-        if (gameObject == nullptr) {
-            gameObject = world->GetRoot();
+        if (actor == nullptr) {
+            actor = world->GetRoot();
         }
-        TransformComponent *parent = gameObject != nullptr ? gameObject->GetComponent<TransformComponent>() : nullptr;
+        TransformComponent *parent = actor != nullptr ? actor->GetComponent<TransformComponent>() : nullptr;
         trans->SetParent(parent);
     }
 
-    void GameObject::SetParent(const Uuid &gameObject)
+    void Actor::SetParent(const Uuid &actor)
     {
-        SetParent(world->GetGameObjectByUuid(gameObject));
+        SetParent(world->GetActorByUuid(actor));
     }
 
-    GameObject *GameObject::GetParent() const
+    Actor *Actor::GetParent() const
     {
         auto trans = GetComponent<TransformComponent>()->GetParent();
         return trans != nullptr ? trans->object : nullptr;
     }
 
-    void GameObject::Tick(float time)
+    void Actor::Tick(float time)
     {
         for (auto &comp : components) {
             comp->OnTick(time);
         }
     }
 
-    GameObject::ComponentList &GameObject::GetComponents()
+    Actor::ComponentList &Actor::GetComponents()
     {
         return components;
     }
 
-    void GameObject::Save(JsonOutputArchive &ar) const
+    void Actor::Save(JsonOutputArchive &ar) const
     {
         ar.StartObject();
         ar.SaveValueObject("uuid", uuid.ToString());
@@ -100,7 +100,7 @@ namespace sky {
         ar.EndObject();
     }
 
-    void GameObject::Load(JsonInputArchive &ar)
+    void Actor::Load(JsonInputArchive &ar)
     {
         std::string id;
         ar.LoadKeyValue("uuid", id);

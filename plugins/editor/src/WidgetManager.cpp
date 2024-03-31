@@ -3,22 +3,25 @@
 //
 
 #include <editor/WidgetManager.h>
+#include <imgui.h>
 
 namespace sky::editor {
 
-    void WidgetManager::RegisterWidget(const std::string &key, IWidget* widget)
+    void WidgetManager::Execute(ImContext &context)
     {
-        widgets.emplace(key, widget);
+        context.MakeCurrent();
+        for (auto &widget : widgets) {
+            widget.second->Execute(context);
+        }
+    }
+
+    void WidgetManager::RegisterWidget(ImWidget* widget)
+    {
+        widgets.emplace(widget->GetName(), widget);
     }
 
     void WidgetManager::RemoveWidget(const std::string &key)
     {
         widgets.erase(key);
     }
-
-    void WidgetManager::Render()
-    {
-
-    }
-
 } // namespace sky::editor

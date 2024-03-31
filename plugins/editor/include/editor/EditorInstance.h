@@ -16,13 +16,12 @@ namespace sky::editor {
         EditorInstance() = default;
         ~EditorInstance() override = default;
 
-        void Init();
-        void Tick(float time);
+        void Init(ImGuiInstance *instance);
 
     private:
         std::unique_ptr<WidgetManager> wm;
 
-        MenuBar menuBar;
+        MenuBar *menuBar;
     };
 
 } // namespace sky::editor

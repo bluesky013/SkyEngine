@@ -18,13 +18,13 @@ namespace sky {
     class JsonOutputArchive;
     class JsonInputArchive;
 
-    class GameObject : public Object {
+    class Actor : public Object {
     public:
-        GameObject(GameObject &&) noexcept = default;
-        GameObject &operator=(GameObject&&) noexcept = default;
+        Actor(Actor &&) noexcept = default;
+        Actor &operator=(Actor&&) noexcept = default;
 
-        GameObject(const GameObject &)            = delete;
-        GameObject &operator=(const GameObject &) = delete;
+        Actor(const Actor &)            = delete;
+        Actor &operator=(const Actor &) = delete;
 
         static void Reflect();
 
@@ -106,10 +106,10 @@ namespace sky {
 
         World *GetWorld() const;
 
-        void SetParent(GameObject *gameObject);
-        void SetParent(const Uuid &gameObject);
+        void SetParent(Actor *actor);
+        void SetParent(const Uuid &actor);
 
-        GameObject *GetParent() const;
+        Actor *GetParent() const;
 
         void Tick(float time);
 
@@ -121,9 +121,9 @@ namespace sky {
 
     private:
         friend class World;
-        ~GameObject();
-        GameObject() = default;
-        explicit GameObject(std::string str) : name(std::move(str))
+        ~Actor();
+        Actor() = default;
+        explicit Actor(std::string str) : name(std::move(str))
         {
         }
 

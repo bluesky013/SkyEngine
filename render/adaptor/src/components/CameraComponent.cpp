@@ -6,7 +6,7 @@
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
 
