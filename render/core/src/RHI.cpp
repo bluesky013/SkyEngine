@@ -15,7 +15,9 @@ namespace sky {
 
     void RHI::InitInstance(rhi::Instance::Descriptor desc)
     {
+#ifdef SKY_ENABLE_XR
         desc.xrInterface = xrInterface;
+#endif
         instance = rhi::Instance::Create(desc);
         api = desc.api;
     }

@@ -24,7 +24,7 @@ namespace sky::vk {
         createInfo.pView = view;
         createInfo.pNext = nullptr;
 
-        if (vkCreateMacOSSurfaceMVK(device.GetInstance(), &createInfo, nullptr, &surface) != VK_SUCCESS) {
+        if (vkCreateMacOSSurfaceMVK(device.GetInstanceId(), &createInfo, nullptr, &surface) != VK_SUCCESS) {
             return false;
         }
         return true;

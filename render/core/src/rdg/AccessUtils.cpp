@@ -131,11 +131,13 @@ namespace sky::rdg {
                 range.range = 1;
                 range.layers = 1;
             },
+#ifdef SKY_ENABLE_XR
             [&](const ImportXRSwapChainTag &tag) {
                 const auto &res = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
                 range.range = 1;
                 range.layers = res.desc.swapchain->GetArrayLayers();
             },
+#endif
             [&](const BufferTag &tag) {
                 const auto &buffer = resourceGraph.buffers[Index(resID, resourceGraph)];
                 range.range = buffer.desc.size;

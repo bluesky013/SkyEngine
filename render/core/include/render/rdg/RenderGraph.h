@@ -125,7 +125,9 @@ namespace sky::rdg {
         void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
 
         void ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain);
+#ifdef SKY_ENABLE_XR
         void ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain);
+#endif
         void AddImageView(const char *name, const char *source, const GraphImageView &view);
 
         void AddBuffer(const char *name, const GraphBuffer &attachment);

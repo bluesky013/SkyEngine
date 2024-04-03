@@ -4,6 +4,7 @@
 
 #pragma once
 #include <core/environment/Singleton.h>
+#include <core/memory/Allocator.h>
 #include <core/type/Rtti.h>
 
 namespace sky {

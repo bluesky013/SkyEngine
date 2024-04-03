@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <fstream>
+#include <vector>
 
 namespace sky {
 
@@ -15,6 +16,8 @@ namespace sky {
     public:
         explicit FilePath(const std::string &filePath_) : filePath(filePath_) {}
         ~FilePath() = default;
+
+        const std::string &GetStr() const { return filePath; }
 
     private:
         std::string filePath;
@@ -26,6 +29,7 @@ namespace sky {
         virtual ~IFile() = default;
 
         virtual bool IsOpen() const { return false; }
+        const std::string &GetStr() const { return filePath.GetStr(); }
 
     protected:
         FilePath filePath;
@@ -52,24 +56,28 @@ namespace sky {
         uint32_t offset;
         uint32_t size;
     };
-    using FileViewPtr = std::shared_ptr<FileView>;
 
     class IFileSystem {
     public:
         IFileSystem() = default;
         virtual ~IFileSystem() = default;
 
-        virtual FileViewPtr CreateFileView(const std::string &path) = 0;
+        virtual FilePtr OpenFile(const std::string &path, std::ios::openmode) = 0;
+        virtual bool ReadString(const std::string &path, std::string &out) = 0;
     };
+    using FileSystemPtr = std::shared_ptr<IFileSystem>;
 
     class NativeFileSystem : public IFileSystem {
     public:
-        explicit NativeFileSystem(const std::string &root);
+        NativeFileSystem() = default;
         ~NativeFileSystem() override = default;
 
-        FileViewPtr CreateFileView(const std::string &path) override;
+        FilePtr OpenFile(const std::string &path, std::ios::openmode) override;
+        bool ReadString(const std::string &path, std::string &out) override;
+
+        void AddPath(const std::string &path);
     private:
-        FilePath fsRoot;
+        std::vector<FilePath> fsRoot;
     };
 
 } // namespace sky

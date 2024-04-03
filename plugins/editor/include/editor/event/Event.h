@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/event/Event.h>
+#include <core/util/Uuid.h>
 #include <editor/event/EventId.h>
 
 namespace sky::editor {
@@ -32,6 +33,18 @@ namespace sky::editor {
         virtual void OnClicked() = 0;
     };
     using ButtonEvent = Event<IButtonEvent>;
+
+    class IAssetViewEvent {
+    public:
+        IAssetViewEvent() = default;
+        virtual ~IAssetViewEvent() = default;
+
+        using KeyType   = Uuid;
+        using MutexType = void;
+
+        virtual void OnClicked(const Uuid& type, void *data) = 0;
+    };
+    using AssetViewEvent = Event<IAssetViewEvent>;
 
     template <typename T>
     class EventBinder {

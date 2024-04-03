@@ -111,7 +111,7 @@ namespace sky {
         rw->Init(hWnd, width, height, vSync);
         return rw;
     }
-
+#ifdef SKY_ENABLE_XR
     RenderWindow *Renderer::CreateRenderWindowByXR()
     {
         auto *renderWindow = new RenderWindow();
@@ -121,7 +121,7 @@ namespace sky {
         windows.emplace_back(renderWindow, &Renderer::DestroyObj<RenderWindow>);
         return renderWindow;
     }
-
+#endif
     void Renderer::RemoveScene(sky::RenderScene *scene)
     {
         scenes.remove_if([scene](const auto &scn) {

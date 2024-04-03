@@ -52,7 +52,7 @@ namespace sky {
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
         shader.setEntryPoint(desc.entry.c_str());
         if (!shader.parse(GetDefaultResources(), 450, false, EShMsgAST)) {
-            LOG_E(TAG, "shader parse failed: path: %s\n", shader.getInfoLog());
+            LOG_E(TAG, "shader parse failed: %s\n", shader.getInfoLog());
             return false;
         }
         program.addShader(&shader);

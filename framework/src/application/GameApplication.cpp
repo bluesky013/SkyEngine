@@ -17,7 +17,11 @@
 #include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
-static const char *CONFIG_PATH = "/config/modules_game.json";
+#ifdef SKY_EDITOR
+static const char *CONFIG_PATH = "config/modules_game.json";
+#else
+static const char *CONFIG_PATH = "config/modules_game.json";
+#endif
 
 namespace sky {
 
@@ -30,8 +34,16 @@ namespace sky {
         options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
-            AssetManager::Get()->SetProjectPath(result["project"].as<std::string>());
+            std::string projectPath = result["project"].as<std::string>();
+            auto fs = std::make_shared<NativeFileSystem>();
+            fs->AddPath(projectPath);
+            workFs = fs;
+            AssetManager::Get()->SetProjectPath(projectPath);
         } else {
+            std::string workPath = Platform::Get()->GetBundlePath();
+            auto fs = std::make_shared<NativeFileSystem>();
+            fs->AddPath(workPath);
+            workFs = fs;
             AssetManager::Get()->SetProjectPath(Platform::Get()->GetBundlePath());
         }
 #else
@@ -65,14 +77,8 @@ namespace sky {
 
     void GameApplication::LoadConfigs()
     {
-#ifdef SKY_EDITOR
-        auto configPath = AssetManager::Get()->GetProjectPath() + CONFIG_PATH;
-#else
-        auto configPath = Platform::Get()->GetInternalPath() + CONFIG_PATH;
-#endif
-
         std::string json;
-        if (!ReadString(configPath, json)) {
+        if (!workFs->ReadString(CONFIG_PATH, json)) {
             LOG_W(TAG, "Load Config Failed");
             return;
         }

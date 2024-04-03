@@ -145,7 +145,9 @@ namespace sky {
                 renderWidth  = ext.width * 2;
                 renderHeight = ext.height * 2;
                 rg.ImportSwapChain("SwapChain", swapChain);
-            } else {
+            }
+#ifdef SKY_ENABLE_XR
+            else {
                 auto xrSwapChain = output->GetXRSwaChain();
                 const auto &ext = xrSwapChain->GetExtent();
                 outWidth = ext.width;
@@ -162,6 +164,7 @@ namespace sky {
                 }
                 rg.ImportXRSwapChain("SwapChain", xrSwapChain);
             }
+#endif
 
 
             ShaderPassInfo passInfo = {};

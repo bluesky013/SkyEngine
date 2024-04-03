@@ -360,11 +360,14 @@ namespace sky::rdg {
         uint32_t imageIndex = 0;
     };
 
+
     struct GraphXRSwapChain {
         using Tag = ImportXRSwapChainTag;
 
+#ifdef SKY_ENABLE_XR
         rhi::XRSwapChainPtr swapchain;
         uint32_t imageIndex = 0;
+#endif
     };
 
     struct GraphImageView {

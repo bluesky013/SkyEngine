@@ -190,6 +190,7 @@ namespace sky::rdg {
                     swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
                 }
             },
+#ifdef SKY_ENABLE_XR
             [&](const ImportXRSwapChainTag &) {
                 auto &swc = rdg.resourceGraph.xrSwapChains[Index(res, rdg.resourceGraph)];
                 if (!swc.res) {
@@ -197,6 +198,7 @@ namespace sky::rdg {
                     swc.res = swc.desc.swapchain->GetImageView(swc.desc.imageIndex);
                 }
             },
+#endif
             [&](const auto &) {}
         }, Tag(res, rdg.resourceGraph));
     }
@@ -241,11 +243,13 @@ namespace sky::rdg {
                     att.format = swc.desc.swapchain->GetFormat();
                     fbDesc.views[i] = swc.res;
                 },
+#ifdef SKY_ENABLE_XR
                 [&](const ImportXRSwapChainTag &) {
                     auto &swc = rdg.resourceGraph.xrSwapChains[Index(attachment, rdg.resourceGraph)];
                     att.format = swc.desc.swapchain->GetFormat();
                     fbDesc.views[i] = swc.res;
                 },
+#endif
                 [&](const ImageViewTag &) {
                     auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
                     att.format = source.desc.format;

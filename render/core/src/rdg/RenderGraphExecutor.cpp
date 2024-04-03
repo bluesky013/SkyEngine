@@ -21,10 +21,12 @@ namespace sky::rdg {
                 const auto &image = resourceGraph.swapChains[Index(resID, resourceGraph)];
                 res = image.desc.swapchain->GetImage(image.desc.imageIndex);
             },
+#ifdef SKY_ENABLE_XR
             [&](const ImportXRSwapChainTag &) {
                 const auto &image = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
                 res = image.desc.swapchain->GetImage(image.desc.imageIndex);
             },
+#endif
             [&](const auto &) {
             }
         }, Tag(resID, resourceGraph));
@@ -69,6 +71,7 @@ namespace sky::rdg {
                                                rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
                     }
                 },
+#ifdef SKY_ENABLE_XR
                 [&](const ImportXRSwapChainTag &) {
                     auto &image = graph.resourceGraph.xrSwapChains[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
@@ -79,6 +82,7 @@ namespace sky::rdg {
                                                         rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags});
                     }
                 },
+#endif
                 [&](const BufferTag &) {
                     auto &buffer = graph.resourceGraph.buffers[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {

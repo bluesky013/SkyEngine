@@ -6,6 +6,7 @@
 
 #include <framework/application/Application.h>
 #include <framework/window/NativeWindow.h>
+#include <core/file/FileSystem.h>
 
 namespace sky {
 
@@ -29,6 +30,10 @@ namespace sky {
         std::unique_ptr<NativeWindow> nativeWindow;
         uint32_t width = 1024;
         uint32_t height = 1024;
+
+#ifdef SKY_EDITOR
+        FileSystemPtr workFs;
+#endif
     };
 
 }

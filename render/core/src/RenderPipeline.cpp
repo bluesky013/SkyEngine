@@ -125,10 +125,11 @@ namespace sky {
             rhi::PresentInfo presentInfo = {};
             presentInfo.semaphores.emplace_back(rdgContext->RenderFinishSemaphore());
             for (auto &swc : rdg.presentPasses) {
+#ifdef SKY_ENABLE_XR
                 if (swc.xrSwapChain) {
                     continue;
                 }
-
+#endif
                 auto &res = rdg.resourceGraph.swapChains[Index(swc.imageID, rdg.resourceGraph)];
                 presentInfo.imageIndex = res.desc.imageIndex;
                 swc.swapChain->Present(*queue, presentInfo);

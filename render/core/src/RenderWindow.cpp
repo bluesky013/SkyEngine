@@ -42,8 +42,8 @@ namespace sky {
     {
 #ifdef SKY_ENABLE_XR
         return swapChain ? swapChain->GetExtent().width : xrSwapChain->GetExtent().width;
-#elif
-        return swapChain->GetExent().width;
+#else
+        return swapChain->GetExtent().width;
 #endif
     }
 
@@ -51,8 +51,8 @@ namespace sky {
     {
 #ifdef SKY_ENABLE_XR
         return swapChain ? swapChain->GetExtent().height : xrSwapChain->GetExtent().height;
-#elif
-        return swapChain->GetExent().height;
+#else
+        return swapChain->GetExtent().height;
 #endif
     }
 } // namespace sky

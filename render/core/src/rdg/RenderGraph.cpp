@@ -53,12 +53,12 @@ namespace sky::rdg {
     {
         add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
     }
-
+#ifdef SKY_ENABLE_XR
     void ResourceGraph::ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain)
     {
         add_edge(0, AddVertex(name, GraphXRSwapChain{swapchain}, *this), graph);
     }
-
+#endif
     void ResourceGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
     {
         auto src = FindVertex(source, *this);
@@ -156,12 +156,14 @@ namespace sky::rdg {
                 add_edge(0, vtx, graph);
                 AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
             },
+#ifdef SKY_ENABLE_XR
             [&](const ImportXRSwapChainTag &tag) {
                 const auto &res = resourceGraph.xrSwapChains[Index(resID, resourceGraph)];
                 auto vtx = AddVertex(name, PresentPass(resID, res.desc.swapchain, &context->resources), *this);
                 add_edge(0, vtx, graph);
                 AddDependency(resID, vtx, DependencyInfo{PresentType::PRESENT, ResourceAccessBit::READ, {}});
             },
+#endif
             [&](const auto &) {}
         }, rdg::Tag(resID, resourceGraph));
     }

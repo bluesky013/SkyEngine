@@ -3,6 +3,8 @@
 //
 
 #include <core/file/FileSystem.h>
+#include <core/file/FileIO.h>
+#include <filesystem>
 
 namespace sky {
 
@@ -22,14 +24,33 @@ namespace sky {
         return fs.is_open();
     }
 
-    NativeFileSystem::NativeFileSystem(const std::string &root)
-        : fsRoot(root)
+    FilePtr NativeFileSystem::OpenFile(const std::string &path, std::ios::openmode mode)
     {
+        for (auto &root : fsRoot) {
+            std::filesystem::path rPath(root.GetStr());
+            rPath.append(path);
+
+            if (!std::filesystem::exists(rPath)) {
+                continue;
+            }
+
+            return std::make_shared<NativeFile>(rPath.string(), mode);
+        }
+        return {};
     }
 
-    FileViewPtr NativeFileSystem::CreateFileView(const std::string &path)
+    bool NativeFileSystem::ReadString(const std::string &path, std::string &out)
     {
-        return {};
+        auto file = OpenFile(path, std::ios::in | std::ios::binary);
+        if (!file || !file->IsOpen()) {
+            return false;
+        }
+        return sky::ReadString(file->GetStr(), out);
+    }
+
+    void NativeFileSystem::AddPath(const std::string &path)
+    {
+        fsRoot.emplace_back(path);
     }
 
 } // namespace sky

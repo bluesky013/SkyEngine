@@ -106,7 +106,6 @@ namespace sky::vk {
         std::vector<ImagePtr> images;
         std::vector<rhi::ImageViewPtr> imageViews;
     };
-#endif
     using XRSwapChainPtr = std::shared_ptr<XRSwapChain>;
-
+#endif
 } // namespace sky::vk
