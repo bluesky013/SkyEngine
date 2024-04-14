@@ -78,7 +78,7 @@ namespace sky {
     void GameApplication::LoadConfigs()
     {
         std::string json;
-        if (!workFs->ReadString(CONFIG_PATH, json)) {
+        if (!workFs || !workFs->ReadString(CONFIG_PATH, json)) {
             LOG_W(TAG, "Load Config Failed");
             return;
         }
