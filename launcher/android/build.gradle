@@ -7,8 +7,3 @@ plugins {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
-
-task copyFiles(type: Copy) {
-    from '../../sample/RHISampleBase/assets'
-    into 'app/src/main/assets'
-}

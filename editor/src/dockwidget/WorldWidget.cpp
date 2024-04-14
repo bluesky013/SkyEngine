@@ -8,7 +8,7 @@
 #include <editor/dockwidget/DockManager.h>
 #include <editor/inspector/InspectorWidget.h>
 
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
 

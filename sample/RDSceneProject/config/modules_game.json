@@ -2,17 +2,24 @@
   "modules": [
     {
       "name": "SkyRender",
-      "dependencies": []
+      "dependencies": [
+        "ShaderCompiler"
+      ]
     },
     {
       "name": "ShaderCompiler",
       "dependencies": []
     },
     {
+      "name": "EditorModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    },
+    {
       "name": "RDSceneProject",
       "dependencies": [
-        "SkyRender",
-        "ShaderCompiler"
+        "SkyRender"
       ]
     }
   ],

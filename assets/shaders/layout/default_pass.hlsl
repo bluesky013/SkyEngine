@@ -1,11 +1,10 @@
 struct ViewInfo {
-    float4x4 ViewToWorld;
-    float4x4 ViewToClip;
-    float4x4 WorldToView;
-    float4x4 WorldToClip;
+    float4x4 World;
+    float4x4 View;
+    float4x4 Project;
+    float4x4 ViewProj;
 };
 
-#define VIEW_COUNT 1
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
     float4 Viewport;

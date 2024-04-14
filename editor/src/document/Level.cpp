@@ -3,7 +3,7 @@
 //
 
 #include <editor/document/Level.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/serialization/JsonArchive.h>
 #include <fstream>
 #include <render/Renderer.h>

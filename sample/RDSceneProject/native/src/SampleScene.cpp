@@ -16,7 +16,7 @@ namespace sky {
         auto *renderScene = sceneProxy->GetRenderScene();
         auto *ppl = new DefaultForward();
         ppl->SetOutput(window);
-        renderScene->SetPipeline(ppl);
+        Renderer::Get()->SetPipeline(ppl);
 
         world->SetRenderScene(sceneProxy.get());
         return true;

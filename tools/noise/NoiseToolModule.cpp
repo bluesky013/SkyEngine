@@ -10,7 +10,7 @@
 #include <framework/window/NativeWindow.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/world/World.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 
 #include <render/Renderer.h>

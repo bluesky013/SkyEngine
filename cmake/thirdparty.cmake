@@ -1,4 +1,4 @@
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/thirdparty)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
 
 function(sky_find_3rd)
     cmake_parse_arguments(TMP
@@ -48,24 +48,27 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET volk          DIR volk)
     sky_find_3rd(TARGET vma           DIR VulkanMemoryAllocator)
 
-    # tmp
+    # imgui
     sky_find_3rd(TARGET imgui         DIR imgui)
+    sky_find_3rd(TARGET implot        DIR implot)
+
+    # temp
+    sky_find_3rd(TARGET cxxopts       DIR cxxopts)
 
     # shader
     sky_find_3rd(TARGET glslang       DIR glslang)
     sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
-    sky_find_3rd(TARGET cxxopts       DIR cxxopts)
+    if (WIN32)
+        sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
+    endif ()
 
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
-    if (SKY_BUILD_DXC)
-        sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
+    if (SKY_USE_TRACY)
+        sky_find_3rd(TARGET tracy         DIR tracy)
+        add_definitions(-DTRACY_ENABLE)
     endif ()
-
-    if (SKY_BUILD_PERF_TOOL)
-        sky_find_3rd(TARGET implot        DIR implot)
-    endif()
 
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)
@@ -79,6 +82,10 @@ if(EXISTS ${3RD_PATH})
     if (WIN32 OR ANDROID)
         sky_find_3rd(TARGET gles          DIR gles)
     endif()
+
+    if (SKY_BUILD_XR)
+        sky_find_3rd(TARGET OpenXR        DIR OpenXR_SDK)
+    endif ()
 else()
     message(FATAL_ERROR "3rdParty folder: ${3RD_PATH} does not exist, call cmake defining a valid 3RD_PATH")
 endif()

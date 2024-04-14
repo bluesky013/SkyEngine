@@ -9,7 +9,11 @@
 #define VIEW_INFO View
 #endif
 
-VSOutput VSMain(VSInput input)
+VSOutput VSMain(VSInput input
+#if VIEW_COUNT > 1
+    , uint ViewIndex : SV_ViewID
+#endif
+)
 {
     VSOutput output = (VSOutput)0;
 
@@ -19,7 +23,11 @@ VSOutput VSMain(VSInput input)
     output.Color    = input.Color;
     output.UV       = input.UV;
 
-    output.Pos = mul(VIEW_INFO.WorldToClip, float4(output.WorldPos, 1.0));
+    output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
+
+#if VIEW_COUNT > 1
+    output.ViewIndex = input.ViewIndex;
+#endif
     return output;
 }
 
@@ -40,7 +48,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     N = normalize(mul(TBN, tNormal));
 
-    float3 viewPos = float3(VIEW_INFO.ViewToWorld[0][3], VIEW_INFO.ViewToWorld[1][3], VIEW_INFO.ViewToWorld[2][3]);
+    float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
     float3 L = -light.Direction.xyz;
     float3 V = normalize(viewPos - input.WorldPos);
 

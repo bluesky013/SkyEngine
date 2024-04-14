@@ -11,7 +11,7 @@
 #include <editor/inspector/PropertyUtil.h>
 
 #include <framework/world/Component.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 
 namespace sky::editor {
 

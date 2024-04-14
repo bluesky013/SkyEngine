@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/12/3.
 //
 
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
 #include <gtest/gtest.h>
@@ -20,7 +20,7 @@ TEST(EngineTest, GameObjectTest)
 {
     World world;
 
-    auto go = world.CreateGameObject("test");
+    auto go = world.CreateActor("test");
     ASSERT_NE(go, nullptr);
 
     auto test1 = go->AddComponent<TestComponent>();
@@ -32,20 +32,20 @@ TEST(EngineTest, TransformComponentTest)
 {
     World world;
 
-    auto go1 = world.CreateGameObject("t1");
+    auto go1 = world.CreateActor("t1");
     auto t1  = go1->GetComponent<TransformComponent>();
 
-    auto go2 = world.CreateGameObject("t2");
+    auto go2 = world.CreateActor("t2");
     auto t2  = go2->GetComponent<TransformComponent>();
     t2->SetParent(t1);
     ASSERT_EQ(t2->GetParent(), t1);
 
-    auto go3 = world.CreateGameObject("t3");
+    auto go3 = world.CreateActor("t3");
     auto t3  = go3->GetComponent<TransformComponent>();
     t3->SetParent(t1);
     ASSERT_EQ(t3->GetParent(), t1);
 
-    auto go4 = world.CreateGameObject("t4");
+    auto go4 = world.CreateActor("t4");
     auto t4  = go4->GetComponent<TransformComponent>();
     t4->SetParent(t2);
     ASSERT_EQ(t4->GetParent(), t2);
@@ -61,7 +61,7 @@ TEST(EngineTest, TransformComponentTest)
     ASSERT_EQ(t3->GetParent(), t2);
     ASSERT_EQ(t2->GetParent(), t1);
 
-    ASSERT_EQ(world.GetGameObjects().size(), size_t(5));
+    ASSERT_EQ(world.GetActors().size(), size_t(5));
 }
 
 struct TestSystem : public IComponentListener {
@@ -74,11 +74,11 @@ struct TestSystem : public IComponentListener {
     {
         ComponentFactory::Get()->UnRegisterListener(this);
     }
-    void OnAddComponent(GameObject *go, Component *comp)
+    void OnAddComponent(Actor *go, Component *comp)
     {
         p += 10;
     }
-    void OnRemoveComponent(GameObject *go, Component *comp)
+    void OnRemoveComponent(Actor *go, Component *comp)
     {
         p += 20;
     }
@@ -91,7 +91,7 @@ TEST(EngineTest, ListenerTest)
     TestSystem system(val);
 
 //    World world;
-//    auto  go = world.CreateGameObject("test");
+//    auto  go = world.CreateActor("test");
 
 //    go->AddComponent<TestComponent>();
 //    ASSERT_EQ(val, 10);
@@ -110,7 +110,7 @@ TEST(EngineTest, TransformComponentWorldLocalTest)
 {
     World world;
 
-    auto go1 = world.CreateGameObject("t1");
+    auto go1 = world.CreateActor("t1");
     auto t1  = go1->GetComponent<TransformComponent>();
     t1->SetWorldTranslation(Vector3{1.f, 0.f, 0.f});
     {
@@ -124,7 +124,7 @@ TEST(EngineTest, TransformComponentWorldLocalTest)
         ASSERT_FLOAT_EQ(world.translation.z, 0.f);
     }
 
-    auto go2 = world.CreateGameObject("t2");
+    auto go2 = world.CreateActor("t2");
     auto t2  = go2->GetComponent<TransformComponent>();
     t2->SetWorldTranslation(Vector3{2.f, 0.f, 0.f});
     {
