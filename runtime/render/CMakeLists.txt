@@ -3,7 +3,7 @@ add_subdirectory(shader)
 add_subdirectory(core)
 add_subdirectory(adaptor)
 add_subdirectory(imgui)
-if ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows"))
+if ((SKY_BUILD_TOOL) AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")))
     add_subdirectory(builder)
 endif ()
 

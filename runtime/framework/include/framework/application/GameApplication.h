@@ -31,9 +31,7 @@ namespace sky {
         uint32_t width = 1024;
         uint32_t height = 1024;
 
-#ifdef SKY_EDITOR
         FileSystemPtr workFs;
-#endif
     };
 
 }
