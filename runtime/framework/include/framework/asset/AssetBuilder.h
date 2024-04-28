@@ -5,7 +5,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <core/type/Any.h>
 #include <core/util/Uuid.h>
 #include <core/platform/Platform.h>
 #include <framework/asset/Asset.h>

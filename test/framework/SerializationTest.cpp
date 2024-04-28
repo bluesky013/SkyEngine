@@ -50,23 +50,13 @@ TEST(SerializationTest, TypeTest)
     auto testReflect = context->FindType("TestReflect");
     ASSERT_NE(testReflect, nullptr);
     ASSERT_EQ(testReflect->members.size(), 7);
-    LOG_I(TAG, "name %s", testReflect->info->markedName.data());
 
     auto testMember = context->FindType("TestMember");
     ASSERT_NE(testMember, nullptr);
     ASSERT_EQ(testMember->members.size(), 2);
-    LOG_I(TAG, "name %s", testMember->info->markedName.data());
-
-    for (auto &member : testReflect->members) {
-        auto &memberNode = member.second;
-        LOG_I(TAG, "name %s, type %s, isFundamental %u, isStatic %u, isConst %u", member.first.data(), memberNode.info->markedName.data(),
-              memberNode.info->isFundamental, memberNode.isStatic, memberNode.isConst);
-    }
-
-    LOG_I(TAG, "%u, %u, %u, %u", std::is_trivial_v<TestMember>, std::is_trivial_v<TestReflect>, std::is_trivial_v<int>, std::is_trivial_v<int *>);
 
     TestReflect v = {};
-    uint32_t typeId = TypeInfo<TestReflect>::Hash();
+    auto typeId = TypeInfo<TestReflect>::RegisteredId();
     uint32_t *ptr = nullptr;
     ASSERT_EQ(SetValue(v, "a", 5u), true);
     ASSERT_EQ(SetValue(v, "b", 6.f), true);
@@ -78,17 +68,12 @@ TEST(SerializationTest, TypeTest)
     ASSERT_EQ(v.b, 6.f);
     ASSERT_EQ(v.c, nullptr);
 
-   void *va = GetValue(reinterpret_cast<void*>(&v), typeId, "a");
-   ASSERT_NE(va, nullptr);
-   ASSERT_EQ(*static_cast<uint32_t*>(va), 5U);
+   ASSERT_EQ(*GetValue(reinterpret_cast<void*>(&v), typeId, "a").GetAs<uint32_t>(), 5U);
+   ASSERT_EQ(*GetValue(reinterpret_cast<void*>(&v), typeId, "b").GetAs<float>(), 6.f);
 
-   void *vb = GetValue(reinterpret_cast<void*>(&v), typeId, "b");
-   ASSERT_NE(vb, nullptr);
-   ASSERT_EQ(*static_cast<float*>(vb), 6.f);
-
-   void *vc = GetValue(reinterpret_cast<void*>(&v), typeId, "c");
+   uint32_t **vc = GetValue(reinterpret_cast<void*>(&v), typeId, "c").GetAs<uint32_t*>();
    ASSERT_NE(vc, nullptr);
-   ASSERT_EQ(*static_cast<uint32_t**>(vc), nullptr);
+   ASSERT_EQ(*vc, nullptr);
 }
 
 struct Ctor1 {
@@ -114,7 +99,7 @@ struct Ctor2 {
 
 TEST(SerializationTest, ConstructorTest)
 {
-    auto context = SerializationContext::Get();
+    auto *context = SerializationContext::Get();
 
     context->Register<Ctor1>("Ctor1")
         .Member<&Ctor1::a>("a")
@@ -141,7 +126,7 @@ TEST(SerializationTest, ConstructorTest)
     }
 
     {
-        Any    any1 = MakeAny(TypeInfo<Ctor1>::Hash(), 1, 2.f, 3.0, true);
+        Any    any1 = MakeAny(TypeInfo<Ctor1>::RegisteredId(), 1, 2.f, 3.0, true);
         Ctor1 *ptr  = any1.GetAs<Ctor1>();
         ASSERT_NE(ptr, nullptr);
         ASSERT_EQ(ptr->a, 1);
@@ -151,7 +136,7 @@ TEST(SerializationTest, ConstructorTest)
     }
 
     {
-        Any    any1 = MakeAny(TypeInfo<Ctor1>::Hash(), 1, 2.f, 3.0, 4.0);
+        Any    any1 = MakeAny(TypeInfo<Ctor1>::RegisteredId(), 1, 2.f, 3.0, 4.0);
         ASSERT_EQ(!any1, true);
     }
 
@@ -167,6 +152,93 @@ TEST(SerializationTest, ConstructorTest)
         ASSERT_EQ(ptr->d.b, 2.0f);
         ASSERT_EQ(ptr->d.c, 3.0);
         ASSERT_EQ(ptr->d.d, true);
+    }
+}
+
+struct GetterSetterTestData {
+    int a;
+    float b;
+    std::string c;
+    double d;
+};
+
+class GetterSetterTestController {
+public:
+    explicit GetterSetterTestController(GetterSetterTestData &dt) : data(dt) {}
+    ~GetterSetterTestController() = default;
+
+    using MY_CLASS = GetterSetterTestController;
+    static void Reflect(SerializationContext* context)
+    {
+        REGISTER_BEGIN(GetterSetterTestController, context)
+            REGISTER_MEMBER(a, SetA, GetA)
+            REGISTER_MEMBER(b, SetB, GetB)
+            REGISTER_MEMBER(c, SetC, GetC)
+            REGISTER_MEMBER(d, SetD, GetD);
+    }
+
+
+    void SetA(const int &v) { data.a = v; }
+    const int &GetA() const { return data.a; }
+
+    void SetB(const float &v) { data.b = v; }
+    const float &GetB() const { return data.b; }
+
+    void SetC(const std::string &name) { data.c = name; }
+    const std::string &GetC() const { return data.c; }
+
+    void SetD(const double &v) { data.d = v; }
+    double GetD() const { return data.d; }
+
+private:
+    GetterSetterTestData &data;
+};
+
+TEST(SerializationTest, GetterSetterTest)
+{
+    auto *context = SerializationContext::Get();
+    GetterSetterTestController::Reflect(context);
+
+    {
+        GetterSetterTestData data { 1, 2.f };
+        GetterSetterTestController controller(data);
+
+        SetValue(controller, "a", 2);
+        SetValue(controller, "b", 3.f);
+        SetValue(controller, "c", std::string("test"));
+        SetValue(controller, "d", 4.0);
+        ASSERT_EQ(data.a, 2);
+        ASSERT_EQ(data.b, 3.f);
+        ASSERT_EQ(data.c, "test");
+        ASSERT_EQ(data.d, 4.0);
+
+        int a = *GetValueConst(controller, "a").GetAsConst<int>();
+        float b = *GetValueConst(controller, "b").GetAsConst<float>();
+
+        ASSERT_EQ(a, 2);
+        ASSERT_EQ(b, 3.f);
+
+        {
+            std::ofstream stream("GetterSetterTest.json");
+            JsonOutputArchive archive(stream);
+
+            archive.SaveValueObject(controller);
+        }
+
+        {
+            std::ifstream stream("GetterSetterTest.json");
+            JsonInputArchive archive(stream);
+
+            GetterSetterTestData data2 {};
+            GetterSetterTestController controller2(data2);
+
+            archive.LoadValueObject(controller2);
+
+            ASSERT_EQ(data2.a, 2);
+            ASSERT_EQ(data2.b, 3.f);
+            ASSERT_EQ(data2.c, "test");
+            ASSERT_EQ(data2.d, 4.0);
+        }
     }
 }
 
@@ -345,7 +417,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
         JsonOutputArchive archive(file);
 
         TestSerFunc &f = test;
-        archive.SaveValueObject(&f, TypeInfo<TestSerFunc>::Hash());
+        archive.SaveValueObject(&f, TypeInfo<TestSerFunc>::RegisteredId());
     }
 
     {
@@ -354,9 +426,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
         JsonInputArchive archive(file);
 
         TestSerFunc &f = test;
-        archive.LoadValueById(&f, TypeInfo<TestSerFunc>::Hash());
-
-        std::cout << test.a << std::endl;
+        archive.LoadValueById(&f, TypeInfo<TestSerFunc>::RegisteredId());
     }
 }
 
@@ -444,7 +514,7 @@ TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
         TestBinArchive test = {{1, 2.f}, {3, 4.0}};
         std::ofstream file("binary-class-test.bin", std::ios::binary);
         BinaryOutputArchive archive(file);
-        archive.SaveObject(&test, TypeInfo<TestBinArchive>::Hash());
+        archive.SaveObject(&test, TypeInfo<TestBinArchive>::RegisteredId());
     }
 
     {
@@ -452,7 +522,7 @@ TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
         BinaryInputArchive archive(file);
 
         TestBinArchive test = {};
-        archive.LoadObject(&test, TypeInfo<TestBinArchive>::Hash());
+        archive.LoadObject(&test, TypeInfo<TestBinArchive>::RegisteredId());
 
         ASSERT_EQ(test.b1.a, 1);
         ASSERT_EQ(test.b1.b, 2.f);

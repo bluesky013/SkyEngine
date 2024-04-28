@@ -12,18 +12,20 @@
 
 namespace sky {
 
-    void MeshRenderer::Reflect()
+    MeshRenderer::~MeshRenderer()
     {
-        SerializationContext::Get()
-            ->Register<MeshRenderer>(NAME)
+        ShutDown();
+    }
+
+    void MeshRenderer::Reflect(SerializationContext *context)
+    {
+        context->Register<MeshRenderer>("MeshRenderer")
             .Member<&MeshRenderer::isStatic>("static")
             .Member<&MeshRenderer::castShadow>("castShadow")
             .Member<&MeshRenderer::receiveShadow>("receiveShadow");
-
-        ComponentFactory::Get()->RegisterComponent<MeshRenderer>();
     }
 
-    void MeshRenderer::Save(JsonOutputArchive &ar) const
+    void MeshRenderer::SaveJson(JsonOutputArchive &ar) const
     {
         ar.StartObject();
         ar.SaveValueObject(std::string("static"), isStatic);
@@ -33,14 +35,14 @@ namespace sky {
         ar.EndObject();
     }
 
-    void MeshRenderer::Load(JsonInputArchive &ar)
+    void MeshRenderer::LoadJson(JsonInputArchive &ar)
     {
         ar.LoadKeyValue("static", isStatic);
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
-//        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
+        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
         ResetMesh();
     }
 
@@ -60,26 +62,34 @@ namespace sky {
     void MeshRenderer::ResetMesh()
     {
         if (renderer == nullptr) {
-            auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(GetRenderSceneFromGameObject(object));
+            auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
             renderer = mf->CreateStaticMesh();
         }
         renderer->SetMesh(meshInstance);
+    }
+
+    void MeshRenderer::ShutDown()
+    {
+        if (renderer != nullptr) {
+            GetFeatureProcessor<MeshFeatureProcessor>(actor)->RemoveStaticMesh(renderer);
+            renderer = nullptr;
+        }
     }
 
     void MeshRenderer::OnActive()
     {
     }
 
-    void MeshRenderer::OnDestroy()
+    void MeshRenderer::OnDeActive()
     {
-        GetFeatureProcessor<MeshFeatureProcessor>(GetRenderSceneFromGameObject(object))->RemoveStaticMesh(renderer);
+        ShutDown();
     }
 
-    void MeshRenderer::OnTick(float time)
+    void MeshRenderer::Tick(float time)
     {
         if (renderer != nullptr) {
-            auto *ts = object->GetComponent<TransformComponent>();
-            renderer->UpdateTransform(ts->GetWorld().ToMatrix());
+            auto *ts = actor->GetComponent<TransformComponent>();
+            renderer->UpdateTransform(ts->GetWorldMatrix());
         }
     }
 } // namespace sky

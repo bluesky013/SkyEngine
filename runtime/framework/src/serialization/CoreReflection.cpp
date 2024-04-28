@@ -48,25 +48,22 @@ namespace sky {
     void JsonSaveQuat(const Quaternion &val, JsonOutputArchive &ar) { SaveN<4>(val.v, ar); }
 
 
-    void CoreReflection()
+    void CoreReflection(SerializationContext *context)
     {
-        SerializationContext::Get()
-            ->Register<Vector2>("Vector2")
+        context->Register<Vector2>("Vector2")
             .Member<&Vector2::x>("x")
             .Member<&Vector2::y>("y")
             .JsonSave<&JsonSaveVec2>()
             .JsonLoad<&JsonLoadVec2>();
 
-        SerializationContext::Get()
-            ->Register<Vector3>("Vector3")
+        context->Register<Vector3>("Vector3")
             .Member<&Vector3::x>("x")
             .Member<&Vector3::y>("y")
             .Member<&Vector3::z>("z")
             .JsonSave<&JsonSaveVec3>()
             .JsonLoad<&JsonLoadVec3>();
 
-        SerializationContext::Get()
-            ->Register<Vector4>("Vector4")
+        context->Register<Vector4>("Vector4")
             .Member<&Vector4::x>("x")
             .Member<&Vector4::y>("y")
             .Member<&Vector4::z>("z")
@@ -74,8 +71,7 @@ namespace sky {
             .JsonSave<&JsonSaveVec4>()
             .JsonLoad<&JsonLoadVec4>();
 
-        SerializationContext::Get()
-            ->Register<Quaternion>("Quaternion")
+        context->Register<Quaternion>("Quaternion")
             .Member<&Quaternion::x>("x")
             .Member<&Quaternion::y>("y")
             .Member<&Quaternion::z>("z")
@@ -83,14 +79,12 @@ namespace sky {
             .JsonSave<&JsonSaveQuat>()
             .JsonLoad<&JsonLoadQuat>();
 
-        SerializationContext::Get()
-            ->Register<Transform>("Transform")
+        context->Register<Transform>("Transform")
             .Member<&Transform::translation>("translation")
             .Member<&Transform::scale>("scale")
             .Member<&Transform::rotation>("rotation");
 
-        SerializationContext::Get()
-            ->Register<Color>("Color")
+        context->Register<Color>("Color")
             .Member<&Color::r>("r")
             .Member<&Color::g>("g")
             .Member<&Color::b>("b")

@@ -7,65 +7,81 @@
 #include <core/util/Uuid.h>
 #include <core/math/Rect.h>
 #include <core/std/Container.h>
+#include <core/event/Event.h>
+#include <framework/world/Entity.h>
+#include <framework/world/Actor.h>
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/BinaryArchive.h>
+
 #include <string>
+#include <vector>
 #include <functional>
+
 
 namespace sky {
 
     class World;
 
-    class IRenderScene;
+    class IWorldEvent {
+    public:
+        IWorldEvent() = default;
+        ~IWorldEvent() = default;
 
-    class Actor;
+        using KeyType   = void;
+        using MutexType = void;
 
-    class JsonOutputArchive;
+        virtual void OnCreateWorld(World& world) = 0;
+        virtual void OnDestroyWorld(World& world) = 0;
+    };
+    using WorldEvent = Event<IWorldEvent>;
 
-    class JsonInputArchive;
+    class WorldSubSystem {
+    public:
+        WorldSubSystem() = default;
+        virtual ~WorldSubSystem() = default;
+
+        virtual void OnTick(float time) = 0;
+    };
+
+    class IWorldSubSystem {
+    public:
+        IWorldSubSystem() = default;
+        virtual ~IWorldSubSystem() = default;
+    };
 
     class World {
     public:
-        World();
-
+        World() = default;
         ~World();
-
         World(const World &) = delete;
-
         World &operator=(const World &) = delete;
 
-        static void Reflect();
+        static void Reflect(SerializationContext *context);
 
-        void SetRenderScene(IRenderScene *scn) { renderScene = scn; }
+        bool Init();
+        void Shutdown();
+        void Tick(float time);
 
-        IRenderScene *GetRenderScene() const { return renderScene; }
+        void SaveJson(JsonOutputArchive &archive);
+        void LoadJson(JsonInputArchive &archive);
 
-        Actor *CreateActor(const std::string &name);
+        void SaveBinary(BinaryOutputArchive &archive);
+        void LoadBinary(BinaryInputArchive &archive);
 
-        Actor *CreateActor(const std::string &name, const Uuid &uuid);
-
+        Actor* CreateActor();
+        Actor* CreateActor(const std::string &name);
+        Actor* CreateActor(const Uuid &id);
+        Actor* GetActorByUuid(const Uuid &id);
         void DestroyActor(Actor *);
+        void Reset();
 
-        void Tick(float);
-
-        const PmrVector<Actor *> &GetActors() const;
-
-        Actor *GetActorByUuid(const Uuid &id) const;
-
-        Actor *GetRoot();
-
-        void ForEachBFS(Actor *go, std::function<void(Actor *)> &&fn) const;
-
-        void Save(JsonOutputArchive &ar) const;
-
-        void Load(JsonInputArchive &ar);
+        void AddSubSystem(const std::string &name, IWorldSubSystem*);
+        IWorldSubSystem* GetSubSystem(const std::string &name) const;
 
     private:
-        Actor *AllocateGameObject();
-
-        Actor *root;
-        IRenderScene *renderScene;
-        PmrUnSyncPoolRes memoryResource;
-        PmrVector<Actor *> actors;
-        PmrHashMap<Uuid, Actor *> objectLut;
+        using ActorPtr = std::unique_ptr<Actor>;
+        std::vector<ActorPtr> actors;
+        std::unordered_map<std::string, IWorldSubSystem*> subSystems;
     };
 
     using WorldPtr = std::shared_ptr<World>;

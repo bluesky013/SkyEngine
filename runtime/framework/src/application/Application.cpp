@@ -16,7 +16,8 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/database/DBManager.h>
 #include <framework/platform/PlatformBase.h>
-#include <framework/serialization/CoreReflection.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/world/World.h>
 
 static const char *TAG = "Application";
 
@@ -58,7 +59,8 @@ namespace sky {
         DBManager::Get()->Init();
         Interface<ISystemNotify>::Get()->Register(*this);
 
-        CoreReflection();
+        auto *context = SerializationContext::Get();
+        World::Reflect(context);
 
         PreInit();
 

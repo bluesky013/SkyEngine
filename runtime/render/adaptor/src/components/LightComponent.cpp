@@ -4,27 +4,23 @@
 
 #include <render/adaptor/components/LightComponent.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/serialization/PropertyCommon.h>
 
 namespace sky {
 
-    void LightComponent::Reflect()
+    void LightComponent::Reflect(SerializationContext *context)
     {
-        SerializationContext::Get()
-            ->Register<LightComponent>(NAME)
+        context->Register<LightComponent>("LightComponent")
             .Member<&LightComponent::lightColor>("lightColor");
-
-        ComponentFactory::Get()->RegisterComponent<LightComponent>();
     }
 
-    void LightComponent::Save(JsonOutputArchive &ar) const
+    void LightComponent::SaveJson(JsonOutputArchive &ar) const
     {
         ar.StartObject();
         ar.SaveValueObject(std::string("lightColor"), lightColor);
         ar.EndObject();
     }
 
-    void LightComponent::Load(JsonInputArchive &ar)
+    void LightComponent::LoadJson(JsonInputArchive &ar)
     {
         ar.LoadKeyValue("lightColor", lightColor);
     }

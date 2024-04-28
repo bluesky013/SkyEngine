@@ -54,7 +54,6 @@ namespace sky {
     template <typename T>
     struct AssetTraits {
         using DataType = std::vector<uint8_t>;
-        static constexpr Uuid          ASSET_TYPE;
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
 
         static std::shared_ptr<T> CreateFromData(const DataType &data)
@@ -161,7 +160,7 @@ namespace sky {
                 JsonInputArchive archive(file);
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryInputArchive archive(file);
-                archive.LoadObject(&assetData, TypeInfo<DataType>::Hash());
+                archive.LoadObject(&assetData, TypeInfo<DataType>::RegisteredId());
             }
         }
 
@@ -175,10 +174,10 @@ namespace sky {
             }
             if (SERIALIZE_TYPE == SerializeType::JSON) {
                 JsonOutputArchive archive(file);
-                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::Hash());
+                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryOutputArchive archive(file);
-                archive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::Hash());
+                archive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             }
         }
     };

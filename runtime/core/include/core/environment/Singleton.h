@@ -13,7 +13,7 @@ namespace sky {
     template <typename T>
     class Singleton {
     public:
-        static constexpr uint32_t         ID   = TypeInfo<T>::Hash();
+        static constexpr uint32_t ID = RuntimeTypeId<T>();
 
         static T *Get()
         {

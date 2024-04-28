@@ -41,7 +41,7 @@ namespace sky {
         template <typename T>
         inline T &Component(uint32_t index)
         {
-            const auto &[offset, stride] = perParticleIndexMap.at(TypeInfo<T>::Hash());
+            const auto &[offset, stride] = perParticleIndexMap.at(RuntimeTypeId<T>());
             T *val = reinterpret_cast<T*>(storages[offset].data());
             return val[entities[index]];
         }

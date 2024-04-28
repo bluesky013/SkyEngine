@@ -8,16 +8,19 @@
 
 namespace sky {
 
-    class SimpleRotateComponent : public Component {
+    class SimpleRotateComponent : public ComponentBase {
     public:
         SimpleRotateComponent() = default;
         ~SimpleRotateComponent() override = default;
 
-        TYPE_RTTI_WITH_VT(SimpleRotateComponent)
-
-        void OnTick(float time) override
+        static void Reflect(SerializationContext *context)
         {
-            auto *ts = object->GetComponent<TransformComponent>();
+            context->Register<SimpleRotateComponent>("SimpleRotateComponent");
+        }
+
+        void Tick(float time) override
+        {
+            auto *ts = actor->GetComponent<TransformComponent>();
             ts->SetLocalRotation(Quaternion(angle, axis) * Quaternion(90 / 180.f * 3.14f, VEC3_X));
             angle += 0.5f * time;
         }

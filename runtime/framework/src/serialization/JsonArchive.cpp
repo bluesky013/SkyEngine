@@ -10,34 +10,34 @@ namespace sky {
 
     void JsonOutputArchive::SaveValueObject(const Any &any)
     {
-        SaveValueObject(any.Data(), any.Info()->typeId);
+        SaveValueObject(any.Data(), any.Info()->registeredId);
     }
 
-    void JsonOutputArchive::SaveValueObject(const void *ptr, uint32_t typeId)
+    void JsonOutputArchive::SaveValueObject(const void *ptr, const Uuid &typeId)
     {
-        if (typeId == TypeInfo<bool>::Hash()) {
+        if (typeId == TypeInfo<bool>::RegisteredId()) {
             SaveValue(*static_cast<const bool*>(ptr));
-        } else if (typeId == TypeInfo<uint64_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint64_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint64_t *>(ptr));
-        } else if (typeId == TypeInfo<uint32_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint32_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint32_t *>(ptr));
-        } else if (typeId == TypeInfo<uint16_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint16_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint16_t *>(ptr));
-        } else if (typeId == TypeInfo<uint8_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint8_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint8_t *>(ptr));
-        } else if (typeId == TypeInfo<int64_t>::Hash()) {
+        } else if (typeId == TypeInfo<int64_t>::RegisteredId()) {
             SaveValue(*static_cast<const int64_t *>(ptr));
-        } else if (typeId == TypeInfo<int32_t>::Hash()) {
+        } else if (typeId == TypeInfo<int32_t>::RegisteredId()) {
             SaveValue(*static_cast<const int32_t *>(ptr));
-        } else if (typeId == TypeInfo<int16_t>::Hash()) {
+        } else if (typeId == TypeInfo<int16_t>::RegisteredId()) {
             SaveValue(*static_cast<const int16_t *>(ptr));
-        } else if (typeId == TypeInfo<int8_t>::Hash()) {
+        } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             SaveValue(*static_cast<const int8_t *>(ptr));
-        } else if (typeId == TypeInfo<float>::Hash()) {
+        } else if (typeId == TypeInfo<float>::RegisteredId()) {
             SaveValue(*static_cast<const float *>(ptr));
-        } else if (typeId == TypeInfo<double>::Hash()) {
+        } else if (typeId == TypeInfo<double>::RegisteredId()) {
             SaveValue(*static_cast<const double *>(ptr));
-        } else if (typeId == TypeInfo<std::string>::Hash()) {
+        } else if (typeId == TypeInfo<std::string>::RegisteredId()) {
             SaveValue(*static_cast<const std::string *>(ptr));
         } else {
             auto *context = SerializationContext::Get();
@@ -53,52 +53,52 @@ namespace sky {
 
             StartObject();
             Key("classId");
-            SaveValue(typeId);
+            SaveValue(typeId.ToString());
 
             Key("elements");
             StartObject();
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
                 Key(memberName.c_str());
-                auto memberValue = GetValueConst(ptr, typeId, memberName);
-                SaveValueObject(memberValue, member.second.info->typeId);
+                Any value = GetValueConst(ptr, typeId, memberName);
+                SaveValueObject(value.Data(), member.second.info->registeredId);
             }
             EndObject();
             EndObject();
         }
     }
 
-    void JsonInputArchive::LoadValueById(void *ptr, uint32_t typeId)
+    void JsonInputArchive::LoadValueById(void *ptr, const Uuid &typeId)
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
 
-        if (typeId == TypeInfo<bool>::Hash()) {
+        if (typeId == TypeInfo<bool>::RegisteredId()) {
             *static_cast<bool *>(ptr) = static_cast<bool>(value->GetBool());
-        } else if (typeId == TypeInfo<uint64_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint64_t>::RegisteredId()) {
             *static_cast<uint64_t *>(ptr) = static_cast<uint64_t>(value->GetUint64());
-        } else if (typeId == TypeInfo<uint32_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint32_t>::RegisteredId()) {
             *static_cast<uint32_t *>(ptr) = static_cast<uint32_t>(value->GetUint());
-        } else if (typeId == TypeInfo<uint16_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint16_t>::RegisteredId()) {
             *static_cast<uint16_t *>(ptr) = static_cast<uint16_t>(value->GetUint());
-        } else if (typeId == TypeInfo<uint8_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint8_t>::RegisteredId()) {
             *static_cast<uint8_t *>(ptr) = static_cast<uint8_t>(value->GetUint());
-        } else if (typeId == TypeInfo<int64_t>::Hash()) {
+        } else if (typeId == TypeInfo<int64_t>::RegisteredId()) {
             *static_cast<int64_t *>(ptr) = static_cast<int64_t>(value->GetInt64());
-        } else if (typeId == TypeInfo<int32_t>::Hash()) {
+        } else if (typeId == TypeInfo<int32_t>::RegisteredId()) {
             *static_cast<int32_t *>(ptr) = static_cast<int32_t>(value->GetInt());
-        } else if (typeId == TypeInfo<int16_t>::Hash()) {
+        } else if (typeId == TypeInfo<int16_t>::RegisteredId()) {
             *static_cast<int16_t *>(ptr) = static_cast<int16_t>(value->GetInt());
-        } else if (typeId == TypeInfo<int8_t>::Hash()) {
+        } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             *static_cast<int8_t *>(ptr) = static_cast<int8_t>(value->GetInt());
-        } else if (typeId == TypeInfo<float>::Hash()) {
+        } else if (typeId == TypeInfo<float>::RegisteredId()) {
             *static_cast<float *>(ptr) = static_cast<float>(value->GetDouble());
-        } else if (typeId == TypeInfo<double>::Hash()) {
+        } else if (typeId == TypeInfo<double>::RegisteredId()) {
             *static_cast<double *>(ptr) = static_cast<double>(value->GetDouble());
-        } else if (typeId == TypeInfo<std::string>::Hash()) {
+        } else if (typeId == TypeInfo<std::string>::RegisteredId()) {
             *static_cast<std::string *>(ptr) = std::string(value->GetString());
         } else {
-            auto node = GetTypeNode(typeId);
+            const auto *node = GetTypeNode(typeId);
             SKY_ASSERT(node != nullptr && "type not registered");
             if (node == nullptr) {
                 return;
@@ -110,16 +110,22 @@ namespace sky {
             }
             SKY_ASSERT(value != nullptr && value->IsObject());
             SKY_ASSERT(Start("classId"));
-            uint32_t id = LoadUint();
-            SKY_ASSERT(id == typeId);
+            auto id = Uuid::CreateFromString(LoadString());
             End();
+            SKY_ASSERT(id == typeId);
 
             SKY_ASSERT(Start("elements"));
-            for (auto &member : node->members) {
+            for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
-                SKY_ASSERT(Start(memberName));
-                auto *memberAddress = GetValue(ptr, typeId, memberName);
-                LoadValueById(memberAddress, member.second.info->typeId);
+                auto *memberNode = GetTypeMember(memberName, typeId);
+                if (memberNode == nullptr) {
+                    continue;
+                }
+
+                SKY_ASSERT(Start(memberName))
+                Any any = GetValueConst(ptr, typeId, memberName);
+                LoadValueById(any.Data(), member.second.info->registeredId);
+                SetValueRawData(ptr, typeId, memberName, any.Data());
                 End();
             }
 
@@ -127,7 +133,7 @@ namespace sky {
         }
     }
 
-    Any JsonInputArchive::LoadValueById(uint32_t typeId)
+    Any JsonInputArchive::LoadValueById(const Uuid &typeId)
     {
         auto res = MakeAny(typeId);
         LoadValueById(res.Data(), typeId);
@@ -137,7 +143,7 @@ namespace sky {
     bool JsonInputArchive::LoadBool()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsBool());
         return value->GetBool();
     }
@@ -145,7 +151,7 @@ namespace sky {
     int32_t JsonInputArchive::LoadInt()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsInt());
 
         return value->GetInt();
@@ -154,7 +160,7 @@ namespace sky {
     uint32_t JsonInputArchive::LoadUint()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsUint());
 
         return value->GetUint();
@@ -163,7 +169,7 @@ namespace sky {
     int64_t JsonInputArchive::LoadInt64()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsInt64());
 
         return value->GetInt64();
@@ -172,7 +178,7 @@ namespace sky {
     uint64_t JsonInputArchive::LoadUint64()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsUint64());
 
         return value->GetUint64();
@@ -181,7 +187,7 @@ namespace sky {
     double JsonInputArchive::LoadDouble()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsDouble());
 
         return value->GetDouble();
@@ -190,7 +196,7 @@ namespace sky {
     std::string JsonInputArchive::LoadString()
     {
         SKY_ASSERT(!stack.empty());
-        auto value = stack.back();
+        const auto *value = stack.back();
         SKY_ASSERT(value != nullptr && value->IsString());
 
         return value->GetString();

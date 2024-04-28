@@ -9,17 +9,15 @@
 
 namespace sky {
 
-    class LightComponent : public Component {
+    class LightComponent : public ComponentBase {
     public:
         LightComponent() = default;
         ~LightComponent() override = default;
 
-        TYPE_RTTI_WITH_VT(LightComponent)
+        static void Reflect(SerializationContext *context);
 
-        static void Reflect();
-
-        void Save(JsonOutputArchive &ar) const override;
-        void Load(JsonInputArchive &ar) override;
+        void SaveJson(JsonOutputArchive &ar) const override;
+        void LoadJson(JsonInputArchive &ar) override;
 
     private:
         Color lightColor;

@@ -13,12 +13,10 @@
 
 namespace sky {
 
-    class SimpleGeometryComponent : public Component {
+    class SimpleGeometryComponent : public ComponentBase {
     public:
         SimpleGeometryComponent() = default;
         ~SimpleGeometryComponent() override = default;
-
-        TYPE_RTTI_WITH_VT(SimpleGeometryComponent);
 
         void OnActive() override
         {
@@ -27,14 +25,14 @@ namespace sky {
             geometry->DrawAABB(AABB{{-1.f, -1.f, -1.f}, {1.f, 1.f, 1.f}});
             geometry->Upload();
 
-            auto *scene = GetRenderSceneFromGameObject(object);
+            auto *scene = GetRenderSceneFromActor(actor);
             scene->AddPrimitive(geometry->GetPrimitive());
         }
 
-        void OnTick(float time) override
+        void Tick(float time) override
         {
-            auto *ts = object->GetComponent<TransformComponent>();
-            geometry->UpdateTransform(ts->GetWorld().ToMatrix());
+            auto *ts = actor->GetComponent<TransformComponent>();
+            geometry->UpdateTransform(ts->GetWorldMatrix());
         }
 
     protected:

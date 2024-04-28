@@ -20,10 +20,7 @@ namespace sky::editor {
         void Execute(ImContext &context) override;
         void OnToggle(bool val) override { show = val; }
 
-        void Traverse(Actor *actor);
-
         bool show = false;
-
         WorldPtr world;
     };
 

@@ -18,14 +18,14 @@ namespace sky {
         ppl->SetOutput(window);
         Renderer::Get()->SetPipeline(ppl);
 
-        world->SetRenderScene(sceneProxy.get());
+        world->AddSubSystem("RenderScene", sceneProxy.get());
         return true;
     }
 
     void SampleScene::Shutdown()
     {
-        sceneProxy = nullptr;
         world = nullptr;
+        sceneProxy = nullptr;
     }
 
     void SampleScene::Tick(float time)

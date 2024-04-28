@@ -6,27 +6,27 @@
 
 namespace sky {
 
-    void *GetValue(void *ptr, uint32_t typeId, const std::string &memberName)
+    Any GetValue(void *ptr, const Uuid &typeId, const std::string &memberName)
     {
-        auto node = GetTypeMember(memberName, typeId);
+        auto *node = GetTypeMember(memberName, typeId);
         if (node != nullptr && node->getterFn != nullptr) {
             return node->getterFn(const_cast<void*>(ptr));
         }
-        return nullptr;
+        return Any{};
     }
 
-    const void*GetValueConst(const void *ptr, uint32_t typeId, const std::string &memberName)
+    Any GetValueConst(const void *ptr, const Uuid &typeId, const std::string &memberName)
     {
-        auto node = GetTypeMember(memberName, typeId);
-        if (node != nullptr && node->getterFn != nullptr) {
+        auto *node = GetTypeMember(memberName, typeId);
+        if (node != nullptr && node->getterConstFn != nullptr) {
             return node->getterConstFn(const_cast<const void*>(ptr));
         }
-        return nullptr;
+        return Any{};
     }
 
-    bool SetValue(void* ptr, uint32_t typeId, const std::string &memberName, const void* data)
+    bool SetValueRawData(void* ptr, const Uuid &typeId, const std::string &memberName, const void* data)
     {
-        auto node = GetTypeMember(memberName, typeId);
+        auto *node = GetTypeMember(memberName, typeId);
         if (node != nullptr && node->setterFn != nullptr) {
             return node->setterFn(ptr, data);
         }

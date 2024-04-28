@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <framework/interface/IRenderScene.h>
+#include <framework/world/World.h>
 #include <render/RenderScene.h>
 
 namespace sky {
 
-    class RenderSceneProxy : public IRenderScene {
+    class RenderSceneProxy : public IWorldSubSystem {
     public:
         RenderSceneProxy();
         ~RenderSceneProxy() override;

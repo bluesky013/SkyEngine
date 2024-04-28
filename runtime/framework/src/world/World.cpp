@@ -2,10 +2,8 @@
 // Created by Zach Lee on 2021/11/13.
 //
 
-#include <framework/world/Actor.h>
-#include <framework/world/TransformComponent.h>
 #include <framework/world/World.h>
-
+#include <framework/world/TransformComponent.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 
@@ -14,139 +12,123 @@
 
 namespace sky {
 
-    void World::Reflect()
-    {
-        SerializationContext::Get()->Register<World>("World")
-            .JsonLoad<&World::Load>()
-            .JsonSave<&World::Save>();
-
-        SerializationContext::Get()->Register<Component>("Component")
-            .JsonLoad<&Component::Load>()
-            .JsonSave<&Component::Save>();
-
-        Actor::Reflect();
-        TransformComponent::Reflect();
-    }
-
-    World::World() : root(nullptr), renderScene(nullptr), actors(&memoryResource), objectLut(&memoryResource)
-    {
-        root = CreateActor("root");
-    }
-
     World::~World()
     {
-        for (auto &go : actors) {
-            go->~Actor();
-            memoryResource.deallocate(go, sizeof(Actor));
-        }
         actors.clear();
     }
 
-    Actor *World::AllocateGameObject()
+    void World::Reflect(SerializationContext *context)
     {
-        static std::atomic_uint32_t index = 0;
-        index.fetch_add(1);
-        auto ptr = memoryResource.allocate(sizeof(Actor));
-        auto go = new (ptr) Actor();
-        go->resource = &memoryResource;
-        go->world = this;
-        go->objId = index.load();
-        return go;
+        TransformComponent::Reflect(context);
     }
 
-    Actor *World::CreateActor(const std::string &name, const Uuid &uuid)
+    bool World::Init()
     {
-        auto go = AllocateGameObject();
-        go->AddComponent<TransformComponent>();
-        go->SetParent(root);
-        go->SetUuid(uuid);
-        go->SetName(name);
-        actors.emplace_back(go);
-        objectLut.emplace(uuid, go);
-        return go;
+        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
+        return true;
     }
 
-    Actor *World::CreateActor(const std::string &name)
+    void World::Shutdown()
     {
-        return CreateActor(name, Uuid::Create());
-    }
-
-    void World::DestroyActor(Actor *actor)
-    {
-        if (actor == root) {
-            return;
-        }
-
-        auto iter = std::find(actors.begin(), actors.end(), actor);
-        if (iter != actors.end()) {
-            (*iter)->~Actor();
-            actors.erase(iter);
-            memoryResource.deallocate((*iter), sizeof(Actor));
-        }
+        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, *this);
     }
 
     void World::Tick(float time)
     {
-        for (auto &obj : actors) {
-            obj->Tick(time);
+        for (auto &actor : actors) {
+            actor->Tick(time);
         }
     }
 
-    const PmrVector<Actor *> &World::GetActors() const
+    void World::SaveJson(JsonOutputArchive &archive)
     {
-        return actors;
-    }
+        archive.StartObject();
 
-    Actor *World::GetActorByUuid(const Uuid &id) const
-    {
-        auto iter = objectLut.find(id);
-        return iter != objectLut.end() ? iter->second : nullptr;
-    }
+        archive.Key("actors");
+        archive.StartArray();
 
-    Actor *World::GetRoot()
-    {
-        return root;
-    }
-
-    void World::ForEachBFS(Actor *go, std::function<void(Actor *)> && fn) const
-    {
-        std::deque<Actor*> queue;
-        queue.emplace_back(go);
-
-        while (!queue.empty()) {
-            auto tgo = queue.front();
-            queue.pop_front();
-            if (tgo != root) {
-                fn(tgo);
-            }
-
-            auto trans = tgo->GetComponent<TransformComponent>();
-            auto &children = trans->GetChildren();
-            for (auto &child : children) {
-                queue.emplace_back(child->object);
-            }
+        for (auto &actor : actors) {
+            actor->SaveJson(archive);
         }
+
+        archive.EndArray();
+
+        archive.EndObject();
     }
 
-    void World::Save(JsonOutputArchive &ar) const
+    void World::LoadJson(JsonInputArchive &archive)
     {
-        ar.StartObject();
-        ar.Key("objects");
-        ar.StartArray();
-        ForEachBFS(root, [&ar](Actor *go) {
-            ar.SaveValueObject(*go);
+        auto num = archive.StartArray("actors");
+        for (uint32_t i = 0; i < num; ++i) {
+            auto *actor = CreateActor();
+            actor->LoadJson(archive);
+            archive.NextArrayElement();
+        }
+        archive.End();
+    }
+
+    void World::SaveBinary(BinaryOutputArchive &archive)
+    {
+
+    }
+
+    void World::LoadBinary(BinaryInputArchive &archive)
+    {
+
+    }
+
+    Actor* World::CreateActor(const std::string &name)
+    {
+        auto *actor = CreateActor(Uuid{});
+        actor->AddComponent<TransformComponent>();
+        actor->SetName(name);
+        return actor;
+    }
+
+    Actor* World::CreateActor()
+    {
+        return CreateActor("Actor");
+    }
+
+    Actor* World::CreateActor(const Uuid &id)
+    {
+        actors.emplace_back(new Actor(id));
+        actors.back()->world = this;
+        return actors.back().get();
+    }
+
+    Actor* World::GetActorByUuid(const Uuid &id)
+    {
+        auto iter = std::find_if(actors.begin(), actors.end(), [&id](const auto &v) {
+            return id == v->GetUuid();
         });
-        ar.EndArray();
-        ar.EndObject();
+        return iter != actors.end() ? iter->get() : nullptr;
     }
 
-    void World::Load(JsonInputArchive &ar)
+    void World::DestroyActor(Actor *actor)
     {
-        uint32_t size = ar.StartArray("objects");
-        for (uint32_t i = 0; i < size; ++i) {
-            auto go = CreateActor("");
-            ar.LoadArrayElement(*go);
+        auto iter = std::find_if(actors.begin(), actors.end(),
+            [actor](const auto &v) { return actor == v.get(); });
+
+        if (iter != actors.end()) {
+            actors.erase(iter);
         }
-        ar.End();
     }
+
+    void World::Reset()
+    {
+        actors.clear();
+    }
+
+    void World::AddSubSystem(const std::string &name, IWorldSubSystem* sys)
+    {
+        SKY_ASSERT(subSystems.emplace(name, sys).second);
+    }
+
+    IWorldSubSystem* World::GetSubSystem(const std::string &name) const
+    {
+        auto iter = subSystems.find(name);
+        return iter != subSystems.end() ? iter->second : nullptr;
+    }
+
 } // namespace sky

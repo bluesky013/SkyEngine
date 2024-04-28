@@ -5,6 +5,7 @@
 #pragma once
 
 #include <render/particle/ParticleEmitter.h>
+#include <memory>
 
 namespace sky {
     class ParticleSystem {

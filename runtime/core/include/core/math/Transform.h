@@ -56,16 +56,6 @@ namespace sky {
             return matR;
         }
 
-//        static Transform FromMatrix(const Matrix4 &matrix)
-//        {
-//            Transform result;
-//            glm::vec3 skew;
-//            glm::vec4 perspective;
-//            glm::decompose(matrix, result.scale, result.rotation, result.translation, skew, perspective);
-//            return result;
-//            return {};
-//        }
-
         static const Transform &GetIdentity()
         {
             static Transform transform;

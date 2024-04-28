@@ -3,8 +3,20 @@
 //
 
 #include <framework/serialization/SerializationContext.h>
-
+#include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/CoreReflection.h>
 namespace sky {
+
+    void JsonLoad(std::string &str, JsonInputArchive &archive)
+    {
+        str = archive.LoadString();
+    }
+
+    void JsonStore(const std::string &str, JsonOutputArchive &archive)
+    {
+        archive.SaveValue(str);
+    }
+
     SerializationContext::SerializationContext()
     {
         Register<uint64_t>("uint64_t");
@@ -18,7 +30,12 @@ namespace sky {
         Register<bool>("bool");
         Register<float>("float");
         Register<double>("double");
-        Register<std::string>("string");
+
+        Register<std::string>("String")
+                .JsonLoad<&JsonLoad>()
+                .JsonSave<&JsonStore>();
+
+        CoreReflection(this);
     }
 
     TypeNode *SerializationContext::FindType(const std::string &key)
@@ -27,7 +44,7 @@ namespace sky {
         return iter == lookupTable.end() ? nullptr : iter->second;
     }
 
-    TypeNode *SerializationContext::FindTypeById(uint32_t id)
+    TypeNode *SerializationContext::FindTypeById(const Uuid &id)
     {
         auto iter = types.find(id);
         return iter == types.end() ? nullptr : &iter->second;

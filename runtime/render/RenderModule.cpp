@@ -8,11 +8,14 @@
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/application/ModuleManager.h>
+#include <framework/serialization/SerializationContext.h>
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <render/adaptor/Reflection.h>
+
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 #include <render/geometry/GeometryFeature.h>
 #include <render/particle/ParticleFeature.h>
@@ -34,9 +37,10 @@ namespace sky {
 
     static void RegisterComponents()
     {
-        LightComponent::Reflect();
-        MeshRenderer::Reflect();
-        CameraComponent::Reflect();
+        auto *context = SerializationContext::Get();
+        LightComponent::Reflect(context);
+        MeshRenderer::Reflect(context);
+        CameraComponent::Reflect(context);
     }
 
     class RenderModule : public IModule {
@@ -76,9 +80,7 @@ namespace sky {
         auto *serializationContext = SerializationContext::Get();
         ReflectRenderAsset(serializationContext);
         ReflectRHI(serializationContext);
-
         RegisterComponents();
-
         ProcessArgs(args);
 
         rhi::Instance::Descriptor rhiDesc = {};

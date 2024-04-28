@@ -31,5 +31,6 @@ sky_add_library(TARGET Core STATIC
         3rdParty::crc32
         3rdParty::taskflow
         3rdParty::boost
+        3rdParty::mimalloc
         ${CORE_OPT_LIBS}
     )

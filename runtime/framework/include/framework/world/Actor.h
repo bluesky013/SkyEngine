@@ -1,137 +1,87 @@
 //
-// Created by Zach Lee on 2021/11/12.
+// Created by blues on 2024/5/14.
 //
 
 #pragma once
 
-#include <core/type/Rtti.h>
-#include <core/std/Container.h>
+#include <framework/serialization/SerializationContext.h>
 #include <framework/world/Component.h>
-#include <framework/world/Object.h>
+#include <core/platform/Platform.h>
 #include <list>
-#include <string>
-#include <utility>
+#include <unordered_map>
+#include <memory>
 
 namespace sky {
+
     class World;
 
-    class JsonOutputArchive;
-    class JsonInputArchive;
-
-    class Actor : public Object {
+    class Actor {
     public:
-        Actor(Actor &&) noexcept = default;
-        Actor &operator=(Actor&&) noexcept = default;
+        Actor() = default;
+        explicit Actor(Uuid id) : uuid(id), name("Actor") {}
+        ~Actor() = default;
 
-        Actor(const Actor &)            = delete;
-        Actor &operator=(const Actor &) = delete;
-
-        static void Reflect();
-
-        inline Component *AddComponent(uint32_t id)
+        template <typename T, typename ...Args>
+        T* AddComponent(Args &&...args)
         {
-            auto iter = std::find_if(components.begin(), components.end(), [&id](Component *comp) { return comp->GetType() == id; });
-            if (iter != components.end()) {
-                return *iter;
-            }
+            static_assert(std::is_base_of_v<ComponentBase, T>);
+            const auto &id = TypeInfoObj<T>::Get()->RtInfo()->registeredId;
+            SKY_ASSERT(static_cast<bool>(id));
 
-            auto comp = ComponentFactory::Get()->CreateComponent(resource, id);
-            if (comp != nullptr) {
-                comp->object = this;
-                comp->OnActive();
-                ComponentFactory::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
-                components.emplace_back(comp);
+            auto *component = new T(std::forward<Args>(args)...);
+            if (!AddComponent(id, component)) {
+                delete component;
+                component = nullptr;
             }
-            return comp;
+            component->actor = this;
+            component->OnActive();
+            return component;
         }
 
         template <typename T>
-        inline T *AddComponent()
+        T* GetComponent()
         {
-            auto info = TypeInfoObj<T>::Get()->RtInfo();
-            auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
-            if (iter == components.end()) {
-                auto comp    = ComponentFactory::CreateComponent<T>(resource);
-                comp->object = this;
-                comp->OnActive();
-                ComponentFactory::Get()->template ForEach<&IComponentListener::OnAddComponent>(this, comp);
-                components.emplace_back(comp);
-                return static_cast<T*>(comp);
-            }
-            return static_cast<T *>(*iter);
+            static_assert(std::is_base_of_v<ComponentBase, T>);
+            const auto &id = TypeInfoObj<T>::Get()->RtInfo()->registeredId;
+            SKY_ASSERT(static_cast<bool>(id));
+
+            return static_cast<T*>(GetComponent(id));
         }
 
         template <typename T>
-        inline void RemoveComponent()
+        void RemoveComponent()
         {
-            auto info = TypeInfoObj<T>::Get()->RtInfo();
-            auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
-            if (iter != components.end()) {
-                ComponentFactory::Get()->template ForEach<&IComponentListener::OnRemoveComponent>(this, *iter);
-                (*iter)->OnDestroy();
-                (*iter)->~Component();
-                resource->deallocate(*iter, info->size);
-                components.erase(iter);
-            }
+            static_assert(std::is_base_of_v<ComponentBase, T>);
+            const auto &id = TypeInfoObj<T>::Get()->RtInfo()->registeredId;
+            SKY_ASSERT(static_cast<bool>(id));
+
+            RemoveComponent(id);
         }
 
-        template <typename T>
-        inline T *GetComponent()
-        {
-            auto info = TypeInfoObj<T>::Get()->RtInfo();
-            auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) {
-                return comp->GetTypeInfo() == info;
-            });
-            if (iter != components.end()) {
-                return static_cast<T *>(*iter);
-            }
-            return nullptr;
-        }
+        ComponentBase *GetComponent(const Uuid &typeId);
+        bool AddComponent(const Uuid &typeId, ComponentBase* component);
+        void RemoveComponent(const Uuid &typeId);
 
-        template <typename T>
-        inline const T *GetComponent() const
-        {
-            auto info = TypeInfoObj<T>::Get()->RtInfo();
-            auto iter = std::find_if(components.begin(), components.end(), [info](Component *comp) { return comp->GetTypeInfo() == info; });
-            if (iter != components.end()) {
-                return static_cast<T *>(*iter);
-            }
-            return nullptr;
-        }
-
-        uint32_t GetId() const;
-
-        void SetName(const std::string &name);
-        const std::string &GetName() const;
-
-        World *GetWorld() const;
-
-        void SetParent(Actor *actor);
-        void SetParent(const Uuid &actor);
-
-        Actor *GetParent() const;
+        void SaveJson(JsonOutputArchive &archive);
+        void LoadJson(JsonInputArchive &archive);
 
         void Tick(float time);
 
-        using ComponentList = PmrList<Component *>;
-        ComponentList &GetComponents();
-
-        void Save(JsonOutputArchive &ar) const;
-        void Load(JsonInputArchive &ar);
+        const Uuid &GetUuid() const { return uuid; }
+        const std::string &GetName() const { return name; }
+        void SetName(const std::string &name_) { name = name_; }
+        World *GetWorld() const { return world; }
 
     private:
         friend class World;
-        ~Actor();
-        Actor() = default;
-        explicit Actor(std::string str) : name(std::move(str))
-        {
-        }
 
-        World        *world = nullptr;
-        PmrResource  *resource = nullptr;
-        uint32_t      objId = 0;
-        std::string   name;
-        ComponentList components;
+        using ComponentPtr = std::unique_ptr<ComponentBase>;
+        std::unordered_map<Uuid, ComponentPtr> storage;
+
+        Uuid uuid;
+        std::string name;
+
+        World *world = nullptr;
     };
 
 } // namespace sky

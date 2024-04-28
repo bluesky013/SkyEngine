@@ -5,6 +5,7 @@
 #pragma once
 
 #include <iostream>
+#include <core/util/Uuid.h>
 #include <core/platform/Platform.h>
 #include <core/archive/ArchiveConcept.h>
 
@@ -38,7 +39,7 @@ namespace sky {
             LoadValue(v.data(), length);
         }
 
-        void LoadObject(void *ptr, uint32_t id);
+        void LoadObject(void *ptr, const Uuid &id);
     protected:
         std::istream &stream;
     };
@@ -68,7 +69,7 @@ namespace sky {
             SaveValue(v.data(), static_cast<uint32_t>(v.length()));
         }
 
-        void SaveObject(const void* data, uint32_t id);
+        void SaveObject(const void* data, const Uuid &id);
     protected:
         std::ostream &stream;
     };

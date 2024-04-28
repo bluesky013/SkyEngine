@@ -276,15 +276,15 @@ namespace sky {
 //        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);
 //        mesh->SetMesh(floor);
 
-        camera = world->CreateActor("MainCamera");
+        camera = world->CreateActor("camera");
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0.5, 5));
+        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 0.5, 5));
 
-        auto *scene = GetRenderSceneFromGameObject(meshObj);
+        auto *scene = GetRenderSceneFromActor(meshObj);
         auto *pipeline = new ForwardMSAAPass();
-        pipeline->SetOutput(window, GetRenderSceneFromGameObject(meshObj));
+        pipeline->SetOutput(window, scene);
 
         Renderer::Get()->SetPipeline(pipeline);
         return true;

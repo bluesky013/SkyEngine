@@ -12,28 +12,28 @@ namespace sky {
 
     enum class ProjectType : uint32_t { ORTHOGONAL, PROJECTIVE };
 
-    class CameraComponent : public Component {
+    class CameraComponent : public ComponentBase {
     public:
         CameraComponent()  = default;
-        ~CameraComponent() override = default;
+        ~CameraComponent() override;
 
-        TYPE_RTTI_WITH_VT(CameraComponent)
-
-        static void Reflect();
+        static void Reflect(SerializationContext *context);
 
         void Perspective(float near, float far, float fov);
         void Otho(float height);
 
         void SetAspect(uint32_t width, uint32_t height);
 
-        void OnTick(float time) override;
+        void Tick(float time) override;
         void OnActive() override;
-        void OnDestroy() override;
+        void OnDeActive() override;
 
-        void Save(JsonOutputArchive &ar) const override;
-        void Load(JsonInputArchive &ar) override;
+        void SaveJson(JsonOutputArchive &ar) const override;
+        void LoadJson(JsonInputArchive &ar) override;
 
     private:
+        void ShutDown();
+
         // data
         float near   = 0.1f;
         float far    = 100.f;

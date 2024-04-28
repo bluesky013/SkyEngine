@@ -1,127 +1,81 @@
 //
-// Created by Zach Lee on 2021/11/13.
+// Created by blues on 2024/5/14.
 //
 
 #include <framework/world/Actor.h>
-#include <framework/world/TransformComponent.h>
-#include <framework/world/World.h>
 
-#include <framework/serialization/SerializationContext.h>
-#include <framework/serialization/JsonArchive.h>
 namespace sky {
 
-    void Actor::Reflect()
+    ComponentBase *Actor::GetComponent(const Uuid &typeId)
     {
-        SerializationContext::Get()->Register<Actor>("Actor")
-            .JsonLoad<&Actor::Load>()
-            .JsonSave<&Actor::Save>();
+        auto iter = storage.find(typeId);
+        return iter != storage.end() ? iter->second.get() : nullptr;
     }
 
-    Actor::~Actor()
+    bool Actor::AddComponent(const Uuid &typeId, ComponentBase* component)
     {
-        for (auto comp : components) {
-            comp->~Component();
-            resource->deallocate(comp, comp->GetTypeInfo()->size);
+        auto res = storage.emplace(typeId, component);
+        return res.second;
+    }
+
+    void Actor::RemoveComponent(const Uuid &typeId)
+    {
+        storage.erase(typeId);
+    }
+
+    void Actor::SaveJson(JsonOutputArchive &archive)
+    {
+        archive.StartObject();
+        archive.Key("uuid");
+        archive.SaveValue(uuid.ToString());
+
+        archive.Key("components");
+        archive.StartArray();
+        for (auto &[id, component] : storage) {
+            archive.StartObject();
+            archive.Key("type");
+            archive.SaveValue(id.ToString());
+            archive.Key("data");
+            component->SaveJson(archive);
+            archive.EndObject();
         }
-        components.clear();
+        archive.EndArray();
+        archive.EndObject();
     }
 
-    uint32_t Actor::GetId() const
+    void Actor::LoadJson(JsonInputArchive &archive)
     {
-        return objId;
-    }
+        archive.Start("uuid");
+        uuid = Uuid::CreateFromString(archive.LoadString());
+        archive.End();
 
-    void Actor::SetName(const std::string &name_)
-    {
-        name = name_;
-    }
+        auto componentCount = archive.StartArray("components");
 
-    const std::string &Actor::GetName() const
-    {
-        return name;
-    }
+        auto *context = SerializationContext::Get();
 
-    World *Actor::GetWorld() const
-    {
-        return world;
-    }
+        for (uint32_t i = 0; i < componentCount; ++i) {
 
-    void Actor::SetParent(Actor *actor)
-    {
-        auto trans = GetComponent<TransformComponent>();
-        if (actor == nullptr) {
-            actor = world->GetRoot();
+            archive.Start("type");
+            auto typeId = Uuid::CreateFromString(archive.LoadString());
+            archive.End();
+
+            archive.Start("data");
+            auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
+            tmp->LoadJson(archive);
+            AddComponent(typeId, tmp);
+            archive.End();
+
+            archive.NextArrayElement();
         }
-        TransformComponent *parent = actor != nullptr ? actor->GetComponent<TransformComponent>() : nullptr;
-        trans->SetParent(parent);
-    }
-
-    void Actor::SetParent(const Uuid &actor)
-    {
-        SetParent(world->GetActorByUuid(actor));
-    }
-
-    Actor *Actor::GetParent() const
-    {
-        auto trans = GetComponent<TransformComponent>()->GetParent();
-        return trans != nullptr ? trans->object : nullptr;
+        archive.End();
     }
 
     void Actor::Tick(float time)
     {
-        for (auto &comp : components) {
-            comp->OnTick(time);
+        for (auto &[id, component] : storage)
+        {
+            component->Tick(time);
         }
-    }
-
-    Actor::ComponentList &Actor::GetComponents()
-    {
-        return components;
-    }
-
-    void Actor::Save(JsonOutputArchive &ar) const
-    {
-        ar.StartObject();
-        ar.SaveValueObject("uuid", uuid.ToString());
-        ar.SaveValueObject("parent", GetParent()->GetUuid().ToString());
-        ar.SaveValueObject("name", name);
-
-        ar.Key("components");
-        ar.StartArray();
-        for (auto &comp : components) {
-            ar.StartObject();
-            ar.Key("type");
-            ar.SaveValue(comp->GetType());
-            ar.Key("data");
-            ar.SaveValueObject(*comp);
-            ar.EndObject();
-        }
-        ar.EndArray();
-        ar.EndObject();
-    }
-
-    void Actor::Load(JsonInputArchive &ar)
-    {
-        std::string id;
-        ar.LoadKeyValue("uuid", id);
-        uuid = Uuid::CreateFromString(id.c_str());
-
-        std::string parentId;
-        ar.LoadKeyValue("parent", parentId);
-        auto parent = Uuid::CreateFromString(parentId.c_str());
-
-        ar.LoadKeyValue("name", name);
-
-        uint32_t size = ar.StartArray("components");
-        for (uint32_t i = 0; i < size; ++i) {
-            uint32_t typeId = 0;
-            ar.LoadKeyValue("type", typeId);
-            auto *comp = AddComponent(typeId);
-            ar.LoadKeyValue("data", *comp);
-            ar.NextArrayElement();
-        }
-        ar.End();
-        SetParent(parent);
     }
 
 } // namespace sky

@@ -11,29 +11,28 @@
 
 namespace sky {
 
-    class MeshRenderer : public Component {
+    class MeshRenderer : public ComponentBase {
     public:
         MeshRenderer() = default;
-        ~MeshRenderer() override = default;
+        ~MeshRenderer() override;
 
-        TYPE_RTTI_WITH_VT(MeshRenderer)
-
-        static void Reflect();
+        static void Reflect(SerializationContext *context);
 
         void OnActive() override;
-        void OnDestroy() override;
-        void OnTick(float time) override;
+        void OnDeActive() override;
+        void Tick(float time) override;
 
         void SetMesh(const MeshAssetPtr &mesh);
         void SetMesh(const RDMeshPtr &mesh);
 
-        void Save(JsonOutputArchive &ar) const override;
-        void Load(JsonInputArchive &ar) override;
+        void SaveJson(JsonOutputArchive &ar) const override;
+        void LoadJson(JsonInputArchive &ar) override;
 
         StaticMeshRenderer *GetRenderer() const { return renderer; }
 
     private:
         void ResetMesh();
+        void ShutDown();
 
         bool isStatic = true;
         bool castShadow = false;

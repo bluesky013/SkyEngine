@@ -5,7 +5,8 @@
 #pragma once
 
 namespace sky {
+    class SerializationContext;
 
-    void CoreReflection();
+    void CoreReflection(SerializationContext *context);
 
 } // namespace sky

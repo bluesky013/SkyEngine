@@ -36,7 +36,7 @@ namespace sky {
         template <typename T>
         void RegisterPerParticleComponent()
         {
-            auto id = TypeInfo<T>::Hash();
+            auto id = RuntimeTypeId<T>();
             auto iter = particleStorage.perParticleIndexMap.find(id);
             if (iter != particleStorage.perParticleIndexMap.end()) {
                 particleStorage.perParticleIndexMap.emplace(id, std::pair{static_cast<uint32_t>(particleStorage.storages.size()), static_cast<uint32_t>(sizeof(T))});

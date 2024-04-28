@@ -17,7 +17,7 @@ TEST(ModuleManagerTest, ModuleSortTest)
     manager.RegisterModule({"Test4", {"Test5"}});
 
     manager.TopoSort();
-    manager.WalkModules([](const std::string &module) {
-        printf("%s\n", module.c_str());
-    });
+//    manager.WalkModules([](const std::string &module) {
+//        printf("%s\n", module.c_str());
+//    });
 }

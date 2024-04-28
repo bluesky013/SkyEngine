@@ -7,7 +7,7 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
-#include <core/type/Any.h>
+#include <framework/serialization/Any.h>
 #include <core/platform/Platform.h>
 #include <iostream>
 #include <vector>
@@ -20,7 +20,7 @@ namespace sky {
         class InputStreamWrapper {
         public:
             using Ch = typename StreamType::char_type;
-            InputStreamWrapper(StreamType &s) : stream(s)
+            explicit InputStreamWrapper(StreamType &s) : stream(s)
             {
             }
 
@@ -58,7 +58,7 @@ namespace sky {
         class OutputStreamWrapper {
         public:
             using Ch = typename StreamType::char_type;
-            OutputStreamWrapper(StreamType &s) : stream(s)
+            explicit OutputStreamWrapper(StreamType &s) : stream(s)
             {
             }
 
@@ -85,7 +85,7 @@ namespace sky {
         using Value = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using Stream = impl::InputStreamWrapper<std::istream>;
 
-        JsonInputArchive(std::istream &s) : stream(s)
+        explicit JsonInputArchive(std::istream &s) : stream(s)
         {
             document.ParseStream(stream);
             stack.emplace_back(&document);
@@ -95,7 +95,7 @@ namespace sky {
 
         bool Start(const std::string &name)
         {
-            auto &parent = *stack.back();
+            const auto &parent = *stack.back();
             auto iter = parent.FindMember(name.c_str());
             if (iter == parent.MemberEnd()) {
                 return false;
@@ -110,7 +110,7 @@ namespace sky {
 
         uint32_t StartArray(const std::string &name)
         {
-            auto &parent = *stack.back();
+            const auto &parent = *stack.back();
             auto iter = parent.FindMember(name.c_str());
             if (iter != parent.MemberEnd() && iter->value.IsArray()) {
                 auto array = iter->value.GetArray();
@@ -138,7 +138,7 @@ namespace sky {
         template <typename T>
         void LoadArrayElement(T &value)
         {
-            LoadValueById(&value, TypeInfo<T>::Hash());
+            LoadValueById(&value, TypeInfo<T>::RegisteredId());
             stack.back()++;
         }
 
@@ -147,13 +147,13 @@ namespace sky {
             stack.back()++;
         }
 
-        Any LoadValueById(uint32_t typeId);
-        void LoadValueById(void *ptr, uint32_t typeId);
+        Any LoadValueById(const Uuid & typeId);
+        void LoadValueById(void *ptr, const Uuid &typeId);
 
         template <typename T>
         void LoadValueObject(T &value)
         {
-            LoadValueById(&value, TypeInfo<T>::Hash());
+            LoadValueById(&value, TypeInfo<T>::RegisteredId());
         }
 
         template <typename T>
@@ -183,7 +183,7 @@ namespace sky {
         using Stream = impl::OutputStreamWrapper<std::ostream>;
         using Writter = rapidjson::PrettyWriter<Stream>;
 
-        JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
+        explicit JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
         ~JsonOutputArchive() = default;
 
         void StartObject() { writer.StartObject(); }
@@ -204,11 +204,11 @@ namespace sky {
         void SaveValue(std::nullptr_t)        { writer.Null(); }
 
         void SaveValueObject(const Any &any);
-        void SaveValueObject(const void *ptr, uint32_t id);
+        void SaveValueObject(const void *ptr, const Uuid &id);
         template <typename T, typename = std::enable_if<!std::is_same_v<T, Any>, void>>
         void SaveValueObject(const T& value)
         {
-            SaveValueObject(&value, TypeInfo<T>::Hash());
+            SaveValueObject(&value, TypeInfo<T>::RegisteredId());
         }
 
         template <typename T>

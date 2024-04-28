@@ -5,7 +5,6 @@
 #pragma once
 
 #include <unordered_map>
-#include <core/type/Any.h>
 #include <render/resource/Texture.h>
 #include <render/resource/Technique.h>
 #include <render/resource/ResourceGroup.h>

@@ -33,7 +33,7 @@ namespace sky {
         template <typename T>
         T *GetFeature() const
         {
-            auto iter = features.find(TypeInfo<T>::Hash());
+            auto iter = features.find(RuntimeTypeId<T>());
             if (iter != features.end()) {
                 return static_cast<T*>(iter->second.get());
             }

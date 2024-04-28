@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/type/Any.h>
+#include <framework/serialization/Any.h>
 #include <core/type/Type.h>
 #include <list>
 #include <type_traits>
@@ -19,8 +19,8 @@ namespace sky {
 
     using PropertyMap     = std::unordered_map<uint32_t, Any>;
     using SetterFn        = bool (*)(void *ptr, const void *);
-    using GetterFn        = void *(*)(void *ptr);
-    using GetterConstFn   = const void*(*)(const void *ptr);
+    using GetterFn        = Any (*)(void *ptr);
+    using GetterConstFn   = Any (*)(const void *ptr);
     using ConstructibleFn = bool (*)(Any *);
     using ConstructFn     = Any (*)(Any *);
     using JsonInFn        = void (*)(void *p, JsonInputArchive& archive);
@@ -29,7 +29,7 @@ namespace sky {
     using BinaryOutFn     = void (*)(const void *p, BinaryOutputArchive& archive);
 
     struct TypeMemberNode {
-        TypeInfoRT   *info = nullptr;
+        const TypeInfoRT *info = nullptr;
         const bool    isConst;
         const bool    isStatic;
         SetterFn      setterFn      = nullptr;
@@ -54,8 +54,8 @@ namespace sky {
     using MemberMap     = std::unordered_map<std::string_view, TypeMemberNode>;
     using ConstructList = std::list<ConstructNode>;
     struct TypeNode {
-        TypeInfoRT       *base = nullptr;
-        TypeInfoRT       *info = nullptr;
+        const TypeInfoRT  *base = nullptr;
+        const TypeInfoRT  *info = nullptr;
         MemberMap         members;
         PropertyMap       properties;
         ConstructList     constructList;
@@ -104,42 +104,41 @@ namespace sky {
         }
     }
 
-    template <typename T, auto D>
+    template <typename T, typename V, auto D>
     bool Setter(void *p, const void *value) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
-            using ValType = std::remove_reference_t<decltype(std::declval<T>().*D)>;
-
-            if constexpr (!std::is_const_v<ValType>) {
+            if constexpr (!std::is_const_v<V>) {
                 if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                    std::invoke(D, *ptr) = *static_cast<const ValType *>(value);
+                    std::invoke(D, *ptr) = *static_cast<const V *>(value);
                     return true;
                 }
             }
+        } else if constexpr (std::is_member_function_pointer_v<decltype(D)>) {
+            std::invoke(D, static_cast<T *>(p), *static_cast<const V*>(value));
+            return true;
         }
         return false;
     }
 
     template <typename T, auto D>
-    void* Getter(void *p) noexcept
+    Any Getter(void *p) noexcept
     {
-        if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
-            if (auto ptr = static_cast<T *>(p); ptr != nullptr) {
-                return reinterpret_cast<void *>(std::addressof(std::invoke(D, *ptr)));
-            }
+        if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
+            return Any(std::invoke(D, *(static_cast<T*>(p))));
         }
-        return nullptr;
+        return Any{};
     }
 
     template <typename T, auto D>
-    const void *GetterConst(const void *p) noexcept
+    Any GetterConst(const void *p) noexcept
     {
-        if constexpr (std::is_member_object_pointer_v<decltype(D)>) {
-            if (auto ptr = static_cast<const T *>(p); ptr != nullptr) {
-                return reinterpret_cast<const void *>(std::addressof(std::invoke(D, *ptr)));
+        if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
+            if constexpr (std::is_invocable_v<decltype(D), const T*>) {
+                return Any(std::invoke(D, *(static_cast<const T*>(p))));
             }
         }
-        return nullptr;
+        return Any{};
     }
 
     template <typename T, typename... Args, size_t... I>
@@ -193,7 +192,7 @@ namespace sky {
             } else {
                 using Type = std::remove_pointer_t<decltype(M)>;
                 auto it    = type.members.emplace(key, TypeMemberNode{
-                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
                                                         std::is_const_v<Type>,
                                                         std::is_member_object_pointer_v<Type>,
                                                     });
@@ -207,20 +206,20 @@ namespace sky {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
             if constexpr (std::is_const_v<Type>) {
                 auto it    = type.members.emplace(key, TypeMemberNode{
-                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
                                                         std::is_const_v<Type>,
                                                         !std::is_member_object_pointer_v<Type>,
-                                                        &Setter<T, S>,
+                                                        &Setter<T, Type, S>,
                                                         nullptr,
                                                         &GetterConst<T, G>,
                                                     });
                 return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             } else {
                 auto it    = type.members.emplace(key, TypeMemberNode{
-                                                        TypeInfoObj<Type>::Get()->RtInfo(),
+                                                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
                                                         std::is_const_v<Type>,
                                                         !std::is_member_object_pointer_v<Type>,
-                                                        &Setter<T, S>,
+                                                        &Setter<T, Type, S>,
                                                         &Getter<T, G>,
                                                         &GetterConst<T, G>,
                                                     });

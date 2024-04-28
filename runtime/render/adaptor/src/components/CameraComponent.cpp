@@ -14,24 +14,24 @@
 #include <render/Renderer.h>
 
 namespace sky {
-
-    void CameraComponent::Reflect()
+    CameraComponent::~CameraComponent()
     {
-        SerializationContext::Get()
-            ->Register<ProjectType>("ProjectType")()
-            .Property(ProjectType::PROJECTIVE, std::string("PROJECTIVE"))
-            .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
+        ShutDown();
+    }
 
-        SerializationContext::Get()
-            ->Register<CameraComponent>(NAME)
+    void CameraComponent::Reflect(SerializationContext *context)
+    {
+//        context->Register<ProjectType>("ProjectType")()
+//            .Property(ProjectType::PROJECTIVE, std::string("PROJECTIVE"))
+//            .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
+
+        context->Register<CameraComponent>("CameraComponent")
             .Member<&CameraComponent::near>("near")
             .Member<&CameraComponent::far>("far")
             .Member<&CameraComponent::fov>("fov")
             .Member<&CameraComponent::aspect>("aspect")
-            .Member<&CameraComponent::type>("projectType")
-            .Property(UI_PROP_VISIBLE, false);
-
-        ComponentFactory::Get()->RegisterComponent<CameraComponent>();
+            .Member<&CameraComponent::type>("projectType");
+//            .Property(UI_PROP_VISIBLE, false);
     }
 
     void CameraComponent::Perspective(float near_, float far_, float fov_)
@@ -53,10 +53,10 @@ namespace sky {
         aspect = static_cast<float>(width) / static_cast<float>(height);
     }
 
-    void CameraComponent::OnTick(float time)
+    void CameraComponent::Tick(float time)
     {
-        auto *transform = object->GetComponent<TransformComponent>();
-        sceneView->SetMatrix(transform->GetWorld().ToMatrix());
+        auto *transform = actor->GetComponent<TransformComponent>();
+        sceneView->SetMatrix(transform->GetWorldMatrix());
         if (type == ProjectType::PROJECTIVE) {
             sceneView->SetProjective(near, far, fov, aspect);
         }
@@ -64,15 +64,23 @@ namespace sky {
 
     void CameraComponent::OnActive()
     {
-        sceneView = GetRenderSceneFromGameObject(object)->CreateSceneView(1);
+        sceneView = GetRenderSceneFromActor(actor)->CreateSceneView(1);
     }
 
-    void CameraComponent::OnDestroy()
+    void CameraComponent::OnDeActive()
     {
-        GetRenderSceneFromGameObject(object)->RemoveSceneView(sceneView);
+        ShutDown();
     }
 
-    void CameraComponent::Save(JsonOutputArchive &ar) const
+    void CameraComponent::ShutDown()
+    {
+        if (sceneView != nullptr) {
+            GetRenderSceneFromActor(actor)->RemoveSceneView(sceneView);
+            sceneView = nullptr;
+        }
+    }
+
+    void CameraComponent::SaveJson(JsonOutputArchive &ar) const
     {
         ar.StartObject();
         ar.SaveValueObject(std::string("near"), near);
@@ -84,7 +92,7 @@ namespace sky {
         ar.EndObject();
     }
 
-    void CameraComponent::Load(JsonInputArchive &ar)
+    void CameraComponent::LoadJson(JsonInputArchive &ar)
     {
         ar.LoadKeyValue("near", near);
         ar.LoadKeyValue("far", far);

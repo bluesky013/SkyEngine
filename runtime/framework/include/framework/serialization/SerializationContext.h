@@ -14,39 +14,44 @@ namespace sky {
     class SerializationContext : public Singleton<SerializationContext> {
     public:
         template <typename T>
-        auto Register(const std::string_view &key)
+        auto Register(std::string_view name, const Uuid &uuid)
         {
-            auto info = TypeInfoObj<T>::Get()->RtInfo();
-            SKY_ASSERT(!types.count(info->typeId))
-            auto &type            = types[info->typeId];
-            type.info             = info;
-            type.info->markedName = key;
+            const auto *info = TypeInfoObj<T>::Get()->Register(name, uuid);
+            SKY_ASSERT(!types.count(info->registeredId))
+            auto &type = types[info->registeredId];
+            type.info  = info;
             if constexpr (std::is_default_constructible_v<T>) {
                 type.constructList.emplace_back(
-                    ConstructNode{0,
-                                  [](Any *args) { return true; },
-                                  [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
+                        ConstructNode{0,
+                                      [](Any *args) { return true; },
+                                      [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
             }
 
-            SKY_ASSERT(lookupTable.emplace(key, &type).second)
+            SKY_ASSERT(lookupTable.emplace(info->name, &type).second)
             return TypeFactory<T>(type);
         }
 
+        template <typename T>
+        auto Register(std::string_view name)
+        {
+            return Register<T>(name, Uuid::CreateWithSeed(Fnv1a32(name)));
+        }
+
         TypeNode *FindType(const std::string &key);
-        TypeNode *FindTypeById(uint32_t id);
+        TypeNode *FindTypeById(const Uuid &id);
 
     private:
         friend class Singleton<SerializationContext>;
 
         SerializationContext();
-        ~SerializationContext() = default;
+        ~SerializationContext() override = default;
 
-        std::unordered_map<uint32_t, TypeNode>  types;
+        std::unordered_map<Uuid, TypeNode>  types;
         std::unordered_map<std::string_view, TypeNode*> lookupTable;
     };
 
     template <typename... Args>
-    Any MakeAny(uint32_t typeId, Args &&...args)
+    Any MakeAny(const Uuid &typeId, Args &&...args)
     {
         auto *context = SerializationContext::Get();
         TypeNode *node = context->FindTypeById(typeId);
@@ -54,7 +59,7 @@ namespace sky {
             return {};
         }
         for (auto &ctr : node->constructList) {
-            std::array<Any, sizeof...(Args)> anyArgs{std::forward<Args>(args)...};
+            std::array<Any, sizeof...(Args)> anyArgs{Any(std::in_place_type<Args>, std::forward<Args>(args))...};
             if (ctr.argsNum == sizeof...(Args) && ctr.checkFn(anyArgs.data())) {
                 return ctr.constructFn(anyArgs.data());
             }
@@ -66,23 +71,23 @@ namespace sky {
     template <typename T, typename... Args>
     inline Any MakeAny(Args &&...args)
     {
-        return MakeAny(TypeInfo<T>::Hash(), std::forward<Args>(args)...);
+        return MakeAny(TypeInfo<T>::RegisteredId(), std::forward<Args>(args)...);
     }
 
-    inline const TypeNode *GetTypeNode(uint32_t typeId)
+    inline const TypeNode *GetTypeNode(const Uuid &typeId)
     {
-        auto context = SerializationContext::Get();
+        auto *context = SerializationContext::Get();
         return context->FindTypeById(typeId);
     }
 
     inline const TypeNode *GetTypeNode(const Any &any)
     {
-        auto rtInfo = any.Info();
+        const auto *rtInfo = any.Info();
         if (rtInfo == nullptr) {
             return nullptr;
         }
-        auto context = SerializationContext::Get();
-        return context->FindTypeById(rtInfo->typeId);
+        auto *context = SerializationContext::Get();
+        return context->FindTypeById(rtInfo->registeredId);
     }
 
     inline const TypeNode *GetTypeNode(const TypeInfoRT *rtInfo)
@@ -90,14 +95,14 @@ namespace sky {
         if (rtInfo == nullptr) {
             return nullptr;
         }
-        auto context = SerializationContext::Get();
-        return context->FindTypeById(rtInfo->typeId);
+        auto *context = SerializationContext::Get();
+        return context->FindTypeById(rtInfo->registeredId);
     }
 
-    inline TypeMemberNode *GetTypeMember(const std::string &str, uint32_t typeId)
+    inline TypeMemberNode *GetTypeMember(const std::string &str, const Uuid &typeId)
     {
-        auto context = SerializationContext::Get();
-        auto node    = context->FindTypeById(typeId);
+        auto *context = SerializationContext::Get();
+        auto *node = context->FindTypeById(typeId);
         if (node == nullptr) {
             return nullptr;
         }
@@ -114,17 +119,6 @@ namespace sky {
 
 } // namespace sky
 
-#define TYPE_RTTI_BASE virtual const sky::TypeInfoRT *GetTypeInfo() const = 0;
-
-#define TYPE_RTTI_WITH_VT(name)                                                                                                                      \
-    const sky::TypeInfoRT *GetTypeInfo() const override                                                                                              \
-    {                                                                                                                                                \
-        static const sky::TypeInfoRT *info = sky::TypeInfoObj<name>::Get()->RtInfo();                                                                \
-        return info;                                                                                                                                 \
-    }                                                                                                                                                \
-    static constexpr std::string_view NAME = #name;                                                                                                  \
-    static constexpr std::string_view S_TYPE = sky::TypeInfo<name>::Name();                                                                          \
-    static constexpr uint32_t         TYPE = sky::TypeInfo<name>::Hash();                                                                            \
-    uint32_t GetType() const override { return TYPE; }                                                                                               \
-    std::string_view GetTypeStr() const override { return S_TYPE; }
+#define REGISTER_BEGIN(NAME, context) context->Register<MY_CLASS>(#NAME)
+#define REGISTER_MEMBER(NAME, Setter, Getter) .Member<&MY_CLASS::Setter, &MY_CLASS::Getter>(#NAME)
 

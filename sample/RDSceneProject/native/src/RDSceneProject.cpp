@@ -15,6 +15,7 @@
 
 #include "scenes/SampleSceneCube.h"
 #include "scenes/SampleMesh.h"
+#include "scenes/SimpleRotateComponent.h"
 
 namespace sky {
 
@@ -39,6 +40,7 @@ namespace sky {
         }
 #endif
 
+        SimpleRotateComponent::Reflect(SerializationContext::Get());
         return window != nullptr;
     }
 

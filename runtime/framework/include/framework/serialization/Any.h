@@ -5,7 +5,7 @@
 #pragma once
 
 #include <core/type/Rtti.h>
-#include <core/type/Type.h>
+#include <core/type/TypeInfo.h>
 
 namespace sky {
 
@@ -18,19 +18,19 @@ namespace sky {
         }
 
         template <typename T, typename... Args>
-        Any(std::in_place_type_t<T>, Args &&...args) : data{0}, info(TypeInfoObj<T>::Get()->RtInfo())
+        explicit Any(std::in_place_type_t<T>, Args &&...args) : data{0}, info(TypeInfoObj<T>::Get()->RtInfo())
         {
             CheckMemory();
             new (Data()) T{std::forward<Args>(args)...};
         }
 
-        template <typename T>
-        Any(std::reference_wrapper<T> ref) : Any(std::in_place_type<T *>, &ref.get())
-        {
-        }
+//        template <typename T>
+//        explicit Any(std::reference_wrapper<T> ref) : Any(std::in_place_type<T *>, &ref.get())
+//        {
+//        }
 
         template <typename T>
-        Any(const T &t) : Any(std::in_place_type<T>, t)
+        explicit Any(const T &t) : Any(std::in_place_type<T>, t)
         {
         }
 
@@ -54,14 +54,14 @@ namespace sky {
             return *this;
         }
 
-        Any(Any &&any)
+        Any(Any &&any) noexcept
         {
             info = any.info;
             CheckMemory();
             Move(any);
         }
 
-        Any &operator=(Any &&any)
+        Any &operator=(Any &&any) noexcept
         {
             info = any.info;
             CheckMemory();
@@ -82,7 +82,7 @@ namespace sky {
         template <typename T>
         const T *GetAsConst() const
         {
-            if (info != nullptr && TypeInfo<T>::Hash() == info->typeId) {
+            if (info != nullptr && TypeInfo<T>::RegisteredId() == info->registeredId) {
                 return static_cast<const T *>(Data());
             }
             return nullptr;
@@ -93,26 +93,21 @@ namespace sky {
             return info;
         }
 
-        operator bool() const
+        explicit operator bool() const
         {
             return Data() != nullptr;
         }
 
     private:
         void CheckMemory();
-
-        void Construct();
-
         void Destructor();
-
         void Move(Any &any);
-
         void Copy(const Any &any);
 
         union {
             uint8_t data[BLOCK_SIZE];
             void   *ptr;
         };
-        TypeInfoRT *info = nullptr;
+        const TypeInfoRT *info = nullptr;
     };
 } // namespace sky

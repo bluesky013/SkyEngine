@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cstdint>
-#include <core/type/Type.h>
+#include <core/type/Rtti.h>
 
 namespace sky {
     namespace rdg {
@@ -52,7 +52,7 @@ namespace sky {
         IFeatureProcessor *BuildFeatureProcessor(RenderScene *scene) override
         {
             auto *feature = new T(scene);
-            IFeatureProcessorBuilder::SetFeatureID(feature, TypeInfo<T>::Hash());
+            IFeatureProcessorBuilder::SetFeatureID(feature, RuntimeTypeId<T>());
             return feature;
         }
     };

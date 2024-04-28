@@ -8,31 +8,31 @@
 
 namespace sky {
 
-    void BinaryInputArchive::LoadObject(void *ptr, uint32_t typeId)
+    void BinaryInputArchive::LoadObject(void *ptr, const Uuid &typeId)
     {
-        if (typeId == TypeInfo<bool>::Hash()) {
+        if (typeId == TypeInfo<bool>::RegisteredId()) {
             LoadValue(*static_cast<bool*>(ptr));
-        } else if (typeId == TypeInfo<uint64_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint64_t>::RegisteredId()) {
             LoadValue(*static_cast<uint64_t*>(ptr));
-        } else if (typeId == TypeInfo<uint32_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint32_t>::RegisteredId()) {
             LoadValue(*static_cast<uint32_t*>(ptr));
-        } else if (typeId == TypeInfo<uint16_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint16_t>::RegisteredId()) {
             LoadValue(*static_cast<uint16_t*>(ptr));
-        } else if (typeId == TypeInfo<uint8_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint8_t>::RegisteredId()) {
             LoadValue(*static_cast<uint8_t*>(ptr));
-        } else if (typeId == TypeInfo<int64_t>::Hash()) {
+        } else if (typeId == TypeInfo<int64_t>::RegisteredId()) {
             LoadValue(*static_cast<int64_t*>(ptr));
-        } else if (typeId == TypeInfo<int32_t>::Hash()) {
+        } else if (typeId == TypeInfo<int32_t>::RegisteredId()) {
             LoadValue(*static_cast<int32_t*>(ptr));
-        } else if (typeId == TypeInfo<int16_t>::Hash()) {
+        } else if (typeId == TypeInfo<int16_t>::RegisteredId()) {
             LoadValue(*static_cast<int16_t*>(ptr));
-        } else if (typeId == TypeInfo<int8_t>::Hash()) {
+        } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             LoadValue(*static_cast<int8_t*>(ptr));
-        } else if (typeId == TypeInfo<float>::Hash()) {
+        } else if (typeId == TypeInfo<float>::RegisteredId()) {
             LoadValue(*static_cast<float*>(ptr));
-        } else if (typeId == TypeInfo<double>::Hash()) {
+        } else if (typeId == TypeInfo<double>::RegisteredId()) {
             LoadValue(*static_cast<double*>(ptr));
-        } else if (typeId == TypeInfo<std::string>::Hash()) {
+        } else if (typeId == TypeInfo<std::string>::RegisteredId()) {
             LoadValue(*static_cast<std::string*>(ptr));
         } else {
             const auto *node = GetTypeNode(typeId);
@@ -47,37 +47,38 @@ namespace sky {
             }
             for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
-                void *memPtr = GetValue(ptr, typeId, memberName);
-                LoadObject(memPtr, member.second.info->typeId);
+                Any value = GetValue(ptr, typeId, memberName);
+                LoadObject(value.Data(), member.second.info->registeredId);
+                SetValueRawData(ptr, typeId, memberName, value.Data());
             }
         }
     }
 
-    void BinaryOutputArchive::SaveObject(const void* ptr, uint32_t typeId)
+    void BinaryOutputArchive::SaveObject(const void* ptr, const Uuid &typeId)
     {
-        if (typeId == TypeInfo<bool>::Hash()) {
+        if (typeId == TypeInfo<bool>::RegisteredId()) {
             SaveValue(*static_cast<const bool*>(ptr));
-        } else if (typeId == TypeInfo<uint64_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint64_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint64_t *>(ptr));
-        } else if (typeId == TypeInfo<uint32_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint32_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint32_t *>(ptr));
-        } else if (typeId == TypeInfo<uint16_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint16_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint16_t *>(ptr));
-        } else if (typeId == TypeInfo<uint8_t>::Hash()) {
+        } else if (typeId == TypeInfo<uint8_t>::RegisteredId()) {
             SaveValue(*static_cast<const uint8_t *>(ptr));
-        } else if (typeId == TypeInfo<int64_t>::Hash()) {
+        } else if (typeId == TypeInfo<int64_t>::RegisteredId()) {
             SaveValue(*static_cast<const int64_t *>(ptr));
-        } else if (typeId == TypeInfo<int32_t>::Hash()) {
+        } else if (typeId == TypeInfo<int32_t>::RegisteredId()) {
             SaveValue(*static_cast<const int32_t *>(ptr));
-        } else if (typeId == TypeInfo<int16_t>::Hash()) {
+        } else if (typeId == TypeInfo<int16_t>::RegisteredId()) {
             SaveValue(*static_cast<const int16_t *>(ptr));
-        } else if (typeId == TypeInfo<int8_t>::Hash()) {
+        } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             SaveValue(*static_cast<const int8_t *>(ptr));
-        } else if (typeId == TypeInfo<float>::Hash()) {
+        } else if (typeId == TypeInfo<float>::RegisteredId()) {
             SaveValue(*static_cast<const float *>(ptr));
-        } else if (typeId == TypeInfo<double>::Hash()) {
+        } else if (typeId == TypeInfo<double>::RegisteredId()) {
             SaveValue(*static_cast<const double *>(ptr));
-        } else if (typeId == TypeInfo<std::string>::Hash()) {
+        } else if (typeId == TypeInfo<std::string>::RegisteredId()) {
             SaveValue(*static_cast<const std::string *>(ptr));
         } else {
             const auto *node = GetTypeNode(typeId);
@@ -93,8 +94,8 @@ namespace sky {
 
             for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
-                const void *memPtr = GetValueConst(ptr, typeId, memberName);
-                SaveObject(memPtr, member.second.info->typeId);
+                Any value = GetValueConst(ptr, typeId, memberName);
+                SaveObject(value.Data(), member.second.info->registeredId);
             }
         }
     }

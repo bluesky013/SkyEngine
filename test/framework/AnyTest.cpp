@@ -3,7 +3,7 @@
 //
 
 #include <core/logger/Logger.h>
-#include <core/type/Any.h>
+#include <framework/serialization/Any.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -89,20 +89,18 @@ struct AnyCopy1 {
     {
     }
 
-    AnyCopy1(uint32_t v) : a(v)
+    explicit AnyCopy1(uint32_t v) : a(v)
     {
     }
 
-    ~AnyCopy1()
-    {
-    }
+    ~AnyCopy1() = default;
 
     AnyCopy1(const AnyCopy1 &any)
     {
         a = any.a;
     }
 
-    AnyCopy1(AnyCopy1 &&any)
+    AnyCopy1(AnyCopy1 &&any) noexcept
     {
         a = any.a;
     }
@@ -116,7 +114,7 @@ struct AnyCopy2 {
     {
     }
 
-    AnyCopy2(uint32_t v) : a(v)
+    explicit AnyCopy2(uint32_t v) : a(v)
     {
     }
 
@@ -130,7 +128,7 @@ struct AnyCopy2 {
         a = any.a;
     }
 
-    AnyCopy2(AnyCopy2 &&any)
+    AnyCopy2(AnyCopy2 &&any) noexcept
     {
         a = any.a;
     }
