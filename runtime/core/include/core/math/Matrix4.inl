@@ -117,6 +117,27 @@ namespace sky {
         m[3] = m[0] * rhs.v[0] + m[1] * rhs.v[1] + m[2] * rhs.v[2] + m[3];
     }
 
+
+    inline float Matrix4::Determinant() const
+    {
+        float SubFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+        float SubFactor01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+        float SubFactor02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+        float SubFactor03 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+        float SubFactor04 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+        float SubFactor05 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+
+        Vector4 DetCof(
+            + (m[1][1] * SubFactor00 - m[1][2] * SubFactor01 + m[1][3] * SubFactor02),
+            - (m[1][0] * SubFactor00 - m[1][2] * SubFactor03 + m[1][3] * SubFactor04),
+            + (m[1][0] * SubFactor01 - m[1][1] * SubFactor03 + m[1][3] * SubFactor05),
+            - (m[1][0] * SubFactor02 - m[1][1] * SubFactor04 + m[1][2] * SubFactor05));
+
+        return
+            m[0][0] * DetCof[0] + m[0][1] * DetCof[1] +
+            m[0][2] * DetCof[2] + m[0][3] * DetCof[3];
+    }
+
     inline Matrix4 Matrix4::Inverse() const
     {
         float c00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];

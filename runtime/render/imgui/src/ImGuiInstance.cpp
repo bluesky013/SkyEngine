@@ -19,21 +19,22 @@ namespace sky {
     void ImContext::Init()
     {
         imContext = ImGui::CreateContext();
-        plotContext = ImPlot::CreateContext();
+//        plotContext = ImPlot::CreateContext();
     }
 
     void ImContext::Destroy()
     {
         ImGui::DestroyContext(imContext);
-        ImPlot::DestroyContext(plotContext);
         imContext = nullptr;
-        plotContext = nullptr;
+
+//        ImPlot::DestroyContext(plotContext);
+//        plotContext = nullptr;
     }
 
     void ImContext::MakeCurrent() const
     {
         ImGui::SetCurrentContext(imContext);
-        ImPlot::SetCurrentContext(plotContext);
+//        ImPlot::SetCurrentContext(plotContext);
     }
 
     ImGuiInstance::ImGuiInstance()

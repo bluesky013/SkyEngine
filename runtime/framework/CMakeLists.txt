@@ -20,6 +20,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     file(GLOB_RECURSE PLATFORM_SRC
         platform/android/*)
     set(FM_EXT_LIB
+        log
+        android
         game-activity::game-activity)
 endif ()
 

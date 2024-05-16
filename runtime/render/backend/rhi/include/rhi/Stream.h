@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rhi/Core.h>
+#include <core/file/FileSystem.h>
 #include <fstream>
 #include <functional>
 
@@ -12,15 +13,15 @@ namespace sky::rhi {
 
     class FileStream : public IStream {
     public:
-        explicit FileStream(const std::string &path, uint32_t baseOffset);
+        FileStream(const FilePtr &f, uint64_t base);
         ~FileStream() override = default;
 
         const uint8_t *GetData(uint64_t offset) override;
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
 
     private:
-        std::ifstream stream;
-        uint32_t baseOffset;
+        FilePtr file;
+        uint64_t baseOffset;
         std::unique_ptr<uint8_t> hostData;
     };
 

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <core/platform/Platform.h>
 #include <core/util/Uuid.h>
+#include <core/file/FileSystem.h>
 
 namespace sky {
 
@@ -24,8 +25,8 @@ namespace sky {
         AssetPackage() = default;
         ~AssetPackage() = default;
 
-        void LoadFromFile(const std::string &path);
-        void SaveToFile(const std::string &path);
+        void LoadFromFile(const FileSystemPtr &fs, const std::string &path);
+        void SaveToFile(const FileSystemPtr &fs, const std::string &path);
 
         const Uuid &RegisterAsset(const Uuid &uuid, const SourceAssetInfo &info);
         void RemoveAsset(const Uuid &uuid);

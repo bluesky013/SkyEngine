@@ -9,6 +9,7 @@
 #include <render/adaptor/Util.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/ImageAsset.h>
+#include <render/adaptor/assets/RenderPrefab.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/MeshRenderer.h>
 #include <rhi/Decode.h>
@@ -257,32 +258,51 @@ namespace sky {
         std::unique_ptr<SkyBoxRenderer> skybox;
     };
 
+    void SampleMesh::CreateFromPrefab()
+    {
+//        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/DamagedHelmet.glb");
+        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/Sponza/glTF/Sponza.gltf");
+        for (auto &node : prefab->Data().nodes) {
+            auto actor = world->CreateActor();
+            actor->GetComponent<TransformComponent>()->SetLocalTransform(node.localTransform);
+
+            if (static_cast<bool>(node.mesh)) {
+                auto *mesh = actor->AddComponent<MeshRenderer>();
+                mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>(node.mesh));
+            }
+        }
+    }
+
     bool SampleMesh::Start(sky::RenderWindow *window)
     {
         if (!SampleScene::Start(window)) {
             return false;
         }
 
-        meshObj = world->CreateActor("Helmet");
-        meshObj->GetComponent<TransformComponent>()->SetLocalRotation(
-            Quaternion(-30 / 180.f * 3.14f, VEC3_Y) *
-            Quaternion(90 / 180.f * 3.14f, VEC3_X));
-        meshObj->AddComponent<SimpleRotateComponent>();
-
-        auto *mesh = meshObj->AddComponent<MeshRenderer>();
-        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("models/DamagedHelmet.glb_node_damagedHelmet_-6514_mesh"));
+//        meshObj = world->CreateActor("Helmet");
+//        meshObj->GetComponent<TransformComponent>()->SetLocalRotation(
+//            Quaternion(-30 / 180.f * 3.14f, VEC3_Y) *
+//            Quaternion(90 / 180.f * 3.14f, VEC3_X));
+//        meshObj->AddComponent<SimpleRotateComponent>();
+//
+//        auto *mesh = meshObj->AddComponent<MeshRenderer>();
+//        mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>("models/DamagedHelmet.glb_node_damagedHelmet_-6514_mesh"));
 
 //        auto mat = AssetManager::Get()->LoadAsset<MaterialInstance>("materials/floor.mati")->CreateInstance();
 //        auto floor = GridRenderer().SetUp({512}).BuildMesh(mat);
 //        mesh->SetMesh(floor);
 
+        CreateFromPrefab();
+
         camera = world->CreateActor("camera");
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 0.5, 5));
+        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 1.5, 0));
+        camera->GetComponent<TransformComponent>()->SetLocalRotationEuler(Vector3(0, 90, 0));
+        camera->AddComponent<SimpleRotateComponent>();
 
-        auto *scene = GetRenderSceneFromActor(meshObj);
+        auto *scene = GetRenderSceneFromActor(camera);
         auto *pipeline = new ForwardMSAAPass();
         pipeline->SetOutput(window, scene);
 

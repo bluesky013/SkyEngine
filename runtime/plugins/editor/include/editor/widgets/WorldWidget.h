@@ -16,12 +16,16 @@ namespace sky::editor {
         ~WorldWidget() override = default;
 
         void SetWorld(const WorldPtr &world_) { world = world_; }
+        void BindEvent(EventID id);
+
     private:
         void Execute(ImContext &context) override;
         void OnToggle(bool val) override { show = val; }
 
         bool show = false;
         WorldPtr world;
+
+        EventBinder<IToggleEvent> binder;
     };
 
 } // namespace sky::editor

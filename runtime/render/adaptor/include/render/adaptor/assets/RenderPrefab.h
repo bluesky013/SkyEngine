@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/math/Matrix4.h>
+#include <core/math/Transform.h>
 #include <framework/asset/Asset.h>
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/MaterialAsset.h>
@@ -17,7 +18,7 @@ namespace sky {
     struct RenderPrefabNode {
         Uuid mesh;
         uint32_t parentIndex = ~(0u);
-        Matrix4 localMatrix;
+        Transform localTransform;
     };
 
     struct RenderPrefabAssetData {

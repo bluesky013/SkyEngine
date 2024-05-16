@@ -56,6 +56,11 @@ namespace sky::builder {
         std::vector<RenderPrefabNode> nodes;
     };
 
+    static inline Vector4 FromAssimp(const aiColor4D &color)
+    {
+        return Vector4(color.r, color.g, color.b, color.a);
+    }
+
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
     {
         Matrix4 res;
@@ -65,6 +70,16 @@ namespace sky::builder {
             }
         }
         return res;
+    }
+
+    static inline Vector3 FromAssimp(const aiVector3D &vec)
+    {
+        return Vector3(vec.x, vec.y, vec.z);
+    }
+
+    static inline Quaternion FromAssimp(const aiQuaternion &vec)
+    {
+        return Quaternion(vec.w, vec.x, vec.y, vec.z);
     }
 
     static std::string GetIndexedName(const std::string_view &prefix, const std::string &name, const std::string_view &type, size_t index)
@@ -82,10 +97,9 @@ namespace sky::builder {
     static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const BuildRequest &request)
     {
         auto *am = AssetManager::Get();
-        auto texPath = std::filesystem::path(request.fullPath).parent_path().append(str.C_Str());
-        if (std::filesystem::exists(texPath)) {
-            auto path = texPath.make_preferred().string();
-            auto id = am->ImportAndBuildAsset(path);
+        auto texPath = std::filesystem::path(request.relativePath).parent_path().append(str.C_Str());
+        if (std::filesystem::exists(am->GetProjectPath() + texPath.string())) {
+            auto id = am->ImportAndBuildAsset(texPath.string());
             return id;
         }
 
@@ -129,7 +143,6 @@ namespace sky::builder {
             aiShadingMode shadingModel = aiShadingMode_Flat;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
 
-            LOG_I(TAG, "shader model %d", shadingModel);
             auto matAsset = CreateMaterialInstanceByMaterial(material, context, request);
             auto &data = matAsset->Data();
 
@@ -179,9 +192,16 @@ namespace sky::builder {
             }
 
             if (shadingModel == aiShadingMode_PBR_BRDF) {
-                material->Get(AI_MATKEY_BASE_COLOR, baseColor);
-                material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
-                material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+                aiColor4D color = {};
+                aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &color);
+                baseColor = FromAssimp(color);
+
+                aiGetMaterialFloat(material, AI_MATKEY_METALLIC_FACTOR, &metallic);
+                aiGetMaterialFloat(material, AI_MATKEY_ROUGHNESS_FACTOR, &roughness);
+
+//                material->Get(AI_MATKEY_BASE_COLOR, baseColor);
+//                material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
+//                material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 
 
                 if (material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str) == 0) {
@@ -376,7 +396,14 @@ namespace sky::builder {
         context.nodes.emplace_back();
         auto& current = context.nodes.back();
         current.parentIndex = parent;
-        current.localMatrix = FromAssimp(node->mTransformation);
+
+        aiVector3D translation;
+        aiQuaternion rotation;
+        aiVector3D scale;
+        node->mTransformation.Decompose(scale, rotation, translation);
+        current.localTransform.translation = FromAssimp(translation);
+        current.localTransform.scale = FromAssimp(scale);
+        current.localTransform.rotation = FromAssimp(rotation);
 
         if (node->mNumMeshes != 0) {
             current.mesh = ProcessMesh(scene, node, context, request);

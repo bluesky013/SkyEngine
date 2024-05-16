@@ -10,7 +10,7 @@ namespace sky::editor {
     {
         if (show) {
             ImGui::ShowDemoWindow(nullptr);
-            ImPlot::ShowDemoWindow(nullptr);
+//            ImPlot::ShowDemoWindow(nullptr);
         }
     }
 

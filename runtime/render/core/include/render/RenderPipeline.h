@@ -5,8 +5,10 @@
 #pragma once
 
 #include <render/rdg/RenderGraphContext.h>
+#include <vector>
 
 namespace sky {
+    class RenderScene;
     namespace rdg {
         struct RenderGraph;
     }

@@ -11,6 +11,7 @@
 
 #include <core/platform/Platform.h>
 #include <core/util/Uuid.h>
+#include <core/archive/IArchive.h>
 
 namespace sky {
 
@@ -24,8 +25,8 @@ namespace sky {
         AssetProducts() = default;
         ~AssetProducts() = default;
 
-        void LoadFromFile(const std::string &path);
-        void SaveToFile(const std::string &path);
+        void Load(const IArchivePtr &archive);
+        void Save(const OArchivePtr &archive);
 
         void AddAsset(const Uuid &uuid, const ProductAssetInfo &info);
         void RemoveAsset(const Uuid &uuid);

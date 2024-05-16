@@ -38,6 +38,7 @@ namespace sky {
         void SetWorldRotation(const Quaternion &rotation);
         void SetWorldScale(const Vector3 &scale);
 
+        void SetLocalTransform(const Transform &trans);
         void SetLocalTranslation(const Vector3 &translation);
         void SetLocalRotationEuler(const Vector3 &euler);
         void SetLocalRotation(const Quaternion &rotation);

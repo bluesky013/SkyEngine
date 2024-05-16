@@ -50,6 +50,11 @@ namespace sky {
         return platform->GetEnvVariable(env);
     }
 
+    FileSystemPtr Platform::GetBundleFileSystem() const
+    {
+        return platform->GetBundleFileSystem();
+    }
+
     bool Platform::RunCmd(const std::string &str, std::string &out) const
     {
         return platform->RunCmd(str, out);

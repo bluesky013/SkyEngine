@@ -45,6 +45,10 @@ namespace sky {
     {
 
     }
+    void TransformComponent::SetLocalTransform(const Transform &trans)
+    {
+        data.local = trans;
+    }
     void TransformComponent::SetLocalTranslation(const Vector3 &translation)
     {
         data.local.translation = translation;

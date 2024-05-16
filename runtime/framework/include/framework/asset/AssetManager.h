@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <core/file/FileSystem.h>
 #include <framework/asset/AssetPackage.h>
 #include <framework/asset/AssetProducts.h>
 #include <framework/asset/Asset.h>
@@ -15,6 +16,7 @@ namespace sky {
     enum class AssetGroup : uint32_t {
         ENGINE,
         PROJECT,
+        ROOT,
         CUSTOM
     };
 
@@ -28,7 +30,8 @@ namespace sky {
         AssetManager() = default;
         ~AssetManager() override;
 
-        void SetWorkPath(const std::string &path);
+        void SetWorkPath(const FileSystemPtr &fs);
+        const FileSystemPtr &GetWorkFs() const { return workFs; }
 
 #ifdef SKY_EDITOR
         // --- editor only ---
@@ -57,7 +60,7 @@ namespace sky {
 #endif
 
         // load asset
-        std::string GetAssetPath(const Uuid &uuid);
+        FilePtr OpenAsset(const Uuid &id);
         std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const Uuid &uuid, bool async);
         std::shared_ptr<AssetBase> LoadAsset(const Uuid &type, const std::string &path, bool async);
         std::shared_ptr<AssetBase> CreateAsset(const Uuid &type, const Uuid &uuid);
@@ -95,7 +98,8 @@ namespace sky {
         static std::string GetBuildOutputPath(const std::string &parent, PlatformType platform);
         static Uuid GetUUIDByPath(const std::string &path);
     private:
-        std::string workDir;
+        FileSystemPtr workFs;
+        FileSystemPtr projectFs;
 
 #ifdef SKY_EDITOR
         std::string projectPath;
@@ -109,7 +113,6 @@ namespace sky {
 
         std::unique_ptr<AssetProducts> products;
         std::unordered_map<Uuid, std::unique_ptr<AssetHandlerBase>> assetHandlers;
-
 
         // loaded assets.
         mutable std::mutex assetMutex;

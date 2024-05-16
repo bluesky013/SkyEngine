@@ -160,7 +160,7 @@ namespace sky {
         {
             IFileArchive archive(cachePath);
             if (archive.IsOpen()) {
-                archive.Load(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+                archive.LoadRaw(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
 
                 if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
                     needUpdateShader = false;
@@ -242,8 +242,8 @@ namespace sky {
             shaderHeader.dataSize = static_cast<uint32_t>(mArchive.GetData().size());
 
             OFileArchive archive(cachePath);
-            archive.Save(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
-            archive.Save(reinterpret_cast<const char *>(mArchive.GetData().data()), shaderHeader.dataSize);
+            archive.SaveRaw(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.GetData().data()), shaderHeader.dataSize);
         }
     }
 } // namespace sky

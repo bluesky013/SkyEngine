@@ -38,7 +38,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 {
     LightInfo light;
     light.Color = float4(1.0, 1.0, 1.0, 1.0);
-    light.Direction = float4(normalize(float3(-1, -1, -1)), 1.0);
+    light.Direction = float4(float3(-1, -1, 0), 1.0);
 
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - 1.0;
     float3 N = normalize(input.Normal);
@@ -48,8 +48,8 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     N = normalize(mul(TBN, tNormal));
 
-    float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
-    float3 L = -light.Direction.xyz;
+    float3 viewPos = float3(VIEW_INFO.World[3][0], VIEW_INFO.World[3][1], VIEW_INFO.World[3][2]);
+    float3 L = normalize(-light.Direction.xyz);
     float3 V = normalize(viewPos - input.WorldPos);
 
     float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
@@ -62,9 +62,9 @@ float4 FSMain(VSOutput input) : SV_TARGET
     pbrParam.Metallic = mr.b;
     pbrParam.Roughness = mr.g;
 
-    float4 ao = AoMap.Sample(AoSampler, input.UV.xy);
-    float4 emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
+//     float4 ao = AoMap.Sample(AoSampler, input.UV.xy);
+//     float4 emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
 
-    float3 e0 = BRDF(V, N, light, pbrParam) + emissive.xyz;
-    return float4(e0, albedo.a) ;
+    float3 e0 = BRDF(V, N, light, pbrParam);
+    return float4(e0, albedo.a);
 }

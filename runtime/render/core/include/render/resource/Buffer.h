@@ -7,6 +7,7 @@
 #include <vector>
 #include <rhi/Device.h>
 #include <rhi/Queue.h>
+#include <core/file/FileSystem.h>
 #include <core/platform/Platform.h>
 
 namespace sky {
@@ -22,6 +23,7 @@ namespace sky {
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
 
+        rhi::TransferTaskHandle Upload(const FilePtr &archive, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
 
     protected:

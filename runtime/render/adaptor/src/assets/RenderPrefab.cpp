@@ -14,7 +14,7 @@ namespace sky {
             auto &node =  nodes[i];
             archive.LoadValue(reinterpret_cast<char*>(&node.mesh), sizeof(Uuid));
             archive.LoadValue(node.parentIndex);
-            archive.LoadValue(reinterpret_cast<char*>(&node.localMatrix), sizeof(Matrix4));
+            archive.LoadValue(reinterpret_cast<char*>(&node.localTransform), sizeof(Transform));
         }
     }
 
@@ -24,7 +24,7 @@ namespace sky {
         for (const auto &node : nodes) {
             archive.SaveValue(reinterpret_cast<const char*>(&node.mesh), sizeof(Uuid));
             archive.SaveValue(node.parentIndex);
-            archive.SaveValue(reinterpret_cast<const char*>(&node.localMatrix), sizeof(Matrix4));
+            archive.SaveValue(reinterpret_cast<const char*>(&node.localTransform), sizeof(Transform));
         }
     }
 } // namespace sky

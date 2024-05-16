@@ -6,6 +6,7 @@
 
 #include <rhi/Device.h>
 #include <rhi/Queue.h>
+#include <core/file/FileSystem.h>
 #include <fstream>
 
 namespace sky {
@@ -21,6 +22,7 @@ namespace sky {
         Texture();
         virtual ~Texture();
 
+        rhi::TransferTaskHandle Upload(const FilePtr &archive, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const uint8_t *ptr, uint64_t size, rhi::Queue &queue);
 

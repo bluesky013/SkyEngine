@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <core/util/Uuid.h>
+#include <core/archive/IArchive.h>
 #include <core/platform/Platform.h>
 #include <core/archive/ArchiveConcept.h>
 
@@ -13,7 +14,7 @@ namespace sky {
 
     class BinaryInputArchive {
     public:
-        explicit BinaryInputArchive(std::istream &s) : stream(s)
+        explicit BinaryInputArchive(IInputArchive &arc) : archive(arc)
         {
         }
 
@@ -21,8 +22,7 @@ namespace sky {
 
         void LoadValue(char* data, uint32_t size)
         {
-            auto const writtenSize = stream.rdbuf()->sgetn(data, size);
-            SKY_ASSERT(writtenSize == size);
+            archive.LoadRaw(data, size);
         }
 
         template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
@@ -41,20 +41,19 @@ namespace sky {
 
         void LoadObject(void *ptr, const Uuid &id);
     protected:
-        std::istream &stream;
+        IInputArchive &archive;
     };
 
     class BinaryOutputArchive {
     public:
-        explicit BinaryOutputArchive(std::ostream &s) : stream(s)
+        explicit BinaryOutputArchive(IOutputArchive &arc) : archive(arc)
         {
         }
         ~BinaryOutputArchive() = default;
 
         void SaveValue(const char* data, uint32_t size)
         {
-            auto const writtenSize = stream.rdbuf()->sputn(data, size);
-            SKY_ASSERT(writtenSize == size);
+            archive.SaveRaw(data, size);
         }
 
         template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
@@ -71,6 +70,6 @@ namespace sky {
 
         void SaveObject(const void* data, const Uuid &id);
     protected:
-        std::ostream &stream;
+        IOutputArchive &archive;
     };
 }

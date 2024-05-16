@@ -11,41 +11,41 @@
 namespace sky {
     static const char* TAG = "Asset";
 
-    void AssetPackage::LoadFromFile(const std::string &path)
+    void AssetPackage::LoadFromFile(const FileSystemPtr &fs, const std::string &path)
     {
-        std::fstream f(path, std::ios::in | std::ios::binary);
-        if (!f.is_open()) {
+        auto archive = fs->ReadAsArchive(path);
+        if (!archive) {
             return;
         }
 
-        IStreamArchive archive(f);
-
         uint32_t number = 0;
-        archive.Load(number);
+        archive->Load(number);
         for (uint32_t i = 0; i < number; ++i) {
             std::string id;
-            archive.Load(id);
+            archive->Load(id);
 
             SourceAssetInfo info = {};
-            archive.Load(info.loadPath);
-            archive.Load(info.hash);
+            archive->Load(info.loadPath);
+            archive->Load(info.hash);
 
             std::lock_guard<std::mutex> lock(mutex);
             assetLists.emplace(Uuid::CreateFromString(id), info);
         }
     }
 
-    void AssetPackage::SaveToFile(const std::string &path)
+    void AssetPackage::SaveToFile(const FileSystemPtr &fs, const std::string &path)
     {
-        std::fstream o(path, std::ios::out | std::ios::binary);
-        OStreamArchive archive(o);
+        auto archive = fs->WriteAsArchive(path);
+        if (!archive) {
+            return;
+        }
 
         std::lock_guard<std::mutex> lock(mutex);
-        archive.Save(static_cast<uint32_t>(assetLists.size()));
+        archive->Save(static_cast<uint32_t>(assetLists.size()));
         for (auto &[id, info] : assetLists) {
-            archive.Save(id.ToString());
-            archive.Save(info.loadPath);
-            archive.Save(info.hash);
+            archive->Save(id.ToString());
+            archive->Save(info.loadPath);
+            archive->Save(info.hash);
         }
     }
 
@@ -53,9 +53,9 @@ namespace sky {
     {
         std::lock_guard<std::mutex> lock(mutex);
         auto iter = assetLists.emplace(uuid, info);
-        if (!iter.second) {
-            LOG_I(TAG, "duplicated asset %s", uuid.ToString().c_str());
-        }
+//        if (!iter.second) {
+//            LOG_I(TAG, "duplicated asset %s", uuid.ToString().c_str());
+//        }
         return iter.first->first;
     }
 

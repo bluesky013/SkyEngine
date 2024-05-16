@@ -13,7 +13,6 @@ namespace sky {
         world = std::make_unique<World>();
 
         sceneProxy = std::make_unique<RenderSceneProxy>();
-        auto *renderScene = sceneProxy->GetRenderScene();
         auto *ppl = new DefaultForward();
         ppl->SetOutput(window);
         Renderer::Get()->SetPipeline(ppl);

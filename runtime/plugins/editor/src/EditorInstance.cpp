@@ -6,6 +6,7 @@
 #include <editor/widgets/DemoWidget.h>
 #include <editor/widgets/DirectoryBrowser.h>
 #include <editor/widgets/AssetWidget.h>
+#include <editor/widgets/WorldWidget.h>
 
 #include <framework/asset/AssetManager.h>
 
@@ -25,12 +26,16 @@ namespace sky::editor {
         auto *viewMenu = menuBar->AddMenu("View");
         viewMenu->AddItem("Assets", BTN_MENU_VIEW_SHOW_ASSETS, false);
         viewMenu->AddItem("Demo", BTN_MENU_VIEW_SHOW_DEMO, false);
+        viewMenu->AddItem("World", BTN_MENU_VIEW_SHOW_WORLD, false);
 
         auto *demoWidget = new DemoWidget();
         demoWidget->BindEvent(BTN_MENU_VIEW_SHOW_DEMO);
 
         auto *assetWidget = new AssetWidget();
         assetWidget->BindEvent(BTN_MENU_VIEW_SHOW_ASSETS);
+
+        auto *worldWidget = new WorldWidget();
+        worldWidget->BindEvent(BTN_MENU_VIEW_SHOW_WORLD);
 
         auto *dirWidget = new DirectoryBrowser();
         dirWidget->AddPath(AssetManager::Get()->GetProjectAssetPath());
@@ -40,6 +45,7 @@ namespace sky::editor {
         wm->RegisterWidget(demoWidget);
         wm->RegisterWidget(assetWidget);
         wm->RegisterWidget(dirWidget);
+        wm->RegisterWidget(worldWidget);
 
         instance->AddWidget(wm.get());
     }

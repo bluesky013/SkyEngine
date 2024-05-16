@@ -1,6 +1,8 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
+file(GLOB_RECURSE UNIX_ASYNC_SRC platform/unix/async/*)
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
         platform/windows/*)
@@ -9,7 +11,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         platform/macos/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     file(GLOB_RECURSE CORE_PLATFORM_SRC
-        platform/unix/async/*)
+        platform/android/*)
+    list(APPEND CORE_PLATFORM_SRC ${UNIX_ASYNC_SRC})
 endif ()
 
 set(CORE_OPT_LIBS)
@@ -31,6 +34,6 @@ sky_add_library(TARGET Core STATIC
         3rdParty::crc32
         3rdParty::taskflow
         3rdParty::boost
-        3rdParty::mimalloc
+#        3rdParty::mimalloc
         ${CORE_OPT_LIBS}
     )

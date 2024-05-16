@@ -8,6 +8,7 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <core/archive/IArchive.h>
 
 namespace sky {
 
@@ -25,25 +26,21 @@ namespace sky {
 
     class IFile {
     public:
-        explicit IFile(const std::string &filePath_) : filePath(filePath_) {}
+        explicit IFile() = default;
         virtual ~IFile() = default;
 
-        virtual bool IsOpen() const { return false; }
-        const std::string &GetStr() const { return filePath.GetStr(); }
-
-    protected:
-        FilePath filePath;
+        virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
     using FilePtr = std::shared_ptr<IFile>;
 
     class NativeFile : public IFile {
     public:
-        explicit NativeFile(const std::string &filePath, std::ios::openmode mode);
-        ~NativeFile() override;
+        explicit NativeFile(const std::string &path) : filePath(path) {}
+        ~NativeFile() override = default;
 
-        bool IsOpen() const override;
+        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
     private:
-        std::fstream fs;
+        std::string filePath;
     };
 
     class FileView {
@@ -62,22 +59,25 @@ namespace sky {
         IFileSystem() = default;
         virtual ~IFileSystem() = default;
 
-        virtual FilePtr OpenFile(const std::string &path, std::ios::openmode) = 0;
+        virtual bool FileExist(const std::string &path) = 0;
+        virtual IArchivePtr ReadAsArchive(const std::string &name) = 0;
+        virtual OArchivePtr WriteAsArchive(const std::string &name) = 0;
+        virtual FilePtr OpenFile(const std::string &name) = 0;
         virtual bool ReadString(const std::string &path, std::string &out) = 0;
     };
     using FileSystemPtr = std::shared_ptr<IFileSystem>;
 
     class NativeFileSystem : public IFileSystem {
     public:
-        NativeFileSystem() = default;
+        explicit NativeFileSystem(const std::string &root) : fsRoot(root) {}
         ~NativeFileSystem() override = default;
 
-        FilePtr OpenFile(const std::string &path, std::ios::openmode) override;
+        bool FileExist(const std::string &path) override;
+        FilePtr OpenFile(const std::string &name) override;
+        IArchivePtr ReadAsArchive(const std::string &path) override;
+        OArchivePtr WriteAsArchive(const std::string &name) override;
         bool ReadString(const std::string &path, std::string &out) override;
-
-        void AddPath(const std::string &path);
     private:
-        std::vector<FilePath> fsRoot;
+        FilePath fsRoot;
     };
-
 } // namespace sky

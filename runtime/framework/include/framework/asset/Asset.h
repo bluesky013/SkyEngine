@@ -6,6 +6,7 @@
 
 #include <core/jobsystem/JobSystem.h>
 #include <core/util/Uuid.h>
+#include <core/archive/IArchive.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
 #include <memory>
@@ -127,9 +128,9 @@ namespace sky {
 
         virtual std::shared_ptr<AssetBase> CreateAsset() = 0;
 
-        virtual void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &asset) = 0;
+        virtual void Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
 
-        virtual void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &data) = 0;
+        virtual void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &data) = 0;
     };
 
     template <typename T>
@@ -147,37 +148,28 @@ namespace sky {
             return std::make_shared<Asset<T>>();
         }
 
-        void LoadFromPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
+        void Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
-            std::ifstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
-
             auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
             DataType &assetData = asset->Data();
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-                JsonInputArchive archive(file);
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                BinaryInputArchive archive(file);
-                archive.LoadObject(&assetData, TypeInfo<DataType>::RegisteredId());
+                BinaryInputArchive bArchive(archive);
+                bArchive.LoadObject(&assetData, TypeInfo<DataType>::RegisteredId());
             }
         }
 
-        void SaveToPath(const std::string &path, const std::shared_ptr<AssetBase> &assetBase) override
+        void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
             auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
             auto         &assetData = asset->Data();
-            std::ofstream file(path, std::ios::binary);
-            if (!file.is_open()) {
-                return;
-            }
+
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-                JsonOutputArchive archive(file);
-                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
+//                JsonOutputArchive archive(file);
+//                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
-                BinaryOutputArchive archive(file);
-                archive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
+                BinaryOutputArchive bArchive(archive);
+                bArchive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             }
         }
     };

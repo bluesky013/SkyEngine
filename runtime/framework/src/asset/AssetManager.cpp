@@ -14,15 +14,16 @@
 #include <core/hash/Hash.h>
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
+#include <core/archive/FileArchive.h>
 
 #include <framework/asset/Asset.h>
 #include <framework/platform/PlatformBase.h>
 
 static const char* TAG = "AssetManager";
 static const char* PACKAGE_PATH = "package.repo";
-static const char* PRODUCTS_PATH = "products";
+static const char* PRODUCTS_PATH = "/products";
 static const char* PRODUCTS_ASSETS_PATH = "/assets";
-static const char* PRODUCTS_ASSETS_REPO_PATH = "/assets.bin";
+static const char* PRODUCTS_ASSETS_REPO_PATH = "assets.bin";
 static const char* PROJECT_ASSET_PREFIX = "/assets";
 static const char* ENGINE_ASSET_PREFIX = "/engine_assets";
 
@@ -40,26 +41,22 @@ namespace sky {
         return path;
     }
 
-    static std::filesystem::path GetAssetPathByUUID(const std::string &workDir, const Uuid &uuid)
+    static std::string GetAssetPathByUUID(const Uuid &uuid)
     {
-        std::filesystem::path assetPath(workDir);
         auto strUuid = uuid.ToString();
-        assetPath.append(strUuid.substr(0, 2));
-        assetPath.append(strUuid + ".bin");
-
-        return assetPath;
+        return strUuid.substr(0, 2) + "/" + strUuid + ".bin";
     }
 
     static std::string GetAssetLoadPath(const std::string &path, AssetGroup group = AssetGroup::PROJECT)
     {
         std::string res;
         if (group == AssetGroup::ENGINE) {
-            res = ENGINE_ASSET_PREFIX;
-        } else {
-            res = PROJECT_ASSET_PREFIX;
+            res = ENGINE_ASSET_PREFIX + std::string("/");
+        } else if (group == AssetGroup::PROJECT){
+            res = PROJECT_ASSET_PREFIX + std::string("/");
         }
 
-        res += "/" + path;
+        res += path;
         return res;
     }
 
@@ -77,20 +74,20 @@ namespace sky {
     {
 #ifdef SKY_EDITOR
         if (package) {
-            package->SaveToFile(projectPath + PACKAGE_PATH);
+            package->SaveToFile(workFs, PACKAGE_PATH);
         }
 #endif
 
         if (products) {
-            products->SaveToFile(workDir + PRODUCTS_ASSETS_REPO_PATH);
+            products->Save(workFs->WriteAsArchive(PRODUCTS_ASSETS_REPO_PATH));
         }
     }
 
-    void AssetManager::SetWorkPath(const std::string &path)
+    void AssetManager::SetWorkPath(const FileSystemPtr &fs)
     {
-        workDir = path;
+        workFs = fs;
         products = std::make_unique<AssetProducts>();
-        products->LoadFromFile(workDir + PRODUCTS_ASSETS_REPO_PATH);
+        products->Load(workFs->ReadAsArchive(PRODUCTS_ASSETS_REPO_PATH));
     }
 
     std::string AssetManager::GetPlatformPrefix(PlatformType platform)
@@ -139,11 +136,6 @@ namespace sky {
         return asset;
     }
 
-    std::string AssetManager::GetAssetPath(const Uuid &uuid)
-    {
-        return GetAssetPathByUUID(workDir, uuid).string();
-    }
-
     std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const std::string &path, bool async)
     {
         auto id = GetUUIDByPath(GetAssetLoadPath(path));
@@ -151,6 +143,12 @@ namespace sky {
             id = GetUUIDByPath(GetAssetLoadPath(path, AssetGroup::ENGINE));
         }
         return LoadAsset(type, id, async);
+    }
+
+    FilePtr AssetManager::OpenAsset(const Uuid &uuid)
+    {
+        std::string loadPath = GetAssetPathByUUID(uuid);
+        return workFs->OpenFile(loadPath);
     }
 
     std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const Uuid &uuid, bool async)
@@ -186,9 +184,10 @@ namespace sky {
         asset = CreateAsset(type, uuid);
         asset->status = AssetBase::Status::LOADING;
 
-        std::string loadPath = GetAssetPathByUUID(workDir, uuid).string();
-        auto fn = [handler, asset, loadPath]() {
-            handler->LoadFromPath(loadPath, asset);
+        std::string loadPath = GetAssetPathByUUID( uuid);
+        auto fn = [handler, asset, loadPath, this]() {
+            auto archive = workFs->ReadAsArchive(loadPath);
+            handler->Load(*archive, asset);
             asset->status = AssetBase::Status::LOADED;
         };
 
@@ -220,10 +219,7 @@ namespace sky {
     void AssetManager::LoadConfig(const std::string &path)
     {
         std::string json;
-        if (!ReadString(path, json)) {
-            LOG_W(TAG, "Load Config Failed");
-            return;
-        }
+        projectFs->ReadString(path, json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
@@ -243,20 +239,20 @@ namespace sky {
 
     void AssetManager::SetProjectPath(const std::string &path)
     {
-        projectPath = path + "/";
+        projectPath = path;
         projectAssetPath = path + PROJECT_ASSET_PREFIX;
         engineAssetPath = path + ENGINE_ASSET_PREFIX;
 
-        searchPathList.emplace_back(AssetSearchPath{projectPath});
+        searchPathList.emplace_back(AssetSearchPath{projectPath, AssetGroup::ROOT});
         searchPathList.emplace_back(AssetSearchPath{engineAssetPath, AssetGroup::ENGINE});
         searchPathList.emplace_back(AssetSearchPath{projectAssetPath, AssetGroup::PROJECT});
 
+        SetWorkPath(std::make_shared<NativeFileSystem>(GetBuildOutputPath(projectPath, PlatformType::Default)));
+        projectFs = std::make_shared<NativeFileSystem>(projectPath);
+
         package = std::make_unique<AssetPackage>();
-        package->LoadFromFile(projectPath + PACKAGE_PATH);
-
-        LoadConfig(projectPath + "config/asset.json");
-
-        SetWorkPath(GetBuildOutputPath(projectPath, PlatformType::Default));
+        package->LoadFromFile(workFs, PACKAGE_PATH);
+        LoadConfig("config/asset.json");
     }
 
     const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)
@@ -275,7 +271,7 @@ namespace sky {
         SourceAssetInfo info = {};
         for (const auto &tmpPath : searchPathList) {
             std::filesystem::path assetPath(tmpPath.path);
-            assetPath.append(path);
+            assetPath.append(path.starts_with('/') ? path.substr(1, path.size() - 1) : path);
 
             if (std::filesystem::exists(assetPath)) {
                 info.loadPath = GetAssetLoadPath(path, tmpPath.group);
@@ -359,7 +355,7 @@ namespace sky {
             products->RegisterDependencies(product.asset->GetUuid(), product.deps);
             SaveAsset(product.asset, target);
         }
-
+        LOG_I(TAG, "Build Asset Success. %s -> %s", sourceInfo->loadPath.c_str(), uuid.ToString().c_str());
         return true;
     }
 
@@ -375,17 +371,15 @@ namespace sky {
             return;
         }
 
-        auto outputPath = GetBuildOutputPath(projectPath, target);
-        if (outputPath.empty()) {
-            return;
-        }
-        std::filesystem::path fOut = GetAssetPathByUUID(outputPath, asset->GetUuid());
-        if (!std::filesystem::exists(fOut.parent_path())) {
-            std::filesystem::create_directories(fOut.parent_path());
+        auto outputPath = std::filesystem::path(GetBuildOutputPath(projectPath, target));
+        outputPath.append(GetAssetPathByUUID(asset->GetUuid()));
+        if (!std::filesystem::exists(outputPath.parent_path())) {
+            std::filesystem::create_directories(outputPath.parent_path());
         }
 
         auto *assetHandler = hIter->second.get();
-        assetHandler->SaveToPath(fOut.string(), asset);
+        OFileArchive archive(outputPath.string());
+        assetHandler->Save(archive, asset);
 
         ProductAssetInfo info = {};
         products->AddAsset(asset->uuid, info);

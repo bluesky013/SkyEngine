@@ -5,76 +5,30 @@
 #pragma once
 
 #include <iostream>
-#include <core/archive/ArchiveConcept.h>
+#include <core/archive/IArchive.h>
 
 namespace sky {
 
-    class IStreamArchive {
+    class IStreamArchive : public IInputArchive {
     public:
         explicit IStreamArchive(std::istream &s) : stream(s) {}
-        ~IStreamArchive() = default;
+        ~IStreamArchive() override = default;
 
-        bool Load(char *data, size_t size);
-
-        template <ContainerDataType T>
-        bool Load(T &v)
-        {
-            uint32_t size = 0;
-            bool res = true;
-            res &= Load(size);
-            v.resize(size / sizeof(typename T::value_type));
-            res &= Load(reinterpret_cast<char*>(v.data()), size);
-            return res;
-        }
-
-        template <ArithmeticDataType T>
-        bool Load(T &val)
-        {
-            return Load(reinterpret_cast<char *>(&val), sizeof(T));
-        }
-
-        template <ArithmeticDataType T>
-        IStreamArchive &operator>>(T &v)
-        {
-            Load(v);
-            return *this;
-        }
+        using IInputArchive::LoadRaw;
 
     private:
+        bool LoadRaw(char *data, size_t size) override;
         std::istream &stream;
     };
 
-    class OStreamArchive {
+    class OStreamArchive : public IOutputArchive {
     public:
         explicit OStreamArchive(std::ostream &s) : stream(s) {}
-        ~OStreamArchive() = default;
+        ~OStreamArchive() override = default;
 
-        bool Save(const char *data, size_t size);
-
-        template <ContainerDataType T>
-        bool Save(const T &v)
-        {
-            auto size = v.size() * sizeof(typename T::value_type);
-            bool res = true;
-            res &= Save(static_cast<uint32_t>(size));
-            res &= Save(reinterpret_cast<const char *>(v.data()), size);
-            return res;
-        }
-
-        template <ArithmeticDataType T>
-        bool Save(const T &v)
-        {
-            return Save(reinterpret_cast<const char *>(&v), sizeof(T));
-        }
-
-        template <ArithmeticDataType T>
-        OStreamArchive &operator<<(const T &v)
-        {
-            Save(v);
-            return *this;
-        }
-
+        using IOutputArchive::SaveRaw;
     private:
+        bool SaveRaw(const char *data, size_t size) override;
         std::ostream &stream;
     };
 

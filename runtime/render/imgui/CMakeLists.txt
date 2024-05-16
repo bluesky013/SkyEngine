@@ -13,5 +13,5 @@ sky_add_library(TARGET ImGuiRender STATIC
         SkyRenderCore
         Framework
         3rdParty::imgui
-        3rdParty::implot
+#        3rdParty::implot
 )

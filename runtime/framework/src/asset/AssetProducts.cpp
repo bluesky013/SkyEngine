@@ -9,35 +9,25 @@
 
 namespace sky {
 
-    void AssetProducts::LoadFromFile(const std::string &path)
+    void AssetProducts::Load(const IArchivePtr &archive)
     {
-        std::fstream f(path, std::ios::in | std::ios::binary);
-        if (!f.is_open()) {
-            return;
-        }
-
-        IStreamArchive archive(f);
-
         uint32_t number = 0;
-        archive.Load(number);
+        archive->Load(number);
         for (uint32_t i = 0; i < number; ++i) {
             Uuid id;
             ProductAssetInfo info = {};
-            archive.Load(reinterpret_cast<char *>(&id), sizeof(Uuid));
+            archive->LoadRaw(reinterpret_cast<char *>(&id), sizeof(Uuid));
             std::lock_guard<std::mutex> lock(mutex);
             assetLists.emplace(id, info);
         }
     }
 
-    void AssetProducts::SaveToFile(const std::string &path)
+    void AssetProducts::Save(const OArchivePtr &archive)
     {
-        std::fstream o(path, std::ios::out | std::ios::binary);
-        OStreamArchive archive(o);
-
         std::lock_guard<std::mutex> lock(mutex);
-        archive.Save(static_cast<uint32_t>(assetLists.size()));
+        archive->Save(static_cast<uint32_t>(assetLists.size()));
         for (auto &[id, info] : assetLists) {
-            archive.Save(reinterpret_cast<const char*>(&id), sizeof(Uuid));
+            archive->SaveRaw(reinterpret_cast<const char*>(&id), sizeof(Uuid));
         }
     }
 

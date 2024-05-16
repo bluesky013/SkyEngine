@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/archive/StreamArchive.h>
+#include <core/archive/MemoryArchive.h>
 #include <fstream>
 
 namespace sky {
@@ -12,7 +13,9 @@ namespace sky {
     class IFileArchive : public IStreamArchive {
     public:
         explicit IFileArchive(const std::string &path);
-        ~IFileArchive() = default;
+        ~IFileArchive() override = default;
+
+        using IInputArchive::LoadRaw;
 
         bool IsOpen() const { return stream.is_open(); }
     private:
@@ -22,8 +25,9 @@ namespace sky {
     class OFileArchive : public OStreamArchive {
     public:
         explicit OFileArchive(const std::string &path);
-        ~OFileArchive() = default;
+        ~OFileArchive() override = default;
 
+        using IOutputArchive::SaveRaw;
     private:
         std::fstream stream;
     };

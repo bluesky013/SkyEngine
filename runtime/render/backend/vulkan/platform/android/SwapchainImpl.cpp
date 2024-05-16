@@ -6,6 +6,7 @@
 #include <core/logger/Logger.h>
 #include <vulkan/Basic.h>
 #include <vulkan/Device.h>
+#include <vulkan/Instance.h>
 
 #include <vulkan/vulkan_android.h>
 
@@ -20,7 +21,7 @@ namespace sky::vk {
         surfaceInfo.sType  = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
         surfaceInfo.window = reinterpret_cast<ANativeWindow *>(descriptor.window);
 
-        VkResult rst                            = vkCreateAndroidSurfaceKHR(device.GetInstance(), &surfaceInfo, VKL_ALLOC, &surface);
+        VkResult rst = vkCreateAndroidSurfaceKHR(device.GetInstance().GetInstance(), &surfaceInfo, VKL_ALLOC, &surface);
         if (rst != VK_SUCCESS) {
             LOG_E(TAG, "create win32 surface failed, %d", rst);
             return false;

@@ -13,4 +13,9 @@ namespace sky::editor {
             return;
         }
     }
+
+    void WorldWidget::BindEvent(EventID id)
+    {
+        binder.Bind(this, id);
+    }
 } // namespace sky::editor

@@ -21,8 +21,8 @@ namespace sky {
         void Tick(float time) override
         {
             auto *ts = actor->GetComponent<TransformComponent>();
-            ts->SetLocalRotation(Quaternion(angle, axis) * Quaternion(90 / 180.f * 3.14f, VEC3_X));
-            angle += 0.5f * time;
+            ts->SetLocalRotation(Quaternion(angle, axis) * Quaternion(90 / 180.f * 3.14f, VEC3_Y));
+            angle += 0.25f * time;
         }
 
         void SetAxis(const Vector3 &axis_)

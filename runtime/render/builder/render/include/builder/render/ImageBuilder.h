@@ -24,7 +24,7 @@ namespace sky::builder {
         void RequestDDS(const BuildRequest &build, BuildResult &result);
         void RequestSTB(const BuildRequest &build, BuildResult &result);
 
-        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx"};
+        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png"};
 
         bool compress = false;
     };

@@ -7,12 +7,12 @@
 #include <string>
 #include <functional>
 #include <imgui.h>
-#include <implot.h>
+//#include <implot.h>
 
 namespace sky {
     struct ImContext {
         ImGuiContext *imContext = nullptr;
-        ImPlotContext *plotContext = nullptr;
+//        ImPlotContext *plotContext = nullptr;
 
         void Init();
         void Destroy();

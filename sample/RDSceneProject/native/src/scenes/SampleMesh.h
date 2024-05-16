@@ -20,6 +20,7 @@ namespace sky {
         void Resize(uint32_t width, uint32_t height) override;
 
     private:
+        void CreateFromPrefab();
         Actor *meshObj = nullptr;
         Actor *camera = nullptr;
     };

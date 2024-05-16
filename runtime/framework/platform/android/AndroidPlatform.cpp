@@ -120,6 +120,14 @@ namespace sky {
         return perfManager.get();
     }
 
+    FileSystemPtr AndroidPlatform::GetBundleFileSystem()
+    {
+        if (!assetFs) {
+            assetFs = std::make_shared<AndroidBundleFileSystem>();
+        }
+        return assetFs;
+    }
+
     bool Platform::Init(const PlatformInfo& info)
     {
         platform = std::make_unique<AndroidPlatform>();

@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "ArchiveConcept.h"
+#include <core/archive/ArchiveConcept.h>
+#include <core/archive/IArchive.h>
 #include <vector>
 
 namespace sky {

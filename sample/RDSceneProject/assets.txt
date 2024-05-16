@@ -2,6 +2,7 @@ skybox/output_iem.dds
 skybox/output_pmrem.dds
 skybox/output_skybox.dds
 models/DamagedHelmet.glb
+models/Sponza/glTF/Sponza.gltf
 techniques/standard_forward.tech
 techniques/post_processing.tech
 techniques/brdf_lut.tech

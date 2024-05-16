@@ -3,31 +3,31 @@
 //
 
 #include <core/memory/Allocator.h>
-#include <mimalloc/mimalloc.h>
+//#include <mimalloc/mimalloc.h>
 #include <algorithm>
 
 namespace sky {
 
-    class MiMallocAllocator : public IAllocator {
-    public:
-        MiMallocAllocator() = default;
-        ~MiMallocAllocator() override = default;
-
-        void *Allocate(size_t size, size_t alignment) override
-        {
-            alignment = std::max(DEFAULT_ALLOC_ALIGNMENT, alignment);
-            return mi_malloc_aligned(size, alignment);
-        }
-
-        void Deallocate(void *ptr) override
-        {
-            mi_free(ptr);
-        }
-
-    };
+//    class MiMallocAllocator : public IAllocator {
+//    public:
+//        MiMallocAllocator() = default;
+//        ~MiMallocAllocator() override = default;
+//
+//        void *Allocate(size_t size, size_t alignment) override
+//        {
+//            alignment = std::max(DEFAULT_ALLOC_ALIGNMENT, alignment);
+//            return mi_malloc_aligned(size, alignment);
+//        }
+//
+//        void Deallocate(void *ptr) override
+//        {
+//            mi_free(ptr);
+//        }
+//
+//    };
 
     SystemAllocator::SystemAllocator()
-        : impl(std::make_unique<MiMallocAllocator>())
+//        : impl(std::make_unique<MiMallocAllocator>())
     {
     }
 

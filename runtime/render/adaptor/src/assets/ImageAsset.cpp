@@ -36,7 +36,7 @@ namespace sky {
     std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data)
     {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        auto bufferPath = AssetManager::Get()->GetAssetPath(data.bufferID);
+        auto bufferPath = AssetManager::Get()->OpenAsset(data.bufferID);
         if (data.type == TextureType::TEXTURE_2D) {
             auto texture2D = std::make_shared<Texture2D>();
             texture2D->Init(data.format, data.width, data.height, data.mipLevels);

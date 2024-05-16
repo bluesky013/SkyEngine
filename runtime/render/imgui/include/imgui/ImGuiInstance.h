@@ -5,7 +5,7 @@
 #pragma once
 
 #include <imgui.h>
-#include <implot.h>
+//#include <implot.h>
 
 #include <render/resource/Texture.h>
 #include <framework/window/IWindowEvent.h>
