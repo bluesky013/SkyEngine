@@ -44,7 +44,7 @@ namespace sky {
         void DestroyRenderWindow(RenderWindow *);
 
         uint32_t GetInflightFrameCount() const { return inflightFrameCount; }
-        RenderResourceGC *GetResourceGC() const { return delayReleaseCollections[frameIndex].get(); }
+        RenderResourceGC *GetResourceGC() const;
 
         const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
 

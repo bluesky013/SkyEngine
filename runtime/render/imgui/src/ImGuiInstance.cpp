@@ -60,7 +60,7 @@ namespace sky {
         io.KeyMap[ImGuiKey_Space] = KeyButton::KEY_SPACE;
         io.KeyMap[ImGuiKey_Enter] = KeyButton::KEY_RETURN;
         io.KeyMap[ImGuiKey_Escape] = KeyButton::KEY_ESCAPE;
-        io.KeyMap[ImGuiKey_KeyPadEnter] = KeyButton::KEY_KP_ENTER;
+        io.KeyMap[ImGuiKey_KeypadEnter] = KeyButton::KEY_KP_ENTER;
         io.KeyMap[ImGuiKey_A];
         io.KeyMap[ImGuiKey_C];
         io.KeyMap[ImGuiKey_V];

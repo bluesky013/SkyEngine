@@ -99,9 +99,10 @@ namespace sky {
         static Uuid GetUUIDByPath(const std::string &path);
     private:
         FileSystemPtr workFs;
-        FileSystemPtr projectFs;
 
 #ifdef SKY_EDITOR
+        FileSystemPtr projectFs;
+
         std::string projectPath;
         std::string projectAssetPath;
         std::string engineAssetPath;

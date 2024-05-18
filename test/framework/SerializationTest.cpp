@@ -4,6 +4,7 @@
 
 
 #include <core/logger/Logger.h>
+#include <core/archive/FileArchive.h>
 #include <framework/serialization/SerializationUtil.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
@@ -433,7 +434,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
 TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
 {
     {
-        std::ofstream file("binary-fundamental-test.bin", std::ios::binary);
+        OFileArchive file("binary-fundamental-test.bin", std::ios::binary);
         BinaryOutputArchive archive(file);
         archive.SaveValue(-1);
         archive.SaveValue(2U);
@@ -444,7 +445,7 @@ TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
     }
 
     {
-        std::ifstream file("binary-fundamental-test.bin", std::ios::binary);
+        IFileArchive file("binary-fundamental-test.bin", std::ios::binary);
         BinaryInputArchive archive(file);
         {
             int value = 0;
@@ -512,13 +513,13 @@ TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
 
     {
         TestBinArchive test = {{1, 2.f}, {3, 4.0}};
-        std::ofstream file("binary-class-test.bin", std::ios::binary);
+        OFileArchive file("binary-class-test.bin", std::ios::binary);
         BinaryOutputArchive archive(file);
         archive.SaveObject(&test, TypeInfo<TestBinArchive>::RegisteredId());
     }
 
     {
-        std::ifstream file("binary-class-test.bin", std::ios::binary);
+        IFileArchive file("binary-class-test.bin", std::ios::binary);
         BinaryInputArchive archive(file);
 
         TestBinArchive test = {};

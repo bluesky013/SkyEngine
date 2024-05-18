@@ -90,6 +90,9 @@ namespace sky {
             resourceGroup->BindTexture(key, tex->GetImageView(), index);
             textures[handler->binding + index] = tex;
             resDirty = true;
+        } else {
+//            SKY_UNEXPECTED;
+            printf("test\n");
         }
     }
 

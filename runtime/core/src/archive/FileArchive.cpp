@@ -6,14 +6,14 @@
 
 namespace sky {
 
-    IFileArchive::IFileArchive(const std::string &path)
-        : stream(path.c_str(), std::ios::binary | std::ios::in)
+    IFileArchive::IFileArchive(const std::string &path, std::ios::openmode mode)
+        : stream(path.c_str(), mode | std::ios::in)
         , IStreamArchive(stream)
     {
     }
 
-    OFileArchive::OFileArchive(const std::string &path)
-        : stream(path.c_str(), std::ios::binary | std::ios::out)
+    OFileArchive::OFileArchive(const std::string &path, std::ios::openmode mode)
+        : stream(path.c_str(), mode | std::ios::out)
         , OStreamArchive(stream)
     {
     }

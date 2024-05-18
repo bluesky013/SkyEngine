@@ -6,7 +6,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <core/archive/ArchiveConcept.h>
+#include <core/archive/Concept.h>
 
 namespace sky {
 

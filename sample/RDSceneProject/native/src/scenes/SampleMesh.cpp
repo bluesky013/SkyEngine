@@ -260,8 +260,8 @@ namespace sky {
 
     void SampleMesh::CreateFromPrefab()
     {
-//        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/DamagedHelmet.glb");
-        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/Sponza/glTF/Sponza.gltf");
+        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/DamagedHelmet.glb");
+//        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/Sponza/glTF/Sponza.gltf");
         for (auto &node : prefab->Data().nodes) {
             auto actor = world->CreateActor();
             actor->GetComponent<TransformComponent>()->SetLocalTransform(node.localTransform);
@@ -298,9 +298,9 @@ namespace sky {
         auto *cc = camera->AddComponent<CameraComponent>();
         cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 1.5, 0));
-        camera->GetComponent<TransformComponent>()->SetLocalRotationEuler(Vector3(0, 90, 0));
-        camera->AddComponent<SimpleRotateComponent>();
+        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 0, 5));
+//        camera->GetComponent<TransformComponent>()->SetLocalRotationEuler(Vector3(0, 90, 0));
+//        camera->AddComponent<SimpleRotateComponent>();
 
         auto *scene = GetRenderSceneFromActor(camera);
         auto *pipeline = new ForwardMSAAPass();

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/archive/ArchiveConcept.h>
+#include <core/archive/Concept.h>
 #include <core/archive/IArchive.h>
 #include <vector>
 

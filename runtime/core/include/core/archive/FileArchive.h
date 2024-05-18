@@ -12,7 +12,7 @@ namespace sky {
 
     class IFileArchive : public IStreamArchive {
     public:
-        explicit IFileArchive(const std::string &path);
+        explicit IFileArchive(const std::string &path, std::ios::openmode mode = std::ios::binary);
         ~IFileArchive() override = default;
 
         using IInputArchive::LoadRaw;
@@ -24,7 +24,7 @@ namespace sky {
 
     class OFileArchive : public OStreamArchive {
     public:
-        explicit OFileArchive(const std::string &path);
+        explicit OFileArchive(const std::string &path, std::ios::openmode mode = std::ios::binary);
         ~OFileArchive() override = default;
 
         using IOutputArchive::SaveRaw;

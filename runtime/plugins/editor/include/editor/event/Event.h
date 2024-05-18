@@ -57,7 +57,7 @@ namespace sky::editor {
             }
         }
 
-        using KeyType = T::KeyType;
+        using KeyType = typename T::KeyType;
 
         void Bind(T *inter, KeyType key)
         {

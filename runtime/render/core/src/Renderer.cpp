@@ -95,6 +95,11 @@ namespace sky {
         device->WaitIdle();
     }
 
+    RenderResourceGC *Renderer::GetResourceGC() const
+    {
+        return delayReleaseCollections[frameIndex].get();
+    }
+
     RenderScene *Renderer::CreateScene()
     {
         scenes.emplace_back(new RenderScene(), &Renderer::DestroyObj<RenderScene>);
