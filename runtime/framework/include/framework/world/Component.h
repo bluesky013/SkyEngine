@@ -28,6 +28,7 @@ namespace sky {
         virtual void SaveJson(JsonOutputArchive &archive) const {}
         virtual void LoadJson(JsonInputArchive &archive) {}
 
+        virtual const Uuid &GetTypeId() const = 0;
     protected:
         friend class Actor;
         Actor *actor = nullptr;
@@ -57,6 +58,6 @@ namespace sky {
 
 
 #define COMPONENT_RUNTIME_INFO(NAME) \
-    using MY_CLASS = NAME;
-
+    using MY_CLASS = NAME;           \
+    const Uuid &GetTypeId() const override { return TypeInfoObj<MY_CLASS>::Get()->RtInfo()->registeredId; }
 } // namespace sky

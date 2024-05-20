@@ -10,20 +10,30 @@
 
 namespace sky::editor {
 
+    class ISelectEvent : public EventTraits {
+    public:
+        ISelectEvent() = default;
+        virtual ~ISelectEvent() = default;
+
+        virtual void OnActorSelected(Actor *actor) = 0;
+    };
+    using SelectEvent = Event<ISelectEvent>;
+
     class WorldWidget : public ImWidget, public IToggleEvent {
     public:
         WorldWidget() : ImWidget("World") {}
         ~WorldWidget() override = default;
 
-        void SetWorld(const WorldPtr &world_) { world = world_; }
+        void SetWorld(World *world_) { world = world_; }
         void BindEvent(EventID id);
 
     private:
         void Execute(ImContext &context) override;
+        void ShowActors();
         void OnToggle(bool val) override { show = val; }
 
         bool show = false;
-        WorldPtr world;
+        World *world = nullptr;
 
         EventBinder<IToggleEvent> binder;
     };

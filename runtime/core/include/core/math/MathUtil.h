@@ -9,6 +9,7 @@
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 #include <core/math/Vector4.h>
+#include <core/math/Quaternion.h>
 
 namespace sky {
 
@@ -73,6 +74,76 @@ namespace sky {
         ret[3][1] = - (top + bottom) / (top - bottom);
         ret[3][2] = - (far + near) / (far - near);
         return ret;
+    }
+
+    inline void Decompose(const Matrix4 &m, Vector3 &trans, Quaternion &quat, Vector3 &scale)
+    {
+        trans.x = m.v[12];
+        trans.y = m.v[13];
+        trans.z = m.v[14];
+
+        Vector3 xAxis(m.v[0], m.v[1], m.v[2]);
+        float scaleX = xAxis.Length();
+
+        Vector3 yAxis(m.v[4], m.v[5], m.v[6]);
+        float scaleY = yAxis.Length();
+
+        Vector3 zAxis(m.v[8], m.v[9], m.v[10]);
+        float scaleZ = zAxis.Length();
+
+        float det = m.Determinant();
+        if (det < 0) {
+            scaleX = -scaleX;
+        }
+        scale.x = scaleX;
+        scale.y = scaleY;
+        scale.z = scaleZ;
+
+
+        float rn;
+        rn = 1.0F / scaleX;
+        xAxis.x *= rn;
+        xAxis.y *= rn;
+        xAxis.z *= rn;
+
+        rn = 1.0F / scaleY;
+        yAxis.x *= rn;
+        yAxis.y *= rn;
+        yAxis.z *= rn;
+
+        rn = 1.0F / scaleZ;
+        zAxis.x *= rn;
+        zAxis.y *= rn;
+        zAxis.z *= rn;
+
+        float trace = xAxis.x + yAxis.y + zAxis.z;
+        if (trace > 0.0F) {
+            float s = 0.5F / std::sqrt(trace + 1.0F);
+            quat.w = 0.25F / s;
+            quat.x = (yAxis.z - zAxis.y) * s;
+            quat.y = (zAxis.x - xAxis.z) * s;
+            quat.z = (xAxis.y - yAxis.x) * s;
+        } else {
+            if (xAxis.x > yAxis.y && xAxis.x > zAxis.z) {
+                float s = 0.5F / std::sqrt(1.0F + xAxis.x - yAxis.y - zAxis.z);
+                quat.w = (yAxis.z - zAxis.y) * s;
+                quat.x = 0.25F / s;
+                quat.y = (yAxis.x + xAxis.y) * s;
+                quat.z = (zAxis.x + xAxis.z) * s;
+            } else if (yAxis.y > zAxis.z) {
+                float s = 0.5F / std::sqrt(1.0F + yAxis.y - xAxis.x - zAxis.z);
+                quat.w = (zAxis.x - xAxis.z) * s;
+                quat.x = (yAxis.x + xAxis.y) * s;
+                quat.y = 0.25F / s;
+                quat.z = (zAxis.y + yAxis.z) * s;
+            } else {
+                float s = 0.5F / std::sqrt(1.0F + zAxis.z - xAxis.x - yAxis.y);
+                quat.w = (xAxis.y - yAxis.x) * s;
+                quat.x = (zAxis.x + xAxis.z) * s;
+                quat.y = (zAxis.y + yAxis.z) * s;
+                quat.z = 0.25F / s;
+            }
+        }
     }
 
     inline Vector2 Min(const Vector2 &lhs, const Vector2 &rhs)

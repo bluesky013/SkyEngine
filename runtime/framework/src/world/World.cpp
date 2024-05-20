@@ -14,6 +14,7 @@ namespace sky {
 
     World::~World()
     {
+        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, *this);
         actors.clear();
     }
 
@@ -22,15 +23,21 @@ namespace sky {
         TransformComponent::Reflect(context);
     }
 
+    World *World::CreateWorld()
+    {
+        auto *world = new World();
+        if (!world->Init()) {
+            delete world;
+            world = nullptr;
+        }
+
+        return world;
+    }
+
     bool World::Init()
     {
         WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
         return true;
-    }
-
-    void World::Shutdown()
-    {
-        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, *this);
     }
 
     void World::Tick(float time)

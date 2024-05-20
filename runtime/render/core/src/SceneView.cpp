@@ -18,6 +18,7 @@ namespace sky {
         , frustums(resource)
         , dirty(true)
     {
+        projects0.resize(viewCount);
         viewInfo.resize(viewCount);
         frustums.resize(viewCount);
 
@@ -39,7 +40,8 @@ namespace sky {
 //        p[2][2] = 0.5f;
 //        p[3][2] = 0.5f;
 
-        viewInfo[index].project = p * MakePerspective(fov, aspect, near, far);
+        projects0[index] = MakePerspective(fov, aspect, near, far);
+        viewInfo[index].project = p * projects0[index];
 //        viewInfo[index].zParam.x = 1 - far / near;
 //        viewInfo[index].zParam.y = far / near;
 //        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;

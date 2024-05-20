@@ -18,6 +18,8 @@ namespace sky {
         SimpleGeometryComponent() = default;
         ~SimpleGeometryComponent() override = default;
 
+        COMPONENT_RUNTIME_INFO(SimpleGeometryComponent)
+
         void OnActive() override
         {
             geometry = std::make_unique<GeometryRenderer>();
@@ -52,7 +54,7 @@ namespace sky {
 
         camera = world->CreateActor("MainCamera");
         auto *cc = camera->AddComponent<CameraComponent>();
-        cc->Perspective(0.01f, 100.f, 45.f / 180.f * 3.14f);
+        cc->Perspective(0.01f, 100.f, 45.f);
         cc->SetAspect(window->GetWidth(), window->GetHeight());
         camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
         return true;

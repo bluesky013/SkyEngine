@@ -89,9 +89,9 @@ namespace sky {
         float sx = std::sin(euler.x);
         float cx = std::cos(euler.x);
         float sy = std::sin(euler.y);
-        float cy = std::cos(y);
-        float sz = std::sin(z);
-        float cz = std::cos(z);
+        float cy = std::cos(euler.y);
+        float sz = std::sin(euler.z);
+        float cz = std::cos(euler.z);
 
         x = sx * cy * cz + cx * sy * sz;
         y = cx * sy * cz + sx * cy * sz;

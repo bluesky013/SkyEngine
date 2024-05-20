@@ -7,10 +7,16 @@
 #include <editor/widgets/DirectoryBrowser.h>
 #include <editor/widgets/AssetWidget.h>
 #include <editor/widgets/WorldWidget.h>
+#include <editor/widgets/InspectorWidget.h>
 
 #include <framework/asset/AssetManager.h>
 
 namespace sky::editor {
+
+    EditorInstance::~EditorInstance()
+    {
+        WorldEvent::DisConnect(this);
+    }
 
     void EditorInstance::Init(ImGuiInstance *instance)
     {
@@ -34,8 +40,11 @@ namespace sky::editor {
         auto *assetWidget = new AssetWidget();
         assetWidget->BindEvent(BTN_MENU_VIEW_SHOW_ASSETS);
 
-        auto *worldWidget = new WorldWidget();
+        worldWidget = new WorldWidget();
         worldWidget->BindEvent(BTN_MENU_VIEW_SHOW_WORLD);
+
+        auto *inspect = new InspectorWidget();
+        inspect->BindEvent(BTN_MENU_VIEW_SHOW_WORLD);
 
         auto *dirWidget = new DirectoryBrowser();
         dirWidget->AddPath(AssetManager::Get()->GetProjectAssetPath());
@@ -46,8 +55,23 @@ namespace sky::editor {
         wm->RegisterWidget(assetWidget);
         wm->RegisterWidget(dirWidget);
         wm->RegisterWidget(worldWidget);
+        wm->RegisterWidget(inspect);
+
+        gui = std::make_unique<GuiZmoWidget>();
 
         instance->AddWidget(wm.get());
+        instance->AddWidget(gui.get());
+
+        WorldEvent::Connect(this);
     }
 
+    void EditorInstance::OnCreateWorld(World& world)
+    {
+        worldWidget->SetWorld(&world);
+    }
+
+    void EditorInstance::OnDestroyWorld(World& world)
+    {
+        worldWidget->SetWorld(nullptr);
+    }
 } // namespace sky::editor

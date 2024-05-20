@@ -3,14 +3,13 @@
 //
 
 #include <render/adaptor/components/CameraComponent.h>
-#include <framework/serialization/PropertyCommon.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
-#include <framework/world/Actor.h>
-#include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
+#include <core/math/MathUtil.h>
 
 #include <render/adaptor/Util.h>
+#include <render/adaptor/interface/IMainViewport.h>
 #include <render/Renderer.h>
 
 namespace sky {
@@ -21,16 +20,15 @@ namespace sky {
 
     void CameraComponent::Reflect(SerializationContext *context)
     {
-//        context->Register<ProjectType>("ProjectType")()
-//            .Property(ProjectType::PROJECTIVE, std::string("PROJECTIVE"))
-//            .Property(ProjectType::ORTHOGONAL, std::string("ORTHOGONAL"));
+        context->Register<ProjectType>("ProjectType")
+            .Enum(ProjectType::PROJECTIVE, "Projective")
+            .Enum(ProjectType::ORTHOGONAL, "Orthogonal");
 
         context->Register<CameraComponent>("CameraComponent")
             .Member<&CameraComponent::near>("near")
             .Member<&CameraComponent::far>("far")
             .Member<&CameraComponent::fov>("fov")
-            .Member<&CameraComponent::aspect>("aspect")
-            .Member<&CameraComponent::type>("projectType");
+            .Member<&CameraComponent::type>("type");
 //            .Property(UI_PROP_VISIBLE, false);
     }
 
@@ -56,19 +54,33 @@ namespace sky {
     void CameraComponent::Tick(float time)
     {
         auto *transform = actor->GetComponent<TransformComponent>();
-        sceneView->SetMatrix(transform->GetWorldMatrix());
+        auto world = transform->GetWorldMatrix();
+        sceneView->SetMatrix(world);
+
         if (type == ProjectType::PROJECTIVE) {
-            sceneView->SetProjective(near, far, fov, aspect);
+            sceneView->SetProjective(near, far, fov / 180.f * 3.14f, aspect);
         }
+    }
+
+    const Matrix4 &CameraComponent::GetProject() const
+    {
+        return sceneView != nullptr ? sceneView->GetProject() : Matrix4::Identity();
+    }
+
+    const Matrix4 &CameraComponent::GetView() const
+    {
+        return sceneView != nullptr ? sceneView->GetView() : Matrix4::Identity();
     }
 
     void CameraComponent::OnActive()
     {
         sceneView = GetRenderSceneFromActor(actor)->CreateSceneView(1);
+        MainViewportEvent::BroadCast(&IMainViewportEvent::Active, actor);
     }
 
     void CameraComponent::OnDeActive()
     {
+        MainViewportEvent::BroadCast(&IMainViewportEvent::DeActive);
         ShutDown();
     }
 

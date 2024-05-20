@@ -8,32 +8,32 @@
 
 namespace sky {
 
-    Any GetValue(void *ptr, const Uuid &typeId, const std::string &memberName);
-    Any GetValueConst(const void *ptr, const Uuid &typeId, const std::string &memberName);
+    Any GetValueRaw(void *ptr, const Uuid &typeId, const std::string_view &memberName);
+    Any GetValueRawConst(const void *ptr, const Uuid &typeId, const std::string_view &memberName);
 
     template <typename T>
-    Any GetValue(T &ptr, const std::string &memberName)
+    Any GetValue(T &ptr, const std::string_view &memberName)
     {
-        return GetValue(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName);
+        return GetValueRaw(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName);
     }
 
     template <typename T>
-    Any GetValueConst(T &ptr, const std::string &memberName)
+    Any GetValueConst(T &ptr, const std::string_view &memberName)
     {
-        return GetValueConst(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName);
+        return GetValueRawConst(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName);
     }
 
-    bool SetValueRawData(void* ptr, const Uuid &typeId, const std::string &memberName, const void* data);
+    bool SetValueRaw(void* ptr, const Uuid &typeId, const std::string_view &memberName, const void* data);
 
     template <typename M>
-    bool SetValue(void* ptr, const Uuid &typeId, const std::string &memberName, const M& data)
+    bool SetValue(void* ptr, const Uuid &typeId, const std::string_view &memberName, const M& data)
     {
-        return SetValueRawData(ptr, typeId, memberName, &data);
+        return SetValueRaw(ptr, typeId, memberName, &data);
     }
 
     template <typename T, typename M>
-    bool SetValue(T &ptr, const std::string &memberName, const M &data)
+    bool SetValue(T &ptr, const std::string_view &memberName, const M &data)
     {
-        return SetValueRawData(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName, static_cast<const void*>(std::addressof(data)));
+        return SetValueRaw(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName, static_cast<const void*>(std::addressof(data)));
     }
 }

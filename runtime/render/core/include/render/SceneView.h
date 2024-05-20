@@ -25,6 +25,9 @@ namespace sky {
         void SetProjective(float near, float far, float fov, float aspect, uint32_t index = 0);
         void Update();
 
+        const Matrix4 &GetProject() const { return projects0[0]; }
+        const Matrix4 &GetView() const { return viewInfo[0].view; }
+
         bool FrustumCulling(const AABB &aabb) const;
 
         uint32_t GetViewID() const { return viewID; }
@@ -41,6 +44,7 @@ namespace sky {
         uint32_t viewCount;
         uint32_t viewMask;
 
+        PmrVector<Matrix4> projects0;
         PmrVector<SceneViewInfo> viewInfo;
         PmrVector<Frustum> frustums;
         bool dirty;

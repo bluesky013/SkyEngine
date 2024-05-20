@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    Any GetValue(void *ptr, const Uuid &typeId, const std::string &memberName)
+    Any GetValueRaw(void *ptr, const Uuid &typeId, const std::string_view &memberName)
     {
         auto *node = GetTypeMember(memberName, typeId);
         if (node != nullptr && node->getterFn != nullptr) {
@@ -15,7 +15,7 @@ namespace sky {
         return Any{};
     }
 
-    Any GetValueConst(const void *ptr, const Uuid &typeId, const std::string &memberName)
+    Any GetValueRawConst(const void *ptr, const Uuid &typeId, const std::string_view &memberName)
     {
         auto *node = GetTypeMember(memberName, typeId);
         if (node != nullptr && node->getterConstFn != nullptr) {
@@ -24,7 +24,7 @@ namespace sky {
         return Any{};
     }
 
-    bool SetValueRawData(void* ptr, const Uuid &typeId, const std::string &memberName, const void* data)
+    bool SetValueRaw(void* ptr, const Uuid &typeId, const std::string_view &memberName, const void* data)
     {
         auto *node = GetTypeMember(memberName, typeId);
         if (node != nullptr && node->setterFn != nullptr) {

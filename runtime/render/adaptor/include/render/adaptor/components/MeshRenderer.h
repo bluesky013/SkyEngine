@@ -16,6 +16,8 @@ namespace sky {
         MeshRenderer() = default;
         ~MeshRenderer() override;
 
+        COMPONENT_RUNTIME_INFO(MeshRenderer)
+
         static void Reflect(SerializationContext *context);
 
         void OnActive() override;

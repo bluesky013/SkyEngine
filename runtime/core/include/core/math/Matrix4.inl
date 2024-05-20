@@ -117,7 +117,6 @@ namespace sky {
         m[3] = m[0] * rhs.v[0] + m[1] * rhs.v[1] + m[2] * rhs.v[2] + m[3];
     }
 
-
     inline float Matrix4::Determinant() const
     {
         float SubFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];

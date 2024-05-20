@@ -45,28 +45,4 @@ namespace sky::editor {
         virtual void OnClicked(const Uuid& type, void *data) = 0;
     };
     using AssetViewEvent = Event<IAssetViewEvent>;
-
-    template <typename T>
-    class EventBinder {
-    public:
-        EventBinder() = default;
-        ~EventBinder()
-        {
-            if (val != nullptr) {
-                Event<T>::DisConnect(val);
-            }
-        }
-
-        using KeyType = typename T::KeyType;
-
-        void Bind(T *inter, KeyType key)
-        {
-            Event<T>::Connect(key, inter);
-            val = inter;
-        }
-
-    private:
-        T *val = nullptr;
-    };
-
 } // sky::editor

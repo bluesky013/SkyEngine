@@ -44,6 +44,8 @@ namespace sky {
         void SetLocalRotation(const Quaternion &rotation);
         void SetLocalScale(const Vector3 &scale);
 
+        const Transform& GetLocalTransform() const { return data.local; }
+
         Vector3 GetLocalRotationEuler() const;
         const Quaternion &GetLocalRotation() const { return data.local.rotation; }
         const Vector3 &GetLocalTranslation() const { return data.local.translation; }

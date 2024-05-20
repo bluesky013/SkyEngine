@@ -253,7 +253,7 @@ namespace sky {
         io.AddInputCharactersUTF8(text);
     }
 
-    void ImGuiInstance::OnMouseMove(int32_t x, int32_t y)
+    void ImGuiInstance::OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY)
     {
         ImGuiIO& io = ImGui::GetIO();
         io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));

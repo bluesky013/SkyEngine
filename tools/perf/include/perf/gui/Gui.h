@@ -41,7 +41,7 @@ namespace sky::perf {
         bool CreateOrResize(vk::BufferPtr &buffer, size_t size, bool vtx);
 
         void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
-        void OnMouseMove(int32_t x, int32_t y) override;
+        void OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY) override;
         void OnMouseButtonDown(MouseButtonType button) override;
         void OnMouseButtonUp(MouseButtonType button) override;
         void OnKeyUp(KeyButtonType) override;

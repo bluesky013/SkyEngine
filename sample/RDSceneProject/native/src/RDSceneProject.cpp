@@ -47,6 +47,7 @@ namespace sky {
 #endif
 
         SimpleRotateComponent::Reflect(SerializationContext::Get());
+        SimpleCameraController::Reflect(SerializationContext::Get());
         return window != nullptr;
     }
 
@@ -70,9 +71,9 @@ namespace sky {
 
     void RDSceneProject::OnKeyUp(KeyButtonType type)
     {
-        if (type == KeyButton::KEY_RIGHT) {
-            NextScene();
-        }
+//        if (type == KeyButton::KEY_RIGHT) {
+//            NextScene();
+//        }
     }
 
     void RDSceneProject::NextScene()

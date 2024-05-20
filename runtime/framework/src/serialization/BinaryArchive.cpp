@@ -47,9 +47,9 @@ namespace sky {
             }
             for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
-                Any value = GetValue(ptr, typeId, memberName);
+                Any value = GetValueRaw(ptr, typeId, memberName);
                 LoadObject(value.Data(), member.second.info->registeredId);
-                SetValueRawData(ptr, typeId, memberName, value.Data());
+                SetValueRaw(ptr, typeId, memberName, value.Data());
             }
         }
     }
@@ -94,7 +94,7 @@ namespace sky {
 
             for (const auto &member : node->members) {
                 std::string memberName = member.first.data();
-                Any value = GetValueConst(ptr, typeId, memberName);
+                Any value = GetValueRawConst(ptr, typeId, memberName);
                 SaveObject(value.Data(), member.second.info->registeredId);
             }
         }

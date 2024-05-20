@@ -14,6 +14,8 @@ namespace sky {
         LightComponent() = default;
         ~LightComponent() override = default;
 
+        COMPONENT_RUNTIME_INFO(LightComponent)
+
         static void Reflect(SerializationContext *context);
 
         void SaveJson(JsonOutputArchive &ar) const override;

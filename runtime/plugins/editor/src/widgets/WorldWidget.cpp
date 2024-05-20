@@ -12,6 +12,33 @@ namespace sky::editor {
         if (!show) {
             return;
         }
+
+        if (ImGui::Begin("WorldInfo")) {
+            ShowActors();
+            ImGui::End();
+        }
+    }
+
+    void WorldWidget::ShowActors()
+    {
+        if (world == nullptr) {
+            return;
+        }
+        const auto &actors = world->GetActors();
+
+        if (ImGui::TreeNode("World")) {
+
+            for (const auto &actor: actors) {
+                if (ImGui::TreeNodeEx(actor->GetName().c_str(), ImGuiTreeNodeFlags_Leaf)) {
+                    if (ImGui::IsItemClicked()) {
+                        SelectEvent::BroadCast(&ISelectEvent::OnActorSelected, actor.get());
+                    }
+                    ImGui::TreePop();
+                }
+            }
+
+            ImGui::TreePop();
+        }
     }
 
     void WorldWidget::BindEvent(EventID id)

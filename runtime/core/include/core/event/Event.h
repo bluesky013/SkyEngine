@@ -129,4 +129,33 @@ namespace sky {
             Storage::Get()->BroadCast(std::forward<T>(func), std::forward<Args>(args)...);
         }
     };
+
+    template <typename T>
+    class EventBinder {
+    public:
+        EventBinder() = default;
+        ~EventBinder()
+        {
+            Reset();
+        }
+
+        using KeyType = typename T::KeyType;
+
+        void Bind(T *inter, KeyType key)
+        {
+            Event<T>::Connect(key, inter);
+            val = inter;
+        }
+
+        void Reset()
+        {
+            if (val != nullptr) {
+                Event<T>::DisConnect(val);
+                val = nullptr;
+            }
+        }
+
+    private:
+        T *val = nullptr;
+    };
 } // namespace sky

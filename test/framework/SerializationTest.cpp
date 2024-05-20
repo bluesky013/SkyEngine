@@ -69,10 +69,10 @@ TEST(SerializationTest, TypeTest)
     ASSERT_EQ(v.b, 6.f);
     ASSERT_EQ(v.c, nullptr);
 
-   ASSERT_EQ(*GetValue(reinterpret_cast<void*>(&v), typeId, "a").GetAs<uint32_t>(), 5U);
-   ASSERT_EQ(*GetValue(reinterpret_cast<void*>(&v), typeId, "b").GetAs<float>(), 6.f);
+   ASSERT_EQ(*GetValueRaw(reinterpret_cast<void*>(&v), typeId, "a").GetAs<uint32_t>(), 5U);
+   ASSERT_EQ(*GetValueRaw(reinterpret_cast<void*>(&v), typeId, "b").GetAs<float>(), 6.f);
 
-   uint32_t **vc = GetValue(reinterpret_cast<void*>(&v), typeId, "c").GetAs<uint32_t*>();
+   uint32_t **vc = GetValueRaw(reinterpret_cast<void*>(&v), typeId, "c").GetAs<uint32_t*>();
    ASSERT_NE(vc, nullptr);
    ASSERT_EQ(*vc, nullptr);
 }

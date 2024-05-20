@@ -11,8 +11,8 @@ namespace sky {
 
     namespace MouseButton {
         static constexpr uint8_t MOUSE_BUTTON_LEFT   = 1;
-        static constexpr uint8_t MOUSE_BUTTON_RIGHT  = 2;
-        static constexpr uint8_t MOUSE_BUTTON_MIDDLE = 3;
+        static constexpr uint8_t MOUSE_BUTTON_MIDDLE = 2;
+        static constexpr uint8_t MOUSE_BUTTON_RIGHT  = 3;
     } // namespace MouseButton
     using MouseButtonType = uint8_t;
 
@@ -133,7 +133,7 @@ namespace sky {
         }
 
         // mouse
-        virtual void OnMouseMove(int32_t x, int32_t y)
+        virtual void OnMouseMove(int32_t x, int32_t y, int32_t rx, int32_t ry)
         {
         }
         virtual void OnMouseButtonDown(MouseButtonType button)

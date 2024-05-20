@@ -52,6 +52,7 @@ if(EXISTS ${3RD_PATH})
     # imgui
     sky_find_3rd(TARGET imgui         DIR imgui)
     sky_find_3rd(TARGET implot        DIR implot)
+    sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
 
     # temp
     sky_find_3rd(TARGET cxxopts       DIR cxxopts)

@@ -51,15 +51,18 @@ namespace sky {
 
     class World {
     public:
-        World() = default;
         ~World();
+
+        static World *CreateWorld();
+
         World(const World &) = delete;
         World &operator=(const World &) = delete;
+
+        using ActorPtr = std::unique_ptr<Actor>;
 
         static void Reflect(SerializationContext *context);
 
         bool Init();
-        void Shutdown();
         void Tick(float time);
 
         void SaveJson(JsonOutputArchive &archive);
@@ -72,6 +75,8 @@ namespace sky {
         Actor* CreateActor(const std::string &name);
         Actor* CreateActor(const Uuid &id);
         Actor* GetActorByUuid(const Uuid &id);
+        const std::vector<ActorPtr> &GetActors() const { return actors; }
+
         void DestroyActor(Actor *);
         void Reset();
 
@@ -79,7 +84,8 @@ namespace sky {
         IWorldSubSystem* GetSubSystem(const std::string &name) const;
 
     private:
-        using ActorPtr = std::unique_ptr<Actor>;
+        World() = default;
+
         std::vector<ActorPtr> actors;
         std::unordered_map<std::string, IWorldSubSystem*> subSystems;
     };

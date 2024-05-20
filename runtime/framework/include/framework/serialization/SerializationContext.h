@@ -99,7 +99,7 @@ namespace sky {
         return context->FindTypeById(rtInfo->registeredId);
     }
 
-    inline TypeMemberNode *GetTypeMember(const std::string &str, const Uuid &typeId)
+    inline TypeMemberNode *GetTypeMember(const std::string_view &member, const Uuid &typeId)
     {
         auto *context = SerializationContext::Get();
         auto *node = context->FindTypeById(typeId);
@@ -107,7 +107,7 @@ namespace sky {
             return nullptr;
         }
 
-        auto it = node->members.find(str);
+        auto it = node->members.find(member);
         if (it == node->members.end()) {
             return nullptr;
         }

@@ -13,7 +13,8 @@ sky_add_library(TARGET EditorModule SHARED
     LINK_LIBS
         Framework
         ImGuiRender
-        SkyRenderCore
+        SkyRenderAdaptor
+        3rdParty::ImGuizmo
 )
 
 sky_add_dependency(TARGET EditorModule DEPENDENCIES Launcher)

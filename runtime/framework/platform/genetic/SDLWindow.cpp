@@ -25,8 +25,7 @@ namespace sky {
     void SDLWindow::PollEvent(bool &quit)
     {
         SDL_Event sdlEvent;
-        int       cnt = 0;
-        while ((cnt = SDL_PollEvent(&sdlEvent)) != 0) {
+        while (SDL_PollEvent(&sdlEvent) != 0) {
             Dispatch(sdlEvent, quit);
         }
     }
@@ -91,7 +90,7 @@ namespace sky {
         }
         case SDL_MOUSEMOTION: {
             const SDL_MouseMotionEvent &event = sdlEvent.motion;
-            Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnMouseMove, event.x, event.y);
+            Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnMouseMove, event.x, event.y, event.xrel, event.yrel);
             break;
         }
         case SDL_MOUSEWHEEL: {

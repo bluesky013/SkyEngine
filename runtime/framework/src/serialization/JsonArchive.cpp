@@ -60,7 +60,7 @@ namespace sky {
             for (auto &member : node->members) {
                 std::string memberName = member.first.data();
                 Key(memberName.c_str());
-                Any value = GetValueConst(ptr, typeId, memberName);
+                Any value = GetValueRawConst(ptr, typeId, memberName);
                 SaveValueObject(value.Data(), member.second.info->registeredId);
             }
             EndObject();
@@ -123,9 +123,9 @@ namespace sky {
                 }
 
                 SKY_ASSERT(Start(memberName))
-                Any any = GetValueConst(ptr, typeId, memberName);
+                Any any = GetValueRawConst(ptr, typeId, memberName);
                 LoadValueById(any.Data(), member.second.info->registeredId);
-                SetValueRawData(ptr, typeId, memberName, any.Data());
+                SetValueRaw(ptr, typeId, memberName, any.Data());
                 End();
             }
 

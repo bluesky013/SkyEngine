@@ -17,6 +17,8 @@ namespace sky {
         CameraComponent()  = default;
         ~CameraComponent() override;
 
+        COMPONENT_RUNTIME_INFO(CameraComponent)
+
         static void Reflect(SerializationContext *context);
 
         void Perspective(float near, float far, float fov);
@@ -31,6 +33,8 @@ namespace sky {
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;
 
+        const Matrix4 &GetProject() const;
+        const Matrix4 &GetView() const;
     private:
         void ShutDown();
 

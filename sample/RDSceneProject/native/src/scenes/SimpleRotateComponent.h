@@ -5,6 +5,9 @@
 #pragma once
 
 #include "framework/world/TransformComponent.h"
+#include "framework/controller/SimpleController.h"
+#include "framework/interface/Interface.h"
+#include "framework/interface/ISystem.h"
 
 namespace sky {
 
@@ -12,6 +15,8 @@ namespace sky {
     public:
         SimpleRotateComponent() = default;
         ~SimpleRotateComponent() override = default;
+
+        COMPONENT_RUNTIME_INFO(SimpleRotateComponent)
 
         static void Reflect(SerializationContext *context)
         {
@@ -33,6 +38,33 @@ namespace sky {
     private:
         float angle = 0.f;
         Vector3 axis = {0, 1, 0};
+    };
+
+    class SimpleCameraController : public ComponentBase {
+    public:
+        SimpleCameraController() = default;
+        ~SimpleCameraController() override = default;
+
+        COMPONENT_RUNTIME_INFO(SimpleCameraController)
+
+        static void Reflect(SerializationContext *context)
+        {
+            context->Register<SimpleCameraController>("SimpleCameraController");
+        }
+
+        void OnActive() override
+        {
+            controller.BindWindow(Interface<ISystemNotify>::Get()->GetApi()->GetViewport());
+        }
+
+        void Tick(float time) override
+        {
+            auto *trans = actor->GetComponent<TransformComponent>();
+            trans->SetLocalTransform(controller.Resolve(time, trans->GetLocalTransform()));
+        }
+
+    private:
+        FirstPersonController controller;
     };
 
 } // namespace sky

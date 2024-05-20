@@ -21,6 +21,8 @@ namespace sky {
         explicit Actor(Uuid id) : uuid(id), name("Actor") {}
         ~Actor() = default;
 
+        using ComponentPtr = std::unique_ptr<ComponentBase>;
+
         template <typename T, typename ...Args>
         T* AddComponent(Args &&...args)
         {
@@ -72,10 +74,12 @@ namespace sky {
         void SetName(const std::string &name_) { name = name_; }
         World *GetWorld() const { return world; }
 
+        const std::unordered_map<Uuid, ComponentPtr> &GetComponents() const { return storage; }
+
     private:
         friend class World;
 
-        using ComponentPtr = std::unique_ptr<ComponentBase>;
+
         std::unordered_map<Uuid, ComponentPtr> storage;
 
         Uuid uuid;

@@ -52,11 +52,13 @@ namespace sky {
     };
 
     using MemberMap     = std::unordered_map<std::string_view, TypeMemberNode>;
+    using EnumMap       = std::unordered_map<uint64_t, std::string_view>;
     using ConstructList = std::list<ConstructNode>;
     struct TypeNode {
         const TypeInfoRT  *base = nullptr;
         const TypeInfoRT  *info = nullptr;
         MemberMap         members;
+        EnumMap           enums;
         PropertyMap       properties;
         ConstructList     constructList;
         SerializationNode serialization;
@@ -225,6 +227,14 @@ namespace sky {
                                                     });
                 return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             }
+        }
+
+        template <typename E>
+        TypeFactory &Enum(E val, const std::string_view &name)
+        {
+            static_assert(std::is_integral_v<std::underlying_type_t<E>>, "T must be integral type");
+            type.enums.emplace(static_cast<uint64_t>(val), name);
+            return *this;
         }
 
         template <auto Func>

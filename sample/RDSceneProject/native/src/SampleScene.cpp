@@ -10,7 +10,7 @@ namespace sky {
 
     bool SampleScene::Start(RenderWindow *window)
     {
-        world = std::make_unique<World>();
+        world.reset(World::CreateWorld());
 
         sceneProxy = std::make_unique<RenderSceneProxy>();
         auto *ppl = new DefaultForward();

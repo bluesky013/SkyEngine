@@ -58,7 +58,9 @@ public:
 
 TEST_F(ComponentTest, ActorTest)
 {
-    World world;
+    std::unique_ptr<World> pWorld(World::CreateWorld());
+    auto &world = *pWorld;
+
     auto id = Uuid::CreateWithSeed(0);
     Actor *actor = world.CreateActor(id);
 
