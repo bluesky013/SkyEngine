@@ -40,14 +40,16 @@ namespace sky {
         type   = ProjectType::PROJECTIVE;
     }
 
-    void CameraComponent::Otho(float height)
+    void CameraComponent::Otho(float h)
     {
-        othoH = height;
+        othoH = h;
         type   = ProjectType::ORTHOGONAL;
     }
 
-    void CameraComponent::SetAspect(uint32_t width, uint32_t height)
+    void CameraComponent::SetAspect(uint32_t width_, uint32_t height_)
     {
+        width = width_;
+        height = height_;
         aspect = static_cast<float>(width) / static_cast<float>(height);
     }
 
@@ -58,7 +60,13 @@ namespace sky {
         sceneView->SetMatrix(world);
 
         if (type == ProjectType::PROJECTIVE) {
-            sceneView->SetProjective(near, far, fov / 180.f * 3.14f, aspect);
+            sceneView->SetPerspective(near, far, fov / 180.f * 3.14f, aspect);
+        } else {
+            const float x = othoH;
+            const float y = othoH;
+            sceneView->SetOrthogonal(-x, x,
+                                     y, -y,
+                                     near, far, 0);
         }
     }
 

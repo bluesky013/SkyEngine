@@ -8,4 +8,5 @@ techniques/post_processing.tech
 techniques/brdf_lut.tech
 techniques/skybox.tech
 techniques/gui.tech
+techniques/depth.tech
 vertex/vertex_library.vtxlib

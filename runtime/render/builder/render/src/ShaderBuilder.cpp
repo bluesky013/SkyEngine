@@ -25,7 +25,8 @@ namespace sky::builder {
         result.success = true;
     }
 
-    void ShaderBuilder::LoadConfig(const std::string &path)
+    void ShaderBuilder::LoadConfig(const FileSystemPtr &fs, const std::string &path)
     {
+
     }
 }

@@ -177,19 +177,19 @@ namespace sky::rdg {
                     auto &tech = item.primitive->techniques[item.techIndex];
 
                     currentEncoder->BindPipeline(tech.pso);
-                    if (queue.resourceGroup != nullptr) {
+                    if (queue.resourceGroup != nullptr && ((tech.pso->GetDescriptorMask() & (1 << 0)) != 0u)) {
                         queue.resourceGroup->OnBind(*currentEncoder, 0);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 0);
                     }
 
-                    if (item.primitive->batchSet) {
+                    if (item.primitive->batchSet && ((tech.pso->GetDescriptorMask() & (1 << 1)) != 0u)) {
                         item.primitive->batchSet->OnBind(*currentEncoder, 1);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 1);
                     }
 
-                    if (item.primitive->instanceSet) {
+                    if (item.primitive->instanceSet && ((tech.pso->GetDescriptorMask() & (1 << 2)) != 0u)) {
                         item.primitive->instanceSet->OnBind(*currentEncoder, 2);
                     }
 

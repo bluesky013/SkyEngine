@@ -40,7 +40,7 @@ namespace sky {
         const std::string &GetProjectAssetPath() const { return projectAssetPath; }
         const std::string &GetEngineAssetPath() const { return engineAssetPath; }
 
-        void LoadConfig(const std::string &path);
+        void LoadConfig();
         const std::vector<AssetSearchPath> &GetSearchPathList() const { return searchPathList; }
 
         // asset actions

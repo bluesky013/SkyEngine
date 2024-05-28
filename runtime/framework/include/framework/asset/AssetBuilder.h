@@ -7,6 +7,7 @@
 #include <vector>
 #include <core/util/Uuid.h>
 #include <core/platform/Platform.h>
+#include <core/file/FileSystem.h>
 #include <framework/asset/Asset.h>
 
 namespace sky {
@@ -43,7 +44,7 @@ namespace sky {
         virtual const std::vector<std::string> &GetExtensions() const = 0;
 
         virtual std::string GetConfigKey() const { return ""; }
-        virtual void LoadConfig(const std::string &path) {}
+        virtual void LoadConfig(const FileSystemPtr& fs, const std::string &path) {}
     };
 
 } // namespace sky

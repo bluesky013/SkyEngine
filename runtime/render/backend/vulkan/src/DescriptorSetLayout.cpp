@@ -27,7 +27,6 @@ namespace sky::vk {
 
     bool DescriptorSetLayout::Init(const Descriptor &desc)
     {
-        descriptorCount = 0;
         bindings = desc.bindings;
 
         std::vector<VkDescriptorSetLayoutBinding>    bindings;

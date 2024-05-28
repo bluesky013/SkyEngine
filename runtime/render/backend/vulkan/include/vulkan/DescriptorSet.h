@@ -24,6 +24,7 @@ namespace sky::vk {
         ~DescriptorSet() override;
 
         VkDescriptorSet GetNativeHandle() const;
+        uint32_t GetDescriptorNum() const { return layout->GetDescriptorNum(); }
 
         static std::shared_ptr<DescriptorSet> Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout);
         DescriptorSetLayoutPtr GetLayout() const { return layout; }

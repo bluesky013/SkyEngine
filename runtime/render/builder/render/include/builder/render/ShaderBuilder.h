@@ -17,7 +17,9 @@ namespace sky::builder {
         static constexpr std::string_view KEY = "GFX_SHADER";
 
         void Request(const BuildRequest &build, BuildResult &result) override;
-        void LoadConfig(const std::string &path) override;
+        void LoadConfig(const FileSystemPtr &fs, const std::string &path) override;
+
+        std::string GetConfigKey() const override { return "shader"; }
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
     private:
         std::vector<std::string> extensions = {".hlsl"};

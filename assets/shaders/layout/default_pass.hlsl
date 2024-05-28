@@ -7,6 +7,7 @@ struct ViewInfo {
 
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
+    float4x4 LightMatrix;
     float4 Viewport;
 }
 
@@ -21,3 +22,6 @@ struct ViewInfo {
     ViewInfo View;
 }
 #endif
+
+[[vk::binding(2, 0)]] Texture2D ShadowMap : register(t1, space0);
+[[vk::binding(3, 0)]] SamplerState ShadowMapSampler : register(t1, space0);

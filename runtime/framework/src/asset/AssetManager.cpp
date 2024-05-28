@@ -87,7 +87,9 @@ namespace sky {
     {
         workFs = fs;
         products = std::make_unique<AssetProducts>();
-        products->Load(workFs->ReadAsArchive(PRODUCTS_ASSETS_REPO_PATH));
+        if (auto archive = workFs->ReadAsArchive(PRODUCTS_ASSETS_REPO_PATH); archive) {
+            products->Load(archive);
+        }
     }
 
     std::string AssetManager::GetPlatformPrefix(PlatformType platform)
@@ -216,22 +218,20 @@ namespace sky {
     }
 
 #ifdef SKY_EDITOR
-    void AssetManager::LoadConfig(const std::string &path)
+    void AssetManager::LoadConfig()
     {
         std::string json;
-        projectFs->ReadString(path, json);
+        projectFs->ReadString("config/asset.json", json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
-
-        std::string parent = std::filesystem::path(path).parent_path().string();
 
         for (auto iter = document.MemberBegin(); iter != document.MemberEnd(); iter++) {
             const char* key = iter->name.GetString();
             const char* cfgPath = iter->value.GetString();
             for (auto &builder : assetBuilders) {
                 if (builder->GetConfigKey() == std::string(key)) {
-                    builder->LoadConfig(parent + "/" + cfgPath);
+                    builder->LoadConfig(projectFs, "config/" + std::string(cfgPath));
                 }
             }
         }
@@ -252,7 +252,8 @@ namespace sky {
 
         package = std::make_unique<AssetPackage>();
         package->LoadFromFile(workFs, PACKAGE_PATH);
-        LoadConfig("config/asset.json");
+
+        LoadConfig();
     }
 
     const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)

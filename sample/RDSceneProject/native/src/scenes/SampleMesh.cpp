@@ -70,19 +70,31 @@ namespace sky {
 
             {
                 rhi::DescriptorSetLayout::Descriptor desc = {};
-//                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "passInfo"});
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::FS, "passInfo"});
                 desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLED_IMAGE, 1, 2, rhi::ShaderStageFlagBit::FS, "ShadowMap"});
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "ShadowMapSampler"});
 //                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 2, rhi::ShaderStageFlagBit::FS, "irradianceMap"});
 //                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "radianceMap"});
 //                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::SAMPLER, 1, 4, rhi::ShaderStageFlagBit::FS, "brdfLutMap"});
 
                 forwardLayout = std::make_shared<ResourceGroupLayout>();
                 forwardLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
-//                forwardLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
+                forwardLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
                 forwardLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
+                forwardLayout->AddNameHandler("ShadowMap", {2});
+                forwardLayout->AddNameHandler("ShadowMapSampler", {3});
 //                forwardLayout->AddNameHandler("irradianceMap", {2, 0});
 //                forwardLayout->AddNameHandler("radianceMap", {3, 0});
 //                forwardLayout->AddNameHandler("brdfLutMap", {4, 0});
+            }
+
+            {
+                rhi::DescriptorSetLayout::Descriptor desc = {};
+                desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding {rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS, "viewInfo"});
+                shadowLayout = std::make_shared<ResourceGroupLayout>();
+                shadowLayout->SetRHILayout(rdgContext->device->CreateDescriptorSetLayout(desc));
+                shadowLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
             }
 
             auto *am = AssetManager::Get();
@@ -102,6 +114,16 @@ namespace sky {
 //            skybox = std::make_unique<SkyBoxRenderer>();
 //            skybox->SetUp(skyboxMatInst);
 //            skybox->AttachScene(scene);
+
+            Transform trans = {};
+            trans.translation = Vector3(21, 28, -7);
+            trans.rotation.FromEulerYZX(Vector3(-50, 113, 0));
+
+            shadowScene = scene->CreateSceneView(1);
+//            shadowScene->SetFlipY(false);
+            shadowScene->SetPerspective(1.f, 100.f, 75.f / 180.f * PI, 1.f);
+            shadowScene->SetMatrix(trans.ToMatrix());
+            shadowScene->Update();
         }
 
         bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override
@@ -126,7 +148,8 @@ namespace sky {
 
 
             auto *sceneView = views[0].get();
-            const auto uboName = GetDefaultSceneViewUBOName(*sceneView);
+            const auto uboName1 = GetDefaultSceneViewUBOName(*sceneView);
+            const auto uboName2 = GetDefaultSceneViewUBOName(*shadowScene);
             const auto *const globalUboName = "globalUBO";
 
             uint32_t renderWidth;
@@ -167,16 +190,31 @@ namespace sky {
             }
 #endif
 
-
             ShaderPassInfo passInfo = {};
+            passInfo.lightMatrix = shadowScene->GetViewProject();
+
             passInfo.viewport.x = 0;
             passInfo.viewport.y = 0;
             passInfo.viewport.z = static_cast<float>(renderWidth);
             passInfo.viewport.w = static_cast<float>(renderHeight);
             globalUbo->Write(0, passInfo);
 
-            rg.ImportUBO(uboName.c_str(), sceneView->GetUBO());
+            rg.ImportUBO(uboName1.c_str(), sceneView->GetUBO());
+            rg.ImportUBO(uboName2.c_str(), shadowScene->GetUBO());
             rg.ImportUBO(globalUboName, globalUbo);
+
+            rg.AddImage("ShadowMap", rdg::GraphImage{{4096, 4096, 1}, 1, 1, rhi::PixelFormat::D32, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, rhi::ImageViewType::VIEW_2D});
+            rdg.AddRasterPass("ShadowPass", 4096, 4096)
+                    .AddAttachment({"ShadowMap", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0))
+                    .AddRasterSubPass("ShadowSub")
+                    .AddDepthStencil("ShadowMap", rdg::ResourceAccessBit::WRITE)
+                    .SetViewMask(viewMask)
+                    .AddComputeView(uboName2, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
+                    .AddComputeView(globalUboName, {"passInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
+                    .AddQueue("queue1")
+                    .SetRasterID("DepthOnly")
+                    .SetLayout(shadowLayout)
+                    .SetView(shadowScene);
 
             rhi::PixelFormat hdrFormat = rhi::PixelFormat::RGBA16_SFLOAT;
             const uint32_t BRDFLutSize = 512;
@@ -209,12 +247,13 @@ namespace sky {
             subpass.AddColor("ForwardColorMSAA", rdg::ResourceAccessBit::WRITE)
                 .AddDepthStencil("ForwardDSMSAA", rdg::ResourceAccessBit::WRITE)
                 .AddResolve("ForwardColor", rdg::ResourceAccessBit::WRITE)
+                .AddComputeView("ShadowMap", {"ShadowMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
                 .AddComputeView("Irradiance", {"irradianceMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
                 .AddComputeView("Radiance", {"radianceMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
 #ifdef ENABLE_IBL
                 .AddComputeView("BRDF_LUT", {"brdfLutMap", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS})
 #endif
-                .AddComputeView(uboName, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
+                .AddComputeView(uboName1, {"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS})
                 .AddComputeView(globalUboName, {"passInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS});
 
             subpass.SetViewMask(viewMask);
@@ -248,10 +287,12 @@ namespace sky {
         RenderWindow *output = nullptr;
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
         RDResourceLayoutPtr forwardLayout;
+        RDResourceLayoutPtr shadowLayout;
         RDGfxTechPtr postTech;
         RDGfxTechPtr brdfLutTech;
         RDTextureCubePtr radiance;
         RDTextureCubePtr irradiance;
+        SceneView *shadowScene;
 
         ImGuiInstance *gui = nullptr;
         RDUniformBufferPtr globalUbo;

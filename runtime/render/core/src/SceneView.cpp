@@ -33,10 +33,10 @@ namespace sky {
         dirty = true;
     }
 
-    void SceneView::SetProjective(float near, float far, float fov, float aspect, uint32_t index)
+    void SceneView::SetPerspective(float near, float far, float fov, float aspect, uint32_t index)
     {
         Matrix4 p = Matrix4::Identity();
-        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY ? -1.f : 1.f;
+        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
 //        p[2][2] = 0.5f;
 //        p[3][2] = 0.5f;
 
@@ -46,6 +46,16 @@ namespace sky {
 //        viewInfo[index].zParam.y = far / near;
 //        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
 //        viewInfo[index].zParam.w = viewInfo[index].zParam.y / far;
+        dirty = true;
+    }
+
+    void SceneView::SetOrthogonal(float l, float r, float t, float b, float near, float far, uint32_t index)
+    {
+        Matrix4 p = Matrix4::Identity();
+        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
+
+        projects0[index] = MakeOrthogonal(l, r, t, b, near, far);
+        viewInfo[index].project = p * projects0[index];
         dirty = true;
     }
 

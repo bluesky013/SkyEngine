@@ -22,12 +22,14 @@ namespace sky::rdg {
                     continue;
                 }
 
+                uint32_t techIndex = 0;
                 for (auto &tech : prim->techniques) {
                     uint32_t viewMask = tech.technique->GetViewMask();
                     uint32_t rasterID = tech.technique->GetRasterID();
 
                     uint32_t sceneMask = queue.sceneView != nullptr ? queue.sceneView->GetViewMask() : 0xFFFFFFFF;
                     if ((sceneMask & viewMask) != sceneMask || rasterID != queue.rasterID) {
+                        techIndex++;
                         continue;
                     }
 
@@ -38,7 +40,7 @@ namespace sky::rdg {
                         tech.rebuildPso = false;
                     }
 
-                    queue.drawItems.emplace_back(RenderDrawItem{prim, 0});
+                    queue.drawItems.emplace_back(RenderDrawItem{prim, techIndex++});
                 }
             }
         }

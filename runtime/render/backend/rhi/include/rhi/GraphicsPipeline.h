@@ -26,6 +26,11 @@ namespace sky::rhi {
             PipelineLayoutPtr pipelineLayout;
             uint32_t          subPassIndex = 0;
         };
+
+        uint32_t GetDescriptorMask() const { return descriptorMask; }
+
+    protected:
+        uint32_t descriptorMask = 0;
     };
     using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 }

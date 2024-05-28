@@ -144,6 +144,13 @@ namespace sky::vk {
         pipelineLayout = std::static_pointer_cast<PipelineLayout>(des.pipelineLayout);
         renderPass     = std::static_pointer_cast<RenderPass>(des.renderPass);
 
+        auto num = pipelineLayout->GetSetNumber();
+        for (uint32_t i = 0; i < num; ++i) {
+            if (pipelineLayout->GetLayout(i)->GetDescriptorNum() != 0) {
+                descriptorMask |= 1 << (i);
+            }
+        }
+
         pipelineInfo.layout             = pipelineLayout->GetNativeHandle();
         pipelineInfo.renderPass         = renderPass->GetNativeHandle();
         pipelineInfo.subpass            = des.subPassIndex;

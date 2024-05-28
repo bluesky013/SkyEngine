@@ -97,6 +97,8 @@ namespace sky {
         y = cx * sy * cz + sx * cy * sz;
         z = cx * cy * sz - sx * sy * cz;
         w = cx * cy * cz - sx * sy * sz;
+
+        Normalize();
     }
 
     inline Vector3 Quaternion::ToEulerYZX() const

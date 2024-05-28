@@ -20,6 +20,7 @@ namespace sky {
     };
 
     struct ShaderPassInfo {
+        Matrix4 lightMatrix;
         Vector4 viewport;
     };
 

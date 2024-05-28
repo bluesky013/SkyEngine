@@ -32,13 +32,11 @@ namespace sky::rhi {
         uint32_t GetHash() const { return hash; }
         uint32_t GetDynamicNum() const { return dynamicNum; }
         uint32_t GetDescriptorNum() const { return descriptorNum; }
-        uint32_t GetDescriptorCount() const { return descriptorCount; }
         uint32_t GetDescriptorSetOffsetByBinding(uint32_t binding) const { return bindingIndices.at(binding).first; }
         uint32_t GetDescriptorSetCountByBinding(uint32_t binding) const { return bindingIndices.at(binding).second; }
         const std::vector<SetBinding> &GetBindings() const { return bindings; }
 
     protected:
-        uint32_t descriptorCount = 0;
         uint32_t hash = 0;
         uint32_t dynamicNum = 0;
         uint32_t descriptorNum = 0;

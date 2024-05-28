@@ -19,7 +19,7 @@ namespace sky {
         rhi::RenderPassPtr renderPass;
         rhi::GraphicsPipelinePtr pso;
         std::vector<std::string> processors;
-
+        uint32_t setMask = 0;
         bool rebuildPso = true;
     };
 

@@ -63,7 +63,7 @@ namespace sky {
             }
         }
 
-        slotHash.resize(layout->GetRHILayout()->GetDescriptorCount());
+        slotHash.resize(layout->GetRHILayout()->GetDescriptorNum());
     }
 
     void ResourceGroup::Update()

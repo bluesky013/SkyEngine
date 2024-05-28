@@ -22,7 +22,7 @@ namespace sky {
         static void Reflect(SerializationContext *context);
 
         void Perspective(float near, float far, float fov);
-        void Otho(float height);
+        void Otho(float h);
 
         void SetAspect(uint32_t width, uint32_t height);
 
@@ -43,7 +43,9 @@ namespace sky {
         float far    = 100.f;
         float fov    = 60;
         float aspect = 1.f;
-        float othoH  = 1.f;
+        float othoH  = 25.f;
+        uint32_t width = 1;
+        uint32_t height = 1;
         ProjectType type = ProjectType::PROJECTIVE;
 
         // status

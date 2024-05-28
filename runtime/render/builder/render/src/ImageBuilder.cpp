@@ -5,9 +5,9 @@
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/ImageCompressor.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/serialization/JsonArchive.h>
 #include <render/adaptor/assets/ImageAsset.h>
 #include <rhi/Decode.h>
-#include <rhi/DDS.h>
 #include <core/file/FileIO.h>
 #include <core/hash/Hash.h>
 
@@ -30,6 +30,20 @@ namespace sky::builder {
     ImageBuilder::ImageBuilder()
     {
         InitializeCompressor();
+    }
+
+    void ImageBuilder::LoadConfig(const FileSystemPtr &fs, const std::string &path)
+    {
+        std::string json;
+        if (!fs->ReadString(path, json)) {
+            return;
+        }
+
+        rapidjson::Document document;
+        document.Parse(json.c_str());
+
+        
+
     }
 
     void ImageBuilder::RequestDDS(const BuildRequest &request, BuildResult &result)
