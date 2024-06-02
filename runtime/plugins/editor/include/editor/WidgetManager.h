@@ -17,7 +17,7 @@ namespace sky::editor {
         void RegisterWidget(ImWidget*);
         void RemoveWidget(const std::string &key);
 
-        void Execute(ImContext &context);
+        void Execute(ImContext &context) override;
 
     private:
         std::unordered_map<std::string, std::unique_ptr<ImWidget>> widgets;
