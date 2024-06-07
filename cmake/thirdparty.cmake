@@ -67,6 +67,9 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    # script
+    sky_find_3rd(TARGET cpython       DIR cpython)
+
     if (SKY_USE_TRACY)
         sky_find_3rd(TARGET tracy         DIR tracy)
         add_definitions(-DTRACY_ENABLE)

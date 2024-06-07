@@ -21,6 +21,11 @@
       "dependencies": [
         "SkyRender"
       ]
+    },
+    {
+      "name": "PythonModule",
+      "dependencies": [
+      ]
     }
   ],
   "game": {

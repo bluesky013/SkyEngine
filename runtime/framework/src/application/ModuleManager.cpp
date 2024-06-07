@@ -77,8 +77,10 @@ namespace sky {
 
                 modules.emplace(moduleName, std::unique_ptr<IModule>(module));
                 dynLibs.emplace(moduleName, std::move(dynModule));
+                LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
+            } else {
+                LOG_E(TAG, "Load Module : %s Failed", moduleName.c_str());
             }
-            LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
         }, sortedContainer);
     }
 
