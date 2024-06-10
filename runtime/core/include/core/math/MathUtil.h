@@ -9,6 +9,7 @@
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 #include <core/math/Vector4.h>
+#include <core/math/Color.h>
 #include <core/math/Quaternion.h>
 
 namespace sky {
@@ -41,6 +42,11 @@ namespace sky {
         return {vec.x, vec.y, vec.z, 1.f};
     }
 
+    inline Vector3 Cast(const Vector4 &vec)
+    {
+        return {vec.x, vec.y, vec.z};
+    }
+
     inline Matrix4 Cast(const Matrix3 &mat)
     {
         Matrix4 ret;
@@ -49,6 +55,20 @@ namespace sky {
         ret.m[2] = Cast(mat[2]);
         ret.m[3] = Vector4(0, 0, 0, 1);
         return ret;
+    }
+
+    inline Matrix3 Cast(const Matrix4 &mat)
+    {
+        Matrix3 ret;
+        ret.m[0] = Cast(mat[0]);
+        ret.m[1] = Cast(mat[1]);
+        ret.m[2] = Cast(mat[2]);
+        return ret;
+    }
+
+    inline Vector4 Cast(const Color& color)
+    {
+        return {color.r, color.g, color.b, color.a};
     }
 
     inline Matrix4 MakePerspective(float fovy, float aspect, float near, float far)

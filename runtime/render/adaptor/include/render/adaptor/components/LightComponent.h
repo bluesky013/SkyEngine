@@ -6,6 +6,7 @@
 
 #include <core/math/Color.h>
 #include <framework/world/Component.h>
+#include <render/light/LightFeatureProcessor.h>
 
 namespace sky {
 
@@ -18,11 +19,17 @@ namespace sky {
 
         static void Reflect(SerializationContext *context);
 
+        void Tick(float time) override;
+        void OnActive() override;
+        void OnDeActive() override;
+
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;
 
     private:
         Color lightColor;
+
+        DirectLight *light = nullptr;
     };
 
 } // namespace sky

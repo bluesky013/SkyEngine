@@ -76,7 +76,7 @@ namespace sky {
 
     void World::SaveBinary(BinaryOutputArchive &archive)
     {
-
+        
     }
 
     void World::LoadBinary(BinaryInputArchive &archive)

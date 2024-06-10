@@ -9,6 +9,7 @@
 #include <framework/interface/Interface.h>
 #include <framework/application/ModuleManager.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/ComponentFactory.h>
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
@@ -37,6 +38,12 @@ namespace sky {
 
     static void RegisterComponents()
     {
+        static std::string GROUP = "Render";
+        ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<MeshRenderer>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
+
+
         auto *context = SerializationContext::Get();
         LightComponent::Reflect(context);
         MeshRenderer::Reflect(context);

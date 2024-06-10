@@ -88,6 +88,8 @@ namespace sky {
 
         std::vector<ActorPtr> actors;
         std::unordered_map<std::string, IWorldSubSystem*> subSystems;
+
+        uint32_t version = 0;
     };
 
     using WorldPtr = std::shared_ptr<World>;

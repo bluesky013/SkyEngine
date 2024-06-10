@@ -22,7 +22,7 @@ namespace sky::editor {
         void OnToggle(bool val) override { show = val; }
         void OnActorSelected(Actor *actor_) override { actor = actor_; }
         void ShowDetails();
-        static void ShowComponent(const Uuid &id, ComponentBase *comp);
+        static bool ShowComponent(const Uuid &id, ComponentBase *comp);
 
         bool show = false;
         Actor *actor = nullptr;

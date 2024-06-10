@@ -38,19 +38,34 @@ namespace sky::editor {
             return;
         }
 
+        Uuid delId;
         const auto &components = actor->GetComponents();
         for (const auto &[id, component] : components) {
             ImGui::Separator();
             ImGui::BeginGroup();
-            ShowComponent(id, component.get());
+            if (ShowComponent(id, component.get())) {
+                delId = id;
+            }
             ImGui::EndGroup();
         }
+        if (static_cast<bool>(delId)) {
+            actor->RemoveComponent(delId);
+        }
+
+//        if (ImGui::BeginPopupContextItem(0, ImGuiPopupFlags_AnyPopup)) {
+//            if (ImGui::MenuItem("Delete")) {}
+//            ImGui::EndPopup();
+//        }
     }
 
-    void InspectorWidget::ShowComponent(const Uuid &id, ComponentBase *comp)
+    bool InspectorWidget::ShowComponent(const Uuid &id, ComponentBase *comp)
     {
         const auto *node = GetTypeNode(id);
         ImGui::Text("%s", node->info->name.data());
+        ImGui::SameLine();
+        if (ImGui::Button("x")) {
+            return true;
+        }
 
         for (const auto &member : node->members) {
             auto data = GetValueRawConst(comp, id, member.first.data());
@@ -107,6 +122,7 @@ namespace sky::editor {
                 }
             }
         }
+        return false;
     }
 
     void InspectorWidget::BindEvent(EventID id)

@@ -5,50 +5,33 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
-#include <core/std/Container.h>
+#include <core/util/Uuid.h>
+#include <framework/world/Component.h>
+#include <vector>
 
 namespace sky {
-    class Component;
-
     class ComponentFactory : public Singleton<ComponentFactory> {
     public:
         ComponentFactory()  = default;
         ~ComponentFactory() override = default;
 
-        template <typename T>
-        static Component *CreateComponent(PmrResource *resource)
-        {
-            auto *ptr = resource->allocate(sizeof(T));
-            return new (ptr) T();
-        }
-        using CompFn = Component*(*)(PmrResource *resource);
-        struct CompInfo {
-            CompFn fn;
-            std::string_view name;
+        struct ComponentInfo {
+            std::string group;
         };
 
         template <typename T>
-        void RegisterComponent()
+        void RegisterComponent(const std::string &group)
         {
-            ctorMap.emplace(T::TYPE, &ComponentFactory::CreateComponent<T>);
-        }
-
-        Component *CreateComponent(PmrResource *resource, const uint32_t &id)
-        {
-            auto iter = ctorMap.find(id);
-            if (iter != ctorMap.end()) {
-                return iter->second(resource);
-            }
-            return nullptr;
-        }
-
-        const std::unordered_map<uint32_t, CompFn> &GetComponentTypes() const
-        {
-            return ctorMap;
+            static_assert(std::is_base_of_v<ComponentBase, T>);
+            RegisterComponent(TypeInfo<T>::RegisteredId(), ComponentInfo{group});
         }
 
     private:
-        std::unordered_map<uint32_t, CompFn> ctorMap;
+        void RegisterComponent(const Uuid &uuid, const ComponentInfo &info)
+        {
+            componentTypes.emplace(uuid, info);
+        }
+        std::unordered_map<Uuid, ComponentInfo> componentTypes;
     };
 
 } // namespace sky

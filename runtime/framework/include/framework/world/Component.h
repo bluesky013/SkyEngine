@@ -5,7 +5,6 @@
 #pragma once
 
 #include <core/memory/Allocator.h>
-#include <framework/world/ComponentFactory.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
@@ -27,6 +26,9 @@ namespace sky {
 
         virtual void SaveJson(JsonOutputArchive &archive) const {}
         virtual void LoadJson(JsonInputArchive &archive) {}
+
+        virtual void SaveBin(BinaryOutputArchive &archive) const {}
+        virtual void LoadBin(BinaryInputArchive &archive) {}
 
         virtual const Uuid &GetTypeId() const = 0;
     protected:
