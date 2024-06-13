@@ -34,6 +34,21 @@ namespace sky {
         return SDL_GetPerformanceCounter();
     }
 
+    char* SDLPlatform::GetClipBoardText()
+    {
+        return SDL_GetClipboardText();
+    }
+
+    void SDLPlatform::FreeClipBoardText(char* text)
+    {
+        SDL_free(text);
+    }
+
+    void SDLPlatform::SetClipBoardText(const std::string &text)
+    {
+        SDL_SetClipboardText(text.data());
+    }
+
 //    std::string SDLPlatform::GetBundlePath() const
 //    {
 //        return SDL_GetBasePath();

@@ -38,6 +38,9 @@ namespace sky {
         virtual bool RunCmd(const std::string &str, std::string &out) const { return true; }
         virtual PlatformType GetType() const { return PlatformType::UNDEFINED; }
         virtual FileSystemPtr GetBundleFileSystem() { return nullptr; }
+        virtual char* GetClipBoardText() { return nullptr; }
+        virtual void FreeClipBoardText(char* text) {}
+        virtual void SetClipBoardText(const std::string &text) {}
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
     protected:
         LaunchCallback launchCallback;
@@ -57,6 +60,10 @@ namespace sky {
         AdaptivePerfManager *GetPerformanceManager() const;
         std::string GetEnvVariable(const std::string &env) const;
         FileSystemPtr GetBundleFileSystem() const;
+
+        char* GetClipBoardText() const;
+        void FreeClipBoardText(char* text);
+        void SetClipBoardText(const std::string &text);
 
         bool RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;

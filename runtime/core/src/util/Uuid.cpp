@@ -8,6 +8,12 @@
 
 namespace sky {
 
+    const Uuid &Uuid::GetEmpty()
+    {
+        static Uuid empty;
+        return empty;
+    }
+
     Uuid Uuid::Create()
     {
         Uuid res;

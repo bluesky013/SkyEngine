@@ -22,7 +22,8 @@ namespace sky {
         context->Register<MeshRenderer>("MeshRenderer")
             .Member<&MeshRenderer::isStatic>("static")
             .Member<&MeshRenderer::castShadow>("castShadow")
-            .Member<&MeshRenderer::receiveShadow>("receiveShadow");
+            .Member<&MeshRenderer::receiveShadow>("receiveShadow")
+            .Member<&MeshRenderer::SetMeshUuid, &MeshRenderer::GetMeshUuid>("mesh");
     }
 
     void MeshRenderer::SaveJson(JsonOutputArchive &ar) const
@@ -46,10 +47,28 @@ namespace sky {
         ResetMesh();
     }
 
+    void MeshRenderer::SetMeshUuid(const Uuid &uuid)
+    {
+        const auto &current = meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty();
+        if (current == uuid) {
+            return;
+        }
+        if (uuid) {
+            SetMesh(AssetManager::Get()->LoadAsset<Mesh>(uuid));
+        } else {
+            SetMesh(MeshAssetPtr {});
+        }
+    }
+
     void MeshRenderer::SetMesh(const MeshAssetPtr &mesh_)
     {
         meshAsset = mesh_;
-        meshInstance = meshAsset->CreateInstance();
+        if (meshAsset) {
+            meshInstance = meshAsset->CreateInstance();
+        } else {
+            meshInstance = nullptr;
+        }
+
         ResetMesh();
     }
 
@@ -61,8 +80,17 @@ namespace sky {
 
     void MeshRenderer::ResetMesh()
     {
+        auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
+
+        if (!meshInstance) {
+            if (renderer != nullptr) {
+                mf->RemoveStaticMesh(renderer);
+            }
+            renderer = nullptr;
+            return;
+        }
+
         if (renderer == nullptr) {
-            auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
             renderer = mf->CreateStaticMesh();
         }
         renderer->SetMesh(meshInstance);

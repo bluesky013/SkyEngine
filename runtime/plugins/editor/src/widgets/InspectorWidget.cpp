@@ -120,6 +120,14 @@ namespace sky::editor {
                         SetValueRaw(comp, id, member.first.data(), v);
                     }
                 }
+                else if (member.second.info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
+                    auto *v = reinterpret_cast<Uuid *>(data.GetAs<Uuid>());
+                    auto uuid = v->ToString();
+                    if (ImGui::InputText(member.first.data(), uuid.data(), uuid.length() + 1)) {
+                        auto assetId = Uuid::CreateFromString(uuid);
+                        SetValueRaw(comp, id, member.first.data(), &assetId);
+                    }
+                }
             }
         }
         return false;

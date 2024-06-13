@@ -4,10 +4,12 @@
 
 #include <imgui/ImGuiInstance.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/platform/PlatformBase.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
 #include <imgui/ImGuiFeature.h>
 #include <render/rdg/RenderGraph.h>
+
 #include <imgui.h>
 
 namespace sky {
@@ -67,6 +69,20 @@ namespace sky {
         io.KeyMap[ImGuiKey_X];
         io.KeyMap[ImGuiKey_Y];
         io.KeyMap[ImGuiKey_Z];
+
+
+        io.SetClipboardTextFn = [](void* user_data, const char* text){
+            Platform::Get()->SetClipBoardText(text);
+        };
+        io.GetClipboardTextFn = [](void* user_data)-> const char* {
+            auto &io = ImGui::GetIO();
+            if (io.ClipboardUserData != nullptr) {
+                Platform::Get()->FreeClipBoardText(static_cast<char*>(io.ClipboardUserData));
+            }
+            auto *text = Platform::Get()->GetClipBoardText();
+            io.ClipboardUserData = static_cast<char*>(text);
+            return text;
+        };
 
         unsigned char *pixels;
         int width;

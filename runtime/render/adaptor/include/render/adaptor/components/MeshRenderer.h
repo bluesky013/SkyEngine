@@ -32,6 +32,8 @@ namespace sky {
 
         StaticMeshRenderer *GetRenderer() const { return renderer; }
 
+        void SetMeshUuid(const Uuid &uuid);
+        const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }
     private:
         void ResetMesh();
         void ShutDown();

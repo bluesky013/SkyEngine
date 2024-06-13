@@ -36,6 +36,8 @@ namespace sky {
 
         ~Uuid() = default;
 
+        static const Uuid &GetEmpty();
+
         static Uuid Create();
 
         static Uuid CreateWithSeed(uint32_t);

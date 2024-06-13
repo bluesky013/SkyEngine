@@ -64,4 +64,19 @@ namespace sky {
     {
         return platform->GetType();
     }
+
+    char* Platform::GetClipBoardText() const
+    {
+        return platform->GetClipBoardText();
+    }
+
+    void Platform::FreeClipBoardText(char* text)
+    {
+        platform->FreeClipBoardText(text);
+    }
+
+    void Platform::SetClipBoardText(const std::string &text)
+    {
+        platform->SetClipBoardText(text);
+    }
 }
