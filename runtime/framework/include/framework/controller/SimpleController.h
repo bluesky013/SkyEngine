@@ -11,7 +11,7 @@
 
 namespace sky {
 
-    class FirstPersonController : public IWindowEvent {
+    class FirstPersonController : public IMouseEvent, public IKeyboardEvent {
     public:
         FirstPersonController();
         ~FirstPersonController() override = default;
@@ -20,16 +20,21 @@ namespace sky {
         Transform Resolve(float time, const Transform &trans);
 
     private:
-        void OnMouseMove(int32_t x, int32_t y, int32_t rx, int32_t ry) override;
-        void OnMouseButtonDown(MouseButtonType button) override;
-        void OnMouseButtonUp(MouseButtonType button) override;
-        void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
-        void OnKeyUp(KeyButtonType) override;
-        void OnKeyDown(KeyButtonType) override;
+        void OnMouseButtonDown(const MouseButtonEvent &event) override;
+        void OnMouseButtonUp(const MouseButtonEvent &event) override;
+        void OnMouseMotion(const MouseMotionEvent &event) override;
+        void OnMouseWheel(const MouseWheelEvent &event) override;
 
-        EventBinder<IWindowEvent> binder;
+        void OnKeyUp(const KeyboardEvent &event) override;
+        void OnKeyDown(const KeyboardEvent &event) override;
+
+        bool FilterWindowID(WindowID id);
+
+        EventBinder<IKeyboardEvent> keyBinder;
+        EventBinder<IMouseEvent> mouseBinder;
+
         std::unordered_map<MouseButtonType, bool> mouseButtons;
-        std::unordered_map<MouseButtonType, bool> keyButtons;
+        std::unordered_map<ScanCode, bool> keyButtons;
         int32_t startX = 0;
         int32_t startY = 0;
 

@@ -28,7 +28,7 @@ namespace sky {
 
         virtual void Shutdown();
 
-        virtual void PreTick() {};
+        virtual void PreTick() {}
 
         void Mainloop();
 

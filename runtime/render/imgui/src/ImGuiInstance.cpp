@@ -47,28 +47,28 @@ namespace sky {
 
         ImGuiIO& io = ImGui::GetIO();
 
-        io.KeyMap[ImGuiKey_Tab] = KeyButton::KEY_TAB;
-        io.KeyMap[ImGuiKey_LeftArrow] = KeyButton::KEY_LEFT;
-        io.KeyMap[ImGuiKey_RightArrow] = KeyButton::KEY_RIGHT;
-        io.KeyMap[ImGuiKey_UpArrow] = KeyButton::KEY_UP;
-        io.KeyMap[ImGuiKey_DownArrow] = KeyButton::KEY_DOWN;
-        io.KeyMap[ImGuiKey_PageUp] = KeyButton::KEY_PAGEUP;
-        io.KeyMap[ImGuiKey_PageDown] = KeyButton::KEY_PAGEDOWN;
-        io.KeyMap[ImGuiKey_Home] = KeyButton::KEY_HOME;
-        io.KeyMap[ImGuiKey_End] = KeyButton::KEY_END;
-        io.KeyMap[ImGuiKey_Insert] = KeyButton::KEY_INSERT;
-        io.KeyMap[ImGuiKey_Delete] = KeyButton::KEY_DELETE;
-        io.KeyMap[ImGuiKey_Backspace] = KeyButton::KEY_BACKSPACE;
-        io.KeyMap[ImGuiKey_Space] = KeyButton::KEY_SPACE;
-        io.KeyMap[ImGuiKey_Enter] = KeyButton::KEY_RETURN;
-        io.KeyMap[ImGuiKey_Escape] = KeyButton::KEY_ESCAPE;
-        io.KeyMap[ImGuiKey_KeypadEnter] = KeyButton::KEY_KP_ENTER;
-        io.KeyMap[ImGuiKey_A];
-        io.KeyMap[ImGuiKey_C];
-        io.KeyMap[ImGuiKey_V];
-        io.KeyMap[ImGuiKey_X];
-        io.KeyMap[ImGuiKey_Y];
-        io.KeyMap[ImGuiKey_Z];
+        io.KeyMap[ImGuiKey_Tab]         = static_cast<int>(ScanCode::KEY_TAB);
+        io.KeyMap[ImGuiKey_LeftArrow]   = static_cast<int>(ScanCode::KEY_LEFT);
+        io.KeyMap[ImGuiKey_RightArrow]  = static_cast<int>(ScanCode::KEY_RIGHT);
+        io.KeyMap[ImGuiKey_UpArrow]     = static_cast<int>(ScanCode::KEY_UP);
+        io.KeyMap[ImGuiKey_DownArrow]   = static_cast<int>(ScanCode::KEY_DOWN);
+        io.KeyMap[ImGuiKey_PageUp]      = static_cast<int>(ScanCode::KEY_PAGEUP);
+        io.KeyMap[ImGuiKey_PageDown]    = static_cast<int>(ScanCode::KEY_PAGEDOWN);
+        io.KeyMap[ImGuiKey_Home]        = static_cast<int>(ScanCode::KEY_HOME);
+        io.KeyMap[ImGuiKey_End]         = static_cast<int>(ScanCode::KEY_END);
+        io.KeyMap[ImGuiKey_Insert]      = static_cast<int>(ScanCode::KEY_INSERT);
+        io.KeyMap[ImGuiKey_Delete]      = static_cast<int>(ScanCode::KEY_DELETE);
+        io.KeyMap[ImGuiKey_Backspace]   = static_cast<int>(ScanCode::KEY_BACKSPACE);
+        io.KeyMap[ImGuiKey_Space]       = static_cast<int>(ScanCode::KEY_SPACE);
+        io.KeyMap[ImGuiKey_Enter]       = static_cast<int>(ScanCode::KEY_RETURN);
+        io.KeyMap[ImGuiKey_Escape]      = static_cast<int>(ScanCode::KEY_ESCAPE);
+        io.KeyMap[ImGuiKey_KeypadEnter] = static_cast<int>(ScanCode::KEY_KP_ENTER);
+        io.KeyMap[ImGuiKey_A]           = static_cast<int>(ScanCode::KEY_A);
+        io.KeyMap[ImGuiKey_C]           = static_cast<int>(ScanCode::KEY_C);
+        io.KeyMap[ImGuiKey_V]           = static_cast<int>(ScanCode::KEY_V);
+        io.KeyMap[ImGuiKey_X]           = static_cast<int>(ScanCode::KEY_X);
+        io.KeyMap[ImGuiKey_Y]           = static_cast<int>(ScanCode::KEY_Y);
+        io.KeyMap[ImGuiKey_Z]           = static_cast<int>(ScanCode::KEY_Z);
 
 
         io.SetClipboardTextFn = [](void* user_data, const char* text){
@@ -116,7 +116,6 @@ namespace sky {
     ImGuiInstance::~ImGuiInstance()
     {
         context.Destroy();
-        Event<IWindowEvent>::DisConnect( this);
     }
 
     void ImGuiInstance::AddWidget(ImWidget *widget)
@@ -221,20 +220,55 @@ namespace sky {
 
     void ImGuiInstance::BindNativeWindow(const NativeWindow *nativeWindow)
     {
-        Event<IWindowEvent>::Connect(nativeWindow, this);
+        winBinder.Bind(this, nativeWindow);
+        mouseBinder.Bind(this);
+        keyBinder.Bind(this);
 
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(nativeWindow->GetWidth()), static_cast<float>(nativeWindow->GetHeight()));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
     }
 
-    void ImGuiInstance::OnMouseWheel(int32_t wheelX, int32_t wheelY)
+    int ImGuiInstance::ConvertMouseButton(MouseButtonType type)
+    {
+        // 0=left, 1=right, 2=middle
+        switch (type) {
+            case MouseButtonType::LEFT:
+                return 0;
+            case MouseButtonType::RIGHT:
+                return 1;
+            case MouseButtonType::MIDDLE:
+                return 2;
+            default:
+                return 0;
+        }
+    }
+
+    void ImGuiInstance::OnMouseButtonDown(const MouseButtonEvent &event)
     {
         ImGuiIO& io = ImGui::GetIO();
-        if (wheelX > 0) { io.MouseWheelH += 1; }
-        if (wheelX < 0) { io.MouseWheelH -= 1; }
-        if (wheelY > 0) { io.MouseWheel += 1; }
-        if (wheelY < 0) { io.MouseWheel -= 1; }
+        io.MouseDown[ConvertMouseButton(event.button)] = true;
+    }
+
+    void ImGuiInstance::OnMouseButtonUp(const MouseButtonEvent &event)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDown[ConvertMouseButton(event.button)] = false;
+    }
+
+    void ImGuiInstance::OnMouseMotion(const MouseMotionEvent &event)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.MousePos = ImVec2(static_cast<float>(event.x), static_cast<float>(event.y));
+    }
+
+    void ImGuiInstance::OnMouseWheel(const MouseWheelEvent &event)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        if (event.x > 0) { io.MouseWheelH += 1; }
+        if (event.x < 0) { io.MouseWheelH -= 1; }
+        if (event.y > 0) { io.MouseWheel += 1; }
+        if (event.y < 0) { io.MouseWheel -= 1; }
     }
 
     void ImGuiInstance::OnFocusChanged(bool focus)
@@ -251,40 +285,28 @@ namespace sky {
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
     }
 
-    void ImGuiInstance::OnKeyUp(KeyButtonType key)
+    void ImGuiInstance::OnKeyUp(const KeyboardEvent &event)
     {
         ImGuiIO& io = ImGui::GetIO();
-        io.KeysDown[key] = false;
+        io.KeysDown[static_cast<uint32_t>(event.scanCode)] = false;
+        io.KeyShift = static_cast<bool>(event.mod & KeyMod::SHIFT);
+        io.KeyCtrl = static_cast<bool>(event.mod & KeyMod::CTRL);
+        io.KeyAlt = static_cast<bool>(event.mod & KeyMod::ALT);
     }
 
-    void ImGuiInstance::OnKeyDown(KeyButtonType key)
+    void ImGuiInstance::OnKeyDown(const KeyboardEvent &event)
     {
         ImGuiIO& io = ImGui::GetIO();
-        io.KeysDown[key] = true;
+        io.KeysDown[static_cast<uint32_t>(event.scanCode)] = true;
+        io.KeyShift = static_cast<bool>(event.mod & KeyMod::SHIFT);
+        io.KeyCtrl = static_cast<bool>(event.mod & KeyMod::CTRL);
+        io.KeyAlt = static_cast<bool>(event.mod & KeyMod::ALT);
     }
 
-    void ImGuiInstance::OnTextInput(const char *text)
+    void ImGuiInstance::OnTextInput(WindowID winID, const char *text)
     {
         ImGuiIO& io = ImGui::GetIO();
         io.AddInputCharactersUTF8(text);
-    }
-
-    void ImGuiInstance::OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY)
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));
-    }
-
-    void ImGuiInstance::OnMouseButtonDown(MouseButtonType button)
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        io.MouseDown[button - 1] = true;
-    }
-
-    void ImGuiInstance::OnMouseButtonUp(MouseButtonType button)
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        io.MouseDown[button - 1] = false;
     }
 
     void ImGuiInstance::CheckVertexBuffers(uint32_t vertexCount, uint32_t indexCount)

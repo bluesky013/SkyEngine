@@ -15,7 +15,7 @@ namespace sky {
         Transform res = trans;
 
         auto euler = trans.rotation.ToEulerYZX();
-        if (mouseButtons[MouseButton::MOUSE_BUTTON_RIGHT]) {
+        if (mouseButtons[MouseButtonType::RIGHT]) {
             float diffX = static_cast<float>(currentX - startX) / static_cast<float>(window->GetWidth());
             float diffY = static_cast<float>(currentY - startY) / static_cast<float>(window->GetHeight());
 
@@ -31,16 +31,16 @@ namespace sky {
         auto up = trans.rotation * (VEC3_Y);
         auto right = forward.Cross(up);
 
-        if (keyButtons[KeyButton::KEY_UP] || keyButtons[KeyButton::KEY_W]) {
+        if (keyButtons[ScanCode::KEY_UP] || keyButtons[ScanCode::KEY_W]) {
             res.translation += forward * time * moveSpeed;
         }
-        if (keyButtons[KeyButton::KEY_DOWN] || keyButtons[KeyButton::KEY_S]) {
+        if (keyButtons[ScanCode::KEY_DOWN] || keyButtons[ScanCode::KEY_S]) {
             res.translation -= forward * time * moveSpeed;
         }
-        if (keyButtons[KeyButton::KEY_LEFT] || keyButtons[KeyButton::KEY_A]) {
+        if (keyButtons[ScanCode::KEY_LEFT] || keyButtons[ScanCode::KEY_A]) {
             res.translation -= right * time * moveSpeed;
         }
-        if (keyButtons[KeyButton::KEY_RIGHT] || keyButtons[KeyButton::KEY_D]) {
+        if (keyButtons[ScanCode::KEY_RIGHT] || keyButtons[ScanCode::KEY_D]) {
             res.translation += right * time * moveSpeed;
         }
 
@@ -49,48 +49,75 @@ namespace sky {
 
     void FirstPersonController::BindWindow(const NativeWindow *window_)
     {
-        binder.Bind(this, window_);
+        keyBinder.Bind(this);
+        mouseBinder.Bind(this);
+
         window = window_;
     }
 
-    void FirstPersonController::OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY)
+    bool FirstPersonController::FilterWindowID(WindowID id)
     {
-        if (window == nullptr) {
+        return window != nullptr && window->GetWinId() == id;
+    }
+
+    void FirstPersonController::OnMouseMotion(const MouseMotionEvent &event)
+    {
+        if (!FilterWindowID(event.winID)) {
             return;
         }
 
-        currentX = x;
-        currentY = y;
+        currentX = event.x;
+        currentY = event.y;
     }
 
-    void FirstPersonController::OnMouseButtonDown(MouseButtonType button)
+    void FirstPersonController::OnMouseButtonDown(const MouseButtonEvent &event)
     {
-        mouseButtons[button] = true;
+        if (!FilterWindowID(event.winID)) {
+            return;
+        }
 
-        if (button == MouseButton::MOUSE_BUTTON_RIGHT) {
+        mouseButtons[event.button] = true;
+
+        if (event.button == MouseButtonType::RIGHT) {
             startX = currentX;
             startY = currentY;
         }
     }
 
-    void FirstPersonController::OnMouseButtonUp(MouseButtonType button)
+    void FirstPersonController::OnMouseButtonUp(const MouseButtonEvent &event)
     {
-        mouseButtons[button] = false;
+        if (!FilterWindowID(event.winID)) {
+            return;
+        }
+
+        mouseButtons[event.button] = false;
     }
 
-    void FirstPersonController::OnMouseWheel(int32_t wheelX, int32_t wheelY)
+    void FirstPersonController::OnMouseWheel(const MouseWheelEvent &event)
     {
-        moveSpeed += static_cast<float>(wheelY);
+        if (!FilterWindowID(event.winID)) {
+            return;
+        }
+
+        moveSpeed += static_cast<float>(event.y);
         moveSpeed = std::clamp(moveSpeed, 0.1f, 100.f);
     }
 
-    void FirstPersonController::OnKeyUp(KeyButtonType button)
+    void FirstPersonController::OnKeyUp(const KeyboardEvent &event)
     {
-        keyButtons[button] = false;
+        if (!FilterWindowID(event.winID)) {
+            return;
+        }
+
+        keyButtons[event.scanCode] = false;
     }
 
-    void FirstPersonController::OnKeyDown(KeyButtonType button)
+    void FirstPersonController::OnKeyDown(const KeyboardEvent &event)
     {
-        keyButtons[button] = true;
+        if (!FilterWindowID(event.winID)) {
+            return;
+        }
+
+        keyButtons[event.scanCode] = true;
     }
 } // namespace sky

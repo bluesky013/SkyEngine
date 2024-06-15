@@ -130,7 +130,7 @@ namespace sky {
         }
     };
 
-    template <typename T>
+    template <typename T, typename KeyType = T::KeyType>
     class EventBinder {
     public:
         EventBinder() = default;
@@ -139,11 +139,36 @@ namespace sky {
             Reset();
         }
 
-        using KeyType = typename T::KeyType;
-
         void Bind(T *inter, KeyType key)
         {
             Event<T>::Connect(key, inter);
+            val = inter;
+        }
+
+        void Reset()
+        {
+            if (val != nullptr) {
+                Event<T>::DisConnect(val);
+                val = nullptr;
+            }
+        }
+
+    private:
+        T *val = nullptr;
+    };
+
+    template <typename T>
+    class EventBinder<T, void> {
+    public:
+        EventBinder() = default;
+        ~EventBinder()
+        {
+            Reset();
+        }
+
+        void Bind(T *inter)
+        {
+            Event<T>::Connect(inter);
             val = inter;
         }
 

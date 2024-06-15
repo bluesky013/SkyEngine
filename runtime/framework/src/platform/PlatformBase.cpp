@@ -79,4 +79,9 @@ namespace sky {
     {
         platform->SetClipBoardText(text);
     }
+
+    void Platform::PoolEvent(bool &exit)
+    {
+        platform->PollEvent(exit);
+    }
 }

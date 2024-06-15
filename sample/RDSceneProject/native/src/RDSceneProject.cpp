@@ -69,13 +69,6 @@ namespace sky {
         }
     }
 
-    void RDSceneProject::OnKeyUp(KeyButtonType type)
-    {
-//        if (type == KeyButton::KEY_RIGHT) {
-//            NextScene();
-//        }
-    }
-
     void RDSceneProject::NextScene()
     {
         if (currentScene != nullptr) {

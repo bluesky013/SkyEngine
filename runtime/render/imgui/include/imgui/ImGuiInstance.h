@@ -19,7 +19,7 @@ namespace sky {
     } // namespace rdg
     class RenderScene;
 
-    class ImGuiInstance : public IWindowEvent {
+    class ImGuiInstance : public IWindowEvent, public IMouseEvent, public IKeyboardEvent {
     public:
         ImGuiInstance();
         ~ImGuiInstance() override;
@@ -32,19 +32,27 @@ namespace sky {
         void MakeCurrent();
         void BindNativeWindow(const NativeWindow *window);
 
-        void OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY) override;
-        void OnMouseButtonDown(MouseButtonType button) override;
-        void OnMouseButtonUp(MouseButtonType button) override;
-        void OnMouseWheel(int32_t wheelX, int32_t wheelY) override;
-        void OnFocusChanged(bool focus) override;
-        void OnWindowResize(uint32_t width, uint32_t height) override;
-        void OnTextInput(const char *text) override;
-        void OnKeyUp(KeyButtonType) override;
-        void OnKeyDown(KeyButtonType) override;
-
         RenderPrimitive *GetPrimitive() const { return primitive.get(); }
     private:
         void CheckVertexBuffers(uint32_t vertexCount, uint32_t indexCount);
+
+        void OnMouseButtonDown(const MouseButtonEvent &event) override;
+        void OnMouseButtonUp(const MouseButtonEvent &event) override;
+        void OnMouseMotion(const MouseMotionEvent &event) override;
+        void OnMouseWheel(const MouseWheelEvent &event) override;
+
+        void OnKeyUp(const KeyboardEvent &event) override;
+        void OnKeyDown(const KeyboardEvent &event) override;
+        void OnTextInput(WindowID winID, const char *text) override;
+
+        void OnFocusChanged(bool focus) override;
+        void OnWindowResize(uint32_t width, uint32_t height) override;
+
+        int ConvertMouseButton(MouseButtonType type);
+
+        EventBinder<IWindowEvent> winBinder;
+        EventBinder<IKeyboardEvent> keyBinder;
+        EventBinder<IMouseEvent> mouseBinder;
 
         ImContext context;
 

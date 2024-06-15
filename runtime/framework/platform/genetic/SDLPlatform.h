@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <framework/platform/PlatformBase.h>
 
+union SDL_Event;
+
 namespace sky {
 
     class SDLPlatform : public PlatformBase {
@@ -19,6 +21,10 @@ namespace sky {
 
         uint64_t GetPerformanceFrequency() const override;
         uint64_t GetPerformanceCounter() const override;
+
+        void PollEvent(bool &exit) override;
+        void Dispatch(const SDL_Event &sdlEvent, bool &quit);
+        void DispatchWindowEvent(const SDL_Event &sdlEvent);
 
         char* GetClipBoardText() override;
         void FreeClipBoardText(char* text) override;

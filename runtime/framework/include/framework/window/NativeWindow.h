@@ -6,6 +6,7 @@
 
 #include <string>
 #include <framework/window/IWindow.h>
+#include <framework/window/IWindowEvent.h>
 
 //struct SDL_Window;
 //union SDL_Event;
@@ -31,15 +32,19 @@ namespace sky {
 
         void *GetNativeHandle() const override;
 
-        virtual void PollEvent(bool &quit) = 0;
-
         virtual bool Init(const Descriptor &desc) = 0;
 
         uint32_t GetWidth() const { return descriptor.width; }
         uint32_t GetHeight() const { return descriptor.height; }
 
+        WindowID GetWinId() const { return winID; }
     protected:
+        friend class NativeWindowManager;
+
+        void SetID(WindowID id);
+
         void *winHandle = nullptr;
+        WindowID winID = INVALID_WIN_ID;
         Descriptor descriptor;
     };
 } // namespace sky

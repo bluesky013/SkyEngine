@@ -14,15 +14,11 @@ namespace sky {
         SDLWindow() = default;
         ~SDLWindow() override;
 
-        void PollEvent(bool &quit) override;
-
         bool Init(const Descriptor &desc) override;
         virtual void UpdateWindow() {}
 
-    protected:
         void Dispatch(const SDL_WindowEvent &event);
-        void Dispatch(const SDL_Event &sdlEvent, bool &quit);
-
+    protected:
         SDL_Window *window = nullptr;
     };
 

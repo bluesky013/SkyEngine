@@ -70,9 +70,6 @@ namespace sky {
 
     void GameApplication::PreTick()
     {
-        if (nativeWindow) {
-            nativeWindow->PollEvent(exit);
-        }
     }
 
     const NativeWindow *GameApplication::GetViewport() const

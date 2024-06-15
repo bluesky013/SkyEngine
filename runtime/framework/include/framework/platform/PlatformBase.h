@@ -41,6 +41,7 @@ namespace sky {
         virtual char* GetClipBoardText() { return nullptr; }
         virtual void FreeClipBoardText(char* text) {}
         virtual void SetClipBoardText(const std::string &text) {}
+        virtual void PollEvent(bool &exit) {}
         void setLaunchCallback(LaunchCallback &&cb) { launchCallback = std::move(cb); }
     protected:
         LaunchCallback launchCallback;
@@ -67,6 +68,8 @@ namespace sky {
 
         bool RunCmd(const std::string &str, std::string &out) const;
         PlatformType GetType() const;
+
+        void PoolEvent(bool &exit);
 
         template <typename T>
         void setLaunchCallback(T &&cb)

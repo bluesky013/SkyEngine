@@ -4,117 +4,185 @@
 
 #pragma once
 
-#include "core/event/Event.h"
+#include <core/event/Event.h>
+#include <core/template/Flags.h>
 
 namespace sky {
     class NativeWindow;
 
-    namespace MouseButton {
-        static constexpr uint8_t MOUSE_BUTTON_LEFT   = 1;
-        static constexpr uint8_t MOUSE_BUTTON_MIDDLE = 2;
-        static constexpr uint8_t MOUSE_BUTTON_RIGHT  = 3;
-    } // namespace MouseButton
-    using MouseButtonType = uint8_t;
+    using WindowID = uint32_t;
+    static const WindowID INVALID_WIN_ID = 0;
 
-    namespace KeyButton {
-        static constexpr uint16_t KEY_A            = 1;
-        static constexpr uint16_t KEY_B            = 2;
-        static constexpr uint16_t KEY_C            = 3;
-        static constexpr uint16_t KEY_D            = 4;
-        static constexpr uint16_t KEY_E            = 5;
-        static constexpr uint16_t KEY_F            = 6;
-        static constexpr uint16_t KEY_G            = 7;
-        static constexpr uint16_t KEY_H            = 8;
-        static constexpr uint16_t KEY_I            = 9;
-        static constexpr uint16_t KEY_J            = 10;
-        static constexpr uint16_t KEY_K            = 11;
-        static constexpr uint16_t KEY_L            = 12;
-        static constexpr uint16_t KEY_M            = 13;
-        static constexpr uint16_t KEY_N            = 14;
-        static constexpr uint16_t KEY_O            = 15;
-        static constexpr uint16_t KEY_P            = 16;
-        static constexpr uint16_t KEY_Q            = 17;
-        static constexpr uint16_t KEY_R            = 18;
-        static constexpr uint16_t KEY_S            = 19;
-        static constexpr uint16_t KEY_T            = 20;
-        static constexpr uint16_t KEY_U            = 21;
-        static constexpr uint16_t KEY_V            = 22;
-        static constexpr uint16_t KEY_W            = 23;
-        static constexpr uint16_t KEY_X            = 24;
-        static constexpr uint16_t KEY_Y            = 25;
-        static constexpr uint16_t KEY_Z            = 26;
-        static constexpr uint16_t KEY_1            = 27;
-        static constexpr uint16_t KEY_2            = 28;
-        static constexpr uint16_t KEY_3            = 29;
-        static constexpr uint16_t KEY_4            = 30;
-        static constexpr uint16_t KEY_5            = 31;
-        static constexpr uint16_t KEY_6            = 32;
-        static constexpr uint16_t KEY_7            = 33;
-        static constexpr uint16_t KEY_8            = 34;
-        static constexpr uint16_t KEY_9            = 35;
-        static constexpr uint16_t KEY_0            = 36;
-        static constexpr uint16_t KEY_RETURN       = 37;
-        static constexpr uint16_t KEY_ESCAPE       = 38;
-        static constexpr uint16_t KEY_BACKSPACE    = 39;
-        static constexpr uint16_t KEY_TAB          = 40;
-        static constexpr uint16_t KEY_SPACE        = 41;
-        static constexpr uint16_t KEY_MINUS        = 42;
-        static constexpr uint16_t KEY_EQUALS       = 43;
-        static constexpr uint16_t KEY_LEFTBRACKET  = 44;
-        static constexpr uint16_t KEY_RIGHTBRACKET = 45;
-        static constexpr uint16_t KEY_BACKSLASH    = 46;
-        static constexpr uint16_t KEY_NONUSHASH    = 47;
-        static constexpr uint16_t KEY_SEMICOLON    = 48;
-        static constexpr uint16_t KEY_APOSTROPHE   = 49;
-        static constexpr uint16_t KEY_GRAVE        = 50;
-        static constexpr uint16_t KEY_COMMA        = 51;
-        static constexpr uint16_t KEY_PERIOD       = 52;
-        static constexpr uint16_t KEY_SLASH        = 53;
-        static constexpr uint16_t KEY_CAPSLOCK     = 54;
-        static constexpr uint16_t KEY_F1           = 55;
-        static constexpr uint16_t KEY_F2           = 56;
-        static constexpr uint16_t KEY_F3           = 57;
-        static constexpr uint16_t KEY_F4           = 58;
-        static constexpr uint16_t KEY_F5           = 59;
-        static constexpr uint16_t KEY_F6           = 60;
-        static constexpr uint16_t KEY_F7           = 61;
-        static constexpr uint16_t KEY_F8           = 62;
-        static constexpr uint16_t KEY_F9           = 63;
-        static constexpr uint16_t KEY_F10          = 64;
-        static constexpr uint16_t KEY_F11          = 65;
-        static constexpr uint16_t KEY_F12          = 66;
-        static constexpr uint16_t KEY_PRINTSCREEN  = 67;
-        static constexpr uint16_t KEY_SCROLLLOCK   = 68;
-        static constexpr uint16_t KEY_PAUSE        = 69;
-        static constexpr uint16_t KEY_INSERT       = 70;
-        static constexpr uint16_t KEY_HOME         = 71;
-        static constexpr uint16_t KEY_PAGEUP       = 72;
-        static constexpr uint16_t KEY_DELETE       = 73;
-        static constexpr uint16_t KEY_END          = 74;
-        static constexpr uint16_t KEY_PAGEDOWN     = 75;
-        static constexpr uint16_t KEY_RIGHT        = 76;
-        static constexpr uint16_t KEY_LEFT         = 77;
-        static constexpr uint16_t KEY_DOWN         = 78;
-        static constexpr uint16_t KEY_UP           = 79;
-        static constexpr uint16_t KEY_NUMLOCKCLEAR = 80;
-        static constexpr uint16_t KEY_KP_DIVIDE    = 81;
-        static constexpr uint16_t KEY_KP_MULTIPLY  = 82;
-        static constexpr uint16_t KEY_KP_MINUS     = 83;
-        static constexpr uint16_t KEY_KP_PLUS      = 84;
-        static constexpr uint16_t KEY_KP_ENTER     = 85;
-        static constexpr uint16_t KEY_KP_1         = 86;
-        static constexpr uint16_t KEY_KP_2         = 87;
-        static constexpr uint16_t KEY_KP_3         = 88;
-        static constexpr uint16_t KEY_KP_4         = 89;
-        static constexpr uint16_t KEY_KP_5         = 90;
-        static constexpr uint16_t KEY_KP_6         = 91;
-        static constexpr uint16_t KEY_KP_7         = 92;
-        static constexpr uint16_t KEY_KP_8         = 93;
-        static constexpr uint16_t KEY_KP_9         = 94;
-        static constexpr uint16_t KEY_KP_0         = 95;
-        static constexpr uint16_t KEY_KP_PERIOD    = 96;
-    } // namespace KeyButton
-    using KeyButtonType = uint16_t;
+    enum class MouseButtonType : uint32_t {
+        LEFT,
+        RIGHT,
+        MIDDLE
+    };
+
+    struct MouseButtonEvent {
+        WindowID winID;
+        MouseButtonType button;
+        uint32_t clicks;
+        int32_t x;
+        int32_t y;
+    };
+
+    struct MouseMotionEvent {
+        WindowID winID;
+        int32_t x;
+        int32_t y;
+        int32_t relX;
+        int32_t relY;
+    };
+
+    struct MouseWheelEvent {
+        WindowID winID;
+        int32_t x;
+        int32_t y;
+    };
+
+    class IMouseEvent : public EventTraits {
+    public:
+        IMouseEvent() = default;
+        virtual ~IMouseEvent() = default;
+
+        virtual void OnMouseButtonDown(const MouseButtonEvent &event) {}
+        virtual void OnMouseButtonUp(const MouseButtonEvent &event) {}
+        virtual void OnMouseMotion(const MouseMotionEvent &event) {}
+        virtual void OnMouseWheel(const MouseWheelEvent &event) {}
+    };
+
+    enum class ScanCode : uint32_t {
+        KEY_A = 4,
+        KEY_B = 5,
+        KEY_C = 6,
+        KEY_D = 7,
+        KEY_E = 8,
+        KEY_F = 9,
+        KEY_G = 10,
+        KEY_H = 11,
+        KEY_I = 12,
+        KEY_J = 13,
+        KEY_K = 14,
+        KEY_L = 15,
+        KEY_M = 16,
+        KEY_N = 17,
+        KEY_O = 18,
+        KEY_P = 19,
+        KEY_Q = 20,
+        KEY_R = 21,
+        KEY_S = 22,
+        KEY_T = 23,
+        KEY_U = 24,
+        KEY_V = 25,
+        KEY_W = 26,
+        KEY_X = 27,
+        KEY_Y = 28,
+        KEY_Z = 29,
+        KEY_1 = 30,
+        KEY_2 = 31,
+        KEY_3 = 32,
+        KEY_4 = 33,
+        KEY_5 = 34,
+        KEY_6 = 35,
+        KEY_7 = 36,
+        KEY_8 = 37,
+        KEY_9 = 38,
+        KEY_0 = 39,
+        KEY_RETURN = 40,
+        KEY_ESCAPE = 41,
+        KEY_BACKSPACE = 42,
+        KEY_TAB = 43,
+        KEY_SPACE = 44,
+        KEY_MINUS = 45,
+        KEY_EQUALS = 46,
+        KEY_LEFTBRACKET = 47,
+        KEY_RIGHTBRACKET = 48,
+        KEY_BACKSLASH = 49,
+        KEY_NONUSHASH = 50,
+        KEY_SEMICOLON = 51,
+        KEY_APOSTROPHE = 52,
+        KEY_GRAVE = 53,
+        KEY_COMMA = 54,
+        KEY_PERIOD = 55,
+        KEY_SLASH = 56,
+        KEY_CAPSLOCK = 57,
+        KEY_F1 = 58,
+        KEY_F2 = 59,
+        KEY_F3 = 60,
+        KEY_F4 = 61,
+        KEY_F5 = 62,
+        KEY_F6 = 63,
+        KEY_F7 = 64,
+        KEY_F8 = 65,
+        KEY_F9 = 66,
+        KEY_F10 = 67,
+        KEY_F11 = 68,
+        KEY_F12 = 69,
+        KEY_PRINTSCREEN = 70,
+        KEY_SCROLLLOCK = 71,
+        KEY_PAUSE = 72,
+        KEY_INSERT = 73,
+        KEY_HOME = 74,
+        KEY_PAGEUP = 75,
+        KEY_DELETE = 76,
+        KEY_END = 77,
+        KEY_PAGEDOWN = 78,
+        KEY_RIGHT = 79,
+        KEY_LEFT = 80,
+        KEY_DOWN = 81,
+        KEY_UP = 82,
+        KEY_NUMLOCKCLEAR = 83,
+        KEY_KP_DIVIDE = 84,
+        KEY_KP_MULTIPLY = 85,
+        KEY_KP_MINUS = 86,
+        KEY_KP_PLUS = 87,
+        KEY_KP_ENTER = 88,
+        KEY_KP_1 = 89,
+        KEY_KP_2 = 90,
+        KEY_KP_3 = 91,
+        KEY_KP_4 = 92,
+        KEY_KP_5 = 93,
+        KEY_KP_6 = 94,
+        KEY_KP_7 = 95,
+        KEY_KP_8 = 96,
+        KEY_KP_9 = 97,
+        KEY_KP_0 = 98,
+        KEY_KP_PERIOD = 99,
+    };
+
+    enum class KeyMod : uint32_t  {
+        NONE        = 0x0000,
+        LEFT_SHIFT  = 0x0001,
+        RIGHT_SHIFT = 0x0002,
+        LEFT_CTRL   = 0x0040,
+        RIGHT_CTRL  = 0x0080,
+        LEFT_ALT    = 0x0100,
+        RIGHT_ALT   = 0x0200,
+        LEFT_GUI    = 0x0400,
+        RIGHT_GUI   = 0x0800,
+        NUM         = 0x1000,
+        CAPS        = 0x2000,
+
+        SHIFT = LEFT_SHIFT | RIGHT_SHIFT,
+        CTRL = LEFT_CTRL | RIGHT_CTRL,
+        ALT = LEFT_ALT | RIGHT_ALT,
+        GUI = LEFT_GUI | RIGHT_GUI
+    };
+    using KeyModFlags = Flags<KeyMod>;
+
+    struct KeyboardEvent {
+        WindowID winID;
+        ScanCode scanCode;
+        KeyModFlags mod;
+    };
+
+    class IKeyboardEvent : public EventTraits {
+    public:
+        virtual void OnKeyUp(const KeyboardEvent &event) {}
+        virtual void OnKeyDown(const KeyboardEvent &event) {}
+        virtual void OnTextInput(WindowID windID, const char *text) {}
+    };
 
     class IWindowEvent : public EventTraits {
     public:
@@ -123,38 +191,8 @@ namespace sky {
         IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
 
-        virtual void OnWindowResize(uint32_t width, uint32_t height)
-        {
-        }
-
-        // focus
-        virtual void OnFocusChanged(bool focus)
-        {
-        }
-
-        // mouse
-        virtual void OnMouseMove(int32_t x, int32_t y, int32_t rx, int32_t ry)
-        {
-        }
-        virtual void OnMouseButtonDown(MouseButtonType button)
-        {
-        }
-        virtual void OnMouseButtonUp(MouseButtonType button)
-        {
-        }
-        virtual void OnMouseWheel(int32_t wheelX, int32_t wheelY)
-        {
-        }
-
-        virtual void OnKeyUp(KeyButtonType)
-        {
-        }
-        virtual void OnKeyDown(KeyButtonType)
-        {
-        }
-        virtual void OnTextInput(const char *text)
-        {
-        }
+        virtual void OnWindowResize(uint32_t width, uint32_t height) {}
+        virtual void OnFocusChanged(bool focus) {}
     };
 
 } // namespace sky

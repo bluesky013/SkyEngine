@@ -100,6 +100,10 @@ namespace sky {
     void Application::Loop()
     {
         SKY_PROFILE_FRAME;
+
+        // pool events
+        Platform::Get()->PoolEvent(exit);
+
         PreTick();
 
         uint64_t        frequency      = Platform::Get()->GetPerformanceFrequency();
