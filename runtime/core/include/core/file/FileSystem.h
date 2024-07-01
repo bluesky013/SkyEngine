@@ -8,76 +8,123 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <filesystem>
 #include <core/archive/IArchive.h>
+#include <core/template/ReferenceObject.h>
+
+#if WIN32
+#define SKY_FS_USE_WCHAR
+#endif
 
 namespace sky {
+
+    class IFile;
+    class IFileSystem;
+
+    using FilePtr = CounterPtr<IFile>;
+    using FileSystemPtr = CounterPtr<IFileSystem>;
+
+    class NativeFileSystem;
+    using NativeFileSystemPtr = CounterPtr<NativeFileSystem>;
+
 
     // maybe support for wstring
     class FilePath {
     public:
-        explicit FilePath(const std::string &filePath_) : filePath(filePath_) {}
+        FilePath(const char* filePath_); // NOLINT
+        FilePath(const std::string &filePath_); // NOLINT
         ~FilePath() = default;
 
-        const std::string &GetStr() const { return filePath; }
+        FilePath& operator/=(const FilePath& sub);
 
+        const std::string &GetFilePath() const;
+        void MakeDirectory() const;
+
+        std::filesystem::path ConvertStdFSPath() const;
     private:
         std::string filePath;
     };
 
-    class IFile {
+    class IFile : public RefObject {
     public:
         explicit IFile() = default;
-        virtual ~IFile() = default;
+        ~IFile() override = default;
 
         virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
+
+        virtual IArchivePtr ReadAsArchive() = 0;
+        virtual OArchivePtr WriteAsArchive() = 0;
+
+        virtual bool ReadBin(std::vector<uint8_t> &out) = 0;
+        virtual bool ReadString(std::string &out) = 0;
+
+//        virtual std::istream ReadAsStream(const FilePath &name) = 0;
+//        virtual std::ostream WriteAsStream(const FilePath &name) = 0;
+
     };
-    using FilePtr = std::shared_ptr<IFile>;
 
     class NativeFile : public IFile {
     public:
-        explicit NativeFile(const std::string &path) : filePath(path) {}
+        explicit NativeFile(const FilePath &path) : filePath(path) {}
         ~NativeFile() override = default;
 
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
+        bool ReadBin(std::vector<uint8_t> &out) override;
+        bool ReadString(std::string &out) override;
+
+        IArchivePtr ReadAsArchive() override;
+        OArchivePtr WriteAsArchive() override;
+
+//        std::istream ReadAsStream(const FilePath &name) override;
+//        std::ostream WriteAsStream(const FilePath &name) override;
+
     private:
-        std::string filePath;
+        FilePath filePath;
     };
 
-    class FileView {
+    class RawBufferView : public IFile {
     public:
-        FileView(const FilePtr &file_, uint32_t offset_, uint32_t size_) : file(file_), offset(offset_), size(size_) {}
-        ~FileView() = default;
+        explicit RawBufferView() = default;
+        ~RawBufferView() override = default;
 
-    private:
-        FilePtr file;
-        uint32_t offset;
-        uint32_t size;
+        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
+        bool ReadBin(std::vector<uint8_t> &out) override;
+        bool ReadString(std::string &out) override;
+
+        IArchivePtr ReadAsArchive() override;
+        OArchivePtr WriteAsArchive() override;
     };
 
-    class IFileSystem {
+    class IFileSystem : public RefObject {
     public:
         IFileSystem() = default;
-        virtual ~IFileSystem() = default;
+        ~IFileSystem() override = default;
 
-        virtual bool FileExist(const std::string &path) = 0;
-        virtual IArchivePtr ReadAsArchive(const std::string &name) = 0;
-        virtual OArchivePtr WriteAsArchive(const std::string &name) = 0;
-        virtual FilePtr OpenFile(const std::string &name) = 0;
-        virtual bool ReadString(const std::string &path, std::string &out) = 0;
+        virtual bool FileExist(const FilePath &path) const = 0;
+        virtual FilePtr OpenFile(const FilePath &name) = 0;
+        virtual FilePtr CreateOrOpenFile(const FilePath &name) = 0;
     };
-    using FileSystemPtr = std::shared_ptr<IFileSystem>;
 
     class NativeFileSystem : public IFileSystem {
     public:
-        explicit NativeFileSystem(const std::string &root) : fsRoot(root) {}
+        explicit NativeFileSystem(const FilePath &root) : fsRoot(root) {}
         ~NativeFileSystem() override = default;
 
-        bool FileExist(const std::string &path) override;
-        FilePtr OpenFile(const std::string &name) override;
-        IArchivePtr ReadAsArchive(const std::string &path) override;
-        OArchivePtr WriteAsArchive(const std::string &name) override;
-        bool ReadString(const std::string &path, std::string &out) override;
+        bool FileExist(const FilePath &path) const override;
+
+        FilePtr OpenFile(const FilePath &path) override;
+        FilePtr CreateOrOpenFile(const FilePath &path) override;
+        const FilePath &GetPath() const { return fsRoot; }
+
+        bool IsSubDir(const std::string &path) const;
+        NativeFileSystemPtr CreateSubSystem(const std::string &path, bool createDir);
     private:
         FilePath fsRoot;
+    };
+
+    class PackageFileSystem : public IFileSystem {
+    public:
+        explicit PackageFileSystem(const std::string &pakPath) {}
+        ~PackageFileSystem() override = default;
     };
 } // namespace sky

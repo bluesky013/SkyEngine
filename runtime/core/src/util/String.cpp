@@ -3,8 +3,15 @@
 //
 
 #include <core/util/String.h>
+#include <codecvt>
 
 namespace sky {
+
+    const std::string &GetEmpty()
+    {
+        static std::string empty;
+        return empty;
+    }
 
     std::vector<std::string> Split(const std::string &s, const char *separator)
     {
@@ -24,4 +31,10 @@ namespace sky {
         return output;
     }
 
+
+    std::wstring Utf8ToUtf16(const std::string &str)
+    {
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        return converter.from_bytes(str);
+    }
 }

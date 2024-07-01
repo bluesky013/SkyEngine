@@ -8,27 +8,27 @@
 
 namespace sky {
 
-    void WriteBin(const std::string &path, const char *data, size_t size)
+    void WriteBin(const FilePath &path, const char *data, size_t size)
     {
-        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        std::ofstream file(path.ConvertStdFSPath(), std::ios::binary | std::ios::trunc);
         if (!file.is_open()) {
             return;
         }
         file.write(data, size);
     }
 
-    void WriteString(const std::string &path, const std::string &out)
+    void WriteString(const FilePath &path, const std::string &out)
     {
-        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        std::ofstream file(path.ConvertStdFSPath(), std::ios::binary | std::ios::trunc);
         if (!file.is_open()) {
             return;
         }
         file.write(out.data(), out.size() + 1);
     }
 
-    bool ReadBin(const std::string &path, uint8_t *&out, uint32_t &size)
+    bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size)
     {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             return false;
         }
@@ -40,9 +40,9 @@ namespace sky {
         return true;
     }
 
-    bool ReadBin(const std::string &path, std::vector<uint8_t> &out)
+    bool ReadBin(const FilePath &path, std::vector<uint8_t> &out)
     {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             return false;
         }
@@ -54,9 +54,9 @@ namespace sky {
         return true;
     }
 
-    bool ReadBin(const std::string &path, std::vector<uint32_t> &out)
+    bool ReadBin(const FilePath &path, std::vector<uint32_t> &out)
     {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             return false;
         }
@@ -68,9 +68,9 @@ namespace sky {
         return true;
     }
 
-    bool ReadString(const std::string &path, std::string &out)
+    bool ReadString(const FilePath &path, std::string &out)
     {
-        std::ifstream file(path, std::ios::binary);
+        std::ifstream file(path.ConvertStdFSPath(), std::ios::binary);
         if (!file.is_open()) {
             return false;
         }

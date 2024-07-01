@@ -6,13 +6,14 @@
 
 #include <core/archive/StreamArchive.h>
 #include <core/archive/MemoryArchive.h>
+#include <core/file/FileSystem.h>
 #include <fstream>
 
 namespace sky {
 
     class IFileArchive : public IStreamArchive {
     public:
-        explicit IFileArchive(const std::string &path, std::ios::openmode mode = std::ios::binary);
+        explicit IFileArchive(const FilePath &path, std::ios::openmode mode = std::ios::binary);
         ~IFileArchive() override = default;
 
         using IInputArchive::LoadRaw;
@@ -24,7 +25,7 @@ namespace sky {
 
     class OFileArchive : public OStreamArchive {
     public:
-        explicit OFileArchive(const std::string &path, std::ios::openmode mode = std::ios::binary);
+        explicit OFileArchive(const FilePath &path, std::ios::openmode mode = std::ios::binary);
         ~OFileArchive() override = default;
 
         using IOutputArchive::SaveRaw;

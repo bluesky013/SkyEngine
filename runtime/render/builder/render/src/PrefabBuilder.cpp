@@ -1,13 +1,14 @@
 //
 // Created by Zach Lee on 2023/2/20.
 //
+#include <builder/render/PrefabBuilder.h>
+#include <builder/render/ImageBuilder.h>
 
 #include <assimp/GltfMaterial.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <builder/render/ImageBuilder.h>
-#include <builder/render/PrefabBuilder.h>
+
 #include <core/logger/Logger.h>
 #include <core/math/MathUtil.h>
 #include <core/archive/MemoryArchive.h>
@@ -15,7 +16,6 @@
 #include <framework/asset/AssetManager.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
-#include <render/adaptor/assets/RenderPrefab.h>
 
 //#include <meshoptimizer.h>
 
@@ -94,48 +94,50 @@ namespace sky::builder {
         return ss.str();
     }
 
-    static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const BuildRequest &request)
+    static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const AssetBuildRequest &request)
     {
-        auto *am = AssetManager::Get();
-        auto texPath = std::filesystem::path(request.relativePath).parent_path().append(str.C_Str());
-        if (std::filesystem::exists(am->GetProjectPath() + texPath.string())) {
-            auto id = am->ImportAndBuildAsset(texPath.string());
-            return id;
-        }
-
-        const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
-        if (tex == nullptr) {
-            return {};
-        }
-
-        BuildRequest textureRequest = {};
-        textureRequest.name = request.relativePath + std::string("\\embedded_") + str.C_Str();
-        textureRequest.ext = std::string(".") + tex->achFormatHint;
-        textureRequest.buildKey = ImageBuilder::KEY;
-        textureRequest.rawData = tex->pcData;
-        textureRequest.dataSize = tex->mWidth;
-        textureRequest.name.erase(std::remove(textureRequest.name.begin(), textureRequest.name.end(), '*'), textureRequest.name.end());
-        textureRequest.uuid = sky::AssetManager::GetUUIDByPath(textureRequest.name);
-
-        BuildResult result = {};
-        am->BuildAsset(textureRequest);
-
-        return textureRequest.uuid;
+//        auto *am = AssetManager::Get();
+//        auto texPath = std::filesystem::path(request.relativePath).parent_path().append(str.C_Str());
+//        if (std::filesystem::exists(am->GetProjectPath() + texPath.string())) {
+//            auto id = am->ImportAndBuildAsset(texPath.string());
+//            return id;
+//        }
+//
+//        const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
+//        if (tex == nullptr) {
+//            return {};
+//        }
+//
+//        BuildRequest textureRequest = {};
+//        textureRequest.name = request.relativePath + std::string("\\embedded_") + str.C_Str();
+//        textureRequest.ext = std::string(".") + tex->achFormatHint;
+//        textureRequest.buildKey = ImageBuilder::KEY;
+//        textureRequest.rawData = tex->pcData;
+//        textureRequest.dataSize = tex->mWidth;
+//        textureRequest.name.erase(std::remove(textureRequest.name.begin(), textureRequest.name.end(), '*'), textureRequest.name.end());
+//        textureRequest.uuid = sky::AssetManager::GetUUIDByPath(textureRequest.name);
+//
+//        BuildResult result = {};
+//        am->BuildAsset(textureRequest);
+//
+//        return textureRequest.uuid;
+        return {};
     }
 
-    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(aiMaterial* material, PrefabBuildContext &context, const BuildRequest &request)
+    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(aiMaterial* material, PrefabBuildContext &context, const AssetBuildRequest &request)
     {
-        std::string matName = GetIndexedName(request.relativePath, material->GetName().C_Str(), "mat", context.materials.size());
-
-        auto *am = AssetManager::Get();
-        auto matInstanceId = am->GetUUIDByPath(matName);
-        auto matInstance = am->CreateAsset<MaterialInstance>(matInstanceId);
-
-        matInstance->Data().material = am->ImportAndBuildAsset("materials/standard_pbr.mat");
-        return matInstance;
+//        std::string matName = GetIndexedName(request.relativePath, material->GetName().C_Str(), "mat", context.materials.size());
+//
+//        auto *am = AssetManager::Get();
+//        auto matInstanceId = am->GetUUIDByPath(matName);
+//        auto matInstance = am->CreateAsset<MaterialInstance>(matInstanceId);
+//
+//        matInstance->Data().material = am->ImportAndBuildAsset("materials/standard_pbr.mat");
+//        return matInstance;
+        return {};
     }
 
-    static void ProcessMaterials(const aiScene *scene, PrefabBuildContext &context, const BuildRequest &request)
+    static void ProcessMaterials(const aiScene *scene, PrefabBuildContext &context, const AssetBuildRequest &request)
     {
         uint32_t matSize = scene->mNumMaterials;
         for (uint32_t i = 0; i < matSize; ++i) {
@@ -336,60 +338,61 @@ namespace sky::builder {
         meshData.subMeshes.emplace_back(subMesh);
     }
 
-    static Uuid ProcessMesh(const aiScene *scene, const aiNode *node, PrefabBuildContext& prefabContext, const BuildRequest &request)
+    static Uuid ProcessMesh(const aiScene *scene, const aiNode *node, PrefabBuildContext& prefabContext, const AssetBuildRequest &request)
     {
-        std::string meshName = GetIndexedName(request.relativePath, node->mName.C_Str(), "mesh", prefabContext.meshes.size());
-
-        auto *am = AssetManager::Get();
-        auto meshId = am->GetUUIDByPath(meshName);
-        auto mesh = am->CreateAsset<Mesh>(meshId);
-        prefabContext.meshes.emplace_back(mesh);
-
-        auto &meshData = mesh->Data();
-
-        meshData.vertexDescriptions.emplace_back("standard");
-        meshData.vertexDescriptions.emplace_back("unlit");
-        meshData.vertexDescriptions.emplace_back("position_only");
-
-        uint32_t meshNum = node->mNumMeshes;
-        MeshBuildContext meshContext;
-        for (uint32_t i = 0; i < meshNum; i++) {
-            aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
-            ProcessSubMesh(aMesh, scene, prefabContext, meshData, meshContext);
-        }
-
-        // save vertex && index buffer
-        auto bufferName =  GetIndexedName(request.relativePath, node->mName.C_Str(), "buffer", prefabContext.buffers.size());
-        auto bufferId = am->GetUUIDByPath(bufferName);
-        auto buffer = am->CreateAsset<Buffer>(bufferId);
-        auto &bufferData = buffer->Data();
-        prefabContext.buffers.emplace_back(buffer);
-
-        MemoryArchive archive = {};
-        size_t offset = 0;
-
-        // save positions
-        size_t size = meshContext.position.size() * sizeof(Vector4);
-        archive.Save(reinterpret_cast<const char *>(meshContext.position.data()), size);
-        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
-        offset += size;
-
-        // save primitives
-        size = meshContext.ext.size() * sizeof(StandardVertexData);
-        archive.Save(reinterpret_cast<const char *>(meshContext.ext.data()), size);
-        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
-        offset += size;
-
-        // save indices
-        size = meshContext.indices.size() * sizeof(uint32_t);
-        archive.Save(reinterpret_cast<const char*>(meshContext.indices.data()), size);
-        meshData.indexBuffer = BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)};
-
-        archive.Swap(bufferData.rawData);
-        return meshId;
+//        std::string meshName = GetIndexedName(request.relativePath, node->mName.C_Str(), "mesh", prefabContext.meshes.size());
+//
+//        auto *am = AssetManager::Get();
+//        auto meshId = am->GetUUIDByPath(meshName);
+//        auto mesh = am->CreateAsset<Mesh>(meshId);
+//        prefabContext.meshes.emplace_back(mesh);
+//
+//        auto &meshData = mesh->Data();
+//
+//        meshData.vertexDescriptions.emplace_back("standard");
+//        meshData.vertexDescriptions.emplace_back("unlit");
+//        meshData.vertexDescriptions.emplace_back("position_only");
+//
+//        uint32_t meshNum = node->mNumMeshes;
+//        MeshBuildContext meshContext;
+//        for (uint32_t i = 0; i < meshNum; i++) {
+//            aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
+//            ProcessSubMesh(aMesh, scene, prefabContext, meshData, meshContext);
+//        }
+//
+//        // save vertex && index buffer
+//        auto bufferName =  GetIndexedName(request.relativePath, node->mName.C_Str(), "buffer", prefabContext.buffers.size());
+//        auto bufferId = am->GetUUIDByPath(bufferName);
+//        auto buffer = am->CreateAsset<Buffer>(bufferId);
+//        auto &bufferData = buffer->Data();
+//        prefabContext.buffers.emplace_back(buffer);
+//
+//        MemoryArchive archive = {};
+//        size_t offset = 0;
+//
+//        // save positions
+//        size_t size = meshContext.position.size() * sizeof(Vector4);
+//        archive.Save(reinterpret_cast<const char *>(meshContext.position.data()), size);
+//        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
+//        offset += size;
+//
+//        // save primitives
+//        size = meshContext.ext.size() * sizeof(StandardVertexData);
+//        archive.Save(reinterpret_cast<const char *>(meshContext.ext.data()), size);
+//        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
+//        offset += size;
+//
+//        // save indices
+//        size = meshContext.indices.size() * sizeof(uint32_t);
+//        archive.Save(reinterpret_cast<const char*>(meshContext.indices.data()), size);
+//        meshData.indexBuffer = BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)};
+//
+//        archive.Swap(bufferData.rawData);
+//        return meshId;
+        return {};
     }
 
-    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, PrefabBuildContext& context, const BuildRequest &request)
+    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, PrefabBuildContext& context, const AssetBuildRequest &request)
     {
         auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(context.nodes.size());
@@ -415,14 +418,14 @@ namespace sky::builder {
     }
 
 
-    void PrefabBuilder::Request(const BuildRequest &request, BuildResult &result)
+    void PrefabBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         Assimp::Importer importer;
-        if (!std::filesystem::exists(request.fullPath)) {
-            return;
-        }
 
-        const aiScene* scene = importer.ReadFile(request.fullPath.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        std::vector<uint8_t> data;
+        request.file->ReadBin(data);
+
+        const aiScene* scene = importer.ReadFileFromMemory(data.data(), data.size(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if((scene == nullptr) || ((scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0u) || (scene->mRootNode == nullptr)) {
             return;
         }
@@ -432,28 +435,11 @@ namespace sky::builder {
         ProcessMaterials(scene, context, request);
         ProcessNode(scene->mRootNode, scene, -1, context, request);
 
-        for (auto &mat : context.materials) {
-            result.products.emplace_back(BuildProduct{"GFX_MATERIAL", mat});
-        }
-
-        for (auto &buffer : context.buffers) {
-            result.products.emplace_back(BuildProduct{"GFX_BUFFER", buffer});
-        }
-
-        for (auto &mesh : context.meshes) {
-            result.products.emplace_back(BuildProduct{"GFX_MESH", mesh});
-        }
-
-        for (auto &[key, tex] : context.textures) {
-            result.products.emplace_back(BuildProduct{"GFX_TEXTURE", tex});
-        }
-
-        auto asset = am->CreateAsset<RenderPrefab>(request.uuid);
+        auto asset = am->FindOrCreateAsset<RenderPrefab>(request.assetInfo->uuid);
         auto &assetData = asset->Data();
         assetData.nodes = context.nodes;
 
-        result.products.emplace_back(BuildProduct{KEY.data(), asset});
-        result.success = true;
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
 } // namespace sky::builder

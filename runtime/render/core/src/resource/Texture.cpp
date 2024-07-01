@@ -36,7 +36,7 @@ namespace sky {
     rhi::TransferTaskHandle Texture::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
     {
         rhi::ImageUploadRequest request = {};
-        request.source   = std::make_shared<rhi::FileStream>(std::make_shared<NativeFile>(path), offset);
+        request.source   = std::make_shared<rhi::FileStream>(new NativeFile(path), offset);
         request.offset   = 0;
         request.mipLevel = 0;
         request.layer    = 0;

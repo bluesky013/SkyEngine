@@ -43,7 +43,6 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<MeshRenderer>(GROUP);
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
 
-
         auto *context = SerializationContext::Get();
         LightComponent::Reflect(context);
         MeshRenderer::Reflect(context);
@@ -125,18 +124,18 @@ namespace sky {
         // init shader compiler
 #if SKY_EDITOR
         auto *compiler = ShaderCompiler::Get();
-        for (const auto &path : am->GetSearchPathList()) {
-            compiler->AddSearchPath(path.path);
-        }
+//        for (const auto &path : am->GetSearchPathList()) {
+//            compiler->AddSearchPath(path.path);
+//        }
 #endif
 
-        auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
-        if (vfAsset) {
-            Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
-        }
+//        auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
+//        if (vfAsset) {
+//            Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
+//        }
 
-        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
-        MeshFeature::Get()->Init();
+//        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
+//        MeshFeature::Get()->Init();
 //        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
 //        ParticleFeature::Get()->Init();
     }

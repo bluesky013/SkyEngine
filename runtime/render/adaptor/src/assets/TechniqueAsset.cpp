@@ -78,10 +78,10 @@ namespace sky {
         if (data.type == TechAssetType::GRAPHIC) {
             auto tech = std::make_shared<GraphicsTechnique>();
 
-            auto shaderAsset = AssetManager::Get()->LoadAsset<ShaderCollection>(data.shader.path);
-            if (shaderAsset) {
-                tech->SetShader(ShaderRef{shaderAsset->CreateInstance(), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
-            }
+//            auto shaderAsset = AssetManager::Get()->LoadAsset<ShaderCollection>(data.shader.path);
+//            if (shaderAsset) {
+//                tech->SetShader(ShaderRef{shaderAsset->CreateInstance(), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
+//            }
 
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);

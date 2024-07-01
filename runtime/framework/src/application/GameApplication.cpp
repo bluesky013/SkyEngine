@@ -35,14 +35,12 @@ namespace sky {
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
             std::string projectPath = result["project"].as<std::string>();
-            auto fs = std::make_shared<NativeFileSystem>(projectPath);
-            workFs = fs;
-            AssetManager::Get()->SetProjectPath(projectPath);
+            workFs = new NativeFileSystem(projectPath);
+            AssetManager::Get()->SetWorkFileSystem(workFs);
         } else {
             std::string workPath = Platform::Get()->GetBundlePath();
-            auto fs = std::make_shared<NativeFileSystem>(workPath);
-            workFs = fs;
-            AssetManager::Get()->SetProjectPath(Platform::Get()->GetBundlePath());
+            workFs = new NativeFileSystem(workPath);
+            AssetManager::Get()->SetWorkFileSystem(workFs);
         }
 #elif __ANDROID__
         workFs = Platform::Get()->GetBundleFileSystem();
@@ -80,7 +78,8 @@ namespace sky {
     void GameApplication::LoadConfigs()
     {
         std::string json;
-        if (!workFs || !workFs->ReadString(CONFIG_PATH, json)) {
+        auto file = workFs->OpenFile(CONFIG_PATH);
+        if (!file || file->ReadString(json)) {
             LOG_W(TAG, "Load Config Failed");
             return;
         }

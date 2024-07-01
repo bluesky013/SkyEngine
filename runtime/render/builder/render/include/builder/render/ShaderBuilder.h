@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <render/adaptor/assets/ShaderAsset.h>
 #include <string_view>
 
 namespace sky::builder {
@@ -14,13 +15,10 @@ namespace sky::builder {
         ShaderBuilder() = default;
         ~ShaderBuilder() override = default;
 
-        static constexpr std::string_view KEY = "GFX_SHADER";
-
-        void Request(const BuildRequest &build, BuildResult &result) override;
-        void LoadConfig(const FileSystemPtr &fs, const std::string &path) override;
-
-        std::string GetConfigKey() const override { return "shader"; }
+        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
+        void LoadConfig(const FileSystemPtr &cfg) override;
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
+        std::string_view QueryType(const std::string &ext) const override { return AssetTraits<ShaderCollection>::ASSET_TYPE; }
     private:
         std::vector<std::string> extensions = {".hlsl"};
     };

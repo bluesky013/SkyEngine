@@ -9,6 +9,9 @@
 #include <core/archive/IArchive.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
+
+#include <taskflow/taskflow.hpp>
+
 #include <memory>
 #include <mutex>
 #include <string>
@@ -16,39 +19,52 @@
 
 namespace sky {
 
+    class AssetBase;
+    using AssetPtr = std::shared_ptr<AssetBase>;
+
+    using AsyncTask = std::pair<tf::AsyncTask, std::future<void>>;
+
     class AssetBase {
     public:
         AssetBase() = default;
 
         virtual ~AssetBase() = default;
 
-        enum class Status { INITIAL, LOADING, LOADED };
+        enum class Status : uint32_t { INITIAL, LOADING, LOADED, FAILED };
 
-        void SetUuid(const Uuid &id);
+        void SetUuid(const Uuid &id) { uuid = id; }
         const Uuid &GetUuid() const { return uuid; }
 
-        virtual const Uuid &GetType() const = 0;
-        Status GetStatus() const { return status; }
+        void SetTypeId(const Uuid &id) { typeId = id; }
+        const Uuid &GetTypeId() const { return typeId; }
+
+        void SetType(const std::string &val) { type = val; }
+        const std::string &GetType() const { return type; }
+
+        void SetName(const std::string &name) { markedName = name; }
+        const std::string &GetName() const { return markedName; }
+        
+        Status GetStatus() const { return status.load(); }
+        bool IsLoaded() const { return status.load() == Status::LOADED; }
+
+        void AddDependencies(const Uuid &id);
+        void BlockUntilLoaded() const;
 
         virtual const uint8_t *GetData() const = 0;
-
-        void BlockUtilLoaded()
-        {
-            if (future.valid()) {
-                future.wait();
-            }
-        }
-
     protected:
         friend class AssetManager;
         friend class AssetManager;
 
-        Uuid             uuid;
-        Status           status = Status::INITIAL;
-        tf::Future<void> future;
-    };
+        Uuid                  uuid;
+        Uuid                  typeId; // TODO
+        std::string           type;
+        std::vector<Uuid>     dependencies;
+        std::vector<AssetPtr> depAssets;
+        std::string           markedName;
 
-    using AssetPtr = std::shared_ptr<AssetBase>;
+        std::atomic<Status> status = Status::INITIAL;
+        AsyncTask           asyncTask;
+    };
 
     enum class SerializeType : uint8_t { JSON, BIN };
 
@@ -71,11 +87,6 @@ namespace sky {
         ~Asset() override = default;
 
         using DataType = typename AssetTraits<T>::DataType;
-
-        const Uuid &GetType() const override
-        {
-            return AssetTraits<T>::ASSET_TYPE;
-        }
 
         std::shared_ptr<T> CreateInstance(bool useDefault = true)
         {
@@ -128,7 +139,7 @@ namespace sky {
 
         virtual std::shared_ptr<AssetBase> CreateAsset() = 0;
 
-        virtual void Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
+        virtual bool Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
 
         virtual void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &data) = 0;
     };
@@ -140,7 +151,8 @@ namespace sky {
 
         ~AssetHandler() override = default;
 
-        using DataType                                = typename AssetTraits<T>::DataType;
+        using DataType = typename AssetTraits<T>::DataType;
+
         static constexpr SerializeType SERIALIZE_TYPE = AssetTraits<T>::SERIALIZE_TYPE;
 
         std::shared_ptr<AssetBase> CreateAsset() override
@@ -148,15 +160,18 @@ namespace sky {
             return std::make_shared<Asset<T>>();
         }
 
-        void Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
+        bool Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
             auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
             DataType &assetData = asset->Data();
             if (SERIALIZE_TYPE == SerializeType::JSON) {
+                JsonInputArchive jArchive(archive);
+                jArchive.LoadValueById(&assetData, TypeInfo<DataType>::RegisteredId());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryInputArchive bArchive(archive);
                 bArchive.LoadObject(&assetData, TypeInfo<DataType>::RegisteredId());
             }
+            return true;
         }
 
         void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
@@ -172,5 +187,12 @@ namespace sky {
                 bArchive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
             }
         }
+
+    protected:
+        virtual void LoadBinary(BinaryInputArchive &archive) {}
+        virtual void SaveBinary(BinaryOutputArchive &archive) {}
+
+        virtual void LoadJson(JsonInputArchive &archive) {}
+        virtual void SaveJson(JsonOutputArchive &archive) {}
     };
-} // namespace sky
+} // names

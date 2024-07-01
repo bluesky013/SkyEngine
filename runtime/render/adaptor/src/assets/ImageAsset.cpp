@@ -36,20 +36,20 @@ namespace sky {
     std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data)
     {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        auto bufferPath = AssetManager::Get()->OpenAsset(data.bufferID);
-        if (data.type == TextureType::TEXTURE_2D) {
-            auto texture2D = std::make_shared<Texture2D>();
-            texture2D->Init(data.format, data.width, data.height, data.mipLevels);
-            auto handle = texture2D->Upload(bufferPath, *queue, sizeof(uint32_t));
-            queue->Wait(handle);
-            return texture2D;
-        }
+//        auto bufferPath = AssetManager::Get()->OpenAsset(data.bufferID);
+//        if (data.type == TextureType::TEXTURE_2D) {
+//            auto texture2D = std::make_shared<Texture2D>();
+//            texture2D->Init(data.format, data.width, data.height, data.mipLevels);
+//            auto handle = texture2D->Upload(bufferPath, *queue, sizeof(uint32_t));
+//            queue->Wait(handle);
+//            return texture2D;
+//        }
 
-        if (data.type == TextureType::TEXTURE_CUBE) {
-            auto textureCube = std::make_shared<TextureCube>();
-            textureCube->Init(data.format, data.width, data.height, data.mipLevels);
-            return textureCube;
-        }
+//        if (data.type == TextureType::TEXTURE_CUBE) {
+//            auto textureCube = std::make_shared<TextureCube>();
+//            textureCube->Init(data.format, data.width, data.height, data.mipLevels);
+//            return textureCube;
+//        }
 
 //        queue->Wait(texture2D->Upload(data.bufferAsset->GetPath(), *queue, data.bufferAsset->Data().GetDataOffset()));
         return {};

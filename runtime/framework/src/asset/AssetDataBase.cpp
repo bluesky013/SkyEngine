@@ -1,104 +1,276 @@
 //
-// Created by Zach Lee on 2023/2/20.
+// Created by blues on 2024/6/16.
 //
 
 #include <framework/asset/AssetDataBase.h>
-#include <sqlite/sqlite3.h>
+#include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/serialization/JsonArchive.h>
+#include <core/file/FileUtil.h>
+#include <core/logger/Logger.h>
+
+static const char* TAG = "AssetDataBase";
 
 namespace sky {
 
-    static const char *CREATE_SOURCE_ASSET_TABLE = "CREATE TABLE IF NOT EXISTS SourceTable ( "
-                                                   "    Path        TEXT PRIMARY KEY COLLATE NOCASE, "
-                                                   "    Folder      TEXT NOT NULL COLLATE NOCASE, "
-                                                   "    ProductKey  TEXT KEY COLLATE NOCASE, "
-                                                   "    Uuid        TEXT NOT NULL COLLATE NOCASE);";
-
-    static const char *INSERT_SOURCE = "INSERT OR REPLACE INTO SourceTable (Path, Folder, ProductKey, Uuid) VALUES (:path, :folder, :pKey, :uuid);";
-    static const char *SELECT_SOURCE = "SELECT * FROM SourceTable WHERE Path = :path AND ProductKey = :pKey;";
-
-    static const char *CREATE_PRODUCT_ASSET_TABLE = "CREATE TABLE IF NOT EXISTS ProductTable ("
-                                                    "    Uuid   TEXT PRIMARY KEY, "
-                                                    "    Path   TEXT NOT NULL COLLATE NOCASE);";
-
-    static const char *INSERT_PRODUCT = "INSERT OR REPLACE INTO ProductTable (Uuid, Path) VALUES (:uuid, :path);";
-    static const char *SELECT_PRODUCT = "SELECT * FROM ProductTable WHERE Uuid = :uuid;";
-
-    AssetDataBase::~AssetDataBase()
+    void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
-        createSourceTableStat = nullptr;
-        insertSourceTableStat = nullptr;
-
-        dataBase = nullptr;
+        engineFs = fs->CreateSubSystem("assets", true);
     }
 
-    void AssetDataBase::Init(const std::string &name)
+    void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
     {
-        dataBase = std::make_unique<DataBase>();
-        dataBase->Init(name);
+        workSpaceFs = fs->CreateSubSystem("assets", true);
+
+        AssetBuilderManager::Get()->SetWorkSpaceFs(fs);
+    }
+
+    AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
+    {
+        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        auto iter = idMap.find(id);
+        return iter != idMap.end() ? iter->second : nullptr;
+    }
+
+    AssetSourcePtr AssetDataBase::ImportAsset(const AssetSourcePath &srcPath)
+    {
+        AssetSourcePtr info = nullptr;
+        {
+            std::lock_guard<std::recursive_mutex> lock(assetMutex);
+            auto iter = pathMap.find(srcPath);
+            if (iter != pathMap.end()) {
+                info = idMap.at(iter->second);
+            }
+        }
+
+        if (info == nullptr) {
+            // query builder
+            auto ext = GetExtension(srcPath.path);
+            auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
+            if (builder == nullptr) {
+                LOG_E(TAG, "Builder not found for asset %s", ext.c_str());
+                return nullptr;
+            }
+
+            const auto &fs = GetFileSystemBySourcePath(srcPath);
+            if (!fs->FileExist(srcPath.path)) {
+                LOG_E(TAG, "File not Exist %s", srcPath.path.c_str());
+                return nullptr;
+            }
+
+            AssetSourcePtr srcInfo = new AssetSourceInfo();
+            auto uuid = Uuid::Create();
+            srcInfo->path = srcPath;
+            srcInfo->uuid = uuid;
+            srcInfo->ext = ext;
+            srcInfo->type = builder->QueryType(ext);
+
+            // new asset
+            {
+                std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                pathMap.emplace(srcPath, uuid);
+                info = idMap.emplace(uuid, std::move(srcInfo)).first->second;
+            }
+
+            AssetBuildRequest request = {};
+            request.file = fs->OpenFile(srcPath.path);
+            request.assetInfo = info;
+            AssetBuilderManager::Get()->BuildRequest(request);
+        }
+
+        // request builder
+        return info;
+    }
+
+    AssetSourcePtr AssetDataBase::ImportAsset(const std::string &path)
+    {
+        auto querySource = QuerySource(path);
+        if (querySource.bundle == SourceAssetBundle::INVALID) {
+            return nullptr;
+        }
+
+        return ImportAsset(querySource);
+    }
+
+    void AssetDataBase::RemoveAsset(const Uuid &id)
+    {
+        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        SKY_ASSERT(idMap.count(id));
+        auto &src = idMap[id];
+        pathMap.erase(src->path);
+        idMap.erase(id);
+    }
+
+    FilePtr AssetDataBase::OpenFile(const AssetSourcePtr &src)
+    {
+        const auto &fs = GetFileSystemBySourcePath(src->path);
+        return fs->OpenFile(src->path.path);
+    }
+
+    void AssetDataBase::SetMarkedName(const Uuid& id, const std::string &name)
+    {
+        auto iter = idMap.find(id);
+        if (iter == idMap.end()) {
+            return;
+        }
+
+        iter->second->name = name;
+    }
+
+    void AssetDataBase::Load()
+    {
+        auto file = workSpaceFs->OpenFile("assets.db");
+        if (!file) {
+            return;
+        }
+
+        auto archive = file->ReadAsArchive();
+        JsonInputArchive json(*archive);
 
         {
-            createSourceTableStat.reset(dataBase->CreateStatement(CREATE_SOURCE_ASSET_TABLE));
-            createSourceTableStat->Step();
-            createSourceTableStat->Reset();
+            uint32_t count = json.StartArray("assets");
+            for (uint32_t i = 0; i < count; ++i) {
+                auto *pInfo = new AssetSourceInfo();
+                auto &info = *pInfo;
 
-            insertSourceTableStat.reset(dataBase->CreateStatement(INSERT_SOURCE));
-            selectSourceTableStat.reset(dataBase->CreateStatement(SELECT_SOURCE));
+                json.Start("uuid");
+                info.uuid = Uuid::CreateFromString(json.LoadString());
+                json.End();
+
+                json.Start("markedName");
+                info.name = json.LoadString();
+                json.End();
+
+                json.Start("ext");
+                info.ext = json.LoadString();
+                json.End();
+
+                json.Start("type");
+                info.type = json.LoadString();
+                json.End();
+
+                json.Start("bundle");
+                info.path.bundle = static_cast<SourceAssetBundle>(json.LoadUint());
+                json.End();
+
+                json.Start("path");
+                info.path.path = json.LoadString();
+                json.End();
+
+                uint32_t depCount = json.StartArray("dependencies");
+                for (uint32_t j = 0; j < depCount; ++j) {
+                    info.dependencies.emplace_back(Uuid::CreateFromString(json.LoadString()));
+                    json.NextArrayElement();
+                }
+                json.End();
+
+                json.NextArrayElement();
+
+                {
+                    std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                    pathMap.emplace(info.path, info.uuid);
+                    idMap.emplace(info.uuid, pInfo);
+                }
+            }
+
+            json.End();
         }
+    }
+
+    void AssetDataBase::Save()
+    {
+        AssetExecutor::Get()->WaitForAll();
+
+        auto file = workSpaceFs->CreateOrOpenFile("assets.db");
+        auto archive = file->WriteAsArchive();
+        JsonOutputArchive json(*archive);
 
         {
-            createProductTableStat.reset(dataBase->CreateStatement(CREATE_PRODUCT_ASSET_TABLE));
-            createProductTableStat->Step();
-            createProductTableStat->Reset();
+            std::lock_guard<std::recursive_mutex> lock(assetMutex);
 
-            insertProductTableStat.reset(dataBase->CreateStatement(INSERT_PRODUCT));
-            selectProductTableStat.reset(dataBase->CreateStatement(SELECT_PRODUCT));
+            json.StartObject();
+            json.Key("assets");
+            json.StartArray();
+            for (auto &[id, pInfo] : idMap) {
+                auto &info = *pInfo;
+                json.StartObject();
+
+                // info
+                json.Key("uuid");
+                json.SaveValue(info.uuid.ToString());
+
+                json.Key("markedName");
+                json.SaveValue(info.name);
+
+                json.Key("ext");
+                json.SaveValue(info.ext);
+
+                json.Key("type");
+                json.SaveValue(info.type);
+
+                json.Key("bundle");
+                json.SaveEnum(info.path.bundle);
+
+                json.Key("path");
+                json.SaveValue(info.path.path);
+
+                json.Key("dependencies");
+                json.StartArray();
+
+                for (auto &dep : info.dependencies) {
+                    json.SaveValue(dep.ToString());
+                }
+                json.EndArray();
+                json.EndObject();
+            }
+            json.EndArray();
+            json.EndObject();
         }
     }
 
-    void AssetDataBase::AddSource(const SourceData &sourceData)
+    void AssetDataBase::Reset()
     {
-        insertSourceTableStat->BindText(1, sourceData.path);
-        insertSourceTableStat->BindText(2, sourceData.folder);
-        insertSourceTableStat->BindText(3, sourceData.productKey);
-        insertSourceTableStat->BindText(4, sourceData.uuid.ToString());
-        insertSourceTableStat->Step();
-        insertSourceTableStat->Reset();
+        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        pathMap.clear();
+        idMap.clear();
     }
 
-    bool AssetDataBase::QueryProduct(const std::string &sourcePath, const std::string &key, Uuid &uuid) const
+    void AssetDataBase::Dump(std::ostream &stream)
     {
-        selectSourceTableStat->BindText(1, sourcePath);
-        selectSourceTableStat->BindText(2, key);
-
-        selectSourceTableStat->Step();
-        std::string source;
-        source = selectSourceTableStat->GetText(3);
-
-        selectSourceTableStat->Reset();
-        if (source.empty()) {
-            return false;
+        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        for (auto &[id, info] : idMap) {
+            stream << id.ToString() << "\t"
+                << info->type << "\t"
+                << info->name << "\t"
+                << "@" << static_cast<uint32_t>(info->path.bundle) << "@" << info->path.path << "\n";
         }
-        uuid = Uuid::CreateFromString(source);
-        return true;
     }
 
-    bool AssetDataBase::QueryProduct(const Uuid &uuid, std::string &out)
+    AssetSourcePath AssetDataBase::QuerySource(const std::string &path)
     {
-        std::string idStr = uuid.ToString();
-        selectProductTableStat->BindText(1, idStr);
+        if (workSpaceFs->FileExist(FilePath(path))) {
+            return {SourceAssetBundle::WORKSPACE, path};
+        }
 
-        selectProductTableStat->Step();
-        out = selectProductTableStat->GetText(1);
-        selectProductTableStat->Reset();
-        return !out.empty();
+        if (engineFs->FileExist(FilePath(path))) {
+            return {SourceAssetBundle::ENGINE, path};
+        }
+
+        return {SourceAssetBundle::INVALID};
     }
 
-    void AssetDataBase::AddProduct(const ProductData &productData)
+    const NativeFileSystemPtr &AssetDataBase::GetFileSystemBySourcePath(const AssetSourcePath &path)
     {
-        insertProductTableStat->BindText(1, productData.uuid.ToString());
-        insertProductTableStat->BindText(2,  productData.path);
-        insertProductTableStat->Step();
-        insertProductTableStat->Reset();
+        static NativeFileSystemPtr empty;
+        switch (path.bundle) {
+            case SourceAssetBundle::ENGINE:
+                return engineFs;
+            case SourceAssetBundle::WORKSPACE:
+                return workSpaceFs;
+            case SourceAssetBundle::INVALID:
+            case SourceAssetBundle::CUSTOM_BEGIN:
+                break;
+        }
+        return empty;
     }
-
 } // namespace sky

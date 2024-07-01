@@ -221,14 +221,16 @@ TEST(SerializationTest, GetterSetterTest)
 
         {
             std::ofstream stream("GetterSetterTest.json");
-            JsonOutputArchive archive(stream);
+            OStreamArchive streamArchive(stream);
+            JsonOutputArchive archive(streamArchive);
 
             archive.SaveValueObject(controller);
         }
 
         {
             std::ifstream stream("GetterSetterTest.json");
-            JsonInputArchive archive(stream);
+            IStreamArchive streamArchive(stream);
+            JsonInputArchive archive(streamArchive);
 
             GetterSetterTestData data2 {};
             GetterSetterTestController controller2(data2);
@@ -285,7 +287,8 @@ TEST(ArchiveTest, JsonArchiveTest)
 
     {
         std::ofstream stream("test.json");
-        JsonOutputArchive archive(stream);
+        OStreamArchive streamArchive(stream);
+        JsonOutputArchive archive(streamArchive);
 
         TestStruct obj;
         obj.t1.uv1 += 10;
@@ -307,7 +310,8 @@ TEST(ArchiveTest, JsonArchiveTest)
 
     {
         std::ifstream stream("test.json");
-        JsonInputArchive archive(stream);
+        IStreamArchive streamArchive(stream);
+        JsonInputArchive archive(streamArchive);
 
         TestStruct obj;
         archive.LoadValueObject(obj);
@@ -415,7 +419,8 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
             test.c[i].v3 = i * 3 + 2;
         }
         std::ofstream     file("json-serialization-test.json", std::ios::binary);
-        JsonOutputArchive archive(file);
+        OStreamArchive streamArchive(file);
+        JsonOutputArchive archive(streamArchive);
 
         TestSerFunc &f = test;
         archive.SaveValueObject(&f, TypeInfo<TestSerFunc>::RegisteredId());
@@ -424,7 +429,8 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
     {
         TestSerFuncDerv  test;
         std::ifstream    file("json-serialization-test.json", std::ios::binary);
-        JsonInputArchive archive(file);
+        IStreamArchive streamArchive(file);
+        JsonInputArchive archive(streamArchive);
 
         TestSerFunc &f = test;
         archive.LoadValueById(&f, TypeInfo<TestSerFunc>::RegisteredId());

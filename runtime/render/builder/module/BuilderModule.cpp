@@ -8,9 +8,12 @@
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/VertexLibraryBuilder.h>
+
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <framework/serialization/SerializationContext.h>
+
 #include <render/adaptor/Reflection.h>
 #include <shader/ShaderCompiler.h>
 
@@ -31,7 +34,7 @@ namespace sky::builder {
         ReflectRenderAsset(serializationContext);
         ReflectRHI(serializationContext);
 
-        auto *am = AssetManager::Get();
+        auto *am = AssetBuilderManager::Get();
         am->RegisterBuilder(new ShaderBuilder());
         am->RegisterBuilder(new TechniqueBuilder());
         am->RegisterBuilder(new MaterialBuilder());
@@ -39,12 +42,11 @@ namespace sky::builder {
         am->RegisterBuilder(new ImageBuilder());
         am->RegisterBuilder(new PrefabBuilder());
 
-
         // init shader compiler
-        auto *compiler = ShaderCompiler::Get();
-        for (const auto &path : am->GetSearchPathList()) {
-            compiler->AddSearchPath(path.path);
-        }
+//        auto *compiler = ShaderCompiler::Get();
+//        for (const auto &path : am->GetSearchPathList()) {
+//            compiler->AddSearchPath(path.path);
+//        }
         return true;
     }
 }

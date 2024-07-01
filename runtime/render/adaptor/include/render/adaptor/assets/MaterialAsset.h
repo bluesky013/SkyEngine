@@ -35,7 +35,7 @@ namespace sky {
     template <>
     struct AssetTraits<Material> {
         using DataType                                = MaterialAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("7A82A577-959A-4735-8175-A14C26D33B6B");
+        static constexpr std::string_view ASSET_TYPE  = "Material";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static std::shared_ptr<Material> CreateFromData(const DataType &data)
@@ -58,7 +58,7 @@ namespace sky {
     template <>
     struct AssetTraits<MaterialInstance> {
         using DataType                                = MaterialInstanceData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("A2223B19-6566-45A4-B9BD-F12A9908BC7C");
+        static constexpr std::string_view ASSET_TYPE  = "MaterialInstance";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static std::shared_ptr<MaterialInstance> CreateFromData(const DataType &data)

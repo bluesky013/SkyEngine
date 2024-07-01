@@ -9,4 +9,5 @@ namespace sky {
 
     bool ConstructFullPath(const std::string &root, const std::string &relative, std::string &out);
 
-}
+    std::string GetExtension(const std::string &path);
+} // namespace sky

@@ -91,7 +91,8 @@ TEST_F(ComponentTest, ActorTest)
 
     {
         std::ofstream stream("ActorTest.json");
-        JsonOutputArchive archive(stream);
+        OStreamArchive streamArchive(stream);
+        JsonOutputArchive archive(streamArchive);
 
         world.SaveJson(archive);
     }
@@ -108,7 +109,8 @@ TEST_F(ComponentTest, ActorTest)
 
     {
         std::ifstream stream("ActorTest.json");
-        JsonInputArchive archive(stream);
+        IStreamArchive streamArchive(stream);
+        JsonInputArchive archive(streamArchive);
 
         world.LoadJson(archive);
 

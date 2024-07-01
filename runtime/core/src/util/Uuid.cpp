@@ -57,4 +57,9 @@ namespace sky {
         return res;
     }
 
+    void Uuid::FromString(const std::string &str)
+    {
+        *this = Uuid::CreateFromString(str);
+    }
+
 } // namespace sky

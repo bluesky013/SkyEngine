@@ -38,7 +38,7 @@ namespace sky {
     template <>
     struct AssetTraits<Texture> {
         using DataType                                = ImageAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E28E41C7-FC98-47B9-B86E-42CD0541A4BF");
+        static constexpr std::string_view ASSET_TYPE  = "Texture";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static std::shared_ptr<Texture> CreateFromData(const DataType &data)

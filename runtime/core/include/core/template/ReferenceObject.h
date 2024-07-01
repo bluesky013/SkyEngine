@@ -9,25 +9,17 @@
 
 namespace sky {
 
-    template <typename T>
     class RefObject {
     public:
-        using ObjType = T;
+        RefObject() = default;
+        virtual ~RefObject() = default;
 
-        RefObject() : counter{}
-        {
-        }
-
-        virtual ~RefObject()
-        {
-        }
-
-        virtual void AddRef()
+        void AddRef() noexcept
         {
             counter.fetch_add(1);
         }
 
-        virtual void RemoveRef()
+        void RemoveRef() noexcept
         {
             auto prev = counter.fetch_sub(1);
             SKY_ASSERT(prev >= 1);
@@ -36,126 +28,135 @@ namespace sky {
             }
         }
 
-        virtual void OnExpire()
-        {
-        }
-
         uint32_t GetRef() const
         {
             return counter.load();
         }
 
-    private:
+    protected:
+        virtual void OnExpire() noexcept
+        {
+            delete this;
+        }
+
         std::atomic_uint32_t counter;
     };
 
     template <typename T>
-    class CounterPtrBase {
+    class CounterPtr {
     public:
-        CounterPtrBase(T *p) : ptr(p)
+        CounterPtr() : ptr(nullptr) {}
+
+        CounterPtr(T *p) : ptr(p) // NOLINT
         {
             if (ptr != nullptr) {
                 ptr->AddRef();
             }
         }
 
-        virtual ~CounterPtrBase()
+        CounterPtr(const CounterPtr &p) : CounterPtr(p.Get())
         {
-            if (ptr != nullptr) {
-                ptr->RemoveRef();
-            }
         }
 
-        CounterPtrBase(const CounterPtrBase &p)
+        CounterPtr(CounterPtr &&p) noexcept
         {
-            UpdateRefs(p);
+            ptr = p.Release();
         }
 
-        CounterPtrBase &operator=(const CounterPtrBase &p)
+        template <typename U>
+        CounterPtr(const CounterPtr<U> &p) : CounterPtr(static_cast<T*>(p.Get())) // NOLINT
         {
-            UpdateRefs(p);
+        }
+
+        CounterPtr &operator=(const CounterPtr &p) noexcept
+        {
+            Reset(p.ptr);
             return *this;
         }
 
-        T *Get()
+        template <typename U>
+        CounterPtr<T> &operator=(U *p)
         {
-            return ptr;
+            static_assert(std::is_base_of_v<T, U>);
+            Reset(static_cast<T*>(p));
+            return *this;
         }
 
-        const T *Get() const
+        template <typename U>
+        CounterPtr<T> &operator=(const CounterPtr<U> &p)
         {
-            return ptr;
+            static_assert(std::is_base_of_v<T, U>);
+            Reset(static_cast<T*>(p.Get()));
+            return *this;
         }
 
-    protected:
-        void UpdateRefs(const CounterPtrBase &p)
+        template <typename U>
+        CounterPtr &operator=(CounterPtr<U> &&p)
+        {
+            static_assert(std::is_base_of_v<T, U>);
+            ptr = static_cast<T*>(p.Release());
+            return *this;
+        }
+
+        virtual ~CounterPtr()
         {
             if (ptr != nullptr) {
                 ptr->RemoveRef();
             }
-            ptr = p.ptr;
+        }
+
+        void Reset(T *p) noexcept
+        {
+            if (ptr != nullptr) {
+                ptr->RemoveRef();
+            }
+            ptr = p;
             if (ptr != nullptr) {
                 ptr->AddRef();
             }
         }
+
+        T* Release()
+        {
+            T* ret = ptr;
+            ptr = nullptr;
+            return ret;
+        }
+
+        T *Get() const { return ptr; }
+        T &operator*() const { return *ptr; }
+        T *operator->() const { return ptr; }
+        explicit operator bool() const { return ptr != nullptr; }
+
+    protected:
+        template <typename U>
+        friend class CounterPtr;
 
         T *ptr = nullptr;
     };
 
-    template <typename T>
-    class CounterPtr : public CounterPtrBase<typename T::ObjType> {
-    public:
-        CounterPtr() : CounterPtrBase<typename T::ObjType>(nullptr)
-        {
-        }
+    template< class T >
+    bool operator==(const CounterPtr<T>& p, std::nullptr_t) noexcept
+    {
+        return p.Get() == nullptr;
+    }
 
-        template <typename U>
-        CounterPtr(U *p) : CounterPtrBase<typename T::ObjType>(p)
-        {
-        }
+    template< class T >
+    bool operator!=(const CounterPtr<T>& p, std::nullptr_t) noexcept
+    {
+        return p.Get() != nullptr;
+    }
 
-        template <typename U>
-        CounterPtr(CounterPtr<U> &u) : CounterPtrBase<typename T::ObjType>(u.Get())
-        {
-            static_assert(std::is_base_of_v<T, U>, "U must derived from T");
-        }
+    template< class T >
+    bool operator==(std::nullptr_t, const CounterPtr<T>& p) noexcept
+    {
+        return p.Get() == nullptr;
+    }
 
-        template <typename U>
-        CounterPtr &operator=(const CounterPtr<U> &u)
-        {
-            static_assert(std::is_base_of_v<T, U>, "U must derived from T");
-            CounterPtrBase<typename T::ObjType>::operator=(u);
-            return *this;
-        }
-
-        ~CounterPtr()
-        {
-        }
-
-        operator bool()
-        {
-            return CounterPtrBase<typename T::ObjType>::ptr != nullptr;
-        }
-
-        T *Get()
-        {
-            return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr);
-        }
-
-        const T *Get() const
-        {
-            return static_cast<T *>(CounterPtrBase<typename T::ObjType>::ptr);
-        }
-
-        T *operator->()
-        {
-            return Get();
-        }
-
-        const T *operator->() const
-        {
-            return Get();
-        }
-    };
+    template< class T >
+    bool operator!=(std::nullptr_t, const CounterPtr<T>& p) noexcept
+    {
+        return p.Get() != nullptr;
+    }
 
 } // namespace sky

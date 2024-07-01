@@ -47,8 +47,8 @@ namespace sky::editor {
         inspect->BindEvent(BTN_MENU_VIEW_SHOW_WORLD);
 
         auto *dirWidget = new DirectoryBrowser();
-        dirWidget->AddPath(AssetManager::Get()->GetProjectAssetPath());
-        dirWidget->AddPath(AssetManager::Get()->GetEngineAssetPath());
+//        dirWidget->AddPath(AssetManager::Get()->GetProjectAssetPath());
+//        dirWidget->AddPath(AssetManager::Get()->GetEngineAssetPath());
         dirWidget->BindEvent(BTN_MENU_FILE_IMPORT);
 
         wm->RegisterWidget(demoWidget);

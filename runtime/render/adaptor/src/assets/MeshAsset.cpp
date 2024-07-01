@@ -58,19 +58,19 @@ namespace sky {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         rhi::TransferTaskHandle handle = 0;
         for (const auto &vb : data.vertexBuffers) {
-            auto bufferPath = AssetManager::Get()->OpenAsset(vb.buffer);
-            auto buffer = std::make_shared<Buffer>();
-            buffer->Init(vb.size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + vb.offset);
-            mesh->AddVertexBuffer(buffer);
+//            auto bufferPath = AssetManager::Get()->OpenAsset(vb.buffer);
+//            auto buffer = std::make_shared<Buffer>();
+//            buffer->Init(vb.size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + vb.offset);
+//            mesh->AddVertexBuffer(buffer);
         }
 
         if (data.indexBuffer.buffer) {
-            auto bufferPath = AssetManager::Get()->OpenAsset(data.indexBuffer.buffer);
-            auto buffer = std::make_shared<Buffer>();
-            buffer->Init(data.indexBuffer.size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + data.indexBuffer.offset);
-            mesh->SetIndexBuffer(buffer);
+//            auto bufferPath = AssetManager::Get()->OpenAsset(data.indexBuffer.buffer);
+//            auto buffer = std::make_shared<Buffer>();
+//            buffer->Init(data.indexBuffer.size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + data.indexBuffer.offset);
+//            mesh->SetIndexBuffer(buffer);
         }
         mesh->SetIndexType(data.indexType);
 

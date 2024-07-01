@@ -37,7 +37,7 @@ namespace sky {
     template <>
     struct AssetTraits<RenderPrefab> {
         using DataType                                = RenderPrefabAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("0339389A-D8BC-46B4-97F2-60B5548A30D7");
+        static constexpr std::string_view ASSET_TYPE  = "RenderPrefab";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using RenderPrefabAssetPtr = std::shared_ptr<Asset<RenderPrefab>>;

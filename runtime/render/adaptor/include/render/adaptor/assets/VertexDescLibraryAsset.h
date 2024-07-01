@@ -26,7 +26,7 @@ namespace sky {
     template <>
     struct AssetTraits<VertexDescLibrary> {
         using DataType                                = VertexDescLibraryAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("f344d674-c0b1-4e1d-b6c5-87aba4aea204");
+        static constexpr std::string_view ASSET_TYPE  = "VertexDescLibrary";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using VertexDescLibraryAssetPtr = std::shared_ptr<Asset<VertexDescLibrary>>;

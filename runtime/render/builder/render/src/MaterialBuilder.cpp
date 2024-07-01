@@ -3,29 +3,27 @@
 //
 
 #include <builder/render/MaterialBuilder.h>
+
 #include <filesystem>
 #include <rapidjson/document.h>
 
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 #include <core/math/Vector4.h>
+#include <core/logger/Logger.h>
 
-#include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
-#include <render/adaptor/assets/ImageAsset.h>
-#include <render/adaptor/assets/MaterialAsset.h>
+#include <framework/asset/AssetDataBase.h>
 
-#include <builder/render/TechniqueBuilder.h>
-#include <builder/render/ImageBuilder.h>
+static const char* TAG = "MaterialBuilder";
 
 namespace sky::builder {
 
-    void ProcessProperties(rapidjson::Document &document, MaterialProperties &properties, const BuildRequest &request)
+    void ProcessProperties(rapidjson::Document &document, MaterialProperties &properties, const AssetBuildRequest &request)
     {
         if (!document.HasMember("properties")) {
             return;
         }
-        auto *am = AssetManager::Get();
 
         auto &proValues = document["properties"];
         if (proValues.IsObject()) {
@@ -34,11 +32,11 @@ namespace sky::builder {
 
                 if (obj.IsString()) {
                     const auto *imagePath = obj.GetString();
-                    auto texId = am->ImportAsset(imagePath);
-                    am->BuildAsset(texId, request.targetPlatform);
+                    auto texId = AssetDataBase::Get()->ImportAsset(imagePath);
                     properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
-                    properties.images.emplace_back(texId);
+                    properties.images.emplace_back(texId->uuid);
 
+                    request.assetInfo->dependencies.emplace_back(texId->uuid);
                 } else if (obj.IsFloat()) {
                     properties.valueMap[iter->name.GetString()] = obj.GetFloat();
                 } else if (obj.IsBool()) {
@@ -62,23 +60,19 @@ namespace sky::builder {
         }
     }
 
-    void MaterialBuilder::Request(const BuildRequest &request, BuildResult &result)
+    void MaterialBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        if (!request.buildKey.empty() && request.buildKey != std::string(KEY)) {
-            return;
-        }
-
-        if (request.ext == ".mat") {
+        if (request.assetInfo->ext == ".mat") {
             BuildMaterial(request, result);
-        } else if (request.ext == ".mati") {
+        } else if (request.assetInfo->ext == ".mati") {
             BuildMaterialInstance(request, result);
         }
     }
 
-    void MaterialBuilder::BuildMaterialInstance(const BuildRequest &request, BuildResult &result)
+    void MaterialBuilder::BuildMaterialInstance(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         std::string json;
-        ReadString(request.fullPath, json);
+        request.file->ReadString(json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
@@ -87,21 +81,30 @@ namespace sky::builder {
             return;
         }
         auto *am = AssetManager::Get();
-        auto asset = am->CreateAsset<MaterialInstance>(request.uuid);
+        auto asset = am->FindOrCreateAsset<MaterialInstance>(request.assetInfo->uuid);
         auto &assetData = asset->Data();
 
-        auto materialPath = document["material"].GetString();
-        assetData.material = am->ImportAsset(materialPath);
-        am->BuildAsset(assetData.material , request.targetPlatform);
+        const auto *materialPath = document["material"].GetString();
+        auto mat = AssetDataBase::Get()->ImportAsset(materialPath);
+        if (!mat) {
+            result.retCode = AssetBuildRetCode::FAILED;
+            return;
+        }
+
+        assetData.material = mat->uuid;
+        asset->AddDependencies(mat->uuid);
 
         ProcessProperties(document, assetData.properties, request);
-        result.products.emplace_back(BuildProduct{KEY.data(), asset, {assetData.material}});
+        for (auto &image : assetData.properties.images) {
+            asset->AddDependencies(image);
+        }
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
-    void MaterialBuilder::BuildMaterial(const BuildRequest &request, BuildResult &result)
+    void MaterialBuilder::BuildMaterial(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         std::string json;
-        ReadString(request.fullPath, json);
+        request.file->ReadString(json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
@@ -111,27 +114,32 @@ namespace sky::builder {
         }
 
         auto *am = AssetManager::Get();
-        std::filesystem::path fullPath(request.fullPath);
-        auto asset = am->CreateAsset<Material>(request.uuid);
+        auto asset = am->FindOrCreateAsset<Material>(request.assetInfo->uuid);
         auto &assetData = asset->Data();
 
-        std::vector<Uuid> deps;
         auto &val = document["techniques"];
         if (val.IsArray()) {
             auto techArray = val.GetArray();
             for (auto &tech : techArray) {
                 if (tech.IsString()) {
                     const auto *techPath = tech.GetString();
-                    auto techId = am->ImportAsset(techPath);
-                    am->BuildAsset(techId, request.targetPlatform);
-                    deps.emplace_back(techId);
-                    assetData.techniques.emplace_back(techId);
+                    auto techId = AssetDataBase::Get()->ImportAsset(techPath);
+                    if (!techId) {
+                        LOG_W(TAG, "Material %s import technique failed %s", request.assetInfo->uuid.ToString().c_str(), techPath);
+                        continue;
+                    }
+                    asset->AddDependencies(techId->uuid);
+
+                    request.assetInfo->dependencies.emplace_back(techId->uuid);
+                    assetData.techniques.emplace_back(techId->uuid);
                 }
             }
         }
 
         ProcessProperties(document, assetData.defaultProperties, request);
-        result.products.emplace_back(BuildProduct{KEY.data(), asset, deps});
-        result.success = true;
+        for (auto &image : assetData.defaultProperties.images) {
+            asset->AddDependencies(image);
+        }
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 }

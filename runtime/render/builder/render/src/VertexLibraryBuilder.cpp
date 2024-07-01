@@ -4,16 +4,13 @@
 
 #include <builder/render/VertexLibraryBuilder.h>
 
-#include <filesystem>
-
 #include <rapidjson/document.h>
 
-#include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
 
 #include <rhi/Core.h>
 #include <render/VertexDescLibrary.h>
-#include <render/adaptor/assets/VertexDescLibraryAsset.h>
+
 
 namespace sky::builder {
 
@@ -80,14 +77,10 @@ namespace sky::builder {
         }
     }
 
-    void VertexLibraryBuilder::Request(const BuildRequest &request, BuildResult &result)
+    void VertexLibraryBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        if (!request.buildKey.empty() && request.buildKey != std::string(KEY)) {
-            return;
-        }
-
         std::string json;
-        ReadString(request.fullPath, json);
+        request.file->ReadString(json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
@@ -102,9 +95,7 @@ namespace sky::builder {
         }
 
         auto *am = AssetManager::Get();
-        std::filesystem::path fullPath(request.fullPath);
-
-        auto asset = am->CreateAsset<VertexDescLibrary>(request.uuid);
+        auto asset = am->FindOrCreateAsset<VertexDescLibrary>(request.assetInfo->uuid);
         auto &assetData = asset->Data();
 
         auto array = val.GetArray();
@@ -113,8 +104,8 @@ namespace sky::builder {
                 ProcessDescriptions(assetData.descriptions[iter->name.GetString()], iter->value);
             }
         }
-        result.products.emplace_back(BuildProduct{KEY.data(), asset});
-        result.success = true;
+
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
 } // namespace sky::builder

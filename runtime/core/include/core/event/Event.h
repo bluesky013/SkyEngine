@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "core/environment/Singleton.h"
-#include <map>
+#include <core/environment/Singleton.h>
+#include <unordered_map>
 #include <set>
 
 namespace sky {
@@ -57,7 +57,7 @@ namespace sky {
             friend class Singleton<Storage>;
             Storage()  = default;
             ~Storage() = default;
-            std::map<KeyType, std::set<Interface *>> listeners;
+            std::unordered_map<KeyType, std::set<Interface *>> listeners;
         };
 
         static void Connect(const KeyType &key, Interface *listener)

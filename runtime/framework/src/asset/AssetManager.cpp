@@ -1,398 +1,187 @@
 //
-// Created by blues on 2023/12/24.
+// Created by blues on 2024/6/16.
 //
 
 #include <framework/asset/AssetManager.h>
-
-#ifdef SKY_EDITOR
-    #include <rapidjson/rapidjson.h>
-#endif
-
-#include <filesystem>
-#include <fstream>
-
-#include <core/hash/Hash.h>
+#include <framework/platform/PlatformBase.h>
 #include <core/logger/Logger.h>
-#include <core/file/FileIO.h>
 #include <core/archive/FileArchive.h>
 
-#include <framework/asset/Asset.h>
-#include <framework/platform/PlatformBase.h>
-
 static const char* TAG = "AssetManager";
-static const char* PACKAGE_PATH = "package.repo";
-static const char* PRODUCTS_PATH = "/products";
-static const char* PRODUCTS_ASSETS_PATH = "/assets";
-static const char* PRODUCTS_ASSETS_REPO_PATH = "assets.bin";
-static const char* PROJECT_ASSET_PREFIX = "/assets";
-static const char* ENGINE_ASSET_PREFIX = "/engine_assets";
 
 namespace sky {
-    static constexpr Uuid EMPTY_UUID;
-
-    static std::string MakeStandardPath(const std::string &input)
+    void AssetManager::SetWorkFileSystem(const FileSystemPtr &fs)
     {
-        auto path = std::filesystem::path(input).lexically_normal().string();
-        size_t pos = 0;
-        while ((pos = path.find('\\', pos)) != std::string::npos) {
-            path.replace(pos, 1, "/");
-            pos += 2;
+        workSpace = fs;
+    }
+
+    void AssetManager::AddAssetProductBundle(AssetProductBundle *bundle)
+    {
+        bundles.emplace_back(bundle);
+    }
+
+    AssetPtr AssetManager::FindAsset(const Uuid &uuid) const
+    {
+        // check asset exists
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        auto iter = assets.find(uuid);
+        if (iter != assets.end()) {
+            if (auto res = iter->second.lock(); res) {
+                return res;
+            }
         }
-        return path;
+        return {};
     }
 
-    static std::string GetAssetPathByUUID(const Uuid &uuid)
-    {
-        auto strUuid = uuid.ToString();
-        return strUuid.substr(0, 2) + "/" + strUuid + ".bin";
-    }
-
-    static std::string GetAssetLoadPath(const std::string &path, AssetGroup group = AssetGroup::PROJECT)
-    {
-        std::string res;
-        if (group == AssetGroup::ENGINE) {
-            res = ENGINE_ASSET_PREFIX + std::string("/");
-        } else if (group == AssetGroup::PROJECT){
-            res = PROJECT_ASSET_PREFIX + std::string("/");
-        }
-
-        res += path;
-        return res;
-    }
-
-    Uuid AssetManager::GetUUIDByPath(const std::string &path)
-    {
-        return Uuid::CreateWithSeed(Fnv1a32(MakeStandardPath(path)));
-    }
-
-    uint32_t AssetManager::CalculateFileHash(const std::string &loadPath)
-    {
-        return 0;
-    }
-
-    AssetManager::~AssetManager()
-    {
-#ifdef SKY_EDITOR
-        if (package) {
-            package->SaveToFile(workFs, PACKAGE_PATH);
-        }
-#endif
-
-        if (products) {
-            products->Save(workFs->WriteAsArchive(PRODUCTS_ASSETS_REPO_PATH));
-        }
-    }
-
-    void AssetManager::SetWorkPath(const FileSystemPtr &fs)
-    {
-        workFs = fs;
-        products = std::make_unique<AssetProducts>();
-        if (auto archive = workFs->ReadAsArchive(PRODUCTS_ASSETS_REPO_PATH); archive) {
-            products->Load(archive);
-        }
-    }
-
-    std::string AssetManager::GetPlatformPrefix(PlatformType platform)
-    {
-        if (platform == PlatformType::Default) {
-            platform = Platform::Get()->GetType();
-        }
-
-        switch (platform) {
-        case PlatformType::Windows:
-            return "win32";
-        case PlatformType::MacOS:
-            return "macos";
-        case PlatformType::IOS:
-            return "ios";
-        case PlatformType::Android:
-            return "android";
-        case PlatformType::Linux:
-            return "linux";
-        default:
-            SKY_ASSERT(false && "invalid platform type");
-            return "";
-        };
-    }
-
-    std::string AssetManager::GetBuildOutputPath(const std::string &parent, PlatformType platform)
-    {
-        auto prefix = GetPlatformPrefix(platform);
-        return prefix.empty() ? prefix : parent + PRODUCTS_PATH + "/" + prefix + PRODUCTS_ASSETS_PATH;
-    }
-
-    std::shared_ptr<AssetBase> AssetManager::CreateAsset(const Uuid &type, const Uuid &uuid)
+    AssetPtr AssetManager::FindOrCreateAsset(const Uuid &uuid, const std::string &type)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
+            LOG_E(TAG, "Asset handler not registered asset %s, type %s", uuid.ToString().c_str(), type.c_str());
             return {};
         }
-        auto asset = hIter->second->CreateAsset();
-        asset->SetUuid(uuid);
 
-        {
-            std::lock_guard<std::mutex> lock(assetMutex);
-            assetMap.emplace(uuid, asset);
-        }
-
-        return asset;
-    }
-
-    std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const std::string &path, bool async)
-    {
-        auto id = GetUUIDByPath(GetAssetLoadPath(path));
-        if (!products->HasAsset(id)) {
-            id = GetUUIDByPath(GetAssetLoadPath(path, AssetGroup::ENGINE));
-        }
-        return LoadAsset(type, id, async);
-    }
-
-    FilePtr AssetManager::OpenAsset(const Uuid &uuid)
-    {
-        std::string loadPath = GetAssetPathByUUID(uuid);
-        return workFs->OpenFile(loadPath);
-    }
-
-    std::shared_ptr<AssetBase> AssetManager::LoadAsset(const Uuid &type, const Uuid &uuid, bool async)
-    {
         std::shared_ptr<AssetBase> asset;
-        // check asset loaded.
         {
-            std::lock_guard<std::mutex> lock(assetMutex);
-
-            auto iter = assetMap.find(uuid);
-            if (iter != assetMap.end()) {
-                std::shared_ptr<AssetBase> res = iter->second.lock();
-                if (res) {
-                    return res;
-                }
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            auto &ref = assets[uuid];
+            if (auto res = ref.lock(); res) {
+                return res;
             }
+            ref = asset = hIter->second->CreateAsset();
         }
+        asset->SetUuid(uuid);
+        asset->SetType(type);
+        return asset;
+    }
 
-        // load asset from work path
-        const auto *info = products->GetProduct(uuid);
-        if (info == nullptr) {
-            // try build asset if exists
-            LOG_E(TAG, "Load Asset Failed %s", uuid.ToString().c_str());
-            return {};
-        }
+    AssetPtr AssetManager::CreateAssetByHeader(const Uuid &uuid, const IArchivePtr &archive)
+    {
+        // get asset type
+        std::string type;
+        archive->Load(type);
 
-        auto hIter = assetHandlers.find(type);
-        if (hIter == assetHandlers.end()) {
-            return {};
-        }
-        auto *handler = hIter->second.get();
+        // try to find again
+        auto asset = FindOrCreateAsset(uuid, type);
+        if (asset) {
+            uint32_t depCount = 0;
+            archive->Load(depCount);
 
-        asset = CreateAsset(type, uuid);
-        asset->status = AssetBase::Status::LOADING;
-
-        std::string loadPath = GetAssetPathByUUID( uuid);
-        auto fn = [handler, asset, loadPath, this]() {
-            auto archive = workFs->ReadAsArchive(loadPath);
-            handler->Load(*archive, asset);
-            asset->status = AssetBase::Status::LOADED;
-        };
-
-        if (async) {
-            tf::Taskflow flow;
-            flow.emplace(std::move(fn));
-            asset->future = JobSystem::Get()->Run(std::move(flow));
-        } else {
-            fn();
+            asset->dependencies.resize(depCount);
+            for (uint32_t i = 0; i < depCount; ++i) {
+                auto &dep = asset->dependencies[i];
+                archive->Load(dep.word[0]);
+                archive->Load(dep.word[1]);
+            }
         }
         return asset;
     }
 
-    void AssetManager::RegisterAssetHandler(const Uuid &type, AssetHandlerBase *handler)
+    AssetPtr AssetManager::LoadAsset(const Uuid &uuid) // NOLINT
     {
-        assetHandlers[type].reset(handler);
-    }
+        auto asset = FindAsset(uuid);
 
-    AssetHandlerBase*AssetManager::GetAssetHandler(const Uuid &type)
-    {
-        auto iter = assetHandlers.find(type);
-        if (iter == assetHandlers.end()) {
-            return nullptr;
+        // check loaded
+        if (asset && asset->IsLoaded()) {
+            return asset;
         }
-        return iter->second.get();
-    }
 
-#ifdef SKY_EDITOR
-    void AssetManager::LoadConfig()
-    {
-        std::string json;
-        projectFs->ReadString("config/asset.json", json);
+        auto file = OpenFile(uuid);
+        if (!file) {
+            LOG_E(TAG, "Asset file missing %s", uuid.ToString().c_str());
+            return {};
+        }
 
-        rapidjson::Document document;
-        document.Parse(json.c_str());
+        IArchivePtr archive = file->ReadAsArchive();
+        asset = CreateAssetByHeader(uuid, archive);
+        if (!asset) {
+            return {};
+        }
 
-        for (auto iter = document.MemberBegin(); iter != document.MemberEnd(); iter++) {
-            const char* key = iter->name.GetString();
-            const char* cfgPath = iter->value.GetString();
-            for (auto &builder : assetBuilders) {
-                if (builder->GetConfigKey() == std::string(key)) {
-                    builder->LoadConfig(projectFs, "config/" + std::string(cfgPath));
+        // avoid release dep asset
+        std::vector<AssetPtr> holder;
+        std::vector<tf::AsyncTask> asyncTasks;
+        holder.reserve(asset->dependencies.size());
+
+        for (auto &dep : asset->dependencies) {
+            holder.emplace_back(LoadAsset(dep));
+            asyncTasks.emplace_back(holder.back()->asyncTask.first);
+        }
+
+        asset->status.store(AssetBase::Status::LOADING);
+        asset->asyncTask = AssetExecutor::Get()->DependentAsyncRange(
+            [this, uuid, archive, deps = std::move(holder)]() mutable {
+                bool success = true;
+                for (const auto &dep : deps) {
+                    SKY_ASSERT(dep->status.load() >= AssetBase::Status::LOADED)
+                    success &= dep->IsLoaded();
                 }
-            }
-        }
+
+                if (!success) {
+                    return;
+                }
+
+                auto asset = FindAsset(uuid);
+                SKY_ASSERT(asset)
+                asset->depAssets.swap(deps);
+                auto res = assetHandlers[asset->type]->Load(*archive, asset);
+                asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
+            }, asyncTasks.begin(), asyncTasks.end());
+
+        return asset;
     }
 
-    void AssetManager::SetProjectPath(const std::string &path)
-    {
-        projectPath = path;
-        projectAssetPath = path + PROJECT_ASSET_PREFIX;
-        engineAssetPath = path + ENGINE_ASSET_PREFIX;
-
-        searchPathList.emplace_back(AssetSearchPath{projectPath, AssetGroup::ROOT});
-        searchPathList.emplace_back(AssetSearchPath{engineAssetPath, AssetGroup::ENGINE});
-        searchPathList.emplace_back(AssetSearchPath{projectAssetPath, AssetGroup::PROJECT});
-
-        SetWorkPath(std::make_shared<NativeFileSystem>(GetBuildOutputPath(projectPath, PlatformType::Default)));
-        projectFs = std::make_shared<NativeFileSystem>(projectPath);
-
-        package = std::make_unique<AssetPackage>();
-        package->LoadFromFile(workFs, PACKAGE_PATH);
-
-        LoadConfig();
-    }
-
-    const Uuid &AssetManager::RegisterAsset(const SourceAssetInfo &info)
-    {
-        return package->RegisterAsset(GetUUIDByPath(info.loadPath), info);
-    }
-
-    const Uuid &AssetManager::ImportAndBuildAsset(const std::string &path, PlatformType target)
-    {
-        const auto &id = ImportAsset(path);
-        return BuildAsset(id, target) ? id : EMPTY_UUID;
-    }
-
-    const Uuid &AssetManager::ImportAsset(const std::string &path)
-    {
-        SourceAssetInfo info = {};
-        for (const auto &tmpPath : searchPathList) {
-            std::filesystem::path assetPath(tmpPath.path);
-            assetPath.append(path.starts_with('/') ? path.substr(1, path.size() - 1) : path);
-
-            if (std::filesystem::exists(assetPath)) {
-                info.loadPath = GetAssetLoadPath(path, tmpPath.group);
-                info.hash = CalculateFileHash(assetPath.string());
-                break;
-            }
-        }
-        if (info.loadPath.empty()) {
-            LOG_E(TAG, "import asset failed %s", path.c_str());
-            return EMPTY_UUID;
-        }
-        return RegisterAsset(info);
-    }
-
-    void AssetManager::RemoveAsset(const Uuid &uuid)
-    {
-        package->RemoveAsset(uuid);
-    }
-
-    bool AssetManager::BuildAsset(const BuildRequest &request)
-    {
-        auto iter = assetBuilderMap.find(request.ext);
-        if (iter == assetBuilderMap.end()) {
-            LOG_E(TAG, "Asset Builder not Found %s", request.fullPath.c_str());
-            return false;
-        }
-        BuildResult result = {};
-
-        auto &builders = iter->second;
-        for (auto &builder : builders) {
-            builder->Request(request, result);
-        }
-
-        if (!result.success) {
-            LOG_E(TAG, "Build Asset Failed. %s", request.name.c_str());
-            return false;
-        }
-        for (auto &product : result.products) {
-            products->RegisterDependencies(product.asset->GetUuid(), product.deps);
-            SaveAsset(product.asset, request.targetPlatform);
-        }
-
-        return true;
-    }
-
-    bool AssetManager::BuildAsset(const Uuid &uuid, PlatformType target)
-    {
-        const auto *sourceInfo = package->GetAssetInfo(uuid);
-        if (sourceInfo == nullptr) {
-            LOG_E(TAG, "asset not imported. %s", uuid.ToString().c_str());
-            return false;
-        }
-
-        std::filesystem::path fs(sourceInfo->loadPath);
-        auto ext = fs.extension().string();
-
-        BuildRequest request = {};
-        request.relativePath = sourceInfo->loadPath;
-        request.fullPath = projectPath + sourceInfo->loadPath;
-        request.ext = ext;
-        request.name = fs.filename().string();
-        request.uuid = uuid;
-        request.targetPlatform = target;
-
-        BuildResult result = {};
-        auto iter = assetBuilderMap.find(ext);
-        if (iter == assetBuilderMap.end()) {
-            LOG_E(TAG, "Asset Build not Found %s", sourceInfo->loadPath.c_str());
-            return false;
-        }
-        auto &builders = iter->second;
-        for (auto &builder : builders) {
-            builder->Request(request, result);
-        }
-
-        if (!result.success) {
-            LOG_E(TAG, "Build Asset Failed. %s", sourceInfo->loadPath.c_str());
-            return false;
-        }
-        for (auto &product : result.products) {
-            products->RegisterDependencies(product.asset->GetUuid(), product.deps);
-            SaveAsset(product.asset, target);
-        }
-        LOG_I(TAG, "Build Asset Success. %s -> %s", sourceInfo->loadPath.c_str(), uuid.ToString().c_str());
-        return true;
-    }
-
-    void AssetManager::SaveAsset(const Uuid &uuid, PlatformType target)
-    {
-        SaveAsset(assetMap[uuid].lock(), target);
-    }
-
-    void AssetManager::SaveAsset(const std::shared_ptr<AssetBase> &asset, PlatformType target)
+    void AssetManager::SaveAsset(const AssetPtr &asset, const ProductBundleKey &target)
     {
         auto hIter = assetHandlers.find(asset->GetType());
         if (hIter == assetHandlers.end()) {
             return;
         }
 
-        auto outputPath = std::filesystem::path(GetBuildOutputPath(projectPath, target));
-        outputPath.append(GetAssetPathByUUID(asset->GetUuid()));
-        if (!std::filesystem::exists(outputPath.parent_path())) {
-            std::filesystem::create_directories(outputPath.parent_path());
+        // flush load operation
+        asset->BlockUntilLoaded();
+
+        FilePtr file;
+        for (const auto &bundle : bundles) {
+            if (bundle->GetKey() != target || bundle->IsPacked()) {
+                continue;
+            }
+            file = bundle->CreateOrOpenFile(asset->GetUuid());
+            if (file) {
+                break;
+            }
+        }
+        if (!file) {
+            LOG_E(TAG, "Save Asset %s Failed. Can not create file.", asset->GetUuid().ToString().c_str());
+            return;
         }
 
-        auto *assetHandler = hIter->second.get();
-        OFileArchive archive(outputPath.string());
-        assetHandler->Save(archive, asset);
+        auto archive = file->WriteAsArchive();
 
-        ProductAssetInfo info = {};
-        products->AddAsset(asset->uuid, info);
+        archive->Save(asset->type);
+        archive->Save(static_cast<uint32_t>(asset->dependencies.size()));
+        for (auto &dep : asset->dependencies) {
+            archive->Save(dep.word[0]);
+            archive->Save(dep.word[1]);
+        }
+
+        asset->status.store(AssetBase::Status::LOADED);
+        hIter->second->Save(*archive, asset);
     }
 
-    void AssetManager::RegisterBuilder(AssetBuilder *builder)
+    FilePtr AssetManager::OpenFile(const Uuid &uuid) const
     {
-        assetBuilders.emplace_back(builder);
-        const auto &extensions = builder->GetExtensions();
-        for (const auto &ext : extensions) {
-            assetBuilderMap[ext].emplace_back(assetBuilders.back().get());
+        for (const auto &bundle : bundles) {
+            if (auto file = bundle->OpenFile(uuid); file) {
+                return file;
+            }
         }
+        return {};
     }
-#endif
+
+    void AssetManager::RegisterAssetHandler(const std::string_view &type, AssetHandlerBase *handler)
+    {
+        assetHandlers[type.data()].reset(handler);
+    }
+
 } // namespace sky

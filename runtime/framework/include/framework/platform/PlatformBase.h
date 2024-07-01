@@ -52,10 +52,14 @@ namespace sky {
         bool Init(const PlatformInfo&);
         void Shutdown();
 
+        static std::string GetPlatformNameByType(PlatformType type);
+        static PlatformType GetPlatformTypeByName(const std::string &name);
+
         uint64_t GetPerformanceFrequency() const;
         uint64_t GetPerformanceCounter() const;
         std::string GetInternalPath() const;
         std::string GetBundlePath() const;
+
         void *GetMainWinHandle() const;
         void *GetNativeApp() const;
         AdaptivePerfManager *GetPerformanceManager() const;

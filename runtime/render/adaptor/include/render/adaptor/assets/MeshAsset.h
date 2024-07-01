@@ -51,7 +51,7 @@ namespace sky {
     template <>
     struct AssetTraits<Mesh> {
         using DataType                                = MeshAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("394AB7FF-FC10-484F-82A6-42D523949DD1");
+        static constexpr std::string_view ASSET_TYPE  = "Mesh";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static std::shared_ptr<Mesh> CreateFromData(const DataType &data)

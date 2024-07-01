@@ -1,52 +1,58 @@
 //
-// Created by Zach Lee on 2023/2/20.
+// Created by blues on 2024/6/16.
 //
 
 #pragma once
 
-#include <framework/database/DataBase.h>
-#include <core/util/Uuid.h>
-#include <memory>
+#include <core/environment/Singleton.h>
+#include <core/file/FileSystem.h>
+
+#include <framework/asset/AssetCommon.h>
+#include <framework/asset/Asset.h>
+
+#include <vector>
+#include <unordered_map>
+#include <mutex>
 
 namespace sky {
 
-    struct SourceData {
-        std::string path;
-        std::string folder;
-        std::string productKey;
-        Uuid uuid;
-    };
-
-    struct ProductData {
-        Uuid uuid;
-        std::string path;
-    };
-
-    class AssetDataBase {
+    class AssetDataBase : public Singleton<AssetDataBase> {
     public:
         AssetDataBase() = default;
-        ~AssetDataBase();
+        ~AssetDataBase() override = default;
 
-        void Init(const std::string &name);
+        void SetEngineFs(const NativeFileSystemPtr &fs);
+        void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
 
-        void AddSource(const SourceData &sourceData);
-        bool QueryProduct(const std::string &sourcePath, const std::string &key, Uuid &uuid) const;
-        bool QueryProduct(const Uuid &uuid, std::string &out);
+        const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
+        const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
-        void AddProduct(const ProductData &productData);
+        AssetSourcePtr ImportAsset(const AssetSourcePath &path);
+        AssetSourcePtr ImportAsset(const std::string &path);
+        AssetSourcePath QuerySource(const std::string &path);   // engine->workspace->custom
 
+        AssetSourcePtr FindAsset(const Uuid &id);
+        void RemoveAsset(const Uuid &id);
+
+        FilePtr OpenFile(const AssetSourcePtr &src);
+
+        void SetMarkedName(const Uuid& id, const std::string &name);
+
+        void Load();
+        void Save();
+        void Reset();
+
+        void Dump(std::ostream &stream);
     private:
-        std::unique_ptr<DataBase> dataBase;
+        const NativeFileSystemPtr &GetFileSystemBySourcePath(const AssetSourcePath &path);
 
-        // source table
-        std::unique_ptr<db::Statement> createSourceTableStat;
-        std::unique_ptr<db::Statement> insertSourceTableStat;
-        std::unique_ptr<db::Statement> selectSourceTableStat;
+        NativeFileSystemPtr engineFs;
+        NativeFileSystemPtr workSpaceFs;
+        std::unordered_map<uint32_t, NativeFileSystemPtr> pluginFs;
 
-        // product table
-        std::unique_ptr<db::Statement> createProductTableStat;
-        std::unique_ptr<db::Statement> insertProductTableStat;
-        std::unique_ptr<db::Statement> selectProductTableStat;
+        std::recursive_mutex assetMutex;
+        std::unordered_map<AssetSourcePath, Uuid> pathMap;
+        std::unordered_map<Uuid, AssetSourcePtr> idMap;
     };
 
-}
+} // namespace sky

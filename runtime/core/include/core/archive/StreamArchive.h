@@ -18,6 +18,11 @@ namespace sky {
 
     private:
         bool LoadRaw(char *data, size_t size) override;
+
+        int Peek() const override;
+        int Get() override;
+        size_t Tell() const override;
+
         std::istream &stream;
     };
 
@@ -27,6 +32,9 @@ namespace sky {
         ~OStreamArchive() override = default;
 
         using IOutputArchive::SaveRaw;
+
+        void Put(char ch) override;
+        void Flush() override;
     private:
         bool SaveRaw(const char *data, size_t size) override;
         std::ostream &stream;

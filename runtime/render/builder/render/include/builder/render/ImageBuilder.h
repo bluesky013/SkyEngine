@@ -5,8 +5,12 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
-#include <string_view>
+
+#include <render/adaptor/assets/ImageAsset.h>
+
 #include <rhi/Core.h>
+
+#include <string_view>
 #include <unordered_map>
 
 namespace sky::builder {
@@ -27,19 +31,16 @@ namespace sky::builder {
         ImageBuilder();
         ~ImageBuilder() override = default;
 
-        static constexpr std::string_view KEY = "GFX_IMAGE";
-
-        void Request(const BuildRequest &build, BuildResult &result) override;
-
-        const std::vector<std::string> &GetExtensions() const override { return extensions; }
-
         void UseCompress(bool en) { compress = en; }
     private:
-        void RequestDDS(const BuildRequest &build, BuildResult &result);
-        void RequestSTB(const BuildRequest &build, BuildResult &result);
+        void RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result);
+        void RequestSTB(const AssetBuildRequest &request, AssetBuildResult &result);
 
-        std::string GetConfigKey() const override { return "Texture"; }
-        void LoadConfig(const FileSystemPtr &fs, const std::string &path) override;
+        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
+        void LoadConfig(const FileSystemPtr &cfg) override;
+
+        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+        std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Texture>::ASSET_TYPE; }
 
         std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png"};
         std::unordered_map<std::string, ImageBuildConfig> configs;

@@ -15,6 +15,8 @@ from build.Project import ProjectBuilder, ProjectConfig
 from build.Presets import PLATFORM_AVAILABLE_LIST, BUILD_TYPE_LIST, GENERATOR_LIST, PLATFORM_ARCH_LIST, \
     WindowsConfigPreset, AndroidConfigPreset
 
+from widgets import Asset
+
 
 def is_admin():
     try:
@@ -224,12 +226,18 @@ class ProjectWidget(QWidget):
         self.enginePath = QLineEdit(os.path.abspath(dft_engine_path), self)
         self.projectPath = QLineEdit(self)
         self.projectName = QLineEdit(self)
+        self.enginePath.textChanged.connect(self.edit_line_changed)
+        self.projectPath.textChanged.connect(self.edit_line_changed)
+        self.projectName.textChanged.connect(self.edit_line_changed)
+
         self.filesBtn = QPushButton("Files...")
         self.filesBtn.clicked.connect(self.on_files_clicked)
         self.createBtn = QPushButton("Create")
         self.createBtn.clicked.connect(self.on_create_clicked)
         self.projectCfgBtn = QPushButton("Config")
         self.projectCfgBtn.clicked.connect(self.on_config_clicked)
+        self.assetCfgBtn = QPushButton("Assets")
+        self.assetCfgBtn.clicked.connect(self.on_assets_clicked)
 
         self.vLayout.addRow(QLabel("Engine Dir"), self.enginePath)
         self.vLayout.addRow(QLabel("Project Dir"), self.projectPath)
@@ -238,11 +246,19 @@ class ProjectWidget(QWidget):
         self.vLayout.addWidget(self.filesBtn)
         self.vLayout.addWidget(self.createBtn)
         self.vLayout.addWidget(self.projectCfgBtn)
+        self.vLayout.addWidget(self.assetCfgBtn)
+
+        self.assetBrowser = None
 
         self.configFile = 'project_manager.ini'
         self.load_config()
 
-    def __del__(self):
+    def edit_line_changed(self, str):
+        if self.assetBrowser:
+            self.assetBrowser.update_path(self.enginePath.text(),
+                                          os.path.join(self.projectPath.text(), self.projectName.text()))
+
+    def closeEvent(self, event):
         self.save_config()
 
     def create_new_project(self, path):
@@ -264,7 +280,13 @@ class ProjectWidget(QWidget):
     def on_config_clicked(self):
         builder = ProjectBuilder(self.get_project_full_path(), self.enginePath.text())
         ProjectConfigDialog(self, builder.config).exec()
-        pass
+
+    @Slot()
+    def on_assets_clicked(self):
+        if not self.assetBrowser:
+            self.assetBrowser = Asset.AssetBrowserWidget(None, self.enginePath.text(),
+                                                         os.path.join(self.projectPath.text(), self.projectName.text()))
+        self.assetBrowser.show()
 
     @Slot()
     def on_create_clicked(self):
@@ -309,6 +331,7 @@ class ProjectWidget(QWidget):
         }
         with open(self.configFile, 'w') as configfile:
             config.write(configfile)
+        print("project saved")
 
 
 def app_main():
@@ -326,7 +349,6 @@ def app_main():
     mainWindow.layout().addWidget(project)
     mainWindow.show()
 
-    app.aboutToQuit.connect(lambda: project.save_config())
     sys.exit(app.exec())
 
 

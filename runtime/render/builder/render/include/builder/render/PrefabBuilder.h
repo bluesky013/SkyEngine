@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <render/adaptor/assets/RenderPrefab.h>
 #include <string_view>
 
 namespace sky::builder {
@@ -14,12 +15,10 @@ namespace sky::builder {
         PrefabBuilder() = default;
         ~PrefabBuilder() override = default;
 
-        static constexpr std::string_view KEY = "GFX_PREFAB";
-
-        void Request(const BuildRequest &build, BuildResult &result) override;
+        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
-
+        std::string_view QueryType(const std::string &ext) const override { return ""; }
     private:
         std::vector<std::string> extensions = {".gltf", ".glb", ".fbx"};
     };

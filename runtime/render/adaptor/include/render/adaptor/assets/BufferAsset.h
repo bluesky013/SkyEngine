@@ -28,7 +28,7 @@ namespace sky {
     template <>
     struct AssetTraits<Buffer> {
         using DataType                                = BufferAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("C0C7D089-9B8B-4B9E-9D61-915C9380705D");
+        static constexpr std::string_view ASSET_TYPE  = "Buffer";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using BufferAssetPtr = std::shared_ptr<Asset<Buffer>>;

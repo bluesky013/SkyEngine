@@ -9,6 +9,7 @@
 #include <rapidjson/prettywriter.h>
 #include <framework/serialization/Any.h>
 #include <core/platform/Platform.h>
+#include <core/archive/StreamArchive.h>
 #include <iostream>
 #include <vector>
 
@@ -16,11 +17,10 @@ namespace sky {
 
     namespace impl {
 
-        template <typename StreamType>
         class InputStreamWrapper {
         public:
-            using Ch = typename StreamType::char_type;
-            explicit InputStreamWrapper(StreamType &s) : stream(s)
+            using Ch = std::istream::char_type;
+            explicit InputStreamWrapper(IInputArchive &s) : stream(s)
             {
             }
 
@@ -29,36 +29,34 @@ namespace sky {
 
             Ch Peek() const
             {
-                int c = stream.peek();
+                int c = stream.Peek();
                 return c == std::char_traits<char>::eof() ? '\0' : static_cast<Ch>(c);
             }
 
             Ch Take()
             {
-                int c = stream.get();
+                int c = stream.Get();
                 return c == std::char_traits<char>::eof() ? '\0' : static_cast<Ch>(c);
             }
 
             size_t Tell() const
             {
-                return static_cast<size_t>(stream.tellg());
+                return static_cast<size_t>(stream.Tell());
             }
 
-            Ch *PutBegin()      { SKY_ASSERT(false); return 0; }
-            void Put(Ch)        { SKY_ASSERT(false); }
-            void Flush()        { SKY_ASSERT(false); }
-            size_t PutEnd(Ch *) { SKY_ASSERT(false); return 0; }
+            Ch *PutBegin()      { SKY_ASSERT(false); return nullptr; } // NOLINT
+            void Put(Ch)        { SKY_ASSERT(false); } // NOLINT
+            void Flush()        { SKY_ASSERT(false); } // NOLINT
+            size_t PutEnd(Ch *) { SKY_ASSERT(false); return 0; } // NOLINT
 
         private:
-            StreamType &stream;
+            IInputArchive &stream;
         };
 
-
-        template <typename StreamType>
         class OutputStreamWrapper {
         public:
-            using Ch = typename StreamType::char_type;
-            explicit OutputStreamWrapper(StreamType &s) : stream(s)
+            using Ch = std::istream::char_type;
+            explicit OutputStreamWrapper(IOutputArchive &s) : stream(s)
             {
             }
 
@@ -67,25 +65,25 @@ namespace sky {
 
             void Put(Ch c)
             {
-                stream.put(c);
+                stream.Put(c);
             }
 
             void Flush()
             {
-                stream.flush();
+                stream.Flush();
             }
 
         private:
-            StreamType &stream;
+            IOutputArchive &stream;
         };
     }
 
     class JsonInputArchive {
     public:
         using Value = rapidjson::GenericValue<rapidjson::UTF8<>>;
-        using Stream = impl::InputStreamWrapper<std::istream>;
+        using Stream = impl::InputStreamWrapper;
 
-        explicit JsonInputArchive(std::istream &s) : stream(s)
+        explicit JsonInputArchive(IInputArchive &archive) : stream(archive)
         {
             document.ParseStream(stream);
             stack.emplace_back(&document);
@@ -118,6 +116,17 @@ namespace sky {
                 return array.Size();
             }
             return 0;
+        }
+
+        template<class Func>
+        void ForEachMember(Func &&func)
+        {
+            const auto &parent = *stack.back();
+            for (auto iter = parent.MemberBegin(); iter != parent.MemberEnd(); ++iter)
+            {
+                const auto &member = *iter;
+                func(member.name.GetString());
+            }
         }
 
         void End()
@@ -180,10 +189,10 @@ namespace sky {
 
     class JsonOutputArchive {
     public:
-        using Stream = impl::OutputStreamWrapper<std::ostream>;
+        using Stream = impl::OutputStreamWrapper;
         using Writter = rapidjson::PrettyWriter<Stream>;
 
-        explicit JsonOutputArchive(std::ostream &s) : stream(s), writer(stream) {}
+        explicit JsonOutputArchive(IOutputArchive &s) : stream(s), writer(stream) {}
         ~JsonOutputArchive() = default;
 
         void StartObject() { writer.StartObject(); }
@@ -191,6 +200,13 @@ namespace sky {
 
         void StartArray()  { writer.StartArray(); }
         void EndArray()    { writer.EndArray(); }
+
+        template <typename T>
+        void SaveEnum(const T &v)
+        {
+            static_assert(std::is_enum_v<T>);
+            SaveValue(static_cast<std::underlying_type_t<T>>(v));
+        }
 
         void SaveValue(bool v)       { writer.Bool(v); }
         void SaveValue(uint32_t v)   { writer.Uint(v); }

@@ -47,6 +47,19 @@ namespace sky {
     void JsonSaveVec4(const Vector4 &val, JsonOutputArchive &ar)    { SaveN<4>(val.v, ar); }
     void JsonSaveQuat(const Quaternion &val, JsonOutputArchive &ar) { SaveN<4>(val.v, ar); }
 
+    void JsonSaveUuid(const Uuid &uuid, JsonOutputArchive &ar) { ar.SaveValue(uuid.ToString()); }
+    void JsonLoadUuid(Uuid &uuid, JsonInputArchive &ar) { uuid = Uuid::CreateFromString(ar.LoadString()); }
+
+    void BinarySaveUuid(const Uuid &uuid, BinaryOutputArchive &ar)
+    {
+        ar.SaveValue(uuid.word[0]);
+        ar.SaveValue(uuid.word[1]);
+    }
+    void BinaryLoadUuid(Uuid &uuid, BinaryInputArchive &ar)
+    {
+        ar.LoadValue(uuid.word[0]);
+        ar.LoadValue(uuid.word[1]);
+    }
 
     void CoreReflection(SerializationContext *context)
     {
@@ -89,5 +102,12 @@ namespace sky {
             .Member<&Color::g>("g")
             .Member<&Color::b>("b")
             .Member<&Color::b>("a");
+
+        context->Register<Uuid>("Uuid")
+            .Member<&Uuid::FromString, &Uuid::ToString>("id")
+            .JsonSave<&JsonSaveUuid>()
+            .JsonLoad<&JsonLoadUuid>()
+            .BinLoad<&BinaryLoadUuid>()
+            .BinSave<&BinarySaveUuid>();
     }
 } // namespace sky

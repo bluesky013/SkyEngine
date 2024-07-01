@@ -71,6 +71,7 @@ namespace sky {
         }
 
         std::string ToString() const;
+        void FromString(const std::string & string);
 
         explicit operator bool() const
         {

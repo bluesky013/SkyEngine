@@ -6,14 +6,20 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <core/archive/Concept.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky {
+    class IInputArchive;
+    class IOutputArchive;
+    using IArchivePtr = CounterPtr<IInputArchive>;
+    using OArchivePtr = CounterPtr<IOutputArchive>;
 
-    class IInputArchive {
+    class IInputArchive : public RefObject {
     public:
         IInputArchive() = default;
-        virtual ~IInputArchive() = default;
+        ~IInputArchive() override = default;
 
         virtual bool LoadRaw(char *data, size_t size) = 0;
 
@@ -40,13 +46,16 @@ namespace sky {
             Load(v);
             return *this;
         }
-    };
-    using IArchivePtr = std::shared_ptr<IInputArchive>;
 
-    class IOutputArchive {
+        virtual int Peek() const { return std::char_traits<char>::eof(); }
+        virtual int Get() { return std::char_traits<char>::eof(); }
+        virtual size_t Tell() const { return 0; }
+    };
+
+    class IOutputArchive : public RefObject {
     public:
         IOutputArchive() = default;
-        virtual ~IOutputArchive() = default;
+        ~IOutputArchive() override = default;
 
         virtual bool SaveRaw(const char *data, size_t size) = 0;
 
@@ -72,7 +81,9 @@ namespace sky {
             Save(v);
             return *this;
         }
+
+        virtual void Put(char ch) {}
+        virtual void Flush() {}
     };
-    using OArchivePtr = std::shared_ptr<IOutputArchive>;
 
 } // namespace sky

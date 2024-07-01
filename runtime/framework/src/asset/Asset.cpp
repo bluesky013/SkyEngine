@@ -6,9 +6,16 @@
 
 namespace sky {
 
-    void AssetBase::SetUuid(const Uuid &id)
+    void AssetBase::AddDependencies(const Uuid &id)
     {
-        uuid = id;
+        dependencies.emplace_back(id);
+    }
+
+    void AssetBase::BlockUntilLoaded() const
+    {
+        if (asyncTask.second.valid()) {
+            asyncTask.second.wait();
+        }
     }
 
 } // namespace sky

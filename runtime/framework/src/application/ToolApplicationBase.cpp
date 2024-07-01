@@ -41,7 +41,7 @@ namespace sky {
             }
         }
 
-        AssetManager::Get()->SetProjectPath(projectPath);
+        AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(projectPath));
     }
 
     void ToolApplicationBase::LoadConfigs()

@@ -6,6 +6,7 @@
 
 #include <string_view>
 #include <framework/asset/AssetBuilder.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky::builder {
 
@@ -14,12 +15,11 @@ namespace sky::builder {
         TechniqueBuilder() = default;
         ~TechniqueBuilder() override = default;
 
-        static constexpr std::string_view KEY = "GFX_TECH";
-
-        void Request(const BuildRequest &build, BuildResult &result) override;
-        const std::vector<std::string> &GetExtensions() const override { return extensions; }
-
     private:
+        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
+        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+        std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Technique>::ASSET_TYPE; }
+
         std::vector<std::string> extensions = {".tech"};
     };
 

@@ -55,6 +55,9 @@ namespace sky {
         return {false, ""};
     }
 
+    ShaderCompiler::ShaderCompiler() = default;
+    ShaderCompiler::~ShaderCompiler() = default;
+
     std::pair<bool, std::string> ShaderCompiler::ProcessHeaderFile(const std::string &source, ShaderIncludeContext &context, uint32_t depth)
     {
         using LineTokenizer = boost::tokenizer<boost::char_separator<char>>;
@@ -120,14 +123,6 @@ namespace sky {
     std::string ShaderCompiler::LoadShader(const std::string &path)
     {
         return ProcessShaderSource(path).second;
-    }
-
-    ShaderCompiler::ShaderCompiler()
-    {
-    }
-
-    ShaderCompiler::~ShaderCompiler()
-    {
     }
 
     void ShaderPreprocessor::SetValue(const std::string &key, const MacroValue &val)

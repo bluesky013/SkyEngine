@@ -6,14 +6,12 @@
 #include <builder/render/ImageCompressor.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
-#include <render/adaptor/assets/ImageAsset.h>
 #include <rhi/Decode.h>
 #include <core/file/FileIO.h>
 #include <core/hash/Hash.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include <filesystem>
 
 namespace sky::builder {
 
@@ -32,29 +30,15 @@ namespace sky::builder {
         InitializeCompressor();
     }
 
-    void ImageBuilder::LoadConfig(const FileSystemPtr &fs, const std::string &path)
-    {
-        std::string json;
-        if (!fs->ReadString(path, json)) {
-            return;
-        }
-
-        rapidjson::Document document;
-        document.Parse(json.c_str());
-
-        
-
-    }
-
-    void ImageBuilder::RequestDDS(const BuildRequest &request, BuildResult &result)
+    void ImageBuilder::RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         std::vector<uint8_t> data;
-        ReadBin(request.fullPath, data);
+        request.file->ReadBin(data);
 
         rhi::Image::Descriptor imageDesc = {};
         uint32_t offset = rhi::ProcessDDSHeader(data.data(), data.size(), imageDesc);
 
-        auto asset = AssetManager::Get()->CreateAsset<Texture>(request.uuid);
+        auto asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
         auto &imageData = asset->Data();
 
         imageData.format = imageDesc.format;
@@ -65,45 +49,44 @@ namespace sky::builder {
         imageData.mipLevels = imageDesc.mipLevels;
         imageData.type = imageData.arrayLayers == 6 ? TextureType::TEXTURE_CUBE : TextureType::TEXTURE_2D;
         imageData.dataSize = static_cast<uint32_t>(data.size() - offset);
-        imageData.bufferID = CreateBufferID(request.uuid);
+        imageData.bufferID = CreateBufferID(request.assetInfo->uuid);
 
-        auto buffer = AssetManager::Get()->CreateAsset<Buffer>(imageData.bufferID);
+        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
         auto &bufferData = buffer->Data();
         bufferData.rawData.resize(imageData.dataSize);
-
         memcpy(bufferData.rawData.data(), data.data() + offset, imageData.dataSize);
 
-        result.products.emplace_back(BuildProduct{KEY.data(), asset});
-        result.products.emplace_back(BuildProduct{"GFX_BUFFER", buffer});
-        result.success = true;
+        // resolve dependency
+        asset->AddDependencies(imageData.bufferID);
+
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
-    void ImageBuilder::RequestSTB(const BuildRequest &request, BuildResult &result)
+    void ImageBuilder::RequestSTB(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         int x;
         int y;
         int n;
         int request_comp = compress ? 0 : 4;
 
+        std::vector<uint8_t> rawData;
+        request.file->ReadBin(rawData);
+
         unsigned char *data = nullptr;
-        if (request.rawData != nullptr) {
-            data = stbi_load_from_memory(static_cast<const stbi_uc*>(request.rawData), request.dataSize, &x, &y, &n, request_comp);
-        } else {
-            data = stbi_load(request.fullPath.c_str(), &x, &y, &n, request_comp);
-        }
+        data = stbi_load_from_memory(static_cast<const stbi_uc*>(rawData.data()), static_cast<int>(rawData.size()), &x, &y, &n, request_comp);
         if (data == nullptr) {
             return;
         }
         auto *am = AssetManager::Get();
 
-        auto asset = am->CreateAsset<Texture>(request.uuid);
+        auto asset = am->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
         auto &imageData = asset->Data();
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
         imageData.type = TextureType::TEXTURE_2D;
-        imageData.bufferID = CreateBufferID(request.uuid);
+        imageData.bufferID = CreateBufferID(request.assetInfo->uuid);
 
-        auto buffer = AssetManager::Get()->CreateAsset<Buffer>(imageData.bufferID);
+        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
         auto &bufferData = buffer->Data();
 
         BufferImageInfo info = {};
@@ -128,19 +111,19 @@ namespace sky::builder {
             memcpy(bufferData.rawData.data(), data, imageData.dataSize);
         }
 
-        result.products.emplace_back(BuildProduct{KEY.data(), asset});
-        result.products.emplace_back(BuildProduct{"GFX_BUFFER", buffer});
-        result.success = true;
-
         stbi_image_free(data);
     }
 
-    void ImageBuilder::Request(const BuildRequest &request, BuildResult &result)
+    void ImageBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        if (request.ext == ".dds") {
+        if (request.assetInfo->ext == ".dds") {
             RequestDDS(request, result);
         } else {
             RequestSTB(request, result);
         }
+    }
+
+    void ImageBuilder::LoadConfig(const FileSystemPtr &cfg)
+    {
     }
 }

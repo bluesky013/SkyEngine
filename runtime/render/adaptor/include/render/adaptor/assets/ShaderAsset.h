@@ -25,7 +25,7 @@ namespace sky {
     template <>
     struct AssetTraits<ShaderCollection> {
         using DataType                                = ShaderAssetData;
-        static constexpr Uuid          ASSET_TYPE     = Uuid::CreateFromString("E71838F5-40F3-470A-883C-401D8796B5FD");
+        static constexpr std::string_view ASSET_TYPE  = "ShaderCollection";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
 
         static std::shared_ptr<ShaderCollection> CreateFromData(const DataType &data)

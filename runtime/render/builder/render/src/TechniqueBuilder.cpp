@@ -9,8 +9,8 @@
 
 #include <core/file/FileIO.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetDataBase.h>
 
-#include <render/adaptor/assets/TechniqueAsset.h>
 
 namespace sky::builder {
 
@@ -169,7 +169,7 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessGraphics(rapidjson::Document &document, TechniqueAssetData &data, const BuildRequest &request)
+    static void ProcessGraphics(rapidjson::Document &document, TechniqueAssetData &data, const AssetBuildRequest &request)
     {
         ProcessShader(document, data.shader, data.type);
         ProcessDepthStencil(document, data.depthStencil);
@@ -178,17 +178,13 @@ namespace sky::builder {
         GetPassInfo(document, data);
         GetVertexDescInfo(document, data);
 
-        AssetManager::Get()->ImportAndBuildAsset(data.shader.path);
+        AssetDataBase::Get()->ImportAsset(data.shader.path);
     }
 
-    void TechniqueBuilder::Request(const BuildRequest &request, BuildResult &result)
+    void TechniqueBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        if (!request.buildKey.empty() && request.buildKey != std::string(KEY)) {
-            return;
-        }
-
         std::string json;
-        ReadString(request.fullPath, json);
+        request.file->ReadString(json);
 
         rapidjson::Document document;
         document.Parse(json.c_str());
@@ -198,15 +194,13 @@ namespace sky::builder {
         }
 
         auto *am = AssetManager::Get();
-        std::filesystem::path fullPath(request.fullPath);
         std::string type = document["type"].GetString();
         if (type == "graphics") {
-            auto asset = am->CreateAsset<Technique>(request.uuid);
+            auto asset = am->FindOrCreateAsset<Technique>(request.assetInfo->uuid);
             TechniqueAssetData &assetData = asset->Data();
             ProcessGraphics(document, assetData, request);
-            result.products.emplace_back(BuildProduct{"GFX_TECH", asset});
         }
-        result.success = true;
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
 }

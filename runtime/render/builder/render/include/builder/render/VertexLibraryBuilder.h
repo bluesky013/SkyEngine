@@ -5,19 +5,18 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
+#include <render/adaptor/assets/VertexDescLibraryAsset.h>
 #include <string_view>
 
 namespace sky::builder {
     class VertexLibraryBuilder : public AssetBuilder {
     public:
         VertexLibraryBuilder() = default;
-        ~VertexLibraryBuilder() = default;
+        ~VertexLibraryBuilder() override = default;
 
-        static constexpr std::string_view KEY = "GFX_VLIB";
-
-        void Request(const BuildRequest &request, BuildResult &result) override;
+        void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
-
+        std::string_view QueryType(const std::string &ext) const override { return AssetTraits<VertexDescLibrary>::ASSET_TYPE; }
     private:
         std::vector<std::string> extensions = {".vtxlib"};
     };

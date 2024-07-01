@@ -98,11 +98,11 @@ namespace sky {
             }
 
             auto *am = AssetManager::Get();
-            postTech = am->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
-            brdfLutTech = am->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
-
-            irradiance = am->LoadAsset<Texture>("skybox/output_iem.dds")->CreateInstanceAs<TextureCube>();
-            radiance = am->LoadAsset<Texture>("skybox/output_pmrem.dds")->CreateInstanceAs<TextureCube>();
+//            postTech = am->LoadAsset<Technique>("techniques/post_processing.tech")->CreateInstanceAs<GraphicsTechnique>();
+//            brdfLutTech = am->LoadAsset<Technique>("techniques/brdf_lut.tech")->CreateInstanceAs<GraphicsTechnique>();
+//
+//            irradiance = am->LoadAsset<Texture>("skybox/output_iem.dds")->CreateInstanceAs<TextureCube>();
+//            radiance = am->LoadAsset<Texture>("skybox/output_pmrem.dds")->CreateInstanceAs<TextureCube>();
 
 //            auto skyboxTex = LoadCubeMap("/assets/skybox/output_skybox.dds");
 //            auto skyboxMat = AssetManager::Get()->LoadAsset<Material>("materials/skybox.mat")->CreateInstance();
@@ -302,16 +302,16 @@ namespace sky {
     void SampleMesh::CreateFromPrefab()
     {
 //        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/DamagedHelmet.glb");
-        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/Sponza/glTF/Sponza.gltf");
-        for (auto &node : prefab->Data().nodes) {
-            auto actor = world->CreateActor();
-            actor->GetComponent<TransformComponent>()->SetLocalTransform(node.localTransform);
-
-            if (static_cast<bool>(node.mesh)) {
-                auto *mesh = actor->AddComponent<MeshRenderer>();
-                mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>(node.mesh));
-            }
-        }
+//        auto prefab = AssetManager::Get()->LoadAsset<RenderPrefab>("models/Sponza/glTF/Sponza.gltf");
+//        for (auto &node : prefab->Data().nodes) {
+//            auto actor = world->CreateActor();
+//            actor->GetComponent<TransformComponent>()->SetLocalTransform(node.localTransform);
+//
+//            if (static_cast<bool>(node.mesh)) {
+//                auto *mesh = actor->AddComponent<MeshRenderer>();
+//                mesh->SetMesh(AssetManager::Get()->LoadAsset<Mesh>(node.mesh));
+//            }
+//        }
     }
 
     bool SampleMesh::Start(sky::RenderWindow *window)
