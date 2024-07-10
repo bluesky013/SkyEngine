@@ -14,31 +14,34 @@ class QPushButton;
 
 namespace sky {
     class World;
-    class GameObject;
-    class Component;
+    class Actor;
 }
 
 namespace sky::editor {
 
     class InspectorWidget : public QDockWidget {
+        Q_OBJECT
     public:
         explicit InspectorWidget(QWidget* parent);
         ~InspectorWidget() override = default;
 
-        void SetWorldItem(WorldItem* item);
-
-        void AddComponent(Component* comp);
+        void AddComponent(ComponentBase* comp);
 
         void Clear();
 
+    public Q_SLOTS:
+        void OnSelectedItemChanged(ActorPtr actor);
+
     private:
         void Refresh();
+        void OnAddComponentClicked();
 
-        WorldItem* selectedItem;
         QVBoxLayout* layout;
         QWidget* groupWidget;
         QPushButton *button;
         std::vector<InspectorBase*> groups;
+
+        ActorPtr actor = nullptr;
     };
 
 }

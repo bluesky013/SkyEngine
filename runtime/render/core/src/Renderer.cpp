@@ -58,7 +58,7 @@ namespace sky {
 
     void Renderer::Render()
     {
-        if (pipeline == nullptr) {
+        if (pipeline == nullptr || scenes.empty()) {
             return;
         }
         pipeline->FrameSync();

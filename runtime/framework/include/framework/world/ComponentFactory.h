@@ -16,22 +16,29 @@ namespace sky {
         ~ComponentFactory() override = default;
 
         struct ComponentInfo {
-            std::string group;
+            Uuid typeId;
+            std::string_view name;
         };
 
         template <typename T>
         void RegisterComponent(const std::string &group)
         {
             static_assert(std::is_base_of_v<ComponentBase, T>);
-            RegisterComponent(TypeInfo<T>::RegisteredId(), ComponentInfo{group});
+
+            const auto *info = TypeInfoObj<T>::Get()->RtInfo();
+
+            RegisterComponent(info->registeredId, info->name, group);
         }
 
+        const std::unordered_map<std::string, std::vector<ComponentInfo>> &GetTypes() const { return componentTypes; }
+
     private:
-        void RegisterComponent(const Uuid &uuid, const ComponentInfo &info)
+        void RegisterComponent(const Uuid &uuid, const std::string_view &name, const std::string &group)
         {
-            componentTypes.emplace(uuid, info);
+            componentTypes[group].emplace_back(uuid, name);
         }
-        std::unordered_map<Uuid, ComponentInfo> componentTypes;
+
+        std::unordered_map<std::string, std::vector<ComponentInfo>> componentTypes;
     };
 
 } // namespace sky

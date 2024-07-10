@@ -5,10 +5,7 @@
 #pragma once
 
 #include <editor/inspector/InspectorBase.h>
-
-namespace sky {
-    class Component;
-} // namespace sky
+#include <framework/world/Component.h>
 
 namespace sky::editor {
 
@@ -17,10 +14,10 @@ namespace sky::editor {
         explicit ComponentInspector(QWidget* parent) : InspectorBase(parent) {}
         ~ComponentInspector() override = default;
 
-        void SetComponent(Component *comp);
+        void SetComponent(ComponentBase *comp);
 
     private:
-        Component *component = nullptr;
+        ComponentBase *component = nullptr;
     };
 
 } // namespace sky::editor

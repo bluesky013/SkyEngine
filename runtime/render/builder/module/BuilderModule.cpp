@@ -30,10 +30,6 @@ namespace sky::builder {
 
     bool BuilderModule::Init(const StartArguments &args)
     {
-        auto *serializationContext = SerializationContext::Get();
-        ReflectRenderAsset(serializationContext);
-        ReflectRHI(serializationContext);
-
         auto *am = AssetBuilderManager::Get();
         am->RegisterBuilder(new ShaderBuilder());
         am->RegisterBuilder(new TechniqueBuilder());

@@ -4,12 +4,9 @@
 
 #pragma once
 #include <framework/application/Application.h>
+#include <core/file/FileSystem.h>
 #include <QTimer>
 #include <QObject>
-
-namespace sky {
-    class SkyEngine;
-}
 
 namespace sky::editor {
 
@@ -17,12 +14,16 @@ namespace sky::editor {
         Q_OBJECT
     public:
         EditorApplication();
-        ~EditorApplication();
+        ~EditorApplication() override;
 
-        bool Init(StartInfo &) override;
+        bool Init(int argc, char **argv) override;
     private:
+        void LoadConfigs() override;
+
         QTimer *timer = nullptr;
-        SkyEngine *engine = nullptr;
+
+        NativeFileSystemPtr workFs;
+        NativeFileSystemPtr engineFs;
     };
 
 }

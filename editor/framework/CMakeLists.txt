@@ -10,6 +10,7 @@ sky_add_library(TARGET EditorFramework STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Core
+        Framework
+        SkyRenderAdaptor
         ${QtLibs}
 )

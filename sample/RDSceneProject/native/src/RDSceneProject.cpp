@@ -21,7 +21,6 @@ namespace sky {
 
     bool RDSceneProject::Init(const StartArguments &args)
     {
-
         cxxopts::Options options("SkyEngine Launcher", "SkyEngine Launcher");
         options.allow_unrecognised_options();
         options.add_options()("a, app", "app mode", cxxopts::value<std::string>());

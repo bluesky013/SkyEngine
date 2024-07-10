@@ -31,6 +31,8 @@ namespace sky {
         virtual void LoadBin(BinaryInputArchive &archive) {}
 
         virtual const Uuid &GetTypeId() const = 0;
+
+        Actor* GetActor() const { return actor; }
     protected:
         friend class Actor;
         Actor *actor = nullptr;

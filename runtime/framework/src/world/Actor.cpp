@@ -3,6 +3,8 @@
 //
 
 #include <framework/world/Actor.h>
+#include <framework/world/World.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky {
 
@@ -12,10 +14,20 @@ namespace sky {
         return iter != storage.end() ? iter->second.get() : nullptr;
     }
 
-    bool Actor::AddComponent(const Uuid &typeId, ComponentBase* component)
+    bool Actor::EmplaceComponent(const Uuid &typeId, ComponentBase* component)
     {
         auto res = storage.emplace(typeId, component);
         return res.second;
+    }
+
+    ComponentBase *Actor::AddComponent(const Uuid &typeId)
+    {
+        auto *component = static_cast<ComponentBase*>(SerializationContext::Get()->FindTypeById(typeId)->info->newFunc());
+        if (!EmplaceComponent(typeId, component)) {
+            delete component;
+            component = nullptr;
+        }
+        return component;
     }
 
     void Actor::RemoveComponent(const Uuid &typeId)
@@ -28,6 +40,8 @@ namespace sky {
         archive.StartObject();
         archive.Key("uuid");
         archive.SaveValue(uuid.ToString());
+        archive.Key("name");
+        archive.SaveValue(name);
 
         archive.Key("components");
         archive.StartArray();
@@ -49,6 +63,10 @@ namespace sky {
         uuid = Uuid::CreateFromString(archive.LoadString());
         archive.End();
 
+        archive.Start("name");
+        name = archive.LoadString();
+        archive.End();
+
         auto componentCount = archive.StartArray("components");
 
         auto *context = SerializationContext::Get();
@@ -62,12 +80,22 @@ namespace sky {
             archive.Start("data");
             auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
             tmp->LoadJson(archive);
-            AddComponent(typeId, tmp);
+            tmp->actor = this;
+            EmplaceComponent(typeId, tmp);
             archive.End();
 
             archive.NextArrayElement();
         }
         archive.End();
+    }
+
+    void Actor::SetParent(const ActorPtr &parent)
+    {
+        auto* trans = GetComponent<TransformComponent>();
+        auto* parentTrans = parent ? parent->GetComponent<TransformComponent>() : nullptr;
+        if (trans != nullptr) {
+            trans->SetParent(parentTrans);
+        }
     }
 
     void Actor::Tick(float time)
@@ -77,5 +105,4 @@ namespace sky {
             component->Tick(time);
         }
     }
-
 } // namespace sky

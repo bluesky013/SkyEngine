@@ -50,6 +50,8 @@ namespace sky {
         virtual int Peek() const { return std::char_traits<char>::eof(); }
         virtual int Get() { return std::char_traits<char>::eof(); }
         virtual size_t Tell() const { return 0; }
+
+        virtual bool IsOpen() const { return true; }
     };
 
     class IOutputArchive : public RefObject {
@@ -84,6 +86,8 @@ namespace sky {
 
         virtual void Put(char ch) {}
         virtual void Flush() {}
+
+        virtual bool IsOpen() const { return true; }
     };
 
 } // namespace sky

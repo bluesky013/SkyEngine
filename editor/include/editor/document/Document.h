@@ -7,7 +7,8 @@
 #include <vector>
 #include <QString>
 #include <editor/document/Constants.h>
-#include <editor/document/Level.h>
+#include <core/file/FileSystem.h>
+#include <framework/world/World.h>
 
 namespace sky::editor {
 
@@ -17,32 +18,27 @@ namespace sky::editor {
 
     class Document {
     public:
-        Document(const QString &path);
+        explicit Document();
         ~Document();
 
         static void Reflect();
 
-        void Init();
-        void Read();
-        void Save();
+        WorldPtr OpenWorld(const QString &path);
+        void CloseWorld();
 
-        void OpenLevel(const QString &path, bool newLevel);
-        void CloseLevel();
+        void LoadWorld();
+        void SaveWorld();
 
         void SetFlag(DocumentFlagBit bit);
         void ResetFlag(DocumentFlagBit bit);
         const DocFlagArray &GetFlag() const;
 
-        const WorldPtr &GetMainWorld() const;
-
     private:
         DocFlagArray flags;
-        QString projectFullPath;
-        QString projectHome;
-
         ProjectData projectData;
 
-        std::unique_ptr<Level> currentLevel;
+        QString filePath;
+        WorldPtr world;
     };
 
 } // namespace sky::editor

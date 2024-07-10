@@ -4,16 +4,22 @@
 
 #pragma once
 
+#include <core/platform/Platform.h>
+
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/Component.h>
-#include <core/platform/Platform.h>
+
 #include <list>
 #include <unordered_map>
 #include <memory>
 
 namespace sky {
 
+    class Actor;
     class World;
+
+    using ActorPtr = std::shared_ptr<Actor>;
+    using ActorWeakPtr = std::weak_ptr<Actor>;
 
     class Actor {
     public:
@@ -31,7 +37,7 @@ namespace sky {
             SKY_ASSERT(static_cast<bool>(id));
 
             auto *component = new T(std::forward<Args>(args)...);
-            if (!AddComponent(id, component)) {
+            if (!EmplaceComponent(id, component)) {
                 delete component;
                 component = nullptr;
             }
@@ -61,11 +67,13 @@ namespace sky {
         }
 
         ComponentBase *GetComponent(const Uuid &typeId);
-        bool AddComponent(const Uuid &typeId, ComponentBase* component);
+        ComponentBase *AddComponent(const Uuid &typeId);
         void RemoveComponent(const Uuid &typeId);
 
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
+
+        void SetParent(const ActorPtr &actor);
 
         void Tick(float time);
 
@@ -78,7 +86,7 @@ namespace sky {
 
     private:
         friend class World;
-
+        bool EmplaceComponent(const Uuid &typeId, ComponentBase* component);
 
         std::unordered_map<Uuid, ComponentPtr> storage;
 

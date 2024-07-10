@@ -8,6 +8,7 @@
 #include <core/math/Rect.h>
 #include <core/std/Container.h>
 #include <core/event/Event.h>
+#include <core/template/ReferenceObject.h>
 #include <framework/world/Entity.h>
 #include <framework/world/Actor.h>
 #include <framework/serialization/JsonArchive.h>
@@ -21,6 +22,7 @@
 namespace sky {
 
     class World;
+    using WorldPtr = CounterPtr<World>;
 
     class IWorldEvent {
     public:
@@ -30,18 +32,10 @@ namespace sky {
         using KeyType   = void;
         using MutexType = void;
 
-        virtual void OnCreateWorld(World& world) = 0;
-        virtual void OnDestroyWorld(World& world) = 0;
+        virtual void OnCreateWorld(const WorldPtr& world) = 0;
+        virtual void OnDestroyWorld(const WorldPtr& world) = 0;
     };
     using WorldEvent = Event<IWorldEvent>;
-
-    class WorldSubSystem {
-    public:
-        WorldSubSystem() = default;
-        virtual ~WorldSubSystem() = default;
-
-        virtual void OnTick(float time) = 0;
-    };
 
     class IWorldSubSystem {
     public:
@@ -49,16 +43,14 @@ namespace sky {
         virtual ~IWorldSubSystem() = default;
     };
 
-    class World {
+    class World : public RefObject {
     public:
-        ~World();
+        ~World() override;
 
         static World *CreateWorld();
 
         World(const World &) = delete;
         World &operator=(const World &) = delete;
-
-        using ActorPtr = std::unique_ptr<Actor>;
 
         static void Reflect(SerializationContext *context);
 
@@ -68,16 +60,15 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
 
-        void SaveBinary(BinaryOutputArchive &archive);
-        void LoadBinary(BinaryInputArchive &archive);
-
-        Actor* CreateActor();
-        Actor* CreateActor(const std::string &name);
-        Actor* CreateActor(const Uuid &id);
-        Actor* GetActorByUuid(const Uuid &id);
+        ActorPtr CreateActor(bool withTrans = true);
+        ActorPtr CreateActor(const char *name, bool withTrans = true);
+        ActorPtr CreateActor(const std::string &name, bool withTrans = true);
+        ActorPtr CreateActor(const Uuid &id, bool withTrans = true);
+        ActorPtr GetActorByUuid(const Uuid &id);
         const std::vector<ActorPtr> &GetActors() const { return actors; }
 
-        void DestroyActor(Actor *);
+        void AttachToWorld(const ActorPtr &);
+        void DetachFromWorld(const ActorPtr &);
         void Reset();
 
         void AddSubSystem(const std::string &name, IWorldSubSystem*);
@@ -91,7 +82,4 @@ namespace sky {
 
         uint32_t version = 0;
     };
-
-    using WorldPtr = std::shared_ptr<World>;
-
 } // namespace sky

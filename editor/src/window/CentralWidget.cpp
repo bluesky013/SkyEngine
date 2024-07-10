@@ -7,35 +7,16 @@
 
 namespace sky::editor {
 
-    CentralWidget::CentralWidget(QWidget *parent) : QWidget(parent), viewport(new ViewportWidget(this))
+    CentralWidget::CentralWidget(QWidget *parent) : QWidget(parent)
     {
+        layout = new QVBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
     }
 
-    CentralWidget::~CentralWidget()
-    {
-    }
+    CentralWidget::~CentralWidget() = default;
 
     void CentralWidget::Init()
     {
-        viewport->Init();
-        auto layout = new QVBoxLayout(this);
-        layout->setContentsMargins(0, 0, 0, 0);
-        layout->addWidget(viewport);
-    }
-
-    ViewportWidget *CentralWidget::GetViewport() const
-    {
-        return viewport;
-    }
-
-    bool CentralWidget::event(QEvent *event)
-    {
-        auto rect = geometry();
-        switch (event->type()) {
-        case QEvent::Resize: break;
-        default: break;
-        }
-        return QWidget::event(event);
     }
 
 } // namespace sky::editor

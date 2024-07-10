@@ -4,35 +4,25 @@
 
 #pragma once
 #include <QDockWidget>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
 #include <QTimer>
 #include <framework/world/World.h>
+#include <editor/framework/WorldTreeView.h>
 
 namespace sky::editor {
-
-    class WorldItem : public QTreeWidgetItem {
-    public:
-        explicit WorldItem(QTreeWidget *treeview, int type = Type) : QTreeWidgetItem(treeview, type) {}
-        explicit WorldItem(QTreeWidgetItem *parent, int type = Type) : QTreeWidgetItem(parent, type) {}
-
-        GameObject* go = nullptr;
-    };
 
     class WorldWidget : public QDockWidget {
     public:
         explicit WorldWidget(QWidget* parent = nullptr);
-        ~WorldWidget() = default;
+        ~WorldWidget() override = default;
 
         void SetWorld(const WorldPtr& world);
 
-    private:
-        void Refresh();
+        WorldTreeView *GetWorldTreeView() const { return treeView; }
 
-        WorldPtr world;
-        QTimer* refreshTimer;
-        QTreeWidget* worldTree;
-        WorldItem* rootItem;
+    private:
+        QTimer* refreshTimer = nullptr;
+
+        WorldTreeView *treeView = nullptr;
     };
 
 }

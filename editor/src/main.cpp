@@ -6,19 +6,23 @@
 #include "window/MainWindow.h"
 #include <QApplication>
 #include <editor/application/EditorApplication.h>
+#include <framework/platform/PlatformBase.h>
 
 using namespace sky::editor;
 
 int main(int argc, char *argv[])
 {
+    sky::Platform* platform = sky::Platform::Get();
+    if (!platform->Init({})) {
+        return -1;
+    }
+
     QApplication a(argc, argv);
 
     EditorApplication editorApp;
-    sky::StartInfo    startInfo = {};
-    startInfo.appName           = "SkyEditor";
-    startInfo.modules.emplace_back("BuiltinBuilder");
-    startInfo.modules.emplace_back("SkyRender");
-    editorApp.Init(startInfo);
+    if (!editorApp.Init(argc, argv)) {
+        return 0;
+    }
 
     sky::editor::MainWindow mainWindow;
     mainWindow.show();

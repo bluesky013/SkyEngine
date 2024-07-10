@@ -9,12 +9,13 @@
 
 #include <atomic>
 #include <deque>
+#include <memory>
 
 namespace sky {
 
     World::~World()
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, *this);
+        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, this);
         actors.clear();
     }
 
@@ -36,7 +37,8 @@ namespace sky {
 
     bool World::Init()
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
+        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, this);
+
         return true;
     }
 
@@ -67,55 +69,79 @@ namespace sky {
     {
         auto num = archive.StartArray("actors");
         for (uint32_t i = 0; i < num; ++i) {
-            auto *actor = CreateActor();
+            auto actor = std::make_shared<Actor>();
             actor->LoadJson(archive);
+            AttachToWorld(actor);
             archive.NextArrayElement();
         }
         archive.End();
+
+        // resolve hierarchy
+        for (auto &actor : actors) {
+            auto *trans = actor->GetComponent<TransformComponent>();
+            if (trans != nullptr) {
+                auto parentActor = GetActorByUuid(trans->GetData().parent);
+
+                if (parentActor != nullptr) {
+                    auto *parentTrans = parentActor->GetComponent<TransformComponent>();
+                    SKY_ASSERT(parentTrans);
+                    trans->SetParent(parentTrans);
+                }
+            }
+        }
     }
 
-    void World::SaveBinary(BinaryOutputArchive &archive)
+    ActorPtr World::CreateActor(const char *name, bool withTrans)
     {
-        
-    }
-
-    void World::LoadBinary(BinaryInputArchive &archive)
-    {
-
-    }
-
-    Actor* World::CreateActor(const std::string &name)
-    {
-        auto *actor = CreateActor(Uuid{});
-        actor->AddComponent<TransformComponent>();
+        auto actor = CreateActor(Uuid::Create(), withTrans);
         actor->SetName(name);
         return actor;
     }
 
-    Actor* World::CreateActor()
+    ActorPtr World::CreateActor(const std::string &name, bool withTrans)
     {
-        return CreateActor("Actor");
+        auto actor = CreateActor(Uuid::Create(), withTrans);
+        actor->SetName(name);
+        return actor;
     }
 
-    Actor* World::CreateActor(const Uuid &id)
+    ActorPtr World::CreateActor(bool withTrans)
     {
-        actors.emplace_back(new Actor(id));
+        return CreateActor("Actor", withTrans);
+    }
+
+    ActorPtr World::CreateActor(const Uuid &id, bool withTrans)
+    {
+        actors.emplace_back(std::make_shared<Actor>(id));
         actors.back()->world = this;
-        return actors.back().get();
+        if (withTrans) {
+            actors.back()->AddComponent<TransformComponent>();
+        }
+        return actors.back();
     }
 
-    Actor* World::GetActorByUuid(const Uuid &id)
+    ActorPtr World::GetActorByUuid(const Uuid &id)
     {
         auto iter = std::find_if(actors.begin(), actors.end(), [&id](const auto &v) {
             return id == v->GetUuid();
         });
-        return iter != actors.end() ? iter->get() : nullptr;
+        return iter != actors.end() ? *iter : ActorPtr{};
     }
 
-    void World::DestroyActor(Actor *actor)
+    void World::AttachToWorld(const sky::ActorPtr &actor)
     {
+        if (actor->world != nullptr && actor->world != this) {
+            actor->world->DetachFromWorld(actor);
+        }
+        actors.emplace_back(actor);
+        actor->world = this;
+    }
+
+    void World::DetachFromWorld(const ActorPtr &actor)
+    {
+        actor->world = nullptr;
         auto iter = std::find_if(actors.begin(), actors.end(),
-            [actor](const auto &v) { return actor == v.get(); });
+            [&actor](const auto &v) { return actor == v; });
 
         if (iter != actors.end()) {
             actors.erase(iter);

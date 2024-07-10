@@ -8,12 +8,11 @@
 
 namespace sky::editor {
 
-    void ComponentInspector::SetComponent(Component *comp)
+    void ComponentInspector::SetComponent(ComponentBase *comp)
     {
         component = comp;
 
-        const TypeInfoRT *info = comp->GetTypeInfo();
-        const auto *node = GetTypeNode(info);
+        const auto *node = GetTypeNode(comp->GetTypeId());
         if (node == nullptr) {
             return;
         }

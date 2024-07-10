@@ -26,7 +26,7 @@ namespace sky::editor {
         friend class Singleton<DockManager>;
 
         DockManager() = default;
-        ~DockManager() = default;
+        ~DockManager() override = default;
 
         std::unordered_map<uint32_t, QDockWidget*> docks;
     };

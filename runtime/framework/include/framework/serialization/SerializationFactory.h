@@ -127,7 +127,7 @@ namespace sky {
     Any Getter(void *p) noexcept
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
-            return Any(std::invoke(D, *(static_cast<T*>(p))));
+            return Any(std::invoke(D, static_cast<T*>(p)));
         }
         return Any{};
     }
@@ -137,7 +137,7 @@ namespace sky {
     {
         if constexpr (std::is_member_object_pointer_v<decltype(D)> || std::is_member_function_pointer_v<decltype(D)>) {
             if constexpr (std::is_invocable_v<decltype(D), const T*>) {
-                return Any(std::invoke(D, *(static_cast<const T*>(p))));
+                return Any(std::invoke(D, static_cast<const T*>(p)));
             }
         }
         return Any{};

@@ -38,15 +38,15 @@ namespace sky {
 
     static void RegisterComponents()
     {
-        static std::string GROUP = "Render";
-        ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<MeshRenderer>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
-
         auto *context = SerializationContext::Get();
         LightComponent::Reflect(context);
         MeshRenderer::Reflect(context);
         CameraComponent::Reflect(context);
+
+        static std::string GROUP = "Render";
+        ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<MeshRenderer>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
     }
 
     class RenderModule : public IModule {

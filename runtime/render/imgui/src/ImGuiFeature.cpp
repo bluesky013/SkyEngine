@@ -18,7 +18,9 @@ namespace sky {
 
     void ImGuiFeature::Tick(float delta)
     {
-        guiInstance->Tick(delta);
+        if (guiInstance) {
+            guiInstance->Tick(delta);
+        }
     }
 
     void ImGuiFeature::Init(const RDGfxTechPtr &tech)

@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2023/1/15.
 //
 
-#include "LevelDialog.h"
+#include "WorldDialog.h"
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QLabel>
@@ -11,29 +11,28 @@
 
 namespace sky::editor {
 
-    LevelDialog::LevelDialog()
+    WorldDialog::WorldDialog()
     {
-        setWindowTitle(tr("New Level"));
-        setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Expanding);
+        setWindowTitle(tr("New World"));
 
-        auto layout = new QVBoxLayout(this);
-        auto levelText = new QLineEdit(this);
+        auto *layout = new QVBoxLayout(this);
+        auto *levelText = new QLineEdit(this);
         connect(levelText, &QLineEdit::textEdited, this, [this](const QString name) {
-            levelName = name + ".level";
+            levelName = name + ".world";
         });
 
-        auto btn = new QPushButton(tr("New"), this);
+        auto *btn = new QPushButton(tr("New"), this);
         connect(btn, &QPushButton::clicked, this, [this]() {
             accept();
         });
 
-        layout->addWidget(new QLabel(tr("Level:"), this));
+        layout->addWidget(new QLabel(tr("World:"), this));
         layout->addWidget(levelText);
         layout->addWidget(btn);
         setLayout(layout);
     }
 
-    const QString &LevelDialog::LevelName() const
+    const QString &WorldDialog::LevelName() const
     {
         return levelName;
     }

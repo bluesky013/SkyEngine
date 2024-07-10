@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/math/Transform.h>
+#include <core/event/Event.h>
 #include <framework/world/Component.h>
 
 namespace sky {
@@ -12,15 +13,7 @@ namespace sky {
     struct TransformData {
         Transform local;
         Transform global;
-    };
-
-    class ITransform {
-    public:
-        ITransform() = default;
-        ~ITransform() = default;
-
-    private:
-
+        Uuid parent;
     };
 
     class TransformComponent : public ComponentAdaptor<TransformData> {
@@ -31,6 +24,10 @@ namespace sky {
         static void Reflect(SerializationContext *context);
 
         COMPONENT_RUNTIME_INFO(TransformComponent)
+
+        void SetParent(TransformComponent *parent);
+        TransformComponent *GetParent() const { return parent; }
+        void OnTransformChanged();
 
         Matrix4 GetWorldMatrix() const;
 
@@ -47,9 +44,16 @@ namespace sky {
         const Transform& GetLocalTransform() const { return data.local; }
 
         Vector3 GetLocalRotationEuler() const;
-        const Quaternion &GetLocalRotation() const { return data.local.rotation; }
-        const Vector3 &GetLocalTranslation() const { return data.local.translation; }
-        const Vector3 &GetLocalScale() const { return data.local.scale; }
+        const Quaternion &GetLocalRotation() const;
+        const Vector3 &GetLocalTranslation() const;
+        const Vector3 &GetLocalScale() const;
+
+    private:
+        void UpdateLocal();
+        void UpdateGlobal();
+
+        TransformComponent* parent = nullptr;
+        std::vector<TransformComponent*> children;
     };
 
 } // namespace sky

@@ -25,14 +25,14 @@ namespace sky {
             uint32_t height = 768;
             std::string className;
             std::string titleName;
-            void *nativeHandle = nullptr;
+            void *handle = nullptr;
         };
 
         static NativeWindow *Create(const Descriptor &);
 
         void *GetNativeHandle() const override;
 
-        virtual bool Init(const Descriptor &desc) = 0;
+        virtual bool Init(const Descriptor &desc) { return true; }
 
         uint32_t GetWidth() const { return descriptor.width; }
         uint32_t GetHeight() const { return descriptor.height; }

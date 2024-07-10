@@ -44,7 +44,7 @@ namespace sky {
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
         meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
-        ResetMesh();
+//        ResetMesh();
     }
 
     void MeshRenderer::SetMeshUuid(const Uuid &uuid)

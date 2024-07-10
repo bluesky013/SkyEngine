@@ -15,19 +15,6 @@
       "dependencies": [
         "SkyRender"
       ]
-    },
-    {
-      "name": "EditorModule",
-      "dependencies": [
-        "SkyRender",
-        "RenderBuilder"
-      ]
-    },
-    {
-      "name": "RDSceneProject",
-      "dependencies": [
-        "SkyRender"
-      ]
     }
   ],
   "game": {

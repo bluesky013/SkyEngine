@@ -62,7 +62,7 @@ TEST_F(ComponentTest, ActorTest)
     auto &world = *pWorld;
 
     auto id = Uuid::CreateWithSeed(0);
-    Actor *actor = world.CreateActor(id);
+    ActorPtr actor = world.CreateActor(id);
 
     {
         auto* comp = actor->AddComponent<TestComponent>();
@@ -83,7 +83,7 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        auto *comp = actor->AddComponent<TransformComponent>();
+        auto *comp = actor->GetComponent<TransformComponent>();
         comp->SetLocalRotationEuler(VEC3_ZERO);
         comp->SetLocalTranslation(Vector3(1.f, 2.f, 3.f));
         comp->SetLocalScale(Vector3(4.f, 5.f, 6.f));
@@ -104,7 +104,7 @@ TEST_F(ComponentTest, ActorTest)
 
         actor->RemoveComponent(Uuid{});
 
-        world.DestroyActor(actor);
+        world.DetachFromWorld(actor);
     }
 
     {
@@ -114,7 +114,7 @@ TEST_F(ComponentTest, ActorTest)
 
         world.LoadJson(archive);
 
-        auto *tActor = world.GetActorByUuid(id);
+        auto tActor = world.GetActorByUuid(id);
         ASSERT_NE(tActor, nullptr);
 
         auto* comp = tActor->GetComponent<TestComponent>();
@@ -124,10 +124,47 @@ TEST_F(ComponentTest, ActorTest)
     }
 }
 
+//TEST_F(ComponentTest, ActorHierarchy)
+//{
+//    {
+//        std::unique_ptr<World> world(World::CreateWorld());
+//
+//        auto *actor1 = world->CreateActor();
+//        auto *actor2 = world->CreateActor();
+//        auto *actor3 = world->CreateActor();
+//
+//        actor3->SetParent(actor1);
+//        ASSERT_EQ(actor1->GetChildren()[0], actor3);
+//        ASSERT_EQ(actor2->GetChildren().size(), 0);
+//        ASSERT_EQ(actor3->GetParent(), actor1);
+//
+//        actor3->SetParent(actor2);
+//        ASSERT_EQ(actor1->GetChildren().size(), 0);
+//        ASSERT_EQ(actor2->GetChildren()[0], actor3);
+//        ASSERT_EQ(actor3->GetParent(), actor2);
+//    }
+//
+//    {
+//        std::unique_ptr<World> world(World::CreateWorld());
+//
+//        auto *actor1 = world->CreateActor();
+//        auto *actor2 = world->CreateActor();
+//        auto *actor3 = world->CreateActor();
+//
+//        actor2->SetParent(actor1);
+//        actor3->SetParent(actor2);
+//
+//        world->DestroyActor(actor1);
+//        ASSERT_EQ(actor2->GetChildren()[0], actor3);
+//        ASSERT_EQ(actor2->GetParent(), world->GetRoot());
+//        ASSERT_EQ(actor3->GetParent(), actor2);
+//    }
+//
+//}
+
 TEST_F(ComponentTest, TransformComponentTest)
 {
     TransformComponent transformComponent;
-
     SetValue(transformComponent, "scale", Vector3(1, 1, 1));
     SetValue(transformComponent, "rotation", Vector3(0, 0, 0));
     SetValue(transformComponent, "translation", Vector3(1, 2, 3));

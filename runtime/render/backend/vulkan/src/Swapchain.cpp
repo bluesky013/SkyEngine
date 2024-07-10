@@ -214,7 +214,10 @@ namespace sky::vk {
     uint32_t SwapChain::AcquireNextImage(const rhi::SemaphorePtr &semaphore)
     {
         uint32_t next = 0;
-        AcquireNext(std::static_pointer_cast<Semaphore>(semaphore), next);
+        auto result = AcquireNext(std::static_pointer_cast<Semaphore>(semaphore), next);
+        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            printf("acquire failed %d", result);
+        }
         return next;
     }
 

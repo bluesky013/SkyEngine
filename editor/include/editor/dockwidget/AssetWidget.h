@@ -12,10 +12,8 @@ namespace sky::editor {
 
     class AssetWidget : public QDockWidget {
     public:
-        AssetWidget(QWidget *parent);
-        ~AssetWidget() = default;
-
-        void OnProjectChange(const QString &projectPath);
+        explicit AssetWidget(QWidget *parent);
+        ~AssetWidget() override = default;
 
     private:
         QFileSystemModel *fsModel = nullptr;

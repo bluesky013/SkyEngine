@@ -10,8 +10,9 @@
 namespace sky::editor {
 
     enum class DocumentFlagBit : uint32_t {
-        PROJECT_OPEN = 1,
-        LEVEL_OPEN   = 2,
+        NONE        = 0,
+        ProjectOpen = 1,
+        WorldOpen   = 2,
         MAX
     };
 

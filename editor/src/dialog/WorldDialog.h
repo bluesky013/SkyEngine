@@ -9,11 +9,11 @@
 
 namespace sky::editor {
 
-    class LevelDialog : public QDialog {
+    class WorldDialog : public QDialog {
         Q_OBJECT
     public:
-        LevelDialog();
-        ~LevelDialog() = default;
+        WorldDialog();
+        ~WorldDialog() = default;
 
         const QString &LevelName() const;
 

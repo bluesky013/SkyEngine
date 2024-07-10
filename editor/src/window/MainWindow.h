@@ -21,22 +21,17 @@ namespace sky::editor {
     class MainWindow : public QMainWindow {
         Q_OBJECT
     public:
-        MainWindow(QWidget *parent = nullptr);
-        ~MainWindow();
+        explicit MainWindow(QWidget *parent = nullptr);
+        ~MainWindow() override;
 
     private:
         void InitWidgets();
         void InitMenu();
+        void InitDocument();
 
-        void OnTick();
-
-        void OnOpenProject(const QString &path);
-        void OnNewProject(const QString &path, const QString &name);
-        void OnCloseProject();
-
-        void OnOpenLevel(const QString &path);
-        void OnNewLevel(const QString &name);
-        void OnCloseLevel();
+        void OnOpenWorld(const QString &path);
+        void OnNewWorld(const QString &name);
+        void OnCloseWorld();
 
         void UpdateActions();
 
@@ -46,6 +41,10 @@ namespace sky::editor {
         WorldWidget     *worldWidget  = nullptr;
         InspectorWidget *inspector    = nullptr;
         AssetWidget     *assetBrowser = nullptr;
+        ViewportWidget  *mainViewport = nullptr;
+        QWidget         *emptyCentral = nullptr;
+
+        QString projectPath;
 
         std::vector<ViewportWidget *> viewports;
         std::list<QDockWidget *>      docks;

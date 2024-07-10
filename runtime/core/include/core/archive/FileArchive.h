@@ -18,7 +18,7 @@ namespace sky {
 
         using IInputArchive::LoadRaw;
 
-        bool IsOpen() const { return stream.is_open(); }
+        bool IsOpen() const override { return stream.is_open(); }
     private:
         std::fstream stream;
     };
@@ -29,6 +29,8 @@ namespace sky {
         ~OFileArchive() override = default;
 
         using IOutputArchive::SaveRaw;
+
+        bool IsOpen() const override { return stream.is_open(); }
     private:
         std::fstream stream;
     };
