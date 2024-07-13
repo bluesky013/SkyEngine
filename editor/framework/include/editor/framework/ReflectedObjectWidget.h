@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QColorDialog>
 #include <QPalette>
+#include <QFileDialog>
 #include <core/math/MathUtil.h>
 #include <framework/serialization/SerializationContext.h>
 
@@ -85,8 +86,9 @@ namespace sky::editor {
 
         void RefreshValue()
         {
-            auto *pVal = memberNode->getterConstFn(object).template GetAs<T>();
-            line->setText(QString::number(*pVal));
+            auto anyVal = memberNode->getterConstFn(object);
+            auto *val = static_cast<float*>(anyVal.Data());
+            line->setText(QString::number(*val));
         }
 
         ~PropertyScalar() override = default;
@@ -185,6 +187,36 @@ namespace sky::editor {
 
     private:
         QPushButton *button = nullptr;
+    };
+
+    class PropertyUuid : public ReflectedMemberWidget {
+    public:
+        PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        {
+            lineEdit = new QLineEdit(this);
+            auto *button = new QPushButton(this);
+            button->setText("...");
+            button->setFixedWidth(32);
+            layout()->addWidget(lineEdit);
+            layout()->addWidget(button);
+
+            connect(button, &QPushButton::clicked, this, [this]() {
+            });
+
+            connect(lineEdit, &QLineEdit::textEdited, this, [this] {
+            });
+
+            RefreshValue();
+        }
+
+        void RefreshValue()
+        {
+        }
+
+        ~PropertyUuid() override = default;
+
+    private:
+        QLineEdit* lineEdit = nullptr;
     };
 
     class PropertyBool : public ReflectedMemberWidget {

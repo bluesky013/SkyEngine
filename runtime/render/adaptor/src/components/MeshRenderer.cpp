@@ -21,8 +21,6 @@ namespace sky {
     {
         context->Register<MeshRenderer>("MeshRenderer")
             .Member<&MeshRenderer::isStatic>("static")
-            .Member<&MeshRenderer::castShadow>("castShadow")
-            .Member<&MeshRenderer::receiveShadow>("receiveShadow")
             .Member<&MeshRenderer::SetMeshUuid, &MeshRenderer::GetMeshUuid>("mesh");
     }
 

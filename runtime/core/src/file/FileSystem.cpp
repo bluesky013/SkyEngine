@@ -41,7 +41,7 @@ namespace sky {
         return *this;
     }
 
-    const std::string &FilePath::GetFilePath() const
+    const std::string &FilePath::GetStr() const
     {
         return filePath;
     }
@@ -125,12 +125,12 @@ namespace sky {
 
     bool NativeFileSystem::IsSubDir(const std::string &path) const
     {
-        return path.find(fsRoot.GetFilePath()) != std::string::npos;
+        return path.find(fsRoot.GetStr()) != std::string::npos;
     }
 
     NativeFileSystemPtr NativeFileSystem::CreateSubSystem(const std::string &path, bool createDir)
     {
-        auto subDir = FilePath(fsRoot.GetFilePath() + "/" + path);
+        auto subDir = FilePath(fsRoot.GetStr() + "/" + path);
         if (createDir) {
             subDir.MakeDirectory();
         }

@@ -121,7 +121,7 @@ public:
         JsonInputArchive json(*archive);
 
         auto *am = AssetManager::Get();
-        if (request.assetInfo->type == AssetTraits<T1Data>::ASSET_TYPE) {
+        if (request.assetInfo->category == AssetTraits<T1Data>::ASSET_TYPE) {
             auto asset = std::static_pointer_cast<Asset<T1Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, "T1"));
 
             T1Data &data = asset->Data();
@@ -177,8 +177,8 @@ public:
         auto *am = AssetManager::Get();
         auto asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, "T3"));
 
-        auto p1Asset = AssetDataBase::Get()->ImportAsset(p1);
-        auto p2Asset = AssetDataBase::Get()->ImportAsset(p2);
+        auto p1Asset = AssetDataBase::Get()->RegisterAsset(p1);
+        auto p2Asset = AssetDataBase::Get()->RegisterAsset(p2);
         ASSERT_NE(p1Asset, nullptr);
         ASSERT_NE(p2Asset, nullptr);
 
@@ -245,7 +245,7 @@ TEST_F(AssetManagerTest, BuilderTest)
 {
     auto *db = AssetDataBase::Get();
     db->Load();
-    auto src = db->ImportAsset("framework/data/test_asset.t3");
+    auto src = db->RegisterAsset("framework/data/test_asset.t3");
     db->Save();
     db->Dump(std::cout);
 

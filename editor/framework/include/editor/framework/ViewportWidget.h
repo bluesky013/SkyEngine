@@ -32,7 +32,7 @@ namespace sky::editor {
     class ViewportWidget : public QWidget, public IWindowEvent {
     public:
         explicit ViewportWidget(QWidget *parent);
-        ~ViewportWidget() override = default;
+        ~ViewportWidget() override;
 
         void ResetWorld(const WorldPtr &world);
         void UpdatePipeline();

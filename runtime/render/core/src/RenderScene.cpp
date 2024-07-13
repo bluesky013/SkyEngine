@@ -28,10 +28,6 @@ namespace sky {
         for (auto &view : sceneViews) {
             view->Update();
         }
-
-//        if (pipeline != nullptr) {
-//            pipeline->FrameSync();
-//        }
     }
 
     void RenderScene::PostTick(float time)

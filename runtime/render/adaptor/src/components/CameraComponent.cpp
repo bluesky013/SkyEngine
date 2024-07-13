@@ -27,8 +27,8 @@ namespace sky {
         context->Register<CameraComponent>("CameraComponent")
             .Member<&CameraComponent::near>("near")
             .Member<&CameraComponent::far>("far")
-            .Member<&CameraComponent::fov>("fov")
-            .Member<&CameraComponent::type>("type");
+            .Member<&CameraComponent::fov>("fov");
+//            .Member<&CameraComponent::type>("type");
 //            .Property(UI_PROP_VISIBLE, false);
     }
 

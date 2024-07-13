@@ -34,7 +34,7 @@ namespace sky {
         AssetSourcePath path;           // asset path
         std::string name;               // marked name used to load by name, can be empty
         std::string ext;                // file extension
-        std::string type;               // asset type
+        std::string category;           // asset category
         Uuid uuid;                      // uuid of the asset
         std::vector<Uuid> dependencies; // dependent assets
     };

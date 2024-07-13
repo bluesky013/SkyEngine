@@ -69,7 +69,7 @@ namespace sky::editor {
         return true;
     }
 
-    void EditorApplication::LoadConfigs()
+    void EditorApplication::LoadFromJson(std::unordered_map<std::string, ModuleInfo> &modules)
     {
         std::string json;
         auto file = workFs->OpenFile("config/modules_editor.json");
@@ -97,8 +97,22 @@ namespace sky::editor {
                         info.dependencies.emplace_back(dep.GetString());
                     }
                 }
-                moduleManager->RegisterModule(info);
+
+                modules.emplace(info.name, std::move(info));
             }
+        }
+    }
+
+    void EditorApplication::LoadConfigs()
+    {
+        std::unordered_map<std::string, ModuleInfo> modules = {};
+        modules.emplace("SkyRender", ModuleInfo{"SkyRender", {"ShaderCompiler"}});
+        modules.emplace("RenderBuilder", ModuleInfo{"RenderBuilder", {"SkyRender"}});
+
+        LoadFromJson(modules);
+
+        for (auto &[key, info] : modules) {
+            moduleManager->RegisterModule(info);
         }
     }
 }

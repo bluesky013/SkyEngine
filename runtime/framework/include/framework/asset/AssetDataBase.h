@@ -27,8 +27,8 @@ namespace sky {
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
         const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
-        AssetSourcePtr ImportAsset(const AssetSourcePath &path);
-        AssetSourcePtr ImportAsset(const std::string &path);
+        AssetSourcePtr RegisterAsset(const AssetSourcePath &path);
+        AssetSourcePtr RegisterAsset(const std::string &path);
         AssetSourcePath QuerySource(const std::string &path);   // engine->workspace->custom
 
         AssetSourcePtr FindAsset(const Uuid &id);
@@ -43,6 +43,9 @@ namespace sky {
         void Reset();
 
         void Dump(std::ostream &stream);
+
+        const std::unordered_map<Uuid, AssetSourcePtr> &GetSources() const { return idMap; }
+
     private:
         const NativeFileSystemPtr &GetFileSystemBySourcePath(const AssetSourcePath &path);
 

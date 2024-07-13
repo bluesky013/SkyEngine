@@ -18,6 +18,11 @@ namespace sky::editor {
         winID = winId();
     }
 
+    ViewportWidget::~ViewportWidget()
+    {
+        ResetPipeline();
+    }
+
     bool ViewportWindow::event(QEvent *event)
     {
         switch (event->type()) {
@@ -63,7 +68,9 @@ namespace sky::editor {
 
     void ViewportWidget::ResetPipeline()
     {
-        editorCamera->Shutdown();
+        if (editorCamera) {
+            editorCamera->Shutdown();
+        }
         sceneProxy = nullptr;
         Renderer::Get()->DestroyRenderWindow(renderWindow);
         Event<IWindowEvent>::DisConnect(this);

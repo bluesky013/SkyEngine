@@ -31,8 +31,6 @@ namespace sky {
 
     void RenderWindow::Resize(uint32_t width, uint32_t height)
     {
-        RHI::Get()->GetDevice()->WaitIdle();
-
         if (swapChain) {
             swapChain->Resize(width, height, winHandle);
         }

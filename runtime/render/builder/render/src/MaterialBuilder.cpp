@@ -32,7 +32,7 @@ namespace sky::builder {
 
                 if (obj.IsString()) {
                     const auto *imagePath = obj.GetString();
-                    auto texId = AssetDataBase::Get()->ImportAsset(imagePath);
+                    auto texId = AssetDataBase::Get()->RegisterAsset(imagePath);
                     properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
                     properties.images.emplace_back(texId->uuid);
 
@@ -85,7 +85,7 @@ namespace sky::builder {
         auto &assetData = asset->Data();
 
         const auto *materialPath = document["material"].GetString();
-        auto mat = AssetDataBase::Get()->ImportAsset(materialPath);
+        auto mat = AssetDataBase::Get()->RegisterAsset(materialPath);
         if (!mat) {
             result.retCode = AssetBuildRetCode::FAILED;
             return;
@@ -123,7 +123,7 @@ namespace sky::builder {
             for (auto &tech : techArray) {
                 if (tech.IsString()) {
                     const auto *techPath = tech.GetString();
-                    auto techId = AssetDataBase::Get()->ImportAsset(techPath);
+                    auto techId = AssetDataBase::Get()->RegisterAsset(techPath);
                     if (!techId) {
                         LOG_W(TAG, "Material %s import technique failed %s", request.assetInfo->uuid.ToString().c_str(), techPath);
                         continue;

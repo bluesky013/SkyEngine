@@ -32,12 +32,12 @@ namespace sky {
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
-    AssetSourcePtr AssetDataBase::ImportAsset(const AssetSourcePath &srcPath)
+    AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path)
     {
         AssetSourcePtr info = nullptr;
         {
             std::lock_guard<std::recursive_mutex> lock(assetMutex);
-            auto iter = pathMap.find(srcPath);
+            auto iter = pathMap.find(path);
             if (iter != pathMap.end()) {
                 info = idMap.at(iter->second);
             }
@@ -45,35 +45,35 @@ namespace sky {
 
         if (info == nullptr) {
             // query builder
-            auto ext = GetExtension(srcPath.path);
+            auto ext = GetExtension(path.path);
             auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
             if (builder == nullptr) {
                 LOG_E(TAG, "Builder not found for asset %s", ext.c_str());
                 return nullptr;
             }
 
-            const auto &fs = GetFileSystemBySourcePath(srcPath);
-            if (!fs->FileExist(srcPath.path)) {
-                LOG_E(TAG, "File not Exist %s", srcPath.path.c_str());
+            const auto &fs = GetFileSystemBySourcePath(path);
+            if (!fs->FileExist(path.path)) {
+                LOG_E(TAG, "File not Exist %s", path.path.c_str());
                 return nullptr;
             }
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
             auto uuid = Uuid::Create();
-            srcInfo->path = srcPath;
+            srcInfo->path = path;
             srcInfo->uuid = uuid;
             srcInfo->ext = ext;
-            srcInfo->type = builder->QueryType(ext);
+            srcInfo->category = builder->QueryType(ext);
 
             // new asset
             {
                 std::lock_guard<std::recursive_mutex> lock(assetMutex);
-                pathMap.emplace(srcPath, uuid);
+                pathMap.emplace(path, uuid);
                 info = idMap.emplace(uuid, std::move(srcInfo)).first->second;
             }
 
             AssetBuildRequest request = {};
-            request.file = fs->OpenFile(srcPath.path);
+            request.file = fs->OpenFile(path.path);
             request.assetInfo = info;
             AssetBuilderManager::Get()->BuildRequest(request);
         }
@@ -82,14 +82,14 @@ namespace sky {
         return info;
     }
 
-    AssetSourcePtr AssetDataBase::ImportAsset(const std::string &path)
+    AssetSourcePtr AssetDataBase::RegisterAsset(const std::string &path)
     {
         auto querySource = QuerySource(path);
         if (querySource.bundle == SourceAssetBundle::INVALID) {
             return nullptr;
         }
 
-        return ImportAsset(querySource);
+        return RegisterAsset(querySource);
     }
 
     void AssetDataBase::RemoveAsset(const Uuid &id)
@@ -146,7 +146,7 @@ namespace sky {
                 json.End();
 
                 json.Start("type");
-                info.type = json.LoadString();
+                info.category = json.LoadString();
                 json.End();
 
                 json.Start("bundle");
@@ -206,7 +206,7 @@ namespace sky {
                 json.SaveValue(info.ext);
 
                 json.Key("type");
-                json.SaveValue(info.type);
+                json.SaveValue(info.category);
 
                 json.Key("bundle");
                 json.SaveEnum(info.path.bundle);
@@ -240,7 +240,7 @@ namespace sky {
         std::lock_guard<std::recursive_mutex> lock(assetMutex);
         for (auto &[id, info] : idMap) {
             stream << id.ToString() << "\t"
-                << info->type << "\t"
+                << info->category << "\t"
                 << info->name << "\t"
                 << "@" << static_cast<uint32_t>(info->path.bundle) << "@" << info->path.path << "\n";
         }

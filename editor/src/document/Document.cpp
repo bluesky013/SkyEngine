@@ -3,22 +3,23 @@
 //
 
 #include <editor/document/Document.h>
-#include <QFileInfo>
 #include <QFile>
-#include <QTextStream>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetDataBase.h>
 
 namespace sky::editor {
 
     Document::Document()
     {
         SetFlag(DocumentFlagBit::ProjectOpen);
+        AssetDataBase::Get()->Load();
     }
 
     Document::~Document()
     {
         ResetFlag(DocumentFlagBit::ProjectOpen);
+        AssetDataBase::Get()->Save();
     }
 
     void Document::SetFlag(DocumentFlagBit bit)

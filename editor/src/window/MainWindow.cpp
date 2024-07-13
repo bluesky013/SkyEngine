@@ -21,9 +21,10 @@ namespace sky::editor {
 
     MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     {
+        InitDocument();
         InitWidgets();
         InitMenu();
-        InitDocument();
+        UpdateActions();
     }
 
     MainWindow::~MainWindow()
@@ -89,13 +90,12 @@ namespace sky::editor {
         mainViewport = new ViewportWidget(nullptr);
         setCentralWidget(mainViewport);
 
-        projectPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath().GetFilePath().c_str();
+        projectPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath().GetStr().c_str();
     }
 
     void MainWindow::InitDocument()
     {
         document = std::make_unique<Document>();
-        UpdateActions();
     }
 
     void MainWindow::InitMenu()

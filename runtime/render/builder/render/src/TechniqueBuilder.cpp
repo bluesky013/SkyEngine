@@ -178,7 +178,7 @@ namespace sky::builder {
         GetPassInfo(document, data);
         GetVertexDescInfo(document, data);
 
-        AssetDataBase::Get()->ImportAsset(data.shader.path);
+        AssetDataBase::Get()->RegisterAsset(data.shader.path);
     }
 
     void TechniqueBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
