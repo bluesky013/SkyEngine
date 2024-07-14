@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2021/12/12.
 //
 
-#include "MainWindow.h"
+#include <editor/window/MainWindow.h>
 #include "ActionManager.h"
 #include "CentralWidget.h"
 #include <QDockWidget>

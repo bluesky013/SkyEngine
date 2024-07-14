@@ -4,17 +4,19 @@
 
 #pragma once
 #include <framework/application/Application.h>
+#include <editor/window/MainWindow.h>
 #include <core/file/FileSystem.h>
+#include <QApplication>
 #include <QTimer>
 #include <QObject>
 #include <QSplashScreen>
 
 namespace sky::editor {
 
-    class EditorApplication : public QObject, public Application {
+    class EditorApplication : public QApplication, public Application {
         Q_OBJECT
     public:
-        EditorApplication();
+        EditorApplication(int argc, char **argv);
         ~EditorApplication() override;
 
         bool Init(int argc, char **argv) override;
@@ -24,11 +26,14 @@ namespace sky::editor {
     private:
         void LoadConfigs() override;
         void LoadFromJson(std::unordered_map<std::string, ModuleInfo> &);
+        void SplashWindow();
 
         QTimer *timer = nullptr;
 
         NativeFileSystemPtr workFs;
         NativeFileSystemPtr engineFs;
+
+        std::unique_ptr<MainWindow> mainWindow;
     };
 
 }

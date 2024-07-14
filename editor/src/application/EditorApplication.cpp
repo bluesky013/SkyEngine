@@ -21,7 +21,9 @@ namespace sky::editor {
         Document::Reflect();
     }
 
-    EditorApplication::EditorApplication() = default;
+    EditorApplication::EditorApplication(int argc, char **argv) : QApplication(argc, argv)
+    {
+    }
 
     EditorApplication::~EditorApplication() // NOLINT
     {
@@ -44,15 +46,15 @@ namespace sky::editor {
         workFs = new NativeFileSystem(projectPath);
         engineFs = new NativeFileSystem(enginePath);
 
+        AssetManager::Get()->SetWorkFileSystem(workFs);
+        AssetDataBase::Get()->SetEngineFs(engineFs);
+        AssetDataBase::Get()->SetWorkSpaceFs(workFs);
+
+        SplashWindow();
+
         if (!Application::Init(argc, argv)) {
             return false;
         }
-
-
-        AssetManager::Get()->SetWorkFileSystem(workFs);
-
-        AssetDataBase::Get()->SetEngineFs(engineFs);
-        AssetDataBase::Get()->SetWorkSpaceFs(workFs);
 
         EditorReflect();
 
@@ -65,8 +67,29 @@ namespace sky::editor {
         connect(timer, &QTimer::timeout, this, [this]() {
             Loop();
         });
-
         return true;
+    }
+
+    void EditorApplication::SplashWindow()
+    {
+        auto splashPath =  engineFs->GetPath();
+        splashPath /= "assets/splash/test.png";
+
+        QPixmap pixmap(splashPath.GetStr().c_str());
+        QSplashScreen splash(pixmap);
+        splash.show();
+
+        splash.showMessage("loadModules", Qt::AlignBottom, Qt::white);
+        std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(200));
+        processEvents();
+
+        splash.showMessage("loadAssets", Qt::AlignBottom, Qt::white);
+        std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(200));
+        processEvents();
+
+        mainWindow = std::make_unique<MainWindow>();
+        mainWindow->show();
+        splash.finish(mainWindow.get());
     }
 
     void EditorApplication::LoadFromJson(std::unordered_map<std::string, ModuleInfo> &modules)
