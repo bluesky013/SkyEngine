@@ -8,6 +8,7 @@
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/VertexLibraryBuilder.h>
+#include <builder/render/MeshBuilder.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetBuilderManager.h>
@@ -37,6 +38,7 @@ namespace sky::builder {
         am->RegisterBuilder(new VertexLibraryBuilder());
         am->RegisterBuilder(new ImageBuilder());
         am->RegisterBuilder(new PrefabBuilder());
+        am->RegisterBuilder(new MeshBuilder());
 
         // init shader compiler
 //        auto *compiler = ShaderCompiler::Get();

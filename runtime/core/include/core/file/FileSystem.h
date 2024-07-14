@@ -31,18 +31,30 @@ namespace sky {
     // maybe support for wstring
     class FilePath {
     public:
-        FilePath(const char* filePath_); // NOLINT
+        FilePath();
+        FilePath(const char *filePath_); // NOLINT
         FilePath(const std::string &filePath_); // NOLINT
+        FilePath(const std::filesystem::path &filePath_); // NOLINT
         ~FilePath() = default;
 
         FilePath& operator/=(const FilePath& sub);
+        FilePath operator/(const FilePath& sub) const;
 
-        const std::string &GetStr() const;
+        std::string GetStr() const;
         void MakeDirectory() const;
+        bool Exist() const;
+        FilePath Parent() const;
+        std::string FileName() const;
+        std::string FileNameWithoutExt() const;
+        std::string Extension() const;
 
-        std::filesystem::path ConvertStdFSPath() const;
+        std::fstream OpenFStream(std::ios_base::openmode) const;
+
+        bool operator==(const FilePath &rhs) const { return filePath == rhs.filePath; }
     private:
-        std::string filePath;
+        friend class NativeFileSystem;
+
+        std::filesystem::path filePath;
     };
 
     class IFile : public RefObject {
@@ -111,11 +123,11 @@ namespace sky {
         ~NativeFileSystem() override = default;
 
         bool FileExist(const FilePath &path) const override;
-
         FilePtr OpenFile(const FilePath &path) override;
         FilePtr CreateOrOpenFile(const FilePath &path) override;
         const FilePath &GetPath() const { return fsRoot; }
 
+        void Copy(const FilePath &from, const FilePath &to) const;
         bool IsSubDir(const std::string &path) const;
         NativeFileSystemPtr CreateSubSystem(const std::string &path, bool createDir);
     private:

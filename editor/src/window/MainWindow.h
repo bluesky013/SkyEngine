@@ -29,9 +29,12 @@ namespace sky::editor {
         void InitMenu();
         void InitDocument();
 
-        void OnOpenWorld(const QString &path);
-        void OnNewWorld(const QString &name);
+        void OnOpenWorld();
+        void OnNewWorld();
         void OnCloseWorld();
+        void OnSaveWorld();
+
+        void OnImport();
 
         void UpdateActions();
 

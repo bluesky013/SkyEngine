@@ -15,12 +15,14 @@ namespace sky::builder {
         PrefabBuilder() = default;
         ~PrefabBuilder() override = default;
 
+        void Import(const AssetImportRequest &request) const override;
+
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
-        std::string_view QueryType(const std::string &ext) const override { return ""; }
+        std::string_view QueryType(const std::string &ext) const override { return ext == ".prefab" ? AssetTraits<RenderPrefab>::ASSET_TYPE : ""; }
     private:
-        std::vector<std::string> extensions = {".gltf", ".glb", ".fbx"};
+        std::vector<std::string> extensions = {".gltf", ".glb", ".fbx", ".prefab"};
     };
 
 } // namespace sky::builder

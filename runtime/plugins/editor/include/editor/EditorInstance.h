@@ -23,11 +23,13 @@ namespace sky::editor {
 
     private:
         // World event
-        void OnCreateWorld(World& world) override;
-        void OnDestroyWorld(World& world) override;
+        void OnCreateWorld(const WorldPtr& world) override;
+        void OnDestroyWorld(const WorldPtr& world) override;
 
         std::unique_ptr<WidgetManager> wm;
         std::unique_ptr<GuiZmoWidget> gui;
+
+
 
         WorldWidget *worldWidget = nullptr;
         MenuBar *menuBar = nullptr;

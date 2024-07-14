@@ -47,16 +47,16 @@ namespace sky {
             return false;
         }
 
-        cube = world->CreateActor("Cube");
-        cube->AddComponent<SimpleGeometryComponent>();
-        auto *sr = cube->AddComponent<SimpleRotateComponent>();
-        sr->SetAxis(VEC3_ONE);
-
-        camera = world->CreateActor("MainCamera");
-        auto *cc = camera->AddComponent<CameraComponent>();
-        cc->Perspective(0.01f, 100.f, 45.f);
-        cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
+//        cube = world->CreateActor("Cube");
+//        cube->AddComponent<SimpleGeometryComponent>();
+//        auto *sr = cube->AddComponent<SimpleRotateComponent>();
+//        sr->SetAxis(VEC3_ONE);
+//
+//        camera = world->CreateActor("MainCamera");
+//        auto *cc = camera->AddComponent<CameraComponent>();
+//        cc->Perspective(0.01f, 100.f, 45.f);
+//        cc->SetAspect(window->GetWidth(), window->GetHeight());
+//        camera->GetComponent<TransformComponent>()->SetWorldTranslation(Vector3(0, 0, 5));
         return true;
     }
 

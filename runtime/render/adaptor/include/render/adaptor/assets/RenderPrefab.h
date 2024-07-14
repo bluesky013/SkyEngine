@@ -24,8 +24,11 @@ namespace sky {
     struct RenderPrefabAssetData {
         std::vector<RenderPrefabNode> nodes;
 
-        void Load(BinaryInputArchive &archive);
-        void Save(BinaryOutputArchive &archive) const;
+        void LoadBin(BinaryInputArchive &archive);
+        void SaveBin(BinaryOutputArchive &archive) const;
+
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
     };
 
     class RenderPrefab {

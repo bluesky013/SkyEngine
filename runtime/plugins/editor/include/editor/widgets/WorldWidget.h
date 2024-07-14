@@ -24,7 +24,7 @@ namespace sky::editor {
         WorldWidget() : ImWidget("World") {}
         ~WorldWidget() override = default;
 
-        void SetWorld(World *world_) { world = world_; }
+        void SetWorld(const WorldPtr &world_) { world = world_; }
         void BindEvent(EventID id);
 
     private:
@@ -33,7 +33,7 @@ namespace sky::editor {
         void OnToggle(bool val) override { show = val; }
 
         bool show = false;
-        World *world = nullptr;
+        WorldPtr world = nullptr;
 
         EventBinder<IToggleEvent> binder;
     };

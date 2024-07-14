@@ -3,10 +3,7 @@
 //
 
 #include <core/file/FileUtil.h>
-#include <core/platform/Platform.h>
 #include <filesystem>
-
-#include <codecvt>
 
 namespace sky {
 
@@ -20,11 +17,6 @@ namespace sky {
         fsAbsolute /= fsRelative;
         out = fsAbsolute.generic_string();
         return true;
-    }
-
-    std::string GetExtension(const std::string &path)
-    {
-        return std::filesystem::path(path).extension().string();
     }
 
 } // namespace sky

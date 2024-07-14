@@ -7,6 +7,7 @@
 #include <core/file/FileSystem.h>
 #include <QTimer>
 #include <QObject>
+#include <QSplashScreen>
 
 namespace sky::editor {
 
@@ -17,6 +18,9 @@ namespace sky::editor {
         ~EditorApplication() override;
 
         bool Init(int argc, char **argv) override;
+
+        const NativeFileSystemPtr &GetWorkFs() const { return workFs; }
+        const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
     private:
         void LoadConfigs() override;
         void LoadFromJson(std::unordered_map<std::string, ModuleInfo> &);

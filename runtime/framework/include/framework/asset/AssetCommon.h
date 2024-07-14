@@ -26,7 +26,7 @@ namespace sky {
 
     struct AssetSourcePath {
         SourceAssetBundle bundle;       // asset bundle
-        std::string path;               // relative path to bundle
+        FilePath path;                  // relative path to bundle
     };
 
     // asset source info
@@ -40,10 +40,13 @@ namespace sky {
     };
     using AssetSourcePtr = CounterPtr<AssetSourceInfo>;
 
-
     enum class AssetBuildRetCode : uint32_t {
         SUCCESS,
         FAILED,
+    };
+
+    struct AssetImportRequest {
+        FilePath filePath;
     };
 
     struct AssetBuildRequest {
@@ -75,7 +78,7 @@ namespace std {
         size_t operator()(const sky::AssetSourcePath &path) const noexcept
         {
             auto hash = static_cast<uint32_t>(path.bundle);
-            sky::HashCombine32(hash, sky::Fnv1a32(path.path));
+            sky::HashCombine32(hash, sky::Fnv1a32(path.path.GetStr()));
             return hash;
         }
     };

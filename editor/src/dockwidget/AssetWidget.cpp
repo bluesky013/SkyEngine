@@ -83,7 +83,7 @@ namespace sky::editor {
             }
         }
 
-        if (assetSourcePath.path.empty()) {
+        if (assetSourcePath.path.GetStr().empty()) {
             return;
         }
 

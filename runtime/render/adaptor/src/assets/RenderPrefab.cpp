@@ -5,7 +5,7 @@
 #include <render/adaptor/assets/RenderPrefab.h>
 
 namespace sky {
-    void RenderPrefabAssetData::Load(BinaryInputArchive &archive)
+    void RenderPrefabAssetData::LoadBin(BinaryInputArchive &archive)
     {
         uint32_t size = 0;
         archive.LoadValue(size);
@@ -18,7 +18,7 @@ namespace sky {
         }
     }
 
-    void RenderPrefabAssetData::Save(BinaryOutputArchive &archive) const
+    void RenderPrefabAssetData::SaveBin(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(static_cast<uint32_t>(nodes.size()));
         for (const auto &node : nodes) {
@@ -26,5 +26,44 @@ namespace sky {
             archive.SaveValue(node.parentIndex);
             archive.SaveValue(reinterpret_cast<const char*>(&node.localTransform), sizeof(Transform));
         }
+    }
+
+    void RenderPrefabAssetData::LoadJson(JsonInputArchive &archive)
+    {
+
+
+    }
+
+    void RenderPrefabAssetData::SaveJson(JsonOutputArchive &archive) const
+    {
+        archive.StartObject();
+
+        archive.Key("nodes");
+        archive.StartArray();
+
+        for (const auto &node : nodes) {
+            archive.StartObject();
+
+            archive.Key("translation");
+            archive.SaveValueObject(node.localTransform.translation);
+
+            archive.Key("rotation");
+            archive.SaveValueObject(node.localTransform.rotation);
+
+            archive.Key("scale");
+            archive.SaveValueObject(node.localTransform.scale);
+
+            archive.Key("mesh");
+            archive.SaveValue(node.mesh.ToString());
+
+            archive.Key("parent");
+            archive.SaveValue(node.parentIndex);
+
+            archive.EndObject();
+        }
+
+        archive.EndArray();
+
+        archive.EndObject();
     }
 } // namespace sky

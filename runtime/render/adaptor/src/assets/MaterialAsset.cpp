@@ -149,6 +149,86 @@ namespace sky {
         SaveProperties(archive, properties);
     }
 
+    void MaterialInstanceData::LoadJson(JsonInputArchive &archive)
+    {
+        archive.Start("material");
+        material = Uuid::CreateFromString(archive.LoadString());
+        archive.End();
+
+        properties.LoadJson(archive);
+    }
+
+    void MaterialInstanceData::SaveJson(JsonOutputArchive &archive) const
+    {
+        archive.StartObject();
+
+        archive.Key("material");
+        archive.SaveValue(material.ToString());
+
+        properties.SaveJson(archive);
+
+        archive.EndObject();
+    }
+
+    void MaterialProperties::LoadJson(JsonInputArchive &archive)
+    {
+        archive.Start("properties");
+
+        // std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
+        archive.ForEachMember([this, &archive](const std::string &key, const auto &obj) {
+            if (obj.IsString()) {
+                auto value = Uuid::CreateFromString(obj.GetString());
+                auto iter = std::find(images.begin(), images.end(), value);
+                if (iter != images.end()) {
+                    valueMap[key] = MaterialTexture{static_cast<uint32_t>(std::distance(iter, images.begin()))};
+                } else {
+                    valueMap[key] = MaterialTexture{static_cast<uint32_t>(images.size())};
+                    images.emplace_back(value);
+                }
+
+            } else if (obj.IsFloat()) {
+                valueMap[key] = obj.GetFloat();
+            } else if (obj.IsBool()) {
+                valueMap[key] = static_cast<uint32_t>(obj.GetBool());
+            } else if (obj.IsUint()) {
+
+            } else if (obj.IsArray()) {
+                auto   array = obj.GetArray();
+                float *v     = nullptr;
+                if (array.Size() == 2) {
+                    v = std::get<Vector2>(valueMap.emplace(key, Vector2{}).first->second).v;
+                } else if (array.Size() == 3) {
+                    v = std::get<Vector3>(valueMap.emplace(key, Vector3{}).first->second).v;
+                } else if (array.Size() == 4) {
+                    v = std::get<Vector4>(valueMap.emplace(key, Vector4{}).first->second).v;
+                }
+                for (auto &val : array) {
+                    (*v) = val.GetFloat();
+                    ++v;
+                }
+            }
+        });
+
+        archive.End();
+    }
+
+    void MaterialProperties::SaveJson(JsonOutputArchive &archive) const
+    {
+        archive.Key("properties");
+
+        archive.StartObject();
+        for (const auto &[key, value] : valueMap) {
+            archive.Key(key.c_str());
+
+            // std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
+            std::visit(Overloaded{
+                    [&archive, this](const MaterialTexture &tex) { archive.SaveValue(images[tex.texIndex].ToString()); },
+                    [&archive](const auto& arg) { archive.SaveValueObject(arg); }
+            }, value);
+        }
+        archive.EndObject();
+    }
+
     std::shared_ptr<Material> CreateMaterial(const MaterialAssetData &data)
     {
         auto *am = AssetManager::Get();

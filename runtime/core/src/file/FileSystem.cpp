@@ -10,40 +10,73 @@
 
 namespace sky {
 
-    FilePath::FilePath(const char* filePath_) : filePath(filePath_)
+    FilePath::FilePath() : FilePath("")
     {
     }
 
-    FilePath::FilePath(const std::string &filePath_) : filePath(filePath_)
+    FilePath::FilePath(const char *filePath_) : FilePath(std::string(filePath_))
     {
     }
 
-    std::filesystem::path FilePath::ConvertStdFSPath() const
+    FilePath::FilePath(const std::filesystem::path &filePath_) : filePath(filePath_) // NOLINT
     {
-#ifdef SKY_FS_USE_WCHAR
-        return std::filesystem::path{Utf8ToUtf16(filePath)};
-#else
-        return std::filesystem::path{filePath};
-#endif
+    }
+
+    FilePath::FilePath(const std::string &filePath_) : filePath(filePath_) // NOLINT
+    {
     }
 
     void FilePath::MakeDirectory() const
     {
-        auto path = ConvertStdFSPath();
-        if (!std::filesystem::exists(path)) {
-            std::filesystem::create_directories(path);
+        if (!std::filesystem::exists(filePath)) {
+            std::filesystem::create_directories(filePath);
         }
+    }
+
+    bool FilePath::Exist() const
+    {
+        return std::filesystem::exists(filePath);
+    }
+
+    FilePath FilePath::Parent() const
+    {
+        return FilePath{filePath.parent_path()};
+    }
+
+    std::string FilePath::FileName() const
+    {
+        return filePath.filename().string();
+    }
+
+    std::string FilePath::FileNameWithoutExt() const
+    {
+        return filePath.stem().string();
+    }
+
+    std::string FilePath::Extension() const
+    {
+        return filePath.extension().string();
+    }
+
+    std::fstream FilePath::OpenFStream(std::ios_base::openmode mode) const
+    {
+        return std::fstream(filePath, mode);
     }
 
     FilePath& FilePath::operator/=(const FilePath& sub)
     {
-        filePath += "/" + sub.filePath;
+        filePath /= sub.filePath;
         return *this;
     }
 
-    const std::string &FilePath::GetStr() const
+    FilePath FilePath::operator/(const FilePath& sub) const
     {
-        return filePath;
+        return FilePath(filePath) /= sub;
+    }
+
+    std::string FilePath::GetStr() const
+    {
+        return filePath.string();
     }
 
     IArchivePtr NativeFile::ReadAsArchive()
@@ -68,7 +101,7 @@ namespace sky {
 
     void NativeFile::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
-        std::fstream stream(filePath.ConvertStdFSPath(), std::ios::in | std::ios::binary);
+        std::fstream stream = filePath.OpenFStream(std::ios::in | std::ios::binary);
         if (!stream.is_open()) {
             return;
         }
@@ -105,14 +138,14 @@ namespace sky {
     {
         FilePath res = fsRoot;
         res /= path;
-        return std::filesystem::exists(res.ConvertStdFSPath());
+        return res.Exist();
     }
 
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)
     {
         FilePath res = fsRoot;
         res /= path;
-        return std::filesystem::exists(res.ConvertStdFSPath()) ? new NativeFile(res) : nullptr;
+        return res.Exist() ? new NativeFile(res) : nullptr;
     }
 
     FilePtr NativeFileSystem::CreateOrOpenFile(const FilePath &path)
@@ -121,6 +154,14 @@ namespace sky {
         res /= path;
 
         return new NativeFile(res);
+    }
+
+    void NativeFileSystem::Copy(const FilePath &from, const FilePath &to) const
+    {
+        auto fromPath = from.filePath.is_absolute() ? from.filePath : (fsRoot / from).filePath;
+        auto toPath = to.filePath.is_absolute() ? to.filePath : (fsRoot / to).filePath;
+
+        std::filesystem::copy(fromPath, toPath, std::filesystem::copy_options::overwrite_existing);
     }
 
     bool NativeFileSystem::IsSubDir(const std::string &path) const

@@ -11,6 +11,7 @@
 #include <QTimer>
 #include <QMessageBox>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <editor/framework/ViewportWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
@@ -32,9 +33,22 @@ namespace sky::editor {
         ActionManager::Destroy();
     }
 
-    void MainWindow::OnOpenWorld(const QString &path)
+    void MainWindow::OnOpenWorld()
     {
-        auto world = document->OpenWorld(path);
+        QFileDialog dialog(this);
+        dialog.setFileMode(QFileDialog::AnyFile);
+        dialog.setNameFilter(tr("World (*.world)"));
+        dialog.setViewMode(QFileDialog::Detail);
+        dialog.setDirectory(projectPath);
+        QStringList fileNames;
+        if (dialog.exec() != 0) {
+            fileNames = dialog.selectedFiles();
+        }
+        if (fileNames.empty()) {
+            return;
+        }
+
+        auto world = document->OpenWorld(fileNames[0]);
         if (!world) {
             return;
         }
@@ -45,9 +59,14 @@ namespace sky::editor {
         UpdateActions();
     }
 
-    void MainWindow::OnNewWorld(const QString &path)
+    void MainWindow::OnNewWorld()
     {
-        auto world = document->OpenWorld(path);
+        QString fineName = QFileDialog::getSaveFileName(nullptr, "Create", projectPath, tr("World (*.world)"));
+        if (fineName.isEmpty()) {
+            return;
+        }
+
+        auto world = document->OpenWorld(fineName);
         if (!world) {
             return;
         }
@@ -63,6 +82,27 @@ namespace sky::editor {
         worldWidget->SetWorld(nullptr);
         mainViewport->ResetWorld(nullptr);
         UpdateActions();
+    }
+
+    void MainWindow::OnSaveWorld()
+    {
+        document->SaveWorld();
+    }
+
+    void MainWindow::OnImport()
+    {
+        QFileDialog dialog(this);
+        dialog.setFileMode(QFileDialog::AnyFile);
+        dialog.setViewMode(QFileDialog::Detail);
+        dialog.setDirectory(projectPath);
+        QStringList fileNames;
+        if (dialog.exec() != 0) {
+            fileNames = dialog.selectedFiles();
+        }
+        if (fileNames.empty()) {
+            return;
+        }
+        AssetBuilderManager::Get()->ImportAsset({fileNames[0].toStdString()});
     }
 
     void MainWindow::InitWidgets()
@@ -108,32 +148,16 @@ namespace sky::editor {
         auto *openWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Open World");
         auto *closeWorldAct = new ActionWithFlag(DocumentFlagBit::WorldOpen, "Close World");
         auto *newWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "New World");
+        auto *saveWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Save World");
 
-        connect(openWorldAct, &QAction::triggered, this, [this](bool /**/) {
-            QFileDialog dialog(this);
-            dialog.setFileMode(QFileDialog::AnyFile);
-            dialog.setNameFilter(tr("World (*.world)"));
-            dialog.setViewMode(QFileDialog::Detail);
-            dialog.setDirectory(projectPath);
-            QStringList fileNames;
-            if (dialog.exec() != 0) {
-                fileNames = dialog.selectedFiles();
-                if (!fileNames.empty()) {
-                    OnOpenWorld(fileNames[0]);
-                }
-            }
-        });
+        connect(openWorldAct, &QAction::triggered, this, [this]() { OnOpenWorld(); });
+        connect(newWorldAct, &QAction::triggered, this, [this]() { OnNewWorld(); });
+        connect(closeWorldAct, &QAction::triggered, this, [this]() { OnCloseWorld(); });
+        connect(saveWorldAct, &QAction::triggered, this, [this]() { OnSaveWorld(); });
 
-        connect(newWorldAct, &QAction::triggered, this, [this](bool /**/) {
-            QString fineName = QFileDialog::getSaveFileName(nullptr, "Create", projectPath, tr("World (*.world)"));
-            if (!fineName.isEmpty()) {
-                OnOpenWorld(fineName);
-            }
-        });
-
-        connect(closeWorldAct, &QAction::triggered, this, [this]() {
-            OnCloseWorld();
-        });
+        // import
+        auto *importAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Import Asset");
+        connect(importAct, &QAction::triggered, this, [this]() { OnImport(); });
 
         // close editor
         auto *closeAct = new ActionWithFlag({}, "Close", this);
@@ -142,7 +166,10 @@ namespace sky::editor {
         auto *fileMenu = new QMenu("File", menuBar);
         fileMenu->addAction(newWorldAct);
         fileMenu->addAction(openWorldAct);
+        fileMenu->addAction(saveWorldAct);
         fileMenu->addAction(closeWorldAct);
+        fileMenu->addSeparator();
+        fileMenu->addAction(importAct);
         fileMenu->addSeparator();
         fileMenu->addAction(closeAct);
         menuBar->addMenu(fileMenu);

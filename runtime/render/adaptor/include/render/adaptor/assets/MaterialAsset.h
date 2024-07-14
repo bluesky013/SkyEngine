@@ -20,6 +20,9 @@ namespace sky {
     struct MaterialProperties {
         std::vector<Uuid> images;
         std::unordered_map<std::string, MaterialValue> valueMap;
+
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
     };
 
     struct MaterialAssetData {
@@ -51,6 +54,9 @@ namespace sky {
 
         void LoadBin(BinaryInputArchive &archive);
         void SaveBin(BinaryOutputArchive &archive) const;
+
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
     };
 
     std::shared_ptr<MaterialInstance> CreateMaterialInstance(const MaterialInstanceData &data);

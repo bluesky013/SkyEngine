@@ -35,12 +35,21 @@ namespace sky {
         uint32_t size;
     };
 
+    struct MeshPrimitiveHeader {
+        uint32_t size;
+        uint32_t stride;
+    };
+
+    struct MeshIndicesHeader {
+        uint32_t size;
+        rhi::IndexType indexType = rhi::IndexType::U32;
+    };
+
     struct MeshAssetData {
         std::vector<SubMeshAssetData> subMeshes;
-        std::vector<BufferViewData> vertexBuffers;
-        BufferViewData indexBuffer;
-        rhi::IndexType indexType = rhi::IndexType::U32;
         std::vector<std::string> vertexDescriptions;
+        std::vector<MeshPrimitiveHeader> primitives;
+        MeshIndicesHeader indices;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

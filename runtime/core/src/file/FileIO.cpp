@@ -10,7 +10,7 @@ namespace sky {
 
     void WriteBin(const FilePath &path, const char *data, size_t size)
     {
-        std::ofstream file(path.ConvertStdFSPath(), std::ios::binary | std::ios::trunc);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::trunc | std::ios::out));
         if (!file.is_open()) {
             return;
         }
@@ -19,7 +19,7 @@ namespace sky {
 
     void WriteString(const FilePath &path, const std::string &out)
     {
-        std::ofstream file(path.ConvertStdFSPath(), std::ios::binary | std::ios::trunc);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::trunc | std::ios::out));
         if (!file.is_open()) {
             return;
         }
@@ -28,7 +28,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size)
     {
-        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
         if (!file.is_open()) {
             return false;
         }
@@ -42,7 +42,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, std::vector<uint8_t> &out)
     {
-        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
         if (!file.is_open()) {
             return false;
         }
@@ -56,7 +56,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, std::vector<uint32_t> &out)
     {
-        std::ifstream file(path.ConvertStdFSPath(), std::ios::ate | std::ios::binary);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
         if (!file.is_open()) {
             return false;
         }
@@ -70,7 +70,7 @@ namespace sky {
 
     bool ReadString(const FilePath &path, std::string &out)
     {
-        std::ifstream file(path.ConvertStdFSPath(), std::ios::binary);
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::in));
         if (!file.is_open()) {
             return false;
         }

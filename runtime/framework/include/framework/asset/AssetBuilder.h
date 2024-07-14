@@ -21,6 +21,8 @@ namespace sky {
 
         virtual const std::vector<std::string> &GetExtensions() const = 0;
 
+        virtual void Import(const AssetImportRequest &request) const {}
+
         virtual void Request(const AssetBuildRequest &request, AssetBuildResult &result) {}
 
         virtual std::string_view QueryType(const std::string &ext) const { return ""; }

@@ -45,7 +45,7 @@ namespace sky {
 
         if (info == nullptr) {
             // query builder
-            auto ext = GetExtension(path.path);
+            auto ext = path.path.Extension();
             auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
             if (builder == nullptr) {
                 LOG_E(TAG, "Builder not found for asset %s", ext.c_str());
@@ -54,7 +54,7 @@ namespace sky {
 
             const auto &fs = GetFileSystemBySourcePath(path);
             if (!fs->FileExist(path.path)) {
-                LOG_E(TAG, "File not Exist %s", path.path.c_str());
+                LOG_E(TAG, "File not Exist %s", path.path.GetStr().c_str());
                 return nullptr;
             }
 
@@ -105,6 +105,12 @@ namespace sky {
     {
         const auto &fs = GetFileSystemBySourcePath(src->path);
         return fs->OpenFile(src->path.path);
+    }
+
+    FilePtr AssetDataBase::CreateOrOpenFile(const AssetSourcePath &path)
+    {
+        const auto &fs = GetFileSystemBySourcePath(path);
+        return fs->CreateOrOpenFile(path.path);
     }
 
     void AssetDataBase::SetMarkedName(const Uuid& id, const std::string &name)
@@ -212,7 +218,7 @@ namespace sky {
                 json.SaveEnum(info.path.bundle);
 
                 json.Key("path");
-                json.SaveValue(info.path.path);
+                json.SaveValue(info.path.path.GetStr());
 
                 json.Key("dependencies");
                 json.StartArray();
@@ -242,7 +248,7 @@ namespace sky {
             stream << id.ToString() << "\t"
                 << info->category << "\t"
                 << info->name << "\t"
-                << "@" << static_cast<uint32_t>(info->path.bundle) << "@" << info->path.path << "\n";
+                << "@" << static_cast<uint32_t>(info->path.bundle) << "@" << info->path.path.GetStr() << "\n";
         }
     }
 

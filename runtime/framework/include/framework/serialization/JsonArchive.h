@@ -125,7 +125,12 @@ namespace sky {
             for (auto iter = parent.MemberBegin(); iter != parent.MemberEnd(); ++iter)
             {
                 const auto &member = *iter;
-                func(member.name.GetString());
+
+                if constexpr (std::is_invocable_v<Func, const std::string>) {
+                    func(member.name.GetString());
+                } else {
+                    func(member.name.GetString(), member.value);
+                }
             }
         }
 

@@ -24,6 +24,8 @@ namespace sky {
 
         void LoadBuildConfigs(const FileSystemPtr &fs);
 
+        void ImportAsset(const AssetImportRequest &request);
+
         void BuildRequest(const AssetBuildRequest &request);
         void BuildRequest(const Uuid &uuid, const std::string &target);
 

@@ -43,8 +43,10 @@ namespace sky {
             .BinSave<&MeshAssetData::Save>();
 
         context->Register<RenderPrefabAssetData>("RenderPrefabAssetData")
-            .BinLoad<&RenderPrefabAssetData::Load>()
-            .BinSave<&RenderPrefabAssetData::Save>();
+            .BinLoad<&RenderPrefabAssetData::LoadBin>()
+            .BinSave<&RenderPrefabAssetData::SaveBin>()
+            .JsonLoad<&RenderPrefabAssetData::LoadJson>()
+            .JsonSave<&RenderPrefabAssetData::SaveJson>();
 
         context->Register<VertexDescLibraryAssetData>("VertexDescLibraryAssetData")
             .BinLoad<&VertexDescLibraryAssetData::Load>()

@@ -65,12 +65,12 @@ namespace sky::editor {
         WorldEvent::Connect(this);
     }
 
-    void EditorInstance::OnCreateWorld(World& world)
+    void EditorInstance::OnCreateWorld(const WorldPtr& world)
     {
-        worldWidget->SetWorld(&world);
+        worldWidget->SetWorld(world);
     }
 
-    void EditorInstance::OnDestroyWorld(World& world)
+    void EditorInstance::OnDestroyWorld(const WorldPtr& world)
     {
         worldWidget->SetWorld(nullptr);
     }

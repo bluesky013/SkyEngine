@@ -335,13 +335,13 @@ namespace sky {
 
         CreateFromPrefab();
 
-        camera = world->CreateActor("camera");
-        auto *cc = camera->AddComponent<CameraComponent>();
-        cc->Perspective(0.01f, 100.f, 45.f);
-        cc->SetAspect(window->GetWidth(), window->GetHeight());
-        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 1.5, 0));
+//        camera = world->CreateActor("camera");
+//        auto *cc = camera->AddComponent<CameraComponent>();
+//        cc->Perspective(0.01f, 100.f, 45.f);
+//        cc->SetAspect(window->GetWidth(), window->GetHeight());
+//        camera->GetComponent<TransformComponent>()->SetLocalTranslation(Vector3(0, 1.5, 0));
 //        camera->GetComponent<TransformComponent>()->SetLocalRotationEuler(Vector3(0, 90, 0));
-        camera->AddComponent<SimpleCameraController>();
+//        camera->AddComponent<SimpleCameraController>();
 
         auto *scene = GetRenderSceneFromActor(camera);
         auto *pipeline = new ForwardMSAAPass();

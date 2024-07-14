@@ -14,6 +14,7 @@
 #include <core/archive/MemoryArchive.h>
 
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 
@@ -49,16 +50,18 @@ namespace sky::builder {
     };
 
     struct PrefabBuildContext {
-        std::vector<MaterialInstanceAssetPtr> materials;
-        std::vector<MeshAssetPtr> meshes;
-        std::vector<BufferAssetPtr> buffers;
-        std::unordered_map<std::string, ImageAssetPtr> textures;
+        std::string name;
+        AssetSourcePath path;
+        std::unordered_map<AssetSourcePath, AssetSourcePtr> textures;
+        std::vector<AssetSourcePtr> meshes;
+        std::vector<AssetSourcePtr> materials;
+
         std::vector<RenderPrefabNode> nodes;
     };
 
     static inline Vector4 FromAssimp(const aiColor4D &color)
     {
-        return Vector4(color.r, color.g, color.b, color.a);
+        return {color.r, color.g, color.b, color.a};
     }
 
     static inline Matrix4 FromAssimp(const aiMatrix4x4& trans)
@@ -74,70 +77,179 @@ namespace sky::builder {
 
     static inline Vector3 FromAssimp(const aiVector3D &vec)
     {
-        return Vector3(vec.x, vec.y, vec.z);
+        return {vec.x, vec.y, vec.z};
     }
 
     static inline Quaternion FromAssimp(const aiQuaternion &vec)
     {
-        return Quaternion(vec.w, vec.x, vec.y, vec.z);
+        return {vec.w, vec.x, vec.y, vec.z};
     }
 
-    static std::string GetIndexedName(const std::string_view &prefix, const std::string &name, const std::string_view &type, size_t index)
+    static std::string GetIndexedName(const std::string &prefix, const std::string_view &type, const std::string_view &ext, size_t index)
     {
         std::stringstream ss;
-        if (!name.empty()) {
-            ss << prefix << "_" << name << "_" << type;
-        } else {
-            ss << prefix << "_" << type << "_" << index;
-        }
-
+        ss << prefix << "_" << type << "_" << index << "." << ext;
         return ss.str();
     }
 
-    static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const AssetBuildRequest &request)
+    static void SaveEmbeddedTexture(const aiTexture* tex, const AssetSourcePath &sourcePath)
     {
-//        auto *am = AssetManager::Get();
-//        auto texPath = std::filesystem::path(request.relativePath).parent_path().append(str.C_Str());
-//        if (std::filesystem::exists(am->GetProjectPath() + texPath.string())) {
-//            auto id = am->ImportAndBuildAsset(texPath.string());
-//            return id;
-//        }
-//
-//        const auto *tex = scene->GetEmbeddedTexture(str.C_Str());
-//        if (tex == nullptr) {
-//            return {};
-//        }
-//
-//        BuildRequest textureRequest = {};
-//        textureRequest.name = request.relativePath + std::string("\\embedded_") + str.C_Str();
-//        textureRequest.ext = std::string(".") + tex->achFormatHint;
-//        textureRequest.buildKey = ImageBuilder::KEY;
-//        textureRequest.rawData = tex->pcData;
-//        textureRequest.dataSize = tex->mWidth;
-//        textureRequest.name.erase(std::remove(textureRequest.name.begin(), textureRequest.name.end(), '*'), textureRequest.name.end());
-//        textureRequest.uuid = sky::AssetManager::GetUUIDByPath(textureRequest.name);
-//
-//        BuildResult result = {};
-//        am->BuildAsset(textureRequest);
-//
-//        return textureRequest.uuid;
-        return {};
+        auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
+        file->WriteAsArchive()->SaveRaw(reinterpret_cast<const char*>(tex->pcData), tex->mWidth);
     }
 
-    static MaterialInstanceAssetPtr CreateMaterialInstanceByMaterial(aiMaterial* material, PrefabBuildContext &context, const AssetBuildRequest &request)
+    static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const AssetImportRequest &request)
     {
-//        std::string matName = GetIndexedName(request.relativePath, material->GetName().C_Str(), "mat", context.materials.size());
-//
-//        auto *am = AssetManager::Get();
-//        auto matInstanceId = am->GetUUIDByPath(matName);
-//        auto matInstance = am->CreateAsset<MaterialInstance>(matInstanceId);
-//
-//        matInstance->Data().material = am->ImportAndBuildAsset("materials/standard_pbr.mat");
-//        return matInstance;
-        return {};
+        AssetSourcePath sourcePath = {};
+        sourcePath.bundle = SourceAssetBundle::WORKSPACE;
+
+        auto texPath = request.filePath.Parent() / FilePath(str.C_Str());
+        if (texPath.Exist()) {
+            sourcePath.path = context.path.path / FilePath(str.C_Str());
+            AssetDataBase::Get()->GetWorkSpaceFs()->Copy(texPath, sourcePath.path);
+        } else {
+            auto [tex, index] = scene->GetEmbeddedTextureAndIndex(str.C_Str());
+            if (tex == nullptr) {
+                return {};
+            }
+            sourcePath.path = context.path.path / FilePath(GetIndexedName(context.name, "texture", tex->achFormatHint, index));
+            SaveEmbeddedTexture(tex, sourcePath);
+        }
+        auto res = context.textures.emplace(sourcePath, AssetDataBase::Get()->RegisterAsset(sourcePath));
+        return res.first->second->uuid;
     }
 
-    static void ProcessMaterials(const aiScene *scene, PrefabBuildContext &context, const AssetBuildRequest &request)
+    static void ProcessPbrBRDF(const aiScene *scene, aiMaterial *material, PrefabBuildContext &context, const AssetImportRequest &request)
+    {
+        std::string matName = material->GetName().length == 0 ?
+                               GetIndexedName(context.name, "material", "mati", context.meshes.size()) :
+                               std::string(material->GetName().C_Str()) + ".mati";
+
+        MaterialInstanceData data = {};
+        data.material = AssetDataBase::Get()->RegisterAsset("materials/standard_pbr.mat")->uuid;
+
+        aiString str;
+        bool useAOMap = false;
+        bool useEmissiveMap = false;
+        bool useBaseColorMap = false;
+        bool useNormalMap = false;
+        bool useMetallicRoughnessMap = false;
+        bool useMask = false;
+        Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
+        float metallic = 1.f;
+        float roughness = 1.f;
+        Uuid normalMap;
+        Uuid emissiveMap;
+        Uuid aoMap;
+        Uuid baseColorMap;
+        Uuid metallicRoughnessMap;
+
+        aiString aiAlphaMode;
+        if (material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == 0) {
+            std::string mode = aiAlphaMode.data;
+            if (mode == "MASK") {
+                useMask = true;
+            }
+        }
+
+        float alphaCutoff = 0.5f;
+        material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, alphaCutoff);
+
+        if (material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str) == 0) {
+            // normalMap
+            normalMap = ProcessTexture(scene, str, context, request);
+            useNormalMap = static_cast<bool>(normalMap);
+        }
+
+        if (material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str) == 0) {
+            // emissiveMap
+            emissiveMap = ProcessTexture(scene, str, context, request);
+            useEmissiveMap = static_cast<bool>(emissiveMap);
+        }
+
+        if (material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str) == 0) {
+            // aoMap;
+            aoMap = ProcessTexture(scene, str, context, request);
+            useAOMap = static_cast<bool>(aoMap);
+        }
+
+        aiColor4D color = {};
+        aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &color);
+        baseColor = FromAssimp(color);
+
+        aiGetMaterialFloat(material, AI_MATKEY_METALLIC_FACTOR, &metallic);
+        aiGetMaterialFloat(material, AI_MATKEY_ROUGHNESS_FACTOR, &roughness);
+
+        if (material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str) == 0) {
+            // baseColorMap
+            baseColorMap = ProcessTexture(scene, str, context, request);
+            useBaseColorMap = static_cast<bool>(baseColorMap);
+        }
+
+        if (material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str) == 0) {
+            // metallicRoughnessMap
+            metallicRoughnessMap = ProcessTexture(scene, str, context, request);
+            useMetallicRoughnessMap = static_cast<bool>(metallicRoughnessMap);
+        }
+
+        data.properties.valueMap.emplace("useAOMap", static_cast<uint32_t>(useAOMap));
+        if (useAOMap) {
+            data.properties.valueMap.emplace("AoMap",
+                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
+            data.properties.images.emplace_back(aoMap);
+        }
+
+        data.properties.valueMap.emplace("useEmissiveMap", static_cast<uint32_t>(useEmissiveMap));
+        if (useEmissiveMap) {
+            data.properties.valueMap.emplace("EmissiveMap",
+                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
+            data.properties.images.emplace_back(emissiveMap);
+        }
+
+        data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
+        if (useBaseColorMap) {
+            data.properties.valueMap.emplace("AlbedoMap",
+                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
+            data.properties.images.emplace_back(baseColorMap);
+        }
+
+        data.properties.valueMap.emplace("useMetallicRoughnessMap", static_cast<uint32_t>(useMetallicRoughnessMap));
+        if (useMetallicRoughnessMap) {
+            data.properties.valueMap.emplace("MetallicRoughnessMap",
+                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
+            data.properties.images.emplace_back(metallicRoughnessMap);
+        }
+
+        data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
+        if (useNormalMap) {
+            data.properties.valueMap.emplace("NormalMap",
+                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
+            data.properties.images.emplace_back(normalMap);
+        }
+
+        data.properties.valueMap.emplace("useMask", static_cast<uint32_t>(useMask));
+
+        data.properties.valueMap.emplace("Albedo", baseColor);
+        data.properties.valueMap.emplace("Metallic", metallic);
+        data.properties.valueMap.emplace("Roughness", roughness);
+        data.properties.valueMap.emplace("AlphaCutoff", alphaCutoff);
+
+        AssetSourcePath sourcePath = {};
+        sourcePath.bundle = SourceAssetBundle::WORKSPACE;
+        sourcePath.path = context.path.path / FilePath(matName);
+
+        {
+            auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
+            auto archive = file->WriteAsArchive();
+            JsonOutputArchive bin(*archive);
+            data.SaveJson(bin);
+        }
+
+        auto source = AssetDataBase::Get()->RegisterAsset(sourcePath);
+        context.materials.emplace_back(source);
+    }
+
+    static void ProcessMaterials(const aiScene *scene, PrefabBuildContext &context, const AssetImportRequest &request)
     {
         uint32_t matSize = scene->mNumMaterials;
         for (uint32_t i = 0; i < matSize; ++i) {
@@ -145,130 +257,22 @@ namespace sky::builder {
             aiShadingMode shadingModel = aiShadingMode_Flat;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
 
-            auto matAsset = CreateMaterialInstanceByMaterial(material, context, request);
-            auto &data = matAsset->Data();
-
-            aiString str;
-            bool useAOMap = false;
-            bool useEmissiveMap = false;
-            bool useBaseColorMap = false;
-            bool useNormalMap = false;
-            bool useMetallicRoughnessMap = false;
-            bool useMask = false;
-            Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
-            float metallic = 1.f;
-            float roughness = 1.f;
-            Uuid normalMap;
-            Uuid emissiveMap;
-            Uuid aoMap;
-            Uuid baseColorMap;
-            Uuid metallicRoughnessMap;
-
-            aiString aiAlphaMode;
-            if (material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == 0) {
-                std::string mode = aiAlphaMode.data;
-                if (mode == "MASK") {
-                    useMask = true;
-                }
-            }
-
-            float alphaCutoff = 0.5f;
-            material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, alphaCutoff);
-
-            if (material->Get(AI_MATKEY_TEXTURE_NORMALS(0), str) == 0) {
-                // normalMap
-                normalMap = ProcessTexture(scene, str, context, request);
-                useNormalMap = static_cast<bool>(normalMap);
-            }
-
-            if (material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), str) == 0) {
-                // emissiveMap
-                emissiveMap = ProcessTexture(scene, str, context, request);
-                useEmissiveMap = static_cast<bool>(emissiveMap);
-            }
-
-            if (material->Get(AI_MATKEY_TEXTURE_LIGHTMAP(0), str) == 0) {
-                // aoMap;
-                aoMap = ProcessTexture(scene, str, context, request);
-                useAOMap = static_cast<bool>(aoMap);
-            }
-
             if (shadingModel == aiShadingMode_PBR_BRDF) {
-                aiColor4D color = {};
-                aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &color);
-                baseColor = FromAssimp(color);
-
-                aiGetMaterialFloat(material, AI_MATKEY_METALLIC_FACTOR, &metallic);
-                aiGetMaterialFloat(material, AI_MATKEY_ROUGHNESS_FACTOR, &roughness);
-
-//                material->Get(AI_MATKEY_BASE_COLOR, baseColor);
-//                material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
-//                material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
-
-
-                if (material->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &str) == 0) {
-                    // baseColorMap
-                    baseColorMap = ProcessTexture(scene, str, context, request);
-                    useBaseColorMap = static_cast<bool>(baseColorMap);
-                }
-
-                if (material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &str) == 0) {
-                    // metallicRoughnessMap
-                    metallicRoughnessMap = ProcessTexture(scene, str, context, request);
-                    useMetallicRoughnessMap = static_cast<bool>(metallicRoughnessMap);
-                }
+                ProcessPbrBRDF(scene, material, context, request);
+            } else {
+                SKY_ASSERT(false);
             }
-
-            data.properties.valueMap.emplace("useAOMap", static_cast<uint32_t>(useAOMap));
-            if (useAOMap) {
-                data.properties.valueMap.emplace("AoMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-                data.properties.images.emplace_back(aoMap);
-            }
-
-            data.properties.valueMap.emplace("useEmissiveMap", static_cast<uint32_t>(useEmissiveMap));
-            if (useEmissiveMap) {
-                data.properties.valueMap.emplace("EmissiveMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-                data.properties.images.emplace_back(emissiveMap);
-            }
-
-            data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
-            if (useBaseColorMap) {
-                data.properties.valueMap.emplace("AlbedoMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-                data.properties.images.emplace_back(baseColorMap);
-            }
-
-            data.properties.valueMap.emplace("useMetallicRoughnessMap", static_cast<uint32_t>(useMetallicRoughnessMap));
-            if (useMetallicRoughnessMap) {
-                data.properties.valueMap.emplace("MetallicRoughnessMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-                data.properties.images.emplace_back(metallicRoughnessMap);
-            }
-
-            data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
-            if (useNormalMap) {
-                data.properties.valueMap.emplace("NormalMap", MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-                data.properties.images.emplace_back(normalMap);
-            }
-
-            data.properties.valueMap.emplace("useMask",     static_cast<uint32_t>(useMask));
-
-            data.properties.valueMap.emplace("Albedo",   baseColor);
-            data.properties.valueMap.emplace("Metallic",    metallic);
-            data.properties.valueMap.emplace("Roughness",   roughness);
-            data.properties.valueMap.emplace("AlphaCutoff", alphaCutoff);
-
-            context.materials.emplace_back(matAsset);
         }
     }
 
     static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, PrefabBuildContext& prefabContext, MeshAssetData &meshData, MeshBuildContext &context)
     {
-        uint32_t vertexNum   = mesh->mNumVertices;
         SubMeshAssetData subMesh = {};
         subMesh.firstVertex = static_cast<uint32_t>(context.position.size());
         subMesh.vertexCount = mesh->mNumVertices;
         subMesh.firstIndex = static_cast<uint32_t>(context.indices.size());
         subMesh.indexCount = mesh->mNumFaces * 3;
-        subMesh.material = prefabContext.materials[mesh->mMaterialIndex]->GetUuid();
+        subMesh.material = prefabContext.materials[mesh->mMaterialIndex]->uuid;
 
         context.position.resize(context.position.size() + subMesh.vertexCount);
         context.ext.resize(context.position.size() + subMesh.vertexCount);
@@ -338,63 +342,54 @@ namespace sky::builder {
         meshData.subMeshes.emplace_back(subMesh);
     }
 
-    static Uuid ProcessMesh(const aiScene *scene, const aiNode *node, PrefabBuildContext& prefabContext, const AssetBuildRequest &request)
+    static Uuid ProcessMesh(const aiScene *scene, const aiNode *node, PrefabBuildContext& context, const AssetImportRequest &request)
     {
-//        std::string meshName = GetIndexedName(request.relativePath, node->mName.C_Str(), "mesh", prefabContext.meshes.size());
-//
-//        auto *am = AssetManager::Get();
-//        auto meshId = am->GetUUIDByPath(meshName);
-//        auto mesh = am->CreateAsset<Mesh>(meshId);
-//        prefabContext.meshes.emplace_back(mesh);
-//
-//        auto &meshData = mesh->Data();
-//
-//        meshData.vertexDescriptions.emplace_back("standard");
-//        meshData.vertexDescriptions.emplace_back("unlit");
-//        meshData.vertexDescriptions.emplace_back("position_only");
-//
-//        uint32_t meshNum = node->mNumMeshes;
-//        MeshBuildContext meshContext;
-//        for (uint32_t i = 0; i < meshNum; i++) {
-//            aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
-//            ProcessSubMesh(aMesh, scene, prefabContext, meshData, meshContext);
-//        }
-//
-//        // save vertex && index buffer
-//        auto bufferName =  GetIndexedName(request.relativePath, node->mName.C_Str(), "buffer", prefabContext.buffers.size());
-//        auto bufferId = am->GetUUIDByPath(bufferName);
-//        auto buffer = am->CreateAsset<Buffer>(bufferId);
-//        auto &bufferData = buffer->Data();
-//        prefabContext.buffers.emplace_back(buffer);
-//
-//        MemoryArchive archive = {};
-//        size_t offset = 0;
-//
-//        // save positions
-//        size_t size = meshContext.position.size() * sizeof(Vector4);
-//        archive.Save(reinterpret_cast<const char *>(meshContext.position.data()), size);
-//        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
-//        offset += size;
-//
-//        // save primitives
-//        size = meshContext.ext.size() * sizeof(StandardVertexData);
-//        archive.Save(reinterpret_cast<const char *>(meshContext.ext.data()), size);
-//        meshData.vertexBuffers.emplace_back(BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)});
-//        offset += size;
-//
-//        // save indices
-//        size = meshContext.indices.size() * sizeof(uint32_t);
-//        archive.Save(reinterpret_cast<const char*>(meshContext.indices.data()), size);
-//        meshData.indexBuffer = BufferViewData{bufferId, static_cast<uint32_t>(offset), static_cast<uint32_t>(size)};
-//
-//        archive.Swap(bufferData.rawData);
-//        return meshId;
-        return {};
+        std::string meshName = node->mName.length == 0 ?
+                GetIndexedName(context.name, "mesh", "mesh", context.meshes.size()) :
+                std::string(node->mName.C_Str()) + ".mesh";
+
+        MeshAssetData meshData;
+
+        meshData.vertexDescriptions.emplace_back("standard");
+        meshData.vertexDescriptions.emplace_back("unlit");
+        meshData.vertexDescriptions.emplace_back("position_only");
+
+        uint32_t meshNum = node->mNumMeshes;
+        MeshBuildContext meshContext;
+        for (uint32_t i = 0; i < meshNum; i++) {
+            aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
+            ProcessSubMesh(aMesh, scene, context, meshData, meshContext);
+        }
+        meshData.primitives = {
+                {static_cast<uint32_t>(meshContext.position.size() * sizeof(Vector4)), sizeof(Vector4)},
+                {static_cast<uint32_t>(meshContext.position.size() * sizeof(StandardVertexData)), sizeof(StandardVertexData)},
+        };
+        meshData.indices = {static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t), rhi::IndexType::U32)};
+
+        AssetSourcePath sourcePath = {};
+        sourcePath.bundle = SourceAssetBundle::WORKSPACE;
+        sourcePath.path = context.path.path / FilePath(meshName);
+
+        {
+            auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
+            auto archive = file->WriteAsArchive();
+            BinaryOutputArchive bin(*archive);
+            meshData.Save(bin);
+
+            for (auto & primitive : meshData.primitives) {
+                bin.SaveValue(reinterpret_cast<const char*>(meshContext.position.data()), primitive.size);
+            }
+
+            bin.SaveValue(reinterpret_cast<const char*>(meshContext.indices.data()), meshData.indices.size);
+        }
+
+        auto source = AssetDataBase::Get()->RegisterAsset(sourcePath);
+        context.meshes.emplace_back(source);
+        return source->uuid;
     }
 
-    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, PrefabBuildContext& context, const AssetBuildRequest &request)
+    static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, PrefabBuildContext& context, const AssetImportRequest &request) // NOLINT
     {
-        auto *am = AssetManager::Get();
         auto index = static_cast<uint32_t>(context.nodes.size());
         context.nodes.emplace_back();
         auto& current = context.nodes.back();
@@ -417,29 +412,43 @@ namespace sky::builder {
         }
     }
 
-
-    void PrefabBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
+    void PrefabBuilder::Import(const AssetImportRequest &request) const
     {
         Assimp::Importer importer;
-
-        std::vector<uint8_t> data;
-        request.file->ReadBin(data);
-
-        const aiScene* scene = importer.ReadFileFromMemory(data.data(), data.size(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        const aiScene* scene = importer.ReadFile(request.filePath.GetStr(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if((scene == nullptr) || ((scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0u) || (scene->mRootNode == nullptr)) {
             return;
         }
-        auto *am = AssetManager::Get();
 
         PrefabBuildContext context;
+        auto prefabName = request.filePath.FileName();
+        context.path.bundle = SourceAssetBundle::WORKSPACE;
+        context.path.path = FilePath("Prefabs") / prefabName;
+        context.name = request.filePath.FileNameWithoutExt();
+
+        AssetDataBase::Get()->GetWorkSpaceFs()->CreateSubSystem(context.path.path.GetStr(), true);
         ProcessMaterials(scene, context, request);
         ProcessNode(scene->mRootNode, scene, -1, context, request);
 
-        auto asset = am->FindOrCreateAsset<RenderPrefab>(request.assetInfo->uuid);
-        auto &assetData = asset->Data();
-        assetData.nodes = context.nodes;
+        RenderPrefabAssetData data;
+        data.nodes.swap(context.nodes);
 
-        result.retCode = AssetBuildRetCode::SUCCESS;
+        AssetSourcePath sourcePath = {};
+        sourcePath.bundle = SourceAssetBundle::WORKSPACE;
+        sourcePath.path = context.path.path / FilePath(context.name + ".prefab");
+
+        {
+            auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
+            auto archive = file->WriteAsArchive();
+            JsonOutputArchive bin(*archive);
+            data.SaveJson(bin);
+        }
+
+        AssetDataBase::Get()->RegisterAsset(sourcePath);
+    }
+
+    void PrefabBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
     }
 
 } // namespace sky::builder
