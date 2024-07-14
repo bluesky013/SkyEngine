@@ -148,7 +148,7 @@ namespace sky::editor {
         auto *openWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Open World");
         auto *closeWorldAct = new ActionWithFlag(DocumentFlagBit::WorldOpen, "Close World");
         auto *newWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "New World");
-        auto *saveWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Save World");
+        auto *saveWorldAct = new ActionWithFlag(DocumentFlagBit::WorldOpen, "Save World");
 
         connect(openWorldAct, &QAction::triggered, this, [this]() { OnOpenWorld(); });
         connect(newWorldAct, &QAction::triggered, this, [this]() { OnNewWorld(); });
