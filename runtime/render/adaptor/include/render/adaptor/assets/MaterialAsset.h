@@ -26,6 +26,7 @@ namespace sky {
     };
 
     struct MaterialAssetData {
+        uint32_t version;
         std::vector<Uuid> techniques;
         MaterialProperties defaultProperties;
 
@@ -33,22 +34,16 @@ namespace sky {
         void SaveBin(BinaryOutputArchive &archive) const;
     };
 
-    std::shared_ptr<Material> CreateMaterial(const MaterialAssetData &data);
-
     template <>
     struct AssetTraits<Material> {
         using DataType                                = MaterialAssetData;
         static constexpr std::string_view ASSET_TYPE  = "Material";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
-
-        static std::shared_ptr<Material> CreateFromData(const DataType &data)
-        {
-            return CreateMaterial(data);
-        }
     };
     using MaterialAssetPtr = std::shared_ptr<Asset<Material>>;
 
     struct MaterialInstanceData {
+        uint32_t version;
         Uuid material;
         MaterialProperties properties;
 
@@ -59,18 +54,14 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive) const;
     };
 
-    std::shared_ptr<MaterialInstance> CreateMaterialInstance(const MaterialInstanceData &data);
-
     template <>
     struct AssetTraits<MaterialInstance> {
         using DataType                                = MaterialInstanceData;
         static constexpr std::string_view ASSET_TYPE  = "MaterialInstance";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
-
-        static std::shared_ptr<MaterialInstance> CreateFromData(const DataType &data)
-        {
-            return CreateMaterialInstance(data);
-        }
     };
     using MaterialInstanceAssetPtr = std::shared_ptr<Asset<MaterialInstance>>;
+
+    CounterPtr<Material> CreateMaterialFromAsset(const MaterialAssetPtr &asset);
+    CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(const MaterialInstanceAssetPtr &asset);
 } // namespace sky

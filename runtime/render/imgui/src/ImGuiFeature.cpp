@@ -44,7 +44,7 @@ namespace sky {
 
     RDResourceGroupPtr ImGuiFeature::RequestResourceGroup()
     {
-        auto rsg = std::make_shared<ResourceGroup>();
+        auto *rsg = new ResourceGroup();
         rsg->Init(resLayout, *pool);
         return rsg;
     }

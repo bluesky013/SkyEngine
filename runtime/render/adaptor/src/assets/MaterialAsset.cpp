@@ -3,6 +3,7 @@
 //
 
 #include <framework/serialization/SerializationContext.h>
+#include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <core/template/Overloaded.h>
 
@@ -117,6 +118,7 @@ namespace sky {
 
     void MaterialAssetData::LoadBin(BinaryInputArchive &archive)
     {
+        archive.LoadValue(version);
         uint32_t size = 0;
         archive.LoadValue(size);
         techniques.resize(size);
@@ -129,6 +131,7 @@ namespace sky {
 
     void MaterialAssetData::SaveBin(BinaryOutputArchive &archive) const
     {
+        archive.SaveValue(version);
         archive.SaveValue(static_cast<uint32_t>(techniques.size()));
         for (const auto &tech :techniques) {
             archive.SaveValue(tech);
@@ -138,6 +141,7 @@ namespace sky {
 
     void MaterialInstanceData::LoadBin(BinaryInputArchive &archive)
     {
+        archive.LoadValue(version);
         auto *am = AssetManager::Get();
         archive.LoadValue(material);
         LoadProperties(archive, properties);
@@ -145,6 +149,7 @@ namespace sky {
 
     void MaterialInstanceData::SaveBin(BinaryOutputArchive &archive) const
     {
+        archive.SaveValue(version);
         archive.SaveValue(material);
         SaveProperties(archive, properties);
     }
@@ -163,7 +168,13 @@ namespace sky {
         archive.StartObject();
 
         archive.Key("material");
-        archive.SaveValue(material.ToString());
+
+        auto source = AssetDataBase::Get()->FindAsset(material);
+        if (source) {
+            archive.SaveValue(source->path.path.GetStr());
+        } else {
+            archive.SaveValue("");
+        }
 
         properties.SaveJson(archive);
 
@@ -222,35 +233,47 @@ namespace sky {
 
             // std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
             std::visit(Overloaded{
-                    [&archive, this](const MaterialTexture &tex) { archive.SaveValue(images[tex.texIndex].ToString()); },
+                    [&archive, this](const MaterialTexture &tex) {
+                        auto asset = AssetDataBase::Get()->FindAsset(images[tex.texIndex]);
+                        if (asset) {
+                            archive.SaveValue(asset->path.path.GetStr());
+                        } else {
+                            archive.SaveValue("");
+                        }
+                    },
                     [&archive](const auto& arg) { archive.SaveValueObject(arg); }
             }, value);
         }
         archive.EndObject();
     }
 
-    std::shared_ptr<Material> CreateMaterial(const MaterialAssetData &data)
+    CounterPtr<Material> CreateMaterialFromAsset(const MaterialAssetPtr &asset)
     {
-        auto *am = AssetManager::Get();
+        auto &data = asset->Data();
 
-        auto mat = std::make_shared<Material>();
+        auto *am = AssetManager::Get();
+        auto *mat = new Material();
         for (const auto &tech : data.techniques) {
-            mat->AddTechnique(am->LoadAsset<Technique>(tech)->CreateInstanceAs<GraphicsTechnique>());
+            auto techAsset = am->LoadAsset<Technique>(tech);
+            mat->AddTechnique(GreateGfxTechFromAsset(techAsset));
         }
         return mat;
     }
 
-    std::shared_ptr<MaterialInstance> CreateMaterialInstance(const MaterialInstanceData &data)
+    CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(const MaterialInstanceAssetPtr &asset)
     {
-        auto *am = AssetManager::Get();
+        auto &data = asset->Data();
 
-        auto mi = std::make_shared<MaterialInstance>();
-        mi->SetMaterial(am->LoadAsset<Material>(data.material)->CreateInstance());
+        auto *am = AssetManager::Get();
+        auto matAsset = am->FindAsset<Material>(data.material);
+        auto *mi = new MaterialInstance();
+//        mi->SetName(asset->GetName());
+        mi->SetMaterial(CreateMaterialFromAsset(matAsset));
         for (const auto &[key, val] : data.properties.valueMap) {
             std::visit(Overloaded{
                     [&mi, &data, &am, key_ = key](const MaterialTexture &v) {
-                        auto imageAsset = am->LoadAsset<Texture>(data.properties.images[v.texIndex]);
-                        mi->SetTexture(key_, imageAsset->CreateInstance(), 0);
+                        auto imageAsset = am->FindAsset<Texture>(data.properties.images[v.texIndex]);
+                        mi->SetTexture(key_, CreateTextureFromAsset(imageAsset), 0);
                     },
                     [&mi, key_ = key](const auto &v) {
                         mi->SetValue(key_, reinterpret_cast<const uint8_t*>(&v), sizeof(decltype(v)));

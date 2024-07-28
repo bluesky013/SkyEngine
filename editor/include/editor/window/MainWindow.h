@@ -24,6 +24,8 @@ namespace sky::editor {
         explicit MainWindow(QWidget *parent = nullptr);
         ~MainWindow() override;
 
+        Document* GetDoc() const { return document.get(); }
+
     private:
         void InitWidgets();
         void InitMenu();

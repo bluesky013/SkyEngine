@@ -19,10 +19,10 @@ namespace sky {
         auto *device = RHI::Get()->GetDevice();
         defaultPool = device->CreateDescriptorSetPool({1});
         auto emptyRHIDesLayout = device->CreateDescriptorSetLayout({});
-        emptyDesLayout = std::make_shared<ResourceGroupLayout>();
+        emptyDesLayout = new ResourceGroupLayout();
         emptyDesLayout->SetRHILayout(emptyRHIDesLayout);
 
-        emptySet = std::make_shared<ResourceGroup>();
+        emptySet = new ResourceGroup();
         emptySet->Init(emptyDesLayout, *defaultPool);
 
         rhi::Sampler::Descriptor samplerDesc = {};
@@ -45,13 +45,13 @@ namespace sky {
         rhi::TransferTaskHandle taskHandle = 0;
 
         rhi::ImageUploadRequest request = {};
-        request.source = std::make_shared<rhi::RawPtrStream>(DEFAULT_TEX_DATA);
+        request.source =  new rhi::RawPtrStream(DEFAULT_TEX_DATA);
         request.size = sizeof(DEFAULT_TEX_DATA);
         request.imageOffset = {0, 0, 0};
         request.imageExtent = imageDesc.extent;
 
         {
-            texture2D = std::make_shared<Texture2D>();
+            texture2D = new Texture2D();
             texture2D->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
             taskHandle = texture2D->Upload(DEFAULT_TEX_DATA, sizeof(DEFAULT_TEX_DATA), *queue);
         }

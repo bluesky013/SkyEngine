@@ -9,16 +9,17 @@
 #include <memory>
 #include <render/resource/Buffer.h>
 #include <render/resource/Texture.h>
+#include <render/RenderResource.h>
 
 namespace sky {
     static constexpr uint32_t PASS_SET = 0;
     static constexpr uint32_t BATCH_SET = 1;
     static constexpr uint32_t INSTANCE_SET = 2;
 
-    class ResourceGroupLayout {
+    class ResourceGroupLayout : public RenderResource {
     public:
         ResourceGroupLayout() = default;
-        ~ResourceGroupLayout() = default;
+        ~ResourceGroupLayout() override = default;
 
         struct BufferNameHandler {
             uint32_t binding;
@@ -45,12 +46,12 @@ namespace sky {
         std::unordered_map<std::string, BufferNameHandler> bufferHandlers; // name -> buffer name handler
         rhi::DescriptorSetLayoutPtr layout;
     };
-    using RDResourceLayoutPtr = std::shared_ptr<ResourceGroupLayout>;
+    using RDResourceLayoutPtr = CounterPtr<ResourceGroupLayout>;
 
-    class ResourceGroup {
+    class ResourceGroup : public RenderResource {
     public:
         ResourceGroup() = default;
-        ~ResourceGroup();
+        ~ResourceGroup() override;
 
         void Init(const RDResourceLayoutPtr &layout, rhi::DescriptorSetPool &pool);
         void Update();
@@ -73,6 +74,6 @@ namespace sky {
         std::unordered_map<uint32_t, RDDynamicUniformBufferPtr> dynamicUBOS;
         std::vector<uint32_t> slotHash;
     };
-    using RDResourceGroupPtr = std::shared_ptr<ResourceGroup>;
+    using RDResourceGroupPtr = CounterPtr<ResourceGroup>;
 
 } // namespace sky

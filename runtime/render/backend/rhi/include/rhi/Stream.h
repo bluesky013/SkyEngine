@@ -11,7 +11,7 @@
 
 namespace sky::rhi {
 
-    class FileStream : public IStream {
+    class FileStream : public IUploadStream {
     public:
         FileStream(const FilePtr &f, uint64_t base);
         ~FileStream() override = default;
@@ -22,10 +22,9 @@ namespace sky::rhi {
     private:
         FilePtr file;
         uint64_t baseOffset;
-        std::unique_ptr<uint8_t> hostData;
     };
 
-    class RawPtrStream : public IStream {
+    class RawPtrStream : public IUploadStream {
     public:
         explicit RawPtrStream(const uint8_t *ptr) : data(ptr) {}
         ~RawPtrStream() override = default;

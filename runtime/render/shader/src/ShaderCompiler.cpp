@@ -18,9 +18,9 @@
 static const char* TAG = "ShaderCompiler";
 
 namespace sky {
-    static std::pair<bool, std::string> GetShaderSource(const std::string &path)
+    static std::pair<bool, std::string> GetShaderSource(const FilePath &path)
     {
-        std::fstream f(path, std::ios::binary | std::ios::in);
+        std::fstream f = path.OpenFStream(std::ios::binary | std::ios::in);
         if (!f.is_open()) {
             return {false, ""};
         }
@@ -41,10 +41,10 @@ namespace sky {
         return count;
     }
 
-    std::pair<bool, std::string> GetSourceFromFile(const std::vector<std::string> &searchPaths, const std::string &path)
+    std::pair<bool, std::string> GetSourceFromFile(const std::vector<FilePath> &searchPaths, const std::string &path)
     {
         for (const auto &searchPath : searchPaths) {
-            std::string loadPath = searchPath + path;
+            auto loadPath = searchPath / path;
             auto [rst, source] = GetShaderSource(loadPath);
             if (!rst) {
                 continue;
@@ -81,14 +81,14 @@ namespace sky {
 
             auto begin = line.find_first_of('\"');
             auto end = line.find_first_of('\"', begin + 1);
-            auto fileName = std::string("/") + line.substr(begin + 1, (end - begin - 1));
+            auto fileName = line.substr(begin + 1, (end - begin - 1));
 
             auto [ret1, tmpHeader] = GetSourceFromFile(context.searchPaths, fileName);
             if (!ret1) {
                 return {false, {}};
             }
 
-            if (context.visited.count(fileName) != 0) {
+            if (context.visited.contains(fileName)) {
                 continue;
             }
 

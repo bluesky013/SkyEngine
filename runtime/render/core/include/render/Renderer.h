@@ -48,8 +48,8 @@ namespace sky {
 
         const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
 
-        void SetVertexDescLibrary(VertexDescLibrary *lib) { vertexLibrary.reset(lib); }
-        VertexDescLibrary *GetVertexDescLibrary() const { return vertexLibrary.get(); }
+        void SetVertexDescLibrary(const VertexDescLibPtr &lib) { vertexLibrary = lib; }
+        const VertexDescLibPtr &GetVertexDescLibrary() const { return vertexLibrary; }
 
         void SetCacheFolder(const std::string &path) { cacheFolder = path; }
         const std::string &GetCacheFolder() const { return cacheFolder; }
@@ -89,9 +89,9 @@ namespace sky {
         PmrVector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
         PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
 
-        std::unique_ptr<VertexDescLibrary> vertexLibrary;
         std::unique_ptr<RenderPipeline> pipeline;
 
+        VertexDescLibPtr vertexLibrary;
         ShaderCompileFunc shaderCompiler = nullptr;
 
         std::string cacheFolder;

@@ -360,27 +360,35 @@ namespace sky::builder {
             aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
             ProcessSubMesh(aMesh, scene, context, meshData, meshContext);
         }
+        size_t vtxCount = meshContext.position.size();
+        size_t idxCount = meshContext.indices.size();
+
+        auto posSize = static_cast<uint32_t>(vtxCount * sizeof(Vector4));
+        auto stdSize = static_cast<uint32_t>(vtxCount * sizeof(StandardVertexData));
+
         meshData.primitives = {
-                {static_cast<uint32_t>(meshContext.position.size() * sizeof(Vector4)), sizeof(Vector4)},
-                {static_cast<uint32_t>(meshContext.position.size() * sizeof(StandardVertexData)), sizeof(StandardVertexData)},
+                {0, posSize, sizeof(Vector4)},
+                {posSize,  stdSize, sizeof(StandardVertexData)},
         };
-        meshData.indices = {static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t), rhi::IndexType::U32)};
+        uint32_t idxOffset = posSize + stdSize;
+        auto idxSize = static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t));
+        meshData.indices = {idxOffset, idxSize, rhi::IndexType::U32 };
+        meshData.dataSize = idxOffset + idxSize;
+        meshData.rawData.storage.resize(meshData.dataSize);
 
         AssetSourcePath sourcePath = {};
         sourcePath.bundle = SourceAssetBundle::WORKSPACE;
         sourcePath.path = context.path.path / FilePath(meshName);
+
+        memcpy(meshData.rawData.storage.data(), reinterpret_cast<const char*>(meshContext.position.data()), posSize);
+        memcpy(meshData.rawData.storage.data() + posSize, reinterpret_cast<const char*>(meshContext.ext.data()), stdSize);
+        memcpy(meshData.rawData.storage.data() + idxOffset, reinterpret_cast<const char*>(meshContext.indices.data()), idxSize);
 
         {
             auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
             auto archive = file->WriteAsArchive();
             BinaryOutputArchive bin(*archive);
             meshData.Save(bin);
-
-            for (auto & primitive : meshData.primitives) {
-                bin.SaveValue(reinterpret_cast<const char*>(meshContext.position.data()), primitive.size);
-            }
-
-            bin.SaveValue(reinterpret_cast<const char*>(meshContext.indices.data()), meshData.indices.size);
         }
 
         auto source = AssetDataBase::Get()->RegisterAsset(sourcePath);

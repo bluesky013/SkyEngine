@@ -32,6 +32,7 @@ namespace sky {
         AssetSourcePath QuerySource(const std::string &path);   // engine->workspace->custom
 
         AssetSourcePtr FindAsset(const Uuid &id);
+        AssetSourcePtr FindAsset(const std::string &path);
         void RemoveAsset(const Uuid &id);
 
         FilePtr OpenFile(const AssetSourcePtr &src);

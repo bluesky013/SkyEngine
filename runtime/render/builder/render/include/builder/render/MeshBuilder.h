@@ -8,7 +8,6 @@
 #include <render/adaptor/assets/MeshAsset.h>
 
 namespace sky::builder {
-
     class MeshBuilder : public AssetBuilder {
     public:
         MeshBuilder() = default;

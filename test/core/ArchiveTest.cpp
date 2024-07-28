@@ -3,6 +3,7 @@
 //
 
 #include <core/archive/StreamArchive.h>
+#include <core/archive/MemoryArchive.h>
 #include <gtest/gtest.h>
 #include <fstream>
 #include <sstream>
@@ -76,4 +77,35 @@ TEST(StreamArchiveTest, SStreamArchiveTestInOut)
         ASSERT_EQ(t.d, 4);
         ASSERT_EQ(t.e, 5);
     }
+}
+
+TEST(StreamArchiveTest, MemoryArchive)
+{
+    std::string t("test memory archive");
+
+    MemoryArchive archive;
+    {
+        archive << 1;   // 4
+        archive << 0.f; // 4
+        archive << 3.0; // 8
+        archive << t; // 4 + 4
+    }
+
+    {
+        int a;
+        archive >> a;
+        float b;
+        archive >> b;
+        double c;
+        archive >> c;
+        std::string d;
+        archive >> d;
+
+        ASSERT_EQ(a, 1);
+        ASSERT_EQ(b, 0.f);
+        ASSERT_EQ(c, 3.0);
+        ASSERT_EQ(d, t);
+    }
+
+    ASSERT_EQ(archive.Size(), (4 + 4 + 8 + (4 + t.size())));
 }

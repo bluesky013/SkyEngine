@@ -8,6 +8,11 @@
 
 namespace sky {
 
+    Actor::~Actor()
+    {
+        storage.clear();
+    }
+
     ComponentBase *Actor::GetComponent(const Uuid &typeId)
     {
         auto iter = storage.find(typeId);
@@ -16,6 +21,7 @@ namespace sky {
 
     bool Actor::EmplaceComponent(const Uuid &typeId, ComponentBase* component)
     {
+        component->actor = this;
         auto res = storage.emplace(typeId, component);
         return res.second;
     }
@@ -100,9 +106,24 @@ namespace sky {
 
     void Actor::Tick(float time)
     {
-        for (auto &[id, component] : storage)
-        {
+        for (auto &[id, component] : storage) {
             component->Tick(time);
         }
+    }
+
+    void Actor::AttachToWorld(World *world_)
+    {
+        world = world_;
+        for (auto &[id, component] : storage) {
+            component->OnAttachToWorld(world);
+        }
+    }
+
+    void Actor::DetachFromWorld()
+    {
+        for (auto &[id, component] : storage) {
+            component->OnDetachFromWorld();
+        }
+        world = nullptr;
     }
 } // namespace sky

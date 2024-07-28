@@ -15,8 +15,11 @@
 #include <QColorDialog>
 #include <QPalette>
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QApplication>
 #include <core/math/MathUtil.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/asset/AssetDataBase.h>
 
 namespace sky::editor {
 
@@ -189,34 +192,27 @@ namespace sky::editor {
         QPushButton *button = nullptr;
     };
 
+    class AssetLineEditor : public QLineEdit {
+    public:
+        explicit AssetLineEditor(QWidget *parent) : QLineEdit(parent) {}
+        ~AssetLineEditor() override = default;
+
+    private:
+        void dropEvent(QDropEvent *event) override;
+        void dragEnterEvent(QDragEnterEvent *event) override;
+        void dragMoveEvent(QDragMoveEvent *event) override;
+    };
+
     class PropertyUuid : public ReflectedMemberWidget {
     public:
-        PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
-        {
-            lineEdit = new QLineEdit(this);
-            auto *button = new QPushButton(this);
-            button->setText("...");
-            button->setFixedWidth(32);
-            layout()->addWidget(lineEdit);
-            layout()->addWidget(button);
-
-            connect(button, &QPushButton::clicked, this, [this]() {
-            });
-
-            connect(lineEdit, &QLineEdit::textEdited, this, [this] {
-            });
-
-            RefreshValue();
-        }
-
-        void RefreshValue()
-        {
-        }
-
+        PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent);
         ~PropertyUuid() override = default;
+
+        void RefreshValue();
 
     private:
         QLineEdit* lineEdit = nullptr;
+        std::string_view assetType;
     };
 
     class PropertyBool : public ReflectedMemberWidget {

@@ -36,30 +36,32 @@ namespace sky::builder {
         {"ONE_MINUS_SRC1_ALPHA",     rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
     };
 
-    static void ProcessShader(rapidjson::Document &document, ShaderRefData &shader, TechAssetType type)
+    static void ProcessShader(rapidjson::Document &document, ShaderRefData &shaderRef, TechAssetType type)
     {
         auto &val = document["shader"];
 
         if (type == TechAssetType::MESH) {
             if (val.HasMember("object")) {
-                shader.objectOrCSMain = val["object"].GetString();
+                shaderRef.objectOrCSMain = val["object"].GetString();
             }
 
             if (val.HasMember("mesh")) {
-                shader.vertOrMeshMain = val["mesh"].GetString();
+                shaderRef.vertOrMeshMain = val["mesh"].GetString();
             }
         } else {
             if (val.HasMember("vertex")) {
-                shader.vertOrMeshMain = val["vertex"].GetString();
+                shaderRef.vertOrMeshMain = val["vertex"].GetString();
             }
         }
 
         if (val.HasMember("fragment")) {
-            shader.fragmentMain = val["fragment"].GetString();
+            shaderRef.fragmentMain = val["fragment"].GetString();
         }
 
         if (val.HasMember("path")) {
-            shader.path = val["path"].GetString();
+            const auto *path = val["path"].GetString();
+            auto src = AssetDataBase::Get()->RegisterAsset(path);
+            shaderRef.shader = src->uuid;
         }
     }
 
@@ -177,8 +179,6 @@ namespace sky::builder {
         ProcessRasterStates(document, data.rasterState);
         GetPassInfo(document, data);
         GetVertexDescInfo(document, data);
-
-        AssetDataBase::Get()->RegisterAsset(data.shader.path);
     }
 
     void TechniqueBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
@@ -199,6 +199,9 @@ namespace sky::builder {
             auto asset = am->FindOrCreateAsset<Technique>(request.assetInfo->uuid);
             TechniqueAssetData &assetData = asset->Data();
             ProcessGraphics(document, assetData, request);
+
+            asset->AddDependencies(assetData.shader.shader);
+            AssetManager::Get()->SaveAsset(asset, request.target);
         }
         result.retCode = AssetBuildRetCode::SUCCESS;
     }

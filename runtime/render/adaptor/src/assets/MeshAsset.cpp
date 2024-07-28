@@ -3,13 +3,15 @@
 //
 
 #include <framework/asset/AssetManager.h>
+#include <core/archive/MemoryArchive.h>
 #include <render/RHI.h>
-#include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 
 namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
     {
+        archive.LoadValue(version);
+
         uint32_t size = 0;
         archive.LoadValue(size);
 
@@ -30,17 +32,25 @@ namespace sky {
         archive.LoadValue(size);
         primitives.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
+            archive.LoadValue(primitives[i].offset);
             archive.LoadValue(primitives[i].size);
             archive.LoadValue(primitives[i].stride);
         }
 
         // indices
+        archive.LoadValue(indices.offset);
         archive.LoadValue(indices.size);
         archive.LoadValue(indices.indexType);
+
+        // data size
+        archive.LoadValue(dataSize);
+        dataOffset = static_cast<uint32_t>(archive.GetStream().Tell());
     }
 
     void MeshAssetData::Save(BinaryOutputArchive &archive) const
     {
+        archive.SaveValue(version);
+
         // subMesh
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));
         for (const auto &subMesh : subMeshes) {
@@ -56,54 +66,73 @@ namespace sky {
         // primitives
         archive.SaveValue(static_cast<uint32_t>(primitives.size()));
         for (const auto &primitive : primitives) {
+            archive.SaveValue(primitive.offset);
             archive.SaveValue(primitive.size);
             archive.SaveValue(primitive.stride);
         }
 
         // index
+        archive.SaveValue(indices.offset);
         archive.SaveValue(indices.size);
         archive.SaveValue(indices.indexType);
+
+        // data size
+        archive.SaveValue(dataSize);
+
+        SKY_ASSERT(dataSize == static_cast<uint32_t>(rawData.storage.size()));
+
+        // save raw
+        archive.SaveValue(reinterpret_cast<const char*>(rawData.storage.data()), dataSize);
     }
 
-    std::shared_ptr<Mesh> CreateMesh(const MeshAssetData &data)
+    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
     {
-        auto mesh = std::make_shared<Mesh>();
+        const auto &data = asset->Data();
+        const auto &uuid = asset->GetUuid();
 
         auto *am = AssetManager::Get();
-        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        rhi::TransferTaskHandle handle = 0;
-//        for (const auto &vb : data.vertexBuffers) {
-//            auto bufferPath = AssetManager::Get()->OpenAsset(vb.buffer);
-//            auto buffer = std::make_shared<Buffer>();
-//            buffer->Init(vb.size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + vb.offset);
-//            mesh->AddVertexBuffer(buffer);
-//        }
+        auto file = am->OpenFile(uuid);
+        SKY_ASSERT(file);
 
-//        if (data.indexBuffer.buffer) {
-//            auto bufferPath = AssetManager::Get()->OpenAsset(data.indexBuffer.buffer);
-//            auto buffer = std::make_shared<Buffer>();
-//            buffer->Init(data.indexBuffer.size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + data.indexBuffer.offset);
-//            mesh->SetIndexBuffer(buffer);
-//        }
-//        mesh->SetIndexType(data.indexType);
+        auto *mesh = new Mesh();
+        for (const auto &sub : data.subMeshes) {
+            auto matAsset = am->FindAsset<MaterialInstance>(sub.material);
+            auto mat = CreateMaterialInstanceFromAsset(matAsset);
 
-//        for (const auto &sub : data.subMeshes) {
-//            auto mat = am->LoadAsset<MaterialInstance>(sub.material)->CreateInstance();
-//
-//            mesh->AddSubMesh(SubMesh {
-//                sub.firstVertex,
-//                sub.vertexCount,
-//                sub.firstIndex,
-//                sub.indexCount,
-//                mat,
-//                sub.aabb
-//            });
-//        }
-//        queue->Wait(handle);
+            mesh->AddSubMesh(SubMesh {
+                sub.firstVertex,
+                sub.vertexCount,
+                sub.firstIndex,
+                sub.indexCount,
+                mat,
+                sub.aabb
+            });
+        }
 
-        return {};
+        for (const auto &desc : data.vertexDescriptions) {
+            mesh->AddVertexDescriptions(desc);
+        }
+        mesh->SetIndexType(data.indices.indexType);
+
+        MeshData meshData = {};
+        auto *fileStream = new rhi::FileStream(file, data.dataOffset);
+
+        for (const auto &prim : data.primitives) {
+            rhi::BufferUploadRequest request = {};
+            request.source = fileStream;
+            request.offset = prim.offset;
+            request.size = prim.size;
+            meshData.vertexStreams.emplace_back(request);
+        }
+
+        if (data.indices.size != 0) {
+            rhi::BufferUploadRequest &request = meshData.indexStream;
+            request.source = fileStream;
+            request.offset = data.indices.offset;
+            request.size = data.indices.size;
+        }
+        mesh->SetUploadStream(std::move(meshData));
+        return mesh;
     }
 
 }

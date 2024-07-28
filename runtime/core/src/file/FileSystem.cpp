@@ -22,8 +22,14 @@ namespace sky {
     {
     }
 
-    FilePath::FilePath(const std::string &filePath_) : filePath(filePath_) // NOLINT
+    FilePath::FilePath(const std::string &filePath_)
+#ifdef SKY_FS_USE_WCHAR
+        : filePath(Utf8ToUtf16(filePath_)) // NOLINT
+#else
+        : filePath(filePath_) // NOLINT
+#endif
     {
+        filePath.make_preferred();
     }
 
     void FilePath::MakeDirectory() const
@@ -79,14 +85,19 @@ namespace sky {
         return filePath.string();
     }
 
-    IArchivePtr NativeFile::ReadAsArchive()
+    IStreamArchivePtr NativeFile::ReadAsArchive()
     {
         return new IFileArchive(filePath);
     }
 
-    OArchivePtr NativeFile::WriteAsArchive()
+    OStreamArchivePtr NativeFile::WriteAsArchive()
     {
         return new OFileArchive(filePath);
+    }
+
+    std::string NativeFile::GetPath() const
+    {
+        return filePath.GetStr();
     }
 
     bool NativeFile::ReadBin(std::vector<uint8_t> &out)
@@ -124,12 +135,12 @@ namespace sky {
         return true;
     }
 
-    IArchivePtr RawBufferView::ReadAsArchive()
+    IStreamArchivePtr RawBufferView::ReadAsArchive()
     {
         return {};
     }
 
-    OArchivePtr RawBufferView::WriteAsArchive()
+    OStreamArchivePtr RawBufferView::WriteAsArchive()
     {
         return {};
     }

@@ -33,4 +33,18 @@ namespace sky {
         return false;
     }
 
+    const Any &GetTypeProperty(const Uuid &typeId, uint32_t key)
+    {
+        static const Any Empty;
+
+        const auto *node = GetTypeNode(typeId);
+        if (node != nullptr) {
+            auto iter = node->properties.find(key);
+            if (iter != node->properties.end()) {
+                return iter->second;
+            }
+        }
+        return Empty;
+    }
+
 }

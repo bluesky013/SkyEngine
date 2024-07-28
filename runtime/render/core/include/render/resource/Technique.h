@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <render/resource/Shader.h>
+#include <render/RenderResource.h>
 
 namespace sky {
 
@@ -16,10 +17,10 @@ namespace sky {
         std::string fragmentMain;
     };
 
-    class Technique {
+    class Technique : public RenderResource {
     public:
         Technique() = default;
-        virtual ~Technique() = default;
+        ~Technique() override = default;
 
         void SetShader(const ShaderRef &shader);
 
@@ -59,7 +60,7 @@ namespace sky {
         uint32_t rasterID = 0;
         uint32_t viewMask = 0xFFFFFFFF;
     };
-    using RDGfxTechPtr = std::shared_ptr<GraphicsTechnique>;
+    using RDGfxTechPtr = CounterPtr<GraphicsTechnique>;
 
     class ComputeTechnique : public Technique {
     public:
@@ -71,5 +72,5 @@ namespace sky {
 
         rhi::PipelineState state;
     };
-    using RDCompTechPtr = std::shared_ptr<ComputeTechnique>;
+    using RDCompTechPtr = CounterPtr<ComputeTechnique>;
 } // namespace sky

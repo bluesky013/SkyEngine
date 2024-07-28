@@ -146,7 +146,7 @@ namespace sky::builder {
 
     void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<uint8_t> &out, const CompressOption &options)
     {
-        rgba_surface input = {};
+        rgba_surface input = {};\
         input.ptr = ptr + copy.offset;
         input.width  = static_cast<int32_t>(copy.width);
         input.height = static_cast<int32_t>(copy.height);

@@ -10,12 +10,8 @@
 #include <builder/render/VertexLibraryBuilder.h>
 #include <builder/render/MeshBuilder.h>
 
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
-#include <framework/serialization/SerializationContext.h>
-
-#include <render/adaptor/Reflection.h>
 #include <shader/ShaderCompiler.h>
 
 namespace sky::builder {
@@ -41,10 +37,12 @@ namespace sky::builder {
         am->RegisterBuilder(new MeshBuilder());
 
         // init shader compiler
-//        auto *compiler = ShaderCompiler::Get();
-//        for (const auto &path : am->GetSearchPathList()) {
-//            compiler->AddSearchPath(path.path);
-//        }
+        auto engineFs = AssetBuilderManager::Get()->GetEngineFs();
+        auto workSpaceFs = AssetBuilderManager::Get()->GetWorkSpaceFs();
+
+        auto *compiler = ShaderCompiler::Get();
+        compiler->AddSearchPath(engineFs->GetPath());
+        compiler->AddSearchPath(workSpaceFs->GetPath());
         return true;
     }
 }

@@ -3,6 +3,8 @@
 //
 
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetEvent.h>
+#include <framework/asset/AssetDataBase.h>
 #include <framework/platform/PlatformBase.h>
 #include <core/logger/Logger.h>
 #include <core/archive/FileArchive.h>
@@ -55,7 +57,7 @@ namespace sky {
         return asset;
     }
 
-    AssetPtr AssetManager::CreateAssetByHeader(const Uuid &uuid, const IArchivePtr &archive)
+    AssetPtr AssetManager::CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive)
     {
         // get asset type
         std::string type;
@@ -92,7 +94,7 @@ namespace sky {
             return {};
         }
 
-        IArchivePtr archive = file->ReadAsArchive();
+        auto archive = file->ReadAsArchive();
         asset = CreateAssetByHeader(uuid, archive);
         if (!asset) {
             return {};
@@ -104,8 +106,13 @@ namespace sky {
         holder.reserve(asset->dependencies.size());
 
         for (auto &dep : asset->dependencies) {
-            holder.emplace_back(LoadAsset(dep));
-            asyncTasks.emplace_back(holder.back()->asyncTask.first);
+            auto depAsset = LoadAsset(dep);
+            if (!depAsset) {
+                return {};
+            }
+
+            holder.emplace_back(depAsset);
+            asyncTasks.emplace_back(depAsset->asyncTask.first);
         }
 
         asset->status.store(AssetBase::Status::LOADING);
@@ -126,9 +133,35 @@ namespace sky {
                 asset->depAssets.swap(deps);
                 auto res = assetHandlers[asset->type]->Load(*archive, asset);
                 asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
+
+                AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded);
             }, asyncTasks.begin(), asyncTasks.end());
 
         return asset;
+    }
+
+    AssetProductBundle *AssetManager::GetBundle(const ProductBundleKey &target) const
+    {
+        if (bundles.empty()) {
+            return nullptr;
+        }
+
+        if (target.empty()) {
+            return bundles[0].get();
+        }
+
+        for (const auto &bundle : bundles) {
+            if (bundle->GetKey() != target) {
+                return bundle.get();
+            }
+        }
+        return nullptr;
+    }
+
+    AssetPtr AssetManager::LoadAssetFromPath(const std::string &path)
+    {
+        auto src = AssetDataBase::Get()->FindAsset(path);
+        return src ? LoadAsset(src->uuid) : AssetPtr{};
     }
 
     void AssetManager::SaveAsset(const AssetPtr &asset, const ProductBundleKey &target)
@@ -141,16 +174,12 @@ namespace sky {
         // flush load operation
         asset->BlockUntilLoaded();
 
-        FilePtr file;
-        for (const auto &bundle : bundles) {
-            if (bundle->GetKey() != target || bundle->IsPacked()) {
-                continue;
-            }
-            file = bundle->CreateOrOpenFile(asset->GetUuid());
-            if (file) {
-                break;
-            }
+        auto *pBundle = GetBundle(target);
+        if (pBundle == nullptr) {
+            return;
         }
+
+        FilePtr file = pBundle->CreateOrOpenFile(asset->GetUuid());
         if (!file) {
             LOG_E(TAG, "Save Asset %s Failed. Can not create file.", asset->GetUuid().ToString().c_str());
             return;

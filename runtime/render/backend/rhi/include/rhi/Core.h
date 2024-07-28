@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <core/template/Flags.h>
+#include <core/template/ReferenceObject.h>
 
 namespace sky {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
@@ -495,21 +496,21 @@ namespace sky::rhi {
         uint32_t size;
     };
 
-    struct IStream {
-        IStream() = default;
-        virtual ~IStream() = default;
+    struct IUploadStream : public RefObject {
+        IUploadStream() = default;
+        ~IUploadStream() override = default;
         virtual const uint8_t *GetData(uint64_t offset) = 0;
         virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
 
     struct BufferUploadRequest {
-        std::shared_ptr<IStream> source;
+        CounterPtr<IUploadStream> source;
         uint64_t       offset = 0;
         uint64_t       size   = 0;
     };
 
     struct ImageUploadRequest {
-        std::shared_ptr<IStream> source;
+        CounterPtr<IUploadStream> source;
         uint64_t       offset   = 0;
         uint64_t       size     = 0;
         uint32_t       mipLevel = 0;

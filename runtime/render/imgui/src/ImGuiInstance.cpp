@@ -91,11 +91,11 @@ namespace sky {
         uint32_t uploadSize = width * height * 4 * sizeof(char);
 
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        fontTexture = std::make_shared<Texture2D>();
+        fontTexture = new Texture2D();
         fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
         uploadHandle = fontTexture->Upload(pixels, uploadSize, *queue);
 
-        ubo = std::make_shared<DynamicUniformBuffer>();
+        ubo = new DynamicUniformBuffer();
         ubo->Init(sizeof(UITransform), Renderer::Get()->GetInflightFrameCount());
 
         io.Fonts->SetTexID((ImTextureID)(intptr_t)fontTexture->GetImageView().get());
@@ -318,7 +318,7 @@ namespace sky {
         if (vs > vertexSize) {
             vertexSize = std::max(vertexSize * 2, static_cast<uint64_t>(vs));
             if (!vertexBuffer) {
-                vertexBuffer = std::make_shared<Buffer>();
+                vertexBuffer = new Buffer();
                 vertexBuffer->Init(vertexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::GPU_ONLY);
             } else {
                 vertexBuffer->Resize(vertexSize);
@@ -329,7 +329,7 @@ namespace sky {
         if (is > indexSize) {
             indexSize = std::max(indexSize * 2, static_cast<uint64_t>(is));
             if (!indexBuffer) {
-                indexBuffer = std::make_shared<Buffer>();
+                indexBuffer = new Buffer();
                 indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::INDEX, rhi::MemoryType::GPU_ONLY);
             } else {
                 indexBuffer->Resize(indexSize);
@@ -347,7 +347,7 @@ namespace sky {
 
             // rebuild staging buffer
             if (!stagingBuffer) {
-                stagingBuffer = std::make_shared<Buffer>();
+                stagingBuffer = new Buffer();
                 stagingBuffer->Init(vertexSize + indexSize, rhi::BufferUsageFlagBit::TRANSFER_SRC, rhi::MemoryType::CPU_TO_GPU);
             } else {
                 stagingBuffer->Resize(vertexSize + indexSize);

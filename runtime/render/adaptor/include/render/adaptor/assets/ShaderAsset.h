@@ -20,18 +20,13 @@ namespace sky {
         void Save(BinaryOutputArchive &archive) const;
     };
 
-    std::shared_ptr<ShaderCollection> CreateShader(const ShaderAssetData &data);
-
     template <>
     struct AssetTraits<ShaderCollection> {
         using DataType                                = ShaderAssetData;
         static constexpr std::string_view ASSET_TYPE  = "ShaderCollection";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
-
-        static std::shared_ptr<ShaderCollection> CreateFromData(const DataType &data)
-        {
-            return CreateShader(data);
-        }
     };
     using ShaderAssetPtr = std::shared_ptr<Asset<ShaderCollection>>;
+
+    CounterPtr<ShaderCollection> CreateShaderFromAsset(const ShaderAssetPtr &asset);
 }

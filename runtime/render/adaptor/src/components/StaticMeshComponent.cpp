@@ -2,29 +2,33 @@
 // Created by Zach Lee on 2023/2/28.
 //
 
+#include <render/adaptor/components/StaticMeshComponent.h>
+#include <render/adaptor/Util.h>
+
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
+#include <framework/serialization/PropertyCommon.h>
 #include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
-#include <render/adaptor/Util.h>
-#include <render/adaptor/components/MeshRenderer.h>
+
 #include <render/mesh/MeshFeatureProcessor.h>
 
 namespace sky {
 
-    MeshRenderer::~MeshRenderer()
+    StaticMeshComponent::~StaticMeshComponent()
     {
         ShutDown();
     }
 
-    void MeshRenderer::Reflect(SerializationContext *context)
+    void StaticMeshComponent::Reflect(SerializationContext *context)
     {
-        context->Register<MeshRenderer>("MeshRenderer")
-            .Member<&MeshRenderer::isStatic>("static")
-            .Member<&MeshRenderer::SetMeshUuid, &MeshRenderer::GetMeshUuid>("mesh");
+        context->Register<StaticMeshComponent>("StaticMeshComponent")
+            .Member<&StaticMeshComponent::isStatic>("static")
+            .Member<&StaticMeshComponent::SetMeshUuid, &StaticMeshComponent::GetMeshUuid>("mesh")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE));
     }
 
-    void MeshRenderer::SaveJson(JsonOutputArchive &ar) const
+    void StaticMeshComponent::SaveJson(JsonOutputArchive &ar) const
     {
         ar.StartObject();
         ar.SaveValueObject(std::string("static"), isStatic);
@@ -34,50 +38,44 @@ namespace sky {
         ar.EndObject();
     }
 
-    void MeshRenderer::LoadJson(JsonInputArchive &ar)
+    void StaticMeshComponent::LoadJson(JsonInputArchive &ar)
     {
         ar.LoadKeyValue("static", isStatic);
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
-        meshAsset = AssetManager::Get()->LoadAsset<Mesh>(uuid);
-//        ResetMesh();
+        SetMeshUuid(uuid);
     }
 
-    void MeshRenderer::SetMeshUuid(const Uuid &uuid)
+    void StaticMeshComponent::SetMeshUuid(const Uuid &uuid)
     {
         const auto &current = meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty();
         if (current == uuid) {
             return;
         }
+
         if (uuid) {
-            SetMesh(AssetManager::Get()->LoadAsset<Mesh>(uuid));
+            binder.Bind(this, uuid);
         } else {
-            SetMesh(MeshAssetPtr {});
+            binder.Reset();
+        }
+        dirty.store(false);
+
+        meshAsset = uuid ? AssetManager::Get()->LoadAsset<Mesh>(uuid) : MeshAssetPtr {};
+        if (meshAsset && meshAsset->IsLoaded() && !dirty.load()) {
+            OnAssetLoaded();
         }
     }
 
-    void MeshRenderer::SetMesh(const MeshAssetPtr &mesh_)
+    void StaticMeshComponent::BuildRenderer()
     {
-        meshAsset = mesh_;
         if (meshAsset) {
-            meshInstance = meshAsset->CreateInstance();
+            meshInstance = CreateMeshFromAsset(meshAsset);
         } else {
             meshInstance = nullptr;
         }
 
-        ResetMesh();
-    }
-
-    void MeshRenderer::SetMesh(const RDMeshPtr &mesh)
-    {
-        meshInstance = mesh;
-        ResetMesh();
-    }
-
-    void MeshRenderer::ResetMesh()
-    {
         auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
 
         if (!meshInstance) {
@@ -94,7 +92,7 @@ namespace sky {
         renderer->SetMesh(meshInstance);
     }
 
-    void MeshRenderer::ShutDown()
+    void StaticMeshComponent::ShutDown()
     {
         if (renderer != nullptr) {
             GetFeatureProcessor<MeshFeatureProcessor>(actor)->RemoveStaticMesh(renderer);
@@ -102,20 +100,40 @@ namespace sky {
         }
     }
 
-    void MeshRenderer::OnActive()
+    void StaticMeshComponent::OnAssetLoaded()
+    {
+        dirty.store(true);
+    }
+
+    void StaticMeshComponent::OnActive()
     {
     }
 
-    void MeshRenderer::OnDeActive()
+    void StaticMeshComponent::OnDeActive()
     {
         ShutDown();
     }
 
-    void MeshRenderer::Tick(float time)
+    void StaticMeshComponent::Tick(float time)
     {
+        if (dirty.load()) {
+            BuildRenderer();
+            dirty.store(false);
+        }
+
         if (renderer != nullptr) {
             auto *ts = actor->GetComponent<TransformComponent>();
             renderer->UpdateTransform(ts->GetWorldMatrix());
         }
+    }
+
+    void StaticMeshComponent::OnAttachToWorld(World* word)
+    {
+
+    }
+
+    void StaticMeshComponent::OnDetachFromWorld()
+    {
+        ShutDown();
     }
 } // namespace sky

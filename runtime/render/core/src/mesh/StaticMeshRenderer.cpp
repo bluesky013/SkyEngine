@@ -25,8 +25,6 @@ namespace sky {
 
     void StaticMeshRenderer::SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh)
     {
-        mesh->SetMaterial(mat, subMesh);
-
         auto &primitive = primitives[subMesh];
         primitive->techniques.clear();
 
@@ -44,7 +42,7 @@ namespace sky {
         mesh = mesh_;
 
         if (!ubo) {
-            ubo = std::make_shared<DynamicUniformBuffer>();
+            ubo = new DynamicUniformBuffer();
             ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
             ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
             ubo->Upload();

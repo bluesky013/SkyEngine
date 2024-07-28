@@ -11,7 +11,7 @@
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <render/adaptor/components/CameraComponent.h>
-#include <render/adaptor/components/MeshRenderer.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
 #include <rhi/Decode.h>
 
 #include <framework/window/NativeWindow.h>
@@ -120,7 +120,6 @@ namespace sky {
             trans.rotation.FromEulerYZX(Vector3(-50, 113, 0));
 
             shadowScene = scene->CreateSceneView(1);
-//            shadowScene->SetFlipY(false);
             shadowScene->SetPerspective(1.f, 100.f, 75.f / 180.f * PI, 1.f);
             shadowScene->SetMatrix(trans.ToMatrix());
             shadowScene->Update();

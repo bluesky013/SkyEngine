@@ -11,6 +11,11 @@ namespace sky {
         dependencies.emplace_back(id);
     }
 
+    void AssetBase::ResetDependencies()
+    {
+        dependencies.clear();
+    }
+
     void AssetBase::BlockUntilLoaded() const
     {
         if (asyncTask.second.valid()) {

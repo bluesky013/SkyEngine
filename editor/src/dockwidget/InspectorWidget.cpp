@@ -20,6 +20,7 @@ namespace sky::editor {
 
         auto *widget = new QWidget(this);
         widget->setStyleSheet("background-color:white;");
+        widget->setAcceptDrops(true);
         setWidget(widget);
 
         auto *rootLayout = new QVBoxLayout(widget);

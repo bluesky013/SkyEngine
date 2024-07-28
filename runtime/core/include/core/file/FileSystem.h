@@ -9,7 +9,7 @@
 #include <fstream>
 #include <vector>
 #include <filesystem>
-#include <core/archive/IArchive.h>
+#include <core/archive/StreamArchive.h>
 #include <core/template/ReferenceObject.h>
 
 #if WIN32
@@ -64,15 +64,15 @@ namespace sky {
 
         virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
 
-        virtual IArchivePtr ReadAsArchive() = 0;
-        virtual OArchivePtr WriteAsArchive() = 0;
+        virtual IStreamArchivePtr ReadAsArchive() = 0;
+        virtual OStreamArchivePtr WriteAsArchive() = 0;
 
         virtual bool ReadBin(std::vector<uint8_t> &out) = 0;
         virtual bool ReadString(std::string &out) = 0;
 
 //        virtual std::istream ReadAsStream(const FilePath &name) = 0;
 //        virtual std::ostream WriteAsStream(const FilePath &name) = 0;
-
+        virtual std::string GetPath() const = 0;
     };
 
     class NativeFile : public IFile {
@@ -84,8 +84,10 @@ namespace sky {
         bool ReadBin(std::vector<uint8_t> &out) override;
         bool ReadString(std::string &out) override;
 
-        IArchivePtr ReadAsArchive() override;
-        OArchivePtr WriteAsArchive() override;
+        IStreamArchivePtr ReadAsArchive() override;
+        OStreamArchivePtr WriteAsArchive() override;
+
+        std::string GetPath() const override;
 
 //        std::istream ReadAsStream(const FilePath &name) override;
 //        std::ostream WriteAsStream(const FilePath &name) override;
@@ -103,8 +105,10 @@ namespace sky {
         bool ReadBin(std::vector<uint8_t> &out) override;
         bool ReadString(std::string &out) override;
 
-        IArchivePtr ReadAsArchive() override;
-        OArchivePtr WriteAsArchive() override;
+        std::string GetPath() const override { return ""; }
+
+        IStreamArchivePtr ReadAsArchive() override;
+        OStreamArchivePtr WriteAsArchive() override;
     };
 
     class IFileSystem : public RefObject {

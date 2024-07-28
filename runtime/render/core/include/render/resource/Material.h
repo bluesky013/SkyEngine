@@ -5,6 +5,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <render/RenderResource.h>
 #include <render/resource/Texture.h>
 #include <render/resource/Technique.h>
 #include <render/resource/ResourceGroup.h>
@@ -30,10 +31,10 @@ namespace sky {
 
     using MaterialValue = std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
 
-    class Material {
+    class Material : public RenderResource {
     public:
         Material()  = default;
-        ~Material() = default;
+        ~Material() override = default;
 
         void AddTechnique(const RDGfxTechPtr &technique);
 
@@ -48,12 +49,12 @@ namespace sky {
         std::vector<RDGfxTechPtr> gfxTechniques;
     };
 
-    using RDMaterialPtr = std::shared_ptr<Material>;
+    using RDMaterialPtr = CounterPtr<Material>;
 
-    class MaterialInstance {
+    class MaterialInstance : public RenderResource {
     public:
         MaterialInstance() = default;
-        ~MaterialInstance() = default;
+        ~MaterialInstance() override = default;
 
         void SetMaterial(const RDMaterialPtr &mat);
 
@@ -79,5 +80,5 @@ namespace sky {
         std::unordered_map<uint32_t, RDDynamicUniformBufferPtr> uniformBuffers;
     };
 
-    using RDMaterialInstancePtr = std::shared_ptr<MaterialInstance>;
+    using RDMaterialInstancePtr = CounterPtr<MaterialInstance>;
 } // namespace sky

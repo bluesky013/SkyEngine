@@ -17,11 +17,19 @@ namespace sky::editor {
 
         void Init(RenderScene* scene, NativeWindow *window);
         void Shutdown();
+        void Tick(float time);
+        void UpdateAspect(uint32_t width, uint32_t height);
 
     private:
         FirstPersonController controller;
         SceneView *sceneView = nullptr;
         RenderScene *renderScene = nullptr;
+        Transform transform = {};
+
+        float near = 0.1f;
+        float far = 100.f;
+        float fov = 60.f;
+        float aspect = 1.f;
     };
 
 } // namespace sky::editor

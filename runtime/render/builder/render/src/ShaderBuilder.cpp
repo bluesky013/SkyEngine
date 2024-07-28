@@ -16,9 +16,10 @@ namespace sky::builder {
     {
         auto shader = AssetManager::Get()->FindOrCreateAsset<ShaderCollection>(request.assetInfo->uuid);
         shader->Data().name = request.assetInfo->name;
-//        shader->Data().shaderSource = ShaderCompiler::Get()->LoadShader(request.relativePath);
+        shader->Data().shaderSource = ShaderCompiler::Get()->LoadShader(request.assetInfo->path.path.GetStr());
         shader->Data().hash = Crc32::Cal(shader->Data().shaderSource);
 
+        AssetManager::Get()->SaveAsset(shader, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 

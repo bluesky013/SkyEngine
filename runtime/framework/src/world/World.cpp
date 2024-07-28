@@ -134,12 +134,12 @@ namespace sky {
             actor->world->DetachFromWorld(actor);
         }
         actors.emplace_back(actor);
-        actor->world = this;
+        actor->AttachToWorld(this);
     }
 
     void World::DetachFromWorld(const ActorPtr &actor)
     {
-        actor->world = nullptr;
+        actor->DetachFromWorld();
         auto iter = std::find_if(actors.begin(), actors.end(),
             [&actor](const auto &v) { return actor == v; });
 

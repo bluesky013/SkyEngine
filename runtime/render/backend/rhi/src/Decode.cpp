@@ -181,7 +181,7 @@ namespace sky::rhi {
         uint32_t blockSize = iter->second.blockSize;
 
         ImageUploadRequest request = {};
-        request.source = std::make_shared<RawPtrStream>(input);
+        request.source = new RawPtrStream(input);
         request.imageExtent.width  = imageDesc.extent.width;
         request.imageExtent.height = imageDesc.extent.height;
 
@@ -194,7 +194,7 @@ namespace sky::rhi {
                 uint32_t imageHeight = (height + blockHeight - 1) / blockHeight;
                 uint32_t currentSize = rowLength * imageHeight * blockSize;
                 request.imageExtent.depth  = 1;
-                request.source             = std::make_shared<RawPtrStream>(input);
+                request.source             = new RawPtrStream(input);
                 request.offset             = offset;
                 request.size               = currentSize;
                 request.mipLevel           = i;

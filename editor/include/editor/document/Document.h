@@ -23,6 +23,7 @@ namespace sky::editor {
 
         static void Reflect();
 
+        const WorldPtr &GetWorld() const { return world; }
         WorldPtr OpenWorld(const QString &path);
         void CloseWorld();
 

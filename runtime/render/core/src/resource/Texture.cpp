@@ -24,7 +24,7 @@ namespace sky {
     rhi::TransferTaskHandle Texture::Upload(const FilePtr &file, rhi::Queue &queue, uint32_t offset)
     {
         rhi::ImageUploadRequest request = {};
-        request.source   = std::make_shared<rhi::FileStream>(file, offset);
+        request.source   = new rhi::FileStream(file, offset);
         request.offset   = 0;
         request.mipLevel = 0;
         request.layer    = 0;
@@ -36,7 +36,7 @@ namespace sky {
     rhi::TransferTaskHandle Texture::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
     {
         rhi::ImageUploadRequest request = {};
-        request.source   = std::make_shared<rhi::FileStream>(new NativeFile(path), offset);
+        request.source   = new rhi::FileStream(new NativeFile(path), offset);
         request.offset   = 0;
         request.mipLevel = 0;
         request.layer    = 0;
@@ -48,7 +48,7 @@ namespace sky {
     rhi::TransferTaskHandle Texture::Upload(const uint8_t *ptr, uint64_t size, rhi::Queue &queue)
     {
         rhi::ImageUploadRequest request = {};
-        request.source   = std::make_shared<rhi::RawPtrStream>(ptr);
+        request.source   = new rhi::RawPtrStream(ptr);
         request.offset   = 0;
         request.size     = size;
         request.mipLevel = 0;
@@ -143,4 +143,16 @@ namespace sky {
         return static_cast<bool>(imageView);
     }
 
+    void Texture::SetUploadStream(ImageData&& stream)
+    {
+        data = std::move(stream);
+        UploadMeshData();
+    }
+
+    void Texture::UploadMeshData()
+    {
+        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
+        uploadHandle = queue->UploadImage(image, data.slices);
+        queue->Wait(uploadHandle);
+    }
 } // namespace sky

@@ -3,6 +3,7 @@
 //
 
 #include <render/resource/Mesh.h>
+#include <render/RHI.h>
 
 namespace sky {
 
@@ -36,5 +37,54 @@ namespace sky {
         vertexDescriptions.emplace_back(key);
     }
 
+    void Mesh::SetUploadStream(MeshData&& stream_)
+    {
+        streamData = std::move(stream_);
+        UploadMeshData();
+    }
+
+    void Mesh::UploadMeshData()
+    {
+        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
+
+        vertexBuffers.resize(streamData.vertexStreams.size());
+        for (uint32_t i = 0; i < streamData.vertexStreams.size(); ++i) {
+            auto &vStream =streamData.vertexStreams[i];
+
+            vertexBuffers[i] = new Buffer();
+            vertexBuffers[i]->Init(vStream.size,
+                                   rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST,
+                                   rhi::MemoryType::GPU_ONLY);
+            uploadHandle = queue->UploadBuffer(vertexBuffers[i]->GetRHIBuffer(), vStream);
+        }
+
+        if (streamData.indexStream.source) {
+            auto &iStream = streamData.indexStream;
+
+            indexBuffer = new Buffer();
+            indexBuffer->Init(iStream.size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST,
+                              rhi::MemoryType::GPU_ONLY);
+            uploadHandle = queue->UploadBuffer(indexBuffer->GetRHIBuffer(), iStream);
+        }
+        queue->Wait(uploadHandle);
+
+//        rhi::TransferTaskHandle handle = 0;
+//        for (const auto &vb : data.vertexBuffers) {
+//            auto bufferPath = AssetManager::Get()->OpenAsset(vb.buffer);
+//            auto buffer = std::make_shared<Buffer>();
+//            buffer->Init(vb.size, rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + vb.offset);
+//            mesh->AddVertexBuffer(buffer);
+//        }
+//
+//        if (data.indexBuffer.buffer) {
+//            auto bufferPath = AssetManager::Get()->OpenAsset(data.indexBuffer.buffer);
+//            auto buffer = std::make_shared<Buffer>();
+//            buffer->Init(data.indexBuffer.size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+//            handle = buffer->Upload(bufferPath, *queue, sizeof(BufferAssetHeader) + data.indexBuffer.offset);
+//            mesh->SetIndexBuffer(buffer);
+//        }
+//        mesh->SetIndexType(data.indexType);
+    }
 
 } // namespace sky

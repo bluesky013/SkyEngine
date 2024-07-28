@@ -6,7 +6,7 @@
 
 #include <core/jobsystem/JobSystem.h>
 #include <core/util/Uuid.h>
-#include <core/archive/IArchive.h>
+#include <core/archive/StreamArchive.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
 
@@ -35,19 +35,14 @@ namespace sky {
         void SetUuid(const Uuid &id) { uuid = id; }
         const Uuid &GetUuid() const { return uuid; }
 
-        void SetTypeId(const Uuid &id) { typeId = id; }
-        const Uuid &GetTypeId() const { return typeId; }
-
         void SetType(const std::string &val) { type = val; }
         const std::string &GetType() const { return type; }
-
-        void SetName(const std::string &name) { markedName = name; }
-        const std::string &GetName() const { return markedName; }
         
         Status GetStatus() const { return status.load(); }
         bool IsLoaded() const { return status.load() == Status::LOADED; }
 
         void AddDependencies(const Uuid &id);
+        void ResetDependencies();
         void BlockUntilLoaded() const;
 
         virtual const uint8_t *GetData() const = 0;
@@ -56,11 +51,9 @@ namespace sky {
         friend class AssetManager;
 
         Uuid                  uuid;
-        Uuid                  typeId; // TODO
         std::string           type;
         std::vector<Uuid>     dependencies;
         std::vector<AssetPtr> depAssets;
-        std::string           markedName;
 
         std::atomic<Status> status = Status::INITIAL;
         AsyncTask           asyncTask;
@@ -72,11 +65,6 @@ namespace sky {
     struct AssetTraits {
         using DataType = std::vector<uint8_t>;
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::JSON;
-
-        static std::shared_ptr<T> CreateFromData(const DataType &data)
-        {
-            return nullptr;
-        }
     };
 
     template <typename T>
@@ -87,28 +75,6 @@ namespace sky {
         ~Asset() override = default;
 
         using DataType = typename AssetTraits<T>::DataType;
-
-        std::shared_ptr<T> CreateInstance(bool useDefault = true)
-        {
-            if (useDefault) {
-                std::shared_ptr<T> res;
-                std::lock_guard<std::mutex> lock(mutex);
-                res = defaultInstance.lock();
-                if (res) {
-                    return res;
-                }
-                res = AssetTraits<T>::CreateFromData(data);
-                defaultInstance = res;
-                return res;
-            }
-            return AssetTraits<T>::CreateFromData(data);
-        }
-
-        template <typename U>
-        std::shared_ptr<U> CreateInstanceAs(bool useDefault = true)
-        {
-            return std::static_pointer_cast<U>(CreateInstance(useDefault));
-        }
 
         const DataType &Data() const
         {
@@ -124,9 +90,6 @@ namespace sky {
         friend class AssetManager;
 
         DataType data;
-
-        std::mutex       mutex;
-        std::weak_ptr<T> defaultInstance;
     };
 
     class AssetHandlerBase {
@@ -139,9 +102,9 @@ namespace sky {
 
         virtual std::shared_ptr<AssetBase> CreateAsset() = 0;
 
-        virtual bool Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
+        virtual bool Load(IStreamArchive &archive, const std::shared_ptr<AssetBase> &asset) = 0;
 
-        virtual void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &data) = 0;
+        virtual void Save(OStreamArchive &archive, const std::shared_ptr<AssetBase> &data) = 0;
     };
 
     template <typename T>
@@ -160,7 +123,7 @@ namespace sky {
             return std::make_shared<Asset<T>>();
         }
 
-        bool Load(IInputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
+        bool Load(IStreamArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
             auto     asset = std::static_pointer_cast<Asset<T>>(assetBase);
             DataType &assetData = asset->Data();
@@ -174,7 +137,7 @@ namespace sky {
             return true;
         }
 
-        void Save(IOutputArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
+        void Save(OStreamArchive &archive, const std::shared_ptr<AssetBase> &assetBase) override
         {
             auto          asset     = std::static_pointer_cast<Asset<T>>(assetBase);
             auto         &assetData = asset->Data();

@@ -197,7 +197,7 @@ namespace sky::vk {
                     copy.srcOffset = view.offset;
                     copy.dstOffset = dstOffset;
 
-                    request.source->ReadData(dstOffset, copy.size, view.ptr);
+                    request.source->ReadData(request.offset + dstOffset, copy.size, view.ptr);
 
                     inflightCommands[currentFrameId]->Copy(std::static_pointer_cast<Buffer>(stagingBuffer->GetBuffer()), vkBuffer, copy);
                     dstOffset += BUFFER_PER_FRAME_SIZE;

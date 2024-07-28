@@ -40,8 +40,8 @@ namespace sky {
         void PushSavingTask(const FilePtr &file, Func &&func, Tasks &&...tasks)
         {
             std::lock_guard<std::mutex> lock(mutex);
-            auto iter  = std::find_if(savingTasks.begin(), savingTasks.end(), [file](const auto &v) {
-                return v.file.Get() == file.Get();
+            auto iter = std::find_if(savingTasks.begin(), savingTasks.end(), [file](const auto &v) {
+                return v.file->GetPath() == file->GetPath();
             });
 
             if (iter == savingTasks.end()) {

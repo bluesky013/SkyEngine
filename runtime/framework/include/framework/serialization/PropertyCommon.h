@@ -6,10 +6,11 @@
 
 namespace sky {
 
-    enum CommonPropertyKey {
-        UI_PROP_VISIBLE,
-        UI_LABEL_VISIBLE,
-        UI_LABEL_COLOR,
+    enum class CommonPropertyKey : uint32_t {
+        VISIBLE,
+        LABEL_VISIBLE,
+        LABEL_COLOR,
+        ASSET_TYPE
     };
 
 }

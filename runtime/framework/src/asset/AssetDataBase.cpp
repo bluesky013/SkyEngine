@@ -16,6 +16,8 @@ namespace sky {
     void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
         engineFs = fs->CreateSubSystem("assets", true);
+
+        AssetBuilderManager::Get()->SetEngineFs(engineFs);
     }
 
     void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
@@ -32,8 +34,30 @@ namespace sky {
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
+    AssetSourcePtr AssetDataBase::FindAsset(const std::string &path)
+    {
+        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        const SourceAssetBundle bundles[] = {
+                SourceAssetBundle::WORKSPACE,
+                SourceAssetBundle::ENGINE
+        };
+        for (const auto &bundle : bundles) {
+            auto iter = pathMap.find({bundle, path});
+            if (iter != pathMap.end()) {
+                return FindAsset(iter->second);
+            }
+        }
+        return {};
+    }
+
     AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path)
     {
+        const auto &fs = GetFileSystemBySourcePath(path);
+        if (!fs->FileExist(path.path)) {
+            LOG_E(TAG, "File not Exist %s", path.path.GetStr().c_str());
+            return nullptr;
+        }
+
         AssetSourcePtr info = nullptr;
         {
             std::lock_guard<std::recursive_mutex> lock(assetMutex);
@@ -52,12 +76,6 @@ namespace sky {
                 return nullptr;
             }
 
-            const auto &fs = GetFileSystemBySourcePath(path);
-            if (!fs->FileExist(path.path)) {
-                LOG_E(TAG, "File not Exist %s", path.path.GetStr().c_str());
-                return nullptr;
-            }
-
             AssetSourcePtr srcInfo = new AssetSourceInfo();
             auto uuid = Uuid::Create();
             srcInfo->path = path;
@@ -71,12 +89,12 @@ namespace sky {
                 pathMap.emplace(path, uuid);
                 info = idMap.emplace(uuid, std::move(srcInfo)).first->second;
             }
-
-            AssetBuildRequest request = {};
-            request.file = fs->OpenFile(path.path);
-            request.assetInfo = info;
-            AssetBuilderManager::Get()->BuildRequest(request);
         }
+
+        AssetBuildRequest request = {};
+        request.file = fs->OpenFile(path.path);
+        request.assetInfo = info;
+        AssetBuilderManager::Get()->BuildRequest(request);
 
         // request builder
         return info;

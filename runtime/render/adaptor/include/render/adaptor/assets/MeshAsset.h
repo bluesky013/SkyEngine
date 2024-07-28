@@ -8,13 +8,14 @@
 #include <vector>
 
 #include <core/shapes/AABB.h>
+#include <core/archive/StreamArchive.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetCommon.h>
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
-
 
 namespace sky {
     class BinaryInputArchive;
@@ -36,37 +37,41 @@ namespace sky {
     };
 
     struct MeshPrimitiveHeader {
+        uint32_t offset;
         uint32_t size;
         uint32_t stride;
     };
 
     struct MeshIndicesHeader {
+        uint32_t offset;
         uint32_t size;
         rhi::IndexType indexType = rhi::IndexType::U32;
     };
 
-    struct MeshAssetData {
+    struct MeshDataHeader {
+        uint32_t version = 0;
         std::vector<SubMeshAssetData> subMeshes;
         std::vector<std::string> vertexDescriptions;
         std::vector<MeshPrimitiveHeader> primitives;
         MeshIndicesHeader indices;
+        uint32_t dataSize;
+    };
+
+    struct MeshAssetData : MeshDataHeader {
+        uint32_t dataOffset;
+        AssetRawData rawData;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };
-
-    std::shared_ptr<Mesh> CreateMesh(const MeshAssetData &data);
 
     template <>
     struct AssetTraits<Mesh> {
         using DataType                                = MeshAssetData;
         static constexpr std::string_view ASSET_TYPE  = "Mesh";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
-
-        static std::shared_ptr<Mesh> CreateFromData(const DataType &data)
-        {
-            return CreateMesh(data);
-        }
     };
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
+
+    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset);
 }

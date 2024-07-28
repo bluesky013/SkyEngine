@@ -6,6 +6,7 @@
 
 #include <rhi/Device.h>
 #include <rhi/Queue.h>
+#include <render/RenderResource.h>
 #include <core/file/FileSystem.h>
 #include <fstream>
 
@@ -17,10 +18,19 @@ namespace sky {
         TEXTURE_CUBE
     };
 
-    class Texture {
+    struct ImageData {
+        std::vector<rhi::ImageUploadRequest> slices;
+    };
+
+    class Texture : public RenderResource {
     public:
         Texture();
-        virtual ~Texture();
+        ~Texture() override;
+
+        // upload
+        void SetUploadStream(ImageData&& stream);
+        void UploadMeshData();
+
 
         rhi::TransferTaskHandle Upload(const FilePtr &archive, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
@@ -37,8 +47,11 @@ namespace sky {
         rhi::ImagePtr image;
         rhi::SamplerPtr sampler;
         rhi::ImageViewPtr imageView;
+
+        ImageData data;
+        rhi::TransferTaskHandle uploadHandle {};
     };
-    using RDTexturePtr = std::shared_ptr<Texture>;
+    using RDTexturePtr = CounterPtr<Texture>;
 
     class TextureCube : public Texture {
     public:
@@ -47,7 +60,7 @@ namespace sky {
 
         bool Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel);
     };
-    using RDTextureCubePtr = std::shared_ptr<TextureCube>;
+    using RDTextureCubePtr = CounterPtr<TextureCube>;
 
     class Texture2D : public Texture {
     public:
@@ -56,7 +69,7 @@ namespace sky {
 
         bool Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t mipLevel);
     };
-    using RDTexture2DPtr = std::shared_ptr<Texture2D>;
+    using RDTexture2DPtr = CounterPtr<Texture2D>;
 
     class Texture3D : public Texture {
     public:
@@ -65,5 +78,5 @@ namespace sky {
 
         bool Init(rhi::PixelFormat format, uint32_t width, uint32_t height, uint32_t depth);
     };
-    using RDTexture3DPtr = std::shared_ptr<Texture3D>;
+    using RDTexture3DPtr = CounterPtr<Texture3D>;
 } // namespace sky

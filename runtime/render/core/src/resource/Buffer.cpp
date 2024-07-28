@@ -39,7 +39,7 @@ namespace sky {
     rhi::TransferTaskHandle Buffer::Upload(const FilePtr &f, rhi::Queue &queue, uint32_t offset)
     {
         rhi::BufferUploadRequest request = {};
-        request.source = std::make_shared<rhi::FileStream>(f, offset);
+        request.source = new rhi::FileStream(f, offset);
         request.offset = 0;
         request.size   = bufferDesc.size;
         return queue.UploadBuffer(buffer, request);
@@ -48,9 +48,18 @@ namespace sky {
     rhi::TransferTaskHandle Buffer::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
     {
         rhi::BufferUploadRequest request = {};
-        request.source = std::make_shared<rhi::FileStream>(new NativeFile(path), offset);
+        request.source = new rhi::FileStream(new NativeFile(path), offset);
         request.offset = 0;
         request.size   = bufferDesc.size;
+        return queue.UploadBuffer(buffer, request);
+    }
+
+    rhi::TransferTaskHandle Buffer::Upload(const CounterPtr<rhi::IUploadStream> &stream, rhi::Queue &queue, uint32_t offset, uint32_t size)
+    {
+        rhi::BufferUploadRequest request = {};
+        request.source = stream;
+        request.offset = offset;
+        request.size   = size;
         return queue.UploadBuffer(buffer, request);
     }
 

@@ -7,13 +7,14 @@
 #include <string>
 #include <unordered_map>
 #include <rhi/VertexInput.h>
+#include <render/RenderResource.h>
 
 namespace sky {
 
-    class VertexDescLibrary {
+    class VertexDescLibrary : public RenderResource {
     public:
         VertexDescLibrary() = default;
-        ~VertexDescLibrary() = default;
+        ~VertexDescLibrary() override = default;
 
         void RegisterVertexDesc(const std::string &key, const rhi::VertexInputPtr &desc);
         rhi::VertexInputPtr FindVertexDesc(const std::string &key) const;
@@ -22,4 +23,7 @@ namespace sky {
         std::unordered_map<std::string, rhi::VertexInputPtr> descriptions;
     };
 
+    using VertexDescLibPtr = CounterPtr<VertexDescLibrary>;
+
+    VertexDescLibPtr CreateBuiltinVertexLibrary();
 } // namespace sky

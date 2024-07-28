@@ -38,7 +38,11 @@ namespace sky {
 
     RDProgramPtr Technique::RequestProgram(const ShaderPreprocessorPtr &preprocessor)
     {
-        auto program = std::make_shared<Program>();
+        if (!shaderData.shaderCollection) {
+            return {};
+        }
+
+        auto *program = new Program();
         program->SetName(shaderData.shaderCollection->GetName());
 
         ShaderCompileOption option = {};

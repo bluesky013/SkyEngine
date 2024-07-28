@@ -9,6 +9,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/interface/ITickEvent.h>
 
 #include <cxxopts.hpp>
 
@@ -59,6 +60,12 @@ namespace sky::editor {
         EditorReflect();
 
         BindTick([this](float delta) {
+
+            TickEvent::BroadCast(&ITickEvent::Tick, delta);
+            auto world = mainWindow->GetDoc()->GetWorld();
+            if (world) {
+                world->Tick(delta);
+            }
 //            engine->Tick(delta);
         });
 

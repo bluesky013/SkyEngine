@@ -25,7 +25,7 @@ namespace sky {
     public:
         Actor() = default;
         explicit Actor(Uuid id) : uuid(id), name("Actor") {}
-        ~Actor() = default;
+        ~Actor();
 
         using ComponentPtr = std::unique_ptr<ComponentBase>;
 
@@ -84,6 +84,8 @@ namespace sky {
 
         const std::unordered_map<Uuid, ComponentPtr> &GetComponents() const { return storage; }
 
+        void AttachToWorld(World *world);
+        void DetachFromWorld();
     private:
         friend class World;
         bool EmplaceComponent(const Uuid &typeId, ComponentBase* component);

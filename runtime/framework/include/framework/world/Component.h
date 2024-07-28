@@ -11,6 +11,7 @@
 
 namespace sky {
     class Actor;
+    class World;
     class JsonOutputArchive;
     class JsonInputArchive;
 
@@ -31,6 +32,9 @@ namespace sky {
         virtual void LoadBin(BinaryInputArchive &archive) {}
 
         virtual const Uuid &GetTypeId() const = 0;
+
+        virtual void OnAttachToWorld(World* word) {}
+        virtual void OnDetachFromWorld() {}
 
         Actor* GetActor() const { return actor; }
     protected:

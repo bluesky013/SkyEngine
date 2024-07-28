@@ -6,9 +6,20 @@
 
 namespace sky::editor {
 
+    AssetItem::AssetItem(const AssetSourcePtr &ptr)
+        : QStandardItem(ptr->path.path.FileNameWithoutExt().c_str()), source(ptr)
+    {
+        setIcon(QIcon::fromTheme("folder"));
+        setDragEnabled(true);
+    }
+
     AssetDataBaseProxy::AssetDataBaseProxy()
     {
-        model = new AssetItemModel(nullptr);
+        model = std::make_unique<AssetItemModel>(nullptr);
+        projectModel = std::make_unique<QFileSystemModel>(nullptr);
+        projectModel->setRootPath(AssetDataBase::Get()->GetWorkSpaceFs()->GetPath().GetStr().c_str());
+        engineModel = std::make_unique<QFileSystemModel>(nullptr);
+        engineModel->setRootPath(AssetDataBase::Get()->GetEngineFs()->GetPath().GetStr().c_str());
         Refresh();
     }
 
@@ -17,6 +28,7 @@ namespace sky::editor {
         auto *db = AssetDataBase::Get();
         const auto &sources = db->GetSources();
 
+        model->invisibleRootItem()->setText("Root");
         for (const auto &[id, source] : sources) {
             auto iter = categoryLut.find(source->category);
             if (iter == categoryLut.end()) {

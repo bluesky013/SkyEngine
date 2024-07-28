@@ -148,9 +148,10 @@ namespace sky {
 
     std::string GetDefaultSceneViewUBOName(const SceneView &view)
     {
-        std::stringstream ss;
-        ss << "DEFAULT_VIEW_UBO_" << view.GetViewID();
-        return ss.str();
+//        std::stringstream ss;
+//        ss << "DEFAULT_VIEW_UBO_" << view.GetViewID();
+//        return ss.str();
+        return "DEFAULT_VIEW_UBO_0";
     }
 
 } // namespace sky

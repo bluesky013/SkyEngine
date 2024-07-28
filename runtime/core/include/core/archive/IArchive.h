@@ -8,18 +8,12 @@
 #include <memory>
 #include <string>
 #include <core/archive/Concept.h>
-#include <core/template/ReferenceObject.h>
 
 namespace sky {
-    class IInputArchive;
-    class IOutputArchive;
-    using IArchivePtr = CounterPtr<IInputArchive>;
-    using OArchivePtr = CounterPtr<IOutputArchive>;
-
-    class IInputArchive : public RefObject {
+    class IInputArchive {
     public:
         IInputArchive() = default;
-        ~IInputArchive() override = default;
+        virtual ~IInputArchive() = default;
 
         virtual bool LoadRaw(char *data, size_t size) = 0;
 
@@ -40,6 +34,13 @@ namespace sky {
             return LoadRaw(reinterpret_cast<char *>(&val), sizeof(T));
         }
 
+        template <ContainerDataType T>
+        IInputArchive &operator>>(T &v)
+        {
+            Load(v);
+            return *this;
+        }
+
         template <ArithmeticDataType T>
         IInputArchive &operator>>(T &v)
         {
@@ -47,17 +48,17 @@ namespace sky {
             return *this;
         }
 
-        virtual int Peek() const { return std::char_traits<char>::eof(); }
+        virtual int Peek() { return std::char_traits<char>::eof(); }
         virtual int Get() { return std::char_traits<char>::eof(); }
         virtual size_t Tell() const { return 0; }
 
         virtual bool IsOpen() const { return true; }
     };
 
-    class IOutputArchive : public RefObject {
+    class IOutputArchive {
     public:
         IOutputArchive() = default;
-        ~IOutputArchive() override = default;
+        virtual ~IOutputArchive() = default;
 
         virtual bool SaveRaw(const char *data, size_t size) = 0;
 
@@ -75,6 +76,13 @@ namespace sky {
         bool Save(const T &v)
         {
             return SaveRaw(reinterpret_cast<const char *>(&v), sizeof(T));
+        }
+
+        template <ContainerDataType T>
+        IOutputArchive &operator<<(const T &v)
+        {
+            Save(v);
+            return *this;
         }
 
         template <ArithmeticDataType T>

@@ -6,21 +6,12 @@
 
 namespace sky::rhi {
 
-    FileStream::FileStream(const FilePtr &f, uint64_t base) : file(f), baseOffset(base)
+    FileStream::FileStream(const FilePtr &f, uint64_t base) : file(f), baseOffset(base) // NOLINT
     {
     }
 
     const uint8_t *FileStream::GetData(uint64_t offset)
     {
-//        if (!hostData) {
-//            auto fileSize = stream.tellg();
-//            hostData.reset(new uint8_t[stream.tellg()]);
-//            stream.seekg(static_cast<int>(baseOffset + offset), std::ios::beg);
-//            stream.read((char *)hostData.get(), fileSize);
-//            stream.close();
-//        }
-//
-//        return hostData.get() + offset;
         return nullptr;
     }
 

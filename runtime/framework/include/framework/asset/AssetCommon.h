@@ -49,26 +49,20 @@ namespace sky {
         FilePath filePath;
     };
 
+    using ProductBundleKey = std::string;
     struct AssetBuildRequest {
         FilePtr file;
         AssetSourcePtr assetInfo;
-        std::string target;
+        ProductBundleKey target;
     };
 
     struct AssetBuildResult {
         AssetBuildRetCode retCode;
     };
 
-    class IAssetEvent : public EventTraits {
-    public:
-        IAssetEvent() = default;
-        virtual ~IAssetEvent() = default;
-
-        using KeyType = Uuid;
-
-        virtual void OnAssetBuildFinished(const AssetBuildResult &result) = 0;
+    struct AssetRawData {
+        std::vector<uint8_t> storage;
     };
-    using AsseEvent = Event<IAssetEvent>;
 } // namespace sky
 
 namespace std {

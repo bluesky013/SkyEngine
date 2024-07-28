@@ -17,7 +17,7 @@
 #include <render/adaptor/RenderSceneProxy.h>
 #include <render/adaptor/pipeline/DefaultForward.h>
 #include <render/adaptor/assets/MeshAsset.h>
-#include <render/adaptor/components/MeshRenderer.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/Util.h>
 #include <render/RHI.h>

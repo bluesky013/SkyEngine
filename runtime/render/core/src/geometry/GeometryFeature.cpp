@@ -31,7 +31,7 @@ namespace sky {
 
     RDResourceGroupPtr GeometryFeature::RequestResourceGroup()
     {
-        auto rsg = std::make_shared<ResourceGroup>();
+        auto rsg = new ResourceGroup();
         rsg->Init(localLayout, *pool);
         return rsg;
     }

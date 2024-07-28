@@ -5,27 +5,25 @@
 #pragma once
 
 #include <framework/world/Component.h>
+#include <framework/asset/AssetEvent.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/resource/Mesh.h>
 #include <render/mesh/StaticMeshRenderer.h>
 
 namespace sky {
 
-    class MeshRenderer : public ComponentBase {
+    class StaticMeshComponent : public ComponentBase, public IAssetEvent {
     public:
-        MeshRenderer() = default;
-        ~MeshRenderer() override;
+        StaticMeshComponent() = default;
+        ~StaticMeshComponent() override;
 
-        COMPONENT_RUNTIME_INFO(MeshRenderer)
+        COMPONENT_RUNTIME_INFO(StaticMeshComponent)
 
         static void Reflect(SerializationContext *context);
 
         void OnActive() override;
         void OnDeActive() override;
         void Tick(float time) override;
-
-        void SetMesh(const MeshAssetPtr &mesh);
-        void SetMesh(const RDMeshPtr &mesh);
 
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;
@@ -34,9 +32,14 @@ namespace sky {
 
         void SetMeshUuid(const Uuid &uuid);
         const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }
+
+        void OnAttachToWorld(World* word);
+        void OnDetachFromWorld();
     private:
-        void ResetMesh();
         void ShutDown();
+        void BuildRenderer();
+
+        void OnAssetLoaded() override;
 
         bool isStatic = true;
         bool castShadow = false;
@@ -45,6 +48,10 @@ namespace sky {
         MeshAssetPtr meshAsset;
         RDMeshPtr meshInstance;
         StaticMeshRenderer *renderer = nullptr;
+
+        std::atomic_bool dirty = false;
+
+        EventBinder<IAssetEvent, Uuid> binder;
     };
 
 } // namespace receiveShadow

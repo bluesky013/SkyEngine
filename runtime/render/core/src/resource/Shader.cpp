@@ -115,7 +115,7 @@ namespace sky {
         if (!rhiLayout) {
             return {};
         }
-        auto layout = std::make_shared<ResourceGroupLayout>();
+        auto *layout = new ResourceGroupLayout();
         layout->SetRHILayout(rhiLayout);
 
         for (const auto &res : reflection->resources) {
@@ -148,8 +148,8 @@ namespace sky {
         uint32_t          variantHash = option.preprocessor ? option.preprocessor->GetHash() : 0;
         ss << name << '_' << entry << '_' << variantHash << '_' << static_cast<uint32_t>(option.target);
 
-        auto        cacheFolder = Renderer::Get()->GetCacheFolder() + "/shaderCache";
-        std::string cachePath   = cacheFolder + "/" + ss.str();
+        auto        cacheFolder = Renderer::Get()->GetCacheFolder() + "\\shaderCache";
+        std::string cachePath   = cacheFolder + "\\" + ss.str();
 
         if (!std::filesystem::exists(cacheFolder)) {
             std::filesystem::create_directories(cacheFolder);
@@ -239,11 +239,11 @@ namespace sky {
 
             shaderHeader.version  = hash;
             shaderHeader.magic    = ShaderCacheHeader::MAGIC;
-            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.GetData().size());
+            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.Size());
 
             OFileArchive archive(cachePath);
             archive.SaveRaw(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
-            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.GetData().data()), shaderHeader.dataSize);
+            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.Data()), shaderHeader.dataSize);
         }
     }
 } // namespace sky

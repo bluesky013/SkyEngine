@@ -17,7 +17,7 @@ namespace sky {
 
     void GeometryRenderer::Init()
     {
-        ubo = std::make_shared<DynamicUniformBuffer>();
+        ubo = new DynamicUniformBuffer();
         ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
         ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
         ubo->Upload();
@@ -59,7 +59,7 @@ namespace sky {
     {
         batchVertices.resize(size);
         vertexCapacity = size;
-        vertexBuffer = std::make_shared<Buffer>();
+        vertexBuffer = new Buffer();
         vertexBuffer->Init(batchVertices.size() * sizeof(GeometryBatchVertex),
                            rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST,
                            rhi::MemoryType::CPU_TO_GPU);

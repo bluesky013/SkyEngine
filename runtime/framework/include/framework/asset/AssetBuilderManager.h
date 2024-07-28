@@ -8,6 +8,7 @@
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetBuilder.h>
 #include <framework/asset/AssetExecutor.h>
+#include <framework/asset/AssetBuilderConfig.h>
 #include <queue>
 
 namespace sky {
@@ -18,6 +19,10 @@ namespace sky {
         ~AssetBuilderManager() override = default;
 
         void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
+        void SetEngineFs(const NativeFileSystemPtr &fs);
+
+        const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
+        const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
         void RegisterBuilder(AssetBuilder *builder);
         void UnRegisterBuilder(AssetBuilder *builder);
@@ -34,9 +39,10 @@ namespace sky {
     private:
         std::vector<std::unique_ptr<AssetBuilder>> assetBuilders;
         std::unordered_map<std::string, AssetBuilder*> assetBuilderMap;
-        std::unordered_map<std::string, std::vector<std::string>> presets;
 
+        NativeFileSystemPtr engineFs;
         NativeFileSystemPtr workSpaceFs;
+        AssetBuilderConfig config;
     };
 
 } // namespace sky

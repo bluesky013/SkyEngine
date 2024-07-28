@@ -8,13 +8,14 @@
 #include <core/environment/Singleton.h>
 #include <core/event/Event.h>
 #include <QStandardItemModel>
+#include <QFileSystemModel>
 #include <QStandardItem>
 
 namespace sky::editor {
 
     class AssetItem : public QStandardItem {
     public:
-        explicit AssetItem(const AssetSourcePtr &ptr) : QStandardItem(ptr->name.c_str()), source(ptr) {}
+        explicit AssetItem(const AssetSourcePtr &ptr);
         ~AssetItem() override = default;
 
     private:
@@ -32,13 +33,18 @@ namespace sky::editor {
         AssetDataBaseProxy();
         ~AssetDataBaseProxy() override = default;
 
-        AssetItemModel *GetModel() const { return model; }
+        AssetItemModel *GetModel() const { return model.get(); }
+        QFileSystemModel *GetProjectModel() const { return projectModel.get(); }
+        QFileSystemModel *GetEngineModel() const { return engineModel.get(); }
+
         const std::unordered_map<std::string, QModelIndex>& GetCategoryTable() const { return categoryLut; }
 
     private:
         void Refresh();
 
-        AssetItemModel *model = nullptr;
+        std::unique_ptr<AssetItemModel> model;
+        std::unique_ptr<QFileSystemModel> projectModel;
+        std::unique_ptr<QFileSystemModel> engineModel;
         std::unordered_map<std::string, QModelIndex> categoryLut;
     };
 

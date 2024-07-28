@@ -29,6 +29,8 @@ namespace sky {
         AssetPtr LoadAsset(const Uuid &uuid);
         void SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
 
+        AssetPtr LoadAssetFromPath(const std::string &path);
+
         template <typename T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid &uuid)
         {
@@ -57,7 +59,8 @@ namespace sky {
         }
     private:
         FileSystemPtr workSpace;
-        AssetPtr CreateAssetByHeader(const Uuid &uuid, const IArchivePtr &archive);
+        AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive);
+        AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
 
         std::unordered_map<std::string, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>> bundles;

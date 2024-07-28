@@ -34,7 +34,7 @@ namespace sky {
         for (uint32_t i = 0; i < inflightFrameCount; ++i) {
             delayReleaseCollections[i] = std::make_unique<RenderResourceGC>();
         }
-        vertexLibrary = std::make_unique<VertexDescLibrary>();
+        vertexLibrary = CreateBuiltinVertexLibrary();
     }
 
     void Renderer::Tick(float time)

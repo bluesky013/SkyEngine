@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <core/archive/StreamArchive.h>
 #include <framework/asset/AssetManager.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Texture.h>
@@ -15,7 +16,15 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
+    struct ImageSliceHeader {
+        uint32_t offset   = 0;
+        uint32_t size     = 0;
+        uint32_t mipLevel = 0;
+        uint32_t layer    = 0;
+    };
+
     struct ImageAssetHeader {
+        uint32_t version = 0;
         rhi::PixelFormat format  = rhi::PixelFormat::UNDEFINED;
         TextureType type = TextureType::TEXTURE_2D;
         uint32_t width       = 1;
@@ -23,28 +32,24 @@ namespace sky {
         uint32_t depth       = 1;
         uint32_t mipLevels   = 1;
         uint32_t arrayLayers = 1;
-        uint32_t dataSize    = 1;
+        std::vector<ImageSliceHeader> slices;
+        uint32_t dataSize;
     };
 
     struct ImageAssetData : public ImageAssetHeader {
-        Uuid bufferID;
+        uint32_t dataOffset;
+        AssetRawData rawData;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;
     };
-
-    std::shared_ptr<Texture> CreateTexture(const ImageAssetData &data);
+    using ImageAssetPtr = std::shared_ptr<Asset<Texture>>;
 
     template <>
     struct AssetTraits<Texture> {
         using DataType                                = ImageAssetData;
         static constexpr std::string_view ASSET_TYPE  = "Texture";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
-
-        static std::shared_ptr<Texture> CreateFromData(const DataType &data)
-        {
-            return CreateTexture(data);
-        }
     };
-    using ImageAssetPtr = std::shared_ptr<Asset<Texture>>;
+    CounterPtr<Texture> CreateTextureFromAsset(const ImageAssetPtr &asset);
 }

@@ -99,38 +99,12 @@ namespace sky::editor {
     {
         setWindowTitle(tr("Assets"));
         auto *widget = new QWidget(this);
-        setWidget(widget);
-
+        widget->setLayout(new QHBoxLayout(widget));
         auto *splitter = new QSplitter(this);
-        splitter->addWidget(new AssetDirBrowser(this));
+//        splitter->addWidget(new AssetDirBrowser(this));
         splitter->addWidget(new AssetBrowserWidget(this));
+        widget->layout()->addWidget(splitter);
 
-        auto *rootLayout = new QHBoxLayout(widget);
-        rootLayout->addWidget(splitter);
-
-//        auto *importAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, tr("Import"), this);
-//        connect(importAct, &ActionWithFlag::triggered, this, [this]() {
-//            QFileDialog dialog(this);
-//            dialog.setFileMode(QFileDialog::AnyFile);
-//            dialog.setViewMode(QFileDialog::Detail);
-//            if (dialog.exec() != 0) {
-//                auto fileNames = dialog.selectedFiles();
-//                if (!fileNames.empty()) {
-//                    for (auto &fileName : fileNames) {
-////                        AssetDataBase::Get()->ImportSource(fileName.toStdString(), SourceAssetImportOption{});
-//                    }
-//                }
-//            }
-//        });
-//
-//        ActionManager::Get()->AddAction(importAct);
-
-//        setContextMenuPolicy(Qt::CustomContextMenu);
-//        connect(this, &QWidget::customContextMenuRequested, this, [this, importAct](const QPoint &pos) {
-//            QMenu menu(tr("Assets"), this);
-//            menu.addAction(importAct);
-//
-//            menu.exec(mapToGlobal(pos));
-//        });
+        setWidget(widget);
     }
 }

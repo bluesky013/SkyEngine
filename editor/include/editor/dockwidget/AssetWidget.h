@@ -8,6 +8,7 @@
 #include <QFileSystemModel>
 #include <QTreeView>
 #include <QFrame>
+#include <QComboBox>
 
 namespace sky::editor {
 

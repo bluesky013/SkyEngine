@@ -45,6 +45,6 @@ namespace sky::builder {
         std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png"};
         std::unordered_map<std::string, ImageBuildConfig> configs;
 
-        bool compress = false;
+        bool compress = true;
     };
 }

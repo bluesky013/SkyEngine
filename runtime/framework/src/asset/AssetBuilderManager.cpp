@@ -6,14 +6,19 @@
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetExecutor.h>
+#include <framework/asset/AssetEvent.h>
 #include <core/file/FileUtil.h>
-#include <filesystem>
 
 namespace sky {
     AssetBuilder *AssetBuilderManager::QueryBuilder(const std::string &ext) const
     {
         auto iter = assetBuilderMap.find(ext);
         return iter == assetBuilderMap.end() ? nullptr : iter->second;
+    }
+
+    void AssetBuilderManager::SetEngineFs(const NativeFileSystemPtr &fs)
+    {
+        engineFs = fs;
     }
 
     void AssetBuilderManager::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
@@ -30,29 +35,15 @@ namespace sky {
         if (file) {
             auto archive = file->ReadAsArchive();
             JsonInputArchive json(*archive);
+            config.LoadJson(json);
 
-            uint32_t count = json.StartArray("bundles");
-            for (uint32_t i = 0; i < count; ++i) {
-                auto bundleFs = productFs->CreateSubSystem(json.LoadString(), true);
-                am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, json.LoadString()));
-                json.NextArrayElement();
+            if (config.bundles.empty()) {
+                config.bundles.emplace_back("common");
             }
-            json.End();
-
-            json.Start("presets");
-
-            json.ForEachMember([&json, this](const std::string &key) {
-                uint32_t count = json.StartArray(key);
-                auto &preset = presets[key];
-                for (uint32_t i = 0; i < count; ++i) {
-                    preset.emplace_back(json.LoadString());
-                    json.NextArrayElement();
-                }
-
-                json.End();
-            });
-
-            json.End();
+            for (auto &bundle :config.bundles) {
+                auto bundleFs = productFs->CreateSubSystem(bundle, true);
+                am->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundle));
+            }
         }
     }
 

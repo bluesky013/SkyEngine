@@ -12,12 +12,13 @@
 #include <variant>
 #include <unordered_map>
 #include <core/environment/Singleton.h>
+#include <core/file/FileSystem.h>
 #include <rhi/Core.h>
 
 namespace sky {
 
     struct ShaderIncludeContext {
-        std::vector<std::string> &searchPaths;
+        std::vector<FilePath> &searchPaths;
         std::set<std::string> visited;
     };
 
@@ -102,14 +103,14 @@ namespace sky {
         ShaderCompiler();
         ~ShaderCompiler() override;
 
-        void AddSearchPath(const std::string &path) { searchPaths.emplace_back(path); }
+        void AddSearchPath(const FilePath &path) { searchPaths.emplace_back(path); }
 
         std::string LoadShader(const std::string &path);
     private:
         std::pair<bool, std::string> ProcessShaderSource(const std::string &path);
         std::pair<bool, std::string> ProcessHeaderFile(const std::string &path, ShaderIncludeContext &context, uint32_t depth);
 
-        std::vector<std::string> searchPaths;
+        std::vector<FilePath> searchPaths;
     };
 
     using ShaderCompileFunc = bool (*)(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result);

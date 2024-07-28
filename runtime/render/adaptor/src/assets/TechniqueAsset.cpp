@@ -9,7 +9,9 @@ namespace sky {
 
     void TechniqueAssetData::Load(BinaryInputArchive &archive)
     {
-        archive.LoadValue(shader.path);
+        archive.LoadValue(version);
+        archive.LoadValue(shader.shader.word[0]);
+        archive.LoadValue(shader.shader.word[1]);
         archive.LoadValue(shader.objectOrCSMain);
         archive.LoadValue(shader.vertOrMeshMain);
         archive.LoadValue(shader.fragmentMain);
@@ -44,7 +46,9 @@ namespace sky {
 
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
     {
-        archive.SaveValue(shader.path);
+        archive.SaveValue(version);
+        archive.SaveValue(shader.shader.word[0]);
+        archive.SaveValue(shader.shader.word[1]);
         archive.SaveValue(shader.objectOrCSMain);
         archive.SaveValue(shader.vertOrMeshMain);
         archive.SaveValue(shader.fragmentMain);
@@ -73,15 +77,18 @@ namespace sky {
         }
     }
 
-    std::shared_ptr<Technique> CreateTechnique(const TechniqueAssetData &data)
+    CounterPtr<Technique> CreateTechniqueFromAsset(const TechniqueAssetPtr &asset)
     {
-        if (data.type == TechAssetType::GRAPHIC) {
-            auto tech = std::make_shared<GraphicsTechnique>();
+        auto &data = asset->Data();
 
-//            auto shaderAsset = AssetManager::Get()->LoadAsset<ShaderCollection>(data.shader.path);
-//            if (shaderAsset) {
-//                tech->SetShader(ShaderRef{shaderAsset->CreateInstance(), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
-//            }
+        if (data.type == TechAssetType::GRAPHIC) {
+            auto *tech = new GraphicsTechnique();
+
+            auto shaderAsset = AssetManager::Get()->FindAsset<ShaderCollection>(data.shader.shader);
+            if (shaderAsset) {
+                auto shader = CreateShaderFromAsset(shaderAsset);
+                tech->SetShader({shader, data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
+            }
 
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);
@@ -92,5 +99,11 @@ namespace sky {
             return tech;
         }
         return nullptr;
+    }
+
+    CounterPtr<GraphicsTechnique> GreateGfxTechFromAsset(const TechniqueAssetPtr &asset)
+    {
+        auto tech = CreateTechniqueFromAsset(asset);
+        return static_cast<GraphicsTechnique*>(tech.Get());
     }
 }

@@ -20,9 +20,17 @@ namespace sky {
         bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override;
 
     private:
+        uint32_t viewMask = 0;
         RenderWindow *output = nullptr;
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
         RDResourceLayoutPtr forwardLayout;
+        RDResourceLayoutPtr shadowLayout;
+
+        RDUniformBufferPtr globalUbo;
+
+        RDGfxTechPtr postTech;
+
+        SceneView *shadowScene = nullptr;
     };
 
 } // namespace sky

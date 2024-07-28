@@ -16,10 +16,15 @@ namespace sky {
 
     void Material::AddTechnique(const RDGfxTechPtr &technique)
     {
+        auto program = technique->RequestProgram();
+        if (!program) {
+            return;
+        }
+
         gfxTechniques.emplace_back(technique);
 
         if (!layout) {
-            layout = gfxTechniques.back()->RequestProgram()->RequestLayout(BATCH_SET);
+            layout = program->RequestLayout(BATCH_SET);
 
             if (!pool) {
                 rhi::DescriptorSetPool::Descriptor poolDesc = {};
@@ -35,16 +40,23 @@ namespace sky {
 
     RDResourceGroupPtr Material::RequestResourceGroup()
     {
-        auto rsg = std::make_shared<ResourceGroup>();
+        if (!layout) {
+            return {};
+        }
+
+        auto *rsg = new ResourceGroup();
         rsg->Init(layout, *pool);
         return rsg;
     }
 
     void MaterialInstance::SetMaterial(const RDMaterialPtr &mat)
     {
-        material = mat;
-        resourceGroup = material->RequestResourceGroup();
+        resourceGroup = mat->RequestResourceGroup();
+        if (!resourceGroup) {
+            return;
+        }
 
+        material = mat;
         const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
 
         const auto &bindingHandlers = resourceGroup->GetLayout()->GetBindingHandlers();
@@ -59,7 +71,7 @@ namespace sky {
             SKY_ASSERT(iter != bindings.end());
             for (uint32_t i = 0; i < count; ++i) {
                 if (iter->type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC || iter->type == rhi::DescriptorType::UNIFORM_BUFFER) {
-                    auto ubo = std::make_shared<DynamicUniformBuffer>();
+                    auto ubo = new DynamicUniformBuffer();
                     ubo->Init(pair.second.size, Renderer::Get()->GetInflightFrameCount());
                     uniformBuffers.emplace(index + i, ubo);
                     resourceGroup->BindDynamicUBO(pair.first, ubo, i);
@@ -75,6 +87,10 @@ namespace sky {
 
     void MaterialInstance::SetValue(const std::string &key, const uint8_t *t, uint32_t size)
     {
+        if (!resourceGroup) {
+            return;
+        }
+
         const auto *handler = resourceGroup->GetLayout()->GetBufferMemberByName(key);
         if (handler != nullptr) {
             uint32_t index = resourceGroup->GetLayout()->GetRHILayout()->GetDescriptorSetOffsetByBinding(handler->binding);
@@ -85,6 +101,10 @@ namespace sky {
 
     void MaterialInstance::SetTexture(const std::string &key, const RDTexturePtr &tex, uint32_t index)
     {
+        if (!resourceGroup) {
+            return;
+        }
+
         const auto *handler = resourceGroup->GetLayout()->GetBindingByeName(key);
         if (handler != nullptr) {
             resourceGroup->BindTexture(key, tex->GetImageView(), index);
@@ -99,7 +119,7 @@ namespace sky {
             ubo.second->Upload();
         }
 
-        if (resDirty) {
+        if (resDirty && resourceGroup) {
             resourceGroup->Update();
             resDirty = false;
         }

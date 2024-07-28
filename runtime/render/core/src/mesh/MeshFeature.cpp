@@ -23,7 +23,7 @@ namespace sky {
         Renderer::Get()->RegisterRenderFeature<MeshFeatureProcessor>();
         auto *device = RHI::Get()->GetDevice();
 
-        localLayout = std::make_shared<ResourceGroupLayout>();
+        localLayout = new ResourceGroupLayout();
         localLayout->SetRHILayout(device->CreateDescriptorSetLayout({BINDINGS}));
         localLayout->AddNameHandler("localData", {0, sizeof(InstanceLocal)});
 
@@ -39,7 +39,7 @@ namespace sky {
 
     RDResourceGroupPtr MeshFeature::RequestResourceGroup()
     {
-        auto rsg = std::make_shared<ResourceGroup>();
+        auto rsg = new ResourceGroup();
         rsg->Init(localLayout, *pool);
         return rsg;
     }

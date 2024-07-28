@@ -14,6 +14,7 @@
 
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
 
 static const char* TAG = "MaterialBuilder";
 
@@ -96,8 +97,11 @@ namespace sky::builder {
 
         ProcessProperties(document, assetData.properties, request);
         for (auto &image : assetData.properties.images) {
+            AssetBuilderManager::Get()->BuildRequest(image, request.target);
             asset->AddDependencies(image);
         }
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
@@ -130,6 +134,7 @@ namespace sky::builder {
                     }
                     asset->AddDependencies(techId->uuid);
 
+                    AssetBuilderManager::Get()->BuildRequest(techId->uuid, request.target);
                     request.assetInfo->dependencies.emplace_back(techId->uuid);
                     assetData.techniques.emplace_back(techId->uuid);
                 }
@@ -138,8 +143,11 @@ namespace sky::builder {
 
         ProcessProperties(document, assetData.defaultProperties, request);
         for (auto &image : assetData.defaultProperties.images) {
+            AssetBuilderManager::Get()->BuildRequest(image, request.target);
             asset->AddDependencies(image);
         }
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 }

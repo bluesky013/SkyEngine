@@ -23,8 +23,9 @@ namespace sky {
         archive.SaveValue(hash);
     }
 
-    std::shared_ptr<ShaderCollection> CreateShader(const ShaderAssetData &data)
+    CounterPtr<ShaderCollection> CreateShaderFromAsset(const ShaderAssetPtr &asset)
     {
-        return std::make_shared<ShaderCollection>(data.name, data.shaderSource, data.hash);
+        const auto &data = asset->Data();
+        return new ShaderCollection(data.name, data.shaderSource, data.hash);
     }
 }

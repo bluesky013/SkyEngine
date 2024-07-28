@@ -6,12 +6,42 @@
 
 namespace sky {
 
+    int StreamArchive::Peek()
+    {
+        return stream.peek();
+    }
+
+    int StreamArchive::Get()
+    {
+        return stream.get();
+    }
+
+    size_t StreamArchive::Tell() const
+    {
+        return stream.tellg();
+    }
+
+    void StreamArchive::Put(char ch)
+    {
+        stream.rdbuf()->sputc(ch);
+    }
+
+    bool StreamArchive::LoadRaw(char *data, size_t size)
+    {
+        return stream.rdbuf()->sgetn(data, static_cast<std::streamsize>(size)) == size;
+    }
+
+    bool StreamArchive::SaveRaw(const char *data, size_t size)
+    {
+        return stream.rdbuf()->sputn(data, static_cast<std::streamsize>(size)) == size;
+    }
+
     bool IStreamArchive::LoadRaw(char *data, size_t size)
     {
         return stream.rdbuf()->sgetn(data, static_cast<std::streamsize>(size)) == size;
     }
 
-    int IStreamArchive::Peek() const
+    int IStreamArchive::Peek()
     {
         return stream.peek();
     }

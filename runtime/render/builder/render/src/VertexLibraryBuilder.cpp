@@ -105,6 +105,8 @@ namespace sky::builder {
             }
         }
 
+        AssetManager::Get()->SaveAsset(asset, request.target);
+
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
 

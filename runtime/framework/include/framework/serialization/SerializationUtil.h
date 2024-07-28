@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "framework/serialization/SerializationContext.h"
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/PropertyCommon.h>
 
 namespace sky {
 
@@ -36,4 +37,6 @@ namespace sky {
     {
         return SetValueRaw(static_cast<void*>(std::addressof(ptr)), TypeInfo<T>::RegisteredId(), memberName, static_cast<const void*>(std::addressof(data)));
     }
+
+    const Any &GetTypeProperty(const Uuid &typeId, uint32_t key);
 }

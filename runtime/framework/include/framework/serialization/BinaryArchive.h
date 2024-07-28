@@ -6,7 +6,7 @@
 
 #include <iostream>
 #include <core/util/Uuid.h>
-#include <core/archive/IArchive.h>
+#include <core/archive/StreamArchive.h>
 #include <core/platform/Platform.h>
 #include <core/archive/Concept.h>
 
@@ -14,7 +14,7 @@ namespace sky {
 
     class BinaryInputArchive {
     public:
-        explicit BinaryInputArchive(IInputArchive &arc) : archive(arc)
+        explicit BinaryInputArchive(IStreamArchive &arc) : archive(arc)
         {
         }
 
@@ -40,13 +40,15 @@ namespace sky {
         }
 
         void LoadObject(void *ptr, const Uuid &id);
+
+        const IStreamArchive &GetStream() const { return archive; }
     protected:
-        IInputArchive &archive;
+        IStreamArchive &archive;
     };
 
     class BinaryOutputArchive {
     public:
-        explicit BinaryOutputArchive(IOutputArchive &arc) : archive(arc)
+        explicit BinaryOutputArchive(OStreamArchive &arc) : archive(arc)
         {
         }
         ~BinaryOutputArchive() = default;
@@ -68,8 +70,11 @@ namespace sky {
             SaveValue(v.data(), static_cast<uint32_t>(v.length()));
         }
 
+
         void SaveObject(const void* data, const Uuid &id);
+
+        const OStreamArchive &GetStream() const { return archive; }
     protected:
-        IOutputArchive &archive;
+        OStreamArchive &archive;
     };
 }

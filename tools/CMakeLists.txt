@@ -1,5 +1,5 @@
 if (SKY_BUILD_TOOL)
-    add_subdirectory(asset_builder)
+#    add_subdirectory(asset_builder)
 endif ()
 #add_subdirectory(assettools)
 #add_subdirectory(noise)

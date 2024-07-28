@@ -9,13 +9,14 @@
 #include <rhi/Queue.h>
 #include <core/file/FileSystem.h>
 #include <core/platform/Platform.h>
+#include <render/RenderResource.h>
 
 namespace sky {
 
-    class Buffer {
+    class Buffer : public RenderResource {
     public:
         Buffer();
-        virtual ~Buffer();
+        ~Buffer() override;
 
         void Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType);
         virtual void Resize(uint64_t size);
@@ -25,13 +26,14 @@ namespace sky {
 
         rhi::TransferTaskHandle Upload(const FilePtr &archive, rhi::Queue &queue, uint32_t offset);
         rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
+        rhi::TransferTaskHandle Upload(const CounterPtr<rhi::IUploadStream> &stream, rhi::Queue &queue, uint32_t offset, uint32_t size);
 
     protected:
         rhi::Device *device = nullptr;
         rhi::Buffer::Descriptor bufferDesc = {};
         rhi::BufferPtr buffer;
     };
-    using RDBufferPtr = std::shared_ptr<Buffer>;
+    using RDBufferPtr = CounterPtr<Buffer>;
 
     class UniformBuffer : public Buffer {
     public:
@@ -75,6 +77,6 @@ namespace sky {
         uint32_t frameIndex = 0;
         uint32_t inflightCount = 1;
     };
-    using RDDynamicUniformBufferPtr = std::shared_ptr<DynamicUniformBuffer>;
+    using RDDynamicUniformBufferPtr = CounterPtr<DynamicUniformBuffer>;
 
 } // namespace sky

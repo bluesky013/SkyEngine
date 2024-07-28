@@ -21,8 +21,6 @@ namespace sky {
         void Save(BinaryOutputArchive &archive) const;
     };
 
-    VertexDescLibrary *CreateVertexDescLibrary(const VertexDescLibraryAssetData &data);
-
     template <>
     struct AssetTraits<VertexDescLibrary> {
         using DataType                                = VertexDescLibraryAssetData;
@@ -30,4 +28,6 @@ namespace sky {
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using VertexDescLibraryAssetPtr = std::shared_ptr<Asset<VertexDescLibrary>>;
+
+    VertexDescLibPtr CreateVertexDescLibFromAsset(const VertexDescLibraryAssetPtr &asset);
 } // namespace sky

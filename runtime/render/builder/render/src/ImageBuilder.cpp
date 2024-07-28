@@ -9,9 +9,13 @@
 #include <rhi/Decode.h>
 #include <core/file/FileIO.h>
 #include <core/hash/Hash.h>
+#include <core/archive/MemoryArchive.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 namespace sky::builder {
 
@@ -48,16 +52,11 @@ namespace sky::builder {
         imageData.arrayLayers = imageDesc.arrayLayers;
         imageData.mipLevels = imageDesc.mipLevels;
         imageData.type = imageData.arrayLayers == 6 ? TextureType::TEXTURE_CUBE : TextureType::TEXTURE_2D;
-        imageData.dataSize = static_cast<uint32_t>(data.size() - offset);
-        imageData.bufferID = CreateBufferID(request.assetInfo->uuid);
 
-        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
-        auto &bufferData = buffer->Data();
-        bufferData.rawData.resize(imageData.dataSize);
-        memcpy(bufferData.rawData.data(), data.data() + offset, imageData.dataSize);
-
-        // resolve dependency
-        asset->AddDependencies(imageData.bufferID);
+//        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
+//        auto &bufferData = buffer->Data();
+//        bufferData.rawData.resize(imageData.dataSize);
+//        memcpy(bufferData.rawData.data(), data.data() + offset, imageData.dataSize);
 
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
@@ -67,7 +66,7 @@ namespace sky::builder {
         int x;
         int y;
         int n;
-        int request_comp = compress ? 0 : 4;
+        int request_comp = 4;
 
         std::vector<uint8_t> rawData;
         request.file->ReadBin(rawData);
@@ -84,33 +83,47 @@ namespace sky::builder {
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
         imageData.type = TextureType::TEXTURE_2D;
-        imageData.bufferID = CreateBufferID(request.assetInfo->uuid);
-
-        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
-        auto &bufferData = buffer->Data();
-
-        BufferImageInfo info = {};
-        info.width = imageData.width;
-        info.height = imageData.height;
-        info.stride = imageData.width * n;
 
         if (compress) {
             CompressOption option = {};
             option.quality      = Quality::SLOW;
             option.targetFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
-            option.hasAlpha     = n == 4;
+            option.hasAlpha     = true;
             imageData.format    = option.targetFormat;
-            CompressImage(data, info, bufferData.rawData, option);
 
-            imageData.dataSize = static_cast<uint32_t>(bufferData.rawData.size());
+            std::vector<uint8_t> compressedData;
+
+            BufferImageInfo info = {};
+            info.width = imageData.width;
+            info.height = imageData.height;
+            info.stride = imageData.width * 4;
+
+            CompressImage(data, info, compressedData, option);
+
+            ImageSliceHeader slice = {};
+            slice.offset = 0;
+            slice.size = static_cast<uint32_t>(compressedData.size());
+
+            imageData.dataSize += slice.size;
+            imageData.slices.emplace_back(slice);
+
+            imageData.rawData.storage.resize(imageData.dataSize);
+            memcpy(imageData.rawData.storage.data(), compressedData.data(), imageData.dataSize);
         } else {
             imageData.format = rhi::PixelFormat::RGBA8_UNORM;
 
-            imageData.dataSize = imageData.width * imageData.height * 4;
-            bufferData.rawData.resize(imageData.dataSize);
-            memcpy(bufferData.rawData.data(), data, imageData.dataSize);
+            ImageSliceHeader slice = {};
+            slice.offset = 0;
+            slice.size = imageData.width * imageData.height * 4;;
+
+            imageData.dataSize += slice.size;
+            imageData.slices.emplace_back(slice);
+
+            imageData.rawData.storage.resize(imageData.dataSize);
+            memcpy(imageData.rawData.storage.data(), reinterpret_cast<const char *>(data), imageData.dataSize);
         }
 
+        AssetManager::Get()->SaveAsset(asset, request.target);
         stbi_image_free(data);
     }
 

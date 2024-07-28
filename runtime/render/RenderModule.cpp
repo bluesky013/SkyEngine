@@ -13,7 +13,7 @@
 
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/components/LightComponent.h>
-#include <render/adaptor/components/MeshRenderer.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
 #include <render/adaptor/Reflection.h>
 
 #include <render/adaptor/assets/TechniqueAsset.h>
@@ -40,12 +40,12 @@ namespace sky {
     {
         auto *context = SerializationContext::Get();
         LightComponent::Reflect(context);
-        MeshRenderer::Reflect(context);
+        StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
 
         static std::string GROUP = "Render";
         ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<MeshRenderer>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
     }
 
@@ -118,26 +118,10 @@ namespace sky {
         auto shaderCompileFunc = mm->GetFunctionFomModule<ShaderCompileFunc>("ShaderCompiler", "CompileBinary");
         Renderer::Get()->SetShaderCompiler(shaderCompileFunc);
 
-        // init assets
-        auto *am = AssetManager::Get();
-
-        // init shader compiler
-#if SKY_EDITOR
-        auto *compiler = ShaderCompiler::Get();
-//        for (const auto &path : am->GetSearchPathList()) {
-//            compiler->AddSearchPath(path.path);
-//        }
-#endif
-
-//        auto vfAsset = AssetManager::Get()->LoadAsset<VertexDescLibrary>("vertex/vertex_library.vtxlib", false);
-//        if (vfAsset) {
-//            Renderer::Get()->SetVertexDescLibrary(CreateVertexDescLibrary(vfAsset->Data()));
-//        }
-
+        MeshFeature::Get()->Init();
 //        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
-//        MeshFeature::Get()->Init();
 //        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
-//        ParticleFeature::Get()->Init();
+        ParticleFeature::Get()->Init();
     }
 
     void RenderModule::Shutdown()

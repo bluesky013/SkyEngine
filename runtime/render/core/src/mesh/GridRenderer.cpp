@@ -65,16 +65,16 @@ namespace sky {
 
         vertexBuffers.resize(UCast(VertexSemantic::MAX));
         for (uint32_t i = 0; i < UCast(VertexSemantic::MAX); ++i) {
-            vertexBuffers[i] = std::make_shared<Buffer>();
+            vertexBuffers[i] = new Buffer();
             vertexBuffers[i]->Init(vertexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::GPU_ONLY);
-            request.source = std::make_shared<rhi::RawPtrStream>(reinterpret_cast<const uint8_t*>(&pos[i * 4]));
+            request.source = new rhi::RawPtrStream(reinterpret_cast<const uint8_t*>(&pos[i * 4]));
             queue->UploadBuffer(vertexBuffers[i]->GetRHIBuffer(), request);
         }
 
-        indexBuffer = std::make_shared<Buffer>();
+        indexBuffer = new Buffer();
         indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::INDEX, rhi::MemoryType::GPU_ONLY);
         request.size = indexSize;
-        request.source = std::make_shared<rhi::RawPtrStream>(reinterpret_cast<const uint8_t*>(iPtr));
+        request.source = new rhi::RawPtrStream(reinterpret_cast<const uint8_t*>(iPtr));
         queue->UploadBuffer(indexBuffer->GetRHIBuffer(), request);
         auto handle = queue->CreateTask([ptr, iPtr]() {
             free(ptr);
@@ -86,7 +86,7 @@ namespace sky {
 
     RDMeshPtr GridRenderer::BuildMesh(const RDMaterialInstancePtr &mat)
     {
-        auto mesh = std::make_shared<Mesh>();
+        CounterPtr<Mesh> mesh = new Mesh();
         mesh->AddSubMesh({0, 4, 0, 6, mat, AABB{}});
         for (auto &vb : vertexBuffers) {
             mesh->AddVertexBuffer(vb);

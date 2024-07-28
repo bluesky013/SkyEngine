@@ -6,10 +6,10 @@
 
 #include <core/file/FileSystem.h>
 #include <core/util/Uuid.h>
+#include <framework/asset/AssetCommon.h>
 
 namespace sky {
 
-    using ProductBundleKey = std::string;
     class AssetProductBundle {
     public:
         explicit AssetProductBundle(const FileSystemPtr &fs_, const ProductBundleKey &key_) // NOLINT
