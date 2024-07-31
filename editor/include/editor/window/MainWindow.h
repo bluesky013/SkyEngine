@@ -14,6 +14,7 @@ namespace sky::editor {
 
     class ActionManager;
     class ViewportWidget;
+    class ViewportWindow;
     class WorldWidget;
     class InspectorWidget;
     class AssetWidget;
@@ -25,7 +26,7 @@ namespace sky::editor {
         ~MainWindow() override;
 
         Document* GetDoc() const { return document.get(); }
-
+        ViewportWindow* GetViewportWindow() const;
     private:
         void InitWidgets();
         void InitMenu();
@@ -35,10 +36,13 @@ namespace sky::editor {
         void OnNewWorld();
         void OnCloseWorld();
         void OnSaveWorld();
+        void SaveCheck();
 
         void OnImport();
 
         void UpdateActions();
+
+        bool event(QEvent *event) override;
 
         QMenuBar      *menuBar       = nullptr;
         ActionManager *actionManager = nullptr;

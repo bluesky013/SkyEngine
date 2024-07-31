@@ -110,8 +110,8 @@ namespace sky::editor {
                 line[i] = new QLineEdit(this);
                 line[i]->setValidator(validator);
                 layout()->addWidget(line[i]);
-                connect(line[i], &QLineEdit::textEdited, this, [i, this](const QString &s) {
-                    value[i] = static_cast<float>(s.toDouble());
+                connect(line[i], &QLineEdit::editingFinished, this, [i, this]() {
+                    value[i] = static_cast<float>(line[i]->text().toDouble());
                     memberNode->setterFn(object, value);
                     RefreshValue(i);
                 });

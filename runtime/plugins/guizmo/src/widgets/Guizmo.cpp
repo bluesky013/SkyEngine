@@ -5,21 +5,29 @@
 #include <editor/widgets/Guizmo.h>
 #include <ImGuizmo.h>
 #include <framework/world/TransformComponent.h>
-#include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/RenderSceneProxy.h>
 #include <core/math/MathUtil.h>
 
 namespace sky::editor {
 
     GuiZmoWidget::GuiZmoWidget() : ImWidget("GuiZmoWidget")
     {
-        MainViewportEvent::Connect(this);
         SelectEvent::Connect(this);
     }
 
     GuiZmoWidget::~GuiZmoWidget()
     {
-        MainViewportEvent::DisConnect(this);
         SelectEvent::DisConnect(this);
+    }
+
+    void GuiZmoWidget::OnActorSelected(Actor *actor_)
+    {
+        actor = actor_;
+
+        if (actor != nullptr) {
+            auto *world = actor->GetWorld();
+            renderScene = static_cast<RenderSceneProxy*>(world->GetSubSystem("RenderScene"))->GetRenderScene();
+        }
     }
 
     void GuiZmoWidget::Execute(ImContext &context)
@@ -29,13 +37,13 @@ namespace sky::editor {
         ImGuiIO& io = ImGui::GetIO();
         ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 
-        if (viewport == nullptr) {
+        if (renderScene == nullptr) {
             return;
         }
-        auto *camera = viewport->GetComponent<CameraComponent>();
-        SKY_ASSERT(camera != nullptr);
-        const auto &proj = camera->GetProject();
-        auto view = camera->GetView();
+        auto *sceneView = renderScene->GetSceneViews()[0].get();
+        SKY_ASSERT(sceneView != nullptr);
+        const auto &proj = sceneView->GetProject();
+        auto view = sceneView->GetView();
 
         // ImGuizmo::DrawGrid(viewMatrix.v, projectMatrix.v, identity.v, 500.f);
         ImGuizmo::ViewManipulate(view.v, 8.f, ImVec2(0, 0), ImVec2(128, 128), 0x10101010);

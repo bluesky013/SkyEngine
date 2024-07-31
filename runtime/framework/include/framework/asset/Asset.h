@@ -46,6 +46,8 @@ namespace sky {
         void BlockUntilLoaded() const;
 
         virtual const uint8_t *GetData() const = 0;
+
+        const AsyncTask &GetAsyncTask() const { return asyncTask; }
     protected:
         friend class AssetManager;
         friend class AssetManager;

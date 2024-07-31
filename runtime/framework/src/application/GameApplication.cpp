@@ -70,11 +70,6 @@ namespace sky {
     {
     }
 
-    const NativeWindow *GameApplication::GetViewport() const
-    {
-        return nativeWindow.get();
-    }
-
     void GameApplication::LoadConfigs()
     {
         std::string json;

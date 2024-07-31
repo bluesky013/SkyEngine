@@ -16,6 +16,9 @@ namespace sky {
     World::~World()
     {
         WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, this);
+        for (auto &actor : actors) {
+            actor->DetachFromWorld();
+        }
         actors.clear();
     }
 
@@ -38,7 +41,6 @@ namespace sky {
     bool World::Init()
     {
         WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, this);
-
         return true;
     }
 

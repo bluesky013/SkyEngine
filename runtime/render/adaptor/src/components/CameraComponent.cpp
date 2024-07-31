@@ -9,7 +9,6 @@
 #include <core/math/MathUtil.h>
 
 #include <render/adaptor/Util.h>
-#include <render/adaptor/interface/IMainViewport.h>
 #include <render/Renderer.h>
 
 namespace sky {
@@ -83,12 +82,10 @@ namespace sky {
     void CameraComponent::OnActive()
     {
         sceneView = GetRenderSceneFromActor(actor)->CreateSceneView(1);
-        MainViewportEvent::BroadCast(&IMainViewportEvent::Active, actor);
     }
 
     void CameraComponent::OnDeActive()
     {
-        MainViewportEvent::BroadCast(&IMainViewportEvent::DeActive);
         ShutDown();
     }
 

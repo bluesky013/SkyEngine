@@ -5,6 +5,7 @@
 
 #include <editor/framework/WorldTreeView.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/interface/ISelectEvent.h>
 #include <QBoxLayout>
 #include <QMenu>
 
@@ -37,8 +38,10 @@ namespace sky::editor {
         if (indexes.size() == 1) {
             auto *item = dynamic_cast<WorldActorItem*>(model->itemFromIndex(indexes[0]));
             emit WorldTreeSelectItemChanged(item != nullptr ? item->actor : nullptr);
+            SelectEvent::BroadCast(&ISelectEvent::OnActorSelected, item->actor.get());
         } else {
             emit WorldTreeSelectItemChanged(nullptr);
+            SelectEvent::BroadCast(&ISelectEvent::OnActorSelected, nullptr);
         }
     }
 

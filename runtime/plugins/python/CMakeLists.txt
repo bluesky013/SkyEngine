@@ -15,4 +15,4 @@ sky_add_library(TARGET PythonModule SHARED
         3rdParty::cpython
 )
 
-sky_add_dependency(TARGET PythonModule DEPENDENCIES Launcher)
+sky_add_dependency(TARGET PythonModule DEPENDENCIES Launcher Editor)

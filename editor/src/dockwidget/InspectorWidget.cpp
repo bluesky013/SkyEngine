@@ -36,6 +36,13 @@ namespace sky::editor {
 
         layout = new QVBoxLayout(groupWidget);
         layout->setAlignment(Qt::AlignTop);
+
+        auto refreshTimer = new QTimer(this);
+        connect(refreshTimer, &QTimer::timeout, this, [this]() {
+            Refresh();
+        });
+        refreshTimer->setInterval(1000);
+        refreshTimer->start();
     }
 
     void InspectorWidget::AddComponent(ComponentBase *comp)

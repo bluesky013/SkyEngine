@@ -1,5 +1,5 @@
 if (SKY_EDITOR)
-    add_subdirectory(editor)
+    add_subdirectory(guizmo)
 endif ()
 
 if (SKY_BUILD_PYTHON)

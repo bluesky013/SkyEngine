@@ -4,6 +4,7 @@
 
 #include <editor/application/EditorApplication.h>
 #include <editor/document/Document.h>
+#include <editor/framework/ViewportWidget.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
@@ -102,7 +103,7 @@ namespace sky::editor {
     void EditorApplication::LoadFromJson(std::unordered_map<std::string, ModuleInfo> &modules)
     {
         std::string json;
-        auto file = workFs->OpenFile("config/modules_editor.json");
+        auto file = workFs->OpenFile("configs/modules_editor.json");
         if (!file || !file->ReadString(json)) {
             LOG_W(TAG, "Load Config Failed");
             return;

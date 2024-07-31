@@ -9,6 +9,8 @@
 #include <QMimeData>
 #include <render/adaptor/pipeline/DefaultForward.h>
 #include <render/Renderer.h>
+#include <framework/interface/ISystem.h>
+#include <framework/interface/Interface.h>
 
 namespace sky::editor {
 
@@ -238,6 +240,7 @@ namespace sky::editor {
             window = new ViewportWindow();
             windowContainer = QWidget::createWindowContainer(window, this, Qt::Widget);
             layout->addWidget(windowContainer);
+            Event<ISystemEvent>::BroadCast(&ISystemEvent::OnMainWindowCreated, window);
 
             UpdatePipeline();
         } else {
@@ -250,8 +253,10 @@ namespace sky::editor {
         if (editorCamera) {
             editorCamera->Shutdown();
         }
+        gizmo = nullptr;
         sceneProxy = nullptr;
         Renderer::Get()->DestroyRenderWindow(renderWindow);
+        Renderer::Get()->SetPipeline(nullptr);
         Event<IWindowEvent>::DisConnect(this);
     }
 
@@ -301,6 +306,12 @@ namespace sky::editor {
 
         editorCamera = std::make_unique<EditorCamera>();
         editorCamera->Init(sceneProxy->GetRenderScene(), window);
+
+        auto *gizmoFactory = Interface<IGizmoFactory>::Get()->GetApi();
+        if (gizmoFactory != nullptr) {
+            gizmo.reset(gizmoFactory->CreateGizmo());
+            gizmo->Init(*world, window);
+        }
 
         Event<IWindowEvent>::Connect(window, this);
     }

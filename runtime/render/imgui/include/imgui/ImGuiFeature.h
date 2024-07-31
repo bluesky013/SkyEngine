@@ -19,12 +19,12 @@ namespace sky {
         ImGuiFeature() = default;
         ~ImGuiFeature() override = default;
 
-        void Init(const RDGfxTechPtr &tech);
+        void Init();
         void Tick(float delta);
 
-        RDResourceGroupPtr RequestResourceGroup();
+        void SetTechnique(const RDGfxTechPtr &tech);
 
-        ImGuiInstance *GetGuiInstance() const { return guiInstance.get(); };
+        RDResourceGroupPtr RequestResourceGroup();
 
         const TechniqueInstance &GetDefaultTech() const { return instance; }
         const RDResourceLayoutPtr &GetLayout() const { return resLayout; }
@@ -34,8 +34,6 @@ namespace sky {
         RDResourceLayoutPtr resLayout;
         rhi::VertexInputPtr vertexDesc;
         rhi::DescriptorSetPoolPtr pool;
-
-        std::unique_ptr<ImGuiInstance> guiInstance;
     };
 
 } // namespace sky

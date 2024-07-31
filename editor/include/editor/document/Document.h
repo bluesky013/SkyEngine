@@ -29,6 +29,7 @@ namespace sky::editor {
 
         void LoadWorld();
         void SaveWorld();
+        bool NeedSave() const;
 
         void SetFlag(DocumentFlagBit bit);
         void ResetFlag(DocumentFlagBit bit);

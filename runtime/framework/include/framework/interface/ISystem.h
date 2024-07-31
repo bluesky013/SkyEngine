@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/event/Event.h>
+
 namespace sky {
     class NativeWindow;
     class ModuleManager;
@@ -15,8 +17,16 @@ namespace sky {
         virtual ~ISystemNotify() = default;
         virtual void SetExit() = 0;
 
-        virtual const NativeWindow *GetViewport() const { return nullptr; }
         virtual ModuleManager* GetModuleManager() const { return nullptr; }
     };
+
+    class ISystemEvent : public EventTraits {
+    public:
+        ISystemEvent() = default;
+        virtual ~ISystemEvent() = default;
+
+        virtual void OnMainWindowCreated(NativeWindow *window) = 0;
+    };
+    using SystemEvent = Event<ISystemEvent>;
 
 } // namespace sky

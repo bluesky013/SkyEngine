@@ -78,8 +78,10 @@ namespace sky::editor {
 
     void MainWindow::OnCloseWorld()
     {
+        SaveCheck();
         document->CloseWorld();
         worldWidget->SetWorld(nullptr);
+        inspector->OnSelectedItemChanged(nullptr);
         mainViewport->ResetWorld(nullptr);
         UpdateActions();
     }
@@ -87,6 +89,28 @@ namespace sky::editor {
     void MainWindow::OnSaveWorld()
     {
         document->SaveWorld();
+    }
+
+    void MainWindow::SaveCheck()
+    {
+        if (!document->NeedSave()) {
+            return;
+        }
+
+        QMessageBox msgBox;
+        msgBox.setText("The document has been modified.");
+        msgBox.setInformativeText("Do you want to save your changes?");
+        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+        msgBox.setDefaultButton(QMessageBox::Save);
+        int ret = msgBox.exec();
+
+        switch (ret) {
+            case QMessageBox::Save:
+                OnSaveWorld();
+                break;
+            default:
+                break;
+        }
     }
 
     void MainWindow::OnImport()
@@ -186,6 +210,23 @@ namespace sky::editor {
     void MainWindow::UpdateActions()
     {
         actionManager->Update(document ? document->GetFlag() : DocFlagArray{});
+    }
+
+    bool MainWindow::event(QEvent *event)
+    {
+        switch (event->type()) {
+            case QEvent::Close:
+                OnCloseWorld();
+                break;
+            default:
+                break;
+        }
+        return QMainWindow::event(event);
+    }
+
+    ViewportWindow* MainWindow::GetViewportWindow() const
+    {
+        return mainViewport->GetViewportWindow();
     }
 
 } // namespace sky::editor

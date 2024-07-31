@@ -15,23 +15,16 @@
 #include <render/adaptor/components/LightComponent.h>
 #include <render/adaptor/components/StaticMeshComponent.h>
 #include <render/adaptor/Reflection.h>
-
 #include <render/adaptor/assets/TechniqueAsset.h>
 
-#include <render/geometry/GeometryFeature.h>
 #include <render/particle/ParticleFeature.h>
 #include <render/mesh/MeshFeature.h>
+#include <imgui/ImGuiFeature.h>
 
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <render/adaptor/assets/VertexDescLibraryAsset.h>
 
 #include <core/profile/Profiler.h>
-
-#include <imgui/ImGuiFeature.h>
-
-#include <shader/ShaderCompiler.h>
-
 #include <cxxopts.hpp>
 
 namespace sky {
@@ -60,6 +53,7 @@ namespace sky {
         void Start() override;
     private:
         void ProcessArgs(const StartArguments &args);
+        void InitFeatures();
 
         rhi::API api = rhi::API::DEFAULT;
     };
@@ -118,21 +112,29 @@ namespace sky {
         auto shaderCompileFunc = mm->GetFunctionFomModule<ShaderCompileFunc>("ShaderCompiler", "CompileBinary");
         Renderer::Get()->SetShaderCompiler(shaderCompileFunc);
 
+        InitFeatures();
+    }
+
+    void RenderModule::InitFeatures() // NOLINT
+    {
         MeshFeature::Get()->Init();
-//        ImGuiFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/gui.tech")->CreateInstanceAs<GraphicsTechnique>());
-//        GeometryFeature::Get()->Init(AssetManager::Get()->LoadAsset<Technique>("techniques/geometry.tech")->CreateInstanceAs<GraphicsTechnique>());
-        ParticleFeature::Get()->Init();
+        ImGuiFeature::Get()->Init();
+
+        auto *am = AssetManager::Get();
+        {
+            auto guiAsset = am->LoadAssetFromPath<Technique>("techniques/gui.tech");
+            guiAsset->BlockUntilLoaded();
+            ImGuiFeature::Get()->SetTechnique(GreateGfxTechFromAsset(guiAsset));
+        }
+
     }
 
     void RenderModule::Shutdown()
     {
         Renderer::Get()->StopRender();
 
-//        ParticleFeature::Destroy();
-//        GeometryFeature::Destroy();
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
-
 
         Renderer::Destroy();
         RHI::Destroy();
@@ -140,14 +142,8 @@ namespace sky {
 
     void RenderModule::Tick(float delta)
     {
-        {
-            SKY_PROFILE_SCOPE;
-            ImGuiFeature::Get()->Tick(delta);
-        }
-        {
-            SKY_PROFILE_SCOPE;
-            Renderer::Get()->Tick(delta);
-        }
+        SKY_PROFILE_SCOPE;
+        Renderer::Get()->Tick(delta);
     }
 }
 REGISTER_MODULE(sky::RenderModule)

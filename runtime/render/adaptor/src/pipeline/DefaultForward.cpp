@@ -7,9 +7,9 @@
 #include <render/rdg/RenderGraph.h>
 #include <render/adaptor/pipeline/DefaultForward.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-
 #include <core/math/Transform.h>
 #include <framework/asset/AssetManager.h>
+#include <imgui/ImGuiFeature.h>
 
 namespace sky {
 
@@ -71,6 +71,12 @@ namespace sky {
         if (views.empty()) {
             return false;
         }
+
+//        auto *gui = ImGuiFeature::Get()->GetGuiInstance();
+//        if (gui != nullptr) {
+//            scenes[0]->AddPrimitive(gui->GetPrimitive());
+//            gui->Render(rdg);
+//        }
 
         if (shadowScene == nullptr) {
             Transform trans = {};

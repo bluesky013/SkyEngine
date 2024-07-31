@@ -32,6 +32,12 @@ namespace sky {
         AssetPtr LoadAssetFromPath(const std::string &path);
 
         template <typename T>
+        std::shared_ptr<Asset<T>> LoadAssetFromPath(const std::string &path)
+        {
+            return std::static_pointer_cast<Asset<T>>(LoadAssetFromPath(path));
+        }
+
+        template <typename T>
         std::shared_ptr<Asset<T>> LoadAsset(const Uuid &uuid)
         {
             return std::static_pointer_cast<Asset<T>>(LoadAsset(uuid));

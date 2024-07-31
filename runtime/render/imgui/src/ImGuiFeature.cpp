@@ -3,6 +3,7 @@
 //
 
 #include <imgui/ImGuiFeature.h>
+#include <imgui/ImGuiFeatureProcessor.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
 
@@ -18,15 +19,11 @@ namespace sky {
 
     void ImGuiFeature::Tick(float delta)
     {
-        if (guiInstance) {
-            guiInstance->Tick(delta);
-        }
     }
 
-    void ImGuiFeature::Init(const RDGfxTechPtr &tech)
+    void ImGuiFeature::Init()
     {
-        instance.technique = tech;
-        resLayout = tech->RequestProgram()->RequestLayout(BATCH_SET);
+        Renderer::Get()->RegisterRenderFeature<ImGuiFeatureProcessor>();
 
         auto *device = RHI::Get()->GetDevice();
         {
@@ -38,8 +35,12 @@ namespace sky {
 
             pool = device->CreateDescriptorSetPool(poolDesc);
         }
+    }
 
-        guiInstance = std::make_unique<ImGuiInstance>();
+    void ImGuiFeature::SetTechnique(const RDGfxTechPtr &tech)
+    {
+        instance.technique = tech;
+        resLayout = tech->RequestProgram()->RequestLayout(BATCH_SET);
     }
 
     RDResourceGroupPtr ImGuiFeature::RequestResourceGroup()

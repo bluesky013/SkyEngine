@@ -10,6 +10,7 @@
 #include <framework/window/NativeWindow.h>
 #include <framework/world/World.h>
 #include <framework/interface/ITickEvent.h>
+#include <framework/interface/IGizmo.h>
 #include <core/event/Event.h>
 #include <render/adaptor/RenderSceneProxy.h>
 
@@ -39,6 +40,8 @@ namespace sky::editor {
         void UpdatePipeline();
         void ResetPipeline();
 
+        ViewportWindow* GetViewportWindow() const { return window; }
+
     private:
         void OnWindowResize(uint32_t width, uint32_t height) override;
         void dropEvent(QDropEvent *event) override;
@@ -55,6 +58,7 @@ namespace sky::editor {
 
         std::unique_ptr<RenderSceneProxy> sceneProxy;
         std::unique_ptr<EditorCamera> editorCamera;
+        std::unique_ptr<IGizmo> gizmo;
 
         EventBinder<ITickEvent> binder;
     };

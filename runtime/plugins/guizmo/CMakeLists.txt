@@ -1,11 +1,11 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET EditorModule SHARED
+sky_add_library(TARGET ImGuizmoModule SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
-        EditorModule.cpp
+        ImGuizmoModule.cpp
     PRIVATE_INC
         src
     PUBLIC_INC
@@ -17,4 +17,4 @@ sky_add_library(TARGET EditorModule SHARED
         3rdParty::ImGuizmo
 )
 
-sky_add_dependency(TARGET EditorModule DEPENDENCIES Launcher)
+sky_add_dependency(TARGET ImGuizmoModule DEPENDENCIES Launcher Editor)

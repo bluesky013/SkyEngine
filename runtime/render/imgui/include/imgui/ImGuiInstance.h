@@ -48,8 +48,6 @@ namespace sky {
         void OnFocusChanged(bool focus) override;
         void OnWindowResize(uint32_t width, uint32_t height) override;
 
-        int ConvertMouseButton(MouseButtonType type);
-
         EventBinder<IWindowEvent> winBinder;
         EventBinder<IKeyboardEvent> keyBinder;
         EventBinder<IMouseEvent> mouseBinder;

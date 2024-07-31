@@ -28,7 +28,7 @@ namespace sky {
         virtual void Start() {}
 
         virtual void PreTick(float delta) {};
-        virtual void Tick(float delta) = 0;
+        virtual void Tick(float delta) {};
         virtual void PostTick(float delta) {};
     };
 

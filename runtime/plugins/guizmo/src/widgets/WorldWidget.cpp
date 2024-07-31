@@ -3,6 +3,7 @@
 //
 
 #include <editor/widgets/WorldWidget.h>
+#include <framework/interface/ISelectEvent.h>
 #include <imgui.h>
 
 namespace sky::editor {

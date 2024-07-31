@@ -22,8 +22,6 @@ namespace sky {
         void Shutdown() override;
         void PreTick() override;
 
-        const NativeWindow *GetViewport() const override;
-
     private:
         void LoadConfigs() override;
 

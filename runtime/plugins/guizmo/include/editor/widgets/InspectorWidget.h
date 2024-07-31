@@ -8,6 +8,7 @@
 #include <editor/event/Event.h>
 #include <editor/widgets/WorldWidget.h>
 #include <framework/world/World.h>
+#include <framework/interface/ISelectEvent.h>
 
 namespace sky::editor {
 

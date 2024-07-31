@@ -9,30 +9,24 @@
 #include <editor/widgets/Menu.h>
 #include <editor/widgets/WorldWidget.h>
 #include <editor/widgets/Guizmo.h>
+#include <framework/interface/IGizmo.h>
 #include <framework/world/World.h>
 #include <memory>
 
 namespace sky::editor {
 
-    class EditorInstance : public Singleton<EditorInstance>, public IWorldEvent {
+    class EditorGuiInstance : public IGizmo {
     public:
-        EditorInstance() = default;
-        ~EditorInstance() override;
+        EditorGuiInstance() = default;
+        ~EditorGuiInstance() override;
 
-        void Init(ImGuiInstance *instance);
-
+        void Init(World &world, NativeWindow* window);
     private:
-        // World event
-        void OnCreateWorld(const WorldPtr& world) override;
-        void OnDestroyWorld(const WorldPtr& world) override;
+        void Init();
 
         std::unique_ptr<WidgetManager> wm;
         std::unique_ptr<GuiZmoWidget> gui;
-
-
-
-        WorldWidget *worldWidget = nullptr;
-        MenuBar *menuBar = nullptr;
+        ImGuiInstance* guiInstance = nullptr;
     };
 
 } // namespace sky::editor

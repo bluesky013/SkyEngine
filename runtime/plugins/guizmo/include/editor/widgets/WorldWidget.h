@@ -9,16 +9,6 @@
 #include <framework/world/World.h>
 
 namespace sky::editor {
-
-    class ISelectEvent : public EventTraits {
-    public:
-        ISelectEvent() = default;
-        virtual ~ISelectEvent() = default;
-
-        virtual void OnActorSelected(Actor *actor) = 0;
-    };
-    using SelectEvent = Event<ISelectEvent>;
-
     class WorldWidget : public ImWidget, public IToggleEvent {
     public:
         WorldWidget() : ImWidget("World") {}

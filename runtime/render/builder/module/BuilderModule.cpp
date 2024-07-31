@@ -10,6 +10,7 @@
 #include <builder/render/VertexLibraryBuilder.h>
 #include <builder/render/MeshBuilder.h>
 
+#include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
 #include <shader/ShaderCompiler.h>
@@ -23,6 +24,11 @@ namespace sky::builder {
 
         bool Init(const StartArguments &args) override;
         void Tick(float delta) override {}
+        void ProcessPreloadAssets();
+
+    private:
+        NativeFileSystemPtr engineFs;
+        NativeFileSystemPtr workSpaceFs;
     };
 
     bool BuilderModule::Init(const StartArguments &args)
@@ -37,13 +43,40 @@ namespace sky::builder {
         am->RegisterBuilder(new MeshBuilder());
 
         // init shader compiler
-        auto engineFs = AssetBuilderManager::Get()->GetEngineFs();
-        auto workSpaceFs = AssetBuilderManager::Get()->GetWorkSpaceFs();
+        engineFs = AssetBuilderManager::Get()->GetEngineFs();
+        workSpaceFs = AssetBuilderManager::Get()->GetWorkSpaceFs();
 
         auto *compiler = ShaderCompiler::Get();
         compiler->AddSearchPath(engineFs->GetPath());
         compiler->AddSearchPath(workSpaceFs->GetPath());
+
+        ProcessPreloadAssets();
         return true;
+    }
+
+    void BuilderModule::ProcessPreloadAssets()
+    {
+        auto file = workSpaceFs->OpenFile("configs/render_preload_assets.json");
+        if (!file) {
+            return;
+        }
+
+        auto archive = file->ReadAsArchive();
+        JsonInputArchive json(*archive);
+
+        uint32_t count = json.StartArray("assets");
+
+        for (uint32_t i = 0; i < count; ++i) {
+            AssetSourcePath path = {};
+            path.path = json.LoadString();
+            path.bundle = SourceAssetBundle::ENGINE;
+
+            auto source = AssetDataBase::Get()->RegisterAsset(path);
+            SKY_ASSERT(source);
+            json.NextArrayElement();
+        }
+
+        json.End();
     }
 }
 REGISTER_MODULE(sky::builder::BuilderModule)

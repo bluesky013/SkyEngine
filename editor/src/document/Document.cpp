@@ -60,8 +60,12 @@ namespace sky::editor {
         NativeFile file(FilePath(filePath.toStdString()));
         auto archive = file.WriteAsArchive();
         JsonOutputArchive json(*archive);
-
         world->SaveJson(json);
+    }
+
+    bool Document::NeedSave() const
+    {
+        return world != nullptr;
     }
 
     WorldPtr Document::OpenWorld(const QString &path)

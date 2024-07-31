@@ -229,7 +229,7 @@ namespace sky {
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
     }
 
-    int ImGuiInstance::ConvertMouseButton(MouseButtonType type)
+    int ConvertMouseButton(MouseButtonType type)
     {
         // 0=left, 1=right, 2=middle
         switch (type) {
