@@ -73,8 +73,8 @@ namespace sky {
         void CalculateHash();
         uint32_t GetHash() const { return hash; }
 
-    private:
         std::map<std::string, MacroValue> values;
+    private:
         uint32_t hash = 0;
     };
     using ShaderPreprocessorPtr = std::shared_ptr<ShaderPreprocessor>;

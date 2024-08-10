@@ -14,6 +14,8 @@
 #include <render/adaptor/assets/VertexDescLibraryAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/adaptor/assets/ShaderAsset.h>
+#include <render/adaptor/assets/AnimationAsset.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
 
 namespace sky {
 
@@ -60,6 +62,14 @@ namespace sky {
             .BinLoad<&ShaderAssetData::Load>()
             .BinSave<&ShaderAssetData::Save>();
 
+        context->Register<AnimationAssetData>("AnimationAssetData")
+            .BinLoad<&AnimationAssetData::Load>()
+            .BinSave<&AnimationAssetData::Save>();
+
+        context->Register<SkeletonAssetData>("SkeletonData")
+                .BinLoad<&SkeletonAssetData::Load>()
+                .BinSave<&SkeletonAssetData::Save>();
+
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<MaterialInstance>();
@@ -70,6 +80,8 @@ namespace sky {
         am->RegisterAssetHandler<VertexDescLibrary>();
         am->RegisterAssetHandler<Buffer>();
         am->RegisterAssetHandler<ShaderCollection>();
+        am->RegisterAssetHandler<Animation>();
+        am->RegisterAssetHandler<Skeleton>();
     }
 
     void ReflectRHI(SerializationContext *context)

@@ -2,28 +2,27 @@
 // Created by Zach Lee on 2023/9/9.
 //
 
-#include <render/mesh/StaticMeshRenderer.h>
+#include <render/mesh/MeshRenderer.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/RenderBuiltinLayout.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
-#include <render/VertexDescLibrary.h>
 
 namespace sky {
 
-    StaticMeshRenderer::~StaticMeshRenderer()
+    MeshRenderer::~MeshRenderer()
     {
         for (auto &prim : primitives) {
             scene->RemovePrimitive(prim.get());
         }
     }
 
-    void StaticMeshRenderer::AttachScene(RenderScene *scn)
+    void MeshRenderer::AttachScene(RenderScene *scn)
     {
         scene = scn;
     }
 
-    void StaticMeshRenderer::SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh)
+    void MeshRenderer::SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh)
     {
         auto &primitive = primitives[subMesh];
         primitive->techniques.clear();
@@ -37,15 +36,12 @@ namespace sky {
         primitive->batchSet = mat->GetResourceGroup();
     }
 
-    void StaticMeshRenderer::SetMesh(const RDMeshPtr &mesh_)
+    void MeshRenderer::SetMesh(const RDMeshPtr &mesh_)
     {
         mesh = mesh_;
 
         if (!ubo) {
-            ubo = new DynamicUniformBuffer();
-            ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
-            ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
-            ubo->Upload();
+            PrepareUBO();
         }
 
         if (!va) {
@@ -66,7 +62,7 @@ namespace sky {
             auto &primitive = primitives.emplace_back(std::make_unique<RenderPrimitive>());
             SetMaterial(sub.material, index++);
 
-            primitive->instanceSet = meshFeature->RequestResourceGroup();
+            primitive->instanceSet = RequestResourceGroup(meshFeature);
             primitive->instanceSet->BindDynamicUBO("localData", ubo, 0);
             primitive->instanceSet->Update();
 
@@ -84,11 +80,24 @@ namespace sky {
         }
     }
 
-    void StaticMeshRenderer::UpdateTransform(const Matrix4 &matrix)
+    void MeshRenderer::UpdateTransform(const Matrix4 &matrix)
     {
         ubo->Write(0, matrix);
         ubo->Write(sizeof(Matrix4), matrix.InverseTranspose());
         ubo->Upload();
+    }
+
+    void MeshRenderer::PrepareUBO()
+    {
+        ubo = new DynamicUniformBuffer();
+        ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
+        ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
+        ubo->Upload();
+    }
+
+    RDResourceGroupPtr MeshRenderer::RequestResourceGroup(MeshFeature *feature)
+    {
+        return feature->RequestResourceGroup();
     }
 
 } // namespace sky

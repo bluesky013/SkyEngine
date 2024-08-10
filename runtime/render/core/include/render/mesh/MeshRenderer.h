@@ -10,11 +10,12 @@
 
 namespace sky {
     class RenderScene;
+    class MeshFeature;
 
-    class StaticMeshRenderer {
+    class MeshRenderer {
     public:
-        StaticMeshRenderer() = default;
-        virtual ~StaticMeshRenderer();
+        MeshRenderer() = default;
+        virtual ~MeshRenderer();
 
         void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh);
@@ -23,6 +24,9 @@ namespace sky {
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
     protected:
+        virtual void PrepareUBO();
+        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
+
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;

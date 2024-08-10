@@ -11,6 +11,8 @@ namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
+        archive.LoadValue(meshType);
+        archive.LoadValue(skeleton);
 
         uint32_t size = 0;
         archive.LoadValue(size);
@@ -50,6 +52,8 @@ namespace sky {
     void MeshAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(version);
+        archive.SaveValue(meshType);
+        archive.SaveValue(skeleton);
 
         // subMesh
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));

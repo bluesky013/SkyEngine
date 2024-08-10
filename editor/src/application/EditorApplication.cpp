@@ -81,7 +81,7 @@ namespace sky::editor {
     void EditorApplication::SplashWindow()
     {
         auto splashPath =  engineFs->GetPath();
-        splashPath /= "assets/splash/test.png";
+        splashPath /= "assets/splash/splash.jpg";
 
         QPixmap pixmap(splashPath.GetStr().c_str());
         QSplashScreen splash(pixmap);

@@ -11,6 +11,7 @@ sky_add_library(TARGET SkyRenderAdaptor STATIC
         include
     LINK_LIBS
         SkyRenderCore
+        Animation
         ImGuiRender
         Framework
     )

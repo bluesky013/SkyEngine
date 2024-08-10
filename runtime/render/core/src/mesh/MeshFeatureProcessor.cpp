@@ -16,16 +16,30 @@ namespace sky {
 
     }
 
-    StaticMeshRenderer *MeshFeatureProcessor::CreateStaticMesh()
+    MeshRenderer *MeshFeatureProcessor::CreateStaticMesh()
     {
-        auto *renderer = new StaticMeshRenderer();
+        auto *renderer = new MeshRenderer();
         renderer->AttachScene(scene);
         return staticMeshes.emplace_back(renderer).get();
     }
 
-    void MeshFeatureProcessor::RemoveStaticMesh(StaticMeshRenderer *mesh)
+    void MeshFeatureProcessor::RemoveStaticMesh(MeshRenderer *mesh)
     {
         staticMeshes.remove_if([mesh](const auto &val) {
+            return mesh == val.get();
+        });
+    }
+
+    SkeletonMeshRenderer *MeshFeatureProcessor::CreateSkeletonMesh()
+    {
+        auto *renderer = new SkeletonMeshRenderer();
+        renderer->AttachScene(scene);
+        return skeletonMeshes.emplace_back(renderer).get();
+    }
+
+    void MeshFeatureProcessor::RemoveSkeletonMesh(SkeletonMeshRenderer *mesh)
+    {
+        skeletonMeshes.remove_if([mesh](const auto &val) {
             return mesh == val.get();
         });
     }

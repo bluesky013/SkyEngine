@@ -28,4 +28,4 @@ namespace sky {
         RDBufferPtr indexBuffer;
     };
 
-} // namepace sky
+} // namespace sky

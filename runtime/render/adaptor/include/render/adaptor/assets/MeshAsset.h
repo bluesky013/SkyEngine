@@ -16,10 +16,16 @@
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
+#include <animation/skeleton/Skeleton.h>
 
 namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
+
+    enum class MeshType : uint32_t  {
+        STANDARD = 0,
+        SKINNED
+    };
 
     struct SubMeshAssetData {
         uint32_t firstVertex = 0;
@@ -28,12 +34,6 @@ namespace sky {
         uint32_t indexCount  = 0;
         Uuid material;
         AABB aabb;
-    };
-
-    struct BufferViewData {
-        Uuid buffer;
-        uint32_t offset;
-        uint32_t size;
     };
 
     struct MeshPrimitiveHeader {
@@ -50,6 +50,8 @@ namespace sky {
 
     struct MeshDataHeader {
         uint32_t version = 0;
+        MeshType meshType = MeshType::STANDARD;
+        Uuid skeleton;
         std::vector<SubMeshAssetData> subMeshes;
         std::vector<std::string> vertexDescriptions;
         std::vector<MeshPrimitiveHeader> primitives;

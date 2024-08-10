@@ -7,6 +7,10 @@ struct VSInput
     [[vk::location(2)]] float4 Tangent : TANGENT;
     [[vk::location(3)]] float4 Color   : COLOR;
     [[vk::location(4)]] float4 UV      : TEXCOORD;
+#if ENABLE_SKIN
+    [[vk::location(5)]] uint4 joints   : JOINTS;
+    [[vk::location(6)]] float4 weights : WEIGHTS;
+#endif
 };
 
 struct VSOutput

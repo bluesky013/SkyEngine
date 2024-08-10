@@ -9,6 +9,8 @@
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/VertexLibraryBuilder.h>
 #include <builder/render/MeshBuilder.h>
+#include <builder/render/AnimationBuilder.h>
+#include <builder/render/SkeletonBuilder.h>
 
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
@@ -41,6 +43,8 @@ namespace sky::builder {
         am->RegisterBuilder(new ImageBuilder());
         am->RegisterBuilder(new PrefabBuilder());
         am->RegisterBuilder(new MeshBuilder());
+        am->RegisterBuilder(new AnimationBuilder());
+        am->RegisterBuilder(new SkeletonBuilder());
 
         // init shader compiler
         engineFs = AssetBuilderManager::Get()->GetEngineFs();

@@ -26,8 +26,7 @@ namespace sky {
         rhi::BufferUploadRequest indexStream;
     };
 
-    class
-    Mesh : public RenderResource {
+    class Mesh : public RenderResource {
     public:
         Mesh() = default;
         ~Mesh() override = default;

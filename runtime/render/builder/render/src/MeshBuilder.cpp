@@ -23,6 +23,11 @@ namespace sky::builder {
             AssetBuilderManager::Get()->BuildRequest(sub.material, request.target);
             asset->AddDependencies(sub.material);
         }
+
+        if (data.skeleton) {
+            asset->AddDependencies(data.skeleton);
+        }
+
         data.rawData.storage.resize(data.dataSize);
         bin.LoadValue(reinterpret_cast<char*>(data.rawData.storage.data()), data.dataSize);
 

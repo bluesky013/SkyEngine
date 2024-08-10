@@ -8,7 +8,7 @@
 #include <framework/asset/AssetEvent.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/resource/Mesh.h>
-#include <render/mesh/StaticMeshRenderer.h>
+#include <render/mesh/MeshRenderer.h>
 
 namespace sky {
 
@@ -28,7 +28,7 @@ namespace sky {
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;
 
-        StaticMeshRenderer *GetRenderer() const { return renderer; }
+        MeshRenderer *GetRenderer() const { return renderer; }
 
         void SetMeshUuid(const Uuid &uuid);
         const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }
@@ -47,7 +47,7 @@ namespace sky {
 
         MeshAssetPtr meshAsset;
         RDMeshPtr meshInstance;
-        StaticMeshRenderer *renderer = nullptr;
+        MeshRenderer *renderer = nullptr;
 
         std::atomic_bool dirty = false;
 

@@ -251,8 +251,13 @@ namespace sky {
         };
     }
 
-    inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
+    constexpr inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
         return (v0 + v1 - 1) / v1;
+    }
+
+    constexpr inline float FloatSelect(float comp, float ge, float lt)
+    {
+        return comp >= 0.f ? ge : lt;
     }
 
 } // namespace sky

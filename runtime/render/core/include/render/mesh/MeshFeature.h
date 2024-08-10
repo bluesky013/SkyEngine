@@ -17,9 +17,11 @@ namespace sky {
 
         void Init();
         RDResourceGroupPtr RequestResourceGroup();
+        RDResourceGroupPtr RequestSkinnedResourceGroup();
 
     private:
         RDResourceLayoutPtr localLayout;
+        RDResourceLayoutPtr skinnedLayout;
         rhi::DescriptorSetPoolPtr pool;
     };
 

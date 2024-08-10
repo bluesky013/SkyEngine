@@ -16,6 +16,7 @@ namespace sky {
     class BinaryOutputArchive;
 
     struct RenderPrefabNode {
+        std::string name;
         Uuid mesh;
         uint32_t parentIndex = ~(0u);
         Transform localTransform;

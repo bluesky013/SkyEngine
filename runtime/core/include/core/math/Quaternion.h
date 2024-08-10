@@ -6,6 +6,7 @@
 
 #include <core/math/Math.h>
 #include <core/math/Vector3.h>
+#include <core/math/Matrix4.h>
 
 namespace sky {
 
@@ -24,6 +25,7 @@ namespace sky {
         inline Quaternion(float w, float x, float y, float z);
         inline Quaternion(float angle, const Vector3 &axis);
 
+        inline float Dot(const Quaternion &rhs) const;
         inline void Normalize();
         inline Quaternion Conjugate() const;
 

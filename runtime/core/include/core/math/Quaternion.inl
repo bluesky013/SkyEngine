@@ -26,6 +26,11 @@ namespace sky {
         tmp.Normalize();
     }
 
+    inline float Quaternion::Dot(const Quaternion &rhs) const
+    {
+        return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
+    }
+
     inline void Quaternion::Normalize()
     {
         float n = w * w + x * x + y * y + z * z;
