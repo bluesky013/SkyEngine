@@ -12,7 +12,7 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
     LINK_LIBS
         Framework
         ShaderCompiler.Static
-        SkyRenderAdaptor
+        RenderAdaptor
         3rdParty::stb
         3rdParty::assimp
         3rdParty::ispc_texcomp

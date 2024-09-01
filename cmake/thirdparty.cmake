@@ -75,6 +75,10 @@ if(EXISTS ${3RD_PATH})
         add_definitions(-DTRACY_ENABLE)
     endif ()
 
+    if (SKY_BUILD_BULLET)
+        sky_find_3rd(TARGET bullet3       DIR bullet3)
+    endif ()
+
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)
         sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)

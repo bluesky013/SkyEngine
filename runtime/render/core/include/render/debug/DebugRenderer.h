@@ -1,0 +1,8 @@
+//
+// Created by blues on 2024/9/1.
+//
+
+#ifndef SKYENGINE_DEBUGRENDERER_H
+#define SKYENGINE_DEBUGRENDERER_H
+
+#endif //SKYENGINE_DEBUGRENDERER_H

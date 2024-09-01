@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET SkyRenderAdaptor STATIC
+sky_add_library(TARGET RenderAdaptor STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,7 +10,7 @@ sky_add_library(TARGET SkyRenderAdaptor STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyRenderCore
+        RenderCore
         Animation
         ImGuiRender
         Framework

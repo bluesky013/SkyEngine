@@ -14,7 +14,7 @@ sky_add_library(TARGET SkyRender SHARED
     PRIVATE_INC
     PUBLIC_INC
     LINK_LIBS
-        SkyRenderAdaptor
+        RenderAdaptor
         ImGuiRender
     )
 

@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET RenderCore STATIC
+sky_add_library(TARGET Physics STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -10,7 +10,5 @@ sky_add_library(TARGET RenderCore STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        Core
-        RHI
-        ShaderCompiler.Static
+        Framework
 )

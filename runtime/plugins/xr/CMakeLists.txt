@@ -20,7 +20,7 @@ sky_add_library(TARGET XRModule.Static STATIC
         include
     LINK_LIBS
         Framework
-        SkyRenderCore
+        RenderCore
         3rdParty::OpenXR
 )
 

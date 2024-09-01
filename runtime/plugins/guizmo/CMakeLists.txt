@@ -13,7 +13,7 @@ sky_add_library(TARGET ImGuizmoModule SHARED
     LINK_LIBS
         Framework
         ImGuiRender
-        SkyRenderAdaptor
+        RenderAdaptor
         3rdParty::ImGuizmo
 )
 

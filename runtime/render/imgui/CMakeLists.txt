@@ -10,7 +10,7 @@ sky_add_library(TARGET ImGuiRender STATIC
     PUBLIC_INC
         include
     LINK_LIBS
-        SkyRenderCore
+        RenderCore
         Framework
         3rdParty::imgui
 #        3rdParty::implot
