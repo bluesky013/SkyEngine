@@ -79,6 +79,10 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET bullet3       DIR bullet3)
     endif ()
 
+    if (SKY_BUILD_RECAST)
+        sky_find_3rd(TARGET recast        DIR recast)
+    endif ()
+
     if (SKY_BUILD_TOOL)
         sky_find_3rd(TARGET assimp        DIR assimp)
         sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)

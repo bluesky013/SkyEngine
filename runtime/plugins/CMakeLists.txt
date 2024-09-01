@@ -13,3 +13,7 @@ endif ()
 if (SKY_BUILD_BULLET)
     add_subdirectory(bullet)
 endif ()
+
+if (SKY_BUILD_RECAST)
+    add_subdirectory(recast)
+endif ()
