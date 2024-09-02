@@ -12,12 +12,4 @@ namespace sky::phy {
         virtual ~CharacterController() = default;
     };
 
-    class CharacterControllerFactory {
-    public:
-        CharacterControllerFactory() = default;
-        ~CharacterControllerFactory() = default;
-
-//        CharacterController* Create
-    };
-
 } // namespace sky::phy

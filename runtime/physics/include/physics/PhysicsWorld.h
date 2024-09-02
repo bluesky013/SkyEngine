@@ -44,10 +44,10 @@ namespace sky::phy {
 
     };
 
-    class PhysicsWorld {
+    class PhysicsWorld : public IWorldSubSystem {
     public:
         PhysicsWorld() = default;
-        virtual ~PhysicsWorld() = default;
+        ~PhysicsWorld() override = default;
 
         void StartSimulation();
         void StopSimulation();

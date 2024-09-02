@@ -11,7 +11,7 @@
 
 namespace sky::phy {
 
-    class BulletPhysicsWorld : public PhysicsWorld, public IWorldSubSystem {
+    class BulletPhysicsWorld : public PhysicsWorld {
     public:
         BulletPhysicsWorld();
         ~BulletPhysicsWorld() override;
