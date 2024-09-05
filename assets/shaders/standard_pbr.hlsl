@@ -44,50 +44,50 @@ VSOutput VSMain(VSInput input
 #include "shaders/layout/standard_shading.hlsl"
 #include "shaders/lighting/pbr.hlsl"
 
-static const float4x4 biasMat = float4x4(
-	0.5, 0.0, 0.0, 0.5,
-	0.0, 0.5, 0.0, 0.5,
-	0.0, 0.0, 1.0, 0.0,
-	0.0, 0.0, 0.0, 1.0 );
-
-float textureProj(float4 shadowCoord, float2 off)
-{
-	float shadow = 1.0;
-	float bias = 0.001;
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
-	{
-		float dist = ShadowMap.Sample( ShadowMapSampler, shadowCoord.xy + off ).r;
-		if ( shadowCoord.w > 0.0 && dist + bias < shadowCoord.z )
-		{
-			shadow = 0.05;
-		}
-	}
-	return shadow;
-}
-
-float filterPCF(float4 sc)
-{
-	int2 texDim;
-	ShadowMap.GetDimensions(texDim.x, texDim.y);
-	float scale = 1.5;
-	float dx = scale * 1.0 / float(texDim.x);
-	float dy = scale * 1.0 / float(texDim.y);
-
-	float shadowFactor = 0.0;
-	int count = 0;
-	int range = 3;
-
-	for (int x = -range; x <= range; x++)
-	{
-		for (int y = -range; y <= range; y++)
-		{
-			shadowFactor += textureProj(sc, float2(dx*x, dy*y));
-			count++;
-		}
-
-	}
-	return shadowFactor / count;
-}
+// static const float4x4 biasMat = float4x4(
+// 	0.5, 0.0, 0.0, 0.5,
+// 	0.0, 0.5, 0.0, 0.5,
+// 	0.0, 0.0, 1.0, 0.0,
+// 	0.0, 0.0, 0.0, 1.0 );
+//
+// float textureProj(float4 shadowCoord, float2 off)
+// {
+// 	float shadow = 1.0;
+// 	float bias = 0.001;
+// 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
+// 	{
+// 		float dist = ShadowMap.Sample( ShadowMapSampler, shadowCoord.xy + off ).r;
+// 		if ( shadowCoord.w > 0.0 && dist + bias < shadowCoord.z )
+// 		{
+// 			shadow = 0.05;
+// 		}
+// 	}
+// 	return shadow;
+// }
+//
+// float filterPCF(float4 sc)
+// {
+// 	int2 texDim;
+// 	ShadowMap.GetDimensions(texDim.x, texDim.y);
+// 	float scale = 1.5;
+// 	float dx = scale * 1.0 / float(texDim.x);
+// 	float dy = scale * 1.0 / float(texDim.y);
+//
+// 	float shadowFactor = 0.0;
+// 	int count = 0;
+// 	int range = 3;
+//
+// 	for (int x = -range; x <= range; x++)
+// 	{
+// 		for (int y = -range; y <= range; y++)
+// 		{
+// 			shadowFactor += textureProj(sc, float2(dx*x, dy*y));
+// 			count++;
+// 		}
+//
+// 	}
+// 	return shadowFactor / count;
+// }
 
 float4 FSMain(VSOutput input) : SV_TARGET
 {
@@ -120,11 +120,12 @@ float4 FSMain(VSOutput input) : SV_TARGET
 //     float4 ao = AoMap.Sample(AoSampler, input.UV.xy);
 //     float4 emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
 
-    float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
-    float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
+//     float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
+//     float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
 
-	float shadow = filterPCF(shadowCoord);
-	shadow = max(shadow, 1.0);
+    float shadow = 1.0;
+// 	float shadow = filterPCF(shadowCoord);
+// 	shadow = max(shadow, 1.0);
 
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
 

@@ -18,7 +18,7 @@ namespace sky::rdg {
             const auto &renderPass = rasterPass.renderPass;
 
             for (const auto &prim : primitives) {
-                if (queue.culling && queue.sceneView != nullptr && !queue.sceneView->FrustumCulling(prim->boundingBox)) {
+                if (queue.culling && queue.sceneView != nullptr && !queue.sceneView->FrustumCulling(prim->worldBound)) {
                     continue;
                 }
 

@@ -18,7 +18,7 @@ namespace sky {
 
         uint32_t GetWidth() const;
         uint32_t GetHeight() const;
-        const rhi::SwapChainPtr &GetSwaChain() const { return swapChain; }
+        const rhi::SwapChainPtr &GetSwapChain() const { return swapChain; }
 
 #ifdef SKY_ENABLE_XR
         const rhi::XRSwapChainPtr &GetXRSwaChain() const { return xrSwapChain; }

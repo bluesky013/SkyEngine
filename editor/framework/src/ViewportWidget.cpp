@@ -7,7 +7,9 @@
 #include <QVBoxLayout>
 #include <QDropEvent>
 #include <QMimeData>
-#include <render/adaptor/pipeline/DefaultForward.h>
+#include <render/adaptor/pipeline/DefaultForwardPipeline.h>
+#include <render/RenderScenePipeline.h>
+#include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
@@ -297,12 +299,16 @@ namespace sky::editor {
                                             window->GetWidth(),
                                             window->GetHeight(), false);
 
-        auto *ppl = new DefaultForward();
-        ppl->SetOutput(renderWindow);
+//        auto *ppl = new DefaultForward();
+        auto *ppl = new RenderPassPipeline();
         Renderer::Get()->SetPipeline(ppl);
 
         sceneProxy = std::make_unique<RenderSceneProxy>();
         world->AddSubSystem("RenderScene", sceneProxy.get());
+
+        auto *scenePipeline = new DefaultForwardPipeline(sceneProxy->GetRenderScene());
+        scenePipeline->SetOutput(renderWindow);
+        ppl->AddScenePass(scenePipeline);
 
         editorCamera = std::make_unique<EditorCamera>();
         editorCamera->Init(sceneProxy->GetRenderScene(), window);

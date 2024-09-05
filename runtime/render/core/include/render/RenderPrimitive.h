@@ -29,7 +29,8 @@ namespace sky {
 
         PmrUnSyncPoolRes defaultRes;
         uint32_t sortKey = 0;
-        AABB boundingBox {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
+        AABB localBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
+        AABB worldBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
 
         RDResourceGroupPtr batchSet;
         RDResourceGroupPtr instanceSet;

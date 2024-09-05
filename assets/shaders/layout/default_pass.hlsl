@@ -23,5 +23,5 @@ struct ViewInfo {
 }
 #endif
 
-[[vk::binding(2, 0)]] Texture2D ShadowMap : register(t1, space0);
-[[vk::binding(3, 0)]] SamplerState ShadowMapSampler : register(t1, space0);
+// [[vk::binding(2, 0)]] Texture2D ShadowMap : register(t1, space0);
+// [[vk::binding(3, 0)]] SamplerState ShadowMapSampler : register(t1, space0);

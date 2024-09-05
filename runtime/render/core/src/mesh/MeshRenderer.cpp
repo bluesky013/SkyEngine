@@ -66,7 +66,8 @@ namespace sky {
             primitive->instanceSet->BindDynamicUBO("localData", ubo, 0);
             primitive->instanceSet->Update();
 
-            primitive->boundingBox = sub.aabb;
+            primitive->localBound = sub.aabb;
+            primitive->worldBound = sub.aabb;
             primitive->va = va;
             primitive->args.emplace_back(rhi::CmdDrawIndexed {
                 sub.indexCount,
@@ -85,6 +86,10 @@ namespace sky {
         ubo->Write(0, matrix);
         ubo->Write(sizeof(Matrix4), matrix.InverseTranspose());
         ubo->Upload();
+
+        for (auto &prim : primitives) {
+            prim->worldBound = AABB::Transform(prim->localBound, matrix);
+        }
     }
 
     void MeshRenderer::PrepareUBO()

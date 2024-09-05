@@ -10,6 +10,7 @@
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
 #include <render/FeatureProcessor.h>
+#include <core/util/ArrayBitFlag.h>
 
 namespace sky {
 

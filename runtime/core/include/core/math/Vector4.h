@@ -21,7 +21,7 @@ namespace sky {
         };
 
         inline constexpr Vector4();
-        inline constexpr Vector4(float v);
+        inline constexpr Vector4(float v); // NOLINT
         inline constexpr Vector4(float x_, float y_, float z_, float w_);
 
         inline void Normalize();

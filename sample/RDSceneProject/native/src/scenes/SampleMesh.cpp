@@ -158,7 +158,7 @@ namespace sky {
             uint32_t outHeight;
 
             uint32_t viewCount = 1;
-            const auto &swapChain = output->GetSwaChain();
+            const auto &swapChain = output->GetSwapChain();
 
             if (swapChain) {
                 const auto &ext = swapChain->GetExtent();
