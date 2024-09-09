@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <core/jobsystem/JobSystem.h>
 #include <core/util/Uuid.h>
+#include <core/util/Macros.h>
 #include <core/archive/StreamArchive.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>

@@ -158,6 +158,7 @@ namespace sky {
     void World::AddSubSystem(const std::string &name, IWorldSubSystem* sys)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
+        sys->OnAttachToWorld(*this);
     }
 
     IWorldSubSystem* World::GetSubSystem(const std::string &name) const
@@ -166,4 +167,15 @@ namespace sky {
         return iter != subSystems.end() ? iter->second : nullptr;
     }
 
+    void World::RegisterConfiguration(const std::string& name, const Any& any)
+    {
+        SKY_ASSERT(worldConfigs.emplace(name, any).second);
+    }
+
+    const Any& World::GetConfigByName(const std::string &name) const
+    {
+        static Any EMPTY;
+        auto iter = worldConfigs.find(name);
+        return iter != worldConfigs.end() ? iter->second : EMPTY;
+    }
 } // namespace sky

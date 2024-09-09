@@ -10,15 +10,15 @@ namespace sky::ai {
     {
     }
 
-    void RecastNaviMap::BuildNavMesh()
+    void RecastNaviMap::BuildNavMesh(const RecastNaviMapConfig &config)
     {
         navMesh = dtAllocNavMesh();
 
         dtNavMeshParams params = {};
-        params.tileWidth  = 12.8;
-        params.tileHeight = 12.8;
-        params.maxTiles   = 65536;
-        params.maxPolys   = 65536;
+        params.tileWidth  = config.tileWidth;
+        params.tileHeight = config.tileHeight;
+        params.maxTiles   = config.maxTiles;
+        params.maxPolys   = config.maxPolys;
 
         auto status = navMesh->init(&params);
         if (dtStatusFailed(status)) {

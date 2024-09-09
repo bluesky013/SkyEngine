@@ -41,6 +41,8 @@ namespace sky {
     public:
         IWorldSubSystem() = default;
         virtual ~IWorldSubSystem() = default;
+
+        virtual void OnAttachToWorld(World &world) {}
     };
 
     class World : public RefObject {
@@ -74,11 +76,16 @@ namespace sky {
         void AddSubSystem(const std::string &name, IWorldSubSystem*);
         IWorldSubSystem* GetSubSystem(const std::string &name) const;
 
+        void RegisterConfiguration(const std::string& name, const Any& any);
+        const Any& GetConfigByName(const std::string &name) const;
+
     private:
         World() = default;
 
         std::vector<ActorPtr> actors;
         std::unordered_map<std::string, IWorldSubSystem*> subSystems;
+
+        std::unordered_map<std::string, Any> worldConfigs;
 
         uint32_t version = 0;
     };
