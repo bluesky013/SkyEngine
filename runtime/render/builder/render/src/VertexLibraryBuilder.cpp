@@ -22,6 +22,7 @@ namespace sky::builder {
         {"F_R8",     rhi::Format::F_R8    },
         {"F_RG8",    rhi::Format::F_RG8   },
         {"F_RGBA8",  rhi::Format::F_RGBA8 },
+        {"U_RGBA8",  rhi::Format::U_RGBA8 },
     };
 
     std::unordered_map<std::string, rhi::VertexInputRate> RATE_MAP = {

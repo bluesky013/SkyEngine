@@ -87,7 +87,8 @@ namespace sky::rhi {
         F_RGBA32  = 4,
         F_R8     = 5,
         F_RG8    = 6,
-        F_RGBA8  = 8
+        F_RGBA8  = 8,
+        U_RGBA8  = 9
     };
 
     enum class IndexType : uint32_t {

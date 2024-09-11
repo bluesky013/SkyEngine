@@ -30,9 +30,8 @@ namespace sky {
         SkeletonMeshRenderer();
         ~SkeletonMeshRenderer() override = default;
 
-        SkinPtr GetSkin() const { return skin; }
-
-        void SetBoneTransform(uint32_t index, const Matrix4 &trans);
+        const SkinPtr &GetSkin() const { return skin; }
+        void SetSkin(const SkinPtr &skin_) { skin = skin_; }
     protected:
         void PrepareUBO() override;
         RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature) override;

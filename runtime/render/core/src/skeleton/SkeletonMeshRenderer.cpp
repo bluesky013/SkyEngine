@@ -26,11 +26,6 @@ namespace sky {
         boneData->Upload();
     }
 
-    void SkeletonMeshRenderer::SetBoneTransform(uint32_t index, const Matrix4 &trans)
-    {
-        skin->boneMatrices[index] = trans;
-    }
-
     RDResourceGroupPtr SkeletonMeshRenderer::RequestResourceGroup(MeshFeature *feature)
     {
         return feature->RequestSkinnedResourceGroup();

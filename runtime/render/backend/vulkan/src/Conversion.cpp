@@ -54,13 +54,14 @@ namespace sky::vk {
 
     std::unordered_map<rhi::Format, VkFormat> FORMAT_TABLE = {
         {rhi::Format::UNDEFINED, VK_FORMAT_UNDEFINED},
-        {rhi::Format::F_R32, VK_FORMAT_R32_SFLOAT},
-        {rhi::Format::F_RG32, VK_FORMAT_R32G32_SFLOAT},
-        {rhi::Format::F_RGB32, VK_FORMAT_R32G32B32_SFLOAT},
-        {rhi::Format::F_RGBA32, VK_FORMAT_R32G32B32A32_SFLOAT},
-        {rhi::Format::F_R8, VK_FORMAT_R8_UNORM},
-        {rhi::Format::F_RG8, VK_FORMAT_R8G8_UNORM},
-        {rhi::Format::F_RGBA8, VK_FORMAT_R8G8B8A8_UNORM},
+        {rhi::Format::F_R32,     VK_FORMAT_R32_SFLOAT},
+        {rhi::Format::F_RG32,    VK_FORMAT_R32G32_SFLOAT},
+        {rhi::Format::F_RGB32,   VK_FORMAT_R32G32B32_SFLOAT},
+        {rhi::Format::F_RGBA32,  VK_FORMAT_R32G32B32A32_SFLOAT},
+        {rhi::Format::F_R8,      VK_FORMAT_R8_UNORM},
+        {rhi::Format::F_RG8,     VK_FORMAT_R8G8_UNORM},
+        {rhi::Format::F_RGBA8,   VK_FORMAT_R8G8B8A8_UNORM},
+        {rhi::Format::U_RGBA8,   VK_FORMAT_R8G8B8A8_UINT},
     };
 
     std::unordered_map<rhi::WrapMode, VkSamplerAddressMode> SAMPLER_ADDRESS_TABLE = {
