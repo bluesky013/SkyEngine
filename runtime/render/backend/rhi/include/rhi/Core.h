@@ -17,21 +17,6 @@ namespace sky {
 
 namespace sky::rhi {
 
-#define ENABLE_FLAG_BIT_OPERATOR(Type) \
-    constexpr Flags<Type> operator&(Type const& lhs, Type const& rhs) noexcept \
-    { \
-        return Flags<Type>(lhs) & rhs; \
-    } \
-    constexpr Flags<Type> operator|(Type const& lhs, Type const& rhs) noexcept \
-    { \
-        return Flags<Type>(lhs) | rhs; \
-    } \
-    constexpr Flags<Type> operator^(Type const& lhs, Type const& rhs) noexcept \
-    { \
-        return Flags<Type>(lhs) ^ rhs; \
-    }
-
-
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,
         R8_UNORM,
@@ -500,7 +485,7 @@ namespace sky::rhi {
     struct IUploadStream : public RefObject {
         IUploadStream() = default;
         ~IUploadStream() override = default;
-        virtual const uint8_t *GetData(uint64_t offset) = 0;
+        virtual const uint8_t *Data(uint64_t offset) = 0;
         virtual void ReadData(uint64_t offset, uint64_t size, uint8_t *out) = 0;
     };
 

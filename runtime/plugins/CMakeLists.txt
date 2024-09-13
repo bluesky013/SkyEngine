@@ -17,3 +17,7 @@ endif ()
 if (SKY_BUILD_RECAST)
     add_subdirectory(recast)
 endif ()
+
+if (SKY_BUILD_FREETYPE)
+    add_subdirectory(freetype)
+endif ()

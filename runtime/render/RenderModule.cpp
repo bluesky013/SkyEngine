@@ -20,6 +20,7 @@
 
 #include <render/particle/ParticleFeature.h>
 #include <render/mesh/MeshFeature.h>
+#include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
 
 #include <render/RHI.h>
@@ -122,6 +123,7 @@ namespace sky {
     {
         MeshFeature::Get()->Init();
         ImGuiFeature::Get()->Init();
+        TextFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
         {

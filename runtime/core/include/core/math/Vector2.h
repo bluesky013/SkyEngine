@@ -18,9 +18,9 @@ namespace sky {
             };
         };
 
-        inline Vector2();
-        inline explicit Vector2(float v);
-        inline Vector2(float x_, float y_);
+        inline constexpr Vector2();
+        inline constexpr explicit Vector2(float v);
+        inline constexpr Vector2(float x_, float y_);
 
         inline float Dot(const Vector2 &rhs) const;
         inline float Length() const;
@@ -50,3 +50,8 @@ namespace sky {
 }
 
 #include "core/math/Vector2.inl"
+
+namespace sky {
+    static constexpr Vector2 VEC2_ZERO = Vector2();
+    static constexpr Vector2 VEC2_ONE = Vector2(1, 1);
+} // namespace sky

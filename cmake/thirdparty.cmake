@@ -70,6 +70,11 @@ if(EXISTS ${3RD_PATH})
     # script
     sky_find_3rd(TARGET cpython       DIR cpython)
 
+    # text
+    if (SKY_BUILD_FREETYPE)
+        sky_find_3rd(TARGET freetype      DIR freetype)
+    endif ()
+
     if (SKY_USE_TRACY)
         sky_find_3rd(TARGET tracy         DIR tracy)
         add_definitions(-DTRACY_ENABLE)

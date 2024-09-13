@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
+#include <array>
 
 namespace sky {
 
@@ -19,6 +21,11 @@ namespace sky {
 
     struct Quad {
         std::array<Vector3, 4> v;
+    };
+
+    struct Rect {
+        Vector2 offset = VEC2_ZERO;
+        Vector2 ext    = VEC2_ZERO;
     };
 
     struct Plane {

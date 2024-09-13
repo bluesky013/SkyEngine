@@ -5,7 +5,6 @@
 #pragma once
 
 #include <core/util/Uuid.h>
-#include <core/math/Rect.h>
 #include <core/std/Container.h>
 #include <core/event/Event.h>
 #include <core/template/ReferenceObject.h>

@@ -120,6 +120,20 @@ namespace sky {
         return flags.operator^( bit );
     }
 
+#define ENABLE_FLAG_BIT_OPERATOR(Type) \
+    constexpr Flags<Type> operator&(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) & rhs; \
+    } \
+    constexpr Flags<Type> operator|(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) | rhs; \
+    } \
+    constexpr Flags<Type> operator^(Type const& lhs, Type const& rhs) noexcept \
+    { \
+        return Flags<Type>(lhs) ^ rhs; \
+    }
+
 } // namespace sky
 
 namespace std {

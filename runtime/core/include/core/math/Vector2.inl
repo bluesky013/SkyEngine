@@ -4,15 +4,15 @@
 
 namespace sky {
 
-    inline Vector2::Vector2() : Vector2(0, 0)
+    inline constexpr Vector2::Vector2() : Vector2(0, 0)
     {
     }
 
-    inline Vector2::Vector2(float v) : Vector2(v, v)
+    inline constexpr Vector2::Vector2(float v) : Vector2(v, v)
     {
     }
 
-    inline Vector2::Vector2(float x_, float y_) : x(x_), y(y_)
+    inline constexpr Vector2::Vector2(float x_, float y_) : x(x_), y(y_)
     {
     }
 
