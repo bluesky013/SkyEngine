@@ -20,6 +20,7 @@ namespace sky::editor {
         ~GuiZmoWidget() override;
 
         void Execute(ImContext &context) override;
+        void AttachScene(RenderScene *scn) { renderScene = scn; }
     private:
         void OnActorSelected(Actor *actor_) override;
 

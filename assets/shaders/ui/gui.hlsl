@@ -1,8 +1,8 @@
 struct VSInput
 {
-    [[vk::location(0)]] float2 Pos   : POSITION0;
-    [[vk::location(1)]] float2 UV    : TEXCOORD;
-    [[vk::location(2)]] float4 Color : COLOR;
+    float2 Pos   : POSITION;
+    float2 UV    : UV;
+    float4 Color : COLOR;
 };
 
 
@@ -10,8 +10,8 @@ struct VSOutput
 {
     float4 Pos : SV_POSITION;
 
-    [[vk::location(0)]] float2 UV    : TEXCOORD;
-    [[vk::location(1)]] float4 Color : COLOR;
+    float2 UV    : UV;
+    float4 Color : COLOR;
 };
 
 [[vk::binding(0, 1)]] cbuffer Constants : register(b0, space1)

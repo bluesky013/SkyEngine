@@ -71,6 +71,31 @@ namespace sky {
                     SKY_UNEXPECTED;
             }
         }
+
+        size = 0;
+        archive.LoadValue(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            std::string key;
+            archive.LoadValue(key);
+            MaterialValueType type;
+            archive.LoadValue(type);
+            switch (type) {
+                case MaterialValueType::BOOL: {
+                    bool val = {};
+                    archive.LoadValue(val);
+                    properties.options[key] = val;
+                }
+                break;
+                case MaterialValueType::U32: {
+                    uint32_t val = {};
+                    archive.LoadValue(val);
+                    properties.options[key] = val;
+                }
+                break;
+                default:
+                    SKY_UNEXPECTED;
+            }
+        }
     }
 
     void SaveProperties(BinaryOutputArchive &archive, const MaterialProperties &properties) {
@@ -112,6 +137,22 @@ namespace sky {
                         archive.SaveValue(MaterialValueType::I32);
                         archive.SaveValue(v);
                     },
+            }, value);
+        }
+
+        archive.SaveValue(static_cast<uint32_t>(properties.options.size()));
+        for (const auto &[key, value]: properties.options) {
+            archive.SaveValue(key);
+
+            std::visit(Overloaded{
+                    [&archive](const bool &v) {
+                        archive.SaveValue(MaterialValueType::BOOL);
+                        archive.SaveValue(v);
+                    },
+                    [&archive](const uint32_t &v) {
+                        archive.SaveValue(MaterialValueType::U32);
+                        archive.SaveValue(v);
+                    }
             }, value);
         }
     }
@@ -202,7 +243,7 @@ namespace sky {
             } else if (obj.IsBool()) {
                 valueMap[key] = static_cast<uint32_t>(obj.GetBool());
             } else if (obj.IsUint()) {
-
+                valueMap[key] = static_cast<uint32_t>(obj.GetUint());
             } else if (obj.IsArray()) {
                 auto   array = obj.GetArray();
                 float *v     = nullptr;
@@ -219,14 +260,22 @@ namespace sky {
                 }
             }
         });
+        archive.End();
 
+        archive.Start("options");
+        archive.ForEachMember([this, &archive](const std::string &key, const auto &obj) {
+            if (obj.IsBool()) {
+                options[key] = obj.GetBool();
+            } else if (obj.IsUint()) {
+                options[key] = obj.GetUint();
+            }
+        });
         archive.End();
     }
 
     void MaterialProperties::SaveJson(JsonOutputArchive &archive) const
     {
         archive.Key("properties");
-
         archive.StartObject();
         for (const auto &[key, value] : valueMap) {
             archive.Key(key.c_str());
@@ -242,6 +291,21 @@ namespace sky {
                         }
                     },
                     [&archive](const auto& arg) { archive.SaveValueObject(arg); }
+            }, value);
+        }
+        archive.EndObject();
+
+        archive.Key("options");
+        archive.StartObject();
+        for (const auto &[key, value] : options) {
+            archive.Key(key.c_str());
+            std::visit(Overloaded{
+                    [&archive](const bool &val) {
+                        archive.SaveValue(val);
+                    },
+                    [&archive](const uint32_t &val) {
+                        archive.SaveValue(val);
+                    },
             }, value);
         }
         archive.EndObject();
@@ -269,6 +333,11 @@ namespace sky {
         auto *mi = new MaterialInstance();
 //        mi->SetName(asset->GetName());
         mi->SetMaterial(CreateMaterialFromAsset(matAsset));
+        for (const auto &[key, val] : data.properties.options) {
+            mi->SetOption(key, val);
+        }
+        mi->Compile();
+
         for (const auto &[key, val] : data.properties.valueMap) {
             std::visit(Overloaded{
                     [&mi, &data, &am, key_ = key](const MaterialTexture &v) {
@@ -280,7 +349,7 @@ namespace sky {
                     }
             }, val);
         }
-        mi->Upload();
+        mi->Update();
         return mi;
     }
 } // namespace sky

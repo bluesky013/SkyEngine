@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <rhi/BufferView.h>
+#include <rhi/Buffer.h>
 #include <rhi/VertexInput.h>
 #include <memory>
 #include <vector>
@@ -17,8 +17,8 @@ namespace sky::rhi {
         virtual ~VertexAssembly() = default;
 
         struct Descriptor {
-            std::vector<BufferViewPtr> vertexBuffers;
-            BufferViewPtr indexBuffer;
+            std::vector<BufferView> vertexBuffers;
+            BufferView indexBuffer;
             VertexInputPtr vertexInput;
             IndexType indexType = IndexType::U16;
         };

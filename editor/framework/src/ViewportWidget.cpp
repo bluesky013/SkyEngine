@@ -255,10 +255,10 @@ namespace sky::editor {
         if (editorCamera) {
             editorCamera->Shutdown();
         }
+        Renderer::Get()->SetPipeline(nullptr);
         gizmo = nullptr;
         sceneProxy = nullptr;
         Renderer::Get()->DestroyRenderWindow(renderWindow);
-        Renderer::Get()->SetPipeline(nullptr);
         Event<IWindowEvent>::DisConnect(this);
     }
 

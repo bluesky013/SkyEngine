@@ -6,6 +6,7 @@
 
 #include <framework/asset/AssetManager.h>
 #include <render/resource/Technique.h>
+#include <render/RenderBase.h>
 
 #include <rhi/Core.h>
 #include <string>
@@ -28,16 +29,24 @@ namespace sky {
         std::string fragmentMain;
     };
 
+    struct TechniqueVertexFlags {
+        RenderVertexFlags flag;
+        std::string macro;
+    };
+
     struct TechniqueAssetData {
         uint32_t version;
         ShaderRefData shader;
         std::string passTag;
-        std::string vertexDesc;
         TechAssetType type;
 
         rhi::DepthStencil            depthStencil;
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
+
+        // variants
+        std::vector<std::string>          preDefines;
+        std::vector<TechniqueVertexFlags> vertexFlags;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

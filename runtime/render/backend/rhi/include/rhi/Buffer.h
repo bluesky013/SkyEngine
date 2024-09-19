@@ -5,7 +5,6 @@
 #pragma once
 
 #include <rhi/Core.h>
-#include <rhi/BufferView.h>
 #include <memory>
 
 namespace sky::rhi {
@@ -18,9 +17,8 @@ namespace sky::rhi {
         struct Descriptor {
             uint64_t                  size = 0;
             Flags<BufferUsageFlagBit> usage;
-            MemoryType                memory      = MemoryType::GPU_ONLY;
+            MemoryType                memory = MemoryType::GPU_ONLY;
         };
-        virtual rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) = 0;
         virtual uint8_t *Map() { return nullptr; }
         virtual void UnMap() {}
 
@@ -30,4 +28,10 @@ namespace sky::rhi {
         Descriptor bufferDesc;
     };
     using BufferPtr = std::shared_ptr<Buffer>;
-}
+
+    struct BufferView {
+        BufferPtr buffer;
+        uint64_t offset = 0;
+        uint64_t range  = 0;
+    };
+} // namespace sky::rhi

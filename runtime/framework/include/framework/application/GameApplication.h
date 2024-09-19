@@ -19,9 +19,7 @@ namespace sky {
         void PreInit() override;
         void PostInit() override;
 
-        void Shutdown() override;
         void PreTick() override;
-
     private:
         void LoadConfigs() override;
 

@@ -26,7 +26,8 @@ namespace sky {
         VEC4,
         FLOAT,
         U32,
-        I32
+        I32,
+        BOOL
     };
 
     using MaterialValue = std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
@@ -38,13 +39,11 @@ namespace sky {
 
         void AddTechnique(const RDGfxTechPtr &technique);
 
-        const RDResourceLayoutPtr &GetLayout() const { return layout; }
         const std::vector<RDGfxTechPtr> &GetGfxTechniques() const { return gfxTechniques; }
 
-        RDResourceGroupPtr RequestResourceGroup();
+        RDResourceGroupPtr RequestResourceGroup(const RDResourceLayoutPtr &layout);
 
     private:
-        RDResourceLayoutPtr layout;
         rhi::DescriptorSetPoolPtr pool;
         std::vector<RDGfxTechPtr> gfxTechniques;
     };
@@ -53,7 +52,7 @@ namespace sky {
 
     class MaterialInstance : public RenderResource {
     public:
-        MaterialInstance() = default;
+        MaterialInstance();
         ~MaterialInstance() override = default;
 
         void SetMaterial(const RDMaterialPtr &mat);
@@ -65,16 +64,25 @@ namespace sky {
         }
         void SetValue(const std::string &key, const uint8_t *t, uint32_t size);
         void SetTexture(const std::string &key, const RDTexturePtr &tex, uint32_t index = 0);
+        void SetOption(const std::string &key, const MacroValue &val);
+
+        void Compile();
+        void Update();
         void Upload();
+        bool IsReady() const;
 
         const RDResourceGroupPtr &GetResourceGroup() const { return resourceGroup; }
         const RDMaterialPtr &GetMaterial() const { return material; }
 
+        void ProcessShaderOption(const ShaderOptionPtr &option) const;
+
     private:
+        ShaderOptionPtr options;
         RDMaterialPtr material;
         RDResourceGroupPtr resourceGroup;
 
         bool resDirty = true;
+        bool uploaded = false;
 
         std::unordered_map<uint32_t, RDTexturePtr> textures;
         std::unordered_map<uint32_t, RDDynamicUniformBufferPtr> uniformBuffers;

@@ -1,4 +1,4 @@
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
+set(CMAKE_MODULE_PATH ${ENGINE_ROOT}/cmake/thirdparty)
 
 function(sky_find_3rd)
     cmake_parse_arguments(TMP

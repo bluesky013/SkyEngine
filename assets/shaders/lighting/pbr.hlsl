@@ -69,6 +69,14 @@ float G_SchlickSmithGGX(float dotNL, float dotNV, float roughness)
     return ggx1 * ggx2;
 }
 
+struct StandardPBR {
+    float Metallic;
+    float Roughness;
+    float3 Albedo;
+    float AO;
+    float4 Emissive;
+};
+
 float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
 {
     float3 L = normalize(-light.Direction.xyz);
@@ -89,7 +97,6 @@ float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
     float3 specular = D * F * G / 4 * dotNV * dotNL;
 
     float3 kD = lerp(param.Albedo, 0, param.Metallic);
-
-    L0 += ((1 - F) * kD / PI + specular) * light.Direction.w;
+    L0 += ((1 - F) * kD / PI + specular) * light.Direction.w * param.AO + param.Emissive;
     return L0;
 }

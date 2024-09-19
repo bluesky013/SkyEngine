@@ -17,6 +17,13 @@ namespace sky {
 
 namespace sky::rhi {
 
+    enum class BaseType : uint32_t {
+        UNDEFINED = 0,
+        FLOAT,
+        INT,
+        UINT,
+    };
+
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,
         R8_UNORM,
@@ -70,14 +77,19 @@ namespace sky::rhi {
         F_RG32    = 2,
         F_RGB32   = 3,
         F_RGBA32  = 4,
-        F_R8     = 5,
-        F_RG8    = 6,
-        F_RGBA8  = 8,
-        U_RGBA8  = 9
+        F_R8      = 4,
+        F_RG8     = 5,
+        F_RGB8    = 6,
+        F_RGBA8   = 7,
+        U_R32     = 9,
+        U_RG32    = 10,
+        U_RGB32   = 11,
+        U_RGBA32  = 12,
     };
 
     enum class IndexType : uint32_t {
-        U16 = 0,
+        NONE = 0,
+        U16,
         U32,
     };
 

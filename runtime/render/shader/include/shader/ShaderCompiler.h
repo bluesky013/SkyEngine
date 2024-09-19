@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <core/environment/Singleton.h>
 #include <core/file/FileSystem.h>
+#include <core/template/ReferenceObject.h>
 #include <rhi/Core.h>
 
 namespace sky {
@@ -45,9 +46,17 @@ namespace sky {
         std::vector<ShaderVariable> variables;
     };
 
+    struct VertexStageAttribute {
+        std::string semantic;
+        uint32_t location;
+        uint32_t vecSize;
+        rhi::BaseType type;
+    };
+
     struct ShaderReflection {
         std::vector<ShaderResource> resources;
         std::vector<ShaderStructType> types;
+        std::vector<VertexStageAttribute> attributes;
     };
 
     struct ShaderBuildResult {
@@ -61,13 +70,12 @@ namespace sky {
         MSL
     };
 
-    struct ShaderDef { bool enable; };
-    using MacroValue = std::variant<ShaderDef, uint32_t>;
+    using MacroValue = std::variant<bool, uint32_t>;
 
-    class ShaderPreprocessor {
+    class ShaderOption : public RefObject {
     public:
-        ShaderPreprocessor() = default;
-        ~ShaderPreprocessor() = default;
+        ShaderOption() = default;
+        ~ShaderOption() override = default;
 
         void SetValue(const std::string &key, const MacroValue &val);
         void CalculateHash();
@@ -77,11 +85,11 @@ namespace sky {
     private:
         uint32_t hash = 0;
     };
-    using ShaderPreprocessorPtr = std::shared_ptr<ShaderPreprocessor>;
+    using ShaderOptionPtr = CounterPtr<ShaderOption>;
 
     struct ShaderCompileOption {
         ShaderCompileTarget target;
-        ShaderPreprocessorPtr preprocessor;
+        ShaderOptionPtr option;
     };
 
     struct ShaderSourceDesc {

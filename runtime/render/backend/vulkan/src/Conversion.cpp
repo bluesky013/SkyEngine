@@ -60,8 +60,12 @@ namespace sky::vk {
         {rhi::Format::F_RGBA32,  VK_FORMAT_R32G32B32A32_SFLOAT},
         {rhi::Format::F_R8,      VK_FORMAT_R8_UNORM},
         {rhi::Format::F_RG8,     VK_FORMAT_R8G8_UNORM},
+        {rhi::Format::F_RGB8,    VK_FORMAT_R8G8B8_UNORM},
         {rhi::Format::F_RGBA8,   VK_FORMAT_R8G8B8A8_UNORM},
-        {rhi::Format::U_RGBA8,   VK_FORMAT_R8G8B8A8_UINT},
+        {rhi::Format::U_R32,     VK_FORMAT_R32_UINT},
+        {rhi::Format::U_RG32,    VK_FORMAT_R32G32_UINT},
+        {rhi::Format::U_RGB32,   VK_FORMAT_R32G32B32_UINT},
+        {rhi::Format::U_RGBA32,  VK_FORMAT_R32G32B32A32_UINT},
     };
 
     std::unordered_map<rhi::WrapMode, VkSamplerAddressMode> SAMPLER_ADDRESS_TABLE = {

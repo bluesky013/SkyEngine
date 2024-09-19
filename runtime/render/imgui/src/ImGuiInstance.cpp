@@ -7,6 +7,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
+#include <render/RenderBase.h>
 #include <imgui/ImGuiFeature.h>
 #include <render/rdg/RenderGraph.h>
 
@@ -89,22 +90,28 @@ namespace sky {
         int height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         uint32_t uploadSize = width * height * 4 * sizeof(char);
+        std::vector<uint8_t> rawData(uploadSize);
+        memcpy(rawData.data(), pixels, uploadSize);
 
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         fontTexture = new Texture2D();
         fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
-        uploadHandle = fontTexture->Upload(pixels, uploadSize, *queue);
+        fontTexture->Upload(std::move(rawData), queue);
 
         ubo = new DynamicUniformBuffer();
-        ubo->Init(sizeof(UITransform), Renderer::Get()->GetInflightFrameCount());
+        ubo->Init(sizeof(UITransform));
 
         io.Fonts->SetTexID((ImTextureID)(intptr_t)fontTexture->GetImageView().get());
 
         auto *feature = ImGuiFeature::Get();
         primitive = std::make_unique<RenderPrimitive>();
+        primitive->geometry = new RenderGeometry();
+        primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(ImDrawVert, pos), rhi::Format::F_RG32});
+        primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(ImDrawVert, uv),  rhi::Format::F_RG32});
+        primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(ImDrawVert, col), rhi::Format::F_RGBA8});
+
         primitive->techniques.emplace_back(feature->GetDefaultTech());
 
-        queue->Wait(uploadHandle);
         globalSet = feature->RequestResourceGroup();
         globalSet->BindTexture("FontTexture", fontTexture->GetImageView(), 0);
         globalSet->BindDynamicUBO("Constants", ubo, 0);
@@ -116,6 +123,13 @@ namespace sky {
     ImGuiInstance::~ImGuiInstance()
     {
         context.Destroy();
+
+        primitive     = nullptr;
+        stagingBuffer = nullptr;
+        vertexBuffer  = nullptr;
+        indexBuffer   = nullptr;
+        ubo           = nullptr;
+        globalSet     = nullptr;
     }
 
     void ImGuiInstance::AddWidget(ImWidget *widget)
@@ -143,6 +157,10 @@ namespace sky {
 
     void ImGuiInstance::Render(rdg::RenderGraph &rdg)
     {
+        if (!fontTexture->IsReady()) {
+            return;
+        }
+
         MakeCurrent();
 
         drawData = ImGui::GetDrawData();
@@ -311,7 +329,7 @@ namespace sky {
 
     void ImGuiInstance::CheckVertexBuffers(uint32_t vertexCount, uint32_t indexCount)
     {
-        bool rebuildVA = false;
+        bool rebuildGeometry = false;
         auto vs = vertexCount * sizeof(ImDrawVert);
         auto is = indexCount * sizeof(ImDrawIdx);
 
@@ -323,7 +341,7 @@ namespace sky {
             } else {
                 vertexBuffer->Resize(vertexSize);
             }
-            rebuildVA = true;
+            rebuildGeometry = true;
         }
 
         if (is > indexSize) {
@@ -334,16 +352,17 @@ namespace sky {
             } else {
                 indexBuffer->Resize(indexSize);
             }
-            rebuildVA = true;
+            rebuildGeometry = true;
         }
 
-        if (rebuildVA) {
-            rhi::VertexAssembly::Descriptor desc = {};
-            desc.vertexBuffers.emplace_back(vertexBuffer->GetRHIBuffer()->CreateView({0, vertexSize}));
-            desc.indexBuffer = indexBuffer->GetRHIBuffer()->CreateView({0, indexSize});
-            desc.indexType = sizeof(ImDrawIdx) == 2 ? rhi::IndexType::U16 : rhi::IndexType::U32;
-
-            primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
+        if (rebuildGeometry) {
+            primitive->geometry->Reset();
+            primitive->geometry->vertexBuffers.emplace_back(
+                VertexBuffer{vertexBuffer, 0, vertexBuffer->GetSize(), static_cast<uint32_t>(sizeof(ImDrawVert))}
+            );
+            primitive->geometry->indexBuffer =
+                IndexBuffer{indexBuffer, 0, indexBuffer->GetSize(), sizeof(ImDrawIdx) == 2 ? rhi::IndexType::U16 : rhi::IndexType::U32}; // NOLINT
+            primitive->geometry->version++;
 
             // rebuild staging buffer
             if (!stagingBuffer) {
@@ -353,5 +372,7 @@ namespace sky {
                 stagingBuffer->Resize(vertexSize + indexSize);
             }
         }
+
+        primitive->isReady = true;
     }
 } // namespace sky

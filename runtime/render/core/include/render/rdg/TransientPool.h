@@ -5,7 +5,6 @@
 #pragma once
 
 #include <rhi/Buffer.h>
-#include <rhi/BufferView.h>
 #include <rhi/Image.h>
 #include <rhi/ImageView.h>
 #include <core/hash/Hash.h>

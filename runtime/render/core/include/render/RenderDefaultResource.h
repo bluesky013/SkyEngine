@@ -14,6 +14,7 @@ namespace sky {
         void Init();
         void Reset();
 
+        rhi::VertexInputPtr emptyVI;
         rhi::DescriptorSetPoolPtr defaultPool;
         RDResourceLayoutPtr emptyDesLayout;
         RDResourceGroupPtr emptySet;

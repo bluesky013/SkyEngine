@@ -47,9 +47,10 @@ namespace sky::dx {
         {rhi::Format::F_RG32,    DXGI_FORMAT_R32G32_FLOAT},
         {rhi::Format::F_RGB32,   DXGI_FORMAT_R32G32B32_FLOAT},
         {rhi::Format::F_RGBA32,  DXGI_FORMAT_R32G32B32A32_FLOAT},
-        {rhi::Format::F_R8,      DXGI_FORMAT_R8_UNORM},
-        {rhi::Format::F_RG8,     DXGI_FORMAT_R8G8_UNORM},
-        {rhi::Format::F_RGBA8,   DXGI_FORMAT_R8G8B8A8_UNORM},
+        {rhi::Format::U_R32,     DXGI_FORMAT_R32_UINT},
+        {rhi::Format::U_RG32,    DXGI_FORMAT_R32G32_UINT},
+        {rhi::Format::U_RGB32,   DXGI_FORMAT_R32G32B32_UINT},
+        {rhi::Format::U_RGBA32,  DXGI_FORMAT_R32G32B32A32_UINT},
     };
 
     D3D12_BLEND BLEND_MAP[] = {

@@ -9,15 +9,17 @@
 
 namespace sky {
 
-    const uint8_t DEFAULT_TEX_DATA[] = {
-        255, 255, 255, 255, 127, 127, 127, 255,
-        127, 127, 127, 255, 255, 255, 255, 255
+    std::vector<uint8_t> DEFAULT_TEX_DATA = {
+        0, 0, 0, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 0, 0, 0, 1
     };
 
     void RenderDefaultResource::Init()
     {
         auto *device = RHI::Get()->GetDevice();
         defaultPool = device->CreateDescriptorSetPool({1});
+        emptyVI = device->CreateVertexInput({});
+
         auto emptyRHIDesLayout = device->CreateDescriptorSetLayout({});
         emptyDesLayout = new ResourceGroupLayout();
         emptyDesLayout->SetRHILayout(emptyRHIDesLayout);
@@ -42,18 +44,12 @@ namespace sky {
         imageDesc.usage = rhi::ImageUsageFlagBit::SAMPLED | rhi::ImageUsageFlagBit::TRANSFER_DST;
 
         auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
-        rhi::TransferTaskHandle taskHandle = 0;
-
-        rhi::ImageUploadRequest request = {};
-        request.source =  new rhi::RawPtrStream(DEFAULT_TEX_DATA);
-        request.size = sizeof(DEFAULT_TEX_DATA);
-        request.imageOffset = {0, 0, 0};
-        request.imageExtent = imageDesc.extent;
 
         {
             texture2D = new Texture2D();
             texture2D->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
-            taskHandle = texture2D->Upload(DEFAULT_TEX_DATA, sizeof(DEFAULT_TEX_DATA), *queue);
+            texture2D->Upload(std::move(DEFAULT_TEX_DATA), queue);
+            texture2D->Wait();
         }
 
 //        {
@@ -71,8 +67,6 @@ namespace sky {
 //            }
 //            taskHandle = queue->UploadImage(image, requests);
 //        }
-
-        queue->Wait(taskHandle);
     }
 
     void RenderDefaultResource::Reset()

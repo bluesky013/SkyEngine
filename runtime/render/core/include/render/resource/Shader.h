@@ -13,6 +13,7 @@
 #include <core/util/Uuid.h>
 
 #include <render/RenderResource.h>
+#include <render/RenderBase.h>
 #include <render/resource/ResourceGroup.h>
 #include <shader/ShaderCompiler.h>
 
@@ -25,10 +26,11 @@ namespace sky {
         RDResourceLayoutPtr RequestLayout(uint32_t index) const;
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
         const std::vector<rhi::ShaderPtr> &GetShaders() const { return shaders; }
+        const std::vector<VertexStageAttribute> &GetVertexAttributes() const { return reflection->attributes; }
 
         void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
         void MergeReflection(ShaderReflection &&refl);
-        void BuildPipelineLayout();
+        void Build();
 
     private:
         rhi::PipelineLayoutPtr pipelineLayout;

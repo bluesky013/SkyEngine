@@ -199,8 +199,8 @@ namespace sky::rdg {
         using Tag = FullScreenBlitTag;
 
         RDGfxTechPtr technique;
+        RDProgramPtr program;
         uint32_t passID;
-        RDResourceLayoutPtr layout;
         ResourceGroup *resourceGroup = nullptr;
         rhi::GraphicsPipelinePtr pso;
     };

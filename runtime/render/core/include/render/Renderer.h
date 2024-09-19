@@ -12,13 +12,13 @@
 
 #include <render/RenderScene.h>
 #include <render/RenderWindow.h>
+#include <render/RenderBase.h>
 
 #include <render/rdg/RenderGraphContext.h>
 #include <render/RenderDefaultResource.h>
 #include <render/RenderResourceGC.h>
 #include <render/FeatureProcessor.h>
-
-#include <render/VertexDescLibrary.h>
+#include <render/RenderStreamManager.h>
 #include <render/RenderPipeline.h>
 
 namespace sky {
@@ -45,11 +45,9 @@ namespace sky {
 
         uint32_t GetInflightFrameCount() const { return inflightFrameCount; }
         RenderResourceGC *GetResourceGC() const;
+        RenderStreamManager *GetStreamingManager() const { return streamManager.get(); }
 
         const RenderDefaultResource &GetDefaultRHIResource() const { return defaultRHIResource; }
-
-        void SetVertexDescLibrary(const VertexDescLibPtr &lib) { vertexLibrary = lib; }
-        const VertexDescLibPtr &GetVertexDescLibrary() const { return vertexLibrary; }
 
         void SetCacheFolder(const std::string &path) { cacheFolder = path; }
         const std::string &GetCacheFolder() const { return cacheFolder; }
@@ -89,11 +87,10 @@ namespace sky {
         PmrVector<std::unique_ptr<RenderResourceGC>> delayReleaseCollections;
         PmrVector<std::unique_ptr<IFeatureProcessorBuilder>> features;
 
+        std::unique_ptr<RenderStreamManager> streamManager;
         std::unique_ptr<RenderPipeline> pipeline;
 
-        VertexDescLibPtr vertexLibrary;
         ShaderCompileFunc shaderCompiler = nullptr;
-
         std::string cacheFolder;
     };
 } // namespace sky

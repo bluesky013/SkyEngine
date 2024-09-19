@@ -78,7 +78,7 @@ namespace sky::rhi {
         AccessFlags dstFlags;
         uint32_t srcQueueFamily = (~0U);
         uint32_t dstQueueFamily = (~0U);
-        BufferViewPtr view;
+        BufferView view;
     };
 
     struct ImageBarrier {

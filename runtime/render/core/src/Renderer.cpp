@@ -19,6 +19,7 @@ namespace sky {
     Renderer::~Renderer()
     {
         pipeline = nullptr;
+        streamManager = nullptr;
         defaultRHIResource.Reset();
         features.clear();
         scenes.clear();
@@ -34,7 +35,9 @@ namespace sky {
         for (uint32_t i = 0; i < inflightFrameCount; ++i) {
             delayReleaseCollections[i] = std::make_unique<RenderResourceGC>();
         }
-        vertexLibrary = CreateBuiltinVertexLibrary();
+
+        streamManager = std::make_unique<RenderStreamManager>();
+        streamManager->SetUploadQueue(device->GetQueue(rhi::QueueType::TRANSFER));
     }
 
     void Renderer::Tick(float time)
@@ -53,6 +56,7 @@ namespace sky {
 
     void Renderer::SetPipeline(RenderPipeline *ppl)
     {
+        device->WaitIdle();
         pipeline.reset(ppl);
     }
 
@@ -83,6 +87,7 @@ namespace sky {
         for (auto &scn : scenes) {
             scn->PostTick(time);
         }
+        streamManager->Tick();
 
         delayReleaseCollections[(frameIndex + inflightFrameCount - 1) % inflightFrameCount]->Clear();
 

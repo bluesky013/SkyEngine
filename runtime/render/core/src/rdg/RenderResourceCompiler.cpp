@@ -4,6 +4,7 @@
 
 #include <render/rdg/RenderResourceCompiler.h>
 #include <render/rdg/RenderGraph.h>
+#include <render/Renderer.h>
 #include <rhi/Decode.h>
 #include <rhi/Device.h>
 
@@ -132,11 +133,13 @@ namespace sky::rdg {
     {
         const auto &subPass = rdg.subPasses[Index(fullscreen.passID, rdg)];
         const auto &pass = rdg.rasterPasses[Index(subPass.parent, rdg)];
-        if (fullscreen.layout) {
-            fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.layout);
-            BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
-        }
-        fullscreen.pso = GraphicsTechnique::BuildPso(*fullscreen.technique, pass.renderPass, subPass.subPassID);
+        fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.program->RequestLayout(PASS_SET));
+        BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
+        fullscreen.pso = GraphicsTechnique::BuildPso(fullscreen.program,
+                                                     fullscreen.technique->GetPipelineState(),
+                                                     Renderer::Get()->GetDefaultRHIResource().emptyVI,
+                                                     pass.renderPass,
+                                                     subPass.subPassID);
     }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)

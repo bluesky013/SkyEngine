@@ -5,7 +5,6 @@
 #pragma once
 
 #include <rhi/Core.h>
-#include <rhi/BufferView.h>
 #include <rhi/Buffer.h>
 #include <rhi/ImageView.h>
 #include <rhi/Sampler.h>
@@ -27,7 +26,7 @@ namespace sky::rhi {
             BindBuffer(binding, buffer, offset, size, 0);
         }
 
-        void BindBuffer(uint32_t binding, const BufferViewPtr &view)
+        void BindBuffer(uint32_t binding, const BufferView &view)
         {
             BindBuffer(binding, view, 0);
         }
@@ -48,7 +47,7 @@ namespace sky::rhi {
         }
 
         virtual void BindBuffer(uint32_t binding, const BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index) = 0;
-        virtual void BindBuffer(uint32_t binding, const BufferViewPtr &view, uint32_t index) = 0;
+        virtual void BindBuffer(uint32_t binding, const BufferView &view, uint32_t index) = 0;
         virtual void BindImageView(uint32_t binding, const ImageViewPtr &view, uint32_t index, DescriptorBindFlags flags) = 0;
         virtual void BindSampler(uint32_t binding, const SamplerPtr &sampler, uint32_t index) = 0;
         virtual void Update() = 0;

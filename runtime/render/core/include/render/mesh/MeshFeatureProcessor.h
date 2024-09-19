@@ -26,6 +26,7 @@ namespace sky {
 
     private:
         std::list<std::unique_ptr<MeshRenderer>> staticMeshes;
+
         std::list<std::unique_ptr<SkeletonMeshRenderer>> skeletonMeshes;
     };
 

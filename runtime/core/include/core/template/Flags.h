@@ -11,7 +11,7 @@ namespace sky {
     template <typename T>
     class Flags {
     public:
-        using ValueType = typename std::make_unsigned<std::underlying_type_t<T>>::type ;
+        using ValueType = std::make_unsigned_t<std::underlying_type_t<T>> ;
 
         static constexpr ValueType AllFlagBits()
         {
@@ -89,7 +89,12 @@ namespace sky {
             return *this;
         }
 
-        explicit constexpr operator bool() const noexcept
+        constexpr bool TestBit(T val) noexcept
+        {
+            return operator&(val) == val;
+        }
+
+        constexpr operator bool() const noexcept
         {
             return value != 0;
         }

@@ -11,7 +11,6 @@ namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
-        archive.LoadValue(meshType);
         archive.LoadValue(skeleton);
 
         uint32_t size = 0;
@@ -23,28 +22,30 @@ namespace sky {
             archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(SubMeshAssetData));
         }
 
-        // vertex desc
+        // buffers
         archive.LoadValue(size);
-        vertexDescriptions.resize(size);
+        buffers.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(vertexDescriptions[i]);
+            archive.LoadValue(buffers[i].type);
+            archive.LoadValue(buffers[i].offset);
+            archive.LoadValue(buffers[i].size);
+            archive.LoadValue(buffers[i].stride);
         }
 
-        // primitives
+        // vertex streams
         archive.LoadValue(size);
-        primitives.resize(size);
+        attributes.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(primitives[i].offset);
-            archive.LoadValue(primitives[i].size);
-            archive.LoadValue(primitives[i].stride);
+            archive.LoadValue(attributes[i].sematic);
+            archive.LoadValue(attributes[i].binding);
+            archive.LoadValue(attributes[i].offset);
+            archive.LoadValue(attributes[i].format);
+            archive.LoadValue(attributes[i].rate);
         }
-
-        // indices
-        archive.LoadValue(indices.offset);
-        archive.LoadValue(indices.size);
-        archive.LoadValue(indices.indexType);
 
         // data size
+        archive.LoadValue(indexBuffer);
+        archive.LoadValue(indexType);
         archive.LoadValue(dataSize);
         dataOffset = static_cast<uint32_t>(archive.GetStream().Tell());
     }
@@ -52,7 +53,6 @@ namespace sky {
     void MeshAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(version);
-        archive.SaveValue(meshType);
         archive.SaveValue(skeleton);
 
         // subMesh
@@ -61,24 +61,28 @@ namespace sky {
             archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(SubMeshAssetData));
         }
 
-        // vertex desc
-        archive.SaveValue(static_cast<uint32_t>(vertexDescriptions.size()));
-        for (const auto &vtx : vertexDescriptions) {
-            archive.SaveValue(vtx);
-        }
-
         // primitives
-        archive.SaveValue(static_cast<uint32_t>(primitives.size()));
-        for (const auto &primitive : primitives) {
+        archive.SaveValue(static_cast<uint32_t>(buffers.size()));
+        for (const auto &primitive : buffers) {
+            archive.SaveValue(primitive.type);
             archive.SaveValue(primitive.offset);
             archive.SaveValue(primitive.size);
             archive.SaveValue(primitive.stride);
         }
 
+        // vertex streams
+        archive.SaveValue(static_cast<uint32_t>(attributes.size()));
+        for (const auto &stream : attributes) {
+            archive.SaveValue(stream.sematic);
+            archive.SaveValue(stream.binding);
+            archive.SaveValue(stream.offset);
+            archive.SaveValue(stream.format);
+            archive.SaveValue(stream.rate);
+        }
+
         // index
-        archive.SaveValue(indices.offset);
-        archive.SaveValue(indices.size);
-        archive.SaveValue(indices.indexType);
+        archive.SaveValue(indexBuffer);
+        archive.SaveValue(indexType);
 
         // data size
         archive.SaveValue(dataSize);
@@ -113,27 +117,28 @@ namespace sky {
             });
         }
 
-        for (const auto &desc : data.vertexDescriptions) {
-            mesh->AddVertexDescriptions(desc);
-        }
-        mesh->SetIndexType(data.indices.indexType);
+        mesh->SetVertexAttributes(data.attributes);
+        mesh->SetIndexType(data.indexType);
 
         MeshData meshData = {};
         auto *fileStream = new rhi::FileStream(file, data.dataOffset);
 
-        for (const auto &prim : data.primitives) {
+        for (const auto &buffer : data.buffers) {
             rhi::BufferUploadRequest request = {};
+
             request.source = fileStream;
-            request.offset = prim.offset;
-            request.size = prim.size;
-            meshData.vertexStreams.emplace_back(request);
+            request.offset = buffer.offset;
+            request.size   = buffer.size;
+            meshData.vertexStreams.emplace_back(request, buffer.stride);
         }
 
-        if (data.indices.size != 0) {
+        if (data.indexType != rhi::IndexType::NONE) {
+            SKY_ASSERT(data.indexBuffer < data.buffers.size());
             rhi::BufferUploadRequest &request = meshData.indexStream;
+            const auto &buffer = data.buffers[data.indexBuffer];
             request.source = fileStream;
-            request.offset = data.indices.offset;
-            request.size = data.indices.size;
+            request.offset = buffer.offset;
+            request.size   = buffer.size;
         }
         mesh->SetUploadStream(std::move(meshData));
         return mesh;

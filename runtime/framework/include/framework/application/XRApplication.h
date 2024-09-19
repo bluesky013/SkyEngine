@@ -15,7 +15,6 @@ namespace sky {
         ~XRApplication() override = default;
 
         bool Init(int argc, char **argv) override;
-        void Shutdown() override;
     private:
         void LoadConfigs() override;
 

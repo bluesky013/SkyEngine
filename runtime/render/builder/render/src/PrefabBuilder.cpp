@@ -32,6 +32,8 @@ static const char* TAG = "PrefabBuilder";
 
 namespace sky::builder {
 
+#define OFFSET_OF(s, m) static_cast<uint32_t>(offsetof(s, m))
+
     enum class MeshAttributeType : uint32_t {
         POSITION = 0,
         UV,
@@ -42,10 +44,10 @@ namespace sky::builder {
     };
 
     struct StandardVertexData {
+        Vector4 uv;
         Vector4 normal;
         Vector4 tangent;
         Vector4 color;
-        Vector4 uv;
     };
 
     struct MeshBuildContext {
@@ -130,7 +132,7 @@ namespace sky::builder {
     static void ProcessPbrBRDF(const aiScene *scene, aiMaterial *material, PrefabBuildContext &context, const AssetImportRequest &request)
     {
         std::string matName = material->GetName().length == 0 ?
-                               GetIndexedName(context.name, "material", "mati", context.meshes.size()) :
+                               GetIndexedName(context.name, "material", "mati", context.materials.size()) :
                                std::string(material->GetName().C_Str()) + ".mati";
 
         MaterialInstanceData data = {};
@@ -203,42 +205,42 @@ namespace sky::builder {
             useMetallicRoughnessMap = static_cast<bool>(metallicRoughnessMap);
         }
 
-        data.properties.valueMap.emplace("useAOMap", static_cast<uint32_t>(useAOMap));
+        data.properties.options.emplace("ENABLE_AO_MAP", useAOMap);
         if (useAOMap) {
             data.properties.valueMap.emplace("AoMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(aoMap);
         }
 
-        data.properties.valueMap.emplace("useEmissiveMap", static_cast<uint32_t>(useEmissiveMap));
+        data.properties.options.emplace("ENABLE_EMISSIVE_MAP", useEmissiveMap);
         if (useEmissiveMap) {
             data.properties.valueMap.emplace("EmissiveMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(emissiveMap);
         }
 
-        data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
+//        data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
         if (useBaseColorMap) {
             data.properties.valueMap.emplace("AlbedoMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(baseColorMap);
         }
 
-        data.properties.valueMap.emplace("useMetallicRoughnessMap", static_cast<uint32_t>(useMetallicRoughnessMap));
+        data.properties.options.emplace("useMetallicRoughnessMap", useMetallicRoughnessMap);
         if (useMetallicRoughnessMap) {
             data.properties.valueMap.emplace("MetallicRoughnessMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(metallicRoughnessMap);
         }
 
-        data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
+//        data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
         if (useNormalMap) {
             data.properties.valueMap.emplace("NormalMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(normalMap);
         }
 
-        data.properties.valueMap.emplace("useMask", static_cast<uint32_t>(useMask));
+        data.properties.options.emplace("ENABLE_ALPHA_MASK", useMask);
 
         data.properties.valueMap.emplace("Albedo", baseColor);
         data.properties.valueMap.emplace("Metallic", metallic);
@@ -392,13 +394,16 @@ namespace sky::builder {
                 vtx[i].color.w = 1.f;
             }
 
+            vtx[i].uv = VEC4_ZERO;
             if (mesh->HasTextureCoords(0)) {
                 auto &u = mesh->mTextureCoords[0][i];
                 vtx[i].uv.x = u.x;
                 vtx[i].uv.y = u.y;
-            } else {
-                vtx[i].uv.x = 0.f;
-                vtx[i].uv.y = 0.f;
+            }
+            if (mesh->HasTextureCoords(1)) {
+                auto &u = mesh->mTextureCoords[1][i];
+                vtx[i].uv.z = u.x;
+                vtx[i].uv.w = u.y;
             }
         }
 
@@ -423,10 +428,6 @@ namespace sky::builder {
 
         MeshAssetData meshData;
 
-        meshData.vertexDescriptions.emplace_back("standard");
-        meshData.vertexDescriptions.emplace_back("unlit");
-        meshData.vertexDescriptions.emplace_back("position_only");
-
         uint32_t meshNum = node->mNumMeshes;
         MeshBuildContext meshContext;
 
@@ -442,8 +443,6 @@ namespace sky::builder {
         for (uint32_t i = 0; hasSkin && i < meshNum; ++i) {
             aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
             ProcessSkinData(aMesh, context, meshContext);
-
-            meshData.meshType = MeshType::SKINNED;
             meshData.skeleton = context.skeletonSource->uuid;
         }
 
@@ -456,18 +455,32 @@ namespace sky::builder {
         SKY_ASSERT(meshContext.bone.empty() || vtxCount == meshContext.bone.size());
         auto skinSize = meshContext.bone.empty() ? 0 : static_cast<uint32_t>(vtxCount * sizeof(VertexBoneData));
 
-        meshData.primitives = {
-                {0, posSize, sizeof(Vector4)},
-                {posSize,  stdSize, sizeof(StandardVertexData)},
+        meshData.buffers = {
+            MeshBufferView{0,       posSize, sizeof(Vector4)},
+            MeshBufferView{posSize, stdSize, sizeof(StandardVertexData)},
+        };
+
+        meshData.attributes = {
+            VertexAttribute{VertexSemanticFlagBit::POSITION, 0, 0, rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::UV, 1, OFFSET_OF(StandardVertexData, uv), rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::NORMAL, 1, OFFSET_OF(StandardVertexData, normal), rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::TANGENT, 1, OFFSET_OF(StandardVertexData, tangent), rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::COLOR, 1, OFFSET_OF(StandardVertexData, color), rhi::Format::F_RGBA32},
         };
 
         if (skinSize != 0) {
-            meshData.primitives.emplace_back(posSize + stdSize, skinSize, static_cast<uint32_t>(sizeof(VertexBoneData)));
-        }
+            meshData.buffers.emplace_back(MeshBufferView{posSize + stdSize, skinSize, static_cast<uint32_t>(sizeof(VertexBoneData))});
 
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::JOINT, 2, OFFSET_OF(VertexBoneData, boneId), rhi::Format::U_RGBA32});
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::WEIGHT, 2, OFFSET_OF(VertexBoneData, weight), rhi::Format::F_RGBA32});
+        }
         uint32_t idxOffset = posSize + stdSize + skinSize;
         auto idxSize = static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t));
-        meshData.indices = {idxOffset, idxSize, rhi::IndexType::U32 };
+        meshData.indexBuffer = static_cast<uint32_t>(meshData.buffers.size());
+        meshData.indexType   = rhi::IndexType::U32;
+
+        meshData.buffers.emplace_back(MeshBufferView{idxOffset, idxSize, static_cast<uint32_t>(sizeof(uint32_t))});
+
         meshData.dataSize = idxOffset + idxSize;
         meshData.rawData.storage.resize(meshData.dataSize);
 

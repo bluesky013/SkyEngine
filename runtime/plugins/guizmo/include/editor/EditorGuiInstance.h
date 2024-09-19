@@ -20,13 +20,14 @@ namespace sky::editor {
         EditorGuiInstance() = default;
         ~EditorGuiInstance() override;
 
-        void Init(World &world, NativeWindow* window);
+        void Init(World &world, NativeWindow* window) override;
     private:
         void Init();
 
         std::unique_ptr<WidgetManager> wm;
         std::unique_ptr<GuiZmoWidget> gui;
         ImGuiInstance* guiInstance = nullptr;
+        RenderScene* renderScene = nullptr;
     };
 
 } // namespace sky::editor

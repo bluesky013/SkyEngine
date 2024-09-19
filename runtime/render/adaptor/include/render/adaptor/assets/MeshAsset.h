@@ -22,9 +22,16 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
-    enum class MeshType : uint32_t  {
-        STANDARD = 0,
-        SKINNED
+    enum class MeshBufferType : uint32_t {
+        RAW_DATA = 0,
+        UUID
+    };
+
+    struct MeshBufferView {
+        uint32_t offset;
+        uint32_t size;
+        uint32_t stride;
+        MeshBufferType type = MeshBufferType::RAW_DATA;
     };
 
     struct SubMeshAssetData {
@@ -36,26 +43,16 @@ namespace sky {
         AABB aabb;
     };
 
-    struct MeshPrimitiveHeader {
-        uint32_t offset;
-        uint32_t size;
-        uint32_t stride;
-    };
-
-    struct MeshIndicesHeader {
-        uint32_t offset;
-        uint32_t size;
-        rhi::IndexType indexType = rhi::IndexType::U32;
-    };
-
     struct MeshDataHeader {
-        uint32_t version = 0;
-        MeshType meshType = MeshType::STANDARD;
-        Uuid skeleton;
+        uint32_t version  = 0;
+        Uuid     skeleton;
+
         std::vector<SubMeshAssetData> subMeshes;
-        std::vector<std::string> vertexDescriptions;
-        std::vector<MeshPrimitiveHeader> primitives;
-        MeshIndicesHeader indices;
+        std::vector<MeshBufferView>   buffers;
+        std::vector<VertexAttribute>  attributes;
+        uint32_t       indexBuffer;
+        rhi::IndexType indexType = rhi::IndexType::U32;
+
         uint32_t dataSize;
     };
 

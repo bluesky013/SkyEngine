@@ -16,7 +16,7 @@ namespace sky {
     class RenderPipeline {
     public:
         RenderPipeline();
-        virtual ~RenderPipeline() = default;
+        virtual ~RenderPipeline();
 
         void FrameSync();
         virtual bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) = 0;

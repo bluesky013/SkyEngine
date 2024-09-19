@@ -22,6 +22,8 @@
 
 namespace sky {
 
+    RenderPipeline::~RenderPipeline() = default;
+
     RenderPipeline::RenderPipeline()
     {
         const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();

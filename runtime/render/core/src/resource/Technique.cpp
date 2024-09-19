@@ -33,11 +33,16 @@ namespace sky {
     void Technique::SetShader(const ShaderRef &shader)
     {
         shaderData = shader;
-        RequestProgram(nullptr);
     }
 
-    RDProgramPtr Technique::RequestProgram(const ShaderPreprocessorPtr &preprocessor)
+    RDProgramPtr Technique::RequestProgram(const ShaderOptionPtr &shaderOption)
     {
+        uint32_t hash = shaderOption ? shaderOption->GetHash() : 0;
+        auto iter = programCache.find(hash);
+        if (iter != programCache.end()) {
+            return iter->second;
+        }
+
         if (!shaderData.shaderCollection) {
             return {};
         }
@@ -47,9 +52,10 @@ namespace sky {
 
         ShaderCompileOption option = {};
         option.target = GetCompileTarget();
-        option.preprocessor = preprocessor;
+        option.option = shaderOption;
 
         FillProgramInternal(*program, option);
+        programCache[hash] = program;
         return program;
     }
 
@@ -73,10 +79,17 @@ namespace sky {
         rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
     }
 
-    void GraphicsTechnique::SetVertexLayout(const std::string &key)
+    void GraphicsTechnique::Process(RenderVertexFlags flags, const ShaderOptionPtr &option)
     {
-        vertexDescKey = key;
-        vertexDesc = Renderer::Get()->GetVertexDescLibrary()->FindVertexDesc(key);
+        for (auto &val : preCompiledFlags) {
+            option->SetValue(val, true);
+        }
+
+        for (auto &flag : vertexFlags) {
+            if (flags.TestBit(flag.first)) {
+                option->SetValue(flag.second, true);
+            }
+        }
     }
 
     void GraphicsTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
@@ -110,7 +123,7 @@ namespace sky {
             program.AddShader(shader);
             program.MergeReflection(std::move(result.reflection));
         }
-        program.BuildPipelineLayout();
+        program.Build();
     }
 
     void ComputeTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
@@ -127,20 +140,21 @@ namespace sky {
         program.MergeReflection(std::move(result.reflection));
     }
 
-    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(GraphicsTechnique &tech,
+    rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(const RDProgramPtr &program,
+                                      const rhi::PipelineState &state,
+                                      const rhi::VertexInputPtr &vertexDesc,
                                       const rhi::RenderPassPtr &pass,
                                       uint32_t subPassID)
     {
-        auto program = tech.RequestProgram({});
         const auto &shaders = program->GetShaders();
 
         rhi::GraphicsPipeline::Descriptor descriptor = {};
-        descriptor.state = tech.state;
+        descriptor.state = state;
         descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
         descriptor.renderPass = pass;
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();
-        descriptor.vertexInput = tech.vertexDesc;
+        descriptor.vertexInput = vertexDesc;
         descriptor.vs = shaders[0];
         descriptor.fs = shaders[1];
 

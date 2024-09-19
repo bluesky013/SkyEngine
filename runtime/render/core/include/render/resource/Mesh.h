@@ -5,6 +5,8 @@
 #pragma once
 
 #include <render/RenderResource.h>
+#include <render/RenderBase.h>
+#include <render/RenderGeometry.h>
 #include <render/resource/Buffer.h>
 #include <render/resource/Material.h>
 #include <core/shapes/AABB.h>
@@ -21,47 +23,38 @@ namespace sky {
         AABB aabb;
     };
 
+    struct VertexBufferSource {
+        rhi::BufferUploadRequest source;
+        uint32_t                 stride;
+    };
+
     struct MeshData {
-        std::vector<rhi::BufferUploadRequest> vertexStreams;
-        rhi::BufferUploadRequest indexStream;
+        std::vector<VertexBufferSource> vertexStreams;
+        rhi::BufferUploadRequest        indexStream;
     };
 
     class Mesh : public RenderResource {
     public:
-        Mesh() = default;
+        Mesh();
         ~Mesh() override = default;
 
         // builder
         void AddSubMesh(const SubMesh &sub);
-        void AddVertexDescriptions(const std::string &key);
-        void SetIndexType(rhi::IndexType type);
-
-        // upload
+        void SetVertexAttributes(const std::vector<VertexAttribute> &attributes);
         void SetUploadStream(MeshData&& stream);
-        void UploadMeshData();
-
-        void AddVertexBuffer(const RDBufferPtr &vb);
-        void SetIndexBuffer(const RDBufferPtr &ib);
+        void SetIndexType(rhi::IndexType type);
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
+        // geometry
         const std::vector<SubMesh> &GetSubMeshes() const { return subMeshes; }
-        const std::vector<RDBufferPtr> &GetVertexBuffers() const { return vertexBuffers; }
-        const std::vector<std::string> &GetVertexDescriptions() const { return vertexDescriptions; }
-        const RDBufferPtr &GetIndexBuffer() const { return indexBuffer; }
-        rhi::IndexType GetIndexType() const { return indexType; }
+        const RenderGeometryPtr& GetGeometry() const { return geometry; }
+
+        void Upload();
+        bool IsReady() const;
     private:
         // desc
         std::vector<SubMesh> subMeshes;
-        std::vector<std::string> vertexDescriptions;
-        rhi::IndexType indexType = rhi::IndexType::U32;
-
-        // render resource
-        std::vector<RDBufferPtr> vertexBuffers;
-        RDBufferPtr indexBuffer;
-
-        // upload handle
-        MeshData streamData;
-        rhi::TransferTaskHandle uploadHandle {};
+        RenderGeometryPtr    geometry;
     };
 
     using RDMeshPtr = CounterPtr<Mesh>;

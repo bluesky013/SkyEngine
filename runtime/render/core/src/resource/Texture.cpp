@@ -12,50 +12,12 @@ namespace sky {
 
     Texture::~Texture()
     {
-        imageView = nullptr;
-        Renderer::Get()->GetResourceGC()->CollectImage(image);
+        Renderer::Get()->GetResourceGC()->CollectImageViews(imageView);
     }
 
     Texture::Texture()
     {
         device = RHI::Get()->GetDevice();
-    }
-
-    rhi::TransferTaskHandle Texture::Upload(const FilePtr &file, rhi::Queue &queue, uint32_t offset)
-    {
-        rhi::ImageUploadRequest request = {};
-        request.source   = new rhi::FileStream(file, offset);
-        request.offset   = 0;
-        request.mipLevel = 0;
-        request.layer    = 0;
-        request.imageOffset = {0, 0, 0};
-        request.imageExtent = imageDesc.extent;
-        return queue.UploadImage(image, request);
-    }
-
-    rhi::TransferTaskHandle Texture::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
-    {
-        rhi::ImageUploadRequest request = {};
-        request.source   = new rhi::FileStream(new NativeFile(path), offset);
-        request.offset   = 0;
-        request.mipLevel = 0;
-        request.layer    = 0;
-        request.imageOffset = {0, 0, 0};
-        request.imageExtent = imageDesc.extent;
-        return queue.UploadImage(image, request);
-    }
-
-    rhi::TransferTaskHandle Texture::Upload(const uint8_t *ptr, uint64_t size, rhi::Queue &queue)
-    {
-        rhi::ImageUploadRequest request = {};
-        request.source   = new rhi::RawPtrStream(ptr);
-        request.offset   = 0;
-        request.size     = size;
-        request.mipLevel = 0;
-        request.layer    = 0;
-        request.imageOffset = {0, 0, 0};
-        request.imageExtent = imageDesc.extent;
-        return queue.UploadImage(image, request);
     }
 
     bool Texture::CheckExtent(uint32_t width, uint32_t height,  uint32_t depth) const
@@ -146,13 +108,27 @@ namespace sky {
     void Texture::SetUploadStream(ImageData&& stream)
     {
         data = std::move(stream);
-        UploadMeshData();
     }
 
-    void Texture::UploadMeshData()
+    void Texture::Upload(std::vector<uint8_t> &&rawData, rhi::Queue *queue)
     {
-        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        uploadHandle = queue->UploadImage(image, data.slices);
-        queue->Wait(uploadHandle);
+        rhi::ImageUploadRequest request = {};
+        request.size   = static_cast<uint32_t>(rawData.size());
+        request.source = new rhi::RawBufferStream(std::move(rawData));
+        request.imageExtent = imageDesc.extent;
+
+        data.slices.emplace_back(request);
+        IStreamableResource::Upload(queue);
+    }
+
+    uint64_t Texture::UploadImpl()
+    {
+        uint64_t size = 0;
+        for (auto &req : data.slices) {
+            size += req.size;
+        }
+        uploadHandle = uploadQueue->UploadImage(image, data.slices);
+        data.slices.clear();
+        return size;
     }
 } // namespace sky

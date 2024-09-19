@@ -17,7 +17,6 @@ namespace sky {
         archive.LoadValue(shader.fragmentMain);
 
         archive.LoadValue(passTag);
-        archive.LoadValue(vertexDesc);
         archive.LoadValue(type);
 
         archive.LoadValue(depthStencil.depthWrite);
@@ -42,6 +41,20 @@ namespace sky {
             archive.LoadValue(blend.colorBlendOp);
             archive.LoadValue(blend.alphaBlendOp);
         }
+
+        archive.LoadValue(size);
+        preDefines.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            archive.LoadValue(preDefines[i]);
+        }
+
+        archive.LoadValue(size);
+        vertexFlags.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            auto &flag = vertexFlags[i];
+            archive.LoadValue(flag.flag);
+            archive.LoadValue(flag.macro);
+        }
     }
 
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
@@ -53,7 +66,6 @@ namespace sky {
         archive.SaveValue(shader.vertOrMeshMain);
         archive.SaveValue(shader.fragmentMain);
         archive.SaveValue(passTag);
-        archive.SaveValue(vertexDesc);
         archive.SaveValue(type);
 
         archive.SaveValue(depthStencil.depthWrite);
@@ -75,6 +87,17 @@ namespace sky {
             archive.SaveValue(blend.colorBlendOp);
             archive.SaveValue(blend.alphaBlendOp);
         }
+
+        archive.SaveValue(static_cast<uint32_t>(preDefines.size()));
+        for (const auto &def : preDefines) {
+            archive.SaveValue(def);
+        }
+
+        archive.SaveValue(static_cast<uint32_t>(vertexFlags.size()));
+        for (const auto &flag : vertexFlags) {
+            archive.SaveValue(flag.flag);
+            archive.SaveValue(flag.macro);
+        }
     }
 
     CounterPtr<Technique> CreateTechniqueFromAsset(const TechniqueAssetPtr &asset)
@@ -94,8 +117,6 @@ namespace sky {
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);
             tech->SetRasterTag(data.passTag);
-            tech->SetVertexLayout(data.vertexDesc);
-
             return tech;
         }
         return nullptr;

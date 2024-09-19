@@ -13,7 +13,6 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/ImageView.h>
 #include <vulkan/Sampler.h>
-#include <vulkan/BufferView.h>
 #include <rhi/DescriptorSet.h>
 
 namespace sky::vk {
@@ -29,7 +28,7 @@ namespace sky::vk {
         static std::shared_ptr<DescriptorSet> Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout);
         DescriptorSetLayoutPtr GetLayout() const { return layout; }
 
-        void BindBuffer(uint32_t binding, const rhi::BufferViewPtr &view, uint32_t index) override;
+        void BindBuffer(uint32_t binding, const rhi::BufferView &view, uint32_t index) override;
         void BindBuffer(uint32_t binding, const rhi::BufferPtr &buffer, uint64_t offset, uint64_t size, uint32_t index) override;
         void BindImageView(uint32_t binding, const rhi::ImageViewPtr &view, uint32_t index, rhi::DescriptorBindFlags flags) override;
         void BindSampler(uint32_t binding, const rhi::SamplerPtr &sampler, uint32_t index) override;

@@ -20,13 +20,18 @@ namespace sky {
         device = RHI::Get()->GetDevice();
     }
 
-    void Buffer::Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType)
+    void Buffer::Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType)
     {
         bufferDesc.size   = size;
         bufferDesc.usage  = usage;
         bufferDesc.memory = memoryType;
 
         buffer = device->CreateBuffer(bufferDesc);
+    }
+
+    void Buffer::SetSourceData(const rhi::BufferUploadRequest &data)
+    {
+        sourceData = data;
     }
 
     void Buffer::Resize(uint64_t size)
@@ -36,31 +41,26 @@ namespace sky {
         buffer = device->CreateBuffer(bufferDesc);
     }
 
-    rhi::TransferTaskHandle Buffer::Upload(const FilePtr &f, rhi::Queue &queue, uint32_t offset)
+    uint64_t Buffer::UploadImpl()
     {
-        rhi::BufferUploadRequest request = {};
-        request.source = new rhi::FileStream(f, offset);
-        request.offset = 0;
-        request.size   = bufferDesc.size;
-        return queue.UploadBuffer(buffer, request);
+        uploadHandle = uploadQueue->UploadBuffer(buffer, sourceData);
+        sourceData.source = nullptr;
+        return sourceData.size;
     }
 
-    rhi::TransferTaskHandle Buffer::Upload(const std::string &path, rhi::Queue &queue, uint32_t offset)
+    rhi::BufferView Buffer::MakeView() const
     {
-        rhi::BufferUploadRequest request = {};
-        request.source = new rhi::FileStream(new NativeFile(path), offset);
-        request.offset = 0;
-        request.size   = bufferDesc.size;
-        return queue.UploadBuffer(buffer, request);
+        return rhi::BufferView{buffer, 0, bufferDesc.size};
     }
 
-    rhi::TransferTaskHandle Buffer::Upload(const CounterPtr<rhi::IUploadStream> &stream, rhi::Queue &queue, uint32_t offset, uint32_t size)
+    rhi::BufferView VertexBuffer::MakeView() const
     {
-        rhi::BufferUploadRequest request = {};
-        request.source = stream;
-        request.offset = offset;
-        request.size   = size;
-        return queue.UploadBuffer(buffer, request);
+        return rhi::BufferView{buffer->GetRHIBuffer(), offset, range};
+    }
+
+    rhi::BufferView IndexBuffer::MakeView() const
+    {
+        return rhi::BufferView{buffer->GetRHIBuffer(), offset, range};
     }
 
     bool UniformBuffer::Init(uint32_t size)
@@ -100,10 +100,10 @@ namespace sky {
             return;
         }
 
-        frameIndex = (frameIndex + 1) % inflightCount;
+        frameIndex = (frameIndex + 1) % Renderer::Get()->GetInflightFrameCount();
 
-        auto *mapPtr = buffer->Map() + frameIndex * frameSize;
-        memcpy(mapPtr, ptr, frameSize);
+        auto *mapPtr = buffer->Map() + frameIndex * alignedFrameSize;
+        memcpy(mapPtr, ptr, alignedFrameSize);
         buffer->UnMap();
 
         dirty = false;
@@ -114,14 +114,14 @@ namespace sky {
         Upload();
     }
 
-    bool DynamicUniformBuffer::Init(uint32_t size, uint32_t inflightCount)
+    bool DynamicUniformBuffer::Init(uint32_t size)
     {
         frameSize = size;
         alignedFrameSize = Align(size, device->GetLimitations().minUniformBufferOffsetAlignment);
 
-        Buffer::Init(alignedFrameSize * inflightCount, rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
+        Buffer::Init(alignedFrameSize * Renderer::Get()->GetInflightFrameCount(), rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
 
-        data.resize(size, 0);
+        data.resize(frameSize, 0);
         ptr = data.data();
         return static_cast<bool>(buffer);
     }

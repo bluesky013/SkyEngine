@@ -18,7 +18,7 @@ namespace sky {
     void GeometryRenderer::Init()
     {
         ubo = new DynamicUniformBuffer();
-        ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
+        ubo->Init(sizeof(InstanceLocal));
         ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
         ubo->Upload();
 
@@ -177,12 +177,12 @@ namespace sky {
 
     void GeometryRenderer::BuildVertexAssembly()
     {
-        if (needRebuildVA) {
-            rhi::VertexAssembly::Descriptor desc = {};
-            desc.vertexBuffers.emplace_back(vertexBuffer->GetRHIBuffer()->CreateView(rhi::BufferViewDesc{0, batchVertices.size() * sizeof(GeometryBatchVertex)}));
-            primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
-            needRebuildVA = false;
-        }
+//        if (needRebuildVA) {
+//            rhi::VertexAssembly::Descriptor desc = {};
+//            desc.vertexBuffers.emplace_back(rhi::BufferView{vertexBuffer->GetRHIBuffer(), 0, static_cast<uint32_t>(batchVertices.size() * sizeof(GeometryBatchVertex))});
+//            primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
+//            needRebuildVA = false;
+//        }
     }
 
 } // namespace sky

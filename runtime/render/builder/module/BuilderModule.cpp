@@ -7,7 +7,6 @@
 #include <builder/render/PrefabBuilder.h>
 #include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
-#include <builder/render/VertexLibraryBuilder.h>
 #include <builder/render/MeshBuilder.h>
 #include <builder/render/AnimationBuilder.h>
 #include <builder/render/SkeletonBuilder.h>
@@ -39,7 +38,6 @@ namespace sky::builder {
         am->RegisterBuilder(new ShaderBuilder());
         am->RegisterBuilder(new TechniqueBuilder());
         am->RegisterBuilder(new MaterialBuilder());
-        am->RegisterBuilder(new VertexLibraryBuilder());
         am->RegisterBuilder(new ImageBuilder());
         am->RegisterBuilder(new PrefabBuilder());
         am->RegisterBuilder(new MeshBuilder());

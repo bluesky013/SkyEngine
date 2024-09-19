@@ -11,7 +11,6 @@
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/adaptor/assets/VertexDescLibraryAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/adaptor/assets/ShaderAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
@@ -50,10 +49,6 @@ namespace sky {
             .JsonLoad<&RenderPrefabAssetData::LoadJson>()
             .JsonSave<&RenderPrefabAssetData::SaveJson>();
 
-        context->Register<VertexDescLibraryAssetData>("VertexDescLibraryAssetData")
-            .BinLoad<&VertexDescLibraryAssetData::Load>()
-            .BinSave<&VertexDescLibraryAssetData::Save>();
-
         context->Register<BufferAssetData>("BufferAssetData")
             .BinLoad<&BufferAssetData::Load>()
             .BinSave<&BufferAssetData::Save>();
@@ -77,7 +72,6 @@ namespace sky {
         am->RegisterAssetHandler<Mesh>();
         am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
-        am->RegisterAssetHandler<VertexDescLibrary>();
         am->RegisterAssetHandler<Buffer>();
         am->RegisterAssetHandler<ShaderCollection>();
         am->RegisterAssetHandler<Animation>();

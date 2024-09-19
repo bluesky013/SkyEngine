@@ -71,7 +71,7 @@ namespace sky {
         }
     }
 
-    void Program::BuildPipelineLayout()
+    void Program::Build()
     {
         rhi::PipelineLayout::Descriptor plDesc = {};
         std::vector<rhi::DescriptorSetLayout::Descriptor> layoutDesc;
@@ -145,7 +145,7 @@ namespace sky {
     {
         // calculate signature
         std::stringstream ss;
-        uint32_t          variantHash = option.preprocessor ? option.preprocessor->GetHash() : 0;
+        uint32_t          variantHash = option.option ? option.option->GetHash() : 0;
         ss << name << '_' << entry << '_' << variantHash << '_' << static_cast<uint32_t>(option.target);
 
         auto        cacheFolder = Renderer::Get()->GetCacheFolder() + "\\shaderCache";
@@ -210,40 +210,40 @@ namespace sky {
                 return;
             }
 
-            MemoryArchive mArchive;
-            mArchive.Save(result.data);
-
-            mArchive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
-            for (auto &res : result.reflection.resources) {
-                mArchive.Save(res.name);
-                mArchive.Save(res.type);
-                mArchive.Save(res.visibility.value);
-                mArchive.Save(res.set);
-                mArchive.Save(res.binding);
-                mArchive.Save(res.count);
-                mArchive.Save(res.size);
-            }
-
-            mArchive.Save(static_cast<uint32_t>(result.reflection.types.size()));
-            for (auto &type : result.reflection.types) {
-                mArchive.Save(type.name);
-                mArchive.Save(static_cast<uint32_t>(type.variables.size()));
-                for (auto &var : type.variables) {
-                    mArchive.Save(var.name);
-                    mArchive.Save(var.set);
-                    mArchive.Save(var.binding);
-                    mArchive.Save(var.offset);
-                    mArchive.Save(var.size);
-                }
-            }
-
-            shaderHeader.version  = hash;
-            shaderHeader.magic    = ShaderCacheHeader::MAGIC;
-            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.Size());
-
-            OFileArchive archive(cachePath);
-            archive.SaveRaw(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
-            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.Data()), shaderHeader.dataSize);
+//            MemoryArchive mArchive;
+//            mArchive.Save(result.data);
+//
+//            mArchive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
+//            for (auto &res : result.reflection.resources) {
+//                mArchive.Save(res.name);
+//                mArchive.Save(res.type);
+//                mArchive.Save(res.visibility.value);
+//                mArchive.Save(res.set);
+//                mArchive.Save(res.binding);
+//                mArchive.Save(res.count);
+//                mArchive.Save(res.size);
+//            }
+//
+//            mArchive.Save(static_cast<uint32_t>(result.reflection.types.size()));
+//            for (auto &type : result.reflection.types) {
+//                mArchive.Save(type.name);
+//                mArchive.Save(static_cast<uint32_t>(type.variables.size()));
+//                for (auto &var : type.variables) {
+//                    mArchive.Save(var.name);
+//                    mArchive.Save(var.set);
+//                    mArchive.Save(var.binding);
+//                    mArchive.Save(var.offset);
+//                    mArchive.Save(var.size);
+//                }
+//            }
+//
+//            shaderHeader.version  = hash;
+//            shaderHeader.magic    = ShaderCacheHeader::MAGIC;
+//            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.Size());
+//
+//            OFileArchive archive(cachePath);
+//            archive.SaveRaw(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+//            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.Data()), shaderHeader.dataSize);
         }
     }
 } // namespace sky

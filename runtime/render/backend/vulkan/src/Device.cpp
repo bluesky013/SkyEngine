@@ -17,6 +17,7 @@
 #endif
 
 #include <vector>
+#include <fstream>
 
 static const char *TAG = "Vulkan";
 
@@ -54,15 +55,23 @@ namespace sky::vk {
         }
         queues.clear();
 
-        if (allocator != VK_NULL_HANDLE) {
-            vmaDestroyAllocator(allocator);
-        }
-
         samplers.Shutdown();
         setLayouts.Shutdown();
         pipelineLayouts.Shutdown();
         pipelines.Shutdown();
         renderPasses.Shutdown();
+
+#ifdef _DEBUG
+        char* str = nullptr;
+        vmaBuildStatsString(allocator, &str, VK_TRUE);
+        std::fstream stream("device.txt", std::ios::out | std::ios::binary);
+        stream.write(str, static_cast<std::streamsize>(strlen(str) + 1));
+        vmaFreeStatsString(allocator, str);
+#endif
+
+        if (allocator != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator);
+        }
 
         if (device != VK_NULL_HANDLE) {
             vkDestroyDevice(device, VKL_ALLOC);
@@ -79,53 +88,53 @@ namespace sky::vk {
 
     void Device::ValidateFeature(const rhi::DeviceFeature &feature, std::vector<const char*> &outExtensions)
     {
-        enabledPhyFeatures.multiViewport             = feature.multiView && phyFeatures.features.multiViewport;
+        enabledPhyFeatures.multiViewport             = static_cast<VkBool32>(feature.multiView && (phyFeatures.features.multiViewport != 0u));
         enabledPhyFeatures.samplerAnisotropy         = phyFeatures.features.samplerAnisotropy;
         enabledPhyFeatures.pipelineStatisticsQuery   = phyFeatures.features.pipelineStatisticsQuery;
         enabledPhyFeatures.inheritedQueries          = phyFeatures.features.inheritedQueries;
         enabledPhyFeatures.fragmentStoresAndAtomics  = phyFeatures.features.fragmentStoresAndAtomics;
-        enabledPhyFeatures.multiDrawIndirect         = feature.multiDrawIndirect && phyFeatures.features.multiDrawIndirect;
-        enabledPhyFeatures.drawIndirectFirstInstance = feature.firstInstanceIndirect && phyFeatures.features.drawIndirectFirstInstance;
+        enabledPhyFeatures.multiDrawIndirect         = static_cast<VkBool32>(feature.multiDrawIndirect && (phyFeatures.features.multiDrawIndirect != 0u));
+        enabledPhyFeatures.drawIndirectFirstInstance = static_cast<VkBool32>(feature.firstInstanceIndirect && (phyFeatures.features.drawIndirectFirstInstance != 0u));
 
-        enabledFeature.sparseBinding = CheckFeature(feature.sparseBinding,
+        enabledFeature.sparseBinding = (CheckFeature(feature.sparseBinding,
             phyFeatures.features.sparseBinding,
             phyFeatures.features.sparseResidencyBuffer,
             phyFeatures.features.sparseResidencyImage2D,
-            phyFeatures.features.shaderResourceResidency);
-        enabledPhyFeatures.sparseBinding           = enabledFeature.sparseBinding;
-        enabledPhyFeatures.sparseResidencyBuffer   = enabledFeature.sparseBinding;
-        enabledPhyFeatures.sparseResidencyImage2D  = enabledFeature.sparseBinding;
-        enabledPhyFeatures.shaderResourceResidency = enabledFeature.sparseBinding;
+            phyFeatures.features.shaderResourceResidency) != 0u);
+        enabledPhyFeatures.sparseBinding           = static_cast<VkBool32>(enabledFeature.sparseBinding);
+        enabledPhyFeatures.sparseResidencyBuffer   = static_cast<VkBool32>(enabledFeature.sparseBinding);
+        enabledPhyFeatures.sparseResidencyImage2D  = static_cast<VkBool32>(enabledFeature.sparseBinding);
+        enabledPhyFeatures.shaderResourceResidency = static_cast<VkBool32>(enabledFeature.sparseBinding);
 
-        enabledFeature.descriptorIndexing = CheckFeature(feature.descriptorIndexing,
+        enabledFeature.descriptorIndexing = (CheckFeature(feature.descriptorIndexing,
             phyIndexingFeatures.runtimeDescriptorArray,
             phyIndexingFeatures.descriptorBindingVariableDescriptorCount,
-            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing) && CheckExtension(supportedExtensions, "VK_EXT_descriptor_indexing");
+            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing) != 0u) && CheckExtension(supportedExtensions, "VK_EXT_descriptor_indexing");
         enabledPhyIndexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        enabledPhyIndexingFeatures.runtimeDescriptorArray                    = enabledFeature.descriptorIndexing;
-        enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = enabledFeature.descriptorIndexing;
-        enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = enabledFeature.descriptorIndexing;
+        enabledPhyIndexingFeatures.runtimeDescriptorArray                    = static_cast<VkBool32>(enabledFeature.descriptorIndexing);
+        enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = static_cast<VkBool32>(enabledFeature.descriptorIndexing);
+        enabledPhyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = static_cast<VkBool32>(enabledFeature.descriptorIndexing);
         if (enabledFeature.descriptorIndexing) {
             outExtensions.emplace_back("VK_EXT_descriptor_indexing");
         }
 
-        enabledFeature.variableRateShading = CheckFeature(feature.variableRateShading,
+        enabledFeature.variableRateShading = (CheckFeature(feature.variableRateShading,
             shadingRateFeatures.attachmentFragmentShadingRate,
             shadingRateFeatures.pipelineFragmentShadingRate,
-            shadingRateFeatures.primitiveFragmentShadingRate) && CheckExtension(supportedExtensions, "VK_KHR_fragment_shading_rate");
+            shadingRateFeatures.primitiveFragmentShadingRate) != 0u) && CheckExtension(supportedExtensions, "VK_KHR_fragment_shading_rate");
         enabledShadingRateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
-        enabledShadingRateFeatures.attachmentFragmentShadingRate = enabledFeature.variableRateShading;
-        enabledShadingRateFeatures.pipelineFragmentShadingRate   = enabledFeature.variableRateShading;
-        enabledShadingRateFeatures.primitiveFragmentShadingRate  = enabledFeature.variableRateShading;
+        enabledShadingRateFeatures.attachmentFragmentShadingRate = static_cast<VkBool32>(enabledFeature.variableRateShading);
+        enabledShadingRateFeatures.pipelineFragmentShadingRate   = static_cast<VkBool32>(enabledFeature.variableRateShading);
+        enabledShadingRateFeatures.primitiveFragmentShadingRate  = static_cast<VkBool32>(enabledFeature.variableRateShading);
         enabledPhyIndexingFeatures.pNext = &enabledShadingRateFeatures;
         if (enabledFeature.variableRateShading) {
             outExtensions.emplace_back("VK_KHR_fragment_shading_rate");
         }
 
-        enabledFeature.multiView = CheckFeature(feature.multiView,
-            mvrFeature.multiview) && CheckExtension(supportedExtensions, "VK_KHR_multiview");
+        enabledFeature.multiView = (CheckFeature(feature.multiView,
+            mvrFeature.multiview) != 0u) && CheckExtension(supportedExtensions, "VK_KHR_multiview");
         enabledMvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
-        enabledMvrFeature.multiview = enabledFeature.multiView;
+        enabledMvrFeature.multiview = static_cast<VkBool32>(enabledFeature.multiView);
         enabledShadingRateFeatures.pNext = &enabledMvrFeature;
         if (enabledFeature.multiView) {
             outExtensions.emplace_back("VK_KHR_multiview");
@@ -189,7 +198,7 @@ namespace sky::vk {
         auto *xrInterface = instance.GetXRInterface();
         std::vector<char> extensionNames;
         if (xrInterface != nullptr) {
-            auto xrInstance = xrInterface->GetXrInstanceHandle();
+            auto *xrInstance = xrInterface->GetXrInstanceHandle();
             auto xrSystemId = xrInterface->GetXrSystemId();
 
             XrGraphicsRequirementsVulkanKHR requirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR};
@@ -370,14 +379,13 @@ namespace sky::vk {
 
     Queue *Device::GetQueue(VkQueueFlags preferred, VkQueueFlags excluded) const
     {
-        Queue *res = nullptr;
         for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
             const auto& flag = queueFamilies[i].queueFlags;
             if (((flag & preferred) == preferred) && ((flag & excluded) == 0)) {
-                res = queues[i].get();
+                return queues[i].get();
             }
         }
-        return res;
+        return nullptr;
     }
 
     Queue *Device::GetGraphicsQueue() const

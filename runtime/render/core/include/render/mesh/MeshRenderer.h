@@ -17,12 +17,12 @@ namespace sky {
         MeshRenderer() = default;
         virtual ~MeshRenderer();
 
+        void Tick();
         void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh);
         void UpdateTransform(const Matrix4 &matrix);
 
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
-
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
@@ -31,7 +31,6 @@ namespace sky {
 
         RDMeshPtr mesh;
         std::vector<std::unique_ptr<RenderPrimitive>> primitives;
-        rhi::VertexAssemblyPtr va;
         RDDynamicUniformBufferPtr ubo;
     };
 

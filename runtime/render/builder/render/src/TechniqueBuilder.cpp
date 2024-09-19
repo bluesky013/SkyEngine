@@ -14,7 +14,7 @@
 
 namespace sky::builder {
 
-    std::unordered_map<std::string, rhi::BlendFactor> BLEND_FACTOR_MAP = {
+    std::unordered_map<std::string_view, rhi::BlendFactor> BLEND_FACTOR_MAP = {
         {"ZERO",                     rhi::BlendFactor::ZERO                    },
         {"ONE",                      rhi::BlendFactor::ONE                     },
         {"SRC_COLOR",                rhi::BlendFactor::SRC_COLOR               },
@@ -34,6 +34,11 @@ namespace sky::builder {
         {"ONE_MINUS_SRC1_COLOR",     rhi::BlendFactor::ONE_MINUS_SRC1_COLOR    },
         {"SRC1_ALPHA",               rhi::BlendFactor::SRC1_ALPHA              },
         {"ONE_MINUS_SRC1_ALPHA",     rhi::BlendFactor::ONE_MINUS_SRC1_ALPHA    },
+    };
+
+    std::unordered_map<std::string_view, RenderVertexFlagBit> VTX_FLAG_MAP = {
+        {"SKIN",     RenderVertexFlagBit::SKIN},
+        {"INSTANCE", RenderVertexFlagBit::INSTANCE},
     };
 
     static void ProcessShader(rapidjson::Document &document, ShaderRefData &shaderRef, TechAssetType type)
@@ -73,10 +78,27 @@ namespace sky::builder {
         }
     }
 
-    static void GetVertexDescInfo(rapidjson::Document &document, TechniqueAssetData &data)
+    static void GetVariants(rapidjson::Document &document, TechniqueAssetData &data)
     {
-        if (document.HasMember("vertex")) {
-            data.vertexDesc = document["vertex"].GetString();
+        if (document.HasMember("pre_defines")) {
+            auto array = document["pre_defines"].GetArray();
+            for (auto &def : array) {
+                data.preDefines.emplace_back(def.GetString());
+            }
+        }
+
+        if (document.HasMember("vertex_flags")) {
+            auto object = document["vertex_flags"].GetObject();
+            for (auto iter = object.MemberBegin(); iter != object.MemberEnd(); ++iter) {
+                const auto &member = *iter;
+                auto flag  = VTX_FLAG_MAP.find(member.name.GetString());
+                if (flag != VTX_FLAG_MAP.end()) {
+                    data.vertexFlags.emplace_back(TechniqueVertexFlags {
+                        flag->second,
+                        member.value.GetString()
+                    });
+                }
+            }
         }
     }
 
@@ -178,7 +200,7 @@ namespace sky::builder {
         ProcessBlendStates(document, data.blendStates);
         ProcessRasterStates(document, data.rasterState);
         GetPassInfo(document, data);
-        GetVertexDescInfo(document, data);
+        GetVariants(document, data);
     }
 
     void TechniqueBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)

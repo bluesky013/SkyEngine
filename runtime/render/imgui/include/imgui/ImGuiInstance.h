@@ -62,7 +62,6 @@ namespace sky {
 
         RDTexture2DPtr fontTexture;
         RDDynamicUniformBufferPtr ubo;
-        uint32_t uploadHandle = 0;
         uint64_t vertexSize = 0;
         uint64_t indexSize = 0;
 

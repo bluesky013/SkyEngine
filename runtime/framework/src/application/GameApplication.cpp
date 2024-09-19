@@ -60,12 +60,6 @@ namespace sky {
         return true;
     }
 
-    void GameApplication::Shutdown()
-    {
-        Application::Shutdown();
-        nativeWindow.reset();
-    }
-
     void GameApplication::PreTick()
     {
     }

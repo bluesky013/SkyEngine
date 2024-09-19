@@ -86,15 +86,15 @@ namespace sky {
 
     RDMeshPtr GridRenderer::BuildMesh(const RDMaterialInstancePtr &mat)
     {
-        CounterPtr<Mesh> mesh = new Mesh();
-        mesh->AddSubMesh({0, 4, 0, 6, mat, AABB{}});
-        for (auto &vb : vertexBuffers) {
-            mesh->AddVertexBuffer(vb);
-        }
-        mesh->SetIndexBuffer(indexBuffer);
-        mesh->SetIndexType(rhi::IndexType::U32);
+//        CounterPtr<Mesh> mesh = new Mesh();
+//        mesh->AddSubMesh({0, 4, 0, 6, mat, AABB{}});
+//        for (auto &vb : vertexBuffers) {
+//            mesh->AddVertexBuffer(vb);
+//        }
+//        mesh->SetIndexBuffer(indexBuffer);
+//        mesh->SetIndexType(rhi::IndexType::U32);
 
-        return mesh;
+        return {};
     }
 
 } // namespace sky

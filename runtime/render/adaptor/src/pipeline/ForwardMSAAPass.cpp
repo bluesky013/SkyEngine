@@ -46,7 +46,7 @@ namespace sky {
 
         depthStencil = Attachment{
             rdg::RasterAttachment{FWD_MSAA_DS.data(), rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
-            rhi::ClearValue(1, 0.f)
+            rhi::ClearValue(1.f, 0)
         };
 
 //        computeResources.emplace_back(ComputeResource{

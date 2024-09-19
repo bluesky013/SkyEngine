@@ -47,11 +47,9 @@ namespace sky {
     public:
         CounterPtr() : ptr(nullptr) {}
 
-        CounterPtr(T *p) : ptr(p) // NOLINT
+        CounterPtr(T *p) // NOLINT
         {
-            if (ptr != nullptr) {
-                ptr->AddRef();
-            }
+            Reset(p);
         }
 
         CounterPtr(const CounterPtr &p) : CounterPtr(p.Get())
@@ -60,6 +58,9 @@ namespace sky {
 
         CounterPtr(CounterPtr &&p) noexcept
         {
+            if (ptr != nullptr) {
+                ptr->RemoveRef();
+            }
             ptr = p.Release();
         }
 
@@ -94,6 +95,9 @@ namespace sky {
         CounterPtr &operator=(CounterPtr<U> &&p)
         {
             static_assert(std::is_base_of_v<T, U>);
+            if (ptr != nullptr) {
+                ptr->RemoveRef();
+            }
             ptr = static_cast<T*>(p.Release());
             return *this;
         }

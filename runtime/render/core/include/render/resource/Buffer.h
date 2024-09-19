@@ -13,34 +13,55 @@
 
 namespace sky {
 
-    class Buffer : public RenderResource {
+    class Buffer : public IStreamableResource {
     public:
         Buffer();
         ~Buffer() override;
 
-        void Init(uint64_t size, rhi::BufferUsageFlags usage, rhi::MemoryType memoryType);
+        void Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType);
+        void SetSourceData(const rhi::BufferUploadRequest &data);
+
         virtual void Resize(uint64_t size);
-        virtual uint64_t GetRange() const { return bufferDesc.size; }
+        virtual uint64_t GetSize() const { return bufferDesc.size; }
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
-
-        rhi::TransferTaskHandle Upload(const FilePtr &archive, rhi::Queue &queue, uint32_t offset);
-        rhi::TransferTaskHandle Upload(const std::string &path, rhi::Queue &queue, uint32_t offset);
-        rhi::TransferTaskHandle Upload(const CounterPtr<rhi::IUploadStream> &stream, rhi::Queue &queue, uint32_t offset, uint32_t size);
+        rhi::BufferView MakeView() const;
 
     protected:
+        uint64_t UploadImpl() override;
+
         rhi::Device *device = nullptr;
         rhi::Buffer::Descriptor bufferDesc = {};
         rhi::BufferPtr buffer;
+
+        rhi::BufferUploadRequest sourceData;
     };
     using RDBufferPtr = CounterPtr<Buffer>;
+
+    struct VertexBuffer {
+        RDBufferPtr buffer;
+        uint64_t offset = 0;
+        uint64_t range  = 0;
+        uint32_t stride = 0;
+
+        rhi::BufferView MakeView() const;
+    };
+
+    struct IndexBuffer {
+        RDBufferPtr buffer;
+        uint64_t offset          = 0;
+        uint64_t range           = 0;
+        rhi::IndexType indexType = rhi::IndexType::U32;
+
+        rhi::BufferView MakeView() const;
+    };
 
     class UniformBuffer : public Buffer {
     public:
         UniformBuffer() = default;
         ~UniformBuffer() override = default;
 
-        bool Init(uint32_t size);
+        virtual bool Init(uint32_t size);
         void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
         template <typename T>
         void Write(uint32_t offset, const T& val)
@@ -65,17 +86,16 @@ namespace sky {
         DynamicUniformBuffer() = default;
         ~DynamicUniformBuffer() override = default;
 
-        bool Init(uint32_t size, uint32_t inflightCount);
+        bool Init(uint32_t size) override;
         void Upload();
         void Upload(rhi::BlitEncoder &encoder) override;
 
-        uint32_t GetOffset() const { return frameIndex * alignedFrameSize; }
-        uint64_t GetRange() const override { return frameSize; }
+        uint64_t GetOffset() const { return frameIndex * alignedFrameSize; }
+        uint64_t GetSize() const override { return frameSize; }
     private:
         uint32_t frameSize = 0;
         uint32_t alignedFrameSize;
         uint32_t frameIndex = 0;
-        uint32_t inflightCount = 1;
     };
     using RDDynamicUniformBufferPtr = CounterPtr<DynamicUniformBuffer>;
 

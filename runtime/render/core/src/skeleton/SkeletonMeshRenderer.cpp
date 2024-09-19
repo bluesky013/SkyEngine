@@ -21,7 +21,7 @@ namespace sky {
         MeshRenderer::PrepareUBO();
 
         boneData = new DynamicUniformBuffer();
-        boneData->Init(sizeof(Skin), Renderer::Get()->GetInflightFrameCount());
+        boneData->Init(sizeof(Skin));
         boneData->Write(0, skin->boneMatrices.data());
         boneData->Upload();
     }

@@ -26,8 +26,9 @@ public:
 
 TEST(ReferenceObjectTest, ConstructTest)
 {
-    auto *ptr = new TestRefDev();
     {
+        auto *ptr = new TestRefDev();
+
         CounterPtr<TestRefDev> cPtr1(ptr);
         ASSERT_EQ(ptr->GetRef(), 1);
 
@@ -38,4 +39,10 @@ TEST(ReferenceObjectTest, ConstructTest)
         ASSERT_EQ(ptr->GetRef(), 2);
     }
     ASSERT_EQ(g_count, 1);
+
+    {
+        CounterPtr<TestRef> ptr = new TestRef();
+        ptr = new TestRef();
+    }
+    ASSERT_EQ(g_count, 3);
 }

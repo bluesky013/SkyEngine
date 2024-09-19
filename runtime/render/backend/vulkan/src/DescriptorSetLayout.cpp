@@ -28,14 +28,17 @@ namespace sky::vk {
     bool DescriptorSetLayout::Init(const Descriptor &desc)
     {
         bindings = desc.bindings;
+        std::sort(bindings.begin(), bindings.end(), [](const SetBinding& v1, const SetBinding& v2) -> bool {
+            return v1.binding < v2.binding;
+        });
 
-        std::vector<VkDescriptorSetLayoutBinding>    bindings;
+        std::vector<VkDescriptorSetLayoutBinding>    vkBindings;
         std::vector<VkDescriptorBindingFlags>        bindingFlags;
         std::vector<VkDescriptorUpdateTemplateEntry> entries;
         std::list<VkSampler>                         samplers;
 
         descriptorNum = 0;
-        for (const auto &binding : desc.bindings) {
+        for (const auto &binding : bindings) {
             HashCombine32(hash, Crc32::Cal(binding.binding));
             HashCombine32(hash, Crc32::Cal(binding.count));
             HashCombine32(hash, Crc32::Cal(binding.type));
@@ -49,7 +52,7 @@ namespace sky::vk {
             layoutBinding.descriptorCount    = binding.count;
             layoutBinding.stageFlags         = FromRHI(binding.visibility);
             layoutBinding.pImmutableSamplers = nullptr;
-            bindings.emplace_back(layoutBinding);
+            vkBindings.emplace_back(layoutBinding);
             bindingFlags.emplace_back(FromRHI(binding.flags));
             if (IsDynamicDescriptor(layoutBinding.descriptorType)) {
                 dynamicNum += binding.count;
@@ -80,8 +83,8 @@ namespace sky::vk {
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.pNext                           = &setLayoutBindingFlags;
-        layoutInfo.bindingCount                    = static_cast<uint32_t>(bindings.size());
-        layoutInfo.pBindings                       = bindings.data();
+        layoutInfo.bindingCount                    = static_cast<uint32_t>(vkBindings.size());
+        layoutInfo.pBindings                       = vkBindings.data();
         layout                                     = device.GetDescriptorSetLayout(hash, &layoutInfo);
         if (layout == VK_NULL_HANDLE) {
             return false;

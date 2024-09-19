@@ -83,6 +83,8 @@ namespace sky::builder {
         imageData.width = static_cast<uint32_t>(x);
         imageData.height = static_cast<uint32_t>(y);
         imageData.type = TextureType::TEXTURE_2D;
+        imageData.dataSize = 0;
+        imageData.slices.clear();
 
         if (compress) {
             CompressOption option = {};

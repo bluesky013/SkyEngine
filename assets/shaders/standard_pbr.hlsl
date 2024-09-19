@@ -116,18 +116,22 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float4 mr = MetallicRoughnessMap.Sample(MetallicRoughnessSampler, input.UV.xy);
     pbrParam.Metallic = mr.b;
     pbrParam.Roughness = mr.g;
+    pbrParam.AO = 1.0;
+    pbrParam.Emissive = float4(0, 0, 0, 0);
 
-//     float4 ao = AoMap.Sample(AoSampler, input.UV.xy);
-//     float4 emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
+#ifdef ENABLE_AO_MAP
+    pbrParam.AO = AoMap.Sample(AoSampler, input.UV.xy).x;
+#endif
 
-//     float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
-//     float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
+#ifdef ENABLE_EMISSIVE_MAP
+    pbrParam.Emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
+#endif
 
     float shadow = 1.0;
+//  float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
+//  float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
 // 	float shadow = filterPCF(shadowCoord);
 // 	shadow = max(shadow, 1.0);
-
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
-
     return float4(e0, albedo.a);
 }

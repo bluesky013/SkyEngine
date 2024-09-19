@@ -7,6 +7,7 @@
 #include <vector>
 #include <render/resource/Shader.h>
 #include <render/RenderResource.h>
+#include <render/RenderBase.h>
 
 namespace sky {
 
@@ -24,12 +25,14 @@ namespace sky {
 
         void SetShader(const ShaderRef &shader);
 
-        RDProgramPtr RequestProgram(const ShaderPreprocessorPtr &preprocessor = nullptr);
+        RDProgramPtr RequestProgram(const ShaderOptionPtr &option = nullptr);
 
     protected:
         virtual void FillProgramInternal(Program &program, const ShaderCompileOption &option) {}
 
         ShaderRef shaderData;
+
+        std::unordered_map<uint32_t, RDProgramPtr> programCache;
     };
 
     class GraphicsTechnique : public Technique {
@@ -41,24 +44,27 @@ namespace sky {
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const std::string &tag);
-        void SetVertexLayout(const std::string &key);
+
+        void Process(RenderVertexFlags flags, const ShaderOptionPtr &option);
 
         uint32_t GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
-        const std::string &GetVertexDescKey() const { return vertexDescKey; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
-        static rhi::GraphicsPipelinePtr BuildPso(GraphicsTechnique &tech,
+        static rhi::GraphicsPipelinePtr BuildPso(const RDProgramPtr &program,
+                                                 const rhi::PipelineState &state,
+                                                 const rhi::VertexInputPtr &vertexDesc,
                                                  const rhi::RenderPassPtr &pass,
                                                  uint32_t subPassID);
 
     private:
         void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
         rhi::PipelineState state;
-        std::string vertexDescKey;
-        rhi::VertexInputPtr vertexDesc;
         uint32_t rasterID = 0;
         uint32_t viewMask = 0xFFFFFFFF;
+
+        std::vector<std::string> preCompiledFlags;
+        std::unordered_map<RenderVertexFlagBit, std::string> vertexFlags;
     };
     using RDGfxTechPtr = CounterPtr<GraphicsTechnique>;
 

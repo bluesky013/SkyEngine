@@ -8,16 +8,21 @@
 #include <render/rdg/RenderGraph.h>
 
 namespace sky::rdg {
-
     void RenderSceneVisitor::BuildRenderQueue()
     {
         const auto &primitives = scene->GetPrimitives();
         for (auto &queue : graph.rasterQueues) {
-            const auto &subPass    = graph.subPasses[Index(queue.passID, graph)];
+            const auto &subPass = graph.subPasses[Index(queue.passID, graph)];
             const auto &rasterPass = graph.rasterPasses[Index(subPass.parent, graph)];
             const auto &renderPass = rasterPass.renderPass;
 
+            auto passHash = renderPass->GetCompatibleHash();
+
             for (const auto &prim : primitives) {
+                if (!prim->isReady) {
+                    continue;
+                }
+
                 if (queue.culling && queue.sceneView != nullptr && !queue.sceneView->FrustumCulling(prim->worldBound)) {
                     continue;
                 }
@@ -33,11 +38,38 @@ namespace sky::rdg {
                         continue;
                     }
 
-                    if (tech.rebuildPso || !tech.pso || (tech.renderPass->GetCompatibleHash() != renderPass->GetCompatibleHash())) {
-                        tech.renderPass = renderPass;
-                        tech.pso = GraphicsTechnique::BuildPso(*tech.technique, renderPass, subPass.subPassID);
+                    bool needRebuildPso = false;
 
-                        tech.rebuildPso = false;
+                    uint32_t optionHash = 0;
+                    if (tech.shaderOption) {
+                        if (tech.material) {
+                            tech.material->ProcessShaderOption(tech.shaderOption);
+                        }
+                        optionHash = tech.shaderOption->GetHash();
+                    }
+                    if (!tech.program || tech.variantHash != optionHash) {
+                        tech.variantHash = optionHash;
+                        tech.program = tech.technique->RequestProgram(tech.shaderOption);
+                        needRebuildPso = true;
+                    }
+
+                    if (prim->geometry && prim->geometry->version > tech.vaoVersion) {
+                        tech.vaoVersion = prim->geometry->version;
+                        tech.vao = prim->geometry->Request(tech.program, tech.vertexDesc);
+                    }
+
+                    if (tech.renderPassHash != passHash) {
+                        tech.renderPassHash = passHash;
+
+                        needRebuildPso = true;
+                    }
+
+                    if (needRebuildPso) {
+                        tech.pso = GraphicsTechnique::BuildPso(tech.program,
+                                                               tech.technique->GetPipelineState(),
+                                                               tech.vertexDesc,
+                                                               renderPass,
+                                                               subPass.subPassID);
                     }
 
                     queue.drawItems.emplace_back(RenderDrawItem{prim, techIndex++});

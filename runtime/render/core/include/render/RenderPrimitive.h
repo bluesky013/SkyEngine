@@ -7,6 +7,7 @@
 #include <core/shapes/AABB.h>
 #include <core/std/Container.h>
 #include <render/RenderDrawArgs.h>
+#include <render/RenderGeometry.h>
 #include <render/resource/Material.h>
 #include <render/resource/ResourceGroup.h>
 #include <render/resource/Technique.h>
@@ -15,29 +16,44 @@
 namespace sky {
 
     struct TechniqueInstance {
-        RDGfxTechPtr technique;
-        rhi::RenderPassPtr renderPass;
+        RDGfxTechPtr             technique;
+        RDMaterialInstancePtr    material;
+        ShaderOptionPtr          shaderOption;
+
+        // cache values
+        RDProgramPtr             program;
+        rhi::VertexInputPtr      vertexDesc;
+        rhi::VertexAssemblyPtr   vao;
         rhi::GraphicsPipelinePtr pso;
-        std::vector<std::string> processors;
-        uint32_t setMask = 0;
-        bool rebuildPso = true;
+
+        uint32_t                 vaoVersion     = 0;
+        uint32_t                 variantHash    = 0;
+        uint32_t                 renderPassHash = 0;
     };
 
     struct RenderPrimitive {
         explicit RenderPrimitive(PmrResource *res = nullptr) : args(res != nullptr ? res : &defaultRes) {}
-        std::vector<TechniqueInstance> techniques;
-
+        // dynamic status
         PmrUnSyncPoolRes defaultRes;
         uint32_t sortKey = 0;
+
+        bool isReady     = false;
+
         AABB localBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
         AABB worldBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
 
+        // geometry
+        RenderVertexFlags   vertexFlags;
+        RenderGeometryPtr   geometry;
+        PmrVector<DrawArgs> args;
+        rhi::BufferPtr      indirectBuffer;
+
+        // shader resources
         RDResourceGroupPtr batchSet;
         RDResourceGroupPtr instanceSet;
 
-        rhi::VertexAssemblyPtr va;
-        rhi::BufferPtr indirectBuffer;
-        PmrVector<DrawArgs> args;
+        // cache object
+        std::vector<TechniqueInstance> techniques;
     };
 
     struct RenderDrawItem {

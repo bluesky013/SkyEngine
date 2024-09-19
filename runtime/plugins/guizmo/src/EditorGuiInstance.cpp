@@ -16,7 +16,7 @@ namespace sky::editor {
 
     void EditorGuiInstance::Init(World &world, NativeWindow* window)
     {
-        auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+        renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
         auto *imguiFeature = renderScene->GetFeature<ImGuiFeatureProcessor>();
         if (imguiFeature != nullptr) {
             guiInstance = imguiFeature->CreateImGuiInstance();
@@ -64,6 +64,7 @@ namespace sky::editor {
 //        wm->RegisterWidget(inspect);
 
         gui = std::make_unique<GuiZmoWidget>();
+        gui->AttachScene(renderScene);
 
 //        instance->AddWidget(wm.get());
         guiInstance->AddWidget(gui.get());

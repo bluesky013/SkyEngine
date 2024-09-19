@@ -83,14 +83,17 @@ namespace sky {
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
-            set->BindBuffer(res->binding, buffer->GetRHIBuffer(), 0, buffer->GetRange(), index);
+            set->BindBuffer(res->binding, buffer->GetRHIBuffer(), 0, buffer->GetSize(), index);
             dynamicUBOS.emplace(layout->GetRHILayout()->GetDescriptorSetOffsetByBinding(res->binding) + index, buffer);
         }
     }
 
     void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index)
     {
-        BindTexture(key, view, Renderer::Get()->GetDefaultRHIResource().defaultSampler, index);
+        const auto *res = layout->GetBindingByeName(key);
+        if (res != nullptr) {
+            set->BindImageView(res->binding, view, index);
+        }
     }
 
     void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index)
@@ -114,7 +117,7 @@ namespace sky {
     {
         encoder.BindSet(setID, set);
         for (auto &[binding, ubo] : dynamicUBOS) {
-            encoder.SetOffset(setID,  binding, 0, ubo->GetOffset());
+            encoder.SetOffset(setID,  binding, 0, static_cast<uint32_t>(ubo->GetOffset()));
         }
     }
 

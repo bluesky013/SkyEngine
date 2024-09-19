@@ -11,13 +11,10 @@ namespace sky::vk {
 
     class Device;
 
-    class Buffer : public rhi::Buffer, public DevObject, public std::enable_shared_from_this<Buffer> {
+    class Buffer : public rhi::Buffer, public DevObject {
     public:
         ~Buffer() override;
 
-        rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
-
-        uint64_t GetSize() const;
         bool IsTransient() const;
         uint8_t *Map() override;
         void UnMap() override;
@@ -28,7 +25,6 @@ namespace sky::vk {
 
     private:
         friend class Device;
-        friend class BufferView;
 
         explicit Buffer(Device &);
 
@@ -39,7 +35,6 @@ namespace sky::vk {
         VkBufferCreateInfo bufferInfo;
         uint8_t*           mappedPtr   = nullptr;
     };
-
     using BufferPtr = std::shared_ptr<Buffer>;
 
 } // namespace sky::vk

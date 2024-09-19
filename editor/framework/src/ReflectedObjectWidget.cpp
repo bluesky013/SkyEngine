@@ -101,8 +101,7 @@ namespace sky::editor {
             }
 
             auto path = mimeData->urls()[0].path();
-            printf("test sche %s\n", sch.toStdString().c_str());
-            printf("test drop %s\n", path.toStdString().c_str());
+            printf("drop sche: %s, path: %s\n", sch.toStdString().c_str(), path.toStdString().c_str());
             setText(path);
             setModified(true);
             emit editingFinished();

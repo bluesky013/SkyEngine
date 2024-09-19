@@ -19,14 +19,12 @@ namespace sky {
     class Application : public ISystemNotify {
     public:
         Application();
-        ~Application() override = default;
+        ~Application() override;
 
         Application(const Application &)            = delete;
         Application &operator=(const Application &) = delete;
 
         virtual bool Init(int argc, char **argv);
-
-        virtual void Shutdown();
 
         virtual void PreTick() {}
 

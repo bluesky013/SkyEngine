@@ -10,7 +10,7 @@
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
 #include <render/FeatureProcessor.h>
-#include <core/util/ArrayBitFlag.h>
+#include <render/RenderBase.h>
 
 namespace sky {
 
@@ -30,6 +30,8 @@ namespace sky {
         const PmrVector<std::unique_ptr<SceneView>> &GetSceneViews() const { return sceneViews; }
 
         void AddFeature(IFeatureProcessor *feature);
+
+        const RenderPipelineFlags &GetRenderPipelineFlags() const { return renderFlags; }
 
         template <typename T>
         T *GetFeature() const
@@ -52,6 +54,8 @@ namespace sky {
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;
         PmrVector<RenderPrimitive *> primitives;
+
+        RenderPipelineFlags renderFlags;
     };
 
 } // namespace sky

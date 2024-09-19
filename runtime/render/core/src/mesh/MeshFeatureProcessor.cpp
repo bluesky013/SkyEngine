@@ -8,12 +8,13 @@ namespace sky {
 
     void MeshFeatureProcessor::Tick(float time)
     {
-
+        for (auto &mesh : staticMeshes) {
+            mesh->Tick();
+        }
     }
 
     void MeshFeatureProcessor::Render(rdg::RenderGraph &rdg)
     {
-
     }
 
     MeshRenderer *MeshFeatureProcessor::CreateStaticMesh()

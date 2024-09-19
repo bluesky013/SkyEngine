@@ -15,5 +15,15 @@
     "raster_state": {
         "cullMode": "BACK"
     },
-    "vertex": "standard"
+    "pre_defines": [
+    ],
+    "vertex_flags": {
+        "SKIN": "ENABLE_SKIN",
+        "INSTANCE": "ENABLE_INSTANCE"
+    },
+    "common_flags": {
+        "useEmissiveMap": "ENABLE_EMISSIVE_MAP",
+        "useAOMap": "ENABLE_AO_MAP",
+        "useMask": "ENABLE_ALPHA_MASK"
+    }
 }

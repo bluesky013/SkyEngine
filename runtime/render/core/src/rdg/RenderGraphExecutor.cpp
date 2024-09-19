@@ -193,8 +193,8 @@ namespace sky::rdg {
                         item.primitive->instanceSet->OnBind(*currentEncoder, 2);
                     }
 
-                    if (item.primitive->va) {
-                        currentEncoder->BindAssembly(item.primitive->va);
+                    if (tech.vao) {
+                        currentEncoder->BindAssembly(tech.vao);
                     }
 
                     for (const auto &arg : item.primitive->args) {

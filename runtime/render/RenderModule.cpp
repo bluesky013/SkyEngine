@@ -101,7 +101,6 @@ namespace sky {
         RHI::Get()->InitInstance(rhiDesc);
 
         rhi::DeviceFeature feature = {};
-        feature.multiView = true;
         RHI::Get()->InitDevice({feature});
 
         // init renderer
@@ -140,6 +139,7 @@ namespace sky {
 
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
+        TextFeature::Destroy();
 
         Renderer::Destroy();
         RHI::Destroy();

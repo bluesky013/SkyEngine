@@ -44,11 +44,6 @@ namespace sky {
         return true;
     }
 
-    void XRApplication::Shutdown()
-    {
-        Application::Shutdown();
-    }
-
     void XRApplication::LoadConfigs()
     {
 //#ifdef SKY_EDITOR

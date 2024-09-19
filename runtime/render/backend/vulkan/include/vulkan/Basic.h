@@ -37,5 +37,4 @@ namespace sky::vk {
             return strcmp(prop.extensionName, ext) == 0;
         });
     }
-
 } // namespace sky::vk

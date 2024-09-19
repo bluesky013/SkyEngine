@@ -27,6 +27,21 @@ namespace sky {
     {
     }
 
+    Application::~Application()
+    {
+        if (moduleManager) {
+            moduleManager->UnLoadModules();
+        }
+
+        Interface<ISystemNotify>::Get()->UnRegister();
+
+        AssetManager::Destroy();
+        DBManager::Destroy();
+
+        sky::Platform* platform = sky::Platform::Get();
+        platform->Shutdown();
+    }
+
     void Application::SaveArgs(int argc, char **argv)
     {
         for (int i = 0; i < argc; ++i) {
@@ -75,21 +90,6 @@ namespace sky {
         PostInit();
         LOG_I(TAG, "Load Engine Module Success");
         return true;
-    }
-
-    void Application::Shutdown()
-    {
-        if (moduleManager) {
-            moduleManager->UnLoadModules();
-        }
-
-        Interface<ISystemNotify>::Get()->UnRegister();
-
-        AssetManager::Destroy();
-        DBManager::Destroy();
-
-        sky::Platform* platform = sky::Platform::Get();
-        platform->Shutdown();
     }
 
     void Application::SetExit()

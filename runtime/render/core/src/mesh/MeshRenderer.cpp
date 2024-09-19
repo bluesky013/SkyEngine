@@ -17,6 +17,13 @@ namespace sky {
         }
     }
 
+    void MeshRenderer::Tick()
+    {
+        for (auto &prim : primitives) {
+            prim->isReady = mesh->IsReady();
+        }
+    }
+
     void MeshRenderer::AttachScene(RenderScene *scn)
     {
         scene = scn;
@@ -30,7 +37,10 @@ namespace sky {
         const auto &techniques = mat->GetMaterial()->GetGfxTechniques();
         primitive->techniques.reserve(techniques.size());
         for (const auto &tech : techniques) {
-            primitive->techniques.emplace_back(TechniqueInstance{tech});
+            TechniqueInstance inst = {tech, mat};
+            inst.shaderOption = new ShaderOption();
+            tech->Process(primitive->vertexFlags, inst.shaderOption);
+            primitive->techniques.emplace_back(inst);
         }
 
         primitive->batchSet = mat->GetResourceGroup();
@@ -39,36 +49,27 @@ namespace sky {
     void MeshRenderer::SetMesh(const RDMeshPtr &mesh_)
     {
         mesh = mesh_;
+        mesh->Upload();
 
         if (!ubo) {
             PrepareUBO();
-        }
-
-        if (!va) {
-            rhi::VertexAssembly::Descriptor desc = {};
-            const auto &vbs = mesh->GetVertexBuffers();
-            desc.vertexBuffers.resize(vbs.size());
-            for (uint32_t i = 0; i < vbs.size(); ++i) {
-                desc.vertexBuffers[i] = vbs[i]->GetRHIBuffer()->CreateView({0, vbs[i]->GetRange()});
-            }
-            desc.indexBuffer = mesh->GetIndexBuffer()->GetRHIBuffer()->CreateView({0, mesh->GetIndexBuffer()->GetRange()});
-            desc.indexType = mesh->GetIndexType();
-            va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
         }
 
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
         for (const auto &sub : mesh->GetSubMeshes()) {
             auto &primitive = primitives.emplace_back(std::make_unique<RenderPrimitive>());
-            SetMaterial(sub.material, index++);
-
             primitive->instanceSet = RequestResourceGroup(meshFeature);
             primitive->instanceSet->BindDynamicUBO("localData", ubo, 0);
             primitive->instanceSet->Update();
 
             primitive->localBound = sub.aabb;
-            primitive->worldBound = sub.aabb;
-            primitive->va = va;
+            primitive->geometry   = mesh->GetGeometry();
+
+            if (primitive->geometry->attributeSemantics.TestBit(VertexSemanticFlagBit::HAS_SKIN)) {
+                primitive->vertexFlags |= RenderVertexFlagBit::SKIN;
+            }
+
             primitive->args.emplace_back(rhi::CmdDrawIndexed {
                 sub.indexCount,
                 1,
@@ -77,6 +78,7 @@ namespace sky {
                 0
             });
 
+            SetMaterial(sub.material, index++);
             scene->AddPrimitive(primitive.get());
         }
     }
@@ -95,7 +97,7 @@ namespace sky {
     void MeshRenderer::PrepareUBO()
     {
         ubo = new DynamicUniformBuffer();
-        ubo->Init(sizeof(InstanceLocal), Renderer::Get()->GetInflightFrameCount());
+        ubo->Init(sizeof(InstanceLocal));
         ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
         ubo->Upload();
     }

@@ -125,19 +125,19 @@ namespace sky {
         return ProcessShaderSource(path).second;
     }
 
-    void ShaderPreprocessor::SetValue(const std::string &key, const MacroValue &val)
+    void ShaderOption::SetValue(const std::string &key, const MacroValue &val)
     {
         values[key] = val;
         CalculateHash();
     }
 
-    void ShaderPreprocessor::CalculateHash()
+    void ShaderOption::CalculateHash()
     {
         hash = 0;
         for (auto &[key, val] : values) {
             std::visit(Overloaded{
-                           [&](const ShaderDef &v) {
-                               HashCombine32(hash, static_cast<uint32_t>(v.enable));
+                           [&](const bool &v) {
+                               HashCombine32(hash, static_cast<uint32_t>(v));
                            },
                            [&](const auto &v){
                                HashCombine32(hash, Crc32::Cal(v));

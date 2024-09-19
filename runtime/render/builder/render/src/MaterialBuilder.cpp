@@ -59,6 +59,21 @@ namespace sky::builder {
                 }
             }
         }
+
+        if (document.HasMember("options")) {
+            auto &optionValue = document["options"];
+            if (optionValue.IsObject()) {
+                for (auto iter = optionValue.MemberBegin(); iter != optionValue.MemberEnd(); ++iter) {
+                    auto &obj = iter->value;
+
+                    if (obj.IsUint()) {
+                        properties.options[iter->name.GetString()] = obj.GetUint();
+                    } else if (obj.IsBool()) {
+                        properties.options[iter->name.GetString()] = obj.GetBool();
+                    }
+                }
+            }
+        }
     }
 
     void MaterialBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
