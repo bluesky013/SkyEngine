@@ -14,7 +14,7 @@ namespace sky {
         ~FreeTypeFactory() override = default;
 
         FontPtr LoadFont(const FileSystemPtr &fs, const std::string &name) override;
-        TextPtr CreateText(const FontPtr &font) override;
+        Text* CreateText(const FontPtr &font) override;
     };
 
 } // namespace sky

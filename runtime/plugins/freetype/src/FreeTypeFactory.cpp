@@ -20,7 +20,7 @@ namespace sky {
         return font;
     }
 
-    TextPtr FreeTypeFactory::CreateText(const FontPtr &font)
+    Text* FreeTypeFactory::CreateText(const FontPtr &font)
     {
         return new FreeTypeText(font);
     }

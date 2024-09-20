@@ -5,6 +5,7 @@
 #pragma once
 
 #include <render/text/Font.h>
+#include <render/RenderPrimitive.h>
 #include <core/math/Color.h>
 #include <core/math/Vector2.h>
 #include <core/template/Flags.h>
@@ -45,7 +46,11 @@ namespace sky {
 
     class Text : public RefObject {
     public:
-        explicit Text(const FontPtr &font_) : font(font_) {} // NOLINT
+        explicit Text(const FontPtr &font_)  // NOLINT
+            : font(font_)
+            , primitive(new RenderPrimitive())
+        {
+        }
         ~Text() override = default;
 
         virtual bool Init(const TextDesc &desc) = 0;
@@ -54,9 +59,8 @@ namespace sky {
         virtual void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) = 0;
     protected:
         FontPtr font;
+        std::unique_ptr<RenderPrimitive> primitive;
     };
-    using TextPtr = CounterPtr<Text>;
-
 } // namespace sky
 
 namespace std {

@@ -34,6 +34,7 @@ namespace sky {
 
     bool Texture2DAtlas::Init(rhi::PixelFormat format, uint32_t width, uint32_t height)
     {
+        allocator = std::make_unique<TextureLinearAllocator>(width, height);
         return Texture2D::Init(format, width, height, 1);
     }
 

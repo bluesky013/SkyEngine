@@ -10,7 +10,7 @@ namespace sky {
     void FreeTypeLibrary::Init()
     {
         FT_Error error = FT_Init_FreeType(&library);
-        if (error) {
+        if (error != 0) {
             LOG_E("FreeType", "Freetype init failed, %d", error);
         }
     }

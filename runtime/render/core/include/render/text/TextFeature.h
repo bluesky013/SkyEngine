@@ -19,12 +19,13 @@ namespace sky {
         ~TextFeature() override = default;
 
         void Init();
-
         void SetTechnique(const RDGfxTechPtr &tech);
     private:
         RDGfxTechPtr technique;
-        RDResourceLayoutPtr localLayout;
+        RDResourceLayoutPtr batchLayout;
         rhi::DescriptorSetPoolPtr pool;
+
+        std::unordered_map<std::string, FontPtr> fonts;
     };
 
     class TextFeatureProcessor : public IFeatureProcessor {
@@ -32,13 +33,14 @@ namespace sky {
         explicit TextFeatureProcessor(RenderScene *scn) : IFeatureProcessor(scn) {}
         ~TextFeatureProcessor() override = default;
 
-        TextPtr CreateText();
-
-        void Tick(float time) override;
-        void Render(rdg::RenderGraph &rdg) override;
+        Text* CreateText(const FontPtr &font);
+        void RemoveText(Text *text);
 
     private:
+        void Tick(float time) override {}
+        void Render(rdg::RenderGraph &rdg) override {}
 
+        std::list<std::unique_ptr<Text>> texts;
     };
 
 } // namespace sky

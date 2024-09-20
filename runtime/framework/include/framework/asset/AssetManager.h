@@ -31,6 +31,8 @@ namespace sky {
 
         AssetPtr LoadAssetFromPath(const std::string &path);
 
+        const FileSystemPtr &GetWorkSpaceFS() const { return workSpace; }
+
         template <typename T>
         std::shared_ptr<Asset<T>> LoadAssetFromPath(const std::string &path)
         {

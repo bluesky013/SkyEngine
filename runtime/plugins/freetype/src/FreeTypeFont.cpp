@@ -10,25 +10,6 @@ static const char* TAG = "FreeType";
 
 namespace sky {
 
-//    bool FreeTypeFace::Init(FreeTypeFont &font, uint32_t fontSize)
-//    {
-//        auto *library = FreeTypeLibrary::Get()->GetLibrary();
-//
-//        FT_Error error = FT_New_Memory_Face(library, font.Data(), static_cast<FT_Long>(font.Size()), 0, &face);
-//        if (error) {
-//            LOG_E(TAG, "New Memory Face failed : %d.", error);
-//            return false;
-//        }
-//
-//        error = FT_Set_Pixel_Sizes(face, fontSize, fontSize);
-//        if (error) {
-//            LOG_E(TAG, "Set Pixel Sizes failed, error code: %d.", error);
-//            return false;
-//        }
-//
-//        return true;
-//    }
-
     FreeTypeFont::~FreeTypeFont()
     {
         if (face != nullptr) {
@@ -45,7 +26,7 @@ namespace sky {
         file->ReadBin(rawData);
 
         FT_Error error = FT_New_Memory_Face(library, rawData.data(), static_cast<FT_Long>(rawData.size()), 0, &face);
-        if (error) {
+        if (error != 0) {
             LOG_E(TAG, "New Memory Face failed : %d.", error);
         }
     }
@@ -53,14 +34,14 @@ namespace sky {
     bool FreeTypeFont::Init(uint32_t fontSize, uint32_t w, uint32_t h)
     {
         FT_Error error = FT_Set_Pixel_Sizes(face, 0, fontSize);
-        if (error) {
+        if (error != 0) {
             LOG_E(TAG, "Set Font Size failed : %d.", error);
             return false;
         }
 
         fontWidth  = w;
         fontHeight = h;
-        lineHeight = face->size->metrics.height;
+        lineHeight = static_cast<uint32_t>(face->size->metrics.height >> 6);
         return true;
     }
 
@@ -77,7 +58,7 @@ namespace sky {
     FreeTypeGlyph* FreeTypeFont::Allocate(uint32_t code)
     {
         FT_Error error = FT_Load_Char(face, code, FT_LOAD_RENDER);
-        if (error) {
+        if (error != 0) {
             return nullptr;
         }
 
@@ -124,8 +105,8 @@ namespace sky {
 
     void FreeTypeFont::EmplaceTexture()
     {
-        auto tex = new Texture2DAtlas();
-        tex->Init(rhi::PixelFormat::R8_UNORM, GetFontTexWidth(), GetFontTexHeight());
+        auto *tex = new Texture2DAtlas();
+        tex->Init(rhi::PixelFormat::R8_UNORM, fontWidth, fontHeight);
 
         textures.emplace_back(tex);
     }

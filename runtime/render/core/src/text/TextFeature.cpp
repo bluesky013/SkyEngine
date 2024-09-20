@@ -3,6 +3,7 @@
 //
 
 #include <render/text/TextFeature.h>
+#include <render/text/TextRegistry.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
 
@@ -16,7 +17,7 @@ namespace sky {
     void TextFeature::SetTechnique(const RDGfxTechPtr &tech)
     {
         technique = tech;
-        localLayout = technique->RequestProgram()->RequestLayout(1);
+        batchLayout = technique->RequestProgram()->RequestLayout(BATCH_SET);
     }
 
     void TextFeature::Init()
@@ -34,13 +35,16 @@ namespace sky {
         }
     }
 
-    void TextFeatureProcessor::Tick(float time)
+    Text* TextFeatureProcessor::CreateText(const FontPtr &font)
     {
-
+        auto *text = TextRegistry::Get()->CreateText(font);
+        return texts.emplace_back(text).get();
     }
 
-    void TextFeatureProcessor::Render(rdg::RenderGraph &rdg)
+    void TextFeatureProcessor::RemoveText(Text *text)
     {
-
+        texts.remove_if([text](const auto &val) {
+            return text == val.get();
+        });
     }
 } // namespace sky

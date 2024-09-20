@@ -21,11 +21,11 @@ namespace sky {
             virtual ~Impl() = default;
 
             virtual FontPtr LoadFont(const FileSystemPtr &fs, const std::string &name) = 0;
-            virtual TextPtr CreateText(const FontPtr &font) = 0;
+            virtual Text* CreateText(const FontPtr &font) = 0;
         };
 
         FontPtr LoadFont(const FileSystemPtr &fs, const std::string &name);
-        TextPtr CreateText(const FontPtr &font);
+        Text* CreateText(const FontPtr &font);
 
         void Register(Impl* factory);
         void UnRegister();

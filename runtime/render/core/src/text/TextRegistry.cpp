@@ -11,7 +11,7 @@ namespace sky {
         return factory ? factory->LoadFont(fs, name) : nullptr;
     }
 
-    TextPtr TextRegistry::CreateText(const FontPtr &font)
+    Text* TextRegistry::CreateText(const FontPtr &font)
     {
         return factory ? factory->CreateText(font) : nullptr;
     }
