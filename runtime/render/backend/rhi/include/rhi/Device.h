@@ -63,6 +63,8 @@ namespace sky::rhi {
         struct Descriptor {
             DeviceFeature feature;
         };
+
+        virtual std::string GetDeviceInfo() const { return ""; }
         virtual void WaitIdle() const = 0;
 
         // device object

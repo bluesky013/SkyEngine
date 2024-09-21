@@ -17,14 +17,18 @@
 namespace sky {
 
     struct TextVertex {
-        Vector2 position;
+        Vector2 pos;
         Vector2 uv;
-        Color   color;
+        Color   col;
     };
 
     struct TextBatch : public RefObject {
+        void Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo);
+        void Flush();
         void AddQuad(const Rect& rect, const Rect &uv, const Color &color);
 
+        rhi::CmdDrawLinear args;
+        std::unique_ptr<RenderPrimitive> primitive;
         std::vector<TextVertex> vertices;
     };
     using TextBatchPtr = CounterPtr<TextBatch>;
@@ -36,11 +40,16 @@ namespace sky {
 
     private:
         bool Init(const TextDesc &desc) override;
-        void Reset() override;
-        void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) override;
-        static TextFlags ValidateFlags(const TextFlags &flags) ;
+        void SetDisplaySize(float w, float h) override;
 
+        void Reset(RenderScene& scene) override;
+        void Finalize(RenderScene& scene) override;
+
+        void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) override;
+
+        static TextFlags ValidateFlags(const TextFlags &flags) ;
         std::unordered_map<BatchKey, TextBatchPtr> batches;
+        RDDynamicUniformBufferPtr ubo;
     };
 
 } // namespace sky

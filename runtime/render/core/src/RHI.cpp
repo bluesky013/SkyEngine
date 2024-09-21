@@ -13,6 +13,23 @@ namespace sky {
         instance = nullptr;
     }
 
+    std::string RHI::GetBackendName() const
+    {
+        switch (api) {
+            case rhi::API::VULKAN:
+                return "vulkan";
+            case rhi::API::METAL:
+                return "metal";
+            case rhi::API::DX12:
+                return "d3d12";
+            case rhi::API::GLES:
+                return "gles";
+            default:
+                break;
+        }
+        return "Unknown";
+    }
+
     void RHI::InitInstance(rhi::Instance::Descriptor desc)
     {
 #ifdef SKY_ENABLE_XR

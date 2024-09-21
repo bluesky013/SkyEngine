@@ -31,8 +31,8 @@ namespace sky::vk {
         vInputInfo.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
         vInputInfo.pVertexBindingDescriptions      = bindings.data();
         hash                                       = 0;
-        HashCombine32(hash, Crc32::Cal((uint8_t *)attributes.data(), static_cast<uint32_t>(attributes.size())));
-        HashCombine32(hash, Crc32::Cal((uint8_t *)bindings.data(), static_cast<uint32_t>(bindings.size())));
+        HashCombine32(hash, Crc32::Cal((uint8_t *)attributes.data(), static_cast<uint32_t>(attributes.size() * sizeof(VkVertexInputAttributeDescription))));
+        HashCombine32(hash, Crc32::Cal((uint8_t *)bindings.data(), static_cast<uint32_t>(bindings.size() * sizeof(VkVertexInputBindingDescription))));
     }
 
     VertexInput::Builder &VertexInput::Builder::Begin()

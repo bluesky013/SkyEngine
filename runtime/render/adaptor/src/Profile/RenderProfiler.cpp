@@ -6,6 +6,7 @@
 #include <render/text/TextRegistry.h>
 #include <render/text/TextFeature.h>
 #include <render/RenderScene.h>
+#include <render/RHI.h>
 #include <framework/asset/AssetDataBase.h>
 
 namespace sky {
@@ -18,9 +19,14 @@ namespace sky {
         text = scene->GetFeature<TextFeatureProcessor>()->CreateText(font);
         text->Init(TextDesc{20});
 
-        text->AddText("test", Vector2{10, 10}, {Color{1.f, 0, 0, 1.f}});
-    }
+        TextInfo info = {};
+        info.color = Color{1.f, 1, 1, 1.f};
 
+        std::stringstream ss;
+        ss << RHI::Get()->GetDevice()->GetDeviceInfo() << " <" << RHI::Get()->GetBackendName() << ">" << std::endl;
+        text->AddText(ss.str(), Vector2{20, 40}, info);
+        text->Finalize(*scene);
+    }
 
     RenderProfiler::~RenderProfiler()
     {
@@ -29,4 +35,8 @@ namespace sky {
         }
     }
 
+    void RenderProfiler::SetDisplaySize(uint32_t w, uint32_t h)
+    {
+        text->SetDisplaySize(static_cast<float>(w), static_cast<float>(h));
+    }
 } // namespace sky

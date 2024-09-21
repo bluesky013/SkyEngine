@@ -495,6 +495,16 @@ namespace sky::vk {
         vkDeviceWaitIdle(device);
     }
 
+    std::string Device::GetDeviceInfo() const
+    {
+        VkPhysicalDeviceProperties2 prop = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        vkGetPhysicalDeviceProperties2(phyDev, &prop);
+
+        std::string ret;
+        ret += prop.properties.deviceName;
+        return ret;
+    }
+
     bool Device::FillMemoryRequirements(VkMemoryRequirements2 &requirements, const VkMemoryDedicatedRequirements &dedicated, VkMemoryPropertyFlags flags, MemoryRequirement &out) const
     {
         int32_t index = FindProperties(requirements.memoryRequirements.memoryTypeBits, flags);

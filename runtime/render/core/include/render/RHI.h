@@ -23,6 +23,7 @@ namespace sky {
         void InitInstance(rhi::Instance::Descriptor desc);
         void InitDevice(const rhi::Device::Descriptor &desc);
 
+        std::string GetBackendName() const;
         rhi::API GetBackend() const { return api; }
         rhi::Device *GetDevice() const { return device.get(); }
 

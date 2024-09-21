@@ -128,7 +128,16 @@ namespace sky {
         {
             auto guiAsset = am->LoadAssetFromPath<Technique>("techniques/gui.tech");
             guiAsset->BlockUntilLoaded();
-            ImGuiFeature::Get()->SetTechnique(GreateGfxTechFromAsset(guiAsset));
+
+            auto tech = CreateTechniqueFromAsset(guiAsset);
+            ImGuiFeature::Get()->SetTechnique(tech);
+        }
+        {
+            auto guiAsset = am->LoadAssetFromPath<Technique>("techniques/text.tech");
+            guiAsset->BlockUntilLoaded();
+
+            auto tech = CreateTechniqueFromAsset(guiAsset);
+            TextFeature::Get()->SetTechnique(tech);
         }
 
     }

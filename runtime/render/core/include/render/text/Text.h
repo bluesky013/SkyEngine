@@ -15,6 +15,7 @@
 #include <cstdint>
 
 namespace sky {
+    class RenderScene;
 
     struct TextDesc {
         uint32_t fontSize  = 10;
@@ -48,18 +49,20 @@ namespace sky {
     public:
         explicit Text(const FontPtr &font_)  // NOLINT
             : font(font_)
-            , primitive(new RenderPrimitive())
         {
         }
         ~Text() override = default;
 
         virtual bool Init(const TextDesc &desc) = 0;
 
-        virtual void Reset() = 0;
         virtual void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) = 0;
+
+        virtual void Reset(RenderScene& scene) {}
+        virtual void Finalize(RenderScene& scene) {}
+
+        virtual void SetDisplaySize(float w, float h) {}
     protected:
         FontPtr font;
-        std::unique_ptr<RenderPrimitive> primitive;
     };
 } // namespace sky
 

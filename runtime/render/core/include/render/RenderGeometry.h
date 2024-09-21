@@ -33,7 +33,8 @@ namespace sky {
 
         IndexBuffer                  indexBuffer;
 
-        VertexSemanticFlags          attributeSemantics; // flags for all attributes
+        // flags for all attributes
+        VertexSemanticFlags          attributeSemantics;
 
         std::unordered_map<VertexSemanticFlags, rhi::VertexAssemblyPtr> vaoCache;
 

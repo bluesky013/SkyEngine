@@ -8,11 +8,19 @@
 #include <render/RHI.h>
 
 namespace sky {
-    static constexpr uint32_t MAX_SET_PER_POOL = 16;
-    static const std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
-        {rhi::DescriptorType::SAMPLED_IMAGE, MAX_SET_PER_POOL},
-        {rhi::DescriptorType::SAMPLER, MAX_SET_PER_POOL},
+    static constexpr uint32_t MAX_SET_PER_POOL = 4;
+    static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
+            {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
+            {rhi::DescriptorType::SAMPLED_IMAGE,          MAX_SET_PER_POOL},
+            {rhi::DescriptorType::SAMPLER,                MAX_SET_PER_POOL}
     };
+
+    RDResourceGroupPtr TextFeature::RequestResourceGroup()
+    {
+        auto *rsg = new ResourceGroup();
+        rsg->Init(batchLayout, *pool);
+        return rsg;
+    }
 
     void TextFeature::SetTechnique(const RDGfxTechPtr &tech)
     {

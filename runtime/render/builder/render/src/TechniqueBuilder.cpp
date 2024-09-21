@@ -87,8 +87,8 @@ namespace sky::builder {
             }
         }
 
-        if (document.HasMember("vertex_flags")) {
-            auto object = document["vertex_flags"].GetObject();
+        if (document.HasMember("vertex_options")) {
+            auto object = document["vertex_options"].GetObject();
             for (auto iter = object.MemberBegin(); iter != object.MemberEnd(); ++iter) {
                 const auto &member = *iter;
                 auto flag  = VTX_FLAG_MAP.find(member.name.GetString());

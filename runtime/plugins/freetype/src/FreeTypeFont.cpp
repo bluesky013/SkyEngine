@@ -6,6 +6,7 @@
 #include <freetype/FreeTypeLibrary.h>
 #include <core/logger/Logger.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
 static const char* TAG = "FreeType";
 
 namespace sky {
@@ -21,10 +22,7 @@ namespace sky {
     void FreeTypeFont::Load(const FilePtr &file)
     {
         auto *library = FreeTypeLibrary::Get()->GetLibrary();
-
-        std::vector<uint8_t> rawData = {};
         file->ReadBin(rawData);
-
         FT_Error error = FT_New_Memory_Face(library, rawData.data(), static_cast<FT_Long>(rawData.size()), 0, &face);
         if (error != 0) {
             LOG_E(TAG, "New Memory Face failed : %d.", error);
@@ -55,6 +53,11 @@ namespace sky {
         return Allocate(code);
     }
 
+    RDTexture2DPtr FreeTypeFont::GetTextureByIndex(uint32_t index)
+    {
+        return textures[index];
+    }
+
     FreeTypeGlyph* FreeTypeFont::Allocate(uint32_t code)
     {
         FT_Error error = FT_Load_Char(face, code, FT_LOAD_RENDER);
@@ -72,29 +75,31 @@ namespace sky {
         if (textures.empty()) {
             EmplaceTexture();
         }
-        // try allocate
-        auto res = textures.back()->Allocate(glyph.width, glyph.height);
-        if (!res.first) {
-            EmplaceTexture();
-            // try again
-            res = textures.back()->Allocate(glyph.width, glyph.height);
-        }
 
-        if (!res.first) {
-            return nullptr;
-        }
+        if (glyph.width > 0 && glyph.height > 0) {
+            // try allocate
+            auto res = textures.back()->Allocate(glyph.width, glyph.height);
+            if (!res.first) {
+                EmplaceTexture();
+                // try again
+                res = textures.back()->Allocate(glyph.width, glyph.height);
+            }
 
-        glyph.x = res.second.x;
-        glyph.y = res.second.y;
-        glyph.index = static_cast<uint32_t>(textures.size()) - 1;
+            if (!res.first) {
+                return nullptr;
+            }
+
+            glyph.x = res.second.x;
+            glyph.y = res.second.y;
+            glyph.index = static_cast<uint32_t>(textures.size()) - 1;
+
+            uint32_t dataSize = static_cast<uint32_t>(std::abs(face->glyph->bitmap.pitch)) * face->glyph->bitmap.rows;
+            std::vector<uint8_t> data(dataSize);
+            memcpy(data.data(), face->glyph->bitmap.buffer, dataSize);
+            textures[glyph.index]->Upload(res.second, *RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER), std::move(data));
+        }
 
         auto it = glyphLut.emplace(code, glyph);
-
-        uint32_t dataSize = static_cast<uint32_t>(std::abs(face->glyph->bitmap.pitch)) * face->glyph->bitmap.rows;
-        std::vector<uint8_t> data(dataSize);
-        memcpy(data.data(), face->glyph->bitmap.buffer, dataSize);
-        handle = textures[glyph.index]->Upload(res.second, *RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER), std::move(data));
-
         return &it.first->second;
     }
 

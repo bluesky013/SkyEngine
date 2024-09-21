@@ -6,7 +6,6 @@
 
 #include <framework/world/World.h>
 #include <render/RenderScene.h>
-#include <render/adaptor/profile/RenderProfiler.h>
 
 namespace sky {
 
@@ -19,7 +18,6 @@ namespace sky {
 
     private:
         RenderScene *renderScene = nullptr;
-        std::unique_ptr<RenderProfiler> profiler;
     };
 
 } // namespace sky

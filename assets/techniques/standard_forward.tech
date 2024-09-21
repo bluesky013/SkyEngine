@@ -17,13 +17,13 @@
     },
     "pre_defines": [
     ],
-    "vertex_flags": {
+    "vertex_options": {
         "SKIN": "ENABLE_SKIN",
         "INSTANCE": "ENABLE_INSTANCE"
     },
-    "common_flags": {
-        "useEmissiveMap": "ENABLE_EMISSIVE_MAP",
-        "useAOMap": "ENABLE_AO_MAP",
-        "useMask": "ENABLE_ALPHA_MASK"
+    "common_options": {
+        "ENABLE_EMISSIVE_MAP": false,
+        "ENABLE_AO_MAP": false,
+        "ENABLE_ALPHA_MASK": false
     }
 }

@@ -11,7 +11,6 @@ namespace sky {
 
     static constexpr uint32_t MAX_SET_PER_POOL = 1;
     static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
-            {rhi::DescriptorType::UNIFORM_BUFFER,         MAX_SET_PER_POOL},
             {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, MAX_SET_PER_POOL},
             {rhi::DescriptorType::SAMPLED_IMAGE,          MAX_SET_PER_POOL},
             {rhi::DescriptorType::SAMPLER,                MAX_SET_PER_POOL}

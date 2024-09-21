@@ -10,12 +10,10 @@ namespace sky {
     RenderSceneProxy::RenderSceneProxy()
     {
         renderScene = Renderer::Get()->CreateScene();
-        profiler = std::make_unique<RenderProfiler>(renderScene);
     }
 
     RenderSceneProxy::~RenderSceneProxy()
     {
-        profiler = nullptr;
         Renderer::Get()->RemoveScene(renderScene);
     }
 

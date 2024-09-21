@@ -40,20 +40,20 @@ namespace sky {
         uint32_t GetFontTexWidth() const { return fontWidth; }
         uint32_t GetFontTexHeight() const { return fontHeight; }
 
+        RDTexture2DPtr GetTextureByIndex(uint32_t index);
     private:
         bool IsReady() const override;
 
         void EmplaceTexture();
 
         FT_Face face;
-        rhi::TransferTaskHandle handle = 0;
         uint32_t lineHeight = 0;
         uint32_t fontWidth = 512;
         uint32_t fontHeight = 512;
 
         std::vector<RDTexture2DAtlasPtr> textures;
         std::unordered_map<uint32_t, FreeTypeGlyph> glyphLut;
-
+        std::vector<uint8_t> rawData;
     };
 
 } // namespace sky

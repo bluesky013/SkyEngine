@@ -51,6 +51,7 @@ namespace sky::vk {
             return res;
         }
 
+        std::string GetDeviceInfo() const override;
         void WaitIdle() const  override;
 
         VmaAllocator     GetAllocator() const;

@@ -70,8 +70,10 @@ namespace sky {
         auto *device = RHI::Get()->GetDevice();
         vtxInput = device->CreateVertexInput(vtxDesc);
         assemDesc.vertexInput = vtxInput;
-        assemDesc.indexType   = indexBuffer.indexType;
-        assemDesc.indexBuffer = indexBuffer.MakeView();
+        if (indexBuffer.buffer) {
+            assemDesc.indexType   = indexBuffer.indexType;
+            assemDesc.indexBuffer = indexBuffer.MakeView();
+        }
 
         return device->CreateVertexAssembly(assemDesc);
     }

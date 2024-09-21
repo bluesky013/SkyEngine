@@ -54,7 +54,7 @@ namespace sky {
 
         Result<TextureAtlasAllocator::Page> Allocate(uint32_t w, uint32_t h);
 
-        rhi::TransferTaskHandle Upload(const Page &page, rhi::Queue &queue, std::vector<uint8_t> &&data);
+        void Upload(const Page &page, rhi::Queue &queue, std::vector<uint8_t> &&data);
 
     private:
         std::unique_ptr<TextureAtlasAllocator> allocator;

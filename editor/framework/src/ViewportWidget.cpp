@@ -256,6 +256,7 @@ namespace sky::editor {
             editorCamera->Shutdown();
         }
         Renderer::Get()->SetPipeline(nullptr);
+        profiler = nullptr;
         gizmo = nullptr;
         sceneProxy = nullptr;
         Renderer::Get()->DestroyRenderWindow(renderWindow);
@@ -274,6 +275,10 @@ namespace sky::editor {
         if (renderWindow != nullptr) {
             renderWindow->Resize(width, height);
             editorCamera->UpdateAspect(width, height);
+        }
+
+        if (profiler) {
+            profiler->SetDisplaySize(window->GetWidth(), window->GetHeight());
         }
     }
 
@@ -318,6 +323,9 @@ namespace sky::editor {
             gizmo.reset(gizmoFactory->CreateGizmo());
             gizmo->Init(*world, window);
         }
+
+        profiler = std::make_unique<RenderProfiler>(sceneProxy->GetRenderScene());
+        profiler->SetDisplaySize(window->GetWidth(), window->GetHeight());
 
         Event<IWindowEvent>::Connect(window, this);
     }

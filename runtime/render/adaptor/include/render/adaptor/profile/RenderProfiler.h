@@ -15,6 +15,7 @@ namespace sky {
         explicit RenderProfiler(RenderScene *scn);
         ~RenderProfiler();
 
+        void SetDisplaySize(uint32_t w, uint32_t h);
     private:
         RenderScene* scene = nullptr;
         Text* text         = nullptr;

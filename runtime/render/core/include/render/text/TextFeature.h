@@ -20,6 +20,9 @@ namespace sky {
 
         void Init();
         void SetTechnique(const RDGfxTechPtr &tech);
+
+        RDResourceGroupPtr RequestResourceGroup();
+        const RDGfxTechPtr &GetTechnique() const { return technique; }
     private:
         RDGfxTechPtr technique;
         RDResourceLayoutPtr batchLayout;
