@@ -105,7 +105,7 @@ namespace sky::rdg {
         mainCommandBuffer->FlushBarriers();
     }
 
-    [[maybe_unused]] void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g)
+    [[maybe_unused]] void RenderGraphExecutor::discover_vertex(Vertex u, const Graph& g) // NOLINT
     {
         const auto &mainCommandBuffer = graph.context->MainCommandBuffer();
         std::visit(Overloaded{
@@ -195,6 +195,15 @@ namespace sky::rdg {
 
                     if (tech.vao) {
                         currentEncoder->BindAssembly(tech.vao);
+                    } else {
+                        std::vector<rhi::BufferView> vertexBuffers;
+                        item.primitive->geometry->FillVertexBuffer(vertexBuffers);
+                        currentEncoder->BindVertexBuffers(vertexBuffers);
+                    }
+
+                    const auto &ib = item.primitive->geometry->indexBuffer;
+                    if (ib.buffer) {
+                        currentEncoder->BindIndexBuffer(ib.MakeView(), ib.indexType);
                     }
 
                     for (const auto &arg : item.primitive->args) {
@@ -210,7 +219,7 @@ namespace sky::rdg {
             [&](const FullScreenBlitTag &) {
                 auto &fullScreen = graph.fullScreens[Index(u, graph)];
                 currentEncoder->BindPipeline(fullScreen.pso);
-                if (fullScreen.resourceGroup) {
+                if (fullScreen.resourceGroup != nullptr) {
                     fullScreen.resourceGroup->OnBind(*currentEncoder, 0);
                 }
                 currentEncoder->DrawLinear({3, 1, 0, 0});

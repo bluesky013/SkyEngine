@@ -9,17 +9,18 @@
 #include <core/math/Color.h>
 #include <core/shapes/Shapes.h>
 #include <vector>
+#include <render/RenderGeometry.h>
 
 namespace sky {
 
     struct DebugVertex {
-        Vector4 position;
-        Color color;
+        Vector4 pos;
+        Color   col;
     };
 
     class DebugRenderer {
     public:
-        DebugRenderer() = default;
+        DebugRenderer();
         ~DebugRenderer() = default;
 
         void Reset();
@@ -30,11 +31,17 @@ namespace sky {
 
         void DrawSphere(const Sphere &sphere);
         void DrawAABB(const AABB &aabb);
+
+        void Render();
     private:
         Color currentColor = {1.f, 1.f, 1.f, 1.f};
 
+        rhi::CmdDrawLinear linear;
+        RDBufferPtr vertexBuffer;
+        RenderGeometryPtr geometry;
         std::vector<DebugVertex> batchVertices;
-        std::vector<uint32_t> batchIndices;
+
+        uint32_t capacity = 0;
     };
 
 } // namespace sky

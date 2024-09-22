@@ -70,6 +70,8 @@ namespace sky::vk {
         rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &info) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
+        rhi::GraphicsEncoder &BindVertexBuffers(const std::vector<rhi::BufferView> &vbs) override;
+        rhi::GraphicsEncoder &BindIndexBuffer(const rhi::BufferView& view, rhi::IndexType type) override;
         rhi::GraphicsEncoder &SetViewport(uint32_t count, const rhi::Viewport *viewport) override;
         rhi::GraphicsEncoder &SetScissor(uint32_t count, const rhi::Rect2D *scissor) override;
         rhi::GraphicsEncoder &DrawIndexed(const rhi::CmdDrawIndexed &indexed) override;

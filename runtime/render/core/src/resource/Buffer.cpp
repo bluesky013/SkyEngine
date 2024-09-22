@@ -34,13 +34,6 @@ namespace sky {
         sourceData = data;
     }
 
-    void Buffer::Resize(uint64_t size)
-    {
-        Renderer::Get()->GetResourceGC()->CollectBuffer(buffer);
-        bufferDesc.size = size;
-        buffer = device->CreateBuffer(bufferDesc);
-    }
-
     uint64_t Buffer::UploadImpl()
     {
         uploadHandle = uploadQueue->UploadBuffer(buffer, sourceData);
@@ -55,12 +48,18 @@ namespace sky {
 
     rhi::BufferView VertexBuffer::MakeView() const
     {
-        return rhi::BufferView{buffer->GetRHIBuffer(), offset, range};
+        auto res = buffer->MakeView();
+        res.offset += offset;
+        res.range  = range;
+        return res;
     }
 
     rhi::BufferView IndexBuffer::MakeView() const
     {
-        return rhi::BufferView{buffer->GetRHIBuffer(), offset, range};
+        auto res = buffer->MakeView();
+        res.offset += offset;
+        res.range  = range;
+        return res;
     }
 
     bool UniformBuffer::Init(uint32_t size)
@@ -126,4 +125,41 @@ namespace sky {
         return static_cast<bool>(buffer);
     }
 
+    bool DynamicBuffer::Init(uint32_t size, const rhi::BufferUsageFlags& usage)
+    {
+        frameSize = size;
+        alignedFrameSize = Align(size, 64U);
+
+        Buffer::Init(alignedFrameSize * Renderer::Get()->GetInflightFrameCount(), usage, rhi::MemoryType::CPU_TO_GPU);
+
+        mapped = buffer->Map();
+        return static_cast<bool>(buffer);
+    }
+
+    void DynamicBuffer::Update(uint8_t *ptr, uint32_t offset, uint32_t size)
+    {
+        SKY_ASSERT(offset + size <= frameSize);
+        SKY_ASSERT(mapped != nullptr);
+        memcpy(mapped + GetOffset() + offset, ptr, size);
+    }
+
+    void DynamicBuffer::SwapBuffer()
+    {
+        frameIndex = (frameIndex + 1) % Renderer::Get()->GetInflightFrameCount();
+    }
+
+    uint8_t *DynamicBuffer::GetMapped() const
+    {
+        return mapped + GetOffset();
+    }
+
+    rhi::BufferView DynamicBuffer::MakeView() const
+    {
+        rhi::BufferView res = {};
+        res.buffer = buffer;
+        res.offset = GetOffset();
+        res.range  = GetSize();
+
+        return res;
+    }
 } // namespace sky

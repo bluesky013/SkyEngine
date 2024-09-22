@@ -33,9 +33,9 @@ namespace sky {
     ENABLE_FLAG_BIT_OPERATOR(VertexSemanticFlagBit)
 
     enum class RenderVertexFlagBit : uint32_t {
-        NONE     = 0,
-        SKIN     = 1,
-        INSTANCE = 2,
+        NONE     = 0x00,
+        SKIN     = 0x01,
+        INSTANCE = 0x02,
     };
     using RenderVertexFlags = Flags<RenderVertexFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(RenderVertexFlagBit)

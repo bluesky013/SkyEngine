@@ -55,9 +55,8 @@ namespace sky {
         ImContext context;
 
         std::unique_ptr<RenderPrimitive> primitive;
-        RDBufferPtr stagingBuffer;
-        RDBufferPtr vertexBuffer;
-        RDBufferPtr indexBuffer;
+        RDDynamicBuffer vertexBuffer;
+        RDDynamicBuffer indexBuffer;
         RDResourceGroupPtr globalSet;
 
         RDTexture2DPtr fontTexture;

@@ -39,6 +39,8 @@ namespace sky::rhi {
         virtual GraphicsEncoder &BeginPass(const PassBeginInfo &beginInfo) = 0;
         virtual GraphicsEncoder &BindPipeline(const GraphicsPipelinePtr &pso) = 0;
         virtual GraphicsEncoder &BindAssembly(const VertexAssemblyPtr &assembly) = 0;
+        virtual GraphicsEncoder &BindVertexBuffers(const std::vector<rhi::BufferView> &vbs) = 0;
+        virtual GraphicsEncoder &BindIndexBuffer(const rhi::BufferView& view, rhi::IndexType type) = 0;
         virtual GraphicsEncoder &SetViewport(uint32_t count, const Viewport *viewport) = 0;
         virtual GraphicsEncoder &SetScissor(uint32_t count, const Rect2D *scissor) = 0;
         virtual GraphicsEncoder &DrawIndexed(const CmdDrawIndexed &indexed) = 0;

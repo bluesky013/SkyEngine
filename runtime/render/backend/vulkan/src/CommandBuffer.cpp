@@ -550,6 +550,32 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::BindVertexBuffers(const std::vector<rhi::BufferView> &vbs)
+    {
+        std::vector<VkBuffer> vertexBuffers;
+        std::vector<VkDeviceSize> offsets;
+
+        auto vbSize = static_cast<uint32_t>(vbs.size());
+        vertexBuffers.reserve(vbSize);
+        offsets.reserve(vbSize);
+
+        for (const auto &vb : vbs) {
+            auto vBuffer = std::static_pointer_cast<Buffer>(vb.buffer);
+            vertexBuffers.emplace_back(vBuffer->GetNativeHandle());
+            offsets.emplace_back(vb.offset);
+        }
+
+        vkCmdBindVertexBuffers(cmd, 0, vbSize, vertexBuffers.data(), offsets.data());
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BindIndexBuffer(const rhi::BufferView& view, rhi::IndexType type)
+    {
+        auto vBuffer = std::static_pointer_cast<Buffer>(view.buffer);
+        vkCmdBindIndexBuffer(cmd, vBuffer->GetNativeHandle(), view.offset, FromRHI(type));
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::SetViewport(uint32_t count, const rhi::Viewport *viewports)
     {
         std::vector<VkViewport> vkViewPorts(count);

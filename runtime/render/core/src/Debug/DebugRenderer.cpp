@@ -6,9 +6,24 @@
 
 namespace sky {
 
+    static std::vector<VertexAttribute> DEBUG_ATTRIBUTES = {
+            VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(DebugVertex, pos), rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(DebugVertex, col),  rhi::Format::F_RGBA32},
+    };
+
+    static VertexSemanticFlags DEBUG_VTX_SEMANTICS = VertexSemanticFlagBit::POSITION | VertexSemanticFlagBit::COLOR;
+
+    DebugRenderer::DebugRenderer()
+        : geometry(new RenderGeometry())
+    {
+        geometry->vertexAttributes   = DEBUG_ATTRIBUTES;
+        geometry->attributeSemantics = DEBUG_VTX_SEMANTICS;
+    }
+
     void DebugRenderer::Reset()
     {
-
+        currentColor = {1.f, 1.f, 1.f, 1.f};
+        batchVertices.clear();
     }
 
     void DebugRenderer::SetColor(const Color &color)
@@ -33,10 +48,7 @@ namespace sky {
             currentColor
         };
 
-        batchIndices.emplace_back(static_cast<uint32_t>(batchVertices.size()));
         batchVertices.emplace_back(begin);
-
-        batchIndices.emplace_back(static_cast<uint32_t>(batchVertices.size()));
         batchVertices.emplace_back(end);
     }
 
@@ -97,6 +109,26 @@ namespace sky {
         DrawLine(Vector3(aabb.max[0], aabb.min[1], aabb.max[2]), Vector3(aabb.max[0], aabb.max[1], aabb.max[2]));
         DrawLine(Vector3(aabb.max[0], aabb.max[1], aabb.max[2]), Vector3(aabb.min[0], aabb.max[1], aabb.max[2]));
         DrawLine(Vector3(aabb.min[0], aabb.max[1], aabb.max[2]), Vector3(aabb.min[0], aabb.min[1], aabb.max[2]));
+    }
+
+    void DebugRenderer::Render()
+    {
+        auto vtxSize = static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex));
+
+        if (!vertexBuffer || vtxSize > capacity) {
+            capacity = std::max(capacity * 2, vtxSize);
+
+            vertexBuffer = new Buffer();
+            vertexBuffer->Init(capacity, rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::CPU_TO_GPU);
+
+            geometry->vertexBuffers.clear();
+            geometry->vertexBuffers.emplace_back(VertexBuffer {
+                vertexBuffer, 0, capacity, static_cast<uint32_t>(sizeof(DebugVertex))
+            });
+            geometry->version++;
+        }
+
+        linear.vertexCount = static_cast<uint32_t>(batchVertices.size());
     }
 
 } // namespace sky

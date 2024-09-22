@@ -18,6 +18,65 @@ namespace sky {
         attributeSemantics |= attribute.sematic;
     }
 
+    void RenderGeometry::FillVertexBuffer(std::vector<rhi::BufferView> &vbs)
+    {
+        vbs.reserve(vertexBuffers.size());
+        for (auto &vb : vertexBuffers) {
+            vbs.emplace_back(vb.MakeView());
+        }
+    }
+
+    rhi::VertexInputPtr RenderGeometry::Request(const RDProgramPtr& program)
+    {
+        auto *semantics = RenderSemantics::Get();
+        rhi::VertexInput::Descriptor vtxDesc = {};
+
+        std::array<uint8_t, MAX_VERTEX_BUFFER_BINDINGS> bindingHash;
+        bindingHash.fill(0xFF);
+
+        for (const auto &attr : program->GetVertexAttributes()) {
+            auto semantic = semantics->QuerySemanticByName(attr.semantic);
+            if (semantic == VertexSemanticFlagBit::NONE) {
+                LOG_E(TAG, "Vertex Semantic not Registered %s", attr.semantic.c_str());
+                return {};
+            }
+
+            auto iter  = std::find_if(vertexAttributes.begin(), vertexAttributes.end(), [semantic](const VertexAttribute &stream) -> bool {
+                return stream.sematic & semantic;
+            });
+
+            if (iter == vertexAttributes.end()) {
+                // geometry not compatible with shader
+                return {};
+            }
+
+            const auto &stream = *iter;
+            SKY_ASSERT(stream.binding < MAX_VERTEX_BUFFER_BINDINGS)
+
+            auto &binding = bindingHash[stream.binding];
+            if (binding == 0xFF) {
+                rhi::VertexBindingDesc vbDesc = {};
+                vbDesc.binding   = static_cast<uint32_t>(vtxDesc.bindings.size());
+                vbDesc.stride    = vertexBuffers[stream.binding].stride;
+                vbDesc.inputRate = stream.rate;
+
+                binding = vbDesc.binding;
+                vtxDesc.bindings.emplace_back(vbDesc);
+            }
+
+            rhi::VertexAttributeDesc attrDesc = {};
+            attrDesc.sematic  = attr.semantic;
+            attrDesc.location = attr.location;
+            attrDesc.binding  = binding;
+            attrDesc.offset   = stream.offset;
+            attrDesc.format   = stream.format;
+
+            vtxDesc.attributes.emplace_back(attrDesc);
+        }
+        auto *device = RHI::Get()->GetDevice();
+        return device->CreateVertexInput(vtxDesc);
+    }
+
     rhi::VertexAssemblyPtr RenderGeometry::Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxInput)
     {
         auto *semantics = RenderSemantics::Get();
@@ -70,11 +129,6 @@ namespace sky {
         auto *device = RHI::Get()->GetDevice();
         vtxInput = device->CreateVertexInput(vtxDesc);
         assemDesc.vertexInput = vtxInput;
-        if (indexBuffer.buffer) {
-            assemDesc.indexType   = indexBuffer.indexType;
-            assemDesc.indexBuffer = indexBuffer.MakeView();
-        }
-
         return device->CreateVertexAssembly(assemDesc);
     }
 
@@ -82,7 +136,6 @@ namespace sky {
     {
         vertexBuffers.clear();
         indexBuffer = IndexBuffer{};
-        vaoCache.clear();
     }
 
     void RenderGeometry::Upload()

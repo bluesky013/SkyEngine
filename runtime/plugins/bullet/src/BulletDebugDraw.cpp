@@ -33,7 +33,7 @@ namespace sky::phy {
     void BulletDebugDraw::drawContactPoint(const btVector3& pointOnB, const btVector3& normalOnB, btScalar distance, int lifeTime, const btVector3& color)
     {
         drawLine(pointOnB, pointOnB + normalOnB * distance, color);
-        drawLine(pointOnB, pointOnB + normalOnB * 0.01, btVector3{0, 0, 0});
+        drawLine(pointOnB, pointOnB + normalOnB * 0.01f, btVector3{0, 0, 0});
     }
 
     void BulletDebugDraw::reportErrorWarning(const char* warningString)

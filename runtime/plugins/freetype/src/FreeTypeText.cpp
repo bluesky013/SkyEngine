@@ -14,13 +14,13 @@ namespace sky {
         Vector2 translate;
     };
 
-    std::vector<VertexAttribute> TEXT_ATTRIBUTES = {
+    static std::vector<VertexAttribute> TEXT_ATTRIBUTES = {
             VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(TextVertex, pos), rhi::Format::F_RG32},
             VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(TextVertex, uv),  rhi::Format::F_RG32},
             VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(TextVertex, col), rhi::Format::F_RGBA32},
     };
 
-    VertexSemanticFlags TEXT_VTX_SEMANTICS = VertexSemanticFlagBit::POSITION |
+    static VertexSemanticFlags TEXT_VTX_SEMANTICS = VertexSemanticFlagBit::POSITION |
             VertexSemanticFlagBit::UV |
             VertexSemanticFlagBit::COLOR;
 
@@ -112,7 +112,7 @@ namespace sky {
         transform.scale.y = 2.0f / h;
         transform.translate.x = -1.0f;
         transform.translate.y = -1.0f;
-        ubo->Write(0, transform);
+        ubo->WriteT(0, transform);
         ubo->Upload();
     }
 

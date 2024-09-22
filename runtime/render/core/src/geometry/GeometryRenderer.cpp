@@ -19,8 +19,7 @@ namespace sky {
     {
         ubo = new DynamicUniformBuffer();
         ubo->Init(sizeof(InstanceLocal));
-        ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
-        ubo->Upload();
+        ubo->WriteT(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
 
         auto *geomFeature = GeometryFeature::Get();
         primitive = std::make_unique<RenderPrimitive>();
@@ -45,9 +44,8 @@ namespace sky {
 
     void GeometryRenderer::UpdateTransform(const Matrix4 &matrix)
     {
-        ubo->Write(0, matrix);
-        ubo->Write(sizeof(Matrix4), matrix.InverseTranspose());
-        ubo->Upload();
+        ubo->WriteT(0, matrix);
+        ubo->WriteT(sizeof(Matrix4), matrix.InverseTranspose());
     }
 
     void GeometryRenderer::ResetPrimitive(const RDGfxTechPtr &tech)

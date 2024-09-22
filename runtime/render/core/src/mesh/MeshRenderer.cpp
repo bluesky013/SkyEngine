@@ -85,8 +85,8 @@ namespace sky {
 
     void MeshRenderer::UpdateTransform(const Matrix4 &matrix)
     {
-        ubo->Write(0, matrix);
-        ubo->Write(sizeof(Matrix4), matrix.InverseTranspose());
+        ubo->WriteT(0, matrix);
+        ubo->WriteT(sizeof(Matrix4), matrix.InverseTranspose());
         ubo->Upload();
 
         for (auto &prim : primitives) {
@@ -98,7 +98,7 @@ namespace sky {
     {
         ubo = new DynamicUniformBuffer();
         ubo->Init(sizeof(InstanceLocal));
-        ubo->Write(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
+        ubo->WriteT(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
         ubo->Upload();
     }
 

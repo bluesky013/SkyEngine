@@ -125,7 +125,6 @@ namespace sky {
         context.Destroy();
 
         primitive     = nullptr;
-        stagingBuffer = nullptr;
         vertexBuffer  = nullptr;
         indexBuffer   = nullptr;
         ubo           = nullptr;
@@ -169,7 +168,7 @@ namespace sky {
         transform.scale.y = 2.0f / drawData->DisplaySize.y;
         transform.translate.x = -1.0f - drawData->DisplayPos.x * transform.scale.x;
         transform.translate.y = -1.0f - drawData->DisplayPos.y * transform.scale.y;
-        ubo->Write(0, transform);
+        ubo->WriteT(0, transform);
         ubo->Upload();
 
         float fbWidth  = drawData->DisplaySize.x * drawData->FramebufferScale.x;
@@ -187,8 +186,12 @@ namespace sky {
 
         RenderCmdList package;
         CheckVertexBuffers(drawData->TotalVtxCount, drawData->TotalIdxCount);
-        auto *vtxDst = reinterpret_cast<ImDrawVert *>(stagingBuffer->GetRHIBuffer()->Map());
-        auto *idxDst = reinterpret_cast<ImDrawIdx *>(stagingBuffer->GetRHIBuffer()->Map() + vertexSize);
+
+        vertexBuffer->SwapBuffer();
+        auto *vtxDst = reinterpret_cast<ImDrawVert *>(vertexBuffer->GetMapped());
+
+        indexBuffer->SwapBuffer();
+        auto *idxDst = reinterpret_cast<ImDrawIdx *>(indexBuffer->GetMapped());
 
         primitive->args.clear();
         for (int n = 0; n < drawData->CmdListsCount; n++) {
@@ -225,10 +228,6 @@ namespace sky {
             globalVtxOffset += cmdList->VtxBuffer.Size;
             globalIdxOffset += cmdList->IdxBuffer.Size;
         }
-
-        stagingBuffer->GetRHIBuffer()->UnMap();
-        rdg.AddUploadPass("UploadImGuiVtx", {stagingBuffer, vertexBuffer, 0, 0, vertexSize});
-        rdg.AddUploadPass("UploadImGuiIdx", {stagingBuffer, indexBuffer, vertexSize, 0, indexSize});
     }
 
     void ImGuiInstance::MakeCurrent()
@@ -335,23 +334,15 @@ namespace sky {
 
         if (vs > vertexSize) {
             vertexSize = std::max(vertexSize * 2, static_cast<uint64_t>(vs));
-            if (!vertexBuffer) {
-                vertexBuffer = new Buffer();
-                vertexBuffer->Init(vertexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::GPU_ONLY);
-            } else {
-                vertexBuffer->Resize(vertexSize);
-            }
+            vertexBuffer = new DynamicBuffer();
+            vertexBuffer->Init(vertexSize, rhi::BufferUsageFlagBit::VERTEX);
             rebuildGeometry = true;
         }
 
         if (is > indexSize) {
             indexSize = std::max(indexSize * 2, static_cast<uint64_t>(is));
-            if (!indexBuffer) {
-                indexBuffer = new Buffer();
-                indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::TRANSFER_DST | rhi::BufferUsageFlagBit::INDEX, rhi::MemoryType::GPU_ONLY);
-            } else {
-                indexBuffer->Resize(indexSize);
-            }
+            indexBuffer = new DynamicBuffer();
+            indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::INDEX);
             rebuildGeometry = true;
         }
 
@@ -362,15 +353,8 @@ namespace sky {
             );
             primitive->geometry->indexBuffer =
                 IndexBuffer{indexBuffer, 0, indexBuffer->GetSize(), sizeof(ImDrawIdx) == 2 ? rhi::IndexType::U16 : rhi::IndexType::U32}; // NOLINT
+            primitive->geometry->dynamicVB = true;
             primitive->geometry->version++;
-
-            // rebuild staging buffer
-            if (!stagingBuffer) {
-                stagingBuffer = new Buffer();
-                stagingBuffer->Init(vertexSize + indexSize, rhi::BufferUsageFlagBit::TRANSFER_SRC, rhi::MemoryType::CPU_TO_GPU);
-            } else {
-                stagingBuffer->Resize(vertexSize + indexSize);
-            }
         }
 
         primitive->isReady = true;

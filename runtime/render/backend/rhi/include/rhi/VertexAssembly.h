@@ -18,9 +18,7 @@ namespace sky::rhi {
 
         struct Descriptor {
             std::vector<BufferView> vertexBuffers;
-            BufferView indexBuffer;
             VertexInputPtr vertexInput;
-            IndexType indexType = IndexType::U16;
         };
 
     protected:

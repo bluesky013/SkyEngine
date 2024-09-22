@@ -44,6 +44,7 @@ namespace sky {
         std::vector<Attachment> colors;
         std::vector<Attachment> resolves;
         Attachment depthStencil;
+        Attachment depthResolve;
     };
 
     class FullScreenPass : public RasterPass {

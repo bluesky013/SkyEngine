@@ -54,8 +54,14 @@ namespace sky::rdg {
                     }
 
                     if (prim->geometry && prim->geometry->version > tech.vaoVersion) {
-                        tech.vaoVersion = prim->geometry->version;
-                        tech.vao = prim->geometry->Request(tech.program, tech.vertexDesc);
+                        if (prim->geometry->dynamicVB) {
+                            tech.vaoVersion = 0;
+                            tech.vao        = nullptr;
+                            tech.vertexDesc = prim->geometry->Request(tech.program);
+                        } else {
+                            tech.vaoVersion = prim->geometry->version;
+                            tech.vao        = prim->geometry->Request(tech.program, tech.vertexDesc);
+                        }
                     }
 
                     if (tech.renderPassHash != passHash) {
@@ -63,6 +69,10 @@ namespace sky::rdg {
 
                         needRebuildPso = true;
                     }
+
+                    needRebuildPso &= static_cast<bool>(tech.program);
+                    needRebuildPso &= static_cast<bool>(tech.vertexDesc);
+                    needRebuildPso &= static_cast<bool>(renderPass);
 
                     if (needRebuildPso) {
                         tech.pso = GraphicsTechnique::BuildPso(tech.program,
@@ -72,7 +82,9 @@ namespace sky::rdg {
                                                                subPass.subPassID);
                     }
 
-                    queue.drawItems.emplace_back(RenderDrawItem{prim, techIndex++});
+                    if (tech.pso) {
+                        queue.drawItems.emplace_back(RenderDrawItem{prim, techIndex++});
+                    }
                 }
             }
         }

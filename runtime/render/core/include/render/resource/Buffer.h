@@ -21,11 +21,10 @@ namespace sky {
         void Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType);
         void SetSourceData(const rhi::BufferUploadRequest &data);
 
-        virtual void Resize(uint64_t size);
         virtual uint64_t GetSize() const { return bufferDesc.size; }
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }
-        rhi::BufferView MakeView() const;
+        virtual rhi::BufferView MakeView() const;
 
     protected:
         uint64_t UploadImpl() override;
@@ -62,12 +61,12 @@ namespace sky {
         ~UniformBuffer() override = default;
 
         virtual bool Init(uint32_t size);
-        void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
+        virtual void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
         template <typename T>
-        void Write(uint32_t offset, const T& val)
+        void WriteT(uint32_t offset, const T& val)
         {
             SKY_ASSERT(offset + sizeof(T) <= bufferDesc.size);
-            new (ptr + offset) T(val);
+            Write(offset, reinterpret_cast<const uint8_t *>(&val), static_cast<uint32_t>(sizeof(T)));
             dirty = true;
         }
 
@@ -99,4 +98,25 @@ namespace sky {
     };
     using RDDynamicUniformBufferPtr = CounterPtr<DynamicUniformBuffer>;
 
+    class DynamicBuffer : public Buffer {
+    public:
+        DynamicBuffer() = default;
+        ~DynamicBuffer() override = default;
+
+        bool Init(uint32_t size, const rhi::BufferUsageFlags& usage);
+        void Update(uint8_t *ptr, uint32_t offset, uint32_t size);
+
+        void SwapBuffer();
+        uint8_t *GetMapped() const;
+        uint64_t GetOffset() const { return frameIndex * alignedFrameSize; }
+        uint64_t GetSize() const override { return frameSize; }
+
+        rhi::BufferView MakeView() const override;
+    private:
+        uint8_t *mapped = nullptr;
+        uint32_t frameSize = 0;
+        uint32_t alignedFrameSize;
+        uint32_t frameIndex = 0;
+    };
+    using RDDynamicBuffer = CounterPtr<DynamicBuffer>;
 } // namespace sky

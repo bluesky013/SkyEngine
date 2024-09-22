@@ -22,7 +22,9 @@ namespace sky {
 
     struct RenderGeometry : public RefObject {
         void AddVertexAttribute(const VertexAttribute &attribute);
+        void FillVertexBuffer(std::vector<rhi::BufferView> &vbs);
         rhi::VertexAssemblyPtr Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxDesc);
+        rhi::VertexInputPtr    Request(const RDProgramPtr& program);
         void Reset();
         void Upload();
         bool IsReady() const;
@@ -30,13 +32,11 @@ namespace sky {
         // streams
         std::vector<VertexBuffer>    vertexBuffers;
         std::vector<VertexAttribute> vertexAttributes;
-
         IndexBuffer                  indexBuffer;
+        bool                         dynamicVB = false;
 
         // flags for all attributes
         VertexSemanticFlags          attributeSemantics;
-
-        std::unordered_map<VertexSemanticFlags, rhi::VertexAssemblyPtr> vaoCache;
 
         uint32_t version = 0;
         bool uploaded = false;

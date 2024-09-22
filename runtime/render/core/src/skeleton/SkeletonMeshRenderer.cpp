@@ -22,7 +22,7 @@ namespace sky {
 
         boneData = new DynamicUniformBuffer();
         boneData->Init(sizeof(Skin));
-        boneData->Write(0, skin->boneMatrices.data());
+        boneData->WriteT(0, skin->boneMatrices.data());
         boneData->Upload();
     }
 

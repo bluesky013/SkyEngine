@@ -69,7 +69,7 @@ namespace sky {
             viewInfo[i].viewProject = viewInfo[i].project * viewInfo[i].view;
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 
-            viewUbo->Write(i * sizeof(SceneViewInfo), viewInfo[i]);
+            viewUbo->WriteT(i * sizeof(SceneViewInfo), viewInfo[i]);
         }
         dirty = false;
     }
