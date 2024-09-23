@@ -13,6 +13,14 @@ static const char* TAG = "AssetDataBase";
 
 namespace sky {
 
+    static uint32_t CalculateHash(const AssetSourcePath &path)
+    {
+        uint32_t res = 0;
+        HashCombine32(res, static_cast<uint32_t>(path.bundle));
+        HashCombine32(res, std::hash<std::string>()(path.path.GetStr()));
+        return res;
+    }
+
     void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
         engineFs = fs->CreateSubSystem("assets", true);
@@ -77,7 +85,7 @@ namespace sky {
             }
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
-            auto uuid = Uuid::Create();
+            auto uuid = Uuid::CreateWithSeed(CalculateHash(path));
             srcInfo->path = path;
             srcInfo->uuid = uuid;
             srcInfo->ext = ext;

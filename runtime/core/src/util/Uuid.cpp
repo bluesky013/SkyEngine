@@ -30,9 +30,9 @@ namespace sky {
     {
         Uuid       res;
         SFMTRandom random(seed);
-        uint64_t  *lPtr = reinterpret_cast<uint64_t *>(&res);
-        lPtr[0]         = random.GenU64();
-        lPtr[1]         = random.GenU64();
+        auto *lPtr = reinterpret_cast<uint64_t *>(&res);
+        lPtr[0]    = random.GenU64();
+        lPtr[1]    = random.GenU64();
 
         res.data[8] &= 0xBF;
         res.data[8] |= 0x80;
