@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET BulletModule SHARED
+sky_add_library(TARGET BulletPhysicsModule SHARED
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -17,4 +17,4 @@ sky_add_library(TARGET BulletModule SHARED
         3rdParty::bullet3
 )
 
-sky_add_dependency(TARGET BulletModule DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET BulletPhysicsModule DEPENDENCIES Launcher Editor)

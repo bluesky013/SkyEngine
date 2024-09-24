@@ -49,26 +49,22 @@ namespace sky::phy {
         PhysicsWorld() = default;
         ~PhysicsWorld() override = default;
 
-        void StartSimulation();
-        void StopSimulation();
-
-        virtual void Tick(float delta) = 0;
-
         void AddRigidBody(RigidBody *rb);
         void RemoveRigidBody(RigidBody *rb);
 
         void AddCharacterController(CharacterController *rb);
         void RemoveCharacterController(CharacterController *rb);
 
+        virtual void SetSimulationEnable(bool en) {}
         virtual void SetDebugDrawEnable(bool en) {}
+
+        virtual void SetGravity(const Vector3 &gravity) {}
 
     protected:
         virtual void StartImpl() {}
         virtual void StopImpl() {}
 
         void AddRigidBodyOperation(const PhysicsObjectTask &task);
-
-        bool enableSimulation = false;
 
         std::list<std::unique_ptr<RigidBody>>           rigidBodies;
         std::list<std::unique_ptr<CharacterController>> characterControllers;

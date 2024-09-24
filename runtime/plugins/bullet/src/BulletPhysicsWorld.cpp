@@ -5,6 +5,7 @@
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletRigidBody.h>
 #include <bullet/BulletDebugDraw.h>
+#include <bullet/BulletConversion.h>
 
 namespace sky::phy {
 
@@ -57,6 +58,11 @@ namespace sky::phy {
         pendingTasks.clear();
     }
 
+    void BulletPhysicsWorld::SetSimulationEnable(bool en)
+    {
+        enableSimulation = en;
+    }
+
     void BulletPhysicsWorld::SetDebugDrawEnable(bool en)
     {
         enableDebugDraw = en;
@@ -67,5 +73,12 @@ namespace sky::phy {
 
         btIDebugDraw* bulletDebugDraw = enableDebugDraw ? static_cast<BulletDebugDraw*>(debugDraw.get()) : nullptr;
         dynamicWorld->setDebugDrawer(bulletDebugDraw);
+    }
+
+    void BulletPhysicsWorld::SetGravity(const Vector3 &gravity)
+    {
+        if (dynamicWorld) {
+            dynamicWorld->setGravity(ToBullet(gravity));
+        }
     }
 } // namespace sky::phy

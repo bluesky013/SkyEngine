@@ -6,18 +6,6 @@
 
 namespace sky::phy {
 
-    void PhysicsWorld::StartSimulation()
-    {
-        enableSimulation = true;
-        StartImpl();
-    }
-
-    void PhysicsWorld::StopSimulation()
-    {
-        StopImpl();
-        enableSimulation = false;
-    }
-
     void PhysicsWorld::AddRigidBody(RigidBody *rb)
     {
         AddRigidBodyOperation(PhysicsObjectTask(rb, BuildOperation::BUILD));

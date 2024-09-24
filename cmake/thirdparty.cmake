@@ -95,6 +95,7 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ktx           DIR ktx)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
+        sky_find_3rd(TARGET pmp           DIR pmp)
     endif ()
 
     if (WIN32 OR ANDROID)

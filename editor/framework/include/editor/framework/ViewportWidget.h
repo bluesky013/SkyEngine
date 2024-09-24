@@ -15,6 +15,8 @@
 #include <render/adaptor/RenderSceneProxy.h>
 #include <render/adaptor/profile/RenderProfiler.h>
 #include <editor/framework/EditorCamera.h>
+#include <physics/PhysicsRegistry.h>
+#include <physics/PhysicsWorld.h>
 
 namespace sky {
     class RenderWindow;
@@ -56,7 +58,8 @@ namespace sky::editor {
         QVBoxLayout* layout = nullptr;
         WorldPtr world;
 
-        std::unique_ptr<RenderSceneProxy> sceneProxy;
+        std::unique_ptr<RenderSceneProxy>  sceneProxy;
+        std::unique_ptr<phy::PhysicsWorld> physicsWorld;
         std::unique_ptr<EditorCamera> editorCamera;
         std::unique_ptr<IGizmo> gizmo;
 

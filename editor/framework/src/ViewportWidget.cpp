@@ -311,6 +311,11 @@ namespace sky::editor {
         sceneProxy = std::make_unique<RenderSceneProxy>();
         world->AddSubSystem("RenderScene", sceneProxy.get());
 
+        physicsWorld.reset(phy::PhysicsRegistry::Get()->CreatePhysicsWorld());
+        if (physicsWorld) {
+            world->AddSubSystem("PhysicalWorld", physicsWorld.get());
+        }
+
         auto *scenePipeline = new DefaultForwardPipeline(sceneProxy->GetRenderScene());
         scenePipeline->SetOutput(renderWindow);
         ppl->AddScenePass(scenePipeline);

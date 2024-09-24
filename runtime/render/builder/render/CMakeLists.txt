@@ -17,6 +17,7 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
         3rdParty::assimp
         3rdParty::ispc_texcomp
         3rdParty::meshoptimizer
+        3rdParty::pmp
     )
 
 sky_add_dependency(TARGET RenderBuilder DEPENDENCIES AssetTool Editor)

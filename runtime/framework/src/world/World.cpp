@@ -49,6 +49,10 @@ namespace sky {
         for (auto &actor : actors) {
             actor->Tick(time);
         }
+
+        for (auto &sys : subSystems) {
+            sys.second->Tick(time);
+        }
     }
 
     void World::SaveJson(JsonOutputArchive &archive)

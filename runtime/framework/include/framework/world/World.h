@@ -42,6 +42,8 @@ namespace sky {
         virtual ~IWorldSubSystem() = default;
 
         virtual void OnAttachToWorld(World &world) {}
+
+        virtual void Tick(float time) {}
     };
 
     class World : public RefObject {

@@ -16,12 +16,13 @@ namespace sky::phy {
         BulletPhysicsWorld();
         ~BulletPhysicsWorld() override;
 
-        void Tick(float delta) override;
-
-        void SetDebugDrawEnable(bool en) override;
-
     private:
         void ProcessPendingTasks();
+
+        void Tick(float delta) override;
+        void SetSimulationEnable(bool en) override;
+        void SetDebugDrawEnable(bool en) override;
+        void SetGravity(const Vector3 &gravity) override;
 
         std::unique_ptr<btDefaultCollisionConfiguration> configuration;
         std::unique_ptr<btCollisionDispatcher> dispatcher;
@@ -29,7 +30,8 @@ namespace sky::phy {
         std::unique_ptr<btSequentialImpulseConstraintSolver> solver;
         std::unique_ptr<btDiscreteDynamicsWorld> dynamicWorld;
 
-        bool enableDebugDraw = false;
+        bool enableSimulation = true;
+        bool enableDebugDraw  = true;
         std::unique_ptr<PhysicsDebugDraw> debugDraw;
     };
 
