@@ -9,45 +9,12 @@
 #include <memory>
 
 namespace sky::phy {
-
-    enum class BuildOperation : uint32_t {
-        BUILD,
-        DESTROY
-    };
-
-    enum class PhysicsObjectType : uint32_t {
-        RIGIDBODY,
-        CHARACTER_CONTROLLER,
-    };
-
-    struct PhysicsObjectTask {
-        BuildOperation      op;
-        PhysicsObjectType   type;
-        union {
-            RigidBody           *rigidBody;
-            CharacterController *character;
-        };
-
-        explicit PhysicsObjectTask(RigidBody* rb, BuildOperation operation)
-                : op(operation)
-                , type(PhysicsObjectType::RIGIDBODY)
-        {
-            rigidBody = rb;
-        }
-
-        explicit PhysicsObjectTask(CharacterController* ch, BuildOperation operation)
-                : op(operation)
-                , type(PhysicsObjectType::CHARACTER_CONTROLLER)
-        {
-            character = ch;
-        }
-
-    };
-
     class PhysicsWorld : public IWorldSubSystem {
     public:
         PhysicsWorld() = default;
         ~PhysicsWorld() override = default;
+
+        static constexpr std::string_view NAME = "PhysicsWorld";
 
         void AddRigidBody(RigidBody *rb);
         void RemoveRigidBody(RigidBody *rb);
@@ -61,15 +28,13 @@ namespace sky::phy {
         virtual void SetGravity(const Vector3 &gravity) {}
 
     protected:
-        virtual void StartImpl() {}
-        virtual void StopImpl() {}
-
-        void AddRigidBodyOperation(const PhysicsObjectTask &task);
+        virtual void AddRigidBodyImpl(RigidBody *rb) = 0;
+        virtual void RemoveRigidBodyImpl(RigidBody *rb) = 0;
+        virtual void AddCharacterControllerImpl(CharacterController *rb) = 0;
+        virtual void RemoveCharacterControllerImpl(CharacterController *rb) = 0;
 
         std::list<std::unique_ptr<RigidBody>>           rigidBodies;
         std::list<std::unique_ptr<CharacterController>> characterControllers;
-
-        std::vector<PhysicsObjectTask> pendingTasks;
     };
 
 } // namespace sky::phy

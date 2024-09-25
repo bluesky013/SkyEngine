@@ -79,12 +79,12 @@ namespace sky {
         return sceneView != nullptr ? sceneView->GetView() : Matrix4::Identity();
     }
 
-    void CameraComponent::OnActive()
+    void CameraComponent::OnAttachToWorld()
     {
         sceneView = GetRenderSceneFromActor(actor)->CreateSceneView(1);
     }
 
-    void CameraComponent::OnDeActive()
+    void CameraComponent::OnDetachFromWorld()
     {
         ShutDown();
     }

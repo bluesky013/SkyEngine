@@ -8,7 +8,7 @@ namespace sky::phy {
 
     void PhysicsWorld::AddRigidBody(RigidBody *rb)
     {
-        AddRigidBodyOperation(PhysicsObjectTask(rb, BuildOperation::BUILD));
+        AddRigidBodyImpl(rb);
         rigidBodies.emplace_back(rb);
     }
 
@@ -18,14 +18,14 @@ namespace sky::phy {
             return rb == val.get();
         });
         if (iter != rigidBodies.end()) {
-            AddRigidBodyOperation(PhysicsObjectTask(rb, BuildOperation::DESTROY));
+            RemoveRigidBodyImpl(rb);
             rigidBodies.erase(iter);
         }
     }
 
     void PhysicsWorld::AddCharacterController(CharacterController *ch)
     {
-        AddRigidBodyOperation(PhysicsObjectTask(ch, BuildOperation::BUILD));
+        AddCharacterControllerImpl(ch);
         characterControllers.emplace_back(ch);
     }
 
@@ -35,13 +35,8 @@ namespace sky::phy {
             return ch == val.get();
         });
         if (iter != characterControllers.end()) {
-            AddRigidBodyOperation(PhysicsObjectTask(ch, BuildOperation::DESTROY));
+            RemoveCharacterControllerImpl(ch);
             characterControllers.erase(iter);
         }
-    }
-
-    void PhysicsWorld::AddRigidBodyOperation(const PhysicsObjectTask &task)
-    {
-        pendingTasks.emplace_back(task);
     }
 } // namespace sky::phy

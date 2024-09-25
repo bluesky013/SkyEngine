@@ -71,6 +71,7 @@ namespace sky {
     struct TypeInfoRT {
         std::string_view       name;
         Uuid                   registeredId;
+        Uuid                   underlyingTypeId;
         const StaticTypeInfo*  staticInfo  = nullptr;
         ConstructorNew         newFunc     = nullptr; // default constructor
         ConstructorPlace       placeFunc   = nullptr; // default constructor

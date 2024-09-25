@@ -4,9 +4,9 @@
 
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletRigidBody.h>
-#include <bullet/BulletDebugDraw.h>
 #include <bullet/BulletConversion.h>
 
+#include <bullet/debug/BulletDebugDraw.h>
 namespace sky::phy {
 
     BulletPhysicsWorld::~BulletPhysicsWorld()
@@ -31,31 +31,9 @@ namespace sky::phy {
 
     void BulletPhysicsWorld::Tick(float delta)
     {
-        ProcessPendingTasks();
-
         if (dynamicWorld && enableSimulation) {
             dynamicWorld->stepSimulation(delta);
         }
-    }
-
-    void BulletPhysicsWorld::ProcessPendingTasks()
-    {
-        if (!dynamicWorld) {
-            return;
-        }
-
-        for (auto &task : pendingTasks) {
-            auto *rb = static_cast<BulletRigidBody*>(task.rigidBody);
-            switch (task.op) {
-                case BuildOperation::BUILD:
-                    dynamicWorld->addRigidBody(rb->BuildRigidBody(), rb->GetGroup(), rb->GetMask());
-                    break;
-                case BuildOperation::DESTROY:
-                    dynamicWorld->removeRigidBody(rb->GetRigidBody());
-                    break;
-            }
-        }
-        pendingTasks.clear();
     }
 
     void BulletPhysicsWorld::SetSimulationEnable(bool en)
@@ -80,5 +58,34 @@ namespace sky::phy {
         if (dynamicWorld) {
             dynamicWorld->setGravity(ToBullet(gravity));
         }
+    }
+
+    void BulletPhysicsWorld::AddRigidBodyImpl(RigidBody *rb)
+    {
+        auto *rigidBody = static_cast<BulletRigidBody*>(rb);
+        auto *btRb = rigidBody->GetRigidBody();
+        if (btRb != nullptr) {
+            dynamicWorld->addRigidBody(btRb, rb->GetGroup(), rb->GetMask());
+        }
+        rigidBody->SetPhysicsWorld(this);
+    }
+
+    void BulletPhysicsWorld::RemoveRigidBodyImpl(RigidBody *rb)
+    {
+        auto *rigidBody = static_cast<BulletRigidBody*>(rb);
+        auto *btRb = rigidBody->GetRigidBody();
+        if (btRb != nullptr) {
+            dynamicWorld->removeRigidBody(btRb);
+        }
+    }
+
+    void BulletPhysicsWorld::AddCharacterControllerImpl(CharacterController *rb)
+    {
+
+    }
+
+    void BulletPhysicsWorld::RemoveCharacterControllerImpl(CharacterController *rb)
+    {
+
     }
 } // namespace sky::phy

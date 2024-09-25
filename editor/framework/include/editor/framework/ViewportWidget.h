@@ -43,7 +43,6 @@ namespace sky::editor {
         void ResetPipeline();
 
         ViewportWindow* GetViewportWindow() const { return window; }
-
     private:
         void OnWindowResize(uint32_t width, uint32_t height) override;
         void dropEvent(QDropEvent *event) override;
@@ -58,8 +57,7 @@ namespace sky::editor {
         QVBoxLayout* layout = nullptr;
         WorldPtr world;
 
-        std::unique_ptr<RenderSceneProxy>  sceneProxy;
-        std::unique_ptr<phy::PhysicsWorld> physicsWorld;
+        RenderSceneProxy*  sceneProxy = nullptr;
         std::unique_ptr<EditorCamera> editorCamera;
         std::unique_ptr<IGizmo> gizmo;
 

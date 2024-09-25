@@ -22,9 +22,6 @@ namespace sky {
 
         virtual void Tick(float time) {}
 
-        virtual void OnActive() {}
-        virtual void OnDeActive() {}
-
         virtual void SaveJson(JsonOutputArchive &archive) const {}
         virtual void LoadJson(JsonInputArchive &archive) {}
 
@@ -33,7 +30,7 @@ namespace sky {
 
         virtual const Uuid &GetTypeId() const = 0;
 
-        virtual void OnAttachToWorld(World* word) {}
+        virtual void OnAttachToWorld() {}
         virtual void OnDetachFromWorld() {}
 
         Actor* GetActor() const { return actor; }

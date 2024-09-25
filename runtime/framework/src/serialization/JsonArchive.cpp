@@ -51,20 +51,24 @@ namespace sky {
                 return;
             }
 
-            StartObject();
-            Key("classId");
-            SaveValue(typeId.ToString());
+            if (node->info->staticInfo->isEnum) {
+                SaveValueObject(ptr, node->info->underlyingTypeId);
+            } else {
+                StartObject();
+                Key("classId");
+                SaveValue(typeId.ToString());
 
-            Key("elements");
-            StartObject();
-            for (auto &member : node->members) {
-                std::string memberName = member.first.data();
-                Key(memberName.c_str());
-                Any value = GetValueRawConst(ptr, typeId, memberName);
-                SaveValueObject(value.Data(), member.second.info->registeredId);
+                Key("elements");
+                StartObject();
+                for (auto &member: node->members) {
+                    std::string memberName = member.first.data();
+                    Key(memberName.c_str());
+                    Any value = GetValueRawConst(ptr, typeId, memberName);
+                    SaveValueObject(value.Data(), member.second.info->registeredId);
+                }
+                EndObject();
+                EndObject();
             }
-            EndObject();
-            EndObject();
         }
     }
 
@@ -108,28 +112,33 @@ namespace sky {
                 node->serialization.jsonLoad(ptr, *this);
                 return;
             }
-            SKY_ASSERT(value != nullptr && value->IsObject());
-            SKY_ASSERT(Start("classId"));
-            auto id = Uuid::CreateFromString(LoadString());
-            End();
-            SKY_ASSERT(id == typeId);
 
-            SKY_ASSERT(Start("elements"));
-            for (const auto &member : node->members) {
-                std::string memberName = member.first.data();
-                auto *memberNode = GetTypeMember(memberName, typeId);
-                if (memberNode == nullptr) {
-                    continue;
+            if (node->info->staticInfo->isEnum) {
+                LoadValueById(ptr, node->info->underlyingTypeId);
+            } else {
+                SKY_ASSERT(value != nullptr && value->IsObject());
+                SKY_ASSERT(Start("classId"));
+                auto id = Uuid::CreateFromString(LoadString());
+                End();
+                SKY_ASSERT(id == typeId);
+
+                SKY_ASSERT(Start("elements"));
+                for (const auto &member : node->members) {
+                    std::string memberName = member.first.data();
+                    auto *memberNode = GetTypeMember(memberName, typeId);
+                    if (memberNode == nullptr) {
+                        continue;
+                    }
+
+                    if(Start(memberName)) {
+                        Any any = GetValueRawConst(ptr, typeId, memberName);
+                        LoadValueById(any.Data(), member.second.info->registeredId);
+                        SetValueRaw(ptr, typeId, memberName, any.Data());
+                        End();
+                    }
                 }
-
-                SKY_ASSERT(Start(memberName))
-                Any any = GetValueRawConst(ptr, typeId, memberName);
-                LoadValueById(any.Data(), member.second.info->registeredId);
-                SetValueRaw(ptr, typeId, memberName, any.Data());
                 End();
             }
-
-            End();
         }
     }
 

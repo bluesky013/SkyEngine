@@ -24,19 +24,23 @@ namespace sky::phy {
         virtual ~RigidBody() = default;
 
         void AddShape(PhysicsShape* shape);
-
-        void SetGroup(int32_t group_) { group = group_; }
-        void SetMask(int32_t mask_) { group = mask_; }
+        void SetMass(float m);
+        void SetFlag(CollisionFlag m);
+        void SetGroup(int32_t group_);
+        void SetMask(int32_t mask_);
 
         int32_t GetGroup() const { return group; }
         int32_t GetMask() const { return mask; }
 
     protected:
-        float   mass  = 1.f;
+        virtual void OnMassChanged() = 0;
+        virtual void OnShapeChanged() = 0;
+        virtual void OnFlagChanged() = 0;
+        virtual void OnGroupMaskChanged() = 0;
 
+        float   mass  = 1.f;
         int32_t group = 0;
         int32_t mask  = 0;
-
         CollisionFlag collisionFlag = CollisionFlag::STATIC;
 
         std::vector<std::unique_ptr<PhysicsShape>> shapes;

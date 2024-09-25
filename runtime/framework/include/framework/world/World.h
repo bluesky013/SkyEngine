@@ -8,6 +8,7 @@
 #include <core/std/Container.h>
 #include <core/event/Event.h>
 #include <core/template/ReferenceObject.h>
+#include <core/util/Name.h>
 #include <framework/world/Entity.h>
 #include <framework/world/Actor.h>
 #include <framework/serialization/JsonArchive.h>
@@ -31,8 +32,7 @@ namespace sky {
         using KeyType   = void;
         using MutexType = void;
 
-        virtual void OnCreateWorld(const WorldPtr& world) = 0;
-        virtual void OnDestroyWorld(const WorldPtr& world) = 0;
+        virtual void OnCreateWorld(World& world) = 0;
     };
     using WorldEvent = Event<IWorldEvent>;
 
@@ -42,6 +42,7 @@ namespace sky {
         virtual ~IWorldSubSystem() = default;
 
         virtual void OnAttachToWorld(World &world) {}
+        virtual void OnDetachFromWorld(World &world) {}
 
         virtual void Tick(float time) {}
     };
@@ -57,7 +58,7 @@ namespace sky {
 
         static void Reflect(SerializationContext *context);
 
-        bool Init();
+        void Init(std::vector<Name>&& systems);
         void Tick(float time);
 
         void SaveJson(JsonOutputArchive &archive);
@@ -74,8 +75,9 @@ namespace sky {
         void DetachFromWorld(const ActorPtr &);
         void Reset();
 
-        void AddSubSystem(const std::string &name, IWorldSubSystem*);
-        IWorldSubSystem* GetSubSystem(const std::string &name) const;
+        bool CheckSystem(const Name &name) const;
+        void AddSubSystem(const Name &name, IWorldSubSystem*);
+        IWorldSubSystem* GetSubSystem(const Name &name) const;
 
         void RegisterConfiguration(const std::string& name, const Any& any);
         const Any& GetConfigByName(const std::string &name) const;
@@ -84,10 +86,11 @@ namespace sky {
         World() = default;
 
         std::vector<ActorPtr> actors;
-        std::unordered_map<std::string, IWorldSubSystem*> subSystems;
+
+        std::vector<Name> subSystemRegistry;
+        std::unordered_map<std::string, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         std::unordered_map<std::string, Any> worldConfigs;
-
         uint32_t version = 0;
     };
 } // namespace sky

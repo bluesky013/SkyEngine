@@ -22,15 +22,12 @@ namespace sky {
 
         static void Reflect(SerializationContext *context);
 
-        void OnActive() override;
-        void OnDeActive() override;
         void Tick(float time) override;
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
 
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;
-
-        void OnAttachToWorld(World* word);
-        void OnDetachFromWorld();
 
         void SetMeshUuid(const Uuid &uuid);
         const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }

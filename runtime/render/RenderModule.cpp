@@ -9,6 +9,7 @@
 #include <framework/interface/Interface.h>
 #include <framework/application/ModuleManager.h>
 #include <framework/serialization/SerializationContext.h>
+#include <framework/world/World.h>
 #include <framework/world/ComponentFactory.h>
 
 #include <render/adaptor/components/CameraComponent.h>
@@ -17,8 +18,8 @@
 #include <render/adaptor/components/SkeletonMeshComponent.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/adaptor/RenderSceneProxy.h>
 
-#include <render/particle/ParticleFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
@@ -27,6 +28,7 @@
 #include <render/Renderer.h>
 
 #include <core/profile/Profiler.h>
+#include <core/event/Event.h>
 #include <cxxopts.hpp>
 
 namespace sky {
@@ -46,7 +48,7 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
     }
 
-    class RenderModule : public IModule {
+    class RenderModule : public IModule, public IWorldEvent {
     public:
         RenderModule() = default;
         ~RenderModule() override = default;
@@ -55,11 +57,20 @@ namespace sky {
         void Tick(float delta) override;
         void Shutdown() override;
         void Start() override;
+
+        void OnCreateWorld(World& world) override
+        {
+            if (world.CheckSystem("RenderScene")) {
+                auto *sceneProxy = new RenderSceneProxy();
+                world.AddSubSystem("RenderScene", sceneProxy);
+            }
+        }
     private:
         void ProcessArgs(const StartArguments &args);
         void InitFeatures();
 
         rhi::API api = rhi::API::DEFAULT;
+        EventBinder<IWorldEvent> worldEvent;
     };
 
     void RenderModule::ProcessArgs(const StartArguments &args)
@@ -106,6 +117,8 @@ namespace sky {
         // init renderer
         Renderer::Get()->Init();
         Renderer::Get()->SetCacheFolder(Platform::Get()->GetInternalPath());
+
+        worldEvent.Bind(this);
         return true;
     }
 

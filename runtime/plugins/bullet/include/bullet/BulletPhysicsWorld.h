@@ -16,13 +16,17 @@ namespace sky::phy {
         BulletPhysicsWorld();
         ~BulletPhysicsWorld() override;
 
+        btDiscreteDynamicsWorld *GetWorld() const { return dynamicWorld.get(); }
     private:
-        void ProcessPendingTasks();
-
         void Tick(float delta) override;
         void SetSimulationEnable(bool en) override;
         void SetDebugDrawEnable(bool en) override;
         void SetGravity(const Vector3 &gravity) override;
+
+        void AddRigidBodyImpl(RigidBody *rb) override;
+        void RemoveRigidBodyImpl(RigidBody *rb) override;
+        void AddCharacterControllerImpl(CharacterController *rb) override;
+        void RemoveCharacterControllerImpl(CharacterController *rb) override;
 
         std::unique_ptr<btDefaultCollisionConfiguration> configuration;
         std::unique_ptr<btCollisionDispatcher> dispatcher;

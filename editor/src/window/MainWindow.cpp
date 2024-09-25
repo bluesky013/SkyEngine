@@ -79,10 +79,10 @@ namespace sky::editor {
     void MainWindow::OnCloseWorld()
     {
         SaveCheck();
-        document->CloseWorld();
         worldWidget->SetWorld(nullptr);
         inspector->OnSelectedItemChanged(nullptr);
         mainViewport->ResetWorld(nullptr);
+        document->CloseWorld();
         UpdateActions();
     }
 

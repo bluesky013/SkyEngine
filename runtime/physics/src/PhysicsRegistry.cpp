@@ -16,6 +16,11 @@ namespace sky::phy {
         return factory ? factory->CreateCharacterController() : nullptr;
     }
 
+    RigidBody* PhysicsRegistry::CreateRigidBody()
+    {
+        return factory ? factory->CreateRigidBody() : nullptr;
+    }
+
     void PhysicsRegistry::Register(Impl* impl)
     {
         factory.reset(impl);

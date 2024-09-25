@@ -246,19 +246,40 @@ namespace sky::editor {
     public:
         PropertyEnum(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
-//            auto *comboBox = new QComboBox(this);
-//            connect(comboBox, &QComboBox::activated, this, [this](int index) {
-//
-//            });
+            box = new QComboBox(this);
+            layout()->addWidget(box);
+
+            info = GetTypeNode(node->info);
+            for (const auto &[value, key] : info->enums) {
+                box->addItem(key.data());
+            }
+
+            connect(box, qOverload<int>(&QComboBox::activated), this, [this](int index) {
+                auto str = box->itemText(index);
+                for (const auto &[key, val] : info->enums) {
+                    if (val == std::string_view(str.toStdString())) {
+                        memberNode->setterFn(object, &key);
+                        break;
+                    }
+                }
+
+            });
+            RefreshValue();
         }
         ~PropertyEnum() override = default;
 
     private:
         void RefreshValue()
         {
+            auto any = memberNode->getterConstFn(object);
+            auto *pVal = any.GetAs<uint64_t >();
+
+            SKY_ASSERT(info->enums.count(*pVal));
+            box->setCurrentText(info->enums.at(*pVal).data());
         }
 
-        uint32_t value;
+        const TypeNode* info = nullptr;
+        QComboBox *box = nullptr;
     };
 
 } // namespace sky::editor

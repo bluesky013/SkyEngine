@@ -41,8 +41,6 @@ namespace sky {
                 delete component;
                 component = nullptr;
             }
-            component->actor = this;
-            component->OnActive();
             return component;
         }
 

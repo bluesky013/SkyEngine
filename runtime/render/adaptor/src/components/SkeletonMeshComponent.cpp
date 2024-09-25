@@ -24,16 +24,6 @@ namespace sky {
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE));
     }
 
-    void SkeletonMeshComponent::OnActive()
-    {
-
-    }
-
-    void SkeletonMeshComponent::OnDeActive()
-    {
-        ShutDown();
-    }
-
     void SkeletonMeshComponent::Tick(float time)
     {
         if (dirty.load()) {
@@ -85,7 +75,7 @@ namespace sky {
         SetMeshUuid(uuid);
     }
 
-    void SkeletonMeshComponent::OnAttachToWorld(World* word)
+    void SkeletonMeshComponent::OnAttachToWorld()
     {
 
     }

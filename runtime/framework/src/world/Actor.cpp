@@ -115,7 +115,7 @@ namespace sky {
     {
         world = world_;
         for (auto &[id, component] : storage) {
-            component->OnAttachToWorld(world);
+            component->OnAttachToWorld();
         }
     }
 

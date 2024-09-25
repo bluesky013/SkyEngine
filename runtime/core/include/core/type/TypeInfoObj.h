@@ -13,13 +13,14 @@ namespace sky {
     template <typename T>
     class TypeInfoObj : public Singleton<TypeInfoObj<T>> {
     public:
-        const TypeInfoRT *Register(std::string_view name, const Uuid &uuid)
+        const TypeInfoRT *Register(std::string_view name, const Uuid &uuid, const Uuid &underlyingId = {})
         {
             std::lock_guard<std::mutex> lock(mutex);
             if (info == nullptr) {
                 info = new TypeInfoRT {
                         name,
                         uuid,
+                        underlyingId,
                         &TypeInfoStatic<T>(),
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
@@ -39,6 +40,7 @@ namespace sky {
             if (info == nullptr) {
                 info = new TypeInfoRT {
                         "",
+                        {},
                         {},
                         &TypeInfoStatic<T>(),
                         TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,

@@ -20,8 +20,8 @@ namespace sky {
         static void Reflect(SerializationContext *context);
 
         void Tick(float time) override;
-        void OnActive() override;
-        void OnDeActive() override;
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
 
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;

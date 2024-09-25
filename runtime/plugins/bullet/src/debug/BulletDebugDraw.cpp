@@ -2,7 +2,7 @@
 // Created by blues on 2024/9/1.
 //
 
-#include <bullet/BulletDebugDraw.h>
+#include <bullet/debug/BulletDebugDraw.h>
 
 namespace sky::phy {
 

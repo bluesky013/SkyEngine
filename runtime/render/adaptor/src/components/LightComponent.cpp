@@ -30,14 +30,14 @@ namespace sky {
         light->SetColor(Cast(lightColor));
     }
 
-    void LightComponent::OnActive()
+    void LightComponent::OnAttachToWorld()
     {
         SKY_ASSERT(light == nullptr);
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(actor);
         light = lf->CreateLight<DirectLight>();
     }
 
-    void LightComponent::OnDeActive()
+    void LightComponent::OnDetachFromWorld()
     {
         SKY_ASSERT(light != nullptr);
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(actor);

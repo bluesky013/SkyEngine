@@ -15,11 +15,14 @@ namespace sky {
 
     World::~World()
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnDestroyWorld, this);
         for (auto &actor : actors) {
             actor->DetachFromWorld();
         }
         actors.clear();
+
+        for (auto &sub : subSystems) {
+            sub.second->OnDetachFromWorld(*this);
+        }
     }
 
     void World::Reflect(SerializationContext *context)
@@ -30,18 +33,13 @@ namespace sky {
     World *World::CreateWorld()
     {
         auto *world = new World();
-        if (!world->Init()) {
-            delete world;
-            world = nullptr;
-        }
-
         return world;
     }
 
-    bool World::Init()
+    void World::Init(std::vector<Name>&& systems)
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, this);
-        return true;
+        subSystemRegistry.swap(systems);
+        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
     }
 
     void World::Tick(float time)
@@ -139,6 +137,7 @@ namespace sky {
         if (actor->world != nullptr && actor->world != this) {
             actor->world->DetachFromWorld(actor);
         }
+        actor->world = this;
         actors.emplace_back(actor);
         actor->AttachToWorld(this);
     }
@@ -159,16 +158,21 @@ namespace sky {
         actors.clear();
     }
 
-    void World::AddSubSystem(const std::string &name, IWorldSubSystem* sys)
+    bool World::CheckSystem(const Name &name) const
+    {
+        return std::find(subSystemRegistry.begin(), subSystemRegistry.end(), name) != subSystemRegistry.end();
+    }
+
+    void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
         sys->OnAttachToWorld(*this);
     }
 
-    IWorldSubSystem* World::GetSubSystem(const std::string &name) const
+    IWorldSubSystem* World::GetSubSystem(const Name &name) const
     {
         auto iter = subSystems.find(name);
-        return iter != subSystems.end() ? iter->second : nullptr;
+        return iter != subSystems.end() ? iter->second.get() : nullptr;
     }
 
     void World::RegisterConfiguration(const std::string& name, const Any& any)

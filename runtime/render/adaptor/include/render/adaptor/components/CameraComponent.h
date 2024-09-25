@@ -27,8 +27,8 @@ namespace sky {
         void SetAspect(uint32_t width, uint32_t height);
 
         void Tick(float time) override;
-        void OnActive() override;
-        void OnDeActive() override;
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
 
         void SaveJson(JsonOutputArchive &ar) const override;
         void LoadJson(JsonInputArchive &ar) override;

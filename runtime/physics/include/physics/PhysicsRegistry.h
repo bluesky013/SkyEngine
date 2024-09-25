@@ -8,7 +8,9 @@
 
 namespace sky::phy {
     class PhysicsWorld;
+    class RigidBody;
     class CharacterController;
+    class PhysicsShape;
 
     class PhysicsRegistry : public Singleton<PhysicsRegistry> {
     public:
@@ -21,10 +23,12 @@ namespace sky::phy {
             virtual ~Impl() = default;
 
             virtual PhysicsWorld* CreatePhysicsWorld() = 0;
+            virtual RigidBody* CreateRigidBody() = 0;
             virtual CharacterController* CreateCharacterController() = 0;
         };
 
         PhysicsWorld* CreatePhysicsWorld();
+        RigidBody* CreateRigidBody();
         CharacterController* CreateCharacterController();
 
         void Register(Impl* factory);

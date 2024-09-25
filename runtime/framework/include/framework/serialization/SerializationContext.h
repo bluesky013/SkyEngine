@@ -16,7 +16,13 @@ namespace sky {
         template <typename T>
         auto Register(std::string_view name, const Uuid &uuid)
         {
-            const auto *info = TypeInfoObj<T>::Get()->Register(name, uuid);
+            auto underlyingTypeId = uuid;
+            if constexpr (std::is_enum_v<T>) {
+                using UnderlyingType = std::underlying_type_t<T>;
+                underlyingTypeId = TypeInfoObj<UnderlyingType>::Get()->RtInfo()->registeredId;
+            }
+
+            const auto *info = TypeInfoObj<T>::Get()->Register(name, uuid, underlyingTypeId);
             SKY_ASSERT(!types.count(info->registeredId))
             auto &type = types[info->registeredId];
             type.info  = info;

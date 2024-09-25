@@ -105,15 +105,6 @@ namespace sky {
         dirty.store(true);
     }
 
-    void StaticMeshComponent::OnActive()
-    {
-    }
-
-    void StaticMeshComponent::OnDeActive()
-    {
-        ShutDown();
-    }
-
     void StaticMeshComponent::Tick(float time)
     {
         if (dirty.load()) {
@@ -127,7 +118,7 @@ namespace sky {
         }
     }
 
-    void StaticMeshComponent::OnAttachToWorld(World* word)
+    void StaticMeshComponent::OnAttachToWorld()
     {
 
     }
