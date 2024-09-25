@@ -253,7 +253,7 @@ namespace sky::editor {
             for (const auto &[value, key] : info->enums) {
                 box->addItem(key.data());
             }
-
+tatus
             connect(box, qOverload<int>(&QComboBox::activated), this, [this](int index) {
                 auto str = box->itemText(index);
                 for (const auto &[key, val] : info->enums) {

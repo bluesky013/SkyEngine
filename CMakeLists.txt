@@ -24,7 +24,6 @@ if (SKY_BUILD_TEST)
 endif()
 
 add_subdirectory(runtime)
-add_subdirectory(sample)
 add_subdirectory(launcher)
 
 if (SKY_BUILD_EDITOR)
