@@ -3,3 +3,13 @@
     float4x4 World;
     float4x4 InverseTrans;
 }
+
+#ifdef ENABLE_SKIN
+
+#define MAX_BONE_NUM (80)
+[[vk::binding(1, 2)]] cbuffer skin : register(b1, space2)
+{
+    float4x4 Bones[MAX_BONE_NUM];
+}
+
+#endif

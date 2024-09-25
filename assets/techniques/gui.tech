@@ -1,8 +1,9 @@
 {
     "type": "graphics",
-    "shaders": {
-        "vert": "shaderlibs/glsl/gui/gui.vert",
-        "frag": "shaderlibs/glsl/gui/gui.frag"
+    "shader": {
+        "path": "shaders/ui/gui.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
     },
     "pass": {
         "tag": "ui"
@@ -16,8 +17,11 @@
             "dstAlpha": "ONE_MINUS_SRC_ALPHA"
         }
     ],
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
     "raster_state": {
         "cullMode": "NONE"
-    },
-    "vertex": "gui"
+    }
 }

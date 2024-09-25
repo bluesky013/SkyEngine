@@ -4,6 +4,6 @@ sky_add_test(TARGET RenderTest
     SOURCES
         ${TEST_SRC}
     LIBS
-        SkyRenderCore
+        RenderCore
         3rdParty::googletest
     )

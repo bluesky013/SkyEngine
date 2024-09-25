@@ -19,8 +19,6 @@ if (Qt5_FOUND)
         INCS
             include
         LIBS
-            SkyEngine
-            SkyRenderAdaptor
             EditorFramework
         )
 

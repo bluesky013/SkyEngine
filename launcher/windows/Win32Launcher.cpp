@@ -4,7 +4,9 @@
 
 #include <framework/platform/PlatformBase.h>
 #include <framework/application/GameApplication.h>
+#include <framework/application/XRApplication.h>
 
+#include <cxxopts.hpp>
 #include <filesystem>
 
 using namespace sky;
@@ -17,11 +19,25 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    sky::GameApplication app;
-    if (app.Init(argc, argv)) {
-        app.Mainloop();
+    cxxopts::Options options("SkyEngine Launcher", "SkyEngine Launcher");
+    options.allow_unrecognised_options();
+    options.add_options()("a, app", "app mode", cxxopts::value<std::string>());
+    auto result = options.parse(argc, argv);
+    bool isXRMode = (result.count("app") != 0u) && result["app"].as<std::string>() == "xr";
+    if (isXRMode) {
+        sky::XRApplication app;
+        if (app.Init(argc, argv)) {
+            app.Mainloop();
+        }
+        app.Shutdown();
+    } else {
+        sky::GameApplication app;
+        if (app.Init(argc, argv)) {
+            app.Mainloop();
+        }
+        app.Shutdown();
     }
 
-    app.Shutdown();
+
     return 0;
 }

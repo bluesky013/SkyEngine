@@ -1,9 +1,0 @@
-skybox\output_iem.dds
-skybox\output_pmrem.dds
-skybox\output_skybox.dds
-models\DamagedHelmet.glb
-techniques\standard_forward.tech
-techniques\post_processing.tech
-techniques\brdf_lut.tech
-techniques\skybox.tech
-vertex\vertex_library.vtxlib

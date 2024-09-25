@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.19.0)
+
+PROJECT(@PROJECT_NAME@)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+SET(ENGINE_ROOT "" CACHE STRING "SkyEngine path")
+SET(3RD_PATH    "" CACHE STRING "SkyEngine 3rd path")
+
+include(${ENGINE_ROOT}/cmake/functions.cmake)
+include(${ENGINE_ROOT}/cmake/options.cmake)
+include(${ENGINE_ROOT}/cmake/configuration.cmake)
+include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
+
+add_subdirectory(native)

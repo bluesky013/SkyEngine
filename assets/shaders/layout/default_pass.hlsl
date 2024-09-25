@@ -1,13 +1,13 @@
 struct ViewInfo {
-    float4x4 ViewToWorld;
-    float4x4 ViewToClip;
-    float4x4 WorldToView;
-    float4x4 WorldToClip;
+    float4x4 World;
+    float4x4 View;
+    float4x4 Project;
+    float4x4 ViewProj;
 };
 
-#define VIEW_COUNT 1
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
+    float4x4 LightMatrix;
     float4 Viewport;
 }
 
@@ -22,3 +22,6 @@ struct ViewInfo {
     ViewInfo View;
 }
 #endif
+
+// [[vk::binding(2, 0)]] Texture2D ShadowMap : register(t1, space0);
+// [[vk::binding(3, 0)]] SamplerState ShadowMapSampler : register(t1, space0);

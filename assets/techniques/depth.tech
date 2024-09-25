@@ -1,0 +1,19 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "shaders/depth_only.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "DepthOnly"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": true
+    },
+    "raster_state": {
+        "cullMode": "BACK"
+    },
+    "vertex": "position_only"
+}

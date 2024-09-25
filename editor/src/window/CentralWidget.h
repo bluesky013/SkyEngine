@@ -4,23 +4,20 @@
 
 #pragma once
 #include <QMainWindow>
-#include <editor/viewport/ViewportWidget.h>
+#include <QVBoxLayout>
 
 namespace sky::editor {
 
     class CentralWidget : public QWidget {
     public:
-        CentralWidget(QWidget *parent = nullptr);
-        ~CentralWidget();
+        explicit CentralWidget(QWidget *parent = nullptr);
+        ~CentralWidget() override;
 
         void Init();
-
-        ViewportWidget *GetViewport() const;
-
-        bool event(QEvent *event) override;
-
     private:
-        ViewportWidget *viewport = nullptr;
+        void Update();
+
+        QVBoxLayout *layout = nullptr;
     };
 
 } // namespace sky::editor

@@ -2,28 +2,30 @@
 // Created by Zach Lee on 2021/12/12.
 //
 
-#include "MainWindow.h"
+#include <editor/window/MainWindow.h>
 #include "ActionManager.h"
 #include "CentralWidget.h"
-#include "../dialog/ProjectDialog.h"
-#include "../dialog/LevelDialog.h"
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
 #include <QTimer>
 #include <QMessageBox>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <editor/framework/ViewportWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/dockwidget/AssetWidget.h>
-#include <editor/inspector/InspectorWidget.h>
-#include <engine/SkyEngine.h>
+#include <editor/dockwidget/InspectorWidget.h>
 
 namespace sky::editor {
 
     MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     {
+        InitDocument();
         InitWidgets();
         InitMenu();
+        UpdateActions();
     }
 
     MainWindow::~MainWindow()
@@ -31,80 +33,110 @@ namespace sky::editor {
         ActionManager::Destroy();
     }
 
-    void MainWindow::OnOpenLevel(const QString &path)
+    void MainWindow::OnOpenWorld()
     {
-        document->OpenLevel(path, false);
-        worldWidget->SetWorld(document->GetMainWorld());
-        UpdateActions();
-    }
-
-    void MainWindow::OnNewLevel(const QString &name)
-    {
-        document->OpenLevel(name, true);
-        worldWidget->SetWorld(document->GetMainWorld());
-        UpdateActions();
-    }
-
-    void MainWindow::OnCloseLevel()
-    {
-        document->CloseLevel();
-        worldWidget->SetWorld(nullptr);
-        UpdateActions();
-    }
-
-    void MainWindow::OnOpenProject(const QString &path)
-    {
-        document = std::make_unique<Document>(path);
-        document->Init();
-
-        QFileInfo file(path);
-        auto dir = file.path().toStdString();
-        assetBrowser->OnProjectChange(file.path());
-        UpdateActions();
-    }
-
-    void MainWindow::OnNewProject(const QString &path, const QString &name)
-    {
-        QDir dir(path);
-        QDir fullPath(path + QDir::separator() + name);
-        QDir fullPathFile(path + QDir::separator() + name + QDir::separator() + name + tr(".sproj"));
-
-        if (dir.exists()){
-            QDir check(path);
-            if (fullPath.exists()) {
-                QMessageBox msgWarning;
-                msgWarning.setText("Error!\nDirectory Exists.");
-                msgWarning.setIcon(QMessageBox::Critical);
-                msgWarning.setWindowTitle("Caution");
-                msgWarning.exec();
-                return;
-            }
-
-            dir.mkdir(name);
+        QFileDialog dialog(this);
+        dialog.setFileMode(QFileDialog::AnyFile);
+        dialog.setNameFilter(tr("World (*.world)"));
+        dialog.setViewMode(QFileDialog::Detail);
+        dialog.setDirectory(projectPath);
+        QStringList fileNames;
+        if (dialog.exec() != 0) {
+            fileNames = dialog.selectedFiles();
         }
-        OnOpenProject(fullPathFile.path());
+        if (fileNames.empty()) {
+            return;
+        }
+
+        auto world = document->OpenWorld(fileNames[0]);
+        if (!world) {
+            return;
+        }
+
+        worldWidget->SetWorld(world);
+        mainViewport->ResetWorld(world);
+        setCentralWidget(mainViewport);
+        UpdateActions();
     }
 
-    void MainWindow::OnCloseProject()
+    void MainWindow::OnNewWorld()
     {
-        document.reset();
-        assetBrowser->OnProjectChange("");
+        QString fineName = QFileDialog::getSaveFileName(nullptr, "Create", projectPath, tr("World (*.world)"));
+        if (fineName.isEmpty()) {
+            return;
+        }
+
+        auto world = document->OpenWorld(fineName);
+        if (!world) {
+            return;
+        }
+
+        worldWidget->SetWorld(world);
+        mainViewport->ResetWorld(world);
         UpdateActions();
+    }
+
+    void MainWindow::OnCloseWorld()
+    {
+        SaveCheck();
+        worldWidget->SetWorld(nullptr);
+        inspector->OnSelectedItemChanged(nullptr);
+        mainViewport->ResetWorld(nullptr);
+        document->CloseWorld();
+        UpdateActions();
+    }
+
+    void MainWindow::OnSaveWorld()
+    {
+        document->SaveWorld();
+    }
+
+    void MainWindow::SaveCheck()
+    {
+        if (!document->NeedSave()) {
+            return;
+        }
+
+        QMessageBox msgBox;
+        msgBox.setText("The document has been modified.");
+        msgBox.setInformativeText("Do you want to save your changes?");
+        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+        msgBox.setDefaultButton(QMessageBox::Save);
+        int ret = msgBox.exec();
+
+        switch (ret) {
+            case QMessageBox::Save:
+                OnSaveWorld();
+                break;
+            default:
+                break;
+        }
+    }
+
+    void MainWindow::OnImport()
+    {
+        QFileDialog dialog(this);
+        dialog.setFileMode(QFileDialog::AnyFile);
+        dialog.setViewMode(QFileDialog::Detail);
+        dialog.setDirectory(projectPath);
+        QStringList fileNames;
+        if (dialog.exec() != 0) {
+            fileNames = dialog.selectedFiles();
+        }
+        if (fileNames.empty()) {
+            return;
+        }
+        AssetBuilderManager::Get()->ImportAsset({fileNames[0].toStdString()});
     }
 
     void MainWindow::InitWidgets()
     {
         setWindowState(Qt::WindowMaximized);
 
-        auto *centralWidget = new CentralWidget(this);
-        setCentralWidget(centralWidget);
-        centralWidget->Init();
-        auto *vp = centralWidget->GetViewport();
-        if (vp != nullptr) {
-            viewports.emplace_back(vp);
-        }
+        emptyCentral = new CentralWidget(this);
+        setCentralWidget(emptyCentral);
 
-        auto *dockMgr     = DockManager::Get();
+        auto *dockMgr = DockManager::Get();
         worldWidget = new WorldWidget(this);
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
@@ -113,9 +145,21 @@ namespace sky::editor {
         addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, inspector);
         dockMgr->Register((uint32_t)DockId::INSPECTOR, *inspector);
 
+        connect(worldWidget->GetWorldTreeView(), &WorldTreeView::WorldTreeSelectItemChanged, inspector, &InspectorWidget::OnSelectedItemChanged);
+
         assetBrowser = new AssetWidget(this);
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, assetBrowser);
         dockMgr->Register((uint32_t)DockId::BROWSER, *assetBrowser);
+
+        mainViewport = new ViewportWidget(nullptr);
+        setCentralWidget(mainViewport);
+
+        projectPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath().GetStr().c_str();
+    }
+
+    void MainWindow::InitDocument()
+    {
+        document = std::make_unique<Document>();
     }
 
     void MainWindow::InitMenu()
@@ -125,96 +169,40 @@ namespace sky::editor {
         menuBar = new QMenuBar(this);
 
         // level
-        auto *openLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Open Level");
-        auto *closeLevelAct = new ActionWithFlag(DocumentFlagBit::LEVEL_OPEN, "Close Level");
-        auto *newLevelAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "New Level");
+        auto *openWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Open World");
+        auto *closeWorldAct = new ActionWithFlag(DocumentFlagBit::WorldOpen, "Close World");
+        auto *newWorldAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "New World");
+        auto *saveWorldAct = new ActionWithFlag(DocumentFlagBit::WorldOpen, "Save World");
 
-        connect(openLevelAct, &QAction::triggered, this, [this](bool /**/) {
-            QFileDialog dialog(this);
-            dialog.setFileMode(QFileDialog::AnyFile);
-            dialog.setNameFilter(tr("Level (*.level)"));
-            dialog.setViewMode(QFileDialog::Detail);
-            QStringList fileNames;
-            if (dialog.exec() != 0) {
-                fileNames = dialog.selectedFiles();
-                if (!fileNames.empty()) {
-                    OnOpenLevel(fileNames[0]);
-                }
-            }
-        });
+        connect(openWorldAct, &QAction::triggered, this, [this]() { OnOpenWorld(); });
+        connect(newWorldAct, &QAction::triggered, this, [this]() { OnNewWorld(); });
+        connect(closeWorldAct, &QAction::triggered, this, [this]() { OnCloseWorld(); });
+        connect(saveWorldAct, &QAction::triggered, this, [this]() { OnSaveWorld(); });
 
-        connect(newLevelAct, &QAction::triggered, this, [this](bool /**/) {
-            LevelDialog dialog;
-            if (dialog.exec() != 0) {
-                const auto& name = dialog.LevelName();
-                if (!name.isEmpty()) {
-                    OnNewLevel(name);
-                }
-            }
-        });
-
-        connect(closeLevelAct, &QAction::triggered, this, [this]() {
-            OnCloseLevel();
-        });
-
-        auto *openProjectAct = new ActionWithFlag({}, "Open Project", this);
-        auto *newProjectAct = new ActionWithFlag({}, "New Project", this);
-        auto *closeProjectAct = new ActionWithFlag(DocumentFlagBit::PROJECT_OPEN, "Close Project", this);
-
-        // project
-        connect(openProjectAct, &QAction::triggered, this, [this](bool /**/) {
-            QFileDialog dialog(this);
-            dialog.setFileMode(QFileDialog::AnyFile);
-            dialog.setNameFilter(tr("Projects (*.sproj)"));
-            dialog.setViewMode(QFileDialog::Detail);
-            QStringList fileNames;
-            if (dialog.exec() != 0) {
-                fileNames = dialog.selectedFiles();
-                if (!fileNames.empty()) {
-                    OnOpenProject(fileNames[0]);
-                }
-            }
-        });
-
-        connect(newProjectAct, &QAction::triggered, this, [this](bool /**/) {
-            ProjectDialog dialog;
-            if (dialog.exec() != 0) {
-                const auto& projectPath = dialog.ProjectPath();
-                const auto& projectName = dialog.ProjectName();
-                if (!projectPath.isEmpty() && !projectName.isEmpty()) {
-                    OnNewProject(projectPath, projectName);
-                }
-            }
-        });
-
-        connect(closeProjectAct, &QAction::triggered, this, [this](bool /**/) {
-            OnCloseProject();
-        });
+        // import
+        auto *importAct = new ActionWithFlag(DocumentFlagBit::ProjectOpen, "Import Asset");
+        connect(importAct, &QAction::triggered, this, [this]() { OnImport(); });
 
         // close editor
         auto *closeAct = new ActionWithFlag({}, "Close", this);
         connect(closeAct, &QAction::triggered, this, [this](bool /**/) { close(); });
 
         auto *fileMenu = new QMenu("File", menuBar);
-        fileMenu->addAction(newProjectAct);
-        fileMenu->addAction(openProjectAct);
-        fileMenu->addAction(closeProjectAct);
+        fileMenu->addAction(newWorldAct);
+        fileMenu->addAction(openWorldAct);
+        fileMenu->addAction(saveWorldAct);
+        fileMenu->addAction(closeWorldAct);
         fileMenu->addSeparator();
-        fileMenu->addAction(newLevelAct);
-        fileMenu->addAction(openLevelAct);
-        fileMenu->addAction(closeLevelAct);
+        fileMenu->addAction(importAct);
         fileMenu->addSeparator();
         fileMenu->addAction(closeAct);
         menuBar->addMenu(fileMenu);
 
         setMenuBar(menuBar);
 
-        actionManager->AddAction(openLevelAct);
-        actionManager->AddAction(closeLevelAct);
-        actionManager->AddAction(newLevelAct);
-        actionManager->AddAction(newProjectAct);
-        actionManager->AddAction(openProjectAct);
-        actionManager->AddAction(closeProjectAct);
+        actionManager->AddAction(newWorldAct);
+        actionManager->AddAction(openWorldAct);
+        actionManager->AddAction(closeWorldAct);
         actionManager->AddAction(closeAct);
         UpdateActions();
     }
@@ -222,6 +210,23 @@ namespace sky::editor {
     void MainWindow::UpdateActions()
     {
         actionManager->Update(document ? document->GetFlag() : DocFlagArray{});
+    }
+
+    bool MainWindow::event(QEvent *event)
+    {
+        switch (event->type()) {
+            case QEvent::Close:
+                OnCloseWorld();
+                break;
+            default:
+                break;
+        }
+        return QMainWindow::event(event);
+    }
+
+    ViewportWindow* MainWindow::GetViewportWindow() const
+    {
+        return mainViewport->GetViewportWindow();
     }
 
 } // namespace sky::editor

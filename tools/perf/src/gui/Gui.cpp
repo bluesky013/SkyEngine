@@ -394,7 +394,7 @@ namespace sky::perf {
         if (wheelY < 0) io.MouseWheel -= 1;
     }
 
-    void Gui::OnMouseMove(int32_t x, int32_t y)
+    void Gui::OnMouseMove(int32_t x, int32_t y, int32_t relX, int32_t relY)
     {
         ImGuiIO& io = ImGui::GetIO();
         io.MousePos = ImVec2(static_cast<float>(x), static_cast<float>(y));

@@ -32,7 +32,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
     context.commandBuffers.resize(1);
     context.commandBuffers[0] = context.device->CreateCommandBuffer({});
 
-    RenderGraph rdg(&context, nullptr);
+    RenderGraph rdg(&context);
     auto       &rg = rdg.resourceGraph;
 
 

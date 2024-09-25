@@ -1,0 +1,189 @@
+//
+// Created by Zach Lee on 2021/11/13.
+//
+
+#include <framework/world/World.h>
+#include <framework/world/TransformComponent.h>
+#include <framework/serialization/SerializationContext.h>
+#include <framework/serialization/JsonArchive.h>
+
+#include <atomic>
+#include <deque>
+#include <memory>
+
+namespace sky {
+
+    World::~World()
+    {
+        for (auto &actor : actors) {
+            actor->DetachFromWorld();
+        }
+        actors.clear();
+
+        for (auto &sub : subSystems) {
+            sub.second->OnDetachFromWorld(*this);
+        }
+    }
+
+    void World::Reflect(SerializationContext *context)
+    {
+        TransformComponent::Reflect(context);
+    }
+
+    World *World::CreateWorld()
+    {
+        auto *world = new World();
+        return world;
+    }
+
+    void World::Init(std::vector<Name>&& systems)
+    {
+        subSystemRegistry.swap(systems);
+        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
+    }
+
+    void World::Tick(float time)
+    {
+        for (auto &actor : actors) {
+            actor->Tick(time);
+        }
+
+        for (auto &sys : subSystems) {
+            sys.second->Tick(time);
+        }
+    }
+
+    void World::SaveJson(JsonOutputArchive &archive)
+    {
+        archive.StartObject();
+
+        archive.Key("actors");
+        archive.StartArray();
+
+        for (auto &actor : actors) {
+            actor->SaveJson(archive);
+        }
+
+        archive.EndArray();
+
+        archive.EndObject();
+    }
+
+    void World::LoadJson(JsonInputArchive &archive)
+    {
+        auto num = archive.StartArray("actors");
+        for (uint32_t i = 0; i < num; ++i) {
+            auto actor = std::make_shared<Actor>();
+            actor->LoadJson(archive);
+            AttachToWorld(actor);
+            archive.NextArrayElement();
+        }
+        archive.End();
+
+        // resolve hierarchy
+        for (auto &actor : actors) {
+            auto *trans = actor->GetComponent<TransformComponent>();
+            if (trans != nullptr) {
+                auto parentActor = GetActorByUuid(trans->GetData().parent);
+
+                if (parentActor != nullptr) {
+                    auto *parentTrans = parentActor->GetComponent<TransformComponent>();
+                    SKY_ASSERT(parentTrans);
+                    trans->SetParent(parentTrans);
+                }
+            }
+        }
+    }
+
+    ActorPtr World::CreateActor(const char *name, bool withTrans)
+    {
+        auto actor = CreateActor(Uuid::Create(), withTrans);
+        actor->SetName(name);
+        return actor;
+    }
+
+    ActorPtr World::CreateActor(const std::string &name, bool withTrans)
+    {
+        auto actor = CreateActor(Uuid::Create(), withTrans);
+        actor->SetName(name);
+        return actor;
+    }
+
+    ActorPtr World::CreateActor(bool withTrans)
+    {
+        return CreateActor("Actor", withTrans);
+    }
+
+    ActorPtr World::CreateActor(const Uuid &id, bool withTrans)
+    {
+        actors.emplace_back(std::make_shared<Actor>(id));
+        actors.back()->world = this;
+        if (withTrans) {
+            actors.back()->AddComponent<TransformComponent>();
+        }
+        return actors.back();
+    }
+
+    ActorPtr World::GetActorByUuid(const Uuid &id)
+    {
+        auto iter = std::find_if(actors.begin(), actors.end(), [&id](const auto &v) {
+            return id == v->GetUuid();
+        });
+        return iter != actors.end() ? *iter : ActorPtr{};
+    }
+
+    void World::AttachToWorld(const sky::ActorPtr &actor)
+    {
+        if (actor->world != nullptr && actor->world != this) {
+            actor->world->DetachFromWorld(actor);
+        }
+        actor->world = this;
+        actors.emplace_back(actor);
+        actor->AttachToWorld(this);
+    }
+
+    void World::DetachFromWorld(const ActorPtr &actor)
+    {
+        actor->DetachFromWorld();
+        auto iter = std::find_if(actors.begin(), actors.end(),
+            [&actor](const auto &v) { return actor == v; });
+
+        if (iter != actors.end()) {
+            actors.erase(iter);
+        }
+    }
+
+    void World::Reset()
+    {
+        actors.clear();
+    }
+
+    bool World::CheckSystem(const Name &name) const
+    {
+        return std::find(subSystemRegistry.begin(), subSystemRegistry.end(), name) != subSystemRegistry.end();
+    }
+
+    void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)
+    {
+        SKY_ASSERT(subSystems.emplace(name, sys).second);
+        sys->OnAttachToWorld(*this);
+    }
+
+    IWorldSubSystem* World::GetSubSystem(const Name &name) const
+    {
+        auto iter = subSystems.find(name);
+        return iter != subSystems.end() ? iter->second.get() : nullptr;
+    }
+
+    void World::RegisterConfiguration(const std::string& name, const Any& any)
+    {
+        SKY_ASSERT(worldConfigs.emplace(name, any).second);
+    }
+
+    const Any& World::GetConfigByName(const std::string &name) const
+    {
+        static Any EMPTY;
+        auto iter = worldConfigs.find(name);
+        return iter != worldConfigs.end() ? iter->second : EMPTY;
+    }
+} // namespace sky

@@ -13,3 +13,5 @@
 /assets/shaders/output/
 /build_release/
 /active_project
+/test/assets/assets.db
+/test/products/

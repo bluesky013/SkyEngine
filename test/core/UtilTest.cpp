@@ -71,3 +71,11 @@ TEST(UtilTest, ArrayBitTest)
     bit.ResetBit(ArrayBitTestE::VAL33);
     ASSERT_EQ(bit.CheckBit(ArrayBitTestE::VAL33), false);
 }
+
+struct MemoryBuf {
+    std::vector<uint8_t> data;
+};
+
+TEST(UtilTest, MemoryStreamTest)
+{
+}

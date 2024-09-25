@@ -10,14 +10,14 @@
 #include <framework/window/NativeWindow.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/world/World.h>
-#include <framework/world/GameObject.h>
+#include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 
 #include <render/Renderer.h>
 #include <render/adaptor/RenderSceneProxy.h>
 #include <render/adaptor/pipeline/DefaultForward.h>
 #include <render/adaptor/assets/MeshAsset.h>
-#include <render/adaptor/components/MeshRenderer.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
 #include <render/adaptor/components/CameraComponent.h>
 #include <render/adaptor/Util.h>
 #include <render/RHI.h>

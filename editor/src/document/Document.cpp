@@ -3,29 +3,24 @@
 //
 
 #include <editor/document/Document.h>
-#include <QFileInfo>
-#include <QDir>
-#include <fstream>
-#include <memory>
-#include <framework/serialization/JsonArchive.h>
+#include <QFile>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetManager.h>
-#include <framework/interface/ISystem.h>
-#include <framework/interface/Interface.h>
-#include <framework/application/SettingRegistry.h>
-#include <EngineRoot.h>
+#include <framework/asset/AssetDataBase.h>
+#include <physics/PhysicsWorld.h>
 
 namespace sky::editor {
 
-    Document::Document(const QString &path)
+    Document::Document()
     {
-        projectFullPath = path;
+        SetFlag(DocumentFlagBit::ProjectOpen);
+        AssetDataBase::Get()->Load();
     }
 
     Document::~Document()
     {
-        ResetFlag(DocumentFlagBit::PROJECT_OPEN);
-        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
+        ResetFlag(DocumentFlagBit::ProjectOpen);
+        AssetDataBase::Get()->Save();
     }
 
     void Document::SetFlag(DocumentFlagBit bit)
@@ -43,76 +38,61 @@ namespace sky::editor {
         return flags;
     }
 
-    const WorldPtr &Document::GetMainWorld() const
-    {
-        return currentLevel->GetWorld();
-    }
-
     void Document::Reflect()
     {
         SerializationContext::Get()->Register<ProjectData>("ProjectData")
             .Member<&ProjectData::version>("version");
     }
 
-    void Document::Init()
+    void Document::LoadWorld()
     {
-        QFileInfo file(projectFullPath);
-        if (!file.exists()) {
-            Save();
-        } else {
-            Read();
+        NativeFile file(FilePath(filePath.toStdString()));
+        auto archive = file.ReadAsArchive();
+        if (!archive || !archive->IsOpen()) {
+            return;
         }
 
-        projectHome = file.path();
-        auto mkdir = [&](const QString &path) {
-            QDir dir(projectHome);
-            QDir tmp(projectHome + QDir::separator() + path);
-            if (!tmp.exists()) {
-                dir.mkdir(path);
-            }
-        };
-        mkdir("assets");
-        mkdir("levels");
-
-        SetFlag(DocumentFlagBit::PROJECT_OPEN);
-
-        AssetManager::Get()->Reset(projectHome.toStdString() + "/assets.db");
-        AssetManager::Get()->RegisterSearchPath(projectHome.toStdString());
-        AssetManager::Get()->RegisterSearchPath(ENGINE_ROOT + "/assets");
-        Interface<ISystemNotify>::Get()->GetApi()->GetSettings().SetValue("PROJECT_PATH", projectHome.toStdString());
+        JsonInputArchive json(*archive);
+        world->LoadJson(json);
     }
 
-    void Document::Read()
+    void Document::SaveWorld()
     {
-        auto str = projectFullPath.toStdString();
-        std::ifstream file(str, std::ios::binary);
-        JsonInputArchive archive(file);
-        archive.LoadValueObject(projectData);
+        NativeFile file(FilePath(filePath.toStdString()));
+        auto archive = file.WriteAsArchive();
+        JsonOutputArchive json(*archive);
+        world->SaveJson(json);
     }
 
-    void Document::Save()
+    bool Document::NeedSave() const
     {
-        auto str = projectFullPath.toStdString();
-        std::ofstream file(str, std::ios::binary);
-        JsonOutputArchive archive(file);
-        archive.SaveValueObject(projectData);
+        return world != nullptr;
     }
 
-    void Document::OpenLevel(const QString &path, bool newLevel)
+    WorldPtr Document::OpenWorld(const QString &path)
     {
-        currentLevel = std::make_unique<Level>();
-        if (newLevel) {
-            currentLevel->New(projectHome + QDir::separator() + "levels" + QDir::separator() + path);
-        } else {
-            currentLevel->Open(path);
+        CloseWorld();
+
+        world = World::CreateWorld();
+        world->Init({
+            "RenderScene",
+            phy::PhysicsWorld::NAME.data()
+        });
+
+        filePath = path;
+        LoadWorld();
+        SetFlag(DocumentFlagBit::WorldOpen);
+        return world;
+    }
+
+    void Document::CloseWorld()
+    {
+        if (!world) {
+            return;
         }
-        SetFlag(DocumentFlagBit::LEVEL_OPEN);
-    }
-
-    void Document::CloseLevel()
-    {
-        currentLevel.reset();
-        ResetFlag(DocumentFlagBit::LEVEL_OPEN);
+        SaveWorld();
+        world = nullptr;
+        ResetFlag(DocumentFlagBit::WorldOpen);
     }
 
 } // namespace sky::editor

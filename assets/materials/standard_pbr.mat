@@ -1,5 +1,6 @@
 {
     "techniques": [
-        "techniques/standard_forward.tech"
+        "techniques/standard_forward.tech",
+        "techniques/depth.tech"
     ]
 }

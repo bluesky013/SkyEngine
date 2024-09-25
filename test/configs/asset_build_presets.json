@@ -1,0 +1,11 @@
+{
+  "bundles": [
+    "common",
+    "config1",
+    "config2"
+  ],
+  "presets": {
+    "windows": ["common", "config1"],
+    "macos": ["common", "config2"]
+  }
+}

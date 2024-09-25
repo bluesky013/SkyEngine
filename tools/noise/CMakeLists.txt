@@ -16,7 +16,7 @@ sky_add_library(TARGET ${TARGET_NAME} SHARED
     LINK_LIBS
         Framework
         ImGuiRender
-        SkyRenderAdaptor
+        RenderAdaptor
         3rdParty::PerlinNoise
 )
 

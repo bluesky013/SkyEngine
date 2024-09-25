@@ -1,0 +1,18 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "shaders/debug.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "ForwardColor"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    }
+}

@@ -15,7 +15,7 @@ namespace sky::editor {
     }
 
     ActionWithFlag::ActionWithFlag(const DocFlagArray &value, const QIcon &icon, const QString &text, QObject *parent)
-    : QAction(icon, text, parent), flags(value)
+        : QAction(icon, text, parent), flags(value)
     {
     }
 

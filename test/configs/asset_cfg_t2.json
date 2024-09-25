@@ -1,0 +1,14 @@
+{
+  "t2": {
+    "config1": {
+      "extVal": 3
+    },
+    "config2": {
+      "extVal": 4
+    }
+  },
+  "defaultBundles": {
+    "Windows": "config1",
+    "MacOS": "config2"
+  }
+}
