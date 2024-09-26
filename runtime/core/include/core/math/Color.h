@@ -23,6 +23,18 @@ namespace sky {
         Color(float r_, float g_, float b_, float a_);
     };
 
+    struct Color32 {
+        uint32_t color;
+
+        constexpr Color32(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+        {
+            color = (static_cast<uint32_t>(r) << 0) |
+                    (static_cast<uint32_t>(g) << 8) |
+                    (static_cast<uint32_t>(b) << 16) |
+                    (static_cast<uint32_t>(a) << 24);
+        }
+    };
+
     struct UColor {
         union {
             uint16_t v[4];

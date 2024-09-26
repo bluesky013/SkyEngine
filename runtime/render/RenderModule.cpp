@@ -102,7 +102,7 @@ namespace sky {
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
 #if _DEBUG && !__ANDROID__
-        rhiDesc.enableDebugLayer = true;
+        rhiDesc.enableDebugLayer = false;
 #else
         rhiDesc.enableDebugLayer = false;
 #endif

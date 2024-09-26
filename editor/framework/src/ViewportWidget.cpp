@@ -8,11 +8,13 @@
 #include <QDropEvent>
 #include <QMimeData>
 #include <render/adaptor/pipeline/DefaultForwardPipeline.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderScenePipeline.h>
 #include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky::editor {
 
@@ -225,6 +227,8 @@ namespace sky::editor {
         layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
 
+        grid = std::make_unique<Grid>();
+
         binder.Bind(this);
         setAcceptDrops(true);
     }
@@ -313,6 +317,12 @@ namespace sky::editor {
         auto *scenePipeline = new DefaultForwardPipeline(sceneProxy->GetRenderScene());
         scenePipeline->SetOutput(renderWindow);
         ppl->AddScenePass(scenePipeline);
+
+        auto debugTech = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
+        debugTech->BlockUntilLoaded();
+        grid->SetTechnique(CreateTechniqueFromAsset(debugTech));
+        grid->Draw(200.f);
+        sceneProxy->GetRenderScene()->AddPrimitive(grid->GetPrimitive());
 
         editorCamera = std::make_unique<EditorCamera>();
         editorCamera->Init(sceneProxy->GetRenderScene(), window);

@@ -29,13 +29,11 @@ int main(int argc, char **argv)
         if (app.Init(argc, argv)) {
             app.Mainloop();
         }
-        app.Shutdown();
     } else {
         sky::GameApplication app;
         if (app.Init(argc, argv)) {
             app.Mainloop();
         }
-        app.Shutdown();
     }
 
 

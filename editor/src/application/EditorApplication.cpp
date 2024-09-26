@@ -29,7 +29,9 @@ namespace sky::editor {
 
     EditorApplication::~EditorApplication() // NOLINT
     {
-        timer->stop();
+        if (timer) {
+            timer->stop();
+        }
     }
 
     bool EditorApplication::Init(int argc, char **argv)

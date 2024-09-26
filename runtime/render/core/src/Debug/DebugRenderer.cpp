@@ -3,12 +3,13 @@
 //
 
 #include <render/debug/DebugRenderer.h>
+#include <render/RenderPrimitive.h>
 
 namespace sky {
 
     static std::vector<VertexAttribute> DEBUG_ATTRIBUTES = {
             VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(DebugVertex, pos), rhi::Format::F_RGBA32},
-            VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(DebugVertex, col),  rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(DebugVertex, col),  rhi::Format::F_RGBA8},
     };
 
     static VertexSemanticFlags DEBUG_VTX_SEMANTICS = VertexSemanticFlagBit::POSITION | VertexSemanticFlagBit::COLOR;
@@ -22,11 +23,11 @@ namespace sky {
 
     void DebugRenderer::Reset()
     {
-        currentColor = {1.f, 1.f, 1.f, 1.f};
+        currentColor = {255, 255, 255, 255};
         batchVertices.clear();
     }
 
-    void DebugRenderer::SetColor(const Color &color)
+    void DebugRenderer::SetColor(const Color32 &color)
     {
         currentColor = color;
     }
@@ -111,15 +112,15 @@ namespace sky {
         DrawLine(Vector3(aabb.min[0], aabb.max[1], aabb.max[2]), Vector3(aabb.min[0], aabb.min[1], aabb.max[2]));
     }
 
-    void DebugRenderer::Render()
+    void DebugRenderer::Render(RenderPrimitive *primitive)
     {
         auto vtxSize = static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex));
 
         if (!vertexBuffer || vtxSize > capacity) {
             capacity = std::max(capacity * 2, vtxSize);
 
-            vertexBuffer = new Buffer();
-            vertexBuffer->Init(capacity, rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::CPU_TO_GPU);
+            vertexBuffer = new DynamicBuffer();
+            vertexBuffer->Init(capacity, rhi::BufferUsageFlagBit::VERTEX);
 
             geometry->vertexBuffers.clear();
             geometry->vertexBuffers.emplace_back(VertexBuffer {
@@ -128,7 +129,16 @@ namespace sky {
             geometry->version++;
         }
 
+        vertexBuffer->SwapBuffer();
+        vertexBuffer->Update(reinterpret_cast<uint8_t *>(batchVertices.data()), 0, static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex)));
+
+        rhi::CmdDrawLinear linear = {};
         linear.vertexCount = static_cast<uint32_t>(batchVertices.size());
+
+        primitive->geometry = geometry;
+        primitive->args.clear();
+        primitive->args.emplace_back(linear);
+        primitive->isReady = true;
     }
 
 } // namespace sky

@@ -333,14 +333,14 @@ namespace sky {
         auto is = indexCount * sizeof(ImDrawIdx);
 
         if (vs > vertexSize) {
-            vertexSize = std::max(vertexSize * 2, static_cast<uint64_t>(vs));
+            vertexSize = std::max(vertexSize * 2, static_cast<uint32_t>(vs));
             vertexBuffer = new DynamicBuffer();
             vertexBuffer->Init(vertexSize, rhi::BufferUsageFlagBit::VERTEX);
             rebuildGeometry = true;
         }
 
         if (is > indexSize) {
-            indexSize = std::max(indexSize * 2, static_cast<uint64_t>(is));
+            indexSize = std::max(indexSize * 2, static_cast<uint32_t>(is));
             indexBuffer = new DynamicBuffer();
             indexBuffer->Init(indexSize, rhi::BufferUsageFlagBit::INDEX);
             rebuildGeometry = true;

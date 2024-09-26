@@ -78,7 +78,7 @@ namespace sky {
         std::vector<uint8_t> data;
         rhi::BufferPtr stagingBuffer;
     };
-    using RDUniformBufferPtr = std::shared_ptr<UniformBuffer>;
+    using RDUniformBufferPtr = CounterPtr<UniformBuffer>;
 
     class DynamicUniformBuffer : public UniformBuffer {
     public:

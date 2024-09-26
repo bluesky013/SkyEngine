@@ -13,6 +13,9 @@
 #include <core/math/Quaternion.h>
 
 namespace sky {
+#ifndef FLT_EPSILON
+    static constexpr float FLT_EPSILON = 1.19209290E-07F; // decimal constant
+#endif
 
     struct MathUtil {
         static void PrintMatrix(const Matrix4 &m);
@@ -258,6 +261,15 @@ namespace sky {
     constexpr inline float FloatSelect(float comp, float ge, float lt)
     {
         return comp >= 0.f ? ge : lt;
+    }
+
+    constexpr inline Vector3 Lerp(const Vector3 &v1, const Vector3 &v2, float t)
+    {
+        return Vector3 {
+          v1.x + (v2.x - v1.x) * t,
+          v1.y + (v2.y - v1.y) * t,
+          v1.z + (v2.z - v1.z) * t
+        };
     }
 
 } // namespace sky

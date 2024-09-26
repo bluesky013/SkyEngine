@@ -75,8 +75,11 @@ namespace sky::rdg {
                     needRebuildPso &= static_cast<bool>(renderPass);
 
                     if (needRebuildPso) {
+                        auto pState = tech.technique->GetPipelineState();
+                        pState.inputAssembly.topology = tech.topo;
+
                         tech.pso = GraphicsTechnique::BuildPso(tech.program,
-                                                               tech.technique->GetPipelineState(),
+                                                               pState,
                                                                tech.vertexDesc,
                                                                renderPass,
                                                                subPass.subPassID);

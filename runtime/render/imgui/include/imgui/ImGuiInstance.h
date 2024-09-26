@@ -61,8 +61,8 @@ namespace sky {
 
         RDTexture2DPtr fontTexture;
         RDDynamicUniformBufferPtr ubo;
-        uint64_t vertexSize = 0;
-        uint64_t indexSize = 0;
+        uint32_t vertexSize = 0;
+        uint32_t indexSize = 0;
 
         ImDrawData* drawData = nullptr;
         std::list<ImWidget*> widgets;

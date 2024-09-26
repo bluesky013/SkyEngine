@@ -11,7 +11,6 @@ struct VSOutput
 };
 
 #include "shaders/layout/default_pass.hlsl"
-#include "shaders/layout/default_local.hlsl"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]
@@ -23,10 +22,8 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
 
-    float4 WorldPos = mul(World, input.Pos);
-    output.Pos = mul(VIEW_INFO.ViewProj, float4(WorldPos.xyz, 1.0));
-
-    output.COLOR = input.Color;
+    output.Pos   = mul(VIEW_INFO.ViewProj, float4(input.Pos.xyz, 1.0));
+    output.Color = input.Color;
     return output;
 }
 

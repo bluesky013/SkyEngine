@@ -19,6 +19,7 @@ namespace sky {
         RDGfxTechPtr             technique;
         RDMaterialInstancePtr    material;
         ShaderOptionPtr          shaderOption;
+        rhi::PrimitiveTopology   topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
 
         // cache values
         RDProgramPtr             program;

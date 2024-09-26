@@ -26,7 +26,10 @@ namespace sky::phy {
 
     void BulletDebugDraw::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
     {
-        debugRenderer->SetColor(Color{color.x(), color.y(), color.z(), 1.f});
+        debugRenderer->SetColor(Color32{static_cast<uint8_t>(color.x() * 255),
+                                        static_cast<uint8_t>(color.y() * 255),
+                                        static_cast<uint8_t>(color.z() * 255),
+                                        0xFF});
         debugRenderer->DrawLine(FromBullet(from), FromBullet(to));
     }
 

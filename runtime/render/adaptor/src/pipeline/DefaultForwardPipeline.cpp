@@ -30,7 +30,7 @@ namespace sky {
             depthStencilFormat = rhi::PixelFormat::D32_S8;
         }
 
-        globalUbo = std::make_shared<UniformBuffer>();
+        globalUbo = new UniformBuffer();
         globalUbo->Init(sizeof(ShaderPassInfo));
 
         InitPass();

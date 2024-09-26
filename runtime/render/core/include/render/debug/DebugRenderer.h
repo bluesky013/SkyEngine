@@ -12,10 +12,11 @@
 #include <render/RenderGeometry.h>
 
 namespace sky {
+    struct RenderPrimitive;
 
     struct DebugVertex {
         Vector4 pos;
-        Color   col;
+        Color32 col;
     };
 
     class DebugRenderer {
@@ -24,7 +25,7 @@ namespace sky {
         ~DebugRenderer() = default;
 
         void Reset();
-        void SetColor(const Color &color);
+        void SetColor(const Color32 &color);
 
         void DrawLine(const Line &line);
         void DrawLine(const Vector3 &from, const Vector3 &to);
@@ -32,12 +33,11 @@ namespace sky {
         void DrawSphere(const Sphere &sphere);
         void DrawAABB(const AABB &aabb);
 
-        void Render();
+        void Render(RenderPrimitive *primitve);
     private:
-        Color currentColor = {1.f, 1.f, 1.f, 1.f};
+        Color32 currentColor = {255, 255, 255, 255};
 
-        rhi::CmdDrawLinear linear;
-        RDBufferPtr vertexBuffer;
+        RDDynamicBuffer vertexBuffer;
         RenderGeometryPtr geometry;
         std::vector<DebugVertex> batchVertices;
 

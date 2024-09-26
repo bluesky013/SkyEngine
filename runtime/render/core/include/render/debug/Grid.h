@@ -10,17 +10,18 @@
 
 namespace sky {
 
-    class Gizmo : public RefObject {
+    class Grid : public RefObject {
     public:
-        Gizmo();
-        ~Gizmo() override = default;
+        Grid();
+        ~Grid() override = default;
 
-        void DrawGrid();
+        void Draw(float gridSize);
         void SetTechnique(const RDGfxTechPtr &tech);
 
+        RenderPrimitive* GetPrimitive() const { return primitive.get(); }
     private:
         std::unique_ptr<DebugRenderer> renderer;
         std::unique_ptr<RenderPrimitive> primitive;
     };
-    using GizmoPtr = CounterPtr<Gizmo>;
+    using GizmoPtr = CounterPtr<Grid>;
 } // namespace sky

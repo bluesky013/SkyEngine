@@ -22,7 +22,7 @@ namespace sky {
         viewInfo.resize(viewCount);
         frustums.resize(viewCount);
 
-        viewUbo = std::make_shared<UniformBuffer>();
+        viewUbo = new UniformBuffer();
         viewUbo->Init(sizeof(SceneViewInfo));
     }
 

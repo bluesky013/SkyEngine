@@ -54,4 +54,9 @@ namespace sky {
     {
         return Plane{normal, normal.Dot(pt)};
     }
+
+    float DistanceToPlane(const Vector3 &pt, const Plane &plane)
+    {
+        return plane.normal.Dot(pt) + plane.distance;
+    }
 } // namespace sky
