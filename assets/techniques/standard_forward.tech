@@ -22,8 +22,10 @@
         "INSTANCE": "ENABLE_INSTANCE"
     },
     "common_options": {
+        "ENABLE_NORMAL_MAP": false,
         "ENABLE_EMISSIVE_MAP": false,
         "ENABLE_AO_MAP": false,
-        "ENABLE_ALPHA_MASK": false
+        "ENABLE_ALPHA_MASK": false,
+        "ENABLE_MR_MAP": false
     }
 }

@@ -10,8 +10,8 @@
 namespace sky {
 
     std::vector<uint8_t> DEFAULT_TEX_DATA = {
-        0, 0, 0, 1, 0, 0, 0, 1,
-        0, 0, 0, 1, 0, 0, 0, 1
+        255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255
     };
 
     void RenderDefaultResource::Init()

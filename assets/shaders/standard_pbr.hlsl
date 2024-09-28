@@ -95,13 +95,16 @@ float4 FSMain(VSOutput input) : SV_TARGET
     light.Color = float4(1.0, 1.0, 1.0, 1.0);
     light.Direction = float4(float3(-1, -1, 0), 2.5);
 
+#ifdef ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - 1.0;
     float3 N = normalize(input.Normal);
     float3 T = normalize(input.Tangent.xyz);
     float3 B = normalize(cross(N, input.Tangent.xyz)) * input.Tangent.w;
     float3x3 TBN = transpose(float3x3(T, B, N));
-
     N = normalize(mul(TBN, tNormal));
+#else
+    float3 N = normalize(input.Normal);
+#endif
 
     float3 viewPos = float3(VIEW_INFO.World[3][0], VIEW_INFO.World[3][1], VIEW_INFO.World[3][2]);
     float3 L = normalize(-light.Direction.xyz);
@@ -111,13 +114,17 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
 
     StandardPBR pbrParam;
-    pbrParam.Albedo = albedo.xyz;
+    pbrParam.Albedo    = albedo.xyz;
+    pbrParam.Metallic  = Metallic;
+    pbrParam.Roughness = Roughness;
+    pbrParam.AO        = 1.0;
+    pbrParam.Emissive  = float4(0, 0, 0, 0);
 
+#ifdef ENABLE_MR_MAP
     float4 mr = MetallicRoughnessMap.Sample(MetallicRoughnessSampler, input.UV.xy);
     pbrParam.Metallic = mr.b;
     pbrParam.Roughness = mr.g;
-    pbrParam.AO = 1.0;
-    pbrParam.Emissive = float4(0, 0, 0, 0);
+#endif
 
 #ifdef ENABLE_AO_MAP
     pbrParam.AO = AoMap.Sample(AoSampler, input.UV.xy).x;

@@ -146,8 +146,8 @@ namespace sky::builder {
         bool useMetallicRoughnessMap = false;
         bool useMask = false;
         Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
-        float metallic = 1.f;
-        float roughness = 1.f;
+        float metallic = 0.1f;
+        float roughness = 1.0f;
         Uuid normalMap;
         Uuid emissiveMap;
         Uuid aoMap;
@@ -226,14 +226,14 @@ namespace sky::builder {
             data.properties.images.emplace_back(baseColorMap);
         }
 
-        data.properties.options.emplace("useMetallicRoughnessMap", useMetallicRoughnessMap);
+        data.properties.options.emplace("ENABLE_MR_MAP", useMetallicRoughnessMap);
         if (useMetallicRoughnessMap) {
             data.properties.valueMap.emplace("MetallicRoughnessMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
             data.properties.images.emplace_back(metallicRoughnessMap);
         }
 
-//        data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
+        data.properties.options.emplace("ENABLE_NORMAL_MAP", useNormalMap);
         if (useNormalMap) {
             data.properties.valueMap.emplace("NormalMap",
                                              MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
