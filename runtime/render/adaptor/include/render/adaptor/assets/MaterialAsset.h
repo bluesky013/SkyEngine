@@ -9,6 +9,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 namespace sky {
     class BinaryInputArchive;
@@ -28,7 +29,7 @@ namespace sky {
 
     struct MaterialAssetData {
         uint32_t version;
-        std::vector<Uuid> techniques;
+        std::set<Uuid> techniques;
         MaterialProperties defaultProperties;
 
         void LoadBin(BinaryInputArchive &archive);

@@ -21,6 +21,13 @@ namespace sky {
         void Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType);
         void SetSourceData(const rhi::BufferUploadRequest &data);
 
+        template <typename T>
+        void SetUploadData(std::vector<T> &&data)
+        {
+            sourceData.size = data.size() * sizeof(T);
+            sourceData.source = new rhi::TRawBufferStream<T>(std::move(data));
+        }
+
         virtual uint64_t GetSize() const { return bufferDesc.size; }
 
         const rhi::BufferPtr &GetRHIBuffer() const { return buffer; }

@@ -23,6 +23,9 @@ namespace sky {
     {
         component->actor = this;
         auto res = storage.emplace(typeId, component);
+        if (world != nullptr) {
+            component->actor->AttachToWorld(world);
+        }
         return res.second;
     }
 

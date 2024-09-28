@@ -14,6 +14,7 @@ namespace sky {
 
     class MeshRenderer {
     public:
+
         MeshRenderer() = default;
         virtual ~MeshRenderer();
 

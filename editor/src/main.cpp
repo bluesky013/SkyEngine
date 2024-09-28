@@ -22,5 +22,5 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    return editorApp.exec();
+    return sky::editor::EditorApplication::exec();
 }

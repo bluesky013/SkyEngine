@@ -29,14 +29,4 @@ namespace sky::rhi {
     {
         memcpy(out, data + offset, size);
     }
-
-    const uint8_t *RawBufferStream::Data(uint64_t offset)
-    {
-        return data.data();
-    }
-
-    void RawBufferStream::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
-    {
-        memcpy(out, data.data() + offset, size);
-    }
 } // namespace sky::rhi

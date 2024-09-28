@@ -10,10 +10,9 @@
     },
     "depth_stencil": {
         "depthTestEnable": true,
-        "depthWriteEnable": true
+        "depthWriteEnable": false
     },
     "raster_state": {
         "cullMode": "NONE"
-    },
-    "vertex": "standard"
+    }
 }

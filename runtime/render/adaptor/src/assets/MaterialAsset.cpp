@@ -162,9 +162,11 @@ namespace sky {
         archive.LoadValue(version);
         uint32_t size = 0;
         archive.LoadValue(size);
-        techniques.resize(size);
+
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(techniques[i]);
+            Uuid uuid;
+            archive.LoadValue(uuid);
+            techniques.emplace(uuid);
         }
 
         LoadProperties(archive, defaultProperties);

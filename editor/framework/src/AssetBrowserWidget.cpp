@@ -104,7 +104,18 @@ namespace sky::editor {
             }
         });
 
+        auto *importAct = new QAction(tr("Import"), &menu);
+        connect(importAct, &QAction::triggered, this, [this]() {
+            auto indices = assetItemView->selectionModel()->selectedIndexes();
+            auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
+            for (auto &index : indices) {
+                FilePath path(fsModel->filePath(index).toStdString());
+                AssetBuilderManager::Get()->ImportAsset({path});
+            }
+        });
+
         menu.addAction(buildAct);
+        menu.addAction(importAct);
         menu.exec(mapToGlobal(pos));
     }
 

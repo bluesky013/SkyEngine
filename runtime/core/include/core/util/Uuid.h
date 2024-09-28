@@ -78,6 +78,11 @@ namespace sky {
             return word[0] != 0 || word[1] != 0;
         }
 
+        constexpr bool operator<(const Uuid &v) const noexcept
+        {
+            return word[0] < v.word[0] && word[1] < v.word[1];
+        }
+
         union {
             uint64_t word[2];
             uint32_t u32[4];
@@ -109,4 +114,13 @@ namespace std {
         }
     };
 
+    template <>
+    struct less<sky::Uuid> {
+        _NODISCARD constexpr auto operator()(const sky::Uuid& x, const sky::Uuid& y) const
+        {
+            return x < y;
+        }
+
+        using is_transparent = int;
+    };
 } // namespace std

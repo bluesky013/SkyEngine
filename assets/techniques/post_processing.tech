@@ -14,6 +14,5 @@
     },
     "raster_state": {
         "cullMode": "NONE"
-    },
-    "vertex": "empty"
+    }
 }

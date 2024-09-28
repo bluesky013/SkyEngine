@@ -151,7 +151,7 @@ namespace sky::builder {
 
                     AssetBuilderManager::Get()->BuildRequest(techId->uuid, request.target);
                     request.assetInfo->dependencies.emplace_back(techId->uuid);
-                    assetData.techniques.emplace_back(techId->uuid);
+                    assetData.techniques.emplace(techId->uuid);
                 }
             }
         }

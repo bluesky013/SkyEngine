@@ -116,8 +116,7 @@ namespace sky {
 
     ActorPtr World::CreateActor(const Uuid &id, bool withTrans)
     {
-        actors.emplace_back(std::make_shared<Actor>(id));
-        actors.back()->world = this;
+        AttachToWorld(std::make_shared<Actor>(id));
         if (withTrans) {
             actors.back()->AddComponent<TransformComponent>();
         }
@@ -137,7 +136,6 @@ namespace sky {
         if (actor->world != nullptr && actor->world != this) {
             actor->world->DetachFromWorld(actor);
         }
-        actor->world = this;
         actors.emplace_back(actor);
         actor->AttachToWorld(this);
     }

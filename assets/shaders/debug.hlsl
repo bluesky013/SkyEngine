@@ -29,5 +29,5 @@ VSOutput VSMain(VSInput input)
 
 float4 FSMain(VSOutput input) : SV_TARGET
 {
-    return input.Color;
+    return input.Color * 10.0;
 }

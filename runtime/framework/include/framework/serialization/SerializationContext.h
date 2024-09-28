@@ -8,6 +8,7 @@
 #include <core/environment/Singleton.h>
 #include <core/platform/Platform.h>
 #include <framework/serialization/SerializationFactory.h>
+#include <framework/serialization/PropertyCommon.h>
 
 namespace sky {
 
@@ -127,4 +128,5 @@ namespace sky {
 
 #define REGISTER_BEGIN(NAME, context) context->Register<MY_CLASS>(#NAME)
 #define REGISTER_MEMBER(NAME, Setter, Getter) .Member<&MY_CLASS::Setter, &MY_CLASS::Getter>(#NAME)
+#define SET_ASSET_TYPE(TYPE) .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(TYPE));
 
