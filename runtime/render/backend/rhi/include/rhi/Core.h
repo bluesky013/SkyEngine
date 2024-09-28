@@ -351,6 +351,7 @@ namespace sky::rhi {
         VS = 0x01,
         FS = 0x02,
         CS = 0x04,
+        GFX = VS | FS
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
