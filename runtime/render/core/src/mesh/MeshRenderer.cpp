@@ -66,8 +66,9 @@ namespace sky {
             primitive->localBound = sub.aabb;
             primitive->geometry   = mesh->GetGeometry();
 
+
             if (primitive->geometry->attributeSemantics.TestBit(VertexSemanticFlagBit::HAS_SKIN)) {
-                primitive->vertexFlags |= RenderVertexFlagBit::SKIN;
+                FillVertexFlags(primitive->vertexFlags);
             }
 
             primitive->args.emplace_back(rhi::CmdDrawIndexed {

@@ -49,6 +49,9 @@ namespace sky {
         const std::vector<SubMesh> &GetSubMeshes() const { return subMeshes; }
         const RenderGeometryPtr& GetGeometry() const { return geometry; }
 
+        // type
+        virtual bool HasSkin() const { return false; }
+
         void Upload();
         bool IsReady() const;
     private:

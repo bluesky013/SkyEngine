@@ -34,8 +34,8 @@ namespace sky {
         inverseBindMatrix.resize(count);
         refPos.resize(count);
         for (uint32_t i = 0; i < count; ++i) {
+            archive.LoadValue(boneData[i].name);
             archive.LoadValue(boneData[i].parentIndex);
-
         }
 
         for (uint32_t i = 0; i < count; ++i) {
@@ -65,8 +65,8 @@ namespace sky {
 
         archive.SaveValue(static_cast<uint32_t>(boneData.size()));
         for (const auto &bone : boneData) {
+            archive.SaveValue(bone.name);
             archive.SaveValue(bone.parentIndex);
-
         }
 
         for (const auto &mtx : inverseBindMatrix) {

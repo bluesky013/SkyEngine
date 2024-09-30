@@ -8,9 +8,9 @@ struct VSInput
     float4 Tangent : TANGENT;
     float4 Color   : COLOR;
 
-#if ENABLE_SKIN
-    uint4 joints   : JOINTS;
-    float4 weights : WEIGHTS;
+#ifdef ENABLE_SKIN
+    uint4 joints   : JOINT;
+    float4 weights : WEIGHT;
 #endif
 };
 

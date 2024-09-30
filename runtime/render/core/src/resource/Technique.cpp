@@ -79,6 +79,11 @@ namespace sky {
         rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
     }
 
+    void GraphicsTechnique::SetVertexFlag(RenderVertexFlagBit bit, const std::string &macro)
+    {
+        vertexFlags[bit] = macro;
+    }
+
     void GraphicsTechnique::Process(RenderVertexFlags flags, const ShaderOptionPtr &option)
     {
         for (auto &val : preCompiledFlags) {

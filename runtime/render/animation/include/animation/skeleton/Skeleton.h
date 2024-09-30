@@ -22,6 +22,12 @@ namespace sky {
         uint32_t parentIndex = INVALID_BONE_ID;
     };
 
+    struct Bone {
+        uint32_t index = 0;
+        Bone* parent = nullptr;
+        std::vector<Bone*> children;
+    };
+
     struct SkeletonData {
         std::vector<BoneData> boneData;
         std::vector<Matrix4> inverseBindMatrix;
@@ -36,6 +42,9 @@ namespace sky {
 
     private:
         PosePtr refPose;
+
+        Bone root = {};
+        std::vector<Bone> bones;
 
         std::vector<BoneData> boneData;
         std::vector<Matrix4> inverseBindMatrix;

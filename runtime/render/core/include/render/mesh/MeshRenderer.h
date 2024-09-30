@@ -14,7 +14,6 @@ namespace sky {
 
     class MeshRenderer {
     public:
-
         MeshRenderer() = default;
         virtual ~MeshRenderer();
 
@@ -27,6 +26,7 @@ namespace sky {
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
+        virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         RenderScene *scene = nullptr;
 

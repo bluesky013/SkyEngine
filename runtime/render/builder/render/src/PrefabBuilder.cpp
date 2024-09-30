@@ -308,10 +308,10 @@ namespace sky::builder {
                 SKY_ASSERT(boneId < prefabContext.skeleton.nameToIndexMap.size());
 
                 for (uint32_t k = 0; k < MAX_BONE_PER_VERTEX; ++k) {
-                    if (bone->mWeights[j].mWeight == 0.0f) {
+                    if (vBone.weight[k] == 0.0f) {
                         vBone.boneId[k] = boneId;
                         vBone.weight[k] = bone->mWeights[j].mWeight;
-                        return;
+                        break;
                     }
                 }
             }
@@ -323,6 +323,7 @@ namespace sky::builder {
         uint32_t boneIndex = skeleton.FindBoneByName(node->mName.C_Str());
 
         if (boneIndex != INVALID_BONE_ID) {
+            skeleton.boneData[boneIndex].name = node->mName.C_Str();
             skeleton.boneData[boneIndex].parentIndex = parentIndex;
 
             aiVector3t<ai_real> scaling = {};

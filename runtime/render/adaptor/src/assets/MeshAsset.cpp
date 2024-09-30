@@ -6,6 +6,8 @@
 #include <core/archive/MemoryArchive.h>
 #include <render/RHI.h>
 #include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
+#include <render/resource/SkeletonMesh.h>
 
 namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
@@ -93,6 +95,24 @@ namespace sky {
         archive.SaveValue(reinterpret_cast<const char*>(rawData.storage.data()), dataSize);
     }
 
+    struct BoneNode {
+        std::string_view name = "Root";
+        uint32_t boneIndex = INVALID_BONE_ID;
+        std::vector<BoneNode*> children;
+    };
+
+    void WalkBone(BoneNode* node, const Matrix4 &matrix, const SkeletonData& skeleton, Skin &skin) // NOLINT
+    {
+        Matrix4 current = matrix;
+        if (node->boneIndex != INVALID_BONE_ID) {
+            current = current * skeleton.refPos[node->boneIndex].ToMatrix();
+            skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
+        }
+        for (auto &child : node->children) {
+            WalkBone(child, current, skeleton, skin);
+        }
+    }
+
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
     {
         const auto &data = asset->Data();
@@ -102,7 +122,36 @@ namespace sky {
         auto file = am->OpenFile(uuid);
         SKY_ASSERT(file);
 
-        auto *mesh = new Mesh();
+        Mesh* mesh = nullptr;
+        if (data.skeleton) {
+            auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
+            skeleton->BlockUntilLoaded();
+            const auto &skeletonData = skeleton->Data();
+            auto* skin = new Skin();
+            skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
+            SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
+
+            BoneNode root;
+            std::vector<BoneNode> bones(skin->activeBone);
+            for (uint32_t index = 0; index < skin->activeBone; ++index) {
+                const auto &boneData = skeletonData.boneData[index];
+                bones[index].boneIndex = index;
+                bones[index].name = boneData.name;
+                if (boneData.parentIndex == INVALID_BONE_ID) {
+                    root.children.emplace_back(&bones[index]);
+                } else {
+                    bones[boneData.parentIndex].children.emplace_back(&bones[index]);
+                }
+            }
+            WalkBone(&root, Matrix4::Identity(), skeletonData, *skin);
+
+            auto *skeletonMesh = new SkeletonMesh();
+            skeletonMesh->SetSkin(skin);
+            mesh = skeletonMesh;
+        } else {
+            mesh = new Mesh();
+        }
+
         for (const auto &sub : data.subMeshes) {
             auto matAsset = am->FindAsset<MaterialInstance>(sub.material);
             auto mat = CreateMaterialInstanceFromAsset(matAsset);

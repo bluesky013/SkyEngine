@@ -44,6 +44,7 @@ namespace sky {
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const std::string &tag);
+        void SetVertexFlag(RenderVertexFlagBit flagBit, const std::string &macro);
 
         void Process(RenderVertexFlags flags, const ShaderOptionPtr &option);
 

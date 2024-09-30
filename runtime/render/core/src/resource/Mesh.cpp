@@ -47,7 +47,7 @@ namespace sky {
 
     bool Mesh::IsReady() const
     {
-        for (auto &sub : subMeshes) {
+        for (const auto &sub : subMeshes) {
             if (!sub.material->IsReady()) {
                 return false;
             }

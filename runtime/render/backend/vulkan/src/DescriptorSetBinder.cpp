@@ -61,7 +61,7 @@ namespace sky::vk {
 
     void DescriptorSetBinder::SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset)
     {
-        uint32_t idx = CombineSlotBinding(set, index);
+        uint32_t idx = CombineSlotBinding(set, binding);
         auto iter = offsetIndex.find(idx);
         if (iter != offsetIndex.end() && iter->second < dynamicOffsets.size()) {
             dynamicOffsets[iter->second + index] = offset;

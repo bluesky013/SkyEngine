@@ -20,8 +20,8 @@ namespace sky {
     };
 
     static const std::vector<rhi::DescriptorSetLayout::SetBinding> SKINNED_BINDINGS = {
-            {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 0, rhi::ShaderStageFlagBit::VS, "localData"},
-            {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 1, rhi::ShaderStageFlagBit::VS, "skinData"},
+        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 0, rhi::ShaderStageFlagBit::VS, "localData"},
+        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 1, 1, rhi::ShaderStageFlagBit::VS, "skinData"},
     };
 
     void MeshFeature::Init()
@@ -35,7 +35,8 @@ namespace sky {
 
         skinnedLayout = new ResourceGroupLayout();
         skinnedLayout->SetRHILayout(device->CreateDescriptorSetLayout({SKINNED_BINDINGS}));
-        skinnedLayout->AddNameHandler("skinData", {0, sizeof(Skin)});
+        skinnedLayout->AddNameHandler("localData", {0, sizeof(InstanceLocal)});
+        skinnedLayout->AddNameHandler("skinData", {1, MAX_BONE_NUM * sizeof(Matrix4)});
 
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};
