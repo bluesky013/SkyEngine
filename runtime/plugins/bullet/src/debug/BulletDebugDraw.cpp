@@ -20,6 +20,7 @@ namespace sky::phy {
 
     BulletDebugDraw::BulletDebugDraw()
         : debugMode(DEFAULT_DEBUG_DRAW_FLAG)
+        , primitive(std::make_unique<RenderPrimitive>())
         , debugRenderer(std::make_unique<DebugRenderer>())
     {
     }
@@ -54,5 +55,13 @@ namespace sky::phy {
 
     void BulletDebugDraw::flushLines()
     {
+        debugRenderer->Render(primitive.get());
+    }
+
+    void BulletDebugDraw::SetTechnique(const RDGfxTechPtr &tech)
+    {
+        TechniqueInstance techInst = {tech};
+        primitive->techniques.clear();
+        primitive->techniques.emplace_back(techInst);
     }
 } // namespace sky::phy

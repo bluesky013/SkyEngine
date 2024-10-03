@@ -3,8 +3,29 @@
 //
 
 #include <physics/PhysicsRegistry.h>
+#include <framework/serialization/SerializationContext.h>
 
 namespace sky::phy {
+
+    void PhysicsRegistry::Reflect(SerializationContext *context)
+    {
+        context->Register<SpherePrimConfig>("PhysicsSphere")
+            .Member<&SpherePrimConfig::pivot>("pivot")
+            .Member<&SpherePrimConfig::radius>("radis");
+
+        context->Register<BoxPrimConfig>("PhysicsBox")
+            .Member<&BoxPrimConfig::pivot>("pivot")
+            .Member<&BoxPrimConfig::scale>("scale");
+
+        context->Register<MeshPhysicsConfig>("MeshPhysicsConfig")
+            .Member<&MeshPhysicsConfig::sphere>("sphere")
+            .Member<&MeshPhysicsConfig::box>("boxes");
+    }
+
+    void PhysicsRegistry::GatherConfigTypes(std::set<Uuid> &typeId)
+    {
+        typeId.emplace(TypeInfo<MeshPhysicsConfig>::RegisteredId());
+    }
 
     PhysicsWorld* PhysicsRegistry::CreatePhysicsWorld()
     {

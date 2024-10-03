@@ -5,6 +5,11 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <physics/PhysicsBase.h>
+
+namespace sky {
+    class SerializationContext;
+} // namespace sky
 
 namespace sky::phy {
     class PhysicsWorld;
@@ -12,10 +17,13 @@ namespace sky::phy {
     class CharacterController;
     class PhysicsShape;
 
-    class PhysicsRegistry : public Singleton<PhysicsRegistry> {
+    class PhysicsRegistry : public Singleton<PhysicsRegistry>, public IMeshConfigNotify {
     public:
         PhysicsRegistry() = default;
         ~PhysicsRegistry() override = default;
+
+        static void Reflect(SerializationContext *context);
+        void GatherConfigTypes(std::set<Uuid> &typeId) override;
 
         class Impl {
         public:
@@ -33,7 +41,6 @@ namespace sky::phy {
 
         void Register(Impl* factory);
         void UnRegister();
-
     private:
         std::unique_ptr<Impl> factory;
     };

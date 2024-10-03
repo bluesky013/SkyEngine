@@ -11,6 +11,7 @@
 #include <core/archive/StreamArchive.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetCommon.h>
+#include <framework/interface/IMeshConfigNotify.h>
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>
@@ -52,6 +53,8 @@ namespace sky {
         std::vector<VertexAttribute>  attributes;
         uint32_t       indexBuffer;
         rhi::IndexType indexType = rhi::IndexType::U32;
+
+        std::vector<MeshConfigBase*> configs;
 
         uint32_t dataSize;
     };

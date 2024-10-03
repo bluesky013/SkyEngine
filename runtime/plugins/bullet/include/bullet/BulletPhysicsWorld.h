@@ -9,17 +9,28 @@
 #include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h>
 #include <memory>
 
+namespace sky {
+    class SerializationContext;
+};
+
 namespace sky::phy {
+
+    struct BulletPhysicsConfig {
+        Vector3 gravity = Vector3{0.f, -9.8f, 0.f};
+    };
 
     class BulletPhysicsWorld : public PhysicsWorld {
     public:
         BulletPhysicsWorld();
         ~BulletPhysicsWorld() override;
 
+        static void Reflect(SerializationContext *context);
         btDiscreteDynamicsWorld *GetWorld() const { return dynamicWorld.get(); }
     private:
         void Tick(float delta) override;
-        void SetSimulationEnable(bool en) override;
+        void StartSimulation() override;
+        void StopSimulation() override;
+
         void SetDebugDrawEnable(bool en) override;
         void SetGravity(const Vector3 &gravity) override;
 

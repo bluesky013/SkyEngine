@@ -5,9 +5,17 @@
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletRigidBody.h>
 #include <bullet/BulletConversion.h>
-
 #include <bullet/debug/BulletDebugDraw.h>
+
+#include <framework/serialization/SerializationContext.h>
+
 namespace sky::phy {
+
+    void BulletPhysicsWorld::Reflect(SerializationContext *context)
+    {
+        context->Register<BulletPhysicsConfig>("BulletPhysicsConfig")
+            .Member<&BulletPhysicsConfig::gravity>("gravity");
+    }
 
     BulletPhysicsWorld::~BulletPhysicsWorld()
     {
@@ -36,9 +44,14 @@ namespace sky::phy {
         }
     }
 
-    void BulletPhysicsWorld::SetSimulationEnable(bool en)
+    void BulletPhysicsWorld::StartSimulation()
     {
-        enableSimulation = en;
+        enableSimulation = true;
+    }
+
+    void BulletPhysicsWorld::StopSimulation()
+    {
+        enableSimulation = false;
     }
 
     void BulletPhysicsWorld::SetDebugDrawEnable(bool en)

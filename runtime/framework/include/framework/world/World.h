@@ -44,6 +44,9 @@ namespace sky {
         virtual void OnAttachToWorld(World &world) {}
         virtual void OnDetachFromWorld(World &world) {}
 
+        virtual void StartSimulation() {}
+        virtual void StopSimulation() {}
+
         virtual void Tick(float time) {}
     };
 

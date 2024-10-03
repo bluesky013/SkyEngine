@@ -22,9 +22,7 @@ namespace sky::phy {
         void AddCharacterController(CharacterController *rb);
         void RemoveCharacterController(CharacterController *rb);
 
-        virtual void SetSimulationEnable(bool en) {}
         virtual void SetDebugDrawEnable(bool en) {}
-
         virtual void SetGravity(const Vector3 &gravity) {}
 
     protected:
