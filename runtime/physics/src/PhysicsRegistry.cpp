@@ -9,13 +9,13 @@ namespace sky::phy {
 
     void PhysicsRegistry::Reflect(SerializationContext *context)
     {
-        context->Register<SpherePrimConfig>("PhysicsSphere")
-            .Member<&SpherePrimConfig::pivot>("pivot")
-            .Member<&SpherePrimConfig::radius>("radis");
+        context->Register<SphereShape>("PhysicsSphere")
+            .Member<&SphereShape::pivot>("pivot")
+            .Member<&SphereShape::radius>("radis");
 
-        context->Register<BoxPrimConfig>("PhysicsBox")
-            .Member<&BoxPrimConfig::pivot>("pivot")
-            .Member<&BoxPrimConfig::scale>("scale");
+        context->Register<BoxShape>("PhysicsBox")
+            .Member<&BoxShape::pivot>("pivot")
+            .Member<&BoxShape::scale>("scale");
 
         context->Register<MeshPhysicsConfig>("MeshPhysicsConfig")
             .Member<&MeshPhysicsConfig::sphere>("sphere")

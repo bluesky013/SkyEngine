@@ -6,12 +6,6 @@
 
 namespace sky::phy {
 
-    void RigidBody::AddShape(PhysicsShape* shape)
-    {
-        shapes.emplace_back(shape);
-        OnShapeChanged();
-    }
-
     void RigidBody::SetFlag(CollisionFlag flag)
     {
         collisionFlag = flag;

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <physics/PhysicsShape.h>
 #include <physics/PhysicsMaterial.h>
 #include <core/math/Vector3.h>
 #include <vector>
@@ -23,7 +22,7 @@ namespace sky::phy {
         RigidBody() = default;
         virtual ~RigidBody() = default;
 
-        void AddShape(PhysicsShape* shape);
+//        void AddShape(PhysicsShape* shape);
         void SetMass(float m);
         void SetFlag(CollisionFlag m);
         void SetGroup(int32_t group_);
@@ -43,7 +42,7 @@ namespace sky::phy {
         int32_t mask  = 0;
         CollisionFlag collisionFlag = CollisionFlag::STATIC;
 
-        std::vector<std::unique_ptr<PhysicsShape>> shapes;
+//        std::vector<std::unique_ptr<PhysicsShape>> shapes;
     };
 
 } // namespace sky::phy

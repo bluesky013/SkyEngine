@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <physics/PhysicsShape.h>
-
 namespace sky::phy {
 
 

@@ -9,19 +9,19 @@
 
 namespace sky::phy {
 
-    struct SpherePrimConfig {
+    struct SphereShape {
         Vector3 pivot;
         float radius;
     };
 
-    struct BoxPrimConfig {
+    struct BoxShape {
         Vector3 pivot;
         Vector3 scale;
     };
 
     struct MeshPhysicsConfig : public MeshConfigBase {
-        std::vector<SpherePrimConfig> sphere;
-        std::vector<BoxPrimConfig> box;
+        std::vector<SphereShape> sphere;
+        std::vector<BoxShape> box;
     };
 
 } // namespace sky::phy
