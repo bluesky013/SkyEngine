@@ -21,7 +21,11 @@ namespace sky::editor {
         auto *layout = new QFormLayout(this);
         layout->setLabelAlignment(Qt::AlignLeft);
         layout->setFormAlignment(Qt::AlignCenter);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
         setLayout(layout);
+        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        setMinimumWidth(32);
 
         for (const auto &[name, memberInfo] : typeNode->members) {
             ReflectedMemberWidget *widget = nullptr;
@@ -60,6 +64,8 @@ namespace sky::editor {
             } else if (memberInfo.info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
                 widget = new PropertyUuid(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<std::string>::RegisteredId()) {
+            } else if (memberInfo.info->registeredId == TypeInfo<SequenceVisitor>::RegisteredId()) {
+                widget = new PropertySequenceContainerWidget(object, &memberInfo, this);
             }
 
             if (widget != nullptr) {
@@ -172,6 +178,25 @@ namespace sky::editor {
         SKY_ASSERT(uuid != nullptr);
         auto source = AssetDataBase::Get()->FindAsset(*uuid);
         lineEdit->setText(source ? source->path.path.GetStr().c_str() : "");
+    }
+
+    PropertySequenceItemWidget::PropertySequenceItemWidget(uint32_t idx, PropertySequenceContainerWidget* container, void *obj, const TypeNode *node, QWidget *parent)
+            : QWidget(parent)
+            , objectWidget(new ReflectedObjectWidget(obj, node, this))
+            , owner(container)
+            , index(idx)
+    {
+        setLayout(new QHBoxLayout());
+        setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
+        layout()->addWidget(new QLabel(QString::number(index)));
+        layout()->addWidget(objectWidget);
+        auto *btn = new QPushButton("-");
+        btn->setFixedWidth(20);
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            owner->RemoveIndex(index);
+        });
+        layout()->addWidget(btn);
     }
 
 } // namespace sky::editor

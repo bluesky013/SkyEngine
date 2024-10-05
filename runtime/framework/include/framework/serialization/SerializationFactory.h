@@ -198,12 +198,6 @@ namespace sky {
                                                         std::is_const_v<Type>,
                                                         std::is_member_object_pointer_v<Type>,
                                                     });
-
-                if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
-                    it.first->second.info->containerInfo->valueType =
-                        TypeInfoObj<std::remove_cv_t<SequenceContainerMap<Type>>>::Get()->RtInfo()->registeredId;
-                }
-
                 return TypeFactory<T, std::integral_constant<decltype(M), M>>(type, it.first->second.properties);
             }
         }
@@ -221,6 +215,10 @@ namespace sky {
                                                         nullptr,
                                                         &GetterConst<T, G>,
                                                     });
+                if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
+                    it.first->second.info->containerInfo->valueType =
+                            TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
+                }
                 return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             } else {
                 auto it    = type.members.emplace(key, TypeMemberNode{
@@ -231,7 +229,38 @@ namespace sky {
                                                         &Getter<T, G>,
                                                         &GetterConst<T, G>,
                                                     });
+                if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
+                    it.first->second.info->containerInfo->valueType =
+                            TypeInfoObj<std::remove_cv_t<typename SequenceContainerMap<Type>::ValueType>>::Get()->RtInfo()->registeredId;
+                }
                 return TypeFactory<T, std::integral_constant<decltype(S), S>, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            }
+        }
+
+        template <auto G>
+        auto MemberNoSetter(const std::string_view &key)
+        {
+            using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
+            if constexpr (std::is_const_v<Type>) {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                        std::is_const_v<Type>,
+                        !std::is_member_object_pointer_v<Type>,
+                        nullptr,
+                        nullptr,
+                        &GetterConst<T, G>,
+                });
+                return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
+            } else {
+                auto it    = type.members.emplace(key, TypeMemberNode{
+                        TypeInfoObj<std::remove_const_t<Type>>::Get()->RtInfo(),
+                        std::is_const_v<Type>,
+                        !std::is_member_object_pointer_v<Type>,
+                        nullptr,
+                        &Getter<T, G>,
+                        &GetterConst<T, G>,
+                });
+                return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             }
         }
 

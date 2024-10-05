@@ -69,6 +69,7 @@ namespace sky {
         virtual ~SequenceViewBase() = default;
         virtual size_t Count(void* ptr) const = 0;
         virtual void* Emplace(void* ptr) = 0;
+        virtual void* GetByIndex(void* ptr, size_t idx) = 0;
         virtual void EraseByIndex(void* ptr, size_t idx) = 0;
     };
 
@@ -95,6 +96,14 @@ namespace sky {
             std::advance(iter, idx);
             ct->erase(iter);
         }
+
+        void* GetByIndex(void* ptr, size_t idx) override
+        {
+            auto *ct = static_cast<T*>(ptr);
+            auto iter = ct->begin();
+            std::advance(iter, idx);
+            return &(*iter);
+        }
     };
 
     struct ContainerInfo {
@@ -114,7 +123,7 @@ namespace sky {
         Uuid                   registeredId;
         Uuid                   underlyingTypeId;
         const StaticTypeInfo*  staticInfo    = nullptr;
-        const ContainerInfo*   containerInfo = nullptr;
+        ContainerInfo*         containerInfo = nullptr;
         ConstructorNew         newFunc       = nullptr; // default constructor
         ConstructorPlace       placeFunc     = nullptr; // default constructor
         DestructorDelete       deleteFunc    = nullptr; // default destructor

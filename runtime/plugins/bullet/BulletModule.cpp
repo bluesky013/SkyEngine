@@ -60,7 +60,9 @@ namespace sky::phy {
         {
             PhysicsRegistry::Get()->Register(new BulletFactory());
 
-            RigidBodyComponent::Reflect(SerializationContext::Get());
+            auto *context = SerializationContext::Get();
+            PhysicsRegistry::Reflect(context);
+            RigidBodyComponent::Reflect(context);
         }
 
         void Shutdown() override

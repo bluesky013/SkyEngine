@@ -128,5 +128,6 @@ namespace sky {
 
 #define REGISTER_BEGIN(NAME, context) context->Register<MY_CLASS>(#NAME)
 #define REGISTER_MEMBER(NAME, Setter, Getter) .Member<&MY_CLASS::Setter, &MY_CLASS::Getter>(#NAME)
+#define REGISTER_MEMBER_NS(NAME, Getter) .MemberNoSetter<&MY_CLASS::Getter>(#NAME)
 #define SET_ASSET_TYPE(TYPE) .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(TYPE));
 

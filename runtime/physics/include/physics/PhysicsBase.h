@@ -10,13 +10,13 @@
 namespace sky::phy {
 
     struct SphereShape {
-        Vector3 pivot;
-        float radius;
+        Vector3 pivot = VEC3_ZERO;
+        float radius = 1.f;
     };
 
     struct BoxShape {
-        Vector3 pivot;
-        Vector3 scale;
+        Vector3 pivot = VEC3_ZERO;
+        Vector3 scale = VEC3_ONE;
     };
 
     struct MeshPhysicsConfig : public MeshConfigBase {

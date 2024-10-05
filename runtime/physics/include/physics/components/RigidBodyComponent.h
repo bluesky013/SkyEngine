@@ -5,7 +5,9 @@
 #pragma once
 
 #include <framework/world/Component.h>
+#include <framework/serialization/ArrayVisitor.h>
 #include <physics/RigidBody.h>
+#include <physics/PhysicsBase.h>
 
 namespace sky {
     class SerializationContext;
@@ -18,6 +20,7 @@ namespace sky::phy {
     struct RigidBodyData {
         float mass = 1.f;
         CollisionFlag flag = CollisionFlag::STATIC;
+        MeshPhysicsConfig config;
     };
 
     class RigidBodyComponent : public ComponentAdaptor<RigidBodyData> {
@@ -33,6 +36,9 @@ namespace sky::phy {
 
         void SetFlag(CollisionFlag flag);
         CollisionFlag GetFlag() const { return data.flag; }
+
+        SequenceVisitor Spheres();
+        SequenceVisitor Boxes();
 
     private:
         void OnAttachToWorld() override;

@@ -20,11 +20,14 @@ namespace sky::phy {
 
         context->Register<RigidBodyData>("RigidBodyData")
             .Member<&RigidBodyData::mass>("mass")
-            .Member<&RigidBodyData::flag>("flag");
+            .Member<&RigidBodyData::flag>("flag")
+            .Member<&RigidBodyData::config>("config");
 
         REGISTER_BEGIN(RigidBodyComponent, context)
             REGISTER_MEMBER(mass, SetMass, GetMass)
-            REGISTER_MEMBER(flag, SetFlag, GetFlag);
+            REGISTER_MEMBER(flag, SetFlag, GetFlag)
+            REGISTER_MEMBER_NS(shapeSpheres, Spheres)
+            REGISTER_MEMBER_NS(shapeBoxes, Boxes);
 
         ComponentFactory::Get()->RegisterComponent<RigidBodyComponent>("Physics");
     }
@@ -40,6 +43,22 @@ namespace sky::phy {
     void RigidBodyComponent::SetFlag(CollisionFlag flag)
     {
         data.flag = flag;
+    }
+
+    SequenceVisitor RigidBodyComponent::Spheres()
+    {
+        const auto *info = TypeInfoObj<std::vector<SphereShape>>::Get()->RtInfo();
+        SKY_ASSERT(info != nullptr);
+
+        return {info->containerInfo, reinterpret_cast<void*>(&data.config.sphere)};
+    }
+
+    SequenceVisitor RigidBodyComponent::Boxes()
+    {
+        const auto *info = TypeInfoObj<std::vector<BoxShape>>::Get()->RtInfo();
+        SKY_ASSERT(info != nullptr);
+
+        return {info->containerInfo, reinterpret_cast<void*>(&data.config.box)};
     }
 
     PhysicsWorld* RigidBodyComponent::GetWorld() const

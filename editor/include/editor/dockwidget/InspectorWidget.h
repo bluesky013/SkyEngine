@@ -11,6 +11,7 @@
 
 class QVBoxLayout;
 class QPushButton;
+class QScrollArea;
 
 namespace sky {
     class World;
@@ -36,7 +37,6 @@ namespace sky::editor {
         void Refresh();
         void OnAddComponentClicked();
 
-        QVBoxLayout* layout;
         QWidget* groupWidget;
         QPushButton *button;
         std::vector<InspectorBase*> groups;

@@ -5,6 +5,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QScrollArea>
 #include <utility>
 #include <editor/inspector/ComponentInspector.h>
 #include <editor/dockwidget/InspectorWidget.h>
@@ -21,21 +22,24 @@ namespace sky::editor {
         auto *widget = new QWidget(this);
         widget->setStyleSheet("background-color:white;");
         widget->setAcceptDrops(true);
+        widget->setLayout(new QVBoxLayout(widget));
+        widget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
+        widget->setMinimumWidth(512);
         setWidget(widget);
 
-        auto *rootLayout = new QVBoxLayout(widget);
+        auto *rootLayout = widget->layout();
         rootLayout->setAlignment(Qt::AlignTop);
 
         button = new QPushButton(tr("Add Component"), widget);
         connect(button, &QPushButton::clicked, this, &InspectorWidget::OnAddComponentClicked);
 
         groupWidget = new QWidget(widget);
+        auto *groupLayout = new QVBoxLayout(groupWidget);
+        groupLayout->setAlignment(Qt::AlignTop);
+        groupWidget->setLayout(groupLayout);
 
         rootLayout->addWidget(groupWidget);
         rootLayout->addWidget(button);
-
-        layout = new QVBoxLayout(groupWidget);
-        layout->setAlignment(Qt::AlignTop);
 
         // auto refreshTimer = new QTimer(this);
         // connect(refreshTimer, &QTimer::timeout, this, [this]() {
@@ -49,13 +53,13 @@ namespace sky::editor {
     {
         auto *inspector = new ComponentInspector(groupWidget);
         inspector->SetComponent(comp);
-        layout->addWidget(inspector);
+        groupWidget->layout()->addWidget(inspector);
         groups.emplace_back(inspector);
     }
 
     void InspectorWidget::Clear()
     {
-        while (QLayoutItem *child = layout->takeAt(0)) {
+        while (QLayoutItem *child = groupWidget->layout()->takeAt(0)) {
             delete child->widget();
             delete child;
         }

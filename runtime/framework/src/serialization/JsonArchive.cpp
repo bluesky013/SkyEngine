@@ -64,7 +64,23 @@ namespace sky {
                     std::string memberName = member.first.data();
                     Key(memberName.c_str());
                     Any value = GetValueRawConst(ptr, typeId, memberName);
-                    SaveValueObject(value.Data(), member.second.info->registeredId);
+
+                    if (member.second.info->containerInfo != nullptr) {
+                        auto *containerInfo = member.second.info->containerInfo;
+                        if (containerInfo->sequenceView != nullptr) {
+                            SequenceVisitor visitor(containerInfo, value.Data());
+                            StartArray();
+
+                            auto count = visitor.Count();
+                            for (size_t i = 0; i < count; ++i) {
+                                SaveValueObject(visitor.GetByIndex(i), visitor.GetValueType());
+                            }
+
+                            EndArray();
+                        }
+                    } else {
+                        SaveValueObject(value.Data(), member.second.info->registeredId);
+                    }
                 }
                 EndObject();
                 EndObject();
@@ -130,8 +146,22 @@ namespace sky {
                         continue;
                     }
 
-                    if(Start(memberName)) {
-                        Any any = GetValueRawConst(ptr, typeId, memberName);
+                    Any any = GetValueRawConst(ptr, typeId, memberName);
+                    if (member.second.info->containerInfo != nullptr) {
+                        auto *containerInfo = member.second.info->containerInfo;
+
+                        auto size = StartArray(memberName);
+                        if (containerInfo->sequenceView != nullptr) {
+                            SequenceVisitor visitor(containerInfo, any.Data());
+                            for (uint32_t i = 0; i < size; ++i) {
+                                auto *arrayInst = visitor.Emplace();
+                                LoadValueById(arrayInst, visitor.GetValueType());
+                                NextArrayElement();
+                            }
+                        }
+                        SetValueRaw(ptr, typeId, memberName, any.Data());
+                        End();
+                    } else if(Start(memberName)) {
                         LoadValueById(any.Data(), member.second.info->registeredId);
                         SetValueRaw(ptr, typeId, memberName, any.Data());
                         End();

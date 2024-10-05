@@ -5,6 +5,7 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/CoreReflection.h>
+#include <framework/serialization/ArrayVisitor.h>
 namespace sky {
 
     void JsonLoad(std::string &str, JsonInputArchive &archive)
@@ -30,6 +31,7 @@ namespace sky {
         Register<bool>("bool");
         Register<float>("float");
         Register<double>("double");
+        Register<SequenceVisitor>("SequenceVisitor");
 
         Register<std::string>("String")
                 .JsonLoad<&JsonLoad>()

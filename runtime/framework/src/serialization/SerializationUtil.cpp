@@ -24,6 +24,8 @@ namespace sky {
         return Any{};
     }
 
+
+
     bool SetValueRaw(void* ptr, const Uuid &typeId, const std::string_view &memberName, const void* data)
     {
         auto *node = GetTypeMember(memberName, typeId);
@@ -46,5 +48,4 @@ namespace sky {
         }
         return Empty;
     }
-
 }

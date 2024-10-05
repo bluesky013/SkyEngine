@@ -93,9 +93,13 @@ namespace sky {
             }
 
             for (const auto &member : node->members) {
-                std::string memberName = member.first.data();
-                Any value = GetValueRawConst(ptr, typeId, memberName);
-                SaveObject(value.Data(), member.second.info->registeredId);
+                if (member.second.info->containerInfo != nullptr) {
+
+                } else {
+                    std::string memberName = member.first.data();
+                    Any value = GetValueRawConst(ptr, typeId, memberName);
+                    SaveObject(value.Data(), member.second.info->registeredId);
+                }
             }
         }
     }

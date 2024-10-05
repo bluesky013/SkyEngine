@@ -17,9 +17,11 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QApplication>
+#include <QLabel>
 #include <core/math/MathUtil.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/serialization/ArrayVisitor.h>
 
 namespace sky::editor {
 
@@ -49,6 +51,10 @@ namespace sky::editor {
             setLayout(new QHBoxLayout(this));
             layout()->setAlignment(Qt::AlignLeft);
             layout()->setContentsMargins(0, 0, 0, 0);
+            layout()->setSpacing(0);
+
+            setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+            setMinimumWidth(32);
         }
         ~ReflectedMemberWidget() override = default;
 
@@ -262,7 +268,6 @@ namespace sky::editor {
                         break;
                     }
                 }
-
             });
             RefreshValue();
         }
@@ -282,4 +287,68 @@ namespace sky::editor {
         QComboBox *box = nullptr;
     };
 
+    class PropertySequenceContainerWidget;
+    class PropertySequenceItemWidget : public QWidget {
+    public:
+        PropertySequenceItemWidget(uint32_t idx, PropertySequenceContainerWidget* container, void *obj, const TypeNode *node, QWidget *parent);
+
+    private:
+        ReflectedObjectWidget* objectWidget = nullptr;
+        PropertySequenceContainerWidget* owner = nullptr;
+        uint32_t index;
+    };
+
+    class PropertySequenceContainerWidget : public ReflectedMemberWidget {
+    public:
+        PropertySequenceContainerWidget(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        {
+            array = new QWidget(this);
+            array->setLayout(new QVBoxLayout());
+
+            layout()->addWidget(array);
+            auto *addBtn = new QPushButton("+");
+            addBtn->setFixedWidth(20);
+            connect(addBtn, &QPushButton::clicked, this, [this]() {
+                auto any = memberNode->getterFn(object);
+                auto *pVal = any.GetAs<SequenceVisitor>();
+                pVal->Emplace();
+                RefreshValue();
+            });
+            layout()->addWidget(addBtn);
+            RefreshValue();
+        }
+
+        void RefreshValue()
+        {
+            for (auto &wgt : widgets) {
+                array->layout()->removeWidget(wgt.get());
+            }
+            widgets.clear();
+
+            auto any = memberNode->getterFn(object);
+            auto *pVal = any.GetAs<SequenceVisitor>();
+            auto count = pVal->Count();
+            widgets.reserve(count);
+
+            const auto *info = GetTypeNode(pVal->GetValueType());
+            SKY_ASSERT(info != nullptr);
+            for (uint32_t i = 0; i < count; ++i) {
+                auto *ptr = pVal->GetByIndex(i);
+                widgets.emplace_back(new PropertySequenceItemWidget(i, this, ptr, info, nullptr));
+                array->layout()->addWidget(widgets.back().get());
+            }
+        }
+
+        void RemoveIndex(uint32_t index)
+        {
+            auto any = memberNode->getterFn(object);
+            auto *pVal = any.GetAs<SequenceVisitor>();
+            pVal->Erase(index);
+            RefreshValue();
+        }
+
+    private:
+        QWidget* array = nullptr;
+        std::vector<std::unique_ptr<PropertySequenceItemWidget>> widgets;
+    };
 } // namespace sky::editor
