@@ -4,6 +4,7 @@
 
 #pragma once
 #include <core/type/Rtti.h>
+#include <core/type/Container.h>
 
 namespace sky {
 
@@ -28,6 +29,8 @@ namespace sky {
             std::is_union_v<T>,                   // isUnion;
             std::is_class_v<T>,                   // isClass;
             std::is_trivial_v<T>,                 // isTrivial;
+            ContainerTraits<T>::IS_SEQUENCE,      // is sequence container
+            false
         };
         return info;
     }
@@ -80,5 +83,4 @@ namespace sky {
         using RET_TYPE  = Ret;
         using ARGS_TYPE = std::tuple<Args...>;
     };
-
 } // namespace sky

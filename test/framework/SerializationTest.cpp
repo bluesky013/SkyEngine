@@ -9,6 +9,7 @@
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/BinaryArchive.h>
+#include <core/type/Container.h>
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -242,6 +243,96 @@ TEST(SerializationTest, GetterSetterTest)
             ASSERT_EQ(data2.c, "test");
             ASSERT_EQ(data2.d, 4.0);
         }
+    }
+}
+
+struct TestContainerVec {
+    std::vector<TestMember> vec;
+};
+
+struct TestContainerLst {
+    std::list<TestMember> lst;
+};
+
+TEST(SerializationTest, ContainerVecTest)
+{
+    TestContainerVec value;
+    value.vec.emplace_back(TestMember{1.f, 2.f});
+    value.vec.emplace_back(TestMember{3.f, 4.f});
+
+    SerializationContext::Get()->Register<TestContainerVec>("TestContainerVec")
+        .Member<&TestContainerVec::vec>("data");
+
+    const auto *info = TypeInfoObj<TestContainerVec>::Get()->RtInfo();
+    const auto *typeNode = GetTypeNode(info);
+
+    const auto &member = typeNode->members.at("data");
+    auto *view = member.info->containerInfo->sequenceView;
+
+    size_t dataSize = view->Count(&value.vec);
+    ASSERT_EQ(dataSize, value.vec.size());
+
+    {
+        auto *ptr = view->Emplace(&value.vec);
+        SetValue(ptr, TypeInfoObj<TestMember>::Get()->RtInfo()->registeredId, "a", 5.f);
+        SetValue(ptr, TypeInfoObj<TestMember>::Get()->RtInfo()->registeredId, "b", 6.f);
+
+        dataSize = view->Count(&value.vec);
+        ASSERT_EQ(dataSize, value.vec.size());
+        ASSERT_EQ(value.vec[2].a, 5.f);
+        ASSERT_EQ(value.vec[2].b, 6.f);
+    }
+
+    {
+        view->EraseByIndex(&value.vec, 1);
+        dataSize = view->Count(&value.vec);
+        ASSERT_EQ(dataSize, value.vec.size());
+        ASSERT_EQ(value.vec[1].a, 5.f);
+        ASSERT_EQ(value.vec[1].b, 6.f);
+    }
+}
+
+TEST(SerializationTest, ContainerListTest)
+{
+    TestContainerLst value;
+    value.lst.emplace_back(TestMember{1.f, 2.f});
+    value.lst.emplace_back(TestMember{3.f, 4.f});
+
+    SerializationContext::Get()->Register<TestContainerLst>("TestContainerLst")
+            .Member<&TestContainerLst::lst>("data");
+
+    const auto *info = TypeInfoObj<TestContainerLst>::Get()->RtInfo();
+    const auto *typeNode = GetTypeNode(info);
+
+    const auto &member = typeNode->members.at("data");
+    auto *view = member.info->containerInfo->sequenceView;
+
+    size_t dataSize = view->Count(&value.lst);
+    ASSERT_EQ(dataSize, value.lst.size());
+
+    {
+        auto *ptr = view->Emplace(&value.lst);
+        SetValue(ptr, TypeInfoObj<TestMember>::Get()->RtInfo()->registeredId, "a", 5.f);
+        SetValue(ptr, TypeInfoObj<TestMember>::Get()->RtInfo()->registeredId, "b", 6.f);
+
+        dataSize = view->Count(&value.lst);
+        ASSERT_EQ(dataSize, value.lst.size());
+        ASSERT_EQ(value.lst.back().a, 5.f);
+        ASSERT_EQ(value.lst.back().b, 6.f);
+    }
+
+    {
+        view->EraseByIndex(&value.lst, 1);
+        dataSize = view->Count(&value.lst);
+        ASSERT_EQ(dataSize, value.lst.size());
+
+        auto iter = value.lst.begin();
+        ASSERT_EQ((*iter).a, 1.f);
+        ASSERT_EQ((*iter).b, 2.f);
+
+        ++iter;
+        ASSERT_EQ((*iter).a, 5.f);
+        ASSERT_EQ((*iter).b, 6.f);
     }
 }
 

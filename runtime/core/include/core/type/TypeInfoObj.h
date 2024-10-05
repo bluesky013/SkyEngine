@@ -6,9 +6,23 @@
 #include <core/environment/Singleton.h>
 #include <core/memory/Allocator.h>
 #include <core/type/Type.h>
+#include <core/type/Container.h>
 #include <core/platform/Platform.h>
 
 namespace sky {
+    template <typename T>
+    class TypeInfoObj;
+
+    template <typename T>
+    ContainerInfo* ContainerInfoStatic()
+    {
+        if constexpr (ContainerTraits<T>::IS_SEQUENCE) {
+            static SequenceView<T> view;
+            static ContainerInfo info = { &view };
+            return &info;
+        }
+        return nullptr;
+    }
 
     template <typename T>
     class TypeInfoObj : public Singleton<TypeInfoObj<T>> {
@@ -18,15 +32,16 @@ namespace sky {
             std::lock_guard<std::mutex> lock(mutex);
             if (info == nullptr) {
                 info = new TypeInfoRT {
-                        name,
-                        uuid,
-                        underlyingId,
-                        &TypeInfoStatic<T>(),
-                        TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,
-                        TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
-                        TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
-                        TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
+                    name,
+                    uuid,
+                    underlyingId,
+                    &TypeInfoStatic<T>(),
+                    ContainerInfoStatic<T>(),
+                    TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,
+                    TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
+                    TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
+                    TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
+                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
                 };
             } else {
                 info->name = name;
@@ -39,15 +54,16 @@ namespace sky {
         {
             if (info == nullptr) {
                 info = new TypeInfoRT {
-                        "",
-                        {},
-                        {},
-                        &TypeInfoStatic<T>(),
-                        TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,
-                        TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
-                        TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
-                        TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
-                        TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
+                    "",
+                    {},
+                    {},
+                    &TypeInfoStatic<T>(),
+                    ContainerInfoStatic<T>(),
+                    TypeAllocate<T>::CTOR ? &TypeAllocate<T>::New : nullptr,
+                    TypeAllocate<T>::CTOR ? &TypeAllocate<T>::Construct : nullptr,
+                    TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Delete : nullptr,
+                    TypeAllocate<T>::DTOR ? &TypeAllocate<T>::Destruct : nullptr,
+                    TypeAllocate<T>::COPY ? &TypeAllocate<T>::Copy : nullptr
                 };
             }
             return info;

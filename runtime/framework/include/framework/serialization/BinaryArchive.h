@@ -8,7 +8,7 @@
 #include <core/util/Uuid.h>
 #include <core/archive/StreamArchive.h>
 #include <core/platform/Platform.h>
-#include <core/archive/Concept.h>
+#include <core/concept/Concept.h>
 
 namespace sky {
 

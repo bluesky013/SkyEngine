@@ -198,6 +198,12 @@ namespace sky {
                                                         std::is_const_v<Type>,
                                                         std::is_member_object_pointer_v<Type>,
                                                     });
+
+                if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
+                    it.first->second.info->containerInfo->valueType =
+                        TypeInfoObj<std::remove_cv_t<SequenceContainerMap<Type>>>::Get()->RtInfo()->registeredId;
+                }
+
                 return TypeFactory<T, std::integral_constant<decltype(M), M>>(type, it.first->second.properties);
             }
         }

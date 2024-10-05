@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/archive/Concept.h>
+#include <core/concept/Concept.h>
 #include <core/archive/StreamArchive.h>
 #include <sstream>
 #include <vector>

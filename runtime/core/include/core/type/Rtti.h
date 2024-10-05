@@ -6,6 +6,7 @@
 
 #include <core/hash/Fnv1a.h>
 #include <core/util/Uuid.h>
+#include <core/concept/Concept.h>
 #include <string_view>
 #include <type_traits>
 
@@ -60,6 +61,46 @@ namespace sky {
         const bool   isUnion;
         const bool   isClass;
         const bool   isTrivial;
+        const bool   isSequenceContainer;
+        const bool   isAssociativeContainer;
+    };
+
+    struct SequenceViewBase {
+        virtual ~SequenceViewBase() = default;
+        virtual size_t Count(void* ptr) const = 0;
+        virtual void* Emplace(void* ptr) = 0;
+        virtual void EraseByIndex(void* ptr, size_t idx) = 0;
+    };
+
+    template <typename T>
+    struct SequenceView : public SequenceViewBase {
+        using ValueType = typename T::value_type;
+
+        size_t Count(void* ptr) const override
+        {
+            return static_cast<T*>(ptr)->size();
+        }
+
+        void* Emplace(void* ptr) override
+        {
+            auto *ct = static_cast<T*>(ptr);
+            ct->insert(ct->end(), ValueType{});
+            return &ct->back();
+        }
+
+        void EraseByIndex(void* ptr, size_t idx) override
+        {
+            auto *ct = static_cast<T*>(ptr);
+            auto iter = ct->begin();
+            std::advance(iter, idx);
+            ct->erase(iter);
+        }
+    };
+
+    struct ContainerInfo {
+        SequenceViewBase* sequenceView = nullptr;
+        Uuid valueType;
+        Uuid keyType;
     };
 
     using DestructorDelete  = void (*)(void *ptr);
@@ -72,12 +113,13 @@ namespace sky {
         std::string_view       name;
         Uuid                   registeredId;
         Uuid                   underlyingTypeId;
-        const StaticTypeInfo*  staticInfo  = nullptr;
-        ConstructorNew         newFunc     = nullptr; // default constructor
-        ConstructorPlace       placeFunc   = nullptr; // default constructor
-        DestructorDelete       deleteFunc  = nullptr; // default destructor
-        Destructor             destructor  = nullptr; // default destructor
-        CopyFn                 copy        = nullptr; // default copy constructor
+        const StaticTypeInfo*  staticInfo    = nullptr;
+        const ContainerInfo*   containerInfo = nullptr;
+        ConstructorNew         newFunc       = nullptr; // default constructor
+        ConstructorPlace       placeFunc     = nullptr; // default constructor
+        DestructorDelete       deleteFunc    = nullptr; // default destructor
+        Destructor             destructor    = nullptr; // default destructor
+        CopyFn                 copy          = nullptr; // default copy constructor
     };
 
     // There may be different values on different platforms, limited to runtime and not persistent.
