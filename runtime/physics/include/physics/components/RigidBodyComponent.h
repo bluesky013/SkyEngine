@@ -40,6 +40,8 @@ namespace sky::phy {
         SequenceVisitor Spheres();
         SequenceVisitor Boxes();
 
+        void ShapeChanged() const;
+
     private:
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;

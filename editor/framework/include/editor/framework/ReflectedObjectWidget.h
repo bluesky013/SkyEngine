@@ -28,13 +28,17 @@ namespace sky::editor {
     class ReflectedMemberWidget;
 
     class ReflectedObjectWidget : public QWidget {
+        Q_OBJECT
     public:
         ReflectedObjectWidget(void *obj, const TypeNode *node, QWidget *parent);
         ~ReflectedObjectWidget() override = default;
 
-    protected:
-        virtual void Refresh();
+    private Q_SLOTS:
+        void OnValueChanged();
+    Q_SIGNALS:
+        void ValueChanged(); // NOLINT
 
+    protected:
         void *object;
         const TypeNode *typeNode = nullptr;
 
@@ -42,6 +46,7 @@ namespace sky::editor {
     };
 
     class ReflectedMemberWidget : public QWidget {
+        Q_OBJECT
     public:
         ReflectedMemberWidget(void *obj, const TypeMemberNode *node, QWidget *parent)
             : QWidget(parent)
@@ -57,6 +62,9 @@ namespace sky::editor {
             setMinimumWidth(32);
         }
         ~ReflectedMemberWidget() override = default;
+
+    Q_SIGNALS:
+        void ValueChanged(); // NOLINT
 
     protected:
         void *object;
@@ -87,6 +95,7 @@ namespace sky::editor {
                     value = static_cast<T>(s.toUInt());
                 }
                 memberNode->setterFn(object, &value);
+                emit ValueChanged();
                 RefreshValue();
             });
 
@@ -116,9 +125,10 @@ namespace sky::editor {
                 line[i] = new QLineEdit(this);
                 line[i]->setValidator(validator);
                 layout()->addWidget(line[i]);
-                connect(line[i], &QLineEdit::editingFinished, this, [i, this]() {
+                connect(line[i], &QLineEdit::textEdited, this, [i, this]() {
                     value[i] = static_cast<float>(line[i]->text().toDouble());
                     memberNode->setterFn(object, value);
+                    emit ValueChanged();
                     RefreshValue(i);
                 });
             }
@@ -148,6 +158,7 @@ namespace sky::editor {
     };
 
     class PropertyColor : public ReflectedMemberWidget {
+        Q_OBJECT
     public:
         PropertyColor(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
@@ -165,7 +176,7 @@ namespace sky::editor {
                                  static_cast<float>(qColor.alphaF())
                     );
                     memberNode->setterFn(object, &color);
-
+                    emit ValueChanged();
                     RefreshValue(qColor);
                 }
             });
@@ -210,6 +221,7 @@ namespace sky::editor {
     };
 
     class PropertyUuid : public ReflectedMemberWidget {
+        Q_OBJECT
     public:
         PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent);
         ~PropertyUuid() override = default;
@@ -222,6 +234,7 @@ namespace sky::editor {
     };
 
     class PropertyBool : public ReflectedMemberWidget {
+        Q_OBJECT
     public:
         PropertyBool(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
@@ -231,6 +244,7 @@ namespace sky::editor {
             connect(box, &QCheckBox::stateChanged, this, [this](int v) {
                 bool val = (v == Qt::Checked);
                 memberNode->setterFn(object, &val);
+                emit ValueChanged();
             });
             RefreshValue();
         }
@@ -249,6 +263,7 @@ namespace sky::editor {
     };
 
     class PropertyEnum : public ReflectedMemberWidget {
+        Q_OBJECT
     public:
         PropertyEnum(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
@@ -265,6 +280,7 @@ namespace sky::editor {
                 for (const auto &[key, val] : info->enums) {
                     if (val == std::string_view(str.toStdString())) {
                         memberNode->setterFn(object, &key);
+                        emit ValueChanged();
                         break;
                     }
                 }
@@ -279,7 +295,7 @@ namespace sky::editor {
             auto any = memberNode->getterConstFn(object);
             auto *pVal = any.GetAs<uint64_t >();
 
-            SKY_ASSERT(info->enums.count(*pVal));
+            SKY_ASSERT(info->enums.count(*pVal))
             box->setCurrentText(info->enums.at(*pVal).data());
         }
 
@@ -289,9 +305,14 @@ namespace sky::editor {
 
     class PropertySequenceContainerWidget;
     class PropertySequenceItemWidget : public QWidget {
+        Q_OBJECT
     public:
         PropertySequenceItemWidget(uint32_t idx, PropertySequenceContainerWidget* container, void *obj, const TypeNode *node, QWidget *parent);
 
+    private Q_SLOTS:
+        void OnValueChanged();
+    Q_SIGNALS:
+        void ValueChanged(); // NOLINT
     private:
         ReflectedObjectWidget* objectWidget = nullptr;
         PropertySequenceContainerWidget* owner = nullptr;
@@ -299,6 +320,7 @@ namespace sky::editor {
     };
 
     class PropertySequenceContainerWidget : public ReflectedMemberWidget {
+        Q_OBJECT
     public:
         PropertySequenceContainerWidget(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
@@ -312,6 +334,7 @@ namespace sky::editor {
                 auto any = memberNode->getterFn(object);
                 auto *pVal = any.GetAs<SequenceVisitor>();
                 pVal->Emplace();
+                OnValueChanged();
                 RefreshValue();
             });
             layout()->addWidget(addBtn);
@@ -321,6 +344,7 @@ namespace sky::editor {
         void RefreshValue()
         {
             for (auto &wgt : widgets) {
+                disconnect(widgets.back().get(), &PropertySequenceItemWidget::ValueChanged, this, &PropertySequenceContainerWidget::OnValueChanged);
                 array->layout()->removeWidget(wgt.get());
             }
             widgets.clear();
@@ -331,11 +355,12 @@ namespace sky::editor {
             widgets.reserve(count);
 
             const auto *info = GetTypeNode(pVal->GetValueType());
-            SKY_ASSERT(info != nullptr);
+            SKY_ASSERT(info != nullptr)
             for (uint32_t i = 0; i < count; ++i) {
                 auto *ptr = pVal->GetByIndex(i);
                 widgets.emplace_back(new PropertySequenceItemWidget(i, this, ptr, info, nullptr));
                 array->layout()->addWidget(widgets.back().get());
+                connect(widgets.back().get(), &PropertySequenceItemWidget::ValueChanged, this, &PropertySequenceContainerWidget::OnValueChanged);
             }
         }
 
@@ -344,10 +369,20 @@ namespace sky::editor {
             auto any = memberNode->getterFn(object);
             auto *pVal = any.GetAs<SequenceVisitor>();
             pVal->Erase(index);
+            OnValueChanged();
             RefreshValue();
         }
 
-    private:
+    private Q_SLOTS:
+        void OnValueChanged()
+        {
+            if (memberNode->valueChangedFn != nullptr) {
+                memberNode->valueChangedFn(object);
+            }
+            emit ValueChanged();
+        }
+
+    private: // NOLINT
         QWidget* array = nullptr;
         std::vector<std::unique_ptr<PropertySequenceItemWidget>> widgets;
     };

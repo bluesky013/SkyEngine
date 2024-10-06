@@ -13,6 +13,11 @@
 
 namespace sky::editor {
 
+    void ReflectedObjectWidget::OnValueChanged()
+    {
+        emit ValueChanged();
+    }
+
     ReflectedObjectWidget::ReflectedObjectWidget(void *obj, const TypeNode *node, QWidget *parent)
         : QWidget(parent)
         , object(obj)
@@ -71,11 +76,9 @@ namespace sky::editor {
             if (widget != nullptr) {
                 layout->addRow(name.data(), widget);
             }
-        }
-    }
 
-    void ReflectedObjectWidget::Refresh()
-    {
+            connect(widget, &ReflectedMemberWidget::ValueChanged, this, &ReflectedObjectWidget::OnValueChanged);
+        }
     }
 
     void AssetLineEditor::dragEnterEvent(QDragEnterEvent *event)
@@ -164,7 +167,7 @@ namespace sky::editor {
                     "Asset Not Found.",
                     QMessageBox::Ok, QApplication::activeWindow()).exec();
             }
-
+            emit ValueChanged();
             RefreshValue();
         });
 
@@ -197,6 +200,13 @@ namespace sky::editor {
             owner->RemoveIndex(index);
         });
         layout()->addWidget(btn);
+
+        connect(objectWidget, &ReflectedObjectWidget::ValueChanged, this, &PropertySequenceItemWidget::OnValueChanged);
+    }
+
+    void PropertySequenceItemWidget::OnValueChanged()
+    {
+        emit ValueChanged();
     }
 
 } // namespace sky::editor

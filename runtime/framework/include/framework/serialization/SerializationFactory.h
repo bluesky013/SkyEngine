@@ -21,6 +21,7 @@ namespace sky {
     using SetterFn        = bool (*)(void *ptr, const void *);
     using GetterFn        = Any (*)(void *ptr);
     using GetterConstFn   = Any (*)(const void *ptr);
+    using ValueChangedFn  = void (*)(const void *ptr);
     using ConstructibleFn = bool (*)(Any *);
     using ConstructFn     = Any (*)(Any *);
     using JsonInFn        = void (*)(void *p, JsonInputArchive& archive);
@@ -30,12 +31,13 @@ namespace sky {
 
     struct TypeMemberNode {
         const TypeInfoRT *info = nullptr;
-        const bool    isConst;
-        const bool    isStatic;
-        SetterFn      setterFn      = nullptr;
-        GetterFn      getterFn      = nullptr;
-        GetterConstFn getterConstFn = nullptr;
-        PropertyMap   properties;
+        const bool     isConst;
+        const bool     isStatic;
+        SetterFn       setterFn       = nullptr;
+        GetterFn       getterFn       = nullptr;
+        GetterConstFn  getterConstFn  = nullptr;
+        ValueChangedFn valueChangedFn = nullptr;
+        PropertyMap    properties;
     };
 
     struct ConstructNode {
@@ -143,6 +145,13 @@ namespace sky {
         return Any{};
     }
 
+    template <typename T, auto D>
+    void ValueChanged_(const void *p) noexcept
+    {
+        static_assert(std::is_member_function_pointer_v<decltype(D)>);
+        std::invoke(D, static_cast<const T*>(p));
+    }
+
     template <typename T, typename... Args, size_t... I>
     bool ConstructCheck(Any *args, std::index_sequence<I...>)
     {
@@ -214,6 +223,7 @@ namespace sky {
                                                         &Setter<T, Type, S>,
                                                         nullptr,
                                                         &GetterConst<T, G>,
+                                                        nullptr
                                                     });
                 if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
                     it.first->second.info->containerInfo->valueType =
@@ -228,6 +238,7 @@ namespace sky {
                                                         &Setter<T, Type, S>,
                                                         &Getter<T, G>,
                                                         &GetterConst<T, G>,
+                                                        nullptr
                                                     });
                 if constexpr (ContainerTraits<Type>::IS_SEQUENCE) {
                     it.first->second.info->containerInfo->valueType =
@@ -237,7 +248,7 @@ namespace sky {
             }
         }
 
-        template <auto G>
+        template <auto G, auto N>
         auto MemberNoSetter(const std::string_view &key)
         {
             using Type = std::remove_reference_t<std::invoke_result_t<decltype(G), T &>>;
@@ -249,6 +260,7 @@ namespace sky {
                         nullptr,
                         nullptr,
                         &GetterConst<T, G>,
+                        &ValueChanged_<T, N>
                 });
                 return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             } else {
@@ -259,6 +271,7 @@ namespace sky {
                         nullptr,
                         &Getter<T, G>,
                         &GetterConst<T, G>,
+                        &ValueChanged_<T, N>
                 });
                 return TypeFactory<T, std::integral_constant<decltype(G), G>>(type, it.first->second.properties);
             }

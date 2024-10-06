@@ -26,7 +26,6 @@ namespace sky {
         size_t Count() const;
 
         const Uuid &GetValueType() const;
-
     private:
         const ContainerInfo* info = nullptr;
         void* object = nullptr;

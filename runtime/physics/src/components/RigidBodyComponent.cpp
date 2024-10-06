@@ -26,8 +26,8 @@ namespace sky::phy {
         REGISTER_BEGIN(RigidBodyComponent, context)
             REGISTER_MEMBER(mass, SetMass, GetMass)
             REGISTER_MEMBER(flag, SetFlag, GetFlag)
-            REGISTER_MEMBER_NS(shapeSpheres, Spheres)
-            REGISTER_MEMBER_NS(shapeBoxes, Boxes);
+            REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
+            REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged);
 
         ComponentFactory::Get()->RegisterComponent<RigidBodyComponent>("Physics");
     }
@@ -43,6 +43,11 @@ namespace sky::phy {
     void RigidBodyComponent::SetFlag(CollisionFlag flag)
     {
         data.flag = flag;
+    }
+
+    void RigidBodyComponent::ShapeChanged() const
+    {
+        printf("test\n");
     }
 
     SequenceVisitor RigidBodyComponent::Spheres()
