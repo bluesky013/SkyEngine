@@ -6,6 +6,7 @@
 #include <physics/PhysicsWorld.h>
 #include <physics/PhysicsRegistry.h>
 #include <framework/world/ComponentFactory.h>
+#include <framework/world/TransformComponent.h>
 #include <framework/world/Actor.h>
 #include <framework/world/World.h>
 
@@ -45,9 +46,12 @@ namespace sky::phy {
         data.flag = flag;
     }
 
-    void RigidBodyComponent::ShapeChanged() const
+    void RigidBodyComponent::ShapeChanged()
     {
-        printf("test\n");
+        RebuildShape();
+        if (rigidBody != nullptr) {
+            rigidBody->SetShape(shape);
+        }
     }
 
     SequenceVisitor RigidBodyComponent::Spheres()
@@ -71,18 +75,37 @@ namespace sky::phy {
         return static_cast<PhysicsWorld*>(actor->GetWorld()->GetSubSystem(PhysicsWorld::NAME.data()));
     }
 
-    void RigidBodyComponent::SetRigidBody()
+    void RigidBodyComponent::SetupRigidBody()
     {
+        rigidBody->SetStartTrans(actor->GetComponent<TransformComponent>()->GetWorldTransform());
         rigidBody->SetMass(data.mass);
+        rigidBody->SetShape(shape);
+    }
+
+    void RigidBodyComponent::RebuildShape()
+    {
+        // TODO
+        if (!data.config.sphere.empty()) {
+            const auto &sphere = data.config.sphere[0];
+            shape = new PhysicsSphereShape(sphere);
+        } else if (!data.config.box.empty()) {
+            const auto &box = data.config.box[0];
+            shape = new PhysicsBoxShape(box);
+        } else {
+            shape = nullptr;
+        }
     }
 
     void RigidBodyComponent::OnAttachToWorld()
     {
         auto *world = GetWorld();
         if (world != nullptr) {
+            RebuildShape();
+
             rigidBody = PhysicsRegistry::Get()->CreateRigidBody();
-            SetRigidBody();
+            rigidBody->SetMotionCallBack(this);
             world->AddRigidBody(rigidBody);
+            SetupRigidBody();
         }
     }
 
@@ -97,5 +120,10 @@ namespace sky::phy {
     void RigidBodyComponent::Tick(float time)
     {
 
+    }
+
+    void RigidBodyComponent::OnRigidBodyUpdate(const Transform &trans)
+    {
+        actor->GetComponent<TransformComponent>()->SetWorldTransform(trans);
     }
 } // namespace sky::phy

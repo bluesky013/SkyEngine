@@ -61,6 +61,7 @@ namespace sky::phy {
     void BulletDebugDraw::SetTechnique(const RDGfxTechPtr &tech)
     {
         TechniqueInstance techInst = {tech};
+        techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
         primitive->techniques.clear();
         primitive->techniques.emplace_back(techInst);
     }

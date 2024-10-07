@@ -16,6 +16,7 @@ namespace sky::phy {
     class RigidBody;
     class CharacterController;
     class PhysicsShape;
+    class CollisionObject;
 
     class PhysicsRegistry : public Singleton<PhysicsRegistry>, public IMeshConfigNotify {
     public:
@@ -31,13 +32,21 @@ namespace sky::phy {
             virtual ~Impl() = default;
 
             virtual PhysicsWorld* CreatePhysicsWorld() = 0;
+            virtual CollisionObject* CreateCollisionObject() = 0;
             virtual RigidBody* CreateRigidBody() = 0;
             virtual CharacterController* CreateCharacterController() = 0;
+
+            virtual IShapeImpl* CreateBox(const BoxShape&) = 0;
+            virtual IShapeImpl* CreateSphere(const SphereShape&) = 0;
         };
 
         PhysicsWorld* CreatePhysicsWorld();
+        CollisionObject* CreateCollisionObject();
         RigidBody* CreateRigidBody();
         CharacterController* CreateCharacterController();
+
+        IShapeImpl* CreateBox(const BoxShape&);
+        IShapeImpl* CreateSphere(const SphereShape&);
 
         void Register(Impl* factory);
         void UnRegister();

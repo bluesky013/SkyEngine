@@ -15,7 +15,7 @@ namespace sky::phy {
 
         context->Register<BoxShape>("PhysicsBox")
             .Member<&BoxShape::pivot>("pivot")
-            .Member<&BoxShape::scale>("scale");
+            .Member<&BoxShape::halfExt>("halfExt");
 
         context->Register<MeshPhysicsConfig>("MeshPhysicsConfig")
             .Member<&MeshPhysicsConfig::sphere>("sphere")
@@ -37,9 +37,24 @@ namespace sky::phy {
         return factory ? factory->CreateCharacterController() : nullptr;
     }
 
+    CollisionObject* PhysicsRegistry::CreateCollisionObject()
+    {
+        return factory ? factory->CreateCollisionObject() : nullptr;
+    }
+
     RigidBody* PhysicsRegistry::CreateRigidBody()
     {
         return factory ? factory->CreateRigidBody() : nullptr;
+    }
+
+    IShapeImpl* PhysicsRegistry::CreateBox(const BoxShape& shape)
+    {
+        return factory ? factory->CreateBox(shape) : nullptr;
+    }
+
+    IShapeImpl* PhysicsRegistry::CreateSphere(const SphereShape& shape)
+    {
+        return factory ? factory->CreateSphere(shape) : nullptr;
     }
 
     void PhysicsRegistry::Register(Impl* impl)

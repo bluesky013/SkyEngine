@@ -6,8 +6,20 @@
 
 #include <framework/interface/IMeshConfigNotify.h>
 #include <core/math/Vector3.h>
+#include <core/template/Flags.h>
 
 namespace sky::phy {
+
+    enum class CollisionFilterBit : uint32_t  {
+        DEFAULT       = 0x01,
+        DFT_STATIC    = 0x02,
+        DFT_DYNAMIC   = 0x04,
+        DFT_CHARACTER = 0x08,
+
+        ALL = 0xFFFFFFFF
+    };
+    using CollisionFilters = Flags<CollisionFilterBit>;
+    ENABLE_FLAG_BIT_OPERATOR(CollisionFilterBit)
 
     struct SphereShape {
         Vector3 pivot = VEC3_ZERO;
@@ -16,12 +28,23 @@ namespace sky::phy {
 
     struct BoxShape {
         Vector3 pivot = VEC3_ZERO;
-        Vector3 scale = VEC3_ONE;
+        Vector3 halfExt = VEC3_ONE;
+    };
+
+    struct CompoundShape {
+        std::vector<SphereShape> sphere;
+        std::vector<BoxShape> box;
     };
 
     struct MeshPhysicsConfig : public MeshConfigBase {
         std::vector<SphereShape> sphere;
         std::vector<BoxShape> box;
+    };
+
+    class IShapeImpl {
+    public:
+        IShapeImpl() = default;
+        virtual ~IShapeImpl() = default;
     };
 
 } // namespace sky::phy

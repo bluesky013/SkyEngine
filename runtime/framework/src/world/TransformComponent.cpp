@@ -35,7 +35,12 @@ namespace sky {
 
     Matrix4 TransformComponent::GetWorldMatrix() const
     {
-        return data.local.ToMatrix();
+        return data.global.ToMatrix();
+    }
+
+    const Transform &TransformComponent::GetWorldTransform() const
+    {
+        return data.global;
     }
 
     void TransformComponent::SetParent(TransformComponent *parent_)
@@ -62,6 +67,13 @@ namespace sky {
         for (auto *child : children) {
             child->OnTransformChanged();
         }
+    }
+
+    void TransformComponent::SetWorldTransform(const Transform &trans)
+    {
+        data.global = trans;
+        UpdateLocal();
+        OnTransformChanged();
     }
 
     void TransformComponent::SetWorldTranslation(const Vector3 &translation)
@@ -139,5 +151,10 @@ namespace sky {
     void TransformComponent::UpdateGlobal()
     {
         data.global = parent != nullptr ? parent->data.global * data.local * data.global : data.local;
+    }
+
+    void TransformComponent::OnLoaded()
+    {
+        UpdateGlobal();
     }
 } // namespace sky

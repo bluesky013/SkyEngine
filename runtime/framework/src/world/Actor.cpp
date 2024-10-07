@@ -90,6 +90,7 @@ namespace sky {
             auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
             tmp->LoadJson(archive);
             tmp->actor = this;
+            tmp->OnLoaded();
             EmplaceComponent(typeId, tmp);
             archive.End();
 

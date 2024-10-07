@@ -75,7 +75,6 @@ namespace sky {
                             for (size_t i = 0; i < count; ++i) {
                                 SaveValueObject(visitor.GetByIndex(i), visitor.GetValueType());
                             }
-
                             EndArray();
                         }
                     } else {

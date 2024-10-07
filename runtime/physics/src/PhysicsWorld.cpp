@@ -6,6 +6,23 @@
 
 namespace sky::phy {
 
+    void PhysicsWorld::AddCollisionObject(CollisionObject *obj)
+    {
+        AddCollisionObjectImpl(obj);
+        collisionObjects.emplace_back(obj);
+    }
+
+    void PhysicsWorld::RemoveCollisionObject(CollisionObject *obj)
+    {
+        auto iter = std::find_if(collisionObjects.begin(), collisionObjects.end(), [obj](const auto &val) {
+            return obj == val.get();
+        });
+        if (iter != collisionObjects.end()) {
+            RemoveCollisionObjectImpl(obj);
+            collisionObjects.erase(iter);
+        }
+    }
+
     void PhysicsWorld::AddRigidBody(RigidBody *rb)
     {
         AddRigidBodyImpl(rb);

@@ -115,6 +115,9 @@ namespace sky {
     void DebugRenderer::Render(RenderPrimitive *primitive)
     {
         auto vtxSize = static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex));
+        if (vtxSize == 0) {
+            return;
+        }
 
         if (!vertexBuffer || vtxSize > capacity) {
             capacity = std::max(capacity * 2, vtxSize);

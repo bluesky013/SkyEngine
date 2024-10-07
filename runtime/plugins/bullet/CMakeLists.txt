@@ -11,9 +11,8 @@ sky_add_library(TARGET BulletPhysicsModule SHARED
     PUBLIC_INC
         include
     LINK_LIBS
-        Framework
         Physics
-        RenderCore
+        RenderAdaptor
         3rdParty::bullet3
 )
 

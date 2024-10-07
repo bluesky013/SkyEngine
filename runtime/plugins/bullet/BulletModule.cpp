@@ -4,27 +4,40 @@
 
 #include <framework/interface/IModule.h>
 #include <framework/world/World.h>
+#include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 
 #include <core/event/Event.h>
+
+#include <render/adaptor/assets/TechniqueAsset.h>
 
 #include <physics/PhysicsRegistry.h>
 #include <bullet/BulletPhysicsWorld.h>
 #include <bullet/BulletCharacterController.h>
 #include <bullet/BulletRigidBody.h>
+#include <bullet/BulletShapes.h>
+#include <bullet/BulletCollisionObject.h>
 #include <physics/components/RigidBodyComponent.h>
-
+#include <physics/components/CollisionComponent.h>
 
 namespace sky::phy {
 
     class BulletFactory : public PhysicsRegistry::Impl {
     public:
-        BulletFactory() = default;
+        BulletFactory()
+        {
+            auto techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
+            techAsset->BlockUntilLoaded();
+            debugTech = CreateTechniqueFromAsset(techAsset);
+        }
         ~BulletFactory() override = default;
 
         PhysicsWorld* CreatePhysicsWorld() override
         {
-            return new BulletPhysicsWorld();
+            auto *world = new BulletPhysicsWorld();
+            world->SetTechnique(debugTech);
+            world->SetDebugDrawEnable(true);
+            return world;
         }
 
         RigidBody* CreateRigidBody() override
@@ -36,6 +49,24 @@ namespace sky::phy {
         {
             return new BulletCharacterController();
         }
+
+        CollisionObject* CreateCollisionObject() override
+        {
+            return new BulletCollisionObject();
+        }
+
+        IShapeImpl* CreateBox(const BoxShape& shape) override
+        {
+            return new BulletShape(shape);
+        }
+
+        IShapeImpl* CreateSphere(const SphereShape& shape) override
+        {
+            return new BulletShape(shape);
+        }
+
+    private:
+        CounterPtr<Technique> debugTech;
     };
 
     class BulletPhysicsModule : public IModule, public IWorldEvent {
@@ -46,7 +77,7 @@ namespace sky::phy {
         void OnCreateWorld(World& world) override
         {
             if (world.CheckSystem(PhysicsWorld::NAME.data())) {
-                world.AddSubSystem(phy::PhysicsWorld::NAME.data(), new BulletPhysicsWorld());
+                world.AddSubSystem(phy::PhysicsWorld::NAME.data(), PhysicsRegistry::Get()->CreatePhysicsWorld());
             }
         }
 
@@ -63,13 +94,13 @@ namespace sky::phy {
             auto *context = SerializationContext::Get();
             PhysicsRegistry::Reflect(context);
             RigidBodyComponent::Reflect(context);
+            CollisionComponent::Reflect(context);
         }
 
         void Shutdown() override
         {
             PhysicsRegistry::Get()->UnRegister();
         }
-
         EventBinder<IWorldEvent> worldEvent;
     };
 } // namespace sky::phy

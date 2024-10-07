@@ -17,29 +17,20 @@ namespace sky::phy {
 
     class PhysicsWorld;
 
-    struct RigidBodyData {
-        float mass = 1.f;
-        CollisionFlag flag = CollisionFlag::STATIC;
+    struct CollisionData {
         MeshPhysicsConfig config;
     };
 
-    class RigidBodyComponent : public ComponentAdaptor<RigidBodyData>, public phy::IMotionCallBack {
+    class CollisionComponent : public ComponentAdaptor<CollisionData> {
     public:
-        RigidBodyComponent() = default;
-        ~RigidBodyComponent() override = default;
+        CollisionComponent() = default;
+        ~CollisionComponent() override = default;
 
         static void Reflect(SerializationContext *context);
-        COMPONENT_RUNTIME_INFO(RigidBodyComponent)
-
-        void SetMass(float mass);
-        float GetMass() const { return data.mass; }
-
-        void SetFlag(CollisionFlag flag);
-        CollisionFlag GetFlag() const { return data.flag; }
+        COMPONENT_RUNTIME_INFO(CollisionComponent)
 
         SequenceVisitor Spheres();
         SequenceVisitor Boxes();
-
         void ShapeChanged();
 
     private:
@@ -47,14 +38,12 @@ namespace sky::phy {
         void OnDetachFromWorld() override;
         void Tick(float time) override;
 
-        void OnRigidBodyUpdate(const Transform &trans) override;
-
-        PhysicsWorld* GetWorld() const;
-        void SetupRigidBody();
         void RebuildShape();
+        PhysicsWorld* GetWorld() const;
 
         PhysicsShape* shape = nullptr;
-        RigidBody* rigidBody = nullptr;
+        CollisionObject* collisionObject = nullptr;
     };
 
 } // namespace sky::phy
+

@@ -21,7 +21,7 @@ namespace sky {
     using SetterFn        = bool (*)(void *ptr, const void *);
     using GetterFn        = Any (*)(void *ptr);
     using GetterConstFn   = Any (*)(const void *ptr);
-    using ValueChangedFn  = void (*)(const void *ptr);
+    using ValueChangedFn  = void (*)(void *ptr);
     using ConstructibleFn = bool (*)(Any *);
     using ConstructFn     = Any (*)(Any *);
     using JsonInFn        = void (*)(void *p, JsonInputArchive& archive);
@@ -146,10 +146,10 @@ namespace sky {
     }
 
     template <typename T, auto D>
-    void ValueChanged_(const void *p) noexcept
+    void ValueChanged_(void *p) noexcept
     {
         static_assert(std::is_member_function_pointer_v<decltype(D)>);
-        std::invoke(D, static_cast<const T*>(p));
+        std::invoke(D, static_cast<T*>(p));
     }
 
     template <typename T, typename... Args, size_t... I>
