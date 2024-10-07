@@ -16,4 +16,9 @@ namespace sky::phy {
     {
         impl.reset(PhysicsRegistry::Get()->CreateSphere(shape));
     }
+
+    PhysicsTriangleMeshShape::PhysicsTriangleMeshShape(const TriangleMeshShape &shape)
+    {
+
+    }
 } // namespace sky::phy

@@ -35,4 +35,10 @@ namespace sky::phy {
         }
     }
 
+    BulletShape::BulletShape(const TriangleMeshShape &mesh)
+    {
+        meshInterface = std::make_unique<btTriangleIndexVertexArray>();
+        collisionShape = std::make_unique<btBvhTriangleMeshShape>(meshInterface.get(), true);
+    }
+
 } // namespace sky::phy

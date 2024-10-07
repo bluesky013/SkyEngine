@@ -36,6 +36,11 @@ namespace sky::phy {
         std::vector<BoxShape> box;
     };
 
+    struct TriangleMeshShape {
+        std::vector<Vector3> pos;
+        std::vector<uint32_t> indices;
+    };
+
     struct MeshPhysicsConfig : public MeshConfigBase {
         std::vector<SphereShape> sphere;
         std::vector<BoxShape> box;

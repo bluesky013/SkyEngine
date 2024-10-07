@@ -13,6 +13,7 @@ namespace sky::phy {
     public:
         explicit BulletShape(const BoxShape &box);
         explicit BulletShape(const SphereShape &sphere);
+        explicit BulletShape(const TriangleMeshShape &shape);
 
         ~BulletShape() override = default;
 
@@ -21,5 +22,7 @@ namespace sky::phy {
     protected:
         std::unique_ptr<btCollisionShape> collisionShape;
         std::unique_ptr<btCollisionShape> baseShape;
+
+        std::unique_ptr<btTriangleIndexVertexArray> meshInterface;
     };
 } // namespace sky::phy

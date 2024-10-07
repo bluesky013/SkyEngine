@@ -38,6 +38,7 @@ namespace sky::phy {
 
             virtual IShapeImpl* CreateBox(const BoxShape&) = 0;
             virtual IShapeImpl* CreateSphere(const SphereShape&) = 0;
+            virtual IShapeImpl* CreateTriangleMesh(const TriangleMeshShape&) = 0;
         };
 
         PhysicsWorld* CreatePhysicsWorld();
@@ -47,6 +48,7 @@ namespace sky::phy {
 
         IShapeImpl* CreateBox(const BoxShape&);
         IShapeImpl* CreateSphere(const SphereShape&);
+        IShapeImpl* CreateTriangleMesh(const TriangleMeshShape&);
 
         void Register(Impl* factory);
         void UnRegister();

@@ -57,6 +57,11 @@ namespace sky::phy {
         return factory ? factory->CreateSphere(shape) : nullptr;
     }
 
+    IShapeImpl* PhysicsRegistry::CreateTriangleMesh(const TriangleMeshShape& shape)
+    {
+        return factory ? factory->CreateTriangleMesh(shape) : nullptr;
+    }
+
     void PhysicsRegistry::Register(Impl* impl)
     {
         factory.reset(impl);

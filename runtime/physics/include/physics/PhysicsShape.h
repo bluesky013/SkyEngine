@@ -30,4 +30,10 @@ namespace sky::phy {
         ~PhysicsSphereShape() override = default;
     };
 
+    class PhysicsTriangleMeshShape : public PhysicsShape {
+    public:
+        explicit PhysicsTriangleMeshShape(const TriangleMeshShape &shape);
+        ~PhysicsTriangleMeshShape() override = default;
+    };
+
 } // namespace sky::phy

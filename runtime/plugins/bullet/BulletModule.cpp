@@ -65,6 +65,11 @@ namespace sky::phy {
             return new BulletShape(shape);
         }
 
+        IShapeImpl* CreateTriangleMesh(const TriangleMeshShape& shape) override
+        {
+            return new BulletShape(shape);
+        }
+
     private:
         CounterPtr<Technique> debugTech;
     };
