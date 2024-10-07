@@ -74,21 +74,13 @@ namespace sky::phy {
         CounterPtr<Technique> debugTech;
     };
 
-    class BulletPhysicsModule : public IModule, public IWorldEvent {
+    class BulletPhysicsModule : public IModule {
     public:
         BulletPhysicsModule() = default;
         ~BulletPhysicsModule() override = default;
 
-        void OnCreateWorld(World& world) override
-        {
-            if (world.CheckSystem(PhysicsWorld::NAME.data())) {
-                world.AddSubSystem(phy::PhysicsWorld::NAME.data(), PhysicsRegistry::Get()->CreatePhysicsWorld());
-            }
-        }
-
         bool Init(const StartArguments &args) override
         {
-            worldEvent.Bind(this);
             return true;
         }
 
@@ -106,7 +98,6 @@ namespace sky::phy {
         {
             PhysicsRegistry::Get()->UnRegister();
         }
-        EventBinder<IWorldEvent> worldEvent;
     };
 } // namespace sky::phy
 REGISTER_MODULE(sky::phy::BulletPhysicsModule)

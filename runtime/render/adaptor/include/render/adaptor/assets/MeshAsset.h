@@ -54,8 +54,6 @@ namespace sky {
         uint32_t       indexBuffer;
         rhi::IndexType indexType = rhi::IndexType::U32;
 
-        std::vector<MeshConfigBase*> configs;
-
         uint32_t dataSize;
     };
 

@@ -7,7 +7,9 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <physics/PhysicsRegistry.h>
 #include <physics/PhysicsWorld.h>
+#include <render/adaptor/RenderSceneProxy.h>
 
 namespace sky::editor {
 
@@ -74,10 +76,10 @@ namespace sky::editor {
         CloseWorld();
 
         world = World::CreateWorld();
-        world->Init({
-            "RenderScene",
-            phy::PhysicsWorld::NAME.data()
-        });
+        world->Init();
+
+        world->AddSubSystem(RenderSceneProxy::NAME.data(), new RenderSceneProxy());
+        world->AddSubSystem(phy::PhysicsWorld::NAME.data(), phy::PhysicsRegistry::Get()->CreatePhysicsWorld());
 
         filePath = path;
         LoadWorld();

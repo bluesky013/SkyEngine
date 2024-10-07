@@ -51,7 +51,7 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
     }
 
-    class RenderModule : public IModule, public IWorldEvent {
+    class RenderModule : public IModule {
     public:
         RenderModule() = default;
         ~RenderModule() override = default;
@@ -60,20 +60,11 @@ namespace sky {
         void Tick(float delta) override;
         void Shutdown() override;
         void Start() override;
-
-        void OnCreateWorld(World& world) override
-        {
-            if (world.CheckSystem("RenderScene")) {
-                auto *sceneProxy = new RenderSceneProxy();
-                world.AddSubSystem("RenderScene", sceneProxy);
-            }
-        }
     private:
         void ProcessArgs(const StartArguments &args);
         void InitFeatures();
 
         rhi::API api = rhi::API::DEFAULT;
-        EventBinder<IWorldEvent> worldEvent;
     };
 
     void RenderModule::ProcessArgs(const StartArguments &args)
@@ -120,8 +111,6 @@ namespace sky {
         // init renderer
         Renderer::Get()->Init();
         Renderer::Get()->SetCacheFolder(Platform::Get()->GetInternalPath());
-
-        worldEvent.Bind(this);
         return true;
     }
 

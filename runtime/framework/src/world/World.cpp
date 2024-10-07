@@ -36,9 +36,8 @@ namespace sky {
         return world;
     }
 
-    void World::Init(std::vector<Name>&& systems)
+    void World::Init()
     {
-        subSystemRegistry.swap(systems);
         WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
     }
 
@@ -154,11 +153,6 @@ namespace sky {
     void World::Reset()
     {
         actors.clear();
-    }
-
-    bool World::CheckSystem(const Name &name) const
-    {
-        return std::find(subSystemRegistry.begin(), subSystemRegistry.end(), name) != subSystemRegistry.end();
     }
 
     void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)

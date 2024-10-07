@@ -61,7 +61,7 @@ namespace sky {
 
         static void Reflect(SerializationContext *context);
 
-        void Init(std::vector<Name>&& systems);
+        void Init();
         void Tick(float time);
 
         void SaveJson(JsonOutputArchive &archive);
@@ -89,8 +89,6 @@ namespace sky {
         World() = default;
 
         std::vector<ActorPtr> actors;
-
-        std::vector<Name> subSystemRegistry;
         std::unordered_map<std::string, std::unique_ptr<IWorldSubSystem>> subSystems;
 
         std::unordered_map<std::string, Any> worldConfigs;
