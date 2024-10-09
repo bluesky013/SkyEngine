@@ -67,6 +67,9 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
+    # compress
+    sky_find_3rd(TARGET lz4           DIR lz4)
+
     # script
     sky_find_3rd(TARGET cpython       DIR cpython)
 

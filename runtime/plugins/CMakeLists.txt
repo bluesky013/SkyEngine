@@ -21,3 +21,5 @@ endif ()
 if (SKY_BUILD_FREETYPE)
     add_subdirectory(freetype)
 endif ()
+
+add_subdirectory(compression)
