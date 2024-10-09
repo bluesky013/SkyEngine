@@ -254,6 +254,24 @@ namespace sky {
         };
     }
 
+    template <typename T>
+    inline T CeilTo(float val)
+    {
+        return static_cast<T>(std::ceilf(val));
+    }
+
+    template <typename T>
+    inline T FloorTo(float val)
+    {
+        return static_cast<T>(std::floorf(val));
+    }
+
+    template <typename T>
+    inline T TrunkTo(float val)
+    {
+        return static_cast<T>(std::truncf(val));
+    }
+
     constexpr inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
         return (v0 + v1 - 1) / v1;
     }

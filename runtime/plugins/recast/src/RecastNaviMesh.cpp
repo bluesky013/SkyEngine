@@ -2,7 +2,7 @@
 // Created by blues on 2024/9/1.
 //
 
-#include <recast/RecastNaviMap.h>
+#include <recast/RecastNaviMesh.h>
 
 namespace sky::ai {
 
@@ -10,15 +10,15 @@ namespace sky::ai {
     {
     }
 
-    void RecastNaviMap::BuildNavMesh(const RecastNaviMapConfig &config)
+    void RecastNaviMesh::BuildNavMesh(const RecastNaviMapConfig &config)
     {
         navMesh = dtAllocNavMesh();
 
         dtNavMeshParams params = {};
         params.tileWidth  = config.tileWidth;
         params.tileHeight = config.tileHeight;
-        params.maxTiles   = config.maxTiles;
-        params.maxPolys   = config.maxPolys;
+        params.maxTiles   = static_cast<int>(config.maxTiles);
+        params.maxPolys   = static_cast<int>(config.maxPolys);
 
         auto status = navMesh->init(&params);
         if (dtStatusFailed(status)) {
@@ -27,7 +27,7 @@ namespace sky::ai {
         }
     }
 
-    void RecastNaviMap::ResetNavMesh()
+    void RecastNaviMesh::ResetNavMesh()
     {
         if (navMesh != nullptr) {
             dtFreeNavMesh(navMesh);

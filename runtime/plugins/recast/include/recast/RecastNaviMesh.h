@@ -5,7 +5,7 @@
 #pragma once
 
 #include <core/math/Vector3.h>
-#include <navigation/NaviMap.h>
+#include <navigation/NaviMesh.h>
 #include <DetourNavMesh.h>
 
 namespace sky::ai {
@@ -18,10 +18,22 @@ namespace sky::ai {
         uint32_t maxPolys   = 65536;
     };
 
-    class RecastNaviMap : public NaviMap {
+    struct RecastTile {
+        int32_t x;
+        int32_t y;
+    };
+
+    struct RecastMeshTileData {
+        uint32_t layerIndex = 0;
+        AABB     boundBox;
+        uint8_t* navData = nullptr;
+        uint32_t navDataSize = 0;
+    };
+
+    class RecastNaviMesh : public NaviMesh {
     public:
-        RecastNaviMap() = default;
-        ~RecastNaviMap() override = default;
+        RecastNaviMesh() = default;
+        ~RecastNaviMesh() override = default;
 
         void BuildNavMesh(const RecastNaviMapConfig &config);
     private:
@@ -30,14 +42,14 @@ namespace sky::ai {
         dtNavMesh *navMesh = nullptr;
     };
 
-    class RecastNaviMapFactory : public NaviMapFactory::Impl {
+    class RecastNaviMapFactory : public NaviMeshFactory::Impl {
     public:
         RecastNaviMapFactory() = default;
         ~RecastNaviMapFactory() override = default;
 
-        NaviMap* CreateNaviMap() override
+        NaviMesh* CreateNaviMesh() override
         {
-            return new RecastNaviMap();
+            return new RecastNaviMesh();
         }
     };
 

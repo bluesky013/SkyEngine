@@ -5,7 +5,7 @@
 #pragma once
 
 #include <framework/world/World.h>
-#include <navigation/NaviMap.h>
+#include <navigation/NaviMesh.h>
 #include <memory>
 
 namespace sky::ai {
@@ -16,7 +16,7 @@ namespace sky::ai {
         ~NavigationSystem() override = default;
 
     private:
-        std::unique_ptr<NaviMap> naviMap;
+        std::unique_ptr<NaviMesh> naviMap;
     };
 
 } // namespace sky::ai

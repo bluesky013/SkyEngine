@@ -2,13 +2,13 @@
 // Created by blues on 2024/9/1.
 //
 
-#include <navigation/NaviMap.h>
+#include <navigation/NaviMesh.h>
 
 namespace sky::ai {
 
-    NaviMap* NaviMapFactory::CreateNaviMap()
+    NaviMesh* NaviMeshFactory::CreateNaviMap()
     {
-        return factory ? factory->CreateNaviMap() : nullptr;
+        return factory ? factory->CreateNaviMesh() : nullptr;
     }
 
 } // namespace sky::ai
