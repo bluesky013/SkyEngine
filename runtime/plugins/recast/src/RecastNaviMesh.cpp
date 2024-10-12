@@ -3,8 +3,17 @@
 //
 
 #include <recast/RecastNaviMesh.h>
+#include <recast/RecastNaviMeshGenerator.h>
+#include <DetourNavMesh.h>
 
 namespace sky::ai {
+
+    RecastNavData::~RecastNavData()
+    {
+        if (data != nullptr) {
+            dtFree(data);
+        }
+    }
 
     static void DebugDetourStatusDetail(dtStatus status)
     {
@@ -32,6 +41,16 @@ namespace sky::ai {
         if (navMesh != nullptr) {
             dtFreeNavMesh(navMesh);
         }
+    }
+
+    NaviMesh* RecastNaviMapFactory::CreateNaviMesh()
+    {
+        return new RecastNaviMesh();
+    }
+
+    NaviMeshGenerator* RecastNaviMapFactory::CreateGenerator()
+    {
+        return new RecastNaviMeshGenerator();
     }
 
 } // namespace sky::ai

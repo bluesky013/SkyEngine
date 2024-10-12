@@ -4,17 +4,18 @@
 
 #include <recast/RecastTileGenerator.h>
 #include <recast/RecastConversion.h>
-#include <core/math/MathUtil.h>
+#include <recast/RecastLz4Compressor.h>
+
 #include <Recast.h>
 #include <DetourTileCacheBuilder.h>
 #include <DetourCommon.h>
 
 namespace sky::ai {
 
-    struct RecastBuildContext : public rcContext {
+    struct RecastTileBuildContext : public rcContext {
     public:
-        RecastBuildContext() = default;
-        ~RecastBuildContext() override = default;
+        RecastTileBuildContext() = default;
+        ~RecastTileBuildContext() override = default;
 
         std::vector<RecastMeshTileData> navigationData;
     };
@@ -26,54 +27,34 @@ namespace sky::ai {
         rcFreeCompactHeightfield(compactHF);
     }
 
-    RecastTileGenerator::RecastTileGenerator(const CounterPtr<RecastNaviMesh>& mesh, const RecastTileBuildParam &param)
-        : naviMesh(mesh)
+    RecastTileCacheContext::~RecastTileCacheContext()
+    {
+        dtFreeTileCacheLayer(allocator, cacheLayer);
+        dtFreeTileCacheContourSet(allocator, contourSet);
+        dtFreeTileCachePolyMesh(allocator, polyMesh);
+    }
+
+    RecastTileGenerator::RecastTileGenerator(const rcConfig &cfg, const RecastTileBuildParam &param)
+        : config(cfg)
         , buildParam(param)
     {
-        const auto &resolution = mesh->GetResolution();
-        const auto &agentCfg = mesh->GetAgentConfig();
-
-        config.cs = resolution.cellSize;
-        config.ch = resolution.cellHeight;
-
-        config.walkableSlopeAngle = agentCfg.maxSlope;
-        config.walkableHeight     = CeilTo<int>(agentCfg.height / config.ch);
-        config.walkableClimb      = CeilTo<int>(agentCfg.maxClimb / config.ch);
-        config.walkableRadius     = CeilTo<int>(agentCfg.radius / config.cs);
-
-        config.tileSize   = FloorTo<int>(resolution.tileSize / config.cs);
-        config.borderSize = config.walkableRadius + 3;
-        config.width      = config.tileSize + config.borderSize * 2;
-        config.height     = config.tileSize + config.borderSize * 2;
-
-        // built-in params.
-        config.maxEdgeLen = static_cast<int>(12.f / config.cs);
-        config.maxSimplificationError = 1.3f;
-        config.minRegionArea          = static_cast<int>(8.f);
-        config.mergeRegionArea        = static_cast<int>(20.f);
-        config.maxVertsPerPoly        = 6;
-        config.detailSampleDist       = 6.f;
-        config.detailSampleMaxError   = 1.f;
-
-        const auto &bound = naviMesh->GetBounds();
-        ToRecast(bound.min, config.bmin);
-        ToRecast(bound.max, config.bmax);
     }
 
     bool RecastTileGenerator::DoWork()
     {
+        GenerateTile();
         return true;
     }
 
-    void RecastTileGenerator::GenerateTile() const
+    void RecastTileGenerator::GenerateTile()
     {
-        RecastBuildContext context;
+        RecastTileBuildContext context;
         if (!GenerateCompressedLayers(context)) {
             return;
         }
     }
 
-    bool RecastTileGenerator::GenerateCompressedLayers(RecastBuildContext &context) const
+    bool RecastTileGenerator::GenerateCompressedLayers(RecastTileBuildContext &context)
     {
         RecastRasterizeContext rasterizeContext;
 
@@ -99,16 +80,32 @@ namespace sky::ai {
         return BuildTileCache(context, rasterizeContext);
     }
 
-    void RecastTileGenerator::RasterizeTriangles(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    void RecastTileGenerator::RasterizeTriangles(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext)
     {
-
+        RasterizeGeometry(buildCtx, rasterizeContext);
     }
 
-    bool RecastTileGenerator::BuildTileCache(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    bool RecastTileGenerator::RasterizeGeometry(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext)
+    {
+        const float* vertices = nullptr;
+        int numVertices = 0;
+
+        const int* tris = nullptr;
+        int numTris = 0;
+
+        triAreas.resize(numTris);
+        rcMarkWalkableTriangles(&buildCtx, config.walkableSlopeAngle, vertices, numVertices, tris, numTris, triAreas.data());
+
+        return rcRasterizeTriangles(&buildCtx, vertices, numVertices, tris, triAreas.data(), numTris, *rasterizeContext.solidHF, config.walkableClimb);
+    }
+
+    bool RecastTileGenerator::BuildTileCache(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         buildCtx.log(RC_LOG_PROGRESS, "Build Tile Cache.");
 
         auto layers = rasterizeContext.layerSet->nlayers;
+
+        NaviCompressor compressor;
 
         rasterizeContext.layerData.resize(layers);
         for (int i = 0; i < layers; ++i) {
@@ -138,7 +135,7 @@ namespace sky::ai {
 
             uint8_t *outData = nullptr;
             int32_t outSize = 0;
-            auto status = dtBuildTileCacheLayer(nullptr, &header, layer->heights, layer->areas, layer->cons, &outData, &outSize);
+            auto status = dtBuildTileCacheLayer(&compressor, &header, layer->heights, layer->areas, layer->cons, &outData, &outSize);
             if (dtStatusFailed(status)) {
                 dtFree(outData);
                 buildCtx.log(RC_LOG_ERROR, "Build tile cache layer failed..");
@@ -146,10 +143,12 @@ namespace sky::ai {
             }
 
             // From UE version, outData allocates a lots of space
-            tileData.navData = reinterpret_cast<uint8_t*>(dtAlloc(outSize * sizeof(uint8_t), DT_ALLOC_PERM));
-            tileData.navDataSize = static_cast<uint32_t>(outSize);
+            auto *navData = new RecastNavData();
+            navData->data = reinterpret_cast<uint8_t*>(dtAlloc(outSize * sizeof(uint8_t), DT_ALLOC_PERM));
+            navData->size = static_cast<uint32_t>(outSize);
+            tileData.navData = navData;
 
-            memcpy(tileData.navData, outData, outSize);
+            memcpy(navData->data, outData, outSize);
             dtFree(outData);
         }
 
@@ -157,7 +156,7 @@ namespace sky::ai {
         return true;
     }
 
-    bool RecastTileGenerator::BuildLayers(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    bool RecastTileGenerator::BuildLayers(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         buildCtx.log(RC_LOG_PROGRESS, "Build Height Field Layers.");
 
@@ -175,7 +174,7 @@ namespace sky::ai {
         return true;
     }
 
-    bool RecastTileGenerator::ErodeWalkableArea(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    bool RecastTileGenerator::ErodeWalkableArea(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         buildCtx.log(RC_LOG_PROGRESS, "Erode Walkable Area.");
 
@@ -186,14 +185,14 @@ namespace sky::ai {
         return true;
     }
 
-    void RecastTileGenerator::FilterProcess(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    void RecastTileGenerator::FilterProcess(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         rcFilterLowHangingWalkableObstacles(&buildCtx, config.walkableClimb, *rasterizeContext.solidHF);
         rcFilterLedgeSpans(&buildCtx, config.walkableHeight, config.walkableClimb, *rasterizeContext.solidHF);
         rcFilterWalkableLowHeightSpans(&buildCtx, config.walkableHeight, *rasterizeContext.solidHF);
     }
 
-    bool RecastTileGenerator::CreateCompactHeightField(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    bool RecastTileGenerator::CreateCompactHeightField(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         buildCtx.log(RC_LOG_PROGRESS, "Process Compact Height Field.");
 
@@ -212,7 +211,7 @@ namespace sky::ai {
         return true;
     }
 
-    bool RecastTileGenerator::CreateHeightField(RecastBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
+    bool RecastTileGenerator::CreateHeightField(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const
     {
         buildCtx.log(RC_LOG_PROGRESS, "Process Height Field.");
 

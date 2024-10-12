@@ -4,23 +4,24 @@
 
 #pragma once
 
-#include <core/async/Task.h>
 #include <Recast.h>
 #include <DetourTileCache.h>
 #include <recast/RecastNaviMesh.h>
 
 namespace sky::ai {
 
-    class RecastNaviMeshGenerator : public Task {
+    class RecastNaviMeshGenerator : public NaviMeshGenerator {
     public:
-        explicit RecastNaviMeshGenerator(const CounterPtr<RecastNaviMesh>& mesh);
+        RecastNaviMeshGenerator() = default;
         ~RecastNaviMeshGenerator() override = default;
 
+        void Setup(const CounterPtr<NaviMesh> &naviMesh) override;
     private:
         bool DoWork() override;
         void OnComplete(bool result) override;
 
         CounterPtr<RecastNaviMesh> navMesh;
+        rcConfig config;
     };
 
 } // namespace sky::ai

@@ -15,8 +15,14 @@ namespace sky {
         Task() = default;
         ~Task() override = default;
 
+        void StartAsync();
+
+    private:
         virtual bool DoWork() = 0;
         virtual void OnComplete(bool result) {}
+
+        friend class TaskExecutor;
+        tf::AsyncTask handle;
     };
     using TaskPtr = CounterPtr<Task>;
 
@@ -28,6 +34,7 @@ namespace sky {
         void ExecuteTask(const TaskPtr &task);
         void WaitForAll();
 
+        tf::Executor &GetExecutor() { return executor; }
     private:
         tf::Executor executor;
     };

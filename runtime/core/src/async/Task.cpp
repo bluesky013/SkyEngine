@@ -6,12 +6,21 @@
 
 namespace sky {
 
+    void Task::StartAsync()
+    {
+        CounterPtr<Task> thisTask = this;
+        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
+            bool result = thisTask->DoWork();
+            thisTask->OnComplete(result);
+        }).first;
+    }
+
     void TaskExecutor::ExecuteTask(const TaskPtr &task)
     {
-        executor.dependent_async([task]() {
+        task->handle = executor.dependent_async([task]() {
             bool result = task->DoWork();
             task->OnComplete(result);
-        });
+        }).first;
     }
 
     void TaskExecutor::WaitForAll()

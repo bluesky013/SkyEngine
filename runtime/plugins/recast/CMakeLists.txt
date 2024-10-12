@@ -12,6 +12,7 @@ sky_add_library(TARGET RecastModule SHARED
         include
     LINK_LIBS
         Navigation
+        RenderCore
         3rdParty::recast
 )
 

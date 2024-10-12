@@ -6,7 +6,9 @@
 
 #include <core/math/Vector3.h>
 #include <navigation/NaviMesh.h>
-#include <DetourNavMesh.h>
+#include <navigation/NaviMeshFactory.h>
+
+class dtNavMesh;
 
 namespace sky::ai {
 
@@ -23,11 +25,19 @@ namespace sky::ai {
         int32_t y;
     };
 
+    struct RecastNavData : RefObject {
+        RecastNavData() = default;
+        ~RecastNavData() override;
+
+        uint8_t *data = nullptr;
+        uint32_t size = 0;
+    };
+    using RecastNavDataPtr = CounterPtr<RecastNavData>;
+
     struct RecastMeshTileData {
         uint32_t layerIndex = 0;
         AABB     boundBox;
-        uint8_t* navData = nullptr;
-        uint32_t navDataSize = 0;
+        RecastNavDataPtr navData;
     };
 
     class RecastNaviMesh : public NaviMesh {
@@ -47,10 +57,8 @@ namespace sky::ai {
         RecastNaviMapFactory() = default;
         ~RecastNaviMapFactory() override = default;
 
-        NaviMesh* CreateNaviMesh() override
-        {
-            return new RecastNaviMesh();
-        }
+        NaviMesh* CreateNaviMesh() override;
+        NaviMeshGenerator* CreateGenerator() override;
     };
 
 } // namespace sky::ai

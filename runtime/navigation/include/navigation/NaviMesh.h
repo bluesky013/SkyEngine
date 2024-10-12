@@ -4,12 +4,10 @@
 
 #pragma once
 
-#include <core/environment/Singleton.h>
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/AABB.h>
 
 namespace sky::ai {
-
     struct NaviAgentConfig {
         float height = 2.f;
         float radius = 0.5f;
@@ -23,10 +21,10 @@ namespace sky::ai {
         float tileSize   = 10.f;
     };
 
-    class NaviMeshData {
-    public:
-        NaviMeshData() = default;
-        virtual ~NaviMeshData() = default;
+    struct INaviTriangleMesh {
+        virtual const float* GetVertices() const = 0;
+        virtual int* GetTriangles() const = 0;
+        virtual int GetTriangleNum() const = 0;
     };
 
     class NaviMesh : public RefObject {
@@ -37,32 +35,9 @@ namespace sky::ai {
         const NaviAgentConfig &GetAgentConfig() const { return agentCfg; }
         const NaviMeshResolution &GetResolution() const { return resolution; }
 
-        void SetBounds(const AABB &volume) { bounds = volume; }
-        const AABB& GetBounds() const { return bounds; }
     private:
         NaviAgentConfig    agentCfg;
         NaviMeshResolution resolution;
-
-        AABB bounds;
-    };
-
-    class NaviMeshFactory : public Singleton<NaviMeshFactory> {
-    public:
-        NaviMeshFactory() = default;
-        ~NaviMeshFactory() override = default;
-
-        NaviMesh* CreateNaviMap();
-
-        class Impl {
-        public:
-            Impl() = default;
-            virtual ~Impl() = default;
-
-            virtual NaviMesh* CreateNaviMesh() = 0;
-        };
-
-    private:
-        std::unique_ptr<Impl> factory;
     };
 
 } // namespace sky::ai
