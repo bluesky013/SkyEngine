@@ -29,6 +29,9 @@ namespace sky::phy {
         static void Reflect(SerializationContext *context);
         COMPONENT_RUNTIME_INFO(CollisionComponent)
 
+        void SetTriangleMesh(const Uuid &mesh);
+        const Uuid &GetTriangleMesh() const { return data.config.tris.asset; }
+
         SequenceVisitor Spheres();
         SequenceVisitor Boxes();
         void ShapeChanged();

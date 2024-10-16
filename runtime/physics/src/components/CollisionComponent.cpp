@@ -6,6 +6,7 @@
 #include <physics/PhysicsWorld.h>
 #include <physics/PhysicsRegistry.h>
 #include <framework/world/ComponentFactory.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky::phy {
 
@@ -16,9 +17,16 @@ namespace sky::phy {
 
         REGISTER_BEGIN(CollisionComponent, context)
                 REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
-                REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged);
+                REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged)
+                REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
+                    SET_ASSET_TYPE(std::string_view("Mesh"));
 
         ComponentFactory::Get()->RegisterComponent<CollisionComponent>("Physics");
+    }
+
+    void CollisionComponent::SetTriangleMesh(const Uuid &mesh)
+    {
+        data.config.tris.asset = mesh;
     }
 
     SequenceVisitor CollisionComponent::Spheres()
@@ -53,6 +61,7 @@ namespace sky::phy {
 
             collisionObject = PhysicsRegistry::Get()->CreateCollisionObject();
             collisionObject->SetShape(shape);
+            collisionObject->SetWorldTransform(actor->GetComponent<TransformComponent>()->GetWorldTransform());
             world->AddCollisionObject(collisionObject);
         }
     }
@@ -73,7 +82,9 @@ namespace sky::phy {
     void CollisionComponent::RebuildShape()
     {
         // TODO
-        if (!data.config.sphere.empty()) {
+        if (data.config.tris.asset) {
+            shape = new PhysicsTriangleMeshShape(data.config.tris);
+        } else if (!data.config.sphere.empty()) {
             const auto &sphere = data.config.sphere[0];
             shape = new PhysicsSphereShape(sphere);
         } else if (!data.config.box.empty()) {

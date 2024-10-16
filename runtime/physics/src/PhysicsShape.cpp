@@ -19,6 +19,6 @@ namespace sky::phy {
 
     PhysicsTriangleMeshShape::PhysicsTriangleMeshShape(const TriangleMeshShape &shape)
     {
-
+        impl.reset(PhysicsRegistry::Get()->CreateTriangleMesh(shape));
     }
 } // namespace sky::phy

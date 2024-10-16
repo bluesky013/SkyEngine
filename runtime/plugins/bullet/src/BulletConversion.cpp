@@ -26,6 +26,19 @@ namespace sky::phy {
         return btTransform{ToBullet(rot), ToBullet(trans)};
     }
 
+    PHY_ScalarType ToBullet(const rhi::IndexType& idx)
+    {
+        switch (idx) {
+            case rhi::IndexType::U16:
+                return PHY_SHORT;
+            case rhi::IndexType::U32:
+                return PHY_INTEGER;
+            default:
+                break;
+        }
+        return PHY_INTEGER;
+    }
+
     btTransform ToBullet(const Transform& mat)
     {
         return btTransform{ToBullet(mat.rotation), ToBullet(mat.translation)};

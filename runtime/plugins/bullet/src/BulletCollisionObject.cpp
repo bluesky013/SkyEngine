@@ -50,7 +50,7 @@ namespace sky::phy {
         }
     }
 
-    void BulletCollisionObject::SetWorldTransform(const Matrix4 &trans)
+    void BulletCollisionObject::SetWorldTransform(const Transform &trans)
     {
         object->setWorldTransform(ToBullet(trans));
     }

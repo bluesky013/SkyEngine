@@ -6,8 +6,15 @@
 
 #include <physics/PhysicsBase.h>
 #include <btBulletCollisionCommon.h>
+#include <render/resource/TriangleMesh.h>
 
 namespace sky::phy {
+
+    struct TriangleMeshWrap {
+        void Set(const CounterPtr<TriangleMesh> &mesh);
+        CounterPtr<TriangleMesh> triangle;
+        std::unique_ptr<btTriangleIndexVertexArray> meshInterface;
+    };
 
     class BulletShape : public IShapeImpl {
     public:
@@ -22,7 +29,6 @@ namespace sky::phy {
     protected:
         std::unique_ptr<btCollisionShape> collisionShape;
         std::unique_ptr<btCollisionShape> baseShape;
-
-        std::unique_ptr<btTriangleIndexVertexArray> meshInterface;
+        TriangleMeshWrap triangleMesh;
     };
 } // namespace sky::phy

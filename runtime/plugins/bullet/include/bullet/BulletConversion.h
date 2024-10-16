@@ -8,6 +8,7 @@
 #include <core/math/Matrix4.h>
 #include <core/math/MathUtil.h>
 #include <core/math/Transform.h>
+#include <rhi/Core.h>
 #include <btBulletCollisionCommon.h>
 
 namespace sky::phy {
@@ -16,6 +17,7 @@ namespace sky::phy {
     btQuaternion ToBullet(const Quaternion& quat);
     btTransform ToBullet(const Matrix4& mat);
     btTransform ToBullet(const Transform& mat);
+    PHY_ScalarType ToBullet(const rhi::IndexType& idx);
 
     Quaternion FromBullet(const btQuaternion& quat);
     Vector3 FromBullet(const btVector3 &vec);

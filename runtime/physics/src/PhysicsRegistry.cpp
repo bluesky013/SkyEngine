@@ -17,9 +17,13 @@ namespace sky::phy {
             .Member<&BoxShape::pivot>("pivot")
             .Member<&BoxShape::halfExt>("halfExt");
 
+        context->Register<TriangleMeshShape>("TriangleMeshShape")
+            .Member<&TriangleMeshShape::asset>("asset");
+
         context->Register<MeshPhysicsConfig>("MeshPhysicsConfig")
             .Member<&MeshPhysicsConfig::sphere>("sphere")
-            .Member<&MeshPhysicsConfig::box>("boxes");
+            .Member<&MeshPhysicsConfig::box>("boxes")
+            .Member<&MeshPhysicsConfig::tris>("tris");
     }
 
     void PhysicsRegistry::GatherConfigTypes(std::set<Uuid> &typeId)

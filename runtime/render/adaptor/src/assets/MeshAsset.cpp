@@ -113,6 +113,65 @@ namespace sky {
         }
     }
 
+    CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset)
+    {
+        const auto &data = asset->Data();
+        const auto &uuid = asset->GetUuid();
+
+        auto *am = AssetManager::Get();
+        auto file = am->OpenFile(uuid);
+
+        auto *triangleMesh = new TriangleMesh();
+        // get position.
+        auto iter = std::find_if(data.attributes.begin(), data.attributes.end(),
+            [](const VertexAttribute &attr) -> bool  {
+            return (attr.sematic & VertexSemanticFlagBit::POSITION) == VertexSemanticFlagBit::POSITION;
+        });
+        SKY_ASSERT(iter != data.attributes.end());
+        SKY_ASSERT(iter->format == rhi::Format::F_RGBA32 || iter->format == rhi::Format::F_RGB32);
+        SKY_ASSERT(data.indexType == rhi::IndexType::U32 || data.indexType == rhi::IndexType::U16);
+        SKY_ASSERT(data.indexBuffer <= data.buffers.size());
+
+        // vertex buffer
+        {
+            const auto &view = data.buffers[iter->binding];
+            const auto &count = view.size / view.stride;
+
+            std::vector<uint8_t> rawData(view.size);
+            file->ReadData(view.offset + data.dataOffset, view.size, rawData.data());
+
+            if (iter->sematic == VertexSemanticFlagBit::POSITION) {
+                triangleMesh->vtxStride = view.stride;
+                triangleMesh->position.swap(rawData);
+            } else {
+                const uint8_t* rawBuffer = rawData.data();
+                triangleMesh->vtxStride = sizeof(Vector3);
+                triangleMesh->position.resize(count * 3);
+
+                auto* target = reinterpret_cast<Vector3*>(triangleMesh->position.data());
+                for (uint32_t i = 0; i < count; ++i) {
+                    const auto* fp = reinterpret_cast<const Vector3*>(rawBuffer);
+                    target[i] = *fp;
+                    rawBuffer += view.stride;
+                }
+            }
+        }
+
+        // index buffer
+        {
+            const auto &view = data.buffers[data.indexBuffer];
+            triangleMesh->indexType = data.indexType;
+            triangleMesh->indexRaw.resize(view.size);
+            file->ReadData(view.offset + data.dataOffset, view.size, triangleMesh->indexRaw.data());
+        }
+
+        for (const auto &sub : data.subMeshes) {
+            triangleMesh->AddView(sub.firstVertex, sub.vertexCount, sub.firstIndex, sub.indexCount, sub.aabb);
+        }
+
+        return triangleMesh;
+    }
+
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
     {
         const auto &data = asset->Data();

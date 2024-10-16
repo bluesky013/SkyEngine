@@ -4,8 +4,30 @@
 
 #include <bullet/BulletShapes.h>
 #include <bullet/BulletConversion.h>
+#include <render/adaptor/assets/MeshAsset.h>
 
 namespace sky::phy {
+
+    void TriangleMeshWrap::Set(const CounterPtr<TriangleMesh> &mesh)
+    {
+        triangle = mesh;
+        meshInterface = std::make_unique<btTriangleIndexVertexArray>();
+
+        auto idxStride = mesh->indexType == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
+
+        for (auto &view : mesh->views) {
+            btIndexedMesh idxMesh = {};
+            idxMesh.m_numTriangles = static_cast<int>(view.numTris);
+            idxMesh.m_numVertices  = static_cast<int>(view.numVert);
+            idxMesh.m_vertexStride = static_cast<int>(mesh->vtxStride);
+            idxMesh.m_triangleIndexStride = static_cast<int>(3 * idxStride);
+
+            idxMesh.m_vertexBase = view.vertexBase;
+            idxMesh.m_triangleIndexBase = view.triBase;
+
+            meshInterface->addIndexedMesh(idxMesh, ToBullet(mesh->indexType));
+        }
+    }
 
     BulletShape::BulletShape(const BoxShape &shape)
     {
@@ -37,8 +59,13 @@ namespace sky::phy {
 
     BulletShape::BulletShape(const TriangleMeshShape &mesh)
     {
-        meshInterface = std::make_unique<btTriangleIndexVertexArray>();
-        collisionShape = std::make_unique<btBvhTriangleMeshShape>(meshInterface.get(), true);
+        auto *am = AssetManager::Get();
+
+        auto meshAsset = am->LoadAsset<Mesh>(mesh.asset);
+        meshAsset->BlockUntilLoaded();
+        triangleMesh.Set(CreateTriangleMesh(meshAsset));
+
+        collisionShape = std::make_unique<btBvhTriangleMeshShape>(triangleMesh.meshInterface.get(), true);
     }
 
 } // namespace sky::phy

@@ -9,6 +9,7 @@
 #include <framework/world/TransformComponent.h>
 #include <framework/world/Actor.h>
 #include <framework/world/World.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky::phy {
 
@@ -27,6 +28,8 @@ namespace sky::phy {
         REGISTER_BEGIN(RigidBodyComponent, context)
             REGISTER_MEMBER(mass, SetMass, GetMass)
             REGISTER_MEMBER(flag, SetFlag, GetFlag)
+            REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
+                SET_ASSET_TYPE(std::string_view("Mesh"))
             REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
             REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged);
 
@@ -44,6 +47,12 @@ namespace sky::phy {
     void RigidBodyComponent::SetFlag(CollisionFlag flag)
     {
         data.flag = flag;
+    }
+
+    void RigidBodyComponent::SetTriangleMesh(const Uuid &mesh)
+    {
+        data.config.tris.asset = mesh;
+        ShapeChanged();
     }
 
     void RigidBodyComponent::ShapeChanged()
@@ -80,12 +89,15 @@ namespace sky::phy {
         rigidBody->SetStartTrans(actor->GetComponent<TransformComponent>()->GetWorldTransform());
         rigidBody->SetMass(data.mass);
         rigidBody->SetShape(shape);
+        rigidBody->SetFlag(data.flag);
     }
 
     void RigidBodyComponent::RebuildShape()
     {
         // TODO
-        if (!data.config.sphere.empty()) {
+        if (data.config.tris.asset) {
+            shape = new PhysicsTriangleMeshShape(data.config.tris);
+        } else if (!data.config.sphere.empty()) {
             const auto &sphere = data.config.sphere[0];
             shape = new PhysicsSphereShape(sphere);
         } else if (!data.config.box.empty()) {

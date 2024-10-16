@@ -17,6 +17,7 @@
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
+#include <render/resource/TriangleMesh.h>
 #include <animation/skeleton/Skeleton.h>
 
 namespace sky {
@@ -74,4 +75,5 @@ namespace sky {
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
 
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset);
+    CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset);
 }

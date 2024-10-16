@@ -18,7 +18,7 @@ namespace sky::phy {
 
         void SetPhysicsWorld(BulletPhysicsWorld *wd);
     private:
-        void SetWorldTransform(const Matrix4 &trans) override;
+        void SetWorldTransform(const Transform &trans) override;
         PhysicsWorld* GetWorld() const override;
         void OnShapeChanged() override;
         void OnGroupMaskChanged() override;

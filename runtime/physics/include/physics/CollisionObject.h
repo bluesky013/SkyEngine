@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/math/Matrix4.h>
+#include <core/math/Transform.h>
 #include <physics/PhysicsShape.h>
 
 namespace sky::phy {
@@ -15,7 +15,7 @@ namespace sky::phy {
         CollisionObject() = default;
         virtual ~CollisionObject() = default;
 
-        virtual void SetWorldTransform(const Matrix4 &trans) = 0;
+        virtual void SetWorldTransform(const Transform &trans) = 0;
         virtual PhysicsWorld* GetWorld() const = 0;
 
         void SetShape(PhysicsShape *shape);
