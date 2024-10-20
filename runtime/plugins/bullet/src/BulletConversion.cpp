@@ -26,12 +26,12 @@ namespace sky::phy {
         return btTransform{ToBullet(rot), ToBullet(trans)};
     }
 
-    PHY_ScalarType ToBullet(const rhi::IndexType& idx)
+    PHY_ScalarType ToBullet(const IndexType& idx)
     {
         switch (idx) {
-            case rhi::IndexType::U16:
+            case IndexType::U16:
                 return PHY_SHORT;
-            case rhi::IndexType::U32:
+            case IndexType::U32:
                 return PHY_INTEGER;
             default:
                 break;

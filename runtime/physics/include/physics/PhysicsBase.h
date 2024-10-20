@@ -5,6 +5,7 @@
 #pragma once
 
 #include <framework/interface/IMeshConfigNotify.h>
+#include <core/shapes/TriangleMesh.h>
 #include <core/math/Vector3.h>
 #include <core/template/Flags.h>
 
@@ -50,6 +51,8 @@ namespace sky::phy {
     public:
         IShapeImpl() = default;
         virtual ~IShapeImpl() = default;
+
+        virtual CounterPtr<TriangleMesh> GetTriangleMesh() const = 0;
     };
 
 } // namespace sky::phy

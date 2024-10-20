@@ -2,7 +2,7 @@
 // Created by blues on 2024/10/14.
 //
 
-#include <render/resource/TriangleMesh.h>
+#include <core/shapes/TriangleMesh.h>
 
 namespace sky {
 
@@ -14,7 +14,7 @@ namespace sky {
         view.numVert = numVtx;
         view.numTris = numIdx / 3;
 
-        auto idxStride = indexType == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
+        auto idxStride = indexType == IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
         view.triBase    = indexRaw.data() + firstIdx * idxStride;
         view.vertexBase = position.data() + firstVtx * vtxStride;
 

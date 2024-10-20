@@ -160,7 +160,7 @@ namespace sky {
         // index buffer
         {
             const auto &view = data.buffers[data.indexBuffer];
-            triangleMesh->indexType = data.indexType;
+            triangleMesh->indexType = data.indexType == rhi::IndexType::U32 ? IndexType::U32 : IndexType::U16;
             triangleMesh->indexRaw.resize(view.size);
             file->ReadData(view.offset + data.dataOffset, view.size, triangleMesh->indexRaw.data());
         }

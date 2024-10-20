@@ -83,20 +83,22 @@ float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
     float3 H = normalize(V + L);
     float dotNV = max(dot(N, V), 0);
     float dotNL = max(dot(N, L), 0);
-    float dotVH = max(dot(V, H), 0);
-    float dotNH = max(dot(N, H), 0);
 
-    float3 L0 = float3(0.0, 0.0, 0.0);
-
-    float3 F0 = lerp(0.04, param.Albedo, param.Metallic);
-
-    float3 F = F_Schlick(dotVH, F0);
-    float D = D_GGX(dotNH, param.Roughness);
-    float G = G_SchlickSmithGGX(dotNL, dotNV, param.Roughness);
-
-    float3 specular = D * F * G / 4 * dotNV * dotNL;
-
-    float3 kD = lerp(param.Albedo, 0, param.Metallic);
-    L0 += ((1 - F) * kD / PI + specular) * light.Direction.w * param.AO + param.Emissive;
-    return L0;
+    return dotNL * param.Albedo;
+//     float dotVH = max(dot(V, H), 0);
+//     float dotNH = max(dot(N, H), 0);
+//
+//     float3 L0 = float3(0.0, 0.0, 0.0);
+//
+//     float3 F0 = lerp(0.04, param.Albedo, param.Metallic);
+//
+//     float3 F = F_Schlick(dotNV, F0);
+//     float D = D_GGX(dotNH, param.Roughness);
+//     float G = G_SchlickSmithGGX(dotNL, dotNV, param.Roughness);
+//
+//     float3 specular = D * F * G / 4 * dotNV * dotNL;
+//
+//     float3 kD = lerp(param.Albedo, 0, param.Metallic);
+//     L0 += ((1 - F) * kD / PI + specular) * light.Direction.w * param.AO + param.Emissive;
+//     return L0;
 }

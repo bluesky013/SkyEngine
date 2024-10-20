@@ -55,9 +55,7 @@ namespace sky::editor {
         AssetDataBase::Get()->SetEngineFs(engineFs);
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
 
-        SplashWindow();
-
-        if (!Application::Init(argc, argv)) {
+        if (!InitAppAndSplashWindow(argc, argv)) {
             return false;
         }
 
@@ -81,7 +79,7 @@ namespace sky::editor {
         return true;
     }
 
-    void EditorApplication::SplashWindow()
+    bool EditorApplication::InitAppAndSplashWindow(int argc, char **argv)
     {
         auto splashPath =  engineFs->GetPath();
         splashPath /= "assets/splash/splash.jpg";
@@ -98,9 +96,15 @@ namespace sky::editor {
         std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(200));
         processEvents();
 
+        if (!Application::Init(argc, argv)) {
+            return false;
+        }
+
         mainWindow = std::make_unique<MainWindow>();
         mainWindow->show();
         splash.finish(mainWindow.get());
+
+        return true;
     }
 
     void EditorApplication::LoadFromJson(std::unordered_map<std::string, ModuleInfo> &modules)

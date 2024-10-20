@@ -26,7 +26,7 @@ namespace sky::editor {
     private:
         void LoadConfigs() override;
         void LoadFromJson(std::unordered_map<std::string, ModuleInfo> &);
-        void SplashWindow();
+        bool InitAppAndSplashWindow(int argc, char **argv);
 
         QTimer *timer = nullptr;
 

@@ -7,6 +7,11 @@
 
 namespace sky::phy {
 
+    CounterPtr<TriangleMesh> PhysicsShape::GetTriangleMesh() const
+    {
+        return impl->GetTriangleMesh();
+    }
+
     PhysicsBoxShape::PhysicsBoxShape(const BoxShape &shape)
     {
         impl.reset(PhysicsRegistry::Get()->CreateBox(shape));

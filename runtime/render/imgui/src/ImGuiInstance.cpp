@@ -136,6 +136,13 @@ namespace sky {
         widgets.emplace_back(widget);
     }
 
+    void ImGuiInstance::RemoveWidget(ImWidget *widget)
+    {
+        auto iter = std::find_if(widgets.begin(), widgets.end(), [widget](const auto &wgt) -> bool  {
+            return widget == wgt;
+        });
+    }
+
     void ImGuiInstance::Tick(float delta)
     {
         MakeCurrent();

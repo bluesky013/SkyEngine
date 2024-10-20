@@ -12,11 +12,15 @@ namespace sky::ai {
 
     class NavigationSystem : public IWorldSubSystem {
     public:
-        NavigationSystem() = default;
+        NavigationSystem();
         ~NavigationSystem() override = default;
 
+        static constexpr std::string_view NAME = "Navigation";
+
+        const CounterPtr<NaviMesh> &GetNaviMesh() const { return naviMesh; }
+
     private:
-        std::unique_ptr<NaviMesh> naviMap;
+        CounterPtr<NaviMesh> naviMesh;
     };
 
 } // namespace sky::ai

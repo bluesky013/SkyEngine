@@ -42,15 +42,4 @@ namespace sky::ai {
             dtFreeNavMesh(navMesh);
         }
     }
-
-    NaviMesh* RecastNaviMapFactory::CreateNaviMesh()
-    {
-        return new RecastNaviMesh();
-    }
-
-    NaviMeshGenerator* RecastNaviMapFactory::CreateGenerator()
-    {
-        return new RecastNaviMeshGenerator();
-    }
-
 } // namespace sky::ai

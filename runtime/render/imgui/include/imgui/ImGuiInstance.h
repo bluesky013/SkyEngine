@@ -25,6 +25,7 @@ namespace sky {
         ~ImGuiInstance() override;
 
         void AddWidget(ImWidget *widget);
+        void RemoveWidget(ImWidget *widget);
 
         void Tick(float delta);
         void Render(rdg::RenderGraph &rdg);

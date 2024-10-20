@@ -6,7 +6,9 @@
 
 #include <Recast.h>
 #include <DetourTileCache.h>
+#include <navigation/NaviMeshGenerator.h>
 #include <recast/RecastNaviMesh.h>
+#include <recast/RecastOctree.h>
 
 namespace sky::ai {
 
@@ -15,11 +17,14 @@ namespace sky::ai {
         RecastNaviMeshGenerator() = default;
         ~RecastNaviMeshGenerator() override = default;
 
-        void Setup(const CounterPtr<NaviMesh> &naviMesh) override;
+        void Setup(const WorldPtr &world) override;
     private:
+        void GatherGeometry(NaviOctree* octree);
+
         bool DoWork() override;
         void OnComplete(bool result) override;
 
+        WorldPtr world;
         CounterPtr<RecastNaviMesh> navMesh;
         rcConfig config;
     };

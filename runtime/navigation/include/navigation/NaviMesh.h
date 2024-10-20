@@ -35,9 +35,13 @@ namespace sky::ai {
         const NaviAgentConfig &GetAgentConfig() const { return agentCfg; }
         const NaviMeshResolution &GetResolution() const { return resolution; }
 
+        void SetBounds(const AABB &bounds) { buildBounds = bounds; }
+        const AABB &GetBounds() const { return buildBounds; }
     private:
         NaviAgentConfig    agentCfg;
         NaviMeshResolution resolution;
+
+        AABB buildBounds;
     };
 
 } // namespace sky::ai

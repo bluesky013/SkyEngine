@@ -6,7 +6,6 @@
 
 #include <core/math/Vector3.h>
 #include <navigation/NaviMesh.h>
-#include <navigation/NaviMeshFactory.h>
 
 class dtNavMesh;
 
@@ -51,14 +50,4 @@ namespace sky::ai {
 
         dtNavMesh *navMesh = nullptr;
     };
-
-    class RecastNaviMapFactory : public NaviMeshFactory::Impl {
-    public:
-        RecastNaviMapFactory() = default;
-        ~RecastNaviMapFactory() override = default;
-
-        NaviMesh* CreateNaviMesh() override;
-        NaviMeshGenerator* CreateGenerator() override;
-    };
-
 } // namespace sky::ai

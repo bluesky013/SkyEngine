@@ -5,19 +5,19 @@
 #pragma once
 
 #include <core/environment/Singleton.h>
+#include <framework/interface/IWorldBuilder.h>
 #include <navigation/NaviMesh.h>
 #include <navigation/NaviMeshGenerator.h>
 
 namespace sky::ai {
 
-    class NaviMeshFactory : public Singleton<NaviMeshFactory> {
+    class NaviMeshFactory : public Singleton<NaviMeshFactory>, public IWorldBuilderGather {
     public:
-        NaviMeshFactory() = default;
+        NaviMeshFactory();
         ~NaviMeshFactory() override = default;
 
-        CounterPtr<NaviMesh> CreateNaviMap();
+        CounterPtr<NaviMesh> CreateNaviMesh();
         CounterPtr<NaviMeshGenerator> CreateGenerator();
-
         class Impl {
         public:
             Impl() = default;
@@ -26,9 +26,13 @@ namespace sky::ai {
             virtual NaviMesh* CreateNaviMesh() = 0;
             virtual NaviMeshGenerator* CreateGenerator() = 0;
         };
+        void Register(Impl* impl);
 
     private:
+        void Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const override;
+
         std::unique_ptr<Impl> factory;
+        EventBinder<IWorldBuilderGather> binder;
     };
 
 } // namespace sky::ai

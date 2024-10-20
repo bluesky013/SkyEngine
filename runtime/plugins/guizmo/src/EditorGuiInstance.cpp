@@ -12,7 +12,12 @@
 
 namespace sky::editor {
 
-    EditorGuiInstance::~EditorGuiInstance() = default;
+    EditorGuiInstance::~EditorGuiInstance()
+    {
+        if (gui) {
+            guiInstance->RemoveWidget(gui.get());
+        }
+    }
 
     void EditorGuiInstance::Init(World &world, NativeWindow* window)
     {

@@ -3,7 +3,13 @@
 //
 
 #include <navigation/NavigationSystem.h>
+#include <navigation/NaviMeshFactory.h>
 
 namespace sky::ai {
+
+    NavigationSystem::NavigationSystem()
+    {
+        naviMesh = NaviMeshFactory::Get()->CreateNaviMesh();
+    }
 
 } // namespace sky::ai

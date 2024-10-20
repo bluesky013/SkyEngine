@@ -12,6 +12,7 @@
 #include <QMessageBox>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
+#include <framework/interface/IWorldBuilder.h>
 #include <editor/framework/ViewportWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
@@ -196,7 +197,23 @@ namespace sky::editor {
         fileMenu->addAction(importAct);
         fileMenu->addSeparator();
         fileMenu->addAction(closeAct);
+
+        // world builders
+        auto *toolMenu = new QMenu("Tools", menuBar);
+
+        std::list<CounterPtr<IWorldBuilder>> builders;
+        Event<IWorldBuilderGather>::BroadCast(&IWorldBuilderGather::Gather, builders);
+        for (auto &builder : builders) {
+            auto *act = new ActionWithFlag(DocumentFlagBit::WorldOpen, builder->GetDesc().c_str(), this);
+            connect(act, &QAction::triggered, this, [this, builder](bool /**/) {
+                builder->Build(document->GetWorld());
+            });
+
+            toolMenu->addAction(act);
+        }
+
         menuBar->addMenu(fileMenu);
+        menuBar->addMenu(toolMenu);
 
         setMenuBar(menuBar);
 

@@ -12,6 +12,5 @@ sky_add_library(TARGET EditorFramework STATIC
     LINK_LIBS
         Framework
         RenderAdaptor
-        Physics
         ${QtLibs}
 )

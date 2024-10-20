@@ -13,7 +13,7 @@ namespace sky::phy {
         triangle = mesh;
         meshInterface = std::make_unique<btTriangleIndexVertexArray>();
 
-        auto idxStride = mesh->indexType == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
+        auto idxStride = mesh->indexType == IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
 
         for (auto &view : mesh->views) {
             btIndexedMesh idxMesh = {};
@@ -66,6 +66,11 @@ namespace sky::phy {
         triangleMesh.Set(CreateTriangleMesh(meshAsset));
 
         collisionShape = std::make_unique<btBvhTriangleMeshShape>(triangleMesh.meshInterface.get(), true);
+    }
+
+    CounterPtr<TriangleMesh> BulletShape::GetTriangleMesh() const
+    {
+        return triangleMesh.triangle;
     }
 
 } // namespace sky::phy

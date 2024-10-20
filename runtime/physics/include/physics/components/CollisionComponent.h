@@ -36,6 +36,8 @@ namespace sky::phy {
         SequenceVisitor Boxes();
         void ShapeChanged();
 
+        PhysicsShape* GetPhysicsShape() const { return shape; }
+
     private:
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;

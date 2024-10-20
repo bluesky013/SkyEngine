@@ -93,7 +93,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 {
     LightInfo light;
     light.Color = float4(1.0, 1.0, 1.0, 1.0);
-    light.Direction = float4(float3(-1, -1, 0), 2.5);
+    light.Direction = float4(float3(-0.2, -1, -0.5), 100.0);
 
 #ifdef ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - 1.0;
@@ -106,7 +106,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float3 N = normalize(input.Normal);
 #endif
 
-    float3 viewPos = float3(VIEW_INFO.World[3][0], VIEW_INFO.World[3][1], VIEW_INFO.World[3][2]);
+    float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
     float3 L = normalize(-light.Direction.xyz);
     float3 V = normalize(viewPos - input.WorldPos);
 

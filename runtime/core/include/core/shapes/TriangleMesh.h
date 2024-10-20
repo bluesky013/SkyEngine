@@ -6,7 +6,6 @@
 
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/AABB.h>
-#include <rhi/Core.h>
 #include <vector>
 
 namespace sky {
@@ -20,6 +19,11 @@ namespace sky {
         AABB aabb;
     };
 
+    enum class IndexType : uint8_t {
+        U32 = 0,
+        U16 = 1
+    };
+
     struct TriangleMesh : public RefObject {
         void AddView(uint32_t firstVtx, uint32_t numVtx, uint32_t firstIdx, uint32_t numIdx, const AABB &box);
 
@@ -28,7 +32,7 @@ namespace sky {
         std::vector<TriangleMeshView> views;
 
         uint32_t vtxStride = sizeof(Vector3);
-        rhi::IndexType indexType = rhi::IndexType::U32;
+        IndexType indexType = IndexType::U32;
     };
 } // namespace sky
 

@@ -6,7 +6,7 @@
 
 #include <physics/PhysicsBase.h>
 #include <btBulletCollisionCommon.h>
-#include <render/resource/TriangleMesh.h>
+#include <core/shapes/TriangleMesh.h>
 
 namespace sky::phy {
 
@@ -25,6 +25,8 @@ namespace sky::phy {
         ~BulletShape() override = default;
 
         btCollisionShape* GetShape() const { return collisionShape.get(); }
+
+        CounterPtr<TriangleMesh> GetTriangleMesh() const override;
 
     protected:
         std::unique_ptr<btCollisionShape> collisionShape;

@@ -6,6 +6,7 @@
 
 #include <core/async/Task.h>
 #include <navigation/NaviMesh.h>
+#include <framework/world/World.h>
 
 namespace sky::ai {
 
@@ -14,7 +15,7 @@ namespace sky::ai {
         NaviMeshGenerator() = default;
         ~NaviMeshGenerator() override = default;
 
-        virtual void Setup(const CounterPtr<NaviMesh> &naviMesh) = 0;
+        virtual void Setup(const WorldPtr &world) = 0;
     };
 
 } // namespace sky::ai

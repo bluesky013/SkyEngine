@@ -5,10 +5,10 @@
 #include <editor/document/Document.h>
 #include <QFile>
 #include <framework/serialization/SerializationContext.h>
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <physics/PhysicsRegistry.h>
 #include <physics/PhysicsWorld.h>
+#include <navigation/NavigationSystem.h>
 #include <render/adaptor/RenderSceneProxy.h>
 
 namespace sky::editor {
@@ -80,6 +80,7 @@ namespace sky::editor {
 
         world->AddSubSystem(RenderSceneProxy::NAME.data(), new RenderSceneProxy());
         world->AddSubSystem(phy::PhysicsWorld::NAME.data(), phy::PhysicsRegistry::Get()->CreatePhysicsWorld());
+        world->AddSubSystem(ai::NavigationSystem::NAME.data(), new ai::NavigationSystem());
 
         filePath = path;
         LoadWorld();

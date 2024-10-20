@@ -13,6 +13,7 @@ namespace sky::phy {
         PhysicsShape() = default;
         virtual ~PhysicsShape() = default;
 
+        CounterPtr<TriangleMesh> GetTriangleMesh() const;
         virtual IShapeImpl* GetShape() const { return impl.get(); }
     protected:
         std::unique_ptr<IShapeImpl> impl;
