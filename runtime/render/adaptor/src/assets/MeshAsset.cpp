@@ -140,13 +140,13 @@ namespace sky {
             std::vector<uint8_t> rawData(view.size);
             file->ReadData(view.offset + data.dataOffset, view.size, rawData.data());
 
-            if (iter->sematic == VertexSemanticFlagBit::POSITION) {
+            if (iter->sematic == VertexSemanticFlagBit::POSITION && view.stride == sizeof(Vector3)) {
                 triangleMesh->vtxStride = view.stride;
                 triangleMesh->position.swap(rawData);
             } else {
                 const uint8_t* rawBuffer = rawData.data();
                 triangleMesh->vtxStride = sizeof(Vector3);
-                triangleMesh->position.resize(count * 3);
+                triangleMesh->position.resize(count * sizeof(Vector3));
 
                 auto* target = reinterpret_cast<Vector3*>(triangleMesh->position.data());
                 for (uint32_t i = 0; i < count; ++i) {

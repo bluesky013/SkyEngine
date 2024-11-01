@@ -6,6 +6,8 @@
 
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/AABB.h>
+#include <navigation/NavigationOctree.h>
+#include <memory>
 
 namespace sky::ai {
     struct NaviAgentConfig {
@@ -37,11 +39,16 @@ namespace sky::ai {
 
         void SetBounds(const AABB &bounds) { buildBounds = bounds; }
         const AABB &GetBounds() const { return buildBounds; }
-    private:
+
+        void PrepareForBuild();
+        NaviOctree *GetOctree() const { return octree.get(); }
+
+    protected:
         NaviAgentConfig    agentCfg;
         NaviMeshResolution resolution;
 
         AABB buildBounds;
+        std::unique_ptr<NaviOctree> octree;
     };
 
 } // namespace sky::ai

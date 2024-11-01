@@ -4,12 +4,16 @@
 
 #pragma once
 
+#include <core/template/ReferenceObject.h>
 #include <render/debug/DebugRenderer.h>
 #include <DebugDraw.h>
 
-namespace sky::ai {
+class dtNavMesh;
 
-    class RecastDebugDraw : public duDebugDraw {
+namespace sky::ai {
+    class RecastNaviMesh;
+
+    class RecastDebugDraw : public duDebugDraw, public RefObject {
     public:
         RecastDebugDraw() = default;
         ~RecastDebugDraw() override = default;
@@ -26,5 +30,7 @@ namespace sky::ai {
     private:
         std::unique_ptr<DebugRenderer> dr;
     };
+
+    void RecastDrawNavMeshPolys(const dtNavMesh& naviMesh, RecastDebugDraw& debugDraw);
 
 } // namespace sky

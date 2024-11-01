@@ -29,4 +29,6 @@ namespace sky::ai {
         ICompressor* compressor = nullptr;
     };
 
+    NaviCompressor* GetOrCreateCompressor();
+
 } // namespace sky::ai

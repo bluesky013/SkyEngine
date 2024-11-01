@@ -12,11 +12,8 @@ class dtNavMesh;
 namespace sky::ai {
 
     struct RecastNaviMapConfig {
-        Vector3  origin = VEC3_ZERO;
-        float    tileWidth  = 16;
-        float    tileHeight = 16;
-        uint32_t maxTiles   = 65536;
-        uint32_t maxPolys   = 65536;
+        uint32_t maxTiles   = 256;
+        uint32_t maxPolys   = 16384;
     };
 
     struct RecastTile {
@@ -42,9 +39,10 @@ namespace sky::ai {
     class RecastNaviMesh : public NaviMesh {
     public:
         RecastNaviMesh() = default;
-        ~RecastNaviMesh() override = default;
+        ~RecastNaviMesh() override;
 
-        void BuildNavMesh(const RecastNaviMapConfig &config);
+        bool BuildNavMesh(const RecastNaviMapConfig &config);
+        dtNavMesh* GetNavMesh() const { return navMesh; }
     private:
         void ResetNavMesh();
 

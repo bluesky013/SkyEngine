@@ -19,21 +19,28 @@ namespace sky::ai {
     {
     }
 
-    void RecastNaviMesh::BuildNavMesh(const RecastNaviMapConfig &config)
+    RecastNaviMesh::~RecastNaviMesh()
+    {
+        ResetNavMesh();
+    }
+
+    bool RecastNaviMesh::BuildNavMesh(const RecastNaviMapConfig &config)
     {
         navMesh = dtAllocNavMesh();
 
         dtNavMeshParams params = {};
-        params.tileWidth  = config.tileWidth;
-        params.tileHeight = config.tileHeight;
+        params.tileWidth  = resolution.tileSize;
+        params.tileHeight = resolution.tileSize;
         params.maxTiles   = static_cast<int>(config.maxTiles);
         params.maxPolys   = static_cast<int>(config.maxPolys);
 
         auto status = navMesh->init(&params);
         if (dtStatusFailed(status)) {
             DebugDetourStatusDetail(status);
-            return;
+            return false;
         }
+
+        return true;
     }
 
     void RecastNaviMesh::ResetNavMesh()

@@ -6,5 +6,12 @@
 
 namespace sky::ai {
 
+    void NaviMesh::PrepareForBuild()
+    {
+        const auto &ext = buildBounds.max - buildBounds.min;
+        auto maxExt = std::max(std::max(ext.x, ext.y), ext.z);
+        octree = std::make_unique<NaviOctree>(maxExt);
+    }
+
 
 } // namespace sky::ai

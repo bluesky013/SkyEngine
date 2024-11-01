@@ -141,6 +141,9 @@ namespace sky {
         auto iter = std::find_if(widgets.begin(), widgets.end(), [widget](const auto &wgt) -> bool  {
             return widget == wgt;
         });
+        if (iter != widgets.end()) {
+            widgets.erase(iter);
+        }
     }
 
     void ImGuiInstance::Tick(float delta)

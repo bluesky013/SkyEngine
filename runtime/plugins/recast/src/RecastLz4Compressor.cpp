@@ -7,6 +7,8 @@
 
 namespace sky::ai {
 
+    std::unique_ptr<NaviCompressor> GNavCompressor;
+
     NaviCompressor::NaviCompressor()
     {
         compressor = CompressionManager::Get()->GetCompressor(CompressionMethod::LZ4);
@@ -50,4 +52,12 @@ namespace sky::ai {
         return DT_SUCCESS;
     }
 
+    NaviCompressor* GetOrCreateCompressor()
+    {
+        if (!GNavCompressor) {
+            GNavCompressor = std::make_unique<NaviCompressor>();
+        }
+
+        return GNavCompressor.get();
+    }
 } // namespace sky::ai

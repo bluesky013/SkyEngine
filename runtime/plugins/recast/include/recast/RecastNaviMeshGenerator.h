@@ -8,7 +8,7 @@
 #include <DetourTileCache.h>
 #include <navigation/NaviMeshGenerator.h>
 #include <recast/RecastNaviMesh.h>
-#include <recast/RecastOctree.h>
+#include <recast/RecastTileGenerator.h>
 
 namespace sky::ai {
 
@@ -20,12 +20,22 @@ namespace sky::ai {
         void Setup(const WorldPtr &world) override;
     private:
         void GatherGeometry(NaviOctree* octree);
+        void PrepareTiles(std::vector<RecastTile> &tiles) const;
+        bool PrepareTileCache();
+        bool BuildNavMesh();
 
         bool DoWork() override;
         void OnComplete(bool result) override;
+        void PrepareWork() override;
 
         WorldPtr world;
         CounterPtr<RecastNaviMesh> navMesh;
+
+        std::vector<RecastTile> pendingTiles;
+        std::vector<CounterPtr<RecastTileGenerator>> tileGenerators;
+
+        dtTileCache *tileCache = nullptr;
+
         rcConfig config;
     };
 

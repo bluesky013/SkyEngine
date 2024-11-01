@@ -23,13 +23,53 @@ namespace sky {
 
     void DebugRenderer::Reset()
     {
+        batches.clear();
+
         currentColor = {255, 255, 255, 255};
-        batchVertices.clear();
+        currentKey = DebugBatchKey{};
+        ResetBatch();
     }
 
     void DebugRenderer::SetColor(const Color32 &color)
     {
         currentColor = color;
+    }
+
+    void DebugRenderer::SetDepthWrite(bool enable)
+    {
+        if (currentKey.depthWrite != enable) {
+            currentKey.depthWrite = enable;
+            ResetBatch();
+        }
+    }
+
+    void DebugRenderer::SetDepthTest(bool enable)
+    {
+        if (currentKey.depthTest != enable) {
+            currentKey.depthTest = enable;
+            ResetBatch();
+        }
+    }
+
+    void DebugRenderer::SetBlendEnable(bool enable)
+    {
+        if (currentKey.enableBlend != enable) {
+            currentKey.enableBlend = enable;
+            ResetBatch();
+        }
+    }
+
+    void DebugRenderer::SetTopo(rhi::PrimitiveTopology topo)
+    {
+        if (currentKey.topology != topo) {
+            currentKey.topology = topo;
+            ResetBatch();
+        }
+    }
+
+    void DebugRenderer::ResetBatch()
+    {
+        batchVertices = &batches[currentKey];
     }
 
     void DebugRenderer::DrawLine(const Line &line)
@@ -49,8 +89,8 @@ namespace sky {
             currentColor
         };
 
-        batchVertices.emplace_back(begin);
-        batchVertices.emplace_back(end);
+        batchVertices->emplace_back(begin);
+        batchVertices->emplace_back(end);
     }
 
     void DebugRenderer::DrawSphere(const Sphere &sphere)
@@ -112,9 +152,13 @@ namespace sky {
         DrawLine(Vector3(aabb.min[0], aabb.max[1], aabb.max[2]), Vector3(aabb.min[0], aabb.min[1], aabb.max[2]));
     }
 
-    void DebugRenderer::Render(RenderPrimitive *primitive)
+    void DebugRenderer::Render(std::vector<RenderPrimitive*> primitives)
     {
-        auto vtxSize = static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex));
+        uint32_t vtxSize = 0;
+        for (auto &[key, batch] : batches) {
+            vtxSize += static_cast<uint32_t>(batch.size()) * sizeof(DebugVertex);
+        }
+
         if (vtxSize == 0) {
             return;
         }
@@ -127,21 +171,44 @@ namespace sky {
 
             geometry->vertexBuffers.clear();
             geometry->vertexBuffers.emplace_back(VertexBuffer {
-                vertexBuffer, 0, capacity, static_cast<uint32_t>(sizeof(DebugVertex))
+                    vertexBuffer, 0, capacity, static_cast<uint32_t>(sizeof(DebugVertex))
             });
             geometry->version++;
         }
-
         vertexBuffer->SwapBuffer();
-        vertexBuffer->Update(reinterpret_cast<uint8_t *>(batchVertices.data()), 0, static_cast<uint32_t>(batchVertices.size() * sizeof(DebugVertex)));
+        SKY_ASSERT(batches.size() >= primitives.size());
 
-        rhi::CmdDrawLinear linear = {};
-        linear.vertexCount = static_cast<uint32_t>(batchVertices.size());
+        uint32_t firstVertex = 0;
+        uint32_t batchIndex = 0;
+        for (auto &[key, batch] : batches) {
+            auto count = static_cast<uint32_t>(batch.size());
+            if (count == 0) {
+                continue;
+            }
+            auto *primitive = primitives[batchIndex++];
+            primitive->geometry = geometry;
+            primitive->isReady = true;
+            primitive->args.clear();
 
-        primitive->geometry = geometry;
-        primitive->args.clear();
-        primitive->args.emplace_back(linear);
-        primitive->isReady = true;
+            uint32_t dataOffset = firstVertex * sizeof(DebugVertex);
+            uint32_t dataSize   = count * sizeof(DebugVertex);
+            vertexBuffer->Update(reinterpret_cast<uint8_t *>(batch.data()), dataOffset, dataSize);
+
+            rhi::CmdDrawLinear linear = {};
+            linear.firstVertex = firstVertex;
+            linear.vertexCount = count;
+            primitive->args.emplace_back(linear);
+
+            firstVertex += count;
+        }
+    }
+
+    void DebugRenderer::Render(RenderPrimitive *primitive)
+    {
+        std::vector<RenderPrimitive*> primitives;
+        primitives.emplace_back(primitive);
+
+        Render(primitives);
     }
 
 } // namespace sky

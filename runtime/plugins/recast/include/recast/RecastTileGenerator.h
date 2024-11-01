@@ -53,6 +53,12 @@ namespace sky::ai {
         explicit RecastTileGenerator(const rcConfig &cfg, const RecastTileBuildParam &param);
         ~RecastTileGenerator() override = default;
 
+        void Setup(const CounterPtr<RecastNaviMesh> &mesh);
+
+        std::vector<RecastMeshTileData> &GetData() { return data; }
+
+        const RecastTileBuildParam &GetParam() const { return buildParam; }
+
     private:
         bool DoWork() override;
         void OnComplete(bool result) override;
@@ -67,10 +73,11 @@ namespace sky::ai {
         bool BuildTileCache(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext) const;
 
         void RasterizeTriangles(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext);
-        bool RasterizeGeometry(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext);
+        void RasterizeGeometry(RecastTileBuildContext &buildCtx, RecastRasterizeContext &rasterizeContext);
 
         rcConfig config;
         RecastTileBuildParam buildParam;
+        CounterPtr<RecastNaviMesh> navMesh;
 
         std::vector<uint8_t> triAreas;
         std::vector<RecastMeshTileData> data;

@@ -4,13 +4,21 @@
 
 #include <recast/RecastNaviMeshGenerator.h>
 #include <recast/RecastConversion.h>
-#include <recast/RecastTileGenerator.h>
+#include <recast/RecastConstants.h>
+#include <recast/RecastLz4Compressor.h>
+#include <recast/RecastTileCacheMeshProcessor.h>
+#include <recast/RecastDebugDraw.h>
+
 #include <navigation/NavigationSystem.h>
 #include <core/math/MathUtil.h>
 
 #include <physics/components/CollisionComponent.h>
 
+#include <DetourNavMesh.h>
+
 namespace sky::ai {
+    static RecastTileCacheMeshProcessor GMeshProcessor;
+    static dtTileCacheAlloc GAllocator;
 
     void RecastNaviMeshGenerator::Setup(const WorldPtr &inWorld)
     {
@@ -18,6 +26,8 @@ namespace sky::ai {
 
         auto *navSys = static_cast<NavigationSystem*>(world->GetSubSystem(NavigationSystem::NAME.data()));
         navMesh = static_cast<RecastNaviMesh*>(navSys->GetNaviMesh().Get());
+        navMesh->SetBounds({{-10.f, -10.f, -10.f}, {10.f, 10.f, 10.f}});
+        navMesh->PrepareForBuild();
 
         const auto &resolution = navMesh->GetResolution();
         const auto &agentCfg = navMesh->GetAgentConfig();
@@ -72,28 +82,119 @@ namespace sky::ai {
         }
     }
 
-    bool RecastNaviMeshGenerator::DoWork()
+    void RecastNaviMeshGenerator::PrepareTiles(std::vector<RecastTile> &tiles) const
     {
-        const auto &bound = navMesh->GetBounds();
-        const auto &ext = bound.max - bound.min;
-        auto maxExt = std::max(std::max(ext.x, ext.y), ext.z);
+        const auto &min = config.bmin;
+        const auto &max = config.bmax;
 
-        std::unique_ptr<NaviOctree> octree = std::make_unique<NaviOctree>(maxExt);
-        GatherGeometry(octree.get());
+        int gw = 0;
+        int gh = 0;
 
-        std::vector<RecastTile> pendingTiles;
-        std::vector<CounterPtr<RecastTileGenerator>> tileGenerators;
+        rcCalcGridSize(min, max, config.cs, &gw, &gh);
+
+        const int ts = config.tileSize;
+        const int tw = (gw + ts - 1) / ts;
+        const int th = (gw + ts - 1) / ts;
+
+        for (int i = 0; i < tw; ++i) {
+            for (int j = 0; j < th; ++j) {
+                tiles.emplace_back(RecastTile{i, j});
+            }
+        }
+    }
+
+    void RecastNaviMeshGenerator::PrepareWork()
+    {
+        GatherGeometry(navMesh->GetOctree());
+        PrepareTiles(pendingTiles);
 
         for (auto &tileCoord : pendingTiles) {
             RecastTileBuildParam param = {};
             param.coord = tileCoord;
 
             CounterPtr<RecastTileGenerator> generator = new RecastTileGenerator(config, param);
+            generator->Setup(navMesh);
             generator->StartAsync();
 
+            dependencies.emplace_back(generator->GetTask());
             tileGenerators.emplace_back(generator);
         }
+    }
 
+    bool RecastNaviMeshGenerator::BuildNavMesh()
+    {
+        RecastNaviMapConfig navConfig = {};
+        if (!navMesh->BuildNavMesh(navConfig)) {
+            return false;
+        }
+
+        for (auto &gen : tileGenerators) {
+            const auto &param = gen->GetParam();
+
+            tileCache->buildNavMeshTilesAt(param.coord.x,param.coord.y, navMesh->GetNavMesh());
+        }
+
+        return true;
+    }
+
+    bool RecastNaviMeshGenerator::PrepareTileCache()
+    {
+        tileCache = dtAllocTileCache();
+        if (tileCache == nullptr) {
+            return false;
+        }
+
+        const auto &agentConfig = navMesh->GetAgentConfig();
+
+        dtTileCacheParams tcParams;
+        memset(&tcParams, 0, sizeof(tcParams));
+        rcVcopy(tcParams.orig, config.bmin);
+        tcParams.cs = config.cs;
+        tcParams.ch = config.ch;
+        tcParams.width = config.tileSize;
+        tcParams.height = config.tileSize;
+        tcParams.maxSimplificationError = config.maxSimplificationError;
+
+        tcParams.walkableHeight = agentConfig.height;
+        tcParams.walkableRadius = agentConfig.radius;
+        tcParams.walkableClimb = agentConfig.maxClimb;
+
+        tcParams.maxTiles = RECAST_MAX_BUILD_TILES;
+        tcParams.maxObstacles = RECAST_MAX_OBSTACLES;
+
+        auto status = tileCache->init(&tcParams, &GAllocator, GetOrCreateCompressor(), &GMeshProcessor);
+        if (dtStatusFailed(status)) {
+            return false;
+        }
+
+        for (auto &generator : tileGenerators) {
+            auto &tileData = generator->GetData();
+            for (auto &tile : tileData) {
+                status = tileCache->addTile(tile.navData->data, static_cast<int32_t>(tile.navData->size), DT_COMPRESSEDTILE_FREE_DATA, nullptr);
+                if (dtStatusFailed(status))
+                {
+                    dtFree(tile.navData->data);
+                    tile.navData = nullptr;
+                    continue;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    bool RecastNaviMeshGenerator::DoWork()
+    {
+        if (!PrepareTileCache()) {
+            return false;
+        }
+
+        if (!BuildNavMesh()) {
+            return false;
+        }
+
+        std::unique_ptr<RecastDebugDraw> debugRenderer = std::make_unique<RecastDebugDraw>();
+        RecastDrawNavMeshPolys(*navMesh->GetNavMesh(), *debugRenderer);
         return true;
     }
 
