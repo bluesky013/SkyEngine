@@ -36,7 +36,7 @@ namespace sky::ai {
 
         dtTileCache *tileCache = nullptr;
 
-        rcConfig config;
+        rcConfig config = {};
     };
 
 } // namespace sky::ai

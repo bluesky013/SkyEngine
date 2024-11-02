@@ -89,6 +89,11 @@ namespace sky {
                 .SetLayout(layout);
 
         subPass.AddQueue("queue2")
+                .SetRasterID("Transparent")
+                .SetView(sceneView)
+                .SetLayout(layout);
+
+        subPass.AddQueue("queue3")
                 .SetRasterID("SkyBox")
                 .SetView(sceneView)
                 .SetLayout(layout);

@@ -6,8 +6,14 @@
 
 #include <core/math/Vector3.h>
 #include <navigation/NaviMesh.h>
+#include <recast/RecastDebugDraw.h>
+#include <render/RenderPrimitive.h>
 
 class dtNavMesh;
+
+namespace sky {
+    class World;
+} // namespace sky
 
 namespace sky::ai {
 
@@ -31,21 +37,28 @@ namespace sky::ai {
     using RecastNavDataPtr = CounterPtr<RecastNavData>;
 
     struct RecastMeshTileData {
-        uint32_t layerIndex = 0;
-        AABB     boundBox;
         RecastNavDataPtr navData;
     };
 
     class RecastNaviMesh : public NaviMesh {
     public:
-        RecastNaviMesh() = default;
+        RecastNaviMesh();
         ~RecastNaviMesh() override;
 
         bool BuildNavMesh(const RecastNaviMapConfig &config);
+        void BuildDebugDraw();
+        void SetTechnique(const RDGfxTechPtr &tech);
+
         dtNavMesh* GetNavMesh() const { return navMesh; }
     private:
         void ResetNavMesh();
 
+        void OnAttachToWorld(World &world) override;
+        void OnDetachFromWorld(World &world) override;
+
         dtNavMesh *navMesh = nullptr;
+
+        std::unique_ptr<RenderPrimitive> primitive;
+        std::unique_ptr<DebugRenderer> debugDraw;
     };
 } // namespace sky::ai

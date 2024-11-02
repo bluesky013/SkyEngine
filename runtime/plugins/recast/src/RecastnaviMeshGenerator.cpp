@@ -13,6 +13,7 @@
 #include <core/math/MathUtil.h>
 
 #include <physics/components/CollisionComponent.h>
+#include <framework/world/TransformComponent.h>
 
 #include <DetourNavMesh.h>
 
@@ -26,7 +27,7 @@ namespace sky::ai {
 
         auto *navSys = static_cast<NavigationSystem*>(world->GetSubSystem(NavigationSystem::NAME.data()));
         navMesh = static_cast<RecastNaviMesh*>(navSys->GetNaviMesh().Get());
-        navMesh->SetBounds({{-10.f, -10.f, -10.f}, {10.f, 10.f, 10.f}});
+        navMesh->SetBounds({{-50.f, -50.f, -50.f}, {50.f, 50.f, 50.f}});
         navMesh->PrepareForBuild();
 
         const auto &resolution = navMesh->GetResolution();
@@ -45,7 +46,7 @@ namespace sky::ai {
         config.width      = config.tileSize + config.borderSize * 2;
         config.height     = config.tileSize + config.borderSize * 2;
 
-        // built-in params.
+        // built-in params.s
         config.maxEdgeLen = static_cast<int>(12.f / config.cs);
         config.maxSimplificationError = 1.3f;
         config.minRegionArea          = static_cast<int>(8.f);
@@ -67,17 +68,38 @@ namespace sky::ai {
             if (comp == nullptr) {
                 continue;
             }
+            auto *trans = actor->GetComponent<TransformComponent>();
+            SKY_ASSERT(trans != nullptr);
+            const auto &worldMatrix = trans->GetWorldMatrix();
 
             auto *shape = comp->GetPhysicsShape();
             auto triangleMesh = shape->GetTriangleMesh();
-            if (triangleMesh) {
-                for (uint32_t i = 0; i < triangleMesh->views.size(); ++i) {
-                    auto *element = new NaviOctreeElement();
-                    element->triangleMesh = triangleMesh;
-                    element->viewIndex = i;
+            if (!triangleMesh) {
+                continue;
+            }
 
-                    octree->AddElement(element);
-                }
+            auto *scaledTriangleMesh = new TriangleMesh();
+            scaledTriangleMesh->position.resize(triangleMesh->position.size());
+            scaledTriangleMesh->indexRaw = triangleMesh->indexRaw;
+            scaledTriangleMesh->vtxStride = triangleMesh->vtxStride;
+            scaledTriangleMesh->indexType = triangleMesh->indexType;
+            scaledTriangleMesh->views = triangleMesh->views;
+
+            auto vtxCount = triangleMesh->position.size() / sizeof(Vector3);
+            const auto* src = reinterpret_cast<const Vector3*>(triangleMesh->position.data());
+            auto* dst = reinterpret_cast<Vector3*>(scaledTriangleMesh->position.data());
+            for (auto i = 0; i < vtxCount; ++i) {
+                dst[i] = Cast(worldMatrix * Vector4(src[i].x, src[i].y, src[i].z, 1.0f));
+            }
+
+            for (uint32_t i = 0; i < triangleMesh->views.size(); ++i) {
+                scaledTriangleMesh->views[i].aabb = AABB::Transform(triangleMesh->views[i].aabb, worldMatrix);
+
+                auto *element = new NaviOctreeElement();
+                element->triangleMesh = scaledTriangleMesh;
+                element->viewIndex = i;
+
+                octree->AddElement(element);
             }
         }
     }
@@ -96,9 +118,12 @@ namespace sky::ai {
         const int tw = (gw + ts - 1) / ts;
         const int th = (gw + ts - 1) / ts;
 
+        const int sx = static_cast<int>(std::floor(min[0] / (static_cast<float>(config.tileSize) * config.cs)));
+        const int sy = static_cast<int>(std::floor(min[2] / (static_cast<float>(config.tileSize) * config.cs)));
+
         for (int i = 0; i < tw; ++i) {
             for (int j = 0; j < th; ++j) {
-                tiles.emplace_back(RecastTile{i, j});
+                tiles.emplace_back(RecastTile{sx + i, sy + j});
             }
         }
     }
@@ -130,10 +155,10 @@ namespace sky::ai {
 
         for (auto &gen : tileGenerators) {
             const auto &param = gen->GetParam();
-
             tileCache->buildNavMeshTilesAt(param.coord.x,param.coord.y, navMesh->GetNavMesh());
         }
 
+        navMesh->BuildDebugDraw();
         return true;
     }
 
@@ -146,9 +171,7 @@ namespace sky::ai {
 
         const auto &agentConfig = navMesh->GetAgentConfig();
 
-        dtTileCacheParams tcParams;
-        memset(&tcParams, 0, sizeof(tcParams));
-        rcVcopy(tcParams.orig, config.bmin);
+        dtTileCacheParams tcParams = {};
         tcParams.cs = config.cs;
         tcParams.ch = config.ch;
         tcParams.width = config.tileSize;
@@ -170,6 +193,10 @@ namespace sky::ai {
         for (auto &generator : tileGenerators) {
             auto &tileData = generator->GetData();
             for (auto &tile : tileData) {
+                if (tile.navData->size == 0) {
+                    continue;
+                }
+
                 status = tileCache->addTile(tile.navData->data, static_cast<int32_t>(tile.navData->size), DT_COMPRESSEDTILE_FREE_DATA, nullptr);
                 if (dtStatusFailed(status))
                 {
@@ -193,14 +220,11 @@ namespace sky::ai {
             return false;
         }
 
-        std::unique_ptr<RecastDebugDraw> debugRenderer = std::make_unique<RecastDebugDraw>();
-        RecastDrawNavMeshPolys(*navMesh->GetNavMesh(), *debugRenderer);
         return true;
     }
 
     void RecastNaviMeshGenerator::OnComplete(bool result)
     {
-
     }
 
 } // namespace sky::ai

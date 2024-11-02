@@ -9,24 +9,24 @@
 #include <navigation/NavigationOctree.h>
 #include <memory>
 
+namespace sky {
+    class World;
+} // namespace sky
+
 namespace sky::ai {
+    class NavigationSystem;
+
     struct NaviAgentConfig {
         float height = 2.f;
-        float radius = 0.5f;
+        float radius = 1.f;
         float maxSlope = 45.f;
         float maxClimb = 0.2f;
     };
 
     struct NaviMeshResolution {
         float cellSize   = 0.25f;  // voxel xy
-        float cellHeight = 0.1f;   // voxel z
+        float cellHeight = 0.3f;   // voxel z
         float tileSize   = 10.f;
-    };
-
-    struct INaviTriangleMesh {
-        virtual const float* GetVertices() const = 0;
-        virtual int* GetTriangles() const = 0;
-        virtual int GetTriangleNum() const = 0;
     };
 
     class NaviMesh : public RefObject {
@@ -43,7 +43,12 @@ namespace sky::ai {
         void PrepareForBuild();
         NaviOctree *GetOctree() const { return octree.get(); }
 
+        virtual void OnAttachToWorld(World &world) {}
+        virtual void OnDetachFromWorld(World &world) {}
     protected:
+        friend class NavigationSystem;
+        NavigationSystem* navSystem = nullptr;
+
         NaviAgentConfig    agentCfg;
         NaviMeshResolution resolution;
 

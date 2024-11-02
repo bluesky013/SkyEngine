@@ -6,33 +6,7 @@
 #include <DetourNavMesh.h>
 
 namespace sky::ai {
-
-    void RecastDebugDraw::depthMask(bool state)
-    {
-    }
-    void RecastDebugDraw::texture(bool state)
-    {
-    }
-    void RecastDebugDraw::begin(duDebugDrawPrimitives prim, float size)
-    {
-    }
-    void RecastDebugDraw::vertex(const float* pos, unsigned int color)
-    {
-    }
-    void RecastDebugDraw::vertex(const float x, const float y, const float z, unsigned int color)
-    {
-    }
-    void RecastDebugDraw::vertex(const float* pos, unsigned int color, const float* uv)
-    {
-    }
-    void RecastDebugDraw::vertex(const float x, const float y, const float z, unsigned int color, const float u, const float v)
-    {
-    }
-    void RecastDebugDraw::end()
-    {
-    }
-
-    static void DrawNavMeshPoly(const dtNavMesh& mesh, dtPolyRef ref, const uint32_t color, RecastDebugDraw &dd)
+    static void DrawNavMeshPoly(const dtNavMesh& mesh, dtPolyRef ref, const uint32_t color, DebugRenderer &dd)
     {
         const dtMeshTile* tile = nullptr;
         const dtPoly* poly = nullptr;
@@ -43,24 +17,28 @@ namespace sky::ai {
         const auto ip = (unsigned int)(poly - tile->polys);
 
         const dtPolyDetail* pd = &tile->detailMeshes[ip];
+
+        dd.SetColor(c);
         for (int i = 0; i < pd->triCount; ++i)
         {
             const auto* t = &tile->detailTris[(pd->triBase+i)*4];
 
-            dd.begin(duDebugDrawPrimitives::DU_DRAW_TRIS);
+            Vector3 triangle[3];
             for (int j = 0; j < 3; ++j)
             {
-                auto vtx = t[j] < poly->vertCount ?
-                    tile->verts[poly->verts[t[j]]*3] :
-                    tile->detailVerts[(pd->vertBase+t[j]-poly->vertCount)*3];
+                auto *vtx = t[j] < poly->vertCount ?
+                    &tile->verts[poly->verts[t[j]] * 3] :
+                    &tile->detailVerts[(pd->vertBase + t[j]-poly->vertCount) * 3];
 
-                dd.vertex(&vtx, c);
+                triangle[j].x = vtx[0];
+                triangle[j].y = vtx[1];
+                triangle[j].z = vtx[2];
             }
-            dd.end();
+            dd.DrawTriangle(triangle[0], triangle[1], triangle[2]);
         }
     }
 
-    void RecastDrawNavMeshPolys(const dtNavMesh& mesh, RecastDebugDraw& debugDraw)
+    void RecastDrawNavMeshPolys(const dtNavMesh& mesh, DebugRenderer& debugDraw)
     {
         for (int i = 0; i < mesh.getMaxTiles(); ++i) {
             const dtMeshTile* tile = mesh.getTile(i);
@@ -70,7 +48,7 @@ namespace sky::ai {
             dtPolyRef base = mesh.getPolyRefBase(tile);
 
             for (int j = 0; j < tile->header->polyCount; ++j) {
-                DrawNavMeshPoly(mesh, base | (dtPolyRef)j, duRGBA(0,0,0,128), debugDraw);
+                DrawNavMeshPoly(mesh, base | (dtPolyRef)j, duRGBA(0,32,0,128), debugDraw);
             }
         }
     }

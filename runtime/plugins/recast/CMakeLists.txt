@@ -12,7 +12,7 @@ sky_add_library(TARGET RecastNavigation SHARED
         include
     LINK_LIBS
         Navigation
-        RenderCore
+        RenderAdaptor
         Physics
         3rdParty::recast
 )

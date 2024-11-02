@@ -14,9 +14,8 @@ namespace sky {
         view.numVert = numVtx;
         view.numTris = numIdx / 3;
 
-        auto idxStride = indexType == IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
-        view.triBase    = indexRaw.data() + firstIdx * idxStride;
-        view.vertexBase = position.data() + firstVtx * vtxStride;
+        view.firstVertex = firstVtx;
+        view.firstIndex  = firstIdx;
 
         view.aabb = box;
     }

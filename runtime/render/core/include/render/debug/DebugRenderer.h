@@ -16,7 +16,7 @@ namespace sky {
     struct RenderPrimitive;
 
     struct DebugVertex {
-        Vector4 pos;
+        Vector3 pos;
         Color32 col;
     };
 
@@ -68,6 +68,7 @@ namespace sky {
 
         void DrawLine(const Line &line);
         void DrawLine(const Vector3 &from, const Vector3 &to);
+        void DrawTriangle(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3);
 
         void DrawSphere(const Sphere &sphere);
         void DrawAABB(const AABB &aabb);

@@ -64,7 +64,7 @@ namespace sky::editor {
         BindTick([this](float delta) {
 
             TickEvent::BroadCast(&ITickEvent::Tick, delta);
-            auto world = mainWindow->GetDoc()->GetWorld();
+            auto &world = mainWindow->GetDoc()->GetWorld();
             if (world) {
                 world->Tick(delta);
             }

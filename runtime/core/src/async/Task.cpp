@@ -14,7 +14,13 @@ namespace sky {
         handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
             bool result = thisTask->DoWork();
             thisTask->OnComplete(result);
+            thisTask->ResetTask();
         }, dependencies.begin(), dependencies.end()).first;
+    }
+
+    void Task::ResetTask()
+    {
+        handle.reset();
     }
 
     void TaskExecutor::ExecuteTask(const TaskPtr &task)

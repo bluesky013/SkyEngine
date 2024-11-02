@@ -22,8 +22,18 @@ namespace sky::phy {
             idxMesh.m_vertexStride = static_cast<int>(mesh->vtxStride);
             idxMesh.m_triangleIndexStride = static_cast<int>(3 * idxStride);
 
-            idxMesh.m_vertexBase = view.vertexBase;
-            idxMesh.m_triangleIndexBase = view.triBase;
+            const auto* vertices = &reinterpret_cast<const float*>(mesh->position.data())[view.firstVertex];
+            const uint8_t *tri;
+            if (mesh->indexType == IndexType::U32) {
+                const int* tris = &reinterpret_cast<const int*>(mesh->indexRaw.data())[view.firstIndex];
+                tri = reinterpret_cast<const uint8_t*>(tris);
+            } else {
+                const int16_t* tris = &reinterpret_cast<const int16_t *>(mesh->indexRaw.data())[view.firstIndex];
+                tri = reinterpret_cast<const uint8_t*>(tris);
+            }
+            
+            idxMesh.m_vertexBase = reinterpret_cast<const uint8_t *>(vertices);
+            idxMesh.m_triangleIndexBase = tri;
 
             meshInterface->addIndexedMesh(idxMesh, ToBullet(mesh->indexType));
         }

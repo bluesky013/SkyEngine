@@ -13,8 +13,9 @@ namespace sky {
     struct TriangleMeshView {
         uint32_t numVert;
         uint32_t numTris;
-        const uint8_t *triBase = nullptr;
-        const uint8_t *vertexBase = nullptr;
+
+        uint32_t firstVertex;
+        uint32_t firstIndex;
 
         AABB aabb;
     };

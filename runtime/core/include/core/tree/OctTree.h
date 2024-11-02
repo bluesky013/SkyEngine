@@ -74,7 +74,7 @@ namespace sky {
 
         void AddElement(const T &element)
         {
-            const auto &bounds = TreeTraits ::GetBounds(element);
+            const auto &bounds = TreeTraits::GetBounds(element);
             Insert(0, element, bounds);
         }
 

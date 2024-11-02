@@ -78,7 +78,6 @@ namespace sky {
         void DetachFromWorld(const ActorPtr &);
         void Reset();
 
-        bool CheckSystem(const Name &name) const;
         void AddSubSystem(const Name &name, IWorldSubSystem*);
         IWorldSubSystem* GetSubSystem(const Name &name) const;
 

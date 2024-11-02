@@ -8,7 +8,7 @@
 namespace sky {
 
     static std::vector<VertexAttribute> DEBUG_ATTRIBUTES = {
-            VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(DebugVertex, pos), rhi::Format::F_RGBA32},
+            VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(DebugVertex, pos), rhi::Format::F_RGB32},
             VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(DebugVertex, col),  rhi::Format::F_RGBA8},
     };
 
@@ -77,20 +77,17 @@ namespace sky {
         DrawLine(line.begin, line.end);
     }
 
+    void DebugRenderer:: DrawTriangle(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3)
+    {
+        batchVertices->emplace_back(DebugVertex{v1, currentColor});
+        batchVertices->emplace_back(DebugVertex{v2, currentColor});
+        batchVertices->emplace_back(DebugVertex{v3, currentColor});
+    }
+
     void DebugRenderer::DrawLine(const Vector3 &from, const Vector3 &to)
     {
-        DebugVertex begin = {
-            Vector4{from.x, from.y, from.z, 1.f},
-            currentColor
-        };
-
-        DebugVertex end = {
-            Vector4{to.x, to.y, to.z, 1.f},
-            currentColor
-        };
-
-        batchVertices->emplace_back(begin);
-        batchVertices->emplace_back(end);
+        batchVertices->emplace_back(DebugVertex{from, currentColor});
+        batchVertices->emplace_back(DebugVertex{to, currentColor});
     }
 
     void DebugRenderer::DrawSphere(const Sphere &sphere)

@@ -19,7 +19,11 @@ namespace sky::ai {
 
         const CounterPtr<NaviMesh> &GetNaviMesh() const { return naviMesh; }
 
+        void OnNavMeshChanged();
     private:
+        void OnAttachToWorld(World &world) override;
+        void OnDetachFromWorld(World &world) override;
+
         CounterPtr<NaviMesh> naviMesh;
     };
 

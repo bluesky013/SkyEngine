@@ -16,6 +16,8 @@ namespace sky {
         ~Task() override = default;
 
         void StartAsync();
+
+        void ResetTask();
         tf::AsyncTask GetTask() const { return handle; }
 
     protected:

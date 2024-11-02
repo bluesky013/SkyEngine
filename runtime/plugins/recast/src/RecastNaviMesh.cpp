@@ -3,8 +3,14 @@
 //
 
 #include <recast/RecastNaviMesh.h>
-#include <recast/RecastNaviMeshGenerator.h>
+#include <navigation/NavigationSystem.h>
+
+#include <framework/asset/AssetManager.h>
+#include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/adaptor/RenderSceneProxy.h>
+
 #include <DetourNavMesh.h>
+
 
 namespace sky::ai {
 
@@ -17,6 +23,17 @@ namespace sky::ai {
 
     static void DebugDetourStatusDetail(dtStatus status)
     {
+    }
+
+    RecastNaviMesh::RecastNaviMesh()
+    {
+        primitive = std::make_unique<RenderPrimitive>();
+        debugDraw = std::make_unique<DebugRenderer>();
+
+        auto techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
+        techAsset->BlockUntilLoaded();
+        auto debugTech = CreateTechniqueFromAsset(techAsset);
+        SetTechnique(debugTech);
     }
 
     RecastNaviMesh::~RecastNaviMesh()
@@ -43,10 +60,42 @@ namespace sky::ai {
         return true;
     }
 
+    void RecastNaviMesh::SetTechnique(const RDGfxTechPtr &tech)
+    {
+        TechniqueInstance techInst = {tech};
+        techInst.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        primitive->techniques.clear();
+        primitive->techniques.emplace_back(techInst);
+    }
+
+    void RecastNaviMesh::BuildDebugDraw()
+    {
+        debugDraw->Reset();
+        RecastDrawNavMeshPolys(*navMesh, *debugDraw);
+
+        debugDraw->Render(primitive.get());
+    }
+
     void RecastNaviMesh::ResetNavMesh()
     {
         if (navMesh != nullptr) {
             dtFreeNavMesh(navMesh);
+        }
+    }
+
+    void RecastNaviMesh::OnAttachToWorld(World &world)
+    {
+        if (debugDraw) {
+            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            renderScene->AddPrimitive(primitive.get());
+        }
+    }
+
+    void RecastNaviMesh::OnDetachFromWorld(World &world)
+    {
+        if (debugDraw != nullptr) {
+            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            renderScene->RemovePrimitive(primitive.get());
         }
     }
 } // namespace sky::ai
