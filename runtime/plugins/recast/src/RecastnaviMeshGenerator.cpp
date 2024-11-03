@@ -8,6 +8,7 @@
 #include <recast/RecastLz4Compressor.h>
 #include <recast/RecastTileCacheMeshProcessor.h>
 #include <recast/RecastDebugDraw.h>
+#include <recast/RecastQueryFilter.h>
 
 #include <navigation/NavigationSystem.h>
 #include <core/math/MathUtil.h>
@@ -159,6 +160,7 @@ namespace sky::ai {
         }
 
         navMesh->BuildDebugDraw();
+        navMesh->BuildNavQuery();
         return true;
     }
 
@@ -219,12 +221,14 @@ namespace sky::ai {
         if (!BuildNavMesh()) {
             return false;
         }
-
         return true;
     }
 
     void RecastNaviMeshGenerator::OnComplete(bool result)
     {
+        // test navr
+//        CounterPtr<RecastQueryFilter> queryFilter = new RecastQueryFilter();
+//        navMesh->FindPath(Vector3(-30.f, 0.f, -30.f), Vector3(30.f, 0.f, 30.f), queryFilter, {});
     }
 
 } // namespace sky::ai

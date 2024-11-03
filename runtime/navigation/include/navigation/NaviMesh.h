@@ -7,6 +7,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/AABB.h>
 #include <navigation/NavigationOctree.h>
+#include <navigation/NaviQueryFilter.h>
 #include <memory>
 
 namespace sky {
@@ -29,6 +30,15 @@ namespace sky::ai {
         float tileSize   = 10.f;
     };
 
+    struct NaviPathQueryParam {
+
+    };
+
+    enum class NaviQueryResult {
+        SUCCESS = 0,
+        FAILED
+    };
+
     class NaviMesh : public RefObject {
     public:
         NaviMesh() = default;
@@ -43,10 +53,13 @@ namespace sky::ai {
         void PrepareForBuild();
         NaviOctree *GetOctree() const { return octree.get(); }
 
-        virtual void OnAttachToWorld(World &world) {}
-        virtual void OnDetachFromWorld(World &world) {}
+        virtual NaviQueryResult FindPath(const Vector3 &start, const Vector3 &end, const NaviQueryFilterPtr& filter, const NaviPathQueryParam &param) const = 0;
+
     protected:
         friend class NavigationSystem;
+        virtual void OnAttachToWorld(World &world) {}
+        virtual void OnDetachFromWorld(World &world) {}
+
         NavigationSystem* navSystem = nullptr;
 
         NaviAgentConfig    agentCfg;

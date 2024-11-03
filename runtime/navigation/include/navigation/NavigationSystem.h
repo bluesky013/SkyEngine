@@ -6,6 +6,7 @@
 
 #include <framework/world/World.h>
 #include <navigation/NaviMesh.h>
+#include <navigation/NaviPath.h>
 #include <memory>
 
 namespace sky::ai {

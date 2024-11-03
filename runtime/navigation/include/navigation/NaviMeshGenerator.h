@@ -13,7 +13,7 @@ namespace sky::ai {
     class NaviMeshGenerator : public Task {
     public:
         NaviMeshGenerator() = default;
-        virtual ~NaviMeshGenerator() override = default;
+        ~NaviMeshGenerator() override = default;
 
         virtual void Setup(const WorldPtr &world) = 0;
     };
