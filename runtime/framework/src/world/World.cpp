@@ -7,6 +7,8 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 
+#include <core/profile/Profiler.h>
+
 #include <atomic>
 #include <deque>
 #include <memory>
@@ -43,12 +45,18 @@ namespace sky {
 
     void World::Tick(float time)
     {
-        for (auto &actor : actors) {
-            actor->Tick(time);
+        {
+            SKY_PROFILE_NAME("Actors Tick")
+            for (auto &actor : actors) {
+                actor->Tick(time);
+            }
         }
 
-        for (auto &sys : subSystems) {
-            sys.second->Tick(time);
+        {
+            SKY_PROFILE_NAME("SubSystem Tick")
+            for (auto &sys : subSystems) {
+                sys.second->Tick(time);
+            }
         }
     }
 

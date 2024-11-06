@@ -6,6 +6,7 @@
 #include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <core/template/Overloaded.h>
+#include <core/profile/Profiler.h>
 
 namespace sky {
     void LoadProperties(BinaryInputArchive &archive, MaterialProperties &properties)
@@ -328,6 +329,7 @@ namespace sky {
 
     CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(const MaterialInstanceAssetPtr &asset)
     {
+        SKY_PROFILE_NAME("Create Material Instance From Asset")
         auto &data = asset->Data();
 
         auto *am = AssetManager::Get();

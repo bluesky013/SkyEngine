@@ -5,6 +5,7 @@
 #include <render/Renderer.h>
 #include <render/RHI.h>
 #include <render/rdg/RenderGraph.h>
+#include <core/profile/Profiler.h>
 
 namespace sky {
 
@@ -65,7 +66,11 @@ namespace sky {
         if (pipeline == nullptr || scenes.empty()) {
             return;
         }
-        pipeline->FrameSync();
+
+        {
+            SKY_PROFILE_NAME("frame sync")
+            pipeline->FrameSync();
+        }
 
         rdg::RenderGraph rdg(pipeline->Context());
 
@@ -76,10 +81,21 @@ namespace sky {
             renderScenes.emplace_back(scn.get());
         }
 
-        pipeline->OnSetup(rdg, renderScenes);
-        pipeline->Compile(rdg);
-        pipeline->Collect(rdg, renderScenes);
-        pipeline->Execute(rdg);
+        {
+            SKY_PROFILE_NAME("pipeline compile")
+            pipeline->OnSetup(rdg, renderScenes);
+            pipeline->Compile(rdg);
+        }
+
+        {
+            SKY_PROFILE_NAME("pipeline collect")
+            pipeline->Collect(rdg, renderScenes);
+        }
+
+        {
+            SKY_PROFILE_NAME("pipeline execute")
+            pipeline->Execute(rdg);
+        }
     }
 
     void Renderer::AfterRender(float time)

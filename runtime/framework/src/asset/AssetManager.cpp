@@ -8,6 +8,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <core/logger/Logger.h>
 #include <core/archive/FileArchive.h>
+#include <core/profile/Profiler.h>
 
 static const char* TAG = "AssetManager";
 
@@ -127,7 +128,7 @@ namespace sky {
                 if (!success) {
                     return;
                 }
-
+                SKY_PROFILE_NAME("LoadAsset")
                 auto asset = FindAsset(uuid);
                 SKY_ASSERT(asset)
                 asset->depAssets.swap(deps);

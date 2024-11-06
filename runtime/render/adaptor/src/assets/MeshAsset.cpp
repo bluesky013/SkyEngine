@@ -4,6 +4,7 @@
 
 #include <framework/asset/AssetManager.h>
 #include <core/archive/MemoryArchive.h>
+#include <core/profile/Profiler.h>
 #include <render/RHI.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
@@ -174,6 +175,7 @@ namespace sky {
 
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
     {
+        SKY_PROFILE_NAME("Create Mesh From Asset")
         const auto &data = asset->Data();
         const auto &uuid = asset->GetUuid();
 

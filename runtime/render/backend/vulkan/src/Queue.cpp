@@ -5,6 +5,7 @@
 #include <vulkan/Device.h>
 #include <vulkan/Queue.h>
 #include <core/math/MathUtil.h>
+#include <core/profile/Profiler.h>
 
 namespace sky::vk {
     CommandBufferPtr Queue::AllocateCommandBuffer(const CommandBuffer::VkDescriptor &des)
@@ -77,6 +78,8 @@ namespace sky::vk {
     rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests)
     {
         return CreateTask([this, image, requests]() {
+            SKY_PROFILE_NAME("Queue Upload Image")
+
             auto vkImage = std::static_pointer_cast<Image>(image);
             const auto &imageInfo = vkImage->GetImageInfo();
             const auto &formatInfo  = vkImage->GetFormatInfo();
@@ -171,6 +174,8 @@ namespace sky::vk {
     rhi::TransferTaskHandle Queue::UploadBuffer(const rhi::BufferPtr &buffer, const std::vector<rhi::BufferUploadRequest> &requests)
     {
         return CreateTask([this, buffer, requests]() {
+            SKY_PROFILE_NAME("Queue Upload Buffer")
+
             auto vkBuffer = std::static_pointer_cast<Buffer>(buffer);
 
             BeginFrame();

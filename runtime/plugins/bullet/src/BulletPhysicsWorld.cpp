@@ -9,6 +9,7 @@
 #include <bullet/debug/BulletDebugDraw.h>
 
 #include <framework/serialization/SerializationContext.h>
+#include <core/profile/Profiler.h>
 
 #include <render/adaptor/RenderSceneProxy.h>
 
@@ -42,6 +43,7 @@ namespace sky::phy {
 
     void BulletPhysicsWorld::Tick(float delta)
     {
+        SKY_PROFILE_NAME("physics tick")
         if (dynamicWorld && enableSimulation) {
             dynamicWorld->stepSimulation(delta);
 

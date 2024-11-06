@@ -99,25 +99,32 @@ namespace sky {
 
     void Application::Loop()
     {
-        SKY_PROFILE_FRAME;
+        SKY_FRAME_MARK("Game");
+        SKY_PROFILE_NAME("App Loop")
 
         // pool events
         Platform::Get()->PoolEvent(exit);
 
-        PreTick();
+        {
+            SKY_PROFILE_NAME("PreTick")
+            PreTick();
+        }
+
 
         uint64_t        frequency      = Platform::Get()->GetPerformanceFrequency();
         uint64_t        currentCounter = Platform::Get()->GetPerformanceCounter();
         static uint64_t current        = 0;
-        float           delta = current > 0 ? static_cast<float>((currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
+        float           delta = current > 0 ? static_cast<float>(static_cast<float>(currentCounter - current) / static_cast<double>(frequency)) : 1.0f / 60.0f;
         current               = currentCounter;
 
-        if (moduleManager) {
-            moduleManager->Tick(delta);
+        if (tickFn) {
+            SKY_PROFILE_NAME("World Tick")
+            tickFn(delta);
         }
 
-        if (tickFn) {
-            tickFn(delta);
+        if (moduleManager) {
+            SKY_PROFILE_NAME("Module Tick")
+            moduleManager->Tick(delta);
         }
     }
 
