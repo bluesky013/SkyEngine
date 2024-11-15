@@ -2,8 +2,6 @@
 // Created by blues on 2024/9/1.
 //
 #include <framework/interface/IModule.h>
-#include <framework/world/World.h>
-#include <framework/asset/AssetManager.h>
 #include <navigation/NaviMeshFactory.h>
 #include <recast/RecastNaviMesh.h>
 #include <recast/RecastNaviMeshGenerator.h>

@@ -226,10 +226,10 @@ namespace sky {
 
         float leafExtent;
 
-        std::vector<TreeNode> nodes;
-        std::vector<NodeIndex> parentLinks;
+        std::vector<TreeNode>       nodes;
+        std::vector<NodeIndex>      parentLinks;
         std::vector<std::vector<T>> elements;
-        std::vector<NodeIndex> freeList;
+        std::vector<NodeIndex>      freeList;
     };
 
     template <>

@@ -22,4 +22,8 @@ if (SKY_BUILD_FREETYPE)
     add_subdirectory(freetype)
 endif ()
 
+if (SKY_BUILD_TERRAIN)
+    add_subdirectory(terrain)
+endif ()
+
 add_subdirectory(compression)
