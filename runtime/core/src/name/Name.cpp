@@ -13,8 +13,11 @@ namespace sky {
         return Crc32::Cal(reinterpret_cast<const uint8_t*>(ch), length);
     }
 
-    Name::Name(const char *ch)
-        : handle(NameDataBase::Get()->FetchOrRegister(ch))
+    Name::Name() : handle(0)
+    {
+    }
+
+    Name::Name(const char *ch) : handle(NameDataBase::Get()->FetchOrRegister(ch))
     {
     }
 

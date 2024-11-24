@@ -10,6 +10,7 @@ namespace sky {
 
     class Name {
     public:
+        Name();
         explicit Name(const char* ch);
         ~Name() noexcept = default;
 

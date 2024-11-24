@@ -11,9 +11,9 @@
 
 using namespace sky;
 
-Name GetA() { return Name("abc"); }
-Name GetB() { return Name("def"); }
-Name GetC() { return Name("ghi"); }
+static Name GetA() { return Name("abc"); }
+static Name GetB() { return Name("def"); }
+static Name GetC() { return Name("ghi"); }
 
 TEST(NameTest, NameBaseTest)
 {
