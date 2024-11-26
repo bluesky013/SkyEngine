@@ -94,6 +94,4 @@ TEST(OctreeTest, BasicTest)
     ASSERT_EQ(result[0]->id, 3);
     ASSERT_EQ(result[1]->id, 4);
     ASSERT_EQ(result[2]->id, 5);
-
-    printf("test\n");
 }

@@ -3,6 +3,10 @@
 //
 
 #include <framework/interface/IModule.h>
+#include <framework/world/Component.h>
+#include <framework/world/ComponentFactory.h>
+#include <framework/serialization/SerializationContext.h>
+#include <terrain/TerrainComponent.h>
 
 namespace sky {
 
@@ -13,6 +17,10 @@ namespace sky {
 
         bool Init(const StartArguments &args) override
         {
+            auto *context = SerializationContext::Get();
+
+            TerrainComponent::Reflect(context);
+            ComponentFactory::Get()->RegisterComponent<TerrainComponent>("Terrain");
             return true;
         }
 

@@ -290,4 +290,6 @@ namespace sky {
         };
     }
 
+    uint8_t CeilLog2(uint32_t x);
+
 } // namespace sky

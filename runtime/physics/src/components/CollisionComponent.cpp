@@ -13,13 +13,13 @@ namespace sky::phy {
     void CollisionComponent::Reflect(SerializationContext *context)
     {
         context->Register<CollisionData>("CollisionData")
-                .Member<&CollisionData::config>("config");
+            .Member<&CollisionData::config>("config");
 
         REGISTER_BEGIN(CollisionComponent, context)
-                REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
-                REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged)
-                REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
-                    SET_ASSET_TYPE(std::string_view("Mesh"));
+            REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
+            REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged)
+            REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
+                SET_ASSET_TYPE(std::string_view("Mesh"));
 
         ComponentFactory::Get()->RegisterComponent<CollisionComponent>("Physics");
     }

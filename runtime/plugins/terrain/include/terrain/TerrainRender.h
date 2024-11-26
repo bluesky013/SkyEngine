@@ -4,17 +4,29 @@
 
 #pragma once
 
+#include <terrain/TerrainBase.h>
 #include <terrain/TerrainQuadTree.h>
+#include <render/resource/Buffer.h>
 
 namespace sky {
 
     class TerrainRender {
     public:
-        TerrainRender() = default;
+        explicit TerrainRender(const TerrainQuad& quad);
         ~TerrainRender() = default;
 
-    private:
+        void Tick();
 
+    private:
+        void BuildGeometry();
+
+        static void BuildVertexBuffer(const TerrainQuad &quad, VertexBuffer &vertexBuffer);
+        static void BuildIndexBufferLod(const TerrainQuad &quad, IndexBuffer &indexBuffer, uint32_t lod);
+
+        TerrainQuad config;
+
+        VertexBuffer vertexBuffer;
+        std::vector<IndexBuffer> indexBuffers;
     };
 
 } // namespace sky
