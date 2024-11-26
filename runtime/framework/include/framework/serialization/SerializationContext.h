@@ -29,7 +29,7 @@ namespace sky {
             type.info  = info;
             if constexpr (std::is_default_constructible_v<T>) {
                 type.constructList.emplace_back(
-                        ConstructNode{0,
+                        serialize::ConstructNode{0,
                                       [](Any *args) { return true; },
                                       [](Any *args) -> Any { return Any(std::in_place_type<T>); }});
             }
@@ -44,7 +44,7 @@ namespace sky {
             return Register<T>(name, Uuid::CreateWithSeed(Fnv1a32(name)));
         }
 
-        TypeNode *FindType(const std::string &key);
+        TypeNode *FindType(const std::string_view &key);
         TypeNode *FindTypeById(const Uuid &id);
 
     private:
@@ -87,6 +87,22 @@ namespace sky {
         return context->FindTypeById(typeId);
     }
 
+    template <typename T, typename... Args>
+    inline Any InvokeMemberFunctionResult(T& val, std::string_view func, Args&& ...args)
+    {
+        auto *context = SerializationContext::Get();
+        TypeNode *node = context->FindTypeById(TypeInfo<T>::RegisteredId());
+        if (node == nullptr) {
+            return {};
+        }
+        auto iter = node->functions.find(func);
+        if (iter == node->functions.end()) {
+            return {};
+        }
+        std::array<Any, sizeof...(Args)> anyArgs{Any(std::forward<Args>(args))...};
+        return Any{iter->second.memberFun(reinterpret_cast<void*>(&val), anyArgs.data())};
+    }
+
     inline const TypeNode *GetTypeNode(const Any &any)
     {
         const auto *rtInfo = any.Info();
@@ -106,7 +122,7 @@ namespace sky {
         return context->FindTypeById(rtInfo->registeredId);
     }
 
-    inline TypeMemberNode *GetTypeMember(const std::string_view &member, const Uuid &typeId)
+    inline serialize::TypeMemberNode *GetTypeMember(const std::string_view &member, const Uuid &typeId)
     {
         auto *context = SerializationContext::Get();
         auto *node = context->FindTypeById(typeId);

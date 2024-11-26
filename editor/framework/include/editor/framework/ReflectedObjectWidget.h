@@ -48,7 +48,7 @@ namespace sky::editor {
     class ReflectedMemberWidget : public QWidget {
         Q_OBJECT
     public:
-        ReflectedMemberWidget(void *obj, const TypeMemberNode *node, QWidget *parent)
+        ReflectedMemberWidget(void *obj, const serialize::TypeMemberNode *node, QWidget *parent)
             : QWidget(parent)
             , object(obj)
             , memberNode(node)
@@ -68,13 +68,13 @@ namespace sky::editor {
 
     protected:
         void *object;
-        const TypeMemberNode* memberNode = nullptr;
+        const serialize::TypeMemberNode* memberNode = nullptr;
     };
 
     template <typename T>
     class PropertyScalar : public ReflectedMemberWidget {
     public:
-        explicit PropertyScalar(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        explicit PropertyScalar(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             line = new QLineEdit(this);
             layout()->addWidget(line);
@@ -118,7 +118,7 @@ namespace sky::editor {
     template <size_t N>
     class PropertyVec : public ReflectedMemberWidget {
     public:
-        explicit PropertyVec(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        explicit PropertyVec(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             auto *validator = new QDoubleValidator(this);
             for (uint32_t i = 0; i < N; ++i) {
@@ -160,7 +160,7 @@ namespace sky::editor {
     class PropertyColor : public ReflectedMemberWidget {
         Q_OBJECT
     public:
-        PropertyColor(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        PropertyColor(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             button = new QPushButton(this);
             button->setFixedWidth(32);
@@ -223,7 +223,7 @@ namespace sky::editor {
     class PropertyUuid : public ReflectedMemberWidget {
         Q_OBJECT
     public:
-        PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent);
+        PropertyUuid(void *obj, const serialize::TypeMemberNode *node, QWidget *parent);
         ~PropertyUuid() override = default;
 
         void RefreshValue();
@@ -236,7 +236,7 @@ namespace sky::editor {
     class PropertyBool : public ReflectedMemberWidget {
         Q_OBJECT
     public:
-        PropertyBool(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        PropertyBool(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             box = new QCheckBox(this);
             layout()->addWidget(box);
@@ -265,7 +265,7 @@ namespace sky::editor {
     class PropertyEnum : public ReflectedMemberWidget {
         Q_OBJECT
     public:
-        PropertyEnum(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        PropertyEnum(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             box = new QComboBox(this);
             layout()->addWidget(box);
@@ -322,7 +322,7 @@ namespace sky::editor {
     class PropertySequenceContainerWidget : public ReflectedMemberWidget {
         Q_OBJECT
     public:
-        PropertySequenceContainerWidget(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        PropertySequenceContainerWidget(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
         {
             array = new QWidget(this);
             array->setLayout(new QVBoxLayout());

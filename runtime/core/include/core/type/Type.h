@@ -66,7 +66,7 @@ namespace sky {
     struct FuncTraits<Ret (Cls::*)(Args...)> {
         using CLASS_TYPE            = Cls;
         using RET_TYPE              = Ret;
-        using ARGS_TYPE             = std::tuple<Cls *, Args...>;
+        using ARGS_TYPE             = std::tuple<Args...>;
         static constexpr bool CONST = false;
     };
 
@@ -74,7 +74,7 @@ namespace sky {
     struct FuncTraits<Ret (Cls::*)(Args...) const> {
         using CLASS_TYPE            = Cls;
         using RET_TYPE              = Ret;
-        using ARGS_TYPE             = std::tuple<const Cls *, Args...>;
+        using ARGS_TYPE             = std::tuple<Args...>;
         static constexpr bool CONST = true;
     };
 

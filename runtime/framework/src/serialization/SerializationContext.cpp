@@ -28,6 +28,7 @@ namespace sky {
         Register<int32_t>("int32_t");
         Register<int16_t>("int16_t");
         Register<int8_t>("int8_t");
+        Register<char>("char");
         Register<bool>("bool");
         Register<float>("float");
         Register<double>("double");
@@ -40,7 +41,7 @@ namespace sky {
         CoreReflection(this);
     }
 
-    TypeNode *SerializationContext::FindType(const std::string &key)
+    TypeNode *SerializationContext::FindType(const std::string_view &key)
     {
         auto iter = lookupTable.find(key);
         return iter == lookupTable.end() ? nullptr : iter->second;

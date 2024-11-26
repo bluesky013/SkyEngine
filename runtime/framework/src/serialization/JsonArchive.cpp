@@ -33,6 +33,8 @@ namespace sky {
             SaveValue(*static_cast<const int16_t *>(ptr));
         } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             SaveValue(*static_cast<const int8_t *>(ptr));
+        } else if (typeId == TypeInfo<char>::RegisteredId()) {
+            SaveValue(*static_cast<const char *>(ptr));
         } else if (typeId == TypeInfo<float>::RegisteredId()) {
             SaveValue(*static_cast<const float *>(ptr));
         } else if (typeId == TypeInfo<double>::RegisteredId()) {
@@ -65,12 +67,13 @@ namespace sky {
                     Key(memberName.c_str());
                     Any value = GetValueRawConst(ptr, typeId, memberName);
 
-                    if (member.second.info->containerInfo != nullptr) {
+                    if (member.second.info->containerInfo != nullptr &&
+                        member.second.info->containerInfo->valueType != TypeInfo<char>::RegisteredId()) {
+
                         auto *containerInfo = member.second.info->containerInfo;
                         if (containerInfo->sequenceView != nullptr) {
                             SequenceVisitor visitor(containerInfo, value.Data());
                             StartArray();
-
                             auto count = visitor.Count();
                             for (size_t i = 0; i < count; ++i) {
                                 SaveValueObject(visitor.GetByIndex(i), visitor.GetValueType());
@@ -110,6 +113,8 @@ namespace sky {
             *static_cast<int16_t *>(ptr) = static_cast<int16_t>(value->GetInt());
         } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             *static_cast<int8_t *>(ptr) = static_cast<int8_t>(value->GetInt());
+        } else if (typeId == TypeInfo<char>::RegisteredId()) {
+            *static_cast<char *>(ptr) = static_cast<char>(value->GetInt());
         } else if (typeId == TypeInfo<float>::RegisteredId()) {
             *static_cast<float *>(ptr) = static_cast<float>(value->GetDouble());
         } else if (typeId == TypeInfo<double>::RegisteredId()) {
@@ -146,9 +151,10 @@ namespace sky {
                     }
 
                     Any any = GetValueRawConst(ptr, typeId, memberName);
-                    if (member.second.info->containerInfo != nullptr) {
-                        auto *containerInfo = member.second.info->containerInfo;
+                    if (member.second.info->containerInfo != nullptr &&
+                        member.second.info->containerInfo->valueType != TypeInfo<char>::RegisteredId()) {
 
+                        auto *containerInfo = member.second.info->containerInfo;
                         auto size = StartArray(memberName);
                         if (containerInfo->sequenceView != nullptr) {
                             SequenceVisitor visitor(containerInfo, any.Data());

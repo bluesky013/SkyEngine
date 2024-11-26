@@ -54,6 +54,8 @@ namespace sky::editor {
                 widget = new PropertyScalar<int16_t>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<int8_t>::RegisteredId()) {
                 widget = new PropertyScalar<int8_t>(object, &memberInfo, this);
+            } else if (memberInfo.info->registeredId == TypeInfo<char>::RegisteredId()) {
+                widget = new PropertyScalar<char>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<float>::RegisteredId()) {
                 widget = new PropertyScalar<float>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<double>::RegisteredId()) {
@@ -120,7 +122,7 @@ namespace sky::editor {
         }
     }
 
-    PropertyUuid::PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+    PropertyUuid::PropertyUuid(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
     {
         lineEdit = new AssetLineEditor(this);
         lineEdit->setAcceptDrops(true);

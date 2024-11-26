@@ -336,6 +336,48 @@ TEST(SerializationTest, ContainerListTest)
     }
 }
 
+class TestMemberFunction {
+public:
+    TestMemberFunction() = default;
+    ~TestMemberFunction() = default;
+
+    uint32_t Foo(uint32_t a) const { return a + 1; } // NOLINT
+};
+
+TEST(SerializationTest, MemberFunctionTest)
+{
+    {
+        SerializationContext::Get()->Register<TestMemberFunction>("TestMemberFunction")
+            .MemberFunction<&TestMemberFunction::Foo>("Foo");
+    }
+
+    {
+        auto *type = SerializationContext::Get()->FindType("TestMemberFunction");
+        ASSERT_NE(type, nullptr);
+
+        auto fun = type->functions.find("Foo");
+        ASSERT_NE(fun, type->functions.end());
+
+        TestMemberFunction tf;
+
+        {
+            auto res = InvokeMemberFunctionResult(tf, "Foo", 1u);
+            auto *val = res.GetAs<uint32_t>();
+            ASSERT_NE(val, nullptr);
+            ASSERT_EQ(*val, 2);
+        }
+
+        {
+            auto res = InvokeMemberFunctionResult(tf, "Foo", 2u);
+            auto *val = res.GetAs<uint32_t>();
+            ASSERT_NE(val, nullptr);
+            ASSERT_EQ(*val, 3);
+        }
+    }
+
+
+}
+
 struct TestObject {
     uint64_t uv1 = 1;
     uint32_t uv2 = 2;
