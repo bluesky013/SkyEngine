@@ -76,10 +76,11 @@ namespace sky {
         uint32_t GetBatchSize() const { return static_cast<uint32_t>(batches.size()); }
 
         void Render(RenderPrimitive *primitive);
-        void Render(std::vector<RenderPrimitive*> primitives);
+        void Render(std::vector<RenderPrimitive*> &primitives);
     private:
         void ResetBatch();
 
+        DebugBatchKey lastKey;
         DebugBatchKey currentKey;
         Color32 currentColor = {255, 255, 255, 255};
 

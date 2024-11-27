@@ -29,12 +29,22 @@ namespace sky {
     struct TerrainVertex {
         uint8_t x;
         uint8_t y;
-        uint8_t subx;
-        uint8_t suby;
     };
 
     struct TerrainQuad {
-        uint8_t            subSection  = 2;
         TerrainSectionSize sectionSize = TerrainSectionSize::S63x63;
+        float resolution = 1.f;
+    };
+
+    struct TerrainBuildConfig {
+        TerrainSectionSize sectionSize = TerrainSectionSize::S63x63;
+        float resolution = 1.f;
+
+        int32_t sectionNumX = 8;
+        int32_t sectionNumY = 8;
+    };
+
+    struct TerrainGenerateConfig {
+        uint32_t seed = 1;
     };
 } // namespace sky

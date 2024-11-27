@@ -25,7 +25,6 @@ namespace sky::ai {
         bool BuildNavMesh();
 
         bool DoWork() override;
-        void OnComplete(bool result) override;
         void PrepareWork() override;
 
         WorldPtr world;

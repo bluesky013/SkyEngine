@@ -45,6 +45,30 @@ namespace sky::editor {
         std::vector<ReflectedMemberWidget*> members;
     };
 
+    template <class T>
+    class TObjectWidget : public QWidget {
+    public:
+        explicit TObjectWidget(QWidget *parent) : QWidget(parent)
+        {
+            auto *layout = new QVBoxLayout(this);
+            setLayout(layout);
+            setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+            setMinimumWidth(32);
+
+            const auto *info = TypeInfoObj<T>::Get()->RtInfo();
+            const auto *typeNode = GetTypeNode(info);
+            layout->addWidget(new ReflectedObjectWidget(&value, typeNode, this));
+        }
+
+        const T& GetValue() const
+        {
+            return value;
+        }
+
+    private:
+        T value;
+    };
+
     class ReflectedMemberWidget : public QWidget {
         Q_OBJECT
     public:
@@ -81,8 +105,10 @@ namespace sky::editor {
 
             if constexpr (std::is_floating_point_v<T>) {
                 line->setValidator(new QDoubleValidator(this));
+                isFloatingType = true;
             } else if constexpr (std::is_integral_v<T>) {
                 line->setValidator(new QIntValidator(std::numeric_limits<T>::min(), std::numeric_limits<T>::max(), this));
+                isFloatingType = false;
             }
 
             connect(line, &QLineEdit::textEdited, this, [this](const QString &s) {
@@ -105,14 +131,21 @@ namespace sky::editor {
         void RefreshValue()
         {
             auto anyVal = memberNode->getterConstFn(object);
-            auto *val = static_cast<float*>(anyVal.Data());
-            line->setText(QString::number(*val));
+
+            if (isFloatingType) {
+                auto *val = static_cast<float*>(anyVal.Data());
+                line->setText(QString::number(*val));
+            } else {
+                auto *val = static_cast<uint32_t*>(anyVal.Data());
+                line->setText(QString::number(*val));
+            }
         }
 
         ~PropertyScalar() override = default;
 
     private:
         QLineEdit* line;
+        bool isFloatingType = true;
     };
 
     template <size_t N>

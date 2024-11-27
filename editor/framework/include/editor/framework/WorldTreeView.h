@@ -28,6 +28,11 @@ namespace sky::editor {
         void BuildByWorld(const WorldPtr &world);
         void RebuildTree();
 
+        ActorPtr AddActor(const QString &name);
+        void AddActorEmpty() { AddActor("Actor"); }
+
+        World *GetWorld() { return attachedWorld.Get(); }
+
     Q_SIGNALS:
         void WorldTreeSelectItemChanged(ActorPtr actor); // NOLINT
 

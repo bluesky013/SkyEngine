@@ -5,6 +5,7 @@
 #include <editor/application/EditorApplication.h>
 #include <editor/document/Document.h>
 #include <editor/framework/ViewportWidget.h>
+#include <editor/framework/SelectTool.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
@@ -29,7 +30,7 @@ namespace sky::editor {
 
     EditorApplication::~EditorApplication() // NOLINT
     {
-        if (timer) {
+        if (timer != nullptr) {
             timer->stop();
         }
     }
@@ -55,6 +56,8 @@ namespace sky::editor {
         AssetDataBase::Get()->SetEngineFs(engineFs);
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
 
+        EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
+
         if (!InitAppAndSplashWindow(argc, argv)) {
             return false;
         }
@@ -64,7 +67,7 @@ namespace sky::editor {
         BindTick([this](float delta) {
 
             TickEvent::BroadCast(&ITickEvent::Tick, delta);
-            auto &world = mainWindow->GetDoc()->GetWorld();
+            const auto &world = mainWindow->GetDoc()->GetWorld();
             if (world) {
                 world->Tick(delta);
             }
@@ -77,6 +80,11 @@ namespace sky::editor {
             Loop();
         });
         return true;
+    }
+
+    void EditorApplication::InitTools()
+    {
+
     }
 
     bool EditorApplication::InitAppAndSplashWindow(int argc, char **argv)
@@ -99,6 +107,7 @@ namespace sky::editor {
         if (!Application::Init(argc, argv)) {
             return false;
         }
+        InitTools();
 
         mainWindow = std::make_unique<MainWindow>();
         mainWindow->show();

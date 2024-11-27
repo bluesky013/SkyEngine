@@ -27,7 +27,8 @@ namespace sky {
 
         currentColor = {255, 255, 255, 255};
         currentKey = DebugBatchKey{};
-        ResetBatch();
+        batchVertices = &batches[currentKey];
+        lastKey = currentKey;
     }
 
     void DebugRenderer::SetColor(const Color32 &color)
@@ -37,39 +38,31 @@ namespace sky {
 
     void DebugRenderer::SetDepthWrite(bool enable)
     {
-        if (currentKey.depthWrite != enable) {
-            currentKey.depthWrite = enable;
-            ResetBatch();
-        }
+        currentKey.depthWrite = enable;
     }
 
     void DebugRenderer::SetDepthTest(bool enable)
     {
-        if (currentKey.depthTest != enable) {
-            currentKey.depthTest = enable;
-            ResetBatch();
-        }
+        currentKey.depthTest = enable;
     }
 
     void DebugRenderer::SetBlendEnable(bool enable)
     {
-        if (currentKey.enableBlend != enable) {
-            currentKey.enableBlend = enable;
-            ResetBatch();
-        }
+        currentKey.enableBlend = enable;
     }
 
     void DebugRenderer::SetTopo(rhi::PrimitiveTopology topo)
     {
-        if (currentKey.topology != topo) {
-            currentKey.topology = topo;
-            ResetBatch();
-        }
+        currentKey.topology = topo;
     }
 
     void DebugRenderer::ResetBatch()
     {
-        batchVertices = &batches[currentKey];
+        if (!std::equal_to<DebugBatchKey>{}(currentKey, lastKey)) {
+            batchVertices = &batches[currentKey];
+        }
+
+        lastKey = currentKey;
     }
 
     void DebugRenderer::DrawLine(const Line &line)
@@ -79,6 +72,8 @@ namespace sky {
 
     void DebugRenderer:: DrawTriangle(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3)
     {
+        ResetBatch();
+
         batchVertices->emplace_back(DebugVertex{v1, currentColor});
         batchVertices->emplace_back(DebugVertex{v2, currentColor});
         batchVertices->emplace_back(DebugVertex{v3, currentColor});
@@ -86,12 +81,16 @@ namespace sky {
 
     void DebugRenderer::DrawLine(const Vector3 &from, const Vector3 &to)
     {
+        ResetBatch();
+
         batchVertices->emplace_back(DebugVertex{from, currentColor});
         batchVertices->emplace_back(DebugVertex{to, currentColor});
     }
 
     void DebugRenderer::DrawSphere(const Sphere &sphere)
     {
+        ResetBatch();
+
         static const uint32_t STACK_COUNT = 16;
         static const uint32_t SECTOR_COUNT = 32;
 
@@ -149,7 +148,7 @@ namespace sky {
         DrawLine(Vector3(aabb.min[0], aabb.max[1], aabb.max[2]), Vector3(aabb.min[0], aabb.min[1], aabb.max[2]));
     }
 
-    void DebugRenderer::Render(std::vector<RenderPrimitive*> primitives)
+    void DebugRenderer::Render(std::vector<RenderPrimitive*> &primitives)
     {
         uint32_t vtxSize = 0;
         for (auto &[key, batch] : batches) {
@@ -173,7 +172,7 @@ namespace sky {
             geometry->version++;
         }
         vertexBuffer->SwapBuffer();
-        SKY_ASSERT(batches.size() >= primitives.size());
+        SKY_ASSERT(batches.size() <= primitives.size());
 
         uint32_t firstVertex = 0;
         uint32_t batchIndex = 0;
@@ -183,6 +182,8 @@ namespace sky {
                 continue;
             }
             auto *primitive = primitives[batchIndex++];
+            primitive->techniques[0].topo = key.topology;
+
             primitive->geometry = geometry;
             primitive->isReady = true;
             primitive->args.clear();

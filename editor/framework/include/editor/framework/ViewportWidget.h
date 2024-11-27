@@ -44,6 +44,7 @@ namespace sky::editor {
         void ResetPipeline();
 
         ViewportWindow* GetViewportWindow() const { return window; }
+        EditorCamera *GetCamera() const { return editorCamera.get(); }
     private:
         void OnWindowResize(uint32_t width, uint32_t height) override;
         void dropEvent(QDropEvent *event) override;

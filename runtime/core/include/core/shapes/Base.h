@@ -38,6 +38,11 @@ namespace sky {
         float radius = 1.f;
     };
 
+    struct Ray {
+        Vector3 origin = VEC3_ZERO;
+        Vector3 dir = VEC3_Z;
+    };
+
     struct Capsule {
         float halfHeight = 1.f;
         float radius = 1.f;

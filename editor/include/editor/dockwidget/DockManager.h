@@ -13,7 +13,8 @@ namespace sky::editor {
     enum class DockId : uint32_t {
         WORLD,
         INSPECTOR,
-        BROWSER
+        BROWSER,
+        TOOL,
     };
 
     class DockManager : public Singleton<DockManager> {

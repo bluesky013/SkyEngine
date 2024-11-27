@@ -9,9 +9,14 @@
 
 namespace sky {
 
-    std::vector<uint8_t> DEFAULT_TEX_DATA = {
+    std::vector<uint8_t> DEFAULT_TEX2D_WHITE_DATA = {
         255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255
+    };
+
+    std::vector<uint8_t> DEFAULT_TEX2D_BLACK_DATA = {
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0
     };
 
     void RenderDefaultResource::Init()
@@ -46,10 +51,17 @@ namespace sky {
         auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
 
         {
-            texture2D = new Texture2D();
-            texture2D->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
-            texture2D->Upload(std::move(DEFAULT_TEX_DATA), queue);
-            texture2D->Wait();
+            texture2DWhite = new Texture2D();
+            texture2DWhite->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
+            texture2DWhite->Upload(std::move(DEFAULT_TEX2D_WHITE_DATA), queue);
+            texture2DWhite->Wait();
+        }
+
+        {
+            texture2dBlack = new Texture2D();
+            texture2dBlack->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
+            texture2dBlack->Upload(std::move(DEFAULT_TEX2D_BLACK_DATA), queue);
+            texture2dBlack->Wait();
         }
 
 //        {
@@ -76,6 +88,7 @@ namespace sky {
         emptySet = nullptr;
         defaultSampler = nullptr;
 
-        texture2D = nullptr;
+        texture2DWhite = nullptr;
+        texture2dBlack = nullptr;
     }
 } // namespace sky

@@ -67,4 +67,14 @@ namespace sky {
     {
         return plane.normal.Dot(pt) + plane.distance;
     }
+
+    std::pair<bool, Vector3> CalculateInterSection(const Ray &ray, const Plane &plane)
+    {
+        float denom = plane.normal.Dot(ray.dir);
+        if (abs(denom) > 1e-6) {
+            float t = -(plane.normal.Dot(ray.origin) + plane.distance) / denom;
+            return {true, ray.origin + ray.dir * t};
+        }
+        return {false, VEC3_ZERO};
+    }
 } // namespace sky

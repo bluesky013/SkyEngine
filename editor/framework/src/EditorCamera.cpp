@@ -41,10 +41,27 @@ namespace sky::editor {
 
     void EditorCamera::UpdateAspect(uint32_t width, uint32_t height)
     {
+        screenWidth = width;
+        screenHeight = height;
         if (sceneView != nullptr) {
             sceneView->SetPerspective(near, far, fov / 180.f * 3.14f,
                 static_cast<float>(width) / static_cast<float>(height));
         }
+    }
+
+    const Matrix4 &EditorCamera::GetProjectMatrix() const
+    {
+        return sceneView->GetProject();
+    }
+
+    const Matrix4 &EditorCamera::GetWorldMatrix() const
+    {
+        return sceneView->GetWorld();
+    }
+
+    const Matrix4 &EditorCamera::GetViewProjectMatrix() const
+    {
+        return sceneView->GetViewProject();
     }
 
 } // namespace sky::editor

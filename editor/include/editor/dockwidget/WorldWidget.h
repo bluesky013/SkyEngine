@@ -16,12 +16,9 @@ namespace sky::editor {
         ~WorldWidget() override = default;
 
         void SetWorld(const WorldPtr& world);
-
         WorldTreeView *GetWorldTreeView() const { return treeView; }
-
     private:
         QTimer* refreshTimer = nullptr;
-
         WorldTreeView *treeView = nullptr;
     };
 

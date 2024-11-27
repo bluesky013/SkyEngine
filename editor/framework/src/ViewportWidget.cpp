@@ -322,7 +322,7 @@ namespace sky::editor {
         debugTech->BlockUntilLoaded();
         grid->SetTechnique(CreateTechniqueFromAsset(debugTech));
         grid->Draw(200.f);
-        sceneProxy->GetRenderScene()->AddPrimitive(grid->GetPrimitive());
+//        sceneProxy->GetRenderScene()->AddPrimitive(grid->GetPrimitive());
 
         editorCamera = std::make_unique<EditorCamera>();
         editorCamera->Init(sceneProxy->GetRenderScene(), window);

@@ -34,6 +34,22 @@ namespace sky::builder {
         InitializeCompressor();
     }
 
+    void ImageBuilder::RequestImage(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
+        auto archive = request.file->ReadAsArchive();
+        BinaryInputArchive bin(*archive);
+
+        auto  asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
+        auto &imageData = asset->Data();
+
+        imageData.Load(bin);
+
+        imageData.rawData.storage.resize(imageData.dataSize);
+        bin.LoadValue(reinterpret_cast<char*>(imageData.rawData.storage.data()), imageData.dataSize);
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
+    }
+
     void ImageBuilder::RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         std::vector<uint8_t> data;
@@ -131,7 +147,9 @@ namespace sky::builder {
 
     void ImageBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        if (request.assetInfo->ext == ".dds") {
+        if (request.assetInfo->ext == ".image") {
+            RequestImage(request, result);
+        } else if (request.assetInfo->ext == ".dds") {
             RequestDDS(request, result);
         } else {
             RequestSTB(request, result);

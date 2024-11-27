@@ -13,15 +13,16 @@ namespace sky {
     class SerializationContext;
 
     struct TerrainSectionData {
-        TerrainCoord coord;
-
+        int32_t x;
+        int32_t y;
         Uuid heightMap;
     };
 
     struct TerrainData {
         TerrainSectionSize sectionSize;
+        int32_t sectionBoundX = 8;
+        int32_t sectionBoundY = 8;
         float resolution = 1.f;
-
         std::vector<TerrainSectionData> sections;
     };
 
@@ -35,16 +36,9 @@ namespace sky {
 
         void Tick(float time) override;
 
-        SequenceVisitor Sections();
-
-        void SectionChanged();
-
-        void SetSize(const TerrainSectionSize &size);
-        const TerrainSectionSize &GetSize() const;
-
-        void SetResolution(float resolution);
-        float GetResolution() const;
-
+        void BuildTerrain(const TerrainBuildConfig &config);
+        void AddSection(int32_t x, int32_t y);
+        void RemoveSection(int32_t x, int32_t y);
     private:
         void OnRebuildTerrain();
     };

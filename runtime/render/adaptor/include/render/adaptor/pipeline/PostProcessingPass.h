@@ -17,6 +17,9 @@ namespace sky {
         void Setup(rdg::RenderGraph &rdg, RenderScene &scene) override;
 
         void SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene) override;
+
+    private:
+        RDResourceLayoutPtr debugLayout;
     };
 
 } // namespace sky

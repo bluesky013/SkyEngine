@@ -20,4 +20,6 @@ namespace sky {
 
     float DistanceToPlane(const Vector3 &pt, const Plane &plane);
 
+    std::pair<bool, Vector3> CalculateInterSection(const Ray &ray, const Plane &plane);
+
 } // namespace sky

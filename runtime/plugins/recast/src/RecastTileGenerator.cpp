@@ -284,9 +284,4 @@ namespace sky::ai {
         rasterizeContext.solidHF = hf;
         return true;
     }
-
-    void RecastTileGenerator::OnComplete(bool result)
-    {
-
-    }
 } // namespace sky::ai

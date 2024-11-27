@@ -30,7 +30,7 @@ namespace sky::rdg {
                 uint32_t techIndex = 0;
                 for (auto &tech : prim->techniques) {
                     uint32_t viewMask = tech.technique->GetViewMask();
-                    uint32_t rasterID = tech.technique->GetRasterID();
+                    Name rasterID = tech.technique->GetRasterID();
 
                     uint32_t sceneMask = queue.sceneView != nullptr ? queue.sceneView->GetViewMask() : 0xFFFFFFFF;
                     if ((sceneMask & viewMask) != sceneMask || rasterID != queue.rasterID) {
@@ -62,6 +62,11 @@ namespace sky::rdg {
                             tech.vaoVersion = prim->geometry->version;
                             tech.vao        = prim->geometry->Request(tech.program, tech.vertexDesc);
                         }
+                    }
+
+                    if (tech.overrideHash != static_cast<uint32_t>(tech.topo)) {
+                        tech.overrideHash = static_cast<uint32_t>(tech.topo);
+                        needRebuildPso = true;
                     }
 
                     if (tech.renderPassHash != passHash) {

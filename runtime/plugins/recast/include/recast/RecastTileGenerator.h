@@ -61,7 +61,6 @@ namespace sky::ai {
 
     private:
         bool DoWork() override;
-        void OnComplete(bool result) override;
 
         void GenerateTile();
         bool GenerateCompressedLayers(RecastTileBuildContext &context);

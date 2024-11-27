@@ -56,7 +56,7 @@ namespace sky {
         for (const auto &binding : bindings) {
             for (uint32_t i = 0; i < binding.count; ++i) {
                 if (binding.type == rhi::DescriptorType::SAMPLED_IMAGE) {
-                    set->BindImageView(binding.binding, defaultRes.texture2D->GetImageView(), i);
+                    set->BindImageView(binding.binding, defaultRes.texture2DWhite->GetImageView(), i);
                 } else if (binding.type == rhi::DescriptorType::SAMPLER) {
                     set->BindSampler(binding.binding, defaultRes.defaultSampler, i);
                 }

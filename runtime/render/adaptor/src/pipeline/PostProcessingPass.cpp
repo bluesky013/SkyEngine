@@ -4,6 +4,7 @@
 
 #include <render/adaptor/pipeline/PostProcessingPass.h>
 #include <render/adaptor/pipeline/DefaultPassConstants.h>
+#include <render/RHI.h>
 #include <render/rdg/RenderGraph.h>
 
 namespace sky {
@@ -23,6 +24,28 @@ namespace sky {
             fwdColor,
             rdg::ComputeView{"InColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS}
         });
+
+        computeResources.emplace_back(ComputeResource{
+            Name("SCENE_VIEW"),
+            rdg::ComputeView{"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+        });
+
+        rhi::DescriptorSetLayout::Descriptor desc = {};
+//        desc.bindings.emplace_back(
+//                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::FS, "passInfo");
+        desc.bindings.emplace_back(
+                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo");
+//        desc.bindings.emplace_back(
+//                rhi::DescriptorType::SAMPLED_IMAGE, 1, 2, rhi::ShaderStageFlagBit::FS, "ShadowMap");
+//        desc.bindings.emplace_back(
+//                rhi::DescriptorType::SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "ShadowMapSampler");
+
+        debugLayout = new ResourceGroupLayout();
+        debugLayout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
+        debugLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
+        debugLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
+//        layout->AddNameHandler("ShadowMap", {2});
+//        layout->AddNameHandler("ShadowMapSampler", {3});
     }
 
     void PostProcessingPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
@@ -32,6 +55,7 @@ namespace sky {
 
     void PostProcessingPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
+        builder.AddQueue(Name("debug")).SetRasterID(Name("debug")).SetLayout(debugLayout);
         builder.AddQueue(Name("queue")).SetRasterID(Name("ui"));
     }
 

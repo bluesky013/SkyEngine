@@ -14,7 +14,6 @@
 #include <rhi/Device.h>
 
 namespace sky {
-
     struct TechniqueInstance {
         RDGfxTechPtr             technique;
         RDMaterialInstancePtr    material;
@@ -30,6 +29,7 @@ namespace sky {
         uint32_t                 vaoVersion     = 0;
         uint32_t                 variantHash    = 0;
         uint32_t                 renderPassHash = 0;
+        uint32_t                 overrideHash   = 0;
     };
 
     struct RenderPrimitive {

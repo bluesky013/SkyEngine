@@ -6,29 +6,37 @@
 
 namespace sky {
 
+    void Task::SetCallback(ITaskCallBack *callback_)
+    {
+        callback = callback_;
+    }
+
     void Task::StartAsync()
     {
         PrepareWork();
 
         CounterPtr<Task> thisTask = this;
-        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
+
+        AliveWeak host = callback != nullptr ? callback->host : AliveShared{};
+        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask, host, cb = callback]() {
             bool result = thisTask->DoWork();
-            thisTask->OnComplete(result);
             thisTask->ResetTask();
+
+            if (host.lock()) {
+                cb->OnTaskComplete(result, thisTask.Get());
+            }
+
         }, dependencies.begin(), dependencies.end()).first;
+    }
+
+    bool Task::IsWorking() const
+    {
+        return !handle.empty();
     }
 
     void Task::ResetTask()
     {
         handle.reset();
-    }
-
-    void TaskExecutor::ExecuteTask(const TaskPtr &task)
-    {
-        task->handle = executor.dependent_async([task]() {
-            bool result = task->DoWork();
-            task->OnComplete(result);
-        }).first;
     }
 
     void TaskExecutor::WaitForAll()

@@ -6,7 +6,7 @@
         "fragment": "FSMain"
     },
     "pass": {
-        "tag": "Transparent"
+        "tag": "debug"
     },
     "depth_stencil": {
         "depthTestEnable": true,

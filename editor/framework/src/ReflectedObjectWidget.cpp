@@ -28,6 +28,7 @@ namespace sky::editor {
         layout->setFormAlignment(Qt::AlignCenter);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
+        layout->setHorizontalSpacing(32);
         setLayout(layout);
         setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         setMinimumWidth(32);

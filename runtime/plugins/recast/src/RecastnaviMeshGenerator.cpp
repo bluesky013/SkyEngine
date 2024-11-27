@@ -223,12 +223,4 @@ namespace sky::ai {
         }
         return true;
     }
-
-    void RecastNaviMeshGenerator::OnComplete(bool result)
-    {
-        // test navr
-//        CounterPtr<RecastQueryFilter> queryFilter = new RecastQueryFilter();
-//        navMesh->FindPath(Vector3(-30.f, 0.f, -30.f), Vector3(30.f, 0.f, 30.f), queryFilter, {});
-    }
-
 } // namespace sky::ai

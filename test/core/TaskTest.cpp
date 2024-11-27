@@ -9,31 +9,49 @@ using namespace sky;
 
 class TestTask : public Task {
 public:
-    explicit TestTask(uint32_t &v) : id(v) {}
-    ~TestTask() override = default;
+    explicit TestTask()  = default;
+    ~TestTask() override
+    {
+        printf("test\n");
+    }
 
     bool DoWork() override
     {
         std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(10));
         return true;
     }
+};
 
-    void OnComplete(bool result) override
+class TestTaskCallback : public ITaskCallBack {
+public:
+    explicit TestTaskCallback(uint32_t &v) : id(v) {}
+    ~TestTaskCallback() = default;
+
+    void OnTaskComplete(bool result, Task *task)
     {
         id = 20;
     }
 
-private:
-    uint32_t& id;
+    uint32_t &id;
 };
 
 TEST(TaskTest, TaskTestBase)
 {
-    uint32_t id = 0;
+    uint32_t id1 = 0;
+    uint32_t id2 = 0;
+    {
+        TestTaskCallback     test(id1);
+        CounterPtr<TestTask> task = new TestTask();
+        task->SetCallback(&test);
+        task->StartAsync();
+    }
+    TaskExecutor::Get()->GetExecutor().wait_for_all();
+    ASSERT_EQ(id1, 0);
 
-    auto *tf = TaskExecutor::Get();
-    tf->ExecuteTask(new TestTask(id));
-    tf->WaitForAll();
-
-    ASSERT_EQ(id, 20);
+    TestTaskCallback     test1(id2);
+    CounterPtr<TestTask> task = new TestTask();
+    task->SetCallback(&test1);
+    task->StartAsync();
+    TaskExecutor::Get()->GetExecutor().wait_for_all();
+    ASSERT_EQ(id2, 20);
 }
