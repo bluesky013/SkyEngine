@@ -6,7 +6,9 @@
 
 #include <terrain/TerrainBase.h>
 #include <terrain/TerrainQuadTree.h>
+#include <terrain/TerrainSector.h>
 #include <render/resource/Buffer.h>
+#include <memory>
 
 namespace sky {
 
@@ -17,6 +19,9 @@ namespace sky {
 
         void Tick();
 
+        void AddSector(const TerrainSector &sector);
+        void RemoveSector(const TerrainCoord &coord);
+        bool HasSector(const TerrainCoord &coord) const;
     private:
         void BuildGeometry();
 
@@ -25,8 +30,10 @@ namespace sky {
 
         TerrainQuad config;
 
-        VertexBuffer vertexBuffer;
+        VertexBuffer             vertexBuffer;
         std::vector<IndexBuffer> indexBuffers;
+
+        std::vector<TerrainSector> sectors;
     };
 
 } // namespace sky

@@ -6,11 +6,5 @@
 
 namespace sky {
 
-    TerrainSector::TerrainSector()
-    {
-
-    }
-
-    TerrainSector::~TerrainSector() = default;
 
 } // namespace sky

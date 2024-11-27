@@ -18,6 +18,25 @@ namespace sky {
 
     }
 
+    void TerrainRender::AddSector(const TerrainSector &sector)
+    {
+        sectors.emplace_back(sector);
+    }
+
+    void TerrainRender::RemoveSector(const TerrainCoord &coord)
+    {
+        sectors.erase(std::remove_if(sectors.begin(), sectors.end(),
+            [&coord](const auto &v) { return v.coord.x == coord.x && v.coord.y == coord.y;
+            }), sectors.end());
+    }
+
+    bool TerrainRender::HasSector(const TerrainCoord &coord) const
+    {
+        return std::find_if(sectors.begin(), sectors.end(),
+            [&coord](const auto &v) { return v.coord.x == coord.x && v.coord.y == coord.y;
+            }) != sectors.end();
+    }
+
     void TerrainRender::BuildGeometry()
     {
         auto size = ConvertSectionSize(config.sectionSize);

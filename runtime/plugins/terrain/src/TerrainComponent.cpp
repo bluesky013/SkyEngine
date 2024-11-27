@@ -13,8 +13,9 @@ namespace sky {
             .Member<&TerrainCoord::x>("x")
             .Member<&TerrainCoord::y>("y");
 
-        context ->Register<TerrainSection>("TerrainSection")
-            .Member<&TerrainSection::coord>("coord");
+        context->Register<TerrainSectionData>("TerrainSectionData")
+            .Member<&TerrainSectionData::coord>("coord")
+            .Member<&TerrainSectionData::heightMap>("heightMap");
         
         context->Register<TerrainSectionSize>("SectionSize")
             .Enum(TerrainSectionSize::S31x31, "31x31")
@@ -40,7 +41,7 @@ namespace sky {
 
     SequenceVisitor TerrainComponent::Sections()
     {
-        const auto *info = TypeInfoObj<std::vector<TerrainSection>>::Get()->RtInfo();
+        const auto *info = TypeInfoObj<std::vector<TerrainSectionData>>::Get()->RtInfo();
         SKY_ASSERT(info != nullptr);
 
         return {info->containerInfo, reinterpret_cast<void *>(&data.sections)};

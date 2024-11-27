@@ -12,15 +12,17 @@
 namespace sky {
     class SerializationContext;
 
-    struct TerrainSection {
+    struct TerrainSectionData {
         TerrainCoord coord;
+
+        Uuid heightMap;
     };
 
     struct TerrainData {
         TerrainSectionSize sectionSize;
         float resolution = 1.f;
 
-        std::vector<TerrainSection> sections;
+        std::vector<TerrainSectionData> sections;
     };
 
     class TerrainComponent : public ComponentAdaptor<TerrainData> {
