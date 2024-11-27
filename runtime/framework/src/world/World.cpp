@@ -175,12 +175,12 @@ namespace sky {
         return iter != subSystems.end() ? iter->second.get() : nullptr;
     }
 
-    void World::RegisterConfiguration(const std::string& name, const Any& any)
+    void World::RegisterConfiguration(const Name& name, const Any& any)
     {
         SKY_ASSERT(worldConfigs.emplace(name, any).second);
     }
 
-    const Any& World::GetConfigByName(const std::string &name) const
+    const Any& World::GetConfigByName(const Name &name) const
     {
         static Any EMPTY;
         auto iter = worldConfigs.find(name);

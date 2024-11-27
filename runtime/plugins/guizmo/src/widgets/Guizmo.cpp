@@ -26,7 +26,7 @@ namespace sky::editor {
 
         if (actor != nullptr) {
             auto *world = actor->GetWorld();
-            renderScene = static_cast<RenderSceneProxy*>(world->GetSubSystem("RenderScene"))->GetRenderScene();
+            renderScene = static_cast<RenderSceneProxy*>(world->GetSubSystem(Name("RenderScene")))->GetRenderScene();
         }
     }
 

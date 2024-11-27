@@ -102,7 +102,7 @@ namespace sky::ai {
     void RecastNaviMesh::OnAttachToWorld(World &world)
     {
         if (debugDraw) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
             renderScene->AddPrimitive(primitive.get());
         }
     }
@@ -110,7 +110,7 @@ namespace sky::ai {
     void RecastNaviMesh::OnDetachFromWorld(World &world)
     {
         if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
             renderScene->RemovePrimitive(primitive.get());
         }
     }

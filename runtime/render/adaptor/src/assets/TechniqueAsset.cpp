@@ -116,7 +116,7 @@ namespace sky {
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);
-            tech->SetRasterTag(data.passTag);
+            tech->SetRasterTag(Name(data.passTag.c_str()));
 
             for (const auto &[bit, str] : data.vertexFlags) {
                 tech->SetVertexFlag(static_cast<RenderVertexFlagBit>(bit.value), str);

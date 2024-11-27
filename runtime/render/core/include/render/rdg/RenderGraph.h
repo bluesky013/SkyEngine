@@ -10,6 +10,7 @@
 
 #include <core/template/Overloaded.h>
 #include <core/platform/Platform.h>
+#include <core/name/Name.h>
 #include <render/rdg/RenderGraphContext.h>
 #include <render/rdg/RenderGraphTypes.h>
 
@@ -21,7 +22,7 @@ namespace sky::rdg {
     struct RenderGraph;
 
     struct RasterQueueBuilder {
-        RasterQueueBuilder &SetRasterID(const std::string &id);
+        RasterQueueBuilder &SetRasterID(const Name &id);
         RasterQueueBuilder &SetLayout(const RDResourceLayoutPtr &layout);
         RasterQueueBuilder &SetView(SceneView *view);
 
@@ -39,16 +40,16 @@ namespace sky::rdg {
     };
 
     struct RasterSubPassBuilder {
-        RasterSubPassBuilder &AddColor(const std::string &name, const ResourceAccess& access);
-        RasterSubPassBuilder &AddResolve(const std::string &name, const ResourceAccess& access);
-        RasterSubPassBuilder &AddInput(const std::string &name, const ResourceAccess& access);
-        RasterSubPassBuilder &AddColorInOut(const std::string &name);
-        RasterSubPassBuilder &AddDepthStencil(const std::string &name, const ResourceAccess& access);
-        RasterSubPassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        RasterSubPassBuilder &AddColor(const Name &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddResolve(const Name &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddInput(const Name &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddColorInOut(const Name &name);
+        RasterSubPassBuilder &AddDepthStencil(const Name &name, const ResourceAccess& access);
+        RasterSubPassBuilder &AddComputeView(const Name &name, const ComputeView &view);
         RasterSubPassBuilder &SetViewMask(uint32_t mask);
-        RasterQueueBuilder AddQueue(const std::string &name);
-        FullScreenBuilder AddFullScreen(const std::string &name);
-        uint32_t GetAttachmentIndex(const std::string &name);
+        RasterQueueBuilder AddQueue(const Name &name);
+        FullScreenBuilder AddFullScreen(const Name &name);
+        uint32_t GetAttachmentIndex(const Name &name);
 
         RenderGraph &rdg;
         RasterPass &pass;
@@ -56,13 +57,13 @@ namespace sky::rdg {
         VertexType vertex;
 
     protected:
-        RasterSubPassBuilder &AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view);
+        RasterSubPassBuilder &AddRasterView(const Name &name, VertexType resVertex, const RasterView &view);
     };
 
     struct RasterPassBuilder {
         RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
         RasterPassBuilder &AddCoRelationMasks(uint32_t mask);
-        RasterSubPassBuilder AddRasterSubPass(const std::string &name);
+        RasterSubPassBuilder AddRasterSubPass(const Name &name);
 
         RenderGraph &rdg;
         RasterPass &pass;
@@ -70,7 +71,7 @@ namespace sky::rdg {
     };
 
     struct ComputePassBuilder {
-        ComputePassBuilder &AddComputeView(const std::string &name, const ComputeView &view);
+        ComputePassBuilder &AddComputeView(const Name &name, const ComputeView &view);
 
         RenderGraph &rdg;
         ComputePass &compute;
@@ -118,25 +119,25 @@ namespace sky::rdg {
         using vertex_descriptor = VertexType;
         using Tag   = ResourceGraphTags;
 
-        void AddImage(const char *name, const GraphImage &image);
+        void AddImage(const Name &name, const GraphImage &image);
 
-        void ImportImage(const char *name, const rhi::ImagePtr &image);
-        void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType);
-        void ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
+        void ImportImage(const Name &name, const rhi::ImagePtr &image);
+        void ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType);
+        void ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
 
-        void ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain);
+        void ImportSwapChain(const Name &name, const rhi::SwapChainPtr &swapchain);
 #ifdef SKY_ENABLE_XR
-        void ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain);
+        void ImportXRSwapChain(const Name &name, const rhi::XRSwapChainPtr &swapchain);
 #endif
-        void AddImageView(const char *name, const char *source, const GraphImageView &view);
+        void AddImageView(const Name &name, const Name &source, const GraphImageView &view);
 
-        void AddBuffer(const char *name, const GraphBuffer &attachment);
+        void AddBuffer(const Name &name, const GraphBuffer &attachment);
 
-        void ImportBuffer(const char *name, const rhi::BufferPtr &buffer);
-        void ImportBuffer(const char *name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags);
-        void ImportUBO(const char *name, const RDUniformBufferPtr &ubo);
+        void ImportBuffer(const Name &name, const rhi::BufferPtr &buffer);
+        void ImportBuffer(const Name &name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags);
+        void ImportUBO(const Name &name, const RDUniformBufferPtr &ubo);
 
-        void AddBufferView(const char *name, const char *source, const GraphBufferView &view);
+        void AddBufferView(const Name &name, const Name &source, const GraphBufferView &view);
 
         // memory
         RenderGraphContext *context;
@@ -145,7 +146,7 @@ namespace sky::rdg {
         VertexList vertices;
 
         // components
-        PmrVector<PmrString>  names;
+        PmrVector<Name>       names;
         PmrVector<VertexType> sources;
         PmrVector<VertexType> lastAccesses;
         PmrVector<Tag>        tags;
@@ -173,12 +174,12 @@ namespace sky::rdg {
         using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS>;
         using Tag = RenderGraphTags;
 
-        RasterPassBuilder  AddRasterPass(const char *name, uint32_t width, uint32_t height);
-        ComputePassBuilder AddComputePass(const char *name);
-        CopyPassBuilder    AddCopyPass(const char *name);
+        RasterPassBuilder  AddRasterPass(const Name &name, uint32_t width, uint32_t height);
+        ComputePassBuilder AddComputePass(const Name &name);
+        CopyPassBuilder    AddCopyPass(const Name &name);
 
-        void AddUploadPass(const char *name, const UploadPass &upload);
-        void AddPresentPass(const char *name, const char *resName);
+        void AddUploadPass(const Name &name, const UploadPass &upload);
+        void AddPresentPass(const Name &name, const Name &resName);
 
         static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
 
@@ -198,7 +199,7 @@ namespace sky::rdg {
         VertexList vertices;
 
         // components
-        PmrVector<PmrString>  names;
+        PmrVector<Name>       names;
         PmrVector<VertexType> accessNodes;
         PmrVector<Tag>        tags;
         PmrVector<size_t>     polymorphicDatas;
@@ -241,7 +242,7 @@ namespace sky::rdg {
     }
 
     template <typename D>
-    VertexType AddVertex(const char *name, D &&val, ResourceGraph &graph)
+    VertexType AddVertex(const Name &name, D &&val, ResourceGraph &graph)
     {
         using Tag   = typename std::remove_reference<D>::type::Tag;
         auto vertex = static_cast<VertexType>(graph.vertices.size());
@@ -249,7 +250,7 @@ namespace sky::rdg {
         graph.tags.emplace_back(Tag{});
         graph.sources.emplace_back(vertex);
         graph.lastAccesses.emplace_back(INVALID_VERTEX);
-        graph.names.emplace_back(PmrString(name, &graph.context->resources));
+        graph.names.emplace_back(name);
 
         if constexpr (std::is_same_v<Tag, ImageTag>) {
             graph.polymorphicDatas.emplace_back(graph.images.size());
@@ -286,7 +287,7 @@ namespace sky::rdg {
     }
 
     template <typename D>
-    VertexType AddVertex(const char *name, D &&val, RenderGraph &graph)
+    VertexType AddVertex(const Name &name, D &&val, RenderGraph &graph)
     {
         using Tag = typename std::remove_reference<D>::type::Tag;
         auto vertex = static_cast<VertexType>(graph.vertices.size());
@@ -298,7 +299,7 @@ namespace sky::rdg {
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
         graph.accessNodes.emplace_back(accessVtx);
-        graph.names.emplace_back(PmrString(name, &graph.context->resources));
+        graph.names.emplace_back(name);
 
         if constexpr (std::is_same_v<Tag, RasterPassTag>) {
             graph.polymorphicDatas.emplace_back(graph.rasterPasses.size());
@@ -331,7 +332,7 @@ namespace sky::rdg {
     }
 
     template <typename Graph>
-    VertexType FindVertex(const char *name, Graph &g)
+    VertexType FindVertex(const Name &name, Graph &g)
     {
         auto iter = std::find(g.names.begin(), g.names.end(), name);
         return iter == g.names.end() ? INVALID_VERTEX : static_cast<VertexType>(std::distance(g.names.begin(), iter));
@@ -339,7 +340,7 @@ namespace sky::rdg {
 
     // component visitors
     template <typename V, typename G>
-    PmrString &Name(V v, G &g)
+    Name &GetName(V v, G &g)
     {
         return g.names[static_cast<typename G::vertex_descriptor>(v)];
     }

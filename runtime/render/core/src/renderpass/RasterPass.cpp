@@ -20,7 +20,7 @@ namespace sky {
 
     void RasterPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
     {
-        auto passBuilder = rdg.AddRasterPass(name.data(), width, height);
+        auto passBuilder = rdg.AddRasterPass(name, width, height);
 
         auto colorCount   = static_cast<uint32_t>(colors.size());
         auto resolveCount = static_cast<uint32_t>(resolves.size());
@@ -37,11 +37,11 @@ namespace sky {
             passBuilder.AddAttachment(resolve.attachment, resolve.clearValue);
         }
 
-        if (!depthStencil.attachment.name.empty()) {
+        if (!depthStencil.attachment.name.Empty()) {
             passBuilder.AddAttachment(depthStencil.attachment, depthStencil.clearValue);
         }
 
-        auto subPassBuilder = passBuilder.AddRasterSubPass(name + "@0");
+        auto subPassBuilder = passBuilder.AddRasterSubPass(Name("Sub0"));
         for (uint32_t i = 0; i < colorCount; ++i) {
             subPassBuilder.AddColor(colors[i].attachment.name, rdg::ResourceAccessBit::WRITE);
 
@@ -50,7 +50,7 @@ namespace sky {
             }
         }
 
-        if (!depthStencil.attachment.name.empty()) {
+        if (!depthStencil.attachment.name.Empty()) {
             subPassBuilder.AddDepthStencil(depthStencil.attachment.name, rdg::ResourceAccessBit::WRITE);
         }
 
@@ -63,19 +63,19 @@ namespace sky {
 
     void FullScreenPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
     {
-        auto passBuilder = rdg.AddRasterPass(name.c_str(), width, height);
+        auto passBuilder = rdg.AddRasterPass(name, width, height);
 
         SKY_ASSERT(colors.size() == 1);
         passBuilder.AddAttachment(colors[0].attachment, colors[0].clearValue);
 
-        auto subPassBuilder = passBuilder.AddRasterSubPass(name + "@0");
+        auto subPassBuilder = passBuilder.AddRasterSubPass(Name("Sub0"));
         subPassBuilder.AddColor(colors[0].attachment.name, rdg::ResourceAccessBit::WRITE);
 
         for (auto &res : computeResources) {
             subPassBuilder.AddComputeView(res.name, res.computeView);
         }
 
-        subPassBuilder.AddFullScreen(name + "_queue")
+        subPassBuilder.AddFullScreen(Name("FullScreen"))
             .SetTechnique(technique);
 
         SetupSubPass(subPassBuilder, scene);

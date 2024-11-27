@@ -86,14 +86,14 @@ namespace sky::phy {
     void BulletPhysicsWorld::OnAttachToWorld(World &world)
     {
         if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
             renderScene->AddPrimitive(static_cast<BulletDebugDraw*>(debugDraw.get())->GetPrimitive());
         }
     }
     void BulletPhysicsWorld::OnDetachFromWorld(World &world)
     {
         if (debugDraw != nullptr) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+            auto *renderScene = static_cast<RenderSceneProxy *>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
             renderScene->RemovePrimitive(static_cast<BulletDebugDraw*>(debugDraw.get())->GetPrimitive());
         }
     }

@@ -81,7 +81,7 @@ namespace sky::phy {
 
     PhysicsWorld* RigidBodyComponent::GetWorld() const
     {
-        return static_cast<PhysicsWorld*>(actor->GetWorld()->GetSubSystem(PhysicsWorld::NAME.data()));
+        return static_cast<PhysicsWorld*>(actor->GetWorld()->GetSubSystem(Name(PhysicsWorld::NAME.data())));
     }
 
     void RigidBodyComponent::SetupRigidBody()

@@ -26,7 +26,7 @@ namespace sky::ai {
     {
         world = inWorld;
 
-        auto *navSys = static_cast<NavigationSystem*>(world->GetSubSystem(NavigationSystem::NAME.data()));
+        auto *navSys = static_cast<NavigationSystem*>(world->GetSubSystem(Name(NavigationSystem::NAME.data())));
         navMesh = static_cast<RecastNaviMesh*>(navSys->GetNaviMesh().Get());
         navMesh->SetBounds({{-50.f, -50.f, -50.f}, {50.f, 50.f, 50.f}});
         navMesh->PrepareForBuild();

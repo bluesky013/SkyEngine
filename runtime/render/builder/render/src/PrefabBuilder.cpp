@@ -284,7 +284,7 @@ namespace sky::builder {
             std::string boneName = aBone->mName.C_Str();
 
             uint32_t boneIndex = 0;
-            if (auto iter = skeleton.nameToIndexMap.find(boneName); iter != skeleton.nameToIndexMap.end()) {
+            if (auto iter = skeleton.nameToIndexMap.find(Name(aBone->mName.C_Str())); iter != skeleton.nameToIndexMap.end()) {
                 boneIndex = iter->second;
             } else {
                 boneIndex = skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
@@ -323,7 +323,7 @@ namespace sky::builder {
         uint32_t boneIndex = skeleton.FindBoneByName(node->mName.C_Str());
 
         if (boneIndex != INVALID_BONE_ID) {
-            skeleton.boneData[boneIndex].name = node->mName.C_Str();
+            skeleton.boneData[boneIndex].name = Name(node->mName.C_Str());
             skeleton.boneData[boneIndex].parentIndex = parentIndex;
 
             aiVector3t<ai_real> scaling = {};

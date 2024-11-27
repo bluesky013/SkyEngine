@@ -7,7 +7,7 @@
 namespace sky {
 
     AnimationNodeChannel::AnimationNodeChannel(const AnimNodeChannelData &data)
-        : AnimationChannel(data.name)
+        : AnimationChannel(Name(data.name.c_str()))
         , position(data.position)
         , scale(data.scale)
         , rotation(data.rotation)

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 #include <core/template/ReferenceObject.h>
 #include <animation/core/AnimationChannel.h>
 

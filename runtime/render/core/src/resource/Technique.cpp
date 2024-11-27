@@ -5,7 +5,6 @@
 #include <render/resource/Technique.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <render/RenderNameHandle.h>
 #include <shader/ShaderCompiler.h>
 #include <core/archive/FileArchive.h>
 
@@ -74,9 +73,9 @@ namespace sky {
         state.blendStates = blends;
     }
 
-    void GraphicsTechnique::SetRasterTag(const std::string &tag)
+    void GraphicsTechnique::SetRasterTag(const Name &tag)
     {
-        rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
+        rasterID = tag;
     }
 
     void GraphicsTechnique::SetVertexFlag(RenderVertexFlagBit bit, const std::string &macro)

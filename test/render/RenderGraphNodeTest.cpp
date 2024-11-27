@@ -51,34 +51,34 @@ TEST(RenderGraphTest, NodeGraphTest01)
      */
 
 
-    rg.AddImage("test",
+    rg.AddImage(Name("test"),
         GraphImage{{128, 128, 1}, 1, 2, rhi::PixelFormat::RGBA8_UNORM, rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED, rhi::SampleCount::X1, rhi::ImageViewType::VIEW_2D_ARRAY});
-    rg.AddImageView("test_1", "test", GraphImageView{{0, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
-    rg.AddImageView("test_1_1", "test_1", GraphImageView{{0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
-    rg.AddImageView("test_1_2", "test_1", GraphImageView{{0, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
-    rg.AddImage("test2",
+    rg.AddImageView(Name("test_1"), Name("test"), GraphImageView{{0, 1, 0, 2, rhi::AspectFlagBit::COLOR_BIT, rhi::ImageViewType::VIEW_2D_ARRAY}});
+    rg.AddImageView(Name("test_1_1"), Name("test_1"), GraphImageView{{0, 1, 0, 1, rhi::AspectFlagBit::COLOR_BIT}});
+    rg.AddImageView(Name("test_1_2"), Name("test_1"), GraphImageView{{0, 1, 1, 1, rhi::AspectFlagBit::COLOR_BIT}});
+    rg.AddImage(Name("test2"),
                 GraphImage{{128, 128, 1}, 1, 1, rhi::PixelFormat::D24_S8, rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED});
 
-    auto pass1 = rdg.AddRasterPass("color0", 128, 128)
-        .AddAttachment({"test_1_1", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
-        .AddAttachment({"test_1_2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
-        .AddAttachment({"test2", rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    pass1.AddRasterSubPass("color0_sub0")
-        .AddColor("test_1_1", ResourceAccessBit::WRITE)
-        .AddColor("test_1_2", ResourceAccessBit::WRITE)
-        .AddDepthStencil("test2", ResourceAccessBit::WRITE)
-        .AddQueue("queue1");
+    auto pass1 = rdg.AddRasterPass(Name("color0"), 128, 128)
+        .AddAttachment({Name("test_1_1"), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
+        .AddAttachment({Name("test_1_2"), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f))
+        .AddAttachment({Name("test2"), rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
+    pass1.AddRasterSubPass(Name("color0_sub0"))
+        .AddColor(Name("test_1_1"), ResourceAccessBit::WRITE)
+        .AddColor(Name("test_1_2"), ResourceAccessBit::WRITE)
+        .AddDepthStencil(Name("test2"), ResourceAccessBit::WRITE)
+        .AddQueue(Name("queue1"));
 
-    auto pass2 = rdg.AddRasterPass("color1", 128, 128)
-        .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    pass2.AddRasterSubPass("color1_sub0")
-        .AddDepthStencil("test2", ResourceAccessBit::WRITE)
-        .AddComputeView("test", {"_", ComputeType::SRV, rhi::ShaderStageFlagBit::FS, ResourceAccessBit::READ});
+    auto pass2 = rdg.AddRasterPass(Name("color1"), 128, 128)
+        .AddAttachment({Name("test2"), rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
+    pass2.AddRasterSubPass(Name("color1_sub0"))
+        .AddDepthStencil(Name("test2"), ResourceAccessBit::WRITE)
+        .AddComputeView(Name("test"), {"_", ComputeType::SRV, rhi::ShaderStageFlagBit::FS, ResourceAccessBit::READ});
 
-    auto pass3 = rdg.AddRasterPass("color2", 128, 128)
-        .AddAttachment({"test2", rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
-    pass3.AddRasterSubPass("color2_sub0")
-        .AddDepthStencil("test2", ResourceAccessBit::WRITE);
+    auto pass3 = rdg.AddRasterPass(Name("color2"), 128, 128)
+        .AddAttachment({Name("test2"), rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
+    pass3.AddRasterSubPass(Name("color2_sub0"))
+        .AddDepthStencil(Name("test2"), ResourceAccessBit::WRITE);
 
     {
         AccessCompiler             compiler(rdg);

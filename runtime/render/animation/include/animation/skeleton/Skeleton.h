@@ -7,7 +7,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Transform.h>
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 #include <vector>
 #include <string>
 #include <unordered_map>

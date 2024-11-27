@@ -97,7 +97,7 @@ namespace sky {
     }
 
     struct BoneNode {
-        std::string_view name = "Root";
+        Name name = Name("Root");
         uint32_t boneIndex = INVALID_BONE_ID;
         std::vector<BoneNode*> children;
     };

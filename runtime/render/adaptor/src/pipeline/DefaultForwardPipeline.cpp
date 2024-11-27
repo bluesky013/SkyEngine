@@ -43,8 +43,8 @@ namespace sky {
 
         auto *sceneView = scene->GetSceneViews()[0].get();
 
-        const char* globalUboName = "globalUBO";
-        const char* colorViewName = "SCENE_VIEW";
+        Name globalUboName = Name("globalUBO");
+        Name colorViewName = Name("SCENE_VIEW");
 
         auto &rg = rdg.resourceGraph;
         rg.ImportUBO(colorViewName, sceneView->GetUBO());

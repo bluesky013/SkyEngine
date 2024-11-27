@@ -313,7 +313,7 @@ namespace sky::editor {
         auto *ppl = new RenderPassPipeline();
         Renderer::Get()->SetPipeline(ppl);
 
-        sceneProxy = static_cast<RenderSceneProxy*>(world->GetSubSystem("RenderScene"));
+        sceneProxy = static_cast<RenderSceneProxy*>(world->GetSubSystem(Name("RenderScene")));
         auto *scenePipeline = new DefaultForwardPipeline(sceneProxy->GetRenderScene());
         scenePipeline->SetOutput(renderWindow);
         ppl->AddScenePass(scenePipeline);

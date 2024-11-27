@@ -6,8 +6,10 @@
 
 namespace sky {
 
-    uint32_t SkeletonAssetData::AdddBone(const std::string &name, const Matrix4 &matrix)
+    uint32_t SkeletonAssetData::AdddBone(const std::string &str, const Matrix4 &matrix)
     {
+        Name name(str.c_str());
+
         SKY_ASSERT(!nameToIndexMap.contains(name))
 
         auto boneIndex = static_cast<uint32_t>(nameToIndexMap.size());
@@ -18,8 +20,10 @@ namespace sky {
         return boneIndex;
     }
 
-    uint32_t SkeletonAssetData::FindBoneByName(const Name &name) const
+    uint32_t SkeletonAssetData::FindBoneByName(const std::string &str) const
     {
+        Name name(str.c_str());
+
         auto iter = nameToIndexMap.find(name);
         return iter != nameToIndexMap.end() ? iter->second : INVALID_BONE_ID;
     }
@@ -55,7 +59,7 @@ namespace sky {
             uint32_t boneIndex = 0;
             archive.LoadValue(boneIndex);
 
-            nameToIndexMap.emplace(name, boneIndex);
+            nameToIndexMap.emplace(Name(name.c_str()), boneIndex);
         }
     }
 

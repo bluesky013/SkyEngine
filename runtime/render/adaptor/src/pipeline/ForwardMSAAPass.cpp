@@ -11,7 +11,7 @@
 namespace sky {
 
     ForwardMSAAPass::ForwardMSAAPass(rhi::PixelFormat format, rhi::PixelFormat ds, rhi::SampleCount samples_)
-        : RasterPass("ForwardMSAA")
+        : RasterPass(Name("ForwardMSAA"))
         , colorFormat(format)
         , depthStenFormat(rhi::PixelFormat::D24_S8)
         , samples(samples_)
@@ -23,29 +23,33 @@ namespace sky {
         image.usage         = rhi::ImageUsageFlagBit::RENDER_TARGET;
         image.format        = colorFormat;
 
-        images.emplace_back(FWD_MSAA_CL, image);
+        Name fwdMSAAColor(FWD_MSAA_CL.data());
+        Name fwdColor(FWD_CL.data());
+        Name fwdMSAADepthStencil(FWD_MSAA_DS.data());
+
+        images.emplace_back(fwdMSAAColor, image);
 
         image.samples       = rhi::SampleCount::X1;
         image.usage         = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
-        images.emplace_back(FWD_CL, image);
+        images.emplace_back(fwdColor, image);
 
         image.samples       = samples;
         image.usage         = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
         image.format        = depthStenFormat;
-        images.emplace_back(FWD_MSAA_DS, image);
+        images.emplace_back(fwdMSAADepthStencil, image);
 
         colors.emplace_back(Attachment{
-            rdg::RasterAttachment{FWD_MSAA_CL.data(), rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
+            rdg::RasterAttachment{fwdMSAAColor, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
             rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)
         });
 
         resolves.emplace_back(Attachment{
-            rdg::RasterAttachment{FWD_CL.data(), rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
+            rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
             rhi::ClearValue(0, 0, 0, 0)
         });
 
         depthStencil = Attachment{
-            rdg::RasterAttachment{FWD_MSAA_DS.data(), rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
+            rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
             rhi::ClearValue(1.f, 0)
         };
 
@@ -55,7 +59,7 @@ namespace sky {
 //        });
 
         computeResources.emplace_back(ComputeResource{
-            "SCENE_VIEW",
+            Name("SCENE_VIEW"),
             rdg::ComputeView{"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
         });
 
@@ -83,18 +87,18 @@ namespace sky {
 
         subPass.SetViewMask(0);
 
-        subPass.AddQueue("queue1")
-                .SetRasterID("ForwardColor")
+        subPass.AddQueue(Name("queue1"))
+                .SetRasterID(Name("ForwardColor"))
                 .SetView(sceneView)
                 .SetLayout(layout);
 
-        subPass.AddQueue("queue2")
-                .SetRasterID("Transparent")
+        subPass.AddQueue(Name("queue2"))
+                .SetRasterID(Name("Transparent"))
                 .SetView(sceneView)
                 .SetLayout(layout);
 
-        subPass.AddQueue("queue3")
-                .SetRasterID("SkyBox")
+        subPass.AddQueue(Name("queue3"))
+                .SetRasterID(Name("SkyBox"))
                 .SetView(sceneView)
                 .SetLayout(layout);
     }

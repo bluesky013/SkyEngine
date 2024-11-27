@@ -8,7 +8,7 @@
 #include <core/std/Container.h>
 #include <core/event/Event.h>
 #include <core/template/ReferenceObject.h>
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 #include <framework/world/Entity.h>
 #include <framework/world/Actor.h>
 #include <framework/serialization/JsonArchive.h>
@@ -81,16 +81,16 @@ namespace sky {
         void AddSubSystem(const Name &name, IWorldSubSystem*);
         IWorldSubSystem* GetSubSystem(const Name &name) const;
 
-        void RegisterConfiguration(const std::string& name, const Any& any);
-        const Any& GetConfigByName(const std::string &name) const;
+        void RegisterConfiguration(const Name &name, const Any& any);
+        const Any& GetConfigByName(const Name &name) const;
 
     private:
         World() = default;
 
         std::vector<ActorPtr> actors;
-        std::unordered_map<std::string, std::unique_ptr<IWorldSubSystem>> subSystems;
+        std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
 
-        std::unordered_map<std::string, Any> worldConfigs;
+        std::unordered_map<Name, Any> worldConfigs;
         uint32_t version = 0;
     };
 } // namespace sky

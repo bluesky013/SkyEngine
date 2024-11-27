@@ -9,15 +9,18 @@
 namespace sky {
 
     PostProcessingPass::PostProcessingPass(const RDGfxTechPtr &tech)
-        : FullScreenPass("PostProcessingPass", tech)
+        : FullScreenPass(Name("PostProcessingPass"), tech)
     {
+        Name swapChainName(SWAP_CHAIN.data());
+        Name fwdColor(FWD_CL.data());
+
         colors.emplace_back(Attachment{
-            rdg::RasterAttachment{SWAP_CHAIN.data(), rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
+            rdg::RasterAttachment{swapChainName, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
             rhi::ClearValue(0, 0, 0, 0)
         });
 
         computeResources.emplace_back(ComputeResource{
-            FWD_CL.data(),
+            fwdColor,
             rdg::ComputeView{"InColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS}
         });
     }
@@ -29,7 +32,7 @@ namespace sky {
 
     void PostProcessingPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
-        builder.AddQueue("queue").SetRasterID("ui");
+        builder.AddQueue(Name("queue")).SetRasterID(Name("ui"));
     }
 
 } // namespace sky

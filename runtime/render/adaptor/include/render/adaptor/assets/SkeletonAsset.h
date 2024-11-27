@@ -15,7 +15,7 @@ namespace sky {
         uint32_t version = 0;
 
         uint32_t AdddBone(const std::string &name, const Matrix4 &matrix);
-        uint32_t FindBoneByName(const Name &name) const;
+        uint32_t FindBoneByName(const std::string &name) const;
 
         void Load(BinaryInputArchive &archive);
         void Save(BinaryOutputArchive &archive) const;

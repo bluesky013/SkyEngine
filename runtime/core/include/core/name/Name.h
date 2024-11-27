@@ -65,6 +65,11 @@ namespace sky {
         {
             return handle;
         }
+
+        bool Empty() const noexcept
+        {
+            return handle == 0;
+        }
     private:
         NameEntryHandle handle;
     };

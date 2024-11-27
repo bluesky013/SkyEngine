@@ -5,6 +5,7 @@
 #pragma once
 
 #include <vector>
+#include <core/name/Name.h>
 #include <render/resource/Shader.h>
 #include <render/RenderResource.h>
 #include <render/RenderBase.h>
@@ -43,12 +44,12 @@ namespace sky {
         void SetDepthStencil(const rhi::DepthStencil &ds);
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
-        void SetRasterTag(const std::string &tag);
+        void SetRasterTag(const Name &tag);
         void SetVertexFlag(RenderVertexFlagBit flagBit, const std::string &macro);
 
         void Process(RenderVertexFlags flags, const ShaderOptionPtr &option);
 
-        uint32_t GetRasterID() const { return rasterID; }
+        const Name &GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
         const rhi::PipelineState &GetPipelineState() const { return state; }
 
@@ -61,7 +62,7 @@ namespace sky {
     private:
         void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
         rhi::PipelineState state;
-        uint32_t rasterID = 0;
+        Name rasterID;
         uint32_t viewMask = 0xFFFFFFFF;
 
         std::vector<std::string> preCompiledFlags;

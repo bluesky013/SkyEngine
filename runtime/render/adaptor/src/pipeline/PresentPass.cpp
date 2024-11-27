@@ -9,19 +9,20 @@
 namespace sky {
 
     PresentPass::PresentPass(const rhi::SwapChainPtr &swc) // NOLINT
-        : PassBase("Present")
+        : PassBase(Name("Present"))
         , swapChain(swc)
+        , swapchainName("SwapChain")
     {
     }
 
     void PresentPass::Prepare(rdg::RenderGraph &rdg, RenderScene &scene)
     {
-        rdg.resourceGraph.ImportSwapChain(SWAP_CHAIN.data(), swapChain);
+        rdg.resourceGraph.ImportSwapChain(swapchainName, swapChain);
     }
 
     void PresentPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
     {
-        rdg.AddPresentPass(name.c_str(), SWAP_CHAIN.data());
+        rdg.AddPresentPass(name, swapchainName);
     }
 
 } // namespace sky
