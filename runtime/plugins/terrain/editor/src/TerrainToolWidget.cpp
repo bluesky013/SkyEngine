@@ -9,7 +9,6 @@
 #include <QRadioButton>
 #include <core/shapes/Base.h>
 #include <core/shapes/Shapes.h>
-#include <core/util/Time.h>
 #include <framework/window/NativeWindowManager.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/asset/AssetDataBase.h>
@@ -211,27 +210,7 @@ namespace sky::editor {
     void TerrainToolWidget::OnGenerateTerrain()
     {
         if (terrainComponent != nullptr) {
-            std::string generatePrefix = std::string("Terrain/") + GetCurrentTimeString();
-
-            auto path = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath();
-            path /= generatePrefix;
-            path.MakeDirectory();
-
-            const auto &data = terrainComponent->GetData();
-            for (const auto &section : data.sections) {
-                TerrainTileGenerator::TileConfig tileCfg = {};
-
-                tileCfg.x             = section.x;
-                tileCfg.y             = section.y;
-                tileCfg.sectionSize   = ConvertSectionSize(data.sectionSize);
-                tileCfg.heightMapSize = 256;
-
-                CounterPtr<TerrainTileGenerator> tileGen = new TerrainTileGenerator();
-                tileGen->SetCallback(this);
-                tileGen->SetPrefix(generatePrefix);
-                tileGen->Setup(tileCfg);
-                tileGen->StartAsync();
-            }
+            generator.Run(terrainComponent);
         }
     }
 
@@ -294,10 +273,5 @@ namespace sky::editor {
         } else {
             terrainComponent = nullptr;
         }
-    }
-
-    void TerrainToolWidget::OnTaskComplete(bool result, Task *task)
-    {
-
     }
 } // namespace sky::editor

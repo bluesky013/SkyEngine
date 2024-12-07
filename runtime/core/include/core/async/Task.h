@@ -11,32 +11,15 @@
 namespace sky {
 
     struct CallBackAlive {};
-    using AliveShared = std::shared_ptr<CallBackAlive>;
-    using AliveWeak = std::weak_ptr<CallBackAlive>;
 
     class Task;
     using TaskPtr = CounterPtr<Task>;
-
-    class ITaskCallBack {
-    public:
-        ITaskCallBack() : host(std::make_shared<CallBackAlive>())
-        {
-        }
-        virtual ~ITaskCallBack() = default;
-
-        virtual void OnTaskComplete(bool result, Task* task) = 0;
-
-    private:
-        friend class Task;
-        AliveShared host;
-    };
 
     class Task : public RefObject {
     public:
         Task() = default;
         ~Task() override = default;
 
-        void SetCallback(ITaskCallBack *callback);
         void StartAsync();
 
         bool IsWorking() const;
@@ -46,12 +29,14 @@ namespace sky {
     protected:
         virtual bool DoWork() = 0;
         virtual void PrepareWork() {}
+        virtual void OnComplete(bool result) {};
 
         friend class TaskExecutor;
-        tf::AsyncTask handle;
+
+        std::atomic_bool           isDone{false};
+        tf::AsyncTask              handle;
         std::vector<tf::AsyncTask> dependencies;
 
-        ITaskCallBack *callback = nullptr;
     };
 
     class TaskExecutor : public Singleton<TaskExecutor> {

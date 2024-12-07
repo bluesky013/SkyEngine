@@ -5,27 +5,16 @@
 #include <core/async/Task.h>
 
 namespace sky {
-
-    void Task::SetCallback(ITaskCallBack *callback_)
-    {
-        callback = callback_;
-    }
-
     void Task::StartAsync()
     {
         PrepareWork();
 
         CounterPtr<Task> thisTask = this;
 
-        AliveWeak host = callback != nullptr ? callback->host : AliveShared{};
-        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask, host, cb = callback]() {
+        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
             bool result = thisTask->DoWork();
+            thisTask->OnComplete(result);
             thisTask->ResetTask();
-
-            if (host.lock()) {
-                cb->OnTaskComplete(result, thisTask.Get());
-            }
-
         }, dependencies.begin(), dependencies.end()).first;
     }
 

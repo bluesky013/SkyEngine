@@ -2,7 +2,7 @@
 
 struct VSInput
 {
-    uint8 Pos : POSITION;
+    uint4 Pos : POSITION;
 };
 
 struct VSOutput
@@ -10,18 +10,21 @@ struct VSOutput
     float4 Pos : SV_POSITION;
 };
 
+struct TerrainInstanced {
+    uint2 position;
+};
+
+// Per Pass
+[[vk::binding(0, 0)]] StructuredBuffer<TerrainInstanced> InstancedData : register(t0, space1);
+
+// Per Batch
+
+// Per Instance
 [[vk::binding(0, 2)]] cbuffer local : register(b0, space2)
 {
     float4x4 World;
     float4x4 InverseTrans;
 }
-
-struct TerrainInstanced {
-    uint32 position;
-};
-
-[[vk::binding(0, 0)]] StructuredBuffer<TerrainInstanced> InstancedData : register(t0, space1);
-
 [[vk::binding(1, 2)]] Texture2D    HeightMap        : register(t0, space2);
 [[vk::binding(2, 2)]] SamplerState HeightMapSampler : register(s0, space2);
 

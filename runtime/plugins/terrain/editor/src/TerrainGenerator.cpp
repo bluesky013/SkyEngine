@@ -6,6 +6,7 @@
 #include <PerlinNoise.hpp>
 #include <terrain/TerrainUtils.h>
 #include <core/math/MathUtil.h>
+#include <core/util/Time.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/serialization/BinaryArchive.h>
 
@@ -19,6 +20,11 @@ namespace sky::editor {
     void TerrainTileGenerator::SetPrefix(const std::string &prefix)
     {
         generatePrefix = prefix;
+    }
+
+    void TerrainTileGenerator::SetReceiver(const TileReceiverPtr &ptr)
+    {
+        receiver = ptr;
     }
 
     uint16_t TerrainTileGenerator::VisitMipData(uint16_t *data, uint16_t width, uint32_t i, uint32_t j)
@@ -61,13 +67,22 @@ namespace sky::editor {
         GenerateHeightMip(mip, currentMipWidth);
     }
 
+    void TerrainTileGenerator::OnComplete(bool result)
+    {
+        if (auto ptr = receiver.lock(); ptr) {
+            ptr->results.emplace_back(TerrainSectionData{
+                tileCfg.coord, heightMapSource->uuid
+            });
+        }
+    }
+
     bool TerrainTileGenerator::DoWork()
     {
         const siv::PerlinNoise::seed_type seed = 113344u;
         const siv::PerlinNoise perlin{ seed };
 
-        auto xOffset = static_cast<float>(tileCfg.x * tileCfg.sectionSize);
-        auto yOffset = static_cast<float>(tileCfg.y * tileCfg.sectionSize);
+        auto xOffset = static_cast<float>(tileCfg.coord.x * tileCfg.sectionSize);
+        auto yOffset = static_cast<float>(tileCfg.coord.y * tileCfg.sectionSize);
 
         auto texelSize = static_cast<uint32_t>(sizeof(uint16_t));
         uint32_t texelNum  = tileCfg.heightMapSize * tileCfg.heightMapSize;
@@ -100,7 +115,7 @@ namespace sky::editor {
         AssetSourcePath sourcePath = {};
 
         std::stringstream ss;
-        ss << generatePrefix << "/" << tileCfg.x << "_" << tileCfg.y << ".image";
+        ss << generatePrefix << "/" << tileCfg.coord.x << "_" << tileCfg.coord.y << ".image";
 
         sourcePath.bundle = SourceAssetBundle::WORKSPACE;
         sourcePath.path   = ss.str();
@@ -112,5 +127,53 @@ namespace sky::editor {
 
         heightMapSource = AssetDataBase::Get()->RegisterAsset(sourcePath);
         return true;
+    }
+
+    TerrainGenerator::TerrainGenerator()
+    {
+        binder.Bind(this);
+    }
+
+    void TerrainGenerator::Tick(float time)
+    {
+        if (receiver && receiver->IsDone()) {
+            receiver->HeightMapChanged();
+        }
+    }
+
+    void TerrainGenerator::Run(TerrainComponent* component)
+    {
+        SKY_ASSERT(component != nullptr);
+
+        std::string generatePrefix = std::string("Terrain/") + GetCurrentTimeString();
+
+        auto path = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath();
+        path /= generatePrefix;
+        path.MakeDirectory();
+
+        const auto &data = component->GetData();
+
+        receiver = std::make_shared<TerrainTileReceiver>();
+        receiver->component = component;
+        receiver->tileNum = static_cast<uint32_t>(data.sections.size());
+
+        for (const auto &section : data.sections) {
+            TerrainTileGenerator::TileConfig tileCfg = {};
+
+            tileCfg.coord         = section.coord;
+            tileCfg.sectionSize   = ConvertSectionSize(data.sectionSize);
+            tileCfg.heightMapSize = 256;
+
+            CounterPtr<TerrainTileGenerator> tileGen = new TerrainTileGenerator();
+            tileGen->SetPrefix(generatePrefix);
+            tileGen->SetReceiver(receiver);
+            tileGen->Setup(tileCfg);
+            tileGen->StartAsync();
+        }
+    }
+
+    void TerrainTileReceiver::HeightMapChanged()
+    {
+        component->UpdateHeightMap(std::move(results));
     }
 } // namespace sky::editor

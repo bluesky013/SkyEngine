@@ -8,21 +8,24 @@
 #include <framework/serialization/ArrayVisitor.h>
 #include <core/util/Uuid.h>
 #include <terrain/TerrainBase.h>
+#include <terrain/TerrainRender.h>
 
 namespace sky {
+    class RenderScene;
     class SerializationContext;
 
     struct TerrainSectionData {
-        int32_t x;
-        int32_t y;
+        TerrainCoord coord;
         Uuid heightMap;
     };
 
     struct TerrainData {
         TerrainSectionSize sectionSize;
+        float resolution = 1.f;
         int32_t sectionBoundX = 8;
         int32_t sectionBoundY = 8;
-        float resolution = 1.f;
+
+        Uuid material;
         std::vector<TerrainSectionData> sections;
     };
 
@@ -39,8 +42,20 @@ namespace sky {
         void BuildTerrain(const TerrainBuildConfig &config);
         void AddSection(int32_t x, int32_t y);
         void RemoveSection(int32_t x, int32_t y);
+
+        void UpdateHeightMap(std::vector<TerrainSectionData> &&data);
     private:
+        void LoadMaterial();
         void OnRebuildTerrain();
+        void ResetRender(RenderScene*);
+
+        void OnSerialized() override;
+
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
+
+        RDMaterialInstancePtr material;
+        std::unique_ptr<TerrainRender> terrainRender;
     };
 
 } // namespace sky

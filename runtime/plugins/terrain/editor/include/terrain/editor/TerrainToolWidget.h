@@ -82,7 +82,7 @@ namespace sky::editor {
         : public ToolWidget
         , public IMouseEvent
         , public ISelectEvent
-        , public ITaskCallBack {
+    {
     public:
         explicit TerrainToolWidget(QWidget* parent);
         ~TerrainToolWidget() override = default;
@@ -105,8 +105,6 @@ namespace sky::editor {
 
         void OnActorSelected(Actor *actor) override;
 
-        void OnTaskComplete(bool result, Task *task) override;
-
         EventBinder<IMouseEvent> mouseBinder;
         EventBinder<ISelectEvent> selectBinder;
 
@@ -119,6 +117,8 @@ namespace sky::editor {
         TerrainComponent* terrainComponent = nullptr;
         RenderScene *renderScene = nullptr;
         std::unique_ptr<TerrainHelper> helper;
+
+        TerrainGenerator generator;
     };
 
 } // namespace sky::editor

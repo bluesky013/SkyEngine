@@ -153,7 +153,7 @@ namespace sky {
         data.global = parent != nullptr ? parent->data.global * data.local * data.global : data.local;
     }
 
-    void TransformComponent::OnLoaded()
+    void TransformComponent::OnSerialized()
     {
         UpdateGlobal();
     }

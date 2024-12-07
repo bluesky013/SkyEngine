@@ -8,7 +8,7 @@
 #include <core/type/Type.h>
 #include <list>
 #include <type_traits>
-#include <unordered_map>
+#include <map>
 
 namespace sky {
     class JsonInputArchive;
@@ -63,9 +63,9 @@ namespace sky {
             BinaryOutFn binarySave = nullptr;
         };
 
-        using MemberMap = std::unordered_map<std::string_view, TypeMemberNode>;
-        using FunctionMap = std::unordered_map<std::string_view, MemberFunctionNode>;
-        using EnumMap = std::unordered_map<uint64_t, std::string_view>;
+        using MemberMap = std::map<std::string_view, TypeMemberNode>;
+        using FunctionMap = std::map<std::string_view, MemberFunctionNode>;
+        using EnumMap = std::map<uint64_t, std::string_view>;
         using ConstructList = std::list<ConstructNode>;
 
     } // namespace serialize

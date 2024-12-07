@@ -6,6 +6,8 @@
 #include <editor/document/Document.h>
 #include <editor/framework/ViewportWidget.h>
 #include <editor/framework/SelectTool.h>
+#include <editor/framework/AssetCreator.h>
+#include <editor/framework/render/MaterialCreator.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
@@ -57,6 +59,8 @@ namespace sky::editor {
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
 
         EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
+
+        AssetCreatorManager::Get()->RegisterTool(Name("Material"), new MaterialInstanceCreator());
 
         if (!InitAppAndSplashWindow(argc, argv)) {
             return false;

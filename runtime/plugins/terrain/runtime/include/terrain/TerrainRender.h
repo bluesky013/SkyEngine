@@ -11,6 +11,7 @@
 #include <memory>
 
 namespace sky {
+    class RenderScene;
 
     class TerrainRender {
     public:
@@ -19,9 +20,14 @@ namespace sky {
 
         void Tick();
 
+        void SetMaterial(const RDMaterialInstancePtr &mat);
         void AddSector(const TerrainSector &sector);
         void RemoveSector(const TerrainCoord &coord);
         bool HasSector(const TerrainCoord &coord) const;
+        void BuildSectors();
+
+        void DetachFromScene(RenderScene* scene);
+        void AttachToScene(RenderScene* scene);
     private:
         void BuildGeometry();
 
@@ -33,7 +39,10 @@ namespace sky {
         VertexBuffer             vertexBuffer;
         std::vector<IndexBuffer> indexBuffers;
 
+        RDMaterialInstancePtr    material;
+
         std::vector<TerrainSector> sectors;
+        std::vector<std::unique_ptr<TerrainSectorRender>> sectorRenders;
     };
 
 } // namespace sky

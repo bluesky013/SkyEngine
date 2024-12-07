@@ -10,12 +10,13 @@ endif ()
 
 sky_add_library(TARGET SkyRender SHARED
     SOURCES
-        RenderModule.cpp
+        adaptor/RenderRegistry.cpp
     PRIVATE_INC
     PUBLIC_INC
     LINK_LIBS
         RenderAdaptor
         ImGuiRender
     )
+
 
 sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

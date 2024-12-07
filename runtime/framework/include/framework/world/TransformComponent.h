@@ -53,7 +53,7 @@ namespace sky {
     private:
         void UpdateLocal();
         void UpdateGlobal();
-        void OnLoaded() override;
+        void OnSerialized() override;
 
         TransformComponent* parent = nullptr;
         std::vector<TransformComponent*> children;

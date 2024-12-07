@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <core/util/Uuid.h>
 
 namespace sky {
 
@@ -42,6 +43,8 @@ namespace sky {
 
         int32_t sectionNumX = 8;
         int32_t sectionNumY = 8;
+
+        Uuid material;
     };
 
     struct TerrainGenerateConfig {

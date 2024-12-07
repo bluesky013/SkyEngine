@@ -6,6 +6,7 @@
 #include <terrain/TerrainUtils.h>
 #include <core/platform/Platform.h>
 #include <core/math/MathUtil.h>
+#include <render/RenderScene.h>
 
 namespace sky {
     TerrainRender::TerrainRender(const TerrainQuad& quad) : config(quad)
@@ -40,12 +41,49 @@ namespace sky {
     void TerrainRender::BuildGeometry()
     {
         auto size = ConvertSectionSize(config.sectionSize);
-        uint8_t mips = CeilLog2(size);
+        uint8_t mips = CeilLog2(size + 1);
 
         BuildVertexBuffer(config, vertexBuffer);
         indexBuffers.resize(mips);
         for (int32_t mip = static_cast<int>(mips) - 1; mip >= 0; mip--) {
             BuildIndexBufferLod(config, indexBuffers[mip], mip);
+        }
+    }
+
+    void TerrainRender::SetMaterial(const RDMaterialInstancePtr &mat)
+    {
+        material = mat;
+    }
+
+    void TerrainRender::DetachFromScene(RenderScene* scene)
+    {
+
+    }
+
+    void TerrainRender::AttachToScene(RenderScene* scene)
+    {
+        for (auto &sec : sectorRenders) {
+            scene->AddPrimitive(sec->GetPrimitive());
+        }
+    }
+
+    void TerrainRender::BuildSectors()
+    {
+        sectorRenders.resize(sectors.size());
+
+        CounterPtr<RenderGeometry> geometry = new RenderGeometry();
+        geometry->vertexBuffers.emplace_back(vertexBuffer);
+        geometry->indexBuffer = indexBuffers[0];
+        geometry->attributeSemantics = VertexSemanticFlagBit::POSITION;
+        geometry->vertexAttributes.emplace_back(VertexAttribute{
+            VertexSemanticFlagBit::POSITION, 0, 0, rhi::Format::U_RGBA8
+        });
+        geometry->version++;
+
+        for (uint32_t i = 0; i < sectors.size(); ++i) {
+            sectorRenders[i] = std::make_unique<TerrainSectorRender>(sectors[i].coord);
+            sectorRenders[i]->SetGeometry(geometry);
+            sectorRenders[i]->SetMaterial(material);
         }
     }
 
@@ -74,7 +112,7 @@ namespace sky {
 
 	void TerrainRender::BuildIndexBufferLod(const TerrainQuad &quad, IndexBuffer &indexBuffer, uint32_t lod)
 	{
-        auto size = ConvertSectionSize(quad.sectionSize);
+        auto size = ConvertSectionSize(quad.sectionSize) + 1;
 
         std::vector<uint16_t> indices;
 		uint32_t subsectionSizeQuads = (size >> lod) - 1;

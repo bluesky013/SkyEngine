@@ -146,8 +146,8 @@ namespace sky::editor {
         auto c1 = Color32{31, 31, 0, 128};
 
         for (const auto &terrain : data.sections) {
-            const auto &sectionX = terrain.x;
-            const auto &sectionY = terrain.y;
+            const auto sectionX = terrain.coord.x;
+            const auto sectionY = terrain.coord.y;
 
             auto color = (sectionX == x) && (sectionY == y) ? c1 : c0;
 
@@ -170,8 +170,8 @@ namespace sky::editor {
         renderer->SetTopo(rhi::PrimitiveTopology::LINE_LIST);
         renderer->SetColor(Color32{127, 0, 0, 128});
         for (const auto &terrain : data.sections) {
-            const auto &sectionX = terrain.x;
-            const auto &sectionY = terrain.y;
+            const auto sectionX = terrain.coord.x;
+            const auto sectionY = terrain.coord.y;
 
             float x0 = static_cast<float>((sectionX + 0)* size) * data.resolution;
             float x1 = static_cast<float>((sectionX + 1)* size) * data.resolution;

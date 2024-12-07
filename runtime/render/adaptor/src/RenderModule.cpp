@@ -2,7 +2,8 @@
 // Created by Zach Lee on 2023/2/20.
 //
 
-#include <framework/interface/IModule.h>
+#include <render/adaptor/RenderModule.h>
+
 #include <framework/asset/AssetManager.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/interface/ISystem.h>
@@ -19,7 +20,6 @@
 #include <render/adaptor/components/SkyBoxComponent.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/adaptor/RenderSceneProxy.h>
 
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
@@ -29,7 +29,6 @@
 #include <render/Renderer.h>
 
 #include <core/profile/Profiler.h>
-#include <core/event/Event.h>
 #include <cxxopts.hpp>
 
 namespace sky {
@@ -50,22 +49,6 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
     }
-
-    class RenderModule : public IModule {
-    public:
-        RenderModule() = default;
-        ~RenderModule() override = default;
-
-        bool Init(const StartArguments &args) override;
-        void Tick(float delta) override;
-        void Shutdown() override;
-        void Start() override;
-    private:
-        void ProcessArgs(const StartArguments &args);
-        void InitFeatures();
-
-        rhi::API api = rhi::API::DEFAULT;
-    };
 
     void RenderModule::ProcessArgs(const StartArguments &args)
     {
@@ -165,4 +148,3 @@ namespace sky {
         Renderer::Get()->Tick(delta);
     }
 }
-REGISTER_MODULE(sky::RenderModule)
