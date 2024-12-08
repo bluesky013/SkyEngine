@@ -21,6 +21,7 @@
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 
+#include <render/light/LightFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
@@ -111,6 +112,7 @@ namespace sky {
         MeshFeature::Get()->Init();
         ImGuiFeature::Get()->Init();
         TextFeature::Get()->Init();
+        LightFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
         {

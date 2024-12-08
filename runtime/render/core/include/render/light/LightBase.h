@@ -9,9 +9,9 @@
 namespace sky {
 
     enum class LightType : uint32_t {
-        DIRECT,
-        POINT,
-        SPOT
+        POINT   = 0,
+        DIRECT  = 1,
+        SPOT    = 2
     };
 
     struct LightInfo {
@@ -34,16 +34,42 @@ namespace sky {
         Vector4 color;
     };
 
+    class PointLight : public Light {
+    public:
+        PointLight() = default;
+        ~PointLight() override = default;
+
+        void Collect(LightInfo &info) override;
+    private:
+        Vector3 position;
+        Vector3 direction;
+
+        float range = 1.f;
+    };
+
+    class SpotLight : public Light {
+    public:
+        SpotLight() = default;
+        ~SpotLight() override = default;
+
+        void Collect(LightInfo &info) override;
+    private:
+        Vector3 position;
+        Vector3 direction;
+
+        float angle = 1.f;
+    };
+
     class DirectLight : public Light {
     public:
         DirectLight() = default;
         ~DirectLight() override = default;
 
-        void SetDirection(const Vector3 &dir) { direction = Cast(dir); }
+        void SetDirection(const Vector3 &dir) { direction = dir; }
 
         void Collect(LightInfo &info) override;
     private:
-        Vector4 direction;
+        Vector3 direction;
     };
 
 } // namespace sky

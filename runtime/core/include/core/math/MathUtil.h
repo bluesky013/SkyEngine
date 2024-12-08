@@ -40,12 +40,12 @@ namespace sky {
         return value / 180.f * PI;
     }
 
-    inline Vector4 Cast(const Vector3 &vec)
+    inline Vector4 ToVec4(const Vector3 &vec)
     {
         return {vec.x, vec.y, vec.z, 1.f};
     }
 
-    inline Vector3 Cast(const Vector4 &vec)
+    inline Vector3 ToVec3(const Vector4 &vec)
     {
         return {vec.x, vec.y, vec.z};
     }
@@ -53,9 +53,9 @@ namespace sky {
     inline Matrix4 Cast(const Matrix3 &mat)
     {
         Matrix4 ret;
-        ret.m[0] = Cast(mat[0]);
-        ret.m[1] = Cast(mat[1]);
-        ret.m[2] = Cast(mat[2]);
+        ret.m[0] = ToVec4(mat[0]);
+        ret.m[1] = ToVec4(mat[1]);
+        ret.m[2] = ToVec4(mat[2]);
         ret.m[3] = Vector4(0, 0, 0, 1);
         return ret;
     }
@@ -63,9 +63,9 @@ namespace sky {
     inline Matrix3 Cast(const Matrix4 &mat)
     {
         Matrix3 ret;
-        ret.m[0] = Cast(mat[0]);
-        ret.m[1] = Cast(mat[1]);
-        ret.m[2] = Cast(mat[2]);
+        ret.m[0] = ToVec3(mat[0]);
+        ret.m[1] = ToVec3(mat[1]);
+        ret.m[2] = ToVec3(mat[2]);
         return ret;
     }
 

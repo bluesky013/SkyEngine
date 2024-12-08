@@ -87,7 +87,7 @@ namespace sky::editor {
         Vector2 screenPos(static_cast<float>(eve.x) / screenWidth, static_cast<float>(eve.y) / screenHeight);
         Vector2 ndc = screenPos * 2.f - Vector2(1.f, 1.f);
 
-        auto camPos = Cast(cam->GetWorldMatrix().m[3]);
+        auto camPos = ToVec3(cam->GetWorldMatrix().m[3]);
         auto dst = cam->GetViewProjectMatrix().Inverse() * Vector4(ndc.x, ndc.y, 0.5f, 1.f);
         auto dstPos = Vector3(dst.x / dst.w, dst.y / dst.w, dst.z / dst.w);
 

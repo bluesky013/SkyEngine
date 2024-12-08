@@ -90,7 +90,7 @@ namespace sky::ai {
             const auto* src = reinterpret_cast<const Vector3*>(triangleMesh->position.data());
             auto* dst = reinterpret_cast<Vector3*>(scaledTriangleMesh->position.data());
             for (auto i = 0; i < vtxCount; ++i) {
-                dst[i] = Cast(worldMatrix * Vector4(src[i].x, src[i].y, src[i].z, 1.0f));
+                dst[i] = ToVec3(worldMatrix * Vector4(src[i].x, src[i].y, src[i].z, 1.0f));
             }
 
             for (uint32_t i = 0; i < triangleMesh->views.size(); ++i) {

@@ -90,13 +90,13 @@ namespace sky {
         auto normal = (quad.v[0] - quad.v[1]).Cross((quad.v[2] - quad.v[1]));
         normal.Normalize();
 
-        AddVertex({Cast(quad.v[0]), Cast(normal), currentColor});
-        AddVertex({Cast(quad.v[1]), Cast(normal), currentColor});
-        AddVertex({Cast(quad.v[2]), Cast(normal), currentColor});
+        AddVertex({ToVec4(quad.v[0]), ToVec4(normal), currentColor});
+        AddVertex({ToVec4(quad.v[1]), ToVec4(normal), currentColor});
+        AddVertex({ToVec4(quad.v[2]), ToVec4(normal), currentColor});
 
-        AddVertex({Cast(quad.v[2]), Cast(normal), currentColor});
-        AddVertex({Cast(quad.v[3]), Cast(normal), currentColor});
-        AddVertex({Cast(quad.v[0]), Cast(normal), currentColor});
+        AddVertex({ToVec4(quad.v[2]), ToVec4(normal), currentColor});
+        AddVertex({ToVec4(quad.v[3]), ToVec4(normal), currentColor});
+        AddVertex({ToVec4(quad.v[0]), ToVec4(normal), currentColor});
 
         args.vertexCount += 6;
         return *this;
@@ -106,51 +106,51 @@ namespace sky {
     {
         //
         currentColor = Color(1.f, 0.f, 0.f, 1.f);
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Z), currentColor});
 
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Z), currentColor});
 
         //
         currentColor = Color(0.f, 1.f, 0.f, 1.f);
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_X), currentColor});
 
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(VEC3_X), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(VEC3_X), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(VEC3_X), currentColor});
 
         //
         currentColor = Color(0.f, 0.f, 1.f, 1.f);
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, Cast(-VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, Cast(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.max.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.min.y, aabb.min.z, 1.0f}, ToVec4(-VEC3_Y), currentColor});
 
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
-        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, Cast(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.max.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.max.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
+        AddVertex({Vector4{aabb.min.x, aabb.max.y, aabb.min.z, 1.0f}, ToVec4(VEC3_Y), currentColor});
 
         args.vertexCount += 36;
         return *this;
