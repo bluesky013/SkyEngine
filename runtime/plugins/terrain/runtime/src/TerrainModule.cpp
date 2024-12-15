@@ -6,6 +6,7 @@
 #include <framework/world/ComponentFactory.h>
 #include <framework/serialization/SerializationContext.h>
 #include <terrain/TerrainComponent.h>
+#include <terrain/TerrainFeature.h>
 
 namespace sky {
 
@@ -15,7 +16,14 @@ namespace sky {
 
         TerrainComponent::Reflect(context);
         ComponentFactory::Get()->RegisterComponent<TerrainComponent>("Terrain");
+
+        TerrainFeature::Get()->Init();
         return true;
+    }
+
+    void TerrainModule::Shutdown()
+    {
+        TerrainFeature::Destroy();
     }
 
 } // namespace sky

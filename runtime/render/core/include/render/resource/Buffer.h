@@ -19,7 +19,18 @@ namespace sky {
         ~Buffer() override;
 
         void Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType);
+
         void SetSourceData(const rhi::BufferUploadRequest &data);
+
+        template<typename T>
+        void SetSourceData(std::vector<T> &&val)
+        {
+            rhi::BufferUploadRequest request = {};
+            request.offset = 0;
+            request.size = val.size() * sizeof(T);
+            request.source = new rhi::TRawBufferStream<T>(std::move(val));
+            SetSourceData(request);
+        }
 
         template <typename T>
         void SetUploadData(std::vector<T> &&data)

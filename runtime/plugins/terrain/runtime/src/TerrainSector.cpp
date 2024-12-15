@@ -3,6 +3,7 @@
 //
 
 #include <terrain/TerrainSector.h>
+#include <terrain/TerrainFeature.h>
 
 namespace sky {
 
@@ -12,7 +13,7 @@ namespace sky {
     {
     }
 
-    void TerrainSectorRender::SetMaterial(const RDMaterialInstancePtr &mat)
+    void TerrainSectorRender::SetMaterial(const RDMaterialInstancePtr &mat, const RDResourceGroupPtr &batch)
     {
         primitive->techniques.clear();
         const auto &techniques = mat->GetMaterial()->GetGfxTechniques();
@@ -23,16 +24,22 @@ namespace sky {
             tech->Process(primitive->vertexFlags, inst.shaderOption);
             primitive->techniques.emplace_back(inst);
         }
-        primitive->batchSet = mat->GetResourceGroup();
-
-        // todo instance set
+        primitive->batchSet = batch;
+        primitive->instanceSet = TerrainFeature::Get()->RequestResourceGroup();
     }
 
-    void TerrainSectorRender::SetGeometry(const RenderGeometryPtr &geom)
+    void TerrainSectorRender::SetHeightMap(const RDTexture2DPtr &heightMap)
+    {
+        primitive->instanceSet->BindTexture("HeightMap", heightMap->GetImageView(), 0);
+        primitive->instanceSet->Update();
+    }
+
+    void TerrainSectorRender::SetGeometry(const RenderGeometryPtr &geom, uint32_t instanceId)
     {
         rhi::CmdDrawIndexed dc = {};
         uint32_t indexStride = geom->indexBuffer.indexType == rhi::IndexType::U16 ? 2 : 4;
         dc.indexCount = static_cast<uint32_t>(geom->indexBuffer.range / indexStride);
+        dc.firstInstance = instanceId;
 
         primitive->geometry = geom;
         primitive->args.emplace_back(dc);

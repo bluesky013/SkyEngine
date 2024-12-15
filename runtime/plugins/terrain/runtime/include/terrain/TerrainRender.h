@@ -39,7 +39,11 @@ namespace sky {
         VertexBuffer             vertexBuffer;
         std::vector<IndexBuffer> indexBuffers;
 
+        VertexBuffer             instanceBuffer;
+        RDBufferPtr              instanceDataBuffer;
+
         RDMaterialInstancePtr    material;
+        RDResourceGroupPtr       batchSet;
 
         std::vector<TerrainSector> sectors;
         std::vector<std::unique_ptr<TerrainSectorRender>> sectorRenders;

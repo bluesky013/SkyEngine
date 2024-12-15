@@ -19,9 +19,7 @@ namespace sky {
         {
         }
 
-        void Shutdown() override
-        {
-        }
+        void Shutdown() override;
     };
 
 } // namespace sky

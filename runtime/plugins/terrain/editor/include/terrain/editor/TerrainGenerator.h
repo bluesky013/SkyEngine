@@ -48,7 +48,7 @@ namespace sky::editor {
         void OnComplete(bool result) override;
 
         void GenerateHeightMip(uint32_t mip, uint32_t width);
-        static uint16_t VisitMipData(uint16_t *data, uint16_t width, uint32_t i, uint32_t j);
+        static float VisitMipData(float *data, uint16_t width, uint32_t i, uint32_t j);
 
         TileConfig tileCfg = {};
         ImageAssetData imageData;

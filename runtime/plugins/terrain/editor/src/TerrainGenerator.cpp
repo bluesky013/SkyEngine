@@ -27,7 +27,7 @@ namespace sky::editor {
         receiver = ptr;
     }
 
-    uint16_t TerrainTileGenerator::VisitMipData(uint16_t *data, uint16_t width, uint32_t i, uint32_t j)
+    float TerrainTileGenerator::VisitMipData(float *data, uint16_t width, uint32_t i, uint32_t j)
     {
         uint32_t index = i * width + j;
         return data[index];
@@ -44,19 +44,19 @@ namespace sky::editor {
         uint32_t lastOffset = imageData.slices.back().offset;
         auto currentOffset = static_cast<uint32_t>(imageData.rawData.storage.size());
 
-        uint32_t mipSize = currentMipWidth * currentMipWidth * static_cast<uint32_t>(sizeof(uint16_t));
+        uint32_t mipSize = currentMipWidth * currentMipWidth * static_cast<uint32_t>(sizeof(float));
         imageData.rawData.storage.resize(imageData.rawData.storage.size() + mipSize);
         
         uint8_t  *rawDataStart = imageData.rawData.storage.data();
-        auto *lastMip      = reinterpret_cast<uint16_t *>(rawDataStart + lastOffset);
-        auto *currentMip   = reinterpret_cast<uint16_t *>(rawDataStart + currentOffset);
+        auto *lastMip      = reinterpret_cast<float *>(rawDataStart + lastOffset);
+        auto *currentMip   = reinterpret_cast<float *>(rawDataStart + currentOffset);
 
         for (uint32_t i = 0; i < currentMipWidth; ++i) {
             for (uint32_t j = 0; j < currentMipWidth; ++j) {
-                uint16_t v1 = VisitMipData(lastMip, width, 2 * i + 0, 2 * j + 0);
-                uint16_t v2 = VisitMipData(lastMip, width, 2 * i + 0, 2 * j + 1);
-                uint16_t v3 = VisitMipData(lastMip, width, 2 * i + 1, 2 * j + 1);
-                uint16_t v4 = VisitMipData(lastMip, width, 2 * i + 1, 2 * j + 0);
+                float v1 = VisitMipData(lastMip, width, 2 * i + 0, 2 * j + 0);
+                float v2 = VisitMipData(lastMip, width, 2 * i + 0, 2 * j + 1);
+                float v3 = VisitMipData(lastMip, width, 2 * i + 1, 2 * j + 1);
+                float v4 = VisitMipData(lastMip, width, 2 * i + 1, 2 * j + 0);
         
                 uint32_t index = i * currentMipWidth + j;
                 currentMip[index] = std::max(std::max(v1, v2), std::max(v3, v4));
@@ -84,28 +84,28 @@ namespace sky::editor {
         auto xOffset = static_cast<float>(tileCfg.coord.x * tileCfg.sectionSize);
         auto yOffset = static_cast<float>(tileCfg.coord.y * tileCfg.sectionSize);
 
-        auto texelSize = static_cast<uint32_t>(sizeof(uint16_t));
+        auto texelSize = static_cast<uint32_t>(sizeof(float));
         uint32_t texelNum  = tileCfg.heightMapSize * tileCfg.heightMapSize;
         uint32_t imageSize = texelSize * texelNum;
 
         imageData.version   = 0;
-        imageData.format    = rhi::PixelFormat::R16_UNORM;
+        imageData.format    = rhi::PixelFormat::R32_SFLOAT;
         imageData.type      = TextureType::TEXTURE_2D;
         imageData.width     = tileCfg.heightMapSize;
         imageData.height    = tileCfg.heightMapSize;
-        imageData.mipLevels = CeilLog2(tileCfg.heightMapSize);
+        imageData.mipLevels = CeilLog2(tileCfg.heightMapSize) + 1;
         
         imageData.rawData.storage.resize(imageSize);
-        auto *heightMapData = reinterpret_cast<uint16_t *>(imageData.rawData.storage.data());
+        auto *heightMapData = reinterpret_cast<float *>(imageData.rawData.storage.data());
         float scaleFactor = static_cast<float>(tileCfg.sectionSize) / static_cast<float>(tileCfg.heightMapSize);
         for (uint32_t i = 0; i < tileCfg.heightMapSize; ++i) {
             for (uint32_t j = 0; j < tileCfg.heightMapSize; ++j) {
-                float x = xOffset + static_cast<float>(i) * scaleFactor;
-                float y = yOffset + static_cast<float>(j) * scaleFactor;
+                float y = xOffset + static_cast<float>(i) * scaleFactor;
+                float x = yOffset + static_cast<float>(j) * scaleFactor;
 
                 uint32_t index = i * tileCfg.heightMapSize + j;
-                auto val = perlin.noise2D_01(x, y);
-                heightMapData[index] = static_cast<uint16_t>(val * 65536.0);
+                auto val = perlin.noise2D_01(x * 0.05, y * 0.05);
+                heightMapData[index] = static_cast<float>(val);
             }
         }
         imageData.slices.emplace_back(ImageSliceHeader{0, imageSize, 0, 0});
@@ -138,6 +138,7 @@ namespace sky::editor {
     {
         if (receiver && receiver->IsDone()) {
             receiver->HeightMapChanged();
+            receiver = nullptr;
         }
     }
 

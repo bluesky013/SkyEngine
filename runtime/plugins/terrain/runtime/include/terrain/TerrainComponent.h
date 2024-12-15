@@ -54,6 +54,8 @@ namespace sky {
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
 
+        bool IsAssetReady() const;
+
         RDMaterialInstancePtr material;
         std::unique_ptr<TerrainRender> terrainRender;
     };

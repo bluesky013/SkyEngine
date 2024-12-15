@@ -20,5 +20,7 @@ namespace sky::editor {
     void TerrainEditorModule::Shutdown()
     {
         EditorToolManager::Get()->UnRegisterTool(Name("Terrain"));
+
+        TerrainModule::Shutdown();
     }
 } // namespace sky::editor

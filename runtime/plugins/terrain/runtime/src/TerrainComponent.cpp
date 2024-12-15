@@ -108,7 +108,7 @@ namespace sky {
 
     void TerrainComponent::OnAttachToWorld()
     {
-        OnRebuildTerrain();
+
     }
 
     void TerrainComponent::OnDetachFromWorld()
@@ -129,10 +129,14 @@ namespace sky {
         }
     }
 
+    bool TerrainComponent::IsAssetReady() const
+    {
+        return material != nullptr;
+    }
+
     void TerrainComponent::OnRebuildTerrain()
     {
         auto *renderScene = GetRenderSceneFromActor(actor);
-
         auto *am = AssetManager::Get();
         TerrainQuad quad = {data.sectionSize, data.resolution};
 
@@ -147,6 +151,7 @@ namespace sky {
             auto heightMap = CreateTextureFromAsset(asset);
             terrainRender->AddSector(TerrainSector{section.coord, heightMap});
         }
+        terrainRender->SetMaterial(material);
         terrainRender->BuildSectors();
         terrainRender->AttachToScene(renderScene);
     }

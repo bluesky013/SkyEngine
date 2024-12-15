@@ -79,9 +79,9 @@ namespace sky {
             request.size = slice.size;
             request.layer = slice.layer;
             request.mipLevel = slice.mipLevel;
-            request.imageExtent.width = std::max(1U, data.width >> slice.mipLevel);
-            request.imageExtent.height = std::max(1U, data.height >> slice.mipLevel);
-            request.imageExtent.depth = std::max(1U, data.depth >> slice.mipLevel);
+            request.imageExtent.width = data.width;
+            request.imageExtent.height = data.height;
+            request.imageExtent.depth = data.depth;
             imageData.slices.emplace_back(request);
         }
 
