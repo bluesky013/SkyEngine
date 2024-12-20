@@ -9,6 +9,7 @@
 #include <mtl/RenderPass.h>
 #include <mtl/FrameBuffer.h>
 #include <mtl/VertexAssembly.h>
+#include <mtl/Buffer.h>
 #import <Metal/MTLCommandBuffer.h>
 #import <Metal/MTLRenderCommandEncoder.h>
 
@@ -27,6 +28,8 @@ namespace sky::mtl {
         rhi::GraphicsEncoder &BeginPass(const rhi::PassBeginInfo &beginInfo) override;
         rhi::GraphicsEncoder &BindPipeline(const rhi::GraphicsPipelinePtr &pso) override;
         rhi::GraphicsEncoder &BindAssembly(const rhi::VertexAssemblyPtr &assembly) override;
+        rhi::GraphicsEncoder &BindVertexBuffers(const std::vector<rhi::BufferView> &vbs) override;
+        rhi::GraphicsEncoder &BindIndexBuffer(const rhi::BufferView& view, rhi::IndexType type) override;
         rhi::GraphicsEncoder &SetViewport(uint32_t count, const rhi::Viewport *viewport) override;
         rhi::GraphicsEncoder &SetScissor(uint32_t count, const rhi::Rect2D *scissor) override;
         rhi::GraphicsEncoder &DrawIndexed(const rhi::CmdDrawIndexed &indexed) override;
@@ -36,12 +39,18 @@ namespace sky::mtl {
         rhi::GraphicsEncoder &BindSet(uint32_t id, const rhi::DescriptorSetPtr &set) override;
         rhi::GraphicsEncoder &NextSubPass() override;
         rhi::GraphicsEncoder &EndPass() override;
+        rhi::GraphicsEncoder &SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset) override;
 
     private:
         CommandBuffer &commandBuffer;
         RenderPassPtr currentRenderPass;
         FrameBufferPtr currentFramebuffer;
         VertexAssemblyPtr currentVa;
+
+        id<MTLBuffer> indexBuffer;
+        uint32_t indexOffset = 0;
+        MTLIndexType indexType = MTLIndexTypeUInt32;
+
         id<MTLRenderCommandEncoder> encoder;
         MTLPrimitiveType primitive = MTLPrimitiveTypeTriangle;
         MTLRenderPassDescriptor *passDesc = nil;

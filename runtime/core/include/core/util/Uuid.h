@@ -116,7 +116,7 @@ namespace std {
 
     template <>
     struct less<sky::Uuid> {
-        _NODISCARD constexpr auto operator()(const sky::Uuid& x, const sky::Uuid& y) const
+        constexpr auto operator()(const sky::Uuid& x, const sky::Uuid& y) const
         {
             return x < y;
         }

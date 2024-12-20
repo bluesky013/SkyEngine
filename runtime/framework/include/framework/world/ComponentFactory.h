@@ -35,7 +35,7 @@ namespace sky {
     private:
         void RegisterComponent(const Uuid &uuid, const std::string_view &name, const std::string &group)
         {
-            componentTypes[group].emplace_back(uuid, name);
+            componentTypes[group].emplace_back(ComponentInfo{uuid, name});
         }
 
         std::unordered_map<std::string, std::vector<ComponentInfo>> componentTypes;

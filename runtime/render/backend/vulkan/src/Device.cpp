@@ -61,7 +61,7 @@ namespace sky::vk {
         pipelines.Shutdown();
         renderPasses.Shutdown();
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_WIN32)
         char* str = nullptr;
         vmaBuildStatsString(allocator, &str, VK_TRUE);
         std::fstream stream("device.txt", std::ios::out | std::ios::binary);

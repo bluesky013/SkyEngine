@@ -6,6 +6,7 @@
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
+#include <glslang/Include/Types.h>
 
 #include <core/platform/Platform.h>
 #include <core/logger/Logger.h>

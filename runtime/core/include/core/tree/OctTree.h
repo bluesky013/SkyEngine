@@ -52,7 +52,7 @@ namespace sky {
         static constexpr NodeIndex INVALID_IDX = ~(0U);
 
         using TreeTraits = OctreeTraits<T>;
-        using BoundType = TreeTraits::BoundType;
+        using BoundType = typename TreeTraits::BoundType;
         using BoundTraits = OctreeBoundTraits<BoundType>;
 
         static constexpr uint32_t MAX_DEPTH        = TreeTraits ::MAX_DEPTH;

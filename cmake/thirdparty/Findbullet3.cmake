@@ -3,7 +3,9 @@ set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
 set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include/bullet)
 set(${LIB_NAME}_LIBS_DIR ${${LIB_NAME}_PATH}/lib)
 
+if (MSVC)
 set(LIB_SUFFIX "d")
+endif ()
 
 set(${LIB_NAME}_LIBRARY_DEBUG
         ${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}Bullet3Collision${LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}

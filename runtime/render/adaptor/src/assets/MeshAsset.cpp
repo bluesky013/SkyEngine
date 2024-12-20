@@ -239,7 +239,7 @@ namespace sky {
             request.source = fileStream;
             request.offset = buffer.offset;
             request.size   = buffer.size;
-            meshData.vertexStreams.emplace_back(request, buffer.stride);
+            meshData.vertexStreams.emplace_back(VertexBufferSource{request, buffer.stride});
         }
 
         if (data.indexType != rhi::IndexType::NONE) {

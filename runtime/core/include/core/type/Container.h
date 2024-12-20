@@ -49,7 +49,7 @@ namespace sky {
 //        template <class U, typename std::enable_if_t<std::is_same_v<U::iterator, U::const_iterator>>>
 //        static constexpr YES CheckViewType();
     };
-    
+
     template <class T>
     struct ContainerTraits : ContainerTraitsBase
     {
@@ -68,7 +68,7 @@ namespace sky {
 
     template <class T>
     struct SequenceContainerMap {
-        using ValueType = T::value_type;
+        using ValueType = typename T::value_type;
     };
 
 } // namespace sky

@@ -14,7 +14,7 @@ namespace sky {
 
         auto boneIndex = static_cast<uint32_t>(nameToIndexMap.size());
         nameToIndexMap.emplace(name, boneIndex);
-        boneData.emplace_back(name, INVALID_BONE_ID);
+        boneData.emplace_back(BoneData{name, INVALID_BONE_ID});
         inverseBindMatrix.emplace_back(matrix);
         refPos.emplace_back(Transform::GetIdentity());
         return boneIndex;

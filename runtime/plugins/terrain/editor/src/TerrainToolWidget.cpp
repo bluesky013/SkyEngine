@@ -93,7 +93,7 @@ namespace sky::editor {
 
         auto dir = dstPos - camPos; dir.Normalize();
         auto ray = Ray{camPos, dir};
-        auto plane = Plane(VEC3_Y, terrainPos.y);
+        auto plane = Plane{VEC3_Y, terrainPos.y};
 
         selectX = -1;
         selectY = -1;

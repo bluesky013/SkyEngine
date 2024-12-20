@@ -130,7 +130,7 @@ namespace sky {
         }
     };
 
-    template <typename T, typename KeyType = T::KeyType>
+    template <typename T, typename KeyType = typename T::KeyType>
     class EventBinder {
     public:
         EventBinder() = default;

@@ -16,8 +16,8 @@ namespace sky {
         MemoryArchive() : StreamArchive(ss) {}
         ~MemoryArchive() override = default;
 
-        const char* Data() const override { return ss.rdbuf()->view().data(); }
-        uint32_t Size() const override { return static_cast<uint32_t>(ss.rdbuf()->view().size()); }
+        const char* Data() const override;
+        uint32_t Size() const override;
     private:
         std::stringstream ss;
     };

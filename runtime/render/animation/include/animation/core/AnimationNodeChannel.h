@@ -10,6 +10,7 @@
 #include <core/math/Quaternion.h>
 #include <core/name/Name.h>
 
+#include <string>
 #include <utility>
 
 namespace sky {
