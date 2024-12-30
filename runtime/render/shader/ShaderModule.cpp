@@ -18,7 +18,7 @@ namespace sky {
         return iter != g_CompilerMap.end() ? iter->second : nullptr;
     }
 
-    class ShaderModule : public IModule, public Singleton<ShaderModule> {
+    class ShaderModule : public IModule {
     public:
         ShaderModule() = default;
 
@@ -78,6 +78,13 @@ namespace sky {
         }
         return compiler->CompileBinary(desc, op, result);;
     }
+
+    extern "C" SKY_EXPORT ShaderCompilerBase*
+    GetBinaryCompiler(ShaderCompileTarget target)
+    {
+        return GetCompiler(target);
+    }
+
 } // namespace sky
 
 REGISTER_MODULE(sky::ShaderModule)

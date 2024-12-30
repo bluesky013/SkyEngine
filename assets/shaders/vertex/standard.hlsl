@@ -8,7 +8,7 @@ struct VSInput
     float4 Tangent : TANGENT;
     float4 Color   : COLOR;
 
-#ifdef ENABLE_SKIN
+#if ENABLE_SKIN
     uint4 joints   : JOINT;
     float4 weights : WEIGHT;
 #endif
@@ -22,8 +22,4 @@ struct VSOutput
     float3 Normal   : NORMAL;
     float4 Tangent  : TANGENT;
     float4 Color    : COLOR;
-
-#if VIEW_COUNT > 1
-    nointerpolation uint ViewIndex : VIEWINDEX;
-#endif
 };

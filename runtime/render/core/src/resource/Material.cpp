@@ -62,7 +62,7 @@ namespace sky {
         }
     }
 
-    void MaterialInstance::SetOption(const std::string &key, const MacroValue &val)
+    void MaterialInstance::SetOption(const std::string &key, const uint8_t &val)
     {
         options->SetValue(key, val);
     }

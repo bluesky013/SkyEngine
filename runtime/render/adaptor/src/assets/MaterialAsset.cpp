@@ -92,6 +92,11 @@ namespace sky {
                     archive.LoadValue(val);
                     properties.options[key] = val;
                 }
+                case MaterialValueType::I32: {
+                    int32_t val = {};
+                    archive.LoadValue(val);
+                    properties.options[key] = val;
+                }
                 break;
                 default:
                     SKY_UNEXPECTED;
@@ -144,17 +149,7 @@ namespace sky {
         archive.SaveValue(static_cast<uint32_t>(properties.options.size()));
         for (const auto &[key, value]: properties.options) {
             archive.SaveValue(key);
-
-            std::visit(Overloaded{
-                    [&archive](const bool &v) {
-                        archive.SaveValue(MaterialValueType::BOOL);
-                        archive.SaveValue(v);
-                    },
-                    [&archive](const uint32_t &v) {
-                        archive.SaveValue(MaterialValueType::U32);
-                        archive.SaveValue(v);
-                    }
-            }, value);
+            archive.SaveValue(static_cast<uint32_t>(value));
         }
     }
 
@@ -266,12 +261,8 @@ namespace sky {
         archive.End();
 
         archive.Start("options");
-        archive.ForEachMember([this, &archive](const std::string &key, const auto &obj) {
-            if (obj.IsBool()) {
-                options[key] = obj.GetBool();
-            } else if (obj.IsUint()) {
-                options[key] = obj.GetUint();
-            }
+        archive.ForEachMember([this](const std::string &key, const auto &obj) {
+            options[key] = static_cast<uint8_t>(obj.GetUint());
         });
         archive.End();
     }
@@ -302,14 +293,7 @@ namespace sky {
         archive.StartObject();
         for (const auto &[key, value] : options) {
             archive.Key(key.c_str());
-            std::visit(Overloaded{
-                    [&archive](const bool &val) {
-                        archive.SaveValue(val);
-                    },
-                    [&archive](const uint32_t &val) {
-                        archive.SaveValue(val);
-                    },
-            }, value);
+            archive.SaveValue(static_cast<uint32_t>(value));
         }
         archive.EndObject();
     }

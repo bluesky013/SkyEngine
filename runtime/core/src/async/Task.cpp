@@ -28,6 +28,10 @@ namespace sky {
         handle.reset();
     }
 
+    TaskExecutor::TaskExecutor(size_t N) : executor(N)
+    {
+    }
+
     void TaskExecutor::WaitForAll()
     {
         executor.wait_for_all();

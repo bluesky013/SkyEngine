@@ -21,7 +21,7 @@ namespace sky {
     struct MaterialProperties {
         std::vector<Uuid> images;
         std::unordered_map<std::string, MaterialValue> valueMap;
-        std::unordered_map<std::string, MacroValue> options;
+        std::unordered_map<std::string, uint8_t> options;
 
         void LoadJson(JsonInputArchive &archive);
         void SaveJson(JsonOutputArchive &archive) const;

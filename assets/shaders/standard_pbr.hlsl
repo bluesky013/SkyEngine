@@ -18,7 +18,7 @@ VSOutput VSMain(VSInput input
     VSOutput output = (VSOutput)0;
 
     float4x4 worldMatrix = World;
-#ifdef ENABLE_SKIN
+#if ENABLE_SKIN
 	float4x4 skinMat =
 		mul(Bones[input.joints.x], input.weights.x) +
 		mul(Bones[input.joints.y], input.weights.y) +
@@ -34,10 +34,6 @@ VSOutput VSMain(VSInput input
     output.UV       = input.UV;
 
     output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
-
-#if VIEW_COUNT > 1
-    output.ViewIndex = input.ViewIndex;
-#endif
     return output;
 }
 
@@ -95,7 +91,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
     light.Color = float4(1.0, 1.0, 1.0, 1.0);
     light.Direction = float4(float3(-0.2, -1, -0.5), 100.0);
 
-#ifdef ENABLE_NORMAL_MAP
+#if ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - 1.0;
     float3 N = normalize(input.Normal);
     float3 T = normalize(input.Tangent.xyz);
@@ -120,17 +116,17 @@ float4 FSMain(VSOutput input) : SV_TARGET
     pbrParam.AO        = 1.0;
     pbrParam.Emissive  = float4(0, 0, 0, 0);
 
-#ifdef ENABLE_MR_MAP
+#if ENABLE_MR_MAP
     float4 mr = MetallicRoughnessMap.Sample(MetallicRoughnessSampler, input.UV.xy);
     pbrParam.Metallic = mr.b;
     pbrParam.Roughness = mr.g;
 #endif
 
-#ifdef ENABLE_AO_MAP
+#if ENABLE_AO_MAP
     pbrParam.AO = AoMap.Sample(AoSampler, input.UV.xy).x;
 #endif
 
-#ifdef ENABLE_EMISSIVE_MAP
+#if ENABLE_EMISSIVE_MAP
     pbrParam.Emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
 #endif
 

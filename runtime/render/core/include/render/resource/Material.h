@@ -64,7 +64,7 @@ namespace sky {
         }
         void SetValue(const std::string &key, const uint8_t *t, uint32_t size);
         void SetTexture(const std::string &key, const RDTexturePtr &tex, uint32_t index = 0);
-        void SetOption(const std::string &key, const MacroValue &val);
+        void SetOption(const std::string &key, const uint8_t &val);
 
         void Compile();
         void Update();

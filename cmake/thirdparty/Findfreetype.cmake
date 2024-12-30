@@ -4,7 +4,9 @@ if (TARGET ${TARGET_WITH_NAMESPACE})
     return()
 endif()
 
+if (NOT MSVC)
 find_package(ZLIB REQUIRED)
+endif()
 
 set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include/freetype2)
 set(${LIB_NAME}_LIBS_DIR ${${LIB_NAME}_PATH}/lib)

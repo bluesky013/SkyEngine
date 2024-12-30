@@ -1,0 +1,44 @@
+{
+    "entries": [
+        {
+            "stage": "vertex",
+            "name": "VSMain"
+        },
+        {
+            "stage": "fragment",
+            "name": "FSMain"
+        }
+    ],
+    "options": [
+        {
+            "key": "ENABLE_SKIN",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_INSTANCE",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_NORMAL_MAP",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_EMISSIVE_MAP",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_AO_MAP",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_MR_MAP",
+            "default": 0
+        },
+        {
+            "key": "ENABLE_ALPHA_MASK",
+            "default": 0
+        }
+    ],
+    "dependencies": [
+    ]
+}

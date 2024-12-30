@@ -24,11 +24,6 @@ namespace sky {
         };
     }
 
-    struct ShaderCacheHeader {
-        std::string signature;
-        uint32_t version;
-    };
-
     void Technique::SetShader(const ShaderRef &shader)
     {
         shaderData = shader;

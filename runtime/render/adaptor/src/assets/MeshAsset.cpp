@@ -3,7 +3,6 @@
 //
 
 #include <framework/asset/AssetManager.h>
-#include <core/archive/MemoryArchive.h>
 #include <core/profile/Profiler.h>
 #include <render/RHI.h>
 #include <render/adaptor/assets/MeshAsset.h>

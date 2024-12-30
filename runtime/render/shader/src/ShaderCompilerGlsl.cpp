@@ -8,6 +8,8 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Include/Types.h>
 
+#include <spirv-tools/libspirv.hpp>
+
 #include <core/platform/Platform.h>
 #include <core/logger/Logger.h>
 
@@ -56,29 +58,28 @@ namespace sky {
         return rhi::BaseType::UNDEFINED;
     }
 
+    std::string ShaderCompilerGlsl::Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const
+    {
+        std::string text;
+
+        spvtools::SpirvTools tool(spv_target_env::SPV_ENV_VULKAN_1_3);
+        tool.Disassemble(binary, &text, SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES | SPV_BINARY_TO_TEXT_OPTION_SHOW_BYTE_OFFSET | SPV_BINARY_TO_TEXT_OPTION_INDENT);
+
+        return text;
+    }
+
     bool ShaderCompilerGlsl::CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result)
     {
         const auto *ptr = desc.source.c_str();
         std::string finalSource;
 
         auto language = GetLanguage(desc.stage);
-
         if (op.option) {
-            static const std::string_view PREFIX = "#define ";
-            std::string preamble;
-
+            std::stringstream ss;
             for (auto &val: op.option->values) {
-                std::visit(Overloaded{
-                        [&](const bool &v) {
-                            if (v) {
-                                preamble += (std::string(PREFIX) + val.first + "\n");
-                            }
-                        },
-                        [&](const auto &v) {
-                        }
-                }, val.second);
+                ss << "#define " << val.first << " " << static_cast<uint32_t>(val.second) << "\n";
             }
-            finalSource = preamble + desc.source;
+            finalSource = ss.str() + desc.source;
             ptr = finalSource.c_str();
         }
 

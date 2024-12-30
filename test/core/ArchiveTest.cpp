@@ -91,6 +91,7 @@ TEST(StreamArchiveTest, MemoryArchive)
         archive << t; // 4 + 4
     }
 
+    archive.Seek(0);
     {
         int a;
         archive >> a;

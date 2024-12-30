@@ -18,5 +18,4 @@ sky_add_library(TARGET SkyRender SHARED
         ImGuiRender
     )
 
-
 sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)

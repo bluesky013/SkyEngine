@@ -163,4 +163,10 @@ namespace sky {
         return p.Get() != nullptr;
     }
 
+    template <class Ty1, class Ty2>
+    CounterPtr<Ty1> CastPtr(const CounterPtr<Ty2>& ptr) noexcept
+    {
+        const auto res = static_cast<Ty1*>(ptr.Get());
+        return CounterPtr<Ty1>(res);
+    }
 } // namespace sky

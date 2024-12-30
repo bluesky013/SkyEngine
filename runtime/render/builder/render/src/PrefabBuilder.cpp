@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2023/2/20.
 //
 #include <builder/render/PrefabBuilder.h>
-#include <builder/render/ImageBuilder.h>
 
 #include <assimp/GltfMaterial.h>
 #include <assimp/Importer.hpp>
@@ -11,9 +10,7 @@
 
 #include <core/logger/Logger.h>
 #include <core/math/MathUtil.h>
-#include <core/archive/MemoryArchive.h>
 
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>

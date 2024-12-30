@@ -3,7 +3,6 @@
 //
 
 #include <builder/render/MeshBuilder.h>
-#include <core/archive/MemoryArchive.h>
 #include <framework/asset/AssetBuilderManager.h>
 
 namespace sky::builder {

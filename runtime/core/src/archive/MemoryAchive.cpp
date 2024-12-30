@@ -6,24 +6,46 @@
 
 namespace sky {
 
-    const char* MemoryArchive::Data() const
+    bool MemoryArchive::LoadRaw(char *val, size_t size)
     {
-#ifdef _MSC_VER
-        return ss.rdbuf()->view().data();
-#else
-        // TODO
-        return nullptr;
-#endif
+        if (pointer + size > data.size()) {
+            return false;
+        }
+
+        memcpy(val, data.data() + pointer, size);
+        pointer += size;
+        return true;
     }
 
-    uint32_t MemoryArchive::Size() const
+    bool MemoryArchive::SaveRaw(const char *val, size_t size)
     {
-#ifdef _MSC_VER
-        return static_cast<uint32_t>(ss.rdbuf()->view().size());
-#else
-        // TODO
-        return 0;
-#endif
+        if (pointer + size > data.size()) {
+            data.resize(pointer + size);
+        }
+
+        memcpy(data.data() + pointer, val, size);
+        pointer += size;
+        return true;
+    }
+
+    const char* MemoryArchive::Data() const
+    {
+        return data.data();
+    }
+
+    size_t MemoryArchive::Size() const
+    {
+        return data.size();
+    }
+
+    void MemoryArchive::Resize(size_t size)
+    {
+        data.resize(size);
+    }
+
+    void MemoryArchive::Seek(size_t offset)
+    {
+        pointer = offset;
     }
 
 } // namespace sky

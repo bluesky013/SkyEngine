@@ -24,14 +24,13 @@ namespace sky {
 
     void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
-        engineFs = fs->CreateSubSystem("assets", true);
-
+        engineFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
         AssetBuilderManager::Get()->SetEngineFs(engineFs);
     }
 
     void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
     {
-        workSpaceFs = fs->CreateSubSystem("assets", true);
+        workSpaceFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
 
         AssetBuilderManager::Get()->SetWorkSpaceFs(fs);
     }

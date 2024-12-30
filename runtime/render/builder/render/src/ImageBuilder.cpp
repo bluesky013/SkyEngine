@@ -7,9 +7,7 @@
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
 #include <rhi/Decode.h>
-#include <core/file/FileIO.h>
 #include <core/hash/Hash.h>
-#include <core/archive/MemoryArchive.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

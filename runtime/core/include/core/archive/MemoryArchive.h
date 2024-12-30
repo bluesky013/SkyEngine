@@ -5,21 +5,29 @@
 #pragma once
 
 #include <core/concept/Concept.h>
-#include <core/archive/StreamArchive.h>
-#include <sstream>
+#include <core/archive/IArchive.h>
+#include <core/template/ReferenceObject.h>
 #include <vector>
 
 namespace sky {
 
-    class MemoryArchive : public StreamArchive {
+    class MemoryArchive : public IInputArchive, public IOutputArchive, public RefObject {
     public:
-        MemoryArchive() : StreamArchive(ss) {}
+        MemoryArchive() = default;
         ~MemoryArchive() override = default;
 
-        const char* Data() const override;
-        uint32_t Size() const override;
+        bool LoadRaw(char *data, size_t size) override;
+        bool SaveRaw(const char *data, size_t size) override;
+
+        const char* Data() const;
+        size_t Size() const;
+
+        void Resize(size_t size);
+        void Seek(size_t offset);
+
     private:
-        std::stringstream ss;
+        size_t pointer = 0;
+        std::vector<char> data;
     };
 
 } // namespace sky

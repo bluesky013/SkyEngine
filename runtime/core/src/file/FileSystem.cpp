@@ -23,11 +23,7 @@ namespace sky {
     }
 
     FilePath::FilePath(const std::string &filePath_)
-#ifdef SKY_FS_USE_WCHAR
-        : filePath(Utf8ToUtf16(filePath_)) // NOLINT
-#else
         : filePath(filePath_) // NOLINT
-#endif
     {
         filePath.make_preferred();
     }
@@ -49,6 +45,11 @@ namespace sky {
         return FilePath{filePath.parent_path()};
     }
 
+    FilePath FilePath::FullPath() const
+    {
+        return FilePath(std::filesystem::absolute(filePath));
+    }
+
     std::string FilePath::FileName() const
     {
         return filePath.filename().string();
@@ -62,6 +63,11 @@ namespace sky {
     std::string FilePath::Extension() const
     {
         return filePath.extension().string();
+    }
+
+    void FilePath::ReplaceExtension(const std::string &name)
+    {
+        filePath.replace_extension(name);
     }
 
     std::fstream FilePath::OpenFStream(std::ios_base::openmode mode) const
@@ -121,6 +127,14 @@ namespace sky {
         stream.read(reinterpret_cast<char *>(out), static_cast<int64_t>(size));
     }
 
+    uint64_t NativeFile::AppendData(const char* data, uint64_t size)
+    {
+        std::fstream file = filePath.OpenFStream(std::ios::out | std::ios::binary | std::ios::app);
+        auto offset = file.tellg();
+        file.write(reinterpret_cast<const char *>(data), size);
+        return static_cast<uint64_t>(offset);
+    }
+
     void RawBufferView::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
     }
@@ -137,12 +151,25 @@ namespace sky {
 
     IStreamArchivePtr RawBufferView::ReadAsArchive()
     {
+        SKY_ASSERT(0) // read only
         return {};
     }
 
     OStreamArchivePtr RawBufferView::WriteAsArchive()
     {
+        SKY_ASSERT(0) // read only
         return {};
+    }
+
+    uint64_t RawBufferView::AppendData(const char* data, uint64_t size)
+    {
+        SKY_ASSERT(0) // read only
+        return 0;
+    }
+
+    NativeFileSystem::NativeFileSystem(const FilePath &root) : fsRoot(root.FullPath())
+    {
+        fsRoot.MakeDirectory();
     }
 
     bool NativeFileSystem::FileExist(const FilePath &path) const
@@ -180,7 +207,7 @@ namespace sky {
         return path.find(fsRoot.GetStr()) != std::string::npos;
     }
 
-    NativeFileSystemPtr NativeFileSystem::CreateSubSystem(const std::string &path, bool createDir)
+    FileSystemPtr NativeFileSystem::CreateSubSystem(const std::string &path, bool createDir)
     {
         auto subDir = FilePath(fsRoot.GetStr() + "/" + path);
         if (createDir) {

@@ -41,6 +41,7 @@ namespace sky {
 
     class TaskExecutor : public Singleton<TaskExecutor> {
     public:
+        explicit TaskExecutor(size_t N);
         TaskExecutor() = default;
         ~TaskExecutor() override = default;
 

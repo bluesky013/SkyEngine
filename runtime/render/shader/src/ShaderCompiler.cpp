@@ -11,7 +11,6 @@
 
 #include<boost/tokenizer.hpp>
 
-#include <filesystem>
 #include <fstream>
 #include <utility>
 
@@ -120,12 +119,121 @@ namespace sky {
         return {true, final};
     }
 
-    std::string ShaderCompiler::LoadShader(const std::string &path)
+    FilePath ShaderCompiler::GetShaderPath(const std::string &name) const
     {
-        return ProcessShaderSource(path).second;
+        for (const auto &searchPath : searchPaths) {
+            auto loadPath = searchPath / name;
+            std::fstream f = loadPath.OpenFStream(std::ios::binary | std::ios::in);
+            if (!f.is_open()) {
+                continue;
+            }
+
+            return searchPath;
+        }
+
+        return "";
     }
 
-    void ShaderOption::SetValue(const std::string &key, const MacroValue &val)
+    std::string ShaderCompiler::LoadShader(const std::string &name)
+    {
+        return ProcessShaderSource(name).second;
+    }
+
+    void ShaderCompiler::SaveToMemory(IOutputArchive& archive, const ShaderBuildResult& result)
+    {
+        archive.Save(result.data);
+
+        // save resources
+        archive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
+        for (auto &res : result.reflection.resources) {
+            archive.Save(res.name);
+            archive.Save(res.type);
+            archive.Save(res.visibility.value);
+            archive.Save(res.set);
+            archive.Save(res.binding);
+            archive.Save(res.count);
+            archive.Save(res.size);
+        }
+
+        // save types
+        archive.Save(static_cast<uint32_t>(result.reflection.types.size()));
+        for (auto &type : result.reflection.types) {
+            archive.Save(type.name);
+            archive.Save(static_cast<uint32_t>(type.variables.size()));
+            for (auto &var : type.variables) {
+                archive.Save(var.name);
+                archive.Save(var.set);
+                archive.Save(var.binding);
+                archive.Save(var.offset);
+                archive.Save(var.size);
+            }
+        }
+
+        // save vertex attributes
+        archive.Save(static_cast<uint32_t>(result.reflection.attributes.size()));
+        for (auto &attr : result.reflection.attributes) {
+            archive.Save(attr.semantic);
+            archive.Save(attr.location);
+            archive.Save(attr.vecSize);
+            archive.Save(attr.type);
+        }
+
+    }
+
+    MD5 ShaderCompiler::CalculateShaderMD5(const std::string &source)
+    {
+        return MD5::CalculateMD5(source);
+    }
+
+    std::string ShaderCompiler::ReplaceShadeName(const Name& name)
+    {
+        std::string result = name.GetStr().data();
+        std::replace(result.begin(), result.end(), '\\', '_');
+        std::replace(result.begin(), result.end(), '/', '_');
+
+        return result;
+    }
+
+    std::string ShaderCompiler::GetBinaryShaderName(const Name& name, const Name& entry, const ShaderOptionPtr &option)
+    {
+        auto result = ReplaceShadeName(name);
+        auto iter = result.find_last_of('.');
+        SKY_ASSERT(iter != std::string::npos); // must be .hlsl
+
+        auto suffix = std::string("_") + std::string(entry.GetStr().data()) + "_" ; // + option;
+
+        return result.insert(iter, suffix);
+    }
+
+    rhi::ShaderStageFlagBit ShaderCompiler::GetShaderStage(const std::string& stage)
+    {
+        if (stage == "vertex") {
+            return rhi::ShaderStageFlagBit::VS;
+        }
+        if (stage == "fragment") {
+            return rhi::ShaderStageFlagBit::FS;
+        }
+        if (stage == "compute") {
+            return rhi::ShaderStageFlagBit::CS;
+        }
+
+        SKY_ASSERT(0);
+        return rhi::ShaderStageFlagBit::VS;
+    }
+
+    Name ShaderCompiler::GetTargetName(const ShaderCompileTarget &target)
+    {
+        switch (target) {
+            case ShaderCompileTarget::SPIRV: return Name("SpirV");
+            case ShaderCompileTarget::MSL: return Name("Metal");
+            case ShaderCompileTarget::DXIL: return Name("DX");
+            default:
+                break;
+        }
+        return Name();
+    }
+
+    void ShaderOption::SetValue(const std::string &key, const uint8_t &val)
     {
         values[key] = val;
         CalculateHash();
@@ -135,14 +243,7 @@ namespace sky {
     {
         hash = 0;
         for (auto &[key, val] : values) {
-            std::visit(Overloaded{
-                           [&](const bool &v) {
-                               HashCombine32(hash, static_cast<uint32_t>(v));
-                           },
-                           [&](const auto &v){
-                               HashCombine32(hash, Crc32::Cal(v));
-                           }
-                       }, val);
+            HashCombine32(hash, Crc32::Cal(val));
         }
     }
 

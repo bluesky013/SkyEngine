@@ -18,14 +18,6 @@
 
 namespace sky {
 
-    struct ShaderCacheHeader {
-        static const uint32_t MAGIC = 0xFE00;
-
-        uint32_t magic    = MAGIC;
-        uint32_t version  = 0;
-        uint32_t dataSize = 0;
-    };
-
     static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
     {
         if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
@@ -156,49 +148,49 @@ namespace sky {
         }
 
         bool              needUpdateShader = true;
-        ShaderCacheHeader shaderHeader     = {};
-        {
-            IFileArchive archive(cachePath);
-            if (archive.IsOpen()) {
-                archive.LoadRaw(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
-
-                if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
-                    needUpdateShader = false;
-                    archive.Load(result.data);
-                    uint32_t size = 0;
-                    archive.Load(size);
-                    result.reflection.resources.resize(size);
-                    for (auto i = 0U; i < size; ++i) {
-                        auto &res = result.reflection.resources[i];
-
-                        archive.Load(res.name);
-                        archive.Load(res.type);
-                        archive.Load(res.visibility.value);
-                        archive.Load(res.set);
-                        archive.Load(res.binding);
-                        archive.Load(res.count);
-                        archive.Load(res.size);
-                    }
-                    archive.Load(size);
-                    result.reflection.types.resize(size);
-                    for (auto i = 0U; i < size; ++i) {
-                        auto &type = result.reflection.types[i];
-                        archive.Load(type.name);
-                        uint32_t varSize = 0;
-                        archive.Load(varSize);
-                        type.variables.resize(varSize);
-                        for (auto j = 0U; j < varSize; ++j) {
-                            auto &var = type.variables[j];
-                            archive.Load(var.name);
-                            archive.Load(var.set);
-                            archive.Load(var.binding);
-                            archive.Load(var.offset);
-                            archive.Load(var.size);
-                        }
-                    }
-                }
-            }
-        }
+//        ShaderCacheHeader shaderHeader     = {};
+//        {
+//            IFileArchive archive(cachePath);
+//            if (archive.IsOpen()) {
+//                archive.LoadRaw(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+//
+//                if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
+//                    needUpdateShader = false;
+//                    archive.Load(result.data);
+//                    uint32_t size = 0;
+//                    archive.Load(size);
+//                    result.reflection.resources.resize(size);
+//                    for (auto i = 0U; i < size; ++i) {
+//                        auto &res = result.reflection.resources[i];
+//
+//                        archive.Load(res.name);
+//                        archive.Load(res.type);
+//                        archive.Load(res.visibility.value);
+//                        archive.Load(res.set);
+//                        archive.Load(res.binding);
+//                        archive.Load(res.count);
+//                        archive.Load(res.size);
+//                    }
+//                    archive.Load(size);
+//                    result.reflection.types.resize(size);
+//                    for (auto i = 0U; i < size; ++i) {
+//                        auto &type = result.reflection.types[i];
+//                        archive.Load(type.name);
+//                        uint32_t varSize = 0;
+//                        archive.Load(varSize);
+//                        type.variables.resize(varSize);
+//                        for (auto j = 0U; j < varSize; ++j) {
+//                            auto &var = type.variables[j];
+//                            archive.Load(var.name);
+//                            archive.Load(var.set);
+//                            archive.Load(var.binding);
+//                            archive.Load(var.offset);
+//                            archive.Load(var.size);
+//                        }
+//                    }
+//                }
+//            }
+//        }
         if (needUpdateShader) {
             ShaderSourceDesc sourceDesc = {};
             sourceDesc.source           = source;
