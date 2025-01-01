@@ -12,10 +12,10 @@
 
 namespace sky::vk {
 
-    class ShaderOption {
+    class ShaderConstants {
     public:
-        ShaderOption()  = default;
-        ~ShaderOption() = default;
+        ShaderConstants()  = default;
+        ~ShaderConstants() = default;
 
         class Builder {
         public:
@@ -24,7 +24,7 @@ namespace sky::vk {
 
             void AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size);
 
-            std::shared_ptr<ShaderOption> Build();
+            std::shared_ptr<ShaderConstants> Build();
 
         private:
             using ConstantMap = std::map<uint32_t, uint32_t>;
@@ -56,7 +56,7 @@ namespace sky::vk {
         uint32_t GetHash() const;
 
     private:
-        friend class ShaderOption::Builder;
+        friend class ShaderConstants::Builder;
         void CalculateHash();
 
         std::unique_ptr<uint8_t[]>            storage;
@@ -67,6 +67,6 @@ namespace sky::vk {
         uint32_t                              size = 0;
         uint32_t                              hash = 0;
     };
-    using ShaderOptionPtr = std::shared_ptr<ShaderOption>;
+    using ShaderOptionPtr = std::shared_ptr<ShaderConstants>;
 
 } // namespace sky::vk

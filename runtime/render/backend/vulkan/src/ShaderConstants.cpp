@@ -5,19 +5,19 @@
 #include <algorithm>
 #include <core/hash/Crc32.h>
 #include <core/util/Memory.h>
-#include <vulkan/ShaderOption.h>
+#include <vulkan/ShaderConstants.h>
 
 namespace sky::vk {
 
-    void ShaderOption::Builder::AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size)
+    void ShaderConstants::Builder::AddConstant(VkShaderStageFlagBits stage, uint32_t id, uint32_t size)
     {
         auto &map = constants[stage];
         map[id]   = Align(size, 4U);
     }
 
-    std::shared_ptr<ShaderOption> ShaderOption::Builder::Build()
+    std::shared_ptr<ShaderConstants> ShaderConstants::Builder::Build()
     {
-        auto                                       res   = std::make_shared<ShaderOption>();
+        auto                                       res   = std::make_shared<ShaderConstants>();
         uint32_t                                   size  = 0;
         uint32_t                                   index = 0;
         std::vector<std::pair<uint32_t, uint32_t>> offsets;
@@ -52,7 +52,7 @@ namespace sky::vk {
         return res;
     }
 
-    const VkSpecializationInfo *ShaderOption::GetSpecializationInfo(VkShaderStageFlagBits stage) const
+    const VkSpecializationInfo *ShaderConstants::GetSpecializationInfo(VkShaderStageFlagBits stage) const
     {
         auto iter = std::find(stages.begin(), stages.end(), stage);
         if (iter == stages.end()) {
@@ -62,17 +62,17 @@ namespace sky::vk {
         return &specializationInfo[distance];
     }
 
-    const uint8_t *ShaderOption::GetData() const
+    const uint8_t *ShaderConstants::GetData() const
     {
         return storage.get();
     }
 
-    uint32_t ShaderOption::GetHash() const
+    uint32_t ShaderConstants::GetHash() const
     {
         return hash;
     }
 
-    void ShaderOption::CalculateHash()
+    void ShaderConstants::CalculateHash()
     {
         if (storage != 0) {
             hash = Crc32::Cal(storage.get(), size);

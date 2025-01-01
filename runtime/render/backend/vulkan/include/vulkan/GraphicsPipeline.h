@@ -9,7 +9,7 @@
 #include "vulkan/PipelineLayout.h"
 #include "vulkan/RenderPass.h"
 #include "vulkan/Shader.h"
-#include "vulkan/ShaderOption.h"
+#include "vulkan/ShaderConstants.h"
 #include "vulkan/VertexInput.h"
 #include "vulkan/vulkan.h"
 #include <string>
