@@ -11,7 +11,7 @@ using namespace sky;
 TEST(FileSystemTest, FileTest)
 {
     FilePath path("test.txt");
-    NativeFileSystem fs("");
+    NativeFileSystem fs("./");
     {
         auto file = fs.CreateOrOpenFile(path);
         auto archive = file->WriteAsArchive();
