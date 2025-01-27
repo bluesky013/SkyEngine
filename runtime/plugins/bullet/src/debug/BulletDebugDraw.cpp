@@ -18,9 +18,13 @@ namespace sky::phy {
             btIDebugDraw::DBG_NoDeactivation |
             btIDebugDraw::DBG_DrawConstraints;
 
+    struct BulletPrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     BulletDebugDraw::BulletDebugDraw()
         : debugMode(DEFAULT_DEBUG_DRAW_FLAG)
-        , primitive(std::make_unique<RenderPrimitive>())
+        , primitive(std::make_unique<BulletPrimitive>())
         , debugRenderer(std::make_unique<DebugRenderer>())
     {
     }
@@ -60,9 +64,9 @@ namespace sky::phy {
 
     void BulletDebugDraw::SetTechnique(const RDGfxTechPtr &tech)
     {
-        TechniqueInstance techInst = {tech};
+        RenderBatch techInst = {tech};
         techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
-        primitive->techniques.clear();
-        primitive->techniques.emplace_back(techInst);
+        primitive->batches.clear();
+        primitive->batches.emplace_back(techInst);
     }
 } // namespace sky::phy

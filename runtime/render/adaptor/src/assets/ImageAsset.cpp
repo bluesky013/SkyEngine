@@ -89,6 +89,7 @@ namespace sky {
             auto *texture2D = new Texture2D();
             texture2D->Init(data.format, data.width, data.height, data.mipLevels);
             texture2D->SetUploadStream(std::move(imageData));
+            texture2D->SetResourceID(uuid);
             return texture2D;
         }
 
@@ -96,6 +97,7 @@ namespace sky {
             auto *textureCube = new TextureCube();
             textureCube->Init(data.format, data.width, data.height, data.mipLevels);
             textureCube->SetUploadStream(std::move(imageData));
+            textureCube->SetResourceID(uuid);
             return textureCube;
         }
         return {};

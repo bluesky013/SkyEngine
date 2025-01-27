@@ -4,16 +4,19 @@
 
 #pragma once
 
-#include <vector>
 #include <core/name/Name.h>
 #include <render/resource/Shader.h>
 #include <render/RenderResource.h>
 #include <render/RenderBase.h>
+#include <shader/ShaderCompiler.h>
+#include <shader/ShaderVariant.h>
+
+#include <vector>
 
 namespace sky {
 
     struct ShaderRef {
-        ShaderCollectionPtr shaderCollection;
+        Name shaderName;
         std::string objectOrCSMain;
         std::string vertOrMeshMain;
         std::string fragmentMain;
@@ -26,14 +29,23 @@ namespace sky {
 
         void SetShader(const ShaderRef &shader);
 
-        RDProgramPtr RequestProgram(const ShaderOptionPtr &option = nullptr);
+        void SetOption(const Name& name, uint8_t val, ShaderVariantKey &variantKey);
+
+        template <typename Func>
+        void ForEachOption(Func &&fn)
+        {
+            if (shader) {
+                shader->ForEachOption(std::forward<Func>(fn));
+            }
+        }
+
+        RDProgramPtr RequestProgram(const ShaderVariantKey &key = {});
 
     protected:
-        virtual void FillProgramInternal(Program &program, const ShaderCompileOption &option) {}
+        virtual RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) = 0;
 
         ShaderRef shaderData;
-
-        std::unordered_map<uint32_t, RDProgramPtr> programCache;
+        ShaderCollectionPtr shader;
     };
 
     class GraphicsTechnique : public Technique {
@@ -45,9 +57,8 @@ namespace sky {
         void SetRasterState(const rhi::RasterState &rs);
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const Name &tag);
-        void SetVertexFlag(RenderVertexFlagBit flagBit, const std::string &macro);
-
-        void Process(RenderVertexFlags flags, const ShaderOptionPtr &option);
+        void AddVertexFlag(RenderVertexFlagBit flagBit, const Name &key);
+        void ProcessVertexVariantKey(RenderVertexFlags flags, ShaderVariantKey &key);
 
         const Name &GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
@@ -60,13 +71,11 @@ namespace sky {
                                                  uint32_t subPassID);
 
     private:
-        void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
+        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) override;
         rhi::PipelineState state;
         Name rasterID;
         uint32_t viewMask = 0xFFFFFFFF;
-
-        std::vector<std::string> preCompiledFlags;
-        std::unordered_map<RenderVertexFlagBit, std::string> vertexFlags;
+        std::unordered_map<RenderVertexFlagBit, Name> vertexFlags;
     };
     using RDGfxTechPtr = CounterPtr<GraphicsTechnique>;
 
@@ -76,7 +85,7 @@ namespace sky {
         ~ComputeTechnique() override = default;
 
     private:
-        void FillProgramInternal(Program &program, const ShaderCompileOption &option) override;
+        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) override;
 
         rhi::PipelineState state;
     };

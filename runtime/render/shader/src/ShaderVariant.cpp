@@ -22,6 +22,44 @@ namespace sky {
         [](uint8_t a, uint8_t b) -> bool{ return a >= b; }, // GE
     };
 
+    ShaderVariantKey ShaderVariantKey::operator|(const ShaderVariantKey &rhs) const
+    {
+        ShaderVariantKey res = {};
+
+        for (uint32_t i = 0; i < U64L; ++i) {
+            res.u64[i] = u64[i] | rhs.u64[i];
+        }
+
+        return res;
+    }
+
+    ShaderVariantKey ShaderVariantKey::operator&(const ShaderVariantKey &rhs) const
+    {
+        ShaderVariantKey res = {};
+
+        for (uint32_t i = 0; i < U64L; ++i) {
+            res.u64[i] = u64[i] & rhs.u64[i];
+        }
+
+        return res;
+    }
+
+    ShaderVariantKey& ShaderVariantKey::operator|=(const ShaderVariantKey& rhs)
+    {
+        for (uint32_t i = 0; i < U64L; ++i) {
+            u64[i] |= rhs.u64[i];
+        }
+        return *this;
+    }
+
+    ShaderVariantKey& ShaderVariantKey::operator&=(const ShaderVariantKey& rhs)
+    {
+        for (uint32_t i = 0; i < U64L; ++i) {
+            u64[i] &= rhs.u64[i];
+        }
+        return *this;
+    }
+
     void ShaderVariantKey::SetValue(uint8_t beginBit, uint8_t endBit, uint8_t val)
     {
         SKY_ASSERT(endBit - beginBit < 8);
@@ -72,6 +110,28 @@ namespace sky {
         entries.emplace_back(entry);
     }
 
+    void ShaderVariantList::AddOptionItem(const ShaderOptionItem &item)
+    {
+        ShaderOptionEntry entry = {};
+        entry.key = item.key;
+        entry.dft = item.dft;
+
+        if (item.type == ShaderOptionType::BATCH) {
+            entry.range = {BATCH_OPT_OFFSET + currentBit, BATCH_OPT_OFFSET + currentBit + item.bits - 1};
+            currentBit++;
+
+        } else {
+            const auto *passEntry = ShaderCompiler::Get()->FindPassEntry(item.key);
+            if (passEntry == nullptr) {
+                return;
+            }
+            entry.range = passEntry->range;
+            pipelineMask |= ShaderVariantKey((1LLU << (entry.range.second + 1)) - 1LLU);
+        }
+
+        AddEntry(entry);
+    }
+
     void ShaderVariantList::AddDependency(const Name& key, const ShaderOptionDependency &dep)
     {
         deps[key].emplace_back(dep);
@@ -80,7 +140,7 @@ namespace sky {
     using ShaderVariantGraph = boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
         boost::property<boost::vertex_color_t, boost::default_color_type>>;
 
-    void ShaderVariantList::GeneratePermutationImpl(std::vector<ShaderVariantKey>& out, const std::vector<uint32_t> &list,
+    void ShaderVariantList::GeneratePermutationImpl(std::vector<ShaderVariantKey>& out, const std::vector<uint32_t> &list, // NOLINT
         uint32_t index, ShaderVariantKey key) const
     {
         if (index >= list.size()) {
@@ -93,7 +153,7 @@ namespace sky {
 
         auto iter = deps.find(entry.key);
         if (iter != deps.end()) {
-            for (auto &dep : iter->second) {
+            for (const auto &dep : iter->second) {
                 const auto &dstEntry = entries[idMap.at(dep.dst)];
                 uint8_t dstVal = key.GetValue(dstEntry.range.first, dstEntry.range.second);
                 if (!COMP_FUNCS[static_cast<uint8_t>(dep.func)](dstVal, dep.ref)) {
@@ -110,7 +170,7 @@ namespace sky {
 
     void ShaderVariantList::FillShaderOption(ShaderOption& option, const ShaderVariantKey& key) const
     {
-        for (auto &entry : entries) {
+        for (const auto &entry : entries) {
             option.SetValue(entry.key.GetStr().data(), key.GetValue(entry.range.first, entry.range.second));
         }
     }
@@ -119,7 +179,7 @@ namespace sky {
     {
         ShaderVariantKey defaultVal = {};
 
-        for (auto &entry : entries) {
+        for (const auto &entry : entries) {
             defaultVal.SetValue(entry.range.first, entry.range.second, entry.dft);
         }
 
@@ -130,10 +190,10 @@ namespace sky {
     {
         ShaderVariantGraph graph;
         // build graph
-        uint32_t root = static_cast<uint32_t>(entries.size());
+        auto root = static_cast<uint32_t>(entries.size());
 
         for (const auto &[key, list] : deps) {
-            for (auto &dep : list) {
+            for (const auto &dep : list) {
                 boost::add_edge(idMap.at(key), idMap.at(dep.dst), graph);
             }
         }

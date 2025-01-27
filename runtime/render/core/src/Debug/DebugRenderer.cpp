@@ -182,10 +182,9 @@ namespace sky {
                 continue;
             }
             auto *primitive = primitives[batchIndex++];
-            primitive->techniques[0].topo = key.topology;
+            primitive->batches[0].topo = key.topology;
 
             primitive->geometry = geometry;
-            primitive->isReady = true;
             primitive->args.clear();
 
             uint32_t dataOffset = firstVertex * sizeof(DebugVertex);

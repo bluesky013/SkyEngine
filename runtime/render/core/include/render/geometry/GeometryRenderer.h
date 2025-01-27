@@ -44,7 +44,6 @@ namespace sky {
         void ResetPrimitive(const RDGfxTechPtr &tech);
         void ResizeVertex(uint32_t size);
         void AddVertex(const GeometryBatchVertex &vtx);
-        void BuildVertexAssembly();
 
         RDGfxTechPtr technique;
 
@@ -53,7 +52,6 @@ namespace sky {
 
         uint32_t currentVertex = 0;
         uint32_t vertexCapacity = 0;
-        bool needRebuildVA = true;
 
         std::vector<GeometryBatchVertex> batchVertices;
         std::vector<uint32_t> batchIndices;

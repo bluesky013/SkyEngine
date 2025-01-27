@@ -30,7 +30,7 @@ namespace sky {
     RDResourceGroupPtr SkeletonMeshRenderer::RequestResourceGroup(MeshFeature *feature)
     {
         auto res = feature->RequestSkinnedResourceGroup();
-        res->BindDynamicUBO("skinData", boneData, 0);
+        res->BindDynamicUBO(Name("skinData"), boneData, 0);
         return res;
     }
 

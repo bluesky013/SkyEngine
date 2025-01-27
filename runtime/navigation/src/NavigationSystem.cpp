@@ -12,14 +12,19 @@ namespace sky::ai {
     void NavigationSystem::OnAttachToWorld(World &world)
     {
         naviMesh = NaviMeshFactory::Get()->CreateNaviMesh();
-        naviMesh->navSystem = this;
-        naviMesh->OnAttachToWorld(world);
+        if (naviMesh != nullptr) {
+            naviMesh->navSystem = this;
+            naviMesh->OnAttachToWorld(world);
+        }
+
     }
 
     void NavigationSystem::OnDetachFromWorld(World &world)
     {
-        naviMesh->OnDetachFromWorld(world);
-        naviMesh = nullptr;
+        if (naviMesh != nullptr) {
+            naviMesh->OnDetachFromWorld(world);
+            naviMesh = nullptr;
+        }
     }
 
     void NavigationSystem::OnNavMeshChanged()

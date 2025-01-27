@@ -17,11 +17,6 @@ namespace sky {
         executor.wait_for_all();
     }
 
-    void ShaderFileSystem::SetSourceFS(const sky::FileSystemPtr &fs)
-    {
-        sourceFs = fs;
-    }
-
     void ShaderFileSystem::SetWorkFS(const FileSystemPtr& fs)
     {
         cacheFS = fs;
@@ -29,7 +24,7 @@ namespace sky {
 
     void ShaderFileSystem::SetIntermediateFS(const NativeFileSystemPtr &fs)
     {
-        cacheSourceFS = CastPtr<NativeFileSystem>(fs->CreateSubSystem("Shaders", true));
+        cacheSourceFS = CastPtr<NativeFileSystem>(fs->CreateSubSystem("Sources", true));
 
         for (uint32_t i = 0; i < static_cast<uint32_t>(ShaderCompileTarget::NUM); ++i) {
             compiledBinaryFS[i] = CastPtr<NativeFileSystem>(fs->CreateSubSystem(ShaderCompiler::GetTargetName(static_cast<ShaderCompileTarget>(i)).GetStr().data(), true));
@@ -46,6 +41,22 @@ namespace sky {
         executor.wait_for_all();
     }
 
+    std::pair<bool, std::string> ShaderFileSystem::LoadCacheSource(const Name& name)
+    {
+        if (cacheSourceFS) {
+            auto replacedName = ShaderCompiler::ReplaceShadeName(name);
+            auto file = cacheSourceFS->OpenFile(FilePath(replacedName));
+
+            if (file) {
+                std::string result;
+                file->ReadString(result);
+                return {true, result};
+            }
+        }
+
+        return {false, {}};
+    }
+
     void ShaderFileSystem::SaveCacheSource(const Name& name, const std::string &source)
     {
         auto replacedName = ShaderCompiler::ReplaceShadeName(name);
@@ -56,6 +67,25 @@ namespace sky {
                 archive->SaveRaw(source.c_str(), source.length());
             });
         }
+    }
+
+    CounterPtr<MemoryArchive> ShaderFileSystem::LoadBinaryCache(const ShaderCacheEntry& entry, ShaderCompileTarget target)
+    {
+        if (!cacheFS) {
+            return {};
+        }
+
+        FilePath filePath(entry.savedFileName.GetStr());
+        FilePath targetPath(ShaderCompiler::GetTargetName(target).GetStr().data());
+
+        auto file = cacheFS->OpenFile(targetPath / filePath);
+
+        CounterPtr<MemoryArchive> memory = new MemoryArchive();
+        memory->Resize(entry.length);
+
+        file->ReadData(entry.offset, entry.length, reinterpret_cast<uint8_t *>(memory->Address()));
+
+        return memory;
     }
 
     void ShaderFileSystem::AppendBinaryCache(const Name& shader, ShaderCompileTarget target, const MD5 &md5, const CounterPtr<MemoryArchive>& memory)

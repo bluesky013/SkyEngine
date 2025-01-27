@@ -60,7 +60,7 @@ namespace sky {
 
         computeResources.emplace_back(ComputeResource{
             Name("SCENE_VIEW"),
-            rdg::ComputeView{"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
         });
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
@@ -75,8 +75,8 @@ namespace sky {
 
         layout = new ResourceGroupLayout();
         layout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
-        layout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
-        layout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
+        layout->AddNameHandler(Name("passInfo"), {0, sizeof(ShaderPassInfo)});
+        layout->AddNameHandler(Name("viewInfo"), {1, sizeof(SceneViewInfo)});
 //        layout->AddNameHandler("ShadowMap", {2});
 //        layout->AddNameHandler("ShadowMapSampler", {3});
     }

@@ -42,12 +42,15 @@ public:
         }
 
         if (result.count("search") != 0u) {
-            searchPaths = result["search"].as<std::vector<std::string>>();
+            auto searchPaths = result["search"].as<std::vector<std::string>>();
+            for (auto &path : searchPaths) {
+                ShaderFileSystem::Get()->AddSearchPath(path);
+            }
         }
 
         if (result.count("intermediate") != 0u) {
-            auto intermediate = result["intermediate"].as<std::string>();
-            ShaderFileSystem::Get()->SetIntermediateFS(new NativeFileSystem(intermediate));
+            FilePath intermediate = result["intermediate"].as<std::string>();
+            ShaderFileSystem::Get()->SetIntermediateFS(new NativeFileSystem(intermediate / FilePath("shaders")));
         }
         ShaderFileSystem::Get()->SetWorkFS(new NativeFileSystem("Shaders"));
 
@@ -69,7 +72,6 @@ public:
                 } else if (t == "DX") {
                 }
             }
-
         }
 
         if (result.count("opt") != 0u) {
@@ -142,11 +144,17 @@ public:
         }
     }
 
+    static void ProcessShaderOptionItems(ShaderVariantList& list, std::string& source)
+    {
+        std::vector<ShaderOptionItem> items = ShaderCompiler::PreProcess(source);
+        for (const auto &item : items) {
+            list.AddOptionItem(item);
+        }
+    }
+
     static void LoadShaderVariants(const FilePath &path, ShaderVariantList& list,
         std::vector<std::pair<rhi::ShaderStageFlagBit, Name>> &entries)
     {
-        std::vector<ShaderVariantKey> result;
-
         std::string json;
         ReadString(path, json);
         if (!json.empty()) {
@@ -159,33 +167,6 @@ public:
                     rhi::ShaderStageFlagBit stage = ShaderCompiler::GetShaderStage(ele["stage"].GetString());
                     Name name(ele["name"].GetString());
                     entries.emplace_back(std::pair<rhi::ShaderStageFlagBit, Name>{stage, name});
-                }
-            }
-
-            uint32_t currentBit = 0;
-
-            if (document.HasMember("options")) {
-                auto array = document["options"].GetArray();
-
-                for (auto &ele : array) {
-                    ShaderOptionEntry entry = {};
-                    entry.range.first = currentBit;
-                    entry.range.second = currentBit;
-
-                    if (ele.HasMember("key")) {
-                        entry.key = Name(ele["key"].GetString());
-                    }
-                    if (ele.HasMember("default")) {
-                        entry.dft = static_cast<uint8_t>(ele["default"].GetUint());
-                    }
-                    if (ele.HasMember("bits")) {
-                        auto bits = ele["bits"].GetUint();
-                        bits = std::clamp(bits, 1u, 8u);
-                        entry.range.second = currentBit + bits - 1;
-                    }
-                    currentBit = entry.range.second + 1;
-
-                    list.AddEntry(entry);
                 }
             }
         }
@@ -221,7 +202,7 @@ public:
                 ShaderBuildResult result = {};
                 auto *targetCompiler = getCompilerFn(target);
                 if (targetCompiler->CompileBinary(source, option, result)) {
-                    ShaderCacheManager::Get()->SaveCache(shaderName, md5, target, shaderEntry, key, result);
+                    ShaderCacheManager::Get()->SaveBinaryCache(shaderName, md5, target, shaderEntry, key, result);
                     SaveBinaryIntermediate(targetCompiler, name, source.entry, key, target, result);
                 }
             }
@@ -241,6 +222,7 @@ public:
         path.ReplaceExtension(".variants");
         std::vector<std::pair<rhi::ShaderStageFlagBit, Name>> entries;
         ShaderVariantList list;
+        ProcessShaderOptionItems(list, desc.source);
         LoadShaderVariants(path, list, entries);
 
         if (entries.empty()) {
@@ -262,9 +244,7 @@ public:
         auto *mm = Interface<ISystemNotify>::Get()->GetApi()->GetModuleManager();
         getCompilerFn = mm->GetFunctionFomModule<GetBinaryCompilerFunc>("ShaderCompiler", "GetBinaryCompiler");
 
-        for (auto &path : searchPaths) {
-            ShaderCompiler::Get()->AddSearchPath(path);
-        }
+        ShaderCompiler::Get()->LoadPipelineOptions(passOptions);
 
         for (auto &target : targets) {
             ShaderCacheManager::Get()->LoadMappingFile(target);
@@ -278,12 +258,12 @@ public:
     }
 
 private:
-    std::vector<std::string> searchPaths;
     GetBinaryCompilerFunc getCompilerFn = nullptr;
 
     bool saveSpirV = false;
 
     std::string singleShader;
+    std::string passOptions = "shaders/pipeline/pass_options.hlslh";
     std::vector<ShaderCompileTarget> targets;
 };
 

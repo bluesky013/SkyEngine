@@ -21,6 +21,11 @@ namespace sky {
         engineFs = fs;
     }
 
+    void AssetBuilderManager::SetInterMediateFs(const NativeFileSystemPtr &fs)
+    {
+        intermediateFs = fs;
+    }
+
     void AssetBuilderManager::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
     {
         workSpaceFs = fs;

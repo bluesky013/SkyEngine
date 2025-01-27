@@ -72,6 +72,9 @@ namespace sky {
         }
     private:
         NameEntryHandle handle;
+#if _DEBUG
+        std::string_view view;
+#endif
     };
 
 } // namespace sky

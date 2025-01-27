@@ -32,18 +32,21 @@ namespace sky {
             uint32_t size;
         };
 
-        void AddNameHandler(const std::string &key, const BindingHandler &handler);
-        void AddBufferNameHandler(const std::string &key, const BufferNameHandler &nameHandler);
+        void AddNameHandler(const Name &key, const BindingHandler &handler);
+        void AddBufferNameHandler(const Name &key, const BufferNameHandler &nameHandler);
         void SetRHILayout(const rhi::DescriptorSetLayoutPtr &layout);
 
-        const BindingHandler *GetBindingByeName(const std::string &key) const;
-        const BufferNameHandler *GetBufferMemberByName(const std::string &key) const;
-        const std::unordered_map<std::string, BindingHandler> &GetBindingHandlers() const { return handlers; }
+        const BindingHandler *GetBindingByeName(const Name &key) const;
+        const BufferNameHandler *GetBufferMemberByName(const Name &key) const;
+        const std::unordered_map<Name, BindingHandler> &GetBindingHandlers() const { return handlers; }
+        const std::unordered_map<Name, BufferNameHandler> &GetBufferNameHandles() const { return bufferHandlers; }
         const rhi::DescriptorSetLayoutPtr &GetRHILayout() const { return layout; }
 
+        bool IsEmpty() const { return handlers.empty(); }
+
     private:
-        std::unordered_map<std::string, BindingHandler> handlers;    // name -> [binding, size]
-        std::unordered_map<std::string, BufferNameHandler> bufferHandlers; // name -> buffer name handler
+        std::unordered_map<Name, BindingHandler> handlers;    // name -> [binding, size]
+        std::unordered_map<Name, BufferNameHandler> bufferHandlers; // name -> buffer name handler
         rhi::DescriptorSetLayoutPtr layout;
     };
     using RDResourceLayoutPtr = CounterPtr<ResourceGroupLayout>;
@@ -56,11 +59,11 @@ namespace sky {
         void Init(const RDResourceLayoutPtr &layout, rhi::DescriptorSetPool &pool);
         void Update();
 
-        void BindBuffer(const std::string &key, const rhi::BufferPtr &buffer, uint32_t index);
-        void BindDynamicUBO(const std::string &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index);
-        void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index);
-        void BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
-        void BindSampler(const std::string &key, const rhi::SamplerPtr &sampler, uint32_t index);
+        void BindBuffer(const Name &key, const rhi::BufferPtr &buffer, uint32_t index);
+        void BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index);
+        void BindTexture(const Name &key, const rhi::ImageViewPtr &view, uint32_t index);
+        void BindTexture(const Name &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
+        void BindSampler(const Name &key, const rhi::SamplerPtr &sampler, uint32_t index);
 
         void OnBind(rhi::GraphicsEncoder &encoder, uint32_t setID);
         void OnBind(rhi::ComputeEncoder &encoder, uint32_t setID);
@@ -72,7 +75,6 @@ namespace sky {
         RDResourceLayoutPtr   layout;
 
         std::unordered_map<uint32_t, RDDynamicUniformBufferPtr> dynamicUBOS;
-        std::vector<uint32_t> slotHash;
     };
     using RDResourceGroupPtr = CounterPtr<ResourceGroup>;
 

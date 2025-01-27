@@ -15,15 +15,68 @@ namespace sky {
 
     void ShaderCacheManager::OnShaderCacheSaved(ShaderCompileTarget target, const MD5 &md5, const ShaderCacheEntry& entry)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        cacheMapping[target].cacheEntries[md5] = entry;
+        auto &mapping = cacheMapping[target];
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        mapping.cacheEntries[md5] = entry;
     }
 
-    void ShaderCacheManager::SaveCache(const Name& shader, const MD5& sourceMD5, ShaderCompileTarget target,
+    const ShaderSourceEntry* ShaderCacheManager::FetchSource(const Name &name, ShaderCompileTarget target)
+    {
+        auto &mapping = cacheMapping[target];
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        auto iter = mapping.entries.find(name);
+        if (iter != mapping.entries.end()) {
+            return &(iter->second);
+        }
+
+        auto [rst, source] = ShaderFileSystem::Get()->LoadCacheSource(name);
+        if (rst) {
+            ShaderFileSystem::Get()->SaveCacheSource(name, source);
+
+            MD5 sourceMD5 = MD5::CalculateMD5(source);
+            ShaderVariantList list;
+            std::vector<ShaderOptionItem> items = ShaderCompiler::Get()->PreProcess(source);
+            for (auto &item : items) {
+                list.AddOptionItem(item);
+            }
+            return SaveShader(name, target, sourceMD5, list);
+        }
+
+        return nullptr;
+    }
+
+    const ShaderSourceEntry* ShaderCacheManager::SaveShader(const Name& shader, ShaderCompileTarget target, const MD5& sourceMD5, const ShaderVariantList& list)
+    {
+        auto &mapping = cacheMapping[target];
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        auto &sourceEntry = mapping.entries[shader];
+        if (sourceEntry.sourceMD5 != sourceMD5) {
+            sourceEntry.entries.clear();
+            sourceEntry.sourceMD5 = sourceMD5;
+            sourceEntry.options = list.GetOptionEntries();
+        }
+        return &sourceEntry;
+    }
+
+    const ShaderCacheEntry *ShaderCacheManager::FetchBinaryCache(const Name &shader, ShaderCompileTarget target, const Name &entry, ShaderVariantKey key)
+    {
+        auto &mapping = cacheMapping[target];
+        ShaderCacheKey cacheKey = {entry, key};
+
+        std::lock_guard<std::recursive_mutex> lock(mutex);
+        auto &sourceEntry = mapping.entries[shader];
+
+        auto iter = sourceEntry.entries.find(cacheKey);
+        if (iter != sourceEntry.entries.end()) {
+            return &mapping.cacheEntries.at(iter->second);
+        }
+        return nullptr;
+    }
+
+    void ShaderCacheManager::SaveBinaryCache(const Name& shader, ShaderCompileTarget target,
         const Name& entry, const ShaderVariantKey &key, const ShaderBuildResult &result)
     {
         auto &mapping = cacheMapping[target];
-
         ShaderCacheKey cacheKey = {entry, key};
 
         // calculate binary md5
@@ -35,18 +88,14 @@ namespace sky {
 
         // save cache bin
         {
-            std::lock_guard<std::mutex> lock(mutex);
+            std::lock_guard<std::recursive_mutex> lock(mutex);
             auto &sourceEntry = mapping.entries[shader];
-            if (sourceEntry.sourceMD5 != sourceMD5) {
-                sourceEntry.entries.clear();
-                sourceEntry.sourceMD5 = sourceMD5;
-            }
             sourceEntry.entries[cacheKey] = binMD5;
         }
 
         // check if md5 binary exists
         {
-            std::lock_guard<std::mutex> lock(mutex);
+            std::lock_guard<std::recursive_mutex> lock(mutex);
             auto iter = mapping.cacheEntries.find(binMD5);
             if (iter != mapping.cacheEntries.end()) {
                 return;
@@ -82,6 +131,20 @@ namespace sky {
             archive->LoadRaw(reinterpret_cast<char *>(&sourceEntry.sourceMD5), sizeof(MD5));
 
             uint32_t cacheNum = 0;
+            archive->Load(cacheNum);
+
+            sourceEntry.options.resize(cacheNum);
+            for (uint32_t j = 0; j < cacheNum; ++j) {
+                archive->Load(name);
+
+                auto &opt = sourceEntry.options[j];
+                opt.key = Name(name.c_str());
+                archive->Load(opt.range.first);
+                archive->Load(opt.range.second);
+                archive->Load(opt.dft);
+            }
+
+            cacheNum = 0;
             archive->Load(cacheNum);
             for (uint32_t j = 0; j < cacheNum; ++j) {
                 ShaderCacheKey key = {};
@@ -130,8 +193,16 @@ namespace sky {
             for (const auto &[shaderName, sourceEntry] : sourceMapping.entries) {
                 archive->Save(std::string(shaderName.GetStr().data()));
                 archive->SaveRaw(reinterpret_cast<const char *>(&sourceEntry.sourceMD5), sizeof(MD5));
-                archive->Save(static_cast<uint32_t>(sourceEntry.entries.size()));
 
+                archive->Save(static_cast<uint32_t>(sourceEntry.options.size()));
+                for (const auto &opt : sourceEntry.options) {
+                    archive->Save(std::string(opt.key.GetStr().data()));
+                    archive->Save(opt.range.first);
+                    archive->Save(opt.range.second);
+                    archive->Save(opt.dft);
+                }
+
+                archive->Save(static_cast<uint32_t>(sourceEntry.entries.size()));
                 for (const auto &[cacheKey, binEntries] : sourceEntry.entries) {
                     archive->Save(std::string(cacheKey.entry.GetStr().data()));
                     archive->SaveRaw(reinterpret_cast<const char*>(&cacheKey.key), sizeof(ShaderVariantKey));

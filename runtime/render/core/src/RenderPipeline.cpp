@@ -26,9 +26,9 @@ namespace sky {
 
     RenderPipeline::RenderPipeline()
     {
-        const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
+        const auto &defaultRes = Renderer::Get()->GetDefaultResource();
 
-        rdgContext = std::make_unique<rdg::RenderGraphContext>();
+        rdgContext = std::make_unique<rdg::RenderGraphContext>(3);
         rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
         rdgContext->pool->Init();
         rdgContext->device = RHI::Get()->GetDevice();

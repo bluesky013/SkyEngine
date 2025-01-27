@@ -130,9 +130,9 @@ namespace sky {
     uint64_t NativeFile::AppendData(const char* data, uint64_t size)
     {
         std::fstream file = filePath.OpenFStream(std::ios::out | std::ios::binary | std::ios::app);
-        auto offset = file.tellg();
         file.write(reinterpret_cast<const char *>(data), size);
-        return static_cast<uint64_t>(offset);
+        auto offset = file.tellp();
+        return static_cast<uint64_t>(offset) - size;
     }
 
     void RawBufferView::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
@@ -214,5 +214,20 @@ namespace sky {
             subDir.MakeDirectory();
         }
         return new NativeFileSystem(subDir);
+    }
+
+    std::vector<FilePath> NativeFileSystem::FilterFiles(const FilePath &path, const std::string &ext)
+    {
+        std::vector<FilePath> result;
+
+        if (std::filesystem::exists(path.filePath)) {
+            for (const auto &entry : std::filesystem::recursive_directory_iterator{path.filePath}) {
+                if (entry.is_regular_file() && entry.path().extension() == ext) {
+                    result.emplace_back(FilePath( std::filesystem::relative(entry.path(), path.filePath)));
+                }
+            }
+        }
+
+        return result;
     }
 } // namespace sky

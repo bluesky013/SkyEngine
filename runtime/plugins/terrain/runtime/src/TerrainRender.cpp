@@ -115,8 +115,8 @@ namespace sky {
         geometry->vertexAttributes.emplace_back(VertexAttribute{VertexAttribute{VertexSemanticFlagBit::INST0, 1, 0, rhi::Format::U_R32, rhi::VertexInputRate::PER_INSTANCE}});
         geometry->version++;
 
-        batchSet = material->GetResourceGroup();
-        batchSet->BindBuffer("InstancedData", instanceDataBuffer->GetRHIBuffer(), 0);
+//        batchSet = material->GetResourceGroup();
+        batchSet->BindBuffer(Name("InstancedData"), instanceDataBuffer->GetRHIBuffer(), 0);
         batchSet->Update();
 
         for (uint32_t i = 0; i < sectors.size(); ++i) {

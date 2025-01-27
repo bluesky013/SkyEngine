@@ -174,27 +174,27 @@ namespace sky::rdg {
             [&](const RasterQueueTag &) {
                 auto &queue = graph.rasterQueues[Index(u, graph)];
                 for (auto &item : queue.drawItems) {
-                    auto &tech = item.primitive->techniques[item.techIndex];
+                    auto &batch = item.primitive->batches[item.techIndex];
 
-                    currentEncoder->BindPipeline(tech.pso);
-                    if (queue.resourceGroup != nullptr && ((tech.pso->GetDescriptorMask() & (1 << 0)) != 0u)) {
+                    currentEncoder->BindPipeline(batch.pso);
+                    if (queue.resourceGroup != nullptr && ((batch.pso->GetDescriptorMask() & (1 << 0)) != 0u)) {
                         queue.resourceGroup->OnBind(*currentEncoder, 0);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 0);
                     }
 
-                    if (item.primitive->batchSet && ((tech.pso->GetDescriptorMask() & (1 << 1)) != 0u)) {
-                        item.primitive->batchSet->OnBind(*currentEncoder, 1);
+                    if (batch.batchGroup && ((batch.pso->GetDescriptorMask() & (1 << 1)) != 0u)) {
+                        batch.batchGroup->OnBind(*currentEncoder, 1);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 1);
                     }
 
-                    if (item.primitive->instanceSet && ((tech.pso->GetDescriptorMask() & (1 << 2)) != 0u)) {
+                    if (item.primitive->instanceSet && ((batch.pso->GetDescriptorMask() & (1 << 2)) != 0u)) {
                         item.primitive->instanceSet->OnBind(*currentEncoder, 2);
                     }
 
-                    if (tech.vao) {
-                        currentEncoder->BindAssembly(tech.vao);
+                    if (batch.vao) {
+                        currentEncoder->BindAssembly(batch.vao);
                     } else {
                         std::vector<rhi::BufferView> vertexBuffers;
                         item.primitive->geometry->FillVertexBuffer(vertexBuffers);

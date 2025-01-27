@@ -1,7 +1,7 @@
-#include "shaders/vertex/position_only.hlsl"
+#include "vertex/position_only.hlslh"
 
-#include "shaders/layout/default_pass.hlsl"
-#include "shaders/layout/default_local.hlsl"
+#include "layout/default_pass.hlslh"
+#include "layout/default_local.hlslh"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]

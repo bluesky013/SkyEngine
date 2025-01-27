@@ -5,7 +5,6 @@
 #include <builder/render/ImageBuilder.h>
 #include <builder/render/MaterialBuilder.h>
 #include <builder/render/PrefabBuilder.h>
-#include <builder/render/ShaderBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/MeshBuilder.h>
 #include <builder/render/AnimationBuilder.h>
@@ -35,7 +34,6 @@ namespace sky::builder {
     bool BuilderModule::Init(const StartArguments &args)
     {
         auto *am = AssetBuilderManager::Get();
-        am->RegisterBuilder(new ShaderBuilder());
         am->RegisterBuilder(new TechniqueBuilder());
         am->RegisterBuilder(new MaterialBuilder());
         am->RegisterBuilder(new ImageBuilder());
@@ -47,11 +45,6 @@ namespace sky::builder {
         // init shader compiler
         engineFs = AssetBuilderManager::Get()->GetEngineFs();
         workSpaceFs = AssetBuilderManager::Get()->GetWorkSpaceFs();
-
-        auto *compiler = ShaderCompiler::Get();
-        compiler->AddSearchPath(engineFs->GetPath());
-        compiler->AddSearchPath(workSpaceFs->GetPath());
-
         ProcessPreloadAssets();
         return true;
     }

@@ -17,13 +17,21 @@ namespace sky {
     {
     }
 
-    Name::Name(const char *ch) : handle(NameDataBase::Get()->FetchOrRegister(ch))
+    Name::Name(const char *ch)
+        : handle(NameDataBase::Get()->FetchOrRegister(ch))
     {
+#if _DEBUG
+        view = NameDataBase::Get()->GetStr(handle);
+#endif
     }
 
     std::string_view Name::GetStr() const noexcept
     {
+#if _DEBUG
+        return view;
+#else
         return NameDataBase::Get()->GetStr(handle);
+#endif
     }
 
     bool Name::Equals(Name A, std::string_view B) noexcept

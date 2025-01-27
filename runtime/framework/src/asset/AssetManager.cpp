@@ -36,11 +36,11 @@ namespace sky {
         return {};
     }
 
-    AssetPtr AssetManager::FindOrCreateAsset(const Uuid &uuid, const std::string &type)
+    AssetPtr AssetManager::FindOrCreateAsset(const Uuid &uuid, const Name &type)
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
-            LOG_E(TAG, "Asset handler not registered asset %s, type %s", uuid.ToString().c_str(), type.c_str());
+            LOG_E(TAG, "Asset handler not registered asset %s, type %s", uuid.ToString().c_str(), type.GetStr());
             return {};
         }
 
@@ -65,7 +65,7 @@ namespace sky {
         archive->Load(type);
 
         // try to find again
-        auto asset = FindOrCreateAsset(uuid, type);
+        auto asset = FindOrCreateAsset(uuid, Name(type.c_str()));
         if (asset) {
             uint32_t depCount = 0;
             archive->Load(depCount);
@@ -188,7 +188,9 @@ namespace sky {
 
         auto archive = file->WriteAsArchive();
 
-        archive->Save(asset->type);
+        auto type = asset->type.GetStr();
+        archive->Save(static_cast<uint32_t>(type.size()));
+        archive->SaveRaw(type.data(), type.size());
         archive->Save(static_cast<uint32_t>(asset->dependencies.size()));
         for (auto &dep : asset->dependencies) {
             archive->Save(dep.word[0]);
@@ -211,7 +213,7 @@ namespace sky {
 
     void AssetManager::RegisterAssetHandler(const std::string_view &type, AssetHandlerBase *handler)
     {
-        assetHandlers[type.data()].reset(handler);
+        assetHandlers[Name(type.data())].reset(handler);
     }
 
 } // namespace sky

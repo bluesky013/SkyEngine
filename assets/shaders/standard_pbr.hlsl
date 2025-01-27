@@ -1,7 +1,17 @@
-#include "shaders/vertex/standard.hlsl"
+#pragma option({"key": "ENABLE_SKIN",         "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_INSTANCE",     "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_NORMAL_MAP",   "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_EMISSIVE_MAP", "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_AO_MAP",       "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_MR_MAP",       "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_ALPHA_MASK",   "default": 0, "type": "Batch"})
 
-#include "shaders/layout/default_pass.hlsl"
-#include "shaders/layout/default_local.hlsl"
+#pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
+
+#include "vertex/standard.hlslh"
+
+#include "layout/default_pass.hlslh"
+#include "layout/default_local.hlslh"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]
@@ -37,8 +47,8 @@ VSOutput VSMain(VSInput input
     return output;
 }
 
-#include "shaders/layout/standard_shading.hlsl"
-#include "shaders/lighting/pbr.hlsl"
+#include "layout/standard_shading.hlslh"
+#include "lighting/pbr.hlslh"
 
 // static const float4x4 biasMat = float4x4(
 // 	0.5, 0.0, 0.0, 0.5,

@@ -38,20 +38,20 @@ namespace sky {
 
     void Mesh::Upload()
     {
-        for (auto &sub : subMeshes) {
-            sub.material->Upload();
-        }
+//        for (auto &sub : subMeshes) {
+//            sub.material->Upload();
+//        }
         geometry->Upload();
         geometry->version++;
     }
 
     bool Mesh::IsReady() const
     {
-        for (const auto &sub : subMeshes) {
-            if (!sub.material->IsReady()) {
-                return false;
-            }
-        }
+//        for (const auto &sub : subMeshes) {
+//            if (!sub.material->IsReady()) {
+//                return false;
+//            }
+//        }
         return geometry->IsReady();
     }
 

@@ -19,10 +19,27 @@ namespace sky {
         0, 0, 0, 0, 0, 0, 0, 0
     };
 
+    static constexpr uint32_t MAX_SET_PER_POOL = 8;
+    static std::vector<rhi::DescriptorSetPool::PoolSize> SIZES = {
+        {rhi::DescriptorType::SAMPLER                , 4 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::SAMPLED_IMAGE          , 4 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::STORAGE_IMAGE          , 4 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::UNIFORM_BUFFER         , 1 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::STORAGE_BUFFER         , 4 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC , 1 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC , 1 * MAX_SET_PER_POOL},
+        {rhi::DescriptorType::INPUT_ATTACHMENT       , 4 * MAX_SET_PER_POOL},
+    };
+
     void RenderDefaultResource::Init()
     {
         auto *device = RHI::Get()->GetDevice();
-        defaultPool = device->CreateDescriptorSetPool({1});
+
+        rhi::DescriptorSetPool::Descriptor poolDesc = {};
+        poolDesc.maxSets = MAX_SET_PER_POOL;
+        poolDesc.sizeCount = static_cast<uint32_t>(SIZES.size());
+        poolDesc.sizeData = SIZES.data();
+        defaultPool = device->CreateDescriptorSetPool(poolDesc);
         emptyVI = device->CreateVertexInput({});
 
         auto emptyRHIDesLayout = device->CreateDescriptorSetLayout({});

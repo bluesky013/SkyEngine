@@ -31,7 +31,7 @@ namespace sky {
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
-        std::vector<std::unique_ptr<RenderPrimitive>> primitives;
+        std::vector<std::unique_ptr<RenderMaterialPrimitive>> primitives;
         RDDynamicUniformBufferPtr ubo;
     };
 

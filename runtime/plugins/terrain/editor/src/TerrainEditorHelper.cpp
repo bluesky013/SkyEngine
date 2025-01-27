@@ -9,6 +9,10 @@
 
 namespace sky::editor {
 
+    struct TerrainPrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     TerrainHelper::TerrainHelper()
         : renderer(std::make_unique<DebugRenderer>())
     {
@@ -18,11 +22,11 @@ namespace sky::editor {
 
         primitives.resize(5);
         for (auto &prim : primitives) {
-            TechniqueInstance techInst = {technique};
-            techInst.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+            RenderBatch batch = {technique};
+            batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
 
-            prim = new RenderPrimitive();
-            prim->techniques.emplace_back(techInst);
+            prim = new TerrainPrimitive();
+            prim->batches.emplace_back(batch);
         }
     }
 
@@ -36,9 +40,6 @@ namespace sky::editor {
     void TerrainHelper::Reset()
     {
         renderer->Reset();
-        for (auto *prim : primitives) {
-            prim->isReady = false;
-        }
     }
 
     void TerrainHelper::DrawFullTerrainGrid(const TerrainBuildConfig &cfg, const Vector3 &worldPos)

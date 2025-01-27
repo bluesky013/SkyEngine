@@ -16,6 +16,7 @@
 #include <render/RenderBase.h>
 #include <render/resource/ResourceGroup.h>
 #include <shader/ShaderCompiler.h>
+#include <shader/ShaderCacheManager.h>
 
 namespace sky {
     class Program : public RenderResource {
@@ -24,9 +25,11 @@ namespace sky {
         ~Program() override = default;
 
         RDResourceLayoutPtr RequestLayout(uint32_t index) const;
+
         const rhi::PipelineLayoutPtr &GetPipelineLayout() const { return pipelineLayout; }
         const std::vector<rhi::ShaderPtr> &GetShaders() const { return shaders; }
         const std::vector<VertexStageAttribute> &GetVertexAttributes() const { return reflection->attributes; }
+        const ShaderReflection* GetReflection() const { return reflection.get(); }
 
         void AddShader(const rhi::ShaderPtr &shader) { shaders.emplace_back(shader); }
         void MergeReflection(ShaderReflection &&refl);
@@ -41,19 +44,31 @@ namespace sky {
 
     class ShaderCollection : public RenderResource {
     public:
-        explicit ShaderCollection(const std::string &name_, std::string source_, uint32_t hash_)
-            : RenderResource(name_)
-            , source(std::move(source_))
-            , hash(hash_) {}
+        explicit ShaderCollection(const Name &name_, const ShaderSourceEntry &source);
         ~ShaderCollection() override = default;
 
-        void BuildAndCacheShader(const std::string &entry, rhi::ShaderStageFlagBit stage, const ShaderCompileOption &option, ShaderBuildResult &result);
+        RDProgramPtr FetchProgramCache(const ShaderVariantKey &key = {}) const;
+        void CacheProgram(const ShaderVariantKey &key, const RDProgramPtr &program);
 
-        const std::string &RequestSource() const { return source; }
-        uint32_t GetHash() const { return hash; }
+        RDProgramPtr AcquireShaderBinary(const ShaderVariantKey &key, const std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> &stages);
+        void BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result);
+
+        template <typename Func>
+        void ForEachOption(Func &&fn)
+        {
+            list.ForeachOptions(std::forward<Func>(fn));
+        }
+
+        void SetOption(const Name& name, uint8_t val, ShaderVariantKey &variantKey)
+        {
+            list.SetValue(name, val, variantKey);
+        }
+
     private:
-        std::string source;
-        uint32_t hash;
+        ShaderVariantList list;
+
+        mutable std::mutex mutex;
+        std::unordered_map<ShaderVariantKey, RDProgramPtr> programCache;
     };
     using ShaderCollectionPtr = CounterPtr<ShaderCollection>;
 } // namespace sky

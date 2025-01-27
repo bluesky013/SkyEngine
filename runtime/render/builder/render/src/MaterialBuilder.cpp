@@ -5,6 +5,7 @@
 #include <builder/render/MaterialBuilder.h>
 
 #include <filesystem>
+#include <algorithm>
 #include <rapidjson/document.h>
 
 #include <core/math/Vector2.h>
@@ -20,7 +21,88 @@ static const char* TAG = "MaterialBuilder";
 
 namespace sky::builder {
 
-    void ProcessProperties(rapidjson::Document &document, MaterialProperties &properties, const AssetBuildRequest &request)
+    using JsonValue = rapidjson::Document::GenericValue;
+    static uint8_t ProcessFilter(std::string mode)
+    {
+        std::transform(mode.begin(), mode.end(), mode.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+
+        if (mode == "nearest") {
+            return static_cast<uint8_t>(rhi::Filter::NEAREST);
+        }
+        if (mode == "linear") {
+            return static_cast<uint8_t>(rhi::Filter::LINEAR);
+        }
+
+        SKY_ASSERT(0)
+        return static_cast<uint8_t>(rhi::Filter::LINEAR);
+    }
+
+    static uint8_t ProcessMipFilter(std::string mode)
+    {
+        std::transform(mode.begin(), mode.end(), mode.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+
+        if (mode == "nearest") {
+            return static_cast<uint8_t>(rhi::MipFilter::NEAREST);
+        }
+        if (mode == "linear") {
+            return static_cast<uint8_t>(rhi::MipFilter::LINEAR);
+        }
+
+        SKY_ASSERT(0)
+        return static_cast<uint8_t>(rhi::MipFilter::LINEAR);
+    }
+
+    static uint8_t ProcessWrapMode(std::string mode)
+    {
+        std::transform(mode.begin(), mode.end(), mode.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+
+        if (mode == "repeat") {
+            return static_cast<uint8_t>(rhi::WrapMode::REPEAT);
+        }
+        if (mode == "clamp_to_edge") {
+            return static_cast<uint8_t>(rhi::WrapMode::CLAMP_TO_EDGE);
+        }
+
+        SKY_ASSERT(0)
+        return static_cast<uint8_t>(rhi::WrapMode::REPEAT);
+    }
+
+    TextureSampler ProcessSampler(const JsonValue &val)
+    {
+        TextureSampler sampler = {
+            .magFilter = static_cast<uint8_t>(rhi::Filter::LINEAR),
+            .minFilter = static_cast<uint8_t>(rhi::Filter::LINEAR),
+            .mipMode = static_cast<uint8_t>(rhi::MipFilter::LINEAR),
+            .addressModeU = static_cast<uint8_t>(rhi::WrapMode::REPEAT),
+            .addressModeV = static_cast<uint8_t>(rhi::WrapMode::REPEAT),
+            .addressModeW = static_cast<uint8_t>(rhi::WrapMode::REPEAT),
+        };
+
+        if (val.HasMember("MagFilter")) {
+            sampler.magFilter = ProcessFilter(val["MagFilter"].GetString());
+        }
+        if (val.HasMember("MinFilter")) {
+            sampler.minFilter = ProcessFilter(val["MinFilter"].GetString());
+        }
+        if (val.HasMember("MipMode")) {
+            sampler.mipMode = ProcessMipFilter(val["MipMode"].GetString());
+        }
+        if (val.HasMember("AddressModeU")) {
+            sampler.addressModeU = ProcessWrapMode(val["AddressModeU"].GetString());
+        }
+        if (val.HasMember("AddressModeV")) {
+            sampler.addressModeV = ProcessWrapMode(val["AddressModeU"].GetString());
+        }
+        if (val.HasMember("AddressModeW")) {
+            sampler.addressModeW = ProcessWrapMode(val["AddressModeU"].GetString());
+        }
+        return sampler;
+    }
+
+    void ProcessProperties(rapidjson::Document &document, MaterialProperties &properties, const AssetBuildRequest &request, AssetBase& asset)
     {
         if (!document.HasMember("properties")) {
             return;
@@ -30,46 +112,38 @@ namespace sky::builder {
         if (proValues.IsObject()) {
             for (auto iter = proValues.MemberBegin(); iter != proValues.MemberEnd(); ++iter) {
                 auto &obj = iter->value;
+                auto name = iter->name.GetString();
 
                 if (obj.IsString()) {
                     const auto *imagePath = obj.GetString();
-                    auto texId = AssetDataBase::Get()->RegisterAsset(imagePath);
-                    properties.valueMap[iter->name.GetString()] = MaterialTexture{static_cast<uint32_t>(properties.images.size())};
-                    properties.images.emplace_back(texId->uuid);
-
-                    request.assetInfo->dependencies.emplace_back(texId->uuid);
+                    auto        tex = AssetDataBase::Get()->RegisterAsset(imagePath);
+                    properties.valueMap[name] = MaterialTexture{tex->uuid};
+                    request.assetInfo->dependencies.emplace_back(tex->uuid);
+                    asset.AddDependencies(tex->uuid);
+                    AssetBuilderManager::Get()->BuildRequest(tex->uuid, request.target);
+                } else if (obj.IsObject()) {
+                    properties.valueMap[name] = ProcessSampler(obj);
                 } else if (obj.IsFloat()) {
-                    properties.valueMap[iter->name.GetString()] = obj.GetFloat();
+                    properties.valueMap[name] = obj.GetFloat();
+                } else if (obj.IsUint()) {
+                    properties.valueMap[name] = static_cast<uint32_t>(obj.GetUint());
+                } else if (obj.IsInt()) {
+                    properties.valueMap[name] = static_cast<int32_t>(obj.GetInt());
                 } else if (obj.IsBool()) {
-                    properties.valueMap[iter->name.GetString()] = static_cast<uint32_t>(obj.GetBool());
+                    properties.valueMap[name] = static_cast<uint32_t>(obj.GetBool());
                 } else if (obj.IsArray()) {
                     auto   array = obj.GetArray();
                     float *v     = nullptr;
                     if (array.Size() == 2) {
-                        v = std::get<Vector2>(properties.valueMap.emplace(iter->name.GetString(), Vector2{}).first->second).v;
+                        v = std::get<Vector2>(properties.valueMap.emplace(name, Vector2{}).first->second).v;
                     } else if (array.Size() == 3) {
-                        v = std::get<Vector3>(properties.valueMap.emplace(iter->name.GetString(), Vector3{}).first->second).v;
+                        v = std::get<Vector3>(properties.valueMap.emplace(name, Vector3{}).first->second).v;
                     } else if (array.Size() == 4) {
-                        v = std::get<Vector4>(properties.valueMap.emplace(iter->name.GetString(), Vector4{}).first->second).v;
+                        v = std::get<Vector4>(properties.valueMap.emplace(name, Vector4{}).first->second).v;
                     }
                     for (auto &val : array) {
                         (*v) = val.GetFloat();
                         ++v;
-                    }
-                }
-            }
-        }
-
-        if (document.HasMember("options")) {
-            auto &optionValue = document["options"];
-            if (optionValue.IsObject()) {
-                for (auto iter = optionValue.MemberBegin(); iter != optionValue.MemberEnd(); ++iter) {
-                    auto &obj = iter->value;
-
-                    if (obj.IsUint()) {
-                        properties.options[iter->name.GetString()] = obj.GetUint();
-                    } else if (obj.IsBool()) {
-                        properties.options[iter->name.GetString()] = obj.GetBool();
                     }
                 }
             }
@@ -110,12 +184,7 @@ namespace sky::builder {
         assetData.material = mat->uuid;
         asset->AddDependencies(mat->uuid);
 
-        ProcessProperties(document, assetData.properties, request);
-        for (auto &image : assetData.properties.images) {
-            AssetBuilderManager::Get()->BuildRequest(image, request.target);
-            asset->AddDependencies(image);
-        }
-
+        ProcessProperties(document, assetData.properties, request, *asset);
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }
@@ -156,12 +225,7 @@ namespace sky::builder {
             }
         }
 
-        ProcessProperties(document, assetData.defaultProperties, request);
-        for (auto &image : assetData.defaultProperties.images) {
-            AssetBuilderManager::Get()->BuildRequest(image, request.target);
-            asset->AddDependencies(image);
-        }
-
+        ProcessProperties(document, assetData.defaultProperties, request, *asset);
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
     }

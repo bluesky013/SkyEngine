@@ -7,9 +7,13 @@
 
 namespace sky {
 
+    struct GridPrimitive : RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     Grid::Grid()
         : renderer(new DebugRenderer())
-        , primitive(new RenderPrimitive())
+        , primitive(new GridPrimitive())
     {
     }
 
@@ -49,9 +53,9 @@ namespace sky {
 
     void Grid::SetTechnique(const RDGfxTechPtr &tech)
     {
-        TechniqueInstance techInst = {tech};
+        RenderBatch techInst = {tech};
         techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
-        primitive->techniques.clear();
-        primitive->techniques.emplace_back(techInst);
+        primitive->batches.clear();
+        primitive->batches.emplace_back(techInst);
     }
 } // namespace sky

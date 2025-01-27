@@ -62,6 +62,7 @@ namespace std {
 namespace sky {
     struct ShaderSourceEntry {
         MD5 sourceMD5;
+        std::vector<ShaderOptionEntry> options;
         std::unordered_map<ShaderCacheKey, MD5> entries;
     };
 
@@ -87,15 +88,19 @@ namespace sky {
         ShaderCacheManager();
         ~ShaderCacheManager() override = default;
 
-        void SaveCache(const Name& shader, const MD5& sourceMD5, ShaderCompileTarget target, const Name& entry,
+        const ShaderSourceEntry* FetchSource(const Name &name, ShaderCompileTarget target);
+        const ShaderSourceEntry* SaveShader(const Name& shader, ShaderCompileTarget target, const MD5& sourceMD5, const ShaderVariantList& list);
+
+        void SaveBinaryCache(const Name& shader, ShaderCompileTarget target, const Name& entry,
             const ShaderVariantKey &key, const ShaderBuildResult &result);
+        const ShaderCacheEntry *FetchBinaryCache(const Name &name, ShaderCompileTarget target, const Name &entry, ShaderVariantKey key);
 
         void SaveMappingFile() const;
         void LoadMappingFile(ShaderCompileTarget target);
     private:
         void OnShaderCacheSaved(ShaderCompileTarget target, const MD5 &md5, const ShaderCacheEntry& entry) override;
 
-        mutable std::mutex mutex;
+        mutable std::recursive_mutex mutex;
         std::unordered_map<ShaderCompileTarget, ShaderCacheMapping> cacheMapping;
 
         EventBinder<IShaderCacheEvent> cacheEvent;

@@ -1,4 +1,4 @@
-#include "shaders/vertex/full_screen.hlsl"
+#include "vertex/full_screen.hlslh"
 
 struct VSOutput
 {
@@ -15,7 +15,7 @@ VSOutput VSMain(uint vid : SV_VertexID)
     return res;
 }
 
-#include "shaders/color/color_common.hlsl"
+#include "color/color_common.hlslh"
 [[vk::binding(0, 0)]] Texture2D InColor : register(t0, space0);
 [[vk::binding(1, 0)]] SamplerState InColorSampler : register(s0, space0);
 

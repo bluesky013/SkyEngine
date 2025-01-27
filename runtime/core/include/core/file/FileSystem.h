@@ -139,6 +139,8 @@ namespace sky {
         void Copy(const FilePath &from, const FilePath &to) const;
         bool IsSubDir(const std::string &path) const;
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
+
+        static std::vector<FilePath> FilterFiles(const FilePath &path, const std::string &ext);
     private:
         FilePath fsRoot;
     };

@@ -23,7 +23,7 @@ namespace sky {
     };
 
     struct ShaderRefData {
-        Uuid shader;
+        std::string shader;
         std::string objectOrCSMain;
         std::string vertOrMeshMain;
         std::string fragmentMain;
@@ -44,8 +44,6 @@ namespace sky {
         rhi::RasterState             rasterState;
         std::vector<rhi::BlendState> blendStates;
 
-        // variants
-        std::vector<std::string>          preDefines;
         std::vector<TechniqueVertexFlags> vertexFlags;
 
         void Load(BinaryInputArchive &archive);

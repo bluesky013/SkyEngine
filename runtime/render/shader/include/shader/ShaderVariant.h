@@ -14,6 +14,25 @@
 namespace sky {
     class ShaderOption;
 
+    enum class ShaderOptionType : uint8_t {
+        BATCH,
+        PASS,
+        NUM
+    };
+
+    static constexpr uint8_t PASS_OPT_OFFSET = 0;
+    static constexpr uint8_t PASS_OPT_MAX = 31;
+
+    static constexpr uint8_t BATCH_OPT_OFFSET = PASS_OPT_MAX + 1;
+    static constexpr uint8_t BATCH_OPT_MAX = 63;
+
+    struct ShaderOptionItem {
+        Name key;
+        uint8_t dft  = 0;
+        uint8_t bits = 1;
+        ShaderOptionType type = ShaderOptionType::BATCH;
+    };
+
     struct ShaderOptionEntry {
         Name key;
         std::pair<uint8_t, uint8_t> range;
@@ -69,6 +88,12 @@ namespace sky {
             return u64[0] == rhs.u64[0];
         }
 
+        ShaderVariantKey operator|(const ShaderVariantKey &rhs) const;
+        ShaderVariantKey operator&(const ShaderVariantKey &rhs) const;
+
+        ShaderVariantKey& operator|=(const ShaderVariantKey& rhs);
+        ShaderVariantKey& operator&=(const ShaderVariantKey& rhs);
+
         void SetValue(uint8_t beginBit, uint8_t endBit, uint8_t val);
         uint8_t GetValue(uint8_t beginBit, uint8_t endBit) const;
 
@@ -81,13 +106,33 @@ namespace sky {
         ~ShaderVariantList() = default;
 
         void AddEntry(const ShaderOptionEntry& entry);
+        void AddOptionItem(const ShaderOptionItem &item);
         void AddDependency(const Name& key, const ShaderOptionDependency &dep);
+
+        void SetValue(const Name &name, uint8_t val, ShaderVariantKey &keyVal)
+        {
+            auto iter = idMap.find(name);
+            if (iter != idMap.end()) {
+                const auto &range = entries[iter->second].range;
+                keyVal.SetValue(range.first, range.second, val);
+            }
+        }
+
+        template <typename Func>
+        void ForeachOptions(Func &&fn)
+        {
+            for (auto &[name, id] : idMap) {
+                fn(name);
+            }
+        }
 
         ShaderVariantKey GenerateDefault() const;
         std::vector<ShaderVariantKey> GeneratePermutation() const;
 
         void FillShaderOption(ShaderOption& option, const ShaderVariantKey& key) const;
 
+        inline ShaderVariantKey GetPipelineMask() const { return pipelineMask; }
+        inline const std::vector<ShaderOptionEntry>& GetOptionEntries() const { return entries; }
     private:
         void GeneratePermutationImpl(std::vector<ShaderVariantKey>& out, const std::vector<uint32_t> &list,
             uint32_t index, ShaderVariantKey key) const;
@@ -95,6 +140,9 @@ namespace sky {
         std::vector<ShaderOptionEntry> entries;
         std::unordered_map<Name, std::vector<ShaderOptionDependency>> deps;
         std::unordered_map<Name, uint32_t> idMap;
+
+        uint8_t currentBit = 0;
+        ShaderVariantKey pipelineMask;
     };
 
 } // namespace sky

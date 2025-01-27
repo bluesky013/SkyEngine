@@ -80,6 +80,8 @@ namespace sky {
 
         virtual bool Init(uint32_t size);
         virtual void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
+        uint8_t *GetAddress() { return ptr; }
+
         template <typename T>
         void WriteT(uint32_t offset, const T& val)
         {

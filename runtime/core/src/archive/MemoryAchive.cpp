@@ -33,6 +33,11 @@ namespace sky {
         return data.data();
     }
 
+    char* MemoryArchive::Address()
+    {
+        return data.data();
+    }
+
     size_t MemoryArchive::Size() const
     {
         return data.size();

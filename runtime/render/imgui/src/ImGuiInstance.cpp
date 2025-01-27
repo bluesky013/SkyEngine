@@ -40,6 +40,22 @@ namespace sky {
 //        ImPlot::SetCurrentContext(plotContext);
     }
 
+    void ImguiPrimitive::UpdateBatch()
+    {
+        auto &batch = batches[0];
+        if (!batch.batchGroup) {
+            ubo = new DynamicUniformBuffer();
+            ubo->Init(sizeof(UITransform));
+
+            auto layout = batch.program->RequestLayout(BATCH_SET);
+            batch.batchGroup = new ResourceGroup();
+            batch.batchGroup->Init(layout, *ImGuiFeature::Get()->GetPool());
+            batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
+            batch.batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
+            batch.batchGroup->Update();
+        }
+    }
+
     ImGuiInstance::ImGuiInstance()
     {
         IMGUI_CHECKVERSION();
@@ -93,31 +109,22 @@ namespace sky {
         std::vector<uint8_t> rawData(uploadSize);
         memcpy(rawData.data(), pixels, uploadSize);
 
-        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
-        fontTexture = new Texture2D();
-        fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
-        fontTexture->Upload(std::move(rawData), queue);
-
-        ubo = new DynamicUniformBuffer();
-        ubo->Init(sizeof(UITransform));
-
-        io.Fonts->SetTexID((ImTextureID)(intptr_t)fontTexture->GetImageView().get());
-
         auto *feature = ImGuiFeature::Get();
-        primitive = std::make_unique<RenderPrimitive>();
+        primitive = std::make_unique<ImguiPrimitive>();
         primitive->geometry = new RenderGeometry();
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(ImDrawVert, pos), rhi::Format::F_RG32});
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(ImDrawVert, uv),  rhi::Format::F_RG32});
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(ImDrawVert, col), rhi::Format::F_RGBA8});
+        primitive->batches.emplace_back(feature->GetTechnique());
 
-        primitive->techniques.emplace_back(feature->GetDefaultTech());
+        primitive->ubo = new DynamicUniformBuffer();
+        primitive->ubo->Init(sizeof(UITransform));
 
-        globalSet = feature->RequestResourceGroup();
-        globalSet->BindTexture("FontTexture", fontTexture->GetImageView(), 0);
-        globalSet->BindDynamicUBO("Constants", ubo, 0);
-        globalSet->Update();
-
-        primitive->batchSet = globalSet;
+        auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
+        primitive->fontTexture = new Texture2D();
+        primitive->fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
+        primitive->fontTexture->Upload(std::move(rawData), queue);
+        io.Fonts->SetTexID((ImTextureID)(intptr_t)primitive->fontTexture->GetImageView().get());
     }
 
     ImGuiInstance::~ImGuiInstance()
@@ -127,7 +134,6 @@ namespace sky {
         primitive     = nullptr;
         vertexBuffer  = nullptr;
         indexBuffer   = nullptr;
-        ubo           = nullptr;
         globalSet     = nullptr;
     }
 
@@ -166,7 +172,7 @@ namespace sky {
 
     void ImGuiInstance::Render(rdg::RenderGraph &rdg)
     {
-        if (!fontTexture->IsReady()) {
+        if (!primitive || !primitive->fontTexture->IsReady()) {
             return;
         }
 
@@ -178,8 +184,8 @@ namespace sky {
         transform.scale.y = 2.0f / drawData->DisplaySize.y;
         transform.translate.x = -1.0f - drawData->DisplayPos.x * transform.scale.x;
         transform.translate.y = -1.0f - drawData->DisplayPos.y * transform.scale.y;
-        ubo->WriteT(0, transform);
-        ubo->Upload();
+        primitive->ubo->WriteT(0, transform);
+        primitive->ubo->Upload();
 
         float fbWidth  = drawData->DisplaySize.x * drawData->FramebufferScale.x;
         float fbHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
@@ -366,7 +372,5 @@ namespace sky {
             primitive->geometry->dynamicVB = true;
             primitive->geometry->version++;
         }
-
-        primitive->isReady = true;
     }
 } // namespace sky

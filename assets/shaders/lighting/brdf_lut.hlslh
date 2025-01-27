@@ -1,4 +1,4 @@
-#include "shaders/vertex/full_screen.hlsl"
+#include "vertex/full_screen.hlsl"
 
 struct VSOutput
 {

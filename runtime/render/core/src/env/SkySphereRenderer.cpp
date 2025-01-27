@@ -7,6 +7,11 @@
 #include <render/RHI.h>
 
 namespace sky {
+
+    struct SkySpherePrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     static const rhi::DescriptorSetPool::PoolSize POOL_DESC[] = {
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLED_IMAGE, 1},
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLER, 1},
@@ -18,7 +23,7 @@ namespace sky {
             1, sizeof(POOL_DESC) / sizeof(rhi::DescriptorSetPool::PoolSize), POOL_DESC
         });
 
-        primitive = std::make_unique<RenderPrimitive>();
+        primitive = std::make_unique<SkySpherePrimitive>();
         primitive->geometry = new RenderGeometry();
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(SkyBoxVertex, pos), rhi::Format::F_RGBA32});
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(SkyBoxVertex, uv),  rhi::Format::F_RG32});
@@ -115,20 +120,19 @@ namespace sky {
     {
         technique = tech;
 
-        primitive->techniques.clear();
-        primitive->techniques.emplace_back(TechniqueInstance{
+        primitive->batches.clear();
+        primitive->batches.emplace_back(RenderBatch{
             technique
         });
 
         resourceGroup = new ResourceGroup();
         resourceGroup->Init(technique->RequestProgram()->RequestLayout(BATCH_SET), *pool);
 
-        primitive->batchSet = resourceGroup;
+//        primitive->batchSet = resourceGroup;
     }
 
     void SkySphereRenderer::SetReady()
     {
-        primitive->isReady = true;
     }
 
 } // namespace sky

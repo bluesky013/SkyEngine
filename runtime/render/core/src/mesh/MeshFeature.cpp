@@ -31,12 +31,12 @@ namespace sky {
 
         localLayout = new ResourceGroupLayout();
         localLayout->SetRHILayout(device->CreateDescriptorSetLayout({BINDINGS}));
-        localLayout->AddNameHandler("localData", {0, sizeof(InstanceLocal)});
+        localLayout->AddNameHandler(Name("localData"), {0, sizeof(InstanceLocal)});
 
         skinnedLayout = new ResourceGroupLayout();
         skinnedLayout->SetRHILayout(device->CreateDescriptorSetLayout({SKINNED_BINDINGS}));
-        skinnedLayout->AddNameHandler("localData", {0, sizeof(InstanceLocal)});
-        skinnedLayout->AddNameHandler("skinData", {1, MAX_BONE_NUM * sizeof(Matrix4)});
+        skinnedLayout->AddNameHandler(Name("localData"), {0, sizeof(InstanceLocal)});
+        skinnedLayout->AddNameHandler(Name("skinData"), {1, MAX_BONE_NUM * sizeof(Matrix4)});
 
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};

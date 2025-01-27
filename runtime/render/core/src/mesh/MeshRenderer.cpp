@@ -19,9 +19,6 @@ namespace sky {
 
     void MeshRenderer::Tick()
     {
-        for (auto &prim : primitives) {
-            prim->isReady = mesh->IsReady();
-        }
     }
 
     void MeshRenderer::AttachScene(RenderScene *scn)
@@ -32,18 +29,15 @@ namespace sky {
     void MeshRenderer::SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh)
     {
         auto &primitive = primitives[subMesh];
-        primitive->techniques.clear();
+        primitive->batches.clear();
 
         const auto &techniques = mat->GetMaterial()->GetGfxTechniques();
-        primitive->techniques.reserve(techniques.size());
+        primitive->material = mat;
+        primitive->batches.reserve(techniques.size());
         for (const auto &tech : techniques) {
-            TechniqueInstance inst = {tech, mat};
-            inst.shaderOption = new ShaderOption();
-            tech->Process(primitive->vertexFlags, inst.shaderOption);
-            primitive->techniques.emplace_back(inst);
+            RenderBatch batch = {tech};
+            primitive->batches.emplace_back(batch);
         }
-
-        primitive->batchSet = mat->GetResourceGroup();
     }
 
     void MeshRenderer::SetMesh(const RDMeshPtr &mesh_)
@@ -58,9 +52,9 @@ namespace sky {
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
         for (const auto &sub : mesh->GetSubMeshes()) {
-            auto &primitive = primitives.emplace_back(std::make_unique<RenderPrimitive>());
+            auto &primitive = primitives.emplace_back(std::make_unique<RenderMaterialPrimitive>());
             primitive->instanceSet = RequestResourceGroup(meshFeature);
-            primitive->instanceSet->BindDynamicUBO("localData", ubo, 0);
+            primitive->instanceSet->BindDynamicUBO(Name("localData"), ubo, 0);
             primitive->instanceSet->Update();
 
             primitive->localBound = sub.aabb;

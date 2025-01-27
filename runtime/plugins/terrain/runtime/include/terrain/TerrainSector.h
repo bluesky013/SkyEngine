@@ -41,7 +41,7 @@ namespace sky {
         RenderPrimitive* GetPrimitive() const { return primitive.get(); }
     private:
         TerrainCoord sectorCoord;
-        std::unique_ptr<RenderPrimitive> primitive;
+        std::unique_ptr<RenderMaterialPrimitive> primitive;
     };
 
 } // namespace sky

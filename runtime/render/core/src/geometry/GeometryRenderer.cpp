@@ -15,6 +15,10 @@
 namespace sky {
     static constexpr uint32_t DEFAULT_VERTEX_CAPACITY = 32;
 
+    struct GeometryPrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     void GeometryRenderer::Init()
     {
         ubo = new DynamicUniformBuffer();
@@ -22,10 +26,10 @@ namespace sky {
         ubo->WriteT(0, InstanceLocal{Matrix4::Identity(), Matrix4::Identity()});
 
         auto *geomFeature = GeometryFeature::Get();
-        primitive = std::make_unique<RenderPrimitive>();
-        primitive->techniques.resize(1);
+        primitive = std::make_unique<GeometryPrimitive>();
+        primitive->batches.resize(1);
         primitive->instanceSet = geomFeature->RequestResourceGroup();
-        primitive->instanceSet->BindDynamicUBO("localData", ubo, 0);
+        primitive->instanceSet->BindDynamicUBO(Name("localData"), ubo, 0);
         primitive->instanceSet->Update();
 
         ResetPrimitive(geomFeature->GetDefaultTech());
@@ -34,7 +38,6 @@ namespace sky {
 
     void GeometryRenderer::Upload()
     {
-        BuildVertexAssembly();
         uint8_t *ptr = vertexBuffer->GetRHIBuffer()->Map();
         memcpy(ptr, batchVertices.data(), batchVertices.size() * sizeof(GeometryBatchVertex));
         vertexBuffer->GetRHIBuffer()->UnMap();
@@ -50,7 +53,7 @@ namespace sky {
 
     void GeometryRenderer::ResetPrimitive(const RDGfxTechPtr &tech)
     {
-        primitive->techniques[0].technique = tech;
+        primitive->batches[0].technique = tech;
     }
 
     void GeometryRenderer::ResizeVertex(uint32_t size)
@@ -167,20 +170,9 @@ namespace sky {
     {
         if (currentVertex >= vertexCapacity) {
             ResizeVertex(vertexCapacity * 2);
-            needRebuildVA = true;
         }
         batchVertices[currentVertex] = vtx;
         batchVertices[currentVertex++].position += currentCenter;
-    }
-
-    void GeometryRenderer::BuildVertexAssembly()
-    {
-//        if (needRebuildVA) {
-//            rhi::VertexAssembly::Descriptor desc = {};
-//            desc.vertexBuffers.emplace_back(rhi::BufferView{vertexBuffer->GetRHIBuffer(), 0, static_cast<uint32_t>(batchVertices.size() * sizeof(GeometryBatchVertex))});
-//            primitive->va = RHI::Get()->GetDevice()->CreateVertexAssembly(desc);
-//            needRebuildVA = false;
-//        }
     }
 
 } // namespace sky

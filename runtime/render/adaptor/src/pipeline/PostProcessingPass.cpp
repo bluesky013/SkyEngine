@@ -22,12 +22,12 @@ namespace sky {
 
         computeResources.emplace_back(ComputeResource{
             fwdColor,
-            rdg::ComputeView{"InColor", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("InColor"), rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS}
         });
 
         computeResources.emplace_back(ComputeResource{
             Name("SCENE_VIEW"),
-            rdg::ComputeView{"viewInfo", rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
         });
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
@@ -42,8 +42,8 @@ namespace sky {
 
         debugLayout = new ResourceGroupLayout();
         debugLayout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
-        debugLayout->AddNameHandler("passInfo", {0, sizeof(ShaderPassInfo)});
-        debugLayout->AddNameHandler("viewInfo", {1, sizeof(SceneViewInfo)});
+        debugLayout->AddNameHandler(Name("passInfo"), {0, sizeof(ShaderPassInfo)});
+        debugLayout->AddNameHandler(Name("viewInfo"), {1, sizeof(SceneViewInfo)});
 //        layout->AddNameHandler("ShadowMap", {2});
 //        layout->AddNameHandler("ShadowMapSampler", {3});
     }

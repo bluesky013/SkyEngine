@@ -11,7 +11,6 @@
 #include <fstream>
 
 namespace sky {
-
     enum class TextureType : uint32_t {
         TEXTURE_2D,
         TEXTURE_3D,

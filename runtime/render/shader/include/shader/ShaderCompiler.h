@@ -17,6 +17,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/crypto/md5/MD5.h>
 #include <core/archive/IArchive.h>
+#include <core/archive/MemoryArchive.h>
 
 #include <shader/ShaderVariant.h>
 #include <rhi/Core.h>
@@ -24,7 +25,7 @@
 namespace sky {
 
     struct ShaderIncludeContext {
-        std::vector<FilePath> &searchPaths;
+        const std::vector<FilePath> &searchPaths;
         std::set<std::string> visited;
     };
 
@@ -117,11 +118,16 @@ namespace sky {
         ShaderCompiler();
         ~ShaderCompiler() override;
 
-        void AddSearchPath(const FilePath &path) { searchPaths.emplace_back(path); }
+        void LoadPipelineOptions(const std::string &name);
 
         FilePath GetShaderPath(const std::string &name) const;
         std::string LoadShader(const std::string &name);
 
+        const ShaderOptionEntry* FindPassEntry(const Name& name) const;
+
+        static std::vector<ShaderOptionItem> PreProcess(std::string& source);
+
+        static void LoadFromMemory(IInputArchive &archive, ShaderBuildResult &result);
         static void SaveToMemory(IOutputArchive& archive, const ShaderBuildResult& result);
 
         static MD5 CalculateShaderMD5(const std::string &source);
@@ -140,8 +146,8 @@ namespace sky {
     private:
         std::pair<bool, std::string> ProcessShaderSource(const std::string &path);
         std::pair<bool, std::string> ProcessHeaderFile(const std::string &path, ShaderIncludeContext &context, uint32_t depth);
-
-        std::vector<FilePath> searchPaths;
+        std::vector<ShaderOptionEntry> passEntries;
+        std::unordered_map<Name, uint32_t> nameMap;
     };
 
     using ShaderCompileFunc = bool (*)(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result);\

@@ -10,7 +10,7 @@ struct VSOutput
     float2 UV  : UV;
 };
 
-#include "shaders/layout/default_pass.hlsl"
+#include "layout/default_pass.hlslh"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]

@@ -1,5 +1,5 @@
-#include "shaders/common/constants.hlsl"
-#include "shaders/common/random.hlsl"
+#include "common/constants.hlslh"
+#include "common/random.hlslh"
 
 float2 Hammersley2d(uint i, uint N)
 {
@@ -32,7 +32,7 @@ float3 ImportanceSample_GGX(float2 Xi, float roughness, float3 normal)
     return normalize(tangentX * H.x + tangentY * H.y + normal * H.z);
 }
 
-#include "shaders/lighting/light.hlsl"
+#include "lighting/light.hlslh"
 
 float3 DiffuseBRDF(float3 albedo)
 {

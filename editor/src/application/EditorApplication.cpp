@@ -13,6 +13,7 @@
 #include <framework/platform/PlatformBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/ITickEvent.h>
 
 #include <cxxopts.hpp>
@@ -44,6 +45,7 @@ namespace sky::editor {
 
         options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
         options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>());
+        options.add_options()("i,intermediate", "Project Intermediate Directory", cxxopts::value<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") == 0u || result.count("engine") == 0u) {
             return false;
@@ -51,12 +53,23 @@ namespace sky::editor {
         std::string projectPath = result["project"].as<std::string>();
         std::string enginePath = result["engine"].as<std::string>();
 
+        FilePath intermediatePath;
+        if (result.count("intermediate") != 0u) {
+            intermediatePath = FilePath(result["intermediate"].as<std::string>());
+        } else {
+            intermediatePath = FilePath(projectPath) / FilePath("Intermediate");
+        }
+
         workFs = new NativeFileSystem(projectPath);
         engineFs = new NativeFileSystem(enginePath);
 
         AssetManager::Get()->SetWorkFileSystem(workFs);
         AssetDataBase::Get()->SetEngineFs(engineFs);
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
+
+        AssetBuilderManager::Get()->SetEngineFs(engineFs);
+        AssetBuilderManager::Get()->SetWorkSpaceFs(workFs);
+        AssetBuilderManager::Get()->SetInterMediateFs(new NativeFileSystem(intermediatePath));
 
         EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
 

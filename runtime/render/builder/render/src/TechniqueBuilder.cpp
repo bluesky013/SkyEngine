@@ -64,9 +64,7 @@ namespace sky::builder {
         }
 
         if (val.HasMember("path")) {
-            const auto *path = val["path"].GetString();
-            auto src = AssetDataBase::Get()->RegisterAsset(path);
-            shaderRef.shader = src->uuid;
+            shaderRef.shader = val["path"].GetString();
         }
     }
 
@@ -80,13 +78,6 @@ namespace sky::builder {
 
     static void GetVariants(rapidjson::Document &document, TechniqueAssetData &data)
     {
-        if (document.HasMember("pre_defines")) {
-            auto array = document["pre_defines"].GetArray();
-            for (auto &def : array) {
-                data.preDefines.emplace_back(def.GetString());
-            }
-        }
-
         if (document.HasMember("vertex_options")) {
             auto object = document["vertex_options"].GetObject();
             for (auto iter = object.MemberBegin(); iter != object.MemberEnd(); ++iter) {
@@ -221,8 +212,6 @@ namespace sky::builder {
             auto asset = am->FindOrCreateAsset<Technique>(request.assetInfo->uuid);
             TechniqueAssetData &assetData = asset->Data();
             ProcessGraphics(document, assetData, request);
-
-            asset->AddDependencies(assetData.shader.shader);
             AssetManager::Get()->SaveAsset(asset, request.target);
         }
         result.retCode = AssetBuildRetCode::SUCCESS;

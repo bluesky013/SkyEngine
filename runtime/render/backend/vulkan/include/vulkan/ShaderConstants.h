@@ -67,6 +67,6 @@ namespace sky::vk {
         uint32_t                              size = 0;
         uint32_t                              hash = 0;
     };
-    using ShaderOptionPtr = std::shared_ptr<ShaderConstants>;
+    using ShaderConstantsPtr = std::shared_ptr<ShaderConstants>;
 
 } // namespace sky::vk

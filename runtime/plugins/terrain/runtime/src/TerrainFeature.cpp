@@ -26,8 +26,8 @@ namespace sky {
 
         localLayout = new ResourceGroupLayout();
         localLayout->SetRHILayout(device->CreateDescriptorSetLayout({BINDINGS}));
-        localLayout->AddNameHandler("HeightMap", {0, 0});
-        localLayout->AddNameHandler("HeightMapSampler", {1, 0});
+        localLayout->AddNameHandler(Name("HeightMap"), {0, 0});
+        localLayout->AddNameHandler(Name("HeightMapSampler"), {1, 0});
 
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};

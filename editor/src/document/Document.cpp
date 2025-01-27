@@ -79,7 +79,12 @@ namespace sky::editor {
         world->Init();
 
         world->AddSubSystem(Name(RenderSceneProxy::NAME.data()), new RenderSceneProxy());
-        world->AddSubSystem(Name(phy::PhysicsWorld::NAME.data()), phy::PhysicsRegistry::Get()->CreatePhysicsWorld());
+
+        auto *physics = phy::PhysicsRegistry::Get()->CreatePhysicsWorld();
+        if (physics != nullptr) {
+            world->AddSubSystem(Name(phy::PhysicsWorld::NAME.data()), physics);
+        }
+
         world->AddSubSystem(Name(ai::NavigationSystem::NAME.data()), new ai::NavigationSystem());
 
         filePath = path;

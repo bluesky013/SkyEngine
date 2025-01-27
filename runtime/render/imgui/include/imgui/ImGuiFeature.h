@@ -22,16 +22,13 @@ namespace sky {
         void Init();
         void Tick(float delta);
 
-        void SetTechnique(const RDGfxTechPtr &tech);
+        void SetTechnique(const RDGfxTechPtr &tech) { technique = tech; }
+        const RDGfxTechPtr &GetTechnique() const { return technique; }
 
-        RDResourceGroupPtr RequestResourceGroup();
-
-        const TechniqueInstance &GetDefaultTech() const { return instance; }
-        const RDResourceLayoutPtr &GetLayout() const { return resLayout; }
+        const rhi::DescriptorSetPoolPtr &GetPool() const { return pool; }
         const rhi::VertexInputPtr &GetVertexDesc() const { return vertexDesc; }
     private:
-        TechniqueInstance instance;
-        RDResourceLayoutPtr resLayout;
+        RDGfxTechPtr technique;
         rhi::VertexInputPtr vertexDesc;
         rhi::DescriptorSetPoolPtr pool;
     };

@@ -35,17 +35,4 @@ namespace sky {
             pool = device->CreateDescriptorSetPool(poolDesc);
         }
     }
-
-    void ImGuiFeature::SetTechnique(const RDGfxTechPtr &tech)
-    {
-        instance.technique = tech;
-        resLayout = tech->RequestProgram()->RequestLayout(BATCH_SET);
-    }
-
-    RDResourceGroupPtr ImGuiFeature::RequestResourceGroup()
-    {
-        auto *rsg = new ResourceGroup();
-        rsg->Init(resLayout, *pool);
-        return rsg;
-    }
 } // namespace sky

@@ -63,7 +63,7 @@ namespace sky {
         texture = CreateTextureFromAsset(texAsset);
         Renderer::Get()->GetStreamingManager()->UploadTexture(texture);
 
-        renderer->GetResGroup()->BindTexture("SkyBox", texture->GetImageView(), 0);
+        renderer->GetResGroup()->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
         renderer->GetResGroup()->Update();
     }
 

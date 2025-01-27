@@ -19,6 +19,13 @@ namespace sky {
     } // namespace rdg
     class RenderScene;
 
+    struct ImguiPrimitive : public RenderPrimitive {
+        RDTexture2DPtr fontTexture;
+        RDDynamicUniformBufferPtr ubo;
+
+        void UpdateBatch() override;
+    };
+
     class ImGuiInstance : public IWindowEvent, public IMouseEvent, public IKeyboardEvent {
     public:
         ImGuiInstance();
@@ -55,13 +62,11 @@ namespace sky {
 
         ImContext context;
 
-        std::unique_ptr<RenderPrimitive> primitive;
+        std::unique_ptr<ImguiPrimitive> primitive;
         RDDynamicBuffer vertexBuffer;
         RDDynamicBuffer indexBuffer;
         RDResourceGroupPtr globalSet;
 
-        RDTexture2DPtr fontTexture;
-        RDDynamicUniformBufferPtr ubo;
         uint32_t vertexSize = 0;
         uint32_t indexSize = 0;
 

@@ -20,6 +20,7 @@ namespace sky {
         bool SaveRaw(const char *data, size_t size) override;
 
         const char* Data() const;
+        char* Address();
         size_t Size() const;
 
         void Resize(size_t size);

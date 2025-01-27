@@ -28,9 +28,13 @@ namespace sky::ai {
     {
     }
 
+    struct NaviPrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     RecastNaviMesh::RecastNaviMesh()
     {
-        primitive = std::make_unique<RenderPrimitive>();
+        primitive = std::make_unique<NaviPrimitive>();
         debugDraw = std::make_unique<DebugRenderer>();
 
         auto techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/debug.tech");
@@ -74,10 +78,10 @@ namespace sky::ai {
 
     void RecastNaviMesh::SetTechnique(const RDGfxTechPtr &tech)
     {
-        TechniqueInstance techInst = {tech};
-        techInst.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
-        primitive->techniques.clear();
-        primitive->techniques.emplace_back(techInst);
+        RenderBatch batch = {tech};
+        batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        primitive->batches.clear();
+        primitive->batches.emplace_back(batch);
     }
 
     void RecastNaviMesh::BuildDebugDraw()

@@ -157,7 +157,7 @@ namespace sky::rdg {
     };
 
     struct ComputeView {
-        std::string name;
+        Name name;
         ComputeType type = ComputeType::UAV;
         rhi::ShaderStageFlags visibility;
         ResourceAccess access = ResourceAccessBit::READ;
@@ -244,6 +244,7 @@ namespace sky::rdg {
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
+        ShaderVariantKey passKey;
 
         PmrVector<RasterAttachment> attachments;
         PmrVector<VertexType> attachmentVertex;

@@ -20,6 +20,7 @@ namespace sky {
 
         void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
         void SetEngineFs(const NativeFileSystemPtr &fs);
+        void SetInterMediateFs(const NativeFileSystemPtr &fs);
 
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
         const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
@@ -42,6 +43,7 @@ namespace sky {
 
         NativeFileSystemPtr engineFs;
         NativeFileSystemPtr workSpaceFs;
+        NativeFileSystemPtr intermediateFs;
         AssetBuilderConfig config;
     };
 

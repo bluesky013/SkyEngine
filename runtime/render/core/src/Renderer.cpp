@@ -21,7 +21,7 @@ namespace sky {
     {
         pipeline = nullptr;
         streamManager = nullptr;
-        defaultRHIResource.Reset();
+        defaultResource.Reset();
         features.clear();
         scenes.clear();
         windows.clear();
@@ -31,7 +31,7 @@ namespace sky {
     void Renderer::Init()
     {
         device = RHI::Get()->GetDevice();
-        defaultRHIResource.Init();
+        defaultResource.Init();
         delayReleaseCollections.resize(inflightFrameCount);
         for (uint32_t i = 0; i < inflightFrameCount; ++i) {
             delayReleaseCollections[i] = std::make_unique<RenderResourceGC>();
@@ -39,6 +39,9 @@ namespace sky {
 
         streamManager = std::make_unique<RenderStreamManager>();
         streamManager->SetUploadQueue(device->GetQueue(rhi::QueueType::TRANSFER));
+
+        materialManager = std::make_unique<MaterialManager>();
+        materialManager->Init();
     }
 
     void Renderer::Tick(float time)

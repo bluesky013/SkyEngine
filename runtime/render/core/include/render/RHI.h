@@ -8,6 +8,7 @@
 #include <core/environment/Singleton.h>
 #include <rhi/Device.h>
 #include <rhi/Instance.h>
+#include <shader/ShaderCompiler.h>
 
 namespace sky {
 
@@ -24,12 +25,14 @@ namespace sky {
         void InitDevice(const rhi::Device::Descriptor &desc);
 
         std::string GetBackendName() const;
+        ShaderCompileTarget GetShaderTarget() const { return target; }
         rhi::API GetBackend() const { return api; }
         rhi::Device *GetDevice() const { return device.get(); }
 
     private:
         rhi::Instance *instance = nullptr;
         rhi::API api = rhi::API::DEFAULT;
+        ShaderCompileTarget target = ShaderCompileTarget::SPIRV;
 #ifdef SKY_ENABLE_XR
         rhi::XRInterface *xrInterface = nullptr;
 #endif

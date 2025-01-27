@@ -4,15 +4,16 @@
 
 #include <render/resource/ResourceGroup.h>
 #include <render/Renderer.h>
+#include <core/platform/Platform.h>
 
 namespace sky {
 
-    void ResourceGroupLayout::AddNameHandler(const std::string &key, const BindingHandler &handler)
+    void ResourceGroupLayout::AddNameHandler(const Name &key, const BindingHandler &handler)
     {
         handlers.emplace(key, handler);
     }
 
-    void ResourceGroupLayout::AddBufferNameHandler(const std::string &key, const BufferNameHandler &handler)
+    void ResourceGroupLayout::AddBufferNameHandler(const Name &key, const BufferNameHandler &handler)
     {
         bufferHandlers.emplace(key, handler);
     }
@@ -22,7 +23,7 @@ namespace sky {
         layout = layout_;
     }
 
-    const ResourceGroupLayout::BindingHandler *ResourceGroupLayout::GetBindingByeName(const std::string &key) const
+    const ResourceGroupLayout::BindingHandler *ResourceGroupLayout::GetBindingByeName(const Name &key) const
     {
         auto iter = handlers.find(key);
         if (iter != handlers.end()) {
@@ -31,7 +32,7 @@ namespace sky {
         return nullptr;
     }
 
-    const ResourceGroupLayout::BufferNameHandler *ResourceGroupLayout::GetBufferMemberByName(const std::string &key) const
+    const ResourceGroupLayout::BufferNameHandler *ResourceGroupLayout::GetBufferMemberByName(const Name &key) const
     {
         auto iter = bufferHandlers.find(key);
         if (iter != bufferHandlers.end()) {
@@ -49,8 +50,9 @@ namespace sky {
     {
         layout = layout_;
         set = pool.Allocate({layout->GetRHILayout()});
+        SKY_ASSERT(set)
 
-        const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
+        const auto &defaultRes = Renderer::Get()->GetDefaultResource();
 
         const auto &bindings = layout->GetRHILayout()->GetBindings();
         for (const auto &binding : bindings) {
@@ -62,8 +64,6 @@ namespace sky {
                 }
             }
         }
-
-        slotHash.resize(layout->GetRHILayout()->GetDescriptorNum());
     }
 
     void ResourceGroup::Update()
@@ -71,7 +71,7 @@ namespace sky {
         set->Update();
     }
 
-    void ResourceGroup::BindBuffer(const std::string &key, const rhi::BufferPtr &buffer, uint32_t index)
+    void ResourceGroup::BindBuffer(const Name &key, const rhi::BufferPtr &buffer, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
@@ -79,7 +79,7 @@ namespace sky {
         }
     }
 
-    void ResourceGroup::BindDynamicUBO(const std::string &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index)
+    void ResourceGroup::BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
@@ -88,7 +88,7 @@ namespace sky {
         }
     }
 
-    void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, uint32_t index)
+    void ResourceGroup::BindTexture(const Name &key, const rhi::ImageViewPtr &view, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
@@ -96,7 +96,7 @@ namespace sky {
         }
     }
 
-    void ResourceGroup::BindTexture(const std::string &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index)
+    void ResourceGroup::BindTexture(const Name &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
@@ -105,7 +105,7 @@ namespace sky {
         }
     }
 
-    void ResourceGroup::BindSampler(const std::string &key, const rhi::SamplerPtr &sampler, uint32_t index)
+    void ResourceGroup::BindSampler(const Name &key, const rhi::SamplerPtr &sampler, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
