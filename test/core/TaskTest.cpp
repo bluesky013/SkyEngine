@@ -9,31 +9,31 @@ using namespace sky;
 
 class TestTask : public Task {
 public:
-    explicit TestTask(uint32_t &v) : id(v) {}
-    ~TestTask() override = default;
+    explicit TestTask(uint32_t &v) : value(v)
+    {
+    }
+    ~TestTask() override
+    {
+        printf("test\n");
+    }
 
     bool DoWork() override
     {
         std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(10));
+        value = 20;
         return true;
     }
 
-    void OnComplete(bool result) override
-    {
-        id = 20;
-    }
-
 private:
-    uint32_t& id;
+    uint32_t &value;
 };
 
 TEST(TaskTest, TaskTestBase)
 {
     uint32_t id = 0;
-
-    auto *tf = TaskExecutor::Get();
-    tf->ExecuteTask(new TestTask(id));
-    tf->WaitForAll();
-
+    CounterPtr<TestTask> task = new TestTask(id);
+    ASSERT_EQ(id, 0);
+    task->StartAsync();
+    TaskExecutor::Get()->GetExecutor().wait_for_all();
     ASSERT_EQ(id, 20);
 }

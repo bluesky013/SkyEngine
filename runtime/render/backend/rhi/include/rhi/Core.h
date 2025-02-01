@@ -35,6 +35,9 @@ namespace sky::rhi {
         RGBA16_SFLOAT,
         R16_UNORM,
         R32_SFLOAT,
+        RG32_SFLOAT,
+        RGB32_SFLOAT,
+        RGBA32_SFLOAT,
         D32,
         D24_S8,
         D32_S8,
@@ -73,18 +76,26 @@ namespace sky::rhi {
 
     enum class Format : uint32_t {
         UNDEFINED = 0,
-        F_R32     = 1,
-        F_RG32    = 2,
-        F_RGB32   = 3,
-        F_RGBA32  = 4,
-        F_R8      = 4,
-        F_RG8     = 5,
-        F_RGB8    = 6,
-        F_RGBA8   = 7,
-        U_R32     = 9,
-        U_RG32    = 10,
-        U_RGB32   = 11,
-        U_RGBA32  = 12,
+        F_R32     ,
+        F_RG32    ,
+        F_RGB32   ,
+        F_RGBA32  ,
+        F_R8      ,
+        F_RG8     ,
+        F_RGB8    ,
+        F_RGBA8   ,
+        U_R8      ,
+        U_RG8     ,
+        U_RGB8    ,
+        U_RGBA8   ,
+        U_R16     ,
+        U_RG16    ,
+        U_RGB16   ,
+        U_RGBA16  ,
+        U_R32     ,
+        U_RG32    ,
+        U_RGB32   ,
+        U_RGBA32  ,
     };
 
     enum class IndexType : uint32_t {
@@ -351,6 +362,7 @@ namespace sky::rhi {
         VS = 0x01,
         FS = 0x02,
         CS = 0x04,
+        GFX = VS | FS
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(ShaderStageFlagBit)
@@ -518,6 +530,7 @@ namespace sky::rhi {
     };
 
     struct ImageFormatInfo {
+        uint32_t components   = 1;
         uint32_t blockSize    = 4;
         uint32_t blockWidth   = 1;
         uint32_t blockHeight  = 1;

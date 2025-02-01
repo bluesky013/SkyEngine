@@ -4,6 +4,8 @@
 
 #pragma once
 
-#if _DEBUG
-#define VMA_STATS_STRING_ENABLED 1
+#if defined(_DEBUG) && defined(_WIN32)
+    #define VMA_STATS_STRING_ENABLED 1
+#else
+    #define VMA_STATS_STRING_ENABLED 0
 #endif

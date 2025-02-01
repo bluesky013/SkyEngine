@@ -4,13 +4,22 @@
 
 #pragma once
 
-#include <physics/PhysicsShape.h>
 #include <physics/PhysicsMaterial.h>
+#include <physics/CollisionObject.h>
 #include <core/math/Vector3.h>
+#include <core/math/Transform.h>
 #include <vector>
 #include <memory>
 
 namespace sky::phy {
+
+    class IMotionCallBack {
+    public:
+        IMotionCallBack() = default;
+        virtual ~IMotionCallBack() = default;
+
+        virtual void OnRigidBodyUpdate(const Transform &trans) = 0;
+    };
 
     enum class CollisionFlag : uint32_t {
         DYNAMIC,
@@ -20,30 +29,31 @@ namespace sky::phy {
 
     class RigidBody {
     public:
-        RigidBody() = default;
+        RigidBody();
         virtual ~RigidBody() = default;
 
-        void AddShape(PhysicsShape* shape);
-        void SetMass(float m);
-        void SetFlag(CollisionFlag m);
-        void SetGroup(int32_t group_);
-        void SetMask(int32_t mask_);
+        void SetShape(PhysicsShape *shape);
+        void SetGroup(CollisionFilters group_);
+        void SetMask(CollisionFilters mask_);
+        void SetStartTrans(const Transform &trans);
+        void SetMotionCallBack(IMotionCallBack* callback) { listener = callback; }
 
-        int32_t GetGroup() const { return group; }
-        int32_t GetMask() const { return mask; }
+        virtual void SetMass(float m) = 0;
+        virtual void SetFlag(CollisionFlag m) = 0;
 
     protected:
-        virtual void OnMassChanged() = 0;
         virtual void OnShapeChanged() = 0;
-        virtual void OnFlagChanged() = 0;
         virtual void OnGroupMaskChanged() = 0;
 
-        float   mass  = 1.f;
-        int32_t group = 0;
-        int32_t mask  = 0;
-        CollisionFlag collisionFlag = CollisionFlag::STATIC;
+        CollisionFilters group = CollisionFilterBit::ALL;
+        CollisionFilters mask = CollisionFilterBit::ALL;
+        std::unique_ptr<PhysicsShape> physicsShape;
 
-        std::vector<std::unique_ptr<PhysicsShape>> shapes;
+        float mass  = 1.f;
+        CollisionFlag collisionFlag = CollisionFlag::DYNAMIC;
+        Transform startTrans = Transform::GetIdentity();
+
+        IMotionCallBack* listener = nullptr;
     };
 
 } // namespace sky::phy

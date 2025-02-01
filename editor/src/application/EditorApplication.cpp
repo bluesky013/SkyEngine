@@ -5,11 +5,15 @@
 #include <editor/application/EditorApplication.h>
 #include <editor/document/Document.h>
 #include <editor/framework/ViewportWidget.h>
+#include <editor/framework/SelectTool.h>
+#include <editor/framework/AssetCreator.h>
+#include <editor/framework/render/MaterialCreator.h>
 #include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/ITickEvent.h>
 
 #include <cxxopts.hpp>
@@ -29,7 +33,9 @@ namespace sky::editor {
 
     EditorApplication::~EditorApplication() // NOLINT
     {
-        timer->stop();
+        if (timer != nullptr) {
+            timer->stop();
+        }
     }
 
     bool EditorApplication::Init(int argc, char **argv)
@@ -39,12 +45,20 @@ namespace sky::editor {
 
         options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
         options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>());
+        options.add_options()("i,intermediate", "Project Intermediate Directory", cxxopts::value<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") == 0u || result.count("engine") == 0u) {
             return false;
         }
         std::string projectPath = result["project"].as<std::string>();
         std::string enginePath = result["engine"].as<std::string>();
+
+        FilePath intermediatePath;
+        if (result.count("intermediate") != 0u) {
+            intermediatePath = FilePath(result["intermediate"].as<std::string>());
+        } else {
+            intermediatePath = FilePath(projectPath) / FilePath("Intermediate");
+        }
 
         workFs = new NativeFileSystem(projectPath);
         engineFs = new NativeFileSystem(enginePath);
@@ -53,9 +67,15 @@ namespace sky::editor {
         AssetDataBase::Get()->SetEngineFs(engineFs);
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
 
-        SplashWindow();
+        AssetBuilderManager::Get()->SetEngineFs(engineFs);
+        AssetBuilderManager::Get()->SetWorkSpaceFs(workFs);
+        AssetBuilderManager::Get()->SetInterMediateFs(new NativeFileSystem(intermediatePath));
 
-        if (!Application::Init(argc, argv)) {
+        EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
+
+        AssetCreatorManager::Get()->RegisterTool(Name("Material"), new MaterialInstanceCreator());
+
+        if (!InitAppAndSplashWindow(argc, argv)) {
             return false;
         }
 
@@ -64,7 +84,7 @@ namespace sky::editor {
         BindTick([this](float delta) {
 
             TickEvent::BroadCast(&ITickEvent::Tick, delta);
-            auto world = mainWindow->GetDoc()->GetWorld();
+            const auto &world = mainWindow->GetDoc()->GetWorld();
             if (world) {
                 world->Tick(delta);
             }
@@ -79,7 +99,12 @@ namespace sky::editor {
         return true;
     }
 
-    void EditorApplication::SplashWindow()
+    void EditorApplication::InitTools()
+    {
+
+    }
+
+    bool EditorApplication::InitAppAndSplashWindow(int argc, char **argv)
     {
         auto splashPath =  engineFs->GetPath();
         splashPath /= "assets/splash/splash.jpg";
@@ -96,9 +121,16 @@ namespace sky::editor {
         std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(200));
         processEvents();
 
+        if (!Application::Init(argc, argv)) {
+            return false;
+        }
+        InitTools();
+
         mainWindow = std::make_unique<MainWindow>();
         mainWindow->show();
         splash.finish(mainWindow.get());
+
+        return true;
     }
 
     void EditorApplication::LoadFromJson(std::unordered_map<std::string, ModuleInfo> &modules)

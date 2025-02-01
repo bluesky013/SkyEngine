@@ -12,7 +12,7 @@
 namespace sky {
     inline RenderScene *GetRenderSceneFromActor(Actor *actor)
     {
-        return static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem("RenderScene"))->GetRenderScene();
+        return static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
     }
 
     template <typename T>
@@ -24,8 +24,7 @@ namespace sky {
     template <typename T>
     T *GetFeatureProcessor(Actor *actor)
     {
-        auto *proxy = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem("RenderScene"));
+        auto *proxy = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")));
         return GetFeatureProcessor<T>(proxy->GetRenderScene());
     }
-
 } // namespace sky

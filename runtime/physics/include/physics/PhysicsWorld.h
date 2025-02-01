@@ -19,21 +19,25 @@ namespace sky::phy {
         void AddRigidBody(RigidBody *rb);
         void RemoveRigidBody(RigidBody *rb);
 
+        void AddCollisionObject(CollisionObject *obj);
+        void RemoveCollisionObject(CollisionObject *obj);
+
         void AddCharacterController(CharacterController *rb);
         void RemoveCharacterController(CharacterController *rb);
 
-        virtual void SetSimulationEnable(bool en) {}
         virtual void SetDebugDrawEnable(bool en) {}
-
         virtual void SetGravity(const Vector3 &gravity) {}
 
     protected:
         virtual void AddRigidBodyImpl(RigidBody *rb) = 0;
         virtual void RemoveRigidBodyImpl(RigidBody *rb) = 0;
+        virtual void AddCollisionObjectImpl(CollisionObject *obj) = 0;
+        virtual void RemoveCollisionObjectImpl(CollisionObject *obj) = 0;
         virtual void AddCharacterControllerImpl(CharacterController *rb) = 0;
         virtual void RemoveCharacterControllerImpl(CharacterController *rb) = 0;
 
         std::list<std::unique_ptr<RigidBody>>           rigidBodies;
+        std::list<std::unique_ptr<CollisionObject>>     collisionObjects;
         std::list<std::unique_ptr<CharacterController>> characterControllers;
     };
 

@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2023/2/20.
 //
 #include <builder/render/PrefabBuilder.h>
-#include <builder/render/ImageBuilder.h>
 
 #include <assimp/GltfMaterial.h>
 #include <assimp/Importer.hpp>
@@ -11,9 +10,7 @@
 
 #include <core/logger/Logger.h>
 #include <core/math/MathUtil.h>
-#include <core/archive/MemoryArchive.h>
 
-#include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
@@ -139,15 +136,16 @@ namespace sky::builder {
         data.material = AssetDataBase::Get()->RegisterAsset("materials/standard_pbr.mat")->uuid;
 
         aiString str;
-        bool useAOMap = false;
-        bool useEmissiveMap = false;
-        bool useBaseColorMap = false;
-        bool useNormalMap = false;
-        bool useMetallicRoughnessMap = false;
-        bool useMask = false;
+        uint8_t useAOMap = false;
+        uint8_t useEmissiveMap = false;
+        uint8_t useBaseColorMap = false;
+        uint8_t useNormalMap = false;
+        uint8_t useMetallicRoughnessMap = false;
+        uint8_t useMask = false;
+
         Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
-        float metallic = 1.f;
-        float roughness = 1.f;
+        float metallic = 0.1f;
+        float roughness = 1.0f;
         Uuid normalMap;
         Uuid emissiveMap;
         Uuid aoMap;
@@ -205,42 +203,31 @@ namespace sky::builder {
             useMetallicRoughnessMap = static_cast<bool>(metallicRoughnessMap);
         }
 
-        data.properties.options.emplace("ENABLE_AO_MAP", useAOMap);
+        data.properties.valueMap.emplace("ENABLE_AO_MAP", useAOMap);
         if (useAOMap) {
-            data.properties.valueMap.emplace("AoMap",
-                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-            data.properties.images.emplace_back(aoMap);
+            data.properties.valueMap.emplace("AoMap", MaterialTexture{aoMap});
         }
 
-        data.properties.options.emplace("ENABLE_EMISSIVE_MAP", useEmissiveMap);
+        data.properties.valueMap.emplace("ENABLE_EMISSIVE_MAP", useEmissiveMap);
         if (useEmissiveMap) {
-            data.properties.valueMap.emplace("EmissiveMap",
-                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-            data.properties.images.emplace_back(emissiveMap);
+            data.properties.valueMap.emplace("EmissiveMap", MaterialTexture{emissiveMap});
         }
 
-//        data.properties.valueMap.emplace("useBaseColorMap", static_cast<uint32_t>(useBaseColorMap));
         if (useBaseColorMap) {
-            data.properties.valueMap.emplace("AlbedoMap",
-                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-            data.properties.images.emplace_back(baseColorMap);
+            data.properties.valueMap.emplace("AlbedoMap", MaterialTexture{baseColorMap});
         }
 
-        data.properties.options.emplace("useMetallicRoughnessMap", useMetallicRoughnessMap);
+        data.properties.valueMap.emplace("ENABLE_MR_MAP", useMetallicRoughnessMap);
         if (useMetallicRoughnessMap) {
-            data.properties.valueMap.emplace("MetallicRoughnessMap",
-                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-            data.properties.images.emplace_back(metallicRoughnessMap);
+            data.properties.valueMap.emplace("MetallicRoughnessMap", MaterialTexture{metallicRoughnessMap});
         }
 
-//        data.properties.valueMap.emplace("useNormalMap", static_cast<uint32_t>(useNormalMap));
+        data.properties.valueMap.emplace("ENABLE_NORMAL_MAP", useNormalMap);
         if (useNormalMap) {
-            data.properties.valueMap.emplace("NormalMap",
-                                             MaterialTexture{static_cast<uint32_t>(data.properties.images.size())});
-            data.properties.images.emplace_back(normalMap);
+            data.properties.valueMap.emplace("NormalMap", MaterialTexture{normalMap});
         }
 
-        data.properties.options.emplace("ENABLE_ALPHA_MASK", useMask);
+        data.properties.valueMap.emplace("ENABLE_ALPHA_MASK", useMask);
 
         data.properties.valueMap.emplace("Albedo", baseColor);
         data.properties.valueMap.emplace("Metallic", metallic);
@@ -284,7 +271,7 @@ namespace sky::builder {
             std::string boneName = aBone->mName.C_Str();
 
             uint32_t boneIndex = 0;
-            if (auto iter = skeleton.nameToIndexMap.find(boneName); iter != skeleton.nameToIndexMap.end()) {
+            if (auto iter = skeleton.nameToIndexMap.find(Name(aBone->mName.C_Str())); iter != skeleton.nameToIndexMap.end()) {
                 boneIndex = iter->second;
             } else {
                 boneIndex = skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
@@ -308,10 +295,10 @@ namespace sky::builder {
                 SKY_ASSERT(boneId < prefabContext.skeleton.nameToIndexMap.size());
 
                 for (uint32_t k = 0; k < MAX_BONE_PER_VERTEX; ++k) {
-                    if (bone->mWeights[j].mWeight == 0.0f) {
+                    if (vBone.weight[k] == 0.0f) {
                         vBone.boneId[k] = boneId;
                         vBone.weight[k] = bone->mWeights[j].mWeight;
-                        return;
+                        break;
                     }
                 }
             }
@@ -323,6 +310,7 @@ namespace sky::builder {
         uint32_t boneIndex = skeleton.FindBoneByName(node->mName.C_Str());
 
         if (boneIndex != INVALID_BONE_ID) {
+            skeleton.boneData[boneIndex].name = Name(node->mName.C_Str());
             skeleton.boneData[boneIndex].parentIndex = parentIndex;
 
             aiVector3t<ai_real> scaling = {};
@@ -379,7 +367,11 @@ namespace sky::builder {
             vtx[i].tangent.x = t.x;
             vtx[i].tangent.y = t.y;
             vtx[i].tangent.z = t.z;
-            vtx[i].tangent.w = 1.f;
+
+            Vector3 tmpNormal = Vector3(n.x, n.y, n.z);
+            Vector3 tmpTangent = Vector3(t.x, t.y, t.z);
+            Vector3 tmpBiTangent = tmpNormal.Cross(tmpTangent);
+            vtx[i].tangent.w = ((b.x * tmpBiTangent.x < 0.0f) || (b.y * tmpBiTangent.y < 0.0f) || (b.z * tmpBiTangent.z < 0.0f)) ? -1.0f : 1.0f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];

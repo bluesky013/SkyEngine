@@ -19,6 +19,7 @@ namespace sky {
 
     private:
         rhi::SwapChainPtr swapChain;
+        Name              swapchainName;
     };
 
 } // namespace sky

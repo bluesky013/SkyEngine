@@ -21,7 +21,7 @@ namespace sky::editor {
         label->setStyleSheet("background-color: #999999; border-radius: 8px; border-style: solid; border-color: #1B1B1B; border-width: 1px; "
                              "border-left: none; border-right: none;"
                              "font-size: 12pt;");
-        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         label->setFixedHeight(24);
         label->setMargin(0);
 

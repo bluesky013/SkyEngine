@@ -9,7 +9,7 @@ namespace sky {
 
     Semaphore::Semaphore(int initial)
     {
-        auto semaphore = CreateSemaphore(NULL, initial, 0x7fffffff, NULL);
+        auto *semaphore = CreateSemaphore(nullptr, initial, 0x7fffffff, nullptr);
         handle = static_cast<void*>(semaphore);
     }
 
@@ -18,12 +18,12 @@ namespace sky {
         CloseHandle(handle);
     }
 
-    void Semaphore::Wait()
+    void Semaphore::Wait() // NOLINT
     {
         WaitForSingleObject(handle, 0xffffffff);
     }
 
-    void Semaphore::Signal(int32_t count)
+    void Semaphore::Signal(int32_t count) // NOLINT
     {
         ReleaseSemaphore(handle, count, nullptr);
     }

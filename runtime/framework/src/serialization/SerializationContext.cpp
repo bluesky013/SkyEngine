@@ -5,6 +5,7 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/CoreReflection.h>
+#include <framework/serialization/ArrayVisitor.h>
 namespace sky {
 
     void JsonLoad(std::string &str, JsonInputArchive &archive)
@@ -27,9 +28,11 @@ namespace sky {
         Register<int32_t>("int32_t");
         Register<int16_t>("int16_t");
         Register<int8_t>("int8_t");
+        Register<char>("char");
         Register<bool>("bool");
         Register<float>("float");
         Register<double>("double");
+        Register<SequenceVisitor>("SequenceVisitor");
 
         Register<std::string>("String")
                 .JsonLoad<&JsonLoad>()
@@ -38,7 +41,7 @@ namespace sky {
         CoreReflection(this);
     }
 
-    TypeNode *SerializationContext::FindType(const std::string &key)
+    TypeNode *SerializationContext::FindType(const std::string_view &key)
     {
         auto iter = lookupTable.find(key);
         return iter == lookupTable.end() ? nullptr : iter->second;

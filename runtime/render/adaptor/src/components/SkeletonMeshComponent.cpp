@@ -108,7 +108,7 @@ namespace sky {
     void SkeletonMeshComponent::ShutDown()
     {
         if (renderer != nullptr) {
-            GetFeatureProcessor<MeshFeatureProcessor>(actor)->RemoveStaticMesh(renderer);
+            GetFeatureProcessor<MeshFeatureProcessor>(actor)->RemoveSkeletonMesh(renderer);
             renderer = nullptr;
         }
     }

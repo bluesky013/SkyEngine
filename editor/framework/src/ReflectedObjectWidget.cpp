@@ -13,6 +13,11 @@
 
 namespace sky::editor {
 
+    void ReflectedObjectWidget::OnValueChanged()
+    {
+        emit ValueChanged();
+    }
+
     ReflectedObjectWidget::ReflectedObjectWidget(void *obj, const TypeNode *node, QWidget *parent)
         : QWidget(parent)
         , object(obj)
@@ -21,7 +26,12 @@ namespace sky::editor {
         auto *layout = new QFormLayout(this);
         layout->setLabelAlignment(Qt::AlignLeft);
         layout->setFormAlignment(Qt::AlignCenter);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->setHorizontalSpacing(32);
         setLayout(layout);
+        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        setMinimumWidth(32);
 
         for (const auto &[name, memberInfo] : typeNode->members) {
             ReflectedMemberWidget *widget = nullptr;
@@ -45,6 +55,8 @@ namespace sky::editor {
                 widget = new PropertyScalar<int16_t>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<int8_t>::RegisteredId()) {
                 widget = new PropertyScalar<int8_t>(object, &memberInfo, this);
+            } else if (memberInfo.info->registeredId == TypeInfo<char>::RegisteredId()) {
+                widget = new PropertyScalar<char>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<float>::RegisteredId()) {
                 widget = new PropertyScalar<float>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<double>::RegisteredId()) {
@@ -60,16 +72,16 @@ namespace sky::editor {
             } else if (memberInfo.info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
                 widget = new PropertyUuid(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<std::string>::RegisteredId()) {
+            } else if (memberInfo.info->registeredId == TypeInfo<SequenceVisitor>::RegisteredId()) {
+                widget = new PropertySequenceContainerWidget(object, &memberInfo, this);
             }
 
             if (widget != nullptr) {
                 layout->addRow(name.data(), widget);
             }
-        }
-    }
 
-    void ReflectedObjectWidget::Refresh()
-    {
+            connect(widget, &ReflectedMemberWidget::ValueChanged, this, &ReflectedObjectWidget::OnValueChanged);
+        }
     }
 
     void AssetLineEditor::dragEnterEvent(QDragEnterEvent *event)
@@ -111,7 +123,7 @@ namespace sky::editor {
         }
     }
 
-    PropertyUuid::PropertyUuid(void *obj, const TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+    PropertyUuid::PropertyUuid(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
     {
         lineEdit = new AssetLineEditor(this);
         lineEdit->setAcceptDrops(true);
@@ -158,7 +170,7 @@ namespace sky::editor {
                     "Asset Not Found.",
                     QMessageBox::Ok, QApplication::activeWindow()).exec();
             }
-
+            emit ValueChanged();
             RefreshValue();
         });
 
@@ -172,6 +184,32 @@ namespace sky::editor {
         SKY_ASSERT(uuid != nullptr);
         auto source = AssetDataBase::Get()->FindAsset(*uuid);
         lineEdit->setText(source ? source->path.path.GetStr().c_str() : "");
+    }
+
+    PropertySequenceItemWidget::PropertySequenceItemWidget(uint32_t idx, PropertySequenceContainerWidget* container, void *obj, const TypeNode *node, QWidget *parent)
+            : QWidget(parent)
+            , objectWidget(new ReflectedObjectWidget(obj, node, this))
+            , owner(container)
+            , index(idx)
+    {
+        setLayout(new QHBoxLayout());
+        setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
+        layout()->addWidget(new QLabel(QString::number(index)));
+        layout()->addWidget(objectWidget);
+        auto *btn = new QPushButton("-");
+        btn->setFixedWidth(20);
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            owner->RemoveIndex(index);
+        });
+        layout()->addWidget(btn);
+
+        connect(objectWidget, &ReflectedObjectWidget::ValueChanged, this, &PropertySequenceItemWidget::OnValueChanged);
+    }
+
+    void PropertySequenceItemWidget::OnValueChanged()
+    {
+        emit ValueChanged();
     }
 
 } // namespace sky::editor

@@ -28,6 +28,8 @@ namespace sky {
             LoadValue(*static_cast<int16_t*>(ptr));
         } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             LoadValue(*static_cast<int8_t*>(ptr));
+        } else if (typeId == TypeInfo<char>::RegisteredId()) {
+            LoadValue(*static_cast<char*>(ptr));
         } else if (typeId == TypeInfo<float>::RegisteredId()) {
             LoadValue(*static_cast<float*>(ptr));
         } else if (typeId == TypeInfo<double>::RegisteredId()) {
@@ -74,6 +76,8 @@ namespace sky {
             SaveValue(*static_cast<const int16_t *>(ptr));
         } else if (typeId == TypeInfo<int8_t>::RegisteredId()) {
             SaveValue(*static_cast<const int8_t *>(ptr));
+        } else if (typeId == TypeInfo<char>::RegisteredId()) {
+            SaveValue(*static_cast<const char *>(ptr));
         } else if (typeId == TypeInfo<float>::RegisteredId()) {
             SaveValue(*static_cast<const float *>(ptr));
         } else if (typeId == TypeInfo<double>::RegisteredId()) {
@@ -93,9 +97,13 @@ namespace sky {
             }
 
             for (const auto &member : node->members) {
-                std::string memberName = member.first.data();
-                Any value = GetValueRawConst(ptr, typeId, memberName);
-                SaveObject(value.Data(), member.second.info->registeredId);
+                if (member.second.info->containerInfo != nullptr) {
+
+                } else {
+                    std::string memberName = member.first.data();
+                    Any value = GetValueRawConst(ptr, typeId, memberName);
+                    SaveObject(value.Data(), member.second.info->registeredId);
+                }
             }
         }
     }

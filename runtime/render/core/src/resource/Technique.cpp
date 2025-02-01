@@ -5,7 +5,6 @@
 #include <render/resource/Technique.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
-#include <render/RenderNameHandle.h>
 #include <shader/ShaderCompiler.h>
 #include <core/archive/FileArchive.h>
 
@@ -25,38 +24,26 @@ namespace sky {
         };
     }
 
-    struct ShaderCacheHeader {
-        std::string signature;
-        uint32_t version;
-    };
-
-    void Technique::SetShader(const ShaderRef &shader)
+    void Technique::SetShader(const ShaderRef &shader_)
     {
-        shaderData = shader;
+        shaderData = shader_;
+
+        auto *source = ShaderCacheManager::Get()->FetchSource(shader_.shaderName, RHI::Get()->GetShaderTarget());
+        if (source != nullptr) {
+            shader = new ShaderCollection(shaderData.shaderName, *source);
+        }
     }
 
-    RDProgramPtr Technique::RequestProgram(const ShaderOptionPtr &shaderOption)
+    void Technique::SetOption(const Name& name, uint8_t val, ShaderVariantKey &variantKey)
     {
-        uint32_t hash = shaderOption ? shaderOption->GetHash() : 0;
-        auto iter = programCache.find(hash);
-        if (iter != programCache.end()) {
-            return iter->second;
+        if (shader) {
+            shader->SetOption(name, val, variantKey);
         }
+    }
 
-        if (!shaderData.shaderCollection) {
-            return {};
-        }
-
-        auto *program = new Program();
-        program->SetName(shaderData.shaderCollection->GetName());
-
-        ShaderCompileOption option = {};
-        option.target = GetCompileTarget();
-        option.option = shaderOption;
-
-        FillProgramInternal(*program, option);
-        programCache[hash] = program;
-        return program;
+    RDProgramPtr Technique::RequestProgram(const ShaderVariantKey &key)
+    {
+        return shader ? FillProgramInternal(key) : nullptr;
     }
 
     void GraphicsTechnique::SetDepthStencil(const rhi::DepthStencil &ds)
@@ -74,77 +61,45 @@ namespace sky {
         state.blendStates = blends;
     }
 
-    void GraphicsTechnique::SetRasterTag(const std::string &tag)
+    void GraphicsTechnique::SetRasterTag(const Name &tag)
     {
-        rasterID = RenderNameHandle::Get()->GetOrRegisterName(tag);
+        rasterID = tag;
     }
 
-    void GraphicsTechnique::Process(RenderVertexFlags flags, const ShaderOptionPtr &option)
+    void GraphicsTechnique::AddVertexFlag(RenderVertexFlagBit bit, const Name &key)
     {
-        for (auto &val : preCompiledFlags) {
-            option->SetValue(val, true);
-        }
+        vertexFlags[bit] = key;
+    }
 
+    void GraphicsTechnique::ProcessVertexVariantKey(RenderVertexFlags flags, ShaderVariantKey &key)
+    {
         for (auto &flag : vertexFlags) {
-            if (flags.TestBit(flag.first)) {
-                option->SetValue(flag.second, true);
-            }
+            shader->SetOption(flag.second, flags.TestBit(flag.first), key);
         }
     }
 
-    void GraphicsTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
+    RDProgramPtr GraphicsTechnique::FillProgramInternal(const ShaderVariantKey &key)
     {
-        auto *device = RHI::Get()->GetDevice();
-        rhi::Shader::Descriptor shaderDesc = {};
-        {
-            ShaderBuildResult result = {};
-            shaderData.shaderCollection->BuildAndCacheShader(shaderData.vertOrMeshMain, rhi::ShaderStageFlagBit::VS, option, result);
-
-            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
-            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
-            shaderDesc.stage = rhi::ShaderStageFlagBit::VS;
-
-            auto shader = device->CreateShader(shaderDesc);
-            shader->SetEntry(shaderData.vertOrMeshMain);
-            program.AddShader(shader);
-            program.MergeReflection(std::move(result.reflection));
-        }
-
-        {
-            ShaderBuildResult result = {};
-            shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::FS, option, result);
-
-            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
-            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
-            shaderDesc.stage = rhi::ShaderStageFlagBit::FS;
-
-            auto shader = device->CreateShader(shaderDesc);
-            shader->SetEntry(shaderData.fragmentMain);
-            program.AddShader(shader);
-            program.MergeReflection(std::move(result.reflection));
-        }
-        program.Build();
+        std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> stages = {
+            {Name(shaderData.vertOrMeshMain.c_str()), rhi::ShaderStageFlagBit::VS},
+            {Name(shaderData.fragmentMain.c_str()), rhi::ShaderStageFlagBit::FS}
+        };
+        return shader->AcquireShaderBinary(key, stages);
     }
 
-    void ComputeTechnique::FillProgramInternal(Program &program, const ShaderCompileOption &option)
+    RDProgramPtr ComputeTechnique::FillProgramInternal(const ShaderVariantKey &key)
     {
-        ShaderBuildResult result = {};
-        shaderData.shaderCollection->BuildAndCacheShader(shaderData.fragmentMain, rhi::ShaderStageFlagBit::CS, option, result);
-
-        rhi::Shader::Descriptor shaderDesc = {};
-        shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
-        shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
-        shaderDesc.stage = rhi::ShaderStageFlagBit::CS;
-
-        program.AddShader(RHI::Get()->GetDevice()->CreateShader(shaderDesc));
-        program.MergeReflection(std::move(result.reflection));
+        std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> stages = {
+            {Name(shaderData.objectOrCSMain.c_str()), rhi::ShaderStageFlagBit::CS},
+        };
+        return shader->AcquireShaderBinary(key, stages);
     }
 
     rhi::GraphicsPipelinePtr GraphicsTechnique::BuildPso(const RDProgramPtr &program,
-                                      const rhi::PipelineState &state,
-                                      const rhi::VertexInputPtr &vertexDesc,
-                                      const rhi::RenderPassPtr &pass,
-                                      uint32_t subPassID)
+        const rhi::PipelineState &state,
+        const rhi::VertexInputPtr &vertexDesc,
+        const rhi::RenderPassPtr &pass,
+        uint32_t subPassID)
     {
         const auto &shaders = program->GetShaders();
 

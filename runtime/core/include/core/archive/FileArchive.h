@@ -5,7 +5,6 @@
 #pragma once
 
 #include <core/archive/StreamArchive.h>
-#include <core/archive/MemoryArchive.h>
 #include <core/file/FileSystem.h>
 #include <fstream>
 

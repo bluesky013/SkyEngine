@@ -15,7 +15,6 @@ namespace sky::mtl {
     public:
         Buffer(Device &dev) : DevObject(dev) {};
         ~Buffer();
-        rhi::BufferViewPtr CreateView(const rhi::BufferViewDesc &desc) override;
 
         uint8_t *Map() override;
         void UnMap() override;

@@ -12,7 +12,6 @@
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
-#include <render/adaptor/assets/ShaderAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
 
@@ -21,7 +20,7 @@ namespace sky {
     void ReflectRenderAsset(SerializationContext *context)
     {
         context->Register<MaterialTexture>("MaterialTexture")
-            .Member<&MaterialTexture::texIndex>("texIndex");
+            .Member<&MaterialTexture::texID>("texID");
 
         context->Register<MaterialAssetData>("MaterialAssetData")
             .BinLoad<&MaterialAssetData::LoadBin>()
@@ -53,10 +52,6 @@ namespace sky {
             .BinLoad<&BufferAssetData::Load>()
             .BinSave<&BufferAssetData::Save>();
 
-        context->Register<ShaderAssetData>("ShaderAssetData")
-            .BinLoad<&ShaderAssetData::Load>()
-            .BinSave<&ShaderAssetData::Save>();
-
         context->Register<AnimationAssetData>("AnimationAssetData")
             .BinLoad<&AnimationAssetData::Load>()
             .BinSave<&AnimationAssetData::Save>();
@@ -73,7 +68,6 @@ namespace sky {
         am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
         am->RegisterAssetHandler<Buffer>();
-        am->RegisterAssetHandler<ShaderCollection>();
         am->RegisterAssetHandler<Animation>();
         am->RegisterAssetHandler<Skeleton>();
     }

@@ -33,6 +33,8 @@ namespace sky {
         virtual void OnAttachToWorld() {}
         virtual void OnDetachFromWorld() {}
 
+        virtual void OnSerialized() {}
+
         Actor* GetActor() const { return actor; }
     protected:
         friend class Actor;

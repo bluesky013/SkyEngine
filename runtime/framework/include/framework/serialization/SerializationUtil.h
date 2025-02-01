@@ -6,6 +6,7 @@
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/PropertyCommon.h>
+#include <framework/serialization/ArrayVisitor.h>
 
 namespace sky {
 

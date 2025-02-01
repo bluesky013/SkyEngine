@@ -15,48 +15,48 @@ namespace sky::vk {
 
     DescriptorSetPool::~DescriptorSetPool()
     {
-        if (pool != VK_NULL_HANDLE) {
+        for (auto &pool : pools) {
             vkDestroyDescriptorPool(device.GetNativeHandle(), pool, VKL_ALLOC);
         }
     }
 
     bool DescriptorSetPool::Init(const Descriptor &desc)
     {
-        VkDescriptor vkDesc = {};
-        std::vector<VkDescriptorPoolSize> sizes;
         for (uint32_t i = 0; i < desc.sizeCount; ++i) {
             auto size = desc.sizeData[i];
             sizes.emplace_back(VkDescriptorPoolSize{FromRHI(size.type), size.count});
         }
-        vkDesc.maxSets = desc.maxSets;
-        vkDesc.num = static_cast<uint32_t>(sizes.size());
-        vkDesc.sizes = sizes.data();
-        return Init(vkDesc);
-    }
 
-    bool DescriptorSetPool::Init(const VkDescriptor &desc)
-    {
-        VkDescriptorPoolCreateInfo poolInfo = {};
-        poolInfo.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.pNext                      = nullptr;
-        poolInfo.flags                      = 0;
-        poolInfo.maxSets                    = desc.maxSets;
-        poolInfo.poolSizeCount              = desc.num;
-        poolInfo.pPoolSizes                 = desc.sizes;
-        auto result                         = vkCreateDescriptorPool(device.GetNativeHandle(), &poolInfo, VKL_ALLOC, &pool);
-        if (result != VK_SUCCESS) {
-            return false;
-        }
+        maxSets = desc.maxSets;
+        CreateNewNativePool();
         return true;
     }
 
-    void DescriptorSetPool::Free(DescriptorSet &set)
+    VkDescriptorPool DescriptorSetPool::CreateNewNativePool()
+    {
+        VkDescriptorPoolCreateInfo poolInfo = {};
+        poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.pNext         = nullptr;
+        poolInfo.flags         = 0;
+        poolInfo.maxSets       = maxSets;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(sizes.size());
+        poolInfo.pPoolSizes    = sizes.data();
+
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        vkCreateDescriptorPool(device.GetNativeHandle(), &poolInfo, VKL_ALLOC, &pool);
+
+        pools.emplace_back(pool);
+        return pool;
+    }
+
+
+    void DescriptorSetPool::Free(DescriptorSet &set, VkDescriptorPool pool)
     {
         if (set.handle != VK_NULL_HANDLE) {
             auto  layout = set.layout;
             auto  hash   = layout->GetHash();
             auto &list   = freeList[hash];
-            list.emplace_back(set.handle);
+            list.emplace_back(std::pair<VkDescriptorSet, VkDescriptorPool>{set.handle, pool});
             set.handle = VK_NULL_HANDLE;
         }
     }

@@ -8,14 +8,15 @@
 #include <animation/core/AnimationInterpolation.h>
 #include <core/math/Vector3.h>
 #include <core/math/Quaternion.h>
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 
+#include <string>
 #include <utility>
 
 namespace sky {
 
     struct AnimNodeChannelData {
-        Name name;
+        std::string name;
         AnimChannelData<Vector3> position;
         AnimChannelData<Vector3> scale;
         AnimChannelData<Quaternion> rotation;

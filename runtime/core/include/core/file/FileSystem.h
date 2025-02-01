@@ -12,10 +12,6 @@
 #include <core/archive/StreamArchive.h>
 #include <core/template/ReferenceObject.h>
 
-#if WIN32
-#define SKY_FS_USE_WCHAR
-#endif
-
 namespace sky {
 
     class IFile;
@@ -44,9 +40,11 @@ namespace sky {
         void MakeDirectory() const;
         bool Exist() const;
         FilePath Parent() const;
+        FilePath FullPath() const;
         std::string FileName() const;
         std::string FileNameWithoutExt() const;
         std::string Extension() const;
+        void ReplaceExtension(const std::string &name);
 
         std::fstream OpenFStream(std::ios_base::openmode) const;
 
@@ -70,8 +68,7 @@ namespace sky {
         virtual bool ReadBin(std::vector<uint8_t> &out) = 0;
         virtual bool ReadString(std::string &out) = 0;
 
-//        virtual std::istream ReadAsStream(const FilePath &name) = 0;
-//        virtual std::ostream WriteAsStream(const FilePath &name) = 0;
+        virtual uint64_t AppendData(const char* data, uint64_t size) = 0;
         virtual std::string GetPath() const = 0;
     };
 
@@ -83,6 +80,8 @@ namespace sky {
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
         bool ReadBin(std::vector<uint8_t> &out) override;
         bool ReadString(std::string &out) override;
+
+        uint64_t AppendData(const char* data, uint64_t size) override;
 
         IStreamArchivePtr ReadAsArchive() override;
         OStreamArchivePtr WriteAsArchive() override;
@@ -105,6 +104,8 @@ namespace sky {
         bool ReadBin(std::vector<uint8_t> &out) override;
         bool ReadString(std::string &out) override;
 
+        uint64_t AppendData(const char* data, uint64_t size) override;
+
         std::string GetPath() const override { return ""; }
 
         IStreamArchivePtr ReadAsArchive() override;
@@ -119,21 +120,27 @@ namespace sky {
         virtual bool FileExist(const FilePath &path) const = 0;
         virtual FilePtr OpenFile(const FilePath &name) = 0;
         virtual FilePtr CreateOrOpenFile(const FilePath &name) = 0;
+        virtual bool IsReadOnly() const { return true; }
+        virtual FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) { return nullptr; }
     };
 
     class NativeFileSystem : public IFileSystem {
     public:
-        explicit NativeFileSystem(const FilePath &root) : fsRoot(root) {}
+        explicit NativeFileSystem(const FilePath &root);
         ~NativeFileSystem() override = default;
 
         bool FileExist(const FilePath &path) const override;
         FilePtr OpenFile(const FilePath &path) override;
         FilePtr CreateOrOpenFile(const FilePath &path) override;
+
+        bool IsReadOnly() const override { return false; }
         const FilePath &GetPath() const { return fsRoot; }
 
         void Copy(const FilePath &from, const FilePath &to) const;
         bool IsSubDir(const std::string &path) const;
-        NativeFileSystemPtr CreateSubSystem(const std::string &path, bool createDir);
+        FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
+
+        static std::vector<FilePath> FilterFiles(const FilePath &path, const std::string &ext);
     private:
         FilePath fsRoot;
     };

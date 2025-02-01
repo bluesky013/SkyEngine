@@ -19,7 +19,25 @@ namespace sky {
         ~Buffer() override;
 
         void Init(uint64_t size, const rhi::BufferUsageFlags& usage, rhi::MemoryType memoryType);
+
         void SetSourceData(const rhi::BufferUploadRequest &data);
+
+        template<typename T>
+        void SetSourceData(std::vector<T> &&val)
+        {
+            rhi::BufferUploadRequest request = {};
+            request.offset = 0;
+            request.size = val.size() * sizeof(T);
+            request.source = new rhi::TRawBufferStream<T>(std::move(val));
+            SetSourceData(request);
+        }
+
+        template <typename T>
+        void SetUploadData(std::vector<T> &&data)
+        {
+            sourceData.size = data.size() * sizeof(T);
+            sourceData.source = new rhi::TRawBufferStream<T>(std::move(data));
+        }
 
         virtual uint64_t GetSize() const { return bufferDesc.size; }
 
@@ -62,6 +80,8 @@ namespace sky {
 
         virtual bool Init(uint32_t size);
         virtual void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
+        uint8_t *GetAddress() { return ptr; }
+
         template <typename T>
         void WriteT(uint32_t offset, const T& val)
         {
@@ -78,7 +98,7 @@ namespace sky {
         std::vector<uint8_t> data;
         rhi::BufferPtr stagingBuffer;
     };
-    using RDUniformBufferPtr = std::shared_ptr<UniformBuffer>;
+    using RDUniformBufferPtr = CounterPtr<UniformBuffer>;
 
     class DynamicUniformBuffer : public UniformBuffer {
     public:

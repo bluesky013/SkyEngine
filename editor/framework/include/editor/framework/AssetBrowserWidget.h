@@ -14,6 +14,8 @@
 #include <QMouseEvent>
 #include <editor/framework/AssetEditorProxy.h>
 
+class QComboBox;
+
 namespace sky::editor {
 
     class AssetFilterProxyModel : public QSortFilterProxyModel {

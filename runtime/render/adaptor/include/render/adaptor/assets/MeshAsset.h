@@ -8,9 +8,12 @@
 #include <vector>
 
 #include <core/shapes/AABB.h>
+#include <core/shapes/TriangleMesh.h>
 #include <core/archive/StreamArchive.h>
+
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetCommon.h>
+#include <framework/interface/IMeshConfigNotify.h>
 
 #include <rhi/Core.h>
 #include <render/adaptor/assets/MaterialAsset.h>
@@ -73,4 +76,5 @@ namespace sky {
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
 
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset);
+    CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset);
 }

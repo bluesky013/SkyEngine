@@ -6,7 +6,6 @@
 #include <rhi/Decode.h>
 #include <sstream>
 #include <render/rdg/AccessUtils.h>
-#include <render/RenderNameHandle.h>
 
 namespace sky::rdg {
 
@@ -25,41 +24,41 @@ namespace sky::rdg {
         , importBuffers(&ctx->resources)
         , bufferViews(&ctx->resources)
     {
-        AddVertex("root", Root{}, *this);
+        AddVertex(Name("root"), Root{}, *this);
     }
 
-    void ResourceGraph::AddImage(const char *name, const GraphImage &image)
+    void ResourceGraph::AddImage(const Name &name, const GraphImage &image)
     {
         add_edge(0, AddVertex(name, image, *this), graph);
     }
 
 
-    void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image)
+    void ResourceGraph::ImportImage(const Name &name, const rhi::ImagePtr &image)
     {
         ImportImage(name, image, rhi::ImageViewType::VIEW_2D, rhi::AccessFlagBit::NONE);
     }
 
-    void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType)
+    void ResourceGraph::ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType)
     {
         ImportImage(name, image, viewType, rhi::AccessFlagBit::NONE);
     }
 
-    void ResourceGraph::ImportImage(const char *name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &currentAccess)
+    void ResourceGraph::ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &currentAccess)
     {
         add_edge(0, AddVertex(name, GraphImportImage{image, viewType, currentAccess}, *this), graph);
     }
 
-    void ResourceGraph::ImportSwapChain(const char *name, const rhi::SwapChainPtr &swapchain)
+    void ResourceGraph::ImportSwapChain(const Name &name, const rhi::SwapChainPtr &swapchain)
     {
         add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
     }
 #ifdef SKY_ENABLE_XR
-    void ResourceGraph::ImportXRSwapChain(const char *name, const rhi::XRSwapChainPtr &swapchain)
+    void ResourceGraph::ImportXRSwapChain(const Name &name, const rhi::XRSwapChainPtr &swapchain)
     {
         add_edge(0, AddVertex(name, GraphXRSwapChain{swapchain}, *this), graph);
     }
 #endif
-    void ResourceGraph::AddImageView(const char *name, const char *source, const GraphImageView &view)
+    void ResourceGraph::AddImageView(const Name &name, const Name &source, const GraphImageView &view)
     {
         auto src = FindVertex(source, *this);
         SKY_ASSERT(src != INVALID_VERTEX);
@@ -69,27 +68,27 @@ namespace sky::rdg {
         add_edge(src, dst, graph);
     }
 
-    void ResourceGraph::AddBuffer(const char *name, const GraphBuffer &buffer)
+    void ResourceGraph::AddBuffer(const Name &name, const GraphBuffer &buffer)
     {
         add_edge(0, AddVertex(name, buffer, *this), graph);
     }
 
-    void ResourceGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer)
+    void ResourceGraph::ImportBuffer(const Name &name, const rhi::BufferPtr &buffer)
     {
         ImportBuffer(name, buffer, rhi::AccessFlagBit::NONE);
     }
 
-    void ResourceGraph::ImportBuffer(const char *name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags)
+    void ResourceGraph::ImportBuffer(const Name &name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags)
     {
         add_edge(0, AddVertex(name, GraphImportBuffer{buffer, flags}, *this), graph);
     }
 
-    void ResourceGraph::ImportUBO(const char *name, const RDUniformBufferPtr &ubo)
+    void ResourceGraph::ImportUBO(const Name &name, const RDUniformBufferPtr &ubo)
     {
         AddVertex(name, GraphConstantBuffer{ubo}, *this);
     }
 
-    void ResourceGraph::AddBufferView(const char *name, const char *source, const GraphBufferView &view)
+    void ResourceGraph::AddBufferView(const Name &name, const Name &source, const GraphBufferView &view)
     {
         auto src = FindVertex(source, *this);
         SKY_ASSERT(src != INVALID_VERTEX);
@@ -114,37 +113,37 @@ namespace sky::rdg {
         , resourceGraph(ctx)
         , accessGraph(ctx)
     {
-        AddVertex("root", Root{}, *this);
+        AddVertex(Name("root"), Root{}, *this);
     }
 
-    RasterPassBuilder RenderGraph::AddRasterPass(const char *name, uint32_t width, uint32_t height)
+    RasterPassBuilder RenderGraph::AddRasterPass(const Name &name, uint32_t width, uint32_t height)
     {
         auto vtx = AddVertex(name, RasterPass(width, height, &context->resources), *this);
         add_edge(0, vtx, graph);
         return RasterPassBuilder{*this, rasterPasses[polymorphicDatas[vtx]], vtx};
     }
 
-    ComputePassBuilder RenderGraph::AddComputePass(const char *name)
+    ComputePassBuilder RenderGraph::AddComputePass(const Name &name)
     {
         auto vtx = AddVertex(name, ComputePass{&context->resources}, *this);
         add_edge(0, vtx, graph);
         return ComputePassBuilder{*this, computePasses[polymorphicDatas[vtx]], vtx};
     }
 
-    CopyPassBuilder RenderGraph::AddCopyPass(const char *name)
+    CopyPassBuilder RenderGraph::AddCopyPass(const Name &name)
     {
         auto vtx = AddVertex(name, CopyBlitPass{&context->resources}, *this);
         add_edge(0, vtx, graph);
         return CopyPassBuilder{*this, copyBlitPasses[polymorphicDatas[vtx]], vtx};
     }
 
-    void RenderGraph::AddUploadPass(const char *name, const UploadPass &upload)
+    void RenderGraph::AddUploadPass(const Name &name, const UploadPass &upload)
     {
         auto vtx = AddVertex(name, upload, *this);
         add_edge(0, vtx, graph);
     }
 
-    void RenderGraph::AddPresentPass(const char *name, const char *resName)
+    void RenderGraph::AddPresentPass(const Name &name, const Name &resName)
     {
         auto resID = FindVertex(resName, resourceGraph);
         SKY_ASSERT(resID != INVALID_VERTEX);
@@ -257,7 +256,7 @@ namespace sky::rdg {
 
     RasterPassBuilder &RasterPassBuilder::AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear)
     {
-        auto res = FindVertex(attachment.name.c_str(), rdg.resourceGraph);
+        auto res = FindVertex(attachment.name, rdg.resourceGraph);
         SKY_ASSERT(res != INVALID_VERTEX);
 
         pass.attachmentVertex.emplace_back(res);
@@ -272,9 +271,9 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const std::string &name)
+    RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const Name &name)
     {
-        auto dst = AddVertex(name.c_str(), RasterSubPass{&rdg.context->resources}, rdg);
+        auto dst = AddVertex(name, RasterSubPass{&rdg.context->resources}, rdg);
         add_edge(vertex, dst, rdg.graph);
         auto &rasterPass = rdg.rasterPasses[rdg.polymorphicDatas[vertex]];
         auto &subPass = rdg.subPasses[rdg.polymorphicDatas[dst]];
@@ -284,28 +283,28 @@ namespace sky::rdg {
         return RasterSubPassBuilder{rdg, rasterPass, subPass, dst};
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const std::string &name, const ResourceAccess& access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColor(const Name &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.colors.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::COLOR, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const std::string &name, const ResourceAccess& access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddResolve(const Name &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.resolves.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::RESOLVE, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const std::string &name, const ResourceAccess& access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddInput(const Name &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.inputs.emplace_back(RasterAttachmentRef{name, access, attachmentIndex});
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddColorInOut(const std::string &name)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddColorInOut(const Name &name)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.inputs.emplace_back(RasterAttachmentRef{name, ResourceAccessBit::READ_WRITE, attachmentIndex});
@@ -313,14 +312,14 @@ namespace sky::rdg {
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::INPUT | RasterTypeBit::COLOR, ResourceAccessBit::READ_WRITE});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const std::string &name, const ResourceAccess& access)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddDepthStencil(const Name &name, const ResourceAccess& access)
     {
         uint32_t attachmentIndex = GetAttachmentIndex(name);
         subPass.depthStencil = RasterAttachmentRef{name, access, attachmentIndex};
         return AddRasterView(name, pass.attachmentVertex[attachmentIndex], RasterView{RasterTypeBit::DEPTH_STENCIL, access});
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const std::string &name, VertexType resVertex, const RasterView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddRasterView(const Name &name, VertexType resVertex, const RasterView &view)
     {
         auto iter = subPass.rasterViews.emplace(name, view);
         SKY_ASSERT(iter.second);
@@ -328,7 +327,7 @@ namespace sky::rdg {
         return *this;
     }
 
-    uint32_t RasterSubPassBuilder::GetAttachmentIndex(const std::string &name)
+    uint32_t RasterSubPassBuilder::GetAttachmentIndex(const Name &name)
     {
         auto iter = std::find_if(pass.attachments.begin(), pass.attachments.end(), [&name](const RasterAttachment &attachment){
             return name == attachment.name;
@@ -337,9 +336,9 @@ namespace sky::rdg {
         return static_cast<uint32_t>(std::distance(pass.attachments.begin(), iter));
     }
 
-    RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const std::string &name, const ComputeView &view)
+    RasterSubPassBuilder &RasterSubPassBuilder::AddComputeView(const Name &name, const ComputeView &view)
     {
-        auto res = FindVertex(name.c_str(), rdg.resourceGraph);
+        auto res = FindVertex(name, rdg.resourceGraph);
         SKY_ASSERT(res != INVALID_VERTEX);
 
         subPass.computeViews.emplace(name, view);
@@ -353,17 +352,17 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterQueueBuilder RasterSubPassBuilder::AddQueue(const std::string &name)
+    RasterQueueBuilder RasterSubPassBuilder::AddQueue(const Name &name)
     {
-        auto res = AddVertex(name.c_str(), RasterQueue(&rdg.context->resources, vertex), rdg);
+        auto res = AddVertex(name, RasterQueue(&rdg.context->resources, vertex), rdg);
         auto &queue = rdg.rasterQueues[rdg.polymorphicDatas[res]];
         add_edge(vertex, res, rdg.graph);
         return RasterQueueBuilder{rdg, queue, res};
     }
 
-    FullScreenBuilder RasterSubPassBuilder::AddFullScreen(const std::string &name)
+    FullScreenBuilder RasterSubPassBuilder::AddFullScreen(const Name &name)
     {
-        auto res = AddVertex(name.c_str(), FullScreenBlit(&rdg.context->resources, vertex), rdg);
+        auto res = AddVertex(name, FullScreenBlit(&rdg.context->resources, vertex), rdg);
         auto &fullscreen = rdg.fullScreens[rdg.polymorphicDatas[res]];
         add_edge(vertex, res, rdg.graph);
         return FullScreenBuilder{rdg, fullscreen, res};
@@ -371,8 +370,8 @@ namespace sky::rdg {
 
     CopyPassBuilder &CopyPassBuilder::AddCopyView(const CopyView &view)
     {
-        blit.src = FindVertex(view.srcName.c_str(), rdg.resourceGraph);
-        blit.dst = FindVertex(view.dstName.c_str(), rdg.resourceGraph);
+        blit.src = FindVertex(view.srcName, rdg.resourceGraph);
+        blit.dst = FindVertex(view.dstName, rdg.resourceGraph);
         SKY_ASSERT(blit.src != INVALID_VERTEX);
         SKY_ASSERT(blit.dst != INVALID_VERTEX);
 
@@ -399,9 +398,9 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterQueueBuilder &RasterQueueBuilder::SetRasterID(const std::string &id)
+    RasterQueueBuilder &RasterQueueBuilder::SetRasterID(const Name &id)
     {
-        queue.rasterID = RenderNameHandle::Get()->GetOrRegisterName(id);
+        queue.rasterID = id;
         return *this;
     }
 

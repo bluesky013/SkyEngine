@@ -23,6 +23,9 @@ namespace sky {
     {
         component->actor = this;
         auto res = storage.emplace(typeId, component);
+        if (world != nullptr) {
+            component->actor->AttachToWorld(world);
+        }
         return res.second;
     }
 
@@ -87,6 +90,7 @@ namespace sky {
             auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
             tmp->LoadJson(archive);
             tmp->actor = this;
+            tmp->OnSerialized();
             EmplaceComponent(typeId, tmp);
             archive.End();
 

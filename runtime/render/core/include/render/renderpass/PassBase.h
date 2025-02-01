@@ -6,7 +6,7 @@
 
 #include <render/resource/ResourceGroup.h>
 #include <render/rdg/RenderGraphTypes.h>
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 
 namespace sky {
     class RenderScene;

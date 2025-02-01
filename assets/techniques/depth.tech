@@ -1,7 +1,7 @@
 {
     "type": "graphics",
     "shader": {
-        "path": "shaders/depth_only.hlsl",
+        "path": "depth_only.hlsl",
         "vertex": "VSMain",
         "fragment": "FSMain"
     },
@@ -14,6 +14,5 @@
     },
     "raster_state": {
         "cullMode": "BACK"
-    },
-    "vertex": "position_only"
+    }
 }

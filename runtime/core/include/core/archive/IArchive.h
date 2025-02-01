@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <core/archive/Concept.h>
+#include <core/concept/Concept.h>
 
 namespace sky {
     class IInputArchive {

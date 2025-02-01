@@ -12,11 +12,16 @@
 
 namespace sky::editor {
 
-    EditorGuiInstance::~EditorGuiInstance() = default;
+    EditorGuiInstance::~EditorGuiInstance()
+    {
+        if (gui) {
+            guiInstance->RemoveWidget(gui.get());
+        }
+    }
 
     void EditorGuiInstance::Init(World &world, NativeWindow* window)
     {
-        renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem("RenderScene"))->GetRenderScene();
+        renderScene = static_cast<RenderSceneProxy*>(world.GetSubSystem(Name("RenderScene")))->GetRenderScene();
         auto *imguiFeature = renderScene->GetFeature<ImGuiFeatureProcessor>();
         if (imguiFeature != nullptr) {
             guiInstance = imguiFeature->CreateImGuiInstance();

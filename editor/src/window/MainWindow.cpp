@@ -5,6 +5,7 @@
 #include <editor/window/MainWindow.h>
 #include "ActionManager.h"
 #include "CentralWidget.h"
+#include "ToolBar.h"
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
@@ -12,6 +13,7 @@
 #include <QMessageBox>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
+#include <framework/interface/IWorldBuilder.h>
 #include <editor/framework/ViewportWidget.h>
 #include <editor/dockwidget/DockManager.h>
 #include <editor/dockwidget/WorldWidget.h>
@@ -55,6 +57,8 @@ namespace sky::editor {
 
         worldWidget->SetWorld(world);
         mainViewport->ResetWorld(world);
+        toolBar->SetWorld(worldWidget->GetWorldTreeView());
+        toolBar->SetCamera(mainViewport->GetCamera());
         setCentralWidget(mainViewport);
         UpdateActions();
     }
@@ -73,6 +77,8 @@ namespace sky::editor {
 
         worldWidget->SetWorld(world);
         mainViewport->ResetWorld(world);
+        toolBar->SetWorld(worldWidget->GetWorldTreeView());
+        toolBar->SetCamera(mainViewport->GetCamera());
         UpdateActions();
     }
 
@@ -80,6 +86,8 @@ namespace sky::editor {
     {
         SaveCheck();
         worldWidget->SetWorld(nullptr);
+        toolBar->SetWorld(nullptr);
+        toolBar->SetCamera(nullptr);
         inspector->OnSelectedItemChanged(nullptr);
         mainViewport->ResetWorld(nullptr);
         document->CloseWorld();
@@ -151,6 +159,10 @@ namespace sky::editor {
         addDockWidget(Qt::DockWidgetArea::BottomDockWidgetArea, assetBrowser);
         dockMgr->Register((uint32_t)DockId::BROWSER, *assetBrowser);
 
+        toolWidget = new QDockWidget(this);
+        addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, toolWidget);
+        dockMgr->Register((uint32_t)DockId::TOOL, *toolWidget);
+
         mainViewport = new ViewportWidget(nullptr);
         setCentralWidget(mainViewport);
 
@@ -196,9 +208,32 @@ namespace sky::editor {
         fileMenu->addAction(importAct);
         fileMenu->addSeparator();
         fileMenu->addAction(closeAct);
+
+        // world builders
+        auto *toolMenu = new QMenu("Tools", menuBar);
+
+        auto *buildMenu = new QMenu("Build", toolMenu);
+        toolMenu->addMenu(buildMenu);
+
+        std::list<CounterPtr<IWorldBuilder>> builders;
+        Event<IWorldBuilderGather>::BroadCast(&IWorldBuilderGather::Gather, builders);
+        for (auto &builder : builders) {
+            auto *act = new ActionWithFlag(DocumentFlagBit::WorldOpen, builder->GetDesc().c_str(), this);
+            connect(act, &QAction::triggered, this, [this, builder](bool /**/) {
+                builder->Build(document->GetWorld());
+            });
+
+            buildMenu->addAction(act);
+        }
+
         menuBar->addMenu(fileMenu);
+        menuBar->addMenu(toolMenu);
 
         setMenuBar(menuBar);
+
+        // toolbar
+        toolBar = new ToolBar(this, toolWidget);
+        addToolBar(Qt::TopToolBarArea, toolBar);
 
         actionManager->AddAction(newWorldAct);
         actionManager->AddAction(openWorldAct);

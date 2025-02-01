@@ -6,33 +6,35 @@
 
 namespace sky::phy {
 
-    void RigidBody::AddShape(PhysicsShape* shape)
+    RigidBody::RigidBody()
+        : physicsShape(std::make_unique<PhysicsBoxShape>(BoxShape{VEC3_ZERO, Vector3(0.01f, 0.01f, 0.01f)}))
     {
-        shapes.emplace_back(shape);
+    }
+
+    void RigidBody::SetShape(PhysicsShape *shape)
+    {
+        if (shape == nullptr) {
+            physicsShape = std::make_unique<PhysicsBoxShape>(BoxShape{VEC3_ZERO, Vector3(0.01f, 0.01f, 0.01f)});
+        } else {
+            physicsShape.reset(shape);
+        }
         OnShapeChanged();
     }
 
-    void RigidBody::SetFlag(CollisionFlag flag)
-    {
-        collisionFlag = flag;
-        OnFlagChanged();
-    }
-
-    void RigidBody::SetMass(float m)
-    {
-        mass = m;
-        OnMassChanged();
-    }
-
-    void RigidBody::SetGroup(int32_t group_)
+    void RigidBody::SetGroup(CollisionFilters group_)
     {
         group = group_;
         OnGroupMaskChanged();
     }
 
-    void RigidBody::SetMask(int32_t mask_)
+    void RigidBody::SetMask(CollisionFilters mask_)
     {
         mask = mask_;
         OnGroupMaskChanged();
+    }
+
+    void RigidBody::SetStartTrans(const Transform &trans)
+    {
+        startTrans = trans;
     }
 } // namespace sky::phy

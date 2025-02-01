@@ -11,6 +11,10 @@ namespace sky {
         for (auto &mesh : staticMeshes) {
             mesh->Tick();
         }
+
+        for (auto &mesh : skeletonMeshes) {
+            mesh->Tick();
+        }
     }
 
     void MeshFeatureProcessor::Render(rdg::RenderGraph &rdg)

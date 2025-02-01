@@ -3,14 +3,15 @@
 //
 
 #include <render/adaptor/components/StaticMeshComponent.h>
-#include <render/adaptor/Util.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/PropertyCommon.h>
 #include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
+#include <core/profile/Profiler.h>
 
+#include <render/adaptor/Util.h>
 #include <render/mesh/MeshFeatureProcessor.h>
 
 namespace sky {
@@ -70,6 +71,7 @@ namespace sky {
 
     void StaticMeshComponent::BuildRenderer()
     {
+        SKY_PROFILE_NAME("Build Static Render")
         if (meshAsset) {
             meshInstance = CreateMeshFromAsset(meshAsset);
         } else {

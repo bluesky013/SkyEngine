@@ -7,7 +7,7 @@
 #include <vulkan/DevObject.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Shader.h>
-#include <vulkan/ShaderOption.h>
+#include <vulkan/ShaderConstants.h>
 #include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
@@ -21,21 +21,12 @@ namespace sky::vk {
     public:
         ~ComputePipeline();
 
-        struct VkDescriptor {
-            ShaderPtr         shader;
-            ShaderOptionPtr   shaderOption;
-            PipelineLayoutPtr pipelineLayout;
-        };
-
         VkPipeline GetNativeHandle() const;
     private:
         friend class Device;
         ComputePipeline(Device &);
 
         bool Init(const Descriptor &);
-        bool Init(const VkDescriptor &);
-
-        static uint32_t CalculateHash(const VkDescriptor &);
 
         VkPipeline        pipeline;
         uint32_t          hash;

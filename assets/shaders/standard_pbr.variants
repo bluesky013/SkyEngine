@@ -1,0 +1,13 @@
+{
+    "entries": [
+        {
+            "stage": "vertex",
+            "name": "VSMain"
+        },
+        {
+            "stage": "fragment",
+            "name": "FSMain"
+        }
+    ],
+    "dependencies": []
+}

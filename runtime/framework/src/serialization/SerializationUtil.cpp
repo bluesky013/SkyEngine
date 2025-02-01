@@ -46,5 +46,4 @@ namespace sky {
         }
         return Empty;
     }
-
 }

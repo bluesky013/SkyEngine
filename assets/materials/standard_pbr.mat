@@ -2,5 +2,26 @@
     "techniques": [
         "techniques/standard_forward.tech",
         "techniques/depth.tech"
-    ]
+    ],
+    "properties": {
+        "Metallic": 0.5,
+		"Roughness": 0.5,
+		"AlphaCutoff": 1.0,
+		"Albedo": [1.0, 1.0, 1.0, 1.0],
+		"AoMap": "textures/black.png",
+		"EmissiveMap": "textures/black.png",
+		"AlbedoMap": "textures/white.png",
+		"MetallicRoughnessMap": "textures/black.png",
+		"NormalMap": "textures/black.png",
+		"AoSampler": { "MagFilter": "linear", "MinFilter": "linear", "MipMode": "linear" },
+		"EmissiveSampler": { "MagFilter": "linear", "MinFilter": "linear", "MipMode": "linear" },
+		"AlbedoSampler": { "MagFilter": "linear", "MinFilter": "linear", "MipMode": "linear" },
+		"MetallicRoughnessSampler": { "MagFilter": "linear", "MinFilter": "linear", "MipMode": "linear" },
+		"NormalSampler": { "MagFilter": "linear", "MinFilter": "linear", "MipMode": "linear" },
+		"ENABLE_ALPHA_MASK": false,
+		"ENABLE_NORMAL_MAP": false,
+		"ENABLE_AO_MAP": false,
+		"ENABLE_EMISSIVE_MAP": false,
+		"ENABLE_MR_MAP": false
+    }
 }

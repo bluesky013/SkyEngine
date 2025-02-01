@@ -6,16 +6,18 @@
 
 #include <render/FeatureProcessor.h>
 #include <render/light/LightBase.h>
+#include <render/resource/Buffer.h>
 #include <memory>
 
 namespace sky {
 
     class LightFeatureProcessor : public IFeatureProcessor {
     public:
-        explicit  LightFeatureProcessor(RenderScene *scn) : IFeatureProcessor(scn) {}
+        explicit LightFeatureProcessor(RenderScene *scn) : IFeatureProcessor(scn) {}
         ~LightFeatureProcessor() override = default;
 
-        void Render(rdg::RenderGraph &rdg) override;
+        void Tick(float time) override;
+        void Render(rdg::RenderGraph &rdg) override {}
 
         template <typename T>
         T* CreateLight()
@@ -29,9 +31,14 @@ namespace sky {
         void AddLight(Light *light);
         void RemoveLight(Light *light);
     private:
+        void GatherLightInfo();
+
         using LightPtr = std::unique_ptr<Light>;
 
         std::vector<LightPtr> lights;
+
+        RDBufferPtr lightData;
+        RDBufferPtr stagingBuffer;
     };
 
 } // namespace sky

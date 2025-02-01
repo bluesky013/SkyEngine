@@ -37,6 +37,22 @@ namespace sky {
 #endif
         instance = rhi::Instance::Create(desc);
         api = desc.api;
+
+        switch (api) {
+        case rhi::API::VULKAN:
+            target = ShaderCompileTarget::SPIRV;
+            break;
+        case rhi::API::METAL:
+            target = ShaderCompileTarget::MSL;
+            break;
+        case rhi::API::DX12:
+            target = ShaderCompileTarget::DXIL;
+            break;
+        case rhi::API::GLES:
+        case rhi::API::DEFAULT:;
+            SKY_ASSERT(false);
+            break;
+        }
     }
 
     void RHI::InitDevice(const rhi::Device::Descriptor &desc)

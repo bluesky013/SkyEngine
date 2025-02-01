@@ -46,10 +46,10 @@ namespace sky::rdg {
         }, Tag(u, rdg));
     }
 
-    static void BindResourceGroup(const RenderGraph &rdg, const PmrHashMap<std::string, ComputeView> &computeViews, ResourceGroup &rsg)
+    static void BindResourceGroup(const RenderGraph &rdg, const PmrHashMap<Name, ComputeView> &computeViews, ResourceGroup &rsg)
     {
         for (const auto &[name, computeView] : computeViews) {
-            auto res = FindVertex(name.c_str(), rdg.resourceGraph);
+            auto res = FindVertex(name, rdg.resourceGraph);
             const auto &view = computeView;
             std::visit(Overloaded{
                 [&](const ImageTag &) {
@@ -97,14 +97,14 @@ namespace sky::rdg {
     void RenderResourceCompiler::Compile(Vertex u, RasterSubPass &subPass)
     {
         for (auto &[name, compute] : subPass.computeViews) {
-            MountResource(u, Source(FindVertex(name.c_str(), rdg.resourceGraph), rdg.resourceGraph));
+            MountResource(u, Source(FindVertex(name, rdg.resourceGraph), rdg.resourceGraph));
         }
     }
 
     void RenderResourceCompiler::Compile(Vertex u, ComputePass &pass)
     {
         for (auto &[name, compute] : pass.computeViews) {
-            MountResource(u, Source(FindVertex(name.c_str(), rdg.resourceGraph), rdg.resourceGraph));
+            MountResource(u, Source(FindVertex(name, rdg.resourceGraph), rdg.resourceGraph));
         }
         pass.resourceGroup = rdg.context->pool->RequestResourceGroup(u, pass.layout);
         BindResourceGroup(rdg, pass.computeViews, *pass.resourceGroup);
@@ -136,10 +136,10 @@ namespace sky::rdg {
         fullscreen.resourceGroup = rdg.context->pool->RequestResourceGroup(u, fullscreen.program->RequestLayout(PASS_SET));
         BindResourceGroup(rdg, subPass.computeViews, *fullscreen.resourceGroup);
         fullscreen.pso = GraphicsTechnique::BuildPso(fullscreen.program,
-                                                     fullscreen.technique->GetPipelineState(),
-                                                     Renderer::Get()->GetDefaultRHIResource().emptyVI,
-                                                     pass.renderPass,
-                                                     subPass.subPassID);
+            fullscreen.technique->GetPipelineState(),
+            Renderer::Get()->GetDefaultResource().emptyVI,
+            pass.renderPass,
+            subPass.subPassID);
     }
 
     void RenderResourceCompiler::MountResource(Vertex u, ResourceGraph::vertex_descriptor res)

@@ -19,12 +19,20 @@ namespace sky {
     } // namespace rdg
     class RenderScene;
 
+    struct ImguiPrimitive : public RenderPrimitive {
+        RDTexture2DPtr fontTexture;
+        RDDynamicUniformBufferPtr ubo;
+
+        void UpdateBatch() override;
+    };
+
     class ImGuiInstance : public IWindowEvent, public IMouseEvent, public IKeyboardEvent {
     public:
         ImGuiInstance();
         ~ImGuiInstance() override;
 
         void AddWidget(ImWidget *widget);
+        void RemoveWidget(ImWidget *widget);
 
         void Tick(float delta);
         void Render(rdg::RenderGraph &rdg);
@@ -54,15 +62,13 @@ namespace sky {
 
         ImContext context;
 
-        std::unique_ptr<RenderPrimitive> primitive;
+        std::unique_ptr<ImguiPrimitive> primitive;
         RDDynamicBuffer vertexBuffer;
         RDDynamicBuffer indexBuffer;
         RDResourceGroupPtr globalSet;
 
-        RDTexture2DPtr fontTexture;
-        RDDynamicUniformBufferPtr ubo;
-        uint64_t vertexSize = 0;
-        uint64_t indexSize = 0;
+        uint32_t vertexSize = 0;
+        uint32_t indexSize = 0;
 
         ImDrawData* drawData = nullptr;
         std::list<ImWidget*> widgets;

@@ -6,11 +6,11 @@
 
 #ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
-#define SKY_PROFILE_FRAME FrameMark
-#define SKY_PROFILE_SCOPE ZoneScoped
-#define SKY_PROFILE_NAME(name) ZoneScopedN(name)
+#define SKY_FRAME_MARK(name)          FrameMarkNamed(name);
+#define SKY_PROFILE_SCOPE             ZoneScoped;
+#define SKY_PROFILE_NAME(name)        ZoneScopedN(name); // NOLINT
 #else
-#define SKY_PROFILE_FRAME
+#define SKY_FRAME_MARK(name)
 #define SKY_PROFILE_SCOPE
 #define SKY_PROFILE_NAME(name)
 #endif

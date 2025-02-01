@@ -18,11 +18,11 @@ namespace sky {
         , frustums(resource)
         , dirty(true)
     {
-        projects0.resize(viewCount);
+        projects.resize(viewCount);
         viewInfo.resize(viewCount);
         frustums.resize(viewCount);
 
-        viewUbo = std::make_shared<UniformBuffer>();
+        viewUbo = new UniformBuffer();
         viewUbo->Init(sizeof(SceneViewInfo));
     }
 
@@ -35,13 +35,7 @@ namespace sky {
 
     void SceneView::SetPerspective(float near, float far, float fov, float aspect, uint32_t index)
     {
-        Matrix4 p = Matrix4::Identity();
-        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
-//        p[2][2] = 0.5f;
-//        p[3][2] = 0.5f;
-
-        projects0[index] = MakePerspective(fov, aspect, near, far);
-        viewInfo[index].project = p * projects0[index];
+        projects[index] = MakePerspective(fov, aspect, near, far);
 //        viewInfo[index].zParam.x = 1 - far / near;
 //        viewInfo[index].zParam.y = far / near;
 //        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
@@ -51,11 +45,8 @@ namespace sky {
 
     void SceneView::SetOrthogonal(float l, float r, float t, float b, float near, float far, uint32_t index)
     {
-        Matrix4 p = Matrix4::Identity();
-        p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
-
-        projects0[index] = MakeOrthogonal(l, r, t, b, near, far);
-        viewInfo[index].project = p * projects0[index];
+        projects[index] = MakeOrthogonal(l, r, t, b, near, far);
+        viewInfo[index].project = projects[index];
         dirty = true;
     }
 
@@ -66,6 +57,10 @@ namespace sky {
         }
 
         for (uint32_t i = 0; i < viewCount; ++i) {
+            Matrix4 p = Matrix4::Identity();
+            p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
+
+            viewInfo[i].project = p * projects[i];
             viewInfo[i].viewProject = viewInfo[i].project * viewInfo[i].view;
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 

@@ -10,9 +10,17 @@ namespace sky {
 
     bool Intersection(const AABB &lhs, const AABB &rhs)
     {
-        return (lhs.min.x <= rhs.max.x && lhs.max.x >= rhs.min.x) &&
-               (lhs.min.y <= rhs.max.y && lhs.max.y >= rhs.min.y) &&
-               (lhs.min.z <= rhs.max.z && lhs.max.z >= rhs.min.z);
+        if (lhs.min.x > rhs.max.x || lhs.max.x < rhs.min.x) {
+            return false;
+        }
+        if (lhs.min.y > rhs.max.y || lhs.max.y < rhs.min.y) {
+            return false;
+        }
+        if (lhs.min.z > rhs.max.z || lhs.max.z < rhs.min.z) {
+            return false;
+        }
+
+        return true;
     }
 
     std::pair<bool, int> Intersection(const AABB &aabb, const Plane &plane)
@@ -53,5 +61,20 @@ namespace sky {
     Plane CreatePlaneByNormalAndVertex(const Vector3 &normal, const Vector3 &pt)
     {
         return Plane{normal, normal.Dot(pt)};
+    }
+
+    float DistanceToPlane(const Vector3 &pt, const Plane &plane)
+    {
+        return plane.normal.Dot(pt) + plane.distance;
+    }
+
+    std::pair<bool, Vector3> CalculateInterSection(const Ray &ray, const Plane &plane)
+    {
+        float denom = plane.normal.Dot(ray.dir);
+        if (abs(denom) > 1e-6) {
+            float t = -(plane.normal.Dot(ray.origin) + plane.distance) / denom;
+            return {true, ray.origin + ray.dir * t};
+        }
+        return {false, VEC3_ZERO};
     }
 } // namespace sky

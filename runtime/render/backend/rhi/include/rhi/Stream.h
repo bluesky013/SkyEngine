@@ -36,15 +36,25 @@ namespace sky::rhi {
         const uint8_t *data;
     };
 
-    class RawBufferStream : public IUploadStream {
+    template <typename T>
+    class TRawBufferStream : public IUploadStream {
     public:
-        explicit RawBufferStream(std::vector<uint8_t> &&ptr) : data(std::move(ptr)) {}
-        ~RawBufferStream() override = default;
+        explicit TRawBufferStream(std::vector<T> &&ptr) : data(std::move(ptr)) {}
+        ~TRawBufferStream() override = default;
 
-        const uint8_t *Data(uint64_t offset) override;
-        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
+        const uint8_t *Data(uint64_t offset) override
+        {
+            return reinterpret_cast<const uint8_t*>(data.data());
+        }
+
+        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override
+        {
+            memcpy(out, reinterpret_cast<const uint8_t*>(data.data()) + offset, size);
+        }
     private:
-        std::vector<uint8_t> data;
+        std::vector<T> data;
     };
+
+    using RawBufferStream = TRawBufferStream<uint8_t>;
 
 } // namespace sky::rhi

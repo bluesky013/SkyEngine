@@ -8,7 +8,7 @@
 
 #include <render/RHI.h>
 #include <render/rdg/TransientObjectPool.h>
-#include <render/rdg/TransientMemoryPool.h>
+//#include <render/rdg/TransientMemoryPool.h>
 
 #include <render/rdg/RenderGraphVisitors.h>
 #include <render/rdg/RenderGraphExecutor.h>
@@ -26,9 +26,9 @@ namespace sky {
 
     RenderPipeline::RenderPipeline()
     {
-        const auto &defaultRes = Renderer::Get()->GetDefaultRHIResource();
+        const auto &defaultRes = Renderer::Get()->GetDefaultResource();
 
-        rdgContext = std::make_unique<rdg::RenderGraphContext>();
+        rdgContext = std::make_unique<rdg::RenderGraphContext>(3);
         rdgContext->pool = std::make_unique<rdg::TransientObjectPool>();
         rdgContext->pool->Init();
         rdgContext->device = RHI::Get()->GetDevice();
@@ -52,42 +52,42 @@ namespace sky {
 
     void RenderPipeline::FrameSync()
     {
-        SKY_PROFILE_NAME("FrameSync");
+        SKY_PROFILE_NAME("FrameSync")
         rdgContext->frameIndex = frameIndex;
         rdgContext->Fence()->WaitAndReset();
         rdgContext->ImageAvailableSemaPool().Reset();
         rdgContext->pool->ResetPool();
     }
 
-    void RenderPipeline::Compile(rdg::RenderGraph &rdg)
+    void RenderPipeline::Compile(rdg::RenderGraph &rdg) // NOLINT
     {
         using namespace rdg;
         {
-            SKY_PROFILE_NAME("AccessCompiler");
+            SKY_PROFILE_NAME("AccessCompiler")
             AccessCompiler             compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.accessGraph.vertices.size(), &rdg.context->resources);
-            boost::depth_first_search(rdg.accessGraph.graph, compiler, ColorMap(colors));
+            boost::depth_first_search(rdg.accessGraph.graph, compiler, ColorMap(colors));  // NOLINT
         }
 
         {
-            SKY_PROFILE_NAME("RenderResourceCompiler");
+            SKY_PROFILE_NAME("RenderResourceCompiler")
             RenderResourceCompiler               compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
 
         {
-            SKY_PROFILE_NAME("RenderGraphPassCompiler");
+            SKY_PROFILE_NAME("RenderGraphPassCompiler")
             RenderGraphPassCompiler              compiler(rdg);
             PmrVector<boost::default_color_type> colors(rdg.vertices.size(), &rdg.context->resources);
             boost::depth_first_search(rdg.graph, compiler, ColorMap(colors));
         }
     }
 
-    void RenderPipeline::Collect(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes)
+    void RenderPipeline::Collect(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes)  // NOLINT
     {
         using namespace rdg;
-        SKY_PROFILE_NAME("RenderSceneVisitor");
+        SKY_PROFILE_NAME("RenderSceneVisitor")
         for (auto *scene : scenes) {
             RenderSceneVisitor sceneVisitor(rdg, scene);
             sceneVisitor.BuildRenderQueue();
@@ -100,7 +100,7 @@ namespace sky {
         const auto &commandBuffer = rdgContext->MainCommandBuffer();
         auto *queue = rdgContext->device->GetQueue(rhi::QueueType::GRAPHICS);
         {
-            SKY_PROFILE_NAME("Encode");
+            SKY_PROFILE_NAME("Encode")
 
             commandBuffer->Begin();
 

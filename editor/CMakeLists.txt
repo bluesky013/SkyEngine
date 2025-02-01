@@ -20,6 +20,8 @@ if (Qt5_FOUND)
             include
         LIBS
             EditorFramework
+            Physics
+            Navigation
         )
 
     if (WIN32)

@@ -1,17 +1,26 @@
 {
     "type": "graphics",
     "shader": {
-        "path": "shaders/debug.hlsl",
+        "path": "debug.hlsl",
         "vertex": "VSMain",
         "fragment": "FSMain"
     },
     "pass": {
-        "tag": "ForwardColor"
+        "tag": "debug"
     },
     "depth_stencil": {
         "depthTestEnable": true,
         "depthWriteEnable": false
     },
+    "blend_state": [
+        {
+            "blendEnable": true,
+            "srcColor": "SRC_ALPHA",
+            "dstColor": "ONE_MINUS_SRC_ALPHA",
+            "srcAlpha": "ONE",
+            "dstAlpha": "ONE_MINUS_SRC_ALPHA"
+        }
+    ],
     "raster_state": {
         "cullMode": "NONE"
     }

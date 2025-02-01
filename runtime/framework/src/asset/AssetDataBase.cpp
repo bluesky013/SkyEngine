@@ -8,6 +8,7 @@
 #include <framework/serialization/JsonArchive.h>
 #include <core/file/FileUtil.h>
 #include <core/logger/Logger.h>
+#include <core/hash/Hash.h>
 
 static const char* TAG = "AssetDataBase";
 
@@ -17,22 +18,18 @@ namespace sky {
     {
         uint32_t res = 0;
         HashCombine32(res, static_cast<uint32_t>(path.bundle));
-        HashCombine32(res, std::hash<std::string>()(path.path.GetStr()));
+        HashCombine32(res, Fnv1a32(path.path.GetStr()));
         return res;
     }
 
     void AssetDataBase::SetEngineFs(const NativeFileSystemPtr &fs)
     {
-        engineFs = fs->CreateSubSystem("assets", true);
-
-        AssetBuilderManager::Get()->SetEngineFs(engineFs);
+        engineFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
     }
 
     void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
     {
-        workSpaceFs = fs->CreateSubSystem("assets", true);
-
-        AssetBuilderManager::Get()->SetWorkSpaceFs(fs);
+        workSpaceFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
     }
 
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)

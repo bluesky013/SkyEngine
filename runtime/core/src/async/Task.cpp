@@ -5,13 +5,31 @@
 #include <core/async/Task.h>
 
 namespace sky {
-
-    void TaskExecutor::ExecuteTask(const TaskPtr &task)
+    void Task::StartAsync()
     {
-        executor.dependent_async([task]() {
-            bool result = task->DoWork();
-            task->OnComplete(result);
-        });
+        PrepareWork();
+
+        CounterPtr<Task> thisTask = this;
+
+        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
+            bool result = thisTask->DoWork();
+            thisTask->OnComplete(result);
+            thisTask->ResetTask();
+        }, dependencies.begin(), dependencies.end()).first;
+    }
+
+    bool Task::IsWorking() const
+    {
+        return !handle.empty();
+    }
+
+    void Task::ResetTask()
+    {
+        handle.reset();
+    }
+
+    TaskExecutor::TaskExecutor(size_t N) : executor(N)
+    {
     }
 
     void TaskExecutor::WaitForAll()

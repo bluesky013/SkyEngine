@@ -7,7 +7,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/math/Matrix4.h>
 #include <core/math/Transform.h>
-#include <core/util/Name.h>
+#include <core/name/Name.h>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -20,6 +20,12 @@ namespace sky {
     struct BoneData {
         Name name;
         uint32_t parentIndex = INVALID_BONE_ID;
+    };
+
+    struct Bone {
+        uint32_t index = 0;
+        Bone* parent = nullptr;
+        std::vector<Bone*> children;
     };
 
     struct SkeletonData {
@@ -36,6 +42,9 @@ namespace sky {
 
     private:
         PosePtr refPose;
+
+        Bone root = {};
+        std::vector<Bone> bones;
 
         std::vector<BoneData> boneData;
         std::vector<Matrix4> inverseBindMatrix;

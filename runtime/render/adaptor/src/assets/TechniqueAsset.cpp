@@ -2,7 +2,6 @@
 // Created by Zach Lee on 2023/2/23.
 //
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/adaptor/assets/ShaderAsset.h>
 #include <shader/ShaderCompiler.h>
 
 namespace sky {
@@ -10,8 +9,7 @@ namespace sky {
     void TechniqueAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
-        archive.LoadValue(shader.shader.word[0]);
-        archive.LoadValue(shader.shader.word[1]);
+        archive.LoadValue(shader.shader);
         archive.LoadValue(shader.objectOrCSMain);
         archive.LoadValue(shader.vertOrMeshMain);
         archive.LoadValue(shader.fragmentMain);
@@ -43,12 +41,6 @@ namespace sky {
         }
 
         archive.LoadValue(size);
-        preDefines.resize(size);
-        for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(preDefines[i]);
-        }
-
-        archive.LoadValue(size);
         vertexFlags.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
             auto &flag = vertexFlags[i];
@@ -60,8 +52,7 @@ namespace sky {
     void TechniqueAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(version);
-        archive.SaveValue(shader.shader.word[0]);
-        archive.SaveValue(shader.shader.word[1]);
+        archive.SaveValue(shader.shader);
         archive.SaveValue(shader.objectOrCSMain);
         archive.SaveValue(shader.vertOrMeshMain);
         archive.SaveValue(shader.fragmentMain);
@@ -88,11 +79,6 @@ namespace sky {
             archive.SaveValue(blend.alphaBlendOp);
         }
 
-        archive.SaveValue(static_cast<uint32_t>(preDefines.size()));
-        for (const auto &def : preDefines) {
-            archive.SaveValue(def);
-        }
-
         archive.SaveValue(static_cast<uint32_t>(vertexFlags.size()));
         for (const auto &flag : vertexFlags) {
             archive.SaveValue(flag.flag);
@@ -107,16 +93,15 @@ namespace sky {
         if (data.type == TechAssetType::GRAPHIC) {
             auto *tech = new GraphicsTechnique();
 
-            auto shaderAsset = AssetManager::Get()->FindAsset<ShaderCollection>(data.shader.shader);
-            if (shaderAsset) {
-                auto shader = CreateShaderFromAsset(shaderAsset);
-                tech->SetShader({shader, data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
-            }
-
+            tech->SetShader({Name(data.shader.shader.c_str()), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);
-            tech->SetRasterTag(data.passTag);
+            tech->SetRasterTag(Name(data.passTag.c_str()));
+
+            for (const auto &[bit, str] : data.vertexFlags) {
+                tech->AddVertexFlag(static_cast<RenderVertexFlagBit>(bit.value), Name(str.c_str()));
+            }
             return tech;
         }
         return nullptr;

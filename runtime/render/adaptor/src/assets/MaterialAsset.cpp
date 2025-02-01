@@ -6,18 +6,12 @@
 #include <framework/asset/AssetDataBase.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <core/template/Overloaded.h>
+#include <core/profile/Profiler.h>
 
 namespace sky {
     void LoadProperties(BinaryInputArchive &archive, MaterialProperties &properties)
     {
         uint32_t size = 0;
-        archive.LoadValue(size);
-        properties.images.resize(size);
-        for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(properties.images[i]);
-        }
-
-        size = 0;
         archive.LoadValue(size);
         for (uint32_t i = 0; i < size; ++i) {
             std::string key;
@@ -27,7 +21,13 @@ namespace sky {
             switch (type) {
                 case MaterialValueType::TEXTURE: {
                     MaterialTexture tex = {};
-                    archive.LoadValue(tex.texIndex);
+                    archive.LoadValue(reinterpret_cast<char *>(&tex.texID), sizeof(Uuid));
+                    properties.valueMap[key] = tex;
+                }
+                break;
+                case MaterialValueType::SAMPLER: {
+                    TextureSampler tex = {};
+                    archive.LoadValue(reinterpret_cast<char *>(&tex), sizeof(TextureSampler));
                     properties.valueMap[key] = tex;
                 }
                 break;
@@ -71,39 +71,9 @@ namespace sky {
                     SKY_UNEXPECTED;
             }
         }
-
-        size = 0;
-        archive.LoadValue(size);
-        for (uint32_t i = 0; i < size; ++i) {
-            std::string key;
-            archive.LoadValue(key);
-            MaterialValueType type;
-            archive.LoadValue(type);
-            switch (type) {
-                case MaterialValueType::BOOL: {
-                    bool val = {};
-                    archive.LoadValue(val);
-                    properties.options[key] = val;
-                }
-                break;
-                case MaterialValueType::U32: {
-                    uint32_t val = {};
-                    archive.LoadValue(val);
-                    properties.options[key] = val;
-                }
-                break;
-                default:
-                    SKY_UNEXPECTED;
-            }
-        }
     }
 
     void SaveProperties(BinaryOutputArchive &archive, const MaterialProperties &properties) {
-        archive.SaveValue(static_cast<uint32_t>(properties.images.size()));
-        for (const auto &image: properties.images) {
-            archive.SaveValue(image);
-        }
-
         archive.SaveValue(static_cast<uint32_t>(properties.valueMap.size()));
         for (const auto &[key, value]: properties.valueMap) {
             archive.SaveValue(key);
@@ -111,7 +81,11 @@ namespace sky {
             std::visit(Overloaded{
                     [&archive](const MaterialTexture &v) {
                         archive.SaveValue(MaterialValueType::TEXTURE);
-                        archive.SaveValue(v.texIndex);
+                        archive.SaveValue(reinterpret_cast<const char *>(&v.texID), sizeof(Uuid));
+                    },
+                    [&archive](const TextureSampler &v) {
+                        archive.SaveValue(MaterialValueType::SAMPLER);
+                        archive.SaveValue(reinterpret_cast<const char *>(&v), sizeof(TextureSampler));
                     },
                     [&archive](const Vector2 &v) {
                         archive.SaveValue(MaterialValueType::VEC2);
@@ -136,22 +110,6 @@ namespace sky {
                     [&archive](const int32_t &v) {
                         archive.SaveValue(MaterialValueType::I32);
                         archive.SaveValue(v);
-                    },
-            }, value);
-        }
-
-        archive.SaveValue(static_cast<uint32_t>(properties.options.size()));
-        for (const auto &[key, value]: properties.options) {
-            archive.SaveValue(key);
-
-            std::visit(Overloaded{
-                    [&archive](const bool &v) {
-                        archive.SaveValue(MaterialValueType::BOOL);
-                        archive.SaveValue(v);
-                    },
-                    [&archive](const uint32_t &v) {
-                        archive.SaveValue(MaterialValueType::U32);
-                        archive.SaveValue(v);
                     }
             }, value);
         }
@@ -162,9 +120,11 @@ namespace sky {
         archive.LoadValue(version);
         uint32_t size = 0;
         archive.LoadValue(size);
-        techniques.resize(size);
+
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(techniques[i]);
+            Uuid uuid;
+            archive.LoadValue(uuid);
+            techniques.emplace(uuid);
         }
 
         LoadProperties(archive, defaultProperties);
@@ -226,18 +186,11 @@ namespace sky {
     {
         archive.Start("properties");
 
-        // std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
-        archive.ForEachMember([this, &archive](const std::string &key, const auto &obj) {
+        archive.ForEachMember([this](const std::string &key, const auto &obj) {
             if (obj.IsString()) {
-                auto value = Uuid::CreateFromString(obj.GetString());
-                auto iter = std::find(images.begin(), images.end(), value);
-                if (iter != images.end()) {
-                    valueMap[key] = MaterialTexture{static_cast<uint32_t>(std::distance(iter, images.begin()))};
-                } else {
-                    valueMap[key] = MaterialTexture{static_cast<uint32_t>(images.size())};
-                    images.emplace_back(value);
-                }
-
+                auto path = obj.GetString();
+                auto asset = AssetDataBase::Get()->FindAsset(path);
+                valueMap[key] = MaterialTexture{asset->uuid};
             } else if (obj.IsFloat()) {
                 valueMap[key] = obj.GetFloat();
             } else if (obj.IsBool()) {
@@ -261,16 +214,6 @@ namespace sky {
             }
         });
         archive.End();
-
-        archive.Start("options");
-        archive.ForEachMember([this, &archive](const std::string &key, const auto &obj) {
-            if (obj.IsBool()) {
-                options[key] = obj.GetBool();
-            } else if (obj.IsUint()) {
-                options[key] = obj.GetUint();
-            }
-        });
-        archive.End();
     }
 
     void MaterialProperties::SaveJson(JsonOutputArchive &archive) const
@@ -279,11 +222,9 @@ namespace sky {
         archive.StartObject();
         for (const auto &[key, value] : valueMap) {
             archive.Key(key.c_str());
-
-            // std::variant<MaterialTexture, Vector2, Vector3, Vector4, float, uint32_t, int32_t>;
             std::visit(Overloaded{
                     [&archive, this](const MaterialTexture &tex) {
-                        auto asset = AssetDataBase::Get()->FindAsset(images[tex.texIndex]);
+                        auto asset = AssetDataBase::Get()->FindAsset(tex.texID);
                         if (asset) {
                             archive.SaveValue(asset->path.path.GetStr());
                         } else {
@@ -291,21 +232,6 @@ namespace sky {
                         }
                     },
                     [&archive](const auto& arg) { archive.SaveValueObject(arg); }
-            }, value);
-        }
-        archive.EndObject();
-
-        archive.Key("options");
-        archive.StartObject();
-        for (const auto &[key, value] : options) {
-            archive.Key(key.c_str());
-            std::visit(Overloaded{
-                    [&archive](const bool &val) {
-                        archive.SaveValue(val);
-                    },
-                    [&archive](const uint32_t &val) {
-                        archive.SaveValue(val);
-                    },
             }, value);
         }
         archive.EndObject();
@@ -321,35 +247,43 @@ namespace sky {
             auto techAsset = am->LoadAsset<Technique>(tech);
             mat->AddTechnique(GreateGfxTechFromAsset(techAsset));
         }
+
+        MaterialPropertyInitializer initializer(data.defaultProperties.valueMap.size());
+        for (auto &[key, val] : data.defaultProperties.valueMap) {
+            if (std::holds_alternative<MaterialTexture>(val)) {
+                auto tex = std::get<MaterialTexture>(val).texID;
+                auto imageAsset = am->FindAsset<Texture>(tex);
+                initializer.AddPropertyTexture(Name(key.c_str()), CreateTextureFromAsset(imageAsset));
+            } else {
+                initializer.AddPropertyValue(Name(key.c_str()), val);
+            }
+        }
+        initializer.Finalize();
+
+        mat->SetProperties(std::move(initializer));
         return mat;
     }
 
     CounterPtr<MaterialInstance> CreateMaterialInstanceFromAsset(const MaterialInstanceAssetPtr &asset)
     {
+        SKY_PROFILE_NAME("Create Material Instance From Asset")
         auto &data = asset->Data();
 
         auto *am = AssetManager::Get();
         auto matAsset = am->FindAsset<Material>(data.material);
         auto *mi = new MaterialInstance();
-//        mi->SetName(asset->GetName());
         mi->SetMaterial(CreateMaterialFromAsset(matAsset));
-        for (const auto &[key, val] : data.properties.options) {
-            mi->SetOption(key, val);
-        }
-        mi->Compile();
-
         for (const auto &[key, val] : data.properties.valueMap) {
             std::visit(Overloaded{
-                    [&mi, &data, &am, key_ = key](const MaterialTexture &v) {
-                        auto imageAsset = am->FindAsset<Texture>(data.properties.images[v.texIndex]);
-                        mi->SetTexture(key_, CreateTextureFromAsset(imageAsset), 0);
-                    },
-                    [&mi, key_ = key](const auto &v) {
-                        mi->SetValue(key_, reinterpret_cast<const uint8_t*>(&v), sizeof(decltype(v)));
-                    }
+                [&](const MaterialTexture &v) {
+                    auto imageAsset = am->FindAsset<Texture>(v.texID);
+                    mi->SetTexture(Name(key.c_str()), CreateTextureFromAsset(imageAsset));
+                },
+                [&](const auto &v) {
+                    mi->SetValue(Name(key.c_str()), v);
+                },
             }, val);
         }
-        mi->Update();
         return mi;
     }
 } // namespace sky

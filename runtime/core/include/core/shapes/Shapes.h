@@ -18,4 +18,8 @@ namespace sky {
     Plane CreatePlaneByVertices(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3);
     Plane CreatePlaneByNormalAndVertex(const Vector3 &normal, const Vector3 &pt);
 
+    float DistanceToPlane(const Vector3 &pt, const Plane &plane);
+
+    std::pair<bool, Vector3> CalculateInterSection(const Ray &ray, const Plane &plane);
+
 } // namespace sky

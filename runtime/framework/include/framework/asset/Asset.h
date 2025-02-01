@@ -6,6 +6,7 @@
 
 #include <core/util/Uuid.h>
 #include <core/util/Macros.h>
+#include <core/name/Name.h>
 #include <core/archive/StreamArchive.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
@@ -35,8 +36,8 @@ namespace sky {
         void SetUuid(const Uuid &id) { uuid = id; }
         const Uuid &GetUuid() const { return uuid; }
 
-        void SetType(const std::string &val) { type = val; }
-        const std::string &GetType() const { return type; }
+        void SetType(const Name &val) { type = val; }
+        const Name &GetType() const { return type; }
         
         Status GetStatus() const { return status.load(); }
         bool IsLoaded() const { return status.load() == Status::LOADED; }
@@ -53,7 +54,7 @@ namespace sky {
         friend class AssetManager;
 
         Uuid                  uuid;
-        std::string           type;
+        Name                  type;
         std::vector<Uuid>     dependencies;
         std::vector<AssetPtr> depAssets;
 

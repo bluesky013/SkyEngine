@@ -89,7 +89,7 @@ namespace sky {
             return *this;
         }
 
-        constexpr bool TestBit(T val) noexcept
+        constexpr bool TestBit(T val) const noexcept
         {
             return operator&(val) == val;
         }

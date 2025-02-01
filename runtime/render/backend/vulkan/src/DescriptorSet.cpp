@@ -14,7 +14,7 @@ namespace sky::vk {
     DescriptorSet::~DescriptorSet()
     {
         if (pool) {
-            pool->Free(*this);
+            pool->Free(*this, poolHandle);
         }
     }
 
@@ -25,9 +25,10 @@ namespace sky::vk {
 
     DescriptorSetPtr DescriptorSet::Allocate(const DescriptorSetPoolPtr &pool, const DescriptorSetLayoutPtr &layout)
     {
-        auto setCreateFn = [&pool, &layout](VkDescriptorSet set) {
+        auto setCreateFn = [&pool, &layout](const std::pair<VkDescriptorSet, VkDescriptorPool> &pair) {
             auto setPtr    = std::make_shared<DescriptorSet>(pool->device);
-            setPtr->handle = set;
+            setPtr->handle = pair.first;
+            setPtr->poolHandle = pair.second;
             setPtr->layout = layout;
             setPtr->pool   = pool;
             setPtr->Setup();
@@ -37,33 +38,50 @@ namespace sky::vk {
         auto hash = layout->GetHash();
         auto iter = pool->freeList.find(hash);
         if (iter != pool->freeList.end() && !iter->second.empty()) {
-            auto *back = iter->second.back();
+            auto back = iter->second.back();
             iter->second.pop_back();
             return setCreateFn(back);
         }
 
-        auto * vl = layout->GetNativeHandle();
-        VkDescriptorSetAllocateInfo setInfo = {};
-        setInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        setInfo.descriptorPool              = pool->pool;
-        setInfo.descriptorSetCount          = 1;
-        setInfo.pSetLayouts                 = &vl;
+        auto &device = pool->GetDevice();
+        auto  allocateFn = [&device, &layout](VkDescriptorPool pool) {
+            auto *vl = layout->GetNativeHandle();
 
-        const auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
-        VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO};
-        if (!variableDescriptorCounts.empty()) {
-            variableDescriptorCountAllocInfo.descriptorSetCount = 1;
-            variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
-            setInfo.pNext = &variableDescriptorCountAllocInfo;
+            VkDescriptorSetAllocateInfo setInfo = {};
+            setInfo.sType                       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            setInfo.descriptorPool              = pool;
+            setInfo.descriptorSetCount          = 1;
+            setInfo.pSetLayouts                 = &vl;
+
+            const auto &variableDescriptorCounts = layout->GetVariableDescriptorCounts();
+            VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = 
+            {
+                VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO
+            };
+
+            if (!variableDescriptorCounts.empty()) {
+                variableDescriptorCountAllocInfo.descriptorSetCount = 1;
+                variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescriptorCounts.data();
+                setInfo.pNext                                       = &variableDescriptorCountAllocInfo;
+            }
+
+            VkDescriptorSet set = VK_NULL_HANDLE;
+            auto result = vkAllocateDescriptorSets(device.GetNativeHandle(), &setInfo, &set);
+            return result == VK_SUCCESS ? set : VK_NULL_HANDLE;
+        };
+
+        auto poolHandle = pool->GetCurrentPool();
+        auto set        = allocateFn(poolHandle);
+        if (set == VK_NULL_HANDLE) {
+            poolHandle = pool->CreateNewNativePool();
+            set        = allocateFn(poolHandle);
         }
 
-        VkDescriptorSet set    = VK_NULL_HANDLE;
-        auto            result = vkAllocateDescriptorSets(pool->device.GetNativeHandle(), &setInfo, &set);
-        if (result != VK_SUCCESS) {
+        if (set == VK_NULL_HANDLE) {
             return {};
         }
 
-        return setCreateFn(set);
+        return setCreateFn({set, poolHandle});
     }
 
     void DescriptorSet::Setup()

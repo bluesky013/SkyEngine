@@ -6,8 +6,10 @@
 #include <physics/PhysicsWorld.h>
 #include <physics/PhysicsRegistry.h>
 #include <framework/world/ComponentFactory.h>
+#include <framework/world/TransformComponent.h>
 #include <framework/world/Actor.h>
 #include <framework/world/World.h>
+#include <framework/asset/AssetManager.h>
 
 namespace sky::phy {
 
@@ -20,11 +22,16 @@ namespace sky::phy {
 
         context->Register<RigidBodyData>("RigidBodyData")
             .Member<&RigidBodyData::mass>("mass")
-            .Member<&RigidBodyData::flag>("flag");
+            .Member<&RigidBodyData::flag>("flag")
+            .Member<&RigidBodyData::config>("config");
 
         REGISTER_BEGIN(RigidBodyComponent, context)
             REGISTER_MEMBER(mass, SetMass, GetMass)
-            REGISTER_MEMBER(flag, SetFlag, GetFlag);
+            REGISTER_MEMBER(flag, SetFlag, GetFlag)
+            REGISTER_MEMBER(triangleMesh, SetTriangleMesh, GetTriangleMesh)
+                SET_ASSET_TYPE(std::string_view("Mesh"))
+            REGISTER_MEMBER_NS(shapeSpheres, Spheres, ShapeChanged)
+            REGISTER_MEMBER_NS(shapeBoxes, Boxes, ShapeChanged);
 
         ComponentFactory::Get()->RegisterComponent<RigidBodyComponent>("Physics");
     }
@@ -42,23 +49,75 @@ namespace sky::phy {
         data.flag = flag;
     }
 
-    PhysicsWorld* RigidBodyComponent::GetWorld() const
+    void RigidBodyComponent::SetTriangleMesh(const Uuid &mesh)
     {
-        return static_cast<PhysicsWorld*>(actor->GetWorld()->GetSubSystem(PhysicsWorld::NAME.data()));
+        data.config.tris.asset = mesh;
+        ShapeChanged();
     }
 
-    void RigidBodyComponent::SetRigidBody()
+    void RigidBodyComponent::ShapeChanged()
     {
+        RebuildShape();
+        if (rigidBody != nullptr) {
+            rigidBody->SetShape(shape);
+        }
+    }
+
+    SequenceVisitor RigidBodyComponent::Spheres()
+    {
+        const auto *info = TypeInfoObj<std::vector<SphereShape>>::Get()->RtInfo();
+        SKY_ASSERT(info != nullptr);
+
+        return {info->containerInfo, reinterpret_cast<void*>(&data.config.sphere)};
+    }
+
+    SequenceVisitor RigidBodyComponent::Boxes()
+    {
+        const auto *info = TypeInfoObj<std::vector<BoxShape>>::Get()->RtInfo();
+        SKY_ASSERT(info != nullptr);
+
+        return {info->containerInfo, reinterpret_cast<void*>(&data.config.box)};
+    }
+
+    PhysicsWorld* RigidBodyComponent::GetWorld() const
+    {
+        return static_cast<PhysicsWorld*>(actor->GetWorld()->GetSubSystem(Name(PhysicsWorld::NAME.data())));
+    }
+
+    void RigidBodyComponent::SetupRigidBody()
+    {
+        rigidBody->SetStartTrans(actor->GetComponent<TransformComponent>()->GetWorldTransform());
         rigidBody->SetMass(data.mass);
+        rigidBody->SetShape(shape);
+        rigidBody->SetFlag(data.flag);
+    }
+
+    void RigidBodyComponent::RebuildShape()
+    {
+        // TODO
+        if (data.config.tris.asset) {
+            shape = new PhysicsTriangleMeshShape(data.config.tris);
+        } else if (!data.config.sphere.empty()) {
+            const auto &sphere = data.config.sphere[0];
+            shape = new PhysicsSphereShape(sphere);
+        } else if (!data.config.box.empty()) {
+            const auto &box = data.config.box[0];
+            shape = new PhysicsBoxShape(box);
+        } else {
+            shape = nullptr;
+        }
     }
 
     void RigidBodyComponent::OnAttachToWorld()
     {
         auto *world = GetWorld();
         if (world != nullptr) {
+            RebuildShape();
+
             rigidBody = PhysicsRegistry::Get()->CreateRigidBody();
-            SetRigidBody();
+            rigidBody->SetMotionCallBack(this);
             world->AddRigidBody(rigidBody);
+            SetupRigidBody();
         }
     }
 
@@ -73,5 +132,10 @@ namespace sky::phy {
     void RigidBodyComponent::Tick(float time)
     {
 
+    }
+
+    void RigidBodyComponent::OnRigidBodyUpdate(const Transform &trans)
+    {
+        actor->GetComponent<TransformComponent>()->SetWorldTransform(trans);
     }
 } // namespace sky::phy

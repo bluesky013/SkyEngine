@@ -36,7 +36,6 @@ sky_add_library(TARGET Framework STATIC
         include
     LINK_LIBS
         Core
-        3rdParty::rapidjson
         3rdParty::sqlite
         3rdParty::cxxopts
         ${FM_EXT_LIB}

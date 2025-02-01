@@ -10,13 +10,8 @@ using namespace sky;
 
 TEST(FileSystemTest, FileTest)
 {
-#ifdef SKY_FS_USE_WCHAR
-    FilePath path("中文测试.txt");
-#else
     FilePath path("test.txt");
-#endif
-
-    NativeFileSystem fs("");
+    NativeFileSystem fs("./");
     {
         auto file = fs.CreateOrOpenFile(path);
         auto archive = file->WriteAsArchive();

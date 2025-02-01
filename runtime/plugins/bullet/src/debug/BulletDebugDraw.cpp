@@ -18,15 +18,23 @@ namespace sky::phy {
             btIDebugDraw::DBG_NoDeactivation |
             btIDebugDraw::DBG_DrawConstraints;
 
+    struct BulletPrimitive : public RenderPrimitive {
+        void UpdateBatch() override {}
+    };
+
     BulletDebugDraw::BulletDebugDraw()
         : debugMode(DEFAULT_DEBUG_DRAW_FLAG)
+        , primitive(std::make_unique<BulletPrimitive>())
         , debugRenderer(std::make_unique<DebugRenderer>())
     {
     }
 
     void BulletDebugDraw::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
     {
-        debugRenderer->SetColor(Color{color.x(), color.y(), color.z(), 1.f});
+        debugRenderer->SetColor(Color32{static_cast<uint8_t>(color.x() * 255),
+                                        static_cast<uint8_t>(color.y() * 255),
+                                        static_cast<uint8_t>(color.z() * 255),
+                                        0xFF});
         debugRenderer->DrawLine(FromBullet(from), FromBullet(to));
     }
 
@@ -51,5 +59,14 @@ namespace sky::phy {
 
     void BulletDebugDraw::flushLines()
     {
+        debugRenderer->Render(primitive.get());
+    }
+
+    void BulletDebugDraw::SetTechnique(const RDGfxTechPtr &tech)
+    {
+        RenderBatch techInst = {tech};
+        techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
+        primitive->batches.clear();
+        primitive->batches.emplace_back(techInst);
     }
 } // namespace sky::phy

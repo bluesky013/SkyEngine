@@ -18,23 +18,21 @@ namespace sky::vk {
         explicit DescriptorSetPool(Device &dev);
         ~DescriptorSetPool() override;
 
-        struct VkDescriptor {
-            uint32_t              maxSets = 0;
-            uint32_t              num     = 0;
-            VkDescriptorPoolSize *sizes   = nullptr;
-        };
-
         rhi::DescriptorSetPtr Allocate(const rhi::DescriptorSet::Descriptor &desc) override;
 
+        VkDescriptorPool GetCurrentPool() const {return pools.back(); }
+        VkDescriptorPool CreateNewNativePool();
     private:
         friend class Device;
         friend class DescriptorSet;
-        void Free(DescriptorSet &set);
+        void Free(DescriptorSet &set, VkDescriptorPool pool);
         bool Init(const Descriptor &desc);
-        bool Init(const VkDescriptor &desc);
 
-        VkDescriptorPool pool;
-        using SetList = std::list<VkDescriptorSet>;
+        uint32_t maxSets = 1;
+        std::vector<VkDescriptorPoolSize> sizes;
+        std::vector<VkDescriptorPool>     pools;
+
+        using SetList = std::list<std::pair<VkDescriptorSet, VkDescriptorPool>>;
         std::unordered_map<uint32_t, SetList> freeList;
     };
     using DescriptorSetPoolPtr = std::shared_ptr<DescriptorSetPool>;

@@ -25,7 +25,8 @@ namespace sky {
     void TextFeature::SetTechnique(const RDGfxTechPtr &tech)
     {
         technique = tech;
-        batchLayout = technique->RequestProgram()->RequestLayout(BATCH_SET);
+        auto program = technique->RequestProgram();
+        batchLayout = program->RequestLayout(BATCH_SET);
     }
 
     void TextFeature::Init()

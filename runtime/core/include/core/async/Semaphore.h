@@ -10,7 +10,7 @@ namespace sky {
 
     class Semaphore {
     public:
-        Semaphore(int initial = 0);
+        explicit Semaphore(int initial = 0);
         ~Semaphore();
 
         void Wait();
@@ -20,6 +20,5 @@ namespace sky {
             void *handle;
             uint32_t uHandle;
         };
-
     };
 }

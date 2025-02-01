@@ -9,6 +9,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 namespace sky {
     class BinaryInputArchive;
@@ -18,9 +19,7 @@ namespace sky {
     class JsonOutputArchive;
 
     struct MaterialProperties {
-        std::vector<Uuid> images;
         std::unordered_map<std::string, MaterialValue> valueMap;
-        std::unordered_map<std::string, MacroValue> options;
 
         void LoadJson(JsonInputArchive &archive);
         void SaveJson(JsonOutputArchive &archive) const;
@@ -28,7 +27,7 @@ namespace sky {
 
     struct MaterialAssetData {
         uint32_t version;
-        std::vector<Uuid> techniques;
+        std::set<Uuid> techniques;
         MaterialProperties defaultProperties;
 
         void LoadBin(BinaryInputArchive &archive);

@@ -22,13 +22,20 @@ namespace sky {
         Color   col;
     };
 
+    struct TextPrimitive : public RenderPrimitive {
+        RDTexturePtr fontTexture;
+        RDDynamicUniformBufferPtr ubo;
+
+        void UpdateBatch() override;
+    };
+
     struct TextBatch : public RefObject {
         void Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo);
         void Flush();
         void AddQuad(const Rect& rect, const Rect &uv, const Color &color);
 
         rhi::CmdDrawLinear args;
-        std::unique_ptr<RenderPrimitive> primitive;
+        std::unique_ptr<TextPrimitive> primitive;
         std::vector<TextVertex> vertices;
     };
     using TextBatchPtr = CounterPtr<TextBatch>;

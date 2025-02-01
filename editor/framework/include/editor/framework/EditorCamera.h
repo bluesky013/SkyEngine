@@ -20,11 +20,20 @@ namespace sky::editor {
         void Tick(float time);
         void UpdateAspect(uint32_t width, uint32_t height);
 
+        const Matrix4 &GetProjectMatrix() const;
+        const Matrix4 &GetWorldMatrix() const;
+        const Matrix4 &GetViewProjectMatrix() const;
+
+        uint32_t GetScreenWidth() const { return screenWidth; }
+        uint32_t GetScreenHeight() const { return screenHeight; }
     private:
         FirstPersonController controller;
         SceneView *sceneView = nullptr;
         RenderScene *renderScene = nullptr;
         Transform transform = {};
+
+        uint32_t screenWidth = 1;
+        uint32_t screenHeight = 1;
 
         float near = 0.1f;
         float far = 10000.f;

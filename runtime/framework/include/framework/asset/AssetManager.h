@@ -24,7 +24,7 @@ namespace sky {
         void AddAssetProductBundle(AssetProductBundle *bundle);
 
         AssetPtr FindAsset(const Uuid &uuid) const;
-        AssetPtr FindOrCreateAsset(const Uuid &uuid, const std::string &type);
+        AssetPtr FindOrCreateAsset(const Uuid &uuid, const Name &type);
 
         AssetPtr LoadAsset(const Uuid &uuid);
         void SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
@@ -54,7 +54,7 @@ namespace sky {
         template <typename T>
         std::shared_ptr<Asset<T>> FindOrCreateAsset(const Uuid &uuid)
         {
-            return std::static_pointer_cast<Asset<T>>(FindOrCreateAsset(uuid, std::string(AssetTraits<T>::ASSET_TYPE)));
+            return std::static_pointer_cast<Asset<T>>(FindOrCreateAsset(uuid, Name(AssetTraits<T>::ASSET_TYPE.data())));
         }
 
         FilePtr OpenFile(const Uuid &uuid) const;
@@ -70,7 +70,7 @@ namespace sky {
         AssetPtr CreateAssetByHeader(const Uuid &uuid, const IStreamArchivePtr &archive);
         AssetProductBundle *GetBundle(const ProductBundleKey &key) const;
 
-        std::unordered_map<std::string, std::unique_ptr<AssetHandlerBase>> assetHandlers;
+        std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;
         std::vector<std::unique_ptr<AssetProductBundle>> bundles;
 
         mutable std::recursive_mutex mutex;

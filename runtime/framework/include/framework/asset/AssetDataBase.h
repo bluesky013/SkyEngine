@@ -47,10 +47,8 @@ namespace sky {
         void Dump(std::ostream &stream);
 
         const std::unordered_map<Uuid, AssetSourcePtr> &GetSources() const { return idMap; }
-
-    private:
         const NativeFileSystemPtr &GetFileSystemBySourcePath(const AssetSourcePath &path);
-
+    private:
         NativeFileSystemPtr engineFs;
         NativeFileSystemPtr workSpaceFs;
         std::unordered_map<uint32_t, NativeFileSystemPtr> pluginFs;

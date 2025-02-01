@@ -30,7 +30,9 @@ namespace sky {
         void OnTransformChanged();
 
         Matrix4 GetWorldMatrix() const;
+        const Transform &GetWorldTransform() const;
 
+        void SetWorldTransform(const Transform &trans);
         void SetWorldTranslation(const Vector3 &translation);
         void SetWorldRotation(const Quaternion &rotation);
         void SetWorldScale(const Vector3 &scale);
@@ -51,6 +53,7 @@ namespace sky {
     private:
         void UpdateLocal();
         void UpdateGlobal();
+        void OnSerialized() override;
 
         TransformComponent* parent = nullptr;
         std::vector<TransformComponent*> children;

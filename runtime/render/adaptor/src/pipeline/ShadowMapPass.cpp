@@ -8,7 +8,7 @@
 namespace sky {
 
     ShadowMapPass::ShadowMapPass(uint32_t width_, uint32_t height_)
-        : RasterPass("ShadowMap")
+        : RasterPass(Name("ShadowMap"))
     {
         width  = width_;
         height = height_;
@@ -29,7 +29,7 @@ namespace sky {
         image.usage         = rhi::ImageUsageFlagBit::SAMPLED | rhi::ImageUsageFlagBit::DEPTH_STENCIL;
         image.format        = rhi::PixelFormat::D32;
 
-        images.emplace_back(SHADOW_MAP, image);
+        images.emplace_back(Name(SHADOW_MAP.data()), image);
     }
 
     void ShadowMapPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)

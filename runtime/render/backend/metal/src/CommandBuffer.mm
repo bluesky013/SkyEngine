@@ -134,6 +134,32 @@ namespace sky::mtl {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::BindVertexBuffers(const std::vector<rhi::BufferView> &vbs)
+    {
+        size_t bufferNum = vbs.size();
+        std::vector<id<MTLBuffer>> buffers(bufferNum);
+        std::vector<NSUInteger> offsets(bufferNum);
+
+        for (uint32_t i = 0; i < vbs.size(); ++i) {
+            buffers[i] = static_cast<Buffer*>(vbs[i].buffer.get())->GetNativeHandle();
+            offsets[i] = vbs[i].offset;
+        }
+        NSRange range = {0, static_cast<NSUInteger>(bufferNum)};
+
+        [encoder setVertexBuffers: buffers.data()
+                          offsets: offsets.data()
+                        withRange: range];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::BindIndexBuffer(const rhi::BufferView& view, rhi::IndexType type)
+    {
+        indexBuffer = static_cast<Buffer*>(view.buffer.get())->GetNativeHandle();
+        indexOffset = view.offset;
+        indexType = type == rhi::IndexType::U32 ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::SetViewport(uint32_t count, const rhi::Viewport *viewports)
     {
         MTLViewport mtlViewport = {};
@@ -164,12 +190,12 @@ namespace sky::mtl {
 
     rhi::GraphicsEncoder &GraphicsEncoder::DrawIndexed(const rhi::CmdDrawIndexed &indexed)
     {
-        auto indexType = currentVa->GetIndexType();
-        NSUInteger offset = indexed.firstIndex * (indexType == MTLIndexTypeUInt32 ? 4 : 2) + currentVa->GetIndexBufferOffset();
+        SKY_ASSERT(indexBuffer != nil);
+        NSUInteger offset = indexed.firstIndex * (indexType == MTLIndexTypeUInt32 ? 4 : 2) + indexOffset;
         [encoder drawIndexedPrimitives: primitive
                             indexCount: indexed.indexCount
                              indexType: indexType
-                           indexBuffer: currentVa->GetIndexBuffer()
+                           indexBuffer: indexBuffer
                      indexBufferOffset: offset
                          instanceCount: indexed.instanceCount
                             baseVertex: indexed.vertexOffset
@@ -193,9 +219,9 @@ namespace sky::mtl {
         for (uint32_t i = 0; i < count; ++i) {
             const auto off = offset + i * stride;
             [encoder drawIndexedPrimitives: primitive
-                                 indexType: currentVa->GetIndexType()
-                               indexBuffer: currentVa->GetIndexBuffer()
-                         indexBufferOffset: currentVa->GetIndexBufferOffset()
+                                 indexType: indexType
+                               indexBuffer: indexBuffer
+                         indexBufferOffset: offset
                             indirectBuffer: mtlBuffer->GetNativeHandle()
                       indirectBufferOffset: off];
         };
@@ -229,6 +255,11 @@ namespace sky::mtl {
     rhi::GraphicsEncoder &GraphicsEncoder::EndPass()
     {
         [encoder endEncoding];
+        return *this;
+    }
+
+    rhi::GraphicsEncoder &GraphicsEncoder::SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset)
+    {
         return *this;
     }
 

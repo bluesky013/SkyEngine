@@ -3,6 +3,7 @@
 //
 
 #include <mtl/VertexAssembly.h>
+#include <mtl/Buffer.h>
 
 namespace sky::mtl {
 
@@ -12,20 +13,14 @@ namespace sky::mtl {
         mtlVertexBuffers.reserve(desc.vertexBuffers.size());
         vertexOffsets.reserve(desc.vertexBuffers.size());
         for (auto &vb : desc.vertexBuffers) {
-            vertexBuffers.emplace_back(std::static_pointer_cast<BufferView>(vb));
+            vertexBuffers.emplace_back(vb);
             auto &mtlVb = vertexBuffers.back();
 
-            mtlVertexBuffers.emplace_back(mtlVb->GetNativeHandle());
-            vertexOffsets.emplace_back(mtlVb->GetViewDesc().offset);
+            auto *buffer = static_cast<Buffer*>(mtlVb.buffer.get());
+            mtlVertexBuffers.emplace_back(buffer->GetNativeHandle());
+            vertexOffsets.emplace_back(mtlVb.offset);
         }
         range = NSMakeRange(0, vertexBuffers.size());
-
-        if (desc.indexBuffer) {
-            indexBuffer = std::static_pointer_cast<BufferView>(desc.indexBuffer);
-            mtlIndexBuffer = indexBuffer->GetNativeHandle();
-            indexType = desc.indexType == rhi::IndexType::U16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32;
-        }
-
         return true;
     }
 

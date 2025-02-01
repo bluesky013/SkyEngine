@@ -27,7 +27,8 @@ namespace sky {
         void SetFlipY(bool flip) { flipY = flip; }
         void Update();
 
-        const Matrix4 &GetProject() const { return projects0[0]; }
+        const Matrix4 &GetWorld() const { return viewInfo[0].world; }
+        const Matrix4 &GetProject() const { return projects[0]; }
         const Matrix4 &GetView() const { return viewInfo[0].view; }
         const Matrix4 &GetViewProject() const { return viewInfo[0].viewProject; }
 
@@ -47,7 +48,7 @@ namespace sky {
         uint32_t viewCount;
         uint32_t viewMask;
 
-        PmrVector<Matrix4> projects0;
+        PmrVector<Matrix4> projects;
         PmrVector<SceneViewInfo> viewInfo;
         PmrVector<Frustum> frustums;
         bool dirty;

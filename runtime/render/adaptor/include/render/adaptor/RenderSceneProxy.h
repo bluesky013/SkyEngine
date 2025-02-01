@@ -14,6 +14,8 @@ namespace sky {
         RenderSceneProxy();
         ~RenderSceneProxy() override;
 
+        static constexpr std::string_view NAME = "RenderScene";
+
         RenderScene *GetRenderScene() const { return renderScene; }
 
     private:

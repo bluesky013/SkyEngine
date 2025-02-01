@@ -24,17 +24,24 @@ namespace sky {
             VertexSemanticFlagBit::UV |
             VertexSemanticFlagBit::COLOR;
 
+    void TextPrimitive::UpdateBatch()
+    {
+        auto &batch = batches[0];
+        if (!batch.batchGroup) {
+            auto layout = batch.program->RequestLayout(BATCH_SET);
+            batch.batchGroup = TextFeature::Get()->RequestResourceGroup();
+            batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
+            batch.batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
+            batch.batchGroup->Update();
+        }
+    }
+
     void TextBatch::Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo)
     {
-        primitive = std::make_unique<RenderPrimitive>();
-
-        primitive->isReady  = true;
-        primitive->batchSet = TextFeature::Get()->RequestResourceGroup();
-        primitive->batchSet->BindTexture("FontTexture", tex->GetImageView(), 0);
-        primitive->batchSet->BindDynamicUBO("Constants", ubo, 0);
-        primitive->batchSet->Update();
-
-        primitive->techniques.emplace_back(TechniqueInstance{tech});
+        primitive = std::make_unique<TextPrimitive>();
+        primitive->ubo = ubo;
+        primitive->fontTexture = tex;
+        primitive->batches.emplace_back(RenderBatch(tech));
     }
 
     void TextBatch::Flush()

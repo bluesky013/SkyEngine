@@ -5,27 +5,14 @@
 #pragma once
 
 #include <framework/asset/AssetBuilder.h>
-
 #include <render/adaptor/assets/ImageAsset.h>
-
+#include <builder/render/image/ImageProcess.h>
 #include <rhi/Core.h>
 
 #include <string_view>
 #include <unordered_map>
 
 namespace sky::builder {
-
-    struct ImageBuildConfig {
-        PlatformType platform = PlatformType::Default;
-        bool compress = true;
-        bool generateMip = true;
-        uint32_t maxWidth = 0xFFFFFFFF;
-        uint32_t maxHeight = 0xFFFFFFFF;
-        rhi::PixelFormat alphaFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
-        rhi::PixelFormat opaqueFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
-        rhi::PixelFormat hdrFormat = rhi::PixelFormat::BC6H_SFLOAT_BLOCK;
-    };
-
     class ImageBuilder : public AssetBuilder {
     public:
         ImageBuilder();
@@ -35,6 +22,7 @@ namespace sky::builder {
     private:
         void RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result);
         void RequestSTB(const AssetBuildRequest &request, AssetBuildResult &result);
+        void RequestImage(const AssetBuildRequest &request, AssetBuildResult &result);
 
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
         void LoadConfig(const FileSystemPtr &cfg) override;
@@ -42,8 +30,8 @@ namespace sky::builder {
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
         std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Texture>::ASSET_TYPE; }
 
-        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png"};
-        std::unordered_map<std::string, ImageBuildConfig> configs;
+        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png", ".hdr", ".image"};
+        std::unordered_map<std::string, ImageBuildGlobalConfig> configs;
 
         bool compress = true;
     };

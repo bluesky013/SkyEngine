@@ -1,7 +1,7 @@
 {
     "type": "graphics",
     "shader": {
-        "path": "shaders/lighting/brdf_lut.hlsl",
+        "path": "lighting/brdf_lut.hlsl",
         "vertex": "VSMain",
         "fragment": "FSMain"
     },

@@ -13,11 +13,11 @@ namespace sky {
         auto &rg = rdg.resourceGraph;
 
         for (auto &[key, image] : images) {
-            rg.AddImage(key.c_str(), image);
+            rg.AddImage(key, image);
         }
 
         for (auto &[key, buffer] : buffers) {
-            rg.AddBuffer(key.c_str(), buffer);
+            rg.AddBuffer(key, buffer);
         }
     }
 

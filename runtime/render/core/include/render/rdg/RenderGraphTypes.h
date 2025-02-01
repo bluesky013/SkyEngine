@@ -123,7 +123,7 @@ namespace sky::rdg {
     };
 
     struct RasterAttachment {
-        std::string name;
+        Name name;
         rhi::LoadOp  loadOp  = rhi::LoadOp::DONT_CARE;
         rhi::StoreOp storeOp = rhi::StoreOp::DONT_CARE;
         rhi::LoadOp  stencilLoad = rhi::LoadOp::DONT_CARE;
@@ -131,7 +131,7 @@ namespace sky::rdg {
     };
 
     struct RasterAttachmentRef {
-        std::string name;
+        Name name;
         ResourceAccess access = ResourceAccessBit::READ;
         uint32_t index = INVALID_INDEX;
     };
@@ -157,18 +157,18 @@ namespace sky::rdg {
     };
 
     struct ComputeView {
-        std::string name;
+        Name name;
         ComputeType type = ComputeType::UAV;
         rhi::ShaderStageFlags visibility;
         ResourceAccess access = ResourceAccessBit::READ;
     };
 
     struct CopyView {
-        std::string srcName;
+        Name srcName;
         rhi::ImageSubRangeLayers srcRange;
         rhi::Extent3D srcExtent;
         rhi::Offset3D srcOffset;
-        std::string dstName;
+        Name dstName;
         rhi::ImageSubRangeLayers dstRange;
         rhi::Extent3D dstExtent;
         rhi::Offset3D dstOffset;
@@ -190,8 +190,8 @@ namespace sky::rdg {
         PmrVector<RasterAttachmentRef> resolves;
         PmrVector<RasterAttachmentRef> inputs;
         RasterAttachmentRef depthStencil;
-        PmrHashMap<std::string, RasterView> rasterViews;
-        PmrHashMap<std::string, ComputeView> computeViews;
+        PmrHashMap<Name, RasterView> rasterViews;
+        PmrHashMap<Name, ComputeView> computeViews;
     };
 
     struct FullScreenBlit {
@@ -209,7 +209,6 @@ namespace sky::rdg {
         explicit RasterQueue(PmrResource *res, uint32_t pass)
             : sceneView(nullptr)
             , passID(pass)
-            , rasterID(INVALID_INDEX)
             , drawItems(res)
             , sort(false)
             , culling(true)
@@ -219,7 +218,7 @@ namespace sky::rdg {
 
         const SceneView *sceneView;
         uint32_t passID;
-        uint32_t rasterID;   // invalid id
+        Name rasterID;   // invalid id
         PmrList<RenderDrawItem> drawItems;
         RDResourceLayoutPtr layout;
         ResourceGroup *resourceGroup = nullptr;
@@ -245,6 +244,7 @@ namespace sky::rdg {
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
+        ShaderVariantKey passKey;
 
         PmrVector<RasterAttachment> attachments;
         PmrVector<VertexType> attachmentVertex;
@@ -267,7 +267,7 @@ namespace sky::rdg {
             {}
 
         using Tag = ComputePassTag;
-        PmrHashMap<std::string, ComputeView> computeViews;
+        PmrHashMap<Name, ComputeView> computeViews;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
 

@@ -43,6 +43,7 @@ namespace sky::vk {
         DescriptorSetLayoutPtr layout;
         DescriptorSetPoolPtr   pool;
         VkDescriptorSet        handle = VK_NULL_HANDLE;
+        VkDescriptorPool       poolHandle = VK_NULL_HANDLE;
         bool                   dirty  = false;
         struct BufferSubResource {
             BufferPtr    buffer;

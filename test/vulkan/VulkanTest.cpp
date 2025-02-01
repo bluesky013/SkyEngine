@@ -8,7 +8,7 @@
 #include <vulkan/Instance.h>
 #include <vulkan/PipelineLayout.h>
 #include <vulkan/Sampler.h>
-#include <vulkan/ShaderOption.h>
+#include <vulkan/ShaderConstants.h>
 #include <vulkan/VertexInput.h>
 
 using namespace sky::vk;

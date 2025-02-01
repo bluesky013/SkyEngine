@@ -26,13 +26,13 @@ namespace sky {
             void Emplace(const KeyType &key, Interface *listener)
             {
                 auto &set = listeners[key];
-                set.emplace(listener);
+                set.emplace_back(listener);
             }
 
             void Erase(Interface *listener)
             {
                 for (auto &pair : listeners) {
-                    auto iter = pair.second.find(listener);
+                    auto iter = std::find(pair.second.begin(), pair.second.end(), listener);
                     if (iter != pair.second.end()) {
                         pair.second.erase(iter);
                         break;
@@ -57,7 +57,7 @@ namespace sky {
             friend class Singleton<Storage>;
             Storage()  = default;
             ~Storage() = default;
-            std::unordered_map<KeyType, std::set<Interface *>> listeners;
+            std::unordered_map<KeyType, std::vector<Interface *>> listeners;
         };
 
         static void Connect(const KeyType &key, Interface *listener)
@@ -130,7 +130,7 @@ namespace sky {
         }
     };
 
-    template <typename T, typename KeyType = T::KeyType>
+    template <typename T, typename KeyType = typename T::KeyType>
     class EventBinder {
     public:
         EventBinder() = default;

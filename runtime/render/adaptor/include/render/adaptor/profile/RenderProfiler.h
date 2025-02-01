@@ -17,9 +17,13 @@ namespace sky {
 
         void SetDisplaySize(uint32_t w, uint32_t h);
     private:
+        void UpdateText();
+
         RenderScene* scene = nullptr;
         Text* text         = nullptr;
 
+        uint32_t displayWidth  = 1;
+        uint32_t displayHeight = 1;
         FontPtr font;
     };
 

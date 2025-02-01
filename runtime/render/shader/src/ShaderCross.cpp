@@ -22,10 +22,15 @@ namespace sky {
                 result.reflection.resources.emplace_back();
                 auto &res = result.reflection.resources.back();
 
+                rhi::ShaderStageFlags visibility = stage;
+                if (stage != rhi::ShaderStageFlagBit::CS && set == 0) {
+                    visibility = rhi::ShaderStageFlagBit::GFX;
+                }
+
                 res.type = type;
                 res.binding = binding;
                 res.set = set;
-                res.visibility = stage;
+                res.visibility = visibility;
                 res.name = resource.name;
                 res.size = 0;
                 res.count = resType.array.empty() ? 0 : resType.array[0];

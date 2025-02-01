@@ -6,20 +6,24 @@
 
 namespace sky {
 
-    uint32_t SkeletonAssetData::AdddBone(const std::string &name, const Matrix4 &matrix)
+    uint32_t SkeletonAssetData::AdddBone(const std::string &str, const Matrix4 &matrix)
     {
+        Name name(str.c_str());
+
         SKY_ASSERT(!nameToIndexMap.contains(name))
 
         auto boneIndex = static_cast<uint32_t>(nameToIndexMap.size());
         nameToIndexMap.emplace(name, boneIndex);
-        boneData.emplace_back(name, INVALID_BONE_ID);
+        boneData.emplace_back(BoneData{name, INVALID_BONE_ID});
         inverseBindMatrix.emplace_back(matrix);
         refPos.emplace_back(Transform::GetIdentity());
         return boneIndex;
     }
 
-    uint32_t SkeletonAssetData::FindBoneByName(const Name &name) const
+    uint32_t SkeletonAssetData::FindBoneByName(const std::string &str) const
     {
+        Name name(str.c_str());
+
         auto iter = nameToIndexMap.find(name);
         return iter != nameToIndexMap.end() ? iter->second : INVALID_BONE_ID;
     }
@@ -34,8 +38,8 @@ namespace sky {
         inverseBindMatrix.resize(count);
         refPos.resize(count);
         for (uint32_t i = 0; i < count; ++i) {
+            archive.LoadValue(boneData[i].name);
             archive.LoadValue(boneData[i].parentIndex);
-
         }
 
         for (uint32_t i = 0; i < count; ++i) {
@@ -55,7 +59,7 @@ namespace sky {
             uint32_t boneIndex = 0;
             archive.LoadValue(boneIndex);
 
-            nameToIndexMap.emplace(name, boneIndex);
+            nameToIndexMap.emplace(Name(name.c_str()), boneIndex);
         }
     }
 
@@ -65,8 +69,8 @@ namespace sky {
 
         archive.SaveValue(static_cast<uint32_t>(boneData.size()));
         for (const auto &bone : boneData) {
+            archive.SaveValue(bone.name);
             archive.SaveValue(bone.parentIndex);
-
         }
 
         for (const auto &mtx : inverseBindMatrix) {

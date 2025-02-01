@@ -26,11 +26,12 @@ namespace sky {
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
+        virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
-        std::vector<std::unique_ptr<RenderPrimitive>> primitives;
+        std::vector<std::unique_ptr<RenderMaterialPrimitive>> primitives;
         RDDynamicUniformBufferPtr ubo;
     };
 

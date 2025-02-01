@@ -3,15 +3,17 @@
 //
 
 #include <shader/ShaderCompiler.h>
+#include <shader/ShaderFileSystem.h>
 
 #include <core/file/FileIO.h>
 #include <core/template/Overloaded.h>
 #include <core/hash/Hash.h>
 #include <core/hash/Crc32.h>
 
-#include<boost/tokenizer.hpp>
+#include <boost/tokenizer.hpp>
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/document.h>
 
-#include <filesystem>
 #include <fstream>
 #include <utility>
 
@@ -105,6 +107,7 @@ namespace sky {
 
     std::pair<bool, std::string> ShaderCompiler::ProcessShaderSource(const std::string &path)
     {
+        const auto &searchPaths = ShaderFileSystem::Get()->GetSearchPaths();
         ShaderIncludeContext context{searchPaths};
 
         auto [resS, source] = GetSourceFromFile(searchPaths, path);
@@ -120,12 +123,245 @@ namespace sky {
         return {true, final};
     }
 
-    std::string ShaderCompiler::LoadShader(const std::string &path)
+    FilePath ShaderCompiler::GetShaderPath(const std::string &name) const
     {
-        return ProcessShaderSource(path).second;
+        const auto &searchPaths = ShaderFileSystem::Get()->GetSearchPaths();
+        for (const auto &searchPath : searchPaths) {
+            auto loadPath = searchPath / name;
+            std::fstream f = loadPath.OpenFStream(std::ios::binary | std::ios::in);
+            if (!f.is_open()) {
+                continue;
+            }
+
+            return searchPath;
+        }
+
+        return "";
     }
 
-    void ShaderOption::SetValue(const std::string &key, const MacroValue &val)
+    std::string ShaderCompiler::LoadShader(const std::string &name)
+    {
+        return ProcessShaderSource(name).second;;
+    }
+
+    using ObjectType = rapidjson::Document::Object;
+    static ShaderOptionItem LoadShaderOptionItem(const ObjectType &object)
+    {
+        ShaderOptionItem item = {};
+
+        if (object.HasMember("key")) {
+            const char* name = object["key"].GetString();
+            item.key = Name(name);
+        }
+        if (object.HasMember("default")) {
+            item.dft = static_cast<uint8_t>(object["default"].GetUint());
+        }
+        if (object.HasMember("bits")) {
+            item.bits = static_cast<uint8_t>(object["bits"].GetUint());
+        }
+        if (object.HasMember("type")) {
+            std::string type = object["type"].GetString();
+            if (type == "Pass") {
+                item.type = ShaderOptionType::PASS;
+            } else if (type == "Batch") {
+                item.type = ShaderOptionType::BATCH;
+            }
+        }
+
+        return item;
+    }
+
+    const ShaderOptionEntry* ShaderCompiler::FindPassEntry(const Name& name) const
+    {
+        auto iter = nameMap.find(name);
+        return iter != nameMap.end() ? &passEntries[iter->second] : nullptr;
+    }
+
+    void ShaderCompiler::LoadPipelineOptions(const std::string &name)
+    {
+        std::string optionsData = LoadShader(name);
+        std::vector<ShaderOptionItem> optionItems = PreProcess(optionsData);
+
+        uint32_t currentBit = 0;
+        for (const auto &item : optionItems) {
+            ShaderOptionEntry entry = {};
+            entry.key = item.key;
+            entry.dft = item.dft;
+            entry.range = {currentBit, currentBit + item.bits - 1};
+            nameMap[entry.key] = static_cast<uint32_t>(passEntries.size());
+            SKY_ASSERT(item.type == ShaderOptionType::PASS);
+            passEntries.emplace_back(entry);
+        }
+    }
+
+    std::vector<ShaderOptionItem> ShaderCompiler::PreProcess(std::string& source)
+    {
+        std::vector<ShaderOptionItem> items;
+
+        auto iter = source.find("#pragma option");
+        while (iter != std::string::npos) {
+            auto end = source.find('\n', iter);
+
+            auto b1 = source.find('(', iter);
+            auto b2 = source.find(')', b1);
+            if (b1 != std::string::npos && b2 != std::string::npos) {
+                std::string optionStr = source.substr( b1 + 1, b2 - b1 - 1);
+                rapidjson::Document document;
+                document.Parse(optionStr.c_str());
+
+                items.emplace_back(LoadShaderOptionItem(document.GetObject()));
+            }
+            source.erase(iter, end - iter + 1);
+            iter = source.find("#pragma option");
+        }
+        return items;
+    }
+
+    void ShaderCompiler::LoadFromMemory(IInputArchive &archive, ShaderBuildResult &result)
+    {
+        archive.Load(result.data);
+
+        uint32_t size = 0;
+        archive.Load(size);
+        result.reflection.resources.resize(size);
+        // load resources
+        for (uint32_t i = 0; i < size; ++i) {
+            auto& res = result.reflection.resources[i];
+            archive.Load(res.name);
+            archive.Load(res.type);
+            archive.Load(res.visibility.value);
+            archive.Load(res.set);
+            archive.Load(res.binding);
+            archive.Load(res.count);
+            archive.Load(res.size);
+        }
+
+        // load types
+        archive.Load(size);
+        result.reflection.types.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            auto &type = result.reflection.types[i];
+            archive.Load(type.name);
+            uint32_t varSize = 0;
+            archive.Load(varSize);
+            type.variables.resize(varSize);
+            for (uint32_t j = 0; j < varSize; ++j) {
+                auto &var = type.variables[j];
+                archive.Load(var.name);
+                archive.Load(var.set);
+                archive.Load(var.binding);
+                archive.Load(var.offset);
+                archive.Load(var.size);
+            }
+        }
+
+        // load vertex attributes
+        archive.Load(size);
+        result.reflection.attributes.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            auto &attr = result.reflection.attributes[i];
+            archive.Load(attr.semantic);
+            archive.Load(attr.location);
+            archive.Load(attr.vecSize);
+            archive.Load(attr.type);
+        }
+    }
+
+    void ShaderCompiler::SaveToMemory(IOutputArchive& archive, const ShaderBuildResult& result)
+    {
+        archive.Save(result.data);
+
+        // save resources
+        archive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
+        for (const auto &res : result.reflection.resources) {
+            archive.Save(res.name);
+            archive.Save(res.type);
+            archive.Save(res.visibility.value);
+            archive.Save(res.set);
+            archive.Save(res.binding);
+            archive.Save(res.count);
+            archive.Save(res.size);
+        }
+
+        // save types
+        archive.Save(static_cast<uint32_t>(result.reflection.types.size()));
+        for (const auto &type : result.reflection.types) {
+            archive.Save(type.name);
+            archive.Save(static_cast<uint32_t>(type.variables.size()));
+            for (const auto &var : type.variables) {
+                archive.Save(var.name);
+                archive.Save(var.set);
+                archive.Save(var.binding);
+                archive.Save(var.offset);
+                archive.Save(var.size);
+            }
+        }
+
+        // save vertex attributes
+        archive.Save(static_cast<uint32_t>(result.reflection.attributes.size()));
+        for (const auto &attr : result.reflection.attributes) {
+            archive.Save(attr.semantic);
+            archive.Save(attr.location);
+            archive.Save(attr.vecSize);
+            archive.Save(attr.type);
+        }
+
+    }
+
+    MD5 ShaderCompiler::CalculateShaderMD5(const std::string &source)
+    {
+        return MD5::CalculateMD5(source);
+    }
+
+    std::string ShaderCompiler::ReplaceShadeName(const Name& name)
+    {
+        std::string result = name.GetStr().data();
+        std::replace(result.begin(), result.end(), '\\', '_');
+        std::replace(result.begin(), result.end(), '/', '_');
+
+        return result;
+    }
+
+    std::string ShaderCompiler::GetBinaryShaderName(const Name& name, const Name& entry, const ShaderOptionPtr &option)
+    {
+        auto result = ReplaceShadeName(name);
+        auto iter = result.find_last_of('.');
+        SKY_ASSERT(iter != std::string::npos); // must be .hlsl
+
+        auto suffix = std::string("_") + std::string(entry.GetStr().data()) + "_" ; // + option;
+
+        return result.insert(iter, suffix);
+    }
+
+    rhi::ShaderStageFlagBit ShaderCompiler::GetShaderStage(const std::string& stage)
+    {
+        if (stage == "vertex") {
+            return rhi::ShaderStageFlagBit::VS;
+        }
+        if (stage == "fragment") {
+            return rhi::ShaderStageFlagBit::FS;
+        }
+        if (stage == "compute") {
+            return rhi::ShaderStageFlagBit::CS;
+        }
+
+        SKY_ASSERT(0);
+        return rhi::ShaderStageFlagBit::VS;
+    }
+
+    Name ShaderCompiler::GetTargetName(const ShaderCompileTarget &target)
+    {
+        switch (target) {
+            case ShaderCompileTarget::SPIRV: return Name("SpirV");
+            case ShaderCompileTarget::MSL: return Name("Metal");
+            case ShaderCompileTarget::DXIL: return Name("DX");
+            default:
+                break;
+        }
+        return {};
+    }
+
+    void ShaderOption::SetValue(const std::string &key, const uint8_t &val)
     {
         values[key] = val;
         CalculateHash();
@@ -135,14 +371,7 @@ namespace sky {
     {
         hash = 0;
         for (auto &[key, val] : values) {
-            std::visit(Overloaded{
-                           [&](const bool &v) {
-                               HashCombine32(hash, static_cast<uint32_t>(v));
-                           },
-                           [&](const auto &v){
-                               HashCombine32(hash, Crc32::Cal(v));
-                           }
-                       }, val);
+            HashCombine32(hash, Crc32::Cal(val));
         }
     }
 

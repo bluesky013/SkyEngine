@@ -87,6 +87,20 @@ namespace sky::editor {
         }
     }
 
+    ActorPtr WorldTreeView::AddActor(const QString &name)
+    {
+        auto indices = treeView->selectionModel()->selectedIndexes();
+        auto actor = attachedWorld->CreateActor(name.toStdString());
+
+        auto *item = new WorldActorItem(actor);
+        auto *parent = indices.empty() ? model->invisibleRootItem() : model->itemFromIndex(indices[0]);
+        auto parentAct = indices.empty() ? ActorPtr{} : static_cast<WorldActorItem*>(parent)->actor;
+        parent->appendRow(item);
+        actor->SetParent(parentAct);
+
+        return actor;
+    }
+
     void WorldTreeView::OnContentMenuClicked(const QPoint &pos)
     {
         if (attachedWorld == nullptr) {
@@ -96,17 +110,7 @@ namespace sky::editor {
         QMenu menu(tr("World Action"), this);
 
         auto *addAct = new QAction(tr("Add"), &menu);
-        connect(addAct, &QAction::triggered, this, [this]() {
-            auto indices = treeView->selectionModel()->selectedIndexes();
-
-            auto actor = attachedWorld->CreateActor("Actor");
-            auto *item = new WorldActorItem(actor);
-
-            auto *parent = indices.empty() ? model->invisibleRootItem() : model->itemFromIndex(indices[0]);
-            auto parentAct = indices.empty() ? ActorPtr{} : static_cast<WorldActorItem*>(parent)->actor;
-            parent->appendRow(item);
-            actor->SetParent(parentAct);
-        });
+        connect(addAct, &QAction::triggered, this, &WorldTreeView::AddActorEmpty);
 
 
         auto *delAct = new QAction(tr("Delete"), &menu);

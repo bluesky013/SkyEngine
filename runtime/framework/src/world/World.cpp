@@ -7,6 +7,8 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 
+#include <core/profile/Profiler.h>
+
 #include <atomic>
 #include <deque>
 #include <memory>
@@ -36,20 +38,25 @@ namespace sky {
         return world;
     }
 
-    void World::Init(std::vector<Name>&& systems)
+    void World::Init()
     {
-        subSystemRegistry.swap(systems);
         WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
     }
 
     void World::Tick(float time)
     {
-        for (auto &actor : actors) {
-            actor->Tick(time);
+        {
+            SKY_PROFILE_NAME("Actors Tick")
+            for (auto &actor : actors) {
+                actor->Tick(time);
+            }
         }
 
-        for (auto &sys : subSystems) {
-            sys.second->Tick(time);
+        {
+            SKY_PROFILE_NAME("SubSystem Tick")
+            for (auto &sys : subSystems) {
+                sys.second->Tick(time);
+            }
         }
     }
 
@@ -116,8 +123,7 @@ namespace sky {
 
     ActorPtr World::CreateActor(const Uuid &id, bool withTrans)
     {
-        actors.emplace_back(std::make_shared<Actor>(id));
-        actors.back()->world = this;
+        AttachToWorld(std::make_shared<Actor>(id));
         if (withTrans) {
             actors.back()->AddComponent<TransformComponent>();
         }
@@ -137,7 +143,6 @@ namespace sky {
         if (actor->world != nullptr && actor->world != this) {
             actor->world->DetachFromWorld(actor);
         }
-        actor->world = this;
         actors.emplace_back(actor);
         actor->AttachToWorld(this);
     }
@@ -158,11 +163,6 @@ namespace sky {
         actors.clear();
     }
 
-    bool World::CheckSystem(const Name &name) const
-    {
-        return std::find(subSystemRegistry.begin(), subSystemRegistry.end(), name) != subSystemRegistry.end();
-    }
-
     void World::AddSubSystem(const Name &name, IWorldSubSystem* sys)
     {
         SKY_ASSERT(subSystems.emplace(name, sys).second);
@@ -175,12 +175,12 @@ namespace sky {
         return iter != subSystems.end() ? iter->second.get() : nullptr;
     }
 
-    void World::RegisterConfiguration(const std::string& name, const Any& any)
+    void World::RegisterConfiguration(const Name& name, const Any& any)
     {
         SKY_ASSERT(worldConfigs.emplace(name, any).second);
     }
 
-    const Any& World::GetConfigByName(const std::string &name) const
+    const Any& World::GetConfigByName(const Name &name) const
     {
         static Any EMPTY;
         auto iter = worldConfigs.find(name);

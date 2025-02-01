@@ -6,6 +6,7 @@
 #include <render/RHI.h>
 #include <render/Renderer.h>
 #include <shader/ShaderCompiler.h>
+#include <shader/ShaderFileSystem.h>
 
 #include <sstream>
 #include <filesystem>
@@ -17,14 +18,6 @@
 #include <core/archive/MemoryArchive.h>
 
 namespace sky {
-
-    struct ShaderCacheHeader {
-        static const uint32_t MAGIC = 0xFE00;
-
-        uint32_t magic    = MAGIC;
-        uint32_t version  = 0;
-        uint32_t dataSize = 0;
-    };
 
     static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
     {
@@ -101,7 +94,7 @@ namespace sky {
         auto *device = RHI::Get()->GetDevice();
         for (auto &desc : layoutDesc) {
             if (desc.bindings.empty()) {
-                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultRHIResource().emptyDesLayout->GetRHILayout());
+                plDesc.layouts.emplace_back(Renderer::Get()->GetDefaultResource().emptyDesLayout->GetRHILayout());
             } else {
                 plDesc.layouts.emplace_back(device->CreateDescriptorSetLayout(desc));
             }
@@ -123,7 +116,7 @@ namespace sky {
                 continue;
             }
 
-            layout->AddNameHandler(res.name, {res.binding, res.size});
+            layout->AddNameHandler(Name(res.name.c_str()), {res.binding, res.size});
             if (res.type == rhi::DescriptorType::UNIFORM_BUFFER || res.type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
                 auto iter = std::find_if(reflection->types.begin(), reflection->types.end(), [&res](const auto &type) -> bool {
                     return res.name == type.name;
@@ -131,119 +124,90 @@ namespace sky {
                 SKY_ASSERT(iter != reflection->types.end());
 
                 for (const auto &var : iter->variables) {
-                    layout->AddBufferNameHandler(var.name, {var.binding, var.offset, var.size});
+                    layout->AddBufferNameHandler(Name(var.name.c_str()), {var.binding, var.offset, var.size});
                 }
             }
         }
         return layout;
     }
 
-    void ShaderCollection::BuildAndCacheShader(const std::string         &entry,
-                                               rhi::ShaderStageFlagBit    stage,
-                                               const ShaderCompileOption &option,
-                                               ShaderBuildResult         &result)
+    ShaderCollection::ShaderCollection(const Name &name_, const ShaderSourceEntry &source)
+        : RenderResource(name_)
     {
-        // calculate signature
-        std::stringstream ss;
-        uint32_t          variantHash = option.option ? option.option->GetHash() : 0;
-        ss << name << '_' << entry << '_' << variantHash << '_' << static_cast<uint32_t>(option.target);
-
-        auto        cacheFolder = Renderer::Get()->GetCacheFolder() + "\\shaderCache";
-        std::string cachePath   = cacheFolder + "\\" + ss.str();
-
-        if (!std::filesystem::exists(cacheFolder)) {
-            std::filesystem::create_directories(cacheFolder);
+        for (const auto &option : source.options) {
+            list.AddEntry(option);
         }
+    }
 
-        bool              needUpdateShader = true;
-        ShaderCacheHeader shaderHeader     = {};
-        {
-            IFileArchive archive(cachePath);
-            if (archive.IsOpen()) {
-                archive.LoadRaw(reinterpret_cast<char *>(&shaderHeader), sizeof(ShaderCacheHeader));
+    void ShaderCollection::CacheProgram(const ShaderVariantKey &key, const RDProgramPtr &program)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        programCache[key] = program;
+    }
 
-                if (shaderHeader.magic == ShaderCacheHeader::MAGIC && shaderHeader.version == hash) {
-                    needUpdateShader = false;
-                    archive.Load(result.data);
-                    uint32_t size = 0;
-                    archive.Load(size);
-                    result.reflection.resources.resize(size);
-                    for (auto i = 0U; i < size; ++i) {
-                        auto &res = result.reflection.resources[i];
-
-                        archive.Load(res.name);
-                        archive.Load(res.type);
-                        archive.Load(res.visibility.value);
-                        archive.Load(res.set);
-                        archive.Load(res.binding);
-                        archive.Load(res.count);
-                        archive.Load(res.size);
-                    }
-                    archive.Load(size);
-                    result.reflection.types.resize(size);
-                    for (auto i = 0U; i < size; ++i) {
-                        auto &type = result.reflection.types[i];
-                        archive.Load(type.name);
-                        uint32_t varSize = 0;
-                        archive.Load(varSize);
-                        type.variables.resize(varSize);
-                        for (auto j = 0U; j < varSize; ++j) {
-                            auto &var = type.variables[j];
-                            archive.Load(var.name);
-                            archive.Load(var.set);
-                            archive.Load(var.binding);
-                            archive.Load(var.offset);
-                            archive.Load(var.size);
-                        }
-                    }
-                }
-            }
+    RDProgramPtr ShaderCollection::FetchProgramCache(const ShaderVariantKey &key) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto iter = programCache.find(key);
+        if (iter != programCache.end()) {
+            return iter->second;
         }
-        if (needUpdateShader) {
-            ShaderSourceDesc sourceDesc = {};
-            sourceDesc.source           = source;
-            sourceDesc.entry            = entry;
-            sourceDesc.stage            = stage;
+        return {};
+    }
 
-            auto *compiler = Renderer::Get()->GetShaderCompiler();
-            if (compiler == nullptr || !compiler(sourceDesc, option, result)) {
-                return;
+    RDProgramPtr ShaderCollection::AcquireShaderBinary(const sky::ShaderVariantKey &key, const std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> &stages)
+    {
+        RDProgramPtr program = new Program();
+
+        auto target = RHI::Get()->GetShaderTarget();
+        auto *device = RHI::Get()->GetDevice();
+        auto *cacheManager = ShaderCacheManager::Get();
+        for (auto &[entry, stage] : stages) {
+
+            ShaderBuildResult result;
+
+            auto *cache = cacheManager->FetchBinaryCache(name, target, entry, key);
+            if (cache != nullptr) {
+                auto memory = ShaderFileSystem::Get()->LoadBinaryCache(*cache, target);
+                ShaderCompiler::LoadFromMemory(*memory, result);
+            } else {
+                ShaderCompileOption option = {};
+                option.target = RHI::Get()->GetShaderTarget();
+                option.option = new ShaderOption();
+                list.FillShaderOption(*option.option, key);
+
+                auto [rst, source] = ShaderFileSystem::Get()->LoadCacheSource(name);
+                SKY_ASSERT(rst);
+                ShaderSourceDesc desc = {};
+                desc.source = std::move(source);
+                desc.entry = entry.GetStr().data();
+                desc.stage = stage;
+
+                BuildShaderBinary(desc, option, result);
+                cacheManager->SaveBinaryCache(name, target, entry, key, result);
             }
 
-//            MemoryArchive mArchive;
-//            mArchive.Save(result.data);
-//
-//            mArchive.Save(static_cast<uint32_t>(result.reflection.resources.size()));
-//            for (auto &res : result.reflection.resources) {
-//                mArchive.Save(res.name);
-//                mArchive.Save(res.type);
-//                mArchive.Save(res.visibility.value);
-//                mArchive.Save(res.set);
-//                mArchive.Save(res.binding);
-//                mArchive.Save(res.count);
-//                mArchive.Save(res.size);
-//            }
-//
-//            mArchive.Save(static_cast<uint32_t>(result.reflection.types.size()));
-//            for (auto &type : result.reflection.types) {
-//                mArchive.Save(type.name);
-//                mArchive.Save(static_cast<uint32_t>(type.variables.size()));
-//                for (auto &var : type.variables) {
-//                    mArchive.Save(var.name);
-//                    mArchive.Save(var.set);
-//                    mArchive.Save(var.binding);
-//                    mArchive.Save(var.offset);
-//                    mArchive.Save(var.size);
-//                }
-//            }
-//
-//            shaderHeader.version  = hash;
-//            shaderHeader.magic    = ShaderCacheHeader::MAGIC;
-//            shaderHeader.dataSize = static_cast<uint32_t>(mArchive.Size());
-//
-//            OFileArchive archive(cachePath);
-//            archive.SaveRaw(reinterpret_cast<const char *>(&shaderHeader), sizeof(ShaderCacheHeader));
-//            archive.SaveRaw(reinterpret_cast<const char *>(mArchive.Data()), shaderHeader.dataSize);
+            rhi::Shader::Descriptor shaderDesc = {};
+            shaderDesc.data = reinterpret_cast<const uint8_t *>(result.data.data());
+            shaderDesc.size = static_cast<uint32_t>(result.data.size()) * sizeof(uint32_t);
+            shaderDesc.stage = stage;
+
+            auto shader = device->CreateShader(shaderDesc);
+            shader->SetEntry(entry.GetStr().data());
+            program->AddShader(shader);
+            program->MergeReflection(std::move(result.reflection));
+
+        }
+        program->Build();
+        CacheProgram(key, program);
+        return program;
+    }
+
+    void ShaderCollection::BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result)
+    {
+        auto *compiler = Renderer::Get()->GetShaderCompiler();
+        if (compiler != nullptr) {
+            compiler(source, option, result);
         }
     }
 } // namespace sky

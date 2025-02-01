@@ -8,6 +8,7 @@
 
 namespace sky {
     class RenderScene;
+    struct RenderPrimitive;
 } // namespace sky
 
 namespace sky::rdg {
@@ -17,6 +18,7 @@ namespace sky::rdg {
         explicit RenderSceneVisitor(RenderGraph &g, RenderScene *scn) : graph(g), scene(scn) {}
 
         [[maybe_unused]] void BuildRenderQueue();
+
         RenderGraph &graph;
         RenderScene *scene;
     };

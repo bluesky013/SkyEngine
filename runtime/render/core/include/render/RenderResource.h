@@ -5,6 +5,8 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
+#include <core/name/Name.h>
+#include <core/util/Uuid.h>
 #include <rhi/Stream.h>
 #include <rhi/Queue.h>
 #include <string>
@@ -14,20 +16,25 @@ namespace sky {
     class RenderResource : public RefObject {
     public:
         RenderResource() = default;
-        explicit RenderResource(const std::string &name_) : name(name_) {} // NOLINT
+        explicit RenderResource(const Name &name_) : name(name_) {} // NOLINT
         ~RenderResource() override = default;
 
-        void SetName(const std::string &name_) { name = name_; }
-        const std::string &GetName() const { return name; }
+        void SetName(const Name &name_) { name = name_; }
+        const Name &GetName() const { return name; }
     protected:
-        std::string name;
+        Name name;
     };
 
     class IStreamableResource : public RenderResource {
     public:
         IStreamableResource() = default;
-        explicit IStreamableResource(const std::string &name_) : RenderResource(name_) {}
+        explicit IStreamableResource(const Name &name_) : RenderResource(name_) {}
         ~IStreamableResource() override = default;
+
+        void SetResourceID(const Uuid &id)
+        {
+            resID = id;
+        }
 
         uint64_t Upload(rhi::Queue *queue)
         {
@@ -50,6 +57,7 @@ namespace sky {
     protected:
         virtual uint64_t UploadImpl() = 0;
 
+        Uuid resID;
         rhi::Queue* uploadQueue = nullptr;
         rhi::TransferTaskHandle uploadHandle = 0;
     };

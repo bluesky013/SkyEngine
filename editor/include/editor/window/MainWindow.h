@@ -18,6 +18,7 @@ namespace sky::editor {
     class WorldWidget;
     class InspectorWidget;
     class AssetWidget;
+    class ToolBar;
 
     class MainWindow : public QMainWindow {
         Q_OBJECT
@@ -45,12 +46,14 @@ namespace sky::editor {
         bool event(QEvent *event) override;
 
         QMenuBar      *menuBar       = nullptr;
+        ToolBar       *toolBar       = nullptr;
         ActionManager *actionManager = nullptr;
 
         WorldWidget     *worldWidget  = nullptr;
         InspectorWidget *inspector    = nullptr;
         AssetWidget     *assetBrowser = nullptr;
         ViewportWidget  *mainViewport = nullptr;
+        QDockWidget     *toolWidget   = nullptr;
         QWidget         *emptyCentral = nullptr;
 
         QString projectPath;

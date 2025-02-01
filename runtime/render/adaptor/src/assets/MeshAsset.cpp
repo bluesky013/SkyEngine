@@ -3,9 +3,11 @@
 //
 
 #include <framework/asset/AssetManager.h>
-#include <core/archive/MemoryArchive.h>
+#include <core/profile/Profiler.h>
 #include <render/RHI.h>
 #include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
+#include <render/resource/SkeletonMesh.h>
 
 namespace sky {
     void MeshAssetData::Load(BinaryInputArchive &archive)
@@ -93,8 +95,86 @@ namespace sky {
         archive.SaveValue(reinterpret_cast<const char*>(rawData.storage.data()), dataSize);
     }
 
+    struct BoneNode {
+        Name name = Name("Root");
+        uint32_t boneIndex = INVALID_BONE_ID;
+        std::vector<BoneNode*> children;
+    };
+
+    void WalkBone(BoneNode* node, const Matrix4 &matrix, const SkeletonData& skeleton, Skin &skin) // NOLINT
+    {
+        Matrix4 current = matrix;
+        if (node->boneIndex != INVALID_BONE_ID) {
+            current = current * skeleton.refPos[node->boneIndex].ToMatrix();
+            skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
+        }
+        for (auto &child : node->children) {
+            WalkBone(child, current, skeleton, skin);
+        }
+    }
+
+    CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset)
+    {
+        const auto &data = asset->Data();
+        const auto &uuid = asset->GetUuid();
+
+        auto *am = AssetManager::Get();
+        auto file = am->OpenFile(uuid);
+
+        auto *triangleMesh = new TriangleMesh();
+        // get position.
+        auto iter = std::find_if(data.attributes.begin(), data.attributes.end(),
+            [](const VertexAttribute &attr) -> bool  {
+            return (attr.sematic & VertexSemanticFlagBit::POSITION) == VertexSemanticFlagBit::POSITION;
+        });
+        SKY_ASSERT(iter != data.attributes.end());
+        SKY_ASSERT(iter->format == rhi::Format::F_RGBA32 || iter->format == rhi::Format::F_RGB32);
+        SKY_ASSERT(data.indexType == rhi::IndexType::U32 || data.indexType == rhi::IndexType::U16);
+        SKY_ASSERT(data.indexBuffer <= data.buffers.size());
+
+        // vertex buffer
+        {
+            const auto &view = data.buffers[iter->binding];
+            const auto &count = view.size / view.stride;
+
+            std::vector<uint8_t> rawData(view.size);
+            file->ReadData(view.offset + data.dataOffset, view.size, rawData.data());
+
+            if (iter->sematic == VertexSemanticFlagBit::POSITION && view.stride == sizeof(Vector3)) {
+                triangleMesh->vtxStride = view.stride;
+                triangleMesh->position.swap(rawData);
+            } else {
+                const uint8_t* rawBuffer = rawData.data();
+                triangleMesh->vtxStride = sizeof(Vector3);
+                triangleMesh->position.resize(count * sizeof(Vector3));
+
+                auto* target = reinterpret_cast<Vector3*>(triangleMesh->position.data());
+                for (uint32_t i = 0; i < count; ++i) {
+                    const auto* fp = reinterpret_cast<const Vector3*>(rawBuffer);
+                    target[i] = *fp;
+                    rawBuffer += view.stride;
+                }
+            }
+        }
+
+        // index buffer
+        {
+            const auto &view = data.buffers[data.indexBuffer];
+            triangleMesh->indexType = data.indexType == rhi::IndexType::U32 ? IndexType::U32 : IndexType::U16;
+            triangleMesh->indexRaw.resize(view.size);
+            file->ReadData(view.offset + data.dataOffset, view.size, triangleMesh->indexRaw.data());
+        }
+
+        for (const auto &sub : data.subMeshes) {
+            triangleMesh->AddView(sub.firstVertex, sub.vertexCount, sub.firstIndex, sub.indexCount, sub.aabb);
+        }
+
+        return triangleMesh;
+    }
+
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
     {
+        SKY_PROFILE_NAME("Create Mesh From Asset")
         const auto &data = asset->Data();
         const auto &uuid = asset->GetUuid();
 
@@ -102,7 +182,36 @@ namespace sky {
         auto file = am->OpenFile(uuid);
         SKY_ASSERT(file);
 
-        auto *mesh = new Mesh();
+        Mesh* mesh = nullptr;
+        if (data.skeleton) {
+            auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
+            skeleton->BlockUntilLoaded();
+            const auto &skeletonData = skeleton->Data();
+            auto* skin = new Skin();
+            skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
+            SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
+
+            BoneNode root;
+            std::vector<BoneNode> bones(skin->activeBone);
+            for (uint32_t index = 0; index < skin->activeBone; ++index) {
+                const auto &boneData = skeletonData.boneData[index];
+                bones[index].boneIndex = index;
+                bones[index].name = boneData.name;
+                if (boneData.parentIndex == INVALID_BONE_ID) {
+                    root.children.emplace_back(&bones[index]);
+                } else {
+                    bones[boneData.parentIndex].children.emplace_back(&bones[index]);
+                }
+            }
+            WalkBone(&root, Matrix4::Identity(), skeletonData, *skin);
+
+            auto *skeletonMesh = new SkeletonMesh();
+            skeletonMesh->SetSkin(skin);
+            mesh = skeletonMesh;
+        } else {
+            mesh = new Mesh();
+        }
+
         for (const auto &sub : data.subMeshes) {
             auto matAsset = am->FindAsset<MaterialInstance>(sub.material);
             auto mat = CreateMaterialInstanceFromAsset(matAsset);
@@ -129,7 +238,7 @@ namespace sky {
             request.source = fileStream;
             request.offset = buffer.offset;
             request.size   = buffer.size;
-            meshData.vertexStreams.emplace_back(request, buffer.stride);
+            meshData.vertexStreams.emplace_back(VertexBufferSource{request, buffer.stride});
         }
 
         if (data.indexType != rhi::IndexType::NONE) {

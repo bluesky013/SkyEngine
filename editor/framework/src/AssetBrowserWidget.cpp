@@ -3,6 +3,7 @@
 //
 
 #include <editor/framework/AssetBrowserWidget.h>
+#include <editor/framework/AssetCreator.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -104,7 +105,47 @@ namespace sky::editor {
             }
         });
 
+        auto *importAct = new QAction(tr("Import"), &menu);
+        connect(importAct, &QAction::triggered, this, [this]() {
+            auto indices = assetItemView->selectionModel()->selectedIndexes();
+            auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
+            for (auto &index : indices) {
+                FilePath path(fsModel->filePath(index).toStdString());
+                AssetBuilderManager::Get()->ImportAsset({path});
+            }
+        });
+
+        auto *createMenu = new QMenu("New", &menu);
+        const auto &creators = AssetCreatorManager::Get()->GetTools();
+        for (const auto &creator : creators) {
+            auto *act = new QAction(creator.first.GetStr().data(), createMenu);
+            connect(act, &QAction::triggered, this, [this, fn = creator.second.get()]() {
+                auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
+                auto path = fsModel->filePath(assetItemView->currentIndex());
+
+                auto ext = fn->GetExtension();
+                auto dir = QDir(path);
+
+                QString file("NewFile");
+                QString final;
+
+                int index = 0;
+                do {
+                    QString suffix = index > 0 ? QString::number(index) : QString{};
+                    final = file + suffix + QString(ext.c_str());
+                    ++index;
+                } while (dir.exists(final) || index >= 100000);
+
+                fn->CreateAsset(FilePath(dir.filePath(final).toStdString()));
+            });
+            createMenu->addAction(act);
+        }
+
+        menu.addMenu(createMenu);
+        menu.addSeparator();
+
         menu.addAction(buildAct);
+        menu.addAction(importAct);
         menu.exec(mapToGlobal(pos));
     }
 

@@ -154,7 +154,7 @@ namespace sky {
         startInfo.dwFlags |= STARTF_USESTDHANDLES;
 
         auto success = CreateProcess(nullptr, (char*)cmd.c_str(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startInfo, &procInfo);
-        if (!success) {
+        if (success == 0) {
             return false;
         }
 
@@ -163,14 +163,14 @@ namespace sky {
             DWORD dwRead = 0;
             DWORD dwAvail = 0;
 
-            if (!::PeekNamedPipe(pipe->read, nullptr, 0, nullptr, &dwAvail, nullptr)) {
+            if (::PeekNamedPipe(pipe->read, nullptr, 0, nullptr, &dwAvail, nullptr) == 0) {
                 break;
             }
             if (dwAvail == 0) {
                 break;
             }
             std::string tmp(dwAvail, 0);
-            if (!::ReadFile(pipe->read, (char*)tmp.data(), dwAvail, &dwRead, nullptr) || dwRead == 0) {
+            if ((::ReadFile(pipe->read, (char*)tmp.data(), dwAvail, &dwRead, nullptr) == 0) || dwRead == 0) {
                 break;
             }
             out += tmp;

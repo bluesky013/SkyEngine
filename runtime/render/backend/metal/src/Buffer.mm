@@ -4,7 +4,6 @@
 
 #include <mtl/Buffer.h>
 #include <mtl/Device.h>
-#include <mtl/BufferView.h>
 #include <mtl/Conversion.h>
 
 namespace sky::mtl {
@@ -38,15 +37,5 @@ namespace sky::mtl {
 
     void Buffer::UnMap()
     {
-    }
-
-    rhi::BufferViewPtr Buffer::CreateView(const rhi::BufferViewDesc &desc)
-    {
-        BufferViewPtr ret = std::make_shared<BufferView>(device);
-        ret->source      = shared_from_this();
-        if (!ret->Init(desc)) {
-            ret = nullptr;
-        }
-        return std::static_pointer_cast<rhi::BufferView>(ret);
     }
 }

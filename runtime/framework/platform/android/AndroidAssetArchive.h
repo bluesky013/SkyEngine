@@ -5,7 +5,6 @@
 #pragma once
 
 #include <core/archive/IArchive.h>
-#include <core/archive/MemoryArchive.h>
 #include <string>
 #include <android/asset_manager.h>
 

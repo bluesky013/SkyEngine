@@ -1,7 +1,7 @@
 {
     "type": "graphics",
     "shader": {
-        "path": "shaders/ui/text.hlsl",
+        "path": "ui/text.hlsl",
         "vertex": "VSMain",
         "fragment": "FSMain"
     },
