@@ -26,7 +26,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
 #endif
     RHI::Get()->InitDevice({});
 
-    RenderGraphContext context;
+    RenderGraphContext context(1);
     context.pool = std::make_unique<TransientObjectPool>();
     context.device = RHI::Get()->GetDevice();
     context.commandBuffers.resize(1);
@@ -73,7 +73,7 @@ TEST(RenderGraphTest, NodeGraphTest01)
         .AddAttachment({Name("test2"), rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
     pass2.AddRasterSubPass(Name("color1_sub0"))
         .AddDepthStencil(Name("test2"), ResourceAccessBit::WRITE)
-        .AddComputeView(Name("test"), {"_", ComputeType::SRV, rhi::ShaderStageFlagBit::FS, ResourceAccessBit::READ});
+        .AddComputeView(Name("test"), {Name("_"), ComputeType::SRV, rhi::ShaderStageFlagBit::FS, ResourceAccessBit::READ});
 
     auto pass3 = rdg.AddRasterPass(Name("color2"), 128, 128)
         .AddAttachment({Name("test2"), rhi::LoadOp::LOAD, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0));
