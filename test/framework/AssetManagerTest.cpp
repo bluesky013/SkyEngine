@@ -122,7 +122,7 @@ public:
 
         auto *am = AssetManager::Get();
         if (request.assetInfo->category == AssetTraits<T1Data>::ASSET_TYPE) {
-            auto asset = std::static_pointer_cast<Asset<T1Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, "T1"));
+            auto asset = std::static_pointer_cast<Asset<T1Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T1")));
 
             T1Data &data = asset->Data();
             json.Start("val");
@@ -130,7 +130,7 @@ public:
 
             am->SaveAsset(asset, "common");
         } else {
-            auto asset = std::static_pointer_cast<Asset<T2Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, "T2"));
+            auto asset = std::static_pointer_cast<Asset<T2Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T2")));
 
             T2Data &data = asset->Data();
             json.Start("val");
@@ -175,7 +175,7 @@ public:
         json.End();
 
         auto *am = AssetManager::Get();
-        auto asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, "T3"));
+        auto asset = std::static_pointer_cast<Asset<T3Data>>(am->FindOrCreateAsset(request.assetInfo->uuid, Name("T3")));
 
         auto p1Asset = AssetDataBase::Get()->RegisterAsset(p1);
         auto p2Asset = AssetDataBase::Get()->RegisterAsset(p2);

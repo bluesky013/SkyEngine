@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <dxc/dxcapi.h>
 #include <wrl/client.h>
+#include <core/util/DynamicModule.h>
 
 namespace sky {
 
@@ -21,7 +22,7 @@ namespace sky {
     class ShaderCompilerDXC : public ShaderCompilerBase {
     public:
         ShaderCompilerDXC() = default;
-        ~ShaderCompilerDXC() override = default;
+        ~ShaderCompilerDXC() override;
 
         bool Init();
         bool CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result) override;
@@ -32,6 +33,9 @@ namespace sky {
         ComPtr<IDxcUtils> dxcUtils;
         ComPtr<IDxcCompiler3> dxcCompiler;
         ComPtr<IDxcContainerReflection> containerReflection;
+
+        std::unique_ptr<DynamicModule> dxcModule;
+        DxcCreateInstanceProc createInstanceProc = nullptr;
     };
 
 } // namespace sky

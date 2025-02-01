@@ -202,7 +202,7 @@ public:
                 ShaderBuildResult result = {};
                 auto *targetCompiler = getCompilerFn(target);
                 if (targetCompiler->CompileBinary(source, option, result)) {
-                    ShaderCacheManager::Get()->SaveBinaryCache(shaderName, md5, target, shaderEntry, key, result);
+                    ShaderCacheManager::Get()->SaveBinaryCache(shaderName, target, shaderEntry, key, result);
                     SaveBinaryIntermediate(targetCompiler, name, source.entry, key, target, result);
                 }
             }

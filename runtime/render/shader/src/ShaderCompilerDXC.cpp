@@ -16,11 +16,26 @@ static const char* TAG = "ShaderCompilerDXC";
 
 namespace sky {
 
+    ShaderCompilerDXC::~ShaderCompilerDXC()
+    {
+        dxcUtils = nullptr;
+        dxcCompiler = nullptr;
+        containerReflection = nullptr;
+        dxcModule = nullptr;
+    }
+
     bool ShaderCompilerDXC::Init()
     {
-        DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(dxcUtils.GetAddressOf()));
-        DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(dxcCompiler.GetAddressOf()));
-        DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(containerReflection.GetAddressOf()));
+        dxcModule = std::make_unique<DynamicModule>("dxcompiler");
+        if (!dxcModule->Load()) {
+            return false;
+        }
+        createInstanceProc = reinterpret_cast<DxcCreateInstanceProc>(dxcModule->GetAddress("DxcCreateInstance"));
+        SKY_ASSERT(createInstanceProc != nullptr)
+
+        createInstanceProc(CLSID_DxcUtils, IID_PPV_ARGS(dxcUtils.GetAddressOf()));
+        createInstanceProc(CLSID_DxcCompiler, IID_PPV_ARGS(dxcCompiler.GetAddressOf()));
+        createInstanceProc(CLSID_DxcContainerReflection, IID_PPV_ARGS(containerReflection.GetAddressOf()));
 
         return (dxcUtils != nullptr) && (dxcCompiler != nullptr) && (containerReflection != nullptr);
     }
