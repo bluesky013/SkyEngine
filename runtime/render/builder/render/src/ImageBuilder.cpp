@@ -6,7 +6,6 @@
 #include <builder/render/image/ImageCompressor.h>
 #include <builder/render/image/ImageConverter.h>
 #include <builder/render/image/ImageMipGen.h>
-#include <builder/render/image/KtxImage.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
@@ -21,17 +20,6 @@
 
 
 namespace sky::builder {
-
-    Uuid CreateBufferID(const Uuid &imageId)
-    {
-        uint32_t seed = 0;
-        HashCombine32(seed, imageId.u32[0]);
-        HashCombine32(seed, imageId.u32[1]);
-        HashCombine32(seed, imageId.u32[2]);
-        HashCombine32(seed, imageId.u32[3]);
-        return Uuid::CreateWithSeed(seed);
-    }
-
     ImageBuilder::ImageBuilder()
     {
         InitializeCompressor();
@@ -159,9 +147,7 @@ namespace sky::builder {
         image->FillMip0(data, static_cast<uint32_t>(x * y * 4));
         stbi_image_free(data);
 
-//        const ImageBuildConfig *config = request.GetUserDataAs<ImageBuildConfig>();
-
-        ImageBuildConfig* config = new ImageBuildConfig();
+        auto config = std::make_unique<ImageBuildConfig>();
         config->generateMip = true;
         config->compress = true;
 
@@ -217,47 +203,6 @@ namespace sky::builder {
         } else {
             SaveImageData(image, imageData);
         }
-
-//
-//        if (compress) {
-//            CompressOption option = {};
-//            option.quality      = Quality::SLOW;
-//            option.targetFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
-//            option.hasAlpha     = true;
-//            imageData.format    = option.targetFormat;
-//
-//            std::vector<uint8_t> compressedData;
-//
-//            BufferImageInfo info = {};
-//            info.width = imageData.width;
-//            info.height = imageData.height;
-//            info.stride = imageData.width * 4;
-//
-//            CompressImage(data, info, compressedData, option);
-//
-//            ImageSliceHeader slice = {};
-//            slice.offset = 0;
-//            slice.size = static_cast<uint32_t>(compressedData.size());
-//
-//            imageData.dataSize += slice.size;
-//            imageData.slices.emplace_back(slice);
-//
-//            imageData.rawData.storage.resize(imageData.dataSize);
-//            memcpy(imageData.rawData.storage.data(), compressedData.data(), imageData.dataSize);
-//        } else {
-//            imageData.format = rhi::PixelFormat::RGBA8_UNORM;
-//
-//            ImageSliceHeader slice = {};
-//            slice.offset = 0;
-//            slice.size = imageData.width * imageData.height * 4;;
-//
-//            imageData.dataSize += slice.size;
-//            imageData.slices.emplace_back(slice);
-//
-//            imageData.rawData.storage.resize(imageData.dataSize);
-//            memcpy(imageData.rawData.storage.data(), reinterpret_cast<const char *>(data), imageData.dataSize);
-//        }
-//
         AssetManager::Get()->SaveAsset(asset, request.target);
     }
 
