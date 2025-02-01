@@ -39,7 +39,7 @@ VSOutput VSMain(VSInput input
 
     output.WorldPos = mul(worldMatrix, input.Pos).xyz;
     output.Normal   = mul((float3x3)worldMatrix, input.Normal.xyz);
-    output.Tangent  = float4(mul((float3x3)worldMatrix, input.Tangent.xyz), input.Tangent.w);
+    output.Tangent  = input.Tangent;
     output.Color    = input.Color;
     output.UV       = input.UV;
 
@@ -102,12 +102,12 @@ float4 FSMain(VSOutput input) : SV_TARGET
     light.Direction = float4(float3(-0.2, -1, -0.5), 100.0);
 
 #if ENABLE_NORMAL_MAP
-    float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - 1.0;
+    float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - float3(1.0, 1.0, 1.0);
     float3 N = normalize(input.Normal);
     float3 T = normalize(input.Tangent.xyz);
-    float3 B = normalize(cross(N, input.Tangent.xyz)) * input.Tangent.w;
+    float3 B = cross(N, input.Tangent.xyz) * input.Tangent.w;
     float3x3 TBN = transpose(float3x3(T, B, N));
-    N = normalize(mul(TBN, tNormal));
+    N = mul(TBN, normalize(tNormal));
 #else
     float3 N = normalize(input.Normal);
 #endif

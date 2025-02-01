@@ -530,6 +530,7 @@ namespace sky::rhi {
     };
 
     struct ImageFormatInfo {
+        uint32_t components   = 1;
         uint32_t blockSize    = 4;
         uint32_t blockWidth   = 1;
         uint32_t blockHeight  = 1;

@@ -367,7 +367,11 @@ namespace sky::builder {
             vtx[i].tangent.x = t.x;
             vtx[i].tangent.y = t.y;
             vtx[i].tangent.z = t.z;
-            vtx[i].tangent.w = 1.f;
+
+            Vector3 tmpNormal = Vector3(n.x, n.y, n.z);
+            Vector3 tmpTangent = Vector3(t.x, t.y, t.z);
+            Vector3 tmpBiTangent = tmpNormal.Cross(tmpTangent);
+            vtx[i].tangent.w = ((b.x * tmpBiTangent.x < 0.0f) || (b.y * tmpBiTangent.y < 0.0f) || (b.z * tmpBiTangent.z < 0.0f)) ? -1.0f : 1.0f;
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];

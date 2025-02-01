@@ -105,6 +105,7 @@ namespace sky {
                                     desc.addressModeU = static_cast<rhi::WrapMode>(val->addressModeU);
                                     desc.addressModeV = static_cast<rhi::WrapMode>(val->addressModeV);
                                     desc.addressModeW = static_cast<rhi::WrapMode>(val->addressModeW);
+                                    desc.maxLod = 13;
 
                                     batch.batchGroup->BindSampler(name, device->CreateSampler(desc), 0);
                                 }

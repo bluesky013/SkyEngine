@@ -1,15 +1,17 @@
 //
-// Created by blues on 2023/9/11.
+// Created by blues on 2025/1/30.
 //
 
-#include <builder/render/ImageCompressor.h>
-
-#include <memory>
+#include <builder/render/image/ImageCompressor.h>
+#include <builder/render/image/ImageProcess.h>
 
 #include <core/util/DynamicModule.h>
 #include <core/math/MathUtil.h>
 #include <rhi/Decode.h>
+
 #include <ispc_texcomp/ispc_texcomp.h>
+
+#include <memory>
 
 using PFN_GetProfile_ultrafast       = void(*)(bc7_enc_settings* settings);
 using PFN_GetProfile_veryfast        = void(*)(bc7_enc_settings* settings);
@@ -82,17 +84,6 @@ namespace sky::builder {
         }
     }
 
-    uint32_t GetMipLevel(uint32_t width, uint32_t height)
-    {
-        uint32_t size = std::max(width, height);
-        uint32_t level = 0;
-        while (size != 0) {
-            size >>= 1;
-            ++level;
-        }
-        return level;
-    }
-
     void CompressBC7(const rgba_surface &input, uint8_t *out, const CompressOption &options)
     {
         bc7_enc_settings settings = {};
@@ -144,26 +135,54 @@ namespace sky::builder {
         }
     }
 
-    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<uint8_t> &out, const CompressOption &options)
+//    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<uint8_t> &out, const CompressOption &options)
+//    {
+//        rgba_surface input = {};
+//        input.ptr = ptr + copy.offset;
+//        input.width  = static_cast<int32_t>(copy.width);
+//        input.height = static_cast<int32_t>(copy.height);
+//        input.stride = static_cast<int32_t>(copy.stride);
+//
+//        uint32_t width = copy.width;
+//        uint32_t height = copy.height;
+//
+//        const auto *formatInfo = rhi::GetImageInfoByFormat(options.targetFormat);
+//        uint32_t rowLength   = Ceil(width, formatInfo->blockWidth);
+//        uint32_t imageHeight = Ceil(height, formatInfo->blockHeight);
+//        uint32_t blockNum = rowLength * imageHeight;
+//        uint32_t dataSize = blockNum * formatInfo->blockSize;
+//
+//        out.resize(dataSize);
+//        CompressImage(input, out.data(), options);
+//    }
+
+    void ImageCompressor::DoWork()
     {
-        rgba_surface input = {};\
-        input.ptr = ptr + copy.offset;
-        input.width  = static_cast<int32_t>(copy.width);
-        input.height = static_cast<int32_t>(copy.height);
-        input.stride = static_cast<int32_t>(copy.stride);
+        auto *dstPf = rhi::GetImageInfoByFormat(payload.options.targetFormat);
+        if (dstPf == nullptr) {
+            return;
+        }
+        SKY_ASSERT(payload.mip < payload.image->mips.size());
+        SKY_ASSERT(payload.mip < payload.compressed->mips.size());
 
-        uint32_t level = GetMipLevel(copy.width, copy.height);
-        uint32_t width = copy.width;
-        uint32_t height = copy.height;
+        const auto &srcMipData = payload.image->mips[payload.mip];
 
-        const auto *formatInfo = rhi::GetImageInfoByFormat(options.targetFormat);
-        uint32_t rowLength   = Ceil(width, formatInfo->blockWidth);
-        uint32_t imageHeight = Ceil(height, formatInfo->blockHeight);
+        rgba_surface input = {};
+        input.ptr = srcMipData.data.get();
+        input.width  = static_cast<int32_t>(srcMipData.width);
+        input.height = static_cast<int32_t>(srcMipData.height);
+        input.stride = srcMipData.rowPitch;
+
+        uint32_t rowLength   = Ceil(srcMipData.width, dstPf->blockWidth);
+        uint32_t imageHeight = Ceil(srcMipData.height, dstPf->blockHeight);
         uint32_t blockNum = rowLength * imageHeight;
-        uint32_t srcSize  = blockNum * formatInfo->blockSize;
+        uint32_t dataSize = blockNum * dstPf->blockSize;
 
-        out.resize(srcSize);
-        CompressImage(input, out.data(), options);
+        auto &dstMipData = payload.compressed->mips[payload.mip];
+        dstMipData.rowPitch = rowLength * dstPf->blockSize;;
+        dstMipData.dataLength = dataSize;
+        dstMipData.data = std::make_unique<uint8_t []>(dataSize);
+        CompressImage(input, dstMipData.data.get(), payload.options);
     }
 
 } // namespace sky::builder

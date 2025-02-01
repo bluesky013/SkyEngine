@@ -8,7 +8,7 @@
 #include <cassert>
 #define SKY_ASSERT(val) assert(val);
 #else
-#define SKY_ASSERT(val) (val)
+#define SKY_ASSERT(val) (val);
 #endif
 
 #ifdef _DEBUG
