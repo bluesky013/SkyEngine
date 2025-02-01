@@ -81,7 +81,7 @@ namespace sky {
 
             if (needUpdateBatch) {
                 const auto &rhiBindings = layout->GetRHILayout()->GetBindings();
-                for (auto &[name, handler] : bindingHandlers) {
+                for (const auto &[name, handler] : bindingHandlers) {
                     if (name == bufferName) {
                         batch.batchGroup->BindDynamicUBO(bufferName, batchBuffers[i], 0);
                     } else {
@@ -96,7 +96,7 @@ namespace sky {
                                     batch.batchGroup->BindTexture(name, tex->GetImageView(), 0);
                                 }
                             } else if (bIter->type == rhi::DescriptorType::SAMPLER) {
-                                auto *val = material->GetValue<TextureSampler>(name);
+                                const auto *val = material->GetValue<TextureSampler>(name);
                                 if (val != nullptr) {
                                     rhi::Sampler::Descriptor desc = {};
                                     desc.magFilter = static_cast<rhi::Filter>(val->magFilter);

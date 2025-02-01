@@ -97,9 +97,18 @@ VSOutput VSMain(VSInput input
 
 float4 FSMain(VSOutput input) : SV_TARGET
 {
+    float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
+    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
+
+#if ENABLE_ALPHA_MASK
+    if (albedo.w < AlphaCutoff) {
+        discard;
+    }
+#endif
+
     LightInfo light;
     light.Color = float4(1.0, 1.0, 1.0, 1.0);
-    light.Direction = float4(float3(-0.2, -1, -0.5), 100.0);
+    light.Direction = float4(float3(-0.2, -1, -0.5), 5.0);
 
 #if ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - float3(1.0, 1.0, 1.0);
@@ -115,9 +124,6 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
     float3 L = normalize(-light.Direction.xyz);
     float3 V = normalize(viewPos - input.WorldPos);
-
-    float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
-    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
 
     StandardPBR pbrParam;
     pbrParam.Albedo    = albedo.xyz;
