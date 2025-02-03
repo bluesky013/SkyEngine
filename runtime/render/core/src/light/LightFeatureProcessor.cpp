@@ -11,6 +11,20 @@ namespace sky {
 //        GatherLightInfo();
     }
 
+    MainDirectLight* LightFeatureProcessor::GetOrCreateMainLight()
+    {
+        if (!mainLight) {
+            mainLight = std::make_unique<MainDirectLight>();
+        }
+
+        return mainLight.get();
+    }
+
+    void LightFeatureProcessor::RemoveMainLight()
+    {
+        mainLight = nullptr;
+    }
+
     void LightFeatureProcessor::AddLight(Light *light)
     {
         lights.emplace_back(light);

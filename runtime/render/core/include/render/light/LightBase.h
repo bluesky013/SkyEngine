@@ -21,6 +21,43 @@ namespace sky {
         Vector4 rsv;
     };
 
+    class MainDirectLight {
+    public:
+        MainDirectLight() = default;
+        ~MainDirectLight() = default;
+
+        void SetColor(const ColorRGB &clr)
+        {
+            color[0] = clr.r;
+            color[1] = clr.g;
+            color[2] = clr.b;
+        }
+
+        void SetIntensity(float intensity)
+        {
+            color[3] = intensity;
+        }
+
+        void SetDirection(const Vector3 &dir)
+        {
+            direction = dir;
+        }
+
+        void SetCastShadow(bool shadow)
+        {
+            castShadow = shadow;
+        }
+
+        const Vector4 &GetColor() const { return color; }
+        const Vector3 &GetDirection() const { return direction; }
+
+    private:
+        Vector4 color; // [0-2]: color rgb [3] color intensity
+        Vector3 direction;
+
+        bool castShadow = false;
+    };
+
     class Light {
     public:
         Light() = default;
@@ -28,10 +65,20 @@ namespace sky {
 
         virtual void Collect(LightInfo &info) = 0;
 
-        void SetColor(const Vector4 &clr) { color = clr; }
+        void SetColor(const ColorRGB &clr)
+        {
+            color[0] = clr.r;
+            color[1] = clr.g;
+            color[2] = clr.b;
+        }
+
+        void SetIntensity(float intensity)
+        {
+            color[3] = intensity;
+        }
 
     protected:
-        Vector4 color;
+        Vector4 color; // [0-2]: color rgb [3] color intensity
     };
 
     class PointLight : public Light {

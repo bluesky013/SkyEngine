@@ -8,6 +8,8 @@ struct ViewInfo {
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)
 {
     float4x4 LightMatrix;
+    float4 MainLightColor; // rgb: color a: intensity
+    float4 MainLightDirection;
     float4 Viewport;
 }
 

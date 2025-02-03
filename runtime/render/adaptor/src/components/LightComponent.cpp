@@ -11,50 +11,64 @@
 
 namespace sky {
 
-    void LightComponent::Reflect(SerializationContext *context)
+    void MainDirectLightComponent::Reflect(SerializationContext *context)
     {
-        context->Register<LightComponent>("LightComponent")
-            .Member<&LightComponent::lightColor>("lightColor");
+        context->Register<MainLightData>("MainLightData")
+            .Member<&MainLightData::color>("Color")
+            .Member<&MainLightData::intensity>("Intensity");
+
+        REGISTER_BEGIN(DirectLightComponent, context)
+            REGISTER_MEMBER(LightColor, SetColor, GetColor)
+            REGISTER_MEMBER(Intensity, SetIntensity, GetIntensity);
     }
 
-    void LightComponent::Tick(float time)
+    void MainDirectLightComponent::SetColor(const ColorRGB &color)
     {
-        if (light == nullptr) {
-            return;
+        data.color = ColorRGB(color);
+
+        if (light != nullptr) {
+            light->SetColor(data.color);
         }
-
-        auto *transform = actor->GetComponent<TransformComponent>();
-        auto world = Cast(transform->GetWorldMatrix());
-        auto direct = world * (-VEC3_Z);
-        light->SetDirection(direct);
-        light->SetColor(Cast(lightColor));
     }
 
-    void LightComponent::OnAttachToWorld()
+    void MainDirectLightComponent::SetIntensity(float intensity)
+    {
+        data.intensity = intensity;
+
+        if (light != nullptr) {
+            light->SetIntensity(intensity);
+        }
+    }
+
+    void MainDirectLightComponent::OnAttachToWorld()
     {
         SKY_ASSERT(light == nullptr);
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(actor);
-        light = lf->CreateLight<DirectLight>();
+        light = lf->GetOrCreateMainLight();
+        light->SetColor(data.color);
+        light->SetIntensity(data.intensity);
+        light->SetDirection(direction);
+
+        binder.Bind(this, actor);
     }
 
-    void LightComponent::OnDetachFromWorld()
+    void MainDirectLightComponent::OnDetachFromWorld()
     {
         SKY_ASSERT(light != nullptr);
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(actor);
-        lf->RemoveLight(light);
+        lf->RemoveMainLight();
+        light = nullptr;
+
+        binder.Reset();
     }
 
-    void LightComponent::SaveJson(JsonOutputArchive &ar) const
+    void MainDirectLightComponent::OnTransformChanged(const Transform& global, const Transform& local)
     {
-        ar.StartObject();
-        ar.SaveValueObject(std::string("lightColor"), lightColor);
-        ar.EndObject();
-    }
+        direction = global.rotation * VEC3_Z;
 
-    void LightComponent::LoadJson(JsonInputArchive &ar)
-    {
-        ar.LoadKeyValue("lightColor", lightColor);
+        if (light != nullptr) {
+            light->SetDirection(direction);
+        }
     }
-
 
 } // namespace sky

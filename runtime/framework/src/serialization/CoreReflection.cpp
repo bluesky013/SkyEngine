@@ -103,6 +103,11 @@ namespace sky {
             .Member<&Color::b>("b")
             .Member<&Color::b>("a");
 
+        context->Register<ColorRGB>("ColorRGB")
+            .Member<&ColorRGB::r>("r")
+            .Member<&ColorRGB::g>("g")
+            .Member<&ColorRGB::b>("b");
+
         context->Register<Uuid>("Uuid")
             .Member<&Uuid::FromString, &Uuid::ToString>("id")
             .JsonSave<&JsonSaveUuid>()

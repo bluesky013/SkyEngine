@@ -69,6 +69,8 @@ namespace sky::editor {
                 widget = new PropertyVec<4>(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<Color>::RegisteredId()) {
                 widget = new PropertyColor(object, &memberInfo, this);
+            } else if (memberInfo.info->registeredId == TypeInfo<ColorRGB>::RegisteredId()) {
+                widget = new PropertyColorRGB(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<Uuid>::RegisteredId()) {
                 widget = new PropertyUuid(object, &memberInfo, this);
             } else if (memberInfo.info->registeredId == TypeInfo<std::string>::RegisteredId()) {

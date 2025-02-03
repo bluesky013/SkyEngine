@@ -36,8 +36,8 @@ namespace sky {
             rdg::ComputeView computeView;
         };
 
-        uint32_t width;
-        uint32_t height;
+        uint32_t width  = 1;
+        uint32_t height = 1;
 
         std::vector<ComputeResource> computeResources;
 

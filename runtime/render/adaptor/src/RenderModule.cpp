@@ -37,14 +37,14 @@ namespace sky {
     static void RegisterComponents()
     {
         auto *context = SerializationContext::Get();
-        LightComponent::Reflect(context);
+        MainDirectLightComponent::Reflect(context);
         StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
         SkeletonMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
 
         static std::string GROUP = "Render";
-        ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);

@@ -64,6 +64,7 @@ namespace sky {
 
     void TransformComponent::OnTransformChanged() // NOLINT
     {
+        TransformEvent::BroadCast(actor, &ITransformEvent::OnTransformChanged, data.global, data.local);
         for (auto *child : children) {
             child->OnTransformChanged();
         }

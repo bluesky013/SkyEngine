@@ -54,11 +54,11 @@ namespace sky {
             subPassBuilder.AddDepthStencil(depthStencil.attachment.name, rdg::ResourceAccessBit::WRITE);
         }
 
+        SetupSubPass(subPassBuilder, scene);
+
         for (auto &res : computeResources) {
             subPassBuilder.AddComputeView(res.name, res.computeView);
         }
-
-        SetupSubPass(subPassBuilder, scene);
     }
 
     void FullScreenPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)

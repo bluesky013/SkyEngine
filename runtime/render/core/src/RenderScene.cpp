@@ -25,7 +25,7 @@ namespace sky {
             feature.second->Tick(time);
         }
 
-        for (auto &view : sceneViews) {
+        for (auto &[name, view] : viewMap) {
             view->Update();
         }
     }
@@ -46,6 +46,26 @@ namespace sky {
     {
         sceneViews.emplace_back(new SceneView(viewCounter++, viewCount, &resources));
         return sceneViews.back().get();
+    }
+
+    void RenderScene::DetachSceneView(SceneView* sceneView, const Name &name)
+    {
+        auto iter = viewMap.find(name);
+        if (iter != viewMap.end() && iter->second == sceneView) {
+            viewMap.erase(iter);
+        }
+    }
+
+    void RenderScene::AttachSceneView(SceneView* sceneView, const Name &name)
+    {
+        SKY_ASSERT(sceneView != nullptr);
+        viewMap[name] = sceneView;
+    }
+
+    SceneView *RenderScene::GetSceneView(const Name& name) const
+    {
+        auto iter = viewMap.find(name);
+        return iter != viewMap.end() ? iter->second : nullptr;
     }
 
     void RenderScene::RemoveSceneView(SceneView *view)

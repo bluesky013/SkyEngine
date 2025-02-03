@@ -7,6 +7,7 @@
 #include <core/math/Transform.h>
 #include <core/event/Event.h>
 #include <framework/world/Component.h>
+#include <framework/interface/ITransformEvent.h>
 
 namespace sky {
 

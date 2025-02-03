@@ -8,6 +8,8 @@
 #include <algorithm>
 
 namespace sky {
+    struct Color;
+    struct ColorRGB;
 
     struct Color {
         union {
@@ -22,12 +24,29 @@ namespace sky {
 
         Color();
         Color(float r_, float g_, float b_, float a_);
+        explicit Color(const ColorRGB& rgb);
+    };
+    using ColorRGBA = Color;
+
+    struct ColorRGB {
+        union {
+            float v[3];
+            struct {
+                float r;
+                float g;
+                float b;
+            };
+        };
+
+        ColorRGB();
+        ColorRGB(float r_, float g_, float b_);
+        explicit ColorRGB(const Color& rgba);
     };
 
     struct Color32 {
         uint32_t color;
 
-        constexpr Color32(uint32_t clr)
+        constexpr explicit Color32(uint32_t clr)
         {
             color = clr;
         }
@@ -56,8 +75,8 @@ namespace sky {
         UColor(uint16_t r_, uint16_t g_, uint16_t b_, uint16_t a_);
     };
 
-    inline float U8ToF32(uint8_t in) { return in / 255.f; }
-    inline float U16ToF32(uint16_t in) { return in / 65535.f; }
+    inline float U8ToF32(uint8_t in) { return static_cast<float>(in) / 255.f; }
+    inline float U16ToF32(uint16_t in) { return static_cast<float>(in) / 65535.f; }
 
     inline uint8_t F32ToU8(float in) { return static_cast<uint8_t>(round(std::clamp(in, 0.f, 1.f) * 255.f)); }
     inline uint16_t F32ToU16(float in) { return static_cast<uint16_t>(round(std::clamp(in, 0.f, 1.f) * 65535.f)); }

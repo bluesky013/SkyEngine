@@ -28,8 +28,6 @@ namespace sky {
         RenderWindow *output = nullptr;
         rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
 
-        RDUniformBufferPtr globalUbo;
-
         std::unique_ptr<ForwardMSAAPass>    forward;
         std::unique_ptr<PostProcessingPass> postProcess;
         std::unique_ptr<PresentPass>        present;

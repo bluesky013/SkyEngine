@@ -30,9 +30,6 @@ namespace sky {
             depthStencilFormat = rhi::PixelFormat::D32_S8;
         }
 
-        globalUbo = new UniformBuffer();
-        globalUbo->Init(sizeof(ShaderPassInfo));
-
         InitPass();
     }
 
@@ -41,14 +38,12 @@ namespace sky {
         const auto renderWidth  = output->GetWidth();
         const auto renderHeight = output->GetHeight();
 
-        auto *sceneView = scene->GetSceneViews()[0].get();
+        auto *sceneView = scene->GetSceneView(Name("MainCamera"));
 
-        Name globalUboName = Name("globalUBO");
         Name colorViewName = Name("SCENE_VIEW");
 
         auto &rg = rdg.resourceGraph;
         rg.ImportUBO(colorViewName, sceneView->GetUBO());
-        rg.ImportUBO(globalUboName, globalUbo);
 
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());

@@ -242,6 +242,56 @@ namespace sky::editor {
         QPushButton *button = nullptr;
     };
 
+    class PropertyColorRGB : public ReflectedMemberWidget {
+        Q_OBJECT
+    public:
+        PropertyColorRGB(void *obj, const serialize::TypeMemberNode *node, QWidget *parent) : ReflectedMemberWidget(obj, node, parent)
+        {
+            button = new QPushButton(this);
+            button->setFixedWidth(32);
+            layout()->addWidget(button);
+
+            connect(button, &QPushButton::clicked, this, [this](bool v) {
+                QColorDialog dialog;
+                if (dialog.exec() != 0) {
+                    auto qColor = dialog.selectedColor();
+                    auto color = ColorRGB(static_cast<float>(qColor.redF()),
+                                        static_cast<float>(qColor.greenF()),
+                                        static_cast<float>(qColor.blueF())
+                     );
+                    memberNode->setterFn(object, &color);
+                    emit ValueChanged();
+                    RefreshValue(qColor);
+                }
+            });
+            RefreshValue();
+        }
+
+        void RefreshValue()
+        {
+            auto anyVal = memberNode->getterConstFn(object);
+            auto *color = anyVal.GetAs<ColorRGB>();
+            QColor qColor;
+            qColor.setRedF(color->r);
+            qColor.setGreenF(color->g);
+            qColor.setBlueF(color->b);
+            RefreshValue(qColor);
+        }
+
+        void RefreshValue(const QColor &qColor)
+        {
+            if(qColor.isValid()) {
+                QString qss = QString("background-color: %1").arg(qColor.name());
+                button->setStyleSheet(qss);
+            }
+        }
+
+        ~PropertyColorRGB() override = default;
+
+    private:
+        QPushButton *button = nullptr;
+    };
+
     class AssetLineEditor : public QLineEdit {
     public:
         explicit AssetLineEditor(QWidget *parent) : QLineEdit(parent) {}

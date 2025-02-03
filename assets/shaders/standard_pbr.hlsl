@@ -107,8 +107,8 @@ float4 FSMain(VSOutput input) : SV_TARGET
 #endif
 
     LightInfo light;
-    light.Color = float4(1.0, 1.0, 1.0, 1.0);
-    light.Direction = float4(float3(-0.2, -1, -0.5), 5.0);
+    light.Color = MainLightColor;
+    light.Direction = MainLightDirection;
 
 #if ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - float3(1.0, 1.0, 1.0);

@@ -20,15 +20,17 @@ namespace sky {
         void PostTick(float time);
         void Render(rdg::RenderGraph& rdg);
 
-        SceneView * CreateSceneView(uint32_t viewCount);
-        void RemoveSceneView(SceneView *view);
+        SceneView *CreateSceneView(uint32_t viewCount);
+        void RemoveSceneView(SceneView* view);
+
+        void AttachSceneView(SceneView* sceneView, const Name &name);
+        void DetachSceneView(SceneView* sceneView, const Name &name);
+        SceneView *GetSceneView(const Name& name) const;
 
         void AddPrimitive(RenderPrimitive *primitive);
         void RemovePrimitive(RenderPrimitive *primitive);
 
         const PmrVector<RenderPrimitive *> &GetPrimitives() const { return primitives; }
-        const PmrVector<std::unique_ptr<SceneView>> &GetSceneViews() const { return sceneViews; }
-
         void AddFeature(IFeatureProcessor *feature);
 
         const RenderPipelineFlags &GetRenderPipelineFlags() const { return renderFlags; }
@@ -53,6 +55,8 @@ namespace sky {
 
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;
+
+        PmrHashMap<Name, SceneView*> viewMap;
         PmrVector<RenderPrimitive *> primitives;
 
         RenderPipelineFlags renderFlags;
