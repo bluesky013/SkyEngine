@@ -45,9 +45,15 @@ namespace sky {
             archive.LoadValue(attributes[i].rate);
         }
 
-        // data size
         archive.LoadValue(indexBuffer);
         archive.LoadValue(indexType);
+
+        // meshlets
+        archive.LoadValue(meshlets);
+        archive.LoadValue(meshletVertices);
+        archive.LoadValue(meshletTriangles);
+
+        // data size
         archive.LoadValue(dataSize);
         dataOffset = static_cast<uint32_t>(archive.GetStream().Tell());
     }
@@ -85,6 +91,11 @@ namespace sky {
         // index
         archive.SaveValue(indexBuffer);
         archive.SaveValue(indexType);
+
+        // meshlets
+        archive.SaveValue(meshlets);
+        archive.SaveValue(meshletVertices);
+        archive.SaveValue(meshletTriangles);
 
         // data size
         archive.SaveValue(dataSize);

@@ -6,11 +6,19 @@
 
 #include <framework/asset/AssetBuilder.h>
 #include <render/adaptor/assets/MeshAsset.h>
+#include <memory>
 
 namespace sky::builder {
+    class ClusterMeshBuilder;
+
+    struct ClusterMeshDeleter {
+        void operator()(ClusterMeshBuilder* _Ptr) const noexcept;
+    };
+    using ClusterMeshBuilderPtr = std::unique_ptr<ClusterMeshBuilder, ClusterMeshDeleter>;
+
     class MeshBuilder : public AssetBuilder {
     public:
-        MeshBuilder() = default;
+        MeshBuilder();
         ~MeshBuilder() override = default;
 
     private:
@@ -27,6 +35,8 @@ namespace sky::builder {
         }
 
         std::vector<std::string> extensions = {".mesh"};
+
+        ClusterMeshBuilderPtr clusterBuilder;
     };
 
 } // namespace sky::builder

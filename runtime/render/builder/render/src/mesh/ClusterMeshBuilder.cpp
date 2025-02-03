@@ -23,42 +23,140 @@ namespace sky::builder {
     }
 
     static void BuildCluster(const uint32_t* indices, uint32_t indexCount, const float* vertexPos, size_t vertexCount, uint32_t stride,
-        MeshletData& outData)
+        MeshMeshletsData& outData)
     {
         size_t maxMeshlets = meshopt_buildMeshletsBound(indexCount, MAX_VERTICES, MAX_TRIANGLES);
 
-        SKY_ASSERT(sizeof(Meshlet) == sizeof(meshopt_Meshlet));
-        outData.meshlets.resize(maxMeshlets);
+        std::vector<meshopt_Meshlet> meshlets;
+        meshlets.resize(maxMeshlets);
         outData.meshletVertices.resize(maxMeshlets * MAX_VERTICES);
         outData.meshletTriangles.resize(maxMeshlets * MAX_TRIANGLES * 3);
 
         size_t meshletCount = meshopt_buildMeshlets(
-            reinterpret_cast<meshopt_Meshlet*>(outData.meshlets.data()),
+            meshlets.data(),
             outData.meshletVertices.data(),
             outData.meshletTriangles.data(),
             indices, indexCount,
             vertexPos, vertexCount, stride,
             MAX_VERTICES, MAX_TRIANGLES, CONE_WEIGHTS);
 
-//        meshopt_optimizeMeshlet(outData.meshletVertices.data(), outData.meshletTriangles.data(), MAX_TRIANGLES, MAX_VERTICES);
         outData.meshlets.resize(meshletCount);
-        outData.meshletBounds.reserve(meshletCount);
-        for (auto &meshlet : outData.meshlets) {
-            meshopt_Bounds bounds = meshopt_computeMeshletBounds(
-                &outData.meshletVertices[meshlet.vertexOffset], &outData.meshletTriangles[meshlet.triangleOffset],
-                meshlet.triangleCount, vertexPos, vertexCount, sizeof(stride));
-            outData.meshletBounds.emplace_back(FromOptBound(bounds));
+        for (uint32_t i = 0; i < meshletCount; ++i) {
+            const auto &meshlet = meshlets[i];
+            auto &dstMeshlet = outData.meshlets[i];
+
+            uint32_t *meshletVertices = &outData.meshletVertices[meshlet.vertex_offset];
+            uint8_t *meshletTriangles = &outData.meshletTriangles[meshlet.triangle_offset];
+
+            meshopt_optimizeMeshlet(meshletVertices, meshletTriangles,
+                meshlet.triangle_count, meshlet.vertex_count);
+
+            meshopt_Bounds bounds = meshopt_computeMeshletBounds(meshletVertices, meshletTriangles,
+                meshlet.vertex_count, vertexPos, vertexCount, stride);
+
+            dstMeshlet.vertexOffset   = meshlet.vertex_offset;
+            dstMeshlet.triangleOffset = meshlet.triangle_offset;
+            dstMeshlet.vertexCount    = meshlet.vertex_count;
+            dstMeshlet.triangleCount  = meshlet.triangle_count;
+            dstMeshlet.bounds = FromOptBound(bounds);
         }
     }
 
-    ClusterMeshBuilder::ClusterMeshBuilder()
+    static void MergeMeshletData(MeshAssetData &meshData, const std::vector<MeshMeshletsData>& meshletDatas, MeshMeshletsData &merged)
     {
-        int options[METIS_NOPTIONS];
-        METIS_SetDefaultOptions(options);
-        options[METIS_OPTION_SEED] = 42;
+        auto subMeshSize = meshData.subMeshes.size();
+
+        for (uint32_t i = 0; i < subMeshSize; ++i) {
+            auto &subMesh = meshData.subMeshes[i];
+            const auto &subMeshlets = meshletDatas[i];
+
+            subMesh.firstMeshlet = static_cast<uint32_t>(merged.meshlets.size());
+            subMesh.meshletCount = static_cast<uint32_t>(subMeshlets.meshlets.size());
+
+            auto meshletVerticesOffset = static_cast<uint32_t>(merged.meshletVertices.size());
+            auto meshletTriangleOffset = static_cast<uint32_t>(merged.meshletTriangles.size());
+
+            merged.meshlets.resize(subMesh.firstMeshlet + subMesh.meshletCount);
+            for (uint32_t j = 0; j < subMesh.meshletCount; ++j) {
+                const auto &src = subMeshlets.meshlets[j];
+                auto &dst = merged.meshlets[subMesh.firstMeshlet + j];
+                dst = src;
+                dst.vertexOffset += meshletVerticesOffset;
+                dst.triangleOffset += meshletTriangleOffset;
+            }
+
+            {
+                merged.meshletVertices.resize(meshletVerticesOffset + subMeshlets.meshletVertices.size());
+                const uint32_t *src = subMeshlets.meshletVertices.data();
+                uint32_t *dst = &merged.meshletVertices[meshletVerticesOffset];
+
+                memcpy(dst, src, subMeshlets.meshletVertices.size() * sizeof(uint32_t));
+            }
+
+            {
+                merged.meshletTriangles.resize(meshletTriangleOffset + subMeshlets.meshletTriangles.size());
+                const uint8_t *src = subMeshlets.meshletTriangles.data();
+                uint8_t *dst = &merged.meshletTriangles[meshletTriangleOffset];
+
+                memcpy(dst, src, subMeshlets.meshletTriangles.size() * sizeof(uint8_t));
+            }
+        }
     }
 
-    void ClusterMeshBuilder::BuildFromMeshData(const MeshAssetData &data)
+    static void FillMeshAssetData(MeshAssetData &meshData, const MeshMeshletsData &merged)
+    {
+        auto meshletsSize = static_cast<uint32_t>(merged.meshlets.size() * sizeof(Meshlet));
+        auto meshletVerticesSize = static_cast<uint32_t>(merged.meshletVertices.size() * sizeof(uint32_t));
+        auto meshletTrianglesSize = static_cast<uint32_t>(merged.meshletTriangles.size() * sizeof(uint8_t));
+
+        meshData.dataSize += (meshletsSize + meshletVerticesSize + meshletTrianglesSize);
+        auto baseOffset = static_cast<uint32_t>(meshData.rawData.storage.size());
+        meshData.rawData.storage.resize(meshData.dataSize);
+
+        // save meshlets
+        {
+            meshData.meshlets = static_cast<uint32_t>(meshData.buffers.size());
+            meshData.buffers.emplace_back(MeshBufferView{
+                baseOffset, meshletVerticesSize, sizeof(uint32_t), MeshBufferType::RAW_DATA
+            });
+            memcpy(meshData.rawData.storage.data() + baseOffset, reinterpret_cast<const char*>(merged.meshlets.data()), meshletsSize);
+
+            baseOffset += meshletsSize;
+        }
+
+        // save vertices
+        {
+            meshData.meshletVertices = static_cast<uint32_t>(meshData.buffers.size());
+            meshData.buffers.emplace_back(MeshBufferView{
+                baseOffset, meshletsSize, sizeof(uint32_t), MeshBufferType::RAW_DATA
+            });
+            memcpy(meshData.rawData.storage.data() + baseOffset, reinterpret_cast<const char*>(merged.meshletVertices.data()), meshletVerticesSize);
+
+            baseOffset += meshletVerticesSize;
+        }
+
+
+        // save triangles
+        {
+            meshData.meshletTriangles = static_cast<uint32_t>(meshData.buffers.size());
+            meshData.buffers.emplace_back(MeshBufferView{
+                baseOffset, meshletsSize, sizeof(uint8_t), MeshBufferType::RAW_DATA
+            });
+            memcpy(meshData.rawData.storage.data() + baseOffset, reinterpret_cast<const char*>(merged.meshletTriangles.data()), meshletTrianglesSize);
+
+            baseOffset += meshletTrianglesSize;
+        }
+
+    }
+
+    ClusterMeshBuilder::ClusterMeshBuilder() = default;
+//    {
+//        int options[METIS_NOPTIONS];
+//        METIS_SetDefaultOptions(options);
+//        options[METIS_OPTION_SEED] = 42;
+//    }
+
+    void ClusterMeshBuilder::BuildFromMeshData(MeshAssetData &data)
     {
         auto iter = std::find_if(data.attributes.begin(), data.attributes.end(),
             [](const VertexAttribute &val) -> bool {
@@ -78,14 +176,20 @@ namespace sky::builder {
         SKY_ASSERT(data.indexType == rhi::IndexType::U32);
         const auto *indices = reinterpret_cast<const uint32_t*>(data.rawData.storage.data() + idxView.offset);
 
-        for (const auto &subMesh : data.subMeshes) {
-            MeshletData meshletData = {};
+        std::vector<MeshMeshletsData> meshletDatas(data.subMeshes.size());
+        for (uint32_t i = 0; i < data.subMeshes.size(); ++i) {
+            const auto &subMesh = data.subMeshes[i];
+            auto &meshletData = meshletDatas[i];
 
-            const float* subPos = position + subMesh.firstVertex;
+            const float* subPos = position + subMesh.firstVertex * posView.stride;
             const uint32_t *subIdx = indices + subMesh.firstIndex;
-
             BuildCluster(subIdx, subMesh.indexCount, subPos, subMesh.vertexCount, posView.stride, meshletData);
         }
+
+        // merge meshlet data
+        MeshMeshletsData merged;
+        MergeMeshletData(data, meshletDatas, merged);
+        FillMeshAssetData(data, merged);
     }
 
 } // namespace sky::builder

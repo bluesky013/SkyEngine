@@ -19,6 +19,7 @@
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
+#include <render/resource/Meshlet.h>
 #include <animation/skeleton/Skeleton.h>
 
 namespace sky {
@@ -42,9 +43,13 @@ namespace sky {
         uint32_t vertexCount = 0;
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
+        uint32_t firstMeshlet = 0;
+        uint32_t meshletCount = 0;
         Uuid material;
         AABB aabb;
     };
+
+    static constexpr uint32_t INVALID_MESH_BUFFER_VIEW = ~(0U);
 
     struct MeshDataHeader {
         uint32_t version  = 0;
@@ -53,8 +58,11 @@ namespace sky {
         std::vector<SubMeshAssetData> subMeshes;
         std::vector<MeshBufferView>   buffers;
         std::vector<VertexAttribute>  attributes;
-        uint32_t       indexBuffer;
+        uint32_t       indexBuffer = INVALID_MESH_BUFFER_VIEW;
         rhi::IndexType indexType = rhi::IndexType::U32;
+        uint32_t meshlets = INVALID_MESH_BUFFER_VIEW;
+        uint32_t meshletVertices = INVALID_MESH_BUFFER_VIEW;
+        uint32_t meshletTriangles = INVALID_MESH_BUFFER_VIEW;
 
         uint32_t dataSize;
     };
