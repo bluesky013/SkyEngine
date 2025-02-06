@@ -12,7 +12,8 @@ static const char *TAG = "Vulkan";
 
 namespace sky::vk {
 
-    Shader::Shader(Device &dev) : DevObject(dev), shaderModule(VK_NULL_HANDLE), stage(VK_SHADER_STAGE_VERTEX_BIT), hash(0)
+    Shader::Shader(Device &dev)
+        : DevObject(dev), shaderModule(VK_NULL_HANDLE), vkStage(VK_SHADER_STAGE_VERTEX_BIT), hash(0)
     {
     }
 
@@ -29,7 +30,9 @@ namespace sky::vk {
         shaderInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         shaderInfo.codeSize                 = des.size;
         shaderInfo.pCode                    = reinterpret_cast<const uint32_t *>(des.data);
-        stage                               = static_cast<VkShaderStageFlagBits>(FromRHI(des.stage));
+
+        stage = des.stage;
+        vkStage = FromRHI(des.stage);
 
         auto rst = vkCreateShaderModule(device.GetNativeHandle(), &shaderInfo, VKL_ALLOC, &shaderModule);
         if (rst != VK_SUCCESS) {
@@ -47,7 +50,7 @@ namespace sky::vk {
 
     VkShaderStageFlagBits Shader::GetShaderStage() const
     {
-        return stage;
+        return vkStage;
     }
 
     uint32_t Shader::GetHash() const

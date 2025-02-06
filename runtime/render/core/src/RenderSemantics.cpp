@@ -20,6 +20,10 @@ namespace sky {
         RegisterVertexSemantic("INST1",    VertexSemanticFlagBit::INST1);
         RegisterVertexSemantic("INST2",    VertexSemanticFlagBit::INST2);
         RegisterVertexSemantic("INST3",    VertexSemanticFlagBit::INST3);
+        RegisterVertexSemantic("CUSTOM0",  VertexSemanticFlagBit::CUSTOM0);
+        RegisterVertexSemantic("CUSTOM1",  VertexSemanticFlagBit::CUSTOM1);
+        RegisterVertexSemantic("CUSTOM2",  VertexSemanticFlagBit::CUSTOM2);
+        RegisterVertexSemantic("CUSTOM3",  VertexSemanticFlagBit::CUSTOM3);
     }
 
     void RenderSemantics::RegisterVertexSemantic(const std::string &name, VertexSemanticFlagBit flag)

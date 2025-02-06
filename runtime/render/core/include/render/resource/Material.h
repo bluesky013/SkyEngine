@@ -159,7 +159,7 @@ namespace sky {
         inline uint16_t GetValueVersion() const { return valueVersion; }
         inline uint16_t GetBatchVersion() const { return batchVersion; }
 
-        void Upload();
+        void UploadTextures();
         bool IsReady() const;
     private:
         RDMaterialPtr material;
@@ -168,7 +168,7 @@ namespace sky {
 
         uint16_t valueVersion = 0;
         uint16_t batchVersion = 0;
-        uint16_t uploadVersion = 0;
+        uint16_t uploadVersion = -1;
     };
 
     using RDMaterialInstancePtr = CounterPtr<MaterialInstance>;

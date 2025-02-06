@@ -36,6 +36,8 @@ namespace sky {
             case rhi::ShaderStageFlagBit::VS: return EShLangVertex;
             case rhi::ShaderStageFlagBit::FS: return EShLangFragment;
             case rhi::ShaderStageFlagBit::CS: return EShLangCompute;
+            case rhi::ShaderStageFlagBit::TAS: return EShLangTask;
+            case rhi::ShaderStageFlagBit::MS: return EShLangMesh;
             default:
                 break;
         }
@@ -68,30 +70,44 @@ namespace sky {
         return text;
     }
 
+    bool ShaderCompilerGlsl::CheckOption(const ShaderCompileOption &op) const
+    {
+        return op.target == ShaderCompileTarget::SPIRV && !op.useMeshShader;
+    }
+
     bool ShaderCompilerGlsl::CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result)
     {
         const auto *ptr = desc.source.c_str();
         std::string finalSource;
 
         auto language = GetLanguage(desc.stage);
+
+        std::map<std::string, uint8_t> preDefined;
+
+        std::stringstream ss;
         if (op.option) {
-            std::stringstream ss;
             for (auto &val: op.option->values) {
                 ss << "#define " << val.first << " " << static_cast<uint32_t>(val.second) << "\n";
             }
-            finalSource = ss.str() + desc.source;
-            ptr = finalSource.c_str();
+
+            for (auto &val : preDefined) {
+                ss << "#define " << val.first << " " << static_cast<uint32_t>(val.second) << "\n";
+            }
         }
+
+        finalSource = ss.str() + desc.source;
+        ptr = finalSource.c_str();
 
         glslang::TProgram program;
         glslang::TShader shader(language);
         shader.setStrings(&ptr, 1);
-        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
-        shader.setEnvInput(glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 130);
+        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
+        shader.setEnvInput(glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 100);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
         shader.setEntryPoint(desc.entry.c_str());
         if (!shader.parse(GetDefaultResources(), 450, false, EShMessages(EShMsgAST | EShMsgReadHlsl))) {
-            LOG_E(TAG, "shader parse failed: %s\n", shader.getInfoLog());
+            const auto *log = shader.getInfoLog();
+            LOG_E(TAG, "shader parse failed: %s\n", log);
             return false;
         }
 
@@ -122,9 +138,12 @@ namespace sky {
         }
 
         glslang::SpvOptions spvOptions = {};
-//        spvOptions.stripDebugInfo = false;
-//        spvOptions.disableOptimizer = false;
-//        spvOptions.optimizeSize = false;
+#if _DEBUG
+#else
+        spvOptions.stripDebugInfo = false;
+        spvOptions.disableOptimizer = false;
+        spvOptions.optimizeSize = false;
+#endif
         glslang::GlslangToSpv(*program.getIntermediate(shader.getStage()), result.data, &spvOptions);
 
         BuildReflectionSPIRV(desc.stage, result);

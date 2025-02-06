@@ -24,9 +24,11 @@ namespace sky {
     void StaticMeshComponent::Reflect(SerializationContext *context)
     {
         context->Register<StaticMeshComponent>("StaticMeshComponent")
-            .Member<&StaticMeshComponent::isStatic>("static")
-            .Member<&StaticMeshComponent::SetMeshUuid, &StaticMeshComponent::GetMeshUuid>("mesh")
-                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE));
+            .Member<&StaticMeshComponent::SetMeshUuid, &StaticMeshComponent::GetMeshUuid>("Mesh")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
+            .Member<&StaticMeshComponent::SetEnableMeshShading, &StaticMeshComponent::GetEnableMeshShading>("MeshShading")
+            .Member<&StaticMeshComponent::SetEnableMeshletDebug, &StaticMeshComponent::GetEnableMeshletDebug>("DebugMeshlet")
+            .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone");
     }
 
     void StaticMeshComponent::SaveJson(JsonOutputArchive &ar) const
@@ -35,6 +37,7 @@ namespace sky {
         ar.SaveValueObject(std::string("static"), isStatic);
         ar.SaveValueObject(std::string("castShadow"), castShadow);
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
+        ar.SaveValueObject(std::string("meshShading"), enableMeshShading);
         ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
         ar.EndObject();
     }
@@ -44,9 +47,42 @@ namespace sky {
         ar.LoadKeyValue("static", isStatic);
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
+        ar.LoadKeyValue("meshShading", enableMeshShading);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
         SetMeshUuid(uuid);
+    }
+
+    void StaticMeshComponent::SetEnableMeshShading(bool enable)
+    {
+        enableMeshShading = enable;
+        dirty.store(true);
+    }
+
+    void StaticMeshComponent::SetEnableMeshletDebug(bool enable)
+    {
+        if (enable) {
+            debugFlags.SetBit(MeshDebugFlagBit::MESHLET);
+        } else {
+            debugFlags.ResetBit(MeshDebugFlagBit::MESHLET);
+        }
+
+        if (renderer != nullptr) {
+            renderer->SetDebugFlags(debugFlags);
+        }
+    }
+
+    void StaticMeshComponent::SetEnableMeshletConeDebug(bool enable)
+    {
+        if (enable) {
+            debugFlags.SetBit(MeshDebugFlagBit::MESHLET_CONE);
+        } else {
+            debugFlags.ResetBit(MeshDebugFlagBit::MESHLET_CONE);
+        }
+
+        if (renderer != nullptr) {
+            renderer->SetDebugFlags(debugFlags);
+        }
     }
 
     void StaticMeshComponent::SetMeshUuid(const Uuid &uuid)
@@ -61,7 +97,7 @@ namespace sky {
         } else {
             binder.Reset();
         }
-        dirty.store(false);
+        dirty.store(true);
 
         meshAsset = uuid ? AssetManager::Get()->LoadAsset<Mesh>(uuid) : MeshAssetPtr {};
         if (meshAsset && meshAsset->IsLoaded() && !dirty.load()) {
@@ -80,18 +116,12 @@ namespace sky {
 
         auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
 
-        if (!meshInstance) {
-            if (renderer != nullptr) {
-                mf->RemoveStaticMesh(renderer);
-            }
-            renderer = nullptr;
-            return;
+        if (renderer != nullptr) {
+            mf->RemoveStaticMesh(renderer);
         }
 
-        if (renderer == nullptr) {
-            renderer = mf->CreateStaticMesh();
-        }
-        renderer->SetMesh(meshInstance);
+        renderer = mf->CreateStaticMesh();
+        renderer->SetMesh(meshInstance, enableMeshShading);
     }
 
     void StaticMeshComponent::ShutDown()

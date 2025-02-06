@@ -29,7 +29,7 @@ namespace sky::ai {
     }
 
     struct NaviPrimitive : public RenderPrimitive {
-        void UpdateBatch() override {}
+
     };
 
     RecastNaviMesh::RecastNaviMesh()

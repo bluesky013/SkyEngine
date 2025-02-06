@@ -16,7 +16,7 @@ namespace sky {
     void GeometryFeature::Init(const RDGfxTechPtr &tech)
     {
         technique = tech;
-        localLayout = technique->RequestProgram()->RequestLayout(INSTANCE_SET);
+        localLayout = technique->RequestProgram({})->RequestLayout(INSTANCE_SET);
 
         auto *device = RHI::Get()->GetDevice();
         {

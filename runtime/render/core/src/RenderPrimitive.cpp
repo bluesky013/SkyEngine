@@ -12,15 +12,15 @@ namespace sky {
     {
         for (auto &batch : batches) {
             batch.technique->ForEachOption([this, &batch](const Name& name) {
-                auto *val = material->GetValue<uint32_t>(name);
+                const auto *val = material->GetValue<uint32_t>(name);
                 if (val != nullptr) {
-                    batch.technique->SetOption(name, static_cast<uint8_t>(*val), batch.batchKey);
+                    batch.SetOption(name, static_cast<uint8_t>(*val));
                 }
             });
         }
 
         if (material) {
-            material->Upload();
+            material->UploadTextures();
         }
     }
 
@@ -51,6 +51,8 @@ namespace sky {
                 batch.batchGroup = new ResourceGroup();
                 batch.batchGroup->Init(layout, *Renderer::Get()->GetMaterialManager()->GetPool());
                 batch.batchLayoutHash = layout->GetRHILayout()->GetHash();
+
+                needUpdateBatch = true;
             } else {
                 layout = batch.batchGroup->GetLayout();
             }
@@ -69,7 +71,7 @@ namespace sky {
                 }
 
                 auto *ptr = buffer->GetAddress();
-                for (auto &[name, handle] : bufferHandles) {
+                for (const auto &[name, handle] : bufferHandles) {
                     uint8_t *dst = ptr + handle.offset;
                     material->GetValueRaw(name, dst, handle.size);
                 }

@@ -78,6 +78,7 @@ namespace sky::vk {
         rhi::GraphicsEncoder &DrawLinear(const rhi::CmdDrawLinear &linear) override;
         rhi::GraphicsEncoder &DrawIndexedIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride) override;
         rhi::GraphicsEncoder &DrawIndirect(const rhi::BufferPtr &buffer, uint32_t offset, uint32_t count, uint32_t stride) override;
+        rhi::GraphicsEncoder &DispatchMesh(const rhi::CmdDispatchMesh &dispatch) override;
         rhi::GraphicsEncoder &BindSet(uint32_t id, const rhi::DescriptorSetPtr &set) override;
         rhi::GraphicsEncoder &SetOffset(uint32_t set, uint32_t binding, uint32_t index, uint32_t offset) override;
         rhi::GraphicsEncoder &NextSubPass() override;

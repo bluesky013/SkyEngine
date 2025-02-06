@@ -9,6 +9,8 @@
 // instance
 extern PFN_vkCreateRenderPass2 CreateRenderPass2;
 extern PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentShadingRates;
+extern PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTaskExt;
+
 
 // device
 extern PFN_vkCmdBlitImage2KHR CmdBlitImage2;

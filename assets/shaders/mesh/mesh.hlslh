@@ -1,0 +1,37 @@
+#define MAX_VERTICES 64
+#define MAX_PRIMS 124
+#define MAX_LOD_LEVELS 8
+
+#define MESH_GROUP_SIZE 32
+
+struct Meshlet
+{
+    uint vertexOffset;
+    uint triangleOffset;
+    uint vertexCount;
+    uint triangleCount;
+
+    float4 center; // 0-2: center 3: radius
+    float4 coneApex;
+    float4 coneAxis; // 0-2: axis 3: cutoff
+};
+
+struct ExtVertex
+{
+    float4 uv;
+    float4 normal;
+    float4 tangent;
+    float4 color;
+};
+
+struct CullData
+{
+    float4 boundingSphere;
+    uint   normalCone;
+    float  apexOffset;
+};
+
+struct Payload
+{
+    uint MeshletIndices[MESH_GROUP_SIZE];
+};

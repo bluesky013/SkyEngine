@@ -3,6 +3,8 @@
     "shader": {
         "path": "standard_pbr.hlsl",
         "vertex": "VSMain",
+        "task": "TASMain",
+        "mesh": "MSMain",
         "fragment": "FSMain"
     },
     "pass": {
@@ -17,6 +19,7 @@
     },
     "vertex_options": {
         "SKIN": "ENABLE_SKIN",
-        "INSTANCE": "ENABLE_INSTANCE"
+        "INSTANCE": "ENABLE_INSTANCE",
+        "MESH_SHADER": "MESH_SHADER"
     }
 }

@@ -25,6 +25,7 @@ namespace sky::vk {
     VkSamplerMipmapMode FromRHI(rhi::MipFilter);
     VkSamplerAddressMode FromRHI(rhi::WrapMode mode);
     VkShaderStageFlags FromRHI(const rhi::ShaderStageFlags&);
+    VkShaderStageFlagBits FromRHI(const rhi::ShaderStageFlagBit&);
     VkPipelineStageFlags FromRHI(const rhi::PipelineStageFlags&);
     VkPipelineStageFlagBits FromRHI(const rhi::PipelineStageBit&);
     VkAccessFlags FromRHI(rhi::AccessFlags);

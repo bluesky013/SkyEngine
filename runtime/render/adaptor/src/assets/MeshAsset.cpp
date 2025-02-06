@@ -232,6 +232,8 @@ namespace sky {
                 sub.vertexCount,
                 sub.firstIndex,
                 sub.indexCount,
+                sub.firstMeshlet,
+                sub.meshletCount,
                 mat,
                 sub.aabb
             });
@@ -252,7 +254,7 @@ namespace sky {
             meshData.vertexStreams.emplace_back(VertexBufferSource{request, buffer.stride});
         }
 
-        if (data.indexType != rhi::IndexType::NONE) {
+        if (data.indexBuffer != INVALID_MESH_BUFFER_VIEW) {
             SKY_ASSERT(data.indexBuffer < data.buffers.size());
             rhi::BufferUploadRequest &request = meshData.indexStream;
             const auto &buffer = data.buffers[data.indexBuffer];
@@ -260,6 +262,34 @@ namespace sky {
             request.offset = buffer.offset;
             request.size   = buffer.size;
         }
+
+        if (data.meshlets != INVALID_MESH_BUFFER_VIEW) {
+            SKY_ASSERT(data.meshlets < data.buffers.size());
+            rhi::BufferUploadRequest &request = meshData.meshlets;
+            const auto &buffer = data.buffers[data.meshlets];
+            request.source = fileStream;
+            request.offset = buffer.offset;
+            request.size   = buffer.size;
+        }
+
+        if (data.meshletVertices != INVALID_MESH_BUFFER_VIEW) {
+            SKY_ASSERT(data.meshletVertices < data.buffers.size());
+            rhi::BufferUploadRequest &request = meshData.meshletVertices;
+            const auto &buffer = data.buffers[data.meshletVertices];
+            request.source = fileStream;
+            request.offset = buffer.offset;
+            request.size   = buffer.size;
+        }
+
+        if (data.meshletTriangles != INVALID_MESH_BUFFER_VIEW) {
+            SKY_ASSERT(data.meshletTriangles < data.buffers.size());
+            rhi::BufferUploadRequest &request = meshData.meshletTriangles;
+            const auto &buffer = data.buffers[data.meshletTriangles];
+            request.source = fileStream;
+            request.offset = buffer.offset;
+            request.size   = buffer.size;
+        }
+
         mesh->SetUploadStream(std::move(meshData));
         return mesh;
     }

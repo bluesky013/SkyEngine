@@ -31,12 +31,19 @@ namespace sky::rhi {
         uint32_t firstInstance = 0;
     };
 
-    enum CmdDrawType : uint8_t { LINEAR, INDEXED };
+    struct CmdDispatchMesh {
+        uint32_t x = 1;
+        uint32_t y = 1;
+        uint32_t z = 1;
+    };
+
+    enum CmdDrawType : uint8_t { LINEAR, INDEXED, MESH_DISPATCH };
 
     struct CmdDraw {
         union {
-            CmdDrawIndexed indexed;
-            CmdDrawLinear  linear;
+            CmdDrawIndexed  indexed;
+            CmdDrawLinear   linear;
+            CmdDispatchMesh dispatchMesh;
         };
         CmdDrawType type;
     };
@@ -54,6 +61,14 @@ namespace sky::rhi {
         CmdDraw draw = {};
         draw.indexed = value;
         draw.type    = CmdDrawType::LINEAR;
+        return draw;
+    }
+
+    inline CmdDraw MakeCmdDraw(const CmdDispatchMesh &mesh)
+    {
+        CmdDraw draw = {};
+        draw.dispatchMesh = mesh;
+        draw.type         = CmdDrawType::MESH_DISPATCH;
         return draw;
     }
 

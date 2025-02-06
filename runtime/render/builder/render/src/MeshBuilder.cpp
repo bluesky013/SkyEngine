@@ -40,7 +40,6 @@ namespace sky::builder {
 
         data.rawData.storage.resize(data.dataSize);
         bin.LoadValue(reinterpret_cast<char*>(data.rawData.storage.data()), data.dataSize);
-
         ClusterMeshBuilder::BuildFromMeshData(data);
 
         AssetManager::Get()->SaveAsset(asset, request.target);

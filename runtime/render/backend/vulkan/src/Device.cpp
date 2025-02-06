@@ -24,6 +24,13 @@ static const char *TAG = "Vulkan";
 const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 namespace sky::vk {
+    void Device::FeatureQuery(rhi::MeshShaderProperties& properties) const
+    {
+        properties.maxTaskPayloadSize = meshShaderProps.maxTaskPayloadSize;
+        properties.maxMeshOutputVertices = meshShaderProps.maxMeshOutputVertices;
+        properties.maxMeshOutputPrimitives = meshShaderProps.maxMeshOutputPrimitives;
+    }
+
     int32_t Device::FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const
     {
         const auto &properties = memoryProperties.memoryProperties;
@@ -37,7 +44,6 @@ namespace sky::vk {
         }
         return -1;
     }
-
 
     Device::Device(Instance &inst) : instance(inst), phyDev(VK_NULL_HANDLE), device(VK_NULL_HANDLE), allocator(VK_NULL_HANDLE)
     {
@@ -109,7 +115,8 @@ namespace sky::vk {
         enabledFeature.descriptorIndexing = (CheckFeature(feature.descriptorIndexing,
             phyIndexingFeatures.runtimeDescriptorArray,
             phyIndexingFeatures.descriptorBindingVariableDescriptorCount,
-            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing) != 0u) && CheckExtension(supportedExtensions, "VK_EXT_descriptor_indexing");
+            phyIndexingFeatures.shaderSampledImageArrayNonUniformIndexing) != 0u) &&
+                CheckExtension(supportedExtensions, "VK_EXT_descriptor_indexing");
         enabledPhyIndexingFeatures.sType                                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         enabledPhyIndexingFeatures.runtimeDescriptorArray                    = static_cast<VkBool32>(enabledFeature.descriptorIndexing);
         enabledPhyIndexingFeatures.descriptorBindingVariableDescriptorCount  = static_cast<VkBool32>(enabledFeature.descriptorIndexing);
@@ -138,6 +145,16 @@ namespace sky::vk {
         enabledShadingRateFeatures.pNext = &enabledMvrFeature;
         if (enabledFeature.multiView) {
             outExtensions.emplace_back("VK_KHR_multiview");
+        }
+
+        enabledFeature.meshShader = (CheckFeature(feature.meshShader, meshShaderFeatures.meshShader, meshShaderFeatures.taskShader) != 0U) &&
+            CheckExtension(supportedExtensions, "VK_EXT_mesh_shader");
+        enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+        enabledMeshShaderFeatures.taskShader = static_cast<VkBool32>(enabledFeature.meshShader);
+        enabledMeshShaderFeatures.meshShader = static_cast<VkBool32>(enabledFeature.meshShader);
+        enabledMvrFeature.pNext = &enabledMeshShaderFeatures;
+        if (enabledFeature.meshShader) {
+            outExtensions.emplace_back("VK_EXT_mesh_shader");
         }
 
         enabledFeature.depthStencilResolve = CheckExtension(supportedExtensions, "VK_KHR_depth_stencil_resolve");
@@ -179,13 +196,20 @@ namespace sky::vk {
         shadingRateFeatures.pNext = &mvrFeature;
 
         mvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
+        mvrFeature.pNext = &meshShaderFeatures;
+
+        meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         phyProps.pNext = &shadingRateProps;
-        shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
 
+        shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
         shadingRateProps.pNext = &dsResolveProps;
+
         dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
+        dsResolveProps.pNext = &meshShaderProps;
+
+        meshShaderProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)

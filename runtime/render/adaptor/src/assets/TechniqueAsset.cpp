@@ -10,8 +10,9 @@ namespace sky {
     {
         archive.LoadValue(version);
         archive.LoadValue(shader.shader);
-        archive.LoadValue(shader.objectOrCSMain);
-        archive.LoadValue(shader.vertOrMeshMain);
+        archive.LoadValue(shader.taskOrCSMain);
+        archive.LoadValue(shader.vertexMain);
+        archive.LoadValue(shader.meshMain);
         archive.LoadValue(shader.fragmentMain);
 
         archive.LoadValue(passTag);
@@ -53,8 +54,9 @@ namespace sky {
     {
         archive.SaveValue(version);
         archive.SaveValue(shader.shader);
-        archive.SaveValue(shader.objectOrCSMain);
-        archive.SaveValue(shader.vertOrMeshMain);
+        archive.SaveValue(shader.taskOrCSMain);
+        archive.SaveValue(shader.vertexMain);
+        archive.SaveValue(shader.meshMain);
         archive.SaveValue(shader.fragmentMain);
         archive.SaveValue(passTag);
         archive.SaveValue(type);
@@ -93,7 +95,7 @@ namespace sky {
         if (data.type == TechAssetType::GRAPHIC) {
             auto *tech = new GraphicsTechnique();
 
-            tech->SetShader({Name(data.shader.shader.c_str()), data.shader.objectOrCSMain, data.shader.vertOrMeshMain, data.shader.fragmentMain});
+            tech->SetShader({Name(data.shader.shader.c_str()), data.shader.taskOrCSMain, data.shader.vertexMain, data.shader.meshMain, data.shader.fragmentMain});
             tech->SetDepthStencil(data.depthStencil);
             tech->SetBlendState(data.blendStates);
             tech->SetRasterState(data.rasterState);

@@ -16,7 +16,6 @@ namespace sky {
     static constexpr uint32_t DEFAULT_VERTEX_CAPACITY = 32;
 
     struct GeometryPrimitive : public RenderPrimitive {
-        void UpdateBatch() override {}
     };
 
     void GeometryRenderer::Init()
@@ -29,7 +28,7 @@ namespace sky {
         primitive = std::make_unique<GeometryPrimitive>();
         primitive->batches.resize(1);
         primitive->instanceSet = geomFeature->RequestResourceGroup();
-        primitive->instanceSet->BindDynamicUBO(Name("localData"), ubo, 0);
+        primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
         primitive->instanceSet->Update();
 
         ResetPrimitive(geomFeature->GetDefaultTech());

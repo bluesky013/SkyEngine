@@ -14,12 +14,17 @@
 namespace sky {
 
     std::list<std::unique_ptr<ShaderCompilerBase>> g_Compilers;
-    std::unordered_map<ShaderCompileTarget, ShaderCompilerBase*> g_CompilerMap;
+    std::unordered_map<ShaderCompileTarget, std::vector<ShaderCompilerBase*>> g_CompilerMap;
 
-    static ShaderCompilerBase *GetCompiler(ShaderCompileTarget target)
+    static ShaderCompilerBase *GetCompiler(const ShaderCompileOption& op)
     {
-        auto iter = g_CompilerMap.find(target);
-        return iter != g_CompilerMap.end() ? iter->second : nullptr;
+        const auto &list = g_CompilerMap[op.target];
+        for (auto *compiler : list) {
+            if (compiler->CheckOption(op)) {
+                return compiler;
+            }
+        }
+        return nullptr;
     }
 
     static ShaderCompileTarget GetApiByString(const std::string &rhi)
@@ -81,12 +86,12 @@ namespace sky {
 
 #ifdef SKY_EDITOR
             FilePath enginePath;
-            if (result.count("engine")) {
+            if (result.count("engine") != 0u) {
                 enginePath = FilePath(result["engine"].as<std::string>());
             }
 
             FilePath projectPath;
-            if (result.count("project")) {
+            if (result.count("project") != 0u) {
                 projectPath = FilePath(result["project"].as<std::string>());
             }
 
@@ -97,8 +102,8 @@ namespace sky {
                 intermediatePath = projectPath / FilePath("Intermediate/shaders");
             }
 
-            auto shaderCacheFs = new NativeFileSystem(projectPath / FilePath("products/shaders"));
-            auto shaderIntermediateFs = new NativeFileSystem(intermediatePath);
+            auto *shaderCacheFs = new NativeFileSystem(projectPath / FilePath("products/shaders"));
+            auto *shaderIntermediateFs = new NativeFileSystem(intermediatePath);
             ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
             ShaderFileSystem::Get()->SetIntermediateFS(shaderIntermediateFs);
             ShaderFileSystem::Get()->AddSearchPath(enginePath / FilePath("assets/shaders"));
@@ -125,24 +130,22 @@ namespace sky {
         auto *dxc = new ShaderCompilerDXC();
         if (dxc->Init()) {
             g_Compilers.emplace_back(dxc);
-            g_CompilerMap.emplace(ShaderCompileTarget::DXIL, dxc);
-//            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, dxc);
+            g_CompilerMap[ShaderCompileTarget::SPIRV].emplace_back(dxc);
+            g_CompilerMap[ShaderCompileTarget::DXIL].emplace_back(dxc);
         }
 #endif
         auto *glsl = new ShaderCompilerGlsl();
         if (glsl->Init()) {
             g_Compilers.emplace_back(glsl);
-            g_CompilerMap.emplace(ShaderCompileTarget::MSL, glsl);
-            g_CompilerMap.emplace(ShaderCompileTarget::SPIRV, glsl);
+            g_CompilerMap[ShaderCompileTarget::MSL].emplace_back(glsl);
+            g_CompilerMap[ShaderCompileTarget::SPIRV].emplace_back(glsl);
         }
-
-
     }
 
     void ShaderModule::RefreshShaders()
     {
         const auto &paths = ShaderFileSystem::Get()->GetSearchPaths();
-        for (auto &path : paths) {
+        for (const auto &path : paths) {
             auto result = NativeFileSystem::FilterFiles(path, ".hlsl");
 
             for (auto &file : result) {
@@ -156,7 +159,7 @@ namespace sky {
     extern "C" SKY_EXPORT bool
     CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result)
     {
-        auto *compiler = GetCompiler(op.target);
+        auto *compiler = GetCompiler(op);
         if (compiler == nullptr) {
             return false;
         }
@@ -164,9 +167,9 @@ namespace sky {
     }
 
     extern "C" SKY_EXPORT ShaderCompilerBase*
-    GetBinaryCompiler(ShaderCompileTarget target)
+    GetBinaryCompiler(const ShaderCompileOption &opt)
     {
-        return GetCompiler(target);
+        return GetCompiler(opt);
     }
 
 } // namespace sky

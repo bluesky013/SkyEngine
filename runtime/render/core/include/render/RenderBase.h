@@ -26,16 +26,22 @@ namespace sky {
         INST1     = 0x100,
         INST2     = 0x200,
         INST3     = 0x400,
+        CUSTOM0   = 0x10000,
+        CUSTOM1   = 0x20000,
+        CUSTOM2   = 0x40000,
+        CUSTOM3   = 0x80000,
 
         HAS_SKIN = JOINT | WEIGHT,
+        STANDARD_ATTR = POSITION | UV | NORMAL | TANGENT | COLOR
     };
     using VertexSemanticFlags = Flags<VertexSemanticFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(VertexSemanticFlagBit)
 
     enum class RenderVertexFlagBit : uint32_t {
-        NONE     = 0x00,
-        SKIN     = 0x01,
-        INSTANCE = 0x02,
+        NONE         = 0x00,
+        SKIN         = 0x01,
+        INSTANCE     = 0x02,
+        MESH_SHADER  = 0x04,
     };
     using RenderVertexFlags = Flags<RenderVertexFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(RenderVertexFlagBit)

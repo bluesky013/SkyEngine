@@ -151,17 +151,36 @@ namespace sky {
         if (indexBuffer.buffer) {
             sm->UploadBuffer(indexBuffer.buffer);
         }
+
+        if (cluster) {
+            sm->UploadBuffer(cluster->meshletTriangles);
+            sm->UploadBuffer(cluster->meshletVertices);
+            sm->UploadBuffer(cluster->meshlets);
+        }
+
         uploaded = true;
     }
 
     bool RenderGeometry::IsReady() const
     {
+        if (!uploaded) {
+            return false;
+        }
+
         for (const auto &vb : vertexBuffers) {
             if (!vb.buffer->IsReady()) {
                 return false;
             }
         }
+
+        if (cluster) {
+            if (!cluster->meshletVertices->IsReady() ||
+                !cluster->meshletTriangles->IsReady() ||
+                !cluster->meshlets->IsReady()) {
+                return false;
+            }
+        }
+
         return !indexBuffer.buffer || indexBuffer.buffer->IsReady();
     }
-
 } // namespace sky

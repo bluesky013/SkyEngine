@@ -55,21 +55,22 @@ namespace sky {
             rhi::ClearValue(1.f, 0)
         };
 
+        auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
         computeResources.emplace_back(ComputeResource{
             Name("FWD_PassInfo"),
-            rdg::ComputeView{Name("passInfo"), rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("passInfo"), rdg::ComputeType::CBV, stageFlags}
         });
 
         computeResources.emplace_back(ComputeResource{
             Name("SCENE_VIEW"),
-            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, stageFlags}
         });
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         desc.bindings.emplace_back(
-                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "passInfo");
+                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, stageFlags, "passInfo");
         desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{
-                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
+                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, stageFlags, "viewInfo"});
 //        desc.bindings.emplace_back(
 //                rhi::DescriptorType::SAMPLED_IMAGE, 1, 2, rhi::ShaderStageFlagBit::FS, "ShadowMap");
 //        desc.bindings.emplace_back(

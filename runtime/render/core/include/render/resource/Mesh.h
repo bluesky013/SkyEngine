@@ -19,6 +19,8 @@ namespace sky {
         uint32_t vertexCount = 0;
         uint32_t firstIndex  = 0;
         uint32_t indexCount  = 0;
+        uint32_t firstMeshlet = 0;
+        uint32_t meshletCount = 0;
         RDMaterialInstancePtr material;
         AABB aabb;
     };
@@ -31,6 +33,9 @@ namespace sky {
     struct MeshData {
         std::vector<VertexBufferSource> vertexStreams;
         rhi::BufferUploadRequest        indexStream;
+        rhi::BufferUploadRequest        meshlets;
+        rhi::BufferUploadRequest        meshletVertices;
+        rhi::BufferUploadRequest        meshletTriangles;
     };
 
     class Mesh : public RenderResource {
@@ -52,12 +57,15 @@ namespace sky {
         // type
         virtual bool HasSkin() const { return false; }
 
-        void Upload();
-        bool IsReady() const;
+        bool ClusterValid() const { return clusterValid; }
     private:
         // desc
         std::vector<SubMesh> subMeshes;
         RenderGeometryPtr    geometry;
+
+        MeshData meshData;
+
+        bool clusterValid = false;
     };
 
     using RDMeshPtr = CounterPtr<Mesh>;

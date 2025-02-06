@@ -77,11 +77,21 @@ namespace sky {
 
     void RenderScene::AddPrimitive(RenderPrimitive *primitive)
     {
+        if (primitive == nullptr) {
+            return;
+        }
+
+        auto iter = std::find(primitives.begin(), primitives.end(), primitive);
+        SKY_ASSERT(iter == primitives.end());
         primitives.emplace_back(primitive);
     }
 
     void RenderScene::RemovePrimitive(RenderPrimitive *primitive)
     {
+        if (primitive == nullptr) {
+            return;
+        }
+
         primitives.erase(std::remove_if(primitives.begin(), primitives.end(), [primitive](const auto &v) {
             return primitive == v;
         }), primitives.end());

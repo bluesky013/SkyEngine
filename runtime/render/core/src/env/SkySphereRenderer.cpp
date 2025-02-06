@@ -126,7 +126,7 @@ namespace sky {
         });
 
         resourceGroup = new ResourceGroup();
-        resourceGroup->Init(technique->RequestProgram()->RequestLayout(BATCH_SET), *pool);
+        resourceGroup->Init(technique->RequestProgram({})->RequestLayout(BATCH_SET), *pool);
 
 //        primitive->batchSet = resourceGroup;
     }

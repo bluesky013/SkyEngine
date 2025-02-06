@@ -39,28 +39,33 @@ namespace sky::builder {
     std::unordered_map<std::string_view, RenderVertexFlagBit> VTX_FLAG_MAP = {
         {"SKIN",     RenderVertexFlagBit::SKIN},
         {"INSTANCE", RenderVertexFlagBit::INSTANCE},
+        {"MESH_SHADER", RenderVertexFlagBit::MESH_SHADER},
     };
 
     static void ProcessShader(rapidjson::Document &document, ShaderRefData &shaderRef, TechAssetType type)
     {
         auto &val = document["shader"];
 
-        if (type == TechAssetType::MESH) {
-            if (val.HasMember("object")) {
-                shaderRef.objectOrCSMain = val["object"].GetString();
+        if (type == TechAssetType::GRAPHIC) {
+            if (val.HasMember("vertex")) {
+                shaderRef.vertexMain = val["vertex"].GetString();
+            }
+
+            if (val.HasMember("task")) {
+                shaderRef.taskOrCSMain = val["task"].GetString();
             }
 
             if (val.HasMember("mesh")) {
-                shaderRef.vertOrMeshMain = val["mesh"].GetString();
+                shaderRef.meshMain = val["mesh"].GetString();
             }
-        } else {
-            if (val.HasMember("vertex")) {
-                shaderRef.vertOrMeshMain = val["vertex"].GetString();
-            }
-        }
 
-        if (val.HasMember("fragment")) {
-            shaderRef.fragmentMain = val["fragment"].GetString();
+            if (val.HasMember("fragment")) {
+                shaderRef.fragmentMain = val["fragment"].GetString();
+            }
+        } else { // Compute
+            if (val.HasMember("compute")) {
+                shaderRef.taskOrCSMain = val["compute"].GetString();
+            }
         }
 
         if (val.HasMember("path")) {

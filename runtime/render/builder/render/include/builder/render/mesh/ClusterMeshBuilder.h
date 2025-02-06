@@ -11,9 +11,9 @@
 namespace sky::builder {
 
     struct MeshMeshletsData {
-        std::vector<Meshlet>  meshlets;
-        std::vector<uint32_t> meshletVertices;
-        std::vector<uint8_t>  meshletTriangles;
+        std::vector<Meshlet>   meshlets;
+        std::vector<uint32_t>  meshletVertices;
+        std::vector<uint32_t>  meshletTriangles;
     };
 
     class ClusterMeshBuilder {

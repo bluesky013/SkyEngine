@@ -10,7 +10,7 @@
 namespace sky::editor {
 
     struct TerrainPrimitive : public RenderPrimitive {
-        void UpdateBatch() override {}
+
     };
 
     TerrainHelper::TerrainHelper()

@@ -94,6 +94,16 @@ namespace sky {
             return operator&(val) == val;
         }
 
+        constexpr void SetBit(T val) noexcept
+        {
+            value |= static_cast<ValueType>(val);
+        }
+
+        constexpr void ResetBit(T val) noexcept
+        {
+            value &= ~static_cast<ValueType>(val);
+        }
+
         constexpr operator bool() const noexcept
         {
             return value != 0;

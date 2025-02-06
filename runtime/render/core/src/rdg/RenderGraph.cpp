@@ -407,7 +407,7 @@ namespace sky::rdg {
     FullScreenBuilder &FullScreenBuilder::SetTechnique(const RDGfxTechPtr &tech)
     {
         fullscreen.technique = tech;
-        fullscreen.program   = tech->RequestProgram();
+        fullscreen.program   = tech->RequestProgram({});
         return *this;
     }
 } // namespace sky::rdg

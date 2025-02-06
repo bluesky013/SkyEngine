@@ -25,7 +25,7 @@ namespace sky::rhi {
         const std::string &GetEntry() const { return entry; }
 
     protected:
-        ShaderStageFlagBit stage;
+        ShaderStageFlagBit stage = rhi::ShaderStageFlagBit::VS;
         std::string entry;
     };
     using ShaderPtr = std::shared_ptr<Shader>;

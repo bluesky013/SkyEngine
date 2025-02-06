@@ -33,22 +33,22 @@ namespace std {
 namespace sky::rdg {
 
     /**
-         *  |            AttachmentType                 |      RW      |   VISIBILITY   |
-         *  | RT RS IN DS SR | CBV SRV UAV | CPS  CPD   |   R    W     |   VS  FS  CS   |
-         *  | X                                             X    X             X        | COLOR_READ | COLOR_WRITE
-         *  |    X                                          X    X             X        | COLOR_READ | COLOR_WRITE
-         *  |       X                                       X                  X        | COLOR_INPUT | DEPTH_STENCIL_INPUT
-         *  |          X                                    X    X             X        | DEPTH_STENCIL_READ | DEPTH_STENCIL_WRITE
-         *  | X     X                                       X    X             X        | COLOR_INOUT_READ | COLOR_INOUT_WRITE
-         *  |       X  X                                    X    X             X        | DEPTH_STENCIL_INOUT_READ | DEPTH_STENCIL_INOUT_WRITE
-         *  |             X                                 X                  X        | SHADING_RATE
-         *  ----------------------------------------------------------------------------
-         *  |                  X                            X              X   X   X    | XX_CBV
-         *  |                      X                        X              X   X   X    | XX_SRV
-         *  |                          X                    X    X         X   X   X    | XX_READ_UAV | XX_WRITE_UAV
-         *  ----------------------------------------------------------------------------
-         *  |                                X                                          | TRANSFER_READ
-         *  |                                     X                                     | TRANSFER_WRITE
+         *  |            AttachmentType                 |      RW      |       VISIBILITY        |
+         *  | RT RS IN DS SR | CBV SRV UAV | CPS  CPD   |   R    W     |   VS  FS  CS  TAS  MS   |
+         *  | X                                             X    X             X                 | COLOR_READ | COLOR_WRITE
+         *  |    X                                          X    X             X                 | COLOR_READ | COLOR_WRITE
+         *  |       X                                       X                  X                 | COLOR_INPUT | DEPTH_STENCIL_INPUT
+         *  |          X                                    X    X             X                 | DEPTH_STENCIL_READ | DEPTH_STENCIL_WRITE
+         *  | X     X                                       X    X             X                 | COLOR_INOUT_READ | COLOR_INOUT_WRITE
+         *  |       X  X                                    X    X             X                 | DEPTH_STENCIL_INOUT_READ | DEPTH_STENCIL_INOUT_WRITE
+         *  |             X                                 X                  X                 | SHADING_RATE
+         *  --------------------------------------------------------------------------------------
+         *  |                  X                            X              X   X   X   X    X    | XX_CBV
+         *  |                      X                        X              X   X   X   X    X    | XX_SRV
+         *  |                          X                    X    X         X   X   X   X    X    | XX_READ_UAV | XX_WRITE_UAV
+         *  --------------------------------------------------------------------------------------
+         *  |                                X                                                   | TRANSFER_READ
+         *  |                                     X                                              | TRANSFER_WRITE
      */
 
     struct AccessFlagMask {
@@ -66,18 +66,20 @@ namespace sky::rdg {
         {RasterTypeBit::COLOR | RasterTypeBit::INPUT,         {0x3, 0x2, rhi::AccessFlagBit::COLOR_INOUT_READ, rhi::AccessFlagBit::COLOR_INOUT_WRITE}},
         {RasterTypeBit::DEPTH_STENCIL | RasterTypeBit::INPUT, {0x3, 0x2, rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_READ, rhi::AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE}},
         {RasterTypeBit::SHADING_RATE,                         {0x1, 0x2, rhi::AccessFlagBit::SHADING_RATE, rhi::AccessFlagBit::NONE}},
-        {ComputeType::CBV,                                    {0x1, 0xFF}},
-        {ComputeType::SRV,                                    {0x1, 0xFF}},
-        {ComputeType::UAV,                                    {0x3, 0xFF}},
-        {TransferType::SRC,                                   {0x3, 0xFF}},
-        {TransferType::DST,                                   {0x3, 0xFF}},
-        {PresentType::PRESENT,                                {0x3, 0xFF}}
+        {ComputeType::CBV,                                    {0x1, 0xFFFF}},
+        {ComputeType::SRV,                                    {0x1, 0xFFFF}},
+        {ComputeType::UAV,                                    {0x3, 0xFFFF}},
+        {TransferType::SRC,                                   {0x3, 0xFFFF}},
+        {TransferType::DST,                                   {0x3, 0xFFFF}},
+        {PresentType::PRESENT,                                {0x3, 0xFFFF}}
     };
 
     const std::unordered_map<rhi::ShaderStageFlagBit, rhi::AccessFlagBit> CBVMap{
         {rhi::ShaderStageFlagBit::VS, rhi::AccessFlagBit::VERTEX_CBV},
         {rhi::ShaderStageFlagBit::FS, rhi::AccessFlagBit::FRAGMENT_CBV},
         {rhi::ShaderStageFlagBit::CS, rhi::AccessFlagBit::COMPUTE_CBV},
+        {rhi::ShaderStageFlagBit::TAS, rhi::AccessFlagBit::TASK_CBV},
+        {rhi::ShaderStageFlagBit::MS, rhi::AccessFlagBit::MESH_CBV},
     };
 
     rhi::AccessFlags GetImportAccessFlags(const RenderGraph &graph, VertexType resID)
