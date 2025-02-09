@@ -27,7 +27,7 @@ namespace sky::vk {
         bool Init(const Descriptor &);
 
         VkShaderModule        shaderModule;
-        VkShaderStageFlagBits stage;
+        VkShaderStageFlagBits vkStage;
         uint32_t              hash;
     };
 

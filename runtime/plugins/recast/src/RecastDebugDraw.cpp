@@ -18,7 +18,7 @@ namespace sky::ai {
 
         const dtPolyDetail* pd = &tile->detailMeshes[ip];
 
-        dd.SetColor(c);
+        dd.SetColor(Color32(c));
         for (int i = 0; i < pd->triCount; ++i)
         {
             const auto* t = &tile->detailTris[(pd->triBase+i)*4];

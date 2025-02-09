@@ -19,6 +19,7 @@ namespace sky::editor {
         void Shutdown();
         void Tick(float time);
         void UpdateAspect(uint32_t width, uint32_t height);
+        void Active();
 
         const Matrix4 &GetProjectMatrix() const;
         const Matrix4 &GetWorldMatrix() const;
@@ -39,6 +40,8 @@ namespace sky::editor {
         float far = 10000.f;
         float fov = 60.f;
         float aspect = 1.f;
+
+        Name viewName{"MainCamera"};
     };
 
 } // namespace sky::editor

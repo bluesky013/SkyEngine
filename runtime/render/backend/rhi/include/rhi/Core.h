@@ -13,6 +13,13 @@
 
 namespace sky {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
+
+    enum class ShaderCompileTarget : uint32_t {
+        SPIRV,
+        MSL,
+        DXIL,
+        NUM
+    };
 }
 
 namespace sky::rhi {
@@ -304,21 +311,29 @@ namespace sky::rhi {
         COMPUTE_SRV                = 0x00001000,
         COMPUTE_UAV_READ           = 0x00002000,
         COMPUTE_UAV_WRITE          = 0x00004000,
-        SHADING_RATE               = 0x00008000,
-        COLOR_INPUT                = 0x00010000,
-        DEPTH_STENCIL_INPUT        = 0x00020000,
-        COLOR_INOUT_READ           = 0x00040000,
-        COLOR_INOUT_WRITE          = 0x00080000,
-        DEPTH_STENCIL_INOUT_READ   = 0x00100000,
-        DEPTH_STENCIL_INOUT_WRITE  = 0x00200000,
-        COLOR_READ                 = 0x00400000,
-        COLOR_WRITE                = 0x00800000,
-        DEPTH_STENCIL_READ         = 0x01000000,
-        DEPTH_STENCIL_WRITE        = 0x02000000,
-        TRANSFER_READ              = 0x04000000,
-        TRANSFER_WRITE             = 0x08000000,
-        PRESENT                    = 0x10000000,
-        GENERAL                    = 0x20000000,
+        TASK_CBV                   = 0x00008000,
+        TASK_SRV                   = 0x00010000,
+        TASK_UAV_READ              = 0x00020000,
+        TASK_UAV_WRITE             = 0x00040000,
+        MESH_CBV                   = 0x00080000,
+        MESH_SRV                   = 0x00100000,
+        MESH_UAV_READ              = 0x00200000,
+        MESH_UAV_WRITE             = 0x00400000,
+        SHADING_RATE               = 0x00800000,
+        COLOR_INPUT                = 0x01000000,
+        DEPTH_STENCIL_INPUT        = 0x02000000,
+        COLOR_INOUT_READ           = 0x04000000,
+        COLOR_INOUT_WRITE          = 0x08000000,
+        DEPTH_STENCIL_INOUT_READ   = 0x10000000,
+        DEPTH_STENCIL_INOUT_WRITE  = 0x20000000,
+        COLOR_READ                 = 0x40000000,
+        COLOR_WRITE                = 0x80000000,
+        DEPTH_STENCIL_READ         = 0x100000000LLU,
+        DEPTH_STENCIL_WRITE        = 0x200000000LLU,
+        TRANSFER_READ              = 0x400000000LLU,
+        TRANSFER_WRITE             = 0x800000000LLU,
+        PRESENT                    = 0x1000000000LLU,
+        GENERAL                    = 0x2000000000LLU,
     };
     using AccessFlags = Flags<AccessFlagBit>;
     ENABLE_FLAG_BIT_OPERATOR(AccessFlagBit)
@@ -359,9 +374,11 @@ namespace sky::rhi {
     ENABLE_FLAG_BIT_OPERATOR(BufferUsageFlagBit)
 
     enum class ShaderStageFlagBit : uint32_t {
-        VS = 0x01,
-        FS = 0x02,
-        CS = 0x04,
+        VS  = 0x01,
+        FS  = 0x02,
+        CS  = 0x04,
+        TAS = 0x80,
+        MS  = 0x100,
         GFX = VS | FS
     };
     using ShaderStageFlags = Flags<ShaderStageFlagBit>;
@@ -682,12 +699,19 @@ namespace sky::rhi {
         bool descriptorIndexing = false;
         bool variableRateShading = false;
         bool multiView = false;
+        bool meshShader = true;
         bool framebufferFetch = false;
         bool frameBufferFetchDS = false;
         bool frameBufferFetchNoCoherent = false;
         bool multiDrawIndirect = false;
         bool firstInstanceIndirect = false;
         bool depthStencilResolve = false;
+    };
+
+    struct MeshShaderProperties {
+        uint32_t maxTaskPayloadSize;      // [16384
+        uint32_t maxMeshOutputVertices;   // [256
+        uint32_t maxMeshOutputPrimitives; // [256
     };
 
     struct PixelFormatFeature {

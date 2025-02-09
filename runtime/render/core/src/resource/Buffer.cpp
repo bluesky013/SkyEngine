@@ -120,7 +120,7 @@ namespace sky {
 
         Buffer::Init(alignedFrameSize * Renderer::Get()->GetInflightFrameCount(), rhi::BufferUsageFlagBit::UNIFORM, rhi::MemoryType::CPU_TO_GPU);
 
-        data.resize(frameSize, 0);
+        data.resize(alignedFrameSize, 0);
         ptr = data.data();
         return static_cast<bool>(buffer);
     }

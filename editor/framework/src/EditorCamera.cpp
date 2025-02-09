@@ -15,6 +15,7 @@ namespace sky::editor {
             renderScene->RemoveSceneView(sceneView);
         }
         sceneView = renderScene->CreateSceneView(1);
+        Active();
 
         uint32_t width = window->GetWidth();
         uint32_t height = window->GetHeight();
@@ -26,8 +27,16 @@ namespace sky::editor {
     void EditorCamera::Shutdown()
     {
         if (sceneView != nullptr) {
+            renderScene->DetachSceneView(sceneView, viewName);
             renderScene->RemoveSceneView(sceneView);
             sceneView = nullptr;
+        }
+    }
+
+    void EditorCamera::Active()
+    {
+        if (sceneView != nullptr) {
+            renderScene->AttachSceneView(sceneView, viewName);
         }
     }
 

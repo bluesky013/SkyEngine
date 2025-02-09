@@ -4,9 +4,11 @@
 
 #include <render/adaptor/pipeline/ForwardMSAAPass.h>
 #include <render/adaptor/pipeline/DefaultPassConstants.h>
+#include <render/adaptor/Util.h>
 #include <render/rdg/RenderGraph.h>
 #include <render/RHI.h>
 #include <render/RenderScene.h>
+#include <render/light/LightFeatureProcessor.h>
 
 namespace sky {
 
@@ -53,21 +55,22 @@ namespace sky {
             rhi::ClearValue(1.f, 0)
         };
 
-//        computeResources.emplace_back(ComputeResource{
-//                FWD_CL.data(),
-//                rdg::ComputeView{"globalUBO", rdg::ComputeType::SRV, rhi::ShaderStageFlagBit::FS}
-//        });
+        auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
+        computeResources.emplace_back(ComputeResource{
+            Name("FWD_PassInfo"),
+            rdg::ComputeView{Name("passInfo"), rdg::ComputeType::CBV, stageFlags}
+        });
 
         computeResources.emplace_back(ComputeResource{
             Name("SCENE_VIEW"),
-            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS}
+            rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, stageFlags}
         });
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
-//        desc.bindings.emplace_back(
-//                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, rhi::ShaderStageFlagBit::FS, "passInfo");
+        desc.bindings.emplace_back(
+                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, stageFlags, "passInfo");
         desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{
-                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS, "viewInfo"});
+                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, stageFlags, "viewInfo"});
 //        desc.bindings.emplace_back(
 //                rhi::DescriptorType::SAMPLED_IMAGE, 1, 2, rhi::ShaderStageFlagBit::FS, "ShadowMap");
 //        desc.bindings.emplace_back(
@@ -79,11 +82,28 @@ namespace sky {
         layout->AddNameHandler(Name("viewInfo"), {1, sizeof(SceneViewInfo)});
 //        layout->AddNameHandler("ShadowMap", {2});
 //        layout->AddNameHandler("ShadowMapSampler", {3});
+
+        globalUbo = new UniformBuffer();
+        globalUbo->Init(sizeof(ShaderPassInfo));
     }
 
     void ForwardMSAAPass::SetupSubPass(rdg::RasterSubPassBuilder& subPass, RenderScene &scene)
     {
-        auto *sceneView = scene.GetSceneViews()[0].get();
+        ShaderPassInfo info = {};
+
+        auto *lf = GetFeatureProcessor<LightFeatureProcessor>(&scene);
+        if (lf != nullptr) {
+            auto *mainLight = lf ->GetMainLight();
+            if (mainLight != nullptr) {
+                info.mainLightColor = mainLight->GetColor();
+                info.mainLightDirection = mainLight->GetDirection();
+            }
+        }
+        globalUbo->WriteT(0, info);
+
+        subPass.rdg.resourceGraph.ImportUBO(Name("FWD_PassInfo"), globalUbo);
+
+        auto *sceneView = scene.GetSceneView(Name("MainCamera"));
 
         subPass.SetViewMask(0);
 

@@ -60,7 +60,10 @@ namespace sky {
         void Update();
 
         void BindBuffer(const Name &key, const rhi::BufferPtr &buffer, uint32_t index);
+        void BindBuffer(const Name &key, const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size, uint32_t index);
+
         void BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index);
+        void BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t offset, uint32_t size, uint32_t index);
         void BindTexture(const Name &key, const rhi::ImageViewPtr &view, uint32_t index);
         void BindTexture(const Name &key, const rhi::ImageViewPtr &view, const rhi::SamplerPtr &sampler, uint32_t index);
         void BindSampler(const Name &key, const rhi::SamplerPtr &sampler, uint32_t index);

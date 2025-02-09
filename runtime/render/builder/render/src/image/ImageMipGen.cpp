@@ -6,6 +6,7 @@
 #include <builder/render/image/ImageFilter.h>
 #include <rhi/Decode.h>
 #include <cmath>
+#include <memory>
 
 namespace sky::builder {
 
@@ -17,13 +18,17 @@ namespace sky::builder {
 
     inline int32_t WrapRepeat(int32_t x, int32_t w)
     {
-        if (x >= 0) return x % w;
-        else return (x + 1) % w + w - 1;
+        if (x >= 0) {
+            return x % w;
+        }
+        return (x + 1) % w + w - 1;
     }
 
     inline int32_t WrapMirror(int32_t x, int32_t w)
     {
-        if (w == 1) x = 0;
+        if (w == 1) {
+            x = 0;
+        }
 
         x = abs(x);
         while (x >= w) {
@@ -52,8 +57,8 @@ namespace sky::builder {
             for (uint32_t i = 0; i < dstLength; ++i) {
                 T center = (static_cast<T>(i) + static_cast<T>(0.5)) / scale;
 
-                int32_t left = static_cast<int32_t>(std::floor(center - width));
-                int32_t right = static_cast<int32_t>(std::ceil(center + width));
+                auto left = static_cast<int32_t>(std::floor(center - width));
+                auto right = static_cast<int32_t>(std::ceil(center + width));
                 SKY_ASSERT(right - left <= static_cast<int32_t>(windowSize))
 
                 T sum = static_cast<T>(0.0);
@@ -76,8 +81,8 @@ namespace sky::builder {
             for (uint32_t i = 0; i < length; i++)
             {
                 T center = (static_cast<T>(i) + static_cast<T>(0.5)) / scale;
-                int32_t left = static_cast<int32_t>(std::floor(center - width));
-                int32_t right = static_cast<int32_t>(std::ceil(center + width));
+                auto left = static_cast<int32_t>(std::floor(center - width));
+                auto right = static_cast<int32_t>(std::ceil(center + width));
                 SKY_ASSERT(right - left <= static_cast<int32_t>(windowSize))
 
                 for (uint32_t j = 0; j < components; ++j) {
@@ -87,10 +92,10 @@ namespace sky::builder {
                         auto weight = Weight(i, k);
 
                         int32_t tx = left + static_cast<int32_t>(k);
-                        uint32_t x = static_cast<uint32_t>(Wrap(tx, mipData.width));
+                        auto x = static_cast<uint32_t>(Wrap(tx, mipData.width));
                         uint32_t index = baseIndex + x;
 
-                        const float* ptr = reinterpret_cast<const float*>(mipData.data.get());
+                        const auto* ptr = reinterpret_cast<const float*>(mipData.data.get());
                         sum += weight * ptr[index * components + j];
                     }
 
@@ -104,8 +109,8 @@ namespace sky::builder {
             for (uint32_t i = 0; i < length; i++)
             {
                 T center = (static_cast<T>(i) + static_cast<T>(0.5)) / scale;
-                int32_t left = static_cast<int32_t>(std::floor(center - width));
-                int32_t right = static_cast<int32_t>(std::ceil(center + width));
+                auto left = static_cast<int32_t>(std::floor(center - width));
+                auto right = static_cast<int32_t>(std::ceil(center + width));
                 SKY_ASSERT(right - left <= static_cast<int32_t>(windowSize))
 
                 for (uint32_t j = 0; j < components; ++j) {
@@ -118,7 +123,7 @@ namespace sky::builder {
                         uint32_t y = Wrap(ty, mipData.height);
                         uint32_t index = (z * mipData.height + y) * mipData.width + x;
 
-                        const float* ptr = reinterpret_cast<const float*>(mipData.data.get());
+                        const auto* ptr = reinterpret_cast<const float*>(mipData.data.get());
                         sum += weight * ptr[index * components + j];
                     }
 
@@ -149,7 +154,7 @@ namespace sky::builder {
 
         std::unique_ptr<Filter<float>> func;
         switch (filter) {
-        case MipGenType::Kaiser: func.reset(new KaiserFilter<float>(4.f, 3)); break;
+        case MipGenType::Kaiser: func = std::make_unique<KaiserFilter<float>>(4.f, 1.f); break;
         default:
             SKY_ASSERT(false && "not implemented");
             break;
@@ -190,7 +195,7 @@ namespace sky::builder {
     {
         SKY_ASSERT(payload.image->type == rhi::ImageType::IMAGE_2D)
         SKY_ASSERT(payload.image->depth == 1)
-        SKY_ASSERT(payload.image->mips.size() >= 1)
+        SKY_ASSERT(!payload.image->mips.empty())
 
         auto mipLevel = GetMipLevel(payload.image->width, payload.image->height);
         SKY_ASSERT(mipLevel >= 1);

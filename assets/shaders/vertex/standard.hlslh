@@ -12,14 +12,22 @@ struct VSInput
     uint4 joints   : JOINT;
     float4 weights : WEIGHT;
 #endif
+
+#if VIEW_COUNT > 1
+    uint ViewIndex : SV_ViewID;
+#endif
 };
 
 struct VSOutput
 {
-    float4 Pos : SV_POSITION;
+    float4 Pos      : SV_POSITION;
     float4 UV       : UV;
     float3 WorldPos : POSITION;
     float3 Normal   : NORMAL;
     float4 Tangent  : TANGENT;
     float4 Color    : COLOR;
+
+#if MESH_SHADER
+    uint MeshletIndex : MESH;
+#endif
 };

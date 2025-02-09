@@ -1,0 +1,21 @@
+uint MurmurHash(uint idx)
+{
+    uint m = 0x5bd1e995;
+    uint r = 24;
+
+    uint h = 64684;
+    uint k = idx;
+
+    k *= m;
+    k ^= (k >> r);
+    k *= m;
+    h *= m;
+    h ^= k;
+
+    return h;
+}
+
+float4 UnPackU32ToV4(uint val)
+{
+    return float4(val & 0xFF, (val >> 8) & 0xFF, (val >> 16) & 0xFF, (val >> 24) & 0xFF) / float4(255.0, 255.0, 255.0, 255.0);
+}

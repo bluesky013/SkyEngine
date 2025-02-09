@@ -40,7 +40,7 @@ namespace sky::editor {
         if (renderScene == nullptr) {
             return;
         }
-        auto *sceneView = renderScene->GetSceneViews()[0].get();
+        auto *sceneView = renderScene->GetSceneView(Name("MainCamera"));
         SKY_ASSERT(sceneView != nullptr);
         const auto &proj = sceneView->GetProject();
         auto view = sceneView->GetView();

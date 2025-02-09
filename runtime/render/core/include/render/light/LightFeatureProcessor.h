@@ -28,6 +28,10 @@ namespace sky {
             return light;
         }
 
+        MainDirectLight* GetOrCreateMainLight();
+        MainDirectLight* GetMainLight() const { return mainLight.get(); }
+        void RemoveMainLight();
+
         void AddLight(Light *light);
         void RemoveLight(Light *light);
     private:
@@ -35,6 +39,7 @@ namespace sky {
 
         using LightPtr = std::unique_ptr<Light>;
 
+        std::unique_ptr<MainDirectLight> mainLight;
         std::vector<LightPtr> lights;
 
         RDBufferPtr lightData;

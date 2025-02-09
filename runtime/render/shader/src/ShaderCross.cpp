@@ -10,13 +10,19 @@ namespace sky {
     void BuildReflectionSPIRV(rhi::ShaderStageFlagBit stage, ShaderBuildResult &result)
     {
         spirv_cross::CompilerGLSL compiler(result.data.data(), result.data.size());
-        spirv_cross::ShaderResources resources = compiler.get_shader_resources(compiler.get_active_interface_variables());
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
 
-        auto remap = [&compiler, &result, stage](auto &resources, rhi::DescriptorType type) {
+        auto activeIds = compiler.get_active_interface_variables();
+
+        auto remap = [&compiler, &result, &activeIds, stage](auto &resources, rhi::DescriptorType type) {
             for (auto &resource : resources) {
                 auto set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
-                auto binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
+                bool isVisible = activeIds.count(resource.id) != 0u;
+                if (!isVisible && (set != 0)) {
+                    continue;
+                }
 
+                auto binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
                 const auto &resType = compiler.get_type(resource.type_id);
 
                 result.reflection.resources.emplace_back();
@@ -24,7 +30,7 @@ namespace sky {
 
                 rhi::ShaderStageFlags visibility = stage;
                 if (stage != rhi::ShaderStageFlagBit::CS && set == 0) {
-                    visibility = rhi::ShaderStageFlagBit::GFX;
+                    visibility = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
                 }
 
                 res.type = type;
@@ -34,6 +40,12 @@ namespace sky {
                 res.name = resource.name;
                 res.size = 0;
                 res.count = resType.array.empty() ? 0 : resType.array[0];
+
+                static const char* TYPE_PREFIX = "type.";
+                size_t pos = res.name.find(TYPE_PREFIX);
+                if (pos != std::string::npos) {
+                    res.name.erase(pos, strlen(TYPE_PREFIX));
+                }
 
                 if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
                     res.size = static_cast<uint32_t>(compiler.get_declared_struct_size(resType));

@@ -14,6 +14,23 @@ namespace sky {
     {
     }
 
+    Color::Color(const ColorRGB& rgb) : Color(rgb.r, rgb.g, rgb.b, 1.f)
+    {
+
+    }
+
+    ColorRGB::ColorRGB() : ColorRGB(0, 0, 0)
+    {
+    }
+
+    ColorRGB::ColorRGB(float r_, float g_, float b_) : r(r_), g(g_), b(b_)
+    {
+    }
+
+    ColorRGB::ColorRGB(const Color& rgba) : ColorRGB(rgba.r, rgba.b, rgba.a)
+    {
+    }
+
     UColor::UColor() : UColor(0, 0, 0, 0)
     {
     }

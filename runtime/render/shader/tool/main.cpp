@@ -200,7 +200,7 @@ public:
                 list.FillShaderOption(*option.option, key);
 
                 ShaderBuildResult result = {};
-                auto *targetCompiler = getCompilerFn(target);
+                auto *targetCompiler = getCompilerFn(option);
                 if (targetCompiler->CompileBinary(source, option, result)) {
                     ShaderCacheManager::Get()->SaveBinaryCache(shaderName, target, shaderEntry, key, result);
                     SaveBinaryIntermediate(targetCompiler, name, source.entry, key, target, result);

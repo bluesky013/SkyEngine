@@ -11,7 +11,7 @@
 
 namespace sky {
 
-    using DrawArgs = std::variant<rhi::CmdDrawLinear, rhi::CmdDrawIndexed, rhi::Viewport, rhi::Rect2D>;
+    using DrawArgs = std::variant<rhi::CmdDrawLinear, rhi::CmdDrawIndexed, rhi::CmdDispatchMesh, rhi::Viewport, rhi::Rect2D>;
 
     struct RenderCmdList {
         std::function<void(rhi::GraphicsEncoder&)> fn;

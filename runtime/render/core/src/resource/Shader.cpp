@@ -24,9 +24,6 @@ namespace sky {
         if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
             return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;
         }
-        if (type == rhi::DescriptorType::STORAGE_BUFFER) {
-            return rhi::DescriptorType::STORAGE_BUFFER_DYNAMIC;
-        }
         return type;
     }
 
@@ -157,16 +154,25 @@ namespace sky {
 
     RDProgramPtr ShaderCollection::AcquireShaderBinary(const sky::ShaderVariantKey &key, const std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> &stages)
     {
-        RDProgramPtr program = new Program();
+        RDProgramPtr program = FetchProgramCache(key);
+        if (program) {
+            return program;
+        }
+        program = RDProgramPtr(new Program());
 
         auto target = RHI::Get()->GetShaderTarget();
         auto *device = RHI::Get()->GetDevice();
         auto *cacheManager = ShaderCacheManager::Get();
-        for (auto &[entry, stage] : stages) {
+
+        bool useMeshShader = std::find_if(stages.begin(), stages.end(), [](const auto &pair) -> bool {
+            return pair.second == rhi::ShaderStageFlagBit::MS;
+        }) != stages.end();
+
+        for (const auto &[entry, stage] : stages) {
 
             ShaderBuildResult result;
 
-            auto *cache = cacheManager->FetchBinaryCache(name, target, entry, key);
+            const auto *cache = cacheManager->FetchBinaryCache(name, target, entry, key);
             if (cache != nullptr) {
                 auto memory = ShaderFileSystem::Get()->LoadBinaryCache(*cache, target);
                 ShaderCompiler::LoadFromMemory(*memory, result);
@@ -174,6 +180,7 @@ namespace sky {
                 ShaderCompileOption option = {};
                 option.target = RHI::Get()->GetShaderTarget();
                 option.option = new ShaderOption();
+                option.useMeshShader = useMeshShader;
                 list.FillShaderOption(*option.option, key);
 
                 auto [rst, source] = ShaderFileSystem::Get()->LoadCacheSource(name);
@@ -183,7 +190,9 @@ namespace sky {
                 desc.entry = entry.GetStr().data();
                 desc.stage = stage;
 
-                BuildShaderBinary(desc, option, result);
+                if (!BuildShaderBinary(desc, option, result)) {
+                    return {};
+                }
                 cacheManager->SaveBinaryCache(name, target, entry, key, result);
             }
 
@@ -203,11 +212,13 @@ namespace sky {
         return program;
     }
 
-    void ShaderCollection::BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result)
+    bool ShaderCollection::BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result)
     {
         auto *compiler = Renderer::Get()->GetShaderCompiler();
         if (compiler != nullptr) {
-            compiler(source, option, result);
+            return compiler(source, option, result);
         }
+
+        return false;
     }
 } // namespace sky

@@ -16,6 +16,11 @@
 
 namespace sky {
     struct RenderBatch {
+        void SetOption(const Name &name, uint8_t val)
+        {
+            technique->SetOption(name, val, batchKey);
+        }
+
         RDGfxTechPtr      technique;
 
         // override states
@@ -44,7 +49,7 @@ namespace sky {
         virtual void PrepareBatch() {}
 
         // update resource group, program ready
-        virtual void UpdateBatch() = 0;
+        virtual void UpdateBatch() {}
 
         virtual bool IsReady() const { return true; }
 
@@ -56,6 +61,9 @@ namespace sky {
         // geometry
         RenderVertexFlags     vertexFlags;
         RenderGeometryPtr     geometry;
+        MeshletGeometryPtr    meshlets;
+
+        bool clusterValid = false;
 
         std::vector<DrawArgs> args;
         rhi::BufferPtr        indirectBuffer;

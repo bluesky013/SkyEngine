@@ -106,7 +106,7 @@ namespace sky {
         }
     }
 
-    void MaterialInstance::Upload()
+    void MaterialInstance::UploadTextures()
     {
         if (uploadVersion != batchVersion) {
             auto *sm = Renderer::Get()->GetStreamingManager();

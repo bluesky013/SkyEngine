@@ -104,6 +104,9 @@ namespace sky::rhi {
             return (formatFeatures[static_cast<uint32_t>(format)].optimalFeature & flags) == flags;
         }
 
+        // mesh shader
+        virtual void FeatureQuery(MeshShaderProperties& prop) const {}
+
     protected:
         DeviceFeature enabledFeature;
         Limitation limitation;

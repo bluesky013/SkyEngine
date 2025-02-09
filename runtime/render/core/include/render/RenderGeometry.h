@@ -20,6 +20,16 @@ namespace sky {
         rhi::VertexInputRate rate   = rhi::VertexInputRate::PER_VERTEX;
     };
 
+    struct MeshletGeometry : public RefObject {
+        RDBufferPtr posBuffer;
+        RDBufferPtr extBuffer;
+
+        RDBufferPtr meshletTriangles;
+        RDBufferPtr meshletVertices;
+        RDBufferPtr meshlets;
+    };
+    using MeshletGeometryPtr = CounterPtr<MeshletGeometry>;
+
     struct RenderGeometry : public RefObject {
         void AddVertexAttribute(const VertexAttribute &attribute);
         void FillVertexBuffer(std::vector<rhi::BufferView> &vbs);
@@ -33,6 +43,7 @@ namespace sky {
         std::vector<VertexBuffer>    vertexBuffers;
         std::vector<VertexAttribute> vertexAttributes;
         IndexBuffer                  indexBuffer;
+        MeshletGeometryPtr           cluster;
         bool                         dynamicVB = false;
 
         // flags for all attributes

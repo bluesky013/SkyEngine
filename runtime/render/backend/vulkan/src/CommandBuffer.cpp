@@ -653,6 +653,15 @@ namespace sky::vk {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::DispatchMesh(const rhi::CmdDispatchMesh &dispatch)
+    {
+        currentBinder.OnBind(cmd);
+        if (CmdDrawMeshTaskExt != nullptr) {
+            CmdDrawMeshTaskExt(cmd, dispatch.x, dispatch.y, dispatch.z);
+        }
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
     {
         currentBinder.BindSet(id, std::static_pointer_cast<DescriptorSet>(set));

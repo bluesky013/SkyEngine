@@ -21,7 +21,18 @@ namespace sky::vk {
         HashCombine32(hash, Crc32::Cal(reinterpret_cast<const uint8_t*>(desc.state.blendStates.data()),
             static_cast<uint32_t>(desc.state.blendStates.size() * sizeof(rhi::BlendState))));
 
-        HashCombine32(hash, std::static_pointer_cast<Shader>(desc.vs)->GetHash());
+        if (desc.tas) {
+            HashCombine32(hash, std::static_pointer_cast<Shader>(desc.tas)->GetHash());
+        }
+
+        if (desc.vs) {
+            HashCombine32(hash, std::static_pointer_cast<Shader>(desc.vs)->GetHash());
+        }
+
+        if (desc.ms) {
+            HashCombine32(hash, std::static_pointer_cast<Shader>(desc.ms)->GetHash());
+        }
+
         HashCombine32(hash, std::static_pointer_cast<Shader>(desc.fs)->GetHash());
         HashCombine32(hash, std::static_pointer_cast<RenderPass>(desc.renderPass)->GetHash());
         HashCombine32(hash, std::static_pointer_cast<PipelineLayout>(desc.pipelineLayout)->GetHash());
@@ -55,14 +66,23 @@ namespace sky::vk {
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         // shaders
         std::vector<VkPipelineShaderStageCreateInfo> shaderStageInfo;
+
+        bool meshShading = !des.vs && des.ms;
+
         FillShaderStageInfo(shaderStageInfo, des.vs);
         FillShaderStageInfo(shaderStageInfo, des.fs);
+        FillShaderStageInfo(shaderStageInfo, des.tas);
+        FillShaderStageInfo(shaderStageInfo, des.ms);
+
+
         pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfo.size());
         pipelineInfo.pStages    = shaderStageInfo.data();
 
         // vertex input
         inputDesc = std::static_pointer_cast<VertexInput>(des.vertexInput);
-        pipelineInfo.pVertexInputState = inputDesc->GetInfo();
+        if (!meshShading) {
+            pipelineInfo.pVertexInputState = inputDesc->GetInfo();
+        }
 
         // input assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};

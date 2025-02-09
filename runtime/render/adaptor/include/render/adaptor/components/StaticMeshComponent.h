@@ -31,6 +31,15 @@ namespace sky {
         void SetMeshUuid(const Uuid &uuid);
         const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }
 
+        void SetEnableMeshShading(bool enable);
+        bool GetEnableMeshShading() const { return enableMeshShading; }
+
+        void SetEnableMeshletDebug(bool enable);
+        bool GetEnableMeshletDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET); }
+
+        void SetEnableMeshletConeDebug(bool enable);
+        bool GetEnableMeshletConeDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE); }
+
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
     private:
@@ -42,6 +51,9 @@ namespace sky {
         bool isStatic = true;
         bool castShadow = false;
         bool receiveShadow = false;
+
+        bool enableMeshShading = false;
+        MeshDebugFlags debugFlags;
 
         MeshAssetPtr meshAsset;
         RDMeshPtr meshInstance;

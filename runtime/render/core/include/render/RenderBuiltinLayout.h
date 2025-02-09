@@ -19,8 +19,16 @@ namespace sky {
         Matrix4 inverseTranspose;
     };
 
+    struct MeshletInfo {
+        uint32_t firstMeshlet;
+        uint32_t meshletCount;
+    };
+
     struct ShaderPassInfo {
         Matrix4 lightMatrix;
+        Vector4 mainLightColor;
+        Vector3 mainLightDirection;
+        float   padding;
         Vector4 viewport;
     };
 

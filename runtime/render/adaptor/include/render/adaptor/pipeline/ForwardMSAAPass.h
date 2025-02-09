@@ -20,6 +20,8 @@ namespace sky {
         rhi::PixelFormat colorFormat     = rhi::PixelFormat::RGBA8_UNORM;
         rhi::PixelFormat depthStenFormat = rhi::PixelFormat::D24_S8;
         rhi::SampleCount samples         = rhi::SampleCount::X2;
+
+        RDUniformBufferPtr globalUbo;
     };
 
 } // namespace sky

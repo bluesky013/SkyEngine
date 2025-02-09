@@ -1,4 +1,7 @@
 #pragma option({"key": "ENABLE_SKIN",         "default": 0, "type": "Batch"})
+#pragma option({"key": "MESH_SHADER",         "default": 0, "type": "Batch"})
+#pragma option({"key": "MESH_SHADER_DEBUG",   "default": 0, "type": "Batch"})
+
 #pragma option({"key": "ENABLE_INSTANCE",     "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_NORMAL_MAP",   "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_EMISSIVE_MAP", "default": 0, "type": "Batch"})
@@ -19,11 +22,8 @@
 #define VIEW_INFO View
 #endif
 
-VSOutput VSMain(VSInput input
-#if VIEW_COUNT > 1
-    , uint ViewIndex : SV_ViewID
-#endif
-)
+//----------------------------------------- Vertex Shader-----------------------------------------//
+VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
 
@@ -46,6 +46,125 @@ VSOutput VSMain(VSInput input
     output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
     return output;
 }
+//----------------------------------------- Vertex Shader-----------------------------------------//
+
+// some compiler may not support parse mesh shader
+#if MESH_SHADER
+
+#include "common/hash.hlslh"
+
+groupshared Payload TaskPayload;
+//------------------------------------------ Task Shader------------------------------------------//
+bool IsVisible(Meshlet m, float4x4 world, float3 viewPos)
+{
+//     float4 center = mul(world, float4(m.center.xyz, 1));
+//     float radius = m.center.w;
+    if (m.coneAxis.w >= 0.99) {
+        return true;
+    }
+
+    float3 axis = normalize(mul((float3x3)World, m.coneAxis.xyz));
+    float3 apex = mul((float3x3)World, m.coneApex.xyz);
+    float3 view = normalize(viewPos - apex);
+
+    if (dot(view, -axis) >= m.coneAxis.w)
+    {
+        return false;
+    }
+    return true;
+}
+
+[outputtopology("triangle")]
+[numthreads(MESH_GROUP_SIZE,1,1)]
+void TASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
+{
+    float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
+
+    bool visible = false;
+    if (dtid < MeshletCount)
+    {
+        visible = IsVisible(Meshlets[dtid + FirstMeshlet], World, viewPos);
+//         visible = Meshlets[dtid + FirstMeshlet].vertexCount > 0;
+    }
+
+    if (visible)
+    {
+        uint index = WavePrefixCountBits(visible);
+        TaskPayload.MeshletIndices[index] = dtid;
+    }
+    uint visibleCount = WaveActiveCountBits(visible);
+    DispatchMesh(visibleCount, 1, 1, TaskPayload);
+}
+//------------------------------------------ Task Shader------------------------------------------//
+
+//------------------------------------------ Mesh Shader------------------------------------------//
+uint GetVertexIndex(Meshlet meshlet, uint localIndex)
+{
+    return VertexIndices[meshlet.vertexOffset + localIndex];
+}
+
+uint3 UnpackPrimitive(uint primitive)
+{
+    return uint3(primitive & 0xFF, (primitive >> 8) & 0xFF, (primitive >> 16) & 0xFF);
+}
+
+uint3 GetPrimitive(Meshlet meshlet, uint index)
+{
+    return UnpackPrimitive(MeshletTriangles[meshlet.triangleOffset + index]);
+}
+
+VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex)
+{
+    float4 pv = PositionBuf[vertexIndex];
+    ExtVertex ev = ExtBuf[vertexIndex];
+
+    VSOutput output = (VSOutput)0;
+    output.WorldPos = mul(World, pv).xyz;
+    output.Normal   = mul((float3x3)World, ev.normal.xyz);
+    output.Tangent  = ev.tangent;
+    output.Color    = ev.color;
+    output.UV       = ev.uv;
+    output.Pos      = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
+
+    output.MeshletIndex = meshletIndex;
+    return output;
+}
+
+[outputtopology("triangle")]
+[numthreads(128, 1, 1)]
+void MSMain(
+    uint dtid : SV_DispatchThreadID,
+    uint gtid : SV_GroupThreadID,
+    uint gid : SV_GroupID,
+    in payload Payload taskPayload,
+    out vertices VSOutput vertices[MAX_VERTICES],
+    out indices uint3 tris[MAX_PRIMS])
+{
+    uint meshletIndex = taskPayload.MeshletIndices[gid];
+//     uint meshletIndex = gid;
+    if (meshletIndex >= MeshletCount) {
+        return;
+    }
+
+    meshletIndex += FirstMeshlet;
+
+    Meshlet meshlet = Meshlets[meshletIndex];
+    SetMeshOutputCounts(meshlet.vertexCount, meshlet.triangleCount);
+
+    if (gtid < meshlet.vertexCount)
+    {
+        uint vertexIndex = GetVertexIndex(meshlet, gtid);
+        vertices[gtid] = GetVertexAttributes(meshletIndex, vertexIndex);
+    }
+
+    if (gtid < meshlet.triangleCount)
+    {
+        tris[gtid] = GetPrimitive(meshlet, gtid);
+    }
+
+}
+//------------------------------------------ Mesh Shader------------------------------------------//
+#endif
 
 #include "layout/standard_shading.hlslh"
 #include "lighting/pbr.hlslh"
@@ -95,11 +214,21 @@ VSOutput VSMain(VSInput input
 // 	return shadowFactor / count;
 // }
 
+//------------------------------------------ Fragment Shader------------------------------------------//
 float4 FSMain(VSOutput input) : SV_TARGET
 {
+    float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
+    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
+
+#if ENABLE_ALPHA_MASK
+    if (albedo.w < AlphaCutoff) {
+        discard;
+    }
+#endif
+
     LightInfo light;
-    light.Color = float4(1.0, 1.0, 1.0, 1.0);
-    light.Direction = float4(float3(-0.2, -1, -0.5), 100.0);
+    light.Color = MainLightColor;
+    light.Direction = MainLightDirection;
 
 #if ENABLE_NORMAL_MAP
     float3 tNormal = NormalMap.Sample(NormalSampler, input.UV.xy).xyz * 2.0 - float3(1.0, 1.0, 1.0);
@@ -116,8 +245,9 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float3 L = normalize(-light.Direction.xyz);
     float3 V = normalize(viewPos - input.WorldPos);
 
-    float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
-    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
+#if MESH_SHADER && MESH_SHADER_DEBUG
+    return UnPackU32ToV4(MurmurHash(input.MeshletIndex));
+#endif
 
     StandardPBR pbrParam;
     pbrParam.Albedo    = albedo.xyz;
@@ -148,3 +278,4 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
     return float4(e0, albedo.a);
 }
+//------------------------------------------ Fragment Shader------------------------------------------//

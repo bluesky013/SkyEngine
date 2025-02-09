@@ -20,6 +20,7 @@
 #include <render/adaptor/components/SkyBoxComponent.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
+#include <render/RenderTechniqueLibrary.h>
 
 #include <render/light/LightFeature.h>
 #include <render/mesh/MeshFeature.h>
@@ -37,14 +38,14 @@ namespace sky {
     static void RegisterComponents()
     {
         auto *context = SerializationContext::Get();
-        LightComponent::Reflect(context);
+        MainDirectLightComponent::Reflect(context);
         StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
         SkeletonMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
 
         static std::string GROUP = "Render";
-        ComponentFactory::Get()->RegisterComponent<LightComponent>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
@@ -99,6 +100,15 @@ namespace sky {
         return true;
     }
 
+    static void LoadAndRegister(AssetManager* am, const char* name)
+    {
+        auto asset = am->LoadAssetFromPath<Technique>(name);
+        asset->BlockUntilLoaded();
+
+        auto tech = CreateTechniqueFromAsset(asset);
+        RenderTechniqueLibrary::Get()->RegisterGfxTech(Name(name), tech);
+    }
+
     void RenderModule::Start()
     {
         auto *mm = Interface<ISystemNotify>::Get()->GetApi()->GetModuleManager();
@@ -130,13 +140,14 @@ namespace sky {
             auto tech = CreateTechniqueFromAsset(guiAsset);
             TextFeature::Get()->SetTechnique(tech);
         }
-
+        LoadAndRegister(am, "techniques/meshlet_debug.tech");
     }
 
     void RenderModule::Shutdown()
     {
         Renderer::Get()->StopRender();
 
+        RenderTechniqueLibrary::Destroy();
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
         TextFeature::Destroy();

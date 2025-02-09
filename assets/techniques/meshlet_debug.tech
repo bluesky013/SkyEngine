@@ -1,0 +1,27 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "mesh/meshlet_debug.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "Transparent"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
+    "blend_state": [
+        {
+            "blendEnable": true,
+            "srcColor": "SRC_ALPHA",
+            "dstColor": "ONE_MINUS_SRC_ALPHA",
+            "srcAlpha": "SRC_ALPHA",
+            "dstAlpha": "ONE_MINUS_SRC_ALPHA"
+        }
+    ],
+    "raster_state": {
+        "cullMode": "NONE"
+    }
+}

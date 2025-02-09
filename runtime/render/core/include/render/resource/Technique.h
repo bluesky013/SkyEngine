@@ -8,7 +8,6 @@
 #include <render/resource/Shader.h>
 #include <render/RenderResource.h>
 #include <render/RenderBase.h>
-#include <shader/ShaderCompiler.h>
 #include <shader/ShaderVariant.h>
 
 #include <vector>
@@ -17,8 +16,9 @@ namespace sky {
 
     struct ShaderRef {
         Name shaderName;
-        std::string objectOrCSMain;
-        std::string vertOrMeshMain;
+        std::string taskOrCSMain;
+        std::string vertexMain;
+        std::string meshMain;
         std::string fragmentMain;
     };
 
@@ -39,14 +39,11 @@ namespace sky {
             }
         }
 
-        RDProgramPtr RequestProgram(const ShaderVariantKey &key = {});
-
     protected:
-        virtual RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) = 0;
-
         ShaderRef shaderData;
         ShaderCollectionPtr shader;
     };
+    using RDTechniquePtr = CounterPtr<Technique>;
 
     class GraphicsTechnique : public Technique {
     public:
@@ -58,7 +55,9 @@ namespace sky {
         void SetBlendState(const std::vector<rhi::BlendState> &blends);
         void SetRasterTag(const Name &tag);
         void AddVertexFlag(RenderVertexFlagBit flagBit, const Name &key);
-        void ProcessVertexVariantKey(RenderVertexFlags flags, ShaderVariantKey &key);
+        void ProcessVertexVariantKey(const RenderVertexFlags& flags, ShaderVariantKey &key);
+
+        RDProgramPtr RequestProgram(const ShaderVariantKey &key, bool meshShading = false);
 
         const Name &GetRasterID() const { return rasterID; }
         uint32_t GetViewMask() const { return viewMask; }
@@ -71,7 +70,7 @@ namespace sky {
                                                  uint32_t subPassID);
 
     private:
-        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) override;
+        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key, bool meshShading);
         rhi::PipelineState state;
         Name rasterID;
         uint32_t viewMask = 0xFFFFFFFF;
@@ -84,8 +83,9 @@ namespace sky {
         ComputeTechnique() = default;
         ~ComputeTechnique() override = default;
 
+        RDProgramPtr RequestProgram(const ShaderVariantKey &key);
     private:
-        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key) override;
+        RDProgramPtr FillProgramInternal(const ShaderVariantKey &key);
 
         rhi::PipelineState state;
     };

@@ -20,7 +20,7 @@ namespace sky {
 
         ~BinaryInputArchive() = default;
 
-        void LoadValue(char* data, uint32_t size)
+        void LoadValue(char* data, size_t size)
         {
             archive.LoadRaw(data, size);
         }
@@ -53,7 +53,7 @@ namespace sky {
         }
         ~BinaryOutputArchive() = default;
 
-        void SaveValue(const char* data, uint32_t size)
+        void SaveValue(const char* data, size_t size)
         {
             archive.SaveRaw(data, size);
         }

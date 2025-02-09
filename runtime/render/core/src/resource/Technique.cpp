@@ -7,6 +7,8 @@
 #include <render/Renderer.h>
 #include <shader/ShaderCompiler.h>
 #include <core/archive/FileArchive.h>
+#include <core/logger/Logger.h>
+static const char* TAG = "Technique";
 
 namespace sky {
 
@@ -28,9 +30,11 @@ namespace sky {
     {
         shaderData = shader_;
 
-        auto *source = ShaderCacheManager::Get()->FetchSource(shader_.shaderName, RHI::Get()->GetShaderTarget());
+        const auto *source = ShaderCacheManager::Get()->FetchSource(shader_.shaderName, RHI::Get()->GetShaderTarget());
         if (source != nullptr) {
             shader = new ShaderCollection(shaderData.shaderName, *source);
+        } else {
+            LOG_E(TAG, "Fetch Source Failed");
         }
     }
 
@@ -39,11 +43,6 @@ namespace sky {
         if (shader) {
             shader->SetOption(name, val, variantKey);
         }
-    }
-
-    RDProgramPtr Technique::RequestProgram(const ShaderVariantKey &key)
-    {
-        return shader ? FillProgramInternal(key) : nullptr;
     }
 
     void GraphicsTechnique::SetDepthStencil(const rhi::DepthStencil &ds)
@@ -71,26 +70,46 @@ namespace sky {
         vertexFlags[bit] = key;
     }
 
-    void GraphicsTechnique::ProcessVertexVariantKey(RenderVertexFlags flags, ShaderVariantKey &key)
+    void GraphicsTechnique::ProcessVertexVariantKey(const RenderVertexFlags& flags, ShaderVariantKey &key)
     {
         for (auto &flag : vertexFlags) {
-            shader->SetOption(flag.second, flags.TestBit(flag.first), key);
+            shader->SetOption(flag.second, static_cast<uint8_t>(flags.TestBit(flag.first)), key);
         }
     }
 
-    RDProgramPtr GraphicsTechnique::FillProgramInternal(const ShaderVariantKey &key)
+    RDProgramPtr GraphicsTechnique::RequestProgram(const ShaderVariantKey &key, bool meshShading)
     {
-        std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> stages = {
-            {Name(shaderData.vertOrMeshMain.c_str()), rhi::ShaderStageFlagBit::VS},
-            {Name(shaderData.fragmentMain.c_str()), rhi::ShaderStageFlagBit::FS}
-        };
+        return shader ? FillProgramInternal(key, meshShading) : nullptr;
+    }
+
+    RDProgramPtr GraphicsTechnique::FillProgramInternal(const ShaderVariantKey &key, bool meshShading)
+    {
+        using NameStagePair = std::pair<Name, rhi::ShaderStageFlagBit>;
+        std::vector<NameStagePair> stages;
+        stages.reserve(3);
+
+        meshShading &= !shaderData.meshMain.empty();
+
+        if (meshShading) {
+            stages.emplace_back(Name(shaderData.taskOrCSMain.c_str()), rhi::ShaderStageFlagBit::TAS);
+            stages.emplace_back(Name(shaderData.meshMain.c_str()), rhi::ShaderStageFlagBit::MS);
+            stages.emplace_back(Name(shaderData.fragmentMain.c_str()), rhi::ShaderStageFlagBit::FS);
+        } else {
+            stages.emplace_back(Name(shaderData.vertexMain.c_str()), rhi::ShaderStageFlagBit::VS);
+            stages.emplace_back(Name(shaderData.fragmentMain.c_str()), rhi::ShaderStageFlagBit::FS);
+        }
         return shader->AcquireShaderBinary(key, stages);
+    }
+
+    RDProgramPtr ComputeTechnique::RequestProgram(const ShaderVariantKey &key)
+    {
+        return shader ? FillProgramInternal(key) : nullptr;
     }
 
     RDProgramPtr ComputeTechnique::FillProgramInternal(const ShaderVariantKey &key)
     {
         std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> stages = {
-            {Name(shaderData.objectOrCSMain.c_str()), rhi::ShaderStageFlagBit::CS},
+            {Name(shaderData.taskOrCSMain.c_str()), rhi::ShaderStageFlagBit::CS},
         };
         return shader->AcquireShaderBinary(key, stages);
     }
@@ -110,8 +129,17 @@ namespace sky {
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();
         descriptor.vertexInput = vertexDesc;
-        descriptor.vs = shaders[0];
-        descriptor.fs = shaders[1];
+        for (const auto &shader : shaders) {
+            if (shader->GetStage() == rhi::ShaderStageFlagBit::VS) {
+                descriptor.vs = shader;
+            } else if (shader->GetStage() == rhi::ShaderStageFlagBit::FS) {
+                descriptor.fs = shader;
+            } else if (shader->GetStage() == rhi::ShaderStageFlagBit::TAS) {
+                descriptor.tas = shader;
+            } else if (shader->GetStage() == rhi::ShaderStageFlagBit::MS) {
+                descriptor.ms = shader;
+            }
+        }
 
         if (descriptor.state.blendStates.empty()) {
             descriptor.state.blendStates.resize(pass->GetColors().size());

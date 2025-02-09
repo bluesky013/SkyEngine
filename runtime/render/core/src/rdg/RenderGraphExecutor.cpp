@@ -210,6 +210,7 @@ namespace sky::rdg {
                         std::visit(Overloaded{
                             [&](const rhi::CmdDrawLinear &v) { currentEncoder->DrawLinear(v); },
                             [&](const rhi::CmdDrawIndexed &v) { currentEncoder->DrawIndexed(v); },
+                            [&](const rhi::CmdDispatchMesh &v) { currentEncoder->DispatchMesh(v); },
                             [&](const rhi::Rect2D &v) { currentEncoder->SetScissor(1, &v); },
                             [&](const auto &) {}
                         }, arg);

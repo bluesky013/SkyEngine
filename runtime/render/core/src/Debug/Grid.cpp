@@ -8,7 +8,6 @@
 namespace sky {
 
     struct GridPrimitive : RenderPrimitive {
-        void UpdateBatch() override {}
     };
 
     Grid::Grid()

@@ -319,16 +319,24 @@ namespace sky::vk {
         return iter == blendFactorMap.end() ? VK_STENCIL_OP_KEEP : iter->second;
     }
 
+    static const std::unordered_map<rhi::ShaderStageFlagBit, VkShaderStageFlagBits> STAGE_MAP =
+        { {rhi::ShaderStageFlagBit::VS, VK_SHADER_STAGE_VERTEX_BIT},
+            {rhi::ShaderStageFlagBit::FS, VK_SHADER_STAGE_FRAGMENT_BIT},
+            {rhi::ShaderStageFlagBit::CS, VK_SHADER_STAGE_COMPUTE_BIT},
+            {rhi::ShaderStageFlagBit::TAS, VK_SHADER_STAGE_TASK_BIT_EXT},
+            {rhi::ShaderStageFlagBit::MS, VK_SHADER_STAGE_MESH_BIT_EXT},
+    };
+
+    VkShaderStageFlagBits FromRHI(const rhi::ShaderStageFlagBit& stage)
+    {
+        auto iter = STAGE_MAP.find(stage);
+        return iter != STAGE_MAP.end() ? iter->second : VK_SHADER_STAGE_VERTEX_BIT;
+    }
+
     VkShaderStageFlags FromRHI(const rhi::ShaderStageFlags& flags)
     {
         VkShaderStageFlags res = {};
-        static const std::unordered_map<rhi::ShaderStageFlagBit, VkShaderStageFlagBits> flagMap =
-        { {rhi::ShaderStageFlagBit::VS, VK_SHADER_STAGE_VERTEX_BIT},
-          {rhi::ShaderStageFlagBit::FS, VK_SHADER_STAGE_FRAGMENT_BIT},
-          {rhi::ShaderStageFlagBit::CS, VK_SHADER_STAGE_COMPUTE_BIT},
-        };
-
-        for (const auto &[usageBit, vkUsageBit] : flagMap) {
+        for (const auto &[usageBit, vkUsageBit] : STAGE_MAP) {
             if (flags & usageBit) {
                 res |= vkUsageBit;
             }

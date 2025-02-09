@@ -8,7 +8,6 @@
 #include <core/environment/Singleton.h>
 #include <rhi/Device.h>
 #include <rhi/Instance.h>
-#include <shader/ShaderCompiler.h>
 
 namespace sky {
 

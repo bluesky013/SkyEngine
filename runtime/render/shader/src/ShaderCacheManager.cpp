@@ -68,7 +68,12 @@ namespace sky {
 
         auto iter = sourceEntry.entries.find(cacheKey);
         if (iter != sourceEntry.entries.end()) {
-            return &mapping.cacheEntries.at(iter->second);
+
+            auto cIter = mapping.cacheEntries.find(iter->second);
+            if (cIter != mapping.cacheEntries.end()) {
+                return &cIter->second;
+            }
+
         }
         return nullptr;
     }

@@ -18,14 +18,14 @@ namespace sky {
 
     enum class TechAssetType : uint32_t {
         GRAPHIC,
-        MESH,
         COMPUTE
     };
 
     struct ShaderRefData {
         std::string shader;
-        std::string objectOrCSMain;
-        std::string vertOrMeshMain;
+        std::string taskOrCSMain;
+        std::string vertexMain;
+        std::string meshMain;
         std::string fragmentMain;
     };
 

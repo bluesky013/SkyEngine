@@ -23,8 +23,7 @@ namespace sky::rdg {
         bool needRebuildPso = false;
         if (final != batch.cacheFinalKey || !batch.program) {
             batch.cacheFinalKey = final;
-
-            batch.program = batch.technique->RequestProgram(final);
+            batch.program = batch.technique->RequestProgram(final, primitive->clusterValid);
 
             if (batch.program) {
                 batch.vertexDesc = primitive->geometry->Request(batch.program);
@@ -43,7 +42,7 @@ namespace sky::rdg {
 
         if (needRebuildPso) {
             needRebuildPso &= static_cast<bool>(batch.program);
-            needRebuildPso &= static_cast<bool>(batch.vertexDesc);
+//            needRebuildPso &= static_cast<bool>(batch.vertexDesc);
             needRebuildPso &= static_cast<bool>(pass.renderPass);
 
             if (needRebuildPso) {
@@ -94,7 +93,7 @@ namespace sky::rdg {
     {
         const auto &primitives = scene->GetPrimitives();
 
-        for (auto &prim : primitives) {
+        for (const auto &prim : primitives) {
             prim->PrepareBatch();
         }
 
@@ -111,7 +110,7 @@ namespace sky::rdg {
             }
         }
 
-        for (auto &prim : primitives) {
+        for (const auto &prim : primitives) {
             prim->UpdateBatch();
         }
     }

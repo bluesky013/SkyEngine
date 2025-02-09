@@ -71,13 +71,6 @@ namespace sky {
         std::string errorInfo;
     };
 
-    enum class ShaderCompileTarget : uint32_t {
-        SPIRV,
-        MSL,
-        DXIL,
-        NUM
-    };
-
     class ShaderOption : public RefObject {
     public:
         ShaderOption() = default;
@@ -96,6 +89,8 @@ namespace sky {
     struct ShaderCompileOption {
         ShaderCompileTarget target;
         ShaderOptionPtr option;
+
+        bool useMeshShader = false;
     };
 
     struct ShaderSourceDesc {
@@ -111,6 +106,7 @@ namespace sky {
 
         virtual bool CompileBinary(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result) = 0;
         virtual std::string Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const { return {}; }
+        virtual bool CheckOption(const ShaderCompileOption &op) const = 0;
     };
 
     class ShaderCompiler : public Singleton<ShaderCompiler> {
@@ -150,6 +146,6 @@ namespace sky {
         std::unordered_map<Name, uint32_t> nameMap;
     };
 
-    using ShaderCompileFunc = bool (*)(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result);\
-    using GetBinaryCompilerFunc = ShaderCompilerBase* (*)(ShaderCompileTarget);
+    using ShaderCompileFunc = bool (*)(const ShaderSourceDesc &desc, const ShaderCompileOption &op, ShaderBuildResult &result);
+    using GetBinaryCompilerFunc = ShaderCompilerBase* (*)(const ShaderCompileOption &op);
 } // namespace sky

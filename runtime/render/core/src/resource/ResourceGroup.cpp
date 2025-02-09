@@ -79,12 +79,29 @@ namespace sky {
         }
     }
 
+    void ResourceGroup::BindBuffer(const Name &key, const rhi::BufferPtr &buffer, uint32_t offset, uint32_t size, uint32_t index)
+    {
+        const auto *res = layout->GetBindingByeName(key);
+        if (res != nullptr) {
+            set->BindBuffer(res->binding, buffer, offset, size, index);
+        }
+    }
+
     void ResourceGroup::BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t index)
     {
         const auto *res = layout->GetBindingByeName(key);
         if (res != nullptr) {
             set->BindBuffer(res->binding, buffer->GetRHIBuffer(), 0, buffer->GetSize(), index);
-            dynamicUBOS.emplace(layout->GetRHILayout()->GetDescriptorSetOffsetByBinding(res->binding) + index, buffer);
+            dynamicUBOS.emplace(res->binding, buffer);
+        }
+    }
+
+    void ResourceGroup::BindDynamicUBO(const Name &key, const RDDynamicUniformBufferPtr &buffer, uint32_t offset, uint32_t size, uint32_t index)
+    {
+        const auto *res = layout->GetBindingByeName(key);
+        if (res != nullptr) {
+            set->BindBuffer(res->binding, buffer->GetRHIBuffer(), offset, size, index);
+            dynamicUBOS.emplace(res->binding, buffer);
         }
     }
 

@@ -21,6 +21,8 @@ namespace sky::rhi {
             PipelineState     state;
             ShaderPtr         vs;
             ShaderPtr         fs;
+            ShaderPtr         tas;
+            ShaderPtr         ms;
             VertexInputPtr    vertexInput;
             RenderPassPtr     renderPass;
             PipelineLayoutPtr pipelineLayout;

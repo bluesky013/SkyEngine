@@ -19,7 +19,6 @@ namespace sky::phy {
             btIDebugDraw::DBG_DrawConstraints;
 
     struct BulletPrimitive : public RenderPrimitive {
-        void UpdateBatch() override {}
     };
 
     BulletDebugDraw::BulletDebugDraw()

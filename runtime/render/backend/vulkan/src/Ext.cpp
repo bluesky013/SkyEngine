@@ -6,6 +6,7 @@
 
 PFN_vkCreateRenderPass2 CreateRenderPass2;
 PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentShadingRates;
+PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTaskExt;
 
 PFN_vkCmdBlitImage2KHR CmdBlitImage2;
 PFN_vkCmdResolveImage2KHR CmdResolveImage2;
@@ -18,6 +19,7 @@ void LoadInstance(VkInstance instance, uint32_t minorVersion)
         CreateRenderPass2 = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2KHR"));
     }
 
+    CmdDrawMeshTaskExt = PFN_vkCmdDrawMeshTasksEXT(vkGetInstanceProcAddr(instance, "vkCmdDrawMeshTasksEXT"));
     GetPhysicalDeviceFragmentShadingRates = PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR"));
 }
 

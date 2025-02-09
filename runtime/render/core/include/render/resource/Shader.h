@@ -15,7 +15,6 @@
 #include <render/RenderResource.h>
 #include <render/RenderBase.h>
 #include <render/resource/ResourceGroup.h>
-#include <shader/ShaderCompiler.h>
 #include <shader/ShaderCacheManager.h>
 
 namespace sky {
@@ -51,7 +50,7 @@ namespace sky {
         void CacheProgram(const ShaderVariantKey &key, const RDProgramPtr &program);
 
         RDProgramPtr AcquireShaderBinary(const ShaderVariantKey &key, const std::vector<std::pair<Name, rhi::ShaderStageFlagBit>> &stages);
-        void BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result);
+        static bool BuildShaderBinary(const ShaderSourceDesc &source, const ShaderCompileOption &option, ShaderBuildResult &result);
 
         template <typename Func>
         void ForEachOption(Func &&fn)

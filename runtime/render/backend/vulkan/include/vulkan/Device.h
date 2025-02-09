@@ -79,6 +79,7 @@ namespace sky::vk {
         bool    GetBufferMemoryRequirements(VkBuffer buffer, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         bool    GetImageMemoryRequirements(VkImage image, VkMemoryPropertyFlags flags, MemoryRequirement &requirement) const;
         int32_t FindProperties(uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const;
+        void FeatureQuery(rhi::MeshShaderProperties& properties) const override;
 
         // rhi
         rhi::Queue *GetQueue(rhi::QueueType type) const override;
@@ -146,17 +147,19 @@ namespace sky::vk {
         VkPhysicalDeviceProperties2                      phyProps         = {};
         VkPhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProps = {};
         VkPhysicalDeviceDepthStencilResolvePropertiesKHR dsResolveProps   = {};
+        VkPhysicalDeviceMeshShaderPropertiesEXT          meshShaderProps  = {};
 
         VkPhysicalDeviceFeatures2                      phyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
         VkPhysicalDeviceMultiviewFeatures              mvrFeature          = {};
-
+        VkPhysicalDeviceMeshShaderFeaturesEXT          meshShaderFeatures  = {};
 
         VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR enabledShadingRateFeatures = {};
         VkPhysicalDeviceMultiviewFeatures              enabledMvrFeature          = {};
+        VkPhysicalDeviceMeshShaderFeaturesEXT          enabledMeshShaderFeatures  = {};
 
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 

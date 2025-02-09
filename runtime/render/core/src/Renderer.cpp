@@ -71,7 +71,6 @@ namespace sky {
         }
 
         {
-            SKY_PROFILE_NAME("frame sync")
             pipeline->FrameSync();
         }
 
