@@ -2,10 +2,10 @@
 // Created by Zach Lee on 2024/12/20.
 //
 
-#include <builder/render/mesh/ClusterMeshBuilder.h>
-#include <render/resource/Meshlet.h>
+#include <builder/render/mesh/MeshletBuilder.h>
+#include <builder/render/mesh/ClusterBuilder.h>
 #include <meshoptimizer.h>
-#include "MetisInclude.h"
+#include <render/resource/Meshlet.h>
 
 namespace sky::builder {
 
@@ -164,14 +164,9 @@ namespace sky::builder {
 
     }
 
-    ClusterMeshBuilder::ClusterMeshBuilder() = default;
-//    {
-//        int options[METIS_NOPTIONS];
-//        METIS_SetDefaultOptions(options);
-//        options[METIS_OPTION_SEED] = 42;
-//    }
+    MeshletBuilder::MeshletBuilder() = default;
 
-    void ClusterMeshBuilder::BuildFromMeshData(MeshAssetData &data)
+    void MeshletBuilder::BuildFromMeshData(MeshAssetData &data)
     {
         auto iter = std::find_if(data.attributes.begin(), data.attributes.end(),
             [](const VertexAttribute &val) -> bool {
@@ -202,9 +197,10 @@ namespace sky::builder {
             const auto* subPos = position + subMesh.firstVertex;
             const uint32_t *subIdx = indices + subMesh.firstIndex;
 
-            std::vector<uint32_t> tmp2(subMesh.indexCount);
-            memcpy(tmp2.data(), subIdx, subMesh.indexCount * sizeof(uint32_t));
-
+            TBufferViewAccessor<Vector3> posAccessor = { reinterpret_cast<const uint8_t*>(subPos), 0, sizeof(Vector4), subMesh.vertexCount };
+            TBufferViewAccessor<uint32_t> idxAccessor = { reinterpret_cast<const uint8_t*>(subIdx), 0, sizeof(uint32_t), subMesh.indexCount };
+            ClusterBuilder builder;
+            builder.BuildFromMeshData(posAccessor, idxAccessor);
             BuildCluster(subIdx, subMesh.indexCount, &subPos[0].x, subMesh.vertexCount, posView.stride, meshletData);
         }
 

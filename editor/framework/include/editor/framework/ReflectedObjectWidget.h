@@ -378,7 +378,7 @@ namespace sky::editor {
             auto any = memberNode->getterConstFn(object);
             auto *pVal = any.GetAs<uint64_t >();
 
-            SKY_ASSERT(info->enums.count(*pVal))
+            SKY_ASSERT(info->enums.count(*pVal) != 0)
             box->setCurrentText(info->enums.at(*pVal).data());
         }
 

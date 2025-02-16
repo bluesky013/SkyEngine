@@ -48,6 +48,8 @@ namespace sky {
 
         inline float &operator[](uint32_t i);
         inline float operator[](uint32_t i) const;
+
+        inline bool operator==(const Vector3& rhs) const;
     };
 } // namespace sky
 

@@ -49,6 +49,20 @@ namespace sky {
         AABB aabb;
     };
 
+    template <typename T>
+    struct TBufferViewAccessor {
+        const uint8_t *ptr = nullptr;
+        uint32_t offset = 0;
+        uint32_t stride = 0;
+        uint32_t count = 0;
+
+        const T& operator[](uint32_t index) const
+        {
+            SKY_ASSERT(index < count);
+            return *reinterpret_cast<const T*>(ptr + index * stride + offset);
+        }
+    };
+
     static constexpr uint32_t INVALID_MESH_BUFFER_VIEW = ~(0U);
 
     struct MeshDataHeader {

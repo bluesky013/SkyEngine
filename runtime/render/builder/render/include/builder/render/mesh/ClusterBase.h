@@ -1,12 +1,11 @@
 //
-// Created by Zach Lee on 2024/12/20.
+// Created by blues on 2025/2/9.
 //
 
 #pragma once
 
-#include <vector>
-#include <render/adaptor/assets/MeshAsset.h>
 #include <render/resource/Meshlet.h>
+#include <vector>
 
 namespace sky::builder {
 
@@ -16,11 +15,8 @@ namespace sky::builder {
         std::vector<uint32_t>  meshletTriangles;
     };
 
-    class ClusterMeshBuilder {
-    public:
-        ClusterMeshBuilder();
-        ~ClusterMeshBuilder() = default;
-
-        static void BuildFromMeshData(MeshAssetData &data);
+    struct Cluster {
+        std::vector<uint32_t> indices;
     };
+
 } // namespace sky::builder
