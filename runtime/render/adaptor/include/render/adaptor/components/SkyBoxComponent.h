@@ -14,6 +14,8 @@ namespace sky {
 
     struct SkyBoxData {
         Uuid skybox;
+        Uuid radiance;
+        Uuid irradiance;
     };
 
     class SkyBoxComponent : public ComponentAdaptor<SkyBoxData> {
@@ -31,10 +33,20 @@ namespace sky {
 
         void SetImage(const Uuid &image);
         const Uuid &GetImage() const;
+
+        void SetRadiance(const Uuid &image);
+        const Uuid &GetRadiance() const;
+
+        void SetIrradiance(const Uuid &image);
+        const Uuid &GetIrradiance() const;
     private:
 
         TechniqueAssetPtr techAsset;
-        RDTexturePtr texture;
+
+        RDTexture2DPtr texture;
+        RDTextureCubePtr radiance;
+        RDTextureCubePtr irradiance;
+
         CounterPtr<Technique> technique;
         std::unique_ptr<SkySphereRenderer> renderer;
     };

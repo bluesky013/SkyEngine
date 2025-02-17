@@ -131,6 +131,19 @@ namespace sky::builder {
             return image;
         }
 
+        static ImageObjectPtr CreateImageCube(uint32_t width, uint32_t height, PixelType pt, uint32_t comp)
+        {
+            auto image = std::make_shared<ImageObject>();
+            image->width = width;
+            image->height = height;
+            image->depth = 6;
+            image->pixelType = pt;
+            image->components = comp;
+            image->pixelSize = GetBytePerComp(pt) * comp;
+
+            return image;
+        }
+
         void FillMip0()
         {
             mips.clear();

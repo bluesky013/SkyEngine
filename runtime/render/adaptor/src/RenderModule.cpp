@@ -23,6 +23,7 @@
 #include <render/RenderTechniqueLibrary.h>
 
 #include <render/light/LightFeature.h>
+#include <render/env/EnvFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
@@ -124,6 +125,7 @@ namespace sky {
         ImGuiFeature::Get()->Init();
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
+        EnvFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
         {
@@ -151,6 +153,7 @@ namespace sky {
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
         TextFeature::Destroy();
+        EnvFeature::Destroy();
 
         Renderer::Destroy();
         RHI::Destroy();

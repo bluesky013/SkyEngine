@@ -176,15 +176,9 @@ namespace sky::rdg {
                 }
             },
             [&](const ImportImageTag &) {
+                auto name = GetName(res, rdg.resourceGraph);
                 auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
-                const auto &info = image.desc.image->GetDescriptor();
-
-                if (!image.res) {
-                    rhi::ImageViewDesc viewDesc = {};
-                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
-                    viewDesc.viewType = image.desc.viewType;
-                    image.res = image.desc.image->CreateView(viewDesc);
-                }
+                image.res = rdg.context->pool->RequestImageView(name, image.desc);
             },
             [&](const ImportSwapChainTag &) {
                 auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];

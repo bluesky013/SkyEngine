@@ -28,7 +28,7 @@ namespace sky::rdg {
             if (batch.program) {
                 batch.vertexDesc = primitive->geometry->Request(batch.program);
             } else {
-                LOG_E(TAG, "requst program failed %s", final.ToString().c_str());
+                LOG_E(TAG, "request program failed %s", final.ToString().c_str());
             }
 
             needRebuildPso = true;

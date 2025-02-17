@@ -4,7 +4,6 @@
 
 #include <render/adaptor/pipeline/ForwardMSAAPass.h>
 #include <render/adaptor/pipeline/DefaultPassConstants.h>
-#include <render/adaptor/Util.h>
 #include <render/rdg/RenderGraph.h>
 #include <render/RHI.h>
 #include <render/RenderScene.h>
@@ -21,39 +20,50 @@ namespace sky {
         rdg::GraphImage image = {};
         image.extent.width  = width;
         image.extent.height = height;
-        image.samples       = samples;
-        image.usage         = rhi::ImageUsageFlagBit::RENDER_TARGET;
         image.format        = colorFormat;
 
         Name fwdMSAAColor(FWD_MSAA_CL.data());
         Name fwdColor(FWD_CL.data());
         Name fwdMSAADepthStencil(FWD_MSAA_DS.data());
+        Name fwdDepthStencil(FWD_DS.data());
 
-        images.emplace_back(fwdMSAAColor, image);
+        if (samples_ > rhi::SampleCount::X1) {
+            image.samples = samples;
+            image.usage   = rhi::ImageUsageFlagBit::RENDER_TARGET;
+            images.emplace_back(fwdMSAAColor, image);
 
-        image.samples       = rhi::SampleCount::X1;
-        image.usage         = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
-        images.emplace_back(fwdColor, image);
+            image.samples = rhi::SampleCount::X1;
+            image.usage   = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
+            images.emplace_back(fwdColor, image);
 
-        image.samples       = samples;
-        image.usage         = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
-        image.format        = depthStenFormat;
-        images.emplace_back(fwdMSAADepthStencil, image);
+            image.samples = samples;
+            image.usage   = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
+            image.format  = depthStenFormat;
+            images.emplace_back(fwdMSAADepthStencil, image);
 
-        colors.emplace_back(Attachment{
-            rdg::RasterAttachment{fwdMSAAColor, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
-            rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)
-        });
+            colors.emplace_back(
+                Attachment{rdg::RasterAttachment{fwdMSAAColor, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)});
 
-        resolves.emplace_back(Attachment{
-            rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
-            rhi::ClearValue(0, 0, 0, 0)
-        });
+            resolves.emplace_back(
+                Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, rhi::ClearValue(0, 0, 0, 0)});
 
-        depthStencil = Attachment{
-            rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
-            rhi::ClearValue(1.f, 0)
-        };
+            depthStencil =
+                Attachment{rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0)};
+        } else {
+            image.samples = rhi::SampleCount::X1;
+            image.usage   = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
+            images.emplace_back(fwdColor, image);
+
+            image.usage   = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
+            image.format  = depthStenFormat;
+            images.emplace_back(fwdDepthStencil, image);
+
+            colors.emplace_back(
+                Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)});
+
+            depthStencil =
+                Attachment{rdg::RasterAttachment{fwdDepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0)};
+        }
 
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
         computeResources.emplace_back(ComputeResource{
@@ -66,43 +76,29 @@ namespace sky {
             rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, stageFlags}
         });
 
-        rhi::DescriptorSetLayout::Descriptor desc = {};
-        desc.bindings.emplace_back(
-                rhi::DescriptorType::UNIFORM_BUFFER, 1, 0, stageFlags, "passInfo");
-        desc.bindings.emplace_back(rhi::DescriptorSetLayout::SetBinding{
-                rhi::DescriptorType::UNIFORM_BUFFER, 1, 1, stageFlags, "viewInfo"});
-//        desc.bindings.emplace_back(
-//                rhi::DescriptorType::SAMPLED_IMAGE, 1, 2, rhi::ShaderStageFlagBit::FS, "ShadowMap");
-//        desc.bindings.emplace_back(
-//                rhi::DescriptorType::SAMPLER, 1, 3, rhi::ShaderStageFlagBit::FS, "ShadowMapSampler");
+        computeResources.emplace_back(ComputeResource{
+            Name("BRDFLut"),
+            rdg::ComputeView{Name("BRDFLut"), rdg::ComputeType::SRV, stageFlags}
+        });
 
-        layout = new ResourceGroupLayout();
-        layout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
-        layout->AddNameHandler(Name("passInfo"), {0, sizeof(ShaderPassInfo)});
-        layout->AddNameHandler(Name("viewInfo"), {1, sizeof(SceneViewInfo)});
-//        layout->AddNameHandler("ShadowMap", {2});
-//        layout->AddNameHandler("ShadowMapSampler", {3});
+        computeResources.emplace_back(ComputeResource{
+            Name("IrradianceMap"),
+            rdg::ComputeView{Name("IrradianceMap"), rdg::ComputeType::SRV, stageFlags}
+        });
 
-        globalUbo = new UniformBuffer();
-        globalUbo->Init(sizeof(ShaderPassInfo));
+        computeResources.emplace_back(ComputeResource{
+            Name("PrefilteredMap"),
+            rdg::ComputeView{Name("PrefilteredMap"), rdg::ComputeType::SRV, stageFlags}
+        });
+    }
+
+    void ForwardMSAAPass::SetLayout(const RDResourceLayoutPtr &layout_)
+    {
+        layout = layout_;
     }
 
     void ForwardMSAAPass::SetupSubPass(rdg::RasterSubPassBuilder& subPass, RenderScene &scene)
     {
-        ShaderPassInfo info = {};
-
-        auto *lf = GetFeatureProcessor<LightFeatureProcessor>(&scene);
-        if (lf != nullptr) {
-            auto *mainLight = lf ->GetMainLight();
-            if (mainLight != nullptr) {
-                info.mainLightColor = mainLight->GetColor();
-                info.mainLightDirection = mainLight->GetDirection();
-            }
-        }
-        globalUbo->WriteT(0, info);
-
-        subPass.rdg.resourceGraph.ImportUBO(Name("FWD_PassInfo"), globalUbo);
-
         auto *sceneView = scene.GetSceneView(Name("MainCamera"));
 
         subPass.SetViewMask(0);

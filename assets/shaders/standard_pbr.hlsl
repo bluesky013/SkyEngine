@@ -8,6 +8,7 @@
 #pragma option({"key": "ENABLE_AO_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_MR_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_ALPHA_MASK",   "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
 
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
 
@@ -214,6 +215,17 @@ void MSMain(
 // 	return shadowFactor / count;
 // }
 
+float3 PrefilteredReflection(float3 R, float roughness)
+{
+    const float MAX_REFLECTION_LOD = 9.0; // 512 x 512
+    float lod = roughness * MAX_REFLECTION_LOD;
+    float lodf = floor(lod);
+    float lodc = ceil(lod);
+    float3 a = PrefilteredMap.SampleLevel(PrefilteredMapSampler, R, lodf).rgb;
+    float3 b = PrefilteredMap.SampleLevel(PrefilteredMapSampler, R, lodc).rgb;
+    return lerp(a, b, lod - lodf);
+}
+
 //------------------------------------------ Fragment Shader------------------------------------------//
 float4 FSMain(VSOutput input) : SV_TARGET
 {
@@ -276,6 +288,23 @@ float4 FSMain(VSOutput input) : SV_TARGET
 // 	float shadow = filterPCF(shadowCoord);
 // 	shadow = max(shadow, 1.0);
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
-    return float4(e0, albedo.a);
+
+
+    float3 R = reflect(-V, N);
+    float2 brdf = BRDFLut.Sample(BRDFLutSampler, float2(max(dot(N, V), 0.0), pbrParam.Roughness)).rg;
+    float3 reflection = PrefilteredReflection(R, pbrParam.Roughness).rgb;
+    float3 irradiance = IrradianceMap.Sample(IrradianceSampler, N).rgb;
+
+    float3 F0 = lerp(0.04, pbrParam.Albedo, pbrParam.Metallic);
+
+	float3 diffuse = irradiance * pbrParam.Albedo;
+	float3 F = F_SchlickR(max(dot(N, V), 0.0), F0, pbrParam.Roughness);
+	float3 specular = reflection * (F * brdf.x + brdf.y);
+
+	float3 kD = 1.0 - F;
+    kD *= 1.0 - pbrParam.Metallic;
+    float3 ambient = (kD * diffuse + specular);
+
+    return float4(e0 + ambient, albedo.a);
 }
 //------------------------------------------ Fragment Shader------------------------------------------//

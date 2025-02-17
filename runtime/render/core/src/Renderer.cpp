@@ -74,6 +74,8 @@ namespace sky {
             pipeline->FrameSync();
         }
 
+        streamManager->Tick();
+
         rdg::RenderGraph rdg(pipeline->Context());
 
         std::vector<RenderScene*> renderScenes;
@@ -105,7 +107,6 @@ namespace sky {
         for (auto &scn : scenes) {
             scn->PostTick(time);
         }
-        streamManager->Tick();
 
         delayReleaseCollections[(frameIndex + inflightFrameCount - 1) % inflightFrameCount]->Clear();
 

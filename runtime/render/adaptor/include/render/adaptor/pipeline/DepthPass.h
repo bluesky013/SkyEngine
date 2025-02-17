@@ -10,9 +10,10 @@ namespace sky {
 
     class DepthPass : public RasterPass {
     public:
-        explicit DepthPass(uint32_t width, uint32_t height);
+        explicit DepthPass(rhi::PixelFormat ds, rhi::SampleCount samples_);
         ~DepthPass() override = default;
 
+        void SetLayout(const RDResourceLayoutPtr &layout_);
     private:
         void SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene) override;
     };

@@ -102,6 +102,8 @@ namespace sky::rdg {
         const rhi::FrameBufferPtr &RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc);
         ResourceGroup *RequestResourceGroup(uint64_t id, const RDResourceLayoutPtr &layout);
 
+        rhi::ImageViewPtr RequestImageView(const Name& view, const rdg::GraphImportImage &image);
+
         template <typename T>
         struct CacheItem {
             T item;
@@ -120,6 +122,8 @@ namespace sky::rdg {
 
         std::unordered_map<std::string, std::unique_ptr<ImageObject>> persistentImages;
         std::unordered_map<std::string, std::unique_ptr<BufferObject>> persistentBuffers;
+
+        std::unordered_map<Name, CacheItem<std::pair<rhi::ImagePtr, rhi::ImageViewPtr>>> viewCache;
     };
 
 } // namespace sky::rdg

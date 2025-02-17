@@ -20,54 +20,6 @@
 
 
 namespace sky::builder {
-    ImageBuilder::ImageBuilder()
-    {
-        InitializeCompressor();
-    }
-
-    void ImageBuilder::RequestImage(const AssetBuildRequest &request, AssetBuildResult &result)
-    {
-        auto archive = request.file->ReadAsArchive();
-        BinaryInputArchive bin(*archive);
-
-        auto  asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
-        auto &imageData = asset->Data();
-
-        imageData.Load(bin);
-
-        imageData.rawData.storage.resize(imageData.dataSize);
-        bin.LoadValue(reinterpret_cast<char*>(imageData.rawData.storage.data()), imageData.dataSize);
-
-        AssetManager::Get()->SaveAsset(asset, request.target);
-    }
-
-    void ImageBuilder::RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result)
-    {
-        std::vector<uint8_t> data;
-        request.file->ReadBin(data);
-
-        rhi::Image::Descriptor imageDesc = {};
-        uint32_t offset = rhi::ProcessDDSHeader(data.data(), data.size(), imageDesc);
-
-        auto asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
-        auto &imageData = asset->Data();
-
-        imageData.format = imageDesc.format;
-        imageData.width = imageDesc.extent.width;
-        imageData.height = imageDesc.extent.height;
-        imageData.depth = imageDesc.extent.depth;
-        imageData.arrayLayers = imageDesc.arrayLayers;
-        imageData.mipLevels = imageDesc.mipLevels;
-        imageData.type = imageData.arrayLayers == 6 ? TextureType::TEXTURE_CUBE : TextureType::TEXTURE_2D;
-
-//        auto buffer = AssetManager::Get()->FindOrCreateAsset<Buffer>(imageData.bufferID);
-//        auto &bufferData = buffer->Data();
-//        bufferData.rawData.resize(imageData.dataSize);
-//        memcpy(bufferData.rawData.data(), data.data() + offset, imageData.dataSize);
-
-        result.retCode = AssetBuildRetCode::SUCCESS;
-    }
-
     static rhi::PixelFormat GetPixelFormat(PixelType type, uint32_t components)
     {
         if (type == PixelType::U8) {
@@ -126,6 +78,92 @@ namespace sky::builder {
             imageData.rawData.storage.resize(imageData.dataSize);
             memcpy(imageData.rawData.storage.data() + slice.offset, mipData.data.get(), mipData.dataLength);
         }
+    }
+
+    void ProcessDDS(ImageAssetData& imageData, uint8_t *input, uint64_t size)
+    {
+        rhi::Image::Descriptor imageDesc = {};
+        uint32_t dataOffset = ProcessDDSHeader(input, size, imageDesc);
+
+        auto* fmtInfo = rhi::GetImageInfoByFormat(imageDesc.format);
+        if (fmtInfo == nullptr) {
+            return;
+        }
+
+        uint8_t *dataStart = input + dataOffset;
+        uint32_t offset = 0;
+
+        imageData.format = imageDesc.format;
+        imageData.width = imageDesc.extent.width;
+        imageData.height = imageDesc.extent.height;
+        imageData.depth = imageDesc.extent.depth;
+        imageData.arrayLayers = imageDesc.arrayLayers;
+        imageData.mipLevels = imageDesc.mipLevels;
+        imageData.type = imageData.arrayLayers == 6 ? TextureType::TEXTURE_CUBE : TextureType::TEXTURE_2D;
+
+        uint32_t blockWidth = fmtInfo->blockWidth;
+        uint32_t blockHeight = fmtInfo->blockHeight;
+        uint32_t blockSize = fmtInfo->blockSize;
+
+        for (uint32_t j = 0; j < imageDesc.arrayLayers; ++j) {
+            for (uint32_t i = 0; i < imageDesc.mipLevels; ++i) {
+                auto width  = std::max(imageDesc.extent.width >> i, 1U);
+                auto height = std::max(imageDesc.extent.height >> i, 1U);
+
+                uint32_t rowLength   = (width + blockWidth - 1) / blockWidth;
+                uint32_t imageHeight = (height + blockHeight - 1) / blockHeight;
+                uint32_t currentSize = rowLength * imageHeight * blockSize;
+
+                ImageSliceHeader header = {};
+                header.offset = offset;
+                header.mipLevel = i;
+                header.layer = j;
+                header.size = currentSize;
+
+                imageData.slices.emplace_back(header);
+                offset += currentSize;
+            }
+        }
+
+        imageData.dataSize = offset;
+        imageData.rawData.storage.resize(offset);
+        memcpy(imageData.rawData.storage.data(), dataStart, offset);
+    }
+
+
+    ImageBuilder::ImageBuilder()
+    {
+        InitializeCompressor();
+    }
+
+    void ImageBuilder::RequestImage(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
+        auto archive = request.file->ReadAsArchive();
+        BinaryInputArchive bin(*archive);
+
+        auto  asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
+        auto &imageData = asset->Data();
+
+        imageData.Load(bin);
+
+        imageData.rawData.storage.resize(imageData.dataSize);
+        bin.LoadValue(reinterpret_cast<char*>(imageData.rawData.storage.data()), imageData.dataSize);
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
+    }
+
+    void ImageBuilder::RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
+        std::vector<uint8_t> data;
+        request.file->ReadBin(data);
+
+        auto asset = AssetManager::Get()->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
+        auto &imageData = asset->Data();
+
+        ProcessDDS(imageData, data.data(), data.size());
+        AssetManager::Get()->SaveAsset(asset, request.target);
+
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
     void ImageBuilder::RequestSTB(const AssetBuildRequest &request, AssetBuildResult &result)

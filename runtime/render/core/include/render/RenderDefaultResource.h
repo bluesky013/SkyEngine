@@ -21,7 +21,9 @@ namespace sky {
 
         rhi::SamplerPtr defaultSampler;
         RDTexture2DPtr texture2DWhite;
-        RDTexture2DPtr texture2dBlack;
+        RDTexture2DPtr texture2DBlack;
+
+        RDTextureCubePtr textureCubeWhite;
     };
 
 } // namespace sky

@@ -110,7 +110,7 @@ namespace sky {
         data = std::move(stream);
     }
 
-    void Texture::Upload(std::vector<uint8_t> &&rawData, rhi::Queue *queue)
+    void Texture::UploadRawData(std::vector<uint8_t> &&rawData, rhi::Queue *queue)
     {
         rhi::ImageUploadRequest request = {};
         request.size   = static_cast<uint32_t>(rawData.size());

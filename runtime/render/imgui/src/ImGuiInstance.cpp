@@ -123,7 +123,7 @@ namespace sky {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         primitive->fontTexture = new Texture2D();
         primitive->fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
-        primitive->fontTexture->Upload(std::move(rawData), queue);
+        primitive->fontTexture->UploadRawData(std::move(rawData), queue);
         io.Fonts->SetTexID((ImTextureID)(intptr_t)primitive->fontTexture->GetImageView().get());
     }
 

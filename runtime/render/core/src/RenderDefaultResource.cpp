@@ -67,35 +67,44 @@ namespace sky {
 
         auto *queue = device->GetQueue(rhi::QueueType::TRANSFER);
 
+        rhi::ImageUploadRequest whiteData = {
+            new rhi::RawPtrStream(DEFAULT_TEX2D_WHITE_DATA.data()),
+            0, DEFAULT_TEX2D_WHITE_DATA.size(), 0, 0
+        };
+
+        rhi::ImageUploadRequest blackData = {
+            new rhi::RawPtrStream(DEFAULT_TEX2D_BLACK_DATA.data()),
+            0, DEFAULT_TEX2D_BLACK_DATA.size(), 0, 0
+        };
         {
             texture2DWhite = new Texture2D();
             texture2DWhite->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
-            texture2DWhite->Upload(std::move(DEFAULT_TEX2D_WHITE_DATA), queue);
+            texture2DWhite->SetUploadStream(ImageData{{whiteData}});
+            texture2DWhite->Upload(queue);
             texture2DWhite->Wait();
         }
 
         {
-            texture2dBlack = new Texture2D();
-            texture2dBlack->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
-            texture2dBlack->Upload(std::move(DEFAULT_TEX2D_BLACK_DATA), queue);
-            texture2dBlack->Wait();
+            texture2DBlack = new Texture2D();
+            texture2DBlack->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
+            texture2DWhite->SetUploadStream(ImageData{{whiteData}});
+            texture2DWhite->Upload(queue);
+            texture2DBlack->Wait();
         }
 
-//        {
-//            rhi::ImageViewDesc viewDesc = {};
-//            imageDesc.arrayLayers = 6;
-//            viewDesc.subRange.layers = 6;
-//            viewDesc.viewType = rhi::ImageViewType::VIEW_CUBE;
-//
-//            auto image = device->CreateImage(imageDesc);
-//            textureCube = image->CreateView(viewDesc);
-//            std::vector<rhi::ImageUploadRequest> requests;
-//            for (uint32_t i = 0; i < 6; ++i) {
-//                request.layer = i;
-//                requests.emplace_back(request);
-//            }
-//            taskHandle = queue->UploadImage(image, requests);
-//        }
+        {
+            textureCubeWhite = new TextureCube();
+            textureCubeWhite->Init(rhi::PixelFormat::RGBA8_UNORM, 2, 2, 1);
+
+            ImageData imageData;
+            for (uint32_t i = 0; i < 6; ++i) {
+                whiteData.layer = i;
+                imageData.slices.emplace_back(whiteData);
+            }
+            textureCubeWhite->SetUploadStream(std::move(imageData));
+            textureCubeWhite->Upload(queue);
+            textureCubeWhite->Wait();
+        }
     }
 
     void RenderDefaultResource::Reset()
@@ -106,6 +115,7 @@ namespace sky {
         defaultSampler = nullptr;
 
         texture2DWhite = nullptr;
-        texture2dBlack = nullptr;
+        texture2DBlack = nullptr;
+        textureCubeWhite = nullptr;
     }
 } // namespace sky

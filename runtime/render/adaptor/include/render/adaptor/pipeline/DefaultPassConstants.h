@@ -16,6 +16,8 @@ namespace sky {
     static constexpr std::string_view FWD_MSAA_CL = "ForwardMSAAColor";
     static constexpr std::string_view FWD_MSAA_DS = "ForwardMSAADepthStencil";
 
+    static constexpr std::string_view FWD_DS_RESOLVE = "ForwardDepthResolve";
+
     static constexpr std::string_view SWAP_CHAIN = "SwapChain";
 
 } // namespace sky

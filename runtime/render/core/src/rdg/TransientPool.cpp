@@ -4,6 +4,7 @@
 
 #include <render/rdg/TransientPool.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
 #include <rhi/Decode.h>
 
 namespace sky::rdg {
@@ -80,6 +81,10 @@ namespace sky::rdg {
 
     ResourceGroup *TransientPool::RequestResourceGroup(uint64_t id, const RDResourceLayoutPtr &layout)
     {
+        if (!layout) {
+            return Renderer::Get()->GetDefaultResource().emptySet.Get();
+        }
+
         auto iter = resourceGroups.find(id);
         if (iter != resourceGroups.end()) {
             if (iter->second.item->GetLayout()->GetRHILayout()->GetHash() == layout->GetRHILayout()->GetHash()) {
@@ -108,6 +113,24 @@ namespace sky::rdg {
         return frameBuffers.emplace(desc, fbItem).first->second.item;
     }
 
+    rhi::ImageViewPtr TransientPool::RequestImageView(const Name& view, const rdg::GraphImportImage &image)
+    {
+        auto iter = viewCache.find(view);
+        if (iter != viewCache.end() && iter->second.item.first.get() == image.image.get()) {
+            iter->second.count = 0;
+            return iter->second.item.second;
+        }
+        const auto &info = image.image->GetDescriptor();
+
+        rhi::ImageViewDesc viewDesc = {};
+        viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
+        viewDesc.viewType = image.viewType;
+        auto imageView = image.image->CreateView(viewDesc);
+
+        viewCache[view] = CacheItem<std::pair<rhi::ImagePtr, rhi::ImageViewPtr>>{{image.image, imageView}, 0};
+        return imageView;
+    }
+
     void TransientPool::Init()
     {
         rhi::DescriptorSetPool::Descriptor desc = {};
@@ -132,6 +155,15 @@ namespace sky::rdg {
             iter->second.count++;
             if (iter->second.count >= 60) {
                 iter = resourceGroups.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+
+        for (auto iter = viewCache.begin(); iter != viewCache.end();) {
+            iter->second.count++;
+            if (iter->second.count >= 60) {
+                iter = viewCache.erase(iter);
             } else {
                 ++iter;
             }
