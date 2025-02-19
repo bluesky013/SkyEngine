@@ -6,6 +6,7 @@
 #include <core/util/Memory.h>
 #include <core/util/Uuid.h>
 #include <core/util/ArrayBitFlag.h>
+#include <unordered_set>
 #include <gtest/gtest.h>
 #include <string>
 
@@ -39,6 +40,36 @@ TEST(UtilTest, UuIdTest)
 
     std::string str = TestUuid::ID.ToString();
     ASSERT_EQ(str, std::string("12345678-0123-4567-8901-234567890123"));
+
+    auto u1 = Uuid::CreateFromString("3B059DFF-EBBC-4A29-9EDC-5CDBA0B5F52C");
+    auto u2 = Uuid::CreateFromString("E9BB7A21-3B46-4A3D-83FA-E5155A5F14C7");
+    auto u3 = Uuid::CreateFromString("B4559DB8-A21B-4216-9FA5-84CC4A52FAAB");
+
+    auto v1 = std::hash<Uuid>()(u1);
+    auto v2 = std::hash<Uuid>()(u2);
+    auto v3 = std::hash<Uuid>()(u3);
+
+    {
+        std::unordered_set<Uuid> test;
+        test.emplace(u1);
+        test.emplace(u2);
+        test.emplace(u3);
+
+        ASSERT_NE(v1, v2);
+        ASSERT_NE(v2, v3);
+        ASSERT_NE(v1, v3);
+    }
+
+    {
+        std::set<Uuid> test;
+        test.emplace(u1);
+        test.emplace(u2);
+        test.emplace(u3);
+
+        ASSERT_NE(v1, v2);
+        ASSERT_NE(v2, v3);
+        ASSERT_NE(v1, v3);
+    }
 }
 
 TEST(UtilTest, AlignTest)

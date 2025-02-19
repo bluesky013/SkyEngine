@@ -61,4 +61,5 @@ namespace sky {
     static constexpr Vector3 VEC3_X = Vector3(1, 0, 0);
     static constexpr Vector3 VEC3_Y = Vector3(0, 1, 0);
     static constexpr Vector3 VEC3_Z = Vector3(0, 0, 1);
+    static constexpr Vector3 VEC3_NZ = Vector3(0, 0, -1);
 } // namespace sky

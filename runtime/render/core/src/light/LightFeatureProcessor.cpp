@@ -3,11 +3,115 @@
 //
 
 #include <render/light/LightFeatureProcessor.h>
-
+#include <core/math/Color.h>
+#include <core/math/MathUtil.h>
+#include <core/math/Transform.h>
 namespace sky {
+
+    ColorRGB KelvinToColorRGB(float kelvin)
+    {
+        kelvin = std::clamp(kelvin, 1000.0f, 40000.0f);
+        float temp = kelvin / 100.f;
+
+        float red, green, blue;
+        if (temp <= 66.f) {
+            red = 255.f;
+        } else {
+            red = temp - 60.0f;
+            red = 329.698727446f * pow(red, -0.1332047592f);
+            red = std::clamp(red, 0.0f, 255.0f);
+        }
+
+        if (temp <= 66.f) {
+            green = temp;
+            green = 99.4708025861f * log(green) - 161.1195681661f;
+        } else {
+            green = temp - 60.f;
+            green = 288.1221695283f * pow(green, -0.0755148492f);
+        }
+        green = std::clamp(green, 0.0f, 255.0f);
+
+        if (temp >= 66.0f) {
+            blue = 255.0f;
+        } else if (temp <= 19.0f) {
+            blue = 0.0;
+        } else {
+            blue = temp - 10.0f;
+            blue = 138.5177312231f * log(blue) - 305.0447927307f;
+            blue = std::clamp(blue, 0.0f, 255.0f);
+        }
+
+        return {red, green, blue};
+    }
+
+    float CalKelvin(float t)
+    {
+        t = fmod(t, 24.0f);
+        if (t < 5.0f || t >= 19.0f) {
+            return 3000.0f;
+        } else if (t < 7.0f) {
+            float phase = (t - 5.0f) / 2.0f;
+            return 3000.0f + 2500.0f * (1.0f - cos(PI * phase)) / 2.0f;
+        } else if (t < 17.0f) {
+            return 5500.0f;
+        }
+
+        float phase = (t - 17.0f) / 2.0f;
+        return 5500.0f - 2500.0f * (1.0f - cos(PI * phase)) / 2.0f;
+    }
+
+    float CalBrightness(float t)
+    {
+        t = fmod(t, 24.0f);
+        if (t < 5.0f || t >= 19.0f) {
+            return 0.1f;
+        } else if (t < 7.0f) {
+            float phase = (t - 5.0f) / 2.0f;
+            return 0.1f + 0.9f * (1.0f - cos(PI * phase)) / 2.0f;
+        } else if (t < 17.0f) {
+            return 1.0f;
+        }
+        float phase = (t - 17.0f) / 2.0f;
+        return 1.0f - 0.9f * (1.0f - cos(PI * phase)) / 2.0f;
+    }
+
+    void TimeOfDay::Tick(float time)
+    {
+        current += time * 1.f;
+        current = static_cast<float>(current > 24 ? static_cast<uint32_t>(current) % 24 : current);
+
+        UpdateTime(current);
+    }
+
+    void TimeOfDay::UpdateTime(float time)
+    {
+        float kelvin     = CalKelvin(time);
+        float brightness = CalBrightness(time);
+        ColorRGB color   = KelvinToColorRGB(kelvin);
+        color.r /= 255.f;
+        color.g /= 255.f;
+        color.b /= 255.f;
+
+        float val = time / 24.f * 360.f;
+        val = std::clamp(val, 95.f, 265.f);
+        float a1 = 90.f  + val;
+        float a2 = (-90.f - val) / 180.f * PI;
+
+        radius = 200.f;
+
+        Transform transform;
+        transform.translation = Vector3(0.f, radius * sin(a2), radius * cos(a2));
+        transform.rotation.FromEulerYZX(Vector3{a1, 0.f, 0});
+
+        light->SetIntensity(brightness * 5.f);
+        light->SetColor(color);
+        light->SetDirection(transform.rotation * VEC3_NZ);
+        light->SetWorldMatrix(transform.ToMatrix());
+    }
 
     void LightFeatureProcessor::Tick(float time)
     {
+        tod.Tick(time);
 //        GatherLightInfo();
     }
 
@@ -17,6 +121,7 @@ namespace sky {
             mainLight = std::make_unique<MainDirectLight>();
         }
 
+        tod.light = mainLight.get();
         return mainLight.get();
     }
 

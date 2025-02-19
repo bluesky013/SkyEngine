@@ -70,6 +70,9 @@ namespace sky {
         forward = std::make_unique<ForwardMSAAPass>(rhi::PixelFormat::RGBA16_SFLOAT, depthStencilFormat, rhi::SampleCount::X1);
         forward->SetLayout(defaultRasterLayout);
 
+        shadowMap = std::make_unique<ShadowMapPass>(4096, 4096);
+        shadowMap->SetLayout(defaultRasterLayout);
+
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
         postProcess = std::make_unique<PostProcessingPass>(postTech);
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
@@ -92,6 +95,7 @@ namespace sky {
         if (lf != nullptr) {
             auto *mainLight = lf ->GetMainLight();
             if (mainLight != nullptr) {
+                info.lightMatrix = mainLight->GetMatrix();
                 info.mainLightColor = mainLight->GetColor();
                 info.mainLightDirection = mainLight->GetDirection();
             }
@@ -116,9 +120,10 @@ namespace sky {
         SetupGlobal(rdg);
 
         AddPass(brdfLut.get());
+        AddPass(shadowMap.get());
 
-//        depth->Resize(renderWidth, renderHeight);
-//        AddPass(depth.get());
+        depth->Resize(renderWidth, renderHeight);
+        AddPass(depth.get());
 
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());

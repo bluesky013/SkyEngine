@@ -11,6 +11,16 @@
 
 namespace sky {
 
+    struct TimeOfDay {
+        void Tick(float time);
+        void UpdateTime(float time);
+
+        float current = 0.f;
+        Vector3 position;
+        float radius = 200.f;
+        MainDirectLight *light = nullptr;
+    };
+
     class LightFeatureProcessor : public IFeatureProcessor {
     public:
         explicit LightFeatureProcessor(RenderScene *scn) : IFeatureProcessor(scn) {}
@@ -44,6 +54,8 @@ namespace sky {
 
         RDBufferPtr lightData;
         RDBufferPtr stagingBuffer;
+
+        TimeOfDay tod;
     };
 
 } // namespace sky

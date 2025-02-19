@@ -77,6 +77,11 @@ namespace sky {
         });
 
         computeResources.emplace_back(ComputeResource{
+            Name("ShadowMap"),
+            rdg::ComputeView{Name("ShadowMap"), rdg::ComputeType::SRV, stageFlags}
+        });
+
+        computeResources.emplace_back(ComputeResource{
             Name("BRDFLut"),
             rdg::ComputeView{Name("BRDFLut"), rdg::ComputeType::SRV, stageFlags}
         });

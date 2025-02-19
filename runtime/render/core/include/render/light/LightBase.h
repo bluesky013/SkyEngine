@@ -7,6 +7,7 @@
 #include <core/math/MathUtil.h>
 
 namespace sky {
+    class SceneView;
 
     enum class LightType : uint32_t {
         POINT   = 0,
@@ -43,6 +44,11 @@ namespace sky {
             direction = dir;
         }
 
+        void SetWorldMatrix(const Matrix4 &mtx)
+        {
+            worldMatrix = mtx;
+        }
+
         void SetCastShadow(bool shadow)
         {
             castShadow = shadow;
@@ -51,9 +57,14 @@ namespace sky {
         const Vector4 &GetColor() const { return color; }
         const Vector3 &GetDirection() const { return direction; }
 
+        void BuildMatrix(SceneView& view);
+        const Matrix4& GetMatrix() const { return viewProject; }
+
     private:
         Vector4 color; // [0-2]: color rgb [3] color intensity
         Vector3 direction;
+        Matrix4 worldMatrix;
+        Matrix4 viewProject;
 
         bool castShadow = false;
     };

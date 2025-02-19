@@ -10,6 +10,7 @@
 #include <render/adaptor/pipeline/PresentPass.h>
 #include <render/adaptor/pipeline/DepthPass.h>
 #include <render/adaptor/pipeline/BRDFLutPass.h>
+#include <render/adaptor/pipeline/ShadowMapPass.h>
 #include <memory>
 
 namespace sky {
@@ -35,6 +36,7 @@ namespace sky {
         RDUniformBufferPtr defaultGlobal;
 
         std::unique_ptr<DepthPass>          depth;
+        std::unique_ptr<ShadowMapPass>      shadowMap;
         std::unique_ptr<ForwardMSAAPass>    forward;
         std::unique_ptr<PostProcessingPass> postProcess;
         std::unique_ptr<PresentPass>        present;

@@ -50,6 +50,8 @@ namespace sky {
 
     void MeshRenderer::BuildGeometry()
     {
+        enableMeshShading = false;
+
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
         for (const auto &sub : mesh->GetSubMeshes()) {

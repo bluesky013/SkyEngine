@@ -92,10 +92,10 @@ namespace sky {
         Matrix4 ret;
         ret[0][0] = 2.f / (right - left);
         ret[1][1] = 2.f / (top - bottom);
-        ret[2][2] = - 2.f / (far - near);
+        ret[2][2] = - 1.f / (far - near);
         ret[3][0] = - (right + left) / (right - left);
         ret[3][1] = - (top + bottom) / (top - bottom);
-        ret[3][2] = - (far + near) / (far - near);
+        ret[3][2] = - near / (far - near);
         ret[3][3] = 1.f;
         return ret;
     }

@@ -1,7 +1,8 @@
 {
     "techniques": [
         "techniques/standard_forward.tech",
-        "techniques/depth.tech"
+        "techniques/depth.tech",
+        "techniques/shadowmap.tech"
     ],
     "properties": {
         "Metallic": 0.5,

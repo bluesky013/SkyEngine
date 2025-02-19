@@ -27,7 +27,7 @@ namespace sky {
 
     struct MaterialAssetData {
         uint32_t version;
-        std::set<Uuid> techniques;
+        std::unordered_set<Uuid> techniques;
         MaterialProperties defaultProperties;
 
         void LoadBin(BinaryInputArchive &archive);

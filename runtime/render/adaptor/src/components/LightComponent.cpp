@@ -15,7 +15,8 @@ namespace sky {
     {
         context->Register<MainLightData>("MainLightData")
             .Member<&MainLightData::color>("Color")
-            .Member<&MainLightData::intensity>("Intensity");
+            .Member<&MainLightData::intensity>("Intensity")
+            .Member<&MainLightData::castShadow>("CastShadow");
 
         REGISTER_BEGIN(DirectLightComponent, context)
             REGISTER_MEMBER(LightColor, SetColor, GetColor)
@@ -47,7 +48,9 @@ namespace sky {
         light = lf->GetOrCreateMainLight();
         light->SetColor(data.color);
         light->SetIntensity(data.intensity);
-        light->SetDirection(direction);
+
+        auto *trans = actor->GetComponent<TransformComponent>();
+        UpdateData(trans->GetWorldTransform());
 
         binder.Bind(this, actor);
     }
@@ -64,10 +67,14 @@ namespace sky {
 
     void MainDirectLightComponent::OnTransformChanged(const Transform& global, const Transform& local)
     {
-        direction = global.rotation * VEC3_Z;
+        UpdateData(global);
+    }
 
+    void MainDirectLightComponent::UpdateData(const Transform& global)
+    {
         if (light != nullptr) {
-            light->SetDirection(direction);
+            light->SetDirection(global.rotation * VEC3_NZ);
+            light->SetWorldMatrix(global.ToMatrix());
         }
     }
 
