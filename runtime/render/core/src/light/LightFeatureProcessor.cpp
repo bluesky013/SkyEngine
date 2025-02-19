@@ -85,6 +85,10 @@ namespace sky {
 
     void TimeOfDay::UpdateTime(float time)
     {
+        if (light == nullptr) {
+            return;
+        }
+
         float kelvin     = CalKelvin(time);
         float brightness = CalBrightness(time);
         ColorRGB color   = KelvinToColorRGB(kelvin);
@@ -111,7 +115,7 @@ namespace sky {
 
     void LightFeatureProcessor::Tick(float time)
     {
-        tod.Tick(time);
+//        tod.Tick(time);
 //        GatherLightInfo();
     }
 
