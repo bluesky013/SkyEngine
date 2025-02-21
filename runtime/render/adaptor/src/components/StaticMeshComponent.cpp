@@ -28,7 +28,8 @@ namespace sky {
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
             .Member<&StaticMeshComponent::SetEnableMeshShading, &StaticMeshComponent::GetEnableMeshShading>("MeshShading")
             .Member<&StaticMeshComponent::SetEnableMeshletDebug, &StaticMeshComponent::GetEnableMeshletDebug>("DebugMeshlet")
-            .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone");
+            .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone")
+            .Member<&StaticMeshComponent::SetMeshDebug, &StaticMeshComponent::GetMeshDebug>("DebugMesh");
     }
 
     void StaticMeshComponent::SaveJson(JsonOutputArchive &ar) const
@@ -78,6 +79,19 @@ namespace sky {
             debugFlags.SetBit(MeshDebugFlagBit::MESHLET_CONE);
         } else {
             debugFlags.ResetBit(MeshDebugFlagBit::MESHLET_CONE);
+        }
+
+        if (renderer != nullptr) {
+            renderer->SetDebugFlags(debugFlags);
+        }
+    }
+
+    void StaticMeshComponent::SetMeshDebug(bool enable)
+    {
+        if (enable) {
+            debugFlags.SetBit(MeshDebugFlagBit::MESH);
+        } else {
+            debugFlags.ResetBit(MeshDebugFlagBit::MESH);
         }
 
         if (renderer != nullptr) {

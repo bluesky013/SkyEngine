@@ -40,6 +40,9 @@ namespace sky {
         void SetEnableMeshletConeDebug(bool enable);
         bool GetEnableMeshletConeDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE); }
 
+        void SetMeshDebug(bool enable);
+        bool GetMeshDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESH); }
+
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
     private:

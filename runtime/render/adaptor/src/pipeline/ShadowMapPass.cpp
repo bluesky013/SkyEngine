@@ -8,6 +8,7 @@
 #include <render/rdg/RenderGraph.h>
 #include <render/RHI.h>
 #include <render/RenderScene.h>
+#include <render/Renderer.h>
 #include <render/light/LightFeatureProcessor.h>
 
 #include <core/math/Transform.h>
@@ -49,6 +50,16 @@ namespace sky {
     void ShadowMapPass::SetLayout(const RDResourceLayoutPtr &layout_)
     {
         layout = layout_;
+    }
+
+    void ShadowMapPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
+    {
+        if (isEnable) {
+            RasterPass::Setup(rdg, scene);
+        } else {
+            auto tex = Renderer::Get()->GetDefaultResource().texture2DWhite;
+            rdg.resourceGraph.ImportImage(Name("ShadowMap"), tex->GetImage(), rhi::ImageViewType::VIEW_2D, rhi::AccessFlagBit::FRAGMENT_SRV);
+        }
     }
 
     void ShadowMapPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)

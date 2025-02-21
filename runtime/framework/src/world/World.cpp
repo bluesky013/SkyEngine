@@ -4,6 +4,7 @@
 
 #include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/world/SimpleRotateComponent.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 
@@ -30,6 +31,7 @@ namespace sky {
     void World::Reflect(SerializationContext *context)
     {
         TransformComponent::Reflect(context);
+        SimpleRotateComponent::Reflect(context);
     }
 
     World *World::CreateWorld()

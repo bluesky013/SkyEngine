@@ -168,7 +168,13 @@ namespace sky {
             for (auto &batch : prim->batches) {
                 batch.SetOption(Name("MESH_SHADER_DEBUG"), static_cast<uint8_t>(debugFlags.TestBit(MeshDebugFlagBit::MESHLET)));
             }
+
+            for (auto &batch : prim->batches) {
+                batch.polygonMode = debugFlags.TestBit(MeshDebugFlagBit::MESH) ? rhi::PolygonMode::LINE : rhi::PolygonMode::FILL;
+            }
+
         }
+
         if (meshletDebug) {
             scene->RemovePrimitive(meshletDebug->GetPrimitive());
             if (debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE)) {

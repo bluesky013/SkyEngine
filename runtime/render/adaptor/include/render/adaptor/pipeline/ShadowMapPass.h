@@ -15,11 +15,15 @@ namespace sky {
         ~ShadowMapPass() override = default;
 
         void SetLayout(const RDResourceLayoutPtr &layout_);
+        void SetEnable(bool en) { isEnable = en; }
     private:
+        void Setup(rdg::RenderGraph &rdg, RenderScene &scene) override;
         void SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene) override;
 
         SceneView* sceneView = nullptr;
         Name shadowViewName;
+
+        bool isEnable = true;
     };
 
 } // namespace sky

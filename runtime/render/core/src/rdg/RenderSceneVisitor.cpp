@@ -40,6 +40,11 @@ namespace sky::rdg {
             needRebuildPso = true;
         }
 
+        auto &state = batch.technique->GetPipelineState();
+        if (state.inputAssembly.topology != batch.topo || state.rasterState.polygonMode != batch.polygonMode) {
+            needRebuildPso = true;
+        }
+
         if (needRebuildPso) {
             needRebuildPso &= static_cast<bool>(batch.program);
 //            needRebuildPso &= static_cast<bool>(batch.vertexDesc);
@@ -50,6 +55,7 @@ namespace sky::rdg {
 
                 // process override states.
                 pState.inputAssembly.topology = batch.topo;
+                pState.rasterState.polygonMode = batch.polygonMode;
 
                 batch.pso = GraphicsTechnique::BuildPso(batch.program, pState, batch.vertexDesc, pass.renderPass, subPassId);
             }

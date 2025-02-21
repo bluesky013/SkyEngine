@@ -15,7 +15,8 @@ namespace sky {
 
     enum class MeshDebugFlagBit : uint32_t {
         MESHLET = 0x01,
-        MESHLET_CONE = 0x02
+        MESHLET_CONE = 0x02,
+        MESH = 0x04
     };
     using MeshDebugFlags = Flags<MeshDebugFlagBit>;
 

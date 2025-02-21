@@ -24,7 +24,8 @@ namespace sky {
         RDGfxTechPtr      technique;
 
         // override states
-        rhi::PrimitiveTopology   topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        rhi::PrimitiveTopology topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        rhi::PolygonMode polygonMode = rhi::PolygonMode::FILL;
 
         RDProgramPtr              program;
         rhi::VertexAssemblyPtr    vao;
