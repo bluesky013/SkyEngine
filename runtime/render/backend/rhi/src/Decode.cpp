@@ -86,17 +86,17 @@ namespace sky::rhi {
         return iter == FORMAT_INFO.end() ? nullptr : &iter->second;
     }
 
-    AspectFlags GetAspectFlagsByFormat(PixelFormat format)
+    AspectFlags GetAspectFlagsByFormat(PixelFormat format, bool useDepth, bool useStencil)
     {
         auto *formatInfo = GetImageInfoByFormat(format);
         if (!formatInfo->hasDepth && !formatInfo->hasStencil) {
             return rhi::AspectFlagBit::COLOR_BIT;
         }
         AspectFlags aspectMask;
-        if (formatInfo->hasDepth) {
+        if (formatInfo->hasDepth && useDepth) {
             aspectMask |= rhi::AspectFlagBit::DEPTH_BIT;
         }
-        if (formatInfo->hasStencil) {
+        if (formatInfo->hasStencil && useStencil) {
             aspectMask |= rhi::AspectFlagBit::STENCIL_BIT;
         }
         return aspectMask;

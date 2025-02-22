@@ -273,6 +273,10 @@ namespace sky::editor {
         if (editorCamera) {
             editorCamera->Tick(time);
         }
+
+        if (profiler) {
+            profiler->Tick();
+        }
     }
 
     void ViewportWidget::OnWindowResize(uint32_t width, uint32_t height)

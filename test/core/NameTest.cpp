@@ -30,8 +30,6 @@ TEST(NameTest, NameBaseTest)
 
     ASSERT_NE(a, std::string_view("aaa"));
 
-
-
     std::stringstream ss;
     ss << a;
     ASSERT_EQ(ss.str(), std::string(a.GetStr().data()));

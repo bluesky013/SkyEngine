@@ -38,7 +38,12 @@ VSOutput VSMain(VSInput input)
 	worldMatrix = skinMat;
 #endif
 
-    output.WorldPos = mul(worldMatrix, input.Pos).xyz;
+    float4 pos = input.Pos;
+#if ENABLE_INSTANCE
+    pos += input.Offset;
+#endif
+
+    output.WorldPos = mul(worldMatrix, pos).xyz;
     output.Normal   = mul((float3x3)worldMatrix, input.Normal.xyz);
     output.Tangent  = input.Tangent;
     output.Color    = input.Color;

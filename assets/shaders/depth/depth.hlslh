@@ -1,0 +1,4 @@
+float DepthToLinear(float d, float zNear, float zFar)
+{
+    return zNear * zFar / (zFar + d * (zNear - zFar));
+}

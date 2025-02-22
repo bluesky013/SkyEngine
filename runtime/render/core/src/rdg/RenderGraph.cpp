@@ -114,6 +114,8 @@ namespace sky::rdg {
         , accessGraph(ctx)
     {
         AddVertex(Name("root"), Root{}, *this);
+
+        ctx->rdgData.Reset();
     }
 
     RasterPassBuilder RenderGraph::AddRasterPass(const Name &name, uint32_t width, uint32_t height)

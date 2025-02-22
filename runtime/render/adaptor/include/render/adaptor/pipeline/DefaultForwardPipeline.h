@@ -26,16 +26,21 @@ namespace sky {
     private:
         void InitPass();
         void SetupGlobal(rdg::RenderGraph &rdg);
+        void SetupScreenExternalImages(rdg::RenderGraph &rdg, uint32_t w, uint32_t h);
+
         void Collect(rdg::RenderGraph &rdg) override;
 
         uint32_t viewMask = 0;
         RenderWindow *output = nullptr;
-        rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D24_S8;
+        rhi::PixelFormat depthStencilFormat = rhi::PixelFormat::D32;
 
         RDResourceLayoutPtr defaultRasterLayout;
         RDUniformBufferPtr defaultGlobal;
 
+        rhi::ImagePtr hizDepth;
+
         std::unique_ptr<DepthPass>          depth;
+        std::unique_ptr<HizGenerator>       hiz;
         std::unique_ptr<ShadowMapPass>      shadowMap;
         std::unique_ptr<ForwardMSAAPass>    forward;
         std::unique_ptr<PostProcessingPass> postProcess;

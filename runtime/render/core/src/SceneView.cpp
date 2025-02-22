@@ -33,8 +33,10 @@ namespace sky {
         dirty = true;
     }
 
-    void SceneView::SetPerspective(float near, float far, float fov, float aspect, uint32_t index)
+    void SceneView::SetPerspective(float near_, float far_, float fov, float aspect, uint32_t index)
     {
+        near = near_;
+        far = far_;
         projects[index] = MakePerspective(fov, aspect, near, far);
 //        viewInfo[index].zParam.x = 1 - far / near;
 //        viewInfo[index].zParam.y = far / near;

@@ -14,7 +14,7 @@ namespace sky {
     ForwardMSAAPass::ForwardMSAAPass(rhi::PixelFormat format, rhi::PixelFormat ds, rhi::SampleCount samples_)
         : RasterPass(Name("ForwardMSAA"))
         , colorFormat(format)
-        , depthStenFormat(rhi::PixelFormat::D24_S8)
+        , depthStenFormat(ds)
         , samples(samples_)
     {
         rdg::GraphImage image = {};
@@ -54,7 +54,7 @@ namespace sky {
             image.usage   = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
             images.emplace_back(fwdColor, image);
 
-            image.usage   = rhi::ImageUsageFlagBit::DEPTH_STENCIL;
+            image.usage   = rhi::ImageUsageFlagBit::DEPTH_STENCIL | rhi::ImageUsageFlagBit::SAMPLED;
             image.format  = depthStenFormat;
             images.emplace_back(fwdDepthStencil, image);
 
@@ -62,7 +62,7 @@ namespace sky {
                 Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)});
 
             depthStencil =
-                Attachment{rdg::RasterAttachment{fwdDepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0)};
+                Attachment{rdg::RasterAttachment{fwdDepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0)};
         }
 
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;

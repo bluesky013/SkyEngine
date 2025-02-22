@@ -41,6 +41,7 @@ namespace sky {
         virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         void SetupDebugMeshlet();
+        void BuildMultipleInstance();
         void Reset();
 
         RenderScene *scene = nullptr;
@@ -52,7 +53,10 @@ namespace sky {
         RDDynamicUniformBufferPtr ubo;
 
         bool enableMeshShading = false;
+        RenderGeometryPtr ownGeometry;
         MeshDebugFlags debugFlags;
+
+        RDBufferPtr instanceBuffer;
     };
 
 } // namespace sky

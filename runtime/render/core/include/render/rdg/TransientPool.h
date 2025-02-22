@@ -102,7 +102,7 @@ namespace sky::rdg {
         const rhi::FrameBufferPtr &RequestFrameBuffer(const rhi::FrameBuffer::Descriptor &desc);
         ResourceGroup *RequestResourceGroup(uint64_t id, const RDResourceLayoutPtr &layout);
 
-        rhi::ImageViewPtr RequestImageView(const Name& view, const rdg::GraphImportImage &image);
+        rhi::ImageViewPtr RequestImageView(const Name& view, const rhi::ImagePtr &image, const rhi::ImageViewDesc& viewDesc);
 
         template <typename T>
         struct CacheItem {

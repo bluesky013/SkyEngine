@@ -208,12 +208,24 @@ namespace sky::rdg {
 
                     for (const auto &arg : item.primitive->args) {
                         std::visit(Overloaded{
-                            [&](const rhi::CmdDrawLinear &v) { currentEncoder->DrawLinear(v); },
-                            [&](const rhi::CmdDrawIndexed &v) { currentEncoder->DrawIndexed(v); },
-                            [&](const rhi::CmdDispatchMesh &v) { currentEncoder->DispatchMesh(v); },
-                            [&](const rhi::Rect2D &v) { currentEncoder->SetScissor(1, &v); },
+                            [&](const rhi::CmdDrawLinear &v) {
+                                currentEncoder->DrawLinear(v);
+                                graph.context->rdgData.triangleData += v.vertexCount / 3 * v.instanceCount;
+                            },
+                            [&](const rhi::CmdDrawIndexed &v) {
+                                currentEncoder->DrawIndexed(v);
+                                graph.context->rdgData.triangleData += v.indexCount / 3 * v.instanceCount;
+                            },
+                            [&](const rhi::CmdDispatchMesh &v) {
+                                currentEncoder->DispatchMesh(v);
+                            },
+                            [&](const rhi::Rect2D &v) {
+                                currentEncoder->SetScissor(1, &v);
+                            },
                             [&](const auto &) {}
                         }, arg);
+
+                        graph.context->rdgData.drawCall++;
                     }
                 }
             },

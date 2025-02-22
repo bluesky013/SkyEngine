@@ -37,7 +37,7 @@ namespace sky::editor {
         uint32_t screenHeight = 1;
 
         float near = 0.1f;
-        float far = 10000.f;
+        float far = 1000.f;
         float fov = 60.f;
         float aspect = 1.f;
 

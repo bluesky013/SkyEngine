@@ -176,9 +176,14 @@ namespace sky::rdg {
                 }
             },
             [&](const ImportImageTag &) {
-                auto name = GetName(res, rdg.resourceGraph);
+                auto &name = GetName(res, rdg.resourceGraph);
                 auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
-                image.res = rdg.context->pool->RequestImageView(name, image.desc);
+                const auto& info = image.desc.image->GetDescriptor();
+                rhi::ImageViewDesc desc = {};
+                desc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
+                desc.viewType = image.desc.viewType;
+
+                image.res = rdg.context->pool->RequestImageView(name, image.desc.image, desc);
             },
             [&](const ImportSwapChainTag &) {
                 auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
@@ -248,12 +253,24 @@ namespace sky::rdg {
                 },
 #endif
                 [&](const ImageViewTag &) {
-                    auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
-                    att.format = source.desc.format;
-                    att.sample = source.desc.samples;
+                    auto sourceVtx = Source(attachment, rdg.resourceGraph);
+                    auto sourceIdx = Index(sourceVtx, rdg.resourceGraph);
+                    auto currentVtx = Index(attachment, rdg.resourceGraph);
+                    const auto &tag = Tag(sourceVtx, rdg.resourceGraph);
+                    auto &name = GetName(currentVtx, rdg.resourceGraph);
                     auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
-                    if (!view.res) {
-                        view.res = source.res->CreateView(view.desc.view);
+
+                    if (auto val = std::get_if<ImportImageTag>(&tag)) {
+                        auto& source = rdg.resourceGraph.importImages[sourceIdx];
+                        const auto& desc = source.desc.image->GetDescriptor();
+                        att.format = desc.format;
+                        att.sample = desc.samples;
+                        view.res = rdg.context->pool->RequestImageView(name, source.desc.image, view.desc.view);
+                    } else {
+                        auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
+                        att.format = source.desc.format;
+                        att.sample = source.desc.samples;
+                        view.res = rdg.context->pool->RequestImageView(name, source.desc.image, view.desc.view);
                     }
                     fbDesc.views[i] = view.res;
                 },

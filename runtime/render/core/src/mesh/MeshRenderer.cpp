@@ -9,6 +9,7 @@
 #include <render/Renderer.h>
 #include <render/RHI.h>
 #include <core/math/MathUtil.h>
+#include <core/template/Overloaded.h>
 
 namespace sky {
 
@@ -117,6 +118,8 @@ namespace sky {
         if (enableMeshShading) {
             SetupDebugMeshlet();
         }
+
+        BuildMultipleInstance();
     }
 
     void MeshRenderer::SetupDebugMeshlet()
@@ -145,6 +148,59 @@ namespace sky {
         if (meshletDebug) {
             scene->RemovePrimitive(meshletDebug->GetPrimitive());
             meshletDebug = nullptr;
+        }
+    }
+
+    void MeshRenderer::BuildMultipleInstance()
+    {
+        uint32_t gridX = 8;
+        uint32_t gridY = 8;
+        uint32_t gridZ = 8;
+
+        float bounding = 2.f;
+        uint32_t instanceCount = gridX * gridY * gridZ;
+        std::vector<Vector3> positionBuffer(instanceCount);
+
+        for (uint32_t i = 0; i < gridX; ++i) {
+            for (uint32_t j = 0; j < gridY; ++j) {
+                for (uint32_t k = 0; k < gridZ; ++k) {
+                    auto &pos = positionBuffer[i * gridY * gridZ + j * gridZ + k];
+                    pos.x = (static_cast<float>(i) - static_cast<float>(gridX) / 2.f) * bounding;
+                    pos.y = (static_cast<float>(j) - static_cast<float>(gridY) / 2.f) * bounding;
+                    pos.z = (static_cast<float>(k) - static_cast<float>(gridZ) / 2.f) * bounding;
+                }
+            }
+        }
+
+        if (!ownGeometry) {
+            ownGeometry = mesh->GetGeometry()->Duplicate();
+
+            instanceBuffer = new Buffer();
+            instanceBuffer->Init(positionBuffer.size() * sizeof(Vector3), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+
+            ownGeometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::INST0,
+                static_cast<uint32_t>(ownGeometry->vertexBuffers.size()), 0, rhi::Format::F_RGB32, rhi::VertexInputRate::PER_INSTANCE
+            });
+            ownGeometry->attributeSemantics |= VertexSemanticFlagBit::INST0;
+            ownGeometry->vertexBuffers.emplace_back(VertexBuffer{instanceBuffer, 0, static_cast<uint32_t>(positionBuffer.size() * sizeof(Vector3)), sizeof(Vector3)});
+            instanceBuffer->SetUploadData(std::move(positionBuffer));
+            Renderer::Get()->GetStreamingManager()->UploadBuffer(instanceBuffer);
+        }
+
+        for (auto &prim : primitives) {
+            prim->geometry = ownGeometry;
+            prim->vertexFlags |= RenderVertexFlagBit::INSTANCE;
+            for (auto &arg : prim->args) {
+                std::visit(Overloaded{
+                    [&](rhi::CmdDrawLinear &v) {
+                        v.instanceCount = instanceCount;
+                    },
+                    [&](rhi::CmdDrawIndexed &v) {
+                        v.instanceCount = instanceCount;
+                    },
+                    [&](const auto &) {}
+                }, arg);
+            }
         }
     }
 

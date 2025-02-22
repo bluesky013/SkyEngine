@@ -11,6 +11,7 @@
 #include <rhi/CommandBuffer.h>
 #include <render/rdg/TransientPool.h>
 #include <render/rdg/RenderGraphTypes.h>
+#include <render/rdg/RenderGraphData.h>
 #include <render/resource/ResourceGroup.h>
 
 namespace sky::rhi {
@@ -43,6 +44,8 @@ namespace sky::rdg {
         rhi::Queue *transferQueue = nullptr;
 
         LinearStorage transientStorage { RDG_TRANSIENT_BLOCK_SIZE }; // storage for frame data, pod only.
+
+        RenderGraphData rdgData;
 
         uint32_t frameIndex = 0;
         RDResourceGroupPtr emptySet;

@@ -245,13 +245,18 @@ namespace sky {
         MeshData meshData = {};
         auto *fileStream = new rhi::FileStream(file, data.dataOffset);
 
-        for (const auto &buffer : data.buffers) {
-            rhi::BufferUploadRequest request = {};
-
-            request.source = fileStream;
-            request.offset = buffer.offset;
-            request.size   = buffer.size;
-            meshData.vertexStreams.emplace_back(VertexBufferSource{request, buffer.stride});
+        for (const auto &attr : data.attributes) {
+            if (attr.binding >= meshData.vertexStreams.size()) {
+                meshData.vertexStreams.resize(attr.binding + 1);
+            }
+            const auto &buffer = data.buffers[attr.binding];
+            auto& stream = meshData.vertexStreams[attr.binding];
+            if (!stream.source.source) {
+                stream.source.source = fileStream;
+                stream.source.offset = buffer.offset;
+                stream.source.size   = buffer.size;
+                stream.stride = buffer.stride;
+            }
         }
 
         if (data.indexBuffer != INVALID_MESH_BUFFER_VIEW) {

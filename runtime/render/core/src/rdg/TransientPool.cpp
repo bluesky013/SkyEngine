@@ -113,21 +113,15 @@ namespace sky::rdg {
         return frameBuffers.emplace(desc, fbItem).first->second.item;
     }
 
-    rhi::ImageViewPtr TransientPool::RequestImageView(const Name& view, const rdg::GraphImportImage &image)
+    rhi::ImageViewPtr TransientPool::RequestImageView(const Name& view, const rhi::ImagePtr &image, const rhi::ImageViewDesc& viewDesc)
     {
         auto iter = viewCache.find(view);
-        if (iter != viewCache.end() && iter->second.item.first.get() == image.image.get()) {
+        if (iter != viewCache.end() && iter->second.item.first.get() == image.get()) {
             iter->second.count = 0;
             return iter->second.item.second;
         }
-        const auto &info = image.image->GetDescriptor();
-
-        rhi::ImageViewDesc viewDesc = {};
-        viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
-        viewDesc.viewType = image.viewType;
-        auto imageView = image.image->CreateView(viewDesc);
-
-        viewCache[view] = CacheItem<std::pair<rhi::ImagePtr, rhi::ImageViewPtr>>{{image.image, imageView}, 0};
+        auto imageView = image->CreateView(viewDesc);
+        viewCache[view] = CacheItem<std::pair<rhi::ImagePtr, rhi::ImageViewPtr>>{{image, imageView}, 0};
         return imageView;
     }
 

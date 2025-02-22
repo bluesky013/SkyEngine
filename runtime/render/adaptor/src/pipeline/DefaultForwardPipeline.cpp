@@ -11,18 +11,23 @@
 #include <render/adaptor/Util.h>
 #include <render/light/LightFeatureProcessor.h>
 #include <render/rdg/RenderGraph.h>
+#include <rhi/Util.h>
 
 namespace sky {
 
+    RDTechniquePtr LoadGfxTech(const std::string& name)
+    {
+        auto asset = AssetManager::Get()->LoadAssetFromPath(name);
+        asset->BlockUntilLoaded();
+        return GreateGfxTechFromAsset(std::static_pointer_cast<Asset<Technique>>(asset));
+    }
+
     void DefaultForwardPipeline::InitPass()
     {
-        auto postTechAsset = AssetManager::Get()->LoadAssetFromPath("techniques/post_processing.tech");
-        postTechAsset->BlockUntilLoaded();
-        auto postTech = GreateGfxTechFromAsset(std::static_pointer_cast<Asset<Technique>>(postTechAsset));
-
-        auto brdfAsset = AssetManager::Get()->LoadAssetFromPath("techniques/brdf_lut.tech");
-        brdfAsset->BlockUntilLoaded();
-        auto brdfTech = GreateGfxTechFromAsset(std::static_pointer_cast<Asset<Technique>>(brdfAsset));
+        auto postTech = LoadGfxTech("techniques/post_processing.tech");
+        auto brdfTech = LoadGfxTech("techniques/brdf_lut.tech");
+        auto depthResolveTech = LoadGfxTech("techniques/depth_resolve.tech");
+        auto depthDownSampleTech = LoadGfxTech("techniques/depth_downsample.tech");
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
@@ -67,7 +72,7 @@ namespace sky {
         depth = std::make_unique<DepthPass>(depthStencilFormat, rhi::SampleCount::X1);
         depth->SetLayout(defaultRasterLayout);
 
-        forward = std::make_unique<ForwardMSAAPass>(rhi::PixelFormat::RGBA16_SFLOAT, depthStencilFormat, rhi::SampleCount::X4);
+        forward = std::make_unique<ForwardMSAAPass>(rhi::PixelFormat::RGBA16_SFLOAT, depthStencilFormat, rhi::SampleCount::X1);
         forward->SetLayout(defaultRasterLayout);
 
         shadowMap = std::make_unique<ShadowMapPass>(4096, 4096);
@@ -76,16 +81,40 @@ namespace sky {
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
         postProcess = std::make_unique<PostProcessingPass>(postTech);
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
+
+        hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
     }
 
     void DefaultForwardPipeline::SetOutput(RenderWindow *wnd)
     {
         output = wnd;
-        if (!RHI::Get()->GetDevice()->CheckFormatFeature(depthStencilFormat, rhi::PixelFormatFeatureFlagBit::DEPTH_STENCIL)) {
-            depthStencilFormat = rhi::PixelFormat::D32_S8;
-        }
+//        if (!RHI::Get()->GetDevice()->CheckFormatFeature(depthStencilFormat, rhi::PixelFormatFeatureFlagBit::DEPTH_STENCIL)) {
+//            depthStencilFormat = rhi::PixelFormat::D32_S8;
+//        }
 
         InitPass();
+    }
+
+    void DefaultForwardPipeline::SetupScreenExternalImages(rdg::RenderGraph &rdg, uint32_t w, uint32_t h)
+    {
+        bool first = false;
+        if (!hizDepth || hizDepth->GetDescriptor().extent.width != w || hizDepth->GetDescriptor().extent.height != h) {
+            rhi::Image::Descriptor desc = {};
+            desc.imageType   = rhi::ImageType::IMAGE_2D;
+            desc.format      = rhi::PixelFormat::R32_SFLOAT;
+            desc.extent      = {w, h, 1};
+            desc.mipLevels   = rhi::GetMipLevel(w, h);
+            desc.arrayLayers = 1;
+            desc.samples     = rhi::SampleCount::X1;
+            desc.usage       = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
+            desc.memory      = rhi::MemoryType::GPU_ONLY;
+
+            hizDepth = RHI::Get()->GetDevice()->CreateImage(desc);
+            first = true;
+        }
+
+        rdg.resourceGraph.ImportImage(Name("HizDepth"), hizDepth, rhi::ImageViewType::VIEW_2D_ARRAY,
+            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
     }
 
     void DefaultForwardPipeline::SetupGlobal(rdg::RenderGraph &rdg)
@@ -118,8 +147,9 @@ namespace sky {
         const auto renderHeight = output->GetHeight();
 
         SetupGlobal(rdg);
+        SetupScreenExternalImages(rdg, renderWidth, renderHeight);
 
-        shadowMap->SetEnable(true);
+        shadowMap->SetEnable(false);
 
         AddPass(brdfLut.get());
         AddPass(shadowMap.get());
@@ -132,6 +162,9 @@ namespace sky {
 
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());
+
+        hiz->BuildHizPass(rdg, renderWidth, renderHeight);
+        hiz->AddPass(*this);
 
         AddPass(present.get());
     }

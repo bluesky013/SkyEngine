@@ -9,7 +9,7 @@
 
 namespace sky::rhi {
 
-    AspectFlags GetAspectFlagsByFormat(PixelFormat format);
+    AspectFlags GetAspectFlagsByFormat(PixelFormat format, bool useDepth = true, bool useStencil = false);
     ImageFormatInfo *GetImageInfoByFormat(PixelFormat format);
 
     void ProcessASTC(uint8_t *input, uint64_t size, Image::Descriptor &imageDesc, std::vector<ImageUploadRequest> &requests);

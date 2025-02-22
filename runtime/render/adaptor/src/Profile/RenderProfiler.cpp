@@ -6,6 +6,7 @@
 #include <render/text/TextRegistry.h>
 #include <render/text/TextFeature.h>
 #include <render/RenderScene.h>
+#include <render/Renderer.h>
 #include <render/RHI.h>
 #include <framework/asset/AssetDataBase.h>
 
@@ -13,6 +14,7 @@ namespace sky {
 
     RenderProfiler::RenderProfiler(RenderScene *scn)
         : scene(scn)
+        , fps(1.f)
     {
         auto fs = AssetDataBase::Get()->GetEngineFs();
         font = TextRegistry::Get()->LoadFont(fs, "fonts/OpenSans-Regular.ttf");
@@ -35,10 +37,24 @@ namespace sky {
         std::stringstream ss;
         ss << RHI::Get()->GetDevice()->GetDeviceInfo() << " <" << RHI::Get()->GetBackendName() << "> \n";
         ss << "Render Resolution: [" << displayWidth << "," << displayHeight << "] \n";
+        ss << "FPS: " << fps.GetFps() << "\n";
+
+        auto *pipeline = Renderer::Get()->GetPipeline();
+        if (pipeline != nullptr && pipeline->Context() != nullptr) {
+            const auto &data = pipeline->Context()->rdgData;
+            ss << "Triangles: " << data.triangleData << "\n";
+            ss << "DrawCalls: " << data.drawCall << "\n";
+        }
 
         text->Reset(*scene);
         text->AddText(ss.str(), Vector2{20, 40}, info);
         text->Finalize(*scene);
+    }
+
+    void RenderProfiler::Tick()
+    {
+        fps.Update();
+        UpdateText();
     }
 
     void RenderProfiler::SetDisplaySize(uint32_t w, uint32_t h)

@@ -183,4 +183,18 @@ namespace sky {
 
         return !indexBuffer.buffer || indexBuffer.buffer->IsReady();
     }
+
+    RenderGeometryPtr RenderGeometry::Duplicate()
+    {
+        auto *geom               = new RenderGeometry();
+        geom->vertexBuffers      = vertexBuffers;
+        geom->vertexAttributes   = vertexAttributes;
+        geom->indexBuffer        = indexBuffer;
+        geom->cluster            = cluster;
+        geom->dynamicVB          = dynamicVB;
+        geom->attributeSemantics = attributeSemantics;
+        geom->uploaded           = uploaded;
+        geom->version            = 0;
+        return geom;
+    }
 } // namespace sky

@@ -30,6 +30,9 @@ namespace sky {
     };
     using MeshletGeometryPtr = CounterPtr<MeshletGeometry>;
 
+    struct RenderGeometry;
+    using RenderGeometryPtr = CounterPtr<RenderGeometry>;
+
     struct RenderGeometry : public RefObject {
         void AddVertexAttribute(const VertexAttribute &attribute);
         void FillVertexBuffer(std::vector<rhi::BufferView> &vbs);
@@ -38,6 +41,8 @@ namespace sky {
         void Reset();
         void Upload();
         bool IsReady() const;
+
+        RenderGeometryPtr Duplicate();
 
         // streams
         std::vector<VertexBuffer>    vertexBuffers;
@@ -52,6 +57,5 @@ namespace sky {
         uint32_t version = 0;
         bool uploaded = false;
     };
-    using RenderGeometryPtr = CounterPtr<RenderGeometry>;
 
 } // namespace sky
