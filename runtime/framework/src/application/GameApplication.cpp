@@ -45,7 +45,7 @@ namespace sky {
 #elif __ANDROID__
         workFs = Platform::Get()->GetBundleFileSystem();
 //        workFs = std::make_shared<NativeFileSystem>(Platform::Get()->GetInternalPath());
-        AssetManager::Get()->SetWorkPath(workFs);
+//        AssetManager::Get()->SetWorkPath(workFs);
 #else
         AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
         auto fs = std::make_shared<NativeFileSystem>();

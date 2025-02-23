@@ -656,9 +656,11 @@ namespace sky::vk {
     rhi::GraphicsEncoder &GraphicsEncoder::DispatchMesh(const rhi::CmdDispatchMesh &dispatch)
     {
         currentBinder.OnBind(cmd);
+#ifndef ANDROID
         if (CmdDrawMeshTaskExt != nullptr) {
             CmdDrawMeshTaskExt(cmd, dispatch.x, dispatch.y, dispatch.z);
         }
+#endif
         return *this;
     }
 

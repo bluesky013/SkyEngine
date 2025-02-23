@@ -123,7 +123,7 @@ namespace sky {
     FileSystemPtr AndroidPlatform::GetBundleFileSystem()
     {
         if (!assetFs) {
-            assetFs = std::make_shared<AndroidBundleFileSystem>();
+            assetFs = new AndroidBundleFileSystem();
         }
         return assetFs;
     }

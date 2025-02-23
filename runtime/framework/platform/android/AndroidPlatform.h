@@ -36,6 +36,6 @@ namespace sky {
         ANativeWindow *mainWindow = nullptr;
         bool launched = false;
         std::unique_ptr<AdaptivePerfManager> perfManager;
-        std::shared_ptr<AndroidBundleFileSystem> assetFs;
+        CounterPtr<AndroidBundleFileSystem> assetFs;
     };
 }

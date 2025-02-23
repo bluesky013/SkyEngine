@@ -20,7 +20,7 @@ namespace sky {
     struct SkySpherePrimitive : public RenderPrimitive {
         void PrepareBatch() override {}
         void UpdateBatch() override;
-        bool IsReady() const;
+        bool IsReady() const override;
 
         RDTexture2DPtr texture;
         rhi::DescriptorSetPoolPtr pool;

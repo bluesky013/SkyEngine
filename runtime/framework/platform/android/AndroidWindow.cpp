@@ -14,8 +14,8 @@ namespace sky {
     bool AndroidWindow::Init(const Descriptor &desc)
     {
         descriptor = desc;
-        if (descriptor.nativeHandle != nullptr) {
-            winHandle = descriptor.nativeHandle;
+        if (descriptor.handle != nullptr) {
+            winHandle = descriptor.handle;
             descriptor.width = ANativeWindow_getWidth(static_cast<ANativeWindow*>(winHandle));
             descriptor.height = ANativeWindow_getHeight(static_cast<ANativeWindow*>(winHandle));
         }

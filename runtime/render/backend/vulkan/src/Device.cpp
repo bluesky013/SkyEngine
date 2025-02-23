@@ -26,9 +26,11 @@ const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validatio
 namespace sky::vk {
     void Device::FeatureQuery(rhi::MeshShaderProperties& properties) const
     {
+#ifndef ANDROID
         properties.maxTaskPayloadSize = meshShaderProps.maxTaskPayloadSize;
         properties.maxMeshOutputVertices = meshShaderProps.maxMeshOutputVertices;
         properties.maxMeshOutputPrimitives = meshShaderProps.maxMeshOutputPrimitives;
+#endif
     }
 
     int32_t Device::FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const
@@ -147,6 +149,7 @@ namespace sky::vk {
             outExtensions.emplace_back("VK_KHR_multiview");
         }
 
+#ifndef ANDROID
         enabledFeature.meshShader = (CheckFeature(feature.meshShader, meshShaderFeatures.meshShader, meshShaderFeatures.taskShader) != 0U) &&
             CheckExtension(supportedExtensions, "VK_EXT_mesh_shader");
         enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
@@ -156,7 +159,7 @@ namespace sky::vk {
         if (enabledFeature.meshShader) {
             outExtensions.emplace_back("VK_EXT_mesh_shader");
         }
-
+#endif
         enabledFeature.depthStencilResolve = CheckExtension(supportedExtensions, "VK_KHR_depth_stencil_resolve");
     }
 
@@ -196,10 +199,10 @@ namespace sky::vk {
         shadingRateFeatures.pNext = &mvrFeature;
 
         mvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
+#ifndef ANDROID
         mvrFeature.pNext = &meshShaderFeatures;
-
         meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-
+#endif
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         phyProps.pNext = &shadingRateProps;
 
@@ -207,9 +210,10 @@ namespace sky::vk {
         shadingRateProps.pNext = &dsResolveProps;
 
         dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
+#ifndef ANDROID
         dsResolveProps.pNext = &meshShaderProps;
-
         meshShaderProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
+#endif
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)

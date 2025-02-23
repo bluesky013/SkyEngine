@@ -68,7 +68,7 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET googletest    DIR googletest)
 
     # compress
-    sky_find_3rd(TARGET lz4           DIR lz4)
+    #sky_find_3rd(TARGET lz4           DIR lz4)
 
     # script
     sky_find_3rd(TARGET cpython       DIR cpython)
@@ -97,6 +97,7 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET stb           DIR stb)
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
         sky_find_3rd(TARGET ktx           DIR ktx)
+        sky_find_3rd(TARGET lz4           DIR lz4)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
         sky_find_3rd(TARGET pmp           DIR pmp)
         sky_find_3rd(TARGET metis         DIR metis)

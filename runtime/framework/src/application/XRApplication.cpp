@@ -34,7 +34,7 @@ namespace sky {
             AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(Platform::Get()->GetBundlePath()));
         }
 #else
-        AssetManager::Get()->SetWorkPath(Platform::Get()->GetBundleFileSystem());
+//        AssetManager::Get()->SetWorkPath(Platform::Get()->GetBundleFileSystem());
 #endif
 
         if (!Application::Init(argc, argv)) {

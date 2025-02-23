@@ -9,8 +9,9 @@
 // instance
 extern PFN_vkCreateRenderPass2 CreateRenderPass2;
 extern PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentShadingRates;
+#ifndef ANDROID
 extern PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTaskExt;
-
+#endif
 
 // device
 extern PFN_vkCmdBlitImage2KHR CmdBlitImage2;

@@ -11,10 +11,10 @@ namespace sky {
     class AndroidWindow : public NativeWindow {
     public:
         AndroidWindow() = default;
-        ~AndroidWindow() = default;
+        ~AndroidWindow() override = default;
 
     private:
-        void PollEvent(bool &quit) override;
+        void PollEvent(bool &quit);
 
         bool Init(const Descriptor &desc) override;
     };

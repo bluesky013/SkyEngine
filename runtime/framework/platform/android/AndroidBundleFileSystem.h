@@ -10,10 +10,21 @@ namespace sky {
 
     class AndroidAssetFile : public IFile {
     public:
-        explicit AndroidAssetFile(const std::string &name) : path(name) {}
-        ~AndroidAssetFile() = default;
+        explicit AndroidAssetFile(const FilePath &name) : path(name.GetStr()) {}
+        ~AndroidAssetFile() override = default;
 
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
+
+        IStreamArchivePtr ReadAsArchive() override;
+        OStreamArchivePtr WriteAsArchive() override;
+
+        bool ReadBin(std::vector<uint8_t> &out) override;
+        bool ReadString(std::string &out) override;
+
+        uint64_t AppendData(const char* data, uint64_t size) override { return 0; }
+        std::string GetPath() const override { return path; }
+
+//        void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
     private:
         std::string path;
     };
@@ -23,11 +34,12 @@ namespace sky {
         AndroidBundleFileSystem() = default;
         ~AndroidBundleFileSystem() override = default;
 
-        bool FileExist(const std::string &path) override;
-        IArchivePtr ReadAsArchive(const std::string &path) override;
-        OArchivePtr WriteAsArchive(const std::string &path) override;
-        FilePtr OpenFile(const std::string &name) override;
-        bool ReadString(const std::string &path, std::string &out) override;
+        bool FileExist(const FilePath &path) const override;
+//        IArchivePtr ReadAsArchive(const std::string &path) override;
+//        OArchivePtr WriteAsArchive(const std::string &path) override;
+        FilePtr OpenFile(const FilePath &name) override;
+        FilePtr CreateOrOpenFile(const FilePath &name) override;
+
     };
 
 } // namespace sky

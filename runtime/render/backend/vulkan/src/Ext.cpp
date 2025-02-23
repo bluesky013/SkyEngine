@@ -6,8 +6,9 @@
 
 PFN_vkCreateRenderPass2 CreateRenderPass2;
 PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR GetPhysicalDeviceFragmentShadingRates;
+#ifndef ANDROID
 PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTaskExt;
-
+#endif
 PFN_vkCmdBlitImage2KHR CmdBlitImage2;
 PFN_vkCmdResolveImage2KHR CmdResolveImage2;
 
@@ -18,8 +19,9 @@ void LoadInstance(VkInstance instance, uint32_t minorVersion)
     } else {
         CreateRenderPass2 = PFN_vkCreateRenderPass2(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2KHR"));
     }
-
+#ifndef ANDROID
     CmdDrawMeshTaskExt = PFN_vkCmdDrawMeshTasksEXT(vkGetInstanceProcAddr(instance, "vkCmdDrawMeshTasksEXT"));
+#endif
     GetPhysicalDeviceFragmentShadingRates = PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR"));
 }
 

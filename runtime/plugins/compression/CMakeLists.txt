@@ -12,7 +12,7 @@ sky_add_library(TARGET CompressionModule SHARED
         include
     LINK_LIBS
         Framework
-        3rdParty::lz4
+        #3rdParty::lz4
 )
 
 sky_add_dependency(TARGET CompressionModule DEPENDENCIES Launcher Editor)
