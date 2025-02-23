@@ -38,6 +38,7 @@ namespace sky {
         RDUniformBufferPtr defaultGlobal;
 
         rhi::ImagePtr hizDepth;
+        rhi::SamplerPtr pointSampler;
 
         std::unique_ptr<DepthPass>          depth;
         std::unique_ptr<HizGenerator>       hiz;

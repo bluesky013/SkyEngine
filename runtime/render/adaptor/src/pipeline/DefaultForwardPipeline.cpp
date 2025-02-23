@@ -51,7 +51,10 @@ namespace sky {
             rhi::DescriptorType::SAMPLED_IMAGE, 1, 8, stageFlags, "PrefilteredMap");
         desc.bindings.emplace_back(
             rhi::DescriptorType::SAMPLER, 1, 9, stageFlags, "PrefilteredMapSampler");
-
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::SAMPLED_IMAGE, 1, 10, stageFlags, "HizBuffer");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::SAMPLER, 1, 11, stageFlags, "HizBufferSampler");
 
         defaultRasterLayout = new ResourceGroupLayout();
         defaultRasterLayout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
@@ -65,6 +68,8 @@ namespace sky {
         defaultRasterLayout->AddNameHandler(Name("IrradianceSampler"), {7});
         defaultRasterLayout->AddNameHandler(Name("PrefilteredMap"), {8});
         defaultRasterLayout->AddNameHandler(Name("PrefilteredMapSampler"), {9});
+        defaultRasterLayout->AddNameHandler(Name("HizBuffer"), {10});
+        defaultRasterLayout->AddNameHandler(Name("HizBufferSampler"), {11});
 
         defaultGlobal = new UniformBuffer();
         defaultGlobal->Init(sizeof(ShaderPassInfo));
@@ -83,6 +88,11 @@ namespace sky {
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
 
         hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
+
+        rhi::Sampler::Descriptor samplerDesc = {};
+        samplerDesc.minFilter = rhi::Filter::NEAREST;
+        samplerDesc.magFilter = rhi::Filter::NEAREST;
+        pointSampler = RHI::Get()->GetDevice()->CreateSampler(samplerDesc);
     }
 
     void DefaultForwardPipeline::SetOutput(RenderWindow *wnd)
@@ -113,8 +123,8 @@ namespace sky {
             first = true;
         }
 
-        rdg.resourceGraph.ImportImage(Name("HizDepth"), hizDepth, rhi::ImageViewType::VIEW_2D_ARRAY,
-            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
+//        rdg.resourceGraph.ImportImage(Name("HizDepth"), hizDepth, rhi::ImageViewType::VIEW_2D_ARRAY,
+//            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
     }
 
     void DefaultForwardPipeline::SetupGlobal(rdg::RenderGraph &rdg)
@@ -139,6 +149,8 @@ namespace sky {
         auto &rg = rdg.resourceGraph;
         rg.ImportUBO(colorViewName, sceneView->GetUBO());
         rg.ImportUBO(fwdPassInfoName, defaultGlobal);
+
+        rg.ImportSampler(Name("PointSampler"), pointSampler);
     }
 
     void DefaultForwardPipeline::Collect(rdg::RenderGraph &rdg)
@@ -163,7 +175,7 @@ namespace sky {
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());
 
-        hiz->BuildHizPass(rdg, renderWidth, renderHeight);
+        hiz->BuildHizPass(rdg, hizDepth, renderWidth, renderHeight);
         hiz->AddPass(*this);
 
         AddPass(present.get());

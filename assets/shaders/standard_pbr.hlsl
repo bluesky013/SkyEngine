@@ -61,7 +61,7 @@ VSOutput VSMain(VSInput input)
 
 groupshared Payload TaskPayload;
 //------------------------------------------ Task Shader------------------------------------------//
-bool IsVisible(Meshlet m, float4x4 world, float3 viewPos)
+bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos)
 {
 //     float4 center = mul(world, float4(m.center.xyz, 1));
 //     float radius = m.center.w;
@@ -80,6 +80,11 @@ bool IsVisible(Meshlet m, float4x4 world, float3 viewPos)
     return true;
 }
 
+bool HizVisible(Meshlet m, float4x4 world)
+{
+    return true;
+}
+
 [outputtopology("triangle")]
 [numthreads(MESH_GROUP_SIZE,1,1)]
 void TASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
@@ -89,8 +94,9 @@ void TASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint
     bool visible = false;
     if (dtid < MeshletCount)
     {
-        visible = IsVisible(Meshlets[dtid + FirstMeshlet], World, viewPos);
+//         visible = ConeVisible(Meshlets[dtid + FirstMeshlet], World, viewPos);
 //         visible = Meshlets[dtid + FirstMeshlet].vertexCount > 0;
+        visible = HizVisible(Meshlets[dtid + FirstMeshlet], World);
     }
 
     if (visible)

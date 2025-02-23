@@ -33,10 +33,21 @@ namespace sky {
 
     class HizGenerateMip : public FullScreenPass {
     public:
-        explicit HizGenerateMip(const RDGfxTechPtr &tech, const Name& in, const Name& out);
+        explicit HizGenerateMip(const RDGfxTechPtr &tech, const Name& in, const Name& out, const rhi::AccessFlags& final);
         ~HizGenerateMip() override = default;
+
+        void SetInputSize(uint32_t width, uint32_t height);
+        void Setup(rdg::RenderGraph &rdg, RenderScene &scene) override;
     private:
+        RDUniformBufferPtr ubo;
         RDResourceLayoutPtr layout;
+
+        uint32_t srcWidth = 1;
+        uint32_t srcHeight = 1;
+
+        Name outName;
+        Name outUBOName;
+        rhi::AccessFlags finalFlags;
     };
 
     class HizGenerator {
@@ -44,12 +55,16 @@ namespace sky {
         HizGenerator(const RDGfxTechPtr &resolveTech, const RDGfxTechPtr &downTech);
         ~HizGenerator() = default;
 
-        void BuildHizPass(rdg::RenderGraph &rdg, uint32_t width, uint32_t height);
+        void BuildHizPass(rdg::RenderGraph &rdg, const rhi::ImagePtr& hiz, uint32_t width, uint32_t height);
         void AddPass(RenderScenePipeline& pipeline);
     private:
         RDGfxTechPtr technique;
+        rhi::ImagePtr hizDepth;
         std::unique_ptr<DepthResolvePass> depthResolve;
+
         std::vector<std::unique_ptr<HizGenerateMip>> mips;
+        std::vector<rhi::ImageViewPtr> mipViews;
+        rhi::ImageViewPtr fullMipView;
     };
 
 } // namespace sky

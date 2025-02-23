@@ -34,6 +34,8 @@ namespace sky {
 
         void BuildGeometry();
 
+        void BuildMultipleInstance(uint32_t w, uint32_t h, uint32_t d);
+
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
     protected:
         virtual void PrepareUBO();
@@ -41,7 +43,6 @@ namespace sky {
         virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         void SetupDebugMeshlet();
-        void BuildMultipleInstance();
         void Reset();
 
         RenderScene *scene = nullptr;

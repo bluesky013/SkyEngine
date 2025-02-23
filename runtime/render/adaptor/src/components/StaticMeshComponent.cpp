@@ -27,6 +27,7 @@ namespace sky {
             .Member<&StaticMeshComponent::SetMeshUuid, &StaticMeshComponent::GetMeshUuid>("Mesh")
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
             .Member<&StaticMeshComponent::SetEnableMeshShading, &StaticMeshComponent::GetEnableMeshShading>("MeshShading")
+            .Member<&StaticMeshComponent::SetMultiply, &StaticMeshComponent::GetMultiply>("Multiply")
             .Member<&StaticMeshComponent::SetEnableMeshletDebug, &StaticMeshComponent::GetEnableMeshletDebug>("DebugMeshlet")
             .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone")
             .Member<&StaticMeshComponent::SetMeshDebug, &StaticMeshComponent::GetMeshDebug>("DebugMesh");
@@ -96,6 +97,18 @@ namespace sky {
 
         if (renderer != nullptr) {
             renderer->SetDebugFlags(debugFlags);
+        }
+    }
+
+    void StaticMeshComponent::SetMultiply(bool enable)
+    {
+        multiply = enable;
+        if (renderer != nullptr) {
+            if (multiply) {
+                renderer->BuildMultipleInstance(8, 8, 8);
+            } else {
+                renderer->SetMesh(meshInstance, enableMeshShading);
+            }
         }
     }
 

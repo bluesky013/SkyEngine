@@ -68,10 +68,12 @@ namespace sky::rdg {
     struct CopyBlitTag {};
     struct PresentTag {};
     struct UploadTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag, FullScreenBlitTag, UploadTag>;
+    struct TransitionTag {};
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag, FullScreenBlitTag, UploadTag, TransitionTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
+    struct ImportImageViewTag {};
     struct ImageViewTag {};
     struct ImportSwapChainTag {};
     struct ImportXRSwapChainTag {};
@@ -79,7 +81,8 @@ namespace sky::rdg {
     struct ImportBufferTag {};
     struct ConstantBufferTag {};
     struct BufferViewTag {};
-    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportSwapChainTag, ImportXRSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag, ConstantBufferTag>;
+    struct SamplerTag {};
+    using ResourceGraphTags = std::variant<RootTag, ImageTag, ImageViewTag, ImportImageTag, ImportImageViewTag, ImportSwapChainTag, ImportXRSwapChainTag, BufferTag, ImportBufferTag, BufferViewTag, ConstantBufferTag, SamplerTag>;
 
     struct AccessPassTag {};
     struct AccessResTag {};
@@ -113,7 +116,7 @@ namespace sky::rdg {
         VertexType inAccessPassID = INVALID_VERTEX;
         VertexType nextAccessResID = INVALID_VERTEX;
         AccessRange subRange;
-        std::vector<rhi::AccessFlags> accesses;
+        rhi::AccessFlags access;
     };
 
     struct LifeTime {
@@ -294,6 +297,18 @@ namespace sky::rdg {
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
     };
 
+    struct TransitionPass {
+        explicit TransitionPass(VertexType vtx, PmrResource *res)
+            : resID(vtx), frontBarriers(res)
+        {}
+
+        using Tag = TransitionTag;
+
+        VertexType resID;
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers;  // key resID
+        PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
+    };
+
     struct PresentPass {
         explicit PresentPass(VertexType resID, const rhi::SwapChainPtr &swc, PmrResource *res)
             : imageID(resID)
@@ -336,6 +351,14 @@ namespace sky::rdg {
         rhi::ImagePtr      image;
         rhi::ImageViewType viewType = rhi::ImageViewType::VIEW_2D;
         rhi::AccessFlags   importFlags = rhi::AccessFlagBit::NONE;
+    };
+
+    struct GraphImportImageView {
+        using Tag = ImportImageViewTag;
+
+        rhi::ImagePtr     image;
+        rhi::ImageViewPtr view;
+        rhi::AccessFlags  importFlags = rhi::AccessFlagBit::NONE;
     };
 
     struct GraphImage {
@@ -387,6 +410,12 @@ namespace sky::rdg {
         using Tag = ConstantBufferTag;
 
         RDUniformBufferPtr ubo;
+    };
+
+    struct GraphSampler {
+        using Tag = SamplerTag;
+
+        rhi::SamplerPtr sampler;
     };
 
     struct GraphBuffer {

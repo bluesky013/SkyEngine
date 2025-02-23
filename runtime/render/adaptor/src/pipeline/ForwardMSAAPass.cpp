@@ -95,6 +95,11 @@ namespace sky {
             Name("PrefilteredMap"),
             rdg::ComputeView{Name("PrefilteredMap"), rdg::ComputeType::SRV, stageFlags}
         });
+
+        computeResources.emplace_back(ComputeResource{
+            Name("HizBuffer"),
+            rdg::ComputeView{Name("HizBuffer"), rdg::ComputeType::SRV, stageFlags}
+        });
     }
 
     void ForwardMSAAPass::SetLayout(const RDResourceLayoutPtr &layout_)

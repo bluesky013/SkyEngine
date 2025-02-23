@@ -20,7 +20,7 @@ namespace sky {
         explicit RenderScenePipeline(RenderScene *scn) : scene(scn) {}
         virtual ~RenderScenePipeline() = default;
 
-        void AddPass(PassBase *pass);
+        void AddPass(IPass *pass);
 
         void Setup(rdg::RenderGraph &rdg);
 
@@ -28,7 +28,7 @@ namespace sky {
         virtual void Collect(rdg::RenderGraph &rdg) {}
 
         RenderScene *scene = nullptr;
-        std::vector<PassBase*> passes;
+        std::vector<IPass*> passes;
     };
 
 } // namespace sky

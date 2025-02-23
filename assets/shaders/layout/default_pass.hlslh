@@ -36,3 +36,6 @@ struct ViewInfo {
 
 [[vk::binding(8, 0)]] TextureCube PrefilteredMap : register(t4, space0);
 [[vk::binding(9, 0)]] SamplerState PrefilteredMapSampler : register(s4, space0);
+
+[[vk::binding(10, 0)]] Texture2D HizBuffer : register(t5, space0);
+[[vk::binding(11, 0)]] SamplerState HizBufferSampler : register(s5, space0);

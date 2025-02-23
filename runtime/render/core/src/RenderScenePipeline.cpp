@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    void RenderScenePipeline::AddPass(PassBase *pass)
+    void RenderScenePipeline::AddPass(IPass *pass)
     {
         passes.emplace_back(pass);
     }

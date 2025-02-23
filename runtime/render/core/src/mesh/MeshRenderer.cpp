@@ -51,8 +51,6 @@ namespace sky {
 
     void MeshRenderer::BuildGeometry()
     {
-        enableMeshShading = false;
-
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
         for (const auto &sub : mesh->GetSubMeshes()) {
@@ -87,6 +85,8 @@ namespace sky {
                 primitive->instanceSet->BindBuffer(Name("VertexIndices"), cluster->meshletVertices->GetRHIBuffer(), 0);
                 primitive->instanceSet->BindBuffer(Name("MeshletTriangles"), cluster->meshletTriangles->GetRHIBuffer(), 0);
                 primitive->instanceSet->BindBuffer(Name("Meshlets"), cluster->meshlets->GetRHIBuffer(),0);
+
+                primitive->instanceSet->BindBuffer(Name("InstanceBuffer"), instanceBuffer->GetRHIBuffer(),0);
                 primitive->instanceSet->Update();
 
                 primitive->args.emplace_back(rhi::CmdDispatchMesh {
@@ -118,8 +118,6 @@ namespace sky {
         if (enableMeshShading) {
             SetupDebugMeshlet();
         }
-
-        BuildMultipleInstance();
     }
 
     void MeshRenderer::SetupDebugMeshlet()
@@ -151,15 +149,14 @@ namespace sky {
         }
     }
 
-    void MeshRenderer::BuildMultipleInstance()
+    void MeshRenderer::BuildMultipleInstance(uint32_t gridX, uint32_t gridY, uint32_t gridZ)
     {
-        uint32_t gridX = 8;
-        uint32_t gridY = 8;
-        uint32_t gridZ = 8;
+        Reset();
+        BuildGeometry();
 
         float bounding = 2.f;
         uint32_t instanceCount = gridX * gridY * gridZ;
-        std::vector<Vector3> positionBuffer(instanceCount);
+        std::vector<Vector4> positionBuffer(instanceCount);
 
         for (uint32_t i = 0; i < gridX; ++i) {
             for (uint32_t j = 0; j < gridY; ++j) {
@@ -176,30 +173,36 @@ namespace sky {
             ownGeometry = mesh->GetGeometry()->Duplicate();
 
             instanceBuffer = new Buffer();
-            instanceBuffer->Init(positionBuffer.size() * sizeof(Vector3), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+            instanceBuffer->Init(positionBuffer.size() * sizeof(Vector4), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
 
             ownGeometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::INST0,
                 static_cast<uint32_t>(ownGeometry->vertexBuffers.size()), 0, rhi::Format::F_RGB32, rhi::VertexInputRate::PER_INSTANCE
             });
             ownGeometry->attributeSemantics |= VertexSemanticFlagBit::INST0;
-            ownGeometry->vertexBuffers.emplace_back(VertexBuffer{instanceBuffer, 0, static_cast<uint32_t>(positionBuffer.size() * sizeof(Vector3)), sizeof(Vector3)});
+            ownGeometry->vertexBuffers.emplace_back(VertexBuffer{instanceBuffer, 0, static_cast<uint32_t>(positionBuffer.size() * sizeof(Vector4)), sizeof(Vector4)});
             instanceBuffer->SetUploadData(std::move(positionBuffer));
             Renderer::Get()->GetStreamingManager()->UploadBuffer(instanceBuffer);
         }
 
-        for (auto &prim : primitives) {
-            prim->geometry = ownGeometry;
-            prim->vertexFlags |= RenderVertexFlagBit::INSTANCE;
-            for (auto &arg : prim->args) {
-                std::visit(Overloaded{
-                    [&](rhi::CmdDrawLinear &v) {
-                        v.instanceCount = instanceCount;
-                    },
-                    [&](rhi::CmdDrawIndexed &v) {
-                        v.instanceCount = instanceCount;
-                    },
-                    [&](const auto &) {}
-                }, arg);
+        for (auto &primitive : primitives) {
+            primitive->geometry = ownGeometry;
+            primitive->vertexFlags |= RenderVertexFlagBit::INSTANCE;
+
+            const auto &cluster = primitive->geometry->cluster;
+            if (cluster && primitive->clusterValid) {
+
+            } else {
+                for (auto &arg : primitive->args) {
+                    std::visit(Overloaded{
+                                   [&](rhi::CmdDrawLinear &v) {
+                                       v.instanceCount = instanceCount;
+                                   },
+                                   [&](rhi::CmdDrawIndexed &v) {
+                                       v.instanceCount = instanceCount;
+                                   },
+                                   [&](const auto &) {}
+                               }, arg);
+                }
             }
         }
     }

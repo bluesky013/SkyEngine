@@ -13,7 +13,6 @@ namespace sky::rdg {
         : context(ctx)
         , vertices(&ctx->resources)
         , names(&ctx->resources)
-        , sources(&ctx->resources)
         , lastAccesses(&ctx->resources)
         , tags(&ctx->resources)
         , polymorphicDatas(&ctx->resources)
@@ -48,6 +47,11 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, GraphImportImage{image, viewType, currentAccess}, *this), graph);
     }
 
+    void ResourceGraph::ImportImageView(const Name &name, const rhi::ImagePtr &image, const rhi::ImageViewPtr &view, const rhi::AccessFlags &flags)
+    {
+        add_edge(0, AddVertex(name, GraphImportImageView{image, view, flags}, *this), graph);
+    }
+
     void ResourceGraph::ImportSwapChain(const Name &name, const rhi::SwapChainPtr &swapchain)
     {
         add_edge(0, AddVertex(name, GraphSwapChain{swapchain}, *this), graph);
@@ -58,15 +62,6 @@ namespace sky::rdg {
         add_edge(0, AddVertex(name, GraphXRSwapChain{swapchain}, *this), graph);
     }
 #endif
-    void ResourceGraph::AddImageView(const Name &name, const Name &source, const GraphImageView &view)
-    {
-        auto src = FindVertex(source, *this);
-        SKY_ASSERT(src != INVALID_VERTEX);
-
-        auto dst = AddVertex(name, view, *this);
-        sources[dst] = sources[src];
-        add_edge(src, dst, graph);
-    }
 
     void ResourceGraph::AddBuffer(const Name &name, const GraphBuffer &buffer)
     {
@@ -88,14 +83,9 @@ namespace sky::rdg {
         AddVertex(name, GraphConstantBuffer{ubo}, *this);
     }
 
-    void ResourceGraph::AddBufferView(const Name &name, const Name &source, const GraphBufferView &view)
+    void ResourceGraph::ImportSampler(const Name &name, const rhi::SamplerPtr &sampler)
     {
-        auto src = FindVertex(source, *this);
-        SKY_ASSERT(src != INVALID_VERTEX);
-
-        auto dst = AddVertex(name, view, *this);
-        sources[dst] = sources[src];
-        add_edge(src, dst, graph);
+        AddVertex(name, GraphSampler{sampler}, *this);
     }
 
     RenderGraph::RenderGraph(RenderGraphContext *ctx)
@@ -145,6 +135,16 @@ namespace sky::rdg {
         add_edge(0, vtx, graph);
     }
 
+    void RenderGraph::AddTransitionPass(const Name &name, const Name &resName, const DependencyInfo& deps)
+    {
+        auto resID = FindVertex(resName, resourceGraph);
+        SKY_ASSERT(resID != INVALID_VERTEX);
+
+        auto vtx = AddVertex(name, TransitionPass(resID, &context->resources), *this);
+        add_edge(0, vtx, graph);
+        AddDependency(resID, vtx, deps);
+    }
+
     void RenderGraph::AddPresentPass(const Name &name, const Name &resName)
     {
         auto resID = FindVertex(resName, resourceGraph);
@@ -177,63 +177,35 @@ namespace sky::rdg {
     {
     }
 
-    bool RenderGraph::CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange)
+    bool RenderGraph::CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps)
     {
         auto write = deps.access & ResourceAccessBit::WRITE;
         const auto accessFlag = GetAccessFlags(deps);
-        for (auto i = subRange.base; i < subRange.range; ++i) {
-            for (auto j = subRange.layer; j < subRange.layers; ++j) {
-                if (lastAccess.accesses[i * subRange.layers + j] != accessFlag) {
-                    return true;
-                }
-            }
+        if (lastAccess.access != accessFlag) {
+            return true;
         }
 
         return static_cast<bool>(write);
     }
 
-    void RenderGraph::FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const
-    {
-        const auto sourceRange = GetAccessRange(*this, res.resID);
-        for (auto i = 0U; i < subRange.range; ++i) {
-            const auto mip = subRange.base + i;
-            for (auto j = 0U; j < subRange.layers; ++j) {
-                const auto layer = subRange.layer + j;
-                res.accesses[mip * sourceRange.layers + layer] = accessFlag;
-            }
-        }
-    }
-
-    AccessRes RenderGraph::GetMergedAccessRes(const AccessRes &lastAccess,
-                                              const rhi::AccessFlags& accessFlag,
-                                              const AccessRange &subRange,
-                                              VertexType passAccessID,
-                                              VertexType nextAccessResID) const
-    {
-        AccessRes res = {lastAccess.resID, passAccessID, nextAccessResID, subRange, lastAccess.accesses};
-        FillAccessFlag(res, subRange, accessFlag);
-        return res;
-    }
-
     void RenderGraph::AddDependency(VertexType resID, VertexType passId, const DependencyInfo &deps)
     {
-        VertexType sourceID = Source(resID, resourceGraph);
         auto passAccessID = accessNodes[passId];
-        auto &resAccessID = resourceGraph.lastAccesses[sourceID];
+        auto &resAccessID = resourceGraph.lastAccesses[resID];
         auto subRange = GetAccessRange(*this, resID);
 
         if (resAccessID == INVALID_VERTEX) {
-            const auto sourceRange = GetAccessRange(*this, sourceID);
-            resAccessID = AddVertex(AccessRes{sourceID, 0, INVALID_VERTEX, sourceRange}, accessGraph);
+            const auto sourceRange = GetAccessRange(*this, resID);
+            resAccessID = AddVertex(AccessRes{resID, 0, INVALID_VERTEX, sourceRange}, accessGraph);
             add_edge(0, resAccessID, accessGraph.graph);
-            auto importFlags = GetImportAccessFlags(*this, sourceID);
-            accessGraph.resources[Index(resAccessID, accessGraph)].accesses.resize(sourceRange.range * sourceRange.layers, importFlags);
+            auto importFlags = GetImportAccessFlags(*this, resID);
+            accessGraph.resources[Index(resAccessID, accessGraph)].access = importFlags;
         }
         auto &lastAccessRes = accessGraph.resources[Index(resAccessID, accessGraph)];
 
         auto write = deps.access & ResourceAccessBit::WRITE;
         bool crossPass = lastAccessRes.inAccessPassID != passAccessID;
-        auto versionChanged = CheckVersionChanged(lastAccessRes, deps, subRange) && crossPass;
+        auto versionChanged = CheckVersionChanged(lastAccessRes, deps) && crossPass;
 
         const auto accessFlag = GetAccessFlags(deps);
         if (versionChanged) {
@@ -242,14 +214,13 @@ namespace sky::rdg {
             }
 
             const auto lastAccessID = resAccessID;
-            resAccessID = AddVertex(GetMergedAccessRes(lastAccessRes, accessFlag, subRange, passAccessID, INVALID_VERTEX), accessGraph);
+            resAccessID = AddVertex(AccessRes{lastAccessRes.resID, passAccessID, INVALID_VERTEX, subRange, accessFlag}, accessGraph);
             accessGraph.resources[Index(lastAccessID, accessGraph)].nextAccessResID = resAccessID;
             {
                 add_edge(passAccessID, resAccessID, accessGraph.graph);
             }
         } else {
-            MergeSubRange(lastAccessRes.subRange, subRange);
-            FillAccessFlag(lastAccessRes, subRange, accessFlag);
+            lastAccessRes.access = accessFlag;
             if (!write) {
                 add_edge(resAccessID, passAccessID, accessGraph.graph);
             }
@@ -345,6 +316,15 @@ namespace sky::rdg {
 
         subPass.computeViews.emplace(name, view);
         rdg.AddDependency(res, vertex, DependencyInfo{view.type, view.access, view.visibility});
+        return *this;
+    }
+
+    RasterSubPassBuilder &RasterSubPassBuilder::AddSamplerView(const Name &name, const Name& viewName)
+    {
+        auto res = FindVertex(name, rdg.resourceGraph);
+        SKY_ASSERT(res != INVALID_VERTEX);
+
+        subPass.computeViews.emplace(name, ComputeView{viewName});
         return *this;
     }
 

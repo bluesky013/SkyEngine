@@ -16,11 +16,24 @@ VSOutput VSMain(uint vid : SV_VertexID)
 }
 
 #include "depth/depth.hlslh"
-[[vk::binding(0, 0)]] Texture2D InDepth : register(t0, space0);
-[[vk::binding(1, 0)]] SamplerState InDepthSampler : register(s0, space0);
+[[vk::binding(0, 0)]] cbuffer global : register(b0, space0) {
+    float2 InvSize;
+    float2 InputViewportMaxBound;
+}
+
+[[vk::binding(1, 0)]] Texture2D InDepth : register(t0, space0);
+[[vk::binding(2, 0)]] SamplerState InDepthSampler : register(s0, space0);
 
 float4 FSMain(VSOutput input) : SV_TARGET
 {
-    float depthSample = InDepth.Sample(InDepthSampler, input.UV).r;
-    return float4(depthSample, 0, 0, 1);
+    float2 baseUV = input.UV;
+
+    float4 depth;
+    depth.x = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2(-0.25, -0.25)).r;
+    depth.y = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2( 0.25, -0.25)).r;
+    depth.z = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2(-0.25,  0.25)).r;
+    depth.w = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2( 0.25,  0.25)).r;
+
+	float fFurthestZ = min(min(depth.x, depth.y), min(depth.z, depth.w));
+	return float4(fFurthestZ, 0, 0, 0);
 }

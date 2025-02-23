@@ -61,6 +61,14 @@ namespace sky::rdg {
                     }
 
                 },
+                [&](const ImportImageViewTag &) {
+                    auto &image = graph.resourceGraph.importedViews[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        mainCommandBuffer->QueueBarrier(image.desc.image, image.desc.view->GetViewDesc().subRange,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags });
+                    }
+
+                },
                 [&](const ImportSwapChainTag &) {
                     auto &image = graph.resourceGraph.swapChains[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
@@ -139,6 +147,11 @@ namespace sky::rdg {
             [&](const ComputePassTag &) {
                 auto &compute = graph.computePasses[Index(u, graph)];
                 Barriers(compute.frontBarriers);
+                callStack.emplace_back(graph.names[u]);
+            },
+            [&](const TransitionTag &) {
+                auto &transition = graph.transitionPasses[Index(u, graph)];
+                Barriers(transition.frontBarriers);
                 callStack.emplace_back(graph.names[u]);
             },
             [&](const CopyBlitTag &) {
@@ -264,6 +277,11 @@ namespace sky::rdg {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.rearBarriers);
                 callStack.pop_back();
+            },
+            [&](const TransitionTag &) {
+                auto &transition = graph.transitionPasses[Index(u, graph)];
+                Barriers(transition.rearBarriers);
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const auto &) {}
         }, Tag(u, graph));

@@ -92,6 +92,10 @@ namespace sky::rdg {
                 const auto &image = resourceGraph.importImages[Index(resID, resourceGraph)];
                 flags = image.desc.importFlags;
             },
+            [&](const ImportImageViewTag &tag) {
+                const auto &view = resourceGraph.importedViews[Index(resID, resourceGraph)];
+                flags = view.desc.importFlags;
+            },
             [&](const ImportBufferTag &tag) {
                 const auto &buffer = resourceGraph.importBuffers[Index(resID, resourceGraph)];
                 flags = buffer.desc.importFlags;
@@ -120,6 +124,14 @@ namespace sky::rdg {
                 range = {
                     0, desc.mipLevels,
                     0, desc.arrayLayers
+                };
+            },
+            [&](const ImportImageViewTag &tag) {
+                const auto &image = resourceGraph.importedViews[Index(resID, resourceGraph)];
+                const auto &desc = image.desc.view->GetViewDesc();
+                range = {
+                    desc.subRange.baseLevel, desc.subRange.levels,
+                    desc.subRange.baseLayer, desc.subRange.layers
                 };
             },
             [&](const ImageViewTag &tag) {
