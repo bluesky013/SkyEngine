@@ -433,6 +433,8 @@ namespace sky::vk {
         case rhi::CmdDrawType::LINEAR:
             DrawLinear(item.drawArgs.linear);
             break;
+        default:
+            break;
         }
     }
 

@@ -79,7 +79,9 @@ namespace sky {
         io.KeyMap[ImGuiKey_Space]       = static_cast<int>(ScanCode::KEY_SPACE);
         io.KeyMap[ImGuiKey_Enter]       = static_cast<int>(ScanCode::KEY_RETURN);
         io.KeyMap[ImGuiKey_Escape]      = static_cast<int>(ScanCode::KEY_ESCAPE);
+#ifndef ANDROID
         io.KeyMap[ImGuiKey_KeypadEnter] = static_cast<int>(ScanCode::KEY_KP_ENTER);
+#endif
         io.KeyMap[ImGuiKey_A]           = static_cast<int>(ScanCode::KEY_A);
         io.KeyMap[ImGuiKey_C]           = static_cast<int>(ScanCode::KEY_C);
         io.KeyMap[ImGuiKey_V]           = static_cast<int>(ScanCode::KEY_V);

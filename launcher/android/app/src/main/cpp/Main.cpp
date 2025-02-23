@@ -26,29 +26,31 @@ void android_main(struct android_app *app) {
         started = true;
     });
 
-    auto *perfManager = platform->GetPerformanceManager();
-    auto *iThermal = perfManager->GetIThermal();
-    if (iThermal != nullptr) {
-        iThermal->RegisterStatusChangeCallback("Key", [](sky::ThermalStatus status) {
-
-        });
-    }
+//    auto *perfManager = platform->GetPerformanceManager();
+//    auto *iThermal = perfManager->GetIThermal();
+//    if (iThermal != nullptr) {
+//        iThermal->RegisterStatusChangeCallback("Key", [](sky::ThermalStatus status) {
+//
+//        });
+//    }
 
     do {
         int events;
         struct android_poll_source *source;
 
-        while ((ALooper_pollAll(0, nullptr, &events, (void **) &source)) >= 0) {
+        int result;
+        do {
+            result = ALooper_pollOnce(0, nullptr, &events, (void **) &source);
+
             if (source != nullptr) {
                 source->process(app, source);
             }
-        }
+        } while (result == ALOOPER_POLL_CALLBACK);
 
         if (started) {
             application.Loop();
         }
     } while (app->destroyRequested == 0);
 
-    application.Shutdown();
     platform->Shutdown();
 }

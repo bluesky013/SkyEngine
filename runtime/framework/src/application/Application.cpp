@@ -14,7 +14,7 @@
 #include <core/file/FileIO.h>
 
 #include <framework/asset/AssetManager.h>
-#include <framework/database/DBManager.h>
+//#include <framework/database/DBManager.h>
 #include <framework/platform/PlatformBase.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/World.h>
@@ -36,7 +36,6 @@ namespace sky {
         Interface<ISystemNotify>::Get()->UnRegister();
 
         AssetManager::Destroy();
-        DBManager::Destroy();
 
         sky::Platform* platform = sky::Platform::Get();
         platform->Shutdown();
@@ -71,7 +70,6 @@ namespace sky {
         // load configs
         LoadConfigs();
 
-        DBManager::Get()->Init();
         Interface<ISystemNotify>::Get()->Register(*this);
 
         auto *context = SerializationContext::Get();

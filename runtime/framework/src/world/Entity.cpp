@@ -2,7 +2,7 @@
 // Created by blues on 2024/4/19.
 //
 
-#include <framework/World/Entity.h>
+#include <framework/world/Entity.h>
 
 namespace sky {
 
