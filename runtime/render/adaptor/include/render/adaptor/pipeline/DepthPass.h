@@ -60,7 +60,7 @@ namespace sky {
     private:
         RDGfxTechPtr technique;
         rhi::ImagePtr hizDepth;
-        std::unique_ptr<DepthResolvePass> depthResolve;
+        std::unique_ptr<HizGenerateMip> depthResolve;
 
         std::vector<std::unique_ptr<HizGenerateMip>> mips;
         std::vector<rhi::ImageViewPtr> mipViews;

@@ -51,6 +51,10 @@ namespace sky {
 
     void MeshRenderer::BuildGeometry()
     {
+        // empty
+        instanceBuffer = new Buffer();
+        instanceBuffer->Init(sizeof(Vector4), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::STORAGE | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
         for (const auto &sub : mesh->GetSubMeshes()) {
@@ -74,7 +78,7 @@ namespace sky {
                 uint32_t extOffset = sub.firstVertex * sizeof(Vector4) * 4;
                 uint32_t extSize = sub.vertexCount * sizeof(Vector4) * 4;
 
-                meshletInfos[index]->WriteT(0, MeshletInfo{sub.firstMeshlet, sub.meshletCount});
+                meshletInfos[index]->WriteT(0, MeshletInfo{sub.firstMeshlet, sub.meshletCount, 0, 0});
 
                 primitive->instanceSet = meshFeature->RequestMeshResourceGroup();
                 primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
@@ -85,7 +89,6 @@ namespace sky {
                 primitive->instanceSet->BindBuffer(Name("VertexIndices"), cluster->meshletVertices->GetRHIBuffer(), 0);
                 primitive->instanceSet->BindBuffer(Name("MeshletTriangles"), cluster->meshletTriangles->GetRHIBuffer(), 0);
                 primitive->instanceSet->BindBuffer(Name("Meshlets"), cluster->meshlets->GetRHIBuffer(),0);
-
                 primitive->instanceSet->BindBuffer(Name("InstanceBuffer"), instanceBuffer->GetRHIBuffer(),0);
                 primitive->instanceSet->Update();
 
@@ -173,7 +176,7 @@ namespace sky {
             ownGeometry = mesh->GetGeometry()->Duplicate();
 
             instanceBuffer = new Buffer();
-            instanceBuffer->Init(positionBuffer.size() * sizeof(Vector4), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+            instanceBuffer->Init(positionBuffer.size() * sizeof(Vector4), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::STORAGE | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
 
             ownGeometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::INST0,
                 static_cast<uint32_t>(ownGeometry->vertexBuffers.size()), 0, rhi::Format::F_RGB32, rhi::VertexInputRate::PER_INSTANCE
@@ -188,20 +191,33 @@ namespace sky {
             primitive->geometry = ownGeometry;
             primitive->vertexFlags |= RenderVertexFlagBit::INSTANCE;
 
+            primitive->localBound.min *= Vector3((float)gridX, (float)gridY, (float)gridZ);
+            primitive->localBound.max *= Vector3((float)gridX, (float)gridY, (float)gridZ);
+
             const auto &cluster = primitive->geometry->cluster;
             if (cluster && primitive->clusterValid) {
+                primitive->instanceSet->BindBuffer(Name("InstanceBuffer"), instanceBuffer->GetRHIBuffer(),0);
+                primitive->instanceSet->Update();
+
+                for (auto &arg : primitive->args) {
+                    std::visit(Overloaded{
+                        [&](rhi::CmdDispatchMesh &v) { v.y = instanceCount; }, [&](const auto &) {}}, arg);
+                }
 
             } else {
                 for (auto &arg : primitive->args) {
                     std::visit(Overloaded{
-                                   [&](rhi::CmdDrawLinear &v) {
-                                       v.instanceCount = instanceCount;
-                                   },
-                                   [&](rhi::CmdDrawIndexed &v) {
-                                       v.instanceCount = instanceCount;
-                                   },
-                                   [&](const auto &) {}
-                               }, arg);
+                        [&](rhi::CmdDrawLinear &v) {
+                            v.instanceCount = instanceCount;
+                        },
+                        [&](rhi::CmdDrawIndexed &v) {
+                            v.instanceCount = instanceCount;
+                        },
+                        [&](rhi::CmdDispatchMesh &v) {
+                            v.y = instanceCount;
+                        },
+                        [&](const auto &) {}
+                    }, arg);
                 }
             }
         }

@@ -8,6 +8,7 @@
 #include <render/RHI.h>
 #include <render/RenderScene.h>
 #include <render/RenderScenePipeline.h>
+#include <render/Renderer.h>
 #include <rhi/Util.h>
 
 namespace sky {
@@ -190,7 +191,7 @@ namespace sky {
 
     HizGenerator::HizGenerator(const RDGfxTechPtr &resolveTech, const RDGfxTechPtr &downTech) : technique(downTech)
     {
-        depthResolve = std::make_unique<DepthResolvePass>(resolveTech, Name(FWD_DS.data()), Name("HizMipmap0"));
+        depthResolve = std::make_unique<HizGenerateMip>(technique, Name(FWD_DS.data()), Name("HizMipmap0"), rhi::AccessFlagBit::NONE);
     }
 
     void HizGenerator::BuildHizPass(rdg::RenderGraph &rdg, const rhi::ImagePtr& hiz, uint32_t width, uint32_t height)
@@ -235,7 +236,14 @@ namespace sky {
             desc.subRange.aspectMask = rhi::AspectFlagBit::COLOR_BIT;
             fullMipView = hizDepth->CreateView(desc);
         }
-        rsg.ImportImageView(Name("HizBuffer"), hiz, fullMipView, rhi::AccessFlagBit::FRAGMENT_SRV);
+
+        if (rebuildImageView) {
+            auto res = Renderer::Get()->GetDefaultResource().texture2DBlack;
+            rsg.ImportImageView(Name("HizBuffer"), res->GetImage(), res->GetImageView(), rhi::AccessFlagBit::FRAGMENT_SRV);
+        } else {
+            rsg.ImportImageView(Name("HizBuffer"), hiz, fullMipView, rhi::AccessFlagBit::FRAGMENT_SRV);
+        }
+
 
         uint32_t tmpWidth = width;
         uint32_t tmpHeight = height;
@@ -254,6 +262,7 @@ namespace sky {
         }
 
         depthResolve->Resize(width, height);
+        depthResolve->SetInputSize(width, height);
     }
 
     void HizGenerator::AddPass(RenderScenePipeline& pipeline)

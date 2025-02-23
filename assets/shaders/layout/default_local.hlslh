@@ -36,7 +36,7 @@ StructuredBuffer<uint>      MeshletTriangles    : register(t3, space2);
 [[vk::binding(7, 2)]]
 StructuredBuffer<Meshlet>   Meshlets            : register(t4, space2);
 [[vk::binding(8, 2)]]
-StructuredBuffer<CullData>  MeshletCullData     : register(t5, space2);
-[[vk::binding(9, 2)]]
-StructuredBuffer<float4>    InstanceBuffer      : register(t6, space2);
+StructuredBuffer<float4>    InstanceBuffer      : register(t5, space2);
+//[[vk::binding(9, 2)]]
+//StructuredBuffer<CullData>  MeshletCullData     : register(t6, space2);
 #endif

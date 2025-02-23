@@ -61,16 +61,14 @@ VSOutput VSMain(VSInput input)
 
 groupshared Payload TaskPayload;
 //------------------------------------------ Task Shader------------------------------------------//
-bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos)
+bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos, float3 offset)
 {
-//     float4 center = mul(world, float4(m.center.xyz, 1));
-//     float radius = m.center.w;
     if (m.coneAxis.w >= 0.99) {
         return true;
     }
 
-    float3 axis = normalize(mul((float3x3)World, m.coneAxis.xyz));
-    float3 apex = mul((float3x3)World, m.coneApex.xyz);
+    float3 axis = normalize(mul((float3x3)world, m.coneAxis.xyz));
+    float3 apex = mul((float3x3)world, m.coneApex.xyz + offset);
     float3 view = normalize(viewPos - apex);
 
     if (dot(view, -axis) >= m.coneAxis.w)
@@ -80,29 +78,91 @@ bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos)
     return true;
 }
 
-bool HizVisible(Meshlet m, float4x4 world)
+bool HZBSphereTest(float3 center, float radius, int startMip)
 {
+    float4 worldPos = mul(World, float4(center, 1.0));
+    float4 clipPos = mul(VIEW_INFO.ViewProj, worldPos);
+    clipPos.xyz /= clipPos.w;
+
+    if (clipPos.w <= 0) return false;
+
+    float2 screenUV = clamp(clipPos.xy * 0.5 + 0.5, 0.001, 0.999);
+    float approxScreenRadius = radius / abs(clipPos.z);
+    float minSphereDepth = clipPos.z - approxScreenRadius * 0.05;
+
+    uint2 mipDims;
+    uint maxDims;
+    HizBuffer.GetDimensions(0, mipDims.x, mipDims.y, maxDims);
+
+    int currentMip = min(startMip, maxDims - 1);
+
+    const int MAX_ITERATION = 4;
+    for (int i = 0; i < MAX_ITERATION; ++i)
+    {
+        uint2 mipSize;
+        HizBuffer.GetDimensions(currentMip, mipSize.x, mipSize.y, maxDims);
+        float2 texelSize = 1.0 / float2(mipSize);
+
+        float2 sampleUVs[4] = {
+            screenUV + float2(-approxScreenRadius, -approxScreenRadius) * texelSize,
+            screenUV + float2( approxScreenRadius,  approxScreenRadius) * texelSize,
+            screenUV + float2(-approxScreenRadius,  approxScreenRadius) * texelSize,
+            screenUV + float2( approxScreenRadius, -approxScreenRadius) * texelSize
+        };
+
+        float maxHZB = 0;
+        [unroll]
+        for(int j = 0; j < 4; ++j)
+        {
+            float2 uv = clamp(sampleUVs[j], 0.0, 1.0);
+            maxHZB = max(maxHZB, HizBuffer.SampleLevel(HizBufferSampler, uv, currentMip).r);
+        }
+
+        if(minSphereDepth > maxHZB)
+        {
+            return false;
+        }
+
+        if(currentMip == 0) break;
+        currentMip = max(currentMip - 1, 0);
+
+        if(approxScreenRadius * mipSize.x < 4.0) break;
+    }
     return true;
 }
 
 [outputtopology("triangle")]
 [numthreads(MESH_GROUP_SIZE,1,1)]
-void TASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
+void TASMain(uint gtid : SV_GroupThreadID, uint2 dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
 {
     float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
 
+#if ENABLE_INSTANCE
+    float4 offset = InstanceBuffer[dtid.y];
+#else
+    float4 offset = InstanceBuffer[0];
+#endif
+
     bool visible = false;
-    if (dtid < MeshletCount)
+    if (dtid.x < MeshletCount)
     {
-//         visible = ConeVisible(Meshlets[dtid + FirstMeshlet], World, viewPos);
-//         visible = Meshlets[dtid + FirstMeshlet].vertexCount > 0;
-        visible = HizVisible(Meshlets[dtid + FirstMeshlet], World);
+        Meshlet meshlet = Meshlets[dtid.x + FirstMeshlet];
+        visible = meshlet.vertexCount > 0;
+
+//         if (visible) {
+//             visible = ConeVisible(meshlet, World, viewPos, offset.xyz);
+//         }
+
+        if (visible) {
+            visible = HZBSphereTest(meshlet.center.xyz + offset.xyz, meshlet.center.w, 8);
+        }
     }
 
     if (visible)
     {
         uint index = WavePrefixCountBits(visible);
-        TaskPayload.MeshletIndices[index] = dtid;
+        TaskPayload.MeshletIndices[index] = dtid.x;
+        TaskPayload.Offset = offset;
     }
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, TaskPayload);
@@ -125,9 +185,9 @@ uint3 GetPrimitive(Meshlet meshlet, uint index)
     return UnpackPrimitive(MeshletTriangles[meshlet.triangleOffset + index]);
 }
 
-VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex)
+VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex, float4 offset)
 {
-    float4 pv = PositionBuf[vertexIndex];
+    float4 pv = PositionBuf[vertexIndex] + offset;
     ExtVertex ev = ExtBuf[vertexIndex];
 
     VSOutput output = (VSOutput)0;
@@ -166,7 +226,7 @@ void MSMain(
     if (gtid < meshlet.vertexCount)
     {
         uint vertexIndex = GetVertexIndex(meshlet, gtid);
-        vertices[gtid] = GetVertexAttributes(meshletIndex, vertexIndex);
+        vertices[gtid] = GetVertexAttributes(meshletIndex, vertexIndex, taskPayload.Offset);
     }
 
     if (gtid < meshlet.triangleCount)

@@ -105,7 +105,7 @@ namespace sky {
         multiply = enable;
         if (renderer != nullptr) {
             if (multiply) {
-                renderer->BuildMultipleInstance(8, 8, 8);
+                renderer->BuildMultipleInstance(12, 12, 12);
             } else {
                 renderer->SetMesh(meshInstance, enableMeshShading);
             }

@@ -34,6 +34,6 @@ float4 FSMain(VSOutput input) : SV_TARGET
     depth.z = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2(-0.25,  0.25)).r;
     depth.w = InDepth.Sample(InDepthSampler, baseUV + InvSize * float2( 0.25,  0.25)).r;
 
-	float fFurthestZ = min(min(depth.x, depth.y), min(depth.z, depth.w));
+	float fFurthestZ = max(max(depth.x, depth.y), max(depth.z, depth.w));
 	return float4(fFurthestZ, 0, 0, 0);
 }

@@ -22,6 +22,8 @@ namespace sky {
     struct MeshletInfo {
         uint32_t firstMeshlet;
         uint32_t meshletCount;
+        uint32_t firstInstance;
+        uint32_t padding;
     };
 
     struct ShaderPassInfo {

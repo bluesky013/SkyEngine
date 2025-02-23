@@ -85,7 +85,7 @@ namespace sky {
 #if _DEBUG && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
-        rhiDesc.enableDebugLayer = false;
+        rhiDesc.enableDebugLayer = true;
 #endif
         rhiDesc.api = api;
 

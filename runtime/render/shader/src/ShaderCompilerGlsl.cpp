@@ -140,9 +140,9 @@ namespace sky {
         glslang::SpvOptions spvOptions = {};
 #if _DEBUG
 #else
-        spvOptions.stripDebugInfo = false;
-        spvOptions.disableOptimizer = false;
-        spvOptions.optimizeSize = false;
+//        spvOptions.stripDebugInfo = false;
+//        spvOptions.disableOptimizer = false;
+//        spvOptions.optimizeSize = false;
 #endif
         glslang::GlslangToSpv(*program.getIntermediate(shader.getStage()), result.data, &spvOptions);
 
