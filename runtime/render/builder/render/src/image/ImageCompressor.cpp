@@ -24,6 +24,10 @@ using PFN_GetProfile_alpha_fast      = void(*)(bc7_enc_settings* settings);
 using PFN_GetProfile_alpha_basic     = void(*)(bc7_enc_settings* settings);
 using PFN_GetProfile_alpha_slow      = void(*)(bc7_enc_settings* settings);
 
+using PFN_GetProfile_astc_fast       = void(*)(astc_enc_settings* settings, int block_width, int block_height);
+using PFN_GetProfile_astc_alpha_fast = void(*)(astc_enc_settings* settings, int block_width, int block_height);
+using PFN_GetProfile_astc_alpha_slow = void(*)(astc_enc_settings* settings, int block_width, int block_height);
+
 using PFN_CompressBlocksBC1  = void(*)(const rgba_surface* src, uint8_t* dst);
 using PFN_CompressBlocksBC3  = void(*)(const rgba_surface* src, uint8_t* dst);
 using PFN_CompressBlocksBC4  = void(*)(const rgba_surface* src, uint8_t* dst);
@@ -45,6 +49,10 @@ namespace sky::builder {
     PFN_GetProfile_alpha_fast      S_GetProfile_BC7_alpha_fast      = nullptr;
     PFN_GetProfile_alpha_basic     S_GetProfile_BC7_alpha_basic     = nullptr;
     PFN_GetProfile_alpha_slow      S_GetProfile_BC7_alpha_slow      = nullptr;
+
+    PFN_GetProfile_astc_fast        S_GetProfile_astc_fast           = nullptr;
+    PFN_GetProfile_astc_alpha_fast  S_GetProfile_astc_alpha_fast     = nullptr;
+    PFN_GetProfile_astc_alpha_slow  S_GetProfile_astc_alpha_slow = nullptr;
 
     PFN_CompressBlocksBC1          S_CompressBlocksBC1  = nullptr;
     PFN_CompressBlocksBC3          S_CompressBlocksBC3  = nullptr;
@@ -73,6 +81,10 @@ namespace sky::builder {
             S_GetProfile_BC7_alpha_basic     = reinterpret_cast<PFN_GetProfile_alpha_basic    >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_basic"));
             S_GetProfile_BC7_alpha_slow      = reinterpret_cast<PFN_GetProfile_alpha_slow     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_slow"));
 
+            S_GetProfile_astc_fast           = reinterpret_cast<PFN_GetProfile_astc_fast      >(ISPC_COMP_MODULE->GetAddress("GetProfile_astc_fast"));
+            S_GetProfile_astc_alpha_fast     = reinterpret_cast<PFN_GetProfile_astc_alpha_fast>(ISPC_COMP_MODULE->GetAddress("GetProfile_astc_alpha_fast"));
+            S_GetProfile_astc_alpha_slow     = reinterpret_cast<PFN_GetProfile_astc_alpha_slow>(ISPC_COMP_MODULE->GetAddress("GetProfile_astc_alpha_slow"));
+
             S_CompressBlocksBC1       = reinterpret_cast<PFN_CompressBlocksBC1 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC1"));
             S_CompressBlocksBC3       = reinterpret_cast<PFN_CompressBlocksBC3 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC3"));
             S_CompressBlocksBC4       = reinterpret_cast<PFN_CompressBlocksBC4 >(ISPC_COMP_MODULE->GetAddress("CompressBlocksBC4"));
@@ -82,6 +94,59 @@ namespace sky::builder {
             S_CompressBlocksETC1      = reinterpret_cast<PFN_CompressBlocksETC1>(ISPC_COMP_MODULE->GetAddress("CompressBlocksETC1"));
             S_CompressBlocksASTC      = reinterpret_cast<PFN_CompressBlocksASTC>(ISPC_COMP_MODULE->GetAddress("CompressBlocksASTC"));
         }
+    }
+
+    void ComPressASTC(const rgba_surface &input, uint8_t *out, const CompressOption &options)
+    {
+        int blockWidth = 1;
+        int blockHeight = 1;
+        switch (options.targetFormat) {
+        case rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK:;
+        case rhi::PixelFormat::ASTC_4x4_SRGB_BLOCK:
+            blockWidth = 4;
+            blockHeight = 4;
+            break;
+        case rhi::PixelFormat::ASTC_8x8_UNORM_BLOCK:
+        case rhi::PixelFormat::ASTC_8x8_SRGB_BLOCK:
+            blockWidth = 8;
+            blockHeight = 8;
+            break;
+        case rhi::PixelFormat::ASTC_10x10_UNORM_BLOCK:
+        case rhi::PixelFormat::ASTC_10x10_SRGB_BLOCK:
+            blockWidth = 10;
+            blockHeight = 10;
+            break;
+        case rhi::PixelFormat::ASTC_12x12_UNORM_BLOCK:
+        case rhi::PixelFormat::ASTC_12x12_SRGB_BLOCK:
+            blockWidth = 12;
+            blockHeight = 12;
+            break;
+        default:
+            break;
+        }
+
+        astc_enc_settings settings = {};
+        switch (options.quality) {
+        case Quality::ULTRA_FAST:
+        case Quality::VERY_FAST:
+        case Quality::FAST:
+            if (options.hasAlpha) {
+                S_GetProfile_astc_alpha_fast(&settings, blockWidth, blockHeight);
+            } else {
+                S_GetProfile_astc_fast(&settings, blockWidth, blockHeight);
+            }
+            break;
+        case Quality::BASIC:
+        case Quality::SLOW:
+            if (options.hasAlpha) {
+                S_GetProfile_astc_alpha_slow(&settings, blockWidth, blockHeight);
+            } else {
+                S_GetProfile_astc_fast(&settings, blockWidth, blockHeight);
+            }
+            break;
+        }
+
+        S_CompressBlocksASTC(&input, out, &settings);
     }
 
     void CompressBC7(const rgba_surface &input, uint8_t *out, const CompressOption &options)
@@ -130,8 +195,11 @@ namespace sky::builder {
 
     void CompressImage(const rgba_surface &input,  uint8_t *out, const CompressOption &options)
     {
-        if (options.targetFormat == rhi::PixelFormat::BC7_UNORM_BLOCK) {
+        if (options.targetFormat == rhi::PixelFormat::BC7_UNORM_BLOCK){
             CompressBC7(input, out, options);
+        } else if (options.targetFormat == rhi::PixelFormat::ASTC_4x4_UNORM_BLOCK)
+        {
+            ComPressASTC(input, out, options);
         }
     }
 

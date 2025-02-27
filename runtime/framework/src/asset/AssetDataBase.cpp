@@ -27,9 +27,19 @@ namespace sky {
         engineFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
     }
 
-    void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
+    void AssetDataBase::SetWorkSpaceFs(const FileSystemPtr &fs)
     {
+#ifdef SKY_EDITOR
         workSpaceFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
+#else
+        workSpaceFs = fs;
+#endif
+    }
+
+    std::string ReplaceSlashToBackslash(std::string path)
+    {
+        std::replace(path.begin(), path.end(), '/', '\\');
+        return path;
     }
 
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
@@ -39,13 +49,15 @@ namespace sky {
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
-    AssetSourcePtr AssetDataBase::FindAsset(const std::string &path)
+    AssetSourcePtr AssetDataBase::FindAsset(const std::string &inPath)
     {
         std::lock_guard<std::recursive_mutex> lock(assetMutex);
         const SourceAssetBundle bundles[] = {
                 SourceAssetBundle::WORKSPACE,
                 SourceAssetBundle::ENGINE
         };
+
+        auto path = ReplaceSlashToBackslash(inPath);
         for (const auto &bundle : bundles) {
             auto iter = pathMap.find({bundle, path});
             if (iter != pathMap.end()) {
@@ -288,7 +300,7 @@ namespace sky {
         return {SourceAssetBundle::INVALID};
     }
 
-    const NativeFileSystemPtr &AssetDataBase::GetFileSystemBySourcePath(const AssetSourcePath &path)
+    FileSystemPtr AssetDataBase::GetFileSystemBySourcePath(const AssetSourcePath &path)
     {
         static NativeFileSystemPtr empty;
         switch (path.bundle) {

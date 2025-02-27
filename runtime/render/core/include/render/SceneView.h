@@ -56,6 +56,7 @@ namespace sky {
 
         PmrVector<Matrix4> projects;
         PmrVector<SceneViewInfo> viewInfo;
+        PmrVector<SceneViewInfo> lastViewInfo;
         PmrVector<Frustum> frustums;
         bool dirty;
         bool flipY = true;

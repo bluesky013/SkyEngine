@@ -117,11 +117,13 @@ namespace sky {
         IFileSystem() = default;
         ~IFileSystem() override = default;
 
+        virtual void Copy(const FilePath &from, const FilePath &to) const {}
         virtual bool FileExist(const FilePath &path) const = 0;
         virtual FilePtr OpenFile(const FilePath &name) = 0;
         virtual FilePtr CreateOrOpenFile(const FilePath &name) = 0;
         virtual bool IsReadOnly() const { return true; }
         virtual FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) { return nullptr; }
+        virtual const FilePath &GetPath() const { static FilePath path; return path; }
     };
 
     class NativeFileSystem : public IFileSystem {
@@ -134,9 +136,9 @@ namespace sky {
         FilePtr CreateOrOpenFile(const FilePath &path) override;
 
         bool IsReadOnly() const override { return false; }
-        const FilePath &GetPath() const { return fsRoot; }
+        const FilePath &GetPath() const override { return fsRoot; }
 
-        void Copy(const FilePath &from, const FilePath &to) const;
+        void Copy(const FilePath &from, const FilePath &to) const override;
         bool IsSubDir(const std::string &path) const;
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 

@@ -78,6 +78,11 @@ bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos, float3 offset)
     return true;
 }
 
+float CalculateMip(float ddx, float ddy)
+{
+    return 0.5 * log2(max(ddx, ddy));
+}
+
 bool HZBSphereTest(float3 center, float radius, int startMip)
 {
     float4 worldPos = mul(World, float4(center, 1.0));
@@ -88,12 +93,33 @@ bool HZBSphereTest(float3 center, float radius, int startMip)
 
     float2 screenUV = clamp(clipPos.xy * 0.5 + 0.5, 0.001, 0.999);
     float approxScreenRadius = radius / abs(clipPos.z);
-    float minSphereDepth = clipPos.z - approxScreenRadius * 0.05;
+    float minSphereDepth = clipPos.z - approxScreenRadius * 0.005;
 
-    uint2 mipDims;
-    uint maxDims;
-    HizBuffer.GetDimensions(0, mipDims.x, mipDims.y, maxDims);
+    float2 texelSize = 1.0 / float2(Viewport.zw);
 
+    float lod = CalculateMip(approxScreenRadius * texelSize, approxScreenRadius * texelSize);
+
+    float2 sampleUVs[4] = {
+        screenUV + float2(-approxScreenRadius, -approxScreenRadius) * texelSize,
+        screenUV + float2( approxScreenRadius,  approxScreenRadius) * texelSize,
+        screenUV + float2(-approxScreenRadius,  approxScreenRadius) * texelSize,
+        screenUV + float2( approxScreenRadius, -approxScreenRadius) * texelSize
+    };
+
+    float maxHZB = 0;
+    [unroll]
+    for(int j = 0; j < 4; ++j)
+    {
+        float2 uv = clamp(sampleUVs[j], 0.0, 1.0);
+        maxHZB = max(maxHZB, HizBuffer.SampleLevel(HizBufferSampler, uv, lod).r);
+    }
+
+    if(minSphereDepth > maxHZB)
+    {
+        return false;
+    }
+
+    /*
     int currentMip = min(startMip, maxDims - 1);
 
     const int MAX_ITERATION = 4;
@@ -127,7 +153,7 @@ bool HZBSphereTest(float3 center, float radius, int startMip)
         currentMip = max(currentMip - 1, 0);
 
         if(approxScreenRadius * mipSize.x < 4.0) break;
-    }
+    }*/
     return true;
 }
 

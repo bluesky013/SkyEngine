@@ -10,8 +10,8 @@ namespace sky {
     struct SceneViewInfo {
         Matrix4 world;
         Matrix4 view;
-        Matrix4 project;
         Matrix4 viewProject;
+        Matrix4 lastViewProject;
     };
 
     struct InstanceLocal {

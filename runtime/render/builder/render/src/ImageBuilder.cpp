@@ -216,11 +216,12 @@ namespace sky::builder {
 
             if (config->compress) {
                 CompressOption option = {};
-                option.quality      = Quality::SLOW;
+                option.quality      = Quality::FAST;
                 option.targetFormat = rhi::PixelFormat::BC7_UNORM_BLOCK;
+//                option.targetFormat = rhi::PixelFormat::ASTC_8x8_UNORM_BLOCK;
                 option.hasAlpha     = channel == 4;
 
-                compressedImage = CompressedImage::CreateFromImageObject(image, rhi::PixelFormat::BC7_UNORM_BLOCK);
+                compressedImage = CompressedImage::CreateFromImageObject(image, option.targetFormat);
                 for (uint32_t i = 0; i < image->mips.size(); ++i) {
                     ImageCompressor compressor(ImageCompressor::Payload{image, compressedImage, option, i});
                     compressor.DoWork();

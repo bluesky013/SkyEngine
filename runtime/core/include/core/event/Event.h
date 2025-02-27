@@ -10,9 +10,16 @@
 
 namespace sky {
 
+    enum StorageMode : uint8_t {
+        IMMEDIATE,
+        BATCHED
+    };
+
     struct EventTraits {
         using KeyType   = void;
         using MutexType = void;
+
+        static constexpr StorageMode STORAGE = StorageMode::IMMEDIATE;
     };
 
     template <typename Interface, class KeyType = typename Interface::KeyType>

@@ -36,6 +36,9 @@ namespace sky {
         desc.xrInterface = xrInterface;
 #endif
         instance = rhi::Instance::Create(desc);
+        if (desc.api == rhi::API::DEFAULT) {
+            desc.api = rhi::API::VULKAN;
+        }
         api = desc.api;
 
         switch (api) {

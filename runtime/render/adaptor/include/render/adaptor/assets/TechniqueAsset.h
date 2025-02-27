@@ -59,5 +59,5 @@ namespace sky {
     using TechniqueAssetPtr = std::shared_ptr<Asset<Technique>>;
 
     CounterPtr<Technique> CreateTechniqueFromAsset(const TechniqueAssetPtr &asset);
-    CounterPtr<GraphicsTechnique> GreateGfxTechFromAsset(const TechniqueAssetPtr &asset);
+    CounterPtr<GraphicsTechnique> CreateGfxTechFromAsset(const TechniqueAssetPtr &asset);
 }

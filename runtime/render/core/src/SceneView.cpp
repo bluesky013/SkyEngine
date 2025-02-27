@@ -15,6 +15,7 @@ namespace sky {
         , viewCount(count)
         , viewMask(0xFF)
         , viewInfo(resource)
+        , lastViewInfo(resource)
         , frustums(resource)
         , dirty(true)
     {
@@ -48,7 +49,6 @@ namespace sky {
     void SceneView::SetOrthogonal(float l, float r, float t, float b, float near, float far, uint32_t index)
     {
         projects[index] = MakeOrthogonal(l, r, t, b, near, far);
-        viewInfo[index].project = projects[index];
         dirty = true;
     }
 
@@ -58,12 +58,15 @@ namespace sky {
             return;
         }
 
+
+
         for (uint32_t i = 0; i < viewCount; ++i) {
+            viewInfo[i].lastViewProject = viewInfo[i].viewProject;
+
             Matrix4 p = Matrix4::Identity();
             p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
 
-            viewInfo[i].project = p * projects[i];
-            viewInfo[i].viewProject = viewInfo[i].project * viewInfo[i].view;
+            viewInfo[i].viewProject = p * projects[i] * viewInfo[i].view;
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 
             viewUbo->WriteT(i * sizeof(SceneViewInfo), viewInfo[i]);

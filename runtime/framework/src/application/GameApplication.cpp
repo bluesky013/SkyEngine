@@ -14,13 +14,14 @@
 #include <filesystem>
 
 #include <framework/asset/AssetManager.h>
+#include <framework/asset/AssetDataBase.h>
 #include <framework/platform/PlatformBase.h>
 
 static const char *TAG = "Application";
 #ifdef SKY_EDITOR
 static const char *CONFIG_PATH = "config/modules_game.json";
 #else
-static const char *CONFIG_PATH = "config/modules_game.json";
+static const char *CONFIG_PATH = "configs/modules_game.json";
 #endif
 
 namespace sky {
@@ -46,17 +47,22 @@ namespace sky {
         workFs = Platform::Get()->GetBundleFileSystem();
 //        workFs = std::make_shared<NativeFileSystem>(Platform::Get()->GetInternalPath());
 //        AssetManager::Get()->SetWorkPath(workFs);
+        AssetDataBase::Get()->SetWorkSpaceFs(workFs);
+        AssetDataBase::Get()->Load();
+
+        std::string bundleKey = "common";
+        auto bundleFs = workFs->CreateSubSystem(bundleKey, false);
+        AssetManager::Get()->AddAssetProductBundle(new HashedAssetBundle(bundleFs, bundleKey));
+
 #else
         AssetManager::Get()->SetWorkPath(Platform::Get()->GetInternalPath());
         auto fs = std::make_shared<NativeFileSystem>();
         fs->AddPath(Platform::Get()->GetInternalPath());
         workFs = fs;
 #endif
-
         if (!Application::Init(argc, argv)) {
             return false;
         }
-
         return true;
     }
 
@@ -66,9 +72,16 @@ namespace sky {
 
     void GameApplication::LoadConfigs()
     {
+        std::unordered_map<std::string, ModuleInfo> modules = {};
+        modules.emplace("SkyRender", ModuleInfo{"SkyRender", {"ShaderCompiler"}});
+        modules.emplace("RenderBuilder", ModuleInfo{"RenderBuilder", {"SkyRender"}});
+        for (auto &[key, info] : modules) {
+            moduleManager->RegisterModule(info);
+        }
+
         std::string json;
         auto file = workFs->OpenFile(CONFIG_PATH);
-        if (!file || file->ReadString(json)) {
+        if (!file || !file->ReadString(json)) {
             LOG_W(TAG, "Load Config Failed");
             return;
         }

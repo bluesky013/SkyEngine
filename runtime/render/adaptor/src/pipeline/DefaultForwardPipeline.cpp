@@ -19,7 +19,7 @@ namespace sky {
     {
         auto asset = AssetManager::Get()->LoadAssetFromPath(name);
         asset->BlockUntilLoaded();
-        return GreateGfxTechFromAsset(std::static_pointer_cast<Asset<Technique>>(asset));
+        return CreateGfxTechFromAsset(std::static_pointer_cast<Asset<Technique>>(asset));
     }
 
     void DefaultForwardPipeline::InitPass()
@@ -127,7 +127,7 @@ namespace sky {
 //            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
     }
 
-    void DefaultForwardPipeline::SetupGlobal(rdg::RenderGraph &rdg)
+    void DefaultForwardPipeline::SetupGlobal(rdg::RenderGraph &rdg, uint32_t w, uint32_t h)
     {
         ShaderPassInfo info = {};
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(scene);
@@ -137,6 +137,8 @@ namespace sky {
                 info.lightMatrix = mainLight->GetMatrix();
                 info.mainLightColor = mainLight->GetColor();
                 info.mainLightDirection = mainLight->GetDirection();
+                info.viewport.z = (float)w;
+                info.viewport.w = (float)h;
             }
         }
         defaultGlobal->WriteT(0, info);
@@ -158,7 +160,7 @@ namespace sky {
         const auto renderWidth  = output->GetWidth();
         const auto renderHeight = output->GetHeight();
 
-        SetupGlobal(rdg);
+        SetupGlobal(rdg, renderWidth, renderHeight);
         SetupScreenExternalImages(rdg, renderWidth, renderHeight);
 
         shadowMap->SetEnable(false);

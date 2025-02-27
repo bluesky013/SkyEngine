@@ -25,7 +25,7 @@ namespace sky {
 
     private:
         void InitPass();
-        void SetupGlobal(rdg::RenderGraph &rdg);
+        void SetupGlobal(rdg::RenderGraph &rdg, uint32_t w, uint32_t h);
         void SetupScreenExternalImages(rdg::RenderGraph &rdg, uint32_t w, uint32_t h);
 
         void Collect(rdg::RenderGraph &rdg) override;

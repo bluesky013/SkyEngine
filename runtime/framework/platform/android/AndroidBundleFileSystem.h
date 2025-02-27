@@ -31,7 +31,7 @@ namespace sky {
 
     class AndroidBundleFileSystem : public IFileSystem {
     public:
-        AndroidBundleFileSystem() = default;
+        explicit AndroidBundleFileSystem(const std::string& basePath);
         ~AndroidBundleFileSystem() override = default;
 
         bool FileExist(const FilePath &path) const override;
@@ -39,7 +39,10 @@ namespace sky {
 //        OArchivePtr WriteAsArchive(const std::string &path) override;
         FilePtr OpenFile(const FilePath &name) override;
         FilePtr CreateOrOpenFile(const FilePath &name) override;
+        FileSystemPtr CreateSubSystem(const std::string &path, bool createDir);
 
+    private:
+        std::string basePath;
     };
 
 } // namespace sky

@@ -22,10 +22,10 @@ namespace sky {
         ~AssetDataBase() override = default;
 
         void SetEngineFs(const NativeFileSystemPtr &fs);
-        void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
+        void SetWorkSpaceFs(const FileSystemPtr &fs);
 
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
-        const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
+        const FileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
         AssetSourcePtr RegisterAsset(const AssetSourcePath &path);
         AssetSourcePtr RegisterAsset(const std::string &path);
@@ -47,10 +47,10 @@ namespace sky {
         void Dump(std::ostream &stream);
 
         const std::unordered_map<Uuid, AssetSourcePtr> &GetSources() const { return idMap; }
-        const NativeFileSystemPtr &GetFileSystemBySourcePath(const AssetSourcePath &path);
+        FileSystemPtr GetFileSystemBySourcePath(const AssetSourcePath &path);
     private:
         NativeFileSystemPtr engineFs;
-        NativeFileSystemPtr workSpaceFs;
+        FileSystemPtr workSpaceFs;
         std::unordered_map<uint32_t, NativeFileSystemPtr> pluginFs;
 
         std::recursive_mutex assetMutex;

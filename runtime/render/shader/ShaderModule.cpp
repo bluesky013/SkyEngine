@@ -3,6 +3,8 @@
 //
 
 #include <framework/interface/IModule.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/platform/PlatformBase.h>
 #include <shader/ShaderCompiler.h>
 #include <shader/ShaderCompilerDXC.h>
 #include <shader/ShaderCompilerGlsl.h>
@@ -29,7 +31,7 @@ namespace sky {
 
     static ShaderCompileTarget GetApiByString(const std::string &rhi)
     {
-        if (rhi == "vulkan") {
+        if (rhi == "Vulkan") {
             return ShaderCompileTarget::SPIRV;
         }
         if (rhi == "dx12") {
@@ -66,56 +68,62 @@ namespace sky {
         cxxopts::Options options("SkyEngine ShaderModule", "SkyEngine ShaderModule");
         options.allow_unrecognised_options();
 
-        options.add_options()
-            ("e,engine", "Engine Directory", cxxopts::value<std::string>())
-            ("p,project", "Project Directory", cxxopts::value<std::string>())
-            ("i,intermediate", "Project Intermediate Directory", cxxopts::value<std::string>())
-            ("r,rhi", "RHI Type", cxxopts::value<std::string>());
+        options.add_options()("e,engine", "Engine Directory",
+            cxxopts::value<std::string>())("p,project", "Project Directory",
+            cxxopts::value<std::string>())("i,intermediate", "Project Intermediate Directory",
+            cxxopts::value<std::string>())("r,rhi", "RHI Type",
+            cxxopts::value<std::string>());
 
+        ShaderCompileTarget target = ShaderCompileTarget::SPIRV;
+
+        cxxopts::ParseResult result;
         if (!args.args.empty()) {
-            auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
-
-
+            result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
             if (result.count("rhi") != 0u) {
-                auto target = GetApiByString(result["rhi"].as<std::string>());
-
-                if (target < ShaderCompileTarget::NUM) {
-                    ShaderCacheManager::Get()->LoadMappingFile(target);
-                }
+                target = GetApiByString(result["rhi"].as<std::string>());
             }
-
-#ifdef SKY_EDITOR
-            FilePath enginePath;
-            if (result.count("engine") != 0u) {
-                enginePath = FilePath(result["engine"].as<std::string>());
-            }
-
-            FilePath projectPath;
-            if (result.count("project") != 0u) {
-                projectPath = FilePath(result["project"].as<std::string>());
-            }
-
-            FilePath intermediatePath;
-            if (result.count("intermediate") != 0u) {
-                intermediatePath = FilePath(result["intermediate"].as<std::string>());
-            } else {
-                intermediatePath = projectPath / FilePath("Intermediate/shaders");
-            }
-
-            auto *shaderCacheFs = new NativeFileSystem(projectPath / FilePath("products/shaders"));
-            auto *shaderIntermediateFs = new NativeFileSystem(intermediatePath);
-            ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
-            ShaderFileSystem::Get()->SetIntermediateFS(shaderIntermediateFs);
-            ShaderFileSystem::Get()->AddSearchPath(enginePath / FilePath("assets/shaders"));
-            ShaderFileSystem::Get()->AddSearchPath(projectPath / FilePath("assets/shaders"));
-
-            RefreshShaders();
-#else
-
-#endif
-            ShaderCompiler::Get()->LoadPipelineOptions("shaders/pipeline/pass_options.hlslh");
         }
 
+#ifdef SKY_EDITOR
+        FilePath enginePath;
+        if (result.count("engine") != 0u) {
+            enginePath = FilePath(result["engine"].as<std::string>());
+        }
+
+        FilePath projectPath;
+        if (result.count("project") != 0u) {
+            projectPath = FilePath(result["project"].as<std::string>());
+        }
+
+        FilePath intermediatePath;
+        if (result.count("intermediate") != 0u) {
+            intermediatePath = FilePath(result["intermediate"].as<std::string>());
+        } else {
+            intermediatePath = projectPath / FilePath("Intermediate/shaders");
+        }
+
+        auto *shaderCacheFs        = new NativeFileSystem(projectPath / FilePath("products/shaders"));
+        auto *shaderIntermediateFs = new NativeFileSystem(intermediatePath);
+        ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
+        ShaderFileSystem::Get()->SetCacheFS(shaderCacheFs);
+        ShaderFileSystem::Get()->SetIntermediateFS(shaderIntermediateFs);
+        ShaderFileSystem::Get()->AddSearchPath(enginePath / FilePath("assets/shaders"));
+        ShaderFileSystem::Get()->AddSearchPath(projectPath / FilePath("assets/shaders"));
+
+        RefreshShaders();
+#else
+        auto *cacheFs = new NativeFileSystem(Platform::Get()->GetInternalPath());
+
+        ShaderFileSystem::Get()->SetWorkFS(AssetDataBase::Get()->GetWorkSpaceFs());
+        ShaderFileSystem::Get()->SetCacheFS(cacheFs);
+        ShaderFileSystem::Get()->AddSearchPath(FilePath("shaders"));
+#endif
+
+        ShaderCompiler::Get()->LoadPipelineOptions("shaders/pipeline/pass_options.hlslh");
+
+        if (target < ShaderCompileTarget::NUM) {
+            ShaderCacheManager::Get()->LoadMappingFile(target);
+        }
         return true;
     }
 

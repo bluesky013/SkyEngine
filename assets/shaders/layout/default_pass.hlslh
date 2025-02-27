@@ -1,8 +1,8 @@
 struct ViewInfo {
     float4x4 World;
     float4x4 View;
-    float4x4 Project;
     float4x4 ViewProj;
+    float4x4 LastViewProj;
 };
 
 [[vk::binding(0, 0)]] cbuffer global : register(b0, space0)

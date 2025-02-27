@@ -4,14 +4,17 @@
 
 #pragma once
 
-#include <core/archive/IArchive.h>
+#include <core/archive/StreamArchive.h>
+#include <core/archive/MemoryArchive.h>
 #include <core/template/ReferenceObject.h>
 #include <string>
+#include <sstream>
 #include <android/asset_manager.h>
 
 namespace sky {
 
-    class AndroidAssetArchive : public IInputArchive, public RefObject  {
+
+    class AndroidAssetArchive : public IStreamArchive {
     public:
         explicit AndroidAssetArchive(AAsset *asset);
         ~AndroidAssetArchive() override;
@@ -19,6 +22,7 @@ namespace sky {
         bool LoadRaw(char *data, size_t size) override;
     private:
         AAsset *assetFile;
+        std::stringstream ss;
     };
 
 }
