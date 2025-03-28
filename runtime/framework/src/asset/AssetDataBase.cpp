@@ -165,6 +165,7 @@ namespace sky {
             return;
         }
 
+
         auto archive = file->ReadAsArchive();
         JsonInputArchive json(*archive);
 

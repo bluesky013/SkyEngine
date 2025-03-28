@@ -9,10 +9,16 @@ namespace sky::vk {
     std::vector<const char *> INSTANCE_EXTENSIONS = {
         "VK_KHR_surface",
         "VK_KHR_android_surface",
+#if _DEBUG
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
     };
 
-    const std::vector<const char *> DEVICE_EXTENSIONS = {"VK_KHR_swapchain"};
-    std::vector<const char *> EMPTY;
+    const std::vector<const char *> DEVICE_EXTENSIONS = {
+            "VK_KHR_swapchain",
+            "VK_KHR_create_renderpass2",
+    };
+    std::vector<const char *> DEVICE_LAYER = {"VK_LAYER_KHRONOS_validation"};
 
     const std::vector<const char *> &GetInstanceExtensions()
     {
@@ -21,7 +27,7 @@ namespace sky::vk {
 
     const std::vector<const char *> &GetValidationLayers()
     {
-        return EMPTY;
+        return DEVICE_LAYER;
     }
 
     const std::vector<const char *> &GetDeviceExtensions()

@@ -190,8 +190,8 @@ namespace sky::vk {
     void Device::InitPropAndFeatureChain()
     {
         phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+#ifndef ANDROID
         phyFeatures.pNext = &phyIndexingFeatures;
-
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         phyIndexingFeatures.pNext = &shadingRateFeatures;
 
@@ -199,18 +199,15 @@ namespace sky::vk {
         shadingRateFeatures.pNext = &mvrFeature;
 
         mvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
-#ifndef ANDROID
         mvrFeature.pNext = &meshShaderFeatures;
         meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 #endif
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+#ifndef ANDROID
         phyProps.pNext = &shadingRateProps;
-
         shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
         shadingRateProps.pNext = &dsResolveProps;
-
         dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
-#ifndef ANDROID
         dsResolveProps.pNext = &meshShaderProps;
         meshShaderProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
 #endif
@@ -313,8 +310,9 @@ namespace sky::vk {
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+#ifndef ANDROID
         devInfo.pNext              = &enabledPhyIndexingFeatures;
-
+#endif
         devInfo.pEnabledFeatures        = &enabledPhyFeatures;
         devInfo.enabledExtensionCount   = (uint32_t)extensions.size();
         devInfo.ppEnabledExtensionNames = extensions.data();
@@ -357,10 +355,14 @@ namespace sky::vk {
         computeQueue = GetQueue(VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT);
         transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
         if (transferQueue == nullptr) {
-            transferQueue = graphicsQueue;
+            queues.emplace_back(std::unique_ptr<Queue>(new Queue(*this, graphicsQueue->GetNativeHandle(), graphicsQueue->GetQueueFamilyIndex())));
+            transferQueue = queues.back().get();
+            transferQueue->StartThread();
         }
         if (computeQueue == nullptr) {
-            computeQueue = graphicsQueue;
+            queues.emplace_back(std::unique_ptr<Queue>(new Queue(*this, graphicsQueue->GetNativeHandle(), graphicsQueue->GetQueueFamilyIndex())));
+            computeQueue = queues.back().get();
+            computeQueue->StartThread();
         }
 
         // update barrier map

@@ -16,10 +16,15 @@ namespace sky {
         : scene(scn)
         , fps(1.f)
     {
+
+#if SKY_EDITOR
         auto fs = AssetDataBase::Get()->GetEngineFs();
+#else
+        auto fs = AssetDataBase::Get()->GetWorkSpaceFs();
+#endif
         font = TextRegistry::Get()->LoadFont(fs, "fonts/OpenSans-Regular.ttf");
         text = scene->GetFeature<TextFeatureProcessor>()->CreateText(font);
-        text->Init(TextDesc{20});
+        text->Init(TextDesc{30});
     }
 
     RenderProfiler::~RenderProfiler()
@@ -33,21 +38,26 @@ namespace sky {
     {
         TextInfo info = {};
         info.color = Color{1.f, 1, 1, 1.f};
+        info.flags = TextFlagBit::BOLD;
 
         std::stringstream ss;
         ss << RHI::Get()->GetDevice()->GetDeviceInfo() << " <" << RHI::Get()->GetBackendName() << "> \n";
         ss << "Render Resolution: [" << displayWidth << "," << displayHeight << "] \n";
         ss << "FPS: " << fps.GetFps() << "\n";
 
-        auto *pipeline = Renderer::Get()->GetPipeline();
+        const auto *pipeline = Renderer::Get()->GetPipeline();
         if (pipeline != nullptr && pipeline->Context() != nullptr) {
             const auto &data = pipeline->Context()->rdgData;
-            ss << "Triangles: " << data.triangleData << "\n";
+//            ss << "Triangles: " << data.triangleData << "\n";
             ss << "DrawCalls: " << data.drawCall << "\n";
         }
 
         text->Reset(*scene);
-        text->AddText(ss.str(), Vector2{20, 40}, info);
+
+        float x = ((float)displayWidth + 999.f) / 1000.f * 10.f;
+        float y = ((float)displayHeight + 999.f) / 1000.f * 20.f;
+
+        text->AddText(ss.str(), Vector2{x, y}, info);
         text->Finalize(*scene);
     }
 

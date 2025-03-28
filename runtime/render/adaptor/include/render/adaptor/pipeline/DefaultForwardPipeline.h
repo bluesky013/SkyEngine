@@ -11,6 +11,7 @@
 #include <render/adaptor/pipeline/DepthPass.h>
 #include <render/adaptor/pipeline/BRDFLutPass.h>
 #include <render/adaptor/pipeline/ShadowMapPass.h>
+#include <render/adaptor/pipeline/EmptyPass.h>
 #include <memory>
 
 namespace sky {
@@ -47,6 +48,7 @@ namespace sky {
         std::unique_ptr<PostProcessingPass> postProcess;
         std::unique_ptr<PresentPass>        present;
         std::unique_ptr<BRDFLutPass>        brdfLut;
+        std::unique_ptr<EmptyPass>          empty;
     };
 
 } // namespace sky

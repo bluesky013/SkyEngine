@@ -28,7 +28,7 @@ namespace sky {
         auto *trans = actor->GetComponent<TransformComponent>();
 
         Quaternion quad;
-        quad.FromEulerYZX(Vector3{90, angle, 0.f});
+        quad.FromEulerYZX(Vector3{0, angle, 0.f});
         trans->SetLocalRotation(quad);
     }
 

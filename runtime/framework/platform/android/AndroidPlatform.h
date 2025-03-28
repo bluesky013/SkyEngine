@@ -10,6 +10,7 @@
 #include "AndroidBundleFileSystem.h"
 
 namespace sky {
+    class NativeWindow;
 
     class AndroidPlatform : public PlatformBase {
     public:
@@ -17,6 +18,8 @@ namespace sky {
         ~AndroidPlatform() = default;
 
         void SetMainWinHandle(ANativeWindow *handle);
+        void SetNativeWindow(NativeWindow* hwnd);
+        NativeWindow *GetMainWindow() const { return nativeWindow; }
 
         bool IsLaunched() const;
         void Launch();
@@ -34,6 +37,7 @@ namespace sky {
 
         android_app *app = nullptr;
         ANativeWindow *mainWindow = nullptr;
+        NativeWindow *nativeWindow = nullptr;
         bool launched = false;
         std::unique_ptr<AdaptivePerfManager> perfManager;
         CounterPtr<AndroidBundleFileSystem> assetFs;

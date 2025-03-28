@@ -191,6 +191,7 @@ namespace sky {
         IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
 
+        virtual void OnWindowHandleChanged(uint32_t width, uint32_t height, void* handle) {}
         virtual void OnWindowResize(uint32_t width, uint32_t height) {}
         virtual void OnFocusChanged(bool focus) {}
     };

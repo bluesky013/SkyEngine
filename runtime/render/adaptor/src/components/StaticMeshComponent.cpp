@@ -40,6 +40,7 @@ namespace sky {
         ar.SaveValueObject(std::string("castShadow"), castShadow);
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
         ar.SaveValueObject(std::string("meshShading"), enableMeshShading);
+        ar.SaveValueObject(std::string("multiply"), multiply);
         ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
         ar.EndObject();
     }
@@ -50,6 +51,7 @@ namespace sky {
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         ar.LoadKeyValue("meshShading", enableMeshShading);
+        ar.LoadKeyValue("multiply", multiply);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
         SetMeshUuid(uuid);
@@ -104,10 +106,13 @@ namespace sky {
     {
         multiply = enable;
         if (renderer != nullptr) {
+            renderer->SetMesh(meshInstance, enableMeshShading);
             if (multiply) {
+#if _WIN32
                 renderer->BuildMultipleInstance(12, 12, 12);
-            } else {
-                renderer->SetMesh(meshInstance, enableMeshShading);
+#else
+                renderer->BuildMultipleInstance(8, 4, 4);
+#endif
             }
         }
     }
@@ -148,7 +153,8 @@ namespace sky {
         }
 
         renderer = mf->CreateStaticMesh();
-        renderer->SetMesh(meshInstance, enableMeshShading);
+        SetMultiply(multiply);
+//        renderer->SetMesh(meshInstance, enableMeshShading);
     }
 
     void StaticMeshComponent::ShutDown()

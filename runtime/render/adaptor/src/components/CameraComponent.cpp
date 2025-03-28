@@ -52,23 +52,6 @@ namespace sky {
         aspect = static_cast<float>(width) / static_cast<float>(height);
     }
 
-    void CameraComponent::Tick(float time)
-    {
-        auto *transform = actor->GetComponent<TransformComponent>();
-        auto world = transform->GetWorldMatrix();
-        sceneView->SetMatrix(world);
-
-        if (type == ProjectType::PROJECTIVE) {
-            sceneView->SetPerspective(near, far, fov / 180.f * 3.14f, aspect);
-        } else {
-            const float x = othoH;
-            const float y = othoH;
-            sceneView->SetOrthogonal(-x, x,
-                                     y, -y,
-                                     near, far, 0);
-        }
-    }
-
     const Matrix4 &CameraComponent::GetProject() const
     {
         return sceneView != nullptr ? sceneView->GetProject() : Matrix4::Identity();
@@ -81,7 +64,13 @@ namespace sky {
 
     void CameraComponent::OnAttachToWorld()
     {
-        sceneView = GetRenderSceneFromActor(actor)->CreateSceneView(1);
+        auto *scene = GetRenderSceneFromActor(actor);
+        sceneView = scene->CreateSceneView(1);
+        scene->AttachSceneView(sceneView, Name("MainCamera"));
+
+        if (auto *trans = actor->GetComponent<TransformComponent>(); trans != nullptr) {
+            OnTransformChanged(trans->GetLocalTransform(), trans->GetWorldTransform());
+        }
     }
 
     void CameraComponent::OnDetachFromWorld()
@@ -92,7 +81,9 @@ namespace sky {
     void CameraComponent::ShutDown()
     {
         if (sceneView != nullptr) {
-            GetRenderSceneFromActor(actor)->RemoveSceneView(sceneView);
+            auto *scene = GetRenderSceneFromActor(actor);
+            scene->DetachSceneView(sceneView, Name("MainCamera"));
+            scene->RemoveSceneView(sceneView);
             sceneView = nullptr;
         }
     }
@@ -117,5 +108,19 @@ namespace sky {
         ar.LoadKeyValue("aspect", aspect);
         ar.LoadKeyValue("othoH", othoH);
         ar.LoadKeyValue("type", type);
+    }
+
+    void CameraComponent::OnTransformChanged(const Transform& global, const Transform& local)
+    {
+        auto world = global.ToMatrix();
+        sceneView->SetMatrix(world);
+
+        if (type == ProjectType::PROJECTIVE) {
+            sceneView->SetPerspective(near, far, fov / 180.f * 3.14f, aspect);
+        } else {
+            const float x = othoH;
+            const float y = othoH;
+            sceneView->SetOrthogonal(-x, x, y, -y, near, far, 0);
+        }
     }
 } // namespace sky

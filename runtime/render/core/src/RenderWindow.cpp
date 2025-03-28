@@ -29,6 +29,11 @@ namespace sky {
     }
 #endif
 
+    void RenderWindow::UpdateWinHandle(void *hWnd)
+    {
+        winHandle = hWnd;
+    }
+
     void RenderWindow::Resize(uint32_t width, uint32_t height)
     {
         if (swapChain) {

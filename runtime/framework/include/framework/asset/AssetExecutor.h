@@ -21,7 +21,7 @@ namespace sky {
 
     class AssetExecutor : public Singleton<AssetExecutor> {
     public:
-        AssetExecutor() = default;
+        AssetExecutor();
         ~AssetExecutor() override = default;
 
         template <typename Func, typename ...Tasks>

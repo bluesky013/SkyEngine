@@ -187,7 +187,7 @@ namespace sky::builder {
 
         auto config = std::make_unique<ImageBuildConfig>();
         config->generateMip = true;
-        config->compress = true;
+        config->compress = false;
 
         CompressedImagePtr compressedImage;
 

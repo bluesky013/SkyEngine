@@ -6,6 +6,8 @@
 #include <android/window.h>
 #include <game-activity/GameActivity.cpp>
 #include <game-text-input/gametextinput.cpp>
+#include <framework/window/IWindowEvent.h>
+#include <framework/window/NativeWindow.h>
 
 static const char* TAG = "AndroidPlatform";
 
@@ -25,25 +27,36 @@ namespace sky {
                 }
 
                 break;
-//        case APP_CMD_TERM_WINDOW:
-//            break;
-//        case APP_CMD_GAINED_FOCUS:
-//            break;
-//        case APP_CMD_LOST_FOCUS:
-//            break;
-//        case APP_CMD_PAUSE:
-//            break;
-//        case APP_CMD_RESUME:
-//            break;
-//        case APP_CMD_STOP:
-//            break;
-//        case APP_CMD_START:
-//            break;
-//        case APP_CMD_WINDOW_RESIZED:
-//        case APP_CMD_CONFIG_CHANGED:
-//            break;
-//        case APP_CMD_LOW_MEMORY:
-//            break;
+        case APP_CMD_TERM_WINDOW:
+            break;
+        case APP_CMD_GAINED_FOCUS:
+            break;
+        case APP_CMD_LOST_FOCUS:
+            break;
+        case APP_CMD_PAUSE:
+            break;
+        case APP_CMD_RESUME:
+            break;
+        case APP_CMD_STOP:
+            break;
+        case APP_CMD_START:
+            break;
+        case APP_CMD_WINDOW_RESIZED:
+        case APP_CMD_CONFIG_CHANGED:
+        {
+            auto width = ANativeWindow_getWidth(app->window);
+            auto height = ANativeWindow_getHeight(app->window);
+            auto *window = platform->GetMainWindow();
+            if (window != nullptr) {
+                Event<IWindowEvent>::BroadCast(window, &IWindowEvent::OnWindowHandleChanged,
+                                               static_cast<uint32_t>(width),
+                                               static_cast<uint32_t>(height),
+                                               app->window);
+            }
+        }
+            break;
+        case APP_CMD_LOW_MEMORY:
+            break;
             default:
                 break;
         }
@@ -52,6 +65,11 @@ namespace sky {
     void AndroidPlatform::SetMainWinHandle(ANativeWindow *handle)
     {
         mainWindow = handle;
+    }
+
+    void AndroidPlatform::SetNativeWindow(NativeWindow* hwnd)
+    {
+        nativeWindow = hwnd;
     }
 
     void AndroidPlatform::Launch()
@@ -97,7 +115,7 @@ namespace sky {
 
     std::string AndroidPlatform::GetInternalPath() const
     {
-        return app->activity->internalDataPath;
+        return app->activity->externalDataPath;
     }
 
     std::string AndroidPlatform::GetBundlePath() const

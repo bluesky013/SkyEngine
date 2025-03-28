@@ -27,7 +27,7 @@ namespace sky {
     void TextPrimitive::UpdateBatch()
     {
         auto &batch = batches[0];
-        if (!batch.batchGroup) {
+        if (!batch.batchGroup && batch.program) {
             auto layout = batch.program->RequestLayout(BATCH_SET);
             batch.batchGroup = TextFeature::Get()->RequestResourceGroup();
             batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);

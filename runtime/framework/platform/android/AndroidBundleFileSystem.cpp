@@ -19,7 +19,7 @@ namespace sky {
     AndroidBundleFileSystem::AndroidBundleFileSystem(const std::string& path)
     {
         if (!path.empty()) {
-            basePath = path + "\\";
+            basePath = path + "/";
         }
     }
 

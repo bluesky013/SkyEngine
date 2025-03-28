@@ -14,6 +14,7 @@ if (NOT ANDROID)
             common
         LIBS
             Framework
+            RenderAdaptor
     )
 else()
     add_subdirectory(android/app/src/main/cpp)

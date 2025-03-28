@@ -89,6 +89,8 @@ namespace sky {
 
         hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
 
+        empty = std::make_unique<EmptyPass>();
+
         rhi::Sampler::Descriptor samplerDesc = {};
         samplerDesc.minFilter = rhi::Filter::NEAREST;
         samplerDesc.magFilter = rhi::Filter::NEAREST;
@@ -123,8 +125,8 @@ namespace sky {
             first = true;
         }
 
-//        rdg.resourceGraph.ImportImage(Name("HizDepth"), hizDepth, rhi::ImageViewType::VIEW_2D_ARRAY,
-//            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
+        rdg.resourceGraph.ImportImage(Name("HizDepth"), hizDepth, rhi::ImageViewType::VIEW_2D_ARRAY,
+            first ? rhi::AccessFlagBit::NONE : rhi::AccessFlagBit::COLOR_WRITE);
     }
 
     void DefaultForwardPipeline::SetupGlobal(rdg::RenderGraph &rdg, uint32_t w, uint32_t h)
@@ -168,11 +170,10 @@ namespace sky {
         AddPass(brdfLut.get());
         AddPass(shadowMap.get());
 
-//        depth->Resize(renderWidth, renderHeight);
-//        AddPass(depth.get());
-
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());
+
+//        AddPass(empty.get());
 
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());

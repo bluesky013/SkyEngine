@@ -18,7 +18,7 @@ namespace sky {
 
     void ShaderFileSystem::SetWorkFS(const FileSystemPtr& fs)
     {
-        workFs = fs;
+        workFs = fs->CreateSubSystem("shaders", false);
     }
 
     void ShaderFileSystem::SetCacheFS(const FileSystemPtr& fs)
@@ -57,7 +57,13 @@ namespace sky {
                 return {true, result};
             }
         } else if (workFs) {
-            auto file = workFs->OpenFile(FilePath(name.GetStr()));
+            auto view = name.GetStr();
+
+            std::string replacedName = name.GetStr().data();
+            if (view.find("pass_options") == std::string::npos) {
+                replacedName = ShaderCompiler::ReplaceShadeName(name);
+            }
+            auto file = workFs->OpenFile(FilePath(replacedName.c_str()));
 
             if (file) {
                 std::string result;

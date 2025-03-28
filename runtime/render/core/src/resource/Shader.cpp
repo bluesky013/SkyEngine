@@ -185,6 +185,7 @@ namespace sky {
 
                 auto [rst, source] = ShaderFileSystem::Get()->LoadCacheSource(name);
                 SKY_ASSERT(rst);
+                SKY_ASSERT(!source.empty());
                 ShaderSourceDesc desc = {};
                 desc.source = std::move(source);
                 desc.entry = entry.GetStr().data();

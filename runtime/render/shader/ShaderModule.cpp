@@ -102,7 +102,8 @@ namespace sky {
             intermediatePath = projectPath / FilePath("Intermediate/shaders");
         }
 
-        auto *shaderCacheFs        = new NativeFileSystem(projectPath / FilePath("products/shaders"));
+        auto cachePath = projectPath / FilePath("products/shaders");
+        auto *shaderCacheFs        = new NativeFileSystem(cachePath);
         auto *shaderIntermediateFs = new NativeFileSystem(intermediatePath);
         ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
         ShaderFileSystem::Get()->SetCacheFS(shaderCacheFs);
@@ -119,7 +120,7 @@ namespace sky {
         ShaderFileSystem::Get()->AddSearchPath(FilePath("shaders"));
 #endif
 
-        ShaderCompiler::Get()->LoadPipelineOptions("shaders/pipeline/pass_options.hlslh");
+        ShaderCompiler::Get()->LoadPipelineOptions("pipeline/pass_options.hlslh");
 
         if (target < ShaderCompileTarget::NUM) {
             ShaderCacheManager::Get()->LoadMappingFile(target);

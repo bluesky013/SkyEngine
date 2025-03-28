@@ -13,16 +13,31 @@ extern  "C" {
 #include <game-activity/native_app_glue/android_native_app_glue.c>
 }
 
+#include "SampleScene.h"
+#include <framework/interface/ITickEvent.h>
+
 void android_main(struct android_app *app) {
     sky::Platform* platform = sky::Platform::Get();
     platform->Init({app});
 
     sky::GameApplication application;
     bool started = false;
-    platform->setLaunchCallback([&application, &started, platform]() {
+
+    std::unique_ptr<sky::Sample> sample;
+
+    platform->setLaunchCallback([&application, &started, &sample]() {
         std::vector<char *> args;
 
         application.Init(static_cast<int>(args.size()), args.data());
+
+        sample = std::make_unique<sky::Sample>();
+        sample->Init(application.GetWindow());
+
+        application.BindTick([&sample](float delta) {
+            sky::TickEvent::BroadCast(&sky::ITickEvent::Tick, delta);
+            sample->Tick(delta);
+        });
+
         started = true;
     });
 
@@ -52,5 +67,6 @@ void android_main(struct android_app *app) {
         }
     } while (app->destroyRequested == 0);
 
+    sample->Shutdown();
     platform->Shutdown();
 }

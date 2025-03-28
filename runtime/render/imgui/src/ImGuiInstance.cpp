@@ -43,7 +43,7 @@ namespace sky {
     void ImguiPrimitive::UpdateBatch()
     {
         auto &batch = batches[0];
-        if (!batch.batchGroup) {
+        if (!batch.batchGroup && batch.program) {
             ubo = new DynamicUniformBuffer();
             ubo->Init(sizeof(UITransform));
 

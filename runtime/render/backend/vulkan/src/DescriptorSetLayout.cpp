@@ -75,14 +75,16 @@ namespace sky::vk {
             descriptorNum += binding.count;
         }
 
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+#ifndef ANDROID
         VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};
         setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
         setLayoutBindingFlags.bindingCount = static_cast<uint32_t>(bindingFlags.size());
         setLayoutBindingFlags.pBindingFlags = bindingFlags.data();
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-        layoutInfo.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.pNext                           = &setLayoutBindingFlags;
+#endif
         layoutInfo.bindingCount                    = static_cast<uint32_t>(vkBindings.size());
         layoutInfo.pBindings                       = vkBindings.data();
         layout                                     = device.GetDescriptorSetLayout(hash, &layoutInfo);

@@ -11,8 +11,6 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 
-#include <filesystem>
-
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/platform/PlatformBase.h>
@@ -44,7 +42,7 @@ namespace sky {
             AssetManager::Get()->SetWorkFileSystem(workFs);
         }
 #elif __ANDROID__
-        workFs = Platform::Get()->GetBundleFileSystem();
+        workFs = new NativeFileSystem(Platform::Get()->GetInternalPath());//Platform::Get()->GetBundleFileSystem();
 //        workFs = std::make_shared<NativeFileSystem>(Platform::Get()->GetInternalPath());
 //        AssetManager::Get()->SetWorkPath(workFs);
         AssetDataBase::Get()->SetWorkSpaceFs(workFs);
@@ -74,7 +72,6 @@ namespace sky {
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
         modules.emplace("SkyRender", ModuleInfo{"SkyRender", {"ShaderCompiler"}});
-        modules.emplace("RenderBuilder", ModuleInfo{"RenderBuilder", {"SkyRender"}});
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }
