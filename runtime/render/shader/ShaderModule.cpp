@@ -103,8 +103,8 @@ namespace sky {
         }
 
         auto cachePath = projectPath / FilePath("products/shaders");
-        auto *shaderCacheFs        = new NativeFileSystem(cachePath);
-        auto *shaderIntermediateFs = new NativeFileSystem(intermediatePath);
+        FileSystemPtr shaderCacheFs        = new NativeFileSystem(cachePath);
+        FileSystemPtr shaderIntermediateFs = new NativeFileSystem(intermediatePath);
         ShaderFileSystem::Get()->SetWorkFS(shaderCacheFs);
         ShaderFileSystem::Get()->SetCacheFS(shaderCacheFs);
         ShaderFileSystem::Get()->SetIntermediateFS(shaderIntermediateFs);
