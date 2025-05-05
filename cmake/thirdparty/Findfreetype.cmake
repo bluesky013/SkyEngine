@@ -4,16 +4,23 @@ if (TARGET ${TARGET_WITH_NAMESPACE})
     return()
 endif()
 
+if (APPLE)
+    sky_find_3rd(TARGET zlib DIR zlib)
+    set(FT_EXT_LIBS 3rdParty::zlib)
+endif ()
+
 set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include/freetype2)
 set(${LIB_NAME}_LIBS_DIR ${${LIB_NAME}_PATH}/lib)
 
 set(${LIB_NAME}_LIBRARY_DEBUG
     ${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}freetyped${CMAKE_STATIC_LIBRARY_SUFFIX}
-    )
+    ${FT_EXT_LIBS}
+)
 
 set(${LIB_NAME}_LIBRARY_RELEASE
     ${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}freetype${CMAKE_STATIC_LIBRARY_SUFFIX}
-    )
+    ${FT_EXT_LIBS}
+)
 
 set(${LIB_NAME}_LIBRARY
     "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"

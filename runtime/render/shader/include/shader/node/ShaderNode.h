@@ -8,6 +8,7 @@
 #include <core/template/ReferenceObject.h>
 #include <shader/node/ShaderDataType.h>
 #include <unordered_map>
+#include <string>
 
 namespace sky::sl {
 

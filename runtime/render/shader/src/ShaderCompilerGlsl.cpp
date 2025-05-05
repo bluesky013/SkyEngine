@@ -8,13 +8,17 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Include/Types.h>
 
+#if ENABLE_SPIRV_TOOLS
 #include <spirv-tools/libspirv.hpp>
+#endif
 
 #include <core/platform/Platform.h>
 #include <core/logger/Logger.h>
 
 #include <shader/ShaderCross.h>
 #include "core/template/Overloaded.h"
+
+#include <sstream>
 
 static const char* TAG = "ShaderCompilerGlsl";
 namespace sky {
@@ -63,10 +67,10 @@ namespace sky {
     std::string ShaderCompilerGlsl::Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const
     {
         std::string text;
-
+#if ENABLE_SPIRV_TOOLS
         spvtools::SpirvTools tool(spv_target_env::SPV_ENV_VULKAN_1_3);
         tool.Disassemble(binary, &text, SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES | SPV_BINARY_TO_TEXT_OPTION_SHOW_BYTE_OFFSET | SPV_BINARY_TO_TEXT_OPTION_INDENT);
-
+#endif
         return text;
     }
 

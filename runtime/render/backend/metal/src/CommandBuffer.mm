@@ -241,6 +241,12 @@ namespace sky::mtl {
         return *this;
     }
 
+    rhi::GraphicsEncoder &GraphicsEncoder::DispatchMesh(const rhi::CmdDispatchMesh &dispatch)
+    {
+        SKY_ASSERT(false && "not implement");
+        return *this;
+    }
+
     rhi::GraphicsEncoder &GraphicsEncoder::BindSet(uint32_t id, const rhi::DescriptorSetPtr &set)
     {
         return *this;
