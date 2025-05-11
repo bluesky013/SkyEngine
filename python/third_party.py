@@ -134,7 +134,7 @@ def fill_android_config(options):
     options['CMAKE_TOOLCHAIN_FILE'] = toolchain
 
 def build_package_type(name, source_dir, build_type, options, cache, components):
-    build_dir = os.path.join(source_dir, f"build_{args.platform}")
+    build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
     options['BUILD_TESTING'] = False
@@ -184,6 +184,7 @@ def process_package(package):
     if args.clean:
         print(f"清理 '{name}'")
         repo.git.clean('-xdf')
+        return
 
     if tag:
         repo.git.fetch('--tags')
