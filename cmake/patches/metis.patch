@@ -1,0 +1,72 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a15d19a..16ed34a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,11 +3,7 @@ project(METIS C)
+ 
+ set(SHARED FALSE CACHE BOOL "build a shared library")
+ 
+-if(MSVC)
+-  set(METIS_INSTALL FALSE)
+-else()
+-  set(METIS_INSTALL TRUE)
+-endif()
++set(METIS_INSTALL TRUE)
+ 
+ # Configure libmetis library.
+ if(SHARED)
+@@ -16,28 +12,30 @@ else()
+   set(METIS_LIBRARY_TYPE STATIC)
+ endif(SHARED)
+ 
++set(GKLIB_PATH ${CMAKE_SOURCE_DIR}/../GKlib/build/install)
++
+ include(./conf/gkbuild.cmake)
+ 
+ # METIS' custom options
+-#option(IDX64 "enable 64 bit ints" OFF)
+-#option(REAL64 "enable 64 bit floats (i.e., double)" OFF)
+-#if(IDX64)
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=64")
+-#else()
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=32")
+-#endif(IDX64)
+-#if(REAL64)
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=64")
+-#else()
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=32")
+-#endif(REAL64)
+-#
+-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${METIS_COPTIONS}")
++option(IDX64 "enable 64 bit ints" OFF)
++option(REAL64 "enable 64 bit floats (i.e., double)" OFF)
++if(IDX64)
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=64")
++else()
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=32")
++endif(IDX64)
++if(REAL64)
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=64")
++else()
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=32")
++endif(REAL64)
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${METIS_COPTIONS}")
+ 
+ 
+ # Add include directories.
+ # i.e., the -I equivalent
+-include_directories(build/xinclude)
++include_directories(include)
+ include_directories(${GKLIB_PATH}/include)
+ include_directories(${CMAKE_INSTALL_PREFIX}/include)
+ 
+@@ -47,6 +45,6 @@ link_directories(${GKLIB_PATH}/lib)
+ link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+ 
+ # Recursively look for CMakeLists.txt in subdirs.
+-add_subdirectory("build/xinclude")
++add_subdirectory("include")
+ add_subdirectory("libmetis")
+-add_subdirectory("programs")
++# add_subdirectory("programs")

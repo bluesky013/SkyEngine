@@ -2,7 +2,7 @@ import configparser
 import os
 import sys
 import ctypes
-import platform as OSPlatform
+import platform as osp
 from functools import partial
 
 from PySide6.QtGui import QAction, QCursor
@@ -181,7 +181,7 @@ class ProjectConfigDialog(QDialog):
     @Slot()
     def btn_add_clicked(self):
         menu = QMenu('build list', self)
-        for platform in PLATFORM_AVAILABLE_LIST[OSPlatform.system()]:
+        for platform in PLATFORM_AVAILABLE_LIST[osp.system()]:
             action = QAction(platform, menu)
             action.triggered.connect(partial(self.act_add_build_triggered, platform))
             menu.addAction(action)
@@ -355,6 +355,6 @@ def app_main():
 if __name__ == "__main__":
     if is_admin():
         app_main()
-    elif OSPlatform.system() == "Windows":
+    elif osp.system() == "Windows":
         # Re-run the program with admin rights
         ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)

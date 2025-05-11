@@ -1,0 +1,324 @@
+{
+	"packages":[
+		{
+			"name": "crc32c",
+			"url": "https://github.com/google/crc32c.git",
+			"tag": "1.1.2",
+			"header_only": false,
+			"options": {
+				"CRC32C_BUILD_BENCHMARKS": "OFF",
+				"CRC32C_BUILD_TESTS": "OFF",
+				"CRC32C_USE_GLOG": "OFF"
+			}
+		},
+		{
+			"name": "boost",
+			"url": "https://github.com/boostorg/boost.git",
+			"tag": "boost-1.88.0",
+			"header_only": false,
+			"submodules": [
+				"tools/cmake",
+				"libs/graph",
+				"libs/container",
+				"libs/assert",
+				"libs/intrusive",
+				"libs/move",
+				"libs/algorithm",
+				"libs/array",
+				"libs/bind",
+				"libs/concept_check",
+				"libs/core",
+				"libs/exception",
+				"libs/function",
+				"libs/static_assert",
+				"libs/preprocessor",
+				"libs/smart_ptr",
+				"libs/any",
+				"libs/iterator",
+				"libs/throw_exception",
+				"libs/type_traits",
+				"libs/bimap",
+				"libs/detail",
+				"libs/tuple",
+				"libs/type_index",
+				"libs/mpl",
+				"libs/container_hash",
+				"libs/predef",
+				"libs/fusion",
+				"libs/range",
+				"libs/conversion",
+				"libs/utility",
+				"libs/optional",
+				"libs/function_types",
+				"libs/describe",
+				"libs/lambda",
+				"libs/regex",
+				"libs/io",
+				"libs/foreach",
+				"libs/typeof",
+				"libs/mp11",
+				"libs/multi_index",
+				"libs/unordered",
+				"libs/integer",
+				"libs/functional",
+				"libs/lexical_cast",
+				"libs/math",
+				"libs/random",
+				"libs/parameter",
+				"libs/dynamic_bitset",
+				"libs/property_map",
+				"libs/system",
+				"libs/property_tree",
+				"libs/serialization",
+				"libs/variant",
+				"libs/variant2",
+				"libs/winapi",
+				"libs/spirit",
+				"libs/endian",
+				"libs/tti",
+				"libs/phoenix",
+				"libs/xpressive",
+				"libs/numeric/conversion",
+				"libs/pool",
+				"libs/proto",
+				"libs/align",
+				"libs/chrono",
+				"libs/thread",
+				"libs/atomic",
+				"libs/date_time",
+				"libs/tokenizer",
+				"libs/ratio",
+				"libs/config"
+			],
+			"options": {
+				"BOOST_INSTALL_INCLUDE_SUBDIR": "",
+				"BOOST_INSTALL_LAYOUT": "system"
+			}
+		},
+		{
+			"name": "sfmt",
+			"url": "https://github.com/MersenneTwister-Lab/SFMT.git",
+			"tag": "1.5.4",
+			"header_only": false
+		},
+		{
+			"name": "sdl",
+			"url": "https://github.com/libsdl-org/SDL.git",
+			"tag": "release-2.32.6",
+			"header_only": false,
+			"platforms": ["Win32"],
+			"options": {
+				"SDL_SHARED": "OFF",
+				"SDL_STATIC": "ON",
+				"SDL_TEST_LIBRARY": "OFF"
+			}
+		},
+		{
+			"name": "rapidjson",
+			"url": "https://github.com/Tencent/rapidjson.git",
+			"tag": "v1.1.0",
+			"header_only": true,
+			"options": {
+				"RAPIDJSON_BUILD_DOC": "OFF",
+				"RAPIDJSON_BUILD_EXAMPLES": "OFF",
+				"RAPIDJSON_BUILD_TESTS": "OFF"
+			}
+		},
+		{
+			"name": "taskflow",
+			"url": "https://github.com/taskflow/taskflow.git",
+			"tag": "v3.7.0",
+			"header_only": true,
+			"options": {
+				"TF_BUILD_TESTS": "OFF",
+				"TF_BUILD_EXAMPLES": "OFF"
+			}
+		},
+		{
+			"name": "cxxopts",
+			"url": "https://github.com/jarro2783/cxxopts.git",
+			"tag": "v3.2.1",
+			"header_only": true,
+			"options": {
+				"CXXOPTS_BUILD_EXAMPLES": "OFF",
+				"CXXOPTS_BUILD_TESTS": "OFF"
+			}
+		},
+		{
+			"name": "imgui",
+			"url": "https://github.com/ocornut/imgui.git",
+			"tag": "v1.88",
+			"header_only": true
+		},
+		{
+			"name": "googletest",
+			"url": "https://github.com/google/googletest.git",
+			"tag": "v1.17.0",
+			"header_only": false
+		},
+		{
+			"name": "vma",
+			"url": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git",
+			"tag": "v3.2.1",
+			"header_only": true
+		},
+		{
+			"name": "glslang",
+			"url": "https://github.com/KhronosGroup/glslang.git",
+			"tag": "15.3.0",
+			"header_only": false,
+			"custom": "update_glslang_sources.py",
+			"options": {
+				"GLSLANG_TESTS": "OFF",
+				"INSTALL_GTEST": "OFF"
+			}
+		},
+		{
+			"name": "SPIRV-Cross",
+			"url": "https://github.com/KhronosGroup/SPIRV-Cross.git",
+			"tag": "vulkan-sdk-1.4.313.0",
+			"header_only": false
+		},
+		{
+			"name": "dxcompiler",
+			"url": "https://github.com/microsoft/DirectXShaderCompiler.git",
+			"tag": "v1.8.2502",
+			"header_only": false,
+			"cache": "cmake/caches/PredefinedParams.cmake",
+			"submodule": true,
+			"platforms": ["Win32"],
+			"options": {
+				"HLSL_BUILD_DXILCONV": "OFF",
+				"HLSL_INCLUDE_TESTS": "OFF",
+				"LLVM_INCLUDE_TESTS": "OFF",
+				"CLANG_INCLUDE_TESTS": "OFF",
+				"SPIRV_BUILD_TESTS": "OFF",
+				"LLVM_BUILD_TOOLS": "OFF"
+			}
+		},
+		{
+			"name": "recast",
+			"url": "https://github.com/recastnavigation/recastnavigation.git",
+			"tag": "v1.6.0",
+			"header_only": false,
+			"options": {
+				"RECASTNAVIGATION_DEMO": "OFF",
+				"RECASTNAVIGATION_EXAMPLES": "OFF",
+				"RECASTNAVIGATION_TESTS": "OFF"
+			}
+		},
+		{
+			"name": "bullet3",
+			"url": "https://github.com/bulletphysics/bullet3.git",
+			"tag": "3.25",
+			"header_only": false,
+			"options": {
+				"BUILD_BULLET2_DEMOS": "OFF",
+				"BUILD_OPENGL3_DEMOS": "OFF",
+				"BUILD_CPU_DEMOS": "OFF",
+				"BUILD_UNIT_TESTS": "OFF",
+				"USE_GRAPHICAL_BENCHMARK": "OFF",
+				"USE_MSVC_RUNTIME_LIBRARY_DLL": "ON",
+				"BUILD_EXTRAS": "OFF",
+				"INSTALL_LIBS": "ON",
+				"CMAKE_DEBUG_POSTFIX": "d"
+			}
+		},
+		{
+			"name": "lz4",
+			"url": "https://github.com/lz4/lz4.git",
+			"tag": "v1.10.0",
+			"header_only": false,
+			"source": "build/cmake",
+			"options": {
+				"LZ4_BUILD_CLI": "OFF"
+			}
+		},
+		{
+			"name": "tracy",
+			"url": "https://github.com/wolfpld/tracy.git",
+			"tag": "v0.11.1",
+			"header_only": false,
+			"options": {
+				"TRACY_STATIC": "OFF"
+			}
+		},
+		{
+			"name": "assimp",
+			"url": "https://github.com/assimp/assimp.git",
+			"tag": "v5.4.3",
+			"header_only": false,
+			"platforms": ["Win32"],
+			"options": {
+				"BUILD_SHARED_LIBS": "OFF",
+				"ASSIMP_BUILD_TESTS": "OFF"
+			}
+		},
+		{
+			"name": "meshoptimizer",
+			"url": "https://github.com/zeux/meshoptimizer.git",
+			"tag": "v0.23",
+			"header_only": false,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "stb",
+			"url": "https://github.com/nothings/stb.git",
+			"header_only": true,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "PerlinNoise",
+			"url": "https://github.com/Reputeless/PerlinNoise.git",
+			"tag": "v3.0.0",
+			"header_only": true,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "ImGuizmo",
+			"url": "https://github.com/CedricGuillemet/ImGuizmo.git",
+			"tag": "1.83",
+			"header_only": true,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "GKlib",
+			"url": "https://github.com/KarypisLab/GKlib.git",
+			"tag": "METIS-v5.1.1-DistDGL-0.5",
+			"header_only": false,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "metis",
+			"url": "https://github.com/KarypisLab/METIS.git",
+			"tag": "v5.2.1",
+			"header_only": false,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "ktx",
+			"url": "https://github.com/KhronosGroup/KTX-Software.git",
+			"tag": "v4.4.0",
+			"header_only": false,
+			"platforms": ["Win32"]
+		},
+		{
+			"name": "astc",
+			"url": "https://github.com/ARM-software/astc-encoder.git",
+			"tag": "5.2.0",
+			"header_only": false,
+			"platforms": ["Win32"],
+			"options": {
+				"ASTCENC_CLI": "OFF"
+			}
+		},
+		{
+			"name": "ispc_texcomp",
+			"url": "https://github.com/bluesky013/ISPCTextureCompressor.git",
+			"header_only": false,
+			"platforms": ["Win32"],
+			"custom": "build.py",
+			"custom_need_platform": true
+		}
+	]
+}

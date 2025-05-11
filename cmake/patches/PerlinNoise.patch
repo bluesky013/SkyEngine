@@ -1,0 +1,18 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..9f65710
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,11 @@
++# CMake minimum version
++cmake_minimum_required(VERSION 3.0)
++
++# project name and languages
++project(PerlinNoise)
++
++add_library(PerlinNoise INTERFACE)
++
++install(FILES
++    PerlinNoise.hpp
++    DESTINATION include)
+\ No newline at end of file

@@ -28,7 +28,7 @@ class AppFileBrowser(QWidget):
         layout.addWidget(self.path)
 
         # op
-        op_layout = QHBoxLayout(self)
+        op_layout = QHBoxLayout()
         self.back_button = QPushButton('返回')
         self.refresh_button = QPushButton('刷新')
         self.delete_button = QPushButton('删除')
@@ -181,7 +181,7 @@ class DeviceBrowser(QWidget):
         layout.addWidget(self.device_combo)
 
         # connection button
-        btn_layout = QHBoxLayout(self)
+        btn_layout = QHBoxLayout()
         refresh_btn = QPushButton('刷新设备', self)
         connect_btn = QPushButton('连接设备', self)
         btn_layout.addWidget(refresh_btn)
@@ -200,7 +200,7 @@ class DeviceBrowser(QWidget):
         layout.addWidget(self.device_info_text)
 
         # app info
-        app_layout = QHBoxLayout(self)
+        app_layout = QHBoxLayout()
         splitter = QSplitter(self)
         app_layout.addWidget(splitter)
         self.app_list = QListWidget(self)
