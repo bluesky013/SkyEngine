@@ -106,7 +106,7 @@
 			"url": "https://github.com/libsdl-org/SDL.git",
 			"tag": "release-2.32.6",
 			"header_only": false,
-			"platforms": ["Win32"],
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"options": {
 				"SDL_SHARED": "OFF",
 				"SDL_STATIC": "ON",
@@ -248,10 +248,11 @@
 			"url": "https://github.com/assimp/assimp.git",
 			"tag": "v5.4.3",
 			"header_only": false,
-			"platforms": ["Win32"],
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"options": {
 				"BUILD_SHARED_LIBS": "OFF",
-				"ASSIMP_BUILD_TESTS": "OFF"
+				"ASSIMP_BUILD_TESTS": "OFF",
+				"XCODE_CODE_SIGN_IDENTITY": ""
 			}
 		},
 		{
@@ -259,34 +260,34 @@
 			"url": "https://github.com/zeux/meshoptimizer.git",
 			"tag": "v0.23",
 			"header_only": false,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "stb",
 			"url": "https://github.com/nothings/stb.git",
 			"header_only": true,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "PerlinNoise",
 			"url": "https://github.com/Reputeless/PerlinNoise.git",
 			"tag": "v3.0.0",
 			"header_only": true,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "ImGuizmo",
 			"url": "https://github.com/CedricGuillemet/ImGuizmo.git",
 			"tag": "1.83",
 			"header_only": true,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "GKlib",
 			"url": "https://github.com/KarypisLab/GKlib.git",
 			"tag": "METIS-v5.1.1-DistDGL-0.5",
 			"header_only": false,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "metis",
@@ -296,18 +297,11 @@
 			"platforms": ["Win32"]
 		},
 		{
-			"name": "ktx",
-			"url": "https://github.com/KhronosGroup/KTX-Software.git",
-			"tag": "v4.4.0",
-			"header_only": false,
-			"platforms": ["Win32"]
-		},
-		{
 			"name": "astc",
 			"url": "https://github.com/ARM-software/astc-encoder.git",
 			"tag": "5.2.0",
 			"header_only": false,
-			"platforms": ["Win32"],
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"options": {
 				"ASTCENC_CLI": "OFF"
 			}
@@ -316,7 +310,7 @@
 			"name": "ispc_texcomp",
 			"url": "https://github.com/bluesky013/ISPCTextureCompressor.git",
 			"header_only": false,
-			"platforms": ["Win32"],
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"custom": "build.py",
 			"custom_need_platform": true
 		}

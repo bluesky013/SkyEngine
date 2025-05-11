@@ -14,7 +14,7 @@ parser.add_argument('-i', '--intermediate', type=str, help='中间文件')
 parser.add_argument('-o', '--output', type=str, help='输出路径')
 parser.add_argument('-e', '--engine', type=str, help='三方库json')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
-parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android"], help='编译平台')
+parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS"], help='编译平台')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 # 解析参数
 args = parser.parse_args()
@@ -23,6 +23,7 @@ tool_chain = {
     'Win32': 'Visual Studio 17 2022',
     'MacOS-x86': 'Xcode',
     'MacOS-arm': 'Xcode',
+    'IOS': 'Xcode',
     'Android': 'Ninja'
 }
 
@@ -124,6 +125,14 @@ def get_android_sdk_path():
             return path
     raise Exception("Android SDK path not found.")
 
+def fill_ios_config(options):
+    options['CMAKE_SYSTEM_NAME'] = 'iOS'
+    options['CMAKE_OSX_DEPLOYMENT_TARGET'] = '13.0'
+    options['CMAKE_OSX_ARCHITECTURES'] = 'arm64'
+    options['CMAKE_IOS_DEVELOPER_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer'
+    options['CMAKE_IOS_SDK_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
+    options['CMAKE_TOOLCHAIN_FILE'] = '/Applications/CMake.app/Contents/share/cmake-3.27/Modules/Platform/iOS.cmake'
+
 def fill_android_config(options):
     ndk = os.path.join(get_android_sdk_path(), "ndk", NDK_VERSION)
     toolchain = os.path.join(ndk, "build", "cmake", "android.toolchain.cmake")
@@ -143,6 +152,8 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
 
     if args.platform == 'Android':
         fill_android_config(options)
+    elif args.platform == 'IOS':
+        fill_ios_config(options)
 
     run_cmake(build_dir, source_dir, build_type, options, cache, components)
     copy_package(name, install_dir, build_type)
