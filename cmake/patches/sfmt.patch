@@ -111,3 +111,15 @@ index 0000000..969bc4d
 +	SFMT-params19937.h
 +    DESTINATION include)
 \ No newline at end of file
+diff --git a/SFMT.h b/SFMT.h
+index 34d9e74..06b4bee 100644
+--- a/SFMT.h
++++ b/SFMT.h
+@@ -46,7 +46,6 @@ extern "C" {
+ #elif defined(_MSC_VER) || defined(__BORLANDC__)
+   typedef unsigned int uint32_t;
+   typedef unsigned __int64 uint64_t;
+-  #define inline __inline
+ #else
+   #include <inttypes.h>
+   #if defined(__GNUC__)

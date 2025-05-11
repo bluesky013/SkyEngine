@@ -34,13 +34,10 @@ namespace sky {
 
     std::wstring Utf8ToUtf16(const std::string &str)
     {
-#ifdef _MSC_VER
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        return converter.from_bytes(str);
-#else
+//        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+//        return converter.from_bytes(str);
         // TODO
         return {};
-#endif
     }
 
 //    bool ConvertUTF8toUTF16(const UTF8** sourceStart, const UTF8* sourceEnd, UTF16** targetStart, UTF16* targetEnd, ConversionFlags flags)
