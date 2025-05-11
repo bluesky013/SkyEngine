@@ -1,0 +1,26 @@
+{
+  "modules": [
+    {
+      "name": "ImGuizmoModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    },
+	{
+      "name": "FreeTypeModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    },
+	{
+      "name": "BulletPhysicsModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    },
+	{
+      "name": "CompressionModule",
+      "dependencies": []
+    }
+  ]
+}

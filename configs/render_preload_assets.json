@@ -1,0 +1,14 @@
+{
+	"assets": [
+		"techniques/gui.tech",
+		"techniques/text.tech",
+		"techniques/post_processing.tech",
+		"techniques/depth.tech",
+		"techniques/depth_resolve.tech",
+		"techniques/depth_downsample.tech",
+		"techniques/debug.tech",
+		"techniques/skybox.tech",
+		"techniques/meshlet_debug.tech",
+		"techniques/brdf_lut.tech"
+	]
+}

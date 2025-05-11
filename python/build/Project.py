@@ -89,6 +89,9 @@ class ProjectBuilder:
         pass
 
     def config_config(self):
+        src = os.path.join(self.enginePath, 'configs')
+        dst = os.path.join(self.projectPath, 'configs')
+        shutil.copytree(src, dst, dirs_exist_ok=True)
         pass
 
     def update_project_symlink(self):
@@ -106,7 +109,7 @@ class ProjectBuilder:
 
     def init_project_directory(self):
         asset_path = os.path.join(self.projectPath, "assets")
-        config_path = os.path.join(self.projectPath, "config")
+        config_path = os.path.join(self.projectPath, "configs")
         native_path = os.path.join(self.projectPath, "native")
 
         path_list = [(asset_path, self.config_asset),

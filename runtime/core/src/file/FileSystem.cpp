@@ -183,7 +183,8 @@ namespace sky {
     {
         FilePath res = fsRoot;
         res /= path;
-        return new NativeFile(res);
+
+        return res.Exist() ?  new NativeFile(res) : nullptr;
     }
 
     FilePtr NativeFileSystem::CreateOrOpenFile(const FilePath &path)
