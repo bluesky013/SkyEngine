@@ -1,6 +1,14 @@
 {
 	"packages":[
 		{
+			"name": "ios-cmake",
+			"url": "https://github.com/leetal/ios-cmake.git",
+			"tag": "4.5.0",
+			"header_only": false,
+			"is_tool": true,
+			"platforms": ["IOS"]
+		},
+		{
 			"name": "crc32c",
 			"url": "https://github.com/google/crc32c.git",
 			"tag": "1.1.2",

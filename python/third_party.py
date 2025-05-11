@@ -126,12 +126,13 @@ def get_android_sdk_path():
     raise Exception("Android SDK path not found.")
 
 def fill_ios_config(options):
-    options['CMAKE_SYSTEM_NAME'] = 'iOS'
-    options['CMAKE_OSX_DEPLOYMENT_TARGET'] = '13.0'
-    options['CMAKE_OSX_ARCHITECTURES'] = 'arm64'
-    options['CMAKE_IOS_DEVELOPER_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer'
-    options['CMAKE_IOS_SDK_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
-    options['CMAKE_TOOLCHAIN_FILE'] = '/Applications/CMake.app/Contents/share/cmake-3.27/Modules/Platform/iOS.cmake'
+    # options['CMAKE_SYSTEM_NAME'] = 'iOS'
+    # options['CMAKE_OSX_DEPLOYMENT_TARGET'] = '13.0'
+    # options['CMAKE_OSX_ARCHITECTURES'] = 'arm64'
+    # options['CMAKE_IOS_DEVELOPER_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer'
+    # options['CMAKE_IOS_SDK_ROOT'] = '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
+    options['CMAKE_TOOLCHAIN_FILE'] = os.path.join(args.intermediate, 'ios-cmake', 'ios.toolchain.cmake')
+    options['PLATFORM'] = 'OS64'
 
 def fill_android_config(options):
     ndk = os.path.join(get_android_sdk_path(), "ndk", NDK_VERSION)
@@ -154,7 +155,6 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
     options['BUILD_TESTING'] = False
     options['CMAKE_INSTALL_PREFIX'] = install_dir
     options['CMAKE_BUILD_TYPE'] = build_type
-
 
     if args.platform == 'Android':
         fill_android_config(options)
@@ -181,6 +181,7 @@ def process_package(package):
     submodules = package.get('submodules')
     components = package.get('components')
     source = package.get('source')
+    is_tool = package.get('is_tool')
     options = package.get('options', {})
     if len(name) == 0:
         return
@@ -246,7 +247,8 @@ def process_package(package):
     if source:
         source_dir = os.path.join(str(clone_dir), source)
 
-    build_package(name, source_dir, options, cache, components)
+    if is_tool is not True:
+        build_package(name, source_dir, options, cache, components)
 
 def app_main():
     json_file = os.path.join(args.engine, 'cmake', 'thirdparty.json')
