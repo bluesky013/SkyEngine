@@ -294,7 +294,7 @@
 			"url": "https://github.com/KarypisLab/METIS.git",
 			"tag": "v5.2.1",
 			"header_only": false,
-			"platforms": ["Win32"]
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
 		{
 			"name": "astc",

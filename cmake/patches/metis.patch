@@ -1,8 +1,11 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a15d19a..16ed34a 100644
+index a15d19a..5c4951c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -3,11 +3,7 @@ project(METIS C)
+@@ -1,13 +1,9 @@
+-cmake_minimum_required(VERSION 2.8)
++cmake_minimum_required(VERSION 3.10)
+ project(METIS C)
  
  set(SHARED FALSE CACHE BOOL "build a shared library")
  
@@ -15,12 +18,7 @@ index a15d19a..16ed34a 100644
  
  # Configure libmetis library.
  if(SHARED)
-@@ -16,28 +12,30 @@ else()
-   set(METIS_LIBRARY_TYPE STATIC)
- endif(SHARED)
- 
-+set(GKLIB_PATH ${CMAKE_SOURCE_DIR}/../GKlib/build/install)
-+
+@@ -19,34 +15,32 @@ endif(SHARED)
  include(./conf/gkbuild.cmake)
  
  # METIS' custom options
@@ -57,11 +55,13 @@ index a15d19a..16ed34a 100644
  # Add include directories.
  # i.e., the -I equivalent
 -include_directories(build/xinclude)
+-include_directories(${GKLIB_PATH}/include)
 +include_directories(include)
- include_directories(${GKLIB_PATH}/include)
  include_directories(${CMAKE_INSTALL_PREFIX}/include)
  
-@@ -47,6 +45,6 @@ link_directories(${GKLIB_PATH}/lib)
+ # List of paths that the compiler will search for library files.
+ # i.e., the -L equivalent
+-link_directories(${GKLIB_PATH}/lib)
  link_directories(${CMAKE_INSTALL_PREFIX}/lib)
  
  # Recursively look for CMakeLists.txt in subdirs.
@@ -70,3 +70,24 @@ index a15d19a..16ed34a 100644
  add_subdirectory("libmetis")
 -add_subdirectory("programs")
 +# add_subdirectory("programs")
+\ No newline at end of file
+diff --git a/libmetis/CMakeLists.txt b/libmetis/CMakeLists.txt
+index fc6cec6..2cbce7b 100644
+--- a/libmetis/CMakeLists.txt
++++ b/libmetis/CMakeLists.txt
+@@ -5,7 +5,15 @@ include_directories(.)
+ file(GLOB metis_sources *.c)
+ 
+ # Build libmetis.
++set(GKlib_PATH ${3RD_PATH}/GKlib)
++set(CMAKE_MODULE_PATH ${3RD_FIND_PATH})
++find_package(GKlib REQUIRED)
++get_target_property(tmpInc 3rdParty::GKlib INTERFACE_INCLUDE_DIRECTORIES)
++get_target_property(tmpLib 3rdParty::GKlib INTERFACE_LINK_LIBRARIES)
++
+ add_library(metis ${METIS_LIBRARY_TYPE} ${metis_sources})
++target_include_directories(metis PUBLIC ${tmpInc})
++target_link_libraries(metis ${tmpLib})
+ 
+ if(METIS_INSTALL)
+   install(TARGETS metis

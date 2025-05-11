@@ -146,9 +146,15 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
     build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
     install_dir = os.path.join(build_dir, 'install')
 
+    # common options
+    cmake_modules_path = os.path.join(args.engine, 'cmake', 'thirdparty').replace('\\', '/')
+    print(f'cmake module find path: {cmake_modules_path}')
+    options['3RD_PATH'] = args.output
+    options['3RD_FIND_PATH'] = cmake_modules_path
     options['BUILD_TESTING'] = False
     options['CMAKE_INSTALL_PREFIX'] = install_dir
     options['CMAKE_BUILD_TYPE'] = build_type
+
 
     if args.platform == 'Android':
         fill_android_config(options)
