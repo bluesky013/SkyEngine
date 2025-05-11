@@ -244,6 +244,12 @@
 			}
 		},
 		{
+			"name": "freetype",
+			"url": "https://github.com/freetype/freetype.git",
+			"tag": "VER-2-13-3",
+			"header_only": false
+		},
+		{
 			"name": "assimp",
 			"url": "https://github.com/assimp/assimp.git",
 			"tag": "v5.4.3",
