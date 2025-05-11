@@ -78,10 +78,13 @@ namespace sky {
         }
         auto *device = RHI::Get()->GetDevice();
 
-        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
-        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
-        vtxDesc.attributes = attributes.data();
-        vtxDesc.bindings = bindings.data();
+//        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
+//        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
+//        vtxDesc.attributes = attributes.data();
+//        vtxDesc.bindings = bindings.data();
+
+        vtxDesc.attributes.swap(attributes);
+        vtxDesc.bindings.swap(bindings);
 
         return device->CreateVertexInput(vtxDesc);
     }
@@ -140,10 +143,13 @@ namespace sky {
         }
         auto *device = RHI::Get()->GetDevice();
 
-        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
-        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
-        vtxDesc.attributes = attributes.data();
-        vtxDesc.bindings = bindings.data();
+//        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
+//        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
+//        vtxDesc.attributes = attributes.data();
+//        vtxDesc.bindings = bindings.data();
+
+        vtxDesc.attributes.swap(attributes);
+        vtxDesc.bindings.swap(bindings);
 
         vtxInput = device->CreateVertexInput(vtxDesc);
         assemDesc.vertexInput = vtxInput;

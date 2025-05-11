@@ -235,6 +235,12 @@
 			}
 		},
 		{
+			"name": "zlib",
+			"url": "https://github.com/madler/zlib.git",
+			"tag": "v1.3.1",
+			"header_only": false
+		},
+		{
 			"name": "tracy",
 			"url": "https://github.com/wolfpld/tracy.git",
 			"tag": "v0.11.1",
@@ -247,7 +253,10 @@
 			"name": "freetype",
 			"url": "https://github.com/freetype/freetype.git",
 			"tag": "VER-2-13-3",
-			"header_only": false
+			"header_only": false,
+			"options": {
+				"FT_DISABLE_BZIP2": "ON"
+			}
 		},
 		{
 			"name": "assimp",
