@@ -7,16 +7,13 @@ import subprocess
 from pathlib import Path
 from git import Repo
 
-# 创建解析器
 parser = argparse.ArgumentParser(description='示例脚本')
-# 添加参数
 parser.add_argument('-i', '--intermediate', type=str, help='中间文件')
 parser.add_argument('-o', '--output', type=str, help='输出路径')
-parser.add_argument('-e', '--engine', type=str, help='三方库json')
+parser.add_argument('-e', '--engine', type=str, help='引擎目录')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
 parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS"], help='编译平台')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
-# 解析参数
 args = parser.parse_args()
 
 tool_chain = {
