@@ -42,7 +42,6 @@ namespace sky {
 
     void World::Init()
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
     }
 
     void World::Tick(float time)
@@ -147,10 +146,14 @@ namespace sky {
         }
         actors.emplace_back(actor);
         actor->AttachToWorld(this);
+
+        WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, actor);
     }
 
     void World::DetachFromWorld(const ActorPtr &actor)
     {
+        WorldEvent::BroadCast(this, &IWorldEvent::OnActorDetached, actor);
+
         actor->DetachFromWorld();
         auto iter = std::find_if(actors.begin(), actors.end(),
             [&actor](const auto &v) { return actor == v; });

@@ -60,6 +60,7 @@ namespace sky {
         uint64_t offset = 0;
         uint64_t range  = 0;
         uint32_t stride = 0;
+        rhi::VertexInputRate rate = rhi::VertexInputRate::PER_VERTEX;
 
         rhi::BufferView MakeView() const;
     };

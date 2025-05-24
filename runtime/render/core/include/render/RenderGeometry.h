@@ -17,6 +17,10 @@ namespace sky {
         uint32_t binding            = 0; // buffer index
         uint32_t offset             = 0;
         rhi::Format format          = rhi::Format::F_RGBA32;
+    };
+
+    struct VertexStream {
+        uint32_t stride;
         rhi::VertexInputRate rate   = rhi::VertexInputRate::PER_VERTEX;
     };
 

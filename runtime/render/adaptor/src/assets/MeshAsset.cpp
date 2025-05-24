@@ -32,6 +32,7 @@ namespace sky {
             archive.LoadValue(buffers[i].offset);
             archive.LoadValue(buffers[i].size);
             archive.LoadValue(buffers[i].stride);
+            archive.LoadValue(buffers[i].rate);
         }
 
         // vertex streams
@@ -42,7 +43,6 @@ namespace sky {
             archive.LoadValue(attributes[i].binding);
             archive.LoadValue(attributes[i].offset);
             archive.LoadValue(attributes[i].format);
-            archive.LoadValue(attributes[i].rate);
         }
 
         archive.LoadValue(indexBuffer);
@@ -76,6 +76,7 @@ namespace sky {
             archive.SaveValue(primitive.offset);
             archive.SaveValue(primitive.size);
             archive.SaveValue(primitive.stride);
+            archive.SaveValue(primitive.rate);
         }
 
         // vertex streams
@@ -85,7 +86,6 @@ namespace sky {
             archive.SaveValue(stream.binding);
             archive.SaveValue(stream.offset);
             archive.SaveValue(stream.format);
-            archive.SaveValue(stream.rate);
         }
 
         // index

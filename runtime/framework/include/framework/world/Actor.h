@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/platform/Platform.h>
+#include <core/event/Event.h>
 
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/Component.h>
@@ -20,6 +21,20 @@ namespace sky {
 
     using ActorPtr = std::shared_ptr<Actor>;
     using ActorWeakPtr = std::weak_ptr<Actor>;
+
+    class IActorEvent {
+    public:
+        IActorEvent() = default;
+        ~IActorEvent() = default;
+
+        using KeyType   = Actor*;
+        using MutexType = void;
+
+        virtual void OnAttachToWorld(World* world) {}
+        virtual void OnDetachFromWorld(World* world) {}
+        virtual void OnParentChanged(Actor* oldParent, Actor* newParent) {}
+    };
+    using ActorEvent = Event<IActorEvent>;
 
     class Actor {
     public:

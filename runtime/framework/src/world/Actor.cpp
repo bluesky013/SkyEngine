@@ -102,10 +102,15 @@ namespace sky {
     void Actor::SetParent(const ActorPtr &parent)
     {
         auto* trans = GetComponent<TransformComponent>();
+
+        Actor* oldActor = nullptr;
+
         auto* parentTrans = parent ? parent->GetComponent<TransformComponent>() : nullptr;
         if (trans != nullptr) {
             trans->SetParent(parentTrans);
         }
+
+        ActorEvent::BroadCast(this, &IActorEvent::OnParentChanged, oldActor, parent.get());
     }
 
     void Actor::Tick(float time)
@@ -121,10 +126,14 @@ namespace sky {
         for (auto &[id, component] : storage) {
             component->OnAttachToWorld();
         }
+
+        ActorEvent::BroadCast(this, &IActorEvent::OnAttachToWorld, world);
     }
 
     void Actor::DetachFromWorld()
     {
+        ActorEvent::BroadCast(this, &IActorEvent::OnDetachFromWorld, world);
+
         for (auto &[id, component] : storage) {
             component->OnDetachFromWorld();
         }

@@ -26,7 +26,7 @@ namespace sky {
     class BinaryInputArchive;
     class BinaryOutputArchive;
 
-    enum class MeshBufferType : uint32_t {
+    enum class MeshBufferType : uint8_t {
         RAW_DATA = 0,
         UUID
     };
@@ -36,6 +36,7 @@ namespace sky {
         uint32_t size;
         uint32_t stride;
         MeshBufferType type = MeshBufferType::RAW_DATA;
+        rhi::VertexInputRate rate = rhi::VertexInputRate::PER_VERTEX;
     };
 
     struct SubMeshAssetData {

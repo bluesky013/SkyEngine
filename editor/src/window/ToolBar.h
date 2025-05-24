@@ -8,6 +8,7 @@
 #include <QComboBox>
 #include <QString>
 #include <QMap>
+#include <QMenu>
 #include <QDockWidget>
 #include <framework/interface/ISystem.h>
 #include <framework/window/IWindowEvent.h>
@@ -32,12 +33,15 @@ namespace sky::editor {
         void OnMainWindowCreated(NativeWindow *window) override;
 
         void ResetToolWidget(const QString &name);
+        void ResetAddActorMenu();
 
         QComboBox *comboBox = nullptr;
+        QMenu *addMenu = nullptr;
         QDockWidget *toolDockWidget = nullptr;
         QMap<QString, ToolWidget*> toolMap;
 
         WindowID windowId;
+        World* currentWorld = nullptr;
         EventBinder<ISystemEvent> binder;
     };
 

@@ -18,4 +18,26 @@ sky_add_library(TARGET SkyRender SHARED
         ImGuiRender
     )
 
-sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher Editor)
+if (SKY_BUILD_EDITOR)
+    file(GLOB_RECURSE EDITOR_SRC_FILES editor/src/*)
+    file(GLOB_RECURSE EDITOR_INC_FILES editor/include/*)
+
+
+    sky_add_library(TARGET SkyRender.Editor SHARED
+    SOURCES
+        editor/RenderEditorRegistry.cpp
+        ${EDITOR_SRC_FILES}
+        ${EDITOR_INC_FILES}
+    PRIVATE_INC
+        editor/src
+    PUBLIC_INC
+        editor/include
+    LINK_LIBS
+        RenderAdaptor
+        ImGuiRender
+        EditorFramework
+    )
+endif ()
+
+sky_add_dependency(TARGET SkyRender DEPENDENCIES Launcher)
+sky_add_dependency(TARGET SkyRender.Editor DEPENDENCIES Editor)

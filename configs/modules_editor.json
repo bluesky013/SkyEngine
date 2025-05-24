@@ -3,19 +3,19 @@
     {
       "name": "ImGuizmoModule",
       "dependencies": [
-        "SkyRender"
+        "SkyRender.Editor"
       ]
     },
 	{
       "name": "FreeTypeModule",
       "dependencies": [
-        "SkyRender"
+        "SkyRender.Editor"
       ]
     },
 	{
       "name": "BulletPhysicsModule",
       "dependencies": [
-        "SkyRender"
+        "SkyRender.Editor"
       ]
     },
 	{

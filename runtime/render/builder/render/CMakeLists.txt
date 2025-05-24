@@ -20,5 +20,3 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
         3rdParty::meshoptimizer
         3rdParty::metis
     )
-
-sky_add_dependency(TARGET RenderBuilder DEPENDENCIES AssetTool Editor)

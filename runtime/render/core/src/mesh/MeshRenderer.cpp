@@ -179,10 +179,10 @@ namespace sky {
             instanceBuffer->Init(positionBuffer.size() * sizeof(Vector4), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::STORAGE | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
 
             ownGeometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::INST0,
-                static_cast<uint32_t>(ownGeometry->vertexBuffers.size()), 0, rhi::Format::F_RGB32, rhi::VertexInputRate::PER_INSTANCE
+                static_cast<uint32_t>(ownGeometry->vertexBuffers.size()), 0, rhi::Format::F_RGB32
             });
             ownGeometry->attributeSemantics |= VertexSemanticFlagBit::INST0;
-            ownGeometry->vertexBuffers.emplace_back(VertexBuffer{instanceBuffer, 0, static_cast<uint32_t>(positionBuffer.size() * sizeof(Vector4)), sizeof(Vector4)});
+            ownGeometry->vertexBuffers.emplace_back(VertexBuffer{instanceBuffer, 0, static_cast<uint32_t>(positionBuffer.size() * sizeof(Vector4)), sizeof(Vector4), rhi::VertexInputRate::PER_INSTANCE});
             instanceBuffer->SetUploadData(std::move(positionBuffer));
             Renderer::Get()->GetStreamingManager()->UploadBuffer(instanceBuffer);
         }

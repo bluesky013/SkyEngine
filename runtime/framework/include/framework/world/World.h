@@ -29,10 +29,11 @@ namespace sky {
         IWorldEvent() = default;
         ~IWorldEvent() = default;
 
-        using KeyType   = void;
+        using KeyType   = World*;
         using MutexType = void;
 
-        virtual void OnCreateWorld(World& world) = 0;
+        virtual void OnActorAttached(const ActorPtr &actor) = 0;
+        virtual void OnActorDetached(const ActorPtr &actor) = 0;
     };
     using WorldEvent = Event<IWorldEvent>;
 

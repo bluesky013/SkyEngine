@@ -4,7 +4,11 @@
 
 #include "ToolBar.h"
 #include <QLabel>
+#include <QMenu>
+#include <QPushButton>
 #include <editor/framework/EditorToolBase.h>
+#include <editor/framework/WorldTreeView.h>
+#include <editor/framework/EditorActorCreation.h>
 #include <framework/window/NativeWindow.h>
 
 namespace sky::editor {
@@ -32,6 +36,14 @@ namespace sky::editor {
         });
         comboBox->setCurrentText("Select");
 
+        addMenu = new QMenu(this);
+        ResetAddActorMenu();
+        auto *addBtn = new QPushButton("+", this);
+        addBtn->setMenu(addMenu);
+
+        addWidget(addBtn);
+        addSeparator();
+
         binder.Bind(this);
     }
 
@@ -42,6 +54,8 @@ namespace sky::editor {
                 tool->SetWorld(world);
             }
         }
+
+        currentWorld = world != nullptr ? world->GetWorld() : nullptr;
     }
 
     void ToolBar::SetCamera(EditorCamera *camera)
@@ -50,6 +64,37 @@ namespace sky::editor {
             if (tool != nullptr) {
                 tool->SetCamera(camera);
             }
+        }
+    }
+
+    void ToolBar::ResetAddActorMenu()
+    {
+        std::unordered_map<Name, QMenu*> fLvActions;
+
+
+        const auto &tools = EditorActorCreation::Get()->GetTools();
+        for (auto* tool : tools)
+        {
+            auto group = tool->GetGroup();
+            auto name = tool->GetName();
+
+            auto &groupMenu = fLvActions[group];
+            if (groupMenu == nullptr)
+            {
+                groupMenu = new QMenu(QString(group.GetStr().data()), addMenu);
+                addMenu->addMenu(groupMenu);
+            }
+
+            auto *addAction = new QAction(QString(name.GetStr().data()), groupMenu);
+            connect(addAction, &QAction::triggered, this, [this, tool]() {
+                if (currentWorld == nullptr) {
+                    return;
+                }
+                auto actor = currentWorld->CreateActor(tool->GetName().GetStr().data());
+                tool->OnCreateActor(actor.get());
+                currentWorld->AttachToWorld(actor);
+            });
+            groupMenu->addAction(addAction);
         }
     }
 

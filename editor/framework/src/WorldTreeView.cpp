@@ -11,6 +11,11 @@
 
 namespace sky::editor {
 
+    void TreeViewComponent::Reflect(sky::SerializationContext *context)
+    {
+        REGISTER_BEGIN(TreeViewComponent, context);
+    }
+
     WorldTreeView::WorldTreeView(QWidget *parent) : QWidget(parent)
     {
         treeView = new QTreeView(this);
@@ -48,6 +53,13 @@ namespace sky::editor {
     void WorldTreeView::BuildByWorld(const WorldPtr &world)
     {
         attachedWorld = world;
+
+        if (world) {
+            worldEvent.Bind(this, attachedWorld.Get());
+        } else {
+            worldEvent.Reset();
+        }
+
         RebuildTree();
     }
 
@@ -92,13 +104,24 @@ namespace sky::editor {
         auto indices = treeView->selectionModel()->selectedIndexes();
         auto actor = attachedWorld->CreateActor(name.toStdString());
 
-        auto *item = new WorldActorItem(actor);
         auto *parent = indices.empty() ? model->invisibleRootItem() : model->itemFromIndex(indices[0]);
         auto parentAct = indices.empty() ? ActorPtr{} : static_cast<WorldActorItem*>(parent)->actor;
-        parent->appendRow(item);
         actor->SetParent(parentAct);
 
         return actor;
+    }
+
+    void WorldTreeView::OnActorAttached(const ActorPtr &actor)
+    {
+        auto *item = new WorldActorItem(actor);
+        model->invisibleRootItem()->appendRow(item);
+        actor->AddComponent<TreeViewComponent>(model->indexFromItem(item));
+    }
+
+    void WorldTreeView::OnActorDetached(const ActorPtr &actor)
+    {
+        auto &idx = actor->GetComponent<TreeViewComponent>()->index;
+        model->removeRow(idx.row(), idx.parent());
     }
 
     void WorldTreeView::OnContentMenuClicked(const QPoint &pos)
@@ -120,8 +143,6 @@ namespace sky::editor {
             for (auto &index : indices) {
                 std::vector<ActorPtr> actorsToDel;
                 GatherAllChildren(actorsToDel, model->itemFromIndex(index));
-                model->removeRow(index.row(), index.parent());
-
                 for (auto &act : actorsToDel)  {
                     attachedWorld->DetachFromWorld(act);
                 }

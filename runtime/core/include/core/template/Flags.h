@@ -5,6 +5,7 @@
 #pragma once
 
 #include <type_traits>
+#include <limits>
 
 namespace sky {
 
