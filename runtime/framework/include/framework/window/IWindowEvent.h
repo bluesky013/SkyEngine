@@ -10,13 +10,23 @@
 namespace sky {
     class NativeWindow;
 
+#if _WIN32
     using WindowID = uint32_t;
+#else
+    using WindowID = uint64_t;
+#endif
     static const WindowID INVALID_WIN_ID = 0;
 
     enum class MouseButtonType : uint32_t {
         LEFT,
         RIGHT,
         MIDDLE
+    };
+
+    struct WindowResizeEvent {
+        WindowID winID;
+        uint32_t width;
+        uint32_t height;
     };
 
     struct MouseButtonEvent {
@@ -191,8 +201,7 @@ namespace sky {
         IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
 
-        virtual void OnWindowHandleChanged(uint32_t width, uint32_t height, void* handle) {}
-        virtual void OnWindowResize(uint32_t width, uint32_t height) {}
+        virtual void OnWindowResize(const WindowResizeEvent& event) {}
         virtual void OnFocusChanged(bool focus) {}
     };
 

@@ -4,6 +4,7 @@
 
 #include <imgui/ImGuiInstance.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/window/NativeWindowManager.h>
 #include <framework/platform/PlatformBase.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
@@ -212,6 +213,13 @@ namespace sky {
         auto *idxDst = reinterpret_cast<ImDrawIdx *>(indexBuffer->GetMapped());
 
         primitive->args.clear();
+        
+        primitive->args.emplace_back(rhi::Viewport{
+            0.f, 0.f,
+            drawData->DisplaySize.x * drawData->FramebufferScale.x, drawData->DisplaySize.y * drawData->FramebufferScale.y,
+            0.0f, 1.0f
+        });
+        
         for (int n = 0; n < drawData->CmdListsCount; n++) {
             const ImDrawList *cmdList = drawData->CmdLists[n];
             // upload vertex buffers
@@ -313,10 +321,13 @@ namespace sky {
         io.AddFocusEvent(focus);
     }
 
-    void ImGuiInstance::OnWindowResize(uint32_t width, uint32_t height)
+    void ImGuiInstance::OnWindowResize(const WindowResizeEvent& event)
     {
+        auto *window = NativeWindowManager::Get()->GetWindowByID(event.winID);
+        SKY_ASSERT(window != nullptr);
+
         ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+        io.DisplaySize = ImVec2(static_cast<float>(event.width), static_cast<float>(event.height));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
     }
 

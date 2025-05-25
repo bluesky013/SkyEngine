@@ -232,6 +232,9 @@ namespace sky::rdg {
                             [&](const rhi::CmdDispatchMesh &v) {
                                 currentEncoder->DispatchMesh(v);
                             },
+                            [&](const rhi::Viewport &v) {
+                                currentEncoder->SetViewport(1, &v);
+                            },
                             [&](const rhi::Rect2D &v) {
                                 currentEncoder->SetScissor(1, &v);
                             },

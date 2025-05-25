@@ -6,6 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <core/name/Name.h>
+#include <list>
 
 namespace sky {
     class Actor;

@@ -54,7 +54,7 @@ namespace sky {
         void OnTextInput(WindowID winID, const char *text) override;
 
         void OnFocusChanged(bool focus) override;
-        void OnWindowResize(uint32_t width, uint32_t height) override;
+        void OnWindowResize(const WindowResizeEvent& event) override;
 
         EventBinder<IWindowEvent> winBinder;
         EventBinder<IKeyboardEvent> keyBinder;

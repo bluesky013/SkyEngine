@@ -24,7 +24,6 @@ namespace sky::editor {
         widget->setAcceptDrops(true);
         widget->setLayout(new QVBoxLayout(widget));
         widget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
-        widget->setMinimumWidth(512);
         setWidget(widget);
 
         auto *rootLayout = widget->layout();

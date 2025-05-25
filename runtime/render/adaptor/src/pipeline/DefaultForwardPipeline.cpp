@@ -178,8 +178,8 @@ namespace sky {
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());
 
-        hiz->BuildHizPass(rdg, hizDepth, renderWidth, renderHeight);
-        hiz->AddPass(*this);
+//        hiz->BuildHizPass(rdg, hizDepth, renderWidth, renderHeight);
+//        hiz->AddPass(*this);
 
         AddPass(present.get());
     }

@@ -16,12 +16,11 @@ namespace sky {
     bool Random::Gen(void *data, uint32_t dataSize)
     {
 #if defined(__linux__) || defined(__APPLE__)
-        int   res;
         auto *fp = fopen("/dev/urandom", "rb");
         if (fp == nullptr) {
             return false;
         }
-        res = fread(data, 1, static_cast<size_t>(dataSize), fp);
+        size_t res = fread(data, 1, static_cast<size_t>(dataSize), fp);
         fclose(fp);
         if (res != dataSize) {
             return false;

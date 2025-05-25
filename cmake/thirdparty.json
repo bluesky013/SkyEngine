@@ -239,7 +239,8 @@
 			"header_only": false,
 			"source": "build/cmake",
 			"options": {
-				"LZ4_BUILD_CLI": "OFF"
+				"LZ4_BUILD_CLI": "OFF",
+				"BUILD_SHARED_LIBS": "OFF"
 			}
 		},
 		{
@@ -273,7 +274,7 @@
 			"header_only": false,
 			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"options": {
-				"BUILD_SHARED_LIBS": "OFF",
+				"BUILD_SHARED_LIBS": "ON",
 				"ASSIMP_BUILD_TESTS": "OFF",
 				"XCODE_CODE_SIGN_IDENTITY": ""
 			}

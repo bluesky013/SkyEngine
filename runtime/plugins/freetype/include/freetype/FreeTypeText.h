@@ -31,7 +31,7 @@ namespace sky {
 
     struct TextBatch : public RefObject {
         void Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo);
-        void Flush();
+        void Flush(const rhi::Viewport& vp);
         void AddQuad(const Rect& rect, const Rect &uv, const Color &color);
 
         rhi::CmdDrawLinear args;
@@ -57,6 +57,8 @@ namespace sky {
         static TextFlags ValidateFlags(const TextFlags &flags) ;
         std::unordered_map<BatchKey, TextBatchPtr> batches;
         RDDynamicUniformBufferPtr ubo;
+        
+        rhi::Viewport viewport = {};
     };
 
 } // namespace sky

@@ -11,11 +11,10 @@ namespace sky::vk {
 
     bool SwapChain::CreateSurface()
     {
-        auto nsWin = static_cast<NSWindow *>(descriptor.window);
+        auto view = static_cast<NSView *>(descriptor.window);
 
         NSBundle *bundle = [NSBundle bundleWithPath:@"/System/Library/Frameworks/QuartzCore.framework"];
         CALayer  *layer  = [[bundle classNamed:@"CAMetalLayer"] layer];
-        NSView   *view   = nsWin.contentView;
         [view setLayer:layer];
         [view setWantsLayer:YES];
 

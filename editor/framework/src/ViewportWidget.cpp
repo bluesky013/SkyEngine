@@ -7,14 +7,16 @@
 #include <QVBoxLayout>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QApplication>
+#include <QScreen>
 #include <render/adaptor/pipeline/DefaultForwardPipeline.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/RenderScenePipeline.h>
 #include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/window/NativeWindowManager.h>
 
 namespace sky::editor {
 
@@ -129,10 +131,13 @@ namespace sky::editor {
 
     ViewportWindow::ViewportWindow(QWindow *parent) : QWindow(parent)
     {
-        setSurfaceType(SurfaceType::MetalSurface);
+        winHandle = GetNativeWindow();
+        winID = reinterpret_cast<WindowID>(winHandle);
 
-        winHandle = reinterpret_cast<void *>(winId());
-        winID = winId();
+        QScreen *screen = QApplication::primaryScreen();
+        scale = screen->devicePixelRatio();
+
+        NativeWindowManager::Get()->Register(this);
     }
 
     ViewportWidget::~ViewportWidget()
@@ -143,11 +148,16 @@ namespace sky::editor {
     bool ViewportWindow::event(QEvent *event)
     {
         switch (event->type()) {
-            case QEvent::Resize:
-                descriptor.width = width();
-                descriptor.height = height();
-                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize, descriptor.width, descriptor.height);
+            case QEvent::Resize: {
+                descriptor.width = (uint32_t)(width() * scale);
+                descriptor.height = (uint32_t)(height() * scale);
+                WindowResizeEvent wEvent = {};
+                wEvent.winID = winID;
+                wEvent.width = descriptor.width;
+                wEvent.height = descriptor.height;
+                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize, wEvent);
                 break;
+            }
             case QEvent::MouseMove: {
                 auto* mouseEvent = static_cast<QMouseEvent*>(event);
                 auto pos = mouseEvent->pos();
@@ -279,15 +289,15 @@ namespace sky::editor {
         }
     }
 
-    void ViewportWidget::OnWindowResize(uint32_t width, uint32_t height)
+    void ViewportWidget::OnWindowResize(const WindowResizeEvent& event)
     {
         if (renderWindow != nullptr) {
-            renderWindow->Resize(width, height);
-            editorCamera->UpdateAspect(width, height);
+            renderWindow->Resize(event.width, event.height);
+            editorCamera->UpdateAspect(event.width, event.height);
         }
 
         if (profiler) {
-            profiler->SetDisplaySize(window->GetWidth(), window->GetHeight());
+            profiler->SetDisplaySize(event.width, event.height);
         }
     }
 

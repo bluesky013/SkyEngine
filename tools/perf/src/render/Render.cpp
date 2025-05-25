@@ -184,10 +184,10 @@ namespace sky::perf {
         renderFinish   = device->CreateDeviceObject<vk::Semaphore>(vk::Semaphore::VkDescriptor{});
     }
 
-    void Render::OnWindowResize(uint32_t width, uint32_t height)
+    void Render::OnWindowResize(const WindowResizeEvent& event)
     {
         auto &ext = swapChain->GetVkExtent();
-        if (ext.width == width && ext.height == height) {
+        if (ext.width == event.width && ext.height == event.height) {
             return;
         }
 

@@ -31,6 +31,7 @@ namespace sky::editor {
         ~ViewportWindow() override = default;
 
     private:
+        void* GetNativeWindow();
         bool event(QEvent *event) override;
     };
 
@@ -46,7 +47,7 @@ namespace sky::editor {
         ViewportWindow* GetViewportWindow() const { return window; }
         EditorCamera *GetCamera() const { return editorCamera.get(); }
     private:
-        void OnWindowResize(uint32_t width, uint32_t height) override;
+        void OnWindowResize(const WindowResizeEvent& event) override;
         void dropEvent(QDropEvent *event) override;
         void dragEnterEvent(QDragEnterEvent *event) override;
         void dragMoveEvent(QDragMoveEvent *event) override;

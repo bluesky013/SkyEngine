@@ -38,7 +38,9 @@ namespace sky {
 
     std::string ReplaceSlashToBackslash(std::string path)
     {
+#if _WIN32
         std::replace(path.begin(), path.end(), '/', '\\');
+#endif
         return path;
     }
 
