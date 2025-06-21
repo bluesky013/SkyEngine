@@ -12,7 +12,7 @@ parser.add_argument('-i', '--intermediate', type=str, help='中间文件')
 parser.add_argument('-o', '--output', type=str, help='输出路径')
 parser.add_argument('-e', '--engine', type=str, help='引擎目录')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
-parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS"], help='编译平台')
+parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"], help='编译平台')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 args = parser.parse_args()
 
@@ -21,7 +21,8 @@ tool_chain = {
     'MacOS-x86': 'Xcode',
     'MacOS-arm': 'Xcode',
     'IOS': 'Xcode',
-    'Android': 'Ninja'
+    'Android': 'Ninja',
+    'Linux': 'Ninja'
 }
 
 NDK_VERSION = '27.0.12077973'
