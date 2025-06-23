@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/name/NameTypes.h>
+#include <functional>
 
 namespace sky {
 

@@ -3,6 +3,7 @@
 //
 
 #include <rhi/Util.h>
+#include <cstdint>
 
 namespace sky::rhi {
 

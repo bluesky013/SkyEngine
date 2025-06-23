@@ -6,6 +6,7 @@
 
 #include <rhi/Core.h>
 #include <core/file/FileSystem.h>
+#include <cstring>
 #include <fstream>
 #include <functional>
 

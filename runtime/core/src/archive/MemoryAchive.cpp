@@ -3,6 +3,7 @@
 //
 
 #include <core/archive/MemoryArchive.h>
+#include <cstring>
 
 namespace sky {
 

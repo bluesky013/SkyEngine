@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace sky {
 
     template <typename T>

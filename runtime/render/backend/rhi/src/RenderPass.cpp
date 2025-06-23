@@ -5,6 +5,7 @@
 #include <rhi/RenderPass.h>
 #include <core/hash/Crc32.h>
 #include <core/hash/Hash.h>
+#include <algorithm>
 
 namespace sky::rhi {
 

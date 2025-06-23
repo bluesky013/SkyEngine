@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cmath>
 #include <algorithm>
 
 namespace sky {
@@ -78,6 +79,6 @@ namespace sky {
     inline float U8ToF32(uint8_t in) { return static_cast<float>(in) / 255.f; }
     inline float U16ToF32(uint16_t in) { return static_cast<float>(in) / 65535.f; }
 
-    inline uint8_t F32ToU8(float in) { return static_cast<uint8_t>(round(std::clamp(in, 0.f, 1.f) * 255.f)); }
-    inline uint16_t F32ToU16(float in) { return static_cast<uint16_t>(round(std::clamp(in, 0.f, 1.f) * 65535.f)); }
+    inline uint8_t F32ToU8(float in) { return static_cast<uint8_t>(std::round(std::clamp(in, 0.f, 1.f) * 255.f)); }
+    inline uint16_t F32ToU16(float in) { return static_cast<uint16_t>(std::round(std::clamp(in, 0.f, 1.f) * 65535.f)); }
 }

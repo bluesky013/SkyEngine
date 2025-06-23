@@ -3,6 +3,7 @@
 //
 
 #include <framework/serialization/Any.h>
+#include <cstring>
 
 namespace sky {
 

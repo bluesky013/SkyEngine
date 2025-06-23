@@ -7,6 +7,7 @@
 #include <rhi/Decode.h>
 #include <rhi/Stream.h>
 #include <unordered_map>
+#include <cstring>
 
 namespace sky::rhi {
 
