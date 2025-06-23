@@ -257,13 +257,13 @@ namespace sky {
     template <typename T>
     inline T CeilTo(float val)
     {
-        return static_cast<T>(std::ceilf(val));
+        return static_cast<T>(std::ceil(val));
     }
 
     template <typename T>
     inline T FloorTo(float val)
     {
-        return static_cast<T>(std::floorf(val));
+        return static_cast<T>(std::floor(val));
     }
 
     template <typename T>

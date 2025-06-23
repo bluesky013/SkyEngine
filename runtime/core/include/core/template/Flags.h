@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <limits>
 #include <map>
+#include <functional>
 
 namespace sky {
 

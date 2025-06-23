@@ -4,6 +4,7 @@
 
 #include "NameAllocator.h"
 #include <core/platform/Platform.h>
+#include <cstring>
 
 namespace sky {
 

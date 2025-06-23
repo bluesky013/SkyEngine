@@ -9,6 +9,8 @@
 
 #include "NameAllocator.h"
 
+#include <cstring>
+
 namespace sky {
     NameDataBase::NameDataBase() : allocator(new NameAllocator(), [](NameAllocator *ptr) { delete ptr; })
     {

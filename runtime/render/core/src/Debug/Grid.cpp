@@ -34,9 +34,9 @@ namespace sky {
                 static constexpr Color32 colorR(0xFF, 0x00, 0x00, 0xFF);
                 static constexpr Color32 colorG(0x00, 0xFF, 0x00, 0xFF);
 
-                bool mode1 = std::fmodf(std::fabsf(f), 10.f) < FLT_EPSILON;
-                bool modeR = std::fabsf(pA.x) < FLT_EPSILON && std::fabsf(pB.x) < FLT_EPSILON;
-                bool modeG = std::fabsf(pA.z) < FLT_EPSILON && std::fabsf(pB.z) < FLT_EPSILON;
+                bool mode1 = std::fmod(std::fabs(f), 10.f) < FLT_EPSILON;
+                bool modeR = std::fabs(pA.x) < FLT_EPSILON && std::fabs(pB.x) < FLT_EPSILON;
+                bool modeG = std::fabs(pA.z) < FLT_EPSILON && std::fabs(pB.z) < FLT_EPSILON;
 
                 Color32 color = mode1 ? color1 : color0;
                 color = modeR ? colorR : color;
