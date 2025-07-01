@@ -14,7 +14,7 @@ struct TestOctElement;
 using TestOctElementRef = CounterPtr<TestOctElement>;
 
 template <>
-struct OctreeTraits<TestOctElementRef> {
+struct sky::OctreeTraits<TestOctElementRef> {
     using TreeType = Octree<TestOctElementRef>;
     using BoundType = AABB;
     static const uint32_t MAX_DEPTH = 3;

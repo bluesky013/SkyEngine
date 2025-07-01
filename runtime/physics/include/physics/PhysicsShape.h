@@ -5,6 +5,7 @@
 #pragma once
 
 #include <physics/PhysicsBase.h>
+#include <memory>
 
 namespace sky::phy {
 
