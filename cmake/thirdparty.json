@@ -114,7 +114,7 @@
 			"url": "https://github.com/libsdl-org/SDL.git",
 			"tag": "release-2.32.6",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
 			"options": {
 				"SDL_SHARED": "OFF",
 				"SDL_STATIC": "ON",
