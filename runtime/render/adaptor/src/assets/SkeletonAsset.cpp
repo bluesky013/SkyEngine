@@ -6,29 +6,84 @@
 
 namespace sky {
 
-    uint32_t SkeletonAssetData::AdddBone(const std::string &str, const Matrix4 &matrix)
+    void SkeletonAssetBuildContext::AdddBone(const Name &name, const Matrix4 &matrix)
     {
-        Name name(str.c_str());
-
         SKY_ASSERT(!nameToIndexMap.contains(name))
 
         auto boneIndex = static_cast<uint32_t>(nameToIndexMap.size());
         nameToIndexMap.emplace(name, boneIndex);
-        boneData.emplace_back(BoneData{name, INVALID_BONE_ID});
-        inverseBindMatrix.emplace_back(matrix);
-        refPos.emplace_back(Transform::GetIdentity());
-        return boneIndex;
+        data.boneData.emplace_back(BoneData{name, INVALID_BONE_ID});
+        data.inverseBindMatrix.emplace_back(matrix);
+        data.refPos.emplace_back(Transform::GetIdentity());
     }
 
-    uint32_t SkeletonAssetData::FindBoneByName(const std::string &str) const
+    uint32_t SkeletonAssetBuildContext::FindBoneByName(const Name &name) const
     {
-        Name name(str.c_str());
-
         auto iter = nameToIndexMap.find(name);
         return iter != nameToIndexMap.end() ? iter->second : INVALID_BONE_ID;
     }
 
-    void SkeletonAssetData::Load(BinaryInputArchive &archive)
+    void SkeletonAssetData::LoadJson(JsonInputArchive &archive)
+    {
+        uint32_t count = archive.StartArray("bones");
+
+        boneData.resize(count);
+        inverseBindMatrix.resize(count);
+        refPos.resize(count);
+
+        for (uint32_t i = 0; i < count; ++i) {
+
+            archive.Start("name");
+            std::string name;
+            boneData[i].name = Name(archive.LoadString().c_str());
+            archive.End();
+
+            archive.Start("parent");
+            boneData[i].parentIndex = archive.LoadUint();
+            archive.End();
+
+            archive.Start("inverseBindMatrix");
+            archive.LoadValueObject(inverseBindMatrix[i]);
+            archive.End();
+
+            archive.Start("refPos");
+            archive.LoadValueObject(refPos[i]);
+            archive.End();
+
+            archive.NextArrayElement();
+        }
+        archive.End();
+    }
+
+    void SkeletonAssetData::SaveJson(JsonOutputArchive &archive) const
+    {
+        archive.StartObject();
+        archive.Key("bones");
+        archive.StartArray();
+
+        size_t boneNum = boneData.size();
+        for (size_t i = 0; i < boneNum; ++i) {
+            archive.StartObject();
+
+            archive.Key("name");
+            archive.SaveValue(boneData[i].name.GetStr());
+
+            archive.Key("parent");
+            archive.SaveValue(boneData[i].parentIndex);
+
+            archive.Key("inverseBindMatrix");
+            archive.SaveValueObject(inverseBindMatrix[i]);
+
+            archive.Key("refPos");
+            archive.SaveValueObject(refPos[i]);
+
+            archive.EndObject();
+        }
+        archive.EndArray();
+        archive.EndObject();
+    }
+
+    void SkeletonAssetData::LoadBin(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
         uint32_t count = 0;
@@ -51,19 +106,9 @@ namespace sky {
             archive.LoadValue(reinterpret_cast<char*>(refPos[i].rotation.v), sizeof(Quaternion));
             archive.LoadValue(reinterpret_cast<char*>(refPos[i].scale.v), sizeof(Vector3));
         }
-
-        archive.LoadValue(count);
-        for (uint32_t i = 0; i < count; ++i) {
-            std::string name;
-            archive.LoadValue(name);
-            uint32_t boneIndex = 0;
-            archive.LoadValue(boneIndex);
-
-            nameToIndexMap.emplace(Name(name.c_str()), boneIndex);
-        }
     }
 
-    void SkeletonAssetData::Save(BinaryOutputArchive &archive) const
+    void SkeletonAssetData::SaveBin(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(version);
 
@@ -81,12 +126,6 @@ namespace sky {
             archive.SaveValue(reinterpret_cast<const char*>(trans.translation.v), sizeof(Vector3));
             archive.SaveValue(reinterpret_cast<const char*>(trans.rotation.v), sizeof(Quaternion));
             archive.SaveValue(reinterpret_cast<const char*>(trans.scale.v), sizeof(Vector3));
-        }
-
-        archive.SaveValue(static_cast<uint32_t>(nameToIndexMap.size()));
-        for (const auto &[name, index] : nameToIndexMap) {
-            archive.SaveValue(name);
-            archive.SaveValue(index);
         }
     }
 

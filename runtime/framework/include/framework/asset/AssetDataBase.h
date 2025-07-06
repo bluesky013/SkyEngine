@@ -36,6 +36,7 @@ namespace sky {
         void RemoveAsset(const Uuid &id);
 
         FilePtr OpenFile(const AssetSourcePtr &src);
+        FilePtr OpenFile(const AssetSourcePath &path);
         FilePtr CreateOrOpenFile(const AssetSourcePath &path);
 
         void SetMarkedName(const Uuid& id, const std::string &name);

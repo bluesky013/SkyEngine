@@ -13,6 +13,7 @@
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/IModule.h>
+#include <framework/serialization/SerializationContext.h>
 #include <shader/ShaderCompiler.h>
 
 namespace sky::builder {
@@ -33,6 +34,9 @@ namespace sky::builder {
 
     bool BuilderModule::Init(const StartArguments &args)
     {
+        auto* refCtx = SerializationContext::Get();
+        PrefabBuilder::Reflect(refCtx);
+
         auto *am = AssetBuilderManager::Get();
         am->RegisterBuilder(new TechniqueBuilder());
         am->RegisterBuilder(new MaterialBuilder());

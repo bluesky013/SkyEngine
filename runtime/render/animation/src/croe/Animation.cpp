@@ -6,6 +6,24 @@
 
 namespace sky {
 
+    void Animation::AddClip(const AnimClipPtr& clip)
+    {
+        SKY_ASSERT(clip && "clip should be empty")
+        clips.emplace_back(clip);
+    }
 
+    void KeyFrameAnimation::Tick(float delta)
+    {
+        if (currentClip >= clips.size()) {
+            return;
+        }
+        auto &clip = clips[currentClip];
+
+        currentTime += delta;
+        float duration = clip->GetDuration();
+        if (currentTime > duration) {
+            currentTime = clip->IsLooping() ? std::fmod(currentTime, duration) : duration;
+        }
+    }
 
 } // namespace sky

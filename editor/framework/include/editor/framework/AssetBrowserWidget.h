@@ -12,11 +12,61 @@
 #include <QTableView>
 #include <QSortFilterProxyModel>
 #include <QMouseEvent>
+#include <QDialog>
 #include <editor/framework/AssetEditorProxy.h>
+#include <core/environment/Singleton.h>
+
+#include <unordered_map>
 
 class QComboBox;
 
 namespace sky::editor {
+
+    class AssetPreviewWidget : public QWidget {
+    public:
+        AssetPreviewWidget();
+        ~AssetPreviewWidget();
+
+        void SetWidget(QWidget* widget);
+    };
+
+    class IAssetPreviewWndFactory {
+    public:
+        IAssetPreviewWndFactory() = default;
+        virtual ~IAssetPreviewWndFactory() = default;
+
+        virtual bool SetupWidget(AssetPreviewWidget& widget, const AssetSourcePtr& src) = 0;
+    };
+
+    class AssetPreviewManager : public Singleton<AssetPreviewManager> {
+    public:
+        AssetPreviewManager() = default;
+        ~AssetPreviewManager() = default;
+
+        void Register(const std::string_view &type, IAssetPreviewWndFactory* factory)
+        {
+            factories[type].reset(factory);
+        }
+
+        IAssetPreviewWndFactory* Find(const std::string_view& type)
+        {
+            auto iter = factories.find(type);
+            return iter != factories.end() ? iter->second.get() : nullptr;
+        }
+
+    private:
+        std::unordered_map<std::string_view, std::unique_ptr<IAssetPreviewWndFactory>> factories;
+    };
+
+    struct ImportSettingDlg : public QDialog {
+    public:
+        explicit ImportSettingDlg(const QString& src);
+        ~ImportSettingDlg() = default;
+
+        const AssetImportRequest& GetConfig() const { return config; }
+    private:
+        AssetImportRequest config;
+    };
 
     class AssetFilterProxyModel : public QSortFilterProxyModel {
     public:

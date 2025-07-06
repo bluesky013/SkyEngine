@@ -144,6 +144,12 @@ namespace sky {
         return fs->OpenFile(src->path.path);
     }
 
+    FilePtr AssetDataBase::OpenFile(const AssetSourcePath &path)
+    {
+        const auto &fs = GetFileSystemBySourcePath(path);
+        return fs->OpenFile(path.path);
+    }
+
     FilePtr AssetDataBase::CreateOrOpenFile(const AssetSourcePath &path)
     {
         const auto &fs = GetFileSystemBySourcePath(path);

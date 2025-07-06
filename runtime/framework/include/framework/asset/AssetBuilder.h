@@ -23,6 +23,8 @@ namespace sky {
 
         virtual void Import(const AssetImportRequest &request) const {}
 
+        virtual Any RequireImportSetting(const FilePath &request) const { return Any{}; }
+
         virtual void Request(const AssetBuildRequest &request, AssetBuildResult &result) {}
 
         virtual std::string_view QueryType(const std::string &ext) const { return ""; }

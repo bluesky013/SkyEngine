@@ -8,6 +8,7 @@ namespace sky {
 
     void AnimationClip::AddChannel(const AnimChannelPtr &channel)
     {
+        duration = std::max(duration, channel->GetDuration());
         channels.emplace_back(channel);
     }
 

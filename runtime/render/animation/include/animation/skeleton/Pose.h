@@ -6,18 +6,20 @@
 
 #include <core/template/ReferenceObject.h>
 #include <core/math/Transform.h>
-#include <vector>
+#include <core/name/Name.h>
+#include <unordered_map>
 
 namespace sky {
 
-    class PoseBase : public RefObject {
-    public:
-        explicit PoseBase(std::vector<Transform> transforms) : bones(std::move(transforms)) {}
-        ~PoseBase() override = default;
-
-    private:
-        std::vector<Transform> bones;
+    struct BoneTransform {
+        Vector3 position;
+        Vector3 scale;
+        Quaternion rotation;
     };
-    using PosePtr = CounterPtr<PoseBase>;
+
+    struct AnimPose : public RefObject {
+        std::unordered_map<Name, BoneTransform> bones;
+    };
+    using AnimPosePtr = CounterPtr<AnimPose>;
 
 } // namespace sky

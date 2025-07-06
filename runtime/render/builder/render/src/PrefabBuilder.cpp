@@ -12,6 +12,7 @@
 #include <core/math/MathUtil.h>
 
 #include <framework/asset/AssetDataBase.h>
+#include <framework/serialization/SerializationContext.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
@@ -61,7 +62,7 @@ namespace sky::builder {
         std::vector<AssetSourcePtr> meshes;
         std::vector<AssetSourcePtr> materials;
 
-        SkeletonAssetData skeleton;
+        SkeletonAssetBuildContext skeleton;
         AssetSourcePtr skeletonSource;
         std::vector<RenderPrefabNode> nodes;
     };
@@ -264,17 +265,15 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSkeletonBone(aiMesh *mesh, const aiScene *scene, SkeletonAssetData &skeleton)
+    static void ProcessSkeletonBone(aiMesh *mesh, const aiScene *scene, SkeletonAssetBuildContext &skeleton)
     {
         for (uint32_t i = 0; i < mesh->mNumBones; ++i) {
             auto &aBone = mesh->mBones[i];
-            std::string boneName = aBone->mName.C_Str();
-
-            uint32_t boneIndex = 0;
-            if (auto iter = skeleton.nameToIndexMap.find(Name(aBone->mName.C_Str())); iter != skeleton.nameToIndexMap.end()) {
-                boneIndex = iter->second;
-            } else {
-                boneIndex = skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
+            Name boneName(aBone->mName.C_Str());
+            
+            auto iter = skeleton.nameToIndexMap.find(boneName);
+            if (iter == skeleton.nameToIndexMap.end()) {
+                skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
             }
         }
     }
@@ -291,7 +290,7 @@ namespace sky::builder {
                 uint32_t vertexId = baseVertex + bone->mWeights[j].mVertexId;
                 auto &vBone = context.bone[vertexId];
 
-                auto boneId = prefabContext.skeleton.FindBoneByName(bone->mName.C_Str());
+                auto boneId = prefabContext.skeleton.FindBoneByName(Name(bone->mName.C_Str()));
                 SKY_ASSERT(boneId < prefabContext.skeleton.nameToIndexMap.size());
 
                 for (uint32_t k = 0; k < MAX_BONE_PER_VERTEX; ++k) {
@@ -305,24 +304,25 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSkeletonHierarchy(const aiScene *scene, const aiNode* node, uint32_t parentIndex, SkeletonAssetData &skeleton) // NOLINT
+    static void ProcessSkeletonHierarchy(const aiScene *scene, const aiNode* node, uint32_t parentIndex, SkeletonAssetBuildContext &skeleton) // NOLINT
     {
-        uint32_t boneIndex = skeleton.FindBoneByName(node->mName.C_Str());
-
+        uint32_t boneIndex = skeleton.FindBoneByName(Name(node->mName.C_Str()));
+        
         if (boneIndex != INVALID_BONE_ID) {
-            skeleton.boneData[boneIndex].name = Name(node->mName.C_Str());
-            skeleton.boneData[boneIndex].parentIndex = parentIndex;
-
+            
+            skeleton.data.boneData[boneIndex].name = Name(node->mName.C_Str());
+            skeleton.data.boneData[boneIndex].parentIndex = parentIndex;
+            
             aiVector3t<ai_real> scaling = {};
             aiQuaterniont<ai_real> rotation = {};
             aiVector3t<ai_real> position = {};
             node->mTransformation.Decompose(scaling, rotation, position);
-            skeleton.refPos[boneIndex].translation = FromAssimp(position);
-            skeleton.refPos[boneIndex].rotation = FromAssimp(rotation);
-            skeleton.refPos[boneIndex].scale = FromAssimp(scaling);
+            skeleton.data.refPos[boneIndex].translation = FromAssimp(position);
+            skeleton.data.refPos[boneIndex].rotation = FromAssimp(rotation);
+            skeleton.data.refPos[boneIndex].scale = FromAssimp(scaling);
             parentIndex = boneIndex;
+            
         }
-
         for (uint32_t i = 0 ; i < node->mNumChildren ; i++) {
             ProcessSkeletonHierarchy(scene, node->mChildren[i], parentIndex, skeleton);
         }
@@ -528,11 +528,11 @@ namespace sky::builder {
     {
         channel.name = anim->mNodeName.C_Str();
 
-        channel.position.time.resize(anim->mNumPositionKeys);
+        channel.position.times.resize(anim->mNumPositionKeys);
         channel.position.keys.resize(anim->mNumPositionKeys);
         for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
             const auto &src = anim->mPositionKeys[i];
-            auto &dstTime = channel.position.time[i];
+            auto &dstTime = channel.position.times[i];
             auto &dstPos = channel.position.keys[i];
             dstTime = static_cast<float>(src.mTime);
             dstPos.x = src.mValue.x;
@@ -540,11 +540,11 @@ namespace sky::builder {
             dstPos.z = src.mValue.z;
         }
 
-        channel.scale.time.resize(anim->mNumScalingKeys);
+        channel.scale.times.resize(anim->mNumScalingKeys);
         channel.scale.keys.resize(anim->mNumScalingKeys);
         for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
             const auto &src = anim->mScalingKeys[i];
-            auto &dstTime = channel.scale.time[i];
+            auto &dstTime = channel.scale.times[i];
             auto &dstScale = channel.scale.keys[i];
             dstTime = static_cast<float>(src.mTime);
             dstScale.x = src.mValue.x;
@@ -552,11 +552,11 @@ namespace sky::builder {
             dstScale.z = src.mValue.z;
         }
 
-        channel.rotation.time.resize(anim->mNumRotationKeys);
+        channel.rotation.times.resize(anim->mNumRotationKeys);
         channel.rotation.keys.resize(anim->mNumRotationKeys);
         for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
             const auto &src = anim->mRotationKeys[i];
-            auto &dstTime = channel.rotation.time[i];
+            auto &dstTime = channel.rotation.times[i];
             auto &dstRot = channel.rotation.keys[i];
             dstTime = static_cast<float>(src.mTime);
             dstRot.x = src.mValue.x;
@@ -591,8 +591,8 @@ namespace sky::builder {
             {
                 auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
                 auto archive = file->WriteAsArchive();
-                BinaryOutputArchive bin(*archive);
-                context.skeleton.Save(bin);
+                JsonOutputArchive json(*archive);
+                context.skeleton.data.SaveJson(json);
             }
 
             context.skeletonSource = AssetDataBase::Get()->RegisterAsset(sourcePath);
@@ -638,11 +638,22 @@ namespace sky::builder {
         }
     }
 
+    void PrefabBuilder::Reflect(SerializationContext* context)
+    {
+        context->Register<PrefabImportConfig>("PrefabImportConfig")
+            .Member<&PrefabImportConfig::skeletonOnly>("SkeletonOnly");
+    }
+
+    Any PrefabBuilder::RequireImportSetting(const FilePath &request) const
+    {
+        return MakeAny<PrefabImportConfig>();
+    }
+
     void PrefabBuilder::Import(const AssetImportRequest &request) const
     {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(request.filePath.GetStr(),
-            aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData);
+            aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights);
         if(scene == nullptr) {
             return;
         }
@@ -652,13 +663,20 @@ namespace sky::builder {
             ProcessAnimation(scene, context);
             return;
         }
-
+        
         auto prefabName = request.filePath.FileName();
         context.path.bundle = SourceAssetBundle::WORKSPACE;
         context.path.path = FilePath("Prefabs") / prefabName;
         context.name = request.filePath.FileNameWithoutExt();
-
+        
         AssetDataBase::Get()->GetWorkSpaceFs()->CreateSubSystem(context.path.path.GetStr(), true);
+
+        auto *config = request.config.GetAsConst<PrefabImportConfig>();
+        if (config != nullptr && config->skeletonOnly) {
+            ProcessSkeleton(scene, context);
+            return;
+        }
+
         ProcessMaterials(scene, context, request);
 
         ProcessSkeleton(scene, context);

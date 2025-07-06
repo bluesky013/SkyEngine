@@ -16,8 +16,14 @@ namespace sky {
         ~AnimationClip() override = default;
 
         void AddChannel(const AnimChannelPtr &channel);
+
+        inline float GetDuration() const { return duration; }
+        inline const Name& GetName() const { return name; }
+        inline bool IsLooping() const { return isLooping; }
     private:
         Name name;
+        bool isLooping = false;
+        float duration = 0.f;
         std::vector<AnimChannelPtr> channels;
     };
     using AnimClipPtr = CounterPtr<AnimationClip>;

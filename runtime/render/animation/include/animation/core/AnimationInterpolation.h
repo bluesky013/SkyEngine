@@ -28,28 +28,26 @@ namespace sky {
     template <typename T>
     T AnimSampleChannel(const AnimChannelData<T> &data, const SampleParam &param)
     {
-        SKY_ASSERT(data.time.size() == data.keys.size());
-        SKY_ASSERT(!data.time.empty());
+        SKY_ASSERT(data.times.size() == data.keys.size());
+        SKY_ASSERT(!data.times.empty());
 
-        uint32_t k = 0;
-        for (k = 0; k < data.time.size(); ++k) {
-            if (param.timePoint < data.time[k]) {
-                break;
-            }
+        auto [t1, t2] = data.FindKeyFrame(param.timePoint);
+
+        if (t1 == t2) {
+            return data.keys[t1];
         }
 
-        const T vk1 = {};
-        const T vk2 = {};
-        float t = 0.f;
+        const T &vk1 = data.keys[t1];
+        const T &vk2 = data.keys[t2];
+        float t = (param.timePoint - data.times[t1]) / (data.times[t2] - data.times[t1]);
 
         switch (param.interpolation) {
-            case Interpolation::STEP:
+            case AnimInterpolation::STEP:
                 return vk1;
-                break;
-            case Interpolation::CUBIC_SPLINE: // not supported yet.
-            case Interpolation::LINEAR:
+            case AnimInterpolation::CUBIC_SPLINE: // not supported yet.
+            case AnimInterpolation::LINEAR:
                 if constexpr (std::is_same_v<T, Quaternion>) {
-                    return SphericalLinear(vk1, vk2, t);
+                    return AnimSphericalLinear(vk1, vk2, t);
                 } else {
                     return AnimInterpolateLinear(vk1, vk2, t);
                 }

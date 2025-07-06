@@ -70,6 +70,11 @@ namespace sky {
             SaveValue(v.data(), static_cast<uint32_t>(v.length()));
         }
 
+        void SaveValue(const std::string_view &v)
+        {
+            SaveValue(static_cast<uint32_t>(v.length()));
+            SaveValue(v.data(), static_cast<uint32_t>(v.length()));
+        }
 
         void SaveObject(const void* data, const Uuid &id);
 

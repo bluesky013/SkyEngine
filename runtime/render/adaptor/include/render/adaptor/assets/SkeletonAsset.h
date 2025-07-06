@@ -13,12 +13,20 @@ namespace sky {
 
     struct SkeletonAssetData : public SkeletonData {
         uint32_t version = 0;
+        
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
 
-        uint32_t AdddBone(const std::string &name, const Matrix4 &matrix);
-        uint32_t FindBoneByName(const std::string &name) const;
+        void LoadBin(BinaryInputArchive &archive);
+        void SaveBin(BinaryOutputArchive &archive) const;
+    };
 
-        void Load(BinaryInputArchive &archive);
-        void Save(BinaryOutputArchive &archive) const;
+    struct SkeletonAssetBuildContext {
+        void AdddBone(const Name &name, const Matrix4 &matrix);
+        uint32_t FindBoneByName(const Name &name) const;
+        
+        std::unordered_map<Name, uint32_t> nameToIndexMap;
+        SkeletonAssetData data;
     };
 
     template <>

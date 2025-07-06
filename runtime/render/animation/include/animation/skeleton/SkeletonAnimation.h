@@ -1,25 +1,22 @@
 //
-// Created by blues on 2024/8/30.
+// Created by Zach Lee on 2025/6/15.
 //
 
 #pragma once
 
 #include <animation/core/Animation.h>
-#include <animation/core/AnimationNodeChannel.h>
-#include <animation/core/AnimationClip.h>
 #include <animation/skeleton/Skeleton.h>
 
 namespace sky {
 
     class SkeletonAnimation : public Animation {
     public:
-        SkeletonAnimation() = default;
+        explicit SkeletonAnimation(const SkeletonPtr& skeleton);
         ~SkeletonAnimation() override = default;
 
     private:
-        void Tick(float delta) override;
+        void Tick(float deltaTime) override;
 
-        AnimClipPtr clip;
         SkeletonPtr skeleton;
     };
 

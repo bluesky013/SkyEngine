@@ -32,7 +32,6 @@ namespace sky {
         std::vector<BoneData> boneData;
         std::vector<Matrix4> inverseBindMatrix;
         std::vector<Transform> refPos;
-        std::unordered_map<Name, uint32_t> nameToIndexMap;
     };
 
     class Skeleton : public RefObject {
@@ -41,8 +40,6 @@ namespace sky {
         ~Skeleton() override = default;
 
     private:
-        PosePtr refPose;
-
         Bone root = {};
         std::vector<Bone> bones;
 

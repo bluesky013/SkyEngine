@@ -117,12 +117,25 @@ namespace sky {
         });
     }
 
+    Any AssetBuilderManager::GetImportConfig(const FilePath &filePath)
+    {
+        auto ext = filePath.Extension();
+        auto *builder = QueryBuilder(ext);
+        if (builder == nullptr) {
+            return Any{};
+        }
+        return builder->RequireImportSetting(filePath);
+    }
+
     void AssetBuilderManager::ImportAsset(const AssetImportRequest &request)
     {
-        AssetExecutor::Get()->DependentAsync([this, request]() {
-            auto ext = request.filePath.Extension();
+        auto ext = request.filePath.Extension();
+        auto *builder = QueryBuilder(ext);
+        if (builder == nullptr) {
+            return;
+        }
 
-            auto *builder = QueryBuilder(ext);
+        AssetExecutor::Get()->DependentAsync([request, builder]() {
             builder->Import(request);
         });
     }

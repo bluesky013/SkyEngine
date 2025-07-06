@@ -23,8 +23,12 @@ namespace sky {
         ~AnimationChannel() override = default;
 
         virtual void Sample(const SampleParam &param, const AnimSampleResultPtr &ptr) = 0;
+
+        inline float GetDuration() const { return duration; }
+        inline const Name& GetName() const { return name; }
     protected:
         Name name;
+        float duration;
     };
 
     using AnimChannelPtr = CounterPtr<AnimationChannel>;

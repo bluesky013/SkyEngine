@@ -41,11 +41,19 @@ namespace sky {
     void JsonLoadVec3(Vector3 &val, JsonInputArchive &ar)    { LoadN<3>(val.v, ar); }
     void JsonLoadVec4(Vector4 &val, JsonInputArchive &ar)    { LoadN<4>(val.v, ar); }
     void JsonLoadQuat(Quaternion &val, JsonInputArchive &ar) { LoadN<4>(val.v, ar); }
+    void JsonLoadMat4(Matrix4 &val, JsonInputArchive &ar)
+    {
+        LoadN<16>(val.v, ar);
+    }
 
     void JsonSaveVec2(const Vector2 &val, JsonOutputArchive &ar)    { SaveN<2>(val.v, ar); }
     void JsonSaveVec3(const Vector3 &val, JsonOutputArchive &ar)    { SaveN<3>(val.v, ar); }
     void JsonSaveVec4(const Vector4 &val, JsonOutputArchive &ar)    { SaveN<4>(val.v, ar); }
     void JsonSaveQuat(const Quaternion &val, JsonOutputArchive &ar) { SaveN<4>(val.v, ar); }
+    void JsonSaveMat4(const Matrix4 &val, JsonOutputArchive &ar)
+    {
+        SaveN<16>(val.v, ar);
+    }
 
     void JsonSaveUuid(const Uuid &uuid, JsonOutputArchive &ar) { ar.SaveValue(uuid.ToString()); }
     void JsonLoadUuid(Uuid &uuid, JsonInputArchive &ar) { uuid = Uuid::CreateFromString(ar.LoadString()); }
@@ -91,6 +99,10 @@ namespace sky {
             .Member<&Quaternion::w>("w")
             .JsonSave<&JsonSaveQuat>()
             .JsonLoad<&JsonLoadQuat>();
+        
+        context->Register<Matrix4>("Matrix4")
+            .JsonSave<&JsonSaveMat4>()
+            .JsonLoad<&JsonLoadMat4>();
 
         context->Register<Transform>("Transform")
             .Member<&Transform::translation>("translation")

@@ -12,6 +12,20 @@ namespace sky {
         , scale(data.scale)
         , rotation(data.rotation)
     {
+        if (!position.times.empty())
+        {
+            duration = std::max(duration, position.times.back());
+        }
+
+        if (!scale.times.empty())
+        {
+            duration = std::max(duration, scale.times.back());
+        }
+
+        if (!rotation.times.empty())
+        {
+            duration = std::max(duration, rotation.times.back());
+        }
     }
 
     void AnimationNodeChannel::Sample(const SampleParam &param, const AnimSampleResultPtr &ptr)

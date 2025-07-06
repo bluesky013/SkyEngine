@@ -19,6 +19,7 @@
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/dockwidget/AssetWidget.h>
 #include <editor/dockwidget/InspectorWidget.h>
+#include <editor/framework/AssetBrowserWidget.h>
 
 namespace sky::editor {
 
@@ -134,7 +135,12 @@ namespace sky::editor {
         if (fileNames.empty()) {
             return;
         }
-        AssetBuilderManager::Get()->ImportAsset({fileNames[0].toStdString()});
+
+        ImportSettingDlg setting(fileNames[0]);
+        if (setting.exec() != 0) {
+            const auto& cfg = setting.GetConfig();
+            AssetBuilderManager::Get()->ImportAsset(cfg);
+        }
     }
 
     void MainWindow::InitWidgets()

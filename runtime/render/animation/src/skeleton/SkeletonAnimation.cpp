@@ -1,12 +1,17 @@
 //
-// Created by blues on 2024/8/30.
+// Created by Zach Lee on 2025/6/15.
 //
 
 #include <animation/skeleton/SkeletonAnimation.h>
 
 namespace sky {
 
-    void SkeletonAnimation::Tick(float delta)
+    SkeletonAnimation::SkeletonAnimation(const SkeletonPtr& inSkeleton)
+        : skeleton(inSkeleton)
+    {
+    }
+
+    void SkeletonAnimation::Tick(float deltaTime)
     {
 
     }

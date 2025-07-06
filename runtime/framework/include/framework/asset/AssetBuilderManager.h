@@ -30,6 +30,7 @@ namespace sky {
 
         void LoadBuildConfigs(const FileSystemPtr &fs);
 
+        Any GetImportConfig(const FilePath &request);
         void ImportAsset(const AssetImportRequest &request);
 
         void BuildRequest(const AssetBuildRequest &request);
