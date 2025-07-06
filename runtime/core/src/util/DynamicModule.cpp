@@ -34,19 +34,12 @@ namespace sky {
 
     bool DynamicModule::Load()
     {
-        std::vector<std::string> names = {name, name + "d"};
-
-        for (auto &ptr : names) {
-            std::string libName = DYN_PREFIX + ptr + DYN_SUFFIX;
+        std::string libName = DYN_PREFIX + name + DYN_SUFFIX;
 #ifdef _WIN32
-            handle = ::LoadLibraryExA(libName.c_str(), nullptr, 0);
+        handle = ::LoadLibraryExA(libName.c_str(), nullptr, 0);
 #else
-            handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+        handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
-            if (handle != nullptr) {
-                break;
-            }
-        }
         return handle != nullptr;
     }
 
@@ -77,6 +70,23 @@ namespace sky {
     bool DynamicModule::IsLoaded() const
     {
         return handle != nullptr;
+    }
+
+    std::string DynamicModule::GetLastError() const
+    {
+        std::string res;
+#ifdef _WIN32
+        DWORD err = ::GetLastError();
+        switch (err) {
+        case ERROR_MOD_NOT_FOUND: res = "Not Found"; break;
+        case ERROR_BAD_EXE_FORMAT: res = "Arch Not Match"; break;
+        case ERROR_ACCESS_DENIED: res = "Access Denied"; break;
+        default:
+            res = "Unknown";
+            break;
+        }
+#endif
+        return res;
     }
 
 } // namespace sky

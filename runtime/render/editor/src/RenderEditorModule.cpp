@@ -3,6 +3,9 @@
 //
 
 #include <render/editor/RenderEditorModule.h>
+#include <render/editor/animation/SkeletonPreviewWindow.h>
+#include <editor/framework/AssetBrowserWidget.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
 
 namespace sky::editor {
 
@@ -12,6 +15,7 @@ namespace sky::editor {
             return false;
         }
         RegisterActorCreators<RenderCubeActorCreator>(BuiltinGeometryType::CUBE);
+        AssetPreviewManager::Get()->Register(AssetTraits<Skeleton>::ASSET_TYPE, new SkeletonPreviewWindow());
         return true;
     }
 

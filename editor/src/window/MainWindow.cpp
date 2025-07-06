@@ -19,6 +19,7 @@
 #include <editor/dockwidget/WorldWidget.h>
 #include <editor/dockwidget/AssetWidget.h>
 #include <editor/dockwidget/InspectorWidget.h>
+#include <editor/framework/AssetBrowserWidget.h>
 
 namespace sky::editor {
 
@@ -56,7 +57,7 @@ namespace sky::editor {
         }
 
         worldWidget->SetWorld(world);
-        mainViewport->ResetWorld(world);
+        mainViewport->ResetWorld(world, ViewportFlagBit::ENABLE_GUIZMO);
         toolBar->SetWorld(worldWidget->GetWorldTreeView());
         toolBar->SetCamera(mainViewport->GetCamera());
         setCentralWidget(mainViewport);
@@ -76,7 +77,7 @@ namespace sky::editor {
         }
 
         worldWidget->SetWorld(world);
-        mainViewport->ResetWorld(world);
+        mainViewport->ResetWorld(world, ViewportFlagBit::ENABLE_GUIZMO);
         toolBar->SetWorld(worldWidget->GetWorldTreeView());
         toolBar->SetCamera(mainViewport->GetCamera());
         UpdateActions();
@@ -89,7 +90,7 @@ namespace sky::editor {
         toolBar->SetWorld(nullptr);
         toolBar->SetCamera(nullptr);
         inspector->OnSelectedItemChanged(nullptr);
-        mainViewport->ResetWorld(nullptr);
+        mainViewport->ResetWorld(nullptr, ViewportFlagBit::NONE);
         document->CloseWorld();
         UpdateActions();
     }
@@ -134,7 +135,12 @@ namespace sky::editor {
         if (fileNames.empty()) {
             return;
         }
-        AssetBuilderManager::Get()->ImportAsset({fileNames[0].toStdString()});
+
+        ImportSettingDlg setting(fileNames[0]);
+        if (setting.exec() != 0) {
+            const auto& cfg = setting.GetConfig();
+            AssetBuilderManager::Get()->ImportAsset(cfg);
+        }
     }
 
     void MainWindow::InitWidgets()
@@ -149,9 +155,12 @@ namespace sky::editor {
         addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, worldWidget);
         dockMgr->Register((uint32_t)DockId::WORLD, *worldWidget);
 
-        inspector = new InspectorWidget(this);
-        addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, inspector);
-        dockMgr->Register((uint32_t)DockId::INSPECTOR, *inspector);
+        container = new InspectorContainer(this);
+        addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, container);
+        dockMgr->Register((uint32_t)DockId::INSPECTOR, *container);
+        
+        inspector = new InspectorWidget(container);
+        container->AddTab(inspector, "Components");
 
         connect(worldWidget->GetWorldTreeView(), &WorldTreeView::WorldTreeSelectItemChanged, inspector, &InspectorWidget::OnSelectedItemChanged);
 

@@ -9,6 +9,7 @@
 #include <QMimeData>
 #include <QApplication>
 #include <QScreen>
+#include <QMenu>
 #include <render/adaptor/pipeline/DefaultForwardPipeline.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderPassPipeline.h>
@@ -234,16 +235,53 @@ namespace sky::editor {
 
     ViewportWidget::ViewportWidget(QWidget *parent) : QWidget(parent)
     {
+        setAcceptDrops(true);
+        setContextMenuPolicy(Qt::CustomContextMenu);
+
         layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
 
         grid = std::make_unique<Grid>();
 
         binder.Bind(this);
-        setAcceptDrops(true);
+
+        connect(this, &QWidget::customContextMenuRequested, this,[=](const QPoint &pos){
+            QMenu menu(this);
+
+            QActionGroup *actionGroup = new QActionGroup(&menu);
+
+            static constexpr uint32_t SPEED_LEVEL = 4;
+            static const char* SPEED_TEXT[SPEED_LEVEL] = {
+                "VerySlow",
+                "Slow",
+                "Fast",
+                "VeryFast"
+            };
+
+            static const float SPEED_VAL[SPEED_LEVEL] = {
+                0.1f,
+                1.f,
+                10.f,
+                100.f
+            };
+
+            for (uint32_t i = 0; i < SPEED_LEVEL; ++i) {
+                QAction *action = menu.addAction(SPEED_TEXT[i]);
+                action->setCheckable(true);
+                action->setChecked(i == 0);
+                float speed = SPEED_VAL[i];
+                connect(action, &QAction::triggered, this, [this, speed]() {
+                    editorCamera->SetMoveSpeed(speed);
+                });
+                actionGroup->addAction(action);
+            }
+
+            // 显示菜单
+            menu.exec(mapToGlobal(pos));
+        });
     }
 
-    void ViewportWidget::ResetWorld(const WorldPtr &world_)
+    void ViewportWidget::ResetWorld(const WorldPtr &world_, ViewportFlags flags)
     {
         if (windowContainer != nullptr) {
             layout->removeWidget(windowContainer);
@@ -258,7 +296,7 @@ namespace sky::editor {
             layout->addWidget(windowContainer);
             Event<ISystemEvent>::BroadCast(&ISystemEvent::OnMainWindowCreated, window);
 
-            UpdatePipeline();
+            UpdatePipeline(flags);
         } else {
 
             ResetPipeline();
@@ -317,7 +355,7 @@ namespace sky::editor {
     {
     }
 
-    void ViewportWidget::UpdatePipeline()
+    void ViewportWidget::UpdatePipeline(ViewportFlags flags)
     {
         renderWindow = Renderer::Get()->CreateRenderWindow(window->GetNativeHandle(),
                                             window->GetWidth(),
@@ -342,7 +380,7 @@ namespace sky::editor {
         editorCamera->Init(sceneProxy->GetRenderScene(), window);
 
         auto *gizmoFactory = Interface<IGizmoFactory>::Get()->GetApi();
-        if (gizmoFactory != nullptr) {
+        if (gizmoFactory != nullptr && flags.TestBit(ViewportFlagBit::ENABLE_GUIZMO)) {
             gizmo.reset(gizmoFactory->CreateGizmo());
             gizmo->Init(*world, window);
         }

@@ -25,8 +25,6 @@
     #define SKY_IMPORT __attribute__((visibility("default")))
 #endif
 
-
-// 检测操作系统平台
 #if defined(_WIN32) || defined(_WIN64)
     #define SKY_PLATFORM_WINDOWS 1
 #elif defined(__APPLE__)

@@ -22,8 +22,8 @@ namespace sky {
 
         virtual void Tick(float time) {}
 
-        virtual void SaveJson(JsonOutputArchive &archive) const {}
-        virtual void LoadJson(JsonInputArchive &archive) {}
+        virtual void SaveJson(JsonOutputArchive &archive) const;
+        virtual void LoadJson(JsonInputArchive &archive);
 
         virtual void SaveBin(BinaryOutputArchive &archive) const {}
         virtual void LoadBin(BinaryInputArchive &archive) {}

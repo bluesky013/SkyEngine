@@ -10,7 +10,7 @@ struct VSOutput
     float4 Color : COLOR;
 };
 
-#include "layout/default_pass.hlslh"
+#include "layout/default_global_view.hlslh"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]

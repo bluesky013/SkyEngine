@@ -40,8 +40,14 @@ namespace sky::editor {
     void WorldTreeView::OnSelectItemChanged(const QItemSelection &selected, const QItemSelection &deselected)
     {
         auto indexes = selected.indexes();
+        
+        WorldActorItem* item = nullptr;
         if (indexes.size() == 1) {
-            auto *item = dynamic_cast<WorldActorItem*>(model->itemFromIndex(indexes[0]));
+            auto *sItem = model->itemFromIndex(indexes[0]);
+            item = dynamic_cast<WorldActorItem*>(sItem);
+        }
+        
+        if (item != nullptr) {
             emit WorldTreeSelectItemChanged(item != nullptr ? item->actor : nullptr);
             SelectEvent::BroadCast(&ISelectEvent::OnActorSelected, item->actor.get());
         } else {

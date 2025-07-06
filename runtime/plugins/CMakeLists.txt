@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Plugins)
+
 if (SKY_EDITOR)
     add_subdirectory(guizmo)
 endif ()

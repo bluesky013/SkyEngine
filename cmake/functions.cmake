@@ -31,6 +31,9 @@ function(sky_add_exe)
     endforeach()
     target_include_directories(${TMP_TARGET} PRIVATE ${TMP_INCS})
     target_link_libraries(${TMP_TARGET} ${TMP_LIBS})
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
 
 
 endfunction()
@@ -90,6 +93,9 @@ function(sky_add_library)
     target_include_directories(${TMP_TARGET} PRIVATE ${TMP_PRIVATE_INC})
     target_include_directories(${TMP_TARGET} PUBLIC ${TMP_PUBLIC_INC})
     target_link_libraries(${TMP_TARGET} ${LINK_LIBRARIES})
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
 
 endfunction()
 
@@ -124,6 +130,9 @@ function(sky_add_test)
         COMMAND ${TMP_TARGET}
         WORKING_DIRECTORY ${TMP_WORKING_DIR}
     )
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
 endfunction()
 
 function(sky_add_dependency)

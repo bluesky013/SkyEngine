@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Foundation)
+
 file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)
 

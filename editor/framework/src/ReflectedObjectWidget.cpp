@@ -18,6 +18,13 @@ namespace sky::editor {
         emit ValueChanged();
     }
 
+    void ReflectedObjectWidget::Refresh()
+    {
+        for (auto *member : members) {
+            member->Refresh();
+        }
+    }
+
     ReflectedObjectWidget::ReflectedObjectWidget(void *obj, const TypeNode *node, QWidget *parent)
         : QWidget(parent)
         , object(obj)
@@ -30,8 +37,7 @@ namespace sky::editor {
         layout->setSpacing(0);
         layout->setHorizontalSpacing(32);
         setLayout(layout);
-        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-        setMinimumWidth(32);
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
         for (const auto &[name, memberInfo] : typeNode->members) {
             ReflectedMemberWidget *widget = nullptr;
@@ -80,6 +86,7 @@ namespace sky::editor {
 
             if (widget != nullptr) {
                 layout->addRow(name.data(), widget);
+                members.emplace_back(widget);
             }
 
             connect(widget, &ReflectedMemberWidget::ValueChanged, this, &ReflectedObjectWidget::OnValueChanged);

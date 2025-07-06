@@ -221,6 +221,7 @@ namespace sky {
         void SaveValue(double v)     { writer.Double(v); }
 
         void SaveValue(std::string const & s) { writer.String(s.c_str(), static_cast<rapidjson::SizeType>(s.size())); }
+        void SaveValue(std::string_view const & s) { writer.String(s.data(), static_cast<rapidjson::SizeType>(s.size())); }
         void SaveValue(char const * s)        { writer.String(s); }
         void SaveValue(std::nullptr_t)        { writer.Null(); }
 

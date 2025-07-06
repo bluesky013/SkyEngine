@@ -10,6 +10,11 @@ namespace sky {
 
     FirstPersonController::FirstPersonController() = default;
 
+    void FirstPersonController::SetMoveSpeed(float speed)
+    {
+        moveSpeed = speed;
+    }
+
     Transform FirstPersonController::Resolve(float time, const Transform &trans)
     {
         Transform res = trans;

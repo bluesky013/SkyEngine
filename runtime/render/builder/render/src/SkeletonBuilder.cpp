@@ -10,10 +10,10 @@ namespace sky::builder {
     {
         auto asset = AssetManager::Get()->FindOrCreateAsset<Skeleton>(request.assetInfo->uuid);
         auto archive = request.file->ReadAsArchive();
-        BinaryInputArchive bin(*archive);
+        JsonInputArchive json(*archive);
 
         auto &data = asset->Data();
-        data.Load(bin);
+        data.LoadJson(json);
 
         asset->ResetDependencies();
         AssetManager::Get()->SaveAsset(asset, request.target);

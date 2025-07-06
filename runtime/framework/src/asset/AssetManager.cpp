@@ -134,7 +134,6 @@ namespace sky {
                 asset->depAssets.swap(deps);
                 auto res = assetHandlers[asset->type]->Load(*archive, asset);
                 asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
-
                 AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded);
             }, asyncTasks.begin(), asyncTasks.end());
 

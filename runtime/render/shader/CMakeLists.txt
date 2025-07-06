@@ -59,6 +59,7 @@ if (SKY_BUILD_TEST)
             ShaderCompiler.Static
             3rdParty::googletest
     )
-    add_dependencies(ShaderTool ShaderCompiler)
 endif ()
+
+add_dependencies(ShaderTool ShaderCompiler)
 sky_add_dependency(TARGET ShaderCompiler DEPENDENCIES Launcher AssetBuilder Editor)

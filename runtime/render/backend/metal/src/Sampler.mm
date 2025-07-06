@@ -25,7 +25,7 @@ namespace sky::mtl {
         samplerDesc.mipFilter = FromRHI(desc.mipmapMode);
         samplerDesc.lodMinClamp = desc.minLod;
         samplerDesc.lodMaxClamp = desc.maxLod;
-        samplerDesc.maxAnisotropy = desc.anisotropyEnable ? desc.maxAnisotropy : 0.f;
+        samplerDesc.maxAnisotropy = desc.anisotropyEnable ? desc.maxAnisotropy : 1.f;
         samplerDesc.rAddressMode = FromRHI(desc.addressModeU);
         samplerDesc.sAddressMode = FromRHI(desc.addressModeV);
         samplerDesc.tAddressMode = FromRHI(desc.addressModeW);

@@ -16,6 +16,7 @@ namespace sky::editor {
     class ViewportWidget;
     class ViewportWindow;
     class WorldWidget;
+    class InspectorContainer;
     class InspectorWidget;
     class AssetWidget;
     class ToolBar;
@@ -49,12 +50,13 @@ namespace sky::editor {
         ToolBar       *toolBar       = nullptr;
         ActionManager *actionManager = nullptr;
 
-        WorldWidget     *worldWidget  = nullptr;
-        InspectorWidget *inspector    = nullptr;
-        AssetWidget     *assetBrowser = nullptr;
-        ViewportWidget  *mainViewport = nullptr;
-        QDockWidget     *toolWidget   = nullptr;
-        QWidget         *emptyCentral = nullptr;
+        WorldWidget        *worldWidget  = nullptr;
+        InspectorContainer *container    = nullptr;
+        InspectorWidget    *inspector    = nullptr;
+        AssetWidget        *assetBrowser = nullptr;
+        ViewportWidget     *mainViewport = nullptr;
+        QDockWidget        *toolWidget   = nullptr;
+        QWidget            *emptyCentral = nullptr;
 
         QString projectPath;
 

@@ -20,7 +20,18 @@ namespace sky {
 
 namespace sky::editor {
 
-    class InspectorWidget : public QDockWidget {
+    class InspectorContainer : public QDockWidget {
+    public:
+        explicit InspectorContainer(QWidget* parent);
+        ~InspectorContainer() override = default;
+        
+        void AddTab(QWidget* widget, const QString& name);
+
+    private:
+        QTabWidget* tabWidget = nullptr;
+    };
+
+    class InspectorWidget : public QWidget {
         Q_OBJECT
     public:
         explicit InspectorWidget(QWidget* parent);

@@ -15,24 +15,31 @@
 
 namespace sky::editor {
 
-    InspectorWidget::InspectorWidget(QWidget *parent) : QDockWidget(parent)
+    InspectorContainer::InspectorContainer(QWidget *parent) : QDockWidget(parent)
     {
         setWindowTitle(tr("Inspector"));
+        tabWidget = new QTabWidget(this);
+        tabWidget->setTabPosition(QTabWidget::North);
+        tabWidget->setMovable(true);
+        setWidget(tabWidget);
+    }
 
-        auto *widget = new QWidget(this);
-        widget->setStyleSheet("background-color:white;");
-        widget->setAcceptDrops(true);
-        widget->setLayout(new QVBoxLayout(widget));
-        widget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
-        setWidget(widget);
+    void InspectorContainer::AddTab(QWidget* widget, const QString& name)
+    {
+        tabWidget->addTab(widget, name);
+    }
 
-        auto *rootLayout = widget->layout();
+    InspectorWidget::InspectorWidget(QWidget *parent) : QWidget(parent)
+    {
+        setLayout(new QVBoxLayout(this));
+
+        auto *rootLayout = layout();
         rootLayout->setAlignment(Qt::AlignTop);
 
-        button = new QPushButton(tr("Add Component"), widget);
+        button = new QPushButton(tr("Add Component"), this);
         connect(button, &QPushButton::clicked, this, &InspectorWidget::OnAddComponentClicked);
 
-        groupWidget = new QWidget(widget);
+        groupWidget = new QWidget(this);
         auto *groupLayout = new QVBoxLayout(groupWidget);
         groupLayout->setAlignment(Qt::AlignTop);
         groupWidget->setLayout(groupLayout);

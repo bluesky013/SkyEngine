@@ -57,8 +57,10 @@ namespace sky {
             .BinSave<&AnimationAssetData::Save>();
 
         context->Register<SkeletonAssetData>("SkeletonData")
-                .BinLoad<&SkeletonAssetData::Load>()
-                .BinSave<&SkeletonAssetData::Save>();
+                .JsonLoad<&SkeletonAssetData::LoadJson>()
+                .JsonLoad<&SkeletonAssetData::LoadJson>()
+                .BinLoad<&SkeletonAssetData::LoadBin>()
+                .BinSave<&SkeletonAssetData::SaveBin>();
 
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Material>();

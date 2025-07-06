@@ -270,11 +270,12 @@
 		{
 			"name": "assimp",
 			"url": "https://github.com/assimp/assimp.git",
-			"tag": "v5.4.3",
+			"tag": "v6.0.2",
 			"header_only": false,
 			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
 			"options": {
 				"BUILD_SHARED_LIBS": "ON",
+				"CMAKE_DEBUG_POSTFIX": "",
 				"ASSIMP_BUILD_TESTS": "OFF",
 				"XCODE_CODE_SIGN_IDENTITY": ""
 			}

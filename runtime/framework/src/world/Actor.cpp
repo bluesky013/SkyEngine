@@ -87,11 +87,14 @@ namespace sky {
             archive.End();
 
             archive.Start("data");
-            auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
-            tmp->LoadJson(archive);
-            tmp->actor = this;
-            tmp->OnSerialized();
-            EmplaceComponent(typeId, tmp);
+            auto* iter = context->FindTypeById(typeId);
+            if (iter->info->newFunc != nullptr) {
+                auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
+                tmp->LoadJson(archive);
+                tmp->actor = this;
+                tmp->OnSerialized();
+                EmplaceComponent(typeId, tmp);
+            }
             archive.End();
 
             archive.NextArrayElement();

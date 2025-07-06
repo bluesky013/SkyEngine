@@ -22,6 +22,9 @@
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderTechniqueLibrary.h>
 
+#include <render/adaptor/animation/SkeletonDisplayComponent.h>
+#include <render/adaptor/animation/AnimationPreviewComponent.h>
+
 #include <render/light/LightFeature.h>
 #include <render/env/EnvFeature.h>
 #include <render/mesh/MeshFeature.h>
@@ -45,12 +48,23 @@ namespace sky {
         SkeletonMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
 
-        static std::string GROUP = "Render";
-        ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
+        SkeletonDisplayComponent::Reflect(context);
+        AnimationPreviewComponent::Reflect(context);
+
+        {
+            static std::string GROUP = "Render";
+            ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
+        }
+
+        {
+            static std::string GROUP = "Animation";
+            ComponentFactory::Get()->RegisterComponent<SkeletonDisplayComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<AnimationPreviewComponent>(GROUP);
+        }
     }
 
     void RenderModule::ProcessArgs(const StartArguments &args)
@@ -143,6 +157,7 @@ namespace sky {
             TextFeature::Get()->SetTechnique(tech);
         }
         LoadAndRegister(am, "techniques/meshlet_debug.tech");
+        LoadAndRegister(am, "techniques/debug.tech");
     }
 
     void RenderModule::Shutdown()

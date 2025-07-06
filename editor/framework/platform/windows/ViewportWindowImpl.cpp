@@ -8,7 +8,7 @@ namespace sky::editor {
 
     void* ViewportWindow::GetNativeWindow()
     {
-        return winId();
+        return (void*)winId();
     }
 
 } // namespace sky::editor

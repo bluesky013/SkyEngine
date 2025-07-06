@@ -13,8 +13,77 @@
 #include <QMenu>
 #include <QFileSystemModel>
 #include <QComboBox>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <editor/framework/ReflectedObjectWidget.h>
 
 namespace sky::editor {
+
+    ImportSettingDlg::ImportSettingDlg(const QString& src)
+    {
+        config.config = AssetBuilderManager::Get()->GetImportConfig(src.toStdString());
+
+        QVBoxLayout *mainLayout = new QVBoxLayout(this);
+        setLayout(mainLayout);
+
+        auto* fullPath = new QLineEdit(this);
+        auto* savePath = new QLineEdit(this);
+
+        if (config.config) {
+            auto* cfgWidget = new ReflectedObjectWidget(config.config.Data(), GetTypeNode(config.config.Info()), this);
+            mainLayout->addWidget(cfgWidget);
+        }
+
+        QFormLayout *formLayout = new QFormLayout();
+        formLayout->addRow("Import Path:", fullPath);
+        formLayout->addRow("Save Path:", savePath);
+        connect(fullPath, &QLineEdit::textChanged, this,
+                [this](const QString& txt) {
+                    config.filePath = txt.toStdString();
+                });
+        connect(savePath, &QLineEdit::textChanged, this,
+                [this](const QString& txt) {
+                    config.savePath = txt.toStdString();
+                });
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(
+                QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+        connect(buttonBox, &QDialogButtonBox::accepted, this, &ImportSettingDlg::accept);
+        connect(buttonBox, &QDialogButtonBox::rejected, this, &ImportSettingDlg::reject);
+
+        mainLayout->addLayout(formLayout);
+        mainLayout->addWidget(buttonBox);
+
+        fullPath->setText(src);
+    }
+
+    AssetPreviewWidget::AssetPreviewWidget() : QWidget(nullptr)
+    {
+        setAttribute(Qt::WA_DeleteOnClose);
+        setLayout(new QVBoxLayout(this));
+    }
+
+    AssetPreviewWidget::~AssetPreviewWidget() = default;
+
+    void AssetPreviewWidget::SetWidget(AssetPreviewContentWidget* widget)
+    {
+        content = widget;
+        layout()->addWidget(widget);
+    }
+
+    bool AssetPreviewWidget::event(QEvent *event)
+    {
+        switch (event->type()) {
+        case QEvent::Close:
+            if (content != nullptr) {
+                content->OnClose();
+            }
+            break;
+        default:
+            break;
+        }
+        return QWidget::event(event);
+    }
 
     bool AssetFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
     {
@@ -79,6 +148,22 @@ namespace sky::editor {
             }
         });
 
+        connect(assetItemView, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex &index) {
+            auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
+            QDir root = fsModel->rootPath();
+            auto path = root.relativeFilePath(fsModel->filePath(index));
+
+            auto source = AssetDataBase::Get()->FindAsset(path.toStdString());
+            if (source) {
+                auto *factory = AssetPreviewManager::Get()->Find(source->category);
+                if (factory != nullptr) {
+                    AssetPreviewWidget *previewWidget = new AssetPreviewWidget();
+                    factory->SetupWidget(*previewWidget, source);
+                    previewWidget->show();
+                }
+            }
+        });
+
         layout()->addWidget(filterWidget);
         layout()->addWidget(assetItemView);
 
@@ -102,16 +187,6 @@ namespace sky::editor {
                 srcPath.bundle = assetItemView->GetAssetBundle();
                 srcPath.path = path.toStdString();
                 AssetDataBase::Get()->RegisterAsset(srcPath);
-            }
-        });
-
-        auto *importAct = new QAction(tr("Import"), &menu);
-        connect(importAct, &QAction::triggered, this, [this]() {
-            auto indices = assetItemView->selectionModel()->selectedIndexes();
-            auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
-            for (auto &index : indices) {
-                FilePath path(fsModel->filePath(index).toStdString());
-                AssetBuilderManager::Get()->ImportAsset({path});
             }
         });
 
@@ -145,7 +220,6 @@ namespace sky::editor {
         menu.addSeparator();
 
         menu.addAction(buildAct);
-        menu.addAction(importAct);
         menu.exec(mapToGlobal(pos));
     }
 
@@ -168,7 +242,6 @@ namespace sky::editor {
             assetItemView->SetAssetBundle(SourceAssetBundle::WORKSPACE);
         }
     }
-
 
     void AssetListView::mousePressEvent(QMouseEvent *event)
     {
