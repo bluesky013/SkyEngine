@@ -11,15 +11,9 @@
 
 namespace sky {
 
-    struct BoneTransform {
-        Vector3 position;
-        Vector3 scale;
-        Quaternion rotation;
+    struct Pose : public RefObject {
+        std::vector<Transform> transforms;
     };
-
-    struct AnimPose : public RefObject {
-        std::unordered_map<Name, BoneTransform> bones;
-    };
-    using AnimPosePtr = CounterPtr<AnimPose>;
+    using PosePtr = CounterPtr<Pose>;
 
 } // namespace sky

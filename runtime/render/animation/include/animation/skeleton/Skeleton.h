@@ -14,18 +14,12 @@
 #include <animation/skeleton/Pose.h>
 
 namespace sky {
-
-    static const uint32_t INVALID_BONE_ID = ~(0U);
+    using BoneIndex = uint16_t;
+    static const BoneIndex INVALID_BONE_ID = std::numeric_limits<BoneIndex>::max();
 
     struct BoneData {
         Name name;
         uint32_t parentIndex = INVALID_BONE_ID;
-    };
-
-    struct Bone {
-        uint32_t index = 0;
-        Bone* parent = nullptr;
-        std::vector<Bone*> children;
     };
 
     struct SkeletonData {
@@ -34,19 +28,31 @@ namespace sky {
         std::vector<Transform> refPos;
     };
 
+    class Skeleton;
+
+    struct Bone {
+        BoneIndex index = 0;
+        BoneIndex parent = INVALID_BONE_ID;
+        std::vector<BoneIndex> children;
+        Skeleton* skeleton = nullptr;
+    };
+
+    class Skeleton;
+    using SkeletonPtr = CounterPtr<Skeleton>;
+
     class Skeleton : public RefObject {
     public:
         Skeleton() = default;
         ~Skeleton() override = default;
 
-    private:
-        Bone root = {};
-        std::vector<Bone> bones;
+        static SkeletonPtr BuildSkeleton(const SkeletonData& data);
 
-        std::vector<BoneData> boneData;
-        std::vector<Matrix4> inverseBindMatrix;
-        std::unordered_map<Name, uint32_t> nameToIndexMap;
+    private:
+        void UpdateBoneTree();
+
+        std::vector<Bone*> roots;
+        std::vector<std::unique_ptr<Bone>> bones;
+        std::unordered_map<Name, BoneIndex> nameToIndexMap;
     };
-    using SkeletonPtr = CounterPtr<Skeleton>;
 
 } // namespace sky
