@@ -156,7 +156,7 @@ namespace sky::builder {
         std::vector<Meshlet>& meshlets)
     {
         auto nIndex = indices.count;
-        idx_t triangles = nIndex / 3;
+        idx_t triangles = static_cast<idx_t>(nIndex) / 3;
 
         EdgeHash edgeHash(positions, indices);
 
@@ -167,12 +167,12 @@ namespace sky::builder {
         disjointSet.parents.resize(triangles);
 
         // hash edges
-        for (idx_t i = 0; i < nIndex; ++i) {
+        for (idx_t i = 0; i < static_cast<idx_t>(nIndex); ++i) {
             edgeHash.AddEdge(i);
         }
 
         // find shared edges
-        for (idx_t i = 0; i < nIndex; ++i) {
+        for (idx_t i = 0; i < static_cast<idx_t>(nIndex); ++i) {
             idx_t adjIndex = -1;
             idx_t adjCount = 0;
 
@@ -188,7 +188,7 @@ namespace sky::builder {
             adjacency.direct[i] = adjIndex;
         }
 
-        for (idx_t i = 0; i < nIndex; ++i) {
+        for (idx_t i = 0; i < static_cast<idx_t>(nIndex); ++i) {
             if (adjacency.direct[i] == -2) {
 
                 std::vector<std::pair<idx_t, idx_t>> edges;

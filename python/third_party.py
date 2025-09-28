@@ -44,12 +44,12 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
 
     try:
         # 执行CMake配置
-        process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
         print(process)
 
         # 执行 Build
         build_cmd = ["cmake", "--build", build_dir, "--config", build_type]
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
         print(process)
 
         # 执行 Install
@@ -59,7 +59,7 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
             for component in components:
                 build_cmd.extend(["--component", component])
 
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
         print(process)
 
         print("CMake执行成功!")
@@ -166,6 +166,7 @@ def build_package(name, source_dir, options, cache, components):
     print("build package ...", name)
     build_package_type(name, source_dir, 'Debug', options, cache, components)
     build_package_type(name, source_dir, 'Release', options, cache, components)
+    print("build package done")
 
 def process_package(package):
     name = package.get('name')
@@ -183,6 +184,8 @@ def process_package(package):
     options = package.get('options', {})
     if len(name) == 0:
         return
+
+    print("build package ...", name)
 
     if platforms and args.platform not in platforms:
         return

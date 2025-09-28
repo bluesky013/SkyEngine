@@ -17,6 +17,8 @@ sky_add_library(TARGET RHI STATIC
     LINK_LIBS
         Core
         ${RHI_EXT_LIB}
+    INSTALL_DIR
+        include
     )
 
 if (SKY_BUILD_XR)

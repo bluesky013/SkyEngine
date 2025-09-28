@@ -13,4 +13,6 @@ sky_add_library(TARGET RenderCore STATIC
         Core
         RHI
         ShaderCompiler.Static
+    INSTALL_DIR
+        include
 )

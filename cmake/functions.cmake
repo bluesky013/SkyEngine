@@ -42,7 +42,7 @@ function(sky_add_library)
     cmake_parse_arguments(TMP
         "STATIC;SHARED"
         "TARGET"
-        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS"
+        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS;INSTALL_DIR"
         ${ARGN}
     )
 
@@ -96,6 +96,22 @@ function(sky_add_library)
     if(CURRENT_FOLDER)
         set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
     endif ()
+
+    if (TMP_INSTALL_DIR)
+        install(TARGETS ${TMP_TARGET}
+            EXPORT SkyEngineExport
+            ARCHIVE DESTINATION lib
+            LIBRARY DESTINATION lib
+            RUNTIME DESTINATION bin
+            INCLUDES DESTINATION include
+        )
+
+        install(DIRECTORY ${TMP_INSTALL_DIR}/
+            DESTINATION include/
+            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+        )
+    endif ()
+
 
 endfunction()
 
