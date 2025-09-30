@@ -62,11 +62,21 @@
     #define SKY_PLATFORM_ARCH_ARM64 1
 #endif
 
+#ifndef SKY_CPU_LITTLE_ENDIAN
+    #if defined(_WIN32) || defined(__LITTLE_ENDIAN__) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+        #define SKY_CPU_LITTLE_ENDIAN 1
+    #elif defined(__BIG_ENDIAN__) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        #define SKY_CPU_LITTLE_ENDIAN 0
+    #else
+        #define SKY_CPU_LITTLE_ENDIAN 1
+    #endif
+#endif
+
 #include <cstdint>
 
 namespace sky {
 
-    enum class PlatformType : uint32_t {
+    enum class PlatformType : uint8_t {
         Default,
         Windows,
         MacOS,
@@ -75,5 +85,41 @@ namespace sky {
         IOS,
         UNDEFINED
     };
+
+    enum class Endian : uint8_t {
+        Little,
+        Big
+    };
+
+    inline uint16_t SwapEndian16(uint16_t value)
+    {
+        return (value >> 8) | (value << 8);
+    }
+
+    inline uint32_t SwapEndian32(uint32_t value)
+    {
+        return ((value >> 24) & 0x000000FF) |
+               ((value >> 8)  & 0x0000FF00) |
+               ((value << 8)  & 0x00FF0000) |
+               ((value << 24) & 0xFF000000);
+    }
+
+    inline uint64_t SwapEndian64(uint64_t value)
+    {
+        return ((value >> 56) & 0x00000000000000FFULL) |
+               ((value >> 40) & 0x000000000000FF00ULL) |
+               ((value >> 24) & 0x0000000000FF0000ULL) |
+               ((value >> 8)  & 0x00000000FF000000ULL) |
+               ((value << 8)  & 0x000000FF00000000ULL) |
+               ((value << 24) & 0x0000FF0000000000ULL) |
+               ((value << 40) & 0x00FF000000000000ULL) |
+               ((value << 56) & 0xFF00000000000000ULL);
+    }
+
+    inline bool IsLittleEndian()
+    {
+        const union { uint32_t u; uint8_t c[4]; } one = { 1 };
+        return one.c[0] != 0u;
+    }
 
 } // namespace sky

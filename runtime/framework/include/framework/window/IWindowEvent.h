@@ -62,6 +62,14 @@ namespace sky {
         virtual void OnMouseWheel(const MouseWheelEvent &event) {}
     };
 
+    class IDropEvent : public EventTraits {
+    public:
+        IDropEvent() = default;
+        virtual ~IDropEvent() = default;
+
+        virtual void OnDrop(const std::string& payload) {}
+    };
+
     enum class ScanCode : uint32_t {
         KEY_A = 4,
         KEY_B = 5,

@@ -7,15 +7,11 @@
 #include <cstdint>
 #include <string>
 
+#include <rhi/Core.h>
+
 namespace sky::sl {
 
     class ResourceGroupDecl;
-
-    enum class ShaderLanguage : uint8_t {
-        HLSL,
-        GLSL,
-        MSL
-    };
 
     class ShaderGenerator {
     public:

@@ -28,6 +28,8 @@ using PFN_GetProfile_astc_fast       = void(*)(astc_enc_settings* settings, int 
 using PFN_GetProfile_astc_alpha_fast = void(*)(astc_enc_settings* settings, int block_width, int block_height);
 using PFN_GetProfile_astc_alpha_slow = void(*)(astc_enc_settings* settings, int block_width, int block_height);
 
+using PFN_ReplicateBorders = void(*)(rgba_surface* dst_slice, const rgba_surface* src_tex, int x, int y, int bpp);
+
 using PFN_CompressBlocksBC1  = void(*)(const rgba_surface* src, uint8_t* dst);
 using PFN_CompressBlocksBC3  = void(*)(const rgba_surface* src, uint8_t* dst);
 using PFN_CompressBlocksBC4  = void(*)(const rgba_surface* src, uint8_t* dst);
@@ -49,6 +51,8 @@ namespace sky::builder {
     PFN_GetProfile_alpha_fast      S_GetProfile_BC7_alpha_fast      = nullptr;
     PFN_GetProfile_alpha_basic     S_GetProfile_BC7_alpha_basic     = nullptr;
     PFN_GetProfile_alpha_slow      S_GetProfile_BC7_alpha_slow      = nullptr;
+
+    PFN_ReplicateBorders           S_ReplicateBorders               = nullptr;
 
     PFN_GetProfile_astc_fast        S_GetProfile_astc_fast           = nullptr;
     PFN_GetProfile_astc_alpha_fast  S_GetProfile_astc_alpha_fast     = nullptr;
@@ -80,6 +84,7 @@ namespace sky::builder {
             S_GetProfile_BC7_alpha_fast      = reinterpret_cast<PFN_GetProfile_alpha_fast     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_fast"));
             S_GetProfile_BC7_alpha_basic     = reinterpret_cast<PFN_GetProfile_alpha_basic    >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_basic"));
             S_GetProfile_BC7_alpha_slow      = reinterpret_cast<PFN_GetProfile_alpha_slow     >(ISPC_COMP_MODULE->GetAddress("GetProfile_alpha_slow"));
+            S_ReplicateBorders               = reinterpret_cast<PFN_ReplicateBorders          >(ISPC_COMP_MODULE->GetAddress("ReplicateBorders"));
 
             S_GetProfile_astc_fast           = reinterpret_cast<PFN_GetProfile_astc_fast      >(ISPC_COMP_MODULE->GetAddress("GetProfile_astc_fast"));
             S_GetProfile_astc_alpha_fast     = reinterpret_cast<PFN_GetProfile_astc_alpha_fast>(ISPC_COMP_MODULE->GetAddress("GetProfile_astc_alpha_fast"));
@@ -203,35 +208,16 @@ namespace sky::builder {
         }
     }
 
-//    void CompressImage(uint8_t *ptr, const BufferImageInfo &copy, std::vector<uint8_t> &out, const CompressOption &options)
-//    {
-//        rgba_surface input = {};
-//        input.ptr = ptr + copy.offset;
-//        input.width  = static_cast<int32_t>(copy.width);
-//        input.height = static_cast<int32_t>(copy.height);
-//        input.stride = static_cast<int32_t>(copy.stride);
-//
-//        uint32_t width = copy.width;
-//        uint32_t height = copy.height;
-//
-//        const auto *formatInfo = rhi::GetImageInfoByFormat(options.targetFormat);
-//        uint32_t rowLength   = Ceil(width, formatInfo->blockWidth);
-//        uint32_t imageHeight = Ceil(height, formatInfo->blockHeight);
-//        uint32_t blockNum = rowLength * imageHeight;
-//        uint32_t dataSize = blockNum * formatInfo->blockSize;
-//
-//        out.resize(dataSize);
-//        CompressImage(input, out.data(), options);
-//    }
-
     void ImageCompressor::DoWork()
     {
-        auto *dstPf = rhi::GetImageInfoByFormat(payload.options.targetFormat);
+        const auto *dstPf = rhi::GetImageInfoByFormat(payload.options.targetFormat);
         if (dstPf == nullptr) {
             return;
         }
         SKY_ASSERT(payload.mip < payload.image->mips.size());
         SKY_ASSERT(payload.mip < payload.compressed->mips.size());
+        uint32_t blockWidth = dstPf->blockWidth;
+        uint32_t blockHeight = dstPf->blockHeight;
 
         const auto &srcMipData = payload.image->mips[payload.mip];
 
@@ -239,7 +225,25 @@ namespace sky::builder {
         input.ptr = srcMipData.data.get();
         input.width  = static_cast<int32_t>(srcMipData.width);
         input.height = static_cast<int32_t>(srcMipData.height);
-        input.stride = srcMipData.rowPitch;
+        input.stride = static_cast<int32_t>(srcMipData.rowPitch);
+
+        uint32_t extWidth = (srcMipData.width + blockWidth - 1) / blockWidth * blockWidth;
+        uint32_t extHeight = (srcMipData.height + blockHeight - 1) / blockHeight * blockHeight;
+
+        std::unique_ptr<uint8_t[]> rawContainer;
+        if (srcMipData.width != extWidth || srcMipData.height != extHeight) {
+            rawContainer = std::make_unique<uint8_t[]>(extWidth * extHeight * payload.image->pixelSize);
+
+            rgba_surface tmpSurface = {};
+            tmpSurface.ptr = rawContainer.get();
+            tmpSurface.width = static_cast<int32_t>(extWidth);
+            tmpSurface.height = static_cast<int32_t>(extHeight);
+            tmpSurface.stride = static_cast<int32_t>(extWidth * payload.image->pixelSize);
+
+            S_ReplicateBorders(&tmpSurface, &input, 0, 0, 32);
+
+            input = tmpSurface;
+        }
 
         uint32_t rowLength   = Ceil(srcMipData.width, dstPf->blockWidth);
         uint32_t imageHeight = Ceil(srcMipData.height, dstPf->blockHeight);

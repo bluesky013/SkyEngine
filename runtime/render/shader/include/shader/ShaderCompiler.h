@@ -88,8 +88,8 @@ namespace sky {
 
     struct ShaderCompileOption {
         ShaderCompileTarget target;
+        ShaderLanguage language;
         ShaderOptionPtr option;
-
         bool useMeshShader = false;
     };
 

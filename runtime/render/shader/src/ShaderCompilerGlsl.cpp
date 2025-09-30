@@ -106,7 +106,7 @@ namespace sky {
         glslang::TShader shader(language);
         shader.setStrings(&ptr, 1);
         shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
-        shader.setEnvInput(glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 100);
+        shader.setEnvInput(op.language == ShaderLanguage::GLSL ? glslang::EShSourceGlsl : glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 100);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
         shader.setEntryPoint(desc.entry.c_str());
         if (!shader.parse(GetDefaultResources(), 450, false, EShMessages(EShMsgAST | EShMsgReadHlsl))) {
@@ -133,8 +133,13 @@ namespace sky {
                 continue;
             }
 
+            std::string semantic;
+            if (refl.getType()->getQualifier().semanticName) {
+                semantic = refl.getType()->getQualifier().semanticName;
+            }
+
             attributes.emplace_back(VertexStageAttribute{
-                refl.getType()->getQualifier().semanticName,
+                semantic,
                 refl.getType()->getQualifier().layoutLocation,
                 static_cast<uint32_t>(type->getVectorSize()),
                 GetBaseType(type)

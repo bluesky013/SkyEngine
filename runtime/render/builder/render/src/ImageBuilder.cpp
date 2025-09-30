@@ -20,16 +20,6 @@
 
 
 namespace sky::builder {
-    static rhi::PixelFormat GetPixelFormat(PixelType type, uint32_t components)
-    {
-        if (type == PixelType::U8) {
-            SKY_ASSERT(components == 4);
-            return rhi::PixelFormat::RGBA8_UNORM;
-        } else if (type == PixelType::Float) {
-            return static_cast<rhi::PixelFormat>(static_cast<uint32_t>(rhi::PixelFormat::R32_SFLOAT) + components - 1);
-        }
-        return rhi::PixelFormat::UNDEFINED;
-    }
 
     static void SaveImageData(const CompressedImagePtr& image, ImageAssetData &imageData)
     {
@@ -57,7 +47,7 @@ namespace sky::builder {
     {
         uint32_t baseMip = 0;
 
-        imageData.format = GetPixelFormat(image->pixelType, image->components);
+        imageData.format = image->format;
         imageData.dataSize = 0;
         imageData.mipLevels = static_cast<uint32_t>(image->mips.size()) - baseMip;
 
@@ -181,7 +171,7 @@ namespace sky::builder {
             return;
         }
 
-        ImageObjectPtr image = ImageObject::CreateImage2D(static_cast<uint32_t>(x), static_cast<uint32_t>(y), PixelType::U8, static_cast<uint32_t>(4));
+        ImageObjectPtr image = ImageObject::CreateImage2D(static_cast<uint32_t>(x), static_cast<uint32_t>(y), rhi::PixelFormat::RGBA8_UNORM);
         image->FillMip0(data, static_cast<uint32_t>(x * y * 4));
         stbi_image_free(data);
 
@@ -195,7 +185,7 @@ namespace sky::builder {
 
             if (config->generateMip) {
                 // convert to linear
-                auto linearImage = ImageObject::CreateImage2D(image->width, image->height, PixelType::Float, image->components);
+                auto linearImage = ImageObject::CreateImage2D(image->width, image->height, rhi::PixelFormat::RGBA8_UNORM);
                 linearImage->FillMip0();
                 {
                     ImageConverter converter(ImageConverter::Payload{image, linearImage, config->isLinear ? 1.f : 2.2f});
@@ -207,7 +197,7 @@ namespace sky::builder {
                 mipGen.DoWork();
 
                 // recover
-                image = ImageObject::CreateFromImage(linearImage, PixelType::U8, 4);
+                image = ImageObject::CreateFromImage(linearImage);
                 {
                     ImageConverter converter(ImageConverter::Payload{linearImage, image, config->isLinear ? 1.f : 1.f / 2.2f});
                     converter.DoWork();

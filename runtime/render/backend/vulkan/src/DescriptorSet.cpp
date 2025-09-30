@@ -160,9 +160,6 @@ namespace sky::vk {
 
         auto &writeInfo = writeInfos[writeIndex];
         const auto &viewInfo = vkImageView->GetSubRange();
-        if (writeInfo.image.imageView == vkImageView->GetNativeHandle()) {
-            return;
-        }
 
         if (writeInfo.image.sampler == VK_NULL_HANDLE) {
             writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();

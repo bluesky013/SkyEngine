@@ -7,6 +7,7 @@ add_subdirectory(adaptor)
 add_subdirectory(imgui)
 if ((SKY_BUILD_TOOL) AND ((${CMAKE_SYSTEM_NAME} STREQUAL "Darwin") OR (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")))
     add_subdirectory(builder)
+    add_subdirectory(tool)
 endif ()
 
 sky_add_library(TARGET SkyRender SHARED

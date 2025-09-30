@@ -14,6 +14,11 @@
 namespace sky {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
 
+    enum class ShaderLanguage : uint32_t {
+        HLSL,
+        GLSL
+    };
+
     enum class ShaderCompileTarget : uint32_t {
         SPIRV,
         MSL,

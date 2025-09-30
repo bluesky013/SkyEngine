@@ -88,12 +88,34 @@ namespace sky::builder {
     private:
         T Eval(T pos) override
         {
-            const float sinc = filter::Sinc(PI * pos);
-            auto v1 = T(piA * sqrt(1.0 - filter::Square(pos / this->width)));
-            return i0_piA * filter::Bessel_i0(sinc * v1);
+            float t  = pos / this->width;
+            float t2 = t * t;
+
+            if (t2 < 1.0f) {
+                return filter::Sinc(PI * pos) * filter::Bessel_i0(piA * sqrtf(1.0f - t2)) * i0_piA;
+            }
+            return 0.0f;
+
+//            const float sinc = filter::Sinc(PI * pos);
+//            auto v1 = T(piA * sqrt(1.0 - filter::Square(pos / this->width)));
+//            return i0_piA * filter::Bessel_i0(sinc * v1);
         }
 
         T piA;
         T i0_piA;
+    };
+
+    template <typename T>
+    class BoxFilter : public Filter<T> {
+    public:
+        BoxFilter() : Filter<T>(T(0.5)) {}
+
+        T Eval(T pos) override
+        {
+            if (fabsf(pos) <= this->width) {
+                return 1.0f;
+            }
+            return 0.0f;
+        }
     };
 } // namespace sky::builder

@@ -25,6 +25,8 @@ namespace sky {
             LOG_E(TAG, "SDL could not be initialized! Error: %s", SDL_GetError());
             return false;
         }
+
+        SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
         return true;
     }
 
@@ -80,6 +82,13 @@ namespace sky {
             case SDL_WINDOWEVENT:
                 DispatchWindowEvent(sdlEvent);
                 break;
+            case SDL_DROPFILE:
+            {
+                auto *droppedFile = sdlEvent.drop.file;
+                Event<IDropEvent>::BroadCast(&IDropEvent::OnDrop, std::string(droppedFile));
+                SDL_free(droppedFile);
+                break;
+            }
             case SDL_MOUSEBUTTONUP:
             case SDL_MOUSEBUTTONDOWN: {
                 const SDL_MouseButtonEvent &event = sdlEvent.button;

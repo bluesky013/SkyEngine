@@ -29,7 +29,7 @@ namespace sky::builder {
         };
 
         explicit ImageCompressor(const Payload &pd) : payload(pd) {}
-        virtual ~ImageCompressor() = default;
+        ~ImageCompressor() override = default;
 
         void DoWork() override;
 

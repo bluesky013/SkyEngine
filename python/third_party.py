@@ -44,12 +44,12 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
 
     try:
         # 执行CMake配置
-        process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
+        process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(process)
 
         # 执行 Build
         build_cmd = ["cmake", "--build", build_dir, "--config", build_type]
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
+        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(process)
 
         # 执行 Install
@@ -59,7 +59,7 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
             for component in components:
                 build_cmd.extend(["--component", component])
 
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8')
+        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(process)
 
         print("CMake执行成功!")

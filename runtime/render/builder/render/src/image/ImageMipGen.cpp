@@ -37,9 +37,14 @@ namespace sky::builder {
         return x;
     }
 
-    inline int32_t Wrap(int32_t x, int32_t w)
+    inline int32_t FilterWrap(int32_t x, int32_t w)
     {
         return WrapRepeat(x, w);
+    }
+
+    inline int32_t FilterClamp(int32_t x, int32_t w)
+    {
+        return std::clamp(x, 0, w - 1);
     }
 
     template <typename T>
@@ -52,30 +57,21 @@ namespace sky::builder {
             width = filter.GetWidth() / scale;
 
             windowSize = static_cast<uint32_t>(std::ceil(width * static_cast<T>(2.0))) + 1;
-            weights.resize(windowSize * dstLength, static_cast<T>(1.0));
+            weights.resize(windowSize, static_cast<T>(1.0));
 
-            for (uint32_t i = 0; i < dstLength; ++i) {
-                T center = (static_cast<T>(i) + static_cast<T>(0.5)) / scale;
+            T sum = static_cast<T>(0.0);
+            for (uint32_t j = 0; j < windowSize; ++j) {
+                auto sample = filter.Sample(static_cast<T>(j) - windowSize / T(2.0), scale, samples);
+                weights[j] = sample;
+                sum += sample;
+            }
 
-                auto left = static_cast<int32_t>(std::floor(center - width));
-                auto right = static_cast<int32_t>(std::ceil(center + width));
-                SKY_ASSERT(right - left <= static_cast<int32_t>(windowSize))
-
-                T sum = static_cast<T>(0.0);
-                for (uint32_t j = 0; j < windowSize; ++j) {
-                    auto sample = filter.Sample(left + static_cast<T>(j) - center, scale, samples);
-
-                    weights[i * windowSize + j] = sample;
-                    sum += sample;
-                }
-
-                for (uint32_t j = 0; j < windowSize; ++j) {
-                    weights[i * windowSize + j] /= sum;
-                }
+            for (uint32_t j = 0; j < windowSize; ++j) {
+                weights[j] /= sum;
             }
         }
 
-        void ApplyX(const ImageMipData &mipData, uint32_t y, uint32_t z, float *out, uint32_t components)
+        void ApplyX(const ImageMipData &mipData, PixelType type, uint32_t y, uint32_t z, float *out, uint32_t components)
         {
             uint32_t baseIndex = (z * mipData.height + y) * mipData.width;
             for (uint32_t i = 0; i < length; i++)
@@ -89,14 +85,24 @@ namespace sky::builder {
 
                     float sum = 0;
                     for (uint32_t k = 0; k < windowSize; ++k) {
-                        auto weight = Weight(i, k);
+                        auto weight = weights[k];
 
                         int32_t tx = left + static_cast<int32_t>(k);
-                        auto x = static_cast<uint32_t>(Wrap(tx, mipData.width));
+                        auto x = static_cast<uint32_t>(FilterClamp(tx, static_cast<int32_t>(mipData.width)));
                         uint32_t index = baseIndex + x;
 
-                        const auto* ptr = reinterpret_cast<const float*>(mipData.data.get());
-                        sum += weight * ptr[index * components + j];
+                        float val = 0.f;
+                        switch (type) {
+                        case PixelType::U8:
+                            val = U8ToF32(mipData.data.get()[index * components + j]);
+                            break;
+                        case PixelType::Float:
+                            val = reinterpret_cast<const float *>(mipData.data.get())[index * components + j];
+                            break;
+                        default:
+                            break;
+                        }
+                        sum += weight * val;
                     }
 
                     out[i * components + j] = sum;
@@ -104,7 +110,7 @@ namespace sky::builder {
             }
         }
 
-        void ApplyY(const ImageMipData &mipData, uint32_t x, uint32_t z, float *out, uint32_t components)
+        void ApplyY(const ImageMipData &mipData, PixelType type, uint32_t x, uint32_t z, float *out, uint32_t components)
         {
             for (uint32_t i = 0; i < length; i++)
             {
@@ -117,26 +123,30 @@ namespace sky::builder {
 
                     float sum = 0;
                     for (uint32_t k = 0; k < windowSize; ++k) {
-                        auto weight = Weight(i, k);
+                        auto weight = weights[k];
 
                         int32_t ty = left + static_cast<int32_t>(k);
-                        uint32_t y = Wrap(ty, mipData.height);
+                        auto y = static_cast<uint32_t>(FilterClamp(ty, static_cast<int32_t>(mipData.height)));
                         uint32_t index = (z * mipData.height + y) * mipData.width + x;
 
-                        const auto* ptr = reinterpret_cast<const float*>(mipData.data.get());
-                        sum += weight * ptr[index * components + j];
+                        float val = 0.f;
+                        switch (type) {
+                        case PixelType::U8:
+                            val = U8ToF32(mipData.data.get()[index * components + j]);
+                            break;
+                        case PixelType::Float:
+                            val = reinterpret_cast<const float *>(mipData.data.get())[index * components + j];
+                            break;
+                        default:
+                            break;
+                        }
+
+                        sum += weight * val;
                     }
 
                     out[i * components + j] = sum;
                 }
             }
-        }
-
-        float Weight(uint32_t column, uint32_t x) const
-        {
-            SKY_ASSERT(column < length);
-            SKY_ASSERT(x < windowSize);
-            return weights[column * windowSize + x];
         }
 
         T scale;
@@ -154,7 +164,8 @@ namespace sky::builder {
 
         std::unique_ptr<Filter<float>> func;
         switch (filter) {
-        case MipGenType::Kaiser: func = std::make_unique<KaiserFilter<float>>(4.f, 1.f); break;
+        case MipGenType::Box: func = std::make_unique<BoxFilter<float>>(); break;
+        case MipGenType::Kaiser: func = std::make_unique<KaiserFilter<float>>(4.f, 7.f); break;
         default:
             SKY_ASSERT(false && "not implemented");
             break;
@@ -167,26 +178,30 @@ namespace sky::builder {
         PolyphaseKernel kernelX(*func, inData.width, outData.width, 32);
         PolyphaseKernel kernelY(*func, inData.height, outData.height, 32);
 
-        ImageMipData tmpData = ImageMipData::Create(outData.width, inData.height, inData.depth, image.pixelSize);
-        outData = ImageMipData::Create(outData.width, outData.height, inData.depth, image.pixelSize);
+        ImageMipData tmpData = ImageMipData::Create(outData.width, inData.height, inData.depth, components * sizeof(float));
+
+        PixelType type = GetPixelType(image.format);
 
         // filter vertical
         for (uint32_t y = 0; y < inData.height; ++y) {
             float* row = reinterpret_cast<float*>(tmpData.data.get()) + y * outData.width * components;
-            kernelX.ApplyX(inData, y, 0, row, components);
+            kernelX.ApplyX(inData, type, y, 0, row, components);
         }
 
         std::vector<float> tmpCol(outData.height * components, 0.f);
         // filter horizontal
         for (uint32_t x = 0; x < outData.width; ++x) {
-            kernelY.ApplyY(tmpData, x, 0, tmpCol.data(), components);
+            kernelY.ApplyY(tmpData, PixelType::Float, x, 0, tmpCol.data(), components);
 
             for (uint32_t y = 0; y < outData.height; ++y) {
-                float* dst = reinterpret_cast<float*>(outData.data.get()) + (y * outData.width + x) * components;
-                float* src = tmpCol.data() + y * components;
+                uint8_t* dst = outData.data.get() + (y * outData.width + x) * image.pixelSize;
+                const float* src = tmpCol.data() + y * components;
+
+                Color color = {};
                 for (uint32_t c = 0; c < components; ++c) {
-                    dst[c] = src[c];
+                    color.v[c] = src[c];
                 }
+                SetImageColor(type, components, dst, color);
             }
         }
     }

@@ -111,6 +111,13 @@ namespace sky {
         return sky::ReadBin(filePath, out);
     }
 
+    BinaryDataPtr NativeFile::ReadBin()
+    {
+        BinaryDataPtr bin = new BinaryData();
+        sky::ReadBin(filePath, bin);
+        return bin;
+    }
+
     bool NativeFile::ReadString(std::string &out)
     {
         return sky::ReadString(filePath, out);
@@ -142,6 +149,11 @@ namespace sky {
     bool RawBufferView::ReadBin(std::vector<uint8_t> &out)
     {
         return true;
+    }
+
+    BinaryDataPtr RawBufferView::ReadBin()
+    {
+        return nullptr;
     }
 
     bool RawBufferView::ReadString(std::string &out)
