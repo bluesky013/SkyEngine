@@ -24,10 +24,11 @@ namespace sky {
         ~BinaryData() override;
 
         void Resize(uint32_t);
-        uint8_t *Data() { return data.data(); }
-        size_t Size() const { return data.size(); }
+        uint8_t *Data() { return rawData; }
+        size_t Size() const { return size; }
     private:
-        std::vector<uint8_t> data;
+        uint8_t* rawData = nullptr;
+        uint32_t size = 0;
     };
     using BinaryDataPtr = CounterPtr<BinaryData>;
 

@@ -14,4 +14,6 @@ sky_add_library(TARGET RenderAdaptor STATIC
         Animation
         ImGuiRender
         Framework
+    INSTALL_DIR
+        include
     )

@@ -10,18 +10,30 @@
 #include <render/resource/SkeletonMesh.h>
 
 namespace sky {
+    uint32_t MeshDataHeader::MakeVersion()
+    {
+        return 0;
+    }
+
     void MeshAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
         archive.LoadValue(skeleton);
 
         uint32_t size = 0;
+
+        // materials
         archive.LoadValue(size);
+        materials.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            archive.LoadValue(reinterpret_cast<char *>(&materials[i]), sizeof(Uuid));
+        }
 
         // subMesh
+        archive.LoadValue(size);
         subMeshes.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(SubMeshAssetData));
+            archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(MeshSubSection));
         }
 
         // buffers
@@ -63,10 +75,15 @@ namespace sky {
         archive.SaveValue(version);
         archive.SaveValue(skeleton);
 
+        archive.SaveValue(static_cast<uint32_t>(materials.size()));
+        for (const auto &uuid : materials) {
+            archive.SaveValue(reinterpret_cast<const char*>(&uuid), sizeof(Uuid));
+        }
+
         // subMesh
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));
         for (const auto &subMesh : subMeshes) {
-            archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(SubMeshAssetData));
+            archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(MeshSubSection));
         }
 
         // primitives
@@ -223,10 +240,13 @@ namespace sky {
             mesh = new Mesh();
         }
 
-        for (const auto &sub : data.subMeshes) {
-            auto matAsset = am->FindAsset<MaterialInstance>(sub.material);
-            auto mat = CreateMaterialInstanceFromAsset(matAsset);
+        std::vector<CounterPtr<MaterialInstance>> materials;
+        for (const auto &mat : data.materials) {
+            auto matAsset = am->FindAsset<MaterialInstance>(mat);
+            materials.emplace_back(CreateMaterialInstanceFromAsset(matAsset));
+        }
 
+        for (const auto &sub : data.subMeshes) {
             mesh->AddSubMesh(SubMesh {
                 sub.firstVertex,
                 sub.vertexCount,
@@ -234,7 +254,7 @@ namespace sky {
                 sub.indexCount,
                 sub.firstMeshlet,
                 sub.meshletCount,
-                mat,
+                materials[sub.materialIndex],
                 sub.aabb
             });
         }
@@ -242,7 +262,7 @@ namespace sky {
         mesh->SetVertexAttributes(data.attributes);
         mesh->SetIndexType(data.indexType);
 
-        MeshData meshData = {};
+        MeshUploadData meshData = {};
         auto *fileStream = new rhi::FileStream(file, data.dataOffset);
 
         for (const auto &attr : data.attributes) {
@@ -299,4 +319,65 @@ namespace sky {
         return mesh;
     }
 
+    MeshAssetData StaticMeshAsset::MakeMeshAssetData() const
+    {
+        MeshAssetData outData = {};
+
+        outData.version = MeshDataHeader::MakeVersion();
+        outData.skeleton = Uuid::GetEmpty();
+        outData.materials = materials;
+        outData.subMeshes = geometry->GetSubMeshes();
+
+        auto *posBuffer = geometry->GetPositionBuffer();
+
+        auto *uv0Buffer = geometry->GetTexCoordBuffer();
+        auto *normalBuffer = geometry->GetNormalBuffer();
+        auto *tangentBuffer = geometry->GetTangentBuffer();
+        auto *colorBuffer = geometry->GetColorBuffer();
+        auto *indexBuffer = geometry->GetIndexBuffer();
+
+        uint32_t vtxNum = posBuffer->Num();
+        uint32_t idxNum = indexBuffer->Num();
+
+        std::vector<Vector3> positions(vtxNum);
+        std::vector<VF_TB_UVN<1>> vfBuffer(vtxNum);
+
+        for (uint32_t i = 0; i < vtxNum; ++i) {
+            positions[i] = posBuffer->GetVertexData<Vector3>(i);
+
+            vfBuffer[i].normal = normalBuffer->GetVertexData<Vector3>(i);
+            vfBuffer[i].tangent = tangentBuffer->GetVertexData<Vector4>(i);
+            vfBuffer[i].texCoord[0] = uv0Buffer->GetVertexData<Vector2>(i);
+        }
+
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::POSITION, .binding=0, .offset=0, .format=rhi::Format::F_RGB32});
+
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::NORMAL, .binding=1, .offset=offsetof(VF_TB_UVN<1>, normal), .format=rhi::Format::F_RGB32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::TANGENT, .binding=1, .offset=offsetof(VF_TB_UVN<1>, tangent), .format=rhi::Format::F_RGBA32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::UV, .binding=1, .offset=offsetof(VF_TB_UVN<1>, texCoord), .format=rhi::Format::F_RG32});
+
+        auto currentSize = static_cast<uint32_t>(outData.rawData.storage.size());
+        auto currentBytes = static_cast<uint32_t>(vtxNum * sizeof(Vector3));
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, positions.data(), currentBytes);
+        outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(Vector3)});
+
+        currentSize += currentBytes;
+        currentBytes = static_cast<uint32_t>(vtxNum * sizeof(VF_TB_UVN<1>));
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, vfBuffer.data(), currentBytes);
+        outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(VF_TB_UVN<1>)});
+
+        uint32_t indexStride = indexBuffer->GetIndexType() == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
+        currentSize += currentBytes;
+        currentBytes = idxNum * indexStride;
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, indexBuffer->GetDataPointer(), currentBytes);
+        outData.indexBuffer = static_cast<uint32_t>(outData.buffers.size());
+        outData.buffers.emplace_back(MeshBufferView{.offset = currentSize, .size=currentBytes, .stride=indexStride});
+
+        outData.dataSize = static_cast<uint32_t>(outData.rawData.storage.size());
+
+        return outData;
+    }
 }

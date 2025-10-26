@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <string>
+#include "render/resource/StaticMesh.h"
+
 #include <vector>
 
 #include <core/shapes/AABB.h>
 #include <core/shapes/TriangleMesh.h>
-#include <core/archive/StreamArchive.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetCommon.h>
@@ -19,7 +19,7 @@
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
-#include <render/resource/Meshlet.h>
+#include <render/resource/StaticMesh.h>
 #include <animation/skeleton/Skeleton.h>
 
 namespace sky {
@@ -39,17 +39,6 @@ namespace sky {
         rhi::VertexInputRate rate = rhi::VertexInputRate::PER_VERTEX;
     };
 
-    struct SubMeshAssetData {
-        uint32_t firstVertex = 0;
-        uint32_t vertexCount = 0;
-        uint32_t firstIndex  = 0;
-        uint32_t indexCount  = 0;
-        uint32_t firstMeshlet = 0;
-        uint32_t meshletCount = 0;
-        Uuid material;
-        AABB aabb;
-    };
-
     template <typename T>
     struct TBufferViewAccessor {
         const uint8_t *ptr = nullptr;
@@ -67,10 +56,13 @@ namespace sky {
     static constexpr uint32_t INVALID_MESH_BUFFER_VIEW = ~(0U);
 
     struct MeshDataHeader {
+        static uint32_t MakeVersion();
+
         uint32_t version  = 0;
         Uuid     skeleton;
 
-        std::vector<SubMeshAssetData> subMeshes;
+        std::vector<Uuid>             materials;
+        std::vector<MeshSubSection>   subMeshes;
         std::vector<MeshBufferView>   buffers;
         std::vector<VertexAttribute>  attributes;
         uint32_t       indexBuffer = INVALID_MESH_BUFFER_VIEW;
@@ -100,4 +92,12 @@ namespace sky {
 
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset);
     CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset);
+
+
+    struct StaticMeshAsset {
+        std::vector<Uuid> materials;
+        CounterPtr<StaticMeshGeometry> geometry;
+
+        MeshAssetData MakeMeshAssetData() const;
+    };
 }

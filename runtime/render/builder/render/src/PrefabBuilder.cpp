@@ -334,14 +334,14 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, PrefabBuildContext& prefabContext, MeshAssetData &meshData, MeshBuildContext &context)
+    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, uint32_t matIndex, PrefabBuildContext& prefabContext, MeshAssetData &meshData, MeshBuildContext &context)
     {
-        SubMeshAssetData subMesh = {};
+        MeshSubSection subMesh = {};
         subMesh.firstVertex = static_cast<uint32_t>(context.position.size());
         subMesh.vertexCount = mesh->mNumVertices;
         subMesh.firstIndex = static_cast<uint32_t>(context.indices.size());
         subMesh.indexCount = mesh->mNumFaces * 3;
-        subMesh.material = prefabContext.materials[mesh->mMaterialIndex]->uuid;
+        subMesh.materialIndex = matIndex;
 
         context.position.resize(context.position.size() + subMesh.vertexCount);
         context.ext.resize(context.ext.size() + subMesh.vertexCount);
@@ -433,7 +433,18 @@ namespace sky::builder {
 
         for (uint32_t i = 0; i < meshNum; ++i) {
             aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
-            ProcessSubMesh(aMesh, scene, context, meshData, meshContext);
+            auto matId = context.materials[aMesh->mMaterialIndex]->uuid;
+
+            size_t matIndex = meshData.materials.size();
+
+            auto iter = std::find(meshData.materials.begin(), meshData.materials.end(), matId);
+            if (iter != meshData.materials.end()) {
+                matIndex = std::distance(meshData.materials.begin(), iter);
+            } else {
+                meshData.materials.emplace_back(matId);
+            }
+
+            ProcessSubMesh(aMesh, scene, static_cast<uint32_t>(matIndex), context, meshData, meshContext);
 
             hasSkin &= aMesh->HasBones();
         }

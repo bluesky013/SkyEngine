@@ -29,9 +29,11 @@ namespace sky::builder {
         data.Load(bin);
 
         asset->ResetDependencies();
-        for (auto &sub : asset->Data().subMeshes) {
-            AssetBuilderManager::Get()->BuildRequest(sub.material, request.target);
-            asset->AddDependencies(sub.material);
+
+        const auto& matData = asset->Data();
+        for (auto& mat : matData.materials) {
+            AssetBuilderManager::Get()->BuildRequest(mat, request.target);
+            asset->AddDependencies(mat);
         }
 
         if (data.skeleton) {
@@ -40,7 +42,7 @@ namespace sky::builder {
 
         data.rawData.storage.resize(data.dataSize);
         bin.LoadValue(reinterpret_cast<char*>(data.rawData.storage.data()), data.dataSize);
-        MeshletBuilder::BuildFromMeshData(data);
+        // MeshletBuilder::BuildFromMeshData(data);
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;

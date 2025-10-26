@@ -33,6 +33,10 @@ namespace sky {
         std::unique_ptr<IAllocator> impl;
     };
 
+    void* AlignMalloc(size_t size, size_t alignment);
+    void AlignFree(void* ptr);
+
+#define SAFE_DELETE(ptr) if (ptr) { delete ptr; ptr = nullptr; }
 
 #define SKY_ALLOCATOR(Name, Allocator)                           \
     inline void* operator new(size_t size)                       \

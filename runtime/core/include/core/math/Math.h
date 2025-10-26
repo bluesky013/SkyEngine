@@ -8,7 +8,7 @@
 #include <cmath>
 
 namespace sky {
-
+#ifndef PI
     static constexpr float PI = 3.1415926f;
-
+#endif
 }

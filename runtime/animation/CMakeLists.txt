@@ -14,6 +14,8 @@ sky_add_library(TARGET Animation STATIC
         include
     LINK_LIBS
         Core
+    INSTALL_DIR
+        include
 )
 
 if (SKY_BUILD_TEST)

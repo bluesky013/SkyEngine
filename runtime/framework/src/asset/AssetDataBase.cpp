@@ -36,6 +36,11 @@ namespace sky {
 #endif
     }
 
+    Uuid AssetDataBase::CalculateUuidByPath(const AssetSourcePath& path)
+    {
+        return Uuid::CreateWithSeed(CalculateHash(path));
+    }
+
     std::string ReplaceSlashToBackslash(std::string path)
     {
 #if _WIN32
@@ -46,14 +51,14 @@ namespace sky {
 
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         auto iter = idMap.find(id);
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
     AssetSourcePtr AssetDataBase::FindAsset(const std::string &inPath)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         const SourceAssetBundle bundles[] = {
                 SourceAssetBundle::WORKSPACE,
                 SourceAssetBundle::ENGINE
@@ -79,7 +84,7 @@ namespace sky {
 
         AssetSourcePtr info = nullptr;
         {
-            std::lock_guard<std::recursive_mutex> lock(assetMutex);
+            std::lock_guard lock(assetMutex);
             auto iter = pathMap.find(path);
             if (iter != pathMap.end()) {
                 info = idMap.at(iter->second);
@@ -89,22 +94,21 @@ namespace sky {
         if (info == nullptr) {
             // query builder
             auto ext = path.path.Extension();
-            auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
-            if (builder == nullptr) {
-                LOG_E(TAG, "Builder not found for asset %s", ext.c_str());
-                return nullptr;
-            }
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
             auto uuid = Uuid::CreateWithSeed(CalculateHash(path));
             srcInfo->path = path;
             srcInfo->uuid = uuid;
             srcInfo->ext = ext;
-            srcInfo->category = builder->QueryType(ext);
+
+            auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
+            if (builder != nullptr) {
+                srcInfo->category = builder->QueryType(ext);
+            }
 
             // new asset
             {
-                std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                std::lock_guard lock(assetMutex);
                 pathMap.emplace(path, uuid);
                 info = idMap.emplace(uuid, std::move(srcInfo)).first->second;
             }
@@ -131,7 +135,7 @@ namespace sky {
 
     void AssetDataBase::RemoveAsset(const Uuid &id)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         SKY_ASSERT(idMap.count(id));
         auto &src = idMap[id];
         pathMap.erase(src->path);
@@ -172,7 +176,6 @@ namespace sky {
         if (!file) {
             return;
         }
-
 
         auto archive = file->ReadAsArchive();
         JsonInputArchive json(*archive);
@@ -217,7 +220,7 @@ namespace sky {
                 json.NextArrayElement();
 
                 {
-                    std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                    std::lock_guard lock(assetMutex);
                     pathMap.emplace(info.path, info.uuid);
                     idMap.emplace(info.uuid, pInfo);
                 }
@@ -236,7 +239,7 @@ namespace sky {
         JsonOutputArchive json(*archive);
 
         {
-            std::lock_guard<std::recursive_mutex> lock(assetMutex);
+            std::lock_guard lock(assetMutex);
 
             json.StartObject();
             json.Key("assets");
@@ -280,14 +283,14 @@ namespace sky {
 
     void AssetDataBase::Reset()
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         pathMap.clear();
         idMap.clear();
     }
 
     void AssetDataBase::Dump(std::ostream &stream)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         for (auto &[id, info] : idMap) {
             stream << id.ToString() << "\t"
                 << info->category << "\t"

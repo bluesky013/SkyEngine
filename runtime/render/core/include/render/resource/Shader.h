@@ -7,13 +7,9 @@
 #include <utility>
 #include <vector>
 #include <memory>
-#include <map>
-#include <variant>
 #include <rhi/Device.h>
-#include <core/util/Uuid.h>
-
+#include <core/name/Name.h>
 #include <render/RenderResource.h>
-#include <render/RenderBase.h>
 #include <render/resource/ResourceGroup.h>
 #include <shader/ShaderCacheManager.h>
 
@@ -58,9 +54,9 @@ namespace sky {
             list.ForeachOptions(std::forward<Func>(fn));
         }
 
-        void SetOption(const Name& name, uint8_t val, ShaderVariantKey &variantKey)
+        void SetOption(const Name& name_, uint8_t val, ShaderVariantKey &variantKey)
         {
-            list.SetValue(name, val, variantKey);
+            list.SetValue(name_, val, variantKey);
         }
 
     private:

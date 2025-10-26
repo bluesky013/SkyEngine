@@ -113,9 +113,7 @@ namespace sky {
 
     BinaryDataPtr NativeFile::ReadBin()
     {
-        BinaryDataPtr bin = new BinaryData();
-        sky::ReadBin(filePath, bin);
-        return bin;
+        return sky::ReadBin(filePath);
     }
 
     bool NativeFile::ReadString(std::string &out)

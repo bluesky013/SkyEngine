@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <core/math/Math.h>
 #include <core/math/Vector3.h>
 #include <core/math/Matrix4.h>
 

@@ -108,7 +108,7 @@ function(sky_add_library)
 
         install(DIRECTORY ${TMP_INSTALL_DIR}/
             DESTINATION include/
-            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
         )
     endif ()
 

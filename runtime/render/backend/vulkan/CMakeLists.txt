@@ -10,7 +10,9 @@ add_library(VulkanSdk INTERFACE IMPORTED GLOBAL
     ../../tool/image/main.cpp
     ../../tool/image/include/TextureCompressor.h
     ../../tool/image/include/ImageTool.h
-    ../../tool/image/src/ImageTool.cpp)
+    ../../tool/image/src/ImageTool.cpp
+    ../../core/include/render/mesh/MeshInterface.h
+    ../../core/include/render/resource/StaticMesh.h)
 target_link_libraries(VulkanSdk INTERFACE ${Vulkan_LIBRARIES})
 target_include_directories(VulkanSdk INTERFACE ${Vulkan_INCLUDE_DIRS})
 

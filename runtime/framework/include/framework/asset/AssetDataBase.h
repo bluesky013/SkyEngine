@@ -10,7 +10,6 @@
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/Asset.h>
 
-#include <vector>
 #include <unordered_map>
 #include <mutex>
 
@@ -23,6 +22,8 @@ namespace sky {
 
         void SetEngineFs(const NativeFileSystemPtr &fs);
         void SetWorkSpaceFs(const FileSystemPtr &fs);
+
+        static Uuid CalculateUuidByPath(const AssetSourcePath& path);
 
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
         const FileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }

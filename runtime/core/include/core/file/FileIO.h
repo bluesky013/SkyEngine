@@ -16,7 +16,7 @@ namespace sky {
     bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size);
     bool ReadBin(const FilePath &path, std::vector<uint8_t> &out);
     bool ReadBin(const FilePath &path, std::vector<uint32_t> &out);
-    bool ReadBin(const FilePath &path, BinaryDataPtr &out);
+    BinaryDataPtr ReadBin(const FilePath &path);
 
     bool ReadString(const FilePath &path, std::string &out);
 

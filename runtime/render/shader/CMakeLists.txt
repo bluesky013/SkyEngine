@@ -28,6 +28,8 @@ sky_add_library(TARGET ShaderCompiler.Static STATIC
         Core
         RHI
         ${ShaderCompilerExtLib}
+    INSTALL_DIR
+        include
     )
 
 sky_add_library(TARGET ShaderCompiler SHARED
