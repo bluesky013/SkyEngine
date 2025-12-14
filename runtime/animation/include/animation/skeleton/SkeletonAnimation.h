@@ -15,11 +15,9 @@ namespace sky {
         ~SkeletonAnimation() override = default;
         void Sample(AnimationClip& clip, float timePoint) override;
 
-        const PosePtr &GetCurrentPose() const { return currentPose; }
         const SkeletonPtr &GetSkeleton() const { return skeleton; }
     private:
         SkeletonPtr skeleton;
-        PosePtr currentPose;
     };
 
 } // namespace sky

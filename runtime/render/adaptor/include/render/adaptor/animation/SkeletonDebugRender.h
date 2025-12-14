@@ -20,7 +20,7 @@ namespace sky {
         ~SkeletonDebugRender() = default;
 
         void SetTechnique(const RDTechniquePtr& tech);
-        void DrawPose(const PosePtr &pose_, const Transform &world);
+        void DrawPose(const PoseSharedPtr &pose_, const Transform &world);
 
         RenderPrimitive* GetPrimitive() { return primitive.get(); }
     private:
@@ -29,7 +29,7 @@ namespace sky {
         void DrawJoint(const Transform& bone);
         void DrawJointLink(const Transform& src, const Transform& dst);
 
-        PosePtr pose;
+        PoseSharedPtr pose;
 
         RDTechniquePtr technique;
         std::unique_ptr<RenderPrimitive> primitive;

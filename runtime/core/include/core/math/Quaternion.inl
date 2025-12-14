@@ -69,6 +69,11 @@ namespace sky {
         return rhs + ((uv * w) + uuv) * 2.f;
     }
 
+    inline Quaternion Quaternion::operator*(float v) const
+    {
+        return {x * v, y * v, z * v, w * v};
+    }
+
     inline Quaternion &Quaternion::operator*=(float m)
     {
         x *= m;

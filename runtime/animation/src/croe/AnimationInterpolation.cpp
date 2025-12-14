@@ -43,4 +43,11 @@ namespace sky {
         return res;
     }
 
+    Quaternion AccumulateShortest(const Quaternion &vk1, const Quaternion& vk2)
+    {
+        float dot = vk1.Dot(vk2);
+        return dot >= 0 ? Quaternion(vk1.x + vk2.x, vk1.y + vk2.y, vk1.z + vk2.z, vk1.w + vk2.w) :
+            Quaternion(vk1.x - vk2.x, vk1.y - vk2.y, vk1.z - vk2.z, vk1.w - vk2.w);
+    }
+
 } // namespace sky

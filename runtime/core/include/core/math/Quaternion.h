@@ -30,6 +30,7 @@ namespace sky {
 
         inline Quaternion operator*(const Quaternion &rhs) const;
         inline Vector3 operator*(const Vector3 &rhs) const;
+        inline Quaternion operator*(float v) const;
 
         inline Quaternion& operator*=(float m);
         inline Quaternion& operator/=(float d);

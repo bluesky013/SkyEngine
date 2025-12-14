@@ -10,14 +10,10 @@ namespace sky {
     SkeletonAnimation::SkeletonAnimation(const SkeletonPtr& inSkeleton)
         : skeleton(inSkeleton)
     {
-        currentPose = new Pose();
-        currentPose->transforms = skeleton->GetRefPos()->transforms;
-        currentPose->skeleton = skeleton.Get();
     }
 
     void SkeletonAnimation::Sample(AnimationClip& clip, float timePoint)
     {
-        clip.SamplePose(*currentPose, timePoint);
     }
 
 } // namespace sky

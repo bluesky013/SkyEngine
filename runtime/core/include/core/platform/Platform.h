@@ -72,6 +72,18 @@
     #endif
 #endif
 
+// LIKELY DEFINES
+#if defined(__cplusplus) && __cplusplus >= 202002L
+    #define LIKELY(expr)   (expr) [[likely]]
+    #define UNLIKELY(expr) (expr) [[unlikely]]
+#elif defined(__clang__) || defined(__GNUC__)
+    #define LIKELY(expr)   __builtin_expect(!!(expr), 1)
+    #define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#else
+    #define LIKELY(expr)   (expr)
+    #define UNLIKELY(expr) (expr)
+#endif
+
 #include <cstdint>
 
 namespace sky {

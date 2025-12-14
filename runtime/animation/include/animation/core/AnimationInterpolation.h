@@ -25,6 +25,8 @@ namespace sky {
 
     Quaternion AnimSphericalLinear(const Quaternion &vk, const Quaternion &vk1, float t);
 
+    Quaternion AccumulateShortest(const Quaternion &vk1, const Quaternion& vk2);
+
     template <typename T>
     T AnimSampleChannel(const AnimChannelData<T> &data, const SampleParam &param)
     {

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
+#include <animation/core/AnimationConfigs.h>
 
 namespace sky {
 
@@ -19,7 +20,13 @@ namespace sky {
         AnimNode() = default;
         ~AnimNode() override = default;
 
-        virtual void Update(AnimContext& context, float deltaTime) {}
+        virtual void Tick(AnimContext& context, float deltaTime) {}
+    };
+
+    class AnimRootNode : public AnimNode {
+    public:
+        AnimRootNode() = default;
+        ~AnimRootNode() override = default;
     };
 
 } // namespace sky

@@ -2,7 +2,7 @@
 // Created by Zach Lee on 2025/6/1.
 //
 
-#include <animation/core/AnimationState.h>
+#include <animation/graph/AnimationState.h>
 
 namespace sky {
 
@@ -16,7 +16,7 @@ namespace sky {
         transitions.emplace_back(transition);
     }
 
-    void AnimStateMachine::Update(AnimContext& context, float deltaTime)
+    void AnimStateMachine::Tick(AnimContext& context, float deltaTime)
     {
         if (currentState == ANIM_INVALID_HANDLE) {
             return;

@@ -12,7 +12,7 @@ namespace sky {
     {
     }
 
-    void SkeletonDebugRender::DrawPose(const PosePtr &pose_, const Transform &world)
+    void SkeletonDebugRender::DrawPose(const PoseSharedPtr &pose_, const Transform &world)
     {
         if (!pose_ || pose_->skeleton == nullptr) {
             return;

@@ -5,9 +5,9 @@
 #pragma once
 
 #include <core/name/Name.h>
-#include <animation/core/AnimationNode.h>
 #include <animation/core/AnimationTypes.h>
 #include <animation/core/AnimationCondition.h>
+#include <animation/graph/AnimationNode.h>
 #include <functional>
 #include <memory>
 
@@ -35,12 +35,12 @@ namespace sky {
     class AnimStateMachine : public AnimNode {
     public:
         AnimStateMachine() = default;
-        ~AnimStateMachine() = default;
+        ~AnimStateMachine() override = default;
 
         void AddState(const AnimState &state);
         void AddTransition(const AnimTransition& transition);
     private:
-        void Update(AnimContext& context, float deltaTime);
+        void Tick(AnimContext& context, float deltaTime) override;
         void FindTransition(AnimContext& context);
 
         AnimHandle currentState = ANIM_INVALID_HANDLE;

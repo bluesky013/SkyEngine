@@ -56,7 +56,7 @@ namespace sky {
         if (animation) {
             animation->Tick(time);
 
-            debugRender->DrawPose(animation->GetCurrentPose(), Transform::GetIdentity());
+//            debugRender->DrawPose(animation->GetCurrentPose(), Transform::GetIdentity());
 //            debugRender->DrawPose(animation->GetSkeleton()->GetRefPos(), Transform::GetIdentity());
         }
     }

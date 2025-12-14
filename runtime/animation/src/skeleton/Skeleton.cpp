@@ -37,7 +37,7 @@ namespace sky {
         }
         skeleton->UpdateBoneTree();
 
-        skeleton->refPos = new Pose();
+        skeleton->refPos = std::make_shared<Pose>();
         skeleton->refPos->transforms = data.refPos;
         skeleton->refPos->skeleton = skeleton;
         return skeleton;

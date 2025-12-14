@@ -48,7 +48,7 @@ namespace sky {
 
         inline const std::vector<Bone*> &GetRoots() const { return roots; }
         inline const Bone* GetBoneByIndex(BoneIndex index) const { return bones[index].get(); }
-        inline const PosePtr &GetRefPos() const { return refPos; }
+        inline const PoseSharedPtr &GetRefPos() const { return refPos; }
         const Bone* GetBoneByName(const Name& name) const;
 
     private:
@@ -59,7 +59,7 @@ namespace sky {
         std::vector<Matrix4> inverseBindMatrix;
         std::unordered_map<Name, BoneIndex> nameToIndexMap;
 
-        PosePtr refPos;
+        PoseSharedPtr refPos;
     };
 
 } // namespace sky
