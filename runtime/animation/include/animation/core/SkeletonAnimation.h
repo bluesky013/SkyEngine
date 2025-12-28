@@ -24,6 +24,7 @@ namespace sky {
 
         const SkeletonPtr &GetSkeleton() const { return skeleton; }
     private:
+        void EvalAny(AnimationEval& eval) override;
 
         SkeletonPtr skeleton;
         SkeletonAsyncContext* context;

@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    void PoseBlendNodeList::EvalAsync(PoseContext& context, float deltaTime)
+    void PoseBlendNodeList::EvalAny(PoseContext& context, float deltaTime)
     {
         // quick check return
         if (poses.size() != cachedWeights.size()) {
@@ -26,7 +26,7 @@ namespace sky {
 
             tmpCtx.emplace_back(context);
             PoseContext &ctx = tmpCtx.back();
-            poses[index]->EvalAsync(ctx, deltaTime);
+            poses[index]->EvalAny(ctx, deltaTime);
         }
 
         // override output
@@ -44,12 +44,12 @@ namespace sky {
     {
     }
 
-    void PoseBlend2Node::InitAsync(const AnimContext& context)
+    void PoseBlend2Node::InitAny(const AnimContext& context)
     {
-        AnimNode::InitAsync(context);
+        AnimNode::InitAny(context);
 
-        poseA->InitAsync(context);
-        poseB->InitAsync(context);
+        poseA->InitAny(context);
+        poseB->InitAny(context);
 
         isARelevant = false;
         isBRelevant = false;
@@ -57,7 +57,7 @@ namespace sky {
         fadeInOut.Reset();
     }
 
-    void PoseBlend2Node::TickAsync(const AnimLayerContext& context, float deltaTime)
+    void PoseBlend2Node::TickAny(const AnimLayerContext& context, float deltaTime)
     {
         blendedAlpha = fadeInOut.Eval(deltaTime, blendEnable);
         blendedAlpha = std::clamp(blendedAlpha, 0.f, 1.f);
@@ -66,11 +66,11 @@ namespace sky {
         const bool tmpBRelevant = Anim::IsRelevant(blendedAlpha);
 
         if (tmpARelevant && !isARelevant) {
-            poseA->InitAsync(context);
+            poseA->InitAny(context);
         }
 
         if (tmpBRelevant && !isBRelevant) {
-            poseB->InitAsync(context);
+            poseB->InitAny(context);
         }
 
         isARelevant = tmpARelevant;
@@ -79,38 +79,38 @@ namespace sky {
         if (isBRelevant) {
 
             if (isARelevant) {
-                poseA->TickAsync(context.MakeContext(1.f - blendedAlpha), deltaTime);
-                poseB->TickAsync(context.MakeContext(blendedAlpha), deltaTime);
+                poseA->TickAny(context.MakeContext(1.f - blendedAlpha), deltaTime);
+                poseB->TickAny(context.MakeContext(blendedAlpha), deltaTime);
             } else {
-                poseB->TickAsync(context, deltaTime);
+                poseB->TickAny(context, deltaTime);
             }
         } else {
-            poseA->TickAsync(context, deltaTime);
+            poseA->TickAny(context, deltaTime);
         }
     }
 
-    void PoseBlend2Node::EvalAsync(PoseContext& context, float deltaTime)
+    void PoseBlend2Node::EvalAny(PoseContext& context, float deltaTime)
     {
         if (isBRelevant) {
 
             if (isARelevant) {
 
                 PoseContext pose1(context);
-                poseA->EvalAsync(pose1, deltaTime);
+                poseA->EvalAny(pose1, deltaTime);
 
                 PoseContext pose2(context);
-                poseB->EvalAsync(pose2, deltaTime);
+                poseB->EvalAny(pose2, deltaTime);
 
                 AnimPose::BlendPose(pose1.pose, context.pose, 1.f - blendedAlpha, PoseBlendMode::OVERRIDE);
                 AnimPose::BlendPose(pose2.pose, context.pose, blendedAlpha, PoseBlendMode::ADDITIVE);
                 context.pose.NormalizeRotation();
 
             } else {
-                poseB->EvalAsync(context, deltaTime);
+                poseB->EvalAny(context, deltaTime);
             }
 
         } else {
-            poseA->EvalAsync(context, deltaTime);
+            poseA->EvalAny(context, deltaTime);
         }
 
     }

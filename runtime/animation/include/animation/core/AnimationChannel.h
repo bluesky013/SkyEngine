@@ -8,7 +8,6 @@
 #include <core/template/ReferenceObject.h>
 #include <core/name/Name.h>
 #include <core/math/Transform.h>
-#include <vector>
 
 namespace sky {
 
@@ -19,8 +18,8 @@ namespace sky {
 
         virtual void Sample(const SampleParam &param, Transform &trans) = 0;
 
-        inline float GetDuration() const { return duration; }
-        inline const Name& GetName() const { return name; }
+        FORCEINLINE float GetDuration() const { return duration; }
+        FORCEINLINE const Name& GetName() const { return name; }
     protected:
         Name name;
         float duration;

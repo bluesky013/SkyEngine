@@ -94,6 +94,10 @@ namespace sky {
         float deltaTime = 0.f;
     };
 
+    struct AnimationEval {
+        AnimPose& outPose;
+    };
+
     class AnimationAsyncContext {
     public:
         explicit AnimationAsyncContext(Animation* inAnim);
@@ -103,7 +107,7 @@ namespace sky {
         virtual void PreTick(const AnimationTick& tick);
 
         virtual void UpdateAny();
-        virtual void EvalAny();
+        virtual void EvalAny(PoseContext& context);
 
     private:
         Animation* instance = nullptr;
@@ -120,12 +124,6 @@ namespace sky {
         explicit Animation(AnimationAsyncContext* context);
         ~Animation() override;
 
-        void Init(const AnimationInit& init);
-
-        void StopAndReset();
-
-        void Tick(const AnimationTick& tick);
-
         template <typename T, typename ...Args>
         AnimNode* NewAnimNode(Args&&...args)
         {
@@ -133,14 +131,24 @@ namespace sky {
             return nodeStorages.back().get();
         }
 
+        void Init(const AnimationInit& init);
+
+        void StopAndReset();
+
+        void Tick(const AnimationTick& tick);
+
+        // parallel
+        void UpdateAny();
+
+        virtual void EvalAny(AnimationEval& eval) {}
     protected:
         virtual void OnTick(float delta) {}
-        virtual void OnPostTick() {}
-
         virtual bool UseAsync() const;
 
         std::unique_ptr<AnimationAsyncContext> asyncContext;
         std::vector<std::unique_ptr<AnimNode>> nodeStorages;
+
+        bool updated = false;
     };
     using AnimationPtr = CounterPtr<Animation>;
 

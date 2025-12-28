@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <core/platform/Platform.h>
 #include <core/name/Name.h>
 #include <vector>
 
@@ -85,14 +86,14 @@ namespace sky {
 
     namespace Anim {
 
-        inline bool IsFullWeight(float weight)
+        FORCEINLINE bool IsFullWeight(float weight)
         {
             return weight >= ANIM_INV_BLEND_WEIGHT_THRESHOLD;
         }
 
-        inline bool IsRelevant(float weight)
+        FORCEINLINE bool IsRelevant(float weight)
         {
-            return weight >ANIM_BLEND_WEIGHT_THRESHOLD;
+            return weight > ANIM_BLEND_WEIGHT_THRESHOLD;
         }
 
     } // namespace Anim

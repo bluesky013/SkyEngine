@@ -20,9 +20,9 @@ namespace sky {
 
         void SamplePose(AnimPose & pose, float time);
 
-        inline float GetDuration() const { return duration; }
-        inline const Name& GetName() const { return name; }
-        inline bool IsLooping() const { return isLooping; }
+        FORCEINLINE float GetDuration() const { return duration; }
+        FORCEINLINE const Name& GetName() const { return name; }
+        FORCEINLINE bool IsLooping() const { return isLooping; }
     private:
         Name name;
         bool isLooping = false;

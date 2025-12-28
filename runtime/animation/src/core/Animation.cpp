@@ -15,8 +15,8 @@ namespace sky {
     {
         rootNode = root;
         if (rootNode != nullptr) {
-            AnimContext context{instance};
-            rootNode->InitAsync(context);
+            AnimContext context{this};
+            rootNode->InitAny(context);
         }
     }
 
@@ -31,9 +31,13 @@ namespace sky {
 
     }
 
-    void AnimationAsyncContext::EvalAny()
+    void AnimationAsyncContext::EvalAny(PoseContext& context)
     {
-
+        if (rootNode != nullptr) {
+            rootNode->EvalAny(context, currentDelta);
+        } else {
+            context.pose.ResetRefPose();
+        }
     }
 
     Animation::Animation(AnimationAsyncContext* context)
@@ -62,6 +66,7 @@ namespace sky {
     void Animation::Tick(const AnimationTick& tick)
     {
         // pre update
+        updated = false;
         asyncContext->PreTick(tick);
 
         // update
@@ -69,11 +74,14 @@ namespace sky {
 
         // post update
         if (!UseAsync()) {
-            asyncContext->UpdateAny();
+            UpdateAny();
+            updated = true;
         }
+    }
 
-        // post tick
-        OnPostTick();
+    void Animation::UpdateAny()
+    {
+        asyncContext->UpdateAny();
     }
 
     bool Animation::UseAsync() const // NOLINT

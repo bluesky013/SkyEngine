@@ -8,8 +8,6 @@
 
 #include <core/template/ReferenceObject.h>
 #include <core/math/Transform.h>
-#include <core/name/Name.h>
-#include <unordered_map>
 #include <memory>
 
 namespace sky {

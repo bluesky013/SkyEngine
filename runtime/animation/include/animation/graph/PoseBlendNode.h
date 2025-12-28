@@ -14,8 +14,8 @@ namespace sky {
         PoseBlendNodeList() = default;
         ~PoseBlendNodeList() override = default;
 
-        void InitAsync(const AnimContext& context) override {}
-        void EvalAsync(PoseContext& context, float deltaTime) override;
+        void InitAny(const AnimContext& context) override {}
+        void EvalAny(PoseContext& context, float deltaTime) override;
 
     private:
         std::vector<AnimNode*> poses;
@@ -28,9 +28,9 @@ namespace sky {
         PoseBlend2Node(AnimNode* a, AnimNode* b);
         ~PoseBlend2Node() override = default;
 
-        void InitAsync(const AnimContext& context) override;
-        void TickAsync(const AnimLayerContext& context, float deltaTime) override;
-        void EvalAsync(PoseContext& context, float deltaTime) override;
+        void InitAny(const AnimContext& context) override;
+        void TickAny(const AnimLayerContext& context, float deltaTime) override;
+        void EvalAny(PoseContext& context, float deltaTime) override;
 
     private:
         AnimNode* poseA;

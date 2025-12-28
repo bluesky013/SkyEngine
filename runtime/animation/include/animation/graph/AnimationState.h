@@ -41,8 +41,8 @@ namespace sky {
         void AddTransition(const AnimTransition& transition);
 
     private:
-        void InitAsync(const AnimContext& context) override;
-        void TickAsync(const AnimLayerContext& context, float deltaTime) override;
+        void InitAny(const AnimContext& context) override;
+        void TickAny(const AnimLayerContext& context, float deltaTime) override;
         void FindTransition(AnimContext& context);
 
         AnimHandle currentState = ANIM_INVALID_HANDLE;

@@ -9,7 +9,6 @@
 #include <core/math/Transform.h>
 #include <core/name/Name.h>
 #include <vector>
-#include <string>
 #include <memory>
 #include <unordered_map>
 #include <animation/core/AnimationPose.h>
@@ -46,9 +45,9 @@ namespace sky {
 
         static SkeletonPtr BuildSkeleton(const SkeletonData& data);
 
-        inline const std::vector<Bone*> &GetRoots() const { return roots; }
-        inline const Bone* GetBoneByIndex(BoneIndex index) const { return bones[index].get(); }
-        inline const PoseSharedPtr &GetRefPos() const { return refPos; }
+        FORCEINLINE const std::vector<Bone*> &GetRoots() const { return roots; }
+        FORCEINLINE const Bone* GetBoneByIndex(BoneIndex index) const { return bones[index].get(); }
+        FORCEINLINE const PoseSharedPtr &GetRefPos() const { return refPos; }
         const Bone* GetBoneByName(const Name& name) const;
 
     private:

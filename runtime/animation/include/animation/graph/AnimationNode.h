@@ -10,17 +10,17 @@
 
 namespace sky {
 
-    class Animation;
+    class AnimationAsyncContext;
 
     struct AnimContext {
-        Animation* animInstance = nullptr;
+        AnimationAsyncContext* instance = nullptr;
     };
 
-    struct PoseContext : public AnimContext {
+    struct PoseContext : AnimContext {
         AnimPose pose;
     };
 
-    struct AnimLayerContext : public AnimContext {
+    struct AnimLayerContext : AnimContext {
         float weight = 1.f;
 
         AnimLayerContext MakeContext(float inWeight) const
@@ -36,9 +36,9 @@ namespace sky {
         AnimNode() = default;
         ~AnimNode() override = default;
 
-        virtual void InitAsync(const AnimContext& context) = 0;
-        virtual void TickAsync(const AnimLayerContext& context, float deltaTime) {}
-        virtual void EvalAsync(PoseContext& context, float deltaTime) = 0;
+        virtual void InitAny(const AnimContext& context) = 0;
+        virtual void TickAny(const AnimLayerContext& context, float deltaTime) {}
+        virtual void EvalAny(PoseContext& context, float deltaTime) = 0;
     };
 
 } // namespace sky
