@@ -12,7 +12,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
-#include <animation/skeleton/Pose.h>
+#include <animation/core/AnimationPose.h>
 
 namespace sky {
     using BoneIndex = uint16_t;

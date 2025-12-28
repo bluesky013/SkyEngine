@@ -6,6 +6,8 @@
 #include <core/util/Memory.h>
 #include <core/util/Uuid.h>
 #include <core/util/ArrayBitFlag.h>
+#include <core/util/TimeBlend.h>
+
 #include <unordered_set>
 #include <gtest/gtest.h>
 #include <string>
@@ -109,4 +111,29 @@ struct MemoryBuf {
 
 TEST(UtilTest, MemoryStreamTest)
 {
+}
+
+TEST(TimeBlendTest, TimeBlendTest01)
+{
+    TimeBlend blend(1.f);
+
+    blend.Update(0.2f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.2f);
+
+    blend.Update(0.2f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.4f);
+
+    blend.Update(0.3f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.7f);
+
+    blend.Update(0.5f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 1.0f);
+
+    blend.SetDesiredValue(0.5f);
+    blend.SetBlendTime(0.5f);
+    blend.Update(0.25f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.75f);
+
+    blend.Update(0.3f);
+    ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.5f);
 }

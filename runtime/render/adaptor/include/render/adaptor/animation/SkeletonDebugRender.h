@@ -4,11 +4,11 @@
 
 #pragma once
 
-#include <animation/skeleton/Pose.h>
-#include <core/math/Matrix4.h>
+#include <animation/core/AnimationPose.h>
 #include <render/resource/Technique.h>
 #include <render/debug/DebugRenderer.h>
 #include <render/RenderPrimitive.h>
+#include <core/math/Matrix4.h>
 
 namespace sky {
 

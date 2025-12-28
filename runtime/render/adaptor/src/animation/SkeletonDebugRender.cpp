@@ -3,7 +3,7 @@
 //
 
 #include <render/adaptor/animation/SkeletonDebugRender.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/Skeleton.h>
 
 namespace sky {
 

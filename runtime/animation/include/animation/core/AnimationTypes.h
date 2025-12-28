@@ -79,4 +79,21 @@ namespace sky {
     };
 
     static constexpr uint32_t ANIM_INVALID = ~(0U);
+
+    static constexpr float ANIM_BLEND_WEIGHT_THRESHOLD = 0.00001f;
+    static constexpr float ANIM_INV_BLEND_WEIGHT_THRESHOLD = 1.f - ANIM_BLEND_WEIGHT_THRESHOLD;
+
+    namespace Anim {
+
+        inline bool IsFullWeight(float weight)
+        {
+            return weight >= ANIM_INV_BLEND_WEIGHT_THRESHOLD;
+        }
+
+        inline bool IsRelevant(float weight)
+        {
+            return weight >ANIM_BLEND_WEIGHT_THRESHOLD;
+        }
+
+    } // namespace Anim
 } // namespace sky

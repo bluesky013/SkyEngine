@@ -20,7 +20,7 @@
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
 #include <render/resource/StaticMesh.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/Skeleton.h>
 
 namespace sky {
     class BinaryInputArchive;

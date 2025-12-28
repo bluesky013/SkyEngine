@@ -11,12 +11,22 @@ namespace sky {
         states.emplace_back(state);
     }
 
+    void AnimStateMachine::AddCondition(IAnimTransCond* cond)
+    {
+        conditions.emplace_back(cond);
+    }
+
     void AnimStateMachine::AddTransition(const AnimTransition& transition)
     {
         transitions.emplace_back(transition);
     }
 
-    void AnimStateMachine::Tick(AnimContext& context, float deltaTime)
+    void AnimStateMachine::InitAsync(const AnimContext& context)
+    {
+
+    }
+
+    void AnimStateMachine::TickAsync(const AnimLayerContext& context, float deltaTime)
     {
         if (currentState == ANIM_INVALID_HANDLE) {
             return;

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <animation/core/AnimationTypes.h>
+
 #include <core/template/ReferenceObject.h>
 #include <core/math/Transform.h>
 #include <core/name/Name.h>
@@ -12,8 +14,6 @@
 
 namespace sky {
 
-#define BLEND_WEIGHT_THRESHOLD 0.00001f
-
     class Skeleton;
 
     enum class PoseBlendMode : uint32_t {
@@ -21,18 +21,19 @@ namespace sky {
         ADDITIVE
     };
 
-    struct Pose {
+    struct AnimPose {
         std::vector<Transform> transforms;
         Skeleton* skeleton = nullptr; // weak reference
 
         void ResetRefPose();
+        void NormalizeRotation();
 
         static void BlendTransform(const Transform& src, Transform& dst, float weight);
         static void BlendTransformAdditive(const Transform& delta, Transform& dst, float weight);
 
-        static void BlendPose(const Pose& src, Pose& dst, float weight, PoseBlendMode mode);
+        static void BlendPose(const AnimPose & src, AnimPose & dst, float weight, PoseBlendMode mode);
     };
 
-    using PoseSharedPtr = std::shared_ptr<Pose>;
+    using PoseSharedPtr = std::shared_ptr<AnimPose>;
 
 } // namespace sky

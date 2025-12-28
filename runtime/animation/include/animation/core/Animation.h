@@ -6,6 +6,7 @@
 
 #include <core/template/ReferenceObject.h>
 #include <animation/core/AnimationClip.h>
+#include <animation/graph/AnimationNode.h>
 #include <unordered_map>
 
 namespace sky {
@@ -83,32 +84,64 @@ namespace sky {
         std::unordered_map<Name, uint32_t> paramMap;
     };
 
+    class Animation;
+
+    struct AnimationInit {
+        AnimNode* rootNode = nullptr;
+    };
+
+    struct AnimationTick {
+        float deltaTime = 0.f;
+    };
+
+    class AnimationAsyncContext {
+    public:
+        explicit AnimationAsyncContext(Animation* inAnim);
+        virtual ~AnimationAsyncContext() = default;
+
+        void InitRoot(AnimNode* root);
+        virtual void PreTick(const AnimationTick& tick);
+
+        virtual void UpdateAny();
+        virtual void EvalAny();
+
+    private:
+        Animation* instance = nullptr;
+        AnimNode* rootNode = nullptr;
+
+        float currentDelta = 0.f;
+    };
+
+    /**
+     * Animation Instance
+     */
     class Animation : public RefObject {
     public:
-        Animation() = default;
-        ~Animation() override = default;
+        explicit Animation(AnimationAsyncContext* context);
+        ~Animation() override;
 
-        virtual void Tick(float delta) = 0;
+        void Init(const AnimationInit& init);
 
-        void AddClip(const AnimClipPtr& clip);
+        void StopAndReset();
+
+        void Tick(const AnimationTick& tick);
+
+        template <typename T, typename ...Args>
+        AnimNode* NewAnimNode(Args&&...args)
+        {
+            nodeStorages.emplace_back(new T(std::forward<Args>(args)...));
+            return nodeStorages.back().get();
+        }
 
     protected:
-        std::vector<AnimClipPtr> clips;
+        virtual void OnTick(float delta) {}
+        virtual void OnPostTick() {}
+
+        virtual bool UseAsync() const;
+
+        std::unique_ptr<AnimationAsyncContext> asyncContext;
+        std::vector<std::unique_ptr<AnimNode>> nodeStorages;
     };
     using AnimationPtr = CounterPtr<Animation>;
-
-    class KeyFrameAnimation : public Animation {
-    public:
-        KeyFrameAnimation() = default;
-        ~KeyFrameAnimation() override = default;
-
-        void Tick(float delta) override;
-
-    protected:
-        virtual void Sample(AnimationClip& clip, float timePoint) = 0;
-
-        float currentTime = 0.f;
-        size_t currentClip = 0;
-    };
 
 } // namespace sky

@@ -53,12 +53,12 @@ namespace sky {
 
     void AnimationPreviewComponent::Tick(float time)
     {
-        if (animation) {
-            animation->Tick(time);
+//        if (animation) {
+//            animation->Tick(time);
 
 //            debugRender->DrawPose(animation->GetCurrentPose(), Transform::GetIdentity());
 //            debugRender->DrawPose(animation->GetSkeleton()->GetRefPos(), Transform::GetIdentity());
-        }
+//        }
     }
 
     void AnimationPreviewComponent::UpdateAnimation(bool reset)
@@ -78,9 +78,9 @@ namespace sky {
             renderScene->AddPrimitive(debugRender->GetPrimitive());
         }
 
-        animation = new SkeletonAnimation(skl);
-        auto clipInst = CreateAnimationFromAsset(clip.GetAsset());
-        animation->AddClip(clipInst);
+//        animation = new SkeletonAnimation(skl);
+//        auto clipInst = CreateAnimationFromAsset(clip.GetAsset());
+//        animation->AddClip(clipInst);
     }
 
 } // namespace sky

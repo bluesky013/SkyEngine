@@ -22,7 +22,6 @@ namespace sky {
     };
 
     struct AnimTransition {
-        float crossFade = 0.f;
         AnimHandle prevState = ANIM_INVALID_HANDLE;
         AnimHandle nextState = ANIM_INVALID_HANDLE;
 
@@ -38,9 +37,12 @@ namespace sky {
         ~AnimStateMachine() override = default;
 
         void AddState(const AnimState &state);
+        void AddCondition(IAnimTransCond* cond);
         void AddTransition(const AnimTransition& transition);
+
     private:
-        void Tick(AnimContext& context, float deltaTime) override;
+        void InitAsync(const AnimContext& context) override;
+        void TickAsync(const AnimLayerContext& context, float deltaTime) override;
         void FindTransition(AnimContext& context);
 
         AnimHandle currentState = ANIM_INVALID_HANDLE;

@@ -9,7 +9,7 @@
 #include <animation/core/AnimationChannel.h>
 
 namespace sky {
-    struct Pose;
+    struct AnimPose;
 
     class AnimationClip : public RefObject {
     public:
@@ -18,7 +18,7 @@ namespace sky {
 
         void AddChannel(const AnimChannelPtr &channel);
 
-        void SamplePose(Pose& pose, float time);
+        void SamplePose(AnimPose & pose, float time);
 
         inline float GetDuration() const { return duration; }
         inline const Name& GetName() const { return name; }

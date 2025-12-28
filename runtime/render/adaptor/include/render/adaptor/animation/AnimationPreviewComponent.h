@@ -4,14 +4,16 @@
 
 #pragma once
 
-#include <animation/skeleton/Skeleton.h>
+#include <animation/Core/Skeleton.h>
+#include <animation/Core/SkeletonAnimation.h>
+
 #include <framework/asset/AssetHolder.h>
 #include <framework/interface/ITransformEvent.h>
 #include <framework/world/Component.h>
 #include <render/adaptor/assets/AnimationAsset.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/adaptor/animation/SkeletonDebugRender.h>
-#include <animation/skeleton/SkeletonAnimation.h>
+
 
 namespace sky {
     class SerializationContext;

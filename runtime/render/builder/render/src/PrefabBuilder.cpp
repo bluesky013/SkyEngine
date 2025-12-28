@@ -19,7 +19,7 @@
 
 #include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/skeleton/SkeletonMeshRenderer.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/Skeleton.h>
 
 //#include <meshoptimizer.h>
 

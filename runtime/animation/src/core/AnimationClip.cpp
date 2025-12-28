@@ -3,8 +3,8 @@
 //
 
 #include <animation/core/AnimationClip.h>
-#include <animation/skeleton/Pose.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/AnimationPose.h>
+#include <animation/core/Skeleton.h>
 
 namespace sky {
 
@@ -14,7 +14,7 @@ namespace sky {
         channels.emplace(channel->GetName(), channel);
     }
 
-    void AnimationClip::SamplePose(Pose& pose, float time)
+    void AnimationClip::SamplePose(AnimPose& pose, float time)
     {
         SampleParam param = {};
         param.timePoint = time;

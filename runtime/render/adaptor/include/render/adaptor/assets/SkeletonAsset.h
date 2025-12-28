@@ -5,7 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetManager.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/Skeleton.h>
 #include <string>
 #include <vector>
 
