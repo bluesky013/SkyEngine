@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include <animation/core/AnimationUtils.h>
 #include <animation/graph/AnimationNode.h>
-#include <animation/core/AnimationInput.h>
 
 namespace sky {
 

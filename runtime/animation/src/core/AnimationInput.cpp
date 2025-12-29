@@ -2,7 +2,7 @@
 // Created by blues on 2025/12/28.
 //
 
-#include <animation/core/AnimationInput.h>
+#include <animation/core/AnimationUtils.h>
 
 namespace sky {
 

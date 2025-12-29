@@ -113,6 +113,7 @@ namespace sky {
         Animation* instance = nullptr;
         AnimNode* rootNode = nullptr;
 
+        // frame init data
         float currentDelta = 0.f;
     };
 
