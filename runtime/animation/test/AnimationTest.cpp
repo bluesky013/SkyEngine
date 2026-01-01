@@ -3,8 +3,6 @@
 //
 
 #include <gtest/gtest.h>
-#include <animation/core/AnimationState.h>
-#include <animation/core/AnimationClip.h>
 #include <animation/core/AnimationInterpolation.h>
 #include <animation/core/Animation.h>
 using namespace sky;
@@ -80,18 +78,37 @@ TEST(AnimationTest, AnimationChannelSampleTest)
 
 TEST(AnimationTest, AnimationParameterTest)
 {
-    AnimParameters parameters;
+    Animation anim(nullptr);
 
-    parameters.AddParameters(Name("T1"), 1U);
-    parameters.AddParameters(Name("T2"), 2);
-    parameters.AddParameters(Name("T3"), true);
-    parameters.AddParameters(Name("T4"), 1.f);
+    std::unique_ptr<IAnimParameter> param1(new TAnimFuncParameter<float>([](float time) -> float {
+        return time;
+    }));
 
-    ASSERT_EQ(*parameters.GetParameters<float>(Name("T4")), 1.f);
-    ASSERT_EQ(*parameters.GetParameters<bool>(Name("T3")), true);
-    ASSERT_EQ(*parameters.GetParameters<int32_t>(Name("T2")), 2);
-    ASSERT_EQ(*parameters.GetParameters<uint32_t>(Name("T1")), 1U);
+    uint32_t val = 0;
+    std::unique_ptr<IAnimParameter> param2(new TAnimRefCachedParameter<uint32_t>(val));
+    val = 1;
 
+
+    param1->Update(0.5f);
+    param2->Update(0.5f);
+
+    ASSERT_FLOAT_EQ(param1->EvalAs<float>(), 0.5f);
+    ASSERT_EQ(param2->EvalAs<uint32_t>(), 1);
+
+}
+
+TEST(AnimationTest, AnimationCompTest)
+{
+    ASSERT_TRUE(!AnimCompEval<float>::Compare(AnimComp::NEV , 1.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::LT  , 1.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::EQ  , 3.f, 3.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::LE  , 1.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::LE  , 2.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::GT  , 3.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::NE  , 1.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::GE  , 3.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::GE  , 2.f, 2.f));
+    ASSERT_TRUE(AnimCompEval<float>::Compare(AnimComp::AWS , 1.f, 2.f));
 }
 
 int main(int argc, char *argv[])

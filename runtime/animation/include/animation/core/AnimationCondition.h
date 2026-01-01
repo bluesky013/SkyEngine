@@ -8,21 +8,29 @@
 
 namespace sky {
 
-    struct IAnimTransCond {
-        IAnimTransCond() = default;
-        virtual ~IAnimTransCond() = default;
-        virtual bool Eval() const = 0;
-    };
-
     template <typename T>
-    struct AnimParameterCond : public IAnimTransCond {
-        Name key;
-        AnimComp comp;
+    struct TAnimParameterCond : public IAnimTransCond {
+        TAnimParameter<T> *val = nullptr;
         T refVal;
+        AnimComp comp;
+
+        TAnimParameterCond(TAnimParameter<T> *inVal, const T& inRef, AnimComp inComp)
+            : val(inVal)
+            , refVal(inRef)
+            , comp(inComp)
+        {
+        }
+
+        void Update(float deltaTime) override
+        {
+            if (val != nullptr) {
+                val->Update(deltaTime);
+            }
+        }
 
         bool Eval() const override
         {
-            return true;
+            return val != nullptr && AnimCompEval<T>::Compare(comp, val->template EvalAs<T>(), refVal);
         }
     };
 

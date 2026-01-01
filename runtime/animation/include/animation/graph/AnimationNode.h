@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <core/template/ReferenceObject.h>
 #include <animation/core/AnimationPose.h>
 #include <animation/core/AnimationConfigs.h>
 
@@ -31,10 +30,10 @@ namespace sky {
         }
     };
 
-    class AnimNode : public RefObject {
+    class AnimNode {
     public:
         AnimNode() = default;
-        ~AnimNode() override = default;
+        virtual ~AnimNode() = default;
 
         virtual void InitAny(const AnimContext& context) = 0;
         virtual void TickAny(const AnimLayerContext& context, float deltaTime) {}

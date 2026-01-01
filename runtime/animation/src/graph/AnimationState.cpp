@@ -7,34 +7,43 @@
 
 namespace sky {
 
-    AnimStateMachine& AnimStateMachine::AddState(const AnimState &state)
+    AnimHandle AnimStateMachine::AddState(const AnimState &state)
     {
         states.emplace_back(state);
-        return *this;
+        return Cast<AnimHandle>(states.size() - 1);
     }
 
-    AnimStateMachine& AnimStateMachine::AddCondition(IAnimTransCond* cond)
+    AnimHandle AnimStateMachine::AddCondition(IAnimTransCond* cond)
     {
         conditions.emplace_back(cond);
-        return *this;
+        return Cast<AnimHandle>(conditions.size() - 1);
     }
 
-    AnimStateMachine& AnimStateMachine::AddTransition(const AnimTransition& transition)
+    AnimHandle AnimStateMachine::AddTransition(const AnimTransition& transition)
     {
         transitions.emplace_back(transition);
-        return *this;
+
+        SKY_ASSERT(transition.prevState != ANIM_INVALID_HANDLE);
+        SKY_ASSERT(transition.nextState != ANIM_INVALID_HANDLE);
+        SKY_ASSERT(transition.condition != ANIM_INVALID_HANDLE);
+
+        auto transitionHandle = Cast<AnimHandle>(transitions.size() - 1);
+
+        auto& prevState = states[transition.prevState];
+        prevState.transitions.emplace_back(transitionHandle);
+        return transitionHandle;
     }
 
-    AnimStateMachine& AnimStateMachine::SetEntry(AnimHandle inState)
+    void AnimStateMachine::SetEntry(AnimHandle inState)
     {
         initState = inState;
-        return *this;
     }
 
     void AnimStateMachine::Finalize()
     {
         if (initState == ANIM_INVALID_HANDLE && !states.empty()) {
             initState = 0;
+            currentState = initState;
         }
     }
 
@@ -58,9 +67,15 @@ namespace sky {
         }
     }
 
-    void AnimStateMachine::Transition(const AnimLayerContext& context, AnimHandle trans)
+    void AnimStateMachine::EvalAny(PoseContext& context, float deltaTime)
     {
 
+    }
+
+    void AnimStateMachine::Transition(const AnimLayerContext& context, AnimHandle trans)
+    {
+        const auto& transition = transitions[trans];
+        SetState(context, transition.nextState);
     }
 
     bool AnimStateMachine::FindTransition(const AnimLayerContext& context, AnimHandle inState, AnimHandle& outTransition, std::set<AnimHandle>& visited)
@@ -74,12 +89,8 @@ namespace sky {
         const auto& stateInfo = states[inState];
         for (const auto &transHandle : stateInfo.transitions) {
             const auto& transition = transitions[transHandle];
-
-            const AnimState& nextState = states[transition.nextState];
             const IAnimTransCond* condition = transition.condition != ANIM_INVALID_HANDLE ? conditions[transition.condition].get() : nullptr;
-
             bool enterNextState = (condition != nullptr) && (condition->Eval());
-
             if (enterNextState) {
                 outTransition = transHandle;
                 return true;
@@ -96,24 +107,11 @@ namespace sky {
             currentState = std::clamp<AnimHandle>(state, 0, static_cast<AnimHandle>(states.size()));
 
             // initialize node
-            states[currentState].node->InitAny(context);
+            auto& animState = states[currentState];
+            if (animState.node != nullptr) {
+                states[currentState].node->InitAny(context);
+            }
         }
     }
-
-//    void AnimStateMachine::Update(float deltaTime)
-//    {
-//        if (!currentState) {
-//            return;
-//        }
-//
-//        currentState->onUpdate(deltaTime);
-//
-//        for (const auto& transition : currentState->transitions) {
-//            if (transition.condition()) {
-//                ChangeState(transition.target);
-//                break;
-//            }
-//        }
-//    }
 
 } // namespace sky

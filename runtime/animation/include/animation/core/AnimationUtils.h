@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/util/TimeBlend.h>
+#include <animation/core/AnimationTypes.h>
 
 namespace sky {
 
@@ -21,5 +22,20 @@ namespace sky {
 
         void Reset();
     };
+
+
+    namespace Anim {
+
+        FORCEINLINE bool IsFullWeight(float weight)
+        {
+            return weight >= ANIM_INV_BLEND_WEIGHT_THRESHOLD;
+        }
+
+        FORCEINLINE bool IsRelevant(float weight)
+        {
+            return weight > ANIM_BLEND_WEIGHT_THRESHOLD;
+        }
+
+    } // namespace Anim
 
 } // namespace sky

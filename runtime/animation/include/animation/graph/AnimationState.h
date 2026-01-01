@@ -21,7 +21,6 @@ namespace sky {
     struct AnimTransition {
         AnimHandle prevState = ANIM_INVALID_HANDLE;
         AnimHandle nextState = ANIM_INVALID_HANDLE;
-
         AnimHandle condition = ANIM_INVALID_HANDLE;
     };
 
@@ -33,7 +32,6 @@ namespace sky {
     };
 
     class AnimStateMachine;
-    using AnimStateMachinePtr = CounterPtr<AnimStateMachine>;
 
     class AnimStateMachine : public AnimNode {
     public:
@@ -41,18 +39,22 @@ namespace sky {
         ~AnimStateMachine() override = default;
 
         // builder begin
-        AnimStateMachine& AddState(const AnimState &state);
-        AnimStateMachine& AddCondition(IAnimTransCond* cond);
-        AnimStateMachine& AddTransition(const AnimTransition& transition);
-        AnimStateMachine& SetEntry(AnimHandle initState);
+        AnimHandle AddState(const AnimState &state);
+        AnimHandle AddCondition(IAnimTransCond* cond);
+        AnimHandle AddTransition(const AnimTransition& transition);
+        void SetEntry(AnimHandle initState);
         void Finalize();
         // builder end
 
-        void SetState(const AnimContext& context, AnimHandle state);
+        FORCEINLINE const AnimHandle GetCurrentStateHandle() const { return currentState; }
+        FORCEINLINE const AnimState& GetCurrentState() const { return states[currentState]; }
 
-    private:
         void InitAny(const AnimContext& context) override;
         void TickAny(const AnimLayerContext& context, float deltaTime) override;
+        void EvalAny(PoseContext& context, float deltaTime) override;
+
+    private:
+        void SetState(const AnimContext& context, AnimHandle state);
         bool FindTransition(const AnimLayerContext& context, AnimHandle inState, AnimHandle& outTransition, std::set<AnimHandle>& visited);
         void Transition(const AnimLayerContext& context, AnimHandle trans);
 
