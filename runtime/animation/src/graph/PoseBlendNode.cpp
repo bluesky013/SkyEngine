@@ -8,7 +8,7 @@
 
 namespace sky {
 
-    void PoseBlendNodeList::EvalAny(PoseContext& context, float deltaTime)
+    void PoseBlendNodeList::EvalAny(PoseContext& context)
     {
         // quick check return
         if (poses.size() != cachedWeights.size()) {
@@ -26,7 +26,7 @@ namespace sky {
 
             tmpCtx.emplace_back(context);
             PoseContext &ctx = tmpCtx.back();
-            poses[index]->EvalAny(ctx, deltaTime);
+            poses[index]->EvalAny(ctx);
         }
 
         // override output
@@ -89,28 +89,28 @@ namespace sky {
         }
     }
 
-    void PoseBlend2Node::EvalAny(PoseContext& context, float deltaTime)
+    void PoseBlend2Node::EvalAny(PoseContext& context)
     {
         if (isBRelevant) {
 
             if (isARelevant) {
 
                 PoseContext pose1(context);
-                poseA->EvalAny(pose1, deltaTime);
+                poseA->EvalAny(pose1);
 
                 PoseContext pose2(context);
-                poseB->EvalAny(pose2, deltaTime);
+                poseB->EvalAny(pose2);
 
                 AnimPose::BlendPose(pose1.pose, context.pose, 1.f - blendedAlpha, PoseBlendMode::OVERRIDE);
                 AnimPose::BlendPose(pose2.pose, context.pose, blendedAlpha, PoseBlendMode::ADDITIVE);
                 context.pose.NormalizeRotation();
 
             } else {
-                poseB->EvalAny(context, deltaTime);
+                poseB->EvalAny(context);
             }
 
         } else {
-            poseA->EvalAny(context, deltaTime);
+            poseA->EvalAny(context);
         }
 
     }

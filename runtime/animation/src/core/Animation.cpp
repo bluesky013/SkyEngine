@@ -34,7 +34,7 @@ namespace sky {
     void AnimationAsyncContext::EvalAny(PoseContext& context)
     {
         if (rootNode != nullptr) {
-            rootNode->EvalAny(context, currentDelta);
+            rootNode->EvalAny(context);
         } else {
             context.pose.ResetRefPose();
         }

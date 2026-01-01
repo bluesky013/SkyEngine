@@ -20,8 +20,8 @@ namespace sky {
         param.timePoint = time;
         param.interpolation = AnimInterpolation::LINEAR;
 
-        for (auto& [name, channel] : channels) {
-            auto *bone = pose.skeleton->GetBoneByName(name);
+        for (auto& [channelName, channel] : channels) {
+            const auto *bone = pose.skeleton->GetBoneByName(channelName);
             SKY_ASSERT(bone != nullptr);
 
             channel->Sample(param,  pose.transforms[bone->index]);

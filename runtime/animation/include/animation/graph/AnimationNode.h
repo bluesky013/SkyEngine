@@ -37,7 +37,7 @@ namespace sky {
 
         virtual void InitAny(const AnimContext& context) = 0;
         virtual void TickAny(const AnimLayerContext& context, float deltaTime) {}
-        virtual void EvalAny(PoseContext& context, float deltaTime) = 0;
+        virtual void EvalAny(PoseContext& context) = 0;
     };
 
 } // namespace sky

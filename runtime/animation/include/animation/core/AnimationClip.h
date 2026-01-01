@@ -21,12 +21,13 @@ namespace sky {
         void SamplePose(AnimPose & pose, float time);
 
         FORCEINLINE float GetDuration() const { return duration; }
+        FORCEINLINE float GetPlayRate() const { return rate; }
+
         FORCEINLINE const Name& GetName() const { return name; }
-        FORCEINLINE bool IsLooping() const { return isLooping; }
     private:
         Name name;
-        bool isLooping = false;
         float duration = 0.f;
+        float rate = 0.f;
         std::unordered_map<Name, AnimChannelPtr> channels;
     };
     using AnimClipPtr = CounterPtr<AnimationClip>;
