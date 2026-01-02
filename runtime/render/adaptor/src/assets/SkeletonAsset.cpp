@@ -22,8 +22,9 @@ namespace sky {
         auto boneIndex = static_cast<BoneIndex>(nameToIndexMap.size());
         nameToIndexMap.emplace(name, boneIndex);
         data.boneData.emplace_back(BoneData{Name{}, INVALID_BONE_ID});
-        data.inverseBindMatrix.emplace_back(matrix);
         data.refPos.emplace_back(Transform::GetIdentity());
+
+        inverseBindMatrix.emplace_back(matrix);
     }
 
     BoneIndex SkeletonAssetBuildContext::FindBoneByName(const std::string &name) const
@@ -45,7 +46,6 @@ namespace sky {
         uint32_t count = archive.StartArray("bones");
 
         boneData.resize(count);
-        inverseBindMatrix.resize(count);
         refPos.resize(count);
 
         for (uint32_t i = 0; i < count; ++i) {
@@ -57,10 +57,6 @@ namespace sky {
 
             archive.Start("parent");
             boneData[i].parentIndex = archive.LoadUint();
-            archive.End();
-
-            archive.Start("inverseBindMatrix");
-            archive.LoadValueObject(inverseBindMatrix[i]);
             archive.End();
 
             archive.Start("refPos");
@@ -88,9 +84,6 @@ namespace sky {
             archive.Key("parent");
             archive.SaveValue(boneData[i].parentIndex);
 
-            archive.Key("inverseBindMatrix");
-            archive.SaveValueObject(inverseBindMatrix[i]);
-
             archive.Key("refPos");
             archive.SaveValueObject(refPos[i]);
 
@@ -107,7 +100,6 @@ namespace sky {
 
         archive.LoadValue(count);
         boneData.resize(count);
-        inverseBindMatrix.resize(count);
         refPos.resize(count);
         for (uint32_t i = 0; i < count; ++i) {
             std::string name;
@@ -115,10 +107,6 @@ namespace sky {
 
             boneData[i].name = Name(name.c_str());
             archive.LoadValue(boneData[i].parentIndex);
-        }
-
-        for (uint32_t i = 0; i < count; ++i) {
-            archive.LoadValue(reinterpret_cast<char*>(inverseBindMatrix[i].v), sizeof(Matrix4));
         }
 
         for (uint32_t i = 0; i < count; ++i) {
@@ -136,10 +124,6 @@ namespace sky {
         for (const auto &bone : boneData) {
             archive.SaveValue(bone.name.GetStr());
             archive.SaveValue(bone.parentIndex);
-        }
-
-        for (const auto &mtx : inverseBindMatrix) {
-            archive.SaveValue(reinterpret_cast<const char*>(mtx.v), sizeof(Matrix4));
         }
 
         for (const auto &trans : refPos) {

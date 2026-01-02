@@ -24,7 +24,6 @@ namespace sky {
 
     struct SkeletonData {
         std::vector<BoneData> boneData;
-        std::vector<Matrix4> inverseBindMatrix;
         std::vector<Transform> refPos;
     };
 
@@ -55,7 +54,6 @@ namespace sky {
 
         std::vector<Bone*> roots;
         std::vector<std::unique_ptr<Bone>> bones;
-        std::vector<Matrix4> inverseBindMatrix;
         std::unordered_map<Name, BoneIndex> nameToIndexMap;
 
         PoseSharedPtr refPos;

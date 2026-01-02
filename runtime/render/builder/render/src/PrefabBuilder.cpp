@@ -322,8 +322,8 @@ namespace sky::builder {
         if (boneIndex != INVALID_BONE_ID) {
             skeleton.data.boneData[boneIndex].parentIndex = parentIndex;
 
-            Matrix4 localBindPose = parentIndex != INVALID_BONE_ID ? skeleton.data.inverseBindMatrix[parentIndex] : Matrix4::Identity();
-            localBindPose = localBindPose * skeleton.data.inverseBindMatrix[boneIndex].Inverse();
+            Matrix4 localBindPose = parentIndex != INVALID_BONE_ID ? skeleton.inverseBindMatrix[parentIndex] : Matrix4::Identity();
+            localBindPose = localBindPose * skeleton.inverseBindMatrix[boneIndex].Inverse();
             Transform &localTrans = skeleton.data.refPos[boneIndex];
             Decompose(localBindPose, localTrans.translation, localTrans.rotation, localTrans.scale);
             parentIndex = boneIndex;

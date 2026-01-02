@@ -27,6 +27,7 @@ namespace sky {
         void FillBoneName(const std::string &boneNamespace);
 
         std::unordered_map<std::string, BoneIndex> nameToIndexMap;
+        std::vector<Matrix4> inverseBindMatrix;
         SkeletonAssetData data;
     };
 

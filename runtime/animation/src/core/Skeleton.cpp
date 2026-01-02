@@ -23,7 +23,6 @@ namespace sky {
     {
         auto* skeleton = new Skeleton();
 
-        skeleton->inverseBindMatrix = data.inverseBindMatrix;
         skeleton->bones.resize(data.boneData.size());
         for (size_t i = 0; i < data.boneData.size(); ++i) {
             auto index = static_cast<BoneIndex>(i);

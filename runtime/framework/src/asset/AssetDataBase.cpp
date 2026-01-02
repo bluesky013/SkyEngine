@@ -74,7 +74,7 @@ namespace sky {
         return {};
     }
 
-    AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path)
+    AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path, bool build)
     {
         const auto &fs = GetFileSystemBySourcePath(path);
         if (!fs->FileExist(path.path)) {
@@ -114,23 +114,25 @@ namespace sky {
             }
         }
 
-        AssetBuildRequest request = {};
-        request.file = fs->OpenFile(path.path);
-        request.assetInfo = info;
-        AssetBuilderManager::Get()->BuildRequest(request);
+        if (build) {
+            AssetBuildRequest request = {};
+            request.file = fs->OpenFile(path.path);
+            request.assetInfo = info;
+            AssetBuilderManager::Get()->BuildRequest(request);
+        }
 
         // request builder
         return info;
     }
 
-    AssetSourcePtr AssetDataBase::RegisterAsset(const std::string &path)
+    AssetSourcePtr AssetDataBase::RegisterAsset(const std::string &path, bool build)
     {
         auto querySource = QuerySource(path);
         if (querySource.bundle == SourceAssetBundle::INVALID) {
             return nullptr;
         }
 
-        return RegisterAsset(querySource);
+        return RegisterAsset(querySource, build);
     }
 
     void AssetDataBase::RemoveAsset(const Uuid &id)

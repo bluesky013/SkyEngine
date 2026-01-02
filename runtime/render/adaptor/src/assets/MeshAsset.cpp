@@ -134,7 +134,7 @@ namespace sky {
         Matrix4 current = matrix;
         if (node->boneIndex != INVALID_BONE_ID) {
             current = current * skeleton.refPos[node->boneIndex].ToMatrix();
-            skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
+            // skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
         }
         for (auto &child : node->children) {
             WalkBone(child, current, skeleton, skin);
@@ -217,7 +217,7 @@ namespace sky {
             const auto &skeletonData = skeleton->Data();
             auto* skin = new Skin();
             skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
-            SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
+            // SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
 
             BoneNode root;
             std::vector<BoneNode> bones(skin->activeBone);

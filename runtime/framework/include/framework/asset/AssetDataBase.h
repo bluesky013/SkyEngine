@@ -28,8 +28,8 @@ namespace sky {
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
         const FileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
-        AssetSourcePtr RegisterAsset(const AssetSourcePath &path);
-        AssetSourcePtr RegisterAsset(const std::string &path);
+        AssetSourcePtr RegisterAsset(const AssetSourcePath &path, bool build = true);
+        AssetSourcePtr RegisterAsset(const std::string &path, bool build = true);
         AssetSourcePath QuerySource(const std::string &path);   // engine->workspace->custom
 
         AssetSourcePtr FindAsset(const Uuid &id);
