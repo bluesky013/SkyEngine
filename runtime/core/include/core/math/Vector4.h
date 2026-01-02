@@ -20,6 +20,8 @@ namespace sky {
             };
         };
 
+        using BaseType = float;
+
         inline constexpr Vector4();
         inline constexpr Vector4(float v); // NOLINT
         inline constexpr Vector4(float x_, float y_, float z_, float w_);
@@ -47,6 +49,14 @@ namespace sky {
 
         inline float &operator[](uint32_t i);
         inline float operator[](uint32_t i) const;
+    };
+
+    template <>
+    struct VectorTraits<Vector4> {
+        using BaseType = Vector4::BaseType;
+        static constexpr size_t Size = 4;
+
+        static BaseType Visit(const Vector4& inVal, size_t index) { return inVal.v[index]; }
     };
 }
 

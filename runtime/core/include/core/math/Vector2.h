@@ -18,6 +18,8 @@ namespace sky {
             };
         };
 
+        using BaseType = float;
+
         inline constexpr Vector2();
         inline constexpr explicit Vector2(float v);
         inline constexpr Vector2(float x_, float y_);
@@ -47,7 +49,16 @@ namespace sky {
         inline float &operator[](uint32_t i);
         inline float operator[](uint32_t i) const;
     };
-}
+
+    template <>
+    struct VectorTraits<Vector2> {
+        using BaseType = Vector2::BaseType;
+        static constexpr size_t Size = 2;
+
+        static BaseType Visit(const Vector2& inVal, size_t index) { return inVal.v[index]; }
+    };
+
+} // namespace sky
 
 #include "core/math/Vector2.inl"
 

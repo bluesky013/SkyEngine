@@ -290,6 +290,12 @@ namespace sky {
         };
     }
 
+    template <typename T>
+    T::Type ScalerVisit(const T& t, uint32_t index)
+    {
+        return t.v[index];
+    }
+
     uint8_t CeilLog2(uint32_t x);
 
 } // namespace sky

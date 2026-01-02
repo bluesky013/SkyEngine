@@ -13,17 +13,13 @@ namespace sky {
         channels.emplace(channel->GetName(), channel);
     }
 
-    void AnimationClip::SamplePose(AnimPose& pose, float time)
+    void AnimationClip::SamplePose(AnimPose & pose, const SampleParam& param)
     {
-        SampleParam param = {};
-        param.timePoint = time;
-        param.interpolation = AnimInterpolation::LINEAR;
-
         for (auto& [channelName, channel] : channels) {
             const auto *bone = pose.skeleton->GetBoneByName(channelName);
             SKY_ASSERT(bone != nullptr);
 
-            channel->Sample(param,  pose.transforms[bone->index]);
+            channel->Sample(param, pose.transforms[bone->index]);
         }
     }
 

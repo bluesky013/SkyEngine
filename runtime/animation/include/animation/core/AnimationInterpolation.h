@@ -33,27 +33,34 @@ namespace sky {
         SKY_ASSERT(data.times.size() == data.keys.size());
         SKY_ASSERT(!data.times.empty());
 
-        auto [t1, t2] = data.FindKeyFrame(param.timePoint);
+        if (data.times.empty()) {
+            return {};
+        }
 
+        if (data.times.size() == 1) {
+            return data.keys[0];
+        }
+
+        auto [t1, t2] = data.FindKeyFrame(param.frameTime.frame);
         if (t1 == t2) {
             return data.keys[t1];
         }
 
-        // const T &vk1 = data.keys[t1];
-        // const T &vk2 = data.keys[t2];
-        // float t = (param.timePoint - data.times[t1]) / (data.times[t2] - data.times[t1]);
-        //
-        // switch (param.interpolation) {
-        // case AnimInterpolation::STEP:
-        //     return vk1;
-        // case AnimInterpolation::CUBIC_SPLINE: // not supported yet.
-        // case AnimInterpolation::LINEAR:
-        //     if constexpr (std::is_same_v<T, Quaternion>) {
-        //         return AnimSphericalLinear(vk1, vk2, t);
-        //     } else {
-        //         return AnimInterpolateLinear(vk1, vk2, t);
-        //     }
-        // }
+         const T &vk1 = data.keys[t1];
+         const T &vk2 = data.keys[t2];
+         float t = (static_cast<float>(param.frameTime) - data.times[t1]) / (data.times[t2] - data.times[t1]);
+
+         switch (param.interpolation) {
+         case AnimInterpolation::STEP:
+             return vk1;
+         case AnimInterpolation::CUBIC_SPLINE: // not supported yet.
+         case AnimInterpolation::LINEAR:
+             if constexpr (std::is_same_v<T, Quaternion>) {
+                 return AnimSphericalLinear(vk1, vk2, t);
+             } else {
+                 return AnimInterpolateLinear(vk1, vk2, t);
+             }
+         }
         return T{};
     }
 

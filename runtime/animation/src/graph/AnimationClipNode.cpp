@@ -3,6 +3,7 @@
 //
 
 #include <animation/graph/AnimationClipNode.h>
+#include <animation/core/AnimationUtils.h>
 
 namespace sky {
 
@@ -39,7 +40,11 @@ namespace sky {
             return;
         }
 
-        clip->SamplePose(context.pose, player.GetCurrentTime());
+        SampleParam param = {};
+        param.frameTime = Anim::ConvertFromFrameRate(player.GetCurrentTime(), clip->GetPlayRate());
+        param.interpolation = AnimInterpolation::LINEAR;
+
+        clip->SamplePose(context.pose, param);
         context.pose.NormalizeRotation();
     }
 

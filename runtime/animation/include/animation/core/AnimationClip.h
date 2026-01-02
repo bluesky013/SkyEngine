@@ -18,16 +18,19 @@ namespace sky {
 
         void AddChannel(const AnimChannelPtr &channel);
 
-        void SamplePose(AnimPose & pose, float time);
+        void SamplePose(AnimPose & pose, const SampleParam& param);
 
-        FORCEINLINE float GetDuration() const { return duration; }
-        FORCEINLINE float GetPlayRate() const { return rate; }
+        FORCEINLINE void SetNumFrame(uint32_t num) { frameNum = num; };
+        FORCEINLINE void SetFrameRate(float fate) { frameRate = fate; };
+
+        FORCEINLINE float GetDuration() const { return frameRate > 0.f ? static_cast<float>(frameNum) / frameRate : 0.f; }
+        FORCEINLINE float GetPlayRate() const { return frameRate; }
 
         FORCEINLINE const Name& GetName() const { return name; }
     private:
         Name name;
-        float duration = 0.f;
-        float rate = 0.f;
+        uint32_t frameNum = 0;
+        float frameRate = 0.f;
         std::unordered_map<Name, AnimChannelPtr> channels;
     };
     using AnimClipPtr = CounterPtr<AnimationClip>;

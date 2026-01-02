@@ -20,6 +20,8 @@ namespace sky {
             };
         };
 
+        using BaseType = float;
+
         inline Quaternion();
         inline Quaternion(float w, float x, float y, float z);
         inline Quaternion(float angle, const Vector3 &axis);
@@ -40,6 +42,14 @@ namespace sky {
 
         inline Matrix4 ToMatrix() const;
     };
-}
+
+    template <>
+    struct VectorTraits<Quaternion> {
+        using BaseType = Quaternion::BaseType;
+        static constexpr size_t Size = 4;
+
+        static BaseType Visit(const Quaternion& inVal, size_t index) { return inVal.v[index]; }
+    };
+} // namespace sky
 
 #include "core/math/Quaternion.inl"

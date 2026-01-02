@@ -36,6 +36,12 @@ namespace sky {
             return weight > ANIM_BLEND_WEIGHT_THRESHOLD;
         }
 
+        FORCEINLINE AnimFrameTime ConvertFromFrameRate(float inSeconds, float framePerSeconds)
+        {
+            float frame = inSeconds * framePerSeconds;
+            return {Cast<AnimTimeKey>(std::floor(frame)), frame - std::floor(frame)};
+        }
+
     } // namespace Anim
 
 } // namespace sky

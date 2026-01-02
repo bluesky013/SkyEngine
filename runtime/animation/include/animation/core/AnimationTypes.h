@@ -7,15 +7,18 @@
 #include <core/platform/Platform.h>
 #include <core/name/Name.h>
 #include <core/util/Cast.h>
+#include <core/math/Math.h>
+#include <algorithm>
 #include <vector>
 
 namespace sky {
 
     static constexpr uint32_t ANIM_INVALID = ~(0U);
     static constexpr float ANIM_BLEND_WEIGHT_THRESHOLD = 0.00001f;
+    static constexpr float ANIM_DIFF_TOLERANCE = static_cast<float>(1e-6);
     static constexpr float ANIM_INV_BLEND_WEIGHT_THRESHOLD = 1.f - ANIM_BLEND_WEIGHT_THRESHOLD;
 
-    enum class AnimInterpolation {
+    enum class AnimInterpolation : uint8_t {
         LINEAR,
         STEP,
         CUBIC_SPLINE,
@@ -58,8 +61,18 @@ namespace sky {
 
     using AnimTimeKey = int32_t;
 
+    struct AnimFrameTime {
+        AnimTimeKey frame;
+        float subFrame;
+
+        explicit operator float() const
+        {
+            return static_cast<float>(frame) + subFrame;
+        }
+    };
+
     struct SampleParam {
-        AnimTimeKey timePoint;
+        AnimFrameTime frameTime;
         AnimInterpolation interpolation;
     };
 
@@ -67,12 +80,7 @@ namespace sky {
     struct AnimChannelData {
         std::pair<size_t, size_t> FindKeyFrame(AnimTimeKey time) const
         {
-            auto it = std::upper_bound(
-                    times.begin(),
-                    times.end(),
-                    time,
-                    [](const AnimTimeKey &t1, const AnimTimeKey &t2) { return t1 < t2; });
-
+            auto it = std::ranges::upper_bound(times,time);
             if (it == times.begin()) {
                 return {0, 0};
             }
@@ -84,6 +92,43 @@ namespace sky {
 
             size_t idx = std::distance(times.begin(), it);
             return { idx - 1, idx };
+        }
+
+        static constexpr size_t VecNum = VectorTraits<T>::Size;
+
+        void Compress()
+        {
+            // no need to compress
+            if (keys.size() <= 1) {
+                return;
+            }
+
+            std::vector<AnimTimeKey> compressedTimes;
+            std::vector<T> compressedKeys;
+
+            compressedTimes.emplace_back(times[0]);
+            compressedKeys.emplace_back(keys[0]);
+
+            for (size_t i = 1; i < keys.size(); ++i) {
+
+                auto diff = keys[i] - compressedKeys.back();
+
+                bool isTolerate = false;
+                for (size_t j = 0; j < VecNum; ++j) {
+                    if (std::abs(VectorTraits<T>::Visit(diff, j)) >= ANIM_DIFF_TOLERANCE) {
+                        isTolerate = true;
+                        break;
+                    }
+                }
+
+                if (isTolerate) {
+                    compressedTimes.emplace_back(times[i]);
+                    compressedKeys.emplace_back(keys[i]);
+                }
+            }
+
+            times.swap(compressedTimes);
+            keys.swap(compressedKeys);
         }
 
         void Resize(const size_t size)
