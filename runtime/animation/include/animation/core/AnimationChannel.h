@@ -18,11 +18,9 @@ namespace sky {
 
         virtual void Sample(const SampleParam &param, Transform &trans) = 0;
 
-        FORCEINLINE float GetDuration() const { return duration; }
         FORCEINLINE const Name& GetName() const { return name; }
     protected:
         Name name;
-        float duration;
     };
 
     using AnimChannelPtr = CounterPtr<AnimationChannel>;

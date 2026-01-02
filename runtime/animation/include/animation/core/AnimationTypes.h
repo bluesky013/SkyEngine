@@ -56,20 +56,22 @@ namespace sky {
         NUM
     };
 
+    using AnimTimeKey = int32_t;
+
     struct SampleParam {
-        float timePoint = 0.f;
+        AnimTimeKey timePoint;
         AnimInterpolation interpolation;
     };
 
     template <typename T>
     struct AnimChannelData {
-        std::pair<size_t, size_t> FindKeyFrame(float time) const
+        std::pair<size_t, size_t> FindKeyFrame(AnimTimeKey time) const
         {
             auto it = std::upper_bound(
                     times.begin(),
                     times.end(),
                     time,
-                    [](float t1, float t2) { return t1 < t2; });
+                    [](const AnimTimeKey &t1, const AnimTimeKey &t2) { return t1 < t2; });
 
             if (it == times.begin()) {
                 return {0, 0};
@@ -84,7 +86,13 @@ namespace sky {
             return { idx - 1, idx };
         }
 
-        std::vector<float> times;
+        void Resize(const size_t size)
+        {
+            times.resize(size);
+            keys.resize(size);
+        }
+
+        std::vector<AnimTimeKey> times;
         std::vector<T> keys;
     };
 

@@ -10,6 +10,8 @@ namespace sky {
     {
         archive.LoadValue(version);
         archive.LoadValue(name);
+        archive.LoadValue(frameRate);
+
         uint32_t size = 0;
         archive.LoadValue(size);
         nodeChannels.resize(size);
@@ -19,7 +21,7 @@ namespace sky {
             archive.LoadValue(channel.name);
             uint32_t channelSize = 0;
             archive.LoadValue(channelSize);
-            channel.position.times.resize(channelSize / sizeof(float));
+            channel.position.times.resize(channelSize / sizeof(AnimTimeKey));
             archive.LoadValue(reinterpret_cast<char*>(channel.position.times.data()), channelSize);
 
             archive.LoadValue(channelSize);
@@ -27,7 +29,7 @@ namespace sky {
             archive.LoadValue(reinterpret_cast<char*>(channel.position.keys.data()), channelSize);
 
             archive.LoadValue(channelSize);
-            channel.scale.times.resize(channelSize / sizeof(float));
+            channel.scale.times.resize(channelSize / sizeof(AnimTimeKey));
             archive.LoadValue(reinterpret_cast<char*>(channel.scale.times.data()), channelSize);
 
             archive.LoadValue(channelSize);
@@ -35,7 +37,7 @@ namespace sky {
             archive.LoadValue(reinterpret_cast<char*>(channel.scale.keys.data()), channelSize);
 
             archive.LoadValue(channelSize);
-            channel.rotation.times.resize(channelSize / sizeof(float));
+            channel.rotation.times.resize(channelSize / sizeof(AnimTimeKey));
             archive.LoadValue(reinterpret_cast<char*>(channel.rotation.times.data()), channelSize);
 
             archive.LoadValue(channelSize);
@@ -48,10 +50,12 @@ namespace sky {
     {
         archive.SaveValue(version);
         archive.SaveValue(name);
+        archive.SaveValue(frameRate);
+
         archive.SaveValue(static_cast<uint32_t>(nodeChannels.size()));
             for (const auto &channel : nodeChannels) {
             archive.SaveValue(channel.name);
-            auto channelSize = static_cast<uint32_t>(channel.position.times.size() * sizeof(float));
+            auto channelSize = static_cast<uint32_t>(channel.position.times.size() * sizeof(AnimTimeKey));
             archive.SaveValue(channelSize);
             archive.SaveValue(reinterpret_cast<const char*>(channel.position.times.data()), channelSize);
 
@@ -59,7 +63,7 @@ namespace sky {
             archive.SaveValue(channelSize);
             archive.SaveValue(reinterpret_cast<const char*>(channel.position.keys.data()), channelSize);
 
-            channelSize = static_cast<uint32_t>(channel.scale.times.size() * sizeof(float));
+            channelSize = static_cast<uint32_t>(channel.scale.times.size() * sizeof(AnimTimeKey));
             archive.SaveValue(channelSize);
             archive.SaveValue(reinterpret_cast<const char*>(channel.scale.times.data()), channelSize);
 
@@ -67,7 +71,7 @@ namespace sky {
             archive.SaveValue(channelSize);
             archive.SaveValue(reinterpret_cast<const char*>(channel.scale.keys.data()), channelSize);
 
-            channelSize = static_cast<uint32_t>(channel.rotation.times.size() * sizeof(float));
+            channelSize = static_cast<uint32_t>(channel.rotation.times.size() * sizeof(AnimTimeKey));
             archive.SaveValue(channelSize);
             archive.SaveValue(reinterpret_cast<const char*>(channel.rotation.times.data()), channelSize);
 

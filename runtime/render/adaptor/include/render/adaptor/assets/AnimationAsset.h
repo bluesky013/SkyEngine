@@ -17,6 +17,7 @@ namespace sky {
     struct AnimationAssetData {
         uint32_t version;
         std::string name;
+        float frameRate;
         std::vector<AnimNodeChannelData> nodeChannels;
 
         void Load(BinaryInputArchive &archive);

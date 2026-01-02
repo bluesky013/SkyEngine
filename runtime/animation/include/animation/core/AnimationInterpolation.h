@@ -39,21 +39,21 @@ namespace sky {
             return data.keys[t1];
         }
 
-        const T &vk1 = data.keys[t1];
-        const T &vk2 = data.keys[t2];
-        float t = (param.timePoint - data.times[t1]) / (data.times[t2] - data.times[t1]);
-
-        switch (param.interpolation) {
-        case AnimInterpolation::STEP:
-            return vk1;
-        case AnimInterpolation::CUBIC_SPLINE: // not supported yet.
-        case AnimInterpolation::LINEAR:
-            if constexpr (std::is_same_v<T, Quaternion>) {
-                return AnimSphericalLinear(vk1, vk2, t);
-            } else {
-                return AnimInterpolateLinear(vk1, vk2, t);
-            }
-        }
+        // const T &vk1 = data.keys[t1];
+        // const T &vk2 = data.keys[t2];
+        // float t = (param.timePoint - data.times[t1]) / (data.times[t2] - data.times[t1]);
+        //
+        // switch (param.interpolation) {
+        // case AnimInterpolation::STEP:
+        //     return vk1;
+        // case AnimInterpolation::CUBIC_SPLINE: // not supported yet.
+        // case AnimInterpolation::LINEAR:
+        //     if constexpr (std::is_same_v<T, Quaternion>) {
+        //         return AnimSphericalLinear(vk1, vk2, t);
+        //     } else {
+        //         return AnimInterpolateLinear(vk1, vk2, t);
+        //     }
+        // }
         return T{};
     }
 

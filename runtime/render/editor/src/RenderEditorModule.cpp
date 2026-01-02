@@ -14,7 +14,11 @@ namespace sky::editor {
         if (!RenderModule::Init(args)) {
             return false;
         }
+
+        // create
         RegisterActorCreators<RenderCubeActorCreator>(BuiltinGeometryType::CUBE);
+
+        // preview
         AssetPreviewManager::Get()->Register(AssetTraits<Skeleton>::ASSET_TYPE, new SkeletonPreviewWindow());
         return true;
     }

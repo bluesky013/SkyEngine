@@ -73,16 +73,25 @@
 #endif
 
 // LIKELY DEFINES
+#ifndef LIKELY
 #if defined(__cplusplus) && __cplusplus >= 202002L
     #define LIKELY(expr)   (expr) [[likely]]
-    #define UNLIKELY(expr) (expr) [[unlikely]]
 #elif defined(__clang__) || defined(__GNUC__)
     #define LIKELY(expr)   __builtin_expect(!!(expr), 1)
-    #define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
 #else
     #define LIKELY(expr)   (expr)
+#endif
+#endif // LIKELY
+
+#ifndef UNLIKELY
+#if defined(__cplusplus) && __cplusplus >= 202002L
+    #define UNLIKELY(expr) (expr) [[unlikely]]
+#elif defined(__clang__) || defined(__GNUC__)
+    #define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#else
     #define UNLIKELY(expr) (expr)
 #endif
+#endif // UNLIKELY
 
 #ifndef FORCEINLINE
     #if defined(_MSC_VER)
