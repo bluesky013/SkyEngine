@@ -18,6 +18,7 @@ namespace sky {
         uint32_t version;
         std::string name;
         float frameRate;
+        Uuid skeleton;
         std::vector<AnimNodeChannelData> nodeChannels;
 
         void Load(BinaryInputArchive &archive);

@@ -11,6 +11,7 @@ namespace sky {
         archive.LoadValue(version);
         archive.LoadValue(name);
         archive.LoadValue(frameRate);
+        archive.LoadValue(skeleton);
 
         uint32_t size = 0;
         archive.LoadValue(size);
@@ -51,6 +52,7 @@ namespace sky {
         archive.SaveValue(version);
         archive.SaveValue(name);
         archive.SaveValue(frameRate);
+        archive.SaveValue(skeleton);
 
         archive.SaveValue(static_cast<uint32_t>(nodeChannels.size()));
             for (const auto &channel : nodeChannels) {
