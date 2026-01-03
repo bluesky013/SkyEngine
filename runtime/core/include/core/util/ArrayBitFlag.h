@@ -16,10 +16,19 @@ namespace sky {
         static constexpr uint32_t STEP = 32;
         static constexpr uint32_t NUM = MAX / STEP + 1;
 
+        struct MaskFull {};
+
         ArrayBit()
         {
             for (auto &v : values) {
                 v = 0;
+            }
+        }
+
+        ArrayBit(const MaskFull &tag)
+        {
+            for (auto& v : values) {
+                v = std::numeric_limits<uint32_t>::max();
             }
         }
 

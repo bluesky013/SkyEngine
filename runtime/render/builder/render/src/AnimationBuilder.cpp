@@ -15,6 +15,10 @@ namespace sky::builder {
         auto &data = asset->Data();
         data.Load(bin);
 
+        for (auto& channel : data.nodeChannels) {
+            channel.Compress();
+        }
+
         asset->ResetDependencies();
 
         if (data.skeleton) {

@@ -57,6 +57,10 @@ namespace sky {
         param.frameTime = Anim::ConvertFromFrameRate(player.GetCurrentTime(), data.clip->GetPlayRate());
         param.interpolation = AnimInterpolation::LINEAR;
 
+        if (!data.rootMotion) {
+            context.pose.boneMask.ResetBit(0);
+        }
+
         data.clip->SamplePose(context.pose, param);
         context.pose.NormalizeRotation();
     }

@@ -25,7 +25,8 @@ namespace sky {
             REGISTER_MEMBER(Clip, SetAnimationClip, GetAnimationClip)
                 SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
             REGISTER_MEMBER(Loop, SetLoop, IsLoop)
-            REGISTER_MEMBER(Play, SetPlaying, IsPlaying);
+            REGISTER_MEMBER(Play, SetPlaying, IsPlaying)
+            REGISTER_MEMBER(RootMotion, SetEnableRootMotion, IsRootMotionEnable);
     }
 
     void AnimationPreviewComponent::SetPlaying(bool inPlaying)
@@ -42,6 +43,13 @@ namespace sky {
         }
     }
 
+    void AnimationPreviewComponent::SetEnableRootMotion(bool enable)
+    {
+        if (clipNode != nullptr) {
+            clipNode->SetEnableRootMotion(enable);;
+        }
+    }
+
     bool AnimationPreviewComponent::IsPlaying() const
     {
         return clipNode != nullptr ? clipNode->IsPlaying() : false;
@@ -51,6 +59,12 @@ namespace sky {
     {
         return clipNode != nullptr ? clipNode->IsLooping() : false;
     }
+
+    bool AnimationPreviewComponent::IsRootMotionEnable() const
+    {
+        return clipNode != nullptr ? clipNode->IsRootMotionEnable() : false;
+    }
+
 
     void AnimationPreviewComponent::SetAnimationClip(const Uuid& uuid)
     {
@@ -118,19 +132,17 @@ namespace sky {
             return;
         }
 
+        AnimationClipNode::PersistentData initData = {};
+        initData.clip = CreateAnimationFromAsset(clip.GetAsset());
+        initData.looping = IsLoop();
+        initData.rootMotion = IsRootMotionEnable();
+
         auto &clipData = clip.Data();
         const auto &skeletonData = AssetManager::Get()->FindAsset<Skeleton>(clipData.skeleton)->Data();
         SkeletonPtr skl = Skeleton::BuildSkeleton(skeletonData);
-
         cachedPose.SetSkeleton(skl);
-
         animation = new SkeletonAnimation();
-        AnimationClipNode::PersistentData data = {};
-        data.clip = CreateAnimationFromAsset(clip.GetAsset());
-        data.looping = false;
-        data.rootMotion = false;
-
-        clipNode = animation->NewAnimNode<AnimationClipNode>(data);
+        clipNode = animation->NewAnimNode<AnimationClipNode>(initData);
         SkeletonAnimationInit animInit = {};
         animInit.skeleton = skl;
         animInit.rootNode = clipNode;

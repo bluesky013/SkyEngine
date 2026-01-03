@@ -40,9 +40,11 @@ namespace sky {
 
         void SetPlaying(bool playing);
         void SetLoop(bool loop);
+        void SetEnableRootMotion(bool enabled);
 
         bool IsPlaying() const;
         bool IsLoop() const;
+        bool IsRootMotionEnable() const;
 
     private:
         void OnTransformChanged(const Transform& global, const Transform& local) override;

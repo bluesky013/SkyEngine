@@ -14,6 +14,8 @@
 namespace sky {
 
     static constexpr uint32_t ANIM_INVALID = ~(0U);
+    static constexpr uint32_t ANIM_MAX_BONE = 256;
+
     static constexpr float ANIM_BLEND_WEIGHT_THRESHOLD = 0.00001f;
     static constexpr float ANIM_DIFF_TOLERANCE = static_cast<float>(1e-6);
     static constexpr float ANIM_INV_BLEND_WEIGHT_THRESHOLD = 1.f - ANIM_BLEND_WEIGHT_THRESHOLD;
@@ -110,12 +112,9 @@ namespace sky {
             compressedKeys.emplace_back(keys[0]);
 
             for (size_t i = 1; i < keys.size(); ++i) {
-
-                auto diff = keys[i] - compressedKeys.back();
-
                 bool isTolerate = false;
                 for (size_t j = 0; j < VecNum; ++j) {
-                    if (std::abs(VectorTraits<T>::Visit(diff, j)) >= ANIM_DIFF_TOLERANCE) {
+                    if (std::abs(VectorTraits<T>::Visit(keys[i], j) - VectorTraits<T>::Visit(compressedKeys.back(), j)) >= ANIM_DIFF_TOLERANCE) {
                         isTolerate = true;
                         break;
                     }

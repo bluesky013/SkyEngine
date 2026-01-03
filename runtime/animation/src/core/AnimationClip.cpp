@@ -17,7 +17,7 @@ namespace sky {
     {
         for (auto& [channelName, channel] : channels) {
             const auto *bone = pose.skeleton->GetBoneByName(channelName);
-            if (bone != nullptr) {
+            if (bone != nullptr && pose.boneMask.CheckBit(bone->index)) {
                 channel->Sample(param, pose.transforms[bone->index]);
             }
         }

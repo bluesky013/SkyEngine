@@ -20,6 +20,13 @@ namespace sky {
         AnimChannelData<Vector3> position;
         AnimChannelData<Vector3> scale;
         AnimChannelData<Quaternion> rotation;
+
+        void Compress()
+        {
+            position.Compress();
+            scale.Compress();
+            rotation.Compress();
+        }
     };
 
     class AnimationNodeChannel : public AnimationChannel {

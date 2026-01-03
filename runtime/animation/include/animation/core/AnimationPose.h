@@ -5,7 +5,9 @@
 #pragma once
 
 #include <animation/core/AnimationTypes.h>
+#include <animation/core/AnimationTypes.h>
 #include <core/math/Transform.h>
+#include <core/util/ArrayBitFlag.h>
 #include <memory>
 
 namespace sky {
@@ -17,8 +19,11 @@ namespace sky {
         ADDITIVE
     };
 
+    using AnimationBoneMask = ArrayBit<uint32_t, ANIM_MAX_BONE>;
+
     struct AnimPose {
         std::vector<Transform> transforms;
+        AnimationBoneMask boneMask {AnimationBoneMask::MaskFull{}};
         Skeleton* skeleton = nullptr; // weak reference
 
         void ResetRefPose();

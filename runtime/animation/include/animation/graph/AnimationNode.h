@@ -18,6 +18,7 @@ namespace sky {
 
     struct AnimationEval : AnimContext {
         AnimPose pose;
+        bool sampleRootMotion = false;
 
         AnimationEval() = default;
         AnimationEval(const SkeletonPtr& skeleton)

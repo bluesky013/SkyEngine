@@ -40,7 +40,7 @@ namespace sky {
         const auto &trans = pose.transforms[bone->index];
         Transform current = world * trans;
 
-//        DrawJoint(current);
+        DrawJoint(current);
         if (drawLink) {
             DrawJointLink(world, current);
         }

@@ -19,7 +19,12 @@ namespace sky::editor {
 
         uint32_t width = window->GetWidth();
         uint32_t height = window->GetHeight();
-        sceneView->SetMatrix(Matrix4::Identity());
+
+        transform.translation.x = 0.f;
+        transform.translation.y = 150.f;
+        transform.translation.z = 100.f;
+
+        sceneView->SetMatrix(transform.ToMatrix());
         sceneView->SetPerspective(near, far, fov / 180.f * 3.14f,
             static_cast<float>(width) / static_cast<float>(height));
     }
