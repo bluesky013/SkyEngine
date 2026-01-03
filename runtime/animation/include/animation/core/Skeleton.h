@@ -5,13 +5,12 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
-#include <core/math/Matrix4.h>
 #include <core/math/Transform.h>
 #include <core/name/Name.h>
+#include <animation/core/AnimationPose.h>
 #include <vector>
 #include <memory>
 #include <unordered_map>
-#include <animation/core/AnimationPose.h>
 
 namespace sky {
     using BoneIndex = uint16_t;
@@ -48,6 +47,7 @@ namespace sky {
         FORCEINLINE const Bone* GetBoneByIndex(BoneIndex index) const { return bones[index].get(); }
         FORCEINLINE const PoseSharedPtr &GetRefPos() const { return refPos; }
         const Bone* GetBoneByName(const Name& name) const;
+        size_t GetNumBones() const { return bones.size(); }
 
     private:
         void UpdateBoneTree();

@@ -24,14 +24,21 @@ namespace sky {
     {
         // fetch events
         currentDelta = tick.deltaTime;
+
+        if (rootNode != nullptr) {
+            rootNode->PreTick(tick);
+        }
     }
 
     void AnimationAsyncContext::UpdateAny()
     {
-
+        if (rootNode != nullptr) {
+            AnimLayerContext context{this};
+            rootNode->TickAny(context, currentDelta);
+        }
     }
 
-    void AnimationAsyncContext::EvalAny(PoseContext& context)
+    void AnimationAsyncContext::EvalAny(AnimationEval& context)
     {
         if (rootNode != nullptr) {
             rootNode->EvalAny(context);
@@ -53,7 +60,6 @@ namespace sky {
 
     void Animation::StopAndReset()
     {
-
     }
 
     void Animation::Init(const AnimationInit& init)

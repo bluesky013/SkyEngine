@@ -21,10 +21,6 @@ namespace sky {
         float deltaTime = 0.f;
     };
 
-    struct AnimationEval {
-        AnimPose& outPose;
-    };
-
     class AnimationAsyncContext {
     public:
         explicit AnimationAsyncContext(Animation* inAnim);
@@ -34,7 +30,7 @@ namespace sky {
         virtual void PreTick(const AnimationTick& tick);
 
         virtual void UpdateAny();
-        virtual void EvalAny(PoseContext& context);
+        virtual void EvalAny(AnimationEval& context);
 
     private:
         Animation* instance = nullptr;
@@ -53,10 +49,10 @@ namespace sky {
         ~Animation() override;
 
         template <typename T, typename ...Args>
-        AnimNode* NewAnimNode(Args&&...args)
+        T* NewAnimNode(Args&&...args)
         {
             nodeStorages.emplace_back(new T(std::forward<Args>(args)...));
-            return nodeStorages.back().get();
+            return static_cast<T*>(nodeStorages.back().get());
         }
 
         template <class T ,typename ...Args>

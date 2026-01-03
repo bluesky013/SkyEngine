@@ -67,7 +67,7 @@ namespace sky {
         }
     }
 
-    void AnimStateMachine::EvalAny(PoseContext& context)
+    void AnimStateMachine::EvalAny(AnimationEval& context)
     {
 
     }

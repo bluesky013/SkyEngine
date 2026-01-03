@@ -22,11 +22,10 @@ namespace sky {
 
         void Init(const SkeletonAnimationInit& init);
 
-        const SkeletonPtr &GetSkeleton() const { return skeleton; }
-    private:
         void EvalAny(AnimationEval& eval) override;
 
-        SkeletonPtr skeleton;
+        const SkeletonPtr &GetSkeleton() const;
+    private:
         SkeletonAsyncContext* context;
     };
 

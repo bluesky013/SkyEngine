@@ -4,19 +4,20 @@
 
 #pragma once
 
-#include <animation/Core/Skeleton.h>
 #include <animation/Core/SkeletonAnimation.h>
 
 #include <framework/asset/AssetHolder.h>
 #include <framework/interface/ITransformEvent.h>
 #include <framework/world/Component.h>
+
 #include <render/adaptor/assets/AnimationAsset.h>
-#include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/adaptor/animation/SkeletonDebugRender.h>
 
 
 namespace sky {
     class SerializationContext;
+
+    class AnimationClipNode;
 
     struct AnimationPreviewData {
         Uuid clip;
@@ -37,6 +38,12 @@ namespace sky {
         void SetAnimationClip(const Uuid& uuid);
         const Uuid& GetAnimationClip() const { return data.clip; }
 
+        void SetPlaying(bool playing);
+        void SetLoop(bool loop);
+
+        bool IsPlaying() const;
+        bool IsLoop() const;
+
     private:
         void OnTransformChanged(const Transform& global, const Transform& local) override;
 
@@ -52,13 +59,16 @@ namespace sky {
 
         SingleAssetHolder<Animation> clip;
 
+        AnimationClipNode *clipNode = nullptr;
         CounterPtr<SkeletonAnimation> animation;
         std::unique_ptr<SkeletonDebugRender> debugRender;
 
         EventBinder<ITransformEvent> transformEvent;
 
+        // transient status data
         bool dirty = false;
         Transform cachedTransform;
+        AnimFinalPose cachedPose;
     };
 
 } // namespace sky

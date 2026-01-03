@@ -26,11 +26,12 @@ namespace sky {
 
     void SkeletonAnimation::EvalAny(AnimationEval &eval)
     {
-        PoseContext poseContext{asyncContext.get()};
-        poseContext.pose.skeleton = context->skeleton.Get();
-
-        asyncContext->EvalAny(poseContext);
+        asyncContext->EvalAny(eval);
     }
 
+    const SkeletonPtr &SkeletonAnimation::GetSkeleton() const
+    {
+        return context->skeleton;
+    }
 
 } // namespace sky

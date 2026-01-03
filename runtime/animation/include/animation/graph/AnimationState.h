@@ -51,7 +51,7 @@ namespace sky {
 
         void InitAny(const AnimContext& context) override;
         void TickAny(const AnimLayerContext& context, float deltaTime) override;
-        void EvalAny(PoseContext& context) override;
+        void EvalAny(AnimationEval& context) override;
 
     private:
         void SetState(const AnimContext& context, AnimHandle state);

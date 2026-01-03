@@ -45,7 +45,7 @@ namespace sky {
     {
         if (dirty && skeleton != nullptr) {
 
-            debugRender->DrawPose(skeleton->GetRefPos(), cachedTransform);
+            debugRender->DrawPose(*skeleton->GetRefPos(), cachedTransform);
 
             dirty = false;
         }

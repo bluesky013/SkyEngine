@@ -23,6 +23,7 @@ namespace sky {
         float Advance(float deltaTime);
 
         FORCEINLINE float GetCurrentTime() const { return currentTime; }
+        FORCEINLINE bool IsPlaying() const { return playing; }
 
         static float AdvanceTime(bool loop, float delta, float length, float current);
     private:

@@ -7,44 +7,57 @@
 
 namespace sky {
 
-    AnimationClipNode::AnimationClipNode(const AnimClipPtr& inClip)
-        : clip(inClip)
+    AnimationClipNode::AnimationClipNode(const PersistentData& inData)
+        : data(inData)
     {
+    }
+
+    void AnimationClipNode::SetPlaying(bool play)
+    {
+        data.playing = play;
     }
 
     void AnimationClipNode::SetLooping(bool loop)
     {
-        looping = loop;
+        data.looping = loop;
     }
 
-    void AnimationClipNode::SetRootMotion(bool enable)
+    void AnimationClipNode::SetEnableRootMotion(bool enable)
     {
-        rootMotion = enable;
+        data.rootMotion = enable;
+    }
+
+    void AnimationClipNode::PreTick(const AnimationTick& tick)
+    {
+        player.SetLoop(data.looping);
+        player.SetPlaying(data.playing);
     }
 
     void AnimationClipNode::InitAny(const AnimContext& context)
     {
-        player.SetClip(clip);
-        player.SetLoop(looping);
+        player.SetClip(data.clip);
+        player.SetLoop(data.looping);
         player.SetPlaying(false);
     }
 
     void AnimationClipNode::TickAny(const AnimLayerContext& context, float deltaTime)
     {
-        player.Tick(deltaTime);
+        if (player.IsPlaying()) {
+            player.Tick(deltaTime);
+        }
     }
 
-    void AnimationClipNode::EvalAny(PoseContext& context)
+    void AnimationClipNode::EvalAny(AnimationEval& context)
     {
-        if (!clip) {
+        if (!data.clip) {
             return;
         }
 
         SampleParam param = {};
-        param.frameTime = Anim::ConvertFromFrameRate(player.GetCurrentTime(), clip->GetPlayRate());
+        param.frameTime = Anim::ConvertFromFrameRate(player.GetCurrentTime(), data.clip->GetPlayRate());
         param.interpolation = AnimInterpolation::LINEAR;
 
-        clip->SamplePose(context.pose, param);
+        data.clip->SamplePose(context.pose, param);
         context.pose.NormalizeRotation();
     }
 

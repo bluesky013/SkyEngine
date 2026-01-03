@@ -5,8 +5,6 @@
 #pragma once
 
 #include <animation/core/AnimationTypes.h>
-
-#include <core/template/ReferenceObject.h>
 #include <core/math/Transform.h>
 #include <memory>
 

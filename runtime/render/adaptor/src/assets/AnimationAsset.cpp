@@ -87,11 +87,17 @@ namespace sky {
     {
         const auto &data = asset->Data();
 
-        auto *clip = new AnimationClip(Name(data.name.c_str()));
-
+        auto *clip = new AnimationClip(Name(data.name.c_str()), asset->GetUuid());
+        size_t numFrame = 0;
         for (const auto &nodeChannel : data.nodeChannels) {
             clip->AddChannel(new AnimationNodeChannel(nodeChannel));
+            numFrame = std::max(nodeChannel.position.keys.empty() ? 0 : nodeChannel.position.keys.size(), numFrame);
+            numFrame = std::max(nodeChannel.scale.keys.empty() ? 0 : nodeChannel.scale.keys.size(), numFrame);
+            numFrame = std::max(nodeChannel.rotation.keys.empty() ? 0 : nodeChannel.rotation.keys.size(), numFrame);
         }
+
+        clip->SetFrameRate(data.frameRate);
+        clip->SetNumFrame(static_cast<uint32_t>(numFrame));
         return clip;
     }
 

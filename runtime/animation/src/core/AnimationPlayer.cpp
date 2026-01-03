@@ -38,11 +38,7 @@ namespace sky {
 
     float AnimationSequencePlayer::Tick(float deltaTime)
     {
-        float outDelta = 0.f;
-
-        if (playing) {
-            outDelta = Advance(deltaTime);
-        }
+        float outDelta = Advance(deltaTime);
 
         if (!looping && currentTime >= clip->GetDuration()) {
             playing = false;
@@ -53,8 +49,7 @@ namespace sky {
 
     float AnimationSequencePlayer::Advance(float delta)
     {
-        float finalRate = playRate * clip->GetPlayRate();
-        float deltaTime = delta * finalRate;
+        float deltaTime = playRate * delta;
         currentTime = AdvanceTime(looping, deltaTime, clip->GetDuration(), currentTime);
 
         return deltaTime;

@@ -12,20 +12,20 @@ namespace sky {
     {
     }
 
-    void SkeletonDebugRender::DrawPose(const PoseSharedPtr &pose_, const Transform &world)
+    void SkeletonDebugRender::DrawPose(const AnimPose &pose_, const Transform &world)
     {
-        if (!pose_ || pose_->skeleton == nullptr) {
+        if (pose_.skeleton == nullptr) {
             return;
         }
 
-        pose = pose_;
+        pose = AnimFinalPose(pose_);
 
         if (!debugRenderer) {
             debugRenderer = std::make_unique<DebugRenderer>();
         }
         debugRenderer->Reset();
 
-        const auto& roots = pose->skeleton->GetRoots();
+        const auto& roots = pose.skeleton->GetRoots();
         for (const auto& root : roots) {
             DrawBone(root, world, false);
         }
@@ -37,7 +37,7 @@ namespace sky {
     {
         SKY_ASSERT(bone != nullptr);
 
-        const auto &trans = pose->transforms[bone->index];
+        const auto &trans = pose.transforms[bone->index];
         Transform current = world * trans;
 
 //        DrawJoint(current);
@@ -46,7 +46,7 @@ namespace sky {
         }
 
         for (const auto& childIdx : bone->children) {
-            const auto* child = pose->skeleton->GetBoneByIndex(childIdx);
+            const auto* child = pose.skeleton->GetBoneByIndex(childIdx);
             DrawBone(child, current, true);
         }
     }

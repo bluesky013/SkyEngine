@@ -8,14 +8,14 @@
 
 namespace sky {
 
-    void PoseBlendNodeList::EvalAny(PoseContext& context)
+    void PoseBlendNodeList::EvalAny(AnimationEval& context)
     {
         // quick check return
         if (poses.size() != cachedWeights.size()) {
             return;
         }
 
-        std::vector<PoseContext> tmpCtx;
+        std::vector<AnimationEval> tmpCtx;
         tmpCtx.reserve(poses.size());
 
         for (uint32_t index = 0; index < poses.size(); ++index) {
@@ -25,7 +25,7 @@ namespace sky {
             }
 
             tmpCtx.emplace_back(context);
-            PoseContext &ctx = tmpCtx.back();
+            AnimationEval &ctx = tmpCtx.back();
             poses[index]->EvalAny(ctx);
         }
 
@@ -89,16 +89,16 @@ namespace sky {
         }
     }
 
-    void PoseBlend2Node::EvalAny(PoseContext& context)
+    void PoseBlend2Node::EvalAny(AnimationEval& context)
     {
         if (isBRelevant) {
 
             if (isARelevant) {
 
-                PoseContext pose1(context);
+                AnimationEval pose1(context);
                 poseA->EvalAny(pose1);
 
-                PoseContext pose2(context);
+                AnimationEval pose2(context);
                 poseB->EvalAny(pose2);
 
                 AnimPose::BlendPose(pose1.pose, context.pose, 1.f - blendedAlpha, PoseBlendMode::OVERRIDE);

@@ -3,10 +3,15 @@
 //
 
 #include <render/adaptor/animation/AnimationPreviewComponent.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
+#include <render/adaptor/assets/AnimationAsset.h>
 #include <render/adaptor/RenderSceneProxy.h>
+
 #include <framework/serialization/SerializationContext.h>
 #include <framework/world/TransformComponent.h>
 #include <render/RenderTechniqueLibrary.h>
+
+#include <animation/core/Skeleton.h>
 #include <animation/graph/AnimationClipNode.h>
 
 namespace sky {
@@ -18,7 +23,33 @@ namespace sky {
 
         REGISTER_BEGIN(AnimationPreviewComponent, context)
             REGISTER_MEMBER(Clip, SetAnimationClip, GetAnimationClip)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE);
+                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+            REGISTER_MEMBER(Loop, SetLoop, IsLoop)
+            REGISTER_MEMBER(Play, SetPlaying, IsPlaying);
+    }
+
+    void AnimationPreviewComponent::SetPlaying(bool inPlaying)
+    {
+        if (clipNode != nullptr) {
+            clipNode->SetPlaying(inPlaying);
+        }
+    }
+
+    void AnimationPreviewComponent::SetLoop(bool inLoop)
+    {
+        if (clipNode != nullptr) {
+            clipNode->SetLooping(inLoop);
+        }
+    }
+
+    bool AnimationPreviewComponent::IsPlaying() const
+    {
+        return clipNode != nullptr ? clipNode->IsPlaying() : false;
+    }
+
+    bool AnimationPreviewComponent::IsLoop() const
+    {
+        return clipNode != nullptr ? clipNode->IsLooping() : false;
     }
 
     void AnimationPreviewComponent::SetAnimationClip(const Uuid& uuid)
@@ -29,8 +60,8 @@ namespace sky {
 
     void AnimationPreviewComponent::OnTransformChanged(const Transform& global, const Transform& local)
     {
-        dirty = true;
         cachedTransform = global;
+        dirty = true;
     }
 
     void AnimationPreviewComponent::OnAttachToWorld()
@@ -68,10 +99,16 @@ namespace sky {
 
     void AnimationPreviewComponent::Tick(float time)
     {
-        if (animation) {
-            AnimationTick tick = {time};
-            animation->Tick(tick);
+        if (!animation) {
+            return;
         }
+
+        AnimationTick tick = {time};
+        animation->Tick(tick);
+
+        AnimationEval eval(animation->GetSkeleton());
+        animation->EvalAny(eval);
+        debugRender->DrawPose(eval.pose, cachedTransform);
     }
 
     void AnimationPreviewComponent::UpdateAnimation(bool reset)
@@ -85,14 +122,21 @@ namespace sky {
         const auto &skeletonData = AssetManager::Get()->FindAsset<Skeleton>(clipData.skeleton)->Data();
         SkeletonPtr skl = Skeleton::BuildSkeleton(skeletonData);
 
-        auto clipInst = CreateAnimationFromAsset(clip.GetAsset());
+        cachedPose.SetSkeleton(skl);
 
         animation = new SkeletonAnimation();
+        AnimationClipNode::PersistentData data = {};
+        data.clip = CreateAnimationFromAsset(clip.GetAsset());
+        data.looping = false;
+        data.rootMotion = false;
 
+        clipNode = animation->NewAnimNode<AnimationClipNode>(data);
         SkeletonAnimationInit animInit = {};
         animInit.skeleton = skl;
-        animInit.rootNode = animation->NewAnimNode<AnimationClipNode>(clipInst);
+        animInit.rootNode = clipNode;
         animation->Init(animInit);
+
+        dirty = true;
     }
 
 } // namespace sky

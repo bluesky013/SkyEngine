@@ -11,23 +11,36 @@ namespace sky {
 
     class AnimationClipNode : public AnimNode {
     public:
-        explicit AnimationClipNode(const AnimClipPtr& inClip);
+        struct PersistentData {
+            AnimClipPtr clip;
+            bool looping = false;
+            bool rootMotion = false;
+        };
+
+        struct Data : PersistentData {
+            bool playing = false;
+        };
+
+        explicit AnimationClipNode(const PersistentData& inData);
         ~AnimationClipNode() override = default;
 
+        void SetPlaying(bool play);
         void SetLooping(bool loop);
-        void SetRootMotion(bool enable);
+        void SetEnableRootMotion(bool enable);
+
+        FORCEINLINE bool IsPlaying() const { return player.IsPlaying(); }
+        FORCEINLINE bool IsLooping() const { return data.looping; }
+        FORCEINLINE bool IsRootMotionEnable() const { return data.rootMotion; }
+
+        void PreTick(const AnimationTick& tick) override;
 
         void InitAny(const AnimContext& context) override;
         void TickAny(const AnimLayerContext& context, float deltaTime) override;
-        void EvalAny(PoseContext& context) override;
+        void EvalAny(AnimationEval& context) override;
 
     private:
-        // res
-        AnimClipPtr clip;
-
-        // state
-        bool looping = false;
-        bool rootMotion = false;
+        // status
+        Data data;
 
         // async data
         AnimationSequencePlayer player;
