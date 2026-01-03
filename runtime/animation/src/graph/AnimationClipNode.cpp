@@ -37,7 +37,7 @@ namespace sky {
     {
         player.SetClip(data.clip);
         player.SetLoop(data.looping);
-        player.SetPlaying(false);
+        player.SetPlaying(true);
     }
 
     void AnimationClipNode::TickAny(const AnimLayerContext& context, float deltaTime)

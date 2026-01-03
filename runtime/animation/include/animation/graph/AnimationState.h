@@ -49,6 +49,8 @@ namespace sky {
         FORCEINLINE const AnimHandle GetCurrentStateHandle() const { return currentState; }
         FORCEINLINE const AnimState& GetCurrentState() const { return states[currentState]; }
 
+        void PreTick(const AnimationTick& tick) override;
+
         void InitAny(const AnimContext& context) override;
         void TickAny(const AnimLayerContext& context, float deltaTime) override;
         void EvalAny(AnimationEval& context) override;

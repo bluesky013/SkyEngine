@@ -26,7 +26,7 @@ namespace sky {
     class AnimationPreviewComponent
         : public ComponentAdaptor<AnimationPreviewData>
         , public ITransformEvent
-        , public IAssetEvent {
+        , public IAssetReadyNotifier {
     public:
         AnimationPreviewComponent() = default;
         ~AnimationPreviewComponent() override = default;
@@ -53,7 +53,7 @@ namespace sky {
         void OnDetachFromWorld() override;
 
         void OnSerialized() override;
-        void OnAssetLoaded() override;
+        void OnAssetLoaded(const Uuid& uuid) override;
 
         void Tick(float time) override;
 

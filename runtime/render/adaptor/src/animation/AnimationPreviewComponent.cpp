@@ -106,7 +106,7 @@ namespace sky {
         SetAnimationClip(data.clip);
     }
 
-    void AnimationPreviewComponent::OnAssetLoaded()
+    void AnimationPreviewComponent::OnAssetLoaded(const Uuid& uuid)
     {
         UpdateAnimation(!clip.IsLoaded());
     }
@@ -132,21 +132,25 @@ namespace sky {
             return;
         }
 
+        animation = new SkeletonAnimation();
+
         AnimationClipNode::PersistentData initData = {};
         initData.clip = CreateAnimationFromAsset(clip.GetAsset());
         initData.looping = IsLoop();
         initData.rootMotion = IsRootMotionEnable();
 
+        clipNode = animation->NewAnimNode<AnimationClipNode>(initData);
+
         auto &clipData = clip.Data();
         const auto &skeletonData = AssetManager::Get()->FindAsset<Skeleton>(clipData.skeleton)->Data();
         SkeletonPtr skl = Skeleton::BuildSkeleton(skeletonData);
-        cachedPose.SetSkeleton(skl);
-        animation = new SkeletonAnimation();
-        clipNode = animation->NewAnimNode<AnimationClipNode>(initData);
+
         SkeletonAnimationInit animInit = {};
         animInit.skeleton = skl;
         animInit.rootNode = clipNode;
         animation->Init(animInit);
+
+        cachedPose.SetSkeleton(skl);
 
         dirty = true;
     }

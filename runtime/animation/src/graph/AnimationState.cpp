@@ -47,10 +47,15 @@ namespace sky {
         }
     }
 
+    void AnimStateMachine::PreTick(const AnimationTick& tick)
+    {
+
+    }
+
     void AnimStateMachine::InitAny(const AnimContext& context)
     {
         stateTime = 0.f;
-        currentState = ANIM_INVALID_HANDLE;
+        SetState(context, initState);
     }
 
     void AnimStateMachine::TickAny(const AnimLayerContext& context, float deltaTime)
@@ -65,11 +70,13 @@ namespace sky {
         if (FindTransition(context, currentState, validTransition, visited) && (validTransition < transitions.size())) {
             Transition(context, validTransition);
         }
+
+        states[currentState].node->TickAny(context, deltaTime);
     }
 
     void AnimStateMachine::EvalAny(AnimationEval& context)
     {
-
+        states[currentState].node->EvalAny(context);
     }
 
     void AnimStateMachine::Transition(const AnimLayerContext& context, AnimHandle trans)

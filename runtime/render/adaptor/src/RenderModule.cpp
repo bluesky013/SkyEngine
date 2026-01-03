@@ -24,6 +24,7 @@
 
 #include <render/adaptor/animation/SkeletonDisplayComponent.h>
 #include <render/adaptor/animation/AnimationPreviewComponent.h>
+#include <render/adaptor/animation/CharacterLocomotion.h>
 
 #include <render/light/LightFeature.h>
 #include <render/env/EnvFeature.h>
@@ -50,6 +51,7 @@ namespace sky {
 
         SkeletonDisplayComponent::Reflect(context);
         AnimationPreviewComponent::Reflect(context);
+        CharacterLocomotion::Reflect(context);
 
         {
             static std::string GROUP = "Render";
@@ -64,6 +66,7 @@ namespace sky {
             static std::string GROUP = "Animation";
             ComponentFactory::Get()->RegisterComponent<SkeletonDisplayComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<AnimationPreviewComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<CharacterLocomotion>(GROUP);
         }
     }
 

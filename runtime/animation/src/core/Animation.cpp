@@ -73,6 +73,11 @@ namespace sky {
     {
         // pre update
         updated = false;
+
+        for (auto& param : parameters) {
+            param.second->Update(tick.deltaTime);
+        }
+
         asyncContext->PreTick(tick);
 
         // update

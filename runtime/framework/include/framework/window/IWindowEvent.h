@@ -167,6 +167,7 @@ namespace sky {
         KEY_KP_9 = 97,
         KEY_KP_0 = 98,
         KEY_KP_PERIOD = 99,
+        KEY_NUM
     };
 
     enum class KeyMod : uint32_t  {

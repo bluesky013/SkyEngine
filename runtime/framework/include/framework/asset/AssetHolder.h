@@ -9,30 +9,36 @@
 
 namespace sky {
 
+    struct IAssetReadyNotifier {
+        virtual ~IAssetReadyNotifier() = default;
+
+        virtual void OnAssetLoaded(const Uuid& uuid) {}
+    };
+
     template <typename T>
-    class SingleAssetHolder {
+    class SingleAssetHolder : public IAssetEvent {
     public:
         SingleAssetHolder() = default;
         ~SingleAssetHolder() = default;
 
-        void SetAsset(const Uuid& uuid, IAssetEvent* listener)
+        void SetAsset(const Uuid& uuid, IAssetReadyNotifier* inListener)
         {
             const auto &current = asset ? asset->GetUuid() : Uuid::GetEmpty();
             if (current == uuid) {
                 return;
             }
 
+            listener = inListener;
+
             if (uuid) {
-                binder.Bind(listener, uuid);
+                binder.Bind(this, uuid);
             } else {
                 binder.Reset();
             }
 
             asset = uuid ? AssetManager::Get()->LoadAsset<T>(uuid) : std::shared_ptr<Asset<T>> {};
-            if (!asset) {
-                listener->OnAssetReset();
-            } else if (asset->IsLoaded()) {
-                listener->OnAssetLoaded();
+            if (asset->IsLoaded()) {
+                listener->OnAssetLoaded(asset->GetUuid());
             }
         }
 
@@ -41,10 +47,21 @@ namespace sky {
             return asset && asset->IsLoaded();
         }
 
+        const Uuid& GetUuid() const
+        {
+            return asset ? asset->GetUuid() : Uuid::GetEmpty();
+        }
+
         Asset<T>::DataType &Data() { return asset->Data(); }
 
         const std::shared_ptr<Asset<T>> &GetAsset() const { return asset; }
     private:
+        void OnAssetLoaded() override
+        {
+            listener->OnAssetLoaded(asset->GetUuid());
+        }
+
+        IAssetReadyNotifier* listener = nullptr;
         std::shared_ptr<Asset<T>> asset;
         EventBinder<IAssetEvent, Uuid> binder;
     };

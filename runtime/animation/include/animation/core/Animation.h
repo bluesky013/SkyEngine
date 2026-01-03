@@ -21,6 +21,13 @@ namespace sky {
         float deltaTime = 0.f;
     };
 
+    struct AnimationParameterResult {
+        const uint8_t* data = nullptr;
+#if ENABLE_ANIM_CHECK
+        uint32_t size = 0;
+#endif
+    };
+
     class AnimationAsyncContext {
     public:
         explicit AnimationAsyncContext(Animation* inAnim);
@@ -56,10 +63,11 @@ namespace sky {
         }
 
         template <class T ,typename ...Args>
-        IAnimParameter* NewParameter(const Name& name, Args&& ...args)
+        T* NewParameter(const Name& name, Args&& ...args)
         {
-            auto iter = parameters.emplace(name, new T(std::forward<Args>(args)...));
-            return iter.first->second.get();
+            auto *res = new T(std::forward<Args>(args)...);
+            parameters[name].reset(res);
+            return res;
         }
 
         void RemoveParameter(const Name& name)

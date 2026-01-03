@@ -8,6 +8,9 @@
 #include <core/name/Name.h>
 #include <core/util/Cast.h>
 #include <core/math/Math.h>
+
+#include <animation/core/AnimationConfigs.h>
+
 #include <algorithm>
 #include <vector>
 

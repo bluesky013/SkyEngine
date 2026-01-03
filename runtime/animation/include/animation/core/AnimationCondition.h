@@ -9,7 +9,7 @@
 namespace sky {
 
     template <typename T>
-    struct TAnimParameterCond : public IAnimTransCond {
+    struct TAnimParameterCond : IAnimTransCond {
         TAnimParameter<T> *val = nullptr;
         T refVal;
         AnimComp comp;
