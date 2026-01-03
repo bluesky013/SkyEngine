@@ -5,7 +5,7 @@
 #pragma once
 #include <core/platform/Platform.h>
 
-#if _DEBUG
+#ifdef _DEBUG
 #define ENABLE_ANIM_CHECK 1
 #else
 #define ENABLE_ANIM_CHECK 0

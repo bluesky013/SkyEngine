@@ -9,7 +9,7 @@ namespace sky::vk {
     std::vector<const char *> INSTANCE_EXTENSIONS = {
         "VK_KHR_surface",
         "VK_KHR_android_surface",
-#if _DEBUG
+#ifdef _DEBUG
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
     };

@@ -147,7 +147,7 @@ namespace sky {
         }
 
         glslang::SpvOptions spvOptions = {};
-#if _DEBUG
+#ifdef _DEBUG
 #else
 //        spvOptions.stripDebugInfo = false;
 //        spvOptions.disableOptimizer = false;

@@ -20,7 +20,7 @@ namespace sky::gles {
         auto iter = bindingMap.find(binding);
         SKY_ASSERT(iter != bindingMap.end())
 
-#if _DEBUG
+#def _DEBUG
         // validator
         auto &bindings = layout->GetBindings();
         auto bIter = std::find_if(bindings.begin(), bindings.end(), [binding](const auto &entry) {

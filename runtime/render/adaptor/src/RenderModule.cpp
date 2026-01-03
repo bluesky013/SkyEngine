@@ -96,7 +96,7 @@ namespace sky {
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
-#if _DEBUG && !__ANDROID__
+#if defined(_DEBUG) && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
         rhiDesc.enableDebugLayer = true;

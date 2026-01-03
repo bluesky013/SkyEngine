@@ -20,14 +20,14 @@ namespace sky {
     Name::Name(const char *ch)
         : handle(NameDataBase::Get()->FetchOrRegister(ch))
     {
-#if _DEBUG
+#ifdef _DEBUG
         view = NameDataBase::Get()->GetStr(handle);
 #endif
     }
 
     std::string_view Name::GetStr() const noexcept
     {
-#if _DEBUG
+#ifdef _DEBUG
         return view;
 #else
         return NameDataBase::Get()->GetStr(handle);
