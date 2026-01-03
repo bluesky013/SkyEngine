@@ -37,17 +37,19 @@ namespace sky::editor {
 
         void OnParentChanged(Actor* oldParent, Actor* newParent) override
         {
+            if (oldParent == newParent) {
+                return;
+            }
+
             auto &currentIdx = actor->GetComponent<TreeViewComponent>()->index;
 
-            if (oldParent != nullptr)
-            {
+            auto *parent = model()->invisibleRootItem();
+            if (oldParent != nullptr) {
                 auto &oldIdx = oldParent->GetComponent<TreeViewComponent>()->index;
                 model()->removeRow(currentIdx.row(), oldIdx);
             }
 
-            auto *parent = model()->invisibleRootItem();
-            if (newParent != nullptr)
-            {
+            if (newParent != nullptr) {
                 auto &newIdx = newParent->GetComponent<TreeViewComponent>()->index;
                 parent = model()->itemFromIndex(newIdx);
             }

@@ -25,7 +25,7 @@ namespace sky {
     class IActorEvent {
     public:
         IActorEvent() = default;
-        ~IActorEvent() = default;
+        virtual ~IActorEvent() = default;
 
         using KeyType   = Actor*;
         using MutexType = void;

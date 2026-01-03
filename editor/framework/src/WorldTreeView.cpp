@@ -93,6 +93,9 @@ namespace sky::editor {
             } else {
                 model->appendRow(item);
             }
+
+            item->actor->RemoveComponent<TreeViewComponent>();
+            item->actor->AddComponent<TreeViewComponent>(model->indexFromItem(item));
         }
     }
 

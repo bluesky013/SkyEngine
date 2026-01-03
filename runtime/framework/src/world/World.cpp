@@ -139,7 +139,7 @@ namespace sky {
         return iter != actors.end() ? *iter : ActorPtr{};
     }
 
-    void World::AttachToWorld(const sky::ActorPtr &actor)
+    void World::AttachToWorld(const ActorPtr &actor)
     {
         if (actor->world != nullptr && actor->world != this) {
             actor->world->DetachFromWorld(actor);
