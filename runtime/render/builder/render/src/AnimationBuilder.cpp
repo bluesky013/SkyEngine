@@ -16,7 +16,10 @@ namespace sky::builder {
         data.Load(bin);
 
         asset->ResetDependencies();
-        asset->AddDependencies(data.skeleton);
+
+        if (data.skeleton) {
+            asset->AddDependencies(data.skeleton);
+        }
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;

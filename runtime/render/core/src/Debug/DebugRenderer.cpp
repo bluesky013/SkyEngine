@@ -91,8 +91,8 @@ namespace sky {
     {
         ResetBatch();
 
-        static const uint32_t STACK_COUNT = 16;
-        static const uint32_t SECTOR_COUNT = 32;
+        static const uint32_t STACK_COUNT = 8;
+        static const uint32_t SECTOR_COUNT = 16 ;
 
         float sectorStep  = 2 * PI / SECTOR_COUNT;
         float stackStep   = PI / STACK_COUNT;

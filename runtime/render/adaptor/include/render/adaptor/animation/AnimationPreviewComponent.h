@@ -20,7 +20,6 @@ namespace sky {
 
     struct AnimationPreviewData {
         Uuid clip;
-        Uuid skeleton;
     };
 
     class AnimationPreviewComponent
@@ -36,23 +35,30 @@ namespace sky {
         static void Reflect(SerializationContext *context);
 
         void SetAnimationClip(const Uuid& uuid);
-        void SetSkeleton(const Uuid& uuid);
-
         const Uuid& GetAnimationClip() const { return data.clip; }
-        const Uuid& GetSkeleton() const { return data.skeleton; }
 
     private:
         void OnTransformChanged(const Transform& global, const Transform& local) override;
+
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
+
         void OnSerialized() override;
         void OnAssetLoaded() override;
+
         void Tick(float time) override;
+
         void UpdateAnimation(bool reset);
 
         SingleAssetHolder<Animation> clip;
-        SingleAssetHolder<Skeleton> skeleton;
 
         CounterPtr<SkeletonAnimation> animation;
         std::unique_ptr<SkeletonDebugRender> debugRender;
+
+        EventBinder<ITransformEvent> transformEvent;
+
+        bool dirty = false;
+        Transform cachedTransform;
     };
 
 } // namespace sky

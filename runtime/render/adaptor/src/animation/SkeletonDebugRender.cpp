@@ -54,7 +54,7 @@ namespace sky {
     void SkeletonDebugRender::SetTechnique(const sky::RDTechniquePtr &tech)
     {
         RenderBatch batch = {tech};
-        batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        batch.topo = rhi::PrimitiveTopology::LINE_LIST;
         primitive->batches.clear();
         primitive->batches.emplace_back(batch);
     }

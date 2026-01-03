@@ -223,7 +223,6 @@ namespace sky::rdg {
                         std::visit(Overloaded{
                             [&](const rhi::CmdDrawLinear &v) {
                                 currentEncoder->DrawLinear(v);
-                                graph.context->rdgData.triangleData += v.vertexCount / 3 * v.instanceCount;
                             },
                             [&](const rhi::CmdDrawIndexed &v) {
                                 currentEncoder->DrawIndexed(v);

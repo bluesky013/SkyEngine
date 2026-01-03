@@ -5,6 +5,7 @@
 
 #include <framework/world/Component.h>
 #include <framework/asset/AssetEvent.h>
+#include <framework/interface/ITransformEvent.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/adaptor/animation/SkeletonDebugRender.h>
 
@@ -12,7 +13,10 @@ namespace sky {
 
     class SerializationContext;
 
-    class SkeletonDisplayComponent : public ComponentBase, public IAssetEvent {
+    class SkeletonDisplayComponent
+        : public ComponentBase
+        , public ITransformEvent
+        , public IAssetEvent {
     public:
         SkeletonDisplayComponent() = default;
         ~SkeletonDisplayComponent() override = default;
@@ -25,14 +29,23 @@ namespace sky {
         const Uuid& GetSkeletonUuid() const { return skeletonAsset ? skeletonAsset->GetUuid() : Uuid::GetEmpty(); }
     private:
         void OnAssetLoaded() override;
+
         void Tick(float time) override;
+
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
+
+        void OnTransformChanged(const Transform& global, const Transform& local) override;
 
         SkeletonAssetPtr skeletonAsset;
         SkeletonPtr skeleton;
         std::unique_ptr<SkeletonDebugRender> debugRender;
-        EventBinder<IAssetEvent, Uuid> binder;
+
+        EventBinder<IAssetEvent, Uuid> assetEvent;
+        EventBinder<ITransformEvent> transformEvent;
 
         bool dirty = false;
+        Transform cachedTransform;
     };
 
 } // namespace sky

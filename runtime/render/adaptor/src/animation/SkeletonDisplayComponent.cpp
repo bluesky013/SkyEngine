@@ -5,6 +5,7 @@
 #include <render/adaptor/animation/SkeletonDisplayComponent.h>
 #include <render/adaptor/RenderSceneProxy.h>
 #include <render/RenderTechniqueLibrary.h>
+#include <framework/world/TransformComponent.h>
 
 namespace sky {
 
@@ -23,9 +24,9 @@ namespace sky {
         }
 
         if (uuid) {
-            binder.Bind(this, uuid);
+            assetEvent.Bind(this, uuid);
         } else {
-            binder.Reset();
+            assetEvent.Reset();
         }
 
         skeletonAsset = uuid ? AssetManager::Get()->LoadAsset<Skeleton>(uuid) : SkeletonAssetPtr {};
@@ -38,23 +39,45 @@ namespace sky {
     {
         const auto& data = skeletonAsset->Data();
         skeleton = Skeleton::BuildSkeleton(data);
+    }
 
+    void SkeletonDisplayComponent::Tick(float time)
+    {
+        if (dirty && skeleton != nullptr) {
+
+            debugRender->DrawPose(skeleton->GetRefPos(), cachedTransform);
+
+            dirty = false;
+        }
+    }
+
+    void SkeletonDisplayComponent::OnAttachToWorld()
+    {
         if (!debugRender) {
             debugRender = std::make_unique<SkeletonDebugRender>();
             debugRender->SetTechnique(RenderTechniqueLibrary::Get()->FetchGfxTechnique(Name("techniques/debug.tech")));
         }
 
-        debugRender->DrawPose(skeleton->GetRefPos(), Transform::GetIdentity());
+        auto *renderScene = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
+        renderScene->AddPrimitive(debugRender->GetPrimitive());
+
         dirty = true;
+        transformEvent.Bind(this, actor);
+        cachedTransform = actor->GetComponent<TransformComponent>()->GetWorldTransform();
     }
 
-    void SkeletonDisplayComponent::Tick(float time)
+    void SkeletonDisplayComponent::OnDetachFromWorld()
     {
-        if (dirty) {
-            auto *renderScene = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
-            renderScene->AddPrimitive(debugRender->GetPrimitive());
-            dirty = false;
-        }
+        auto *renderScene = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
+        renderScene->RemovePrimitive(debugRender->GetPrimitive());
+
+        transformEvent.Reset();
+    }
+
+    void SkeletonDisplayComponent::OnTransformChanged(const Transform& global, const Transform& local)
+    {
+        dirty = true;
+        cachedTransform = global;
     }
 
 } // namespace sky
