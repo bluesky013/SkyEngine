@@ -107,19 +107,19 @@ namespace sky {
 
         REGISTER_BEGIN(CharacterLocomotion, context)
             REGISTER_MEMBER(Idle, SetIdle, GetIdle)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(WalkFwd, SetWalkFwd, GetWalkFwd)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(WalkBack, SetWalkBack, GetWalkBack)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(WalkLeft, SetWalkLeft, GetWalkLeft)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(WalkRight, SetWalkRight, GetWalkRight)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(Run, SetRun, GetRun)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(Jump, SetJump, GetJump)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE);
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE);
     }
 
     void CharacterLocomotion::OnSerialized()
@@ -272,7 +272,7 @@ namespace sky {
         stateMachine = animation->NewAnimNode<AnimStateMachine>();
         for (uint32_t i = 0; i < ToSize(CharacterStandardAction::NUM); i++) {
             AnimationClipNode::PersistentData initData = {};
-            initData.clip = CreateAnimationFromAsset(holders[i].GetAsset());
+            initData.clip = CreateAnimationClipFromAsset(holders[i].GetAsset());
 
             bool entryNode = false;
             std::tie(initData.looping, initData.rootMotion, entryNode) = ClipParam[i];

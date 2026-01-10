@@ -6,7 +6,7 @@
 
 namespace sky {
 
-    void AnimationAssetData::Load(BinaryInputArchive &archive)
+    void AnimationClipAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
         archive.LoadValue(name);
@@ -47,7 +47,7 @@ namespace sky {
         }
     }
 
-    void AnimationAssetData::Save(BinaryOutputArchive &archive) const
+    void AnimationClipAssetData::Save(BinaryOutputArchive &archive) const
     {
         archive.SaveValue(version);
         archive.SaveValue(name);
@@ -83,7 +83,7 @@ namespace sky {
         }
     }
 
-    AnimClipPtr CreateAnimationFromAsset(const AnimationAssetPtr &asset)
+    AnimClipPtr CreateAnimationClipFromAsset(const AnimationClipAssetPtr &asset)
     {
         const auto &data = asset->Data();
 

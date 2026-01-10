@@ -52,9 +52,9 @@ namespace sky {
             .BinLoad<&BufferAssetData::Load>()
             .BinSave<&BufferAssetData::Save>();
 
-        context->Register<AnimationAssetData>("AnimationAssetData")
-            .BinLoad<&AnimationAssetData::Load>()
-            .BinSave<&AnimationAssetData::Save>();
+        context->Register<AnimationClipAssetData>("AnimationClipAssetData")
+            .BinLoad<&AnimationClipAssetData::Load>()
+            .BinSave<&AnimationClipAssetData::Save>();
 
         context->Register<SkeletonAssetData>("SkeletonData")
                 .JsonLoad<&SkeletonAssetData::LoadJson>()
@@ -70,7 +70,7 @@ namespace sky {
         am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
         am->RegisterAssetHandler<Buffer>();
-        am->RegisterAssetHandler<Animation>();
+        am->RegisterAssetHandler<AnimationClip>();
         am->RegisterAssetHandler<Skeleton>();
     }
 

@@ -8,7 +8,7 @@ namespace sky::builder {
 
     void AnimationBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        auto asset = AssetManager::Get()->FindOrCreateAsset<Animation>(request.assetInfo->uuid);
+        auto asset = AssetManager::Get()->FindOrCreateAsset<AnimationClip>(request.assetInfo->uuid);
         auto archive = request.file->ReadAsArchive();
         BinaryInputArchive bin(*archive);
 

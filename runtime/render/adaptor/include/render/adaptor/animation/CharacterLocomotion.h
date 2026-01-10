@@ -100,7 +100,7 @@ namespace sky {
 
         static constexpr uint32_t FullMask = (1 << static_cast<uint32_t>(CharacterStandardAction::NUM)) - 1;
 
-        SingleAssetHolder<Animation> holders[static_cast<size_t>(CharacterStandardAction::NUM)];
+        SingleAssetHolder<AnimationClip> holders[static_cast<size_t>(CharacterStandardAction::NUM)];
         uint32_t readyMask = 0;
 
         AnimStateMachine *stateMachine = nullptr;

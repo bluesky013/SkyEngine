@@ -623,7 +623,7 @@ namespace sky::builder {
         for (uint32_t i = 0; i < scene->mNumAnimations; ++i) {
             auto &anim = scene->mAnimations[i];
 
-            AnimationAssetData data;
+            AnimationClipAssetData data;
             data.version = 1;
             data.name = anim->mName.C_Str();
             data.nodeChannels.resize(anim->mNumChannels);

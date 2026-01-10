@@ -23,7 +23,7 @@ namespace sky {
 
         REGISTER_BEGIN(AnimationPreviewComponent, context)
             REGISTER_MEMBER(Clip, SetAnimationClip, GetAnimationClip)
-                SET_ASSET_TYPE(AssetTraits<Animation>::ASSET_TYPE)
+                SET_ASSET_TYPE(AssetTraits<AnimationClip>::ASSET_TYPE)
             REGISTER_MEMBER(Loop, SetLoop, IsLoop)
             REGISTER_MEMBER(Play, SetPlaying, IsPlaying)
             REGISTER_MEMBER(RootMotion, SetEnableRootMotion, IsRootMotionEnable);
@@ -135,7 +135,7 @@ namespace sky {
         animation = new SkeletonAnimation();
 
         AnimationClipNode::PersistentData initData = {};
-        initData.clip = CreateAnimationFromAsset(clip.GetAsset());
+        initData.clip = CreateAnimationClipFromAsset(clip.GetAsset());
         initData.looping = IsLoop();
         initData.rootMotion = IsRootMotionEnable();
 

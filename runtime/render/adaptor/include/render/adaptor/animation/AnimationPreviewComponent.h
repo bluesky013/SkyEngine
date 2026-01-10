@@ -59,7 +59,7 @@ namespace sky {
 
         void UpdateAnimation(bool reset);
 
-        SingleAssetHolder<Animation> clip;
+        SingleAssetHolder<AnimationClip> clip;
 
         AnimationClipNode *clipNode = nullptr;
         CounterPtr<SkeletonAnimation> animation;

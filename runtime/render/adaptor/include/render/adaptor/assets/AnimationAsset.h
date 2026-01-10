@@ -14,7 +14,7 @@
 namespace sky {
 
 
-    struct AnimationAssetData {
+    struct AnimationClipAssetData {
         uint32_t version;
         std::string name;
         float frameRate;
@@ -26,12 +26,24 @@ namespace sky {
     };
 
     template <>
+    struct AssetTraits<AnimationClip> {
+        using DataType                                = AnimationClipAssetData;
+        static constexpr std::string_view ASSET_TYPE  = "Clip";
+        static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+    };
+    using AnimationClipAssetPtr = std::shared_ptr<Asset<AnimationClip>>;
+
+    AnimClipPtr CreateAnimationClipFromAsset(const AnimationClipAssetPtr &asset);
+
+    struct AnimationAssetData {
+
+    };
+
+    template <>
     struct AssetTraits<Animation> {
         using DataType                                = AnimationAssetData;
-        static constexpr std::string_view ASSET_TYPE  = "Animation";
+        static constexpr std::string_view ASSET_TYPE  = "Graph";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using AnimationAssetPtr = std::shared_ptr<Asset<Animation>>;
-
-    AnimClipPtr CreateAnimationFromAsset(const AnimationAssetPtr &asset);
 } // namespace sky
