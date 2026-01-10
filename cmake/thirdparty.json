@@ -20,6 +20,18 @@
 			}
 		},
 		{
+			"name": "nodeeditor",
+			"url": "https://github.com/paceholder/nodeeditor.git",
+			"tag": "3.0.12",
+			"header_only": false,
+			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
+			"options": {
+				"BUILD_TESTING": "OFF",
+				"BUILD_SHARED_LIBS": "OFF",
+				"USE_QT6": "OFF"
+			}
+		},
+		{
 			"name": "boost",
 			"url": "https://github.com/boostorg/boost.git",
 			"tag": "boost-1.88.0",
