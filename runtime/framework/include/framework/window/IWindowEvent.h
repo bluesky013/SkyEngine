@@ -10,11 +10,7 @@
 namespace sky {
     class NativeWindow;
 
-#if _WIN32
-    using WindowID = uint32_t;
-#else
     using WindowID = uint64_t;
-#endif
     static const WindowID INVALID_WIN_ID = 0;
 
     enum class MouseButtonType : uint32_t {

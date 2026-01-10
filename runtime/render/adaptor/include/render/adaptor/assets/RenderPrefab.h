@@ -32,10 +32,10 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive) const;
     };
 
-    class RenderPrefab {
+    class RenderPrefab : public RefObject {
     public:
         RenderPrefab() = default;
-        ~RenderPrefab() = default;
+        ~RenderPrefab() override = default;
     };
 
     template <>

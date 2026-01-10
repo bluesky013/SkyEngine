@@ -37,7 +37,7 @@ namespace sky {
             }
 
             asset = uuid ? AssetManager::Get()->LoadAsset<T>(uuid) : std::shared_ptr<Asset<T>> {};
-            if (asset->IsLoaded()) {
+            if (asset && asset->IsLoaded()) {
                 listener->OnAssetLoaded(asset->GetUuid());
             }
         }

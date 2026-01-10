@@ -264,10 +264,9 @@ namespace sky {
 
 
         animation = new SkeletonAnimation();
-        const auto &skeletonData = AssetManager::Get()->FindAsset<Skeleton>(holders[0].Data().skeleton)->Data();
-        SkeletonPtr skl = Skeleton::BuildSkeleton(skeletonData);
+        auto skeletonAsset = AssetManager::Get()->FindAsset<Skeleton>(holders[0].Data().skeleton);
+        SkeletonPtr skl = FetchOrCreateSkeletonByAsset(skeletonAsset);
         cachedPose.SetSkeleton(skl);
-
         std::array<AnimHandle, static_cast<size_t>(CharacterStandardAction::NUM)> stateHandles;
 
         stateMachine = animation->NewAnimNode<AnimStateMachine>();

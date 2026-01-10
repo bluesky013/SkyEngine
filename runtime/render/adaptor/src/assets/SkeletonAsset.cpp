@@ -133,4 +133,12 @@ namespace sky {
         }
     }
 
+    SkeletonPtr FetchOrCreateSkeletonByAsset(const SkeletonAssetPtr& skeleton)
+    {
+        return skeleton->GetOrCreateResource([](Asset<Skeleton>& asset) -> SkeletonPtr {
+            const auto &skeletonData = asset.Data();
+            return Skeleton::BuildSkeleton(skeletonData);
+        });
+    }
+
 } // namespace sky::adaptor

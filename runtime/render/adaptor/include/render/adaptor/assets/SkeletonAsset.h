@@ -36,6 +36,9 @@ namespace sky {
         using DataType                                = SkeletonAssetData;
         static constexpr std::string_view ASSET_TYPE  = "Skeleton";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
     };
     using SkeletonAssetPtr = std::shared_ptr<Asset<Skeleton>>;
+
+    SkeletonPtr FetchOrCreateSkeletonByAsset(const SkeletonAssetPtr& skeleton);
 } // namespace sky
