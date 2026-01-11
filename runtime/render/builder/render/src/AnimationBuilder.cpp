@@ -6,7 +6,7 @@
 
 namespace sky::builder {
 
-    void AnimationBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
+    void AnimationBuilder::RequestClip(const AssetBuildRequest &request, AssetBuildResult &result)
     {
         auto asset = AssetManager::Get()->FindOrCreateAsset<AnimationClip>(request.assetInfo->uuid);
         auto archive = request.file->ReadAsArchive();
@@ -27,6 +27,24 @@ namespace sky::builder {
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
+    }
+    void AnimationBuilder::RequestGraph(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
+        auto asset = AssetManager::Get()->FindOrCreateAsset<Animation>(request.assetInfo->uuid);
+        auto archive = request.file->ReadAsArchive();
+        JsonInputArchive json(*archive);
+
+        auto &data = asset->Data();
+        data.LoadJson(json);
+    }
+
+    void AnimationBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
+    {
+        if (request.assetInfo->ext == ".clip") {
+            RequestClip(request, result);
+        } else if (request.assetInfo->ext == ".graph") {
+            RequestGraph(request, result);
+        }
     }
 
 } // namespace sky::builder

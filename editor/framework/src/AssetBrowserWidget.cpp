@@ -4,16 +4,13 @@
 
 #include <editor/framework/AssetBrowserWidget.h>
 #include <editor/framework/AssetCreator.h>
+#include <editor/framework/DialogUtils.h>
 #include <framework/asset/AssetBuilderManager.h>
 #include <QVBoxLayout>
-#include <QPushButton>
 #include <QMimeData>
-#include <QApplication>
 #include <QDrag>
 #include <QMenu>
 #include <QFileSystemModel>
-#include <QComboBox>
-#include <QFormLayout>
 #include <QDialogButtonBox>
 #include <editor/framework/ReflectedObjectWidget.h>
 
@@ -201,17 +198,21 @@ namespace sky::editor {
                 auto ext = fn->GetExtension();
                 auto dir = QDir(path);
 
-                QString file("NewFile");
-                QString final;
+                NewFileDialog dialog("New Asset");
+                if (dialog.exec()) {
+                    auto &file = dialog.GetFileName();
+                    if (!file.isEmpty()) {
+                        QString final;
+                        int index = 0;
+                        do {
+                            QString suffix = index > 0 ? QString::number(index) : QString{};
+                            final = file + suffix + QString(ext.c_str());
+                            ++index;
+                        } while (dir.exists(final) || index >= 100000);
 
-                int index = 0;
-                do {
-                    QString suffix = index > 0 ? QString::number(index) : QString{};
-                    final = file + suffix + QString(ext.c_str());
-                    ++index;
-                } while (dir.exists(final) || index >= 100000);
-
-                fn->CreateAsset(FilePath(dir.filePath(final).toStdString()));
+                        fn->CreateAsset(FilePath(dir.filePath(final).toStdString()));
+                    }
+                }
             });
             createMenu->addAction(act);
         }

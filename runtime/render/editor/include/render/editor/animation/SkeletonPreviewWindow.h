@@ -10,7 +10,7 @@ namespace sky::editor {
 
     class SkeletonPreviewWindow : public IAssetPreviewWndFactory {
     public:
-        SkeletonPreviewWindow();
+        SkeletonPreviewWindow() = default;
         ~SkeletonPreviewWindow() override = default;
 
         bool SetupWidget(AssetPreviewWidget& widget, const AssetSourcePtr& src) override;

@@ -17,6 +17,9 @@ namespace sky::builder {
     private:
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
+        void RequestClip(const AssetBuildRequest &request, AssetBuildResult &result);
+        void RequestGraph(const AssetBuildRequest &request, AssetBuildResult &result);
+
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
         std::string_view QueryType(const std::string &ext) const override
         {

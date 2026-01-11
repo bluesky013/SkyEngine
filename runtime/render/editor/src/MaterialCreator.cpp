@@ -2,7 +2,7 @@
 // Created by blues on 2024/12/7.
 //
 
-#include <editor/framework/render/MaterialCreator.h>
+#include <render/editor/MaterialCreator.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/serialization/JsonArchive.h>

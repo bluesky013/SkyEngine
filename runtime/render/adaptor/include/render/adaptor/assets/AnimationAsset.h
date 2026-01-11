@@ -8,6 +8,7 @@
 #include <animation/core/Animation.h>
 #include <animation/core/AnimationNodeChannel.h>
 #include <animation/core/AnimationClip.h>
+#include <animation/graph/AnimationState.h>
 #include <string>
 #include <vector>
 
@@ -36,7 +37,10 @@ namespace sky {
     AnimClipPtr CreateAnimationClipFromAsset(const AnimationClipAssetPtr &asset);
 
     struct AnimationAssetData {
+        uint32_t version;
 
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
     };
 
     template <>
@@ -46,4 +50,19 @@ namespace sky {
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
     };
     using AnimationAssetPtr = std::shared_ptr<Asset<Animation>>;
+
+    struct AnimationStateClipData {
+        std::string name;
+        Uuid clip;
+    };
+
+    struct AnimationStateConditionData {
+        std::string parameter; // from animation
+    };
+
+    struct AnimationStateData {
+        std::vector<AnimationStateClipData> nodes;
+        std::vector<AnimationStateConditionData> conditions;
+        std::vector<AnimTransition> transitions;
+    };
 } // namespace sky

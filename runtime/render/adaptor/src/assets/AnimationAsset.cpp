@@ -101,4 +101,16 @@ namespace sky {
         return clip;
     }
 
+    void AnimationAssetData::LoadJson(JsonInputArchive &ar)
+    {
+        ar.LoadKeyValue("Version", version);
+    }
+
+    void AnimationAssetData::SaveJson(JsonOutputArchive &ar) const
+    {
+        ar.StartObject();
+        ar.SaveValueObject("Version", version);
+        ar.EndObject();
+    }
+
 } // namespace sky

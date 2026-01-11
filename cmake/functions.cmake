@@ -42,7 +42,7 @@ function(sky_add_library)
     cmake_parse_arguments(TMP
         "STATIC;SHARED"
         "TARGET"
-        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS;INSTALL_DIR"
+        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS;INSTALL_DIR;PUBLIC_DEFS;PRIVATE_DEFS"
         ${ARGN}
     )
 
@@ -96,6 +96,12 @@ function(sky_add_library)
     if(CURRENT_FOLDER)
         set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
     endif ()
+    target_compile_definitions(${TMP_TARGET}
+      PUBLIC
+        ${TMP_PUBLIC_DEFS}
+      PRIVATE
+        ${TMP_PRIVATE_DEFS}
+    )
 
     if (TMP_INSTALL_DIR)
         install(TARGETS ${TMP_TARGET}

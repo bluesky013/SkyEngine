@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <variant>
 
 namespace sky {
 
@@ -22,6 +23,8 @@ namespace sky {
     static constexpr float ANIM_BLEND_WEIGHT_THRESHOLD = 0.00001f;
     static constexpr float ANIM_DIFF_TOLERANCE = static_cast<float>(1e-6);
     static constexpr float ANIM_INV_BLEND_WEIGHT_THRESHOLD = 1.f - ANIM_BLEND_WEIGHT_THRESHOLD;
+
+    using AnimationParamType = std::variant<bool, float>;
 
     enum class AnimInterpolation : uint8_t {
         LINEAR,

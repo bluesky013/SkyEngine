@@ -4,11 +4,12 @@
 
 #include <render/editor/animation/SkeletonPreviewWindow.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
-#include <render/adaptor/components/CameraComponent.h>
 #include <editor/framework/ViewportWidget.h>
 #include <editor/framework/ReflectedObjectWidget.h>
 #include <QVBoxLayout>
 #include <QStandardItemModel>
+#include <QHBoxLayout>
+#include <QTreeView>
 
 namespace sky::editor {
 
@@ -74,8 +75,6 @@ namespace sky::editor {
         SkeletonAssetData data;
     };
 
-    SkeletonPreviewWindow::SkeletonPreviewWindow() = default;
-
     bool SkeletonPreviewWindow::SetupWidget(AssetPreviewWidget& widget, const AssetSourcePtr& src)
     {
         auto file = AssetDataBase::Get()->OpenFile(src);
@@ -85,4 +84,5 @@ namespace sky::editor {
         }
         return false;
     }
+
 } // namespace sky::editor

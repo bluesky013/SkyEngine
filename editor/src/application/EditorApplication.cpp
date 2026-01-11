@@ -7,9 +7,7 @@
 #include <editor/framework/ViewportWidget.h>
 #include <editor/framework/SelectTool.h>
 #include <editor/framework/AssetCreator.h>
-#include <editor/framework/render/MaterialCreator.h>
 #include <editor/framework/WorldTreeView.h>
-#include <core/environment/Environment.h>
 #include <core/logger/Logger.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
@@ -75,8 +73,6 @@ namespace sky::editor {
         AssetBuilderManager::Get()->SetInterMediateFs(new NativeFileSystem(intermediatePath));
 
         EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
-
-        AssetCreatorManager::Get()->RegisterTool(Name("Material"), new MaterialInstanceCreator());
 
         if (!InitAppAndSplashWindow(argc, argv)) {
             return false;

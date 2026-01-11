@@ -102,6 +102,7 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET GKlib         DIR GKlib)
         sky_find_3rd(TARGET metis         DIR metis)
         sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
+        sky_find_3rd(TARGET nodeeditor    DIR nodeeditor)
     endif ()
 
 #    if (WIN32 OR ANDROID)

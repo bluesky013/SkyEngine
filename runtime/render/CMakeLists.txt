@@ -21,6 +21,13 @@ sky_add_library(TARGET SkyRender SHARED
     )
 
 if (SKY_BUILD_EDITOR)
+
+    find_package(Qt5 COMPONENTS Widgets)
+
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+    set(CMAKE_AUTOUIC ON)
+
     file(GLOB_RECURSE EDITOR_SRC_FILES editor/src/*)
     file(GLOB_RECURSE EDITOR_INC_FILES editor/include/*)
 
@@ -38,6 +45,9 @@ if (SKY_BUILD_EDITOR)
         RenderAdaptor
         ImGuiRender
         EditorFramework
+        3rdParty::nodeeditor
+    PUBLIC_DEFS
+        NODE_EDITOR_STATIC
     )
 endif ()
 
