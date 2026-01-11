@@ -61,7 +61,7 @@ namespace sky::editor {
     class StateMachineStateNodeModel : public QtNodes::NodeDelegateModel {
         Q_OBJECT
     public:
-        StateMachineStateNodeModel();
+        StateMachineStateNodeModel() = default;
         ~StateMachineStateNodeModel() override = default;
 
         QString caption() const override { return QStringLiteral("Animation State"); }
@@ -73,7 +73,7 @@ namespace sky::editor {
         std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex port) override;
         void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override;
 
-        QWidget *embeddedWidget() override { return embedded; }
+        QWidget *embeddedWidget() override;
 
     public Q_SLOTS:
         void OnSelectAnimationClip(const Uuid& id);
@@ -87,7 +87,7 @@ namespace sky::editor {
     class StateMachineStateTransitionModel : public QtNodes::NodeDelegateModel {
         Q_OBJECT
     public:
-        StateMachineStateTransitionModel();
+        StateMachineStateTransitionModel() = default;
         ~StateMachineStateTransitionModel() override = default;
 
         QString caption() const override { return QStringLiteral("Animation Condition"); }
@@ -99,7 +99,7 @@ namespace sky::editor {
         std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex port) override;
         void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override;
 
-        QWidget *embeddedWidget() override { return embedded; }
+        QWidget *embeddedWidget() override;
 
     private:
         void OnSlotNameChanged(const QString &str);
