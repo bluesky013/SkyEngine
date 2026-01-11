@@ -3,20 +3,22 @@
 //
 
 #include "AnimationGraphWidget.h"
-
+#include "AnimationNodeModel.h"
 #include <QVBoxLayout>
+#include <QtNodes/NodeDelegateModelRegistry>
 
 namespace sky::editor {
 
     static std::shared_ptr<QtNodes::NodeDelegateModelRegistry> RegisterDataModels()
     {
         auto ret = std::make_shared<QtNodes::NodeDelegateModelRegistry>();
+        ret->registerModel<StateMachineStateNodeModel>("StateMachine");
+        ret->registerModel<StateMachineStateTransitionModel>("StateMachine");
         return ret;
     }
 
     AnimationGraphWidget::AnimationGraphWidget(const FilePtr& source)
-        : AssetPreviewContentWidget()
-        , model(new QtNodes::DataFlowGraphModel(RegisterDataModels()))
+        : model(new QtNodes::DataFlowGraphModel(RegisterDataModels()))
         , scene(new QtNodes::DataFlowGraphicsScene(*model))
         , view(new QtNodes::GraphicsView(scene))
         , asset(source)

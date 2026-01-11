@@ -24,7 +24,7 @@ namespace sky {
     static constexpr float ANIM_DIFF_TOLERANCE = static_cast<float>(1e-6);
     static constexpr float ANIM_INV_BLEND_WEIGHT_THRESHOLD = 1.f - ANIM_BLEND_WEIGHT_THRESHOLD;
 
-    using AnimationParamType = std::variant<bool, float>;
+    using AnimationParam = std::variant<bool, float>;
 
     enum class AnimInterpolation : uint8_t {
         LINEAR,
@@ -43,16 +43,6 @@ namespace sky {
         Always,
         WhenActive,
         Manual
-    };
-
-    enum class AnimParamType : uint8_t {
-        UNKNOWN = 0,
-        BOOL,
-        UINT,
-        INT,
-        FLOAT,
-        DOUBLE,
-        STR
     };
 
     enum class AnimComp : uint8_t {
@@ -212,19 +202,6 @@ namespace sky {
         {
             return reinterpret_cast<const uint8_t *>(&cachedValue);
         }
-    };
-
-    template <typename T>
-    struct TAnimRefCachedParameter : TAnimParameter<T> {
-        const T& val;
-
-        explicit TAnimRefCachedParameter(T& inVal) : val(inVal) {}
-
-        void Update(float deltaTime) override
-        {
-            this->cachedValue = val;
-        }
-
     };
 
     template <typename T>

@@ -56,13 +56,22 @@ namespace sky {
         Uuid clip;
     };
 
-    struct AnimationStateConditionData {
+    struct AnimationStateConditionBase {
+        virtual ~AnimationStateConditionBase() = default;
+
         std::string parameter; // from animation
+    };
+
+    struct AnimParameterCondData : AnimationStateConditionBase {
+        ~AnimParameterCondData() override = default;
+
+        AnimationParam param;
+        AnimComp comp;
     };
 
     struct AnimationStateData {
         std::vector<AnimationStateClipData> nodes;
-        std::vector<AnimationStateConditionData> conditions;
+        std::vector<std::unique_ptr<AnimationStateConditionBase>> conditions;
         std::vector<AnimTransition> transitions;
     };
 } // namespace sky

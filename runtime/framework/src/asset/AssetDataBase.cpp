@@ -74,6 +74,29 @@ namespace sky {
         return {};
     }
 
+    AssetSourcePtr AssetDataBase::FindAsset(const AssetSourcePath &path)
+    {
+        std::lock_guard lock(assetMutex);
+        auto iter = pathMap.find(path);
+        if (iter != pathMap.end()) {
+            return FindAsset(iter->second);
+        }
+        return {};
+    }
+
+    std::vector<AssetSourcePtr> AssetDataBase::Gather(const std::string_view& category)
+    {
+        std::vector<AssetSourcePtr> res;
+
+        for (auto& [id, asset] : idMap) {
+            if (asset->category == category) {
+                res.emplace_back(asset);
+            }
+        }
+
+        return res;
+    }
+
     AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path, bool build)
     {
         const auto &fs = GetFileSystemBySourcePath(path);

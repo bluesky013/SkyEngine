@@ -14,8 +14,6 @@
 
 namespace sky::editor {
 
-    class AnimationGraphModel;
-
     class AnimationGraphWidget : public AssetPreviewContentWidget {
         Q_OBJECT
     public:
@@ -32,14 +30,6 @@ namespace sky::editor {
 
         FilePtr asset;
         AnimationAssetData data;
-    };
-
-    class StateMachineWidget : public QWidget {
-        Q_OBJECT
-    public:
-        explicit StateMachineWidget();
-
-    private:
     };
 
 } // sky::editor

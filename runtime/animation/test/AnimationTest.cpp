@@ -176,17 +176,8 @@ TEST(AnimationTest, AnimationParameterTest)
         return time;
     }));
 
-    uint32_t val = 0;
-    std::unique_ptr<IAnimParameter> param2(new TAnimRefCachedParameter<uint32_t>(val));
-    val = 1;
-
-
     param1->Update(0.5f);
-    param2->Update(0.5f);
-
     ASSERT_FLOAT_EQ(param1->EvalAs<float>(), 0.5f);
-    ASSERT_EQ(param2->EvalAs<uint32_t>(), 1);
-
 }
 
 TEST(AnimationTest, AnimationCompTest)
