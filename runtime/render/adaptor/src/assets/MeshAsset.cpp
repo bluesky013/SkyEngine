@@ -373,6 +373,7 @@ namespace sky {
         currentBytes = idxNum * indexStride;
         outData.rawData.storage.resize(currentSize + currentBytes);
         memcpy(outData.rawData.storage.data() + currentSize, indexBuffer->GetDataPointer(), currentBytes);
+        outData.indexType = indexBuffer->GetIndexType();
         outData.indexBuffer = static_cast<uint32_t>(outData.buffers.size());
         outData.buffers.emplace_back(MeshBufferView{.offset = currentSize, .size=currentBytes, .stride=indexStride});
 

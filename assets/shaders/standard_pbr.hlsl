@@ -46,7 +46,6 @@ VSOutput VSMain(VSInput input)
     output.WorldPos = mul(worldMatrix, pos).xyz;
     output.Normal   = mul((float3x3)worldMatrix, input.Normal.xyz);
     output.Tangent  = input.Tangent;
-    output.Color    = input.Color;
     output.UV       = input.UV;
 
     output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
@@ -322,7 +321,7 @@ float3 PrefilteredReflection(float3 R, float roughness)
 float4 FSMain(VSOutput input) : SV_TARGET
 {
     float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
-    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
+    float4 albedo = Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
 
 #if ENABLE_ALPHA_MASK
     if (albedo.w < AlphaCutoff) {
