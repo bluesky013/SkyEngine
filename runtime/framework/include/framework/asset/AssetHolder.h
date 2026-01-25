@@ -12,7 +12,7 @@ namespace sky {
     struct IAssetReadyNotifier {
         virtual ~IAssetReadyNotifier() = default;
 
-        virtual void OnAssetLoaded(const Uuid& uuid) {}
+        virtual void OnAssetLoaded(const Uuid& uuid, const std::string_view& type) {}
     };
 
     template <typename T>
@@ -38,7 +38,7 @@ namespace sky {
 
             asset = uuid ? AssetManager::Get()->LoadAsset<T>(uuid) : std::shared_ptr<Asset<T>> {};
             if (asset && asset->IsLoaded()) {
-                listener->OnAssetLoaded(asset->GetUuid());
+                listener->OnAssetLoaded(asset->GetUuid(), AssetTraits<T>::ASSET_TYPE);
             }
         }
 
@@ -58,7 +58,7 @@ namespace sky {
     private:
         void OnAssetLoaded() override
         {
-            listener->OnAssetLoaded(asset->GetUuid());
+            listener->OnAssetLoaded(asset->GetUuid(), AssetTraits<T>::ASSET_TYPE);
         }
 
         IAssetReadyNotifier* listener = nullptr;

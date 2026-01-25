@@ -189,6 +189,14 @@ namespace sky {
         return res.Exist();
     }
 
+    void NativeFileSystem::MakeDir(const FilePath &path)
+    {
+        FilePath res = fsRoot;
+        res /= path;
+
+        res.MakeDirectory();
+    }
+
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)
     {
         FilePath res = fsRoot;

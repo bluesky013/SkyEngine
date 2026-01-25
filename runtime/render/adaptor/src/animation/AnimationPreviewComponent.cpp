@@ -106,7 +106,7 @@ namespace sky {
         SetAnimationClip(data.clip);
     }
 
-    void AnimationPreviewComponent::OnAssetLoaded(const Uuid& uuid)
+    void AnimationPreviewComponent::OnAssetLoaded(const Uuid& uuid, const std::string_view&)
     {
         UpdateAnimation(!clip.IsLoaded());
     }

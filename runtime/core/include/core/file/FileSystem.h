@@ -128,6 +128,7 @@ namespace sky {
 
         virtual void Copy(const FilePath &from, const FilePath &to) const {}
         virtual bool FileExist(const FilePath &path) const = 0;
+        virtual void MakeDir(const FilePath &path) {}
         virtual FilePtr OpenFile(const FilePath &name) = 0;
         virtual FilePtr CreateOrOpenFile(const FilePath &name) = 0;
         virtual bool IsReadOnly() const { return true; }
@@ -141,6 +142,8 @@ namespace sky {
         ~NativeFileSystem() override = default;
 
         bool FileExist(const FilePath &path) const override;
+        void MakeDir(const FilePath &path) override;
+
         FilePtr OpenFile(const FilePath &path) override;
         FilePtr CreateOrOpenFile(const FilePath &path) override;
 

@@ -12,6 +12,7 @@
 #include <core/math/MathUtil.h>
 
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/serialization/SerializationContext.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
@@ -737,6 +738,16 @@ namespace sky::builder {
 
     void PrefabBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
+        auto asset = AssetManager::Get()->FindOrCreateAsset<RenderPrefab>(request.assetInfo->uuid);
+
+        auto archive = request.file->ReadAsArchive();
+        JsonInputArchive json(*archive);
+
+        auto &data = asset->Data();
+        data.LoadJson(json);
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
 } // namespace sky::builder

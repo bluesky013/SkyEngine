@@ -53,7 +53,7 @@ namespace sky {
         void OnDetachFromWorld() override;
 
         void OnSerialized() override;
-        void OnAssetLoaded(const Uuid& uuid) override;
+        void OnAssetLoaded(const Uuid& uuid, const std::string_view&) override;
 
         void Tick(float time) override;
 

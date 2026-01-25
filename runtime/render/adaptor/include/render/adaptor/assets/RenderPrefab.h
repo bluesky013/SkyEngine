@@ -18,6 +18,7 @@ namespace sky {
     struct RenderPrefabNode {
         std::string name;
         Uuid mesh;
+        Uuid material;
         uint32_t parentIndex = ~(0u);
         Transform localTransform;
     };

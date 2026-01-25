@@ -49,7 +49,7 @@ namespace sky {
         CameraComponent::Reflect(context);
         SkeletonMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
-        // PrefabComponent::Reflect(context);
+        PrefabComponent::Reflect(context);
 
         SkeletonDisplayComponent::Reflect(context);
         AnimationPreviewComponent::Reflect(context);
@@ -62,7 +62,7 @@ namespace sky {
             ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
-            // ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);
         }
 
         {

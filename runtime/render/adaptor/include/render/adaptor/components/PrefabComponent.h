@@ -11,6 +11,7 @@
 #include <framework/interface/ITransformEvent.h>
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <render/resource/Mesh.h>
+#include <render/mesh/MeshRenderer.h>
 
 namespace sky {
 
@@ -40,10 +41,20 @@ namespace sky {
         void OnDetachFromWorld() override;
 
         void OnSerialized() override;
-        void OnAssetLoaded(const Uuid& uuid) override;
+        void OnAssetLoaded(const Uuid& uuid, const std::string_view& type) override;
 
-        SingleAssetHolder<RenderPrefab> prefab;
+        struct RenderNode {
+            MeshRenderer* render;
+        };
+
+        std::unordered_map<Uuid, RDMeshPtr> meshes;
+        std::vector<MeshRenderer*> meshRenderers;
         EventBinder<ITransformEvent> transformEvent;
+
+        std::mutex assetMutex;
+        SingleAssetHolder<RenderPrefab> prefab;
+        std::unordered_map<Uuid, SingleAssetHolder<Mesh>> meshHolders;
+        bool isInWorld = false;
     };
 
 } // namespace receiveShadow

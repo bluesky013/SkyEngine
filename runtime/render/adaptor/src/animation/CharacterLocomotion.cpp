@@ -203,7 +203,7 @@ namespace sky {
         cachedTransform = global;
     }
 
-    void CharacterLocomotion::OnAssetLoaded(const Uuid& uuid)
+    void CharacterLocomotion::OnAssetLoaded(const Uuid& uuid, const std::string_view&)
     {
         uint32_t lastMask = readyMask;
         for (uint32_t i = 0; i < ToSize(CharacterStandardAction::NUM); i++) {
