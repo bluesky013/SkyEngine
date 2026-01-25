@@ -91,6 +91,12 @@ namespace sky {
             dirty = true;
         }
 
+        template <typename T>
+        const T& ReadT(uint32_t offset)
+        {
+            return *reinterpret_cast<T*>(ptr + offset);
+        }
+
         virtual void Upload(rhi::BlitEncoder &encoder);
 
     protected:

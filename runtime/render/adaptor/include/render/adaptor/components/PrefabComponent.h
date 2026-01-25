@@ -35,6 +35,8 @@ namespace sky {
         void SetPrefabId(const Uuid& value);
 
     private:
+        void Tick(float time) override;
+
         void OnTransformChanged(const Transform& global, const Transform& local) override;
 
         void OnAttachToWorld() override;
@@ -43,17 +45,29 @@ namespace sky {
         void OnSerialized() override;
         void OnAssetLoaded(const Uuid& uuid, const std::string_view& type) override;
 
-        struct RenderNode {
-            MeshRenderer* render;
+        // logic threads
+        std::vector<MeshRenderer*> renderers;
+        EventBinder<ITransformEvent> transformEvent;
+        SingleAssetHolder<RenderPrefab> prefab;
+        Transform cacheTransform;
+
+        // asset threads
+        std::unordered_map<Uuid, RDMeshPtr> meshes;
+        std::unordered_map<Uuid, SingleAssetHolder<Mesh>> meshHolders;
+        std::unordered_map<Uuid, std::vector<uint32_t>> linkList;
+
+        struct MeshBuildTask {
+            uint32_t nodeId;
+            RDMeshPtr mesh;
+            Transform localTransform;
         };
 
-        std::unordered_map<Uuid, RDMeshPtr> meshes;
-        std::vector<MeshRenderer*> meshRenderers;
-        EventBinder<ITransformEvent> transformEvent;
+        // shared
+        std::atomic_size_t capacity = 0;
 
-        std::mutex assetMutex;
-        SingleAssetHolder<RenderPrefab> prefab;
-        std::unordered_map<Uuid, SingleAssetHolder<Mesh>> meshHolders;
+        std::mutex meshMutex;
+        std::vector<MeshBuildTask> buildTasks;
+
         bool isInWorld = false;
     };
 

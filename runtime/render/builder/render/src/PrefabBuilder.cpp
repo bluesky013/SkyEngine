@@ -549,40 +549,40 @@ namespace sky::builder {
 
         channel.position.times.resize(anim->mNumPositionKeys);
         channel.position.keys.resize(anim->mNumPositionKeys);
-        for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
-            const auto &src = anim->mPositionKeys[i];
-            auto &dstTime = channel.position.times[i];
-            auto &dstPos = channel.position.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstPos.x = src.mValue.x;
-            dstPos.y = src.mValue.y;
-            dstPos.z = src.mValue.z;
-        }
+        // for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
+        //     const auto &src = anim->mPositionKeys[i];
+        //     auto &dstTime = channel.position.times[i];
+        //     auto &dstPos = channel.position.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstPos.x = src.mValue.x;
+        //     dstPos.y = src.mValue.y;
+        //     dstPos.z = src.mValue.z;
+        // }
 
         channel.scale.times.resize(anim->mNumScalingKeys);
         channel.scale.keys.resize(anim->mNumScalingKeys);
-        for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
-            const auto &src = anim->mScalingKeys[i];
-            auto &dstTime = channel.scale.times[i];
-            auto &dstScale = channel.scale.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstScale.x = src.mValue.x;
-            dstScale.y = src.mValue.y;
-            dstScale.z = src.mValue.z;
-        }
+        // for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
+        //     const auto &src = anim->mScalingKeys[i];
+        //     auto &dstTime = channel.scale.times[i];
+        //     auto &dstScale = channel.scale.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstScale.x = src.mValue.x;
+        //     dstScale.y = src.mValue.y;
+        //     dstScale.z = src.mValue.z;
+        // }
 
         channel.rotation.times.resize(anim->mNumRotationKeys);
         channel.rotation.keys.resize(anim->mNumRotationKeys);
-        for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
-            const auto &src = anim->mRotationKeys[i];
-            auto &dstTime = channel.rotation.times[i];
-            auto &dstRot = channel.rotation.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstRot.x = src.mValue.x;
-            dstRot.y = src.mValue.y;
-            dstRot.z = src.mValue.z;
-            dstRot.w = src.mValue.w;
-        }
+        // for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
+        //     const auto &src = anim->mRotationKeys[i];
+        //     auto &dstTime = channel.rotation.times[i];
+        //     auto &dstRot = channel.rotation.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstRot.x = src.mValue.x;
+        //     dstRot.y = src.mValue.y;
+        //     dstRot.z = src.mValue.z;
+        //     dstRot.w = src.mValue.w;
+        // }
     }
 
     static void ProcessMeshChannel(const aiScene* scene, aiMeshAnim *anim, PrefabBuildContext& context)

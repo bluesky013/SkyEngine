@@ -269,6 +269,11 @@ namespace sky {
         }
     }
 
+    const Matrix4& MeshRenderer::GetTransform() const
+    {
+        return ubo->ReadT<Matrix4>(0);
+    }
+
     void MeshRenderer::PrepareUBO()
     {
         ubo = new DynamicUniformBuffer();

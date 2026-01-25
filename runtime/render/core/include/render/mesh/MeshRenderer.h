@@ -31,6 +31,7 @@ namespace sky {
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
+        const Matrix4& GetTransform() const;
 
         void BuildGeometry();
 

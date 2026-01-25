@@ -153,8 +153,8 @@ namespace sky {
         }
 
         renderer = mf->CreateStaticMesh();
-        SetMultiply(multiply);
-//        renderer->SetMesh(meshInstance, enableMeshShading);
+        // SetMultiply(multiply);
+        renderer->SetMesh(meshInstance, enableMeshShading);
     }
 
     void StaticMeshComponent::ShutDown()
