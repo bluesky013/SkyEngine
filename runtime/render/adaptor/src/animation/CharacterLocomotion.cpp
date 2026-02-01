@@ -3,6 +3,7 @@
 //
 
 #include "framework/window/IWindowEvent.h"
+#include "render/adaptor/event/PoseUpdateEvent.h"
 
 #include <render/adaptor/RenderSceneProxy.h>
 #include <render/adaptor/animation/CharacterLocomotion.h>
@@ -59,7 +60,7 @@ namespace sky {
             bool isMove = upDown ^ backDown;
             moveSpeed = 0.f;
             if (isMove) {
-                auto forward = localTrans.rotation * (VEC3_Y);
+                auto forward = localTrans.rotation * (VEC3_Z);
                 moveSpeed = upDown ? MOVE_SPEED : -MOVE_SPEED;
                 if (mod.TestBit(KeyMod::SHIFT)) {
                     moveSpeed *= 10.f;
@@ -231,7 +232,11 @@ namespace sky {
 
         AnimationEval eval(animation->GetSkeleton());
         animation->EvalAny(eval);
-        debugRender->DrawPose(eval.pose, cachedTransform);
+        // debugRender->DrawPose(eval.pose, cachedTransform);
+        // Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(eval.pose));
+
+        debugRender->DrawPose(*animation->GetSkeleton()->GetRefPos(), cachedTransform);
+        Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(*animation->GetSkeleton()->GetRefPos()));
     }
 
     void CharacterLocomotion::UpdateAnimation()

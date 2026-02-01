@@ -62,7 +62,9 @@ namespace sky {
         RawMeshIndexData* GetIndexBuffer() const { return indexData.get(); }
 
         const std::vector<MeshSubSection> &GetSubMeshes() const { return sections; }
-    private:
+    protected:
+        virtual void OnInit(uint32_t vertexNum, uint32_t indexNum, rhi::IndexType idxType, const Config& config) {}
+
         std::unique_ptr<MeshVertexDataInterface> position;
         std::unique_ptr<MeshVertexDataInterface> normal;
         std::unique_ptr<MeshVertexDataInterface> tangent;

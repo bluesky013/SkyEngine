@@ -5,23 +5,26 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
-#include <core/math/Matrix4.h>
 #include <render/mesh/MeshRenderer.h>
 #include <render/resource/SkeletonMesh.h>
-#include <vector>
 
 namespace sky {
     class RenderScene;
 
-    class SkeletonMeshRenderer : public MeshRenderer {
+    class SkeletalMeshRenderer : public MeshRenderer {
     public:
-        SkeletonMeshRenderer();
-        ~SkeletonMeshRenderer() override = default;
+        SkeletalMeshRenderer();
+        ~SkeletalMeshRenderer() override = default;
+
+        SkinPtr GetSkin() const;
+
+        void UpdateSkinData(const Skin& skin);
 
     protected:
         void PrepareUBO() override;
         RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature) override;
         void FillVertexFlags(RenderVertexFlags &flags) override;
+
         RDDynamicUniformBufferPtr boneData;
     };
 

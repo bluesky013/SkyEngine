@@ -18,9 +18,9 @@
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
 
-#include <render/adaptor/assets/SkeletonAsset.h>
-#include <render/skeleton/SkeletonMeshRenderer.h>
 #include <animation/core/Skeleton.h>
+#include <render/adaptor/assets/SkeletonAsset.h>
+#include <render/skeleton/SkeletalMeshRenderer.h>
 
 //#include <meshoptimizer.h>
 
@@ -307,8 +307,8 @@ namespace sky::builder {
 
                 for (uint32_t k = 0; k < MAX_BONE_PER_VERTEX; ++k) {
                     if (vBone.weight[k] == 0.0f) {
-                        vBone.boneId[k] = boneId;
-                        vBone.weight[k] = bone->mWeights[j].mWeight;
+                        vBone.boneId[k] = static_cast<uint8_t>(boneId);
+                        vBone.weight[k] = static_cast<uint8_t>(bone->mWeights[j].mWeight * 255);
                         break;
                     }
                 }
@@ -481,8 +481,8 @@ namespace sky::builder {
         if (skinSize != 0) {
             meshData.buffers.emplace_back(MeshBufferView{posSize + stdSize, skinSize, static_cast<uint32_t>(sizeof(VertexBoneData))});
 
-            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::JOINT, 2, OFFSET_OF(VertexBoneData, boneId), rhi::Format::U_RGBA32});
-            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::WEIGHT, 2, OFFSET_OF(VertexBoneData, weight), rhi::Format::F_RGBA32});
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::JOINT, 2, OFFSET_OF(VertexBoneData, boneId), rhi::Format::U_RGBA8});
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::WEIGHT, 2, OFFSET_OF(VertexBoneData, weight), rhi::Format::F_RGBA8});
         }
         uint32_t idxOffset = posSize + stdSize + skinSize;
         auto idxSize = static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t));

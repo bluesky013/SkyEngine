@@ -96,7 +96,7 @@ namespace sky {
                     Ceil(sub.meshletCount, MESH_GROUP_SIZE), 1, 1
                 });
             } else {
-                primitive->instanceSet = meshFeature->RequestResourceGroup();
+                primitive->instanceSet = RequestResourceGroup(meshFeature);
                 primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
                 primitive->instanceSet->Update();
 
@@ -260,6 +260,10 @@ namespace sky {
 
     void MeshRenderer::UpdateTransform(const Matrix4 &matrix)
     {
+        if (!ubo) {
+            return;
+        }
+
         ubo->WriteT(0, matrix);
         ubo->WriteT(sizeof(Matrix4), matrix.InverseTranspose());
         ubo->Upload();

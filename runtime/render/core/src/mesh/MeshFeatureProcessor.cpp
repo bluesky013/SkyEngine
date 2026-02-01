@@ -35,14 +35,14 @@ namespace sky {
         });
     }
 
-    SkeletonMeshRenderer *MeshFeatureProcessor::CreateSkeletonMesh()
+    SkeletalMeshRenderer *MeshFeatureProcessor::CreateSkeletalMesh()
     {
-        auto *renderer = new SkeletonMeshRenderer();
+        auto *renderer = new SkeletalMeshRenderer();
         renderer->AttachScene(scene);
         return skeletonMeshes.emplace_back(renderer).get();
     }
 
-    void MeshFeatureProcessor::RemoveSkeletonMesh(SkeletonMeshRenderer *mesh)
+    void MeshFeatureProcessor::RemoveSkeletalMesh(SkeletalMeshRenderer *mesh)
     {
         skeletonMeshes.remove_if([mesh](const auto &val) {
             return mesh == val.get();

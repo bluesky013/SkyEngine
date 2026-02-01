@@ -13,15 +13,15 @@
 #include <framework/world/World.h>
 #include <framework/world/ComponentFactory.h>
 
-#include <render/adaptor/components/CameraComponent.h>
-#include <render/adaptor/components/LightComponent.h>
-#include <render/adaptor/components/StaticMeshComponent.h>
-#include <render/adaptor/components/SkeletonMeshComponent.h>
-#include <render/adaptor/components/SkyBoxComponent.h>
-#include <render/adaptor/components/PrefabComponent.h>
+#include <render/RenderTechniqueLibrary.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/RenderTechniqueLibrary.h>
+#include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/components/LightComponent.h>
+#include <render/adaptor/components/PrefabComponent.h>
+#include <render/adaptor/components/SkeletalMeshComponent.h>
+#include <render/adaptor/components/SkyBoxComponent.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
 
 #include <render/adaptor/animation/SkeletonDisplayComponent.h>
 #include <render/adaptor/animation/AnimationPreviewComponent.h>
@@ -47,7 +47,7 @@ namespace sky {
         MainDirectLightComponent::Reflect(context);
         StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
-        SkeletonMeshComponent::Reflect(context);
+        SkeletalMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
         PrefabComponent::Reflect(context);
 
@@ -59,7 +59,7 @@ namespace sky {
             static std::string GROUP = "Render";
             ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
-            ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SkeletalMeshComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);

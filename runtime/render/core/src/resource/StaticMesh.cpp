@@ -21,6 +21,7 @@ namespace sky {
     void StaticMeshGeometry::Init(uint32_t vertexNum, uint32_t indexNum, rhi::IndexType idxType, const Config& config)
     {
         Init(vertexNum, config);
+        OnInit(vertexNum, indexNum, idxType, config);
         indexData = std::make_unique<RawMeshIndexData>(indexNum, idxType);
     }
 

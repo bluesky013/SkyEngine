@@ -28,14 +28,16 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
 
-    float4x4 worldMatrix = World;
+
 #if ENABLE_SKIN
-	float4x4 skinMat =
-		mul(Bones[input.joints.x], input.weights.x) +
-		mul(Bones[input.joints.y], input.weights.y) +
-		mul(Bones[input.joints.z], input.weights.z) +
-		mul(Bones[input.joints.w], input.weights.w);
-	worldMatrix = skinMat;
+    float4x4 skinMat =
+    	mul(Bones[input.joints.x], input.weights.x) +
+    	mul(Bones[input.joints.y], input.weights.y) +
+    	mul(Bones[input.joints.z], input.weights.z) +
+    	mul(Bones[input.joints.w], input.weights.w);
+    float4x4 worldMatrix = World * skinMat;
+#else
+    float4x4 worldMatrix = World;
 #endif
 
     float4 pos = input.Pos;

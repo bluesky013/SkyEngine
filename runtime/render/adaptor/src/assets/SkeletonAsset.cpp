@@ -100,7 +100,7 @@ namespace sky {
 
         archive.LoadValue(count);
         boneData.resize(count);
-        refPos.resize(count);
+        refPos.resize(count, Transform::GetIdentity());
         for (uint32_t i = 0; i < count; ++i) {
             std::string name;
             archive.LoadValue(name);

@@ -129,15 +129,17 @@ namespace sky {
         std::vector<BoneNode*> children;
     };
 
-    void WalkBone(BoneNode* node, const Matrix4 &matrix, const SkeletonData& skeleton, Skin &skin) // NOLINT
+    void WalkBone(BoneNode* node, const Matrix4 &parent, const SkeletonData& skeleton, Skin &skin) // NOLINT
     {
-        Matrix4 current = matrix;
+        auto globalTrans = parent;
         if (node->boneIndex != INVALID_BONE_ID) {
-            current = current * skeleton.refPos[node->boneIndex].ToMatrix();
-            // skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
+            auto localTrans = skeleton.refPos[node->boneIndex].ToMatrix();
+            globalTrans = parent * localTrans;
+            skin.boneMatrices[node->boneIndex] = globalTrans.Inverse();
         }
+
         for (auto &child : node->children) {
-            WalkBone(child, current, skeleton, skin);
+            WalkBone(child, globalTrans, skeleton, skin);
         }
     }
 
@@ -200,7 +202,7 @@ namespace sky {
         return triangleMesh;
     }
 
-    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
+    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin)
     {
         SKY_PROFILE_NAME("Create Mesh From Asset")
         const auto &data = asset->Data();
@@ -211,13 +213,12 @@ namespace sky {
         SKY_ASSERT(file);
 
         Mesh* mesh = nullptr;
-        if (data.skeleton) {
+        if (data.skeleton && buildSkin) {
             auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
             skeleton->BlockUntilLoaded();
             const auto &skeletonData = skeleton->Data();
             auto* skin = new Skin();
             skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
-            // SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
 
             BoneNode root;
             std::vector<BoneNode> bones(skin->activeBone);
@@ -333,7 +334,7 @@ namespace sky {
         auto *uv0Buffer = geometry->GetTexCoordBuffer();
         auto *normalBuffer = geometry->GetNormalBuffer();
         auto *tangentBuffer = geometry->GetTangentBuffer();
-        auto *colorBuffer = geometry->GetColorBuffer();
+        // auto *colorBuffer = geometry->GetColorBuffer();
         auto *indexBuffer = geometry->GetIndexBuffer();
 
         uint32_t vtxNum = posBuffer->Num();
@@ -356,6 +357,11 @@ namespace sky {
         outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::TANGENT, .binding=1, .offset=offsetof(VF_TB_UVN<1>, tangent), .format=rhi::Format::F_RGBA32});
         outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::UV, .binding=1, .offset=offsetof(VF_TB_UVN<1>, texCoord), .format=rhi::Format::F_RG32});
 
+        if (skeletalGeometry) {
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::JOINT, .binding=2, .offset=offsetof(VertexBoneData, boneId), .format=rhi::Format::U_RGBA8});
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::WEIGHT, .binding=2, .offset=offsetof(VertexBoneData, weight), .format=rhi::Format::F_RGBA32});
+        }
+
         auto currentSize = static_cast<uint32_t>(outData.rawData.storage.size());
         auto currentBytes = static_cast<uint32_t>(vtxNum * sizeof(Vector3));
         outData.rawData.storage.resize(currentSize + currentBytes);
@@ -367,6 +373,15 @@ namespace sky {
         outData.rawData.storage.resize(currentSize + currentBytes);
         memcpy(outData.rawData.storage.data() + currentSize, vfBuffer.data(), currentBytes);
         outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(VF_TB_UVN<1>)});
+
+        if (skeletalGeometry) {
+            currentSize += currentBytes;
+            auto* boneAndWeight = skeletalGeometry->GetBoneAndWeight();
+            currentBytes = boneAndWeight->Num() * boneAndWeight->GetStride();
+            outData.rawData.storage.resize(currentSize + currentBytes);
+            memcpy(outData.rawData.storage.data() + currentSize, boneAndWeight->GetDataPointer(), currentBytes);
+            outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(VertexBoneData)});
+        }
 
         uint32_t indexStride = indexBuffer->GetIndexType() == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
         currentSize += currentBytes;

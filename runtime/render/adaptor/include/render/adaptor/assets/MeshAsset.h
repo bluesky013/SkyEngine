@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "render/resource/StaticMesh.h"
-
 #include <vector>
 
 #include <core/shapes/AABB.h>
@@ -20,6 +18,7 @@
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/resource/Mesh.h>
 #include <render/resource/StaticMesh.h>
+#include <render/resource/SkeletonMesh.h>
 #include <animation/core/Skeleton.h>
 
 namespace sky {
@@ -90,13 +89,14 @@ namespace sky {
     };
     using MeshAssetPtr = std::shared_ptr<Asset<Mesh>>;
 
-    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset);
+    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin = false);
     CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset);
 
 
     struct StaticMeshAsset {
         std::vector<Uuid> materials;
         CounterPtr<StaticMeshGeometry> geometry;
+        CounterPtr<SkeletalMeshGeometry> skeletalGeometry;
 
         MeshAssetData MakeMeshAssetData() const;
     };
