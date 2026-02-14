@@ -10,3 +10,5 @@
 
 #define SKY_COMBINE_CH_U32(a, b, c, d) \
     (uint32_t)(a & 0xFF) | ((uint32_t)(b & 0xFF) << 8) | ((uint32_t)(c & 0xFF) << 16) | ((uint32_t)(d & 0xFF) << 24)
+
+#define OFFSET_OF(s, m) static_cast<uint32_t>(offsetof(s, m))

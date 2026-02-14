@@ -379,13 +379,13 @@ namespace sky {
 
         outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::POSITION, .binding=0, .offset=0, .format=rhi::Format::F_RGB32});
 
-        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::NORMAL, .binding=1, .offset=offsetof(VF_TB_UVN<1>, normal), .format=rhi::Format::F_RGB32});
-        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::TANGENT, .binding=1, .offset=offsetof(VF_TB_UVN<1>, tangent), .format=rhi::Format::F_RGBA32});
-        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::UV, .binding=1, .offset=offsetof(VF_TB_UVN<1>, texCoord), .format=rhi::Format::F_RG32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::NORMAL, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, normal), .format=rhi::Format::F_RGB32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::TANGENT, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, tangent), .format=rhi::Format::F_RGBA32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::UV, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, texCoord), .format=rhi::Format::F_RG32});
 
         if (skeletalGeometry) {
-            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::JOINT, .binding=2, .offset=offsetof(VertexBoneData, boneId), .format=rhi::Format::U_RGBA8});
-            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::WEIGHT, .binding=2, .offset=offsetof(VertexBoneData, weight), .format=rhi::Format::F_RGBA32});
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::JOINT, .binding=2, .offset=OFFSET_OF(VertexBoneData, boneId), .format=rhi::Format::U_RGBA8});
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::WEIGHT, .binding=2, .offset=OFFSET_OF(VertexBoneData, weight), .format=rhi::Format::F_RGBA32});
         }
 
         auto currentSize = static_cast<uint32_t>(outData.rawData.storage.size());
