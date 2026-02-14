@@ -40,7 +40,7 @@ namespace sky {
         RDGfxTechPtr technique;
         RDTexturePtr texture;
         rhi::DescriptorSetPoolPtr pool;
-        float radius = 500.f;
+        float radius = 10000.f;
         std::unique_ptr<SkySpherePrimitive> primitive;
     };
 

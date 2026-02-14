@@ -16,16 +16,17 @@ namespace sky {
         SkeletalMeshRenderer();
         ~SkeletalMeshRenderer() override = default;
 
-        SkinPtr GetSkin() const;
+        SkinPtr GetSkin(uint32_t section) const;
 
-        void UpdateSkinData(const Skin& skin);
+        void UpdateSkinData(const Skin& skin, uint32_t section);
 
     protected:
         void PrepareUBO() override;
-        RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature) override;
+        void OnInitSubMesh(size_t subMesh) override;
+        RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature, uint32_t index) override;
         void FillVertexFlags(RenderVertexFlags &flags) override;
 
-        RDDynamicUniformBufferPtr boneData;
+        std::vector<RDDynamicUniformBufferPtr> boneData;
     };
 
 } // namespace sky

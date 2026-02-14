@@ -60,15 +60,16 @@ namespace sky {
         uint32_t version  = 0;
         Uuid     skeleton;
 
-        std::vector<Uuid>             materials;
-        std::vector<MeshSubSection>   subMeshes;
-        std::vector<MeshBufferView>   buffers;
-        std::vector<VertexAttribute>  attributes;
+        std::vector<Uuid>                   materials;
+        std::vector<MeshSubSection>         subMeshes;
+        std::vector<std::vector<uint8_t>>   subMappings;
+        std::vector<MeshBufferView>         buffers;
+        std::vector<VertexAttribute>        attributes;
         uint32_t       indexBuffer = INVALID_MESH_BUFFER_VIEW;
-        rhi::IndexType indexType = rhi::IndexType::U32;
-        uint32_t meshlets = INVALID_MESH_BUFFER_VIEW;
-        uint32_t meshletVertices = INVALID_MESH_BUFFER_VIEW;
-        uint32_t meshletTriangles = INVALID_MESH_BUFFER_VIEW;
+        rhi::IndexType indexType   = rhi::IndexType::U32;
+        uint32_t meshlets          = INVALID_MESH_BUFFER_VIEW;
+        uint32_t meshletVertices   = INVALID_MESH_BUFFER_VIEW;
+        uint32_t meshletTriangles  = INVALID_MESH_BUFFER_VIEW;
 
         uint32_t dataSize;
     };
@@ -91,7 +92,6 @@ namespace sky {
 
     CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin = false);
     CounterPtr<TriangleMesh> CreateTriangleMesh(const MeshAssetPtr &asset);
-
 
     struct StaticMeshAsset {
         std::vector<Uuid> materials;

@@ -57,6 +57,7 @@ namespace sky {
 
         uint32_t index = 0;
         auto *meshFeature = MeshFeature::Get();
+        OnInitSubMesh(mesh->GetSubMeshes().size());
         for (const auto &sub : mesh->GetSubMeshes()) {
             auto &primitive = primitives.emplace_back(std::make_unique<RenderMaterialPrimitive>());
             primitive->localBound = sub.aabb;
@@ -96,7 +97,7 @@ namespace sky {
                     Ceil(sub.meshletCount, MESH_GROUP_SIZE), 1, 1
                 });
             } else {
-                primitive->instanceSet = RequestResourceGroup(meshFeature);
+                primitive->instanceSet = RequestResourceGroup(meshFeature, index);
                 primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
                 primitive->instanceSet->Update();
 
@@ -293,7 +294,7 @@ namespace sky {
         }
     }
 
-    RDResourceGroupPtr MeshRenderer::RequestResourceGroup(MeshFeature *feature)
+    RDResourceGroupPtr MeshRenderer::RequestResourceGroup(MeshFeature *feature, uint32_t index)
     {
         return feature->RequestResourceGroup();
     }

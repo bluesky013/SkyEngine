@@ -10,21 +10,28 @@ namespace sky {
 
     SkeletalMeshRenderer::SkeletalMeshRenderer()
     {
-        boneData = new DynamicUniformBuffer();
-        boneData->Init(MAX_BONE_NUM * sizeof(Matrix4));
     }
 
-    SkinPtr SkeletalMeshRenderer::GetSkin() const
+    SkinPtr SkeletalMeshRenderer::GetSkin(uint32_t section) const
     {
         auto *skeletonMesh = static_cast<SkeletonMesh*>(mesh.Get());
-        return skeletonMesh->GetSkin();
+        return skeletonMesh->GetSkin(section);
     }
 
-    void SkeletalMeshRenderer::UpdateSkinData(const Skin& skin)
+    void SkeletalMeshRenderer::UpdateSkinData(const Skin& skin, uint32_t section)
     {
         if (mesh && mesh->HasSkin()) {
-            boneData->Write(0, reinterpret_cast<const uint8_t*>(skin.boneMatrices.data()), skin.activeBone * sizeof(Matrix4));
-            boneData->Upload();
+            boneData[section]->Write(0, reinterpret_cast<const uint8_t*>(skin.boneMatrices.data()), static_cast<uint32_t>(skin.boneMapping.size() * sizeof(Matrix4)));
+            boneData[section]->Upload();
+        }
+    }
+
+    void SkeletalMeshRenderer::OnInitSubMesh(size_t subMesh)
+    {
+        boneData.resize(subMesh);
+        for (uint32_t i = 0; i < subMesh; i++) {
+            boneData[i] = new DynamicUniformBuffer();
+            boneData[i]->Init(MAX_BONE_NUM * sizeof(Matrix4));
         }
     }
 
@@ -32,18 +39,21 @@ namespace sky {
     {
         MeshRenderer::PrepareUBO();
 
-        if (mesh && mesh->HasSkin()) {
+        if (mesh) {
             auto *skeletonMesh = static_cast<SkeletonMesh*>(mesh.Get());
-            const auto &skin = skeletonMesh->GetSkin();
-            boneData->Write(0, reinterpret_cast<const uint8_t*>(skin->boneMatrices.data()), skin->activeBone * sizeof(Matrix4));
-            boneData->Upload();
+
+            for (uint32_t i = 0; i < boneData.size(); ++i) {
+                const auto &skin = skeletonMesh->GetSkin(i);
+                boneData[i]->Write(0, reinterpret_cast<const uint8_t*>(skin->boneMatrices.data()), static_cast<uint32_t>(skin->boneMapping.size() * sizeof(Matrix4)));
+                boneData[i]->Upload();
+            }
         }
     }
 
-    RDResourceGroupPtr SkeletalMeshRenderer::RequestResourceGroup(MeshFeature *feature)
+    RDResourceGroupPtr SkeletalMeshRenderer::RequestResourceGroup(MeshFeature *feature, uint32_t index)
     {
         auto res = feature->RequestSkinnedResourceGroup();
-        res->BindDynamicUBO(Name("skinData"), boneData, 0);
+        res->BindDynamicUBO(Name("skinData"), boneData[index], 0);
         return res;
     }
 

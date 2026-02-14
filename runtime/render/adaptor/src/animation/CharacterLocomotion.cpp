@@ -34,8 +34,8 @@ namespace sky {
             keyBinder.Bind(this);
         }
 
-        static constexpr float ROTATE_SPEED = 50.f;
-        static constexpr float MOVE_SPEED = 30.f;
+        static constexpr float ROTATE_SPEED = 100.f;
+        static constexpr float MOVE_SPEED = 200.f;
 
         void Tick(float deltaTime) override
         {
@@ -63,7 +63,7 @@ namespace sky {
                 auto forward = localTrans.rotation * (VEC3_Z);
                 moveSpeed = upDown ? MOVE_SPEED : -MOVE_SPEED;
                 if (mod.TestBit(KeyMod::SHIFT)) {
-                    moveSpeed *= 10.f;
+                    moveSpeed *= 2.f;
                 }
 
                 localTrans.translation += forward * deltaTime * moveSpeed;
@@ -185,7 +185,7 @@ namespace sky {
         }
 
         auto *renderScene = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
-        renderScene->AddPrimitive(debugRender->GetPrimitive());
+        // renderScene->AddPrimitive(debugRender->GetPrimitive());
 
         transformEvent.Bind(this, actor);
         cachedTransform = actor->GetComponent<TransformComponent>()->GetWorldTransform();
@@ -194,7 +194,7 @@ namespace sky {
     void CharacterLocomotion::OnDetachFromWorld()
     {
         auto *renderScene = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
-        renderScene->RemovePrimitive(debugRender->GetPrimitive());
+        // renderScene->RemovePrimitive(debugRender->GetPrimitive());
 
         transformEvent.Reset();
     }
@@ -233,10 +233,10 @@ namespace sky {
         AnimationEval eval(animation->GetSkeleton());
         animation->EvalAny(eval);
         // debugRender->DrawPose(eval.pose, cachedTransform);
-        // Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(eval.pose));
+        Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(eval.pose));
 
-        debugRender->DrawPose(*animation->GetSkeleton()->GetRefPos(), cachedTransform);
-        Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(*animation->GetSkeleton()->GetRefPos()));
+        // debugRender->DrawPose(*animation->GetSkeleton()->GetRefPos(), cachedTransform);
+        // Event<IPoseUpdateEvent>::BroadCast(actor, &IPoseUpdateEvent::OnPoseUpdated, AnimFinalPose(*animation->GetSkeleton()->GetRefPos()));
     }
 
     void CharacterLocomotion::UpdateAnimation()

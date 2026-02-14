@@ -80,17 +80,18 @@ namespace sky {
         }
     }
 
-    static void UpdateBone(const Bone* bone, const AnimPose& pose, Skin& skin, const Matrix4* inverseBindMatrix, const Transform &world) // NOLINT
+    static void UpdateBone(const Bone* bone, const AnimPose& pose, Matrix4* outMatrix, const Transform &world) // NOLINT
     {
         SKY_ASSERT(bone != nullptr);
 
         const auto &trans = pose.transforms[bone->index];
         Transform current = world * trans;
 
-        skin.boneMatrices[bone->index] = current.ToMatrix() * inverseBindMatrix[bone->index];
+        outMatrix[bone->index] = current.ToMatrix();
         for (const auto& childIdx : bone->children) {
             const auto* child = pose.skeleton->GetBoneByIndex(childIdx);
-            UpdateBone(child, pose, skin, inverseBindMatrix, current);
+            assert(child->index == childIdx);
+            UpdateBone(child, pose, outMatrix, current);
         }
     }
 
@@ -100,17 +101,24 @@ namespace sky {
             return;
         }
 
-        const auto& bindSkin = renderer->GetSkin();
-        const auto& bindMatrix = bindSkin->boneMatrices;
-
-        Skin skinData = {};
-        skinData.activeBone = bindSkin->activeBone;
         const auto& roots = pose.skeleton->GetRoots();
+        std::vector<Matrix4> boneMatrices(pose.skeleton->GetNumBones());
         for (const auto& root : roots) {
-            UpdateBone(root, pose, skinData, bindMatrix.data(), Transform::GetIdentity());
+            UpdateBone(root, pose, boneMatrices.data(), cachedTransform);
         }
 
-        renderer->UpdateSkinData(skinData);
+        auto numSection = renderer->GetNumSubMeshes();
+        for (uint32_t section = 0; section < numSection; section++) {
+            const auto& bindSkin = renderer->GetSkin(section);
+            const auto& bindMatrix = bindSkin->boneMatrices;
+            SkinPtr skinData = new Skin();
+            skinData->boneMapping = bindSkin->boneMapping;
+            for (uint32_t index = 0; index <bindSkin->boneMapping.size(); ++index) {
+                skinData->boneMatrices[index] = boneMatrices[bindSkin->boneMapping[index]] * bindMatrix[index];
+            }
+
+            renderer->UpdateSkinData(*skinData, section);
+        }
     }
 
     void SkeletalMeshComponent::SetMeshUuid(const Uuid &uuid)

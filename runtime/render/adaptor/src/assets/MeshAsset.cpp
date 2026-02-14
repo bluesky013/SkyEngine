@@ -36,6 +36,16 @@ namespace sky {
             archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(MeshSubSection));
         }
 
+        // sub mapping
+        archive.LoadValue(size);
+        subMappings.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            uint32_t tmpSize = 0;
+            archive.LoadValue(tmpSize);
+            subMappings[i].resize(tmpSize);
+            archive.LoadValue(reinterpret_cast<char *>(subMappings[i].data()), tmpSize);
+        }
+
         // buffers
         archive.LoadValue(size);
         buffers.resize(size);
@@ -86,6 +96,12 @@ namespace sky {
             archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(MeshSubSection));
         }
 
+        archive.SaveValue(static_cast<uint32_t>(subMappings.size()));
+        for (const auto &subMapping : subMappings) {
+            archive.SaveValue(static_cast<uint32_t>(subMapping.size()));
+            archive.SaveValue(reinterpret_cast<const char*>(subMapping.data()), subMapping.size());
+        }
+
         // primitives
         archive.SaveValue(static_cast<uint32_t>(buffers.size()));
         for (const auto &primitive : buffers) {
@@ -127,19 +143,20 @@ namespace sky {
         Name name = Name("Root");
         uint32_t boneIndex = INVALID_BONE_ID;
         std::vector<BoneNode*> children;
+        Matrix4 globalTransform;
     };
 
-    void WalkBone(BoneNode* node, const Matrix4 &parent, const SkeletonData& skeleton, Skin &skin) // NOLINT
+    void WalkBone(BoneNode* node, const Matrix4 &parent, const SkeletonData& skeleton) // NOLINT
     {
         auto globalTrans = parent;
         if (node->boneIndex != INVALID_BONE_ID) {
             auto localTrans = skeleton.refPos[node->boneIndex].ToMatrix();
             globalTrans = parent * localTrans;
-            skin.boneMatrices[node->boneIndex] = globalTrans.Inverse();
+            node->globalTransform = globalTrans;
         }
 
         for (auto &child : node->children) {
-            WalkBone(child, globalTrans, skeleton, skin);
+            WalkBone(child, globalTrans, skeleton);
         }
     }
 
@@ -214,29 +231,7 @@ namespace sky {
 
         Mesh* mesh = nullptr;
         if (data.skeleton && buildSkin) {
-            auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
-            skeleton->BlockUntilLoaded();
-            const auto &skeletonData = skeleton->Data();
-            auto* skin = new Skin();
-            skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
-
-            BoneNode root;
-            std::vector<BoneNode> bones(skin->activeBone);
-            for (uint32_t index = 0; index < skin->activeBone; ++index) {
-                const auto &boneData = skeletonData.boneData[index];
-                bones[index].boneIndex = index;
-                bones[index].name = boneData.name;
-                if (boneData.parentIndex == INVALID_BONE_ID) {
-                    root.children.emplace_back(&bones[index]);
-                } else {
-                    bones[boneData.parentIndex].children.emplace_back(&bones[index]);
-                }
-            }
-            WalkBone(&root, Matrix4::Identity(), skeletonData, *skin);
-
-            auto *skeletonMesh = new SkeletonMesh();
-            skeletonMesh->SetSkin(skin);
-            mesh = skeletonMesh;
+            mesh = new SkeletonMesh();
         } else {
             mesh = new Mesh();
         }
@@ -262,6 +257,37 @@ namespace sky {
 
         mesh->SetVertexAttributes(data.attributes);
         mesh->SetIndexType(data.indexType);
+
+        if (data.skeleton && buildSkin) {
+            auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
+            skeleton->BlockUntilLoaded();
+            const auto &skeletonData = skeleton->Data();
+
+            auto boneNum = static_cast<uint32_t>(skeletonData.refPos.size());
+            BoneNode root;
+            std::vector<BoneNode> bones(boneNum);
+            for (uint32_t index = 0; index < boneNum; ++index) {
+                const auto &boneData = skeletonData.boneData[index];
+                bones[index].boneIndex = index;
+                bones[index].name = boneData.name;
+                if (boneData.parentIndex == INVALID_BONE_ID) {
+                    root.children.emplace_back(&bones[index]);
+                } else {
+                    bones[boneData.parentIndex].children.emplace_back(&bones[index]);
+                }
+            }
+            WalkBone(&root, Matrix4::Identity(), skeletonData);
+
+            auto *sklMesh = static_cast<SkeletonMesh*>(mesh);
+            for (uint32_t index = 0; index < mesh->GetSubMeshes().size(); ++index) {
+                SkinPtr skin = new Skin();
+                skin->boneMapping = data.subMappings[index];
+                for (uint32_t i = 0; i < skin->boneMapping.size(); ++i) {
+                    skin->boneMatrices[i] = bones[skin->boneMapping[i]].globalTransform.Inverse();
+                }
+                sklMesh->SetSkin(skin, index);
+            }
+        }
 
         MeshUploadData meshData = {};
         auto *fileStream = new rhi::FileStream(file, data.dataOffset);

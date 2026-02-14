@@ -61,7 +61,7 @@ namespace sky {
 
     void SkeletonDebugRender::DrawJoint(const Transform& bone)
     {
-        debugRenderer->DrawSphere(Sphere(bone.translation, 0.1f));
+        debugRenderer->DrawSphere(Sphere(bone.translation, 0.5f));
     }
 
     void SkeletonDebugRender::DrawJointLink(const Transform& src, const Transform& dst)

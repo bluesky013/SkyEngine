@@ -28,14 +28,13 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
 
-
 #if ENABLE_SKIN
     float4x4 skinMat =
     	mul(Bones[input.joints.x], input.weights.x) +
     	mul(Bones[input.joints.y], input.weights.y) +
     	mul(Bones[input.joints.z], input.weights.z) +
     	mul(Bones[input.joints.w], input.weights.w);
-    float4x4 worldMatrix = World * skinMat;
+    float4x4 worldMatrix = mul(World, 0) + skinMat;
 #else
     float4x4 worldMatrix = World;
 #endif
@@ -377,7 +376,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
     float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
-	float shadow = FilterPCF(shadowCoord);
+    float shadow = FilterPCF(shadowCoord);
 
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
 
@@ -389,11 +388,11 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     float3 F0 = lerp(0.04, pbrParam.Albedo, pbrParam.Metallic);
 
-	float3 diffuse = irradiance * pbrParam.Albedo;
-	float3 F = F_SchlickR(max(dot(N, V), 0.0), F0, pbrParam.Roughness);
-	float3 specular = reflection * (F * brdf.x + brdf.y);
+    float3 diffuse = irradiance * pbrParam.Albedo;
+    float3 F = F_SchlickR(max(dot(N, V), 0.0), F0, pbrParam.Roughness);
+    float3 specular = reflection * (F * brdf.x + brdf.y);
 
-	float3 kD = 1.0 - F;
+    float3 kD = 1.0 - F;
     kD *= 1.0 - pbrParam.Metallic;
     float3 ambient = (kD * diffuse + specular);
 

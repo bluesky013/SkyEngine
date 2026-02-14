@@ -68,7 +68,7 @@ namespace sky {
         virtual bool HasSkin() const { return false; }
 
         bool ClusterValid() const { return clusterValid; }
-    private:
+    protected:
         // desc
         std::vector<SubMesh> subMeshes;
         RenderGeometryPtr    geometry;

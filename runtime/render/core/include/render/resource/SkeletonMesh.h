@@ -14,7 +14,7 @@ namespace sky {
 
     struct Skin : RefObject {
         std::array<Matrix4, MAX_BONE_NUM> boneMatrices;
-        uint32_t activeBone = 0;
+        std::vector<uint8_t> boneMapping;
     };
     using SkinPtr = CounterPtr<Skin>;
 
@@ -43,13 +43,23 @@ namespace sky {
         SkeletonMesh() = default;
         ~SkeletonMesh() override = default;
 
-        void SetSkin(const SkinPtr &skin_) { skin = skin_; }
-        const SkinPtr &GetSkin() const { return skin; }
+        void SetSkin(const SkinPtr &skin_, uint32_t index)
+        {
+            if (index >= skins.size()) {
+                skins.resize(index + 1);
+            }
 
-        bool HasSkin() const override { return static_cast<bool>(skin); }
+            skins[index] = skin_;
+        }
 
+        const SkinPtr &GetSkin(uint32_t index) const
+        {
+            return skins[index];
+        }
+
+        bool HasSkin() const override { return true; }
     private:
-        SkinPtr skin;
+        std::vector<SkinPtr> skins;
     };
     using RDSkeletonMeshPtr = CounterPtr<Mesh>;
 } // namespace sky

@@ -38,9 +38,12 @@ namespace sky {
         void BuildMultipleInstance(uint32_t w, uint32_t h, uint32_t d);
 
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
+
+        size_t GetNumSubMeshes() const { return primitives.size(); }
     protected:
         virtual void PrepareUBO();
-        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
+        virtual void OnInitSubMesh(size_t subMesh) {}
+        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature, uint32_t index);
         virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         void SetupDebugMeshlet();

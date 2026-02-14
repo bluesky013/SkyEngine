@@ -24,7 +24,7 @@ namespace sky {
         AnimationEval(const SkeletonPtr& skeleton)
         {
             pose.skeleton = skeleton.Get();
-            pose.transforms.resize(skeleton->GetNumBones());
+            pose.transforms = skeleton->GetRefPos()->transforms;
         }
     };
 
@@ -57,8 +57,6 @@ namespace sky {
         {
             holder = inSkeleton;
             skeleton = inSkeleton.Get();
-
-            transforms.resize(skeleton->GetNumBones());
         }
 
         SkeletonPtr holder;
