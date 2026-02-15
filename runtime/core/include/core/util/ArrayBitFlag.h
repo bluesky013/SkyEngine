@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <type_traits>
 #include <core/hash/Hash.h>
 
@@ -14,7 +15,7 @@ namespace sky {
     class ArrayBit {
     public:
         static constexpr uint32_t STEP = 32;
-        static constexpr uint32_t NUM = MAX / STEP + 1;
+        static constexpr uint32_t NUM = (MAX / STEP) + 1;
 
         struct MaskFull {};
 
@@ -39,43 +40,50 @@ namespace sky {
 
         ~ArrayBit() = default;
 
-        ArrayBit(const ArrayBit &val)
+        ArrayBit(const ArrayBit &val) = default;
+        ArrayBit &operator=(const ArrayBit &val) = default;
+
+        bool AnyBit() const noexcept
         {
-            for (uint32_t i = 0; i < NUM; ++i) {
-                values[i] = val.values[i];
+            for (const auto &v : values) {
+                if (v != 0) {
+                    return true;
+                }
             }
+            return false;
         }
 
-        ArrayBit &operator=(const ArrayBit &val)
+        uint32_t Count() const noexcept
         {
-            for (uint32_t i = 0; i < NUM; ++i) {
-                values[i] = val.values[i];
+            uint32_t count = 0;
+            for (const auto &v : values) {
+                count += std::popcount(v); // C++20
             }
-            return *this;
+            return count;
         }
 
         void SetBit(const T &v) noexcept
         {
-            auto val = static_cast<uint32_t>(v);
+            const auto val = static_cast<uint32_t>(v);
             uint32_t index = val / STEP;
-            uint32_t offset = val % STEP;
-            values[index] |= (1 << offset);
+            const uint32_t offset = val % STEP;
+            values[index] |= (1U << offset);
         }
 
         void ResetBit(const T &v) noexcept
         {
-            auto val = static_cast<uint32_t>(v);
+            const auto val = static_cast<uint32_t>(v);
             uint32_t index = val / STEP;
-            uint32_t offset = val % STEP;
-            values[index] &= ~(1 << offset);
+            const uint32_t offset = val % STEP;
+            values[index] &= ~(1U << offset);
         }
 
-        bool CheckBit(const T &v) noexcept
+        bool CheckBit(const T &v) const noexcept
         {
-            auto val = static_cast<uint32_t>(v);
+            const auto val = static_cast<uint32_t>(v);
             uint32_t index = val / STEP;
-            uint32_t offset = val % STEP;
-            return (values[index] & (1 << offset)) != 0;
+            const uint32_t offset = val % STEP;
+            return (values[index] & (1U << offset)) != 0;
         }
 
         ArrayBit &operator&=(const ArrayBit &val) noexcept
@@ -86,9 +94,22 @@ namespace sky {
             return *this;
         }
 
-        ArrayBit<T, MAX> operator&(const ArrayBit &val) noexcept
+        ArrayBit &operator|=(const ArrayBit &val) noexcept
+        {
+            for (uint32_t i = 0; i < NUM; ++i) {
+                values[i] |= val.values[i];
+            }
+            return *this;
+        }
+
+        ArrayBit<T, MAX> operator&(const ArrayBit &val) const noexcept
         {
             return ArrayBit(*this) &= val;
+        }
+
+        ArrayBit<T, MAX> operator|(const ArrayBit &val) const noexcept
+        {
+            return ArrayBit(*this) |= val;
         }
 
 
