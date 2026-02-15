@@ -220,7 +220,6 @@ VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex, float4 offset)
     output.WorldPos = mul(World, pv).xyz;
     output.Normal   = mul((float3x3)World, ev.normal.xyz);
     output.Tangent  = ev.tangent;
-    output.Color    = ev.color;
     output.UV       = ev.uv;
     output.Pos      = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
 
@@ -339,8 +338,8 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float3 N = normalize(input.Normal);
     float3 T = normalize(input.Tangent.xyz);
     float3 B = cross(N, input.Tangent.xyz) * input.Tangent.w;
-    float3x3 TBN = transpose(float3x3(T, B, N));
-    N = mul(TBN, normalize(tNormal));
+    float3x3 TBN = float3x3(T, B, N);
+    N = normalize(mul(normalize(tNormal), TBN));
 #else
     float3 N = normalize(input.Normal);
 #endif

@@ -101,7 +101,7 @@ float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
      float D = D_GGX(dotNH, param.Roughness);
      float G = G_SchlickSmithGGX(dotNL, dotNV, param.Roughness);
 
-     float3 specular = D * F * G / 4 * dotNV * dotNL;
+     float3 specular = D * F * G / (4.0 * dotNV * dotNL + 0.001);
 
      float3 kD = lerp(param.Albedo, 0, param.Metallic);
      L0 += ((1 - F) * kD / PI + specular) * light.Color.rgb * light.Color.w * param.AO + param.Emissive.rgb;

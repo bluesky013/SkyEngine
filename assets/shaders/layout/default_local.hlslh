@@ -16,7 +16,7 @@
 
 #if MESH_SHADER
 
-#include "mesh/mesh.hlslh
+#include "mesh/mesh.hlslh"
 
 [[vk::binding(2, 2)]] cbuffer MeshletInfo : register(b2, space2)
 {
