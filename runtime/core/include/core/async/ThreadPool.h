@@ -59,12 +59,12 @@ namespace sky {
             auto task = std::make_shared<std::packaged_task<void()>>(std::forward<Func>(func));
             std::shared_future<void> future = task->get_future().share();
 
+            taskCount.fetch_add(1, std::memory_order_relaxed);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 tasks.emplace([task]() { (*task)(); });
             }
             condition.notify_one();
-            taskCount.fetch_add(1, std::memory_order_relaxed);
             return AsyncTaskHandle(future);
         }
 
@@ -72,6 +72,7 @@ namespace sky {
         template <typename Func>
         void silent_async(Func &&func)
         {
+            taskCount.fetch_add(1, std::memory_order_relaxed);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 tasks.emplace([fn = std::forward<Func>(func)]() mutable {
@@ -79,7 +80,6 @@ namespace sky {
                 });
             }
             condition.notify_one();
-            taskCount.fetch_add(1, std::memory_order_relaxed);
         }
 
         // Submit a task that depends on other async tasks (variadic)
@@ -127,12 +127,12 @@ namespace sky {
             std::shared_future<void> sharedFuture = rawFuture.share();
             AsyncTaskHandle handle(sharedFuture);
 
+            taskCount.fetch_add(1, std::memory_order_relaxed);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 tasks.emplace([task]() { (*task)(); });
             }
             condition.notify_one();
-            taskCount.fetch_add(1, std::memory_order_relaxed);
 
             auto resultFuture = std::async(std::launch::deferred, [sharedFuture]() {
                 sharedFuture.wait();
@@ -154,12 +154,12 @@ namespace sky {
 
             std::shared_future<void> future = task->get_future().share();
 
+            taskCount.fetch_add(1, std::memory_order_relaxed);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 tasks.emplace([task]() { (*task)(); });
             }
             condition.notify_one();
-            taskCount.fetch_add(1, std::memory_order_relaxed);
             return AsyncTaskHandle(future);
         }
 
