@@ -103,7 +103,7 @@ namespace sky {
 
         // avoid release dep asset
         std::vector<AssetPtr> holder;
-        std::vector<tf::AsyncTask> asyncTasks;
+        std::vector<AsyncTaskHandle> asyncTasks;
         holder.reserve(asset->dependencies.size());
 
         for (auto &dep : asset->dependencies) {

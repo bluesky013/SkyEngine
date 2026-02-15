@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <taskflow/taskflow.hpp>
+#include <core/async/ThreadPool.h>
 #include <core/environment/Singleton.h>
 #include <core/file/FileSystem.h>
 
@@ -16,7 +16,7 @@ namespace sky {
 
     struct SavingTask {
         FilePtr file;
-        tf::AsyncTask asyncTask;
+        AsyncTaskHandle asyncTask;
     };
 
     class AssetExecutor : public Singleton<AssetExecutor> {
@@ -66,7 +66,7 @@ namespace sky {
         void WaitForAll();
 
     private:
-        tf::Executor executor;
+        ThreadPool executor;
 
         mutable std::mutex mutex;
         std::list<SavingTask> savingTasks;

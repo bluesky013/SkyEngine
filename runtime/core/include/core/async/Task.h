@@ -6,7 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <core/template/ReferenceObject.h>
-#include <taskflow/taskflow.hpp>
+#include <core/async/ThreadPool.h>
 
 namespace sky {
 
@@ -24,7 +24,7 @@ namespace sky {
 
         bool IsWorking() const;
         void ResetTask();
-        tf::AsyncTask GetTask() const { return handle; }
+        AsyncTaskHandle GetTask() const { return handle; }
 
     protected:
         virtual bool DoWork() = 0;
@@ -33,9 +33,9 @@ namespace sky {
 
         friend class TaskExecutor;
 
-        std::atomic_bool           isDone{false};
-        tf::AsyncTask              handle;
-        std::vector<tf::AsyncTask> dependencies;
+        std::atomic_bool                isDone{false};
+        AsyncTaskHandle                 handle;
+        std::vector<AsyncTaskHandle>    dependencies;
 
     };
 
@@ -47,9 +47,9 @@ namespace sky {
 
         void WaitForAll();
 
-        tf::Executor &GetExecutor() { return executor; }
+        ThreadPool &GetExecutor() { return executor; }
     private:
-        tf::Executor executor;
+        ThreadPool executor;
     };
 
 } // namespace sky

@@ -8,10 +8,9 @@
 #include <core/util/Macros.h>
 #include <core/name/Name.h>
 #include <core/archive/StreamArchive.h>
+#include <core/async/ThreadPool.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
-
-#include <taskflow/taskflow.hpp>
 
 #include <memory>
 #include <mutex>
@@ -23,7 +22,7 @@ namespace sky {
     class AssetBase;
     using AssetPtr = std::shared_ptr<AssetBase>;
 
-    using AsyncTask = std::pair<tf::AsyncTask, std::future<void>>;
+    using AsyncTask = std::pair<AsyncTaskHandle, std::future<void>>;
 
     class AssetBase {
     public:
