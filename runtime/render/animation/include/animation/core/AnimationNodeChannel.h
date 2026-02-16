@@ -22,6 +22,12 @@ namespace sky {
         AnimChannelData<Quaternion> rotation;
     };
 
+    struct AnimNodeSampleResult : AnimSampleResult {
+        Vector3 position = {0.f, 0.f, 0.f};
+        Vector3 scale = {1.f, 1.f, 1.f};
+        Quaternion rotation = {};
+    };
+
     class AnimationNodeChannel : public AnimationChannel {
     public:
         explicit AnimationNodeChannel(const Name &name) : AnimationChannel(name) {}

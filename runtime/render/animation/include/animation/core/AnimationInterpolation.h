@@ -20,7 +20,7 @@ namespace sky {
     template <typename T>
     T AnimInterpolateLinear(const T &vk, const T &vk1, float t)
     {
-        return (1 - t) * vk + t * vk1;
+        return vk * (1 - t) + vk1 * t;
     }
 
     Quaternion AnimSphericalLinear(const Quaternion &vk, const Quaternion &vk1, float t);
@@ -38,22 +38,31 @@ namespace sky {
             }
         }
 
-        const T vk1 = {};
-        const T vk2 = {};
-        float t = 0.f;
+        if (k == 0) {
+            return data.keys[0];
+        }
+
+        if (k >= data.time.size()) {
+            return data.keys[data.keys.size() - 1];
+        }
+
+        const T &vk1 = data.keys[k - 1];
+        const T &vk2 = data.keys[k];
+        float t = (param.timePoint - data.time[k - 1]) / (data.time[k] - data.time[k - 1]);
 
         switch (param.interpolation) {
             case Interpolation::STEP:
                 return vk1;
-                break;
             case Interpolation::CUBIC_SPLINE: // not supported yet.
             case Interpolation::LINEAR:
                 if constexpr (std::is_same_v<T, Quaternion>) {
-                    return SphericalLinear(vk1, vk2, t);
+                    return AnimSphericalLinear(vk1, vk2, t);
                 } else {
                     return AnimInterpolateLinear(vk1, vk2, t);
                 }
         }
+        SKY_ASSERT(false);
+        return data.keys[0];
     }
 
 } // namespace sky

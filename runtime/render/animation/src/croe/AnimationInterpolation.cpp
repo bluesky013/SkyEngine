@@ -23,10 +23,10 @@ namespace sky {
         }
 
         return {
-                k1 * vk.x + k2 * vk1.x,
                 k1 * vk.w + k2 * vk1.w,
-                k1 * vk.z + k2 * vk1.z,
-                k1 * vk.w + k2 * vk1.w
+                k1 * vk.x + k2 * vk1.x,
+                k1 * vk.y + k2 * vk1.y,
+                k1 * vk.z + k2 * vk1.z
         };
     }
 
