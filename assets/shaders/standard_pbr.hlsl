@@ -373,28 +373,57 @@ float4 FSMain(VSOutput input) : SV_TARGET
     pbrParam.Emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
 #endif
 
+#if ENABLE_SHADOW
     float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
     float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
     float shadow = FilterPCF(shadowCoord);
-
+#else
+	float shadow = 1.0;
+#endif
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
 
+#if ENABLE_IBL
+    // Calculate view dot normal for Fresnel
+    float cosTheta = max(dot(N, V), 0.001);  // Clamp to avoid zero at grazing angle
 
+    // Correct F0 based on metallic
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), pbrParam.Albedo, pbrParam.Metallic);
+
+    // Reflection vector: correct orientation - MUST use -V for proper reflection
     float3 R = reflect(-V, N);
-    float2 brdf = BRDFLut.Sample(BRDFLutSampler, float2(max(dot(N, V), 0.0), pbrParam.Roughness)).rg;
-    float3 reflection = PrefilteredReflection(R, pbrParam.Roughness).rgb;
+
+    // Sample prefiltered reflection and BRDF LUT
+    float3 prefilteredColor = PrefilteredReflection(R, pbrParam.Roughness);
+    float2 brdf = BRDFLut.Sample(BRDFLutSampler, float2(cosTheta, pbrParam.Roughness)).rg;
+
+    // Fresnel-Schlick approximation
+    float3 F = F_SchlickR(cosTheta, F0, pbrParam.Roughness);
+
+    // Specular component: properly combine BRDF terms
+    // brdf.x = F, brdf.y = (1-F), so: F*brdf.x + brdf.y approximates the full BRDF response
+    float3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+    // Sample irradiance for diffuse
     float3 irradiance = IrradianceMap.Sample(IrradianceSampler, N).rgb;
 
-    float3 F0 = lerp(0.04, pbrParam.Albedo, pbrParam.Metallic);
+    // Diffuse component with metallic influence (metals don't have diffuse)
+    float3 kD = (1.0 - F) * (1.0 - pbrParam.Metallic);
+    float3 diffuse = irradiance * pbrParam.Albedo * kD;
 
-    float3 diffuse = irradiance * pbrParam.Albedo;
-    float3 F = F_SchlickR(max(dot(N, V), 0.0), F0, pbrParam.Roughness);
-    float3 specular = reflection * (F * brdf.x + brdf.y);
+    // Combine ambient contributions with proper weighting
+    // Add minimum brightness to prevent complete darkness at edges
+    float3 ambient = (diffuse + specular) * pbrParam.AO;
 
-    float3 kD = 1.0 - F;
-    kD *= 1.0 - pbrParam.Metallic;
-    float3 ambient = (kD * diffuse + specular);
+    // Ensure minimum brightness to avoid edge darkening artifacts
+    // This is especially important for grazing angles where N·V is near zero
+    float minBrightness = 0.02 * pbrParam.Albedo * pbrParam.AO;  // Subtle minimum fill light
+    ambient = max(ambient, minBrightness);
 
-    return float4(e0 + ambient * 0.05, albedo.a);
+    return float4(e0 + ambient, albedo.a);
+#else
+    // Fallback without IBL
+    float3 ambient = float3(0.03, 0.03, 0.03) * pbrParam.Albedo * pbrParam.AO;
+    return float4(e0 + ambient, albedo.a);
+#endif
 }
 //------------------------------------------ Fragment Shader------------------------------------------//
