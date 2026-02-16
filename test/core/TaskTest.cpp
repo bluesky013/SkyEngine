@@ -74,7 +74,7 @@ TEST(TaskTest, ParallelForSingleElement)
 {
     int value = 0;
     ThreadPool pool(4);
-    pool.parallel_for(0, 1, [&value](int i) {
+    pool.parallel_for(0, 1, [&value](int) {
         value = 42;
     });
     ASSERT_EQ(value, 42);
