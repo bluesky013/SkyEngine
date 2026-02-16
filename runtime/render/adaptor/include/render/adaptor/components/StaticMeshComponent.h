@@ -16,6 +16,7 @@ namespace sky {
     struct LodMeshAssetData {
         Uuid meshUuid;
         float screenSize = 0.f;
+        float distance = 0.f;
     };
 
     class StaticMeshComponent : public ComponentBase, public IAssetEvent {
@@ -50,6 +51,8 @@ namespace sky {
         const std::vector<LodMeshAssetData> &GetLodMeshes() const { return lodMeshAssets; }
         void SetLodBias(float bias);
         float GetLodBias() const { return lodBias; }
+        void SetLodPolicy(LodPolicy policy);
+        LodPolicy GetLodPolicy() const { return lodPolicy; }
 
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
@@ -75,6 +78,7 @@ namespace sky {
         std::vector<MeshAssetPtr> lodMeshAssetPtrs;
         RDMeshLodGroupPtr lodGroup;
         float lodBias = 1.0f;
+        LodPolicy lodPolicy = LodPolicy::SCREEN_SIZE;
 
         std::atomic_bool dirty = false;
 

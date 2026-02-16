@@ -15,7 +15,9 @@ namespace sky {
         ~MeshLodGroup() override = default;
 
         void AddLodMesh(const RDMeshPtr &mesh, float screenSize);
+        void AddLodMesh(const RDMeshPtr &mesh, float screenSize, float distance);
         void SetLodBias(float bias);
+        void SetLodPolicy(LodPolicy policy);
 
         uint32_t GetLodCount() const { return static_cast<uint32_t>(lodMeshes.size()); }
         const RDMeshPtr &GetMesh(uint32_t lod) const { return lodMeshes[lod]; }

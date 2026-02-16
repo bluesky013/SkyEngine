@@ -40,6 +40,7 @@ namespace sky {
         ar.SaveValueObject(std::string("meshShading"), enableMeshShading);
         ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
         ar.SaveValueObject(std::string("lodBias"), lodBias);
+        ar.SaveValueObject(std::string("lodPolicy"), static_cast<uint32_t>(lodPolicy));
 
         ar.Key("lodMeshes");
         ar.StartArray();
@@ -47,6 +48,7 @@ namespace sky {
             ar.StartObject();
             ar.SaveValueObject(std::string("mesh"), lod.meshUuid);
             ar.SaveValueObject(std::string("screenSize"), lod.screenSize);
+            ar.SaveValueObject(std::string("distance"), lod.distance);
             ar.EndObject();
         }
         ar.EndArray();
@@ -64,6 +66,9 @@ namespace sky {
         ar.LoadKeyValue("mesh", uuid);
         SetMeshUuid(uuid);
         ar.LoadKeyValue("lodBias", lodBias);
+        uint32_t policyVal = 0;
+        ar.LoadKeyValue("lodPolicy", policyVal);
+        lodPolicy = static_cast<LodPolicy>(policyVal);
     }
 
     void StaticMeshComponent::SetEnableMeshShading(bool enable)
@@ -132,6 +137,14 @@ namespace sky {
         }
     }
 
+    void StaticMeshComponent::SetLodPolicy(LodPolicy policy)
+    {
+        lodPolicy = policy;
+        if (lodGroup) {
+            lodGroup->SetLodPolicy(lodPolicy);
+        }
+    }
+
     void StaticMeshComponent::BuildLodGroup()
     {
         if (lodMeshAssets.empty()) {
@@ -142,6 +155,7 @@ namespace sky {
         auto *am = AssetManager::Get();
         lodGroup = new MeshLodGroup();
         lodGroup->SetLodBias(lodBias);
+        lodGroup->SetLodPolicy(lodPolicy);
         lodMeshAssetPtrs.clear();
 
         for (const auto &lodData : lodMeshAssets) {
@@ -149,7 +163,7 @@ namespace sky {
             if (asset) {
                 asset->BlockUntilLoaded();
                 auto meshPtr = CreateMeshFromAsset(asset);
-                lodGroup->AddLodMesh(meshPtr, lodData.screenSize);
+                lodGroup->AddLodMesh(meshPtr, lodData.screenSize, lodData.distance);
                 lodMeshAssetPtrs.emplace_back(asset);
             }
         }
