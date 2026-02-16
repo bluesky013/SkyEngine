@@ -54,9 +54,9 @@ namespace sky {
     inline Vector4& Vector4::operator+=(const Vector4& rhs)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
-        SFloat4 b = SFloat4::Load(rhs.v);
-        (a += b).Store(v);
+        SFloat4 a(simd);
+        SFloat4 b(rhs.simd);
+        simd = (a += b).value;
 #else
         x += rhs.x;
         y += rhs.y;
@@ -69,9 +69,9 @@ namespace sky {
     inline Vector4& Vector4::operator-=(const Vector4& rhs)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
-        SFloat4 b = SFloat4::Load(rhs.v);
-        (a -= b).Store(v);
+        SFloat4 a(simd);
+        SFloat4 b(rhs.simd);
+        simd = (a -= b).value;
 #else
         x -= rhs.x;
         y -= rhs.y;
@@ -84,9 +84,9 @@ namespace sky {
     inline Vector4& Vector4::operator*=(const Vector4& rhs)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
-        SFloat4 b = SFloat4::Load(rhs.v);
-        (a *= b).Store(v);
+        SFloat4 a(simd);
+        SFloat4 b(rhs.simd);
+        simd = (a *= b).value;
 #else
         x *= rhs.x;
         y *= rhs.y;
@@ -99,9 +99,9 @@ namespace sky {
     inline Vector4& Vector4::operator/=(const Vector4& rhs)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
-        SFloat4 b = SFloat4::Load(rhs.v);
-        (a /= b).Store(v);
+        SFloat4 a(simd);
+        SFloat4 b(rhs.simd);
+        simd = (a /= b).value;
 #else
         x /= rhs.x;
         y /= rhs.y;
@@ -114,9 +114,9 @@ namespace sky {
     inline Vector4& Vector4::operator*=(float m)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
+        SFloat4 a(simd);
         SFloat4 b = SFloat4::Splat(m);
-        (a *= b).Store(v);
+        simd = (a *= b).value;
 #else
         x *= m;
         y *= m;
@@ -129,9 +129,9 @@ namespace sky {
     inline Vector4& Vector4::operator/=(float d)
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
+        SFloat4 a(simd);
         SFloat4 b = SFloat4::Splat(d);
-        (a /= b).Store(v);
+        simd = (a /= b).value;
 #else
         x /= d;
         y /= d;
@@ -154,8 +154,8 @@ namespace sky {
     inline float Vector4::Dot(const Vector4 &rhs) const
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
-        SFloat4 b = SFloat4::Load(rhs.v);
+        SFloat4 a(simd);
+        SFloat4 b(rhs.simd);
         return SFloat4::HorizontalSum(a * b);
 #else
         Vector4 ret = (*this) * rhs;
@@ -166,10 +166,10 @@ namespace sky {
     inline void Vector4::Normalize()
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 a = SFloat4::Load(v);
+        SFloat4 a(simd);
         SFloat4 dotSplat = SFloat4::HorizontalSumSplat(a * a);
         SFloat4 inv = SFloat4::InvSqrt(dotSplat);
-        (a * inv).Store(v);
+        simd = (a * inv).value;
 #else
         float inverseSqrt = 1 / sqrt(Dot(*this));
         Vector4::operator*=(inverseSqrt);

@@ -35,11 +35,11 @@ namespace sky {
 #if SKY_SIMD_ENABLED
         Matrix4 ret;
         for (int i = 0; i < 4; ++i) {
-            SFloat4 r = SFloat4::Load(m[0].v) * SFloat4::Splat(rhs.m[i].v[0]);
-            r += SFloat4::Load(m[1].v) * SFloat4::Splat(rhs.m[i].v[1]);
-            r += SFloat4::Load(m[2].v) * SFloat4::Splat(rhs.m[i].v[2]);
-            r += SFloat4::Load(m[3].v) * SFloat4::Splat(rhs.m[i].v[3]);
-            r.Store(ret.m[i].v);
+            SFloat4 r = SFloat4(m[0].simd) * SFloat4::Splat(rhs.m[i].v[0]);
+            r += SFloat4(m[1].simd) * SFloat4::Splat(rhs.m[i].v[1]);
+            r += SFloat4(m[2].simd) * SFloat4::Splat(rhs.m[i].v[2]);
+            r += SFloat4(m[3].simd) * SFloat4::Splat(rhs.m[i].v[3]);
+            ret.m[i].simd = r.value;
         }
         return ret;
 #else
@@ -108,12 +108,12 @@ namespace sky {
     inline Vector4 Matrix4::operator*(const Vector4& rhs) const
     {
 #if SKY_SIMD_ENABLED
-        SFloat4 r = SFloat4::Load(m[0].v) * SFloat4::Splat(rhs.v[0]);
-        r += SFloat4::Load(m[1].v) * SFloat4::Splat(rhs.v[1]);
-        r += SFloat4::Load(m[2].v) * SFloat4::Splat(rhs.v[2]);
-        r += SFloat4::Load(m[3].v) * SFloat4::Splat(rhs.v[3]);
+        SFloat4 r = SFloat4(m[0].simd) * SFloat4::Splat(rhs.v[0]);
+        r += SFloat4(m[1].simd) * SFloat4::Splat(rhs.v[1]);
+        r += SFloat4(m[2].simd) * SFloat4::Splat(rhs.v[2]);
+        r += SFloat4(m[3].simd) * SFloat4::Splat(rhs.v[3]);
         Vector4 result;
-        r.Store(result.v);
+        result.simd = r.value;
         return result;
 #else
         Vector4 v0 = m[0] * rhs[0];
