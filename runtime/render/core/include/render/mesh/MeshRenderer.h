@@ -5,6 +5,7 @@
 #pragma once
 
 #include <render/resource/Mesh.h>
+#include <render/lod/MeshLodGroup.h>
 #include <render/mesh/MeshletDebugRender.h>
 #include <render/RenderPrimitive.h>
 #include <core/math/Matrix4.h>
@@ -27,13 +28,17 @@ namespace sky {
         void Tick();
         void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh, bool meshShading = false);
+        void SetLodGroup(const RDMeshLodGroupPtr &lodGroup);
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
+        void UpdateLod(const Vector3 &viewPos, float fov, float screenHeight);
 
         void BuildGeometry();
 
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
+
+        uint32_t GetCurrentLod() const { return currentLod; }
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
@@ -45,6 +50,9 @@ namespace sky {
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
+        RDMeshLodGroupPtr lodGroup;
+        uint32_t currentLod = 0;
+
         std::vector<std::unique_ptr<RenderMaterialPrimitive>> primitives;
         std::unique_ptr<MeshletDebugRender> meshletDebug;
         std::vector<RDDynamicUniformBufferPtr> meshletInfos;

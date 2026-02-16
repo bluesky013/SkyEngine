@@ -5,6 +5,7 @@
 #include <render/mesh/MeshRenderer.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/resource/Meshlet.h>
+#include <render/lod/LodGroup.h>
 #include <render/RenderBuiltinLayout.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
@@ -143,6 +144,36 @@ namespace sky {
         if (meshletDebug) {
             scene->RemovePrimitive(meshletDebug->GetPrimitive());
             meshletDebug = nullptr;
+        }
+    }
+
+    void MeshRenderer::SetLodGroup(const RDMeshLodGroupPtr &lodGroup_)
+    {
+        lodGroup = lodGroup_;
+        currentLod = 0;
+        if (lodGroup && lodGroup->GetLodCount() > 0) {
+            SetMesh(lodGroup->GetMesh(0), enableMeshShading);
+        }
+    }
+
+    void MeshRenderer::UpdateLod(const Vector3 &viewPos, float fov, float screenHeight)
+    {
+        if (!lodGroup || lodGroup->GetLodCount() == 0 || primitives.empty()) {
+            return;
+        }
+
+        const auto &worldBound = primitives[0]->worldBound;
+        uint32_t newLod = lodGroup->SelectLod(worldBound, viewPos, fov, screenHeight);
+
+        if (newLod == INVALID_LOD_LEVEL) {
+            newLod = lodGroup->GetLodCount() - 1;
+        }
+
+        if (newLod != currentLod && newLod < lodGroup->GetLodCount()) {
+            currentLod = newLod;
+            mesh = lodGroup->GetMesh(currentLod);
+            Reset();
+            BuildGeometry();
         }
     }
 

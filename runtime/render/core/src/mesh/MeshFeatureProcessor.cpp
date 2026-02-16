@@ -3,17 +3,41 @@
 //
 
 #include <render/mesh/MeshFeatureProcessor.h>
+#include <render/RenderScene.h>
+#include <render/SceneView.h>
+#include <core/math/MathUtil.h>
 
 namespace sky {
 
     void MeshFeatureProcessor::Tick(float time)
     {
+        UpdateLod();
+
         for (auto &mesh : staticMeshes) {
             mesh->Tick();
         }
 
         for (auto &mesh : skeletonMeshes) {
             mesh->Tick();
+        }
+    }
+
+    void MeshFeatureProcessor::UpdateLod()
+    {
+        auto *view = scene->GetSceneView(mainViewName);
+        if (view == nullptr) {
+            return;
+        }
+
+        const auto &worldMat = view->GetWorld();
+        Vector3 viewPos(worldMat[3][0], worldMat[3][1], worldMat[3][2]);
+
+        const auto &projMat = view->GetProject();
+        float fov = 2.0f * std::atan(1.0f / projMat[1][1]);
+        float screenHeight = 1080.0f;
+
+        for (auto &mesh : staticMeshes) {
+            mesh->UpdateLod(viewPos, fov, screenHeight);
         }
     }
 
