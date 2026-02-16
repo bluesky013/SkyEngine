@@ -44,13 +44,6 @@ namespace sky {
         }
     }
 
-    inline float CalculateDistance(const AABB &worldBound, const Vector3 &viewPos)
-    {
-        auto center = (worldBound.min + worldBound.max) * 0.5f;
-        auto diff = center - viewPos;
-        return diff.Length();
-    }
-
     inline float CalculateDistanceSq(const AABB &worldBound, const Vector3 &viewPos)
     {
         auto center = (worldBound.min + worldBound.max) * 0.5f;
