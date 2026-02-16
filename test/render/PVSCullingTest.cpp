@@ -7,6 +7,8 @@
 #include <render/culling/PVSBitSet.h>
 #include <render/culling/PVSData.h>
 #include <render/culling/PVSCulling.h>
+#include <render/culling/PVSBaker.h>
+#include <render/culling/PVSBakedData.h>
 #include <render/culling/SIMDUtils.h>
 #include <cmath>
 
@@ -599,4 +601,273 @@ TEST(PVSCullingTest, IsPrimitiveVisible)
     
     // Should not be visible from cell 1
     ASSERT_FALSE(pvsCulling.IsPrimitiveVisible(Vector3(15.f, 15.f, 15.f), &primitive));
+}
+
+// ============================================================================
+// PVS Baker Tests
+// ============================================================================
+
+TEST(PVSBakerTest, AddObjects)
+{
+    PVSBaker baker;
+    
+    ASSERT_EQ(baker.GetObjectCount(), 0);
+    
+    PVSBakeObject obj1;
+    obj1.bounds = AABB{Vector3(0.f, 0.f, 0.f), Vector3(5.f, 5.f, 5.f)};
+    obj1.name = "Object1";
+    
+    uint32_t id1 = baker.AddObject(obj1);
+    ASSERT_EQ(id1, 0);
+    ASSERT_EQ(baker.GetObjectCount(), 1);
+    
+    PVSBakeObject obj2;
+    obj2.bounds = AABB{Vector3(10.f, 10.f, 10.f), Vector3(15.f, 15.f, 15.f)};
+    obj2.name = "Object2";
+    
+    uint32_t id2 = baker.AddObject(obj2);
+    ASSERT_EQ(id2, 1);
+    ASSERT_EQ(baker.GetObjectCount(), 2);
+}
+
+TEST(PVSBakerTest, ClearObjects)
+{
+    PVSBaker baker;
+    
+    PVSBakeObject obj;
+    obj.bounds = AABB{Vector3(0.f), Vector3(5.f)};
+    baker.AddObject(obj);
+    baker.AddObject(obj);
+    
+    ASSERT_EQ(baker.GetObjectCount(), 2);
+    
+    baker.ClearObjects();
+    ASSERT_EQ(baker.GetObjectCount(), 0);
+}
+
+TEST(PVSBakerTest, BakeDistanceBased)
+{
+    PVSBaker baker;
+    
+    // Add a few objects at different positions
+    PVSBakeObject nearObj;
+    nearObj.bounds = AABB{Vector3(4.f, 4.f, 4.f), Vector3(6.f, 6.f, 6.f)};
+    nearObj.name = "NearObject";
+    baker.AddObject(nearObj);
+    
+    PVSBakeObject farObj;
+    farObj.bounds = AABB{Vector3(94.f, 94.f, 94.f), Vector3(96.f, 96.f, 96.f)};
+    farObj.name = "FarObject";
+    baker.AddObject(farObj);
+    
+    // Configure baking
+    PVSBakeConfig bakeConfig;
+    bakeConfig.pvsConfig.worldBounds = AABB{Vector3(0.f, 0.f, 0.f), Vector3(100.f, 100.f, 100.f)};
+    bakeConfig.pvsConfig.cellSize = Vector3(10.f, 10.f, 10.f);
+    bakeConfig.pvsConfig.maxObjects = 100;
+    bakeConfig.method = PVSBakeConfig::Method::DISTANCE;
+    bakeConfig.maxVisibilityDistance = 20.f;
+    
+    // Bake
+    PVSBakedData bakedData;
+    PVSBakeResult result = baker.Bake(bakeConfig, bakedData);
+    
+    ASSERT_TRUE(result.success);
+    ASSERT_GT(bakedData.cells.size(), 0);
+    ASSERT_EQ(bakedData.numObjects, 2);
+    
+    // The near object should be visible from cell (0,0,0)
+    // Cell 0 center is at (5,5,5), near object center is at (5,5,5) - distance 0
+    uint32_t cell0 = 0;
+    bool nearVisible = (bakedData.visibilityData[cell0][0] & 1) != 0;
+    ASSERT_TRUE(nearVisible);
+    
+    // The far object should NOT be visible from cell (0,0,0)
+    // Cell 0 center is at (5,5,5), far object center is at (95,95,95) - distance ~156
+    bool farVisible = (bakedData.visibilityData[cell0][0] & 2) != 0;
+    ASSERT_FALSE(farVisible);
+}
+
+TEST(PVSBakerTest, BakeCustomFunction)
+{
+    PVSBaker baker;
+    
+    // Add objects
+    PVSBakeObject obj1;
+    obj1.bounds = AABB{Vector3(0.f), Vector3(5.f)};
+    obj1.name = "Object1";
+    baker.AddObject(obj1);
+    
+    PVSBakeObject obj2;
+    obj2.bounds = AABB{Vector3(10.f), Vector3(15.f)};
+    obj2.name = "Object2";
+    baker.AddObject(obj2);
+    
+    // Configure baking with custom function that only makes object 0 visible
+    PVSBakeConfig bakeConfig;
+    bakeConfig.pvsConfig.worldBounds = AABB{Vector3(0.f), Vector3(20.f)};
+    bakeConfig.pvsConfig.cellSize = Vector3(10.f);
+    bakeConfig.pvsConfig.maxObjects = 100;
+    bakeConfig.method = PVSBakeConfig::Method::CUSTOM;
+    bakeConfig.customTestFunc = [](const AABB&, const Vector3&, const AABB&, uint32_t objIndex) {
+        return objIndex == 0;  // Only object 0 is visible
+    };
+    
+    PVSBakedData bakedData;
+    PVSBakeResult result = baker.Bake(bakeConfig, bakedData);
+    
+    ASSERT_TRUE(result.success);
+    
+    // Object 0 should be visible from all cells
+    for (size_t i = 0; i < bakedData.visibilityData.size(); ++i) {
+        bool obj0Visible = (bakedData.visibilityData[i][0] & 1) != 0;
+        bool obj1Visible = (bakedData.visibilityData[i][0] & 2) != 0;
+        ASSERT_TRUE(obj0Visible);
+        ASSERT_FALSE(obj1Visible);
+    }
+}
+
+TEST(PVSBakerTest, Statistics)
+{
+    PVSBaker baker;
+    
+    // Add 10 objects
+    for (int i = 0; i < 10; ++i) {
+        PVSBakeObject obj;
+        obj.bounds = AABB{
+            Vector3(static_cast<float>(i * 10), 0.f, 0.f),
+            Vector3(static_cast<float>(i * 10 + 5), 5.f, 5.f)
+        };
+        obj.name = "Object" + std::to_string(i);
+        baker.AddObject(obj);
+    }
+    
+    PVSBakeConfig bakeConfig;
+    bakeConfig.pvsConfig.worldBounds = AABB{Vector3(0.f), Vector3(100.f)};
+    bakeConfig.pvsConfig.cellSize = Vector3(25.f);
+    bakeConfig.pvsConfig.maxObjects = 100;
+    bakeConfig.method = PVSBakeConfig::Method::DISTANCE;
+    bakeConfig.maxVisibilityDistance = 50.f;
+    
+    PVSBakedData bakedData;
+    PVSBakeResult result = baker.Bake(bakeConfig, bakedData);
+    
+    ASSERT_TRUE(result.success);
+    ASSERT_GT(result.statistics.totalCells, 0);
+    ASSERT_EQ(result.statistics.totalObjects, 10);
+    ASSERT_GT(result.statistics.totalVisiblePairs, 0);
+}
+
+// ============================================================================
+// PVS Baked Data Serialization Tests
+// ============================================================================
+
+TEST(PVSBakedDataTest, GetMemorySize)
+{
+    PVSBakedData data;
+    data.config.worldBounds = AABB{Vector3(-10.f), Vector3(10.f)};
+    data.config.cellSize = Vector3(5.f);
+    data.gridDimensions = {4, 4, 4};
+    data.numObjects = 100;
+    
+    // Add some cells
+    data.cells.resize(64);
+    
+    // Add visibility data
+    data.visibilityData.resize(64);
+    for (auto &v : data.visibilityData) {
+        v.resize(2);  // 128 bits
+    }
+    
+    size_t memSize = data.GetMemorySize();
+    ASSERT_GT(memSize, 0);
+}
+
+TEST(PVSBakedDataTest, GetStatistics)
+{
+    PVSBakedData data;
+    data.numObjects = 64;
+    data.cells.resize(8);
+    data.visibilityData.resize(8);
+    
+    // Set some visibility bits
+    for (size_t i = 0; i < 8; ++i) {
+        data.visibilityData[i].resize(1);
+        data.visibilityData[i][0] = 0x0F0F0F0F0F0F0F0FULL;  // 32 bits set
+    }
+    
+    auto stats = data.GetStatistics();
+    
+    ASSERT_EQ(stats.totalCells, 8);
+    ASSERT_EQ(stats.totalObjects, 64);
+    ASSERT_EQ(stats.totalVisiblePairs, 32 * 8);  // 32 bits set per cell, 8 cells
+    ASSERT_FLOAT_EQ(stats.averageVisibleObjects, 32.f);
+}
+
+// ============================================================================
+// PVS Data Load/Export Tests
+// ============================================================================
+
+TEST(PVSDataTest, LoadFromBakedData)
+{
+    // Create baked data
+    PVSBakedData bakedData;
+    bakedData.config.worldBounds = AABB{Vector3(0.f), Vector3(20.f)};
+    bakedData.config.cellSize = Vector3(10.f);
+    bakedData.config.maxObjects = 100;
+    bakedData.gridDimensions = {2, 2, 2};
+    bakedData.numObjects = 3;
+    
+    // Create cells
+    bakedData.cells.resize(8);
+    for (uint32_t i = 0; i < 8; ++i) {
+        bakedData.cells[i].id = i;
+    }
+    
+    // Create visibility data - object 0 visible from all cells
+    bakedData.visibilityData.resize(8);
+    for (auto &v : bakedData.visibilityData) {
+        v.resize(1);
+        v[0] = 0x01;  // Object 0 visible
+    }
+    
+    // Load into PVSData
+    PVSData pvsData;
+    pvsData.LoadFromBakedData(bakedData);
+    
+    // Verify
+    ASSERT_EQ(pvsData.GetCellCount(), 8);
+    
+    for (uint32_t cellID = 0; cellID < 8; ++cellID) {
+        ASSERT_TRUE(pvsData.IsVisible(cellID, 0));   // Object 0 visible
+        ASSERT_FALSE(pvsData.IsVisible(cellID, 1));  // Object 1 not visible
+    }
+}
+
+TEST(PVSDataTest, ExportToBakedData)
+{
+    PVSData pvsData;
+    
+    PVSConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(20.f)};
+    config.cellSize = Vector3(10.f);
+    config.maxObjects = 10;
+    
+    pvsData.Initialize(config);
+    
+    // Set some visibility
+    pvsData.SetVisible(0, 0);
+    pvsData.SetVisible(0, 1);
+    pvsData.SetVisible(1, 2);
+    
+    // Export
+    PVSBakedData bakedData;
+    pvsData.ExportToBakedData(bakedData);
+    
+    // Verify
+    ASSERT_EQ(bakedData.config.maxObjects, 10);
+    ASSERT_EQ(bakedData.gridDimensions.x, 2);
+    ASSERT_EQ(bakedData.gridDimensions.y, 2);
+    ASSERT_EQ(bakedData.gridDimensions.z, 2);
+    ASSERT_EQ(bakedData.cells.size(), 8);
 }

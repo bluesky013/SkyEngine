@@ -143,6 +143,18 @@ namespace sky {
          */
         bool IsValidCell(PVSCellID cellID) const { return cellID < GetCellCount(); }
 
+        /**
+         * @brief Load PVS data from baked data
+         * @param bakedData Pre-computed visibility data
+         */
+        void LoadFromBakedData(const struct PVSBakedData &bakedData);
+
+        /**
+         * @brief Export to baked data format
+         * @param outBakedData Output baked data structure
+         */
+        void ExportToBakedData(struct PVSBakedData &outBakedData) const;
+
     private:
         PVSConfig config;
         PVSCellCoord gridDimensions;

@@ -3,6 +3,7 @@
 //
 
 #include <render/culling/PVSData.h>
+#include <render/culling/PVSBakedData.h>
 #include <algorithm>
 #include <cmath>
 
@@ -183,6 +184,39 @@ namespace sky {
             return;
         }
         visibilityData[cellID].ClearAll();
+    }
+
+    void PVSData::LoadFromBakedData(const PVSBakedData &bakedData)
+    {
+        // Copy configuration
+        config = bakedData.config;
+        gridDimensions = bakedData.gridDimensions;
+
+        // Copy cells
+        cells = bakedData.cells;
+
+        // Copy visibility data
+        visibilityData.resize(bakedData.visibilityData.size());
+        for (size_t i = 0; i < bakedData.visibilityData.size(); ++i) {
+            visibilityData[i].SetData(bakedData.visibilityData[i], bakedData.numObjects);
+        }
+
+        // Initialize empty bitset
+        emptyBitSet.Resize(bakedData.numObjects);
+    }
+
+    void PVSData::ExportToBakedData(PVSBakedData &outBakedData) const
+    {
+        outBakedData.config = config;
+        outBakedData.gridDimensions = gridDimensions;
+        outBakedData.numObjects = config.maxObjects;
+        outBakedData.cells = cells;
+
+        // Export visibility data
+        outBakedData.visibilityData.resize(visibilityData.size());
+        for (size_t i = 0; i < visibilityData.size(); ++i) {
+            outBakedData.visibilityData[i] = visibilityData[i].GetData();
+        }
     }
 
 } // namespace sky
