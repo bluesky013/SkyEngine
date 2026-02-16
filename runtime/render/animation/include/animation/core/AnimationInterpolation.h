@@ -61,6 +61,7 @@ namespace sky {
                     return AnimInterpolateLinear(vk1, vk2, t);
                 }
         }
+        SKY_ASSERT(false);
         return data.keys[0];
     }
 

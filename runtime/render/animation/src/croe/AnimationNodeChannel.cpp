@@ -17,6 +17,7 @@ namespace sky {
     void AnimationNodeChannel::Sample(const SampleParam &param, const AnimSampleResultPtr &ptr)
     {
         auto *result = static_cast<AnimNodeSampleResult*>(ptr.Get());
+        SKY_ASSERT(result != nullptr);
         if (result == nullptr) {
             return;
         }
