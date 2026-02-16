@@ -32,6 +32,29 @@ namespace sky {
 
     inline Matrix4 Matrix4::operator*(const Matrix4& rhs) const
     {
+#if SKY_SIMD_SSE
+        Matrix4 ret;
+        for (int i = 0; i < 4; ++i) {
+            __m128 e0 = _mm_set1_ps(rhs.m[i].v[0]);
+            __m128 e1 = _mm_set1_ps(rhs.m[i].v[1]);
+            __m128 e2 = _mm_set1_ps(rhs.m[i].v[2]);
+            __m128 e3 = _mm_set1_ps(rhs.m[i].v[3]);
+            ret.m[i].simd = _mm_add_ps(
+                _mm_add_ps(_mm_mul_ps(m[0].simd, e0), _mm_mul_ps(m[1].simd, e1)),
+                _mm_add_ps(_mm_mul_ps(m[2].simd, e2), _mm_mul_ps(m[3].simd, e3)));
+        }
+        return ret;
+#elif SKY_SIMD_NEON
+        Matrix4 ret;
+        for (int i = 0; i < 4; ++i) {
+            float32x4_t r = vmulq_n_f32(m[0].simd, rhs.m[i].v[0]);
+            r = vmlaq_n_f32(r, m[1].simd, rhs.m[i].v[1]);
+            r = vmlaq_n_f32(r, m[2].simd, rhs.m[i].v[2]);
+            r = vmlaq_n_f32(r, m[3].simd, rhs.m[i].v[3]);
+            ret.m[i].simd = r;
+        }
+        return ret;
+#else
         const auto& rw = rhs.m;
         Matrix4 ret;
         ret[0] = m[0] * rw[0][0] + m[1] * rw[0][1] + m[2] * rw[0][2] + m[3] * rw[0][3];
@@ -39,6 +62,7 @@ namespace sky {
         ret[2] = m[0] * rw[2][0] + m[1] * rw[2][1] + m[2] * rw[2][2] + m[3] * rw[2][3];
         ret[3] = m[0] * rw[3][0] + m[1] * rw[3][1] + m[2] * rw[3][2] + m[3] * rw[3][3];
         return ret;
+#endif
     }
 
     inline Matrix4 Matrix4::operator*(float multiplier) const
@@ -95,11 +119,31 @@ namespace sky {
 
     inline Vector4 Matrix4::operator*(const Vector4& rhs) const
     {
+#if SKY_SIMD_SSE
+        __m128 e0 = _mm_set1_ps(rhs.v[0]);
+        __m128 e1 = _mm_set1_ps(rhs.v[1]);
+        __m128 e2 = _mm_set1_ps(rhs.v[2]);
+        __m128 e3 = _mm_set1_ps(rhs.v[3]);
+        Vector4 result;
+        result.simd = _mm_add_ps(
+            _mm_add_ps(_mm_mul_ps(m[0].simd, e0), _mm_mul_ps(m[1].simd, e1)),
+            _mm_add_ps(_mm_mul_ps(m[2].simd, e2), _mm_mul_ps(m[3].simd, e3)));
+        return result;
+#elif SKY_SIMD_NEON
+        float32x4_t r = vmulq_n_f32(m[0].simd, rhs.v[0]);
+        r = vmlaq_n_f32(r, m[1].simd, rhs.v[1]);
+        r = vmlaq_n_f32(r, m[2].simd, rhs.v[2]);
+        r = vmlaq_n_f32(r, m[3].simd, rhs.v[3]);
+        Vector4 result;
+        result.simd = r;
+        return result;
+#else
         Vector4 v0 = m[0] * rhs[0];
         Vector4 v1 = m[1] * rhs[1];
         Vector4 v2 = m[2] * rhs[2];
         Vector4 v3 = m[3] * rhs[3];
         return (v0 + v1) + (v2 + v3);
+#endif
     }
 
     inline Vector4 &Matrix4::operator[](uint32_t i)
