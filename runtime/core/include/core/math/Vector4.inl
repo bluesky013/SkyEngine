@@ -181,6 +181,11 @@ namespace sky {
         __m128 shuf2 = _mm_shuffle_ps(sums1, sums1, _MM_SHUFFLE(0, 1, 2, 3));
         __m128 sums2 = _mm_add_ps(sums1, shuf2);
         __m128 inv = _mm_rsqrt_ps(sums2);
+        // Newton-Raphson refinement: inv = inv * (1.5 - 0.5 * sums2 * inv * inv)
+        __m128 half = _mm_set1_ps(0.5f);
+        __m128 three_half = _mm_set1_ps(1.5f);
+        __m128 muls = _mm_mul_ps(_mm_mul_ps(half, sums2), _mm_mul_ps(inv, inv));
+        inv = _mm_mul_ps(inv, _mm_sub_ps(three_half, muls));
         simd = _mm_mul_ps(simd, inv);
 #elif SKY_SIMD_NEON
         float32x4_t mul = vmulq_f32(simd, simd);
@@ -188,6 +193,8 @@ namespace sky {
         sum = vpadd_f32(sum, sum);
         float32x4_t dotVal = vdupq_lane_f32(sum, 0);
         float32x4_t inv = vrsqrteq_f32(dotVal);
+        // Newton-Raphson refinement
+        inv = vmulq_f32(inv, vrsqrtsq_f32(vmulq_f32(dotVal, inv), inv));
         simd = vmulq_f32(simd, inv);
 #else
         float inverseSqrt = 1 / sqrt(Dot(*this));
