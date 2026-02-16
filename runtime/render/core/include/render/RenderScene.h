@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <core/std/Container.h>
+#include <core/tree/VolumeManager.h>
 #include <render/SceneView.h>
 #include <render/RenderPrimitive.h>
 #include <render/RenderPipeline.h>
@@ -35,6 +36,9 @@ namespace sky {
 
         const RenderPipelineFlags &GetRenderPipelineFlags() const { return renderFlags; }
 
+        VolumeManager &GetVolumeManager() { return volumeManager; }
+        const VolumeManager &GetVolumeManager() const { return volumeManager; }
+
         template <typename T>
         T *GetFeature() const
         {
@@ -59,6 +63,7 @@ namespace sky {
         PmrHashMap<Name, SceneView*> viewMap;
         PmrVector<RenderPrimitive *> primitives;
 
+        VolumeManager volumeManager;
         RenderPipelineFlags renderFlags;
     };
 

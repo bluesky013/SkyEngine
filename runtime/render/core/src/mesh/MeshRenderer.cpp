@@ -6,6 +6,7 @@
 #include <render/mesh/MeshFeature.h>
 #include <render/resource/Meshlet.h>
 #include <render/RenderBuiltinLayout.h>
+#include <render/RenderScene.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
 #include <core/math/MathUtil.h>
@@ -183,6 +184,9 @@ namespace sky {
 
         for (auto &prim : primitives) {
             prim->worldBound = AABB::Transform(prim->localBound, matrix);
+            if (scene != nullptr && prim->volumeId != INVALID_VOLUME_ID) {
+                scene->GetVolumeManager().UpdateVolume(prim->volumeId, prim->worldBound);
+            }
         }
     }
 
