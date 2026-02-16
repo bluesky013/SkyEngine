@@ -3,11 +3,8 @@
 //
 
 #include <render/culling/PVSBitSet.h>
+#include <render/culling/SIMDUtils.h>
 #include <algorithm>
-
-#ifdef _MSC_VER
-#include <intrin.h>
-#endif
 
 namespace sky {
 
@@ -49,7 +46,9 @@ namespace sky {
 
     void PVSBitSet::ClearAll()
     {
-        std::fill(data.begin(), data.end(), 0ULL);
+        if (!data.empty()) {
+            simd::ZeroFill(data.data(), data.size());
+        }
     }
 
     void PVSBitSet::SetAll()
@@ -68,44 +67,41 @@ namespace sky {
     void PVSBitSet::OrWith(const PVSBitSet &other)
     {
         size_t minSize = std::min(data.size(), other.data.size());
-        for (size_t i = 0; i < minSize; ++i) {
-            data[i] |= other.data[i];
+        if (minSize > 0) {
+            // Use SIMD-accelerated bitwise OR
+            simd::BitwiseOr(data.data(), other.data.data(), minSize);
         }
     }
 
     void PVSBitSet::AndWith(const PVSBitSet &other)
     {
         size_t minSize = std::min(data.size(), other.data.size());
-        for (size_t i = 0; i < minSize; ++i) {
-            data[i] &= other.data[i];
+        if (minSize > 0) {
+            // Use SIMD-accelerated bitwise AND
+            simd::BitwiseAnd(data.data(), other.data.data(), minSize);
         }
         // Clear remaining bits if this bitset is larger
-        for (size_t i = minSize; i < data.size(); ++i) {
-            data[i] = 0;
+        if (data.size() > minSize) {
+            simd::ZeroFill(data.data() + minSize, data.size() - minSize);
         }
     }
 
     uint32_t PVSBitSet::CountSet() const
     {
-        uint32_t count = 0;
-        for (uint64_t word : data) {
-#ifdef _MSC_VER
-            count += static_cast<uint32_t>(__popcnt64(word));
-#else
-            count += static_cast<uint32_t>(__builtin_popcountll(word));
-#endif
+        if (data.empty()) {
+            return 0;
         }
-        return count;
+        // Use SIMD-accelerated population count
+        return simd::PopCountArray(data.data(), data.size());
     }
 
     bool PVSBitSet::Any() const
     {
-        for (uint64_t word : data) {
-            if (word != 0) {
-                return true;
-            }
+        if (data.empty()) {
+            return false;
         }
-        return false;
+        // Use SIMD-accelerated any-bit-set check
+        return simd::AnyBitSet(data.data(), data.size());
     }
 
     void PVSBitSet::SetData(const std::vector<uint64_t>& rawData, uint32_t numBits)

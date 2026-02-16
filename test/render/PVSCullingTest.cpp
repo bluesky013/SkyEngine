@@ -7,8 +7,137 @@
 #include <render/culling/PVSBitSet.h>
 #include <render/culling/PVSData.h>
 #include <render/culling/PVSCulling.h>
+#include <render/culling/SIMDUtils.h>
+#include <cmath>
 
 using namespace sky;
+
+// ============================================================================
+// SIMD Utilities Tests
+// ============================================================================
+
+TEST(SIMDUtilsTest, BitwiseOr)
+{
+    std::vector<uint64_t> dst = {0x00FF00FF00FF00FFULL, 0xAAAAAAAAAAAAAAAAULL, 0x0000000000000000ULL, 0xFFFFFFFFFFFFFFFFULL};
+    std::vector<uint64_t> src = {0xFF00FF00FF00FF00ULL, 0x5555555555555555ULL, 0xFFFFFFFFFFFFFFFFULL, 0x0000000000000000ULL};
+    
+    simd::BitwiseOr(dst.data(), src.data(), dst.size());
+    
+    ASSERT_EQ(dst[0], 0xFFFFFFFFFFFFFFFFULL);
+    ASSERT_EQ(dst[1], 0xFFFFFFFFFFFFFFFFULL);
+    ASSERT_EQ(dst[2], 0xFFFFFFFFFFFFFFFFULL);
+    ASSERT_EQ(dst[3], 0xFFFFFFFFFFFFFFFFULL);
+}
+
+TEST(SIMDUtilsTest, BitwiseAnd)
+{
+    std::vector<uint64_t> dst = {0xFFFFFFFFFFFFFFFFULL, 0xAAAAAAAAAAAAAAAAULL, 0x0F0F0F0F0F0F0F0FULL, 0xFFFFFFFFFFFFFFFFULL};
+    std::vector<uint64_t> src = {0x00FF00FF00FF00FFULL, 0x5555555555555555ULL, 0x0F0F0F0F0F0F0F0FULL, 0x0000000000000000ULL};
+    
+    simd::BitwiseAnd(dst.data(), src.data(), dst.size());
+    
+    ASSERT_EQ(dst[0], 0x00FF00FF00FF00FFULL);
+    ASSERT_EQ(dst[1], 0x0000000000000000ULL);
+    ASSERT_EQ(dst[2], 0x0F0F0F0F0F0F0F0FULL);
+    ASSERT_EQ(dst[3], 0x0000000000000000ULL);
+}
+
+TEST(SIMDUtilsTest, AnyBitSet)
+{
+    std::vector<uint64_t> allZero = {0, 0, 0, 0};
+    std::vector<uint64_t> oneSet = {0, 0, 0, 1};
+    std::vector<uint64_t> allSet = {~0ULL, ~0ULL, ~0ULL, ~0ULL};
+    
+    ASSERT_FALSE(simd::AnyBitSet(allZero.data(), allZero.size()));
+    ASSERT_TRUE(simd::AnyBitSet(oneSet.data(), oneSet.size()));
+    ASSERT_TRUE(simd::AnyBitSet(allSet.data(), allSet.size()));
+}
+
+TEST(SIMDUtilsTest, PopCount64)
+{
+    ASSERT_EQ(simd::PopCount64(0), 0);
+    ASSERT_EQ(simd::PopCount64(1), 1);
+    ASSERT_EQ(simd::PopCount64(0xFFFFFFFFFFFFFFFFULL), 64);
+    ASSERT_EQ(simd::PopCount64(0x5555555555555555ULL), 32);
+    ASSERT_EQ(simd::PopCount64(0xAAAAAAAAAAAAAAAAULL), 32);
+}
+
+TEST(SIMDUtilsTest, PopCountArray)
+{
+    std::vector<uint64_t> data = {0x0F0F0F0F0F0F0F0FULL, 0xF0F0F0F0F0F0F0F0ULL};
+    // Each byte has 4 bits set, 8 bytes per uint64_t = 32 bits each
+    ASSERT_EQ(simd::PopCountArray(data.data(), data.size()), 64);
+}
+
+TEST(SIMDUtilsTest, ZeroFill)
+{
+    std::vector<uint64_t> data = {~0ULL, ~0ULL, ~0ULL, ~0ULL};
+    
+    simd::ZeroFill(data.data(), data.size());
+    
+    for (size_t i = 0; i < data.size(); ++i) {
+        ASSERT_EQ(data[i], 0);
+    }
+}
+
+TEST(SIMDUtilsTest, DistanceSquaredBatch)
+{
+    // Test 3 point pairs
+    float pointsA[] = {
+        0.0f, 0.0f, 0.0f,   // Point 1
+        1.0f, 0.0f, 0.0f,   // Point 2
+        1.0f, 2.0f, 3.0f    // Point 3
+    };
+    float pointsB[] = {
+        3.0f, 4.0f, 0.0f,   // Point 1: dist^2 = 9 + 16 = 25
+        1.0f, 0.0f, 0.0f,   // Point 2: dist^2 = 0 (same point)
+        4.0f, 6.0f, 3.0f    // Point 3: dist^2 = 9 + 16 + 0 = 25
+    };
+    float distances[3] = {0, 0, 0};
+    
+    simd::DistanceSquaredBatch(pointsA, pointsB, distances, 3);
+    
+    ASSERT_FLOAT_EQ(distances[0], 25.0f);
+    ASSERT_FLOAT_EQ(distances[1], 0.0f);
+    ASSERT_FLOAT_EQ(distances[2], 25.0f);
+}
+
+TEST(SIMDUtilsTest, AABBIntersectionBatch)
+{
+    // Test 4 AABB pairs
+    float minA[] = {
+        0.0f, 0.0f, 0.0f,   // AABB 1 min - intersects
+        10.0f, 10.0f, 10.0f, // AABB 2 min - no intersection
+        0.0f, 0.0f, 0.0f,   // AABB 3 min - touching
+        -5.0f, -5.0f, -5.0f  // AABB 4 min - fully contains
+    };
+    float maxA[] = {
+        5.0f, 5.0f, 5.0f,   // AABB 1 max
+        15.0f, 15.0f, 15.0f, // AABB 2 max
+        5.0f, 5.0f, 5.0f,   // AABB 3 max
+        10.0f, 10.0f, 10.0f  // AABB 4 max
+    };
+    float minB[] = {
+        3.0f, 3.0f, 3.0f,   // AABB 1 min - intersects
+        0.0f, 0.0f, 0.0f,   // AABB 2 min - no intersection
+        5.0f, 5.0f, 5.0f,   // AABB 3 min - touching
+        0.0f, 0.0f, 0.0f    // AABB 4 min - contained
+    };
+    float maxB[] = {
+        8.0f, 8.0f, 8.0f,   // AABB 1 max
+        5.0f, 5.0f, 5.0f,   // AABB 2 max
+        10.0f, 10.0f, 10.0f, // AABB 3 max
+        5.0f, 5.0f, 5.0f    // AABB 4 max
+    };
+    uint8_t results[4] = {0, 0, 0, 0};
+    
+    simd::AABBIntersectionBatch(minA, maxA, minB, maxB, results, 4);
+    
+    ASSERT_EQ(results[0], 1);  // Intersects
+    ASSERT_EQ(results[1], 0);  // No intersection
+    ASSERT_EQ(results[2], 1);  // Touching (counts as intersection)
+    ASSERT_EQ(results[3], 1);  // Contains
+}
 
 // ============================================================================
 // PVSBitSet Tests

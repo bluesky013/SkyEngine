@@ -3,6 +3,7 @@
 //
 
 #include <render/culling/PVSCulling.h>
+#include <render/culling/SIMDUtils.h>
 #include <render/SceneView.h>
 #include <cmath>
 
@@ -191,20 +192,78 @@ namespace sky {
 
     void PVSCulling::ComputeDistanceBasedVisibility(float maxDistance)
     {
+        if (!initialized || primitiveToID.empty()) {
+            return;
+        }
+
         float maxDistSq = maxDistance * maxDistance;
+        uint32_t numObjects = static_cast<uint32_t>(idToPrimitive.size());
+        
+        // Prepare object center data for SIMD batch processing
+        std::vector<float> objectCenters(numObjects * 3);
+        std::vector<bool> objectValid(numObjects, false);
+        
+        for (const auto &pair : primitiveToID) {
+            RenderPrimitive *primitive = pair.first;
+            PVSObjectID objectID = pair.second;
+            
+            if (primitive != nullptr && objectID < numObjects) {
+                const AABB &bounds = primitive->worldBound;
+                size_t offset = objectID * 3;
+                objectCenters[offset + 0] = (bounds.min.x + bounds.max.x) * 0.5f;
+                objectCenters[offset + 1] = (bounds.min.y + bounds.max.y) * 0.5f;
+                objectCenters[offset + 2] = (bounds.min.z + bounds.max.z) * 0.5f;
+                objectValid[objectID] = true;
+            }
+        }
 
-        ComputeVisibility([maxDistSq](PVSCellID /*cellID*/, PVSObjectID /*objectID*/, 
-                                       const AABB &cellBounds, const AABB &objectBounds) {
-            // Calculate centers
-            Vector3 cellCenter = (cellBounds.min + cellBounds.max) * 0.5f;
-            Vector3 objectCenter = (objectBounds.min + objectBounds.max) * 0.5f;
+        // Batch size for SIMD processing
+        constexpr size_t BATCH_SIZE = 64;
+        std::vector<float> cellCenters(BATCH_SIZE * 3);
+        std::vector<float> distancesSq(BATCH_SIZE);
 
-            // Calculate distance squared
-            Vector3 diff = objectCenter - cellCenter;
-            float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+        // Process each cell
+        for (uint32_t cellID = 0; cellID < pvsData.GetCellCount(); ++cellID) {
+            const PVSCell &cell = pvsData.GetCell(cellID);
+            float cellCenterX = cell.center.x;
+            float cellCenterY = cell.center.y;
+            float cellCenterZ = cell.center.z;
 
-            return distSq <= maxDistSq;
-        });
+            // Process objects in batches
+            for (uint32_t batchStart = 0; batchStart < numObjects; batchStart += BATCH_SIZE) {
+                uint32_t batchEnd = std::min(batchStart + static_cast<uint32_t>(BATCH_SIZE), numObjects);
+                uint32_t batchCount = batchEnd - batchStart;
+
+                // Fill cell centers for batch (same cell center for all)
+                for (uint32_t i = 0; i < batchCount; ++i) {
+                    cellCenters[i * 3 + 0] = cellCenterX;
+                    cellCenters[i * 3 + 1] = cellCenterY;
+                    cellCenters[i * 3 + 2] = cellCenterZ;
+                }
+
+                // Use SIMD to calculate distances
+                simd::DistanceSquaredBatch(
+                    cellCenters.data(),
+                    objectCenters.data() + batchStart * 3,
+                    distancesSq.data(),
+                    batchCount
+                );
+
+                // Update visibility based on distance
+                for (uint32_t i = 0; i < batchCount; ++i) {
+                    PVSObjectID objectID = batchStart + i;
+                    if (!objectValid[objectID]) {
+                        continue;
+                    }
+
+                    if (distancesSq[i] <= maxDistSq) {
+                        pvsData.SetVisible(cellID, objectID);
+                    } else {
+                        pvsData.ClearVisible(cellID, objectID);
+                    }
+                }
+            }
+        }
     }
 
 } // namespace sky
