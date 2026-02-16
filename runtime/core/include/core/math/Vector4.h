@@ -6,7 +6,7 @@
 #pragma once
 
 #include "core/math/Math.h"
-#include "core/math/MathSimd.h"
+#include "core/math/SFloat4.h"
 
 namespace sky {
 
@@ -19,11 +19,6 @@ namespace sky {
                 float z;
                 float w;
             };
-#if SKY_SIMD_SSE
-            __m128 simd;
-#elif SKY_SIMD_NEON
-            float32x4_t simd;
-#endif
         };
 
         inline constexpr Vector4();
