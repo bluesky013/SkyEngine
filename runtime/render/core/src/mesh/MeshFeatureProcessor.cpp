@@ -32,11 +32,8 @@ namespace sky {
         const auto &worldMat = view->GetWorld();
         Vector3 viewPos(worldMat[3][0], worldMat[3][1], worldMat[3][2]);
 
-        const auto &projMat = view->GetProject();
-        float fov = 2.0f * std::atan(1.0f / projMat[1][1]);
-
         for (auto &mesh : staticMeshes) {
-            mesh->UpdateLod(viewPos, fov);
+            mesh->UpdateLod(viewPos);
         }
     }
 

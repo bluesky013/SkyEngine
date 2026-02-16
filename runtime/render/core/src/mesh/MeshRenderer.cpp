@@ -156,7 +156,7 @@ namespace sky {
         }
     }
 
-    void MeshRenderer::UpdateLod(const Vector3 &viewPos, float fov)
+    void MeshRenderer::UpdateLod(const Vector3 &viewPos)
     {
         if (!lodGroup || lodGroup->GetLodCount() == 0 || primitives.empty()) {
             return;
@@ -167,7 +167,7 @@ namespace sky {
             Merge(combinedBound, primitives[i]->worldBound, combinedBound);
         }
 
-        uint32_t newLod = lodGroup->SelectLod(combinedBound, viewPos, fov);
+        uint32_t newLod = lodGroup->SelectLod(combinedBound, viewPos);
 
         if (newLod == INVALID_LOD_LEVEL) {
             newLod = lodGroup->GetLodCount() - 1;

@@ -12,21 +12,40 @@ namespace lod_test {
 
     static constexpr uint32_t INVALID_LOD_LEVEL = ~(0U);
 
-    enum class LodPolicy : uint32_t {
-        SCREEN_SIZE = 0,
-        DISTANCE
-    };
-
     struct LodLevel {
         float screenSize = 0.f;
-        float distance = 0.f;
     };
 
     struct LodConfig {
         std::vector<LodLevel> lodLevels;
+        std::vector<float> distancesSq;
         float lodBias = 1.0f;
-        LodPolicy policy = LodPolicy::SCREEN_SIZE;
     };
+
+    inline float ScreenSizeToDistance(float screenSize, float radius, float halfTanFov)
+    {
+        if (screenSize <= 0.f) {
+            return std::numeric_limits<float>::max();
+        }
+        return (2.0f * radius) / (screenSize * halfTanFov);
+    }
+
+    inline void PreComputeDistances(LodConfig &config, float radius, float fov)
+    {
+        float halfTanFov = std::tan(fov * 0.5f);
+        config.distancesSq.resize(config.lodLevels.size());
+        for (uint32_t i = 0; i < static_cast<uint32_t>(config.lodLevels.size()); ++i) {
+            float d = ScreenSizeToDistance(config.lodLevels[i].screenSize, radius, halfTanFov);
+            config.distancesSq[i] = d * d;
+        }
+    }
+
+    inline float CalculateDistanceSq(const AABB &worldBound, const Vector3 &viewPos)
+    {
+        auto center = (worldBound.min + worldBound.max) * 0.5f;
+        auto diff = center - viewPos;
+        return diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    }
 
     inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov)
     {
@@ -45,13 +64,6 @@ namespace lod_test {
         return screenRadius * 2.0f;
     }
 
-    inline float CalculateDistance(const AABB &worldBound, const Vector3 &viewPos)
-    {
-        auto center = (worldBound.min + worldBound.max) * 0.5f;
-        auto diff = center - viewPos;
-        return diff.Length();
-    }
-
     inline uint32_t SelectLodByScreenSize(const LodConfig &config, float screenSize)
     {
         float biasedSize = screenSize * config.lodBias;
@@ -63,30 +75,27 @@ namespace lod_test {
         return INVALID_LOD_LEVEL;
     }
 
-    inline uint32_t SelectLodByDistance(const LodConfig &config, float distance)
-    {
-        float biasedDist = distance / std::max(config.lodBias, 0.001f);
-        for (uint32_t i = static_cast<uint32_t>(config.lodLevels.size()); i > 0; --i) {
-            if (biasedDist >= config.lodLevels[i - 1].distance) {
-                return i - 1;
-            }
-        }
-        return 0;
-    }
-
     inline uint32_t SelectLodLevel(const LodConfig &config, float screenSize)
     {
         return SelectLodByScreenSize(config, screenSize);
     }
 
-    inline uint32_t SelectLodLevel(const LodConfig &config, const AABB &worldBound, const Vector3 &viewPos, float fov)
+    inline uint32_t SelectLodLevel(const LodConfig &config, const AABB &worldBound, const Vector3 &viewPos)
     {
-        if (config.policy == LodPolicy::DISTANCE) {
-            float dist = CalculateDistance(worldBound, viewPos);
-            return SelectLodByDistance(config, dist);
+        if (config.distancesSq.empty()) {
+            return INVALID_LOD_LEVEL;
         }
-        float size = CalculateScreenSize(worldBound, viewPos, fov);
-        return SelectLodByScreenSize(config, size);
+
+        float distSq = CalculateDistanceSq(worldBound, viewPos);
+        float biasInv = 1.0f / std::max(config.lodBias, 0.001f);
+        float biasedDistSq = distSq * biasInv * biasInv;
+
+        for (uint32_t i = 0; i < static_cast<uint32_t>(config.distancesSq.size()); ++i) {
+            if (biasedDistSq < config.distancesSq[i]) {
+                return i;
+            }
+        }
+        return INVALID_LOD_LEVEL;
     }
 
 } // namespace lod_test
@@ -211,117 +220,152 @@ TEST(LodTest, ScreenSizeDecreasesWithDistance)
     }
 }
 
-// ===== Distance-based LOD policy tests =====
+// ===== Pre-computed distance LOD tests =====
 
-TEST(LodTest, DistanceCalculation)
+TEST(LodTest, ScreenSizeToDistanceConversion)
 {
+    float radius = 1.7320508f; // sqrt(3) ~ extent of unit AABB
+    float fov = ToRadian(90.0f);
+    float halfTanFov = std::tan(fov * 0.5f); // tan(45°) = 1.0
+
+    // screenSize = 2*radius / (dist * halfTanFov)
+    // dist = 2*radius / (screenSize * halfTanFov)
+    {
+        float d = ScreenSizeToDistance(0.5f, radius, halfTanFov);
+        float expected = (2.0f * radius) / (0.5f * halfTanFov);
+        ASSERT_FLOAT_EQ(d, expected);
+    }
+
+    // screenSize 0 → infinite distance
+    {
+        float d = ScreenSizeToDistance(0.0f, radius, halfTanFov);
+        ASSERT_EQ(d, std::numeric_limits<float>::max());
+    }
+
+    // Smaller screenSize → larger distance
+    {
+        float d1 = ScreenSizeToDistance(0.5f, radius, halfTanFov);
+        float d2 = ScreenSizeToDistance(0.25f, radius, halfTanFov);
+        ASSERT_GT(d2, d1);
+    }
+}
+
+TEST(LodTest, PreComputeDistancesMatchesScreenSize)
+{
+    // Verify that pre-computed distance-based LOD selection matches
+    // screen-size-based LOD selection for various camera distances
     AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
-
-    // Camera at the object center → distance should be 0
-    {
-        Vector3 viewPos(0, 0, 0);
-        float dist = CalculateDistance(bound, viewPos);
-        ASSERT_FLOAT_EQ(dist, 0.0f);
-    }
-
-    // Camera at known position
-    {
-        Vector3 viewPos(0, 0, 10);
-        float dist = CalculateDistance(bound, viewPos);
-        ASSERT_FLOAT_EQ(dist, 10.0f);
-    }
-
-    // Distance increases monotonically
-    {
-        float prevDist = 0.0f;
-        for (float d = 10.0f; d <= 100.0f; d += 10.0f) {
-            Vector3 viewPos(0, 0, d);
-            float dist = CalculateDistance(bound, viewPos);
-            ASSERT_GT(dist, prevDist);
-            prevDist = dist;
-        }
-    }
-}
-
-TEST(LodTest, SelectLodByDistanceBasic)
-{
-    // Distance thresholds: LOD 0 (close), LOD 1, LOD 2 (far)
-    // Higher LOD index = lower quality = used at greater distance
-    LodConfig config;
-    config.policy = LodPolicy::DISTANCE;
-    config.lodBias = 1.0f;
-    config.lodLevels = {
-        LodLevel{0.0f, 0.f},    // LOD 0: distance >= 0 (closest)
-        LodLevel{0.0f, 50.f},   // LOD 1: distance >= 50
-        LodLevel{0.0f, 100.f},  // LOD 2: distance >= 100
-    };
-
-    // Close → LOD 0
-    ASSERT_EQ(SelectLodByDistance(config, 10.f), 0u);
-
-    // Medium distance → LOD 1
-    ASSERT_EQ(SelectLodByDistance(config, 60.f), 1u);
-
-    // Far → LOD 2
-    ASSERT_EQ(SelectLodByDistance(config, 150.f), 2u);
-
-    // Exact boundaries
-    ASSERT_EQ(SelectLodByDistance(config, 0.f), 0u);
-    ASSERT_EQ(SelectLodByDistance(config, 50.f), 1u);
-    ASSERT_EQ(SelectLodByDistance(config, 100.f), 2u);
-}
-
-TEST(LodTest, SelectLodByDistanceWithBias)
-{
-    LodConfig config;
-    config.policy = LodPolicy::DISTANCE;
-    config.lodLevels = {
-        LodLevel{0.0f, 0.f},
-        LodLevel{0.0f, 50.f},
-        LodLevel{0.0f, 100.f},
-    };
-
-    // Higher bias → distances are effectively shorter → keeps higher quality longer
-    config.lodBias = 2.0f;
-    ASSERT_EQ(SelectLodByDistance(config, 60.f), 0u);  // 60 / 2.0 = 30 < 50 → LOD 0
-
-    // Lower bias → distances are effectively longer → switches to lower quality sooner
-    config.lodBias = 0.5f;
-    ASSERT_EQ(SelectLodByDistance(config, 60.f), 2u);  // 60 / 0.5 = 120 >= 100 → LOD 2
-}
-
-TEST(LodTest, PolicyDispatch)
-{
-    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
-    Vector3 viewPos(0, 0, 60);
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
     float fov = ToRadian(90.0f);
 
-    // Screen-size policy
+    LodConfig config;
+    config.lodBias = 1.0f;
+    config.lodLevels = {
+        LodLevel{0.5f},
+        LodLevel{0.25f},
+        LodLevel{0.1f},
+        LodLevel{0.0f},
+    };
+
+    PreComputeDistances(config, radius, fov);
+
+    // Test at various distances: both methods should agree
+    for (float dist = 5.0f; dist <= 200.0f; dist += 5.0f) {
+        Vector3 viewPos(0, 0, dist);
+        float screenSize = CalculateScreenSize(bound, viewPos, fov);
+
+        uint32_t lodByScreen = SelectLodByScreenSize(config, screenSize);
+        uint32_t lodByDist = SelectLodLevel(config, bound, viewPos);
+
+        // For the fallback LOD (screenSize=0 → infinite distance), distance-based
+        // returns INVALID while screen-size returns 3. Both are valid.
+        if (lodByScreen == 3u && lodByDist == INVALID_LOD_LEVEL) {
+            continue; // screenSize=0 maps to infinite distance, this is expected
+        }
+        ASSERT_EQ(lodByScreen, lodByDist)
+            << "Mismatch at distance " << dist
+            << " (screenSize=" << screenSize << ")";
+    }
+}
+
+TEST(LodTest, PreComputeDistancesWithBias)
+{
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
+    float fov = ToRadian(90.0f);
+
+    LodConfig config;
+    config.lodLevels = {
+        LodLevel{0.5f},
+        LodLevel{0.25f},
+        LodLevel{0.1f},
+    };
+    PreComputeDistances(config, radius, fov);
+
+    Vector3 viewPos(0, 0, 10);
+
+    // Normal bias
+    config.lodBias = 1.0f;
+    uint32_t lodNormal = SelectLodLevel(config, bound, viewPos);
+
+    // Higher bias → should select higher quality (lower LOD index)
+    config.lodBias = 2.0f;
+    uint32_t lodHigh = SelectLodLevel(config, bound, viewPos);
+    ASSERT_LE(lodHigh, lodNormal);
+
+    // Lower bias → should select lower quality (higher LOD index)
+    config.lodBias = 0.5f;
+    uint32_t lodLow = SelectLodLevel(config, bound, viewPos);
+    ASSERT_GE(lodLow, lodNormal);
+}
+
+TEST(LodTest, PreComputeDistancesEmpty)
+{
+    LodConfig config;
+    config.lodBias = 1.0f;
+
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    Vector3 viewPos(0, 0, 10);
+
+    // No pre-computed distances → should return INVALID
+    ASSERT_EQ(SelectLodLevel(config, bound, viewPos), INVALID_LOD_LEVEL);
+}
+
+TEST(LodTest, RuntimeSelectionOnlyUsesDistance)
+{
+    // Verify that runtime selection only needs distance (no fov/tan)
+    // by confirming the pre-computed approach works consistently
+    AABB bound(Vector3(-2, -2, -2), Vector3(2, 2, 2));
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
+    float fov = ToRadian(60.0f);
+
+    LodConfig config;
+    config.lodBias = 1.0f;
+    config.lodLevels = {
+        LodLevel{0.6f},
+        LodLevel{0.3f},
+        LodLevel{0.1f},
+    };
+    PreComputeDistances(config, radius, fov);
+
+    // Close camera → LOD 0
     {
-        LodConfig config;
-        config.policy = LodPolicy::SCREEN_SIZE;
-        config.lodBias = 1.0f;
-        config.lodLevels = {
-            LodLevel{0.5f, 0.f},
-            LodLevel{0.0f, 0.f},
-        };
-        uint32_t lod = SelectLodLevel(config, bound, viewPos, fov);
-        // Screen size at dist 60 is small → should fall through to LOD 1
-        ASSERT_EQ(lod, 1u);
+        Vector3 viewPos(0, 0, 5);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 0u);
     }
 
-    // Distance policy
+    // Medium distance → LOD 1
     {
-        LodConfig config;
-        config.policy = LodPolicy::DISTANCE;
-        config.lodBias = 1.0f;
-        config.lodLevels = {
-            LodLevel{0.0f, 0.f},
-            LodLevel{0.0f, 50.f},
-            LodLevel{0.0f, 100.f},
-        };
-        uint32_t lod = SelectLodLevel(config, bound, viewPos, fov);
-        // Distance ~60 → LOD 1
-        ASSERT_EQ(lod, 1u);
+        Vector3 viewPos(0, 0, 20);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 1u);
+    }
+
+    // Far distance → LOD 2
+    {
+        Vector3 viewPos(0, 0, 80);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 2u);
     }
 }

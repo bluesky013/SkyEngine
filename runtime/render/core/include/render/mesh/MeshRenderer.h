@@ -32,7 +32,7 @@ namespace sky {
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
-        void UpdateLod(const Vector3 &viewPos, float fov);
+        void UpdateLod(const Vector3 &viewPos);
 
         void BuildGeometry();
 

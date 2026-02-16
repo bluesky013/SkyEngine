@@ -9,13 +9,7 @@ namespace sky {
     void MeshLodGroup::AddLodMesh(const RDMeshPtr &mesh, float screenSize)
     {
         lodMeshes.emplace_back(mesh);
-        config.lodLevels.emplace_back(LodLevel{screenSize, 0.f});
-    }
-
-    void MeshLodGroup::AddLodMesh(const RDMeshPtr &mesh, float screenSize, float distance)
-    {
-        lodMeshes.emplace_back(mesh);
-        config.lodLevels.emplace_back(LodLevel{screenSize, distance});
+        config.lodLevels.emplace_back(LodLevel{screenSize});
     }
 
     void MeshLodGroup::SetLodBias(float bias)
@@ -23,14 +17,14 @@ namespace sky {
         config.lodBias = bias;
     }
 
-    void MeshLodGroup::SetLodPolicy(LodPolicy policy)
+    void MeshLodGroup::PreComputeDistances(float radius, float fov)
     {
-        config.policy = policy;
+        sky::PreComputeDistances(config, radius, fov);
     }
 
-    uint32_t MeshLodGroup::SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov) const
+    uint32_t MeshLodGroup::SelectLod(const AABB &worldBound, const Vector3 &viewPos) const
     {
-        return SelectLodLevel(config, worldBound, viewPos, fov);
+        return SelectLodLevel(config, worldBound, viewPos);
     }
 
 } // namespace sky

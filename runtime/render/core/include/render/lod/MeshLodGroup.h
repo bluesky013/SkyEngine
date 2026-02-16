@@ -15,14 +15,13 @@ namespace sky {
         ~MeshLodGroup() override = default;
 
         void AddLodMesh(const RDMeshPtr &mesh, float screenSize);
-        void AddLodMesh(const RDMeshPtr &mesh, float screenSize, float distance);
         void SetLodBias(float bias);
-        void SetLodPolicy(LodPolicy policy);
+        void PreComputeDistances(float radius, float fov);
 
         uint32_t GetLodCount() const { return static_cast<uint32_t>(lodMeshes.size()); }
         const RDMeshPtr &GetMesh(uint32_t lod) const { return lodMeshes[lod]; }
 
-        uint32_t SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov) const;
+        uint32_t SelectLod(const AABB &worldBound, const Vector3 &viewPos) const;
 
         const LodConfig &GetConfig() const { return config; }
 
