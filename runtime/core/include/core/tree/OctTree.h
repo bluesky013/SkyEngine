@@ -124,6 +124,37 @@ namespace sky {
             ForeachWithBoundTestWith(0, bounds, func);
         }
 
+        template <typename NodeTest, typename Func>
+        void ForeachWithNodeTestWith(NodeIndex index, const NodeTest &nodeTest, const Func &func)
+        {
+            if (nodes[index].numElements > 0) {
+                AABB nodeBox{
+                    nodes[index].origin - Vector3(nodes[index].ext),
+                    nodes[index].origin + Vector3(nodes[index].ext)
+                };
+                if (!nodeTest(nodeBox)) {
+                    return;
+                }
+
+                for (auto &element : elements[index]) {
+                    func(element);
+                }
+
+                if (!nodes[index].IsLeaf()) {
+                    auto childStart = nodes[index].idxChild;
+                    for (uint8_t i = 0; i < 8; ++i) {
+                        ForeachWithNodeTestWith(childStart + i, nodeTest, func);
+                    }
+                }
+            }
+        }
+
+        template <typename NodeTest, typename Func>
+        void ForeachWithNodeTest(const NodeTest &nodeTest, const Func &func)
+        {
+            ForeachWithNodeTestWith(0, nodeTest, func);
+        }
+
         explicit Octree(float maxExtent, const Vector3 &ori = VEC3_ZERO)
             : leafExtent(maxExtent * std::pow(0.5f, static_cast<float>(MAX_DEPTH)))
         {

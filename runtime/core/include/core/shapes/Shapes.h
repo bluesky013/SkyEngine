@@ -13,6 +13,9 @@ namespace sky {
     bool Intersection(const AABB &lhs, const AABB &rhs);
     bool Intersection(const AABB &aabb, const Frustum &frustum);
     std::pair<bool, int> Intersection(const AABB &aabb, const Plane &plane);
+    bool Intersection(const Sphere &sphere, const Frustum &frustum);
+    bool Intersection(const Sphere &sphere, const AABB &aabb);
+    std::pair<bool, int> Intersection(const Sphere &sphere, const Plane &plane);
 
     // utils
     Plane CreatePlaneByVertices(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3);

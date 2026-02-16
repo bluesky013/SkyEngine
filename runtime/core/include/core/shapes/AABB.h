@@ -18,6 +18,16 @@ namespace sky {
         inline constexpr AABB(Vector3 min_, Vector3 max_) : min(min_), max(max_) {}
 
         static AABB Transform(const AABB& box, const Matrix4 &matrix);
+
+        inline Vector3 GetCenter() const { return (min + max) / 2.f; }
+        inline Vector3 GetExtent() const { return (max - min) / 2.f; }
+        inline bool IsValid() const { return min.x <= max.x && min.y <= max.y && min.z <= max.z; }
+        inline bool Contains(const Vector3 &point) const
+        {
+            return point.x >= min.x && point.x <= max.x &&
+                   point.y >= min.y && point.y <= max.y &&
+                   point.z >= min.z && point.z <= max.z;
+        }
     };
 
     void Merge(const AABB &a, const AABB &b, AABB &out);

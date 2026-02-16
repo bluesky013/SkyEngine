@@ -58,6 +58,9 @@ namespace sky {
         AABB localBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
         AABB worldBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
 
+        // volume management
+        uint32_t volumeId = ~(0U);
+
         // geometry
         RenderVertexFlags     vertexFlags;
         RenderGeometryPtr     geometry;

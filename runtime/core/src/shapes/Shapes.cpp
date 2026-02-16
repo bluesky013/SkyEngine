@@ -47,6 +47,40 @@ namespace sky {
                            });
     }
 
+    std::pair<bool, int> Intersection(const Sphere &sphere, const Plane &plane)
+    {
+        float dist = plane.normal.Dot(sphere.center) - plane.distance;
+        if (std::abs(dist) <= sphere.radius) {
+            return {true, 0};
+        }
+        return {false, dist > 0.f ? 1 : -1};
+    }
+
+    bool Intersection(const Sphere &sphere, const AABB &aabb)
+    {
+        float sqDist = 0.f;
+        for (int i = 0; i < 3; ++i) {
+            float v = sphere.center[i];
+            if (v < aabb.min[i]) {
+                float d = aabb.min[i] - v;
+                sqDist += d * d;
+            }
+            if (v > aabb.max[i]) {
+                float d = v - aabb.max[i];
+                sqDist += d * d;
+            }
+        }
+        return sqDist <= sphere.radius * sphere.radius;
+    }
+
+    bool Intersection(const Sphere &sphere, const Frustum &frustum)
+    {
+        return std::all_of(frustum.planes.begin(), frustum.planes.end(),
+                           [&sphere](const Plane &plane) {
+                               return Intersection(sphere, plane).second <= 0;
+                           });
+    }
+
 
     Plane CreatePlaneByVertices(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3)
     {

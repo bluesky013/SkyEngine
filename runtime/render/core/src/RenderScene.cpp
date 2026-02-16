@@ -84,12 +84,18 @@ namespace sky {
         auto iter = std::find(primitives.begin(), primitives.end(), primitive);
         SKY_ASSERT(iter == primitives.end());
         primitives.emplace_back(primitive);
+        primitive->volumeId = volumeManager.AddVolume(primitive->worldBound, primitive);
     }
 
     void RenderScene::RemovePrimitive(RenderPrimitive *primitive)
     {
         if (primitive == nullptr) {
             return;
+        }
+
+        if (primitive->volumeId != INVALID_VOLUME_ID) {
+            volumeManager.RemoveVolume(primitive->volumeId);
+            primitive->volumeId = INVALID_VOLUME_ID;
         }
 
         primitives.erase(std::remove_if(primitives.begin(), primitives.end(), [primitive](const auto &v) {
