@@ -52,4 +52,10 @@ namespace sky {
         ThreadPool executor;
     };
 
+    template <typename Index, typename Func>
+    void ParallelFor(Index begin, Index end, Func &&func)
+    {
+        TaskExecutor::Get()->GetExecutor().parallel_for(begin, end, std::forward<Func>(func));
+    }
+
 } // namespace sky

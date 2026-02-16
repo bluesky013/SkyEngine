@@ -108,8 +108,54 @@ namespace sky {
             return silent_dependent_async_impl(std::forward<Func>(func), depVec);
         }
 
+        // Parallel for loop: distributes [begin, end) across worker threads, calling func(index) for each index.
+        // Blocks until all iterations complete.
+        template <typename Index, typename Func>
+        void parallel_for(Index begin, Index end, Func &&func)
+        {
+            if (begin >= end) {
+                return;
+            }
+
+            const auto count = static_cast<size_t>(end - begin);
+            const auto numWorkers = workers.size();
+
+            if (numWorkers == 0 || count == 1) {
+                for (Index i = begin; i < end; ++i) {
+                    func(i);
+                }
+                return;
+            }
+
+            const auto chunks = std::min(count, numWorkers);
+            const auto chunkSize = count / chunks;
+            const auto remainder = count % chunks;
+
+            std::vector<AsyncTaskHandle> handles;
+            handles.reserve(chunks);
+
+            Index offset = begin;
+            for (size_t c = 0; c < chunks; ++c) {
+                Index chunkBegin = offset;
+                Index chunkEnd = chunkBegin + static_cast<Index>(chunkSize + (c < remainder ? 1 : 0));
+                offset = chunkEnd;
+
+                handles.emplace_back(async([&func, chunkBegin, chunkEnd]() {
+                    for (Index i = chunkBegin; i < chunkEnd; ++i) {
+                        func(i);
+                    }
+                }));
+            }
+
+            for (auto &h : handles) {
+                h.Wait();
+            }
+        }
+
         // Wait for all submitted tasks to complete
         void wait_for_all();
+
+        size_t NumWorkers() const { return workers.size(); }
 
     private:
         template <typename Func>
