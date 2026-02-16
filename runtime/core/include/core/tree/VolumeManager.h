@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <vector>
 #include <cstdint>
+#include <unordered_map>
 #include <core/shapes/AABB.h>
 #include <core/shapes/Frustum.h>
 #include <core/shapes/Shapes.h>
@@ -21,24 +21,24 @@ namespace sky {
         AABB worldBound;
         void *userData = nullptr;
 
-        mutable Octree<VolumeEntry>::ElementIndex octreeIndex;
+        mutable Octree<VolumeEntry*>::ElementIndex octreeIndex;
     };
 
     template <>
-    struct OctreeTraits<VolumeEntry> {
+    struct OctreeTraits<VolumeEntry*> {
         static constexpr uint32_t MAX_DEPTH = 8;
         static constexpr uint32_t MAX_ELEMENT_LEAF = 8;
 
         using BoundType = AABB;
 
-        static const AABB &GetBounds(const VolumeEntry &entry)
+        static const AABB &GetBounds(VolumeEntry *const &entry)
         {
-            return entry.worldBound;
+            return entry->worldBound;
         }
 
-        static void IndexChanged(const VolumeEntry &entry, const Octree<VolumeEntry>::ElementIndex &index)
+        static void IndexChanged(VolumeEntry *const &entry, const Octree<VolumeEntry*>::ElementIndex &index)
         {
-            entry.octreeIndex = index;
+            entry->octreeIndex = index;
         }
     };
 
@@ -54,50 +54,50 @@ namespace sky {
         VolumeID AddVolume(const AABB &worldBound, void *userData = nullptr)
         {
             VolumeID id = nextID++;
-            auto &entry = entries.emplace_back(VolumeEntry{id, worldBound, userData});
-            octree.AddElement(entry);
+            auto [it, ok] = entries.emplace(id, VolumeEntry{id, worldBound, userData});
+            octree.AddElement(&it->second);
             return id;
         }
 
         void RemoveVolume(VolumeID id)
         {
-            for (size_t i = 0; i < entries.size(); ++i) {
-                if (entries[i].id == id) {
-                    octree.RemoveElement(entries[i].octreeIndex);
-                    entries[i] = entries.back();
-                    entries.pop_back();
-                    return;
-                }
+            auto it = entries.find(id);
+            if (it != entries.end()) {
+                octree.RemoveElement(it->second.octreeIndex);
+                entries.erase(it);
             }
         }
 
         void UpdateVolume(VolumeID id, const AABB &newBound)
         {
-            for (auto &entry : entries) {
-                if (entry.id == id) {
-                    octree.RemoveElement(entry.octreeIndex);
-                    entry.worldBound = newBound;
-                    octree.AddElement(entry);
-                    return;
-                }
+            auto it = entries.find(id);
+            if (it != entries.end()) {
+                octree.RemoveElement(it->second.octreeIndex);
+                it->second.worldBound = newBound;
+                octree.AddElement(&it->second);
             }
         }
 
         template <typename Func>
-        void FrustumCull(const Frustum &frustum, const Func &callback) const
+        void FrustumCull(const Frustum &frustum, const Func &callback)
         {
-            for (const auto &entry : entries) {
-                if (Intersection(entry.worldBound, frustum)) {
-                    callback(entry);
+            octree.ForeachWithNodeTest(
+                [&frustum](const AABB &nodeBox) {
+                    return Intersection(nodeBox, frustum);
+                },
+                [&callback, &frustum](VolumeEntry *entry) {
+                    if (Intersection(entry->worldBound, frustum)) {
+                        callback(*entry);
+                    }
                 }
-            }
+            );
         }
 
         template <typename Func>
         void QueryByAABB(const AABB &queryBound, const Func &callback)
         {
-            octree.ForeachWithBoundTest(queryBound, [&callback](const VolumeEntry &entry) {
-                callback(entry);
+            octree.ForeachWithBoundTest(queryBound, [&callback](VolumeEntry *entry) {
+                callback(*entry);
             });
         }
 
@@ -105,18 +105,14 @@ namespace sky {
 
         const VolumeEntry *FindVolume(VolumeID id) const
         {
-            for (const auto &entry : entries) {
-                if (entry.id == id) {
-                    return &entry;
-                }
-            }
-            return nullptr;
+            auto it = entries.find(id);
+            return it != entries.end() ? &it->second : nullptr;
         }
 
     private:
         VolumeID nextID = 0;
-        std::vector<VolumeEntry> entries;
-        Octree<VolumeEntry> octree;
+        std::unordered_map<VolumeID, VolumeEntry> entries;
+        Octree<VolumeEntry*> octree;
     };
 
 } // namespace sky
