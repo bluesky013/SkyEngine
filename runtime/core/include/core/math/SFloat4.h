@@ -120,11 +120,32 @@ namespace sky {
 
         SFloat4() = default;
 
-        static inline SFloat4 Load(const float *p) { SFloat4 r; r.value[0] = p[0]; r.value[1] = p[1]; r.value[2] = p[2]; r.value[3] = p[3]; return r; }
-        static inline SFloat4 Set(float x, float y, float z, float w) { SFloat4 r; r.value[0] = x; r.value[1] = y; r.value[2] = z; r.value[3] = w; return r; }
-        static inline SFloat4 Splat(float v) { SFloat4 r; r.value[0] = r.value[1] = r.value[2] = r.value[3] = v; return r; }
+        static inline SFloat4 Load(const float *p)
+        {
+            SFloat4 r;
+            r.value[0] = p[0]; r.value[1] = p[1];
+            r.value[2] = p[2]; r.value[3] = p[3];
+            return r;
+        }
+        static inline SFloat4 Set(float x, float y, float z, float w)
+        {
+            SFloat4 r;
+            r.value[0] = x; r.value[1] = y;
+            r.value[2] = z; r.value[3] = w;
+            return r;
+        }
+        static inline SFloat4 Splat(float v)
+        {
+            SFloat4 r;
+            r.value[0] = r.value[1] = r.value[2] = r.value[3] = v;
+            return r;
+        }
 
-        inline void Store(float *p) const { p[0] = value[0]; p[1] = value[1]; p[2] = value[2]; p[3] = value[3]; }
+        inline void Store(float *p) const
+        {
+            p[0] = value[0]; p[1] = value[1];
+            p[2] = value[2]; p[3] = value[3];
+        }
 
         inline SFloat4 operator+(const SFloat4 &rhs) const { return SFloat4(*this) += rhs; }
         inline SFloat4 operator-(const SFloat4 &rhs) const { return SFloat4(*this) -= rhs; }
