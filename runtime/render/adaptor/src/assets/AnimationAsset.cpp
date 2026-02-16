@@ -36,7 +36,7 @@ namespace sky {
 
             archive.LoadValue(channelSize);
             channel.rotation.time.resize(channelSize / sizeof(float));
-            archive.LoadValue(reinterpret_cast<char*>(channel.position.time.data()), channelSize);
+            archive.LoadValue(reinterpret_cast<char*>(channel.rotation.time.data()), channelSize);
 
             archive.LoadValue(channelSize);
             channel.rotation.keys.resize(channelSize / sizeof(Quaternion));

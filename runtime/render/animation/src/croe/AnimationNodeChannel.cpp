@@ -16,6 +16,19 @@ namespace sky {
 
     void AnimationNodeChannel::Sample(const SampleParam &param, const AnimSampleResultPtr &ptr)
     {
+        auto *result = static_cast<AnimNodeSampleResult*>(ptr.Get());
+        if (result == nullptr) {
+            return;
+        }
 
+        if (!position.time.empty()) {
+            result->position = AnimSampleChannel(position, param);
+        }
+        if (!scale.time.empty()) {
+            result->scale = AnimSampleChannel(scale, param);
+        }
+        if (!rotation.time.empty()) {
+            result->rotation = AnimSampleChannel(rotation, param);
+        }
     }
 } // namespace sky
