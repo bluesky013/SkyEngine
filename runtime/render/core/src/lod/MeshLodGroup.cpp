@@ -17,9 +17,9 @@ namespace sky {
         config.lodBias = bias;
     }
 
-    void MeshLodGroup::PreComputeDistances(float radius, float fov)
+    void MeshLodGroup::PreComputeDistances(float sphereRadius, const Matrix4 &projMatrix)
     {
-        sky::PreComputeDistances(config, radius, fov);
+        sky::PreComputeDistances(config, sphereRadius, projMatrix);
     }
 
     uint32_t MeshLodGroup::SelectLod(const AABB &worldBound, const Vector3 &viewPos) const

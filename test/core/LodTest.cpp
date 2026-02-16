@@ -22,20 +22,46 @@ namespace lod_test {
         float lodBias = 1.0f;
     };
 
-    inline float ScreenSizeToDistance(float screenSize, float radius, float halfTanFov)
+    // UE-style: extract screen-size multiplier from projection matrix
+    inline float GetScreenMultiple(const Matrix4 &projMatrix)
+    {
+        return std::max(0.5f * projMatrix[0][0], 0.5f * projMatrix[1][1]);
+    }
+
+    // UE-style: ComputeBoundsScreenSize
+    inline float ComputeBoundsScreenSize(float sphereRadius, float dist, float screenMultiple)
+    {
+        float screenRadius = screenMultiple * sphereRadius / std::max(1.0f, dist);
+        return screenRadius * 2.0f;
+    }
+
+    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, const Matrix4 &projMatrix)
+    {
+        auto center = (worldBound.min + worldBound.max) * 0.5f;
+        auto extent = (worldBound.max - worldBound.min) * 0.5f;
+        float radius = extent.Length();
+
+        auto diff = center - viewPos;
+        float dist = diff.Length();
+
+        float screenMultiple = GetScreenMultiple(projMatrix);
+        return ComputeBoundsScreenSize(radius, dist, screenMultiple);
+    }
+
+    inline float ScreenSizeToDistance(float screenSize, float sphereRadius, float screenMultiple)
     {
         if (screenSize <= 0.f) {
             return std::numeric_limits<float>::max();
         }
-        return (2.0f * radius) / (screenSize * halfTanFov);
+        return (2.0f * screenMultiple * sphereRadius) / screenSize;
     }
 
-    inline void PreComputeDistances(LodConfig &config, float radius, float fov)
+    inline void PreComputeDistances(LodConfig &config, float sphereRadius, const Matrix4 &projMatrix)
     {
-        float halfTanFov = std::tan(fov * 0.5f);
+        float screenMultiple = GetScreenMultiple(projMatrix);
         config.distancesSq.resize(config.lodLevels.size());
         for (uint32_t i = 0; i < static_cast<uint32_t>(config.lodLevels.size()); ++i) {
-            float d = ScreenSizeToDistance(config.lodLevels[i].screenSize, radius, halfTanFov);
+            float d = ScreenSizeToDistance(config.lodLevels[i].screenSize, sphereRadius, screenMultiple);
             config.distancesSq[i] = d * d;
         }
     }
@@ -45,23 +71,6 @@ namespace lod_test {
         auto center = (worldBound.min + worldBound.max) * 0.5f;
         auto diff = center - viewPos;
         return diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
-    }
-
-    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov)
-    {
-        auto center = (worldBound.min + worldBound.max) * 0.5f;
-        auto extent = (worldBound.max - worldBound.min) * 0.5f;
-        float radius = extent.Length();
-
-        auto diff = center - viewPos;
-        float dist = diff.Length();
-
-        if (dist <= radius) {
-            return 1.0f;
-        }
-
-        float screenRadius = radius / (dist * std::tan(fov * 0.5f));
-        return screenRadius * 2.0f;
     }
 
     inline uint32_t SelectLodByScreenSize(const LodConfig &config, float screenSize)
@@ -107,29 +116,29 @@ using namespace sky::lod_test;
 TEST(LodTest, ScreenSizeCalculation)
 {
     AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
-    float fov = ToRadian(90.0f);
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
 
-    // Camera at the object center → screen size should be 1.0
+    // Camera at the object center → screen size should be large (clamped by max(1,dist))
     {
         Vector3 viewPos(0, 0, 0);
-        float size = CalculateScreenSize(bound, viewPos, fov);
-        ASSERT_FLOAT_EQ(size, 1.0f);
+        float size = CalculateScreenSize(bound, viewPos, projMatrix);
+        ASSERT_GT(size, 1.0f);
     }
 
     // Camera far away → screen size should be small
     {
         Vector3 viewPos(0, 0, 100);
-        float size = CalculateScreenSize(bound, viewPos, fov);
+        float size = CalculateScreenSize(bound, viewPos, projMatrix);
         ASSERT_GT(size, 0.0f);
         ASSERT_LT(size, 0.1f);
     }
 
-    // Camera nearby → screen size should be larger
+    // Camera nearby → screen size should be larger than far away
     {
         Vector3 viewPos(0, 0, 5);
-        float sizeNear = CalculateScreenSize(bound, viewPos, fov);
+        float sizeNear = CalculateScreenSize(bound, viewPos, projMatrix);
         Vector3 viewPosFar(0, 0, 50);
-        float sizeFar = CalculateScreenSize(bound, viewPosFar, fov);
+        float sizeFar = CalculateScreenSize(bound, viewPosFar, projMatrix);
         ASSERT_GT(sizeNear, sizeFar);
     }
 }
@@ -209,55 +218,72 @@ TEST(LodTest, SelectLodLevelSingleLevel)
 TEST(LodTest, ScreenSizeDecreasesWithDistance)
 {
     AABB bound(Vector3(-2, -2, -2), Vector3(2, 2, 2));
-    float fov = ToRadian(60.0f);
+    auto projMatrix = MakePerspective(ToRadian(60.0f), 1.0f, 0.1f, 1000.f);
 
-    float prevSize = 2.0f;
+    float prevSize = std::numeric_limits<float>::max();
     for (float dist = 10.0f; dist <= 100.0f; dist += 10.0f) {
         Vector3 viewPos(0, 0, dist);
-        float size = CalculateScreenSize(bound, viewPos, fov);
+        float size = CalculateScreenSize(bound, viewPos, projMatrix);
         ASSERT_LT(size, prevSize);
         prevSize = size;
     }
 }
 
-// ===== Pre-computed distance LOD tests =====
+// ===== UE-style screen multiplier tests =====
+
+TEST(LodTest, GetScreenMultipleFromProjMatrix)
+{
+    // 90° FOV, aspect 1.0: inverseHalfTan = 1/tan(45°) = 1.0
+    auto proj90 = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+    float sm90 = GetScreenMultiple(proj90);
+    ASSERT_NEAR(sm90, 0.5f, 0.001f); // max(0.5*1.0, 0.5*1.0) = 0.5
+
+    // 60° FOV, aspect 1.0: inverseHalfTan = 1/tan(30°) ≈ 1.732
+    auto proj60 = MakePerspective(ToRadian(60.0f), 1.0f, 0.1f, 1000.f);
+    float sm60 = GetScreenMultiple(proj60);
+    ASSERT_GT(sm60, sm90); // Narrower FOV → larger screen multiple
+
+    // With aspect != 1.0
+    auto projWide = MakePerspective(ToRadian(90.0f), 16.0f/9.0f, 0.1f, 1000.f);
+    float smWide = GetScreenMultiple(projWide);
+    // [0][0] = inverseHalfTan / aspect < inverseHalfTan = [1][1]
+    // max(0.5*[0][0], 0.5*[1][1]) = 0.5 * [1][1] = 0.5
+    ASSERT_NEAR(smWide, 0.5f, 0.001f);
+}
 
 TEST(LodTest, ScreenSizeToDistanceConversion)
 {
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+    float screenMultiple = GetScreenMultiple(projMatrix);
     float radius = 1.7320508f; // sqrt(3) ~ extent of unit AABB
-    float fov = ToRadian(90.0f);
-    float halfTanFov = std::tan(fov * 0.5f); // tan(45°) = 1.0
 
-    // screenSize = 2*radius / (dist * halfTanFov)
-    // dist = 2*radius / (screenSize * halfTanFov)
+    // dist = 2 * screenMultiple * radius / screenSize
     {
-        float d = ScreenSizeToDistance(0.5f, radius, halfTanFov);
-        float expected = (2.0f * radius) / (0.5f * halfTanFov);
+        float d = ScreenSizeToDistance(0.5f, radius, screenMultiple);
+        float expected = (2.0f * screenMultiple * radius) / 0.5f;
         ASSERT_FLOAT_EQ(d, expected);
     }
 
     // screenSize 0 → infinite distance
     {
-        float d = ScreenSizeToDistance(0.0f, radius, halfTanFov);
+        float d = ScreenSizeToDistance(0.0f, radius, screenMultiple);
         ASSERT_EQ(d, std::numeric_limits<float>::max());
     }
 
     // Smaller screenSize → larger distance
     {
-        float d1 = ScreenSizeToDistance(0.5f, radius, halfTanFov);
-        float d2 = ScreenSizeToDistance(0.25f, radius, halfTanFov);
+        float d1 = ScreenSizeToDistance(0.5f, radius, screenMultiple);
+        float d2 = ScreenSizeToDistance(0.25f, radius, screenMultiple);
         ASSERT_GT(d2, d1);
     }
 }
 
 TEST(LodTest, PreComputeDistancesMatchesScreenSize)
 {
-    // Verify that pre-computed distance-based LOD selection matches
-    // screen-size-based LOD selection for various camera distances
     AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
     auto extent = (bound.max - bound.min) * 0.5f;
     float radius = extent.Length();
-    float fov = ToRadian(90.0f);
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
 
     LodConfig config;
     config.lodBias = 1.0f;
@@ -268,12 +294,12 @@ TEST(LodTest, PreComputeDistancesMatchesScreenSize)
         LodLevel{0.0f},
     };
 
-    PreComputeDistances(config, radius, fov);
+    PreComputeDistances(config, radius, projMatrix);
 
     // Test at various distances: both methods should agree
     for (float dist = 5.0f; dist <= 200.0f; dist += 5.0f) {
         Vector3 viewPos(0, 0, dist);
-        float screenSize = CalculateScreenSize(bound, viewPos, fov);
+        float screenSize = CalculateScreenSize(bound, viewPos, projMatrix);
 
         uint32_t lodByScreen = SelectLodByScreenSize(config, screenSize);
         uint32_t lodByDist = SelectLodLevel(config, bound, viewPos);
@@ -281,7 +307,7 @@ TEST(LodTest, PreComputeDistancesMatchesScreenSize)
         // For the fallback LOD (screenSize=0 → infinite distance), distance-based
         // returns INVALID while screen-size returns 3. Both are valid.
         if (lodByScreen == 3u && lodByDist == INVALID_LOD_LEVEL) {
-            continue; // screenSize=0 maps to infinite distance, this is expected
+            continue;
         }
         ASSERT_EQ(lodByScreen, lodByDist)
             << "Mismatch at distance " << dist
@@ -294,7 +320,7 @@ TEST(LodTest, PreComputeDistancesWithBias)
     AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
     auto extent = (bound.max - bound.min) * 0.5f;
     float radius = extent.Length();
-    float fov = ToRadian(90.0f);
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
 
     LodConfig config;
     config.lodLevels = {
@@ -302,7 +328,7 @@ TEST(LodTest, PreComputeDistancesWithBias)
         LodLevel{0.25f},
         LodLevel{0.1f},
     };
-    PreComputeDistances(config, radius, fov);
+    PreComputeDistances(config, radius, projMatrix);
 
     Vector3 viewPos(0, 0, 10);
 
@@ -335,12 +361,10 @@ TEST(LodTest, PreComputeDistancesEmpty)
 
 TEST(LodTest, RuntimeSelectionOnlyUsesDistance)
 {
-    // Verify that runtime selection only needs distance (no fov/tan)
-    // by confirming the pre-computed approach works consistently
     AABB bound(Vector3(-2, -2, -2), Vector3(2, 2, 2));
     auto extent = (bound.max - bound.min) * 0.5f;
     float radius = extent.Length();
-    float fov = ToRadian(60.0f);
+    auto projMatrix = MakePerspective(ToRadian(60.0f), 1.0f, 0.1f, 1000.f);
 
     LodConfig config;
     config.lodBias = 1.0f;
@@ -349,7 +373,7 @@ TEST(LodTest, RuntimeSelectionOnlyUsesDistance)
         LodLevel{0.3f},
         LodLevel{0.1f},
     };
-    PreComputeDistances(config, radius, fov);
+    PreComputeDistances(config, radius, projMatrix);
 
     // Close camera → LOD 0
     {
@@ -368,4 +392,26 @@ TEST(LodTest, RuntimeSelectionOnlyUsesDistance)
         Vector3 viewPos(0, 0, 80);
         ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 2u);
     }
+}
+
+TEST(LodTest, DifferentAspectRatios)
+{
+    // Verify that screen size handles different aspect ratios correctly
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    Vector3 viewPos(0, 0, 20);
+
+    auto proj1to1 = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+    auto proj16to9 = MakePerspective(ToRadian(90.0f), 16.0f/9.0f, 0.1f, 1000.f);
+
+    float size1to1 = CalculateScreenSize(bound, viewPos, proj1to1);
+    float size16to9 = CalculateScreenSize(bound, viewPos, proj16to9);
+
+    // Both should be positive
+    ASSERT_GT(size1to1, 0.0f);
+    ASSERT_GT(size16to9, 0.0f);
+
+    // For wider aspect, [1][1] is the same but [0][0] is smaller
+    // GetScreenMultiple uses max(), so same FOV → same screen multiple
+    // when [1][1] >= [0][0]
+    ASSERT_FLOAT_EQ(size1to1, size16to9);
 }

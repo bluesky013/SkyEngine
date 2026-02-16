@@ -16,7 +16,7 @@ namespace sky {
 
         void AddLodMesh(const RDMeshPtr &mesh, float screenSize);
         void SetLodBias(float bias);
-        void PreComputeDistances(float radius, float fov);
+        void PreComputeDistances(float sphereRadius, const Matrix4 &projMatrix);
 
         uint32_t GetLodCount() const { return static_cast<uint32_t>(lodMeshes.size()); }
         const RDMeshPtr &GetMesh(uint32_t lod) const { return lodMeshes[lod]; }
