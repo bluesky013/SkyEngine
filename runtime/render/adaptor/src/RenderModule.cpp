@@ -18,12 +18,14 @@
 #include <render/adaptor/components/StaticMeshComponent.h>
 #include <render/adaptor/components/SkeletonMeshComponent.h>
 #include <render/adaptor/components/SkyBoxComponent.h>
+#include <render/adaptor/components/HLODComponent.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderTechniqueLibrary.h>
 
 #include <render/light/LightFeature.h>
 #include <render/mesh/MeshFeature.h>
+#include <render/hlod/HLODFeature.h>
 #include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
 
@@ -43,6 +45,7 @@ namespace sky {
         CameraComponent::Reflect(context);
         SkeletonMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
+        HLODComponent::Reflect(context);
 
         static std::string GROUP = "Render";
         ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
@@ -50,6 +53,7 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
         ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
+        ComponentFactory::Get()->RegisterComponent<HLODComponent>(GROUP);
     }
 
     void RenderModule::ProcessArgs(const StartArguments &args)
@@ -121,6 +125,7 @@ namespace sky {
     void RenderModule::InitFeatures() // NOLINT
     {
         MeshFeature::Get()->Init();
+        HLODFeature::Get()->Init();
         ImGuiFeature::Get()->Init();
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
@@ -149,6 +154,7 @@ namespace sky {
 
         RenderTechniqueLibrary::Destroy();
         MeshFeature::Destroy();
+        HLODFeature::Destroy();
         ImGuiFeature::Destroy();
         TextFeature::Destroy();
 
