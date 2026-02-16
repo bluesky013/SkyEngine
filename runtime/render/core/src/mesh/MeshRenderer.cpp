@@ -156,14 +156,18 @@ namespace sky {
         }
     }
 
-    void MeshRenderer::UpdateLod(const Vector3 &viewPos, float fov, float screenHeight)
+    void MeshRenderer::UpdateLod(const Vector3 &viewPos, float fov)
     {
         if (!lodGroup || lodGroup->GetLodCount() == 0 || primitives.empty()) {
             return;
         }
 
-        const auto &worldBound = primitives[0]->worldBound;
-        uint32_t newLod = lodGroup->SelectLod(worldBound, viewPos, fov, screenHeight);
+        AABB combinedBound = primitives[0]->worldBound;
+        for (uint32_t i = 1; i < static_cast<uint32_t>(primitives.size()); ++i) {
+            Merge(combinedBound, primitives[i]->worldBound, combinedBound);
+        }
+
+        uint32_t newLod = lodGroup->SelectLod(combinedBound, viewPos, fov);
 
         if (newLod == INVALID_LOD_LEVEL) {
             newLod = lodGroup->GetLodCount() - 1;

@@ -20,7 +20,7 @@ namespace sky {
         uint32_t GetLodCount() const { return static_cast<uint32_t>(lodMeshes.size()); }
         const RDMeshPtr &GetMesh(uint32_t lod) const { return lodMeshes[lod]; }
 
-        uint32_t SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov, float screenHeight) const;
+        uint32_t SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov) const;
 
         const LodConfig &GetConfig() const { return config; }
 

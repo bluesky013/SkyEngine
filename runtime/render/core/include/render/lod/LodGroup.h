@@ -24,7 +24,7 @@ namespace sky {
         float lodBias = 1.0f;
     };
 
-    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov, float screenHeight)
+    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov)
     {
         auto center = (worldBound.min + worldBound.max) * 0.5f;
         auto extent = (worldBound.max - worldBound.min) * 0.5f;

@@ -17,9 +17,9 @@ namespace sky {
         config.lodBias = bias;
     }
 
-    uint32_t MeshLodGroup::SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov, float screenHeight) const
+    uint32_t MeshLodGroup::SelectLod(const AABB &worldBound, const Vector3 &viewPos, float fov) const
     {
-        float size = CalculateScreenSize(worldBound, viewPos, fov, screenHeight);
+        float size = CalculateScreenSize(worldBound, viewPos, fov);
         return SelectLodLevel(config, size);
     }
 

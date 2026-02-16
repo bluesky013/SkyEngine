@@ -21,7 +21,7 @@ namespace lod_test {
         float lodBias = 1.0f;
     };
 
-    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov, float /*screenHeight*/)
+    inline float CalculateScreenSize(const AABB &worldBound, const Vector3 &viewPos, float fov)
     {
         auto center = (worldBound.min + worldBound.max) * 0.5f;
         auto extent = (worldBound.max - worldBound.min) * 0.5f;
@@ -63,14 +63,14 @@ TEST(LodTest, ScreenSizeCalculation)
     // Camera at the object center → screen size should be 1.0
     {
         Vector3 viewPos(0, 0, 0);
-        float size = CalculateScreenSize(bound, viewPos, fov, 1080.0f);
+        float size = CalculateScreenSize(bound, viewPos, fov);
         ASSERT_FLOAT_EQ(size, 1.0f);
     }
 
     // Camera far away → screen size should be small
     {
         Vector3 viewPos(0, 0, 100);
-        float size = CalculateScreenSize(bound, viewPos, fov, 1080.0f);
+        float size = CalculateScreenSize(bound, viewPos, fov);
         ASSERT_GT(size, 0.0f);
         ASSERT_LT(size, 0.1f);
     }
@@ -78,9 +78,9 @@ TEST(LodTest, ScreenSizeCalculation)
     // Camera nearby → screen size should be larger
     {
         Vector3 viewPos(0, 0, 5);
-        float sizeNear = CalculateScreenSize(bound, viewPos, fov, 1080.0f);
+        float sizeNear = CalculateScreenSize(bound, viewPos, fov);
         Vector3 viewPosFar(0, 0, 50);
-        float sizeFar = CalculateScreenSize(bound, viewPosFar, fov, 1080.0f);
+        float sizeFar = CalculateScreenSize(bound, viewPosFar, fov);
         ASSERT_GT(sizeNear, sizeFar);
     }
 }
@@ -165,7 +165,7 @@ TEST(LodTest, ScreenSizeDecreasesWithDistance)
     float prevSize = 2.0f;
     for (float dist = 10.0f; dist <= 100.0f; dist += 10.0f) {
         Vector3 viewPos(0, 0, dist);
-        float size = CalculateScreenSize(bound, viewPos, fov, 1080.0f);
+        float size = CalculateScreenSize(bound, viewPos, fov);
         ASSERT_LT(size, prevSize);
         prevSize = size;
     }

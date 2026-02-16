@@ -34,10 +34,9 @@ namespace sky {
 
         const auto &projMat = view->GetProject();
         float fov = 2.0f * std::atan(1.0f / projMat[1][1]);
-        float screenHeight = 1080.0f;
 
         for (auto &mesh : staticMeshes) {
-            mesh->UpdateLod(viewPos, fov, screenHeight);
+            mesh->UpdateLod(viewPos, fov);
         }
     }
 
