@@ -218,7 +218,7 @@ namespace sky {
         }
 
         // Batch size for SIMD processing
-        constexpr size_t BATCH_SIZE = 64;
+        constexpr uint32_t BATCH_SIZE = 64;
         std::vector<float> cellCenters(BATCH_SIZE * 3);
         std::vector<float> distancesSq(BATCH_SIZE);
 
@@ -229,17 +229,17 @@ namespace sky {
             float cellCenterY = cell.center.y;
             float cellCenterZ = cell.center.z;
 
+            // Pre-fill cell centers for the full batch (reused for all batches in this cell)
+            for (uint32_t i = 0; i < BATCH_SIZE; ++i) {
+                cellCenters[i * 3 + 0] = cellCenterX;
+                cellCenters[i * 3 + 1] = cellCenterY;
+                cellCenters[i * 3 + 2] = cellCenterZ;
+            }
+
             // Process objects in batches
             for (uint32_t batchStart = 0; batchStart < numObjects; batchStart += BATCH_SIZE) {
-                uint32_t batchEnd = std::min(batchStart + static_cast<uint32_t>(BATCH_SIZE), numObjects);
+                uint32_t batchEnd = std::min(batchStart + BATCH_SIZE, numObjects);
                 uint32_t batchCount = batchEnd - batchStart;
-
-                // Fill cell centers for batch (same cell center for all)
-                for (uint32_t i = 0; i < batchCount; ++i) {
-                    cellCenters[i * 3 + 0] = cellCenterX;
-                    cellCenters[i * 3 + 1] = cellCenterY;
-                    cellCenters[i * 3 + 2] = cellCenterZ;
-                }
 
                 // Use SIMD to calculate distances
                 simd::DistanceSquaredBatch(
