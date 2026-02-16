@@ -27,3 +27,7 @@ if (SKY_EDITOR OR SKY_BUILD_TOOL)
 endif ()
 
 add_compile_definitions("$<$<CONFIG:Debug>:_DEBUG;DEBUG>")
+
+if (SKY_MATH_SIMD)
+    add_compile_definitions(SKY_MATH_SIMD=1)
+endif ()
