@@ -7,7 +7,7 @@
 #include <memory>
 #include <core/std/Container.h>
 #include <core/memory/LinearStorage.h>
-#include <taskflow/taskflow.hpp>
+#include <core/async/ThreadPool.h>
 #include <rhi/CommandBuffer.h>
 #include <render/rdg/TransientPool.h>
 #include <render/rdg/RenderGraphTypes.h>
@@ -34,7 +34,7 @@ namespace sky::rdg {
         {
         }
 
-        tf::Executor executor;
+        ThreadPool executor;
         PmrUnSyncPoolRes resources;
         std::unique_ptr<TransientPool> pool;
 

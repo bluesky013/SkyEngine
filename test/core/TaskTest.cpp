@@ -37,3 +37,74 @@ TEST(TaskTest, TaskTestBase)
     TaskExecutor::Get()->GetExecutor().wait_for_all();
     ASSERT_EQ(id, 20);
 }
+
+TEST(TaskTest, ParallelForBasic)
+{
+    const int N = 100;
+    std::vector<int> v(N, 0);
+
+    ThreadPool pool(4);
+    pool.parallel_for(0, N, [&v](int i) {
+        v[i] = i * 2;
+    });
+
+    for (int i = 0; i < N; ++i) {
+        ASSERT_EQ(v[i], i * 2);
+    }
+}
+
+TEST(TaskTest, ParallelForEmpty)
+{
+    ThreadPool pool(4);
+    // Should not crash or hang
+    pool.parallel_for(0, 0, [](int) {
+        FAIL() << "Should not be called";
+    });
+
+    pool.parallel_for(5, 5, [](int) {
+        FAIL() << "Should not be called";
+    });
+
+    pool.parallel_for(10, 5, [](int) {
+        FAIL() << "Should not be called";
+    });
+}
+
+TEST(TaskTest, ParallelForSingleElement)
+{
+    int value = 0;
+    ThreadPool pool(4);
+    pool.parallel_for(0, 1, [&value](int) {
+        value = 42;
+    });
+    ASSERT_EQ(value, 42);
+}
+
+TEST(TaskTest, ParallelForLargeRange)
+{
+    const int N = 10000;
+    std::vector<int> v(N, 0);
+
+    ThreadPool pool(4);
+    pool.parallel_for(0, N, [&v](int i) {
+        v[i] = i;
+    });
+
+    for (int i = 0; i < N; ++i) {
+        ASSERT_EQ(v[i], i);
+    }
+}
+
+TEST(TaskTest, ParallelForConvenience)
+{
+    const int N = 100;
+    std::vector<int> v(N, 0);
+
+    ParallelFor(0, N, [&v](int i) {
+        v[i] = i + 1;
+    });
+
+    for (int i = 0; i < N; ++i) {
+        ASSERT_EQ(v[i], i + 1);
+    }
+}

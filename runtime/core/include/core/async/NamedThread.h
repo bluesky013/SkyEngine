@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include <taskflow/taskflow.hpp>
-
+#include <core/async/ThreadPool.h>
 #include <core/name/Name.h>
 #include <core/environment/Singleton.h>
 #include <core/async/Semaphore.h>
@@ -27,7 +26,7 @@ namespace sky {
         void Signal();
 
     private:
-        tf::Executor executor;
+        ThreadPool executor;
         Semaphore semaphore;
     };
 

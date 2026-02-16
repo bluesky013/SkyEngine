@@ -8,7 +8,7 @@
 #include <core/file/FileSystem.h>
 #include <core/name/Name.h>
 #include <core/archive/MemoryArchive.h>
-#include <taskflow/taskflow.hpp>
+#include <core/async/ThreadPool.h>
 #include <shader/ShaderCompiler.h>
 
 namespace sky {
@@ -45,7 +45,7 @@ namespace sky {
         NativeFileSystemPtr cacheSourceFS;
         NativeFileSystemPtr compiledBinaryFS[static_cast<uint32_t>(ShaderCompileTarget::NUM)];
 
-        tf::Executor executor;
+        ThreadPool executor;
     };
 
 } // namespace sky
