@@ -78,8 +78,32 @@ namespace sky {
             Insert(0, element, bounds);
         }
 
+        void UpdateElement(ElementIndex id, const T &newElement)
+        {
+            if (id.nodeIndex >= nodes.size() || id.eleIndex >= elements[id.nodeIndex].size()) {
+                return;
+            }
+
+            const auto &newBounds = TreeTraits::GetBounds(newElement);
+            const auto &oldBounds = TreeTraits::GetBounds(elements[id.nodeIndex][id.eleIndex]);
+
+            // If the element is still within the same node, update directly
+            if (nodes[id.nodeIndex].IsLeaf() || GetChild(nodes[id.nodeIndex], newBounds).index == GetChild(nodes[id.nodeIndex], oldBounds).index) {
+                elements[id.nodeIndex][id.eleIndex] = newElement;
+            } else {
+                // Otherwise, remove and re-add
+                RemoveElement(id);
+                AddElement(newElement);
+            }
+        }
+
         void RemoveElement(ElementIndex id)
         {
+            // Safety check: validate node index and element index validity
+            if (id.nodeIndex >= nodes.size() || id.eleIndex >= elements[id.nodeIndex].size()) {
+                return;
+            }
+
             auto &elementList = elements[id.nodeIndex];
 
             if (id.eleIndex < elementList.size()) {
@@ -88,6 +112,7 @@ namespace sky {
             }
             elementList.pop_back();
 
+            // Recursively update parent node count
             NodeIndex tmpIdx = id.nodeIndex;
             while (true) {
                 nodes[tmpIdx].numElements--;
@@ -124,6 +149,36 @@ namespace sky {
             ForeachWithBoundTestWith(0, bounds, func);
         }
 
+        // Get tree statistics
+        uint32_t GetNodeCount() const
+        {
+            return static_cast<uint32_t>(nodes.size());
+        }
+
+        uint32_t GetElementCount() const
+        {
+            uint32_t count = 0;
+            for (const auto &elementList : elements) {
+                count += static_cast<uint32_t>(elementList.size());
+            }
+            return count;
+        }
+
+        // Clear tree but keep the root node
+        void Clear()
+        {
+            if (!nodes.empty()) {
+                nodes.resize(1);
+                elements.resize(1);
+                elements[0].clear();
+                nodes[0].idxChild = INVALID_IDX;
+                nodes[0].numElements = 0;
+                parentLinks.clear();
+                parentLinks.emplace_back(INVALID_IDX);
+                freeList.clear();
+            }
+        }
+
         explicit Octree(float maxExtent, const Vector3 &ori = VEC3_ZERO)
             : leafExtent(maxExtent * std::pow(0.5f, static_cast<float>(MAX_DEPTH)))
         {
@@ -135,7 +190,7 @@ namespace sky {
     private:
         NodeIndex AllocateNodes()
         {
-            NodeIndex index ;
+            NodeIndex index;
             if (!freeList.empty()) {
                 index = freeList.back();
                 freeList.pop_back();
@@ -150,28 +205,29 @@ namespace sky {
 
         OctreeChild GetChild(const TreeNode &node, const BoundType &queryBounds)
         {
-            auto queryCenter = BoundTraits::GetCenter(queryBounds);
-            auto queryExtent = BoundTraits::GetExtent(queryBounds);
+            const auto queryCenter = BoundTraits::GetCenter(queryBounds);
+            const auto queryExtent = BoundTraits::GetExtent(queryBounds);
+            const auto childExt = node.ext / 4.f;
 
-            const auto &currentCenter = node.origin;
+            // Calculate distance difference between query bounds and child node centers
+            const auto diffToCenter = queryCenter - node.origin;
+            const auto negativeChildCenter = node.origin - Vector3(childExt);
+            const auto positiveChildCenter = node.origin + Vector3(childExt);
 
-            auto diffCenter = queryCenter - currentCenter;
-            auto childExt   = node.ext / 4.f;
+            const auto distToNegative = queryCenter - negativeChildCenter;
+            const auto distToPositive = positiveChildCenter - queryCenter;
+            const auto minDist = Min(distToNegative, distToPositive);
+            const auto minExtent = queryExtent + minDist;
 
-            auto negativeCenterDiff = queryCenter - (currentCenter - Vector3(childExt));
-            auto positiveCenterDiff = (currentCenter + Vector3(childExt)) - queryCenter;
-            auto minDiff = Min(negativeCenterDiff, positiveCenterDiff);
-            auto queryDiff = queryExtent + minDiff;
-
-            if (queryDiff.x > childExt ||
-                queryDiff.y > childExt ||
-                queryDiff.z > childExt) {
+            // Check if exceeds single child node range
+            if (minExtent.x > childExt || minExtent.y > childExt || minExtent.z > childExt) {
                 return {};
             }
 
-            uint8_t x = diffCenter.x > 0.f;
-            uint8_t y = diffCenter.y > 0.f;
-            uint8_t z = diffCenter.z > 0.f;
+            // Determine child node position (0 or 1)
+            uint8_t x = diffToCenter.x > 0.f ? 1 : 0;
+            uint8_t y = diffToCenter.y > 0.f ? 1 : 0;
+            uint8_t z = diffToCenter.z > 0.f ? 1 : 0;
             return {x, y, z};
         }
 
