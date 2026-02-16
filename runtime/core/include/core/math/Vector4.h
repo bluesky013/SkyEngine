@@ -6,7 +6,7 @@
 #pragma once
 
 #include "core/math/Math.h"
-#include "core/math/SFloat4.h"
+#include "core/math/MathSimd.h"
 
 namespace sky {
 

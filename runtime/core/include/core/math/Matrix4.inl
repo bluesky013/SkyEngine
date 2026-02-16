@@ -32,14 +32,26 @@ namespace sky {
 
     inline Matrix4 Matrix4::operator*(const Matrix4& rhs) const
     {
-#if SKY_SIMD_ENABLED
+#if SKY_SIMD_SSE
         Matrix4 ret;
         for (int i = 0; i < 4; ++i) {
-            SFloat4 r = SFloat4(m[0].simd) * SFloat4::Splat(rhs.m[i].v[0]);
-            r += SFloat4(m[1].simd) * SFloat4::Splat(rhs.m[i].v[1]);
-            r += SFloat4(m[2].simd) * SFloat4::Splat(rhs.m[i].v[2]);
-            r += SFloat4(m[3].simd) * SFloat4::Splat(rhs.m[i].v[3]);
-            ret.m[i].simd = r.value;
+            __m128 e0 = _mm_set1_ps(rhs.m[i].v[0]);
+            __m128 e1 = _mm_set1_ps(rhs.m[i].v[1]);
+            __m128 e2 = _mm_set1_ps(rhs.m[i].v[2]);
+            __m128 e3 = _mm_set1_ps(rhs.m[i].v[3]);
+            ret.m[i].simd = _mm_add_ps(
+                _mm_add_ps(_mm_mul_ps(m[0].simd, e0), _mm_mul_ps(m[1].simd, e1)),
+                _mm_add_ps(_mm_mul_ps(m[2].simd, e2), _mm_mul_ps(m[3].simd, e3)));
+        }
+        return ret;
+#elif SKY_SIMD_NEON
+        Matrix4 ret;
+        for (int i = 0; i < 4; ++i) {
+            float32x4_t r = vmulq_n_f32(m[0].simd, rhs.m[i].v[0]);
+            r = vmlaq_n_f32(r, m[1].simd, rhs.m[i].v[1]);
+            r = vmlaq_n_f32(r, m[2].simd, rhs.m[i].v[2]);
+            r = vmlaq_n_f32(r, m[3].simd, rhs.m[i].v[3]);
+            ret.m[i].simd = r;
         }
         return ret;
 #else
@@ -107,13 +119,23 @@ namespace sky {
 
     inline Vector4 Matrix4::operator*(const Vector4& rhs) const
     {
-#if SKY_SIMD_ENABLED
-        SFloat4 r = SFloat4(m[0].simd) * SFloat4::Splat(rhs.v[0]);
-        r += SFloat4(m[1].simd) * SFloat4::Splat(rhs.v[1]);
-        r += SFloat4(m[2].simd) * SFloat4::Splat(rhs.v[2]);
-        r += SFloat4(m[3].simd) * SFloat4::Splat(rhs.v[3]);
+#if SKY_SIMD_SSE
+        __m128 e0 = _mm_set1_ps(rhs.v[0]);
+        __m128 e1 = _mm_set1_ps(rhs.v[1]);
+        __m128 e2 = _mm_set1_ps(rhs.v[2]);
+        __m128 e3 = _mm_set1_ps(rhs.v[3]);
         Vector4 result;
-        result.simd = r.value;
+        result.simd = _mm_add_ps(
+            _mm_add_ps(_mm_mul_ps(m[0].simd, e0), _mm_mul_ps(m[1].simd, e1)),
+            _mm_add_ps(_mm_mul_ps(m[2].simd, e2), _mm_mul_ps(m[3].simd, e3)));
+        return result;
+#elif SKY_SIMD_NEON
+        float32x4_t r = vmulq_n_f32(m[0].simd, rhs.v[0]);
+        r = vmlaq_n_f32(r, m[1].simd, rhs.v[1]);
+        r = vmlaq_n_f32(r, m[2].simd, rhs.v[2]);
+        r = vmlaq_n_f32(r, m[3].simd, rhs.v[3]);
+        Vector4 result;
+        result.simd = r;
         return result;
 #else
         Vector4 v0 = m[0] * rhs[0];
