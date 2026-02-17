@@ -37,9 +37,9 @@ namespace sky {
         }
         
         float duration = clip->GetDuration();
-        float frameRate = clip->GetPlayRate();
+        float playRate = clip->GetPlayRate();
         
-        if (duration <= 0.f || frameRate <= 0.f) {
+        if (duration <= 0.f || playRate <= 0.f) {
             return;
         }
         
