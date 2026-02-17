@@ -9,8 +9,14 @@
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/resource/Mesh.h>
 #include <render/mesh/MeshRenderer.h>
+#include <render/lod/MeshLodGroup.h>
 
 namespace sky {
+
+    struct LodMeshAssetData {
+        Uuid meshUuid;
+        float screenSize = 0.f;
+    };
 
     class StaticMeshComponent : public ComponentBase, public IAssetEvent {
     public:
@@ -40,11 +46,17 @@ namespace sky {
         void SetEnableMeshletConeDebug(bool enable);
         bool GetEnableMeshletConeDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE); }
 
+        void SetLodMeshes(const std::vector<LodMeshAssetData> &lodMeshes);
+        const std::vector<LodMeshAssetData> &GetLodMeshes() const { return lodMeshAssets; }
+        void SetLodBias(float bias);
+        float GetLodBias() const { return lodBias; }
+
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
     private:
         void ShutDown();
         void BuildRenderer();
+        void BuildLodGroup();
 
         void OnAssetLoaded() override;
 
@@ -58,6 +70,11 @@ namespace sky {
         MeshAssetPtr meshAsset;
         RDMeshPtr meshInstance;
         MeshRenderer *renderer = nullptr;
+
+        std::vector<LodMeshAssetData> lodMeshAssets;
+        std::vector<MeshAssetPtr> lodMeshAssetPtrs;
+        RDMeshLodGroupPtr lodGroup;
+        float lodBias = 1.0f;
 
         std::atomic_bool dirty = false;
 

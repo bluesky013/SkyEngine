@@ -5,6 +5,7 @@
 #include <render/mesh/MeshRenderer.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/resource/Meshlet.h>
+#include <render/lod/LodGroup.h>
 #include <render/RenderBuiltinLayout.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
@@ -143,6 +144,83 @@ namespace sky {
         if (meshletDebug) {
             scene->RemovePrimitive(meshletDebug->GetPrimitive());
             meshletDebug = nullptr;
+        }
+        isVisible = true;
+        culledByLod = false;
+    }
+
+    void MeshRenderer::HidePrimitives()
+    {
+        if (!isVisible || scene == nullptr) {
+            return;
+        }
+
+        for (auto &prim : primitives) {
+            scene->RemovePrimitive(prim.get());
+        }
+        if (meshletDebug) {
+            scene->RemovePrimitive(meshletDebug->GetPrimitive());
+        }
+        isVisible = false;
+    }
+
+    void MeshRenderer::ShowPrimitives()
+    {
+        if (isVisible || scene == nullptr) {
+            return;
+        }
+
+        for (auto &prim : primitives) {
+            scene->AddPrimitive(prim.get());
+        }
+        if (meshletDebug && debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE)) {
+            scene->AddPrimitive(meshletDebug->GetPrimitive());
+        }
+        isVisible = true;
+    }
+
+    void MeshRenderer::SetLodGroup(const RDMeshLodGroupPtr &lodGroup_)
+    {
+        lodGroup = lodGroup_;
+        currentLod = 0;
+        if (lodGroup && lodGroup->GetLodCount() > 0) {
+            SetMesh(lodGroup->GetMesh(0), enableMeshShading);
+        }
+    }
+
+    void MeshRenderer::UpdateLod(const Vector3 &viewPos)
+    {
+        if (!lodGroup || lodGroup->GetLodCount() == 0 || primitives.empty()) {
+            return;
+        }
+
+        AABB combinedBound = primitives[0]->worldBound;
+        for (uint32_t i = 1; i < static_cast<uint32_t>(primitives.size()); ++i) {
+            Merge(combinedBound, primitives[i]->worldBound, combinedBound);
+        }
+
+        uint32_t newLod = lodGroup->SelectLod(combinedBound, viewPos);
+
+        if (newLod == INVALID_LOD_LEVEL) {
+            // Mesh is beyond all LOD thresholds — cull it
+            if (!culledByLod) {
+                culledByLod = true;
+                HidePrimitives();
+            }
+            return;
+        }
+
+        // Mesh is within LOD range — restore if previously culled
+        if (culledByLod) {
+            culledByLod = false;
+            ShowPrimitives();
+        }
+
+        if (newLod != currentLod && newLod < lodGroup->GetLodCount()) {
+            currentLod = newLod;
+            mesh = lodGroup->GetMesh(currentLod);
+            Reset();
+            BuildGeometry();
         }
     }
 

@@ -24,10 +24,16 @@ namespace sky {
         SkeletonMeshRenderer *CreateSkeletonMesh();
         void RemoveSkeletonMesh(SkeletonMeshRenderer *mesh);
 
+        void SetMainViewName(const Name &name) { mainViewName = name; }
+
     private:
+        void UpdateLod();
+
         std::list<std::unique_ptr<MeshRenderer>> staticMeshes;
 
         std::list<std::unique_ptr<SkeletonMeshRenderer>> skeletonMeshes;
+
+        Name mainViewName;
     };
 
 } // namespace sky

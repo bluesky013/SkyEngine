@@ -5,6 +5,7 @@
 #pragma once
 
 #include <render/resource/Mesh.h>
+#include <render/lod/MeshLodGroup.h>
 #include <render/mesh/MeshletDebugRender.h>
 #include <render/RenderPrimitive.h>
 #include <core/math/Matrix4.h>
@@ -27,13 +28,19 @@ namespace sky {
         void Tick();
         void AttachScene(RenderScene *scn);
         void SetMesh(const RDMeshPtr &mesh, bool meshShading = false);
+        void SetLodGroup(const RDMeshLodGroupPtr &lodGroup);
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
+        void UpdateLod(const Vector3 &viewPos);
 
         void BuildGeometry();
 
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
+
+        uint32_t GetCurrentLod() const { return currentLod; }
+        bool IsVisible() const { return isVisible; }
+        bool IsCulledByLod() const { return culledByLod; }
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
@@ -41,16 +48,23 @@ namespace sky {
 
         void SetupDebugMeshlet();
         void Reset();
+        void ShowPrimitives();
+        void HidePrimitives();
 
         RenderScene *scene = nullptr;
 
         RDMeshPtr mesh;
+        RDMeshLodGroupPtr lodGroup;
+        uint32_t currentLod = 0;
+
         std::vector<std::unique_ptr<RenderMaterialPrimitive>> primitives;
         std::unique_ptr<MeshletDebugRender> meshletDebug;
         std::vector<RDDynamicUniformBufferPtr> meshletInfos;
         RDDynamicUniformBufferPtr ubo;
 
         bool enableMeshShading = false;
+        bool isVisible = true;
+        bool culledByLod = false;
         MeshDebugFlags debugFlags;
     };
 

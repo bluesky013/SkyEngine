@@ -39,6 +39,18 @@ namespace sky {
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
         ar.SaveValueObject(std::string("meshShading"), enableMeshShading);
         ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
+        ar.SaveValueObject(std::string("lodBias"), lodBias);
+
+        ar.Key("lodMeshes");
+        ar.StartArray();
+        for (const auto &lod : lodMeshAssets) {
+            ar.StartObject();
+            ar.SaveValueObject(std::string("mesh"), lod.meshUuid);
+            ar.SaveValueObject(std::string("screenSize"), lod.screenSize);
+            ar.EndObject();
+        }
+        ar.EndArray();
+
         ar.EndObject();
     }
 
@@ -51,6 +63,7 @@ namespace sky {
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
         SetMeshUuid(uuid);
+        ar.LoadKeyValue("lodBias", lodBias);
     }
 
     void StaticMeshComponent::SetEnableMeshShading(bool enable)
@@ -105,6 +118,43 @@ namespace sky {
         }
     }
 
+    void StaticMeshComponent::SetLodMeshes(const std::vector<LodMeshAssetData> &lodMeshes)
+    {
+        lodMeshAssets = lodMeshes;
+        dirty.store(true);
+    }
+
+    void StaticMeshComponent::SetLodBias(float bias)
+    {
+        lodBias = bias;
+        if (lodGroup) {
+            lodGroup->SetLodBias(lodBias);
+        }
+    }
+
+    void StaticMeshComponent::BuildLodGroup()
+    {
+        if (lodMeshAssets.empty()) {
+            lodGroup = nullptr;
+            return;
+        }
+
+        auto *am = AssetManager::Get();
+        lodGroup = new MeshLodGroup();
+        lodGroup->SetLodBias(lodBias);
+        lodMeshAssetPtrs.clear();
+
+        for (const auto &lodData : lodMeshAssets) {
+            auto asset = am->LoadAsset<Mesh>(lodData.meshUuid);
+            if (asset) {
+                asset->BlockUntilLoaded();
+                auto meshPtr = CreateMeshFromAsset(asset);
+                lodGroup->AddLodMesh(meshPtr, lodData.screenSize);
+                lodMeshAssetPtrs.emplace_back(asset);
+            }
+        }
+    }
+
     void StaticMeshComponent::BuildRenderer()
     {
         SKY_PROFILE_NAME("Build Static Render")
@@ -121,7 +171,14 @@ namespace sky {
         }
 
         renderer = mf->CreateStaticMesh();
-        renderer->SetMesh(meshInstance, enableMeshShading);
+
+        BuildLodGroup();
+
+        if (lodGroup && lodGroup->GetLodCount() > 0) {
+            renderer->SetLodGroup(lodGroup);
+        } else {
+            renderer->SetMesh(meshInstance, enableMeshShading);
+        }
     }
 
     void StaticMeshComponent::ShutDown()
