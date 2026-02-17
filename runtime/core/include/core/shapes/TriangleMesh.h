@@ -21,8 +21,8 @@ namespace sky {
     };
 
     enum class IndexType : uint8_t {
-        U32 = 0,
-        U16 = 1
+        U16 = 0,
+        U32 = 1
     };
 
     struct TriangleMesh : public RefObject {

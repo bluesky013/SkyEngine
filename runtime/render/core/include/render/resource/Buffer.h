@@ -60,6 +60,7 @@ namespace sky {
         uint64_t offset = 0;
         uint64_t range  = 0;
         uint32_t stride = 0;
+        rhi::VertexInputRate rate = rhi::VertexInputRate::PER_VERTEX;
 
         rhi::BufferView MakeView() const;
     };
@@ -88,6 +89,12 @@ namespace sky {
             SKY_ASSERT(offset + sizeof(T) <= bufferDesc.size);
             Write(offset, reinterpret_cast<const uint8_t *>(&val), static_cast<uint32_t>(sizeof(T)));
             dirty = true;
+        }
+
+        template <typename T>
+        const T& ReadT(uint32_t offset)
+        {
+            return *reinterpret_cast<T*>(ptr + offset);
         }
 
         virtual void Upload(rhi::BlitEncoder &encoder);

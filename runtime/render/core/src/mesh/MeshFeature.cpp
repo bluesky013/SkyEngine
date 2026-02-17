@@ -2,10 +2,10 @@
 // Created by Zach Lee on 2023/9/9.
 //
 
-#include <render/mesh/MeshFeature.h>
-#include <render/skeleton/SkeletonMeshRenderer.h>
-#include <render/Renderer.h>
 #include <render/RHI.h>
+#include <render/Renderer.h>
+#include <render/mesh/MeshFeature.h>
+#include <render/skeleton/SkeletalMeshRenderer.h>
 
 #include <render/mesh/MeshFeatureProcessor.h>
 
@@ -27,7 +27,7 @@ namespace sky {
     // mesh shading
     static const std::vector<rhi::DescriptorSetPool::PoolSize> MESH_SIZES = {
         {rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC, 2 * MAX_SET_PER_POOL},
-        {rhi::DescriptorType::STORAGE_BUFFER, 6 * MAX_SET_PER_POOL}
+        {rhi::DescriptorType::STORAGE_BUFFER, 7 * MAX_SET_PER_POOL}
     };
 
     static const std::vector<rhi::DescriptorSetLayout::SetBinding> MESH_BINDINGS = {
@@ -38,7 +38,8 @@ namespace sky {
         {rhi::DescriptorType::STORAGE_BUFFER, 1, 5, rhi::ShaderStageFlagBit::MS, "VertexIndices"},
         {rhi::DescriptorType::STORAGE_BUFFER, 1, 6, rhi::ShaderStageFlagBit::MS, "MeshletTriangles"},
         {rhi::DescriptorType::STORAGE_BUFFER, 1, 7, rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS, "Meshlets"},
-        //        {rhi::DescriptorType::STORAGE_BUFFER, 1, 7, rhi::ShaderStageFlagBit::MS, "MeshletCullData"},
+        {rhi::DescriptorType::STORAGE_BUFFER, 1, 8, rhi::ShaderStageFlagBit::TAS, "InstanceBuffer"},
+//        {rhi::DescriptorType::STORAGE_BUFFER, 1, 7, rhi::ShaderStageFlagBit::MS, "MeshletCullData"},
     };
 
     void MeshFeature::Init()
@@ -64,6 +65,7 @@ namespace sky {
         meshLayout->AddNameHandler(Name("VertexIndices"), {5, 0});
         meshLayout->AddNameHandler(Name("MeshletTriangles"), {6, 0});
         meshLayout->AddNameHandler(Name("Meshlets"), {7, 0});
+        meshLayout->AddNameHandler(Name("InstanceBuffer"), {8, 0});
 
         {
             rhi::DescriptorSetPool::Descriptor poolDesc = {};

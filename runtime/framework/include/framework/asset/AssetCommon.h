@@ -14,6 +14,7 @@
 #include <core/util/Uuid.h>
 #include <core/template/ReferenceObject.h>
 #include <core/event/Event.h>
+#include <framework/serialization/Any.h>
 
 namespace sky {
 
@@ -47,6 +48,8 @@ namespace sky {
 
     struct AssetImportRequest {
         FilePath filePath;
+        FilePath savePath;
+        Any config;
     };
 
     using ProductBundleKey = std::string;

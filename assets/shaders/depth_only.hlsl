@@ -1,3 +1,5 @@
+#pragma option({"key": "ENABLE_SKIN",         "default": 0, "type": "Batch"})
+
 #include "vertex/position_only.hlslh"
 
 #include "layout/default_pass.hlslh"

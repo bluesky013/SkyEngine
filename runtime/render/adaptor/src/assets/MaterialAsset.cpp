@@ -245,7 +245,7 @@ namespace sky {
         auto *mat = new Material();
         for (const auto &tech : data.techniques) {
             auto techAsset = am->LoadAsset<Technique>(tech);
-            mat->AddTechnique(GreateGfxTechFromAsset(techAsset));
+            mat->AddTechnique(CreateGfxTechFromAsset(techAsset));
         }
 
         MaterialPropertyInitializer initializer(data.defaultProperties.valueMap.size());

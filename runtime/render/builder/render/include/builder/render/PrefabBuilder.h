@@ -8,15 +8,26 @@
 #include <render/adaptor/assets/RenderPrefab.h>
 #include <string_view>
 
+namespace sky {
+    class SerializationContext;
+} // namespace sky
+
 namespace sky::builder {
+
+    struct PrefabImportConfig {
+        bool skeletonOnly = false;
+        bool replaceNameSpace = false;
+    };
 
     class PrefabBuilder : public AssetBuilder {
     public:
         PrefabBuilder() = default;
         ~PrefabBuilder() override = default;
 
-        void Import(const AssetImportRequest &request) const override;
+        static void Reflect(SerializationContext* context);
 
+        Any RequireImportSetting(const FilePath &request) const override;
+        void Import(const AssetImportRequest &request) const override;
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
         const std::vector<std::string> &GetExtensions() const override { return extensions; }

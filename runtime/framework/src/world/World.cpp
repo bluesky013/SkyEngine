@@ -4,6 +4,7 @@
 
 #include <framework/world/World.h>
 #include <framework/world/TransformComponent.h>
+#include <framework/world/SimpleRotateComponent.h>
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/JsonArchive.h>
 
@@ -30,6 +31,7 @@ namespace sky {
     void World::Reflect(SerializationContext *context)
     {
         TransformComponent::Reflect(context);
+        SimpleRotateComponent::Reflect(context);
     }
 
     World *World::CreateWorld()
@@ -40,7 +42,6 @@ namespace sky {
 
     void World::Init()
     {
-        WorldEvent::BroadCast(&IWorldEvent::OnCreateWorld, *this);
     }
 
     void World::Tick(float time)
@@ -138,17 +139,21 @@ namespace sky {
         return iter != actors.end() ? *iter : ActorPtr{};
     }
 
-    void World::AttachToWorld(const sky::ActorPtr &actor)
+    void World::AttachToWorld(const ActorPtr &actor)
     {
         if (actor->world != nullptr && actor->world != this) {
             actor->world->DetachFromWorld(actor);
         }
         actors.emplace_back(actor);
         actor->AttachToWorld(this);
+
+        WorldEvent::BroadCast(this, &IWorldEvent::OnActorAttached, actor);
     }
 
     void World::DetachFromWorld(const ActorPtr &actor)
     {
+        WorldEvent::BroadCast(this, &IWorldEvent::OnActorDetached, actor);
+
         actor->DetachFromWorld();
         auto iter = std::find_if(actors.begin(), actors.end(),
             [&actor](const auto &v) { return actor == v; });

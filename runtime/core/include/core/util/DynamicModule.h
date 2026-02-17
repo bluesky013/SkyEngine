@@ -27,6 +27,8 @@ namespace sky {
 
         bool IsLoaded() const;
 
+        std::string GetLastError() const;
+
     private:
         std::string name;
         void       *handle;

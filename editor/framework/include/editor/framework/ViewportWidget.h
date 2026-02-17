@@ -31,27 +31,36 @@ namespace sky::editor {
         ~ViewportWindow() override = default;
 
     private:
+        void* GetNativeWindow();
         bool event(QEvent *event) override;
     };
+
+    enum class ViewportFlagBit : uint32_t {
+        NONE = 0x00,
+        ENABLE_GUIZMO = 0x01,
+    };
+    using ViewportFlags = Flags<ViewportFlagBit>;
+    ENABLE_FLAG_BIT_OPERATOR(ViewportFlagBit)
 
     class ViewportWidget : public QWidget, public IWindowEvent, public ITickEvent {
     public:
         explicit ViewportWidget(QWidget *parent);
         ~ViewportWidget() override;
 
-        void ResetWorld(const WorldPtr &world);
-        void UpdatePipeline();
+        void ResetWorld(const WorldPtr &world, ViewportFlags flags);
         void ResetPipeline();
 
         ViewportWindow* GetViewportWindow() const { return window; }
         EditorCamera *GetCamera() const { return editorCamera.get(); }
     private:
-        void OnWindowResize(uint32_t width, uint32_t height) override;
+        void OnWindowResize(const WindowResizeEvent& event) override;
         void dropEvent(QDropEvent *event) override;
         void dragEnterEvent(QDragEnterEvent *event) override;
         void dragMoveEvent(QDragMoveEvent *event) override;
 
         void Tick(float time) override;
+
+        void UpdatePipeline(ViewportFlags flags);
 
         ViewportWindow *window = nullptr;
         RenderWindow *renderWindow = nullptr;

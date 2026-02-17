@@ -19,6 +19,8 @@ namespace sky {
         void BindWindow(const NativeWindow *window);
         Transform Resolve(float time, const Transform &trans);
 
+        void SetMoveSpeed(float speed);
+
     private:
         void OnMouseButtonDown(const MouseButtonEvent &event) override;
         void OnMouseButtonUp(const MouseButtonEvent &event) override;

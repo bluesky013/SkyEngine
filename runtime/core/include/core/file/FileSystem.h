@@ -9,6 +9,7 @@
 #include <fstream>
 #include <vector>
 #include <filesystem>
+#include <core/archive/BinaryData.h>
 #include <core/archive/StreamArchive.h>
 #include <core/template/ReferenceObject.h>
 
@@ -67,6 +68,7 @@ namespace sky {
 
         virtual bool ReadBin(std::vector<uint8_t> &out) = 0;
         virtual bool ReadString(std::string &out) = 0;
+        virtual BinaryDataPtr ReadBin() = 0;
 
         virtual uint64_t AppendData(const char* data, uint64_t size) = 0;
         virtual std::string GetPath() const = 0;
@@ -79,6 +81,7 @@ namespace sky {
 
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
         bool ReadBin(std::vector<uint8_t> &out) override;
+        BinaryDataPtr ReadBin() override;
         bool ReadString(std::string &out) override;
 
         uint64_t AppendData(const char* data, uint64_t size) override;
@@ -95,6 +98,11 @@ namespace sky {
         FilePath filePath;
     };
 
+    class MemoryFile : public IFile {
+    public:
+
+    };
+
     class RawBufferView : public IFile {
     public:
         explicit RawBufferView() = default;
@@ -102,6 +110,7 @@ namespace sky {
 
         void ReadData(uint64_t offset, uint64_t size, uint8_t *out) override;
         bool ReadBin(std::vector<uint8_t> &out) override;
+        BinaryDataPtr ReadBin() override;
         bool ReadString(std::string &out) override;
 
         uint64_t AppendData(const char* data, uint64_t size) override;
@@ -117,11 +126,14 @@ namespace sky {
         IFileSystem() = default;
         ~IFileSystem() override = default;
 
+        virtual void Copy(const FilePath &from, const FilePath &to) const {}
         virtual bool FileExist(const FilePath &path) const = 0;
+        virtual void MakeDir(const FilePath &path) {}
         virtual FilePtr OpenFile(const FilePath &name) = 0;
         virtual FilePtr CreateOrOpenFile(const FilePath &name) = 0;
         virtual bool IsReadOnly() const { return true; }
         virtual FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) { return nullptr; }
+        virtual const FilePath &GetPath() const { static FilePath path; return path; }
     };
 
     class NativeFileSystem : public IFileSystem {
@@ -130,13 +142,15 @@ namespace sky {
         ~NativeFileSystem() override = default;
 
         bool FileExist(const FilePath &path) const override;
+        void MakeDir(const FilePath &path) override;
+
         FilePtr OpenFile(const FilePath &path) override;
         FilePtr CreateOrOpenFile(const FilePath &path) override;
 
         bool IsReadOnly() const override { return false; }
-        const FilePath &GetPath() const { return fsRoot; }
+        const FilePath &GetPath() const override { return fsRoot; }
 
-        void Copy(const FilePath &from, const FilePath &to) const;
+        void Copy(const FilePath &from, const FilePath &to) const override;
         bool IsSubDir(const std::string &path) const;
         FileSystemPtr CreateSubSystem(const std::string &path, bool createDir) override;
 

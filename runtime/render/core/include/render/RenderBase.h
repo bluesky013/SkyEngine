@@ -48,6 +48,4 @@ namespace sky {
 
     using RenderPipelineFlags = ArrayBit<uint32_t, 64>;
 
-#define OFFSET_OF(s, m) static_cast<uint32_t>(offsetof(s, m))
-
 } // namespace sky

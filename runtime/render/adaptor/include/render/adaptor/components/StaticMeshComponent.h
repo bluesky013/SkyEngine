@@ -40,6 +40,12 @@ namespace sky {
         void SetEnableMeshletConeDebug(bool enable);
         bool GetEnableMeshletConeDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE); }
 
+        void SetMeshDebug(bool enable);
+        bool GetMeshDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESH); }
+
+        void SetMultiply(bool enable);
+        bool GetMultiply() const { return multiply; }
+
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
     private:
@@ -60,6 +66,7 @@ namespace sky {
         MeshRenderer *renderer = nullptr;
 
         std::atomic_bool dirty = false;
+        bool multiply = false;
 
         EventBinder<IAssetEvent, Uuid> binder;
     };

@@ -147,20 +147,23 @@ namespace sky::vk {
         VkPhysicalDeviceProperties2                      phyProps         = {};
         VkPhysicalDeviceFragmentShadingRatePropertiesKHR shadingRateProps = {};
         VkPhysicalDeviceDepthStencilResolvePropertiesKHR dsResolveProps   = {};
+#ifndef ANDROID
         VkPhysicalDeviceMeshShaderPropertiesEXT          meshShaderProps  = {};
-
+#endif
         VkPhysicalDeviceFeatures2                      phyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     phyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR shadingRateFeatures = {};
         VkPhysicalDeviceMultiviewFeatures              mvrFeature          = {};
+#ifndef ANDROID
         VkPhysicalDeviceMeshShaderFeaturesEXT          meshShaderFeatures  = {};
-
+#endif
         VkPhysicalDeviceFeatures                       enabledPhyFeatures         = {};
         VkPhysicalDeviceDescriptorIndexingFeatures     enabledPhyIndexingFeatures = {};
         VkPhysicalDeviceFragmentShadingRateFeaturesKHR enabledShadingRateFeatures = {};
         VkPhysicalDeviceMultiviewFeatures              enabledMvrFeature          = {};
+#ifndef ANDROID
         VkPhysicalDeviceMeshShaderFeaturesEXT          enabledMeshShaderFeatures  = {};
-
+#endif
         VkPhysicalDeviceMemoryProperties2 memoryProperties = {};
 
         std::vector<VkQueueFamilyProperties> queueFamilies;

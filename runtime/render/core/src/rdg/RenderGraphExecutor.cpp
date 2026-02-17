@@ -61,6 +61,14 @@ namespace sky::rdg {
                     }
 
                 },
+                [&](const ImportImageViewTag &) {
+                    auto &image = graph.resourceGraph.importedViews[Index(resID, graph.resourceGraph)];
+                    for (const auto &barrier : barriers) {
+                        mainCommandBuffer->QueueBarrier(image.desc.image, image.desc.view->GetViewDesc().subRange,
+                            rhi::BarrierInfo{ barrier.srcFlags, barrier.dstFlags });
+                    }
+
+                },
                 [&](const ImportSwapChainTag &) {
                     auto &image = graph.resourceGraph.swapChains[Index(resID, graph.resourceGraph)];
                     for (const auto &barrier : barriers) {
@@ -141,6 +149,11 @@ namespace sky::rdg {
                 Barriers(compute.frontBarriers);
                 callStack.emplace_back(graph.names[u]);
             },
+            [&](const TransitionTag &) {
+                auto &transition = graph.transitionPasses[Index(u, graph)];
+                Barriers(transition.frontBarriers);
+                callStack.emplace_back(graph.names[u]);
+            },
             [&](const CopyBlitTag &) {
                 auto &cb = graph.copyBlitPasses[Index(u, graph)];
                 Barriers(cb.frontBarriers);
@@ -208,12 +221,26 @@ namespace sky::rdg {
 
                     for (const auto &arg : item.primitive->args) {
                         std::visit(Overloaded{
-                            [&](const rhi::CmdDrawLinear &v) { currentEncoder->DrawLinear(v); },
-                            [&](const rhi::CmdDrawIndexed &v) { currentEncoder->DrawIndexed(v); },
-                            [&](const rhi::CmdDispatchMesh &v) { currentEncoder->DispatchMesh(v); },
-                            [&](const rhi::Rect2D &v) { currentEncoder->SetScissor(1, &v); },
+                            [&](const rhi::CmdDrawLinear &v) {
+                                currentEncoder->DrawLinear(v);
+                            },
+                            [&](const rhi::CmdDrawIndexed &v) {
+                                currentEncoder->DrawIndexed(v);
+                                graph.context->rdgData.triangleData += v.indexCount / 3 * v.instanceCount;
+                            },
+                            [&](const rhi::CmdDispatchMesh &v) {
+                                currentEncoder->DispatchMesh(v);
+                            },
+                            [&](const rhi::Viewport &v) {
+                                currentEncoder->SetViewport(1, &v);
+                            },
+                            [&](const rhi::Rect2D &v) {
+                                currentEncoder->SetScissor(1, &v);
+                            },
                             [&](const auto &) {}
                         }, arg);
+
+                        graph.context->rdgData.drawCall++;
                     }
                 }
             },
@@ -252,6 +279,11 @@ namespace sky::rdg {
                 auto &present = graph.presentPasses[Index(u, graph)];
                 Barriers(present.rearBarriers);
                 callStack.pop_back();
+            },
+            [&](const TransitionTag &) {
+                auto &transition = graph.transitionPasses[Index(u, graph)];
+                Barriers(transition.rearBarriers);
+                callStack.emplace_back(graph.names[u]);
             },
             [&](const auto &) {}
         }, Tag(u, graph));

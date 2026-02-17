@@ -9,12 +9,12 @@
 #include <memory>
 
 namespace sky::builder {
-    class ClusterMeshBuilder;
+    class MeshletBuilder;
 
     struct ClusterMeshDeleter {
-        void operator()(ClusterMeshBuilder* _Ptr) const noexcept;
+        void operator()(MeshletBuilder * _Ptr) const noexcept;
     };
-    using ClusterMeshBuilderPtr = std::unique_ptr<ClusterMeshBuilder, ClusterMeshDeleter>;
+    using ClusterMeshBuilderPtr = std::unique_ptr<MeshletBuilder, ClusterMeshDeleter>;
 
     class MeshBuilder : public AssetBuilder {
     public:

@@ -8,6 +8,7 @@
 #include <core/platform/Platform.h>
 #include <list>
 #include <vector>
+#include <string>
 
 namespace sky {
 

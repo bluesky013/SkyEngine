@@ -497,7 +497,7 @@ namespace sky {
             world->Tick(delta);
         }
 
-        void OnWindowResize(uint32_t width, uint32_t height) override
+        void OnWindowResize(const WindowResizeEvent& event) override
         {
             if (window != nullptr) {
                 window->Resize(width, height);

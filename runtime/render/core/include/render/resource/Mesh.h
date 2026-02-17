@@ -4,16 +4,26 @@
 
 #pragma once
 
-#include <render/RenderResource.h>
-#include <render/RenderBase.h>
-#include <render/RenderGeometry.h>
-#include <render/resource/Buffer.h>
-#include <render/resource/Material.h>
 #include <core/shapes/AABB.h>
-#include <memory>
+#include <render/RenderGeometry.h>
+#include <render/RenderResource.h>
+#include <render/resource/Material.h>
+#include <render/resource/MeshInterface.h>
 
 namespace sky {
 
+    struct MeshSubSection {
+        uint32_t firstVertex = 0;
+        uint32_t vertexCount = 0;
+        uint32_t firstIndex  = 0;
+        uint32_t indexCount  = 0;
+        uint32_t firstMeshlet = 0;
+        uint32_t meshletCount = 0;
+        uint32_t materialIndex = 0;
+        AABB aabb;
+    };
+
+    // TODO
     struct SubMesh {
         uint32_t firstVertex = 0;
         uint32_t vertexCount = 0;
@@ -30,7 +40,7 @@ namespace sky {
         uint32_t                 stride;
     };
 
-    struct MeshData {
+    struct MeshUploadData {
         std::vector<VertexBufferSource> vertexStreams;
         rhi::BufferUploadRequest        indexStream;
         rhi::BufferUploadRequest        meshlets;
@@ -46,7 +56,7 @@ namespace sky {
         // builder
         void AddSubMesh(const SubMesh &sub);
         void SetVertexAttributes(const std::vector<VertexAttribute> &attributes);
-        void SetUploadStream(MeshData&& stream);
+        void SetUploadStream(MeshUploadData&& stream);
         void SetIndexType(rhi::IndexType type);
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
@@ -58,12 +68,12 @@ namespace sky {
         virtual bool HasSkin() const { return false; }
 
         bool ClusterValid() const { return clusterValid; }
-    private:
+    protected:
         // desc
         std::vector<SubMesh> subMeshes;
         RenderGeometryPtr    geometry;
 
-        MeshData meshData;
+        MeshUploadData meshData;
 
         bool clusterValid = false;
     };

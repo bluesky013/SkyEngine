@@ -12,7 +12,7 @@ namespace sky {
     class RenderSemantics : public Singleton<RenderSemantics> {
     public:
         RenderSemantics();
-        ~RenderSemantics() = default;
+        ~RenderSemantics() override = default;
 
         void RegisterVertexSemantic(const std::string &name, VertexSemanticFlagBit flag);
         VertexSemanticFlagBit QuerySemanticByName(const std::string &name) const;

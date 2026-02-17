@@ -158,7 +158,6 @@ namespace sky::vk {
                         offset3D.y += static_cast<int32_t>(heightStep);
                     }
                 }
-
             }
 
             barrier.srcStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -168,6 +167,7 @@ namespace sky::vk {
             inflightCommands[currentFrameId]->QueueBarrier(vkImage, subResourceRange, barrier, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             inflightCommands[currentFrameId]->FlushBarriers();
             EndFrame();
+            vkQueueWaitIdle(queue);
         });
     }
 
@@ -210,6 +210,7 @@ namespace sky::vk {
                 }
             }
             EndFrame();
+            vkQueueWaitIdle(queue);
         });
     }
 

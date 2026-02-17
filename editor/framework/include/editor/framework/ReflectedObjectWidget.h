@@ -33,6 +33,8 @@ namespace sky::editor {
         ReflectedObjectWidget(void *obj, const TypeNode *node, QWidget *parent);
         ~ReflectedObjectWidget() override = default;
 
+        void Refresh();
+
     private Q_SLOTS:
         void OnValueChanged();
     Q_SIGNALS:
@@ -52,12 +54,13 @@ namespace sky::editor {
         {
             auto *layout = new QVBoxLayout(this);
             setLayout(layout);
-            setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-            setMinimumWidth(32);
+            setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
             const auto *info = TypeInfoObj<T>::Get()->RtInfo();
             const auto *typeNode = GetTypeNode(info);
-            layout->addWidget(new ReflectedObjectWidget(&value, typeNode, this));
+
+            widget = new ReflectedObjectWidget(&value, typeNode, this);
+            layout->addWidget(widget);
         }
 
         const T& GetValue() const
@@ -65,8 +68,15 @@ namespace sky::editor {
             return value;
         }
 
+        void SetValue(const T& val)
+        {
+            value = val;
+            widget->Refresh();
+        }
+
     private:
         T value;
+        ReflectedObjectWidget* widget = nullptr;
     };
 
     class ReflectedMemberWidget : public QWidget {
@@ -82,10 +92,11 @@ namespace sky::editor {
             layout()->setContentsMargins(0, 0, 0, 0);
             layout()->setSpacing(0);
 
-            setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-            setMinimumWidth(32);
+            setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         }
         ~ReflectedMemberWidget() override = default;
+
+        virtual void Refresh() {}
 
     Q_SIGNALS:
         void ValueChanged(); // NOLINT
@@ -141,6 +152,11 @@ namespace sky::editor {
             }
         }
 
+        void Refresh() override
+        {
+            RefreshValue();
+        }
+
         ~PropertyScalar() override = default;
 
     private:
@@ -176,6 +192,11 @@ namespace sky::editor {
                 value[i] = val[i];
                 line[i]->setText(QString::number(val[i]));
             }
+        }
+
+        void Refresh() override
+        {
+            RefreshValue();
         }
 
         void RefreshValue(int i)
@@ -228,6 +249,11 @@ namespace sky::editor {
             RefreshValue(qColor);
         }
 
+        void Refresh() override
+        {
+            RefreshValue();
+        }
+
         void RefreshValue(const QColor &qColor)
         {
             if(qColor.isValid()) {
@@ -278,6 +304,11 @@ namespace sky::editor {
             RefreshValue(qColor);
         }
 
+        void Refresh() override
+        {
+            RefreshValue();
+        }
+
         void RefreshValue(const QColor &qColor)
         {
             if(qColor.isValid()) {
@@ -311,6 +342,11 @@ namespace sky::editor {
 
         void RefreshValue();
 
+        void Refresh() override
+        {
+            RefreshValue();
+        }
+
     private:
         QLineEdit* lineEdit = nullptr;
         std::string_view assetType;
@@ -337,6 +373,11 @@ namespace sky::editor {
             auto any = memberNode->getterConstFn(object);
             auto *pVal = any.GetAs<bool>();
             box->setCheckState(*pVal ? Qt::Checked : Qt::Unchecked);
+        }
+
+        void Refresh() override
+        {
+            RefreshValue();
         }
 
         ~PropertyBool() override = default;
@@ -378,8 +419,13 @@ namespace sky::editor {
             auto any = memberNode->getterConstFn(object);
             auto *pVal = any.GetAs<uint64_t >();
 
-            SKY_ASSERT(info->enums.count(*pVal))
+            SKY_ASSERT(info->enums.count(*pVal) != 0)
             box->setCurrentText(info->enums.at(*pVal).data());
+        }
+
+        void Refresh() override
+        {
+            RefreshValue();
         }
 
         const TypeNode* info = nullptr;
@@ -445,6 +491,11 @@ namespace sky::editor {
                 array->layout()->addWidget(widgets.back().get());
                 connect(widgets.back().get(), &PropertySequenceItemWidget::ValueChanged, this, &PropertySequenceContainerWidget::OnValueChanged);
             }
+        }
+
+        void Refresh() override
+        {
+            RefreshValue();
         }
 
         void RemoveIndex(uint32_t index)

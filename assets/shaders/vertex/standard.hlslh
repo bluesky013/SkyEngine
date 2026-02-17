@@ -6,7 +6,10 @@ struct VSInput
     float4 UV      : UV;
     float4 Normal  : NORMAL;
     float4 Tangent : TANGENT;
-    float4 Color   : COLOR;
+
+#if ENABLE_INSTANCE
+    float4 Offset  : INST0;
+#endif
 
 #if ENABLE_SKIN
     uint4 joints   : JOINT;
@@ -25,7 +28,6 @@ struct VSOutput
     float3 WorldPos : POSITION;
     float3 Normal   : NORMAL;
     float4 Tangent  : TANGENT;
-    float4 Color    : COLOR;
 
 #if MESH_SHADER
     uint MeshletIndex : MESH;

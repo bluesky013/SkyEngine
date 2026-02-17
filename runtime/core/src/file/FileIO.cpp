@@ -40,6 +40,21 @@ namespace sky {
         return true;
     }
 
+    BinaryDataPtr ReadBin(const FilePath &path)
+    {
+        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
+        if (!file.is_open()) {
+            return nullptr;
+        }
+        auto fileSize = static_cast<uint32_t>(file.tellg());
+        BinaryDataPtr data = new BinaryData(fileSize);
+
+        file.seekg(0);
+        file.read(reinterpret_cast<char *>(data->Data()), fileSize);
+        file.close();
+        return data;
+    }
+
     bool ReadBin(const FilePath &path, std::vector<uint8_t> &out)
     {
         std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));

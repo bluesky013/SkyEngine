@@ -39,7 +39,7 @@ namespace sky::perf {
         void InitDescriptorSetPool();
         void ResetFrameBuffer();
 
-        void OnWindowResize(uint32_t width, uint32_t height) override;
+        void OnWindowResize(const WindowResizeEvent& event) override;
         vk::Instance *instance;
 
         vk::SwapChainPtr         swapChain;

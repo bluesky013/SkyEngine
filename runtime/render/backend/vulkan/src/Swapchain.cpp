@@ -37,8 +37,13 @@ namespace sky::vk {
         descriptor.height          = des.height;
         descriptor.preferredFormat = FromRHI(des.preferredFormat);
         descriptor.preferredMode   = des.preferredMode == rhi::PresentMode::IMMEDIATE ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_FIFO_KHR;
+#ifndef ANDROID
         descriptor.preTransform    = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         descriptor.compositeAlpha  = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+#else
+        descriptor.preTransform    = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+        descriptor.compositeAlpha  = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+#endif
 
         if (!CreateSurface()) {
             return false;
@@ -128,7 +133,7 @@ namespace sky::vk {
         imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         VkSwapchainCreateInfoKHR swcInfo = {};
         swcInfo.sType                    = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -215,7 +220,7 @@ namespace sky::vk {
     {
         uint32_t next = 0;
         auto result = AcquireNext(std::static_pointer_cast<Semaphore>(semaphore), next);
-        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        if (result != VK_SUCCESS) {
             printf("acquire failed %d", result);
         }
         return next;

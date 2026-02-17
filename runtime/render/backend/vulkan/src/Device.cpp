@@ -26,9 +26,11 @@ const std::vector<const char *> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validatio
 namespace sky::vk {
     void Device::FeatureQuery(rhi::MeshShaderProperties& properties) const
     {
+#ifndef ANDROID
         properties.maxTaskPayloadSize = meshShaderProps.maxTaskPayloadSize;
         properties.maxMeshOutputVertices = meshShaderProps.maxMeshOutputVertices;
         properties.maxMeshOutputPrimitives = meshShaderProps.maxMeshOutputPrimitives;
+#endif
     }
 
     int32_t Device::FindProperties( uint32_t memoryTypeBits, VkMemoryPropertyFlags requiredProperties) const
@@ -147,6 +149,7 @@ namespace sky::vk {
             outExtensions.emplace_back("VK_KHR_multiview");
         }
 
+#ifndef ANDROID
         enabledFeature.meshShader = (CheckFeature(feature.meshShader, meshShaderFeatures.meshShader, meshShaderFeatures.taskShader) != 0U) &&
             CheckExtension(supportedExtensions, "VK_EXT_mesh_shader");
         enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
@@ -156,7 +159,7 @@ namespace sky::vk {
         if (enabledFeature.meshShader) {
             outExtensions.emplace_back("VK_EXT_mesh_shader");
         }
-
+#endif
         enabledFeature.depthStencilResolve = CheckExtension(supportedExtensions, "VK_KHR_depth_stencil_resolve");
     }
 
@@ -187,8 +190,8 @@ namespace sky::vk {
     void Device::InitPropAndFeatureChain()
     {
         phyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+#ifndef ANDROID
         phyFeatures.pNext = &phyIndexingFeatures;
-
         phyIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         phyIndexingFeatures.pNext = &shadingRateFeatures;
 
@@ -197,19 +200,17 @@ namespace sky::vk {
 
         mvrFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
         mvrFeature.pNext = &meshShaderFeatures;
-
         meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-
+#endif
         phyProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+#ifndef ANDROID
         phyProps.pNext = &shadingRateProps;
-
         shadingRateProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
         shadingRateProps.pNext = &dsResolveProps;
-
         dsResolveProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES_KHR;
         dsResolveProps.pNext = &meshShaderProps;
-
         meshShaderProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
+#endif
     }
 
     bool Device::Init(const Descriptor &des, bool enableDebug)
@@ -309,8 +310,9 @@ namespace sky::vk {
 
         VkDeviceCreateInfo devInfo = {};
         devInfo.sType              = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+#ifndef ANDROID
         devInfo.pNext              = &enabledPhyIndexingFeatures;
-
+#endif
         devInfo.pEnabledFeatures        = &enabledPhyFeatures;
         devInfo.enabledExtensionCount   = (uint32_t)extensions.size();
         devInfo.ppEnabledExtensionNames = extensions.data();
@@ -353,10 +355,14 @@ namespace sky::vk {
         computeQueue = GetQueue(VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT);
         transferQueue = GetQueue(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
         if (transferQueue == nullptr) {
-            transferQueue = graphicsQueue;
+            queues.emplace_back(std::unique_ptr<Queue>(new Queue(*this, graphicsQueue->GetNativeHandle(), graphicsQueue->GetQueueFamilyIndex())));
+            transferQueue = queues.back().get();
+            transferQueue->StartThread();
         }
         if (computeQueue == nullptr) {
-            computeQueue = graphicsQueue;
+            queues.emplace_back(std::unique_ptr<Queue>(new Queue(*this, graphicsQueue->GetNativeHandle(), graphicsQueue->GetQueueFamilyIndex())));
+            computeQueue = queues.back().get();
+            computeQueue->StartThread();
         }
 
         // update barrier map

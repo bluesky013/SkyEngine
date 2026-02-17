@@ -10,8 +10,8 @@ namespace sky {
     struct SceneViewInfo {
         Matrix4 world;
         Matrix4 view;
-        Matrix4 project;
         Matrix4 viewProject;
+        Matrix4 lastViewProject;
     };
 
     struct InstanceLocal {
@@ -22,6 +22,8 @@ namespace sky {
     struct MeshletInfo {
         uint32_t firstMeshlet;
         uint32_t meshletCount;
+        uint32_t firstInstance;
+        uint32_t padding;
     };
 
     struct ShaderPassInfo {

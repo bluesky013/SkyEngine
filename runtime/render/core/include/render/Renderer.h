@@ -58,6 +58,7 @@ namespace sky {
         ShaderCompileFunc GetShaderCompiler() const { return shaderCompiler; }
 
         void SetPipeline(RenderPipeline *pipeline);
+        const RenderPipeline* GetPipeline() const { return pipeline.get(); }
 
         template <typename T>
         void RegisterRenderFeature()

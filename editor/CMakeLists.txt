@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Editor)
+
 find_package(Qt5 COMPONENTS Widgets)
 
 if (Qt5_FOUND)

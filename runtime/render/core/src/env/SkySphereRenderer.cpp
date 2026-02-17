@@ -8,14 +8,27 @@
 
 namespace sky {
 
-    struct SkySpherePrimitive : public RenderPrimitive {
-        void UpdateBatch() override {}
-    };
-
     static const rhi::DescriptorSetPool::PoolSize POOL_DESC[] = {
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLED_IMAGE, 1},
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLER, 1},
     };
+
+    void SkySpherePrimitive::UpdateBatch()
+    {
+        auto &batch = batches[0];
+        if (!batch.batchGroup && batch.program) {
+            auto layout = batch.program->RequestLayout(BATCH_SET);
+            batch.batchGroup = new ResourceGroup();
+            batch.batchGroup->Init(layout, *pool);
+            batch.batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
+            batch.batchGroup->Update();
+        }
+    }
+
+    bool SkySpherePrimitive::IsReady() const
+    {
+        return texture && texture->IsReady();
+    }
 
     SkySphereRenderer::SkySphereRenderer()
     {
@@ -112,6 +125,12 @@ namespace sky {
         Renderer::Get()->GetStreamingManager()->UploadBuffer(ib);
 
         primitive->geometry->version++;
+
+        primitive->pool = pool;
+
+//        resourceGroup = new ResourceGroup();
+//        resourceGroup->Init(technique->RequestProgram({})->RequestLayout(BATCH_SET), *pool);
+//        primitive->batches[0].batchGroup = resourceGroup;
     }
 
     SkySphereRenderer::~SkySphereRenderer() = default;
@@ -124,15 +143,6 @@ namespace sky {
         primitive->batches.emplace_back(RenderBatch{
             technique
         });
-
-        resourceGroup = new ResourceGroup();
-        resourceGroup->Init(technique->RequestProgram({})->RequestLayout(BATCH_SET), *pool);
-
-//        primitive->batchSet = resourceGroup;
-    }
-
-    void SkySphereRenderer::SetReady()
-    {
     }
 
 } // namespace sky

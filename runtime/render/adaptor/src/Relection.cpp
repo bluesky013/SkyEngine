@@ -52,13 +52,19 @@ namespace sky {
             .BinLoad<&BufferAssetData::Load>()
             .BinSave<&BufferAssetData::Save>();
 
+        context->Register<AnimationClipAssetData>("AnimationClipAssetData")
+            .BinLoad<&AnimationClipAssetData::Load>()
+            .BinSave<&AnimationClipAssetData::Save>();
+
         context->Register<AnimationAssetData>("AnimationAssetData")
-            .BinLoad<&AnimationAssetData::Load>()
-            .BinSave<&AnimationAssetData::Save>();
+            .JsonLoad<&AnimationAssetData::LoadJson>()
+            .JsonSave<&AnimationAssetData::SaveJson>();
 
         context->Register<SkeletonAssetData>("SkeletonData")
-                .BinLoad<&SkeletonAssetData::Load>()
-                .BinSave<&SkeletonAssetData::Save>();
+                .JsonLoad<&SkeletonAssetData::LoadJson>()
+                .JsonLoad<&SkeletonAssetData::LoadJson>()
+                .BinLoad<&SkeletonAssetData::LoadBin>()
+                .BinSave<&SkeletonAssetData::SaveBin>();
 
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Material>();
@@ -68,6 +74,7 @@ namespace sky {
         am->RegisterAssetHandler<Texture>();
         am->RegisterAssetHandler<RenderPrefab>();
         am->RegisterAssetHandler<Buffer>();
+        am->RegisterAssetHandler<AnimationClip>();
         am->RegisterAssetHandler<Animation>();
         am->RegisterAssetHandler<Skeleton>();
     }

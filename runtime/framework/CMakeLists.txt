@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Foundation)
+
 file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)
 
@@ -36,8 +38,9 @@ sky_add_library(TARGET Framework STATIC
         include
     LINK_LIBS
         Core
-        3rdParty::sqlite
         3rdParty::cxxopts
         ${FM_EXT_LIB}
         ${PLATFORM_EXT_LIBS}
+    INSTALL_DIR
+        include
     )

@@ -5,7 +5,8 @@
 #pragma once
 
 #include <cstdint>
-
+#include <core/math/Color.h>
+#include <core/archive/IArchive.h>
 #include <render/adaptor/assets/ImageAsset.h>
 #include <rhi/Decode.h>
 
@@ -31,6 +32,7 @@ namespace sky::builder {
 
     enum class PixelType : uint32_t {
         U8,
+        HALF,
         Float,
     };
 
@@ -45,7 +47,6 @@ namespace sky::builder {
     enum class MipGenType : uint32_t
     {
         Box,
-        Triangle,
         Kaiser
     };
 
@@ -81,32 +82,39 @@ namespace sky::builder {
 
     // util functions
     uint32_t GetMipLevel(uint32_t width, uint32_t height);
-    uint32_t GetBytePerComp(PixelType type);
+    uint32_t GetBytePerComp(rhi::PixelFormat fmt);
+    uint32_t GetNumComp(rhi::PixelFormat fmt);
+    PixelType GetPixelType(rhi::PixelFormat type);
 
     struct ImageObject;
     using ImageObjectPtr = std::shared_ptr<ImageObject>;
     struct ImageObject {
+        bool Load(IInputArchive &archive);
+        bool Save(IOutputArchive &archive) const;
+
+        static constexpr uint32_t VERSION = 1;
+
         uint32_t width;
         uint32_t height;
         uint32_t depth;
 
         uint32_t pixelSize;
-        PixelType pixelType;
         uint32_t components;
 
         rhi::ImageType type = rhi::ImageType::IMAGE_2D;
+        rhi::PixelFormat format = rhi::PixelFormat::UNDEFINED;
 
         std::vector<ImageMipData> mips;
 
-        static ImageObjectPtr CreateFromImage(const ImageObjectPtr &image, PixelType pt, uint32_t comp)
+        static ImageObjectPtr CreateFromImage(const ImageObjectPtr &image)
         {
             auto res = std::make_shared<ImageObject>();
             res->width = image->width;
             res->height = image->height;
             res->depth = image->depth;
-            res->pixelType = pt;
-            res->components = comp;
-            res->pixelSize = GetBytePerComp(pt) * comp;
+            res->components = image->components;
+            res->format = image->format;
+            res->pixelSize = image->pixelSize;
             res->mips.resize(image->mips.size());
             for (uint32_t i = 0; i < image->mips.size(); ++i) {
                 auto &mip = res->mips[i];
@@ -118,15 +126,28 @@ namespace sky::builder {
             return res;
         }
 
-        static ImageObjectPtr CreateImage2D(uint32_t width, uint32_t height, PixelType pt, uint32_t comp)
+        static ImageObjectPtr CreateImage2D(uint32_t width, uint32_t height, rhi::PixelFormat fmt)
         {
             auto image = std::make_shared<ImageObject>();
             image->width = width;
             image->height = height;
             image->depth = 1;
-            image->pixelType = pt;
-            image->components = comp;
-            image->pixelSize = GetBytePerComp(pt) * comp;
+            image->components = GetNumComp(fmt);
+            image->format = fmt;
+            image->pixelSize = GetBytePerComp(fmt) * image->components;
+
+            return image;
+        }
+
+        static ImageObjectPtr CreateImageCube(uint32_t width, uint32_t height, rhi::PixelFormat fmt)
+        {
+            auto image = std::make_shared<ImageObject>();
+            image->width = width;
+            image->height = height;
+            image->depth = 6;
+            image->components = GetNumComp(fmt);
+            image->format = fmt;
+            image->pixelSize = GetBytePerComp(fmt) * image->components;
 
             return image;
         }
@@ -151,27 +172,16 @@ namespace sky::builder {
     struct CompressedImage;
     using CompressedImagePtr = std::shared_ptr<CompressedImage>;
     struct CompressedImage {
+        bool Load(IInputArchive &archive);
+        bool Save(IOutputArchive &archive) const;
+
         uint32_t width;
         uint32_t height;
         rhi::PixelFormat format;
 
         std::vector<ImageMipData> mips;
 
-        static CompressedImagePtr CreateFromImageObject(const ImageObjectPtr& image, rhi::PixelFormat format)
-        {
-            auto result = std::make_shared<CompressedImage>();
-            result->width = image->width;
-            result->height = image->height;
-            result->format = format;
-
-            result->mips.resize(image->mips.size());
-            for (auto i = 0; i < image->mips.size(); ++i) {
-                const auto &src = image->mips[i];
-                auto &dst = result->mips[i];
-                dst = src.CopyNoData();
-            }
-            return result;
-        }
+        static CompressedImagePtr CreateFromImageObject(const ImageObjectPtr& image, rhi::PixelFormat format);
     };
 
 
@@ -182,4 +192,8 @@ namespace sky::builder {
 
         virtual void DoWork() = 0;
     };
+
+    void GetImageColor(PixelType type, uint32_t components, const uint8_t *src, Color &color);
+
+    void SetImageColor(PixelType type, uint32_t components, uint8_t *dst, const Color &color);
 } // namespace sky::builder

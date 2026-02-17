@@ -27,7 +27,7 @@ namespace sky {
     void TextPrimitive::UpdateBatch()
     {
         auto &batch = batches[0];
-        if (!batch.batchGroup) {
+        if (!batch.batchGroup && batch.program) {
             auto layout = batch.program->RequestLayout(BATCH_SET);
             batch.batchGroup = TextFeature::Get()->RequestResourceGroup();
             batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
@@ -44,7 +44,7 @@ namespace sky {
         primitive->batches.emplace_back(RenderBatch(tech));
     }
 
-    void TextBatch::Flush()
+    void TextBatch::Flush(const rhi::Viewport& vp)
     {
         primitive->geometry = new RenderGeometry();
         primitive->geometry->vertexAttributes   = TEXT_ATTRIBUTES;
@@ -94,7 +94,7 @@ namespace sky {
     void FreeTypeText::Finalize(RenderScene& scene)
     {
         for (auto &[key, batch] : batches) {
-            batch->Flush();
+            batch->Flush(viewport);
             scene.AddPrimitive(batch->primitive.get());
         }
     }

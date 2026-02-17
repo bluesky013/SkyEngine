@@ -8,18 +8,59 @@
 #include <QStandardItemModel>
 #include <QStandardItem>
 #include <framework/world/World.h>
+#include <framework/world/Actor.h>
+#include <framework/world/Component.h>
+#include <core/event/Event.h>
 
 namespace sky::editor {
 
-    class WorldActorItem : public QStandardItem {
+    struct TreeViewComponent : public ComponentBase {
     public:
-        explicit WorldActorItem(const ActorPtr& actor_) : QStandardItem(QString().fromStdString(actor_->GetName())), actor(actor_) {}
-        ~WorldActorItem() override = default;
+        explicit TreeViewComponent(const QModelIndex& idx) : index(idx) {}
+        ~TreeViewComponent() override = default;
 
-        ActorPtr actor;
+        COMPONENT_RUNTIME_INFO(TreeViewComponent)
+
+        static void Reflect(SerializationContext *context);
+
+        QModelIndex index;
     };
 
-    class WorldTreeView : public QWidget {
+    class WorldActorItem : public QStandardItem, public IActorEvent {
+    public:
+        explicit WorldActorItem(const ActorPtr& actor_) : QStandardItem(QString().fromStdString(actor_->GetName())), actor(actor_)
+        {
+            binder.Bind(this, actor.get());
+        }
+
+        ~WorldActorItem() override = default;
+
+        void OnParentChanged(Actor* oldParent, Actor* newParent) override
+        {
+            if (oldParent == newParent) {
+                return;
+            }
+
+            auto &currentIdx = actor->GetComponent<TreeViewComponent>()->index;
+
+            auto *parent = model()->invisibleRootItem();
+            if (oldParent != nullptr) {
+                auto &oldIdx = oldParent->GetComponent<TreeViewComponent>()->index;
+                model()->removeRow(currentIdx.row(), oldIdx);
+            }
+
+            if (newParent != nullptr) {
+                auto &newIdx = newParent->GetComponent<TreeViewComponent>()->index;
+                parent = model()->itemFromIndex(newIdx);
+            }
+            parent->appendRow(this);
+        }
+
+        ActorPtr actor;
+        EventBinder<IActorEvent> binder;
+    };
+
+    class WorldTreeView : public QWidget, public IWorldEvent {
         Q_OBJECT
     public:
         explicit WorldTreeView(QWidget *parent);
@@ -43,10 +84,14 @@ namespace sky::editor {
         void OnContentMenuClicked(const QPoint &pos);
         void OnSelectItemChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
+        void OnActorAttached(const ActorPtr &actor) override;
+        void OnActorDetached(const ActorPtr &actor) override;
+
         QStandardItemModel *model = nullptr;
         QTreeView *treeView = nullptr;
 
         WorldPtr attachedWorld;
+        EventBinder<IWorldEvent> worldEvent;
     };
 
 } // namespace sky::editor

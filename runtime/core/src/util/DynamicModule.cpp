@@ -10,7 +10,10 @@
     #include <dlfcn.h>
 #endif
 
-#ifdef __APPLE__
+#ifdef _WIN32
+static const std::string DYN_PREFIX = "";
+static const std::string DYN_SUFFIX = ".dll";
+#elif __APPLE__
 static const std::string DYN_PREFIX = "lib";
 static const std::string DYN_SUFFIX = ".dylib";
 #elif defined(__ANDROID__)
@@ -31,19 +34,12 @@ namespace sky {
 
     bool DynamicModule::Load()
     {
-        std::vector<std::string> names = {name, name + "d"};
-
-        for (auto &ptr : names) {
+        std::string libName = DYN_PREFIX + name + DYN_SUFFIX;
 #ifdef _WIN32
-            handle = ::LoadLibraryExA(ptr.c_str(), nullptr, 0);
+        handle = ::LoadLibraryExA(libName.c_str(), nullptr, 0);
 #else
-            std::string libName = DYN_PREFIX + ptr + DYN_SUFFIX;
-            handle              = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
+        handle = dlopen(libName.c_str(), RTLD_LOCAL | RTLD_LAZY);
 #endif
-            if (handle != nullptr) {
-                break;
-            }
-        }
         return handle != nullptr;
     }
 
@@ -74,6 +70,23 @@ namespace sky {
     bool DynamicModule::IsLoaded() const
     {
         return handle != nullptr;
+    }
+
+    std::string DynamicModule::GetLastError() const
+    {
+        std::string res;
+#ifdef _WIN32
+        DWORD err = ::GetLastError();
+        switch (err) {
+        case ERROR_MOD_NOT_FOUND: res = "Not Found"; break;
+        case ERROR_BAD_EXE_FORMAT: res = "Arch Not Match"; break;
+        case ERROR_ACCESS_DENIED: res = "Access Denied"; break;
+        default:
+            res = "Unknown";
+            break;
+        }
+#endif
+        return res;
     }
 
 } // namespace sky

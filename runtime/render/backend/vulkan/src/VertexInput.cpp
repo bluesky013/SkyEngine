@@ -11,10 +11,13 @@ namespace sky::vk {
 
     bool VertexInput::Init(const Descriptor &desc)
     {
-        for (const auto &attribute : desc.attributes) {
+        for (uint32_t i = 0; i < desc.attributesNum; ++i) {
+            const auto& attribute = desc.attributes[i];
             attributes.emplace_back(VkVertexInputAttributeDescription{attribute.location, attribute.binding, FromRHI(attribute.format), attribute.offset});
         }
-        for (const auto &binding : desc.bindings) {
+
+        for (uint32_t i = 0; i < desc.bindingsNum; ++i) {
+            const auto& binding = desc.bindings[i];
             bindings.emplace_back(VkVertexInputBindingDescription{binding.binding, binding.stride, FromRHI(binding.inputRate)});
         }
         Build();

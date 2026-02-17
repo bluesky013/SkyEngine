@@ -5,7 +5,6 @@
 #include <shader/ShaderFileSystem.h>
 #include <shader/ShaderCompiler.h>
 #include <shader/ShaderCacheManager.h>
-
 namespace sky {
 
     ShaderFileSystem::ShaderFileSystem() : executor(1)
@@ -18,6 +17,11 @@ namespace sky {
     }
 
     void ShaderFileSystem::SetWorkFS(const FileSystemPtr& fs)
+    {
+        workFs = fs->CreateSubSystem("shaders", false);
+    }
+
+    void ShaderFileSystem::SetCacheFS(const FileSystemPtr& fs)
     {
         cacheFS = fs;
     }
@@ -46,6 +50,20 @@ namespace sky {
         if (cacheSourceFS) {
             auto replacedName = ShaderCompiler::ReplaceShadeName(name);
             auto file = cacheSourceFS->OpenFile(FilePath(replacedName));
+
+            if (file) {
+                std::string result;
+                file->ReadString(result);
+                return {true, result};
+            }
+        } else if (workFs) {
+            auto view = name.GetStr();
+
+            std::string replacedName = name.GetStr().data();
+            if (view.find("pass_options") == std::string::npos) {
+                replacedName = ShaderCompiler::ReplaceShadeName(name);
+            }
+            auto file = workFs->OpenFile(FilePath(replacedName.c_str()));
 
             if (file) {
                 std::string result;

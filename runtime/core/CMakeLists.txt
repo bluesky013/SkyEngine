@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Foundation)
+
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
@@ -37,4 +39,6 @@ sky_add_library(TARGET Core STATIC
         3rdParty::rapidjson
 #        3rdParty::mimalloc
         ${CORE_OPT_LIBS}
+    INSTALL_DIR
+        include
     )

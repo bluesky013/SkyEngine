@@ -14,6 +14,11 @@
 namespace sky {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
 
+    enum class ShaderLanguage : uint32_t {
+        HLSL,
+        GLSL
+    };
+
     enum class ShaderCompileTarget : uint32_t {
         SPIRV,
         MSL,
@@ -257,12 +262,12 @@ namespace sky::rhi {
         INPUT_ATTACHMENT       = 8,
     };
 
-    enum class VertexInputRate : uint32_t {
+    enum class VertexInputRate : uint8_t {
         PER_VERTEX   = 0,
         PER_INSTANCE = 1
     };
 
-    enum class QueueType : uint32_t {
+    enum class QueueType : uint8_t {
         GRAPHICS,
         COMPUTE,
         TRANSFER,
@@ -652,11 +657,11 @@ namespace sky::rhi {
     };
 
     struct VertexAttributeDesc {
-        std::string sematic;
         uint32_t location = 0;
         uint32_t binding  = 0;
         uint32_t offset   = 0;
         Format   format   = Format::UNDEFINED;
+        const char* sematic = nullptr;
     };
 
     struct VertexBindingDesc {

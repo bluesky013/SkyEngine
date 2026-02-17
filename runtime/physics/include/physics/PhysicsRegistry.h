@@ -6,6 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <physics/PhysicsBase.h>
+#include <memory>
 
 namespace sky {
     class SerializationContext;

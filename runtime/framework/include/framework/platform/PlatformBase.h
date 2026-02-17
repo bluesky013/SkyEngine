@@ -80,6 +80,8 @@ namespace sky {
         {
             platform->setLaunchCallback(std::forward<T>(cb));
         }
+
+        PlatformBase* GetImpl() const { return platform.get(); }
     private:
         std::unique_ptr<PlatformBase>  platform;
     };

@@ -179,7 +179,12 @@ namespace sky {
 
     void ShaderCompiler::LoadPipelineOptions(const std::string &name)
     {
+#if __ANDROID__
+        auto [rst, source] = ShaderFileSystem::Get()->LoadCacheSource(Name(name.c_str()));
+        std::string optionsData = source;
+#else
         std::string optionsData = LoadShader(name);
+#endif
         std::vector<ShaderOptionItem> optionItems = PreProcess(optionsData);
 
         uint32_t currentBit = 0;

@@ -2,9 +2,9 @@ set(LIB_NAME "ispc_texcomp")
 set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
 
 if (MSVC)
-    set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/ispc_texcomp.dll)
+    set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/bin/ispc_texcomp.dll)
 elseif (APPLE)
-    set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/libispc_texcomp.dylib)
+    set(${LIB_NAME}_DYNAMIC_LIBRARY ${${LIB_NAME}_PATH}/bin/libispc_texcomp.dylib)
 endif()
 
 set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include)

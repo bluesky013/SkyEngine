@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Executable)
+
 if (WIN32)
     file(GLOB_RECURSE PLATFORM_SRC windows/*)
 elseif(APPLE)
@@ -14,6 +16,7 @@ if (NOT ANDROID)
             common
         LIBS
             Framework
+            RenderAdaptor
     )
 else()
     add_subdirectory(android/app/src/main/cpp)

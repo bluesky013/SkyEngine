@@ -53,11 +53,13 @@ namespace sky::editor {
         if (actor != nullptr) {
             auto *transComp = actor->GetComponent<TransformComponent>();
             auto matrix = transComp->GetLocalTransform().ToMatrix();
-            ImGuizmo::Manipulate(view.v, proj.v, ImGuizmo::UNIVERSAL, ImGuizmo::LOCAL, matrix.v,
-                                 nullptr, nullptr, nullptr, nullptr);
-            Transform res = {};
-            Decompose(matrix, res.translation, res.rotation, res.scale);
-            transComp->SetLocalTransform(res);
+
+            if (ImGuizmo::Manipulate(view.v, proj.v, ImGuizmo::TRANSLATE | ImGuizmo::ROTATE | ImGuizmo::SCALE, ImGuizmo::LOCAL, matrix.v,
+                                     nullptr, nullptr, nullptr, nullptr)) {
+                Transform res = {};
+                Decompose(matrix, res.translation, res.rotation, res.scale);
+                transComp->SetLocalTransform(res);
+            }
         }
     }
 

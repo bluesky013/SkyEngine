@@ -44,6 +44,11 @@ float3 F_Schlick(float dotVH, float3 f0)
     return f0 + (1.0 - f0) * pow(1.0 - dotVH, 5.0);
 }
 
+float3 F_SchlickR(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max((1.0 - roughness).xxx, F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
 float D_GGX(float dotNH, float roughness)
 {
 	float alpha = roughness * roughness;
@@ -64,9 +69,10 @@ float G_SchlickGGX(float dotNV, float roughness)
 
 float G_SchlickSmithGGX(float dotNL, float dotNV, float roughness)
 {
-    float ggx1 = G_SchlickGGX(dotNL, roughness);
-    float ggx2 = G_SchlickGGX(dotNV, roughness);
-    return ggx1 * ggx2;
+     float k = (roughness * roughness) / 2.0;
+     float GL = dotNL / (dotNL * (1.0 - k) + k);
+     float GV = dotNV / (dotNV * (1.0 - k) + k);
+     return GL * GV;
 }
 
 struct StandardPBR {

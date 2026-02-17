@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/math/Matrix4.h>
+#include <framework/interface/ITransformEvent.h>
 #include <framework/world/Component.h>
 
 namespace sky {
@@ -12,7 +13,7 @@ namespace sky {
 
     enum class ProjectType : uint32_t { ORTHOGONAL, PROJECTIVE };
 
-    class CameraComponent : public ComponentBase {
+    class CameraComponent : public ComponentBase, public ITransformEvent {
     public:
         CameraComponent()  = default;
         ~CameraComponent() override;
@@ -26,7 +27,6 @@ namespace sky {
 
         void SetAspect(uint32_t width, uint32_t height);
 
-        void Tick(float time) override;
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
 
@@ -37,6 +37,7 @@ namespace sky {
         const Matrix4 &GetView() const;
     private:
         void ShutDown();
+        void OnTransformChanged(const Transform& global, const Transform& local) override;
 
         // data
         float near   = 0.1f;

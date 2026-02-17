@@ -36,9 +36,11 @@ namespace sky {
 //            case SDL_WINDOWEVENT_SIZE_CHANGED:
             case SDL_WINDOWEVENT_RESIZED: {
                 UpdateWindow();
-                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize,
-                                               static_cast<uint32_t>(event.data1),
-                                               static_cast<uint32_t>(event.data2));
+                WindowResizeEvent mEvent = {};
+                mEvent.winID = winID;
+                mEvent.width = (uint32_t)(event.data1 * scale);
+                mEvent.height = (uint32_t)(event.data2 * scale);
+                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize, mEvent);
                 break;
             }
             case SDL_WINDOWEVENT_FOCUS_GAINED:

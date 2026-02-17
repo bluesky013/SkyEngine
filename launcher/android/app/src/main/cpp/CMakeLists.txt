@@ -1,7 +1,11 @@
-add_library(Launcher SHARED
+sky_add_library(TARGET Launcher SHARED
+    SOURCES
         Main.cpp
-        )
-
-target_link_libraries(Launcher
+        SampleScene.cpp
+        SampleScene.h
+    PRIVATE_INC
+    PUBLIC_INC
+    LINK_LIBS
         Framework
-        )
+        RenderAdaptor
+)

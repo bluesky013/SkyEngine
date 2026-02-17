@@ -9,6 +9,7 @@
 #include <list>
 #include <type_traits>
 #include <map>
+#include <functional>
 
 namespace sky {
     class JsonInputArchive;

@@ -7,6 +7,7 @@ PLATFORM_LIST = [
     'Android',
     'Darwin',
     'IOS',
+    'Linux',
 ]
 
 PLATFORM_ARCH_LIST = {
@@ -14,6 +15,7 @@ PLATFORM_ARCH_LIST = {
     'Android': ['arm64-v8a', 'armeabi-v7a', 'x86'],
     'Darwin': ['x86', 'arm64'],
     'IOS': ['arm64'],
+    'Linux': ['x86_64'],
 }
 
 BUILD_TYPE_LIST = ['Debug', 'Release']
@@ -21,13 +23,15 @@ BUILD_TYPE_LIST = ['Debug', 'Release']
 PLATFORM_AVAILABLE_LIST = {
     'Windows': ['Windows', 'Android'],
     'Darwin': ['Darwin', 'IOS', 'Android'],
+    'Linux': ['Linux'],
 }
 
 GENERATOR_LIST = {
     'Windows': ['Visual Studio 17 2022', 'Visual Studio 16 2019'],
     'Darwin': ['Xcode'],
     'IOS': ['Xcode'],
-    'Android': ['Ninja']
+    'Android': ['Ninja'],
+    'Linux': ['Ninja', 'Unix Makefiles'],
 }
 
 COMMON_PRESET_TEMP = {

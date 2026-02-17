@@ -13,7 +13,7 @@ namespace sky {
         : executor(1)
         , semaphore(1)
     {
-        Dispatch([name]() { impl::SetCurrentThreadName(name.GetStr()); });
+//        Dispatch([name]() { impl::SetCurrentThreadName(name.GetStr()); });
     }
 
     NamedThread::~NamedThread() = default;
@@ -25,7 +25,7 @@ namespace sky {
 
     void NamedThread::Signal()
     {
-        Dispatch([this]() { semaphore.Signal(); });
+//        Dispatch([this]() { semaphore.Signal(); });
     }
 
 } // namespace sky

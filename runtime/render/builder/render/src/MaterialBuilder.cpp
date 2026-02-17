@@ -218,6 +218,8 @@ namespace sky::builder {
                     }
                     asset->AddDependencies(techId->uuid);
 
+                    std::string u = techId->uuid.ToString();
+
                     AssetBuilderManager::Get()->BuildRequest(techId->uuid, request.target);
                     request.assetInfo->dependencies.emplace_back(techId->uuid);
                     assetData.techniques.emplace(techId->uuid);

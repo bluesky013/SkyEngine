@@ -10,5 +10,5 @@ if (APPLE)
 endif()
 
 if (SKY_BUILD_GLES OR ANDROID)
-    add_subdirectory(gles)
+    #add_subdirectory(gles)
 endif()

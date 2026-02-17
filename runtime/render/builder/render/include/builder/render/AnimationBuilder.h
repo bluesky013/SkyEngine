@@ -17,10 +17,16 @@ namespace sky::builder {
     private:
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 
-        const std::vector<std::string> &GetExtensions() const override { return extensions; }
-        std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Animation>::ASSET_TYPE; }
+        void RequestClip(const AssetBuildRequest &request, AssetBuildResult &result);
+        void RequestGraph(const AssetBuildRequest &request, AssetBuildResult &result);
 
-        std::vector<std::string> extensions = {".anim"};
+        const std::vector<std::string> &GetExtensions() const override { return extensions; }
+        std::string_view QueryType(const std::string &ext) const override
+        {
+            return ext == ".clip" ? AssetTraits<AnimationClip>::ASSET_TYPE : AssetTraits<Animation>::ASSET_TYPE;
+        }
+
+        std::vector<std::string> extensions = {".clip", ".graph"};
     };
 
 } // namespace sky::builder

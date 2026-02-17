@@ -13,16 +13,22 @@
 #include <framework/world/World.h>
 #include <framework/world/ComponentFactory.h>
 
-#include <render/adaptor/components/CameraComponent.h>
-#include <render/adaptor/components/LightComponent.h>
-#include <render/adaptor/components/StaticMeshComponent.h>
-#include <render/adaptor/components/SkeletonMeshComponent.h>
-#include <render/adaptor/components/SkyBoxComponent.h>
+#include <render/RenderTechniqueLibrary.h>
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/RenderTechniqueLibrary.h>
+#include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/components/LightComponent.h>
+#include <render/adaptor/components/PrefabComponent.h>
+#include <render/adaptor/components/SkeletalMeshComponent.h>
+#include <render/adaptor/components/SkyBoxComponent.h>
+#include <render/adaptor/components/StaticMeshComponent.h>
+
+#include <render/adaptor/animation/SkeletonDisplayComponent.h>
+#include <render/adaptor/animation/AnimationPreviewComponent.h>
+#include <render/adaptor/animation/CharacterLocomotion.h>
 
 #include <render/light/LightFeature.h>
+#include <render/env/EnvFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
 #include <imgui/ImGuiFeature.h>
@@ -41,15 +47,30 @@ namespace sky {
         MainDirectLightComponent::Reflect(context);
         StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
-        SkeletonMeshComponent::Reflect(context);
+        SkeletalMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
+        PrefabComponent::Reflect(context);
 
-        static std::string GROUP = "Render";
-        ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<SkeletonMeshComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
-        ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
+        SkeletonDisplayComponent::Reflect(context);
+        AnimationPreviewComponent::Reflect(context);
+        CharacterLocomotion::Reflect(context);
+
+        {
+            static std::string GROUP = "Render";
+            ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SkeletalMeshComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);
+        }
+
+        {
+            static std::string GROUP = "Animation";
+            ComponentFactory::Get()->RegisterComponent<SkeletonDisplayComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<AnimationPreviewComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<CharacterLocomotion>(GROUP);
+        }
     }
 
     void RenderModule::ProcessArgs(const StartArguments &args)
@@ -81,7 +102,7 @@ namespace sky {
         rhi::Instance::Descriptor rhiDesc = {};
         rhiDesc.engineName = "SkyEngine";
         rhiDesc.appName = "";
-#if _DEBUG && !__ANDROID__
+#if defined(_DEBUG) && !__ANDROID__
         rhiDesc.enableDebugLayer = true;
 #else
         rhiDesc.enableDebugLayer = false;
@@ -124,6 +145,7 @@ namespace sky {
         ImGuiFeature::Get()->Init();
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
+        EnvFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
         {
@@ -141,6 +163,7 @@ namespace sky {
             TextFeature::Get()->SetTechnique(tech);
         }
         LoadAndRegister(am, "techniques/meshlet_debug.tech");
+        LoadAndRegister(am, "techniques/debug.tech");
     }
 
     void RenderModule::Shutdown()
@@ -151,6 +174,7 @@ namespace sky {
         MeshFeature::Destroy();
         ImGuiFeature::Destroy();
         TextFeature::Destroy();
+        EnvFeature::Destroy();
 
         Renderer::Destroy();
         RHI::Destroy();

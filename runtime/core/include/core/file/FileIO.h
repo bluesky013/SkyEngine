@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <core/file/FileSystem.h>
+#include <core/archive/BinaryData.h>
 
 namespace sky {
 
@@ -15,6 +16,7 @@ namespace sky {
     bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size);
     bool ReadBin(const FilePath &path, std::vector<uint8_t> &out);
     bool ReadBin(const FilePath &path, std::vector<uint32_t> &out);
+    BinaryDataPtr ReadBin(const FilePath &path);
 
     bool ReadString(const FilePath &path, std::string &out);
 

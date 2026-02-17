@@ -45,6 +45,7 @@ namespace sky {
 
         void *winHandle = nullptr;
         WindowID winID = INVALID_WIN_ID;
+        float scale = 1.f;
         Descriptor descriptor;
     };
 } // namespace sky

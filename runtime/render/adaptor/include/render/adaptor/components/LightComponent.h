@@ -14,6 +14,7 @@ namespace sky {
     struct MainLightData {
         ColorRGB color = ColorRGB{1.f, 1.f, 1.f};
         float intensity = 1.f;
+        bool castShadow = true;
     };
 
     class MainDirectLightComponent
@@ -38,9 +39,9 @@ namespace sky {
 
     private:
         void OnTransformChanged(const Transform& global, const Transform& local) override;
+        void UpdateData(const Transform& global);
 
         MainDirectLight *light = nullptr;
-        Vector3 direction = -VEC3_Z;
         EventBinder<ITransformEvent> binder;
     };
 

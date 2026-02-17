@@ -32,6 +32,7 @@ namespace sky::vk {
         {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT                      , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL                    },
         {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT                      , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_GENERAL                                     },
         {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT                      , VK_ACCESS_SHADER_WRITE_BIT                                                        , VK_IMAGE_LAYOUT_GENERAL                                     },
+
         {VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT                     , VK_ACCESS_UNIFORM_READ_BIT                                                        , VK_IMAGE_LAYOUT_UNDEFINED                                   },
         {VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT                     , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL                    },
         {VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT                     , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_GENERAL                                     },
@@ -40,6 +41,7 @@ namespace sky::vk {
         {VK_PIPELINE_STAGE_MESH_SHADER_BIT_EXT                     , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL                    },
         {VK_PIPELINE_STAGE_MESH_SHADER_BIT_EXT                     , VK_ACCESS_SHADER_READ_BIT                                                         , VK_IMAGE_LAYOUT_GENERAL                                     },
         {VK_PIPELINE_STAGE_MESH_SHADER_BIT_EXT                     , VK_ACCESS_SHADER_WRITE_BIT                                                        , VK_IMAGE_LAYOUT_GENERAL                                     },
+
         {VK_PIPELINE_STAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR, VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR                           , VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR},
         {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT                     , VK_ACCESS_INPUT_ATTACHMENT_READ_BIT                                               , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL                    },
         {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT                     , VK_ACCESS_INPUT_ATTACHMENT_READ_BIT                                               , VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL             },

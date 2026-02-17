@@ -59,6 +59,10 @@ namespace sky {
         for (auto &res : computeResources) {
             subPassBuilder.AddComputeView(res.name, res.computeView);
         }
+
+        for (auto &res : samplers) {
+            subPassBuilder.AddSamplerView(res.name, res.viewName);
+        }
     }
 
     void FullScreenPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
@@ -73,6 +77,10 @@ namespace sky {
 
         for (auto &res : computeResources) {
             subPassBuilder.AddComputeView(res.name, res.computeView);
+        }
+
+        for (auto &res : samplers) {
+            subPassBuilder.AddSamplerView(res.name, res.viewName);
         }
 
         subPassBuilder.AddFullScreen(Name("FullScreen"))

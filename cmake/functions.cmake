@@ -31,6 +31,9 @@ function(sky_add_exe)
     endforeach()
     target_include_directories(${TMP_TARGET} PRIVATE ${TMP_INCS})
     target_link_libraries(${TMP_TARGET} ${TMP_LIBS})
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
 
 
 endfunction()
@@ -39,7 +42,7 @@ function(sky_add_library)
     cmake_parse_arguments(TMP
         "STATIC;SHARED"
         "TARGET"
-        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS"
+        "SOURCES;PRIVATE_INC;PUBLIC_INC;LINK_LIBS;INSTALL_DIR;PUBLIC_DEFS;PRIVATE_DEFS"
         ${ARGN}
     )
 
@@ -90,6 +93,31 @@ function(sky_add_library)
     target_include_directories(${TMP_TARGET} PRIVATE ${TMP_PRIVATE_INC})
     target_include_directories(${TMP_TARGET} PUBLIC ${TMP_PUBLIC_INC})
     target_link_libraries(${TMP_TARGET} ${LINK_LIBRARIES})
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
+    target_compile_definitions(${TMP_TARGET}
+      PUBLIC
+        ${TMP_PUBLIC_DEFS}
+      PRIVATE
+        ${TMP_PRIVATE_DEFS}
+    )
+
+    if (TMP_INSTALL_DIR)
+        install(TARGETS ${TMP_TARGET}
+            EXPORT SkyEngineExport
+            ARCHIVE DESTINATION lib
+            LIBRARY DESTINATION lib
+            RUNTIME DESTINATION bin
+            INCLUDES DESTINATION include
+        )
+
+        install(DIRECTORY ${TMP_INSTALL_DIR}/
+            DESTINATION include/
+            FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
+        )
+    endif ()
+
 
 endfunction()
 
@@ -124,6 +152,9 @@ function(sky_add_test)
         COMMAND ${TMP_TARGET}
         WORKING_DIRECTORY ${TMP_WORKING_DIR}
     )
+    if(CURRENT_FOLDER)
+        set_target_properties(${TMP_TARGET} PROPERTIES FOLDER ${CURRENT_FOLDER})
+    endif ()
 endfunction()
 
 function(sky_add_dependency)

@@ -79,7 +79,7 @@ namespace sky {
                 dynLibs.emplace(moduleName, std::move(dynModule));
                 LOG_I(TAG, "Load Module : %s success", moduleName.c_str());
             } else {
-                LOG_E(TAG, "Load Module : %s Failed", moduleName.c_str());
+                LOG_E(TAG, "Load Module : %s Failed, [%s]", moduleName.c_str(), dynModule->GetLastError().c_str());
             }
         }, sortedContainer);
     }

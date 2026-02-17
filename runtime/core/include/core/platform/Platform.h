@@ -25,11 +25,87 @@
     #define SKY_IMPORT __attribute__((visibility("default")))
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+    #define SKY_PLATFORM_WINDOWS 1
+#elif defined(__APPLE__)
+
+#include "TargetConditionals.h"
+    #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+        #define SKY_PLATFORM_IOS 1
+    #elif TARGET_OS_MAC
+        #define SKY_PLATFORM_MACOS 1
+    #endif
+
+#elif defined(__ANDROID__)
+    #define SKY_PLATFORM_ANDROID 1
+#elif defined(__linux__)
+    #define SKY_PLATFORM_LINUX 1
+#else
+    #define SKY_PLATFORM_UNKNOWN 1
+#endif
+
+#if defined(__clang__)
+    #define SKY_PLATFORM_COMPILER_CLANG 1
+#elif defined(__GNUC__) || defined(__GNUG__)
+    #define SKY_PLATFORM_COMPILER_GCC 1
+#elif defined(_MSC_VER)
+    #define SKY_PLATFORM_COMPILER_MSVC 1
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+    #define SKY_PLATFORM_ARCH_X64 1
+#elif defined(__i386__) || defined(_M_IX86)
+    #define SKY_PLATFORM_ARCH_X86 1
+#elif defined(__arm__) || defined(_M_ARM)
+    #define SKY_PLATFORM_ARCH_ARM 1
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    #define SKY_PLATFORM_ARCH_ARM64 1
+#endif
+
+#ifndef SKY_CPU_LITTLE_ENDIAN
+    #if defined(_WIN32) || defined(__LITTLE_ENDIAN__) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+        #define SKY_CPU_LITTLE_ENDIAN 1
+    #elif defined(__BIG_ENDIAN__) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        #define SKY_CPU_LITTLE_ENDIAN 0
+    #else
+        #define SKY_CPU_LITTLE_ENDIAN 1
+    #endif
+#endif
+
+// LIKELY DEFINES
+#ifndef LIKELY
+#if defined(__cplusplus) && __cplusplus >= 202002L
+    #define LIKELY(expr)   (expr) [[likely]]
+#elif defined(__clang__) || defined(__GNUC__)
+    #define LIKELY(expr)   __builtin_expect(!!(expr), 1)
+#else
+    #define LIKELY(expr)   (expr)
+#endif
+#endif // LIKELY
+
+#ifndef UNLIKELY
+#if defined(__cplusplus) && __cplusplus >= 202002L
+    #define UNLIKELY(expr) (expr) [[unlikely]]
+#elif defined(__clang__) || defined(__GNUC__)
+    #define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#else
+    #define UNLIKELY(expr) (expr)
+#endif
+#endif // UNLIKELY
+
+#ifndef FORCEINLINE
+    #if defined(_MSC_VER)
+        #define FORCEINLINE __forceinline
+    #else
+        #define FORCEINLINE inline __attribute__((always_inline))
+    #endif
+#endif
+
 #include <cstdint>
 
 namespace sky {
 
-    enum class PlatformType : uint32_t {
+    enum class PlatformType : uint8_t {
         Default,
         Windows,
         MacOS,
@@ -38,5 +114,41 @@ namespace sky {
         IOS,
         UNDEFINED
     };
+
+    enum class Endian : uint8_t {
+        Little,
+        Big
+    };
+
+    inline uint16_t SwapEndian16(uint16_t value)
+    {
+        return (value >> 8) | (value << 8);
+    }
+
+    inline uint32_t SwapEndian32(uint32_t value)
+    {
+        return ((value >> 24) & 0x000000FF) |
+               ((value >> 8)  & 0x0000FF00) |
+               ((value << 8)  & 0x00FF0000) |
+               ((value << 24) & 0xFF000000);
+    }
+
+    inline uint64_t SwapEndian64(uint64_t value)
+    {
+        return ((value >> 56) & 0x00000000000000FFULL) |
+               ((value >> 40) & 0x000000000000FF00ULL) |
+               ((value >> 24) & 0x0000000000FF0000ULL) |
+               ((value >> 8)  & 0x00000000FF000000ULL) |
+               ((value << 8)  & 0x000000FF00000000ULL) |
+               ((value << 24) & 0x0000FF0000000000ULL) |
+               ((value << 40) & 0x00FF000000000000ULL) |
+               ((value << 56) & 0xFF00000000000000ULL);
+    }
+
+    inline bool IsLittleEndian()
+    {
+        const union { uint32_t u; uint8_t c[4]; } one = { 1 };
+        return one.c[0] != 0u;
+    }
 
 } // namespace sky

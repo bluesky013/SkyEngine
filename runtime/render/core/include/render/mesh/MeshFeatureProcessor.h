@@ -6,7 +6,7 @@
 
 #include <render/FeatureProcessor.h>
 #include <render/mesh/MeshRenderer.h>
-#include <render/skeleton/SkeletonMeshRenderer.h>
+#include <render/skeleton/SkeletalMeshRenderer.h>
 
 namespace sky {
 
@@ -21,13 +21,13 @@ namespace sky {
         MeshRenderer *CreateStaticMesh();
         void RemoveStaticMesh(MeshRenderer *mesh);
 
-        SkeletonMeshRenderer *CreateSkeletonMesh();
-        void RemoveSkeletonMesh(SkeletonMeshRenderer *mesh);
+        SkeletalMeshRenderer *CreateSkeletalMesh();
+        void RemoveSkeletalMesh(SkeletalMeshRenderer *mesh);
 
     private:
         std::list<std::unique_ptr<MeshRenderer>> staticMeshes;
 
-        std::list<std::unique_ptr<SkeletonMeshRenderer>> skeletonMeshes;
+        std::list<std::unique_ptr<SkeletalMeshRenderer>> skeletonMeshes;
     };
 
 } // namespace sky

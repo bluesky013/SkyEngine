@@ -19,6 +19,8 @@ namespace sky {
             };
         };
 
+        using BaseType = float;
+
         inline constexpr Vector3();
         inline constexpr explicit Vector3(float v);
         inline constexpr Vector3(float x_, float y_, float z_);
@@ -48,6 +50,16 @@ namespace sky {
 
         inline float &operator[](uint32_t i);
         inline float operator[](uint32_t i) const;
+
+        inline bool operator==(const Vector3& rhs) const;
+    };
+
+    template <>
+    struct VectorTraits<Vector3> {
+        using BaseType = Vector3::BaseType;
+        static constexpr size_t Size = 3;
+
+        static BaseType Visit(const Vector3& inVal, size_t index) { return inVal.v[index]; }
     };
 } // namespace sky
 
@@ -59,4 +71,5 @@ namespace sky {
     static constexpr Vector3 VEC3_X = Vector3(1, 0, 0);
     static constexpr Vector3 VEC3_Y = Vector3(0, 1, 0);
     static constexpr Vector3 VEC3_Z = Vector3(0, 0, 1);
+    static constexpr Vector3 VEC3_NZ = Vector3(0, 0, -1);
 } // namespace sky

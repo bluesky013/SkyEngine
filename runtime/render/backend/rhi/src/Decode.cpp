@@ -7,6 +7,7 @@
 #include <rhi/Decode.h>
 #include <rhi/Stream.h>
 #include <unordered_map>
+#include <cstring>
 
 namespace sky::rhi {
 
@@ -65,6 +66,7 @@ namespace sky::rhi {
                 {DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, PixelFormat::RGBA8_SRGB},
                 {DXGI_FORMAT::DXGI_FORMAT_B8G8R8A8_UNORM, PixelFormat::BGRA8_UNORM},
                 {DXGI_FORMAT::DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, PixelFormat::BGRA8_SRGB},
+                {DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_FLOAT, PixelFormat::RGBA16_SFLOAT},
                 {DXGI_FORMAT::DXGI_FORMAT_BC1_UNORM, PixelFormat::BC1_RGBA_UNORM_BLOCK},
                 {DXGI_FORMAT::DXGI_FORMAT_BC1_UNORM_SRGB, PixelFormat::BC1_RGBA_SRGB_BLOCK},
                 {DXGI_FORMAT::DXGI_FORMAT_BC2_UNORM, PixelFormat::BC2_UNORM_BLOCK},
@@ -85,17 +87,17 @@ namespace sky::rhi {
         return iter == FORMAT_INFO.end() ? nullptr : &iter->second;
     }
 
-    AspectFlags GetAspectFlagsByFormat(PixelFormat format)
+    AspectFlags GetAspectFlagsByFormat(PixelFormat format, bool useDepth, bool useStencil)
     {
         auto *formatInfo = GetImageInfoByFormat(format);
         if (!formatInfo->hasDepth && !formatInfo->hasStencil) {
             return rhi::AspectFlagBit::COLOR_BIT;
         }
         AspectFlags aspectMask;
-        if (formatInfo->hasDepth) {
+        if (formatInfo->hasDepth && useDepth) {
             aspectMask |= rhi::AspectFlagBit::DEPTH_BIT;
         }
-        if (formatInfo->hasStencil) {
+        if (formatInfo->hasStencil && useStencil) {
             aspectMask |= rhi::AspectFlagBit::STENCIL_BIT;
         }
         return aspectMask;

@@ -28,9 +28,9 @@ namespace sky {
         request.size = size;
 
         conePrimitive->geometry = new RenderGeometry();
-        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM0, 0, OFFSET_OF(Meshlet, center), rhi::Format::F_RGBA32, rhi::VertexInputRate::PER_INSTANCE});
-        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM1, 0, OFFSET_OF(Meshlet, coneApex), rhi::Format::F_RGBA32, rhi::VertexInputRate::PER_INSTANCE});
-        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM2, 0, OFFSET_OF(Meshlet, coneAxis), rhi::Format::F_RGBA32, rhi::VertexInputRate::PER_INSTANCE});
+        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM0, 0, OFFSET_OF(Meshlet, center), rhi::Format::F_RGBA32});
+        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM1, 0, OFFSET_OF(Meshlet, coneApex), rhi::Format::F_RGBA32});
+        conePrimitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::CUSTOM2, 0, OFFSET_OF(Meshlet, coneAxis), rhi::Format::F_RGBA32});
 
         conePrimitive->geometry->indexBuffer.buffer = new Buffer();
         conePrimitive->geometry->indexBuffer.buffer->Init(size, rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::CPU_TO_GPU);

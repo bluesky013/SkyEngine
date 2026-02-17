@@ -1,4 +1,4 @@
-
+#include <core/math/Math.h>
 
 namespace sky {
 
@@ -69,6 +69,11 @@ namespace sky {
         return rhs + ((uv * w) + uuv) * 2.f;
     }
 
+    inline Quaternion Quaternion::operator*(float va) const
+    {
+        return {x * va, y * va, z * va, w * va};
+    }
+
     inline Quaternion &Quaternion::operator*=(float m)
     {
         x *= m;
@@ -87,7 +92,7 @@ namespace sky {
 
     inline void Quaternion::FromEulerYZX(Vector3 euler)
     {
-        float halfToRad = 0.5F * sky::PI / 180.F;
+        float halfToRad = 0.5F * PI / 180.F;
         euler.x *= halfToRad;
         euler.y *= halfToRad;
         euler.z *= halfToRad;
@@ -112,7 +117,7 @@ namespace sky {
         float heading{0};
         float attitude{0};
         float test = x * y + z * w;
-        float r2d = 180.F / sky::PI;
+        float r2d = 180.F / PI;
         if (test > 0.499999) {
             bank = 0;
             heading = 2 * atan2(x, w) * r2d;

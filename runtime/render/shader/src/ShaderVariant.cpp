@@ -71,7 +71,7 @@ namespace sky {
         auto &num = *(reinterpret_cast<uint16_t*>(&u8[beginBit >> 3]));
 
         auto mask = (uint16_t)((~0u << (E + 1)) | ((1u << S) - 1));
-        num = num & mask | ((uint16_t)(val) << S);
+        num = (num & mask) | ((uint16_t)(val) << S);
     }
 
     uint8_t ShaderVariantKey::GetValue(uint8_t beginBit, uint8_t endBit) const
@@ -96,7 +96,8 @@ namespace sky {
 #ifdef _MSC_VER
             sprintf_s(buf + i * 2, BUF_LEN - (i * 2), "%02x", u8[U8L - i - 1]);
 #else
-            sprintf(buf + i * 2, "%02x", u8[U8L - i - 1]);
+            snprintf(buf + i * 2, BUF_LEN - (i * 2), "%02x", u8[U8L - i - 1]);
+//            sprintf(buf + i * 2, "%02x", u8[U8L - i - 1]);
 #endif
         }
         buf[BUF_LEN - 1] = 0;

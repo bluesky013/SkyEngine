@@ -10,7 +10,6 @@
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/Asset.h>
 
-#include <vector>
 #include <unordered_map>
 #include <mutex>
 
@@ -22,20 +21,26 @@ namespace sky {
         ~AssetDataBase() override = default;
 
         void SetEngineFs(const NativeFileSystemPtr &fs);
-        void SetWorkSpaceFs(const NativeFileSystemPtr &fs);
+        void SetWorkSpaceFs(const FileSystemPtr &fs);
+
+        static Uuid CalculateUuidByPath(const AssetSourcePath& path);
 
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
-        const NativeFileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
+        const FileSystemPtr &GetWorkSpaceFs() const { return workSpaceFs; }
 
-        AssetSourcePtr RegisterAsset(const AssetSourcePath &path);
-        AssetSourcePtr RegisterAsset(const std::string &path);
+        std::vector<AssetSourcePtr> Gather(const std::string_view& category);
+
+        AssetSourcePtr RegisterAsset(const AssetSourcePath &path, bool build = true);
+        AssetSourcePtr RegisterAsset(const std::string &path, bool build = true);
         AssetSourcePath QuerySource(const std::string &path);   // engine->workspace->custom
 
         AssetSourcePtr FindAsset(const Uuid &id);
         AssetSourcePtr FindAsset(const std::string &path);
+        AssetSourcePtr FindAsset(const AssetSourcePath &path);
         void RemoveAsset(const Uuid &id);
 
         FilePtr OpenFile(const AssetSourcePtr &src);
+        FilePtr OpenFile(const AssetSourcePath &path);
         FilePtr CreateOrOpenFile(const AssetSourcePath &path);
 
         void SetMarkedName(const Uuid& id, const std::string &name);
@@ -47,10 +52,10 @@ namespace sky {
         void Dump(std::ostream &stream);
 
         const std::unordered_map<Uuid, AssetSourcePtr> &GetSources() const { return idMap; }
-        const NativeFileSystemPtr &GetFileSystemBySourcePath(const AssetSourcePath &path);
+        FileSystemPtr GetFileSystemBySourcePath(const AssetSourcePath &path);
     private:
         NativeFileSystemPtr engineFs;
-        NativeFileSystemPtr workSpaceFs;
+        FileSystemPtr workSpaceFs;
         std::unordered_map<uint32_t, NativeFileSystemPtr> pluginFs;
 
         std::recursive_mutex assetMutex;

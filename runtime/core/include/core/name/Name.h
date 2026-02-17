@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/name/NameTypes.h>
+#include <functional>
 
 namespace sky {
 
@@ -72,7 +73,7 @@ namespace sky {
         }
     private:
         NameEntryHandle handle;
-#if _DEBUG
+#ifdef _DEBUG
         std::string_view view;
 #endif
     };

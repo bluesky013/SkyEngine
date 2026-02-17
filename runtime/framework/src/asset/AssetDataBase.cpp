@@ -27,25 +27,44 @@ namespace sky {
         engineFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
     }
 
-    void AssetDataBase::SetWorkSpaceFs(const NativeFileSystemPtr &fs)
+    void AssetDataBase::SetWorkSpaceFs(const FileSystemPtr &fs)
     {
+#ifdef SKY_EDITOR
         workSpaceFs = CastPtr<NativeFileSystem>(fs->CreateSubSystem("assets", true));
+#else
+        workSpaceFs = fs;
+#endif
+    }
+
+    Uuid AssetDataBase::CalculateUuidByPath(const AssetSourcePath& path)
+    {
+        return Uuid::CreateWithSeed(CalculateHash(path));
+    }
+
+    std::string ReplaceSlashToBackslash(std::string path)
+    {
+#if _WIN32
+        std::replace(path.begin(), path.end(), '/', '\\');
+#endif
+        return path;
     }
 
     AssetSourcePtr AssetDataBase::FindAsset(const Uuid &id)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         auto iter = idMap.find(id);
         return iter != idMap.end() ? iter->second : nullptr;
     }
 
-    AssetSourcePtr AssetDataBase::FindAsset(const std::string &path)
+    AssetSourcePtr AssetDataBase::FindAsset(const std::string &inPath)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         const SourceAssetBundle bundles[] = {
                 SourceAssetBundle::WORKSPACE,
                 SourceAssetBundle::ENGINE
         };
+
+        auto path = ReplaceSlashToBackslash(inPath);
         for (const auto &bundle : bundles) {
             auto iter = pathMap.find({bundle, path});
             if (iter != pathMap.end()) {
@@ -55,7 +74,30 @@ namespace sky {
         return {};
     }
 
-    AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path)
+    AssetSourcePtr AssetDataBase::FindAsset(const AssetSourcePath &path)
+    {
+        std::lock_guard lock(assetMutex);
+        auto iter = pathMap.find(path);
+        if (iter != pathMap.end()) {
+            return FindAsset(iter->second);
+        }
+        return {};
+    }
+
+    std::vector<AssetSourcePtr> AssetDataBase::Gather(const std::string_view& category)
+    {
+        std::vector<AssetSourcePtr> res;
+
+        for (auto& [id, asset] : idMap) {
+            if (asset->category == category) {
+                res.emplace_back(asset);
+            }
+        }
+
+        return res;
+    }
+
+    AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path, bool build)
     {
         const auto &fs = GetFileSystemBySourcePath(path);
         if (!fs->FileExist(path.path)) {
@@ -65,7 +107,7 @@ namespace sky {
 
         AssetSourcePtr info = nullptr;
         {
-            std::lock_guard<std::recursive_mutex> lock(assetMutex);
+            std::lock_guard lock(assetMutex);
             auto iter = pathMap.find(path);
             if (iter != pathMap.end()) {
                 info = idMap.at(iter->second);
@@ -75,49 +117,50 @@ namespace sky {
         if (info == nullptr) {
             // query builder
             auto ext = path.path.Extension();
-            auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
-            if (builder == nullptr) {
-                LOG_E(TAG, "Builder not found for asset %s", ext.c_str());
-                return nullptr;
-            }
 
             AssetSourcePtr srcInfo = new AssetSourceInfo();
             auto uuid = Uuid::CreateWithSeed(CalculateHash(path));
             srcInfo->path = path;
             srcInfo->uuid = uuid;
             srcInfo->ext = ext;
-            srcInfo->category = builder->QueryType(ext);
+
+            auto *builder = AssetBuilderManager::Get()->QueryBuilder(ext);
+            if (builder != nullptr) {
+                srcInfo->category = builder->QueryType(ext);
+            }
 
             // new asset
             {
-                std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                std::lock_guard lock(assetMutex);
                 pathMap.emplace(path, uuid);
                 info = idMap.emplace(uuid, std::move(srcInfo)).first->second;
             }
         }
 
-        AssetBuildRequest request = {};
-        request.file = fs->OpenFile(path.path);
-        request.assetInfo = info;
-        AssetBuilderManager::Get()->BuildRequest(request);
+        if (build) {
+            AssetBuildRequest request = {};
+            request.file = fs->OpenFile(path.path);
+            request.assetInfo = info;
+            AssetBuilderManager::Get()->BuildRequest(request);
+        }
 
         // request builder
         return info;
     }
 
-    AssetSourcePtr AssetDataBase::RegisterAsset(const std::string &path)
+    AssetSourcePtr AssetDataBase::RegisterAsset(const std::string &path, bool build)
     {
         auto querySource = QuerySource(path);
         if (querySource.bundle == SourceAssetBundle::INVALID) {
             return nullptr;
         }
 
-        return RegisterAsset(querySource);
+        return RegisterAsset(querySource, build);
     }
 
     void AssetDataBase::RemoveAsset(const Uuid &id)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         SKY_ASSERT(idMap.count(id));
         auto &src = idMap[id];
         pathMap.erase(src->path);
@@ -128,6 +171,12 @@ namespace sky {
     {
         const auto &fs = GetFileSystemBySourcePath(src->path);
         return fs->OpenFile(src->path.path);
+    }
+
+    FilePtr AssetDataBase::OpenFile(const AssetSourcePath &path)
+    {
+        const auto &fs = GetFileSystemBySourcePath(path);
+        return fs->OpenFile(path.path);
     }
 
     FilePtr AssetDataBase::CreateOrOpenFile(const AssetSourcePath &path)
@@ -196,7 +245,7 @@ namespace sky {
                 json.NextArrayElement();
 
                 {
-                    std::lock_guard<std::recursive_mutex> lock(assetMutex);
+                    std::lock_guard lock(assetMutex);
                     pathMap.emplace(info.path, info.uuid);
                     idMap.emplace(info.uuid, pInfo);
                 }
@@ -215,7 +264,7 @@ namespace sky {
         JsonOutputArchive json(*archive);
 
         {
-            std::lock_guard<std::recursive_mutex> lock(assetMutex);
+            std::lock_guard lock(assetMutex);
 
             json.StartObject();
             json.Key("assets");
@@ -259,14 +308,14 @@ namespace sky {
 
     void AssetDataBase::Reset()
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         pathMap.clear();
         idMap.clear();
     }
 
     void AssetDataBase::Dump(std::ostream &stream)
     {
-        std::lock_guard<std::recursive_mutex> lock(assetMutex);
+        std::lock_guard lock(assetMutex);
         for (auto &[id, info] : idMap) {
             stream << id.ToString() << "\t"
                 << info->category << "\t"
@@ -288,7 +337,7 @@ namespace sky {
         return {SourceAssetBundle::INVALID};
     }
 
-    const NativeFileSystemPtr &AssetDataBase::GetFileSystemBySourcePath(const AssetSourcePath &path)
+    FileSystemPtr AssetDataBase::GetFileSystemBySourcePath(const AssetSourcePath &path)
     {
         static NativeFileSystemPtr empty;
         switch (path.bundle) {

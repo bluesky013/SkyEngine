@@ -24,7 +24,7 @@ namespace sky {
         component->actor = this;
         auto res = storage.emplace(typeId, component);
         if (world != nullptr) {
-            component->actor->AttachToWorld(world);
+            component->OnAttachToWorld();
         }
         return res.second;
     }
@@ -87,11 +87,14 @@ namespace sky {
             archive.End();
 
             archive.Start("data");
-            auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
-            tmp->LoadJson(archive);
-            tmp->actor = this;
-            tmp->OnSerialized();
-            EmplaceComponent(typeId, tmp);
+            auto* iter = context->FindTypeById(typeId);
+            if (iter->info->newFunc != nullptr) {
+                auto *tmp = static_cast<ComponentBase*>(context->FindTypeById(typeId)->info->newFunc());
+                tmp->LoadJson(archive);
+                tmp->actor = this;
+                tmp->OnSerialized();
+                EmplaceComponent(typeId, tmp);
+            }
             archive.End();
 
             archive.NextArrayElement();
@@ -102,10 +105,15 @@ namespace sky {
     void Actor::SetParent(const ActorPtr &parent)
     {
         auto* trans = GetComponent<TransformComponent>();
+
+        Actor* oldActor = nullptr;
+
         auto* parentTrans = parent ? parent->GetComponent<TransformComponent>() : nullptr;
         if (trans != nullptr) {
             trans->SetParent(parentTrans);
         }
+
+        ActorEvent::BroadCast(this, &IActorEvent::OnParentChanged, oldActor, parent.get());
     }
 
     void Actor::Tick(float time)
@@ -121,10 +129,14 @@ namespace sky {
         for (auto &[id, component] : storage) {
             component->OnAttachToWorld();
         }
+
+        ActorEvent::BroadCast(this, &IActorEvent::OnAttachToWorld, world);
     }
 
     void Actor::DetachFromWorld()
     {
+        ActorEvent::BroadCast(this, &IActorEvent::OnDetachFromWorld, world);
+
         for (auto &[id, component] : storage) {
             component->OnDetachFromWorld();
         }

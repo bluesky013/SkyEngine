@@ -11,11 +11,11 @@ namespace sky {
 
         CounterPtr<Task> thisTask = this;
 
-        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
-            bool result = thisTask->DoWork();
-            thisTask->OnComplete(result);
-            thisTask->ResetTask();
-        }, dependencies.begin(), dependencies.end()).first;
+//        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
+//            bool result = thisTask->DoWork();
+//            thisTask->OnComplete(result);
+//            thisTask->ResetTask();
+//        }, dependencies.begin(), dependencies.end()).first;
     }
 
     bool Task::IsWorking() const

@@ -28,7 +28,7 @@ namespace sky {
 
         // upload
         void SetUploadStream(ImageData&& stream);
-        void Upload(std::vector<uint8_t> &&rawData, rhi::Queue *queue);
+        void UploadRawData(std::vector<uint8_t> &&rawData, rhi::Queue *queue);
 
         bool CheckExtent(uint32_t width, uint32_t height, uint32_t depth = 1) const;
         const rhi::ImageViewPtr &GetImageView() const { return imageView; }

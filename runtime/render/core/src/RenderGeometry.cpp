@@ -34,6 +34,9 @@ namespace sky {
         std::array<uint8_t, MAX_VERTEX_BUFFER_BINDINGS> bindingHash;
         bindingHash.fill(0xFF);
 
+        std::vector<rhi::VertexAttributeDesc> attributes;
+        std::vector<rhi::VertexBindingDesc> bindings;
+
         for (const auto &attr : program->GetVertexAttributes()) {
             auto semantic = semantics->QuerySemanticByName(attr.semantic);
             if (semantic == VertexSemanticFlagBit::NONE) {
@@ -56,24 +59,33 @@ namespace sky {
             auto &binding = bindingHash[stream.binding];
             if (binding == 0xFF) {
                 rhi::VertexBindingDesc vbDesc = {};
-                vbDesc.binding   = static_cast<uint32_t>(vtxDesc.bindings.size());
+                vbDesc.binding   = static_cast<uint32_t>(bindings.size());
                 vbDesc.stride    = vertexBuffers[stream.binding].stride;
-                vbDesc.inputRate = stream.rate;
+                vbDesc.inputRate = vertexBuffers[stream.binding].rate;
 
                 binding = vbDesc.binding;
-                vtxDesc.bindings.emplace_back(vbDesc);
+                bindings.emplace_back(vbDesc);
             }
 
             rhi::VertexAttributeDesc attrDesc = {};
-            attrDesc.sematic  = attr.semantic;
+            attrDesc.sematic  = attr.semantic.c_str();
             attrDesc.location = attr.location;
             attrDesc.binding  = binding;
             attrDesc.offset   = stream.offset;
             attrDesc.format   = stream.format;
 
-            vtxDesc.attributes.emplace_back(attrDesc);
+            attributes.emplace_back(attrDesc);
         }
         auto *device = RHI::Get()->GetDevice();
+
+        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
+        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
+        vtxDesc.attributes = attributes.data();
+        vtxDesc.bindings = bindings.data();
+
+//        vtxDesc.attributes.swap(attributes);
+//        vtxDesc.bindings.swap(bindings);
+
         return device->CreateVertexInput(vtxDesc);
     }
 
@@ -86,6 +98,9 @@ namespace sky {
         std::array<uint8_t, MAX_VERTEX_BUFFER_BINDINGS> bindingHash;
         bindingHash.fill(0xFF);
 
+        std::vector<rhi::VertexAttributeDesc> attributes;
+        std::vector<rhi::VertexBindingDesc> bindings;
+
         for (const auto &attr : program->GetVertexAttributes()) {
             auto semantic = semantics->QuerySemanticByName(attr.semantic);
             if (semantic == VertexSemanticFlagBit::NONE) {
@@ -108,25 +123,34 @@ namespace sky {
             auto &binding = bindingHash[stream.binding];
             if (binding == 0xFF) {
                 rhi::VertexBindingDesc vbDesc = {};
-                vbDesc.binding   = static_cast<uint32_t>(vtxDesc.bindings.size());
+                vbDesc.binding   = static_cast<uint32_t>(bindings.size());
                 vbDesc.stride    = vertexBuffers[stream.binding].stride;
-                vbDesc.inputRate = stream.rate;
+                vbDesc.inputRate = vertexBuffers[stream.binding].rate;
 
                 binding = vbDesc.binding;
-                vtxDesc.bindings.emplace_back(vbDesc);
+                bindings.emplace_back(vbDesc);
                 assemDesc.vertexBuffers.emplace_back(vertexBuffers[stream.binding].MakeView());
             }
 
             rhi::VertexAttributeDesc attrDesc = {};
-            attrDesc.sematic  = attr.semantic;
+            attrDesc.sematic  = attr.semantic.c_str();
             attrDesc.location = attr.location;
             attrDesc.binding  = binding;
             attrDesc.offset   = stream.offset;
             attrDesc.format   = stream.format;
 
-            vtxDesc.attributes.emplace_back(attrDesc);
+            attributes.emplace_back(attrDesc);
         }
         auto *device = RHI::Get()->GetDevice();
+
+        vtxDesc.attributesNum = static_cast<uint32_t>(attributes.size());
+        vtxDesc.bindingsNum = static_cast<uint32_t>(bindings.size());
+        vtxDesc.attributes = attributes.data();
+        vtxDesc.bindings = bindings.data();
+
+//        vtxDesc.attributes.swap(attributes);
+//        vtxDesc.bindings.swap(bindings);
+
         vtxInput = device->CreateVertexInput(vtxDesc);
         assemDesc.vertexInput = vtxInput;
         return device->CreateVertexAssembly(assemDesc);
@@ -182,5 +206,19 @@ namespace sky {
         }
 
         return !indexBuffer.buffer || indexBuffer.buffer->IsReady();
+    }
+
+    RenderGeometryPtr RenderGeometry::Duplicate()
+    {
+        auto *geom               = new RenderGeometry();
+        geom->vertexBuffers      = vertexBuffers;
+        geom->vertexAttributes   = vertexAttributes;
+        geom->indexBuffer        = indexBuffer;
+        geom->cluster            = cluster;
+        geom->dynamicVB          = dynamicVB;
+        geom->attributeSemantics = attributeSemantics;
+        geom->uploaded           = uploaded;
+        geom->version            = 0;
+        return geom;
     }
 } // namespace sky

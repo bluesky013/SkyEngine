@@ -7,14 +7,17 @@
 #include <QVBoxLayout>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QApplication>
+#include <QScreen>
+#include <QMenu>
 #include <render/adaptor/pipeline/DefaultForwardPipeline.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
-#include <render/RenderScenePipeline.h>
 #include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/asset/AssetManager.h>
+#include <framework/window/NativeWindowManager.h>
 
 namespace sky::editor {
 
@@ -129,10 +132,13 @@ namespace sky::editor {
 
     ViewportWindow::ViewportWindow(QWindow *parent) : QWindow(parent)
     {
-        setSurfaceType(SurfaceType::MetalSurface);
+        winHandle = GetNativeWindow();
+        winID = reinterpret_cast<WindowID>(winHandle);
 
-        winHandle = reinterpret_cast<void *>(winId());
-        winID = winId();
+        QScreen *screen = QApplication::primaryScreen();
+        scale = screen->devicePixelRatio();
+
+        NativeWindowManager::Get()->Register(this);
     }
 
     ViewportWidget::~ViewportWidget()
@@ -143,11 +149,16 @@ namespace sky::editor {
     bool ViewportWindow::event(QEvent *event)
     {
         switch (event->type()) {
-            case QEvent::Resize:
-                descriptor.width = width();
-                descriptor.height = height();
-                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize, descriptor.width, descriptor.height);
+            case QEvent::Resize: {
+                descriptor.width = (uint32_t)(width() * scale);
+                descriptor.height = (uint32_t)(height() * scale);
+                WindowResizeEvent wEvent = {};
+                wEvent.winID = winID;
+                wEvent.width = descriptor.width;
+                wEvent.height = descriptor.height;
+                Event<IWindowEvent>::BroadCast(this, &IWindowEvent::OnWindowResize, wEvent);
                 break;
+            }
             case QEvent::MouseMove: {
                 auto* mouseEvent = static_cast<QMouseEvent*>(event);
                 auto pos = mouseEvent->pos();
@@ -224,16 +235,53 @@ namespace sky::editor {
 
     ViewportWidget::ViewportWidget(QWidget *parent) : QWidget(parent)
     {
+        setAcceptDrops(true);
+        setContextMenuPolicy(Qt::CustomContextMenu);
+
         layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
 
         grid = std::make_unique<Grid>();
 
         binder.Bind(this);
-        setAcceptDrops(true);
+
+        connect(this, &QWidget::customContextMenuRequested, this,[=](const QPoint &pos){
+            QMenu menu(this);
+
+            QActionGroup *actionGroup = new QActionGroup(&menu);
+
+            static constexpr uint32_t SPEED_LEVEL = 4;
+            static const char* SPEED_TEXT[SPEED_LEVEL] = {
+                "VerySlow",
+                "Slow",
+                "Fast",
+                "VeryFast"
+            };
+
+            static const float SPEED_VAL[SPEED_LEVEL] = {
+                0.1f,
+                1.f,
+                10.f,
+                100.f
+            };
+
+            for (uint32_t i = 0; i < SPEED_LEVEL; ++i) {
+                QAction *action = menu.addAction(SPEED_TEXT[i]);
+                action->setCheckable(true);
+                action->setChecked(i == 0);
+                float speed = SPEED_VAL[i];
+                connect(action, &QAction::triggered, this, [this, speed]() {
+                    editorCamera->SetMoveSpeed(speed);
+                });
+                actionGroup->addAction(action);
+            }
+
+            // 显示菜单
+            menu.exec(mapToGlobal(pos));
+        });
     }
 
-    void ViewportWidget::ResetWorld(const WorldPtr &world_)
+    void ViewportWidget::ResetWorld(const WorldPtr &world_, ViewportFlags flags)
     {
         if (windowContainer != nullptr) {
             layout->removeWidget(windowContainer);
@@ -248,7 +296,7 @@ namespace sky::editor {
             layout->addWidget(windowContainer);
             Event<ISystemEvent>::BroadCast(&ISystemEvent::OnMainWindowCreated, window);
 
-            UpdatePipeline();
+            UpdatePipeline(flags);
         } else {
 
             ResetPipeline();
@@ -273,17 +321,21 @@ namespace sky::editor {
         if (editorCamera) {
             editorCamera->Tick(time);
         }
+
+        if (profiler) {
+            profiler->Tick();
+        }
     }
 
-    void ViewportWidget::OnWindowResize(uint32_t width, uint32_t height)
+    void ViewportWidget::OnWindowResize(const WindowResizeEvent& event)
     {
         if (renderWindow != nullptr) {
-            renderWindow->Resize(width, height);
-            editorCamera->UpdateAspect(width, height);
+            renderWindow->Resize(event.width, event.height);
+            editorCamera->UpdateAspect(event.width, event.height);
         }
 
         if (profiler) {
-            profiler->SetDisplaySize(window->GetWidth(), window->GetHeight());
+            profiler->SetDisplaySize(event.width, event.height);
         }
     }
 
@@ -303,7 +355,7 @@ namespace sky::editor {
     {
     }
 
-    void ViewportWidget::UpdatePipeline()
+    void ViewportWidget::UpdatePipeline(ViewportFlags flags)
     {
         renderWindow = Renderer::Get()->CreateRenderWindow(window->GetNativeHandle(),
                                             window->GetWidth(),
@@ -328,7 +380,7 @@ namespace sky::editor {
         editorCamera->Init(sceneProxy->GetRenderScene(), window);
 
         auto *gizmoFactory = Interface<IGizmoFactory>::Get()->GetApi();
-        if (gizmoFactory != nullptr) {
+        if (gizmoFactory != nullptr && flags.TestBit(ViewportFlagBit::ENABLE_GUIZMO)) {
             gizmo.reset(gizmoFactory->CreateGizmo());
             gizmo->Init(*world, window);
         }

@@ -23,6 +23,7 @@ namespace sky {
         const std::vector<FilePath> &GetSearchPaths() const { return searchPaths; }
 
         void SetWorkFS(const FileSystemPtr& fs);
+        void SetCacheFS(const FileSystemPtr& fs);
         void SetIntermediateFS(const NativeFileSystemPtr &fs);
 
         std::pair<bool, std::string> LoadCacheSource(const Name& name);
@@ -39,6 +40,7 @@ namespace sky {
     private:
         FileSystemPtr sourceFs;
         FileSystemPtr cacheFS;
+        FileSystemPtr workFs;
 
         std::vector<FilePath> searchPaths;
 

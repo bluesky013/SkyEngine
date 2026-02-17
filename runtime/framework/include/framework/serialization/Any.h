@@ -6,6 +6,7 @@
 
 #include <core/type/Rtti.h>
 #include <core/type/TypeInfo.h>
+#include <utility>
 
 namespace sky {
 
@@ -13,7 +14,7 @@ namespace sky {
     public:
         static constexpr uint32_t BLOCK_SIZE = 32 - sizeof(void *);
 
-        Any() : info(nullptr), data{0}
+        Any() : data{0}, info(nullptr)
         {
         }
 

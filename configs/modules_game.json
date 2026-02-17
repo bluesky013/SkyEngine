@@ -1,0 +1,10 @@
+{
+  "modules": [
+	{
+      "name": "FreeTypeModule",
+      "dependencies": [
+        "SkyRender"
+      ]
+    }
+  ]
+}

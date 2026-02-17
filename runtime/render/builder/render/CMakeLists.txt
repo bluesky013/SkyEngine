@@ -14,11 +14,9 @@ sky_add_library(TARGET RenderBuilder.Static STATIC
         ShaderCompiler.Static
         RenderAdaptor
         3rdParty::stb
-        3rdParty::ktx
+#        3rdParty::ktx
         3rdParty::assimp
         3rdParty::ispc_texcomp
         3rdParty::meshoptimizer
         3rdParty::metis
     )
-
-sky_add_dependency(TARGET RenderBuilder DEPENDENCIES AssetTool Editor)

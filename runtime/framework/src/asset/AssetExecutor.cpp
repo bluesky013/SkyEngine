@@ -6,6 +6,13 @@
 
 namespace sky {
 
+    AssetExecutor::AssetExecutor()
+#ifndef _WIN32
+        : executor(1)
+#endif
+    {
+    }
+
     void AssetExecutor::WaitForAll()
     {
         executor.wait_for_all();

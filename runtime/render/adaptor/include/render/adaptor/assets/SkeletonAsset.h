@@ -5,7 +5,7 @@
 #pragma once
 
 #include <framework/asset/AssetManager.h>
-#include <animation/skeleton/Skeleton.h>
+#include <animation/core/Skeleton.h>
 #include <string>
 #include <vector>
 
@@ -14,11 +14,21 @@ namespace sky {
     struct SkeletonAssetData : public SkeletonData {
         uint32_t version = 0;
 
-        uint32_t AdddBone(const std::string &name, const Matrix4 &matrix);
-        uint32_t FindBoneByName(const std::string &name) const;
+        void LoadJson(JsonInputArchive &archive);
+        void SaveJson(JsonOutputArchive &archive) const;
 
-        void Load(BinaryInputArchive &archive);
-        void Save(BinaryOutputArchive &archive) const;
+        void LoadBin(BinaryInputArchive &archive);
+        void SaveBin(BinaryOutputArchive &archive) const;
+    };
+
+    struct SkeletonAssetBuildContext {
+        void AdddBone(const std::string &name, const Matrix4 &matrix);
+        BoneIndex FindBoneByName(const std::string &name) const;
+        void FillBoneName(const std::string &boneNamespace);
+
+        std::unordered_map<std::string, BoneIndex> nameToIndexMap;
+        std::vector<Matrix4> inverseBindMatrix;
+        SkeletonAssetData data;
     };
 
     template <>
@@ -26,6 +36,9 @@ namespace sky {
         using DataType                                = SkeletonAssetData;
         static constexpr std::string_view ASSET_TYPE  = "Skeleton";
         static constexpr SerializeType SERIALIZE_TYPE = SerializeType::BIN;
+
     };
     using SkeletonAssetPtr = std::shared_ptr<Asset<Skeleton>>;
+
+    SkeletonPtr FetchOrCreateSkeletonByAsset(const SkeletonAssetPtr& skeleton);
 } // namespace sky

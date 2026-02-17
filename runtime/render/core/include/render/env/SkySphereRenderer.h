@@ -17,25 +17,31 @@ namespace sky {
         Vector2 uv;
     };
 
+    struct SkySpherePrimitive : public RenderPrimitive {
+        void PrepareBatch() override {}
+        void UpdateBatch() override;
+        bool IsReady() const override;
+
+        RDTexture2DPtr texture;
+        rhi::DescriptorSetPoolPtr pool;
+    };
+
     class SkySphereRenderer {
     public:
         SkySphereRenderer();
         ~SkySphereRenderer();
 
         void SetTechnique(const RDGfxTechPtr &mat);
-        void SetReady();
 
-        RenderPrimitive* GetPrimitive() const { return primitive.get(); }
-        const RDResourceGroupPtr &GetResGroup() const { return resourceGroup; }
+        SkySpherePrimitive* GetPrimitive() const { return primitive.get(); }
     private:
         void BuildSphere();
 
         RDGfxTechPtr technique;
         RDTexturePtr texture;
-        RDResourceGroupPtr resourceGroup;
         rhi::DescriptorSetPoolPtr pool;
-        float radius = 500.f;
-        std::unique_ptr<RenderPrimitive> primitive;
+        float radius = 10000.f;
+        std::unique_ptr<SkySpherePrimitive> primitive;
     };
 
 } // namespace sky

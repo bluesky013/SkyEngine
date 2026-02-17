@@ -40,7 +40,7 @@ namespace sky {
     {
         auto hIter = assetHandlers.find(type);
         if (hIter == assetHandlers.end()) {
-            LOG_E(TAG, "Asset handler not registered asset %s, type %s", uuid.ToString().c_str(), type.GetStr());
+            LOG_E(TAG, "Asset handler not registered asset %s", uuid.ToString().c_str());
             return {};
         }
 
@@ -134,7 +134,6 @@ namespace sky {
                 asset->depAssets.swap(deps);
                 auto res = assetHandlers[asset->type]->Load(*archive, asset);
                 asset->status.store(res ? AssetBase::Status::LOADED : AssetBase::Status::FAILED);
-
                 AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetLoaded);
             }, asyncTasks.begin(), asyncTasks.end());
 

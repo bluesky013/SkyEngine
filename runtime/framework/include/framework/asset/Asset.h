@@ -8,6 +8,7 @@
 #include <core/util/Macros.h>
 #include <core/name/Name.h>
 #include <core/archive/StreamArchive.h>
+#include <core/template/ReferenceObject.h>
 #include <framework/serialization/JsonArchive.h>
 #include <framework/serialization/BinaryArchive.h>
 
@@ -88,11 +89,26 @@ namespace sky {
             return data;
         }
 
+        template <typename Func>
+        const CounterPtr<T> &GetOrCreateResource(Func&& createFn)
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (cacheObject) {
+                return cacheObject;
+            }
+
+            cacheObject = createFn(*this);
+            return cacheObject;
+        }
+
         const uint8_t *GetData() const override { return reinterpret_cast<const uint8_t *>(&data); }
     private:
         friend class AssetManager;
 
         DataType data;
+
+        mutable std::mutex mutex;
+        CounterPtr<T> cacheObject;
     };
 
     class AssetHandlerBase {

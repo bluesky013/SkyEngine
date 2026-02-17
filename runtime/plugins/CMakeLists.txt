@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Plugins)
+
 if (SKY_EDITOR)
     add_subdirectory(guizmo)
 endif ()
@@ -26,4 +28,6 @@ if (SKY_BUILD_TERRAIN)
     add_subdirectory(terrain)
 endif ()
 
-add_subdirectory(compression)
+if (SKY_BUILD_COMPRESSION)
+    add_subdirectory(compression)
+endif()

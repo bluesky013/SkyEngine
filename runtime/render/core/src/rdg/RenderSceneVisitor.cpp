@@ -28,7 +28,7 @@ namespace sky::rdg {
             if (batch.program) {
                 batch.vertexDesc = primitive->geometry->Request(batch.program);
             } else {
-                LOG_E(TAG, "requst program failed %s", final.ToString().c_str());
+                LOG_E(TAG, "request program failed %s", final.ToString().c_str());
             }
 
             needRebuildPso = true;
@@ -37,6 +37,11 @@ namespace sky::rdg {
         uint32_t passHash = pass.renderPass->GetCompatibleHash();
         if (batch.renderPassHash != passHash) {
             batch.renderPassHash = passHash;
+            needRebuildPso = true;
+        }
+
+        auto &state = batch.technique->GetPipelineState();
+        if (state.inputAssembly.topology != batch.topo || state.rasterState.polygonMode != batch.polygonMode) {
             needRebuildPso = true;
         }
 
@@ -50,6 +55,7 @@ namespace sky::rdg {
 
                 // process override states.
                 pState.inputAssembly.topology = batch.topo;
+                pState.rasterState.polygonMode = batch.polygonMode;
 
                 batch.pso = GraphicsTechnique::BuildPso(batch.program, pState, batch.vertexDesc, pass.renderPass, subPassId);
             }

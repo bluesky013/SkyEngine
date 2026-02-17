@@ -18,6 +18,7 @@ namespace sky {
     struct RenderPrefabNode {
         std::string name;
         Uuid mesh;
+        Uuid material;
         uint32_t parentIndex = ~(0u);
         Transform localTransform;
     };
@@ -32,10 +33,10 @@ namespace sky {
         void SaveJson(JsonOutputArchive &archive) const;
     };
 
-    class RenderPrefab {
+    class RenderPrefab : public RefObject {
     public:
         RenderPrefab() = default;
-        ~RenderPrefab() = default;
+        ~RenderPrefab() override = default;
     };
 
     template <>

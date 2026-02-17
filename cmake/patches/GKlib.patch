@@ -1,0 +1,31 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9cd1b4b..d76b570 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -12,8 +12,7 @@ include_directories(".")
+ if(MSVC)
+   include_directories("win32")
+   file(GLOB win32_sources RELATIVE "win32" "*.c")
+-else(MSVC)
+-  set(win32_sources, "")
++  file(GLOB win32_includes ${GKLIB_PATH}/win32/*.h)
+ endif(MSVC)
+ 
+ add_library(GKlib ${GKlib_sources} ${win32_sources})
+@@ -22,10 +21,12 @@ if(UNIX)
+   target_link_libraries(GKlib m)
+ endif(UNIX)
+ 
+-include_directories("test")
+-add_subdirectory("test")
+-
+ install(TARGETS GKlib
+   ARCHIVE DESTINATION lib/${LINSTALL_PATH}
+   LIBRARY DESTINATION lib/${LINSTALL_PATH})
++
+ install(FILES ${GKlib_includes} DESTINATION include/${HINSTALL_PATH})
++
++if(MSVC)
++  install(FILES ${win32_includes} DESTINATION include/win32)
++endif(MSVC)
+\ No newline at end of file

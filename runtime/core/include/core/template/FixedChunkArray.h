@@ -6,6 +6,7 @@
 
 #include <list>
 #include <vector>
+#include <cstdint>
 
 namespace sky {
 

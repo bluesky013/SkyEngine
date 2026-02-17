@@ -14,8 +14,13 @@ namespace sky {
         AAsset_close(assetFile);
     }
 
-    AndroidAssetArchive::AndroidAssetArchive(AAsset *asset) : assetFile(asset)
+    AndroidAssetArchive::AndroidAssetArchive(AAsset *asset)
+        : IStreamArchive(ss)
+        , assetFile(asset)
     {
+        auto length = AAsset_getLength(assetFile);
+        const auto *ptr = AAsset_getBuffer(assetFile);
+        ss.write(reinterpret_cast<const char*>(ptr), length);
     }
 
     bool AndroidAssetArchive::LoadRaw(char *out, size_t size)

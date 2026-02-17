@@ -4,6 +4,7 @@
 
 #include <imgui/ImGuiInstance.h>
 #include <framework/window/NativeWindow.h>
+#include <framework/window/NativeWindowManager.h>
 #include <framework/platform/PlatformBase.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
@@ -43,7 +44,7 @@ namespace sky {
     void ImguiPrimitive::UpdateBatch()
     {
         auto &batch = batches[0];
-        if (!batch.batchGroup) {
+        if (!batch.batchGroup && batch.program) {
             ubo = new DynamicUniformBuffer();
             ubo->Init(sizeof(UITransform));
 
@@ -79,7 +80,9 @@ namespace sky {
         io.KeyMap[ImGuiKey_Space]       = static_cast<int>(ScanCode::KEY_SPACE);
         io.KeyMap[ImGuiKey_Enter]       = static_cast<int>(ScanCode::KEY_RETURN);
         io.KeyMap[ImGuiKey_Escape]      = static_cast<int>(ScanCode::KEY_ESCAPE);
+#ifndef ANDROID
         io.KeyMap[ImGuiKey_KeypadEnter] = static_cast<int>(ScanCode::KEY_KP_ENTER);
+#endif
         io.KeyMap[ImGuiKey_A]           = static_cast<int>(ScanCode::KEY_A);
         io.KeyMap[ImGuiKey_C]           = static_cast<int>(ScanCode::KEY_C);
         io.KeyMap[ImGuiKey_V]           = static_cast<int>(ScanCode::KEY_V);
@@ -123,7 +126,7 @@ namespace sky {
         auto *queue = RHI::Get()->GetDevice()->GetQueue(rhi::QueueType::TRANSFER);
         primitive->fontTexture = new Texture2D();
         primitive->fontTexture->Init(rhi::PixelFormat::RGBA8_UNORM, width, height, 1);
-        primitive->fontTexture->Upload(std::move(rawData), queue);
+        primitive->fontTexture->UploadRawData(std::move(rawData), queue);
         io.Fonts->SetTexID((ImTextureID)(intptr_t)primitive->fontTexture->GetImageView().get());
     }
 
@@ -210,6 +213,13 @@ namespace sky {
         auto *idxDst = reinterpret_cast<ImDrawIdx *>(indexBuffer->GetMapped());
 
         primitive->args.clear();
+        
+        primitive->args.emplace_back(rhi::Viewport{
+            0.f, 0.f,
+            drawData->DisplaySize.x * drawData->FramebufferScale.x, drawData->DisplaySize.y * drawData->FramebufferScale.y,
+            0.0f, 1.0f
+        });
+        
         for (int n = 0; n < drawData->CmdListsCount; n++) {
             const ImDrawList *cmdList = drawData->CmdLists[n];
             // upload vertex buffers
@@ -311,10 +321,13 @@ namespace sky {
         io.AddFocusEvent(focus);
     }
 
-    void ImGuiInstance::OnWindowResize(uint32_t width, uint32_t height)
+    void ImGuiInstance::OnWindowResize(const WindowResizeEvent& event)
     {
+        auto *window = NativeWindowManager::Get()->GetWindowByID(event.winID);
+        SKY_ASSERT(window != nullptr);
+
         ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+        io.DisplaySize = ImVec2(static_cast<float>(event.width), static_cast<float>(event.height));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
     }
 

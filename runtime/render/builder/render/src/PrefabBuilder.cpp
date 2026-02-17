@@ -12,13 +12,15 @@
 #include <core/math/MathUtil.h>
 
 #include <framework/asset/AssetDataBase.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/serialization/SerializationContext.h>
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
 
+#include <animation/core/Skeleton.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
-#include <render/skeleton/SkeletonMeshRenderer.h>
-#include <animation/skeleton/Skeleton.h>
+#include <render/skeleton/SkeletalMeshRenderer.h>
 
 //#include <meshoptimizer.h>
 
@@ -57,11 +59,13 @@ namespace sky::builder {
     struct PrefabBuildContext {
         std::string name;
         AssetSourcePath path;
+        PrefabImportConfig config;
+
         std::unordered_map<AssetSourcePath, AssetSourcePtr> textures;
         std::vector<AssetSourcePtr> meshes;
         std::vector<AssetSourcePtr> materials;
 
-        SkeletonAssetData skeleton;
+        SkeletonAssetBuildContext skeleton;
         AssetSourcePtr skeletonSource;
         std::vector<RenderPrefabNode> nodes;
     };
@@ -264,17 +268,24 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSkeletonBone(aiMesh *mesh, const aiScene *scene, SkeletonAssetData &skeleton)
+    static std::string ReplaceBoneNamespace(std::string oriName, const std::string& newNS)
+    {
+        auto iter = oriName.find_last_of(':');
+        if (iter != std::string::npos) {
+            oriName.replace(0,iter,newNS);
+        }
+        return oriName;
+    }
+
+    static void ProcessSkeletonBone(aiMesh *mesh, const aiScene *scene, SkeletonAssetBuildContext &skeleton)
     {
         for (uint32_t i = 0; i < mesh->mNumBones; ++i) {
             auto &aBone = mesh->mBones[i];
-            std::string boneName = aBone->mName.C_Str();
+            std::string boneName(aBone->mName.C_Str());
 
-            uint32_t boneIndex = 0;
-            if (auto iter = skeleton.nameToIndexMap.find(Name(aBone->mName.C_Str())); iter != skeleton.nameToIndexMap.end()) {
-                boneIndex = iter->second;
-            } else {
-                boneIndex = skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
+            auto iter = skeleton.nameToIndexMap.find(boneName);
+            if (iter == skeleton.nameToIndexMap.end()) {
+                skeleton.AdddBone(boneName, FromAssimp(aBone->mOffsetMatrix));
             }
         }
     }
@@ -291,13 +302,13 @@ namespace sky::builder {
                 uint32_t vertexId = baseVertex + bone->mWeights[j].mVertexId;
                 auto &vBone = context.bone[vertexId];
 
-                auto boneId = prefabContext.skeleton.FindBoneByName(bone->mName.C_Str());
+                auto boneId = prefabContext.skeleton.FindBoneByName(std::string(bone->mName.C_Str()));
                 SKY_ASSERT(boneId < prefabContext.skeleton.nameToIndexMap.size());
 
                 for (uint32_t k = 0; k < MAX_BONE_PER_VERTEX; ++k) {
                     if (vBone.weight[k] == 0.0f) {
-                        vBone.boneId[k] = boneId;
-                        vBone.weight[k] = bone->mWeights[j].mWeight;
+                        vBone.boneId[k] = static_cast<uint8_t>(boneId);
+                        vBone.weight[k] = static_cast<uint8_t>(bone->mWeights[j].mWeight * 255);
                         break;
                     }
                 }
@@ -305,21 +316,17 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSkeletonHierarchy(const aiScene *scene, const aiNode* node, uint32_t parentIndex, SkeletonAssetData &skeleton) // NOLINT
+    static void ProcessSkeletonHierarchy(const aiScene *scene, const aiNode* node, uint32_t parentIndex, SkeletonAssetBuildContext &skeleton) // NOLINT
     {
-        uint32_t boneIndex = skeleton.FindBoneByName(node->mName.C_Str());
-
+        std::string nodeName(node->mName.C_Str());
+        BoneIndex boneIndex = skeleton.FindBoneByName(nodeName);
         if (boneIndex != INVALID_BONE_ID) {
-            skeleton.boneData[boneIndex].name = Name(node->mName.C_Str());
-            skeleton.boneData[boneIndex].parentIndex = parentIndex;
+            skeleton.data.boneData[boneIndex].parentIndex = parentIndex;
 
-            aiVector3t<ai_real> scaling = {};
-            aiQuaterniont<ai_real> rotation = {};
-            aiVector3t<ai_real> position = {};
-            node->mTransformation.Decompose(scaling, rotation, position);
-            skeleton.refPos[boneIndex].translation = FromAssimp(position);
-            skeleton.refPos[boneIndex].rotation = FromAssimp(rotation);
-            skeleton.refPos[boneIndex].scale = FromAssimp(scaling);
+            Matrix4 localBindPose = parentIndex != INVALID_BONE_ID ? skeleton.inverseBindMatrix[parentIndex] : Matrix4::Identity();
+            localBindPose = localBindPose * skeleton.inverseBindMatrix[boneIndex].Inverse();
+            Transform &localTrans = skeleton.data.refPos[boneIndex];
+            Decompose(localBindPose, localTrans.translation, localTrans.rotation, localTrans.scale);
             parentIndex = boneIndex;
         }
 
@@ -328,14 +335,14 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, PrefabBuildContext& prefabContext, MeshAssetData &meshData, MeshBuildContext &context)
+    static void ProcessSubMesh(aiMesh *mesh, const aiScene *scene, uint32_t matIndex, PrefabBuildContext& prefabContext, MeshAssetData &meshData, MeshBuildContext &context)
     {
-        SubMeshAssetData subMesh = {};
+        MeshSubSection subMesh = {};
         subMesh.firstVertex = static_cast<uint32_t>(context.position.size());
         subMesh.vertexCount = mesh->mNumVertices;
         subMesh.firstIndex = static_cast<uint32_t>(context.indices.size());
         subMesh.indexCount = mesh->mNumFaces * 3;
-        subMesh.material = prefabContext.materials[mesh->mMaterialIndex]->uuid;
+        subMesh.materialIndex = matIndex;
 
         context.position.resize(context.position.size() + subMesh.vertexCount);
         context.ext.resize(context.ext.size() + subMesh.vertexCount);
@@ -427,7 +434,18 @@ namespace sky::builder {
 
         for (uint32_t i = 0; i < meshNum; ++i) {
             aiMesh *aMesh = scene->mMeshes[node->mMeshes[i]];
-            ProcessSubMesh(aMesh, scene, context, meshData, meshContext);
+            auto matId = context.materials[aMesh->mMaterialIndex]->uuid;
+
+            size_t matIndex = meshData.materials.size();
+
+            auto iter = std::find(meshData.materials.begin(), meshData.materials.end(), matId);
+            if (iter != meshData.materials.end()) {
+                matIndex = std::distance(meshData.materials.begin(), iter);
+            } else {
+                meshData.materials.emplace_back(matId);
+            }
+
+            ProcessSubMesh(aMesh, scene, static_cast<uint32_t>(matIndex), context, meshData, meshContext);
 
             hasSkin &= aMesh->HasBones();
         }
@@ -463,8 +481,8 @@ namespace sky::builder {
         if (skinSize != 0) {
             meshData.buffers.emplace_back(MeshBufferView{posSize + stdSize, skinSize, static_cast<uint32_t>(sizeof(VertexBoneData))});
 
-            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::JOINT, 2, OFFSET_OF(VertexBoneData, boneId), rhi::Format::U_RGBA32});
-            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::WEIGHT, 2, OFFSET_OF(VertexBoneData, weight), rhi::Format::F_RGBA32});
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::JOINT, 2, OFFSET_OF(VertexBoneData, boneId), rhi::Format::U_RGBA8});
+            meshData.attributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::WEIGHT, 2, OFFSET_OF(VertexBoneData, weight), rhi::Format::F_RGBA8});
         }
         uint32_t idxOffset = posSize + stdSize + skinSize;
         auto idxSize = static_cast<uint32_t>(meshContext.indices.size() * sizeof(uint32_t));
@@ -524,46 +542,47 @@ namespace sky::builder {
         }
     }
 
-    static void ProcessNodeChannel(const aiScene* scene, aiNodeAnim *anim, AnimNodeChannelData& channel)
+    static void ProcessNodeChannel(const aiScene* scene, aiNodeAnim *anim, AnimNodeChannelData& channel, PrefabBuildContext& context)
     {
-        channel.name = anim->mNodeName.C_Str();
+        channel.name = !context.config.replaceNameSpace ? anim->mNodeName.C_Str() :
+            ReplaceBoneNamespace(anim->mNodeName.C_Str(), "Character");
 
-        channel.position.time.resize(anim->mNumPositionKeys);
+        channel.position.times.resize(anim->mNumPositionKeys);
         channel.position.keys.resize(anim->mNumPositionKeys);
-        for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
-            const auto &src = anim->mPositionKeys[i];
-            auto &dstTime = channel.position.time[i];
-            auto &dstPos = channel.position.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstPos.x = src.mValue.x;
-            dstPos.y = src.mValue.y;
-            dstPos.z = src.mValue.z;
-        }
+        // for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
+        //     const auto &src = anim->mPositionKeys[i];
+        //     auto &dstTime = channel.position.times[i];
+        //     auto &dstPos = channel.position.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstPos.x = src.mValue.x;
+        //     dstPos.y = src.mValue.y;
+        //     dstPos.z = src.mValue.z;
+        // }
 
-        channel.scale.time.resize(anim->mNumScalingKeys);
+        channel.scale.times.resize(anim->mNumScalingKeys);
         channel.scale.keys.resize(anim->mNumScalingKeys);
-        for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
-            const auto &src = anim->mScalingKeys[i];
-            auto &dstTime = channel.scale.time[i];
-            auto &dstScale = channel.scale.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstScale.x = src.mValue.x;
-            dstScale.y = src.mValue.y;
-            dstScale.z = src.mValue.z;
-        }
+        // for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
+        //     const auto &src = anim->mScalingKeys[i];
+        //     auto &dstTime = channel.scale.times[i];
+        //     auto &dstScale = channel.scale.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstScale.x = src.mValue.x;
+        //     dstScale.y = src.mValue.y;
+        //     dstScale.z = src.mValue.z;
+        // }
 
-        channel.rotation.time.resize(anim->mNumRotationKeys);
+        channel.rotation.times.resize(anim->mNumRotationKeys);
         channel.rotation.keys.resize(anim->mNumRotationKeys);
-        for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
-            const auto &src = anim->mRotationKeys[i];
-            auto &dstTime = channel.rotation.time[i];
-            auto &dstRot = channel.rotation.keys[i];
-            dstTime = static_cast<float>(src.mTime);
-            dstRot.x = src.mValue.x;
-            dstRot.y = src.mValue.y;
-            dstRot.z = src.mValue.z;
-            dstRot.w = src.mValue.w;
-        }
+        // for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
+        //     const auto &src = anim->mRotationKeys[i];
+        //     auto &dstTime = channel.rotation.times[i];
+        //     auto &dstRot = channel.rotation.keys[i];
+        //     dstTime = static_cast<float>(src.mTime);
+        //     dstRot.x = src.mValue.x;
+        //     dstRot.y = src.mValue.y;
+        //     dstRot.z = src.mValue.z;
+        //     dstRot.w = src.mValue.w;
+        // }
     }
 
     static void ProcessMeshChannel(const aiScene* scene, aiMeshAnim *anim, PrefabBuildContext& context)
@@ -583,6 +602,7 @@ namespace sky::builder {
         }
 
         ProcessSkeletonHierarchy(scene, scene->mRootNode, INVALID_BONE_ID, context.skeleton);
+        context.skeleton.FillBoneName(context.config.replaceNameSpace ? "Character" : "");
         if (!context.skeleton.nameToIndexMap.empty()) {
             AssetSourcePath sourcePath = {};
             sourcePath.bundle = SourceAssetBundle::WORKSPACE;
@@ -591,8 +611,8 @@ namespace sky::builder {
             {
                 auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
                 auto archive = file->WriteAsArchive();
-                BinaryOutputArchive bin(*archive);
-                context.skeleton.Save(bin);
+                JsonOutputArchive json(*archive);
+                context.skeleton.data.SaveJson(json);
             }
 
             context.skeletonSource = AssetDataBase::Get()->RegisterAsset(sourcePath);
@@ -604,13 +624,13 @@ namespace sky::builder {
         for (uint32_t i = 0; i < scene->mNumAnimations; ++i) {
             auto &anim = scene->mAnimations[i];
 
-            AnimationAssetData data;
+            AnimationClipAssetData data;
             data.version = 1;
             data.name = anim->mName.C_Str();
             data.nodeChannels.resize(anim->mNumChannels);
             // node animation
             for (uint32_t j = 0; j < anim->mNumChannels; ++j) {;
-                ProcessNodeChannel(scene, anim->mChannels[j], data.nodeChannels[j]);
+                ProcessNodeChannel(scene, anim->mChannels[j], data.nodeChannels[j], context);
             }
 
             // mesh animation
@@ -638,16 +658,41 @@ namespace sky::builder {
         }
     }
 
+    void PrefabBuilder::Reflect(SerializationContext* context)
+    {
+        context->Register<PrefabImportConfig>("PrefabImportConfig")
+            .Member<&PrefabImportConfig::skeletonOnly>("SkeletonOnly")
+            .Member<&PrefabImportConfig::replaceNameSpace>("ReplaceNameSpace");
+    }
+
+    Any PrefabBuilder::RequireImportSetting(const FilePath &request) const
+    {
+        return MakeAny<PrefabImportConfig>();
+    }
+
     void PrefabBuilder::Import(const AssetImportRequest &request) const
     {
         Assimp::Importer importer;
+        importer.SetPropertyInteger( AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, 0 );
         const aiScene* scene = importer.ReadFile(request.filePath.GetStr(),
-            aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData);
+            aiProcess_Triangulate |
+            aiProcess_GenSmoothNormals |
+            aiProcess_FlipUVs |
+            aiProcess_CalcTangentSpace |
+            aiProcess_LimitBoneWeights |
+            aiProcess_OptimizeGraph |
+            aiProcess_OptimizeMeshes |
+            aiProcess_PopulateArmatureData);
         if(scene == nullptr) {
             return;
         }
 
         PrefabBuildContext context;
+        auto *config = request.config.GetAsConst<PrefabImportConfig>();
+        if (config != nullptr) {
+            context.config = *config;
+        }
+
         if ((scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0u) {
             ProcessAnimation(scene, context);
             return;
@@ -659,6 +704,12 @@ namespace sky::builder {
         context.name = request.filePath.FileNameWithoutExt();
 
         AssetDataBase::Get()->GetWorkSpaceFs()->CreateSubSystem(context.path.path.GetStr(), true);
+
+        if (context.config.skeletonOnly) {
+            ProcessSkeleton(scene, context);
+            return;
+        }
+
         ProcessMaterials(scene, context, request);
 
         ProcessSkeleton(scene, context);
@@ -687,6 +738,16 @@ namespace sky::builder {
 
     void PrefabBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
     {
+        auto asset = AssetManager::Get()->FindOrCreateAsset<RenderPrefab>(request.assetInfo->uuid);
+
+        auto archive = request.file->ReadAsArchive();
+        JsonInputArchive json(*archive);
+
+        auto &data = asset->Data();
+        data.LoadJson(json);
+
+        AssetManager::Get()->SaveAsset(asset, request.target);
+        result.retCode = AssetBuildRetCode::SUCCESS;
     }
 
 } // namespace sky::builder

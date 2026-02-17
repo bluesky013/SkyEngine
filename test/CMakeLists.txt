@@ -1,3 +1,4 @@
+set(CURRENT_FOLDER Test)
 
 configure_file(EngineRoot.h.in ${CMAKE_BINARY_DIR}/Gen/test/EngineRoot.h)
 include_directories(${CMAKE_BINARY_DIR}/Gen)

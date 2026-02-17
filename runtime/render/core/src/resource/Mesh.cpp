@@ -36,7 +36,7 @@ namespace sky {
         subMeshes[subMesh].material = mat;
     }
 
-    void Mesh::SetUploadStream(MeshData&& stream_)
+    void Mesh::SetUploadStream(MeshUploadData&& stream_)
     {
         meshData = std::move(stream_);
 

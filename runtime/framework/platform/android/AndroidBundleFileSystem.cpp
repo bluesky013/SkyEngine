@@ -10,10 +10,25 @@
 
 namespace sky {
 
-    bool AndroidBundleFileSystem::FileExist(const std::string &path)
+    std::string ReplaceBackslashToSlash(std::string path)
     {
+        std::replace(path.begin(), path.end(), '\\', '/');
+        return path;
+    }
+
+    AndroidBundleFileSystem::AndroidBundleFileSystem(const std::string& path)
+    {
+        if (!path.empty()) {
+            basePath = path + "/";
+        }
+    }
+
+    bool AndroidBundleFileSystem::FileExist(const FilePath &path) const
+    {
+        auto filePath = basePath + path.GetStr();
+
         auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_UNKNOWN);
+        AAsset* assetFile = AAssetManager_open(am, filePath.c_str(), AASSET_MODE_UNKNOWN);
         if (assetFile == nullptr) {
             return false;
         }
@@ -21,39 +36,35 @@ namespace sky {
         return true;
     }
 
-    IArchivePtr AndroidBundleFileSystem::ReadAsArchive(const std::string &path)
+//    IArchivePtr AndroidBundleFileSystem::ReadAsArchive(const std::string &path)
+//    {
+//        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
+//        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
+//        if (assetFile != nullptr) {
+//            return std::make_shared<AndroidAssetArchive>(assetFile);
+//        }
+//        return {};
+//    }
+//
+//    OArchivePtr AndroidBundleFileSystem::WriteAsArchive(const std::string &path)
+//    {
+//        return {};
+//    }
+
+    FilePtr AndroidBundleFileSystem::OpenFile(const FilePath &name)
     {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile != nullptr) {
-            return std::make_shared<AndroidAssetArchive>(assetFile);
-        }
+        return new AndroidAssetFile(basePath + name.GetStr());
+    }
+
+    FilePtr AndroidBundleFileSystem::CreateOrOpenFile(const FilePath &name)
+    {
+        SKY_ASSERT(false && "Not Support");
         return {};
     }
 
-    OArchivePtr AndroidBundleFileSystem::WriteAsArchive(const std::string &path)
+    FileSystemPtr AndroidBundleFileSystem::CreateSubSystem(const std::string &path, bool createDir)
     {
-        return {};
-    }
-
-    FilePtr AndroidBundleFileSystem::OpenFile(const std::string &name)
-    {
-        return std::make_shared<AndroidAssetFile>(name);
-    }
-
-    bool AndroidBundleFileSystem::ReadString(const std::string &path, std::string &out)
-    {
-        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
-        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
-        if (assetFile == nullptr) {
-            return false;
-        }
-
-        size_t assetLength = AAsset_getLength(assetFile);
-        out.resize(assetLength);
-        AAsset_read(assetFile, out.data(), assetLength);
-        AAsset_close(assetFile);
-        return true;
+        return new AndroidBundleFileSystem(basePath + path);
     }
 
     void AndroidAssetFile::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
@@ -70,6 +81,54 @@ namespace sky {
             AAsset_read(assetFile, out, size);
         }
         AAsset_close(assetFile);
+    }
+
+    IStreamArchivePtr AndroidAssetFile::ReadAsArchive()
+    {
+        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
+
+        auto loadPath = ReplaceBackslashToSlash(path);
+        AAsset* assetFile = AAssetManager_open(am, loadPath.c_str(), AASSET_MODE_BUFFER);
+        if (assetFile != nullptr) {
+            // TODO
+            return new AndroidAssetArchive(assetFile);
+        }
+        return {};
+    }
+
+    OStreamArchivePtr AndroidAssetFile::WriteAsArchive()
+    {
+        return {};
+    }
+
+    bool AndroidAssetFile::ReadBin(std::vector<uint8_t> &out)
+    {
+        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
+        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
+        if (assetFile == nullptr) {
+            return false;
+        }
+
+        size_t assetLength = AAsset_getLength(assetFile);
+        out.resize(assetLength);
+        AAsset_read(assetFile, out.data(), assetLength);
+        AAsset_close(assetFile);
+        return true;
+    }
+
+    bool AndroidAssetFile::ReadString(std::string &out)
+    {
+        auto *am = static_cast<android_app*>(Platform::Get()->GetNativeApp())->activity->assetManager;
+        AAsset* assetFile = AAssetManager_open(am, path.c_str(), AASSET_MODE_BUFFER);
+        if (assetFile == nullptr) {
+            return false;
+        }
+
+        size_t assetLength = AAsset_getLength(assetFile);
+        out.resize(assetLength);
+        AAsset_read(assetFile, out.data(), assetLength);
+        AAsset_close(assetFile);
+        return true;
     }
 
 } // namespace sky

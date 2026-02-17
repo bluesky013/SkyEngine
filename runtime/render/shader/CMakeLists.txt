@@ -28,6 +28,8 @@ sky_add_library(TARGET ShaderCompiler.Static STATIC
         Core
         RHI
         ${ShaderCompilerExtLib}
+    INSTALL_DIR
+        include
     )
 
 sky_add_library(TARGET ShaderCompiler SHARED
@@ -59,6 +61,7 @@ if (SKY_BUILD_TEST)
             ShaderCompiler.Static
             3rdParty::googletest
     )
-    add_dependencies(ShaderTool ShaderCompiler)
 endif ()
+
+add_dependencies(ShaderTool ShaderCompiler)
 sky_add_dependency(TARGET ShaderCompiler DEPENDENCIES Launcher AssetBuilder Editor)

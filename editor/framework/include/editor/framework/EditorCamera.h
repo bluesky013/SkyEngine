@@ -25,6 +25,8 @@ namespace sky::editor {
         const Matrix4 &GetWorldMatrix() const;
         const Matrix4 &GetViewProjectMatrix() const;
 
+        void SetMoveSpeed(float speed) { controller.SetMoveSpeed(speed); }
+
         uint32_t GetScreenWidth() const { return screenWidth; }
         uint32_t GetScreenHeight() const { return screenHeight; }
     private:

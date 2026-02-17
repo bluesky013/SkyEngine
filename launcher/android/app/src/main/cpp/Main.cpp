@@ -13,42 +13,60 @@ extern  "C" {
 #include <game-activity/native_app_glue/android_native_app_glue.c>
 }
 
+#include "SampleScene.h"
+#include <framework/interface/ITickEvent.h>
+
 void android_main(struct android_app *app) {
     sky::Platform* platform = sky::Platform::Get();
     platform->Init({app});
 
     sky::GameApplication application;
     bool started = false;
-    platform->setLaunchCallback([&application, &started, platform]() {
+
+    std::unique_ptr<sky::Sample> sample;
+
+    platform->setLaunchCallback([&application, &started, &sample]() {
         std::vector<char *> args;
 
         application.Init(static_cast<int>(args.size()), args.data());
+
+        sample = std::make_unique<sky::Sample>();
+        sample->Init(application.GetWindow());
+
+        application.BindTick([&sample](float delta) {
+            sky::TickEvent::BroadCast(&sky::ITickEvent::Tick, delta);
+            sample->Tick(delta);
+        });
+
         started = true;
     });
 
-    auto *perfManager = platform->GetPerformanceManager();
-    auto *iThermal = perfManager->GetIThermal();
-    if (iThermal != nullptr) {
-        iThermal->RegisterStatusChangeCallback("Key", [](sky::ThermalStatus status) {
-
-        });
-    }
+//    auto *perfManager = platform->GetPerformanceManager();
+//    auto *iThermal = perfManager->GetIThermal();
+//    if (iThermal != nullptr) {
+//        iThermal->RegisterStatusChangeCallback("Key", [](sky::ThermalStatus status) {
+//
+//        });
+//    }
 
     do {
         int events;
         struct android_poll_source *source;
 
-        while ((ALooper_pollAll(0, nullptr, &events, (void **) &source)) >= 0) {
+        int result;
+        do {
+            result = ALooper_pollOnce(0, nullptr, &events, (void **) &source);
+
             if (source != nullptr) {
                 source->process(app, source);
             }
-        }
+        } while (result == ALOOPER_POLL_CALLBACK);
 
         if (started) {
             application.Loop();
         }
     } while (app->destroyRequested == 0);
 
-    application.Shutdown();
+    sample->Shutdown();
     platform->Shutdown();
 }

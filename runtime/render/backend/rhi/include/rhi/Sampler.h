@@ -22,7 +22,7 @@ namespace sky::rhi {
             WrapMode  addressModeW     = WrapMode::REPEAT;
             float     minLod           = 0.f;
             float     maxLod           = 0.25f;
-            float     maxAnisotropy    = 0.f;
+            float     maxAnisotropy    = 1.f;
             bool      anisotropyEnable = false;
         };
     };

@@ -14,6 +14,7 @@ namespace sky {
         bool InitByXR(const rhi::XRSwapChainPtr &xr);
 #endif
 
+        void UpdateWinHandle(void *hWnd);
         void Resize(uint32_t width, uint32_t height);
 
         uint32_t GetWidth() const;

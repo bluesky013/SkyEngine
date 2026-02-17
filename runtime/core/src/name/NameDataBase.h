@@ -9,6 +9,8 @@
 
 #include <unordered_map>
 #include <mutex>
+#include <vector>
+#include <memory>
 
 #ifndef NAME_COLLISION_DETECT
 #define NAME_COLLISION_DETECT 1

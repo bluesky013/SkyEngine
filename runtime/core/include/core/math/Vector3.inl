@@ -109,6 +109,11 @@ namespace sky {
         return v[i];
     }
 
+    bool Vector3::operator==(const Vector3& rhs) const
+    {
+        return x == rhs.x && y == rhs.y && z == rhs.z;
+    }
+
     inline Vector3 Vector3::Cross(const Vector3 &rhs) const
     {
         return {y * rhs.z - rhs.y * z, z * rhs.x - rhs.z * x, x * rhs.y - rhs.x * y};

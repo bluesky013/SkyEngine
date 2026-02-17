@@ -3,6 +3,7 @@
 //
 
 #include <framework/serialization/Any.h>
+#include <cstring>
 
 namespace sky {
 
@@ -24,7 +25,7 @@ namespace sky {
 
     void Any::CheckMemory()
     {
-        if (info->staticInfo->size > BLOCK_SIZE) {
+        if (info != nullptr && info->staticInfo->size > BLOCK_SIZE) {
             ptr = malloc(info->staticInfo->size);
         }
     }
@@ -55,8 +56,12 @@ namespace sky {
 
     void Any::Move(Any &any)
     {
+        if (info == nullptr) {
+            return;
+        }
+
         if (info->staticInfo->size > BLOCK_SIZE) {
-            ptr     = any.ptr;
+            ptr      = any.ptr;
             any.ptr = nullptr;
         } else {
             Copy(any);

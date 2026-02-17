@@ -40,9 +40,9 @@ namespace sky::editor {
         return flags;
     }
 
-    void Document::Reflect()
+    void Document::Reflect(SerializationContext *context)
     {
-        SerializationContext::Get()->Register<ProjectData>("ProjectData")
+        context->Register<ProjectData>("ProjectData")
             .Member<&ProjectData::version>("version");
     }
 

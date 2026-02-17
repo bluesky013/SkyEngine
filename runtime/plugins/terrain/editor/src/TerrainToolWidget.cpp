@@ -200,11 +200,11 @@ namespace sky::editor {
 
     void TerrainToolWidget::OnCreateTerrain()
     {
-        if (world != nullptr) {
-            auto selectActor = world->AddActor("Terrain");
-            terrainComponent = selectActor->AddComponent<TerrainComponent>();
-            terrainComponent->BuildTerrain(buildTool->GetConfig());
-        }
+//        if (world != nullptr) {
+//            auto selectActor = world->AddActor("Terrain");
+//            terrainComponent = selectActor->AddComponent<TerrainComponent>();
+//            terrainComponent->BuildTerrain(buildTool->GetConfig());
+//        }
     }
 
     void TerrainToolWidget::OnGenerateTerrain()

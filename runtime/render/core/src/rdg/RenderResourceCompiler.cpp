@@ -68,6 +68,10 @@ namespace sky::rdg {
                     const auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
                     rsg.BindTexture(view.name, image.res, 0);
                 },
+                [&](const ImportImageViewTag &) {
+                    const auto &image = rdg.resourceGraph.importedViews[Index(res, rdg.resourceGraph)];
+                    rsg.BindTexture(view.name, image.res, 0);
+                },
                 [&](const ImportSwapChainTag &) {
                     const auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
                     rsg.BindTexture(view.name, swc.res, 0);
@@ -80,6 +84,10 @@ namespace sky::rdg {
                     const auto &cb = rdg.resourceGraph.constantBuffers[Index(res, rdg.resourceGraph)];
                     rsg.BindBuffer(view.name, cb.ubo->GetRHIBuffer(), 0);
                 },
+                [&](const SamplerTag &) {
+                    const auto &sampler = rdg.resourceGraph.samplers[Index(res, rdg.resourceGraph)];
+                    rsg.BindSampler(view.name, sampler.sampler, 0);
+                },
                 [&](const auto &) {}
             }, Tag(res, rdg.resourceGraph));
         }
@@ -89,7 +97,7 @@ namespace sky::rdg {
     void RenderResourceCompiler::Compile(Vertex u, RasterPass &rasterPass)
     {
         for (auto &attachment : rasterPass.attachmentVertex) {
-            MountResource(u, Source(attachment, rdg.resourceGraph));
+            MountResource(u, attachment);
         }
         CreateRenderPassAndFramebuffer(u, rasterPass);
     }
@@ -97,14 +105,14 @@ namespace sky::rdg {
     void RenderResourceCompiler::Compile(Vertex u, RasterSubPass &subPass)
     {
         for (auto &[name, compute] : subPass.computeViews) {
-            MountResource(u, Source(FindVertex(name, rdg.resourceGraph), rdg.resourceGraph));
+            MountResource(u, FindVertex(name, rdg.resourceGraph));
         }
     }
 
     void RenderResourceCompiler::Compile(Vertex u, ComputePass &pass)
     {
         for (auto &[name, compute] : pass.computeViews) {
-            MountResource(u, Source(FindVertex(name, rdg.resourceGraph), rdg.resourceGraph));
+            MountResource(u, FindVertex(name, rdg.resourceGraph));
         }
         pass.resourceGroup = rdg.context->pool->RequestResourceGroup(u, pass.layout);
         BindResourceGroup(rdg, pass.computeViews, *pass.resourceGroup);
@@ -117,7 +125,7 @@ namespace sky::rdg {
 
     void RenderResourceCompiler::Compile(Vertex u, PresentPass &pass)
     {
-        MountResource(u, Source(pass.imageID, rdg.resourceGraph));
+        MountResource(u, pass.imageID);
     }
 
     void RenderResourceCompiler::Compile(Vertex u, sky::rdg::RasterQueue &queue)
@@ -176,15 +184,18 @@ namespace sky::rdg {
                 }
             },
             [&](const ImportImageTag &) {
+                auto &name = GetName(res, rdg.resourceGraph);
                 auto &image = rdg.resourceGraph.importImages[Index(res, rdg.resourceGraph)];
-                const auto &info = image.desc.image->GetDescriptor();
+                const auto& info = image.desc.image->GetDescriptor();
+                rhi::ImageViewDesc desc = {};
+                desc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
+                desc.viewType = image.desc.viewType;
 
-                if (!image.res) {
-                    rhi::ImageViewDesc viewDesc = {};
-                    viewDesc.subRange = {0, info.mipLevels, 0, info.arrayLayers, GetAspectFlagsByFormat(info.format)};
-                    viewDesc.viewType = image.desc.viewType;
-                    image.res = image.desc.image->CreateView(viewDesc);
-                }
+                image.res = rdg.context->pool->RequestImageView(name, image.desc.image, desc);
+            },
+            [&](const ImportImageViewTag &) {
+                auto &image = rdg.resourceGraph.importedViews[Index(res, rdg.resourceGraph)];
+                image.res = image.desc.view;
             },
             [&](const ImportSwapChainTag &) {
                 auto &swc = rdg.resourceGraph.swapChains[Index(res, rdg.resourceGraph)];
@@ -241,6 +252,14 @@ namespace sky::rdg {
 
                     fbDesc.views[i] = image.res;
                 },
+                [&](const ImportImageViewTag &) {
+                    auto &image = rdg.resourceGraph.importedViews[Index(attachment, rdg.resourceGraph)];
+                    const auto &imageDesc = image.desc.view->GetViewDesc();
+                    att.format = image.desc.view->GetFormat();
+                    att.sample = rhi::SampleCount::X1; // ms not supported
+
+                    fbDesc.views[i] = image.res;
+                },
                 [&](const ImportSwapChainTag &) {
                     auto &swc = rdg.resourceGraph.swapChains[Index(attachment, rdg.resourceGraph)];
                     att.format = swc.desc.swapchain->GetFormat();
@@ -253,16 +272,6 @@ namespace sky::rdg {
                     fbDesc.views[i] = swc.res;
                 },
 #endif
-                [&](const ImageViewTag &) {
-                    auto &source = rdg.resourceGraph.images[Index(Source(attachment, rdg.resourceGraph), rdg.resourceGraph)];
-                    att.format = source.desc.format;
-                    att.sample = source.desc.samples;
-                    auto &view = rdg.resourceGraph.imageViews[Index(attachment, rdg.resourceGraph)];
-                    if (!view.res) {
-                        view.res = source.res->CreateView(view.desc.view);
-                    }
-                    fbDesc.views[i] = view.res;
-                },
                 [&](const auto &) {}
             }, Tag(attachment, rdg.resourceGraph));
 

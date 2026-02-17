@@ -323,8 +323,10 @@ namespace sky::vk {
         { {rhi::ShaderStageFlagBit::VS, VK_SHADER_STAGE_VERTEX_BIT},
             {rhi::ShaderStageFlagBit::FS, VK_SHADER_STAGE_FRAGMENT_BIT},
             {rhi::ShaderStageFlagBit::CS, VK_SHADER_STAGE_COMPUTE_BIT},
+#ifndef ANDROID
             {rhi::ShaderStageFlagBit::TAS, VK_SHADER_STAGE_TASK_BIT_EXT},
             {rhi::ShaderStageFlagBit::MS, VK_SHADER_STAGE_MESH_BIT_EXT},
+#endif
     };
 
     VkShaderStageFlagBits FromRHI(const rhi::ShaderStageFlagBit& stage)

@@ -1,0 +1,93 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a15d19a..5c4951c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,13 +1,9 @@
+-cmake_minimum_required(VERSION 2.8)
++cmake_minimum_required(VERSION 3.10)
+ project(METIS C)
+ 
+ set(SHARED FALSE CACHE BOOL "build a shared library")
+ 
+-if(MSVC)
+-  set(METIS_INSTALL FALSE)
+-else()
+-  set(METIS_INSTALL TRUE)
+-endif()
++set(METIS_INSTALL TRUE)
+ 
+ # Configure libmetis library.
+ if(SHARED)
+@@ -19,34 +15,32 @@ endif(SHARED)
+ include(./conf/gkbuild.cmake)
+ 
+ # METIS' custom options
+-#option(IDX64 "enable 64 bit ints" OFF)
+-#option(REAL64 "enable 64 bit floats (i.e., double)" OFF)
+-#if(IDX64)
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=64")
+-#else()
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=32")
+-#endif(IDX64)
+-#if(REAL64)
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=64")
+-#else()
+-#  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=32")
+-#endif(REAL64)
+-#
+-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${METIS_COPTIONS}")
++option(IDX64 "enable 64 bit ints" OFF)
++option(REAL64 "enable 64 bit floats (i.e., double)" OFF)
++if(IDX64)
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=64")
++else()
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DIDXTYPEWIDTH=32")
++endif(IDX64)
++if(REAL64)
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=64")
++else()
++  set(METIS_COPTIONS "${METIS_COPTIONS} -DREALTYPEWIDTH=32")
++endif(REAL64)
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${METIS_COPTIONS}")
+ 
+ 
+ # Add include directories.
+ # i.e., the -I equivalent
+-include_directories(build/xinclude)
+-include_directories(${GKLIB_PATH}/include)
++include_directories(include)
+ include_directories(${CMAKE_INSTALL_PREFIX}/include)
+ 
+ # List of paths that the compiler will search for library files.
+ # i.e., the -L equivalent
+-link_directories(${GKLIB_PATH}/lib)
+ link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+ 
+ # Recursively look for CMakeLists.txt in subdirs.
+-add_subdirectory("build/xinclude")
++add_subdirectory("include")
+ add_subdirectory("libmetis")
+-add_subdirectory("programs")
++# add_subdirectory("programs")
+\ No newline at end of file
+diff --git a/libmetis/CMakeLists.txt b/libmetis/CMakeLists.txt
+index fc6cec6..2cbce7b 100644
+--- a/libmetis/CMakeLists.txt
++++ b/libmetis/CMakeLists.txt
+@@ -5,7 +5,15 @@ include_directories(.)
+ file(GLOB metis_sources *.c)
+ 
+ # Build libmetis.
++set(GKlib_PATH ${3RD_PATH}/GKlib)
++set(CMAKE_MODULE_PATH ${3RD_FIND_PATH})
++find_package(GKlib REQUIRED)
++get_target_property(tmpInc 3rdParty::GKlib INTERFACE_INCLUDE_DIRECTORIES)
++get_target_property(tmpLib 3rdParty::GKlib INTERFACE_LINK_LIBRARIES)
++
+ add_library(metis ${METIS_LIBRARY_TYPE} ${metis_sources})
++target_include_directories(metis PUBLIC ${tmpInc})
++target_link_libraries(metis ${tmpLib})
+ 
+ if(METIS_INSTALL)
+   install(TARGETS metis

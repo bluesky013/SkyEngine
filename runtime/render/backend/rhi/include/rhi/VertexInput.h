@@ -14,8 +14,10 @@ namespace sky::rhi {
         virtual ~VertexInput() = default;
 
         struct Descriptor {
-            std::vector<VertexAttributeDesc> attributes;
-            std::vector<VertexBindingDesc> bindings;
+            uint32_t attributesNum = 0;
+            uint32_t bindingsNum = 0;
+            VertexAttributeDesc* attributes = nullptr;
+            VertexBindingDesc* bindings = nullptr;
         };
     };
     using VertexInputPtr = std::shared_ptr<VertexInput>;

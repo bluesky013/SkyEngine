@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Runtime/Foundation)
+
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 

@@ -63,7 +63,7 @@ namespace sky {
             const Name bufferName("shading");  // only shader buffer is used.
             auto iter = bindingHandlers.find(bufferName);
 
-            if (needUpdateBuffer) {
+            if (needUpdateBuffer && iter != bindingHandlers.end()) {
                 auto &buffer = batchBuffers[i];
                 if (!buffer) {
                     buffer = new DynamicUniformBuffer();

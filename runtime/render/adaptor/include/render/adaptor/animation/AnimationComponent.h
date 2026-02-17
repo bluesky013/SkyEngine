@@ -19,10 +19,9 @@ namespace sky {
 
         static void Reflect(SerializationContext *context);
 
-        void AddAnimation(const AnimationClip &clip);
 
     private:
-        std::vector<AnimationAssetPtr> animations;
+        std::vector<AnimationClipAssetPtr> animations;
     };
 
 } // namespace sky

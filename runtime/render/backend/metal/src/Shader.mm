@@ -24,7 +24,7 @@ namespace sky::mtl {
         NSString *nsSource = [NSString stringWithUTF8String: reinterpret_cast<const char*>(desc.data)];
 
         MTLCompileOptions *mtlOptions = [MTLCompileOptions alloc];
-        mtlOptions.fastMathEnabled    = YES;
+//        mtlOptions.fastMathEnabled    = YES;
         mtlOptions.languageVersion    = MTLLanguageVersion2_2;
 
         NSError *error = nil;

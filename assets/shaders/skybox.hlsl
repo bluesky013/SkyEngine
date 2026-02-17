@@ -23,6 +23,7 @@ VSOutput VSMain(VSInput input)
     VSOutput output = (VSOutput)0;
 
     output.Pos = mul(VIEW_INFO.ViewProj, float4(input.Pos.xyz, 1.0));
+    output.Pos.w = output.Pos.z;
     output.UV  = input.UV;
     return output;
 }

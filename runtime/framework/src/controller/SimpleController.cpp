@@ -10,6 +10,11 @@ namespace sky {
 
     FirstPersonController::FirstPersonController() = default;
 
+    void FirstPersonController::SetMoveSpeed(float speed)
+    {
+        moveSpeed = speed;
+    }
+
     Transform FirstPersonController::Resolve(float time, const Transform &trans)
     {
         Transform res = trans;
@@ -31,16 +36,16 @@ namespace sky {
         auto up = trans.rotation * (VEC3_Y);
         auto right = forward.Cross(up);
 
-        if (keyButtons[ScanCode::KEY_UP] || keyButtons[ScanCode::KEY_W]) {
+        if (keyButtons[ScanCode::KEY_W]) {
             res.translation += forward * time * moveSpeed;
         }
-        if (keyButtons[ScanCode::KEY_DOWN] || keyButtons[ScanCode::KEY_S]) {
+        if (keyButtons[ScanCode::KEY_S]) {
             res.translation -= forward * time * moveSpeed;
         }
-        if (keyButtons[ScanCode::KEY_LEFT] || keyButtons[ScanCode::KEY_A]) {
+        if (keyButtons[ScanCode::KEY_A]) {
             res.translation -= right * time * moveSpeed;
         }
-        if (keyButtons[ScanCode::KEY_RIGHT] || keyButtons[ScanCode::KEY_D]) {
+        if (keyButtons[ScanCode::KEY_D]) {
             res.translation += right * time * moveSpeed;
         }
 

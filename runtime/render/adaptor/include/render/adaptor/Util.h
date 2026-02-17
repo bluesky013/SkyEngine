@@ -24,7 +24,12 @@ namespace sky {
     template <typename T>
     T *GetFeatureProcessor(Actor *actor)
     {
-        auto *proxy = static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")));
+        auto *world = actor->GetWorld();
+        if (world == nullptr) {
+            return nullptr;
+        }
+
+        auto *proxy = static_cast<RenderSceneProxy*>(world->GetSubSystem(Name("RenderScene")));
         return GetFeatureProcessor<T>(proxy->GetRenderScene());
     }
 } // namespace sky

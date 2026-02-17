@@ -46,6 +46,7 @@ namespace sky::rdg {
         RasterSubPassBuilder &AddColorInOut(const Name &name);
         RasterSubPassBuilder &AddDepthStencil(const Name &name, const ResourceAccess& access);
         RasterSubPassBuilder &AddComputeView(const Name &name, const ComputeView &view);
+        RasterSubPassBuilder &AddSamplerView(const Name &name, const Name& viewName);
         RasterSubPassBuilder &SetViewMask(uint32_t mask);
         RasterQueueBuilder AddQueue(const Name &name);
         FullScreenBuilder AddFullScreen(const Name &name);
@@ -125,6 +126,8 @@ namespace sky::rdg {
         void ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType);
         void ImportImage(const Name &name, const rhi::ImagePtr &image, rhi::ImageViewType viewType, const rhi::AccessFlags &flags);
 
+        void ImportImageView(const Name &name, const rhi::ImagePtr &image, const rhi::ImageViewPtr &view, const rhi::AccessFlags &flags);
+
         void ImportSwapChain(const Name &name, const rhi::SwapChainPtr &swapchain);
 #ifdef SKY_ENABLE_XR
         void ImportXRSwapChain(const Name &name, const rhi::XRSwapChainPtr &swapchain);
@@ -136,8 +139,7 @@ namespace sky::rdg {
         void ImportBuffer(const Name &name, const rhi::BufferPtr &buffer);
         void ImportBuffer(const Name &name, const rhi::BufferPtr &buffer, const rhi::AccessFlags &flags);
         void ImportUBO(const Name &name, const RDUniformBufferPtr &ubo);
-
-        void AddBufferView(const Name &name, const Name &source, const GraphBufferView &view);
+        void ImportSampler(const Name &name, const rhi::SamplerPtr &sampler);
 
         // memory
         RenderGraphContext *context;
@@ -147,21 +149,22 @@ namespace sky::rdg {
 
         // components
         PmrVector<Name>       names;
-        PmrVector<VertexType> sources;
         PmrVector<VertexType> lastAccesses;
         PmrVector<Tag>        tags;
         PmrVector<size_t>     polymorphicDatas;
 
         // resources
-        PmrVector<ImageViewRes<GraphImage>>         images;
-        PmrVector<ImageViewRes<GraphImportImage>>   importImages;
-        PmrVector<ImageViewRes<GraphImageView>>     imageViews;
-        PmrVector<ImageViewRes<GraphSwapChain>>     swapChains;
-        PmrVector<ImageViewRes<GraphXRSwapChain>>   xrSwapChains;
-        PmrVector<BufferViewRes<GraphBuffer>>       buffers;
-        PmrVector<BufferViewRes<GraphImportBuffer>> importBuffers;
-        PmrVector<BufferViewRes<GraphBufferView>>   bufferViews;
-        PmrVector<GraphConstantBuffer>              constantBuffers;
+        PmrVector<ImageViewRes<GraphImage>>           images;
+        PmrVector<ImageViewRes<GraphImportImage>>     importImages;
+        PmrVector<ImageViewRes<GraphImageView>>       imageViews;
+        PmrVector<ImageViewRes<GraphSwapChain>>       swapChains;
+        PmrVector<ImageViewRes<GraphImportImageView>> importedViews;
+        PmrVector<ImageViewRes<GraphXRSwapChain>>     xrSwapChains;
+        PmrVector<BufferViewRes<GraphBuffer>>         buffers;
+        PmrVector<BufferViewRes<GraphImportBuffer>>   importBuffers;
+        PmrVector<BufferViewRes<GraphBufferView>>     bufferViews;
+        PmrVector<GraphConstantBuffer>                constantBuffers;
+        PmrVector<GraphSampler>                       samplers;
 
         Graph graph;
     };
@@ -180,16 +183,10 @@ namespace sky::rdg {
 
         void AddUploadPass(const Name &name, const UploadPass &upload);
         void AddPresentPass(const Name &name, const Name &resName);
-
-        static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps, const AccessRange &subRange);
-
+        void AddTransitionPass(const Name &name, const Name &resName, const DependencyInfo& deps);
         void AddDependency(VertexType resVertex, VertexType passId, const DependencyInfo &deps);
-        void FillAccessFlag(AccessRes &res, const AccessRange &subRange, const rhi::AccessFlags& accessFlag) const;
-        AccessRes GetMergedAccessRes(const AccessRes &lastAccess,
-                                     const rhi::AccessFlags& accessFlag,
-                                     const AccessRange &subRange,
-                                     VertexType passAccessID,
-                                     VertexType nextAccessResID) const;
+
+        static bool CheckVersionChanged(const AccessRes &lastAccess, const DependencyInfo &deps);
 
         // memory
         RenderGraphContext *context;
@@ -210,10 +207,11 @@ namespace sky::rdg {
         PmrVector<RasterQueue>    rasterQueues;
         PmrVector<FullScreenBlit> fullScreens;
 
-        PmrVector<ComputePass>   computePasses;
-        PmrVector<CopyBlitPass>  copyBlitPasses;
-        PmrVector<PresentPass>   presentPasses;
-        PmrVector<UploadPass>    uploadPasses;
+        PmrVector<ComputePass>    computePasses;
+        PmrVector<CopyBlitPass>   copyBlitPasses;
+        PmrVector<PresentPass>    presentPasses;
+        PmrVector<UploadPass>     uploadPasses;
+        PmrVector<TransitionPass> transitionPasses;
 
         ResourceGraph   resourceGraph;
         AccessGraph     accessGraph;
@@ -248,7 +246,6 @@ namespace sky::rdg {
         auto vertex = static_cast<VertexType>(graph.vertices.size());
         graph.vertices.emplace_back();
         graph.tags.emplace_back(Tag{});
-        graph.sources.emplace_back(vertex);
         graph.lastAccesses.emplace_back(INVALID_VERTEX);
         graph.names.emplace_back(name);
 
@@ -264,6 +261,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, ImportSwapChainTag>) {
             graph.polymorphicDatas.emplace_back(graph.swapChains.size());
             graph.swapChains.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, ImportImageViewTag>) {
+            graph.polymorphicDatas.emplace_back(graph.importedViews.size());
+            graph.importedViews.emplace_back(std::forward<D>(val));
         } else if constexpr (std::is_same_v<Tag, ImportXRSwapChainTag>) {
             graph.polymorphicDatas.emplace_back(graph.xrSwapChains.size());
             graph.xrSwapChains.emplace_back(std::forward<D>(val));
@@ -279,6 +279,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, ConstantBufferTag>) {
             graph.polymorphicDatas.emplace_back(graph.constantBuffers.size());
             graph.constantBuffers.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, SamplerTag>) {
+            graph.polymorphicDatas.emplace_back(graph.samplers.size());
+            graph.samplers.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }
@@ -325,6 +328,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, UploadTag>) {
             graph.polymorphicDatas.emplace_back(graph.uploadPasses.size());
             graph.uploadPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, TransitionTag>) {
+            graph.polymorphicDatas.emplace_back(graph.transitionPasses.size());
+            graph.transitionPasses.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }
@@ -355,11 +361,5 @@ namespace sky::rdg {
     size_t Index(V v, G &g)
     {
         return g.polymorphicDatas[static_cast<typename G::vertex_descriptor>(v)];
-    }
-
-    template <typename V, typename G>
-    VertexType Source(V v, G &g)
-    {
-        return g.sources[static_cast<typename G::vertex_descriptor>(v)];
     }
 } // namespace sky

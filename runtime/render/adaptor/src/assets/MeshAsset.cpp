@@ -10,18 +10,40 @@
 #include <render/resource/SkeletonMesh.h>
 
 namespace sky {
+    uint32_t MeshDataHeader::MakeVersion()
+    {
+        return 0;
+    }
+
     void MeshAssetData::Load(BinaryInputArchive &archive)
     {
         archive.LoadValue(version);
         archive.LoadValue(skeleton);
 
         uint32_t size = 0;
+
+        // materials
         archive.LoadValue(size);
+        materials.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            archive.LoadValue(reinterpret_cast<char *>(&materials[i]), sizeof(Uuid));
+        }
 
         // subMesh
+        archive.LoadValue(size);
         subMeshes.resize(size);
         for (uint32_t i = 0; i < size; ++i) {
-            archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(SubMeshAssetData));
+            archive.LoadValue(reinterpret_cast<char *>(&subMeshes[i]), sizeof(MeshSubSection));
+        }
+
+        // sub mapping
+        archive.LoadValue(size);
+        subMappings.resize(size);
+        for (uint32_t i = 0; i < size; ++i) {
+            uint32_t tmpSize = 0;
+            archive.LoadValue(tmpSize);
+            subMappings[i].resize(tmpSize);
+            archive.LoadValue(reinterpret_cast<char *>(subMappings[i].data()), tmpSize);
         }
 
         // buffers
@@ -32,6 +54,7 @@ namespace sky {
             archive.LoadValue(buffers[i].offset);
             archive.LoadValue(buffers[i].size);
             archive.LoadValue(buffers[i].stride);
+            archive.LoadValue(buffers[i].rate);
         }
 
         // vertex streams
@@ -42,7 +65,6 @@ namespace sky {
             archive.LoadValue(attributes[i].binding);
             archive.LoadValue(attributes[i].offset);
             archive.LoadValue(attributes[i].format);
-            archive.LoadValue(attributes[i].rate);
         }
 
         archive.LoadValue(indexBuffer);
@@ -63,10 +85,21 @@ namespace sky {
         archive.SaveValue(version);
         archive.SaveValue(skeleton);
 
+        archive.SaveValue(static_cast<uint32_t>(materials.size()));
+        for (const auto &uuid : materials) {
+            archive.SaveValue(reinterpret_cast<const char*>(&uuid), sizeof(Uuid));
+        }
+
         // subMesh
         archive.SaveValue(static_cast<uint32_t>(subMeshes.size()));
         for (const auto &subMesh : subMeshes) {
-            archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(SubMeshAssetData));
+            archive.SaveValue(reinterpret_cast<const char*>(&subMesh), sizeof(MeshSubSection));
+        }
+
+        archive.SaveValue(static_cast<uint32_t>(subMappings.size()));
+        for (const auto &subMapping : subMappings) {
+            archive.SaveValue(static_cast<uint32_t>(subMapping.size()));
+            archive.SaveValue(reinterpret_cast<const char*>(subMapping.data()), subMapping.size());
         }
 
         // primitives
@@ -76,6 +109,7 @@ namespace sky {
             archive.SaveValue(primitive.offset);
             archive.SaveValue(primitive.size);
             archive.SaveValue(primitive.stride);
+            archive.SaveValue(primitive.rate);
         }
 
         // vertex streams
@@ -85,7 +119,6 @@ namespace sky {
             archive.SaveValue(stream.binding);
             archive.SaveValue(stream.offset);
             archive.SaveValue(stream.format);
-            archive.SaveValue(stream.rate);
         }
 
         // index
@@ -110,17 +143,20 @@ namespace sky {
         Name name = Name("Root");
         uint32_t boneIndex = INVALID_BONE_ID;
         std::vector<BoneNode*> children;
+        Matrix4 globalTransform;
     };
 
-    void WalkBone(BoneNode* node, const Matrix4 &matrix, const SkeletonData& skeleton, Skin &skin) // NOLINT
+    void WalkBone(BoneNode* node, const Matrix4 &parent, const SkeletonData& skeleton) // NOLINT
     {
-        Matrix4 current = matrix;
+        auto globalTrans = parent;
         if (node->boneIndex != INVALID_BONE_ID) {
-            current = current * skeleton.refPos[node->boneIndex].ToMatrix();
-            skin.boneMatrices[node->boneIndex] = current * skeleton.inverseBindMatrix[node->boneIndex];
+            auto localTrans = skeleton.refPos[node->boneIndex].ToMatrix();
+            globalTrans = parent * localTrans;
+            node->globalTransform = globalTrans;
         }
+
         for (auto &child : node->children) {
-            WalkBone(child, current, skeleton, skin);
+            WalkBone(child, globalTrans, skeleton);
         }
     }
 
@@ -183,7 +219,7 @@ namespace sky {
         return triangleMesh;
     }
 
-    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset)
+    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin)
     {
         SKY_PROFILE_NAME("Create Mesh From Asset")
         const auto &data = asset->Data();
@@ -194,17 +230,43 @@ namespace sky {
         SKY_ASSERT(file);
 
         Mesh* mesh = nullptr;
-        if (data.skeleton) {
+        if (data.skeleton && buildSkin) {
+            mesh = new SkeletonMesh();
+        } else {
+            mesh = new Mesh();
+        }
+
+        std::vector<CounterPtr<MaterialInstance>> materials;
+        for (const auto &mat : data.materials) {
+            auto matAsset = am->FindAsset<MaterialInstance>(mat);
+            materials.emplace_back(CreateMaterialInstanceFromAsset(matAsset));
+        }
+
+        for (const auto &sub : data.subMeshes) {
+            mesh->AddSubMesh(SubMesh {
+                sub.firstVertex,
+                sub.vertexCount,
+                sub.firstIndex,
+                sub.indexCount,
+                sub.firstMeshlet,
+                sub.meshletCount,
+                materials[sub.materialIndex],
+                sub.aabb
+            });
+        }
+
+        mesh->SetVertexAttributes(data.attributes);
+        mesh->SetIndexType(data.indexType);
+
+        if (data.skeleton && buildSkin) {
             auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
             skeleton->BlockUntilLoaded();
             const auto &skeletonData = skeleton->Data();
-            auto* skin = new Skin();
-            skin->activeBone = static_cast<uint32_t>(skeletonData.refPos.size());
-            SKY_ASSERT(skeletonData.boneData.size() == skeletonData.inverseBindMatrix.size());
 
+            auto boneNum = static_cast<uint32_t>(skeletonData.refPos.size());
             BoneNode root;
-            std::vector<BoneNode> bones(skin->activeBone);
-            for (uint32_t index = 0; index < skin->activeBone; ++index) {
+            std::vector<BoneNode> bones(boneNum);
+            for (uint32_t index = 0; index < boneNum; ++index) {
                 const auto &boneData = skeletonData.boneData[index];
                 bones[index].boneIndex = index;
                 bones[index].name = boneData.name;
@@ -214,44 +276,34 @@ namespace sky {
                     bones[boneData.parentIndex].children.emplace_back(&bones[index]);
                 }
             }
-            WalkBone(&root, Matrix4::Identity(), skeletonData, *skin);
+            WalkBone(&root, Matrix4::Identity(), skeletonData);
 
-            auto *skeletonMesh = new SkeletonMesh();
-            skeletonMesh->SetSkin(skin);
-            mesh = skeletonMesh;
-        } else {
-            mesh = new Mesh();
+            auto *sklMesh = static_cast<SkeletonMesh*>(mesh);
+            for (uint32_t index = 0; index < mesh->GetSubMeshes().size(); ++index) {
+                SkinPtr skin = new Skin();
+                skin->boneMapping = data.subMappings[index];
+                for (uint32_t i = 0; i < skin->boneMapping.size(); ++i) {
+                    skin->boneMatrices[i] = bones[skin->boneMapping[i]].globalTransform.Inverse();
+                }
+                sklMesh->SetSkin(skin, index);
+            }
         }
 
-        for (const auto &sub : data.subMeshes) {
-            auto matAsset = am->FindAsset<MaterialInstance>(sub.material);
-            auto mat = CreateMaterialInstanceFromAsset(matAsset);
-
-            mesh->AddSubMesh(SubMesh {
-                sub.firstVertex,
-                sub.vertexCount,
-                sub.firstIndex,
-                sub.indexCount,
-                sub.firstMeshlet,
-                sub.meshletCount,
-                mat,
-                sub.aabb
-            });
-        }
-
-        mesh->SetVertexAttributes(data.attributes);
-        mesh->SetIndexType(data.indexType);
-
-        MeshData meshData = {};
+        MeshUploadData meshData = {};
         auto *fileStream = new rhi::FileStream(file, data.dataOffset);
 
-        for (const auto &buffer : data.buffers) {
-            rhi::BufferUploadRequest request = {};
-
-            request.source = fileStream;
-            request.offset = buffer.offset;
-            request.size   = buffer.size;
-            meshData.vertexStreams.emplace_back(VertexBufferSource{request, buffer.stride});
+        for (const auto &attr : data.attributes) {
+            if (attr.binding >= meshData.vertexStreams.size()) {
+                meshData.vertexStreams.resize(attr.binding + 1);
+            }
+            const auto &buffer = data.buffers[attr.binding];
+            auto& stream = meshData.vertexStreams[attr.binding];
+            if (!stream.source.source) {
+                stream.source.source = fileStream;
+                stream.source.offset = buffer.offset;
+                stream.source.size   = buffer.size;
+                stream.stride = buffer.stride;
+            }
         }
 
         if (data.indexBuffer != INVALID_MESH_BUFFER_VIEW) {
@@ -294,4 +346,80 @@ namespace sky {
         return mesh;
     }
 
+    MeshAssetData StaticMeshAsset::MakeMeshAssetData() const
+    {
+        MeshAssetData outData = {};
+
+        outData.version = MeshDataHeader::MakeVersion();
+        outData.skeleton = Uuid::GetEmpty();
+        outData.materials = materials;
+        outData.subMeshes = geometry->GetSubMeshes();
+
+        auto *posBuffer = geometry->GetPositionBuffer();
+
+        auto *uv0Buffer = geometry->GetTexCoordBuffer();
+        auto *normalBuffer = geometry->GetNormalBuffer();
+        auto *tangentBuffer = geometry->GetTangentBuffer();
+        // auto *colorBuffer = geometry->GetColorBuffer();
+        auto *indexBuffer = geometry->GetIndexBuffer();
+
+        uint32_t vtxNum = posBuffer->Num();
+        uint32_t idxNum = indexBuffer->Num();
+
+        std::vector<Vector3> positions(vtxNum);
+        std::vector<VF_TB_UVN<1>> vfBuffer(vtxNum);
+
+        for (uint32_t i = 0; i < vtxNum; ++i) {
+            positions[i] = posBuffer->GetVertexData<Vector3>(i);
+
+            vfBuffer[i].normal = normalBuffer->GetVertexData<Vector3>(i);
+            vfBuffer[i].tangent = tangentBuffer->GetVertexData<Vector4>(i);
+            vfBuffer[i].texCoord[0] = uv0Buffer->GetVertexData<Vector2>(i);
+        }
+
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::POSITION, .binding=0, .offset=0, .format=rhi::Format::F_RGB32});
+
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::NORMAL, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, normal), .format=rhi::Format::F_RGB32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::TANGENT, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, tangent), .format=rhi::Format::F_RGBA32});
+        outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::UV, .binding=1, .offset=OFFSET_OF(VF_TB_UVN<1>, texCoord), .format=rhi::Format::F_RG32});
+
+        if (skeletalGeometry) {
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::JOINT, .binding=2, .offset=OFFSET_OF(VertexBoneData, boneId), .format=rhi::Format::U_RGBA8});
+            outData.attributes.emplace_back(VertexAttribute{.sematic=VertexSemanticFlagBit::WEIGHT, .binding=2, .offset=OFFSET_OF(VertexBoneData, weight), .format=rhi::Format::F_RGBA32});
+        }
+
+        auto currentSize = static_cast<uint32_t>(outData.rawData.storage.size());
+        auto currentBytes = static_cast<uint32_t>(vtxNum * sizeof(Vector3));
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, positions.data(), currentBytes);
+        outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(Vector3)});
+
+        currentSize += currentBytes;
+        currentBytes = static_cast<uint32_t>(vtxNum * sizeof(VF_TB_UVN<1>));
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, vfBuffer.data(), currentBytes);
+        outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(VF_TB_UVN<1>)});
+
+        if (skeletalGeometry) {
+            currentSize += currentBytes;
+            auto* boneAndWeight = skeletalGeometry->GetBoneAndWeight();
+            currentBytes = boneAndWeight->Num() * boneAndWeight->GetStride();
+            outData.rawData.storage.resize(currentSize + currentBytes);
+            memcpy(outData.rawData.storage.data() + currentSize, boneAndWeight->GetDataPointer(), currentBytes);
+            outData.buffers.emplace_back(MeshBufferView{.offset=currentSize, .size=currentBytes, .stride=sizeof(VertexBoneData)});
+        }
+
+        uint32_t indexStride = indexBuffer->GetIndexType() == rhi::IndexType::U32 ? sizeof(uint32_t) : sizeof(uint16_t);
+        currentSize += currentBytes;
+        currentBytes = idxNum * indexStride;
+        outData.rawData.storage.resize(currentSize + currentBytes);
+        memcpy(outData.rawData.storage.data() + currentSize, indexBuffer->GetDataPointer(), currentBytes);
+        outData.indexType = indexBuffer->GetIndexType();
+        outData.indexBuffer = static_cast<uint32_t>(outData.buffers.size());
+        outData.buffers.emplace_back(MeshBufferView{.offset = currentSize, .size=currentBytes, .stride=indexStride});
+
+        outData.dataSize = static_cast<uint32_t>(outData.rawData.storage.size());
+
+        return outData;
+    }
 }

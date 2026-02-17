@@ -109,7 +109,7 @@ namespace sky {
         return nullptr;
     }
 
-    CounterPtr<GraphicsTechnique> GreateGfxTechFromAsset(const TechniqueAssetPtr &asset)
+    CounterPtr<GraphicsTechnique> CreateGfxTechFromAsset(const TechniqueAssetPtr &asset)
     {
         auto tech = CreateTechniqueFromAsset(asset);
         return static_cast<GraphicsTechnique*>(tech.Get());

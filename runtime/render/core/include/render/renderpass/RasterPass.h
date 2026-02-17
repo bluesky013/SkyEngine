@@ -36,10 +36,16 @@ namespace sky {
             rdg::ComputeView computeView;
         };
 
+        struct SamplerResource {
+            Name name;
+            Name viewName;
+        };
+
         uint32_t width  = 1;
         uint32_t height = 1;
 
         std::vector<ComputeResource> computeResources;
+        std::vector<SamplerResource> samplers;
 
         std::vector<Attachment> colors;
         std::vector<Attachment> resolves;

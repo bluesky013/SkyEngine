@@ -8,6 +8,7 @@
 #pragma option({"key": "ENABLE_AO_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_MR_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_ALPHA_MASK",   "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
 
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
 
@@ -27,20 +28,25 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
 
-    float4x4 worldMatrix = World;
 #if ENABLE_SKIN
-	float4x4 skinMat =
-		mul(Bones[input.joints.x], input.weights.x) +
-		mul(Bones[input.joints.y], input.weights.y) +
-		mul(Bones[input.joints.z], input.weights.z) +
-		mul(Bones[input.joints.w], input.weights.w);
-	worldMatrix = skinMat;
+    float4x4 skinMat =
+    	mul(Bones[input.joints.x], input.weights.x) +
+    	mul(Bones[input.joints.y], input.weights.y) +
+    	mul(Bones[input.joints.z], input.weights.z) +
+    	mul(Bones[input.joints.w], input.weights.w);
+    float4x4 worldMatrix = mul(World, 0) + skinMat;
+#else
+    float4x4 worldMatrix = World;
 #endif
 
-    output.WorldPos = mul(worldMatrix, input.Pos).xyz;
+    float4 pos = input.Pos;
+#if ENABLE_INSTANCE
+    pos += input.Offset;
+#endif
+
+    output.WorldPos = mul(worldMatrix, pos).xyz;
     output.Normal   = mul((float3x3)worldMatrix, input.Normal.xyz);
     output.Tangent  = input.Tangent;
-    output.Color    = input.Color;
     output.UV       = input.UV;
 
     output.Pos = mul(VIEW_INFO.ViewProj, float4(output.WorldPos, 1.0));
@@ -55,16 +61,14 @@ VSOutput VSMain(VSInput input)
 
 groupshared Payload TaskPayload;
 //------------------------------------------ Task Shader------------------------------------------//
-bool IsVisible(Meshlet m, float4x4 world, float3 viewPos)
+bool ConeVisible(Meshlet m, float4x4 world, float3 viewPos, float3 offset)
 {
-//     float4 center = mul(world, float4(m.center.xyz, 1));
-//     float radius = m.center.w;
     if (m.coneAxis.w >= 0.99) {
         return true;
     }
 
-    float3 axis = normalize(mul((float3x3)World, m.coneAxis.xyz));
-    float3 apex = mul((float3x3)World, m.coneApex.xyz);
+    float3 axis = normalize(mul((float3x3)world, m.coneAxis.xyz));
+    float3 apex = mul((float3x3)world, m.coneApex.xyz + offset);
     float3 view = normalize(viewPos - apex);
 
     if (dot(view, -axis) >= m.coneAxis.w)
@@ -74,23 +78,117 @@ bool IsVisible(Meshlet m, float4x4 world, float3 viewPos)
     return true;
 }
 
+float CalculateMip(float ddx, float ddy)
+{
+    return 0.5 * log2(max(ddx, ddy));
+}
+
+bool HZBSphereTest(float3 center, float radius, int startMip)
+{
+    float4 worldPos = mul(World, float4(center, 1.0));
+    float4 clipPos = mul(VIEW_INFO.ViewProj, worldPos);
+    clipPos.xyz /= clipPos.w;
+
+    if (clipPos.w <= 0) return false;
+
+    float2 screenUV = clamp(clipPos.xy * 0.5 + 0.5, 0.001, 0.999);
+    float approxScreenRadius = radius / abs(clipPos.z);
+    float minSphereDepth = clipPos.z - approxScreenRadius * 0.005;
+
+    float2 texelSize = 1.0 / float2(Viewport.zw);
+
+    float lod = CalculateMip(approxScreenRadius * texelSize, approxScreenRadius * texelSize);
+
+    float2 sampleUVs[4] = {
+        screenUV + float2(-approxScreenRadius, -approxScreenRadius) * texelSize,
+        screenUV + float2( approxScreenRadius,  approxScreenRadius) * texelSize,
+        screenUV + float2(-approxScreenRadius,  approxScreenRadius) * texelSize,
+        screenUV + float2( approxScreenRadius, -approxScreenRadius) * texelSize
+    };
+
+    float maxHZB = 0;
+    [unroll]
+    for(int j = 0; j < 4; ++j)
+    {
+        float2 uv = clamp(sampleUVs[j], 0.0, 1.0);
+        maxHZB = max(maxHZB, HizBuffer.SampleLevel(HizBufferSampler, uv, lod).r);
+    }
+
+    if(minSphereDepth > maxHZB)
+    {
+        return false;
+    }
+
+    /*
+    int currentMip = min(startMip, maxDims - 1);
+
+    const int MAX_ITERATION = 4;
+    for (int i = 0; i < MAX_ITERATION; ++i)
+    {
+        uint2 mipSize;
+        HizBuffer.GetDimensions(currentMip, mipSize.x, mipSize.y, maxDims);
+        float2 texelSize = 1.0 / float2(mipSize);
+
+        float2 sampleUVs[4] = {
+            screenUV + float2(-approxScreenRadius, -approxScreenRadius) * texelSize,
+            screenUV + float2( approxScreenRadius,  approxScreenRadius) * texelSize,
+            screenUV + float2(-approxScreenRadius,  approxScreenRadius) * texelSize,
+            screenUV + float2( approxScreenRadius, -approxScreenRadius) * texelSize
+        };
+
+        float maxHZB = 0;
+        [unroll]
+        for(int j = 0; j < 4; ++j)
+        {
+            float2 uv = clamp(sampleUVs[j], 0.0, 1.0);
+            maxHZB = max(maxHZB, HizBuffer.SampleLevel(HizBufferSampler, uv, currentMip).r);
+        }
+
+        if(minSphereDepth > maxHZB)
+        {
+            return false;
+        }
+
+        if(currentMip == 0) break;
+        currentMip = max(currentMip - 1, 0);
+
+        if(approxScreenRadius * mipSize.x < 4.0) break;
+    }*/
+    return true;
+}
+
 [outputtopology("triangle")]
 [numthreads(MESH_GROUP_SIZE,1,1)]
-void TASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
+void TASMain(uint gtid : SV_GroupThreadID, uint2 dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
 {
     float3 viewPos = float3(VIEW_INFO.World[0][3], VIEW_INFO.World[1][3], VIEW_INFO.World[2][3]);
 
+#if ENABLE_INSTANCE
+    float4 offset = InstanceBuffer[dtid.y];
+#else
+    float4 offset = InstanceBuffer[0];
+#endif
+
     bool visible = false;
-    if (dtid < MeshletCount)
+    if (dtid.x < MeshletCount)
     {
-        visible = IsVisible(Meshlets[dtid + FirstMeshlet], World, viewPos);
-//         visible = Meshlets[dtid + FirstMeshlet].vertexCount > 0;
+        Meshlet meshlet = Meshlets[dtid.x + FirstMeshlet];
+        visible = meshlet.vertexCount > 0;
+
+//         if (visible) {
+//             visible = ConeVisible(meshlet, World, viewPos, offset.xyz);
+//         }
+
+        if (visible) {
+            visible = HZBSphereTest(meshlet.center.xyz + offset.xyz, meshlet.center.w, 8);
+        }
     }
 
     if (visible)
     {
         uint index = WavePrefixCountBits(visible);
-        TaskPayload.MeshletIndices[index] = dtid;
+        TaskPayload.MeshletIndices[index] = dtid.x;
+        TaskPayload.Offset = offset;
     }
     uint visibleCount = WaveActiveCountBits(visible);
     DispatchMesh(visibleCount, 1, 1, TaskPayload);
@@ -113,9 +211,9 @@ uint3 GetPrimitive(Meshlet meshlet, uint index)
     return UnpackPrimitive(MeshletTriangles[meshlet.triangleOffset + index]);
 }
 
-VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex)
+VSOutput GetVertexAttributes(uint meshletIndex, uint vertexIndex, float4 offset)
 {
-    float4 pv = PositionBuf[vertexIndex];
+    float4 pv = PositionBuf[vertexIndex] + offset;
     ExtVertex ev = ExtBuf[vertexIndex];
 
     VSOutput output = (VSOutput)0;
@@ -154,7 +252,7 @@ void MSMain(
     if (gtid < meshlet.vertexCount)
     {
         uint vertexIndex = GetVertexIndex(meshlet, gtid);
-        vertices[gtid] = GetVertexAttributes(meshletIndex, vertexIndex);
+        vertices[gtid] = GetVertexAttributes(meshletIndex, vertexIndex, taskPayload.Offset);
     }
 
     if (gtid < meshlet.triangleCount)
@@ -169,56 +267,62 @@ void MSMain(
 #include "layout/standard_shading.hlslh"
 #include "lighting/pbr.hlslh"
 
-// static const float4x4 biasMat = float4x4(
-// 	0.5, 0.0, 0.0, 0.5,
-// 	0.0, 0.5, 0.0, 0.5,
-// 	0.0, 0.0, 1.0, 0.0,
-// 	0.0, 0.0, 0.0, 1.0 );
-//
-// float textureProj(float4 shadowCoord, float2 off)
-// {
-// 	float shadow = 1.0;
-// 	float bias = 0.001;
-// 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 )
-// 	{
-// 		float dist = ShadowMap.Sample( ShadowMapSampler, shadowCoord.xy + off ).r;
-// 		if ( shadowCoord.w > 0.0 && dist + bias < shadowCoord.z )
-// 		{
-// 			shadow = 0.05;
-// 		}
-// 	}
-// 	return shadow;
-// }
-//
-// float filterPCF(float4 sc)
-// {
-// 	int2 texDim;
-// 	ShadowMap.GetDimensions(texDim.x, texDim.y);
-// 	float scale = 1.5;
-// 	float dx = scale * 1.0 / float(texDim.x);
-// 	float dy = scale * 1.0 / float(texDim.y);
-//
-// 	float shadowFactor = 0.0;
-// 	int count = 0;
-// 	int range = 3;
-//
-// 	for (int x = -range; x <= range; x++)
-// 	{
-// 		for (int y = -range; y <= range; y++)
-// 		{
-// 			shadowFactor += textureProj(sc, float2(dx*x, dy*y));
-// 			count++;
-// 		}
-//
-// 	}
-// 	return shadowFactor / count;
-// }
+static const float4x4 biasMat = float4x4(
+	0.5, 0.0, 0.0, 0.5,
+	0.0, 0.5, 0.0, 0.5,
+	0.0, 0.0, 1.0, 0.0,
+	0.0, 0.0, 0.0, 1.0 );
+
+float TextureProj(float4 shadowCoord, float2 off)
+{
+	float shadow = 1.0;
+	float bias = 0.01;
+	if (shadowCoord.z > -1.0 && shadowCoord.z < 1.0) {
+		float dist = ShadowMap.Sample(ShadowMapSampler, shadowCoord.xy + off).r;
+		if (shadowCoord.w > 0.0 && dist + bias < shadowCoord.z) {
+			shadow = 0.1;
+		}
+	}
+	return shadow;
+}
+
+float FilterPCF(float4 sc)
+{
+	int2 texDim;
+	ShadowMap.GetDimensions(texDim.x, texDim.y);
+	float scale = 1.0;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+
+	for (int x = -range; x <= range; x++) {
+		for (int y = -range; y <= range; y++) {
+			shadowFactor += TextureProj(sc, float2(dx*x, dy*y));
+			count++;
+		}
+	}
+	return shadowFactor / count;
+}
+
+float3 PrefilteredReflection(float3 R, float roughness)
+{
+    const float MAX_REFLECTION_LOD = 9.0; // 512 x 512
+    float lod = roughness * MAX_REFLECTION_LOD;
+    float lodf = floor(lod);
+    float lodc = ceil(lod);
+    float3 a = PrefilteredMap.SampleLevel(PrefilteredMapSampler, R, lodf).rgb;
+    float3 b = PrefilteredMap.SampleLevel(PrefilteredMapSampler, R, lodc).rgb;
+    return lerp(a, b, lod - lodf);
+}
 
 //------------------------------------------ Fragment Shader------------------------------------------//
 float4 FSMain(VSOutput input) : SV_TARGET
 {
     float4 texAlbedo = AlbedoMap.Sample(AlbedoSampler, input.UV.xy);
-    float4 albedo = input.Color * Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
+    float4 albedo = Albedo * float4(pow(texAlbedo.rgb, 2.2), texAlbedo.a);
 
 #if ENABLE_ALPHA_MASK
     if (albedo.w < AlphaCutoff) {
@@ -270,12 +374,28 @@ float4 FSMain(VSOutput input) : SV_TARGET
     pbrParam.Emissive = EmissiveMap.Sample(EmissiveSampler, input.UV.xy);
 #endif
 
-    float shadow = 1.0;
-//  float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
-//  float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
-// 	float shadow = filterPCF(shadowCoord);
-// 	shadow = max(shadow, 1.0);
+    float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
+    float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
+    float shadow = FilterPCF(shadowCoord);
+
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
-    return float4(e0, albedo.a);
+
+
+    float3 R = reflect(-V, N);
+    float2 brdf = BRDFLut.Sample(BRDFLutSampler, float2(max(dot(N, V), 0.0), pbrParam.Roughness)).rg;
+    float3 reflection = PrefilteredReflection(R, pbrParam.Roughness).rgb;
+    float3 irradiance = IrradianceMap.Sample(IrradianceSampler, N).rgb;
+
+    float3 F0 = lerp(0.04, pbrParam.Albedo, pbrParam.Metallic);
+
+    float3 diffuse = irradiance * pbrParam.Albedo;
+    float3 F = F_SchlickR(max(dot(N, V), 0.0), F0, pbrParam.Roughness);
+    float3 specular = reflection * (F * brdf.x + brdf.y);
+
+    float3 kD = 1.0 - F;
+    kD *= 1.0 - pbrParam.Metallic;
+    float3 ambient = (kD * diffuse + specular);
+
+    return float4(e0 + ambient * 0.05, albedo.a);
 }
 //------------------------------------------ Fragment Shader------------------------------------------//

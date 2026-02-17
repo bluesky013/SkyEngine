@@ -6,6 +6,7 @@
 
 #include <core/environment/Singleton.h>
 #include <span>
+#include <memory>
 
 namespace sky {
 

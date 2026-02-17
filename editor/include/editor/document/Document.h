@@ -21,7 +21,7 @@ namespace sky::editor {
         explicit Document();
         ~Document();
 
-        static void Reflect();
+        static void Reflect(SerializationContext *context);
 
         const WorldPtr &GetWorld() const { return world; }
         WorldPtr OpenWorld(const QString &path);

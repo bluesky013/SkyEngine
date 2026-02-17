@@ -11,7 +11,7 @@ namespace sky::vk {
         "VK_KHR_portability_enumeration",
         "VK_MVK_macos_surface",
         "VK_EXT_metal_surface",
-#if _DEBUG
+#ifdef _DEBUG
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
     };

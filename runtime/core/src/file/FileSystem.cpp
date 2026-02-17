@@ -111,6 +111,11 @@ namespace sky {
         return sky::ReadBin(filePath, out);
     }
 
+    BinaryDataPtr NativeFile::ReadBin()
+    {
+        return sky::ReadBin(filePath);
+    }
+
     bool NativeFile::ReadString(std::string &out)
     {
         return sky::ReadString(filePath, out);
@@ -142,6 +147,11 @@ namespace sky {
     bool RawBufferView::ReadBin(std::vector<uint8_t> &out)
     {
         return true;
+    }
+
+    BinaryDataPtr RawBufferView::ReadBin()
+    {
+        return nullptr;
     }
 
     bool RawBufferView::ReadString(std::string &out)
@@ -179,11 +189,20 @@ namespace sky {
         return res.Exist();
     }
 
+    void NativeFileSystem::MakeDir(const FilePath &path)
+    {
+        FilePath res = fsRoot;
+        res /= path;
+
+        res.MakeDirectory();
+    }
+
     FilePtr NativeFileSystem::OpenFile(const FilePath &path)
     {
         FilePath res = fsRoot;
         res /= path;
-        return res.Exist() ? new NativeFile(res) : nullptr;
+
+        return res.Exist() ?  new NativeFile(res) : nullptr;
     }
 
     FilePtr NativeFileSystem::CreateOrOpenFile(const FilePath &path)

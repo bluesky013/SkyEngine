@@ -4,6 +4,7 @@
 
 #include <render/adaptor/components/SkyBoxComponent.h>
 #include <render/adaptor/Util.h>
+#include <render/env/EnvFeature.h>
 #include <render/Renderer.h>
 #include <framework/world/ComponentFactory.h>
 #include <framework/serialization/PropertyCommon.h>
@@ -23,24 +24,35 @@ namespace sky {
     void SkyBoxComponent::Reflect(SerializationContext *context)
     {
         context->Register<SkyBoxData>("SkyBoxData")
-            .Member<&SkyBoxData::skybox>("skybox");
+            .Member<&SkyBoxData::skybox>("Skybox")
+            .Member<&SkyBoxData::radiance>("Radiance")
+            .Member<&SkyBoxData::irradiance>("Irradiance");
 
         REGISTER_BEGIN(SkyBoxComponent, context)
-            REGISTER_MEMBER(texture, SetImage, GetImage)
+            REGISTER_MEMBER(Texture, SetImage, GetImage)
+                SET_ASSET_TYPE(AssetTraits<Texture>::ASSET_TYPE)
+            REGISTER_MEMBER(Radiance, SetRadiance, GetRadiance)
+                SET_ASSET_TYPE(AssetTraits<Texture>::ASSET_TYPE)
+            REGISTER_MEMBER(Irradiance, SetIrradiance, GetIrradiance)
                 SET_ASSET_TYPE(AssetTraits<Texture>::ASSET_TYPE);
     }
 
     void SkyBoxComponent::Tick(float time)
     {
-        if (texture && texture->IsReady() && renderer) {
-            renderer->SetReady();
-        }
     }
 
     void SkyBoxComponent::OnAttachToWorld()
     {
         if (data.skybox && !texture) {
             SetImage(data.skybox);
+        }
+
+        if (data.radiance && !radiance) {
+            SetRadiance(data.radiance);
+        }
+
+        if (data.irradiance && !irradiance) {
+            SetIrradiance(data.irradiance);
         }
 
         auto *scene = GetRenderSceneFromActor(actor);
@@ -60,16 +72,56 @@ namespace sky {
         auto texAsset = AssetManager::Get()->LoadAsset<Texture>(image);
         texAsset->BlockUntilLoaded();
 
-        texture = CreateTextureFromAsset(texAsset);
+        texture = CastPtr<Texture2D>(CreateTextureFromAsset(texAsset));
         Renderer::Get()->GetStreamingManager()->UploadTexture(texture);
+        renderer->GetPrimitive()->texture = texture;
+    }
 
-        renderer->GetResGroup()->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
-        renderer->GetResGroup()->Update();
+    void SkyBoxComponent::SetRadiance(const Uuid &image)
+    {
+        data.radiance = image;
+
+        auto texAsset = AssetManager::Get()->LoadAsset<Texture>(image);
+        texAsset->BlockUntilLoaded();
+
+        radiance = CastPtr<TextureCube>(CreateTextureFromAsset(texAsset));
+        Renderer::Get()->GetStreamingManager()->UploadTexture(radiance);
+
+        auto *ef = GetFeatureProcessor<EnvFeatureProcessor>(actor);
+        if (radiance) {
+            ef->SetRadiance(radiance);
+        }
+    }
+
+    void SkyBoxComponent::SetIrradiance(const Uuid &image)
+    {
+        data.irradiance = image;
+
+        auto texAsset = AssetManager::Get()->LoadAsset<Texture>(image);
+        texAsset->BlockUntilLoaded();
+
+        irradiance = CastPtr<TextureCube>(CreateTextureFromAsset(texAsset));
+        Renderer::Get()->GetStreamingManager()->UploadTexture(irradiance);
+
+        auto *ef = GetFeatureProcessor<EnvFeatureProcessor>(actor);
+        if (irradiance) {
+            ef->SetIrradiance(irradiance);
+        }
     }
 
     const Uuid &SkyBoxComponent::GetImage() const
     {
         return data.skybox;
+    }
+
+    const Uuid &SkyBoxComponent::GetRadiance() const
+    {
+        return data.radiance;
+    }
+
+    const Uuid &SkyBoxComponent::GetIrradiance() const
+    {
+        return data.irradiance;
     }
 
 } // namespace sky

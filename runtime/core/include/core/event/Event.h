@@ -7,12 +7,22 @@
 #include <core/environment/Singleton.h>
 #include <unordered_map>
 #include <set>
+#include <vector>
+#include <algorithm>
+#include <functional>
 
 namespace sky {
+
+    enum StorageMode : uint8_t {
+        IMMEDIATE,
+        BATCHED
+    };
 
     struct EventTraits {
         using KeyType   = void;
         using MutexType = void;
+
+        static constexpr StorageMode STORAGE = StorageMode::IMMEDIATE;
     };
 
     template <typename Interface, class KeyType = typename Interface::KeyType>
@@ -25,13 +35,13 @@ namespace sky {
         public:
             void Emplace(const KeyType &key, Interface *listener)
             {
-                auto &set = listeners[key];
+                auto &set = this->listeners[key];
                 set.emplace_back(listener);
             }
 
             void Erase(Interface *listener)
             {
-                for (auto &pair : listeners) {
+                for (auto &pair : this->listeners) {
                     auto iter = std::find(pair.second.begin(), pair.second.end(), listener);
                     if (iter != pair.second.end()) {
                         pair.second.erase(iter);
@@ -43,8 +53,8 @@ namespace sky {
             template <typename T, typename... Args>
             void BroadCast(const KeyType &key, T &&func, Args &&...args)
             {
-                auto iter = listeners.find(key);
-                if (iter == listeners.end()) {
+                auto iter = this->listeners.find(key);
+                if (iter == this->listeners.end()) {
                     return;
                 }
 

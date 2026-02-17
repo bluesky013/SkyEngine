@@ -10,39 +10,40 @@ namespace sky::rdg {
     namespace {
         void MergeBarrier(std::vector<GraphBarrier> &barriers, const AccessRes &prev, const AccessRes &next, RenderGraph &rdg)
         {
-            const auto sourceRange = GetAccessRange(rdg, prev.resID);
+            barriers.emplace_back(GraphBarrier{prev.access, next.access, prev.subRange});
 
-            for (uint32_t i = 0; i < next.subRange.range; ++i) {
-                const auto mip = next.subRange.base + i;
 
-                rhi::AccessFlags lastPrevFlags = rhi::AccessFlagBit::NONE;
-                rhi::AccessFlags lastNextFlags = rhi::AccessFlagBit::NONE;
-
-                std::vector<GraphBarrier> rowBarriers;
-                for (uint32_t j = 0; j < next.subRange.layers; ++j) {
-                    const auto layer = next.subRange.layer + j;
-                    const auto &prevFlags = prev.accesses[mip * sourceRange.layers + layer];
-                    const auto &nextFlags = next.accesses[mip * sourceRange.layers + layer];
-
-                    if ((lastPrevFlags != prevFlags && lastNextFlags != nextFlags) || rowBarriers.empty()) {
-                        rowBarriers.emplace_back(GraphBarrier{prevFlags, nextFlags, {mip, 1, layer, 1}});
-                    } else {
-                        rowBarriers.back().range.layers++;
-                    }
-                    lastPrevFlags = prevFlags;
-                    lastNextFlags = nextFlags;
-                }
-
-                // try merge level barrier
-                if (!barriers.empty() && rowBarriers.size() == 1) {
-                    auto &back = barriers.back();
-                    if (back.range.layers == sourceRange.layers) {
-                        back.range.range++;
-                    }
-                } else {
-                    barriers.insert(barriers.end(), rowBarriers.begin(), rowBarriers.end());
-                }
-            }
+//            for (uint32_t i = 0; i < next.subRange.range; ++i) {
+//                const auto mip = next.subRange.base + i;
+//
+//                rhi::AccessFlags lastPrevFlags = rhi::AccessFlagBit::NONE;
+//                rhi::AccessFlags lastNextFlags = rhi::AccessFlagBit::NONE;
+//
+//                std::vector<GraphBarrier> rowBarriers;
+//                for (uint32_t j = 0; j < next.subRange.layers; ++j) {
+//                    const auto layer = next.subRange.layer + j;
+//                    const auto &prevFlags = prev.accesses[mip * sourceRange.layers + layer];
+//                    const auto &nextFlags = next.accesses[mip * sourceRange.layers + layer];
+//
+//                    if ((lastPrevFlags != prevFlags && lastNextFlags != nextFlags) || rowBarriers.empty()) {
+//                        rowBarriers.emplace_back(GraphBarrier{prevFlags, nextFlags, {mip, 1, layer, 1}});
+//                    } else {
+//                        rowBarriers.back().range.layers++;
+//                    }
+//                    lastPrevFlags = prevFlags;
+//                    lastNextFlags = nextFlags;
+//                }
+//
+//                // try merge level barrier
+//                if (!barriers.empty() && rowBarriers.size() == 1) {
+//                    auto &back = barriers.back();
+//                    if (back.range.layers == sourceRange.layers) {
+//                        back.range.range++;
+//                    }
+//                } else {
+//                    barriers.insert(barriers.end(), rowBarriers.begin(), rowBarriers.end());
+//                }
+//            }
         }
     }
 
@@ -144,6 +145,11 @@ namespace sky::rdg {
                             [&](const CopyBlitTag &) {
                                 auto &copyBlitPass = rdg.copyBlitPasses[Index(passID, rdg)];
                                 auto &rearBarriers = copyBlitPass.rearBarriers[resID];
+                                MergeBarrier(rearBarriers, dst, nextAccessRes, rdg);
+                            },
+                            [&](const TransitionTag &) {
+                                auto &transition = rdg.transitionPasses[Index(passID, rdg)];
+                                auto &rearBarriers = transition.rearBarriers[resID];
                                 MergeBarrier(rearBarriers, dst, nextAccessRes, rdg);
                             },
                             [&](const auto &) {

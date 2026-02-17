@@ -14,14 +14,13 @@ namespace sky {
         ForwardMSAAPass(rhi::PixelFormat color, rhi::PixelFormat ds, rhi::SampleCount samples_);
         ~ForwardMSAAPass() override = default;
 
+        void SetLayout(const RDResourceLayoutPtr &layout);
     private:
         void SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene) override;
 
         rhi::PixelFormat colorFormat     = rhi::PixelFormat::RGBA8_UNORM;
         rhi::PixelFormat depthStenFormat = rhi::PixelFormat::D24_S8;
         rhi::SampleCount samples         = rhi::SampleCount::X2;
-
-        RDUniformBufferPtr globalUbo;
     };
 
 } // namespace sky

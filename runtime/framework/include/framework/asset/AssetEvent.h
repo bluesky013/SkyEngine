@@ -21,6 +21,8 @@ namespace sky {
 
         virtual void OnAssetBuildFinished(const AssetBuildResult &result) {}
         virtual void OnAssetLoaded() {}
+        virtual void OnAssetReload() {}
+        virtual void OnAssetReset() {}
     };
     using AsseEvent = Event<IAssetEvent>;
 

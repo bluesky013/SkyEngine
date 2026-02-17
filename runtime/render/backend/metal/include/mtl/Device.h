@@ -21,6 +21,9 @@
 #include <mtl/Semaphore.h>
 #include <mtl/VertexAssembly.h>
 #include <mtl/QueryPool.h>
+#include <mtl/DescriptorSetLayout.h>
+#include <mtl/DescriptorSetPool.h>
+#include <mtl/PipelineLayout.h>
 #import <Metal/MTLDevice.h>
 #import <Metal/MTLEvent.h>
 #import <Metal/MTLCounters.h>
@@ -67,15 +70,14 @@ namespace sky::mtl {
         CREATE_DEV_OBJ(FrameBuffer)
         CREATE_DEV_OBJ(CommandBuffer)
         CREATE_DEV_OBJ(Fence)
+        CREATE_DEV_OBJ(DescriptorSetLayout)
+        CREATE_DEV_OBJ(PipelineLayout)
+        CREATE_DEV_OBJ(DescriptorSetPool)
         CREATE_DEV_OBJ(QueryPool)
         CREATE_DEV_OBJ_FUNC(Semaphore, Sema)
 
         CREATE_DESC_OBJ(VertexInput)
         CREATE_DESC_OBJ(VertexAssembly)
-
-        rhi::DescriptorSetLayoutPtr CreateDescriptorSetLayout(const rhi::DescriptorSetLayout::Descriptor &desc) override { return nullptr; }
-        rhi::PipelineLayoutPtr CreatePipelineLayout(const rhi::PipelineLayout::Descriptor &desc) override { return nullptr; }
-        rhi::DescriptorSetPoolPtr CreateDescriptorSetPool(const rhi::DescriptorSetPool::Descriptor &desc) override { return nullptr; }
 
         rhi::Queue* GetQueue(rhi::QueueType type) const override;
         id<MTLCounterSet> GetPipelineStatisticCounterSte() const { return pipelineStatisticCounterSet; }

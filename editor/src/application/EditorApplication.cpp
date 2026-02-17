@@ -7,10 +7,8 @@
 #include <editor/framework/ViewportWidget.h>
 #include <editor/framework/SelectTool.h>
 #include <editor/framework/AssetCreator.h>
-#include <editor/framework/render/MaterialCreator.h>
-#include <core/environment/Environment.h>
+#include <editor/framework/WorldTreeView.h>
 #include <core/logger/Logger.h>
-#include <framework/platform/PlatformBase.h>
 #include <framework/asset/AssetManager.h>
 #include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetBuilderManager.h>
@@ -24,7 +22,10 @@ namespace sky::editor {
 
     static void EditorReflect()
     {
-        Document::Reflect();
+        auto* context = SerializationContext::Get();
+
+        Document::Reflect(context);
+        TreeViewComponent::Reflect(context);
     }
 
     EditorApplication::EditorApplication(int argc, char **argv) : QApplication(argc, argv)
@@ -72,8 +73,6 @@ namespace sky::editor {
         AssetBuilderManager::Get()->SetInterMediateFs(new NativeFileSystem(intermediatePath));
 
         EditorToolManager::Get()->RegisterTool(Name("Select"), new SelectTool());
-
-        AssetCreatorManager::Get()->RegisterTool(Name("Material"), new MaterialInstanceCreator());
 
         if (!InitAppAndSplashWindow(argc, argv)) {
             return false;
@@ -170,8 +169,8 @@ namespace sky::editor {
     void EditorApplication::LoadConfigs()
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
-        modules.emplace("SkyRender", ModuleInfo{"SkyRender", {"ShaderCompiler"}});
-        modules.emplace("RenderBuilder", ModuleInfo{"RenderBuilder", {"SkyRender"}});
+        modules.emplace("SkyRender.Editor", ModuleInfo{"SkyRender.Editor", {"ShaderCompiler"}});
+        modules.emplace("SkyRender.Builder", ModuleInfo{"SkyRender.Builder", {"SkyRender.Editor"}});
 
         LoadFromJson(modules);
 

@@ -10,13 +10,19 @@
 namespace sky {
     class NativeWindow;
 
-    using WindowID = uint32_t;
+    using WindowID = uint64_t;
     static const WindowID INVALID_WIN_ID = 0;
 
     enum class MouseButtonType : uint32_t {
         LEFT,
         RIGHT,
         MIDDLE
+    };
+
+    struct WindowResizeEvent {
+        WindowID winID;
+        uint32_t width;
+        uint32_t height;
     };
 
     struct MouseButtonEvent {
@@ -50,6 +56,14 @@ namespace sky {
         virtual void OnMouseButtonUp(const MouseButtonEvent &event) {}
         virtual void OnMouseMotion(const MouseMotionEvent &event) {}
         virtual void OnMouseWheel(const MouseWheelEvent &event) {}
+    };
+
+    class IDropEvent : public EventTraits {
+    public:
+        IDropEvent() = default;
+        virtual ~IDropEvent() = default;
+
+        virtual void OnDrop(const std::string& payload) {}
     };
 
     enum class ScanCode : uint32_t {
@@ -149,6 +163,7 @@ namespace sky {
         KEY_KP_9 = 97,
         KEY_KP_0 = 98,
         KEY_KP_PERIOD = 99,
+        KEY_NUM
     };
 
     enum class KeyMod : uint32_t  {
@@ -191,7 +206,7 @@ namespace sky {
         IWindowEvent()          = default;
         virtual ~IWindowEvent() = default;
 
-        virtual void OnWindowResize(uint32_t width, uint32_t height) {}
+        virtual void OnWindowResize(const WindowResizeEvent& event) {}
         virtual void OnFocusChanged(bool focus) {}
     };
 

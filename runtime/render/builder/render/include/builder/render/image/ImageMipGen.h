@@ -12,6 +12,7 @@ namespace sky::builder {
     public:
         struct Payload {
             ImageObjectPtr image;
+            MipGenType type = MipGenType::Box;
         };
 
         explicit ImageMipGen(const Payload& pd) : payload(pd) {}

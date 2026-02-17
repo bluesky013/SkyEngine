@@ -20,6 +20,8 @@ namespace sky {
         void PostInit() override;
 
         void PreTick() override;
+
+        NativeWindow* GetWindow() const { return nativeWindow.get(); }
     private:
         void LoadConfigs() override;
 

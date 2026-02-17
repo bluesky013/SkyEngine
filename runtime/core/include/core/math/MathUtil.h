@@ -92,10 +92,10 @@ namespace sky {
         Matrix4 ret;
         ret[0][0] = 2.f / (right - left);
         ret[1][1] = 2.f / (top - bottom);
-        ret[2][2] = - 2.f / (far - near);
+        ret[2][2] = - 1.f / (far - near);
         ret[3][0] = - (right + left) / (right - left);
         ret[3][1] = - (top + bottom) / (top - bottom);
-        ret[3][2] = - (far + near) / (far - near);
+        ret[3][2] = - near / (far - near);
         ret[3][3] = 1.f;
         return ret;
     }
@@ -257,13 +257,13 @@ namespace sky {
     template <typename T>
     inline T CeilTo(float val)
     {
-        return static_cast<T>(std::ceilf(val));
+        return static_cast<T>(std::ceil(val));
     }
 
     template <typename T>
     inline T FloorTo(float val)
     {
-        return static_cast<T>(std::floorf(val));
+        return static_cast<T>(std::floor(val));
     }
 
     template <typename T>
@@ -288,6 +288,12 @@ namespace sky {
           v1.y + (v2.y - v1.y) * t,
           v1.z + (v2.z - v1.z) * t
         };
+    }
+
+    template <typename T>
+    T::Type ScalerVisit(const T& t, uint32_t index)
+    {
+        return t.v[index];
     }
 
     uint8_t CeilLog2(uint32_t x);

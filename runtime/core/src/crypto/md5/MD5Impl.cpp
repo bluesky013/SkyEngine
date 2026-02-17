@@ -48,7 +48,8 @@ namespace sky {
 #ifdef _MSC_VER
             sprintf_s(buf + i * 2, 33 - (i * 2), "%02x", u8[i]);
 #else
-            sprintf(buf+i*2, "%02x", u8[i]);
+            snprintf(buf + i * 2, 33 - (i * 2), "%02x", u8[i]);
+//            sprintf(buf+i*2, "%02x", u8[i]);
 #endif
         }
         buf[32] = 0;

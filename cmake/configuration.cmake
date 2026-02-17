@@ -20,7 +20,14 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(PLATFORM_EXT_LIBS winmm imm32 version setupapi)
     add_compile_definitions(NOMINMAX)
+
+    if(MSVC)
+        cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
+    endif()
+
 endif()
+
 
 if (SKY_EDITOR OR SKY_BUILD_TOOL)
     add_compile_definitions(SKY_EDITOR)

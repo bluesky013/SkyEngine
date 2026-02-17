@@ -15,7 +15,8 @@ namespace sky {
 
     enum class MeshDebugFlagBit : uint32_t {
         MESHLET = 0x01,
-        MESHLET_CONE = 0x02
+        MESHLET_CONE = 0x02,
+        MESH = 0x04
     };
     using MeshDebugFlags = Flags<MeshDebugFlagBit>;
 
@@ -30,13 +31,19 @@ namespace sky {
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
+        const Matrix4& GetTransform() const;
 
         void BuildGeometry();
 
+        void BuildMultipleInstance(uint32_t w, uint32_t h, uint32_t d);
+
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
+
+        size_t GetNumSubMeshes() const { return primitives.size(); }
     protected:
         virtual void PrepareUBO();
-        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
+        virtual void OnInitSubMesh(size_t subMesh) {}
+        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature, uint32_t index);
         virtual void FillVertexFlags(RenderVertexFlags &flags) {}
 
         void SetupDebugMeshlet();
@@ -51,7 +58,10 @@ namespace sky {
         RDDynamicUniformBufferPtr ubo;
 
         bool enableMeshShading = false;
+        RenderGeometryPtr ownGeometry;
         MeshDebugFlags debugFlags;
+
+        RDBufferPtr instanceBuffer;
     };
 
 } // namespace sky

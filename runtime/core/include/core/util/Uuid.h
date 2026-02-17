@@ -80,7 +80,7 @@ namespace sky {
 
         constexpr bool operator<(const Uuid &v) const noexcept
         {
-            return word[0] < v.word[0] && word[1] < v.word[1];
+            return (word[0] < v.word[0]) && (word[1] < v.word[1]);
         }
 
         union {
@@ -92,7 +92,7 @@ namespace sky {
 
     inline bool operator==(const Uuid &lhs, const Uuid &rhs)
     {
-        return lhs.word[0] == rhs.word[0] && lhs.word[1] == rhs.word[1];
+        return (lhs.word[0] == rhs.word[0]) && (lhs.word[1] == rhs.word[1]);
     }
 } // namespace sky
 

@@ -8,13 +8,17 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Include/Types.h>
 
+#if ENABLE_SPIRV_TOOLS
 #include <spirv-tools/libspirv.hpp>
+#endif
 
 #include <core/platform/Platform.h>
 #include <core/logger/Logger.h>
 
 #include <shader/ShaderCross.h>
 #include "core/template/Overloaded.h"
+
+#include <sstream>
 
 static const char* TAG = "ShaderCompilerGlsl";
 namespace sky {
@@ -63,10 +67,10 @@ namespace sky {
     std::string ShaderCompilerGlsl::Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const
     {
         std::string text;
-
+#if ENABLE_SPIRV_TOOLS
         spvtools::SpirvTools tool(spv_target_env::SPV_ENV_VULKAN_1_3);
         tool.Disassemble(binary, &text, SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES | SPV_BINARY_TO_TEXT_OPTION_SHOW_BYTE_OFFSET | SPV_BINARY_TO_TEXT_OPTION_INDENT);
-
+#endif
         return text;
     }
 
@@ -102,7 +106,7 @@ namespace sky {
         glslang::TShader shader(language);
         shader.setStrings(&ptr, 1);
         shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
-        shader.setEnvInput(glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 100);
+        shader.setEnvInput(op.language == ShaderLanguage::GLSL ? glslang::EShSourceGlsl : glslang::EShSourceHlsl,  language, glslang::EShClientVulkan, 100);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
         shader.setEntryPoint(desc.entry.c_str());
         if (!shader.parse(GetDefaultResources(), 450, false, EShMessages(EShMsgAST | EShMsgReadHlsl))) {
@@ -129,8 +133,13 @@ namespace sky {
                 continue;
             }
 
+            std::string semantic;
+            if (refl.getType()->getQualifier().semanticName) {
+                semantic = refl.getType()->getQualifier().semanticName;
+            }
+
             attributes.emplace_back(VertexStageAttribute{
-                refl.getType()->getQualifier().semanticName,
+                semantic,
                 refl.getType()->getQualifier().layoutLocation,
                 static_cast<uint32_t>(type->getVectorSize()),
                 GetBaseType(type)
@@ -138,11 +147,11 @@ namespace sky {
         }
 
         glslang::SpvOptions spvOptions = {};
-#if _DEBUG
+#ifdef _DEBUG
 #else
-        spvOptions.stripDebugInfo = false;
-        spvOptions.disableOptimizer = false;
-        spvOptions.optimizeSize = false;
+//        spvOptions.stripDebugInfo = false;
+//        spvOptions.disableOptimizer = false;
+//        spvOptions.optimizeSize = false;
 #endif
         glslang::GlslangToSpv(*program.getIntermediate(shader.getStage()), result.data, &spvOptions);
 

@@ -1,0 +1,21 @@
+diff --git a/glslang/CMakeLists.txt b/glslang/CMakeLists.txt
+index eb1dc68e..5fa2223d 100644
+--- a/glslang/CMakeLists.txt
++++ b/glslang/CMakeLists.txt
+@@ -264,6 +264,16 @@ if(GLSLANG_ENABLE_INSTALL)
+         Include/glslang_c_shader_types.h
+         Include/ResourceLimits.h
+         Include/visibility.h
++        Include/Types.h
++        Include/arrays.h
++        Include/Common.h
++        Include/ConstantUnion.h
++        Include/InfoSink.h
++        Include/InitializeGlobals.h
++        Include/intermediate.h
++        Include/PoolAlloc.h
++        Include/SpirvIntrinsics.h
++        Include/BaseTypes.h
+         MachineIndependent/Versions.h)
+ 
+     foreach(file ${PUBLIC_HEADERS})

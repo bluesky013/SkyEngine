@@ -1,6 +1,6 @@
 add_subdirectory(render)
 
-sky_add_library(TARGET RenderBuilder SHARED
+sky_add_library(TARGET SkyRender.Builder SHARED
     SOURCES
         module/BuilderModule.cpp
     PRIVATE_INC
@@ -10,8 +10,7 @@ sky_add_library(TARGET RenderBuilder SHARED
     LINK_LIBS
         RenderBuilder.Static
     )
-sky_add_dependency(TARGET RenderBuilder DEPENDENCIES Launcher Editor AssetBuilder)
-
+sky_add_dependency(TARGET SkyRender.Builder DEPENDENCIES Launcher Editor)
 
 if (SKY_BUILD_TEST)
     file(GLOB_RECURSE TEST_FILES test/*)

@@ -34,4 +34,5 @@ struct CullData
 struct Payload
 {
     uint MeshletIndices[MESH_GROUP_SIZE];
+    float4 Offset;
 };

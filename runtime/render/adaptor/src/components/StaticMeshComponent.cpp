@@ -27,8 +27,10 @@ namespace sky {
             .Member<&StaticMeshComponent::SetMeshUuid, &StaticMeshComponent::GetMeshUuid>("Mesh")
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Mesh>::ASSET_TYPE))
             .Member<&StaticMeshComponent::SetEnableMeshShading, &StaticMeshComponent::GetEnableMeshShading>("MeshShading")
+            .Member<&StaticMeshComponent::SetMultiply, &StaticMeshComponent::GetMultiply>("Multiply")
             .Member<&StaticMeshComponent::SetEnableMeshletDebug, &StaticMeshComponent::GetEnableMeshletDebug>("DebugMeshlet")
-            .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone");
+            .Member<&StaticMeshComponent::SetEnableMeshletConeDebug, &StaticMeshComponent::GetEnableMeshletConeDebug>("DebugMeshletCone")
+            .Member<&StaticMeshComponent::SetMeshDebug, &StaticMeshComponent::GetMeshDebug>("DebugMesh");
     }
 
     void StaticMeshComponent::SaveJson(JsonOutputArchive &ar) const
@@ -38,6 +40,7 @@ namespace sky {
         ar.SaveValueObject(std::string("castShadow"), castShadow);
         ar.SaveValueObject(std::string("receiveShadow"), receiveShadow);
         ar.SaveValueObject(std::string("meshShading"), enableMeshShading);
+        ar.SaveValueObject(std::string("multiply"), multiply);
         ar.SaveValueObject(std::string("mesh"), meshAsset ? meshAsset->GetUuid() : Uuid());
         ar.EndObject();
     }
@@ -48,6 +51,7 @@ namespace sky {
         ar.LoadKeyValue("castShadow", castShadow);
         ar.LoadKeyValue("receiveShadow", receiveShadow);
         ar.LoadKeyValue("meshShading", enableMeshShading);
+        ar.LoadKeyValue("multiply", multiply);
         Uuid uuid;
         ar.LoadKeyValue("mesh", uuid);
         SetMeshUuid(uuid);
@@ -82,6 +86,34 @@ namespace sky {
 
         if (renderer != nullptr) {
             renderer->SetDebugFlags(debugFlags);
+        }
+    }
+
+    void StaticMeshComponent::SetMeshDebug(bool enable)
+    {
+        if (enable) {
+            debugFlags.SetBit(MeshDebugFlagBit::MESH);
+        } else {
+            debugFlags.ResetBit(MeshDebugFlagBit::MESH);
+        }
+
+        if (renderer != nullptr) {
+            renderer->SetDebugFlags(debugFlags);
+        }
+    }
+
+    void StaticMeshComponent::SetMultiply(bool enable)
+    {
+        multiply = enable;
+        if (renderer != nullptr) {
+            renderer->SetMesh(meshInstance, enableMeshShading);
+//             if (multiply) {
+// #if _WIN32
+//                 renderer->BuildMultipleInstance(12, 12, 12);
+// #else
+//                 renderer->BuildMultipleInstance(8, 4, 4);
+// #endif
+//             }
         }
     }
 
@@ -121,6 +153,7 @@ namespace sky {
         }
 
         renderer = mf->CreateStaticMesh();
+        // SetMultiply(multiply);
         renderer->SetMesh(meshInstance, enableMeshShading);
     }
 

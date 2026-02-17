@@ -1,4 +1,4 @@
-set(CMAKE_MODULE_PATH ${ENGINE_ROOT}/cmake/thirdparty)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
 
 function(sky_find_3rd)
     cmake_parse_arguments(TMP
@@ -15,22 +15,22 @@ function(sky_find_3rd)
     endif()
 endfunction()
 
-set(SKY_3RD_REMOTE "115.159.67.235")
-set(SKY_3RD_PACKAGE_NAME Sky3rd-${CMAKE_SYSTEM_NAME}.rar)
-set(SKY_3RD_REMOTE_URL ${SKY_3RD_REMOTE}/${SKY_3RD_PACKAGE_NAME})
-set(SKY_3RD_SAVE_PATH ${3RD_PATH}/${SKY_3RD_PACKAGE_NAME})
-
-message("[3rdPath]:" ${SKY_3RD_SAVE_PATH})
-if (NOT EXISTS ${SKY_3RD_SAVE_PATH})
-    file(DOWNLOAD
-        ${SKY_3RD_REMOTE_URL} ${SKY_3RD_SAVE_PATH}
-        SHOW_PROGRESS
-    )
-    file(ARCHIVE_EXTRACT
-        INPUT ${SKY_3RD_SAVE_PATH}
-        DESTINATION ${3RD_PATH}
-    )
-endif()
+#set(SKY_3RD_REMOTE "115.159.67.235")
+#set(SKY_3RD_PACKAGE_NAME Sky3rd-${CMAKE_SYSTEM_NAME}.rar)
+#set(SKY_3RD_REMOTE_URL ${SKY_3RD_REMOTE}/${SKY_3RD_PACKAGE_NAME})
+#set(SKY_3RD_SAVE_PATH ${3RD_PATH}/${SKY_3RD_PACKAGE_NAME})
+#
+#message("[3rdPath]:" ${SKY_3RD_SAVE_PATH})
+#if (NOT EXISTS ${SKY_3RD_SAVE_PATH})
+#    file(DOWNLOAD
+#        ${SKY_3RD_REMOTE_URL} ${SKY_3RD_SAVE_PATH}
+#        SHOW_PROGRESS
+#    )
+#    file(ARCHIVE_EXTRACT
+#        INPUT ${SKY_3RD_SAVE_PATH}
+#        DESTINATION ${3RD_PATH}
+#    )
+#endif()
 
 if(EXISTS ${3RD_PATH})
     # core
@@ -38,21 +38,20 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET sfmt          DIR sfmt)
     sky_find_3rd(TARGET boost         DIR boost)
     sky_find_3rd(TARGET taskflow      DIR taskflow)
-    sky_find_3rd(TARGET mimalloc      DIR mimalloc)
+#    sky_find_3rd(TARGET mimalloc      DIR mimalloc)
 
     # framework
     sky_find_3rd(TARGET rapidjson     DIR rapidjson)
     sky_find_3rd(TARGET sdl           DIR sdl)
-    sky_find_3rd(TARGET sqlite        DIR sqlite)
+#    sky_find_3rd(TARGET sqlite        DIR sqlite)
 
     # vulkan
-    sky_find_3rd(TARGET volk          DIR volk)
-    sky_find_3rd(TARGET vma           DIR VulkanMemoryAllocator)
+#    sky_find_3rd(TARGET volk          DIR volk)
+    sky_find_3rd(TARGET vma           DIR vma)
 
     # imgui
     sky_find_3rd(TARGET imgui         DIR imgui)
-    sky_find_3rd(TARGET implot        DIR implot)
-    sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
+#    sky_find_3rd(TARGET implot        DIR implot)
 
     # temp
     sky_find_3rd(TARGET cxxopts       DIR cxxopts)
@@ -67,11 +66,14 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
-    # compress
-    sky_find_3rd(TARGET lz4           DIR lz4)
-
     # script
-    sky_find_3rd(TARGET cpython       DIR cpython)
+    if (SKY_BUILD_CPYTHON)
+        sky_find_3rd(TARGET cpython       DIR cpython)
+    endif ()
+
+    if (SKY_BUILD_COMPRESSION)
+        sky_find_3rd(TARGET lz4           DIR lz4)
+    endif ()
 
     # text
     if (SKY_BUILD_FREETYPE)
@@ -91,24 +93,25 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET recast        DIR recast)
     endif ()
 
-    if (SKY_BUILD_TOOL)
+    if (SKY_BUILD_EDITOR)
         sky_find_3rd(TARGET assimp        DIR assimp)
         sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
         sky_find_3rd(TARGET stb           DIR stb)
         sky_find_3rd(TARGET PerlinNoise   DIR PerlinNoise)
-        sky_find_3rd(TARGET ktx           DIR ktx)
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
-        sky_find_3rd(TARGET pmp           DIR pmp)
+        sky_find_3rd(TARGET GKlib         DIR GKlib)
         sky_find_3rd(TARGET metis         DIR metis)
+        sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
+        sky_find_3rd(TARGET nodeeditor    DIR nodeeditor)
     endif ()
 
-    if (WIN32 OR ANDROID)
-        sky_find_3rd(TARGET gles          DIR gles)
-    endif()
-
-    if (SKY_BUILD_XR)
-        sky_find_3rd(TARGET OpenXR        DIR OpenXR_SDK)
-    endif ()
+#    if (WIN32 OR ANDROID)
+#        sky_find_3rd(TARGET gles          DIR gles)
+#    endif()
+#
+#    if (SKY_BUILD_XR)
+#        sky_find_3rd(TARGET OpenXR        DIR OpenXR_SDK)
+#    endif ()
 else()
     message(FATAL_ERROR "3rdParty folder: ${3RD_PATH} does not exist, call cmake defining a valid 3RD_PATH")
 endif()

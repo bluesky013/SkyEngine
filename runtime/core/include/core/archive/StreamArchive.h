@@ -19,7 +19,7 @@ namespace sky {
     class OStreamArchive;
     using OStreamArchivePtr = CounterPtr<OStreamArchive>;
 
-    class StreamArchive : public IInputArchive, public IOutputArchive, public RefObject {
+    class StreamArchive : public IInputArchive, public IOutputArchive {
     public:
         explicit StreamArchive(std::iostream &stream_) : stream(stream_) {}
         ~StreamArchive() override = default;

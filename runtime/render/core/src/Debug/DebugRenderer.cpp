@@ -91,8 +91,8 @@ namespace sky {
     {
         ResetBatch();
 
-        static const uint32_t STACK_COUNT = 16;
-        static const uint32_t SECTOR_COUNT = 32;
+        static const uint32_t STACK_COUNT = 4;
+        static const uint32_t SECTOR_COUNT = 4;
 
         float sectorStep  = 2 * PI / SECTOR_COUNT;
         float stackStep   = PI / STACK_COUNT;
@@ -121,12 +121,12 @@ namespace sky {
                 float x2 = xz2 * cosf(sectorAngle1);
                 float z2 = xz2 * sinf(sectorAngle1);
 
-                DrawLine(Vector3{x1, y1, z1}, Vector3{x2, y2, z2});
+                DrawLine(Vector3{x1, y1, z1} + sphere.center, Vector3{x2, y2, z2} + sphere.center);
 
                 if (i != 0) {
                     float x3 = xz1 * cosf(sectorAngle2);
                     float z3 = xz1 * sinf(sectorAngle2);
-                    DrawLine(Vector3{x1, y1, z1}, Vector3{x3, y1, z3});
+                    DrawLine(Vector3{x1, y1, z1} + sphere.center, Vector3{x3, y1, z3} + sphere.center);
                 }
             }
         }

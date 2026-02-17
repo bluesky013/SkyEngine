@@ -43,7 +43,7 @@ namespace sky::rhi {
             ++currentTaskId;
             {
                 std::lock_guard<std::mutex> lock(taskMutex);
-                taskQueue.emplace_back(TransferTask{currentTaskId, std::move(task), std::move(callback)});
+                taskQueue.emplace_back(TransferTask{currentTaskId, std::forward<T>(task), std::forward<C>(callback)});
             }
             {
                 std::lock_guard<std::mutex> lock(mutex);

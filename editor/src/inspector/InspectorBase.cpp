@@ -18,9 +18,6 @@ namespace sky::editor {
         layout->setSpacing(0);
 
         label = new QLabel(this);
-        label->setStyleSheet("background-color: #999999; border-radius: 8px; border-style: solid; border-color: #1B1B1B; border-width: 1px; "
-                             "border-left: none; border-right: none;"
-                             "font-size: 12pt;");
         label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         label->setFixedHeight(24);
         label->setMargin(0);

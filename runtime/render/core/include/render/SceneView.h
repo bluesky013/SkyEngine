@@ -38,6 +38,9 @@ namespace sky {
         uint32_t GetViewCount() const { return viewCount; }
         uint32_t GetViewMask() const { return viewMask; }
 
+        float GetNearPlane() const { return near; }
+        float GetFarPlane() const { return far; }
+
         const RDUniformBufferPtr &GetUBO() const { return viewUbo; }
 
     private:
@@ -48,8 +51,12 @@ namespace sky {
         uint32_t viewCount;
         uint32_t viewMask;
 
+        float near = 0.f;
+        float far = 1.f;
+
         PmrVector<Matrix4> projects;
         PmrVector<SceneViewInfo> viewInfo;
+        PmrVector<SceneViewInfo> lastViewInfo;
         PmrVector<Frustum> frustums;
         bool dirty;
         bool flipY = true;

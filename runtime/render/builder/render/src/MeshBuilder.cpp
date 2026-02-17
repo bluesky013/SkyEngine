@@ -3,19 +3,19 @@
 //
 
 #include <builder/render/MeshBuilder.h>
+#include <builder/render/mesh/MeshletBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
-#include <builder/render/mesh/ClusterMeshBuilder.h>
 
 namespace sky::builder {
 
-    void ClusterMeshDeleter::operator()(ClusterMeshBuilder* _Ptr) const noexcept
+    void ClusterMeshDeleter::operator()(MeshletBuilder * _Ptr) const noexcept
     {
         delete _Ptr;
     }
 
     MeshBuilder::MeshBuilder()
     {
-        clusterBuilder.reset(new ClusterMeshBuilder());
+        clusterBuilder.reset(new MeshletBuilder());
     }
 
     void MeshBuilder::Request(const AssetBuildRequest &request, AssetBuildResult &result)
@@ -29,9 +29,11 @@ namespace sky::builder {
         data.Load(bin);
 
         asset->ResetDependencies();
-        for (auto &sub : asset->Data().subMeshes) {
-            AssetBuilderManager::Get()->BuildRequest(sub.material, request.target);
-            asset->AddDependencies(sub.material);
+
+        const auto& matData = asset->Data();
+        for (auto& mat : matData.materials) {
+            AssetBuilderManager::Get()->BuildRequest(mat, request.target);
+            asset->AddDependencies(mat);
         }
 
         if (data.skeleton) {
@@ -40,7 +42,7 @@ namespace sky::builder {
 
         data.rawData.storage.resize(data.dataSize);
         bin.LoadValue(reinterpret_cast<char*>(data.rawData.storage.data()), data.dataSize);
-        ClusterMeshBuilder::BuildFromMeshData(data);
+        // MeshletBuilder::BuildFromMeshData(data);
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
