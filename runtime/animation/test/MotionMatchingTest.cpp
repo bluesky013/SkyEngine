@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <animation/motion/MotionDatabase.h>
-#include <animation/motion/MotionMacher.h>
+#include <animation/motion/MotionMatcher.h>
 #include <animation/graph/MotionMatchingNode.h>
 #include <animation/core/AnimationClip.h>
 #include <animation/core/Skeleton.h>

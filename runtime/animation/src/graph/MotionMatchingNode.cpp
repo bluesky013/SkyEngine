@@ -97,19 +97,20 @@ namespace sky {
 
         if (data.transitioning) {
             // Blend between current and target poses
-            currentPose = AnimFinalPose(context.pose);
-            targetPose = AnimFinalPose(context.pose);
+            AnimationEval currentEval(context);
+            AnimationEval targetEval(context);
             
-            SampleCurrentPose(currentPose);
-            SampleTargetPose(targetPose);
+            SampleCurrentPose(currentEval.pose);
+            SampleTargetPose(targetEval.pose);
             
             // Calculate blend alpha based on transition progress
             float alpha = data.transitionTime / data.blendTime;
             alpha = std::clamp(alpha, 0.f, 1.f);
             
-            // Blend poses
-            AnimPose::BlendPose(currentPose, context.pose, 1.f - alpha, PoseBlendMode::OVERRIDE);
-            AnimPose::BlendPose(targetPose, context.pose, alpha, PoseBlendMode::ADDITIVE);
+            // Blend poses - use OVERRIDE for both with weights
+            context.pose.ResetRefPose();
+            AnimPose::BlendPose(currentEval.pose, context.pose, 1.f - alpha, PoseBlendMode::OVERRIDE);
+            AnimPose::BlendPose(targetEval.pose, context.pose, alpha, PoseBlendMode::OVERRIDE);
             context.pose.NormalizeRotation();
         } else {
             // Just sample the current pose

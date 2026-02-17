@@ -5,7 +5,7 @@
 #pragma once
 
 #include <animation/graph/AnimationNode.h>
-#include <animation/motion/MotionMacher.h>
+#include <animation/motion/MotionMatcher.h>
 #include <animation/motion/MotionDatabase.h>
 #include <animation/core/AnimationPlayer.h>
 #include <animation/core/AnimationUtils.h>
@@ -85,10 +85,6 @@ namespace sky {
         
         // Blend helper for transitions
         AnimFadeInOut fadeInOut;
-        
-        // Cached poses for blending
-        AnimFinalPose currentPose;
-        AnimFinalPose targetPose;
     };
 
 } // namespace sky
