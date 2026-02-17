@@ -4,6 +4,7 @@
 
 #include <windows.h>
 #include <string_view>
+#include <string>
 
 namespace sky::impl {
 
