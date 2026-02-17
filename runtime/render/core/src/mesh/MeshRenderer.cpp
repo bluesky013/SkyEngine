@@ -145,6 +145,38 @@ namespace sky {
             scene->RemovePrimitive(meshletDebug->GetPrimitive());
             meshletDebug = nullptr;
         }
+        isVisible = true;
+        culledByLod = false;
+    }
+
+    void MeshRenderer::HidePrimitives()
+    {
+        if (!isVisible || scene == nullptr) {
+            return;
+        }
+
+        for (auto &prim : primitives) {
+            scene->RemovePrimitive(prim.get());
+        }
+        if (meshletDebug) {
+            scene->RemovePrimitive(meshletDebug->GetPrimitive());
+        }
+        isVisible = false;
+    }
+
+    void MeshRenderer::ShowPrimitives()
+    {
+        if (isVisible || scene == nullptr) {
+            return;
+        }
+
+        for (auto &prim : primitives) {
+            scene->AddPrimitive(prim.get());
+        }
+        if (meshletDebug && debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE)) {
+            scene->AddPrimitive(meshletDebug->GetPrimitive());
+        }
+        isVisible = true;
     }
 
     void MeshRenderer::SetLodGroup(const RDMeshLodGroupPtr &lodGroup_)
@@ -170,7 +202,18 @@ namespace sky {
         uint32_t newLod = lodGroup->SelectLod(combinedBound, viewPos);
 
         if (newLod == INVALID_LOD_LEVEL) {
-            newLod = lodGroup->GetLodCount() - 1;
+            // Mesh is beyond all LOD thresholds — cull it
+            if (!culledByLod) {
+                culledByLod = true;
+                HidePrimitives();
+            }
+            return;
+        }
+
+        // Mesh is within LOD range — restore if previously culled
+        if (culledByLod) {
+            culledByLod = false;
+            ShowPrimitives();
         }
 
         if (newLod != currentLod && newLod < lodGroup->GetLodCount()) {

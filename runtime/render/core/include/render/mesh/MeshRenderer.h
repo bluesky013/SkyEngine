@@ -39,6 +39,8 @@ namespace sky {
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
         uint32_t GetCurrentLod() const { return currentLod; }
+        bool IsVisible() const { return isVisible; }
+        bool IsCulledByLod() const { return culledByLod; }
     protected:
         virtual void PrepareUBO();
         virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature);
@@ -46,6 +48,8 @@ namespace sky {
 
         void SetupDebugMeshlet();
         void Reset();
+        void ShowPrimitives();
+        void HidePrimitives();
 
         RenderScene *scene = nullptr;
 
@@ -59,6 +63,8 @@ namespace sky {
         RDDynamicUniformBufferPtr ubo;
 
         bool enableMeshShading = false;
+        bool isVisible = true;
+        bool culledByLod = false;
         MeshDebugFlags debugFlags;
     };
 

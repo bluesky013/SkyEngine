@@ -415,3 +415,122 @@ TEST(LodTest, DifferentAspectRatios)
     // when [1][1] >= [0][0]
     ASSERT_FLOAT_EQ(size1to1, size16to9);
 }
+
+// ===== LOD culling tests =====
+
+TEST(LodTest, LodCullingWhenBeyondAllThresholds)
+{
+    // When no LOD level has a screenSize=0 fallback, objects beyond all
+    // thresholds should return INVALID_LOD_LEVEL (mesh should be culled)
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+
+    LodConfig config;
+    config.lodBias = 1.0f;
+    config.lodLevels = {
+        LodLevel{0.5f},   // LOD 0: close
+        LodLevel{0.25f},  // LOD 1: medium
+        LodLevel{0.1f},   // LOD 2: far (but not infinite)
+    };
+    PreComputeDistances(config, radius, projMatrix);
+
+    // Close → valid LOD
+    {
+        Vector3 viewPos(0, 0, 5);
+        uint32_t lod = SelectLodLevel(config, bound, viewPos);
+        ASSERT_NE(lod, INVALID_LOD_LEVEL);
+    }
+
+    // Very far → should return INVALID_LOD_LEVEL (culled)
+    {
+        Vector3 viewPos(0, 0, 10000);
+        uint32_t lod = SelectLodLevel(config, bound, viewPos);
+        ASSERT_EQ(lod, INVALID_LOD_LEVEL);
+    }
+}
+
+TEST(LodTest, LodCullingTransition)
+{
+    // Test the transition from visible to culled and back
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+
+    LodConfig config;
+    config.lodBias = 1.0f;
+    config.lodLevels = {
+        LodLevel{0.5f},
+        LodLevel{0.1f},
+    };
+    PreComputeDistances(config, radius, projMatrix);
+
+    // Moving away: LOD 0 → LOD 1 → CULLED
+    {
+        Vector3 viewPos(0, 0, 2);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 0u);
+    }
+    {
+        Vector3 viewPos(0, 0, 10);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 1u);
+    }
+    {
+        Vector3 viewPos(0, 0, 10000);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), INVALID_LOD_LEVEL);
+    }
+
+    // Moving back: CULLED → LOD 1 → LOD 0 (streaming back in)
+    {
+        Vector3 viewPos(0, 0, 10);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 1u);
+    }
+    {
+        Vector3 viewPos(0, 0, 2);
+        ASSERT_EQ(SelectLodLevel(config, bound, viewPos), 0u);
+    }
+}
+
+TEST(LodTest, LodCullingWithScreenSizeFallback)
+{
+    // When the last LOD has screenSize=0 (fallback), it should always
+    // match — no culling occurs
+    LodConfig config;
+    config.lodBias = 1.0f;
+    config.lodLevels = {
+        LodLevel{0.5f},
+        LodLevel{0.0f},  // fallback: always matches via screen-size
+    };
+
+    // Screen-size based: even tiny sizes match the fallback
+    ASSERT_EQ(SelectLodLevel(config, 0.001f), 1u);
+    ASSERT_EQ(SelectLodLevel(config, 0.0f), 1u);
+}
+
+TEST(LodTest, LodCullingWithBias)
+{
+    // Bias should affect the culling threshold
+    AABB bound(Vector3(-1, -1, -1), Vector3(1, 1, 1));
+    auto extent = (bound.max - bound.min) * 0.5f;
+    float radius = extent.Length();
+    auto projMatrix = MakePerspective(ToRadian(90.0f), 1.0f, 0.1f, 1000.f);
+
+    LodConfig config;
+    config.lodLevels = {
+        LodLevel{0.5f},
+        LodLevel{0.1f},
+    };
+    PreComputeDistances(config, radius, projMatrix);
+
+    // Find a distance where it's culled with bias=1.0
+    Vector3 farViewPos(0, 0, 10000);
+    config.lodBias = 1.0f;
+    ASSERT_EQ(SelectLodLevel(config, bound, farViewPos), INVALID_LOD_LEVEL);
+
+    // With higher bias, the same distance may no longer be culled
+    // (higher bias = keep higher quality longer = extend visible range)
+    config.lodBias = 100.0f;
+    uint32_t lodHighBias = SelectLodLevel(config, bound, farViewPos);
+    ASSERT_NE(lodHighBias, INVALID_LOD_LEVEL);
+}
