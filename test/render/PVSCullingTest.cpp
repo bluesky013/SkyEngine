@@ -871,3 +871,199 @@ TEST(PVSDataTest, ExportToBakedData)
     ASSERT_EQ(bakedData.gridDimensions.z, 2);
     ASSERT_EQ(bakedData.cells.size(), 8);
 }
+
+// ============================================================================
+// Optimized Query Tests
+// ============================================================================
+
+TEST(PVSBitSetTest, ForEachSetBit)
+{
+    PVSBitSet bitset(256);
+    
+    // Set some bits
+    bitset.Set(0);
+    bitset.Set(5);
+    bitset.Set(63);   // Last bit of first word
+    bitset.Set(64);   // First bit of second word
+    bitset.Set(127);
+    bitset.Set(200);
+    
+    std::vector<uint32_t> indices;
+    bitset.ForEachSetBit([&indices](uint32_t idx) {
+        indices.push_back(idx);
+    });
+    
+    ASSERT_EQ(indices.size(), 6);
+    ASSERT_EQ(indices[0], 0);
+    ASSERT_EQ(indices[1], 5);
+    ASSERT_EQ(indices[2], 63);
+    ASSERT_EQ(indices[3], 64);
+    ASSERT_EQ(indices[4], 127);
+    ASSERT_EQ(indices[5], 200);
+}
+
+TEST(PVSBitSetTest, GetSetBitIndices)
+{
+    PVSBitSet bitset(128);
+    
+    bitset.Set(10);
+    bitset.Set(50);
+    bitset.Set(100);
+    
+    std::vector<uint32_t> indices;
+    bitset.GetSetBitIndices(indices);
+    
+    ASSERT_EQ(indices.size(), 3);
+    ASSERT_EQ(indices[0], 10);
+    ASSERT_EQ(indices[1], 50);
+    ASSERT_EQ(indices[2], 100);
+}
+
+TEST(PVSBitSetTest, GetSetBitIndicesWithLimit)
+{
+    PVSBitSet bitset(256);
+    
+    for (uint32_t i = 0; i < 20; ++i) {
+        bitset.Set(i * 10);
+    }
+    
+    std::vector<uint32_t> indices;
+    uint32_t count = bitset.GetSetBitIndices(indices, 5);
+    
+    ASSERT_EQ(count, 5);
+    ASSERT_EQ(indices.size(), 5);
+}
+
+TEST(PVSDataTest, FastCellLookup)
+{
+    PVSData pvsData;
+    
+    PVSConfig config;
+    config.worldBounds = AABB{Vector3(0.f, 0.f, 0.f), Vector3(100.f, 100.f, 100.f)};
+    config.cellSize = Vector3(10.f, 10.f, 10.f);
+    config.maxObjects = 100;
+    
+    pvsData.Initialize(config);
+    
+    // Test GetCellIDFast vs GetCellID
+    Vector3 testPos(25.f, 35.f, 45.f);
+    
+    PVSCellID normalID = pvsData.GetCellID(testPos);
+    PVSCellID fastID = pvsData.GetCellIDFast(testPos);
+    
+    ASSERT_EQ(normalID, fastID);
+    
+    // Test IsInBounds
+    ASSERT_TRUE(pvsData.IsInBounds(testPos));
+    ASSERT_FALSE(pvsData.IsInBounds(Vector3(-1.f, 0.f, 0.f)));
+    ASSERT_FALSE(pvsData.IsInBounds(Vector3(100.f, 0.f, 0.f)));  // Edge case
+}
+
+TEST(PVSCullingTest, QueryVisiblePrimitivesOptimized)
+{
+    PVSCulling pvsCulling;
+    
+    PVSConfig config;
+    config.worldBounds = AABB{Vector3(0.f, 0.f, 0.f), Vector3(100.f, 100.f, 100.f)};
+    config.cellSize = Vector3(20.f, 20.f, 20.f);
+    config.maxObjects = 100;
+    
+    pvsCulling.Initialize(config);
+    
+    // Register some primitives
+    std::vector<RenderPrimitive> primitives(10);
+    for (int i = 0; i < 10; ++i) {
+        pvsCulling.RegisterPrimitive(&primitives[i]);
+    }
+    
+    // Set visibility for cell 0 - only objects 0, 3, 7 visible
+    PVSCellID cell0 = pvsCulling.GetPVSData().GetCellIDFromCoord({0, 0, 0});
+    pvsCulling.GetPVSData().SetVisible(cell0, 0);
+    pvsCulling.GetPVSData().SetVisible(cell0, 3);
+    pvsCulling.GetPVSData().SetVisible(cell0, 7);
+    
+    // Query with optimized method
+    std::vector<RenderPrimitive*> resultOptimized;
+    pvsCulling.QueryVisiblePrimitivesOptimized(Vector3(5.f, 5.f, 5.f), nullptr, resultOptimized);
+    
+    // Query with original method for comparison
+    std::vector<RenderPrimitive*> resultOriginal;
+    pvsCulling.QueryVisiblePrimitives(Vector3(5.f, 5.f, 5.f), nullptr, resultOriginal);
+    
+    // Both methods should return same results
+    ASSERT_EQ(resultOptimized.size(), resultOriginal.size());
+    ASSERT_EQ(resultOptimized.size(), 3);
+}
+
+TEST(PVSCullingTest, ForEachVisibleObject)
+{
+    PVSCulling pvsCulling;
+    
+    PVSConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(50.f)};
+    config.cellSize = Vector3(10.f);
+    config.maxObjects = 100;
+    
+    pvsCulling.Initialize(config);
+    
+    // Register primitives
+    std::vector<RenderPrimitive> primitives(5);
+    for (int i = 0; i < 5; ++i) {
+        pvsCulling.RegisterPrimitive(&primitives[i]);
+    }
+    
+    // Set visibility
+    PVSCellID cell0 = pvsCulling.GetPVSData().GetCellIDFromCoord({0, 0, 0});
+    pvsCulling.GetPVSData().SetVisible(cell0, 1);
+    pvsCulling.GetPVSData().SetVisible(cell0, 3);
+    
+    // Test ForEachVisibleObject
+    std::vector<PVSObjectID> visitedObjects;
+    uint32_t count = pvsCulling.ForEachVisibleObject(Vector3(5.f, 5.f, 5.f), 
+        [&visitedObjects](PVSObjectID objID) {
+            visitedObjects.push_back(objID);
+        });
+    
+    ASSERT_EQ(count, 2);
+    ASSERT_EQ(visitedObjects.size(), 2);
+    ASSERT_EQ(visitedObjects[0], 1);
+    ASSERT_EQ(visitedObjects[1], 3);
+}
+
+TEST(PVSCullingTest, GetVisibleCount)
+{
+    PVSCulling pvsCulling;
+    
+    PVSConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(40.f)};
+    config.cellSize = Vector3(20.f);
+    config.maxObjects = 100;
+    
+    pvsCulling.Initialize(config);
+    
+    // Register primitives
+    std::vector<RenderPrimitive> primitives(10);
+    for (int i = 0; i < 10; ++i) {
+        pvsCulling.RegisterPrimitive(&primitives[i]);
+    }
+    
+    // Set different visibility per cell
+    PVSCellID cell0 = pvsCulling.GetPVSData().GetCellIDFromCoord({0, 0, 0});
+    PVSCellID cell1 = pvsCulling.GetPVSData().GetCellIDFromCoord({1, 0, 0});
+    
+    pvsCulling.GetPVSData().SetVisible(cell0, 0);
+    pvsCulling.GetPVSData().SetVisible(cell0, 1);
+    pvsCulling.GetPVSData().SetVisible(cell0, 2);
+    
+    pvsCulling.GetPVSData().SetVisible(cell1, 5);
+    pvsCulling.GetPVSData().SetVisible(cell1, 6);
+    pvsCulling.GetPVSData().SetVisible(cell1, 7);
+    pvsCulling.GetPVSData().SetVisible(cell1, 8);
+    pvsCulling.GetPVSData().SetVisible(cell1, 9);
+    
+    // Cell 0 has 3 visible
+    ASSERT_EQ(pvsCulling.GetVisibleCount(Vector3(5.f, 5.f, 5.f)), 3);
+    
+    // Cell 1 has 5 visible
+    ASSERT_EQ(pvsCulling.GetVisibleCount(Vector3(25.f, 5.f, 5.f)), 5);
+}

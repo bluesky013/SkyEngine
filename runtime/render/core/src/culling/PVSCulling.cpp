@@ -151,6 +151,56 @@ namespace sky {
         QueryVisiblePrimitives(viewPosition, nullptr, result);
     }
 
+    void PVSCulling::QueryVisiblePrimitivesOptimized(
+        const Vector3 &viewPosition,
+        const SceneView *sceneView,
+        std::vector<RenderPrimitive*> &result) const
+    {
+        result.clear();
+
+        PVSCellID cellID = pvsData.GetCellID(viewPosition);
+        
+        // If outside PVS bounds, fall back to all objects
+        if (cellID == INVALID_PVS_CELL) {
+            for (RenderPrimitive *primitive : idToPrimitive) {
+                if (primitive == nullptr) {
+                    continue;
+                }
+                if (sceneView == nullptr || sceneView->FrustumCulling(primitive->worldBound)) {
+                    result.push_back(primitive);
+                }
+            }
+            return;
+        }
+
+        const PVSBitSet &visibility = pvsData.GetVisibilitySet(cellID);
+        
+        // Pre-reserve based on visible count
+        result.reserve(visibility.CountSet());
+
+        // Use fast bit iteration - only visit set bits
+        visibility.ForEachSetBit([&](uint32_t objID) {
+            if (objID < idToPrimitive.size()) {
+                RenderPrimitive *primitive = idToPrimitive[objID];
+                if (primitive != nullptr) {
+                    // Apply frustum culling if scene view is provided
+                    if (sceneView == nullptr || sceneView->FrustumCulling(primitive->worldBound)) {
+                        result.push_back(primitive);
+                    }
+                }
+            }
+        });
+    }
+
+    uint32_t PVSCulling::GetVisibleCount(const Vector3 &viewPosition) const
+    {
+        PVSCellID cellID = pvsData.GetCellID(viewPosition);
+        if (cellID == INVALID_PVS_CELL) {
+            return static_cast<uint32_t>(idToPrimitive.size());
+        }
+        return pvsData.GetVisibilitySet(cellID).CountSet();
+    }
+
     bool PVSCulling::IsPrimitiveVisible(const Vector3 &viewPosition, RenderPrimitive *primitive) const
     {
         PVSObjectID objectID = GetObjectID(primitive);

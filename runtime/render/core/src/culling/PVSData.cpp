@@ -25,6 +25,14 @@ namespace sky {
         gridDimensions.y = std::max(1, gridDimensions.y);
         gridDimensions.z = std::max(1, gridDimensions.z);
 
+        // Pre-compute inverse cell sizes for fast lookup (multiplication instead of division)
+        invCellSize.x = 1.0f / config.cellSize.x;
+        invCellSize.y = 1.0f / config.cellSize.y;
+        invCellSize.z = 1.0f / config.cellSize.z;
+        
+        // Pre-compute XY area for fast cell ID calculation
+        xyArea = gridDimensions.x * gridDimensions.y;
+
         // Calculate total number of cells
         uint32_t totalCells = static_cast<uint32_t>(gridDimensions.x * gridDimensions.y * gridDimensions.z);
 
@@ -68,21 +76,28 @@ namespace sky {
         cells.clear();
         visibilityData.clear();
         gridDimensions = {0, 0, 0};
+        invCellSize = Vector3(0.f, 0.f, 0.f);
+        xyArea = 0;
     }
 
     PVSCellID PVSData::GetCellID(const Vector3 &position) const
     {
-        return GetCellIDFromCoord(GetCellCoord(position));
+        // Fast path: check bounds and compute directly
+        if (!IsInBounds(position)) {
+            return INVALID_PVS_CELL;
+        }
+        return GetCellIDFast(position);
     }
 
     PVSCellCoord PVSData::GetCellCoord(const Vector3 &position) const
     {
         Vector3 offset = position - config.worldBounds.min;
         
+        // Use multiplication with inverse instead of division
         PVSCellCoord coord;
-        coord.x = static_cast<int32_t>(std::floor(offset.x / config.cellSize.x));
-        coord.y = static_cast<int32_t>(std::floor(offset.y / config.cellSize.y));
-        coord.z = static_cast<int32_t>(std::floor(offset.z / config.cellSize.z));
+        coord.x = static_cast<int32_t>(offset.x * invCellSize.x);
+        coord.y = static_cast<int32_t>(offset.y * invCellSize.y);
+        coord.z = static_cast<int32_t>(offset.z * invCellSize.z);
 
         return coord;
     }
@@ -96,8 +111,9 @@ namespace sky {
             return INVALID_PVS_CELL;
         }
 
+        // Use pre-computed xyArea
         return static_cast<PVSCellID>(
-            coord.z * (gridDimensions.x * gridDimensions.y) +
+            coord.z * xyArea +
             coord.y * gridDimensions.x +
             coord.x
         );
@@ -109,8 +125,7 @@ namespace sky {
             return {-1, -1, -1};
         }
 
-        int32_t xyArea = gridDimensions.x * gridDimensions.y;
-        
+        // Use pre-computed xyArea
         PVSCellCoord coord;
         coord.z = static_cast<int32_t>(cellID) / xyArea;
         int32_t remainder = static_cast<int32_t>(cellID) % xyArea;
@@ -191,6 +206,14 @@ namespace sky {
         // Copy configuration
         config = bakedData.config;
         gridDimensions = bakedData.gridDimensions;
+
+        // Pre-compute inverse cell sizes for fast lookup
+        invCellSize.x = 1.0f / config.cellSize.x;
+        invCellSize.y = 1.0f / config.cellSize.y;
+        invCellSize.z = 1.0f / config.cellSize.z;
+        
+        // Pre-compute XY area for fast cell ID calculation
+        xyArea = gridDimensions.x * gridDimensions.y;
 
         // Copy cells
         cells = bakedData.cells;

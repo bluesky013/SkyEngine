@@ -110,4 +110,38 @@ namespace sky {
         data = rawData;
     }
 
+    void PVSBitSet::GetSetBitIndices(std::vector<uint32_t> &result) const
+    {
+        result.clear();
+        result.reserve(CountSet());
+        
+        ForEachSetBit([&result](uint32_t index) {
+            result.push_back(index);
+        });
+    }
+
+    uint32_t PVSBitSet::GetSetBitIndices(std::vector<uint32_t> &result, uint32_t maxCount) const
+    {
+        result.clear();
+        result.reserve(std::min(maxCount, CountSet()));
+        
+        uint32_t count = 0;
+        for (size_t wordIdx = 0; wordIdx < data.size() && count < maxCount; ++wordIdx) {
+            uint64_t word = data[wordIdx];
+            while (word != 0 && count < maxCount) {
+                uint32_t bitPos = CountTrailingZeros(word);
+                uint32_t globalBitIndex = static_cast<uint32_t>(wordIdx * BITS_PER_WORD + bitPos);
+                
+                if (globalBitIndex < capacity) {
+                    result.push_back(globalBitIndex);
+                    ++count;
+                }
+                
+                word &= (word - 1);
+            }
+        }
+        
+        return count;
+    }
+
 } // namespace sky

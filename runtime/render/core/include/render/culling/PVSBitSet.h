@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 namespace sky {
 
@@ -92,10 +93,66 @@ namespace sky {
          */
         void SetData(const std::vector<uint64_t>& rawData, uint32_t numBits);
 
+        /**
+         * @brief Iterate over all set bits efficiently using CTZ (Count Trailing Zeros)
+         * 
+         * This is much faster than checking each bit individually when the bitset
+         * is sparse (few bits set). Uses hardware bit-scan instructions.
+         * 
+         * @param callback Function called for each set bit index
+         */
+        template <typename Func>
+        void ForEachSetBit(Func &&callback) const
+        {
+            for (size_t wordIdx = 0; wordIdx < data.size(); ++wordIdx) {
+                uint64_t word = data[wordIdx];
+                while (word != 0) {
+                    // Find position of lowest set bit using CTZ
+                    uint32_t bitPos = CountTrailingZeros(word);
+                    uint32_t globalBitIndex = static_cast<uint32_t>(wordIdx * BITS_PER_WORD + bitPos);
+                    
+                    if (globalBitIndex < capacity) {
+                        callback(globalBitIndex);
+                    }
+                    
+                    // Clear the lowest set bit
+                    word &= (word - 1);
+                }
+            }
+        }
+
+        /**
+         * @brief Collect all set bit indices into a vector
+         * @param result Vector to store set bit indices
+         */
+        void GetSetBitIndices(std::vector<uint32_t> &result) const;
+
+        /**
+         * @brief Get the first N set bit indices
+         * @param result Vector to store set bit indices  
+         * @param maxCount Maximum number of indices to collect
+         * @return Number of indices actually collected
+         */
+        uint32_t GetSetBitIndices(std::vector<uint32_t> &result, uint32_t maxCount) const;
+
     private:
         static uint32_t WordIndex(uint32_t bitIndex) { return bitIndex / BITS_PER_WORD; }
         static uint32_t BitOffset(uint32_t bitIndex) { return bitIndex % BITS_PER_WORD; }
         static uint64_t BitMask(uint32_t bitIndex) { return 1ULL << BitOffset(bitIndex); }
+        
+        /**
+         * @brief Count trailing zeros (position of lowest set bit)
+         */
+        static uint32_t CountTrailingZeros(uint64_t value)
+        {
+#ifdef _MSC_VER
+            unsigned long index;
+            _BitScanForward64(&index, value);
+            return static_cast<uint32_t>(index);
+#else
+            return static_cast<uint32_t>(__builtin_ctzll(value));
+#endif
+        }
 
         std::vector<uint64_t> data;
         uint32_t capacity = 0;

@@ -92,6 +92,101 @@ namespace sky {
             std::vector<RenderPrimitive*> &result) const;
 
         /**
+         * @brief Optimized query using fast bit iteration
+         * 
+         * This method iterates only over visible objects instead of all objects,
+         * which is much faster when visibility is sparse (few objects visible per cell).
+         * Uses hardware CTZ (count trailing zeros) for efficient bit scanning.
+         * 
+         * @param viewPosition Camera/view position
+         * @param sceneView Optional scene view for frustum culling
+         * @param result Vector to store visible primitives
+         */
+        void QueryVisiblePrimitivesOptimized(
+            const Vector3 &viewPosition,
+            const SceneView *sceneView,
+            std::vector<RenderPrimitive*> &result) const;
+
+        /**
+         * @brief Iterate over visible object IDs without creating a result vector
+         * 
+         * Zero-allocation iteration for maximum performance. The callback receives
+         * each visible object ID and can return false to stop iteration early.
+         * 
+         * @param viewPosition Camera/view position
+         * @param callback Function called for each visible object ID, return false to stop
+         * @return Number of visible objects visited
+         */
+        template <typename Func>
+        uint32_t ForEachVisibleObject(const Vector3 &viewPosition, Func &&callback) const
+        {
+            PVSCellID cellID = pvsData.GetCellID(viewPosition);
+            if (cellID == INVALID_PVS_CELL) {
+                return 0;
+            }
+
+            uint32_t count = 0;
+            const PVSBitSet &visibility = pvsData.GetVisibilitySet(cellID);
+            
+            visibility.ForEachSetBit([&](uint32_t objID) {
+                if (objID < idToPrimitive.size() && idToPrimitive[objID] != nullptr) {
+                    callback(objID);
+                    ++count;
+                }
+            });
+            
+            return count;
+        }
+
+        /**
+         * @brief Iterate over visible primitives without creating a result vector
+         * 
+         * @param viewPosition Camera/view position
+         * @param sceneView Optional scene view for frustum culling
+         * @param callback Function called for each visible primitive
+         * @return Number of visible primitives visited
+         */
+        template <typename Func>
+        uint32_t ForEachVisiblePrimitive(
+            const Vector3 &viewPosition,
+            const SceneView *sceneView,
+            Func &&callback) const
+        {
+            PVSCellID cellID = pvsData.GetCellID(viewPosition);
+            if (cellID == INVALID_PVS_CELL) {
+                // Fall back to all objects when outside PVS bounds
+                uint32_t count = 0;
+                for (RenderPrimitive *primitive : idToPrimitive) {
+                    if (primitive == nullptr) {
+                        continue;
+                    }
+                    if (sceneView == nullptr || sceneView->FrustumCulling(primitive->worldBound)) {
+                        callback(primitive);
+                        ++count;
+                    }
+                }
+                return count;
+            }
+
+            uint32_t count = 0;
+            const PVSBitSet &visibility = pvsData.GetVisibilitySet(cellID);
+            
+            visibility.ForEachSetBit([&](uint32_t objID) {
+                if (objID < idToPrimitive.size()) {
+                    RenderPrimitive *primitive = idToPrimitive[objID];
+                    if (primitive != nullptr) {
+                        if (sceneView == nullptr || sceneView->FrustumCulling(primitive->worldBound)) {
+                            callback(primitive);
+                            ++count;
+                        }
+                    }
+                }
+            });
+            
+            return count;
+        }
+
+        /**
          * @brief Check if a specific primitive is visible from a position
          * @param viewPosition View position
          * @param primitive Primitive to check
@@ -131,6 +226,13 @@ namespace sky {
          * @brief Check if the system is initialized
          */
         bool IsInitialized() const { return initialized; }
+
+        /**
+         * @brief Get count of visible objects from a position (fast, no allocation)
+         * @param viewPosition View position
+         * @return Number of potentially visible objects
+         */
+        uint32_t GetVisibleCount(const Vector3 &viewPosition) const;
 
     private:
         bool initialized = false;

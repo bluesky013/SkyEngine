@@ -41,11 +41,36 @@ namespace sky {
         void Clear();
 
         /**
-         * @brief Get the cell ID for a world position
+         * @brief Get the cell ID for a world position (optimized)
+         * 
+         * Uses pre-computed inverse cell sizes to avoid division.
+         * 
          * @param position World position
          * @return Cell ID or INVALID_PVS_CELL if outside bounds
          */
         PVSCellID GetCellID(const Vector3 &position) const;
+
+        /**
+         * @brief Get the cell ID for a world position (fast inline version)
+         * 
+         * Assumes position is within bounds. Use when bounds check is done externally.
+         * 
+         * @param position World position (must be within world bounds)
+         * @return Cell ID
+         */
+        inline PVSCellID GetCellIDFast(const Vector3 &position) const
+        {
+            int32_t x = static_cast<int32_t>((position.x - config.worldBounds.min.x) * invCellSize.x);
+            int32_t y = static_cast<int32_t>((position.y - config.worldBounds.min.y) * invCellSize.y);
+            int32_t z = static_cast<int32_t>((position.z - config.worldBounds.min.z) * invCellSize.z);
+            
+            // Clamp to valid range
+            x = x < 0 ? 0 : (x >= gridDimensions.x ? gridDimensions.x - 1 : x);
+            y = y < 0 ? 0 : (y >= gridDimensions.y ? gridDimensions.y - 1 : y);
+            z = z < 0 ? 0 : (z >= gridDimensions.z ? gridDimensions.z - 1 : z);
+            
+            return static_cast<PVSCellID>(z * xyArea + y * gridDimensions.x + x);
+        }
 
         /**
          * @brief Get the cell coordinates for a world position
@@ -60,6 +85,16 @@ namespace sky {
          * @return Cell ID or INVALID_PVS_CELL if outside bounds
          */
         PVSCellID GetCellIDFromCoord(const PVSCellCoord &coord) const;
+
+        /**
+         * @brief Get cell ID from coordinates (fast inline version)
+         * @param coord Cell coordinates (must be valid)
+         * @return Cell ID
+         */
+        inline PVSCellID GetCellIDFromCoordFast(const PVSCellCoord &coord) const
+        {
+            return static_cast<PVSCellID>(coord.z * xyArea + coord.y * gridDimensions.x + coord.x);
+        }
 
         /**
          * @brief Get cell coordinates from cell ID
@@ -144,6 +179,16 @@ namespace sky {
         bool IsValidCell(PVSCellID cellID) const { return cellID < GetCellCount(); }
 
         /**
+         * @brief Check if a position is within the world bounds
+         */
+        inline bool IsInBounds(const Vector3 &position) const
+        {
+            return position.x >= config.worldBounds.min.x && position.x < config.worldBounds.max.x &&
+                   position.y >= config.worldBounds.min.y && position.y < config.worldBounds.max.y &&
+                   position.z >= config.worldBounds.min.z && position.z < config.worldBounds.max.z;
+        }
+
+        /**
          * @brief Load PVS data from baked data
          * @param bakedData Pre-computed visibility data
          */
@@ -158,6 +203,10 @@ namespace sky {
     private:
         PVSConfig config;
         PVSCellCoord gridDimensions;
+        
+        // Pre-computed values for fast cell lookup
+        Vector3 invCellSize;  // 1.0 / cellSize for multiplication instead of division
+        int32_t xyArea = 0;   // gridDimensions.x * gridDimensions.y
 
         std::vector<PVSCell> cells;
         std::vector<PVSBitSet> visibilityData;  // One bitset per cell
