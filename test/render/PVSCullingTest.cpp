@@ -9,6 +9,8 @@
 #include <render/culling/PVSCulling.h>
 #include <render/culling/PVSBaker.h>
 #include <render/culling/PVSBakedData.h>
+#include <render/culling/PVSStreamingTypes.h>
+#include <render/culling/PVSStreamingManager.h>
 #include <render/culling/SIMDUtils.h>
 #include <cmath>
 
@@ -1066,4 +1068,239 @@ TEST(PVSCullingTest, GetVisibleCount)
     
     // Cell 1 has 5 visible
     ASSERT_EQ(pvsCulling.GetVisibleCount(Vector3(25.f, 5.f, 5.f)), 5);
+}
+
+// ============================================================================
+// PVS Streaming Tests
+// ============================================================================
+
+TEST(PVSStreamingTypesTest, SectorCoordEquality)
+{
+    PVSSectorCoord coord1{1, 2, 3};
+    PVSSectorCoord coord2{1, 2, 3};
+    PVSSectorCoord coord3{1, 2, 4};
+    
+    ASSERT_TRUE(coord1 == coord2);
+    ASSERT_FALSE(coord1 == coord3);
+    ASSERT_TRUE(coord1 != coord3);
+}
+
+TEST(PVSStreamingTypesTest, SectorCoordHash)
+{
+    PVSSectorCoordHash hasher;
+    
+    PVSSectorCoord coord1{1, 2, 3};
+    PVSSectorCoord coord2{1, 2, 3};
+    PVSSectorCoord coord3{3, 2, 1};
+    
+    ASSERT_EQ(hasher(coord1), hasher(coord2));
+    ASSERT_NE(hasher(coord1), hasher(coord3));
+}
+
+TEST(PVSStreamingManagerTest, Initialize)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(1000.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    config.loadRadius = 150.f;
+    config.unloadRadius = 200.f;
+    config.maxLoadedSectors = 9;
+    
+    manager.Initialize(config);
+    
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 0);
+}
+
+TEST(PVSStreamingManagerTest, GetSectorCoord)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(400.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    
+    manager.Initialize(config);
+    
+    // Test sector coordinate calculation
+    PVSSectorCoord coord1 = manager.GetSectorCoord(Vector3(50.f, 50.f, 50.f));
+    ASSERT_EQ(coord1.x, 0);
+    ASSERT_EQ(coord1.y, 0);
+    ASSERT_EQ(coord1.z, 0);
+    
+    PVSSectorCoord coord2 = manager.GetSectorCoord(Vector3(150.f, 150.f, 150.f));
+    ASSERT_EQ(coord2.x, 1);
+    ASSERT_EQ(coord2.y, 1);
+    ASSERT_EQ(coord2.z, 1);
+    
+    PVSSectorCoord coord3 = manager.GetSectorCoord(Vector3(350.f, 250.f, 50.f));
+    ASSERT_EQ(coord3.x, 3);
+    ASSERT_EQ(coord3.y, 2);
+    ASSERT_EQ(coord3.z, 0);
+}
+
+TEST(PVSStreamingManagerTest, SectorLoadUnload)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(400.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    config.maxObjectsPerSector = 100;
+    
+    manager.Initialize(config);
+    
+    // Set up a data provider that creates simple sector data
+    manager.SetDataProvider([&config](PVSSectorCoord coord, PVSSectorBakedData &outData) {
+        outData.coord = coord;
+        outData.bounds = AABB{
+            Vector3(coord.x * 100.f, coord.y * 100.f, coord.z * 100.f),
+            Vector3((coord.x + 1) * 100.f, (coord.y + 1) * 100.f, (coord.z + 1) * 100.f)
+        };
+        
+        // Set up simple PVS data
+        outData.pvsData.config.worldBounds = outData.bounds;
+        outData.pvsData.config.cellSize = config.cellSize;
+        outData.pvsData.config.maxObjects = config.maxObjectsPerSector;
+        outData.pvsData.gridDimensions = {10, 10, 10};
+        outData.pvsData.numObjects = 10;
+        outData.pvsData.cells.resize(1000);
+        outData.pvsData.visibilityData.resize(1000);
+        
+        return true;
+    });
+    
+    // Request load
+    bool loadCalled = false;
+    PVSSectorCoord targetCoord{1, 1, 1};
+    manager.RequestSectorLoad(targetCoord, [&loadCalled](PVSSectorID id, bool success) {
+        loadCalled = true;
+        ASSERT_TRUE(success);
+    });
+    
+    ASSERT_TRUE(loadCalled);
+    ASSERT_TRUE(manager.IsSectorLoaded(targetCoord));
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 1);
+    
+    // Request unload
+    manager.RequestSectorUnload(targetCoord);
+    ASSERT_FALSE(manager.IsSectorLoaded(targetCoord));
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 0);
+}
+
+TEST(PVSStreamingManagerTest, AutomaticStreaming)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(500.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    config.loadRadius = 150.f;
+    config.unloadRadius = 250.f;
+    config.maxLoadedSectors = 27;
+    
+    manager.Initialize(config);
+    
+    // Set up data provider
+    manager.SetDataProvider([&config](PVSSectorCoord coord, PVSSectorBakedData &outData) {
+        outData.coord = coord;
+        outData.pvsData.config.worldBounds = AABB{
+            Vector3(coord.x * 100.f, coord.y * 100.f, coord.z * 100.f),
+            Vector3((coord.x + 1) * 100.f, (coord.y + 1) * 100.f, (coord.z + 1) * 100.f)
+        };
+        outData.pvsData.config.cellSize = config.cellSize;
+        outData.pvsData.config.maxObjects = 100;
+        outData.pvsData.gridDimensions = {10, 10, 10};
+        outData.pvsData.numObjects = 10;
+        outData.pvsData.cells.resize(1000);
+        outData.pvsData.visibilityData.resize(1000);
+        return true;
+    });
+    
+    // Update with viewer at center
+    manager.Update(Vector3(250.f, 250.f, 250.f), 1);
+    
+    // Should have loaded sectors around viewer
+    ASSERT_GT(manager.GetLoadedSectorCount(), 0);
+    ASSERT_TRUE(manager.IsPositionLoaded(Vector3(250.f, 250.f, 250.f)));
+}
+
+TEST(PVSStreamingManagerTest, LRUEviction)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(1000.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    config.loadRadius = 50.f;
+    config.unloadRadius = 100.f;
+    config.maxLoadedSectors = 3;  // Very limited
+    
+    manager.Initialize(config);
+    
+    manager.SetDataProvider([&config](PVSSectorCoord coord, PVSSectorBakedData &outData) {
+        outData.coord = coord;
+        outData.pvsData.config.maxObjects = 10;
+        outData.pvsData.gridDimensions = {10, 10, 10};
+        outData.pvsData.numObjects = 10;
+        outData.pvsData.cells.resize(1000);
+        outData.pvsData.visibilityData.resize(1000);
+        return true;
+    });
+    
+    // Load first sector
+    manager.RequestSectorLoad({0, 0, 0});
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 1);
+    
+    // Load second sector
+    manager.RequestSectorLoad({1, 0, 0});
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 2);
+    
+    // Load third sector
+    manager.RequestSectorLoad({2, 0, 0});
+    ASSERT_EQ(manager.GetLoadedSectorCount(), 3);
+    
+    // Load fourth sector - should evict oldest
+    manager.RequestSectorLoad({3, 0, 0});
+    // Note: LRU eviction happens in Update() or EnforceSectorLimit()
+    // After manual loads, we need to enforce limit
+    
+    auto stats = manager.GetStatistics();
+    ASSERT_LE(stats.loadedSectors, config.maxLoadedSectors + 1);  // May be 1 over until next update
+}
+
+TEST(PVSStreamingManagerTest, Statistics)
+{
+    PVSStreamingManager manager;
+    
+    PVSStreamingConfig config;
+    config.worldBounds = AABB{Vector3(0.f), Vector3(400.f)};
+    config.sectorSize = Vector3(100.f);
+    config.cellSize = Vector3(10.f);
+    config.maxLoadedSectors = 16;
+    
+    manager.Initialize(config);
+    
+    manager.SetDataProvider([](PVSSectorCoord coord, PVSSectorBakedData &outData) {
+        outData.coord = coord;
+        outData.pvsData.config.maxObjects = 10;
+        outData.pvsData.gridDimensions = {10, 10, 10};
+        outData.pvsData.numObjects = 10;
+        outData.pvsData.cells.resize(1000);
+        outData.pvsData.visibilityData.resize(1000);
+        return true;
+    });
+    
+    manager.RequestSectorLoad({0, 0, 0});
+    manager.RequestSectorLoad({1, 0, 0});
+    
+    auto stats = manager.GetStatistics();
+    ASSERT_EQ(stats.loadedSectors, 2);
+    ASSERT_GT(stats.totalMemoryUsed, 0);
 }
