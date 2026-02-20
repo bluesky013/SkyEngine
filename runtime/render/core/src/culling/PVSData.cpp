@@ -94,10 +94,20 @@ namespace sky {
         Vector3 offset = position - config.worldBounds.min;
         
         // Use multiplication with inverse instead of division
+        // Use floor-like behavior for negative values: subtract 1 if negative with fractional part
         PVSCellCoord coord;
-        coord.x = static_cast<int32_t>(offset.x * invCellSize.x);
-        coord.y = static_cast<int32_t>(offset.y * invCellSize.y);
-        coord.z = static_cast<int32_t>(offset.z * invCellSize.z);
+        float fx = offset.x * invCellSize.x;
+        float fy = offset.y * invCellSize.y;
+        float fz = offset.z * invCellSize.z;
+        
+        coord.x = static_cast<int32_t>(fx);
+        coord.y = static_cast<int32_t>(fy);
+        coord.z = static_cast<int32_t>(fz);
+        
+        // Correct for truncation toward zero vs floor (for negative values)
+        if (fx < 0.0f && fx != static_cast<float>(coord.x)) coord.x -= 1;
+        if (fy < 0.0f && fy != static_cast<float>(coord.y)) coord.y -= 1;
+        if (fz < 0.0f && fz != static_cast<float>(coord.z)) coord.z -= 1;
 
         return coord;
     }

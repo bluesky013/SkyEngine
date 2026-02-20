@@ -53,12 +53,14 @@ namespace sky {
         /**
          * @brief Get the cell ID for a world position (fast inline version)
          * 
-         * Assumes position is within bounds. Use when bounds check is done externally.
+         * This version includes clamping to ensure valid cell indices even for
+         * positions at the boundaries. Use IsInBounds() first if you need to
+         * distinguish between valid and invalid positions.
          * 
-         * @param position World position (must be within world bounds)
-         * @return Cell ID
+         * @param position World position (ideally within bounds, clamped if not)
+         * @return Cell ID (always valid due to clamping)
          */
-        inline PVSCellID GetCellIDFast(const Vector3 &position) const
+        inline PVSCellID GetCellIDClamped(const Vector3 &position) const
         {
             int32_t x = static_cast<int32_t>((position.x - config.worldBounds.min.x) * invCellSize.x);
             int32_t y = static_cast<int32_t>((position.y - config.worldBounds.min.y) * invCellSize.y);
@@ -68,6 +70,25 @@ namespace sky {
             x = x < 0 ? 0 : (x >= gridDimensions.x ? gridDimensions.x - 1 : x);
             y = y < 0 ? 0 : (y >= gridDimensions.y ? gridDimensions.y - 1 : y);
             z = z < 0 ? 0 : (z >= gridDimensions.z ? gridDimensions.z - 1 : z);
+            
+            return static_cast<PVSCellID>(z * xyArea + y * gridDimensions.x + x);
+        }
+
+        /**
+         * @brief Get the cell ID for a position known to be within bounds (fastest)
+         * 
+         * No bounds checking or clamping. Caller must ensure position is within
+         * world bounds, otherwise behavior is undefined.
+         * 
+         * @param position World position (MUST be within world bounds)
+         * @return Cell ID
+         */
+        inline PVSCellID GetCellIDFast(const Vector3 &position) const
+        {
+            // Direct calculation - position must be within bounds
+            int32_t x = static_cast<int32_t>((position.x - config.worldBounds.min.x) * invCellSize.x);
+            int32_t y = static_cast<int32_t>((position.y - config.worldBounds.min.y) * invCellSize.y);
+            int32_t z = static_cast<int32_t>((position.z - config.worldBounds.min.z) * invCellSize.z);
             
             return static_cast<PVSCellID>(z * xyArea + y * gridDimensions.x + x);
         }

@@ -142,14 +142,19 @@ namespace sky {
         
         /**
          * @brief Count trailing zeros (position of lowest set bit)
+         * 
+         * PRECONDITION: value must be non-zero. Behavior is undefined for zero.
+         * All callers must check value != 0 before calling this function.
          */
         static uint32_t CountTrailingZeros(uint64_t value)
         {
 #ifdef _MSC_VER
             unsigned long index;
+            // PRECONDITION: value != 0 (caller must ensure this)
             _BitScanForward64(&index, value);
             return static_cast<uint32_t>(index);
 #else
+            // PRECONDITION: value != 0 (caller must ensure this)
             return static_cast<uint32_t>(__builtin_ctzll(value));
 #endif
         }
