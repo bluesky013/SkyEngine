@@ -19,11 +19,24 @@ namespace sky {
     } // namespace rdg
     class RenderScene;
 
-    struct ImguiPrimitive : public RenderPrimitive {
-        RDTexture2DPtr fontTexture;
-        RDDynamicUniformBufferPtr ubo;
+    struct ImguiPrimitive : RenderPrimitive {
+        explicit ImguiPrimitive(const RDGfxTechPtr& inTech)
+            : techInst(inTech)
+        {
+            shouldUseFrustumCulling = false;
+        }
 
-        void UpdateBatch() override;
+        bool PrepareBatch(const RenderBatchPrepareInfo& info) noexcept override;
+        void GatherRenderItem(IRenderItemGatherContext* context) noexcept override;
+
+        RDTexture2DPtr            fontTexture;
+        RDDynamicUniformBufferPtr ubo;
+        RDResourceGroupPtr        batchGroup;
+
+        rhi::GraphicsPipelinePtr  pso;
+
+        RenderTechniqueInstance   techInst;
+        std::vector<DrawArgs>     args;
     };
 
     class ImGuiInstance : public IWindowEvent, public IMouseEvent, public IKeyboardEvent {

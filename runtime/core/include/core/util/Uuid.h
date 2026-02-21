@@ -30,6 +30,8 @@ namespace sky {
      */
     class Uuid {
     public:
+        using BinarySerializable = void;
+
         constexpr Uuid() : data{0}
         {
         }
@@ -100,7 +102,7 @@ namespace std {
 
     template <>
     struct hash<sky::Uuid> {
-        size_t operator()(const sky::Uuid &uuid) const noexcept
+        constexpr size_t operator()(const sky::Uuid &uuid) const noexcept
         {
             return uuid.word[0];
         }

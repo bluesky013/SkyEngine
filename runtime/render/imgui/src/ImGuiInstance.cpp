@@ -41,20 +41,39 @@ namespace sky {
 //        ImPlot::SetCurrentContext(plotContext);
     }
 
-    void ImguiPrimitive::UpdateBatch()
+    bool ImguiPrimitive::PrepareBatch(const RenderBatchPrepareInfo& info) noexcept
     {
-        auto &batch = batches[0];
-        if (!batch.batchGroup && batch.program) {
-            ubo = new DynamicUniformBuffer();
-            ubo->Init(sizeof(UITransform));
-
-            auto layout = batch.program->RequestLayout(BATCH_SET);
-            batch.batchGroup = new ResourceGroup();
-            batch.batchGroup->Init(layout, *ImGuiFeature::Get()->GetPool());
-            batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
-            batch.batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
-            batch.batchGroup->Update();
+        if (info.techId != techInst.technique->GetRasterID()) {
+            return false;
         }
+
+        if (techInst.UpdateProgram(info.pipelineKey)) {
+            pso = GraphicsTechnique::BuildPso(techInst.program,
+                techInst.technique->GetPipelineState(),
+                geometry->Request(techInst.program),
+                info.pass,
+                info.subPassId);
+        }
+
+        if (!batchGroup && techInst.program) {
+            auto layout = techInst.program->RequestLayout(BATCH_SET);
+            batchGroup = new ResourceGroup();
+            batchGroup->Init(layout, *ImGuiFeature::Get()->GetPool());
+            batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
+            batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
+            batchGroup->Update();
+        }
+        return true;
+    }
+
+    void ImguiPrimitive::GatherRenderItem(IRenderItemGatherContext* context) noexcept
+    {
+        context->Append(RenderItem {
+            .geometry = geometry,
+            .batchGroup = batchGroup,
+            .pso = pso,
+            .args = args
+        });
     }
 
     ImGuiInstance::ImGuiInstance()
@@ -113,12 +132,11 @@ namespace sky {
         memcpy(rawData.data(), pixels, uploadSize);
 
         auto *feature = ImGuiFeature::Get();
-        primitive = std::make_unique<ImguiPrimitive>();
+        primitive = std::make_unique<ImguiPrimitive>(feature->GetTechnique());
         primitive->geometry = new RenderGeometry();
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(ImDrawVert, pos), rhi::Format::F_RG32});
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(ImDrawVert, uv),  rhi::Format::F_RG32});
         primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::COLOR,    0, OFFSET_OF(ImDrawVert, col), rhi::Format::F_RGBA8});
-        primitive->batches.emplace_back(feature->GetTechnique());
 
         primitive->ubo = new DynamicUniformBuffer();
         primitive->ubo->Init(sizeof(UITransform));
@@ -213,7 +231,6 @@ namespace sky {
         auto *idxDst = reinterpret_cast<ImDrawIdx *>(indexBuffer->GetMapped());
 
         primitive->args.clear();
-        
         primitive->args.emplace_back(rhi::Viewport{
             0.f, 0.f,
             drawData->DisplaySize.x * drawData->FramebufferScale.x, drawData->DisplaySize.y * drawData->FramebufferScale.y,
@@ -383,7 +400,6 @@ namespace sky {
             primitive->geometry->indexBuffer =
                 IndexBuffer{indexBuffer, 0, indexBuffer->GetSize(), sizeof(ImDrawIdx) == 2 ? rhi::IndexType::U16 : rhi::IndexType::U32}; // NOLINT
             primitive->geometry->dynamicVB = true;
-            primitive->geometry->version++;
         }
     }
 } // namespace sky

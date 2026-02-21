@@ -14,8 +14,8 @@ namespace sky {
         Vector3 min;
         Vector3 max;
 
-        inline constexpr AABB() : min(VEC3_ZERO), max(VEC3_ZERO) {}
-        inline constexpr AABB(Vector3 min_, Vector3 max_) : min(min_), max(max_) {}
+        constexpr AABB() : min(VEC3_ZERO), max(VEC3_ZERO) {}
+        constexpr AABB(Vector3 min_, Vector3 max_) : min(min_), max(max_) {}
 
         static AABB Transform(const AABB& box, const Matrix4 &matrix);
     };

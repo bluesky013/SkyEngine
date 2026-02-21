@@ -109,23 +109,21 @@ namespace sky {
 
     void ForwardMSAAPass::SetupSubPass(rdg::RasterSubPassBuilder& subPass, RenderScene &scene)
     {
-        auto *sceneView = scene.GetSceneView(Name("MainCamera"));
-
-        subPass.SetViewMask(0);
+        const Name viewName("MainCamera");
 
         subPass.AddQueue(Name("queue1"))
                 .SetRasterID(Name("ForwardColor"))
-                .SetView(sceneView)
+                .SetSceneView(viewName)
                 .SetLayout(layout);
 
         subPass.AddQueue(Name("queue2"))
                 .SetRasterID(Name("Transparent"))
-                .SetView(sceneView)
+                .SetSceneView(viewName)
                 .SetLayout(layout);
 
         subPass.AddQueue(Name("queue3"))
                 .SetRasterID(Name("SkyBox"))
-                .SetView(sceneView)
+                .SetSceneView(viewName)
                 .SetLayout(layout);
     }
 

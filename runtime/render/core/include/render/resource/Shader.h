@@ -30,7 +30,10 @@ namespace sky {
         void MergeReflection(ShaderReflection &&refl);
         void Build();
 
+        FORCEINLINE uint32_t GetHash() const noexcept { return hash; }
+
     private:
+        uint32_t hash = 0;
         rhi::PipelineLayoutPtr pipelineLayout;
         std::vector<rhi::ShaderPtr> shaders;
         std::unique_ptr<ShaderReflection> reflection;

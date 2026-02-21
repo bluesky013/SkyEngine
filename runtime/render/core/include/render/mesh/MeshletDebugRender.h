@@ -10,8 +10,6 @@ namespace sky {
 
     struct MeshletConePrimitive : public RenderPrimitive {
         static constexpr uint32_t CONE_SEGMENT = 32;
-
-        void UpdateBatch() override {}
     };
 
     class MeshletDebugRender {

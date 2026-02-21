@@ -5,90 +5,91 @@
 #pragma once
 
 #include <core/shapes/AABB.h>
-#include <core/std/Container.h>
 #include <render/RenderDrawArgs.h>
 #include <render/RenderGeometry.h>
 #include <render/resource/Material.h>
 #include <render/resource/ResourceGroup.h>
 #include <render/resource/Technique.h>
 #include <shader/ShaderVariant.h>
+#include <render/lod/LodGroup.h>
 #include <rhi/Device.h>
 
 namespace sky {
-    struct RenderBatch {
+    class SceneView;
+
+    struct RenderBatchPrepareInfo {
+        Name techId;
+        ShaderVariantKey pipelineKey;
+        rhi::RenderPassPtr pass;
+        uint32_t subPassId = 0;
+    };
+
+    struct RenderTechniqueInstance {
+        explicit RenderTechniqueInstance(const RDGfxTechPtr& inTech) : technique(inTech) {}
+
         void SetOption(const Name &name, uint8_t val)
         {
             technique->SetOption(name, val, batchKey);
         }
 
-        RDGfxTechPtr      technique;
+        void SetVertexFlags(const RenderVertexFlags &flags)
+        {
+            technique->ProcessVertexVariantKey(flags, vertexKey);
+        }
 
-        // override states
-        rhi::PrimitiveTopology topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
-        rhi::PolygonMode polygonMode = rhi::PolygonMode::FILL;
+        bool UpdateProgram(const ShaderVariantKey& pipelineKey);
 
-        RDProgramPtr              program;
-        rhi::VertexAssemblyPtr    vao;
-        rhi::GraphicsPipelinePtr  pso;
-        rhi::VertexInputPtr       vertexDesc;
+        RDGfxTechPtr     technique;
+        RDProgramPtr     program;
 
-        RDResourceGroupPtr        batchGroup;
-
-        // cache status
-        uint32_t vaoVersion      = 0;
-        uint32_t renderPassHash  = 0;
-        uint32_t batchLayoutHash = 0;
         ShaderVariantKey batchKey;
-        ShaderVariantKey cacheFinalKey;
+        ShaderVariantKey vertexKey;
+        ShaderVariantKey cacheFinalKey{ShaderVariantKeyInit::INVALID};
+    };
 
-        uint32_t valueVersion = ~(0U);
-        uint32_t batchVersion = ~(0U);
+    struct RenderItem {
+        RenderGeometryPtr  geometry;
+
+        RDResourceGroupPtr batchGroup;
+        RDResourceGroupPtr instanceSet;
+
+        rhi::GraphicsPipelinePtr pso;
+        rhi::VertexAssemblyPtr   vao;
+
+        std::vector<DrawArgs> args;
+    };
+
+    struct IRenderItemGatherContext {
+        IRenderItemGatherContext() = default;
+        virtual ~IRenderItemGatherContext() = default;
+
+        virtual void Append(RenderItem&& item) = 0;
+
+        Name rasterID;
+        SceneView* sceneView;
     };
 
     struct RenderPrimitive {
+        virtual ~RenderPrimitive() = default;
+
         // before program ready
-        virtual void PrepareBatch() {}
+        virtual void Prepare(const SceneView* view) noexcept {}
 
-        // update resource group, program ready
-        virtual void UpdateBatch() {}
+        virtual bool PrepareBatch(const RenderBatchPrepareInfo& info) noexcept { return false; }
 
-        virtual bool IsReady() const { return true; }
+        virtual void UpdateWorldBounds(const Matrix4& localToWorld) noexcept {}
+
+        virtual void GatherRenderItem(IRenderItemGatherContext* context) noexcept {}
+
+        virtual bool IsReady() const noexcept { return true; }
 
         uint32_t sortKey = 0;
+        bool shouldUseFrustumCulling = true;
 
-        AABB localBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
-        AABB worldBound {Vector3(std::numeric_limits<float>::min()), Vector3(std::numeric_limits<float>::max())};
+        BoundingBoxSphere worldBounds;
 
         // geometry
-        RenderVertexFlags     vertexFlags;
-        RenderGeometryPtr     geometry;
-        MeshletGeometryPtr    meshlets;
-
-        bool clusterValid = false;
-
-        std::vector<DrawArgs> args;
-        rhi::BufferPtr        indirectBuffer;
-
-        // shader resources
-        RDResourceGroupPtr instanceSet;
-
-        // cache object
-        uint32_t vaoVersion = ~(0U);
-        std::vector<RenderBatch> batches;
-    };
-
-    struct RenderMaterialPrimitive : public RenderPrimitive {
-        void PrepareBatch() override;
-        void UpdateBatch() override;
-        bool IsReady() const override;
-
-        RDMaterialInstancePtr     material;
-        std::vector<RDDynamicUniformBufferPtr> batchBuffers;
-    };
-
-    struct RenderDrawItem {
-        RenderPrimitive *primitive = nullptr;
-        uint32_t techIndex = 0;
+        RenderGeometryPtr geometry;
     };
 
 } // namespace sky

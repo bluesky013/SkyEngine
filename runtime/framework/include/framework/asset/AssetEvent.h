@@ -5,7 +5,6 @@
 #pragma once
 
 #include <core/event/Event.h>
-#include <framework/asset/Asset.h>
 
 namespace sky {
 

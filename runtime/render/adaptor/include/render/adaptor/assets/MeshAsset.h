@@ -19,7 +19,6 @@
 #include <render/resource/Mesh.h>
 #include <render/resource/StaticMesh.h>
 #include <render/resource/SkeletonMesh.h>
-#include <animation/core/Skeleton.h>
 
 namespace sky {
     class BinaryInputArchive;
@@ -48,7 +47,7 @@ namespace sky {
         const T& operator[](uint32_t index) const
         {
             SKY_ASSERT(index < count);
-            return *reinterpret_cast<const T*>(ptr + index * stride + offset);
+            return *reinterpret_cast<const T*>(ptr + (index * stride) + offset);
         }
     };
 
@@ -100,4 +99,4 @@ namespace sky {
 
         MeshAssetData MakeMeshAssetData() const;
     };
-}
+} // namespace sky

@@ -51,13 +51,12 @@ namespace sky {
 
     void DepthPass::SetupSubPass(rdg::RasterSubPassBuilder& subPass, RenderScene &scene)
     {
-        auto *sceneView = scene.GetSceneView(Name("MainCamera"));
+        const Name ViewName("MainCamera");
 
         subPass.SetViewMask(0);
-
         subPass.AddQueue(Name("queue1"))
             .SetRasterID(Name("DepthOnly"))
-            .SetView(sceneView)
+            .SetSceneView(ViewName)
             .SetLayout(layout);
     }
 

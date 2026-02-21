@@ -8,8 +8,7 @@
 #include <render/resource/Texture.h>
 #include <render/RenderPrimitive.h>
 #include <render/resource/ResourceGroup.h>
-#include <core/math/Vector4.h>
-#include <core/shapes/AABB.h>
+#include <render/mesh/MeshPrimitive.h>
 
 namespace sky {
 

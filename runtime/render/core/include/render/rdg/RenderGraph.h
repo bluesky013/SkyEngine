@@ -24,7 +24,7 @@ namespace sky::rdg {
     struct RasterQueueBuilder {
         RasterQueueBuilder &SetRasterID(const Name &id);
         RasterQueueBuilder &SetLayout(const RDResourceLayoutPtr &layout);
-        RasterQueueBuilder &SetView(SceneView *view);
+        RasterQueueBuilder &SetSceneView(const Name& view);
 
         RenderGraph &rdg;
         RasterQueue &queue;
@@ -180,6 +180,7 @@ namespace sky::rdg {
         RasterPassBuilder  AddRasterPass(const Name &name, uint32_t width, uint32_t height);
         ComputePassBuilder AddComputePass(const Name &name);
         CopyPassBuilder    AddCopyPass(const Name &name);
+        void               AddSceneView(const Name& name, SceneView* view);
 
         void AddUploadPass(const Name &name, const UploadPass &upload);
         void AddPresentPass(const Name &name, const Name &resName);
@@ -206,6 +207,7 @@ namespace sky::rdg {
         PmrVector<RasterSubPass>  subPasses;
         PmrVector<RasterQueue>    rasterQueues;
         PmrVector<FullScreenBlit> fullScreens;
+        PmrVector<RdgSceneView>   sceneViews;
 
         PmrVector<ComputePass>    computePasses;
         PmrVector<CopyBlitPass>   copyBlitPasses;
@@ -331,6 +333,9 @@ namespace sky::rdg {
         } else if constexpr (std::is_same_v<Tag, TransitionTag>) {
             graph.polymorphicDatas.emplace_back(graph.transitionPasses.size());
             graph.transitionPasses.emplace_back(std::forward<D>(val));
+        } else if constexpr (std::is_same_v<Tag, SceneViewTag>) {
+            graph.polymorphicDatas.emplace_back(graph.sceneViews.size());
+            graph.sceneViews.emplace_back(std::forward<D>(val));
         } else {
             graph.polymorphicDatas.emplace_back(0);
         }

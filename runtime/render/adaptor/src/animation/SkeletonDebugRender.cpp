@@ -53,10 +53,11 @@ namespace sky {
 
     void SkeletonDebugRender::SetTechnique(const sky::RDTechniquePtr &tech)
     {
-        RenderBatch batch = {tech};
-        batch.topo = rhi::PrimitiveTopology::LINE_LIST;
-        primitive->batches.clear();
-        primitive->batches.emplace_back(batch);
+        // RenderBatch batch = {tech};
+        // batch.topo = rhi::PrimitiveTopology::LINE_LIST;
+        // primitive->sections.clear();
+        // primitive->sections.emplace_back();
+        // primitive->sections[0].batches.emplace_back(batch);
     }
 
     void SkeletonDebugRender::DrawJoint(const Transform& bone)

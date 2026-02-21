@@ -136,7 +136,7 @@ namespace sky {
         return static_cast<bool>(buffer);
     }
 
-    void DynamicBuffer::Update(uint8_t *ptr, uint32_t offset, uint32_t size)
+    void DynamicBuffer::Update(const uint8_t *ptr, uint32_t offset, uint32_t size)
     {
         SKY_ASSERT(offset + size <= frameSize);
         SKY_ASSERT(mapped != nullptr);

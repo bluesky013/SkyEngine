@@ -61,6 +61,7 @@ namespace sky {
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
         // geometry
+        const RDMaterialInstancePtr &GetMaterialBySubMesh(uint32_t section) const { return subMeshes[section].material; }
         const std::vector<SubMesh> &GetSubMeshes() const { return subMeshes; }
         const RenderGeometryPtr& GetGeometry() const { return geometry; }
 

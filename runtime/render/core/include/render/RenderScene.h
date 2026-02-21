@@ -26,6 +26,7 @@ namespace sky {
         void AttachSceneView(SceneView* sceneView, const Name &name);
         void DetachSceneView(SceneView* sceneView, const Name &name);
         SceneView *GetSceneView(const Name& name) const;
+        const PmrHashMap<Name, SceneView*> &GetActiveSceneViews() const { return viewMap; }
 
         void AddPrimitive(RenderPrimitive *primitive);
         void RemovePrimitive(RenderPrimitive *primitive);
@@ -50,8 +51,6 @@ namespace sky {
         ~RenderScene();
 
         PmrUnSyncPoolRes resources;
-
-        uint32_t viewCounter = 0;
 
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;

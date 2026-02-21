@@ -57,6 +57,7 @@ namespace sky {
         rdgContext->Fence()->WaitAndReset();
         rdgContext->ImageAvailableSemaPool().Reset();
         rdgContext->pool->ResetPool();
+        rdgContext->transientStorage.Reset();
     }
 
     void RenderPipeline::Compile(rdg::RenderGraph &rdg) // NOLINT
@@ -90,7 +91,7 @@ namespace sky {
         SKY_PROFILE_NAME("RenderSceneVisitor")
         for (auto *scene : scenes) {
             RenderSceneVisitor sceneVisitor(rdg, scene);
-            sceneVisitor.BuildRenderQueue();
+            sceneVisitor.Execute();
         }
     }
 

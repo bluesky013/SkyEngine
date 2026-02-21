@@ -8,13 +8,6 @@ namespace sky {
 
     void MeshFeatureProcessor::Tick(float time)
     {
-        for (auto &mesh : staticMeshes) {
-            mesh->Tick();
-        }
-
-        for (auto &mesh : skeletonMeshes) {
-            mesh->Tick();
-        }
     }
 
     void MeshFeatureProcessor::Render(rdg::RenderGraph &rdg)
@@ -23,8 +16,7 @@ namespace sky {
 
     MeshRenderer *MeshFeatureProcessor::CreateStaticMesh()
     {
-        auto *renderer = new MeshRenderer();
-        renderer->AttachScene(scene);
+        auto *renderer = new MeshRenderer(scene);
         return staticMeshes.emplace_back(renderer).get();
     }
 
@@ -37,8 +29,7 @@ namespace sky {
 
     SkeletalMeshRenderer *MeshFeatureProcessor::CreateSkeletalMesh()
     {
-        auto *renderer = new SkeletalMeshRenderer();
-        renderer->AttachScene(scene);
+        auto *renderer = new SkeletalMeshRenderer(scene);
         return skeletonMeshes.emplace_back(renderer).get();
     }
 

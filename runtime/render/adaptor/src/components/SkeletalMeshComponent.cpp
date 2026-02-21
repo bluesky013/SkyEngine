@@ -31,7 +31,7 @@ namespace sky {
     void SkeletalMeshComponent::Tick(float time)
     {
         if (isMeshDirty && renderer != nullptr) {
-            renderer->SetMesh(cachedMesh);
+            // renderer->SetMesh(cachedMesh);
             renderer->UpdateTransform(cachedTransform.ToMatrix());
             isMeshDirty = false;
         }
@@ -107,18 +107,18 @@ namespace sky {
             UpdateBone(root, pose, boneMatrices.data(), cachedTransform);
         }
 
-        auto numSection = renderer->GetNumSubMeshes();
-        for (uint32_t section = 0; section < numSection; section++) {
-            const auto& bindSkin = renderer->GetSkin(section);
-            const auto& bindMatrix = bindSkin->boneMatrices;
-            SkinPtr skinData = new Skin();
-            skinData->boneMapping = bindSkin->boneMapping;
-            for (uint32_t index = 0; index <bindSkin->boneMapping.size(); ++index) {
-                skinData->boneMatrices[index] = boneMatrices[bindSkin->boneMapping[index]] * bindMatrix[index];
-            }
-
-            renderer->UpdateSkinData(*skinData, section);
-        }
+        // auto numSection = renderer->GetNumSubMeshes();
+        // for (uint32_t section = 0; section < numSection; section++) {
+        //     const auto& bindSkin = renderer->GetSkin(section);
+        //     const auto& bindMatrix = bindSkin->boneMatrices;
+        //     SkinPtr skinData = new Skin();
+        //     skinData->boneMapping = bindSkin->boneMapping;
+        //     for (uint32_t index = 0; index <bindSkin->boneMapping.size(); ++index) {
+        //         skinData->boneMatrices[index] = boneMatrices[bindSkin->boneMapping[index]] * bindMatrix[index];
+        //     }
+        //
+        //     renderer->UpdateSkinData(*skinData, section);
+        // }
     }
 
     void SkeletalMeshComponent::SetMeshUuid(const Uuid &uuid)

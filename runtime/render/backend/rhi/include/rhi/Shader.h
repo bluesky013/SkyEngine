@@ -5,7 +5,6 @@
 #pragma once
 
 #include <rhi/Core.h>
-#include <vector>
 
 namespace sky::rhi {
 
@@ -24,7 +23,9 @@ namespace sky::rhi {
         ShaderStageFlagBit GetStage() const { return stage; }
         const std::string &GetEntry() const { return entry; }
 
+        uint32_t GetHash() const noexcept { return hash; }
     protected:
+        uint32_t hash = 0;
         ShaderStageFlagBit stage = rhi::ShaderStageFlagBit::VS;
         std::string entry;
     };

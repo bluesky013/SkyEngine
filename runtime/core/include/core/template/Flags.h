@@ -8,6 +8,7 @@
 #include <limits>
 #include <map>
 #include <functional>
+#include <core/template/TypeTraits.h>
 
 namespace sky {
 
@@ -15,6 +16,7 @@ namespace sky {
     class Flags {
     public:
         using ValueType = std::make_unsigned_t<std::underlying_type_t<T>> ;
+        using BinarySerializable = void;
 
         static constexpr ValueType AllFlagBits()
         {

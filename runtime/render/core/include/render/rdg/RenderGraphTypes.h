@@ -56,6 +56,7 @@ namespace sky::rdg {
 
     using VertexType = uint32_t;
     static constexpr VertexType INVALID_VERTEX = std::numeric_limits<VertexType>::max();
+    static constexpr uint8_t INVALID_VIEW_INDEX = std::numeric_limits<uint8_t>::max();
     using VertexList = PmrVector<VertexType>;
 
     struct RootTag {};
@@ -63,13 +64,14 @@ namespace sky::rdg {
     struct RasterPassTag {};
     struct RasterSubPassTag {};
     struct RasterQueueTag {};
+    struct SceneViewTag {};
     struct FullScreenBlitTag {};
     struct ComputePassTag {};
     struct CopyBlitTag {};
     struct PresentTag {};
     struct UploadTag {};
     struct TransitionTag {};
-    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, RasterQueueTag, FullScreenBlitTag, UploadTag, TransitionTag>;
+    using RenderGraphTags = std::variant<RootTag, RasterPassTag, RasterSubPassTag, ComputePassTag, CopyBlitTag, PresentTag, SceneViewTag, RasterQueueTag, FullScreenBlitTag, UploadTag, TransitionTag>;
 
     struct ImageTag {};
     struct ImportImageTag {};
@@ -210,24 +212,21 @@ namespace sky::rdg {
 
     struct RasterQueue {
         explicit RasterQueue(PmrResource *res, uint32_t pass)
-            : sceneView(nullptr)
-            , passID(pass)
-            , drawItems(res)
+            : passID(pass)
+            , renderItems(res)
             , sort(false)
-            , culling(true)
         {}
 
         using Tag = RasterQueueTag;
 
-        const SceneView *sceneView;
         uint32_t passID;
+        uint32_t viewID = INVALID_VERTEX;
         Name rasterID;   // invalid id
-        PmrList<RenderDrawItem> drawItems;
+        PmrList<RenderItem> renderItems;
         RDResourceLayoutPtr layout;
         ResourceGroup *resourceGroup = nullptr;
 
         bool sort;
-        bool culling;
     };
 
     struct RasterPass {
@@ -247,7 +246,7 @@ namespace sky::rdg {
         using Tag = RasterPassTag;
         uint32_t width{0};
         uint32_t height{0};
-        ShaderVariantKey passKey;
+        ShaderVariantKey pipelineKey;
 
         PmrVector<RasterAttachment> attachments;
         PmrVector<VertexType> attachmentVertex;
@@ -282,6 +281,8 @@ namespace sky::rdg {
         explicit CopyBlitPass(PmrResource *res)
             : src(INVALID_VERTEX)
             , dst(INVALID_VERTEX)
+            , srcExt{1, 1, 1}
+            , dstExt{1, 1, 1}
             , frontBarriers(res)
             , rearBarriers(res)
             {}
@@ -295,6 +296,11 @@ namespace sky::rdg {
         rhi::ImageSubRangeLayers dstRange;
         PmrHashMap<VertexType, std::vector<GraphBarrier>> frontBarriers; // key resID
         PmrHashMap<VertexType, std::vector<GraphBarrier>> rearBarriers;  // key resID
+    };
+
+    struct RdgSceneView {
+        using Tag = SceneViewTag;
+        SceneView* sceneView = nullptr;
     };
 
     struct TransitionPass {

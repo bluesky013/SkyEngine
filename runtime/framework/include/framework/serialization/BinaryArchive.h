@@ -6,9 +6,8 @@
 
 #include <iostream>
 #include <core/util/Uuid.h>
+#include <core/template/Flags.h>
 #include <core/archive/StreamArchive.h>
-#include <core/platform/Platform.h>
-#include <core/concept/Concept.h>
 
 namespace sky {
 
@@ -25,7 +24,10 @@ namespace sky {
             archive.LoadRaw(data, size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
+        template <typename T, typename = std::enable_if_t<
+            std::is_arithmetic_v<T> ||
+            is_binary_serializable_v<T> ||
+            std::is_enum_v<T>>>
         void LoadValue(T &v)
         {
             LoadValue(reinterpret_cast<char*>(std::addressof(v)), sizeof(T));
@@ -58,7 +60,10 @@ namespace sky {
             archive.SaveRaw(data, size);
         }
 
-        template <typename T, typename = std::enable_if<std::is_arithmetic_v<T> || std::is_enum_v<T>>>
+        template <typename T, typename = std::enable_if_t<
+            std::is_arithmetic_v<T> ||
+            is_binary_serializable_v<T> ||
+            std::is_enum_v<T>>>
         void SaveValue(const T &v)
         {
             SaveValue(reinterpret_cast<const char*>(std::addressof(v)), sizeof(T));

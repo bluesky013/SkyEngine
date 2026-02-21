@@ -22,20 +22,30 @@ namespace sky {
         Color   col;
     };
 
-    struct TextPrimitive : public RenderPrimitive {
+    struct TextPrimitive : RenderPrimitive {
+        explicit TextPrimitive(const RDGfxTechPtr &tech) : techInst(tech) {}
+
         RDTexturePtr fontTexture;
         RDDynamicUniformBufferPtr ubo;
+        RDResourceGroupPtr        batchGroup;
 
-        void UpdateBatch() override;
+        rhi::GraphicsPipelinePtr  pso;
+        RenderTechniqueInstance   techInst;
+
+        std::vector<DrawArgs> args;
+
+        bool PrepareBatch(const RenderBatchPrepareInfo& info) noexcept override;
+        void GatherRenderItem(IRenderItemGatherContext* context) noexcept override;
     };
 
-    struct TextBatch : public RefObject {
+    struct TextBatch : RefObject {
         void Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo);
-        void Flush(const rhi::Viewport& vp);
+        void Flush();
         void AddQuad(const Rect& rect, const Rect &uv, const Color &color);
 
         rhi::CmdDrawLinear args;
         std::unique_ptr<TextPrimitive> primitive;
+        TLinearGeometry<TextVertex>* geometry; // WeakRef
         std::vector<TextVertex> vertices;
     };
     using TextBatchPtr = CounterPtr<TextBatch>;
@@ -57,8 +67,6 @@ namespace sky {
         static TextFlags ValidateFlags(const TextFlags &flags) ;
         std::unordered_map<BatchKey, TextBatchPtr> batches;
         RDDynamicUniformBufferPtr ubo;
-        
-        rhi::Viewport viewport = {};
     };
 
 } // namespace sky

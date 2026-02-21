@@ -17,10 +17,8 @@ namespace sky {
         Vector2 uv;
     };
 
-    struct SkySpherePrimitive : public RenderPrimitive {
-        void PrepareBatch() override {}
-        void UpdateBatch() override;
-        bool IsReady() const override;
+    struct SkySpherePrimitive : RenderPrimitive {
+        bool IsReady() const noexcept override;
 
         RDTexture2DPtr texture;
         rhi::DescriptorSetPoolPtr pool;

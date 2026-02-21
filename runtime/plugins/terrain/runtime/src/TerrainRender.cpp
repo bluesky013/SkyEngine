@@ -113,7 +113,6 @@ namespace sky {
         geometry->attributeSemantics = VertexSemanticFlagBit::POSITION | VertexSemanticFlagBit::INST0;
         geometry->vertexAttributes.emplace_back(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, 0, rhi::Format::U_RG8});
         geometry->vertexAttributes.emplace_back(VertexAttribute{VertexAttribute{VertexSemanticFlagBit::INST0, 1, 0, rhi::Format::U_R32}});
-        geometry->version++;
 
 //        batchSet = material->GetResourceGroup();
         batchSet->BindBuffer(Name("InstancedData"), instanceDataBuffer->GetRHIBuffer(), 0);

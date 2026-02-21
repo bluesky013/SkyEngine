@@ -49,11 +49,9 @@ namespace sky {
 
     void PostProcessingPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
-        auto *sceneView = scene.GetSceneView(Name("MainCamera"));
-
         builder.AddQueue(Name("debug"))
             .SetRasterID(Name("debug"))
-            .SetView(sceneView)
+            .SetSceneView(Name("MainCamera"))
             .SetLayout(debugLayout);
         builder.AddQueue(Name("queue")).SetRasterID(Name("ui"));
     }

@@ -26,7 +26,7 @@ namespace sky {
         }
     }
 
-    rhi::VertexInputPtr RenderGeometry::Request(const RDProgramPtr& program)
+    rhi::VertexInputPtr RenderGeometry::Request(const RDProgramPtr& program) const
     {
         auto *semantics = RenderSemantics::Get();
         rhi::VertexInput::Descriptor vtxDesc = {};
@@ -89,7 +89,7 @@ namespace sky {
         return device->CreateVertexInput(vtxDesc);
     }
 
-    rhi::VertexAssemblyPtr RenderGeometry::Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxInput)
+    rhi::VertexAssemblyPtr RenderGeometry::Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxInput) const
     {
         auto *semantics = RenderSemantics::Get();
         rhi::VertexAssembly::Descriptor assemDesc = {};
@@ -160,6 +160,7 @@ namespace sky {
     {
         vertexBuffers.clear();
         indexBuffer = IndexBuffer{};
+        uploaded = false;
     }
 
     void RenderGeometry::Upload()
@@ -174,12 +175,6 @@ namespace sky {
         }
         if (indexBuffer.buffer) {
             sm->UploadBuffer(indexBuffer.buffer);
-        }
-
-        if (cluster) {
-            sm->UploadBuffer(cluster->meshletTriangles);
-            sm->UploadBuffer(cluster->meshletVertices);
-            sm->UploadBuffer(cluster->meshlets);
         }
 
         uploaded = true;
@@ -197,14 +192,6 @@ namespace sky {
             }
         }
 
-        if (cluster) {
-            if (!cluster->meshletVertices->IsReady() ||
-                !cluster->meshletTriangles->IsReady() ||
-                !cluster->meshlets->IsReady()) {
-                return false;
-            }
-        }
-
         return !indexBuffer.buffer || indexBuffer.buffer->IsReady();
     }
 
@@ -214,11 +201,9 @@ namespace sky {
         geom->vertexBuffers      = vertexBuffers;
         geom->vertexAttributes   = vertexAttributes;
         geom->indexBuffer        = indexBuffer;
-        geom->cluster            = cluster;
         geom->dynamicVB          = dynamicVB;
         geom->attributeSemantics = attributeSemantics;
         geom->uploaded           = uploaded;
-        geom->version            = 0;
         return geom;
     }
 } // namespace sky

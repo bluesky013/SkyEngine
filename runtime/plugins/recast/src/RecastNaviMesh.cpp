@@ -78,10 +78,11 @@ namespace sky::ai {
 
     void RecastNaviMesh::SetTechnique(const RDGfxTechPtr &tech)
     {
-        RenderBatch batch = {tech};
-        batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
-        primitive->batches.clear();
-        primitive->batches.emplace_back(batch);
+        // RenderBatch batch = {tech};
+        // batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        // primitive->sections.clear();
+        // primitive->sections.emplace_back();
+        // primitive->sections[0].batches.emplace_back(batch);
     }
 
     void RecastNaviMesh::BuildDebugDraw()

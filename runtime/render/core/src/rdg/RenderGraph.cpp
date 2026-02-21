@@ -97,9 +97,14 @@ namespace sky::rdg {
         , polymorphicDatas(&ctx->resources)
         , rasterPasses(&ctx->resources)
         , subPasses(&ctx->resources)
+        , rasterQueues(&ctx->resources)
+        , fullScreens(&ctx->resources)
+        , sceneViews(&ctx->resources)
         , computePasses(&ctx->resources)
         , copyBlitPasses(&ctx->resources)
         , presentPasses(&ctx->resources)
+        , uploadPasses(&ctx->resources)
+        , transitionPasses(&ctx->resources)
         , resourceGraph(ctx)
         , accessGraph(ctx)
     {
@@ -127,6 +132,13 @@ namespace sky::rdg {
         auto vtx = AddVertex(name, CopyBlitPass{&context->resources}, *this);
         add_edge(0, vtx, graph);
         return CopyPassBuilder{*this, copyBlitPasses[polymorphicDatas[vtx]], vtx};
+    }
+
+    void RenderGraph::AddSceneView(const Name& name, SceneView* view)
+    {
+        SKY_ASSERT(sceneViews.size() < 64);
+        auto vtx = AddVertex(name, RdgSceneView{view}, *this);
+        add_edge(0, vtx, graph);
     }
 
     void RenderGraph::AddUploadPass(const Name &name, const UploadPass &upload)
@@ -374,9 +386,10 @@ namespace sky::rdg {
         return *this;
     }
 
-    RasterQueueBuilder &RasterQueueBuilder::SetView(SceneView *view)
+    RasterQueueBuilder &RasterQueueBuilder::SetSceneView(const Name& view)
     {
-        queue.sceneView = view;
+        queue.viewID = FindVertex(view, rdg);
+        SKY_ASSERT(std::holds_alternative<SceneViewTag>(Tag(queue.viewID, rdg)));
         return *this;
     }
 

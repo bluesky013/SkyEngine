@@ -9,21 +9,21 @@ namespace sky {
 
     TerrainSectorRender::TerrainSectorRender(const TerrainCoord &coord)
         : sectorCoord(coord)
-        , primitive(std::make_unique<RenderMaterialPrimitive>())
+        // , primitive(std::make_unique<RenderMaterialPrimitive>())
     {
     }
 
     void TerrainSectorRender::SetMaterial(const RDMaterialInstancePtr &mat, const RDResourceGroupPtr &batch)
     {
-        primitive->batches.clear();
+        primitive->sections.clear();
         const auto &techniques = mat->GetMaterial()->GetGfxTechniques();
-        primitive->batches.reserve(techniques.size());
-        primitive->material = mat;
+        primitive->sections[0].batches.reserve(techniques.size());
+        // primitive->1 = mat;
         for (const auto &tech : techniques) {
-            RenderBatch batch = {tech};
+            // RenderBatch batch = {tech};
 //            inst.shaderOption = new ShaderOption();
 //            tech->Process(primitive->vertexFlags, inst.shaderOption);
-            primitive->batches.emplace_back(batch);
+            // primitive->batches.emplace_back(batch);
         }
 //        primitive->batchSet = batch;
         primitive->instanceSet = TerrainFeature::Get()->RequestResourceGroup();
@@ -41,8 +41,5 @@ namespace sky {
         uint32_t indexStride = geom->indexBuffer.indexType == rhi::IndexType::U16 ? 2 : 4;
         dc.indexCount = static_cast<uint32_t>(geom->indexBuffer.range / indexStride);
         dc.firstInstance = instanceId;
-
-        primitive->geometry = geom;
-        primitive->args.emplace_back(dc);
     }
 } // namespace sky

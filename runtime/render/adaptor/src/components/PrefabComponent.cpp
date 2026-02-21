@@ -75,7 +75,7 @@ namespace sky {
             Transform meshTrans = cacheTransform * task.localTransform;
 
             renderer = meshFeature->CreateStaticMesh();
-            renderer->SetMesh(task.mesh, false);
+            // renderer->Init(task.mesh);
             renderer->UpdateTransform(meshTrans.ToMatrix());
 
             renderers[task.nodeId] = renderer;

@@ -34,7 +34,7 @@ namespace sky::vk {
         }
 
         HashCombine32(hash, std::static_pointer_cast<Shader>(desc.fs)->GetHash());
-        HashCombine32(hash, std::static_pointer_cast<RenderPass>(desc.renderPass)->GetHash());
+        HashCombine32(hash, std::static_pointer_cast<RenderPass>(desc.renderPass)->GetCompatibleHash());
         HashCombine32(hash, std::static_pointer_cast<PipelineLayout>(desc.pipelineLayout)->GetHash());
         HashCombine32(hash, std::static_pointer_cast<VertexInput>(desc.vertexInput)->GetHash());
         HashCombine32(hash, desc.subPassIndex);
