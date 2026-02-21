@@ -56,6 +56,11 @@ namespace sky {
         uint8_t ref;
     };
 
+    enum class ShaderVariantKeyInit {
+        INIT,
+        INVALID
+    };
+
     static constexpr uint32_t SHADER_VARIANT_KEY_LEN = 64;
 
     struct ShaderVariantKey {
@@ -74,6 +79,11 @@ namespace sky {
         ShaderVariantKey()
         {
             u64.fill(0);
+        }
+
+        ShaderVariantKey(ShaderVariantKeyInit init)
+        {
+            u64.fill(init == ShaderVariantKeyInit::INIT ? 0 : ~(0ULL));
         }
 
         explicit ShaderVariantKey(uint64_t val)

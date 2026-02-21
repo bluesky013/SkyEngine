@@ -7,10 +7,16 @@
 
 namespace sky {
 
-    void Merge(const AABB &a, const AABB &b, AABB &out)
+    static void MergeAABB(const AABB &a, const AABB &b, AABB &out)
     {
         out.min = Min(a.min, b.min);
         out.max = Max(a.max, b.max);
+    }
+
+    void AABB::Merge(const AABB& other)
+    {
+        min = Min(min, other.min);
+        max = Max(max, other.max);
     }
 
     // https://gist.github.com/cmf028/81e8d3907035640ee0e3fdd69ada543f

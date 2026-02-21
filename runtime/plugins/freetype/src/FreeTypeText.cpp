@@ -24,43 +24,58 @@ namespace sky {
             VertexSemanticFlagBit::UV |
             VertexSemanticFlagBit::COLOR;
 
-    void TextPrimitive::UpdateBatch()
+    bool TextPrimitive::PrepareBatch(const RenderBatchPrepareInfo& info) noexcept
     {
-        auto &batch = batches[0];
-        if (!batch.batchGroup && batch.program) {
-            auto layout = batch.program->RequestLayout(BATCH_SET);
-            batch.batchGroup = TextFeature::Get()->RequestResourceGroup();
-            batch.batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
-            batch.batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
-            batch.batchGroup->Update();
+        if (info.techId != techInst.technique->GetRasterID()) {
+            return false;
         }
+
+        if (techInst.UpdateProgram(info.pipelineKey)) {
+            pso = GraphicsTechnique::BuildPso(techInst.program,
+                techInst.technique->GetPipelineState(),
+                geometry->Request(techInst.program),
+                info.pass,
+                info.subPassId);
+        }
+
+        if (!batchGroup && techInst.program) {
+            auto layout = techInst.program->RequestLayout(BATCH_SET);
+            batchGroup = TextFeature::Get()->RequestResourceGroup();
+            batchGroup->BindTexture(Name("FontTexture"), fontTexture->GetImageView(), 0);
+            batchGroup->BindDynamicUBO(Name("Constants"), ubo, 0);
+            batchGroup->Update();
+        }
+        return true;
+    }
+
+    void TextPrimitive::GatherRenderItem(IRenderItemGatherContext* context) noexcept
+    {
+        context->Append(RenderItem {
+            .geometry = geometry,
+            .batchGroup = batchGroup,
+            .pso = pso,
+            .args = args
+        });
     }
 
     void TextBatch::Init(const RDGfxTechPtr &tech, const RDTexturePtr &tex, const RDDynamicUniformBufferPtr &ubo)
     {
-        primitive = std::make_unique<TextPrimitive>();
+        geometry = new TLinearGeometry<TextVertex>();
+
+        primitive = std::make_unique<TextPrimitive>(tech);
         primitive->ubo = ubo;
         primitive->fontTexture = tex;
-        primitive->batches.emplace_back(RenderBatch(tech));
-    }
-
-    void TextBatch::Flush(const rhi::Viewport& vp)
-    {
-        primitive->geometry = new RenderGeometry();
+        primitive->geometry = geometry;
         primitive->geometry->vertexAttributes   = TEXT_ATTRIBUTES;
         primitive->geometry->attributeSemantics = TEXT_VTX_SEMANTICS;
-        primitive->geometry->version++;
+    }
+
+    void TextBatch::Flush()
+    {
+        geometry->UpdateData(vertices);
+
         primitive->args.clear();
         primitive->args.emplace_back(args);
-
-        auto *buffer = new Buffer();
-        buffer->Init(vertices.size() * sizeof(TextVertex), rhi::BufferUsageFlagBit::VERTEX, rhi::MemoryType::CPU_TO_GPU);
-        auto *ptr = buffer->GetRHIBuffer()->Map();
-        memcpy(ptr, vertices.data(),  buffer->GetSize());
-
-        primitive->geometry->vertexBuffers.emplace_back(VertexBuffer{
-            buffer, 0, buffer->GetSize(), sizeof(TextVertex)
-        });
     }
 
     void TextBatch::AddQuad(const Rect &rect, const Rect &uv, const Color &color)
@@ -94,7 +109,7 @@ namespace sky {
     void FreeTypeText::Finalize(RenderScene& scene)
     {
         for (auto &[key, batch] : batches) {
-            batch->Flush(viewport);
+            batch->Flush();
             scene.AddPrimitive(batch->primitive.get());
         }
     }

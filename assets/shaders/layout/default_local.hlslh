@@ -4,39 +4,29 @@
     float4x4 InverseTrans;
 }
 
-#if ENABLE_SKIN
-
-#define MAX_BONE_NUM (256)
-[[vk::binding(1, 2)]] cbuffer Skin : register(b1, space2)
-{
-    float4x4 Bones[MAX_BONE_NUM];
-}
-
-#endif
-
 #if MESH_SHADER
 
 #include "mesh/mesh.hlslh"
 
-[[vk::binding(2, 2)]] cbuffer MeshletInfo : register(b2, space2)
+[[vk::binding(1, 2)]] cbuffer MeshletInfo : register(b2, space2)
 {
     uint FirstMeshlet;
     uint MeshletCount;
 }
 
-[[vk::binding(3, 2)]]
+[[vk::binding(2, 2)]]
 StructuredBuffer<float4>     PositionBuf  : register(t0, space2);
-[[vk::binding(4, 2)]]
+[[vk::binding(3, 2)]]
 StructuredBuffer<ExtVertex>  ExtBuf       : register(t1, space2);
 
-[[vk::binding(5, 2)]]
+[[vk::binding(4, 2)]]
 StructuredBuffer<uint>      VertexIndices       : register(t2, space2);
-[[vk::binding(6, 2)]]
+[[vk::binding(5, 2)]]
 StructuredBuffer<uint>      MeshletTriangles    : register(t3, space2);
-[[vk::binding(7, 2)]]
+[[vk::binding(6, 2)]]
 StructuredBuffer<Meshlet>   Meshlets            : register(t4, space2);
-[[vk::binding(8, 2)]]
+[[vk::binding(7, 2)]]
 StructuredBuffer<float4>    InstanceBuffer      : register(t5, space2);
-//[[vk::binding(9, 2)]]
+//[[vk::binding(8, 2)]]
 //StructuredBuffer<CullData>  MeshletCullData     : register(t6, space2);
 #endif

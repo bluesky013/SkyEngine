@@ -2,17 +2,18 @@
 // Created by Zach Lee on 2023/4/2.
 //
 
-#include <render/SceneView.h>
+#include "render/Renderer.h"
+
+#include <algorithm>
 #include <core/math/MathUtil.h>
 #include <core/shapes/Shapes.h>
 #include <render/RHI.h>
-#include <algorithm>
+#include <render/SceneView.h>
 
 namespace sky {
 
-    SceneView::SceneView(uint32_t id, uint32_t count, PmrResource *resource)
-        : viewID(id)
-        , viewCount(count)
+    SceneView::SceneView(uint32_t count, PmrResource *resource)
+        : viewCount(count)
         , viewMask(0xFF)
         , viewInfo(resource)
         , lastViewInfo(resource)
@@ -78,6 +79,34 @@ namespace sky {
     {
         return std::any_of(frustums.begin(), frustums.end(), [&aabb](const auto &frustum) {
             return Intersection(aabb, frustum);
+        });
+    }
+
+    bool SceneView::FrustumCulling(const BoundingBoxSphere &bounds) const
+    {
+        const auto &center = bounds.center;
+        const auto &extent = bounds.extent;
+        float radius = bounds.radius;
+
+        return std::any_of(frustums.begin(), frustums.end(), [&](const Frustum &frustum) {
+            for (const auto &plane : frustum.planes) {
+                float s = plane.normal.Dot(center) - plane.distance;
+
+                // Sphere early-out: center is beyond the plane by more than radius
+                if (s > radius) {
+                    return false;
+                }
+
+                // AABB-Plane test (center/extent form directly, no conversion)
+                float r = extent.x * std::abs(plane.normal.x) +
+                          extent.y * std::abs(plane.normal.y) +
+                          extent.z * std::abs(plane.normal.z);
+
+                if (s > r) {
+                    return false;
+                }
+            }
+            return true;
         });
     }
 

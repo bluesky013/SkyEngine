@@ -1,0 +1,9 @@
+#if ENABLE_SKIN
+
+#define MAX_BONE_NUM (256)
+[[vk::binding(0, 1)]] cbuffer skin : register(b1, space2)
+{
+    float4x4 Bones[MAX_BONE_NUM];
+}
+
+#endif

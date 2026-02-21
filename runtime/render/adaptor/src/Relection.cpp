@@ -2,6 +2,8 @@
 // Created by Zach Lee on 2023/9/3.
 //
 
+#include "render/lod/LodGroup.h"
+
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/SerializationContext.h>
 #include <render/adaptor/Reflection.h>
@@ -14,6 +16,7 @@
 #include <render/adaptor/assets/BufferAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
+#include <render/adaptor/assets/LodGroupAsset.h>
 
 namespace sky {
 
@@ -66,6 +69,12 @@ namespace sky {
                 .BinLoad<&SkeletonAssetData::LoadBin>()
                 .BinSave<&SkeletonAssetData::SaveBin>();
 
+        context->Register<LodGroupData>("LodGroupData")
+            .JsonLoad<&LodGroupData::LoadJson>()
+            .JsonLoad<&LodGroupData::LoadJson>()
+            .BinLoad<&LodGroupData::LoadBin>()
+            .BinSave<&LodGroupData::SaveBin>();
+
         auto *am = AssetManager::Get();
         am->RegisterAssetHandler<Material>();
         am->RegisterAssetHandler<MaterialInstance>();
@@ -77,6 +86,7 @@ namespace sky {
         am->RegisterAssetHandler<AnimationClip>();
         am->RegisterAssetHandler<Animation>();
         am->RegisterAssetHandler<Skeleton>();
+        am->RegisterAssetHandler<LodGroup>();
     }
 
     void ReflectRHI(SerializationContext *context)

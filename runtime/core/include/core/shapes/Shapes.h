@@ -7,6 +7,7 @@
 #include <core/shapes/AABB.h>
 #include <core/shapes/Frustum.h>
 #include <core/shapes/Base.h>
+#include <core/shapes/Bounds.h>
 
 namespace sky {
     // intersection

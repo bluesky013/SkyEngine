@@ -11,7 +11,6 @@ namespace sky::rhi {
 
     void RenderPass::CalculateHash(const Descriptor &desc)
     {
-        hash = 0;
         for (const auto &attachment : desc.attachments) {
             HashCombine32(compatibleHash, static_cast<uint32_t>(attachment.format));
             HashCombine32(compatibleHash, static_cast<uint32_t>(attachment.sample));
@@ -38,6 +37,13 @@ namespace sky::rhi {
         }
         HashCombine32(compatibleHash, Crc32::Cal(reinterpret_cast<const uint8_t *>(desc.correlatedViewMasks.data()),
                                                  static_cast<uint32_t>(desc.correlatedViewMasks.size()) * sizeof(uint32_t)));
+    }
+
+    uint32_t RenderPass::GetCompatibleHashWithSubPass(uint32_t subpassId) const
+    {
+        uint32_t result = compatibleHash;
+        HashCombine32(result, subpassId);
+        return result;
     }
 
     void RenderPass::InitInputMap(const Descriptor &desc)

@@ -16,6 +16,7 @@
 
 #include "layout/default_pass.hlslh"
 #include "layout/default_local.hlslh"
+#include "layout/default_skin.hlslh"
 
 #if VIEW_COUNT > 1
 #define VIEW_INFO View[ViewIndex]

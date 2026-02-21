@@ -52,9 +52,11 @@ namespace sky {
 
     void Grid::SetTechnique(const RDGfxTechPtr &tech)
     {
-        RenderBatch techInst = {tech};
-        techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
-        primitive->batches.clear();
-        primitive->batches.emplace_back(techInst);
+        // RenderBatch techInst = {tech};
+        // techInst.topo = rhi::PrimitiveTopology::LINE_LIST;
+        // primitive->sections.clear();
+        // primitive->sections.emplace_back();
+        // primitive->sections.back().batches.clear();
+        // primitive->sections.back().batches.emplace_back(techInst);
     }
 } // namespace sky

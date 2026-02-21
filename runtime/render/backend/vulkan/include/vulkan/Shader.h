@@ -18,7 +18,6 @@ namespace sky::vk {
 
         VkShaderModule GetNativeHandle() const;
         VkShaderStageFlagBits GetShaderStage() const;
-        uint32_t GetHash() const;
 
     private:
         friend class Device;
@@ -28,7 +27,6 @@ namespace sky::vk {
 
         VkShaderModule        shaderModule;
         VkShaderStageFlagBits vkStage;
-        uint32_t              hash;
     };
 
     using ShaderPtr = std::shared_ptr<Shader>;

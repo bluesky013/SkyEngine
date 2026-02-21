@@ -62,6 +62,7 @@ namespace sky {
         RawMeshIndexData* GetIndexBuffer() const { return indexData.get(); }
 
         const std::vector<MeshSubSection> &GetSubMeshes() const { return sections; }
+        const AABB& GetAABB() const { return aabb; }
     protected:
         virtual void OnInit(uint32_t vertexNum, uint32_t indexNum, rhi::IndexType idxType, const Config& config) {}
 
@@ -74,6 +75,8 @@ namespace sky {
         std::unique_ptr<RawMeshIndexData> indexData;
 
         std::vector<MeshSubSection> sections;
+
+        AABB aabb = {Vector3(std::numeric_limits<float>::max()), Vector3(std::numeric_limits<float>::min())};;
     };
 
 } // namespace sky

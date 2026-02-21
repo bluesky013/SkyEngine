@@ -38,25 +38,26 @@ namespace sky {
         conePrimitive->geometry->indexBuffer.offset = 0;
         conePrimitive->geometry->indexBuffer.range = size;
         conePrimitive->geometry->indexBuffer.indexType = rhi::IndexType::U16;
-        conePrimitive->geometry->Upload();
 
         conePrimitive->geometry->vertexBuffers.emplace_back(VertexBuffer{meshlet, 0, meshlet->GetSize(), sizeof(Meshlet)});
-        conePrimitive->geometry->version++;
+        conePrimitive->geometry->Upload();
 
         auto count = static_cast<uint32_t>(meshlet->GetSize() / sizeof(Meshlet));
-        conePrimitive->args.emplace_back(rhi::CmdDrawIndexed {
-            indicesCount, count, 0, 0, 0
-        });
+        // conePrimitive->sections[0].args.emplace_back(rhi::CmdDrawIndexed {
+        //     indicesCount, count, 0, 0, 0
+        // });
     }
 
     void MeshletDebugRender::BuildBatch()
     {
-        auto tech = RenderTechniqueLibrary::Get()->FetchGfxTechnique(Name("techniques/meshlet_debug.tech"));
-        if (tech) {
-            conePrimitive->batches.emplace_back(RenderBatch {
-                tech
-            });
-        }
+        // auto tech = RenderTechniqueLibrary::Get()->FetchGfxTechnique(Name("techniques/meshlet_debug.tech"));
+        // if (tech) {
+        //     conePrimitive->sections.clear();
+        //     conePrimitive->sections.emplace_back();
+        //     conePrimitive->sections.back().batches.emplace_back(RenderBatch {
+        //         tech
+        //     });
+        // }
     }
 
     void MeshletDebugRender::Setup(const RDBufferPtr &meshlet)

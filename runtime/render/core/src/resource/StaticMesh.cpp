@@ -1,7 +1,6 @@
 //
 // Created by Zach Lee on 2025/10/13.
 //
-
 #include <render/resource/StaticMesh.h>
 
 namespace sky {
@@ -59,6 +58,7 @@ namespace sky {
 
     void StaticMeshGeometry::AddSubMesh(const MeshSubSection& section)
     {
+        aabb.Merge(section.aabb);
         sections.emplace_back(section);
     }
 

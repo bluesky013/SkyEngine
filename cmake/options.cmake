@@ -15,4 +15,4 @@ option(SKY_USE_TRACY "use tracy profiler" OFF)
 option(SKY_BUILD_XR "xr plugin" OFF)
 option(SKY_BUILD_PYTHON "python plugin" OFF)
 
-option(SKY_MATH_SIMD "enable simd math" ON)
+option(SKY_MATH_SIMD "enable simd math" OFF)

@@ -2,11 +2,13 @@
 // Created by Zach Lee on 2023/9/1.
 //
 
-#include <render/resource/Buffer.h>
+#include "../../../../../../../sky3rd_win32_output/imgui/src/imgui.h"
+
 #include <core/util/Memory.h>
-#include <rhi/Stream.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>
+#include <render/resource/Buffer.h>
+#include <rhi/Stream.h>
 
 namespace sky {
 
@@ -60,6 +62,11 @@ namespace sky {
         res.offset += offset;
         res.range  = range;
         return res;
+    }
+
+    UniformBuffer::~UniformBuffer()
+    {
+        Renderer::Get()->GetResourceGC()->CollectBuffer(stagingBuffer);
     }
 
     bool UniformBuffer::Init(uint32_t size)
@@ -136,7 +143,7 @@ namespace sky {
         return static_cast<bool>(buffer);
     }
 
-    void DynamicBuffer::Update(uint8_t *ptr, uint32_t offset, uint32_t size)
+    void DynamicBuffer::Update(const uint8_t *ptr, uint32_t offset, uint32_t size)
     {
         SKY_ASSERT(offset + size <= frameSize);
         SKY_ASSERT(mapped != nullptr);

@@ -6,8 +6,10 @@
 #include <render/RHI.h>
 #include <render/Renderer.h>
 #include <core/template/Overloaded.h>
+#include <core/util/Memory.h>
 
 namespace sky {
+
     MaterialPropertyInitializer::MaterialPropertyInitializer(size_t propertyNum)
     {
         storage.resize(sizeof(MaterialValue) * propertyNum);
@@ -28,40 +30,53 @@ namespace sky {
         SKY_ASSERT(!properties.count(name));
 
         MaterialPropertyEntry entry = {};
-        entry.offset = currentSize;
 
-        uint8_t *ptr = storage.data() + currentSize;
+        uint8_t *baseAddress = storage.data();
         std::visit(Overloaded{
             [&](const MaterialTexture &v) {
                 SKY_ASSERT(0 && "use AddPropertyTexture")
             },
             [&](const TextureSampler &v) {
+                currentSize = Align(currentSize, AlignOf32<TextureSampler>());
+                entry.offset = currentSize;
                 entry.size = sizeof(TextureSampler);
-                new (ptr) TextureSampler(v);
+                new (baseAddress + currentSize) TextureSampler(v);
             },
             [&](const Vector2 &v) {
+                currentSize = Align(currentSize, AlignOf32<Vector2>());
+                entry.offset = currentSize;
                 entry.size = sizeof(Vector2);
-                new (ptr) Vector2(v);
+                new (baseAddress + currentSize) Vector2(v);
             },
             [&](const Vector3 &v) {
+                currentSize = Align(currentSize, AlignOf32<Vector3>());
+                entry.offset = currentSize;
                 entry.size = sizeof(Vector3);
-                new (ptr) Vector3(v);
+                new (baseAddress + currentSize) Vector3(v);
             },
             [&](const Vector4 &v) {
+                currentSize = Align(currentSize, AlignOf32<Vector4>());
+                entry.offset = currentSize;
                 entry.size = sizeof(Vector4);
-                new (ptr) Vector4(v);
+                new (baseAddress + currentSize) Vector4(v);
             },
             [&](const float &v) {
+                currentSize = Align(currentSize, AlignOf32<float>());
+                entry.offset = currentSize;
                 entry.size = sizeof(float);
-                new (ptr) float(v);
+                new (baseAddress + currentSize) float(v);
             },
             [&](const uint32_t &v) {
+                currentSize = Align(currentSize, AlignOf32<uint32_t>());
+                entry.offset = currentSize;
                 entry.size = sizeof(uint32_t);
-                new (ptr) uint32_t(v);
+                new (baseAddress + currentSize) uint32_t(v);
             },
             [&](const int32_t &v) {
+                currentSize = Align(currentSize, AlignOf32<int32_t>());
+                entry.offset = currentSize;
                 entry.size = sizeof(int32_t);
-                new (ptr) int32_t(v);
+                new (baseAddress + currentSize) int32_t(v);
             }
         }, value);
 

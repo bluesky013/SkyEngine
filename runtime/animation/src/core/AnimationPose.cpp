@@ -11,6 +11,21 @@ static const char* TAG = "Animation";
 
 namespace sky {
 
+    static void UpdateBone(const Bone* bone, const AnimPose& pose, Matrix4* outMatrix, const Transform &world) // NOLINT
+    {
+        SKY_ASSERT(bone != nullptr);
+
+        const auto &trans = pose.transforms[bone->index];
+        Transform current = world * trans;
+
+        outMatrix[bone->index] = current.ToMatrix();
+        for (const auto& childIdx : bone->children) {
+            const auto* child = pose.skeleton->GetBoneByIndex(childIdx);
+            assert(child->index == childIdx);
+            UpdateBone(child, pose, outMatrix, current);
+        }
+    }
+
     void AnimPose::ResetRefPose()
     {
         if (skeleton != nullptr) {
@@ -22,6 +37,15 @@ namespace sky {
     {
         for (auto& trans : transforms) {
             trans.rotation.Normalize();
+        }
+    }
+
+    void AnimPose::ToSkinRenderData(std::vector<Matrix4>& skinUpdateData, const Transform& rootMatrix) const
+    {
+        const auto& roots = skeleton->GetRoots();
+        skinUpdateData.resize(skeleton->GetNumBones());
+        for (const auto& root : roots) {
+            UpdateBone(root, *this, skinUpdateData.data(), rootMatrix);
         }
     }
 

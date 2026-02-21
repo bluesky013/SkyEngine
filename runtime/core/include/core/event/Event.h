@@ -25,7 +25,7 @@ namespace sky {
         static constexpr StorageMode STORAGE = StorageMode::IMMEDIATE;
     };
 
-    template <typename Interface, class KeyType = typename Interface::KeyType>
+    template <typename Interface, class KeyType = Interface::KeyType>
     class Event {
     public:
         Event()  = default;
@@ -66,7 +66,7 @@ namespace sky {
         private:
             friend class Singleton<Storage>;
             Storage()  = default;
-            ~Storage() = default;
+            ~Storage() override = default;
             std::unordered_map<KeyType, std::vector<Interface *>> listeners;
         };
 
@@ -140,7 +140,7 @@ namespace sky {
         }
     };
 
-    template <typename T, typename KeyType = typename T::KeyType>
+    template <typename T, typename KeyType = T::KeyType>
     class EventBinder {
     public:
         EventBinder() = default;

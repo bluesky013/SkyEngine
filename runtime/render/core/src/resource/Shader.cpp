@@ -97,6 +97,11 @@ namespace sky {
             }
         }
         pipelineLayout = device->CreatePipelineLayout(plDesc);
+
+        hash = 0;
+        for (auto& shader : shaders) {
+            HashCombine32(hash, shader->GetHash());
+        }
     }
 
     RDResourceLayoutPtr Program::RequestLayout(uint32_t index) const

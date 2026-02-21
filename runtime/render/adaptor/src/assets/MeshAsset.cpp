@@ -6,7 +6,6 @@
 #include <core/profile/Profiler.h>
 #include <render/RHI.h>
 #include <render/adaptor/assets/MeshAsset.h>
-#include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/resource/SkeletonMesh.h>
 
 namespace sky {
@@ -19,6 +18,7 @@ namespace sky {
     {
         archive.LoadValue(version);
         archive.LoadValue(skeleton);
+        archive.LoadValue(aabb);
 
         uint32_t size = 0;
 
@@ -84,6 +84,7 @@ namespace sky {
     {
         archive.SaveValue(version);
         archive.SaveValue(skeleton);
+        archive.SaveValue(aabb);
 
         archive.SaveValue(static_cast<uint32_t>(materials.size()));
         for (const auto &uuid : materials) {
@@ -219,9 +220,10 @@ namespace sky {
         return triangleMesh;
     }
 
-    CounterPtr<Mesh> CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin)
+    MeshBuildResult CreateMeshFromAsset(const MeshAssetPtr &asset, bool buildSkin)
     {
         SKY_PROFILE_NAME("Create Mesh From Asset")
+
         const auto &data = asset->Data();
         const auto &uuid = asset->GetUuid();
 
@@ -229,11 +231,11 @@ namespace sky {
         auto file = am->OpenFile(uuid);
         SKY_ASSERT(file);
 
-        Mesh* mesh = nullptr;
+        MeshBuildResult result = {};
         if (data.skeleton && buildSkin) {
-            mesh = new SkeletonMesh();
+            result.mesh = new SkeletonMesh();
         } else {
-            mesh = new Mesh();
+            result.mesh = new Mesh();
         }
 
         std::vector<CounterPtr<MaterialInstance>> materials;
@@ -243,7 +245,7 @@ namespace sky {
         }
 
         for (const auto &sub : data.subMeshes) {
-            mesh->AddSubMesh(SubMesh {
+            result.mesh->AddSubMesh(SubMesh {
                 sub.firstVertex,
                 sub.vertexCount,
                 sub.firstIndex,
@@ -251,18 +253,19 @@ namespace sky {
                 sub.firstMeshlet,
                 sub.meshletCount,
                 materials[sub.materialIndex],
-                sub.aabb
             });
         }
 
-        mesh->SetVertexAttributes(data.attributes);
-        mesh->SetIndexType(data.indexType);
+        result.mesh->SetVertexAttributes(data.attributes);
+        result.mesh->SetIndexType(data.indexType);
+        result.mesh->SetBoundingBox(data.aabb);
 
         if (data.skeleton && buildSkin) {
             auto skeleton = am->LoadAsset<Skeleton>(data.skeleton);
             skeleton->BlockUntilLoaded();
-            const auto &skeletonData = skeleton->Data();
+            result.skeleton = FetchOrCreateSkeletonByAsset(skeleton);
 
+            const auto &skeletonData = skeleton->Data();
             auto boneNum = static_cast<uint32_t>(skeletonData.refPos.size());
             BoneNode root;
             std::vector<BoneNode> bones(boneNum);
@@ -278,8 +281,8 @@ namespace sky {
             }
             WalkBone(&root, Matrix4::Identity(), skeletonData);
 
-            auto *sklMesh = static_cast<SkeletonMesh*>(mesh);
-            for (uint32_t index = 0; index < mesh->GetSubMeshes().size(); ++index) {
+            auto *sklMesh = static_cast<SkeletonMesh*>(result.mesh.Get());
+            for (uint32_t index = 0; index < result.mesh->GetSubMeshes().size(); ++index) {
                 SkinPtr skin = new Skin();
                 skin->boneMapping = data.subMappings[index];
                 for (uint32_t i = 0; i < skin->boneMapping.size(); ++i) {
@@ -342,8 +345,8 @@ namespace sky {
             request.size   = buffer.size;
         }
 
-        mesh->SetUploadStream(std::move(meshData));
-        return mesh;
+        result.mesh->SetUploadStream(std::move(meshData));
+        return result;
     }
 
     MeshAssetData StaticMeshAsset::MakeMeshAssetData() const
@@ -354,6 +357,7 @@ namespace sky {
         outData.skeleton = Uuid::GetEmpty();
         outData.materials = materials;
         outData.subMeshes = geometry->GetSubMeshes();
+        outData.aabb = geometry->GetAABB();
 
         auto *posBuffer = geometry->GetPositionBuffer();
 

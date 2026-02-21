@@ -13,7 +13,7 @@ static const char *TAG = "Vulkan";
 namespace sky::vk {
 
     Shader::Shader(Device &dev)
-        : DevObject(dev), shaderModule(VK_NULL_HANDLE), vkStage(VK_SHADER_STAGE_VERTEX_BIT), hash(0)
+        : DevObject(dev), shaderModule(VK_NULL_HANDLE), vkStage(VK_SHADER_STAGE_VERTEX_BIT)
     {
     }
 
@@ -51,10 +51,5 @@ namespace sky::vk {
     VkShaderStageFlagBits Shader::GetShaderStage() const
     {
         return vkStage;
-    }
-
-    uint32_t Shader::GetHash() const
-    {
-        return hash;
     }
 } // namespace sky::vk

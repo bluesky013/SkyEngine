@@ -5,7 +5,6 @@
 #pragma once
 
 #include <animation/core/AnimationTypes.h>
-#include <animation/core/AnimationTypes.h>
 #include <core/math/Transform.h>
 #include <core/util/ArrayBitFlag.h>
 #include <memory>
@@ -28,6 +27,8 @@ namespace sky {
 
         void ResetRefPose();
         void NormalizeRotation();
+
+        void ToSkinRenderData(std::vector<Matrix4>& skinUpdateData, const Transform& rootMatrix) const;
 
         static void BlendTransform(const Transform& src, Transform& dst, float weight);
         static void BlendTransformAdditive(const Transform& delta, Transform& dst, float weight);

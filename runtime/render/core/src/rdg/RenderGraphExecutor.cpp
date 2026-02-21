@@ -186,40 +186,38 @@ namespace sky::rdg {
             },
             [&](const RasterQueueTag &) {
                 auto &queue = graph.rasterQueues[Index(u, graph)];
-                for (auto &item : queue.drawItems) {
-                    auto &batch = item.primitive->batches[item.techIndex];
-
-                    currentEncoder->BindPipeline(batch.pso);
-                    if (queue.resourceGroup != nullptr && ((batch.pso->GetDescriptorMask() & (1 << 0)) != 0u)) {
+                for (auto& item : queue.renderItems) {
+                    currentEncoder->BindPipeline(item.pso);
+                    if (queue.resourceGroup != nullptr && ((item.pso->GetDescriptorMask() & (1 << 0)) != 0u)) {
                         queue.resourceGroup->OnBind(*currentEncoder, 0);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 0);
                     }
 
-                    if (batch.batchGroup && ((batch.pso->GetDescriptorMask() & (1 << 1)) != 0u)) {
-                        batch.batchGroup->OnBind(*currentEncoder, 1);
+                    if (item.batchGroup && ((item.pso->GetDescriptorMask() & (1 << 1)) != 0u)) {
+                        item.batchGroup->OnBind(*currentEncoder, 1);
                     } else {
                         graph.context->emptySet->OnBind(*currentEncoder, 1);
                     }
 
-                    if (item.primitive->instanceSet && ((batch.pso->GetDescriptorMask() & (1 << 2)) != 0u)) {
-                        item.primitive->instanceSet->OnBind(*currentEncoder, 2);
+                    if (item.instanceSet && ((item.pso->GetDescriptorMask() & (1 << 2)) != 0u)) {
+                        item.instanceSet->OnBind(*currentEncoder, 2);
                     }
 
-                    if (batch.vao) {
-                        currentEncoder->BindAssembly(batch.vao);
+                    if (item.vao) {
+                        currentEncoder->BindAssembly(item.vao);
                     } else {
                         std::vector<rhi::BufferView> vertexBuffers;
-                        item.primitive->geometry->FillVertexBuffer(vertexBuffers);
+                        item.geometry->FillVertexBuffer(vertexBuffers);
                         currentEncoder->BindVertexBuffers(vertexBuffers);
                     }
 
-                    const auto &ib = item.primitive->geometry->indexBuffer;
+                    const auto &ib = item.geometry->indexBuffer;
                     if (ib.buffer) {
                         currentEncoder->BindIndexBuffer(ib.MakeView(), ib.indexType);
                     }
 
-                    for (const auto &arg : item.primitive->args) {
+                    for (const auto& arg : item.args) {
                         std::visit(Overloaded{
                             [&](const rhi::CmdDrawLinear &v) {
                                 currentEncoder->DrawLinear(v);

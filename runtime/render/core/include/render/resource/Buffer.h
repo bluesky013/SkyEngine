@@ -77,7 +77,7 @@ namespace sky {
     class UniformBuffer : public Buffer {
     public:
         UniformBuffer() = default;
-        ~UniformBuffer() override = default;
+        ~UniformBuffer() override;
 
         virtual bool Init(uint32_t size);
         virtual void Write(uint32_t offset, const uint8_t *ptr, uint32_t size);
@@ -131,7 +131,7 @@ namespace sky {
         ~DynamicBuffer() override = default;
 
         bool Init(uint32_t size, const rhi::BufferUsageFlags& usage);
-        void Update(uint8_t *ptr, uint32_t offset, uint32_t size);
+        void Update(const uint8_t *ptr, uint32_t offset, uint32_t size);
 
         void SwapBuffer();
         uint8_t *GetMapped() const;

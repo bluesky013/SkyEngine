@@ -6,11 +6,10 @@
 #pragma once
 
 #include <framework/world/Component.h>
-#include <framework/asset/AssetEvent.h>
 #include <framework/asset/AssetHolder.h>
 #include <framework/interface/ITransformEvent.h>
 #include <render/adaptor/assets/RenderPrefab.h>
-#include <render/resource/Mesh.h>
+#include <render/lod/LodGroup.h>
 #include <render/mesh/MeshRenderer.h>
 
 namespace sky {
@@ -52,13 +51,13 @@ namespace sky {
         Transform cacheTransform;
 
         // asset threads
-        std::unordered_map<Uuid, RDMeshPtr> meshes;
-        std::unordered_map<Uuid, SingleAssetHolder<Mesh>> meshHolders;
+        std::unordered_map<Uuid, RDLodGroupPtr> lodGroups;
+        std::unordered_map<Uuid, SingleAssetHolder<LodGroup>> lodGroupHolders;
         std::unordered_map<Uuid, std::vector<uint32_t>> linkList;
 
         struct MeshBuildTask {
             uint32_t nodeId;
-            RDMeshPtr mesh;
+            RDLodGroupPtr lodGroup;
             Transform localTransform;
         };
 
