@@ -19,33 +19,33 @@ namespace sky {
             };
         };
 
-        inline Matrix4();
-        inline Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3);
+        FORCEINLINE Matrix4();
+        FORCEINLINE Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3);
 
-        inline static const Matrix4 &Identity();
+        FORCEINLINE static const Matrix4 &Identity();
 
-        inline void Translate(const Vector3 &rhs);
-        inline Matrix4 Inverse() const;
-        inline Matrix4 InverseTranspose() const;
-        inline float Determinant() const;
+        FORCEINLINE void Translate(const Vector3 &rhs);
+        FORCEINLINE Matrix4 Inverse() const;
+        FORCEINLINE Matrix4 InverseTranspose() const;
+        FORCEINLINE float Determinant() const;
 
-        inline Matrix4 operator+(const Matrix4& rhs) const;
-        inline Matrix4 operator-(const Matrix4& rhs) const;
-        inline Matrix4 operator*(const Matrix4& rhs) const;
-        inline Matrix4 operator*(float multiplier) const;
-        inline Matrix4 operator/(float divisor) const;
-        inline Matrix4 operator-() const;
+        FORCEINLINE Matrix4 operator+(const Matrix4& rhs) const;
+        FORCEINLINE Matrix4 operator-(const Matrix4& rhs) const;
+        FORCEINLINE Matrix4 operator*(const Matrix4& rhs) const;
+        FORCEINLINE Matrix4 operator*(float multiplier) const;
+        FORCEINLINE Matrix4 operator/(float divisor) const;
+        FORCEINLINE Matrix4 operator-() const;
 
-        inline Matrix4& operator+=(const Matrix4& rhs);
-        inline Matrix4& operator-=(const Matrix4& rhs);
-        inline Matrix4& operator*=(const Matrix4& rhs);
-        inline Matrix4& operator*=(float multiplier);
-        inline Matrix4& operator/=(float divisor);
+        FORCEINLINE Matrix4& operator+=(const Matrix4& rhs);
+        FORCEINLINE Matrix4& operator-=(const Matrix4& rhs);
+        FORCEINLINE Matrix4& operator*=(const Matrix4& rhs);
+        FORCEINLINE Matrix4& operator*=(float multiplier);
+        FORCEINLINE Matrix4& operator/=(float divisor);
 
-        inline Vector4 operator*(const Vector4& rhs) const;
+        FORCEINLINE Vector4 operator*(const Vector4& rhs) const;
 
-        inline Vector4 &operator[](uint32_t i);
-        inline Vector4 operator[](uint32_t i) const;
+        FORCEINLINE Vector4 &operator[](uint32_t i);
+        FORCEINLINE Vector4 operator[](uint32_t i) const;
     };
 }
 

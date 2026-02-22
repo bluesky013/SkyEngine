@@ -163,6 +163,7 @@ namespace sky {
                 ShaderFileSystem::Get()->SaveCacheSource(Name(shaderName.c_str()), source);
             }
         }
+        ShaderFileSystem::Get()->WaitSavingJobs();
     }
 
     extern "C" SKY_EXPORT bool

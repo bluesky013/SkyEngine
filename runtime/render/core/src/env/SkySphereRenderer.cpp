@@ -13,19 +13,19 @@ namespace sky {
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLER, 1},
     };
 
-    void SkySpherePrimitive::UpdateBatch()
-    {
-        auto &batch = batches[0];
-        if (!batch.batchGroup && batch.program) {
-            auto layout = batch.program->RequestLayout(BATCH_SET);
-            batch.batchGroup = new ResourceGroup();
-            batch.batchGroup->Init(layout, *pool);
-            batch.batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
-            batch.batchGroup->Update();
-        }
-    }
+    // void SkySpherePrimitive::UpdateBatch()
+    // {
+        // auto &batch = sections[0].batches[0];
+        // if (!batch.batchGroup && batch.program) {
+        //     auto layout = batch.program->RequestLayout(BATCH_SET);
+        //     batch.batchGroup = new ResourceGroup();
+        //     batch.batchGroup->Init(layout, *pool);
+        //     batch.batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
+        //     batch.batchGroup->Update();
+        // }
+    // }
 
-    bool SkySpherePrimitive::IsReady() const
+    bool SkySpherePrimitive::IsReady() const noexcept
     {
         return texture && texture->IsReady();
     }
@@ -103,7 +103,7 @@ namespace sky {
         }
         rhi::CmdDrawIndexed indexed = {};
         indexed.indexCount = static_cast<uint32_t>(indices.size());
-        primitive->args.emplace_back(indexed);
+        // primitive->sections[0].args.emplace_back(indexed);
 
         primitive->geometry->vertexBuffers.clear();
 
@@ -123,9 +123,6 @@ namespace sky {
 
         Renderer::Get()->GetStreamingManager()->UploadBuffer(vb);
         Renderer::Get()->GetStreamingManager()->UploadBuffer(ib);
-
-        primitive->geometry->version++;
-
         primitive->pool = pool;
 
 //        resourceGroup = new ResourceGroup();
@@ -137,12 +134,11 @@ namespace sky {
 
     void SkySphereRenderer::SetTechnique(const RDGfxTechPtr &tech)
     {
-        technique = tech;
-
-        primitive->batches.clear();
-        primitive->batches.emplace_back(RenderBatch{
-            technique
-        });
+        // technique = tech;
+        // primitive->sections.emplace_back();
+        // primitive->sections[0].batches.emplace_back(RenderBatch{
+        //     technique
+        // });
     }
 
 } // namespace sky

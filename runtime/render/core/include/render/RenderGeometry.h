@@ -5,7 +5,7 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
-#include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <render/resource/Buffer.h>
 #include <render/resource/Technique.h>
 #include <render/RenderBase.h>
@@ -24,7 +24,7 @@ namespace sky {
         rhi::VertexInputRate rate   = rhi::VertexInputRate::PER_VERTEX;
     };
 
-    struct MeshletGeometry : public RefObject {
+    struct MeshletGeometry : RefObject {
         RDBufferPtr posBuffer;
         RDBufferPtr extBuffer;
 
@@ -37,11 +37,11 @@ namespace sky {
     struct RenderGeometry;
     using RenderGeometryPtr = CounterPtr<RenderGeometry>;
 
-    struct RenderGeometry : public RefObject {
+    struct RenderGeometry : RefObject {
         void AddVertexAttribute(const VertexAttribute &attribute);
         void FillVertexBuffer(std::vector<rhi::BufferView> &vbs);
-        rhi::VertexAssemblyPtr Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxDesc);
-        rhi::VertexInputPtr    Request(const RDProgramPtr& program);
+        rhi::VertexAssemblyPtr Request(const RDProgramPtr& program, rhi::VertexInputPtr &vtxDesc) const;
+        rhi::VertexInputPtr    Request(const RDProgramPtr& program) const;
         void Reset();
         void Upload();
         bool IsReady() const;
@@ -52,14 +52,38 @@ namespace sky {
         std::vector<VertexBuffer>    vertexBuffers;
         std::vector<VertexAttribute> vertexAttributes;
         IndexBuffer                  indexBuffer;
-        MeshletGeometryPtr           cluster;
+        BoundingBoxSphere            localBounds;
+
         bool                         dynamicVB = false;
 
         // flags for all attributes
         VertexSemanticFlags          attributeSemantics;
-
-        uint32_t version = 0;
         bool uploaded = false;
+    };
+
+    template <typename T>
+    struct TLinearGeometry : RenderGeometry {
+        TLinearGeometry()
+        {
+            dynamicVB = true;
+        }
+
+        void UpdateData(const std::vector<T>& vertices)
+        {
+            auto dataSize = static_cast<uint32_t>(vertices.size() * sizeof(T));
+            if (!vertexBuffer || dataSize > vertexBuffer->GetSize()) {
+                vertexBuffer = new DynamicBuffer();
+                vertexBuffer->Init(dataSize, rhi::BufferUsageFlagBit::VERTEX);
+
+                vertexBuffers.clear();
+                vertexBuffers.emplace_back(VertexBuffer{
+                    vertexBuffer, 0, dataSize, sizeof(T)
+                });
+            }
+            vertexBuffer->SwapBuffer();
+            vertexBuffer->Update(reinterpret_cast<const uint8_t *>(vertices.data()), 0, dataSize);
+        }
+        RDDynamicBuffer vertexBuffer;
     };
 
 } // namespace sky

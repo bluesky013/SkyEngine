@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <cmath>
+#include <core/platform/Platform.h>
+#include <core/platform/Simd.h>
 
 namespace sky {
 #ifndef PI

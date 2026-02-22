@@ -68,15 +68,12 @@ namespace sky {
 
         for (auto& task : tasks) {
             auto *renderer = renderers[task.nodeId];
-            if (renderer != nullptr) {
-                meshFeature->RemoveStaticMesh(renderer);
+            if (renderer == nullptr) {
+                renderer = meshFeature->CreateStaticMesh();
+                Transform meshTrans = cacheTransform * task.localTransform;
+                renderer->SetMeshLodGroup(task.lodGroup);
+                renderer->UpdateTransform(meshTrans.ToMatrix());
             }
-
-            Transform meshTrans = cacheTransform * task.localTransform;
-
-            renderer = meshFeature->CreateStaticMesh();
-            renderer->SetMesh(task.mesh, false);
-            renderer->UpdateTransform(meshTrans.ToMatrix());
 
             renderers[task.nodeId] = renderer;
         }
@@ -121,26 +118,26 @@ namespace sky {
                 linkList[node.mesh].emplace_back(i);
             }
 
-            meshHolders.clear();
+            lodGroupHolders.clear();
             for (const auto& meshId : meshesToLoad) {
-                meshHolders.emplace(meshId, SingleAssetHolder<Mesh>{});
+                lodGroupHolders.emplace(meshId, SingleAssetHolder<LodGroup>{});
             }
 
-            for (auto& [id, holder] : meshHolders) {
+            for (auto& [id, holder] : lodGroupHolders) {
                 holder.SetAsset(id, this);
             }
 
-        } else if (type == AssetTraits<Mesh>::ASSET_TYPE){
-            auto iter = meshHolders.find(uuid);
-            if (iter != meshHolders.end()) {
-                auto mesh = CreateMeshFromAsset(meshHolders[uuid].GetAsset());
-                meshes[uuid] = mesh;
+        } else if (type == AssetTraits<LodGroup>::ASSET_TYPE){
+            auto iter = lodGroupHolders.find(uuid);
+            if (iter != lodGroupHolders.end()) {
+                auto lodGroup = CreateLodGroupFromAsset(lodGroupHolders[uuid].GetAsset());
+                lodGroups[uuid] = lodGroup.group;
 
                 for (auto& nodeId : linkList[uuid]) {
                     std::lock_guard<std::mutex> lock(meshMutex);
                     buildTasks.emplace_back();
                     auto& buildTask = buildTasks.back();
-                    buildTask.mesh = mesh;
+                    buildTask.lodGroup = lodGroup.group;
                     buildTask.nodeId = nodeId;
                     buildTask.localTransform = prefab.Data().nodes[nodeId].localTransform;
                 }

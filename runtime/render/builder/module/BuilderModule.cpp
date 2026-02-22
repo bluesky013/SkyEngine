@@ -7,6 +7,7 @@
 #include <builder/render/PrefabBuilder.h>
 #include <builder/render/TechniqueBuilder.h>
 #include <builder/render/MeshBuilder.h>
+#include <builder/render/LodGroupBuilder.h>
 #include <builder/render/AnimationBuilder.h>
 #include <builder/render/SkeletonBuilder.h>
 
@@ -45,6 +46,7 @@ namespace sky::builder {
         am->RegisterBuilder(new MeshBuilder());
         am->RegisterBuilder(new AnimationBuilder());
         am->RegisterBuilder(new SkeletonBuilder());
+        am->RegisterBuilder(new LodGroupBuilder());
 
         // init shader compiler
         engineFs = AssetBuilderManager::Get()->GetEngineFs();

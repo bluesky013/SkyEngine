@@ -14,3 +14,5 @@ option(SKY_USE_TRACY "use tracy profiler" OFF)
 # todo: controlled by project config json.
 option(SKY_BUILD_XR "xr plugin" OFF)
 option(SKY_BUILD_PYTHON "python plugin" OFF)
+
+option(SKY_MATH_SIMD "enable simd math" OFF)

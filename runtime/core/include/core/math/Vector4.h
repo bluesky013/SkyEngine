@@ -9,7 +9,7 @@
 
 namespace sky {
 
-    struct Vector4 {
+    struct alignas(16) Vector4 {
         union {
             float v[4];
             struct {
@@ -18,37 +18,42 @@ namespace sky {
                 float z;
                 float w;
             };
+#if SKY_SIMD_SSE
+            __m128 simd;
+#elif SKY_SIMD_NEON
+            float32x4_t  simd;
+#endif
         };
 
         using BaseType = float;
 
-        inline constexpr Vector4();
-        inline constexpr Vector4(float v); // NOLINT
-        inline constexpr Vector4(float x_, float y_, float z_, float w_);
+        FORCEINLINE constexpr Vector4();
+        FORCEINLINE constexpr Vector4(float v); // NOLINT
+        FORCEINLINE constexpr Vector4(float x_, float y_, float z_, float w_);
 
-        inline void Normalize();
-        inline float Dot(const Vector4 &rhs) const;
+        FORCEINLINE void Normalize();
+        FORCEINLINE float Dot(const Vector4 &rhs) const;
 
-        inline Vector4 operator+(const Vector4& rhs) const;
+        FORCEINLINE Vector4 operator+(const Vector4& rhs) const;
 
-        inline Vector4 operator-() const;
-        inline Vector4 operator-(const Vector4& rhs) const;
+        FORCEINLINE Vector4 operator-() const;
+        FORCEINLINE Vector4 operator-(const Vector4& rhs) const;
 
-        inline Vector4 operator*(const Vector4& rhs) const;
-        inline Vector4 operator*(float m) const;
+        FORCEINLINE Vector4 operator*(const Vector4& rhs) const;
+        FORCEINLINE Vector4 operator*(float m) const;
 
-        inline Vector4 operator/(const Vector4& rhs) const;
-        inline Vector4 operator/(float d) const;
+        FORCEINLINE Vector4 operator/(const Vector4& rhs) const;
+        FORCEINLINE Vector4 operator/(float d) const;
 
-        inline Vector4& operator+=(const Vector4& rhs);
-        inline Vector4& operator-=(const Vector4& rhs);
-        inline Vector4& operator*=(const Vector4& rhs);
-        inline Vector4& operator/=(const Vector4& rhs);
-        inline Vector4& operator*=(float m);
-        inline Vector4& operator/=(float d);
+        FORCEINLINE Vector4& operator+=(const Vector4& rhs);
+        FORCEINLINE Vector4& operator-=(const Vector4& rhs);
+        FORCEINLINE Vector4& operator*=(const Vector4& rhs);
+        FORCEINLINE Vector4& operator/=(const Vector4& rhs);
+        FORCEINLINE Vector4& operator*=(float m);
+        FORCEINLINE Vector4& operator/=(float d);
 
-        inline float &operator[](uint32_t i);
-        inline float operator[](uint32_t i) const;
+        FORCEINLINE float &operator[](uint32_t i);
+        FORCEINLINE float operator[](uint32_t i) const;
     };
 
     template <>

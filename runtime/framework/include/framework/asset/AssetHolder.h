@@ -19,7 +19,7 @@ namespace sky {
     class SingleAssetHolder : public IAssetEvent {
     public:
         SingleAssetHolder() = default;
-        ~SingleAssetHolder() = default;
+        ~SingleAssetHolder() override = default;
 
         void SetAsset(const Uuid& uuid, IAssetReadyNotifier* inListener)
         {

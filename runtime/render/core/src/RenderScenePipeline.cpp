@@ -4,6 +4,9 @@
 
 #include <render/RenderScenePipeline.h>
 
+#include "render/RenderScene.h"
+#include "render/rdg/RenderGraph.h"
+
 namespace sky {
 
     void RenderScenePipeline::AddPass(IPass *pass)
@@ -18,6 +21,11 @@ namespace sky {
         }
 
         passes.clear();
+
+        for (auto& [name, view] : scene->GetActiveSceneViews()) {
+            rdg.AddSceneView(name, view);
+        }
+
         Collect(rdg);
 
         for (auto &pass : passes) {

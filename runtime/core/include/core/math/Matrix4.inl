@@ -1,16 +1,16 @@
 
 namespace sky {
 
-    inline Matrix4::Matrix4() : Matrix4(Vector4(), Vector4(), Vector4(), Vector4())
+    FORCEINLINE Matrix4::Matrix4() : Matrix4(Vector4(), Vector4(), Vector4(), Vector4())
     {
     }
 
-    inline Matrix4::Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3)
+    FORCEINLINE Matrix4::Matrix4(const Vector4 &r0, const Vector4 &r1, const Vector4 &r2, const Vector4 &r3)
         : m{r0, r1, r2, r3}
     {
     }
 
-    inline const Matrix4 &Matrix4::Identity()
+    FORCEINLINE const Matrix4 &Matrix4::Identity()
     {
         static Matrix4 matrix;
         matrix.m[0][0] = 1.f;
@@ -20,17 +20,17 @@ namespace sky {
         return matrix;
     }
 
-    inline Matrix4 Matrix4::operator+(const Matrix4& rhs) const
+    FORCEINLINE Matrix4 Matrix4::operator+(const Matrix4& rhs) const
     {
         return Matrix4(*this) += rhs;
     }
 
-    inline Matrix4 Matrix4::operator-(const Matrix4& rhs) const
+    FORCEINLINE Matrix4 Matrix4::operator-(const Matrix4& rhs) const
     {
         return Matrix4(*this) -= rhs;
     }
 
-    inline Matrix4 Matrix4::operator*(const Matrix4& rhs) const
+    FORCEINLINE Matrix4 Matrix4::operator*(const Matrix4& rhs) const
     {
         const auto& rw = rhs.m;
         Matrix4 ret;
@@ -41,59 +41,105 @@ namespace sky {
         return ret;
     }
 
-    inline Matrix4 Matrix4::operator*(float multiplier) const
+    FORCEINLINE Matrix4 Matrix4::operator*(float multiplier) const
     {
         return Matrix4(*this) *= multiplier;
     }
 
-    inline Matrix4 Matrix4::operator/(float divisor) const
+    FORCEINLINE Matrix4 Matrix4::operator/(float divisor) const
     {
         return Matrix4(*this) /= divisor;
     }
 
-    inline Matrix4 Matrix4::operator-() const
+    FORCEINLINE Matrix4 Matrix4::operator-() const
     {
         return Matrix4() - (*this);
     }
 
-    inline Matrix4& Matrix4::operator+=(const Matrix4& rhs)
+#if SKY_SIMD_SSE
+    // SSE implementation for matrix addition assignment
+    FORCEINLINE Matrix4& Matrix4::operator+=(const Matrix4& rhs)
     {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] += rhs.m[i];
         }
         return *this;
     }
+#else
+    FORCEINLINE Matrix4& Matrix4::operator+=(const Matrix4& rhs)
+    {
+        for (uint32_t i = 0; i < 4; ++i) {
+            m[i] += rhs.m[i];
+        }
+        return *this;
+    }
+#endif
 
-    inline Matrix4& Matrix4::operator-=(const Matrix4& rhs)
+#if SKY_SIMD_SSE
+    // SSE implementation for matrix subtraction assignment
+    FORCEINLINE Matrix4& Matrix4::operator-=(const Matrix4& rhs)
     {
         for (uint32_t i = 0; i < 4; ++i) {
             m[i] -= rhs.m[i];
         }
         return *this;
     }
+#else
+    FORCEINLINE Matrix4& Matrix4::operator-=(const Matrix4& rhs)
+    {
+        for (uint32_t i = 0; i < 4; ++i) {
+            m[i] -= rhs.m[i];
+        }
+        return *this;
+    }
+#endif
 
-    inline Matrix4& Matrix4::operator*=(const Matrix4& rhs)
+    FORCEINLINE Matrix4& Matrix4::operator*=(const Matrix4& rhs)
     {
         return *this = (*this) * rhs;
     }
 
-    inline Matrix4& Matrix4::operator*=(float multiplier)
+#if SKY_SIMD_SSE
+    // SSE implementation for scalar multiplication assignment
+    FORCEINLINE Matrix4& Matrix4::operator*=(float multiplier)
+    {
+        __m128 mul = _mm_set1_ps(multiplier);
+        for (uint32_t i = 0; i < 4; ++i) {
+            m[i].simd = _mm_mul_ps(m[i].simd, mul);
+        }
+        return *this;
+    }
+#else
+    FORCEINLINE Matrix4& Matrix4::operator*=(float multiplier)
     {
         for (auto & i : m) {
             i *= multiplier;
         }
         return *this;
     }
+#endif
 
-    inline Matrix4& Matrix4::operator/=(float divisor)
+#if SKY_SIMD_SSE
+    // SSE implementation for scalar division assignment
+    FORCEINLINE Matrix4& Matrix4::operator/=(float divisor)
+    {
+        __m128 div = _mm_set1_ps(divisor);
+        for (uint32_t i = 0; i < 4; ++i) {
+            m[i].simd = _mm_div_ps(m[i].simd, div);
+        }
+        return *this;
+    }
+#else
+    FORCEINLINE Matrix4& Matrix4::operator/=(float divisor)
     {
         for (auto & i : m) {
             i /= divisor;
         }
         return *this;
     }
+#endif
 
-    inline Vector4 Matrix4::operator*(const Vector4& rhs) const
+    FORCEINLINE Vector4 Matrix4::operator*(const Vector4& rhs) const
     {
         Vector4 v0 = m[0] * rhs[0];
         Vector4 v1 = m[1] * rhs[1];
@@ -102,22 +148,22 @@ namespace sky {
         return (v0 + v1) + (v2 + v3);
     }
 
-    inline Vector4 &Matrix4::operator[](uint32_t i)
+    FORCEINLINE Vector4 &Matrix4::operator[](uint32_t i)
     {
         return m[i];
     }
 
-    inline Vector4 Matrix4::operator[](uint32_t i) const
+    FORCEINLINE Vector4 Matrix4::operator[](uint32_t i) const
     {
         return m[i];
     }
 
-    inline void Matrix4::Translate(const Vector3 &rhs)
+    FORCEINLINE void Matrix4::Translate(const Vector3 &rhs)
     {
         m[3] = m[0] * rhs.v[0] + m[1] * rhs.v[1] + m[2] * rhs.v[2] + m[3];
     }
 
-    inline float Matrix4::Determinant() const
+    FORCEINLINE float Matrix4::Determinant() const
     {
         float SubFactor00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
         float SubFactor01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
@@ -137,7 +183,7 @@ namespace sky {
             m[0][2] * DetCof[2] + m[0][3] * DetCof[3];
     }
 
-    inline Matrix4 Matrix4::Inverse() const
+    FORCEINLINE Matrix4 Matrix4::Inverse() const
     {
         float c00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
         float c02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
@@ -193,8 +239,9 @@ namespace sky {
         return inverse * inverseDet;
     }
 
-    inline Matrix4 Matrix4::InverseTranspose() const
+    FORCEINLINE Matrix4 Matrix4::InverseTranspose() const
     {
+        // ...existing code...
         float s00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
         float s01 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
         float s02 = m[2][1] * m[3][2] - m[3][1] * m[2][2];

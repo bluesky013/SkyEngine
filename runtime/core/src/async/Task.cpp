@@ -7,15 +7,21 @@
 namespace sky {
     void Task::StartAsync()
     {
+        if (IsWorking()) {
+            return;
+        }
+
         PrepareWork();
 
         CounterPtr<Task> thisTask = this;
 
-//        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
-//            bool result = thisTask->DoWork();
-//            thisTask->OnComplete(result);
-//            thisTask->ResetTask();
-//        }, dependencies.begin(), dependencies.end()).first;
+        handle = TaskExecutor::Get()->GetExecutor().dependent_async([thisTask]() {
+            bool result = thisTask->DoWork();
+            thisTask->OnComplete(result);
+            thisTask->ResetTask();
+        }, dependencies.begin(), dependencies.end()).first;
+
+        dependencies.clear();
     }
 
     bool Task::IsWorking() const
@@ -26,6 +32,7 @@ namespace sky {
     void Task::ResetTask()
     {
         handle.reset();
+        dependencies.clear();
     }
 
     TaskExecutor::TaskExecutor(size_t N) : executor(N)

@@ -20,14 +20,14 @@ namespace sky::editor {
         techAsset->BlockUntilLoaded();
         technique = CreateTechniqueFromAsset(techAsset);
 
-        primitives.resize(5);
-        for (auto &prim : primitives) {
-            RenderBatch batch = {technique};
-            batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
-
-            prim = new TerrainPrimitive();
-            prim->batches.emplace_back(batch);
-        }
+        // primitives.resize(5);
+        // for (auto &prim : primitives) {
+        //     RenderBatch batch = {technique};
+        //     batch.topo = rhi::PrimitiveTopology::TRIANGLE_LIST;
+        //
+        //     prim = new TerrainPrimitive();
+        //     prim->batches.emplace_back(batch);
+        // }
     }
 
     TerrainHelper::~TerrainHelper()

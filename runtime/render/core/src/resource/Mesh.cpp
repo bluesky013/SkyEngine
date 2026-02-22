@@ -36,6 +36,11 @@ namespace sky {
         subMeshes[subMesh].material = mat;
     }
 
+    void Mesh::SetBoundingBox(const AABB &aabb)
+    {
+        geometry->localBounds = BoundingBoxSphere(aabb);
+    }
+
     void Mesh::SetUploadStream(MeshUploadData&& stream_)
     {
         meshData = std::move(stream_);
@@ -43,23 +48,6 @@ namespace sky {
         geometry->vertexBuffers.reserve(meshData.vertexStreams.size());
 
         rhi::BufferUsageFlags externalFlag = rhi::BufferUsageFlagBit::NONE;
-        if (meshData.meshlets.source && meshData.meshletVertices.source && meshData.meshletTriangles.source) {
-            geometry->cluster = new MeshletGeometry();
-            externalFlag |= rhi::BufferUsageFlagBit::STORAGE;
-
-            geometry->cluster->meshlets = new Buffer();
-            geometry->cluster->meshlets->Init(meshData.meshlets.size, externalFlag | rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            geometry->cluster->meshlets->SetSourceData(meshData.meshlets);
-
-            geometry->cluster->meshletTriangles = new Buffer();
-            geometry->cluster->meshletTriangles->Init(meshData.meshletTriangles.size, externalFlag | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            geometry->cluster->meshletTriangles->SetSourceData(meshData.meshletTriangles);
-
-            geometry->cluster->meshletVertices = new Buffer();
-            geometry->cluster->meshletVertices->Init(meshData.meshletVertices.size, externalFlag | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
-            geometry->cluster->meshletVertices->SetSourceData(meshData.meshletVertices);
-        }
-
         for (auto &stream : meshData.vertexStreams) {
             VertexBuffer vb = {};
             vb.buffer = new Buffer();
@@ -83,31 +71,47 @@ namespace sky {
             geometry->indexBuffer.range  = meshData.indexStream.size;
         }
 
-        if (geometry->cluster) {
-            VertexSemanticFlags flags = {};
-
-            uint32_t positionBinding = INVALID_INDEX;
-            uint32_t extBinding = INVALID_INDEX;
-
-            for (auto &attr : geometry->vertexAttributes) {
-                if (attr.sematic & VertexSemanticFlagBit::POSITION) {
-                    positionBinding = attr.binding;
-
-                    flags |= attr.sematic;
-                } else if (attr.sematic & VertexSemanticFlagBit::STANDARD_ATTR) {
-                    if (extBinding != INVALID_INDEX && extBinding != attr.binding) {
-                        break;
-                    }
-                    extBinding = attr.binding;
-                    flags |= attr.sematic;
-                }
-            }
-            SKY_ASSERT(positionBinding != extBinding);
-            geometry->cluster->posBuffer = geometry->vertexBuffers[positionBinding].buffer;
-            geometry->cluster->extBuffer = geometry->vertexBuffers[extBinding].buffer;
-
-            clusterValid =  (flags & VertexSemanticFlagBit::STANDARD_ATTR) == VertexSemanticFlagBit::STANDARD_ATTR;
-        }
+        // if (meshData.meshlets.source && meshData.meshletVertices.source && meshData.meshletTriangles.source) {
+        //     geometry->cluster = new MeshletGeometry();
+        //     externalFlag |= rhi::BufferUsageFlagBit::STORAGE;
+        //
+        //     geometry->cluster->meshlets = new Buffer();
+        //     geometry->cluster->meshlets->Init(meshData.meshlets.size, externalFlag | rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+        //     geometry->cluster->meshlets->SetSourceData(meshData.meshlets);
+        //
+        //     geometry->cluster->meshletTriangles = new Buffer();
+        //     geometry->cluster->meshletTriangles->Init(meshData.meshletTriangles.size, externalFlag | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+        //     geometry->cluster->meshletTriangles->SetSourceData(meshData.meshletTriangles);
+        //
+        //     geometry->cluster->meshletVertices = new Buffer();
+        //     geometry->cluster->meshletVertices->Init(meshData.meshletVertices.size, externalFlag | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
+        //     geometry->cluster->meshletVertices->SetSourceData(meshData.meshletVertices);
+        // }
+        // if (geometry->cluster) {
+        //     VertexSemanticFlags flags = {};
+        //
+        //     uint32_t positionBinding = INVALID_INDEX;
+        //     uint32_t extBinding = INVALID_INDEX;
+        //
+        //     for (auto &attr : geometry->vertexAttributes) {
+        //         if (attr.sematic & VertexSemanticFlagBit::POSITION) {
+        //             positionBinding = attr.binding;
+        //
+        //             flags |= attr.sematic;
+        //         } else if (attr.sematic & VertexSemanticFlagBit::STANDARD_ATTR) {
+        //             if (extBinding != INVALID_INDEX && extBinding != attr.binding) {
+        //                 break;
+        //             }
+        //             extBinding = attr.binding;
+        //             flags |= attr.sematic;
+        //         }
+        //     }
+        //     SKY_ASSERT(positionBinding != extBinding);
+        //     geometry->cluster->posBuffer = geometry->vertexBuffers[positionBinding].buffer;
+        //     geometry->cluster->extBuffer = geometry->vertexBuffers[extBinding].buffer;
+        //
+        //     clusterValid =  (flags & VertexSemanticFlagBit::STANDARD_ATTR) == VertexSemanticFlagBit::STANDARD_ATTR;
+        // }
     }
 
 } // namespace sky

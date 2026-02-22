@@ -26,10 +26,11 @@ namespace sky {
 
         auto *geomFeature = GeometryFeature::Get();
         primitive = std::make_unique<GeometryPrimitive>();
-        primitive->batches.resize(1);
-        primitive->instanceSet = geomFeature->RequestResourceGroup();
-        primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
-        primitive->instanceSet->Update();
+        // primitive->sections.resize(1);
+        // primitive->sections[0].batches.resize(1);
+        // primitive->instanceSet = geomFeature->RequestResourceGroup();
+        // primitive->instanceSet->BindDynamicUBO(Name("Local"), ubo, 0);
+        // primitive->instanceSet->Update();
 
         ResetPrimitive(geomFeature->GetDefaultTech());
         ResizeVertex(DEFAULT_VERTEX_CAPACITY);
@@ -41,7 +42,7 @@ namespace sky {
         memcpy(ptr, batchVertices.data(), batchVertices.size() * sizeof(GeometryBatchVertex));
         vertexBuffer->GetRHIBuffer()->UnMap();
 
-        primitive->args = {args};
+        // primitive->sections[0].args = {args};
     }
 
     void GeometryRenderer::UpdateTransform(const Matrix4 &matrix)
@@ -52,7 +53,7 @@ namespace sky {
 
     void GeometryRenderer::ResetPrimitive(const RDGfxTechPtr &tech)
     {
-        primitive->batches[0].technique = tech;
+        // primitive->sections[0].batches[0].technique = tech;
     }
 
     void GeometryRenderer::ResizeVertex(uint32_t size)

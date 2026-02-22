@@ -4,12 +4,11 @@
 
 #pragma once
 
-#include <core/math/Matrix4.h>
 #include <core/math/Transform.h>
 #include <framework/asset/Asset.h>
 #include <render/adaptor/assets/ImageAsset.h>
 #include <render/adaptor/assets/MaterialAsset.h>
-#include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/LodGroupAsset.h>
 
 namespace sky {
     class BinaryInputArchive;

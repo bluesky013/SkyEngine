@@ -60,7 +60,10 @@ namespace sky {
         void SetIndexType(rhi::IndexType type);
         void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
 
+        void SetBoundingBox(const AABB &aabb);
+
         // geometry
+        const RDMaterialInstancePtr &GetMaterialBySubMesh(uint32_t section) const { return subMeshes[section].material; }
         const std::vector<SubMesh> &GetSubMeshes() const { return subMeshes; }
         const RenderGeometryPtr& GetGeometry() const { return geometry; }
 

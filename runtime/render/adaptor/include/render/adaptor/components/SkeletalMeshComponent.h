@@ -8,9 +8,8 @@
 #include <framework/asset/AssetHolder.h>
 #include <framework/interface/ITransformEvent.h>
 #include <framework/world/Component.h>
-#include <render/adaptor/assets/MeshAsset.h>
+#include <render/adaptor/assets/LodGroupAsset.h>
 #include <render/adaptor/event/PoseUpdateEvent.h>
-#include <render/resource/Mesh.h>
 #include <render/skeleton/SkeletalMeshRenderer.h>
 #include <animation/graph/AnimationNode.h>
 
@@ -50,7 +49,7 @@ namespace sky {
 
         void BuildSkeletonMeshAsync();
 
-        SingleAssetHolder<Mesh> holder;
+        SingleAssetHolder<LodGroup> holder;
         EventBinder<ITransformEvent> transformEvent;
         EventBinder<IPoseUpdateEvent> poseEvent;
         SkeletalMeshRenderer *renderer = nullptr;
@@ -59,8 +58,8 @@ namespace sky {
         Transform cachedTransform;
 
         // shared async
-        CounterPtr<Mesh> cachedMesh;
-        std::atomic_uint32_t isMeshDirty = false;
+        LodGroupBuildData cachedLodGroupData;
+        std::atomic_bool isMeshDirty = false;
     };
 
 } // namespace receiveShadow

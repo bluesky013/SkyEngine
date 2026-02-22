@@ -159,7 +159,10 @@ namespace sky::vk {
         SKY_ASSERT(writeIndex < writeInfos.size());
 
         auto &writeInfo = writeInfos[writeIndex];
-        const auto &viewInfo = vkImageView->GetSubRange();
+
+        if (writeInfo.image.imageView == vkImageView->GetNativeHandle()) {
+            return;
+        }
 
         if (writeInfo.image.sampler == VK_NULL_HANDLE) {
             writeInfo.image.sampler = device.GetDefaultSampler()->GetNativeHandle();
@@ -168,7 +171,6 @@ namespace sky::vk {
 
         SKY_ASSERT(binding < writeEntries.size());
         const auto &entry = writeEntries[binding];
-        auto mask = view->GetViewDesc().subRange.aspectMask;
         auto descriptorType = entry.descriptorType;
 
         if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||

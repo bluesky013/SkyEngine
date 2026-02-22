@@ -3,14 +3,16 @@
 //
 
 #pragma once
+#include "core/platform/Platform.h"
+
+#include <core/math/Color.h>
 #include <core/math/Math.h>
 #include <core/math/Matrix3.h>
 #include <core/math/Matrix4.h>
+#include <core/math/Quaternion.h>
 #include <core/math/Vector2.h>
 #include <core/math/Vector3.h>
 #include <core/math/Vector4.h>
-#include <core/math/Color.h>
-#include <core/math/Quaternion.h>
 
 namespace sky {
 #ifndef FLT_EPSILON
@@ -21,36 +23,54 @@ namespace sky {
         static void PrintMatrix(const Matrix4 &m);
     };
 
-    inline Vector2 Min(const Vector2 &lhs, const Vector2 &rhs);
-    inline Vector3 Min(const Vector3 &lhs, const Vector3 &rhs);
-    inline Vector4 Min(const Vector4 &lhs, const Vector4 &rhs);
+    FORCEINLINE Vector2 Min(const Vector2 &lhs, const Vector2 &rhs);
+    FORCEINLINE Vector3 Min(const Vector3 &lhs, const Vector3 &rhs);
+    FORCEINLINE Vector4 Min(const Vector4 &lhs, const Vector4 &rhs);
 
-    inline Vector2 Max(const Vector2 &lhs, const Vector2 &rhs);
-    inline Vector3 Max(const Vector3 &lhs, const Vector3 &rhs);
-    inline Vector4 Max(const Vector4 &lhs, const Vector4 &rhs);
+    FORCEINLINE Vector2 Max(const Vector2 &lhs, const Vector2 &rhs);
+    FORCEINLINE Vector3 Max(const Vector3 &lhs, const Vector3 &rhs);
+    FORCEINLINE Vector4 Max(const Vector4 &lhs, const Vector4 &rhs);
 
     template <typename T>
-    T Normalize(const T &v)
+    FORCEINLINE T Normalize(const T &v)
     {
         return T(v).Normalize();
     }
 
-    inline float ToRadian(float value)
+    template <typename T>
+    FORCEINLINE float Length(const T& v)
+    {
+        return sqrt(v.Dot(v));
+    }
+
+    template <typename T>
+    FORCEINLINE float LengthSquared(const T& v)
+    {
+        return v.Dot(v);
+    }
+
+    template <typename T>
+    FORCEINLINE T Square(const T& v)
+    {
+        return v * v;
+    }
+
+    FORCEINLINE float ToRadian(float value)
     {
         return value / 180.f * PI;
     }
 
-    inline Vector4 ToVec4(const Vector3 &vec)
+    FORCEINLINE Vector4 ToVec4(const Vector3 &vec)
     {
         return {vec.x, vec.y, vec.z, 1.f};
     }
 
-    inline Vector3 ToVec3(const Vector4 &vec)
+    FORCEINLINE Vector3 ToVec3(const Vector4 &vec)
     {
         return {vec.x, vec.y, vec.z};
     }
 
-    inline Matrix4 Cast(const Matrix3 &mat)
+    FORCEINLINE Matrix4 Cast(const Matrix3 &mat)
     {
         Matrix4 ret;
         ret.m[0] = ToVec4(mat[0]);
@@ -60,7 +80,7 @@ namespace sky {
         return ret;
     }
 
-    inline Matrix3 Cast(const Matrix4 &mat)
+    FORCEINLINE Matrix3 Cast(const Matrix4 &mat)
     {
         Matrix3 ret;
         ret.m[0] = ToVec3(mat[0]);
@@ -69,12 +89,12 @@ namespace sky {
         return ret;
     }
 
-    inline Vector4 Cast(const Color& color)
+    FORCEINLINE Vector4 Cast(const Color& color)
     {
         return {color.r, color.g, color.b, color.a};
     }
 
-    inline Matrix4 MakePerspective(float fovy, float aspect, float near, float far)
+    FORCEINLINE Matrix4 MakePerspective(float fovy, float aspect, float near, float far)
     {
         float const inverseHalfTan = cos(0.5f * fovy) / sin(0.5f * fovy);
 
@@ -87,7 +107,7 @@ namespace sky {
         return ret;
     }
 
-    inline Matrix4 MakeOrthogonal(float left, float right, float top, float bottom, float near, float far)
+    FORCEINLINE Matrix4 MakeOrthogonal(float left, float right, float top, float bottom, float near, float far)
     {
         Matrix4 ret;
         ret[0][0] = 2.f / (right - left);
@@ -100,7 +120,7 @@ namespace sky {
         return ret;
     }
 
-    inline void Decompose(const Matrix4 &m, Vector3 &trans, Quaternion &quat, Vector3 &scale)
+    FORCEINLINE void Decompose(const Matrix4 &m, Vector3 &trans, Quaternion &quat, Vector3 &scale)
     {
         trans.x = m.v[12];
         trans.y = m.v[13];
@@ -170,7 +190,7 @@ namespace sky {
         }
     }
 
-    inline Vector2 Min(const Vector2 &lhs, const Vector2 &rhs)
+    FORCEINLINE Vector2 Min(const Vector2 &lhs, const Vector2 &rhs)
     {
         Vector2 ret;
         ret.x = std::fmin(lhs.x, rhs.x);
@@ -178,7 +198,7 @@ namespace sky {
         return ret;
     }
 
-    inline Vector3 Min(const Vector3 &lhs, const Vector3 &rhs)
+    FORCEINLINE Vector3 Min(const Vector3 &lhs, const Vector3 &rhs)
     {
         Vector3 ret;
         ret.x = std::fmin(lhs.x, rhs.x);
@@ -187,7 +207,7 @@ namespace sky {
         return ret;
     }
 
-    inline Vector4 Min(const Vector4 &lhs, const Vector4 &rhs)
+    FORCEINLINE Vector4 Min(const Vector4 &lhs, const Vector4 &rhs)
     {
         Vector4 ret;
         ret.x = std::fmin(lhs.x, rhs.x);
@@ -197,7 +217,7 @@ namespace sky {
         return ret;
     }
 
-    inline Vector2 Max(const Vector2 &lhs, const Vector2 &rhs)
+    FORCEINLINE Vector2 Max(const Vector2 &lhs, const Vector2 &rhs)
     {
         Vector2 ret;
         ret.x = std::fmax(lhs.x, rhs.x);
@@ -205,7 +225,7 @@ namespace sky {
         return ret;
     }
 
-    inline Vector3 Max(const Vector3 &lhs, const Vector3 &rhs)
+    FORCEINLINE Vector3 Max(const Vector3 &lhs, const Vector3 &rhs)
     {
         Vector3 ret;
         ret.x = std::fmax(lhs.x, rhs.x);
@@ -214,7 +234,7 @@ namespace sky {
         return ret;
     }
 
-    inline Vector4 Max(const Vector4 &lhs, const Vector4 &rhs)
+    FORCEINLINE Vector4 Max(const Vector4 &lhs, const Vector4 &rhs)
     {
         Vector4 ret;
         ret.x = std::fmax(lhs.x, rhs.x);
@@ -224,21 +244,21 @@ namespace sky {
         return ret;
     }
 
-    inline Vector2 Floor(const Vector2 &v)
+    FORCEINLINE Vector2 Floor(const Vector2 &v)
     {
         return Vector2 {
             std::floor(v.x), std::floor(v.y),
         };
     }
 
-    inline Vector3 Floor(const Vector3 &v)
+    FORCEINLINE Vector3 Floor(const Vector3 &v)
     {
         return Vector3 {
             std::floor(v.x), std::floor(v.y), std::floor(v.z)
         };
     }
 
-    inline Vector2 Fract(const Vector2 &v)
+    FORCEINLINE Vector2 Fract(const Vector2 &v)
     {
         float tmp;
         return Vector2 {
@@ -246,7 +266,7 @@ namespace sky {
         };
     }
 
-    inline Vector3 Fract(const Vector3 &v)
+    FORCEINLINE Vector3 Fract(const Vector3 &v)
     {
         float tmp;
         return Vector3 {
@@ -255,43 +275,43 @@ namespace sky {
     }
 
     template <typename T>
-    inline T CeilTo(float val)
+    FORCEINLINE T CeilTo(float val)
     {
         return static_cast<T>(std::ceil(val));
     }
 
     template <typename T>
-    inline T FloorTo(float val)
+    FORCEINLINE T FloorTo(float val)
     {
         return static_cast<T>(std::floor(val));
     }
 
     template <typename T>
-    inline T TrunkTo(float val)
+    FORCEINLINE T TrunkTo(float val)
     {
         return static_cast<T>(std::truncf(val));
     }
 
-    constexpr inline uint32_t Ceil(uint32_t v0, uint32_t v1) {
+    constexpr FORCEINLINE uint32_t Ceil(uint32_t v0, uint32_t v1) {
         return (v0 + v1 - 1) / v1;
     }
 
-    constexpr inline float FloatSelect(float comp, float ge, float lt)
+    constexpr FORCEINLINE float FloatSelect(float comp, float ge, float lt)
     {
         return comp >= 0.f ? ge : lt;
     }
 
-    constexpr inline Vector3 Lerp(const Vector3 &v1, const Vector3 &v2, float t)
+    constexpr FORCEINLINE Vector3 Lerp(const Vector3 &v1, const Vector3 &v2, float t)
     {
         return Vector3 {
-          v1.x + (v2.x - v1.x) * t,
-          v1.y + (v2.y - v1.y) * t,
-          v1.z + (v2.z - v1.z) * t
+          v1.x + ((v2.x - v1.x) * t),
+          v1.y + ((v2.y - v1.y) * t),
+          v1.z + ((v2.z - v1.z) * t)
         };
     }
 
     template <typename T>
-    T::Type ScalerVisit(const T& t, uint32_t index)
+    FORCEINLINE T::Type ScalerVisit(const T& t, uint32_t index)
     {
         return t.v[index];
     }

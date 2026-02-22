@@ -18,6 +18,11 @@ namespace sky {
     };
     using SkinPtr = CounterPtr<Skin>;
 
+    struct SkinUpdateData : RefObject {
+        std::vector<Matrix4> boneMatrices;
+    };
+    using SkinUpdateDataPtr = CounterPtr<SkinUpdateData>;
+
     struct VertexBoneData {
         uint8_t boneId[MAX_BONE_PER_VERTEX];
         float weight[MAX_BONE_NUM];
@@ -61,5 +66,5 @@ namespace sky {
     private:
         std::vector<SkinPtr> skins;
     };
-    using RDSkeletonMeshPtr = CounterPtr<Mesh>;
+    using RDSkeletonMeshPtr = CounterPtr<SkeletonMesh>;
 } // namespace sky

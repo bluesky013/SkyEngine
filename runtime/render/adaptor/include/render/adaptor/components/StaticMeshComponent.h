@@ -4,71 +4,60 @@
 
 #pragma once
 
+#include <core/util/Uuid.h>
+#include <core/math/Transform.h>
 #include <framework/world/Component.h>
-#include <framework/asset/AssetEvent.h>
-#include <render/adaptor/assets/MeshAsset.h>
-#include <render/resource/Mesh.h>
+#include <framework/asset/AssetHolder.h>
+#include <framework/interface/ITransformEvent.h>
+#include <render/adaptor/assets/LodGroupAsset.h>
 #include <render/mesh/MeshRenderer.h>
 
 namespace sky {
 
-    class StaticMeshComponent : public ComponentBase, public IAssetEvent {
+    struct StaticMeshComponentData {
+        bool castShadow = false;
+        bool receiveShadow = false;
+
+        Uuid resId;
+    };
+
+    class StaticMeshComponent
+        : public ComponentAdaptor<StaticMeshComponentData>
+        , public ITransformEvent
+        , public IAssetReadyNotifier {
     public:
         StaticMeshComponent() = default;
-        ~StaticMeshComponent() override;
+        ~StaticMeshComponent() override = default;
 
         COMPONENT_RUNTIME_INFO(StaticMeshComponent)
 
         static void Reflect(SerializationContext *context);
 
         void Tick(float time) override;
-
-        void SaveJson(JsonOutputArchive &ar) const override;
-        void LoadJson(JsonInputArchive &ar) override;
-
-        MeshRenderer *GetRenderer() const { return renderer; }
-
-        void SetMeshUuid(const Uuid &uuid);
-        const Uuid& GetMeshUuid() const { return meshAsset ? meshAsset->GetUuid() : Uuid::GetEmpty(); }
-
-        void SetEnableMeshShading(bool enable);
-        bool GetEnableMeshShading() const { return enableMeshShading; }
-
-        void SetEnableMeshletDebug(bool enable);
-        bool GetEnableMeshletDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET); }
-
-        void SetEnableMeshletConeDebug(bool enable);
-        bool GetEnableMeshletConeDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESHLET_CONE); }
-
-        void SetMeshDebug(bool enable);
-        bool GetMeshDebug() const { return debugFlags.TestBit(MeshDebugFlagBit::MESH); }
-
-        void SetMultiply(bool enable);
-        bool GetMultiply() const { return multiply; }
-
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
     private:
-        void ShutDown();
-        void BuildRenderer();
+        void SetMeshUuid(const Uuid &uuid);
+        const Uuid& GetMeshUuid() const { return data.resId; }
 
-        void OnAssetLoaded() override;
+        void OnSerialized() override;
 
-        bool isStatic = true;
-        bool castShadow = false;
-        bool receiveShadow = false;
+        void OnAssetLoaded(const Uuid& uuid, const std::string_view& type) override;
 
-        bool enableMeshShading = false;
-        MeshDebugFlags debugFlags;
+        void OnTransformChanged(const Transform& global, const Transform& local) override;
 
-        MeshAssetPtr meshAsset;
-        RDMeshPtr meshInstance;
+        void BuildLodGroupAsync();
+
+        SingleAssetHolder<LodGroup> holder;
+        EventBinder<ITransformEvent> transformEvent;
         MeshRenderer *renderer = nullptr;
 
-        std::atomic_bool dirty = false;
-        bool multiply = false;
+        // transient status data
+        Transform cachedTransform;
 
-        EventBinder<IAssetEvent, Uuid> binder;
+        // shared async
+        RDLodGroupPtr cachedGroup;
+        std::atomic_bool isMeshDirty = false;
     };
 
 } // namespace receiveShadow

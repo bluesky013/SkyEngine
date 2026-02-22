@@ -42,6 +42,8 @@ namespace sky {
         const std::unordered_map<Name, BufferNameHandler> &GetBufferNameHandles() const { return bufferHandlers; }
         const rhi::DescriptorSetLayoutPtr &GetRHILayout() const { return layout; }
 
+        uint32_t GetHash() const noexcept { return layout->GetHash(); }
+
         bool IsEmpty() const { return handlers.empty(); }
 
     private:

@@ -44,7 +44,7 @@ namespace sky {
 
     SceneView *RenderScene::CreateSceneView(uint32_t viewCount)
     {
-        sceneViews.emplace_back(new SceneView(viewCounter++, viewCount, &resources));
+        sceneViews.emplace_back(new SceneView(viewCount, &resources));
         return sceneViews.back().get();
     }
 

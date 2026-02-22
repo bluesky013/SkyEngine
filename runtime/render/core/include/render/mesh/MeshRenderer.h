@@ -5,7 +5,7 @@
 #pragma once
 
 #include <render/resource/Mesh.h>
-#include <render/mesh/MeshletDebugRender.h>
+#include <render/lod/LodMeshPrimitive.h>
 #include <render/RenderPrimitive.h>
 #include <core/math/Matrix4.h>
 
@@ -22,46 +22,29 @@ namespace sky {
 
     class MeshRenderer {
     public:
-        MeshRenderer() = default;
+        explicit MeshRenderer(RenderScene *inScene);
         virtual ~MeshRenderer();
 
-        void Tick();
-        void AttachScene(RenderScene *scn);
-        void SetMesh(const RDMeshPtr &mesh, bool meshShading = false);
+        virtual void Init();
+
+        void SetMeshLodGroup(const RDLodGroupPtr &inGroup);
         void SetDebugFlags(const MeshDebugFlags& flag);
 
         void UpdateTransform(const Matrix4 &matrix);
-        const Matrix4& GetTransform() const;
-
-        void BuildGeometry();
-
-        void BuildMultipleInstance(uint32_t w, uint32_t h, uint32_t d);
-
-        void SetMaterial(const RDMaterialInstancePtr &mat, uint32_t subMesh);
-
-        size_t GetNumSubMeshes() const { return primitives.size(); }
     protected:
-        virtual void PrepareUBO();
-        virtual void OnInitSubMesh(size_t subMesh) {}
-        virtual RDResourceGroupPtr RequestResourceGroup(MeshFeature *feature, uint32_t index);
-        virtual void FillVertexFlags(RenderVertexFlags &flags) {}
+        void InitUBO();
 
-        void SetupDebugMeshlet();
-        void Reset();
-
+        void ResetPrimitive();
+        void BuildPrimitive(const RDLodGroupPtr &inGroup);
         RenderScene *scene = nullptr;
 
-        RDMeshPtr mesh;
-        std::vector<std::unique_ptr<RenderMaterialPrimitive>> primitives;
-        std::unique_ptr<MeshletDebugRender> meshletDebug;
-        std::vector<RDDynamicUniformBufferPtr> meshletInfos;
         RDDynamicUniformBufferPtr ubo;
-
-        bool enableMeshShading = false;
-        RenderGeometryPtr ownGeometry;
         MeshDebugFlags debugFlags;
 
-        RDBufferPtr instanceBuffer;
+        RDResourceGroupPtr instanceSet;
+
+        RenderLodPrimitive* lodPrimitive = nullptr;
+        std::unique_ptr<RenderPrimitive> primitive;
     };
 
 } // namespace sky

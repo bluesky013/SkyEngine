@@ -64,11 +64,14 @@ namespace sky {
 
     void ShadowMapPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
+        const Name shadowSceneView = Name("ShadowSceneView");
+
         auto *lf = GetFeatureProcessor<LightFeatureProcessor>(&scene);
         auto* mainLight = lf->GetMainLight();
 
         if (sceneView == nullptr) {
             sceneView = scene.CreateSceneView(1);
+            scene.AttachSceneView(sceneView, shadowSceneView);
         }
         if (mainLight != nullptr) {
             mainLight->BuildMatrix(*sceneView);
@@ -80,7 +83,7 @@ namespace sky {
 
         builder.AddQueue(Name("queue1"))
             .SetRasterID(Name("Shadow"))
-            .SetView(sceneView)
+            .SetSceneView(shadowSceneView)
             .SetLayout(layout);
     }
 } // namespace sky

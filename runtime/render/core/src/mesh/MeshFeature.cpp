@@ -51,11 +51,6 @@ namespace sky {
         localLayout->SetRHILayout(device->CreateDescriptorSetLayout({BINDINGS}));
         localLayout->AddNameHandler(Name("Local"), {0, sizeof(InstanceLocal)});
 
-        skinnedLayout = new ResourceGroupLayout();
-        skinnedLayout->SetRHILayout(device->CreateDescriptorSetLayout({SKINNED_BINDINGS}));
-        skinnedLayout->AddNameHandler(Name("Local"), {0, sizeof(InstanceLocal)});
-        skinnedLayout->AddNameHandler(Name("skinData"), {1, MAX_BONE_NUM * sizeof(Matrix4)});
-
         meshLayout = new ResourceGroupLayout();
         meshLayout->SetRHILayout(device->CreateDescriptorSetLayout({MESH_BINDINGS}));
         meshLayout->AddNameHandler(Name("Local"), {0, sizeof(InstanceLocal)});
@@ -97,13 +92,6 @@ namespace sky {
     {
         auto *rsg = new ResourceGroup();
         rsg->Init(meshLayout, *meshPool);
-        return rsg;
-    }
-
-    RDResourceGroupPtr MeshFeature::RequestSkinnedResourceGroup()
-    {
-        auto *rsg = new ResourceGroup();
-        rsg->Init(skinnedLayout, *pool);
         return rsg;
     }
 

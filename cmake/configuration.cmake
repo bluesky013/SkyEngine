@@ -28,6 +28,9 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
 endif()
 
+if (SKY_MATH_SIMD)
+    add_compile_definitions(SKY_MATH_SIMD=1)
+endif ()
 
 if (SKY_EDITOR OR SKY_BUILD_TOOL)
     add_compile_definitions(SKY_EDITOR)

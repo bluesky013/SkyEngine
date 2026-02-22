@@ -134,7 +134,7 @@ namespace sky {
             return nullptr;
         }
 
-        void GetValueRaw(const Name& key, uint8_t* ptr, uint32_t size)
+        void GetValueRaw(const Name& key, uint8_t* ptr, uint32_t size) const
         {
             auto iter = material->properties.find(key);
             if (iter != material->properties.end()) {
@@ -156,8 +156,8 @@ namespace sky {
         const RDMaterialPtr &GetMaterial() const { return material; }
         const MaterialPropertyMap &GetPropertyMap() const { return material->GetPropertyMap(); }
 
-        inline uint16_t GetValueVersion() const { return valueVersion; }
-        inline uint16_t GetBatchVersion() const { return batchVersion; }
+        FORCEINLINE uint16_t GetValueVersion() const { return valueVersion; }
+        FORCEINLINE uint16_t GetBatchVersion() const { return batchVersion; }
 
         void UploadTextures();
         bool IsReady() const;

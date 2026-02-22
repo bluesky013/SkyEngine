@@ -13,12 +13,16 @@ namespace sky {
 
     void RenderResourceGC::CollectBuffer(const rhi::BufferPtr &buffer)
     {
-        buffers.emplace_back(buffer);
+        if (buffer) {
+            buffers.emplace_back(buffer);
+        }
     }
 
     void RenderResourceGC::CollectImage(const rhi::ImagePtr &image)
     {
-        images.emplace_back(image);
+        if (image) {
+            images.emplace_back(image);
+        }
     }
 
     void RenderResourceGC::CollectImageViews(const rhi::ImageViewPtr &view)

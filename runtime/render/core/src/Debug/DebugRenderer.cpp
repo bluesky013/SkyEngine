@@ -169,7 +169,6 @@ namespace sky {
             geometry->vertexBuffers.emplace_back(VertexBuffer {
                     vertexBuffer, 0, capacity, static_cast<uint32_t>(sizeof(DebugVertex))
             });
-            geometry->version++;
         }
         vertexBuffer->SwapBuffer();
         SKY_ASSERT(batches.size() <= primitives.size());
@@ -182,10 +181,10 @@ namespace sky {
                 continue;
             }
             auto *primitive = primitives[batchIndex++];
-            primitive->batches[0].topo = key.topology;
+
 
             primitive->geometry = geometry;
-            primitive->args.clear();
+
 
             uint32_t dataOffset = firstVertex * sizeof(DebugVertex);
             uint32_t dataSize   = count * sizeof(DebugVertex);
@@ -194,7 +193,10 @@ namespace sky {
             rhi::CmdDrawLinear linear = {};
             linear.firstVertex = firstVertex;
             linear.vertexCount = count;
-            primitive->args.emplace_back(linear);
+
+            // primitive->sections[0].batches[0].topo = key.topology;
+            // primitive->sections[0].args.clear();
+            // primitive->sections[0].args.emplace_back(linear);
 
             firstVertex += count;
         }

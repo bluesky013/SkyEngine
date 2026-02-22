@@ -4,16 +4,14 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
-#include <string>
 #include <core/math/Matrix4.h>
 #include <core/shapes/Frustum.h>
 #include <core/shapes/AABB.h>
+#include <core/shapes/Bounds.h>
 #include <core/std/Container.h>
-#include <rhi/Buffer.h>
 #include <render/resource/Buffer.h>
 #include <render/RenderBuiltinLayout.h>
+#include <vector>
 
 namespace sky {
 
@@ -31,10 +29,11 @@ namespace sky {
         const Matrix4 &GetProject() const { return projects[0]; }
         const Matrix4 &GetView() const { return viewInfo[0].view; }
         const Matrix4 &GetViewProject() const { return viewInfo[0].viewProject; }
+        Vector3 GetViewOrigin() const { return Vector3(viewInfo[0].world[3][0], viewInfo[0].world[3][1], viewInfo[0].world[3][2]); }
 
         bool FrustumCulling(const AABB &aabb) const;
+        bool FrustumCulling(const BoundingBoxSphere &bounds) const;
 
-        uint32_t GetViewID() const { return viewID; }
         uint32_t GetViewCount() const { return viewCount; }
         uint32_t GetViewMask() const { return viewMask; }
 
@@ -42,12 +41,10 @@ namespace sky {
         float GetFarPlane() const { return far; }
 
         const RDUniformBufferPtr &GetUBO() const { return viewUbo; }
-
     private:
         friend class RenderScene;
-        explicit SceneView(uint32_t id, uint32_t count = 1, PmrResource *resource = nullptr);
+        explicit SceneView(uint32_t count = 1, PmrResource *resource = nullptr);
 
-        uint32_t viewID;
         uint32_t viewCount;
         uint32_t viewMask;
 
@@ -58,6 +55,7 @@ namespace sky {
         PmrVector<SceneViewInfo> viewInfo;
         PmrVector<SceneViewInfo> lastViewInfo;
         PmrVector<Frustum> frustums;
+
         bool dirty;
         bool flipY = true;
 

@@ -28,6 +28,11 @@ namespace sky {
         });
 
         computeResources.emplace_back(ComputeResource{
+            Name("FWD_PassInfo"),
+            rdg::ComputeView{Name("passInfo"), rdg::ComputeType::CBV, stageFlags}
+        });
+
+        computeResources.emplace_back(ComputeResource{
             Name("SCENE_VIEW"),
             rdg::ComputeView{Name("viewInfo"), rdg::ComputeType::CBV, stageFlags}
         });
@@ -49,13 +54,17 @@ namespace sky {
 
     void PostProcessingPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
-        auto *sceneView = scene.GetSceneView(Name("MainCamera"));
+        static const Name ViewName("MainCamera");
+        static const Name DebugQueueName("debug");
+        static const Name DebugRasterId("debug");
+        static const Name UIQueueName("UI");
+        static const Name UIRasterId("ui");
 
-        builder.AddQueue(Name("debug"))
-            .SetRasterID(Name("debug"))
-            .SetView(sceneView)
+        builder.AddQueue(DebugQueueName)
+            .SetRasterID(DebugRasterId)
+            .SetSceneView(ViewName)
             .SetLayout(debugLayout);
-        builder.AddQueue(Name("queue")).SetRasterID(Name("ui"));
+        builder.AddQueue(UIQueueName).SetRasterID(UIRasterId);
     }
 
 } // namespace sky

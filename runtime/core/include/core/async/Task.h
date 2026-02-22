@@ -24,6 +24,7 @@ namespace sky {
 
         bool IsWorking() const;
         void ResetTask();
+
         tf::AsyncTask GetTask() const { return handle; }
 
     protected:

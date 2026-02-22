@@ -11,113 +11,101 @@
 static const char *TAG = "Renderer";
 
 namespace sky::rdg {
-    static void BuildRenderBatch(RenderPrimitive* primitive, uint32_t batchIndex, const RasterPass &pass, uint32_t subPassId)
+    struct RenderItemGatherContext : IRenderItemGatherContext {
+        RenderItemGatherContext(RenderGraph &g, RasterQueue& queue, SceneView* view)
+            : context(g.context)
+            , rasterQueue(queue)
+        {
+            rasterID = queue.rasterID;
+            sceneView = view;
+        }
+
+        void Append(RenderItem&& item) override
+        {
+            rasterQueue.renderItems.emplace_back(std::move(item));
+        }
+
+        RenderGraphContext *context;
+        RasterQueue& rasterQueue;
+    };
+
+    RenderSceneVisitor::RenderSceneVisitor(RenderGraph &g, RenderScene *scn)
+        : graph(g)
+        , scene(scn)
+        , primitives(scene->GetPrimitives())
+        , visibleInfos(&g.context->resources)
     {
-        auto &batch = primitive->batches[batchIndex];
-
-        ShaderVariantKey vertexKey = {};
-        batch.technique->ProcessVertexVariantKey(primitive->vertexFlags, vertexKey);
-
-        ShaderVariantKey final = pass.passKey | vertexKey | batch.batchKey;
-
-        bool needRebuildPso = false;
-        if (final != batch.cacheFinalKey || !batch.program) {
-            batch.cacheFinalKey = final;
-            batch.program = batch.technique->RequestProgram(final, primitive->clusterValid);
-
-            if (batch.program) {
-                batch.vertexDesc = primitive->geometry->Request(batch.program);
-            } else {
-                LOG_E(TAG, "request program failed %s", final.ToString().c_str());
-            }
-
-            needRebuildPso = true;
-        }
-
-        uint32_t passHash = pass.renderPass->GetCompatibleHash();
-        if (batch.renderPassHash != passHash) {
-            batch.renderPassHash = passHash;
-            needRebuildPso = true;
-        }
-
-        auto &state = batch.technique->GetPipelineState();
-        if (state.inputAssembly.topology != batch.topo || state.rasterState.polygonMode != batch.polygonMode) {
-            needRebuildPso = true;
-        }
-
-        if (needRebuildPso) {
-            needRebuildPso &= static_cast<bool>(batch.program);
-//            needRebuildPso &= static_cast<bool>(batch.vertexDesc);
-            needRebuildPso &= static_cast<bool>(pass.renderPass);
-
-            if (needRebuildPso) {
-                auto pState = batch.technique->GetPipelineState();
-
-                // process override states.
-                pState.inputAssembly.topology = batch.topo;
-                pState.rasterState.polygonMode = batch.polygonMode;
-
-                batch.pso = GraphicsTechnique::BuildPso(batch.program, pState, batch.vertexDesc, pass.renderPass, subPassId);
-            }
-        }
-
-        // build vertex && index
-        if (primitive->geometry && primitive->geometry->version != batch.vaoVersion) {
-            if (!primitive->geometry->dynamicVB) {
-                batch.vao = primitive->geometry->Request(batch.program, batch.vertexDesc);
-            }
-            batch.vaoVersion = primitive->geometry->version;
-        }
+        visibleInfos.resize(primitives.size());
     }
 
-    static void BuildRenderPrimitive(RenderGraph &graph, RasterQueue &queue, RenderPrimitive* primitive)
+    void RenderSceneVisitor::Execute()
     {
-        const auto &subPass = graph.subPasses[Index(queue.passID, graph)];
-        const auto &rasterPass = graph.rasterPasses[Index(subPass.parent, graph)];
+        PerformCulling();
+        DispatchToRenderQueue();
+    }
 
-        for (uint32_t i = 0; i < primitive->batches.size(); ++i) {
-            auto &batch = primitive->batches[i];
+    void RenderSceneVisitor::DispatchToRenderQueue()
+    {
+        for (auto& queue : graph.rasterQueues) {
+            const auto &subPass = graph.subPasses[Index(queue.passID, graph)];
+            const auto &rasterPass = graph.rasterPasses[Index(subPass.parent, graph)];
 
-            uint32_t viewMask = batch.technique->GetViewMask();
-            Name rasterID = batch.technique->GetRasterID();
 
-            uint32_t sceneMask = queue.sceneView != nullptr ? queue.sceneView->GetViewMask() : 0xFFFFFFFF;
-            if ((sceneMask & viewMask) != sceneMask || rasterID != queue.rasterID) {
-                continue;
+            RenderBatchPrepareInfo batchInfo = {
+                .techId = queue.rasterID,
+                .pipelineKey = rasterPass.pipelineKey,
+                .pass = rasterPass.renderPass,
+                .subPassId = subPass.subPassID
+            };
+
+            RenderItemGatherContext gatherContext(graph, queue, nullptr);
+
+            uint8_t viewId = INVALID_VIEW_INDEX;
+
+            if (queue.viewID != INVALID_VERTEX) {
+                viewId = static_cast<uint8_t>(Index(queue.viewID, graph));
+                gatherContext.sceneView = graph.sceneViews[viewId].sceneView;
             }
-            BuildRenderBatch(primitive, i, rasterPass, subPass.subPassID);
 
-            if (batch.pso) {
-                queue.drawItems.emplace_back(RenderDrawItem{
-                    primitive, i
-                });
+            for (uint32_t i = 0; i < visibleInfos.size(); ++i) {
+                if (!visibleInfos[i].IsActive()) {
+                    continue;
+                }
+
+                if (viewId != INVALID_VIEW_INDEX && !visibleInfos[i].IsActiveInView(viewId)) {
+                    continue;
+                }
+
+                if (primitives[i]->PrepareBatch(batchInfo)) {
+                    primitives[i]->GatherRenderItem(&gatherContext);
+                }
             }
         }
     }
 
-    void RenderSceneVisitor::BuildRenderQueue()
+    void RenderSceneVisitor::PerformCulling()
     {
-        const auto &primitives = scene->GetPrimitives();
+        for (uint32_t primIndex = 0; primIndex < primitives.size(); ++primIndex) {
+            auto* prim = primitives[primIndex];
+            auto& visibleInfo = visibleInfos[primIndex];
 
-        for (const auto &prim : primitives) {
-            prim->PrepareBatch();
-        }
+            for (uint32_t viewId = 0; viewId < graph.sceneViews.size(); ++viewId) {
+                const auto &rdgView = graph.sceneViews[viewId];
+                bool visibleInView = true;
 
-        for (auto &queue : graph.rasterQueues) {
-            for (const auto &prim : primitives) {
-                if (!prim->geometry || !prim->IsReady()) {
-                    continue;
+                if (prim->shouldUseFrustumCulling && !rdgView.sceneView->FrustumCulling(prim->worldBounds)) {
+                    visibleInView = false;
                 }
 
-                if (queue.culling && queue.sceneView != nullptr && !queue.sceneView->FrustumCulling(prim->worldBound)) {
-                    continue;
+                if (visibleInView) {
+                    visibleInfo.SetActiveInView(viewId);
+                    prim->Prepare(rdgView.sceneView);
                 }
-                BuildRenderPrimitive(graph, queue, prim);
             }
-        }
 
-        for (const auto &prim : primitives) {
-            prim->UpdateBatch();
+            if (prim->IsReady()) {
+                visibleInfo.SetActive();
+            }
         }
     }
 } // namespace sky::rdg

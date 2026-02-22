@@ -12,6 +12,12 @@
 namespace sky {
 
     template <typename T>
+    inline uint32_t AlignOf32()
+    {
+        return static_cast<uint32_t>(alignof(T));
+    }
+
+    template <typename T>
     inline T Align(T size, T alignment)
     {
         return ((size + alignment - 1) & (~(alignment - 1)));
