@@ -21,19 +21,12 @@ endif()
 
 if (SKY_BUILD_TEST)
     enable_testing()
-    add_subdirectory(test)
 endif()
 
-add_subdirectory(runtime)
-add_subdirectory(launcher)
-
-if (SKY_BUILD_EDITOR)
-    add_subdirectory(editor)
-    sky_set_dependency(TARGET Editor)
-endif()
+add_subdirectory(engine)
+add_subdirectory(plugins)
 
 if (SKY_BUILD_TOOL)
     add_subdirectory(tools)
 endif()
 
-sky_set_dependency(TARGET Launcher)
