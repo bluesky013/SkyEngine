@@ -21,7 +21,6 @@ namespace sky {
         outMatrix[bone->index] = current.ToMatrix();
         for (const auto& childIdx : bone->children) {
             const auto* child = pose.skeleton->GetBoneByIndex(childIdx);
-            assert(child->index == childIdx);
             UpdateBone(child, pose, outMatrix, current);
         }
     }
