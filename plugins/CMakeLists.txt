@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Runtime/Plugins)
+set(CURRENT_FOLDER Plugins)
 
 if (SKY_EDITOR)
     add_subdirectory(guizmo)
@@ -30,4 +30,8 @@ endif ()
 
 if (SKY_BUILD_COMPRESSION)
     add_subdirectory(compression)
+endif()
+
+if (SKY_BUILD_PVS)
+    add_subdirectory(pvs)
 endif()

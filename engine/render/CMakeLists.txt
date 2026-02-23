@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Runtime/Render)
+set(CURRENT_FOLDER Engine/Render)
 
 add_subdirectory(backend)
 add_subdirectory(shader)

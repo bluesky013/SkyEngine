@@ -1,4 +1,4 @@
-set(CURRENT_FOLDER Runtime/Foundation)
+set(CURRENT_FOLDER Engine/Foundation)
 
 file(GLOB_RECURSE APP_SRC src/*)
 file(GLOB_RECURSE APP_INC include/*)

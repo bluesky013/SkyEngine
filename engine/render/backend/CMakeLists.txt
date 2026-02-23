@@ -1,3 +1,5 @@
+set(CURRENT_FOLDER Engine/Render/RHI)
+
 add_subdirectory(rhi)
 add_subdirectory(vulkan)
 
