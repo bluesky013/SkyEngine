@@ -4,6 +4,8 @@
 
 #include <core/shapes/Shapes.h>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <core/math/MathUtil.h>
 
 namespace sky {
@@ -47,6 +49,65 @@ namespace sky {
                            });
     }
 
+    std::tuple<bool, float, float> Intersection(const Ray &ray, const AABB &aabb)
+    {
+        // Slab-based ray-AABB intersection
+        float tMin = 0.0f;
+        float tMax = std::numeric_limits<float>::max();
+
+        // X axis
+        if (std::abs(ray.dir.x) < 1e-6f) {
+            // Ray parallel to X slab
+            if (ray.origin.x < aabb.min.x || ray.origin.x > aabb.max.x) {
+                return {false, 0.0f, 0.0f};
+            }
+        } else {
+            float invD = 1.0f / ray.dir.x;
+            float t1 = (aabb.min.x - ray.origin.x) * invD;
+            float t2 = (aabb.max.x - ray.origin.x) * invD;
+            if (t1 > t2) std::swap(t1, t2);
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+            if (tMin > tMax) return {false, 0.0f, 0.0f};
+        }
+
+        // Y axis
+        if (std::abs(ray.dir.y) < 1e-6f) {
+            if (ray.origin.y < aabb.min.y || ray.origin.y > aabb.max.y) {
+                return {false, 0.0f, 0.0f};
+            }
+        } else {
+            float invD = 1.0f / ray.dir.y;
+            float t1 = (aabb.min.y - ray.origin.y) * invD;
+            float t2 = (aabb.max.y - ray.origin.y) * invD;
+            if (t1 > t2) std::swap(t1, t2);
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+            if (tMin > tMax) return {false, 0.0f, 0.0f};
+        }
+
+        // Z axis
+        if (std::abs(ray.dir.z) < 1e-6f) {
+            if (ray.origin.z < aabb.min.z || ray.origin.z > aabb.max.z) {
+                return {false, 0.0f, 0.0f};
+            }
+        } else {
+            float invD = 1.0f / ray.dir.z;
+            float t1 = (aabb.min.z - ray.origin.z) * invD;
+            float t2 = (aabb.max.z - ray.origin.z) * invD;
+            if (t1 > t2) std::swap(t1, t2);
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+            if (tMin > tMax) return {false, 0.0f, 0.0f};
+        }
+
+        return {true, tMin, tMax};
+    }
+
+    bool IntersectionTest(const Ray &ray, const AABB &aabb)
+    {
+        return std::get<0>(Intersection(ray, aabb));
+    }
 
     Plane CreatePlaneByVertices(const Vector3 &v1, const Vector3 &v2, const Vector3 &v3)
     {
