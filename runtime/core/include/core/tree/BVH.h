@@ -113,7 +113,9 @@ namespace sky {
             }
 
             config_ = config;
-            elements_ = elements;
+            
+            // Store original elements temporarily
+            std::vector<T> originalElements = elements;
 
             // Build index array for sorting without moving elements
             std::vector<uint32_t> indices(elements.size());
@@ -121,16 +123,26 @@ namespace sky {
                 indices[i] = i;
             }
 
-            // Compute centroids for SAH
+            // Compute centroids for SAH (using original indices)
             centroids_.resize(elements.size());
             for (uint32_t i = 0; i < elements.size(); ++i) {
-                AABB bounds = BVHTraits<T>::GetBounds(elements[i]);
+                AABB bounds = BVHTraits<T>::GetBounds(originalElements[i]);
                 centroids_[i] = (bounds.min + bounds.max) * 0.5f;
             }
 
-            // Build the tree recursively
+            // Build the tree recursively - this sorts indices in place
             nodes_.reserve(elements.size() * 2);  // Rough estimate
-            BuildRecursive(indices, 0, static_cast<uint32_t>(indices.size()), 0);
+            BuildRecursive(originalElements, indices, 0, static_cast<uint32_t>(indices.size()), 0);
+            
+            // Reorder elements to match the sorted indices
+            // After this, elements_[i] corresponds to indices[i] from original
+            elements_.resize(indices.size());
+            for (uint32_t i = 0; i < indices.size(); ++i) {
+                elements_[i] = originalElements[indices[i]];
+            }
+            
+            // Clear centroids as they're no longer needed
+            centroids_.clear();
         }
 
         /**
@@ -278,7 +290,8 @@ namespace sky {
         /**
          * @brief Build BVH recursively
          */
-        NodeIndex BuildRecursive(std::vector<uint32_t> &indices, uint32_t start, uint32_t end, uint32_t depth)
+        NodeIndex BuildRecursive(const std::vector<T> &originalElements, std::vector<uint32_t> &indices, 
+                                  uint32_t start, uint32_t end, uint32_t depth)
         {
             NodeIndex nodeIndex = static_cast<NodeIndex>(nodes_.size());
             nodes_.emplace_back();
@@ -290,7 +303,7 @@ namespace sky {
             bounds.max = Vector3(std::numeric_limits<float>::lowest());
 
             for (uint32_t i = start; i < end; ++i) {
-                AABB elementBounds = BVHTraits<T>::GetBounds(elements_[indices[i]]);
+                AABB elementBounds = BVHTraits<T>::GetBounds(originalElements[indices[i]]);
                 Merge(bounds, elementBounds, bounds);
             }
             node.bounds = bounds;
@@ -307,7 +320,7 @@ namespace sky {
             // Choose split axis and position
             uint32_t splitAxis;
             uint32_t splitIndex;
-            FindBestSplit(indices, start, end, bounds, splitAxis, splitIndex);
+            FindBestSplit(originalElements, indices, start, end, bounds, splitAxis, splitIndex);
 
             // If split failed, create leaf
             if (splitIndex == start || splitIndex == end) {
@@ -320,9 +333,9 @@ namespace sky {
             PartitionElements(indices, start, end, splitAxis, splitIndex);
 
             // Recurse
-            node.leftChild = BuildRecursive(indices, start, splitIndex, depth + 1);
+            node.leftChild = BuildRecursive(originalElements, indices, start, splitIndex, depth + 1);
             // Re-fetch node reference as vector may have reallocated
-            nodes_[nodeIndex].rightChild = BuildRecursive(indices, splitIndex, end, depth + 1);
+            nodes_[nodeIndex].rightChild = BuildRecursive(originalElements, indices, splitIndex, end, depth + 1);
 
             return nodeIndex;
         }
@@ -330,12 +343,13 @@ namespace sky {
         /**
          * @brief Find best split using configured strategy
          */
-        void FindBestSplit(const std::vector<uint32_t> &indices, uint32_t start, uint32_t end,
+        void FindBestSplit(const std::vector<T> &originalElements, const std::vector<uint32_t> &indices, 
+                           uint32_t start, uint32_t end,
                            const AABB &bounds, uint32_t &outAxis, uint32_t &outIndex)
         {
             switch (config_.strategy) {
                 case BVHBuildStrategy::SAH:
-                    FindBestSplitSAH(indices, start, end, bounds, outAxis, outIndex);
+                    FindBestSplitSAH(originalElements, indices, start, end, bounds, outAxis, outIndex);
                     break;
                 case BVHBuildStrategy::MEDIAN:
                     FindBestSplitMedian(indices, start, end, bounds, outAxis, outIndex);
@@ -402,7 +416,8 @@ namespace sky {
         /**
          * @brief Find split using Surface Area Heuristic
          */
-        void FindBestSplitSAH(const std::vector<uint32_t> &indices, uint32_t start, uint32_t end,
+        void FindBestSplitSAH(const std::vector<T> &originalElements, const std::vector<uint32_t> &indices, 
+                              uint32_t start, uint32_t end,
                               const AABB &bounds, uint32_t &outAxis, uint32_t &outIndex)
         {
             constexpr uint32_t NUM_BUCKETS = 12;
@@ -446,7 +461,7 @@ namespace sky {
                     uint32_t b = static_cast<uint32_t>((c - minCentroid) * scale);
                     b = std::min(b, NUM_BUCKETS - 1);
                     buckets[b].count++;
-                    AABB elementBounds = BVHTraits<T>::GetBounds(elements_[indices[i]]);
+                    AABB elementBounds = BVHTraits<T>::GetBounds(originalElements[indices[i]]);
                     Merge(buckets[b].bounds, elementBounds, buckets[b].bounds);
                 }
 
