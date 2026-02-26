@@ -12,6 +12,7 @@
 #include <render/culling/PVSStreamingTypes.h>
 #include <render/culling/PVSStreamingManager.h>
 #include <render/culling/SIMDUtils.h>
+#include <render/culling/PVSSampling.h>
 #include <cmath>
 
 using namespace sky;
@@ -1303,4 +1304,242 @@ TEST(PVSStreamingManagerTest, Statistics)
     auto stats = manager.GetStatistics();
     ASSERT_EQ(stats.loadedSectors, 2);
     ASSERT_GT(stats.totalMemoryUsed, 0);
+}
+
+// ============================================================================
+// PVS Sampling Tests
+// ============================================================================
+
+TEST(PVSSamplingTest, RandomGenerator)
+{
+    PVSRandomGenerator rng(12345);
+    
+    // Test float range [0, 1)
+    for (int i = 0; i < 100; ++i) {
+        float f = rng.NextFloat();
+        ASSERT_GE(f, 0.0f);
+        ASSERT_LT(f, 1.0f);
+    }
+    
+    // Test float range with custom bounds
+    for (int i = 0; i < 100; ++i) {
+        float f = rng.NextFloat(10.0f, 20.0f);
+        ASSERT_GE(f, 10.0f);
+        ASSERT_LT(f, 20.0f);
+    }
+}
+
+TEST(PVSSamplingTest, RandomPointInCell)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(10.0f, 20.0f, 30.0f), Vector3(20.0f, 40.0f, 60.0f)};
+    
+    for (int i = 0; i < 100; ++i) {
+        Vector3 point = sampler.GenerateRandomPointInCell(bounds);
+        
+        ASSERT_GE(point.x, bounds.min.x);
+        ASSERT_LT(point.x, bounds.max.x);
+        ASSERT_GE(point.y, bounds.min.y);
+        ASSERT_LT(point.y, bounds.max.y);
+        ASSERT_GE(point.z, bounds.min.z);
+        ASSERT_LT(point.z, bounds.max.z);
+    }
+}
+
+TEST(PVSSamplingTest, RandomDirection)
+{
+    PVSSampling sampler(12345);
+    
+    for (int i = 0; i < 100; ++i) {
+        Vector3 dir = sampler.GenerateRandomDirection();
+        
+        // Should be normalized (length ~= 1)
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        ASSERT_NEAR(len, 1.0f, 0.001f);
+    }
+}
+
+TEST(PVSSamplingTest, HemisphereDirection)
+{
+    PVSSampling sampler(12345);
+    Vector3 upNormal(0.0f, 1.0f, 0.0f);
+    
+    for (int i = 0; i < 100; ++i) {
+        Vector3 dir = sampler.GenerateHemisphereDirection(upNormal);
+        
+        // Should be normalized
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        ASSERT_NEAR(len, 1.0f, 0.001f);
+        
+        // Dot product with normal should be positive (in hemisphere)
+        float dot = dir.x * upNormal.x + dir.y * upNormal.y + dir.z * upNormal.z;
+        ASSERT_GE(dot, 0.0f);
+    }
+}
+
+TEST(PVSSamplingTest, HaltonSequence)
+{
+    // Known Halton sequence values for base 2
+    ASSERT_NEAR(PVSSampling::HaltonSequence(1, 2), 0.5f, 0.001f);
+    ASSERT_NEAR(PVSSampling::HaltonSequence(2, 2), 0.25f, 0.001f);
+    ASSERT_NEAR(PVSSampling::HaltonSequence(3, 2), 0.75f, 0.001f);
+    ASSERT_NEAR(PVSSampling::HaltonSequence(4, 2), 0.125f, 0.001f);
+    
+    // Halton sequence base 3
+    ASSERT_NEAR(PVSSampling::HaltonSequence(1, 3), 1.0f/3.0f, 0.001f);
+    ASSERT_NEAR(PVSSampling::HaltonSequence(2, 3), 2.0f/3.0f, 0.001f);
+    ASSERT_NEAR(PVSSampling::HaltonSequence(3, 3), 1.0f/9.0f, 0.001f);
+}
+
+TEST(PVSSamplingTest, FibonacciSphereDirection)
+{
+    std::vector<Vector3> directions;
+    PVSSampling::GenerateFibonacciDirections(100, directions);
+    
+    ASSERT_EQ(directions.size(), 100);
+    
+    for (const auto &dir : directions) {
+        // Should be normalized
+        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        ASSERT_NEAR(len, 1.0f, 0.001f);
+    }
+}
+
+TEST(PVSSamplingTest, StratifiedPoints)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(0.0f), Vector3(10.0f)};
+    std::vector<Vector3> points;
+    
+    sampler.GenerateStratifiedPoints(bounds, 64, points);
+    
+    ASSERT_EQ(points.size(), 64);
+    
+    for (const auto &point : points) {
+        ASSERT_GE(point.x, bounds.min.x);
+        ASSERT_LT(point.x, bounds.max.x);
+        ASSERT_GE(point.y, bounds.min.y);
+        ASSERT_LT(point.y, bounds.max.y);
+        ASSERT_GE(point.z, bounds.min.z);
+        ASSERT_LT(point.z, bounds.max.z);
+    }
+}
+
+TEST(PVSSamplingTest, HaltonPoints)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(5.0f, 10.0f, 15.0f), Vector3(15.0f, 30.0f, 45.0f)};
+    std::vector<Vector3> points;
+    
+    sampler.GenerateHaltonPoints(bounds, 50, points);
+    
+    ASSERT_EQ(points.size(), 50);
+    
+    for (const auto &point : points) {
+        ASSERT_GE(point.x, bounds.min.x);
+        ASSERT_LE(point.x, bounds.max.x);
+        ASSERT_GE(point.y, bounds.min.y);
+        ASSERT_LE(point.y, bounds.max.y);
+        ASSERT_GE(point.z, bounds.min.z);
+        ASSERT_LE(point.z, bounds.max.z);
+    }
+}
+
+TEST(PVSSamplingTest, GenerateCellSamples)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(0.0f), Vector3(10.0f)};
+    
+    PVSCellSamplingConfig config;
+    config.numSamplesPerCell = 8;
+    config.numDirectionsPerSample = 16;
+    config.pointStrategy = PVSSamplingStrategy::STRATIFIED;
+    config.directionStrategy = PVSSamplingStrategy::FIBONACCI;
+    
+    PVSCellSamples samples;
+    sampler.GenerateCellSamples(bounds, config, samples);
+    
+    // Should have numSamplesPerCell * numDirectionsPerSample samples
+    ASSERT_EQ(samples.samples.size(), config.numSamplesPerCell * config.numDirectionsPerSample);
+    
+    for (const auto &sample : samples.samples) {
+        // Position should be in bounds
+        ASSERT_GE(sample.position.x, bounds.min.x);
+        ASSERT_LT(sample.position.x, bounds.max.x);
+        ASSERT_GE(sample.position.y, bounds.min.y);
+        ASSERT_LT(sample.position.y, bounds.max.y);
+        ASSERT_GE(sample.position.z, bounds.min.z);
+        ASSERT_LT(sample.position.z, bounds.max.z);
+        
+        // Direction should be normalized
+        float len = std::sqrt(sample.direction.x * sample.direction.x + 
+                             sample.direction.y * sample.direction.y + 
+                             sample.direction.z * sample.direction.z);
+        ASSERT_NEAR(len, 1.0f, 0.001f);
+    }
+}
+
+TEST(PVSSamplingTest, HemisphereSampling)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(0.0f), Vector3(10.0f)};
+    
+    PVSCellSamplingConfig config;
+    config.numSamplesPerCell = 4;
+    config.numDirectionsPerSample = 8;
+    config.useHemisphereForFloors = true;  // Use hemisphere
+    
+    PVSCellSamples samples;
+    sampler.GenerateCellSamples(bounds, config, samples);
+    
+    ASSERT_EQ(samples.samples.size(), config.numSamplesPerCell * config.numDirectionsPerSample);
+    
+    // All directions should be in upper hemisphere (y >= 0)
+    for (const auto &sample : samples.samples) {
+        ASSERT_GE(sample.direction.y, 0.0f);
+    }
+}
+
+TEST(PVSSamplingTest, DifferentStrategies)
+{
+    PVSSampling sampler(12345);
+    AABB bounds{Vector3(0.0f), Vector3(10.0f)};
+    
+    // Test RANDOM point strategy
+    std::vector<Vector3> randomPoints;
+    sampler.GeneratePointsInCell(bounds, 32, PVSSamplingStrategy::RANDOM, randomPoints);
+    ASSERT_EQ(randomPoints.size(), 32);
+    
+    // Test HALTON point strategy
+    std::vector<Vector3> haltonPoints;
+    sampler.GeneratePointsInCell(bounds, 32, PVSSamplingStrategy::HALTON, haltonPoints);
+    ASSERT_EQ(haltonPoints.size(), 32);
+    
+    // Test RANDOM direction strategy
+    std::vector<Vector3> randomDirs;
+    sampler.GenerateDirections(32, PVSSamplingStrategy::RANDOM, randomDirs);
+    ASSERT_EQ(randomDirs.size(), 32);
+    
+    // Test FIBONACCI direction strategy
+    std::vector<Vector3> fibDirs;
+    sampler.GenerateDirections(32, PVSSamplingStrategy::FIBONACCI, fibDirs);
+    ASSERT_EQ(fibDirs.size(), 32);
+}
+
+TEST(PVSSamplingTest, SeedDeterminism)
+{
+    // Two samplers with same seed should produce same results
+    PVSSampling sampler1(42);
+    PVSSampling sampler2(42);
+    
+    AABB bounds{Vector3(0.0f), Vector3(10.0f)};
+    
+    for (int i = 0; i < 10; ++i) {
+        Vector3 p1 = sampler1.GenerateRandomPointInCell(bounds);
+        Vector3 p2 = sampler2.GenerateRandomPointInCell(bounds);
+        
+        ASSERT_FLOAT_EQ(p1.x, p2.x);
+        ASSERT_FLOAT_EQ(p1.y, p2.y);
+        ASSERT_FLOAT_EQ(p1.z, p2.z);
+    }
 }
