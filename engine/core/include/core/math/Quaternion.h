@@ -21,6 +21,7 @@ namespace sky {
         };
 
         using BaseType = float;
+        using BinarySerializable = void;
 
         inline Quaternion();
         inline Quaternion(float w, float x, float y, float z);

@@ -75,6 +75,12 @@ namespace sky {
         return std::fstream(filePath, mode);
     }
 
+    FilePath FilePath::Relative(const FilePath& base) const
+    {
+        auto result = std::filesystem::relative(filePath, base.filePath);
+        return FilePath(result);
+    }
+
     FilePath& FilePath::operator/=(const FilePath& sub)
     {
         filePath /= sub.filePath;

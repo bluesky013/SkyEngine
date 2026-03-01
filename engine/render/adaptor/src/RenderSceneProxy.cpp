@@ -7,9 +7,9 @@
 
 namespace sky {
 
-    RenderSceneProxy::RenderSceneProxy()
+    RenderSceneProxy::RenderSceneProxy(const Uuid& uuid)
     {
-        renderScene = Renderer::Get()->CreateScene();
+        renderScene = Renderer::Get()->CreateScene(uuid);
     }
 
     RenderSceneProxy::~RenderSceneProxy()

@@ -17,9 +17,8 @@ namespace sky {
         ~RenderPassPipeline() override = default;
 
         void AddScenePass(RenderScenePipeline *ppl);
-    private:
         bool OnSetup(rdg::RenderGraph &rdg, const std::vector<RenderScene*> &scenes) override;
-
+    private:
         std::vector<std::unique_ptr<RenderScenePipeline>> scenePipelines;
     };
 

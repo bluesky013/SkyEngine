@@ -76,7 +76,7 @@ namespace sky {
     {
         colors.emplace_back(Attachment{
             rdg::RasterAttachment{out, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
-            rhi::ClearValue(0, 0, 0, 0)
+            rhi::ClearValue(0.f, 0.f, 0.f, 0.f)
         });
 
         computeResources.emplace_back(ComputeResource{
@@ -129,7 +129,7 @@ namespace sky {
 
         colors.emplace_back(Attachment{
             rdg::RasterAttachment{out, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
-            rhi::ClearValue(0, 0, 0, 0)
+            rhi::ClearValue(0.f, 0.f, 0.f, 0.f)
         });
 
         computeResources.emplace_back(ComputeResource{

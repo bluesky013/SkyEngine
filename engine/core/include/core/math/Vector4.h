@@ -26,6 +26,7 @@ namespace sky {
         };
 
         using BaseType = float;
+        using BinarySerializable = void;
 
         FORCEINLINE constexpr Vector4();
         FORCEINLINE constexpr Vector4(float v); // NOLINT

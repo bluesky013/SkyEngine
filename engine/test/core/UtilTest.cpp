@@ -7,6 +7,7 @@
 #include <core/util/Uuid.h>
 #include <core/util/ArrayBitFlag.h>
 #include <core/util/TimeBlend.h>
+#include <core/util/BitUtil.h>
 
 #include <unordered_set>
 #include <gtest/gtest.h>
@@ -136,4 +137,26 @@ TEST(TimeBlendTest, TimeBlendTest01)
 
     blend.Update(0.3f);
     ASSERT_FLOAT_EQ(blend.GetAlpha(), 0.5f);
+}
+
+TEST(UtilTest, BitUtil_CountBits)
+{
+    using sky::CountBits;
+
+    uint8_t data0[4] = {0, 0, 0, 0};
+    ASSERT_EQ(CountBits(data0, 4), 0u);
+
+    uint8_t data1[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    ASSERT_EQ(CountBits(data1, 4), 32u);
+
+    uint8_t data2[2] = {0x0F, 0xF0}; // 00001111, 11110000
+    ASSERT_EQ(CountBits(data2, 2), 8u);
+
+    uint8_t data3[1] = {0x01};
+    ASSERT_EQ(CountBits(data3, 1), 1u);
+    uint8_t data4[1] = {0x80};
+    ASSERT_EQ(CountBits(data4, 1), 1u);
+
+    ASSERT_EQ(CountBits(nullptr, 10), 0u);
+    ASSERT_EQ(CountBits(data0, 0), 0u);
 }

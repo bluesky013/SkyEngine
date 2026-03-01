@@ -60,4 +60,24 @@ namespace sky {
         return sectionNum;
     }
 
+    const BoundingBoxSphere &LodGroup::GetBoundingBox() const noexcept
+    {
+        static BoundingBoxSphere EMPTY;
+
+        if (!lodProxys.empty()) {
+            return lodProxys[0]->GetLocalBounds();
+        }
+
+        return EMPTY;
+    }
+
+    RDMeshPtr LodGroup::GetMesh() const noexcept
+    {
+        if (!lodProxys.empty()) {
+            return lodProxys[0]->GetMesh();
+        }
+
+        return {};
+    }
+
 } // namespace sky

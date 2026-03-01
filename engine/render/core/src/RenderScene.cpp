@@ -10,7 +10,9 @@ namespace sky {
     RenderScene::RenderScene()
         : features(&resources)
         , sceneViews(&resources)
+        , viewMap(&resources)
         , primitives(&resources)
+        , cullingSystems(&resources)
     {
     }
 
@@ -21,6 +23,13 @@ namespace sky {
 
     void RenderScene::PreTick(float time)
     {
+        auto *mainView = GetSceneView(mainViewName);
+        if (mainView != nullptr) {
+            for (auto& sys : cullingSystems) {
+                sys.second->UpdateByMainView(mainView->GetViewOrigin());;
+            }
+        }
+
         for (auto &feature : features) {
             feature.second->Tick(time);
         }
@@ -54,6 +63,11 @@ namespace sky {
         if (iter != viewMap.end() && iter->second == sceneView) {
             viewMap.erase(iter);
         }
+    }
+
+    void RenderScene::SetMainView(const Name& name)
+    {
+        mainViewName = name;
     }
 
     void RenderScene::AttachSceneView(SceneView* sceneView, const Name &name)
@@ -100,6 +114,18 @@ namespace sky {
     void RenderScene::AddFeature(IFeatureProcessor *feature)
     {
         features.emplace(feature->GetTypeID(), feature);
+    }
+
+    void RenderScene::RegisterCullingSystem(const Name& name, IRenderSceneCulling* sys)
+    {
+        sys->renderScene = this;
+        cullingSystems[name].reset(sys);
+    }
+
+    IRenderSceneCulling* RenderScene::GetCullingSystem(const Name& name) const
+    {
+        auto iter = cullingSystems.find(name);
+        return iter != cullingSystems.end() ? iter->second.get() : nullptr;
     }
 
 } // namespace sky

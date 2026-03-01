@@ -19,6 +19,7 @@ namespace sky {
         };
 
         using BaseType = float;
+        using BinarySerializable = void;
 
         inline constexpr Vector2();
         inline constexpr explicit Vector2(float v);

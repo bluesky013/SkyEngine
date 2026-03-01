@@ -4,11 +4,13 @@
 
 #pragma once
 
-#include <core/template/ReferenceObject.h>
+#include "RenderGeometry.h"
+
 #include <core/shapes/Bounds.h>
+#include <core/template/ReferenceObject.h>
+#include <render/RenderBase.h>
 #include <render/resource/Buffer.h>
 #include <render/resource/Technique.h>
-#include <render/RenderBase.h>
 
 namespace sky {
 

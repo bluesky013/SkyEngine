@@ -30,6 +30,10 @@ namespace sky {
 
         FORCEINLINE const LodProxy* GetLod(uint32_t lodIndex) const { return lodProxys[lodIndex].get(); }
         FORCEINLINE uint32_t GetLodCount() const { return static_cast<uint32_t>(lodProxys.size()); }
+
+        const BoundingBoxSphere &GetBoundingBox() const noexcept;
+
+        RDMeshPtr GetMesh() const noexcept;
     private:
         LodConfig config;
 

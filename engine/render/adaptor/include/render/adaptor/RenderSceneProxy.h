@@ -11,7 +11,7 @@ namespace sky {
 
     class RenderSceneProxy : public IWorldSubSystem {
     public:
-        RenderSceneProxy();
+        RenderSceneProxy(const Uuid& uuid = Uuid{});
         ~RenderSceneProxy() override;
 
         static constexpr std::string_view NAME = "RenderScene";

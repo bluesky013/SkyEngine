@@ -17,7 +17,7 @@ namespace sky {
         ~FirstPersonController() override = default;
 
         void BindWindow(const NativeWindow *window);
-        Transform Resolve(float time, const Transform &trans);
+        std::pair<Transform, bool> Resolve(float time, const Transform &trans);
 
         void SetMoveSpeed(float speed);
 

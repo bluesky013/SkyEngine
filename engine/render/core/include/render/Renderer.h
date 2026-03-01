@@ -19,10 +19,15 @@
 #include <render/RenderResourceGC.h>
 #include <render/FeatureProcessor.h>
 #include <render/RenderStreamManager.h>
-#include <render/RenderPipeline.h>
+#include <render/RenderPassPipeline.h>
 #include <render/resource/MaterialManager.h>
 
 namespace sky {
+
+    struct IRenderSystemEvent : EventTraits {
+        virtual void OnCreateRenderScene(RenderScene* scene) = 0;
+    };
+    using RenderSystemEvent = Event<IRenderSystemEvent>;
 
     class Renderer : public Singleton<Renderer> {
     public:
@@ -34,7 +39,7 @@ namespace sky {
 
         void StopRender();
 
-        RenderScene *CreateScene();
+        RenderScene *CreateScene(const Uuid& persistID = Uuid{});
         void RemoveScene(RenderScene *scene);
 
         RenderWindow *CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync);
@@ -57,8 +62,8 @@ namespace sky {
         void SetShaderCompiler(ShaderCompileFunc func) { shaderCompiler = func; }
         ShaderCompileFunc GetShaderCompiler() const { return shaderCompiler; }
 
-        void SetPipeline(RenderPipeline *pipeline);
-        const RenderPipeline* GetPipeline() const { return pipeline.get(); }
+        void SetPipeline(RenderPassPipeline *pipeline);
+        RenderPassPipeline* GetPipeline() { return pipeline.get(); }
 
         template <typename T>
         void RegisterRenderFeature()
@@ -92,7 +97,7 @@ namespace sky {
 
         std::unique_ptr<RenderStreamManager> streamManager;
         std::unique_ptr<MaterialManager> materialManager;
-        std::unique_ptr<RenderPipeline> pipeline;
+        std::unique_ptr<RenderPassPipeline> pipeline;
 
         ShaderCompileFunc shaderCompiler = nullptr;
         std::string cacheFolder;

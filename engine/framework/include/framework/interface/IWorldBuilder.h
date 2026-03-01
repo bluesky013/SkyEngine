@@ -23,7 +23,7 @@ namespace sky {
     class IWorldBuilderGather : public EventTraits {
     public:
         IWorldBuilderGather() = default;
-        ~IWorldBuilderGather() = default;
+        virtual ~IWorldBuilderGather() = default;
 
         virtual void Gather(std::list<CounterPtr<IWorldBuilder>> &builders) const = 0;
     };

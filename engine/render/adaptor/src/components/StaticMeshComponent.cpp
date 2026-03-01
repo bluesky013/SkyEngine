@@ -21,9 +21,11 @@ namespace sky {
         context->Register<StaticMeshComponentData>("StaticMeshComponentData")
             .Member<&StaticMeshComponentData::castShadow>("CastShadow")
             .Member<&StaticMeshComponentData::receiveShadow>("ReceiveShadow")
-            .Member<&StaticMeshComponentData::resId>("LodMesh");
+            .Member<&StaticMeshComponentData::resId>("LodMesh")
+            .Member<&StaticMeshComponentData::visibleID>("VisibleID");
 
         REGISTER_BEGIN(StaticMeshComponent, context)
+            REGISTER_MEMBER(VisibleID, SetObjectID, GetVisibleID)
             REGISTER_MEMBER(LodMesh, SetMeshUuid, GetMeshUuid)
                 SET_ASSET_TYPE(AssetTraits<LodGroup>::ASSET_TYPE);
     }
@@ -39,6 +41,7 @@ namespace sky {
         if (isMeshDirty && renderer != nullptr) {
             renderer->SetMeshLodGroup(cachedGroup);
             renderer->UpdateTransform(cachedTransform.ToMatrix());
+            renderer->SetUniqueID(data.visibleID);
             isMeshDirty = false;
         }
     }
@@ -46,6 +49,7 @@ namespace sky {
     void StaticMeshComponent::OnAttachToWorld()
     {
         transformEvent.Bind(this, actor);
+        staticObjectEvent.Bind(this, actor);
         cachedTransform = actor->GetComponent<TransformComponent>()->GetWorldTransform();
 
         auto *mf = GetFeatureProcessor<MeshFeatureProcessor>(actor);
@@ -63,6 +67,7 @@ namespace sky {
         }
 
         transformEvent.Reset();
+        staticObjectEvent.Reset();
     }
 
     void StaticMeshComponent::OnSerialized()
@@ -90,4 +95,31 @@ namespace sky {
         cachedGroup = CreateLodGroupFromAsset(holder.GetAsset()).group;
         isMeshDirty = true;
     }
+
+    void StaticMeshComponent::SetObjectID(VisibleID id)
+    {
+        data.visibleID = id;
+    }
+
+    BoundingBoxSphere StaticMeshComponent::GetWorldBounds() const
+    {
+        auto localBounds = cachedGroup->GetBoundingBox();
+        return BoundingBoxSphere::Transform(localBounds, cachedTransform.ToMatrix());
+    }
+
+    Matrix4 StaticMeshComponent::GetWorldTransform() const
+    {
+        return cachedTransform.ToMatrix();
+    }
+
+    RDMeshPtr StaticMeshComponent::GetMesh() const
+    {
+        return cachedGroup ? cachedGroup->GetMesh() : nullptr;
+    }
+
+    void StaticMeshComponent::Gather(std::vector<IStaticRenderObject*> &outObjects)
+    {
+        outObjects.emplace_back(this);
+    }
+
 } // namespace sky

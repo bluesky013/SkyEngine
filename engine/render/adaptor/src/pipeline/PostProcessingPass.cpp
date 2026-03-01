@@ -19,7 +19,7 @@ namespace sky {
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
         colors.emplace_back(Attachment{
             rdg::RasterAttachment{swapChainName, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE},
-            rhi::ClearValue(0, 0, 0, 0)
+            rhi::ClearValue(0.f, 0.f, 0.f, 0.f)
         });
 
         computeResources.emplace_back(ComputeResource{

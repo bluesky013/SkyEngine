@@ -15,9 +15,11 @@ namespace sky {
         moveSpeed = speed;
     }
 
-    Transform FirstPersonController::Resolve(float time, const Transform &trans)
+    std::pair<Transform, bool> FirstPersonController::Resolve(float time, const Transform &trans)
     {
         Transform res = trans;
+
+        bool isDirty = false;
 
         auto euler = trans.rotation.ToEulerYZX();
         if (mouseButtons[MouseButtonType::RIGHT]) {
@@ -30,6 +32,7 @@ namespace sky {
             euler.y -= diffX * 20000.0f * time;
             euler.x -= diffY * 20000.0f * time;
             res.rotation.FromEulerYZX(euler);
+            isDirty = true;
         }
 
         auto forward = trans.rotation * (-VEC3_Z);
@@ -38,18 +41,22 @@ namespace sky {
 
         if (keyButtons[ScanCode::KEY_W]) {
             res.translation += forward * time * moveSpeed;
+            isDirty = true;
         }
         if (keyButtons[ScanCode::KEY_S]) {
             res.translation -= forward * time * moveSpeed;
+            isDirty = true;
         }
         if (keyButtons[ScanCode::KEY_A]) {
             res.translation -= right * time * moveSpeed;
+            isDirty = true;
         }
         if (keyButtons[ScanCode::KEY_D]) {
             res.translation += right * time * moveSpeed;
+            isDirty = true;
         }
 
-        return res;
+        return {res, isDirty};
     }
 
     void FirstPersonController::BindWindow(const NativeWindow *window_)
@@ -105,7 +112,7 @@ namespace sky {
         }
 
         moveSpeed += static_cast<float>(event.y);
-        moveSpeed = std::clamp(moveSpeed, 0.1f, 100.f);
+        moveSpeed = std::clamp(moveSpeed, 0.1f, 10000.f);
     }
 
     void FirstPersonController::OnKeyUp(const KeyboardEvent &event)

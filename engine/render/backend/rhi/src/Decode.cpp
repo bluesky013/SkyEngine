@@ -25,6 +25,7 @@ namespace sky::rhi {
             {PixelFormat::RG32_SFLOAT,               {2, 8, 1, 1, false}},
             {PixelFormat::RGB32_SFLOAT,              {3, 12, 1, 1, false}},
             {PixelFormat::RGBA32_SFLOAT,             {4, 16, 1, 1, false}},
+            {PixelFormat::U32,                       {1, 4, 1, 1, false}},
             {PixelFormat::D32,                       {1, 4, 1, 1, false, true, false}},
             {PixelFormat::D24_S8,                    {2, 4, 1, 1, false, true, true}},
             {PixelFormat::D32_S8,                    {2, 5, 1, 1, false, true, true}},

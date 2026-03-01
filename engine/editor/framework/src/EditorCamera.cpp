@@ -42,14 +42,20 @@ namespace sky::editor {
     {
         if (sceneView != nullptr) {
             renderScene->AttachSceneView(sceneView, viewName);
+            renderScene->SetMainView(viewName);
         }
     }
 
     void EditorCamera::Tick(float time)
     {
         if (sceneView != nullptr) {
-            transform = controller.Resolve(time, transform);
-            sceneView->SetMatrix(transform.ToMatrix());
+            bool isDirty = false;
+
+            std::tie(transform, isDirty) = controller.Resolve(time, transform);
+
+            if (isDirty) {
+                sceneView->SetMatrix(transform.ToMatrix());
+            }
         }
     }
 

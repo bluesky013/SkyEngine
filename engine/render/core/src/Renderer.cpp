@@ -58,7 +58,7 @@ namespace sky {
         }
     }
 
-    void Renderer::SetPipeline(RenderPipeline *ppl)
+    void Renderer::SetPipeline(RenderPassPipeline *ppl)
     {
         device->WaitIdle();
         pipeline.reset(ppl);
@@ -124,14 +124,17 @@ namespace sky {
         return delayReleaseCollections[frameIndex].get();
     }
 
-    RenderScene *Renderer::CreateScene()
+    RenderScene *Renderer::CreateScene(const Uuid& persistID)
     {
         scenes.emplace_back(new RenderScene(), &Renderer::DestroyObj<RenderScene>);
         auto &scene = scenes.back();
         for (auto &feature : features) {
             scene->AddFeature(feature->BuildFeatureProcessor(scene.get()));
         }
-        return scenes.back().get();
+        scene->SetPersistentID(persistID);
+
+        RenderSystemEvent::BroadCast(&IRenderSystemEvent::OnCreateRenderScene, scene.get());
+        return scene.get();
     }
     RenderWindow *Renderer::CreateRenderWindow(void *hWnd, uint32_t width, uint32_t height, bool vSync)
     {

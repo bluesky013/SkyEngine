@@ -35,4 +35,13 @@ namespace sky {
         }
     }
 
+    void RenderStreamManager::FlushAll()
+    {
+        for (auto &res : uploadQueue) {
+            res->Upload(transferQueue);
+        }
+        uploadQueue.back()->Wait();
+        uploadQueue.clear();
+    }
+
 } // namespace sky

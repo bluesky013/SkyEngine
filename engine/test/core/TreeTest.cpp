@@ -7,6 +7,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/shapes/Shapes.h>
 #include <gtest/gtest.h>
+#include <core/tree/Bvh.h>
 
 using namespace sky;
 
@@ -343,4 +344,314 @@ TEST(OctreeTest, InvalidRemoveHandling)
     octree.RemoveElement(invalidIndex);  // Should handle gracefully
 
     ASSERT_EQ(octree.GetElementCount(), 0);
+}
+
+// =============================================================================
+// BVH test fixtures
+// =============================================================================
+
+struct TestBvhElement {
+    uint32_t id;
+    AABB     boundingBox;
+};
+
+template <>
+struct sky::BvhTraits<TestBvhElement> {
+    static const AABB &GetBounds(const TestBvhElement &ele)
+    {
+        return ele.boundingBox;
+    }
+};
+
+using TestBvh = Bvh<TestBvhElement>;
+
+// Helper: build a TestBvhElement centred at (cx, cy, cz) with half-extent r
+static TestBvhElement MakeBvhEle(uint32_t id, float cx, float cy, float cz, float r = 0.1f)
+{
+    return TestBvhElement{id, AABB{Vector3(cx - r, cy - r, cz - r), Vector3(cx + r, cy + r, cz + r)}};
+}
+
+// =============================================================================
+// BVH tests
+// =============================================================================
+
+TEST(BvhTest, EmptyBvh)
+{
+    TestBvh bvh;
+
+    ASSERT_TRUE(bvh.Empty());
+    ASSERT_EQ(bvh.GetElementCount(), 0u);
+    ASSERT_EQ(bvh.GetNodeCount(), 0u);
+
+    // Queries on empty BVH should not crash and return nothing
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(-1.f), Vector3(1.f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+    ASSERT_EQ(result.size(), 0u);
+
+    bvh.QueryRay(VEC3_ZERO, VEC3_Z, 1000.f,
+                 [&result](const TestBvhElement &e) { result.push_back(e); });
+    ASSERT_EQ(result.size(), 0u);
+}
+
+TEST(BvhTest, BuildSingleElement)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {MakeBvhEle(1, 0.f, 0.f, 0.f)};
+    bvh.Build(elems);
+
+    ASSERT_FALSE(bvh.Empty());
+    ASSERT_EQ(bvh.GetElementCount(), 1u);
+    ASSERT_GE(bvh.GetNodeCount(), 1u);
+
+    // Root bounds should contain the single element
+    const AABB &root = bvh.GetRootBounds();
+    ASSERT_LE(root.min.x, -0.1f);
+    ASSERT_GE(root.max.x,  0.1f);
+}
+
+TEST(BvhTest, QueryAABBBasic)
+{
+    TestBvh bvh;
+
+    // Three spatially separated elements
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1,  1.f,  0.f, 0.f),   // positive X
+        MakeBvhEle(2, -1.f,  0.f, 0.f),   // negative X
+        MakeBvhEle(3,  0.f,  1.f, 0.f),   // positive Y
+    };
+    bvh.Build(elems);
+
+    // Query near element 1 �� should find only element 1
+    std::vector<TestBvhElement> result;
+    AABB query{Vector3(0.8f, -0.2f, -0.2f), Vector3(1.2f, 0.2f, 0.2f)};
+    bvh.QueryAABB(query, [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_EQ(result[0].id, 1u);
+}
+
+TEST(BvhTest, QueryAABBMultipleHits)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1,  0.2f, 0.f, 0.f),
+        MakeBvhEle(2, -0.2f, 0.f, 0.f),
+        MakeBvhEle(3,  0.f,  5.f, 0.f),   // far away
+    };
+    bvh.Build(elems);
+
+    // Wide query that covers elements 1 & 2 but not 3
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 2u);
+
+    bool found1 = false, found2 = false;
+    for (const auto &e : result) {
+        if (e.id == 1) found1 = true;
+        if (e.id == 2) found2 = true;
+    }
+    ASSERT_TRUE(found1 && found2);
+}
+
+TEST(BvhTest, QueryAABBNoHit)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, 0.f, 0.f, 0.f),
+        MakeBvhEle(2, 1.f, 0.f, 0.f),
+    };
+    bvh.Build(elems);
+
+    // Query far from all elements
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(10.f, 10.f, 10.f), Vector3(11.f, 11.f, 11.f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 0u);
+}
+
+TEST(BvhTest, QueryRayHit)
+{
+    TestBvh bvh;
+
+    // Elements along the +Z axis at various depths
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, 0.f, 0.f, 1.f),
+        MakeBvhEle(2, 0.f, 0.f, 3.f),
+        MakeBvhEle(3, 5.f, 5.f, 5.f),  // off to the side, not on the ray
+    };
+    bvh.Build(elems);
+
+    // Ray from origin along +Z
+    std::vector<TestBvhElement> result;
+    bvh.QueryRay(VEC3_ZERO, VEC3_Z, 100.f,
+                 [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 2u);
+
+    bool found1 = false, found2 = false;
+    for (const auto &e : result) {
+        if (e.id == 1) found1 = true;
+        if (e.id == 2) found2 = true;
+    }
+    ASSERT_TRUE(found1 && found2);
+}
+
+TEST(BvhTest, QueryRayNoHit)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, 5.f, 5.f, 5.f),
+        MakeBvhEle(2, 5.f, 5.f, 6.f),
+    };
+    bvh.Build(elems);
+
+    // Ray along +Z at the origin �� misses all elements
+    std::vector<TestBvhElement> result;
+    bvh.QueryRay(VEC3_ZERO, VEC3_Z, 100.f,
+                 [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 0u);
+}
+
+TEST(BvhTest, QueryRayTMaxClip)
+{
+    TestBvh bvh;
+
+    // Element along +Z axis, but beyond tMax
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, 0.f, 0.f,  1.f),   // at Z=1, within range
+        MakeBvhEle(2, 0.f, 0.f, 10.f),   // at Z=10, beyond tMax=5
+    };
+    bvh.Build(elems);
+
+    std::vector<TestBvhElement> result;
+    bvh.QueryRay(VEC3_ZERO, VEC3_Z, 5.f,
+                 [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_EQ(result[0].id, 1u);
+}
+
+TEST(BvhTest, RootBoundsEnclosesAll)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, -3.f, 0.f, 0.f),
+        MakeBvhEle(2,  3.f, 0.f, 0.f),
+        MakeBvhEle(3,  0.f, 4.f, 0.f),
+    };
+    bvh.Build(elems);
+
+    const AABB &root = bvh.GetRootBounds();
+    ASSERT_LE(root.min.x, -3.1f);
+    ASSERT_GE(root.max.x,  3.1f);
+    ASSERT_GE(root.max.y,  4.1f);
+}
+
+TEST(BvhTest, ClearAndRebuild)
+{
+    TestBvh bvh;
+
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1, 0.f, 0.f, 0.f),
+        MakeBvhEle(2, 1.f, 0.f, 0.f),
+    };
+    bvh.Build(elems);
+    ASSERT_EQ(bvh.GetElementCount(), 2u);
+
+    bvh.Clear();
+    ASSERT_TRUE(bvh.Empty());
+    ASSERT_EQ(bvh.GetElementCount(), 0u);
+    ASSERT_EQ(bvh.GetNodeCount(), 0u);
+
+    // Rebuild with a different set
+    std::vector<TestBvhElement> elems2 = {MakeBvhEle(10, 2.f, 2.f, 2.f)};
+    bvh.Build(elems2);
+    ASSERT_EQ(bvh.GetElementCount(), 1u);
+
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(1.8f), Vector3(2.2f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_EQ(result[0].id, 10u);
+}
+
+TEST(BvhTest, LargeScaleAABBQuery)
+{
+    TestBvh bvh;
+
+    const int N = 200;
+    std::vector<TestBvhElement> elems;
+    elems.reserve(N);
+
+    for (int i = 0; i < N; ++i) {
+        float x = static_cast<float>(i % 10) - 4.5f;
+        float y = static_cast<float>((i / 10) % 10) - 4.5f;
+        float z = static_cast<float>(i / 100);
+        elems.push_back(MakeBvhEle(static_cast<uint32_t>(i), x, y, z, 0.05f));
+    }
+    bvh.Build(elems);
+
+    ASSERT_EQ(bvh.GetElementCount(), static_cast<uint32_t>(N));
+
+    // Query a 2��2��2 box around the origin
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(-1.f, -1.f, -0.5f), Vector3(1.f, 1.f, 0.5f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+
+    ASSERT_GT(result.size(), 0u);
+    ASSERT_LT(result.size(), static_cast<size_t>(N));
+}
+
+TEST(BvhTest, OverlappingElements)
+{
+    TestBvh bvh;
+
+    // All elements occupy the same position
+    std::vector<TestBvhElement> elems;
+    for (uint32_t i = 0; i < 10; ++i) {
+        elems.push_back(MakeBvhEle(i, 0.f, 0.f, 0.f, 0.5f));
+    }
+    bvh.Build(elems);
+
+    ASSERT_EQ(bvh.GetElementCount(), 10u);
+
+    std::vector<TestBvhElement> result;
+    bvh.QueryAABB(AABB{Vector3(-1.f), Vector3(1.f)},
+                  [&result](const TestBvhElement &e) { result.push_back(e); });
+    ASSERT_EQ(result.size(), 10u);
+}
+
+TEST(BvhTest, QueryAllAxesRay)
+{
+    TestBvh bvh;
+
+    // One element on each axis
+    std::vector<TestBvhElement> elems = {
+        MakeBvhEle(1,  2.f, 0.f, 0.f),   // +X axis
+        MakeBvhEle(2,  0.f, 2.f, 0.f),   // +Y axis
+        MakeBvhEle(3,  0.f, 0.f, 2.f),   // +Z axis
+    };
+    bvh.Build(elems);
+
+    auto doQuery = [&](const Vector3 &dir, uint32_t expectedId) {
+        std::vector<TestBvhElement> result;
+        bvh.QueryRay(VEC3_ZERO, dir, 100.f,
+                     [&result](const TestBvhElement &e) { result.push_back(e); });
+        ASSERT_EQ(result.size(), 1u);
+        ASSERT_EQ(result[0].id, expectedId);
+    };
+
+    doQuery(VEC3_X, 1u);
+    doQuery(VEC3_Y, 2u);
+    doQuery(VEC3_Z, 3u);
 }

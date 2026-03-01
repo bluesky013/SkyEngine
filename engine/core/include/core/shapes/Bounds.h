@@ -12,6 +12,11 @@
 
 namespace sky {
 
+    struct BoundingBox {
+        Vector3 center;
+        Vector3 extent;
+    };
+
     struct BoundingBoxSphere {
         Vector3 center;
         Vector3 extent;

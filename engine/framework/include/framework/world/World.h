@@ -65,6 +65,9 @@ namespace sky {
         void Init();
         void Tick(float time);
 
+        void SetPersistID(const Uuid& inID) { persistID = inID; }
+        const Uuid& GetPersistID() const { return persistID; }
+
         void SaveJson(JsonOutputArchive &archive);
         void LoadJson(JsonInputArchive &archive);
 
@@ -90,6 +93,8 @@ namespace sky {
 
         std::vector<ActorPtr> actors;
         std::unordered_map<Name, std::unique_ptr<IWorldSubSystem>> subSystems;
+
+        Uuid persistID;
 
         std::unordered_map<Name, Any> worldConfigs;
         uint32_t version = 0;

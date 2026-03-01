@@ -62,7 +62,7 @@ namespace sky::rdg {
     };
 
     struct RasterPassBuilder {
-        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0, 0, 0, 0));
+        RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0.f, 0.f, 0.f, 0.f));
         RasterPassBuilder &AddCoRelationMasks(uint32_t mask);
         RasterSubPassBuilder AddRasterSubPass(const Name &name);
 

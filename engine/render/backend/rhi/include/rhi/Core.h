@@ -50,6 +50,7 @@ namespace sky::rhi {
         RG32_SFLOAT,
         RGB32_SFLOAT,
         RGBA32_SFLOAT,
+        U32,
         D32,
         D24_S8,
         D32_S8,
@@ -510,6 +511,14 @@ namespace sky::rhi {
             color.float32[1] = g;
             color.float32[2] = b;
             color.float32[3] = a;
+        }
+
+        ClearValue(uint32_t r, uint32_t g, uint32_t b, uint32_t a) noexcept
+        {
+            color.uint32[0] = r;
+            color.uint32[1] = g;
+            color.uint32[2] = b;
+            color.uint32[3] = a;
         }
 
         ClearValue(float d, uint32_t s) noexcept

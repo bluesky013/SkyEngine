@@ -24,7 +24,7 @@ namespace sky {
 
         for (uint32_t i = 0; i < numLod; ++i) {
             auto *lodProxy = static_cast<const MeshLodProxy*>(lodGroup->GetLod(i));
-            auto &mesh = lodProxy->GetMesh();
+            auto mesh = lodProxy->GetMesh();
             if (mesh) {
                 lodPrimitives[i] = std::make_unique<RenderMaterialPrimitive>(mesh);
                 if (mesh->HasSkin()) {
@@ -72,7 +72,7 @@ namespace sky {
         }
 
         const auto* meshProxy = static_cast<const SkeletalMeshLodProxy*>(proxy);
-        const auto& mesh = meshProxy->GetMesh();
+        const auto& mesh = meshProxy->GetSkeletonMesh();
 
         for (uint32_t i = 0; i < primitive->sections.size(); ++i) {
             const auto& bindSkin = mesh->GetSkin(i);

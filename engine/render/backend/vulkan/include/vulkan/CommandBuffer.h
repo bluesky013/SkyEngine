@@ -144,6 +144,7 @@ namespace sky::vk {
         void Copy(VkImage src, VkImageLayout srcLayout, VkImage dst, VkImageLayout dstLayout, const VkImageCopy &copy);
         void Copy(const BufferPtr &src, const ImagePtr &dst, const VkBufferImageCopy &copy);
         void Copy(const BufferPtr &src, const BufferPtr &dst, const VkBufferCopy &copy);
+        void Copy(const ImagePtr &src, const BufferPtr &dst, const std::vector<VkBufferImageCopy> &copy);
 
         void BeginQuery(const QueryPoolPtr &pool, uint32_t queryId);
         void EndQuery(const QueryPoolPtr &pool, uint32_t queryId);

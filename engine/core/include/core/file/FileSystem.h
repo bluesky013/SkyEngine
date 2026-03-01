@@ -37,6 +37,8 @@ namespace sky {
         FilePath& operator/=(const FilePath& sub);
         FilePath operator/(const FilePath& sub) const;
 
+        FilePath Relative(const FilePath& base) const;
+
         std::string GetStr() const;
         void MakeDirectory() const;
         bool Exist() const;

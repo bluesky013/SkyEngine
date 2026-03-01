@@ -4,11 +4,12 @@
 
 #pragma once
 
-#include <core/util/Uuid.h>
+#include <render/IStaticRenderObject.h>
 #include <core/math/Transform.h>
-#include <framework/world/Component.h>
+#include <core/util/Uuid.h>
 #include <framework/asset/AssetHolder.h>
 #include <framework/interface/ITransformEvent.h>
+#include <framework/world/Component.h>
 #include <render/adaptor/assets/LodGroupAsset.h>
 #include <render/mesh/MeshRenderer.h>
 
@@ -19,11 +20,14 @@ namespace sky {
         bool receiveShadow = false;
 
         Uuid resId;
+        VisibleID visibleID = ~(0U);
     };
 
     class StaticMeshComponent
         : public ComponentAdaptor<StaticMeshComponentData>
         , public ITransformEvent
+        , public IStaticRenderObject
+        , public IStaticRenderObjectGather
         , public IAssetReadyNotifier {
     public:
         StaticMeshComponent() = default;
@@ -46,10 +50,21 @@ namespace sky {
 
         void OnTransformChanged(const Transform& global, const Transform& local) override;
 
+        VisibleID GetVisibleID() const { return data.visibleID; }
+        void SetObjectID(VisibleID id) override;
+
+        BoundingBoxSphere GetWorldBounds() const override;
+        Matrix4 GetWorldTransform() const override;
+        RDMeshPtr GetMesh() const override;
+
+        void Gather(std::vector<IStaticRenderObject*> &outObjects) override;
+
         void BuildLodGroupAsync();
 
         SingleAssetHolder<LodGroup> holder;
         EventBinder<ITransformEvent> transformEvent;
+        EventBinder<IStaticRenderObjectGather> staticObjectEvent;
+
         MeshRenderer *renderer = nullptr;
 
         // transient status data

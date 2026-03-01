@@ -19,6 +19,7 @@ namespace sky {
         void UploadTexture(const RDTexturePtr &texture);
         void UploadBuffer(const RDBufferPtr &buffer);
         void Tick();
+        void FlushAll();
 
     private:
         std::list<RDStreamableResourcePtr> uploadQueue;

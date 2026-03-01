@@ -85,6 +85,25 @@ namespace sky::rdg {
 
     void RenderSceneVisitor::PerformCulling()
     {
+        const auto& activeSceneViews = scene->GetActiveSceneViews();
+        const auto& cullingSystems = scene->GetCullingSystem();
+
+        std::unordered_map<Name, std::unordered_map<SceneView*, CounterPtr<RenderSceneCullingViewData>>> viewCullingData;
+
+        for (auto& [name, system] : cullingSystems) {
+            auto& viewDataMap = viewCullingData[name];
+            if (!system->IsActive()) {
+                continue;
+            }
+
+            for (auto& [viewName, sceneView] : activeSceneViews) {
+                auto *data = system->PrepareCullingViewData(sceneView);
+                if (data != nullptr) {
+                    viewDataMap[sceneView] = data;
+                }
+            }
+        }
+
         for (uint32_t primIndex = 0; primIndex < primitives.size(); ++primIndex) {
             auto* prim = primitives[primIndex];
             auto& visibleInfo = visibleInfos[primIndex];
@@ -93,14 +112,28 @@ namespace sky::rdg {
                 const auto &rdgView = graph.sceneViews[viewId];
                 bool visibleInView = true;
 
-                if (prim->shouldUseFrustumCulling && !rdgView.sceneView->FrustumCulling(prim->worldBounds)) {
-                    visibleInView = false;
+                for (auto& [name, cullingSys] : cullingSystems) {
+                    const auto &data = viewCullingData[name][rdgView.sceneView];
+                    if (!data) {
+                        continue;
+                    }
+
+                    if (prim->uniqueID != ~(0U) && !cullingSys->QueryVisible(data.Get(), prim->uniqueID)) {
+                        visibleInView = false;
+                        break;
+                    }
                 }
 
-                if (visibleInView) {
-                    visibleInfo.SetActiveInView(viewId);
-                    prim->Prepare(rdgView.sceneView);
+                if (!visibleInView) {
+                    continue;
                 }
+
+                if (prim->shouldUseFrustumCulling && !rdgView.sceneView->FrustumCulling(prim->worldBounds)) {
+                    continue;
+                }
+
+                visibleInfo.SetActiveInView(viewId);
+                prim->Prepare(rdgView.sceneView);
             }
 
             if (prim->IsReady()) {

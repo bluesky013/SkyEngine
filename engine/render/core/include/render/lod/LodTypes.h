@@ -5,8 +5,7 @@
 #pragma once
 
 #include <core/platform/Platform.h>
-#include <render/RenderGeometry.h>
-#include <render/RenderDrawArgs.h>
+#include <render/resource/Mesh.h>
 
 namespace sky {
 
@@ -31,6 +30,8 @@ namespace sky {
         virtual uint32_t GetSectionNum() const noexcept { return 1; }
 
         virtual bool HasSkin() const noexcept { return false; }
+
+        virtual RDMeshPtr GetMesh() const { return {}; }
 
         void SetLocalBounds(const BoundingBoxSphere &bounds)
         {

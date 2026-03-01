@@ -29,6 +29,7 @@ namespace sky {
 
         void SetMeshLodGroup(const RDLodGroupPtr &inGroup);
         void SetDebugFlags(const MeshDebugFlags& flag);
+        void SetUniqueID(uint32_t id);
 
         void UpdateTransform(const Matrix4 &matrix);
     protected:

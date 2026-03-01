@@ -75,6 +75,67 @@ namespace sky::vk {
         currentFrameId = (currentFrameId + 1) % INFLIGHT_NUM;
     }
 
+    rhi::TransferTaskHandle Queue::ReadImage(const rhi::ImagePtr& image, rhi::ReadCallBack&& callback)
+    {
+        return CreateTask([this, image, fn = std::move(callback)]() {
+            auto vkImage = std::static_pointer_cast<Image>(image);
+            const auto &imageInfo = vkImage->GetImageInfo();
+            const auto &formatInfo  = vkImage->GetFormatInfo();
+
+            BeginFrame();
+
+            VkImageSubresourceRange subResourceRange = {};
+            subResourceRange.aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
+            subResourceRange.baseMipLevel            = 0;
+            subResourceRange.levelCount              = imageInfo.mipLevels;
+            subResourceRange.baseArrayLayer          = 0;
+            subResourceRange.layerCount              = imageInfo.arrayLayers;
+            vk::Barrier barrier                      = {};
+            barrier.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            barrier.dstStageMask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            inflightCommands[currentFrameId]->QueueBarrier(vkImage, subResourceRange, barrier, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            inflightCommands[currentFrameId]->FlushBarriers();
+
+            for (uint32_t i = 0; i < imageInfo.arrayLayers; ++i) {
+                if (i != 0) {
+                    BeginFrame();
+                }
+
+                rhi::Buffer::Descriptor bufferDesc = {};
+                bufferDesc.size = imageInfo.extent.width * imageInfo.extent.height * imageInfo.extent.depth * formatInfo.blockSize;
+                bufferDesc.usage = rhi::BufferUsageFlagBit::TRANSFER_DST;
+                bufferDesc.memory = rhi::MemoryType::GPU_TO_CPU;
+                rhi::BufferPtr tmpBuffer = device.CreateBuffer(bufferDesc);
+                auto vkTmpBuffer = std::static_pointer_cast<vk::Buffer>(tmpBuffer);
+
+                uint32_t rowLength   = Ceil(imageInfo.extent.width, formatInfo.blockWidth);
+                uint32_t imageHeight = Ceil(imageInfo.extent.height, formatInfo.blockHeight);
+
+                VkBufferImageCopy region = {};
+                region.bufferOffset = 0;
+                region.bufferRowLength   = rowLength * formatInfo.blockWidth;
+                region.bufferImageHeight = imageHeight * formatInfo.blockHeight;
+                region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                region.imageSubresource.mipLevel = 0;
+                region.imageSubresource.baseArrayLayer = i;
+                region.imageSubresource.layerCount = 1;
+                region.imageOffset = {0, 0, 0};
+                region.imageExtent = imageInfo.extent;
+
+                inflightCommands[currentFrameId]->Copy(vkImage, vkTmpBuffer, {region});
+
+                EndFrame();
+                vkQueueWaitIdle(queue);
+                uint8_t* ptr = vkTmpBuffer->Map();
+                if (fn) {
+                    fn(ptr, i, bufferDesc.size);
+                }
+            }
+        });
+    }
+
     rhi::TransferTaskHandle Queue::UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests)
     {
         return CreateTask([this, image, requests]() {

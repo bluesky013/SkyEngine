@@ -66,7 +66,11 @@ namespace sky {
     {
         auto *scene = GetRenderSceneFromActor(actor);
         sceneView = scene->CreateSceneView(1);
-        scene->AttachSceneView(sceneView, Name("MainCamera"));
+
+        static const Name MainCameraName("MainCamera");
+
+        scene->AttachSceneView(sceneView, MainCameraName);
+        scene->SetMainView(Name(MainCameraName));
 
         if (auto *trans = actor->GetComponent<TransformComponent>(); trans != nullptr) {
             OnTransformChanged(trans->GetLocalTransform(), trans->GetWorldTransform());

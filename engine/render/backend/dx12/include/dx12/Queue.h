@@ -26,7 +26,7 @@ namespace sky::dx {
 
         rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests) override { return 0; }
         rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &image, const std::vector<rhi::BufferUploadRequest> &requests) override { return 0; }
-
+        rhi::TransferTaskHandle ReadImage(const rhi::ImagePtr& image, rhi::ReadCallBack&& callback) override { return  0; }
     private:
         friend class Device;
         bool Init(const Descriptor &);

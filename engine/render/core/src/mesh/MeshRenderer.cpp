@@ -59,6 +59,13 @@ namespace sky {
         BuildPrimitive(inLodGroup);
     }
 
+    void MeshRenderer::SetUniqueID(uint32_t id)
+    {
+        if (primitive) {
+            primitive->uniqueID = id;
+        }
+    }
+
     void MeshRenderer::SetDebugFlags(const MeshDebugFlags& flag)
     {
     }

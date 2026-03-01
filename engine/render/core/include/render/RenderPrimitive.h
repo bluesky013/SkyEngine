@@ -88,6 +88,9 @@ namespace sky {
 
         BoundingBoxSphere worldBounds;
 
+        // unique id
+        uint32_t uniqueID = 0xFFFFFFFF;
+
         // geometry
         RenderGeometryPtr geometry;
     };

@@ -122,13 +122,18 @@ namespace sky {
     {
         const auto &shaders = program->GetShaders();
 
+        auto vd = vertexDesc;
+        if (!vd) {
+            vd = RHI::Get()->GetDevice()->CreateVertexInput({});
+        }
+
         rhi::GraphicsPipeline::Descriptor descriptor = {};
         descriptor.state = state;
         descriptor.state.multiSample.sampleCount = pass->GetSamplerCount();
         descriptor.renderPass = pass;
         descriptor.subPassIndex = subPassID;
         descriptor.pipelineLayout = program->GetPipelineLayout();
-        descriptor.vertexInput = vertexDesc;
+        descriptor.vertexInput = vd;
         for (const auto &shader : shaders) {
             if (shader->GetStage() == rhi::ShaderStageFlagBit::VS) {
                 descriptor.vs = shader;

@@ -15,6 +15,11 @@ namespace sky {
         return static_cast<RenderSceneProxy*>(actor->GetWorld()->GetSubSystem(Name("RenderScene")))->GetRenderScene();
     }
 
+    inline RenderScene *GetRenderSceneFromWorld(World* world)
+    {
+        return static_cast<RenderSceneProxy*>(world->GetSubSystem(Name("RenderScene")))->GetRenderScene();
+    }
+
     template <typename T>
     T *GetFeatureProcessor(const RenderScene *scene)
     {

@@ -21,6 +21,8 @@ namespace sky::rhi {
         std::function<void(uint32_t)> callback;
     };
 
+    using ReadCallBack = std::function<void(const uint8_t*, uint32_t, uint64_t)>;
+
     class Queue {
     public:
         Queue();
@@ -56,6 +58,8 @@ namespace sky::rhi {
 
         virtual TransferTaskHandle UploadImage(const ImagePtr &image, const std::vector<ImageUploadRequest> &requests) = 0;
         virtual TransferTaskHandle UploadBuffer(const BufferPtr &image, const std::vector<BufferUploadRequest> &requests) = 0;
+
+        virtual TransferTaskHandle ReadImage(const ImagePtr& image, ReadCallBack&& callback) = 0;
 
         TransferTaskHandle UploadImage(const ImagePtr &image, const ImageUploadRequest &request);
         TransferTaskHandle UploadBuffer(const BufferPtr &buffer, const BufferUploadRequest &request);

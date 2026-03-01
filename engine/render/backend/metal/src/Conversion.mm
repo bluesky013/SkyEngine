@@ -15,6 +15,7 @@ namespace sky::mtl {
             {rhi::PixelFormat::RGBA8_SRGB, MTLPixelFormatRGBA8Unorm_sRGB},
             {rhi::PixelFormat::BGRA8_UNORM, MTLPixelFormatBGRA8Unorm},
             {rhi::PixelFormat::BGRA8_SRGB, MTLPixelFormatBGRA8Unorm_sRGB},
+            {rhi::PixelFormat::U32, MTLPixelFormatR32Uint},
             {rhi::PixelFormat::D32, MTLPixelFormatDepth32Float},
             {rhi::PixelFormat::D24_S8, MTLPixelFormatDepth24Unorm_Stencil8},
             {rhi::PixelFormat::D32_S8, MTLPixelFormatDepth32Float_Stencil8},

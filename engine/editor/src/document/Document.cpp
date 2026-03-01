@@ -48,7 +48,8 @@ namespace sky::editor {
 
     void Document::LoadWorld()
     {
-        NativeFile file(FilePath(filePath.toStdString()));
+        auto absPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath() / FilePath(filePath.toStdString());
+        NativeFile file(absPath);
         auto archive = file.ReadAsArchive();
         if (!archive || !archive->IsOpen()) {
             return;
@@ -60,7 +61,8 @@ namespace sky::editor {
 
     void Document::SaveWorld()
     {
-        NativeFile file(FilePath(filePath.toStdString()));
+        auto absPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath() / FilePath(filePath.toStdString());
+        NativeFile file(absPath);
         auto archive = file.WriteAsArchive();
         JsonOutputArchive json(*archive);
         world->SaveJson(json);
@@ -78,7 +80,17 @@ namespace sky::editor {
         world = World::CreateWorld();
         world->Init();
 
-        world->AddSubSystem(Name(RenderSceneProxy::NAME.data()), new RenderSceneProxy());
+        auto workPath = AssetDataBase::Get()->GetWorkSpaceFs()->GetPath();
+        auto fullPath = FilePath(path.toStdString());
+        auto relativePath = fullPath.Relative(workPath);
+
+        AssetSourcePath worldPath = {
+            .bundle = SourceAssetBundle::WORKSPACE,
+            .path = relativePath
+        };
+        auto worldUuid = AssetDataBase::CalculateUuidByPath(worldPath);
+        world->SetPersistID(worldUuid);
+        world->AddSubSystem(Name(RenderSceneProxy::NAME.data()), new RenderSceneProxy(worldUuid));
 
         auto *physics = phy::PhysicsRegistry::Get()->CreatePhysicsWorld();
         if (physics != nullptr) {

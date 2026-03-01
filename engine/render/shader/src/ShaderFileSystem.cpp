@@ -79,11 +79,9 @@ namespace sky {
     {
         auto replacedName = ShaderCompiler::ReplaceShadeName(name);
         if (cacheSourceFS) {
-            executor.silent_async([fs = cacheSourceFS, source, replacedName]() {
-                auto file = fs->CreateOrOpenFile(replacedName);
-                auto archive = file->WriteAsArchive();
-                archive->SaveRaw(source.c_str(), source.length());
-            });
+            auto file = cacheSourceFS->CreateOrOpenFile(replacedName);
+            auto archive = file->WriteAsArchive();
+            archive->SaveRaw(source.c_str(), source.length());
         }
     }
 

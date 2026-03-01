@@ -1,0 +1,21 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "box.hlsl",
+        "vertex": "VSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "debug"
+    },
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "NONE"
+    },
+    "vertex_options": {
+        "INSTANCE": "ENABLE_INSTANCE"
+    }
+}

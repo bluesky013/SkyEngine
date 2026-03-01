@@ -6,6 +6,7 @@
 
 #include <array>
 #include <bit>
+#include <limits>
 #include <type_traits>
 #include <core/hash/Hash.h>
 

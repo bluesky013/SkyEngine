@@ -16,7 +16,7 @@ namespace sky {
         MeshLodProxy(const RDMeshPtr& inMesh, const LodLevel &inLevel);
         ~MeshLodProxy() override = default;
 
-        const RDMeshPtr& GetMesh() const { return mesh; }
+        RDMeshPtr GetMesh() const override { return mesh; }
 
         uint32_t GetSectionNum() const noexcept override { return static_cast<uint32_t>(mesh->GetSubMeshes().size()); }
     private:
@@ -32,7 +32,7 @@ namespace sky {
         SkeletalMeshLodProxy(const RDSkeletonMeshPtr& inMesh, const LodLevel& level);
         ~SkeletalMeshLodProxy() override = default;
 
-        const RDSkeletonMeshPtr& GetMesh() const { return mesh; }
+        const RDSkeletonMeshPtr& GetSkeletonMesh() const { return mesh; }
 
         uint32_t GetSectionNum() const noexcept override { return static_cast<uint32_t>(mesh->GetSubMeshes().size()); }
 

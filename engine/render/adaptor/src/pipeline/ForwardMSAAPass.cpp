@@ -45,7 +45,7 @@ namespace sky {
                 Attachment{rdg::RasterAttachment{fwdMSAAColor, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)});
 
             resolves.emplace_back(
-                Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, rhi::ClearValue(0, 0, 0, 0)});
+                Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f)});
 
             depthStencil =
                 Attachment{rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0)};

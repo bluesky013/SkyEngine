@@ -14,8 +14,31 @@
 
 namespace sky {
 
+    struct RenderSceneCullingViewData : RefObject {
+    };
+
+    class IRenderSceneCulling {
+    public:
+        IRenderSceneCulling() = default;
+        virtual ~IRenderSceneCulling() = default;
+
+        virtual bool IsActive() const noexcept = 0;
+
+        virtual void UpdateByMainView(const Vector3& pos) noexcept {}
+
+        virtual RenderSceneCullingViewData* PrepareCullingViewData(const SceneView* view) const noexcept = 0;
+
+        virtual bool QueryVisible(const RenderSceneCullingViewData* data, uint32_t id) const noexcept = 0;
+    protected:
+        friend class RenderScene;
+        RenderScene* renderScene = nullptr;
+    };
+
     class RenderScene {
     public:
+        void SetPersistentID(const Uuid &id) { persistentID = id; }
+        const Uuid &GetPersistentID() const { return persistentID; }
+
         void PreTick(float time);
         void PostTick(float time);
         void Render(rdg::RenderGraph& rdg);
@@ -26,6 +49,8 @@ namespace sky {
         void AttachSceneView(SceneView* sceneView, const Name &name);
         void DetachSceneView(SceneView* sceneView, const Name &name);
         SceneView *GetSceneView(const Name& name) const;
+        void SetMainView(const Name& name);
+
         const PmrHashMap<Name, SceneView*> &GetActiveSceneViews() const { return viewMap; }
 
         void AddPrimitive(RenderPrimitive *primitive);
@@ -33,6 +58,10 @@ namespace sky {
 
         const PmrVector<RenderPrimitive *> &GetPrimitives() const { return primitives; }
         void AddFeature(IFeatureProcessor *feature);
+
+        void RegisterCullingSystem(const Name& name, IRenderSceneCulling* sys);
+        IRenderSceneCulling* GetCullingSystem(const Name& name) const;
+        const PmrHashMap<Name, std::unique_ptr<IRenderSceneCulling>> &GetCullingSystem() const { return cullingSystems; }
 
         const RenderPipelineFlags &GetRenderPipelineFlags() const { return renderFlags; }
 
@@ -50,13 +79,18 @@ namespace sky {
         RenderScene();
         ~RenderScene();
 
+        Uuid persistentID;
+
         PmrUnSyncPoolRes resources;
 
         PmrHashMap<uint32_t, std::unique_ptr<IFeatureProcessor>> features;
         PmrVector<std::unique_ptr<SceneView>> sceneViews;
 
+        Name mainViewName;
         PmrHashMap<Name, SceneView*> viewMap;
         PmrVector<RenderPrimitive *> primitives;
+
+        PmrHashMap<Name, std::unique_ptr<IRenderSceneCulling>> cullingSystems;
 
         RenderPipelineFlags renderFlags;
     };

@@ -325,6 +325,13 @@ namespace sky::vk {
         vkCmdCopyBuffer(cmdBuffer, src->GetNativeHandle(), dst->GetNativeHandle(), 1, &copy);
     }
 
+    void CommandBuffer::Copy(const ImagePtr &src, const BufferPtr &dst, const std::vector<VkBufferImageCopy> &copy)
+    {
+        vkCmdCopyImageToBuffer(cmdBuffer, src->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dst->GetNativeHandle(),
+            static_cast<uint32_t>(copy.size()), copy.data());
+    }
+
     ComputeEncoder::ComputeEncoder(CommandBuffer &cb) : cmdBuffer(cb)
     {
         cmd = cmdBuffer.GetNativeHandle();

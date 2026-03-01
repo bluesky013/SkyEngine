@@ -11,7 +11,9 @@ namespace sky {
     void PrefabComponent::Reflect(SerializationContext *context)
     {
         context->Register<PrefabComponentData>("PrefabComponentData")
-            .Member<&PrefabComponentData::prefabId>("PrefabId");
+            .Member<&PrefabComponentData::prefabId>("PrefabId")
+            .Member<&PrefabComponentData::visibleIDs>("VisibleIds");
+
 
         REGISTER_BEGIN(PrefabComponent, context)
             REGISTER_MEMBER(Prefab, SetPrefabId, GetPrefabId)
@@ -34,6 +36,10 @@ namespace sky {
         }
     }
 
+    void PrefabComponent::SetVisibleID(uint32_t nodeId, VisibleID visibleID)
+    {
+        data.visibleIDs[nodeId] = visibleID;
+    }
 
     void PrefabComponent::OnTransformChanged(const Transform& global, const Transform& local)
     {
@@ -72,6 +78,7 @@ namespace sky {
                 renderer = meshFeature->CreateStaticMesh();
                 Transform meshTrans = cacheTransform * task.localTransform;
                 renderer->SetMeshLodGroup(task.lodGroup);
+                renderer->SetUniqueID(data.visibleIDs[task.nodeId]);
                 renderer->UpdateTransform(meshTrans.ToMatrix());
             }
 
@@ -84,6 +91,7 @@ namespace sky {
     {
         isInWorld = true;
         transformEvent.Bind(this, actor);
+        gatherEvent.Bind(this, actor);
     }
 
     void PrefabComponent::OnDetachFromWorld()
@@ -97,6 +105,7 @@ namespace sky {
         renderers.clear();
         isInWorld = false;
         transformEvent.Reset();
+        gatherEvent.Reset();
     }
 
     void PrefabComponent::OnSerialized()
@@ -107,15 +116,20 @@ namespace sky {
     void PrefabComponent::OnAssetLoaded(const Uuid& uuid, const std::string_view& type)
     {
         if (type == AssetTraits<RenderPrefab>::ASSET_TYPE) {
-            const auto &data = prefab.Data();
-            size_t nodeNum = data.nodes.size();
+            const auto &prefabData = prefab.Data();
+            size_t nodeNum = prefabData.nodes.size();
             capacity.store(nodeNum);
+            proyNodes.resize(nodeNum);
+            data.visibleIDs.resize(nodeNum, ~(0U));
             linkList.clear();
             std::unordered_set<Uuid> meshesToLoad;
             for (uint32_t i = 0; i < nodeNum; ++i) {
-                const auto& node = data.nodes[i];
+                const auto& node = prefabData.nodes[i];
                 meshesToLoad.emplace(node.mesh);
                 linkList[node.mesh].emplace_back(i);
+
+                proyNodes[i].nodeId = i;
+                proyNodes[i].owner = this;
             }
 
             lodGroupHolders.clear();
@@ -123,11 +137,13 @@ namespace sky {
                 lodGroupHolders.emplace(meshId, SingleAssetHolder<LodGroup>{});
             }
 
+            std::lock_guard<std::mutex> lock(assetMutex);
             for (auto& [id, holder] : lodGroupHolders) {
                 holder.SetAsset(id, this);
             }
 
         } else if (type == AssetTraits<LodGroup>::ASSET_TYPE){
+            std::lock_guard<std::mutex> lockHolder(assetMutex);
             auto iter = lodGroupHolders.find(uuid);
             if (iter != lodGroupHolders.end()) {
                 auto lodGroup = CreateLodGroupFromAsset(lodGroupHolders[uuid].GetAsset());
@@ -140,8 +156,17 @@ namespace sky {
                     buildTask.lodGroup = lodGroup.group;
                     buildTask.nodeId = nodeId;
                     buildTask.localTransform = prefab.Data().nodes[nodeId].localTransform;
+
+                    proyNodes[nodeId].lodGroup = lodGroup.group;
                 }
             }
+        }
+    }
+
+    void PrefabComponent::Gather(std::vector<IStaticRenderObject*> &outObjects)
+    {
+        for (auto& node : proyNodes) {
+            outObjects.emplace_back(&node);
         }
     }
 
