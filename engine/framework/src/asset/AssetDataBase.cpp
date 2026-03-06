@@ -160,28 +160,36 @@ namespace sky {
 
     void AssetDataBase::RemoveAsset(const Uuid &id)
     {
-        std::lock_guard lock(assetMutex);
-        SKY_ASSERT(idMap.count(id));
-        auto &src = idMap[id];
-        pathMap.erase(src->path);
-        idMap.erase(id);
+        {
+            std::lock_guard lock(assetMutex);
+            auto iter = idMap.find(id);
+            if (iter == idMap.end()) {
+                return;
+            }
+            pathMap.erase(iter->second->path);
+            idMap.erase(iter);
+        }
+        AssetManager::Get()->RemoveAsset(id);
     }
 
     FilePtr AssetDataBase::OpenFile(const AssetSourcePtr &src)
     {
         const auto &fs = GetFileSystemBySourcePath(src->path);
+        if (!fs) { return {}; }
         return fs->OpenFile(src->path.path);
     }
 
     FilePtr AssetDataBase::OpenFile(const AssetSourcePath &path)
     {
         const auto &fs = GetFileSystemBySourcePath(path);
+        if (!fs) { return {}; }
         return fs->OpenFile(path.path);
     }
 
     FilePtr AssetDataBase::CreateOrOpenFile(const AssetSourcePath &path)
     {
         const auto &fs = GetFileSystemBySourcePath(path);
+        if (!fs) { return {}; }
         return fs->CreateOrOpenFile(path.path);
     }
 
