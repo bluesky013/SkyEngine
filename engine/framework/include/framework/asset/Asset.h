@@ -52,7 +52,6 @@ namespace sky {
         const AsyncTask &GetAsyncTask() const { return asyncTask; }
     protected:
         friend class AssetManager;
-        friend class AssetManager;
 
         Uuid                  uuid;
         Name                  type;
@@ -162,8 +161,8 @@ namespace sky {
             auto         &assetData = asset->Data();
 
             if (SERIALIZE_TYPE == SerializeType::JSON) {
-//                JsonOutputArchive archive(file);
-//                archive.SaveValueObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
+                JsonOutputArchive jArchive(archive);
+                jArchive.SaveValueObject(&assetData, TypeInfo<DataType>::RegisteredId());
             } else if (SERIALIZE_TYPE == SerializeType::BIN) {
                 BinaryOutputArchive bArchive(archive);
                 bArchive.SaveObject(assetBase->GetData(), TypeInfo<DataType>::RegisteredId());
