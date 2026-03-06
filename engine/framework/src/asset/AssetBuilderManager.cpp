@@ -8,6 +8,7 @@
 #include <framework/asset/AssetExecutor.h>
 #include <framework/asset/AssetEvent.h>
 #include <core/file/FileUtil.h>
+#include <core/logger/Logger.h>
 
 namespace sky {
     AssetBuilder *AssetBuilderManager::QueryBuilder(const std::string &ext) const
@@ -108,6 +109,12 @@ namespace sky {
     {
         AssetExecutor::Get()->PushSavingTask(request.file, [this, request]() {
             auto *builder = QueryBuilder(request.assetInfo->ext);
+            if (builder == nullptr) {
+                LOG_E("AssetBuilderManager", "No builder registered for extension: %s", request.assetInfo->ext.c_str());
+                AssetBuildResult result = {AssetBuildRetCode::FAILED};
+                AsseEvent::BroadCast(request.assetInfo->uuid, &IAssetEvent::OnAssetBuildFinished, result);
+                return;
+            }
             request.assetInfo->dependencies.clear();
 
             AssetBuildResult result = {};

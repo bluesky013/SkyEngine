@@ -37,7 +37,7 @@ namespace sky {
             }
 
             asset = uuid ? AssetManager::Get()->LoadAsset<T>(uuid) : std::shared_ptr<Asset<T>> {};
-            if (asset && asset->IsLoaded()) {
+            if (asset && asset->IsLoaded() && listener) {
                 listener->OnAssetLoaded(asset->GetUuid(), AssetTraits<T>::ASSET_TYPE);
             }
         }
@@ -58,7 +58,9 @@ namespace sky {
     private:
         void OnAssetLoaded() override
         {
-            listener->OnAssetLoaded(asset->GetUuid(), AssetTraits<T>::ASSET_TYPE);
+            if (listener) {
+                listener->OnAssetLoaded(asset->GetUuid(), AssetTraits<T>::ASSET_TYPE);
+            }
         }
 
         IAssetReadyNotifier* listener = nullptr;

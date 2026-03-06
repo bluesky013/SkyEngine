@@ -126,6 +126,7 @@ namespace sky {
                 }
 
                 if (!success) {
+                    asset->status.store(AssetBase::Status::FAILED);
                     return;
                 }
                 SKY_PROFILE_NAME("LoadAsset")
@@ -151,7 +152,7 @@ namespace sky {
         }
 
         for (const auto &bundle : bundles) {
-            if (bundle->GetKey() != target) {
+            if (bundle->GetKey() == target) {
                 return bundle.get();
             }
         }

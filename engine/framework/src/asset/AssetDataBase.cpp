@@ -100,7 +100,7 @@ namespace sky {
     AssetSourcePtr AssetDataBase::RegisterAsset(const AssetSourcePath &path, bool build)
     {
         const auto &fs = GetFileSystemBySourcePath(path);
-        if (!fs->FileExist(path.path)) {
+        if (!fs || !fs->FileExist(path.path)) {
             LOG_E(TAG, "File not Exist %s", path.path.GetStr().c_str());
             return nullptr;
         }
@@ -197,6 +197,9 @@ namespace sky {
 
     void AssetDataBase::Load()
     {
+        if (!workSpaceFs) {
+            return;
+        }
         auto file = workSpaceFs->OpenFile("assets.db");
         if (!file) {
             return;
@@ -257,6 +260,9 @@ namespace sky {
 
     void AssetDataBase::Save()
     {
+        if (!workSpaceFs) {
+            return;
+        }
         AssetExecutor::Get()->WaitForAll();
 
         auto file = workSpaceFs->CreateOrOpenFile("assets.db");
@@ -326,11 +332,11 @@ namespace sky {
 
     AssetSourcePath AssetDataBase::QuerySource(const std::string &path)
     {
-        if (workSpaceFs->FileExist(FilePath(path))) {
+        if (workSpaceFs && workSpaceFs->FileExist(FilePath(path))) {
             return {SourceAssetBundle::WORKSPACE, path};
         }
 
-        if (engineFs->FileExist(FilePath(path))) {
+        if (engineFs && engineFs->FileExist(FilePath(path))) {
             return {SourceAssetBundle::ENGINE, path};
         }
 
