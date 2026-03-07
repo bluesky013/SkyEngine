@@ -162,6 +162,8 @@ namespace sky {
         }
 
         // Apply Halton jitter for TSAA
+        // Uses a 16-sample Halton(2,3) sequence cycling every 16 frames.
+        // Index starts at 1 because Halton(0, base) = 0, which provides no jitter.
         Name mainCameraName = Name("MainCamera");
         auto *sceneView = scene->GetSceneView(mainCameraName);
         if (sceneView != nullptr && w > 0 && h > 0) {
