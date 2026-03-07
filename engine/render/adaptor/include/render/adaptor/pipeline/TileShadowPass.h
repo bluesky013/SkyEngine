@@ -103,8 +103,8 @@ namespace sky {
         TileShadowPassInfo shadowInfo{};
         uint32_t activeLights = 0;
 
-        // Whether the atlas image has been rendered to at least once (for initial barrier state)
-        bool atlasInitialized = false;
+        // Whether the atlas image has been rendered to at least once (reserved for future use)
+        // bool atlasInitialized = false;
 
         RDResourceLayoutPtr layout;
     };

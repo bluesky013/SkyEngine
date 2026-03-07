@@ -322,23 +322,21 @@ namespace sky {
 
         auto &rsg = rdg.resourceGraph;
 
-        // Import per-layer views so each ShadowSlotPass can write to its layer
-        const rhi::AccessFlags layerInitFlags =
-            atlasInitialized ? rhi::AccessFlagBit::DEPTH_STENCIL_READ : rhi::AccessFlagBit::NONE;
-
+        // Import per-layer views so each ShadowSlotPass can write to its layer.
+        // Use NONE as the initial state each frame – the render graph will generate
+        // the required barrier from the previous state.
         for (uint32_t i = 0; i < MAX_LIGHTS; ++i) {
             rsg.ImportImageView(
                 Name(("TileShadowLayer_" + std::to_string(i)).c_str()),
                 atlasImage, atlasLayerViews[i],
-                layerInitFlags);
+                rhi::AccessFlagBit::NONE);
         }
 
-        // Import full array view for shader sampling
-        const rhi::AccessFlags atlasReadFlags =
-            atlasInitialized ? rhi::AccessFlagBit::FRAGMENT_SRV : rhi::AccessFlagBit::NONE;
-
+        // Import full array view for shader sampling.
+        // After the slot passes run, the atlas layers will be in DEPTH_STENCIL_WRITE
+        // state; the render graph will transition them to FRAGMENT_SRV as needed.
         rsg.ImportImageView(Name(TILE_SHADOW_ATLAS.data()), atlasImage, atlasFullView,
-                            atlasReadFlags);
+                            rhi::AccessFlagBit::NONE);
 
         // Import UBOs
         rsg.ImportUBO(Name(TILE_SHADOW_INFO.data()),   shadowInfoUBO);
@@ -352,8 +350,6 @@ namespace sky {
                     shadowViews[i]);
             }
         }
-
-        atlasInitialized = true;
     }
 
     // ── AddPasses ─────────────────────────────────────────────────────────────
