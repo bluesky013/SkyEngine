@@ -18,6 +18,9 @@ namespace sky {
 
         void SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene) override;
 
+        // Change the source color input (e.g. redirect to fog pass output)
+        void SetColorInput(const Name &name);
+
     private:
         RDResourceLayoutPtr debugLayout;
     };
