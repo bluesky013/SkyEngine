@@ -11,6 +11,7 @@
 #include <render/adaptor/pipeline/DepthPass.h>
 #include <render/adaptor/pipeline/BRDFLutPass.h>
 #include <render/adaptor/pipeline/ShadowMapPass.h>
+#include <render/adaptor/pipeline/TileShadowPass.h>
 #include <render/adaptor/pipeline/EmptyPass.h>
 #include <memory>
 
@@ -40,10 +41,12 @@ namespace sky {
 
         rhi::ImagePtr hizDepth;
         rhi::SamplerPtr pointSampler;
+        rhi::SamplerPtr shadowAtlasSampler;
 
         std::unique_ptr<DepthPass>          depth;
         std::unique_ptr<HizGenerator>       hiz;
         std::unique_ptr<ShadowMapPass>      shadowMap;
+        std::unique_ptr<TileShadowPass>     tileShadow;
         std::unique_ptr<ForwardMSAAPass>    forward;
         std::unique_ptr<PostProcessingPass> postProcess;
         std::unique_ptr<PresentPass>        present;

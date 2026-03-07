@@ -44,6 +44,8 @@ namespace sky {
 
         void AddLight(Light *light);
         void RemoveLight(Light *light);
+
+        const std::vector<LightPtr> &GetLights() const { return lights; }
     private:
         void GatherLightInfo();
 

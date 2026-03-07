@@ -1,0 +1,128 @@
+// Tile-based shadow map shader bindings and helper functions.
+// Included by default_pass.hlslh – do not include this file directly.
+
+#ifndef MAX_SHADOW_LIGHTS
+#define MAX_SHADOW_LIGHTS 4
+#endif
+
+#ifndef TILE_SIZE
+#define TILE_SIZE 16
+#endif
+
+// Maximum tile counts that match the CPU-side constants in RenderBuiltinLayout.h
+#define MAX_SHADOW_TILES_X 128
+#define MAX_SHADOW_TILES_Y 72
+#define MAX_SHADOW_TILES (MAX_SHADOW_TILES_X * MAX_SHADOW_TILES_Y)
+
+// ── Per-light shadow data ─────────────────────────────────────────────────────
+struct ShadowLightData
+{
+    float4x4 LightViewProj; // Light's combined view-projection matrix
+    float4   PosRadius;     // xyz = world position, w = radius (0 for directional)
+    int      LightType;     // 0 = directional, 1 = spot, 2 = point
+    float3   Pad;
+};
+
+// ── Tile shadow info UBO (binding 12) ────────────────────────────────────────
+[[vk::binding(12, 0)]] cbuffer TileShadowInfo : register(b2, space0)
+{
+    ShadowLightData ShadowLights[MAX_SHADOW_LIGHTS];
+    uint  ShadowLightCount; // Number of active shadow lights this frame
+    uint  TileCountX;       // (screenW + TILE_SIZE - 1) / TILE_SIZE
+    uint  TileCountY;       // (screenH + TILE_SIZE - 1) / TILE_SIZE
+    float ShadowPad;
+}
+
+// ── Per-tile light bitmask UBO (binding 13) ───────────────────────────────────
+// Bit N of each element is 1 when shadow light N affects that tile.
+[[vk::binding(13, 0)]] cbuffer TileLightBitmask : register(b3, space0)
+{
+    uint TileBitmasks[MAX_SHADOW_TILES];
+}
+
+// ── Shadow atlas Texture2DArray (binding 14) ──────────────────────────────────
+// Layer index equals the shadow light index (0..ShadowLightCount-1).
+[[vk::binding(14, 0)]] Texture2DArray ShadowAtlas : register(t6, space0);
+[[vk::binding(15, 0)]] SamplerState ShadowAtlasSampler : register(s6, space0);
+
+// ── Bias matrix to convert from NDC [-1,1] to UV [0,1] ───────────────────────
+static const float4x4 TileBiasMat = float4x4(
+    0.5, 0.0, 0.0, 0.5,
+    0.0, 0.5, 0.0, 0.5,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0);
+
+// Returns the per-tile bitmask for the fragment at 'screenPos' (SV_Position).
+uint GetTileShadowBitmask(float2 screenPos)
+{
+    uint tileX   = (uint)screenPos.x / TILE_SIZE;
+    uint tileY   = (uint)screenPos.y / TILE_SIZE;
+    uint tileIdx = tileY * TileCountX + tileX;
+    tileIdx      = min(tileIdx, (uint)(MAX_SHADOW_TILES - 1));
+    return TileBitmasks[tileIdx];
+}
+
+// Shadowed fragment attenuation: fragments in shadow receive this fraction of direct light.
+static const float TILE_SHADOW_ATTENUATION = 0.1;
+
+// PCF shadow sample from the atlas for one shadow light.
+// Returns 1.0 (fully lit) or < 1.0 (in shadow).
+float SampleTileShadowPCF(uint lightIdx, float3 worldPos)
+{
+    ShadowLightData light = ShadowLights[lightIdx];
+    float4 sc = mul(TileBiasMat, mul(light.LightViewProj, float4(worldPos, 1.0)));
+    sc.xyz /= sc.w;
+
+    // Discard fragments outside the shadow frustum
+    if (sc.z <= 0.0 || sc.z >= 1.0 ||
+        sc.x <= 0.0 || sc.x >= 1.0 ||
+        sc.y <= 0.0 || sc.y >= 1.0)
+    {
+        return 1.0;
+    }
+
+    float bias = 0.005;
+    float shadow = 0.0;
+    float count  = 0.0;
+
+    uint atlasW, atlasH, atlasLayers;
+    ShadowAtlas.GetDimensions(atlasW, atlasH, atlasLayers);
+    float dx = 1.0 / (float)atlasW;
+    float dy = 1.0 / (float)atlasH;
+
+    [unroll]
+    for (int x = -1; x <= 1; ++x)
+    {
+        [unroll]
+        for (int y = -1; y <= 1; ++y)
+        {
+            float2 uv  = sc.xy + float2(dx * x, dy * y);
+            float  depth = ShadowAtlas.Sample(ShadowAtlasSampler,
+                               float3(uv, (float)lightIdx)).r;
+            shadow += (depth + bias < sc.z) ? TILE_SHADOW_ATTENUATION : 1.0;
+            count  += 1.0;
+        }
+    }
+    return shadow / count;
+}
+
+// Computes the combined tile-shadow factor for 'worldPos'.
+// 'screenPos' is SV_Position (pixel coordinates).
+// Returns a value in [0,1]: 1 = fully lit, < 1 = shadowed.
+float ComputeTileShadow(float2 screenPos, float3 worldPos)
+{
+    if (ShadowLightCount == 0u) return 1.0;
+
+    uint bitmask = GetTileShadowBitmask(screenPos);
+    if (bitmask == 0u) return 1.0;
+
+    float shadow = 1.0;
+    for (uint i = 0u; i < ShadowLightCount; ++i)
+    {
+        if ((bitmask & (1u << i)) != 0u)
+        {
+            shadow = min(shadow, SampleTileShadowPCF(i, worldPos));
+        }
+    }
+    return shadow;
+}
