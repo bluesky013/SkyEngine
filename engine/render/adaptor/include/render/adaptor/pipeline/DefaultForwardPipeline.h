@@ -12,6 +12,7 @@
 #include <render/adaptor/pipeline/BRDFLutPass.h>
 #include <render/adaptor/pipeline/ShadowMapPass.h>
 #include <render/adaptor/pipeline/EmptyPass.h>
+#include <render/adaptor/atmosphere/HeightFogPass.h>
 #include <memory>
 
 namespace sky {
@@ -45,6 +46,7 @@ namespace sky {
         std::unique_ptr<HizGenerator>       hiz;
         std::unique_ptr<ShadowMapPass>      shadowMap;
         std::unique_ptr<ForwardMSAAPass>    forward;
+        std::unique_ptr<HeightFogPass>      heightFog;
         std::unique_ptr<PostProcessingPass> postProcess;
         std::unique_ptr<PresentPass>        present;
         std::unique_ptr<BRDFLutPass>        brdfLut;

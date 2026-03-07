@@ -52,6 +52,13 @@ namespace sky {
         FullScreenPass::Setup(rdg, scene);
     }
 
+    void PostProcessingPass::SetColorInput(const Name &name)
+    {
+        auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
+        // computeResources[0] is always the color input (set in constructor)
+        computeResources[0] = ComputeResource{name, rdg::ComputeView{Name("InColor"), rdg::ComputeType::SRV, stageFlags}};
+    }
+
     void PostProcessingPass::SetupSubPass(rdg::RasterSubPassBuilder& builder, RenderScene &scene)
     {
         static const Name ViewName("MainCamera");
