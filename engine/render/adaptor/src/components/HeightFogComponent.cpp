@@ -46,6 +46,9 @@ namespace sky {
 
     void HeightFogComponent::OnDetachFromWorld()
     {
+        if (fp != nullptr) {
+            fp->SetFogDensity(0.f);
+        }
         fp = nullptr;
     }
 

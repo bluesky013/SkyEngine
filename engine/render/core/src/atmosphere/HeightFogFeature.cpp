@@ -19,7 +19,7 @@ namespace sky {
     {
         params.fogColor          = Vector4(0.7f, 0.8f, 0.9f, 0.f);
         params.inscatterColor    = Vector4(0.9f, 0.85f, 0.7f, 0.f);
-        params.fogDensity        = 0.02f;
+        params.fogDensity        = 0.0f;  // disabled by default; set by HeightFogComponent
         params.heightFalloff     = 0.15f;
         params.baseHeight        = 0.f;
         params.maxHeight         = 50.f;
