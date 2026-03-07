@@ -32,6 +32,7 @@ namespace sky {
         Vector3 mainLightDirection;
         float   padding;
         Vector4 viewport;
+        Vector4 jitter; // xy: jitter in UV space, zw: reserved
     };
 
 } // namespace sky

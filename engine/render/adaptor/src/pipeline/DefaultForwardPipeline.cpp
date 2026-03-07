@@ -11,9 +11,24 @@
 #include <render/adaptor/Util.h>
 #include <render/light/LightFeatureProcessor.h>
 #include <render/rdg/RenderGraph.h>
+#include <render/SceneView.h>
 #include <rhi/Util.h>
+#include <cmath>
 
 namespace sky {
+
+    static float Halton(uint32_t index, uint32_t base)
+    {
+        float result = 0.f;
+        float f = 1.f / static_cast<float>(base);
+        uint32_t i = index;
+        while (i > 0) {
+            result += f * static_cast<float>(i % base);
+            i /= base;
+            f /= static_cast<float>(base);
+        }
+        return result;
+    }
 
     RDTechniquePtr LoadGfxTech(const std::string& name)
     {
@@ -28,6 +43,7 @@ namespace sky {
         auto brdfTech = LoadGfxTech("techniques/brdf_lut.tech");
         auto depthResolveTech = LoadGfxTech("techniques/depth_resolve.tech");
         auto depthDownSampleTech = LoadGfxTech("techniques/depth_downsample.tech");
+        auto tsaaTech = LoadGfxTech("techniques/tsaa.tech");
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
@@ -84,7 +100,8 @@ namespace sky {
         shadowMap->SetLayout(defaultRasterLayout);
 
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
-        postProcess = std::make_unique<PostProcessingPass>(postTech);
+        tsaa        = std::make_unique<TSAAPass>(tsaaTech, rhi::PixelFormat::RGBA16_SFLOAT);
+        postProcess = std::make_unique<PostProcessingPass>(postTech, TSAA_CL);
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
 
         hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
@@ -143,13 +160,31 @@ namespace sky {
                 info.viewport.w = (float)h;
             }
         }
+
+        // Apply Halton jitter for TSAA
+        // Uses a 16-sample Halton(2,3) sequence cycling every 16 frames.
+        // Index starts at 1 because Halton(0, base) = 0, which provides no jitter.
+        Name mainCameraName = Name("MainCamera");
+        auto *sceneView = scene->GetSceneView(mainCameraName);
+        if (sceneView != nullptr && w > 0 && h > 0) {
+            uint32_t jitterIdx = (frameIndex % 16) + 1;
+            float jitterX = Halton(jitterIdx, 2) - 0.5f;
+            float jitterY = Halton(jitterIdx, 3) - 0.5f;
+
+            float clipJitterX = jitterX * 2.0f / static_cast<float>(w);
+            float clipJitterY = jitterY * 2.0f / static_cast<float>(h);
+            sceneView->SetJitter(clipJitterX, clipJitterY);
+
+            info.jitter.x = jitterX / static_cast<float>(w);
+            info.jitter.y = jitterY / static_cast<float>(h);
+        }
+        frameIndex++;
+
         defaultGlobal->WriteT(0, info);
 
         Name colorViewName = Name("SCENE_VIEW");
         Name fwdPassInfoName = Name("FWD_PassInfo");
-        Name mainCameraName = Name("MainCamera");
 
-        auto *sceneView = scene->GetSceneView(mainCameraName);
         auto &rg = rdg.resourceGraph;
         rg.ImportUBO(colorViewName, sceneView->GetUBO());
         rg.ImportUBO(fwdPassInfoName, defaultGlobal);
@@ -174,6 +209,9 @@ namespace sky {
         AddPass(forward.get());
 
 //        AddPass(empty.get());
+
+        tsaa->Resize(renderWidth, renderHeight);
+        AddPass(tsaa.get());
 
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());

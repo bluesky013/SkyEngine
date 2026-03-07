@@ -10,11 +10,11 @@
 
 namespace sky {
 
-    PostProcessingPass::PostProcessingPass(const RDGfxTechPtr &tech)
+    PostProcessingPass::PostProcessingPass(const RDGfxTechPtr &tech, std::string_view inputColorName)
         : FullScreenPass(Name("PostProcessingPass"), tech)
     {
         Name swapChainName(SWAP_CHAIN.data());
-        Name fwdColor(FWD_CL.data());
+        Name inputColor(inputColorName.data());
 
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
         colors.emplace_back(Attachment{
@@ -23,7 +23,7 @@ namespace sky {
         });
 
         computeResources.emplace_back(ComputeResource{
-            fwdColor,
+            inputColor,
             rdg::ComputeView{Name("InColor"), rdg::ComputeType::SRV, stageFlags}
         });
 

@@ -11,7 +11,7 @@ namespace sky {
 
     class PostProcessingPass : public FullScreenPass {
     public:
-        explicit PostProcessingPass(const RDGfxTechPtr &tech);
+        PostProcessingPass(const RDGfxTechPtr &tech, std::string_view inputColorName = FWD_CL);
         ~PostProcessingPass() override = default;
 
         void Setup(rdg::RenderGraph &rdg, RenderScene &scene) override;

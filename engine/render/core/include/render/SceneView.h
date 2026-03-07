@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/math/Matrix4.h>
+#include <core/math/Vector2.h>
 #include <core/shapes/Frustum.h>
 #include <core/shapes/AABB.h>
 #include <core/shapes/Bounds.h>
@@ -23,6 +24,7 @@ namespace sky {
         void SetPerspective(float near, float far, float fov, float aspect, uint32_t index = 0);
         void SetOrthogonal(float l, float r, float t, float b, float near, float far, uint32_t index = 0);
         void SetFlipY(bool flip) { flipY = flip; }
+        void SetJitter(float jitterX, float jitterY);
         void Update();
 
         const Matrix4 &GetWorld() const { return viewInfo[0].world; }
@@ -58,6 +60,8 @@ namespace sky {
 
         bool dirty;
         bool flipY = true;
+
+        Vector2 jitter;
 
         RDUniformBufferPtr viewUbo;
     };
