@@ -48,8 +48,8 @@ struct ViewInfo {
     float  MaxHeight;          // height above which there is no fog
     float  StartDistance;      // view distance before fog starts
     float  InscatterExponent;  // exponent for directional inscattering
+    float  ClipYSign;          // +1 Vulkan (NDC Y=-1 at top), -1 DX12 (NDC Y=+1 at top)
     float  Pad0;
-    float  Pad1;
 }
 
 [[vk::binding(2, 0)]] Texture2D    InColor        : register(t0, space0);
@@ -61,7 +61,9 @@ struct ViewInfo {
 // Reconstruct world position from a depth value and screen UV.
 float3 ReconstructWorldPos(float2 uv, float depth)
 {
-    float2 ndc    = uv * 2.0 - 1.0;
+    // ClipYSign handles API differences: +1 for Vulkan (NDC Y=-1 at top),
+    // -1 for DX12/Metal (NDC Y=+1 at top).
+    float2 ndc    = float2(uv.x * 2.0 - 1.0, ClipYSign * (uv.y * 2.0 - 1.0));
     float4 clipPos = float4(ndc.x, ndc.y, depth, 1.0);
     float4 worldPos = mul(View.InvViewProj, clipPos);
     return worldPos.xyz / worldPos.w;

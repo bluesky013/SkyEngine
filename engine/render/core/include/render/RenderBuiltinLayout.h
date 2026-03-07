@@ -44,8 +44,8 @@ namespace sky {
         float   maxHeight;         // height above which there is no fog
         float   startDistance;     // distance before fog starts
         float   inscatterExponent; // exponent for directional inscattering
+        float   clipYSign;         // +1 for Vulkan (Y=-1 at top), -1 for DX12 (Y=+1 at top)
         float   padding0;
-        float   padding1;
     };
 
 } // namespace sky

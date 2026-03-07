@@ -4,6 +4,7 @@
 
 #include <render/atmosphere/HeightFogFeature.h>
 #include <render/Renderer.h>
+#include <render/RHI.h>
 #include <render/rdg/RenderGraph.h>
 
 namespace sky {
@@ -24,8 +25,8 @@ namespace sky {
         params.maxHeight         = 50.f;
         params.startDistance     = 0.f;
         params.inscatterExponent = 8.f;
+        params.clipYSign         = RHI::Get()->GetDevice()->GetConstants().flipY ? 1.f : -1.f;
         params.padding0          = 0.f;
-        params.padding1          = 0.f;
 
         ubo = new UniformBuffer();
         ubo->Init(sizeof(HeightFogParams));
