@@ -143,6 +143,7 @@ TEST(AnimationTest, AnimationClipTest)
     ASSERT_EQ(data.position.times.size(), 3);
 
     AnimationClip clip(Name("Test"));
+
     clip.AddChannel(new AnimationNodeChannel(data));
 
     clip.SetFrameRate(30.f);

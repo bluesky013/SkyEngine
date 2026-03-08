@@ -6,10 +6,12 @@
 #include <builder/render/image/ImageCompressor.h>
 #include <builder/render/image/ImageConverter.h>
 #include <builder/render/image/ImageMipGen.h>
+#include <builder/render/image/ImageResizer.h>
 
 #include <framework/asset/AssetManager.h>
 #include <framework/serialization/JsonArchive.h>
 #include <rhi/Decode.h>
+#include <core/logger/Logger.h>
 #include <core/hash/Hash.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -18,6 +20,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+static const char *TAG = "ImageBuilder";
 
 namespace sky::builder {
 
@@ -179,6 +182,15 @@ namespace sky::builder {
         config->generateMip = true;
         config->compress = false;
 
+        globalConfig.maxWidth = 2048;
+        globalConfig.maxHeight = 2048;
+
+        // Limit resolution to global max
+        {
+            ImageResizer resizer(ImageResizer::Payload{image, globalConfig.maxWidth, globalConfig.maxHeight});
+            resizer.DoWork();
+        }
+
         CompressedImagePtr compressedImage;
 
         if (config != nullptr) {
@@ -223,8 +235,8 @@ namespace sky::builder {
         auto *am = AssetManager::Get();
         auto asset = am->FindOrCreateAsset<Texture>(request.assetInfo->uuid);
         auto &imageData = asset->Data();
-        imageData.width = static_cast<uint32_t>(x);
-        imageData.height = static_cast<uint32_t>(y);
+        imageData.width = image->width;
+        imageData.height = image->height;
         imageData.type = TextureType::TEXTURE_2D;
 
         if (compressedImage) {
@@ -244,6 +256,8 @@ namespace sky::builder {
         } else {
             RequestSTB(request, result);
         }
+
+        LOG_I(TAG, "Build Imasge Success. %s", request.assetInfo->path.path.GetStr().c_str());
     }
 
     void ImageBuilder::LoadConfig(const FileSystemPtr &cfg)
