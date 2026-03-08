@@ -9,6 +9,7 @@
 #include <core/logger/Logger.h>
 #include <core/archive/FileArchive.h>
 #include <core/profile/Profiler.h>
+#include <core/archive/MemoryStreamArchive.h>
 
 static const char* TAG = "AssetManager";
 
@@ -95,11 +96,14 @@ namespace sky {
             return {};
         }
 
-        auto archive = file->ReadAsArchive();
+        auto  bin  = file->ReadBin();
+        IStreamArchivePtr archive = new IMemoryArchive(bin);
+
         asset = CreateAssetByHeader(uuid, archive);
         if (!asset) {
             return {};
         }
+
 
         // avoid release dep asset
         std::vector<AssetPtr> holder;
@@ -130,6 +134,13 @@ namespace sky {
                 }
                 SKY_PROFILE_NAME("LoadAsset")
                 auto asset = FindAsset(uuid);
+
+                if (!asset)
+                {
+                    auto sourceAsset = AssetDataBase::Get()->FindAsset(uuid);
+                    LOG_E(TAG, "Asset %s : %s not found in database. Maybe deleted?", uuid.ToString().c_str(), sourceAsset->path.path.GetStr().c_str());
+                }
+
                 SKY_ASSERT(asset)
                 asset->depAssets.swap(deps);
                 auto res = assetHandlers[asset->type]->Load(*archive, asset);

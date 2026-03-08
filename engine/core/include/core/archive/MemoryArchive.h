@@ -17,6 +17,7 @@ namespace sky {
         ~MemoryArchive() override = default;
 
         bool LoadRaw(char *data, size_t size) override;
+        bool Skip(size_t size) override;
         bool SaveRaw(const char *data, size_t size) override;
 
         const char* Data() const;

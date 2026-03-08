@@ -5,6 +5,9 @@
 #include <render/adaptor/components/PrefabComponent.h>
 #include <render/adaptor/Util.h>
 #include <render/mesh/MeshFeatureProcessor.h>
+#include <core/logger/Logger.h>
+
+static const char *TAG = "PrefabComponent";
 
 namespace sky {
 
@@ -116,6 +119,8 @@ namespace sky {
     void PrefabComponent::OnAssetLoaded(const Uuid& uuid, const std::string_view& type)
     {
         if (type == AssetTraits<RenderPrefab>::ASSET_TYPE) {
+            std::lock_guard<std::mutex> lock(assetMutex);
+
             const auto &prefabData = prefab.Data();
             size_t nodeNum = prefabData.nodes.size();
             capacity.store(nodeNum);
@@ -137,9 +142,14 @@ namespace sky {
                 lodGroupHolders.emplace(meshId, SingleAssetHolder<LodGroup>{});
             }
 
-            std::lock_guard<std::mutex> lock(assetMutex);
+            uint32_t num = 0;
+
+            LOG_I(TAG, "Load Prefab %s, nodeNum%zu", uuid.ToString(), lodGroupHolders.size());
             for (auto& [id, holder] : lodGroupHolders) {
+                
                 holder.SetAsset(id, this);
+                LOG_I(TAG, "Load LodGroup %s, index%u", id.ToString().c_str(), num);
+                num++;
             }
 
         } else if (type == AssetTraits<LodGroup>::ASSET_TYPE){

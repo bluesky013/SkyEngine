@@ -18,27 +18,40 @@ namespace sky {
     };
 
     struct SkySpherePrimitive : RenderPrimitive {
-        bool IsReady() const noexcept override;
+        explicit SkySpherePrimitive(const RDGfxTechPtr &inTech) : techInst(inTech)
+        {
+            shouldUseFrustumCulling = false;
+        }
 
-        RDTexture2DPtr texture;
+        void UpdateTexture(const RDTexture2DPtr &tex);
+        bool IsReady() const noexcept override;
+        bool PrepareBatch(const RenderBatchPrepareInfo &info) noexcept override;
+        void GatherRenderItem(IRenderItemGatherContext *context) noexcept override;
+
+        RenderTechniqueInstance   techInst;
+        
         rhi::DescriptorSetPoolPtr pool;
+        rhi::GraphicsPipelinePtr  pso;
+        rhi::CmdDrawIndexed       arg;
+       
+        RDTexture2DPtr     texture;
+        RDResourceGroupPtr batchGroup;
     };
 
     class SkySphereRenderer {
     public:
-        SkySphereRenderer();
+        SkySphereRenderer(RenderScene *scene, const RDGfxTechPtr &tech);
         ~SkySphereRenderer();
 
-        void SetTechnique(const RDGfxTechPtr &mat);
-
-        SkySpherePrimitive* GetPrimitive() const { return primitive.get(); }
+        void UpdateTexture(const RDTexture2DPtr &texture);
     private:
         void BuildSphere();
 
+        RenderScene *renderScene;
         RDGfxTechPtr technique;
-        RDTexturePtr texture;
+
         rhi::DescriptorSetPoolPtr pool;
-        float radius = 10000.f;
+        float radius = 500000.f;
         std::unique_ptr<SkySpherePrimitive> primitive;
     };
 

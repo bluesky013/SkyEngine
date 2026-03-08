@@ -94,7 +94,6 @@ namespace sky {
      * Accepts:
      *   - raw pointer + size
      *   - BinaryDataPtr (ref-counted, kept alive)
-     *   - std::vector<uint8_t> (data is copied)
      */
     class IMemoryArchive : public IStreamArchive {
     public:
@@ -113,15 +112,8 @@ namespace sky {
 
         /** Construct from BinaryData. Ref is held to keep memory alive. */
         explicit IMemoryArchive(const BinaryDataPtr &binaryData)
-            : IMemoryArchive(reinterpret_cast<const char *>(binaryData->Data()), binaryData->Size())
-        {
-            dataRef = binaryData;
-        }
-
-        /** Construct from a vector (data is moved in). */
-        explicit IMemoryArchive(std::vector<uint8_t> &&vec)
-            : ownedData(std::move(vec))
-            , buf(reinterpret_cast<const char *>(ownedData.data()), ownedData.size())
+            : dataRef(binaryData)
+            , buf(reinterpret_cast<const char *>(binaryData->Data()), binaryData->Size())
             , istream(&buf)
             , IStreamArchive(istream)
         {
@@ -131,7 +123,6 @@ namespace sky {
 
     private:
         BinaryDataPtr dataRef;               // optional: keeps BinaryData alive
-        std::vector<uint8_t> ownedData;      // optional: owns copied data
         MemoryInputStreamBuf buf;
         std::istream istream;
     };

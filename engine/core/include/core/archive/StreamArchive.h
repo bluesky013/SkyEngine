@@ -28,6 +28,7 @@ namespace sky {
         virtual uint32_t Size() const { return 0; }
 
         bool LoadRaw(char *data, size_t size) override;
+        bool Skip(size_t size) override;
 
         template<class Archive>
         void LoadFromStream(Archive &ar)
@@ -53,6 +54,7 @@ namespace sky {
         ~IStreamArchive() override = default;
 
         bool LoadRaw(char *data, size_t size) override;
+        bool Skip(size_t size) override;
 
         std::istream &GetStream() const { return stream; }
 

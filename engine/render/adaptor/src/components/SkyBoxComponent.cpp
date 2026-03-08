@@ -16,9 +16,6 @@ namespace sky {
         techAsset = AssetManager::Get()->LoadAssetFromPath<Technique>("techniques/skybox.tech");
         techAsset->BlockUntilLoaded();
         technique = CreateTechniqueFromAsset(techAsset);
-
-        renderer = std::make_unique<SkySphereRenderer>();
-        renderer->SetTechnique(technique);
     }
 
     void SkyBoxComponent::Reflect(SerializationContext *context)
@@ -43,6 +40,9 @@ namespace sky {
 
     void SkyBoxComponent::OnAttachToWorld()
     {
+        auto *scene = GetRenderSceneFromActor(actor);
+        renderer = std::make_unique<SkySphereRenderer>(scene, technique);
+
         if (data.skybox && !texture) {
             SetImage(data.skybox);
         }
@@ -54,15 +54,10 @@ namespace sky {
         if (data.irradiance && !irradiance) {
             SetIrradiance(data.irradiance);
         }
-
-        auto *scene = GetRenderSceneFromActor(actor);
-        scene->AddPrimitive(renderer->GetPrimitive());
     }
 
     void SkyBoxComponent::OnDetachFromWorld()
     {
-        auto *scene = GetRenderSceneFromActor(actor);
-        scene->RemovePrimitive(renderer->GetPrimitive());
         renderer = nullptr;
     }
 
@@ -74,7 +69,11 @@ namespace sky {
 
         texture = CastPtr<Texture2D>(CreateTextureFromAsset(texAsset));
         Renderer::Get()->GetStreamingManager()->UploadTexture(texture);
-        renderer->GetPrimitive()->texture = texture;
+
+        if (renderer != nullptr)
+        {
+            renderer->UpdateTexture(texture);
+        }
     }
 
     void SkyBoxComponent::SetRadiance(const Uuid &image)
