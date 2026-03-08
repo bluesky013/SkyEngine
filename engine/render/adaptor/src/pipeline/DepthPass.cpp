@@ -9,6 +9,7 @@
 #include <render/RenderScene.h>
 #include <render/RenderScenePipeline.h>
 #include <render/Renderer.h>
+#include <render/RenderDepthSettings.h>
 #include <rhi/Util.h>
 
 namespace sky {
@@ -28,8 +29,8 @@ namespace sky {
         images.emplace_back(fwdDepthResolve, image);
 
         depthStencil = Attachment{
-                    rdg::RasterAttachment{fwdDepthResolve, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE},
-            rhi::ClearValue(1.f, 0)
+            rdg::RasterAttachment{fwdDepthResolve, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE},
+            DepthSettings::DepthStencilClear(false)
         };
 
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;

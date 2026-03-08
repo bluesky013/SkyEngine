@@ -5,6 +5,7 @@
 #include <render/env/SkySphereRenderer.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
+#include <render/RenderDepthSettings.h>
 
 namespace sky {
 
@@ -31,6 +32,7 @@ namespace sky {
 
         if (techInst.UpdateProgram(info.pipelineKey)) {
             auto pipelineState = techInst.technique->GetPipelineState();
+            pipelineState.depthStencil.compareOp = DepthSettings::DepthCompareOp(info.reverseZ);
             pso = GraphicsTechnique::BuildPso(techInst.program, pipelineState, geometry->Request(techInst.program), info.pass, info.subPassId);
         }
 

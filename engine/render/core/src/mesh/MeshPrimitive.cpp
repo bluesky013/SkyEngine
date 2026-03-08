@@ -7,6 +7,7 @@
 #include <render/Renderer.h>
 #include <render/resource/Buffer.h>
 #include <render/resource/SkeletonMesh.h>
+#include <render/RenderDepthSettings.h>
 
 namespace sky {
     bool RenderBatch::UpdateBatchGroupLayout() noexcept
@@ -134,12 +135,14 @@ namespace sky {
         }
     }
 
-    uint32_t RenderBatch::CalculatePipelineHash(uint32_t passHash) const noexcept
+    uint32_t RenderBatch::CalculatePipelineHash(const RenderBatchPrepareInfo& info) const noexcept
     {
         uint32_t hash = 0;
+        uint32_t passHash = info.pass->GetCompatibleHashWithSubPass(info.subPassId);
 
         HashCombine32(hash, techInst.program->GetHash());
         HashCombine32(hash, passHash);
+        HashCombine32(hash, info.reverseZ);
         return hash;
     }
 
@@ -150,8 +153,11 @@ namespace sky {
 
     void RenderBatch::BuildPipelineState(const RenderBatchPrepareInfo& info) noexcept
     {
+        auto state = techInst.technique->GetPipelineState();
+        state.depthStencil.compareOp = DepthSettings::DepthCompareOp(info.reverseZ);
+
         pso = GraphicsTechnique::BuildPso(techInst.program,
-            techInst.technique->GetPipelineState(),
+            state,
             geometry->Request(techInst.program),
             info.pass, info.subPassId);
     }
@@ -160,7 +166,7 @@ namespace sky {
     {
         Update(info.pipelineKey);
 
-        uint32_t currentKey = CalculatePipelineHash(info.pass->GetCompatibleHashWithSubPass(info.subPassId));
+        uint32_t currentKey = CalculatePipelineHash(info);
         if (currentKey != psoKey) {
             BuildPipelineState(info);
             psoKey = currentKey;

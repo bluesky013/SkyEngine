@@ -22,6 +22,7 @@ namespace sky {
         ShaderVariantKey pipelineKey;
         rhi::RenderPassPtr pass;
         uint32_t subPassId = 0;
+        bool reverseZ = false;
     };
 
     struct RenderTechniqueInstance {

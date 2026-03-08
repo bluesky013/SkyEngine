@@ -23,6 +23,7 @@ namespace sky {
         void SetPerspective(float near, float far, float fov, float aspect, uint32_t index = 0);
         void SetOrthogonal(float l, float r, float t, float b, float near, float far, uint32_t index = 0);
         void SetFlipY(bool flip) { flipY = flip; }
+        void SetReverseZ(bool enable) { reverseZ = enable; dirty = true; }
         void Update();
 
         const Matrix4 &GetWorld() const { return viewInfo[0].world; }
@@ -39,6 +40,7 @@ namespace sky {
 
         float GetNearPlane() const { return near; }
         float GetFarPlane() const { return far; }
+        bool IsReverseZ() const { return reverseZ; }
 
         const RDUniformBufferPtr &GetUBO() const { return viewUbo; }
     private:
@@ -58,6 +60,7 @@ namespace sky {
 
         bool dirty;
         bool flipY = true;
+        bool reverseZ = false;
 
         RDUniformBufferPtr viewUbo;
     };
