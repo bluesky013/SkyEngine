@@ -12,6 +12,7 @@ namespace sky {
         Matrix4 view;
         Matrix4 viewProject;
         Matrix4 lastViewProject;
+        Matrix4 invViewProject;
     };
 
     struct InstanceLocal {

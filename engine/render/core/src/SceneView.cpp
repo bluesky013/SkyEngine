@@ -68,6 +68,7 @@ namespace sky {
             p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
 
             viewInfo[i].viewProject = p * projects[i] * viewInfo[i].view;
+            viewInfo[i].invViewProject = viewInfo[i].viewProject.Inverse();
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 
             viewUbo->WriteT(i * sizeof(SceneViewInfo), viewInfo[i]);
