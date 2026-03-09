@@ -3,17 +3,20 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 
 from pathlib import Path
 from git import Repo
 
-parser = argparse.ArgumentParser(description='示例脚本')
+parser = argparse.ArgumentParser(description='SkyEngine 三方库编译工具')
 parser.add_argument('-i', '--intermediate', type=str, help='中间文件')
 parser.add_argument('-o', '--output', type=str, help='输出路径')
 parser.add_argument('-e', '--engine', type=str, help='引擎目录')
 parser.add_argument('-t', '--target', type=str, help='编译单个包')
 parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"], help='编译平台')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
+parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
+parser.add_argument('--list', action='store_true', default=False, help='列出所有包信息')
 args = parser.parse_args()
 
 tool_chain = {
@@ -44,27 +47,32 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
 
     try:
         # 执行CMake配置
+        print(f"  [configure] {source_dir}")
         process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(process)
 
         # 执行 Build
         build_cmd = ["cmake", "--build", build_dir, "--config", build_type]
+        if args.jobs > 0:
+            build_cmd.extend(["--parallel", str(args.jobs)])
+        else:
+            build_cmd.append("--parallel")
+        print(f"  [build] {build_type}")
         process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(process)
 
         # 执行 Install
-        build_cmd = ["cmake", "--install", build_dir, "--config", build_type]
+        install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
 
         if components:
             for component in components:
-                build_cmd.extend(["--component", component])
+                install_cmd.extend(["--component", component])
 
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(process)
+        print(f"  [install] {build_type}")
+        process = subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        print("CMake执行成功!")
+        print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:
-        print(f"CMake执行失败: {e.stderr}")
+        stderr_text = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
+        print(f"CMake执行失败:\n{stderr_text}")
         raise
 
 def copy_package(name, install_dir, build_type):
@@ -150,7 +158,7 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
     print(f'cmake module find path: {cmake_modules_path}')
     options['3RD_PATH'] = args.output
     options['3RD_FIND_PATH'] = cmake_modules_path
-    options['BUILD_TESTING'] = False
+    options['BUILD_TESTING'] = 'OFF'
     options['CMAKE_INSTALL_PREFIX'] = install_dir
     options['CMAKE_BUILD_TYPE'] = build_type
 
@@ -182,6 +190,7 @@ def process_package(package):
     source = package.get('source')
     is_tool = package.get('is_tool')
     options = package.get('options', {})
+    header_only = package.get('header_only', False)
     if len(name) == 0:
         return
 
@@ -220,9 +229,9 @@ def process_package(package):
     # use custom step
     if custom:
         if custom_need_platform is True:
-            subprocess.run(["python", custom, '-p', args.platform], cwd=str(clone_dir))
+            subprocess.run([sys.executable, custom, '-p', args.platform], cwd=str(clone_dir), check=True)
         else:
-            subprocess.run(["python", custom], cwd=str(clone_dir))
+            subprocess.run([sys.executable, custom], cwd=str(clone_dir), check=True)
 
     # init submodule
     if submodule is True:
@@ -248,8 +257,52 @@ def process_package(package):
     if source:
         source_dir = os.path.join(str(clone_dir), source)
 
-    if is_tool is not True:
+    if is_tool is True:
+        return
+
+    if header_only is True:
+        # header-only: only configure+install, skip build
+        build_header_only(name, source_dir, options, cache)
+    else:
         build_package(name, source_dir, options, cache, components)
+
+def build_header_only(name, source_dir, options, cache):
+    print(f"[header-only] {name}")
+    for build_type in ['Release']:
+        build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
+        install_dir = os.path.join(build_dir, 'install')
+
+        cmake_modules_path = os.path.join(args.engine, 'cmake', 'thirdparty').replace('\\', '/')
+        options['3RD_PATH'] = args.output
+        options['3RD_FIND_PATH'] = cmake_modules_path
+        options['BUILD_TESTING'] = 'OFF'
+        options['CMAKE_INSTALL_PREFIX'] = install_dir
+        options['CMAKE_BUILD_TYPE'] = build_type
+
+        Path(build_dir).mkdir(parents=True, exist_ok=True)
+
+        cmake_cmd = ["cmake", "-S", source_dir, "-B", build_dir, "-G", tool_chain[args.platform]]
+        if options:
+            for key, value in options.items():
+                cmake_cmd.extend([f"-D{key}={value}"])
+
+        subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
+        subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        copy_package(name, install_dir, build_type)
+    print(f"[header-only] {name} done")
+
+def list_packages(packages):
+    print(f"{'Name':<20} {'Tag':<25} {'Type':<12} {'Platforms'}")
+    print("-" * 80)
+    for pkg in packages:
+        name = pkg.get('name', '')
+        tag = pkg.get('tag', '(no tag)')
+        ptype = 'header-only' if pkg.get('header_only') else 'tool' if pkg.get('is_tool') else 'static'
+        platforms = ', '.join(pkg.get('platforms', ['all']))
+        print(f"{name:<20} {tag:<25} {ptype:<12} {platforms}")
 
 def app_main():
     json_file = os.path.join(args.engine, 'cmake', 'thirdparty.json')
@@ -257,6 +310,10 @@ def app_main():
         data = json.load(file)
 
     packages = data.get('packages', [])
+
+    if args.list:
+        list_packages(packages)
+        return
 
     filtered = list(filter(lambda pkg: pkg['name'] == args.target, packages))
 

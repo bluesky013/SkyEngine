@@ -302,6 +302,7 @@
 		{
 			"name": "stb",
 			"url": "https://github.com/nothings/stb.git",
+			"tag": "f75e8d1cad7d90d72ef7a4661f1b994ef78b4e31",
 			"header_only": true,
 			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
 		},
