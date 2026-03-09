@@ -105,6 +105,8 @@ namespace sky {
 //            Name("HizBuffer"),
 //            rdg::ComputeView{Name("HizBuffer"), rdg::ComputeType::SRV, stageFlags}
 //        });
+
+        pipelineKeys.emplace_back(Name("ENABLE_IBL"));
     }
 
     void ForwardMSAAPass::SetLayout(const RDResourceLayoutPtr &layout_)

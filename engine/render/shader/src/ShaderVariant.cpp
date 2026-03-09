@@ -65,13 +65,20 @@ namespace sky {
         SKY_ASSERT(endBit - beginBit < 8);
         SKY_ASSERT(endBit < SHADER_VARIANT_KEY_LEN);
 
+        auto byteIndex = beginBit >> 3;
         auto S = beginBit & 0x7;
         auto E = S + (endBit - beginBit);
 
-        auto &num = *(reinterpret_cast<uint16_t*>(&u8[beginBit >> 3]));
-
-        auto mask = (uint16_t)((~0u << (E + 1)) | ((1u << S) - 1));
-        num = (num & mask) | ((uint16_t)(val) << S);
+        if (E < 8) {
+            // Bit range fits within a single byte
+            auto mask = static_cast<uint8_t>(((1u << (E + 1)) - 1) ^ ((1u << S) - 1));
+            u8[byteIndex] = (u8[byteIndex] & ~mask) | (static_cast<uint8_t>(val << S) & mask);
+        } else {
+            // Bit range crosses a byte boundary, use two-byte window
+            auto &num = *(reinterpret_cast<uint16_t*>(&u8[byteIndex]));
+            auto mask = static_cast<uint16_t>((~0u << (E + 1)) | ((1u << S) - 1));
+            num = (num & mask) | (static_cast<uint16_t>(val) << S);
+        }
     }
 
     uint8_t ShaderVariantKey::GetValue(uint8_t beginBit, uint8_t endBit) const
@@ -79,13 +86,21 @@ namespace sky {
         SKY_ASSERT(endBit - beginBit < 8);
         SKY_ASSERT(endBit < SHADER_VARIANT_KEY_LEN);
 
+        auto byteIndex = beginBit >> 3;
         auto S = beginBit & 0x7;
         auto E = S + (endBit - beginBit);
 
-        const auto &num = *(reinterpret_cast<const uint16_t*>(&u8[beginBit >> 3]));
+        auto bits = E - S + 1;
+        auto mask = static_cast<uint8_t>((1u << bits) - 1);
 
-        auto mask = (uint16_t)((1u << (E - S + 1)) - 1);
-        return static_cast<uint8_t>((num >> S) & mask);
+        if (E < 8) {
+            // Bit range fits within a single byte
+            return static_cast<uint8_t>((u8[byteIndex] >> S) & mask);
+        } else {
+            // Bit range crosses a byte boundary, use two-byte window
+            const auto &num = *(reinterpret_cast<const uint16_t*>(&u8[byteIndex]));
+            return static_cast<uint8_t>((num >> S) & mask);
+        }
     }
 
     std::string ShaderVariantKey::ToString() const
@@ -119,7 +134,7 @@ namespace sky {
 
         if (item.type == ShaderOptionType::BATCH) {
             entry.range = {BATCH_OPT_OFFSET + currentBit, BATCH_OPT_OFFSET + currentBit + item.bits - 1};
-            currentBit++;
+            currentBit += item.bits;
 
         } else {
             const auto *passEntry = ShaderCompiler::Get()->FindPassEntry(item.key);
@@ -217,6 +232,14 @@ namespace sky {
         GeneratePermutationImpl(output, container, 0, empty);
 
         return output;
+    }
+
+    void PipelineVariantSetter::SetValue(const Name& name, uint8_t value)
+    {
+        const auto *passEntry = ShaderCompiler::Get()->FindPassEntry(name);
+        if (passEntry != nullptr) {
+            key.SetValue(passEntry->range.first, passEntry->range.second, value);
+        }
     }
 
 } // namespace sky

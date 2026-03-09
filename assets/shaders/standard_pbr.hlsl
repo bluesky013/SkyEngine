@@ -8,8 +8,8 @@
 #pragma option({"key": "ENABLE_AO_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_MR_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_ALPHA_MASK",   "default": 0, "type": "Batch"})
-#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
 
+#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Pass"})
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
 
 #include "vertex/standard.hlslh"
@@ -417,7 +417,7 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     // Ensure minimum brightness to avoid edge darkening artifacts
     // This is especially important for grazing angles where N·V is near zero
-    float minBrightness = 0.02 * pbrParam.Albedo * pbrParam.AO;  // Subtle minimum fill light
+    float3 minBrightness = 0.02 * pbrParam.Albedo * pbrParam.AO;  // Subtle minimum fill light
     ambient = max(ambient, minBrightness);
 
     return float4(e0 + ambient, albedo.a);

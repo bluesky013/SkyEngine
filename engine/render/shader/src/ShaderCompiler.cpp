@@ -196,6 +196,8 @@ namespace sky {
             nameMap[entry.key] = static_cast<uint32_t>(passEntries.size());
             SKY_ASSERT(item.type == ShaderOptionType::PASS);
             passEntries.emplace_back(entry);
+
+            currentBit = entry.range.second + 1;
         }
     }
 
