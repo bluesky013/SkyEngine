@@ -6,13 +6,16 @@
 #include <render/editor/animation/SkeletonPreviewWindow.h>
 #include <render/editor/MaterialCreator.h>
 #include <render/editor/AnimationCreator.h>
+#include <render/editor/ShaderGraphCreator.h>
 #include <render/editor/animation/GraphEditWindow.h>
+#include <render/editor/shadergraph/ShaderGraphEditWindow.h>
 
 #include <editor/framework/AssetBrowserWidget.h>
 #include <editor/framework/AssetCreator.h>
 
 #include <render/adaptor/assets/SkeletonAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
+#include <render/adaptor/assets/ShaderGraphAsset.h>
 
 
 namespace sky::editor {
@@ -26,6 +29,7 @@ namespace sky::editor {
         // asset
         AssetCreatorManager::Get()->RegisterTool(Name("Material"), new MaterialInstanceCreator());
         AssetCreatorManager::Get()->RegisterTool(Name("Animation Graph"), new AnimationGraphCreator());
+        AssetCreatorManager::Get()->RegisterTool(Name("Shader Graph"), new ShaderGraphCreator());
 
         // create
         RegisterActorCreators<RenderCubeActorCreator>(BuiltinGeometryType::CUBE);
@@ -33,6 +37,7 @@ namespace sky::editor {
         // preview
         AssetPreviewManager::Get()->Register(AssetTraits<Skeleton>::ASSET_TYPE, new SkeletonPreviewWindow());
         AssetPreviewManager::Get()->Register(AssetTraits<Animation>::ASSET_TYPE, new GraphEditWindow());
+        AssetPreviewManager::Get()->Register(AssetTraits<ShaderGraphAssetTag>::ASSET_TYPE, new ShaderGraphEditWindow());
         return true;
     }
 
