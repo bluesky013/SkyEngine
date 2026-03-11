@@ -54,8 +54,8 @@ namespace sky::builder {
         imageData.dataSize = 0;
         imageData.mipLevels = static_cast<uint32_t>(image->mips.size()) - baseMip;
 
-        imageData.width = imageData.width >> baseMip;
-        imageData.height = imageData.height >> baseMip;
+        imageData.width = image->width >> baseMip;
+        imageData.height = image->height >> baseMip;
 
         for (uint32_t i = baseMip; i < image->mips.size(); ++i) {
             const auto &mipData = image->mips[i];

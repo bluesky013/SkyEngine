@@ -31,7 +31,7 @@ namespace sky::builder {
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
         std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Texture>::ASSET_TYPE; }
 
-        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png", ".hdr", ".image"};
+        std::vector<std::string> extensions = {".jpg", ".jpeg", ".dds", ".ktx", ".png", ".hdr", ".image"};
         std::unordered_map<std::string, ImageBuildGlobalConfig> configs;
         ImageBuildGlobalConfig globalConfig;
 

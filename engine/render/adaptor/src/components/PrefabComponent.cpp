@@ -119,37 +119,46 @@ namespace sky {
     void PrefabComponent::OnAssetLoaded(const Uuid& uuid, const std::string_view& type)
     {
         if (type == AssetTraits<RenderPrefab>::ASSET_TYPE) {
-            std::lock_guard<std::mutex> lock(assetMutex);
+            // Collect data under assetMutex, but do NOT call SetAsset inside the lock
+            // because SetAsset may synchronously re-enter OnAssetLoaded for already-loaded
+            // assets, which would deadlock on the non-recursive assetMutex.
+            std::vector<Uuid> meshesToLoad;
+            {
+                std::lock_guard<std::mutex> lock(assetMutex);
 
-            const auto &prefabData = prefab.Data();
-            size_t nodeNum = prefabData.nodes.size();
-            capacity.store(nodeNum);
-            proyNodes.resize(nodeNum);
-            data.visibleIDs.resize(nodeNum, ~(0U));
-            linkList.clear();
-            std::unordered_set<Uuid> meshesToLoad;
-            for (uint32_t i = 0; i < nodeNum; ++i) {
-                const auto& node = prefabData.nodes[i];
-                meshesToLoad.emplace(node.mesh);
-                linkList[node.mesh].emplace_back(i);
+                const auto &prefabData = prefab.Data();
+                size_t nodeNum = prefabData.nodes.size();
+                capacity.store(nodeNum);
+                proyNodes.resize(nodeNum);
+                data.visibleIDs.resize(nodeNum, ~(0U));
+                linkList.clear();
+                std::unordered_set<Uuid> meshSet;
+                for (uint32_t i = 0; i < nodeNum; ++i) {
+                    const auto& node = prefabData.nodes[i];
+                    meshSet.emplace(node.mesh);
+                    linkList[node.mesh].emplace_back(i);
 
-                proyNodes[i].nodeId = i;
-                proyNodes[i].owner = this;
+                    proyNodes[i].nodeId = i;
+                    proyNodes[i].owner = this;
+                }
+
+                lodGroupHolders.clear();
+                for (const auto& meshId : meshSet) {
+                    lodGroupHolders.emplace(meshId, SingleAssetHolder<LodGroup>{});
+                    meshesToLoad.emplace_back(meshId);
+                }
             }
 
-            lodGroupHolders.clear();
-            for (const auto& meshId : meshesToLoad) {
-                lodGroupHolders.emplace(meshId, SingleAssetHolder<LodGroup>{});
-            }
-
+            // SetAsset calls are outside the lock ¡ª safe for synchronous re-entry
             uint32_t num = 0;
-
-            LOG_I(TAG, "Load Prefab %s, nodeNum%zu", uuid.ToString(), lodGroupHolders.size());
-            for (auto& [id, holder] : lodGroupHolders) {
-                
-                holder.SetAsset(id, this);
-                LOG_I(TAG, "Load LodGroup %s, index%u", id.ToString().c_str(), num);
-                num++;
+            LOG_I(TAG, "Load Prefab %s, nodeNum%zu", uuid.ToString(), meshesToLoad.size());
+            for (auto& id : meshesToLoad) {
+                auto iter = lodGroupHolders.find(id);
+                if (iter != lodGroupHolders.end()) {
+                    iter->second.SetAsset(id, this);
+                    LOG_I(TAG, "Load LodGroup %s, index%u", id.ToString().c_str(), num);
+                    num++;
+                }
             }
 
         } else if (type == AssetTraits<LodGroup>::ASSET_TYPE){

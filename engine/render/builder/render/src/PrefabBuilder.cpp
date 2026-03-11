@@ -17,6 +17,7 @@
 #include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/assets/MeshAsset.h>
 #include <render/adaptor/assets/AnimationAsset.h>
+#include <render/adaptor/assets/LodGroupAsset.h>
 
 #include <animation/core/Skeleton.h>
 #include <render/adaptor/assets/SkeletonAsset.h>
@@ -106,7 +107,12 @@ namespace sky::builder {
     static void SaveEmbeddedTexture(const aiTexture* tex, const AssetSourcePath &sourcePath)
     {
         auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
-        file->WriteAsArchive()->SaveRaw(reinterpret_cast<const char*>(tex->pcData), tex->mWidth);
+        // mHeight == 0: compressed texture, mWidth is the byte size of the buffer.
+        // mHeight != 0: uncompressed ARGB8888, actual size is mWidth * mHeight * sizeof(aiTexel).
+        size_t dataSize = (tex->mHeight == 0)
+            ? tex->mWidth
+            : static_cast<size_t>(tex->mWidth) * tex->mHeight * sizeof(aiTexel);
+        file->WriteAsArchive()->SaveRaw(reinterpret_cast<const char*>(tex->pcData), dataSize);
     }
 
     static Uuid ProcessTexture(const aiScene *scene, const aiString& str, PrefabBuildContext &context, const AssetImportRequest &request)
@@ -146,21 +152,57 @@ namespace sky::builder {
         uint8_t useNormalMap = false;
         uint8_t useMetallicRoughnessMap = false;
         uint8_t useMask = false;
+        uint8_t useTransmission = false;
 
         Vector4 baseColor = Vector4(1.f, 1.f, 1.f, 1.f);
         float metallic = 0.1f;
         float roughness = 1.0f;
+        float transmissionFactor = 0.0f;
         Uuid normalMap;
         Uuid emissiveMap;
         Uuid aoMap;
         Uuid baseColorMap;
         Uuid metallicRoughnessMap;
+        Uuid transmissionMap;
 
+        // Detect alpha mode from glTF
         aiString aiAlphaMode;
         if (material->Get(AI_MATKEY_GLTF_ALPHAMODE, aiAlphaMode) == 0) {
             std::string mode = aiAlphaMode.data;
             if (mode == "MASK") {
                 useMask = true;
+            } else if (mode == "BLEND") {
+                useTransmission = true;
+                transmissionFactor = 1.0f; // Default for BLEND mode when no explicit factor
+            }
+        }
+
+        // Detect opacity from non-glTF formats (e.g. FBX)
+        if (!useTransmission && !useMask) {
+            float opacity = 1.0f;
+            if (aiGetMaterialFloat(material, AI_MATKEY_OPACITY, &opacity) == AI_SUCCESS) {
+                if (opacity < (1.0f - 1e-5f)) {
+                    useTransmission = true;
+                    transmissionFactor = 1.0f - opacity;
+                }
+            }
+        }
+
+        // Read KHR_materials_transmission extension properties
+        aiGetMaterialFloat(material, AI_MATKEY_TRANSMISSION_FACTOR, &transmissionFactor);
+
+        if (material->GetTexture(AI_MATKEY_TRANSMISSION_TEXTURE, &str) == 0) {
+            transmissionMap = ProcessTexture(scene, str, context, request);
+            useTransmission = useTransmission || static_cast<bool>(transmissionMap);
+        }
+
+        useTransmission = useTransmission || transmissionFactor > 0.0f;
+        if (useTransmission) {
+            auto transparentMat = AssetDataBase::Get()->RegisterAsset("materials/standard_transparent_pbr.mat");
+            if (transparentMat) {
+                data.material = transparentMat->uuid;
+            } else {
+                LOG_W(TAG, "standard_transparent_pbr.mat not found, falling back to standard_pbr.mat");
             }
         }
 
@@ -185,9 +227,10 @@ namespace sky::builder {
             useAOMap = static_cast<bool>(aoMap);
         }
 
-        aiColor4D color = {};
+        aiColor4D color = {0.f, 0.f, 0.f, 1.f};
         aiGetMaterialColor(material, AI_MATKEY_BASE_COLOR, &color);
         if (color.IsBlack()) {
+            color = {0.f, 0.f, 0.f, 1.f};
             aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &color);
         }
         baseColor = FromAssimp(color);
@@ -232,6 +275,13 @@ namespace sky::builder {
         }
 
         data.properties.valueMap.emplace("ENABLE_ALPHA_MASK", useMask);
+        data.properties.valueMap.emplace("ENABLE_TRANSMISSION", useTransmission);
+        if (useTransmission) {
+            data.properties.valueMap.emplace("TransmissionFactor", transmissionFactor);
+            if (transmissionMap) {
+                data.properties.valueMap.emplace("TransmissionMap", MaterialTexture{transmissionMap});
+            }
+        }
 
         data.properties.valueMap.emplace("Albedo", baseColor);
         data.properties.valueMap.emplace("Metallic", metallic);
@@ -419,6 +469,40 @@ namespace sky::builder {
         meshData.subMeshes.emplace_back(subMesh);
     }
 
+    static Uuid CreateLodGroupForMesh(const std::string &meshName, const Uuid &meshUuid, const AssetSourcePath &basePath)
+    {
+        std::string lodName = meshName;
+        // replace .mesh extension with .lodgroup
+        auto dotPos = lodName.rfind('.');
+        if (dotPos != std::string::npos) {
+            lodName = lodName.substr(0, dotPos);
+        }
+        lodName += ".lodgroup";
+
+        LodGroupData lodData;
+        lodData.version = 0;
+        lodData.type = "StaticMesh";
+
+        LodGroupLevelData level;
+        level.screenSize = 1.f;
+        level.resId = meshUuid;
+        lodData.levels.emplace_back(level);
+
+        AssetSourcePath sourcePath = {};
+        sourcePath.bundle = SourceAssetBundle::WORKSPACE;
+        sourcePath.path = basePath.path / FilePath(lodName);
+
+        {
+            auto file = AssetDataBase::Get()->CreateOrOpenFile(sourcePath);
+            auto archive = file->WriteAsArchive();
+            JsonOutputArchive json(*archive);
+            lodData.SaveJson(json);
+        }
+
+        auto source = AssetDataBase::Get()->RegisterAsset(sourcePath);
+        return source->uuid;
+    }
+
     static Uuid ProcessMesh(const aiScene *scene, const aiNode *node, PrefabBuildContext& context, const AssetImportRequest &request)
     {
         std::string meshName = node->mName.length == 0 ?
@@ -514,7 +598,10 @@ namespace sky::builder {
 
         auto source = AssetDataBase::Get()->RegisterAsset(sourcePath);
         context.meshes.emplace_back(source);
-        return source->uuid;
+
+        // Create a LodGroup wrapper for this mesh �� PrefabComponent expects LodGroup UUIDs
+        Uuid lodGroupUuid = CreateLodGroupForMesh(meshName, source->uuid, context.path);
+        return lodGroupUuid;
     }
 
     static void ProcessNode(aiNode *node, const aiScene *scene, uint32_t parent, PrefabBuildContext& context, const AssetImportRequest &request) // NOLINT
@@ -549,40 +636,40 @@ namespace sky::builder {
 
         channel.position.times.resize(anim->mNumPositionKeys);
         channel.position.keys.resize(anim->mNumPositionKeys);
-        // for (uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
-        //     const auto &src = anim->mPositionKeys[i];
-        //     auto &dstTime = channel.position.times[i];
-        //     auto &dstPos = channel.position.keys[i];
-        //     dstTime = static_cast<float>(src.mTime);
-        //     dstPos.x = src.mValue.x;
-        //     dstPos.y = src.mValue.y;
-        //     dstPos.z = src.mValue.z;
-        // }
+        for ( uint32_t i = 0; i < anim->mNumPositionKeys; ++i) {
+            const auto &src = anim->mPositionKeys[i];
+            auto &dstTime = channel.position.times[i];
+            auto &dstPos = channel.position.keys[i];
+            dstTime = static_cast<AnimTimeKey>(src.mTime);
+            dstPos.x = src.mValue.x;
+            dstPos.y = src.mValue.y;
+            dstPos.z = src.mValue.z;
+        }
 
         channel.scale.times.resize(anim->mNumScalingKeys);
         channel.scale.keys.resize(anim->mNumScalingKeys);
-        // for (uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
-        //     const auto &src = anim->mScalingKeys[i];
-        //     auto &dstTime = channel.scale.times[i];
-        //     auto &dstScale = channel.scale.keys[i];
-        //     dstTime = static_cast<float>(src.mTime);
-        //     dstScale.x = src.mValue.x;
-        //     dstScale.y = src.mValue.y;
-        //     dstScale.z = src.mValue.z;
-        // }
+        for ( uint32_t i = 0; i < anim->mNumScalingKeys; ++i) {
+            const auto &src = anim->mScalingKeys[i];
+            auto &dstTime = channel.scale.times[i];
+            auto &dstScale = channel.scale.keys[i];
+            dstTime = static_cast<AnimTimeKey>(src.mTime);
+            dstScale.x = src.mValue.x;
+            dstScale.y = src.mValue.y;
+            dstScale.z = src.mValue.z;
+        }
 
         channel.rotation.times.resize(anim->mNumRotationKeys);
         channel.rotation.keys.resize(anim->mNumRotationKeys);
-        // for (uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
-        //     const auto &src = anim->mRotationKeys[i];
-        //     auto &dstTime = channel.rotation.times[i];
-        //     auto &dstRot = channel.rotation.keys[i];
-        //     dstTime = static_cast<float>(src.mTime);
-        //     dstRot.x = src.mValue.x;
-        //     dstRot.y = src.mValue.y;
-        //     dstRot.z = src.mValue.z;
-        //     dstRot.w = src.mValue.w;
-        // }
+        for ( uint32_t i = 0; i < anim->mNumRotationKeys; ++i) {
+            const auto &src = anim->mRotationKeys[i];
+            auto &dstTime = channel.rotation.times[i];
+            auto &dstRot = channel.rotation.keys[i];
+            dstTime = static_cast<AnimTimeKey>(src.mTime);
+            dstRot.x = src.mValue.x;
+            dstRot.y = src.mValue.y;
+            dstRot.z = src.mValue.z;
+            dstRot.w = src.mValue.w;
+        }
     }
 
     static void ProcessMeshChannel(const aiScene* scene, aiMeshAnim *anim, PrefabBuildContext& context)
@@ -627,6 +714,8 @@ namespace sky::builder {
             AnimationClipAssetData data;
             data.version = 1;
             data.name = anim->mName.C_Str();
+            data.frameRate = anim->mTicksPerSecond > 0 ? static_cast<float>(anim->mTicksPerSecond) : 30.f;
+            data.skeleton = context.skeletonSource ? context.skeletonSource->uuid : Uuid{};
             data.nodeChannels.resize(anim->mNumChannels);
             // node animation
             for (uint32_t j = 0; j < anim->mNumChannels; ++j) {;
@@ -700,7 +789,7 @@ namespace sky::builder {
 
         auto prefabName = request.filePath.FileName();
         context.path.bundle = SourceAssetBundle::WORKSPACE;
-        context.path.path = FilePath("Prefabs") / prefabName;
+        context.path.path = FilePath("Prefab") / prefabName;
         context.name = request.filePath.FileNameWithoutExt();
 
         AssetDataBase::Get()->GetWorkSpaceFs()->CreateSubSystem(context.path.path.GetStr(), true);
@@ -745,6 +834,13 @@ namespace sky::builder {
 
         auto &data = asset->Data();
         data.LoadJson(json);
+
+        asset->ResetDependencies();
+        for (const auto &node : data.nodes) {
+            if (static_cast<bool>(node.mesh)) {
+                asset->AddDependencies(node.mesh);
+            }
+        }
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
