@@ -403,11 +403,11 @@ namespace sky::builder {
         Vector4 *position = &context.position[subMesh.firstVertex];
         StandardVertexData *vtx = &context.ext[subMesh.firstVertex];
 
+        bool hasNormals = mesh->HasNormals();
+        bool hasTangents = mesh->HasTangentsAndBitangents();
+
         for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
             auto &p = mesh->mVertices[i];
-            auto &n = mesh->mNormals[i];
-            auto &t = mesh->mTangents[i];
-            auto &b = mesh->mBitangents[i];
 
             position[i].x = p.x;
             position[i].y = p.y;
@@ -416,19 +416,31 @@ namespace sky::builder {
             subMesh.aabb.min = Min(subMesh.aabb.min, Vector3(p.x, p.y, p.z));
             subMesh.aabb.max = Max(subMesh.aabb.max, Vector3(p.x, p.y, p.z));
 
-            vtx[i].normal.x = n.x;
-            vtx[i].normal.y = n.y;
-            vtx[i].normal.z = n.z;
-            vtx[i].normal.w = 1.f;
+            if (hasNormals) {
+                auto &n = mesh->mNormals[i];
+                vtx[i].normal.x = n.x;
+                vtx[i].normal.y = n.y;
+                vtx[i].normal.z = n.z;
+                vtx[i].normal.w = 1.f;
+            } else {
+                vtx[i].normal = Vector4(0.f, 1.f, 0.f, 1.f);
+            }
 
-            vtx[i].tangent.x = t.x;
-            vtx[i].tangent.y = t.y;
-            vtx[i].tangent.z = t.z;
+            if (hasTangents) {
+                auto &t = mesh->mTangents[i];
+                auto &b = mesh->mBitangents[i];
 
-            Vector3 tmpNormal = Vector3(n.x, n.y, n.z);
-            Vector3 tmpTangent = Vector3(t.x, t.y, t.z);
-            Vector3 tmpBiTangent = tmpNormal.Cross(tmpTangent);
-            vtx[i].tangent.w = ((b.x * tmpBiTangent.x < 0.0f) || (b.y * tmpBiTangent.y < 0.0f) || (b.z * tmpBiTangent.z < 0.0f)) ? -1.0f : 1.0f;
+                vtx[i].tangent.x = t.x;
+                vtx[i].tangent.y = t.y;
+                vtx[i].tangent.z = t.z;
+
+                Vector3 tmpNormal = Vector3(vtx[i].normal.x, vtx[i].normal.y, vtx[i].normal.z);
+                Vector3 tmpTangent = Vector3(t.x, t.y, t.z);
+                Vector3 tmpBiTangent = tmpNormal.Cross(tmpTangent);
+                vtx[i].tangent.w = ((b.x * tmpBiTangent.x < 0.0f) || (b.y * tmpBiTangent.y < 0.0f) || (b.z * tmpBiTangent.z < 0.0f)) ? -1.0f : 1.0f;
+            } else {
+                vtx[i].tangent = Vector4(1.f, 0.f, 0.f, 1.f);
+            }
 
             if (mesh->HasVertexColors(0)) {
                 auto &c  = mesh->mColors[0][i];
@@ -467,6 +479,7 @@ namespace sky::builder {
             indices[3 * i + 2] = face.mIndices[2];
         }
         meshData.subMeshes.emplace_back(subMesh);
+        meshData.aabb.Merge(subMesh.aabb);
     }
 
     static Uuid CreateLodGroupForMesh(const std::string &meshName, const Uuid &meshUuid, const AssetSourcePath &basePath)
