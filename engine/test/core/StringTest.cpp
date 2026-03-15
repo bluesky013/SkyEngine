@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by Copilot on 2026/3/15.
 //
 
@@ -182,12 +182,4 @@ TEST(StringTest, Split_NoSeparator)
     auto result = Split("hello", ",");
     ASSERT_EQ(result.size(), 1u);
     ASSERT_EQ(result[0], "hello");
-}
-
-// --- GetEmpty ---
-
-TEST(StringTest, GetEmpty)
-{
-    const std::string &empty = String::GetEmpty();
-    ASSERT_TRUE(empty.empty());
 }

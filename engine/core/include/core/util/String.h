@@ -8,10 +8,6 @@
 #include <string>
 
 namespace sky {
-    namespace String {
-        const std::string &GetEmpty();
-    }
-
     std::vector<std::string> Split(const std::string& s, const char *separator);
 
     std::wstring Utf8ToUtf16(const std::string &str);

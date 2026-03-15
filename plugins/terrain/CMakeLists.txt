@@ -46,7 +46,6 @@ if (SKY_BUILD_EDITOR)
         LINK_LIBS
             Terrain.Static
             EditorFramework
-            3rdParty::PerlinNoise
     )
 endif ()
 
@@ -62,7 +61,6 @@ sky_add_library(TARGET TerrainTools STATIC
         tools/include
    LINK_LIBS
         Terrain.Static
-        3rdParty::PerlinNoise
 )
 
 sky_add_test(TARGET TerrainTest

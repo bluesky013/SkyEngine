@@ -321,17 +321,6 @@
 			]
 		},
 		{
-			"name": "PerlinNoise",
-			"url": "https://github.com/Reputeless/PerlinNoise.git",
-			"tag": "v3.0.0",
-			"header_only": true,
-			"platforms": [
-				"Win32",
-				"MacOS-x86",
-				"MacOS-arm"
-			]
-		},
-		{
 			"name": "ImGuizmo",
 			"url": "https://github.com/CedricGuillemet/ImGuizmo.git",
 			"tag": "1.83",

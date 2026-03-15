@@ -156,7 +156,6 @@ SkyEngine/
 | metis | v5.2.1 | static | 网格分区 (meshlet) |
 | ImGuizmo | 1.83 | header-only | 3D 变换 Gizmo |
 | nodeeditor | 3.0.12 | static | 节点编辑器 |
-| PerlinNoise | v3.0.0 | header-only | 噪声生成 |
 
 ### 可选插件依赖
 
@@ -170,7 +169,7 @@ SkyEngine/
 
 ### Patches 列表
 
-需要应用 patch 的包：crc32, GKlib, glslang, imgui, ImGuizmo, metis, nodeeditor, PerlinNoise, rapidjson, recast, sfmt, stb
+需要应用 patch 的包：crc32, GKlib, glslang, imgui, ImGuizmo, metis, nodeeditor, rapidjson, recast, sfmt, stb
 
 ---
 
