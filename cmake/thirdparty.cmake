@@ -18,7 +18,6 @@ endfunction()
 
 if(EXISTS ${3RD_PATH})
     # core
-    sky_find_3rd(TARGET crc32         DIR crc32c)
     sky_find_3rd(TARGET sfmt          DIR sfmt)
     sky_find_3rd(TARGET boost         DIR boost)
     sky_find_3rd(TARGET taskflow      DIR taskflow)

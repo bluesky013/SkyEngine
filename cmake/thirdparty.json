@@ -11,17 +11,6 @@
 			]
 		},
 		{
-			"name": "crc32c",
-			"url": "https://github.com/google/crc32c.git",
-			"tag": "1.1.2",
-			"header_only": false,
-			"options": {
-				"CRC32C_BUILD_BENCHMARKS": "OFF",
-				"CRC32C_BUILD_TESTS": "OFF",
-				"CRC32C_USE_GLOG": "OFF"
-			}
-		},
-		{
 			"name": "nodeeditor",
 			"url": "https://github.com/paceholder/nodeeditor.git",
 			"tag": "3.0.12",

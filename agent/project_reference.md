@@ -126,7 +126,6 @@ SkyEngine/
 
 | 包名 | 版本 | 类型 | 用途 |
 |------|------|------|------|
-| crc32c | 1.1.2 | static | CRC32C 校验 |
 | sfmt | 1.5.4 | static | 随机数生成 (SIMD) |
 | boost | 1.88.0 | static | container, graph |
 | taskflow | v3.7.0 | header-only | 任务并行调度 |
