@@ -1,0 +1,59 @@
+{
+    "plugins": [
+        {
+            "name": "guizmo",
+            "dir": "guizmo",
+            "cmake_var": "SKY_BUILD_GUIZMO",
+            "enabled": true,
+            "requires_editor": true
+        },
+        {
+            "name": "python",
+            "dir": "python",
+            "cmake_var": "SKY_BUILD_PYTHON",
+            "enabled": false
+        },
+        {
+            "name": "xr",
+            "dir": "xr",
+            "cmake_var": "SKY_BUILD_XR",
+            "enabled": false
+        },
+        {
+            "name": "bullet",
+            "dir": "bullet",
+            "cmake_var": "SKY_BUILD_BULLET",
+            "enabled": true
+        },
+        {
+            "name": "recast",
+            "dir": "recast",
+            "cmake_var": "SKY_BUILD_RECAST",
+            "enabled": true
+        },
+        {
+            "name": "freetype",
+            "dir": "freetype",
+            "cmake_var": "SKY_BUILD_FREETYPE",
+            "enabled": true
+        },
+        {
+            "name": "terrain",
+            "dir": "terrain",
+            "cmake_var": "SKY_BUILD_TERRAIN",
+            "enabled": true
+        },
+        {
+            "name": "compression",
+            "dir": "compression",
+            "cmake_var": "SKY_BUILD_COMPRESSION",
+            "enabled": true
+        },
+        {
+            "name": "pvs",
+            "dir": "pvs",
+            "cmake_var": "SKY_BUILD_PVS",
+            "enabled": true
+        }
+    ]
+}

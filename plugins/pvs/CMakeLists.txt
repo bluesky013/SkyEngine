@@ -6,6 +6,8 @@ file(GLOB_RECURSE EDITOR_INC_FILES editor/include/*)
 
 file(GLOB_RECURSE TEST_FILES test/*)
 
+include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
+
 sky_add_library(TARGET PVS.Static STATIC
     SOURCES
         ${RUNTIME_SRC_FILES}
@@ -28,8 +30,6 @@ sky_add_library(TARGET PVS SHARED
         PVS.Static
 
 )
-sky_add_dependency(TARGET PVS DEPENDENCIES Launcher)
-
 if (SKY_BUILD_EDITOR)
     sky_add_library(TARGET PVS.Editor SHARED
         SOURCES
@@ -44,8 +44,9 @@ if (SKY_BUILD_EDITOR)
             PVS.Static
             EditorFramework
     )
-    sky_add_dependency(TARGET PVS.Editor DEPENDENCIES Editor)
 endif ()
+
+sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
 
 sky_add_test(TARGET PVSTest
     SOURCES

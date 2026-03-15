@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10.0)
+cmake_minimum_required(VERSION 3.19)  # 3.19+ required for string(JSON ...)
 
 PROJECT(SkyEngine)
 
@@ -11,6 +11,7 @@ set(ENGINE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 include(${ENGINE_ROOT}/cmake/functions.cmake)
 include(${ENGINE_ROOT}/cmake/options.cmake)
+include(${ENGINE_ROOT}/cmake/plugin_switches.cmake)
 include(${ENGINE_ROOT}/cmake/configuration.cmake)
 include(${ENGINE_ROOT}/cmake/thirdparty.cmake)
 

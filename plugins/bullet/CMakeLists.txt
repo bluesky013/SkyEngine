@@ -1,6 +1,8 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
+include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
+
 sky_add_library(TARGET BulletPhysicsModule SHARED
     SOURCES
         ${SRC_FILES}
@@ -16,4 +18,4 @@ sky_add_library(TARGET BulletPhysicsModule SHARED
         3rdParty::bullet3
 )
 
-sky_add_dependency(TARGET BulletPhysicsModule DEPENDENCIES Launcher Editor)
+sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
