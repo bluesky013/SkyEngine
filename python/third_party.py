@@ -1,9 +1,11 @@
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import zipfile
 
 from pathlib import Path
 from git import Repo
@@ -16,7 +18,8 @@ parser.add_argument('-t', '--target', type=str, help='编译单个包')
 parser.add_argument('-p', '--platform', type=str, choices=["Win32", "MacOS-x86", "MacOS-arm", "Android", "IOS", "Linux"], help='编译平台')
 parser.add_argument('-c', '--clean', action='store_true', default=False, help='清理工程')
 parser.add_argument('-j', '--jobs', type=int, default=0, help='并行编译线程数 (0=自动)')
-parser.add_argument('--list', action='store_true', default=False, help='列出所有包信息')
+parser.add_argument('-l', '--list', action='store_true', default=False, help='列出所有包信息')
+parser.add_argument('-f', '--force', action='store_true', default=False, help='强制重新构建（忽略增量缓存）')
 args = parser.parse_args()
 
 tool_chain = {
@@ -29,8 +32,45 @@ tool_chain = {
 }
 
 NDK_VERSION = '27.0.12077973'
+METADATA_FILE = 'build_metadata.json'
 
-def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None, cache: str = None, components = None):
+def load_build_metadata():
+    meta_path = os.path.join(args.output, METADATA_FILE)
+    if os.path.exists(meta_path):
+        with open(meta_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_build_metadata(metadata):
+    meta_path = os.path.join(args.output, METADATA_FILE)
+    Path(args.output).mkdir(parents=True, exist_ok=True)
+    with open(meta_path, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, indent=2, ensure_ascii=False)
+
+def compute_package_key(package):
+    """Compute a hash from package config to detect changes."""
+    relevant = {k: v for k, v in package.items() if k not in ('name',)}
+    content = json.dumps(relevant, sort_keys=True)
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+def is_package_up_to_date(metadata, name, package_key):
+    entry = metadata.get(name)
+    if not entry:
+        return False
+    return entry.get('key') == package_key and entry.get('platform') == args.platform
+
+def mark_package_built(metadata, name, package_key):
+    metadata[name] = {
+        'key': package_key,
+        'platform': args.platform
+    }
+
+def get_log_dir():
+    log_dir = os.path.join(args.intermediate, '_logs')
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
+    return log_dir
+
+def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None, cache: str = None, components = None, log_name: str = None):
     # 确保构建目录存在
     Path(build_dir).mkdir(parents=True, exist_ok=True)
 
@@ -45,10 +85,17 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
         for key, value in options.items():
             cmake_cmd.extend([f"-D{key}={value}"])
 
+    log_file = None
+    if log_name:
+        log_path = os.path.join(get_log_dir(), f"{log_name}_{build_type}.log")
+        log_file = open(log_path, 'w', encoding='utf-8')
+
     try:
         # 执行CMake配置
         print(f"  [configure] {source_dir}")
         process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if log_file:
+            log_file.write(f"=== configure ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
 
         # 执行 Build
         build_cmd = ["cmake", "--build", build_dir, "--config", build_type]
@@ -58,6 +105,8 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
             build_cmd.append("--parallel")
         print(f"  [build] {build_type}")
         process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if log_file:
+            log_file.write(f"=== build ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
 
         # 执行 Install
         install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
@@ -68,12 +117,19 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict = None,
 
         print(f"  [install] {build_type}")
         process = subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if log_file:
+            log_file.write(f"=== install ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
 
         print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:
         stderr_text = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
+        if log_file:
+            log_file.write(f"=== ERROR ===\n{stderr_text}\n")
         print(f"CMake执行失败:\n{stderr_text}")
         raise
+    finally:
+        if log_file:
+            log_file.close()
 
 def copy_package(name, install_dir, build_type):
     src_inc_path = os.path.join(install_dir, "include")
@@ -96,29 +152,11 @@ def copy_package(name, install_dir, build_type):
     dst_lib = Path(str(dst_lib_path))
     dst_bin = Path(str(dst_bin_path))
 
-    if src_inc.exists():
-        dst_inc.mkdir(parents=True, exist_ok=True)
-        if dst_inc.exists():
-            shutil.rmtree(dst_inc)
-        shutil.copytree(src_inc, dst_inc)
-
-    if src_src.exists():
-        dst_src.mkdir(parents=True, exist_ok=True)
-        if dst_src.exists():
-            shutil.rmtree(dst_src)
-        shutil.copytree(src_src, dst_src)
-
-    if src_bin.exists():
-        dst_bin.mkdir(parents=True, exist_ok=True)
-        if dst_bin.exists():
-            shutil.rmtree(dst_bin)
-        shutil.copytree(src_bin, dst_bin)
-
-    if src_lib.exists():
-        dst_lib.mkdir(parents=True, exist_ok=True)
-        if dst_lib.exists():
-            shutil.rmtree(dst_lib)
-        shutil.copytree(src_lib, dst_lib)
+    for src, dst in [(src_inc, dst_inc), (src_src, dst_src), (src_bin, dst_bin), (src_lib, dst_lib)]:
+        if src.exists():
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
 
 
 def get_android_sdk_path():
@@ -149,13 +187,8 @@ def fill_android_config(options):
     options['ANDROID_PLATFORM'] = 'android-31'
     options['CMAKE_TOOLCHAIN_FILE'] = toolchain
 
-def build_package_type(name, source_dir, build_type, options, cache, components):
-    build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
-    install_dir = os.path.join(build_dir, 'install')
-
-    # common options
+def fill_common_options(options, build_type, install_dir):
     cmake_modules_path = os.path.join(args.engine, 'cmake', 'thirdparty').replace('\\', '/')
-    print(f'cmake module find path: {cmake_modules_path}')
     options['3RD_PATH'] = args.output
     options['3RD_FIND_PATH'] = cmake_modules_path
     options['BUILD_TESTING'] = 'OFF'
@@ -167,13 +200,41 @@ def build_package_type(name, source_dir, build_type, options, cache, components)
     elif args.platform == 'IOS':
         fill_ios_config(options)
 
-    run_cmake(build_dir, source_dir, build_type, options, cache, components)
+def build_package_type(name, source_dir, build_type, options, cache, components, header_only=False):
+    build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
+    install_dir = os.path.join(build_dir, 'install')
+
+    fill_common_options(options, build_type, install_dir)
+
+    if header_only:
+        # header-only: configure + install only, skip build
+        Path(build_dir).mkdir(parents=True, exist_ok=True)
+
+        cmake_cmd = ["cmake", "-S", source_dir, "-B", build_dir, "-G", tool_chain[args.platform]]
+        if cache:
+            cmake_cmd = ["cmake", "-S", source_dir, "-C", cache, "-B", build_dir, "-G", tool_chain[args.platform]]
+        if options:
+            for key, value in options.items():
+                cmake_cmd.extend([f"-D{key}={value}"])
+
+        print(f"  [configure] {source_dir}")
+        subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
+        print(f"  [install] {build_type}")
+        subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    else:
+        run_cmake(build_dir, source_dir, build_type, options, cache, components, log_name=name)
+
     copy_package(name, install_dir, build_type)
 
-def build_package(name, source_dir, options, cache, components):
+def build_package(name, source_dir, options, cache, components, header_only=False):
     print("build package ...", name)
-    build_package_type(name, source_dir, 'Debug', options, cache, components)
-    build_package_type(name, source_dir, 'Release', options, cache, components)
+    if header_only:
+        build_package_type(name, source_dir, 'Release', dict(options), cache, components, header_only=True)
+    else:
+        build_package_type(name, source_dir, 'Debug', dict(options), cache, components)
+        build_package_type(name, source_dir, 'Release', dict(options), cache, components)
     print("build package done")
 
 def process_package(package):
@@ -200,8 +261,13 @@ def process_package(package):
         return
 
     clone_dir = os.path.join(args.intermediate, name)
+    need_full_history = submodule or submodules
     if not os.path.exists(clone_dir):
-        repo = Repo.clone_from(url, str(clone_dir))
+        clone_kwargs = {}
+        if not need_full_history and tag:
+            clone_kwargs['depth'] = 1
+            clone_kwargs['branch'] = tag
+        repo = Repo.clone_from(url, str(clone_dir), **clone_kwargs)
     else:
         repo = Repo(str(clone_dir))
 
@@ -214,7 +280,7 @@ def process_package(package):
         repo.git.clean('-xdf')
         return
 
-    if tag:
+    if tag and need_full_history:
         repo.git.fetch('--tags')
         if tag not in repo.tags:
             raise ValueError(f"Tag '{tag}' 不存在于仓库中")
@@ -237,8 +303,8 @@ def process_package(package):
     if submodule is True:
         print(repo.submodules)
 
-        for submodule in repo.submodules:
-            submodule.update(init=True, recursive=True, force=True)
+        for sm in repo.submodules:
+            sm.update(init=True, recursive=True, force=True)
 
     if submodules:
         for subName in submodules:
@@ -260,39 +326,52 @@ def process_package(package):
     if is_tool is True:
         return
 
-    if header_only is True:
-        # header-only: only configure+install, skip build
-        build_header_only(name, source_dir, options, cache)
-    else:
-        build_package(name, source_dir, options, cache, components)
+    build_package(name, source_dir, options, cache, components, header_only=header_only)
 
-def build_header_only(name, source_dir, options, cache):
-    print(f"[header-only] {name}")
-    for build_type in ['Release']:
-        build_dir = os.path.join(source_dir, f"build_{args.platform}_{build_type}")
-        install_dir = os.path.join(build_dir, 'install')
+def archive_output(json_file, data):
+    """Zip the entire output directory and record MD5 into thirdparty.json."""
+    archive_dir = os.path.join(args.engine, 'build_3rd', 'archives')
+    Path(archive_dir).mkdir(parents=True, exist_ok=True)
 
-        cmake_modules_path = os.path.join(args.engine, 'cmake', 'thirdparty').replace('\\', '/')
-        options['3RD_PATH'] = args.output
-        options['3RD_FIND_PATH'] = cmake_modules_path
-        options['BUILD_TESTING'] = 'OFF'
-        options['CMAKE_INSTALL_PREFIX'] = install_dir
-        options['CMAKE_BUILD_TYPE'] = build_type
+    # create zip
+    zip_name = f"thirdparty_{args.platform}.zip"
+    zip_path = os.path.join(archive_dir, zip_name)
+    print(f"[archive] creating {zip_path} ...")
 
-        Path(build_dir).mkdir(parents=True, exist_ok=True)
+    output_root = Path(args.output)
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file in sorted(output_root.rglob('*')):
+            if file.is_file() and file.name != METADATA_FILE:
+                arcname = file.relative_to(output_root)
+                zf.write(file, arcname)
 
-        cmake_cmd = ["cmake", "-S", source_dir, "-B", build_dir, "-G", tool_chain[args.platform]]
-        if options:
-            for key, value in options.items():
-                cmake_cmd.extend([f"-D{key}={value}"])
+    # compute md5
+    md5 = hashlib.md5()
+    with open(zip_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            md5.update(chunk)
+    md5_hex = md5.hexdigest()
 
-        subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # rename with short hash
+    final_name = f"thirdparty_{args.platform}_{md5_hex[:12]}.zip"
+    final_path = os.path.join(archive_dir, final_name)
+    if os.path.exists(final_path):
+        os.remove(final_path)
+    os.rename(zip_path, final_path)
 
-        install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
-        subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # update thirdparty.json
+    if 'archives' not in data:
+        data['archives'] = {}
+    data['archives'][args.platform] = {
+        'file': final_name,
+        'md5': md5_hex
+    }
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent='\t', ensure_ascii=False)
 
-        copy_package(name, install_dir, build_type)
-    print(f"[header-only] {name} done")
+    size_mb = os.path.getsize(final_path) / (1024 * 1024)
+    print(f"[archive] {final_name} ({size_mb:.1f} MB, md5: {md5_hex})")
+
 
 def list_packages(packages):
     print(f"{'Name':<20} {'Tag':<25} {'Type':<12} {'Platforms'}")
@@ -315,13 +394,34 @@ def app_main():
         list_packages(packages)
         return
 
-    filtered = list(filter(lambda pkg: pkg['name'] == args.target, packages))
+    metadata = load_build_metadata()
 
-    if len(filtered) > 0:
-        process_package(filtered[0])
+    if args.target:
+        filtered = list(filter(lambda pkg: pkg['name'] == args.target, packages))
     else:
-        for package in packages:
-            process_package(package)
+        filtered = packages
+
+    built_any = False
+    for package in filtered:
+        name = package.get('name', '')
+        if not name:
+            continue
+        package_key = compute_package_key(package)
+
+        if not args.force and not args.clean and is_package_up_to_date(metadata, name, package_key):
+            print(f"[skip] {name} (已是最新, 使用 -f 强制重建)")
+            continue
+
+        process_package(package)
+
+        if not args.clean:
+            mark_package_built(metadata, name, package_key)
+            save_build_metadata(metadata)
+            built_any = True
+
+    # archive after build
+    if built_any and not args.clean:
+        archive_output(json_file, data)
 
 if __name__ == "__main__":
     app_main()

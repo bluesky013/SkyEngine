@@ -1,12 +1,14 @@
 {
-	"packages":[
+	"packages": [
 		{
 			"name": "ios-cmake",
 			"url": "https://github.com/leetal/ios-cmake.git",
 			"tag": "4.5.0",
 			"header_only": false,
 			"is_tool": true,
-			"platforms": ["IOS"]
+			"platforms": [
+				"IOS"
+			]
 		},
 		{
 			"name": "crc32c",
@@ -24,7 +26,11 @@
 			"url": "https://github.com/paceholder/nodeeditor.git",
 			"tag": "3.0.12",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			],
 			"options": {
 				"BUILD_TESTING": "OFF",
 				"BUILD_SHARED_LIBS": "OFF",
@@ -126,7 +132,12 @@
 			"url": "https://github.com/libsdl-org/SDL.git",
 			"tag": "release-2.32.6",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm", "Linux"],
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm",
+				"Linux"
+			],
 			"options": {
 				"SDL_SHARED": "OFF",
 				"SDL_STATIC": "ON",
@@ -206,7 +217,9 @@
 			"header_only": false,
 			"cache": "cmake/caches/PredefinedParams.cmake",
 			"submodule": true,
-			"platforms": ["Win32"],
+			"platforms": [
+				"Win32"
+			],
 			"options": {
 				"HLSL_BUILD_DXILCONV": "OFF",
 				"HLSL_INCLUDE_TESTS": "OFF",
@@ -284,7 +297,11 @@
 			"url": "https://github.com/assimp/assimp.git",
 			"tag": "v6.0.2",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			],
 			"options": {
 				"BUILD_SHARED_LIBS": "ON",
 				"CMAKE_DEBUG_POSTFIX": "",
@@ -297,49 +314,77 @@
 			"url": "https://github.com/zeux/meshoptimizer.git",
 			"tag": "v0.23",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "stb",
 			"url": "https://github.com/nothings/stb.git",
 			"tag": "f75e8d1cad7d90d72ef7a4661f1b994ef78b4e31",
 			"header_only": true,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "PerlinNoise",
 			"url": "https://github.com/Reputeless/PerlinNoise.git",
 			"tag": "v3.0.0",
 			"header_only": true,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "ImGuizmo",
 			"url": "https://github.com/CedricGuillemet/ImGuizmo.git",
 			"tag": "1.83",
 			"header_only": true,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "GKlib",
 			"url": "https://github.com/KarypisLab/GKlib.git",
 			"tag": "METIS-v5.1.1-DistDGL-0.5",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "metis",
 			"url": "https://github.com/KarypisLab/METIS.git",
 			"tag": "v5.2.1",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"]
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			]
 		},
 		{
 			"name": "astc",
 			"url": "https://github.com/ARM-software/astc-encoder.git",
 			"tag": "5.2.0",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			],
 			"options": {
 				"ASTCENC_CLI": "OFF"
 			}
@@ -348,9 +393,19 @@
 			"name": "ispc_texcomp",
 			"url": "https://github.com/bluesky013/ISPCTextureCompressor.git",
 			"header_only": false,
-			"platforms": ["Win32", "MacOS-x86", "MacOS-arm"],
+			"platforms": [
+				"Win32",
+				"MacOS-x86",
+				"MacOS-arm"
+			],
 			"custom": "build.py",
 			"custom_need_platform": true
 		}
-	]
+	],
+	"archives": {
+		"Win32": {
+			"file": "thirdparty_Win32_1935718e852e.zip",
+			"md5": "1935718e852e5743d2d72c550052a305"
+		}
+	}
 }

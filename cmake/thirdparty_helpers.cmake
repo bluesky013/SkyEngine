@@ -1,5 +1,9 @@
 # Helper functions to reduce boilerplate in Find*.cmake modules.
 # Include this file BEFORE any find_package() calls.
+# Safe to include multiple times (include guard).
+if (COMMAND sky_3rd_static)
+    return()
+endif()
 
 # Creates an INTERFACE IMPORTED target for header-only libraries.
 # Usage:
@@ -32,14 +36,16 @@ endfunction()
 #   sky_3rd_static(<name> LIBS <lib1> [lib2 ...]
 #                  [DEBUG_SUFFIX <suffix>]
 #                  [INCLUDE_SUBDIR <subdir>]
+#                  [LIB_PREFIX <prefix>]
 #                  [EXT_LIBS <lib> ...])
 # Examples:
 #   sky_3rd_static(crc32 LIBS crc32c)
+#   sky_3rd_static(boost LIB_PREFIX libboost_ LIBS container graph)
 #   sky_3rd_static(bullet3 INCLUDE_SUBDIR bullet DEBUG_SUFFIX d
 #       LIBS Bullet3Collision Bullet3Common Bullet3Dynamics
 #            Bullet3Geometry BulletCollision BulletDynamics LinearMath)
 function(sky_3rd_static LIB_NAME)
-    cmake_parse_arguments(ARGS "" "DEBUG_SUFFIX;INCLUDE_SUBDIR" "LIBS;EXT_LIBS" ${ARGN})
+    cmake_parse_arguments(ARGS "" "DEBUG_SUFFIX;INCLUDE_SUBDIR;LIB_PREFIX" "LIBS;EXT_LIBS" ${ARGN})
     set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
     if (TARGET ${TARGET_WITH_NAMESPACE})
         set(${LIB_NAME}_FOUND True PARENT_SCOPE)
@@ -54,11 +60,17 @@ function(sky_3rd_static LIB_NAME)
 
     set(LIBS_DIR ${${LIB_NAME}_PATH}/lib)
 
+    if (ARGS_LIB_PREFIX)
+        set(ACTUAL_PREFIX ${ARGS_LIB_PREFIX})
+    else()
+        set(ACTUAL_PREFIX ${CMAKE_STATIC_LIBRARY_PREFIX})
+    endif()
+
     foreach(lib ${ARGS_LIBS})
         list(APPEND DEBUG_LIBS
-            ${LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${ARGS_DEBUG_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
+            ${LIBS_DIR}/Debug/${ACTUAL_PREFIX}${lib}${ARGS_DEBUG_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
         list(APPEND RELEASE_LIBS
-            ${LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX})
+            ${LIBS_DIR}/Release/${ACTUAL_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX})
     endforeach()
 
     if (ARGS_EXT_LIBS)
