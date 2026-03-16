@@ -3,7 +3,7 @@
 //
 
 #include <terrain/editor/TerrainGenerator.h>
-#include <PerlinNoise.hpp>
+#include <core/math/PerlinNoise.h>
 #include <terrain/TerrainUtils.h>
 #include <core/math/MathUtil.h>
 #include <core/util/Time.h>
@@ -78,8 +78,7 @@ namespace sky::editor {
 
     bool TerrainTileGenerator::DoWork()
     {
-        const siv::PerlinNoise::seed_type seed = 113344u;
-        const siv::PerlinNoise perlin{ seed };
+        const PerlinNoise perlin{113344u};
 
         auto xOffset = static_cast<float>(tileCfg.coord.x * tileCfg.sectionSize);
         auto yOffset = static_cast<float>(tileCfg.coord.y * tileCfg.sectionSize);
@@ -104,7 +103,7 @@ namespace sky::editor {
                 float x = yOffset + static_cast<float>(j) * scaleFactor;
 
                 uint32_t index = i * tileCfg.heightMapSize + j;
-                auto val = perlin.noise2D_01(x * 0.05, y * 0.05);
+                auto val = perlin.Octave2D_01(x * 0.05, y * 0.05, 1);
                 heightMapData[index] = static_cast<float>(val);
             }
         }
