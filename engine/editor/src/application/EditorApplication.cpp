@@ -14,7 +14,7 @@
 #include <framework/asset/AssetBuilderManager.h>
 #include <framework/interface/ITickEvent.h>
 
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 static const char* TAG = "EditorApplication";
 
@@ -41,12 +41,12 @@ namespace sky::editor {
 
     bool EditorApplication::Init(int argc, char **argv)
     {
-        cxxopts::Options options("GameApplication Launcher", "SkyEngine Launcher");
+        CmdOptions options("GameApplication Launcher", "SkyEngine Launcher");
         options.allow_unrecognised_options();
 
-        options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
-        options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>());
-        options.add_options()("i,intermediate", "Project Intermediate Directory", cxxopts::value<std::string>());
+        options.add_options()("p,project", "Project Directory", CmdValue<std::string>());
+        options.add_options()("e,engine", "Engine Directory", CmdValue<std::string>());
+        options.add_options()("i,intermediate", "Project Intermediate Directory", CmdValue<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") == 0u || result.count("engine") == 0u) {
             return false;

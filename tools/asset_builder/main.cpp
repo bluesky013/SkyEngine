@@ -1,5 +1,5 @@
 #include <iostream>
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 #include <framework/application/Application.h>
 #include <framework/application/ToolApplicationBase.h>
@@ -9,11 +9,11 @@ using namespace sky;
 
 int main(int argc, char *argv[])
 {
-    cxxopts::Options options("AssetBuilder", "SkyEngine AssetBuilder");
-    options.add_options()("e,engine", "Engine Directory", cxxopts::value<std::string>())
-        ("p,project", "Project Directory", cxxopts::value<std::string>())
-        ("i,import", "Import Source Asset", cxxopts::value<std::vector<std::string>>())
-        ("f,imports", "Import Source Asset by list", cxxopts::value<std::string>())
+    CmdOptions options("AssetBuilder", "SkyEngine AssetBuilder");
+    options.add_options()("e,engine", "Engine Directory", CmdValue<std::string>())
+        ("p,project", "Project Directory", CmdValue<std::string>())
+        ("i,import", "Import Source Asset", CmdValue<std::vector<std::string>>())
+        ("f,imports", "Import Source Asset by list", CmdValue<std::string>())
         ("l,list", "Project Asset List")
         ("h,help", "Print usage");
     options.allow_unrecognised_options();

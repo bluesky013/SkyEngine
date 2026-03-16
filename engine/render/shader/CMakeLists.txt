@@ -50,7 +50,6 @@ sky_add_exe(TARGET ShaderTool
     LIBS
         Framework
         ShaderCompiler.Static
-        3rdParty::cxxopts
 )
 
 if (SKY_BUILD_TEST)

@@ -155,16 +155,6 @@
 			}
 		},
 		{
-			"name": "cxxopts",
-			"url": "https://github.com/jarro2783/cxxopts.git",
-			"tag": "v3.2.1",
-			"header_only": true,
-			"options": {
-				"CXXOPTS_BUILD_EXAMPLES": "OFF",
-				"CXXOPTS_BUILD_TESTS": "OFF"
-			}
-		},
-		{
 			"name": "imgui",
 			"url": "https://github.com/ocornut/imgui.git",
 			"tag": "v1.88",

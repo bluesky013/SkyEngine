@@ -32,9 +32,6 @@ if(EXISTS ${3RD_PATH})
     # imgui
     sky_find_3rd(TARGET imgui         DIR imgui)
 
-    # temp
-    sky_find_3rd(TARGET cxxopts       DIR cxxopts)
-
     # shader
     sky_find_3rd(TARGET glslang       DIR glslang)
     sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)

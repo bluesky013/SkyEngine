@@ -38,7 +38,6 @@ sky_add_library(TARGET Framework STATIC
         include
     LINK_LIBS
         Core
-        3rdParty::cxxopts
         ${FM_EXT_LIB}
         ${PLATFORM_EXT_LIBS}
     INSTALL_DIR

@@ -4,7 +4,7 @@
 
 #include <framework/application/ToolApplicationBase.h>
 
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
@@ -17,12 +17,12 @@ namespace sky {
 #ifdef SKY_EDITOR
     void ToolApplicationBase::ParseStartArgs()
     {
-        cxxopts::Options options("Application Launcher", "SkyEngine Launcher");
+        CmdOptions options("Application Launcher", "SkyEngine Launcher");
         options.allow_unrecognised_options();
 
         options.add_options()
-            ("p,project", "Project Directory", cxxopts::value<std::string>())
-            ("m,module", "Addition Module", cxxopts::value<std::vector<std::string>>())
+            ("p,project", "Project Directory", CmdValue<std::string>())
+            ("m,module", "Addition Module", CmdValue<std::vector<std::string>>())
             ("h,help", "Print usage");
 
         auto result = options.parse(static_cast<int32_t>(arguments.args.size()), arguments.args.data());

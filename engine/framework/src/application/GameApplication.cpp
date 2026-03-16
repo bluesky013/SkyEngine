@@ -4,7 +4,7 @@
 
 #include <framework/application/GameApplication.h>
 
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
@@ -27,10 +27,10 @@ namespace sky {
     bool GameApplication::Init(int argc, char **argv)
     {
 #ifdef SKY_EDITOR
-        cxxopts::Options options("GameApplication Launcher", "SkyEngine Launcher");
+        CmdOptions options("GameApplication Launcher", "SkyEngine Launcher");
         options.allow_unrecognised_options();
 
-        options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
+        options.add_options()("p,project", "Project Directory", CmdValue<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
             std::string projectPath = result["project"].as<std::string>();
