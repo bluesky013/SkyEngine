@@ -44,12 +44,12 @@ namespace sky {
         AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(projectPath));
     }
 
-    void ToolApplicationBase::LoadConfigs()
+    bool ToolApplicationBase::LoadConfigs()
     {
         std::string json;
         if (!ReadString(projectPath + CONFIG_PATH, json)) {
             LOG_W(TAG, "Load Config Failed");
-            return;
+            return true;
         }
 
         rapidjson::Document document;
@@ -74,6 +74,7 @@ namespace sky {
                 moduleManager->RegisterModule(info);
             }
         }
+        return true;
     }
 
     void ToolApplicationBase::PostInit()

@@ -16,14 +16,14 @@ namespace sky {
         ~GameApplication() override = default;
 
         bool Init(int argc, char **argv) override;
-        void PreInit() override;
+        bool PreInit() override;
         void PostInit() override;
 
         void PreTick() override;
 
         NativeWindow* GetWindow() const { return nativeWindow.get(); }
     private:
-        void LoadConfigs() override;
+        bool LoadConfigs() override;
 
         std::unique_ptr<NativeWindow> nativeWindow;
         uint32_t width = 1024;

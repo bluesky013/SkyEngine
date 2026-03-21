@@ -53,8 +53,8 @@ namespace sky {
         bool                            exit = false;
 
         virtual void ParseStartArgs() {}
-        virtual void LoadConfigs() {}
-        virtual void PreInit() {}
+        virtual bool LoadConfigs() { return true; }
+        virtual bool PreInit() { return true; }
         virtual void PostInit() {}
     };
 

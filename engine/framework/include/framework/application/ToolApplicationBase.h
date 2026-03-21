@@ -14,7 +14,7 @@ namespace sky {
         ToolApplicationBase() = default;
         ~ToolApplicationBase() override = default;
 
-        void LoadConfigs() override;
+        bool LoadConfigs() override;
         void ParseStartArgs() override;
         void PostInit() override;
 

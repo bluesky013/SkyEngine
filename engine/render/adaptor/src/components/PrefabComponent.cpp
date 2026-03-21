@@ -149,9 +149,9 @@ namespace sky {
                 }
             }
 
-            // SetAsset calls are outside the lock ¡ª safe for synchronous re-entry
+            // SetAsset calls are outside the lock ï¿½ï¿½ safe for synchronous re-entry
             uint32_t num = 0;
-            LOG_I(TAG, "Load Prefab %s, nodeNum%zu", uuid.ToString(), meshesToLoad.size());
+            LOG_I(TAG, "Load Prefab %s, nodeNum%zu", uuid.ToString().c_str(), meshesToLoad.size());
             for (auto& id : meshesToLoad) {
                 auto iter = lodGroupHolders.find(id);
                 if (iter != lodGroupHolders.end()) {

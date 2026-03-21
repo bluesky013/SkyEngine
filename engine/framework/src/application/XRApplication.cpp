@@ -44,7 +44,7 @@ namespace sky {
         return true;
     }
 
-    void XRApplication::LoadConfigs()
+    bool XRApplication::LoadConfigs()
     {
 //#ifdef SKY_EDITOR
 //        auto configPath = AssetManager::Get()->GetProjectPath() + CONFIG_PATH;
@@ -80,6 +80,7 @@ namespace sky {
 //                moduleManager->RegisterModule(info);
 //            }
 //        }
+    return true;
     }
 
 

@@ -38,7 +38,7 @@ namespace sky::rdg {
 
         FORCEINLINE bool IsActiveInView(uint8_t viewId) const
         {
-            const uint32_t viewBit = 1LLU << viewId;
+            const uint64_t viewBit = 1LLU << viewId;
             return (visibleMask & viewBit) == viewBit;
         }
 
