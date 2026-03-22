@@ -90,4 +90,88 @@ When reviewing or writing code, if a variable received via `auto` is never modif
 
 ---
 
+## Rule 3 — Prefer forward declarations over `#include`
+
+### Requirement
+
+In **header files** (`.h` / `.inl`), prefer forward-declaring a type over including its full definition whenever the full definition is not required.
+
+### When a forward declaration is sufficient
+
+A full `#include` is **not needed** when the header only uses a type in these ways:
+
+| Usage in header | Forward declare? |
+|---|---|
+| Pointer or reference (`T*`, `T&`, `const T&`) | Yes |
+| Return type of a declared (not defined) function | Yes |
+| Parameter type of a declared (not defined) function | Yes |
+| `std::unique_ptr<T>`, `std::shared_ptr<T>` member (destructor not in header) | Yes |
+| Template type argument that the template does not instantiate | Yes |
+
+### When `#include` is required
+
+| Usage in header | Must include? |
+|---|---|
+| Base class (`class Foo : public Bar`) | Yes |
+| Member variable by value (`Bar m_bar;`) | Yes |
+| `sizeof(T)` or accessing members of `T` | Yes |
+| Inline / template function body that calls `T` methods | Yes |
+| `static_cast` / `reinterpret_cast` to `T` (needs complete type) | Yes |
+
+### How to apply
+
+```cpp
+// Good — header only uses pointer; forward declare
+// Foo.h
+namespace sky {
+class Bar;          // forward declaration
+
+class Foo {
+public:
+    void Process(Bar* bar);
+private:
+    Bar* m_bar = nullptr;
+};
+} // namespace sky
+
+// Foo.cpp — include the full definition where it is actually needed
+#include "Bar.h"
+
+void Foo::Process(Bar* bar) {
+    bar->DoWork();  // full definition required here, and we have the #include
+}
+```
+
+```cpp
+// Bad — unnecessary include in header
+// Foo.h
+#include "Bar.h"   // ← full definition not needed here
+
+class Foo {
+public:
+    void Process(Bar* bar);
+private:
+    Bar* m_bar = nullptr;
+};
+```
+
+### Rationale
+
+- Reduces header coupling and transitive include chains, improving compile times.
+- Makes dependency relationships explicit: the `.cpp` that actually uses the type includes the header.
+- Minimizes recompilation cascades when an included header changes.
+
+### Guidelines
+
+1. **Headers**: Always ask "do I need the full definition here?" before writing `#include`. If not, forward declare.
+2. **Source files (`.cpp`)**: Include whatever is needed; forward declarations in `.cpp` files are rarely useful and can be confusing.
+3. **Do not forward declare** standard library types (e.g., `std::vector`, `std::string`) — always `#include` their headers.
+4. **Nested / inner classes** cannot be forward declared from outside their enclosing class — `#include` is required.
+
+### Detection
+
+When adding a new `#include` to a header, verify that the included type is used in a way that requires its full definition. If only pointers, references, or declarations are involved, replace the `#include` with a forward declaration.
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->

@@ -14,7 +14,7 @@ namespace sky::sl {
         ~TranslationUnit() = default;
 
     private:
-        NodeBase* rootNode = nullptr;
+
     };
 
 
