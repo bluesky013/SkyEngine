@@ -286,7 +286,7 @@
 		{
 			"name": "stb",
 			"url": "https://github.com/nothings/stb.git",
-			"tag": "f75e8d1cad7d90d72ef7a4661f1b994ef78b4e31",
+			"commit": "f75e8d1cad7d90d72ef7a4661f1b994ef78b4e31",
 			"header_only": true,
 			"platforms": [
 				"Win32",
@@ -358,6 +358,10 @@
 		"Win32": {
 			"file": "thirdparty_Win32_1935718e852e.zip",
 			"md5": "1935718e852e5743d2d72c550052a305"
+		},
+		"MacOS-x86": {
+			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",
+			"md5": "6c8ce9a011293006579825d40f0bab53"
 		}
 	}
 }

@@ -4,7 +4,7 @@
 
 ### Build Third-party deps
 ```cmd
-python3 python/third_party.py -i <intermediate_path> -o <output_path> -e <engine_path> -p [platform]
+python3 python/third_party.py -p [platform]
 ```
 
 * Third-party deps list:  cmake/thirdparty.json
@@ -12,12 +12,45 @@ python3 python/third_party.py -i <intermediate_path> -o <output_path> -e <engine
 
 | args               | Description               |
 |--------------------|---------------------------|
-| -i, --intermediate | Third-party download path |
-| -o, --output       | Binary-Output path        |
-| -e, --engine       | Engine path               |
+| -i, --intermediate | Third-party download/build path (default: `build_3rd/intermediate`) |
+| -o, --output       | Third-party output root, effective `3RD_PATH` is `<output>/<platform>` |
+| -e, --engine       | Engine path (default: current repository root) |
 | -p, --platform     | Target Platform           |
-| -c, --clear        | Clear build               |
+| -c, --clean        | Clear build               |
 | -t, --target       | Build Single Library      |
+
+* Default third-party layout
+
+When `-o/--output` is omitted, the script uses `build_3rd/` as the output root, and each platform gets a full isolated third-party tree:
+
+```text
+build_3rd/
+  thirdparty_cache.cmake
+  Win32/
+  MacOS-x86/
+  MacOS-arm/
+  IOS/
+  Android/
+  Linux/
+```
+
+The effective `3RD_PATH` is the platform directory, for example:
+
+- `build_3rd/Win32`
+- `build_3rd/MacOS-arm`
+- `build_3rd/Android`
+
+After each successful third-party build, `build_3rd/thirdparty_cache.cmake` is refreshed. If `3RD_PATH` is empty, the repository CMake auto-loads this file and resolves `3RD_PATH` to the active platform directory.
+
+* Examples
+
+```cmd
+:: Build all third-party libraries for Win32 into build_3rd/Win32
+python3 python/third_party.py -p Win32
+
+:: Build one library with custom root output; effective 3RD_PATH becomes <out>/Linux
+python3 python/third_party.py -i <intermediate_path> -o <output_path> -e <engine_path> -p Linux -t taskflow
+```
 
 * Supported Platforms
 
@@ -34,6 +67,8 @@ python3 python/third_party.py -i <intermediate_path> -o <output_path> -e <engine
 cmake -S . -B build -G "Visual Studio 17 2022" -D3RD_PATH=${path_to_3rd}
 cmake --build build
 ```
+
+If you use the default third-party layout, `${path_to_3rd}` should point to the platform subdirectory, for example `build_3rd/Win32`. You can also leave `3RD_PATH` unset and let CMake auto-load `build_3rd/thirdparty_cache.cmake`.
 
 ## Compile Shader
 ```shell

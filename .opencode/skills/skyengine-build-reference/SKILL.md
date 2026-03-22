@@ -14,7 +14,7 @@ Use this skill when the task involves building SkyEngine, proposing build comman
 ## Working rules
 
 - Always keep the documented order: third-party bootstrap first, then CMake configure/generate, then engine build, then optional tests or app packaging.
-- Treat `python/third_party.py` as the required entrypoint for third-party setup and `3RD_PATH` generation.
+- Treat `python/third_party.py` as the required entrypoint for third-party setup, generated `3RD_PATH`, and `build_3rd/thirdparty_cache.cmake` refresh.
 - Preserve placeholders like `<engine_root>`, `<build_dir>`, and `<thirdparty_output_dir>` unless the user provides concrete paths.
 - Use only platform names that exist in the repository tooling: `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `Linux`.
 - Call out platform assumptions explicitly when adapting commands.
@@ -26,7 +26,7 @@ Use this skill when the task involves building SkyEngine, proposing build comman
 SkyEngine uses this order on every platform:
 
 1. Build third-party dependencies with `python/third_party.py`
-2. Configure CMake with `-D3RD_PATH=<thirdparty_output_dir>`
+2. Configure CMake with `-D3RD_PATH=<thirdparty_output_dir>` or let CMake auto-load `build_3rd/thirdparty_cache.cmake`
 3. Build the engine targets
 4. Optionally run tests or package the platform launcher
 
@@ -38,18 +38,17 @@ Canonical command template:
 
 ```bash
 python3 python/third_party.py \
-  -i <thirdparty_intermediate_dir> \
-  -o <thirdparty_output_dir> \
-  -e <engine_root> \
   -p <platform> \
   -j <jobs>
 ```
 
+If `-e/--engine` is omitted, the script now defaults to the current repository root. If `-i/--intermediate` is omitted, it defaults to `<engine_root>/build_3rd/intermediate`. If `-o/--output` is omitted, the script uses `<engine_root>/build_3rd` as the output root, writes the full per-platform third-party tree into `<engine_root>/build_3rd/<platform>`, and regenerates `<engine_root>/build_3rd/thirdparty_cache.cmake` after each successful build.
+
 Common options:
 
-- `-i, --intermediate`: clone/build workspace for 3rd-party sources
-- `-o, --output`: installed third-party output used as `3RD_PATH`
-- `-e, --engine`: repository root
+- `-i, --intermediate`: clone/build workspace for 3rd-party sources (defaults to `<engine_root>/build_3rd/intermediate`)
+- `-o, --output`: third-party output root; the effective `3RD_PATH` becomes `<output>/<platform>` (defaults to `<engine_root>/build_3rd/<platform>`)
+- `-e, --engine`: repository root (defaults to the current engine root)
 - `-p, --platform`: one of `Win32`, `MacOS-x86`, `MacOS-arm`, `IOS`, `Android`, `Linux`
 - `-j, --jobs`: build parallelism (`0` means auto in the script)
 - `-f, --force`: force rebuild even if cached metadata says up to date
@@ -61,13 +60,16 @@ Useful examples:
 
 ```bash
 # List available packages
-python3 python/third_party.py -e <engine_root> -p Win32 --list
+python3 python/third_party.py -p Win32 --list
 
 # Force full rebuild for macOS arm64
 python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p MacOS-arm -j 8 -f
 
 # Build only one package
 python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p Linux -t taskflow
+
+# Build all packages into the default build_3rd/<platform> output
+python3 python/third_party.py -p Win32 -j 8
 ```
 
 ## Step 2: Configure CMake
@@ -80,6 +82,10 @@ cmake -S <engine_root> -B <build_dir> \
   -D3RD_PATH=<thirdparty_output_dir> \
   -DSKY_BUILD_TEST=OFF
 ```
+
+If `build_3rd/thirdparty_cache.cmake` exists and `3RD_PATH` is still empty, the repository CMake now auto-includes that generated cache file before third-party discovery.
+
+The generated cache maps `3RD_PATH` to the active platform subdirectory, so each platform keeps its own full third-party output tree under `build_3rd/<platform>`.
 
 Frequently useful switches:
 

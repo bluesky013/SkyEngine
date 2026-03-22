@@ -18,5 +18,6 @@
 /python/.idea
 /review/
 /agent/backup
+# third-party build outputs and generated CMake cache
 /build_3rd/
 .DS_Store

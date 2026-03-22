@@ -292,9 +292,12 @@ presets:
 ### 三方库编译命令
 ```bash
 # 列出所有包
-python python/third_party.py -e . -p Win32 --list
+python python/third_party.py -p Win32 --list
 
-# 全量编译 (Win32)
+# 全量编译 (Win32，默认 engine=当前仓库根目录，intermediate=./build_3rd/intermediate，3RD_PATH=./build_3rd/Win32)
+python python/third_party.py -p Win32
+
+# 指定三方输出目录
 python python/third_party.py -i <intermediate> -o <output> -e . -p Win32
 
 # 编译单个包
@@ -303,6 +306,12 @@ python python/third_party.py -i <intermediate> -o <output> -e . -p Win32 -t <pac
 # 强制重建
 python python/third_party.py -i <intermediate> -o <output> -e . -p Win32 -f
 ```
+
+- 未指定 `-e/--engine` 时，默认使用当前引擎根目录
+- 未指定 `-i/--intermediate` 时，默认使用 `build_3rd/intermediate/`
+- 未指定 `-o/--output` 时，三方输出根目录默认是 `build_3rd/`，当前平台完整 `3RD_PATH` 为 `build_3rd/<platform>/`
+- 每次成功构建后会刷新 `build_3rd/thirdparty_cache.cmake`
+- 当 `3RD_PATH` 为空且该文件存在时，仓库 CMake 会自动包含这个 cache 文件
 
 ---
 
