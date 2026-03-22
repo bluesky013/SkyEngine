@@ -10,6 +10,8 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - Recommended build order and command templates for third-party setup, CMake configure, build, and optional tests
 - `skyengine-commit-format/`
   - Repository-aligned commit prefix guidance for `feat`, `fix`, `3rd`, `build`, and related commit styles
+- `skyengine-coding-rules/`
+  - General C++ coding conventions and prohibited patterns (e.g., no `dynamic_cast`)
 
 Each skill lives in its own folder and must expose `SKILL.md`.
 
