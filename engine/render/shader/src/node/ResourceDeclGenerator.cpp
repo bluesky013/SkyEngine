@@ -10,15 +10,12 @@ namespace sky::sl {
 
     std::string ResourceDeclGenerator::Generate(const ResourceGroupDecl &resGroup, ShaderLanguage language)
     {
-        std::unique_ptr<Impl> impl;
         switch (language) {
         case ShaderLanguage::HLSL:
-            impl = std::make_unique<HLSLResourceDeclGenerator>();
-            break;
+            return HLSLResourceDeclGenerator{}.Generate(resGroup);
         default:
             return "";
         }
-        return impl->Generate(resGroup);
     }
 
 } // namespace sky::sl

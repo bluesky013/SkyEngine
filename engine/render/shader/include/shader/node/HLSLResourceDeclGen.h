@@ -4,17 +4,15 @@
 
 #pragma once
 
-#include <shader/node/ResourceDeclGenerator.h>
+#include <string>
 
 namespace sky::sl {
 
-    class HLSLResourceDeclGenerator : public ResourceDeclGenerator::Impl {
-    public:
-        HLSLResourceDeclGenerator() = default;
-        ~HLSLResourceDeclGenerator() override = default;
+    struct ResourceGroupDecl;
 
-    private:
-        std::string Generate(const ResourceGroupDecl &resGroup) override;
+    class HLSLResourceDeclGenerator {
+    public:
+        std::string Generate(const ResourceGroupDecl &resGroup);
     };
 
 } // namespace sky::sl

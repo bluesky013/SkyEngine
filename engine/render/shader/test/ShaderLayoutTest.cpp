@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <shader/node/ShaderDataType.h>
+#include <shader/node/ShaderLayoutCalc.h>
 #include <shader/node/ShaderNode.h>
 #include <shader/node/ResourceGroupDecl.h>
 #include <shader/node/BufferLayoutCalculator.h>
@@ -205,7 +206,7 @@ static ResourceGroupDecl BuildDefaultLocalGroup()
 
 TEST(ShaderLayoutTest, ScalarTypeLayout)
 {
-    auto info = BufferLayoutCalculator::CalculateType(
+    auto info = CalculateTypeLayout(
         {ShaderBaseType::FLOAT, ShaderDataType::SCALAR}, LayoutStandard::STD140);
     EXPECT_EQ(info.size, 4u);
     EXPECT_EQ(info.alignment, 4u);
@@ -213,7 +214,7 @@ TEST(ShaderLayoutTest, ScalarTypeLayout)
 
 TEST(ShaderLayoutTest, Vec4Layout)
 {
-    auto info = BufferLayoutCalculator::CalculateType(
+    auto info = CalculateTypeLayout(
         {ShaderBaseType::FLOAT, ShaderDataType::VECTOR, 4, 1}, LayoutStandard::STD140);
     EXPECT_EQ(info.size, 16u);
     EXPECT_EQ(info.alignment, 16u);
@@ -221,7 +222,7 @@ TEST(ShaderLayoutTest, Vec4Layout)
 
 TEST(ShaderLayoutTest, Vec3Layout)
 {
-    auto info = BufferLayoutCalculator::CalculateType(
+    auto info = CalculateTypeLayout(
         {ShaderBaseType::FLOAT, ShaderDataType::VECTOR, 3, 1}, LayoutStandard::STD140);
     EXPECT_EQ(info.size, 12u);
     EXPECT_EQ(info.alignment, 16u);  // vec3 aligns to 16 in std140
@@ -229,7 +230,7 @@ TEST(ShaderLayoutTest, Vec3Layout)
 
 TEST(ShaderLayoutTest, Vec2Layout)
 {
-    auto info = BufferLayoutCalculator::CalculateType(
+    auto info = CalculateTypeLayout(
         {ShaderBaseType::FLOAT, ShaderDataType::VECTOR, 2, 1}, LayoutStandard::STD140);
     EXPECT_EQ(info.size, 8u);
     EXPECT_EQ(info.alignment, 8u);
@@ -237,7 +238,7 @@ TEST(ShaderLayoutTest, Vec2Layout)
 
 TEST(ShaderLayoutTest, Matrix4x4Layout)
 {
-    auto info = BufferLayoutCalculator::CalculateType(
+    auto info = CalculateTypeLayout(
         {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}, LayoutStandard::STD140);
     EXPECT_EQ(info.size, 64u);
     EXPECT_EQ(info.alignment, 16u);

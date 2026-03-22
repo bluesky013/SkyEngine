@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <shader/node/ShaderDataType.h>
+#include <shader/node/ShaderLayoutCalc.h>
 #include <span>
 #include <string>
 #include <vector>
@@ -16,10 +16,6 @@ namespace sky::sl {
 
     class BufferLayoutCalculator {
     public:
-        static uint32_t BaseTypeSize(ShaderBaseType baseType);
-
-        static LayoutInfo CalculateType(const ValueType &type, LayoutStandard std);
-
         static uint32_t CalculateMembers(
             std::span<const MemberDecl> members,
             const ResourceGroupDecl *group,
@@ -39,14 +35,6 @@ namespace sky::sl {
         static std::vector<ValidationMessage> Validate(
             const ResourceDecl &cbuffer,
             const ResourceGroupDecl *group = nullptr);
-
-    private:
-        static uint32_t Align(uint32_t value, uint32_t alignment);
-
-        static LayoutInfo CalculateStructLayout(
-            const StructDecl &decl,
-            const ResourceGroupDecl *group,
-            LayoutStandard std);
     };
 
 } // namespace sky::sl

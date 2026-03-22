@@ -1,4 +1,4 @@
-ï»¿//
+//
 // Created by blues on 2024/12/30.
 //
 
@@ -45,19 +45,19 @@ TEST(ShaderTest, SetGetSingleBit)
 TEST(ShaderTest, SetGetWithinSingleByte)
 {
     {
-        // Bits [0,3] ¡ª 4-bit value within byte 0
+        // Bits [0,3] -- 4-bit value within byte 0
         ShaderVariantKey key = {};
         key.SetValue(0, 3, 0x0F);
         ASSERT_EQ(key.GetValue(0, 3), 0x0F);
     }
     {
-        // Bits [0,7] ¡ª full byte 0
+        // Bits [0,7] -- full byte 0
         ShaderVariantKey key = {};
         key.SetValue(0, 7, 0xAB);
         ASSERT_EQ(key.GetValue(0, 7), 0xAB);
     }
     {
-        // Bits [16,19] ¡ª 4-bit value within byte 2
+        // Bits [16,19] -- 4-bit value within byte 2
         ShaderVariantKey key = {};
         key.SetValue(16, 19, 9);
         ASSERT_EQ(key.GetValue(16, 19), 9);
@@ -68,25 +68,25 @@ TEST(ShaderTest, SetGetWithinSingleByte)
 TEST(ShaderTest, SetGetCrossByteBoundary)
 {
     {
-        // Bits [5,10] ¡ª starts in byte 0, ends in byte 1 (6 bits)
+        // Bits [5,10] -- starts in byte 0, ends in byte 1 (6 bits)
         ShaderVariantKey key = {};
         key.SetValue(5, 10, 0x3F); // max 6-bit value
         ASSERT_EQ(key.GetValue(5, 10), 0x3F);
     }
     {
-        // Bits [6,9] ¡ª 4 bits crossing byte 0 and byte 1
+        // Bits [6,9] -- 4 bits crossing byte 0 and byte 1
         ShaderVariantKey key = {};
         key.SetValue(6, 9, 0x0A);
         ASSERT_EQ(key.GetValue(6, 9), 0x0A);
     }
     {
-        // Bits [12,17] ¡ª crossing byte 1 and byte 2
+        // Bits [12,17] -- crossing byte 1 and byte 2
         ShaderVariantKey key = {};
         key.SetValue(12, 17, 42);
         ASSERT_EQ(key.GetValue(12, 17), 42);
     }
     {
-        // Bits [28,35] ¡ª crossing byte 3 and byte 4 (8 bits, original test value)
+        // Bits [28,35] -- crossing byte 3 and byte 4 (8 bits, original test value)
         ShaderVariantKey key = {};
         key.SetValue(28, 35, 127);
         ASSERT_EQ(key.GetValue(28, 35), 127);
@@ -105,37 +105,37 @@ TEST(ShaderTest, SetGetHighBits)
         ASSERT_EQ(key.GetValue(0, 7), 0);
     }
     {
-        // Bits [56,63] ¡ª full last byte
+        // Bits [56,63] -- full last byte
         ShaderVariantKey key = {};
         key.SetValue(56, 63, 0xCD);
         ASSERT_EQ(key.GetValue(56, 63), 0xCD);
         ASSERT_EQ(key.GetValue(0, 7), 0);
     }
     {
-        // Bits [60,63] ¡ª upper nibble of last byte
+        // Bits [60,63] -- upper nibble of last byte
         ShaderVariantKey key = {};
         key.SetValue(60, 63, 0x0F);
         ASSERT_EQ(key.GetValue(60, 63), 0x0F);
     }
     {
-        // Bits [56,59] ¡ª lower nibble of last byte
+        // Bits [56,59] -- lower nibble of last byte
         ShaderVariantKey key = {};
         key.SetValue(56, 59, 0x05);
         ASSERT_EQ(key.GetValue(56, 59), 0x05);
     }
 }
 
-// --- SetValue / GetValue: crossing into the last byte (byte 6¡ú7) ---
+// --- SetValue / GetValue: crossing into the last byte (byte 6->7) ---
 TEST(ShaderTest, SetGetCrossIntoLastByte)
 {
     {
-        // Bits [53,60] ¡ª 8 bits crossing byte 6 and byte 7
+        // Bits [53,60] -- 8 bits crossing byte 6 and byte 7
         ShaderVariantKey key = {};
         key.SetValue(53, 60, 0xA5);
         ASSERT_EQ(key.GetValue(53, 60), 0xA5);
     }
     {
-        // Bits [50,55] ¡ª 6 bits crossing byte 6 and byte 6/7 boundary
+        // Bits [50,55] -- 6 bits crossing byte 6 and byte 6/7 boundary
         ShaderVariantKey key = {};
         key.SetValue(50, 55, 0x2B);
         ASSERT_EQ(key.GetValue(50, 55), 0x2B);

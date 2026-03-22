@@ -10,78 +10,22 @@
 
 namespace sky::sl {
 
-    uint32_t BufferLayoutCalculator::Align(uint32_t value, uint32_t alignment)
-    {
-        return AlignUp(value, alignment);
-    }
-
-    uint32_t BufferLayoutCalculator::BaseTypeSize(ShaderBaseType baseType)
-    {
-        return sl::BaseTypeSize(baseType);
-    }
-
-    LayoutInfo BufferLayoutCalculator::CalculateType(const ValueType &type, LayoutStandard std)
-    {
-        return CalculateTypeLayout(type, std);
-    }
-
-    LayoutInfo BufferLayoutCalculator::CalculateStructLayout(
-        const StructDecl &decl,
-        const ResourceGroupDecl *group,
-        LayoutStandard std)
-    {
-        if (!group) {
-            return sl::CalculateStructLayout(decl, {});
-        }
-        return sl::CalculateStructLayout(decl, group->localStructDecls);
-    }
-
-    static const StructDecl* FindStructDecl(
-        std::string_view name,
-        const ResourceGroupDecl *group)
-    {
-        if (group) {
-            return FindStruct(name, group->localStructDecls);
-        }
-        return nullptr;
-    }
-
     uint32_t BufferLayoutCalculator::CalculateMembers(
         std::span<const MemberDecl> members,
         const ResourceGroupDecl *group,
         LayoutStandard std,
         std::vector<LayoutInfo> &outLayouts)
     {
+        std::span<const StructDecl> structs = group ? group->localStructDecls
+                                                    : std::span<const StructDecl>{};
+
         uint32_t currentOffset = 0;
         outLayouts.reserve(members.size());
 
         for (const auto &m : members) {
-            LayoutInfo elemLayout;
+            LayoutInfo elemLayout = MemberLayout(m, structs, std);
 
-            if (m.type.dataType == ShaderDataType::STRUCT && !m.structRef.empty()) {
-                const auto *structDecl = FindStructDecl(m.structRef, group);
-                if (structDecl) {
-                    elemLayout = CalculateStructLayout(*structDecl, group, std);
-                }
-            } else {
-                elemLayout = CalculateType(m.type, std);
-            }
-
-            // Handle arrays
-            if (m.arraySize > 0) {
-                if (std == LayoutStandard::STD140) {
-                    // std140: array element stride rounds up to 16
-                    elemLayout.stride = Align(std::max(elemLayout.size, elemLayout.alignment), 16u);
-                    elemLayout.alignment = std::max(elemLayout.alignment, 16u);
-                } else {
-                    // std430: array element stride = round_up(size, alignment)
-                    elemLayout.stride = Align(elemLayout.size, elemLayout.alignment);
-                }
-                elemLayout.size = elemLayout.stride * m.arraySize;
-            }
-
-            // Apply alignment to current offset
-            currentOffset = Align(currentOffset, elemLayout.alignment);
+            currentOffset = AlignUp(currentOffset, elemLayout.alignment);
             elemLayout.offset = currentOffset;
             currentOffset += elemLayout.size;
 
@@ -95,8 +39,9 @@ namespace sky::sl {
         const StructDecl &decl,
         const ResourceGroupDecl *group)
     {
-        auto layout = CalculateStructLayout(decl, group, GetLayoutStandard(decl));
-        return layout.size;
+        std::span<const StructDecl> structs = group ? group->localStructDecls
+                                                    : std::span<const StructDecl>{};
+        return sl::CalculateStructLayout(decl, structs).size;
     }
 
     std::vector<BufferLayoutCalculator::ValidationMessage> BufferLayoutCalculator::Validate(

@@ -18,14 +18,6 @@ namespace sky::sl {
         ResourceDeclGenerator() = default;
         ~ResourceDeclGenerator() = default;
 
-        class Impl {
-        public:
-            Impl() = default;
-            virtual ~Impl() = default;
-
-            virtual std::string Generate(const ResourceGroupDecl &resGroup) = 0;
-        };
-
         std::string Generate(const ResourceGroupDecl &resGroup, ShaderLanguage language);
     };
 
