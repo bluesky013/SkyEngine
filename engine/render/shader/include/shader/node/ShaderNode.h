@@ -10,7 +10,7 @@
 
 namespace sky::sl {
 
-    // ── Resource Type Tag ──
+    // -- Resource Type Tag --
     enum class ResourceType : uint8_t {
         CONSTANT_BUFFER,
         STRUCTURED_BUFFER,
@@ -18,7 +18,7 @@ namespace sky::sl {
         SAMPLER
     };
 
-    // ── Flat resource declaration — constexpr-friendly ──
+    // -- Flat resource declaration -- constexpr-friendly --
     struct ResourceDecl {
         ResourceType          type       = ResourceType::CONSTANT_BUFFER;
         std::string_view      name;

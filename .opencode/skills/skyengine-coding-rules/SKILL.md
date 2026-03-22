@@ -174,4 +174,67 @@ When adding a new `#include` to a header, verify that the included type is used 
 
 ---
 
+## Rule 4 — C/C++ source files must be ASCII-only
+
+### Requirement
+
+All new and modified C/C++ source files must contain **ASCII characters only**, including:
+
+- code
+- comments
+- string literals
+- character literals
+- preprocessor directives
+
+This rule applies to `.c`, `.cc`, `.cpp`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx`, and `.inl` files.
+
+### Prohibition
+
+Do **NOT** place non-ASCII characters in C/C++ source files, even when they appear only in comments or disabled code.
+
+Examples of forbidden content include:
+
+- Chinese, Japanese, or Korean characters in comments
+- full-width punctuation such as `，` `。` `：` `；` `（` `）`
+- smart quotes such as `“` `”` `‘` `’`
+- em dashes / en dashes such as `—` `–`
+- ellipsis `…`
+- non-breaking spaces, full-width spaces, zero-width characters, or other invisible Unicode characters
+- Unicode math symbols such as `×` `÷` `−`
+
+### Rationale
+
+- Source portability is more predictable when files stay within the basic source character set expected by C/C++ toolchains.
+- Non-ASCII characters can be mis-decoded on different compilers, shells, terminals, editors, or Windows code pages.
+- Visually similar Unicode characters can hide mistakes that are hard to spot during review.
+- Invisible Unicode whitespace and control characters can introduce confusing parse, copy/paste, and diff problems.
+
+### What to do instead
+
+| If you want to write | Use this instead |
+|---|---|
+| `，` `。` `：` `；` | `,` `.` `:` `;` |
+| `（` `）` `【` `】` | `(` `)` `[` `]` |
+| `“` `”` `‘` `’` | `"` `'` or plain ASCII quotes |
+| `—` `–` | `--` or `-` |
+| `…` | `...` |
+| `×` `÷` `−` | `*` `/` `-` |
+| `　` or non-breaking space | plain ASCII space |
+| localized text inside comments | English ASCII comments |
+| non-ASCII user-facing text in source | move the text to assets/resources, or use explicit escaped byte/code-point sequences only when unavoidable |
+
+### Prevention
+
+1. Configure your editor to save C/C++ files as UTF-8 **without BOM**, but keep the file contents ASCII-only.
+2. Disable smart punctuation / smart quotes for code editing.
+3. When using an IME, switch back to ASCII input before editing code or comments.
+4. Be careful with copy/paste from documents, chat tools, browsers, and issue trackers; they often introduce full-width punctuation or invisible characters.
+5. Before submitting, scan changed C/C++ files for non-ASCII characters with your preferred search or validation tool.
+
+### Detection
+
+If you encounter existing non-ASCII characters in C/C++ source files during a task, replace them with ASCII-safe equivalents only when that file is already in scope for the current change. Otherwise, flag the issue in your response instead of silently expanding scope.
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->

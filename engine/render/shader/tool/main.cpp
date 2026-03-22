@@ -79,7 +79,7 @@ public:
         return Application::Init(argc, argv);
     }
 
-    void LoadConfigs() override
+    bool LoadConfigs() override
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
         modules.emplace("ShaderCompiler", ModuleInfo{"ShaderCompiler", {}});
@@ -87,6 +87,7 @@ public:
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }
+        return true;
     }
 
     static void ReplaceShaderName(std::string &name)

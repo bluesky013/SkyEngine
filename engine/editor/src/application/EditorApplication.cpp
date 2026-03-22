@@ -166,7 +166,7 @@ namespace sky::editor {
         }
     }
 
-    void EditorApplication::LoadConfigs()
+    bool EditorApplication::LoadConfigs()
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
         modules.emplace("SkyRender.Editor", ModuleInfo{"SkyRender.Editor", {"ShaderCompiler"}});
@@ -177,5 +177,6 @@ namespace sky::editor {
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }
+        return true;
     }
 }

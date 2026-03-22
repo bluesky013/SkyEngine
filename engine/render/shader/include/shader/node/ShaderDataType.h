@@ -47,7 +47,7 @@ namespace sky::sl {
     };
 
     enum class StructUsage : uint8_t {
-        PLAIN,   // Nested / member struct — layout determined by parent context
+        PLAIN,   // Nested / member struct -- layout determined by parent context
         UBO,     // Maps to cbuffer (std140)
         SSBO,    // Maps to StructuredBuffer (std430)
     };
@@ -89,7 +89,7 @@ namespace sky::sl {
         uint32_t offset    = 0;
     };
 
-    // ── constexpr layout calculation ──────────────────────────────
+    // -- constexpr layout calculation ---------------------------------
 
     constexpr uint32_t AlignUp(uint32_t value, uint32_t alignment)
     {

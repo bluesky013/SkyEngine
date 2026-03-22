@@ -13,7 +13,7 @@
 using namespace sky;
 using namespace sky::sl;
 
-// ── Compile-time layout verification (static_assert) ──────────
+// -- Compile-time layout verification (static_assert) ----------
 
 // Scalar
 static_assert(CalculateTypeLayout({ShaderBaseType::FLOAT, ShaderDataType::SCALAR}, LayoutStandard::STD140).size == 4);
@@ -26,7 +26,7 @@ static_assert(CalculateTypeLayout({ShaderBaseType::FLOAT, ShaderDataType::VECTOR
 // Matrix4x4
 static_assert(CalculateTypeLayout({ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}, LayoutStandard::STD140).size == 64);
 
-// passInfo members — compile-time offset verification
+// passInfo members -- compile-time offset verification
 static constexpr MemberDecl kPassInfoMembers[] = {
     {"LightMatrix",       {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}},
     {"MainLightColor",    {ShaderBaseType::FLOAT, ShaderDataType::VECTOR, 4, 1}},
@@ -39,7 +39,7 @@ static_assert(CalculateMemberOffset(kPassInfoMembers, {}, LayoutStandard::STD140
 static_assert(CalculateMemberOffset(kPassInfoMembers, {}, LayoutStandard::STD140, 2) == 80);  // MainLightDirection
 static_assert(CalculateMemberOffset(kPassInfoMembers, {}, LayoutStandard::STD140, 3) == 96);  // Viewport
 
-// ViewInfo — UBO struct with 4 matrices
+// ViewInfo -- UBO struct with 4 matrices
 static constexpr MemberDecl kViewInfoMembers[] = {
     {"World",        {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}},
     {"View",         {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}},
@@ -49,7 +49,7 @@ static constexpr MemberDecl kViewInfoMembers[] = {
 static constexpr StructDecl kViewInfo = {"ViewInfo", kViewInfoMembers, StructUsage::UBO};
 static_assert(CalculateStructSize(kViewInfo) == 256);
 
-// Meshlet — SSBO struct (std430)
+// Meshlet -- SSBO struct (std430)
 static constexpr MemberDecl kMeshletMembers[] = {
     {"vertexOffset",   {ShaderBaseType::UINT,  ShaderDataType::SCALAR}},
     {"triangleOffset", {ShaderBaseType::UINT,  ShaderDataType::SCALAR}},
@@ -82,11 +82,11 @@ static constexpr StructDecl kBVHStructs[] = {
 static_assert(CalculateStructSize(kBVHStructs[0], kBVHStructs) == 32);  // AABB
 static_assert(CalculateStructSize(kBVHStructs[1], kBVHStructs) == 48);  // BVHNode
 
-// ─── Helper: build DefaultPass ResourceGroupDecl ───
+// --- Helper: build DefaultPass ResourceGroupDecl ---
 
 static ResourceGroupDecl BuildDefaultPassGroup()
 {
-    // Local struct: ViewInfo (UBO — referenced by cbuffer viewInfo)
+    // Local struct: ViewInfo (UBO -- referenced by cbuffer viewInfo)
     static constexpr MemberDecl viewInfoMembers[] = {
         {"World",        {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}},
         {"View",         {ShaderBaseType::FLOAT, ShaderDataType::MATRIX, 4, 4}},
@@ -134,11 +134,11 @@ static ResourceGroupDecl BuildDefaultPassGroup()
     };
 }
 
-// ─── Helper: build DefaultLocal ResourceGroupDecl with MESH_SHADER conditional ───
+// --- Helper: build DefaultLocal ResourceGroupDecl with MESH_SHADER conditional ---
 
 static ResourceGroupDecl BuildDefaultLocalGroup()
 {
-    // Local structs: Meshlet and ExtVertex (SSBO — referenced by StructuredBuffers)
+    // Local structs: Meshlet and ExtVertex (SSBO -- referenced by StructuredBuffers)
     static constexpr MemberDecl meshletMembers[] = {
         {"vertexOffset",   {ShaderBaseType::UINT,  ShaderDataType::SCALAR}},
         {"triangleOffset", {ShaderBaseType::UINT,  ShaderDataType::SCALAR}},
@@ -199,9 +199,9 @@ static ResourceGroupDecl BuildDefaultLocalGroup()
     };
 }
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 //  Layout Calculator Tests
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 TEST(ShaderLayoutTest, ScalarTypeLayout)
 {
@@ -266,7 +266,7 @@ TEST(ShaderLayoutTest, PassInfoCBufferLayout)
 
 TEST(ShaderLayoutTest, PaddingBetweenScalarAndVec4)
 {
-    // uint + float4 → gap of 12 bytes
+    // uint + float4 -> gap of 12 bytes
     static constexpr MemberDecl members[] = {
         {"Flag",   {ShaderBaseType::UINT, ShaderDataType::SCALAR}},
         {"Offset", {ShaderBaseType::FLOAT, ShaderDataType::VECTOR, 4, 1}},
@@ -358,9 +358,9 @@ TEST(ShaderLayoutTest, ValidationScalarArrayWarning)
     EXPECT_NE(messages[0].message.find("scalar array"), std::string::npos);
 }
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 //  HLSL Generator Tests
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 TEST(ShaderLayoutTest, HLSLGeneratorDefaultPass)
 {
@@ -448,13 +448,13 @@ TEST(ShaderLayoutTest, SSBONestedStructArray)
         localStructs, resources,
     };
 
-    // ── Verify CollectReferencedStructs finds nested AABB before BVHNode ──
+    // -- Verify CollectReferencedStructs finds nested AABB before BVHNode --
     auto refs = CollectReferencedStructs(group);
     ASSERT_EQ(refs.size(), 2u);
     EXPECT_EQ(refs[0]->name, "AABB");    // dependency first
     EXPECT_EQ(refs[1]->name, "BVHNode");
 
-    // ── Verify LayoutCalculator: BVHNode size = AABB(32) + 4*uint(16) = 48 ──
+    // -- Verify LayoutCalculator: BVHNode size = AABB(32) + 4*uint(16) = 48 --
     const auto *bvhDecl = FindStructInGroup("BVHNode", group);
     ASSERT_NE(bvhDecl, nullptr);
     uint32_t bvhSize = BufferLayoutCalculator::CalculateStructSize(*bvhDecl, &group);
@@ -465,7 +465,7 @@ TEST(ShaderLayoutTest, SSBONestedStructArray)
     uint32_t aabbSize = BufferLayoutCalculator::CalculateStructSize(*aabbDecl, &group);
     EXPECT_EQ(aabbSize, 32u);  // 2 * vec4(16) = 32
 
-    // ── Verify HLSL generation ──
+    // -- Verify HLSL generation --
     ResourceDeclGenerator gen;
     auto hlsl = gen.Generate(group, ShaderLanguage::HLSL);
 
@@ -483,9 +483,9 @@ TEST(ShaderLayoutTest, SSBONestedStructArray)
     EXPECT_NE(hlsl.find("StructuredBuffer<BVHNode> BVHNodes"), std::string::npos);
 }
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 //  ResourceGroupDecl Tests
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 TEST(ShaderLayoutTest, LibraryCollectReferencedStructs)
 {
@@ -514,9 +514,9 @@ TEST(ShaderLayoutTest, LibraryCollectReferencedStructsWithConditionals)
     EXPECT_TRUE(foundExtVertex);
 }
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 //  RHILayoutGenerator Tests
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 TEST(ShaderLayoutTest, RHILayoutDefaultPassBindings)
 {
@@ -528,31 +528,31 @@ TEST(ShaderLayoutTest, RHILayoutDefaultPassBindings)
     ASSERT_EQ(desc.bindings.size(), 12u);
 
     // Verify flat binding numbers (same as [[vk::binding]])
-    // passInfo cbuffer → binding 0
+    // passInfo cbuffer -> binding 0
     EXPECT_EQ(desc.bindings[0].binding, 0u);
     EXPECT_EQ(desc.bindings[0].type, rhi::DescriptorType::UNIFORM_BUFFER);
     EXPECT_EQ(desc.bindings[0].name, "passInfo");
 
-    // viewInfo cbuffer → binding 1
+    // viewInfo cbuffer -> binding 1
     EXPECT_EQ(desc.bindings[1].binding, 1u);
     EXPECT_EQ(desc.bindings[1].type, rhi::DescriptorType::UNIFORM_BUFFER);
     EXPECT_EQ(desc.bindings[1].name, "viewInfo");
 
-    // ShadowMap texture → binding 2
+    // ShadowMap texture -> binding 2
     EXPECT_EQ(desc.bindings[2].binding, 2u);
     EXPECT_EQ(desc.bindings[2].type, rhi::DescriptorType::SAMPLED_IMAGE);
     EXPECT_EQ(desc.bindings[2].name, "ShadowMap");
 
-    // ShadowMapSampler → binding 3
+    // ShadowMapSampler -> binding 3
     EXPECT_EQ(desc.bindings[3].binding, 3u);
     EXPECT_EQ(desc.bindings[3].type, rhi::DescriptorType::SAMPLER);
     EXPECT_EQ(desc.bindings[3].name, "ShadowMapSampler");
 
-    // BRDFLut → binding 4
+    // BRDFLut -> binding 4
     EXPECT_EQ(desc.bindings[4].binding, 4u);
     EXPECT_EQ(desc.bindings[4].type, rhi::DescriptorType::SAMPLED_IMAGE);
 
-    // Last: HizBufferSampler → binding 11
+    // Last: HizBufferSampler -> binding 11
     EXPECT_EQ(desc.bindings[11].binding, 11u);
     EXPECT_EQ(desc.bindings[11].type, rhi::DescriptorType::SAMPLER);
     EXPECT_EQ(desc.bindings[11].name, "HizBufferSampler");
@@ -575,22 +575,22 @@ TEST(ShaderLayoutTest, RHILayoutDefaultLocalSuperset)
     // = 1 unconditional + 7 conditional = 8 total
     ASSERT_EQ(desc.bindings.size(), 8u);
 
-    // Local cbuffer → binding 0, DYNAMIC
+    // Local cbuffer -> binding 0, DYNAMIC
     EXPECT_EQ(desc.bindings[0].binding, 0u);
     EXPECT_EQ(desc.bindings[0].type, rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC);
     EXPECT_EQ(desc.bindings[0].name, "Local");
 
-    // MeshletInfo → binding 1, DYNAMIC
+    // MeshletInfo -> binding 1, DYNAMIC
     EXPECT_EQ(desc.bindings[1].binding, 1u);
     EXPECT_EQ(desc.bindings[1].type, rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC);
     EXPECT_EQ(desc.bindings[1].name, "MeshletInfo");
 
-    // PositionBuf StructuredBuffer → binding 2, STORAGE_BUFFER
+    // PositionBuf StructuredBuffer -> binding 2, STORAGE_BUFFER
     EXPECT_EQ(desc.bindings[2].binding, 2u);
     EXPECT_EQ(desc.bindings[2].type, rhi::DescriptorType::STORAGE_BUFFER);
     EXPECT_EQ(desc.bindings[2].name, "PositionBuf");
 
-    // InstanceBuffer → binding 7
+    // InstanceBuffer -> binding 7
     EXPECT_EQ(desc.bindings[7].binding, 7u);
     EXPECT_EQ(desc.bindings[7].type, rhi::DescriptorType::STORAGE_BUFFER);
     EXPECT_EQ(desc.bindings[7].name, "InstanceBuffer");
@@ -624,8 +624,9 @@ TEST(ShaderLayoutTest, RHILayoutDefaultLocalWithMeshShader)
 TEST(ShaderLayoutTest, RHILayoutMatchesManualDefaultPass)
 {
     // Verify that generated layout matches what DefaultForwardPipeline.cpp
-    // manually creates — binding numbers should be identical
+    // manually creates -- binding numbers should be identical
     auto group = BuildDefaultPassGroup();
+
     auto desc = RHILayoutGenerator::Generate(group);
 
     // Manual layout from DefaultForwardPipeline.cpp uses flat bindings:
