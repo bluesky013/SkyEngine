@@ -193,23 +193,65 @@ ctest --test-dir <build_dir> -C Release --output-on-failure
 - Third-party platform: `Win32`
 - Third-party generator: `Visual Studio 17 2022`
 - Recommended CMake generator: `Visual Studio 17 2022`
-- Typical configure:
+- Recommended use case: bootstrap a local Win32 editor build environment up to successful third-party install and CMake configure
+
+Environment prerequisites:
+
+- Visual Studio 2022 with the MSVC C++ toolchain available. `python/third_party.py` hardcodes `Visual Studio 17 2022` for the Win32 third-party generator.
+- Python 3 available on `PATH`.
+- Python packages from `python/requirements.txt` installed when using the repository Python tooling. `python/third_party.py` imports `GitPython` directly.
+- Git available on `PATH` because the third-party bootstrap clones package repositories.
+- Qt5 with `Qt5::Widgets` available to CMake. `engine/editor/CMakeLists.txt` calls `find_package(Qt5 COMPONENTS Widgets)` before creating the `Editor` target.
+
+Current engine build flow summary on Win32:
+
+1. Build third-party dependencies with `python/third_party.py`
+2. Configure CMake with `3RD_PATH` pointing at the Win32 third-party output, either explicitly or through `build_3rd/thirdparty_cache.cmake`
+3. Enable editor mode with `-DSKY_BUILD_EDITOR=ON` when the goal is the editor environment
+4. Build later with `cmake --build`; the editor post-build step runs `windeployqt.exe` on Win32
+
+AI-ready editor bootstrap:
 
 ```bash
-python3 python/third_party.py -i <int> -o <out> -e <engine_root> -p Win32 -j 8
+# From <engine_root>
+python3 -m pip install -r python/requirements.txt
 
+# Build all third-party packages into the default Win32 output tree
+python3 python/third_party.py -p Win32 -j 8
+```
+
+Expected third-party results:
+
+- `build_3rd/Win32/` exists and becomes the effective Win32 `3RD_PATH`
+- `build_3rd/thirdparty_cache.cmake` exists and caches the generated `3RD_PATH`
+
+Editor configure using the generated cache:
+
+```bash
 cmake -S <engine_root> -B <build_dir> \
   -G "Visual Studio 17 2022" \
-  -D3RD_PATH=<out> \
+  -DSKY_BUILD_EDITOR=ON \
   -DSKY_BUILD_TEST=OFF
+```
 
-cmake --build <build_dir> --config Release --parallel 8
+Equivalent configure with explicit `3RD_PATH`:
+
+```bash
+cmake -S <engine_root> -B <build_dir> \
+  -G "Visual Studio 17 2022" \
+  -D3RD_PATH=<thirdparty_output_dir> \
+  -DSKY_BUILD_EDITOR=ON \
+  -DSKY_BUILD_TEST=OFF
 ```
 
 Notes:
 
-- This is the most directly documented path in the repo README and the original plan doc.
-- Windows-only dependencies like `dxcompiler` are resolved here.
+- `cmake/options.cmake` auto-loads `build_3rd/thirdparty_cache.cmake` when `3RD_PATH` is empty, so the default `python/third_party.py -p Win32` flow is enough for a follow-up configure in a fresh build directory.
+- `cmake/options.cmake` maps `SKY_BUILD_EDITOR=ON` to `SKY_EDITOR=ON` automatically.
+- `cmake/thirdparty.cmake` adds editor-only third-party requirements when `SKY_BUILD_EDITOR=ON`: `assimp`, `meshoptimizer`, `stb`, `ispc_texcomp`, `GKlib`, `metis`, and `ImGuizmo`.
+- `cmake/thirdparty.cmake` also resolves Win32-only `dxcompiler` whenever `WIN32` is active.
+- `engine/editor/CMakeLists.txt` creates the `Editor` target only when `Qt5_FOUND` is true. If Qt5 is missing, configure may complete without a usable editor target.
+- After a later `cmake --build <build_dir> --config Release`, `engine/editor/CMakeLists.txt` runs `windeployqt.exe` as a post-build step for `Editor` on Win32.
 
 ### macOS (Intel)
 
