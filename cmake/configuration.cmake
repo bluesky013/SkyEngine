@@ -24,6 +24,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     if(MSVC)
         cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
         add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
     endif()
 
 endif()
