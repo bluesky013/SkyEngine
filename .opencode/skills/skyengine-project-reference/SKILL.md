@@ -1,4 +1,30 @@
-# SkyEngine 项目速查手册
+---
+name: skyengine-project-reference
+description: Reference the SkyEngine project layout, build targets, module dependencies, and third-party library map when answering architecture or repository structure questions.
+compatibility: opencode
+metadata:
+  source: README.md, repository inspection
+  audience: contributors
+---
+
+# SkyEngine Project Reference
+
+Use this skill when the task needs repository context instead of fresh exploration, especially for:
+
+- explaining where a subsystem lives
+- mapping target names to source directories
+- recalling build flags and plugin toggles
+- identifying third-party dependencies and their purpose
+- summarizing render backends, asset pipeline, or module relationships
+
+## Working rules
+
+- Treat this skill as a quick-reference source for repository structure and build knowledge.
+- Prefer this reference before doing broad repo searches when the user asks for high-level project understanding.
+- If the request depends on current file contents beyond this document, verify with tools instead of assuming.
+- Quote paths, targets, and flags exactly as listed here.
+
+## SkyEngine 项目速查手册
 
 ## 概览
 
@@ -27,7 +53,6 @@ SkyEngine/
 ├── configs/            # 运行时配置
 ├── cmake/              # 构建配置
 ├── python/             # Python 工具链
-└── agent/              # AI Agent 辅助文件
 ```
 
 ---
@@ -83,8 +108,30 @@ SkyEngine/
 | `PythonModule` | SKY_BUILD_PYTHON | cpython |
 | `CompressionModule` | SKY_BUILD_COMPRESSION | lz4 |
 | `FreeTypeModule` | SKY_BUILD_FREETYPE | freetype |
-| `ImGuizmoModule` | SKY_BUILD_EDITOR | ImGuizmo |
+| `ImGuizmoModule` | SKY_BUILD_GUIZMO + SKY_BUILD_EDITOR | ImGuizmo |
 | `XRModule` | SKY_BUILD_XR | OpenXR |
+
+### 插件编译配置管理
+
+- `plugins/plugins.json` 是插件编译配置的统一入口
+- 每条配置至少定义：`name`、`dir`、`cmake_var`、`enabled`，部分插件还带 `requires_editor`
+- `cmake/plugin_switches.cmake` 在顶层配置阶段读取该文件，并把 `cmake_var` 生成为 CMake cache 变量
+- `plugins/CMakeLists.txt` 再次读取该文件，仅当对应 `cmake_var` 为 ON 时才 `add_subdirectory(<dir>)`
+- `requires_editor: true` 的插件还要求编辑器模式生效；当前 `guizmo` 走 `SKY_BUILD_GUIZMO`，并受 `SKY_BUILD_EDITOR` / `SKY_EDITOR` 约束
+- `plugins/plugins.json` 管理的是编译/生成阶段是否纳入工程，不是运行时模块自动加载清单
+- 运行时模块清单分别由 `configs/modules_game.json` 与 `configs/modules_editor.json` 管理
+
+当前 `plugins/plugins.json` 默认项：
+
+- `guizmo` → `SKY_BUILD_GUIZMO=ON`，`requires_editor=true`
+- `python` → `SKY_BUILD_PYTHON=OFF`
+- `xr` → `SKY_BUILD_XR=OFF`
+- `bullet` → `SKY_BUILD_BULLET=ON`
+- `recast` → `SKY_BUILD_RECAST=ON`
+- `freetype` → `SKY_BUILD_FREETYPE=ON`
+- `terrain` → `SKY_BUILD_TERRAIN=ON`
+- `compression` → `SKY_BUILD_COMPRESSION=ON`
+- `pvs` → `SKY_BUILD_PVS=ON`
 
 ### 测试
 
@@ -115,6 +162,9 @@ SkyEngine/
 | `SKY_BUILD_FREETYPE` | OFF | 字体渲染 |
 | `SKY_BUILD_BULLET` | OFF | Bullet 物理 |
 | `SKY_BUILD_RECAST` | OFF | Recast 导航 |
+| `SKY_BUILD_GUIZMO` | OFF | ImGuizmo 插件编译开关（仍需编辑器模式） |
+| `SKY_BUILD_TERRAIN` | OFF | Terrain 插件编译开关 |
+| `SKY_BUILD_PVS` | OFF | PVS 插件编译开关 |
 | `SKY_USE_TRACY` | OFF | Tracy 性能分析 |
 | `SKY_MATH_SIMD` | OFF | SIMD 数学优化 |
 
