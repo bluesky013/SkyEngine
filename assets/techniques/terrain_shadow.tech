@@ -1,12 +1,12 @@
 {
     "type": "graphics",
     "shader": {
-        "path": "terrain/terrain.hlsl",
+        "path": "terrain/terrain_depth.hlsl",
         "vertex": "VSMain",
         "fragment": "FSMain"
     },
     "pass": {
-        "tag": "ForwardColor"
+        "tag": "Shadow"
     },
     "depth_stencil": {
         "depthTestEnable": true,

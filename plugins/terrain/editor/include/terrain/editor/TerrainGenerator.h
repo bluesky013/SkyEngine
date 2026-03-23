@@ -15,7 +15,7 @@ namespace sky::editor {
 
     struct TerrainTileReceiver {
         TerrainComponent* component = nullptr;
-        std::vector<TerrainSectionData> results;
+        std::vector<Uuid> results;
         uint32_t tileNum = 0;
 
         void HeightMapChanged();
@@ -37,7 +37,7 @@ namespace sky::editor {
             TerrainCoord coord;
 
             uint32_t heightMapSize;
-            uint32_t sectionSize;
+            uint32_t tileSize;
         };
 
         void Setup(const TileConfig &cfg);

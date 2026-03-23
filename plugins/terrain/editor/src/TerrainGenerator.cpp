@@ -4,7 +4,6 @@
 
 #include <terrain/editor/TerrainGenerator.h>
 #include <core/math/PerlinNoise.h>
-#include <terrain/TerrainUtils.h>
 #include <core/math/MathUtil.h>
 #include <core/util/Time.h>
 #include <framework/asset/AssetDataBase.h>
@@ -70,9 +69,7 @@ namespace sky::editor {
     void TerrainTileGenerator::OnComplete(bool result)
     {
         if (auto ptr = receiver.lock(); ptr) {
-            ptr->results.emplace_back(TerrainSectionData{
-                tileCfg.coord, heightMapSource->uuid
-            });
+            ptr->results.emplace_back(heightMapSource->uuid);
         }
     }
 
@@ -80,8 +77,8 @@ namespace sky::editor {
     {
         const PerlinNoise perlin{113344u};
 
-        auto xOffset = static_cast<float>(tileCfg.coord.x * tileCfg.sectionSize);
-        auto yOffset = static_cast<float>(tileCfg.coord.y * tileCfg.sectionSize);
+        auto xOffset = static_cast<float>(tileCfg.coord.x * tileCfg.tileSize);
+        auto yOffset = static_cast<float>(tileCfg.coord.y * tileCfg.tileSize);
 
         auto texelSize = static_cast<uint32_t>(sizeof(float));
         uint32_t texelNum  = tileCfg.heightMapSize * tileCfg.heightMapSize;
@@ -96,7 +93,7 @@ namespace sky::editor {
         
         imageData.rawData.storage.resize(imageSize);
         auto *heightMapData = reinterpret_cast<float *>(imageData.rawData.storage.data());
-        float scaleFactor = static_cast<float>(tileCfg.sectionSize) / static_cast<float>(tileCfg.heightMapSize);
+        float scaleFactor = static_cast<float>(tileCfg.tileSize) / static_cast<float>(tileCfg.heightMapSize);
         for (uint32_t i = 0; i < tileCfg.heightMapSize; ++i) {
             for (uint32_t j = 0; j < tileCfg.heightMapSize; ++j) {
                 float y = xOffset + static_cast<float>(i) * scaleFactor;
@@ -155,20 +152,24 @@ namespace sky::editor {
 
         receiver = std::make_shared<TerrainTileReceiver>();
         receiver->component = component;
-        receiver->tileNum = static_cast<uint32_t>(data.sections.size());
+        receiver->tileNum = data.tileCountX * data.tileCountY;
 
-        for (const auto &section : data.sections) {
-            TerrainTileGenerator::TileConfig tileCfg = {};
+        uint32_t tileWorldSize = data.config.blockSize;
 
-            tileCfg.coord         = section.coord;
-            tileCfg.sectionSize   = ConvertSectionSize(data.sectionSize);
-            tileCfg.heightMapSize = 256;
+        for (uint32_t y = 0; y < data.tileCountY; ++y) {
+            for (uint32_t x = 0; x < data.tileCountX; ++x) {
+                TerrainTileGenerator::TileConfig tileCfg = {};
 
-            CounterPtr<TerrainTileGenerator> tileGen = new TerrainTileGenerator();
-            tileGen->SetPrefix(generatePrefix);
-            tileGen->SetReceiver(receiver);
-            tileGen->Setup(tileCfg);
-            tileGen->StartAsync();
+                tileCfg.coord         = TerrainCoord{static_cast<int32_t>(x), static_cast<int32_t>(y)};
+                tileCfg.tileSize      = tileWorldSize;
+                tileCfg.heightMapSize = 256;
+
+                CounterPtr<TerrainTileGenerator> tileGen = new TerrainTileGenerator();
+                tileGen->SetPrefix(generatePrefix);
+                tileGen->SetReceiver(receiver);
+                tileGen->Setup(tileCfg);
+                tileGen->StartAsync();
+            }
         }
     }
 

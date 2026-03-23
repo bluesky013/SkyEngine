@@ -3,157 +3,88 @@
 //
 
 #include <terrain/TerrainComponent.h>
+#include <terrain/TerrainFeatureProcessor.h>
 #include <framework/serialization/SerializationContext.h>
-#include <render/adaptor/assets/ImageAsset.h>
-#include <render/adaptor/assets/MaterialAsset.h>
 #include <render/adaptor/Util.h>
+#include <render/adaptor/assets/MaterialAsset.h>
+#include <render/adaptor/assets/ImageAsset.h>
 
 namespace sky {
 
     void TerrainComponent::Reflect(SerializationContext *context)
     {
-        context->Register<TerrainCoord>("TerrainCoord")
-            .Member<&TerrainCoord::x>("x")
-            .Member<&TerrainCoord::y>("y");
+        context->Register<TerrainHeightFormat>("TerrainHeightFormat")
+            .Enum(TerrainHeightFormat::R16_UNORM, "R16_UNORM")
+            .Enum(TerrainHeightFormat::R32_SFLOAT, "R32_SFLOAT");
 
-        context->Register<TerrainSectionData>("TerrainSectionData")
-            .Member<&TerrainSectionData::coord>("coord")
-            .Member<&TerrainSectionData::heightMap>("heightMap")
+        context->Register<ClipmapConfig>("ClipmapConfig")
+            .Member<&ClipmapConfig::blockSize>("blockSize")
+            .Member<&ClipmapConfig::numLevels>("numLevels")
+            .Member<&ClipmapConfig::resolution>("resolution")
+            .Member<&ClipmapConfig::heightScale>("heightScale")
+            .Member<&ClipmapConfig::heightOffset>("heightOffset")
+            .Member<&ClipmapConfig::heightFormat>("heightFormat");
+
+        context->Register<LayerInfo>("LayerInfo")
+            .Member<&LayerInfo::name>("name")
+            .Member<&LayerInfo::albedo>("albedo")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Texture>::ASSET_TYPE))
+            .Member<&LayerInfo::normal>("normal")
+                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Texture>::ASSET_TYPE))
+            .Member<&LayerInfo::roughness>("roughness")
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<Texture>::ASSET_TYPE));
-        
-        context->Register<TerrainSectionSize>("SectionSize")
-            .Enum(TerrainSectionSize::S31x31, "31x31")
-            .Enum(TerrainSectionSize::S63x63, "63x63")
-            .Enum(TerrainSectionSize::S127x127, "127x127");
-
-        context->Register<TerrainQuad>("TerrainQuad")
-            .Member<&TerrainQuad::resolution>("resolution")
-            .Member<&TerrainQuad::sectionSize>("sectionSize");
-
-        context->Register<TerrainBuildConfig>("TerrainBuildConfig")
-            .Member<&TerrainBuildConfig::resolution>("Resolution")
-            .Member<&TerrainBuildConfig::sectionSize>("Section Size")
-            .Member<&TerrainBuildConfig::sectionNumX>("Section Num X")
-            .Member<&TerrainBuildConfig::sectionNumY>("Section Num Y")
-            .Member<&TerrainBuildConfig::material>("material")
-                .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<MaterialInstance>::ASSET_TYPE));
 
         context->Register<TerrainGenerateConfig>("TerrainGenerateConfig")
             .Member<&TerrainGenerateConfig::seed>("Seed");
 
         context->Register<TerrainData>("TerrainData")
-            .Member<&TerrainData::sectionSize>("sectionSize")
-            .Member<&TerrainData::resolution>("resolution")
-            .Member<&TerrainData::sectionBoundX>("sectionX")
-            .Member<&TerrainData::sectionBoundY>("sectionY")
+            .Member<&TerrainData::config>("config")
             .Member<&TerrainData::material>("material")
                 .Property(static_cast<uint32_t>(CommonPropertyKey::ASSET_TYPE), Any(AssetTraits<MaterialInstance>::ASSET_TYPE))
-            .Member<&TerrainData::sections>("sections");
+            .Member<&TerrainData::tileCountX>("tileCountX")
+            .Member<&TerrainData::tileCountY>("tileCountY")
+            .Member<&TerrainData::heightmapTiles>("heightmapTiles")
+            .Member<&TerrainData::splatmapTiles>("splatmapTiles")
+            .Member<&TerrainData::layers>("layers");
 
         REGISTER_BEGIN(TerrainComponent, context);
     }
 
-    void TerrainComponent::BuildTerrain(const TerrainBuildConfig &config)
-    {
-        data.sectionSize = config.sectionSize;
-        data.resolution = config.resolution;
-        data.sectionBoundX = config.sectionNumX;
-        data.sectionBoundY = config.sectionNumY;
-        data.material = config.material;
-        for (int32_t i = 0; i < config.sectionNumX; ++i) {
-            for (int32_t j = 0; j < config.sectionNumY; ++j) {
-                AddSection(i, j);
-            }
-        }
-        LoadMaterial();
-    }
-
-    void TerrainComponent::AddSection(int32_t x, int32_t y)
-    {
-        auto iter = std::find_if(data.sections.begin(), data.sections.end(),
-            [x, y](const TerrainSectionData &data) -> bool {
-            return x == data.coord.x && y == data.coord.y;
-        });
-        if (iter == data.sections.end()) {
-            data.sections.emplace_back(TerrainSectionData{x, y}); // NOLINT
-        }
-    }
-
-    void TerrainComponent::RemoveSection(int32_t x, int32_t y)
-    {
-        auto iter = std::find_if(data.sections.begin(), data.sections.end(),
-            [x, y](const TerrainSectionData &data) -> bool {
-                return x == data.coord.x && y == data.coord.y;
-        });
-        if (iter != data.sections.end()) {
-            data.sections.erase(iter);
-        }
-    }
-
-    void TerrainComponent::UpdateHeightMap(std::vector<TerrainSectionData> &&inData)
-    {
-        data.sections.swap(inData);
-        OnRebuildTerrain();
-    }
-
     void TerrainComponent::Tick(float time)
     {
-
     }
 
     void TerrainComponent::OnSerialized()
     {
-        LoadMaterial();
+        // Data deserialized — will be pushed to FP when attached to world
     }
 
     void TerrainComponent::OnAttachToWorld()
     {
-
+        featureProcessor = GetFeatureProcessor<TerrainFeatureProcessor>(actor);
+        if (featureProcessor != nullptr) {
+            featureProcessor->SetConfig(data.config);
+            featureProcessor->SetMaterial(data.material);
+            featureProcessor->SetTileData(data.tileCountX, data.tileCountY,
+                                          data.heightmapTiles, data.splatmapTiles, data.layers);
+        }
     }
 
     void TerrainComponent::OnDetachFromWorld()
     {
-    }
-
-    void TerrainComponent::ResetRender(RenderScene* renderScene)
-    {
-
-    }
-
-    void TerrainComponent::LoadMaterial()
-    {
-        auto mat = AssetManager::Get()->LoadAsset<MaterialInstance>(data.material);
-        if (mat) {
-            mat->BlockUntilLoaded();
-            material = CreateMaterialInstanceFromAsset(mat);
+        if (featureProcessor != nullptr) {
+            featureProcessor->Reset();
+            featureProcessor = nullptr;
         }
     }
 
-    bool TerrainComponent::IsAssetReady() const
+    void TerrainComponent::UpdateHeightMap(std::vector<Uuid> &&tiles)
     {
-        return material != nullptr;
-    }
-
-    void TerrainComponent::OnRebuildTerrain()
-    {
-        auto *renderScene = GetRenderSceneFromActor(actor);
-        auto *am = AssetManager::Get();
-        TerrainQuad quad = {data.sectionSize, data.resolution};
-
-        terrainRender = std::make_unique<TerrainRender>(quad);
-        for (auto &section : data.sections) {
-            
-            auto asset = am->LoadAsset<Texture>(section.heightMap);
-            if (!asset) {
-                continue;
-            }
-            asset->BlockUntilLoaded();
-            auto heightMap = CreateTextureFromAsset(asset);
-            terrainRender->AddSector(TerrainSector{section.coord, heightMap});
+        data.heightmapTiles = std::move(tiles);
+        if (featureProcessor != nullptr) {
+            featureProcessor->SetTileData(data.tileCountX, data.tileCountY,
+                                          data.heightmapTiles, data.splatmapTiles, data.layers);
         }
-        terrainRender->SetMaterial(material);
-        terrainRender->BuildSectors();
-        terrainRender->AttachToScene(renderScene);
     }
 
 } // namespace sky

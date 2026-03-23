@@ -7,19 +7,22 @@
 #include <cstdint>
 #include <vector>
 #include <core/util/Uuid.h>
+#include <core/name/Name.h>
 
 namespace sky {
 
-    enum class TerrainSectionSize : uint8_t {
-        S31x31   = 0,
-        S63x63   = 1,
-        S127x127 = 2,
+    enum class TerrainHeightFormat : uint8_t {
+        R16_UNORM  = 0,
+        R32_SFLOAT = 1,
     };
 
-    struct TerrainConfig {
-        uint32_t maxExt  = 16 * 1024;
-        uint32_t leafExt = 64;
-        float resolution = 0.5f;
+    struct ClipmapConfig {
+        uint32_t blockSize    = 64;      // vertices per block side: 32, 64, 128, or 256
+        uint32_t numLevels    = 8;       // number of clipmap LOD levels: 1-12
+        float    resolution   = 1.0f;    // world-space meters per vertex at level 0
+        float    heightScale  = 256.0f;  // texel value → world height multiplier
+        float    heightOffset = 0.0f;    // world height offset
+        TerrainHeightFormat heightFormat = TerrainHeightFormat::R16_UNORM;
     };
 
     struct TerrainCoord {
@@ -32,19 +35,11 @@ namespace sky {
         uint8_t y;
     };
 
-    struct TerrainQuad {
-        TerrainSectionSize sectionSize = TerrainSectionSize::S63x63;
-        float resolution = 1.f;
-    };
-
-    struct TerrainBuildConfig {
-        TerrainSectionSize sectionSize = TerrainSectionSize::S63x63;
-        float resolution = 1.f;
-
-        int32_t sectionNumX = 8;
-        int32_t sectionNumY = 8;
-
-        Uuid material;
+    struct LayerInfo {
+        Name name;
+        Uuid albedo;
+        Uuid normal;
+        Uuid roughness;
     };
 
     struct TerrainGenerateConfig {
