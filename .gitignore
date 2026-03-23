@@ -20,4 +20,6 @@
 /agent/backup
 # third-party build outputs and generated CMake cache
 /build_3rd/
+# generated PDF documentation
+/docs/pdf/
 .DS_Store
