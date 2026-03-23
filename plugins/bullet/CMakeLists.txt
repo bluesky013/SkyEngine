@@ -3,6 +3,8 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
+sky_find_3rd(TARGET bullet3 DIR bullet3)
+
 sky_add_library(TARGET BulletPhysicsModule SHARED
     SOURCES
         ${SRC_FILES}

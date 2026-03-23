@@ -3,6 +3,8 @@ file(GLOB_RECURSE INC_FILES include/*)
 
 include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
 
+sky_find_3rd(TARGET lz4 DIR lz4)
+
 sky_add_library(TARGET CompressionModule SHARED
     SOURCES
         ${SRC_FILES}

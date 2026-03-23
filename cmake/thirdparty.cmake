@@ -42,31 +42,9 @@ if(EXISTS ${3RD_PATH})
     # test
     sky_find_3rd(TARGET googletest    DIR googletest)
 
-    # script
-    if (SKY_BUILD_CPYTHON)
-        sky_find_3rd(TARGET cpython       DIR cpython)
-    endif ()
-
-    if (SKY_BUILD_COMPRESSION)
-        sky_find_3rd(TARGET lz4           DIR lz4)
-    endif ()
-
-    # text
-    if (SKY_BUILD_FREETYPE)
-        sky_find_3rd(TARGET freetype      DIR freetype)
-    endif ()
-
     if (SKY_USE_TRACY)
         sky_find_3rd(TARGET tracy         DIR tracy)
         add_definitions(-DTRACY_ENABLE)
-    endif ()
-
-    if (SKY_BUILD_BULLET)
-        sky_find_3rd(TARGET bullet3       DIR bullet3)
-    endif ()
-
-    if (SKY_BUILD_RECAST)
-        sky_find_3rd(TARGET recast        DIR recast)
     endif ()
 
     if (SKY_BUILD_EDITOR)
@@ -76,7 +54,6 @@ if(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
         sky_find_3rd(TARGET GKlib         DIR GKlib)
         sky_find_3rd(TARGET metis         DIR metis)
-        sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
     endif ()
 else()
     message(FATAL_ERROR "3rdParty folder: ${3RD_PATH} does not exist, call cmake defining a valid 3RD_PATH")
