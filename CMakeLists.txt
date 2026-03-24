@@ -18,6 +18,9 @@ elseif (CMAKE_TOOLCHAIN_FILE)
 endif()
 
 if (_sky_vcpkg_detected)
+    # Point vcpkg at our custom triplets (Android, iOS, etc.)
+    set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_SOURCE_DIR}/triplets" CACHE STRING "" FORCE)
+
     set(_sky_vcpkg_features "")
 
     option(SKY_BUILD_EDITOR      "build editor"                OFF)

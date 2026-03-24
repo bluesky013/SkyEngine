@@ -76,3 +76,60 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}}
 
+  build-vcpkg-linux:
+    name: Build (vcpkg, Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 'c3867e714dd3a51c272826eea77267876517ed99'
+
+    - name: Configure CMake (vcpkg)
+      run: >
+        cmake -B ${{github.workspace}}/build
+        -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake
+        -DVCPKG_TARGET_TRIPLET=x64-linux
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}}
+
+  build-vcpkg-macos:
+    name: Build (vcpkg, macOS)
+    runs-on: macos-14
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 'c3867e714dd3a51c272826eea77267876517ed99'
+
+    - name: Configure CMake (vcpkg)
+      run: >
+        cmake -B ${{github.workspace}}/build
+        -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake
+        -DVCPKG_TARGET_TRIPLET=arm64-osx
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}}
+
