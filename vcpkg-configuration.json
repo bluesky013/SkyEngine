@@ -8,8 +8,8 @@
 	"registries": [
 		{
 			"kind": "git",
-			"repository": "https://github.com/bluesky013/sky-vcpkg-registry",
-			"baseline": "TODO",
+			"repository": "https://github.com/Zhuyin-Graphics/vcpkg-registry",
+			"baseline": "303d3f22e71e31ded282ff6dfe103ed27723682c",
 			"packages": [
 				"sfmt",
 				"gklib",
