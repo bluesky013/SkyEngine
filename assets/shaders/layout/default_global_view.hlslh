@@ -11,6 +11,9 @@ struct ViewInfo {
     float4 MainLightColor; // rgb: color a: intensity
     float4 MainLightDirection;
     float4 Viewport;
+    uint PointLightCount;
+    uint SpotLightCount;
+    uint2 LightPadding;
 }
 
 #if VIEW_COUNT > 1

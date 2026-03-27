@@ -117,6 +117,7 @@ namespace sky {
     {
 //        tod.Tick(time);
 //        GatherLightInfo();
+        GatherPunctualLightData();
     }
 
     MainDirectLight* LightFeatureProcessor::GetOrCreateMainLight()
@@ -144,6 +145,37 @@ namespace sky {
         lights.erase(std::remove_if(lights.begin(), lights.end(), [light](const LightPtr &v) {
             return light == v.get();
         }), lights.end());
+    }
+
+    void LightFeatureProcessor::GatherPunctualLightData()
+    {
+        pointLightCount = 0;
+        spotLightCount  = 0;
+        pointLightBuffer = {};
+        spotLightBuffer  = {};
+
+        for (auto &lightPtr : lights) {
+            LightInfo info = {};
+            lightPtr->Collect(info);
+
+            if (auto *pl = dynamic_cast<PointLight*>(lightPtr.get())) {
+                if (pointLightCount < MAX_POINT_LIGHTS) {
+                    auto &dst = pointLightBuffer.lights[pointLightCount];
+                    dst.positionRange  = Vector4(pl->GetPosition().x, pl->GetPosition().y, pl->GetPosition().z, pl->GetRange());
+                    dst.colorIntensity = info.color; // xyz: color, w: intensity
+                    ++pointLightCount;
+                }
+            } else if (auto *sl = dynamic_cast<SpotLight*>(lightPtr.get())) {
+                if (spotLightCount < MAX_SPOT_LIGHTS) {
+                    auto &dst = spotLightBuffer.lights[spotLightCount];
+                    dst.positionRange  = Vector4(sl->GetPosition().x, sl->GetPosition().y, sl->GetPosition().z, sl->GetRange());
+                    dst.directionInner = Vector4(sl->GetDirection().x, sl->GetDirection().y, sl->GetDirection().z, cos(sl->GetInnerAngle()));
+                    dst.colorIntensity = info.color;
+                    dst.outerAnglePad  = Vector4(cos(sl->GetOuterAngle()), 0.f, 0.f, 0.f);
+                    ++spotLightCount;
+                }
+            }
+        }
     }
 
     void LightFeatureProcessor::GatherLightInfo()

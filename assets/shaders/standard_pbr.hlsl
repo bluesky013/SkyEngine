@@ -11,6 +11,7 @@
 #pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
 
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
+#pragma option({"key": "ENABLE_PUNCTUAL_LIGHTS", "default": 0, "type": "Pass"})
 
 #include "vertex/standard.hlslh"
 
@@ -266,6 +267,7 @@ void MSMain(
 
 #include "layout/standard_shading.hlslh"
 #include "lighting/pbr.hlslh"
+#include "lighting/punctual_light.hlslh"
 
 static const float4x4 biasMat = float4x4(
 	0.5, 0.0, 0.0, 0.5,
@@ -382,6 +384,19 @@ float4 FSMain(VSOutput input) : SV_TARGET
 	float shadow = 1.0;
 #endif
     float3 e0 = BRDF(V, N, light, pbrParam) * shadow;
+
+#if ENABLE_PUNCTUAL_LIGHTS
+    // Accumulate point light contributions
+    for (uint pi = 0; pi < PointLightCount && pi < MAX_POINT_LIGHTS; ++pi)
+    {
+        e0 += EvaluatePointLight(PointLights[pi], V, N, input.WorldPos, pbrParam);
+    }
+    // Accumulate spot light contributions
+    for (uint si = 0; si < SpotLightCount && si < MAX_SPOT_LIGHTS; ++si)
+    {
+        e0 += EvaluateSpotLight(SpotLights[si], V, N, input.WorldPos, pbrParam);
+    }
+#endif
 
 #if ENABLE_IBL
     // Calculate view dot normal for Fresnel

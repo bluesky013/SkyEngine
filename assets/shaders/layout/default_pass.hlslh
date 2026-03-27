@@ -14,3 +14,29 @@
 
 [[vk::binding(10, 0)]] Texture2D HizBuffer : register(t5, space0);
 [[vk::binding(11, 0)]] SamplerState HizBufferSampler : register(s5, space0);
+
+// Physically-based punctual light data structures
+struct PointLightData {
+    float4 PositionRange;    // xyz: world position, w: influence range
+    float4 ColorIntensity;   // xyz: linear RGB color, w: luminous intensity (candela)
+};
+
+struct SpotLightData {
+    float4 PositionRange;    // xyz: world position, w: influence range
+    float4 DirectionInner;   // xyz: normalized direction, w: cos(innerConeAngle)
+    float4 ColorIntensity;   // xyz: linear RGB color, w: luminous intensity (candela)
+    float4 OuterAnglePad;    // x: cos(outerConeAngle), yzw: reserved
+};
+
+#define MAX_POINT_LIGHTS 8
+#define MAX_SPOT_LIGHTS  4
+
+[[vk::binding(12, 0)]] cbuffer pointLightBuf : register(b2, space0)
+{
+    PointLightData PointLights[MAX_POINT_LIGHTS];
+}
+
+[[vk::binding(13, 0)]] cbuffer spotLightBuf : register(b3, space0)
+{
+    SpotLightData SpotLights[MAX_SPOT_LIGHTS];
+}
