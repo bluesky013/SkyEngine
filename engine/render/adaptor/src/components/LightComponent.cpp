@@ -94,7 +94,7 @@ namespace sky {
 
     void PointLightComponent::SetColor(const ColorRGB &color)
     {
-        data.color = ColorRGB(color);
+        data.color = color;
         if (light != nullptr) {
             light->SetColor(data.color);
         }
@@ -173,7 +173,7 @@ namespace sky {
 
     void SpotLightComponent::SetColor(const ColorRGB &color)
     {
-        data.color = ColorRGB(color);
+        data.color = color;
         if (light != nullptr) {
             light->SetColor(data.color);
         }

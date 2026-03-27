@@ -105,8 +105,10 @@ namespace sky {
 
         void Collect(LightInfo &info) override;
     private:
+        static constexpr float DEFAULT_RANGE = 10.f;
+
         Vector3 position;
-        float range = 10.f;
+        float range = DEFAULT_RANGE;
     };
 
     class SpotLight : public Light {
@@ -128,12 +130,16 @@ namespace sky {
 
         void Collect(LightInfo &info) override;
     private:
+        static constexpr float DEFAULT_RANGE       = 10.f;
+        static constexpr float DEFAULT_INNER_ANGLE = 0.436f; // ~25 degrees
+        static constexpr float DEFAULT_OUTER_ANGLE = 0.524f; // ~30 degrees
+
         Vector3 position;
         Vector3 direction = Vector3(0.f, -1.f, 0.f);
 
-        float range = 10.f;
-        float innerAngle = 0.436f; // ~25 degrees
-        float outerAngle = 0.524f; // ~30 degrees
+        float range = DEFAULT_RANGE;
+        float innerAngle = DEFAULT_INNER_ANGLE;
+        float outerAngle = DEFAULT_OUTER_ANGLE;
     };
 
     class DirectLight : public Light {

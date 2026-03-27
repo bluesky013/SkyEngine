@@ -12,7 +12,7 @@ namespace sky {
     {
         info.color = color;
         info.position  = ToVec4(position);
-        info.direction = Vector4(0.f, 0.f, 0.f, range);
+        info.rsv = Vector4(range, 0.f, 0.f, 0.f);
     }
 
     void SpotLight::Collect(LightInfo &info)

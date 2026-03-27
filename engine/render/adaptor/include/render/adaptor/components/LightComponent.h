@@ -48,7 +48,7 @@ namespace sky {
     struct PointLightData {
         ColorRGB color = ColorRGB{1.f, 1.f, 1.f};
         float intensity = 1.f;
-        float range = 10.f;
+        float range = PointLight::DEFAULT_RANGE;
     };
 
     class PointLightComponent
@@ -85,9 +85,9 @@ namespace sky {
     struct SpotLightComponentData {
         ColorRGB color = ColorRGB{1.f, 1.f, 1.f};
         float intensity = 1.f;
-        float range = 10.f;
-        float innerAngle = 0.436f; // ~25 degrees
-        float outerAngle = 0.524f; // ~30 degrees
+        float range = SpotLight::DEFAULT_RANGE;
+        float innerAngle = SpotLight::DEFAULT_INNER_ANGLE;
+        float outerAngle = SpotLight::DEFAULT_OUTER_ANGLE;
     };
 
     class SpotLightComponent
