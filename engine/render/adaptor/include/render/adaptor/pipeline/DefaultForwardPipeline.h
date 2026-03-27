@@ -37,6 +37,8 @@ namespace sky {
 
         RDResourceLayoutPtr defaultRasterLayout;
         RDUniformBufferPtr defaultGlobal;
+        RDUniformBufferPtr pointLightUbo;
+        RDUniformBufferPtr spotLightUbo;
 
         rhi::ImagePtr hizDepth;
         rhi::SamplerPtr pointSampler;

@@ -55,6 +55,10 @@ namespace sky {
             rhi::DescriptorType::SAMPLED_IMAGE, 1, 10, stageFlags, "HizBuffer");
         desc.bindings.emplace_back(
             rhi::DescriptorType::SAMPLER, 1, 11, stageFlags, "HizBufferSampler");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 12, stageFlags, "PointLights");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 13, stageFlags, "SpotLights");
 
         defaultRasterLayout = new ResourceGroupLayout();
         defaultRasterLayout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
@@ -70,9 +74,17 @@ namespace sky {
         defaultRasterLayout->AddNameHandler(Name("PrefilteredMapSampler"), {9});
         defaultRasterLayout->AddNameHandler(Name("HizBuffer"), {10});
         defaultRasterLayout->AddNameHandler(Name("HizBufferSampler"), {11});
+        defaultRasterLayout->AddNameHandler(Name("PointLights"), {12, sizeof(ShaderPointLightBuffer)});
+        defaultRasterLayout->AddNameHandler(Name("SpotLights"), {13, sizeof(ShaderSpotLightBuffer)});
 
         defaultGlobal = new UniformBuffer();
         defaultGlobal->Init(sizeof(ShaderPassInfo));
+
+        pointLightUbo = new UniformBuffer();
+        pointLightUbo->Init(sizeof(ShaderPointLightBuffer));
+
+        spotLightUbo = new UniformBuffer();
+        spotLightUbo->Init(sizeof(ShaderSpotLightBuffer));
 
         depth = std::make_unique<DepthPass>(depthStencilFormat, rhi::SampleCount::X1);
         depth->SetLayout(defaultRasterLayout);
@@ -142,6 +154,12 @@ namespace sky {
                 info.viewport.z = (float)w;
                 info.viewport.w = (float)h;
             }
+
+            info.pointLightCount = lf->GetPointLightCount();
+            info.spotLightCount  = lf->GetSpotLightCount();
+
+            pointLightUbo->WriteT(0, lf->GetPointLightBuffer());
+            spotLightUbo->WriteT(0, lf->GetSpotLightBuffer());
         }
         defaultGlobal->WriteT(0, info);
 
@@ -153,6 +171,9 @@ namespace sky {
         auto &rg = rdg.resourceGraph;
         rg.ImportUBO(colorViewName, sceneView->GetUBO());
         rg.ImportUBO(fwdPassInfoName, defaultGlobal);
+
+        rg.ImportUBO(Name("FWD_PointLights"), pointLightUbo);
+        rg.ImportUBO(Name("FWD_SpotLights"), spotLightUbo);
 
         rg.ImportSampler(Name("PointSampler"), pointSampler);
     }

@@ -45,6 +45,88 @@ namespace sky {
         EventBinder<ITransformEvent> binder;
     };
 
+    struct PointLightData {
+        ColorRGB color = ColorRGB{1.f, 1.f, 1.f};
+        float intensity = 1.f;
+        float range = 10.f;
+    };
+
+    class PointLightComponent
+        : public ComponentAdaptor<PointLightData>
+        , public ITransformEvent {
+    public:
+        PointLightComponent() = default;
+        ~PointLightComponent() override = default;
+
+        COMPONENT_RUNTIME_INFO(PointLightComponent)
+
+        static void Reflect(SerializationContext *context);
+
+        void SetColor(const ColorRGB &color);
+        const ColorRGB &GetColor() const { return data.color; }
+
+        void SetIntensity(float intensity);
+        float GetIntensity() const { return data.intensity; }
+
+        void SetRange(float range);
+        float GetRange() const { return data.range; }
+
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
+
+    private:
+        void OnTransformChanged(const Transform& global, const Transform& local) override;
+        void UpdateData(const Transform& global);
+
+        PointLight *light = nullptr;
+        EventBinder<ITransformEvent> binder;
+    };
+
+    struct SpotLightComponentData {
+        ColorRGB color = ColorRGB{1.f, 1.f, 1.f};
+        float intensity = 1.f;
+        float range = 10.f;
+        float innerAngle = 0.436f; // ~25 degrees
+        float outerAngle = 0.524f; // ~30 degrees
+    };
+
+    class SpotLightComponent
+        : public ComponentAdaptor<SpotLightComponentData>
+        , public ITransformEvent {
+    public:
+        SpotLightComponent() = default;
+        ~SpotLightComponent() override = default;
+
+        COMPONENT_RUNTIME_INFO(SpotLightComponent)
+
+        static void Reflect(SerializationContext *context);
+
+        void SetColor(const ColorRGB &color);
+        const ColorRGB &GetColor() const { return data.color; }
+
+        void SetIntensity(float intensity);
+        float GetIntensity() const { return data.intensity; }
+
+        void SetRange(float range);
+        float GetRange() const { return data.range; }
+
+        void SetInnerAngle(float angle);
+        float GetInnerAngle() const { return data.innerAngle; }
+
+        void SetOuterAngle(float angle);
+        float GetOuterAngle() const { return data.outerAngle; }
+
+        void OnAttachToWorld() override;
+        void OnDetachFromWorld() override;
+
+    private:
+        void OnTransformChanged(const Transform& global, const Transform& local) override;
+        void UpdateData(const Transform& global);
+
+        SpotLight *light = nullptr;
+        EventBinder<ITransformEvent> binder;
+    };
+
 } // namespace sky
 
 

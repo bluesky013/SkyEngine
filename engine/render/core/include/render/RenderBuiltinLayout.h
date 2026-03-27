@@ -7,6 +7,10 @@
 #include <core/math/Matrix4.h>
 
 namespace sky {
+
+    static constexpr uint32_t MAX_POINT_LIGHTS = 8;
+    static constexpr uint32_t MAX_SPOT_LIGHTS  = 4;
+
     struct SceneViewInfo {
         Matrix4 world;
         Matrix4 view;
@@ -32,6 +36,29 @@ namespace sky {
         Vector3 mainLightDirection;
         float   padding;
         Vector4 viewport;
+        uint32_t pointLightCount;
+        uint32_t spotLightCount;
+        uint32_t lightPadding[2];
+    };
+
+    struct ShaderPointLightData {
+        Vector4 positionRange;    // xyz: world position, w: influence range
+        Vector4 colorIntensity;   // xyz: linear RGB color, w: luminous intensity (candela)
+    };
+
+    struct ShaderSpotLightData {
+        Vector4 positionRange;    // xyz: world position, w: influence range
+        Vector4 directionInner;   // xyz: normalized direction, w: cos(innerConeAngle)
+        Vector4 colorIntensity;   // xyz: linear RGB color, w: luminous intensity (candela)
+        Vector4 outerAnglePad;    // x: cos(outerConeAngle), yzw: reserved
+    };
+
+    struct ShaderPointLightBuffer {
+        ShaderPointLightData lights[MAX_POINT_LIGHTS];
+    };
+
+    struct ShaderSpotLightBuffer {
+        ShaderSpotLightData lights[MAX_SPOT_LIGHTS];
     };
 
 } // namespace sky
