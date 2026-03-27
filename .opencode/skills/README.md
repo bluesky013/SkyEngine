@@ -12,6 +12,8 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - Repository-aligned commit prefix guidance for `feat`, `fix`, `3rd`, `build`, and related commit styles
 - `skyengine-coding-rules/`
   - General C++ coding conventions and prohibited patterns (e.g., no `dynamic_cast`)
+- `skyengine-cpp-file-creation/`
+  - New C/C++ file authoring rules, including ASCII-only content, file preamble style, and correct logger usage
 - `docs-generate/`
   - Generate or update English technical documentation under `docs/`, with optional local PDF export to `docs/pdf/`
 
