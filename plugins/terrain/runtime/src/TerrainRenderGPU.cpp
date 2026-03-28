@@ -5,7 +5,7 @@
 #include <terrain/TerrainRenderGPU.h>
 #include <core/logger/Logger.h>
 
-static auto TAG = sky::Logger::Tag("TerrainRenderGPU");
+static const char* TAG = "TerrainRenderGPU";
 
 namespace sky {
 

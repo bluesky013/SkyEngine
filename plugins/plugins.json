@@ -54,6 +54,12 @@
             "dir": "pvs",
             "cmake_var": "SKY_BUILD_PVS",
             "enabled": true
+        },
+        {
+            "name": "console",
+            "dir": "console",
+            "cmake_var": "SKY_BUILD_CONSOLE",
+            "enabled": true
         }
     ]
 }

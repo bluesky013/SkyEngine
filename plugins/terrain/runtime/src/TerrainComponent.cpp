@@ -56,7 +56,7 @@ namespace sky {
 
     void TerrainComponent::OnSerialized()
     {
-        // Data deserialized — will be pushed to FP when attached to world
+        // Data deserialized will be pushed to FP when attached to world
     }
 
     void TerrainComponent::OnAttachToWorld()

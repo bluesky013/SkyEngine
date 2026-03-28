@@ -120,12 +120,12 @@ namespace sky::editor {
         std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(200));
         processEvents();
 
+        mainWindow = std::make_unique<MainWindow>();
         if (!Application::Init(argc, argv)) {
             return false;
         }
         InitTools();
 
-        mainWindow = std::make_unique<MainWindow>();
         mainWindow->show();
         splash.finish(mainWindow.get());
 

@@ -356,8 +356,8 @@
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_1935718e852e.zip",
-			"md5": "1935718e852e5743d2d72c550052a305"
+			"file": "thirdparty_Win32_e00ca48cb8d9.zip",
+			"md5": "e00ca48cb8d9040cbf2f4a066521cbc9"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",

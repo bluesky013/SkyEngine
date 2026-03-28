@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #if __ANDROID__
 #include <android/log.h>
 #endif
@@ -12,10 +13,17 @@
 
 namespace sky {
 
+    using LogOutputCallback = std::function<void(const char *tag, const char *type, const char *message)>;
+
     class Logger {
     public:
         static void Print(const char *tag, const char *type, const char *fmt, ...);
         static void PrintW(const wchar_t *tag, const wchar_t *type, const wchar_t *fmt, ...);
+
+        static void SetOutputCallback(LogOutputCallback callback);
+
+    private:
+        static LogOutputCallback sOutputCallback;
     };
 
 } // namespace sky

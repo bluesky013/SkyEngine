@@ -9,6 +9,13 @@
 
 namespace sky {
 
+    LogOutputCallback Logger::sOutputCallback;
+
+    void Logger::SetOutputCallback(LogOutputCallback callback)
+    {
+        sOutputCallback = std::move(callback);
+    }
+
     void Logger::Print(const char *tag, const char *type, const char *fmt, ...)
     {
         const uint32_t MAX_SIZE = 1024;
@@ -20,6 +27,10 @@ namespace sky {
         buffer[MAX_SIZE - 1] = '\0';
 
         printf("[%s] [%s] : %s\n", tag, type, buffer);
+
+        if (sOutputCallback) {
+            sOutputCallback(tag, type, buffer);
+        }
     }
 
     void Logger::PrintW(const wchar_t *tag, const wchar_t *type, const wchar_t *fmt, ...)

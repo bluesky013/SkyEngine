@@ -20,7 +20,7 @@ namespace sky {
         uint32_t blockSize    = 64;      // vertices per block side: 32, 64, 128, or 256
         uint32_t numLevels    = 8;       // number of clipmap LOD levels: 1-12
         float    resolution   = 1.0f;    // world-space meters per vertex at level 0
-        float    heightScale  = 256.0f;  // texel value → world height multiplier
+        float    heightScale  = 256.0f;  // texel value world height multiplier
         float    heightOffset = 0.0f;    // world height offset
         TerrainHeightFormat heightFormat = TerrainHeightFormat::R16_UNORM;
     };
