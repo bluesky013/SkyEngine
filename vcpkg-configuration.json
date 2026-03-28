@@ -1,0 +1,20 @@
+{
+	"$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg-configuration.schema.json",
+	"default-registry": {
+		"kind": "git",
+		"repository": "https://github.com/microsoft/vcpkg",
+		"baseline": "c3867e714dd3a51c272826eea77267876517ed99"
+	},
+	"registries": [
+		{
+			"kind": "git",
+			"repository": "https://github.com/Zhuyin-Graphics/vcpkg-registry",
+			"baseline": "303d3f22e71e31ded282ff6dfe103ed27723682c",
+			"packages": [
+				"sfmt",
+				"gklib",
+				"ispc-texcomp"
+			]
+		}
+	]
+}

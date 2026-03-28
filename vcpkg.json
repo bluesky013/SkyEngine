@@ -1,0 +1,136 @@
+{
+	"$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+	"name": "skyengine",
+	"version-string": "0.1.0",
+	"description": "SkyEngine - A cross-platform game engine",
+	"dependencies": [
+		{
+			"name": "boost-container",
+			"version>=": "1.88.0"
+		},
+		{
+			"name": "boost-graph",
+			"version>=": "1.88.0"
+		},
+		"sfmt",
+		"rapidjson",
+		"taskflow",
+		{
+			"name": "sdl2",
+			"platform": "windows | osx | linux"
+		},
+		"vulkan-memory-allocator",
+		{
+			"name": "imgui",
+			"features": [
+				"docking-experimental"
+			]
+		},
+		"gtest",
+		"glslang",
+		"spirv-cross",
+		{
+			"name": "directx-dxc",
+			"platform": "windows"
+		}
+	],
+	"features": {
+		"editor": {
+			"description": "Editor and asset building tools",
+			"dependencies": [
+				{
+					"name": "assimp",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "meshoptimizer",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "stb",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "imguizmo",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "gklib",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "metis",
+					"platform": "windows | osx"
+				},
+				{
+					"name": "ispc-texcomp",
+					"platform": "windows | osx"
+				}
+			]
+		},
+		"bullet": {
+			"description": "Bullet physics engine",
+			"dependencies": [
+				"bullet3"
+			]
+		},
+		"recast": {
+			"description": "Recast navigation mesh generation",
+			"dependencies": [
+				"recastnavigation"
+			]
+		},
+		"tracy": {
+			"description": "Tracy frame profiler",
+			"dependencies": [
+				"tracy"
+			]
+		},
+		"freetype": {
+			"description": "FreeType font rendering",
+			"dependencies": [
+				"freetype"
+			]
+		},
+		"compression": {
+			"description": "LZ4 compression support",
+			"dependencies": [
+				"lz4"
+			]
+		}
+	},
+	"overrides": [
+		{
+			"name": "boost-container",
+			"version": "1.88.0"
+		},
+		{
+			"name": "boost-graph",
+			"version": "1.88.0"
+		},
+		{
+			"name": "sdl2",
+			"version": "2.32.6"
+		},
+		{
+			"name": "taskflow",
+			"version": "3.7.0"
+		},
+		{
+			"name": "vulkan-memory-allocator",
+			"version": "3.2.1"
+		},
+		{
+			"name": "glslang",
+			"version": "15.3.0"
+		},
+		{
+			"name": "spirv-cross",
+			"version": "1.4.313.0"
+		},
+		{
+			"name": "tracy",
+			"version": "0.11.1"
+		}
+	]
+}
