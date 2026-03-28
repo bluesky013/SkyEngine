@@ -71,7 +71,7 @@ namespace sky::editor {
 //            {Qt::Key_, ScanCode::KEY_NONUSHASH},
             {Qt::Key_Semicolon, ScanCode::KEY_SEMICOLON},
             {Qt::Key_Apostrophe, ScanCode::KEY_APOSTROPHE},
-//            {Qt::Key_, ScanCode::KEY_GRAVE},
+            {Qt::Key_QuoteLeft, ScanCode::KEY_GRAVE},
             {Qt::Key_Comma, ScanCode::KEY_COMMA},
             {Qt::Key_Period, ScanCode::KEY_PERIOD},
             {Qt::Key_Slash, ScanCode::KEY_SLASH},
@@ -211,18 +211,25 @@ namespace sky::editor {
                 auto mod = ConvertModifier(keyEvent->modifiers());
 
                 auto iter = SCANCODE_MAP.find(scanCode);
-                if (iter == SCANCODE_MAP.end()) {
-                    break;
+                if (iter != SCANCODE_MAP.end()) {
+                    KeyboardEvent kEvent = {};
+                    kEvent.winID = winID;
+                    kEvent.scanCode = iter->second;
+                    kEvent.mod = mod;
+                    if (event->type() == QEvent::KeyRelease) {
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyUp, kEvent);
+                    } else {
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyDown, kEvent);
+                    }
                 }
 
-                KeyboardEvent kEvent = {};
-                kEvent.winID = winID;
-                kEvent.scanCode = iter->second;
-                kEvent.mod = mod;
-                if (event->type() == QEvent::KeyRelease) {
-                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyUp, kEvent);
-                } else {
-                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyDown, kEvent);
+                // forward text input for ImGui InputText widgets
+                if (event->type() == QEvent::KeyPress) {
+                    const QString text = keyEvent->text();
+                    if (!text.isEmpty()) {
+                        const QByteArray utf8 = text.toUtf8();
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, winID, utf8.constData());
+                    }
                 }
                 break;
             }

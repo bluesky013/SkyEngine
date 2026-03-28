@@ -63,6 +63,7 @@ namespace sky {
         void Finalize(RenderScene& scene) override;
 
         void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) override;
+        Vector2 MeasureText(const std::string &text, const TextInfo &info) override;
 
         static TextFlags ValidateFlags(const TextFlags &flags) ;
         std::unordered_map<BatchKey, TextBatchPtr> batches;

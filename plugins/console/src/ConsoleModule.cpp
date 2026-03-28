@@ -8,6 +8,7 @@
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 #include <framework/application/SettingRegistry.h>
+#include <framework/console/IConsoleUI.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <core/cmdline/CmdParser.h>
@@ -77,10 +78,16 @@ namespace sky {
 
     void ConsoleModule::Tick(float delta)
     {
-        // flush log entries to terminal
-        if (consoleLog_ && terminal_) {
-            consoleLog_->FlushPendingEntries([this](const LogEntry &entry) {
-                terminal_->WriteLogEntry(entry);
+        // flush log entries to terminal and overlay
+        if (consoleLog_) {
+            auto *consoleUI = Interface<IConsoleUI>::Get()->GetApi();
+            consoleLog_->FlushPendingEntries([this, consoleUI](const LogEntry &entry) {
+                if (terminal_) {
+                    terminal_->WriteLogEntry(entry);
+                }
+                if (consoleUI != nullptr) {
+                    consoleUI->PushLog(entry);
+                }
             });
         }
 
@@ -100,6 +107,22 @@ namespace sky {
                 }
             }
             terminal_->DrawPrompt();
+        }
+
+        // poll overlay console input
+        {
+            auto *consoleUI = Interface<IConsoleUI>::Get()->GetApi();
+            if (consoleUI != nullptr) {
+                std::string overlayLine;
+                while (consoleUI->PollCommand(overlayLine)) {
+                    if (!overlayLine.empty()) {
+                        auto result = shell_->Execute(overlayLine);
+                        if (!result.output.empty()) {
+                            consoleUI->PushOutput(result.output);
+                        }
+                    }
+                }
+            }
         }
     }
 

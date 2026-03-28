@@ -56,6 +56,8 @@ namespace sky {
 
         virtual void AddText(const std::string &text, const Vector2& pos, const TextInfo &info) = 0;
 
+        virtual Vector2 MeasureText(const std::string &text, const TextInfo &info) { return Vector2{0.f, 0.f}; }
+
         virtual void Reset(RenderScene& scene) {}
         virtual void Finalize(RenderScene& scene) {}
 

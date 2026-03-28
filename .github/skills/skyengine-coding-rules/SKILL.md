@@ -236,4 +236,44 @@ If you encounter existing non-ASCII characters in C/C++ source files during a ta
 
 ---
 
+## Rule 5 — No trailing underscore on member variables
+
+### Prohibition
+
+Do **NOT** use a trailing underscore suffix (`_`) on class member variables in new or modified code.
+
+### Rationale
+
+- The majority of the SkyEngine codebase (render, core, editor, plugins) uses plain names without a trailing underscore for member variables (e.g., `name`, `context`, `primitive`, `guiInstance`).
+- Trailing underscores add visual noise and are inconsistent with the dominant codebase style.
+- C++ reserves names beginning with an underscore followed by an uppercase letter, and names with double underscores, for the implementation. While trailing underscores are technically legal, avoiding underscore-based conventions altogether eliminates any risk of confusion.
+
+### What to do instead
+
+Use descriptive, plain camelCase names for member variables, matching the surrounding codebase style.
+
+```cpp
+// Good — matches existing engine convention
+class Widget {
+private:
+    bool visible     = false;
+    std::string name;
+    int historyPos   = -1;
+};
+
+// Bad — trailing underscore suffix
+class Widget {
+private:
+    bool visible_     = false;
+    std::string name_;
+    int historyPos_   = -1;
+};
+```
+
+### Detection
+
+If you encounter existing trailing-underscore members during a task, do **not** rename them unless they are within the scope of the current change. Flag the inconsistency in your response if relevant.
+
+---
+
 <!-- Future rules go here as ## Rule N sections -->

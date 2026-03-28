@@ -37,7 +37,7 @@ namespace sky {
     private:
         friend class Singleton<Interface<T>>;
         Interface()  = default;
-        ~Interface() = default;
+        ~Interface() override = default;
         std::mutex mutex;
         T         *ptr = nullptr;
     };
