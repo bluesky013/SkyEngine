@@ -11,9 +11,7 @@
 			"repository": "https://github.com/Zhuyin-Graphics/vcpkg-registry",
 			"baseline": "303d3f22e71e31ded282ff6dfe103ed27723682c",
 			"packages": [
-				"sfmt",
-				"gklib",
-				"ispc-texcomp"
+				"crc32c"
 			]
 		}
 	]

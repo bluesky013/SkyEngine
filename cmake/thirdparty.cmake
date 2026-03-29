@@ -1,6 +1,24 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
 include(${ENGINE_ROOT}/cmake/thirdparty_helpers.cmake)
 
+## vcpkg booststrap
+
+include(${CMAKE_SOURCE_DIR}/cmake/vcpkg_bootstrap.cmake)
+x_vcpkg_bootstrap()
+set(VCPKG_BOOTSTRAP_OPTIONS "-disableMetrics")
+set(VCPKG_INSTALL_OPTIONS "--no-print-usage")
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+  CACHE STRING "Vcpkg toolchain file")
+list(APPEND VCPKG_FEATURE_FLAGS manifests)
+
+# detect platform
+# TODO: try to adapt to more platforms
+if(WIN32)
+  set(VCPKG_TARGET_TRIPLET x64-windows)
+elseif(UNIX)
+  set(VCPKG_TARGET_TRIPLET x64-linux)
+endif()
+
 # ---------------------------------------------------------------------------
 # Detect which mode to use:
 #   1. vcpkg   – when CMAKE_TOOLCHAIN_FILE points at the vcpkg toolchain
