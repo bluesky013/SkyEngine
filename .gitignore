@@ -23,3 +23,5 @@
 # generated PDF documentation
 /docs/pdf/
 .DS_Store
+/vcpkg/
+/.thirdparty/

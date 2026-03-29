@@ -20,46 +20,46 @@ The goal is to manage third-party packages consistently through vcpkg, while usi
 
 ### 0.1 Adaptable Packages (Directly Manageable Through vcpkg)
 
-| Package | Current State | Platform Notes | Adaptation Level |
-|---|---|---|---|
-| boost-container | Already in `vcpkg.json` | all | Done (maintain) |
-| boost-graph | Already in `vcpkg.json` | all | Done (maintain) |
-| sfmt | Already in `vcpkg.json` | all | Done (maintain) |
-| rapidjson | Already in `vcpkg.json` | all | Done (maintain) |
-| taskflow | Already in `vcpkg.json` | all | Done (maintain) |
-| sdl2 | Already in `vcpkg.json` | windows, osx, linux | Done (maintain) |
-| vulkan-memory-allocator | Already in `vcpkg.json` | all | Done (maintain) |
-| imgui (+ docking-experimental) | Already in `vcpkg.json` | all | Done (maintain) |
-| gtest | Already in `vcpkg.json` | all | Done (maintain) |
-| glslang | Already in `vcpkg.json` | all | Done (maintain) |
-| spirv-cross | Already in `vcpkg.json` | all | Done (maintain) |
-| directx-dxc | Already in `vcpkg.json` | windows | Done (maintain) |
-| assimp | vcpkg feature `editor` | windows, osx | Done (maintain) |
-| meshoptimizer | vcpkg feature `editor` | windows, osx | Done (maintain) |
-| stb | vcpkg feature `editor` | windows, osx | Done (maintain) |
-| imguizmo | vcpkg feature `editor` | windows, osx | Done (maintain) |
-| gklib | vcpkg feature `editor` | windows, osx | Adaptable (custom registry hardening needed) |
-| metis | vcpkg feature `editor` | windows, osx | Done (maintain) |
-| ispc-texcomp | vcpkg feature `editor` | windows, osx | Adaptable (custom registry hardening needed) |
-| bullet3 | vcpkg feature `bullet` | all | Done (maintain) |
-| recastnavigation | vcpkg feature `recast` | all | Done (maintain) |
-| tracy | vcpkg feature `tracy` | all | Done (maintain) |
-| freetype | vcpkg feature `freetype` | all | Done (maintain) |
-| lz4 | vcpkg feature `compression` | all | Done (maintain) |
-| zlib | transitive today | all | Adaptable (optional explicit pin if reproducibility required) |
+| Package                        | Current State               | Platform Notes      | Adaptation Level                                              |
+| ------------------------------ | --------------------------- | ------------------- | ------------------------------------------------------------- |
+| boost-container                | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| boost-graph                    | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| sfmt                           | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| rapidjson                      | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| taskflow                       | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| sdl2                           | Already in `vcpkg.json`     | windows, osx, linux | Done (maintain)                                               |
+| vulkan-memory-allocator        | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| imgui (+ docking-experimental) | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| gtest                          | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| glslang                        | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| spirv-cross                    | Already in `vcpkg.json`     | all                 | Done (maintain)                                               |
+| directx-dxc                    | Already in `vcpkg.json`     | windows             | Done (maintain)                                               |
+| assimp                         | vcpkg feature `editor`      | windows, osx        | Done (maintain)                                               |
+| meshoptimizer                  | vcpkg feature `editor`      | windows, osx        | Done (maintain)                                               |
+| stb                            | vcpkg feature `editor`      | windows, osx        | Done (maintain)                                               |
+| imguizmo                       | vcpkg feature `editor`      | windows, osx        | Done (maintain)                                               |
+| gklib                          | vcpkg feature `editor`      | windows, osx        | Adaptable (custom registry hardening needed)                  |
+| metis                          | vcpkg feature `editor`      | windows, osx        | Done (maintain)                                               |
+| ispc-texcomp                   | vcpkg feature `editor`      | windows, osx        | Adaptable (custom registry hardening needed)                  |
+| bullet3                        | vcpkg feature `bullet`      | all                 | Done (maintain)                                               |
+| recastnavigation               | vcpkg feature `recast`      | all                 | Done (maintain)                                               |
+| tracy                          | vcpkg feature `tracy`       | all                 | Done (maintain)                                               |
+| freetype                       | vcpkg feature `freetype`    | all                 | Done (maintain)                                               |
+| lz4                            | vcpkg feature `compression` | all                 | Done (maintain)                                               |
+| zlib                           | transitive today            | all                 | Adaptable (optional explicit pin if reproducibility required) |
 
 ### 0.2 Other Packages (Not Yet In vcpkg Flow, Or Should Stay Outside)
 
-| Package / Dependency | Why It Is Not In Current vcpkg Flow | Recommendation |
-|---|---|---|
-| OpenXR (openxr-loader) | XR plugin uses legacy `FindOpenXR.cmake`, no vcpkg alias in `cmake/vcpkg.cmake` | Adapt to vcpkg in phase 2 |
-| Python runtime/dev (Python3::Python) | Resolved from host environment; version can drift across machines | Decide policy: keep system Python or pin with vcpkg/python3 |
-| Qt5 Widgets | Treated as host SDK/framework dependency for editor/tooling | Keep external for now; evaluate Qt via vcpkg only if full toolchain migration is desired |
-| Vulkan SDK (Vulkan::Vulkan) | Usually provided by OS SDK / LunarG SDK, not locked by vcpkg manifest | Keep external SDK dependency |
-| game-activity (Android) | Android NDK ecosystem package, outside vcpkg mainstream flow | Keep NDK-managed |
-| GLES/EGL libs | Platform graphics runtime libs, often system-provided | Keep system/SDK-managed |
-| ios-cmake | Build toolchain helper rather than runtime package | Keep as tool dependency |
-| crc32c in attached custom registry | Registry contains crc32c port but project currently references `crc32` package name and does not consume it in manifest | Reconcile naming and consume only if external crc32c is needed |
+| Package / Dependency                 | Why It Is Not In Current vcpkg Flow                                                                                     | Recommendation                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| OpenXR (openxr-loader)               | XR plugin uses legacy `FindOpenXR.cmake`, no vcpkg alias in `cmake/vcpkg.cmake`                                         | Adapt to vcpkg in phase 2                                                                |
+| Python runtime/dev (Python3::Python) | Resolved from host environment; version can drift across machines                                                       | Decide policy: keep system Python or pin with vcpkg/python3                              |
+| Qt5 Widgets                          | Treated as host SDK/framework dependency for editor/tooling                                                             | Keep external for now; evaluate Qt via vcpkg only if full toolchain migration is desired |
+| Vulkan SDK (Vulkan::Vulkan)          | Usually provided by OS SDK / LunarG SDK, not locked by vcpkg manifest                                                   | Keep external SDK dependency                                                             |
+| game-activity (Android)              | Android NDK ecosystem package, outside vcpkg mainstream flow                                                            | Keep NDK-managed                                                                         |
+| GLES/EGL libs                        | Platform graphics runtime libs, often system-provided                                                                   | Keep system/SDK-managed                                                                  |
+| ios-cmake                            | Build toolchain helper rather than runtime package                                                                      | Keep as tool dependency                                                                  |
+| crc32c in attached custom registry   | Registry contains crc32c port but project currently references `crc32` package name and does not consume it in manifest | Reconcile naming and consume only if external crc32c is needed                           |
 
 ## 1) Adaptation Tasks For Each Adaptable Package
 
@@ -69,32 +69,32 @@ Task format:
 - T3: Validate platform guards and feature guards
 - T4: Add CI lock checks (configure + build matrix)
 
-| Package | Concrete Adaptation Tasks |
-|---|---|
-| boost-container | T1 pin retained; T2 verify `Boost::container`; T4 verify all desktop builds |
-| boost-graph | T1 pin retained; T2 verify `Boost::graph`; T4 verify all desktop builds |
-| sfmt | T1 keep version stable; T2 verify `sfmt::sfmt`; T4 test core module |
-| rapidjson | T1 keep stable; T2 verify `rapidjson` include target alias; T4 run serialization tests |
-| taskflow | T1 keep stable; T2 verify `Taskflow::Taskflow`; T4 run task scheduler tests |
-| sdl2 | T1 keep override; T2 verify `SDL2::SDL2` + `SDL2::SDL2main`; T3 validate non-mobile guards |
-| vulkan-memory-allocator | T1 keep override; T2 verify `GPUOpen::VulkanMemoryAllocator`; T4 run render backend tests |
-| imgui | T1 keep feature `docking-experimental`; T2 verify alias; T4 run editor UI build |
-| gtest | T1 keep stable; T2 verify `GTest::gtest`; T4 execute unit tests in CI |
-| glslang | T1 keep override; T2 verify component aliases; T4 run shader compile tests |
-| spirv-cross | T1 keep override; T2 verify six component package lookups; T4 run shader reflection tests |
-| directx-dxc | T1 windows-only lock; T2 verify `Microsoft::DirectXShaderCompiler`; T3 enforce WIN32 guard |
-| assimp | T1 feature-scoped version lock; T2 verify `assimp::assimp`; T3 editor-only guard |
-| meshoptimizer | T1 feature-scoped lock; T2 verify `meshoptimizer::meshoptimizer`; T3 editor-only guard |
-| stb | T1 ensure registry/default source is deterministic; T2 verify include alias creation; T3 editor-only guard |
-| imguizmo | T1 feature-scoped lock; T2 verify `imguizmo::imguizmo`; T3 editor-only guard |
-| gklib | T1 add/verify custom port baseline and version DB; T2 verify `gklib::gklib`; T3 editor-only + os support checks |
-| metis | T1 feature-scoped lock; T2 verify `metis::metis`; T3 editor-only + os support checks |
-| ispc-texcomp | T1 add/verify custom port baseline and version DB; T2 verify `ispc_texcomp::ispc_texcomp`; T3 editor-only + os support checks |
-| bullet3 | T1 feature-scoped lock; T2 verify all Bullet component targets; T4 run physics plugin tests |
-| recastnavigation | T1 feature-scoped lock; T2 verify RecastNavigation target set; T4 run navmesh plugin tests |
-| tracy | T1 keep override; T2 verify `Tracy::TracyClient`; T3 ensure compile define `TRACY_ENABLE` only when enabled |
-| freetype | T1 feature-scoped lock; T2 verify `Freetype::Freetype`; T4 run text rendering tests |
-| lz4 | T1 feature-scoped lock; T2 verify `lz4::lz4`; T4 run compression plugin tests |
+| Package                  | Concrete Adaptation Tasks                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| boost-container          | T1 pin retained; T2 verify `Boost::container`; T4 verify all desktop builds                                                         |
+| boost-graph              | T1 pin retained; T2 verify `Boost::graph`; T4 verify all desktop builds                                                             |
+| sfmt                     | T1 keep version stable; T2 verify `sfmt::sfmt`; T4 test core module                                                                 |
+| rapidjson                | T1 keep stable; T2 verify `rapidjson` include target alias; T4 run serialization tests                                              |
+| taskflow                 | T1 keep stable; T2 verify `Taskflow::Taskflow`; T4 run task scheduler tests                                                         |
+| sdl2                     | T1 keep override; T2 verify `SDL2::SDL2` + `SDL2::SDL2main`; T3 validate non-mobile guards                                          |
+| vulkan-memory-allocator  | T1 keep override; T2 verify `GPUOpen::VulkanMemoryAllocator`; T4 run render backend tests                                           |
+| imgui                    | T1 keep feature `docking-experimental`; T2 verify alias; T4 run editor UI build                                                     |
+| gtest                    | T1 keep stable; T2 verify `GTest::gtest`; T4 execute unit tests in CI                                                               |
+| glslang                  | T1 keep override; T2 verify component aliases; T4 run shader compile tests                                                          |
+| spirv-cross              | T1 keep override; T2 verify six component package lookups; T4 run shader reflection tests                                           |
+| directx-dxc              | T1 windows-only lock; T2 verify `Microsoft::DirectXShaderCompiler`; T3 enforce WIN32 guard                                          |
+| assimp                   | T1 feature-scoped version lock; T2 verify `assimp::assimp`; T3 editor-only guard                                                    |
+| meshoptimizer            | T1 feature-scoped lock; T2 verify `meshoptimizer::meshoptimizer`; T3 editor-only guard                                              |
+| stb                      | T1 ensure registry/default source is deterministic; T2 verify include alias creation; T3 editor-only guard                          |
+| imguizmo                 | T1 feature-scoped lock; T2 verify `imguizmo::imguizmo`; T3 editor-only guard                                                        |
+| gklib                    | T1 add/verify custom port baseline and version DB; T2 verify `gklib::gklib`; T3 editor-only + os support checks                     |
+| metis                    | T1 feature-scoped lock; T2 verify `metis::metis`; T3 editor-only + os support checks                                                |
+| ispc-texcomp             | T1 add/verify custom port baseline and version DB; T2 verify `ispc_texcomp::ispc_texcomp`; T3 editor-only + os support checks       |
+| bullet3                  | T1 feature-scoped lock; T2 verify all Bullet component targets; T4 run physics plugin tests                                         |
+| recastnavigation         | T1 feature-scoped lock; T2 verify RecastNavigation target set; T4 run navmesh plugin tests                                          |
+| tracy                    | T1 keep override; T2 verify `Tracy::TracyClient`; T3 ensure compile define `TRACY_ENABLE` only when enabled                         |
+| freetype                 | T1 feature-scoped lock; T2 verify `Freetype::Freetype`; T4 run text rendering tests                                                 |
+| lz4                      | T1 feature-scoped lock; T2 verify `lz4::lz4`; T4 run compression plugin tests                                                       |
 | zlib (optional explicit) | T1 add explicit dependency only if direct use required; T2 wire alias if promoted to direct package; T4 verify no duplicate linkage |
 
 ## 2) Other Packages: Reasons And Adaptation Plan

@@ -1,5 +1,10 @@
 SET(3RD_PATH "" CACHE STRING "SkyEngine 3rd path")
 
+set(SKY_THIRDPARTY_MODE "${SKY_THIRDPARTY_MODE}" CACHE STRING "Third-party mode: LOCAL or PREBUILT")
+set_property(CACHE SKY_THIRDPARTY_MODE PROPERTY STRINGS LOCAL PREBUILT)
+option(SKY_THIRDPARTY_USE_PREBUILT "Prefer reusable prebuilt binaries from local/CI cache" ON)
+set(SKY_THIRDPARTY_ROOT "${SKY_THIRDPARTY_ROOT}" CACHE PATH "Local third-party root for downloads/installed/cache")
+
 if (3RD_PATH STREQUAL "" AND EXISTS "${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
     include("${ENGINE_ROOT}/build_3rd/thirdparty_cache.cmake")
 endif ()

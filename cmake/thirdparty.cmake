@@ -1,33 +1,16 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ENGINE_ROOT}/cmake/thirdparty)
 include(${ENGINE_ROOT}/cmake/thirdparty_helpers.cmake)
 
-## vcpkg booststrap
-
-include(${CMAKE_SOURCE_DIR}/cmake/vcpkg_bootstrap.cmake)
-x_vcpkg_bootstrap()
-set(VCPKG_BOOTSTRAP_OPTIONS "-disableMetrics")
-set(VCPKG_INSTALL_OPTIONS "--no-print-usage")
-set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-  CACHE STRING "Vcpkg toolchain file")
-list(APPEND VCPKG_FEATURE_FLAGS manifests)
-
-# detect platform
-# TODO: try to adapt to more platforms
-if(WIN32)
-  set(VCPKG_TARGET_TRIPLET x64-windows)
-elseif(UNIX)
-  set(VCPKG_TARGET_TRIPLET x64-linux)
-endif()
-
 # ---------------------------------------------------------------------------
-# Detect which mode to use:
-#   1. vcpkg   – when CMAKE_TOOLCHAIN_FILE points at the vcpkg toolchain
-#   2. legacy  – when 3RD_PATH is set (pre-built tree from python/third_party.py)
+# Detect which mode to use (configured by SKY_THIRDPARTY_MODE in top-level CMake):
+#   1. LOCAL    – vcpkg manifest mode (download/build/cache under SKY_THIRDPARTY_ROOT)
+#   2. PREBUILT – pre-built tree from python/third_party.py via 3RD_PATH
 # ---------------------------------------------------------------------------
-if (DEFINED VCPKG_TOOLCHAIN OR SKY_USE_VCPKG)
-    message(STATUS "[SkyEngine] Using vcpkg for third-party dependencies")
+if (SKY_THIRDPARTY_MODE STREQUAL "LOCAL")
+    message(STATUS "[SkyEngine] Third-party mode: LOCAL (vcpkg)")
+    message(STATUS "[SkyEngine] Third-party root: ${SKY_THIRDPARTY_ROOT}")
     include(${ENGINE_ROOT}/cmake/vcpkg.cmake)
-elseif(EXISTS ${3RD_PATH})
+elseif (SKY_THIRDPARTY_MODE STREQUAL "PREBUILT" AND EXISTS ${3RD_PATH})
     function(sky_find_3rd)
         cmake_parse_arguments(TMP
             ""
@@ -104,11 +87,14 @@ elseif(EXISTS ${3RD_PATH})
         sky_find_3rd(TARGET metis         DIR metis)
         sky_find_3rd(TARGET ImGuizmo      DIR ImGuizmo)
     endif ()
-else()
+elseif (SKY_THIRDPARTY_MODE STREQUAL "PREBUILT")
     message(FATAL_ERROR
-        "No third-party source configured.\n"
-        "Either:\n"
-        "  1. Use vcpkg: cmake -B build -DCMAKE_TOOLCHAIN_FILE=<vcpkg-root>/scripts/buildsystems/vcpkg.cmake\n"
-        "  2. Use pre-built: cmake -B build -D3RD_PATH=<path-to-prebuilt-3rdparty>\n"
+        "Third-party mode is PREBUILT but 3RD_PATH is not available.\n"
+        "Use one of:\n"
+        "  1. Build prebuilt third-party tree: python3 python/third_party.py -p <platform>\n"
+        "  2. Configure 3RD_PATH explicitly: cmake -B build -DSKY_THIRDPARTY_MODE=PREBUILT -D3RD_PATH=<path>\n"
+        "  3. Switch mode: cmake -B build -DSKY_THIRDPARTY_MODE=LOCAL\n"
     )
+else()
+    message(FATAL_ERROR "Unsupported SKY_THIRDPARTY_MODE='${SKY_THIRDPARTY_MODE}'")
 endif()

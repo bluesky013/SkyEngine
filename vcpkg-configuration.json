@@ -9,9 +9,34 @@
 		{
 			"kind": "git",
 			"repository": "https://github.com/Zhuyin-Graphics/vcpkg-registry",
-			"baseline": "303d3f22e71e31ded282ff6dfe103ed27723682c",
+			"baseline": "e8c9c2888b269152ee7bcf9eca74258b6c581025",
 			"packages": [
-				"crc32c"
+				"assimp",
+				"boost-container",
+				"boost-graph",
+				"bullet3",
+				"crc32c",
+				"directx-dxc",
+				"freetype",
+				"gklib",
+				"glslang",
+				"gtest",
+				"imgui",
+				"imguizmo",
+				"ispc-texcomp",
+				"lz4",
+				"meshoptimizer",
+				"metis",
+				"rapidjson",
+				"recastnavigation",
+				"sdl2",
+				"sfmt",
+				"spirv-cross",
+				"stb",
+				"taskflow",
+				"tracy",
+				"vulkan-memory-allocator",
+				"zlib"
 			]
 		}
 	]

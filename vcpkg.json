@@ -4,14 +4,8 @@
 	"version-string": "0.1.0",
 	"description": "SkyEngine - A cross-platform game engine",
 	"dependencies": [
-		{
-			"name": "boost-container",
-			"version>=": "1.88.0"
-		},
-		{
-			"name": "boost-graph",
-			"version>=": "1.88.0"
-		},
+		"boost-container",
+		"boost-graph",
 		"sfmt",
 		"rapidjson",
 		"taskflow",
@@ -98,39 +92,5 @@
 				"lz4"
 			]
 		}
-	},
-	"overrides": [
-		{
-			"name": "boost-container",
-			"version": "1.88.0"
-		},
-		{
-			"name": "boost-graph",
-			"version": "1.88.0"
-		},
-		{
-			"name": "sdl2",
-			"version": "2.32.6"
-		},
-		{
-			"name": "taskflow",
-			"version": "3.7.0"
-		},
-		{
-			"name": "vulkan-memory-allocator",
-			"version": "3.2.1"
-		},
-		{
-			"name": "glslang",
-			"version": "15.3.0"
-		},
-		{
-			"name": "spirv-cross",
-			"version": "1.4.313.0"
-		},
-		{
-			"name": "tracy",
-			"version": "0.11.1"
-		}
-	]
+	}
 }
