@@ -18,7 +18,7 @@ namespace sky::editor {
 
         ~ImGuizmoModule() override
         {
-            Interface<IGizmoFactory>::Get()->UnRegister();
+            Interface<IGizmoFactory>::Get()->UnRegister(*this);
         }
 
         IGizmo* CreateGizmo() override

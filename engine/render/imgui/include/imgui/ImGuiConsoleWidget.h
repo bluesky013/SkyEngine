@@ -48,6 +48,7 @@ namespace sky {
         bool scrollToBottom = false;
         bool focusInput     = false;
         bool prevGraveDown  = false;
+        bool suppressToggleCharacter = false;
 
         mutable std::mutex mutex;
         std::vector<DisplayEntry> entries;

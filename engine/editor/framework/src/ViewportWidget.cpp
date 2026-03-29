@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QInputMethodEvent>
 #include <QApplication>
 #include <QScreen>
 #include <QMenu>
@@ -14,6 +15,7 @@
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
+#include <framework/console/IConsoleUI.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/asset/AssetManager.h>
@@ -141,6 +143,12 @@ namespace sky::editor {
         NativeWindowManager::Get()->Register(this);
     }
 
+    bool ViewportWindow::IsTextInputActive() const
+    {
+        const auto *consoleUI = Interface<IConsoleUI>::Get()->GetApi();
+        return consoleUI != nullptr && consoleUI->WantsInput();
+    }
+
     ViewportWidget::~ViewportWidget()
     {
         ResetPipeline();
@@ -226,10 +234,20 @@ namespace sky::editor {
                 // forward text input for ImGui InputText widgets
                 if (event->type() == QEvent::KeyPress) {
                     const QString text = keyEvent->text();
-                    if (!text.isEmpty()) {
+                    if (!text.isEmpty() && text.front().isPrint() && !keyEvent->isAutoRepeat()) {
                         const QByteArray utf8 = text.toUtf8();
                         Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, winID, utf8.constData());
                     }
+                }
+                break;
+            }
+            case QEvent::InputMethod: {
+                auto *inputMethodEvent = static_cast<QInputMethodEvent*>(event);
+                const QString commitString = inputMethodEvent->commitString();
+                if (!commitString.isEmpty() && IsTextInputActive()) {
+                    const QByteArray utf8 = commitString.toUtf8();
+                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, winID, utf8.constData());
+                    return true;
                 }
                 break;
             }
@@ -283,7 +301,7 @@ namespace sky::editor {
                 actionGroup->addAction(action);
             }
 
-            // 显示菜单
+            // show context menu
             menu.exec(mapToGlobal(pos));
         });
     }

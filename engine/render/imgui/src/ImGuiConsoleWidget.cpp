@@ -21,7 +21,7 @@ namespace sky {
 
     ImGuiConsoleWidget::~ImGuiConsoleWidget()
     {
-        Interface<IConsoleUI>::Get()->UnRegister();
+        Interface<IConsoleUI>::Get()->UnRegister(*this);
     }
 
     // -- visibility ----------------------------------------------------------
@@ -102,6 +102,7 @@ namespace sky {
 
         if (graveDown && !prevGraveDown) {
             Toggle();
+            suppressToggleCharacter = true;
             // consume the key so it does not propagate
             io.KeysDown[graveIdx] = false;
         }
@@ -226,7 +227,9 @@ namespace sky {
     {
         // filter grave/tilde characters that leak from the toggle key
         if (data->EventFlag == ImGuiInputTextFlags_CallbackCharFilter) {
-            if (data->EventChar == '`' || data->EventChar == '~') {
+            const bool suppressToggleChar = suppressToggleCharacter;
+            suppressToggleCharacter = false;
+            if (suppressToggleChar && (data->EventChar == '`' || data->EventChar == '~')) {
                 return 1; // reject
             }
             return 0;
