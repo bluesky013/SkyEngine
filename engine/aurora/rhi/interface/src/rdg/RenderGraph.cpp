@@ -2,7 +2,7 @@
 // Created by blues on 2026/3/29.
 //
 
-#include <aurora/rhi/rdg/RenderContext.h>
+#include <aurora/rdg/RenderGraph.h>
 
 namespace sky::aurora {
 

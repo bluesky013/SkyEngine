@@ -5,6 +5,8 @@
 #include <D3D12Device.h>
 #include <D3D12Instance.h>
 #include <D3D12CommandPool.h>
+#include <D3D12Fence.h>
+#include <D3D12Semaphore.h>
 #include <core/logger/Logger.h>
 
 static const char  *TAG  = "AuroraDX12";
@@ -29,7 +31,7 @@ namespace sky::aurora {
         adapter.Reset();
     }
 
-    bool D3D12Device::Init()
+    bool D3D12Device::OnInit(const DeviceInit& init)
     {
         adapter = instance.GetAdapter(0);
         if (!adapter) {
@@ -46,6 +48,8 @@ namespace sky::aurora {
         if (!CreateCommandQueues()) {
             return false;
         }
+
+        capability.maxThreads = init.parallelContextNum;
 
         LOG_I(TAG, "D3D12 device created successfully");
         return true;
@@ -170,14 +174,40 @@ namespace sky::aurora {
         }
     }
 
-    CommandPool *D3D12Device::CreateCommandPool(QueueType type)
+    Fence *D3D12Device::CreateFence(const Fence::Descriptor &desc)
     {
-        auto *pool = new D3D12CommandPool(*this, ToCommandListType(type));
-        if (!pool->Init()) {
-            delete pool;
+        auto *f = new D3D12Fence(*this);
+        if (!f->Init(desc)) {
+            delete f;
             return nullptr;
         }
-        return pool;
+        return f;
+    }
+
+    Semaphore *D3D12Device::CreateSema(const Semaphore::Descriptor &desc)
+    {
+        auto *s = new D3D12Semaphore(*this);
+        if (!s->Init(desc)) {
+            delete s;
+            return nullptr;
+        }
+        return s;
+    }
+
+    ThreadContext* D3D12Device::CreateAsyncContext()
+    {
+        return new D3D12Context(*this);
+    }
+
+    void D3D12Context::OnAttach(uint32_t threadIndex)
+    {
+        pool = std::make_unique<D3D12CommandPool>(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+        pool->Init();
+    }
+
+    void D3D12Context::OnDetach()
+    {
+        pool = nullptr;
     }
 
 } // namespace sky::aurora

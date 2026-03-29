@@ -5,6 +5,8 @@
 #include "VulkanDevice.h"
 #include "VulkanInstance.h"
 #include "VulkanCommandPool.h"
+#include "VulkanFence.h"
+#include "VulkanSemaphore.h"
 #include <core/logger/Logger.h>
 #include <vector>
 
@@ -28,7 +30,7 @@ namespace sky::aurora {
         }
     }
 
-    bool VulkanDevice::Init()
+    bool VulkanDevice::OnInit(const DeviceInit& init)
     {
         gpu = instance.GetActiveGpu();
         if (gpu == VK_NULL_HANDLE) {
@@ -43,6 +45,8 @@ namespace sky::aurora {
         if (!CreateDevice()) {
             return false;
         }
+
+        capability.maxThreads = init.parallelContextNum;
 
         LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.deviceName);
         return true;
@@ -170,14 +174,40 @@ namespace sky::aurora {
         }
     }
 
-    CommandPool *VulkanDevice::CreateCommandPool(QueueType type)
+    Fence *VulkanDevice::CreateFence(const Fence::Descriptor &desc)
     {
-        auto *pool = new VulkanCommandPool(*this, GetQueueFamilyIndex(type));
-        if (!pool->Init()) {
-            delete pool;
+        auto *fence = new VulkanFence(*this);
+        if (!fence->Init(desc)) {
+            delete fence;
             return nullptr;
         }
-        return pool;
+        return fence;
+    }
+
+    Semaphore *VulkanDevice::CreateSema(const Semaphore::Descriptor &desc)
+    {
+        auto *semaphore = new VulkanSemaphore(*this);
+        if (!semaphore->Init(desc)) {
+            delete semaphore;
+            return nullptr;
+        }
+        return semaphore;
+    }
+
+    ThreadContext* VulkanDevice::CreateAsyncContext()
+    {
+        return new VulkanContext(*this);
+    }
+
+    void VulkanContext::OnAttach(uint32_t threadIndex)
+    {
+        pool = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(QueueType::GRAPHICS));
+        pool->Init();
+    }
+
+    void VulkanContext::OnDetach()
+    {
+        pool = nullptr;
     }
 
 } // namespace sky::aurora

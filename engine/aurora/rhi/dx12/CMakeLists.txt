@@ -16,4 +16,4 @@ sky_add_library(TARGET AuroraDX12 SHARED
         dxgi
 )
 
-sky_add_dependency(TARGET AuroraDX12 DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET AuroraDX12 DEPENDENCIES Launcher Editor AuroraTest)

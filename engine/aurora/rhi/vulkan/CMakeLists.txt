@@ -37,4 +37,4 @@ sky_add_library(TARGET AuroraVulkan SHARED
 #    target_compile_definitions(AuroraVulkan PUBLIC -DVMA_VULKAN_VERSION=1002000)
 #endif()
 
-sky_add_dependency(TARGET AuroraVulkan DEPENDENCIES Launcher Editor)
+sky_add_dependency(TARGET AuroraVulkan DEPENDENCIES Launcher Editor AuroraTest)

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <aurora/rhi/CommandPool.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 
@@ -12,13 +11,13 @@ namespace sky::aurora {
 
     class VulkanDevice;
 
-    class VulkanCommandBuffer : public CommandBuffer {
+    class VulkanCommandBuffer {
     public:
         VulkanCommandBuffer(VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
-        ~VulkanCommandBuffer() override;
+        ~VulkanCommandBuffer();
 
-        void Begin() override;
-        void End() override;
+        void Begin();
+        void End();
 
         VkCommandBuffer GetNativeHandle() const { return cmdBuffer; }
 
@@ -28,15 +27,15 @@ namespace sky::aurora {
         VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
     };
 
-    class VulkanCommandPool : public CommandPool {
+    class VulkanCommandPool {
     public:
         VulkanCommandPool(VulkanDevice &device, uint32_t queueFamilyIndex);
-        ~VulkanCommandPool() override;
+        ~VulkanCommandPool();
 
         bool Init();
 
-        void Reset() override;
-        CommandBuffer *Allocate(CommandBufferLevel level) override;
+        void Reset();
+        VulkanCommandBuffer *Allocate(VkCommandBufferLevel level);
 
         VkCommandPool GetNativeHandle() const { return pool; }
 

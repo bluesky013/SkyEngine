@@ -22,6 +22,9 @@ namespace sky::aurora {
 
     class Instance : public Singleton<Instance> {
     public:
+        Instance() = default;
+        ~Instance() override;
+
         struct Descriptor {
             std::string appName;
             std::string engineName;
@@ -39,11 +42,10 @@ namespace sky::aurora {
         };
 
         void Init(const Descriptor &);
-        Device *CreateDevice() const;
-    private:
-        Instance() = default;
-        ~Instance() override = default;
 
+        Device* GetDevice() const { return device; }
+    private:
+        Device* device = nullptr;
         std::unique_ptr<Impl> impl;
         std::unique_ptr<DynamicModule> dynModule;
     };

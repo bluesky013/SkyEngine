@@ -66,7 +66,7 @@ namespace sky::aurora {
         allocator->Reset();
     }
 
-    CommandBuffer *D3D12CommandPool::Allocate(CommandBufferLevel level)
+    D3D12CommandBuffer *D3D12CommandPool::Allocate()
     {
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         HRESULT hr = device.GetNativeHandle()->CreateCommandList(

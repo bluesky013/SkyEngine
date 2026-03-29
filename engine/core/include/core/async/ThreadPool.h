@@ -19,8 +19,7 @@
 namespace sky {
 
     // Base class for per-thread context. Derive to attach any state to a worker thread.
-    class ThreadContext {
-    public:
+    struct ThreadContext {
         ThreadContext() = default;
         virtual ~ThreadContext() = default;
 
@@ -99,7 +98,7 @@ namespace sky {
 
         uint32_t                        threadCount;
         std::vector<std::thread>        threads;
-        std::vector<ThreadContext*>      contexts;
+        std::vector<ThreadContext*>     contexts;
 
         static constexpr uint32_t GLOBAL_QUEUE_CAPACITY = 4096;
         static constexpr uint32_t LOCAL_QUEUE_CAPACITY  = 256;

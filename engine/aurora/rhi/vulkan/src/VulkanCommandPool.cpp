@@ -80,14 +80,12 @@ namespace sky::aurora {
         vkResetCommandPool(device.GetNativeHandle(), pool, 0);
     }
 
-    CommandBuffer *VulkanCommandPool::Allocate(CommandBufferLevel level)
+    VulkanCommandBuffer *VulkanCommandPool::Allocate(VkCommandBufferLevel level)
     {
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool        = pool;
-        allocInfo.level              = level == CommandBufferLevel::PRIMARY
-                                           ? VK_COMMAND_BUFFER_LEVEL_PRIMARY
-                                           : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        allocInfo.level              = level;
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer vkCmdBuffer = VK_NULL_HANDLE;

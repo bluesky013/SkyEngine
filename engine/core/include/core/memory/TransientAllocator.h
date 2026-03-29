@@ -65,7 +65,7 @@ namespace sky {
     //
     //   IMPORTANT: The underlying TransientAllocator must outlive
     //   all containers using this allocator. Calling Reset() on the
-    //   TransientAllocator invalidates ALL memory — only do this
+    //   TransientAllocator invalidates ALL memory only do this
     //   after all containers are destroyed or no longer accessed.
     // ──────────────────────────────────────────────────────────
     template <typename T>
@@ -132,7 +132,7 @@ namespace sky {
         TransientStdAllocator<std::pair<const K, V>>>;
 
     // ──────────────────────────────────────────────────────────
-    // Factory helpers — shorter than brace-init with explicit allocator
+    // Factory helpers shorter than brace-init with explicit allocator
     //   auto vec = MakeTransientVector<int>(alloc);
     //   auto str = MakeTransientString(alloc);
     // ──────────────────────────────────────────────────────────

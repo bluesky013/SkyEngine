@@ -8,6 +8,17 @@ namespace sky::aurora {
 
     using InstanceFunc = Instance::Impl*(*)();
 
+    Instance::~Instance()
+    {
+        if (device != nullptr) {
+            device->Shutdown();
+            delete device;
+        }
+        device  = nullptr;
+        impl = nullptr;
+        dynModule = nullptr;
+    }
+
     void Instance::Init(const Descriptor &desc)
     {
         if (impl) {
@@ -34,12 +45,10 @@ namespace sky::aurora {
         impl.reset(instanceFunc());
         if (impl && !impl->Init(desc)) {
             impl = nullptr;
+            return;
         }
-    }
 
-    Device *Instance::CreateDevice() const
-    {
-        return impl ? impl->CreateDevice() : nullptr;
+        device = impl ? impl->CreateDevice() : nullptr;
     }
 
 } // sky::aurora
