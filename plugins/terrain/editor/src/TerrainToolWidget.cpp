@@ -16,7 +16,6 @@
 #include <editor/framework/EditorCamera.h>
 #include <render/adaptor/RenderSceneProxy.h>
 #include <terrain/TerrainComponent.h>
-#include <terrain/TerrainUtils.h>
 
 namespace sky::editor {
     TerrainGenerateTool::TerrainGenerateTool(QWidget *parent) : TerrainToolBase(parent)
@@ -71,7 +70,7 @@ namespace sky::editor {
 
         auto terrainPos = comp->GetActor()->GetComponent<TransformComponent>()->GetWorldTransform().translation;
         const auto &terrainData = comp->GetData();
-        helper.DrawSelectedGrid(terrainData, selectX, selectY, terrainPos);
+        helper.DrawSelectedTile(terrainData, selectX, selectY, terrainPos);
     }
 
     void TerrainGridTool::OnMouseMotion(TerrainHelper &helper, const MouseMotionEvent &eve, TerrainComponent *comp, EditorCamera *cam)
@@ -101,17 +100,18 @@ namespace sky::editor {
         auto res = CalculateInterSection(ray, plane);
         if (res.first) {
             const auto &terrainData = comp->GetData();
-            auto size = ConvertSectionSize(terrainData.sectionSize);
+            float tileWorldSize = static_cast<float>(terrainData.config.blockSize) * terrainData.config.resolution;
 
             auto local = res.second - terrainPos;
-            auto x = static_cast<int32_t>(std::floor(local.x / terrainData.resolution / static_cast<float>(size)));
-            auto y = static_cast<int32_t>(std::floor(local.z / terrainData.resolution / static_cast<float>(size)));
+            auto x = static_cast<int32_t>(std::floor(local.x / tileWorldSize));
+            auto y = static_cast<int32_t>(std::floor(local.z / tileWorldSize));
 
-            if ((x >= 0 && x < terrainData.sectionBoundX) && (y >= 0 && y < terrainData.sectionBoundY)) {
+            if ((x >= 0 && x < static_cast<int32_t>(terrainData.tileCountX)) &&
+                (y >= 0 && y < static_cast<int32_t>(terrainData.tileCountY))) {
                 selectX = x;
                 selectY = y;
             }
-            helper.DrawSelectedGrid(terrainData, x, y, terrainPos);
+            helper.DrawSelectedTile(terrainData, x, y, terrainPos);
         }
 
     }
@@ -122,19 +122,11 @@ namespace sky::editor {
             return;
         }
 
-        auto mode = group->checkedButton()->text();
-        bool addMode = mode == "Add";
-
+        // Tile selection feedback (add/remove tile is handled externally)
         if (selectX != -1 && selectY != -1 && eve.button == MouseButtonType::LEFT) {
-            if (addMode) {
-                comp->AddSection(selectX, selectY);
-            } else {
-                comp->RemoveSection(selectX, selectY);
-            }
-
             auto terrainPos = comp->GetActor()->GetComponent<TransformComponent>()->GetWorldTransform().translation;
             const auto &terrainData = comp->GetData();
-            helper.DrawSelectedGrid(terrainData, selectX, selectY, terrainPos);
+            helper.DrawSelectedTile(terrainData, selectX, selectY, terrainPos);
         }
     }
 
@@ -143,7 +135,7 @@ namespace sky::editor {
         auto *layout = new QVBoxLayout(this);
         setLayout(layout);
 
-        config = new TObjectWidget<TerrainBuildConfig>(this);
+        config = new TObjectWidget<ClipmapConfig>(this);
         layout->addWidget(config);
 
         createBtn = new QPushButton("Create Terrain");
@@ -152,10 +144,11 @@ namespace sky::editor {
 
     void TerrainBuildTool::OnDraw(TerrainHelper &helper, TerrainComponent *component)
     {
-        helper.DrawFullTerrainGrid(config->GetValue(), VEC3_ZERO);
+        // Default preview: 4x4 tile grid with the configured clipmap settings
+        helper.DrawFullTerrainGrid(config->GetValue(), 4, 4, VEC3_ZERO);
     }
 
-    const TerrainBuildConfig &TerrainBuildTool::GetConfig() const
+    const ClipmapConfig &TerrainBuildTool::GetConfig() const
     {
         return config->GetValue();
     }

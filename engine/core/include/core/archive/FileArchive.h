@@ -19,7 +19,7 @@ namespace sky {
 
         bool IsOpen() const override { return stream.is_open(); }
     private:
-        std::fstream stream;
+        std::ifstream stream;
     };
 
     class OFileArchive : public OStreamArchive {

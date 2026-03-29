@@ -40,6 +40,8 @@ namespace sky {
     private:
         bool IsValid() const noexcept override { return !!mesh; }
 
+        RDMeshPtr GetMesh() const override { return mesh; }
+
         void Reset() noexcept override;
 
         RDSkeletonMeshPtr mesh;

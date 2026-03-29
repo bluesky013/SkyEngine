@@ -6,6 +6,7 @@
 #include <editor/framework/AssetCreator.h>
 #include <editor/framework/DialogUtils.h>
 #include <framework/asset/AssetBuilderManager.h>
+#include <core/logger/Logger.h>
 #include <QVBoxLayout>
 #include <QMimeData>
 #include <QDrag>
@@ -177,6 +178,7 @@ namespace sky::editor {
             auto indices = assetItemView->selectionModel()->selectedIndexes();
             auto *fsModel = static_cast<QFileSystemModel*>(assetItemView->model());
             QDir root = fsModel->rootPath();
+            LOG_I("Builder", "Build Assets[%d]", indices.size());
             for (auto &index : indices) {
                 auto path = root.relativeFilePath(fsModel->filePath(index));
 

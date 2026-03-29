@@ -87,7 +87,7 @@ namespace sky {
     {
         const auto &data = asset->Data();
 
-        auto *clip = new AnimationClip(Name(data.name.c_str()), asset->GetUuid());
+        auto *clip = new AnimationClip(Name(data.name.c_str()));
         size_t numFrame = 0;
         for (const auto &nodeChannel : data.nodeChannels) {
             clip->AddChannel(new AnimationNodeChannel(nodeChannel));

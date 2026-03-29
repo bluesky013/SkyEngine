@@ -8,9 +8,9 @@ using namespace sky;
 
 TEST(StaticMeshTest, StaticMesthCreate01)
 {
-    StaticMesh mesh;
+    StaticMeshGeometry mesh;
 
-    mesh.Init(4, 6, IndexType::U16);
+    mesh.Init(4, 6, rhi::IndexType::U16);
 
     mesh.SetPosition(0, Vector3(1.f, 0.f, 0.f));
     mesh.SetPosition(1, Vector3(2.f, 0.f, 0.f));
@@ -26,8 +26,8 @@ TEST(StaticMeshTest, StaticMesthCreate01)
 
     auto *positionBuffer = mesh.GetPositionBuffer();
 
-    ASSERT_EQ(positionBuffer != nullptr, true);
-    ASSERT_EQ(positionBuffer->Num(), 4);
+    ASSERT_NE(positionBuffer, nullptr);
+    ASSERT_EQ(positionBuffer->Num(), 4u);
 
     const auto& v1 = positionBuffer->GetVertexData<Vector3>(0);
     ASSERT_FLOAT_EQ(v1.x, 1.f);
@@ -39,19 +39,18 @@ TEST(StaticMeshTest, StaticMesthCreate01)
     ASSERT_FLOAT_EQ(v3.x, 3.f);
     ASSERT_FLOAT_EQ(v3.y, 3.f);
 
-    const auto& v4 = positionBuffer->GetVertexData<Vector4>(3);
+    const auto& v4 = positionBuffer->GetVertexData<Vector3>(3);
     ASSERT_FLOAT_EQ(v4.z, 4.f);
 
     auto *indexBuffer = mesh.GetIndexBuffer();
 
-    ASSERT_EQ(indexBuffer != nullptr, true);
-    ASSERT_EQ(indexBuffer->Num(), 6);
+    ASSERT_NE(indexBuffer, nullptr);
+    ASSERT_EQ(indexBuffer->Num(), 6u);
 
-    ASSERT_EQ(indexBuffer->GetIndexU32(0), 0);
-    ASSERT_EQ(indexBuffer->GetIndexU32(1), 1);
-    ASSERT_EQ(indexBuffer->GetIndexU32(2), 2);
-    ASSERT_EQ(indexBuffer->GetIndexU32(3), 2);
-    ASSERT_EQ(indexBuffer->GetIndexU32(4), 3);
-    ASSERT_EQ(indexBuffer->GetIndexU32(5), 0);
-
-}
+    ASSERT_EQ(indexBuffer->GetIndexU32(0), 0u);
+    ASSERT_EQ(indexBuffer->GetIndexU32(1), 1u);
+    ASSERT_EQ(indexBuffer->GetIndexU32(2), 2u);
+    ASSERT_EQ(indexBuffer->GetIndexU32(3), 2u);
+    ASSERT_EQ(indexBuffer->GetIndexU32(4), 3u);
+    ASSERT_EQ(indexBuffer->GetIndexU32(5), 0u);
+}//}

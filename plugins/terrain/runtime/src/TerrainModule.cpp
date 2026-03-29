@@ -7,6 +7,8 @@
 #include <framework/serialization/SerializationContext.h>
 #include <terrain/TerrainComponent.h>
 #include <terrain/TerrainFeature.h>
+#include <terrain/TerrainFeatureProcessor.h>
+#include <render/Renderer.h>
 
 namespace sky {
 
@@ -18,6 +20,8 @@ namespace sky {
         ComponentFactory::Get()->RegisterComponent<TerrainComponent>("Terrain");
 
         TerrainFeature::Get()->Init();
+
+        Renderer::Get()->RegisterRenderFeature<TerrainFeatureProcessor>();
         return true;
     }
 

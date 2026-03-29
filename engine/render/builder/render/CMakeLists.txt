@@ -1,6 +1,13 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
+sky_find_3rd(TARGET assimp        DIR assimp)
+sky_find_3rd(TARGET meshoptimizer DIR meshoptimizer)
+sky_find_3rd(TARGET stb           DIR stb)
+sky_find_3rd(TARGET ispc_texcomp  DIR ispc_texcomp)
+sky_find_3rd(TARGET GKlib         DIR GKlib)
+sky_find_3rd(TARGET metis         DIR metis)
+
 sky_add_library(TARGET RenderBuilder.Static STATIC
     SOURCES
         ${SRC_FILES}

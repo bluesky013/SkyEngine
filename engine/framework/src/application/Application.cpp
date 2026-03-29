@@ -68,14 +68,20 @@ namespace sky {
         ParseStartArgs();
 
         // load configs
-        LoadConfigs();
+        if (!LoadConfigs()) {
+            LOG_E(TAG, "Load Configs Failed");
+            return false;
+        }
 
         Interface<ISystemNotify>::Get()->Register(*this);
 
         auto *context = SerializationContext::Get();
         World::Reflect(context);
 
-        PreInit();
+        if (!PreInit()) {
+            LOG_E(TAG, "Application PreInit Failed");
+            return false;
+        }
 
         // load dynamic modules
         if (moduleManager) {

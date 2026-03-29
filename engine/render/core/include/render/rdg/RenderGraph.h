@@ -64,6 +64,7 @@ namespace sky::rdg {
     struct RasterPassBuilder {
         RasterPassBuilder &AddAttachment(const RasterAttachment &attachment, const rhi::ClearValue &clear = rhi::ClearValue(0.f, 0.f, 0.f, 0.f));
         RasterPassBuilder &AddCoRelationMasks(uint32_t mask);
+        RasterPassBuilder &ScratchPipelineKey(const std::vector<Name> &keys);
         RasterSubPassBuilder AddRasterSubPass(const Name &name);
 
         RenderGraph &rdg;
@@ -218,6 +219,8 @@ namespace sky::rdg {
         ResourceGraph   resourceGraph;
         AccessGraph     accessGraph;
         Graph graph;
+
+        std::unordered_map<Name, uint8_t> pipelineKey;
     };
 
     template <typename D>

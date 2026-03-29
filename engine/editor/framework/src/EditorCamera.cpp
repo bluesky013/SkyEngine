@@ -15,6 +15,7 @@ namespace sky::editor {
             renderScene->RemoveSceneView(sceneView);
         }
         sceneView = renderScene->CreateSceneView(1);
+        sceneView->SetReverseZ(true);
         Active();
 
         uint32_t width = window->GetWidth();

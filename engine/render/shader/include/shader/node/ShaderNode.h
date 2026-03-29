@@ -4,104 +4,39 @@
 
 #pragma once
 
-#include <core/name/Name.h>
-#include <core/template/ReferenceObject.h>
 #include <shader/node/ShaderDataType.h>
-#include <unordered_map>
-#include <string>
+#include <rhi/Core.h>
+#include <span>
 
 namespace sky::sl {
 
-    class NodeBase : public RefObject {
-    public:
-        explicit NodeBase() = default;
-        ~NodeBase() override = default;
+    // -- Resource Type Tag --
+    enum class ResourceType : uint8_t {
+        CONSTANT_BUFFER,
+        STRUCTURED_BUFFER,
+        TEXTURE,
+        SAMPLER
     };
 
-    class TypeNode;
-    class Expression;
-    class Statement;
-    class Declation;
+    // -- Flat resource declaration -- constexpr-friendly --
+    struct ResourceDecl {
+        ResourceType          type       = ResourceType::CONSTANT_BUFFER;
+        std::string_view      name;
+        uint32_t              binding    = UINT32_MAX; // UINT32_MAX = auto
+        rhi::ShaderStageFlags visibility = {};
 
-#pragma region Type
+        // ConstantBuffer
+        std::span<const MemberDecl> members = {};
+        bool                        dynamic = false;
 
-    class TypeNode : public NodeBase {
-    public:
-        TypeNode() = default;
-        ~TypeNode() override = default;
+        // StructuredBuffer
+        ValueType             elementType      = {};
+        std::string_view      elementStructRef;
+        bool                  readOnly = true;
+
+        // Texture
+        TextureType           texType  = TextureType::TEXTURE_2D;
+        bool                  storage  = false;
     };
-
-    class ScalarType : public TypeNode {
-    public:
-        ScalarType() = default;
-        ~ScalarType() override = default;
-    };
-
-    class VectorType : public TypeNode {
-    public:
-        VectorType() = default;
-        ~VectorType() override = default;
-
-    private:
-        uint32_t dimension;
-    };
-
-    class MatrixType : public TypeNode {
-    public:
-        MatrixType() = default;
-        ~MatrixType() override = default;
-    private:
-        uint32_t row;
-        uint32_t column;
-    };
-
-    class StructureType : public TypeNode {
-    public:
-        StructureType() = default;
-        ~StructureType() override = default;
-
-    private:
-        std::string name;
-    };
-
-    class ShaderResourceType : public TypeNode {
-    public:
-        ShaderResourceType() = default;
-        ~ShaderResourceType() override = default;
-
-    protected:
-        std::string name;
-    };
-
-    class ConstantBufferNode : public ShaderResourceType {
-    public:
-        ConstantBufferNode() = default;
-        ~ConstantBufferNode() override = default;
-    };
-
-    class TextureNode : public ShaderResourceType {
-    public:
-        TextureNode() = default;
-        ~TextureNode() override = default;
-    };
-
-    class SamplerNode : public ShaderResourceType {
-    public:
-        SamplerNode() = default;
-        ~SamplerNode() override = default;
-    };
-
-#pragma endregion
-
-#pragma region Expression
-
-    class Expression : public NodeBase {
-    public:
-        Expression() = default;
-        ~Expression() override = default;
-    };
-
-#pragma endregion
-
 
 } // namespace sky::sl

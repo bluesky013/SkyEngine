@@ -7,7 +7,7 @@
 namespace sky {
 
     IFileArchive::IFileArchive(const FilePath &path, std::ios::openmode mode)
-        : stream(path.OpenFStream(mode | std::ios::in))
+        : stream(path.OpenIFStream(mode))
         , IStreamArchive(stream)
     {
     }

@@ -106,7 +106,8 @@ namespace sky::vk {
 
                 if (IsBufferDescriptor(entry.descriptorType)) {
                     entry.pBufferInfo = &writeInfos[index].buffer;
-                } else if (IsImageDescriptor(entry.descriptorType)) {
+                } else if (IsImageDescriptor(entry.descriptorType) ||
+                           entry.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) {
                     auto &imageInfo = writeInfos[index].image;
                     if (entry.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
                         entry.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
@@ -169,18 +170,19 @@ namespace sky::vk {
         }
         writeInfo.image.imageView = vkImageView->GetNativeHandle();
 
-        SKY_ASSERT(binding < writeEntries.size());
-        const auto &entry = writeEntries[binding];
-        auto descriptorType = entry.descriptorType;
+        // Find the VkWriteDescriptorSet entry for this binding
+        VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        for (const auto &entry : writeEntries) {
+            if (entry.dstBinding == binding) {
+                descriptorType = entry.descriptorType;
+                break;
+            }
+        }
 
         if (descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
             descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
             descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
-//            if (mask & (rhi::AspectFlagBit::DEPTH_BIT | rhi::AspectFlagBit::STENCIL_BIT)) {
-//                writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-//            } else {
                 writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//            }
         } else if (descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
             writeInfo.image.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }

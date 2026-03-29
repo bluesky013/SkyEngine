@@ -45,9 +45,6 @@ if (SKY_BUILD_EDITOR)
         RenderAdaptor
         ImGuiRender
         EditorFramework
-        3rdParty::nodeeditor
-    PUBLIC_DEFS
-        NODE_EDITOR_STATIC
     )
 endif ()
 

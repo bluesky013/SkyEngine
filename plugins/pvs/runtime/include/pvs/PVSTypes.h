@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 #include <core/hash/Hash.h>
 
 namespace sky {

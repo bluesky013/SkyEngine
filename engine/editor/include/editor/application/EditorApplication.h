@@ -24,7 +24,7 @@ namespace sky::editor {
         const NativeFileSystemPtr &GetWorkFs() const { return workFs; }
         const NativeFileSystemPtr &GetEngineFs() const { return engineFs; }
     private:
-        void LoadConfigs() override;
+        bool LoadConfigs() override;
         void LoadFromJson(std::unordered_map<std::string, ModuleInfo> &);
         bool InitAppAndSplashWindow(int argc, char **argv);
         void InitTools();

@@ -50,22 +50,25 @@ namespace sky::rdg {
             const auto &subPass = graph.subPasses[Index(queue.passID, graph)];
             const auto &rasterPass = graph.rasterPasses[Index(subPass.parent, graph)];
 
+            RenderItemGatherContext gatherContext(graph, queue, nullptr);
+
+            bool isReverseZ = false;
+            uint8_t viewId = INVALID_VIEW_INDEX;
+            if (queue.viewID != INVALID_VERTEX) {
+                viewId = static_cast<uint8_t>(Index(queue.viewID, graph));
+                gatherContext.sceneView = graph.sceneViews[viewId].sceneView;
+                isReverseZ = gatherContext.sceneView->IsReverseZ();
+            }
 
             RenderBatchPrepareInfo batchInfo = {
                 .techId = queue.rasterID,
                 .pipelineKey = rasterPass.pipelineKey,
                 .pass = rasterPass.renderPass,
-                .subPassId = subPass.subPassID
+                .subPassId = subPass.subPassID,
+                .reverseZ = isReverseZ
             };
 
-            RenderItemGatherContext gatherContext(graph, queue, nullptr);
 
-            uint8_t viewId = INVALID_VIEW_INDEX;
-
-            if (queue.viewID != INVALID_VERTEX) {
-                viewId = static_cast<uint8_t>(Index(queue.viewID, graph));
-                gatherContext.sceneView = graph.sceneViews[viewId].sceneView;
-            }
 
             for (uint32_t i = 0; i < visibleInfos.size(); ++i) {
                 if (!visibleInfos[i].IsActive()) {

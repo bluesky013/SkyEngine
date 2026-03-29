@@ -116,11 +116,11 @@ namespace sky::builder {
 
                 if (obj.IsString()) {
                     const auto *imagePath = obj.GetString();
-                    auto        tex = AssetDataBase::Get()->RegisterAsset(imagePath);
+                    auto tex = AssetDataBase::Get()->RegisterAsset(imagePath, false);
                     properties.valueMap[name] = MaterialTexture{tex->uuid};
                     request.assetInfo->dependencies.emplace_back(tex->uuid);
                     asset.AddDependencies(tex->uuid);
-                    AssetBuilderManager::Get()->BuildRequest(tex->uuid, request.target);
+                    // AssetBuilderManager::Get()->BuildRequest(tex->uuid, request.target);
                 } else if (obj.IsObject()) {
                     properties.valueMap[name] = ProcessSampler(obj);
                 } else if (obj.IsFloat()) {

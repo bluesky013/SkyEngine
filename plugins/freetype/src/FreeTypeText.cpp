@@ -138,6 +138,43 @@ namespace sky {
         ubo->Upload();
     }
 
+    Vector2 FreeTypeText::MeasureText(const std::string &text, const TextInfo &info)
+    {
+        if (text.empty()) {
+            return Vector2{0.f, 0.f};
+        }
+
+        auto *ftFont = static_cast<FreeTypeFont*>(font.Get());
+        const auto lineHeight = static_cast<float>(ftFont->GetLineHeight()) * info.scale;
+
+        float maxWidth = 0.f;
+        float curWidth = 0.f;
+        float totalHeight = lineHeight;
+
+        for (const auto &ch : text) {
+            if (ch == '\n') {
+                if (curWidth > maxWidth) {
+                    maxWidth = curWidth;
+                }
+                curWidth = 0.f;
+                totalHeight += lineHeight;
+                continue;
+            }
+
+            auto *glyph = ftFont->Query(ch);
+            if (glyph == nullptr) {
+                continue;
+            }
+            curWidth += static_cast<float>(glyph->advanceX) * info.scale;
+        }
+
+        if (curWidth > maxWidth) {
+            maxWidth = curWidth;
+        }
+
+        return Vector2{maxWidth, totalHeight};
+    }
+
     void FreeTypeText::AddText(const std::string &text, const Vector2& pos, const TextInfo &info)
     {
         if (text.empty()) {

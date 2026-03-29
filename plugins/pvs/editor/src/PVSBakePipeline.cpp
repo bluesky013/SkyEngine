@@ -227,12 +227,13 @@ namespace sky::editor {
         queue->Wait(id);
         auto buildCellPos = context->sortedCells[cellIndex];
         uint8_t* cell = context->GetOrAllocateCellData(buildCellPos);
-
+#if 0
         printf("CellID %u CellVisibleNum %u: ", cellIndex, CountBits(cell, context->cellDataSize));
         for (uint32_t i = 0; i < context->cellDataSize; i++) {
             printf("%u ", static_cast<uint32_t>(cell[i]));
         }
         printf("\n");
+#endif
     }
 
 

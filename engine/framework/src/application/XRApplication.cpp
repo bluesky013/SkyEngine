@@ -3,7 +3,7 @@
 //
 
 #include <framework/application/XRApplication.h>
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 #include <core/logger/Logger.h>
 #include <core/file/FileIO.h>
@@ -23,10 +23,10 @@ namespace sky {
     bool XRApplication::Init(int argc, char **argv)
     {
 #ifdef SKY_EDITOR
-        cxxopts::Options options("GameApplication Launcher", "SkyEngine Launcher");
+        CmdOptions options("GameApplication Launcher", "SkyEngine Launcher");
         options.allow_unrecognised_options();
 
-        options.add_options()("p,project", "Project Directory", cxxopts::value<std::string>());
+        options.add_options()("p,project", "Project Directory", CmdValue<std::string>());
         auto result = options.parse(argc, argv);
         if (result.count("project") != 0u) {
             AssetManager::Get()->SetWorkFileSystem(new NativeFileSystem(result["project"].as<std::string>()));
@@ -44,7 +44,7 @@ namespace sky {
         return true;
     }
 
-    void XRApplication::LoadConfigs()
+    bool XRApplication::LoadConfigs()
     {
 //#ifdef SKY_EDITOR
 //        auto configPath = AssetManager::Get()->GetProjectPath() + CONFIG_PATH;
@@ -80,6 +80,7 @@ namespace sky {
 //                moduleManager->RegisterModule(info);
 //            }
 //        }
+    return true;
     }
 
 

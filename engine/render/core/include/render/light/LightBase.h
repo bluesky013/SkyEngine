@@ -54,6 +54,8 @@ namespace sky {
             castShadow = shadow;
         }
 
+        bool GetCastShadow() const { return castShadow; }
+
         const Vector4 &GetColor() const { return color; }
         const Vector3 &GetDirection() const { return direction; }
 

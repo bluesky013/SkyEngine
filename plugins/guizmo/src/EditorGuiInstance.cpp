@@ -6,6 +6,7 @@
 #include <editor/widgets/DemoWidget.h>
 #include <render/adaptor/RenderSceneProxy.h>
 #include <imgui/ImGuiFeatureProcessor.h>
+#include <imgui/ImGuiConsoleWidget.h>
 //#include <editor/widgets/WorldWidget.h>
 //#include <editor/widgets/InspectorWidget.h>
 //#include <framework/asset/AssetManager.h>
@@ -16,6 +17,9 @@ namespace sky::editor {
     {
         if (gui) {
             guiInstance->RemoveWidget(gui.get());
+        }
+        if (consoleWidget) {
+            guiInstance->RemoveWidget(consoleWidget.get());
         }
     }
 
@@ -73,5 +77,8 @@ namespace sky::editor {
 
 //        instance->AddWidget(wm.get());
         guiInstance->AddWidget(gui.get());
+
+        consoleWidget = std::make_unique<ImGuiConsoleWidget>();
+        guiInstance->AddWidget(consoleWidget.get());
     }
 } // namespace sky::editor

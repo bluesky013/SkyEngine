@@ -2,8 +2,6 @@
 // Created by Zach Lee on 2023/9/1.
 //
 
-#include "../../../../../../../sky3rd_win32_output/imgui/src/imgui.h"
-
 #include <core/util/Memory.h>
 #include <render/RHI.h>
 #include <render/Renderer.h>

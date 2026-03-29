@@ -2,7 +2,7 @@
 // Created by blues on 2024/12/25.
 //
 #include <iostream>
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 #include <core/file/FileIO.h>
 #include <core/logger/Logger.h>
 #include <framework/application/Application.h>
@@ -22,15 +22,15 @@ public:
 
     bool Init(int argc, char** argv) override
     {
-        cxxopts::Options options("ShaderCompiler Application", "SkyEngine ShaderTool");
+        CmdOptions options("ShaderCompiler Application", "SkyEngine ShaderTool");
         options.allow_unrecognised_options();
 
-        options.add_options()("s,search", "Shader Search Path", cxxopts::value<std::vector<std::string>>());
-        options.add_options()("f,file", "Single Shader", cxxopts::value<std::string>());
-        options.add_options()("o,opt", "Shader Opt Level", cxxopts::value<uint32_t>());
-        options.add_options()("t,target", "Compile target(SpirV, Metal, DX, GLSL)", cxxopts::value<std::vector<std::string>>());
-        options.add_options()("i,intermediate", "Compile Intermediate Directory", cxxopts::value<std::string>());
-        options.add_options()("p,prefix", "Shader Path Prefix", cxxopts::value<std::string>());
+        options.add_options()("s,search", "Shader Search Path", CmdValue<std::vector<std::string>>());
+        options.add_options()("f,file", "Single Shader", CmdValue<std::string>());
+        options.add_options()("o,opt", "Shader Opt Level", CmdValue<uint32_t>());
+        options.add_options()("t,target", "Compile target(SpirV, Metal, DX, GLSL)", CmdValue<std::vector<std::string>>());
+        options.add_options()("i,intermediate", "Compile Intermediate Directory", CmdValue<std::string>());
+        options.add_options()("p,prefix", "Shader Path Prefix", CmdValue<std::string>());
         options.add_options()("v,spv", "Save SpirV");
         options.add_options()("h,help", "Print usage");
 
@@ -79,7 +79,7 @@ public:
         return Application::Init(argc, argv);
     }
 
-    void LoadConfigs() override
+    bool LoadConfigs() override
     {
         std::unordered_map<std::string, ModuleInfo> modules = {};
         modules.emplace("ShaderCompiler", ModuleInfo{"ShaderCompiler", {}});
@@ -87,6 +87,7 @@ public:
         for (auto &[key, info] : modules) {
             moduleManager->RegisterModule(info);
         }
+        return true;
     }
 
     static void ReplaceShaderName(std::string &name)

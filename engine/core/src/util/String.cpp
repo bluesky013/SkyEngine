@@ -3,7 +3,7 @@
 //
 
 #include <core/util/String.h>
-#include <codecvt>
+#include <cstdint>
 
 namespace sky {
 
@@ -32,80 +32,152 @@ namespace sky {
     }
 
 
-    std::wstring Utf8ToUtf16(const std::string &str)
+    // Decode one UTF-8 code point from [it, end). Advances it past consumed bytes.
+    // Returns 0xFFFD (replacement char) on invalid input.
+    static uint32_t DecodeUtf8(const char *&it, const char *end)
     {
-//        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-//        return converter.from_bytes(str);
-        // TODO
-        return {};
+        auto byte = static_cast<uint8_t>(*it);
+        uint32_t cp;
+        int extra;
+
+        if (byte < 0x80) {
+            cp = byte; extra = 0;
+        } else if ((byte & 0xE0) == 0xC0) {
+            cp = byte & 0x1F; extra = 1;
+        } else if ((byte & 0xF0) == 0xE0) {
+            cp = byte & 0x0F; extra = 2;
+        } else if ((byte & 0xF8) == 0xF0) {
+            cp = byte & 0x07; extra = 3;
+        } else {
+            ++it;
+            return 0xFFFD;
+        }
+
+        ++it;
+        for (int i = 0; i < extra; ++i) {
+            if (it == end || (static_cast<uint8_t>(*it) & 0xC0) != 0x80) {
+                return 0xFFFD;
+            }
+            cp = (cp << 6) | (static_cast<uint8_t>(*it) & 0x3F);
+            ++it;
+        }
+
+        // Overlong / surrogate / out-of-range checks
+        if (cp > 0x10FFFF ||
+            (cp >= 0xD800 && cp <= 0xDFFF) ||
+            (extra == 1 && cp < 0x80) ||
+            (extra == 2 && cp < 0x800) ||
+            (extra == 3 && cp < 0x10000)) {
+            return 0xFFFD;
+        }
+        return cp;
     }
 
-//    bool ConvertUTF8toUTF16(const UTF8** sourceStart, const UTF8* sourceEnd, UTF16** targetStart, UTF16* targetEnd, ConversionFlags flags)
-//    {
-//        const UTF8* source = *sourceStart;
-//        UTF16* target = *targetStart;
-//        while (source < sourceEnd) {
-//            UTF32 ch = 0;
-//            unsigned short extraBytesToRead = trailingBytesForUTF8[*source];
-//            if (extraBytesToRead >= sourceEnd - source) {
-//                result = sourceExhausted; break;
-//            }
-//            /* Do this check whether lenient or strict */
-//            if (!isLegalUTF8(source, extraBytesToRead+1)) {
-//                result = sourceIllegal;
-//                break;
-//            }
-//            /*
-//             * The cases all fall through. See "Note A" below.
-//             */
-//            switch (extraBytesToRead) {
-//                case 5: ch += *source++; ch <<= 6; /* remember, illegal UTF-8 */
-//                case 4: ch += *source++; ch <<= 6; /* remember, illegal UTF-8 */
-//                case 3: ch += *source++; ch <<= 6;
-//                case 2: ch += *source++; ch <<= 6;
-//                case 1: ch += *source++; ch <<= 6;
-//                case 0: ch += *source++;
-//            }
-//            ch -= offsetsFromUTF8[extraBytesToRead];
-//
-//            if (target >= targetEnd) {
-//                source -= (extraBytesToRead+1); /* Back up source pointer! */
-//                result = targetExhausted; break;
-//            }
-//            if (ch <= UNI_MAX_BMP) { /* Target is a character <= 0xFFFF */
-//                /* UTF-16 surrogate values are illegal in UTF-32 */
-//                if (ch >= UNI_SUR_HIGH_START && ch <= UNI_SUR_LOW_END) {
-//                    if (flags == strictConversion) {
-//                        source -= (extraBytesToRead+1); /* return to the illegal value itself */
-//                        result = sourceIllegal;
-//                        break;
-//                    } else {
-//                        *target++ = UNI_REPLACEMENT_CHAR;
-//                    }
-//                } else {
-//                    *target++ = (UTF16)ch; /* normal case */
-//                }
-//            } else if (ch > UNI_MAX_UTF16) {
-//                if (flags == strictConversion) {
-//                    result = sourceIllegal;
-//                    source -= (extraBytesToRead+1); /* return to the start */
-//                    break; /* Bail out; shouldn't continue */
-//                } else {
-//                    *target++ = UNI_REPLACEMENT_CHAR;
-//                }
-//            } else {
-//                /* target is a character in range 0xFFFF - 0x10FFFF. */
-//                if (target + 1 >= targetEnd) {
-//                    source -= (extraBytesToRead+1); /* Back up source pointer! */
-//                    result = targetExhausted; break;
-//                }
-//                ch -= halfBase;
-//                *target++ = (UTF16)((ch >> halfShift) + UNI_SUR_HIGH_START);
-//                *target++ = (UTF16)((ch & halfMask) + UNI_SUR_LOW_START);
-//            }
-//        }
-//        *sourceStart = source;
-//        *targetStart = target;
-//        return result;
-//    }
+    // Encode a Unicode code point as UTF-8, appending to out.
+    static void EncodeUtf8(uint32_t cp, std::string &out)
+    {
+        if (cp < 0x80) {
+            out.push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+            out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+    }
+
+    // Encode a code point into UTF-16 code units, appending to a container via push_back.
+    template <typename Container>
+    static void EncodeUtf16(uint32_t cp, Container &out)
+    {
+        using ValueType = typename Container::value_type;
+        if (cp <= 0xFFFF) {
+            out.push_back(static_cast<ValueType>(cp));
+        } else {
+            cp -= 0x10000;
+            out.push_back(static_cast<ValueType>((cp >> 10) + 0xD800));
+            out.push_back(static_cast<ValueType>((cp & 0x3FF) + 0xDC00));
+        }
+    }
+
+    // Decode one UTF-16 code point from [it, end). Advances it past consumed units.
+    template <typename It>
+    static uint32_t DecodeUtf16(It &it, It end)
+    {
+        auto unit = static_cast<uint32_t>(*it);
+        ++it;
+        if (unit >= 0xD800 && unit <= 0xDBFF) { // high surrogate
+            if (it != end) {
+                auto low = static_cast<uint32_t>(*it);
+                if (low >= 0xDC00 && low <= 0xDFFF) {
+                    ++it;
+                    return ((unit - 0xD800) << 10) + (low - 0xDC00) + 0x10000;
+                }
+            }
+            return 0xFFFD; // unpaired high surrogate
+        }
+        if (unit >= 0xDC00 && unit <= 0xDFFF) {
+            return 0xFFFD; // unpaired low surrogate
+        }
+        return unit;
+    }
+
+    std::wstring Utf8ToUtf16(const std::string &str)
+    {
+        std::wstring result;
+        result.reserve(str.size());
+        const char *it = str.data();
+        const char *end = it + str.size();
+        while (it < end) {
+            uint32_t cp = DecodeUtf8(it, end);
+            EncodeUtf16(cp, result);
+        }
+        return result;
+    }
+
+    std::u16string Utf8ToUtf16U(const std::string &str)
+    {
+        std::u16string result;
+        result.reserve(str.size());
+        const char *it = str.data();
+        const char *end = it + str.size();
+        while (it < end) {
+            uint32_t cp = DecodeUtf8(it, end);
+            EncodeUtf16(cp, result);
+        }
+        return result;
+    }
+
+    std::string Utf16ToUtf8(const std::wstring &str)
+    {
+        std::string result;
+        result.reserve(str.size() * 2);
+        auto it = str.begin();
+        auto end = str.end();
+        while (it != end) {
+            uint32_t cp = DecodeUtf16(it, end);
+            EncodeUtf8(cp, result);
+        }
+        return result;
+    }
+
+    std::string Utf16ToUtf8(const std::u16string &str)
+    {
+        std::string result;
+        result.reserve(str.size() * 2);
+        auto it = str.begin();
+        auto end = str.end();
+        while (it != end) {
+            uint32_t cp = DecodeUtf16(it, end);
+            EncodeUtf8(cp, result);
+        }
+        return result;
+    }
 }

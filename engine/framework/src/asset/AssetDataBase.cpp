@@ -141,6 +141,7 @@ namespace sky {
             AssetBuildRequest request = {};
             request.file = fs->OpenFile(path.path);
             request.assetInfo = info;
+            LOG_I(TAG, "Request Build Asset %s", info->uuid.ToString().c_str());
             AssetBuilderManager::Get()->BuildRequest(request);
         }
 

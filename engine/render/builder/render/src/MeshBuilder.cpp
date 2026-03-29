@@ -5,6 +5,9 @@
 #include <builder/render/MeshBuilder.h>
 #include <builder/render/mesh/MeshletBuilder.h>
 #include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <core/logger/Logger.h>
+static const char* TAG = "MaterialBuilder";
 
 namespace sky::builder {
 
@@ -31,8 +34,8 @@ namespace sky::builder {
         asset->ResetDependencies();
 
         const auto& matData = asset->Data();
-        for (auto& mat : matData.materials) {
-            AssetBuilderManager::Get()->BuildRequest(mat, request.target);
+        for (const auto& mat : matData.materials) {
+            // AssetBuilderManager::Get()->BuildRequest(mat, request.target);
             asset->AddDependencies(mat);
         }
 
@@ -46,6 +49,7 @@ namespace sky::builder {
 
         AssetManager::Get()->SaveAsset(asset, request.target);
         result.retCode = AssetBuildRetCode::SUCCESS;
+        LOG_I(TAG, "Build Mesh %s Success", request.assetInfo->uuid.ToString().c_str());
     }
 
 } // namespace sky::builder

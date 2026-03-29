@@ -18,7 +18,9 @@ namespace sky {
 
     void SkeletalMeshRenderer::UpdateSkinData(const SkinUpdateDataPtr& skinData)
     {
-        lodPrimitive->UpdateSkinData(skinData);
+        if (lodPrimitive) {
+            lodPrimitive->UpdateSkinData(skinData);
+        }
     }
 
 

@@ -20,6 +20,7 @@ namespace sky {
         std::pair<Transform, bool> Resolve(float time, const Transform &trans);
 
         void SetMoveSpeed(float speed);
+        void SetMouseSensitivity(float sensitivity) { mouseSensitivity = sensitivity; }
 
     private:
         void OnMouseButtonDown(const MouseButtonEvent &event) override;
@@ -44,6 +45,7 @@ namespace sky {
         int32_t currentY = 0;
 
         float moveSpeed = 3.f;
+        float mouseSensitivity = 20.f;
 
         const NativeWindow *window = nullptr;
     };

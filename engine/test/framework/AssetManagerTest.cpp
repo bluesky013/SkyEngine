@@ -16,11 +16,11 @@
 
 using namespace sky;
 
-struct T1Data {
+struct T1Data : public RefObject {
     int v;
 };
 
-struct T2Data {
+struct T2Data : public RefObject {
     float v;
     int extVal;
 };
@@ -41,7 +41,7 @@ struct AssetTraits<T2Data> {
     static constexpr std::string_view ASSET_TYPE = "T2";
 };
 
-struct T3Data {
+struct T3Data : public RefObject {
     Uuid t1;
     Uuid t2;
 };

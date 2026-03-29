@@ -17,8 +17,8 @@ namespace sky::editor {
         ~TerrainHelper();
 
         void Reset();
-        void DrawFullTerrainGrid(const TerrainBuildConfig &cfg, const Vector3 &worldPos);
-        void DrawSelectedGrid(const TerrainData &data, int32_t x, int32_t y, const Vector3 &worldPos);
+        void DrawFullTerrainGrid(const ClipmapConfig &cfg, uint32_t tileCountX, uint32_t tileCountY, const Vector3 &worldPos);
+        void DrawSelectedTile(const TerrainData &data, int32_t x, int32_t y, const Vector3 &worldPos);
         void DrawTerrainBound(const TerrainData &data, const Vector3 &worldPos);
 
         const std::vector<RenderPrimitive*> &GetPrimitives()const { return primitives; }

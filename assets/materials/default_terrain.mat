@@ -1,5 +1,7 @@
 {
     "techniques": [
-        "techniques/terrain.tech"
+        "techniques/terrain.tech",
+        "techniques/terrain_depth.tech",
+        "techniques/terrain_shadow.tech"
     ]
 }

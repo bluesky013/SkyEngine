@@ -20,6 +20,8 @@ namespace sky::mtl {
         rhi::TransferTaskHandle UploadImage(const rhi::ImagePtr &image, const std::vector<rhi::ImageUploadRequest> &requests) override;
         rhi::TransferTaskHandle UploadBuffer(const rhi::BufferPtr &image, const std::vector<rhi::BufferUploadRequest> &requests) override;
 
+        rhi::TransferTaskHandle ReadImage(const rhi::ImagePtr& image, rhi::ReadCallBack&& callback) override;
+
         id<MTLCommandQueue> GetNativeHandle() const { return queue; }
     private:
         friend class Device;

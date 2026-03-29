@@ -18,6 +18,15 @@ namespace sky {
         return true;
     }
 
+    bool MemoryArchive::Skip(size_t size)
+    {
+        if (pointer + size > data.size()) {
+            return false;
+        }
+        pointer += size;
+        return true;
+    }
+
     bool MemoryArchive::SaveRaw(const char *val, size_t size)
     {
         if (pointer + size > data.size()) {

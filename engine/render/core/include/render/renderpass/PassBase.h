@@ -38,6 +38,8 @@ namespace sky {
 
         std::vector<std::pair<Name, rdg::GraphImage>>  images;
         std::vector<std::pair<Name, rdg::GraphBuffer>> buffers;
+
+        std::vector<Name> pipelineKeys;
     };
 
 } // namespace sky

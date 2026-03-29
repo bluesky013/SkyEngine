@@ -28,7 +28,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, uint8_t *&out, uint32_t &size)
     {
-        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
+        std::ifstream file(path.OpenIFStream(std::ios::binary | std::ios::ate));
         if (!file.is_open()) {
             return false;
         }
@@ -42,7 +42,7 @@ namespace sky {
 
     BinaryDataPtr ReadBin(const FilePath &path)
     {
-        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
+        std::ifstream file = path.OpenIFStream(std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
             return nullptr;
         }
@@ -57,7 +57,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, std::vector<uint8_t> &out)
     {
-        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
+        std::ifstream file(path.GetStr(), std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
             return false;
         }
@@ -71,7 +71,7 @@ namespace sky {
 
     bool ReadBin(const FilePath &path, std::vector<uint32_t> &out)
     {
-        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::ate | std::ios::in));
+        std::ifstream file(path.GetStr(), std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
             return false;
         }
@@ -85,7 +85,7 @@ namespace sky {
 
     bool ReadString(const FilePath &path, std::string &out)
     {
-        std::fstream file(path.OpenFStream(std::ios::binary | std::ios::in));
+        std::ifstream file(path.OpenIFStream(std::ios::binary));
         if (!file.is_open()) {
             return false;
         }
