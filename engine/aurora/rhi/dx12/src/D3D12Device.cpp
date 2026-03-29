@@ -1,0 +1,183 @@
+//
+// Created by blues on 2026/3/29.
+//
+
+#include <D3D12Device.h>
+#include <D3D12Instance.h>
+#include <D3D12CommandPool.h>
+#include <core/logger/Logger.h>
+
+static const char  *TAG  = "AuroraDX12";
+static const wchar_t *TAGW = L"AuroraDX12";
+
+namespace sky::aurora {
+
+    D3D12Device::D3D12Device(D3D12Instance &inst)
+        : instance(inst)
+    {
+    }
+
+    D3D12Device::~D3D12Device()
+    {
+        if (fence) {
+            fence.Reset();
+        }
+        graphicsQueue.Reset();
+        computeQueue.Reset();
+        transferQueue.Reset();
+        device.Reset();
+        adapter.Reset();
+    }
+
+    bool D3D12Device::Init()
+    {
+        adapter = instance.GetAdapter(0);
+        if (!adapter) {
+            LOG_E(TAG, "no adapter available");
+            return false;
+        }
+
+        adapter->GetDesc1(&adapterDesc);
+        LOGW_I(TAGW, L"initializing device on: %ls", adapterDesc.Description);
+
+        if (!CreateDevice()) {
+            return false;
+        }
+        if (!CreateCommandQueues()) {
+            return false;
+        }
+
+        LOG_I(TAG, "D3D12 device created successfully");
+        return true;
+    }
+
+    std::string D3D12Device::GetDeviceInfo() const
+    {
+        char name[256] = {};
+        size_t converted = 0;
+        wcstombs_s(&converted, name, sizeof(name), adapterDesc.Description, _TRUNCATE);
+        return name;
+    }
+
+    void D3D12Device::WaitIdle() const
+    {
+        if (!device || !fence) {
+            return;
+        }
+
+        static UINT64 fenceValue = 0;
+        ++fenceValue;
+
+        auto waitOnQueue = [&](const ComPtr<ID3D12CommandQueue> &queue) {
+            if (!queue) {
+                return;
+            }
+            queue->Signal(fence.Get(), fenceValue);
+            if (fence->GetCompletedValue() < fenceValue) {
+                HANDLE event = ::CreateEventW(nullptr, FALSE, FALSE, nullptr);
+                if (event != nullptr) {
+                    fence->SetEventOnCompletion(fenceValue, event);
+                    ::WaitForSingleObject(event, INFINITE);
+                    ::CloseHandle(event);
+                }
+            }
+            ++fenceValue;
+        };
+
+        waitOnQueue(graphicsQueue);
+        waitOnQueue(computeQueue);
+        waitOnQueue(transferQueue);
+    }
+
+    bool D3D12Device::CreateDevice()
+    {
+        HRESULT hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create D3D12 device, HRESULT: 0x%08x", hr);
+            return false;
+        }
+
+        // enable info queue for debug builds
+        if (instance.IsDebugEnabled()) {
+            ComPtr<ID3D12InfoQueue> infoQueue;
+            if (SUCCEEDED(device.As(&infoQueue))) {
+                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+                infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+            }
+        }
+
+        // create fence for synchronization
+        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create fence, HRESULT: 0x%08x", hr);
+            return false;
+        }
+
+        return true;
+    }
+
+    bool D3D12Device::CreateCommandQueues()
+    {
+        // graphics queue
+        D3D12_COMMAND_QUEUE_DESC graphicsDesc = {};
+        graphicsDesc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        graphicsDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+        graphicsDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+        graphicsDesc.NodeMask = 0;
+
+        HRESULT hr = device->CreateCommandQueue(&graphicsDesc, IID_PPV_ARGS(&graphicsQueue));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create graphics queue, HRESULT: 0x%08x", hr);
+            return false;
+        }
+
+        // compute queue
+        D3D12_COMMAND_QUEUE_DESC computeDesc = {};
+        computeDesc.Type     = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+        computeDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+        computeDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+        computeDesc.NodeMask = 0;
+
+        hr = device->CreateCommandQueue(&computeDesc, IID_PPV_ARGS(&computeQueue));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create compute queue, HRESULT: 0x%08x", hr);
+            return false;
+        }
+
+        // transfer (copy) queue
+        D3D12_COMMAND_QUEUE_DESC transferDesc = {};
+        transferDesc.Type     = D3D12_COMMAND_LIST_TYPE_COPY;
+        transferDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+        transferDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+        transferDesc.NodeMask = 0;
+
+        hr = device->CreateCommandQueue(&transferDesc, IID_PPV_ARGS(&transferQueue));
+        if (FAILED(hr)) {
+            LOG_E(TAG, "failed to create transfer queue, HRESULT: 0x%08x", hr);
+            return false;
+        }
+
+        LOG_I(TAG, "command queues created (graphics, compute, transfer)");
+        return true;
+    }
+
+    D3D12_COMMAND_LIST_TYPE D3D12Device::ToCommandListType(QueueType type)
+    {
+        switch (type) {
+        case QueueType::COMPUTE:  return D3D12_COMMAND_LIST_TYPE_COMPUTE;
+        case QueueType::TRANSFER: return D3D12_COMMAND_LIST_TYPE_COPY;
+        default:                  return D3D12_COMMAND_LIST_TYPE_DIRECT;
+        }
+    }
+
+    CommandPool *D3D12Device::CreateCommandPool(QueueType type)
+    {
+        auto *pool = new D3D12CommandPool(*this, ToCommandListType(type));
+        if (!pool->Init()) {
+            delete pool;
+            return nullptr;
+        }
+        return pool;
+    }
+
+} // namespace sky::aurora

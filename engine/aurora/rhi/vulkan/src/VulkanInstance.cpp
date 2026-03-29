@@ -1,0 +1,220 @@
+//
+// Created by blues on 2026/3/29.
+//
+
+#include <VulkanInstance.h>
+#include <VulkanDevice.h>
+#include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
+#include <vector>
+#include <cstring>
+
+static const char *TAG = "AuroraVulkan";
+
+namespace sky::aurora {
+
+    static VkResult CreateDebugUtilsMessengerEXT(VkInstance                                instance,
+                                                 const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+                                                 const VkAllocationCallbacks              *pAllocator,
+                                                 VkDebugUtilsMessengerEXT                 *pDebugMessenger)
+    {
+        auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+        if (func != nullptr) {
+            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+        }
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+
+    static void DestroyDebugUtilsMessengerEXT(VkInstance instance,
+                                              VkDebugUtilsMessengerEXT debugMessenger,
+                                              const VkAllocationCallbacks *pAllocator)
+    {
+        auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+        if (func != nullptr) {
+            func(instance, debugMessenger, pAllocator);
+        }
+    }
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT             messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+        void                                       *pUserData)
+    {
+        if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+            LOG_E(TAG, "validation: %s", pCallbackData->pMessage);
+        } else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+            LOG_W(TAG, "validation: %s", pCallbackData->pMessage);
+        } else {
+            LOG_I(TAG, "validation: %s", pCallbackData->pMessage);
+        }
+        return VK_FALSE;
+    }
+
+    static const std::vector<const char*> VALIDATION_LAYERS = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+
+    VulkanInstance::~VulkanInstance()
+    {
+        if (debugMessenger != VK_NULL_HANDLE) {
+            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        }
+        if (instance != VK_NULL_HANDLE) {
+            vkDestroyInstance(instance, nullptr);
+        }
+    }
+
+    bool VulkanInstance::Init(const Instance::Descriptor &desc)
+    {
+        enableDebugLayer = desc.enableDebugLayer;
+
+        if (!CreateInstance(desc)) {
+            return false;
+        }
+        if (enableDebugLayer) {
+            SetupDebugMessenger();
+        }
+        if (!PickPhysicalDevice()) {
+            return false;
+        }
+        return true;
+    }
+
+    Device *VulkanInstance::CreateDevice()
+    {
+        auto *device = new VulkanDevice(*this);
+        if (!device->Init()) {
+            delete device;
+            return nullptr;
+        }
+        return device;
+    }
+
+    bool VulkanInstance::CreateInstance(const Instance::Descriptor &desc)
+    {
+        // query supported extensions
+        uint32_t extCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> supportedExts(extCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, supportedExts.data());
+
+        enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+#ifdef _WIN32
+        enabledExtensions.push_back("VK_KHR_win32_surface");
+#elif defined(__APPLE__)
+        enabledExtensions.push_back("VK_EXT_metal_surface");
+        enabledExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#elif defined(__ANDROID__)
+        enabledExtensions.push_back("VK_KHR_android_surface");
+#endif
+
+        if (enableDebugLayer) {
+            enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            enabledLayers = {VALIDATION_LAYERS.begin(), VALIDATION_LAYERS.end()};
+        }
+
+        uint32_t apiVersion = 0;
+        vkEnumerateInstanceVersion(&apiVersion);
+        LOG_I(TAG, "Vulkan API version: %u.%u.%u",
+              VK_API_VERSION_MAJOR(apiVersion),
+              VK_API_VERSION_MINOR(apiVersion),
+              VK_API_VERSION_PATCH(apiVersion));
+
+        VkApplicationInfo appInfo  = {};
+        appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName   = desc.appName.c_str();
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName        = desc.engineName.c_str();
+        appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion         = apiVersion;
+
+        VkInstanceCreateInfo createInfo    = {};
+        createInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo        = &appInfo;
+        createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
+        createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+        createInfo.enabledLayerCount       = static_cast<uint32_t>(enabledLayers.size());
+        createInfo.ppEnabledLayerNames     = enabledLayers.data();
+#ifdef __APPLE__
+        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+
+        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+        if (enableDebugLayer) {
+            debugCreateInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+            debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                                              VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            debugCreateInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                              VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            debugCreateInfo.pfnUserCallback = DebugCallback;
+            createInfo.pNext                = &debugCreateInfo;
+        }
+
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+        if (result != VK_SUCCESS) {
+            LOG_E(TAG, "failed to create VkInstance, error: %d", result);
+            return false;
+        }
+        LOG_I(TAG, "VkInstance created successfully");
+        return true;
+    }
+
+    bool VulkanInstance::SetupDebugMessenger()
+    {
+        VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+        createInfo.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        createInfo.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = DebugCallback;
+
+        VkResult result = CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger);
+        if (result != VK_SUCCESS) {
+            LOG_W(TAG, "failed to setup debug messenger, error: %d", result);
+            return false;
+        }
+        LOG_I(TAG, "debug messenger created");
+        return true;
+    }
+
+    bool VulkanInstance::PickPhysicalDevice()
+    {
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        if (deviceCount == 0) {
+            LOG_E(TAG, "no Vulkan-capable GPU found");
+            return false;
+        }
+
+        physicalDevices.resize(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
+
+        // prefer discrete GPU
+        activeGpu = physicalDevices[0];
+        for (auto &gpu : physicalDevices) {
+            VkPhysicalDeviceProperties props = {};
+            vkGetPhysicalDeviceProperties(gpu, &props);
+            LOG_I(TAG, "found GPU: %s (type: %u)", props.deviceName, props.deviceType);
+            if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                activeGpu = gpu;
+            }
+        }
+
+        VkPhysicalDeviceProperties activeProps = {};
+        vkGetPhysicalDeviceProperties(activeGpu, &activeProps);
+        LOG_I(TAG, "selected GPU: %s", activeProps.deviceName);
+        return true;
+    }
+
+} // namespace sky::aurora
+
+extern "C" SKY_EXPORT sky::aurora::Instance::Impl *CreateInstance()
+{
+    return new sky::aurora::VulkanInstance();
+}
