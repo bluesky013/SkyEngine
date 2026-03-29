@@ -1,0 +1,17 @@
+{
+  "name": "sfmt",
+  "version": "1.5.4",
+  "description": "SIMD-oriented Fast Mersenne Twister (SFMT) pseudorandom number generator.",
+  "homepage": "https://github.com/MersenneTwister-Lab/SFMT",
+  "license": "BSD-3-Clause",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

@@ -8,6 +8,8 @@ if (NOT 3RD_PATH STREQUAL "")
     set(3RD_PATH "${3RD_PATH}" CACHE PATH "SkyEngine 3rd path" FORCE)
 endif ()
 
+option(SKY_USE_VCPKG "use vcpkg for third-party dependencies" OFF)
+
 option(SKY_BUILD_EDITOR "build editor" OFF)
 option(SKY_EDITOR "editor mode" OFF)
 
