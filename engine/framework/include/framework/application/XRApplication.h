@@ -16,7 +16,7 @@ namespace sky {
 
         bool Init(int argc, char **argv) override;
     private:
-        void LoadConfigs() override;
+        bool LoadConfigs() override;
 
         std::unique_ptr<NativeWindow> nativeWindow;
         uint32_t width = 1024;

@@ -19,6 +19,7 @@ namespace sky::builder {
         ~ImageBuilder() override = default;
 
         void UseCompress(bool en) { compress = en; }
+        void SetGlobalConfig(const ImageBuildGlobalConfig &cfg) { globalConfig = cfg; }
     private:
         void RequestDDS(const AssetBuildRequest &request, AssetBuildResult &result);
         void RequestSTB(const AssetBuildRequest &request, AssetBuildResult &result);
@@ -30,8 +31,9 @@ namespace sky::builder {
         const std::vector<std::string> &GetExtensions() const override { return extensions; }
         std::string_view QueryType(const std::string &ext) const override { return AssetTraits<Texture>::ASSET_TYPE; }
 
-        std::vector<std::string> extensions = {".jpg", ".dds", ".ktx", ".png", ".hdr", ".image"};
+        std::vector<std::string> extensions = {".jpg", ".jpeg", ".dds", ".ktx", ".png", ".hdr", ".image"};
         std::unordered_map<std::string, ImageBuildGlobalConfig> configs;
+        ImageBuildGlobalConfig globalConfig;
 
         bool compress = true;
     };

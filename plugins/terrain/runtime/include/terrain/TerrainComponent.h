@@ -8,25 +8,21 @@
 #include <framework/serialization/ArrayVisitor.h>
 #include <core/util/Uuid.h>
 #include <terrain/TerrainBase.h>
-#include <terrain/TerrainRender.h>
 
 namespace sky {
-    class RenderScene;
     class SerializationContext;
-
-    struct TerrainSectionData {
-        TerrainCoord coord;
-        Uuid heightMap;
-    };
+    class TerrainFeatureProcessor;
 
     struct TerrainData {
-        TerrainSectionSize sectionSize;
-        float resolution = 1.f;
-        int32_t sectionBoundX = 8;
-        int32_t sectionBoundY = 8;
+        ClipmapConfig config;
 
         Uuid material;
-        std::vector<TerrainSectionData> sections;
+
+        uint32_t tileCountX = 0;
+        uint32_t tileCountY = 0;
+        std::vector<Uuid> heightmapTiles;
+        std::vector<Uuid> splatmapTiles;
+        std::vector<LayerInfo> layers;
     };
 
     class TerrainComponent : public ComponentAdaptor<TerrainData> {
@@ -39,25 +35,14 @@ namespace sky {
 
         void Tick(float time) override;
 
-        void BuildTerrain(const TerrainBuildConfig &config);
-        void AddSection(int32_t x, int32_t y);
-        void RemoveSection(int32_t x, int32_t y);
+        void UpdateHeightMap(std::vector<Uuid> &&tiles);
 
-        void UpdateHeightMap(std::vector<TerrainSectionData> &&data);
     private:
-        void LoadMaterial();
-        void OnRebuildTerrain();
-        void ResetRender(RenderScene*);
-
         void OnSerialized() override;
-
         void OnAttachToWorld() override;
         void OnDetachFromWorld() override;
 
-        bool IsAssetReady() const;
-
-        RDMaterialInstancePtr material;
-        std::unique_ptr<TerrainRender> terrainRender;
+        TerrainFeatureProcessor *featureProcessor = nullptr;
     };
 
 } // namespace sky

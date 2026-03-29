@@ -39,11 +39,11 @@ namespace sky {
     {
         near = near_;
         far = far_;
-        projects[index] = MakePerspective(fov, aspect, near, far);
-//        viewInfo[index].zParam.x = 1 - far / near;
-//        viewInfo[index].zParam.y = far / near;
-//        viewInfo[index].zParam.z = viewInfo[index].zParam.x / far;
-//        viewInfo[index].zParam.w = viewInfo[index].zParam.y / far;
+        if (reverseZ) {
+            projects[index] = MakePerspectiveReverseZFinite(fov, aspect, near, far);
+        } else {
+            projects[index] = MakePerspective(fov, aspect, near, far);
+        }
         dirty = true;
     }
 

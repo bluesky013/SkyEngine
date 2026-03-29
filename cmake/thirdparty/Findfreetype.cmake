@@ -1,33 +1,12 @@
 set(LIB_NAME "freetype")
-set(TARGET_WITH_NAMESPACE "3rdParty::${LIB_NAME}")
-if (TARGET ${TARGET_WITH_NAMESPACE})
-    return()
-endif()
-
 if (APPLE)
     sky_find_3rd(TARGET zlib DIR zlib)
     set(FT_EXT_LIBS 3rdParty::zlib)
-endif ()
+endif()
 
-set(${LIB_NAME}_INCLUDE_DIR ${${LIB_NAME}_PATH}/include/freetype2)
-set(${LIB_NAME}_LIBS_DIR ${${LIB_NAME}_PATH}/lib)
-
-set(${LIB_NAME}_LIBRARY_DEBUG
-    ${${LIB_NAME}_LIBS_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}freetyped${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${FT_EXT_LIBS}
+sky_3rd_static(${LIB_NAME}
+    INCLUDE_SUBDIR freetype2
+    DEBUG_SUFFIX d
+    LIBS freetype
+    EXT_LIBS ${FT_EXT_LIBS}
 )
-
-set(${LIB_NAME}_LIBRARY_RELEASE
-    ${${LIB_NAME}_LIBS_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}freetype${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${FT_EXT_LIBS}
-)
-
-set(${LIB_NAME}_LIBRARY
-    "$<$<CONFIG:release>:${${LIB_NAME}_LIBRARY_RELEASE}>"
-    "$<$<CONFIG:debug>:${${LIB_NAME}_LIBRARY_DEBUG}>")
-
-add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
-target_include_directories(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_INCLUDE_DIR})
-target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${${LIB_NAME}_LIBRARY})
-
-set(${LIB_NAME}_FOUND True)

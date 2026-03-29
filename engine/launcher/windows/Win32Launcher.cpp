@@ -6,7 +6,7 @@
 #include <framework/application/GameApplication.h>
 #include <framework/application/XRApplication.h>
 
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 #include <filesystem>
 
 using namespace sky;
@@ -19,9 +19,9 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    cxxopts::Options options("SkyEngine Launcher", "SkyEngine Launcher");
+    CmdOptions options("SkyEngine Launcher", "SkyEngine Launcher");
     options.allow_unrecognised_options();
-    options.add_options()("a, app", "app mode", cxxopts::value<std::string>());
+    options.add_options()("a, app", "app mode", CmdValue<std::string>());
     auto result = options.parse(argc, argv);
     bool isXRMode = (result.count("app") != 0u) && result["app"].as<std::string>() == "xr";
     if (isXRMode) {

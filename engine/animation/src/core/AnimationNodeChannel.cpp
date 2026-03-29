@@ -17,7 +17,7 @@ namespace sky {
     void AnimationNodeChannel::Sample(const SampleParam &param, Transform& trans)
     {
         trans.translation = AnimSampleChannel(position, param);
-        trans.scale = AnimSampleChannel(scale, param);
+        // trans.scale = AnimSampleChannel(scale, param);
         trans.rotation = AnimSampleChannel(rotation, param);
     }
 } // namespace sky

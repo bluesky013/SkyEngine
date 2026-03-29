@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "RenderGeometry.h"
-
 #include <core/shapes/Bounds.h>
 #include <core/template/ReferenceObject.h>
 #include <render/RenderBase.h>

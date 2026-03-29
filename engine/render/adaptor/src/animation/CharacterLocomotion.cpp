@@ -37,6 +37,11 @@ namespace sky {
         static constexpr float ROTATE_SPEED = 100.f;
         static constexpr float MOVE_SPEED = 200.f;
 
+        void UpdateTransformComponent(TransformComponent* inTrans)
+        {
+            transform = inTrans;
+        }
+
         void Tick(float deltaTime) override
         {
             Transform localTrans = transform->GetLocalTransform();
@@ -224,6 +229,8 @@ namespace sky {
         }
 
         if (controller != nullptr) {
+            static_cast<CharacterTrdViewController *>(controller.get())
+                ->UpdateTransformComponent(actor->GetComponent<TransformComponent>());
             controller->Tick(time);
         }
 

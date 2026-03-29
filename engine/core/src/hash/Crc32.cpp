@@ -3,23 +3,23 @@
 //
 
 #include <core/hash/Crc32.h>
-#include <crc32c/crc32c.h>
+#include <core/crypto/crc32/Crc32.h>
 
 namespace sky {
 
     uint32_t Crc32::Cal(const uint8_t *buffer, uint32_t size)
     {
-        return crc32c::Crc32c(buffer, size);
+        return Crc32C(buffer, size);
     }
 
     uint32_t Crc32::Cal(const std::string &str)
     {
-        return crc32c::Crc32c(str);
+        return Crc32C(reinterpret_cast<const uint8_t *>(str.data()), str.size());
     }
 
     uint32_t Crc32::Cal(const std::string_view &str)
     {
-        return crc32c::Crc32c(str.data(), str.length());
+        return Crc32C(reinterpret_cast<const uint8_t *>(str.data()), str.size());
     }
 
 } // namespace sky

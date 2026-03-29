@@ -33,7 +33,7 @@
 
 #include <NoiseGenerator/ProjectRoot.h>
 
-#include <PerlinNoise.hpp>
+#include <core/math/PerlinNoise.h>
 #include <memory>
 
 
@@ -145,11 +145,11 @@ namespace sky {
                 texture->Init(rhi::PixelFormat::R16_UNORM, extent, extent, 1);
             }
 
-            const siv::PerlinNoise perlin{ siv::PerlinNoise::seed_type(seed) };
+            const PerlinNoise perlin{seed};
             std::vector<uint16_t> data(extent * extent, 0);
             for (uint32_t i = 0; i < extent; i ++) {
                 for (uint32_t j = 0; j < extent; j++) {
-                    const double noise = perlin.octave2D_01(static_cast<float>(i) * factor, static_cast<float>(j) * factor, octave);
+                    const double noise = perlin.Octave2D_01(static_cast<float>(i) * factor, static_cast<float>(j) * factor, octave);
                     data[i * extent + j] = static_cast<uint32_t>(noise * 65536);
                 }
             }
@@ -170,12 +170,12 @@ namespace sky {
                 texture3D->Init(rhi::PixelFormat::R32_SFLOAT, extent, extent, extent);
             }
 
-            const siv::PerlinNoise perlin{ siv::PerlinNoise::seed_type(seed) };
+            const PerlinNoise perlin{seed};
             std::vector<float> data(extent * extent * extent, 0);
             for (uint32_t i = 0; i < extent; i ++) {
                 for (uint32_t j = 0; j < extent; j++) {
                     for (uint32_t k = 0; k < extent; k++) {
-                        const auto noise = perlin.octave3D_01(static_cast<float>(i) * factor,
+                        const auto noise = perlin.Octave3D_01(static_cast<float>(i) * factor,
                                                                   static_cast<float>(j) * factor,
                                                                   static_cast<float>(k) * factor,
                                                                   octave);
@@ -314,14 +314,14 @@ namespace sky {
                 texture->Init(rhi::PixelFormat::R32_SFLOAT, extent, extent, 1);
             }
 
-            const siv::PerlinNoise perlin{ siv::PerlinNoise::seed_type(seed) };
+            const PerlinNoise perlin{static_cast<uint32_t>(seed)};
             std::vector<float> data(extent * extent, 0);
 
             auto s = static_cast<float>(extent) / static_cast<float>(frequency);
             for (uint32_t i = 0; i < extent; i ++) {
                 for (uint32_t j = 0; j < extent; j++) {
                     float w = 1.f - NoiseWorley(Vector2(static_cast<float>(j), static_cast<float>(i)), s);
-                    float p = perlin.octave2D_01(static_cast<float>(j) * factor, static_cast<float>(i) * factor, octave);
+                    float p = perlin.Octave2D_01(static_cast<float>(j) * factor, static_cast<float>(i) * factor, octave);
                     data[i * extent + j] = Remap(p, w, 1.0f, 0.f, 1.0f);
                 }
             }
@@ -342,7 +342,7 @@ namespace sky {
                 texture3D->Init(rhi::PixelFormat::R32_SFLOAT, extent, extent, extent);
             }
 
-            const siv::PerlinNoise perlin{ siv::PerlinNoise::seed_type(seed) };
+            const PerlinNoise perlin{static_cast<uint32_t>(seed)};
             std::vector<float> data(extent * extent * extent, 0);
 
             auto s = static_cast<float>(extent) / static_cast<float>(frequency);
@@ -352,7 +352,7 @@ namespace sky {
                         float w = 1.f - NoiseWorley3(Vector3(static_cast<float>(k),
                                                              static_cast<float>(j),
                                                              static_cast<float>(i)),s);
-                        float p = perlin.octave3D_01(static_cast<float>(k) * factor,
+                        float p = perlin.Octave3D_01(static_cast<float>(k) * factor,
                                                      static_cast<float>(j) * factor,
                                                      static_cast<float>(i) * factor,
                                                      octave);

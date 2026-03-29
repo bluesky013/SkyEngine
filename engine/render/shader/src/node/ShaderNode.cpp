@@ -4,8 +4,6 @@
 
 #include <shader/node/ShaderNode.h>
 
-namespace sky {
+namespace sky::sl {
 
-
-
-} // namespace sky
+} // namespace sky::sl

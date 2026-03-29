@@ -31,6 +31,7 @@ namespace sky::editor {
         ~ViewportWindow() override = default;
 
     private:
+        bool IsTextInputActive() const;
         void* GetNativeWindow();
         bool event(QEvent *event) override;
     };

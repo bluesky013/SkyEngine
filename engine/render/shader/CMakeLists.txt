@@ -3,7 +3,13 @@ file(GLOB_RECURSE INC_FILES include/*)
 file(GLOB_RECURSE TOOL_FILES tool/*)
 file(GLOB_RECURSE TEST_FILES test/*)
 
+# shader
+sky_find_3rd(TARGET glslang       DIR glslang)
+sky_find_3rd(TARGET SPIRVCross    DIR SPIRV-Cross)
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    sky_find_3rd(TARGET dxcompiler    DIR dxcompiler)
+
     set(ShaderCompilerExtLib
             3rdParty::glslang
             3rdParty::SPIRVCross
@@ -50,7 +56,6 @@ sky_add_exe(TARGET ShaderTool
     LIBS
         Framework
         ShaderCompiler.Static
-        3rdParty::cxxopts
 )
 
 if (SKY_BUILD_TEST)

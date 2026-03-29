@@ -31,6 +31,12 @@ namespace sky {
         return stream.rdbuf()->sgetn(data, static_cast<std::streamsize>(size)) == size;
     }
 
+    bool StreamArchive::Skip(size_t size)
+    {
+        stream.ignore(static_cast<std::streamsize>(size));
+        return !stream.fail();
+    }
+
     bool StreamArchive::SaveRaw(const char *data, size_t size)
     {
         return stream.rdbuf()->sputn(data, static_cast<std::streamsize>(size)) == size;
@@ -39,6 +45,12 @@ namespace sky {
     bool IStreamArchive::LoadRaw(char *data, size_t size)
     {
         return stream.rdbuf()->sgetn(data, static_cast<std::streamsize>(size)) == size;
+    }
+
+    bool IStreamArchive::Skip(size_t size)
+    {
+        stream.ignore(static_cast<std::streamsize>(size));
+        return !stream.fail();
     }
 
     int IStreamArchive::Peek()

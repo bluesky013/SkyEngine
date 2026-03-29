@@ -1,6 +1,10 @@
 {
   "modules": [
     {
+      "name": "ConsoleModule",
+      "dependencies": []
+    },
+    {
       "name": "ImGuizmoModule",
       "dependencies": [
         "SkyRender.Editor"

@@ -21,6 +21,7 @@ namespace sky {
     void RasterPass::Setup(rdg::RenderGraph &rdg, RenderScene &scene)
     {
         auto passBuilder = rdg.AddRasterPass(name, width, height);
+        passBuilder.ScratchPipelineKey(pipelineKeys);
 
         auto colorCount   = static_cast<uint32_t>(colors.size());
         auto resolveCount = static_cast<uint32_t>(resolves.size());

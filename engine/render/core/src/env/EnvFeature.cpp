@@ -15,31 +15,44 @@ namespace sky {
 
     EnvFeatureProcessor::EnvFeatureProcessor(RenderScene *scn) : IFeatureProcessor(scn)
     {
-        const auto& defaultRes = Renderer::Get()->GetDefaultResource();
-
-        irradiance = defaultRes.textureCubeWhite;
-        radiance = defaultRes.textureCubeWhite;
     }
 
     void EnvFeatureProcessor::SetRadiance(const RDTextureCubePtr &tex)
     {
-        const auto& defaultRes = Renderer::Get()->GetDefaultResource();
-        radiance = tex ? tex : defaultRes.textureCubeWhite;
+        radiance = tex;
     }
 
     void EnvFeatureProcessor::SetIrradiance(const RDTextureCubePtr &tex)
     {
-        const auto& defaultRes = Renderer::Get()->GetDefaultResource();
-        irradiance = tex ? tex : defaultRes.textureCubeWhite;
+        irradiance = tex;
     }
 
     void EnvFeatureProcessor::Render(rdg::RenderGraph &rdg)
     {
-        radiance->Wait();
-        irradiance->Wait();
+        const auto &defaultRes = Renderer::Get()->GetDefaultResource();
 
-        rdg.resourceGraph.ImportImage(Name("PrefilteredMap"), radiance->GetImage(), rhi::ImageViewType::VIEW_CUBE, rhi::AccessFlagBit::FRAGMENT_SRV);
-        rdg.resourceGraph.ImportImage(Name("IrradianceMap"), irradiance->GetImage(), rhi::ImageViewType::VIEW_CUBE, rhi::AccessFlagBit::FRAGMENT_SRV);
+        bool enableIBL = false;
+
+        if (irradiance != nullptr && irradiance->IsReady()) {
+            rdg.resourceGraph.ImportImage(Name("IrradianceMap"), irradiance->GetImage(), rhi::ImageViewType::VIEW_CUBE,
+                                          rhi::AccessFlagBit::FRAGMENT_SRV);
+            enableIBL = true;
+        }
+        else {
+            rdg.resourceGraph.ImportImage(Name("IrradianceMap"), defaultRes.textureCubeWhite->GetImage(), rhi::ImageViewType::VIEW_CUBE,
+                                          rhi::AccessFlagBit::FRAGMENT_SRV);
+        }
+
+        if (radiance != nullptr && radiance->IsReady()) {
+            rdg.resourceGraph.ImportImage(Name("PrefilteredMap"), radiance->GetImage(), rhi::ImageViewType::VIEW_CUBE,
+                                          rhi::AccessFlagBit::FRAGMENT_SRV);
+            enableIBL = true;
+        } else {
+            rdg.resourceGraph.ImportImage(Name("PrefilteredMap"), defaultRes.textureCubeWhite->GetImage(), rhi::ImageViewType::VIEW_CUBE,
+                                          rhi::AccessFlagBit::FRAGMENT_SRV);
+        }
+
+        rdg.pipelineKey[Name("ENABLE_IBL")] = enableIBL ? 1 : 0;
     }
 
 } // namespace sky

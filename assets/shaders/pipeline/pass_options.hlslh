@@ -1,2 +1,3 @@
 #pragma option({"key": "ENABLE_SHADOW", "bits": 1, "default": 0, "type": "Pass"})
+#pragma option({"key": "ENABLE_IBL", "bits": 1, "default": 0, "type": "Pass"})
 

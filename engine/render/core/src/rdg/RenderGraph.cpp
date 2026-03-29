@@ -256,6 +256,18 @@ namespace sky::rdg {
         return *this;
     }
 
+    RasterPassBuilder &RasterPassBuilder::ScratchPipelineKey(const std::vector<Name> &keys)
+    {
+        PipelineVariantSetter setter(pass.pipelineKey);
+        for (const auto& key : keys) {
+            auto iter = rdg.pipelineKey.find(key);
+            if (iter != rdg.pipelineKey.end()) {
+                setter.SetValue(key, iter->second);
+            }
+        }
+        return *this;
+    }
+
     RasterSubPassBuilder RasterPassBuilder::AddRasterSubPass(const Name &name)
     {
         auto dst = AddVertex(name, RasterSubPass{&rdg.context->resources}, rdg);

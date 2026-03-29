@@ -141,8 +141,8 @@ namespace sky {
 
         void FillShaderOption(ShaderOption& option, const ShaderVariantKey& key) const;
 
-        inline ShaderVariantKey GetPipelineMask() const { return pipelineMask; }
-        inline const std::vector<ShaderOptionEntry>& GetOptionEntries() const { return entries; }
+        FORCEINLINE ShaderVariantKey GetPipelineMask() const { return pipelineMask; }
+        FORCEINLINE const std::vector<ShaderOptionEntry>& GetOptionEntries() const { return entries; }
     private:
         void GeneratePermutationImpl(std::vector<ShaderVariantKey>& out, const std::vector<uint32_t> &list,
             uint32_t index, ShaderVariantKey key) const;
@@ -153,6 +153,12 @@ namespace sky {
 
         uint8_t currentBit = 0;
         ShaderVariantKey pipelineMask;
+    };
+
+    struct PipelineVariantSetter {
+        ShaderVariantKey& key;
+
+        void SetValue(const Name& name, uint8_t value);
     };
 
 } // namespace sky

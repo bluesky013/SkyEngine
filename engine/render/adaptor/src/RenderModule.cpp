@@ -37,7 +37,7 @@
 #include <render/Renderer.h>
 
 #include <core/profile/Profiler.h>
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 namespace sky {
 
@@ -75,13 +75,13 @@ namespace sky {
 
     void RenderModule::ProcessArgs(const StartArguments &args)
     {
-        cxxopts::Options options("SkyEngine Render Module", "SkyEngine Render Module");
+        CmdOptions options("SkyEngine Render Module", "SkyEngine Render Module");
         options.allow_unrecognised_options();
 
         options.add_options()
-            ("e,engine", "Engine Directory", cxxopts::value<std::string>())
-            ("p,project", "Project Directory", cxxopts::value<std::string>())
-            ("r,rhi", "RHI Type", cxxopts::value<std::string>());
+            ("e,engine", "Engine Directory", CmdValue<std::string>())
+            ("p,project", "Project Directory", CmdValue<std::string>())
+            ("r,rhi", "RHI Type", CmdValue<std::string>());
 
         if (!args.args.empty()) {
             auto result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());

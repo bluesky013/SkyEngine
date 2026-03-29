@@ -1,0 +1,34 @@
+{
+    "type": "graphics",
+    "shader": {
+        "path": "standard_pbr.hlsl",
+        "vertex": "VSMain",
+        "task": "TASMain",
+        "mesh": "MSMain",
+        "fragment": "FSMain"
+    },
+    "pass": {
+        "tag": "Transparent"
+    },
+    "blend_state": [
+        {
+            "blendEnable": true,
+            "srcColor": "SRC_ALPHA",
+            "dstColor": "ONE_MINUS_SRC_ALPHA",
+            "srcAlpha": "ONE",
+            "dstAlpha": "ONE_MINUS_SRC_ALPHA"
+        }
+    ],
+    "depth_stencil": {
+        "depthTestEnable": true,
+        "depthWriteEnable": false
+    },
+    "raster_state": {
+        "cullMode": "BACK"
+    },
+    "vertex_options": {
+        "SKIN": "ENABLE_SKIN",
+        "INSTANCE": "ENABLE_INSTANCE",
+        "MESH_SHADER": "MESH_SHADER"
+    }
+}

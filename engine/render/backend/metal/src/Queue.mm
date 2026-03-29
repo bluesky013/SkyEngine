@@ -28,5 +28,12 @@ namespace sky::mtl {
         });
     }
 
+    rhi::TransferTaskHandle Queue::ReadImage(const rhi::ImagePtr& image, rhi::ReadCallBack&& callback)
+    {
+        return CreateTask([]() {
+
+        });
+    }
+
 } // namespace sky::mtl
 

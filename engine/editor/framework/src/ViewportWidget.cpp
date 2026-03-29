@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QInputMethodEvent>
 #include <QApplication>
 #include <QScreen>
 #include <QMenu>
@@ -14,6 +15,7 @@
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/RenderPassPipeline.h>
 #include <render/Renderer.h>
+#include <framework/console/IConsoleUI.h>
 #include <framework/interface/ISystem.h>
 #include <framework/interface/Interface.h>
 #include <framework/asset/AssetManager.h>
@@ -71,7 +73,7 @@ namespace sky::editor {
 //            {Qt::Key_, ScanCode::KEY_NONUSHASH},
             {Qt::Key_Semicolon, ScanCode::KEY_SEMICOLON},
             {Qt::Key_Apostrophe, ScanCode::KEY_APOSTROPHE},
-//            {Qt::Key_, ScanCode::KEY_GRAVE},
+            {Qt::Key_QuoteLeft, ScanCode::KEY_GRAVE},
             {Qt::Key_Comma, ScanCode::KEY_COMMA},
             {Qt::Key_Period, ScanCode::KEY_PERIOD},
             {Qt::Key_Slash, ScanCode::KEY_SLASH},
@@ -139,6 +141,12 @@ namespace sky::editor {
         scale = screen->devicePixelRatio();
 
         NativeWindowManager::Get()->Register(this);
+    }
+
+    bool ViewportWindow::IsTextInputActive() const
+    {
+        const auto *consoleUI = Interface<IConsoleUI>::Get()->GetApi();
+        return consoleUI != nullptr && consoleUI->WantsInput();
     }
 
     ViewportWidget::~ViewportWidget()
@@ -211,18 +219,35 @@ namespace sky::editor {
                 auto mod = ConvertModifier(keyEvent->modifiers());
 
                 auto iter = SCANCODE_MAP.find(scanCode);
-                if (iter == SCANCODE_MAP.end()) {
-                    break;
+                if (iter != SCANCODE_MAP.end()) {
+                    KeyboardEvent kEvent = {};
+                    kEvent.winID = winID;
+                    kEvent.scanCode = iter->second;
+                    kEvent.mod = mod;
+                    if (event->type() == QEvent::KeyRelease) {
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyUp, kEvent);
+                    } else {
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyDown, kEvent);
+                    }
                 }
 
-                KeyboardEvent kEvent = {};
-                kEvent.winID = winID;
-                kEvent.scanCode = iter->second;
-                kEvent.mod = mod;
-                if (event->type() == QEvent::KeyRelease) {
-                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyUp, kEvent);
-                } else {
-                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnKeyDown, kEvent);
+                // forward text input for ImGui InputText widgets
+                if (event->type() == QEvent::KeyPress) {
+                    const QString text = keyEvent->text();
+                    if (!text.isEmpty() && text.front().isPrint() && !keyEvent->isAutoRepeat()) {
+                        const QByteArray utf8 = text.toUtf8();
+                        Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, winID, utf8.constData());
+                    }
+                }
+                break;
+            }
+            case QEvent::InputMethod: {
+                auto *inputMethodEvent = static_cast<QInputMethodEvent*>(event);
+                const QString commitString = inputMethodEvent->commitString();
+                if (!commitString.isEmpty() && IsTextInputActive()) {
+                    const QByteArray utf8 = commitString.toUtf8();
+                    Event<IKeyboardEvent>::BroadCast(&IKeyboardEvent::OnTextInput, winID, utf8.constData());
+                    return true;
                 }
                 break;
             }
@@ -276,7 +301,7 @@ namespace sky::editor {
                 actionGroup->addAction(action);
             }
 
-            // 显示菜单
+            // show context menu
             menu.exec(mapToGlobal(pos));
         });
     }

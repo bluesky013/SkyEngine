@@ -1,6 +1,8 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
+include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     file(GLOB_RECURSE PLATFORM_SRC platform/windows/*)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
@@ -33,4 +35,4 @@ sky_add_library(TARGET XRModule SHARED
         XRModule.Static
 )
 
-sky_add_dependency(TARGET XRModule DEPENDENCIES Launcher)
+sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")

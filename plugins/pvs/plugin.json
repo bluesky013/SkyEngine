@@ -1,0 +1,12 @@
+{
+    "targets": [
+        {
+            "name": "PVS",
+            "dependencies": ["Launcher"]
+        },
+        {
+            "name": "PVS.Editor",
+            "dependencies": ["Editor"]
+        }
+    ]
+}

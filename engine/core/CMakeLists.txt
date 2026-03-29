@@ -33,7 +33,6 @@ sky_add_library(TARGET Core STATIC
         include
     LINK_LIBS
         3rdParty::sfmt
-        3rdParty::crc32
         3rdParty::taskflow
         3rdParty::boost
         3rdParty::rapidjson

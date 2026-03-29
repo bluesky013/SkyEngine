@@ -1,0 +1,12 @@
+{
+    "targets": [
+        {
+            "name": "Terrain",
+            "dependencies": ["Launcher"]
+        },
+        {
+            "name": "TerrainEditor",
+            "dependencies": ["Editor"]
+        }
+    ]
+}

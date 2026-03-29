@@ -7,6 +7,7 @@
 #include <render/rdg/RenderGraph.h>
 #include <render/RHI.h>
 #include <render/RenderScene.h>
+#include <render/RenderDepthSettings.h>
 #include <render/light/LightFeatureProcessor.h>
 
 namespace sky {
@@ -17,6 +18,8 @@ namespace sky {
         , depthStenFormat(ds)
         , samples(samples_)
     {
+        bool reverseZ = true;
+
         rdg::GraphImage image = {};
         image.extent.width  = width;
         image.extent.height = height;
@@ -48,7 +51,8 @@ namespace sky {
                 Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::DONT_CARE, rhi::StoreOp::STORE}, rhi::ClearValue(0.f, 0.f, 0.f, 0.f)});
 
             depthStencil =
-                Attachment{rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE}, rhi::ClearValue(1.f, 0)};
+                Attachment{rdg::RasterAttachment{fwdMSAADepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::DONT_CARE},
+                    DepthSettings::DepthStencilClear(reverseZ)};
         } else {
             image.samples = rhi::SampleCount::X1;
             image.usage   = rhi::ImageUsageFlagBit::RENDER_TARGET | rhi::ImageUsageFlagBit::SAMPLED;
@@ -62,7 +66,8 @@ namespace sky {
                 Attachment{rdg::RasterAttachment{fwdColor, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(0.2f, 0.2f, 0.2f, 0.f)});
 
             depthStencil =
-                Attachment{rdg::RasterAttachment{fwdDepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE}, rhi::ClearValue(1.f, 0)};
+                Attachment{rdg::RasterAttachment{fwdDepthStencil, rhi::LoadOp::CLEAR, rhi::StoreOp::STORE},
+                    DepthSettings::DepthStencilClear(reverseZ)};
         }
 
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
@@ -100,6 +105,8 @@ namespace sky {
 //            Name("HizBuffer"),
 //            rdg::ComputeView{Name("HizBuffer"), rdg::ComputeType::SRV, stageFlags}
 //        });
+
+        pipelineKeys.emplace_back(Name("ENABLE_IBL"));
     }
 
     void ForwardMSAAPass::SetLayout(const RDResourceLayoutPtr &layout_)

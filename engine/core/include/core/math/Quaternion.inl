@@ -40,9 +40,13 @@ namespace sky {
             x = 0;
             y = 0;
             z = 0;
+            return;
         }
         float inverseSqrt = 1 / sqrt(n);
-        Quaternion::operator*=(inverseSqrt);
+        w *= inverseSqrt;
+        x *= inverseSqrt;
+        y *= inverseSqrt;
+        z *= inverseSqrt;
     }
 
     inline Quaternion Quaternion::Conjugate() const
@@ -71,11 +75,12 @@ namespace sky {
 
     inline Quaternion Quaternion::operator*(float va) const
     {
-        return {x * va, y * va, z * va, w * va};
+        return {w * va, x * va, y * va, z * va};
     }
 
     inline Quaternion &Quaternion::operator*=(float m)
     {
+        w *= m;
         x *= m;
         y *= m;
         z *= m;
@@ -84,6 +89,7 @@ namespace sky {
 
     inline Quaternion &Quaternion::operator/=(float d)
     {
+        w /= d;
         x /= d;
         y /= d;
         z /= d;

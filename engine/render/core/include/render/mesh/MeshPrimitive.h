@@ -21,7 +21,7 @@ namespace sky {
         bool IsReadyToGather() const noexcept;
         void BuildPipelineState(const RenderBatchPrepareInfo& info) noexcept;
         void Prepare(const RenderBatchPrepareInfo& info) noexcept;
-        uint32_t CalculatePipelineHash(uint32_t passHash) const noexcept;
+        uint32_t CalculatePipelineHash(const RenderBatchPrepareInfo& info) const noexcept;
 
         const Name& GetRasterID() const noexcept;
 

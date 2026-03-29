@@ -5,6 +5,7 @@
 #include <render/env/SkySphereRenderer.h>
 #include <render/Renderer.h>
 #include <render/RHI.h>
+#include <render/RenderDepthSettings.h>
 
 namespace sky {
 
@@ -13,35 +14,76 @@ namespace sky {
             rhi::DescriptorSetPool::PoolSize{rhi::DescriptorType::SAMPLER, 1},
     };
 
-    // void SkySpherePrimitive::UpdateBatch()
-    // {
-        // auto &batch = sections[0].batches[0];
-        // if (!batch.batchGroup && batch.program) {
-        //     auto layout = batch.program->RequestLayout(BATCH_SET);
-        //     batch.batchGroup = new ResourceGroup();
-        //     batch.batchGroup->Init(layout, *pool);
-        //     batch.batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
-        //     batch.batchGroup->Update();
-        // }
-    // }
+    void SkySpherePrimitive::UpdateTexture(const RDTexture2DPtr &tex)
+    {
+        texture = tex;
+
+        if (batchGroup) {
+            batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
+            batchGroup->Update();
+        }
+    }
+
+    bool SkySpherePrimitive::PrepareBatch(const RenderBatchPrepareInfo& info) noexcept
+    {
+        if (info.techId != techInst.technique->GetRasterID()) {
+            return false;
+        }
+
+        if (techInst.UpdateProgram(info.pipelineKey)) {
+            auto pipelineState = techInst.technique->GetPipelineState();
+            pipelineState.depthStencil.compareOp = DepthSettings::DepthCompareOp(info.reverseZ);
+            pso = GraphicsTechnique::BuildPso(techInst.program, pipelineState, geometry->Request(techInst.program), info.pass, info.subPassId);
+        }
+
+        if (!batchGroup && techInst.program && texture) {
+            auto layout = techInst.program->RequestLayout(BATCH_SET);
+            batchGroup  = new ResourceGroup();
+            batchGroup->Init(layout, *pool);
+            batchGroup->BindTexture(Name("SkyBox"), texture->GetImageView(), 0);
+            batchGroup->Update();
+        }
+
+        return !!pso;
+    }
+
+    void SkySpherePrimitive::GatherRenderItem(IRenderItemGatherContext* context) noexcept
+    {
+        context->Append(RenderItem {
+            .geometry = geometry,
+            .batchGroup = batchGroup,
+            .pso = pso,
+            .args = {arg}
+        });
+    }
 
     bool SkySpherePrimitive::IsReady() const noexcept
     {
         return texture && texture->IsReady();
     }
 
-    SkySphereRenderer::SkySphereRenderer()
+    SkySphereRenderer::SkySphereRenderer(RenderScene *scene, const RDGfxTechPtr &tech)
+        : renderScene(scene)
+        , primitive(std::make_unique<SkySpherePrimitive>(tech))
     {
         pool = RHI::Get()->GetDevice()->CreateDescriptorSetPool({
             1, sizeof(POOL_DESC) / sizeof(rhi::DescriptorSetPool::PoolSize), POOL_DESC
         });
-
-        primitive = std::make_unique<SkySpherePrimitive>();
-        primitive->geometry = new RenderGeometry();
-        primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(SkyBoxVertex, pos), rhi::Format::F_RGBA32});
-        primitive->geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV,       0, OFFSET_OF(SkyBoxVertex, uv),  rhi::Format::F_RG32});
+        primitive->pool = pool;
 
         BuildSphere();
+
+        scene->AddPrimitive(primitive.get());
+    }
+
+    SkySphereRenderer::~SkySphereRenderer()
+    {
+        renderScene->RemovePrimitive(primitive.get());
+    }
+
+    void SkySphereRenderer::UpdateTexture(const RDTexture2DPtr &texture)
+    {
+        primitive->UpdateTexture(texture);
     }
 
     void SkySphereRenderer::BuildSphere()
@@ -101,44 +143,27 @@ namespace sky {
                 }
             }
         }
-        rhi::CmdDrawIndexed indexed = {};
-        indexed.indexCount = static_cast<uint32_t>(indices.size());
-        // primitive->sections[0].args.emplace_back(indexed);
+        auto *geometry = new RenderGeometry();
+        primitive->geometry       = geometry;
+        primitive->arg.indexCount = static_cast<uint32_t>(indices.size());
 
-        primitive->geometry->vertexBuffers.clear();
-
+        geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::POSITION, 0, OFFSET_OF(SkyBoxVertex, pos), rhi::Format::F_RGBA32});
+        geometry->AddVertexAttribute(VertexAttribute{VertexSemanticFlagBit::UV, 0, OFFSET_OF(SkyBoxVertex, uv), rhi::Format::F_RG32});
+        geometry->vertexBuffers.clear();
         auto* vb = new Buffer();
         vb->Init(vertices.size() * sizeof(SkyBoxVertex), rhi::BufferUsageFlagBit::VERTEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
         vb->SetUploadData<SkyBoxVertex>(std::move(vertices));
-        primitive->geometry->vertexBuffers.emplace_back(VertexBuffer{
+        geometry->vertexBuffers.emplace_back(VertexBuffer{
             vb, 0, vb->GetSize(), sizeof(SkyBoxVertex)
         });
 
         auto* ib = new Buffer();
         ib->Init(indices.size() * sizeof(uint32_t), rhi::BufferUsageFlagBit::INDEX | rhi::BufferUsageFlagBit::TRANSFER_DST, rhi::MemoryType::GPU_ONLY);
         ib->SetUploadData(std::move(indices));
-        primitive->geometry->indexBuffer.buffer = ib;
-        primitive->geometry->indexBuffer.range = ib->GetSize();
-        primitive->geometry->indexBuffer.indexType = rhi::IndexType::U32;
-
-        Renderer::Get()->GetStreamingManager()->UploadBuffer(vb);
-        Renderer::Get()->GetStreamingManager()->UploadBuffer(ib);
-        primitive->pool = pool;
-
-//        resourceGroup = new ResourceGroup();
-//        resourceGroup->Init(technique->RequestProgram({})->RequestLayout(BATCH_SET), *pool);
-//        primitive->batches[0].batchGroup = resourceGroup;
-    }
-
-    SkySphereRenderer::~SkySphereRenderer() = default;
-
-    void SkySphereRenderer::SetTechnique(const RDGfxTechPtr &tech)
-    {
-        // technique = tech;
-        // primitive->sections.emplace_back();
-        // primitive->sections[0].batches.emplace_back(RenderBatch{
-        //     technique
-        // });
+        geometry->indexBuffer.buffer = ib;
+        geometry->indexBuffer.range = ib->GetSize();
+        geometry->indexBuffer.indexType = rhi::IndexType::U32;
+        geometry->Upload();
     }
 
 } // namespace sky

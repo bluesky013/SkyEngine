@@ -18,6 +18,14 @@ namespace sky {
             ptr = &val;
         }
 
+        void UnRegister(T &val)
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (ptr == &val) {
+                ptr = nullptr;
+            }
+        }
+
         void UnRegister()
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -26,18 +34,19 @@ namespace sky {
 
         T *GetApi()
         {
+            std::lock_guard<std::mutex> lock(mutex);
             return ptr;
         }
 
         T *operator->()
         {
-            return ptr;
+            return GetApi();
         }
 
     private:
         friend class Singleton<Interface<T>>;
         Interface()  = default;
-        ~Interface() = default;
+        ~Interface() override = default;
         std::mutex mutex;
         T         *ptr = nullptr;
     };

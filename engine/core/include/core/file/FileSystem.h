@@ -50,6 +50,7 @@ namespace sky {
         void ReplaceExtension(const std::string &name);
 
         std::fstream OpenFStream(std::ios_base::openmode) const;
+        std::ifstream OpenIFStream(std::ios_base::openmode) const;
 
         bool operator==(const FilePath &rhs) const { return filePath == rhs.filePath; }
     private:

@@ -9,6 +9,7 @@
 #include <render/Renderer.h>
 #include <render/RHI.h>
 #include <framework/asset/AssetDataBase.h>
+#include <sstream>
 
 namespace sky {
 
@@ -24,7 +25,7 @@ namespace sky {
 #endif
         font = TextRegistry::Get()->LoadFont(fs, "fonts/OpenSans-Regular.ttf");
         text = scene->GetFeature<TextFeatureProcessor>()->CreateText(font);
-        text->Init(TextDesc{30});
+        text->Init(TextDesc{20});
     }
 
     RenderProfiler::~RenderProfiler()
@@ -54,10 +55,20 @@ namespace sky {
 
         text->Reset(*scene);
 
-        float x = ((float)displayWidth + 999.f) / 1000.f * 10.f;
-        float y = ((float)displayHeight + 999.f) / 1000.f * 20.f;
+        const float margin = 20.f;
+        const float screenW = static_cast<float>(displayWidth);
+        float curY = margin;
 
-        text->AddText(ss.str(), Vector2{x, y}, info);
+        // render each line right-aligned
+        std::istringstream iss(ss.str());
+        std::string line;
+        while (std::getline(iss, line)) {
+            const auto lineSize = text->MeasureText(line, info);
+            const float x = screenW - lineSize.x - margin;
+            text->AddText(line, Vector2{x, curY}, info);
+            curY += lineSize.y;
+        }
+
         text->Finalize(*scene);
     }
 

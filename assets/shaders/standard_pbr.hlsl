@@ -8,8 +8,9 @@
 #pragma option({"key": "ENABLE_AO_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_MR_MAP",       "default": 0, "type": "Batch"})
 #pragma option({"key": "ENABLE_ALPHA_MASK",   "default": 0, "type": "Batch"})
-#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
+#pragma option({"key": "ENABLE_TRANSMISSION", "default": 0, "type": "Batch"})
 
+#pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Pass"})
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
 
 #include "vertex/standard.hlslh"
@@ -330,6 +331,12 @@ float4 FSMain(VSOutput input) : SV_TARGET
     }
 #endif
 
+#if ENABLE_TRANSMISSION
+    float transmission = saturate(TransmissionFactor * TransmissionMap.Sample(TransmissionSampler, input.UV.xy).r);
+#else
+    float transmission = 0.0;
+#endif
+
     LightInfo light;
     light.Color = MainLightColor;
     light.Direction = MainLightDirection;
@@ -417,14 +424,23 @@ float4 FSMain(VSOutput input) : SV_TARGET
 
     // Ensure minimum brightness to avoid edge darkening artifacts
     // This is especially important for grazing angles where N·V is near zero
-    float minBrightness = 0.02 * pbrParam.Albedo * pbrParam.AO;  // Subtle minimum fill light
+    float3 minBrightness = 0.02 * pbrParam.Albedo * pbrParam.AO;  // Subtle minimum fill light
     ambient = max(ambient, minBrightness);
 
-    return float4(e0 + ambient, albedo.a);
+    float3 color = e0 + ambient;
 #else
     // Fallback without IBL
     float3 ambient = float3(0.03, 0.03, 0.03) * pbrParam.Albedo * pbrParam.AO;
-    return float4(e0 + ambient, albedo.a);
+    float3 color = e0 + ambient;
 #endif
+
+#if ENABLE_TRANSMISSION
+    color = lerp(color, color * albedo.rgb, 1.0 - transmission);
+    float outAlpha = saturate(albedo.a * (1.0 - transmission));
+#else
+    float outAlpha = albedo.a;
+#endif
+    return float4(color, outAlpha);
 }
 //------------------------------------------ Fragment Shader------------------------------------------//
+

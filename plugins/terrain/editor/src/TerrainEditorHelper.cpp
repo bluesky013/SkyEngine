@@ -3,7 +3,6 @@
 //
 
 #include <terrain/editor/TerrainToolHelper.h>
-#include <terrain/TerrainUtils.h>
 #include <framework/asset/AssetManager.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 
@@ -42,59 +41,38 @@ namespace sky::editor {
         renderer->Reset();
     }
 
-    void TerrainHelper::DrawFullTerrainGrid(const TerrainBuildConfig &cfg, const Vector3 &worldPos)
+    void TerrainHelper::DrawFullTerrainGrid(const ClipmapConfig &cfg, uint32_t tileCountX, uint32_t tileCountY, const Vector3 &worldPos)
     {
         renderer->Reset();
+
+        float tileWorldSize = static_cast<float>(cfg.blockSize) * cfg.resolution;
+        float boundX = static_cast<float>(tileCountX) * tileWorldSize;
+        float boundY = static_cast<float>(tileCountY) * tileWorldSize;
 
         renderer->SetTopo(rhi::PrimitiveTopology::TRIANGLE_LIST);
         renderer->SetBlendEnable(true);
         renderer->SetColor(Color32{0, 32, 0, 128});
-
-        auto size = ConvertSectionSize(cfg.sectionSize);
-
-        float boundX = static_cast<float>(cfg.sectionNumX) * static_cast<float>(size);
-        float boundY = static_cast<float>(cfg.sectionNumY) * static_cast<float>(size);
-        // Draw Bounds
         {
-            float x0 = 0;
-            float y0 = 0;
-
-            float x1 = boundX * cfg.resolution;
-            float y1 = boundY * cfg.resolution;
-
-            Vector3 p00 = worldPos + Vector3(x0, 0.f, y0);
-            Vector3 p10 = worldPos + Vector3(x1, 0.f, y0);
-            Vector3 p11 = worldPos + Vector3(x1, 0.f, y1);
-            Vector3 p01 = worldPos + Vector3(x0, 0.f, y1);
-
+            Vector3 p00 = worldPos;
+            Vector3 p10 = worldPos + Vector3(boundX, 0.f, 0.f);
+            Vector3 p11 = worldPos + Vector3(boundX, 0.f, boundY);
+            Vector3 p01 = worldPos + Vector3(0.f, 0.f, boundY);
             renderer->DrawTriangle(p00, p10, p11);
             renderer->DrawTriangle(p11, p01, p00);
         }
 
         renderer->SetTopo(rhi::PrimitiveTopology::LINE_LIST);
-        
         auto c0 = Color32{127, 0, 0, 128};
-        auto c1 = Color32{31, 31, 0, 32};
-        // Draw Section Grids.
-        for (uint32_t i = 0; i < cfg.sectionNumX * size + 1; ++i) {
-            auto x = static_cast<float>(i);
-            auto  color = (i % size) == 0 ? c0 : c1;
-
-            Vector3 p0 = worldPos + Vector3(x, 0, 0);
-            Vector3 p1 = worldPos + Vector3(x, 0, boundY);
-
-            renderer->SetColor(color);
-            renderer->DrawLine(p0, p1);
+        // Draw tile grid lines
+        for (uint32_t i = 0; i <= tileCountX; ++i) {
+            float x = static_cast<float>(i) * tileWorldSize;
+            renderer->SetColor(c0);
+            renderer->DrawLine(worldPos + Vector3(x, 0, 0), worldPos + Vector3(x, 0, boundY));
         }
-        for (uint32_t i = 0; i < cfg.sectionNumY * size + 1; ++i) {
-            auto y = static_cast<float>(i);
-            auto  color = (i % size) == 0 ? c0 : c1;
-
-            Vector3 p0 = worldPos + Vector3(0,  0, y);
-            Vector3 p1 = worldPos + Vector3(boundX, 0, y);
-
-            renderer->SetColor(color);
-            renderer->DrawLine(p0, p1);
+        for (uint32_t i = 0; i <= tileCountY; ++i) {
+            float y = static_cast<float>(i) * tileWorldSize;
+            renderer->SetColor(c0);
+            renderer->DrawLine(worldPos + Vector3(0, 0, y), worldPos + Vector3(boundX, 0, y));
         }
 
         renderer->Render(primitives);
@@ -108,86 +86,68 @@ namespace sky::editor {
         renderer->SetBlendEnable(true);
         renderer->SetColor(Color32{0, 127, 0, 128});
 
-        auto size = ConvertSectionSize(data.sectionSize);
+        float tileWorldSize = static_cast<float>(data.config.blockSize) * data.config.resolution;
+        float boundX = static_cast<float>(data.tileCountX) * tileWorldSize;
+        float boundY = static_cast<float>(data.tileCountY) * tileWorldSize;
 
-        float boundX = static_cast<float>(data.sectionBoundX) * static_cast<float>(size);
-        float boundY = static_cast<float>(data.sectionBoundY) * static_cast<float>(size);
-        // Draw Bounds
-        {
-            float x0 = 0;
-            float y0 = 0;
+        Vector3 p00 = worldPos;
+        Vector3 p10 = worldPos + Vector3(boundX, 0.f, 0.f);
+        Vector3 p11 = worldPos + Vector3(boundX, 0.f, boundY);
+        Vector3 p01 = worldPos + Vector3(0.f, 0.f, boundY);
 
-            float x1 = boundX * data.resolution;
-            float y1 = boundY * data.resolution;
-
-            Vector3 p00 = worldPos + Vector3(x0, 0.f, y0);
-            Vector3 p10 = worldPos + Vector3(x1, 0.f, y0);
-            Vector3 p11 = worldPos + Vector3(x1, 0.f, y1);
-            Vector3 p01 = worldPos + Vector3(x0, 0.f, y1);
-
-            renderer->DrawLine(p00, p10);
-            renderer->DrawLine(p10, p11);
-            renderer->DrawLine(p11, p01);
-            renderer->DrawLine(p01, p00);
-        }
+        renderer->DrawLine(p00, p10);
+        renderer->DrawLine(p10, p11);
+        renderer->DrawLine(p11, p01);
+        renderer->DrawLine(p01, p00);
 
         renderer->Render(primitives);
     }
 
-    void TerrainHelper::DrawSelectedGrid(const TerrainData &data, int32_t x, int32_t y, const Vector3 &worldPos)
+    void TerrainHelper::DrawSelectedTile(const TerrainData &data, int32_t x, int32_t y, const Vector3 &worldPos)
     {
         renderer->Reset();
+
+        float tileWorldSize = static_cast<float>(data.config.blockSize) * data.config.resolution;
 
         renderer->SetTopo(rhi::PrimitiveTopology::TRIANGLE_LIST);
         renderer->SetBlendEnable(true);
 
-        auto size = ConvertSectionSize(data.sectionSize);
-
-        auto c0 = Color32{0,31,0,128};
+        auto c0 = Color32{0, 31, 0, 128};
         auto c1 = Color32{31, 31, 0, 128};
 
-        for (const auto &terrain : data.sections) {
-            const auto sectionX = terrain.coord.x;
-            const auto sectionY = terrain.coord.y;
+        // Highlight existing tiles
+        for (uint32_t ty = 0; ty < data.tileCountY; ++ty) {
+            for (uint32_t tx = 0; tx < data.tileCountX; ++tx) {
+                auto color = (static_cast<int32_t>(tx) == x && static_cast<int32_t>(ty) == y) ? c1 : c0;
+                renderer->SetColor(color);
 
-            auto color = (sectionX == x) && (sectionY == y) ? c1 : c0;
+                float x0 = static_cast<float>(tx) * tileWorldSize;
+                float x1 = static_cast<float>(tx + 1) * tileWorldSize;
+                float y0 = static_cast<float>(ty) * tileWorldSize;
+                float y1 = static_cast<float>(ty + 1) * tileWorldSize;
 
-            renderer->SetColor(color);
-            float x0 = static_cast<float>((sectionX + 0) * size) * data.resolution;
-            float x1 = static_cast<float>((sectionX + 1) * size) * data.resolution;
-            float y0 = static_cast<float>((sectionY + 0) * size) * data.resolution;
-            float y1 = static_cast<float>((sectionY + 1) * size) * data.resolution;
+                Vector3 p00 = worldPos + Vector3(x0, 0.f, y0);
+                Vector3 p10 = worldPos + Vector3(x1, 0.f, y0);
+                Vector3 p11 = worldPos + Vector3(x1, 0.f, y1);
+                Vector3 p01 = worldPos + Vector3(x0, 0.f, y1);
 
-            Vector3 p00 = worldPos + Vector3(x0, 0.f, y0);
-            Vector3 p10 = worldPos + Vector3(x1, 0.f, y0);
-            Vector3 p11 = worldPos + Vector3(x1, 0.f, y1);
-            Vector3 p01 = worldPos + Vector3(x0, 0.f, y1);
-
-            renderer->DrawTriangle(p00, p10, p11);
-            renderer->DrawTriangle(p11, p01, p00);
+                renderer->DrawTriangle(p00, p10, p11);
+                renderer->DrawTriangle(p11, p01, p00);
+            }
         }
 
-        // Draw Section Grid.
+        // Draw tile grid lines
         renderer->SetTopo(rhi::PrimitiveTopology::LINE_LIST);
         renderer->SetColor(Color32{127, 0, 0, 128});
-        for (const auto &terrain : data.sections) {
-            const auto sectionX = terrain.coord.x;
-            const auto sectionY = terrain.coord.y;
-
-            float x0 = static_cast<float>((sectionX + 0)* size) * data.resolution;
-            float x1 = static_cast<float>((sectionX + 1)* size) * data.resolution;
-            float y0 = static_cast<float>((sectionY + 0)* size) * data.resolution;
-            float y1 = static_cast<float>((sectionY + 1)* size) * data.resolution;
-
-            Vector3 p00 = worldPos + Vector3(x0, 0.f, y0);
-            Vector3 p10 = worldPos + Vector3(x1, 0.f, y0);
-            Vector3 p11 = worldPos + Vector3(x1, 0.f, y1);
-            Vector3 p01 = worldPos + Vector3(x0, 0.f, y1);
-
-            renderer->DrawLine(p00, p10);
-            renderer->DrawLine(p10, p11);
-            renderer->DrawLine(p11, p01);
-            renderer->DrawLine(p01, p00);
+        float boundX = static_cast<float>(data.tileCountX) * tileWorldSize;
+        float boundY = static_cast<float>(data.tileCountY) * tileWorldSize;
+        for (uint32_t i = 0; i <= data.tileCountX; ++i) {
+            float xp = static_cast<float>(i) * tileWorldSize;
+            renderer->DrawLine(worldPos + Vector3(xp, 0, 0), worldPos + Vector3(xp, 0, boundY));
+        }
+        for (uint32_t i = 0; i <= data.tileCountY; ++i) {
+            float yp = static_cast<float>(i) * tileWorldSize;
+            renderer->DrawLine(worldPos + Vector3(0, 0, yp), worldPos + Vector3(boundX, 0, yp));
         }
 
         renderer->Render(primitives);

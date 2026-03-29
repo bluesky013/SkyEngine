@@ -57,16 +57,17 @@ float D_GGX(float dotNH, float roughness)
 	return (alpha2) / (PI * denom * denom);
 }
 
-float G_SchlickGGX(float dotNV, float roughness)
+// Smith GGX for direct lighting: k = (roughness + 1)^2 / 8
+float G_SmithGGX_Direct(float dotNL, float dotNV, float roughness)
 {
      float r = (roughness + 1.0);
-     float k = (r*r) / 8.0;
-
-     float num   = dotNV;
-     float denom = dotNV * (1.0 - k) + k;
-     return num / denom;
+     float k = (r * r) / 8.0;
+     float GL = dotNL / (dotNL * (1.0 - k) + k);
+     float GV = dotNV / (dotNV * (1.0 - k) + k);
+     return GL * GV;
 }
 
+// Smith GGX for IBL: k = roughness^2 / 2
 float G_SchlickSmithGGX(float dotNL, float dotNV, float roughness)
 {
      float k = (roughness * roughness) / 2.0;
@@ -99,7 +100,7 @@ float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
 
     float3 F = F_Schlick(dotVH, F0);
     float D = D_GGX(dotNH, param.Roughness);
-    float G = G_SchlickSmithGGX(dotNL, dotNV, param.Roughness);
+    float G = G_SmithGGX_Direct(dotNL, dotNV, param.Roughness);
 
     // Ensure denominator doesn't become zero - add epsilon
     float specular = (D * G / (4.0 * dotNV * dotNL + 0.001));
@@ -109,6 +110,6 @@ float3 BRDF(float3 V, float3 N, LightInfo light, StandardPBR param)
     float3 diffuse = kD / PI * param.Albedo;
 
     // Combine diffuse and specular with direct light
-    L0 = (diffuse + specularColor) * light.Color.rgb * light.Color.w * dotNL * param.AO + param.Emissive.rgb;
+    L0 = (diffuse + specularColor) * light.Color.rgb * light.Color.w * dotNL + param.Emissive.rgb;
     return L0;
 }

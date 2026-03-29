@@ -1,37 +1,45 @@
 set(CURRENT_FOLDER Plugins)
 
-if (SKY_EDITOR)
-    add_subdirectory(guizmo)
-endif ()
-
-if (SKY_BUILD_PYTHON)
-    add_subdirectory(python)
-endif ()
-
-if (SKY_BUILD_XR)
-    add_subdirectory(xr)
-endif ()
-
-if (SKY_BUILD_BULLET)
-    add_subdirectory(bullet)
-endif ()
-
-if (SKY_BUILD_RECAST)
-    add_subdirectory(recast)
-endif ()
-
-if (SKY_BUILD_FREETYPE)
-    add_subdirectory(freetype)
-endif ()
-
-if (SKY_BUILD_TERRAIN)
-    add_subdirectory(terrain)
-endif ()
-
-if (SKY_BUILD_COMPRESSION)
-    add_subdirectory(compression)
+set(_SKY_PLUGINS_CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugins.json")
+if (NOT EXISTS "${_SKY_PLUGINS_CONFIG}")
+    message(FATAL_ERROR "plugins/plugins.json not found: ${_SKY_PLUGINS_CONFIG}")
 endif()
 
-if (SKY_BUILD_PVS)
-    add_subdirectory(pvs)
+file(READ "${_SKY_PLUGINS_CONFIG}" _SKY_PLUGINS_JSON)
+string(JSON _sky_plugin_count LENGTH "${_SKY_PLUGINS_JSON}" "plugins")
+
+if (_sky_plugin_count GREATER 0)
+    math(EXPR _sky_plugin_last "${_sky_plugin_count} - 1")
+    foreach(_i RANGE ${_sky_plugin_last})
+        string(JSON _plugin_name GET "${_SKY_PLUGINS_JSON}" "plugins" "${_i}" "name")
+        string(JSON _plugin_dir  GET "${_SKY_PLUGINS_JSON}" "plugins" "${_i}" "dir")
+        string(JSON _cmake_var   GET "${_SKY_PLUGINS_JSON}" "plugins" "${_i}" "cmake_var")
+        string(JSON _requires_editor ERROR_VARIABLE _requires_editor_err
+               GET "${_SKY_PLUGINS_JSON}" "plugins" "${_i}" "requires_editor")
+
+        set(_can_build TRUE)
+        if ((NOT _requires_editor_err) AND _requires_editor AND (NOT SKY_EDITOR))
+            set(_can_build FALSE)
+        endif()
+
+        if (_can_build AND ${_cmake_var})
+            message(STATUS "[SkyEngine] Enable plugin: ${_plugin_name}")
+            set(CURRENT_FOLDER "Plugins/${_plugin_dir}")
+            add_subdirectory(${_plugin_dir})
+        endif()
+    endforeach()
 endif()
+
+set(CURRENT_FOLDER Plugins)
+
+unset(_SKY_PLUGINS_CONFIG)
+unset(_SKY_PLUGINS_JSON)
+unset(_sky_plugin_count)
+unset(_sky_plugin_last)
+unset(_i)
+unset(_plugin_name)
+unset(_plugin_dir)
+unset(_cmake_var)
+unset(_requires_editor)
+unset(_requires_editor_err)
+unset(_can_build)

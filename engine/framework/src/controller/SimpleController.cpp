@@ -29,8 +29,10 @@ namespace sky {
             startX = currentX;
             startY = currentY;
 
-            euler.y -= diffX * 20000.0f * time;
-            euler.x -= diffY * 20000.0f * time;
+            // Mouse rotation is driven by pixel delta (per-frame input),
+            // not by deltaTime ¡ª otherwise sensitivity varies with frame rate.
+            euler.y -= diffX * mouseSensitivity;
+            euler.x -= diffY * mouseSensitivity;
             res.rotation.FromEulerYZX(euler);
             isDirty = true;
         }

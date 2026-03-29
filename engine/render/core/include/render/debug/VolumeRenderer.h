@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <Render/RenderPrimitive.h>
+#include <render/RenderPrimitive.h>
 
 namespace sky {
     class RenderScene;

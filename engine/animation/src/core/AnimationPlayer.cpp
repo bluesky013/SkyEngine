@@ -59,7 +59,7 @@ namespace sky {
     {
         float time = current + delta;
         if (time < 0.f || time > length) {
-            time = loop ? ((length == 0.f) ? std::fmod(time, length) : 0.f)
+            time = loop ? ((length > 0.f) ? std::fmod(time, length) : 0.f)
                         : std::clamp(time, 0.f, length);
         }
         return time;

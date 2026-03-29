@@ -3,7 +3,7 @@
 //
 
 #include <terrain/tools/TerrainGenerator.h>
-#include <PerlinNoise.hpp>
+#include <core/math/PerlinNoise.h>
 
 namespace sky {
 
@@ -14,8 +14,7 @@ namespace sky {
 
     bool TerrainGenerator::DoWork()
     {
-        const siv::PerlinNoise::seed_type seed = 113344u;
-        const siv::PerlinNoise perlin{ seed };
+        const PerlinNoise perlin{113344u};
 
         uint32_t blockWidth = 256;
         uint32_t blockNum = config.maxExt / config.minExt;
@@ -29,7 +28,7 @@ namespace sky {
 
             for (uint64_t i = 0; i < blockWidth; ++i) {
                 for (uint64_t j = 0; j < blockWidth; ++j) {
-                    const double noise       = perlin.noise2D_01((xOffset + i) * 0.002, (yOffset + j) * 0.002);
+                    const double noise       = perlin.Octave2D_01((xOffset + i) * 0.002, (yOffset + j) * 0.002, 1);
                     data[j * blockWidth + i] = static_cast<uint16_t>(noise * 65535);
                 }
             }

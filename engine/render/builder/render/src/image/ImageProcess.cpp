@@ -110,6 +110,7 @@ namespace sky::builder {
                 auto *ptr = reinterpret_cast<float *>(dst);
                 ptr[i] = color.v[i];
             }
+                break;
             default:
                 SKY_ASSERT("not implement")
                 break;

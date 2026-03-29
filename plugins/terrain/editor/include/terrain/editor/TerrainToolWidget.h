@@ -68,14 +68,14 @@ namespace sky::editor {
     public:
         explicit TerrainBuildTool(QWidget* parent);
         ~TerrainBuildTool() override = default;
-        const TerrainBuildConfig &GetConfig() const;
+        const ClipmapConfig &GetConfig() const;
         
         void OnDraw(TerrainHelper &helper, TerrainComponent *) override;
 
         QPushButton *createBtn = nullptr;
     private:
         ActorPtr selectActor;
-        TObjectWidget<TerrainBuildConfig> *config = nullptr;
+        TObjectWidget<ClipmapConfig> *config = nullptr;
     };
 
     class TerrainToolWidget

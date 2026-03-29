@@ -120,6 +120,35 @@ namespace sky {
         return ret;
     }
 
+    // Reverse-Z infinite far plane perspective projection.
+
+    FORCEINLINE Matrix4 MakePerspectiveReverseZ(float fovy, float aspect, float near)
+    {
+        float const inverseHalfTan = cos(0.5f * fovy) / sin(0.5f * fovy);
+
+        Matrix4 ret;
+        ret[0][0] = inverseHalfTan / aspect;
+        ret[1][1] = inverseHalfTan;
+        ret[2][2] = 0.f;
+        ret[2][3] = -1.f;
+        ret[3][2] = near;
+        return ret;
+    }
+
+    // Reverse-Z perspective projection with finite far plane.
+    FORCEINLINE Matrix4 MakePerspectiveReverseZFinite(float fovy, float aspect, float near, float far)
+    {
+        float const inverseHalfTan = cos(0.5f * fovy) / sin(0.5f * fovy);
+
+        Matrix4 ret;
+        ret[0][0] = inverseHalfTan / aspect;
+        ret[1][1] = inverseHalfTan;
+        ret[2][2] = near / (far - near);
+        ret[2][3] = -1.f;
+        ret[3][2] = (far * near) / (far - near);
+        return ret;
+    }
+
     FORCEINLINE void Decompose(const Matrix4 &m, Vector3 &trans, Quaternion &quat, Vector3 &scale)
     {
         trans.x = m.v[12];

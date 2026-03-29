@@ -9,6 +9,8 @@ file(GLOB_RECURSE EDITOR_INC_FILES editor/include/*)
 
 file(GLOB_RECURSE TEST_FILES test/*)
 
+include(${ENGINE_ROOT}/cmake/plugin_config.cmake)
+
 sky_add_library(TARGET Terrain.Static STATIC
     SOURCES
         ${RUNTIME_SRC_FILES}
@@ -31,8 +33,6 @@ sky_add_library(TARGET Terrain SHARED
         Terrain.Static
 )
 
-sky_add_dependency(TARGET Terrain DEPENDENCIES Launcher)
-
 if (SKY_BUILD_EDITOR)
     sky_add_library(TARGET TerrainEditor SHARED
         SOURCES
@@ -46,10 +46,10 @@ if (SKY_BUILD_EDITOR)
         LINK_LIBS
             Terrain.Static
             EditorFramework
-            3rdParty::PerlinNoise
     )
-    sky_add_dependency(TARGET TerrainEditor DEPENDENCIES Editor)
 endif ()
+
+sky_plugin_apply_target_dependencies(CONFIG "${CMAKE_CURRENT_LIST_DIR}/plugin.json")
 
 sky_add_library(TARGET TerrainTools STATIC
     SOURCES
@@ -61,7 +61,6 @@ sky_add_library(TARGET TerrainTools STATIC
         tools/include
    LINK_LIBS
         Terrain.Static
-        3rdParty::PerlinNoise
 )
 
 sky_add_test(TARGET TerrainTest

@@ -13,6 +13,6 @@
         "depthWriteEnable": true
     },
     "raster_state": {
-        "cullMode": "NONE"
+        "cullMode": "BACK"
     }
 }

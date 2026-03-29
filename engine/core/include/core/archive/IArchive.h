@@ -48,6 +48,8 @@ namespace sky {
             return *this;
         }
 
+        virtual bool Skip(size_t size) { return false; }
+
         virtual int Peek() { return std::char_traits<char>::eof(); }
         virtual int Get() { return std::char_traits<char>::eof(); }
         virtual size_t Tell() const { return 0; }

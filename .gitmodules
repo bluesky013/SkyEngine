@@ -13,9 +13,6 @@
 [submodule "thirdparty/rapidjson"]
 	path = thirdparty/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
-[submodule "thirdparty/crc32c"]
-	path = thirdparty/crc32c
-	url = git@github.com:google/crc32c.git
 [submodule "thirdparty/assimp"]
 	path = thirdparty/assimp
 	url = git@github.com:assimp/assimp.git
@@ -55,9 +52,6 @@
 [submodule "thirdparty/volk"]
 	path = thirdparty/volk
 	url = git@github.com:zeux/volk.git
-[submodule "thirdparty/PerlinNoise"]
-	path = thirdparty/PerlinNoise
-	url = git@github.com:Reputeless/PerlinNoise.git
 [submodule "thirdparty/ktx"]
 	path = thirdparty/ktx
 	url = git@github.com:KhronosGroup/KTX-Software.git

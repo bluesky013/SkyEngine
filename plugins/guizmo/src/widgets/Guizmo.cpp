@@ -46,9 +46,10 @@ namespace sky::editor {
         auto view = sceneView->GetView();
 
 //        ImGuizmo::DrawGrid(view.v, proj.v, identity.v, 500.f);
-        auto offsetX = io.DisplaySize.x - 256;
+        auto offsetX = 0;
+        auto offsetY = io.DisplaySize.y - 256;
 
-        ImGuizmo::ViewManipulate(view.v, 8.f, ImVec2(offsetX, 0), ImVec2(256, 266), 0x10101010);
+        ImGuizmo::ViewManipulate(view.v, 8.f, ImVec2(offsetX, offsetY), ImVec2(256, 266), 0x10101010);
 
         if (actor != nullptr) {
             auto *transComp = actor->GetComponent<TransformComponent>();

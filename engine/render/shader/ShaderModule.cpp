@@ -11,7 +11,7 @@
 #include <shader/ShaderCacheManager.h>
 #include <shader/ShaderFileSystem.h>
 #include <rhi/Instance.h>
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 namespace sky {
 
@@ -65,18 +65,18 @@ namespace sky {
 
     bool ShaderModule::Init(const StartArguments &args)
     {
-        cxxopts::Options options("SkyEngine ShaderModule", "SkyEngine ShaderModule");
+        CmdOptions options("SkyEngine ShaderModule", "SkyEngine ShaderModule");
         options.allow_unrecognised_options();
 
         options.add_options()("e,engine", "Engine Directory",
-            cxxopts::value<std::string>())("p,project", "Project Directory",
-            cxxopts::value<std::string>())("i,intermediate", "Project Intermediate Directory",
-            cxxopts::value<std::string>())("r,rhi", "RHI Type",
-            cxxopts::value<std::string>());
+            CmdValue<std::string>())("p,project", "Project Directory",
+            CmdValue<std::string>())("i,intermediate", "Project Intermediate Directory",
+            CmdValue<std::string>())("r,rhi", "RHI Type",
+            CmdValue<std::string>());
 
         ShaderCompileTarget target = ShaderCompileTarget::SPIRV;
 
-        cxxopts::ParseResult result;
+        CmdParseResult result;
         if (!args.args.empty()) {
             result = options.parse(static_cast<int32_t>(args.args.size()), args.args.data());
             if (result.count("rhi") != 0u) {

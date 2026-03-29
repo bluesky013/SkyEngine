@@ -6,11 +6,10 @@
 
 #include <core/environment/Singleton.h>
 #include <editor/WidgetManager.h>
-#include <editor/widgets/Menu.h>
-#include <editor/widgets/WorldWidget.h>
 #include <editor/widgets/Guizmo.h>
 #include <framework/interface/IGizmo.h>
 #include <framework/world/World.h>
+#include <imgui/ImGuiConsoleWidget.h>
 #include <memory>
 
 namespace sky::editor {
@@ -26,6 +25,7 @@ namespace sky::editor {
 
         std::unique_ptr<WidgetManager> wm;
         std::unique_ptr<GuiZmoWidget> gui;
+        std::unique_ptr<ImGuiConsoleWidget> consoleWidget;
         ImGuiInstance* guiInstance = nullptr;
         RenderScene* renderScene = nullptr;
     };

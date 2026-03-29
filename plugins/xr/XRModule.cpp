@@ -10,7 +10,7 @@
 #include <xr/XRInstance.h>
 #include <render/RHI.h>
 
-#include <cxxopts.hpp>
+#include <core/cmdline/CmdParser.h>
 
 namespace sky {
 
@@ -33,11 +33,11 @@ namespace sky {
 
     bool XRModule::ProcessArgs(const StartArguments &args)
     {
-        cxxopts::Options options("SkyEngine XR Plugin", "SkyEngine XR Plugin");
+        CmdOptions options("SkyEngine XR Plugin", "SkyEngine XR Plugin");
         options.allow_unrecognised_options();
 
-        options.add_options()("r,rhi", "RHI Type", cxxopts::value<std::string>());
-        options.add_options()("a,app", "App Type", cxxopts::value<std::string>());
+        options.add_options()("r,rhi", "RHI Type", CmdValue<std::string>());
+        options.add_options()("a,app", "App Type", CmdValue<std::string>());
 
         if (args.args.empty()) {
             return false;

@@ -5,6 +5,7 @@
 #include <core/file/FileSystem.h>
 #include <core/file/FileIO.h>
 #include <core/archive/FileArchive.h>
+#include <core/archive/MemoryStreamArchive.h>
 #include <core/util/String.h>
 #include <filesystem>
 
@@ -75,6 +76,11 @@ namespace sky {
         return std::fstream(filePath, mode);
     }
 
+    std::ifstream FilePath::OpenIFStream(std::ios_base::openmode mode) const
+    {
+        return std::ifstream(filePath, mode);
+    }
+
     FilePath FilePath::Relative(const FilePath& base) const
     {
         auto result = std::filesystem::relative(filePath, base.filePath);
@@ -129,7 +135,7 @@ namespace sky {
 
     void NativeFile::ReadData(uint64_t offset, uint64_t size, uint8_t *out)
     {
-        std::fstream stream = filePath.OpenFStream(std::ios::in | std::ios::binary);
+        std::ifstream stream = filePath.OpenIFStream(std::ios::binary);
         if (!stream.is_open()) {
             return;
         }
