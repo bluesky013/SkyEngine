@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string>
-
-#include <rhi/Core.h>
+#include <shader/ShaderCompilerTypes.h>
 
 namespace sky::sl {
 

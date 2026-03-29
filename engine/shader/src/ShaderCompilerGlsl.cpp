@@ -34,14 +34,14 @@ namespace sky {
         return true;
     }
 
-    static EShLanguage GetLanguage(rhi::ShaderStageFlagBit stage)
+    static EShLanguage GetLanguage(ShaderStageFlagBit stage)
     {
         switch (stage) {
-            case rhi::ShaderStageFlagBit::VS: return EShLangVertex;
-            case rhi::ShaderStageFlagBit::FS: return EShLangFragment;
-            case rhi::ShaderStageFlagBit::CS: return EShLangCompute;
-            case rhi::ShaderStageFlagBit::TAS: return EShLangTask;
-            case rhi::ShaderStageFlagBit::MS: return EShLangMesh;
+            case ShaderStageFlagBit::VS: return EShLangVertex;
+            case ShaderStageFlagBit::FS: return EShLangFragment;
+            case ShaderStageFlagBit::CS: return EShLangCompute;
+            case ShaderStageFlagBit::TAS: return EShLangTask;
+            case ShaderStageFlagBit::MS: return EShLangMesh;
             default:
                 break;
         }
@@ -49,19 +49,19 @@ namespace sky {
         return EShLangCount;
     }
 
-    static rhi::BaseType GetBaseType(const glslang::TType* type)
+    static BaseType GetBaseType(const glslang::TType* type)
     {
         switch (type->getBasicType()) {
             case glslang::EbtFloat:
-                return rhi::BaseType::FLOAT;
+                return BaseType::FLOAT;
             case glslang::EbtInt:
-                return rhi::BaseType::INT;
+                return BaseType::INT;
             case glslang::EbtUint:
-                return rhi::BaseType::UINT;
+                return BaseType::UINT;
             default:
                 break;
         }
-        return rhi::BaseType::UNDEFINED;
+        return BaseType::UNDEFINED;
     }
 
     std::string ShaderCompilerGlsl::Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const
@@ -126,7 +126,7 @@ namespace sky {
 
         std::vector<VertexStageAttribute> &attributes = result.reflection.attributes;
         auto num = program.getNumPipeInputs();
-        for (int i = 0; i < num && desc.stage == rhi::ShaderStageFlagBit::VS; ++i) {
+        for (int i = 0; i < num && desc.stage == ShaderStageFlagBit::VS; ++i) {
             const auto &refl = program.getPipeInput(i);
             const auto *type = refl.getType();
             if (type->isBuiltIn()) {

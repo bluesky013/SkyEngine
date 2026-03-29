@@ -32,7 +32,7 @@ namespace sky {
     }
 
     void BuildReflectionShaderResourceDXIL(const D3D12_SHADER_DESC& shaderDesc, ID3D12ShaderReflection* shaderReflection,
-                             rhi::ShaderStageFlagBit stage, ShaderBuildResult &result)
+                             ShaderStageFlagBit stage, ShaderBuildResult &result)
     {
         for (auto i : std::views::iota(0U, shaderDesc.BoundResources)) {
             D3D12_SHADER_INPUT_BIND_DESC shaderInputBindDesc{};
@@ -51,7 +51,7 @@ namespace sky {
                 D3D12_SHADER_BUFFER_DESC constantBufferDesc{};
                 shaderReflectionConstantBuffer->GetDesc(&constantBufferDesc);
 
-                res.type = rhi::DescriptorType::UNIFORM_BUFFER;
+                res.type = ShaderResourceType::UNIFORM_BUFFER;
                 res.size = constantBufferDesc.Size;
                 auto iter = std::find_if(result.reflection.types.begin(), result.reflection.types.end(),
                                          [&res](const auto &type) {
@@ -79,18 +79,18 @@ namespace sky {
                     }
                 }
             } else if (shaderInputBindDesc.Type == D3D_SIT_SAMPLER) {
-                res.type = rhi::DescriptorType::SAMPLER;
+                res.type = ShaderResourceType::SAMPLER;
             } else if (shaderInputBindDesc.Type == D3D_SIT_TEXTURE) {
-                res.type = rhi::DescriptorType::SAMPLED_IMAGE;
+                res.type = ShaderResourceType::SAMPLED_IMAGE;
             } else if (shaderInputBindDesc.Type == D3D_SIT_UAV_RWTYPED) {
-                res.type = rhi::DescriptorType::STORAGE_IMAGE;
+                res.type = ShaderResourceType::STORAGE_IMAGE;
             } else if (shaderInputBindDesc.Type == D3D_SIT_UAV_RWSTRUCTURED) {
-                res.type = rhi::DescriptorType::STORAGE_BUFFER;
+                res.type = ShaderResourceType::STORAGE_BUFFER;
             }
         }
     }
 
-    void BuildReflectionDXIL(IDxcUtils* dxcUtils, rhi::ShaderStageFlagBit stage, ShaderBuildResult &result)
+    void BuildReflectionDXIL(IDxcUtils* dxcUtils, ShaderStageFlagBit stage, ShaderBuildResult &result)
     {
         const DxcBuffer reflectionBuffer {
             .Ptr      = result.data.data(),
@@ -196,15 +196,15 @@ namespace sky {
 
         // stage
         dxcArgStrings.emplace_back(L"-T");
-        if (desc.stage == rhi::ShaderStageFlagBit::VS) {
+        if (desc.stage == ShaderStageFlagBit::VS) {
             dxcArgStrings.emplace_back(L"vs_6_1");
-        } else if (desc.stage == rhi::ShaderStageFlagBit::FS) {
+        } else if (desc.stage == ShaderStageFlagBit::FS) {
             dxcArgStrings.emplace_back(L"ps_6_1");
-        } else if (desc.stage == rhi::ShaderStageFlagBit::CS) {
+        } else if (desc.stage == ShaderStageFlagBit::CS) {
             dxcArgStrings.emplace_back(L"cs_6_1");
-        } else if (desc.stage == rhi::ShaderStageFlagBit::TAS) {
+        } else if (desc.stage == ShaderStageFlagBit::TAS) {
             dxcArgStrings.emplace_back(L"as_6_5");
-        } else if (desc.stage == rhi::ShaderStageFlagBit::MS) {
+        } else if (desc.stage == ShaderStageFlagBit::MS) {
             dxcArgStrings.emplace_back(L"ms_6_5");
         }
 

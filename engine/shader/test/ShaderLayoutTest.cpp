@@ -9,7 +9,6 @@
 #include <shader/node/ResourceGroupDecl.h>
 #include <shader/node/BufferLayoutCalculator.h>
 #include <shader/node/ResourceDeclGenerator.h>
-#include <shader/node/RHILayoutGenerator.h>
 
 using namespace sky;
 using namespace sky::sl;
@@ -129,7 +128,7 @@ static ResourceGroupDecl BuildDefaultPassGroup()
     return ResourceGroupDecl{
         "DefaultPass",
         0,
-        rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS,
+        ShaderStageFlagBit::VS | ShaderStageFlagBit::FS,
         localStructs,
         resources,
     };
@@ -193,7 +192,7 @@ static ResourceGroupDecl BuildDefaultLocalGroup()
     return ResourceGroupDecl{
         "DefaultLocal",
         2,
-        rhi::ShaderStageFlagBit::VS,
+        ShaderStageFlagBit::VS,
         localStructs,
         resources,
         conditionals,
@@ -445,7 +444,7 @@ TEST(ShaderLayoutTest, SSBONestedStructArray)
     };
     ResourceGroupDecl group = {
         "AccelStruct", 0,
-        rhi::ShaderStageFlagBit::CS,
+        ShaderStageFlagBit::CS,
         localStructs, resources,
     };
 
@@ -513,130 +512,4 @@ TEST(ShaderLayoutTest, LibraryCollectReferencedStructsWithConditionals)
     }
     EXPECT_TRUE(foundMeshlet);
     EXPECT_TRUE(foundExtVertex);
-}
-
-// ---------------------------------------------
-//  RHILayoutGenerator Tests
-// ---------------------------------------------
-
-TEST(ShaderLayoutTest, RHILayoutDefaultPassBindings)
-{
-    auto group = BuildDefaultPassGroup();
-
-    auto desc = RHILayoutGenerator::Generate(group);
-
-    // DefaultPass: 2 cbuffers + 5*(texture+sampler) = 12 bindings total
-    ASSERT_EQ(desc.bindings.size(), 12u);
-
-    // Verify flat binding numbers (same as [[vk::binding]])
-    // passInfo cbuffer -> binding 0
-    EXPECT_EQ(desc.bindings[0].binding, 0u);
-    EXPECT_EQ(desc.bindings[0].type, rhi::DescriptorType::UNIFORM_BUFFER);
-    EXPECT_EQ(desc.bindings[0].name, "passInfo");
-
-    // viewInfo cbuffer -> binding 1
-    EXPECT_EQ(desc.bindings[1].binding, 1u);
-    EXPECT_EQ(desc.bindings[1].type, rhi::DescriptorType::UNIFORM_BUFFER);
-    EXPECT_EQ(desc.bindings[1].name, "viewInfo");
-
-    // ShadowMap texture -> binding 2
-    EXPECT_EQ(desc.bindings[2].binding, 2u);
-    EXPECT_EQ(desc.bindings[2].type, rhi::DescriptorType::SAMPLED_IMAGE);
-    EXPECT_EQ(desc.bindings[2].name, "ShadowMap");
-
-    // ShadowMapSampler -> binding 3
-    EXPECT_EQ(desc.bindings[3].binding, 3u);
-    EXPECT_EQ(desc.bindings[3].type, rhi::DescriptorType::SAMPLER);
-    EXPECT_EQ(desc.bindings[3].name, "ShadowMapSampler");
-
-    // BRDFLut -> binding 4
-    EXPECT_EQ(desc.bindings[4].binding, 4u);
-    EXPECT_EQ(desc.bindings[4].type, rhi::DescriptorType::SAMPLED_IMAGE);
-
-    // Last: HizBufferSampler -> binding 11
-    EXPECT_EQ(desc.bindings[11].binding, 11u);
-    EXPECT_EQ(desc.bindings[11].type, rhi::DescriptorType::SAMPLER);
-    EXPECT_EQ(desc.bindings[11].name, "HizBufferSampler");
-
-    // All should have default visibility from group
-    auto expectedVis = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS;
-    for (const auto &b : desc.bindings) {
-        EXPECT_EQ(b.visibility, expectedVis);
-    }
-}
-
-TEST(ShaderLayoutTest, RHILayoutDefaultLocalSuperset)
-{
-    auto group = BuildDefaultLocalGroup();
-
-    // Generate with all conditionals (superset)
-    auto desc = RHILayoutGenerator::Generate(group);
-
-    // Local cbuffer (binding 0) + MESH_SHADER block: MeshletInfo(1) + 6 StructuredBuffers(2-7)
-    // = 1 unconditional + 7 conditional = 8 total
-    ASSERT_EQ(desc.bindings.size(), 8u);
-
-    // Local cbuffer -> binding 0, DYNAMIC
-    EXPECT_EQ(desc.bindings[0].binding, 0u);
-    EXPECT_EQ(desc.bindings[0].type, rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC);
-    EXPECT_EQ(desc.bindings[0].name, "Local");
-
-    // MeshletInfo -> binding 1, DYNAMIC
-    EXPECT_EQ(desc.bindings[1].binding, 1u);
-    EXPECT_EQ(desc.bindings[1].type, rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC);
-    EXPECT_EQ(desc.bindings[1].name, "MeshletInfo");
-
-    // PositionBuf StructuredBuffer -> binding 2, STORAGE_BUFFER
-    EXPECT_EQ(desc.bindings[2].binding, 2u);
-    EXPECT_EQ(desc.bindings[2].type, rhi::DescriptorType::STORAGE_BUFFER);
-    EXPECT_EQ(desc.bindings[2].name, "PositionBuf");
-
-    // InstanceBuffer -> binding 7
-    EXPECT_EQ(desc.bindings[7].binding, 7u);
-    EXPECT_EQ(desc.bindings[7].type, rhi::DescriptorType::STORAGE_BUFFER);
-    EXPECT_EQ(desc.bindings[7].name, "InstanceBuffer");
-}
-
-TEST(ShaderLayoutTest, RHILayoutDefaultLocalBaseOnly)
-{
-    auto group = BuildDefaultLocalGroup();
-
-    // Generate with NO conditions active (base layout only)
-    auto desc = RHILayoutGenerator::GenerateWithConditions(group, {});
-
-    // Only unconditional: Local cbuffer
-    ASSERT_EQ(desc.bindings.size(), 1u);
-    EXPECT_EQ(desc.bindings[0].binding, 0u);
-    EXPECT_EQ(desc.bindings[0].name, "Local");
-}
-
-TEST(ShaderLayoutTest, RHILayoutDefaultLocalWithMeshShader)
-{
-    auto group = BuildDefaultLocalGroup();
-
-    // Generate with MESH_SHADER active
-    auto desc = RHILayoutGenerator::GenerateWithConditions(
-        group, {"MESH_SHADER"});
-
-    // 1 unconditional + 7 conditional = 8
-    ASSERT_EQ(desc.bindings.size(), 8u);
-}
-
-TEST(ShaderLayoutTest, RHILayoutMatchesManualDefaultPass)
-{
-    // Verify that generated layout matches what DefaultForwardPipeline.cpp
-    // manually creates -- binding numbers should be identical
-    auto group = BuildDefaultPassGroup();
-
-    auto desc = RHILayoutGenerator::Generate(group);
-
-    // Manual layout from DefaultForwardPipeline.cpp uses flat bindings:
-    //   passInfo=0, viewInfo=1, ShadowMap=2, ShadowMapSampler=3,
-    //   BRDFLut=4, BRDFLutSampler=5, IrradianceMap=6, IrradianceSampler=7,
-    //   PrefilteredMap=8, PrefilteredMapSampler=9, HizBuffer=10, HizBufferSampler=11
-    const uint32_t expectedBindings[] = {0,1,2,3,4,5,6,7,8,9,10,11};
-    ASSERT_EQ(desc.bindings.size(), 12u);
-    for (uint32_t i = 0; i < 12; ++i) {
-        EXPECT_EQ(desc.bindings[i].binding, expectedBindings[i]);
-    }
 }

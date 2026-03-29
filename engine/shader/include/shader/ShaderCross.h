@@ -8,6 +8,6 @@
 
 namespace sky {
 
-    void BuildReflectionSPIRV(rhi::ShaderStageFlagBit stage, ShaderBuildResult &result);
+    void BuildReflectionSPIRV(ShaderStageFlagBit stage, ShaderBuildResult &result);
 
 } // namespace sky

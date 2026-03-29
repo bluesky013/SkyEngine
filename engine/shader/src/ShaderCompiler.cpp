@@ -340,22 +340,6 @@ namespace sky {
         return result.insert(iter, suffix);
     }
 
-    rhi::ShaderStageFlagBit ShaderCompiler::GetShaderStage(const std::string& stage)
-    {
-        if (stage == "vertex") {
-            return rhi::ShaderStageFlagBit::VS;
-        }
-        if (stage == "fragment") {
-            return rhi::ShaderStageFlagBit::FS;
-        }
-        if (stage == "compute") {
-            return rhi::ShaderStageFlagBit::CS;
-        }
-
-        SKY_ASSERT(0);
-        return rhi::ShaderStageFlagBit::VS;
-    }
-
     Name ShaderCompiler::GetTargetName(const ShaderCompileTarget &target)
     {
         switch (target) {

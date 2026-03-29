@@ -5,7 +5,7 @@
 #pragma once
 
 #include <shader/node/ShaderDataType.h>
-#include <rhi/Core.h>
+#include <shader/ShaderCompilerTypes.h>
 #include <span>
 
 namespace sky::sl {
@@ -23,7 +23,7 @@ namespace sky::sl {
         ResourceType          type       = ResourceType::CONSTANT_BUFFER;
         std::string_view      name;
         uint32_t              binding    = UINT32_MAX; // UINT32_MAX = auto
-        rhi::ShaderStageFlags visibility = {};
+        ShaderStageFlags      visibility = {};
 
         // ConstantBuffer
         std::span<const MemberDecl> members = {};

@@ -17,22 +17,16 @@
 #include <core/template/ReferenceObject.h>
 #include <core/crypto/md5/MD5.h>
 #include <core/archive/IArchive.h>
-#include <core/archive/MemoryArchive.h>
 
 #include <shader/ShaderVariant.h>
-#include <rhi/Core.h>
+#include <shader/ShaderCompilerTypes.h>
 
 namespace sky {
 
-    struct ShaderIncludeContext {
-        const std::vector<FilePath> &searchPaths;
-        std::set<std::string> visited;
-    };
-
     struct ShaderResource {
         std::string name;
-        rhi::DescriptorType type;
-        rhi::ShaderStageFlags visibility;
+        ShaderResourceType type;
+        ShaderStageFlags visibility;
         uint32_t set;
         uint32_t binding;
         uint32_t count;
@@ -56,7 +50,7 @@ namespace sky {
         std::string semantic;
         uint32_t location;
         uint32_t vecSize;
-        rhi::BaseType type;
+        BaseType type;
     };
 
     struct ShaderReflection {
@@ -69,6 +63,11 @@ namespace sky {
         std::vector<uint32_t> data;
         ShaderReflection reflection;
         std::string errorInfo;
+    };
+
+    struct ShaderIncludeContext {
+        const std::vector<FilePath> &searchPaths;
+        std::set<std::string> visited;
     };
 
     class ShaderOption : public RefObject {
@@ -96,7 +95,7 @@ namespace sky {
     struct ShaderSourceDesc {
         std::string source;
         std::string entry;
-        rhi::ShaderStageFlagBit stage;
+        ShaderStageFlagBit stage;
     };
 
     class ShaderCompilerBase {
@@ -133,9 +132,6 @@ namespace sky {
 
         // replace shader name with entry and option
         static std::string GetBinaryShaderName(const Name& name, const Name& entry, const ShaderOptionPtr &option);
-
-        // get shader stage by name
-        static rhi::ShaderStageFlagBit GetShaderStage(const std::string& stage);
 
         // get shader target name
         static Name GetTargetName(const ShaderCompileTarget &target);

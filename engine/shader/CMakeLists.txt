@@ -32,7 +32,6 @@ sky_add_library(TARGET ShaderCompiler.Static STATIC
         include
     LINK_LIBS
         Core
-        RHI
         ${ShaderCompilerExtLib}
     INSTALL_DIR
         include

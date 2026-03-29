@@ -19,7 +19,7 @@ namespace sky::sl {
     struct ResourceGroupDecl {
         std::string_view                     name;
         uint32_t                             setIndex = 0;
-        rhi::ShaderStageFlags                defaultVisibility = {};
+        ShaderStageFlags                     defaultVisibility = {};
 
         std::span<const StructDecl>          localStructDecls;
         std::span<const ResourceDecl>        resources;

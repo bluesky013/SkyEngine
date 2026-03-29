@@ -19,13 +19,36 @@
 
 namespace sky {
 
-    static rhi::DescriptorType ReplaceDynamic(rhi::DescriptorType type)
+    static ShaderStageFlagBit ConvertFromRHI(rhi::ShaderStageFlagBit bit)
     {
-        if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
-            return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;
-        }
-        return type;
+        return (ShaderStageFlagBit)bit;
     }
+
+    static rhi::ShaderStageFlags ConvertToRHI(ShaderStageFlags bits)
+    {
+        return rhi::ShaderStageFlags(bits.value);
+    }
+
+    static rhi::DescriptorType ConvertToRHI(ShaderResourceType type, uint32_t set)
+    {
+        switch (type) {
+        case ShaderResourceType::SAMPLER: return rhi::DescriptorType::SAMPLER;
+        case ShaderResourceType::SAMPLED_IMAGE: return rhi::DescriptorType::SAMPLED_IMAGE;
+        case ShaderResourceType::STORAGE_IMAGE: return rhi::DescriptorType::STORAGE_IMAGE;
+        case ShaderResourceType::UNIFORM_BUFFER: return set >= 1 ? rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC : rhi::DescriptorType::UNIFORM_BUFFER;
+        case ShaderResourceType::STORAGE_BUFFER: return rhi::DescriptorType::STORAGE_BUFFER;
+        case ShaderResourceType::INPUT_ATTACHMENT: return rhi::DescriptorType::INPUT_ATTACHMENT;
+        };
+        return rhi::DescriptorType::SAMPLER;
+    }
+
+    // static rhi::DescriptorType ReplaceDynamic(ShaderResourceType type)
+    // {
+    //     if (type == ShaderResourceType::UNIFORM_BUFFER) {
+    //         return rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC;
+    //     }
+    //     return type;
+    // }
 
     void Program::MergeReflection(ShaderReflection &&refl)
     {
@@ -74,10 +97,10 @@ namespace sky {
             auto &bindings = layoutDesc[res.set].bindings;
             rhi::DescriptorSetLayout::SetBinding binding = {};
             binding.name       = res.name;
-            binding.type       = res.set >= 1 ? ReplaceDynamic(res.type) : res.type;
+            binding.type       = ConvertToRHI(res.type, res.set);
             binding.count      = std::max(1U, res.count);
             binding.binding    = res.binding;
-            binding.visibility = res.visibility;
+            binding.visibility = ConvertToRHI(res.visibility);
             bindings.emplace_back(binding);
         }
 //            const auto &constant = shader->GetConstant();
@@ -119,7 +142,7 @@ namespace sky {
             }
 
             layout->AddNameHandler(Name(res.name.c_str()), {res.binding, res.size});
-            if (res.type == rhi::DescriptorType::UNIFORM_BUFFER || res.type == rhi::DescriptorType::UNIFORM_BUFFER_DYNAMIC) {
+            if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
                 auto iter = std::find_if(reflection->types.begin(), reflection->types.end(), [&res](const auto &type) -> bool {
                     return res.name == type.name;
                 });
@@ -194,7 +217,7 @@ namespace sky {
                 ShaderSourceDesc desc = {};
                 desc.source = std::move(source);
                 desc.entry = entry.GetStr().data();
-                desc.stage = stage;
+                desc.stage = ConvertFromRHI(stage);
 
                 if (!BuildShaderBinary(desc, option, result)) {
                     return {};

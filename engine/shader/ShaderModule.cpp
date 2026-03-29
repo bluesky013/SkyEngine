@@ -10,7 +10,6 @@
 #include <shader/ShaderCompilerGlsl.h>
 #include <shader/ShaderCacheManager.h>
 #include <shader/ShaderFileSystem.h>
-#include <rhi/Instance.h>
 #include <core/cmdline/CmdParser.h>
 
 namespace sky {

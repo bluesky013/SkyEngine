@@ -1,7 +1,6 @@
 set(CURRENT_FOLDER Engine/Render)
 
 add_subdirectory(backend)
-add_subdirectory(shader)
 add_subdirectory(core)
 add_subdirectory(adaptor)
 add_subdirectory(imgui)

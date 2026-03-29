@@ -13,28 +13,9 @@
 
 namespace sky {
     static constexpr uint32_t INVALID_INDEX = ~(0U);
-
-    enum class ShaderLanguage : uint32_t {
-        HLSL,
-        GLSL
-    };
-
-    enum class ShaderCompileTarget : uint32_t {
-        SPIRV,
-        MSL,
-        DXIL,
-        NUM
-    };
 }
 
 namespace sky::rhi {
-
-    enum class BaseType : uint32_t {
-        UNDEFINED = 0,
-        FLOAT,
-        INT,
-        UINT,
-    };
 
     enum class PixelFormat : uint32_t {
         UNDEFINED = 0,

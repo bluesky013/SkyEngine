@@ -7,14 +7,14 @@
 
 namespace sky {
 
-    void BuildReflectionSPIRV(rhi::ShaderStageFlagBit stage, ShaderBuildResult &result)
+    void BuildReflectionSPIRV(ShaderStageFlagBit stage, ShaderBuildResult &result)
     {
         spirv_cross::CompilerGLSL compiler(result.data.data(), result.data.size());
         spirv_cross::ShaderResources resources = compiler.get_shader_resources();
 
         auto activeIds = compiler.get_active_interface_variables();
 
-        auto remap = [&compiler, &result, &activeIds, stage](auto &resources, rhi::DescriptorType type) {
+        auto remap = [&compiler, &result, &activeIds, stage](auto &resources, ShaderResourceType type) {
             for (auto &resource : resources) {
                 auto set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 bool isVisible = activeIds.count(resource.id) != 0u;
@@ -28,9 +28,9 @@ namespace sky {
                 result.reflection.resources.emplace_back();
                 auto &res = result.reflection.resources.back();
 
-                rhi::ShaderStageFlags visibility = stage;
-                if (stage != rhi::ShaderStageFlagBit::CS && set == 0) {
-                    visibility = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
+                ShaderStageFlags visibility = stage;
+                if (stage != ShaderStageFlagBit::CS && set == 0) {
+                    visibility = ShaderStageFlagBit::VS | ShaderStageFlagBit::FS | ShaderStageFlagBit::TAS | ShaderStageFlagBit::MS;
                 }
 
                 res.type = type;
@@ -47,7 +47,7 @@ namespace sky {
                     res.name.erase(pos, strlen(TYPE_PREFIX));
                 }
 
-                if (type == rhi::DescriptorType::UNIFORM_BUFFER) {
+                if (type == ShaderResourceType::UNIFORM_BUFFER) {
                     res.size = static_cast<uint32_t>(compiler.get_declared_struct_size(resType));
 
                     auto iter = std::find_if(result.reflection.types.begin(), result.reflection.types.end(),
@@ -75,12 +75,12 @@ namespace sky {
             }
         };
 
-        remap(resources.uniform_buffers, rhi::DescriptorType::UNIFORM_BUFFER);
-        remap(resources.storage_buffers, rhi::DescriptorType::STORAGE_BUFFER);
-        remap(resources.separate_images, rhi::DescriptorType::SAMPLED_IMAGE);
-        remap(resources.separate_samplers, rhi::DescriptorType::SAMPLER);
-        remap(resources.storage_images, rhi::DescriptorType::STORAGE_IMAGE);
-        remap(resources.subpass_inputs, rhi::DescriptorType::INPUT_ATTACHMENT);
+        remap(resources.uniform_buffers, ShaderResourceType::UNIFORM_BUFFER);
+        remap(resources.storage_buffers, ShaderResourceType::STORAGE_BUFFER);
+        remap(resources.separate_images, ShaderResourceType::SAMPLED_IMAGE);
+        remap(resources.separate_samplers, ShaderResourceType::SAMPLER);
+        remap(resources.storage_images, ShaderResourceType::STORAGE_IMAGE);
+        remap(resources.subpass_inputs, ShaderResourceType::INPUT_ATTACHMENT);
     }
 
 } // namespace sky
