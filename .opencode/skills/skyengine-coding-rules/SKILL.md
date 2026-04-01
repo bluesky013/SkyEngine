@@ -21,6 +21,10 @@ Enforce project-wide coding conventions so that AI-generated code matches the st
 - When refactoring existing code that violates a rule, fix the violation only if it is within the scope of the current task. Do not silently expand scope.
 - If a rule conflicts with an explicit user instruction, follow the user and note the deviation.
 
+## Related skill
+
+- Load `skyengine-clang-style` alongside this skill when the task depends on the repository's current `.clang-format` or `.clang-tidy` behavior.
+
 ---
 
 ## Rule 1 — No `dynamic_cast`
@@ -234,6 +238,43 @@ Examples of forbidden content include:
 ### Detection
 
 If you encounter existing non-ASCII characters in C/C++ source files during a task, replace them with ASCII-safe equivalents only when that file is already in scope for the current change. Otherwise, flag the issue in your response instead of silently expanding scope.
+
+---
+
+## Rule 5 — No trailing underscore on member variables
+
+### Prohibition
+
+Do **NOT** use a trailing underscore suffix (`_`) on class member variables in new or modified code.
+
+### Rationale
+
+- The majority of the SkyEngine codebase uses plain member names without a trailing underscore.
+- Trailing underscores add visual noise and do not match the dominant repository style.
+
+### What to do instead
+
+Use descriptive, plain camelCase names for member variables.
+
+```cpp
+// Good
+class Widget {
+private:
+    bool visible = false;
+    std::string name;
+};
+
+// Bad
+class Widget {
+private:
+    bool visible_ = false;
+    std::string name_;
+};
+```
+
+### Detection
+
+If you encounter existing trailing-underscore members during a task, do **not** rename them unless they are already in scope.
 
 ---
 

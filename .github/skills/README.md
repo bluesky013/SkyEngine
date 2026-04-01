@@ -1,6 +1,6 @@
-# OpenCode Skills
+# GitHub Skills
 
-This directory contains project-local OpenCode skills for SkyEngine.
+This directory contains project-local GitHub-facing skills for SkyEngine.
 
 ## Layout
 
@@ -20,21 +20,29 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - Generate or update English technical documentation under `docs/`, with optional local PDF export to `docs/pdf/`
 - `vulkan-spec-quick-index/`
   - Fast topic map for the Vulkan spec, with lookup keywords, common navigation paths, and official reference entry points
+- `sync-from-opencode/`
+  - Sync or mirror project-local skill content from `.opencode/skills/` into the GitHub skill layout when both copies must stay aligned
+- `openspec-propose/`
+  - Draft OpenSpec change proposals in the repository's expected format
+- `openspec-explore/`
+  - Explore existing OpenSpec specs, changes, and archives before proposing or applying updates
+- `openspec-archive-change/`
+  - Archive completed OpenSpec changes into the repository's archive layout
+- `openspec-apply-change/`
+  - Apply an approved OpenSpec change into the target spec files with repository-aligned structure
 
 Each skill lives in its own folder and must expose `SKILL.md`.
 
 ## Loading
 
-OpenCode discovers project-local skills from:
+GitHub skill discovery in this repository uses:
 
 ```text
-.opencode/skills/<name>/SKILL.md
+.github/skills/<name>/SKILL.md
 ```
-
-Agents can load them with the `skill` tool by name.
 
 ## Maintenance
 
-- Keep project-local skills as the primary maintained agent-facing documentation.
-- Update the skill version first when changing agent-facing instructions.
-- Preserve exact paths, commands, and option names from the repository when editing skill content.
+- Keep `.opencode/skills/` and `.github/skills/` aligned when a skill exists in both locations.
+- Update the OpenCode version first when changing shared agent-facing instructions, then mirror the GitHub copy.
+- Preserve exact paths, commands, flags, and option names from the repository when editing skill content.

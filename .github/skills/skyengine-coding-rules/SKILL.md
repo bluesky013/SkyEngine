@@ -20,6 +20,10 @@ Enforce project-wide coding conventions so that AI-generated code matches the st
 - When refactoring existing code that violates a rule, fix the violation only if it is within the scope of the current task. Do not silently expand scope.
 - If a rule conflicts with an explicit user instruction, follow the user and note the deviation.
 
+## Related skill
+
+- Load `skyengine-clang-style` alongside this skill when the task depends on the repository's current `.clang-format` or `.clang-tidy` behavior.
+
 ---
 
 ## Rule 1 — No `dynamic_cast`
