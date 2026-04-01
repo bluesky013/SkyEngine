@@ -5,15 +5,40 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
+#include <core/archive/BinaryData.h>
 #include <aurora/rhi/Core.h>
 #include <variant>
 
 namespace sky::aurora {
 
+    struct BufferNameHandler {
+        uint32_t binding;
+        uint32_t offset;
+        uint32_t size;
+    };
+
+    struct BindingHandler {
+        uint32_t binding;
+        uint32_t size;
+    };
+
+    struct ShaderVertexInput {
+    };
+
+    struct ShaderDataProvider : RefObject {
+        ShaderDataProvider() = default;
+        ~ShaderDataProvider() override = default;
+    };
+
+    struct ShaderBinaryProvider : ShaderDataProvider {
+        BinaryDataPtr binaryData;
+    };
+
     class ShaderFunction : public RefObject {
     public:
         struct Descriptor {
-
+            ShaderStageFlagBit stage;
+            CounterPtr<ShaderDataProvider> data;
         };
         ShaderFunction() = default;
         ~ShaderFunction() override = default;

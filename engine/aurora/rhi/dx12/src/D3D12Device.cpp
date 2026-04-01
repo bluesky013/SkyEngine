@@ -194,6 +194,36 @@ namespace sky::aurora {
         return s;
     }
 
+    Buffer *D3D12Device::CreateBuffer(const Buffer::Descriptor &desc)
+    {
+        auto *buf = new D3D12Buffer(*this);
+        if (!buf->Init(desc)) {
+            delete buf;
+            return nullptr;
+        }
+        return buf;
+    }
+
+    Image *D3D12Device::CreateImage(const Image::Descriptor &desc)
+    {
+        auto *img = new D3D12Image(*this);
+        if (!img->Init(desc)) {
+            delete img;
+            return nullptr;
+        }
+        return img;
+    }
+
+    Sampler *D3D12Device::CreateSampler(const Sampler::Descriptor &desc)
+    {
+        auto *smp = new D3D12Sampler(*this);
+        if (!smp->Init(desc)) {
+            delete smp;
+            return nullptr;
+        }
+        return smp;
+    }
+
     ThreadContext* D3D12Device::CreateAsyncContext()
     {
         return new D3D12Context(*this);

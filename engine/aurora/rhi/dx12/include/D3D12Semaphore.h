@@ -22,9 +22,10 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        uint64_t GetCurrentValue() const override;
-        void Wait(uint64_t value) override;
-        void Signal(uint64_t value) override;
+        // Backend-specific timeline operations (not exposed in base interface)
+        uint64_t GetCurrentValue() const;
+        void Wait(uint64_t value);
+        void Signal(uint64_t value);
 
         ID3D12Fence *GetNativeHandle() const { return fence.Get(); }
 

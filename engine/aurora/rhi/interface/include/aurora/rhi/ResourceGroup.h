@@ -16,6 +16,9 @@ namespace sky::aurora {
 
         ResourceGroupLayout() = default;
         ~ResourceGroupLayout() override = default;
+
+    private:
+        
     };
 
     class ResourceGroup

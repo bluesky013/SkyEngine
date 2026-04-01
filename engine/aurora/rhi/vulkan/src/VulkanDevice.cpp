@@ -194,6 +194,36 @@ namespace sky::aurora {
         return semaphore;
     }
 
+    Buffer *VulkanDevice::CreateBuffer(const Buffer::Descriptor &desc)
+    {
+        auto *buf = new VulkanBuffer(*this);
+        if (!buf->Init(desc)) {
+            delete buf;
+            return nullptr;
+        }
+        return buf;
+    }
+
+    Image *VulkanDevice::CreateImage(const Image::Descriptor &desc)
+    {
+        auto *img = new VulkanImage(*this);
+        if (!img->Init(desc)) {
+            delete img;
+            return nullptr;
+        }
+        return img;
+    }
+
+    Sampler *VulkanDevice::CreateSampler(const Sampler::Descriptor &desc)
+    {
+        auto *smp = new VulkanSampler(*this);
+        if (!smp->Init(desc)) {
+            delete smp;
+            return nullptr;
+        }
+        return smp;
+    }
+
     ThreadContext* VulkanDevice::CreateAsyncContext()
     {
         return new VulkanContext(*this);

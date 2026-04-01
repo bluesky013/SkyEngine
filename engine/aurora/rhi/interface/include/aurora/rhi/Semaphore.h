@@ -17,10 +17,6 @@ namespace sky::aurora {
 
         Semaphore() = default;
         ~Semaphore() override = default;
-
-        virtual uint64_t GetCurrentValue() const = 0;
-        virtual void Wait(uint64_t value) = 0;
-        virtual void Signal(uint64_t value) = 0;
     };
 
     using SemaphorePtr = CounterPtr<Semaphore>;

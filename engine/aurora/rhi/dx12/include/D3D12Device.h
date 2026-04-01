@@ -5,6 +5,9 @@
 #pragma once
 
 #include <D3D12CommandPool.h>
+#include <D3D12Buffer.h>
+#include <D3D12Image.h>
+#include <D3D12Sampler.h>
 
 #include <aurora/rhi/Device.h>
 
@@ -39,9 +42,9 @@ namespace sky::aurora {
         Fence *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer* CreateBuffer(const Buffer::Descriptor &desc) override { return nullptr; }
-        Image* CreateImage(const Image::Descriptor &desc) override { return nullptr; }
-        Sampler* CreateSampler(const Sampler::Descriptor &desc) override { return nullptr; }
+        Buffer* CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image* CreateImage(const Image::Descriptor &desc) override;
+        Sampler* CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup* CreateSampler(const ResourceGroup::Descriptor &desc) override { return nullptr; }
         SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
 

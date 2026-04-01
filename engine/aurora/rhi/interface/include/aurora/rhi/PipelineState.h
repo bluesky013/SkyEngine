@@ -10,11 +10,22 @@
 namespace sky::aurora {
     class Shader;
 
+    static constexpr uint32_t MAX_COLOR_ATTACHMENTS = 8;
+
+    struct AttachmentFormat {
+        PixelFormat colors[MAX_COLOR_ATTACHMENTS] = {};
+        uint32_t    numColors                     = 0;
+        PixelFormat depthStencil                  = PixelFormat::UNDEFINED;
+        SampleCount sampleCount                   = SampleCount::X1;
+        uint32_t    viewMask                      = 0;
+    };
+
     class GraphicsPipeline : public RefObject {
     public:
         struct Descriptor {
-            PipelineState*  state = nullptr;
-            Shader*         shader = nullptr;
+            PipelineState*   state    = nullptr;
+            Shader*          shader   = nullptr;
+            AttachmentFormat format;
         };
 
         GraphicsPipeline() = default;

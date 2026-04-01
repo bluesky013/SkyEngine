@@ -6,6 +6,9 @@
 
 #include <aurora/rhi/Device.h>
 #include <VulkanCommandPool.h>
+#include <VulkanBuffer.h>
+#include <VulkanImage.h>
+#include <VulkanSampler.h>
 
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -34,9 +37,9 @@ namespace sky::aurora {
         Fence *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer* CreateBuffer(const Buffer::Descriptor &desc) override { return nullptr; }
-        Image* CreateImage(const Image::Descriptor &desc) override { return nullptr; }
-        Sampler* CreateSampler(const Sampler::Descriptor &desc) override { return nullptr; }
+        Buffer* CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image* CreateImage(const Image::Descriptor &desc) override;
+        Sampler* CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup* CreateSampler(const ResourceGroup::Descriptor &desc) override { return nullptr; }
         SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
 
@@ -47,6 +50,7 @@ namespace sky::aurora {
 
         VkDevice         GetNativeHandle() const { return device; }
         VkPhysicalDevice GetGpuHandle() const { return gpu; }
+        const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const { return memoryProperties; }
 
         uint32_t GetQueueFamilyIndex(QueueType type) const;
     private:

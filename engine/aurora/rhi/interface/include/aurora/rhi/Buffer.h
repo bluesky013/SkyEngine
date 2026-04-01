@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/template/ReferenceObject.h>
+#include <aurora/rhi/Core.h>
 #include <aurora/rhi/Resource.h>
 
 namespace sky::aurora {

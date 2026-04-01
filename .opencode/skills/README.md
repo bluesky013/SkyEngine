@@ -16,6 +16,8 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - New C/C++ file authoring rules, including ASCII-only content, file preamble style, and correct logger usage
 - `docs-generate/`
   - Generate or update English technical documentation under `docs/`, with optional local PDF export to `docs/pdf/`
+- `vulkan-spec-quick-index/`
+  - Fast topic map for the Vulkan spec, with lookup keywords, common navigation paths, and official reference entry points
 
 Each skill lives in its own folder and must expose `SKILL.md`.
 
