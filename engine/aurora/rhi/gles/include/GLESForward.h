@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/platform/Platform.h>
+
 // On Win32, there are no import libraries for the PowerVR GLES/EGL DLLs.
 // All entry points are resolved at runtime through GLESLoader.
 //
@@ -11,7 +13,7 @@
 //         Only PFN typedefs and enum constants are visible.
 // egl.h : function prototypes are guarded by !EGL_NO_PROTOTYPES.
 //         Define EGL_NO_PROTOTYPES to suppress them on Win32.
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
     #define EGL_NO_PROTOTYPES
     #include <EGL/egl.h>
     #include <GLES3/gl32.h>

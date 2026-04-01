@@ -102,12 +102,12 @@ namespace sky::aurora {
         vkEnumerateInstanceExtensionProperties(nullptr, &extCount, supportedExts.data());
 
         enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-#ifdef _WIN32
+#if SKY_PLATFORM_WINDOWS
         enabledExtensions.push_back("VK_KHR_win32_surface");
-#elif defined(__APPLE__)
+#elif SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS
         enabledExtensions.push_back("VK_EXT_metal_surface");
         enabledExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-#elif defined(__ANDROID__)
+#elif SKY_PLATFORM_ANDROID
         enabledExtensions.push_back("VK_KHR_android_surface");
 #endif
 
@@ -138,7 +138,7 @@ namespace sky::aurora {
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.enabledLayerCount       = static_cast<uint32_t>(enabledLayers.size());
         createInfo.ppEnabledLayerNames     = enabledLayers.data();
-#ifdef __APPLE__
+#if SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS
         createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 

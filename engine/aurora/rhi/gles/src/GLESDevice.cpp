@@ -14,6 +14,7 @@
 #include <GLESShader.h>
 #include <GLESPipelineState.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
 
 static const char *TAG = "AuroraGL";
 
@@ -67,7 +68,7 @@ namespace sky::aurora {
             return;
         }
 
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
         if (!LoadGLESFunctions()) {
             LOG_E(TAG, "LoadGLESFunctions failed (thread %u)", threadIndex);
             return;

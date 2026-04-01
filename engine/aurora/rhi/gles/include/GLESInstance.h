@@ -6,6 +6,7 @@
 
 #include <aurora/rhi/Instance.h>
 #include <GLESForward.h>
+#include <core/platform/Platform.h>
 #include <memory>
 
 namespace sky {
@@ -34,7 +35,7 @@ namespace sky::aurora {
         EGLDisplay eglDisplay = EGL_NO_DISPLAY;
         EGLConfig  eglConfig  = nullptr;
 
-#ifdef WIN32
+    #if SKY_PLATFORM_WINDOWS
         std::unique_ptr<DynamicModule> eglModule;
 #endif
     };

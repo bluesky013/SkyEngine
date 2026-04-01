@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/platform/Platform.h>
+
 // GLESLoader: lightweight runtime loader for EGL and GLES 3.2 entry points.
 //
 // On Win32  all functions come from libEGL.dll / libGLESv2.dll via GetProcAddress
@@ -11,7 +13,7 @@
 // On other  platforms the system linker resolves them directly so the loader
 //           is a no-op.
 
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
 
 #include <GLESForward.h>
 
@@ -143,4 +145,4 @@ AURORA_EGL_FUNCTIONS(AURORA_DECLARE_EGL)
 AURORA_GL_FUNCTIONS(AURORA_DECLARE_GL)
 #undef AURORA_DECLARE_GL
 
-#endif // WIN32
+#endif // SKY_PLATFORM_WINDOWS

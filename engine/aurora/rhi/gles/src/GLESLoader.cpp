@@ -2,7 +2,9 @@
 // Created on 2026/04/02.
 //
 
-#ifdef WIN32
+#include <core/platform/Platform.h>
+
+#if SKY_PLATFORM_WINDOWS
 
 #include <GLESLoader.h>
 #include <core/logger/Logger.h>
@@ -64,4 +66,4 @@ namespace sky::aurora {
 
 } // namespace sky::aurora
 
-#endif // WIN32
+#endif // SKY_PLATFORM_WINDOWS

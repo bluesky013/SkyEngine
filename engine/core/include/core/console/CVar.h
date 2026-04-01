@@ -7,6 +7,8 @@
 #include <core/console/ConsoleTypes.h>
 #include <charconv>
 #include <algorithm>
+#include <cerrno>
+#include <cstdlib>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -78,6 +80,22 @@ namespace sky {
         }
 
         template <typename T>
+        bool ParseFloating(std::string_view str, T &out)
+        {
+            std::string buffer(str);
+            char *end = nullptr;
+            errno = 0;
+
+            if constexpr (std::is_same_v<T, float>) {
+                out = std::strtof(buffer.c_str(), &end);
+            } else {
+                out = std::strtod(buffer.c_str(), &end);
+            }
+
+            return errno == 0 && end == buffer.c_str() + buffer.size();
+        }
+
+        template <typename T>
         bool CVarFromString(std::string_view str, T &out)
         {
             if constexpr (std::is_same_v<T, bool>) {
@@ -86,11 +104,9 @@ namespace sky {
                 out = std::string(str);
                 return true;
             } else if constexpr (std::is_same_v<T, float>) {
-                auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), out);
-                return ec == std::errc{} && ptr == str.data() + str.size();
+                return ParseFloating(str, out);
             } else if constexpr (std::is_same_v<T, double>) {
-                auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), out);
-                return ec == std::errc{} && ptr == str.data() + str.size();
+                return ParseFloating(str, out);
             } else {
                 // int
                 auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), out);

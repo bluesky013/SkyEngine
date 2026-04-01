@@ -1,8 +1,16 @@
 file(GLOB_RECURSE TEST_FILES test/*)
 
 add_subdirectory(interface)
-add_subdirectory(dx12)
+
+if (WIN32)
+    add_subdirectory(dx12)
+endif()
+
 add_subdirectory(vulkan)
+
+if (APPLE)
+    add_subdirectory(metal)
+endif()
 
 if (SKY_BUILD_GLES)
     add_subdirectory(gles)
@@ -17,6 +25,9 @@ if (SKY_BUILD_TEST)
     if (TARGET AuroraDX12)
         list(APPEND AURORA_TEST_LIBS AuroraDX12)
     endif()
+    if (TARGET AuroraMetal)
+        list(APPEND AURORA_TEST_LIBS AuroraMetal)
+    endif()
     if (SKY_BUILD_GLES AND TARGET AuroraGL)
         list(APPEND AURORA_TEST_LIBS AuroraGL)
     endif()
@@ -27,5 +38,10 @@ if (SKY_BUILD_TEST)
         LIBS
         ${AURORA_TEST_LIBS}
     )
+
+    if (TARGET AuroraGL)
+        target_compile_definitions(AuroraTest PRIVATE SKY_AURORA_HAS_GLES=1)
+    endif()
+
     sky_set_dependency(TARGET AuroraTest)
 endif ()

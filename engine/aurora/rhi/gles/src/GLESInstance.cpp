@@ -11,7 +11,7 @@
 
 static const char *TAG = "AuroraGL";
 
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
 static sky::DynamicModule *g_EglModule = nullptr;
 
 static void *EglGetProcAddr(const char *name)
@@ -28,7 +28,7 @@ namespace sky::aurora {
             eglTerminate(eglDisplay);
             eglDisplay = EGL_NO_DISPLAY;
         }
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
         eglModule = nullptr;
 #endif
     }
@@ -57,7 +57,7 @@ namespace sky::aurora {
 
     bool GLESInstance::InitEGL()
     {
-#ifdef WIN32
+#if SKY_PLATFORM_WINDOWS
         eglModule = std::make_unique<DynamicModule>("libEGL");
         if (!eglModule->Load()) {
             LOG_E(TAG, "failed to load libEGL.dll (PowerVR emulation)");
