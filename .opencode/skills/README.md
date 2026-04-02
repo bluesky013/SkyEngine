@@ -14,6 +14,14 @@ This directory contains project-local OpenCode skills for SkyEngine.
   - General SkyEngine C++ conventions and prohibited patterns that are broader than clang tooling (e.g., no `dynamic_cast`, ASCII-only source, member naming)
 - `skyengine-clang-style/`
   - Repository-aligned `.clang-format` and `.clang-tidy` policy translated into explicit authoring and review rules
+- `skyengine-architecture-review/`
+  - Review changes against SkyEngine's current module layering, plugin boundaries, runtime/editor split, and render-vs-logic separation
+- `skyengine-pc-gpu-review/`
+  - Review desktop rendering changes for PC GPU cost, backend fit, pass integration, and `tex_pc` asset-path correctness
+- `skyengine-mobile-gpu-review/`
+  - Review Android/iOS rendering changes for mobile GPU scalability, backend compatibility, fallback design, and `tex_mobile` asset-path correctness
+- `skyengine-cpu-review/`
+  - Review CPU cost, hot-path ownership, profiling/SIMD assumptions, and plugin/runtime gating in frame-critical code
 - `skyengine-cpp-file-creation/`
   - New C/C++ file authoring rules, including ASCII-only content, file preamble style, and correct logger usage
 - `docs-generate/`
