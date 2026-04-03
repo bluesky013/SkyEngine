@@ -157,6 +157,7 @@ namespace sky {
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
 
+    #if IMGUI_VERSION_NUM < 18700
         io.KeyMap[ImGuiKey_Tab]         = static_cast<int>(ScanCode::KEY_TAB);
         io.KeyMap[ImGuiKey_LeftArrow]   = static_cast<int>(ScanCode::KEY_LEFT);
         io.KeyMap[ImGuiKey_RightArrow]  = static_cast<int>(ScanCode::KEY_RIGHT);
@@ -178,6 +179,7 @@ namespace sky {
         io.KeyMap[ImGuiKey_X]           = static_cast<int>(ScanCode::KEY_X);
         io.KeyMap[ImGuiKey_Y]           = static_cast<int>(ScanCode::KEY_Y);
         io.KeyMap[ImGuiKey_Z]           = static_cast<int>(ScanCode::KEY_Z);
+    #endif
 
         io.DisplaySize = ImVec2(static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
         io.DisplayFramebufferScale = ImVec2(1.f, 1.f);

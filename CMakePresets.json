@@ -1,0 +1,49 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 19,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "local-thirdparty",
+            "hidden": false,
+            "displayName": "Configure with local third-party (vcpkg)",
+            "description": "Build/download third-party packages locally under .thirdparty",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/vcpkg",
+            "cacheVariables": {
+                "SKY_THIRDPARTY_MODE": "LOCAL",
+                "SKY_THIRDPARTY_ROOT": "${sourceDir}/.thirdparty",
+                "SKY_THIRDPARTY_USE_PREBUILT": "ON"
+            }
+        },
+        {
+            "name": "prebuilt-thirdparty",
+            "hidden": false,
+            "displayName": "Configure with prebuilt third-party tree",
+            "description": "Use 3RD_PATH prebuilt packages produced by python/third_party.py",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/prebuilt",
+            "cacheVariables": {
+                "SKY_THIRDPARTY_MODE": "PREBUILT",
+                "3RD_PATH": "${sourceDir}/build_3rd/Win32"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "local-thirdparty",
+            "configurePreset": "local-thirdparty",
+            "description": "Build using local third-party preset",
+            "configuration": "Release"
+        },
+        {
+            "name": "prebuilt-thirdparty",
+            "configurePreset": "prebuilt-thirdparty",
+            "description": "Build using prebuilt third-party preset",
+            "configuration": "Release"
+        }
+    ]
+}

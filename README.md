@@ -11,12 +11,12 @@ SkyEngine supports two CMake-selectable third-party modes:
 
 Key CMake cache options:
 
-| option | description |
-|---|---|
-| `SKY_THIRDPARTY_MODE` | `LOCAL` or `PREBUILT` |
-| `SKY_THIRDPARTY_ROOT` | local dependency root for downloads/installed/cache |
+| option                        | description                                                            |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `SKY_THIRDPARTY_MODE`         | `LOCAL` or `PREBUILT`                                                  |
+| `SKY_THIRDPARTY_ROOT`         | local dependency root for downloads/installed/cache                    |
 | `SKY_THIRDPARTY_USE_PREBUILT` | in `LOCAL` mode, prefer reusable prebuilt binaries from local/CI cache |
-| `3RD_PATH` | required in `PREBUILT` mode |
+| `3RD_PATH`                    | required in `PREBUILT` mode                                            |
 
 Examples:
 
@@ -36,14 +36,14 @@ python3 python/third_party.py -p [platform]
 * Third-party deps list:  cmake/thirdparty.json
 * Third-party build args.
 
-| args               | Description               |
-|--------------------|---------------------------|
-| -i, --intermediate | Third-party download/build path (default: `build_3rd/intermediate`) |
+| args               | Description                                                            |
+| ------------------ | ---------------------------------------------------------------------- |
+| -i, --intermediate | Third-party download/build path (default: `build_3rd/intermediate`)    |
 | -o, --output       | Third-party output root, effective `3RD_PATH` is `<output>/<platform>` |
-| -e, --engine       | Engine path (default: current repository root) |
-| -p, --platform     | Target Platform           |
-| -c, --clean        | Clear build               |
-| -t, --target       | Build Single Library      |
+| -e, --engine       | Engine path (default: current repository root)                         |
+| -p, --platform     | Target Platform                                                        |
+| -c, --clean        | Clear build                                                            |
+| -t, --target       | Build Single Library                                                   |
 
 * Default third-party layout
 
@@ -81,7 +81,7 @@ python3 python/third_party.py -i <intermediate_path> -o <output_path> -e <engine
 * Supported Platforms
 
 | platform  | arch              |
-|-----------|-------------------|
+| --------- | ----------------- |
 | Win32     | Window x86_64     |
 | MacOS-x86 | MacOS with x86_64 |
 | MacOS-arm | MacOS with arm    |

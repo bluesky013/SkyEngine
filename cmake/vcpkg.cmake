@@ -2,7 +2,14 @@
 # Bridge module: creates 3rdParty:: targets from vcpkg-installed packages.
 # Included automatically when vcpkg toolchain is detected.
 
-include(${ENGINE_ROOT}/cmake/thirdparty_helpers.cmake)
+Include(${ENGINE_ROOT}/cmake/thirdparty_helpers.cmake)
+
+# CMake 4.x strict validation of transitive INTERFACE_LINK_LIBRARIES can fail
+# when targets are created via function overrides (like vcpkg's add_library).
+# Disable CMP0189 to use pre-4.1 behavior.
+if(POLICY CMP0189)
+    cmake_policy(SET CMP0189 OLD)
+endif()
 
 # ---------------------------------------------------------------------------
 # Helper: create a 3rdParty::<name> INTERFACE target forwarding to vcpkg
@@ -21,12 +28,63 @@ endfunction()
 # ===========================================================================
 
 # --- boost ------------------------------------------------------------------
+# Pre-create Boost::headers as GLOBAL with explicit include path to work around
+# CMake 4.x issue where _IMPORT_PREFIX computes incorrectly in vcpkg's function-override
+# context, resulting in "${_IMPORT_PREFIX}/include" = "/include" at generate time.
+if(NOT TARGET Boost::headers)
+    find_path(_SKY_BOOST_INC boost/version.hpp
+        PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+        NO_DEFAULT_PATH)
+    if(_SKY_BOOST_INC)
+        _add_library(Boost::headers INTERFACE IMPORTED GLOBAL)
+        set_target_properties(Boost::headers PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${_SKY_BOOST_INC}")
+    endif()
+endif()
+
 find_package(Boost REQUIRED COMPONENTS container graph)
-sky_vcpkg_alias(3rdParty::boost Boost::container Boost::graph)
+
+# Create/replace 3rdParty::boost as a proper INTERFACE IMPORTED target that directly uses 
+# the found boost include/lib paths WITHOUT relying on Boost::container/Boost::graph targets,
+# which may not be visible due to CMake 4.x scoping issues in vcpkg's function overrides.
+
+# Find boost include directory directly
+find_path(_SKY_BOOST_INC boost/version.hpp
+    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+    NO_DEFAULT_PATH)
+
+# Find boost libraries directly  
+find_library(_SKY_BOOST_GRAPH libboost_graph.a
+         PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+         NO_DEFAULT_PATH)
+find_library(_SKY_BOOST_CONTAINER libboost_container.a
+    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+    NO_DEFAULT_PATH)
+
+# Create or replace 3rdParty::boost
+if(TARGET 3rdParty::boost)
+    # Target already exists (possibly created implicitly), replace its properties
+    set_target_properties(3rdParty::boost PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${_SKY_BOOST_INC}"
+        INTERFACE_LINK_LIBRARIES "")
+    target_link_libraries(3rdParty::boost INTERFACE ${_SKY_BOOST_CONTAINER} ${_SKY_BOOST_GRAPH})
+else()
+    # Create new target
+    add_library(3rdParty::boost INTERFACE IMPORTED GLOBAL)
+    set_target_properties(3rdParty::boost PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${_SKY_BOOST_INC}")
+    if(_SKY_BOOST_CONTAINER OR _SKY_BOOST_GRAPH)
+        target_link_libraries(3rdParty::boost INTERFACE ${_SKY_BOOST_CONTAINER} ${_SKY_BOOST_GRAPH})
+    endif()
+endif()
+
+unset(_SKY_BOOST_INC)
+unset(_SKY_BOOST_CONTAINER)
+unset(_SKY_BOOST_GRAPH)
 
 # --- sfmt -------------------------------------------------------------------
 find_package(sfmt CONFIG REQUIRED)
-sky_vcpkg_alias(3rdParty::sfmt sfmt::sfmt)
+sky_vcpkg_alias(3rdParty::sfmt sfmt::SFMT)
 
 # --- taskflow ---------------------------------------------------------------
 find_package(Taskflow CONFIG REQUIRED)
@@ -56,7 +114,6 @@ sky_vcpkg_alias(3rdParty::glslang
     glslang::glslang
     glslang::glslang-default-resource-limits
     glslang::SPIRV
-    glslang::SPVRemapper
 )
 
 # --- SPIRV-Cross ------------------------------------------------------------
@@ -103,6 +160,34 @@ endif()
 
 # --- freetype (text plugin) -------------------------------------------------
 if (SKY_BUILD_FREETYPE)
+    # Pre-create ZLIB::ZLIB as GLOBAL so freetype-targets.cmake (CMake 4.x)
+    # can validate it in INTERFACE_LINK_LIBRARIES at generate time.
+    if(NOT TARGET ZLIB::ZLIB)
+        find_path(_sky_zlib_inc NAMES zlib.h
+            PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+            NO_DEFAULT_PATH)
+        find_library(_sky_zlib_rel NAMES z zlib
+            PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+            NO_DEFAULT_PATH)
+        find_library(_sky_zlib_dbg NAMES z zlib
+            PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib"
+            NO_DEFAULT_PATH)
+        _add_library(ZLIB::ZLIB UNKNOWN IMPORTED GLOBAL)
+        set_target_properties(ZLIB::ZLIB PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${_sky_zlib_inc}"
+            IMPORTED_LOCATION "${_sky_zlib_rel}")
+        if(_sky_zlib_rel)
+            set_property(TARGET ZLIB::ZLIB APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+            set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION_RELEASE "${_sky_zlib_rel}")
+        endif()
+        if(_sky_zlib_dbg)
+            set_property(TARGET ZLIB::ZLIB APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
+            set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION_DEBUG "${_sky_zlib_dbg}")
+        endif()
+        set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
+        set(ZLIB_LIBRARY "${_sky_zlib_rel}" CACHE FILEPATH "" FORCE)
+        set(ZLIB_INCLUDE_DIRS "${_sky_zlib_inc}" CACHE PATH "" FORCE)
+    endif()
     find_package(Freetype REQUIRED)
     sky_vcpkg_alias(3rdParty::freetype Freetype::Freetype)
 endif()
@@ -118,13 +203,13 @@ endif()
 if (SKY_BUILD_BULLET)
     find_package(Bullet CONFIG REQUIRED)
     sky_vcpkg_alias(3rdParty::bullet3
-        Bullet3Common::Bullet3Common
-        Bullet3Collision::Bullet3Collision
-        Bullet3Dynamics::Bullet3Dynamics
-        Bullet3Geometry::Bullet3Geometry
-        BulletCollision::BulletCollision
-        BulletDynamics::BulletDynamics
-        LinearMath::LinearMath
+        Bullet3Common
+        Bullet3Collision
+        Bullet3Dynamics
+        Bullet3Geometry
+        BulletCollision
+        BulletDynamics
+        LinearMath
     )
 endif()
 

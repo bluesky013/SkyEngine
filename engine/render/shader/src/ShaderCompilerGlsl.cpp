@@ -6,7 +6,6 @@
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
-#include <glslang/Include/Types.h>
 
 #if ENABLE_SPIRV_TOOLS
 #include <spirv-tools/libspirv.hpp>
@@ -49,19 +48,48 @@ namespace sky {
         return EShLangCount;
     }
 
-    static rhi::BaseType GetBaseType(const glslang::TType* type)
+    static rhi::BaseType GetBaseType(int glType)
     {
-        switch (type->getBasicType()) {
-            case glslang::EbtFloat:
+        switch (glType) {
+            case 0x1406: // GL_FLOAT
+            case 0x8B50: // GL_FLOAT_VEC2
+            case 0x8B51: // GL_FLOAT_VEC3
+            case 0x8B52: // GL_FLOAT_VEC4
                 return rhi::BaseType::FLOAT;
-            case glslang::EbtInt:
+            case 0x1404: // GL_INT
+            case 0x8B53: // GL_INT_VEC2
+            case 0x8B54: // GL_INT_VEC3
+            case 0x8B55: // GL_INT_VEC4
                 return rhi::BaseType::INT;
-            case glslang::EbtUint:
+            case 0x1405: // GL_UNSIGNED_INT
+            case 0x8DC6: // GL_UNSIGNED_INT_VEC2
+            case 0x8DC7: // GL_UNSIGNED_INT_VEC3
+            case 0x8DC8: // GL_UNSIGNED_INT_VEC4
                 return rhi::BaseType::UINT;
             default:
                 break;
         }
         return rhi::BaseType::UNDEFINED;
+    }
+
+    static uint32_t GetVectorSize(int glType)
+    {
+        switch (glType) {
+            case 0x8B50: // GL_FLOAT_VEC2
+            case 0x8B53: // GL_INT_VEC2
+            case 0x8DC6: // GL_UNSIGNED_INT_VEC2
+                return 2;
+            case 0x8B51: // GL_FLOAT_VEC3
+            case 0x8B54: // GL_INT_VEC3
+            case 0x8DC7: // GL_UNSIGNED_INT_VEC3
+                return 3;
+            case 0x8B52: // GL_FLOAT_VEC4
+            case 0x8B55: // GL_INT_VEC4
+            case 0x8DC8: // GL_UNSIGNED_INT_VEC4
+                return 4;
+            default:
+                return 1;
+        }
     }
 
     std::string ShaderCompilerGlsl::Disassemble(const std::vector<uint32_t>& binary, ShaderCompileTarget target) const
@@ -128,21 +156,17 @@ namespace sky {
         auto num = program.getNumPipeInputs();
         for (int i = 0; i < num && desc.stage == rhi::ShaderStageFlagBit::VS; ++i) {
             const auto &refl = program.getPipeInput(i);
-            const auto *type = refl.getType();
-            if (type->isBuiltIn()) {
+            if (refl.name.rfind("gl_", 0) == 0) {
                 continue;
             }
 
-            std::string semantic;
-            if (refl.getType()->getQualifier().semanticName) {
-                semantic = refl.getType()->getQualifier().semanticName;
-            }
+            std::string semantic = refl.name;
 
             attributes.emplace_back(VertexStageAttribute{
                 semantic,
-                refl.getType()->getQualifier().layoutLocation,
-                static_cast<uint32_t>(type->getVectorSize()),
-                GetBaseType(type)
+                refl.layoutLocation(),
+                GetVectorSize(refl.glDefineType),
+                GetBaseType(refl.glDefineType)
             });
         }
 

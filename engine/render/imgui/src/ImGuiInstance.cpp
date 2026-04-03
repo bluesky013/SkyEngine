@@ -20,6 +20,37 @@ namespace sky {
         ImVec2 translate;
     };
 
+    static ImGuiKey ConvertImGuiKey(ScanCode key)
+    {
+        switch (key) {
+            case ScanCode::KEY_TAB: return ImGuiKey_Tab;
+            case ScanCode::KEY_LEFT: return ImGuiKey_LeftArrow;
+            case ScanCode::KEY_RIGHT: return ImGuiKey_RightArrow;
+            case ScanCode::KEY_UP: return ImGuiKey_UpArrow;
+            case ScanCode::KEY_DOWN: return ImGuiKey_DownArrow;
+            case ScanCode::KEY_PAGEUP: return ImGuiKey_PageUp;
+            case ScanCode::KEY_PAGEDOWN: return ImGuiKey_PageDown;
+            case ScanCode::KEY_HOME: return ImGuiKey_Home;
+            case ScanCode::KEY_END: return ImGuiKey_End;
+            case ScanCode::KEY_INSERT: return ImGuiKey_Insert;
+            case ScanCode::KEY_DELETE: return ImGuiKey_Delete;
+            case ScanCode::KEY_BACKSPACE: return ImGuiKey_Backspace;
+            case ScanCode::KEY_SPACE: return ImGuiKey_Space;
+            case ScanCode::KEY_RETURN: return ImGuiKey_Enter;
+            case ScanCode::KEY_ESCAPE: return ImGuiKey_Escape;
+            case ScanCode::KEY_KP_ENTER: return ImGuiKey_KeypadEnter;
+            case ScanCode::KEY_A: return ImGuiKey_A;
+            case ScanCode::KEY_C: return ImGuiKey_C;
+            case ScanCode::KEY_V: return ImGuiKey_V;
+            case ScanCode::KEY_X: return ImGuiKey_X;
+            case ScanCode::KEY_Y: return ImGuiKey_Y;
+            case ScanCode::KEY_Z: return ImGuiKey_Z;
+            default:
+                break;
+        }
+        return ImGuiKey_None;
+    }
+
     void ImContext::Init()
     {
         imContext = ImGui::CreateContext();
@@ -84,6 +115,7 @@ namespace sky {
 
         ImGuiIO& io = ImGui::GetIO();
 
+    #if IMGUI_VERSION_NUM < 18700
         io.KeyMap[ImGuiKey_Tab]         = static_cast<int>(ScanCode::KEY_TAB);
         io.KeyMap[ImGuiKey_LeftArrow]   = static_cast<int>(ScanCode::KEY_LEFT);
         io.KeyMap[ImGuiKey_RightArrow]  = static_cast<int>(ScanCode::KEY_RIGHT);
@@ -108,6 +140,7 @@ namespace sky {
         io.KeyMap[ImGuiKey_X]           = static_cast<int>(ScanCode::KEY_X);
         io.KeyMap[ImGuiKey_Y]           = static_cast<int>(ScanCode::KEY_Y);
         io.KeyMap[ImGuiKey_Z]           = static_cast<int>(ScanCode::KEY_Z);
+#endif
 
 
         io.SetClipboardTextFn = [](void* user_data, const char* text){
@@ -351,19 +384,39 @@ namespace sky {
     void ImGuiInstance::OnKeyUp(const KeyboardEvent &event)
     {
         ImGuiIO& io = ImGui::GetIO();
+#if IMGUI_VERSION_NUM >= 18700
+        const auto key = ConvertImGuiKey(event.scanCode);
+        if (key != ImGuiKey_None) {
+            io.AddKeyEvent(key, false);
+        }
+        io.AddKeyEvent(ImGuiMod_Shift, static_cast<bool>(event.mod & KeyMod::SHIFT));
+        io.AddKeyEvent(ImGuiMod_Ctrl, static_cast<bool>(event.mod & KeyMod::CTRL));
+        io.AddKeyEvent(ImGuiMod_Alt, static_cast<bool>(event.mod & KeyMod::ALT));
+#else
         io.KeysDown[static_cast<uint32_t>(event.scanCode)] = false;
         io.KeyShift = static_cast<bool>(event.mod & KeyMod::SHIFT);
         io.KeyCtrl = static_cast<bool>(event.mod & KeyMod::CTRL);
         io.KeyAlt = static_cast<bool>(event.mod & KeyMod::ALT);
+#endif
     }
 
     void ImGuiInstance::OnKeyDown(const KeyboardEvent &event)
     {
         ImGuiIO& io = ImGui::GetIO();
+#if IMGUI_VERSION_NUM >= 18700
+        const auto key = ConvertImGuiKey(event.scanCode);
+        if (key != ImGuiKey_None) {
+            io.AddKeyEvent(key, true);
+        }
+        io.AddKeyEvent(ImGuiMod_Shift, static_cast<bool>(event.mod & KeyMod::SHIFT));
+        io.AddKeyEvent(ImGuiMod_Ctrl, static_cast<bool>(event.mod & KeyMod::CTRL));
+        io.AddKeyEvent(ImGuiMod_Alt, static_cast<bool>(event.mod & KeyMod::ALT));
+#else
         io.KeysDown[static_cast<uint32_t>(event.scanCode)] = true;
         io.KeyShift = static_cast<bool>(event.mod & KeyMod::SHIFT);
         io.KeyCtrl = static_cast<bool>(event.mod & KeyMod::CTRL);
         io.KeyAlt = static_cast<bool>(event.mod & KeyMod::ALT);
+#endif
     }
 
     void ImGuiInstance::OnTextInput(WindowID winID, const char *text)

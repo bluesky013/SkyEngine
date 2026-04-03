@@ -24,4 +24,5 @@
 /docs/pdf/
 .DS_Store
 /vcpkg/
+/vcpkg_installed/
 /.thirdparty/

@@ -9,7 +9,7 @@
 		{
 			"kind": "git",
 			"repository": "https://github.com/Zhuyin-Graphics/vcpkg-registry",
-			"baseline": "e8c9c2888b269152ee7bcf9eca74258b6c581025",
+			"baseline": "f98934032b79a5c207edde10f87edbf7e83b0f45",
 			"packages": [
 				"assimp",
 				"boost-container",

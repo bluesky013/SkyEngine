@@ -3,6 +3,12 @@
 	"name": "skyengine",
 	"version-string": "0.1.0",
 	"description": "SkyEngine - A cross-platform game engine",
+	"default-features": [
+		"bullet",
+		"recast",
+		"freetype",
+		"compression"
+	],
 	"dependencies": [
 		"boost-container",
 		"boost-graph",
