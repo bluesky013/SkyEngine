@@ -13,6 +13,7 @@
 #include <GLESSwapChain.h>
 #include <GLESShader.h>
 #include <GLESPipelineState.h>
+#include <GLESConversion.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 
@@ -203,6 +204,93 @@ namespace sky::aurora {
             return nullptr;
         }
         return sh;
+    }
+
+    PixelFormatFeatureFlags GLESDevice::GetFormatFeatureFlags(PixelFormat format) const
+    {
+        const auto &glFmt = FromPixelFormat(format);
+        if (glFmt.internalFormat == 0) {
+            return {};
+        }
+
+        const auto &info = GetImageFormatInfo(format);
+        PixelFormatFeatureFlags result;
+
+        if (info.isCompressed) {
+            // compressed formats: sample + filter only
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+            return result;
+        }
+
+        if (info.hasDepth || info.hasStencil) {
+            result |= PixelFormatFeatureFlagBit::DEPTH_STENCIL;
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+            return result;
+        }
+
+        // color-renderable check via GLES 3.2 mandatory formats
+        const GLenum ifmt = glFmt.internalFormat;
+        const bool colorRenderable =
+            ifmt == GL_R8       || ifmt == GL_R8UI      || ifmt == GL_R8I       ||
+            ifmt == GL_R16F     || ifmt == GL_R32F      || ifmt == GL_R16UI     ||
+            ifmt == GL_R16I     || ifmt == GL_R32UI     || ifmt == GL_R32I      ||
+            ifmt == GL_RG8      || ifmt == GL_RG8UI     || ifmt == GL_RG8I      ||
+            ifmt == GL_RG16F    || ifmt == GL_RG32F     || ifmt == GL_RG16UI    ||
+            ifmt == GL_RG16I    || ifmt == GL_RG32UI    || ifmt == GL_RG32I     ||
+            ifmt == GL_RGBA8    || ifmt == GL_SRGB8_ALPHA8 ||
+            ifmt == GL_RGBA8UI  || ifmt == GL_RGBA8I    ||
+            ifmt == GL_RGB10_A2 || ifmt == GL_RGB10_A2UI||
+            ifmt == GL_RGBA16F  || ifmt == GL_RGBA32F   ||
+            ifmt == GL_RGBA16UI || ifmt == GL_RGBA16I   ||
+            ifmt == GL_RGBA32UI || ifmt == GL_RGBA32I;
+
+        if (colorRenderable) {
+            result |= PixelFormatFeatureFlagBit::COLOR;
+        }
+
+        // blend: all non-integer color-renderable formats
+        const bool isInteger =
+            glFmt.type == GL_UNSIGNED_INT   || glFmt.type == GL_INT        ||
+            glFmt.type == GL_UNSIGNED_SHORT || glFmt.type == GL_SHORT      ||
+            glFmt.type == GL_UNSIGNED_BYTE  && glFmt.format == GL_RED_INTEGER;
+        const bool integerFormat = (glFmt.format == GL_RED_INTEGER ||
+                                    glFmt.format == GL_RG_INTEGER  ||
+                                    glFmt.format == GL_RGB_INTEGER ||
+                                    glFmt.format == GL_RGBA_INTEGER);
+
+        if (colorRenderable && !integerFormat) {
+            result |= PixelFormatFeatureFlagBit::BLEND;
+        }
+
+        // all non-compressed non-depth formats are sampleable in GLES 3.2
+        result |= PixelFormatFeatureFlagBit::SAMPLE;
+
+        // linear filter: all non-integer formats
+        if (!integerFormat) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+        }
+
+        // storage: GLES 3.2 image load/store mandatory formats
+        const bool storageCapable =
+            ifmt == GL_RGBA32F   || ifmt == GL_RGBA16F   ||
+            ifmt == GL_R32F      ||
+            ifmt == GL_RGBA32UI  || ifmt == GL_RGBA16UI  ||
+            ifmt == GL_RGBA8UI   || ifmt == GL_R32UI     ||
+            ifmt == GL_RGBA32I   || ifmt == GL_RGBA16I   ||
+            ifmt == GL_RGBA8I    || ifmt == GL_R32I      ||
+            ifmt == GL_RGBA8     || ifmt == GL_RGBA8_SNORM;
+
+        if (storageCapable) {
+            result |= PixelFormatFeatureFlagBit::STORAGE;
+        }
+
+        // atomic: R32UI and R32I
+        if (ifmt == GL_R32UI || ifmt == GL_R32I) {
+            result |= PixelFormatFeatureFlagBit::STORAGE_ATOMIC;
+        }
+
+        return result;
     }
 
     ThreadContext *GLESDevice::CreateAsyncContext()

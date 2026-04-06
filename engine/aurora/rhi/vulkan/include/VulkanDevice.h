@@ -48,6 +48,8 @@ namespace sky::aurora {
         GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
 
+        PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
+
         VkDevice         GetNativeHandle() const { return device; }
         VkPhysicalDevice GetGpuHandle() const { return gpu; }
         const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const { return memoryProperties; }
@@ -60,6 +62,7 @@ namespace sky::aurora {
         void WaitIdle() const override;
 
         bool CreateDevice();
+        void QueryDeviceFeatures();
 
         VulkanInstance &instance;
 
@@ -73,8 +76,16 @@ namespace sky::aurora {
         uint32_t computeQueueFamily  = 0;
         uint32_t transferQueueFamily = 0;
 
-        VkPhysicalDeviceProperties   gpuProperties   = {};
-        VkPhysicalDeviceFeatures     gpuFeatures     = {};
+        VkPhysicalDeviceProperties2  gpuProperties   = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+
+        // features;
+        VkPhysicalDeviceFeatures2    gpuFeatures     = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        VkPhysicalDeviceVulkan11Features vkFeature11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+        VkPhysicalDeviceVulkan12Features vkFeature12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+        VkPhysicalDeviceVulkan13Features vkFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+        VkPhysicalDeviceVulkan14Features vkFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+
+        // memory properties
         VkPhysicalDeviceMemoryProperties memoryProperties = {};
 
         std::vector<const char*> enabledExtensions;

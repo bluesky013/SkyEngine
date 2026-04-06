@@ -59,6 +59,8 @@ namespace sky::aurora {
         virtual GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) = 0;
         virtual ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) = 0;
 
+        virtual PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const = 0;
+
         DeviceParallelPool* GetParallelContext() const { return threadPool.get(); }
     protected:
         virtual bool OnInit(const DeviceInit& init) = 0;

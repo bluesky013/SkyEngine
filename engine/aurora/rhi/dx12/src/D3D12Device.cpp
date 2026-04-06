@@ -7,6 +7,7 @@
 #include <D3D12CommandPool.h>
 #include <D3D12Fence.h>
 #include <D3D12Semaphore.h>
+#include <D3D12Conversion.h>
 #include <core/logger/Logger.h>
 
 static const char  *TAG  = "AuroraDX12";
@@ -222,6 +223,50 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    PixelFormatFeatureFlags D3D12Device::GetFormatFeatureFlags(PixelFormat format) const
+    {
+        const DXGI_FORMAT dxgiFormat = FromPixelFormat(format);
+        if (dxgiFormat == DXGI_FORMAT_UNKNOWN) {
+            return {};
+        }
+
+        D3D12_FEATURE_DATA_FORMAT_SUPPORT support = {};
+        support.Format = dxgiFormat;
+
+        HRESULT hr = device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &support, sizeof(support));
+        if (FAILED(hr)) {
+            return {};
+        }
+
+        const auto s1 = support.Support1;
+        const auto s2 = support.Support2;
+        PixelFormatFeatureFlags result;
+
+        if (s1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) {
+            result |= PixelFormatFeatureFlagBit::COLOR;
+        }
+        if (s1 & D3D12_FORMAT_SUPPORT1_BLENDABLE) {
+            result |= PixelFormatFeatureFlagBit::BLEND;
+        }
+        if (s1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL) {
+            result |= PixelFormatFeatureFlagBit::DEPTH_STENCIL;
+        }
+        if (s1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+        }
+        if (s1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE_COMPARISON) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+        }
+        if (s1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW) {
+            result |= PixelFormatFeatureFlagBit::STORAGE;
+        }
+        if (s2 & D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_ADD) {
+            result |= PixelFormatFeatureFlagBit::STORAGE_ATOMIC;
+        }
+
+        return result;
     }
 
     ThreadContext* D3D12Device::CreateAsyncContext()

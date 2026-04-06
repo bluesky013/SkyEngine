@@ -563,6 +563,8 @@ namespace sky::aurora {
         bool     hasStencil   = false;
     };
 
+    const ImageFormatInfo &GetImageFormatInfo(PixelFormat format);
+
     struct ImageSubRange {
         uint32_t baseLevel = 0;
         uint32_t levels    = 1;
@@ -714,11 +716,6 @@ namespace sky::aurora {
         uint32_t maxTaskPayloadSize;      // [16384
         uint32_t maxMeshOutputVertices;   // [256
         uint32_t maxMeshOutputPrimitives; // [256
-    };
-
-    struct PixelFormatFeature {
-        PixelFormatFeatureFlags linearFeature;
-        PixelFormatFeatureFlags optimalFeature;
     };
 
 }; // namespace sky::aurora

@@ -43,6 +43,8 @@ namespace sky::aurora {
         GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override;
         ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
 
+        PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
+
         GLESInstance &GetInstance() const { return instance; }
 
     private:

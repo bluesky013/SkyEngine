@@ -40,6 +40,8 @@ namespace sky::aurora {
         GraphicsPipeline *CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override;
         ComputePipeline *CreatePipelineState(const ComputePipeline::Descriptor &desc) override;
 
+        PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
+
         void *GetNativeDevice() const { return metalDevice; }
         void *GetCommandQueue() const { return commandQueue; }
         MetalInstance &GetInstance() const { return instance; }

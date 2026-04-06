@@ -53,6 +53,8 @@ namespace sky::aurora {
         GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
 
+        PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
+
         ID3D12Device  *GetNativeHandle() const { return device.Get(); }
         IDXGIAdapter1 *GetAdapter() const { return adapter.Get(); }
 

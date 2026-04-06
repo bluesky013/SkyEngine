@@ -7,6 +7,7 @@
 #include "VulkanCommandPool.h"
 #include "VulkanFence.h"
 #include "VulkanSemaphore.h"
+#include "VulkanConversion.h"
 #include <core/logger/Logger.h>
 #include <vector>
 
@@ -38,9 +39,10 @@ namespace sky::aurora {
             return false;
         }
 
-        vkGetPhysicalDeviceProperties(gpu, &gpuProperties);
-        vkGetPhysicalDeviceFeatures(gpu, &gpuFeatures);
+        vkGetPhysicalDeviceProperties2(gpu, &gpuProperties);
         vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
+
+        QueryDeviceFeatures();
 
         if (!CreateDevice()) {
             return false;
@@ -48,13 +50,13 @@ namespace sky::aurora {
 
         capability.maxThreads = init.parallelContextNum;
 
-        LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.deviceName);
+        LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.properties.deviceName);
         return true;
     }
 
     std::string VulkanDevice::GetDeviceInfo() const
     {
-        return gpuProperties.deviceName;
+        return gpuProperties.properties.deviceName;
     }
 
     void VulkanDevice::WaitIdle() const
@@ -138,13 +140,16 @@ namespace sky::aurora {
         // device extensions
         enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+        QueryDeviceFeatures();
+
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pNext                   = &vkFeature11;
         createInfo.queueCreateInfoCount    = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos       = queueCreateInfos.data();
-        createInfo.pEnabledFeatures        = &gpuFeatures;
         createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+        createInfo.pEnabledFeatures        = &gpuFeatures.features;
 
         if (instance.IsDebugEnabled()) {
             createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
@@ -163,6 +168,16 @@ namespace sky::aurora {
         vkGetDeviceQueue(device, transferQueueFamily, 0, &transferQueue);
 
         return true;
+    }
+
+    void VulkanDevice::QueryDeviceFeatures()
+    {
+        // query supported features via pNext chain
+        gpuFeatures.pNext = &vkFeature11;
+        vkFeature11.pNext = &vkFeature12;
+        vkFeature12.pNext = &vkFeature13;
+        vkFeature13.pNext = &vkFeature14;
+        vkGetPhysicalDeviceFeatures2(gpu, &gpuFeatures);
     }
 
     uint32_t VulkanDevice::GetQueueFamilyIndex(QueueType type) const
@@ -222,6 +237,39 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    PixelFormatFeatureFlags VulkanDevice::GetFormatFeatureFlags(PixelFormat format) const
+    {
+        VkFormatProperties props = {};
+        vkGetPhysicalDeviceFormatProperties(gpu, FromPixelFormat(format), &props);
+
+        const VkFormatFeatureFlags f = props.optimalTilingFeatures;
+        PixelFormatFeatureFlags result;
+
+        if (f & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+            result |= PixelFormatFeatureFlagBit::COLOR;
+        }
+        if (f & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) {
+            result |= PixelFormatFeatureFlagBit::BLEND;
+        }
+        if (f & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+            result |= PixelFormatFeatureFlagBit::DEPTH_STENCIL;
+        }
+        if (f & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+        }
+        if (f & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+        }
+        if (f & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+            result |= PixelFormatFeatureFlagBit::STORAGE;
+        }
+        if (f & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) {
+            result |= PixelFormatFeatureFlagBit::STORAGE_ATOMIC;
+        }
+
+        return result;
     }
 
     ThreadContext* VulkanDevice::CreateAsyncContext()

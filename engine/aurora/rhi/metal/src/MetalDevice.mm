@@ -11,6 +11,7 @@
 #include <MetalShader.h>
 #include <MetalPipelineState.h>
 #include <MetalSwapChain.h>
+#include <MetalUtils.h>
 #include <core/logger/Logger.h>
 
 #import <Foundation/Foundation.h>
@@ -215,6 +216,85 @@ namespace sky::aurora {
     ThreadContext *MetalDevice::CreateAsyncContext()
     {
         return new MetalThreadContext();
+    }
+
+    PixelFormatFeatureFlags MetalDevice::GetFormatFeatureFlags(PixelFormat format) const
+    {
+        const MTLPixelFormat mtlFormat = ToMetalPixelFormat(format);
+        if (mtlFormat == MTLPixelFormatInvalid) {
+            return {};
+        }
+
+        const auto &info = GetImageFormatInfo(format);
+        PixelFormatFeatureFlags result;
+
+        if (info.isCompressed) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+            return result;
+        }
+
+        if (info.hasDepth || info.hasStencil) {
+            result |= PixelFormatFeatureFlagBit::DEPTH_STENCIL;
+            result |= PixelFormatFeatureFlagBit::SAMPLE;
+            return result;
+        }
+
+        // all valid non-compressed non-depth Metal formats are sampleable
+        result |= PixelFormatFeatureFlagBit::SAMPLE;
+
+        // integer formats: no blend, no filter
+        const bool isInteger = (format == PixelFormat::R8_UINT ||
+                                format == PixelFormat::R32_UINT ||
+                                format == PixelFormat::RG32_UINT ||
+                                format == PixelFormat::RGBA32_UINT);
+
+        if (!isInteger) {
+            result |= PixelFormatFeatureFlagBit::SAMPLE_FILTER;
+        }
+
+        // color attachment: all non-compressed non-depth valid formats
+        result |= PixelFormatFeatureFlagBit::COLOR;
+
+        if (!isInteger) {
+            result |= PixelFormatFeatureFlagBit::BLEND;
+        }
+
+        // storage: Metal supports write for most non-compressed formats
+        // (8-bit, 16-bit, 32-bit; not sRGB, not 3-channel)
+        const bool isSrgb = (format == PixelFormat::R8_SRGB ||
+                             format == PixelFormat::RGBA8_SRGB ||
+                             format == PixelFormat::BGRA8_SRGB);
+        const bool is3Channel = (format == PixelFormat::RGB32_SFLOAT ||
+                                 format == PixelFormat::RGB32_UINT);
+
+        if (!isSrgb && !is3Channel) {
+            switch (mtlFormat) {
+            case MTLPixelFormatR8Unorm:
+            case MTLPixelFormatR8Uint:
+            case MTLPixelFormatR16Float:
+            case MTLPixelFormatRG16Float:
+            case MTLPixelFormatRGBA16Float:
+            case MTLPixelFormatR32Float:
+            case MTLPixelFormatRG32Float:
+            case MTLPixelFormatRGBA32Float:
+            case MTLPixelFormatR32Uint:
+            case MTLPixelFormatRG32Uint:
+            case MTLPixelFormatRGBA32Uint:
+            case MTLPixelFormatRGBA8Unorm:
+                result |= PixelFormatFeatureFlagBit::STORAGE;
+                break;
+            default:
+                break;
+            }
+        }
+
+        // atomic: R32Uint
+        if (mtlFormat == MTLPixelFormatR32Uint) {
+            result |= PixelFormatFeatureFlagBit::STORAGE_ATOMIC;
+        }
+
+        return result;
     }
 
 } // namespace sky::aurora
