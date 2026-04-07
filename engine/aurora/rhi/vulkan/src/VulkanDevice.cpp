@@ -26,8 +26,12 @@ namespace sky::aurora {
 
     VulkanDevice::~VulkanDevice()
     {
+        if (allocator != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator);
+            allocator = VK_NULL_HANDLE;
+        }
         if (device != VK_NULL_HANDLE) {
-            vkDestroyDevice(device, nullptr);
+            deviceFn.vkDestroyDevice(device, nullptr);
         }
     }
 
@@ -39,12 +43,17 @@ namespace sky::aurora {
             return false;
         }
 
-        vkGetPhysicalDeviceProperties2(gpu, &gpuProperties);
-        vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
+        const auto &instFn = instance.GetInstanceFn();
+        instFn.vkGetPhysicalDeviceProperties2(gpu, &gpuProperties);
+        instFn.vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
 
         QueryDeviceFeatures();
 
         if (!CreateDevice()) {
+            return false;
+        }
+
+        if (!CreateAllocator()) {
             return false;
         }
 
@@ -62,22 +71,24 @@ namespace sky::aurora {
     void VulkanDevice::WaitIdle() const
     {
         if (device != VK_NULL_HANDLE) {
-            vkDeviceWaitIdle(device);
+            deviceFn.vkDeviceWaitIdle(device);
         }
     }
 
     bool VulkanDevice::CreateDevice()
     {
+        const auto &instFn = instance.GetInstanceFn();
+
         // enumerate queue families
         uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, nullptr);
+        instFn.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, nullptr);
         if (queueFamilyCount == 0) {
             LOG_E(TAG, "no queue family found");
             return false;
         }
 
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, queueFamilies.data());
+        instFn.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, queueFamilies.data());
 
         // find dedicated queue families
         graphicsQueueFamily = UINT32_MAX;
@@ -156,17 +167,41 @@ namespace sky::aurora {
             createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
         }
 
-        VkResult result = vkCreateDevice(gpu, &createInfo, nullptr, &device);
+        VkResult result = instFn.vkCreateDevice(gpu, &createInfo, nullptr, &device);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create VkDevice, error: %d", result);
             return false;
         }
 
-        // retrieve queues
-        vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
-        vkGetDeviceQueue(device, computeQueueFamily,  0, &computeQueue);
-        vkGetDeviceQueue(device, transferQueueFamily, 0, &transferQueue);
+        // Load device-level function pointers
+        LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn);
 
+        // retrieve queues
+        deviceFn.vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
+        deviceFn.vkGetDeviceQueue(device, computeQueueFamily,  0, &computeQueue);
+        deviceFn.vkGetDeviceQueue(device, transferQueueFamily, 0, &transferQueue);
+
+        return true;
+    }
+
+    bool VulkanDevice::CreateAllocator()
+    {
+        VmaVulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = instance.GetGlobalFn().vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr   = instance.GetInstanceFn().vkGetDeviceProcAddr;
+
+        VmaAllocatorCreateInfo allocatorCI = {};
+        allocatorCI.physicalDevice   = gpu;
+        allocatorCI.device           = device;
+        allocatorCI.instance         = instance.GetNativeHandle();
+        allocatorCI.pVulkanFunctions = &vulkanFunctions;
+        allocatorCI.vulkanApiVersion = gpuProperties.properties.apiVersion;
+
+        const VkResult res = vmaCreateAllocator(&allocatorCI, &allocator);
+        if (res != VK_SUCCESS) {
+            LOG_E(TAG, "vmaCreateAllocator failed: %d", res);
+            return false;
+        }
         return true;
     }
 
@@ -177,7 +212,7 @@ namespace sky::aurora {
         vkFeature11.pNext = &vkFeature12;
         vkFeature12.pNext = &vkFeature13;
         vkFeature13.pNext = &vkFeature14;
-        vkGetPhysicalDeviceFeatures2(gpu, &gpuFeatures);
+        instance.GetInstanceFn().vkGetPhysicalDeviceFeatures2(gpu, &gpuFeatures);
     }
 
     uint32_t VulkanDevice::GetQueueFamilyIndex(QueueType type) const
@@ -239,10 +274,30 @@ namespace sky::aurora {
         return smp;
     }
 
+    ShaderFunction *VulkanDevice::CreateShaderFunction(const ShaderFunction::Descriptor &desc)
+    {
+        auto *fn = new VulkanShaderFunction(*this);
+        if (!fn->Init(desc)) {
+            delete fn;
+            return nullptr;
+        }
+        return fn;
+    }
+
+    Shader *VulkanDevice::CreateShader(const Shader::Descriptor &desc)
+    {
+        auto *shader = new VulkanShader(*this);
+        if (!shader->Init(desc)) {
+            delete shader;
+            return nullptr;
+        }
+        return shader;
+    }
+
     PixelFormatFeatureFlags VulkanDevice::GetFormatFeatureFlags(PixelFormat format) const
     {
         VkFormatProperties props = {};
-        vkGetPhysicalDeviceFormatProperties(gpu, FromPixelFormat(format), &props);
+        instance.GetInstanceFn().vkGetPhysicalDeviceFormatProperties(gpu, FromPixelFormat(format), &props);
 
         const VkFormatFeatureFlags f = props.optimalTilingFeatures;
         PixelFormatFeatureFlags result;

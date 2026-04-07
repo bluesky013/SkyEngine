@@ -27,7 +27,13 @@ if(EXISTS ${3RD_PATH})
     sky_find_3rd(TARGET sdl           DIR sdl)
 
     # vulkan
+    sky_find_3rd(TARGET vulkan_headers DIR vulkan_headers)
     sky_find_3rd(TARGET vma           DIR vma)
+
+    # d3d12
+    if (WIN32)
+        sky_find_3rd(TARGET d3d12ma  DIR d3d12ma)
+    endif()
 
     # imgui
     sky_find_3rd(TARGET imgui         DIR imgui)

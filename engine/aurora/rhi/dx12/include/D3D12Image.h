@@ -7,6 +7,7 @@
 #include <aurora/rhi/Image.h>
 
 #include <d3d12.h>
+#include <D3D12MemAlloc.h>
 #include <wrl/client.h>
 
 namespace sky::aurora {
@@ -18,7 +19,7 @@ namespace sky::aurora {
     class D3D12Image : public Image {
     public:
         explicit D3D12Image(D3D12Device &dev);
-        ~D3D12Image() override = default;
+        ~D3D12Image() override;
 
         bool Init(const Descriptor &desc);
 
@@ -31,6 +32,7 @@ namespace sky::aurora {
     private:
         D3D12Device            &device;
         ComPtr<ID3D12Resource>  resource;
+        ComPtr<D3D12MA::Allocation> allocation;
         DXGI_FORMAT             dxgiFormat = DXGI_FORMAT_UNKNOWN;
     };
 

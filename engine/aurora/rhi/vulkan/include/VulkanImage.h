@@ -5,7 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Image.h>
-#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace sky::aurora {
 
@@ -25,13 +25,11 @@ namespace sky::aurora {
         VkFormat GetVkFormat() const { return vkFormat; }
 
     private:
-        uint32_t FindMemoryType(uint32_t filter, VkMemoryPropertyFlags flags) const;
-
-        VulkanDevice   &device;
-        VkImage         image    = VK_NULL_HANDLE;
-        VkDeviceMemory  memory   = VK_NULL_HANDLE;
-        VkFormat        vkFormat = VK_FORMAT_UNDEFINED;
-        bool            owned    = true;
+        VulkanDevice  &device;
+        VkImage        image      = VK_NULL_HANDLE;
+        VmaAllocation  allocation = VK_NULL_HANDLE;
+        VkFormat       vkFormat   = VK_FORMAT_UNDEFINED;
+        bool           owned      = true;
     };
 
 } // namespace sky::aurora

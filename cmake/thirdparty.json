@@ -151,10 +151,28 @@
 			"header_only": false
 		},
 		{
+			"name": "vulkan_headers",
+			"url": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+			"tag": "v1.4.348",
+			"header_only": true
+		},
+		{
 			"name": "vma",
 			"url": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git",
 			"tag": "v3.2.1",
 			"header_only": true
+		},
+		{
+			"name": "d3d12ma",
+			"url": "https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator.git",
+			"tag": "v3.1.0",
+			"header_only": false,
+			"platforms": [
+				"Win32"
+			],
+			"options": {
+				"D3D12MA_BUILD_SAMPLE": "OFF"
+			}
 		},
 		{
 			"name": "glslang",
@@ -356,8 +374,8 @@
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_e00ca48cb8d9.zip",
-			"md5": "e00ca48cb8d9040cbf2f4a066521cbc9"
+			"file": "thirdparty_Win32_af3aff068b55.zip",
+			"md5": "af3aff068b550b0f8be393c256345266"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",

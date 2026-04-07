@@ -19,7 +19,7 @@ namespace sky::aurora {
     VulkanSampler::~VulkanSampler()
     {
         if (sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(device.GetNativeHandle(), sampler, nullptr);
+            device.GetDeviceFn().vkDestroySampler(device.GetNativeHandle(), sampler, nullptr);
         }
     }
 
@@ -43,7 +43,7 @@ namespace sky::aurora {
         samplerCI.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         samplerCI.unnormalizedCoordinates = VK_FALSE;
 
-        const VkResult res = vkCreateSampler(device.GetNativeHandle(), &samplerCI, nullptr, &sampler);
+        const VkResult res = device.GetDeviceFn().vkCreateSampler(device.GetNativeHandle(), &samplerCI, nullptr, &sampler);
         if (res != VK_SUCCESS) {
             LOG_E(TAG, "vkCreateSampler failed: %d", res);
             return false;

@@ -5,7 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Core.h>
-#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace sky::aurora {
 
@@ -22,6 +22,10 @@ namespace sky::aurora {
 
     // buffer
     VkBufferUsageFlags    FromBufferUsageFlags(const BufferUsageFlags &flags);
+
+    // memory
+    VmaMemoryUsage        FromMemoryType(MemoryType type);
+    VmaMemoryUsage        FromMemoryType(MemoryType type, const ImageUsageFlags &usage);
 
     // sampler
     VkFilter              FromFilter(Filter filter);

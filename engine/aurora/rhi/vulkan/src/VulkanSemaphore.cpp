@@ -18,7 +18,7 @@ namespace sky::aurora {
     VulkanSemaphore::~VulkanSemaphore()
     {
         if (semaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device.GetNativeHandle(), semaphore, nullptr);
+            device.GetDeviceFn().vkDestroySemaphore(device.GetNativeHandle(), semaphore, nullptr);
         }
     }
 
@@ -33,7 +33,7 @@ namespace sky::aurora {
         createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         createInfo.pNext = &typeInfo;
 
-        VkResult result = vkCreateSemaphore(device.GetNativeHandle(), &createInfo, nullptr, &semaphore);
+        VkResult result = device.GetDeviceFn().vkCreateSemaphore(device.GetNativeHandle(), &createInfo, nullptr, &semaphore);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create timeline VkSemaphore, error: %d", result);
             return false;
@@ -44,7 +44,7 @@ namespace sky::aurora {
     uint64_t VulkanSemaphore::GetCurrentValue() const
     {
         uint64_t value = 0;
-        vkGetSemaphoreCounterValue(device.GetNativeHandle(), semaphore, &value);
+        device.GetDeviceFn().vkGetSemaphoreCounterValue(device.GetNativeHandle(), semaphore, &value);
         return value;
     }
 
@@ -56,7 +56,7 @@ namespace sky::aurora {
         waitInfo.pSemaphores    = &semaphore;
         waitInfo.pValues        = &value;
 
-        vkWaitSemaphores(device.GetNativeHandle(), &waitInfo, UINT64_MAX);
+        device.GetDeviceFn().vkWaitSemaphores(device.GetNativeHandle(), &waitInfo, UINT64_MAX);
     }
 
     void VulkanSemaphore::Signal(uint64_t value)
@@ -66,7 +66,7 @@ namespace sky::aurora {
         signalInfo.semaphore = semaphore;
         signalInfo.value     = value;
 
-        vkSignalSemaphore(device.GetNativeHandle(), &signalInfo);
+        device.GetDeviceFn().vkSignalSemaphore(device.GetNativeHandle(), &signalInfo);
     }
 
 } // namespace sky::aurora

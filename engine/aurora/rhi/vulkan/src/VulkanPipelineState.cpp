@@ -5,6 +5,7 @@
 #include "VulkanPipelineState.h"
 #include "VulkanConversion.h"
 #include "VulkanDevice.h"
+#include "VulkanShader.h"
 #include <core/logger/Logger.h>
 
 namespace sky::aurora {
@@ -21,7 +22,7 @@ namespace sky::aurora {
     VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
     {
         if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device.GetNativeHandle(), pipeline, nullptr);
+            device.GetDeviceFn().vkDestroyPipeline(device.GetNativeHandle(), pipeline, nullptr);
         }
     }
 
@@ -72,9 +73,25 @@ namespace sky::aurora {
         const auto &state = *desc.state;
         const auto &fmt   = desc.format;
 
-        // ---- shader stages (placeholder - requires VulkanShader implementation) ----
-        // When VulkanShader is implemented, fill stage info here.
+        // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+        if (desc.shader != nullptr) {
+            const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
+            if (const auto *vs = vkShader->GetVertexFunction(); vs != nullptr) {
+                VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+                stageCI.stage  = FromShaderStage(vs->GetStage());
+                stageCI.module = vs->GetNativeHandle();
+                stageCI.pName  = "main";
+                shaderStages.push_back(stageCI);
+            }
+            if (const auto *fs = vkShader->GetFragmentFunction(); fs != nullptr) {
+                VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+                stageCI.stage  = FromShaderStage(fs->GetStage());
+                stageCI.module = fs->GetNativeHandle();
+                stageCI.pName  = "main";
+                shaderStages.push_back(stageCI);
+            }
+        }
 
         // ---- vertex input (empty - vertex pulling / mesh shaders) ----
         VkPipelineVertexInputStateCreateInfo vertexInput = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
@@ -184,7 +201,7 @@ namespace sky::aurora {
             ci.pNext      = pNext;
         }
 
-        const VkResult result = vkCreateGraphicsPipelines(
+        const VkResult result = device.GetDeviceFn().vkCreateGraphicsPipelines(
             device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create graphics pipeline, VkResult=%d", static_cast<int>(result));
@@ -204,7 +221,7 @@ namespace sky::aurora {
     VulkanComputePipeline::~VulkanComputePipeline()
     {
         if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device.GetNativeHandle(), pipeline, nullptr);
+            device.GetDeviceFn().vkDestroyPipeline(device.GetNativeHandle(), pipeline, nullptr);
         }
     }
 
@@ -212,11 +229,18 @@ namespace sky::aurora {
     {
         VkComputePipelineCreateInfo ci = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
         ci.layout = layout;
-        // Shader stage filled when VulkanShader is implemented
+
         ci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         ci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        if (desc.cs != nullptr) {
+            const auto *vkShader = static_cast<const VulkanShader *>(desc.cs);
+            if (const auto *cs = vkShader->GetComputeFunction(); cs != nullptr) {
+                ci.stage.module = cs->GetNativeHandle();
+                ci.stage.pName  = "main";
+            }
+        }
 
-        const VkResult result = vkCreateComputePipelines(
+        const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(
             device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create compute pipeline, VkResult=%d", static_cast<int>(result));

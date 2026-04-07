@@ -7,6 +7,7 @@
 #include <aurora/rhi/Buffer.h>
 
 #include <d3d12.h>
+#include <D3D12MemAlloc.h>
 #include <wrl/client.h>
 
 namespace sky::aurora {
@@ -18,7 +19,7 @@ namespace sky::aurora {
     class D3D12Buffer : public Buffer {
     public:
         explicit D3D12Buffer(D3D12Device &dev);
-        ~D3D12Buffer() override = default;
+        ~D3D12Buffer() override;
 
         bool Init(const Descriptor &desc);
 
@@ -30,6 +31,7 @@ namespace sky::aurora {
     private:
         D3D12Device            &device;
         ComPtr<ID3D12Resource>  resource;
+        ComPtr<D3D12MA::Allocation> allocation;
         uint64_t                size = 0;
     };
 

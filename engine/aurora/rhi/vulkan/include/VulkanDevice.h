@@ -5,12 +5,14 @@
 #pragma once
 
 #include <aurora/rhi/Device.h>
+#include <VulkanFunctions.h>
 #include <VulkanCommandPool.h>
 #include <VulkanBuffer.h>
 #include <VulkanImage.h>
 #include <VulkanSampler.h>
+#include <VulkanShader.h>
 
-#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 #include <vector>
 #include <string>
 
@@ -43,8 +45,8 @@ namespace sky::aurora {
         ResourceGroup* CreateSampler(const ResourceGroup::Descriptor &desc) override { return nullptr; }
         SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
 
-        ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override { return nullptr; }
-        Shader* CreateShader(const Shader::Descriptor &desc) override { return nullptr; }
+        ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
+        Shader* CreateShader(const Shader::Descriptor &desc) override;
         GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
 
@@ -52,6 +54,8 @@ namespace sky::aurora {
 
         VkDevice         GetNativeHandle() const { return device; }
         VkPhysicalDevice GetGpuHandle() const { return gpu; }
+        VmaAllocator     GetAllocator() const { return allocator; }
+        const VulkanDeviceFunctions &GetDeviceFn() const { return deviceFn; }
         const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const { return memoryProperties; }
 
         uint32_t GetQueueFamilyIndex(QueueType type) const;
@@ -62,12 +66,15 @@ namespace sky::aurora {
         void WaitIdle() const override;
 
         bool CreateDevice();
+        bool CreateAllocator();
         void QueryDeviceFeatures();
 
         VulkanInstance &instance;
 
-        VkPhysicalDevice gpu    = VK_NULL_HANDLE;
-        VkDevice         device = VK_NULL_HANDLE;
+        VkPhysicalDevice gpu       = VK_NULL_HANDLE;
+        VkDevice         device    = VK_NULL_HANDLE;
+        VmaAllocator     allocator = VK_NULL_HANDLE;
+        VulkanDeviceFunctions deviceFn = {};
         VkQueue          graphicsQueue = VK_NULL_HANDLE;
         VkQueue          computeQueue  = VK_NULL_HANDLE;
         VkQueue          transferQueue = VK_NULL_HANDLE;

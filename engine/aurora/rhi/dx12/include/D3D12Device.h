@@ -13,6 +13,7 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <D3D12MemAlloc.h>
 #include <wrl/client.h>
 #include <vector>
 #include <string>
@@ -48,15 +49,16 @@ namespace sky::aurora {
         ResourceGroup* CreateSampler(const ResourceGroup::Descriptor &desc) override { return nullptr; }
         SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
 
-        ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override { return nullptr; }
-        Shader* CreateShader(const Shader::Descriptor &desc) override { return nullptr; }
+        ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
+        Shader* CreateShader(const Shader::Descriptor &desc) override;
         GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
         ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
-        ID3D12Device  *GetNativeHandle() const { return device.Get(); }
-        IDXGIAdapter1 *GetAdapter() const { return adapter.Get(); }
+        ID3D12Device          *GetNativeHandle() const { return device.Get(); }
+        IDXGIAdapter1         *GetAdapter() const { return adapter.Get(); }
+        D3D12MA::Allocator    *GetAllocator() const { return allocator.Get(); }
 
     private:
         ThreadContext* CreateAsyncContext() override;
@@ -65,17 +67,19 @@ namespace sky::aurora {
         void WaitIdle() const override;
 
         bool CreateDevice();
+        bool CreateAllocator();
         bool CreateCommandQueues();
         static D3D12_COMMAND_LIST_TYPE ToCommandListType(QueueType type);
 
         D3D12Instance &instance;
 
-        ComPtr<IDXGIAdapter1>      adapter;
-        ComPtr<ID3D12Device>       device;
-        ComPtr<ID3D12CommandQueue> graphicsQueue;
-        ComPtr<ID3D12CommandQueue> computeQueue;
-        ComPtr<ID3D12CommandQueue> transferQueue;
-        ComPtr<ID3D12Fence>        fence;
+        ComPtr<IDXGIAdapter1>              adapter;
+        ComPtr<ID3D12Device>               device;
+        ComPtr<D3D12MA::Allocator>         allocator;
+        ComPtr<ID3D12CommandQueue>         graphicsQueue;
+        ComPtr<ID3D12CommandQueue>         computeQueue;
+        ComPtr<ID3D12CommandQueue>         transferQueue;
+        ComPtr<ID3D12Fence>                fence;
 
         DXGI_ADAPTER_DESC1 adapterDesc = {};
     };

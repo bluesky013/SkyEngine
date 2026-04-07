@@ -5,7 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Buffer.h>
-#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace sky::aurora {
 
@@ -24,13 +24,10 @@ namespace sky::aurora {
         void UnMap();
 
     private:
-        uint32_t FindMemoryType(uint32_t filter, VkMemoryPropertyFlags flags) const;
-
-        VulkanDevice      &device;
-        VkBuffer           buffer     = VK_NULL_HANDLE;
-        VkDeviceMemory     memory     = VK_NULL_HANDLE;
-        uint64_t           size       = 0;
-        VkMemoryPropertyFlags memFlags = 0;
+        VulkanDevice  &device;
+        VkBuffer       buffer     = VK_NULL_HANDLE;
+        VmaAllocation  allocation = VK_NULL_HANDLE;
+        uint8_t       *mappedPtr  = nullptr;
     };
 
 } // namespace sky::aurora

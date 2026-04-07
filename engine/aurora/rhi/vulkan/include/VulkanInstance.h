@@ -5,7 +5,7 @@
 #pragma once
 
 #include <aurora/rhi/Instance.h>
-#include <vulkan/vulkan.h>
+#include <VulkanFunctions.h>
 #include <vector>
 #include <string>
 
@@ -25,6 +25,9 @@ namespace sky::aurora {
         VkPhysicalDevice GetActiveGpu() const { return activeGpu; }
         bool             IsDebugEnabled() const { return enableDebugLayer; }
 
+        const VulkanGlobalFunctions   &GetGlobalFn() const { return globalFn; }
+        const VulkanInstanceFunctions &GetInstanceFn() const { return instanceFn; }
+
     private:
         bool CreateInstance(const Instance::Descriptor &desc);
         bool SetupDebugMessenger();
@@ -39,6 +42,9 @@ namespace sky::aurora {
         std::vector<const char*>      enabledExtensions;
 
         bool enableDebugLayer = false;
+
+        VulkanGlobalFunctions   globalFn   = {};
+        VulkanInstanceFunctions instanceFn = {};
     };
 
 } // namespace sky::aurora

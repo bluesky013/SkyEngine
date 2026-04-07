@@ -16,6 +16,12 @@ namespace sky::aurora {
     {
     }
 
+    D3D12Image::~D3D12Image()
+    {
+        resource.Reset();
+        allocation.Reset();
+    }
+
     bool D3D12Image::Init(const Descriptor &desc)
     {
         dxgiFormat = FromPixelFormat(desc.format);
@@ -24,8 +30,8 @@ namespace sky::aurora {
             return false;
         }
 
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = FromMemoryType(desc.memory);
+        D3D12MA::ALLOCATION_DESC allocDesc = {};
+        allocDesc.HeapType = FromMemoryType(desc.memory);
 
         D3D12_RESOURCE_DESC resDesc = {};
         resDesc.Dimension        = FromImageType(desc.imageType);
@@ -58,18 +64,20 @@ namespace sky::aurora {
             pClearValue = &clearValue;
         }
 
-        const HRESULT hr = device.GetNativeHandle()->CreateCommittedResource(
-            &heapProps,
-            D3D12_HEAP_FLAG_NONE,
+        D3D12MA::Allocation *pAlloc = nullptr;
+        const HRESULT hr = device.GetAllocator()->CreateResource(
+            &allocDesc,
             &resDesc,
             D3D12_RESOURCE_STATE_COMMON,
             pClearValue,
+            &pAlloc,
             IID_PPV_ARGS(resource.GetAddressOf()));
 
         if (FAILED(hr)) {
-            LOG_E(TAG, "CreateCommittedResource (image) failed: 0x%08x", hr);
+            LOG_E(TAG, "D3D12MA CreateResource (image) failed: 0x%08x", hr);
             return false;
         }
+        allocation.Attach(pAlloc);
 
         return true;
     }

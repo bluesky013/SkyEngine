@@ -18,12 +18,10 @@ namespace sky::aurora {
 
     VulkanImage::~VulkanImage()
     {
-        const auto vkDevice = device.GetNativeHandle();
-        if (owned && image != VK_NULL_HANDLE) {
-            vkDestroyImage(vkDevice, image, nullptr);
-        }
-        if (memory != VK_NULL_HANDLE) {
-            vkFreeMemory(vkDevice, memory, nullptr);
+        if (owned && image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
+            vmaDestroyImage(device.GetAllocator(), image, allocation);
+        } else if (owned && image != VK_NULL_HANDLE) {
+            device.GetDeviceFn().vkDestroyImage(device.GetNativeHandle(), image, nullptr);
         }
     }
 
@@ -54,52 +52,22 @@ namespace sky::aurora {
             imageCI.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         }
 
-        const auto vkDevice = device.GetNativeHandle();
-        VkResult res = vkCreateImage(vkDevice, &imageCI, nullptr, &image);
+        VmaAllocationCreateInfo allocCI = {};
+        allocCI.usage = FromMemoryType(desc.memory, desc.usage);
+
+        VkResult res = vmaCreateImage(device.GetAllocator(), &imageCI, &allocCI, &image, &allocation, nullptr);
         if (res != VK_SUCCESS) {
-            LOG_E(TAG, "vkCreateImage failed: %d", res);
-            return false;
-        }
-
-        VkMemoryRequirements memReqs = {};
-        vkGetImageMemoryRequirements(vkDevice, image, &memReqs);
-
-        VkMemoryPropertyFlags props = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        if (desc.usage & ImageUsageFlagBit::TRANSIENT) {
-            props |= VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
-        }
-
-        const uint32_t memType = FindMemoryType(memReqs.memoryTypeBits, props);
-        if (memType == UINT32_MAX) {
-            // fallback without lazily-allocated
-            const uint32_t fb = FindMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            if (fb == UINT32_MAX) {
-                LOG_E(TAG, "no suitable memory type for image");
+            // fallback: GPU_LAZILY_ALLOCATED may not be supported
+            if (allocCI.usage == VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED) {
+                LOG_W(TAG, "memoryless not supported, falling back to GPU_ONLY");
+                allocCI.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+                imageCI.usage &= ~VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+                res = vmaCreateImage(device.GetAllocator(), &imageCI, &allocCI, &image, &allocation, nullptr);
+            }
+            if (res != VK_SUCCESS) {
+                LOG_E(TAG, "vmaCreateImage failed: %d", res);
                 return false;
             }
-
-            VkMemoryAllocateInfo allocInfo = {};
-            allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-            allocInfo.allocationSize  = memReqs.size;
-            allocInfo.memoryTypeIndex = fb;
-            res = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &memory);
-        } else {
-            VkMemoryAllocateInfo allocInfo = {};
-            allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-            allocInfo.allocationSize  = memReqs.size;
-            allocInfo.memoryTypeIndex = memType;
-            res = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &memory);
-        }
-
-        if (res != VK_SUCCESS) {
-            LOG_E(TAG, "vkAllocateMemory for image failed: %d", res);
-            return false;
-        }
-
-        res = vkBindImageMemory(vkDevice, image, memory, 0);
-        if (res != VK_SUCCESS) {
-            LOG_E(TAG, "vkBindImageMemory failed: %d", res);
-            return false;
         }
 
         owned = true;
@@ -111,17 +79,6 @@ namespace sky::aurora {
         image    = swapImage;
         vkFormat = fmt;
         owned    = false;
-    }
-
-    uint32_t VulkanImage::FindMemoryType(uint32_t filter, VkMemoryPropertyFlags flags) const
-    {
-        const auto &memProps = device.GetMemoryProperties();
-        for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-            if ((filter & (1u << i)) && (memProps.memoryTypes[i].propertyFlags & flags) == flags) {
-                return i;
-            }
-        }
-        return UINT32_MAX;
     }
 
 } // namespace sky::aurora

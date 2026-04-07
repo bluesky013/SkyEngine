@@ -718,4 +718,18 @@ namespace sky::aurora {
         uint32_t maxMeshOutputPrimitives; // [256
     };
 
+    struct BufferNameHandler {
+        uint32_t binding;
+        uint32_t offset;
+        uint32_t size;
+    };
+
+    struct BindingHandler {
+        uint32_t binding;
+        uint32_t size;
+    };
+
+    struct ShaderVertexInput {
+    };
+
 }; // namespace sky::aurora

@@ -11,20 +11,6 @@
 
 namespace sky::aurora {
 
-    struct BufferNameHandler {
-        uint32_t binding;
-        uint32_t offset;
-        uint32_t size;
-    };
-
-    struct BindingHandler {
-        uint32_t binding;
-        uint32_t size;
-    };
-
-    struct ShaderVertexInput {
-    };
-
     struct ShaderDataProvider : RefObject {
         ShaderDataProvider() = default;
         ~ShaderDataProvider() override = default;

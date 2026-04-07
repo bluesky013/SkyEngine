@@ -12,6 +12,7 @@ sky_add_library(TARGET AuroraDX12 SHARED
     LINK_LIBS
         Core
         Aurora.RHI
+        3rdParty::d3d12ma
         d3d12
         dxgi
 )

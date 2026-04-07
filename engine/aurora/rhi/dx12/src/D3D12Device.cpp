@@ -7,6 +7,7 @@
 #include <D3D12CommandPool.h>
 #include <D3D12Fence.h>
 #include <D3D12Semaphore.h>
+#include <D3D12ShaderFunction.h>
 #include <D3D12Conversion.h>
 #include <core/logger/Logger.h>
 
@@ -28,6 +29,7 @@ namespace sky::aurora {
         graphicsQueue.Reset();
         computeQueue.Reset();
         transferQueue.Reset();
+        allocator.Reset();
         device.Reset();
         adapter.Reset();
     }
@@ -44,6 +46,9 @@ namespace sky::aurora {
         LOGW_I(TAGW, L"initializing device on: %ls", adapterDesc.Description);
 
         if (!CreateDevice()) {
+            return false;
+        }
+        if (!CreateAllocator()) {
             return false;
         }
         if (!CreateCommandQueues()) {
@@ -118,6 +123,25 @@ namespace sky::aurora {
             return false;
         }
 
+        return true;
+    }
+
+    bool D3D12Device::CreateAllocator()
+    {
+        D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
+        allocatorDesc.pDevice  = device.Get();
+        allocatorDesc.pAdapter = adapter.Get();
+        allocatorDesc.Flags    = D3D12MA::ALLOCATOR_FLAG_NONE;
+
+        D3D12MA::Allocator *pAllocator = nullptr;
+        const HRESULT hr = D3D12MA::CreateAllocator(&allocatorDesc, &pAllocator);
+        if (FAILED(hr)) {
+            LOG_E(TAG, "D3D12MA::CreateAllocator failed: 0x%08x", hr);
+            return false;
+        }
+        allocator.Attach(pAllocator);
+
+        LOG_I(TAG, "D3D12MA allocator created");
         return true;
     }
 
@@ -223,6 +247,26 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    ShaderFunction *D3D12Device::CreateShaderFunction(const ShaderFunction::Descriptor &desc)
+    {
+        auto *fn = new D3D12ShaderFunction(*this);
+        if (!fn->Init(desc)) {
+            delete fn;
+            return nullptr;
+        }
+        return fn;
+    }
+
+    Shader *D3D12Device::CreateShader(const Shader::Descriptor &desc)
+    {
+        auto *shader = new D3D12Shader(*this);
+        if (!shader->Init(desc)) {
+            delete shader;
+            return nullptr;
+        }
+        return shader;
     }
 
     PixelFormatFeatureFlags D3D12Device::GetFormatFeatureFlags(PixelFormat format) const

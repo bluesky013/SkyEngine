@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <VulkanFunctions.h>
 #include <vector>
 
 namespace sky::aurora {
@@ -13,7 +13,7 @@ namespace sky::aurora {
 
     class VulkanCommandBuffer {
     public:
-        VulkanCommandBuffer(VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
+        VulkanCommandBuffer(const VulkanDeviceFunctions &fn, VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
         ~VulkanCommandBuffer();
 
         void Begin();
@@ -22,6 +22,7 @@ namespace sky::aurora {
         VkCommandBuffer GetNativeHandle() const { return cmdBuffer; }
 
     private:
+        const VulkanDeviceFunctions &fn;
         VkDevice        device    = VK_NULL_HANDLE;
         VkCommandPool   pool      = VK_NULL_HANDLE;
         VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;

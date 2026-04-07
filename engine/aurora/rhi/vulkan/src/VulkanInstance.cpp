@@ -7,35 +7,10 @@
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 #include <vector>
-#include <cstring>
 
 static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
-
-    static VkResult CreateDebugUtilsMessengerEXT(VkInstance                                instance,
-                                                 const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                                                 const VkAllocationCallbacks              *pAllocator,
-                                                 VkDebugUtilsMessengerEXT                 *pDebugMessenger)
-    {
-        auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-        if (func != nullptr) {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-        }
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
-
-    static void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                              VkDebugUtilsMessengerEXT debugMessenger,
-                                              const VkAllocationCallbacks *pAllocator)
-    {
-        auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
-        if (func != nullptr) {
-            func(instance, debugMessenger, pAllocator);
-        }
-    }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
@@ -59,21 +34,30 @@ namespace sky::aurora {
 
     VulkanInstance::~VulkanInstance()
     {
-        if (debugMessenger != VK_NULL_HANDLE) {
-            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        if (debugMessenger != VK_NULL_HANDLE && instanceFn.vkDestroyDebugUtilsMessengerEXT != nullptr) {
+            instanceFn.vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         }
         if (instance != VK_NULL_HANDLE) {
-            vkDestroyInstance(instance, nullptr);
+            instanceFn.vkDestroyInstance(instance, nullptr);
         }
+        UnloadVulkanLibrary();
     }
 
     bool VulkanInstance::Init(const Instance::Descriptor &desc)
     {
         enableDebugLayer = desc.enableDebugLayer;
 
+        if (!LoadVulkanLibrary(globalFn)) {
+            LOG_E(TAG, "failed to load Vulkan library");
+            return false;
+        }
+
         if (!CreateInstance(desc)) {
             return false;
         }
+
+        LoadInstanceFunctions(globalFn.vkGetInstanceProcAddr, instance, instanceFn);
+
         if (enableDebugLayer) {
             SetupDebugMessenger();
         }
@@ -97,9 +81,9 @@ namespace sky::aurora {
     {
         // query supported extensions
         uint32_t extCount = 0;
-        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+        globalFn.vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
         std::vector<VkExtensionProperties> supportedExts(extCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, supportedExts.data());
+        globalFn.vkEnumerateInstanceExtensionProperties(nullptr, &extCount, supportedExts.data());
 
         enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if SKY_PLATFORM_WINDOWS
@@ -117,7 +101,7 @@ namespace sky::aurora {
         }
 
         uint32_t apiVersion = 0;
-        vkEnumerateInstanceVersion(&apiVersion);
+        globalFn.vkEnumerateInstanceVersion(&apiVersion);
         LOG_I(TAG, "Vulkan API version: %u.%u.%u",
               VK_API_VERSION_MAJOR(apiVersion),
               VK_API_VERSION_MINOR(apiVersion),
@@ -154,7 +138,7 @@ namespace sky::aurora {
             createInfo.pNext                = &debugCreateInfo;
         }
 
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+        VkResult result = globalFn.vkCreateInstance(&createInfo, nullptr, &instance);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create VkInstance, error: %d", result);
             return false;
@@ -174,7 +158,9 @@ namespace sky::aurora {
                                      VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = DebugCallback;
 
-        VkResult result = CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger);
+        VkResult result = instanceFn.vkCreateDebugUtilsMessengerEXT != nullptr
+            ? instanceFn.vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger)
+            : VK_ERROR_EXTENSION_NOT_PRESENT;
         if (result != VK_SUCCESS) {
             LOG_W(TAG, "failed to setup debug messenger, error: %d", result);
             return false;
@@ -186,20 +172,20 @@ namespace sky::aurora {
     bool VulkanInstance::PickPhysicalDevice()
     {
         uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        instanceFn.vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
         if (deviceCount == 0) {
             LOG_E(TAG, "no Vulkan-capable GPU found");
             return false;
         }
 
         physicalDevices.resize(deviceCount);
-        vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
+        instanceFn.vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
 
         // prefer discrete GPU
         activeGpu = physicalDevices[0];
         for (auto &gpu : physicalDevices) {
             VkPhysicalDeviceProperties props = {};
-            vkGetPhysicalDeviceProperties(gpu, &props);
+            instanceFn.vkGetPhysicalDeviceProperties(gpu, &props);
             LOG_I(TAG, "found GPU: %s (type: %u)", props.deviceName, props.deviceType);
             if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 activeGpu = gpu;
@@ -207,7 +193,7 @@ namespace sky::aurora {
         }
 
         VkPhysicalDeviceProperties activeProps = {};
-        vkGetPhysicalDeviceProperties(activeGpu, &activeProps);
+        instanceFn.vkGetPhysicalDeviceProperties(activeGpu, &activeProps);
         LOG_I(TAG, "selected GPU: %s", activeProps.deviceName);
         return true;
     }

@@ -316,6 +316,27 @@ namespace sky::aurora {
         return res;
     }
 
+    // ---- MemoryType (buffer) ----
+    VmaMemoryUsage FromMemoryType(MemoryType type)
+    {
+        switch (type) {
+        case MemoryType::GPU_ONLY:   return VMA_MEMORY_USAGE_GPU_ONLY;
+        case MemoryType::CPU_ONLY:   return VMA_MEMORY_USAGE_CPU_ONLY;
+        case MemoryType::CPU_TO_GPU: return VMA_MEMORY_USAGE_CPU_TO_GPU;
+        case MemoryType::GPU_TO_CPU: return VMA_MEMORY_USAGE_GPU_TO_CPU;
+        default:                     return VMA_MEMORY_USAGE_GPU_ONLY;
+        }
+    }
+
+    // ---- MemoryType (image, with transient check) ----
+    VmaMemoryUsage FromMemoryType(MemoryType type, const ImageUsageFlags &usage)
+    {
+        if ((usage & ImageUsageFlagBit::TRANSIENT) && type == MemoryType::GPU_ONLY) {
+            return VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
+        }
+        return FromMemoryType(type);
+    }
+
     // ---- AspectFlags ----
     VkImageAspectFlags FromAspectFlags(const AspectFlags &flags)
     {

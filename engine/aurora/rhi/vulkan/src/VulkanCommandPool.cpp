@@ -12,8 +12,9 @@ namespace sky::aurora {
 
     // ---- VulkanCommandBuffer ----
 
-    VulkanCommandBuffer::VulkanCommandBuffer(VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer)
-        : device(device)
+    VulkanCommandBuffer::VulkanCommandBuffer(const VulkanDeviceFunctions &fn, VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer)
+        : fn(fn)
+        , device(device)
         , pool(pool)
         , cmdBuffer(cmdBuffer)
     {
@@ -22,7 +23,7 @@ namespace sky::aurora {
     VulkanCommandBuffer::~VulkanCommandBuffer()
     {
         if (cmdBuffer != VK_NULL_HANDLE) {
-            vkFreeCommandBuffers(device, pool, 1, &cmdBuffer);
+            fn.vkFreeCommandBuffers(device, pool, 1, &cmdBuffer);
         }
     }
 
@@ -32,12 +33,12 @@ namespace sky::aurora {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        fn.vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
     void VulkanCommandBuffer::End()
     {
-        vkEndCommandBuffer(cmdBuffer);
+        fn.vkEndCommandBuffer(cmdBuffer);
     }
 
     // ---- VulkanCommandPool ----
@@ -56,7 +57,7 @@ namespace sky::aurora {
         allocatedBuffers.clear();
 
         if (pool != VK_NULL_HANDLE) {
-            vkDestroyCommandPool(device.GetNativeHandle(), pool, nullptr);
+            device.GetDeviceFn().vkDestroyCommandPool(device.GetNativeHandle(), pool, nullptr);
         }
     }
 
@@ -67,7 +68,7 @@ namespace sky::aurora {
         poolInfo.queueFamilyIndex = queueFamilyIndex;
         poolInfo.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        VkResult result = vkCreateCommandPool(device.GetNativeHandle(), &poolInfo, nullptr, &pool);
+        VkResult result = device.GetDeviceFn().vkCreateCommandPool(device.GetNativeHandle(), &poolInfo, nullptr, &pool);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create VkCommandPool, error: %d", result);
             return false;
@@ -77,7 +78,7 @@ namespace sky::aurora {
 
     void VulkanCommandPool::Reset()
     {
-        vkResetCommandPool(device.GetNativeHandle(), pool, 0);
+        device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
     }
 
     VulkanCommandBuffer *VulkanCommandPool::Allocate(VkCommandBufferLevel level)
@@ -89,13 +90,13 @@ namespace sky::aurora {
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer vkCmdBuffer = VK_NULL_HANDLE;
-        VkResult result = vkAllocateCommandBuffers(device.GetNativeHandle(), &allocInfo, &vkCmdBuffer);
+        VkResult result = device.GetDeviceFn().vkAllocateCommandBuffers(device.GetNativeHandle(), &allocInfo, &vkCmdBuffer);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to allocate VkCommandBuffer, error: %d", result);
             return nullptr;
         }
 
-        auto *cmdBuffer = new VulkanCommandBuffer(device.GetNativeHandle(), pool, vkCmdBuffer);
+        auto *cmdBuffer = new VulkanCommandBuffer(device.GetDeviceFn(), device.GetNativeHandle(), pool, vkCmdBuffer);
         allocatedBuffers.push_back(cmdBuffer);
         return cmdBuffer;
     }

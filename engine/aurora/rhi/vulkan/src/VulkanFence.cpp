@@ -18,7 +18,7 @@ namespace sky::aurora {
     VulkanFence::~VulkanFence()
     {
         if (fence != VK_NULL_HANDLE) {
-            vkDestroyFence(device.GetNativeHandle(), fence, nullptr);
+            device.GetDeviceFn().vkDestroyFence(device.GetNativeHandle(), fence, nullptr);
         }
     }
 
@@ -30,7 +30,7 @@ namespace sky::aurora {
             createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         }
 
-        VkResult result = vkCreateFence(device.GetNativeHandle(), &createInfo, nullptr, &fence);
+        VkResult result = device.GetDeviceFn().vkCreateFence(device.GetNativeHandle(), &createInfo, nullptr, &fence);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "failed to create VkFence, error: %d", result);
             return false;
@@ -40,12 +40,12 @@ namespace sky::aurora {
 
     void VulkanFence::Wait()
     {
-        vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, UINT64_MAX);
+        device.GetDeviceFn().vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, UINT64_MAX);
     }
 
     void VulkanFence::Reset()
     {
-        vkResetFences(device.GetNativeHandle(), 1, &fence);
+        device.GetDeviceFn().vkResetFences(device.GetNativeHandle(), 1, &fence);
     }
 
 } // namespace sky::aurora
