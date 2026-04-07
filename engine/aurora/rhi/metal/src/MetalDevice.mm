@@ -11,6 +11,7 @@
 #include <MetalShader.h>
 #include <MetalPipelineState.h>
 #include <MetalSwapChain.h>
+#include <MetalCommandPool.h>
 #include <MetalUtils.h>
 #include <core/logger/Logger.h>
 
@@ -111,6 +112,16 @@ namespace sky::aurora {
         }
         [commandBuffer commit];
         [commandBuffer waitUntilCompleted];
+    }
+
+    CommandPool *MetalDevice::CreateCommandPool(QueueType type)
+    {
+        auto *pool = new MetalCommandPool(*this);
+        if (!pool->Init()) {
+            delete pool;
+            return nullptr;
+        }
+        return pool;
     }
 
     Fence *MetalDevice::CreateFence(const Fence::Descriptor &desc)

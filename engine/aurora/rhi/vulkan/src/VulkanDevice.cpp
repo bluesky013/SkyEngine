@@ -224,6 +224,16 @@ namespace sky::aurora {
         }
     }
 
+    CommandPool *VulkanDevice::CreateCommandPool(QueueType type)
+    {
+        auto *pool = new VulkanCommandPool(*this, GetQueueFamilyIndex(type));
+        if (!pool->Init()) {
+            delete pool;
+            return nullptr;
+        }
+        return pool;
+    }
+
     Fence *VulkanDevice::CreateFence(const Fence::Descriptor &desc)
     {
         auto *fence = new VulkanFence(*this);

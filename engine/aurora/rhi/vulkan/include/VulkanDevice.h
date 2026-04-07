@@ -52,6 +52,8 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        CommandPool* CreateCommandPool(QueueType type) override;
+
         VkDevice         GetNativeHandle() const { return device; }
         VkPhysicalDevice GetGpuHandle() const { return gpu; }
         VmaAllocator     GetAllocator() const { return allocator; }

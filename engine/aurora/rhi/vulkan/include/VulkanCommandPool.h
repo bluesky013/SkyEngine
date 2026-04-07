@@ -4,39 +4,43 @@
 
 #pragma once
 
+#include <aurora/rhi/CommandBuffer.h>
 #include <VulkanFunctions.h>
 #include <vector>
+#include <memory>
 
 namespace sky::aurora {
 
     class VulkanDevice;
 
-    class VulkanCommandBuffer {
+    class VulkanCommandBuffer : public CommandBuffer {
     public:
-        VulkanCommandBuffer(const VulkanDeviceFunctions &fn, VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
-        ~VulkanCommandBuffer();
+        VulkanCommandBuffer(VulkanDevice &device, VkCommandPool pool, VkCommandBuffer cmdBuffer);
+        ~VulkanCommandBuffer() override;
 
-        void Begin();
-        void End();
+        void Begin() override;
+        void End() override;
+
+        std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
+        std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;
+        std::unique_ptr<BlitEncoder> CreateBlitEncoder() override;
 
         VkCommandBuffer GetNativeHandle() const { return cmdBuffer; }
 
     private:
-        const VulkanDeviceFunctions &fn;
-        VkDevice        device    = VK_NULL_HANDLE;
+        VulkanDevice   &device;
         VkCommandPool   pool      = VK_NULL_HANDLE;
         VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
     };
 
-    class VulkanCommandPool {
+    class VulkanCommandPool : public CommandPool {
     public:
         VulkanCommandPool(VulkanDevice &device, uint32_t queueFamilyIndex);
-        ~VulkanCommandPool();
+        ~VulkanCommandPool() override;
 
-        bool Init();
-
-        void Reset();
-        VulkanCommandBuffer *Allocate(VkCommandBufferLevel level);
+        bool Init() override;
+        void Reset() override;
+        CommandBuffer *Allocate() override;
 
         VkCommandPool GetNativeHandle() const { return pool; }
 

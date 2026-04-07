@@ -21,12 +21,14 @@ namespace sky::aurora {
         GLuint GetNativeHandle() const { return texId; }
         GLenum GetTarget() const { return target; }
         bool   IsRenderBuffer() const { return renderBuffer; }
+        PixelFormat GetPixelFormat() const { return pixelFormat; }
 
     private:
         GLESDevice &device;
         GLuint texId        = 0;
         GLenum target       = GL_TEXTURE_2D;
         bool   renderBuffer = false;
+        PixelFormat pixelFormat = PixelFormat::UNDEFINED;
     };
 
 } // namespace sky::aurora

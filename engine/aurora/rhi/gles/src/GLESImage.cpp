@@ -38,6 +38,8 @@ namespace sky::aurora {
             return false;
         }
 
+        pixelFormat = desc.format;
+
         const bool sampled    = (desc.usage & ImageUsageFlagBit::SAMPLED) != ImageUsageFlagBit::NONE;
         const bool attachment = (desc.usage & USAGE_ATTACHMENT) != ImageUsageFlagBit::NONE;
         const bool multiSample = desc.samples > SampleCount::X1;

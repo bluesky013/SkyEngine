@@ -4,6 +4,7 @@
 
 #include <VulkanCommandPool.h>
 #include <VulkanDevice.h>
+#include <VulkanEncoder.h>
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraVulkan";
@@ -12,9 +13,8 @@ namespace sky::aurora {
 
     // ---- VulkanCommandBuffer ----
 
-    VulkanCommandBuffer::VulkanCommandBuffer(const VulkanDeviceFunctions &fn, VkDevice device, VkCommandPool pool, VkCommandBuffer cmdBuffer)
-        : fn(fn)
-        , device(device)
+    VulkanCommandBuffer::VulkanCommandBuffer(VulkanDevice &device, VkCommandPool pool, VkCommandBuffer cmdBuffer)
+        : device(device)
         , pool(pool)
         , cmdBuffer(cmdBuffer)
     {
@@ -23,7 +23,8 @@ namespace sky::aurora {
     VulkanCommandBuffer::~VulkanCommandBuffer()
     {
         if (cmdBuffer != VK_NULL_HANDLE) {
-            fn.vkFreeCommandBuffers(device, pool, 1, &cmdBuffer);
+            const auto &fn = device.GetDeviceFn();
+            fn.vkFreeCommandBuffers(device.GetNativeHandle(), pool, 1, &cmdBuffer);
         }
     }
 
@@ -33,12 +34,27 @@ namespace sky::aurora {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        fn.vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+        device.GetDeviceFn().vkBeginCommandBuffer(cmdBuffer, &beginInfo);
     }
 
     void VulkanCommandBuffer::End()
     {
-        fn.vkEndCommandBuffer(cmdBuffer);
+        device.GetDeviceFn().vkEndCommandBuffer(cmdBuffer);
+    }
+
+    std::unique_ptr<GraphicsEncoder> VulkanCommandBuffer::CreateGraphicsEncoder()
+    {
+        return std::make_unique<VulkanGraphicsEncoder>(device, cmdBuffer);
+    }
+
+    std::unique_ptr<ComputeEncoder> VulkanCommandBuffer::CreateComputeEncoder()
+    {
+        return std::make_unique<VulkanComputeEncoder>(device, cmdBuffer);
+    }
+
+    std::unique_ptr<BlitEncoder> VulkanCommandBuffer::CreateBlitEncoder()
+    {
+        return std::make_unique<VulkanBlitEncoder>(device, cmdBuffer);
     }
 
     // ---- VulkanCommandPool ----
@@ -81,12 +97,12 @@ namespace sky::aurora {
         device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
     }
 
-    VulkanCommandBuffer *VulkanCommandPool::Allocate(VkCommandBufferLevel level)
+    CommandBuffer *VulkanCommandPool::Allocate()
     {
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool        = pool;
-        allocInfo.level              = level;
+        allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer vkCmdBuffer = VK_NULL_HANDLE;
@@ -96,7 +112,7 @@ namespace sky::aurora {
             return nullptr;
         }
 
-        auto *cmdBuffer = new VulkanCommandBuffer(device.GetDeviceFn(), device.GetNativeHandle(), pool, vkCmdBuffer);
+        auto *cmdBuffer = new VulkanCommandBuffer(device, pool, vkCmdBuffer);
         allocatedBuffers.push_back(cmdBuffer);
         return cmdBuffer;
     }

@@ -45,6 +45,8 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        CommandPool* CreateCommandPool(QueueType type) override;
+
         GLESInstance &GetInstance() const { return instance; }
 
     private:

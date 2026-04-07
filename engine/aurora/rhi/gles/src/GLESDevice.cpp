@@ -13,6 +13,7 @@
 #include <GLESSwapChain.h>
 #include <GLESShader.h>
 #include <GLESPipelineState.h>
+#include <GLESCommandPool.h>
 #include <GLESConversion.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
@@ -114,6 +115,16 @@ namespace sky::aurora {
     void GLESDevice::WaitIdle() const
     {
         glFinish();
+    }
+
+    CommandPool *GLESDevice::CreateCommandPool(QueueType /*type*/)
+    {
+        auto *pool = new GLESCommandPool(*this);
+        if (!pool->Init()) {
+            delete pool;
+            return nullptr;
+        }
+        return pool;
     }
 
     Fence *GLESDevice::CreateFence(const Fence::Descriptor &desc)

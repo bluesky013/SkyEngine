@@ -11,6 +11,7 @@
 #include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Semaphore.h>
 #include <aurora/rhi/Encoder.h>
+#include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/Image.h>
 #include <aurora/rhi/Sampler.h>
@@ -60,6 +61,9 @@ namespace sky::aurora {
         virtual ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) = 0;
 
         virtual PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const = 0;
+
+        // command pool
+        virtual CommandPool* CreateCommandPool(QueueType type) = 0;
 
         DeviceParallelPool* GetParallelContext() const { return threadPool.get(); }
     protected:

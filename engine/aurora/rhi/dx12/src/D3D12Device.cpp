@@ -199,6 +199,16 @@ namespace sky::aurora {
         }
     }
 
+    CommandPool *D3D12Device::CreateCommandPool(QueueType type)
+    {
+        auto *pool = new D3D12CommandPool(*this, ToCommandListType(type));
+        if (!pool->Init()) {
+            delete pool;
+            return nullptr;
+        }
+        return pool;
+    }
+
     Fence *D3D12Device::CreateFence(const Fence::Descriptor &desc)
     {
         auto *f = new D3D12Fence(*this);

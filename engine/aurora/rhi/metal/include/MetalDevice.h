@@ -42,6 +42,8 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        CommandPool* CreateCommandPool(QueueType type) override;
+
         void *GetNativeDevice() const { return metalDevice; }
         void *GetCommandQueue() const { return commandQueue; }
         MetalInstance &GetInstance() const { return instance; }

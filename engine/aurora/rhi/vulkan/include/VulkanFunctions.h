@@ -87,6 +87,41 @@ namespace sky::aurora {
 
         // image (for non-VMA paths, e.g. swapchain image cleanup)
         PFN_vkDestroyImage                 vkDestroyImage                 = nullptr;
+
+        // queue
+        PFN_vkQueueSubmit                  vkQueueSubmit                  = nullptr;
+
+        // dynamic rendering (Vulkan 1.3+)
+        PFN_vkCmdBeginRendering            vkCmdBeginRendering            = nullptr;
+        PFN_vkCmdEndRendering              vkCmdEndRendering              = nullptr;
+
+        // draw commands
+        PFN_vkCmdDraw                      vkCmdDraw                      = nullptr;
+        PFN_vkCmdDrawIndexed               vkCmdDrawIndexed               = nullptr;
+        PFN_vkCmdDrawIndirect              vkCmdDrawIndirect              = nullptr;
+        PFN_vkCmdDrawIndexedIndirect       vkCmdDrawIndexedIndirect       = nullptr;
+
+        // compute
+        PFN_vkCmdDispatch                  vkCmdDispatch                  = nullptr;
+        PFN_vkCmdDispatchIndirect          vkCmdDispatchIndirect          = nullptr;
+
+        // state
+        PFN_vkCmdBindPipeline              vkCmdBindPipeline              = nullptr;
+        PFN_vkCmdBindDescriptorSets        vkCmdBindDescriptorSets        = nullptr;
+        PFN_vkCmdBindVertexBuffers         vkCmdBindVertexBuffers         = nullptr;
+        PFN_vkCmdBindIndexBuffer           vkCmdBindIndexBuffer           = nullptr;
+        PFN_vkCmdSetViewport               vkCmdSetViewport               = nullptr;
+        PFN_vkCmdSetScissor                vkCmdSetScissor                = nullptr;
+
+        // transfer
+        PFN_vkCmdCopyBuffer                vkCmdCopyBuffer                = nullptr;
+        PFN_vkCmdCopyBufferToImage         vkCmdCopyBufferToImage         = nullptr;
+        PFN_vkCmdCopyImageToBuffer         vkCmdCopyImageToBuffer         = nullptr;
+        PFN_vkCmdBlitImage                 vkCmdBlitImage                 = nullptr;
+        PFN_vkCmdResolveImage              vkCmdResolveImage              = nullptr;
+
+        // synchronization
+        PFN_vkCmdPipelineBarrier2          vkCmdPipelineBarrier2          = nullptr;
     };
 
     // ---------------------------------------------------------------------------

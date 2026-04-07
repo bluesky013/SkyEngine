@@ -732,4 +732,77 @@ namespace sky::aurora {
     struct ShaderVertexInput {
     };
 
+    // draw commands
+    struct CmdDrawLinear {
+        uint32_t vertexCount   = 0;
+        uint32_t instanceCount = 1;
+        uint32_t firstVertex   = 0;
+        uint32_t firstInstance = 0;
+    };
+
+    struct CmdDrawIndexed {
+        uint32_t indexCount    = 0;
+        uint32_t instanceCount = 1;
+        uint32_t firstIndex    = 0;
+        int32_t  vertexOffset  = 0;
+        uint32_t firstInstance = 0;
+    };
+
+    struct CmdDispatch {
+        uint32_t x = 1;
+        uint32_t y = 1;
+        uint32_t z = 1;
+    };
+
+    // forward declarations for pointer-only usage
+    class Image;
+    class Buffer;
+
+    static constexpr uint32_t MAX_COLOR_ATTACHMENTS = 8;
+
+    // rendering attachment
+    struct ColorAttachment {
+        Image      *image       = nullptr;
+        LoadOp      loadOp      = LoadOp::DONT_CARE;
+        StoreOp     storeOp     = StoreOp::STORE;
+        ClearValue  clearValue;
+    };
+
+    struct DepthStencilAttachment {
+        Image      *image          = nullptr;
+        LoadOp      depthLoadOp    = LoadOp::DONT_CARE;
+        StoreOp     depthStoreOp   = StoreOp::STORE;
+        LoadOp      stencilLoadOp  = LoadOp::DONT_CARE;
+        StoreOp     stencilStoreOp = StoreOp::DONT_CARE;
+        ClearValue  clearValue;
+    };
+
+    struct RenderingInfo {
+        Rect2D                          renderArea = {};
+        uint32_t                        numColors  = 0;
+        ColorAttachment                 colors[MAX_COLOR_ATTACHMENTS] = {};
+        DepthStencilAttachment          depthStencil;
+    };
+
+    struct BufferView {
+        Buffer  *buffer = nullptr;
+        uint64_t offset = 0;
+        uint64_t range  = 0;
+    };
+
+    struct ImageBarrierInfo {
+        Image          *image     = nullptr;
+        ImageSubRange   subRange;
+        AccessFlags     srcAccess;
+        AccessFlags     dstAccess;
+    };
+
+    struct BufferBarrierInfo {
+        Buffer      *buffer   = nullptr;
+        uint64_t     offset   = 0;
+        uint64_t     range    = 0;
+        AccessFlags  srcAccess;
+        AccessFlags  dstAccess;
+    };
+
 }; // namespace sky::aurora

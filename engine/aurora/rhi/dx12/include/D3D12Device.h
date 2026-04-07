@@ -56,6 +56,8 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        CommandPool* CreateCommandPool(QueueType type) override;
+
         ID3D12Device          *GetNativeHandle() const { return device.Get(); }
         IDXGIAdapter1         *GetAdapter() const { return adapter.Get(); }
         D3D12MA::Allocator    *GetAllocator() const { return allocator.Get(); }

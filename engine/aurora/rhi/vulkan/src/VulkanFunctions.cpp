@@ -134,6 +134,40 @@ namespace sky::aurora {
         LOAD_DEVICE(vkDestroyPipeline);
 
         LOAD_DEVICE(vkDestroyImage);
+
+        LOAD_DEVICE(vkQueueSubmit);
+
+        // dynamic rendering (Vulkan 1.3+)
+        LOAD_DEVICE(vkCmdBeginRendering);
+        LOAD_DEVICE(vkCmdEndRendering);
+
+        // draw commands
+        LOAD_DEVICE(vkCmdDraw);
+        LOAD_DEVICE(vkCmdDrawIndexed);
+        LOAD_DEVICE(vkCmdDrawIndirect);
+        LOAD_DEVICE(vkCmdDrawIndexedIndirect);
+
+        // compute
+        LOAD_DEVICE(vkCmdDispatch);
+        LOAD_DEVICE(vkCmdDispatchIndirect);
+
+        // state
+        LOAD_DEVICE(vkCmdBindPipeline);
+        LOAD_DEVICE(vkCmdBindDescriptorSets);
+        LOAD_DEVICE(vkCmdBindVertexBuffers);
+        LOAD_DEVICE(vkCmdBindIndexBuffer);
+        LOAD_DEVICE(vkCmdSetViewport);
+        LOAD_DEVICE(vkCmdSetScissor);
+
+        // transfer
+        LOAD_DEVICE(vkCmdCopyBuffer);
+        LOAD_DEVICE(vkCmdCopyBufferToImage);
+        LOAD_DEVICE(vkCmdCopyImageToBuffer);
+        LOAD_DEVICE(vkCmdBlitImage);
+        LOAD_DEVICE(vkCmdResolveImage);
+
+        // synchronization
+        LOAD_DEVICE(vkCmdPipelineBarrier2);
 #undef LOAD_DEVICE
     }
 

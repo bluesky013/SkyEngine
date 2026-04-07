@@ -138,7 +138,44 @@ AURORA_EGL_FUNCTIONS(AURORA_DECLARE_EGL)
     /* sync */                                                               \
     X(PFNGLFENCESYNCPROC,                 glFenceSync)                      \
     X(PFNGLDELETESYNCPROC,                glDeleteSync)                     \
-    X(PFNGLWAITSYNCPROC,                  glWaitSync)
+    X(PFNGLWAITSYNCPROC,                  glWaitSync)                       \
+    /* viewport / scissor */                                                 \
+    X(PFNGLVIEWPORTPROC,                  glViewport)                       \
+    X(PFNGLSCISSORPROC,                   glScissor)                        \
+    X(PFNGLCOLORMASKPROC,                 glColorMask)                      \
+    X(PFNGLCLEARCOLORPROC,                glClearColor)                     \
+    X(PFNGLCLEARDEPTHFPROC,               glClearDepthf)                    \
+    X(PFNGLCLEARSTENCILPROC,              glClearStencil)                   \
+    X(PFNGLCLEARPROC,                     glClear)                          \
+    /* draw */                                                               \
+    X(PFNGLDRAWARRAYSPROC,                glDrawArrays)                     \
+    X(PFNGLDRAWELEMENTSPROC,              glDrawElements)                   \
+    X(PFNGLDRAWARRAYSINSTANCEDPROC,       glDrawArraysInstanced)            \
+    X(PFNGLDRAWELEMENTSINSTANCEDPROC,     glDrawElementsInstanced)          \
+    X(PFNGLDISPATCHCOMPUTEPROC,           glDispatchCompute)                \
+    X(PFNGLDISPATCHCOMPUTEINDIRECTPROC,   glDispatchComputeIndirect)        \
+    /* vertex array */                                                       \
+    X(PFNGLGENVERTEXARRAYSPROC,           glGenVertexArrays)                \
+    X(PFNGLDELETEVERTEXARRAYSPROC,        glDeleteVertexArrays)             \
+    X(PFNGLBINDVERTEXARRAYPROC,           glBindVertexArray)                \
+    X(PFNGLENABLEVERTEXATTRIBARRAYPROC,   glEnableVertexAttribArray)        \
+    X(PFNGLVERTEXATTRIBPOINTERPROC,       glVertexAttribPointer)            \
+    X(PFNGLBINDBUFFERBASEPROC,            glBindBufferBase)                 \
+    X(PFNGLBINDBUFFERRANGEPROC,           glBindBufferRange)                \
+    /* framebuffer */                                                        \
+    X(PFNGLGENFRAMEBUFFERSPROC,           glGenFramebuffers)                \
+    X(PFNGLDELETEFRAMEBUFFERSPROC,        glDeleteFramebuffers)             \
+    X(PFNGLBINDFRAMEBUFFERPROC,           glBindFramebuffer)                \
+    X(PFNGLFRAMEBUFFERTEXTURE2DPROC,      glFramebufferTexture2D)           \
+    X(PFNGLFRAMEBUFFERRENDERBUFFERPROC,   glFramebufferRenderbuffer)        \
+    X(PFNGLDRAWBUFFERSPROC,               glDrawBuffers)                    \
+    X(PFNGLBLITFRAMEBUFFERPROC,           glBlitFramebuffer)                \
+    /* copy */                                                               \
+    X(PFNGLCOPYBUFFERSUBDATAPROC,         glCopyBufferSubData)              \
+    X(PFNGLTEXSUBIMAGE2DPROC,             glTexSubImage2D)                  \
+    X(PFNGLTEXSUBIMAGE3DPROC,             glTexSubImage3D)                  \
+    X(PFNGLREADPIXELSPROC,                glReadPixels)                     \
+    X(PFNGLMEMORYBARRIERPROC,             glMemoryBarrier)
 
 // Declare each GL symbol as an extern function pointer.
 #define AURORA_DECLARE_GL(TYPE, NAME) extern TYPE NAME;

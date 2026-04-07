@@ -10,8 +10,6 @@
 namespace sky::aurora {
     class Shader;
 
-    static constexpr uint32_t MAX_COLOR_ATTACHMENTS = 8;
-
     struct AttachmentFormat {
         PixelFormat colors[MAX_COLOR_ATTACHMENTS] = {};
         uint32_t    numColors                     = 0;
