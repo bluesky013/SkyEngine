@@ -36,6 +36,7 @@ namespace sky::aurora {
 
     bool D3D12Device::OnInit(const DeviceInit& init)
     {
+        (void)init;
         adapter = instance.GetAdapter(0);
         if (!adapter) {
             LOG_E(TAG, "no adapter available");
@@ -55,11 +56,14 @@ namespace sky::aurora {
             return false;
         }
 
-        capability.maxThreads = init.parallelContextNum;
-        capability.anisotropyEnable = true;
-
         LOG_I(TAG, "D3D12 device created successfully");
         return true;
+    }
+
+    void D3D12Device::UpdateDeviceCaps()
+    {
+        capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
+        capability.anisotropyEnable = true;
     }
 
     std::string D3D12Device::GetDeviceInfo() const

@@ -46,6 +46,7 @@ namespace sky::aurora {
 
     bool VulkanDevice::OnInit(const DeviceInit& init)
     {
+        (void)init;
         gpu = instance.GetActiveGpu();
         if (gpu == VK_NULL_HANDLE) {
             LOG_E(TAG, "no physical device available");
@@ -66,13 +67,16 @@ namespace sky::aurora {
             return false;
         }
 
-        capability.maxThreads = init.parallelContextNum;
+        LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.properties.deviceName);
+        return true;
+    }
+
+    void VulkanDevice::UpdateDeviceCaps()
+    {
+        capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
 
         LOG_I(TAG, "sampler anisotropy: %s", capability.anisotropyEnable ? "enabled" : "disabled");
-
-        LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.properties.deviceName);
-        return true;
     }
 
     std::string VulkanDevice::GetDeviceInfo() const

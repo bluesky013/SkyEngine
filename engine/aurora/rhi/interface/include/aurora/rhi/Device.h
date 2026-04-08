@@ -71,6 +71,7 @@ namespace sky::aurora {
         DeviceParallelPool* GetParallelContext() const { return threadPool.get(); }
     protected:
         virtual bool OnInit(const DeviceInit& init) = 0;
+        virtual void UpdateDeviceCaps() = 0;
         virtual ThreadContext* CreateAsyncContext() = 0;
 
         DeviceCapability capability;

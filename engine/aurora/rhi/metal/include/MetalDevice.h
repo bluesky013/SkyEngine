@@ -51,6 +51,7 @@ namespace sky::aurora {
     private:
         ThreadContext *CreateAsyncContext() override;
         bool OnInit(const DeviceInit &init) override;
+        void UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;
         void WaitIdle() const override;
 

@@ -122,12 +122,16 @@ namespace sky::aurora {
     bool GLESDevice::OnInit(const DeviceInit &init)
     {
         (void)init;
+        LOG_I(TAG, "GLES device initialized");
+        return true;
+    }
+
+    void GLESDevice::UpdateDeviceCaps()
+    {
         capability.maxThreads = 1; // GLES contexts are typically single-threaded
         const auto *extensions = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
         capability.anisotropyEnable = HasExtension(extensions, "GL_EXT_texture_filter_anisotropic") ||
                                       HasExtension(extensions, "GL_ARB_texture_filter_anisotropic");
-        LOG_I(TAG, "GLES device initialized");
-        return true;
     }
 
     std::string GLESDevice::GetDeviceInfo() const
