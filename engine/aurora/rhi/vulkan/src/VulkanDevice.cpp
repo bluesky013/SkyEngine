@@ -13,10 +13,6 @@
 
 static const char *TAG = "AuroraVulkan";
 
-static const std::vector<const char*> VALIDATION_LAYERS = {
-    "VK_LAYER_KHRONOS_validation"
-};
-
 namespace sky::aurora {
 
     VulkanDevice::VulkanDevice(VulkanInstance &inst)
@@ -78,6 +74,7 @@ namespace sky::aurora {
     bool VulkanDevice::CreateDevice()
     {
         const auto &instFn = instance.GetInstanceFn();
+        enabledExtensions.clear();
 
         // enumerate queue families
         uint32_t queueFamilyCount = 0;
@@ -161,11 +158,6 @@ namespace sky::aurora {
         createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.pEnabledFeatures        = &gpuFeatures.features;
-
-        if (instance.IsDebugEnabled()) {
-            createInfo.enabledLayerCount   = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-            createInfo.ppEnabledLayerNames = VALIDATION_LAYERS.data();
-        }
 
         VkResult result = instFn.vkCreateDevice(gpu, &createInfo, nullptr, &device);
         if (result != VK_SUCCESS) {

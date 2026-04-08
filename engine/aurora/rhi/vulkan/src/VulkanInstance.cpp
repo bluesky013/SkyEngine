@@ -6,11 +6,32 @@
 #include <VulkanDevice.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
+#include <cstring>
 #include <vector>
 
 static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
+
+    static bool HasExtension(const std::vector<VkExtensionProperties> &extensions, const char *name)
+    {
+        for (const auto &extension : extensions) {
+            if (std::strcmp(extension.extensionName, name) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool HasLayer(const std::vector<VkLayerProperties> &layers, const char *name)
+    {
+        for (const auto &layer : layers) {
+            if (std::strcmp(layer.layerName, name) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
@@ -79,25 +100,68 @@ namespace sky::aurora {
 
     bool VulkanInstance::CreateInstance(const Instance::Descriptor &desc)
     {
+        enabledExtensions.clear();
+        enabledLayers.clear();
+
         // query supported extensions
         uint32_t extCount = 0;
         globalFn.vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
         std::vector<VkExtensionProperties> supportedExts(extCount);
         globalFn.vkEnumerateInstanceExtensionProperties(nullptr, &extCount, supportedExts.data());
+        LOG_I(TAG, "loader reported %u instance extensions", extCount);
+        for (const auto &extension : supportedExts) {
+            LOG_I(TAG, "instance extension: %s (spec %u)", extension.extensionName, extension.specVersion);
+        }
+
+        uint32_t layerCount = 0;
+        std::vector<VkLayerProperties> supportedLayers;
+        if (globalFn.vkEnumerateInstanceLayerProperties != nullptr) {
+            globalFn.vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+            supportedLayers.resize(layerCount);
+            globalFn.vkEnumerateInstanceLayerProperties(&layerCount, supportedLayers.data());
+        }
+        LOG_I(TAG, "loader reported %u instance layers", layerCount);
+        for (const auto &layer : supportedLayers) {
+            LOG_I(TAG, "instance layer: %s (spec %u)", layer.layerName, layer.specVersion);
+        }
 
         enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if SKY_PLATFORM_WINDOWS
         enabledExtensions.push_back("VK_KHR_win32_surface");
 #elif SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS
         enabledExtensions.push_back("VK_EXT_metal_surface");
-        enabledExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        if (HasExtension(supportedExts, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+            enabledExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        } else {
+            LOG_W(TAG, "instance extension %s is not available; portability enumeration disabled",
+                  VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        }
 #elif SKY_PLATFORM_ANDROID
         enabledExtensions.push_back("VK_KHR_android_surface");
 #endif
 
         if (enableDebugLayer) {
-            enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            enabledLayers = {VALIDATION_LAYERS.begin(), VALIDATION_LAYERS.end()};
+            if (HasExtension(supportedExts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+                enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            } else {
+                LOG_W(TAG, "instance extension %s is not available; debug messenger disabled",
+                      VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            }
+
+            for (const char *layerName : VALIDATION_LAYERS) {
+                if (HasLayer(supportedLayers, layerName)) {
+                    enabledLayers.push_back(layerName);
+                } else {
+                    LOG_W(TAG, "validation layer %s is not available; continuing without it", layerName);
+                }
+            }
+        }
+
+        for (const char *extension : enabledExtensions) {
+            LOG_I(TAG, "enabled instance extension: %s", extension);
+        }
+        for (const char *layer : enabledLayers) {
+            LOG_I(TAG, "enabled instance layer: %s", layer);
         }
 
         uint32_t apiVersion = 0;
@@ -123,7 +187,9 @@ namespace sky::aurora {
         createInfo.enabledLayerCount       = static_cast<uint32_t>(enabledLayers.size());
         createInfo.ppEnabledLayerNames     = enabledLayers.data();
 #if SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS
-        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        if (HasExtension(supportedExts, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+            createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        }
 #endif
 
         VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};

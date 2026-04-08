@@ -19,6 +19,7 @@ namespace sky::aurora {
         PFN_vkGetInstanceProcAddr                  vkGetInstanceProcAddr                  = nullptr;
         PFN_vkEnumerateInstanceVersion             vkEnumerateInstanceVersion             = nullptr;
         PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties = nullptr;
+        PFN_vkEnumerateInstanceLayerProperties     vkEnumerateInstanceLayerProperties     = nullptr;
         PFN_vkCreateInstance                       vkCreateInstance                       = nullptr;
     };
 
