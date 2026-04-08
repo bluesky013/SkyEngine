@@ -30,19 +30,23 @@ namespace sky::aurora {
     class VulkanShader : public Shader {
     public:
         explicit VulkanShader(VulkanDevice &dev);
-        ~VulkanShader() override = default;
+        ~VulkanShader() override;
 
         bool Init(const Descriptor &desc);
 
         VulkanShaderFunction *GetVertexFunction() const { return vertexFunction.Get(); }
         VulkanShaderFunction *GetFragmentFunction() const { return fragmentFunction.Get(); }
         VulkanShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
+        VkPipelineLayout GetPipelineLayout() const { return layout; }
 
     private:
+        bool CreatePipelineLayout();
+
         VulkanDevice                       &device;
         CounterPtr<VulkanShaderFunction>    vertexFunction;
         CounterPtr<VulkanShaderFunction>    fragmentFunction;
         CounterPtr<VulkanShaderFunction>    computeFunction;
+        VkPipelineLayout                    layout = VK_NULL_HANDLE;
     };
 
 } // namespace sky::aurora

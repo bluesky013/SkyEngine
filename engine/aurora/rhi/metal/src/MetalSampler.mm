@@ -32,6 +32,11 @@ namespace sky::aurora {
             return false;
         }
 
+        const bool anisotropyEnabled = desc.anisotropyEnable && device.GetCapability().anisotropyEnable;
+        if (desc.anisotropyEnable && !anisotropyEnabled) {
+            LOG_W(TAG, "sampler anisotropy requested but not supported by the current Metal device; falling back to anisotropy disabled");
+        }
+
         auto *samplerDesc = [[MTLSamplerDescriptor alloc] init];
         samplerDesc.minFilter = ToMetalFilter(desc.minFilter);
         samplerDesc.magFilter = ToMetalFilter(desc.magFilter);
@@ -41,7 +46,7 @@ namespace sky::aurora {
         samplerDesc.rAddressMode = ToMetalAddressMode(desc.addressModeW);
         samplerDesc.lodMinClamp = desc.minLod;
         samplerDesc.lodMaxClamp = desc.maxLod;
-        samplerDesc.maxAnisotropy = desc.anisotropyEnable ? static_cast<NSUInteger>(desc.maxAnisotropy) : 1U;
+        samplerDesc.maxAnisotropy = anisotropyEnabled ? static_cast<NSUInteger>(desc.maxAnisotropy) : 1U;
 
         auto *nativeSampler = [metalDevice newSamplerStateWithDescriptor:samplerDesc];
         [samplerDesc release];

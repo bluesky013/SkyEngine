@@ -10,10 +10,7 @@
     #endif
     #include <windows.h>
 #elif defined(__APPLE__)
-    #include <cstdlib>
     #include <dlfcn.h>
-    #include <string>
-    #include <unistd.h>
 #else
     #include <dlfcn.h>
 #endif
@@ -22,64 +19,17 @@ namespace sky::aurora {
 
     static void *g_vulkanLibrary = nullptr;
 
-#if defined(__APPLE__)
-    namespace {
-        bool PathExists(const char *path)
-        {
-            return path != nullptr && access(path, F_OK) == 0;
-        }
-
-        std::string GetModuleDirectory()
-        {
-            Dl_info info = {};
-            if (dladdr(reinterpret_cast<const void *>(&LoadVulkanLibrary), &info) == 0 || info.dli_fname == nullptr) {
-                return {};
-            }
-
-            std::string modulePath = info.dli_fname;
-            const auto slash = modulePath.find_last_of('/');
-            if (slash == std::string::npos) {
-                return {};
-            }
-            return modulePath.substr(0, slash);
-        }
-
-        void ConfigureBundledVulkanManifests()
-        {
-            const auto moduleDir = GetModuleDirectory();
-            if (moduleDir.empty()) {
-                return;
-            }
-
-            if (std::getenv("VK_ICD_FILENAMES") == nullptr) {
-                const auto icdManifest = moduleDir + "/vulkan/icd.d/MoltenVK_icd.json";
-                if (PathExists(icdManifest.c_str())) {
-                    setenv("VK_ICD_FILENAMES", icdManifest.c_str(), 0);
-                }
-            }
-
-            if (std::getenv("VK_LAYER_PATH") == nullptr) {
-                const auto layerDir = moduleDir + "/vulkan/explicit_layer.d";
-                if (PathExists(layerDir.c_str())) {
-                    setenv("VK_LAYER_PATH", layerDir.c_str(), 0);
-                }
-            }
-        }
-    }
-#endif
-
     bool LoadVulkanLibrary(VulkanGlobalFunctions &fn)
     {
 #if defined(_WIN32)
         g_vulkanLibrary = LoadLibraryA("vulkan-1.dll");
 #elif defined(__APPLE__)
-        ConfigureBundledVulkanManifests();
-    g_vulkanLibrary = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+        g_vulkanLibrary = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
         if (g_vulkanLibrary == nullptr) {
-        g_vulkanLibrary = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
+            g_vulkanLibrary = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
         }
         if (g_vulkanLibrary == nullptr) {
-        g_vulkanLibrary = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
+            g_vulkanLibrary = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
         }
 #elif defined(__ANDROID__)
         g_vulkanLibrary = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
@@ -134,6 +84,7 @@ namespace sky::aurora {
 #define LOAD_INSTANCE(name) fn.name = reinterpret_cast<PFN_##name>(gipa(instance, #name))
         LOAD_INSTANCE(vkDestroyInstance);
         LOAD_INSTANCE(vkEnumeratePhysicalDevices);
+        LOAD_INSTANCE(vkEnumerateDeviceExtensionProperties);
         LOAD_INSTANCE(vkGetPhysicalDeviceProperties);
         LOAD_INSTANCE(vkGetPhysicalDeviceProperties2);
         LOAD_INSTANCE(vkGetPhysicalDeviceMemoryProperties);
@@ -183,10 +134,14 @@ namespace sky::aurora {
         LOAD_DEVICE(vkCreateSampler);
         LOAD_DEVICE(vkDestroySampler);
 
+        LOAD_DEVICE(vkCreatePipelineLayout);
+        LOAD_DEVICE(vkDestroyPipelineLayout);
         LOAD_DEVICE(vkCreateGraphicsPipelines);
         LOAD_DEVICE(vkCreateComputePipelines);
         LOAD_DEVICE(vkDestroyPipeline);
 
+        LOAD_DEVICE(vkCreateImageView);
+        LOAD_DEVICE(vkDestroyImageView);
         LOAD_DEVICE(vkDestroyImage);
 
         LOAD_DEVICE(vkQueueSubmit);

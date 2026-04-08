@@ -23,6 +23,13 @@ using ResourceTestGLES = AuroraGLESTest;
 // ---------------------------------------------------------------------------
 using ResourceTestVulkan = AuroraVulkanTest;
 
+static void ConfigureSamplerAnisotropy(Device *device, Sampler::Descriptor &desc)
+{
+    const auto &capability = device->GetCapability();
+    desc.maxAnisotropy = capability.anisotropyEnable ? 16.f : 1.f;
+    desc.anisotropyEnable = capability.anisotropyEnable;
+}
+
 TEST_F(ResourceTestVulkan, CreateBuffer)
 {
     auto *device = GetDevice();
@@ -92,9 +99,11 @@ TEST_F(ResourceTestVulkan, CreateImageDepthStencil)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
+    bool useD24S8 = device->GetFormatFeatureFlags(PixelFormat::D24_S8).TestBit(PixelFormatFeatureFlagBit::DEPTH_STENCIL);
+
     Image::Descriptor desc = {};
     desc.imageType = ImageType::IMAGE_2D;
-    desc.format    = PixelFormat::D24_S8;
+    desc.format    = useD24S8 ? PixelFormat::D24_S8 : PixelFormat::D32_S8;
     desc.extent    = {512, 512, 1};
     desc.usage     = ImageUsageFlagBit::DEPTH_STENCIL;
     desc.memory    = MemoryType::GPU_ONLY;
@@ -136,8 +145,7 @@ TEST_F(ResourceTestVulkan, CreateSampler)
     desc.addressModeW = WrapMode::REPEAT;
     desc.minLod       = 0.f;
     desc.maxLod       = 12.f;
-    desc.maxAnisotropy = 16.f;
-    desc.anisotropyEnable = true;
+    ConfigureSamplerAnisotropy(device, desc);
 
     auto *sampler = device->CreateSampler(desc);
     ASSERT_NE(sampler, nullptr);
@@ -227,8 +235,7 @@ TEST_F(ResourceTestD3D12, CreateSampler)
     desc.addressModeU      = WrapMode::REPEAT;
     desc.addressModeV      = WrapMode::REPEAT;
     desc.addressModeW      = WrapMode::REPEAT;
-    desc.maxAnisotropy     = 16.f;
-    desc.anisotropyEnable  = true;
+    ConfigureSamplerAnisotropy(device, desc);
 
     auto *sampler = device->CreateSampler(desc);
     ASSERT_NE(sampler, nullptr);
@@ -293,7 +300,7 @@ TEST_F(ResourceTestMetal, CreateImageDepthStencil)
 
     Image::Descriptor desc = {};
     desc.imageType = ImageType::IMAGE_2D;
-    desc.format    = PixelFormat::D24_S8;
+    desc.format    = PixelFormat::D32_S8;
     desc.extent    = {512, 512, 1};
     desc.usage     = ImageUsageFlagBit::DEPTH_STENCIL;
     desc.memory    = MemoryType::GPU_ONLY;
@@ -315,8 +322,7 @@ TEST_F(ResourceTestMetal, CreateSampler)
     desc.addressModeU     = WrapMode::REPEAT;
     desc.addressModeV     = WrapMode::REPEAT;
     desc.addressModeW     = WrapMode::REPEAT;
-    desc.maxAnisotropy    = 16.f;
-    desc.anisotropyEnable = true;
+    ConfigureSamplerAnisotropy(device, desc);
 
     auto *sampler = device->CreateSampler(desc);
     ASSERT_NE(sampler, nullptr);
@@ -390,6 +396,7 @@ TEST_F(ResourceTestGLES, CreateSampler)
     desc.addressModeU = WrapMode::REPEAT;
     desc.addressModeV = WrapMode::REPEAT;
     desc.addressModeW = WrapMode::REPEAT;
+    ConfigureSamplerAnisotropy(device, desc);
 
     auto *sampler = device->CreateSampler(desc);
     ASSERT_NE(sampler, nullptr);

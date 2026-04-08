@@ -56,6 +56,7 @@ namespace sky::aurora {
         }
 
         capability.maxThreads = init.parallelContextNum;
+        capability.anisotropyEnable = true;
 
         LOG_I(TAG, "D3D12 device created successfully");
         return true;

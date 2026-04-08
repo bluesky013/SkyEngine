@@ -29,6 +29,7 @@ namespace sky::aurora {
     struct VulkanInstanceFunctions {
         PFN_vkDestroyInstance                              vkDestroyInstance                              = nullptr;
         PFN_vkEnumeratePhysicalDevices                     vkEnumeratePhysicalDevices                     = nullptr;
+        PFN_vkEnumerateDeviceExtensionProperties           vkEnumerateDeviceExtensionProperties           = nullptr;
         PFN_vkGetPhysicalDeviceProperties                  vkGetPhysicalDeviceProperties                  = nullptr;
         PFN_vkGetPhysicalDeviceProperties2                 vkGetPhysicalDeviceProperties2                 = nullptr;
         PFN_vkGetPhysicalDeviceMemoryProperties            vkGetPhysicalDeviceMemoryProperties            = nullptr;
@@ -82,11 +83,15 @@ namespace sky::aurora {
         PFN_vkDestroySampler               vkDestroySampler               = nullptr;
 
         // pipeline
+        PFN_vkCreatePipelineLayout         vkCreatePipelineLayout         = nullptr;
+        PFN_vkDestroyPipelineLayout        vkDestroyPipelineLayout        = nullptr;
         PFN_vkCreateGraphicsPipelines      vkCreateGraphicsPipelines      = nullptr;
         PFN_vkCreateComputePipelines       vkCreateComputePipelines       = nullptr;
         PFN_vkDestroyPipeline              vkDestroyPipeline              = nullptr;
 
         // image (for non-VMA paths, e.g. swapchain image cleanup)
+        PFN_vkCreateImageView              vkCreateImageView              = nullptr;
+        PFN_vkDestroyImageView             vkDestroyImageView             = nullptr;
         PFN_vkDestroyImage                 vkDestroyImage                 = nullptr;
 
         // queue

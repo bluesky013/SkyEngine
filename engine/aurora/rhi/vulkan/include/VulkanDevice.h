@@ -47,8 +47,8 @@ namespace sky::aurora {
 
         ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader* CreateShader(const Shader::Descriptor &desc) override;
-        GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
-        ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
+        GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override;
+        ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override;
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 

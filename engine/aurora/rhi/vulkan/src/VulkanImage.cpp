@@ -11,6 +11,40 @@ static const char *TAG = "AuroraVulkan";
 
 namespace sky::aurora {
 
+    static VkImageAspectFlags InferImageAspectFlags(VkFormat format)
+    {
+        switch (format) {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
+    static VkImageViewType InferDefaultViewType(const Image::Descriptor &desc)
+    {
+        switch (desc.imageType) {
+        case ImageType::IMAGE_1D:
+            return desc.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
+        case ImageType::IMAGE_2D:
+            if (desc.viewUsage & ImageViewUsageFlagBit::CUBE_MAP_COMPATIBLE) {
+                return desc.arrayLayers > 6 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE;
+            }
+            return desc.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+        case ImageType::IMAGE_3D:
+            return VK_IMAGE_VIEW_TYPE_3D;
+        default:
+            return VK_IMAGE_VIEW_TYPE_2D;
+        }
+    }
+
     VulkanImage::VulkanImage(VulkanDevice &dev)
         : device(dev)
     {
@@ -18,6 +52,9 @@ namespace sky::aurora {
 
     VulkanImage::~VulkanImage()
     {
+        if (defaultView != VK_NULL_HANDLE) {
+            device.GetDeviceFn().vkDestroyImageView(device.GetNativeHandle(), defaultView, nullptr);
+        }
         if (owned && image != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
             vmaDestroyImage(device.GetAllocator(), image, allocation);
         } else if (owned && image != VK_NULL_HANDLE) {
@@ -71,7 +108,7 @@ namespace sky::aurora {
         }
 
         owned = true;
-        return true;
+        return CreateDefaultView(desc);
     }
 
     void VulkanImage::InitFromSwapChain(VkImage swapImage, VkFormat fmt, const Extent3D &ext)
@@ -79,6 +116,51 @@ namespace sky::aurora {
         image    = swapImage;
         vkFormat = fmt;
         owned    = false;
+        if (!CreateSwapChainDefaultView()) {
+            LOG_E(TAG, "failed to create default image view for swapchain image");
+        }
+    }
+
+    bool VulkanImage::CreateDefaultView(const Descriptor &desc)
+    {
+        VkImageViewCreateInfo viewCI = {};
+        viewCI.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewCI.image                           = image;
+        viewCI.viewType                        = InferDefaultViewType(desc);
+        viewCI.format                          = vkFormat;
+        viewCI.subresourceRange.aspectMask     = InferImageAspectFlags(vkFormat);
+        viewCI.subresourceRange.baseMipLevel   = 0;
+        viewCI.subresourceRange.levelCount     = desc.mipLevels;
+        viewCI.subresourceRange.baseArrayLayer = 0;
+        viewCI.subresourceRange.layerCount     = desc.arrayLayers;
+
+        const VkResult result = device.GetDeviceFn().vkCreateImageView(device.GetNativeHandle(), &viewCI, nullptr, &defaultView);
+        if (result != VK_SUCCESS) {
+            LOG_E(TAG, "failed to create default VkImageView, error: %d", result);
+            return false;
+        }
+        return true;
+    }
+
+    bool VulkanImage::CreateSwapChainDefaultView()
+    {
+        VkImageViewCreateInfo viewCI = {};
+        viewCI.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewCI.image                           = image;
+        viewCI.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+        viewCI.format                          = vkFormat;
+        viewCI.subresourceRange.aspectMask     = InferImageAspectFlags(vkFormat);
+        viewCI.subresourceRange.baseMipLevel   = 0;
+        viewCI.subresourceRange.levelCount     = 1;
+        viewCI.subresourceRange.baseArrayLayer = 0;
+        viewCI.subresourceRange.layerCount     = 1;
+
+        const VkResult result = device.GetDeviceFn().vkCreateImageView(device.GetNativeHandle(), &viewCI, nullptr, &defaultView);
+        if (result != VK_SUCCESS) {
+            LOG_E(TAG, "failed to create swapchain VkImageView, error: %d", result);
+            return false;
+        }
+        return true;
     }
 
 } // namespace sky::aurora

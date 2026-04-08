@@ -48,22 +48,15 @@ namespace sky::aurora {
         renderingInfo.depthAttachmentFormat   = dsFormat;
         renderingInfo.stencilAttachmentFormat = hasStencil ? dsFormat : VK_FORMAT_UNDEFINED;
 
-        return BuildPipeline(desc, &renderingInfo);
+        return BuildPipeline(desc, &renderingInfo, nullptr);
     }
 
     bool VulkanGraphicsPipeline::Init(const Descriptor &desc, const SubpassInfo &subpassInfo)
     {
-        // Legacy path: renderPass + subpass are set directly on the pipeline
-        // create info inside BuildPipeline via the pNext chain placeholder.
-        // We pass nullptr for pNext and patch renderPass/subpass after build.
-
-        // Build a temporary VkPipelineRenderingCreateInfo that carries the
-        // SubpassInfo data.  BuildPipeline will detect the renderPass and use
-        // the legacy code path.
-        return BuildPipeline(desc, &subpassInfo);
+        return BuildPipeline(desc, nullptr, &subpassInfo);
     }
 
-    bool VulkanGraphicsPipeline::BuildPipeline(const Descriptor &desc, const void *pNext)
+    bool VulkanGraphicsPipeline::BuildPipeline(const Descriptor &desc, const void *pNext, const SubpassInfo *subpassInfo)
     {
         if (desc.state == nullptr) {
             LOG_E(TAG, "graphics pipeline descriptor missing state");
@@ -72,25 +65,29 @@ namespace sky::aurora {
 
         const auto &state = *desc.state;
         const auto &fmt   = desc.format;
+        const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
+        if (vkShader == nullptr || vkShader->GetPipelineLayout() == VK_NULL_HANDLE) {
+            LOG_E(TAG, "graphics pipeline descriptor missing shader pipeline layout");
+            return false;
+        }
 
         // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-        if (desc.shader != nullptr) {
-            const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
-            if (const auto *vs = vkShader->GetVertexFunction(); vs != nullptr) {
-                VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-                stageCI.stage  = FromShaderStage(vs->GetStage());
-                stageCI.module = vs->GetNativeHandle();
-                stageCI.pName  = "main";
-                shaderStages.push_back(stageCI);
-            }
-            if (const auto *fs = vkShader->GetFragmentFunction(); fs != nullptr) {
-                VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-                stageCI.stage  = FromShaderStage(fs->GetStage());
-                stageCI.module = fs->GetNativeHandle();
-                stageCI.pName  = "main";
-                shaderStages.push_back(stageCI);
-            }
+        const auto *vs = vkShader->GetVertexFunction();
+        if (vs != nullptr) {
+            VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+            stageCI.stage  = FromShaderStage(vs->GetStage());
+            stageCI.module = vs->GetNativeHandle();
+            stageCI.pName  = "main";
+            shaderStages.push_back(stageCI);
+        }
+        const auto *fs = vkShader->GetFragmentFunction();
+        if (fs != nullptr) {
+            VkPipelineShaderStageCreateInfo stageCI = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+            stageCI.stage  = FromShaderStage(fs->GetStage());
+            stageCI.module = fs->GetNativeHandle();
+            stageCI.pName  = "main";
+            shaderStages.push_back(stageCI);
         }
 
         // ---- vertex input (empty - vertex pulling / mesh shaders) ----
@@ -185,16 +182,15 @@ namespace sky::aurora {
         ci.pDepthStencilState  = &depthStencil;
         ci.pColorBlendState    = &colorBlend;
         ci.pDynamicState       = &dynState;
-        ci.layout              = VK_NULL_HANDLE; // TODO: set from shader pipeline layout
+        ci.layout              = vkShader->GetPipelineLayout();
         ci.basePipelineHandle  = VK_NULL_HANDLE;
         ci.basePipelineIndex   = -1;
 
         // Determine path: dynamic rendering vs legacy render pass
-        const auto *subpass = static_cast<const SubpassInfo *>(pNext);
-        if (subpass != nullptr && subpass->renderPass != VK_NULL_HANDLE) {
+        if (subpassInfo != nullptr && subpassInfo->renderPass != VK_NULL_HANDLE) {
             // Legacy render pass path
-            ci.renderPass = subpass->renderPass;
-            ci.subpass    = subpass->subpass;
+            ci.renderPass = subpassInfo->renderPass;
+            ci.subpass    = subpassInfo->subpass;
         } else {
             // Dynamic rendering path - pNext points to VkPipelineRenderingCreateInfo
             ci.renderPass = VK_NULL_HANDLE;
@@ -225,16 +221,22 @@ namespace sky::aurora {
         }
     }
 
-    bool VulkanComputePipeline::Init(const Descriptor &desc, VkPipelineLayout layout)
+    bool VulkanComputePipeline::Init(const Descriptor &desc)
     {
+        const auto *vkShader = static_cast<const VulkanShader *>(desc.cs);
+        if (vkShader == nullptr || vkShader->GetPipelineLayout() == VK_NULL_HANDLE) {
+            LOG_E(TAG, "compute pipeline descriptor missing shader pipeline layout");
+            return false;
+        }
+
         VkComputePipelineCreateInfo ci = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        ci.layout = layout;
+        ci.layout = vkShader->GetPipelineLayout();
 
         ci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         ci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
         if (desc.cs != nullptr) {
-            const auto *vkShader = static_cast<const VulkanShader *>(desc.cs);
-            if (const auto *cs = vkShader->GetComputeFunction(); cs != nullptr) {
+            const auto *cs = vkShader->GetComputeFunction();
+            if (cs != nullptr) {
                 ci.stage.module = cs->GetNativeHandle();
                 ci.stage.pName  = "main";
             }

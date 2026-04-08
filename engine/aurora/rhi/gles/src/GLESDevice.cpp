@@ -17,10 +17,30 @@
 #include <GLESConversion.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
+#include <cstring>
 
 static const char *TAG = "AuroraGL";
 
 namespace sky::aurora {
+
+    static bool HasExtension(const char *extensions, const char *target)
+    {
+        if (extensions == nullptr || target == nullptr || target[0] == '\0') {
+            return false;
+        }
+
+        const size_t targetLength = std::strlen(target);
+        const char *cursor = extensions;
+        while ((cursor = std::strstr(cursor, target)) != nullptr) {
+            const bool atStart = cursor == extensions || cursor[-1] == ' ';
+            const bool atEnd = cursor[targetLength] == '\0' || cursor[targetLength] == ' ';
+            if (atStart && atEnd) {
+                return true;
+            }
+            cursor += targetLength;
+        }
+        return false;
+    }
 
     // -----------------------------------------------------------------------
     // GLESContext
@@ -101,7 +121,11 @@ namespace sky::aurora {
 
     bool GLESDevice::OnInit(const DeviceInit &init)
     {
+        (void)init;
         capability.maxThreads = 1; // GLES contexts are typically single-threaded
+        const auto *extensions = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
+        capability.anisotropyEnable = HasExtension(extensions, "GL_EXT_texture_filter_anisotropic") ||
+                                      HasExtension(extensions, "GL_ARB_texture_filter_anisotropic");
         LOG_I(TAG, "GLES device initialized");
         return true;
     }

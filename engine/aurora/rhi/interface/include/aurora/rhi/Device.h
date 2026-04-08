@@ -28,6 +28,8 @@ namespace sky::aurora {
 
     struct DeviceCapability {
         uint32_t maxThreads = 1;
+
+        bool anisotropyEnable = false;
     };
 
     using DeviceParallelPool = ThreadPool;
@@ -65,6 +67,7 @@ namespace sky::aurora {
         // command pool
         virtual CommandPool* CreateCommandPool(QueueType type) = 0;
 
+        const DeviceCapability &GetCapability() const { return capability; }
         DeviceParallelPool* GetParallelContext() const { return threadPool.get(); }
     protected:
         virtual bool OnInit(const DeviceInit& init) = 0;

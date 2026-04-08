@@ -83,6 +83,7 @@ namespace sky::aurora {
         commandQueue = queue;
 
         capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
+        capability.anisotropyEnable = true;
 
         LOG_I(TAG, "Metal device initialized: %s", [[device name] UTF8String]);
         return true;

@@ -5,6 +5,9 @@
 #include "D3D12Sampler.h"
 #include "D3D12Device.h"
 #include "D3D12Conversion.h"
+#include <core/logger/Logger.h>
+
+static const char *TAG = "AuroraDX12";
 
 namespace sky::aurora {
 
@@ -15,12 +18,17 @@ namespace sky::aurora {
 
     bool D3D12Sampler::Init(const Descriptor &desc)
     {
-        samplerDesc.Filter   = FromFilter(desc.minFilter, desc.magFilter, desc.mipmapMode, desc.anisotropyEnable);
+        const bool anisotropyEnabled = desc.anisotropyEnable && device.GetCapability().anisotropyEnable;
+        if (desc.anisotropyEnable && !anisotropyEnabled) {
+            LOG_W(TAG, "sampler anisotropy requested but not supported by the current D3D12 device; falling back to anisotropy disabled");
+        }
+
+        samplerDesc.Filter   = FromFilter(desc.minFilter, desc.magFilter, desc.mipmapMode, anisotropyEnabled);
         samplerDesc.AddressU = FromWrapMode(desc.addressModeU);
         samplerDesc.AddressV = FromWrapMode(desc.addressModeV);
         samplerDesc.AddressW = FromWrapMode(desc.addressModeW);
         samplerDesc.MipLODBias    = 0.f;
-        samplerDesc.MaxAnisotropy = static_cast<UINT>(desc.maxAnisotropy);
+        samplerDesc.MaxAnisotropy = anisotropyEnabled ? static_cast<UINT>(desc.maxAnisotropy) : 1U;
         samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
         samplerDesc.BorderColor[0] = 0.f;
         samplerDesc.BorderColor[1] = 0.f;

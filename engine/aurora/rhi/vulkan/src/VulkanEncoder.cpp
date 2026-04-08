@@ -11,6 +11,30 @@
 
 namespace sky::aurora {
 
+    static VkImageAspectFlags InferAspectMask(VkFormat format)
+    {
+        switch (format) {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
+    static void FixImageSubresourceLayers(VkImageSubresourceLayers &subresource, VkFormat format)
+    {
+        if (subresource.aspectMask == 0) {
+            subresource.aspectMask = InferAspectMask(format);
+        }
+    }
+
     // ---- VulkanGraphicsEncoder ----
 
     VulkanGraphicsEncoder::VulkanGraphicsEncoder(VulkanDevice &device, VkCommandBuffer cmd)
@@ -25,8 +49,9 @@ namespace sky::aurora {
         for (uint32_t i = 0; i < info.numColors; ++i) {
             auto &src = info.colors[i];
             auto &dst = colorAttachments[i];
+            auto *image = static_cast<VulkanImage *>(src.image);
             dst.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-            dst.imageView   = VK_NULL_HANDLE; // TODO: image view management
+            dst.imageView   = image != nullptr ? image->GetDefaultView() : VK_NULL_HANDLE;
             dst.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             dst.loadOp      = FromLoadOp(src.loadOp);
             dst.storeOp     = FromStoreOp(src.storeOp);
@@ -39,8 +64,9 @@ namespace sky::aurora {
         }
 
         VkRenderingAttachmentInfo depthAttachment = {};
+        auto *depthImage = static_cast<VulkanImage *>(info.depthStencil.image);
         depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        depthAttachment.imageView   = VK_NULL_HANDLE; // TODO: image view management
+        depthAttachment.imageView   = depthImage != nullptr ? depthImage->GetDefaultView() : VK_NULL_HANDLE;
         depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depthAttachment.loadOp      = FromLoadOp(info.depthStencil.depthLoadOp);
         depthAttachment.storeOp     = FromStoreOp(info.depthStencil.depthStoreOp);
@@ -199,6 +225,7 @@ namespace sky::aurora {
 
     void VulkanBlitEncoder::CopyBufferToImage(Buffer *src, Image *dst, const std::vector<BufferImageCopy> &regions)
     {
+        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkBufferImageCopy> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
             auto &s = regions[i];
@@ -207,6 +234,7 @@ namespace sky::aurora {
             d.bufferRowLength   = s.bufferRowLength;
             d.bufferImageHeight = s.bufferImageHeight;
             d.imageSubresource  = FromImageSubRangeLayers(s.subRange);
+            FixImageSubresourceLayers(d.imageSubresource, dstFormat);
             d.imageOffset       = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
             d.imageExtent       = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
         }
@@ -219,6 +247,7 @@ namespace sky::aurora {
 
     void VulkanBlitEncoder::CopyImageToBuffer(Image *src, Buffer *dst, const std::vector<BufferImageCopy> &regions)
     {
+        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
         std::vector<VkBufferImageCopy> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
             auto &s = regions[i];
@@ -227,6 +256,7 @@ namespace sky::aurora {
             d.bufferRowLength   = s.bufferRowLength;
             d.bufferImageHeight = s.bufferImageHeight;
             d.imageSubresource  = FromImageSubRangeLayers(s.subRange);
+            FixImageSubresourceLayers(d.imageSubresource, srcFormat);
             d.imageOffset       = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
             d.imageExtent       = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
         }
@@ -239,12 +269,16 @@ namespace sky::aurora {
 
     void VulkanBlitEncoder::BlitImage(Image *src, Image *dst, const std::vector<BlitInfo> &regions, Filter filter)
     {
+        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
+        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkImageBlit> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
             auto &s = regions[i];
             auto &d = vkRegions[i];
             d.srcSubresource = FromImageSubRangeLayers(s.srcRange);
             d.dstSubresource = FromImageSubRangeLayers(s.dstRange);
+            FixImageSubresourceLayers(d.srcSubresource, srcFormat);
+            FixImageSubresourceLayers(d.dstSubresource, dstFormat);
             d.srcOffsets[0]  = {s.srcOffsets[0].x, s.srcOffsets[0].y, s.srcOffsets[0].z};
             d.srcOffsets[1]  = {s.srcOffsets[1].x, s.srcOffsets[1].y, s.srcOffsets[1].z};
             d.dstOffsets[0]  = {s.dstOffsets[0].x, s.dstOffsets[0].y, s.dstOffsets[0].z};
@@ -259,12 +293,16 @@ namespace sky::aurora {
 
     void VulkanBlitEncoder::ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions)
     {
+        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
+        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkImageResolve> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
             auto &s = regions[i];
             auto &d = vkRegions[i];
             d.srcSubresource = FromImageSubRangeLayers(s.srcRange);
             d.dstSubresource = FromImageSubRangeLayers(s.dstRange);
+            FixImageSubresourceLayers(d.srcSubresource, srcFormat);
+            FixImageSubresourceLayers(d.dstSubresource, dstFormat);
             d.srcOffset      = {s.srcOffset.x, s.srcOffset.y, s.srcOffset.z};
             d.dstOffset      = {s.dstOffset.x, s.dstOffset.y, s.dstOffset.z};
             d.extent         = {s.extent.width, s.extent.height, s.extent.depth};

@@ -32,7 +32,7 @@ namespace sky::aurora {
         VkPipeline GetNativeHandle() const { return pipeline; }
 
     private:
-        bool BuildPipeline(const Descriptor &desc, const void *pNext);
+        bool BuildPipeline(const Descriptor &desc, const void *pNext, const SubpassInfo *subpassInfo);
 
         VulkanDevice &device;
         VkPipeline    pipeline = VK_NULL_HANDLE;
@@ -43,7 +43,7 @@ namespace sky::aurora {
         explicit VulkanComputePipeline(VulkanDevice &dev);
         ~VulkanComputePipeline() override;
 
-        bool Init(const Descriptor &desc, VkPipelineLayout layout);
+        bool Init(const Descriptor &desc);
 
         VkPipeline GetNativeHandle() const { return pipeline; }
 

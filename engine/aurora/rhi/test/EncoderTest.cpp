@@ -6,6 +6,10 @@
 
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Encoder.h>
+#include <aurora/rhi/Shader.h>
+#include <core/archive/BinaryData.h>
+
+#include <cstring>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -21,6 +25,115 @@ std::unique_ptr<CommandPool> CreatePoolFromDevice(Device *device)
     auto *pool = device->CreateCommandPool(QueueType::GRAPHICS);
     if (!pool) return nullptr;
     return std::unique_ptr<CommandPool>(pool);
+}
+
+BinaryDataPtr MakeBinaryFromData(const void *data, uint32_t size)
+{
+    auto bin = CounterPtr<BinaryData>(new BinaryData(size));
+    std::memcpy(bin->Data(), data, size);
+    return bin;
+}
+
+ShaderFunction::Descriptor MakeShaderFuncDesc(ShaderStageFlagBit stage, const BinaryDataPtr &binary)
+{
+    auto *provider       = new ShaderBinaryProvider();
+    provider->binaryData = binary;
+
+    ShaderFunction::Descriptor desc = {};
+    desc.stage = stage;
+    desc.data  = CounterPtr<ShaderDataProvider>(provider);
+    return desc;
+}
+
+// clang-format off
+static const uint32_t SPIRV_VS[] = {
+    0x07230203, 0x00010000, 0x00000000, 0x0000000B, 0x00000000,
+    0x00020011, 0x00000001,
+    0x0003000E, 0x00000000, 0x00000001,
+    0x0006000F, 0x00000000, 0x00000001, 0x6E69616D, 0x00000000, 0x00000002,
+    0x00040047, 0x00000002, 0x0000000B, 0x00000000,
+    0x00020013, 0x00000003,
+    0x00030021, 0x00000004, 0x00000003,
+    0x00030016, 0x00000005, 0x00000020,
+    0x00040017, 0x00000006, 0x00000005, 0x00000004,
+    0x00040020, 0x00000007, 0x00000003, 0x00000006,
+    0x0004003B, 0x00000007, 0x00000002, 0x00000003,
+    0x0004002B, 0x00000005, 0x00000008, 0x00000000,
+    0x00050036, 0x00000003, 0x00000001, 0x00000000, 0x00000004,
+    0x000200F8, 0x00000009,
+    0x00070050, 0x00000006, 0x0000000A, 0x00000008, 0x00000008, 0x00000008, 0x00000008,
+    0x0003003E, 0x00000002, 0x0000000A,
+    0x000100FD,
+    0x00010038,
+};
+
+static const uint32_t SPIRV_FS[] = {
+    0x07230203, 0x00010000, 0x00000000, 0x0000000C, 0x00000000,
+    0x00020011, 0x00000001,
+    0x0003000E, 0x00000000, 0x00000001,
+    0x0006000F, 0x00000004, 0x00000001, 0x6E69616D, 0x00000000, 0x00000002,
+    0x00030010, 0x00000001, 0x00000007,
+    0x00040047, 0x00000002, 0x0000001E, 0x00000000,
+    0x00020013, 0x00000003,
+    0x00030021, 0x00000004, 0x00000003,
+    0x00030016, 0x00000005, 0x00000020,
+    0x00040017, 0x00000006, 0x00000005, 0x00000004,
+    0x00040020, 0x00000007, 0x00000003, 0x00000006,
+    0x0004003B, 0x00000007, 0x00000002, 0x00000003,
+    0x0004002B, 0x00000005, 0x00000008, 0x3F800000,
+    0x0004002B, 0x00000005, 0x00000009, 0x00000000,
+    0x00050036, 0x00000003, 0x00000001, 0x00000000, 0x00000004,
+    0x000200F8, 0x0000000A,
+    0x00070050, 0x00000006, 0x0000000B, 0x00000008, 0x00000009, 0x00000009, 0x00000008,
+    0x0003003E, 0x00000002, 0x0000000B,
+    0x000100FD,
+    0x00010038,
+};
+// clang-format on
+
+struct VulkanGraphicsPipelineBundle {
+    CounterPtr<ShaderFunction>  vs;
+    CounterPtr<ShaderFunction>  fs;
+    CounterPtr<Shader>          shader;
+    CounterPtr<GraphicsPipeline> pipeline;
+};
+
+VulkanGraphicsPipelineBundle CreateMinimalVulkanGraphicsPipeline(Device *device, PixelFormat colorFormat)
+{
+    VulkanGraphicsPipelineBundle bundle;
+
+    const auto vsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::VS, MakeBinaryFromData(SPIRV_VS, sizeof(SPIRV_VS)));
+    bundle.vs = CounterPtr<ShaderFunction>(device->CreateShaderFunction(vsDesc));
+    if (!bundle.vs) {
+        return {};
+    }
+
+    const auto fsDesc = MakeShaderFuncDesc(ShaderStageFlagBit::FS, MakeBinaryFromData(SPIRV_FS, sizeof(SPIRV_FS)));
+    bundle.fs = CounterPtr<ShaderFunction>(device->CreateShaderFunction(fsDesc));
+    if (!bundle.fs) {
+        return {};
+    }
+
+    Shader::Descriptor shaderDesc = {};
+    shaderDesc.vs = bundle.vs.Get();
+    shaderDesc.ps = bundle.fs.Get();
+    bundle.shader = CounterPtr<Shader>(device->CreateShader(shaderDesc));
+    if (!bundle.shader) {
+        return {};
+    }
+
+    PipelineState state = {};
+    state.blendStates.resize(1);
+
+    GraphicsPipeline::Descriptor pipelineDesc = {};
+    pipelineDesc.state           = &state;
+    pipelineDesc.shader          = bundle.shader.Get();
+    pipelineDesc.format.colors[0] = colorFormat;
+    pipelineDesc.format.numColors = 1;
+    pipelineDesc.format.sampleCount = SampleCount::X1;
+
+    bundle.pipeline = CounterPtr<GraphicsPipeline>(device->CreatePipelineState(pipelineDesc));
+    return bundle;
 }
 
 } // anonymous namespace
@@ -62,6 +175,9 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPass)
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
 
+    const auto pipelineBundle = CreateMinimalVulkanGraphicsPipeline(device, PixelFormat::RGBA8_UNORM);
+    ASSERT_NE(pipelineBundle.pipeline.Get(), nullptr);
+
     Image::Descriptor imgDesc = {};
     imgDesc.imageType   = ImageType::IMAGE_2D;
     imgDesc.format      = PixelFormat::RGBA8_UNORM;
@@ -96,6 +212,8 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPass)
 
         encoder->BeginRendering(info);
 
+        encoder->BindPipeline(pipelineBundle.pipeline.Get());
+
         Viewport vp = {0.f, 0.f, 64.f, 64.f, 0.f, 1.f};
         encoder->SetViewport(1, &vp);
 
@@ -118,6 +236,9 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);
+
+    const auto pipelineBundle = CreateMinimalVulkanGraphicsPipeline(device, PixelFormat::RGBA8_UNORM);
+    ASSERT_NE(pipelineBundle.pipeline.Get(), nullptr);
 
     Buffer::Descriptor vbDesc = {};
     vbDesc.size   = 256;
@@ -170,6 +291,14 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
         info.colors[0].storeOp = StoreOp::STORE;
 
         encoder->BeginRendering(info);
+
+        encoder->BindPipeline(pipelineBundle.pipeline.Get());
+
+        Viewport vp = {0.f, 0.f, 64.f, 64.f, 0.f, 1.f};
+        encoder->SetViewport(1, &vp);
+
+        Rect2D scissor = {{0, 0}, {64, 64}};
+        encoder->SetScissor(1, &scissor);
 
         BufferView views[1] = {};
         views[0].buffer = vertexBuffer;

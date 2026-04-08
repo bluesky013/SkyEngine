@@ -30,6 +30,8 @@ namespace sky::aurora {
 
     bool GLESSampler::Init(const Descriptor &desc)
     {
+        const bool anisotropyEnabled = desc.anisotropyEnable && device.GetCapability().anisotropyEnable;
+
         glGenSamplers(1, &sampler);
         if (sampler == 0) {
             LOG_E(TAG, "glGenSamplers failed");
@@ -49,8 +51,10 @@ namespace sky::aurora {
         glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, desc.minLod);
         glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, desc.maxLod);
 
-        if (desc.anisotropyEnable) {
+        if (anisotropyEnabled) {
             glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, desc.maxAnisotropy);
+        } else if (desc.anisotropyEnable) {
+            LOG_W(TAG, "sampler anisotropy requested but not supported by the current GLES device; falling back to anisotropy disabled");
         }
 
         return true;

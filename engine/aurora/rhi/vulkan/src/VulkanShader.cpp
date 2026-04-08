@@ -67,6 +67,28 @@ namespace sky::aurora {
     {
     }
 
+    VulkanShader::~VulkanShader()
+    {
+        if (layout != VK_NULL_HANDLE) {
+            device.GetDeviceFn().vkDestroyPipelineLayout(device.GetNativeHandle(), layout, nullptr);
+        }
+    }
+
+    bool VulkanShader::CreatePipelineLayout()
+    {
+        if (layout != VK_NULL_HANDLE) {
+            return true;
+        }
+
+        VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        const VkResult result = device.GetDeviceFn().vkCreatePipelineLayout(device.GetNativeHandle(), &createInfo, nullptr, &layout);
+        if (result != VK_SUCCESS) {
+            LOG_E(TAG, "vkCreatePipelineLayout failed, VkResult=%d", static_cast<int>(result));
+            return false;
+        }
+        return true;
+    }
+
     bool VulkanShader::Init(const Descriptor &desc)
     {
         // Shader::Descriptor is a union where cs and vs share the same memory.
@@ -74,12 +96,12 @@ namespace sky::aurora {
         if (desc.ps != nullptr) {
             vertexFunction   = static_cast<VulkanShaderFunction *>(desc.vs);
             fragmentFunction = static_cast<VulkanShaderFunction *>(desc.ps);
-            return vertexFunction != nullptr;
+            return vertexFunction != nullptr && CreatePipelineLayout();
         }
 
         if (desc.cs != nullptr) {
             computeFunction = static_cast<VulkanShaderFunction *>(desc.cs);
-            return computeFunction != nullptr;
+            return computeFunction != nullptr && CreatePipelineLayout();
         }
 
         return false;

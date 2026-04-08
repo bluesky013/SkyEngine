@@ -8,12 +8,25 @@
 #include "VulkanFence.h"
 #include "VulkanSemaphore.h"
 #include "VulkanConversion.h"
+#include "VulkanPipelineState.h"
 #include <core/logger/Logger.h>
+#include <cstring>
 #include <vector>
 
 static const char *TAG = "AuroraVulkan";
+static const char *PORTABILITY_SUBSET_EXTENSION = "VK_KHR_portability_subset";
 
 namespace sky::aurora {
+
+    static bool HasDeviceExtension(const std::vector<VkExtensionProperties> &extensions, const char *name)
+    {
+        for (const auto &extension : extensions) {
+            if (std::strcmp(extension.extensionName, name) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     VulkanDevice::VulkanDevice(VulkanInstance &inst)
         : instance(inst)
@@ -54,6 +67,9 @@ namespace sky::aurora {
         }
 
         capability.maxThreads = init.parallelContextNum;
+        capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
+
+        LOG_I(TAG, "sampler anisotropy: %s", capability.anisotropyEnable ? "enabled" : "disabled");
 
         LOG_I(TAG, "VkDevice created on GPU: %s", gpuProperties.properties.deviceName);
         return true;
@@ -75,6 +91,17 @@ namespace sky::aurora {
     {
         const auto &instFn = instance.GetInstanceFn();
         enabledExtensions.clear();
+
+        uint32_t extensionCount = 0;
+        instFn.vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> supportedExtensions(extensionCount);
+        if (extensionCount > 0) {
+            instFn.vkEnumerateDeviceExtensionProperties(gpu, nullptr, &extensionCount, supportedExtensions.data());
+        }
+        LOG_I(TAG, "device reports %u extensions", extensionCount);
+        for (const auto &extension : supportedExtensions) {
+            LOG_I(TAG, "device extension: %s (spec %u)", extension.extensionName, extension.specVersion);
+        }
 
         // enumerate queue families
         uint32_t queueFamilyCount = 0;
@@ -147,17 +174,45 @@ namespace sky::aurora {
 
         // device extensions
         enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        if (HasDeviceExtension(supportedExtensions, PORTABILITY_SUBSET_EXTENSION)) {
+            enabledExtensions.push_back(PORTABILITY_SUBSET_EXTENSION);
+        }
+
+        for (const char *extension : enabledExtensions) {
+            LOG_I(TAG, "enabled device extension: %s", extension);
+        }
 
         QueryDeviceFeatures();
 
+        if (vkFeature13.dynamicRendering == VK_FALSE) {
+            LOG_E(TAG, "selected GPU does not support dynamicRendering, but AuroraVulkan requires vkCmdBeginRendering");
+            return false;
+        }
+        if (vkFeature12.timelineSemaphore == VK_FALSE) {
+            LOG_E(TAG, "selected GPU does not support timelineSemaphore, but AuroraVulkan requires timeline semaphores");
+            return false;
+        }
+
+        VkPhysicalDeviceFeatures enabledCoreFeatures = {};
+        enabledCoreFeatures.samplerAnisotropy = gpuFeatures.features.samplerAnisotropy;
+        VkPhysicalDeviceVulkan11Features enabledFeature11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+        VkPhysicalDeviceVulkan12Features enabledFeature12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+        VkPhysicalDeviceVulkan13Features enabledFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+        VkPhysicalDeviceVulkan14Features enabledFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
+        enabledFeature12.timelineSemaphore = VK_TRUE;
+        enabledFeature13.dynamicRendering = VK_TRUE;
+        enabledFeature11.pNext = &enabledFeature12;
+        enabledFeature12.pNext = &enabledFeature13;
+        enabledFeature13.pNext = &enabledFeature14;
+
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pNext                   = &vkFeature11;
+        createInfo.pNext                   = &enabledFeature11;
         createInfo.queueCreateInfoCount    = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos       = queueCreateInfos.data();
         createInfo.enabledExtensionCount   = static_cast<uint32_t>(enabledExtensions.size());
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
-        createInfo.pEnabledFeatures        = &gpuFeatures.features;
+        createInfo.pEnabledFeatures        = &enabledCoreFeatures;
 
         VkResult result = instFn.vkCreateDevice(gpu, &createInfo, nullptr, &device);
         if (result != VK_SUCCESS) {
@@ -294,6 +349,26 @@ namespace sky::aurora {
             return nullptr;
         }
         return shader;
+    }
+
+    GraphicsPipeline *VulkanDevice::CreatePipelineState(const GraphicsPipeline::Descriptor &desc)
+    {
+        auto *pipeline = new VulkanGraphicsPipeline(*this);
+        if (!pipeline->Init(desc)) {
+            delete pipeline;
+            return nullptr;
+        }
+        return pipeline;
+    }
+
+    ComputePipeline *VulkanDevice::CreatePipelineState(const ComputePipeline::Descriptor &desc)
+    {
+        auto *pipeline = new VulkanComputePipeline(*this);
+        if (!pipeline->Init(desc)) {
+            delete pipeline;
+            return nullptr;
+        }
+        return pipeline;
     }
 
     PixelFormatFeatureFlags VulkanDevice::GetFormatFeatureFlags(PixelFormat format) const
