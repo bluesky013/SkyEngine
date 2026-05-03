@@ -30,6 +30,10 @@ namespace sky::aurora {
         ID3D12Fence *GetNativeHandle() const { return fence.Get(); }
         UINT64 GetPendingValue() const { return pendingValue; }
 
+        // Backend-only: D3D12Queue::Submit sets fence to the next pending value
+        // via the queue's Signal call.
+        UINT64 BumpPendingValue() { return ++pendingValue; }
+
     private:
         D3D12Device      &device;
         ComPtr<ID3D12Fence> fence;

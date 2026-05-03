@@ -21,6 +21,10 @@ namespace sky::aurora {
         bool IsSignaled() override;
         bool WaitFor(uint64_t timeoutNs) override;
 
+        // Backend-only: GLESQueue::Submit calls this to flip the fence to
+        // signaled (GLES has no native fence-on-submit).
+        void SignalFromQueue();
+
     private:
         GLsync syncObj   = nullptr;
         bool   signaled  = false;

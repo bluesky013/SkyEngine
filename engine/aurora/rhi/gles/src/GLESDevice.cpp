@@ -15,6 +15,7 @@
 #include <GLESPipelineState.h>
 #include <GLESCommandPool.h>
 #include <GLESConversion.h>
+#include <GLESQueue.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
 #include <cstring>
@@ -122,8 +123,15 @@ namespace sky::aurora {
     bool GLESDevice::OnInit(const DeviceInit &init)
     {
         (void)init;
+        queue = std::make_unique<GLESQueue>(*this);
         LOG_I(TAG, "GLES device initialized");
         return true;
+    }
+
+    Queue *GLESDevice::GetQueue(QueueType /*type*/)
+    {
+        // GLES uses a single logical queue for all QueueType values.
+        return queue.get();
     }
 
     void GLESDevice::UpdateDeviceCaps()

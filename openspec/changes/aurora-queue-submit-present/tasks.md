@@ -22,10 +22,10 @@
 
 ## 3. DX12 后端
 
-- [ ] 3.1 新增 `D3D12Queue.h/.cpp`：包装 `ID3D12CommandQueue`；`Submit` 用 `ExecuteCommandLists` + 对每个 wait/signal semaphore 发 `Wait`/`Signal`；`WaitIdle` 用内部 fence
-- [ ] 3.2 修改 `D3D12Device`：把现有 `graphicsQueue/computeQueue/transferQueue` 改为 `D3D12Queue` 管理
-- [ ] 3.3 重写 `D3D12Semaphore`：内部持 `ID3D12Fence`；binary 用 auto-incrementing internal counter；timeline 直接用 caller value；timeline 的 host Signal 用 `ID3D12Fence::Signal`
-- [ ] 3.4 扩展 `D3D12Fence`：`IsSignaled` 比较 `GetCompletedValue()`；`WaitFor` 用 `SetEventOnCompletion` + `WaitForSingleObjectEx`
+- [x] 3.1 新增 `D3D12Queue.h/.cpp`：包装 `ID3D12CommandQueue`；`Submit` 用 `ExecuteCommandLists` + queue->Wait/Signal；`WaitIdle` 用内部 fence + event（Windows 待回归）
+- [x] 3.2 修改 `D3D12Device`：3 个 `std::unique_ptr<D3D12Queue>` 替换原始 ComPtr 队列；`GetQueue` 索引返回；`WaitIdle` 委托队列；移除老 `fence` 成员
+- [x] 3.3 扩展 `D3D12Semaphore`：本 change 在 quick-fixes 阶段已加 GetType/Signal/Wait/GetCurrentValue；本轮加 `AdvanceBinarySignalValue/GetBinaryWaitValue` 给 D3D12Queue 用
+- [x] 3.4 扩展 `D3D12Fence`：本 change 在 quick-fixes 阶段已加 IsSignaled/WaitFor；本轮加 `BumpPendingValue` 给 D3D12Queue::Submit 用
 - [ ] 3.5 新增 `D3D12SwapChain.h/.cpp`：`IDXGISwapChain3` + `GetBuffer` + 包装为 `D3D12Image`；`Present` 走 `IDXGISwapChain3::Present`；`Resize` 走 `ResizeBuffers`
 - [ ] 3.6 DX12 binary semaphore wait 不能阻塞 GPU 上某个 stage（DX12 fence 是 queue 级别）；在 `Submit` 中按队列发 `Wait` 即可，文档化 `stageMask` 在 DX12 上被忽略
 
@@ -40,10 +40,10 @@
 
 ## 5. GLES 后端
 
-- [ ] 5.1 新增 `GLESQueue.h/.cpp`：单一逻辑 queue；`Submit` 立即按序回放 `GLESCommandBuffer` 中录制的命令 lambda；`WaitIdle` 用 `glFinish`
-- [ ] 5.2 修改 `GLESDevice::GetQueue` 三种 type 都返回同一 `GLESQueue*`
-- [ ] 5.3 重写 `GLESSemaphore`：BINARY 用 `EGLSyncKHR` 或 `std::atomic<bool>` + condvar；TIMELINE 用 `std::atomic<uint64_t>` + condvar（host 串行）
-- [ ] 5.4 扩展 `GLESFence`：`IsSignaled` / `WaitFor` 用 `glClientWaitSync`（GL_SYNC_FLUSH_COMMANDS_BIT + 0 timeout 查询）
+- [x] 5.1 新增 `GLESQueue.h/.cpp`：单一逻辑 queue；`Submit` 做 wait→no-op→signal→fence 链（GLES 命令录制即执行，Submit 主要做 CPU sync 语义）；`WaitIdle` 用 `glFinish`
+- [x] 5.2 `GLESDevice::GetQueue` 三种 type 全部返回同一个 `GLESQueue*`
+- [x] 5.3 改 `GLESSemaphore`：用 mutex+condvar 让 Wait 阻塞，Signal notify_all；保持 binary/timeline 区分（binary 由 Submit 路径隐式 +1）
+- [x] 5.4 `GLESFence` 加 `SignalFromQueue`：在 Submit 完成时插 `glFenceSync`；`IsSignaled` / `WaitFor` 已就位
 - [ ] 5.5 实现 `GLESSwapChain`：用 EGL：`eglCreateWindowSurface` + `eglSwapBuffers`；`AcquireNextImage` 直接返回 0（单 backbuffer 模型）；`GetImage(0)` 返回包装 default framebuffer 的 `GLESImage`；`Resize` 调 `eglSwapInterval` / 重建 surface
 
 ## 6. 测试

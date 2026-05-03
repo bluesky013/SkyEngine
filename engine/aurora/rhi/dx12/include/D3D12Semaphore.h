@@ -29,11 +29,17 @@ namespace sky::aurora {
 
         ID3D12Fence *GetNativeHandle() const { return fence.Get(); }
 
+        // Backend-only: each Submit-signal of a binary semaphore advances by 1;
+        // the matching Submit-wait reads it.
+        uint64_t AdvanceBinarySignalValue() { return ++binaryValue; }
+        uint64_t GetBinaryWaitValue() const { return binaryValue; }
+
     private:
         D3D12Device        &device;
         ComPtr<ID3D12Fence> fence;
         HANDLE              event = nullptr;
         SemaphoreType       type  = SemaphoreType::BINARY;
+        UINT64              binaryValue = 0;
     };
 
 } // namespace sky::aurora

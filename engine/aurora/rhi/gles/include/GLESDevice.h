@@ -6,6 +6,7 @@
 
 #include <aurora/rhi/Device.h>
 #include <GLESForward.h>
+#include <GLESQueue.h>
 #include <memory>
 
 namespace sky::aurora {
@@ -45,7 +46,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
-        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present GLES phase
+        Queue* GetQueue(QueueType type) override;
         CommandPool* CreateCommandPool(QueueType type) override;
 
         GLESInstance &GetInstance() const { return instance; }
@@ -58,6 +59,7 @@ namespace sky::aurora {
         void WaitIdle() const override;
 
         GLESInstance &instance;
+        std::unique_ptr<GLESQueue> queue;
     };
 
 } // namespace sky::aurora

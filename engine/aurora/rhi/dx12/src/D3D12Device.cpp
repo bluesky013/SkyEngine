@@ -9,6 +9,7 @@
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
 #include <D3D12Conversion.h>
+#include <D3D12Queue.h>
 #include <core/logger/Logger.h>
 
 static const char  *TAG  = "AuroraDX12";
@@ -23,12 +24,7 @@ namespace sky::aurora {
 
     D3D12Device::~D3D12Device()
     {
-        if (fence) {
-            fence.Reset();
-        }
-        graphicsQueue.Reset();
-        computeQueue.Reset();
-        transferQueue.Reset();
+        for (auto &q : queues) { q.reset(); }
         allocator.Reset();
         device.Reset();
         adapter.Reset();
@@ -76,32 +72,16 @@ namespace sky::aurora {
 
     void D3D12Device::WaitIdle() const
     {
-        if (!device || !fence) {
-            return;
+        for (const auto &q : queues) {
+            if (q) {
+                const_cast<D3D12Queue *>(q.get())->WaitIdle();
+            }
         }
+    }
 
-        static UINT64 fenceValue = 0;
-        ++fenceValue;
-
-        auto waitOnQueue = [&](const ComPtr<ID3D12CommandQueue> &queue) {
-            if (!queue) {
-                return;
-            }
-            queue->Signal(fence.Get(), fenceValue);
-            if (fence->GetCompletedValue() < fenceValue) {
-                HANDLE event = ::CreateEventW(nullptr, FALSE, FALSE, nullptr);
-                if (event != nullptr) {
-                    fence->SetEventOnCompletion(fenceValue, event);
-                    ::WaitForSingleObject(event, INFINITE);
-                    ::CloseHandle(event);
-                }
-            }
-            ++fenceValue;
-        };
-
-        waitOnQueue(graphicsQueue);
-        waitOnQueue(computeQueue);
-        waitOnQueue(transferQueue);
+    Queue *D3D12Device::GetQueue(QueueType type)
+    {
+        return queues[static_cast<size_t>(type)].get();
     }
 
     bool D3D12Device::CreateDevice()
@@ -119,13 +99,6 @@ namespace sky::aurora {
                 infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
                 infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
             }
-        }
-
-        // create fence for synchronization
-        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create fence, HRESULT: 0x%08x", hr);
-            return false;
         }
 
         return true;
@@ -152,43 +125,31 @@ namespace sky::aurora {
 
     bool D3D12Device::CreateCommandQueues()
     {
-        // graphics queue
-        D3D12_COMMAND_QUEUE_DESC graphicsDesc = {};
-        graphicsDesc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        graphicsDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-        graphicsDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        graphicsDesc.NodeMask = 0;
+        const D3D12_COMMAND_LIST_TYPE listTypes[] = {
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            D3D12_COMMAND_LIST_TYPE_COMPUTE,
+            D3D12_COMMAND_LIST_TYPE_COPY,
+        };
 
-        HRESULT hr = device->CreateCommandQueue(&graphicsDesc, IID_PPV_ARGS(&graphicsQueue));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create graphics queue, HRESULT: 0x%08x", hr);
-            return false;
-        }
+        for (size_t i = 0; i < queues.size(); ++i) {
+            D3D12_COMMAND_QUEUE_DESC desc = {};
+            desc.Type     = listTypes[i];
+            desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+            desc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+            desc.NodeMask = 0;
 
-        // compute queue
-        D3D12_COMMAND_QUEUE_DESC computeDesc = {};
-        computeDesc.Type     = D3D12_COMMAND_LIST_TYPE_COMPUTE;
-        computeDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-        computeDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        computeDesc.NodeMask = 0;
+            ComPtr<ID3D12CommandQueue> raw;
+            HRESULT hr = device->CreateCommandQueue(&desc, IID_PPV_ARGS(&raw));
+            if (FAILED(hr)) {
+                LOG_E(TAG, "failed to create command queue %zu, HRESULT: 0x%08x", i, hr);
+                return false;
+            }
 
-        hr = device->CreateCommandQueue(&computeDesc, IID_PPV_ARGS(&computeQueue));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create compute queue, HRESULT: 0x%08x", hr);
-            return false;
-        }
-
-        // transfer (copy) queue
-        D3D12_COMMAND_QUEUE_DESC transferDesc = {};
-        transferDesc.Type     = D3D12_COMMAND_LIST_TYPE_COPY;
-        transferDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-        transferDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        transferDesc.NodeMask = 0;
-
-        hr = device->CreateCommandQueue(&transferDesc, IID_PPV_ARGS(&transferQueue));
-        if (FAILED(hr)) {
-            LOG_E(TAG, "failed to create transfer queue, HRESULT: 0x%08x", hr);
-            return false;
+            auto q = std::make_unique<D3D12Queue>(*this, static_cast<QueueType>(i), std::move(raw));
+            if (!q->Init()) {
+                return false;
+            }
+            queues[i] = std::move(q);
         }
 
         LOG_I(TAG, "command queues created (graphics, compute, transfer)");

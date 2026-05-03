@@ -71,4 +71,13 @@ namespace sky::aurora {
         return false;
     }
 
+    void GLESFence::SignalFromQueue()
+    {
+        if (syncObj != nullptr) {
+            glDeleteSync(syncObj);
+        }
+        syncObj  = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        signaled = false;
+    }
+
 } // namespace sky::aurora

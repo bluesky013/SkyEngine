@@ -8,6 +8,7 @@
 #include <D3D12Buffer.h>
 #include <D3D12Image.h>
 #include <D3D12Sampler.h>
+#include <D3D12Queue.h>
 
 #include <aurora/rhi/Device.h>
 
@@ -15,6 +16,8 @@
 #include <dxgi1_6.h>
 #include <D3D12MemAlloc.h>
 #include <wrl/client.h>
+#include <array>
+#include <memory>
 #include <vector>
 #include <string>
 
@@ -56,7 +59,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
-        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present DX12 phase
+        Queue* GetQueue(QueueType type) override;
         CommandPool* CreateCommandPool(QueueType type) override;
 
         ID3D12Device          *GetNativeHandle() const { return device.Get(); }
@@ -80,10 +83,8 @@ namespace sky::aurora {
         ComPtr<IDXGIAdapter1>              adapter;
         ComPtr<ID3D12Device>               device;
         ComPtr<D3D12MA::Allocator>         allocator;
-        ComPtr<ID3D12CommandQueue>         graphicsQueue;
-        ComPtr<ID3D12CommandQueue>         computeQueue;
-        ComPtr<ID3D12CommandQueue>         transferQueue;
-        ComPtr<ID3D12Fence>                fence;
+
+        std::array<std::unique_ptr<D3D12Queue>, 3> queues;       // by QueueType
 
         DXGI_ADAPTER_DESC1 adapterDesc = {};
     };
