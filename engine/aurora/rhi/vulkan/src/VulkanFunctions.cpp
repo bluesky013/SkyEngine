@@ -113,6 +113,7 @@ namespace sky::aurora {
         LOAD_DEVICE(vkDestroyFence);
         LOAD_DEVICE(vkWaitForFences);
         LOAD_DEVICE(vkResetFences);
+        LOAD_DEVICE(vkGetFenceStatus);
 
         LOAD_DEVICE(vkCreateSemaphore);
         LOAD_DEVICE(vkDestroySemaphore);
@@ -145,6 +146,8 @@ namespace sky::aurora {
         LOAD_DEVICE(vkDestroyImage);
 
         LOAD_DEVICE(vkQueueSubmit);
+        LOAD_DEVICE(vkQueueSubmit2);
+        LOAD_DEVICE(vkQueueWaitIdle);
 
         // dynamic rendering (Vulkan 1.3+)
         LOAD_DEVICE(vkCmdBeginRendering);

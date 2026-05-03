@@ -24,8 +24,11 @@ namespace sky::aurora {
 
     bool D3D12Semaphore::Init(const Descriptor &desc)
     {
+        type = desc.type;
+        const UINT64 initial = (type == SemaphoreType::TIMELINE) ? desc.initialValue : 0;
+
         HRESULT hr = device.GetNativeHandle()->CreateFence(
-            desc.initialValue, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
+            initial, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
         if (FAILED(hr)) {
             LOG_E(TAG, "failed to create ID3D12Fence for semaphore, HRESULT: 0x%08x", hr);
             return false;
@@ -45,12 +48,14 @@ namespace sky::aurora {
         return fence->GetCompletedValue();
     }
 
-    void D3D12Semaphore::Wait(uint64_t value)
+    bool D3D12Semaphore::Wait(uint64_t value, uint64_t timeoutNs)
     {
-        if (fence->GetCompletedValue() < value) {
-            fence->SetEventOnCompletion(value, event);
-            ::WaitForSingleObject(event, INFINITE);
+        if (fence->GetCompletedValue() >= value) {
+            return true;
         }
+        fence->SetEventOnCompletion(value, event);
+        const DWORD timeoutMs = static_cast<DWORD>(timeoutNs / 1'000'000ULL);
+        return ::WaitForSingleObject(event, timeoutMs) == WAIT_OBJECT_0;
     }
 
     void D3D12Semaphore::Signal(uint64_t value)

@@ -20,6 +20,8 @@ namespace sky::aurora {
 
         void Wait() override;
         void Reset() override;
+        bool IsSignaled() override;
+        bool WaitFor(uint64_t timeoutNs) override;
 
         VkFence GetNativeHandle() const { return fence; }
 

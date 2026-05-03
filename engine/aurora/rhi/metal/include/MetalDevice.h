@@ -42,6 +42,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present Metal phase
         CommandPool* CreateCommandPool(QueueType type) override;
 
         void *GetNativeDevice() const { return metalDevice; }

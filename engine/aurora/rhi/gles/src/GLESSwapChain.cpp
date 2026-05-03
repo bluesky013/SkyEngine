@@ -70,14 +70,6 @@ namespace sky::aurora {
         return true;
     }
 
-    void GLESSwapChain::Present()
-    {
-        auto display = device.GetInstance().GetEGLDisplay();
-        if (eglSwapBuffers(display, surface) != EGL_TRUE) {
-            LOG_E(TAG, "eglSwapBuffers failed: 0x%x", eglGetError());
-        }
-    }
-
     void GLESSwapChain::Resize(uint32_t w, uint32_t h)
     {
         width  = w;

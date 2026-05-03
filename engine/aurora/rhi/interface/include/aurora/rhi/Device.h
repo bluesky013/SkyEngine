@@ -10,6 +10,8 @@
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Semaphore.h>
+#include <aurora/rhi/Queue.h>
+#include <aurora/rhi/SubmitInfo.h>
 #include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Buffer.h>
@@ -63,6 +65,9 @@ namespace sky::aurora {
         virtual ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) = 0;
 
         virtual PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const = 0;
+
+        // queue
+        virtual Queue* GetQueue(QueueType type) = 0;
 
         // command pool
         virtual CommandPool* CreateCommandPool(QueueType type) = 0;

@@ -43,7 +43,9 @@ namespace sky::aurora {
         metalLayer.pixelFormat = ToMetalPixelFormat(desc.preferredFormat);
         metalLayer.framebufferOnly = YES;
 
-        layer = metalLayer;
+        layer  = metalLayer;
+        format = desc.preferredFormat;
+        extent = {desc.width, desc.height};
         return true;
     }
 

@@ -42,4 +42,33 @@ namespace sky::aurora {
         signaled = false;
     }
 
+    bool GLESFence::IsSignaled()
+    {
+        if (signaled) {
+            return true;
+        }
+        if (syncObj != nullptr) {
+            const GLenum r = glClientWaitSync(syncObj, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+            if (r == GL_ALREADY_SIGNALED || r == GL_CONDITION_SATISFIED) {
+                signaled = true;
+            }
+        }
+        return signaled;
+    }
+
+    bool GLESFence::WaitFor(uint64_t timeoutNs)
+    {
+        if (signaled) {
+            return true;
+        }
+        if (syncObj != nullptr) {
+            const GLenum r = glClientWaitSync(syncObj, GL_SYNC_FLUSH_COMMANDS_BIT, timeoutNs);
+            if (r == GL_ALREADY_SIGNALED || r == GL_CONDITION_SATISFIED) {
+                signaled = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
 } // namespace sky::aurora

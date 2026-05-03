@@ -16,8 +16,14 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
+        SemaphoreType GetType() const override { return type; }
+        void          Signal(uint64_t value) override;
+        bool          Wait(uint64_t value, uint64_t timeoutNs) override;
+        uint64_t      GetCurrentValue() const override { return counter; }
+
     private:
-        uint64_t counter = 0;
+        SemaphoreType type    = SemaphoreType::BINARY;
+        uint64_t      counter = 0;
     };
 
 } // namespace sky::aurora

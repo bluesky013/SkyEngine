@@ -56,4 +56,19 @@ namespace sky::aurora {
         ++pendingValue;
     }
 
+    bool D3D12Fence::IsSignaled()
+    {
+        return fence->GetCompletedValue() >= pendingValue;
+    }
+
+    bool D3D12Fence::WaitFor(uint64_t timeoutNs)
+    {
+        if (fence->GetCompletedValue() >= pendingValue) {
+            return true;
+        }
+        fence->SetEventOnCompletion(pendingValue, event);
+        const DWORD timeoutMs = static_cast<DWORD>(timeoutNs / 1'000'000ULL);
+        return ::WaitForSingleObject(event, timeoutMs) == WAIT_OBJECT_0;
+    }
+
 } // namespace sky::aurora

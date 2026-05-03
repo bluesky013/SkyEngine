@@ -48,4 +48,14 @@ namespace sky::aurora {
         device.GetDeviceFn().vkResetFences(device.GetNativeHandle(), 1, &fence);
     }
 
+    bool VulkanFence::IsSignaled()
+    {
+        return device.GetDeviceFn().vkGetFenceStatus(device.GetNativeHandle(), fence) == VK_SUCCESS;
+    }
+
+    bool VulkanFence::WaitFor(uint64_t timeoutNs)
+    {
+        return device.GetDeviceFn().vkWaitForFences(device.GetNativeHandle(), 1, &fence, VK_TRUE, timeoutNs) == VK_SUCCESS;
+    }
+
 } // namespace sky::aurora

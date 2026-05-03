@@ -20,6 +20,8 @@ namespace sky::aurora {
 
         virtual void Wait() = 0;
         virtual void Reset() = 0;
+        virtual bool IsSignaled() = 0;
+        virtual bool WaitFor(uint64_t timeoutNs) = 0;
 
         void WaitAndReset()
         {

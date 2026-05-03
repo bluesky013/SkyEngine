@@ -19,13 +19,16 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void Present();
-        void Resize(uint32_t width, uint32_t height);
+        // SwapChain interface — TODO: full implementation in aurora-queue-submit-present GLES phase
+        uint32_t    AcquireNextImage(Semaphore *signalSema, Fence *fence, uint64_t timeoutNs) override { return 0; }
+        void        Present(uint32_t imageIndex, uint32_t numWaitSemas, Semaphore *const *waitSemas) override {}
+        void        Resize(uint32_t w, uint32_t h) override;
+        Image*      GetImage(uint32_t index) const override { return nullptr; }
+        uint32_t    GetImageCount() const override { return 1; }
+        PixelFormat GetFormat() const override { return format; }
+        Extent2D    GetExtent() const override { return {width, height}; }
 
         EGLSurface GetEGLSurface() const { return surface; }
-        PixelFormat GetFormat() const { return format; }
-        uint32_t GetWidth() const { return width; }
-        uint32_t GetHeight() const { return height; }
 
     private:
         GLESDevice &device;

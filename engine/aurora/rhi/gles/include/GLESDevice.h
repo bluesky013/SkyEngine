@@ -45,6 +45,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present GLES phase
         CommandPool* CreateCommandPool(QueueType type) override;
 
         GLESInstance &GetInstance() const { return instance; }

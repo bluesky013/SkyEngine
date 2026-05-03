@@ -56,6 +56,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present DX12 phase
         CommandPool* CreateCommandPool(QueueType type) override;
 
         ID3D12Device          *GetNativeHandle() const { return device.Get(); }

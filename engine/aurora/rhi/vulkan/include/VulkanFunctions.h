@@ -57,6 +57,7 @@ namespace sky::aurora {
         PFN_vkDestroyFence                 vkDestroyFence                 = nullptr;
         PFN_vkWaitForFences                vkWaitForFences                = nullptr;
         PFN_vkResetFences                  vkResetFences                  = nullptr;
+        PFN_vkGetFenceStatus               vkGetFenceStatus               = nullptr;
 
         // semaphore
         PFN_vkCreateSemaphore              vkCreateSemaphore              = nullptr;
@@ -96,6 +97,8 @@ namespace sky::aurora {
 
         // queue
         PFN_vkQueueSubmit                  vkQueueSubmit                  = nullptr;
+        PFN_vkQueueSubmit2                 vkQueueSubmit2                 = nullptr;
+        PFN_vkQueueWaitIdle                vkQueueWaitIdle                = nullptr;
 
         // dynamic rendering (Vulkan 1.3+)
         PFN_vkCmdBeginRendering            vkCmdBeginRendering            = nullptr;

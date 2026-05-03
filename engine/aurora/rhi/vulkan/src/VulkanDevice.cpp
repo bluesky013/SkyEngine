@@ -35,6 +35,7 @@ namespace sky::aurora {
 
     VulkanDevice::~VulkanDevice()
     {
+        for (auto &q : queues) { q.reset(); }
         if (allocator != VK_NULL_HANDLE) {
             vmaDestroyAllocator(allocator);
             allocator = VK_NULL_HANDLE;
@@ -190,6 +191,10 @@ namespace sky::aurora {
             LOG_E(TAG, "selected GPU does not support dynamicRendering, but AuroraVulkan requires vkCmdBeginRendering");
             return false;
         }
+        if (vkFeature13.synchronization2 == VK_FALSE) {
+            LOG_E(TAG, "selected GPU does not support synchronization2, but AuroraVulkan requires vkQueueSubmit2");
+            return false;
+        }
         if (vkFeature12.timelineSemaphore == VK_FALSE) {
             LOG_E(TAG, "selected GPU does not support timelineSemaphore, but AuroraVulkan requires timeline semaphores");
             return false;
@@ -202,7 +207,8 @@ namespace sky::aurora {
         VkPhysicalDeviceVulkan13Features enabledFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
         VkPhysicalDeviceVulkan14Features enabledFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
         enabledFeature12.timelineSemaphore = VK_TRUE;
-        enabledFeature13.dynamicRendering = VK_TRUE;
+        enabledFeature13.dynamicRendering  = VK_TRUE;
+        enabledFeature13.synchronization2  = VK_TRUE;
         enabledFeature11.pNext = &enabledFeature12;
         enabledFeature12.pNext = &enabledFeature13;
         enabledFeature13.pNext = &enabledFeature14;
@@ -226,9 +232,19 @@ namespace sky::aurora {
         LoadDeviceFunctions(instFn.vkGetDeviceProcAddr, device, deviceFn);
 
         // retrieve queues
+        VkQueue graphicsQueue = VK_NULL_HANDLE;
+        VkQueue computeQueue  = VK_NULL_HANDLE;
+        VkQueue transferQueue = VK_NULL_HANDLE;
         deviceFn.vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
         deviceFn.vkGetDeviceQueue(device, computeQueueFamily,  0, &computeQueue);
         deviceFn.vkGetDeviceQueue(device, transferQueueFamily, 0, &transferQueue);
+
+        queues[static_cast<size_t>(QueueType::GRAPHICS)] =
+            std::make_unique<VulkanQueue>(*this, QueueType::GRAPHICS, graphicsQueue, graphicsQueueFamily);
+        queues[static_cast<size_t>(QueueType::COMPUTE)] =
+            std::make_unique<VulkanQueue>(*this, QueueType::COMPUTE,  computeQueue,  computeQueueFamily);
+        queues[static_cast<size_t>(QueueType::TRANSFER)] =
+            std::make_unique<VulkanQueue>(*this, QueueType::TRANSFER, transferQueue, transferQueueFamily);
 
         return true;
     }
@@ -271,6 +287,11 @@ namespace sky::aurora {
         case QueueType::TRANSFER: return transferQueueFamily;
         default:                  return graphicsQueueFamily;
         }
+    }
+
+    Queue *VulkanDevice::GetQueue(QueueType type)
+    {
+        return queues[static_cast<size_t>(type)].get();
     }
 
     CommandPool *VulkanDevice::CreateCommandPool(QueueType type)
@@ -411,15 +432,18 @@ namespace sky::aurora {
         return new VulkanContext(*this);
     }
 
-    void VulkanContext::OnAttach(uint32_t threadIndex)
+    void VulkanContext::OnAttach(uint32_t /*threadIndex*/)
     {
-        pool = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(QueueType::GRAPHICS));
-        pool->Init();
+        for (size_t i = 0; i < pools.size(); ++i) {
+            const auto type = static_cast<QueueType>(i);
+            pools[i] = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(type));
+            pools[i]->Init();
+        }
     }
 
     void VulkanContext::OnDetach()
     {
-        pool = nullptr;
+        for (auto &p : pools) { p.reset(); }
     }
 
 } // namespace sky::aurora

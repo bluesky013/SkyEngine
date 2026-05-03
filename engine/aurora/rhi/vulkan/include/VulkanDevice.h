@@ -11,9 +11,12 @@
 #include <VulkanImage.h>
 #include <VulkanSampler.h>
 #include <VulkanShader.h>
+#include <VulkanQueue.h>
 
 #include <vk_mem_alloc.h>
+#include <array>
 #include <vector>
+#include <memory>
 #include <string>
 
 namespace sky::aurora {
@@ -28,7 +31,7 @@ namespace sky::aurora {
         void OnDetach() override;
 
         VulkanDevice& device;
-        std::unique_ptr<VulkanCommandPool> pool;
+        std::array<std::unique_ptr<VulkanCommandPool>, 3> pools;       // by QueueType
     };
 
     class VulkanDevice : public Device {
@@ -52,6 +55,7 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
+        Queue* GetQueue(QueueType type) override;
         CommandPool* CreateCommandPool(QueueType type) override;
 
         VkDevice         GetNativeHandle() const { return device; }
@@ -78,9 +82,8 @@ namespace sky::aurora {
         VkDevice         device    = VK_NULL_HANDLE;
         VmaAllocator     allocator = VK_NULL_HANDLE;
         VulkanDeviceFunctions deviceFn = {};
-        VkQueue          graphicsQueue = VK_NULL_HANDLE;
-        VkQueue          computeQueue  = VK_NULL_HANDLE;
-        VkQueue          transferQueue = VK_NULL_HANDLE;
+
+        std::array<std::unique_ptr<VulkanQueue>, 3> queues;            // by QueueType
 
         uint32_t graphicsQueueFamily = 0;
         uint32_t computeQueueFamily  = 0;

@@ -20,6 +20,8 @@ namespace sky::aurora {
 
         void Wait() override;
         void Reset() override;
+        bool IsSignaled() override;
+        bool WaitFor(uint64_t timeoutNs) override;
 
     private:
         std::mutex              mutex;
@@ -34,10 +36,15 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        uint64_t GetInitialValue() const { return initialValue; }
+        SemaphoreType GetType() const override { return type; }
+        void          Signal(uint64_t value) override;
+        bool          Wait(uint64_t value, uint64_t timeoutNs) override;
+        uint64_t      GetCurrentValue() const override { return currentValue; }
 
     private:
-        uint64_t initialValue = 0;
+        SemaphoreType         type         = SemaphoreType::BINARY;
+        uint64_t              initialValue = 0;
+        uint64_t              currentValue = 0;
     };
 
 } // namespace sky::aurora

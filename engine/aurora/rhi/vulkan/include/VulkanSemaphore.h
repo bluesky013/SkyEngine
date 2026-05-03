@@ -18,16 +18,17 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        // Backend-specific timeline operations (not exposed in base interface)
-        uint64_t GetCurrentValue() const;
-        void Wait(uint64_t value);
-        void Signal(uint64_t value);
+        SemaphoreType GetType() const override { return type; }
+        void          Signal(uint64_t value) override;
+        bool          Wait(uint64_t value, uint64_t timeoutNs) override;
+        uint64_t      GetCurrentValue() const override;
 
         VkSemaphore GetNativeHandle() const { return semaphore; }
 
     private:
         VulkanDevice &device;
         VkSemaphore   semaphore = VK_NULL_HANDLE;
+        SemaphoreType type      = SemaphoreType::BINARY;
     };
 
 } // namespace sky::aurora

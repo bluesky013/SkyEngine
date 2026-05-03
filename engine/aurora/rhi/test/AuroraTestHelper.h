@@ -6,10 +6,36 @@
 
 #include <gtest/gtest.h>
 #include <core/platform/Platform.h>
+#include <core/template/ReferenceObject.h>
 #include <aurora/rhi/Instance.h>
 #include <aurora/rhi/Device.h>
+#include <aurora/rhi/Fence.h>
+#include <aurora/rhi/Semaphore.h>
 
 namespace sky::aurora::test {
+
+    inline CounterPtr<Fence> MakeFence(Device *device, bool createSignaled = false)
+    {
+        Fence::Descriptor desc{};
+        desc.createSignaled = createSignaled;
+        return CounterPtr<Fence>(device->CreateFence(desc));
+    }
+
+    inline CounterPtr<Semaphore> MakeBinarySema(Device *device)
+    {
+        Semaphore::Descriptor desc{};
+        desc.type = SemaphoreType::BINARY;
+        return CounterPtr<Semaphore>(device->CreateSema(desc));
+    }
+
+    inline CounterPtr<Semaphore> MakeTimelineSema(Device *device, uint64_t initial = 0)
+    {
+        Semaphore::Descriptor desc{};
+        desc.type         = SemaphoreType::TIMELINE;
+        desc.initialValue = initial;
+        return CounterPtr<Semaphore>(device->CreateSema(desc));
+    }
+
 
     class AuroraVulkanTest : public ::testing::Test {
     public:

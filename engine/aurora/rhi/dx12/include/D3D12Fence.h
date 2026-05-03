@@ -24,6 +24,8 @@ namespace sky::aurora {
 
         void Wait() override;
         void Reset() override;
+        bool IsSignaled() override;
+        bool WaitFor(uint64_t timeoutNs) override;
 
         ID3D12Fence *GetNativeHandle() const { return fence.Get(); }
         UINT64 GetPendingValue() const { return pendingValue; }
