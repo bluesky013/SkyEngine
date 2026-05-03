@@ -6,7 +6,7 @@
 
 #include <core/template/ReferenceObject.h>
 
-namespace aurora::rhi {
+namespace sky::aurora {
 
     class VertexDesc {
     public:
@@ -14,4 +14,4 @@ namespace aurora::rhi {
         ~VertexDesc() = default;
     };
 
-} // namespace aurora::rhi
+} // namespace sky::aurora

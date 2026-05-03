@@ -30,12 +30,12 @@ namespace sky::aurora {
             return false;
         }
 
-        threadCount = std::min(threadCount, capability.maxThreads);
-
         mainContext.reset(CreateAsyncContext());
         mainContext->OnAttach(~(0U));
 
         UpdateDeviceCaps();
+
+        threadCount = std::min(threadCount, capability.maxThreads);
 
         contexts.resize(threadCount);
         threadPool = std::make_unique<ThreadPool>(threadCount, [this](uint32_t threadIndex) {

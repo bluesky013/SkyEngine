@@ -703,7 +703,7 @@ namespace sky::aurora {
         bool descriptorIndexing = false;
         bool variableRateShading = false;
         bool multiView = false;
-        bool meshShader = true;
+        bool meshShader = false;
         bool framebufferFetch = false;
         bool frameBufferFetchDS = false;
         bool frameBufferFetchNoCoherent = false;
@@ -759,6 +759,8 @@ namespace sky::aurora {
     class Buffer;
 
     static constexpr uint32_t MAX_COLOR_ATTACHMENTS = 8;
+    static constexpr uint32_t MAX_VERTEX_BINDINGS   = 16;
+    static constexpr uint32_t MAX_VIEWPORTS         = 16;
 
     // rendering attachment
     struct ColorAttachment {

@@ -8,6 +8,7 @@
 #include <VulkanImage.h>
 #include <VulkanPipelineState.h>
 #include <VulkanConversion.h>
+#include <core/platform/Platform.h>
 
 namespace sky::aurora {
 
@@ -64,16 +65,35 @@ namespace sky::aurora {
         }
 
         VkRenderingAttachmentInfo depthAttachment = {};
+        VkRenderingAttachmentInfo stencilAttachment = {};
         auto *depthImage = static_cast<VulkanImage *>(info.depthStencil.image);
-        depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        depthAttachment.imageView   = depthImage != nullptr ? depthImage->GetDefaultView() : VK_NULL_HANDLE;
-        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthAttachment.loadOp      = FromLoadOp(info.depthStencil.depthLoadOp);
-        depthAttachment.storeOp     = FromStoreOp(info.depthStencil.depthStoreOp);
-        depthAttachment.clearValue.depthStencil = {
-            info.depthStencil.clearValue.depthStencil.depth,
-            info.depthStencil.clearValue.depthStencil.stencil
-        };
+
+        bool hasDepth   = false;
+        bool hasStencil = false;
+        if (depthImage != nullptr) {
+            const auto &fmtInfo = GetImageFormatInfo(depthImage->GetPixelFormat());
+            hasDepth   = fmtInfo.hasDepth;
+            hasStencil = fmtInfo.hasStencil;
+
+            depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            depthAttachment.imageView   = depthImage->GetDefaultView();
+            depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depthAttachment.loadOp      = FromLoadOp(info.depthStencil.depthLoadOp);
+            depthAttachment.storeOp     = FromStoreOp(info.depthStencil.depthStoreOp);
+            depthAttachment.clearValue.depthStencil = {
+                info.depthStencil.clearValue.depthStencil.depth,
+                info.depthStencil.clearValue.depthStencil.stencil
+            };
+
+            if (hasStencil) {
+                stencilAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                stencilAttachment.imageView   = depthImage->GetDefaultView();
+                stencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                stencilAttachment.loadOp      = FromLoadOp(info.depthStencil.stencilLoadOp);
+                stencilAttachment.storeOp     = FromStoreOp(info.depthStencil.stencilStoreOp);
+                stencilAttachment.clearValue.depthStencil = depthAttachment.clearValue.depthStencil;
+            }
+        }
 
         VkRenderingInfo renderInfo = {};
         renderInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -82,8 +102,11 @@ namespace sky::aurora {
         renderInfo.layerCount           = 1;
         renderInfo.colorAttachmentCount = info.numColors;
         renderInfo.pColorAttachments    = info.numColors > 0 ? colorAttachments : nullptr;
-        if (info.depthStencil.image != nullptr) {
+        if (hasDepth) {
             renderInfo.pDepthAttachment = &depthAttachment;
+        }
+        if (hasStencil) {
+            renderInfo.pStencilAttachment = &stencilAttachment;
         }
 
         fn.vkCmdBeginRendering(cmd, &renderInfo);
@@ -107,16 +130,15 @@ namespace sky::aurora {
 
     void VulkanGraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
     {
-        constexpr uint32_t MAX_VB = 16;
-        VkBuffer     buffers[MAX_VB];
-        VkDeviceSize offsets[MAX_VB];
+        SKY_ASSERT(count <= MAX_VERTEX_BINDINGS);
+        VkBuffer     buffers[MAX_VERTEX_BINDINGS];
+        VkDeviceSize offsets[MAX_VERTEX_BINDINGS];
 
-        uint32_t n = count < MAX_VB ? count : MAX_VB;
-        for (uint32_t i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < count; ++i) {
             buffers[i] = static_cast<VulkanBuffer *>(views[i].buffer)->GetNativeHandle();
             offsets[i] = views[i].offset;
         }
-        fn.vkCmdBindVertexBuffers(cmd, firstBinding, n, buffers, offsets);
+        fn.vkCmdBindVertexBuffers(cmd, firstBinding, count, buffers, offsets);
     }
 
     void VulkanGraphicsEncoder::BindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType type)
@@ -127,9 +149,9 @@ namespace sky::aurora {
 
     void VulkanGraphicsEncoder::SetViewport(uint32_t count, const Viewport *viewports)
     {
-        VkViewport vkViewports[16];
-        uint32_t n = count < 16 ? count : 16;
-        for (uint32_t i = 0; i < n; ++i) {
+        SKY_ASSERT(count <= MAX_VIEWPORTS);
+        VkViewport vkViewports[MAX_VIEWPORTS];
+        for (uint32_t i = 0; i < count; ++i) {
             vkViewports[i].x        = viewports[i].x;
             vkViewports[i].y        = viewports[i].y;
             vkViewports[i].width    = viewports[i].width;
@@ -137,18 +159,18 @@ namespace sky::aurora {
             vkViewports[i].minDepth = viewports[i].minDepth;
             vkViewports[i].maxDepth = viewports[i].maxDepth;
         }
-        fn.vkCmdSetViewport(cmd, 0, n, vkViewports);
+        fn.vkCmdSetViewport(cmd, 0, count, vkViewports);
     }
 
     void VulkanGraphicsEncoder::SetScissor(uint32_t count, const Rect2D *scissors)
     {
-        VkRect2D vkScissors[16];
-        uint32_t n = count < 16 ? count : 16;
-        for (uint32_t i = 0; i < n; ++i) {
+        SKY_ASSERT(count <= MAX_VIEWPORTS);
+        VkRect2D vkScissors[MAX_VIEWPORTS];
+        for (uint32_t i = 0; i < count; ++i) {
             vkScissors[i].offset = {scissors[i].offset.x, scissors[i].offset.y};
             vkScissors[i].extent = {scissors[i].extent.width, scissors[i].extent.height};
         }
-        fn.vkCmdSetScissor(cmd, 0, n, vkScissors);
+        fn.vkCmdSetScissor(cmd, 0, count, vkScissors);
     }
 
     void VulkanGraphicsEncoder::Draw(const CmdDrawLinear &draw)

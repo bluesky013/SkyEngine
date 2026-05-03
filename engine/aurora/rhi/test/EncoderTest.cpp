@@ -232,6 +232,72 @@ TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPass)
     device->WaitIdle();
 }
 
+TEST_F(EncoderTestVulkan, GraphicsEncoderRenderPassWithStencil)
+{
+    auto *device = GetDevice();
+    ASSERT_NE(device, nullptr);
+
+    Image::Descriptor colorDesc = {};
+    colorDesc.imageType   = ImageType::IMAGE_2D;
+    colorDesc.format      = PixelFormat::RGBA8_UNORM;
+    colorDesc.extent      = {64, 64, 1};
+    colorDesc.mipLevels   = 1;
+    colorDesc.arrayLayers = 1;
+    colorDesc.samples     = SampleCount::X1;
+    colorDesc.usage       = ImageUsageFlagBit::RENDER_TARGET;
+    colorDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *colorImage = device->CreateImage(colorDesc);
+    ASSERT_NE(colorImage, nullptr);
+    CounterPtr<Image> colorGuard(colorImage);
+
+    Image::Descriptor depthDesc = {};
+    depthDesc.imageType   = ImageType::IMAGE_2D;
+    depthDesc.format      = PixelFormat::D32_S8;
+    depthDesc.extent      = {64, 64, 1};
+    depthDesc.mipLevels   = 1;
+    depthDesc.arrayLayers = 1;
+    depthDesc.samples     = SampleCount::X1;
+    depthDesc.usage       = ImageUsageFlagBit::DEPTH_STENCIL;
+    depthDesc.memory      = MemoryType::GPU_ONLY;
+
+    auto *depthImage = device->CreateImage(depthDesc);
+    ASSERT_NE(depthImage, nullptr);
+    CounterPtr<Image> depthGuard(depthImage);
+
+    auto pool = CreatePoolFromDevice(device);
+    ASSERT_NE(pool, nullptr);
+
+    auto *cmdBuf = pool->Allocate();
+    ASSERT_NE(cmdBuf, nullptr);
+
+    cmdBuf->Begin();
+    {
+        auto encoder = cmdBuf->CreateGraphicsEncoder();
+        ASSERT_NE(encoder, nullptr);
+
+        RenderingInfo info = {};
+        info.renderArea = {{0, 0}, {64, 64}};
+        info.numColors  = 1;
+        info.colors[0].image   = colorImage;
+        info.colors[0].loadOp  = LoadOp::CLEAR;
+        info.colors[0].storeOp = StoreOp::STORE;
+
+        info.depthStencil.image          = depthImage;
+        info.depthStencil.depthLoadOp    = LoadOp::CLEAR;
+        info.depthStencil.depthStoreOp   = StoreOp::STORE;
+        info.depthStencil.stencilLoadOp  = LoadOp::CLEAR;
+        info.depthStencil.stencilStoreOp = StoreOp::STORE;
+        info.depthStencil.clearValue     = ClearValue(1.0f, 0u);
+
+        encoder->BeginRendering(info);
+        encoder->EndRendering();
+    }
+    cmdBuf->End();
+
+    device->WaitIdle();
+}
+
 TEST_F(EncoderTestVulkan, GraphicsEncoderDrawIndexed)
 {
     auto *device = GetDevice();

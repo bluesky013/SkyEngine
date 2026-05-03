@@ -17,12 +17,12 @@ namespace sky::aurora {
         struct Descriptor {
             Filter    magFilter        = Filter::LINEAR;
             Filter    minFilter        = Filter::LINEAR;
-            MipFilter mipmapMode       = MipFilter::NEAREST;
+            MipFilter mipmapMode       = MipFilter::LINEAR;
             WrapMode  addressModeU     = WrapMode::REPEAT;
             WrapMode  addressModeV     = WrapMode::REPEAT;
             WrapMode  addressModeW     = WrapMode::REPEAT;
             float     minLod           = 0.f;
-            float     maxLod           = 0.25f;
+            float     maxLod           = 1000.f;
             float     maxAnisotropy    = 1.f;
             bool      anisotropyEnable = false;
         };

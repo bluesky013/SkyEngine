@@ -53,7 +53,7 @@ namespace sky::aurora {
         virtual Buffer* CreateBuffer(const Buffer::Descriptor &desc) = 0;
         virtual Image* CreateImage(const Image::Descriptor &desc) = 0;
         virtual Sampler* CreateSampler(const Sampler::Descriptor &desc) = 0;
-        virtual ResourceGroup* CreateSampler(const ResourceGroup::Descriptor &desc) = 0;
+        virtual ResourceGroup* CreateResourceGroup(const ResourceGroup::Descriptor &desc) = 0;
         virtual SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
 
         // layout object

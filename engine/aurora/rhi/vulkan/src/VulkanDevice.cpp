@@ -57,8 +57,6 @@ namespace sky::aurora {
         instFn.vkGetPhysicalDeviceProperties2(gpu, &gpuProperties);
         instFn.vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
 
-        QueryDeviceFeatures();
-
         if (!CreateDevice()) {
             return false;
         }

@@ -6,4 +6,6 @@
 
 namespace sky::aurora {
 
+    // TODO(P2): RDG, see future aurora-rdg change
+
 } // namespace sky::aurora

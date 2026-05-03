@@ -32,7 +32,7 @@ namespace sky::aurora {
         Buffer *CreateBuffer(const Buffer::Descriptor &desc) override;
         Image *CreateImage(const Image::Descriptor &desc) override;
         Sampler *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroup *CreateSampler(const ResourceGroup::Descriptor &desc) override { return nullptr; }
+        ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override { return nullptr; }
         SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;

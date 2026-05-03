@@ -64,7 +64,8 @@ namespace sky::aurora {
 
     bool VulkanImage::Init(const Descriptor &desc)
     {
-        vkFormat = FromPixelFormat(desc.format);
+        pixelFormat = desc.format;
+        vkFormat    = FromPixelFormat(desc.format);
         if (vkFormat == VK_FORMAT_UNDEFINED) {
             LOG_E(TAG, "unsupported pixel format for image");
             return false;

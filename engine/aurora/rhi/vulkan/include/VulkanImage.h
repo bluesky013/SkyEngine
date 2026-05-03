@@ -24,6 +24,7 @@ namespace sky::aurora {
         VkImage  GetNativeHandle() const { return image; }
         VkImageView GetDefaultView() const { return defaultView; }
         VkFormat GetVkFormat() const { return vkFormat; }
+        PixelFormat GetPixelFormat() const { return pixelFormat; }
 
     private:
         bool CreateDefaultView(const Descriptor &desc);
@@ -34,6 +35,7 @@ namespace sky::aurora {
         VkImageView    defaultView = VK_NULL_HANDLE;
         VmaAllocation  allocation = VK_NULL_HANDLE;
         VkFormat       vkFormat   = VK_FORMAT_UNDEFINED;
+        PixelFormat    pixelFormat = PixelFormat::UNDEFINED;
         bool           owned      = true;
     };
 
