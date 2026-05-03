@@ -14,7 +14,7 @@ namespace sky::aurora {
 
     class MetalCommandBuffer : public CommandBuffer {
     public:
-        explicit MetalCommandBuffer(MetalDevice &device);
+        MetalCommandBuffer(MetalDevice &device, void *queue);
         ~MetalCommandBuffer() override;
 
         void Begin() override;
@@ -24,14 +24,17 @@ namespace sky::aurora {
         std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;
         std::unique_ptr<BlitEncoder> CreateBlitEncoder() override;
 
+        void *GetNativeHandle() const { return cmdBuffer; }    // id<MTLCommandBuffer>
+
     private:
         MetalDevice &device;
-        void *cmdBuffer = nullptr; // id<MTLCommandBuffer>
+        void *queue     = nullptr;  // id<MTLCommandQueue>, not owned
+        void *cmdBuffer = nullptr;  // id<MTLCommandBuffer>
     };
 
     class MetalCommandPool : public CommandPool {
     public:
-        explicit MetalCommandPool(MetalDevice &device);
+        MetalCommandPool(MetalDevice &device, void *queue);
         ~MetalCommandPool() override;
 
         bool Init() override;
@@ -40,6 +43,7 @@ namespace sky::aurora {
 
     private:
         MetalDevice &device;
+        void        *queue = nullptr;
         std::vector<MetalCommandBuffer*> allocatedBuffers;
     };
 

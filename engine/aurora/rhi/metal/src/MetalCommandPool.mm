@@ -11,8 +11,9 @@ namespace sky::aurora {
 
     // ---- MetalCommandBuffer ----
 
-    MetalCommandBuffer::MetalCommandBuffer(MetalDevice &device)
-        : device(device)
+    MetalCommandBuffer::MetalCommandBuffer(MetalDevice &dev, void *q)
+        : device(dev)
+        , queue(q)
     {
     }
 
@@ -27,8 +28,13 @@ namespace sky::aurora {
 
     void MetalCommandBuffer::Begin()
     {
-        id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)device.GetCommandQueue();
-        id<MTLCommandBuffer> cb = [queue commandBuffer];
+        if (cmdBuffer != nullptr) {
+            id<MTLCommandBuffer> old = (__bridge_transfer id<MTLCommandBuffer>)cmdBuffer;
+            old = nil;
+            cmdBuffer = nullptr;
+        }
+        id<MTLCommandQueue> mtlQueue = (__bridge id<MTLCommandQueue>)queue;
+        id<MTLCommandBuffer> cb = [mtlQueue commandBuffer];
         cmdBuffer = (__bridge_retained void *)cb;
     }
 
@@ -54,8 +60,9 @@ namespace sky::aurora {
 
     // ---- MetalCommandPool ----
 
-    MetalCommandPool::MetalCommandPool(MetalDevice &device)
-        : device(device)
+    MetalCommandPool::MetalCommandPool(MetalDevice &dev, void *q)
+        : device(dev)
+        , queue(q)
     {
     }
 
@@ -78,7 +85,7 @@ namespace sky::aurora {
 
     CommandBuffer *MetalCommandPool::Allocate()
     {
-        auto *cmdBuffer = new MetalCommandBuffer(device);
+        auto *cmdBuffer = new MetalCommandBuffer(device, queue);
         allocatedBuffers.push_back(cmdBuffer);
         return cmdBuffer;
     }

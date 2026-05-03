@@ -31,10 +31,10 @@
 
 ## 4. Metal 后端
 
-- [ ] 4.1 新增 `MetalQueue.h/.mm`：包装 `id<MTLCommandQueue>`；`Submit` 把 `MetalCommandBuffer` commit；wait/signal semaphore 用 `encodeWaitForEvent:value:` / `encodeSignalEvent:value:`；`WaitIdle` 用一个内部 MTLSharedEvent
-- [ ] 4.2 修改 `MetalDevice`：从单一 `commandQueue` 扩展成 3 个 `MetalQueue`（GLES 风格：3 类 type 可共享）
-- [ ] 4.3 重写 `MetalSemaphore`：BINARY 用 `id<MTLEvent>`，TIMELINE 用 `id<MTLSharedEvent>`；host Signal 用 `MTLSharedEvent.signaledValue` setter
-- [ ] 4.4 扩展 `MetalFence`：用 `MTLSharedEvent` + `notifyListener:atValue:` 触发 `dispatch_semaphore_t`，`IsSignaled` 查询 `signaledValue`
+- [x] 4.1 新增 `MetalQueue.h/.mm`：包装 `id<MTLCommandQueue>`；`Submit` 把 `MetalCommandBuffer` commit；wait/signal sema 用 `encodeWaitForEvent:value:` / `encodeSignalEvent:value:`；fence 用 encodeSignalEvent + notifyListener；`WaitIdle` 用空 cmdbuf + waitUntilCompleted
+- [x] 4.2 修改 `MetalDevice`：3 个独立 `MetalQueue`（每个持自己的 `id<MTLCommandQueue>`）；`GetQueue` 索引返回；`CreateCommandPool` 把对应 queue handle 传给 pool；`GetCommandQueue` 保留为 graphics queue 别名
+- [x] 4.3 重写 `MetalSemaphore`：统一用 `id<MTLSharedEvent>`；BINARY 内部维护 `binaryValue` counter（每次 signal/wait 隐式 +1）；TIMELINE 用 caller value；host `Signal/Wait` 经 `signaledValue` / `waitUntilSignaledValue:timeoutMS:`
+- [x] 4.4 扩展 `MetalFence`：`id<MTLSharedEvent>` + `notifyListener:atValue:block:` 在 GPU 完成时回调；CPU 端 mutex+condvar 维持 `Wait/IsSignaled/WaitFor` 三件套
 - [ ] 4.5 实现 `MetalSwapChain`：`CAMetalLayer` 关联 `nextDrawable`；`AcquireNextImage` 包装 drawable 为 `MetalImage`；`Present` 调 `[commandBuffer presentDrawable:]`（在最近一次 Submit 的 cmdbuf 上挂 present）
 - [ ] 4.6 注意 Metal 的 Present 需要在 Submit 的 commandBuffer 上挂；本 change 用"延后 commit"策略：Acquire 后下一次该 swapchain 关联的 Submit 自动挂 presentDrawable
 

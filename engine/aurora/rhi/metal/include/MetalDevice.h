@@ -5,6 +5,9 @@
 #pragma once
 
 #include <aurora/rhi/Device.h>
+#include <MetalQueue.h>
+#include <array>
+#include <memory>
 
 namespace sky::aurora {
 
@@ -42,11 +45,13 @@ namespace sky::aurora {
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
-        Queue* GetQueue(QueueType type) override { return nullptr; }    // TODO: aurora-queue-submit-present Metal phase
+        Queue* GetQueue(QueueType type) override;
         CommandPool* CreateCommandPool(QueueType type) override;
 
         void *GetNativeDevice() const { return metalDevice; }
-        void *GetCommandQueue() const { return commandQueue; }
+        // GetCommandQueue returns the GRAPHICS queue's native handle (legacy
+        // accessor; new code should go through GetQueue(QueueType::*)).
+        void *GetCommandQueue() const;
         MetalInstance &GetInstance() const { return instance; }
 
     private:
@@ -58,7 +63,8 @@ namespace sky::aurora {
 
         MetalInstance &instance;
         void *metalDevice  = nullptr;
-        void *commandQueue = nullptr;
+
+        std::array<std::unique_ptr<MetalQueue>, 3> queues;       // by QueueType
     };
 
 } // namespace sky::aurora

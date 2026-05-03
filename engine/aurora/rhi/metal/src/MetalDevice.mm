@@ -50,10 +50,7 @@ namespace sky::aurora {
 
     MetalDevice::~MetalDevice()
     {
-        if (commandQueue != nullptr) {
-            [(id<MTLCommandQueue>)commandQueue release];
-            commandQueue = nullptr;
-        }
+        for (auto &q : queues) { q.reset(); }
         if (metalDevice != nullptr) {
             [(id<MTLDevice>)metalDevice release];
             metalDevice = nullptr;
@@ -73,17 +70,29 @@ namespace sky::aurora {
         [device retain];
         metalDevice = device;
 
-        auto *queue = [device newCommandQueue];
-        if (queue == nil) {
-            LOG_E(TAG, "failed to create Metal command queue");
-            [(id<MTLDevice>)metalDevice release];
-            metalDevice = nullptr;
-            return false;
+        for (size_t i = 0; i < queues.size(); ++i) {
+            id<MTLCommandQueue> q = [device newCommandQueue];
+            if (q == nil) {
+                LOG_E(TAG, "failed to create Metal command queue %zu", i);
+                return false;
+            }
+            queues[i] = std::make_unique<MetalQueue>(*this, static_cast<QueueType>(i),
+                (__bridge_retained void *)q);
         }
-        commandQueue = queue;
 
         LOG_I(TAG, "Metal device initialized: %s", [[device name] UTF8String]);
         return true;
+    }
+
+    Queue *MetalDevice::GetQueue(QueueType type)
+    {
+        return queues[static_cast<size_t>(type)].get();
+    }
+
+    void *MetalDevice::GetCommandQueue() const
+    {
+        const auto &q = queues[static_cast<size_t>(QueueType::GRAPHICS)];
+        return q ? q->GetNativeHandle() : nullptr;
     }
 
     void MetalDevice::UpdateDeviceCaps()
@@ -105,22 +114,20 @@ namespace sky::aurora {
 
     void MetalDevice::WaitIdle() const
     {
-        auto *queue = (id<MTLCommandQueue>)commandQueue;
-        if (queue == nil) {
-            return;
+        for (const auto &q : queues) {
+            if (q) {
+                const_cast<MetalQueue *>(q.get())->WaitIdle();
+            }
         }
-
-        id<MTLCommandBuffer> commandBuffer = [queue commandBuffer];
-        if (commandBuffer == nil) {
-            return;
-        }
-        [commandBuffer commit];
-        [commandBuffer waitUntilCompleted];
     }
 
     CommandPool *MetalDevice::CreateCommandPool(QueueType type)
     {
-        auto *pool = new MetalCommandPool(*this);
+        auto *queue = queues[static_cast<size_t>(type)].get();
+        if (queue == nullptr) {
+            return nullptr;
+        }
+        auto *pool = new MetalCommandPool(*this, queue->GetNativeHandle());
         if (!pool->Init()) {
             delete pool;
             return nullptr;
@@ -130,7 +137,7 @@ namespace sky::aurora {
 
     Fence *MetalDevice::CreateFence(const Fence::Descriptor &desc)
     {
-        auto *fence = new MetalFence();
+        auto *fence = new MetalFence(*this);
         if (!fence->Init(desc)) {
             delete fence;
             return nullptr;
@@ -140,7 +147,7 @@ namespace sky::aurora {
 
     Semaphore *MetalDevice::CreateSema(const Semaphore::Descriptor &desc)
     {
-        auto *semaphore = new MetalSemaphore();
+        auto *semaphore = new MetalSemaphore(*this);
         if (!semaphore->Init(desc)) {
             delete semaphore;
             return nullptr;
