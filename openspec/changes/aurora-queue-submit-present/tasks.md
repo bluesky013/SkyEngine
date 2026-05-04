@@ -35,8 +35,8 @@
 - [x] 4.2 修改 `MetalDevice`：3 个独立 `MetalQueue`（每个持自己的 `id<MTLCommandQueue>`）；`GetQueue` 索引返回；`CreateCommandPool` 把对应 queue handle 传给 pool；`GetCommandQueue` 保留为 graphics queue 别名
 - [x] 4.3 重写 `MetalSemaphore`：统一用 `id<MTLSharedEvent>`；BINARY 内部维护 `binaryValue` counter（每次 signal/wait 隐式 +1）；TIMELINE 用 caller value；host `Signal/Wait` 经 `signaledValue` / `waitUntilSignaledValue:timeoutMS:`
 - [x] 4.4 扩展 `MetalFence`：`id<MTLSharedEvent>` + `notifyListener:atValue:block:` 在 GPU 完成时回调；CPU 端 mutex+condvar 维持 `Wait/IsSignaled/WaitFor` 三件套
-- [ ] 4.5 实现 `MetalSwapChain`：`CAMetalLayer` 关联 `nextDrawable`；`AcquireNextImage` 包装 drawable 为 `MetalImage`；`Present` 调 `[commandBuffer presentDrawable:]`（在最近一次 Submit 的 cmdbuf 上挂 present）
-- [ ] 4.6 注意 Metal 的 Present 需要在 Submit 的 commandBuffer 上挂；本 change 用"延后 commit"策略：Acquire 后下一次该 swapchain 关联的 Submit 自动挂 presentDrawable
+- [x] 4.5 实现 `MetalSwapChain`：`CAMetalLayer` + `nextDrawable`；MetalImage 加 `RebindBorrowed/Reset` 包装外部 drawable.texture；Acquire 拿 drawable + 立即 signal sema/fence（Metal 无原生 acquire 信号）；Present 用独立 cmdbuf encodeWaitForEvent + presentDrawable + commit；Resize 改 drawableSize
+- [x] 4.6 Present 策略：每次 Present 起一个 fresh `[graphicsQueue commandBuffer]` 挂 wait+presentDrawable，避免与用户 Submit 链耦合（比设计文档的"延后 commit"路径简单且解耦更清晰）
 
 ## 5. GLES 后端
 
@@ -44,7 +44,7 @@
 - [x] 5.2 `GLESDevice::GetQueue` 三种 type 全部返回同一个 `GLESQueue*`
 - [x] 5.3 改 `GLESSemaphore`：用 mutex+condvar 让 Wait 阻塞，Signal notify_all；保持 binary/timeline 区分（binary 由 Submit 路径隐式 +1）
 - [x] 5.4 `GLESFence` 加 `SignalFromQueue`：在 Submit 完成时插 `glFenceSync`；`IsSignaled` / `WaitFor` 已就位
-- [ ] 5.5 实现 `GLESSwapChain`：用 EGL：`eglCreateWindowSurface` + `eglSwapBuffers`；`AcquireNextImage` 直接返回 0（单 backbuffer 模型）；`GetImage(0)` 返回包装 default framebuffer 的 `GLESImage`；`Resize` 调 `eglSwapInterval` / 重建 surface
+- [x] 5.5 实现 `GLESSwapChain`：`AcquireNextImage` 立即 signal sema/fence + 返回 0；`Present` block 在 wait sema 后调 `eglSwapBuffers`；`GetImage(0)` 暂返 nullptr（默认 FBO 0 的 Image 包装属于后续 RG/RDG 范畴）；Resize 已就位
 
 ## 6. 测试
 

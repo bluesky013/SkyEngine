@@ -18,10 +18,22 @@ namespace sky::aurora {
 
     MetalImage::~MetalImage()
     {
-        if (texture != nullptr) {
+        Reset();
+    }
+
+    void MetalImage::Reset()
+    {
+        if (texture != nullptr && owned) {
             [(id<MTLTexture>)texture release];
-            texture = nullptr;
         }
+        texture = nullptr;
+    }
+
+    void MetalImage::RebindBorrowed(void *nativeTexture)
+    {
+        Reset();
+        texture = nativeTexture;
+        owned   = false;
     }
 
     bool MetalImage::Init(const Descriptor &desc)
@@ -63,6 +75,7 @@ namespace sky::aurora {
         }
 
         texture = nativeTexture;
+        owned   = true;
         return true;
     }
 
