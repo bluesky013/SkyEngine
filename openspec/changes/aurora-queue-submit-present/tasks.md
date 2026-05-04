@@ -14,9 +14,9 @@
 - [x] 2.2 修改 `VulkanDevice`：取消内部成员暴露，改为 `std::array<std::unique_ptr<VulkanQueue>, 3>`；`GetQueue` 直接索引返回；启用 sync2 feature；旧 `Device::WaitIdle` 仍走 `vkDeviceWaitIdle`
 - [x] 2.3 重写 `VulkanSemaphore`：按 `Descriptor::type` 创建 binary 或 timeline；timeline 走 `vkSignalSemaphore` / `vkWaitSemaphores` / `vkGetSemaphoreCounterValue`
 - [x] 2.4 扩展 `VulkanFence`：`IsSignaled` 用 `vkGetFenceStatus`；`WaitFor` 用带 timeout 的 `vkWaitForFences`
-- [ ] 2.5 新增 `VulkanSwapChain.h/.cpp`：`vkCreateSurface`（按 platform：Win32/Wayland/Xlib/Cocoa/Android）+ `vkCreateSwapchainKHR` + `vkGetSwapchainImagesKHR` + 包装为 `VulkanImage` + `vkAcquireNextImageKHR` + `vkQueuePresentKHR` + `Resize` 重建
-- [ ] 2.6 处理 `VulkanImage` 把外部 swapchain image 当成 owned vs borrowed 的区分（不要 vkDestroyImage swapchain image）
-- [ ] 2.7 让 `VulkanInstance` 暴露 surface 创建所需的 instance extensions（`VK_KHR_surface` + 平台 surface ext）
+- [x] 2.5 新增 `VulkanSwapChain.h/.cpp`：metal/win32/android surface 创建链路；`vkCreateSwapchainKHR` + format/presentMode/extent 协商；`vkGetSwapchainImagesKHR` 包装为 borrowed `VulkanImage`；`vkAcquireNextImageKHR`、`vkQueuePresentKHR`、`Resize` 重建
+- [x] 2.6 `VulkanImage::InitFromSwapChain` 加 PixelFormat 参数；`owned=false` 已就位（析构不调 vmaDestroyImage / vkDestroyImage）
+- [x] 2.7 instance ext `VK_KHR_surface` + 平台 surface ext 已在 VulkanInstance 中启用；本轮加 `VulkanFunctions` 表面/swapchain 函数指针 + CMake `VK_USE_PLATFORM_*` 宏
 - [x] 2.8 `VulkanQueue::Submit` 中将 `SemaphoreSubmitInfo::stageMask` 转为 `VkPipelineStageFlags2`（复用 `FromPipelineStageFlags` cast；sync1/sync2 基础位值兼容）
 - [x] 2.9 修复 `VulkanContext::pools` 按 QueueType 创建 3 个 pool（GRAPHICS / COMPUTE / TRANSFER）
 

@@ -97,6 +97,23 @@ namespace sky::aurora {
         // optional debug utils
         LOAD_INSTANCE(vkCreateDebugUtilsMessengerEXT);
         LOAD_INSTANCE(vkDestroyDebugUtilsMessengerEXT);
+
+        // surface
+        LOAD_INSTANCE(vkDestroySurfaceKHR);
+        LOAD_INSTANCE(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+        LOAD_INSTANCE(vkGetPhysicalDeviceSurfaceFormatsKHR);
+        LOAD_INSTANCE(vkGetPhysicalDeviceSurfacePresentModesKHR);
+        LOAD_INSTANCE(vkGetPhysicalDeviceSurfaceSupportKHR);
+
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+        LOAD_INSTANCE(vkCreateMetalSurfaceEXT);
+#endif
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        LOAD_INSTANCE(vkCreateWin32SurfaceKHR);
+#endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        LOAD_INSTANCE(vkCreateAndroidSurfaceKHR);
+#endif
 #undef LOAD_INSTANCE
     }
 
@@ -148,6 +165,13 @@ namespace sky::aurora {
         LOAD_DEVICE(vkQueueSubmit);
         LOAD_DEVICE(vkQueueSubmit2);
         LOAD_DEVICE(vkQueueWaitIdle);
+        LOAD_DEVICE(vkQueuePresentKHR);
+
+        // swapchain
+        LOAD_DEVICE(vkCreateSwapchainKHR);
+        LOAD_DEVICE(vkDestroySwapchainKHR);
+        LOAD_DEVICE(vkGetSwapchainImagesKHR);
+        LOAD_DEVICE(vkAcquireNextImageKHR);
 
         // dynamic rendering (Vulkan 1.3+)
         LOAD_DEVICE(vkCmdBeginRendering);

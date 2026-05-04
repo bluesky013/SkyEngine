@@ -9,6 +9,7 @@
 #include "VulkanSemaphore.h"
 #include "VulkanConversion.h"
 #include "VulkanPipelineState.h"
+#include "VulkanSwapChain.h"
 #include <core/logger/Logger.h>
 #include <cstring>
 #include <vector>
@@ -352,6 +353,16 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    SwapChain *VulkanDevice::CreateSwapChain(const SwapChain::Descriptor &desc)
+    {
+        auto *sc = new VulkanSwapChain(*this);
+        if (!sc->Init(desc)) {
+            delete sc;
+            return nullptr;
+        }
+        return sc;
     }
 
     ShaderFunction *VulkanDevice::CreateShaderFunction(const ShaderFunction::Descriptor &desc)

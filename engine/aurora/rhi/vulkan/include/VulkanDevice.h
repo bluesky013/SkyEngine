@@ -46,7 +46,7 @@ namespace sky::aurora {
         Image* CreateImage(const Image::Descriptor &desc) override;
         Sampler* CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroup* CreateResourceGroup(const ResourceGroup::Descriptor &desc) override { return nullptr; }
-        SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
+        SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
         Shader* CreateShader(const Shader::Descriptor &desc) override;
@@ -63,6 +63,7 @@ namespace sky::aurora {
         VmaAllocator     GetAllocator() const { return allocator; }
         const VulkanDeviceFunctions &GetDeviceFn() const { return deviceFn; }
         const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const { return memoryProperties; }
+        VulkanInstance  &GetVulkanInstance() const { return instance; }
 
         uint32_t GetQueueFamilyIndex(QueueType type) const;
     private:

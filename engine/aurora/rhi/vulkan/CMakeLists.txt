@@ -28,6 +28,14 @@ sky_add_library(TARGET AuroraVulkan SHARED
 
 target_compile_definitions(AuroraVulkan PUBLIC VK_NO_PROTOTYPES)
 
+if (WIN32)
+    target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
+elseif (APPLE)
+    target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_METAL_EXT)
+elseif (ANDROID)
+    target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_ANDROID_KHR)
+endif()
+
 #if (SKY_BUILD_XR)
 #    target_compile_definitions(AuroraVulkan PUBLIC -DXR_USE_GRAPHICS_API_VULKAN)
 #endif ()

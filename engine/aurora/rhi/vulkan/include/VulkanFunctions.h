@@ -42,6 +42,24 @@ namespace sky::aurora {
         // debug utils (optional extension)
         PFN_vkCreateDebugUtilsMessengerEXT                 vkCreateDebugUtilsMessengerEXT                 = nullptr;
         PFN_vkDestroyDebugUtilsMessengerEXT                vkDestroyDebugUtilsMessengerEXT                = nullptr;
+
+        // surface (KHR_surface)
+        PFN_vkDestroySurfaceKHR                            vkDestroySurfaceKHR                            = nullptr;
+        PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR      vkGetPhysicalDeviceSurfaceCapabilitiesKHR      = nullptr;
+        PFN_vkGetPhysicalDeviceSurfaceFormatsKHR           vkGetPhysicalDeviceSurfaceFormatsKHR           = nullptr;
+        PFN_vkGetPhysicalDeviceSurfacePresentModesKHR      vkGetPhysicalDeviceSurfacePresentModesKHR      = nullptr;
+        PFN_vkGetPhysicalDeviceSurfaceSupportKHR           vkGetPhysicalDeviceSurfaceSupportKHR           = nullptr;
+
+        // platform-specific surface creation (only the active platform's symbol is loaded)
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+        PFN_vkCreateMetalSurfaceEXT                        vkCreateMetalSurfaceEXT                        = nullptr;
+#endif
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        PFN_vkCreateWin32SurfaceKHR                        vkCreateWin32SurfaceKHR                        = nullptr;
+#endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        PFN_vkCreateAndroidSurfaceKHR                      vkCreateAndroidSurfaceKHR                      = nullptr;
+#endif
     };
 
     // ---------------------------------------------------------------------------
@@ -99,6 +117,13 @@ namespace sky::aurora {
         PFN_vkQueueSubmit                  vkQueueSubmit                  = nullptr;
         PFN_vkQueueSubmit2                 vkQueueSubmit2                 = nullptr;
         PFN_vkQueueWaitIdle                vkQueueWaitIdle                = nullptr;
+        PFN_vkQueuePresentKHR              vkQueuePresentKHR              = nullptr;
+
+        // swapchain
+        PFN_vkCreateSwapchainKHR           vkCreateSwapchainKHR           = nullptr;
+        PFN_vkDestroySwapchainKHR          vkDestroySwapchainKHR          = nullptr;
+        PFN_vkGetSwapchainImagesKHR        vkGetSwapchainImagesKHR        = nullptr;
+        PFN_vkAcquireNextImageKHR          vkAcquireNextImageKHR          = nullptr;
 
         // dynamic rendering (Vulkan 1.3+)
         PFN_vkCmdBeginRendering            vkCmdBeginRendering            = nullptr;

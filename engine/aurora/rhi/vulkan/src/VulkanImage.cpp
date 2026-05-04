@@ -112,11 +112,13 @@ namespace sky::aurora {
         return CreateDefaultView(desc);
     }
 
-    void VulkanImage::InitFromSwapChain(VkImage swapImage, VkFormat fmt, const Extent3D &ext)
+    void VulkanImage::InitFromSwapChain(VkImage swapImage, VkFormat fmt, PixelFormat pixFmt, const Extent3D &ext)
     {
-        image    = swapImage;
-        vkFormat = fmt;
-        owned    = false;
+        (void)ext;
+        image       = swapImage;
+        vkFormat    = fmt;
+        pixelFormat = pixFmt;
+        owned       = false;
         if (!CreateSwapChainDefaultView()) {
             LOG_E(TAG, "failed to create default image view for swapchain image");
         }
