@@ -67,13 +67,59 @@ format 的 hasDepth/hasStencil 通过 `GetImageFormatInfo(pixelFormat)` 查询�
 - **Metal**：3 起步
 - **GLES**：3.1 起步（compute shader 必备；多 queue 退化为单逻辑队列）
 
+## Barrier 用法
+
+`PipelineBarrier` 在 **`CommandBuffer`** 上，**不**在 Encoder 上。可在以下任意时机调：
+- Encoder 创建之前（典型：pass 之间 transition）
+- Compute 序列中两次 Dispatch 之间
+- BlitEncoder 内部之前 / 之后
+
+### AccessFlags → ImageLayout 推导
+
+`InferLayoutForAccess(AccessFlags)` 提供从 access 推导 canonical layout 的便利函数：
+
+| access | layout |
+|---|---|
+| `COLOR_WRITE` / `COLOR_INOUT_WRITE` | `COLOR_ATTACHMENT` |
+| `DEPTH_STENCIL_WRITE` | `DEPTH_STENCIL_ATTACHMENT` |
+| `DEPTH_STENCIL_READ` | `DEPTH_STENCIL_READ_ONLY` |
+| 任意 stage 的 `*_SRV` | `SHADER_READ_ONLY` |
+| 任意 `*_UAV_*` | `GENERAL` |
+| `TRANSFER_READ` | `TRANSFER_SRC` |
+| `TRANSFER_WRITE` | `TRANSFER_DST` |
+| `PRESENT` | `PRESENT` |
+| 多类冲突 / 无 layout 概念 | `GENERAL` |
+| `NONE` | `UNDEFINED` |
+
+### Stage / Access 兼容性陷阱
+
+Vulkan validation 严格检查 stage ↔ access：例如 `dstAccess=COLOR_ATTACHMENT_WRITE` 时 `dstStage` **必须**含 `COLOR_OUTPUT`（不能用 `BOTTOM`）。常用配对：
+
+| access | stage |
+|---|---|
+| `COLOR_WRITE` | `COLOR_OUTPUT` |
+| `DEPTH_STENCIL_*` | `EARLY_FRAGMENT \| LATE_FRAGMENT` |
+| `*_SRV` (frag) | `FRAGMENT_SHADER` |
+| `*_UAV_*` (compute) | `COMPUTE_SHADER` |
+| `TRANSFER_*` | `TRANSFER` |
+| `PRESENT` | `BOTTOM` |
+
+### 4 后端实现位置
+
+| 后端 | 路径 |
+|---|---|
+| Vulkan | `vkCmdPipelineBarrier2` 直接落 cmdbuf |
+| DX12 | `ID3D12GraphicsCommandList::ResourceBarrier` 直接落 cmdlist；UAV barrier 用 null pResource |
+| Metal | `MetalCommandBuffer` 内部记账 active encoder：调用时若有 → `[encoder memoryBarrierWithScope:]`；若无 → 缓存到下一次 CreateXxxEncoder 入口 flush。Layout transition 在 Metal 上 noop。Blit encoder 不暴露 memoryBarrier API（依赖 encoder 边界隐式同步） |
+| GLES | 全部 access 合并 `glMemoryBarrier(...)`；layout / stage 忽略 |
+
 ## 后续 change 路线
 
 | Change | 状态 | 说明 |
 |---|---|---|
 | `aurora-quick-fixes` | ✅ 已实施 | 本文档所述默认值/命名 |
 | `aurora-queue-submit-present` | 设计完成 | Queue / Submit / SwapChain Present |
-| `aurora-encoder-barriers` | 设计完成 | Encoder::PipelineBarrier |
+| `aurora-encoder-barriers` | ✅ 已实施 | `CommandBuffer::PipelineBarrier`（最终落在 cmdbuf 而非 encoder） |
 | `aurora-resource-group` | 设计完成 | ResourceGroup / PipelineLayout / 描述符绑定 |
 | `aurora-renderer` | 未开 | top-level 渲染主循环 |
 | `aurora-rdg` | 未开 | render graph |

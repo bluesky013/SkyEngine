@@ -23,6 +23,9 @@ namespace sky::aurora {
     // buffer
     D3D12_RESOURCE_FLAGS       FromBufferUsageFlags(const BufferUsageFlags &flags);
 
+    // synchronization
+    D3D12_RESOURCE_STATES      ToD3D12States(const AccessFlags &flags);
+
     // pipeline state
     D3D12_BLEND                FromBlendFactor(BlendFactor factor);
     D3D12_BLEND_OP             FromBlendOp(BlendOp op);

@@ -9,6 +9,7 @@
 #include <MetalBuffer.h>
 #include <MetalImage.h>
 #include <MetalPipelineState.h>
+#include <MetalCommandPool.h>
 #include <aurora/rhi/Core.h>
 
 namespace sky::aurora {
@@ -49,9 +50,9 @@ namespace sky::aurora {
 
     // ---- MetalGraphicsEncoder ----
 
-    MetalGraphicsEncoder::MetalGraphicsEncoder(MetalDevice &device, void *cmdBuffer)
+    MetalGraphicsEncoder::MetalGraphicsEncoder(MetalDevice &device, MetalCommandBuffer *o)
         : device(device)
-        , cmdBuffer(cmdBuffer)
+        , owner(o)
     {
     }
 
@@ -88,8 +89,10 @@ namespace sky::aurora {
             }
         }
 
-        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBuffer;
-        renderEncoder = (__bridge_retained void *)[cb renderCommandEncoderWithDescriptor:rpDesc];
+        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)owner->GetNativeHandle();
+        id<MTLRenderCommandEncoder> nativeEnc = [cb renderCommandEncoderWithDescriptor:rpDesc];
+        renderEncoder = (__bridge_retained void *)nativeEnc;
+        owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Render, (__bridge void *)nativeEnc);
     }
 
     void MetalGraphicsEncoder::EndRendering()
@@ -98,6 +101,7 @@ namespace sky::aurora {
             id<MTLRenderCommandEncoder> enc = (__bridge_transfer id<MTLRenderCommandEncoder>)renderEncoder;
             [enc endEncoding];
             renderEncoder = nullptr;
+            owner->NotifyEncoderEnd();
         }
     }
 
@@ -214,12 +218,14 @@ namespace sky::aurora {
 
     // ---- MetalComputeEncoder ----
 
-    MetalComputeEncoder::MetalComputeEncoder(MetalDevice &device, void *cmdBuffer)
+    MetalComputeEncoder::MetalComputeEncoder(MetalDevice &device, MetalCommandBuffer *o)
         : device(device)
-        , cmdBuffer(cmdBuffer)
+        , owner(o)
     {
-        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBuffer;
-        computeEncoder = (__bridge_retained void *)[cb computeCommandEncoder];
+        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)owner->GetNativeHandle();
+        id<MTLComputeCommandEncoder> nativeEnc = [cb computeCommandEncoder];
+        computeEncoder = (__bridge_retained void *)nativeEnc;
+        owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Compute, (__bridge void *)nativeEnc);
     }
 
     MetalComputeEncoder::~MetalComputeEncoder()
@@ -228,6 +234,7 @@ namespace sky::aurora {
             id<MTLComputeCommandEncoder> enc = (__bridge_transfer id<MTLComputeCommandEncoder>)computeEncoder;
             [enc endEncoding];
             computeEncoder = nullptr;
+            owner->NotifyEncoderEnd();
         }
     }
 
@@ -265,12 +272,14 @@ namespace sky::aurora {
 
     // ---- MetalBlitEncoder ----
 
-    MetalBlitEncoder::MetalBlitEncoder(MetalDevice &device, void *cmdBuffer)
+    MetalBlitEncoder::MetalBlitEncoder(MetalDevice &device, MetalCommandBuffer *o)
         : device(device)
-        , cmdBuffer(cmdBuffer)
+        , owner(o)
     {
-        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)cmdBuffer;
-        blitEncoder = (__bridge_retained void *)[cb blitCommandEncoder];
+        id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)owner->GetNativeHandle();
+        id<MTLBlitCommandEncoder> nativeEnc = [cb blitCommandEncoder];
+        blitEncoder = (__bridge_retained void *)nativeEnc;
+        owner->NotifyEncoderBegin(MetalCommandBuffer::ActiveEncoderKind::Blit, (__bridge void *)nativeEnc);
     }
 
     MetalBlitEncoder::~MetalBlitEncoder()
@@ -279,6 +288,7 @@ namespace sky::aurora {
             id<MTLBlitCommandEncoder> enc = (__bridge_transfer id<MTLBlitCommandEncoder>)blitEncoder;
             [enc endEncoding];
             blitEncoder = nullptr;
+            owner->NotifyEncoderEnd();
         }
     }
 

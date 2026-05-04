@@ -5,6 +5,8 @@
 #include <GLESCommandPool.h>
 #include <GLESDevice.h>
 #include <GLESEncoder.h>
+#include <GLESLoader.h>
+#include <GLESConversion.h>
 
 namespace sky::aurora {
 
@@ -23,6 +25,22 @@ namespace sky::aurora {
     void GLESCommandBuffer::End()
     {
         // GLES is immediate mode, no command buffer recording concept.
+    }
+
+    void GLESCommandBuffer::PipelineBarrier(const BarrierInfo &info)
+    {
+        GLbitfield bits = 0;
+        auto accumulate = [&](const AccessFlags &access) {
+            bits |= AccessFlagsToGLBarrierBits(access);
+        };
+        for (const auto &m  : info.memoryBarriers) { accumulate(m.srcAccess); accumulate(m.dstAccess); }
+        for (const auto &bb : info.bufferBarriers) { accumulate(bb.srcAccess); accumulate(bb.dstAccess); }
+        for (const auto &ib : info.imageBarriers)  { accumulate(ib.srcAccess); accumulate(ib.dstAccess); }
+
+        if (bits == 0) {
+            return;
+        }
+        glMemoryBarrier(bits);
     }
 
     std::unique_ptr<GraphicsEncoder> GLESCommandBuffer::CreateGraphicsEncoder()

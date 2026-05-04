@@ -9,6 +9,7 @@
 namespace sky::aurora {
 
     class MetalDevice;
+    class MetalCommandBuffer;
 
     // Metal encoders wrap MTLRenderCommandEncoder / MTLComputeCommandEncoder /
     // MTLBlitCommandEncoder, but expose them as void* to keep Metal.h out of
@@ -16,7 +17,7 @@ namespace sky::aurora {
 
     class MetalGraphicsEncoder : public GraphicsEncoder {
     public:
-        MetalGraphicsEncoder(MetalDevice &device, void *cmdBuffer);
+        MetalGraphicsEncoder(MetalDevice &device, MetalCommandBuffer *owner);
         ~MetalGraphicsEncoder() override;
 
         void BeginRendering(const RenderingInfo &info) override;
@@ -36,17 +37,17 @@ namespace sky::aurora {
         void DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride) override;
 
     private:
-        MetalDevice &device;
-        void        *cmdBuffer     = nullptr; // id<MTLCommandBuffer>
-        void        *renderEncoder = nullptr; // id<MTLRenderCommandEncoder>
-        void        *indexBuffer   = nullptr; // id<MTLBuffer>
-        uint64_t     indexOffset   = 0;
-        uint32_t     indexType     = 0;       // MTLIndexType
+        MetalDevice         &device;
+        MetalCommandBuffer  *owner         = nullptr;
+        void                *renderEncoder = nullptr; // id<MTLRenderCommandEncoder>
+        void                *indexBuffer   = nullptr; // id<MTLBuffer>
+        uint64_t             indexOffset   = 0;
+        uint32_t             indexType     = 0;       // MTLIndexType
     };
 
     class MetalComputeEncoder : public ComputeEncoder {
     public:
-        MetalComputeEncoder(MetalDevice &device, void *cmdBuffer);
+        MetalComputeEncoder(MetalDevice &device, MetalCommandBuffer *owner);
         ~MetalComputeEncoder() override;
 
         void BindPipeline(ComputePipeline *pso) override;
@@ -55,14 +56,14 @@ namespace sky::aurora {
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 
     private:
-        MetalDevice &device;
-        void        *cmdBuffer      = nullptr; // id<MTLCommandBuffer>
-        void        *computeEncoder = nullptr; // id<MTLComputeCommandEncoder>
+        MetalDevice         &device;
+        MetalCommandBuffer  *owner          = nullptr;
+        void                *computeEncoder = nullptr; // id<MTLComputeCommandEncoder>
     };
 
     class MetalBlitEncoder : public BlitEncoder {
     public:
-        MetalBlitEncoder(MetalDevice &device, void *cmdBuffer);
+        MetalBlitEncoder(MetalDevice &device, MetalCommandBuffer *owner);
         ~MetalBlitEncoder() override;
 
         void CopyBuffer(Buffer *src, Buffer *dst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset) override;
@@ -72,9 +73,9 @@ namespace sky::aurora {
         void ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions) override;
 
     private:
-        MetalDevice &device;
-        void        *cmdBuffer   = nullptr; // id<MTLCommandBuffer>
-        void        *blitEncoder = nullptr; // id<MTLBlitCommandEncoder>
+        MetalDevice         &device;
+        MetalCommandBuffer  *owner       = nullptr;
+        void                *blitEncoder = nullptr; // id<MTLBlitCommandEncoder>
     };
 
 } // namespace sky::aurora

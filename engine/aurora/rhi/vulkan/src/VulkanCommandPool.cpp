@@ -5,7 +5,11 @@
 #include <VulkanCommandPool.h>
 #include <VulkanDevice.h>
 #include <VulkanEncoder.h>
+#include <VulkanBuffer.h>
+#include <VulkanImage.h>
+#include <VulkanConversion.h>
 #include <core/logger/Logger.h>
+#include <vector>
 
 static const char *TAG = "AuroraVulkan";
 
@@ -40,6 +44,79 @@ namespace sky::aurora {
     void VulkanCommandBuffer::End()
     {
         device.GetDeviceFn().vkEndCommandBuffer(cmdBuffer);
+    }
+
+    void VulkanCommandBuffer::PipelineBarrier(const BarrierInfo &info)
+    {
+        const auto &fn = device.GetDeviceFn();
+
+        const VkPipelineStageFlags2 srcStage = FromPipelineStageFlags2(info.srcStage);
+        const VkPipelineStageFlags2 dstStage = FromPipelineStageFlags2(info.dstStage);
+
+        std::vector<VkMemoryBarrier2> mems;
+        mems.reserve(info.memoryBarriers.size());
+        for (const auto &m : info.memoryBarriers) {
+            VkMemoryBarrier2 b = {};
+            b.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+            b.srcStageMask  = srcStage;
+            b.srcAccessMask = FromAccessFlags2(m.srcAccess);
+            b.dstStageMask  = dstStage;
+            b.dstAccessMask = FromAccessFlags2(m.dstAccess);
+            mems.push_back(b);
+        }
+
+        std::vector<VkBufferMemoryBarrier2> bufs;
+        bufs.reserve(info.bufferBarriers.size());
+        for (const auto &bb : info.bufferBarriers) {
+            VkBufferMemoryBarrier2 b = {};
+            b.sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+            b.srcStageMask  = srcStage;
+            b.srcAccessMask = FromAccessFlags2(bb.srcAccess);
+            b.dstStageMask  = dstStage;
+            b.dstAccessMask = FromAccessFlags2(bb.dstAccess);
+            b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.buffer        = static_cast<VulkanBuffer *>(bb.buffer)->GetNativeHandle();
+            b.offset        = bb.offset;
+            b.size          = bb.range == 0 ? VK_WHOLE_SIZE : bb.range;
+            bufs.push_back(b);
+        }
+
+        std::vector<VkImageMemoryBarrier2> imgs;
+        imgs.reserve(info.imageBarriers.size());
+        for (const auto &ib : info.imageBarriers) {
+            auto *img = static_cast<VulkanImage *>(ib.image);
+            VkImageMemoryBarrier2 b = {};
+            b.sType         = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+            b.srcStageMask  = srcStage;
+            b.srcAccessMask = FromAccessFlags2(ib.srcAccess);
+            b.dstStageMask  = dstStage;
+            b.dstAccessMask = FromAccessFlags2(ib.dstAccess);
+            b.oldLayout     = FromImageLayout(ib.oldLayout);
+            b.newLayout     = FromImageLayout(ib.newLayout);
+            b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.image         = img->GetNativeHandle();
+            b.subresourceRange.aspectMask = ib.subRange.aspectMask
+                ? FromAspectFlags(ib.subRange.aspectMask)
+                : InferAspectFromLayout(ib.newLayout, img->GetVkFormat());
+            b.subresourceRange.baseMipLevel   = ib.subRange.baseLevel;
+            b.subresourceRange.levelCount     = ib.subRange.levels;
+            b.subresourceRange.baseArrayLayer = ib.subRange.baseLayer;
+            b.subresourceRange.layerCount     = ib.subRange.layers;
+            imgs.push_back(b);
+        }
+
+        VkDependencyInfo dep = {};
+        dep.sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dep.memoryBarrierCount       = static_cast<uint32_t>(mems.size());
+        dep.pMemoryBarriers          = mems.data();
+        dep.bufferMemoryBarrierCount = static_cast<uint32_t>(bufs.size());
+        dep.pBufferMemoryBarriers    = bufs.data();
+        dep.imageMemoryBarrierCount  = static_cast<uint32_t>(imgs.size());
+        dep.pImageMemoryBarriers     = imgs.data();
+
+        fn.vkCmdPipelineBarrier2(cmdBuffer, &dep);
     }
 
     std::unique_ptr<GraphicsEncoder> VulkanCommandBuffer::CreateGraphicsEncoder()

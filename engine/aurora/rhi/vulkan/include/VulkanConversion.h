@@ -59,6 +59,10 @@ namespace sky::aurora {
 
     // synchronization
     VkPipelineStageFlags     FromPipelineStageFlags(const PipelineStageFlags &flags);
+    VkPipelineStageFlags2    FromPipelineStageFlags2(const PipelineStageFlags &flags);
+    VkAccessFlags2           FromAccessFlags2(const AccessFlags &flags);
+    VkImageLayout            FromImageLayout(ImageLayout layout);
+    VkImageAspectFlags       InferAspectFromLayout(ImageLayout layout, VkFormat format);
 
     // query
     VkQueryType                    FromQueryType(QueryType type);

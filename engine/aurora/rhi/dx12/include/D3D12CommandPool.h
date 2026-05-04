@@ -23,6 +23,7 @@ namespace sky::aurora {
 
         void Begin() override;
         void End() override;
+        void PipelineBarrier(const BarrierInfo &info) override;
 
         std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
         std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;

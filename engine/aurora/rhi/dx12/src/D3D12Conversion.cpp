@@ -325,4 +325,57 @@ namespace sky::aurora {
         return TABLE[static_cast<uint32_t>(mode)];
     }
 
+    // ---- access mask → D3D12_RESOURCE_STATES ----
+    D3D12_RESOURCE_STATES ToD3D12States(const AccessFlags &flags)
+    {
+        D3D12_RESOURCE_STATES s = D3D12_RESOURCE_STATE_COMMON;
+
+        if (flags & AccessFlagBit::INDIRECT_BUFFER) { s |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT; }
+        if (flags & AccessFlagBit::INDEX_BUFFER)    { s |= D3D12_RESOURCE_STATE_INDEX_BUFFER; }
+        if (flags & AccessFlagBit::VERTEX_BUFFER)   { s |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER; }
+
+        if (flags & (AccessFlagBit::VERTEX_CBV | AccessFlagBit::FRAGMENT_CBV |
+                     AccessFlagBit::COMPUTE_CBV | AccessFlagBit::TASK_CBV | AccessFlagBit::MESH_CBV)) {
+            s |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+        }
+
+        if (flags & (AccessFlagBit::VERTEX_SRV | AccessFlagBit::COMPUTE_SRV |
+                     AccessFlagBit::TASK_SRV | AccessFlagBit::MESH_SRV)) {
+            s |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        }
+        if (flags & AccessFlagBit::FRAGMENT_SRV) {
+            s |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        }
+
+        if (flags & (AccessFlagBit::VERTEX_UAV_READ | AccessFlagBit::VERTEX_UAV_WRITE |
+                     AccessFlagBit::FRAGMENT_UAV_READ | AccessFlagBit::FRAGMENT_UAV_WRITE |
+                     AccessFlagBit::COMPUTE_UAV_READ | AccessFlagBit::COMPUTE_UAV_WRITE |
+                     AccessFlagBit::TASK_UAV_READ | AccessFlagBit::TASK_UAV_WRITE |
+                     AccessFlagBit::MESH_UAV_READ | AccessFlagBit::MESH_UAV_WRITE)) {
+            s |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        }
+
+        if (flags & (AccessFlagBit::COLOR_READ | AccessFlagBit::COLOR_WRITE |
+                     AccessFlagBit::COLOR_INOUT_READ | AccessFlagBit::COLOR_INOUT_WRITE |
+                     AccessFlagBit::COLOR_INPUT)) {
+            s |= D3D12_RESOURCE_STATE_RENDER_TARGET;
+        }
+
+        if (flags & (AccessFlagBit::DEPTH_STENCIL_READ |
+                     AccessFlagBit::DEPTH_STENCIL_INOUT_READ |
+                     AccessFlagBit::DEPTH_STENCIL_INPUT)) {
+            s |= D3D12_RESOURCE_STATE_DEPTH_READ;
+        }
+        if (flags & (AccessFlagBit::DEPTH_STENCIL_WRITE |
+                     AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE)) {
+            s |= D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        }
+
+        if (flags & AccessFlagBit::TRANSFER_READ)  { s |= D3D12_RESOURCE_STATE_COPY_SOURCE; }
+        if (flags & AccessFlagBit::TRANSFER_WRITE) { s |= D3D12_RESOURCE_STATE_COPY_DEST; }
+        if (flags & AccessFlagBit::PRESENT)        { s |= D3D12_RESOURCE_STATE_PRESENT; }
+
+        return s;
+    }
+
 } // namespace sky::aurora

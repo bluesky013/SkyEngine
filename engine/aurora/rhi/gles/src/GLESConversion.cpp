@@ -413,4 +413,40 @@ namespace sky::aurora {
         return TABLE[static_cast<uint32_t>(type)];
     }
 
+    // ---- access mask → glMemoryBarrier bits ----
+    GLbitfield AccessFlagsToGLBarrierBits(const AccessFlags &flags)
+    {
+        GLbitfield bits = 0;
+        if (flags & AccessFlagBit::INDIRECT_BUFFER) { bits |= GL_COMMAND_BARRIER_BIT; }
+        if (flags & AccessFlagBit::INDEX_BUFFER)    { bits |= GL_ELEMENT_ARRAY_BARRIER_BIT; }
+        if (flags & AccessFlagBit::VERTEX_BUFFER)   { bits |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT; }
+        if (flags & (AccessFlagBit::VERTEX_CBV | AccessFlagBit::FRAGMENT_CBV |
+                     AccessFlagBit::COMPUTE_CBV | AccessFlagBit::TASK_CBV | AccessFlagBit::MESH_CBV)) {
+            bits |= GL_UNIFORM_BARRIER_BIT;
+        }
+        if (flags & (AccessFlagBit::VERTEX_SRV | AccessFlagBit::FRAGMENT_SRV |
+                     AccessFlagBit::COMPUTE_SRV | AccessFlagBit::TASK_SRV | AccessFlagBit::MESH_SRV)) {
+            bits |= GL_TEXTURE_FETCH_BARRIER_BIT;
+        }
+        if (flags & (AccessFlagBit::VERTEX_UAV_READ | AccessFlagBit::VERTEX_UAV_WRITE |
+                     AccessFlagBit::FRAGMENT_UAV_READ | AccessFlagBit::FRAGMENT_UAV_WRITE |
+                     AccessFlagBit::COMPUTE_UAV_READ | AccessFlagBit::COMPUTE_UAV_WRITE |
+                     AccessFlagBit::TASK_UAV_READ | AccessFlagBit::TASK_UAV_WRITE |
+                     AccessFlagBit::MESH_UAV_READ | AccessFlagBit::MESH_UAV_WRITE)) {
+            bits |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
+        }
+        if (flags & (AccessFlagBit::COLOR_READ | AccessFlagBit::COLOR_WRITE |
+                     AccessFlagBit::COLOR_INOUT_READ | AccessFlagBit::COLOR_INOUT_WRITE |
+                     AccessFlagBit::COLOR_INPUT |
+                     AccessFlagBit::DEPTH_STENCIL_READ | AccessFlagBit::DEPTH_STENCIL_WRITE |
+                     AccessFlagBit::DEPTH_STENCIL_INOUT_READ | AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE |
+                     AccessFlagBit::DEPTH_STENCIL_INPUT)) {
+            bits |= GL_FRAMEBUFFER_BARRIER_BIT;
+        }
+        if (flags & (AccessFlagBit::TRANSFER_READ | AccessFlagBit::TRANSFER_WRITE)) {
+            bits |= GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT;
+        }
+        return bits;
+    }
+
 } // namespace sky::aurora

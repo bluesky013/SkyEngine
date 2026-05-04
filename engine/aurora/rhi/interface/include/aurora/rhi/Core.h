@@ -797,6 +797,8 @@ namespace sky::aurora {
         ImageSubRange   subRange;
         AccessFlags     srcAccess;
         AccessFlags     dstAccess;
+        ImageLayout     oldLayout = ImageLayout::UNDEFINED;
+        ImageLayout     newLayout = ImageLayout::UNDEFINED;
     };
 
     struct BufferBarrierInfo {
@@ -805,6 +807,19 @@ namespace sky::aurora {
         uint64_t     range    = 0;
         AccessFlags  srcAccess;
         AccessFlags  dstAccess;
+    };
+
+    struct MemoryBarrierInfo {
+        AccessFlags srcAccess;
+        AccessFlags dstAccess;
+    };
+
+    struct BarrierInfo {
+        PipelineStageFlags                srcStage = PipelineStageBit::TOP;
+        PipelineStageFlags                dstStage = PipelineStageBit::BOTTOM;
+        std::vector<MemoryBarrierInfo>    memoryBarriers;
+        std::vector<BufferBarrierInfo>    bufferBarriers;
+        std::vector<ImageBarrierInfo>     imageBarriers;
     };
 
 }; // namespace sky::aurora

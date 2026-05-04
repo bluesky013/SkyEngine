@@ -21,6 +21,10 @@ namespace sky::aurora {
         virtual void Begin() = 0;
         virtual void End() = 0;
 
+        // Emit a pipeline barrier. May be called between or within encoder
+        // record blocks; backends route accordingly.
+        virtual void PipelineBarrier(const BarrierInfo &info) = 0;
+
         virtual std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() = 0;
         virtual std::unique_ptr<ComputeEncoder> CreateComputeEncoder() = 0;
         virtual std::unique_ptr<BlitEncoder> CreateBlitEncoder() = 0;

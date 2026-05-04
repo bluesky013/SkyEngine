@@ -41,4 +41,7 @@ namespace sky::aurora {
     GLenum FromCullMode(const CullingModeFlags &flags);
     GLenum FromIndexType(IndexType type);
 
+    // synchronization
+    GLbitfield AccessFlagsToGLBarrierBits(const AccessFlags &flags);
+
 } // namespace sky::aurora

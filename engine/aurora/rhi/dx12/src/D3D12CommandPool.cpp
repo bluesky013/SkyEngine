@@ -5,7 +5,11 @@
 #include <D3D12CommandPool.h>
 #include <D3D12Device.h>
 #include <D3D12Encoder.h>
+#include <D3D12Buffer.h>
+#include <D3D12Image.h>
+#include <D3D12Conversion.h>
 #include <core/logger/Logger.h>
+#include <vector>
 
 static const char *TAG = "AuroraDX12";
 
@@ -34,6 +38,53 @@ namespace sky::aurora {
     void D3D12CommandBuffer::End()
     {
         cmdList->Close();
+    }
+
+    void D3D12CommandBuffer::PipelineBarrier(const BarrierInfo &info)
+    {
+        std::vector<D3D12_RESOURCE_BARRIER> barriers;
+        barriers.reserve(info.imageBarriers.size() + info.bufferBarriers.size() + info.memoryBarriers.size());
+
+        for (const auto &ib : info.imageBarriers) {
+            D3D12_RESOURCE_BARRIER b = {};
+            b.Type  = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            b.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            b.Transition.pResource   = static_cast<D3D12Image *>(ib.image)->GetNativeHandle();
+            b.Transition.StateBefore = ToD3D12States(ib.srcAccess);
+            b.Transition.StateAfter  = ToD3D12States(ib.dstAccess);
+            b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            barriers.push_back(b);
+        }
+
+        for (const auto &bb : info.bufferBarriers) {
+            D3D12_RESOURCE_BARRIER b = {};
+            const D3D12_RESOURCE_STATES before = ToD3D12States(bb.srcAccess);
+            const D3D12_RESOURCE_STATES after  = ToD3D12States(bb.dstAccess);
+            if (before == D3D12_RESOURCE_STATE_UNORDERED_ACCESS &&
+                after  == D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+                b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                b.UAV.pResource = static_cast<D3D12Buffer *>(bb.buffer)->GetNativeHandle();
+            } else {
+                b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                b.Transition.pResource   = static_cast<D3D12Buffer *>(bb.buffer)->GetNativeHandle();
+                b.Transition.StateBefore = before;
+                b.Transition.StateAfter  = after;
+                b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            }
+            barriers.push_back(b);
+        }
+
+        for (const auto &m : info.memoryBarriers) {
+            (void)m;
+            D3D12_RESOURCE_BARRIER b = {};
+            b.Type           = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+            b.UAV.pResource  = nullptr;       // global UAV barrier
+            barriers.push_back(b);
+        }
+
+        if (!barriers.empty()) {
+            cmdList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+        }
     }
 
     std::unique_ptr<GraphicsEncoder> D3D12CommandBuffer::CreateGraphicsEncoder()

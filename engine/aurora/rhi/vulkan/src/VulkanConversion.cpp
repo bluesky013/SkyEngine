@@ -412,6 +412,132 @@ namespace sky::aurora {
         return res;
     }
 
+    // ---- PipelineStageFlags2 (sync2) ----
+    VkPipelineStageFlags2 FromPipelineStageFlags2(const PipelineStageFlags &flags)
+    {
+        VkPipelineStageFlags2 res = 0;
+        if (flags & PipelineStageBit::TOP)             { res |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT; }
+        if (flags & PipelineStageBit::DRAW_INDIRECT)   { res |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT; }
+        if (flags & PipelineStageBit::VERTEX_INPUT)    { res |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT; }
+        if (flags & PipelineStageBit::VERTEX_SHADER)   { res |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT; }
+        if (flags & PipelineStageBit::FRAGMENT_SHADER) { res |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; }
+        if (flags & PipelineStageBit::EARLY_FRAGMENT)  { res |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT; }
+        if (flags & PipelineStageBit::LATE_FRAGMENT)   { res |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT; }
+        if (flags & PipelineStageBit::COLOR_OUTPUT)    { res |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT; }
+        if (flags & PipelineStageBit::COMPUTE_SHADER)  { res |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT; }
+        if (flags & PipelineStageBit::TRANSFER)        { res |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT; }
+        if (flags & PipelineStageBit::BOTTOM)          { res |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT; }
+        return res;
+    }
+
+    // ---- AccessFlags2 ----
+    VkAccessFlags2 FromAccessFlags2(const AccessFlags &flags)
+    {
+        VkAccessFlags2 res = 0;
+        if (flags & AccessFlagBit::INDIRECT_BUFFER)            { res |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT; }
+        if (flags & AccessFlagBit::INDEX_BUFFER)               { res |= VK_ACCESS_2_INDEX_READ_BIT; }
+        if (flags & AccessFlagBit::VERTEX_BUFFER)              { res |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT; }
+
+        // CBV (uniform) reads
+        if (flags & (AccessFlagBit::VERTEX_CBV |
+                     AccessFlagBit::FRAGMENT_CBV |
+                     AccessFlagBit::COMPUTE_CBV |
+                     AccessFlagBit::TASK_CBV |
+                     AccessFlagBit::MESH_CBV)) {
+            res |= VK_ACCESS_2_UNIFORM_READ_BIT;
+        }
+
+        // SRV (sampled / read-only storage)
+        if (flags & (AccessFlagBit::VERTEX_SRV |
+                     AccessFlagBit::FRAGMENT_SRV |
+                     AccessFlagBit::COMPUTE_SRV |
+                     AccessFlagBit::TASK_SRV |
+                     AccessFlagBit::MESH_SRV)) {
+            res |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+        }
+
+        // UAV reads / writes
+        if (flags & (AccessFlagBit::VERTEX_UAV_READ |
+                     AccessFlagBit::FRAGMENT_UAV_READ |
+                     AccessFlagBit::COMPUTE_UAV_READ |
+                     AccessFlagBit::TASK_UAV_READ |
+                     AccessFlagBit::MESH_UAV_READ)) {
+            res |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+        }
+        if (flags & (AccessFlagBit::VERTEX_UAV_WRITE |
+                     AccessFlagBit::FRAGMENT_UAV_WRITE |
+                     AccessFlagBit::COMPUTE_UAV_WRITE |
+                     AccessFlagBit::TASK_UAV_WRITE |
+                     AccessFlagBit::MESH_UAV_WRITE)) {
+            res |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+        }
+
+        if (flags & (AccessFlagBit::COLOR_INPUT |
+                     AccessFlagBit::DEPTH_STENCIL_INPUT)) {
+            res |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
+        }
+
+        if (flags & (AccessFlagBit::COLOR_READ |
+                     AccessFlagBit::COLOR_INOUT_READ)) {
+            res |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
+        }
+        if (flags & (AccessFlagBit::COLOR_WRITE |
+                     AccessFlagBit::COLOR_INOUT_WRITE)) {
+            res |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+        }
+        if (flags & (AccessFlagBit::DEPTH_STENCIL_READ |
+                     AccessFlagBit::DEPTH_STENCIL_INOUT_READ)) {
+            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        }
+        if (flags & (AccessFlagBit::DEPTH_STENCIL_WRITE |
+                     AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE)) {
+            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+
+        if (flags & AccessFlagBit::TRANSFER_READ)  { res |= VK_ACCESS_2_TRANSFER_READ_BIT; }
+        if (flags & AccessFlagBit::TRANSFER_WRITE) { res |= VK_ACCESS_2_TRANSFER_WRITE_BIT; }
+
+        return res;
+    }
+
+    // ---- ImageLayout ----
+    VkImageLayout FromImageLayout(ImageLayout layout)
+    {
+        switch (layout) {
+        case ImageLayout::UNDEFINED:                          return VK_IMAGE_LAYOUT_UNDEFINED;
+        case ImageLayout::GENERAL:                            return VK_IMAGE_LAYOUT_GENERAL;
+        case ImageLayout::COLOR_ATTACHMENT:                   return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ImageLayout::DEPTH_STENCIL_ATTACHMENT:           return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ImageLayout::DEPTH_STENCIL_READ_ONLY:            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        case ImageLayout::SHADER_READ_ONLY:                   return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case ImageLayout::TRANSFER_SRC:                       return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case ImageLayout::TRANSFER_DST:                       return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case ImageLayout::PRESENT:                            return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case ImageLayout::FRAGMENT_SHADING_RATE_ATTACHMENT:   return VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+        case ImageLayout::FEEDBACK_LOOP:                      return VK_IMAGE_LAYOUT_GENERAL;
+        default:                                              return VK_IMAGE_LAYOUT_UNDEFINED;
+        }
+    }
+
+    // ---- aspect inference for barrier subresource ----
+    VkImageAspectFlags InferAspectFromLayout(ImageLayout layout, VkFormat format)
+    {
+        switch (format) {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        default:
+            (void)layout;
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
     // ---- ImageSubresourceLayers ----
     VkImageSubresourceLayers FromImageSubRangeLayers(const ImageSubRangeLayers &range)
     {
