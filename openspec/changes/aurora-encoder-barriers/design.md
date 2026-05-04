@@ -42,7 +42,7 @@ struct BufferBarrierInfo { ... 类似 ... };
 
 ## Decisions
 
-### 决策 1：BarrierInfo 聚合传参，而非把多个数组散开成方法签名
+### 决策 1：PipelineBarrier 放 CommandBuffer，BarrierInfo 聚合传参
 
 ```cpp
 struct MemoryBarrierInfo {
@@ -58,15 +58,35 @@ struct BarrierInfo {
     std::vector<ImageBarrierInfo>          imageBarriers;
 };
 
-class GraphicsEncoder { ...
+class CommandBuffer { ...
     virtual void PipelineBarrier(const BarrierInfo &info) = 0;
 };
 ```
 
-**Why:** 调用方一次性提交一组 barrier 比多次 small call 高效（VK 强烈推荐合并），signatures 也更稳定。
+**Why CommandBuffer 而非 Encoder：**
+- Vulkan / DX12 / GLES 三家原生 API 都是 cmdbuf-级（`vkCmdPipelineBarrier2` / `ResourceBarrier` / `glMemoryBarrier`）
+- Metal 是唯一 encoder-级，但 active-encoder 记账负担在哪都逃不掉——把它内部一次解决比让用户手动 EndEncoder→Barrier→BeginEncoder 干净
+- Pass 之间 transition（Acquire→ColorAttachment、ColorAttachment→Present、ColorAttachment→ShaderRead）是最常见用法，cmdbuf-级 API 让用户写起来自然
+- RDG 集成更直：在 pass 之间发 `cmdBuf->PipelineBarrier(...)` 不需要先创建空 encoder
+- 三个 Encoder 各重复一份 PipelineBarrier 是噪音
+
+**Why 聚合 BarrierInfo：** 调用方一次性提交一组 barrier 比多次 small call 高效（VK 强烈推荐合并），signatures 也更稳定。
 
 **Alternatives considered:**
-- 多个独立方法（`ImageBarrier(...)` / `BufferBarrier(...)` / `MemoryBarrier(...)`）：调用更直观但合并不友好；DX12 / Metal 后端要自己缓冲
+- *Encoder::PipelineBarrier*（本 change 早期方案）：被否决，理由如上
+- *多个独立方法*（`ImageBarrier(...)` / `BufferBarrier(...)` / `MemoryBarrier(...)`）：调用更直观但合并不友好
+
+**Metal 实现策略：**
+```objc
+void MetalCommandBuffer::PipelineBarrier(const BarrierInfo &info) {
+    if (activeEncoder) {
+        [activeEncoder memoryBarrierWithScope:scope after:srcStages before:dstStages];
+    } else {
+        pendingBarriers.push_back(info);    // flush at next CreateXxxEncoder
+    }
+}
+```
+Layout transition 在 Metal 上是 noop；缓存的 barrier 在下次 CreateGraphicsEncoder/CreateComputeEncoder/CreateBlitEncoder 入口处 flush。
 
 ### 决策 2：在 `ImageBarrierInfo` 上加 `oldLayout` / `newLayout`，但允许 UNDEFINED 让后端推导
 
@@ -121,9 +141,9 @@ struct ImageBarrierInfo {
 
 DX12 后端实现：从 srcAccess/dstAccess 推导 `D3D12_RESOURCE_STATES` 对（`COMMON` 是默认）；transition barrier 用资源 + 旧/新 state；memory barrier 转为 `D3D12_RESOURCE_BARRIER_TYPE_UAV`（null pResource 表示全局）。
 
-### 决策 6：BlitEncoder 也提供 PipelineBarrier
+### 决策 6：单点 API，不在 Encoder 上重复
 
-虽然 blit 是 transfer 队列上的事情，但 blit 之前也常需要把 image 从 SHADER_READ_ONLY 转回 TRANSFER_DST。三类 Encoder 接口对称提供。
+由于决策 1 已把 PipelineBarrier 放到 CommandBuffer，Encoder 接口保持纯粹（仅 Encode 实际工作命令）。Blit 之前的 transition（如 SHADER_READ_ONLY → TRANSFER_DST）由调用方在 CreateBlitEncoder 之前 / 之后调 `cmdBuf->PipelineBarrier()` 完成；Metal 实现内部把这个 barrier 路由到正确的 encoder。
 
 ### 决策 7：Acquire / Present 关联的 PRESENT layout 由调用方显式 transition
 
@@ -152,5 +172,5 @@ DX12 后端实现：从 srcAccess/dstAccess 推导 `D3D12_RESOURCE_STATES` 对�
 
 ## Open Questions
 
-- **是否需要在 Encoder 之外暴露顶层 Barrier API？**（即 `CommandBuffer::PipelineBarrier`，不依附 Encoder） VK 上可以，DX12 上 ResourceBarrier 也只对 cmdlist。倾向：暂不开放；所有 barrier 都必须在 Encoder 内（语义清晰、与 RDG 模型一致）。
 - **是否要支持 split barrier?** VK sync2 / D3D12 enhanced barrier 都支持。倾向：本 change 不做；未来 change 加 `BeginSplitBarrier` / `EndSplitBarrier`。
+- **Metal 缓存的 barrier 在 Submit 时还未 flush 怎么办？**（用户调 PipelineBarrier 后没创建 encoder 就 Submit）倾向：Submit 前 assert pendingBarriers 为空；调用方需保证 barrier 之后有实际 encoder 工作。

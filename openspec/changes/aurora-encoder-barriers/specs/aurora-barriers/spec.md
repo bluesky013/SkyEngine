@@ -22,26 +22,35 @@
 - **WHEN** 调用方仅设置 `imageBarrier.image = img; imageBarrier.newLayout = COLOR_ATTACHMENT;`
 - **THEN** `oldLayout` 默认值为 `UNDEFINED`，后端按 first-use 处理（不保留旧内容）
 
-### Requirement: Encoder::PipelineBarrier 三类 Encoder 对称提供
+### Requirement: CommandBuffer::PipelineBarrier 单一入口
 
-`GraphicsEncoder`、`ComputeEncoder`、`BlitEncoder` SHALL 各自提供 `PipelineBarrier(const BarrierInfo &info)` 方法。
+`CommandBuffer` SHALL 提供 `PipelineBarrier(const BarrierInfo &info)` 方法。Encoder 接口（GraphicsEncoder / ComputeEncoder / BlitEncoder）**不**暴露 PipelineBarrier。
 
-调用 `PipelineBarrier` 在 `BeginRendering` / `EndRendering` 区间**外**的合法性由后端按 native API 规则约束：
-- Vulkan：`vkCmdPipelineBarrier2` 在 dynamic render pass 内合法（用于 self-dependency）
-- DX12：`ResourceBarrier` 在 OMSetRenderTargets 之间合法
-- Metal：encoder 内显式 barrier 仅 `memoryBarrierWithScope:` 可用，layout transition 在 encoder 之间隐式完成
+调用方 MAY 在以下任意时机调用：
+- 任何 Encoder 创建之前（典型：pass 之间 transition）
+- 一个 Encoder 已创建但未做实质工作时
+- 一个 Encoder 已 Encode 部分命令、还在 record 中时（典型：compute UAV→UAV barrier 在两次 Dispatch 之间）
+- `BeginRendering` / `EndRendering` 区间**内**仅当 Vulkan 后端 self-dependency 合法（一般不推荐）
 
-#### Scenario: GraphicsEncoder 内 PipelineBarrier
-- **WHEN** 在 `BeginRendering` 之前调用 `graphicsEncoder->PipelineBarrier(info)`，info 含一个 image transition `UNDEFINED → COLOR_ATTACHMENT`
-- **THEN** 后续 `BeginRendering` 使用该 image 时，validation layer / debug layer 不报 layout 警告
+后端实现职责：
+- Vulkan / DX12 / GLES：直接落到 cmdbuf-级 native API
+- Metal：CommandBuffer 内部记账当前 active encoder；若有，转 `[encoder memoryBarrierWithScope:after:before:]`；若无（pass 之间），缓存到下一次 `CreateXxxEncoder` 入口处 flush
 
-#### Scenario: ComputeEncoder 内 PipelineBarrier
-- **WHEN** 在 `Dispatch` 之间插入 `PipelineBarrier`，srcStage=COMPUTE_SHADER、dstStage=COMPUTE_SHADER、memoryBarrier 含 `srcAccess=COMPUTE_UAV_WRITE, dstAccess=COMPUTE_UAV_READ`
-- **THEN** 第二个 Dispatch 能正确读取第一个 Dispatch 的 UAV 写入结果
+#### Scenario: 在 Encoder 创建前发 image transition
+- **WHEN** 调用方依次：`cmdBuf->Begin()` → `cmdBuf->PipelineBarrier(info_undefined_to_color)` → `cmdBuf->CreateGraphicsEncoder()` → `BeginRendering(...)`
+- **THEN** validation layer / debug layer 不报 layout 警告；Metal 后端把 barrier 在新 encoder 入口处 flush
 
-#### Scenario: BlitEncoder 内 PipelineBarrier
-- **WHEN** 在 CopyBufferToImage 之后、ShaderRead 之前，BlitEncoder 内 `PipelineBarrier` 把 image 从 `TRANSFER_DST → SHADER_READ_ONLY`
-- **THEN** 后续 graphics 采样该 image 不报 layout 不匹配
+#### Scenario: Compute 序列中间 UAV→UAV barrier
+- **WHEN** 在 `Dispatch` 之间调用 `cmdBuf->PipelineBarrier(info)`，info 含 srcStage=COMPUTE_SHADER、dstStage=COMPUTE_SHADER、memoryBarrier 含 `srcAccess=COMPUTE_UAV_WRITE, dstAccess=COMPUTE_UAV_READ`
+- **THEN** 第二个 Dispatch 能正确读取第一个 Dispatch 的 UAV 写入结果；Metal 后端把 barrier 路由到当前 active 的 ComputeEncoder
+
+#### Scenario: Blit 之前的 transition
+- **WHEN** 在 `CreateBlitEncoder` 之前调用 `cmdBuf->PipelineBarrier(...)` 把 image 从 `SHADER_READ_ONLY → TRANSFER_DST`，然后 BlitEncoder 内做 CopyBufferToImage
+- **THEN** copy 不报 layout 不匹配
+
+#### Scenario: 跨 Encoder 边界
+- **WHEN** EndRendering → `cmdBuf->PipelineBarrier(color_to_shader_read)` → CreateGraphicsEncoder/BeginRendering 用同一 image 作为 SRV
+- **THEN** 第二个 pass 采样正确；validation 不报错
 
 ### Requirement: AccessFlags ↔ PipelineStage ↔ Layout 转换语义
 
