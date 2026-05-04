@@ -52,4 +52,4 @@
 - [x] 7.1 `engine/aurora/AGENTS.md` 加"Barrier 用法 + AccessFlags 速查表 + Stage/Access 兼容性陷阱 + 4 后端实现位置"
 - [x] 7.2 `AuroraTest --gtest_filter=Barrier*` 全绿：13/13 PASSED；含 Vulkan + Metal
 - [x] 7.3 Vulkan validation 不报新 warning（修测试 stage mask 后清零）
-- [ ] 7.4 archive：`openspec archive aurora-encoder-barriers`
+- [x] 7.4 archive：`openspec archive aurora-encoder-barriers`
