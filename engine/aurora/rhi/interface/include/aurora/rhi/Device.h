@@ -19,6 +19,7 @@
 #include <aurora/rhi/Sampler.h>
 #include <aurora/rhi/SwapChain.h>
 #include <aurora/rhi/ResourceGroup.h>
+#include <aurora/rhi/PipelineLayout.h>
 #include <aurora/rhi/Shader.h>
 #include <aurora/rhi/PipelineState.h>
 
@@ -55,7 +56,9 @@ namespace sky::aurora {
         virtual Buffer* CreateBuffer(const Buffer::Descriptor &desc) = 0;
         virtual Image* CreateImage(const Image::Descriptor &desc) = 0;
         virtual Sampler* CreateSampler(const Sampler::Descriptor &desc) = 0;
+        virtual ResourceGroupLayout* CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) = 0;
         virtual ResourceGroup* CreateResourceGroup(const ResourceGroup::Descriptor &desc) = 0;
+        virtual PipelineLayout* CreatePipelineLayout(const PipelineLayout::Descriptor &desc) = 0;
         virtual SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) = 0;
 
         // layout object

@@ -98,9 +98,14 @@ namespace sky::aurora {
         glesPso->Bind();
     }
 
-    void GLESGraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void GLESGraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement UBO/texture binding once ResourceGroup is mapped
+        // TODO: implement UBO/texture binding once ResourceGroup is mapped (aurora-resource-group GLES phase)
+    }
+
+    void GLESGraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: emulate via reserved UBO once layout is finalized
     }
 
     void GLESGraphicsEncoder::BindVertexBuffers(uint32_t /*firstBinding*/, uint32_t count, const BufferView *views)
@@ -190,9 +195,14 @@ namespace sky::aurora {
         // TODO: implement once ComputePipeline stores the GL program
     }
 
-    void GLESComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void GLESComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement SSBO/UBO binding
+        // TODO: implement SSBO/UBO binding (aurora-resource-group GLES phase)
+    }
+
+    void GLESComputeEncoder::PushConstants(uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: emulate via reserved UBO once layout is finalized
     }
 
     void GLESComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)

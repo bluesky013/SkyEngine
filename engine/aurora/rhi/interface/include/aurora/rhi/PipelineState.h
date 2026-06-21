@@ -6,6 +6,7 @@
 
 #include <core/template/ReferenceObject.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/PipelineLayout.h>
 
 namespace sky::aurora {
     class Shader;
@@ -23,6 +24,7 @@ namespace sky::aurora {
         struct Descriptor {
             PipelineState*   state    = nullptr;
             Shader*          shader   = nullptr;
+            PipelineLayout*  layout   = nullptr;        // optional; nullptr → empty layout
             AttachmentFormat format;
         };
 
@@ -33,7 +35,8 @@ namespace sky::aurora {
     class ComputePipeline : public RefObject {
     public:
         struct Descriptor {
-            Shader* cs = nullptr;
+            Shader*          cs     = nullptr;
+            PipelineLayout*  layout = nullptr;          // optional; nullptr → empty layout
         };
 
         ComputePipeline() = default;

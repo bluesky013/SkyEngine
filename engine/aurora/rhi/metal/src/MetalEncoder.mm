@@ -113,9 +113,14 @@ namespace sky::aurora {
         [enc setRenderPipelineState:state];
     }
 
-    void MetalGraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void MetalGraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement once ResourceGroup maps to Metal argument buffers
+        // TODO: implement once ResourceGroup maps to Metal argument buffers (aurora-resource-group Metal phase)
+    }
+
+    void MetalGraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: setVertexBytes/setFragmentBytes at slot 30 once layout is finalized
     }
 
     void MetalGraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
@@ -246,9 +251,14 @@ namespace sky::aurora {
         [enc setComputePipelineState:state];
     }
 
-    void MetalComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void MetalComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement once ResourceGroup maps to Metal argument buffers
+        // TODO: implement once ResourceGroup maps to Metal argument buffers (aurora-resource-group Metal phase)
+    }
+
+    void MetalComputeEncoder::PushConstants(uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: setBytes:length:atIndex: at slot 30 once layout is finalized
     }
 
     void MetalComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)

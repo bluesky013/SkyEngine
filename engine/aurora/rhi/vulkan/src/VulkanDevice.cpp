@@ -10,6 +10,9 @@
 #include "VulkanConversion.h"
 #include "VulkanPipelineState.h"
 #include "VulkanSwapChain.h"
+#include "VulkanResourceGroupLayout.h"
+#include "VulkanResourceGroup.h"
+#include "VulkanPipelineLayout.h"
 #include <core/logger/Logger.h>
 #include <cstring>
 #include <vector>
@@ -353,6 +356,36 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    ResourceGroupLayout *VulkanDevice::CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc)
+    {
+        auto *layout = new VulkanResourceGroupLayout(*this);
+        if (!layout->Init(desc)) {
+            delete layout;
+            return nullptr;
+        }
+        return layout;
+    }
+
+    ResourceGroup *VulkanDevice::CreateResourceGroup(const ResourceGroup::Descriptor &desc)
+    {
+        auto *group = new VulkanResourceGroup(*this);
+        if (!group->Init(desc)) {
+            delete group;
+            return nullptr;
+        }
+        return group;
+    }
+
+    PipelineLayout *VulkanDevice::CreatePipelineLayout(const PipelineLayout::Descriptor &desc)
+    {
+        auto *layout = new VulkanPipelineLayout(*this);
+        if (!layout->Init(desc)) {
+            delete layout;
+            return nullptr;
+        }
+        return layout;
     }
 
     SwapChain *VulkanDevice::CreateSwapChain(const SwapChain::Descriptor &desc)

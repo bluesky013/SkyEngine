@@ -7,6 +7,7 @@
 #include <VulkanBuffer.h>
 #include <VulkanImage.h>
 #include <VulkanPipelineState.h>
+#include <VulkanResourceGroup.h>
 #include <VulkanConversion.h>
 #include <core/platform/Platform.h>
 
@@ -120,12 +121,27 @@ namespace sky::aurora {
     void VulkanGraphicsEncoder::BindPipeline(GraphicsPipeline *pso)
     {
         auto *vkPso = static_cast<VulkanGraphicsPipeline *>(pso);
+        currentLayout = vkPso->GetLayoutHandle();
         fn.vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPso->GetNativeHandle());
     }
 
-    void VulkanGraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void VulkanGraphicsEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group,
+                                                  uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        // TODO: implement once ResourceGroup has VkDescriptorSet
+        if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
+            return;
+        }
+        VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
+        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentLayout,
+                                   set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+    }
+
+    void VulkanGraphicsEncoder::PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
+    {
+        if (currentLayout == VK_NULL_HANDLE) {
+            return;
+        }
+        fn.vkCmdPushConstants(cmd, currentLayout, FromShaderStageFlags(stages), offset, size, data);
     }
 
     void VulkanGraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
@@ -206,12 +222,28 @@ namespace sky::aurora {
     void VulkanComputeEncoder::BindPipeline(ComputePipeline *pso)
     {
         auto *vkPso = static_cast<VulkanComputePipeline *>(pso);
+        currentLayout = vkPso->GetLayoutHandle();
         fn.vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, vkPso->GetNativeHandle());
     }
 
-    void VulkanComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void VulkanComputeEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group,
+                                                 uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
-        // TODO: implement once ResourceGroup has VkDescriptorSet
+        if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
+            return;
+        }
+        VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
+        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentLayout,
+                                   set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+    }
+
+    void VulkanComputeEncoder::PushConstants(uint32_t offset, uint32_t size, const void *data)
+    {
+        if (currentLayout == VK_NULL_HANDLE) {
+            return;
+        }
+        // Compute push constants are visible to compute stage only.
+        fn.vkCmdPushConstants(cmd, currentLayout, VK_SHADER_STAGE_COMPUTE_BIT, offset, size, data);
     }
 
     void VulkanComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)

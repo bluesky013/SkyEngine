@@ -108,6 +108,19 @@ namespace sky::aurora {
         PFN_vkCreateComputePipelines       vkCreateComputePipelines       = nullptr;
         PFN_vkDestroyPipeline              vkDestroyPipeline              = nullptr;
 
+        // descriptor sets
+        PFN_vkCreateDescriptorSetLayout    vkCreateDescriptorSetLayout    = nullptr;
+        PFN_vkDestroyDescriptorSetLayout   vkDestroyDescriptorSetLayout   = nullptr;
+        PFN_vkCreateDescriptorPool         vkCreateDescriptorPool         = nullptr;
+        PFN_vkDestroyDescriptorPool        vkDestroyDescriptorPool        = nullptr;
+        PFN_vkResetDescriptorPool          vkResetDescriptorPool          = nullptr;
+        PFN_vkAllocateDescriptorSets       vkAllocateDescriptorSets       = nullptr;
+        PFN_vkFreeDescriptorSets           vkFreeDescriptorSets           = nullptr;
+        PFN_vkUpdateDescriptorSets         vkUpdateDescriptorSets         = nullptr;
+
+        // push constants
+        PFN_vkCmdPushConstants             vkCmdPushConstants             = nullptr;
+
         // image (for non-VMA paths, e.g. swapchain image cleanup)
         PFN_vkCreateImageView              vkCreateImageView              = nullptr;
         PFN_vkDestroyImageView             vkDestroyImageView             = nullptr;

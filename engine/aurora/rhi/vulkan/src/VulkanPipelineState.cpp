@@ -6,6 +6,7 @@
 #include "VulkanConversion.h"
 #include "VulkanDevice.h"
 #include "VulkanShader.h"
+#include "VulkanPipelineLayout.h"
 #include <core/logger/Logger.h>
 
 namespace sky::aurora {
@@ -66,8 +67,19 @@ namespace sky::aurora {
         const auto &state = *desc.state;
         const auto &fmt   = desc.format;
         const auto *vkShader = static_cast<const VulkanShader *>(desc.shader);
-        if (vkShader == nullptr || vkShader->GetPipelineLayout() == VK_NULL_HANDLE) {
-            LOG_E(TAG, "graphics pipeline descriptor missing shader pipeline layout");
+        if (vkShader == nullptr) {
+            LOG_E(TAG, "graphics pipeline descriptor missing shader");
+            return false;
+        }
+
+        // Prefer explicit PipelineLayout from descriptor; fall back to shader-derived layout for legacy callers.
+        if (desc.layout != nullptr) {
+            layoutHandle = static_cast<VulkanPipelineLayout *>(desc.layout)->GetNativeHandle();
+        } else {
+            layoutHandle = vkShader->GetPipelineLayout();
+        }
+        if (layoutHandle == VK_NULL_HANDLE) {
+            LOG_E(TAG, "graphics pipeline missing layout (no Descriptor::layout and shader has none)");
             return false;
         }
 
@@ -182,7 +194,7 @@ namespace sky::aurora {
         ci.pDepthStencilState  = &depthStencil;
         ci.pColorBlendState    = &colorBlend;
         ci.pDynamicState       = &dynState;
-        ci.layout              = vkShader->GetPipelineLayout();
+        ci.layout              = layoutHandle;
         ci.basePipelineHandle  = VK_NULL_HANDLE;
         ci.basePipelineIndex   = -1;
 
@@ -224,13 +236,23 @@ namespace sky::aurora {
     bool VulkanComputePipeline::Init(const Descriptor &desc)
     {
         const auto *vkShader = static_cast<const VulkanShader *>(desc.cs);
-        if (vkShader == nullptr || vkShader->GetPipelineLayout() == VK_NULL_HANDLE) {
-            LOG_E(TAG, "compute pipeline descriptor missing shader pipeline layout");
+        if (vkShader == nullptr) {
+            LOG_E(TAG, "compute pipeline descriptor missing shader");
+            return false;
+        }
+
+        if (desc.layout != nullptr) {
+            layoutHandle = static_cast<VulkanPipelineLayout *>(desc.layout)->GetNativeHandle();
+        } else {
+            layoutHandle = vkShader->GetPipelineLayout();
+        }
+        if (layoutHandle == VK_NULL_HANDLE) {
+            LOG_E(TAG, "compute pipeline missing layout");
             return false;
         }
 
         VkComputePipelineCreateInfo ci = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-        ci.layout = vkShader->GetPipelineLayout();
+        ci.layout = layoutHandle;
 
         ci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         ci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;

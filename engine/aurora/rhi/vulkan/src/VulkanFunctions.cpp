@@ -158,6 +158,17 @@ namespace sky::aurora {
         LOAD_DEVICE(vkCreateComputePipelines);
         LOAD_DEVICE(vkDestroyPipeline);
 
+        LOAD_DEVICE(vkCreateDescriptorSetLayout);
+        LOAD_DEVICE(vkDestroyDescriptorSetLayout);
+        LOAD_DEVICE(vkCreateDescriptorPool);
+        LOAD_DEVICE(vkDestroyDescriptorPool);
+        LOAD_DEVICE(vkResetDescriptorPool);
+        LOAD_DEVICE(vkAllocateDescriptorSets);
+        LOAD_DEVICE(vkFreeDescriptorSets);
+        LOAD_DEVICE(vkUpdateDescriptorSets);
+
+        LOAD_DEVICE(vkCmdPushConstants);
+
         LOAD_DEVICE(vkCreateImageView);
         LOAD_DEVICE(vkDestroyImageView);
         LOAD_DEVICE(vkDestroyImage);

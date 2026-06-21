@@ -29,13 +29,15 @@ namespace sky::aurora {
         // Legacy render pass path
         bool Init(const Descriptor &desc, const SubpassInfo &subpassInfo);
 
-        VkPipeline GetNativeHandle() const { return pipeline; }
+        VkPipeline       GetNativeHandle() const { return pipeline; }
+        VkPipelineLayout GetLayoutHandle() const { return layoutHandle; }
 
     private:
         bool BuildPipeline(const Descriptor &desc, const void *pNext, const SubpassInfo *subpassInfo);
 
-        VulkanDevice &device;
-        VkPipeline    pipeline = VK_NULL_HANDLE;
+        VulkanDevice    &device;
+        VkPipeline       pipeline     = VK_NULL_HANDLE;
+        VkPipelineLayout layoutHandle = VK_NULL_HANDLE;
     };
 
     class VulkanComputePipeline : public ComputePipeline {
@@ -45,11 +47,13 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        VkPipeline GetNativeHandle() const { return pipeline; }
+        VkPipeline       GetNativeHandle() const { return pipeline; }
+        VkPipelineLayout GetLayoutHandle() const { return layoutHandle; }
 
     private:
-        VulkanDevice &device;
-        VkPipeline    pipeline = VK_NULL_HANDLE;
+        VulkanDevice    &device;
+        VkPipeline       pipeline     = VK_NULL_HANDLE;
+        VkPipelineLayout layoutHandle = VK_NULL_HANDLE;
     };
 
 } // namespace sky::aurora

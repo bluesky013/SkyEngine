@@ -29,7 +29,12 @@ namespace sky::aurora {
         virtual void BindPipeline(GraphicsPipeline *pso) = 0;
 
         // resource binding
-        virtual void BindResourceGroup(uint32_t set, ResourceGroup *group) = 0;
+        virtual void BindResourceGroup(uint32_t set, ResourceGroup *group,
+                                       uint32_t numDynamicOffsets = 0,
+                                       const uint32_t *dynamicOffsets = nullptr) = 0;
+
+        // push constants
+        virtual void PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
 
         // vertex / index
         virtual void BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views) = 0;
@@ -52,7 +57,10 @@ namespace sky::aurora {
         virtual ~ComputeEncoder() = default;
 
         virtual void BindPipeline(ComputePipeline *pso) = 0;
-        virtual void BindResourceGroup(uint32_t set, ResourceGroup *group) = 0;
+        virtual void BindResourceGroup(uint32_t set, ResourceGroup *group,
+                                       uint32_t numDynamicOffsets = 0,
+                                       const uint32_t *dynamicOffsets = nullptr) = 0;
+        virtual void PushConstants(uint32_t offset, uint32_t size, const void *data) = 0;
         virtual void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) = 0;
         virtual void DispatchIndirect(Buffer *buffer, uint64_t offset) = 0;
     };

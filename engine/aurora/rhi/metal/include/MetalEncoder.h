@@ -24,7 +24,8 @@ namespace sky::aurora {
         void EndRendering() override;
 
         void BindPipeline(GraphicsPipeline *pso) override;
-        void BindResourceGroup(uint32_t set, ResourceGroup *group) override;
+        void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) override;
         void BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views) override;
         void BindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType type) override;
 
@@ -51,7 +52,8 @@ namespace sky::aurora {
         ~MetalComputeEncoder() override;
 
         void BindPipeline(ComputePipeline *pso) override;
-        void BindResourceGroup(uint32_t set, ResourceGroup *group) override;
+        void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void PushConstants(uint32_t offset, uint32_t size, const void *data) override;
         void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 

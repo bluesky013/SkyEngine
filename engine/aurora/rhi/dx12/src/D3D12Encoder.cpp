@@ -51,9 +51,14 @@ namespace sky::aurora {
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
     }
 
-    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables
+        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables (aurora-resource-group DX12 phase)
+    }
+
+    void D3D12GraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: SetGraphicsRoot32BitConstants once RootSignature is wired
     }
 
     void D3D12GraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
@@ -148,9 +153,14 @@ namespace sky::aurora {
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
     }
 
-    void D3D12ComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/)
+    void D3D12ComputeEncoder::BindResourceGroup(uint32_t /*set*/, ResourceGroup * /*group*/, uint32_t /*numDynamicOffsets*/, const uint32_t * /*dynamicOffsets*/)
     {
-        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables
+        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables (aurora-resource-group DX12 phase)
+    }
+
+    void D3D12ComputeEncoder::PushConstants(uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    {
+        // TODO: SetComputeRoot32BitConstants once RootSignature is wired
     }
 
     void D3D12ComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
