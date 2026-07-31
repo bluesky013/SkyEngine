@@ -25,13 +25,13 @@ namespace sky::aurora {
     class VulkanInstance;
 
     struct VulkanContext : ThreadContext {
-        explicit VulkanContext(VulkanDevice& dev) : device(dev) {}
+        VulkanContext(VulkanDevice& dev, QueueType type);
 
         void OnAttach(uint32_t threadIndex) override;
         void OnDetach() override;
 
         VulkanDevice& device;
-        std::array<std::unique_ptr<VulkanCommandPool>, 3> pools;       // by QueueType
+        std::unique_ptr<VulkanCommandPool> pool;     // by QueueType
     };
 
     class VulkanDevice : public Device {
@@ -69,7 +69,7 @@ namespace sky::aurora {
 
         uint32_t GetQueueFamilyIndex(QueueType type) const;
     private:
-        ThreadContext* CreateAsyncContext() override;
+        ThreadContext* CreateAsyncContext(QueueType queue) override;
         bool OnInit(const DeviceInit& init) override;
         void UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;

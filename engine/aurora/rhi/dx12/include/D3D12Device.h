@@ -29,7 +29,7 @@ namespace sky::aurora {
     class D3D12Instance;
 
     struct D3D12Context : ThreadContext {
-        explicit D3D12Context(D3D12Device& dev) : device(dev) {}
+        D3D12Context(D3D12Device& dev, QueueType queue);
 
         void OnAttach(uint32_t threadIndex) override;
         void OnDetach() override;
@@ -69,7 +69,7 @@ namespace sky::aurora {
         D3D12MA::Allocator    *GetAllocator() const { return allocator.Get(); }
 
     private:
-        ThreadContext* CreateAsyncContext() override;
+        ThreadContext* CreateAsyncContext(QueueType queue) override;
         bool OnInit(const DeviceInit& init) override;
         void UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;

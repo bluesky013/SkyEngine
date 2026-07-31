@@ -101,26 +101,4 @@ namespace sky::aurora::test {
     };
 #endif
 
-#if defined(SKY_AURORA_HAS_GLES)
-    class AuroraGLESTest : public ::testing::Test {
-    public:
-        static void SetUpTestSuite()
-        {
-            Instance::Descriptor desc = {};
-            desc.appName          = "AuroraTest";
-            desc.engineName       = "SkyEngine";
-            desc.enableDebugLayer = false;
-            desc.api              = API::GLES;
-            Instance::Get()->Init(desc);
-        }
-
-        static void TearDownTestSuite()
-        {
-            Instance::Destroy();
-        }
-
-        Device *GetDevice() const { return Instance::Get()->GetDevice(); }
-    };
-#endif
-
 } // namespace sky::aurora::test

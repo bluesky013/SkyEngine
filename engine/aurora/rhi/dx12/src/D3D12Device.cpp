@@ -289,15 +289,21 @@ namespace sky::aurora {
         return result;
     }
 
-    ThreadContext* D3D12Device::CreateAsyncContext()
+    ThreadContext* D3D12Device::CreateAsyncContext(QueueType queue)
     {
-        return new D3D12Context(*this);
+        return new D3D12Context(*this, queue);
+    }
+
+    D3D12Context::D3D12Context(D3D12Device& dev, QueueType queue)
+        : device(dev)
+    {
+        pool = std::make_unique<D3D12CommandPool>(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+        pool->Init();
     }
 
     void D3D12Context::OnAttach(uint32_t threadIndex)
     {
-        pool = std::make_unique<D3D12CommandPool>(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-        pool->Init();
+
     }
 
     void D3D12Context::OnDetach()

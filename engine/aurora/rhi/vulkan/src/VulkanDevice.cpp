@@ -471,23 +471,26 @@ namespace sky::aurora {
         return result;
     }
 
-    ThreadContext* VulkanDevice::CreateAsyncContext()
+    ThreadContext* VulkanDevice::CreateAsyncContext(QueueType queue)
     {
-        return new VulkanContext(*this);
+        return new VulkanContext(*this, queue);
+    }
+
+    VulkanContext::VulkanContext(VulkanDevice& dev, QueueType type)
+        : device(dev)
+    {
+        pool = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(type));
     }
 
     void VulkanContext::OnAttach(uint32_t /*threadIndex*/)
     {
-        for (size_t i = 0; i < pools.size(); ++i) {
-            const auto type = static_cast<QueueType>(i);
-            pools[i] = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(type));
-            pools[i]->Init();
-        }
     }
 
     void VulkanContext::OnDetach()
     {
-        for (auto &p : pools) { p.reset(); }
+        if (pool) {
+            pool->Reset();
+        }
     }
 
 } // namespace sky::aurora

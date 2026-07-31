@@ -12,34 +12,27 @@ namespace sky::aurora {
 
         mainContext->OnDetach();
         mainContext = nullptr;
-
-        threadPool->WaitIdle();
-        threadPool = nullptr;
     }
 
     bool Device::Init()
     {
-        uint32_t hwConcurrency = std::max(std::thread::hardware_concurrency(), 1U);
-        uint32_t threadCount = std::max(1U, hwConcurrency - 1U); // leave one thread for main
-
         DeviceInit devInit = {
-            .parallelContextNum = threadCount
         };
-
         if (!OnInit(devInit)) {
             return false;
         }
 
-        mainContext.reset(CreateAsyncContext());
+        mainContext.reset(CreateAsyncContext(QueueType::GRAPHICS));
         mainContext->OnAttach(~(0U));
 
         UpdateDeviceCaps();
 
+        uint32_t hwConcurrency = std::max(std::thread::hardware_concurrency(), 1U);
+        uint32_t threadCount = std::max(1U, hwConcurrency - 1U); // leave one thread for main
         threadCount = std::min(threadCount, capability.maxThreads);
-
         contexts.resize(threadCount);
         threadPool = std::make_unique<ThreadPool>(threadCount, [this](uint32_t threadIndex) {
-            auto *context = CreateAsyncContext();
+            auto *context = CreateAsyncContext(QueueType::GRAPHICS);
             contexts[threadIndex] = context;
             return context;
         });

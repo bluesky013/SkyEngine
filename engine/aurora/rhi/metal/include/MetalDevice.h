@@ -57,7 +57,7 @@ namespace sky::aurora {
         MetalInstance &GetInstance() const { return instance; }
 
     private:
-        ThreadContext *CreateAsyncContext() override;
+        ThreadContext *CreateAsyncContext(QueueType queue) override;
         bool OnInit(const DeviceInit &init) override;
         void UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;

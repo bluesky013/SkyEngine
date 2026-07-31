@@ -275,7 +275,6 @@ presets:
 | Vulkan | Win32, macOS, Android | 主要后端 |
 | DX12 | Win32 | 支持 |
 | Metal | macOS, iOS | 支持 |
-| GLES | Android | 可选 (SKY_BUILD_GLES) |
 
 ---
 

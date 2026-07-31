@@ -14,9 +14,6 @@ using SyncTestMetal = AuroraMetalTest;
 #if defined(SKY_PLATFORM_WINDOWS)
 using SyncTestD3D12 = AuroraD3D12Test;
 #endif
-#if defined(SKY_AURORA_HAS_GLES)
-using SyncTestGLES = AuroraGLESTest;
-#endif
 
 // ---------------------------------------------------------------------------
 // Vulkan
@@ -131,40 +128,6 @@ TEST_F(SyncTestMetal, CreateFenceUnsignaled)
 }
 
 TEST_F(SyncTestMetal, CreateSemaphore)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    aurora::Semaphore::Descriptor desc = {};
-    desc.initialValue = 0;
-
-    auto *sema = device->CreateSema(desc);
-    ASSERT_NE(sema, nullptr);
-    CounterPtr<aurora::Semaphore> guard(sema);
-}
-#endif
-
-// ---------------------------------------------------------------------------
-// GLES
-// ---------------------------------------------------------------------------
-#if defined(SKY_AURORA_HAS_GLES)
-TEST_F(SyncTestGLES, CreateFenceSignaled)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    Fence::Descriptor desc = {};
-    desc.createSignaled = true;
-
-    auto *fence = device->CreateFence(desc);
-    ASSERT_NE(fence, nullptr);
-    CounterPtr<Fence> guard(fence);
-
-    fence->Wait();
-    fence->Reset();
-}
-
-TEST_F(SyncTestGLES, CreateSemaphore)
 {
     auto *device = GetDevice();
     ASSERT_NE(device, nullptr);

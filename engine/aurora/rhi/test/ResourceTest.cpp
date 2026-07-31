@@ -14,9 +14,6 @@ using ResourceTestMetal = AuroraMetalTest;
 #if defined(SKY_PLATFORM_WINDOWS)
 using ResourceTestD3D12 = AuroraD3D12Test;
 #endif
-#if defined(SKY_AURORA_HAS_GLES)
-using ResourceTestGLES = AuroraGLESTest;
-#endif
 
 // ---------------------------------------------------------------------------
 // Vulkan
@@ -322,80 +319,6 @@ TEST_F(ResourceTestMetal, CreateSampler)
     desc.addressModeU     = WrapMode::REPEAT;
     desc.addressModeV     = WrapMode::REPEAT;
     desc.addressModeW     = WrapMode::REPEAT;
-    ConfigureSamplerAnisotropy(device, desc);
-
-    auto *sampler = device->CreateSampler(desc);
-    ASSERT_NE(sampler, nullptr);
-    CounterPtr<Sampler> guard(sampler);
-}
-#endif
-
-// ---------------------------------------------------------------------------
-// GLES
-// ---------------------------------------------------------------------------
-#if defined(SKY_AURORA_HAS_GLES)
-TEST_F(ResourceTestGLES, CreateBuffer)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    Buffer::Descriptor desc = {};
-    desc.size   = 1024;
-    desc.usage  = BufferUsageFlagBit::UNIFORM | BufferUsageFlagBit::TRANSFER_DST;
-    desc.memory = MemoryType::GPU_ONLY;
-
-    auto *buffer = device->CreateBuffer(desc);
-    ASSERT_NE(buffer, nullptr);
-    CounterPtr<Buffer> guard(buffer);
-}
-
-TEST_F(ResourceTestGLES, CreateBufferVertex)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    Buffer::Descriptor desc = {};
-    desc.size   = 4096;
-    desc.usage  = BufferUsageFlagBit::VERTEX;
-    desc.memory = MemoryType::CPU_TO_GPU;
-
-    auto *buffer = device->CreateBuffer(desc);
-    ASSERT_NE(buffer, nullptr);
-    CounterPtr<Buffer> guard(buffer);
-}
-
-TEST_F(ResourceTestGLES, CreateImage2D)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    Image::Descriptor desc = {};
-    desc.imageType   = ImageType::IMAGE_2D;
-    desc.format      = PixelFormat::RGBA8_UNORM;
-    desc.extent      = {128, 128, 1};
-    desc.mipLevels   = 1;
-    desc.arrayLayers = 1;
-    desc.samples     = SampleCount::X1;
-    desc.usage       = ImageUsageFlagBit::SAMPLED | ImageUsageFlagBit::TRANSFER_DST;
-    desc.memory      = MemoryType::GPU_ONLY;
-
-    auto *image = device->CreateImage(desc);
-    ASSERT_NE(image, nullptr);
-    CounterPtr<Image> guard(image);
-}
-
-TEST_F(ResourceTestGLES, CreateSampler)
-{
-    auto *device = GetDevice();
-    ASSERT_NE(device, nullptr);
-
-    Sampler::Descriptor desc = {};
-    desc.magFilter    = Filter::LINEAR;
-    desc.minFilter    = Filter::LINEAR;
-    desc.mipmapMode   = MipFilter::LINEAR;
-    desc.addressModeU = WrapMode::REPEAT;
-    desc.addressModeV = WrapMode::REPEAT;
-    desc.addressModeW = WrapMode::REPEAT;
     ConfigureSamplerAnisotropy(device, desc);
 
     auto *sampler = device->CreateSampler(desc);

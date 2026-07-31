@@ -19,7 +19,6 @@ namespace sky::rhi {
         VULKAN,
         METAL,
         DX12,
-        GLES
     };
 
     class Instance {

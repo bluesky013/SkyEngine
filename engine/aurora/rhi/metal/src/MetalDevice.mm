@@ -235,7 +235,7 @@ namespace sky::aurora {
         return pipeline;
     }
 
-    ThreadContext *MetalDevice::CreateAsyncContext()
+    ThreadContext *MetalDevice::CreateAsyncContext(QueueType queue)
     {
         return new MetalThreadContext();
     }

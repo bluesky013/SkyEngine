@@ -80,7 +80,7 @@ namespace sky::aurora {
     protected:
         virtual bool OnInit(const DeviceInit& init) = 0;
         virtual void UpdateDeviceCaps() = 0;
-        virtual ThreadContext* CreateAsyncContext() = 0;
+        virtual ThreadContext* CreateAsyncContext(QueueType queue) = 0;
 
         DeviceCapability capability;
 
