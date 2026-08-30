@@ -15,6 +15,8 @@
 #include <MetalUtils.h>
 #include <core/logger/Logger.h>
 
+#include <rdg/MetalDeviceFrameContext.h>
+
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
@@ -317,6 +319,11 @@ namespace sky::aurora {
         }
 
         return result;
+    }
+
+    DeviceFrameContext* MetalDevice::CreateFrameContext(const DeviceFrameContextInitInfo& info)
+    {
+        return new MetalDeviceFrameContext(this, info);
     }
 
 } // namespace sky::aurora

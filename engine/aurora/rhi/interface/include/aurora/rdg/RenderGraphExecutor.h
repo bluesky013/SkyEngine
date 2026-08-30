@@ -11,7 +11,7 @@ namespace sky::aurora {
         RenderGraphExecutor() = default;
         ~RenderGraphExecutor() = default;
 
-        void Executor();
+        void Execute();
     };
 
 } // namespace sky::aurora

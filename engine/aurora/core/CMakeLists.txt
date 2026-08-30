@@ -11,7 +11,7 @@ sky_add_library(TARGET Aurora STATIC
         include
     LINK_LIBS
         Core
-        RHI
+        Aurora.RHI
         ShaderCompiler.Static
     INSTALL_DIR
         include

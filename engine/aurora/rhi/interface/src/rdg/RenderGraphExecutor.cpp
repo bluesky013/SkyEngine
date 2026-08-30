@@ -6,9 +6,13 @@
 
 namespace sky::aurora {
 
-    void RenderGraphExecutor::Executor()
+    void RenderGraphExecutor::Execute()
     {
-        // update transient resources
+        // setup frame graph
+
+        // prepare render item
+
+        // update resources
 
         // begin viewport
 

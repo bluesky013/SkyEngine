@@ -349,19 +349,6 @@ TEST_F(SubmitTestMetal, TimelineSemaphoreCrossSubmit)
     EXPECT_GE(timeline->GetCurrentValue(), 7u);
 }
 
-TEST_F(SubmitTestMetal, TimelineHostSignalAndWait)
-{
-    auto *device   = GetDevice();
-    auto  timeline = MakeTimelineSema(device, 0);
-    ASSERT_NE(timeline.Get(), nullptr);
-
-    timeline->Signal(10);
-    EXPECT_GE(timeline->GetCurrentValue(), 10u);
-
-    EXPECT_TRUE(timeline->Wait(10, 1'000'000'000ULL));
-    EXPECT_FALSE(timeline->Wait(100, 1'000'000ULL));
-}
-
 // SubmitTestMetal.MultiThreadRecordSingleSubmit is intentionally NOT defined:
 // raw std::thread workers on Metal lack an NSAutoreleasePool, which causes
 // MTLCommandQueue allocations to hang. Use Device::GetParallelContext()

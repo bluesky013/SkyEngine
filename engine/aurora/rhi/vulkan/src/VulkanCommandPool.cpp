@@ -171,7 +171,10 @@ namespace sky::aurora {
 
     void VulkanCommandPool::Reset()
     {
-        device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
+        if (pool != VK_NULL_HANDLE)
+        {
+            device.GetDeviceFn().vkResetCommandPool(device.GetNativeHandle(), pool, 0);
+        }
     }
 
     CommandBuffer *VulkanCommandPool::Allocate()

@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
 #include <core/async/ThreadPool.h>
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/Fence.h>
@@ -23,7 +21,15 @@
 #include <aurora/rhi/Shader.h>
 #include <aurora/rhi/PipelineState.h>
 
+#include <cstdint>
+#include <string>
+#include <memory>
+#include <vector>
+
 namespace sky::aurora {
+
+    class DeviceFrameContext;
+    struct DeviceFrameContextInitInfo;
 
     struct DeviceInit {
         uint32_t parallelContextNum = 1;
@@ -68,6 +74,8 @@ namespace sky::aurora {
         virtual ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) = 0;
 
         virtual PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const = 0;
+
+        virtual DeviceFrameContext* CreateFrameContext(const DeviceFrameContextInitInfo& info) = 0;
 
         // queue
         virtual Queue* GetQueue(QueueType type) = 0;
