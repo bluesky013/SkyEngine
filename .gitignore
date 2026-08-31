@@ -23,3 +23,13 @@
 # generated PDF documentation
 /docs/pdf/
 .DS_Store
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Windows NUL device redirect artifact
+/nul
+
+# user-local third-party build GUI config
+/third_party_build.ini

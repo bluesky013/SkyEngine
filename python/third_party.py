@@ -151,6 +151,28 @@ def get_log_dir():
     Path(log_dir).mkdir(parents=True, exist_ok=True)
     return log_dir
 
+def run_stream(cmd, log_file=None):
+    """Run a command, streaming merged stdout/stderr to the console and optionally a log file."""
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+        bufsize=1,
+    )
+    if process.stdout is not None:
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            if log_file:
+                log_file.write(line)
+                log_file.flush()
+    process.wait()
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, cmd)
+
 def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, str] | None = None, cache: str | None = None,
               components: list[str] | None = None, log_name: str | None = None):
     # 确保构建目录存在
@@ -175,9 +197,9 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
     try:
         # 执行CMake配置
         print(f"  [configure] {source_dir}")
-        process = subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if log_file:
-            log_file.write(f"=== configure ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
+            log_file.write(f"=== configure ===\n")
+        run_stream(cmake_cmd, log_file)
 
         # 执行 Build
         build_cmd = ["cmake", "--build", build_dir, "--config", build_type]
@@ -186,9 +208,9 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
         else:
             build_cmd.append("--parallel")
         print(f"  [build] {build_type}")
-        process = subprocess.run(build_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if log_file:
-            log_file.write(f"=== build ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
+            log_file.write(f"=== build ===\n")
+        run_stream(build_cmd, log_file)
 
         # 执行 Install
         install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
@@ -198,16 +220,15 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
                 install_cmd.extend(["--component", component])
 
         print(f"  [install] {build_type}")
-        process = subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if log_file:
-            log_file.write(f"=== install ===\n{process.stdout.decode('utf-8', errors='replace')}\n")
+            log_file.write(f"=== install ===\n")
+        run_stream(install_cmd, log_file)
 
         print(f"  [done] {build_type} 成功")
     except subprocess.CalledProcessError as e:
-        stderr_text = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
         if log_file:
-            log_file.write(f"=== ERROR ===\n{stderr_text}\n")
-        print(f"CMake执行失败:\n{stderr_text}")
+            log_file.write(f"=== ERROR ===\n")
+        print(f"CMake执行失败 (exit {e.returncode})")
         raise
     finally:
         if log_file:
@@ -302,11 +323,11 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
                 cmake_cmd.extend([f"-D{key}={value}"])
 
         print(f"  [configure] {source_dir}")
-        subprocess.run(cmake_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        run_stream(cmake_cmd)
 
         install_cmd = ["cmake", "--install", build_dir, "--config", build_type]
         print(f"  [install] {build_type}")
-        subprocess.run(install_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        run_stream(install_cmd)
     else:
         run_cmake(build_dir, source_dir, build_type, options, cache, components, log_name=name)
 
