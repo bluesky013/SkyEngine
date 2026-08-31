@@ -11,7 +11,7 @@ namespace sky {
 
     class RefObject {
     public:
-        RefObject() = default;
+        RefObject()          = default;
         virtual ~RefObject() = default;
 
         void AddRef() noexcept
@@ -45,7 +45,9 @@ namespace sky {
     template <typename T>
     class CounterPtr {
     public:
-        CounterPtr() : ptr(nullptr) {}
+        CounterPtr() : ptr(nullptr)
+        {
+        }
 
         CounterPtr(T *p) // NOLINT
         {
@@ -65,7 +67,7 @@ namespace sky {
         }
 
         template <typename U>
-        CounterPtr(const CounterPtr<U> &p) : CounterPtr(static_cast<T*>(p.Get())) // NOLINT
+        CounterPtr(const CounterPtr<U> &p) : CounterPtr(static_cast<T *>(p.Get())) // NOLINT
         {
         }
 
@@ -79,7 +81,7 @@ namespace sky {
         CounterPtr<T> &operator=(U *p)
         {
             static_assert(std::is_base_of_v<T, U>);
-            Reset(static_cast<T*>(p));
+            Reset(static_cast<T *>(p));
             return *this;
         }
 
@@ -87,7 +89,7 @@ namespace sky {
         CounterPtr<T> &operator=(const CounterPtr<U> &p)
         {
             static_assert(std::is_base_of_v<T, U>);
-            Reset(static_cast<T*>(p.Get()));
+            Reset(static_cast<T *>(p.Get()));
             return *this;
         }
 
@@ -98,11 +100,11 @@ namespace sky {
             if (ptr != nullptr) {
                 ptr->RemoveRef();
             }
-            ptr = static_cast<T*>(p.Release());
+            ptr = static_cast<T *>(p.Release());
             return *this;
         }
 
-        virtual ~CounterPtr()
+        ~CounterPtr()
         {
             if (ptr != nullptr) {
                 ptr->RemoveRef();
@@ -120,17 +122,29 @@ namespace sky {
             }
         }
 
-        T* Release()
+        T *Release()
         {
-            T* ret = ptr;
-            ptr = nullptr;
+            T *ret = ptr;
+            ptr    = nullptr;
             return ret;
         }
 
-        T *Get() const { return ptr; }
-        T &operator*() const { return *ptr; }
-        T *operator->() const { return ptr; }
-        explicit operator bool() const { return ptr != nullptr; }
+        T *Get() const
+        {
+            return ptr;
+        }
+        T &operator*() const
+        {
+            return *ptr;
+        }
+        T *operator->() const
+        {
+            return ptr;
+        }
+        explicit operator bool() const
+        {
+            return ptr != nullptr;
+        }
 
     protected:
         template <typename U>
@@ -139,34 +153,34 @@ namespace sky {
         T *ptr = nullptr;
     };
 
-    template< class T >
-    bool operator==(const CounterPtr<T>& p, std::nullptr_t) noexcept
+    template <class T>
+    bool operator==(const CounterPtr<T> &p, std::nullptr_t) noexcept
     {
         return p.Get() == nullptr;
     }
 
-    template< class T >
-    bool operator!=(const CounterPtr<T>& p, std::nullptr_t) noexcept
+    template <class T>
+    bool operator!=(const CounterPtr<T> &p, std::nullptr_t) noexcept
     {
         return p.Get() != nullptr;
     }
 
-    template< class T >
-    bool operator==(std::nullptr_t, const CounterPtr<T>& p) noexcept
+    template <class T>
+    bool operator==(std::nullptr_t, const CounterPtr<T> &p) noexcept
     {
         return p.Get() == nullptr;
     }
 
-    template< class T >
-    bool operator!=(std::nullptr_t, const CounterPtr<T>& p) noexcept
+    template <class T>
+    bool operator!=(std::nullptr_t, const CounterPtr<T> &p) noexcept
     {
         return p.Get() != nullptr;
     }
 
     template <class Ty1, class Ty2>
-    CounterPtr<Ty1> CastPtr(const CounterPtr<Ty2>& ptr) noexcept
+    CounterPtr<Ty1> CastPtr(const CounterPtr<Ty2> &ptr) noexcept
     {
-        const auto res = static_cast<Ty1*>(ptr.Get());
+        const auto res = static_cast<Ty1 *>(ptr.Get());
         return CounterPtr<Ty1>(res);
     }
 } // namespace sky

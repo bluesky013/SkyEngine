@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <cstddef>
 #include <numeric>
 #include <vector>
 
@@ -37,9 +38,7 @@ TEST(ThreadPoolTest, DispatchSingleTask)
     ThreadPool pool(2);
 
     std::atomic_int value{0};
-    auto future = pool.Dispatch([&value](ThreadContext &) {
-        value.store(42, std::memory_order_relaxed);
-    });
+    auto            future = pool.Dispatch([&value](ThreadContext &) { value.store(42, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(value.load(), 42);
@@ -47,16 +46,14 @@ TEST(ThreadPoolTest, DispatchSingleTask)
 
 TEST(ThreadPoolTest, DispatchMultipleTasks)
 {
-    ThreadPool pool(4);
-    constexpr int N = 1000;
-    std::atomic_int counter{0};
+    ThreadPool                     pool(4);
+    constexpr int                  N = 1000;
+    std::atomic_int                counter{0};
     std::vector<std::future<void>> futures;
     futures.reserve(N);
 
     for (int i = 0; i < N; ++i) {
-        futures.emplace_back(pool.Dispatch([&counter](ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        }));
+        futures.emplace_back(pool.Dispatch([&counter](ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); }));
     }
 
     for (auto &f : futures) {
@@ -70,7 +67,7 @@ TEST(ThreadPoolTest, DispatchMultipleTasks)
 
 TEST(ThreadPoolTest, ContextAttachDetach)
 {
-    std::vector<CounterContext*> ctxPtrs;
+    std::vector<CounterContext *> ctxPtrs;
     {
         ThreadPool pool(3, [&ctxPtrs](uint32_t) {
             auto *ctx = new CounterContext();
@@ -79,11 +76,10 @@ TEST(ThreadPoolTest, ContextAttachDetach)
         });
 
         // ensure all workers have started and called OnAttach
-        pool.Parallel(pool.GetThreadCount(),
-            [](uint32_t, uint32_t, ThreadContext &) {}).wait();
+        pool.Parallel(pool.GetThreadCount(), [](uint32_t, uint32_t, ThreadContext &) {}).wait();
 
         for (uint32_t i = 0; i < pool.GetThreadCount(); ++i) {
-            const auto *ctx = static_cast<CounterContext*>(pool.GetContext(i));
+            const auto *ctx = static_cast<CounterContext *>(pool.GetContext(i));
             ASSERT_NE(ctx, nullptr);
             ASSERT_TRUE(ctx->attached);
         }
@@ -100,8 +96,8 @@ TEST(ThreadPoolTest, ContextReceivedInTask)
     });
 
     std::atomic_bool received{false};
-    auto future = pool.Dispatch([&received](ThreadContext &ctx) {
-        auto &cc = static_cast<CounterContext&>(ctx);
+    auto             future = pool.Dispatch([&received](ThreadContext &ctx) {
+        auto &cc = static_cast<CounterContext &>(ctx);
         if (cc.attached) {
             received.store(true, std::memory_order_relaxed);
         }
@@ -118,13 +114,10 @@ TEST(ThreadPoolTest, ParallelBasic)
     constexpr uint32_t THREADS = 4;
     constexpr uint32_t TASKS   = 20;
 
-    ThreadPool pool(THREADS);
+    ThreadPool      pool(THREADS);
     std::atomic_int counter{0};
 
-    auto future = pool.Parallel(TASKS,
-        [&counter](uint32_t, uint32_t, ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(TASKS, [&counter](uint32_t, uint32_t, ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(counter.load(), static_cast<int>(TASKS));
@@ -136,22 +129,21 @@ TEST(ThreadPoolTest, ParallelSumWithLoadBalancing)
     constexpr uint32_t TASKS      = THREADS * 4;
     constexpr uint32_t TOTAL_WORK = 10000;
 
-    ThreadPool pool(THREADS);
+    ThreadPool       pool(THREADS);
     std::vector<int> data(TOTAL_WORK);
     std::iota(data.begin(), data.end(), 1);
 
     std::atomic<int64_t> totalSum{0};
 
-    auto future = pool.Parallel(TASKS,
-        [&data, &totalSum, TOTAL_WORK](uint32_t taskIndex, uint32_t taskCount, ThreadContext &) {
-            const uint32_t begin = TOTAL_WORK * taskIndex / taskCount;
-            const uint32_t end   = TOTAL_WORK * (taskIndex + 1) / taskCount;
-            int64_t local = 0;
-            for (uint32_t i = begin; i < end; ++i) {
-                local += data[i];
-            }
-            totalSum.fetch_add(local, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(TASKS, [&data, &totalSum, TOTAL_WORK](uint32_t taskIndex, uint32_t taskCount, ThreadContext &) {
+        const uint32_t begin = TOTAL_WORK * taskIndex / taskCount;
+        const uint32_t end   = TOTAL_WORK * (taskIndex + 1) / taskCount;
+        int64_t        local = 0;
+        for (uint32_t i = begin; i < end; ++i) {
+            local += data[i];
+        }
+        totalSum.fetch_add(local, std::memory_order_relaxed);
+    });
     future.wait();
 
     const int64_t expected = static_cast<int64_t>(TOTAL_WORK) * (TOTAL_WORK + 1) / 2;
@@ -164,17 +156,14 @@ TEST(ThreadPoolTest, WorkStealingEffectiveness)
 {
     constexpr uint32_t THREADS = 4;
     // push all tasks to thread 0's local queue
-    constexpr uint32_t TASKS   = 32;
+    constexpr uint32_t TASKS = 32;
 
-    ThreadPool pool(THREADS);
+    ThreadPool      pool(THREADS);
     std::atomic_int counter{0};
 
     // use Parallel with taskCount == TASKS; round-robin will spread them
     // but the real test: threads that finish early steal from siblings
-    auto future = pool.Parallel(TASKS,
-        [&counter](uint32_t, uint32_t, ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(TASKS, [&counter](uint32_t, uint32_t, ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(counter.load(), static_cast<int>(TASKS));
@@ -184,13 +173,11 @@ TEST(ThreadPoolTest, WorkStealingEffectiveness)
 
 TEST(ThreadPoolTest, WaitIdleDrainsAllTasks)
 {
-    ThreadPool pool(4);
+    ThreadPool      pool(4);
     std::atomic_int counter{0};
 
     for (int i = 0; i < 500; ++i) {
-        pool.Dispatch([&counter](ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+        pool.Dispatch([&counter](ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     }
 
     pool.WaitIdle();
@@ -201,13 +188,10 @@ TEST(ThreadPoolTest, WaitIdleDrainsAllTasks)
 
 TEST(ThreadPoolTest, SingleThread)
 {
-    ThreadPool pool(1);
+    ThreadPool      pool(1);
     std::atomic_int counter{0};
 
-    auto future = pool.Parallel(8,
-        [&counter](uint32_t, uint32_t, ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(8, [&counter](uint32_t, uint32_t, ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(counter.load(), 8);
@@ -216,13 +200,10 @@ TEST(ThreadPoolTest, SingleThread)
 TEST(ThreadPoolTest, ParallelTaskCountEqualsThreadCount)
 {
     constexpr uint32_t N = 4;
-    ThreadPool pool(N);
-    std::atomic_int counter{0};
+    ThreadPool         pool(N);
+    std::atomic_int    counter{0};
 
-    auto future = pool.Parallel(N,
-        [&counter](uint32_t, uint32_t, ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(N, [&counter](uint32_t, uint32_t, ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(counter.load(), static_cast<int>(N));
@@ -230,13 +211,10 @@ TEST(ThreadPoolTest, ParallelTaskCountEqualsThreadCount)
 
 TEST(ThreadPoolTest, ParallelTaskCountLessThanThreadCount)
 {
-    ThreadPool pool(8);
+    ThreadPool      pool(8);
     std::atomic_int counter{0};
 
-    auto future = pool.Parallel(3,
-        [&counter](uint32_t, uint32_t, ThreadContext &) {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto future = pool.Parallel(3, [&counter](uint32_t, uint32_t, ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
     future.wait();
 
     ASSERT_EQ(counter.load(), 3);
@@ -244,27 +222,21 @@ TEST(ThreadPoolTest, ParallelTaskCountLessThanThreadCount)
 
 TEST(ThreadPoolTest, MixedDispatchAndParallel)
 {
-    ThreadPool pool(4);
+    ThreadPool      pool(4);
     std::atomic_int dispatchCount{0};
     std::atomic_int parallelCount{0};
 
     std::vector<std::future<void>> futures;
 
     for (int i = 0; i < 100; ++i) {
-        futures.emplace_back(pool.Dispatch([&dispatchCount](ThreadContext &) {
-            dispatchCount.fetch_add(1, std::memory_order_relaxed);
-        }));
+        futures.emplace_back(pool.Dispatch([&dispatchCount](ThreadContext &) { dispatchCount.fetch_add(1, std::memory_order_relaxed); }));
     }
 
-    auto pFuture = pool.Parallel(16,
-        [&parallelCount](uint32_t, uint32_t, ThreadContext &) {
-            parallelCount.fetch_add(1, std::memory_order_relaxed);
-        });
+    auto pFuture =
+        pool.Parallel(16, [&parallelCount](uint32_t, uint32_t, ThreadContext &) { parallelCount.fetch_add(1, std::memory_order_relaxed); });
 
     for (int i = 0; i < 100; ++i) {
-        futures.emplace_back(pool.Dispatch([&dispatchCount](ThreadContext &) {
-            dispatchCount.fetch_add(1, std::memory_order_relaxed);
-        }));
+        futures.emplace_back(pool.Dispatch([&dispatchCount](ThreadContext &) { dispatchCount.fetch_add(1, std::memory_order_relaxed); }));
     }
 
     pFuture.wait();
@@ -279,9 +251,9 @@ TEST(ThreadPoolTest, MixedDispatchAndParallel)
 TEST(ThreadPoolTest, TaskNodeLinearChain)
 {
     // A -> B -> C, must execute in order
-    ThreadPool pool(4);
+    ThreadPool       pool(4);
     std::vector<int> order;
-    std::mutex orderMutex;
+    std::mutex       orderMutex;
 
     auto pushOrder = [&](int v) {
         std::lock_guard<std::mutex> lock(orderMutex);
@@ -314,14 +286,12 @@ TEST(ThreadPoolTest, TaskNodeDiamondDependency)
     //   B   C
     //    \ /
     //     D
-    ThreadPool pool(4);
+    ThreadPool      pool(4);
     std::atomic_int aCount{0};
     std::atomic_int bcCount{0};
     std::atomic_int dCount{0};
 
-    auto a = pool.CreateTask([&](ThreadContext &) {
-        aCount.store(1, std::memory_order_relaxed);
-    });
+    auto a = pool.CreateTask([&](ThreadContext &) { aCount.store(1, std::memory_order_relaxed); });
     auto b = pool.CreateTask([&](ThreadContext &) {
         ASSERT_EQ(aCount.load(std::memory_order_relaxed), 1);
         bcCount.fetch_add(1, std::memory_order_relaxed);
@@ -353,14 +323,12 @@ TEST(ThreadPoolTest, TaskNodeDiamondDependency)
 TEST(ThreadPoolTest, TaskNodeMultipleRoots)
 {
     // A and B are independent roots, C depends on both
-    ThreadPool pool(4);
+    ThreadPool      pool(4);
     std::atomic_int sum{0};
 
     auto a = pool.CreateTask([&](ThreadContext &) { sum.fetch_add(10, std::memory_order_relaxed); });
     auto b = pool.CreateTask([&](ThreadContext &) { sum.fetch_add(20, std::memory_order_relaxed); });
-    auto c = pool.CreateTask([&](ThreadContext &) {
-        ASSERT_EQ(sum.load(std::memory_order_relaxed), 30);
-    });
+    auto c = pool.CreateTask([&](ThreadContext &) { ASSERT_EQ(sum.load(std::memory_order_relaxed), 30); });
 
     c->DependsOn(a);
     c->DependsOn(b);
@@ -376,15 +344,86 @@ TEST(ThreadPoolTest, TaskNodeMultipleRoots)
 TEST(ThreadPoolTest, TaskNodeSingleNoDepSubmit)
 {
     // single task with no dependencies runs immediately
-    ThreadPool pool(2);
+    ThreadPool      pool(2);
     std::atomic_int value{0};
 
-    auto t = pool.CreateTask([&](ThreadContext &) {
-        value.store(99, std::memory_order_relaxed);
-    });
+    auto t = pool.CreateTask([&](ThreadContext &) { value.store(99, std::memory_order_relaxed); });
 
     pool.Submit(t);
     t->GetFuture().wait();
 
     ASSERT_EQ(value.load(), 99);
+}
+
+TEST(ThreadPoolTest, TaskNodeContiguousAllocation)
+{
+    // consecutive nodes carved from a fresh slab are adjacent in memory
+    ThreadPool pool(2);
+
+    TaskNode *a = nullptr;
+    TaskNode *b = nullptr;
+    {
+        auto ta = pool.CreateTask([](ThreadContext &) {});
+        auto tb = pool.CreateTask([](ThreadContext &) {});
+        a       = ta.Get();
+        b       = tb.Get();
+    }
+
+    const auto aBytes = reinterpret_cast<const uint8_t *>(a);
+    const auto bBytes = reinterpret_cast<const uint8_t *>(b);
+    ASSERT_EQ(bBytes - aBytes, static_cast<std::ptrdiff_t>(sizeof(TaskNode)));
+}
+
+TEST(ThreadPoolTest, TaskNodePoolReuse)
+{
+    // a released node is recycled by the pool instead of leaking
+    ThreadPool pool(2);
+
+    TaskNode *first = nullptr;
+    {
+        auto t = pool.CreateTask([](ThreadContext &) {});
+        first  = t.Get();
+        pool.Submit(t);
+    }
+    pool.WaitIdle();
+
+    TaskNode *second = nullptr;
+    {
+        auto t = pool.CreateTask([](ThreadContext &) {});
+        second = t.Get();
+        pool.Submit(t);
+    }
+    pool.WaitIdle();
+
+    ASSERT_EQ(first, second);
+}
+
+TEST(ThreadPoolTest, TaskNodeLazyFutureAfterComplete)
+{
+    // GetFuture after completion returns a ready future without blocking
+    ThreadPool      pool(2);
+    std::atomic_int value{0};
+
+    auto t = pool.CreateTask([&](ThreadContext &) { value.store(7, std::memory_order_relaxed); });
+
+    pool.Submit(t);
+    pool.WaitIdle();
+
+    ASSERT_EQ(value.load(), 7);
+    t->GetFuture().wait();
+}
+
+TEST(ThreadPoolTest, TaskNodeNoFutureCompletes)
+{
+    // nodes that never request a future still complete correctly
+    ThreadPool      pool(2);
+    std::atomic_int counter{0};
+
+    for (int i = 0; i < 100; ++i) {
+        auto t = pool.CreateTask([&](ThreadContext &) { counter.fetch_add(1, std::memory_order_relaxed); });
+        pool.Submit(t);
+    }
+    pool.WaitIdle();
+
+    ASSERT_EQ(counter.load(), 100);
 }
