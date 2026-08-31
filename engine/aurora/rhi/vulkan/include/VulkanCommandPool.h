@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <aurora/rhi/CommandBuffer.h>
 #include <VulkanFunctions.h>
-#include <vector>
+#include <aurora/rhi/CommandBuffer.h>
 #include <memory>
+#include <vector>
 
 namespace sky::aurora {
 
@@ -23,10 +23,13 @@ namespace sky::aurora {
         void PipelineBarrier(const BarrierInfo &info) override;
 
         std::unique_ptr<GraphicsEncoder> CreateGraphicsEncoder() override;
-        std::unique_ptr<ComputeEncoder> CreateComputeEncoder() override;
-        std::unique_ptr<BlitEncoder> CreateBlitEncoder() override;
+        std::unique_ptr<ComputeEncoder>  CreateComputeEncoder() override;
+        std::unique_ptr<BlitEncoder>     CreateBlitEncoder() override;
 
-        VkCommandBuffer GetNativeHandle() const { return cmdBuffer; }
+        VkCommandBuffer GetNativeHandle() const
+        {
+            return cmdBuffer;
+        }
 
     private:
         VulkanDevice   &device;
@@ -36,22 +39,25 @@ namespace sky::aurora {
 
     class VulkanCommandPool : public CommandPool {
     public:
-        VulkanCommandPool(VulkanDevice &device, uint32_t queueFamilyIndex);
+        VulkanCommandPool(VulkanDevice &device, uint32_t queueFamilyIndex, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
         ~VulkanCommandPool() override;
 
-        bool Init() override;
-        void Reset() override;
+        bool           Init() override;
+        void           Reset() override;
         CommandBuffer *Allocate() override;
 
-        VkCommandPool GetNativeHandle() const { return pool; }
+        VkCommandPool GetNativeHandle() const
+        {
+            return pool;
+        }
 
     private:
-        VulkanDevice &device;
-        uint32_t      queueFamilyIndex;
-        VkCommandPool pool = VK_NULL_HANDLE;
+        VulkanDevice        &device;
+        uint32_t             queueFamilyIndex;
+        VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        VkCommandPool        pool  = VK_NULL_HANDLE;
 
-        std::vector<VulkanCommandBuffer*> allocatedBuffers;
+        std::vector<VulkanCommandBuffer *> allocatedBuffers;
     };
 
 } // namespace sky::aurora
-

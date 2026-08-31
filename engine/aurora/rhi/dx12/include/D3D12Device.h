@@ -4,22 +4,22 @@
 
 #pragma once
 
-#include <D3D12CommandPool.h>
 #include <D3D12Buffer.h>
+#include <D3D12CommandPool.h>
 #include <D3D12Image.h>
-#include <D3D12Sampler.h>
 #include <D3D12Queue.h>
+#include <D3D12Sampler.h>
 
 #include <aurora/rhi/Device.h>
 
+#include <D3D12MemAlloc.h>
+#include <array>
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <D3D12MemAlloc.h>
-#include <wrl/client.h>
-#include <array>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
+#include <wrl/client.h>
 
 namespace sky::aurora {
 
@@ -29,12 +29,12 @@ namespace sky::aurora {
     class D3D12Instance;
 
     struct D3D12Context : ThreadContext {
-        D3D12Context(D3D12Device& dev, QueueType queue);
+        D3D12Context(D3D12Device &dev, QueueType queue);
 
         void OnAttach(uint32_t threadIndex) override;
         void OnDetach() override;
 
-        D3D12Device& device;
+        D3D12Device                      &device;
         std::unique_ptr<D3D12CommandPool> pool;
     };
 
@@ -43,50 +43,78 @@ namespace sky::aurora {
         explicit D3D12Device(D3D12Instance &inst);
         ~D3D12Device() override;
 
-        Fence *CreateFence(const Fence::Descriptor &desc) override;
+        Fence     *CreateFence(const Fence::Descriptor &desc) override;
         Semaphore *CreateSema(const Semaphore::Descriptor &desc) override;
 
-        Buffer* CreateBuffer(const Buffer::Descriptor &desc) override;
-        Image* CreateImage(const Image::Descriptor &desc) override;
-        Sampler* CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroupLayout* CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) override { return nullptr; }
-        ResourceGroup* CreateResourceGroup(const ResourceGroup::Descriptor &desc) override { return nullptr; }
-        PipelineLayout* CreatePipelineLayout(const PipelineLayout::Descriptor &desc) override { return nullptr; }
-        SwapChain* CreateSwapChain(const SwapChain::Descriptor &desc) override { return nullptr; }
+        Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
+        Image               *CreateImage(const Image::Descriptor &desc) override;
+        Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
+        ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) override
+        {
+            return nullptr;
+        }
+        ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override
+        {
+            return nullptr;
+        }
+        PipelineLayout *CreatePipelineLayout(const PipelineLayout::Descriptor &desc) override
+        {
+            return nullptr;
+        }
+        SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override
+        {
+            return nullptr;
+        }
 
-        ShaderFunction* CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
-        Shader* CreateShader(const Shader::Descriptor &desc) override;
-        GraphicsPipeline* CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override { return nullptr; }
-        ComputePipeline* CreatePipelineState(const ComputePipeline::Descriptor &desc) override { return nullptr; }
+        ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
+        Shader           *CreateShader(const Shader::Descriptor &desc) override;
+        GraphicsPipeline *CreatePipelineState(const GraphicsPipeline::Descriptor &desc) override
+        {
+            return nullptr;
+        }
+        ComputePipeline *CreatePipelineState(const ComputePipeline::Descriptor &desc) override
+        {
+            return nullptr;
+        }
 
         PixelFormatFeatureFlags GetFormatFeatureFlags(PixelFormat format) const override;
 
-        Queue* GetQueue(QueueType type) override;
-        CommandPool* CreateCommandPool(QueueType type) override;
+        DeviceFrameContext *CreateFrameContext(const DeviceFrameContextInitInfo &info) override;
 
-        ID3D12Device          *GetNativeHandle() const { return device.Get(); }
-        IDXGIAdapter1         *GetAdapter() const { return adapter.Get(); }
-        D3D12MA::Allocator    *GetAllocator() const { return allocator.Get(); }
+        Queue       *GetQueue(QueueType type) override;
+        CommandPool *CreateCommandPool(QueueType type) override;
+
+        ID3D12Device *GetNativeHandle() const
+        {
+            return device.Get();
+        }
+        IDXGIAdapter1 *GetAdapter() const
+        {
+            return adapter.Get();
+        }
+        D3D12MA::Allocator *GetAllocator() const
+        {
+            return allocator.Get();
+        }
 
     private:
-        ThreadContext* CreateAsyncContext(QueueType queue) override;
-        bool OnInit(const DeviceInit& init) override;
-        void UpdateDeviceCaps() override;
+        bool        OnInit(const DeviceInit &init) override;
+        void        UpdateDeviceCaps() override;
         std::string GetDeviceInfo() const override;
-        void WaitIdle() const override;
+        void        WaitIdle() const override;
 
-        bool CreateDevice();
-        bool CreateAllocator();
-        bool CreateCommandQueues();
+        bool                           CreateDevice();
+        bool                           CreateAllocator();
+        bool                           CreateCommandQueues();
         static D3D12_COMMAND_LIST_TYPE ToCommandListType(QueueType type);
 
         D3D12Instance &instance;
 
-        ComPtr<IDXGIAdapter1>              adapter;
-        ComPtr<ID3D12Device>               device;
-        ComPtr<D3D12MA::Allocator>         allocator;
+        ComPtr<IDXGIAdapter1>      adapter;
+        ComPtr<ID3D12Device>       device;
+        ComPtr<D3D12MA::Allocator> allocator;
 
-        std::array<std::unique_ptr<D3D12Queue>, 3> queues;       // by QueueType
+        std::array<std::unique_ptr<D3D12Queue>, 3> queues; // by QueueType
 
         DXGI_ADAPTER_DESC1 adapterDesc = {};
     };

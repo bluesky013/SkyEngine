@@ -237,11 +237,6 @@ namespace sky::aurora {
         return pipeline;
     }
 
-    ThreadContext *MetalDevice::CreateAsyncContext(QueueType queue)
-    {
-        return new MetalThreadContext();
-    }
-
     PixelFormatFeatureFlags MetalDevice::GetFormatFeatureFlags(PixelFormat format) const
     {
         const MTLPixelFormat mtlFormat = ToMetalPixelFormat(format);

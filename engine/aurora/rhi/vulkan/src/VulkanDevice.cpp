@@ -3,21 +3,22 @@
 //
 
 #include "VulkanDevice.h"
-#include "VulkanInstance.h"
 #include "VulkanCommandPool.h"
-#include "VulkanFence.h"
-#include "VulkanSemaphore.h"
 #include "VulkanConversion.h"
-#include "VulkanPipelineState.h"
-#include "VulkanSwapChain.h"
-#include "VulkanResourceGroupLayout.h"
-#include "VulkanResourceGroup.h"
+#include "VulkanFence.h"
+#include "VulkanInstance.h"
 #include "VulkanPipelineLayout.h"
+#include "VulkanPipelineState.h"
+#include "VulkanResourceGroup.h"
+#include "VulkanResourceGroupLayout.h"
+#include "VulkanSemaphore.h"
+#include "VulkanSwapChain.h"
 #include <core/logger/Logger.h>
 #include <cstring>
+#include <rdg/VulkanDeviceFrameContext.h>
 #include <vector>
 
-static const char *TAG = "AuroraVulkan";
+static const char *TAG                          = "AuroraVulkan";
 static const char *PORTABILITY_SUBSET_EXTENSION = "VK_KHR_portability_subset";
 
 namespace sky::aurora {
@@ -32,14 +33,15 @@ namespace sky::aurora {
         return false;
     }
 
-    VulkanDevice::VulkanDevice(VulkanInstance &inst)
-        : instance(inst)
+    VulkanDevice::VulkanDevice(VulkanInstance &inst) : instance(inst)
     {
     }
 
     VulkanDevice::~VulkanDevice()
     {
-        for (auto &q : queues) { q.reset(); }
+        for (auto &q : queues) {
+            q.reset();
+        }
         if (allocator != VK_NULL_HANDLE) {
             vmaDestroyAllocator(allocator);
             allocator = VK_NULL_HANDLE;
@@ -49,7 +51,7 @@ namespace sky::aurora {
         }
     }
 
-    bool VulkanDevice::OnInit(const DeviceInit& init)
+    bool VulkanDevice::OnInit(const DeviceInit &init)
     {
         (void)init;
         gpu = instance.GetActiveGpu();
@@ -76,7 +78,7 @@ namespace sky::aurora {
 
     void VulkanDevice::UpdateDeviceCaps()
     {
-        capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
+        capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
 
         LOG_I(TAG, "sampler anisotropy: %s", capability.anisotropyEnable ? "enabled" : "disabled");
@@ -134,7 +136,8 @@ namespace sky::aurora {
                 graphicsQueueFamily = i;
             }
             // prefer a dedicated compute queue (no graphics bit)
-            if ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0 && (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0 && computeQueueFamily == UINT32_MAX) {
+            if ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0 && (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0 &&
+                computeQueueFamily == UINT32_MAX) {
                 computeQueueFamily = i;
             }
             // prefer a dedicated transfer queue (no graphics or compute bit)
@@ -159,7 +162,7 @@ namespace sky::aurora {
 
         // build unique queue create infos
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        float queuePriority = 1.0f;
+        float                                queuePriority = 1.0f;
 
         auto addQueue = [&](uint32_t family) {
             for (const auto &info : queueCreateInfos) {
@@ -168,10 +171,10 @@ namespace sky::aurora {
                 }
             }
             VkDeviceQueueCreateInfo queueInfo = {};
-            queueInfo.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queueInfo.queueFamilyIndex = family;
-            queueInfo.queueCount       = 1;
-            queueInfo.pQueuePriorities = &queuePriority;
+            queueInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueInfo.queueFamilyIndex        = family;
+            queueInfo.queueCount              = 1;
+            queueInfo.pQueuePriorities        = &queuePriority;
             queueCreateInfos.push_back(queueInfo);
         };
 
@@ -204,18 +207,18 @@ namespace sky::aurora {
             return false;
         }
 
-        VkPhysicalDeviceFeatures enabledCoreFeatures = {};
-        enabledCoreFeatures.samplerAnisotropy = gpuFeatures.features.samplerAnisotropy;
+        VkPhysicalDeviceFeatures enabledCoreFeatures      = {};
+        enabledCoreFeatures.samplerAnisotropy             = gpuFeatures.features.samplerAnisotropy;
         VkPhysicalDeviceVulkan11Features enabledFeature11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
         VkPhysicalDeviceVulkan12Features enabledFeature12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
         VkPhysicalDeviceVulkan13Features enabledFeature13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
         VkPhysicalDeviceVulkan14Features enabledFeature14 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES};
-        enabledFeature12.timelineSemaphore = VK_TRUE;
-        enabledFeature13.dynamicRendering  = VK_TRUE;
-        enabledFeature13.synchronization2  = VK_TRUE;
-        enabledFeature11.pNext = &enabledFeature12;
-        enabledFeature12.pNext = &enabledFeature13;
-        enabledFeature13.pNext = &enabledFeature14;
+        enabledFeature12.timelineSemaphore                = VK_TRUE;
+        enabledFeature13.dynamicRendering                 = VK_TRUE;
+        enabledFeature13.synchronization2                 = VK_TRUE;
+        enabledFeature11.pNext                            = &enabledFeature12;
+        enabledFeature12.pNext                            = &enabledFeature13;
+        enabledFeature13.pNext                            = &enabledFeature14;
 
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -240,13 +243,12 @@ namespace sky::aurora {
         VkQueue computeQueue  = VK_NULL_HANDLE;
         VkQueue transferQueue = VK_NULL_HANDLE;
         deviceFn.vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
-        deviceFn.vkGetDeviceQueue(device, computeQueueFamily,  0, &computeQueue);
+        deviceFn.vkGetDeviceQueue(device, computeQueueFamily, 0, &computeQueue);
         deviceFn.vkGetDeviceQueue(device, transferQueueFamily, 0, &transferQueue);
 
         queues[static_cast<size_t>(QueueType::GRAPHICS)] =
             std::make_unique<VulkanQueue>(*this, QueueType::GRAPHICS, graphicsQueue, graphicsQueueFamily);
-        queues[static_cast<size_t>(QueueType::COMPUTE)] =
-            std::make_unique<VulkanQueue>(*this, QueueType::COMPUTE,  computeQueue,  computeQueueFamily);
+        queues[static_cast<size_t>(QueueType::COMPUTE)] = std::make_unique<VulkanQueue>(*this, QueueType::COMPUTE, computeQueue, computeQueueFamily);
         queues[static_cast<size_t>(QueueType::TRANSFER)] =
             std::make_unique<VulkanQueue>(*this, QueueType::TRANSFER, transferQueue, transferQueueFamily);
 
@@ -255,16 +257,16 @@ namespace sky::aurora {
 
     bool VulkanDevice::CreateAllocator()
     {
-        VmaVulkanFunctions vulkanFunctions = {};
+        VmaVulkanFunctions vulkanFunctions    = {};
         vulkanFunctions.vkGetInstanceProcAddr = instance.GetGlobalFn().vkGetInstanceProcAddr;
         vulkanFunctions.vkGetDeviceProcAddr   = instance.GetInstanceFn().vkGetDeviceProcAddr;
 
         VmaAllocatorCreateInfo allocatorCI = {};
-        allocatorCI.physicalDevice   = gpu;
-        allocatorCI.device           = device;
-        allocatorCI.instance         = instance.GetNativeHandle();
-        allocatorCI.pVulkanFunctions = &vulkanFunctions;
-        allocatorCI.vulkanApiVersion = gpuProperties.properties.apiVersion;
+        allocatorCI.physicalDevice         = gpu;
+        allocatorCI.device                 = device;
+        allocatorCI.instance               = instance.GetNativeHandle();
+        allocatorCI.pVulkanFunctions       = &vulkanFunctions;
+        allocatorCI.vulkanApiVersion       = gpuProperties.properties.apiVersion;
 
         const VkResult res = vmaCreateAllocator(&allocatorCI, &allocator);
         if (res != VK_SUCCESS) {
@@ -287,9 +289,9 @@ namespace sky::aurora {
     uint32_t VulkanDevice::GetQueueFamilyIndex(QueueType type) const
     {
         switch (type) {
-        case QueueType::COMPUTE:  return computeQueueFamily;
+        case QueueType::COMPUTE: return computeQueueFamily;
         case QueueType::TRANSFER: return transferQueueFamily;
-        default:                  return graphicsQueueFamily;
+        default: return graphicsQueueFamily;
         }
     }
 
@@ -306,6 +308,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
+    }
+
+    DeviceFrameContext *VulkanDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)
+    {
+        return new VulkanDeviceFrameContext(this, info);
     }
 
     Fence *VulkanDevice::CreateFence(const Fence::Descriptor &desc)
@@ -444,7 +451,7 @@ namespace sky::aurora {
         instance.GetInstanceFn().vkGetPhysicalDeviceFormatProperties(gpu, FromPixelFormat(format), &props);
 
         const VkFormatFeatureFlags f = props.optimalTilingFeatures;
-        PixelFormatFeatureFlags result;
+        PixelFormatFeatureFlags    result;
 
         if (f & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
             result |= PixelFormatFeatureFlagBit::COLOR;
@@ -471,15 +478,10 @@ namespace sky::aurora {
         return result;
     }
 
-    ThreadContext* VulkanDevice::CreateAsyncContext(QueueType queue)
+    VulkanContext::VulkanContext(VulkanDevice &dev, QueueType type, VkCommandBufferLevel level) : device(dev)
     {
-        return new VulkanContext(*this, queue);
-    }
-
-    VulkanContext::VulkanContext(VulkanDevice& dev, QueueType type)
-        : device(dev)
-    {
-        pool = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(type));
+        pool = std::make_unique<VulkanCommandPool>(device, device.GetQueueFamilyIndex(type), level);
+        pool->Init();
     }
 
     void VulkanContext::OnAttach(uint32_t /*threadIndex*/)

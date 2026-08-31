@@ -2,35 +2,37 @@
 // Created by blues on 2026/3/29.
 //
 
-#include <D3D12Device.h>
-#include <D3D12Instance.h>
 #include <D3D12CommandPool.h>
+#include <D3D12Conversion.h>
+#include <D3D12Device.h>
 #include <D3D12Fence.h>
+#include <D3D12Instance.h>
+#include <D3D12Queue.h>
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
-#include <D3D12Conversion.h>
-#include <D3D12Queue.h>
 #include <core/logger/Logger.h>
+#include <rdg/D3D12DeviceFrameContext.h>
 
-static const char  *TAG  = "AuroraDX12";
+static const char    *TAG  = "AuroraDX12";
 static const wchar_t *TAGW = L"AuroraDX12";
 
 namespace sky::aurora {
 
-    D3D12Device::D3D12Device(D3D12Instance &inst)
-        : instance(inst)
+    D3D12Device::D3D12Device(D3D12Instance &inst) : instance(inst)
     {
     }
 
     D3D12Device::~D3D12Device()
     {
-        for (auto &q : queues) { q.reset(); }
+        for (auto &q : queues) {
+            q.reset();
+        }
         allocator.Reset();
         device.Reset();
         adapter.Reset();
     }
 
-    bool D3D12Device::OnInit(const DeviceInit& init)
+    bool D3D12Device::OnInit(const DeviceInit &init)
     {
         (void)init;
         adapter = instance.GetAdapter(0);
@@ -58,13 +60,13 @@ namespace sky::aurora {
 
     void D3D12Device::UpdateDeviceCaps()
     {
-        capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
+        capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
     }
 
     std::string D3D12Device::GetDeviceInfo() const
     {
-        char name[256] = {};
+        char   name[256] = {};
         size_t converted = 0;
         wcstombs_s(&converted, name, sizeof(name), adapterDesc.Description, _TRUNCATE);
         return name;
@@ -107,12 +109,12 @@ namespace sky::aurora {
     bool D3D12Device::CreateAllocator()
     {
         D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
-        allocatorDesc.pDevice  = device.Get();
-        allocatorDesc.pAdapter = adapter.Get();
-        allocatorDesc.Flags    = D3D12MA::ALLOCATOR_FLAG_NONE;
+        allocatorDesc.pDevice                 = device.Get();
+        allocatorDesc.pAdapter                = adapter.Get();
+        allocatorDesc.Flags                   = D3D12MA::ALLOCATOR_FLAG_NONE;
 
         D3D12MA::Allocator *pAllocator = nullptr;
-        const HRESULT hr = D3D12MA::CreateAllocator(&allocatorDesc, &pAllocator);
+        const HRESULT       hr         = D3D12MA::CreateAllocator(&allocatorDesc, &pAllocator);
         if (FAILED(hr)) {
             LOG_E(TAG, "D3D12MA::CreateAllocator failed: 0x%08x", hr);
             return false;
@@ -133,13 +135,13 @@ namespace sky::aurora {
 
         for (size_t i = 0; i < queues.size(); ++i) {
             D3D12_COMMAND_QUEUE_DESC desc = {};
-            desc.Type     = listTypes[i];
-            desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-            desc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
-            desc.NodeMask = 0;
+            desc.Type                     = listTypes[i];
+            desc.Priority                 = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+            desc.Flags                    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+            desc.NodeMask                 = 0;
 
             ComPtr<ID3D12CommandQueue> raw;
-            HRESULT hr = device->CreateCommandQueue(&desc, IID_PPV_ARGS(&raw));
+            HRESULT                    hr = device->CreateCommandQueue(&desc, IID_PPV_ARGS(&raw));
             if (FAILED(hr)) {
                 LOG_E(TAG, "failed to create command queue %zu, HRESULT: 0x%08x", i, hr);
                 return false;
@@ -159,9 +161,9 @@ namespace sky::aurora {
     D3D12_COMMAND_LIST_TYPE D3D12Device::ToCommandListType(QueueType type)
     {
         switch (type) {
-        case QueueType::COMPUTE:  return D3D12_COMMAND_LIST_TYPE_COMPUTE;
+        case QueueType::COMPUTE: return D3D12_COMMAND_LIST_TYPE_COMPUTE;
         case QueueType::TRANSFER: return D3D12_COMMAND_LIST_TYPE_COPY;
-        default:                  return D3D12_COMMAND_LIST_TYPE_DIRECT;
+        default: return D3D12_COMMAND_LIST_TYPE_DIRECT;
         }
     }
 
@@ -173,6 +175,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
+    }
+
+    DeviceFrameContext *D3D12Device::CreateFrameContext(const DeviceFrameContextInitInfo &info)
+    {
+        return new D3D12DeviceFrameContext(this, info);
     }
 
     Fence *D3D12Device::CreateFence(const Fence::Descriptor &desc)
@@ -253,15 +260,15 @@ namespace sky::aurora {
         }
 
         D3D12_FEATURE_DATA_FORMAT_SUPPORT support = {};
-        support.Format = dxgiFormat;
+        support.Format                            = dxgiFormat;
 
         HRESULT hr = device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &support, sizeof(support));
         if (FAILED(hr)) {
             return {};
         }
 
-        const auto s1 = support.Support1;
-        const auto s2 = support.Support2;
+        const auto              s1 = support.Support1;
+        const auto              s2 = support.Support2;
         PixelFormatFeatureFlags result;
 
         if (s1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) {
@@ -289,13 +296,7 @@ namespace sky::aurora {
         return result;
     }
 
-    ThreadContext* D3D12Device::CreateAsyncContext(QueueType queue)
-    {
-        return new D3D12Context(*this, queue);
-    }
-
-    D3D12Context::D3D12Context(D3D12Device& dev, QueueType queue)
-        : device(dev)
+    D3D12Context::D3D12Context(D3D12Device &dev, QueueType queue) : device(dev)
     {
         pool = std::make_unique<D3D12CommandPool>(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
         pool->Init();
@@ -303,7 +304,6 @@ namespace sky::aurora {
 
     void D3D12Context::OnAttach(uint32_t threadIndex)
     {
-
     }
 
     void D3D12Context::OnDetach()

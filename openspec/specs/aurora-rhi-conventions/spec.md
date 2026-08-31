@@ -3,18 +3,6 @@
 ## Purpose
 TBD - created by archiving change aurora-quick-fixes. Update Purpose after archive.
 ## Requirements
-### Requirement: Device 线程池容量按 capability.maxThreads 钳制
-
-`Device::Init()` 在构造 `ThreadPool` 之前 SHALL 已经调用过 `UpdateDeviceCaps()`，使 `capability.maxThreads` 为后端实际返回值；线程池的实际容量等于 `min(hwConcurrency - 1, capability.maxThreads)`。
-
-#### Scenario: 后端报告 maxThreads = 8 在 16 核机器上
-- **WHEN** 在 16 核机器上后端 `UpdateDeviceCaps()` 设置 `capability.maxThreads = 8`，调用 `device->Init()`
-- **THEN** `device->GetParallelContext()` 返回的 ThreadPool worker 数 ≤ 8（不会被默认值 1 错误钳制）
-
-#### Scenario: 后端报告 maxThreads = 1
-- **WHEN** 后端 `UpdateDeviceCaps()` 设置 `capability.maxThreads = 1`
-- **THEN** ThreadPool worker 数 = 1
-
 ### Requirement: Sampler 默认值适合通用 3D 内容
 
 `Sampler::Descriptor` 默认值 SHALL 满足"开箱即用"的通用 3D 采样：

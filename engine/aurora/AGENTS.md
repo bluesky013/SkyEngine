@@ -37,10 +37,11 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 `Device::Init()` 顺序：
 
 1. `OnInit(devInit)` — 后端创建 native device
-2. 创建 `mainContext` 并 `OnAttach(~0u)`
-3. **`UpdateDeviceCaps()`** — 后端填 `capability.maxThreads` 等
-4. 用 `min(hwConcurrency-1, capability.maxThreads)` 钳制 thread pool 容量
-5. 构造 ThreadPool
+2. **`UpdateDeviceCaps()`** — 后端填 `capability.maxThreads` 等
+
+并行编码的 ThreadPool / ThreadContext 由 `DeviceFrameContext` 持有（见 `aurora-frame-context` change）：
+- `DeviceFrameContextInitInfo.parallelNum` 指定 worker 线程数
+- 后端 FrameContext 在 `parallelNum > 1` 时构造 ThreadPool，ThreadContext 在 FrameContext 内初始化并由 FrameContext 持有生命周期
 
 如果你新增了 capability 字段，在 `UpdateDeviceCaps()` 里写它。
 
