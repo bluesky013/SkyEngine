@@ -22,6 +22,7 @@ Aurora RHI 完成 Queue/Submit/Sync/SwapChain（aurora-queue-submit-present）+ 
   - `AddComputePass(name, setup_lambda, execute_lambda)` — 计算 pass
   - `AddCopyPass(name, setup_lambda, execute_lambda)` — 传输 pass
   - setup 阶段：`builder.Read(handle, access)` / `builder.Write(handle, access)` / `builder.ColorAttachment(slot, handle, loadOp, storeOp)` / `builder.DepthStencilAttachment(handle, ...)`
+- **Compile 并行调度**：`FrameGraphDispatcher`（`aurora-rdg-dispatcher`）—— 单线程构建、批次提交、无锁无引用计数的依赖图调度器，通过 `ThreadPool::Schedule` 并行执行 Compile 期的拓扑排序 / barrier 推导 / 生命周期分析等 CPU 密集子任务
 - **Compile**：
   - 拓扑排序 pass
   - 计算每个资源的"first-use → last-use"区间
@@ -42,6 +43,7 @@ Aurora RHI 完成 Queue/Submit/Sync/SwapChain（aurora-queue-submit-present）+ 
 ### New Capabilities
 - `aurora-rdg`: RenderGraph 构建、编译、执行、transient 资源池化、自动 barrier 推导
 - `aurora-rdg-handles`: Resource handle 抽象与生命周期分析
+- `aurora-rdg-dispatcher`: Compile 期并行依赖图调度器（单线程构建 + 批次提交 + 无锁无引用计数）
 
 ### Modified Capabilities
 （无既有 spec 修改）

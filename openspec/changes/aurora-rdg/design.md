@@ -188,6 +188,27 @@ void RenderGraph::Execute(CommandBuffer *cmdBuf) {
 
 性能优化（pipeline cache、persistent transient pool 跨帧）独立于 build 模型；池在 RenderGraph 外（属于 device-级），跨帧累计命中。
 
+### 决策 9：Compile 并行调度用 FrameGraphDispatcher
+
+Compile 期的拓扑排序、barrier 推导、生命周期分析是 CPU 密集、且子任务之间存在依赖关系的工作。用一个轻量依赖图调度器 `FrameGraphDispatcher`（`aurora-rdg-dispatcher`）把这些子任务并行化：
+
+```cpp
+FrameGraphDispatcher dispatcher;
+auto sort   = dispatcher.CreateTask([&](ThreadContext &) { /* topological sort */ });
+auto lf     = dispatcher.CreateTask([&](ThreadContext &) { /* lifecycle analysis */ });
+auto bar    = dispatcher.CreateTask([&](ThreadContext &) { /* barrier inference */ });
+dispatcher.DependsOn(lf, sort);    // 生命周期分析依赖拓扑序
+dispatcher.DependsOn(bar, sort);   // barrier 推导依赖拓扑序
+dispatcher.Submit(deviceFrameCtx->GetParallelContext()).wait();
+```
+
+`FrameGraphDispatcher` 的模型：
+- 单线程构建、批次提交、执行完整体释放 —— 无引用计数、无锁
+- 节点用 `NodeIndex`（`uint32_t`）标识，`children` 存 index（4B/边），节点连续存储
+- 经 `ThreadPool::Schedule` 走 local queue + work-stealing
+
+**Why:** RDG 的 Compile 是每帧 hot path（pass 数 < 100 但子任务互相依赖），并行化能压掉单线程开销；相对流式 `ThreadPool::TaskNode`，批次模型省去引用计数与锁的运行时开销。
+
 ## Risks / Trade-offs
 
 - **Build 开销** → 每帧 ~50 个 pass 的 compile 应在亚毫秒级；如成 hot path，再加 cache
