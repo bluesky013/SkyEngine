@@ -18,7 +18,7 @@
 
 ### Requirement: 节点 index 引用与连续存储
 
-节点以 `NodeIndex`（`uint32_t`）标识，`children` 存子节点 index 而非指针。节点对象连续存储于批次持有的容器中，`Submit` 后该容器只读、不再重分配。
+节点 SHALL 以 `NodeIndex`（`uint32_t`）标识，`children` SHALL 存子节点 index 而非指针。节点对象 SHALL 连续存储于批次持有的容器中，`Submit` 后该容器只读、不再重分配。
 
 #### Scenario: children 用 index 引用
 

@@ -14,15 +14,6 @@
 - [ ] 2.4 `aurora/rdg/RenderGraphBuilder.h`：3 个 builder 类型 (`RasterPassBuilder` / `ComputePassBuilder` / `CopyPassBuilder`)，含 Read/Write/ColorAttachment/DepthStencilAttachment/Src/Dst
 - [ ] 2.5 `aurora/rdg/RenderGraph.h`：`RenderGraph` 主类含 Build/Import/Create/AddXxxPass/Compile/Execute/MarkOfInterest
 
-## 2b. FrameGraphDispatcher（Compile 并行调度）
-
-- [ ] 2b.1 `core/async/ThreadPool` 加 public `Schedule(ThreadTask&&)`（round-robin 入队）
-- [ ] 2b.2 `aurora/rhi/interface/include/aurora/rdg/FrameGraphDispatcher.h`：单线程构建 / 批次提交 / index 引用
-- [ ] 2b.3 `aurora/rhi/interface/src/rdg/FrameGraphDispatcher.cpp`：无锁无引用计数实现
-- [ ] 2b.4 `aurora/rhi/test/FrameGraphDispatcherTest.cpp`：线性链 / diamond / 多根 / 空批次 / Clear 复用 / future
-- [ ] 2b.5 `aurora/rhi/test/FrameGraphDispatcherBenchmark.cpp`：TaskNode vs FrameGraphDispatcher 对比
-- [ ] 2b.6 spec `aurora-rdg-dispatcher`
-
 ## 3. Compile 实现
 
 - [ ] 3.1 `src/RenderGraph.cpp`：基础数据结构（Pass / Resource / UseRecord）+ AddXxxPass 实现（即时调 setup callback 收集 builder 状态）
