@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <aurora/rdg/FrameGraphDispatcher.h>
+#include <aurora/rdg/DeviceFrameDispatcher.h>
 #include <core/async/ThreadPool.h>
 
 #include <array>
@@ -12,10 +12,10 @@
 
 namespace sky::aurora::test {
 
-    TEST(FrameGraphDispatcherTest, LinearChain)
+    TEST(DeviceFrameDispatcherTest, LinearChain)
     {
         ThreadPool           pool(4);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
         std::array<std::atomic_int, 3> order{};
@@ -36,10 +36,10 @@ namespace sky::aurora::test {
         ASSERT_LT(order[1].load(), order[2].load());
     }
 
-    TEST(FrameGraphDispatcherTest, DiamondDependency)
+    TEST(DeviceFrameDispatcherTest, DiamondDependency)
     {
         ThreadPool           pool(4);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
         std::array<std::atomic_int, 4> order{};
@@ -62,10 +62,10 @@ namespace sky::aurora::test {
         ASSERT_LT(order[2].load(), order[3].load());
     }
 
-    TEST(FrameGraphDispatcherTest, MultipleRoots)
+    TEST(DeviceFrameDispatcherTest, MultipleRoots)
     {
         ThreadPool           pool(4);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int                counter{0};
         std::array<std::atomic_int, 3> order{};
@@ -83,10 +83,10 @@ namespace sky::aurora::test {
         ASSERT_LT(order[1].load(), order[2].load());
     }
 
-    TEST(FrameGraphDispatcherTest, SingleNodeNoDeps)
+    TEST(DeviceFrameDispatcherTest, SingleNodeNoDeps)
     {
         ThreadPool           pool(2);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int value{0};
 
@@ -97,19 +97,19 @@ namespace sky::aurora::test {
         ASSERT_EQ(value.load(), 99);
     }
 
-    TEST(FrameGraphDispatcherTest, EmptyBatch)
+    TEST(DeviceFrameDispatcherTest, EmptyBatch)
     {
         ThreadPool           pool(2);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         graph.Submit(pool).wait();
         ASSERT_EQ(graph.GetNodeCount(), 0u);
     }
 
-    TEST(FrameGraphDispatcherTest, ClearReuse)
+    TEST(DeviceFrameDispatcherTest, ClearReuse)
     {
         ThreadPool           pool(2);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int first{0};
         {
@@ -126,10 +126,10 @@ namespace sky::aurora::test {
         ASSERT_EQ(second.load(), 1);
     }
 
-    TEST(FrameGraphDispatcherTest, PerNodeFuture)
+    TEST(DeviceFrameDispatcherTest, PerNodeFuture)
     {
         ThreadPool           pool(2);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int value{0};
 
@@ -142,10 +142,10 @@ namespace sky::aurora::test {
         ASSERT_EQ(value.load(), 7);
     }
 
-    TEST(FrameGraphDispatcherTest, BatchFuture)
+    TEST(DeviceFrameDispatcherTest, BatchFuture)
     {
         ThreadPool           pool(2);
-        FrameGraphDispatcher graph;
+        DeviceFrameDispatcher graph;
 
         std::atomic_int counter{0};
 

@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <aurora/rdg/FrameGraphDispatcher.h>
+#include <aurora/rdg/DeviceFrameDispatcher.h>
 #include <core/async/ThreadPool.h>
 
 #include <chrono>
@@ -49,9 +49,9 @@ namespace sky::aurora::test {
             return layers * nodesPerLayer;
         }
 
-        uint32_t RunDispatcherGraph(FrameGraphDispatcher &graph, ThreadPool &pool, uint32_t layers, uint32_t nodesPerLayer)
+        uint32_t RunDispatcherGraph(DeviceFrameDispatcher &graph, ThreadPool &pool, uint32_t layers, uint32_t nodesPerLayer)
         {
-            std::vector<std::vector<FrameGraphDispatcher::NodeIndex>> ids(layers);
+            std::vector<std::vector<DeviceFrameDispatcher::NodeIndex>> ids(layers);
             for (uint32_t l = 0; l < layers; ++l) {
                 ids[l].reserve(nodesPerLayer);
                 for (uint32_t i = 0; i < nodesPerLayer; ++i) {
@@ -74,7 +74,7 @@ namespace sky::aurora::test {
 
     } // namespace
 
-    TEST(FrameGraphDispatcherBenchmark, DependencyGraphCompare)
+    TEST(DeviceFrameDispatcherBenchmark, DependencyGraphCompare)
     {
         constexpr uint32_t LAYERS = 32;
         constexpr uint32_t NODES  = 64;
@@ -94,7 +94,7 @@ namespace sky::aurora::test {
 
         {
             ThreadPool           pool(8);
-            FrameGraphDispatcher graph;
+            DeviceFrameDispatcher graph;
             auto                 t0    = Clock::now();
             uint32_t             total = 0;
             for (int it = 0; it < ITERS; ++it) {

@@ -18,17 +18,17 @@ namespace sky::aurora {
     // Nodes are built with CreateTask / DependsOn on the calling thread, then
     // submitted as a batch. During execution children are read-only and nodes
     // are released as a whole, so no reference counting or locking is needed.
-    class FrameGraphDispatcher {
+    class DeviceFrameDispatcher {
     public:
         using NodeIndex = uint32_t;
 
         static constexpr NodeIndex kInvalidNode = ~0u;
 
-        FrameGraphDispatcher() = default;
-        ~FrameGraphDispatcher();
+        DeviceFrameDispatcher() = default;
+        ~DeviceFrameDispatcher();
 
-        FrameGraphDispatcher(const FrameGraphDispatcher &)            = delete;
-        FrameGraphDispatcher &operator=(const FrameGraphDispatcher &) = delete;
+        DeviceFrameDispatcher(const DeviceFrameDispatcher &)            = delete;
+        DeviceFrameDispatcher &operator=(const DeviceFrameDispatcher &) = delete;
 
         // Build phase (single-threaded, before Submit).
         NodeIndex CreateTask(ThreadTask &&func);

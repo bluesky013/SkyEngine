@@ -2,7 +2,7 @@
 
 ### Requirement: 单线程构建 + 批次提交
 
-`FrameGraphDispatcher` SHALL 采用单线程构建、批次提交模型：`CreateTask` / `DependsOn` 仅在调用线程（构建期）执行，`Submit` 提交整批，批次内所有节点执行完毕后统一释放节点内存。
+`DeviceFrameDispatcher` SHALL 采用单线程构建、批次提交模型：`CreateTask` / `DependsOn` 仅在调用线程（构建期）执行，`Submit` 提交整批，批次内所有节点执行完毕后统一释放节点内存。
 
 调用方 MUST 在 `Submit` 前完成全部 `CreateTask` / `DependsOn`；`Submit` 之后不得再增删节点。节点内存由批次整体持有，不按单节点引用计数。
 
@@ -50,7 +50,7 @@
 
 ### Requirement: 并行执行依赖图
 
-`FrameGraphDispatcher` SHALL 通过 `ThreadPool::Schedule` 将可执行节点提交到 worker 队列（round-robin + work-stealing），多 worker 并行执行无依赖的节点；父节点完成后递减子节点父计数，归零时子节点入队。
+`DeviceFrameDispatcher` SHALL 通过 `ThreadPool::Schedule` 将可执行节点提交到 worker 队列（round-robin + work-stealing），多 worker 并行执行无依赖的节点；父节点完成后递减子节点父计数，归零时子节点入队。
 
 #### Scenario: 依赖顺序正确
 

@@ -51,12 +51,12 @@ RDG Compile 需要把有依赖关系的 CPU 子任务（拓扑排序、barrier �
 
 ## Risks / Trade-offs
 
-- **批次生命周期约束**：`Submit` 后、`future.wait` 前不得 `Clear`/析构（`~FrameGraphDispatcher` 用 `SKY_ASSERT(mRemaining == 0)` 兜底）
+- **批次生命周期约束**：`Submit` 后、`future.wait` 前不得 `Clear`/析构（`~DeviceFrameDispatcher` 用 `SKY_ASSERT(mRemaining == 0)` 兜底）
 - **per-node future 仅构建期可用**：不支持"任务完成后才取 future"，该能力由批次级 future 覆盖
 - **`GetFuture(node)` 后 `CreateTask` 触发 vector realloc**：future 已与 promise 解耦（`get_future` 独立于 promise 对象位置），realloc 不影响已取出的 future
 
 ## Migration Plan
 
 1. `core/async/ThreadPool` 加 public `Schedule`
-2. 实现 `FrameGraphDispatcher`
+2. 实现 `DeviceFrameDispatcher`
 3. 测试 + benchmark（对比 `TaskNode`）

@@ -2,18 +2,18 @@
 // Created on 2026/09/01.
 //
 
-#include <aurora/rdg/FrameGraphDispatcher.h>
+#include <aurora/rdg/DeviceFrameDispatcher.h>
 
 #include <core/platform/Platform.h>
 
 namespace sky::aurora {
 
-    FrameGraphDispatcher::~FrameGraphDispatcher()
+    DeviceFrameDispatcher::~DeviceFrameDispatcher()
     {
         SKY_ASSERT(mRemaining.load(std::memory_order_relaxed) == 0);
     }
 
-    FrameGraphDispatcher::NodeIndex FrameGraphDispatcher::CreateTask(ThreadTask &&func)
+    DeviceFrameDispatcher::NodeIndex DeviceFrameDispatcher::CreateTask(ThreadTask &&func)
     {
         NodeIndex index = static_cast<NodeIndex>(mNodes.size());
         mNodes.emplace_back();
@@ -22,14 +22,14 @@ namespace sky::aurora {
         return index;
     }
 
-    void FrameGraphDispatcher::DependsOn(NodeIndex child, NodeIndex parent)
+    void DeviceFrameDispatcher::DependsOn(NodeIndex child, NodeIndex parent)
     {
         SKY_ASSERT(child < mNodes.size() && parent < mNodes.size());
         ++mPendingBuild[child];
         mNodes[parent].children.push_back(child);
     }
 
-    std::future<void> FrameGraphDispatcher::GetFuture(NodeIndex node)
+    std::future<void> DeviceFrameDispatcher::GetFuture(NodeIndex node)
     {
         SKY_ASSERT(node < mNodes.size());
         if (mNodes[node].promise == nullptr) {
@@ -38,7 +38,7 @@ namespace sky::aurora {
         return mNodes[node].promise->get_future();
     }
 
-    std::future<void> FrameGraphDispatcher::Submit(ThreadPool &pool)
+    std::future<void> DeviceFrameDispatcher::Submit(ThreadPool &pool)
     {
         mPool = &pool;
         mRemaining.store(static_cast<uint32_t>(mNodes.size()), std::memory_order_relaxed);
@@ -74,7 +74,7 @@ namespace sky::aurora {
         return mBatchPromise->get_future();
     }
 
-    void FrameGraphDispatcher::Clear()
+    void DeviceFrameDispatcher::Clear()
     {
         SKY_ASSERT(mRemaining.load(std::memory_order_relaxed) == 0);
         mNodes.clear();
@@ -85,7 +85,7 @@ namespace sky::aurora {
         mPool = nullptr;
     }
 
-    void FrameGraphDispatcher::ExecuteNode(NodeIndex index, ThreadContext &ctx)
+    void DeviceFrameDispatcher::ExecuteNode(NodeIndex index, ThreadContext &ctx)
     {
         Node &node = mNodes[index];
         node.func(ctx);

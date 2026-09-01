@@ -6,7 +6,7 @@ RDG Compile 期的拓扑排序、barrier 推导、生命周期分析是 CPU 密�
 
 ## What Changes
 
-- 新增 `FrameGraphDispatcher`（`sky::aurora`）：单线程构建、批次提交、无锁无引用计数的依赖图调度器
+- 新增 `DeviceFrameDispatcher`（`sky::aurora`）：单线程构建、批次提交、无锁无引用计数的依赖图调度器
 - 节点用 `NodeIndex`（`uint32_t`）标识，`children` 存 index（4B/边），节点连续存储于 `std::vector`
 - `pendingParents` 构建期用普通 `std::vector<uint32_t>`（单线程累加），`Submit` 时一次性冻结成连续 `std::atomic_uint32_t` 数组供 worker 并发递减
 - `Submit` 先收集全部根节点再统一入队（避免入队扫描与执行期 `fetch_sub` 并发导致非根节点被误判为根）
@@ -17,7 +17,7 @@ RDG Compile 期的拓扑排序、barrier 推导、生命周期分析是 CPU 密�
 
 ### New Capabilities
 
-- `aurora-rdg-dispatcher`: 单线程构建 + 批次提交的并行依赖图调度器
+- `aurora-frame-dispatcher`: 单线程构建 + 批次提交的并行依赖图调度器
 
 ### Modified Capabilities
 
@@ -25,7 +25,7 @@ RDG Compile 期的拓扑排序、barrier 推导、生命周期分析是 CPU 密�
 
 ## Impact
 
-- **新文件**：`aurora/rhi/interface/include/aurora/rdg/FrameGraphDispatcher.h` / `interface/src/rdg/FrameGraphDispatcher.cpp`
-- **测试**：`aurora/rhi/test/FrameGraphDispatcherTest.cpp`（线性链 / diamond / 多根 / 空批次 / 复用 / future）+ `FrameGraphDispatcherBenchmark.cpp`（对比 `ThreadPool::TaskNode`）
+- **新文件**：`aurora/rhi/interface/include/aurora/rdg/DeviceFrameDispatcher.h` / `interface/src/rdg/DeviceFrameDispatcher.cpp`
+- **测试**：`aurora/rhi/test/DeviceFrameDispatcherTest.cpp`（线性链 / diamond / 多根 / 空批次 / 复用 / future）+ `DeviceFrameDispatcherBenchmark.cpp`（对比 `ThreadPool::TaskNode`）
 - **依赖**：`core/async/ThreadPool` 新增 public `Schedule(ThreadTask&&)`（round-robin 入队）
 - **性能**：依赖图吞吐约比流式 `TaskNode` 高 ~28%（无引用计数、无锁、节点更小）
