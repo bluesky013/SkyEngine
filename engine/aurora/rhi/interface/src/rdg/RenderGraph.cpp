@@ -29,7 +29,7 @@ namespace sky::aurora {
         return mPool->GetStats();
     }
 
-    uint32_t RenderGraph::AddResource(const std::string &name, ResourceTag tag)
+    uint32_t RenderGraph::AddResource(const Name &name, ResourceTag tag)
     {
         const uint32_t index = static_cast<uint32_t>(mResources.size());
 
@@ -57,7 +57,7 @@ namespace sky::aurora {
         return index;
     }
 
-    uint32_t RenderGraph::AddPass(const std::string &name, PassTag tag)
+    uint32_t RenderGraph::AddPass(const Name &name, PassTag tag)
     {
         const uint32_t index = static_cast<uint32_t>(mPasses.size());
 
@@ -80,21 +80,21 @@ namespace sky::aurora {
         return index;
     }
 
-    RDGTextureHandle RenderGraph::CreateTexture(const std::string &name, const RDGTextureDesc &desc)
+    RDGTextureHandle RenderGraph::CreateTexture(const Name &name, const RDGTextureDesc &desc)
     {
         const uint32_t index = AddResource(name, TransientImageTag{});
         mImages[mResources[index].payloadIndex].desc = desc;
         return RDGTextureHandle{index};
     }
 
-    RDGBufferHandle RenderGraph::CreateBuffer(const std::string &name, const RDGBufferDesc &desc)
+    RDGBufferHandle RenderGraph::CreateBuffer(const Name &name, const RDGBufferDesc &desc)
     {
         const uint32_t index = AddResource(name, TransientBufferTag{});
         mBuffers[mResources[index].payloadIndex].desc = desc;
         return RDGBufferHandle{index};
     }
 
-    RDGTextureHandle RenderGraph::Import(const std::string &name, Image *image, AccessFlags importAccess)
+    RDGTextureHandle RenderGraph::Import(const Name &name, const ImagePtr &image, AccessFlags importAccess)
     {
         const uint32_t index = AddResource(name, ImportImageTag{});
         auto &import          = mImportImages[mResources[index].payloadIndex];
@@ -103,7 +103,7 @@ namespace sky::aurora {
         return RDGTextureHandle{index};
     }
 
-    RDGBufferHandle RenderGraph::Import(const std::string &name, Buffer *buffer, AccessFlags importAccess)
+    RDGBufferHandle RenderGraph::Import(const Name &name, const BufferPtr &buffer, AccessFlags importAccess)
     {
         const uint32_t index = AddResource(name, ImportBufferTag{});
         auto &import          = mImportBuffers[mResources[index].payloadIndex];
@@ -112,7 +112,7 @@ namespace sky::aurora {
         return RDGBufferHandle{index};
     }
 
-    void RenderGraph::AddRasterPass(const std::string &name,
+    void RenderGraph::AddRasterPass(const Name &name,
                                     const std::function<void(RasterPassBuilder &)> &setup,
                                     std::function<void(GraphicsEncoder &, RDGContext &)> execute)
     {
@@ -125,7 +125,7 @@ namespace sky::aurora {
         }
     }
 
-    void RenderGraph::AddComputePass(const std::string &name,
+    void RenderGraph::AddComputePass(const Name &name,
                                      const std::function<void(ComputePassBuilder &)> &setup,
                                      std::function<void(ComputeEncoder &, RDGContext &)> execute)
     {
@@ -138,7 +138,7 @@ namespace sky::aurora {
         }
     }
 
-    void RenderGraph::AddCopyPass(const std::string &name,
+    void RenderGraph::AddCopyPass(const Name &name,
                                   const std::function<void(CopyPassBuilder &)> &setup,
                                   std::function<void(BlitEncoder &, RDGContext &)> execute)
     {

@@ -202,9 +202,9 @@ namespace sky::aurora {
         for (uint32_t i = 0; i < mResources.size(); ++i) {
             const auto &node = mResources[i];
             if (std::holds_alternative<ImportImageTag>(node.tag)) {
-                mResolvedImages[i] = mImportImages[node.payloadIndex].image;
+                mResolvedImages[i] = mImportImages[node.payloadIndex].image.Get();
             } else if (std::holds_alternative<ImportBufferTag>(node.tag)) {
-                mResolvedBuffers[i] = mImportBuffers[node.payloadIndex].buffer;
+                mResolvedBuffers[i] = mImportBuffers[node.payloadIndex].buffer.Get();
             }
         }
 

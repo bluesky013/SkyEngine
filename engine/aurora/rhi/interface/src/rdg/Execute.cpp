@@ -29,7 +29,7 @@ namespace sky::aurora {
                 continue;
             }
 
-            ctx.SetPassName(pass.name.c_str());
+            ctx.SetPassName(pass.name);
 
             for (const BarrierInfo &barrier : pass.frontBarriers) {
                 cmdBuf->PipelineBarrier(barrier);

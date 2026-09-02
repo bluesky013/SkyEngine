@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <core/name/Name.h>
+
 #include <aurora/rdg/RDGHandles.h>
 #include <aurora/rdg/RDGTypes.h>
 #include <aurora/rhi/Core.h>
@@ -11,7 +13,6 @@
 #include <aurora/rhi/Buffer.h>
 
 #include <functional>
-#include <string>
 #include <variant>
 #include <vector>
 
@@ -45,9 +46,9 @@ namespace sky::aurora {
     };
 
     struct GraphImportImage {
-        Image       *image        = nullptr;
-        AccessFlags  importAccess = AccessFlagBit::NONE;
-        ImageLayout  importLayout = ImageLayout::UNDEFINED;
+        ImagePtr      image        = nullptr;
+        AccessFlags   importAccess = AccessFlagBit::NONE;
+        ImageLayout   importLayout = ImageLayout::UNDEFINED;
     };
 
     struct GraphBuffer {
@@ -55,8 +56,8 @@ namespace sky::aurora {
     };
 
     struct GraphImportBuffer {
-        Buffer      *buffer       = nullptr;
-        AccessFlags  importAccess = AccessFlagBit::NONE;
+        BufferPtr     buffer       = nullptr;
+        AccessFlags   importAccess = AccessFlagBit::NONE;
     };
 
     // ---- resource tags (variant dispatch) ----
@@ -67,7 +68,7 @@ namespace sky::aurora {
     using ResourceTag = std::variant<TransientImageTag, ImportImageTag, TransientBufferTag, ImportBufferTag>;
 
     struct ResourceNode {
-        std::string name;
+        Name        name;
         ResourceTag tag;
         uint32_t    payloadIndex  = INVALID_INDEX;
         LifeTime    lifeTime;
@@ -113,7 +114,7 @@ namespace sky::aurora {
     using PassTag = std::variant<RasterPassTag, ComputePassTag, CopyPassTag>;
 
     struct PassNode {
-        std::string name;
+        Name         name;
         PassTag      tag;
         uint32_t     payloadIndex = INVALID_INDEX;
         std::vector<uint32_t> readResources;

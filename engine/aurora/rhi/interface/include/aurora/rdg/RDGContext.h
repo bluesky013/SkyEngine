@@ -4,8 +4,11 @@
 
 #pragma once
 
+#include <core/name/Name.h>
+
 #include <aurora/rdg/RDGHandles.h>
 
+#include <string_view>
 #include <vector>
 
 namespace sky::aurora {
@@ -35,18 +38,18 @@ namespace sky::aurora {
             return (*mBufferTable)[handle.id];
         }
 
-        const char     *GetPassName() const { return mPassName; }
-        CommandBuffer  *GetCommandBuffer() const { return mCommandBuffer; }
+        std::string_view GetPassName() const { return mPassName.GetStr(); }
+        CommandBuffer   *GetCommandBuffer() const { return mCommandBuffer; }
 
         // internal wiring
         void SetCommandBuffer(CommandBuffer *cmdBuf) { mCommandBuffer = cmdBuf; }
-        void SetPassName(const char *name) { mPassName = name; }
+        void SetPassName(const Name &name) { mPassName = name; }
         void SetImageTable(const std::vector<Image *> *table) { mImageTable = table; }
         void SetBufferTable(const std::vector<Buffer *> *table) { mBufferTable = table; }
 
     private:
         CommandBuffer              *mCommandBuffer = nullptr;
-        const char                 *mPassName      = nullptr;
+        Name                        mPassName;
         const std::vector<Image *> *mImageTable    = nullptr;
         const std::vector<Buffer *> *mBufferTable  = nullptr;
     };

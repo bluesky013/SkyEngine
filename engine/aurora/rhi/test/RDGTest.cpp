@@ -8,6 +8,8 @@
 
 #include "AuroraTestHelper.h"
 
+#include <core/name/Name.h>
+
 #include <aurora/rdg/RDGHandles.h>
 #include <aurora/rdg/RDGTypes.h>
 #include <aurora/rdg/RenderGraph.h>
@@ -88,8 +90,8 @@ TEST_F(RDGTestVulkan, SinglePassClear)
     ASSERT_NE(image.Get(), nullptr);
 
     auto graph = RenderGraph::Build(device);
-    const auto bb = graph->Import("backbuffer", image.Get(), AccessFlagBit::NONE);
-    graph->AddRasterPass("clear",
+    const auto bb = graph->Import(Name("backbuffer"), image, AccessFlagBit::NONE);
+    graph->AddRasterPass(Name("clear"),
         [&](RasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
     graph->Compile();
@@ -116,14 +118,14 @@ TEST_F(RDGTestVulkan, PassCulling)
     auto *device = GetDevice();
     auto graph   = RenderGraph::Build(device);
 
-    const auto deadTex = graph->CreateTexture("dead", MakeColorDesc(16, 16));
-    const auto liveTex = graph->CreateTexture("live", MakeColorDesc(16, 16));
+    const auto deadTex = graph->CreateTexture(Name("dead"), MakeColorDesc(16, 16));
+    const auto liveTex = graph->CreateTexture(Name("live"), MakeColorDesc(16, 16));
 
-    graph->AddRasterPass("dead-pass",
+    graph->AddRasterPass(Name("dead-pass"),
         [&](RasterPassBuilder &b) { b.ColorAttachment(0, deadTex, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
 
-    graph->AddRasterPass("live-pass",
+    graph->AddRasterPass(Name("live-pass"),
         [&](RasterPassBuilder &b) { b.ColorAttachment(0, liveTex, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
 
@@ -143,8 +145,8 @@ TEST_F(RDGTestVulkan, TransientAliasing)
     auto graph   = RenderGraph::Build(device);
 
     for (int i = 0; i < 4; ++i) {
-        const auto tex = graph->CreateTexture("t" + std::to_string(i), MakeColorDesc(1080, 1080));
-        graph->AddRasterPass("p" + std::to_string(i),
+        const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(1080, 1080));
+        graph->AddRasterPass(Name(("p" + std::to_string(i)).c_str()),
             [&](RasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
             [](GraphicsEncoder &, RDGContext &) {});
         graph->MarkOfInterest(tex);
@@ -164,8 +166,8 @@ TEST_F(RDGTestVulkan, TransientCrossFrame)
     auto graph   = RenderGraph::Build(device);
 
     for (int i = 0; i < 4; ++i) {
-        const auto tex = graph->CreateTexture("t" + std::to_string(i), MakeColorDesc(128, 128));
-        graph->AddRasterPass("p" + std::to_string(i),
+        const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(128, 128));
+        graph->AddRasterPass(Name(("p" + std::to_string(i)).c_str()),
             [&](RasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
             [](GraphicsEncoder &, RDGContext &) {});
         graph->MarkOfInterest(tex);

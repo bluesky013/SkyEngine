@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <core/name/Name.h>
+
 #include <aurora/rdg/RDGBackend.h>
 #include <aurora/rdg/RDGContext.h>
 #include <aurora/rdg/RDGGraph.h>
@@ -26,7 +28,6 @@
 
 #include <functional>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace sky::aurora {
@@ -43,19 +44,19 @@ namespace sky::aurora {
         static std::unique_ptr<RenderGraph> Build(Device *device);
 
         // ---- resources ----
-        RDGTextureHandle CreateTexture(const std::string &name, const RDGTextureDesc &desc);
-        RDGBufferHandle  CreateBuffer(const std::string &name, const RDGBufferDesc &desc);
-        RDGTextureHandle Import(const std::string &name, Image *image, AccessFlags importAccess = AccessFlagBit::NONE);
-        RDGBufferHandle  Import(const std::string &name, Buffer *buffer, AccessFlags importAccess = AccessFlagBit::NONE);
+        RDGTextureHandle CreateTexture(const Name &name, const RDGTextureDesc &desc);
+        RDGBufferHandle  CreateBuffer(const Name &name, const RDGBufferDesc &desc);
+        RDGTextureHandle Import(const Name &name, const ImagePtr &image, AccessFlags importAccess = AccessFlagBit::NONE);
+        RDGBufferHandle  Import(const Name &name, const BufferPtr &buffer, AccessFlags importAccess = AccessFlagBit::NONE);
 
         // ---- passes ----
-        void AddRasterPass(const std::string &name,
+        void AddRasterPass(const Name &name,
                            const std::function<void(RasterPassBuilder &)> &setup,
                            std::function<void(GraphicsEncoder &, RDGContext &)> execute);
-        void AddComputePass(const std::string &name,
+        void AddComputePass(const Name &name,
                             const std::function<void(ComputePassBuilder &)> &setup,
                             std::function<void(ComputeEncoder &, RDGContext &)> execute);
-        void AddCopyPass(const std::string &name,
+        void AddCopyPass(const Name &name,
                          const std::function<void(CopyPassBuilder &)> &setup,
                          std::function<void(BlitEncoder &, RDGContext &)> execute);
 
@@ -86,8 +87,8 @@ namespace sky::aurora {
         const TransientPoolStats        &GetPoolStats() const;
 
     private:
-        uint32_t AddResource(const std::string &name, ResourceTag tag);
-        uint32_t AddPass(const std::string &name, PassTag tag);
+        uint32_t AddResource(const Name &name, ResourceTag tag);
+        uint32_t AddPass(const Name &name, PassTag tag);
         void AddDependency(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
 
         // shared (backend-agnostic) compile steps
