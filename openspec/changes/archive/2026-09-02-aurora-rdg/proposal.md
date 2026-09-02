@@ -15,18 +15,23 @@ Aurora RHI 完成 Queue/Submit/Sync/SwapChain（aurora-queue-submit-present）+ 
 - 三段式 API：**Setup**（pass 声明读写）→ **Compile**（依赖图分析、资源生命周期、barrier 推导、transient 池分配）→ **Execute**（按拓扑顺序 emit barrier + encoder + 调用 pass body）
 - **Resource handle**：`RDGBufferHandle` / `RDGTextureHandle` 是 opaque ID，pass 通过 handle 声明读写而不持有 RHI 资源
 - **Resource declaration**：
-  - `Import(rhi::Image*)` / `Import(rhi::Buffer*)`：导入外部资源（如 SwapChain image）
-  - `CreateTexture(name, desc)` / `CreateBuffer(name, desc)`：transient 资源，由 RDG 池化分配
+  - `Import(rhi::Image*)` / `Import(rhi::Buffer*)`：导入外部资源（如 SwapChain image），RDG 不分配不销毁
+  - `CreateTexture(name, desc)` / `CreateBuffer(name, desc)`：RDG 拥有；`desc.residency` 区分 Transient（默认，池化 alias）/ Persistent（跨帧，v1 仅预留字段）
 - **Pass declaration**：
   - `AddRasterPass(name, setup_lambda, execute_lambda)` — 图形 pass
   - `AddComputePass(name, setup_lambda, execute_lambda)` — 计算 pass
   - `AddCopyPass(name, setup_lambda, execute_lambda)` — 传输 pass
   - setup 阶段：`builder.Read(handle, access)` / `builder.Write(handle, access)` / `builder.ColorAttachment(slot, handle, loadOp, storeOp)` / `builder.DepthStencilAttachment(handle, ...)`
+- **内部结构（借鉴 legacy boost-graph RDG，hand-rolled 不引入 boost）**：
+  - **ResourceGraph**：资源节点（transient / import / image-view 派生），tag-variant 派发 + 平行数组，每个资源带 `LifeTime{firstUsePass, lastUsePass}`
+  - **访问链**：每个资源一条连续 `AccessRecord` 链（替代 legacy 独立 AccessGraph 的 `AccessRes` 链表），驱动生命周期 + barrier 推导
+  - **PassGraph**：pass 节点（raster / compute / copy），tag-variant 派发 + 平行数组，`PassNode.dependsOn` 邻接表
+  - 手写 Kahn 拓扑排序 + BFS 反向追溯（pass culling），不依赖 boost
 - **Compile**：
   - 拓扑排序 pass
   - 计算每个资源的"first-use → last-use"区间
   - 对 transient 资源走 alias-aware 池分配（生命周期不重叠的资源共享物理底座）
-  - 在每条 pass 边上推导 barrier（src/dst access、layout transition、stage mask）— 调用 `aurora-encoder-barriers` 提供的 `InferLayoutForAccess` 工具
+  - 在每条 pass 边上推导 barrier（src/dst access、layout transition、stage mask）— 调用 `InferLayoutForAccess`
   - Pass culling：从"导出资源"（SwapChain image / 用户标记 of-interest）反向追溯，未被引用的 pass 剔除
 - **Execute**：
   - 顺序遍历活 pass
@@ -34,7 +39,7 @@ Aurora RHI 完成 Queue/Submit/Sync/SwapChain（aurora-queue-submit-present）+ 
   - 创建对应类型 Encoder（GraphicsEncoder + BeginRendering / ComputeEncoder / BlitEncoder）
   - 调用用户 execute_lambda(encoder, ctx)
   - End encoder
-- **Transient pool**：内部小型 alias-aware allocator，按 (extent, format, usage, sampleCount) hash 取 cached image；未命中创建新；按帧 LRU 淘汰
+- **Transient pool**：分两层——对象池（v1，按完整 desc hash 复用整 Image）+ 堆池（v2 预留，memory heap 级 aliasing）；跨帧 LRU 淘汰
 - **集成**：本 change 不直接接入 `aurora/core/Renderer`（那是后续 change），但提供 `RDG::Build(device) → unique_ptr<RenderGraph>` 让外部使用
 
 ## Capabilities
@@ -49,6 +54,7 @@ Aurora RHI 完成 Queue/Submit/Sync/SwapChain（aurora-queue-submit-present）+ 
 ## Impact
 
 - **新模块**：`engine/aurora/rdg/` 独立目录（比 RHI interface 高一层），Aurora.RDG 静态库依赖 Aurora.RHI
+- **无新第三方依赖**：内部图结构 hand-rolled，不引入 boost（与 Aurora 层现状一致）
 - **代码量**：~2000 行 + 测试
 - **依赖关系**：
   - `aurora-queue-submit-present` ✅（Submit / Queue / SwapChain 是 RDG 提交的目标）

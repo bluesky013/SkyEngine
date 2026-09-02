@@ -16,6 +16,7 @@
 #include <core/logger/Logger.h>
 #include <cstring>
 #include <rdg/VulkanDeviceFrameContext.h>
+#include "rdg/VulkanRDGBackend.h"
 #include <vector>
 
 static const char *TAG                          = "AuroraVulkan";
@@ -308,6 +309,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
+    }
+
+    RDGBackend *VulkanDevice::CreateRDGBackend()
+    {
+        return new VulkanRDGBackend();
     }
 
     DeviceFrameContext *VulkanDevice::CreateFrameContext(const DeviceFrameContextInitInfo &info)

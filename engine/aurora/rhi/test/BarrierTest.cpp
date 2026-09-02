@@ -69,7 +69,7 @@ TEST_F(BarrierTestVulkan, ImageTransitionBeforeRendering)
     {
         // UNDEFINED → COLOR_ATTACHMENT
         BarrierInfo pre = MakeImageTransition(image.Get(),
-            AccessFlagBit::NONE, AccessFlagBit::COLOR_WRITE,
+            AccessFlagBit::NONE, AccessFlagBit::RTV,
             PipelineStageBit::TOP, PipelineStageBit::COLOR_OUTPUT);
         cmdBuf->PipelineBarrier(pre);
 
@@ -110,8 +110,8 @@ TEST_F(BarrierTestVulkan, MemoryBarrierBetweenComputeDispatches)
         info.srcStage = PipelineStageBit::COMPUTE_SHADER;
         info.dstStage = PipelineStageBit::COMPUTE_SHADER;
         MemoryBarrierInfo mb{};
-        mb.srcAccess = AccessFlagBit::COMPUTE_UAV_WRITE;
-        mb.dstAccess = AccessFlagBit::COMPUTE_UAV_READ;
+        mb.srcAccess = AccessFlagBit::UAV;
+        mb.dstAccess = AccessFlagBit::UAV;
         info.memoryBarriers.push_back(mb);
         cmdBuf->PipelineBarrier(info);
     }
@@ -143,7 +143,7 @@ TEST_F(BarrierTestMetal, BarrierBeforeRenderEncoderFlushesOnBegin)
     cmdBuf->Begin();
     {
         BarrierInfo pre = MakeImageTransition(image.Get(),
-            AccessFlagBit::NONE, AccessFlagBit::COLOR_WRITE,
+            AccessFlagBit::NONE, AccessFlagBit::RTV,
             PipelineStageBit::TOP, PipelineStageBit::COLOR_OUTPUT);
         cmdBuf->PipelineBarrier(pre);   // queued (no active encoder yet)
 

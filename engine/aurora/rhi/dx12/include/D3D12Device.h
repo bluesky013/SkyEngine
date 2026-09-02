@@ -83,6 +83,7 @@ namespace sky::aurora {
 
         Queue       *GetQueue(QueueType type) override;
         CommandPool *CreateCommandPool(QueueType type) override;
+        RDGBackend  *CreateRDGBackend() override;
 
         ID3D12Device *GetNativeHandle() const
         {

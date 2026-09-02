@@ -30,6 +30,7 @@ namespace sky::aurora {
 
     class DeviceFrameContext;
     struct DeviceFrameContextInitInfo;
+    class RDGBackend;
 
     struct DeviceInit {
         uint32_t parallelContextNum = 1;
@@ -83,6 +84,9 @@ namespace sky::aurora {
 
         // command pool
         virtual CommandPool *CreateCommandPool(QueueType type) = 0;
+
+        // render graph backend (per-backend compiler/executor impl)
+        virtual RDGBackend *CreateRDGBackend() = 0;
 
         const DeviceCapability &GetCapability() const
         {

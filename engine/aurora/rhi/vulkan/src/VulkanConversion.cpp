@@ -434,69 +434,17 @@ namespace sky::aurora {
     VkAccessFlags2 FromAccessFlags2(const AccessFlags &flags)
     {
         VkAccessFlags2 res = 0;
-        if (flags & AccessFlagBit::INDIRECT_BUFFER)            { res |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT; }
-        if (flags & AccessFlagBit::INDEX_BUFFER)               { res |= VK_ACCESS_2_INDEX_READ_BIT; }
-        if (flags & AccessFlagBit::VERTEX_BUFFER)              { res |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT; }
-
-        // CBV (uniform) reads
-        if (flags & (AccessFlagBit::VERTEX_CBV |
-                     AccessFlagBit::FRAGMENT_CBV |
-                     AccessFlagBit::COMPUTE_CBV |
-                     AccessFlagBit::TASK_CBV |
-                     AccessFlagBit::MESH_CBV)) {
-            res |= VK_ACCESS_2_UNIFORM_READ_BIT;
-        }
-
-        // SRV (sampled / read-only storage)
-        if (flags & (AccessFlagBit::VERTEX_SRV |
-                     AccessFlagBit::FRAGMENT_SRV |
-                     AccessFlagBit::COMPUTE_SRV |
-                     AccessFlagBit::TASK_SRV |
-                     AccessFlagBit::MESH_SRV)) {
-            res |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-        }
-
-        // UAV reads / writes
-        if (flags & (AccessFlagBit::VERTEX_UAV_READ |
-                     AccessFlagBit::FRAGMENT_UAV_READ |
-                     AccessFlagBit::COMPUTE_UAV_READ |
-                     AccessFlagBit::TASK_UAV_READ |
-                     AccessFlagBit::MESH_UAV_READ)) {
-            res |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
-        }
-        if (flags & (AccessFlagBit::VERTEX_UAV_WRITE |
-                     AccessFlagBit::FRAGMENT_UAV_WRITE |
-                     AccessFlagBit::COMPUTE_UAV_WRITE |
-                     AccessFlagBit::TASK_UAV_WRITE |
-                     AccessFlagBit::MESH_UAV_WRITE)) {
-            res |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-        }
-
-        if (flags & (AccessFlagBit::COLOR_INPUT |
-                     AccessFlagBit::DEPTH_STENCIL_INPUT)) {
-            res |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
-        }
-
-        if (flags & (AccessFlagBit::COLOR_READ |
-                     AccessFlagBit::COLOR_INOUT_READ)) {
-            res |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
-        }
-        if (flags & (AccessFlagBit::COLOR_WRITE |
-                     AccessFlagBit::COLOR_INOUT_WRITE)) {
-            res |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-        }
-        if (flags & (AccessFlagBit::DEPTH_STENCIL_READ |
-                     AccessFlagBit::DEPTH_STENCIL_INOUT_READ)) {
-            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        }
-        if (flags & (AccessFlagBit::DEPTH_STENCIL_WRITE |
-                     AccessFlagBit::DEPTH_STENCIL_INOUT_WRITE)) {
-            res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        }
-
-        if (flags & AccessFlagBit::TRANSFER_READ)  { res |= VK_ACCESS_2_TRANSFER_READ_BIT; }
-        if (flags & AccessFlagBit::TRANSFER_WRITE) { res |= VK_ACCESS_2_TRANSFER_WRITE_BIT; }
-
+        if (flags & AccessFlagBit::INDIRECT_BUFFER) { res |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT; }
+        if (flags & AccessFlagBit::INDEX_BUFFER)    { res |= VK_ACCESS_2_INDEX_READ_BIT; }
+        if (flags & AccessFlagBit::VERTEX_BUFFER)   { res |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT; }
+        if (flags & AccessFlagBit::CBV)             { res |= VK_ACCESS_2_UNIFORM_READ_BIT; }
+        if (flags & AccessFlagBit::SRV)             { res |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT; }
+        if (flags & AccessFlagBit::UAV)             { res |= (VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT); }
+        if (flags & AccessFlagBit::RTV)             { res |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT; }
+        if (flags & AccessFlagBit::DSV)             { res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; }
+        if (flags & AccessFlagBit::DSV_READ)        { res |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT; }
+        if (flags & AccessFlagBit::COPY_SRC)        { res |= VK_ACCESS_2_TRANSFER_READ_BIT; }
+        if (flags & AccessFlagBit::COPY_DST)        { res |= VK_ACCESS_2_TRANSFER_WRITE_BIT; }
         return res;
     }
 

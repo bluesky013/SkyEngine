@@ -12,6 +12,7 @@
 #include <D3D12ShaderFunction.h>
 #include <core/logger/Logger.h>
 #include <rdg/D3D12DeviceFrameContext.h>
+#include "rdg/D3D12RDGBackend.h"
 
 static const char    *TAG  = "AuroraDX12";
 static const wchar_t *TAGW = L"AuroraDX12";
@@ -175,6 +176,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
+    }
+
+    RDGBackend *D3D12Device::CreateRDGBackend()
+    {
+        return new D3D12RDGBackend();
     }
 
     DeviceFrameContext *D3D12Device::CreateFrameContext(const DeviceFrameContextInitInfo &info)

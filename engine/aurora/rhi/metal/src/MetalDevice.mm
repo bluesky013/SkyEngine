@@ -16,6 +16,7 @@
 #include <core/logger/Logger.h>
 
 #include <rdg/MetalDeviceFrameContext.h>
+#include "rdg/MetalRDGBackend.h"
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -135,6 +136,11 @@ namespace sky::aurora {
             return nullptr;
         }
         return pool;
+    }
+
+    RDGBackend *MetalDevice::CreateRDGBackend()
+    {
+        return new MetalRDGBackend();
     }
 
     Fence *MetalDevice::CreateFence(const Fence::Descriptor &desc)
