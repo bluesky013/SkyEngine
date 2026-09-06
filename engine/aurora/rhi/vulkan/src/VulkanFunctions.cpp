@@ -24,7 +24,12 @@ namespace sky::aurora {
 #if defined(_WIN32)
         g_vulkanLibrary = LoadLibraryA("vulkan-1.dll");
 #elif defined(__APPLE__)
-        g_vulkanLibrary = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+    #ifdef SKY_VULKAN_LIBRARY_PATH
+        g_vulkanLibrary = dlopen(SKY_VULKAN_LIBRARY_PATH, RTLD_NOW | RTLD_LOCAL);
+    #endif
+        if (g_vulkanLibrary == nullptr) {
+            g_vulkanLibrary = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+        }
         if (g_vulkanLibrary == nullptr) {
             g_vulkanLibrary = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
         }

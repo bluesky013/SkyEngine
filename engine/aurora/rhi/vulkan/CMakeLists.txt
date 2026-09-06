@@ -6,6 +6,11 @@ if (WIN32)
 elseif(APPLE)
     file(GLOB_RECURSE PLATFORM_SRC platform/macos/*)
     find_package(Vulkan REQUIRED)
+
+    add_library(MoltenVk INTERFACE IMPORTED GLOBAL)
+    target_link_libraries(MoltenVk INTERFACE ${Vulkan_LIBRARIES})
+    target_include_directories(MoltenVk INTERFACE ${Vulkan_INCLUDE_DIRS})
+
 elseif(ANDROID)
     file(GLOB_RECURSE PLATFORM_SRC platform/android/*)
 endif()
@@ -24,6 +29,7 @@ sky_add_library(TARGET AuroraVulkan SHARED
         Aurora.RHI
         3rdParty::vulkan_headers
         3rdParty::vma
+        ${MoltenVk}
 )
 
 target_compile_definitions(AuroraVulkan PUBLIC VK_NO_PROTOTYPES)
@@ -32,6 +38,7 @@ if (WIN32)
     target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_WIN32_KHR)
 elseif (APPLE)
     target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_METAL_EXT)
+    target_compile_definitions(AuroraVulkan PRIVATE SKY_VULKAN_LIBRARY_PATH="${Vulkan_LIBRARY}")
 elseif (ANDROID)
     target_compile_definitions(AuroraVulkan PUBLIC VK_USE_PLATFORM_ANDROID_KHR)
 endif()
