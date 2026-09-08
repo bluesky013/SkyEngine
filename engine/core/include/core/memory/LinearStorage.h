@@ -29,6 +29,15 @@ namespace sky {
         size_t GetTotalCapacity() const { return blocks.size() * blockSize; }
         size_t GetCurrentUsedSize() const;
 
+        // ---- checkpoint / rewind ----
+        struct Mark {
+            size_t blockIndex = 0;
+            size_t offset = 0;
+        };
+
+        Mark GetMark() const;
+        void Rewind(const Mark &mark);
+
     private:
         struct Block {
             std::unique_ptr<uint8_t[]> data;

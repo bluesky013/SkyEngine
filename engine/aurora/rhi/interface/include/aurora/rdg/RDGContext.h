@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/name/Name.h>
+#include <core/memory/TransientAllocator.h>
 
 #include <aurora/rdg/RDGHandles.h>
 
@@ -44,14 +45,14 @@ namespace sky::aurora {
         // internal wiring
         void SetCommandBuffer(CommandBuffer *cmdBuf) { mCommandBuffer = cmdBuf; }
         void SetPassName(const Name &name) { mPassName = name; }
-        void SetImageTable(const std::vector<Image *> *table) { mImageTable = table; }
-        void SetBufferTable(const std::vector<Buffer *> *table) { mBufferTable = table; }
+        void SetImageTable(const TransientVector<Image *> *table) { mImageTable = table; }
+        void SetBufferTable(const TransientVector<Buffer *> *table) { mBufferTable = table; }
 
     private:
         CommandBuffer              *mCommandBuffer = nullptr;
         Name                        mPassName;
-        const std::vector<Image *> *mImageTable    = nullptr;
-        const std::vector<Buffer *> *mBufferTable  = nullptr;
+        const TransientVector<Image *> *mImageTable    = nullptr;
+        const TransientVector<Buffer *> *mBufferTable  = nullptr;
     };
 
 } // namespace sky::aurora

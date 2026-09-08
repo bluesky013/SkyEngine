@@ -11,7 +11,24 @@
 
 namespace sky::aurora {
 
-    RenderGraph::RenderGraph(Device *device) : mDevice(device)
+    RenderGraph::RenderGraph(Device *device, FrameAllocator &frameAlloc)
+        : mDevice(device)
+        , mFrameAlloc(&frameAlloc)
+        , mResources(TransientStdAllocator<ResourceNode>{frameAlloc.Arena()})
+        , mImages(TransientStdAllocator<GraphImage>{frameAlloc.Arena()})
+        , mImportImages(TransientStdAllocator<GraphImportImage>{frameAlloc.Arena()})
+        , mBuffers(TransientStdAllocator<GraphBuffer>{frameAlloc.Arena()})
+        , mImportBuffers(TransientStdAllocator<GraphImportBuffer>{frameAlloc.Arena()})
+        , mPasses(TransientStdAllocator<PassNode>{frameAlloc.Arena()})
+        , mRasterPasses(TransientStdAllocator<RasterPassData>{frameAlloc.Arena()})
+        , mComputePasses(TransientStdAllocator<ComputePassData>{frameAlloc.Arena()})
+        , mCopyPasses(TransientStdAllocator<CopyPassData>{frameAlloc.Arena()})
+        , mTopoOrder(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
+        , mRank(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
+        , mOfInterest(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
+        , mFinalBarriers(TransientStdAllocator<BarrierInfo>{frameAlloc.Arena()})
+        , mResolvedImages(TransientStdAllocator<Image *>{frameAlloc.Arena()})
+        , mResolvedBuffers(TransientStdAllocator<Buffer *>{frameAlloc.Arena()})
     {
         mPool = std::make_unique<ObjectPool>(device);
         mBackend.reset(device->CreateRDGBackend());
@@ -19,9 +36,9 @@ namespace sky::aurora {
 
     RenderGraph::~RenderGraph() = default;
 
-    std::unique_ptr<RenderGraph> RenderGraph::Build(Device *device)
+    std::unique_ptr<RenderGraph> RenderGraph::Build(Device *device, FrameAllocator &frameAlloc)
     {
-        return std::make_unique<RenderGraph>(device);
+        return std::make_unique<RenderGraph>(device, frameAlloc);
     }
 
     const TransientPoolStats &RenderGraph::GetPoolStats() const
@@ -33,7 +50,7 @@ namespace sky::aurora {
     {
         const uint32_t index = static_cast<uint32_t>(mResources.size());
 
-        ResourceNode node;
+        ResourceNode node(mFrameAlloc->Arena());
         node.name = name;
         node.tag  = tag;
 
@@ -61,13 +78,13 @@ namespace sky::aurora {
     {
         const uint32_t index = static_cast<uint32_t>(mPasses.size());
 
-        PassNode node;
+        PassNode node(mFrameAlloc->Arena());
         node.name = name;
         node.tag  = tag;
 
         if (std::holds_alternative<RasterPassTag>(tag)) {
             node.payloadIndex = static_cast<uint32_t>(mRasterPasses.size());
-            mRasterPasses.emplace_back();
+            mRasterPasses.emplace_back(mFrameAlloc->Arena());
         } else if (std::holds_alternative<ComputePassTag>(tag)) {
             node.payloadIndex = static_cast<uint32_t>(mComputePasses.size());
             mComputePasses.emplace_back();

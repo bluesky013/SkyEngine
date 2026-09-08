@@ -12,12 +12,14 @@ namespace sky::aurora {
 
     void DeviceFrameContext::EndFrame() noexcept
     {
+        mFrameAllocator.Reset();
         ++mFrameIndex;
     }
 
     RenderDeviceExclusive::RenderDeviceExclusive()
     {
         mDevice = Instance::Get()->GetDevice();
+        mFrameContext = std::make_unique<DeviceFrameContext>();
     }
 
     RenderDeviceExclusive::~RenderDeviceExclusive()

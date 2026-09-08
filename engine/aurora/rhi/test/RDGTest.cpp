@@ -9,6 +9,7 @@
 #include "AuroraTestHelper.h"
 
 #include <core/name/Name.h>
+#include <core/memory/FrameAllocator.h>
 
 #include <aurora/rdg/RDGHandles.h>
 #include <aurora/rdg/RDGTypes.h>
@@ -89,7 +90,8 @@ TEST_F(RDGTestVulkan, SinglePassClear)
     CounterPtr<Image> image(device->CreateImage(imgDesc));
     ASSERT_NE(image.Get(), nullptr);
 
-    auto graph = RenderGraph::Build(device);
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
     const auto bb = graph->Import(Name("backbuffer"), image, AccessFlagBit::NONE);
     graph->AddRasterPass(Name("clear"),
         [&](RasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); },
@@ -116,7 +118,8 @@ TEST_F(RDGTestVulkan, SinglePassClear)
 TEST_F(RDGTestVulkan, PassCulling)
 {
     auto *device = GetDevice();
-    auto graph   = RenderGraph::Build(device);
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
 
     const auto deadTex = graph->CreateTexture(Name("dead"), MakeColorDesc(16, 16));
     const auto liveTex = graph->CreateTexture(Name("live"), MakeColorDesc(16, 16));
@@ -136,13 +139,18 @@ TEST_F(RDGTestVulkan, PassCulling)
     ASSERT_EQ(passes.size(), 2u);
     EXPECT_FALSE(passes[0].live);
     EXPECT_TRUE(passes[1].live);
+
+    // FrameAllocator should have non-zero arena usage after graph construction
+    // (TransientStdAllocator calls Arena() directly, not FrameAllocator::Allocate)
+    EXPECT_GT(frameAlloc.Arena().GetCurrentUsedSize(), 0u);
 }
 
 // ---- 5.5 transient aliasing (4 non-overlapping resources -> 1 backing image) ----
 TEST_F(RDGTestVulkan, TransientAliasing)
 {
     auto *device = GetDevice();
-    auto graph   = RenderGraph::Build(device);
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
 
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(1080, 1080));
@@ -163,7 +171,8 @@ TEST_F(RDGTestVulkan, TransientAliasing)
 TEST_F(RDGTestVulkan, TransientCrossFrame)
 {
     auto *device = GetDevice();
-    auto graph   = RenderGraph::Build(device);
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
 
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(128, 128));

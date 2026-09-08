@@ -49,6 +49,12 @@ namespace sky {
 
         size_t GetCurrentUsedSize() const { return GetStorage().GetCurrentUsedSize(); }
 
+        // ---- checkpoint / rewind ----
+        using Mark = LinearStorage::Mark;
+
+        Mark GetMark() const { return GetStorage().GetMark(); }
+        void Rewind(const Mark &mark) { GetStorage().Rewind(mark); }
+
         LinearStorage &GetStorage() { return externalStorage ? *externalStorage : storage; }
         const LinearStorage &GetStorage() const { return externalStorage ? *externalStorage : storage; }
 
@@ -123,6 +129,9 @@ namespace sky {
     // Convenience type aliases for transient containers
     // ──────────────────────────────────────────────────────────
     template <typename T>
+    using TransientVector = std::vector<T, TransientStdAllocator<T>>;
+
+    template <typename T>
     using TransientList = std::list<T, TransientStdAllocator<T>>;
 
     using TransientString = std::basic_string<char, std::char_traits<char>, TransientStdAllocator<char>>;
@@ -136,6 +145,12 @@ namespace sky {
     //   auto vec = MakeTransientVector<int>(alloc);
     //   auto str = MakeTransientString(alloc);
     // ──────────────────────────────────────────────────────────
+    template <typename T>
+    TransientVector<T> MakeTransientVector(TransientAllocator &alloc)
+    {
+        return TransientVector<T>{TransientStdAllocator<T>{alloc}};
+    }
+
     template <typename T>
     TransientList<T> MakeTransientList(TransientAllocator &alloc)
     {

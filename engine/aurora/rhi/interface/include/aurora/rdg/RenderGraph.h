@@ -15,7 +15,9 @@
 #pragma once
 
 #include <core/name/Name.h>
+#include <core/memory/FrameAllocator.h>
 
+#include <aurora/rdg/CompiledGraph.h>
 #include <aurora/rdg/RDGBackend.h>
 #include <aurora/rdg/RDGContext.h>
 #include <aurora/rdg/RDGGraph.h>
@@ -38,10 +40,10 @@ namespace sky::aurora {
 
     class RenderGraph {
     public:
-        explicit RenderGraph(Device *device);
+        explicit RenderGraph(Device *device, FrameAllocator &frameAlloc);
         ~RenderGraph();
 
-        static std::unique_ptr<RenderGraph> Build(Device *device);
+        static std::unique_ptr<RenderGraph> Build(Device *device, FrameAllocator &frameAlloc);
 
         // ---- resources ----
         RDGTextureHandle CreateTexture(const Name &name, const RDGTextureDesc &desc);
@@ -66,6 +68,9 @@ namespace sky::aurora {
         void Compile();
         void Execute(CommandBuffer *cmdBuf);
 
+        // ---- compiled output ----
+        const CompiledGraph *GetCompiledGraph() const { return mCompiledGraph.get(); }
+
         // ---- internal (used by builders) ----
         void AddRead(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
         void AddWrite(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
@@ -81,9 +86,9 @@ namespace sky::aurora {
         void ExecutePasses(CommandBuffer *cmdBuf);
 
         // ---- debug / test accessors ----
-        const std::vector<PassNode>     &GetPasses() const { return mPasses; }
-        const std::vector<ResourceNode> &GetResources() const { return mResources; }
-        const std::vector<uint32_t>     &GetTopologicalOrder() const { return mTopoOrder; }
+        const TransientVector<PassNode>     &GetPasses() const { return mPasses; }
+        const TransientVector<ResourceNode> &GetResources() const { return mResources; }
+        const TransientVector<uint32_t>     &GetTopologicalOrder() const { return mTopoOrder; }
         const TransientPoolStats        &GetPoolStats() const;
 
     private:
@@ -97,6 +102,7 @@ namespace sky::aurora {
         void ComputeLifeTimes();
         void CullPasses();
         void BindTransientResources();
+        void ProduceCompiledGraph();
 
         // barrier helpers
         ImageSubRange FullSubRange(uint32_t resourceIndex) const;
@@ -107,28 +113,30 @@ namespace sky::aurora {
                                       PipelineStageFlags srcStage, PipelineStageFlags dstStage) const;
 
         Device *mDevice = nullptr;
+        FrameAllocator *mFrameAlloc = nullptr;
         std::unique_ptr<RDGBackend> mBackend;
 
-        std::vector<ResourceNode>      mResources;
-        std::vector<GraphImage>        mImages;
-        std::vector<GraphImportImage>  mImportImages;
-        std::vector<GraphBuffer>       mBuffers;
-        std::vector<GraphImportBuffer> mImportBuffers;
+        TransientVector<ResourceNode>      mResources;
+        TransientVector<GraphImage>        mImages;
+        TransientVector<GraphImportImage>  mImportImages;
+        TransientVector<GraphBuffer>       mBuffers;
+        TransientVector<GraphImportBuffer> mImportBuffers;
 
-        std::vector<PassNode>        mPasses;
-        std::vector<RasterPassData>  mRasterPasses;
-        std::vector<ComputePassData> mComputePasses;
-        std::vector<CopyPassData>    mCopyPasses;
+        TransientVector<PassNode>        mPasses;
+        TransientVector<RasterPassData>  mRasterPasses;
+        TransientVector<ComputePassData> mComputePasses;
+        TransientVector<CopyPassData>    mCopyPasses;
 
-        std::vector<uint32_t> mTopoOrder;
-        std::vector<uint32_t> mRank;
-        std::vector<uint32_t> mOfInterest;
-        std::vector<BarrierInfo> mFinalBarriers;
+        TransientVector<uint32_t> mTopoOrder;
+        TransientVector<uint32_t> mRank;
+        TransientVector<uint32_t> mOfInterest;
+        TransientVector<BarrierInfo> mFinalBarriers;
 
-        std::vector<Image *>  mResolvedImages;
-        std::vector<Buffer *> mResolvedBuffers;
+        TransientVector<Image *>  mResolvedImages;
+        TransientVector<Buffer *> mResolvedBuffers;
 
         std::unique_ptr<TransientPool> mPool;
+        std::unique_ptr<CompiledGraph> mCompiledGraph;
 
         bool mCompiled = false;
     };

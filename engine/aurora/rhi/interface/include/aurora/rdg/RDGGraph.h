@@ -5,10 +5,11 @@
 #pragma once
 
 #include <core/name/Name.h>
+#include <core/memory/TransientAllocator.h>
+#include <aurora/rhi/Core.h>
 
 #include <aurora/rdg/RDGHandles.h>
 #include <aurora/rdg/RDGTypes.h>
-#include <aurora/rhi/Core.h>
 #include <aurora/rhi/Image.h>
 #include <aurora/rhi/Buffer.h>
 
@@ -73,7 +74,12 @@ namespace sky::aurora {
         uint32_t    payloadIndex  = INVALID_INDEX;
         LifeTime    lifeTime;
         uint32_t    lastWriterPass = INVALID_INDEX;
-        std::vector<AccessRecord> accesses;
+        TransientVector<AccessRecord> accesses;
+
+        explicit ResourceNode(TransientAllocator &alloc)
+            : accesses(TransientStdAllocator<AccessRecord>{alloc})
+        {
+        }
     };
 
     // ---- pass payloads ----
@@ -86,7 +92,7 @@ namespace sky::aurora {
             ClearValue clearValue{0.f, 0.f, 0.f, 0.f};
         };
 
-        std::vector<ColorAttachmentRef> colors;
+        TransientVector<ColorAttachmentRef> colors;
         Extent2D    renderArea{1, 1};
 
         uint32_t   depthStencilResource = INVALID_INDEX;
@@ -97,6 +103,11 @@ namespace sky::aurora {
         ClearValue depthStencilClear{0.f, 0};
 
         std::function<void(GraphicsEncoder &, RDGContext &)> executeFn;
+
+        explicit RasterPassData(TransientAllocator &alloc)
+            : colors(TransientStdAllocator<ColorAttachmentRef>{alloc})
+        {
+        }
     };
 
     struct ComputePassData {
@@ -117,12 +128,20 @@ namespace sky::aurora {
         Name         name;
         PassTag      tag;
         uint32_t     payloadIndex = INVALID_INDEX;
-        std::vector<uint32_t> readResources;
-        std::vector<uint32_t> writeResources;
-        std::vector<uint32_t> dependsOn;   // pass indices this pass depends on
+        TransientVector<uint32_t> readResources;
+        TransientVector<uint32_t> writeResources;
+        TransientVector<uint32_t> dependsOn;   // pass indices this pass depends on
         uint32_t     inDegree = 0;         // for Kahn topological sort
         bool         live     = false;
-        std::vector<BarrierInfo> frontBarriers;   // barriers emitted before this pass
+        TransientVector<BarrierInfo> frontBarriers;   // barriers emitted before this pass
+
+        explicit PassNode(TransientAllocator &alloc)
+            : readResources(TransientStdAllocator<uint32_t>{alloc})
+            , writeResources(TransientStdAllocator<uint32_t>{alloc})
+            , dependsOn(TransientStdAllocator<uint32_t>{alloc})
+            , frontBarriers(TransientStdAllocator<BarrierInfo>{alloc})
+        {
+        }
     };
 
 } // namespace sky::aurora

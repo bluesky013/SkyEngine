@@ -8,6 +8,7 @@
 
 #include <core/async/ThreadPool.h>
 #include <core/environment/Singleton.h>
+#include <core/memory/FrameAllocator.h>
 
 namespace sky::aurora {
 
@@ -32,11 +33,17 @@ namespace sky::aurora {
             return mThreadPool.get();
         }
 
+        FrameAllocator &GetFrameAllocator() noexcept
+        {
+            return mFrameAllocator;
+        }
+
     protected:
         uint32_t                    mFrameIndex  = 0;
         uint32_t                    mInflightNum = 0;
         uint32_t                    mParallelNum = 0;
         std::unique_ptr<ThreadPool> mThreadPool;
+        FrameAllocator              mFrameAllocator;
     };
 
     class RenderDeviceExclusive : public Singleton<RenderDeviceExclusive> {
@@ -54,6 +61,11 @@ namespace sky::aurora {
 
         void BeginViewport(RenderViewport *viewport) noexcept;
         void EndViewport() noexcept;
+
+        FrameAllocator &GetFrameAllocator() noexcept
+        {
+            return mFrameContext->GetFrameAllocator();
+        }
 
     private:
         Device *mDevice = nullptr;

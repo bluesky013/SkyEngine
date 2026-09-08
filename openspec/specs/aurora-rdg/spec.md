@@ -5,21 +5,27 @@ TBD - created by archiving change aurora-rdg. Update Purpose after archive.
 ## Requirements
 ### Requirement: RenderGraph 三段式 lifecycle
 
-`RenderGraph` SHALL 提供三个明确分离的阶段：
+`RenderGraph` SHALL 提供三段式：
 
-1. **Setup**：调用方添加 pass，每个 pass 在 setup callback 内通过 builder 声明读写、attachment
-2. **Compile**：拓扑排序、生命周期分析、transient 池分配、barrier 推导、pass culling
-3. **Execute**：按拓扑顺序把 barrier 与 pass body emit 到一个 CommandBuffer
+- **Setup** — 声明资源与 pass 依赖
+- **Compile** — 推导依赖边、拓扑排序、生命周期、barrier、transient 池化；产出独立 `CompiledGraph`（扁平、只含 live pass、每 pass 一段连续 barrier）
+- **Execute** — 依 compiled graph 拓扑序 emit barrier 与 pass body
 
-调用方 MUST 按 setup → compile → execute 顺序调用。重复调用 Compile 与 Execute 之间必须 Reset 或重新 Build。
+`RenderGraph::Build(Device*, FrameAllocator&)` SHALL 接收 `FrameAllocator&`；setup graph 所有容器（`std::vector`/`std::string`）SHALL 迁移到 `TransientVector`/`TransientHashMap`（从 `FrameAllocator::Arena()` 分配）。
 
-#### Scenario: 单 pass 完整 lifecycle
-- **WHEN** 调用方 `RenderGraph::Build(device)` → `AddRasterPass(name, setup, exec)` → `Compile()` → `Execute(cmdBuf)` → cmdBuf submit
-- **THEN** 不报错；pass 的 execute lambda 在 Execute 期间被调用一次
+`DeviceFrameContext` SHALL 持有 `FrameAllocator`，帧末统一 `Reset()` 回收所有帧数据。
 
-#### Scenario: 顺序错误被拒绝
-- **WHEN** 调用方在 `Compile()` 之前调 `Execute()`
-- **THEN** Debug build assert；Release build 行为未定义但 MUST 不静默成功
+#### Scenario: setup graph 从 FrameAllocator 分配
+- **WHEN** `RenderGraph::Build(device, frameAlloc)` 建图
+- **THEN** 所有节点/边/访问记录从 `frameAlloc.Arena()` 分配，`frameAlloc.GetCurrentBytes()` 增长
+
+#### Scenario: 编译产出 CompiledGraph
+- **WHEN** `graph->Compile()`
+- **THEN** 产出扁平 `CompiledGraph`；setup graph 可 `Rewind` 回收；executor 只读 `CompiledGraph`
+
+#### Scenario: 帧末统一回收
+- **WHEN** `DeviceFrameContext::EndFrame()` 调用 `FrameAllocator::Reset()`
+- **THEN** 本帧所有 graph 数据（setup + compiled）被整体回收，`GetCurrentBytes() == 0`
 
 ### Requirement: Resource declaration: Import vs Create
 

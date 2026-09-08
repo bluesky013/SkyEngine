@@ -162,6 +162,116 @@ TEST(LinearStorageTest, ExactFitTest)
     ASSERT_EQ(storage.GetBlockCount(), 2u);
 }
 
+TEST(LinearStorageTest, GetMarkRewindBasicTest)
+{
+    LinearStorage storage(256);
+
+    auto *p1 = storage.Allocate(64);
+    auto mark = storage.GetMark();
+    ASSERT_EQ(mark.blockIndex, 0u);
+    ASSERT_EQ(mark.offset, 64u);
+
+    auto *p2 = storage.Allocate(64);
+    ASSERT_NE(p2, nullptr);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 128u);
+
+    storage.Rewind(mark);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 64u);
+
+    // Next allocation should reuse the rewound space
+    auto *p3 = storage.Allocate(64);
+    ASSERT_EQ(p3, p2);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 128u);
+}
+
+TEST(LinearStorageTest, GetMarkRewindCrossBlockTest)
+{
+    LinearStorage storage(64);
+
+    auto *p1 = storage.Allocate(60);
+    auto mark = storage.GetMark();
+    ASSERT_EQ(mark.blockIndex, 0u);
+    ASSERT_EQ(mark.offset, 60u);
+
+    // Trigger second block
+    auto *p2 = storage.Allocate(60);
+    ASSERT_NE(p2, nullptr);
+    ASSERT_EQ(storage.GetBlockCount(), 2u);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 64u + 60u);
+
+    storage.Rewind(mark);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 60u);
+    ASSERT_EQ(storage.GetBlockCount(), 1u); // blocks after mark are erased
+
+    // Next allocation should reuse block 0 at offset 60
+    auto *p3 = storage.Allocate(60);
+    ASSERT_EQ(storage.GetBlockCount(), 2u); // re-creates block 1
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 64u + 60u);
+}
+
+TEST(LinearStorageTest, GetMarkRewindAtBlockBoundaryTest)
+{
+    LinearStorage storage(64);
+
+    // Fill block 0 exactly
+    auto *p1 = storage.Allocate(64);
+    auto mark = storage.GetMark();
+    ASSERT_EQ(mark.blockIndex, 0u);
+    ASSERT_EQ(mark.offset, 64u);
+
+    // Move to block 1
+    auto *p2 = storage.Allocate(32);
+    ASSERT_NE(p2, nullptr);
+    ASSERT_EQ(storage.GetBlockCount(), 2u);
+
+    storage.Rewind(mark);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 64u);
+
+    // Next allocation should go to block 1 (block 0 is full)
+    auto *p3 = storage.Allocate(32);
+    ASSERT_NE(p3, nullptr);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 64u + 32u);
+}
+
+TEST(LinearStorageTest, RewindToZeroTest)
+{
+    LinearStorage storage(128);
+
+    auto mark0 = storage.GetMark();
+    ASSERT_EQ(mark0.blockIndex, 0u);
+    ASSERT_EQ(mark0.offset, 0u);
+
+    storage.Allocate(50);
+    storage.Allocate(50);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 100u);
+
+    storage.Rewind(mark0);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 0u);
+
+    auto *p = storage.Allocate(50);
+    ASSERT_NE(p, nullptr);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 50u);
+}
+
+TEST(LinearStorageTest, RewindAfterResetTest)
+{
+    LinearStorage storage(64);
+
+    storage.Allocate(60);
+    auto mark = storage.GetMark();
+    storage.Allocate(60); // block 1
+
+    storage.Reset();
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 0u);
+
+    storage.Allocate(60);
+    storage.Allocate(60); // block 1 again
+
+    // Rewind to old mark (block 0, offset 60) after reset
+    storage.Rewind(mark);
+    ASSERT_EQ(storage.GetCurrentUsedSize(), 60u);
+}
+
 // ============================================================
 // TransientAllocator tests
 // ============================================================
@@ -232,6 +342,73 @@ TEST(TransientAllocatorTest, GetCurrentUsedSizeTest)
     ASSERT_EQ(alloc.GetCurrentUsedSize(), 0u);
 }
 
+TEST(TransientAllocatorTest, GetMarkRewindTest)
+{
+    TransientAllocator alloc(256);
+
+    auto *p1 = alloc.Allocate(64);
+    auto mark = alloc.GetMark();
+    ASSERT_EQ(mark.blockIndex, 0u);
+    ASSERT_EQ(mark.offset, 64u);
+
+    auto *p2 = alloc.Allocate(64);
+    ASSERT_NE(p2, nullptr);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 128u);
+
+    alloc.Rewind(mark);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 64u);
+
+    // Next allocation should reuse the rewound space
+    auto *p3 = alloc.Allocate(64);
+    ASSERT_EQ(p3, p2);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 128u);
+}
+
+TEST(TransientAllocatorTest, GetMarkRewindCrossBlockTest)
+{
+    TransientAllocator alloc(64);
+
+    // Allocate(60, max_align_t=8) → aligned to 64; block 0 full
+    alloc.Allocate(60);
+    auto mark = alloc.GetMark();
+    ASSERT_EQ(mark.blockIndex, 0u);
+    ASSERT_EQ(mark.offset, 64u);
+
+    // Trigger second block
+    alloc.Allocate(60);
+    ASSERT_EQ(alloc.GetStorage().GetBlockCount(), 2u);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 64u + 64u); // block 0 full (64) + block 1 (64)
+
+    alloc.Rewind(mark);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 64u);
+    ASSERT_EQ(alloc.GetStorage().GetBlockCount(), 1u); // blocks after mark erased
+
+    // Next allocation should re-create block 1
+    alloc.Allocate(60);
+    ASSERT_EQ(alloc.GetStorage().GetBlockCount(), 2u);
+}
+
+TEST(TransientAllocatorTest, GetMarkRewindAfterResetTest)
+{
+    TransientAllocator alloc(64);
+
+    alloc.Allocate(60);
+    auto mark = alloc.GetMark();
+    ASSERT_EQ(mark.offset, 64u); // aligned to max_align_t
+
+    alloc.Allocate(60); // block 1
+
+    alloc.Reset();
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 0u);
+
+    alloc.Allocate(60);
+    alloc.Allocate(60); // block 1 again
+
+    // Rewind to old mark after reset
+    alloc.Rewind(mark);
+    ASSERT_EQ(alloc.GetCurrentUsedSize(), 64u);
+}
+
 TEST(TransientStdAllocatorTest, StringBasicTest)
 {
     TransientAllocator alloc(4096);
@@ -268,6 +445,48 @@ TEST(TransientStdAllocatorTest, ListBasicTest)
     ASSERT_EQ(*it++, 5);
     ASSERT_EQ(*it++, 10);
     ASSERT_EQ(*it++, 20);
+}
+
+TEST(TransientStdAllocatorTest, VectorBasicTest)
+{
+    TransientAllocator alloc(4096);
+    TransientVector<int> vec{TransientStdAllocator<int>{alloc}};
+
+    vec.push_back(1);
+    vec.push_back(2);
+    vec.push_back(3);
+
+    ASSERT_EQ(vec.size(), 3u);
+    ASSERT_EQ(vec[0], 1);
+    ASSERT_EQ(vec[1], 2);
+    ASSERT_EQ(vec[2], 3);
+}
+
+TEST(TransientStdAllocatorTest, VectorLargeAllocationTest)
+{
+    TransientAllocator alloc(65536); // 64KB block to fit 1000 ints + vector growth
+    TransientVector<int> vec{TransientStdAllocator<int>{alloc}};
+
+    for (int i = 0; i < 1000; ++i) {
+        vec.push_back(i);
+    }
+
+    ASSERT_EQ(vec.size(), 1000u);
+    ASSERT_EQ(vec[999], 999);
+}
+
+TEST(TransientStdAllocatorTest, VectorStringTest)
+{
+    TransientAllocator alloc(4096);
+    TransientVector<std::string> vec{TransientStdAllocator<std::string>{alloc}};
+
+    vec.emplace_back("hello");
+    vec.emplace_back("transient");
+    vec.emplace_back("vector");
+
+    ASSERT_EQ(vec.size(), 3u);
+    ASSERT_EQ(vec[0], "hello");
+    ASSERT_EQ(vec[2], "vector");
 }
 
 TEST(TransientStdAllocatorTest, HashMapBasicTest)
@@ -364,4 +583,17 @@ TEST(TransientStdAllocatorTest, MakeTransientHashMapTest)
     ASSERT_EQ(map.size(), 2u);
     ASSERT_EQ(map[1], 10);
     ASSERT_EQ(map[2], 20);
+}
+
+TEST(TransientStdAllocatorTest, MakeTransientVectorTest)
+{
+    TransientAllocator alloc(4096);
+    auto vec = MakeTransientVector<int>(alloc);
+
+    vec.push_back(10);
+    vec.push_back(20);
+
+    ASSERT_EQ(vec.size(), 2u);
+    ASSERT_EQ(vec[0], 10);
+    ASSERT_EQ(vec[1], 20);
 }

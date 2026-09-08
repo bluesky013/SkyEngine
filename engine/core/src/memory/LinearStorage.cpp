@@ -81,4 +81,21 @@ namespace sky {
         return total;
     }
 
+    LinearStorage::Mark LinearStorage::GetMark() const
+    {
+        return Mark{currentIndex, currentIndex < blocks.size() ? blocks[currentIndex].offset : 0};
+    }
+
+    void LinearStorage::Rewind(const Mark &mark)
+    {
+        assert(mark.blockIndex < blocks.size() && "Mark block index out of range");
+        assert(mark.offset <= blockSize && "Mark offset out of range");
+
+        currentIndex = mark.blockIndex;
+        blocks[currentIndex].offset = mark.offset;
+
+        // Erase blocks after the mark so they do not interfere with future allocations.
+        blocks.erase(blocks.begin() + static_cast<ptrdiff_t>(mark.blockIndex) + 1, blocks.end());
+    }
+
 } // namespace sky

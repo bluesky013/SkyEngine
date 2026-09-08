@@ -64,6 +64,7 @@ namespace sky::aurora {
         CullPasses();
         BindTransientResources();
         mBackend->CompileBarriers(*this);
+        ProduceCompiledGraph();
 
         // debug logger (live/culled + pool hit/miss)
         uint32_t liveCount = 0;
@@ -401,6 +402,70 @@ namespace sky::aurora {
         info.dstStage = dstStage;
         info.bufferBarriers.push_back(bb);
         return info;
+    }
+
+    void RenderGraph::ProduceCompiledGraph()
+    {
+        mCompiledGraph = std::make_unique<CompiledGraph>(mFrameAlloc->Arena());
+
+        // copy resolved resource tables
+        mCompiledGraph->resolvedImages = mResolvedImages;
+        mCompiledGraph->resolvedBuffers = mResolvedBuffers;
+        mCompiledGraph->topologicalOrder = mTopoOrder;
+
+        // build flat barrier array + compiled passes in topo order
+        for (const uint32_t passIndex : mTopoOrder) {
+            const auto &pass = mPasses[passIndex];
+            if (!pass.live) {
+                continue;
+            }
+
+            const uint32_t barrierOffset = static_cast<uint32_t>(mCompiledGraph->barriers.size());
+            for (const auto &barrier : pass.frontBarriers) {
+                mCompiledGraph->barriers.push_back(barrier);
+            }
+            const uint32_t barrierCount = static_cast<uint32_t>(mCompiledGraph->barriers.size()) - barrierOffset;
+
+            auto &cpass = mCompiledGraph->passes.emplace_back(mFrameAlloc->Arena());
+            cpass.type         = std::holds_alternative<RasterPassTag>(pass.tag) ? CompiledPassType::RASTER
+                               : std::holds_alternative<ComputePassTag>(pass.tag) ? CompiledPassType::COMPUTE
+                               : CompiledPassType::COPY;
+            cpass.passIndex    = passIndex;
+            cpass.name         = pass.name;
+            cpass.barrierOffset = barrierOffset;
+            cpass.barrierCount  = barrierCount;
+
+            if (std::holds_alternative<RasterPassTag>(pass.tag)) {
+                const auto &data = mRasterPasses[pass.payloadIndex];
+                for (const auto &color : data.colors) {
+                    CompiledColorAttachment c{};
+                    c.slot       = color.slot;
+                    c.image      = mResolvedImages[color.resourceIndex];
+                    c.loadOp     = color.loadOp;
+                    c.storeOp    = color.storeOp;
+                    c.clearValue = color.clearValue;
+                    cpass.colors.push_back(c);
+                }
+                if (data.depthStencilResource != INVALID_INDEX) {
+                    cpass.depthStencil.image           = mResolvedImages[data.depthStencilResource];
+                    cpass.depthStencil.depthLoadOp     = data.depthLoadOp;
+                    cpass.depthStencil.depthStoreOp    = data.depthStoreOp;
+                    cpass.depthStencil.stencilLoadOp   = data.stencilLoadOp;
+                    cpass.depthStencil.stencilStoreOp  = data.stencilStoreOp;
+                    cpass.depthStencil.clearValue      = data.depthStencilClear;
+                }
+                cpass.rasterExecuteFn = data.executeFn;
+            } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {
+                cpass.computeExecuteFn = mComputePasses[pass.payloadIndex].executeFn;
+            } else if (std::holds_alternative<CopyPassTag>(pass.tag)) {
+                cpass.copyExecuteFn = mCopyPasses[pass.payloadIndex].executeFn;
+            }
+        }
+
+        // append final barriers
+        for (const auto &barrier : mFinalBarriers) {
+            mCompiledGraph->barriers.push_back(barrier);
+        }
     }
 
     void RenderGraph::DeriveBarriers()
