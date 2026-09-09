@@ -4,6 +4,8 @@
 
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rhi/Barrier.h>
+#include <aurora/rhi/CommandBuffer.h>
+#include <aurora/rhi/Encoder.h>
 #include <core/logger/Logger.h>
 
 #include "TransientPool.h"
@@ -427,9 +429,9 @@ namespace sky::aurora {
             const uint32_t barrierCount = static_cast<uint32_t>(mCompiledGraph->barriers.size()) - barrierOffset;
 
             auto &cpass = mCompiledGraph->passes.emplace_back(mFrameAlloc->Arena());
-            cpass.type         = std::holds_alternative<RasterPassTag>(pass.tag) ? CompiledPassType::RASTER
+            cpass.type         = std::holds_alternative<RasterPassTag>(pass.tag) ? CompiledPassType::SCENE_RASTER
                                : std::holds_alternative<ComputePassTag>(pass.tag) ? CompiledPassType::COMPUTE
-                               : CompiledPassType::COPY;
+                               : CompiledPassType::COPYBLIT;
             cpass.passIndex    = passIndex;
             cpass.name         = pass.name;
             cpass.barrierOffset = barrierOffset;
@@ -437,6 +439,8 @@ namespace sky::aurora {
 
             if (std::holds_alternative<RasterPassTag>(pass.tag)) {
                 const auto &data = mRasterPasses[pass.payloadIndex];
+                cpass.payload.emplace<SceneRasterPayload>(mFrameAlloc->Arena());
+                auto &payload = std::get<SceneRasterPayload>(cpass.payload);
                 for (const auto &color : data.colors) {
                     CompiledColorAttachment c{};
                     c.slot       = color.slot;
@@ -444,21 +448,28 @@ namespace sky::aurora {
                     c.loadOp     = color.loadOp;
                     c.storeOp    = color.storeOp;
                     c.clearValue = color.clearValue;
-                    cpass.colors.push_back(c);
+                    payload.colors.push_back(c);
                 }
                 if (data.depthStencilResource != INVALID_INDEX) {
-                    cpass.depthStencil.image           = mResolvedImages[data.depthStencilResource];
-                    cpass.depthStencil.depthLoadOp     = data.depthLoadOp;
-                    cpass.depthStencil.depthStoreOp    = data.depthStoreOp;
-                    cpass.depthStencil.stencilLoadOp   = data.stencilLoadOp;
-                    cpass.depthStencil.stencilStoreOp  = data.stencilStoreOp;
-                    cpass.depthStencil.clearValue      = data.depthStencilClear;
+                    payload.depthStencil.image           = mResolvedImages[data.depthStencilResource];
+                    payload.depthStencil.depthLoadOp     = data.depthLoadOp;
+                    payload.depthStencil.depthStoreOp    = data.depthStoreOp;
+                    payload.depthStencil.stencilLoadOp   = data.stencilLoadOp;
+                    payload.depthStencil.stencilStoreOp  = data.stencilStoreOp;
+                    payload.depthStencil.clearValue      = data.depthStencilClear;
                 }
-                cpass.rasterExecuteFn = data.executeFn;
+                // items empty for now (builder change will fill them)
+                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
             } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {
-                cpass.computeExecuteFn = mComputePasses[pass.payloadIndex].executeFn;
+                cpass.payload.emplace<ComputePayload>();
+                auto &payload = std::get<ComputePayload>(cpass.payload);
+                payload.groupX = 1; payload.groupY = 1; payload.groupZ = 1;
+                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
             } else if (std::holds_alternative<CopyPassTag>(pass.tag)) {
-                cpass.copyExecuteFn = mCopyPasses[pass.payloadIndex].executeFn;
+                cpass.payload.emplace<CopyBlitPayload>();
+                auto &payload = std::get<CopyBlitPayload>(cpass.payload);
+                payload.kind = CopyBlitPayload::Kind::BUFFER;
+                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
             }
         }
 
