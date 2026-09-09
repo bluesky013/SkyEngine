@@ -17,40 +17,27 @@ namespace sky::aurora {
     class Image;
     class Buffer;
     class CommandBuffer;
+    class ResourceGroup;
 
     class RDGContext {
     public:
-        RDGContext()  = default;
-        ~RDGContext() = default;
-
-        Image  *GetTexture(RDGTextureHandle handle) const
-        {
-            if (!handle.IsValid() || mImageTable == nullptr) {
-                return nullptr;
-            }
-            return (*mImageTable)[handle.id];
-        }
-
-        Buffer *GetBuffer(RDGBufferHandle handle) const
-        {
-            if (!handle.IsValid() || mBufferTable == nullptr) {
-                return nullptr;
-            }
-            return (*mBufferTable)[handle.id];
-        }
-
+        Image          *GetTexture(RDGTextureHandle handle) const;
+        Buffer         *GetBuffer(RDGBufferHandle handle) const;
         std::string_view GetPassName() const { return mPassName.GetStr(); }
         CommandBuffer   *GetCommandBuffer() const { return mCommandBuffer; }
+        ResourceGroup   *GetResourceGroup() const { return mResourceGroup; }
 
         // internal wiring
         void SetCommandBuffer(CommandBuffer *cmdBuf) { mCommandBuffer = cmdBuf; }
         void SetPassName(const Name &name) { mPassName = name; }
+        void SetResourceGroup(ResourceGroup *group) { mResourceGroup = group; }
         void SetImageTable(const TransientVector<Image *> *table) { mImageTable = table; }
         void SetBufferTable(const TransientVector<Buffer *> *table) { mBufferTable = table; }
 
     private:
         CommandBuffer              *mCommandBuffer = nullptr;
         Name                        mPassName;
+        ResourceGroup              *mResourceGroup  = nullptr;
         const TransientVector<Image *> *mImageTable    = nullptr;
         const TransientVector<Buffer *> *mBufferTable  = nullptr;
     };

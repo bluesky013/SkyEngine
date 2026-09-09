@@ -182,6 +182,13 @@ namespace sky::aurora {
             if (isSeed) {
                 markLive(node.lastWriterPass);
             }
+
+            // PRESENT access marks the presenting pass as live (graph output)
+            for (const auto &access : node.accesses) {
+                if (access.access & AccessFlagBit::PRESENT) {
+                    markLive(access.pass);
+                }
+            }
         }
 
         while (!work.empty()) {
@@ -299,21 +306,37 @@ namespace sky::aurora {
 
         // resolve raster pass render areas from the first color attachment's extent
         for (uint32_t i = 0; i < mPasses.size(); ++i) {
-            if (!mPasses[i].live || !std::holds_alternative<RasterPassTag>(mPasses[i].tag)) {
+            if (!mPasses[i].live) {
                 continue;
             }
-            auto &data = mRasterPasses[mPasses[i].payloadIndex];
-            if (data.colors.empty()) {
-                continue;
-            }
-            const uint32_t resIndex = data.colors.front().resourceIndex;
-            if (resIndex >= mResources.size()) {
-                continue;
-            }
-            const auto &node = mResources[resIndex];
-            if (std::holds_alternative<TransientImageTag>(node.tag)) {
-                const auto &desc = mImages[node.payloadIndex].desc;
-                data.renderArea = {desc.extent.width, desc.extent.height};
+            if (std::holds_alternative<SceneRasterPassTag>(mPasses[i].tag)) {
+                auto &data = mSceneRasterPasses[mPasses[i].payloadIndex];
+                if (data.colors.empty()) {
+                    continue;
+                }
+                const uint32_t resIndex = data.colors.front().resourceIndex;
+                if (resIndex >= mResources.size()) {
+                    continue;
+                }
+                const auto &node = mResources[resIndex];
+                if (std::holds_alternative<TransientImageTag>(node.tag)) {
+                    const auto &desc = mImages[node.payloadIndex].desc;
+                    data.renderArea = {desc.extent.width, desc.extent.height};
+                }
+            } else if (std::holds_alternative<FullScreenPassTag>(mPasses[i].tag)) {
+                auto &data = mFullScreenPasses[mPasses[i].payloadIndex];
+                if (data.colors.empty()) {
+                    continue;
+                }
+                const uint32_t resIndex = data.colors.front().resourceIndex;
+                if (resIndex >= mResources.size()) {
+                    continue;
+                }
+                const auto &node = mResources[resIndex];
+                if (std::holds_alternative<TransientImageTag>(node.tag)) {
+                    const auto &desc = mImages[node.payloadIndex].desc;
+                    data.renderArea = {desc.extent.width, desc.extent.height};
+                }
             }
         }
     }
@@ -429,16 +452,14 @@ namespace sky::aurora {
             const uint32_t barrierCount = static_cast<uint32_t>(mCompiledGraph->barriers.size()) - barrierOffset;
 
             auto &cpass = mCompiledGraph->passes.emplace_back(mFrameAlloc->Arena());
-            cpass.type         = std::holds_alternative<RasterPassTag>(pass.tag) ? CompiledPassType::SCENE_RASTER
-                               : std::holds_alternative<ComputePassTag>(pass.tag) ? CompiledPassType::COMPUTE
-                               : CompiledPassType::COPYBLIT;
-            cpass.passIndex    = passIndex;
-            cpass.name         = pass.name;
+            cpass.passIndex     = passIndex;
+            cpass.name          = pass.name;
             cpass.barrierOffset = barrierOffset;
             cpass.barrierCount  = barrierCount;
 
-            if (std::holds_alternative<RasterPassTag>(pass.tag)) {
-                const auto &data = mRasterPasses[pass.payloadIndex];
+            if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::SCENE_RASTER;
+                const auto &data = mSceneRasterPasses[pass.payloadIndex];
                 cpass.payload.emplace<SceneRasterPayload>(mFrameAlloc->Arena());
                 auto &payload = std::get<SceneRasterPayload>(cpass.payload);
                 for (const auto &color : data.colors) {
@@ -458,18 +479,78 @@ namespace sky::aurora {
                     payload.depthStencil.stencilStoreOp  = data.stencilStoreOp;
                     payload.depthStencil.clearValue      = data.depthStencilClear;
                 }
-                // items empty for now (builder change will fill them)
-                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
+                payload.items = data.items; // copy draw items
+            } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::FULLSCREEN;
+                const auto &data = mFullScreenPasses[pass.payloadIndex];
+                cpass.payload.emplace<FullScreenPayload>(mFrameAlloc->Arena());
+                auto &payload = std::get<FullScreenPayload>(cpass.payload);
+                payload.pso               = data.pso;
+                payload.passResourceGroup = data.passResourceGroup;
+                for (const auto &color : data.colors) {
+                    CompiledColorAttachment c{};
+                    c.slot       = color.slot;
+                    c.image      = mResolvedImages[color.resourceIndex];
+                    c.loadOp     = color.loadOp;
+                    c.storeOp    = color.storeOp;
+                    c.clearValue = color.clearValue;
+                    payload.colors.push_back(c);
+                }
+                if (data.depthStencilResource != INVALID_INDEX) {
+                    payload.depthStencil.image           = mResolvedImages[data.depthStencilResource];
+                    payload.depthStencil.depthLoadOp     = data.depthLoadOp;
+                    payload.depthStencil.depthStoreOp    = data.depthStoreOp;
+                    payload.depthStencil.stencilLoadOp   = data.stencilLoadOp;
+                    payload.depthStencil.stencilStoreOp  = data.stencilStoreOp;
+                    payload.depthStencil.clearValue      = data.depthStencilClear;
+                }
             } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::COMPUTE;
+                const auto &data = mComputePasses[pass.payloadIndex];
                 cpass.payload.emplace<ComputePayload>();
                 auto &payload = std::get<ComputePayload>(cpass.payload);
-                payload.groupX = 1; payload.groupY = 1; payload.groupZ = 1;
-                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
-            } else if (std::holds_alternative<CopyPassTag>(pass.tag)) {
+                payload.pso               = data.pso;
+                payload.passResourceGroup = data.passResourceGroup;
+                payload.groupX            = data.groupX;
+                payload.groupY            = data.groupY;
+                payload.groupZ            = data.groupZ;
+            } else if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::COPYBLIT;
+                const auto &data = mCopyBlitPasses[pass.payloadIndex];
                 cpass.payload.emplace<CopyBlitPayload>();
                 auto &payload = std::get<CopyBlitPayload>(cpass.payload);
-                payload.kind = CopyBlitPayload::Kind::BUFFER;
-                // executeFn not stored in CompiledPass (Execute.cpp still uses old logic)
+                payload.kind      = data.kind;
+                payload.size      = data.size;
+                payload.srcOffset = data.srcOffset;
+                payload.dstOffset = data.dstOffset;
+                if (data.srcResourceIndex != INVALID_INDEX) {
+                    if (data.kind == CopyBlitPayload::Kind::BUFFER) {
+                        payload.srcBuffer = mResolvedBuffers[data.srcResourceIndex];
+                    } else {
+                        payload.srcImage = mResolvedImages[data.srcResourceIndex];
+                    }
+                }
+                if (data.dstResourceIndex != INVALID_INDEX) {
+                    if (data.kind == CopyBlitPayload::Kind::BUFFER) {
+                        payload.dstBuffer = mResolvedBuffers[data.dstResourceIndex];
+                    } else {
+                        payload.dstImage = mResolvedImages[data.dstResourceIndex];
+                    }
+                }
+            } else if (std::holds_alternative<PresentPassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::PRESENT;
+                const auto &data = mPresentPasses[pass.payloadIndex];
+                cpass.payload.emplace<PresentPayload>();
+                auto &payload = std::get<PresentPayload>(cpass.payload);
+                if (data.imageResourceIndex != INVALID_INDEX) {
+                    payload.image = mResolvedImages[data.imageResourceIndex];
+                }
+            } else if (std::holds_alternative<CustomPassTag>(pass.tag)) {
+                cpass.type = CompiledPassType::CUSTOM;
+                const auto &data = mCustomPasses[pass.payloadIndex];
+                cpass.payload.emplace<CustomPayload>();
+                auto &payload = std::get<CustomPayload>(cpass.payload);
+                payload.fn = data.fn;
             }
         }
 

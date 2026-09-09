@@ -20,9 +20,12 @@ namespace sky::aurora {
         , mBuffers(TransientStdAllocator<GraphBuffer>{frameAlloc.Arena()})
         , mImportBuffers(TransientStdAllocator<GraphImportBuffer>{frameAlloc.Arena()})
         , mPasses(TransientStdAllocator<PassNode>{frameAlloc.Arena()})
-        , mRasterPasses(TransientStdAllocator<RasterPassData>{frameAlloc.Arena()})
+        , mSceneRasterPasses(TransientStdAllocator<SceneRasterPassData>{frameAlloc.Arena()})
+        , mFullScreenPasses(TransientStdAllocator<FullScreenPassData>{frameAlloc.Arena()})
         , mComputePasses(TransientStdAllocator<ComputePassData>{frameAlloc.Arena()})
-        , mCopyPasses(TransientStdAllocator<CopyPassData>{frameAlloc.Arena()})
+        , mCopyBlitPasses(TransientStdAllocator<CopyBlitPassData>{frameAlloc.Arena()})
+        , mPresentPasses(TransientStdAllocator<PresentPassData>{frameAlloc.Arena()})
+        , mCustomPasses(TransientStdAllocator<CustomPassData>{frameAlloc.Arena()})
         , mTopoOrder(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
         , mRank(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
         , mOfInterest(TransientStdAllocator<uint32_t>{frameAlloc.Arena()})
@@ -82,15 +85,24 @@ namespace sky::aurora {
         node.name = name;
         node.tag  = tag;
 
-        if (std::holds_alternative<RasterPassTag>(tag)) {
-            node.payloadIndex = static_cast<uint32_t>(mRasterPasses.size());
-            mRasterPasses.emplace_back(mFrameAlloc->Arena());
+        if (std::holds_alternative<SceneRasterPassTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mSceneRasterPasses.size());
+            mSceneRasterPasses.emplace_back(mFrameAlloc->Arena());
+        } else if (std::holds_alternative<FullScreenPassTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mFullScreenPasses.size());
+            mFullScreenPasses.emplace_back(mFrameAlloc->Arena());
         } else if (std::holds_alternative<ComputePassTag>(tag)) {
             node.payloadIndex = static_cast<uint32_t>(mComputePasses.size());
             mComputePasses.emplace_back();
-        } else if (std::holds_alternative<CopyPassTag>(tag)) {
-            node.payloadIndex = static_cast<uint32_t>(mCopyPasses.size());
-            mCopyPasses.emplace_back();
+        } else if (std::holds_alternative<CopyBlitPassTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mCopyBlitPasses.size());
+            mCopyBlitPasses.emplace_back();
+        } else if (std::holds_alternative<PresentPassTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mPresentPasses.size());
+            mPresentPasses.emplace_back();
+        } else if (std::holds_alternative<CustomPassTag>(tag)) {
+            node.payloadIndex = static_cast<uint32_t>(mCustomPasses.size());
+            mCustomPasses.emplace_back();
         }
 
         mPasses.push_back(std::move(node));
@@ -129,14 +141,25 @@ namespace sky::aurora {
         return RDGBufferHandle{index};
     }
 
-    void RenderGraph::AddRasterPass(const Name &name,
-                                    const std::function<void(RasterPassBuilder &)> &setup,
-                                    std::function<void(GraphicsEncoder &, RDGContext &)> execute)
+    void RenderGraph::AddSceneRasterPass(const Name &name,
+                                         const std::function<void(SceneRasterPassBuilder &)> &setup,
+                                         std::function<void(GraphicsEncoder &, RDGContext &)> execute)
     {
-        const uint32_t passIndex = AddPass(name, RasterPassTag{});
-        mRasterPasses[mPasses[passIndex].payloadIndex].executeFn = std::move(execute);
+        const uint32_t passIndex = AddPass(name, SceneRasterPassTag{});
+        (void)execute; // legacy execute lambda kept for backward compat in tests; items are the data path
 
-        RasterPassBuilder builder(this, passIndex);
+        SceneRasterPassBuilder builder(this, passIndex);
+        if (setup) {
+            setup(builder);
+        }
+    }
+
+    void RenderGraph::AddFullScreenPass(const Name &name,
+                                        const std::function<void(FullScreenPassBuilder &)> &setup)
+    {
+        const uint32_t passIndex = AddPass(name, FullScreenPassTag{});
+
+        FullScreenPassBuilder builder(this, passIndex);
         if (setup) {
             setup(builder);
         }
@@ -155,14 +178,36 @@ namespace sky::aurora {
         }
     }
 
-    void RenderGraph::AddCopyPass(const Name &name,
-                                  const std::function<void(CopyPassBuilder &)> &setup,
-                                  std::function<void(BlitEncoder &, RDGContext &)> execute)
+    void RenderGraph::AddCopyBlitPass(const Name &name,
+                                      const std::function<void(CopyBlitPassBuilder &)> &setup)
     {
-        const uint32_t passIndex = AddPass(name, CopyPassTag{});
-        mCopyPasses[mPasses[passIndex].payloadIndex].executeFn = std::move(execute);
+        const uint32_t passIndex = AddPass(name, CopyBlitPassTag{});
 
-        CopyPassBuilder builder(this, passIndex);
+        CopyBlitPassBuilder builder(this, passIndex);
+        if (setup) {
+            setup(builder);
+        }
+    }
+
+    void RenderGraph::AddPresentPass(const Name &name,
+                                     const std::function<void(PresentPassBuilder &)> &setup)
+    {
+        const uint32_t passIndex = AddPass(name, PresentPassTag{});
+
+        PresentPassBuilder builder(this, passIndex);
+        if (setup) {
+            setup(builder);
+        }
+    }
+
+    void RenderGraph::AddCustomPass(const Name &name,
+                                    const std::function<void(CustomPassBuilder &)> &setup,
+                                    std::function<void(RDGContext &, CommandBuffer &)> execute)
+    {
+        const uint32_t passIndex = AddPass(name, CustomPassTag{});
+        mCustomPasses[mPasses[passIndex].payloadIndex].fn = std::move(execute);
+
+        CustomPassBuilder builder(this, passIndex);
         if (setup) {
             setup(builder);
         }
@@ -208,14 +253,25 @@ namespace sky::aurora {
 
     void RenderGraph::SetColorAttachment(uint32_t passIndex, uint32_t slot, uint32_t resourceIndex, LoadOp loadOp, StoreOp storeOp)
     {
-        auto &data = mRasterPasses[mPasses[passIndex].payloadIndex];
+        auto &pass = mPasses[passIndex];
 
-        RasterPassData::ColorAttachmentRef ref;
-        ref.slot          = slot;
-        ref.resourceIndex = resourceIndex;
-        ref.loadOp        = loadOp;
-        ref.storeOp       = storeOp;
-        data.colors.push_back(std::move(ref));
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            auto &data = mSceneRasterPasses[pass.payloadIndex];
+            SceneRasterPassData::ColorAttachmentRef ref;
+            ref.slot          = slot;
+            ref.resourceIndex = resourceIndex;
+            ref.loadOp        = loadOp;
+            ref.storeOp       = storeOp;
+            data.colors.push_back(std::move(ref));
+        } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
+            auto &data = mFullScreenPasses[pass.payloadIndex];
+            SceneRasterPassData::ColorAttachmentRef ref;
+            ref.slot          = slot;
+            ref.resourceIndex = resourceIndex;
+            ref.loadOp        = loadOp;
+            ref.storeOp       = storeOp;
+            data.colors.push_back(std::move(ref));
+        }
 
         AddWrite(passIndex, resourceIndex, AccessFlagBit::RTV);
     }
@@ -224,68 +280,218 @@ namespace sky::aurora {
                                                 LoadOp depthLoadOp, StoreOp depthStoreOp,
                                                 LoadOp stencilLoadOp, StoreOp stencilStoreOp)
     {
-        auto &data                  = mRasterPasses[mPasses[passIndex].payloadIndex];
-        data.depthStencilResource  = resourceIndex;
-        data.depthLoadOp           = depthLoadOp;
-        data.depthStoreOp          = depthStoreOp;
-        data.stencilLoadOp         = stencilLoadOp;
-        data.stencilStoreOp        = stencilStoreOp;
+        auto &pass = mPasses[passIndex];
+
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            auto &data                 = mSceneRasterPasses[pass.payloadIndex];
+            data.depthStencilResource  = resourceIndex;
+            data.depthLoadOp           = depthLoadOp;
+            data.depthStoreOp          = depthStoreOp;
+            data.stencilLoadOp         = stencilLoadOp;
+            data.stencilStoreOp        = stencilStoreOp;
+        } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
+            auto &data                 = mFullScreenPasses[pass.payloadIndex];
+            data.depthStencilResource  = resourceIndex;
+            data.depthLoadOp           = depthLoadOp;
+            data.depthStoreOp          = depthStoreOp;
+            data.stencilLoadOp         = stencilLoadOp;
+            data.stencilStoreOp        = stencilStoreOp;
+        }
 
         AddWrite(passIndex, resourceIndex, AccessFlagBit::DSV);
     }
 
     void RenderGraph::SetCopySrc(uint32_t passIndex, uint32_t resourceIndex)
     {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+            mCopyBlitPasses[pass.payloadIndex].srcResourceIndex = resourceIndex;
+        }
         AddRead(passIndex, resourceIndex, AccessFlagBit::COPY_SRC);
     }
 
     void RenderGraph::SetCopyDst(uint32_t passIndex, uint32_t resourceIndex)
     {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+            mCopyBlitPasses[pass.payloadIndex].dstResourceIndex = resourceIndex;
+        }
         AddWrite(passIndex, resourceIndex, AccessFlagBit::COPY_DST);
+    }
+
+    void RenderGraph::AddDrawItem(uint32_t passIndex, const DrawItem &item)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            mSceneRasterPasses[pass.payloadIndex].items.push_back(item);
+        }
+    }
+
+    void RenderGraph::SetSceneRasterResourceGroup(uint32_t passIndex, ResourceGroup *group)
+    {
+        (void)passIndex; (void)group; // reserved for compiled payload wiring
+    }
+
+    void RenderGraph::SetFullScreenTechnique(uint32_t passIndex, GraphicsPipeline *pso)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
+            mFullScreenPasses[pass.payloadIndex].pso = pso;
+        }
+    }
+
+    void RenderGraph::SetFullScreenResourceGroup(uint32_t passIndex, ResourceGroup *group)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
+            mFullScreenPasses[pass.payloadIndex].passResourceGroup = group;
+        }
+    }
+
+    void RenderGraph::SetComputePipeline(uint32_t passIndex, ComputePipeline *pso)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<ComputePassTag>(pass.tag)) {
+            mComputePasses[pass.payloadIndex].pso = pso;
+        }
+    }
+
+    void RenderGraph::SetComputeResourceGroup(uint32_t passIndex, ResourceGroup *group)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<ComputePassTag>(pass.tag)) {
+            mComputePasses[pass.payloadIndex].passResourceGroup = group;
+        }
+    }
+
+    void RenderGraph::SetComputeGroups(uint32_t passIndex, uint32_t x, uint32_t y, uint32_t z)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<ComputePassTag>(pass.tag)) {
+            auto &data   = mComputePasses[pass.payloadIndex];
+            data.groupX  = x;
+            data.groupY  = y;
+            data.groupZ  = z;
+        }
+    }
+
+    void RenderGraph::SetCopyBlitKind(uint32_t passIndex, CopyBlitPayload::Kind kind)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+            mCopyBlitPasses[pass.payloadIndex].kind = kind;
+        }
+    }
+
+    void RenderGraph::SetCopyBlitSize(uint32_t passIndex, uint64_t size)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+            mCopyBlitPasses[pass.payloadIndex].size = size;
+        }
+    }
+
+    void RenderGraph::SetCopyBlitOffsets(uint32_t passIndex, uint64_t srcOffset, uint64_t dstOffset)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
+            auto &data      = mCopyBlitPasses[pass.payloadIndex];
+            data.srcOffset  = srcOffset;
+            data.dstOffset  = dstOffset;
+        }
     }
 
     // ---- builders ----
 
-    RasterPassBuilder::RasterPassBuilder(RenderGraph *graph, uint32_t passIndex)
+    SceneRasterPassBuilder::SceneRasterPassBuilder(RenderGraph *graph, uint32_t passIndex)
         : mGraph(graph), mPassIndex(passIndex)
     {
     }
 
-    RasterPassBuilder &RasterPassBuilder::Read(RDGTextureHandle handle, AccessFlags access)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::Read(RDGTextureHandle handle, AccessFlags access)
     {
         mGraph->AddRead(mPassIndex, handle.id, access);
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::Read(RDGBufferHandle handle, AccessFlags access)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::Read(RDGBufferHandle handle, AccessFlags access)
     {
         mGraph->AddRead(mPassIndex, handle.id, access);
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::Write(RDGTextureHandle handle, AccessFlags access)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::Write(RDGTextureHandle handle, AccessFlags access)
     {
         mGraph->AddWrite(mPassIndex, handle.id, access);
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::Write(RDGBufferHandle handle, AccessFlags access)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::Write(RDGBufferHandle handle, AccessFlags access)
     {
         mGraph->AddWrite(mPassIndex, handle.id, access);
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::ColorAttachment(uint32_t slot, RDGTextureHandle handle, LoadOp loadOp, StoreOp storeOp)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::ColorAttachment(uint32_t slot, RDGTextureHandle handle, LoadOp loadOp, StoreOp storeOp)
     {
         mGraph->SetColorAttachment(mPassIndex, slot, handle.id, loadOp, storeOp);
         return *this;
     }
 
-    RasterPassBuilder &RasterPassBuilder::DepthStencilAttachment(RDGTextureHandle handle,
-                                                                 LoadOp depthLoadOp, StoreOp depthStoreOp,
-                                                                 LoadOp stencilLoadOp, StoreOp stencilStoreOp)
+    SceneRasterPassBuilder &SceneRasterPassBuilder::DepthStencilAttachment(RDGTextureHandle handle,
+                                                                           LoadOp depthLoadOp, StoreOp depthStoreOp,
+                                                                           LoadOp stencilLoadOp, StoreOp stencilStoreOp)
     {
         mGraph->SetDepthStencilAttachment(mPassIndex, handle.id, depthLoadOp, depthStoreOp, stencilLoadOp, stencilStoreOp);
+        return *this;
+    }
+
+    SceneRasterPassBuilder &SceneRasterPassBuilder::AddDrawItem(const DrawItem &item)
+    {
+        mGraph->AddDrawItem(mPassIndex, item);
+        return *this;
+    }
+
+    SceneRasterPassBuilder &SceneRasterPassBuilder::SetPassResourceGroup(ResourceGroup *group)
+    {
+        mGraph->SetSceneRasterResourceGroup(mPassIndex, group);
+        return *this;
+    }
+
+    FullScreenPassBuilder::FullScreenPassBuilder(RenderGraph *graph, uint32_t passIndex)
+        : mGraph(graph), mPassIndex(passIndex)
+    {
+    }
+
+    FullScreenPassBuilder &FullScreenPassBuilder::SetTechnique(GraphicsPipeline *pso)
+    {
+        mGraph->SetFullScreenTechnique(mPassIndex, pso);
+        return *this;
+    }
+
+    FullScreenPassBuilder &FullScreenPassBuilder::SetPassResourceGroup(ResourceGroup *group)
+    {
+        mGraph->SetFullScreenResourceGroup(mPassIndex, group);
+        return *this;
+    }
+
+    FullScreenPassBuilder &FullScreenPassBuilder::SetTarget(RDGTextureHandle handle, LoadOp loadOp, StoreOp storeOp)
+    {
+        mGraph->SetColorAttachment(mPassIndex, 0, handle.id, loadOp, storeOp);
+        return *this;
+    }
+
+    FullScreenPassBuilder &FullScreenPassBuilder::SetDepthStencil(RDGTextureHandle handle,
+                                                                  LoadOp depthLoadOp, StoreOp depthStoreOp,
+                                                                  LoadOp stencilLoadOp, StoreOp stencilStoreOp)
+    {
+        mGraph->SetDepthStencilAttachment(mPassIndex, handle.id, depthLoadOp, depthStoreOp, stencilLoadOp, stencilStoreOp);
+        return *this;
+    }
+
+    FullScreenPassBuilder &FullScreenPassBuilder::SetInputSRV(RDGTextureHandle handle)
+    {
+        mGraph->AddRead(mPassIndex, handle.id, AccessFlagBit::SRV);
         return *this;
     }
 
@@ -318,20 +524,108 @@ namespace sky::aurora {
         return *this;
     }
 
-    CopyPassBuilder::CopyPassBuilder(RenderGraph *graph, uint32_t passIndex)
+    ComputePassBuilder &ComputePassBuilder::SetPipeline(ComputePipeline *pso)
+    {
+        mGraph->SetComputePipeline(mPassIndex, pso);
+        return *this;
+    }
+
+    ComputePassBuilder &ComputePassBuilder::SetPassResourceGroup(ResourceGroup *group)
+    {
+        mGraph->SetComputeResourceGroup(mPassIndex, group);
+        return *this;
+    }
+
+    ComputePassBuilder &ComputePassBuilder::SetGroups(uint32_t x, uint32_t y, uint32_t z)
+    {
+        mGraph->SetComputeGroups(mPassIndex, x, y, z);
+        return *this;
+    }
+
+    CopyBlitPassBuilder::CopyBlitPassBuilder(RenderGraph *graph, uint32_t passIndex)
         : mGraph(graph), mPassIndex(passIndex)
     {
     }
 
-    CopyPassBuilder &CopyPassBuilder::Src(RDGTextureHandle handle)
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Src(RDGTextureHandle handle)
     {
         mGraph->SetCopySrc(mPassIndex, handle.id);
         return *this;
     }
 
-    CopyPassBuilder &CopyPassBuilder::Dst(RDGTextureHandle handle)
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Src(RDGBufferHandle handle)
+    {
+        mGraph->SetCopySrc(mPassIndex, handle.id);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Dst(RDGTextureHandle handle)
     {
         mGraph->SetCopyDst(mPassIndex, handle.id);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::Dst(RDGBufferHandle handle)
+    {
+        mGraph->SetCopyDst(mPassIndex, handle.id);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::SetKind(CopyBlitPayload::Kind kind)
+    {
+        mGraph->SetCopyBlitKind(mPassIndex, kind);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::SetSize(uint64_t size)
+    {
+        mGraph->SetCopyBlitSize(mPassIndex, size);
+        return *this;
+    }
+
+    CopyBlitPassBuilder &CopyBlitPassBuilder::SetOffsets(uint64_t srcOffset, uint64_t dstOffset)
+    {
+        mGraph->SetCopyBlitOffsets(mPassIndex, srcOffset, dstOffset);
+        return *this;
+    }
+
+    PresentPassBuilder::PresentPassBuilder(RenderGraph *graph, uint32_t passIndex)
+        : mGraph(graph), mPassIndex(passIndex)
+    {
+    }
+
+    PresentPassBuilder &PresentPassBuilder::SetSource(RDGTextureHandle handle)
+    {
+        mGraph->AddRead(mPassIndex, handle.id, AccessFlagBit::PRESENT);
+        return *this;
+    }
+
+    CustomPassBuilder::CustomPassBuilder(RenderGraph *graph, uint32_t passIndex)
+        : mGraph(graph), mPassIndex(passIndex)
+    {
+    }
+
+    CustomPassBuilder &CustomPassBuilder::Read(RDGTextureHandle handle, AccessFlags access)
+    {
+        mGraph->AddRead(mPassIndex, handle.id, access);
+        return *this;
+    }
+
+    CustomPassBuilder &CustomPassBuilder::Read(RDGBufferHandle handle, AccessFlags access)
+    {
+        mGraph->AddRead(mPassIndex, handle.id, access);
+        return *this;
+    }
+
+    CustomPassBuilder &CustomPassBuilder::Write(RDGTextureHandle handle, AccessFlags access)
+    {
+        mGraph->AddWrite(mPassIndex, handle.id, access);
+        return *this;
+    }
+
+    CustomPassBuilder &CustomPassBuilder::Write(RDGBufferHandle handle, AccessFlags access)
+    {
+        mGraph->AddWrite(mPassIndex, handle.id, access);
         return *this;
     }
 

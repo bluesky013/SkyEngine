@@ -8,6 +8,7 @@
 #include <core/memory/TransientAllocator.h>
 #include <aurora/rhi/Core.h>
 
+#include <aurora/rdg/CompiledGraph.h>
 #include <aurora/rdg/RDGHandles.h>
 #include <aurora/rdg/RDGTypes.h>
 #include <aurora/rhi/Image.h>
@@ -23,6 +24,9 @@ namespace sky::aurora {
     class ComputeEncoder;
     class BlitEncoder;
     class RDGContext;
+    class ResourceGroup;
+    class GraphicsPipeline;
+    class ComputePipeline;
 
     // ---- lifetime ----
     struct LifeTime {
@@ -83,7 +87,7 @@ namespace sky::aurora {
     };
 
     // ---- pass payloads ----
-    struct RasterPassData {
+    struct SceneRasterPassData {
         struct ColorAttachmentRef {
             uint32_t   slot          = 0;
             uint32_t   resourceIndex = INVALID_INDEX;
@@ -102,27 +106,71 @@ namespace sky::aurora {
         StoreOp    stencilStoreOp       = StoreOp::DONT_CARE;
         ClearValue depthStencilClear{0.f, 0};
 
-        std::function<void(GraphicsEncoder &, RDGContext &)> executeFn;
+        TransientVector<DrawItem> items;
 
-        explicit RasterPassData(TransientAllocator &alloc)
+        explicit SceneRasterPassData(TransientAllocator &alloc)
             : colors(TransientStdAllocator<ColorAttachmentRef>{alloc})
+            , items(TransientStdAllocator<DrawItem>{alloc})
+        {
+        }
+    };
+
+    struct FullScreenPassData {
+        GraphicsPipeline *pso = nullptr;
+        ResourceGroup    *passResourceGroup = nullptr;
+
+        TransientVector<SceneRasterPassData::ColorAttachmentRef> colors;
+        Extent2D    renderArea{1, 1};
+
+        uint32_t   depthStencilResource = INVALID_INDEX;
+        LoadOp     depthLoadOp          = LoadOp::DONT_CARE;
+        StoreOp    depthStoreOp         = StoreOp::STORE;
+        LoadOp     stencilLoadOp        = LoadOp::DONT_CARE;
+        StoreOp    stencilStoreOp       = StoreOp::DONT_CARE;
+        ClearValue depthStencilClear{0.f, 0};
+
+        explicit FullScreenPassData(TransientAllocator &alloc)
+            : colors(TransientStdAllocator<SceneRasterPassData::ColorAttachmentRef>{alloc})
         {
         }
     };
 
     struct ComputePassData {
+        ComputePipeline *pso = nullptr;
+        ResourceGroup   *passResourceGroup = nullptr;
+        uint32_t        groupX = 1, groupY = 1, groupZ = 1;
+
         std::function<void(ComputeEncoder &, RDGContext &)> executeFn;
     };
 
-    struct CopyPassData {
+    struct CopyBlitPassData {
+        CopyBlitPayload::Kind kind = CopyBlitPayload::Kind::BUFFER;
+        uint32_t srcResourceIndex = INVALID_INDEX;
+        uint32_t dstResourceIndex = INVALID_INDEX;
+        uint64_t size      = 0;
+        uint64_t srcOffset = 0;
+        uint64_t dstOffset = 0;
+
         std::function<void(BlitEncoder &, RDGContext &)> executeFn;
     };
 
+    struct PresentPassData {
+        uint32_t imageResourceIndex = INVALID_INDEX;
+    };
+
+    struct CustomPassData {
+        std::function<void(RDGContext &, CommandBuffer &)> fn;
+    };
+
     // ---- pass tags (variant dispatch) ----
-    struct RasterPassTag {};
+    struct SceneRasterPassTag {};
+    struct FullScreenPassTag {};
     struct ComputePassTag {};
-    struct CopyPassTag {};
-    using PassTag = std::variant<RasterPassTag, ComputePassTag, CopyPassTag>;
+    struct CopyBlitPassTag {};
+    struct PresentPassTag {};
+    struct CustomPassTag {};
+    using PassTag = std::variant<SceneRasterPassTag, FullScreenPassTag, ComputePassTag,
+                                 CopyBlitPassTag, PresentPassTag, CustomPassTag>;
 
     struct PassNode {
         Name         name;

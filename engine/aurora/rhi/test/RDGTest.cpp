@@ -93,8 +93,8 @@ TEST_F(RDGTestVulkan, SinglePassClear)
     FrameAllocator frameAlloc;
     auto graph = RenderGraph::Build(device, frameAlloc);
     const auto bb = graph->Import(Name("backbuffer"), image, AccessFlagBit::NONE);
-    graph->AddRasterPass(Name("clear"),
-        [&](RasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); },
+    graph->AddSceneRasterPass(Name("clear"),
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
     graph->Compile();
 
@@ -124,12 +124,12 @@ TEST_F(RDGTestVulkan, PassCulling)
     const auto deadTex = graph->CreateTexture(Name("dead"), MakeColorDesc(16, 16));
     const auto liveTex = graph->CreateTexture(Name("live"), MakeColorDesc(16, 16));
 
-    graph->AddRasterPass(Name("dead-pass"),
-        [&](RasterPassBuilder &b) { b.ColorAttachment(0, deadTex, LoadOp::CLEAR, StoreOp::STORE); },
+    graph->AddSceneRasterPass(Name("dead-pass"),
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, deadTex, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
 
-    graph->AddRasterPass(Name("live-pass"),
-        [&](RasterPassBuilder &b) { b.ColorAttachment(0, liveTex, LoadOp::CLEAR, StoreOp::STORE); },
+    graph->AddSceneRasterPass(Name("live-pass"),
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, liveTex, LoadOp::CLEAR, StoreOp::STORE); },
         [](GraphicsEncoder &, RDGContext &) {});
 
     graph->MarkOfInterest(liveTex);
@@ -154,8 +154,8 @@ TEST_F(RDGTestVulkan, TransientAliasing)
 
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(1080, 1080));
-        graph->AddRasterPass(Name(("p" + std::to_string(i)).c_str()),
-            [&](RasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
+        graph->AddSceneRasterPass(Name(("p" + std::to_string(i)).c_str()),
+            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
             [](GraphicsEncoder &, RDGContext &) {});
         graph->MarkOfInterest(tex);
     }
@@ -176,8 +176,8 @@ TEST_F(RDGTestVulkan, TransientCrossFrame)
 
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(128, 128));
-        graph->AddRasterPass(Name(("p" + std::to_string(i)).c_str()),
-            [&](RasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
+        graph->AddSceneRasterPass(Name(("p" + std::to_string(i)).c_str()),
+            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
             [](GraphicsEncoder &, RDGContext &) {});
         graph->MarkOfInterest(tex);
     }
@@ -189,4 +189,108 @@ TEST_F(RDGTestVulkan, TransientCrossFrame)
     const auto &stats = graph->GetPoolStats();
     EXPECT_EQ(stats.imageMisses, 1u);
     EXPECT_EQ(stats.imageHits, 3u + 4u * 4u);
+}
+
+// ---- pass structure: variant payload types ----
+TEST_F(RDGTestVulkan, PassStructureVariant)
+{
+    auto *device = GetDevice();
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
+
+    // dependency chain: scene -> {fs, compute} -> copyblit -> custom -> present
+    const auto texScene = graph->CreateTexture(Name("scene"), MakeColorDesc(64, 64));
+    const auto texFs    = graph->CreateTexture(Name("fsOut"), MakeColorDesc(64, 64));
+    const auto texComp  = graph->CreateTexture(Name("compOut"), MakeColorDesc(64, 64));
+    const auto texCopy  = graph->CreateTexture(Name("copyOut"), MakeColorDesc(64, 64));
+    const auto colorTex = graph->CreateTexture(Name("color"), MakeColorDesc(64, 64));
+
+    // scene raster with draw items
+    DrawItem item0{};
+    DrawItem item1{};
+    item1.args.indexCount = 6;
+    graph->AddSceneRasterPass(Name("scene"),
+        [&](SceneRasterPassBuilder &b) {
+            b.ColorAttachment(0, texScene, LoadOp::CLEAR, StoreOp::STORE);
+            b.AddDrawItem(item0);
+            b.AddDrawItem(item1);
+        });
+
+    // fullscreen: read scene, write fsOut
+    graph->AddFullScreenPass(Name("fs"),
+        [&](FullScreenPassBuilder &b) {
+            b.SetInputSRV(texScene);
+            b.SetTarget(texFs, LoadOp::CLEAR, StoreOp::STORE);
+        });
+
+    // compute: read scene, write compOut
+    graph->AddComputePass(Name("comp"),
+        [&](ComputePassBuilder &b) {
+            b.Read(texScene, AccessFlagBit::SRV);
+            b.Write(texComp, AccessFlagBit::UAV);
+        });
+
+    // copyblit: compOut -> copyOut
+    graph->AddCopyBlitPass(Name("copy"),
+        [&](CopyBlitPassBuilder &b) { b.Src(texComp).Dst(texCopy); });
+
+    // custom: read copyOut, write color
+    graph->AddCustomPass(Name("custom"),
+        [&](CustomPassBuilder &b) {
+            b.Read(texCopy, AccessFlagBit::SRV);
+            b.Write(colorTex, AccessFlagBit::UAV);
+        },
+        [](RDGContext &, CommandBuffer &) {});
+
+    // present: read fsOut + color
+    graph->AddPresentPass(Name("present"),
+        [&](PresentPassBuilder &b) {
+            b.SetSource(texFs);
+            b.SetSource(colorTex);
+        });
+
+    graph->Compile();
+
+    const auto *cg = graph->GetCompiledGraph();
+    ASSERT_NE(cg, nullptr);
+
+    bool sawSceneRaster = false, sawFullScreen = false, sawCompute = false,
+         sawCopyBlit = false, sawPresent = false, sawCustom = false;
+    for (const auto &cpass : cg->passes) {
+        switch (cpass.type) {
+        case CompiledPassType::SCENE_RASTER: {
+            sawSceneRaster = true;
+            const auto &p = std::get<SceneRasterPayload>(cpass.payload);
+            EXPECT_EQ(p.items.size(), 2u);
+            EXPECT_EQ(p.items[1].args.indexCount, 6u);
+            break;
+        }
+        case CompiledPassType::FULLSCREEN:
+            sawFullScreen = true;
+            EXPECT_TRUE(std::holds_alternative<FullScreenPayload>(cpass.payload));
+            break;
+        case CompiledPassType::COMPUTE:
+            sawCompute = true;
+            EXPECT_TRUE(std::holds_alternative<ComputePayload>(cpass.payload));
+            break;
+        case CompiledPassType::COPYBLIT:
+            sawCopyBlit = true;
+            EXPECT_TRUE(std::holds_alternative<CopyBlitPayload>(cpass.payload));
+            break;
+        case CompiledPassType::PRESENT:
+            sawPresent = true;
+            EXPECT_TRUE(std::holds_alternative<PresentPayload>(cpass.payload));
+            break;
+        case CompiledPassType::CUSTOM:
+            sawCustom = true;
+            EXPECT_TRUE(std::holds_alternative<CustomPayload>(cpass.payload));
+            break;
+        }
+    }
+    EXPECT_TRUE(sawSceneRaster);
+    EXPECT_TRUE(sawFullScreen);
+    EXPECT_TRUE(sawCompute);
+    EXPECT_TRUE(sawCopyBlit);
+    EXPECT_TRUE(sawPresent);
+    EXPECT_TRUE(sawCustom);
 }

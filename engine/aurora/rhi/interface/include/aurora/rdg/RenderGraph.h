@@ -52,15 +52,21 @@ namespace sky::aurora {
         RDGBufferHandle  Import(const Name &name, const BufferPtr &buffer, AccessFlags importAccess = AccessFlagBit::NONE);
 
         // ---- passes ----
-        void AddRasterPass(const Name &name,
-                           const std::function<void(RasterPassBuilder &)> &setup,
-                           std::function<void(GraphicsEncoder &, RDGContext &)> execute);
+        void AddSceneRasterPass(const Name &name,
+                                const std::function<void(SceneRasterPassBuilder &)> &setup,
+                                std::function<void(GraphicsEncoder &, RDGContext &)> execute = nullptr);
+        void AddFullScreenPass(const Name &name,
+                               const std::function<void(FullScreenPassBuilder &)> &setup);
         void AddComputePass(const Name &name,
                             const std::function<void(ComputePassBuilder &)> &setup,
-                            std::function<void(ComputeEncoder &, RDGContext &)> execute);
-        void AddCopyPass(const Name &name,
-                         const std::function<void(CopyPassBuilder &)> &setup,
-                         std::function<void(BlitEncoder &, RDGContext &)> execute);
+                            std::function<void(ComputeEncoder &, RDGContext &)> execute = nullptr);
+        void AddCopyBlitPass(const Name &name,
+                             const std::function<void(CopyBlitPassBuilder &)> &setup);
+        void AddPresentPass(const Name &name,
+                            const std::function<void(PresentPassBuilder &)> &setup);
+        void AddCustomPass(const Name &name,
+                           const std::function<void(CustomPassBuilder &)> &setup,
+                           std::function<void(RDGContext &, CommandBuffer &)> execute);
 
         void MarkOfInterest(RDGTextureHandle handle);
 
@@ -80,6 +86,16 @@ namespace sky::aurora {
                                        LoadOp stencilLoadOp, StoreOp stencilStoreOp);
         void SetCopySrc(uint32_t passIndex, uint32_t resourceIndex);
         void SetCopyDst(uint32_t passIndex, uint32_t resourceIndex);
+        void AddDrawItem(uint32_t passIndex, const DrawItem &item);
+        void SetSceneRasterResourceGroup(uint32_t passIndex, ResourceGroup *group);
+        void SetFullScreenTechnique(uint32_t passIndex, GraphicsPipeline *pso);
+        void SetFullScreenResourceGroup(uint32_t passIndex, ResourceGroup *group);
+        void SetComputePipeline(uint32_t passIndex, ComputePipeline *pso);
+        void SetComputeResourceGroup(uint32_t passIndex, ResourceGroup *group);
+        void SetComputeGroups(uint32_t passIndex, uint32_t x, uint32_t y, uint32_t z);
+        void SetCopyBlitKind(uint32_t passIndex, CopyBlitPayload::Kind kind);
+        void SetCopyBlitSize(uint32_t passIndex, uint64_t size);
+        void SetCopyBlitOffsets(uint32_t passIndex, uint64_t srcOffset, uint64_t dstOffset);
 
         // ---- shared compiler / executor logic (backend reuses via RDGBackend) ----
         void DeriveBarriers();
@@ -122,10 +138,13 @@ namespace sky::aurora {
         TransientVector<GraphBuffer>       mBuffers;
         TransientVector<GraphImportBuffer> mImportBuffers;
 
-        TransientVector<PassNode>        mPasses;
-        TransientVector<RasterPassData>  mRasterPasses;
-        TransientVector<ComputePassData> mComputePasses;
-        TransientVector<CopyPassData>    mCopyPasses;
+        TransientVector<PassNode>            mPasses;
+        TransientVector<SceneRasterPassData> mSceneRasterPasses;
+        TransientVector<FullScreenPassData>  mFullScreenPasses;
+        TransientVector<ComputePassData>     mComputePasses;
+        TransientVector<CopyBlitPassData>    mCopyBlitPasses;
+        TransientVector<PresentPassData>     mPresentPasses;
+        TransientVector<CustomPassData>      mCustomPasses;
 
         TransientVector<uint32_t> mTopoOrder;
         TransientVector<uint32_t> mRank;
