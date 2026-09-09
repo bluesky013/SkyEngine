@@ -73,6 +73,7 @@ namespace sky::aurora {
 
         TransientVector<CompiledColorAttachment> colors;
         CompiledDepthStencilAttachment depthStencil;
+        Extent2D renderArea{1, 1};
         TransientVector<DrawItem> items; // upper-layer sorted
 
         explicit SceneRasterPayload(TransientAllocator &alloc)
@@ -88,6 +89,7 @@ namespace sky::aurora {
 
         TransientVector<CompiledColorAttachment> colors;
         CompiledDepthStencilAttachment depthStencil;
+        Extent2D renderArea{1, 1};
 
         explicit FullScreenPayload(TransientAllocator &alloc)
             : colors(TransientStdAllocator<CompiledColorAttachment>{alloc})
@@ -102,6 +104,9 @@ namespace sky::aurora {
         uint32_t groupX = 1;
         uint32_t groupY = 1;
         uint32_t groupZ = 1;
+
+        // legacy transition fallback (removed once compute is fully data-driven)
+        std::function<void(ComputeEncoder &, RDGContext &)> executeFn;
     };
 
     struct CopyBlitPayload {
@@ -122,6 +127,9 @@ namespace sky::aurora {
         uint64_t size      = 0;
         uint64_t srcOffset = 0;
         uint64_t dstOffset = 0;
+
+        // legacy transition fallback (removed once copyblit is fully data-driven)
+        std::function<void(BlitEncoder &, RDGContext &)> executeFn;
     };
 
     struct PresentPayload {
@@ -159,6 +167,7 @@ namespace sky::aurora {
 
         TransientVector<CompiledPass> passes;       // live only, topo order
         TransientVector<BarrierInfo>  barriers;     // flat barrier array
+        uint32_t                      finalBarrierOffset = 0; // start of frame-end barrier segment
         TransientVector<Image *>      resolvedImages;
         TransientVector<Buffer *>     resolvedBuffers;
         TransientVector<uint32_t>     topologicalOrder;

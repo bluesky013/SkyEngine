@@ -1,5 +1,7 @@
 //
 // Aurora RDG execute phase (shared, backend-agnostic pass emission).
+// Executor reads ONLY the CompiledGraph (flat, live-only, topo-ordered);
+// the setup graph is never touched here.
 //
 
 #include <aurora/rdg/RenderGraph.h>
@@ -19,48 +21,49 @@ namespace sky::aurora {
 
     void RenderGraph::ExecutePasses(CommandBuffer *cmdBuf)
     {
+        auto &cg = *mCompiledGraph;
+
         RDGContext ctx;
         ctx.SetCommandBuffer(cmdBuf);
-        ctx.SetImageTable(&mResolvedImages);
-        ctx.SetBufferTable(&mResolvedBuffers);
+        ctx.SetImageTable(&cg.resolvedImages);
+        ctx.SetBufferTable(&cg.resolvedBuffers);
 
-        for (const uint32_t passIndex : mTopoOrder) {
-            const PassNode &pass = mPasses[passIndex];
-            if (!pass.live) {
-                continue;
+        for (const auto &cpass : cg.passes) {
+            ctx.SetPassName(cpass.name);
+
+            // per-pass barriers: contiguous segment in the flat barrier array
+            for (uint32_t i = 0; i < cpass.barrierCount; ++i) {
+                cmdBuf->PipelineBarrier(cg.barriers[cpass.barrierOffset + i]);
             }
 
-            ctx.SetPassName(pass.name);
-
-            for (const BarrierInfo &barrier : pass.frontBarriers) {
-                cmdBuf->PipelineBarrier(barrier);
-            }
-
-            if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
-                const auto &data = mSceneRasterPasses[pass.payloadIndex];
+            switch (cpass.type) {
+            case CompiledPassType::SCENE_RASTER: {
+                const auto &p = std::get<SceneRasterPayload>(cpass.payload);
 
                 RenderingInfo info{};
-                info.renderArea = {{0, 0}, data.renderArea};
-                info.numColors  = static_cast<uint32_t>(data.colors.size());
-                for (size_t i = 0; i < data.colors.size() && i < MAX_COLOR_ATTACHMENTS; ++i) {
-                    const auto &color          = data.colors[i];
-                    info.colors[i].image       = mResolvedImages[color.resourceIndex];
-                    info.colors[i].loadOp      = color.loadOp;
-                    info.colors[i].storeOp     = color.storeOp;
-                    info.colors[i].clearValue  = color.clearValue;
+                info.renderArea = {{0, 0}, p.renderArea};
+                info.numColors = static_cast<uint32_t>(p.colors.size());
+                for (size_t i = 0; i < p.colors.size() && i < MAX_COLOR_ATTACHMENTS; ++i) {
+                    info.colors[i].image      = p.colors[i].image;
+                    info.colors[i].loadOp     = p.colors[i].loadOp;
+                    info.colors[i].storeOp    = p.colors[i].storeOp;
+                    info.colors[i].clearValue = p.colors[i].clearValue;
                 }
-                if (data.depthStencilResource != INVALID_INDEX) {
-                    info.depthStencil.image          = mResolvedImages[data.depthStencilResource];
-                    info.depthStencil.depthLoadOp    = data.depthLoadOp;
-                    info.depthStencil.depthStoreOp   = data.depthStoreOp;
-                    info.depthStencil.stencilLoadOp  = data.stencilLoadOp;
-                    info.depthStencil.stencilStoreOp = data.stencilStoreOp;
-                    info.depthStencil.clearValue     = data.depthStencilClear;
+                if (p.depthStencil.image != nullptr) {
+                    info.depthStencil.image          = p.depthStencil.image;
+                    info.depthStencil.depthLoadOp    = p.depthStencil.depthLoadOp;
+                    info.depthStencil.depthStoreOp   = p.depthStencil.depthStoreOp;
+                    info.depthStencil.stencilLoadOp  = p.depthStencil.stencilLoadOp;
+                    info.depthStencil.stencilStoreOp = p.depthStencil.stencilStoreOp;
+                    info.depthStencil.clearValue     = p.depthStencil.clearValue;
                 }
 
                 auto enc = cmdBuf->CreateGraphicsEncoder();
                 enc->BeginRendering(info);
-                for (const auto &item : data.items) {
+                if (p.passResourceGroup != nullptr) {
+                    enc->BindResourceGroup(1, p.passResourceGroup, 0, nullptr);
+                }
+                for (const auto &item : p.items) {
                     if (item.batchResourceGroup != nullptr) {
                         enc->BindResourceGroup(2, item.batchResourceGroup, 0, nullptr);
                     }
@@ -73,35 +76,36 @@ namespace sky::aurora {
                     }
                 }
                 enc->EndRendering();
-            } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
-                const auto &data = mFullScreenPasses[pass.payloadIndex];
+                break;
+            }
+            case CompiledPassType::FULLSCREEN: {
+                const auto &p = std::get<FullScreenPayload>(cpass.payload);
 
                 RenderingInfo info{};
-                info.renderArea = {{0, 0}, data.renderArea};
-                info.numColors  = static_cast<uint32_t>(data.colors.size());
-                for (size_t i = 0; i < data.colors.size() && i < MAX_COLOR_ATTACHMENTS; ++i) {
-                    const auto &color          = data.colors[i];
-                    info.colors[i].image       = mResolvedImages[color.resourceIndex];
-                    info.colors[i].loadOp      = color.loadOp;
-                    info.colors[i].storeOp     = color.storeOp;
-                    info.colors[i].clearValue  = color.clearValue;
+                info.renderArea = {{0, 0}, p.renderArea};
+                info.numColors = static_cast<uint32_t>(p.colors.size());
+                for (size_t i = 0; i < p.colors.size() && i < MAX_COLOR_ATTACHMENTS; ++i) {
+                    info.colors[i].image      = p.colors[i].image;
+                    info.colors[i].loadOp     = p.colors[i].loadOp;
+                    info.colors[i].storeOp    = p.colors[i].storeOp;
+                    info.colors[i].clearValue = p.colors[i].clearValue;
                 }
-                if (data.depthStencilResource != INVALID_INDEX) {
-                    info.depthStencil.image          = mResolvedImages[data.depthStencilResource];
-                    info.depthStencil.depthLoadOp    = data.depthLoadOp;
-                    info.depthStencil.depthStoreOp   = data.depthStoreOp;
-                    info.depthStencil.stencilLoadOp  = data.stencilLoadOp;
-                    info.depthStencil.stencilStoreOp = data.stencilStoreOp;
-                    info.depthStencil.clearValue     = data.depthStencilClear;
+                if (p.depthStencil.image != nullptr) {
+                    info.depthStencil.image          = p.depthStencil.image;
+                    info.depthStencil.depthLoadOp    = p.depthStencil.depthLoadOp;
+                    info.depthStencil.depthStoreOp   = p.depthStencil.depthStoreOp;
+                    info.depthStencil.stencilLoadOp  = p.depthStencil.stencilLoadOp;
+                    info.depthStencil.stencilStoreOp = p.depthStencil.stencilStoreOp;
+                    info.depthStencil.clearValue     = p.depthStencil.clearValue;
                 }
 
                 auto enc = cmdBuf->CreateGraphicsEncoder();
                 enc->BeginRendering(info);
-                if (data.passResourceGroup != nullptr) {
-                    enc->BindResourceGroup(1, data.passResourceGroup, 0, nullptr);
+                if (p.passResourceGroup != nullptr) {
+                    enc->BindResourceGroup(1, p.passResourceGroup, 0, nullptr);
                 }
-                if (data.pso != nullptr) {
-                    enc->BindPipeline(data.pso);
+                if (p.pso != nullptr) {
+                    enc->BindPipeline(p.pso);
                     CmdDrawLinear draw{};
                     draw.vertexCount   = 3;
                     draw.firstVertex   = 0;
@@ -110,36 +114,46 @@ namespace sky::aurora {
                     enc->Draw(draw);
                 }
                 enc->EndRendering();
-            } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {
-                const auto &data = mComputePasses[pass.payloadIndex];
+                break;
+            }
+            case CompiledPassType::COMPUTE: {
+                const auto &p = std::get<ComputePayload>(cpass.payload);
                 auto enc = cmdBuf->CreateComputeEncoder();
-                if (data.pso != nullptr) {
-                    enc->BindPipeline(data.pso);
+                if (p.pso != nullptr) {
+                    enc->BindPipeline(p.pso);
                 }
-                if (data.passResourceGroup != nullptr) {
-                    enc->BindResourceGroup(1, data.passResourceGroup, 0, nullptr);
+                if (p.passResourceGroup != nullptr) {
+                    enc->BindResourceGroup(1, p.passResourceGroup, 0, nullptr);
                 }
-                if (data.executeFn) {
-                    data.executeFn(*enc, ctx);
+                if (p.executeFn) {
+                    p.executeFn(*enc, ctx);
                 }
-            } else if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
-                const auto &data = mCopyBlitPasses[pass.payloadIndex];
+                break;
+            }
+            case CompiledPassType::COPYBLIT: {
+                const auto &p = std::get<CopyBlitPayload>(cpass.payload);
                 auto enc = cmdBuf->CreateBlitEncoder();
-                if (data.executeFn) {
-                    data.executeFn(*enc, ctx);
+                if (p.executeFn) {
+                    p.executeFn(*enc, ctx);
                 }
-            } else if (std::holds_alternative<PresentPassTag>(pass.tag)) {
-                // no extra encoder ops; barrier already emitted in frontBarriers
-            } else if (std::holds_alternative<CustomPassTag>(pass.tag)) {
-                const auto &data = mCustomPasses[pass.payloadIndex];
-                if (data.fn) {
-                    data.fn(ctx, *cmdBuf);
+                break;
+            }
+            case CompiledPassType::PRESENT:
+                // no extra encoder ops; barrier already emitted in per-pass segment
+                break;
+            case CompiledPassType::CUSTOM: {
+                const auto &p = std::get<CustomPayload>(cpass.payload);
+                if (p.fn) {
+                    p.fn(ctx, *cmdBuf);
                 }
+                break;
+            }
             }
         }
 
-        for (const BarrierInfo &barrier : mFinalBarriers) {
-            cmdBuf->PipelineBarrier(barrier);
+        // frame-end barrier segment
+        for (uint32_t i = cg.finalBarrierOffset; i < cg.barriers.size(); ++i) {
+            cmdBuf->PipelineBarrier(cg.barriers[i]);
         }
     }
 

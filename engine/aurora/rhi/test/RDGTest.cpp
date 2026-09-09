@@ -94,8 +94,7 @@ TEST_F(RDGTestVulkan, SinglePassClear)
     auto graph = RenderGraph::Build(device, frameAlloc);
     const auto bb = graph->Import(Name("backbuffer"), image, AccessFlagBit::NONE);
     graph->AddSceneRasterPass(Name("clear"),
-        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); },
-        [](GraphicsEncoder &, RDGContext &) {});
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, bb, LoadOp::CLEAR, StoreOp::STORE); });
     graph->Compile();
 
     auto pool   = std::unique_ptr<CommandPool>(device->CreateCommandPool(QueueType::GRAPHICS));
@@ -125,12 +124,10 @@ TEST_F(RDGTestVulkan, PassCulling)
     const auto liveTex = graph->CreateTexture(Name("live"), MakeColorDesc(16, 16));
 
     graph->AddSceneRasterPass(Name("dead-pass"),
-        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, deadTex, LoadOp::CLEAR, StoreOp::STORE); },
-        [](GraphicsEncoder &, RDGContext &) {});
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, deadTex, LoadOp::CLEAR, StoreOp::STORE); });
 
     graph->AddSceneRasterPass(Name("live-pass"),
-        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, liveTex, LoadOp::CLEAR, StoreOp::STORE); },
-        [](GraphicsEncoder &, RDGContext &) {});
+        [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, liveTex, LoadOp::CLEAR, StoreOp::STORE); });
 
     graph->MarkOfInterest(liveTex);
     graph->Compile();
@@ -155,8 +152,7 @@ TEST_F(RDGTestVulkan, TransientAliasing)
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(1080, 1080));
         graph->AddSceneRasterPass(Name(("p" + std::to_string(i)).c_str()),
-            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
-            [](GraphicsEncoder &, RDGContext &) {});
+            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); });
         graph->MarkOfInterest(tex);
     }
 
@@ -177,8 +173,7 @@ TEST_F(RDGTestVulkan, TransientCrossFrame)
     for (int i = 0; i < 4; ++i) {
         const auto tex = graph->CreateTexture(Name(("t" + std::to_string(i)).c_str()), MakeColorDesc(128, 128));
         graph->AddSceneRasterPass(Name(("p" + std::to_string(i)).c_str()),
-            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); },
-            [](GraphicsEncoder &, RDGContext &) {});
+            [&](SceneRasterPassBuilder &b) { b.ColorAttachment(0, tex, LoadOp::CLEAR, StoreOp::STORE); });
         graph->MarkOfInterest(tex);
     }
 

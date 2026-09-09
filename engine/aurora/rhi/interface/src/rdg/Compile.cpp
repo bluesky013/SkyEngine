@@ -480,6 +480,7 @@ namespace sky::aurora {
                     payload.depthStencil.clearValue      = data.depthStencilClear;
                 }
                 payload.items = data.items; // copy draw items
+                payload.renderArea = data.renderArea;
             } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
                 cpass.type = CompiledPassType::FULLSCREEN;
                 const auto &data = mFullScreenPasses[pass.payloadIndex];
@@ -487,6 +488,7 @@ namespace sky::aurora {
                 auto &payload = std::get<FullScreenPayload>(cpass.payload);
                 payload.pso               = data.pso;
                 payload.passResourceGroup = data.passResourceGroup;
+                payload.renderArea        = data.renderArea;
                 for (const auto &color : data.colors) {
                     CompiledColorAttachment c{};
                     c.slot       = color.slot;
@@ -504,8 +506,7 @@ namespace sky::aurora {
                     payload.depthStencil.stencilStoreOp  = data.stencilStoreOp;
                     payload.depthStencil.clearValue      = data.depthStencilClear;
                 }
-            } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {
-                cpass.type = CompiledPassType::COMPUTE;
+            } else if (std::holds_alternative<ComputePassTag>(pass.tag)) {                cpass.type = CompiledPassType::COMPUTE;
                 const auto &data = mComputePasses[pass.payloadIndex];
                 cpass.payload.emplace<ComputePayload>();
                 auto &payload = std::get<ComputePayload>(cpass.payload);
@@ -514,6 +515,7 @@ namespace sky::aurora {
                 payload.groupX            = data.groupX;
                 payload.groupY            = data.groupY;
                 payload.groupZ            = data.groupZ;
+                payload.executeFn         = data.executeFn;
             } else if (std::holds_alternative<CopyBlitPassTag>(pass.tag)) {
                 cpass.type = CompiledPassType::COPYBLIT;
                 const auto &data = mCopyBlitPasses[pass.payloadIndex];
@@ -523,6 +525,7 @@ namespace sky::aurora {
                 payload.size      = data.size;
                 payload.srcOffset = data.srcOffset;
                 payload.dstOffset = data.dstOffset;
+                payload.executeFn = data.executeFn;
                 if (data.srcResourceIndex != INVALID_INDEX) {
                     if (data.kind == CopyBlitPayload::Kind::BUFFER) {
                         payload.srcBuffer = mResolvedBuffers[data.srcResourceIndex];
@@ -554,7 +557,8 @@ namespace sky::aurora {
             }
         }
 
-        // append final barriers
+        // append final barriers (record segment start)
+        mCompiledGraph->finalBarrierOffset = static_cast<uint32_t>(mCompiledGraph->barriers.size());
         for (const auto &barrier : mFinalBarriers) {
             mCompiledGraph->barriers.push_back(barrier);
         }

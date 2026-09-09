@@ -142,11 +142,9 @@ namespace sky::aurora {
     }
 
     void RenderGraph::AddSceneRasterPass(const Name &name,
-                                         const std::function<void(SceneRasterPassBuilder &)> &setup,
-                                         std::function<void(GraphicsEncoder &, RDGContext &)> execute)
+                                         const std::function<void(SceneRasterPassBuilder &)> &setup)
     {
         const uint32_t passIndex = AddPass(name, SceneRasterPassTag{});
-        (void)execute; // legacy execute lambda kept for backward compat in tests; items are the data path
 
         SceneRasterPassBuilder builder(this, passIndex);
         if (setup) {

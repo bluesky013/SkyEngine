@@ -53,8 +53,7 @@ namespace sky::aurora {
 
         // ---- passes ----
         void AddSceneRasterPass(const Name &name,
-                                const std::function<void(SceneRasterPassBuilder &)> &setup,
-                                std::function<void(GraphicsEncoder &, RDGContext &)> execute = nullptr);
+                                const std::function<void(SceneRasterPassBuilder &)> &setup);
         void AddFullScreenPass(const Name &name,
                                const std::function<void(FullScreenPassBuilder &)> &setup);
         void AddComputePass(const Name &name,
