@@ -321,7 +321,47 @@ namespace sky::aurora {
     {
         auto &pass = mPasses[passIndex];
         if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
-            mSceneRasterPasses[pass.payloadIndex].items.push_back(item);
+            auto &data = mSceneRasterPasses[pass.payloadIndex];
+            if (data.queues.empty()) {
+                data.queues.emplace_back(mFrameAlloc->Arena()).name = Name("default");
+            }
+            data.queues[0].items.push_back(item);
+        }
+    }
+
+    uint32_t RenderGraph::AddQueue(uint32_t passIndex, const Name &name, QueueSortPolicy sortPolicy)
+    {
+        auto &pass = mPasses[passIndex];
+        if (!std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            return INVALID_INDEX;
+        }
+        auto &data = mSceneRasterPasses[pass.payloadIndex];
+        const uint32_t queueIndex = static_cast<uint32_t>(data.queues.size());
+        auto &queue = data.queues.emplace_back(mFrameAlloc->Arena());
+        queue.name       = name;
+        queue.sortPolicy = sortPolicy;
+        return queueIndex;
+    }
+
+    void RenderGraph::AddDrawItem(uint32_t passIndex, uint32_t queue, const DrawItem &item)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            auto &data = mSceneRasterPasses[pass.payloadIndex];
+            if (queue < data.queues.size()) {
+                data.queues[queue].items.push_back(item);
+            }
+        }
+    }
+
+    void RenderGraph::SetQueueResourceGroup(uint32_t passIndex, uint32_t queue, ResourceGroup *group)
+    {
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            auto &data = mSceneRasterPasses[pass.payloadIndex];
+            if (queue < data.queues.size()) {
+                data.queues[queue].queueResourceGroup = group;
+            }
         }
     }
 
@@ -447,6 +487,23 @@ namespace sky::aurora {
     SceneRasterPassBuilder &SceneRasterPassBuilder::AddDrawItem(const DrawItem &item)
     {
         mGraph->AddDrawItem(mPassIndex, item);
+        return *this;
+    }
+
+    uint32_t SceneRasterPassBuilder::AddQueue(const Name &name, QueueSortPolicy sortPolicy)
+    {
+        return mGraph->AddQueue(mPassIndex, name, sortPolicy);
+    }
+
+    SceneRasterPassBuilder &SceneRasterPassBuilder::AddDrawItem(uint32_t queue, const DrawItem &item)
+    {
+        mGraph->AddDrawItem(mPassIndex, queue, item);
+        return *this;
+    }
+
+    SceneRasterPassBuilder &SceneRasterPassBuilder::SetQueueResourceGroup(uint32_t queue, ResourceGroup *group)
+    {
+        mGraph->SetQueueResourceGroup(mPassIndex, queue, group);
         return *this;
     }
 

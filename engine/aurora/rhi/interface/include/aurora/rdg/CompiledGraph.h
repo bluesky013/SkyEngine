@@ -67,6 +67,26 @@ namespace sky::aurora {
         CmdDrawIndexed args;
     };
 
+    // ---- queue sort policy (marker only; sorting is done by the collector) ----
+    enum class QueueSortPolicy : uint8_t {
+        NONE = 0,
+        FRONT_TO_BACK,
+        BACK_TO_FRONT,
+    };
+
+    // ---- SceneRasterQueue (per-queue items + queue-level ResourceGroup) ----
+    struct SceneRasterQueue {
+        Name            name;
+        TransientVector<DrawItem> items;
+        ResourceGroup  *queueResourceGroup = nullptr; // set 1 (overrides pass-level RG when set)
+        QueueSortPolicy sortPolicy         = QueueSortPolicy::NONE;
+
+        explicit SceneRasterQueue(TransientAllocator &alloc)
+            : items(TransientStdAllocator<DrawItem>{alloc})
+        {
+        }
+    };
+
     // ---- payloads ----
     struct SceneRasterPayload {
         ResourceGroup *passResourceGroup = nullptr; // set 1
@@ -74,11 +94,11 @@ namespace sky::aurora {
         TransientVector<CompiledColorAttachment> colors;
         CompiledDepthStencilAttachment depthStencil;
         Extent2D renderArea{1, 1};
-        TransientVector<DrawItem> items; // upper-layer sorted
+        TransientVector<SceneRasterQueue> queues; // declaration order; collector-sorted items
 
         explicit SceneRasterPayload(TransientAllocator &alloc)
             : colors(TransientStdAllocator<CompiledColorAttachment>{alloc})
-            , items(TransientStdAllocator<DrawItem>{alloc})
+            , queues(TransientStdAllocator<SceneRasterQueue>{alloc})
         {
         }
     };

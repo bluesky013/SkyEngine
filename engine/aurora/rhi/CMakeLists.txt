@@ -13,7 +13,7 @@ if (APPLE)
 endif()
 
 if (SKY_BUILD_TEST)
-    set(AURORA_TEST_LIBS Aurora.RHI 3rdParty::googletest)
+    set(AURORA_TEST_LIBS Aurora.RHI Aurora.Pipeline 3rdParty::googletest)
 
     if (TARGET AuroraVulkan)
         list(APPEND AURORA_TEST_LIBS AuroraVulkan)

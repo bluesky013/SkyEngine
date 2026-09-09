@@ -479,7 +479,13 @@ namespace sky::aurora {
                     payload.depthStencil.stencilStoreOp  = data.stencilStoreOp;
                     payload.depthStencil.clearValue      = data.depthStencilClear;
                 }
-                payload.items = data.items; // copy draw items
+                for (const auto &queue : data.queues) {
+                    auto &cq = payload.queues.emplace_back(mFrameAlloc->Arena());
+                    cq.name               = queue.name;
+                    cq.sortPolicy         = queue.sortPolicy;
+                    cq.queueResourceGroup = queue.queueResourceGroup;
+                    cq.items              = queue.items;
+                }
                 payload.renderArea = data.renderArea;
             } else if (std::holds_alternative<FullScreenPassTag>(pass.tag)) {
                 cpass.type = CompiledPassType::FULLSCREEN;

@@ -106,11 +106,11 @@ namespace sky::aurora {
         StoreOp    stencilStoreOp       = StoreOp::DONT_CARE;
         ClearValue depthStencilClear{0.f, 0};
 
-        TransientVector<DrawItem> items;
+        TransientVector<SceneRasterQueue> queues; // declaration order
 
         explicit SceneRasterPassData(TransientAllocator &alloc)
             : colors(TransientStdAllocator<ColorAttachmentRef>{alloc})
-            , items(TransientStdAllocator<DrawItem>{alloc})
+            , queues(TransientStdAllocator<SceneRasterQueue>{alloc})
         {
         }
     };

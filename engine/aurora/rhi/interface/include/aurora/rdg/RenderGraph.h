@@ -86,6 +86,9 @@ namespace sky::aurora {
         void SetCopySrc(uint32_t passIndex, uint32_t resourceIndex);
         void SetCopyDst(uint32_t passIndex, uint32_t resourceIndex);
         void AddDrawItem(uint32_t passIndex, const DrawItem &item);
+        uint32_t AddQueue(uint32_t passIndex, const Name &name, QueueSortPolicy sortPolicy);
+        void AddDrawItem(uint32_t passIndex, uint32_t queue, const DrawItem &item);
+        void SetQueueResourceGroup(uint32_t passIndex, uint32_t queue, ResourceGroup *group);
         void SetSceneRasterResourceGroup(uint32_t passIndex, ResourceGroup *group);
         void SetFullScreenTechnique(uint32_t passIndex, GraphicsPipeline *pso);
         void SetFullScreenResourceGroup(uint32_t passIndex, ResourceGroup *group);

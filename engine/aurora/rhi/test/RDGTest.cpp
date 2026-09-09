@@ -256,8 +256,9 @@ TEST_F(RDGTestVulkan, PassStructureVariant)
         case CompiledPassType::SCENE_RASTER: {
             sawSceneRaster = true;
             const auto &p = std::get<SceneRasterPayload>(cpass.payload);
-            EXPECT_EQ(p.items.size(), 2u);
-            EXPECT_EQ(p.items[1].args.indexCount, 6u);
+            ASSERT_EQ(p.queues.size(), 1u); // default queue
+            EXPECT_EQ(p.queues[0].items.size(), 2u);
+            EXPECT_EQ(p.queues[0].items[1].args.indexCount, 6u);
             break;
         }
         case CompiledPassType::FULLSCREEN:
@@ -288,4 +289,80 @@ TEST_F(RDGTestVulkan, PassStructureVariant)
     EXPECT_TRUE(sawCopyBlit);
     EXPECT_TRUE(sawPresent);
     EXPECT_TRUE(sawCustom);
+}
+
+// ---- queue: multiple queues preserve declaration order ----
+TEST_F(RDGTestVulkan, MultiQueueOrder)
+{
+    auto *device = GetDevice();
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
+
+    const auto colorTex = graph->CreateTexture(Name("color"), MakeColorDesc(64, 64));
+
+    DrawItem a{}; a.args.indexCount = 10;
+    DrawItem b{}; b.args.indexCount = 20;
+    DrawItem c{}; c.args.indexCount = 30;
+
+    graph->AddSceneRasterPass(Name("scene"),
+        [&](SceneRasterPassBuilder &b2) {
+            b2.ColorAttachment(0, colorTex, LoadOp::CLEAR, StoreOp::STORE);
+            const uint32_t qOpaque = b2.AddQueue(Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
+            const uint32_t qTrans  = b2.AddQueue(Name("transparent"), QueueSortPolicy::BACK_TO_FRONT);
+            b2.AddDrawItem(qOpaque, a);
+            b2.AddDrawItem(qOpaque, b);
+            b2.AddDrawItem(qTrans, c);
+        });
+
+    graph->MarkOfInterest(colorTex);
+    graph->Compile();
+
+    const auto *cg = graph->GetCompiledGraph();
+    ASSERT_NE(cg, nullptr);
+    ASSERT_EQ(cg->passes.size(), 1u);
+
+    const auto &p = std::get<SceneRasterPayload>(cg->passes[0].payload);
+    ASSERT_EQ(p.queues.size(), 2u);
+
+    EXPECT_STREQ(std::string(p.queues[0].name.GetStr()).c_str(), "opaque");
+    EXPECT_EQ(p.queues[0].sortPolicy, QueueSortPolicy::FRONT_TO_BACK);
+    ASSERT_EQ(p.queues[0].items.size(), 2u);
+    EXPECT_EQ(p.queues[0].items[0].args.indexCount, 10u);
+    EXPECT_EQ(p.queues[0].items[1].args.indexCount, 20u);
+
+    EXPECT_STREQ(std::string(p.queues[1].name.GetStr()).c_str(), "transparent");
+    EXPECT_EQ(p.queues[1].sortPolicy, QueueSortPolicy::BACK_TO_FRONT);
+    ASSERT_EQ(p.queues[1].items.size(), 1u);
+    EXPECT_EQ(p.queues[1].items[0].args.indexCount, 30u);
+}
+
+// ---- queue: default queue fallback (no explicit AddQueue) ----
+TEST_F(RDGTestVulkan, DefaultQueueFallback)
+{
+    auto *device = GetDevice();
+    FrameAllocator frameAlloc;
+    auto graph = RenderGraph::Build(device, frameAlloc);
+
+    const auto colorTex = graph->CreateTexture(Name("color"), MakeColorDesc(64, 64));
+
+    DrawItem item{}; item.args.indexCount = 42;
+
+    graph->AddSceneRasterPass(Name("scene"),
+        [&](SceneRasterPassBuilder &b) {
+            b.ColorAttachment(0, colorTex, LoadOp::CLEAR, StoreOp::STORE);
+            b.AddDrawItem(item); // no queue argument -> default queue 0
+        });
+
+    graph->MarkOfInterest(colorTex);
+    graph->Compile();
+
+    const auto *cg = graph->GetCompiledGraph();
+    ASSERT_NE(cg, nullptr);
+    ASSERT_EQ(cg->passes.size(), 1u);
+
+    const auto &p = std::get<SceneRasterPayload>(cg->passes[0].payload);
+    ASSERT_EQ(p.queues.size(), 1u);
+    EXPECT_STREQ(std::string(p.queues[0].name.GetStr()).c_str(), "default");
+    ASSERT_EQ(p.queues[0].items.size(), 1u);
+    EXPECT_EQ(p.queues[0].items[0].args.indexCount, 42u);
 }
