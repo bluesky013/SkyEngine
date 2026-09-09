@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <codecvt>
+#include <cstdio>
 using namespace sky;
 
 TEST(FileSystemTest, FileTest)
@@ -25,4 +26,6 @@ TEST(FileSystemTest, FileTest)
         archive->Load(val);
         ASSERT_EQ(val, 0xFFFF0000);
     }
+
+    std::remove("test.txt");
 }

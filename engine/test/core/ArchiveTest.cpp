@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
 #include <sstream>
+#include <cstdio>
 
 using namespace sky;
 
@@ -47,6 +48,8 @@ TEST(StreamArchiveTest, FStreamArchiveTestInOut)
         ASSERT_EQ(t.d, 4);
         ASSERT_EQ(t.e, 5);
     }
+
+    std::remove("archive_test.bin");
 }
 
 TEST(StreamArchiveTest, SStreamArchiveTestInOut)
