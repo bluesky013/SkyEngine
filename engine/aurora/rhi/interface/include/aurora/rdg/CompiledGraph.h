@@ -77,6 +77,7 @@ namespace sky::aurora {
     // ---- SceneRasterQueue (per-queue items + queue-level ResourceGroup) ----
     struct SceneRasterQueue {
         Name            name;
+        Name            techniqueTag; // data only; collector uses it as filter (empty = no filter)
         TransientVector<DrawItem> items;
         ResourceGroup  *queueResourceGroup = nullptr; // set 1 (overrides pass-level RG when set)
         QueueSortPolicy sortPolicy         = QueueSortPolicy::NONE;

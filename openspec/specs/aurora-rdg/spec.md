@@ -175,23 +175,17 @@ RDG 的资源名与 pass 名 SHALL 使用 `core::Name`（`sky::Name`）而非 `s
 
 `AddSceneRasterPass` SHALL 只接收 setup（`AddSceneRasterPass(name, setup)`），不再接收 execute lambda。execute 由 `SceneRasterPayload` 数据驱动。
 
-SceneRasterPass SHALL 支持多 queue：每 queue 有独立 `items`、queue 级 `ResourceGroup`、排序策略标记（`NONE` / `FRONT_TO_BACK` / `BACK_TO_FRONT`）。`SceneRasterPassData::items` SHALL 改为 `queues: TransientVector<SceneRasterQueue>`；`SceneRasterPayload::items` SHALL 改为 `queues`。
+SceneRasterPass SHALL 支持多 queue：每 queue 有独立 `items`、queue 级 `ResourceGroup`、排序策略标记（`NONE` / `FRONT_TO_BACK` / `BACK_TO_FRONT`）与 **`techniqueTag`（`Name`，纯数据字段，RDG 不消费，收集方用作过滤器）**。
 
-`SceneRasterPassBuilder` SHALL 提供 `AddQueue(const Name&) -> uint32_t` / `AddDrawItem(uint32_t queue, const DrawItem&)` / `SetQueueResourceGroup(uint32_t queue, ResourceGroup*)`；无 queue 参数的 `AddDrawItem(item)` SHALL 路由到默认 queue 0（懒创建）。
+`SceneRasterPassBuilder` SHALL 提供 `AddQueue(const Name&, QueueSortPolicy, const Name &tag)` 三参重载；旧两参重载保留（tag 为空）。
 
-executor SHALL 按声明序遍历 queue：`BindResourceGroup(1, queueRG 或 passRG)` → 遍历 items：`BindResourceGroup(2, batchRG)` / `BindPipeline(pso)` / `DrawIndexed`。
+#### Scenario: queue 携带 technique tag
+- **WHEN** `AddQueue("opaque", FRONT_TO_BACK, "opaque")`
+- **THEN** `SceneRasterQueue.techniqueTag == "opaque"`；CompiledGraph 中该字段原样保留
 
-RDG SHALL NOT 做 queue 内排序（sortPolicy 为纯数据标记，排序由收集方完成，RDG 保序执行）。
+#### Scenario: 空 tag 默认行为
+- **WHEN** 用两参 `AddQueue("default", NONE)`（无 tag）
+- **THEN** `techniqueTag` 为空；收集方视为不过滤
 
-#### Scenario: 多 queue 保序执行
-- **WHEN** builder 依次 `AddQueue("opaque")` / `AddQueue("transparent")` 并各自 AddDrawItem
-- **THEN** `SceneRasterPayload.queues` 按声明序排列；executor 先执行 opaque queue 的 items，再 transparent
-
-#### Scenario: queue 级 ResourceGroup
-- **WHEN** queue 设置了 queueResourceGroup
-- **THEN** executor 在进入该 queue 时 `BindResourceGroup(1, queueRG)`；未设置时用 pass 级 RG
-
-#### Scenario: 默认 queue 兼容
-- **WHEN** 调用无 queue 参数的 `AddDrawItem(item)` 且未显式 AddQueue
-- **THEN** 懒创建默认 queue 0（name="default"），item 进入该 queue
+（其余条款不变：多 queue 保序执行、queue 级 ResourceGroup、默认 queue 兼容、RDG 不做排序。）
 

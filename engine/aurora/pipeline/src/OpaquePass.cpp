@@ -48,14 +48,14 @@ namespace sky::aurora {
         mColor = graph.CreateTexture(Name("OpaqueColor"), colorDesc);
         mDepth = graph.CreateTexture(Name("OpaqueDepth"), depthDesc);
 
+        ResetQueues();
         graph.AddSceneRasterPass(mName,
             [this](SceneRasterPassBuilder &builder) {
                 builder.ColorAttachment(0, mColor, LoadOp::CLEAR, StoreOp::STORE);
                 builder.DepthStencilAttachment(mDepth, LoadOp::CLEAR, StoreOp::DONT_CARE,
                                                LoadOp::DONT_CARE, StoreOp::DONT_CARE);
 
-                const uint32_t opaqueQueue = DeclareQueue(builder, Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
-                (void)opaqueQueue;
+                DeclareQueue(builder, Name("opaque"), Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
 
                 Collect(builder);
             });

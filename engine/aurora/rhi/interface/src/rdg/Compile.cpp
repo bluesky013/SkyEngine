@@ -482,6 +482,7 @@ namespace sky::aurora {
                 for (const auto &queue : data.queues) {
                     auto &cq = payload.queues.emplace_back(mFrameAlloc->Arena());
                     cq.name               = queue.name;
+                    cq.techniqueTag       = queue.techniqueTag;
                     cq.sortPolicy         = queue.sortPolicy;
                     cq.queueResourceGroup = queue.queueResourceGroup;
                     cq.items              = queue.items;

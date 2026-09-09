@@ -4,6 +4,7 @@
 /.vscode/
 /build/
 /build-release/
+/build_3rd/
 /buildR/
 /output/
 /glTF-Sample-Models-master/

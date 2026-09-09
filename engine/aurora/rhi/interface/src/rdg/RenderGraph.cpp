@@ -329,7 +329,7 @@ namespace sky::aurora {
         }
     }
 
-    uint32_t RenderGraph::AddQueue(uint32_t passIndex, const Name &name, QueueSortPolicy sortPolicy)
+    uint32_t RenderGraph::AddQueue(uint32_t passIndex, const Name &name, QueueSortPolicy sortPolicy, const Name &tag)
     {
         auto &pass = mPasses[passIndex];
         if (!std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
@@ -338,8 +338,9 @@ namespace sky::aurora {
         auto &data = mSceneRasterPasses[pass.payloadIndex];
         const uint32_t queueIndex = static_cast<uint32_t>(data.queues.size());
         auto &queue = data.queues.emplace_back(mFrameAlloc->Arena());
-        queue.name       = name;
-        queue.sortPolicy = sortPolicy;
+        queue.name         = name;
+        queue.techniqueTag = tag;
+        queue.sortPolicy   = sortPolicy;
         return queueIndex;
     }
 
@@ -490,9 +491,9 @@ namespace sky::aurora {
         return *this;
     }
 
-    uint32_t SceneRasterPassBuilder::AddQueue(const Name &name, QueueSortPolicy sortPolicy)
+    uint32_t SceneRasterPassBuilder::AddQueue(const Name &name, QueueSortPolicy sortPolicy, const Name &tag)
     {
-        return mGraph->AddQueue(mPassIndex, name, sortPolicy);
+        return mGraph->AddQueue(mPassIndex, name, sortPolicy, tag);
     }
 
     SceneRasterPassBuilder &SceneRasterPassBuilder::AddDrawItem(uint32_t queue, const DrawItem &item)

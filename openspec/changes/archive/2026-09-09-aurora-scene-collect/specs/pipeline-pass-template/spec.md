@@ -1,8 +1,5 @@
-# pipeline-pass-template Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change pipeline-pass-template. Update Purpose after archive.
-## Requirements
 ### Requirement: PipelinePass 模板基类
 
 `PipelinePass` SHALL 提供三段式生命周期：`OnSetup(Device*)`（一次性创建持久 PSO/ResourceGroup）/ `BuildRDG(RenderGraph&)`（每帧构建 RDG 节点）/ `OnSceneChanged()`（显式重建持久资源）。
@@ -18,12 +15,3 @@ TBD - created by archiving change pipeline-pass-template. Update Purpose after a
 #### Scenario: pass 绑定场景与视图
 - **WHEN** `pass.SetScene(scene); pass.SetView(view); pass.BuildRDG(graph)`
 - **THEN** Collect 使用绑定的 scene/view 收集该 pass 的 queue items
-
-### Requirement: OpaquePass
-
-`OpaquePass` SHALL 继承 `SceneRasterPassTemplate`，声明 color + depth attachment 与一个 `opaque` queue（`FRONT_TO_BACK` 排序标记）。v1 无 scene 集成（Collect 为空钩子）。
-
-#### Scenario: OpaquePass 构建 RDG
-- **WHEN** `opaquePass.BuildRDG(graph)`
-- **THEN** graph 中出现一个 SceneRasterPass（color+depth attachment），其 queues 包含名为 "opaque" 的 queue
-

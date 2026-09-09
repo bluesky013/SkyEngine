@@ -29,7 +29,7 @@ namespace sky::aurora {
                                                        LoadOp depthLoadOp, StoreOp depthStoreOp,
                                                        LoadOp stencilLoadOp, StoreOp stencilStoreOp);
         SceneRasterPassBuilder &AddDrawItem(const DrawItem &item);
-        uint32_t AddQueue(const Name &name, QueueSortPolicy sortPolicy = QueueSortPolicy::NONE);
+        uint32_t AddQueue(const Name &name, QueueSortPolicy sortPolicy = QueueSortPolicy::NONE, const Name &tag = Name{});
         SceneRasterPassBuilder &AddDrawItem(uint32_t queue, const DrawItem &item);
         SceneRasterPassBuilder &SetQueueResourceGroup(uint32_t queue, ResourceGroup *group);
         SceneRasterPassBuilder &SetPassResourceGroup(ResourceGroup *group);
