@@ -2,7 +2,7 @@
 // Aurora scene view implementation.
 //
 
-#include <aurora/pipeline/scene/SceneView.h>
+#include <aurora/scene/SceneView.h>
 
 namespace sky::aurora {
 

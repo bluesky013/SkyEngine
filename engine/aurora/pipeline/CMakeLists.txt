@@ -12,4 +12,5 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
     LINK_LIBS
         Core
         Aurora.RHI
+        Aurora
 )

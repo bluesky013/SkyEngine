@@ -1,10 +1,10 @@
 //
-// Scene collect tests: tag filtering, frustum culling, sorting.
+// Scene collect tests: tag filtering, frustum culling, sorting (ECS storage).
 //
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/pipeline/scene/RenderScene.h>
+#include <aurora/scene/RenderScene.h>
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rdg/CompiledGraph.h>
 
@@ -14,17 +14,16 @@ using namespace sky::aurora::test;
 
 namespace {
 
-    RenderPrimitive *MakePrimitive(std::vector<std::unique_ptr<RenderPrimitive>> &storage,
-                                   const Name &tag, float zCenter, float boundsExtent = 1.f)
+    EntityId MakeRenderable(RenderScene &scene, const Name &tag, float zCenter, float boundsExtent = 1.f)
     {
-        auto prim = std::make_unique<RenderPrimitive>();
-        prim->worldBounds = AABB(Vector3(0.f, 0.f, zCenter - boundsExtent),
-                                 Vector3(0.f, 0.f, zCenter + boundsExtent));
-        prim->args.indexCount = static_cast<uint32_t>(zCenter); // encode z for order assertion
-        prim->techniques[tag] = TechniqueBinding{};
-        auto *raw = prim.get();
-        storage.push_back(std::move(prim));
-        return raw;
+        const EntityId id = scene.CreateEntity();
+        scene.Add<Bounds>(id, Bounds{AABB(Vector3(0.f, 0.f, zCenter - boundsExtent),
+                                          Vector3(0.f, 0.f, zCenter + boundsExtent))});
+        RenderItem ri{};
+        ri.techniqueTag      = tag;
+        ri.item.args.indexCount = static_cast<uint32_t>(zCenter * 1000.f); // encode z for order assertion
+        scene.Add<RenderItem>(id, ri);
+        return id;
     }
 
 } // namespace
@@ -40,13 +39,9 @@ TEST_F(AuroraVulkanTest, SceneCollectTagFilter)
     view->SetViewMatrix(Matrix4::Identity());
     view->SetProjectionMatrix(Matrix4::Identity());
 
-    std::vector<std::unique_ptr<RenderPrimitive>> storage;
-    auto *opaqueNear  = MakePrimitive(storage, Name("opaque"), 0.1f, 0.05f);
-    auto *opaqueFar   = MakePrimitive(storage, Name("opaque"), 0.5f, 0.05f);
-    auto *shadowOnly  = MakePrimitive(storage, Name("shadow"), 0.3f, 0.05f);
-    scene.AddPrimitive(opaqueNear);
-    scene.AddPrimitive(opaqueFar);
-    scene.AddPrimitive(shadowOnly);
+    MakeRenderable(scene, Name("opaque"), 0.1f, 0.05f);
+    MakeRenderable(scene, Name("opaque"), 0.5f, 0.05f);
+    MakeRenderable(scene, Name("shadow"), 0.3f, 0.05f);
 
     auto graph = RenderGraph::Build(device, frameAlloc);
     const auto colorTex = graph->CreateTexture(Name("color"),
@@ -57,16 +52,15 @@ TEST_F(AuroraVulkanTest, SceneCollectTagFilter)
             b.ColorAttachment(0, colorTex, LoadOp::CLEAR, StoreOp::STORE);
             const uint32_t q = b.AddQueue(Name("opaque"), QueueSortPolicy::FRONT_TO_BACK, Name("opaque"));
 
-            for (const auto *prim : scene.GetPrimitives()) {
-                if (!view->FrustumCulling(prim->worldBounds)) {
+            auto &boundsPool = scene.Pool<Bounds>();
+            auto &itemPool   = scene.Pool<RenderItem>();
+            for (uint32_t i = 0; i < boundsPool.Size(); ++i) {
+                if (!view->FrustumCulling(boundsPool.Data(i).worldBounds)) {
                     continue;
                 }
-                GatherContext ctx{};
-                ctx.tag  = Name("opaque");
-                ctx.view = view;
-                prim->GatherRenderItem(ctx);
-                if (ctx.gathered) {
-                    b.AddDrawItem(q, ctx.item);
+                const auto *ri = itemPool.Get(boundsPool.DenseEntity(i));
+                if (ri != nullptr && ri->techniqueTag == Name("opaque")) {
+                    b.AddDrawItem(q, ri->item);
                 }
             }
         });
@@ -80,7 +74,7 @@ TEST_F(AuroraVulkanTest, SceneCollectTagFilter)
     const auto &p = std::get<SceneRasterPayload>(cg->passes[0].payload);
     ASSERT_EQ(p.queues.size(), 1u);
     EXPECT_STREQ(std::string(p.queues[0].techniqueTag.GetStr()).c_str(), "opaque");
-    // opaqueNear + opaqueFar collected; shadowOnly filtered out
+    // opaque near + opaque far collected; shadow filtered out
     EXPECT_EQ(p.queues[0].items.size(), 2u);
 }
 
@@ -99,15 +93,20 @@ TEST_F(AuroraVulkanTest, SceneCollectFrustumCull)
     EXPECT_FALSE(view->FrustumCulling(farOutside));
 }
 
-TEST_F(AuroraVulkanTest, SceneCollectEmptyTagGathersAll)
+TEST_F(AuroraVulkanTest, SceneEntityLifecycle)
 {
-    std::vector<std::unique_ptr<RenderPrimitive>> storage;
-    auto *prim = MakePrimitive(storage, Name("opaque"), 5.f);
+    RenderScene scene;
+    const EntityId id = scene.CreateEntity();
+    EXPECT_TRUE(scene.IsAlive(id));
 
-    GatherContext ctx{};
-    ctx.tag = Name{}; // empty = no filter
-    prim->GatherRenderItem(ctx);
-    EXPECT_TRUE(ctx.gathered);
+    scene.Add<Light>(id, Light{});
+    scene.Add<Skin>(id, Skin{12});
+    EXPECT_NE(scene.Get<Light>(id), nullptr);
+    EXPECT_EQ(scene.Get<Skin>(id)->jointCount, 12u);
+
+    scene.DestroyEntity(id);
+    EXPECT_FALSE(scene.IsAlive(id));
+    EXPECT_EQ(scene.Get<Light>(id), nullptr); // stale generation rejected
 }
 
 TEST_F(AuroraVulkanTest, SceneCollectSortFrontToBack)

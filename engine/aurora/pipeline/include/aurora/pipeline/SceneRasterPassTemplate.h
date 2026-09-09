@@ -5,7 +5,7 @@
 #pragma once
 
 #include <aurora/pipeline/PipelinePass.h>
-#include <aurora/pipeline/scene/RenderScene.h>
+#include <aurora/scene/RenderScene.h>
 #include <aurora/rdg/RenderGraph.h>
 
 #include <vector>

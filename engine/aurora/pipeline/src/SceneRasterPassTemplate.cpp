@@ -24,32 +24,30 @@ namespace sky::aurora {
             return;
         }
 
-        const auto &primitives = mScene->GetPrimitives();
+        auto &boundsPool = mScene->Pool<Bounds>();
+        auto &itemPool   = mScene->Pool<RenderItem>();
 
         for (const auto &decl : mQueueDecls) {
-            // gather
             std::vector<std::pair<float, DrawItem>> gathered; // (view depth, item)
-            gathered.reserve(primitives.size());
 
-            for (const auto *prim : primitives) {
-                if (prim == nullptr) {
-                    continue;
-                }
-                if (mView != nullptr && !mView->FrustumCulling(prim->worldBounds)) {
+            for (uint32_t i = 0; i < boundsPool.Size(); ++i) {
+                const Bounds &bounds = boundsPool.Data(i);
+                if (mView != nullptr && !mView->FrustumCulling(bounds.worldBounds)) {
                     continue;
                 }
 
-                GatherContext ctx{};
-                ctx.tag  = decl.tag;
-                ctx.view = mView;
-                prim->GatherRenderItem(ctx);
-                if (!ctx.gathered) {
+                const EntityId entity = boundsPool.DenseEntity(i);
+                const auto *ri = itemPool.Get(entity);
+                if (ri == nullptr) {
+                    continue;
+                }
+                if (decl.tag != Name{} && ri->techniqueTag != decl.tag) {
                     continue;
                 }
 
-                const Vector3 center = (prim->worldBounds.min + prim->worldBounds.max) * 0.5f;
+                const Vector3 center = (bounds.worldBounds.min + bounds.worldBounds.max) * 0.5f;
                 const float depth = mView != nullptr ? mView->ViewSpaceDepth(center) : 0.f;
-                gathered.emplace_back(depth, ctx.item);
+                gathered.emplace_back(depth, ri->item);
             }
 
             // sort by policy
