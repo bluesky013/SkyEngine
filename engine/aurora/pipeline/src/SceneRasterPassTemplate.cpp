@@ -24,45 +24,21 @@ namespace sky::aurora {
             return;
         }
 
+        // v1: cull-only pass over the Bounds pool; draw items are produced once
+        // the technique design lands (no RenderItem component for now)
         auto &boundsPool = mScene->Pool<Bounds>();
-        auto &itemPool   = mScene->Pool<RenderItem>();
 
         for (const auto &decl : mQueueDecls) {
-            std::vector<std::pair<float, DrawItem>> gathered; // (view depth, item)
-
+            (void)decl;
+            uint32_t visibleCount = 0;
             for (uint32_t i = 0; i < boundsPool.Size(); ++i) {
-                const Bounds &bounds = boundsPool.Data(i);
-                if (mView != nullptr && !mView->FrustumCulling(bounds.worldBounds)) {
+                if (mView != nullptr && !mView->FrustumCulling(boundsPool.Data(i).worldBounds)) {
                     continue;
                 }
-
-                const EntityId entity = boundsPool.DenseEntity(i);
-                const auto *ri = itemPool.Get(entity);
-                if (ri == nullptr) {
-                    continue;
-                }
-                if (decl.tag != Name{} && ri->techniqueTag != decl.tag) {
-                    continue;
-                }
-
-                const Vector3 center = (bounds.worldBounds.min + bounds.worldBounds.max) * 0.5f;
-                const float depth = mView != nullptr ? mView->ViewSpaceDepth(center) : 0.f;
-                gathered.emplace_back(depth, ri->item);
+                ++visibleCount;
             }
-
-            // sort by policy
-            if (decl.sort == QueueSortPolicy::FRONT_TO_BACK) {
-                std::stable_sort(gathered.begin(), gathered.end(),
-                                 [](const auto &a, const auto &b) { return a.first < b.first; });
-            } else if (decl.sort == QueueSortPolicy::BACK_TO_FRONT) {
-                std::stable_sort(gathered.begin(), gathered.end(),
-                                 [](const auto &a, const auto &b) { return a.first > b.first; });
-            }
-
-            for (auto &[depth, item] : gathered) {
-                (void)depth;
-                builder.AddDrawItem(decl.index, item);
-            }
+            (void)visibleCount;
+            (void)builder;
         }
     }
 

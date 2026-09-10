@@ -8,19 +8,13 @@
 #include <core/name/Name.h>
 #include <core/math/Vector3.h>
 #include <core/shapes/AABB.h>
-#include <aurora/rdg/CompiledGraph.h>
+#include <core/ecs/TypeId.h>
 
 namespace sky::aurora {
 
     // AABB in world space; drives culling and sort depth
     struct Bounds {
         AABB worldBounds{};
-    };
-
-    // interim render payload per entity (replaced once the technique design lands)
-    struct RenderItem {
-        Name     techniqueTag; // matched against SceneRasterQueue::techniqueTag
-        DrawItem item;         // pso / batchResourceGroup / vb / ib / offsets / args
     };
 
     // scene light data (placeholder; lighting pipeline fills in later)
@@ -43,3 +37,7 @@ namespace sky::aurora {
     };
 
 } // namespace sky::aurora
+
+SKY_TYPE_TAG(sky::aurora::Bounds, "sky.aurora.Bounds")
+SKY_TYPE_TAG(sky::aurora::Light, "sky.aurora.Light")
+SKY_TYPE_TAG(sky::aurora::Skin, "sky.aurora.Skin")

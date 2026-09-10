@@ -7,6 +7,17 @@
 
 using namespace sky;
 
+// test types must carry explicit tags (no fallback)
+namespace test_types {
+    struct EcsInt { int v = 0; };
+    struct EcsFloat { float v = 0.f; };
+    struct EcsVec { float x = 0.f, y = 0.f, z = 0.f; };
+} // namespace test_types
+
+SKY_TYPE_TAG(test_types::EcsInt, "sky.test.EcsInt")
+SKY_TYPE_TAG(test_types::EcsFloat, "sky.test.EcsFloat")
+SKY_TYPE_TAG(test_types::EcsVec, "sky.test.EcsVec")
+
 TEST(EcsEntityIdTest, BitLayout)
 {
     const EntityId id = MakeEntityId(0xABCD, 0x5A);
@@ -114,12 +125,12 @@ TEST(EcsRegistryTest, CreateDestroyLifecycle)
     const EntityId e1 = reg.CreateEntity();
     EXPECT_TRUE(reg.IsAlive(e1));
 
-    reg.Add<int>(e1, 42);
-    EXPECT_EQ(*reg.Get<int>(e1), 42);
+    reg.Add<test_types::EcsInt>(e1, {42});
+    EXPECT_EQ(reg.Get<test_types::EcsInt>(e1)->v, 42);
 
     reg.DestroyEntity(e1);
     EXPECT_FALSE(reg.IsAlive(e1));
-    EXPECT_EQ(reg.Get<int>(e1), nullptr); // stale generation rejected
+    EXPECT_EQ(reg.Get<test_types::EcsInt>(e1), nullptr); // stale generation rejected
 
     // index reused with bumped generation
     const EntityId e2 = reg.CreateEntity();
@@ -133,13 +144,34 @@ TEST(EcsRegistryTest, MultiplePools)
     EntityRegistry reg;
     const EntityId e = reg.CreateEntity();
 
-    reg.Add<int>(e, 1);
-    reg.Add<float>(e, 2.5f);
+    reg.Add<test_types::EcsInt>(e, {1});
+    reg.Add<test_types::EcsFloat>(e, {2.5f});
 
-    EXPECT_EQ(*reg.Get<int>(e), 1);
-    EXPECT_FLOAT_EQ(*reg.Get<float>(e), 2.5f);
+    EXPECT_EQ(reg.Get<test_types::EcsInt>(e)->v, 1);
+    EXPECT_FLOAT_EQ(reg.Get<test_types::EcsFloat>(e)->v, 2.5f);
 
-    reg.Remove<int>(e);
-    EXPECT_EQ(reg.Get<int>(e), nullptr);
-    EXPECT_NE(reg.Get<float>(e), nullptr);
+    reg.Remove<test_types::EcsInt>(e);
+    EXPECT_EQ(reg.Get<test_types::EcsInt>(e), nullptr);
+    EXPECT_NE(reg.Get<test_types::EcsFloat>(e), nullptr);
+}
+
+// ---- explicit type tag ----
+TEST(EcsTypeIdTest, TagDeterminesId)
+{
+    constexpr uint32_t expected = Fnv1a32("sky.test.EcsInt");
+    EXPECT_EQ(TypeId<test_types::EcsInt>(), expected);
+}
+
+TEST(EcsTypeIdTest, DistinctTypesDistinctIds)
+{
+    EXPECT_NE(TypeId<test_types::EcsInt>(), TypeId<test_types::EcsFloat>());
+    EXPECT_NE(TypeId<test_types::EcsInt>(), TypeId<test_types::EcsVec>());
+    EXPECT_NE(TypeId<test_types::EcsFloat>(), TypeId<test_types::EcsVec>());
+}
+
+TEST(EcsTypeIdTest, StableAcrossCalls)
+{
+    // id depends only on the tag string; call order and repetition are irrelevant
+    EXPECT_EQ(TypeId<test_types::EcsVec>(), TypeId<test_types::EcsVec>());
+    EXPECT_EQ(TypeTag<test_types::EcsVec>(), "sky.test.EcsVec");
 }

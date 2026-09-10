@@ -5,28 +5,14 @@
 #pragma once
 
 #include <core/ecs/SparseSet.h>
+#include <core/ecs/TypeId.h>
+#include <core/platform/Platform.h>
 
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace sky {
-
-    // static auto-increment type id for component pools
-    namespace detail {
-        inline uint32_t NextTypeId()
-        {
-            static uint32_t counter = 0;
-            return counter++;
-        }
-    } // namespace detail
-
-    template <typename T>
-    uint32_t TypeId()
-    {
-        static const uint32_t id = detail::NextTypeId();
-        return id;
-    }
 
     class EntityRegistry {
     public:
@@ -71,6 +57,9 @@ namespace sky {
             auto it = mPools.find(id);
             if (it == mPools.end()) {
                 it = mPools.emplace(id, std::make_unique<PoolHolder<T>>()).first;
+            } else {
+                // debug: hash collision guard (same id, different tag)
+                SKY_ASSERT(it->second->tag == TypeTag<T>() && "ECS type id hash collision");
             }
             return static_cast<PoolHolder<T> *>(it->second.get())->pool;
         }
@@ -113,10 +102,12 @@ namespace sky {
     private:
         struct PoolHolderBase {
             virtual ~PoolHolderBase() = default;
+            std::string_view tag;
         };
 
         template <typename T>
         struct PoolHolder : PoolHolderBase {
+            PoolHolder() { tag = TypeTag<T>(); }
             SparseSet<T> pool;
         };
 
