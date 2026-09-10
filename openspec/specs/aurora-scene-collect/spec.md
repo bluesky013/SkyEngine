@@ -27,23 +27,30 @@ primitive 为持久对象，其内部容器 SHALL NOT 绑定帧 arena。
 
 ### Requirement: RenderScene（aurora）
 
-`RenderScene` SHALL 基于 `EntityRegistry` + SoA 组件池存储场景数据（ECS data-oriented），不再使用 `std::vector<RenderPrimitive*>` 指针模型；`RenderPrimitive` 独立结构 SHALL 删除。
+`RenderScene` SHALL 内嵌 `EntityRegistry`，提供 entity 注册与 SoA 组件池能力（`CreateEntity` / `DestroyEntity` / `Add<T>` / `Get<T>` / `Pool<T>` / `View<Ts...>`）；views（SceneView）保留独立 registry 不进 ECS。
 
-场景组件（`scene/SceneTypes.h`）SHALL 包括：`Bounds`（AABB）、`RenderItem`（过渡形态：`Name techniqueTag` + `DrawItem item`，pso/batchRG/vb/ib/args 全在 item 内）、`Light`（占位）、`Skin`（占位）。
+场景组件（`aurora/scene/SceneTypes.h`）SHALL 包括：
 
-外部引用 SHALL 使用 `EntityId`。views 保留独立 registry（view 数量少，不进 ECS）。
+- `Bounds`（AABB）
+-  `WorldInfo`（纯 world 矩阵：`Matrix4 world`，默认 Identity；不拆 TRS）
+- `Light`（type/color/intensity + point/spot 参数：`position` / `range` / `innerConeAngle` / `outerConeAngle`）
+- `Skin`（占位）
 
-#### Scenario: entity 注册与组件挂载
-- **WHEN** `scene.CreateEntity()` 后挂载 Bounds/RenderItem 组件
-- **THEN** 组件存入对应 SoA 池；`scene.DestroyEntity(id)` 后组件全部移除
+#### Scenario: ECS 组件挂载
+- **WHEN** `scene.CreateEntity()` 后 `scene.Add<Light>(id, {...})`
+- **THEN** Light 存入对应 SoA 池；`scene.DestroyEntity(id)` 后移除
 
-#### Scenario: tag 过滤语义保持
-- **WHEN** entity 的 `RenderItem.techniqueTag = "opaque"`，queue 的 techniqueTag = "shadow"
-- **THEN** 该 entity 不被 shadow queue 收集；被 "opaque" queue 收集
+#### Scenario: 收集链路不受影响
+- **WHEN** pass BuildRDG 触发 Collect
+- **THEN** 仍遍历 `Bounds`（经 `View<Bounds>`），frustum cull 语义与现状一致
 
-#### Scenario: 空 tag queue 不过滤
-- **WHEN** queue 的 techniqueTag 为空
-- **THEN** 所有 visible entity 的 RenderItem 都被收集（与旧默认 queue 语义一致）
+#### Scenario: point/spot 参数
+- **WHEN** `Light{type=POINT, position, range}` 或 `Light{type=SPOT, position, direction, range, innerConeAngle, outerConeAngle}`
+- **THEN** 各参数完整存储于组件
+
+#### Scenario: WorldInfo 矩阵存储
+- **WHEN** `scene.Add<WorldInfo>(id, {matrix})` 后 `scene.Get<WorldInfo>(id)`
+- **THEN** 读回的 world 矩阵与写入一致
 
 ### Requirement: pass 收集链路
 

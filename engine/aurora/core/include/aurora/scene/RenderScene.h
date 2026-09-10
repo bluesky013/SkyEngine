@@ -6,6 +6,7 @@
 
 #include <core/name/Name.h>
 #include <core/ecs/EntityRegistry.h>
+#include <core/ecs/View.h>
 #include <aurora/scene/SceneTypes.h>
 #include <aurora/scene/SceneView.h>
 

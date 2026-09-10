@@ -74,3 +74,63 @@ TEST_F(AuroraVulkanTest, SceneViewDepth)
     // view-space depth == z for identity view
     EXPECT_LT(view->ViewSpaceDepth(Vector3(0, 0, -10.f)), view->ViewSpaceDepth(Vector3(0, 0, -1.f)));
 }
+
+TEST_F(AuroraVulkanTest, SceneLightPointSpotParams)
+{
+    RenderScene scene;
+    const EntityId id = scene.CreateEntity();
+
+    Light spot{};
+    spot.type           = LightType::SPOT;
+    spot.color          = Vector3(1.f, 0.9f, 0.8f);
+    spot.intensity      = 3.f;
+    spot.position       = Vector3(0.f, 5.f, 0.f);
+    spot.direction      = Vector3(0.f, -1.f, 0.f);
+    spot.range          = 25.f;
+    spot.innerConeAngle = 0.3f;
+    spot.outerConeAngle = 0.6f;
+    scene.Add<Light>(id, spot);
+
+    const auto *stored = scene.Get<Light>(id);
+    ASSERT_NE(stored, nullptr);
+    EXPECT_EQ(stored->type, LightType::SPOT);
+    EXPECT_FLOAT_EQ(stored->intensity, 3.f);
+    EXPECT_FLOAT_EQ(stored->range, 25.f);
+    EXPECT_FLOAT_EQ(stored->innerConeAngle, 0.3f);
+    EXPECT_FLOAT_EQ(stored->outerConeAngle, 0.6f);
+    EXPECT_FLOAT_EQ(stored->position.y, 5.f);
+}
+
+TEST_F(AuroraVulkanTest, SceneWorldInfoMatrixStorage)
+{
+    RenderScene scene;
+    const EntityId id = scene.CreateEntity();
+
+    Matrix4 m = Matrix4::Identity();
+    m.m[3] = Vector4(10.f, 20.f, 0.f, 1.f); // translation column
+    scene.Add<WorldInfo>(id, WorldInfo{m});
+
+    const auto *stored = scene.Get<WorldInfo>(id);
+    ASSERT_NE(stored, nullptr);
+    EXPECT_FLOAT_EQ(stored->world.m[3].x, 10.f);
+    EXPECT_FLOAT_EQ(stored->world.m[3].y, 20.f);
+}
+
+TEST_F(AuroraVulkanTest, SceneViewLightAndWorldInfo)
+{
+    RenderScene scene;
+    const EntityId both = scene.CreateEntity();
+    const EntityId lightOnly = scene.CreateEntity();
+
+    scene.Add<Light>(both, Light{});
+    scene.Add<WorldInfo>(both, WorldInfo{});
+    scene.Add<Light>(lightOnly, Light{});
+
+    int hits = 0;
+    scene.GetRegistry().View<Light, WorldInfo>().ForEach(
+        [&](EntityId id, Light &, WorldInfo &) {
+            EXPECT_EQ(id, both);
+            ++hits;
+        });
+    EXPECT_EQ(hits, 1);
+}

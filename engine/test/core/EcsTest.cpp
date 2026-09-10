@@ -3,6 +3,7 @@
 //
 
 #include <core/ecs/EntityRegistry.h>
+#include <core/ecs/View.h>
 #include <gtest/gtest.h>
 
 using namespace sky;
@@ -174,4 +175,99 @@ TEST(EcsTypeIdTest, StableAcrossCalls)
     // id depends only on the tag string; call order and repetition are irrelevant
     EXPECT_EQ(TypeId<test_types::EcsVec>(), TypeId<test_types::EcsVec>());
     EXPECT_EQ(TypeTag<test_types::EcsVec>(), "sky.test.EcsVec");
+}
+
+// ---- view ----
+
+TEST(EcsViewTest, TwoPoolIntersection)
+{
+    EntityRegistry reg;
+    const EntityId e1 = reg.CreateEntity();
+    const EntityId e2 = reg.CreateEntity();
+    const EntityId e3 = reg.CreateEntity();
+
+    reg.Add<test_types::EcsInt>(e1, {1});
+    reg.Add<test_types::EcsFloat>(e1, {1.f});
+    reg.Add<test_types::EcsInt>(e2, {2});        // int only
+    reg.Add<test_types::EcsFloat>(e3, {3.f});    // float only
+
+    int hits = 0;
+    reg.View<test_types::EcsInt, test_types::EcsFloat>().ForEach(
+        [&](EntityId id, test_types::EcsInt &a, test_types::EcsFloat &b) {
+            EXPECT_EQ(id, e1);
+            EXPECT_EQ(a.v, 1);
+            EXPECT_FLOAT_EQ(b.v, 1.f);
+            ++hits;
+        });
+    EXPECT_EQ(hits, 1);
+}
+
+TEST(EcsViewTest, SmallestPoolDrives)
+{
+    EntityRegistry reg;
+    for (uint32_t i = 0; i < 100; ++i) {
+        reg.Add<test_types::EcsInt>(reg.CreateEntity(), {static_cast<int>(i)});
+    }
+    const EntityId e = reg.CreateEntity();
+    reg.Add<test_types::EcsInt>(e, {42});
+    reg.Add<test_types::EcsFloat>(e, {42.f});
+
+    // float pool has 1 entry; view should still find the intersection
+    int hits = 0;
+    reg.View<test_types::EcsInt, test_types::EcsFloat>().ForEach(
+        [&](EntityId, test_types::EcsInt &a, test_types::EcsFloat &) {
+            EXPECT_EQ(a.v, 42);
+            ++hits;
+        });
+    EXPECT_EQ(hits, 1);
+}
+
+TEST(EcsViewTest, ThreePoolIntersection)
+{
+    EntityRegistry reg;
+    const EntityId e1 = reg.CreateEntity();
+    const EntityId e2 = reg.CreateEntity();
+
+    reg.Add<test_types::EcsInt>(e1, {1});
+    reg.Add<test_types::EcsFloat>(e1, {1.f});
+    reg.Add<test_types::EcsVec>(e1, {1.f, 2.f, 3.f});
+
+    reg.Add<test_types::EcsInt>(e2, {2});
+    reg.Add<test_types::EcsFloat>(e2, {2.f});
+    // e2 lacks EcsVec
+
+    int hits = 0;
+    reg.View<test_types::EcsInt, test_types::EcsFloat, test_types::EcsVec>().ForEach(
+        [&](EntityId id, test_types::EcsInt &, test_types::EcsFloat &, test_types::EcsVec &v) {
+            EXPECT_EQ(id, e1);
+            EXPECT_FLOAT_EQ(v.z, 3.f);
+            ++hits;
+        });
+    EXPECT_EQ(hits, 1);
+}
+
+TEST(EcsViewTest, EmptyIntersection)
+{
+    EntityRegistry reg;
+    const EntityId e1 = reg.CreateEntity();
+    reg.Add<test_types::EcsInt>(e1, {1});
+    const EntityId e2 = reg.CreateEntity();
+    reg.Add<test_types::EcsFloat>(e2, {2.f});
+
+    int hits = 0;
+    reg.View<test_types::EcsInt, test_types::EcsFloat>().ForEach(
+        [&](EntityId, test_types::EcsInt &, test_types::EcsFloat &) { ++hits; });
+    EXPECT_EQ(hits, 0);
+}
+
+TEST(EcsViewTest, SinglePoolView)
+{
+    EntityRegistry reg;
+    reg.Add<test_types::EcsInt>(reg.CreateEntity(), {10});
+    reg.Add<test_types::EcsInt>(reg.CreateEntity(), {20});
+
+    int sum = 0;
+    reg.View<test_types::EcsInt>().ForEach(
+        [&](EntityId, test_types::EcsInt &a) { sum += a.v; });
+    EXPECT_EQ(sum, 30);
 }

@@ -24,19 +24,19 @@ namespace sky::aurora {
             return;
         }
 
-        // v1: cull-only pass over the Bounds pool; draw items are produced once
+        // v1: cull-only pass over the Bounds view; draw items are produced once
         // the technique design lands (no RenderItem component for now)
-        auto &boundsPool = mScene->Pool<Bounds>();
+        auto view = mScene->GetRegistry().View<Bounds>();
 
         for (const auto &decl : mQueueDecls) {
             (void)decl;
             uint32_t visibleCount = 0;
-            for (uint32_t i = 0; i < boundsPool.Size(); ++i) {
-                if (mView != nullptr && !mView->FrustumCulling(boundsPool.Data(i).worldBounds)) {
-                    continue;
+            view.ForEach([&](EntityId, Bounds &bounds) {
+                if (mView != nullptr && !mView->FrustumCulling(bounds.worldBounds)) {
+                    return;
                 }
                 ++visibleCount;
-            }
+            });
             (void)visibleCount;
             (void)builder;
         }

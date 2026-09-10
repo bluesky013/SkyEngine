@@ -99,6 +99,9 @@ namespace sky {
             Pool<T>().Remove(id);
         }
 
+        template <typename... Ts>
+        auto View();
+
     private:
         struct PoolHolderBase {
             virtual ~PoolHolderBase() = default;
