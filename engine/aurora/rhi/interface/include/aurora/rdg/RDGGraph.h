@@ -108,6 +108,8 @@ namespace sky::aurora {
 
         TransientVector<SceneRasterQueue> queues; // declaration order
 
+        ResourceGroup *passResourceGroup = nullptr; // set 1 (pass-level, queue RG overrides per queue)
+
         explicit SceneRasterPassData(TransientAllocator &alloc)
             : colors(TransientStdAllocator<ColorAttachmentRef>{alloc})
             , queues(TransientStdAllocator<SceneRasterQueue>{alloc})

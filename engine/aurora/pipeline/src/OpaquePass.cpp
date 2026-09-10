@@ -8,19 +8,41 @@
 
 namespace sky::aurora {
 
+    namespace {
+        std::vector<RgBlockDesc> MakeOpaquePassBlocks()
+        {
+            // pass tier (set 1): per-pass params cbuffer
+            RgBlockDesc block{};
+            block.set       = 1;
+            block.binding   = 0;
+            block.blockName = Name("OpaquePassParams");
+            block.kind      = RgBlockKind::CBUFFER;
+            block.fields    = {
+                {RgFieldType::FLOAT4, Name("Misc")}, // placeholder params
+            };
+            return {block};
+        }
+    } // namespace
+
     OpaquePass::OpaquePass() : SceneRasterPassTemplate(Name("OpaquePass"))
     {
     }
 
+    const std::vector<RgBlockDesc> &OpaquePass::GetPassBlocks() const
+    {
+        static const std::vector<RgBlockDesc> blocks = MakeOpaquePassBlocks();
+        return blocks;
+    }
+
     void OpaquePass::OnSetup(Device *device)
     {
-        (void)device;
-        // TODO: create persistent PSO / ResourceGroup once shader pipeline is wired in
+        SceneRasterPassTemplate::OnSetup(device);
+        // TODO: create persistent PSO once shader pipeline is wired in
     }
 
     void OpaquePass::OnSceneChanged()
     {
-        // TODO: rebuild persistent ResourceGroup when scene bindings change
+        SceneRasterPassTemplate::OnSceneChanged();
     }
 
     void OpaquePass::BuildRDG(RenderGraph &graph)
@@ -54,6 +76,10 @@ namespace sky::aurora {
                 builder.ColorAttachment(0, mColor, LoadOp::CLEAR, StoreOp::STORE);
                 builder.DepthStencilAttachment(mDepth, LoadOp::CLEAR, StoreOp::DONT_CARE,
                                                LoadOp::DONT_CARE, StoreOp::DONT_CARE);
+
+                if (GetPassResourceGroup() != nullptr) {
+                    builder.SetPassResourceGroup(GetPassResourceGroup());
+                }
 
                 DeclareQueue(builder, Name("opaque"), Name("opaque"), QueueSortPolicy::FRONT_TO_BACK);
 

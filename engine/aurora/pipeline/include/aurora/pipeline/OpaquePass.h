@@ -27,6 +27,9 @@ namespace sky::aurora {
         RDGTextureHandle GetColorHandle() const { return mColor; }
         RDGTextureHandle GetDepthHandle() const { return mDepth; }
 
+    protected:
+        const std::vector<RgBlockDesc> &GetPassBlocks() const override;
+
     private:
         uint32_t mWidth  = 0;
         uint32_t mHeight = 0;

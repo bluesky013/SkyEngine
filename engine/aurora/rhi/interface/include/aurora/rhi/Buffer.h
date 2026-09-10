@@ -22,6 +22,11 @@ namespace sky::aurora {
 
         Buffer() = default;
         ~Buffer() override = default;
+
+        // map/unmap for host-visible buffers (CPU_TO_GPU / CPU_ONLY memory);
+        // GPU_ONLY buffers return nullptr
+        virtual uint8_t *Map() { return nullptr; }
+        virtual void UnMap() {}
     };
     using BufferPtr = CounterPtr<Buffer>;
 } // namespace sky::aurora

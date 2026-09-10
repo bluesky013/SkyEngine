@@ -368,7 +368,10 @@ namespace sky::aurora {
 
     void RenderGraph::SetSceneRasterResourceGroup(uint32_t passIndex, ResourceGroup *group)
     {
-        (void)passIndex; (void)group; // reserved for compiled payload wiring
+        auto &pass = mPasses[passIndex];
+        if (std::holds_alternative<SceneRasterPassTag>(pass.tag)) {
+            mSceneRasterPasses[pass.payloadIndex].passResourceGroup = group;
+        }
     }
 
     void RenderGraph::SetFullScreenTechnique(uint32_t passIndex, GraphicsPipeline *pso)

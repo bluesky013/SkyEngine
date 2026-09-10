@@ -13,4 +13,5 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         Core
         Aurora.RHI
         Aurora
+        ShaderCompiler.Static
 )

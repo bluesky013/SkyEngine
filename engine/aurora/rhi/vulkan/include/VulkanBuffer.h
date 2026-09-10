@@ -20,8 +20,8 @@ namespace sky::aurora {
 
         VkBuffer GetNativeHandle() const { return buffer; }
 
-        uint8_t *Map();
-        void UnMap();
+        uint8_t *Map() override;
+        void UnMap() override;
 
     private:
         VulkanDevice  &device;

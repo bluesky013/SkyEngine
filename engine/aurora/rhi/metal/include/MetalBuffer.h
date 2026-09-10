@@ -19,6 +19,9 @@ namespace sky::aurora {
 
         void *GetNativeHandle() const { return buffer; }
 
+        uint8_t *Map() override;
+        void UnMap() override {}
+
     private:
         MetalDevice &device;
         void        *buffer = nullptr;

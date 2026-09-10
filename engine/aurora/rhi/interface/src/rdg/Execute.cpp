@@ -60,6 +60,9 @@ namespace sky::aurora {
 
                 auto enc = cmdBuf->CreateGraphicsEncoder();
                 enc->BeginRendering(info);
+                if (cg.globalResourceGroup != nullptr) {
+                    enc->BindResourceGroup(0, cg.globalResourceGroup, 0, nullptr);
+                }
                 for (const auto &queue : p.queues) {
                     ResourceGroup *set1 = queue.queueResourceGroup != nullptr ? queue.queueResourceGroup : p.passResourceGroup;
                     if (set1 != nullptr) {
@@ -67,7 +70,7 @@ namespace sky::aurora {
                     }
                     for (const auto &item : queue.items) {
                         if (item.batchResourceGroup != nullptr) {
-                            enc->BindResourceGroup(2, item.batchResourceGroup, 0, nullptr);
+                            enc->BindResourceGroup(2, item.batchResourceGroup, 1, &item.batchDynamicOffset);
                         }
                         if (item.pso != nullptr) {
                             enc->BindPipeline(item.pso);
@@ -104,6 +107,9 @@ namespace sky::aurora {
 
                 auto enc = cmdBuf->CreateGraphicsEncoder();
                 enc->BeginRendering(info);
+                if (cg.globalResourceGroup != nullptr) {
+                    enc->BindResourceGroup(0, cg.globalResourceGroup, 0, nullptr);
+                }
                 if (p.passResourceGroup != nullptr) {
                     enc->BindResourceGroup(1, p.passResourceGroup, 0, nullptr);
                 }
@@ -122,6 +128,9 @@ namespace sky::aurora {
             case CompiledPassType::COMPUTE: {
                 const auto &p = std::get<ComputePayload>(cpass.payload);
                 auto enc = cmdBuf->CreateComputeEncoder();
+                if (cg.globalResourceGroup != nullptr) {
+                    enc->BindResourceGroup(0, cg.globalResourceGroup, 0, nullptr);
+                }
                 if (p.pso != nullptr) {
                     enc->BindPipeline(p.pso);
                 }

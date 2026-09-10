@@ -59,6 +59,7 @@ namespace sky::aurora {
     struct DrawItem {
         GraphicsPipeline *pso = nullptr;                // per-item PSO reference
         ResourceGroup    *batchResourceGroup = nullptr; // set 2
+        uint32_t          batchDynamicOffset   = 0;     // dynamic UBO offset (set 2)
 
         Buffer *vb = nullptr;
         Buffer *ib = nullptr;

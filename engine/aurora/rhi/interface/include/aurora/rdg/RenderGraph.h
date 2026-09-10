@@ -37,6 +37,7 @@ namespace sky::aurora {
     class Device;
     class CommandBuffer;
     class TransientPool;
+    class ResourceGroup;
 
     class RenderGraph {
     public:
@@ -75,6 +76,10 @@ namespace sky::aurora {
 
         // ---- compiled output ----
         const CompiledGraph *GetCompiledGraph() const { return mCompiledGraph.get(); }
+
+        // ---- global resources (set 0) ----
+        void SetGlobalResourceGroup(ResourceGroup *group) { mGlobalResourceGroup = group; }
+        ResourceGroup *GetGlobalResourceGroup() const { return mGlobalResourceGroup; }
 
         // ---- internal (used by builders) ----
         void AddRead(uint32_t passIndex, uint32_t resourceIndex, AccessFlags access);
@@ -158,6 +163,8 @@ namespace sky::aurora {
 
         std::unique_ptr<TransientPool> mPool;
         std::unique_ptr<CompiledGraph> mCompiledGraph;
+
+        ResourceGroup *mGlobalResourceGroup = nullptr;
 
         bool mCompiled = false;
     };

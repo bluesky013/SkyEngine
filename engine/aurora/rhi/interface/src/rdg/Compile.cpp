@@ -437,6 +437,7 @@ namespace sky::aurora {
         mCompiledGraph->resolvedImages = mResolvedImages;
         mCompiledGraph->resolvedBuffers = mResolvedBuffers;
         mCompiledGraph->topologicalOrder = mTopoOrder;
+        mCompiledGraph->globalResourceGroup = mGlobalResourceGroup;
 
         // build flat barrier array + compiled passes in topo order
         for (const uint32_t passIndex : mTopoOrder) {
@@ -462,6 +463,7 @@ namespace sky::aurora {
                 const auto &data = mSceneRasterPasses[pass.payloadIndex];
                 cpass.payload.emplace<SceneRasterPayload>(mFrameAlloc->Arena());
                 auto &payload = std::get<SceneRasterPayload>(cpass.payload);
+                payload.passResourceGroup = data.passResourceGroup;
                 for (const auto &color : data.colors) {
                     CompiledColorAttachment c{};
                     c.slot       = color.slot;

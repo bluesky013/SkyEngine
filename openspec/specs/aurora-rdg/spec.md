@@ -5,11 +5,7 @@ TBD - created by archiving change aurora-rdg. Update Purpose after archive.
 ## Requirements
 ### Requirement: RenderGraph 三段式 lifecycle
 
-`RenderGraph` SHALL 提供三段式：
-
-- **Setup** — 声明资源与 pass 依赖（通过 builder）
-- **Compile** — 推导依赖边、拓扑排序、生命周期、barrier、transient 池化；产出独立 `CompiledGraph`
-- **Execute** — 依 `CompiledGraph` 拓扑序 emit barrier 与 pass body；**只读 `CompiledGraph`，不触碰 setup graph**
+`RenderGraph` SHALL 提供三段式：Setup（builder 声明）→ Compile（产出 `CompiledGraph`）→ Execute（只读 CompiledGraph emit barrier 与 pass body）。其余条款不变。
 
 #### Scenario: 三段式流程
 - **WHEN** `Build(device, alloc)` → builder 声明 → `Compile()` → `Execute(cmdBuf)`
@@ -17,7 +13,7 @@ TBD - created by archiving change aurora-rdg. Update Purpose after archive.
 
 #### Scenario: executor 只读 CompiledGraph
 - **WHEN** `ExecutePasses` 遍历 pass
-- **THEN** 数据源为 `CompiledGraph.passes` / `CompiledGraph.barriers` / `CompiledGraph.resolvedImages|resolvedBuffers`；不访问 setup graph 的 `mPasses`/`mTopoOrder`/pass data
+- **THEN** 数据源为 `CompiledGraph.passes` / `CompiledGraph.barriers` / `CompiledGraph.resolvedImages|resolvedBuffers`；不访问 setup graph
 
 #### Scenario: 帧末 barrier 段
 - **WHEN** `CompiledGraph` 的 `finalBarrierOffset` 标记帧末 barrier 段起点
@@ -175,17 +171,17 @@ RDG 的资源名与 pass 名 SHALL 使用 `core::Name`（`sky::Name`）而非 `s
 
 `AddSceneRasterPass` SHALL 只接收 setup（`AddSceneRasterPass(name, setup)`），不再接收 execute lambda。execute 由 `SceneRasterPayload` 数据驱动。
 
-SceneRasterPass SHALL 支持多 queue：每 queue 有独立 `items`、queue 级 `ResourceGroup`、排序策略标记（`NONE` / `FRONT_TO_BACK` / `BACK_TO_FRONT`）与 **`techniqueTag`（`Name`，纯数据字段，RDG 不消费，收集方用作过滤器）**。
+`DrawItem` SHALL 新增 `uint32_t batchDynamicOffset`（默认 0）；executor 绑 set 2 SHALL 使用 `BindResourceGroup(2, item.batchResourceGroup, 1, &item.batchDynamicOffset)`（当 batch RG 非空时）。
 
-`SceneRasterPassBuilder` SHALL 提供 `AddQueue(const Name&, QueueSortPolicy, const Name &tag)` 三参重载；旧两参重载保留（tag 为空）。
+#### Scenario: SceneRaster items 驱动绘制
+- **WHEN** `SceneRasterPassBuilder.AddDrawItem(item)` 收集 item，`Compile()` 后 `Execute()`
+- **THEN** executor 遍历 queues 的 items，逐 item `BindResourceGroup(2, batchRG, 1, &batchDynamicOffset)` / `BindPipeline` / `DrawIndexed`
 
-#### Scenario: queue 携带 technique tag
-- **WHEN** `AddQueue("opaque", FRONT_TO_BACK, "opaque")`
-- **THEN** `SceneRasterQueue.techniqueTag == "opaque"`；CompiledGraph 中该字段原样保留
+### Requirement: Global ResourceGroup 生效
 
-#### Scenario: 空 tag 默认行为
-- **WHEN** 用两参 `AddQueue("default", NONE)`（无 tag）
-- **THEN** `techniqueTag` 为空；收集方视为不过滤
+`RenderGraph` SHALL 提供 `SetGlobalResourceGroup(ResourceGroup*)`；`ProduceCompiledGraph` SHALL 写入 `CompiledGraph::globalResourceGroup`；executor SHALL 在每个 raster/fullscreen/compute pass 开始前 `BindResourceGroup(0, globalRG)`（globalRG 非空时）。
 
-（其余条款不变：多 queue 保序执行、queue 级 ResourceGroup、默认 queue 兼容、RDG 不做排序。）
+#### Scenario: global RG 绑定
+- **WHEN** BuildRDG 时 `SetGlobalResourceGroup(rg)`，Compile 后 Execute
+- **THEN** 每 pass 开始前 set 0 绑定该 RG
 

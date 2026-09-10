@@ -25,8 +25,8 @@ namespace sky::aurora {
 
         ID3D12Resource *GetNativeHandle() const { return resource.Get(); }
 
-        uint8_t *Map();
-        void UnMap();
+        uint8_t *Map() override;
+        void UnMap() override;
 
     private:
         D3D12Device            &device;

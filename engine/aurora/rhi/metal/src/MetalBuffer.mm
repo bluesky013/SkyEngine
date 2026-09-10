@@ -48,4 +48,12 @@ namespace sky::aurora {
         return true;
     }
 
+    uint8_t *MetalBuffer::Map()
+    {
+        if (buffer == nullptr) {
+            return nullptr;
+        }
+        return static_cast<uint8_t *>([(id<MTLBuffer>)buffer contents]);
+    }
+
 } // namespace sky::aurora
