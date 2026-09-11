@@ -2,7 +2,7 @@
 // BatchAllocator implementation.
 //
 
-#include <aurora/pipeline/rg/BatchAllocator.h>
+#include <aurora/rdg/BatchAllocator.h>
 #include <aurora/rhi/Device.h>
 
 #include <cstring>

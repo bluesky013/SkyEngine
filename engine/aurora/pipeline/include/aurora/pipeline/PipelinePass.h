@@ -6,7 +6,7 @@
 
 #include <core/name/Name.h>
 #include <core/template/ReferenceObject.h>
-#include <aurora/pipeline/rg/RgBlockDesc.h>
+#include <aurora/shader/RgBlockDesc.h>
 #include <aurora/rhi/PipelineState.h>
 #include <aurora/rhi/ResourceGroup.h>
 

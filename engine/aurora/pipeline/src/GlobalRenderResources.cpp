@@ -2,7 +2,7 @@
 // GlobalRenderResources implementation.
 //
 
-#include <aurora/pipeline/rg/GlobalRenderResources.h>
+#include <aurora/pipeline/GlobalRenderResources.h>
 #include <aurora/scene/SceneView.h>
 #include <aurora/rhi/Device.h>
 

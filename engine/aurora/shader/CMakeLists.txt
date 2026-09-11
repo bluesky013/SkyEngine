@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SRC_FILES src/*)
 file(GLOB_RECURSE INC_FILES include/*)
 
-sky_add_library(TARGET Aurora.Pipeline STATIC
+sky_add_library(TARGET Aurora.Shader STATIC
     SOURCES
         ${SRC_FILES}
         ${INC_FILES}
@@ -12,7 +12,4 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
     LINK_LIBS
         Core
         Aurora.RHI
-        Aurora
-        Aurora.Shader
-        ShaderCompiler.Static
 )

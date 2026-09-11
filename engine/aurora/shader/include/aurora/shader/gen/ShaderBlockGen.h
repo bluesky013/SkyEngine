@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <aurora/pipeline/rg/RgBlockDesc.h>
+#include <aurora/shader/RgBlockDesc.h>
 
 #include <string>
 

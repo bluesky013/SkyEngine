@@ -4,8 +4,8 @@
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/pipeline/rg/RgBlockDesc.h>
-#include <aurora/pipeline/rg/ShaderBlockGen.h>
+#include <aurora/shader/RgBlockDesc.h>
+#include <aurora/shader/gen/ShaderBlockGen.h>
 
 using namespace sky;
 using namespace sky::aurora;

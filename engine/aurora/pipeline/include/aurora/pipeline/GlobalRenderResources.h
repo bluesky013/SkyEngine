@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <aurora/pipeline/rg/RgBlockDesc.h>
+#include <aurora/shader/RgBlockDesc.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/ResourceGroup.h>
 #include <core/math/Matrix4.h>

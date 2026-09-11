@@ -2,7 +2,7 @@
 // RgBlockDesc implementation: std140-like layout table + RHI layout conversion.
 //
 
-#include <aurora/pipeline/rg/RgBlockDesc.h>
+#include <aurora/shader/RgBlockDesc.h>
 
 namespace sky::aurora {
 

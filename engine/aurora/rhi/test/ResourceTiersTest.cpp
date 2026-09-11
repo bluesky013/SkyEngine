@@ -4,9 +4,9 @@
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/pipeline/rg/GlobalRenderResources.h>
-#include <aurora/pipeline/rg/BatchAllocator.h>
-#include <aurora/pipeline/rg/ReflectionValidation.h>
+#include <aurora/pipeline/GlobalRenderResources.h>
+#include <aurora/rdg/BatchAllocator.h>
+#include <aurora/pipeline/ReflectionValidation.h>
 #include <aurora/scene/SceneView.h>
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rdg/CompiledGraph.h>

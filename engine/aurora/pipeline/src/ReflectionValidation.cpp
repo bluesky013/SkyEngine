@@ -2,7 +2,7 @@
 // Reflection validation implementation.
 //
 
-#include <aurora/pipeline/rg/ReflectionValidation.h>
+#include <aurora/pipeline/ReflectionValidation.h>
 
 #include <sstream>
 

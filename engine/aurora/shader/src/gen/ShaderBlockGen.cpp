@@ -2,7 +2,7 @@
 // ShaderBlockGen implementation.
 //
 
-#include <aurora/pipeline/rg/ShaderBlockGen.h>
+#include <aurora/shader/gen/ShaderBlockGen.h>
 
 #include <core/hash/Fnv1a.h>
 
