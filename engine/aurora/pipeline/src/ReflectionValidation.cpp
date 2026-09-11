@@ -9,7 +9,7 @@
 namespace sky::aurora {
 
     std::string ValidateBlockAgainstReflection(const RgBlockDesc &desc,
-                                               const sky::ShaderReflection &reflection)
+                                               const ShaderReflection &reflection)
     {
         for (const auto &res : reflection.resources) {
             if (res.set != desc.set || res.binding != desc.binding) {

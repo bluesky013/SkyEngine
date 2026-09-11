@@ -22,8 +22,6 @@ namespace sky {
                 return "metal";
             case rhi::API::DX12:
                 return "d3d12";
-            case rhi::API::GLES:
-                return "gles";
             default:
                 break;
         }
@@ -51,7 +49,6 @@ namespace sky {
         case rhi::API::DX12:
             target = ShaderCompileTarget::DXIL;
             break;
-        case rhi::API::GLES:
         case rhi::API::DEFAULT:;
             SKY_ASSERT(false);
             break;

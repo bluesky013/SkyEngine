@@ -217,6 +217,8 @@ namespace sky::aurora {
         enabledFeature12.timelineSemaphore                = VK_TRUE;
         enabledFeature13.dynamicRendering                 = VK_TRUE;
         enabledFeature13.synchronization2                 = VK_TRUE;
+        // slang-emitted SPIRV declares DrawParameters for SV_VertexID etc.
+        enabledFeature11.shaderDrawParameters             = vkFeature11.shaderDrawParameters;
         enabledFeature11.pNext                            = &enabledFeature12;
         enabledFeature12.pNext                            = &enabledFeature13;
         enabledFeature13.pNext                            = &enabledFeature14;

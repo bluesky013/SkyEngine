@@ -1,12 +1,12 @@
 //
 // Reflection validation: compare an RgBlockDesc against a platform's
-// ShaderReflection (engine/shader) result.
+// shader reflection result.
 //
 
 #pragma once
 
 #include <aurora/shader/RgBlockDesc.h>
-#include <shader/ShaderCompiler.h>
+#include <aurora/shader/ShaderReflection.h>
 
 #include <string>
 
@@ -14,6 +14,6 @@ namespace sky::aurora {
 
     // returns empty string when consistent; error description otherwise
     std::string ValidateBlockAgainstReflection(const RgBlockDesc &desc,
-                                               const sky::ShaderReflection &reflection);
+                                               const ShaderReflection &reflection);
 
 } // namespace sky::aurora

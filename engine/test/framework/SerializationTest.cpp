@@ -10,6 +10,7 @@
 #include <framework/serialization/SerializationContext.h>
 #include <framework/serialization/BinaryArchive.h>
 #include <core/type/Container.h>
+#include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -221,7 +222,7 @@ TEST(SerializationTest, GetterSetterTest)
         ASSERT_EQ(b, 3.f);
 
         {
-            std::ofstream stream("GetterSetterTest.json");
+            std::ofstream stream((std::filesystem::temp_directory_path() / "GetterSetterTest.json").string());
             OStreamArchive streamArchive(stream);
             JsonOutputArchive archive(streamArchive);
 
@@ -229,7 +230,7 @@ TEST(SerializationTest, GetterSetterTest)
         }
 
         {
-            std::ifstream stream("GetterSetterTest.json");
+            std::ifstream stream((std::filesystem::temp_directory_path() / "GetterSetterTest.json").string());
             IStreamArchive streamArchive(stream);
             JsonInputArchive archive(streamArchive);
 
@@ -419,7 +420,7 @@ TEST(ArchiveTest, JsonArchiveTest)
         .Member<&TestStruct::t2>("t2");
 
     {
-        std::ofstream stream("test.json");
+        std::ofstream stream((std::filesystem::temp_directory_path() / "test.json").string());
         OStreamArchive streamArchive(stream);
         JsonOutputArchive archive(streamArchive);
 
@@ -442,7 +443,7 @@ TEST(ArchiveTest, JsonArchiveTest)
     }
 
     {
-        std::ifstream stream("test.json");
+        std::ifstream stream((std::filesystem::temp_directory_path() / "test.json").string());
         IStreamArchive streamArchive(stream);
         JsonInputArchive archive(streamArchive);
 
@@ -551,7 +552,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
             test.c[i].v2 = i * 3 + 1;
             test.c[i].v3 = i * 3 + 2;
         }
-        std::ofstream     file("json-serialization-test.json", std::ios::binary);
+        std::ofstream     file((std::filesystem::temp_directory_path() / "json-serialization-test.json").string(), std::ios::binary);
         OStreamArchive streamArchive(file);
         JsonOutputArchive archive(streamArchive);
 
@@ -561,7 +562,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
 
     {
         TestSerFuncDerv  test;
-        std::ifstream    file("json-serialization-test.json", std::ios::binary);
+        std::ifstream    file((std::filesystem::temp_directory_path() / "json-serialization-test.json").string(), std::ios::binary);
         IStreamArchive streamArchive(file);
         JsonInputArchive archive(streamArchive);
 
@@ -573,7 +574,7 @@ TEST(ArchiveTest, JsonArchiveRegisterTest)
 TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
 {
     {
-        OFileArchive file("binary-fundamental-test.bin", std::ios::binary);
+        OFileArchive file((std::filesystem::temp_directory_path() / "binary-fundamental-test.bin").string(), std::ios::binary);
         BinaryOutputArchive archive(file);
         archive.SaveValue(-1);
         archive.SaveValue(2U);
@@ -584,7 +585,7 @@ TEST(ArchiveTest, BinaryArchiveRegister_FundamentalTest)
     }
 
     {
-        IFileArchive file("binary-fundamental-test.bin", std::ios::binary);
+        IFileArchive file((std::filesystem::temp_directory_path() / "binary-fundamental-test.bin").string(), std::ios::binary);
         BinaryInputArchive archive(file);
         {
             int value = 0;
@@ -652,13 +653,13 @@ TEST(ArchiveTest, BinaryArchiveRegister_ClassTest)
 
     {
         TestBinArchive test = {{1, 2.f}, {3, 4.0}};
-        OFileArchive file("binary-class-test.bin", std::ios::binary);
+        OFileArchive file((std::filesystem::temp_directory_path() / "binary-class-test.bin").string(), std::ios::binary);
         BinaryOutputArchive archive(file);
         archive.SaveObject(&test, TypeInfo<TestBinArchive>::RegisteredId());
     }
 
     {
-        IFileArchive file("binary-class-test.bin", std::ios::binary);
+        IFileArchive file((std::filesystem::temp_directory_path() / "binary-class-test.bin").string(), std::ios::binary);
         BinaryInputArchive archive(file);
 
         TestBinArchive test = {};

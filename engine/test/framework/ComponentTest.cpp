@@ -6,6 +6,7 @@
 #include <framework/world/Actor.h>
 #include <framework/world/TransformComponent.h>
 #include <framework/serialization/SerializationUtil.h>
+#include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -90,7 +91,7 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        std::ofstream stream("ActorTest.json");
+        std::ofstream stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
         OStreamArchive streamArchive(stream);
         JsonOutputArchive archive(streamArchive);
 
@@ -108,7 +109,7 @@ TEST_F(ComponentTest, ActorTest)
     }
 
     {
-        std::ifstream stream("ActorTest.json");
+        std::ifstream stream((std::filesystem::temp_directory_path() / "ActorTest.json").string());
         IStreamArchive streamArchive(stream);
         JsonInputArchive archive(streamArchive);
 

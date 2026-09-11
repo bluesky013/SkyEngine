@@ -1,6 +1,15 @@
 {
     "assets": [
         {
+            "uuid": "C965739A-683B-4200-9CE5-68F45D5E7113",
+            "markedName": "",
+            "ext": ".t1",
+            "type": "T1",
+            "bundle": 2,
+            "path": "framework\\data\\test_asset.t1",
+            "dependencies": []
+        },
+        {
             "uuid": "91C803A0-0029-4702-B884-93A38A6F848E",
             "markedName": "",
             "ext": ".t3",
@@ -11,15 +20,6 @@
                 "C965739A-683B-4200-9CE5-68F45D5E7113",
                 "177D7E7E-06EF-4105-9E59-DED9DDACD3CA"
             ]
-        },
-        {
-            "uuid": "C965739A-683B-4200-9CE5-68F45D5E7113",
-            "markedName": "",
-            "ext": ".t1",
-            "type": "T1",
-            "bundle": 2,
-            "path": "framework\\data\\test_asset.t1",
-            "dependencies": []
         },
         {
             "uuid": "177D7E7E-06EF-4105-9E59-DED9DDACD3CA",

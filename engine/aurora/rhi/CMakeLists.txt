@@ -13,24 +13,25 @@ if (APPLE)
 endif()
 
 if (SKY_BUILD_TEST)
-    set(AURORA_TEST_LIBS Aurora.RHI Aurora.Pipeline 3rdParty::googletest)
-
-    if (TARGET AuroraVulkan)
-        list(APPEND AURORA_TEST_LIBS AuroraVulkan)
-    endif()
-    if (TARGET AuroraDX12)
-        list(APPEND AURORA_TEST_LIBS AuroraDX12)
-    endif()
-    if (TARGET AuroraMetal)
-        list(APPEND AURORA_TEST_LIBS AuroraMetal)
-    endif()
-
-    sky_add_test(TARGET AuroraTest
+    sky_add_test(TARGET AuroraRHITest
         SOURCES
-        ${TEST_FILES}
+            ${TEST_FILES}
         LIBS
-        ${AURORA_TEST_LIBS}
+            Aurora.RHI
+            Aurora.Pipeline
+            3rdParty::googletest
     )
 
-    sky_set_dependency(TARGET AuroraTest)
+    # backends are dlopen'd at runtime; only need them built, not linked
+    if (TARGET AuroraVulkan)
+        add_dependencies(AuroraRHITest AuroraVulkan)
+    endif()
+    if (TARGET AuroraDX12)
+        add_dependencies(AuroraRHITest AuroraDX12)
+    endif()
+    if (TARGET AuroraMetal)
+        add_dependencies(AuroraRHITest AuroraMetal)
+    endif()
+
+    sky_set_dependency(TARGET AuroraRHITest)
 endif ()

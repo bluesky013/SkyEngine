@@ -13,9 +13,6 @@ namespace sky::rhi {
 
     API GetApiByString(const std::string &rhi)
     {
-        if (rhi == "gles") {
-            return API::GLES;
-        }
         if (rhi == "vulkan") {
             return API::VULKAN;
         }

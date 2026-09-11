@@ -14,5 +14,19 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         Aurora.RHI
         Aurora
         Aurora.Shader
-        ShaderCompiler.Static
 )
+
+file(GLOB_RECURSE TEST_FILES test/*)
+
+if (SKY_BUILD_TEST)
+    sky_add_test(TARGET AuroraPipelineTest
+        SOURCES
+            ${TEST_FILES}
+            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test/main.cpp
+        INCS
+            ${CMAKE_CURRENT_SOURCE_DIR}/../rhi/test
+        LIBS
+            Aurora.Pipeline
+            3rdParty::googletest
+    )
+endif ()

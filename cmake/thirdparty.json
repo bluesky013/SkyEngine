@@ -370,12 +370,45 @@
 			],
 			"custom": "build.py",
 			"custom_need_platform": true
+		},
+		{
+			"name": "slang",
+			"url": "https://github.com/shader-slang/slang.git",
+			"tag": "v2026.9.2",
+			"header_only": false,
+			"platforms": [
+				"Win32"
+			],
+			"options": {
+				"SLANG_ENABLE_TESTS": "OFF",
+				"SLANG_ENABLE_EXAMPLES": "OFF",
+				"SLANG_ENABLE_SLANGD": "OFF",
+				"SLANG_ENABLE_SLANGC": "OFF",
+				"SLANG_ENABLE_GFX": "OFF",
+				"SLANG_SLANG_LLVM_FLAVOR": "DISABLE",
+				"SLANG_ENABLE_SLANG_RHI": "OFF",
+				"CMAKE_C_FLAGS": "/wd4819",
+				"CMAKE_CXX_FLAGS": "/wd4819",
+				"SLANG_ENABLE_DXIL": "ON",
+				"FETCHCONTENT_SOURCE_DIR_DXC": "D:/Code/Engine/SkyEngine/build_3rd/dxc-local"
+			},
+			"submodules": [
+				"external/spirv-headers",
+				"external/spirv-tools",
+				"external/glslang",
+				"external/unordered_dense",
+				"external/miniz",
+				"external/lz4",
+				"external/cmark",
+				"external/vulkan",
+				"external/lua"
+			]
 		}
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_7d151aa8f8d0.zip",
-			"md5": "7d151aa8f8d097cee6982b1420a1d653"
+			"file": "thirdparty_Win32_6b331ed790b1.zip",
+			"md5": "6b331ed790b107d036378d789cadb645"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",

@@ -130,18 +130,18 @@ public:
         }
     }
 
-    static void LoadDefaultEntries(const std::string &source, std::vector<std::pair<rhi::ShaderStageFlagBit, Name>> &entries)
+    static void LoadDefaultEntries(const std::string &source, std::vector<std::pair<ShaderStageFlagBit, Name>> &entries)
     {
         if (ContainsEntry(source, "VSMain")) {
-            entries.emplace_back(std::pair<rhi::ShaderStageFlagBit, Name>{rhi::ShaderStageFlagBit::VS, Name("VSMain")});
+            entries.emplace_back(std::pair<ShaderStageFlagBit, Name>{ShaderStageFlagBit::VS, Name("VSMain")});
         }
 
         if (ContainsEntry(source, "FSMain")) {
-            entries.emplace_back(std::pair<rhi::ShaderStageFlagBit, Name>{rhi::ShaderStageFlagBit::FS, Name("FSMain")});
+            entries.emplace_back(std::pair<ShaderStageFlagBit, Name>{ShaderStageFlagBit::FS, Name("FSMain")});
         }
 
         if (ContainsEntry(source, "CSMain")) {
-            entries.emplace_back(std::pair<rhi::ShaderStageFlagBit, Name>{rhi::ShaderStageFlagBit::CS, Name("CSMain")});
+            entries.emplace_back(std::pair<ShaderStageFlagBit, Name>{ShaderStageFlagBit::CS, Name("CSMain")});
         }
     }
 
@@ -154,7 +154,7 @@ public:
     }
 
     static void LoadShaderVariants(const FilePath &path, ShaderVariantList& list,
-        std::vector<std::pair<rhi::ShaderStageFlagBit, Name>> &entries)
+        std::vector<std::pair<ShaderStageFlagBit, Name>> &entries)
     {
         std::string json;
         ReadString(path, json);
@@ -165,9 +165,9 @@ public:
             if (document.HasMember("entries")) {
                 auto array = document["entries"].GetArray();
                 for (auto &ele : array) {
-                    rhi::ShaderStageFlagBit stage = ShaderCompiler::GetShaderStage(ele["stage"].GetString());
-                    Name name(ele["name"].GetString());
-                    entries.emplace_back(std::pair<rhi::ShaderStageFlagBit, Name>{stage, name});
+                    // ShaderStageFlagBit stage = ShaderCompiler::GetShaderStage(ele["stage"].GetString());
+                    // Name name(ele["name"].GetString());
+                    // entries.emplace_back(std::pair<ShaderStageFlagBit, Name>{stage, name});
                 }
             }
         }
@@ -221,7 +221,7 @@ public:
 
         // load variants
         path.ReplaceExtension(".variants");
-        std::vector<std::pair<rhi::ShaderStageFlagBit, Name>> entries;
+        std::vector<std::pair<ShaderStageFlagBit, Name>> entries;
         ShaderVariantList list;
         ProcessShaderOptionItems(list, desc.source);
         LoadShaderVariants(path, list, entries);
