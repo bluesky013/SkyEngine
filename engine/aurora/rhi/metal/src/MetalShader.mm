@@ -85,6 +85,10 @@ namespace sky::aurora {
 
     bool MetalShader::Init(const Descriptor &desc)
     {
+        if (desc.reflection != nullptr) {
+            reflection = *desc.reflection;
+        }
+
         if (desc.cs != nullptr) {
             computeFunction = static_cast<MetalShaderFunction *>(desc.cs);
             return computeFunction != nullptr;

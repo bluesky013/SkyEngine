@@ -16,4 +16,9 @@ TEST_F(AuroraMetalTest, SlangToRhiShaderObjects)
     RunSlangToRhiPipelineTest(GetDevice(), ShaderTarget::MSL);
 }
 
+TEST_F(AuroraMetalTest, SlangToRhiComputePipeline)
+{
+    RunSlangToRhiComputePipelineTest(GetDevice(), ShaderTarget::MSL);
+}
+
 #endif // SKY_PLATFORM_MACOS || SKY_PLATFORM_IOS

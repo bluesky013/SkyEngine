@@ -17,4 +17,9 @@ TEST_F(AuroraD3D12Test, SlangToRhiShaderObjects)
     RunSlangToRhiPipelineTest(GetDevice(), ShaderTarget::DXIL);
 }
 
+TEST_F(AuroraD3D12Test, SlangToRhiComputePipeline)
+{
+    RunSlangToRhiComputePipelineTest(GetDevice(), ShaderTarget::DXIL);
+}
+
 #endif // SKY_PLATFORM_WINDOWS

@@ -7,6 +7,7 @@
 #include <D3D12Device.h>
 #include <D3D12Fence.h>
 #include <D3D12Instance.h>
+#include <D3D12PipelineState.h>
 #include <D3D12Queue.h>
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
@@ -256,6 +257,26 @@ namespace sky::aurora {
             return nullptr;
         }
         return shader;
+    }
+
+    GraphicsPipeline *D3D12Device::CreatePipelineState(const GraphicsPipeline::Descriptor &desc)
+    {
+        auto *pipeline = new D3D12GraphicsPipeline(*this);
+        if (!pipeline->Init(desc)) {
+            delete pipeline;
+            return nullptr;
+        }
+        return pipeline;
+    }
+
+    ComputePipeline *D3D12Device::CreatePipelineState(const ComputePipeline::Descriptor &desc)
+    {
+        auto *pipeline = new D3D12ComputePipeline(*this);
+        if (!pipeline->Init(desc)) {
+            delete pipeline;
+            return nullptr;
+        }
+        return pipeline;
     }
 
     PixelFormatFeatureFlags D3D12Device::GetFormatFeatureFlags(PixelFormat format) const

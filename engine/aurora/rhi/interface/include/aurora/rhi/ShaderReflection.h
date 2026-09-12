@@ -1,8 +1,12 @@
 //
 // Aurora shader reflection types (slang program layout converges here).
+// Backend-agnostic: produced by the shader compiler, consumed by RHI backends
+// to build native pipeline layouts / root signatures / argument buffers.
 //
 
 #pragma once
+
+#include <aurora/rhi/Core.h>
 
 #include <cstdint>
 #include <string>
@@ -70,6 +74,7 @@ namespace sky::aurora {
     struct ShaderReflection {
         std::vector<ShaderResource>    resources;
         std::vector<ShaderBlockLayout> blocks;
+        std::vector<PushConstantRange> pushConstants;
     };
 
 } // namespace sky::aurora

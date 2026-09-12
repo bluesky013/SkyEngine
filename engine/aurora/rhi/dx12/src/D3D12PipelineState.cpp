@@ -145,7 +145,7 @@ namespace sky::aurora {
     {
     }
 
-    bool D3D12ComputePipeline::Init(const Descriptor &desc, D3D12RootSignature &rootSig)
+    bool D3D12ComputePipeline::Init(const Descriptor &desc)
     {
         if (desc.cs == nullptr) {
             LOG_E(TAG, "compute pipeline descriptor missing compute shader");
@@ -153,9 +153,13 @@ namespace sky::aurora {
         }
 
         auto *d3dShader = static_cast<D3D12Shader *>(desc.cs);
+        if (d3dShader->GetRootSignature() == nullptr) {
+            LOG_E(TAG, "compute pipeline missing root signature (shader has none)");
+            return false;
+        }
 
         D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = rootSig.GetNativeHandle();
+        psoDesc.pRootSignature = d3dShader->GetRootSignature()->GetNativeHandle();
         psoDesc.CS             = d3dShader->GetCSByteCode();
         psoDesc.NodeMask       = 0;
         psoDesc.Flags          = D3D12_PIPELINE_STATE_FLAG_NONE;

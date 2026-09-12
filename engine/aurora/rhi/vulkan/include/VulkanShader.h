@@ -7,6 +7,8 @@
 #include <aurora/rhi/Shader.h>
 #include <vulkan/vulkan.h>
 
+#include <vector>
+
 namespace sky::aurora {
 
     class VulkanDevice;
@@ -46,6 +48,8 @@ namespace sky::aurora {
         CounterPtr<VulkanShaderFunction>    vertexFunction;
         CounterPtr<VulkanShaderFunction>    fragmentFunction;
         CounterPtr<VulkanShaderFunction>    computeFunction;
+        ShaderReflection                    reflection;
+        std::vector<VkDescriptorSetLayout>  descriptorSetLayouts;
         VkPipelineLayout                    layout = VK_NULL_HANDLE;
     };
 

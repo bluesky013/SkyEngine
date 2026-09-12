@@ -10,7 +10,6 @@
 #include <aurora/shader/ShaderCompilerSlang.h>
 #include <aurora/rhi/Shader.h>
 #include <aurora/rhi/PipelineState.h>
-#include <aurora/rhi/PipelineLayout.h>
 #include <core/archive/BinaryData.h>
 
 #include <cstring>
@@ -46,6 +45,21 @@ FSOutput mainFS(float2 uv : TEXCOORD0)
     FSOutput o;
     o.color = float4(1.0, 0.0, 0.0, 1.0);
     return o;
+}
+)";
+
+    inline const char *kSlangComputeCs = R"(
+struct Params {
+    float4x4 viewProj;
+    float4   color;
+};
+ParameterBlock<Params> gParams;
+
+[shader("compute")]
+[numthreads(1, 1, 1)]
+void mainCS(uint3 tid : SV_DispatchThreadID)
+{
+    float4 v = gParams.color;
 }
 )";
 
@@ -98,6 +112,37 @@ FSOutput mainFS(float2 uv : TEXCOORD0)
         shaderDesc.ps = fs.Get();
         CounterPtr<Shader> shader(device->CreateShader(shaderDesc));
         ASSERT_NE(shader.Get(), nullptr);
+    }
+
+    // shared flow: slang compile (CS) -> RHI shader (with reflection) -> compute PSO.
+    // The native pipeline layout / root signature is derived from the reflection.
+    inline void RunSlangToRhiComputePipelineTest(Device *device, ShaderTarget target)
+    {
+        ShaderCompilerSlang compiler;
+
+        ShaderCompileDesc csDesc{};
+        csDesc.source = kSlangComputeCs;
+        csDesc.entry  = "mainCS";
+        csDesc.stage  = ShaderStageFlagBit::CS;
+        csDesc.target = target;
+        ShaderCompileResult csResult{};
+        ASSERT_TRUE(compiler.Compile(csDesc, csResult)) << csResult.errorInfo;
+        ASSERT_FALSE(csResult.data.empty());
+
+        CounterPtr<ShaderFunction> cs(
+            device->CreateShaderFunction(MakeShaderFuncDesc(ShaderStageFlagBit::CS, csResult.data)));
+        ASSERT_NE(cs.Get(), nullptr);
+
+        Shader::Descriptor shaderDesc{};
+        shaderDesc.cs         = cs.Get();
+        shaderDesc.reflection = &csResult.reflection;
+        CounterPtr<Shader> shader(device->CreateShader(shaderDesc));
+        ASSERT_NE(shader.Get(), nullptr);
+
+        ComputePipeline::Descriptor psDesc{};
+        psDesc.cs = shader.Get();
+        CounterPtr<ComputePipeline> pipeline(device->CreatePipelineState(psDesc));
+        ASSERT_NE(pipeline.Get(), nullptr);
     }
 
 } // namespace sky::aurora::test

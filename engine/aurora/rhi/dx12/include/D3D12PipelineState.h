@@ -35,7 +35,7 @@ namespace sky::aurora {
         explicit D3D12ComputePipeline(D3D12Device &dev);
         ~D3D12ComputePipeline() override = default;
 
-        bool Init(const Descriptor &desc, D3D12RootSignature &rootSig);
+        bool Init(const Descriptor &desc);
 
         ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
 

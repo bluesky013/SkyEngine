@@ -7,9 +7,26 @@
 #include <VulkanConversion.h>
 #include <core/logger/Logger.h>
 
+#include <map>
+
 static const char *TAG = "VulkanShader";
 
 namespace sky::aurora {
+
+    namespace {
+        VkDescriptorType FromShaderResourceType(ShaderResourceType type)
+        {
+            switch (type) {
+            case ShaderResourceType::SAMPLER:          return VK_DESCRIPTOR_TYPE_SAMPLER;
+            case ShaderResourceType::SAMPLED_IMAGE:    return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            case ShaderResourceType::STORAGE_IMAGE:    return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            case ShaderResourceType::UNIFORM_BUFFER:   return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            case ShaderResourceType::STORAGE_BUFFER:   return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            case ShaderResourceType::INPUT_ATTACHMENT: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+            }
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        }
+    } // namespace
 
     // -----------------------------------------------------------------------
     // VulkanShaderFunction
@@ -72,6 +89,9 @@ namespace sky::aurora {
         if (layout != VK_NULL_HANDLE) {
             device.GetDeviceFn().vkDestroyPipelineLayout(device.GetNativeHandle(), layout, nullptr);
         }
+        for (auto setLayout : descriptorSetLayouts) {
+            device.GetDeviceFn().vkDestroyDescriptorSetLayout(device.GetNativeHandle(), setLayout, nullptr);
+        }
     }
 
     bool VulkanShader::CreatePipelineLayout()
@@ -80,8 +100,58 @@ namespace sky::aurora {
             return true;
         }
 
+        // group reflected bindings by set index
+        std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> setBindings;
+        for (const auto &res : reflection.resources) {
+            VkDescriptorSetLayoutBinding binding = {};
+            binding.binding         = res.binding;
+            binding.descriptorType  = FromShaderResourceType(res.type);
+            binding.descriptorCount = res.count;
+            binding.stageFlags      = VK_SHADER_STAGE_ALL;
+            binding.pImmutableSamplers = nullptr;
+            setBindings[res.set].push_back(binding);
+        }
+
+        // create one VkDescriptorSetLayout per set
+        descriptorSetLayouts.clear();
+        descriptorSetLayouts.reserve(setBindings.size());
+        std::vector<VkDescriptorSetLayout> setLayouts;
+        setLayouts.reserve(setBindings.size());
+        for (auto &entry : setBindings) {
+            VkDescriptorSetLayoutCreateInfo ci = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            ci.bindingCount = static_cast<uint32_t>(entry.second.size());
+            ci.pBindings    = entry.second.data();
+
+            VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
+            const VkResult r = device.GetDeviceFn().vkCreateDescriptorSetLayout(
+                device.GetNativeHandle(), &ci, nullptr, &setLayout);
+            if (r != VK_SUCCESS) {
+                LOG_E(TAG, "vkCreateDescriptorSetLayout failed, VkResult=%d", static_cast<int>(r));
+                return false;
+            }
+            descriptorSetLayouts.push_back(setLayout);
+            setLayouts.push_back(setLayout);
+        }
+
+        // push constants
+        std::vector<VkPushConstantRange> pushRanges;
+        pushRanges.reserve(reflection.pushConstants.size());
+        for (const auto &pc : reflection.pushConstants) {
+            VkPushConstantRange range = {};
+            range.stageFlags = FromShaderStageFlags(pc.stageFlags);
+            range.offset     = pc.offset;
+            range.size       = pc.size;
+            pushRanges.push_back(range);
+        }
+
         VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-        const VkResult result = device.GetDeviceFn().vkCreatePipelineLayout(device.GetNativeHandle(), &createInfo, nullptr, &layout);
+        createInfo.setLayoutCount         = static_cast<uint32_t>(setLayouts.size());
+        createInfo.pSetLayouts            = setLayouts.empty() ? nullptr : setLayouts.data();
+        createInfo.pushConstantRangeCount = static_cast<uint32_t>(pushRanges.size());
+        createInfo.pPushConstantRanges    = pushRanges.empty() ? nullptr : pushRanges.data();
+
+        const VkResult result = device.GetDeviceFn().vkCreatePipelineLayout(
+            device.GetNativeHandle(), &createInfo, nullptr, &layout);
         if (result != VK_SUCCESS) {
             LOG_E(TAG, "vkCreatePipelineLayout failed, VkResult=%d", static_cast<int>(result));
             return false;
@@ -91,6 +161,10 @@ namespace sky::aurora {
 
     bool VulkanShader::Init(const Descriptor &desc)
     {
+        if (desc.reflection != nullptr) {
+            reflection = *desc.reflection;
+        }
+
         // Shader::Descriptor is a union where cs and vs share the same memory.
         // Check ps to distinguish graphics (vs+ps) from compute (cs only).
         if (desc.ps != nullptr) {

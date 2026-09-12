@@ -10,7 +10,6 @@
 #include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/Fence.h>
 #include <aurora/rhi/Image.h>
-#include <aurora/rhi/PipelineLayout.h>
 #include <aurora/rhi/PipelineState.h>
 #include <aurora/rhi/Queue.h>
 #include <aurora/rhi/ResourceGroup.h>
@@ -66,7 +65,6 @@ namespace sky::aurora {
         virtual Sampler             *CreateSampler(const Sampler::Descriptor &desc)                         = 0;
         virtual ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) = 0;
         virtual ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc)             = 0;
-        virtual PipelineLayout      *CreatePipelineLayout(const PipelineLayout::Descriptor &desc)           = 0;
         virtual SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc)                     = 0;
 
         // layout object

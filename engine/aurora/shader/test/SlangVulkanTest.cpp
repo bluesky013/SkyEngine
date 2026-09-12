@@ -12,3 +12,8 @@ TEST_F(AuroraVulkanTest, SlangToRhiShaderObjects)
 {
     RunSlangToRhiPipelineTest(GetDevice(), ShaderTarget::SPIRV);
 }
+
+TEST_F(AuroraVulkanTest, SlangToRhiComputePipeline)
+{
+    RunSlangToRhiComputePipelineTest(GetDevice(), ShaderTarget::SPIRV);
+}

@@ -6,7 +6,6 @@
 #include "VulkanConversion.h"
 #include "VulkanDevice.h"
 #include "VulkanShader.h"
-#include "VulkanPipelineLayout.h"
 #include <core/logger/Logger.h>
 
 namespace sky::aurora {
@@ -72,14 +71,9 @@ namespace sky::aurora {
             return false;
         }
 
-        // Prefer explicit PipelineLayout from descriptor; fall back to shader-derived layout for legacy callers.
-        if (desc.layout != nullptr) {
-            layoutHandle = static_cast<VulkanPipelineLayout *>(desc.layout)->GetNativeHandle();
-        } else {
-            layoutHandle = vkShader->GetPipelineLayout();
-        }
+        layoutHandle = vkShader->GetPipelineLayout();
         if (layoutHandle == VK_NULL_HANDLE) {
-            LOG_E(TAG, "graphics pipeline missing layout (no Descriptor::layout and shader has none)");
+            LOG_E(TAG, "graphics pipeline missing layout (shader has none)");
             return false;
         }
 
@@ -241,11 +235,7 @@ namespace sky::aurora {
             return false;
         }
 
-        if (desc.layout != nullptr) {
-            layoutHandle = static_cast<VulkanPipelineLayout *>(desc.layout)->GetNativeHandle();
-        } else {
-            layoutHandle = vkShader->GetPipelineLayout();
-        }
+        layoutHandle = vkShader->GetPipelineLayout();
         if (layoutHandle == VK_NULL_HANDLE) {
             LOG_E(TAG, "compute pipeline missing layout");
             return false;

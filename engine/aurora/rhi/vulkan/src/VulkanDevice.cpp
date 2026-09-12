@@ -7,7 +7,6 @@
 #include "VulkanConversion.h"
 #include "VulkanFence.h"
 #include "VulkanInstance.h"
-#include "VulkanPipelineLayout.h"
 #include "VulkanPipelineState.h"
 #include "VulkanResourceGroup.h"
 #include "VulkanResourceGroupLayout.h"
@@ -391,16 +390,6 @@ namespace sky::aurora {
             return nullptr;
         }
         return group;
-    }
-
-    PipelineLayout *VulkanDevice::CreatePipelineLayout(const PipelineLayout::Descriptor &desc)
-    {
-        auto *layout = new VulkanPipelineLayout(*this);
-        if (!layout->Init(desc)) {
-            delete layout;
-            return nullptr;
-        }
-        return layout;
     }
 
     SwapChain *VulkanDevice::CreateSwapChain(const SwapChain::Descriptor &desc)

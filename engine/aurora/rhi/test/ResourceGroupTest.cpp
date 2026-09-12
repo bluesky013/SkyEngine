@@ -4,7 +4,6 @@
 
 #include "AuroraTestHelper.h"
 
-#include <aurora/rhi/PipelineLayout.h>
 #include <aurora/rhi/ResourceGroup.h>
 
 using namespace sky;
@@ -53,52 +52,6 @@ TEST_F(ResourceGroupTestVulkan, GroupRequiresLayout)
     gd.layout = nullptr;
     auto *group = device->CreateResourceGroup(gd);
     EXPECT_EQ(group, nullptr);
-}
-
-TEST_F(ResourceGroupTestVulkan, PipelineLayoutEmpty)
-{
-    auto *device = GetDevice();
-
-    PipelineLayout::Descriptor desc{};
-    auto layout = CounterPtr<PipelineLayout>(device->CreatePipelineLayout(desc));
-    ASSERT_NE(layout.Get(), nullptr);
-}
-
-TEST_F(ResourceGroupTestVulkan, PipelineLayoutWithGroups)
-{
-    auto *device = GetDevice();
-
-    ResourceGroupLayout::Descriptor rgDesc{};
-    rgDesc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::VS, {}});
-    auto rgLayout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(rgDesc));
-    ASSERT_NE(rgLayout.Get(), nullptr);
-
-    PipelineLayout::Descriptor plDesc{};
-    plDesc.groups.push_back(rgLayout.Get());
-    PushConstantRange pc{};
-    pc.stageFlags = ShaderStageFlagBit::GFX;
-    pc.offset     = 0;
-    pc.size       = 16;
-    plDesc.pushConstants.push_back(pc);
-
-    auto layout = CounterPtr<PipelineLayout>(device->CreatePipelineLayout(plDesc));
-    ASSERT_NE(layout.Get(), nullptr);
-}
-
-TEST_F(ResourceGroupTestVulkan, PipelineLayoutTooManyGroupsRejected)
-{
-    auto *device = GetDevice();
-
-    ResourceGroupLayout::Descriptor rgDesc{};
-    rgDesc.bindings.push_back({0, DescriptorType::UNIFORM_BUFFER, 1, ShaderStageFlagBit::VS, {}});
-    auto rgLayout = CounterPtr<ResourceGroupLayout>(device->CreateResourceGroupLayout(rgDesc));
-
-    PipelineLayout::Descriptor desc{};
-    for (uint32_t i = 0; i < MAX_RESOURCE_GROUPS + 1; ++i) {
-        desc.groups.push_back(rgLayout.Get());
-    }
-    auto *layout = device->CreatePipelineLayout(desc);
-    EXPECT_EQ(layout, nullptr);
 }
 
 TEST_F(ResourceGroupTestVulkan, UpdateUniformBuffer)

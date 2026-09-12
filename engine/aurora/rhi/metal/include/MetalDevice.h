@@ -43,10 +43,6 @@ namespace sky::aurora {
         {
             return nullptr;
         }
-        PipelineLayout *CreatePipelineLayout(const PipelineLayout::Descriptor &desc) override
-        {
-            return nullptr;
-        }
         SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;

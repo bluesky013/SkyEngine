@@ -7,6 +7,7 @@
 #include <core/template/ReferenceObject.h>
 #include <core/archive/BinaryData.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/ShaderReflection.h>
 #include <variant>
 
 namespace sky::aurora {
@@ -48,6 +49,7 @@ namespace sky::aurora {
                     ShaderFunction* cs;
                 };
             };
+            const ShaderReflection* reflection = nullptr; // whole-program layout
         };
 
         Shader() = default;

@@ -43,6 +43,7 @@ namespace sky::aurora {
         CounterPtr<MetalShaderFunction> vertexFunction;
         CounterPtr<MetalShaderFunction> fragmentFunction;
         CounterPtr<MetalShaderFunction> computeFunction;
+        ShaderReflection                reflection; // reserved for argument buffer derivation
     };
 
 } // namespace sky::aurora
