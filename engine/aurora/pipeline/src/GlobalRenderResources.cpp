@@ -6,32 +6,15 @@
 #include <aurora/scene/SceneView.h>
 #include <aurora/rhi/Device.h>
 
+#include <GlobalBlock.gen.h>
+
 #include <cstring>
 
 namespace sky::aurora {
 
-    namespace {
-        RgBlockDesc MakeGlobalBlockDesc()
-        {
-            RgBlockDesc desc{};
-            desc.set       = 0;
-            desc.binding   = 0;
-            desc.blockName = Name("Global");
-            desc.kind      = RgBlockKind::CBUFFER;
-            desc.fields    = {
-                {RgFieldType::MAT4, Name("View")},
-                {RgFieldType::MAT4, Name("Proj")},
-                {RgFieldType::MAT4, Name("ViewProj")},
-                {RgFieldType::FLOAT4, Name("CameraPos")},
-            };
-            return desc;
-        }
-    } // namespace
-
     const RgBlockDesc &GlobalRenderResources::GetGlobalBlockDesc()
     {
-        static const RgBlockDesc desc = MakeGlobalBlockDesc();
-        return desc;
+        return generated::GetGlobalParamsBlockDesc();
     }
 
     bool GlobalRenderResources::Init(Device *device)
@@ -77,7 +60,7 @@ namespace sky::aurora {
         if (mUBO == nullptr) {
             return;
         }
-        GlobalParams params{};
+        generated::GlobalParams params{};
         params.view     = view.GetViewMatrix();
         params.proj     = Matrix4::Identity(); // projection matrix accessor lands with camera data
         params.viewProj = view.GetViewProjectMatrix();

@@ -5,20 +5,23 @@ TBD - created by archiving change aurora-resource-tiers. Update Purpose after ar
 ## Requirements
 ### Requirement: RgBlockDesc 单一事实源
 
-`RgBlockDesc` SHALL 描述一个 resource block：`{ set, binding, blockName, fields[] }`（字段类型限于 scalar/vec2/vec3/vec4/mat4/texture/sampler）。同一份 desc SHALL 可产出：
+`RgBlockDesc` SHALL 描述一个 resource block：`{ set, binding, blockName, fields[] }`。其 `set/binding/kind/fields` SHALL 由 `.slang` shader 反射生成（而非手写），同一份 desc SHALL 可产出：
 
 - RHI `ResourceGroupLayout::Descriptor`（cbuffer → `UNIFORM_BUFFER`/`UNIFORM_BUFFER_DYNAMIC`；texture/sampler → 对应 `DescriptorType`）
-- HLSL header 文本（`[[vk::binding(b, s)]] cbuffer Name : register(bB, spaceS) { ... }` / Texture2D / SamplerState 声明）
+- 供 shader `#include` 的 Slang 共享头（struct + `ParameterBlock` + `[[vk::binding]]`）
+- C++ 镜像 struct（与 shader 布局一致，带 `static_assert` 校验）
 
-std140 对齐 SHALL 由生成器内置计算；C++ 侧 UBO 写入与 shader 声明 SHALL 使用同一 offset 表。
+C++ 侧 UBO 写入与 shader 声明 SHALL 使用同一 offset 表（offset 来自 slang 反射）。
 
-#### Scenario: cbuffer 生成
-- **WHEN** `RgBlockDesc{set=0, binding=0, "Global", fields=[MAT4 ViewProj, FLOAT4 CameraPos]}`
-- **THEN** layout 含 binding 0 UNIFORM_BUFFER；HLSL 文本含 `[[vk::binding(0, 0)]] cbuffer Global : register(b0, space0)` 与两个字段声明
+#### Scenario: 反射派生 desc
+
+- **WHEN** 对含 `[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal` 的 `.slang` 做 codegen
+- **THEN** 生成 `RgBlockDesc{set=0, binding=0, blockName="Global", kind=CBUFFER}`，字段与 `GlobalParams` 成员一致
 
 #### Scenario: 一致性
-- **WHEN** 同一 RgBlockDesc 分别产出 layout 与 header
-- **THEN** binding 编号、字段顺序、类型在两侧一致
+
+- **WHEN** 同一 `.slang` 反射分别产出 layout、shader 头、C++ struct
+- **THEN** binding 编号、字段顺序、类型、offset 在两侧一致
 
 ### Requirement: Global tier 数据流
 

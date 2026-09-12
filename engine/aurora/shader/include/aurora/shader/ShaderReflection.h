@@ -27,16 +27,40 @@ namespace sky::aurora {
         uint32_t           count   = 1;
     };
 
+    // scalar type of a reflected field, used to reconstruct the C++ mirror
+    enum class ShaderScalarType : uint32_t {
+        UNKNOWN = 0,
+        FLOAT,
+        INT,
+        UINT,
+        BOOL,
+    };
+
+    // structural kind of a reflected field
+    enum class ShaderTypeKind : uint32_t {
+        UNKNOWN = 0,
+        SCALAR,
+        VECTOR,
+        MATRIX,
+        ARRAY,
+        STRUCT,
+    };
+
     // uniform block member (UBO field reflection)
     struct ShaderBlockMember {
-        std::string name;
-        uint32_t    offset = 0;
-        uint32_t    size   = 0;
+        std::string      name;
+        uint32_t         offset     = 0;
+        uint32_t         size       = 0;
+        ShaderScalarType scalarType = ShaderScalarType::UNKNOWN;
+        ShaderTypeKind   kind       = ShaderTypeKind::UNKNOWN;
+        uint32_t         rows       = 1;
+        uint32_t         cols       = 1;
     };
 
     // uniform block (cbuffer / ParameterBlock) layout
     struct ShaderBlockLayout {
-        std::string                    name;
+        std::string                    name;       // ParameterBlock variable name
+        std::string                    structName; // element struct type name
         uint32_t                       set     = 0;
         uint32_t                       binding = 0;
         uint32_t                       size    = 0;

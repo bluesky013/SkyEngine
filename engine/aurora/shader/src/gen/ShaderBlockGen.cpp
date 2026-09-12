@@ -19,6 +19,9 @@ namespace sky::aurora {
             case RgFieldType::FLOAT3: return "float3";
             case RgFieldType::FLOAT4: return "float4";
             case RgFieldType::MAT4:   return "float4x4";
+            case RgFieldType::INT:    return "int";
+            case RgFieldType::UINT:   return "uint";
+            case RgFieldType::BOOL:   return "bool";
             default:                  return "float4";
             }
         }

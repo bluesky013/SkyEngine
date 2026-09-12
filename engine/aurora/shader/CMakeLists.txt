@@ -18,6 +18,41 @@ sky_add_library(TARGET Aurora.Shader STATIC
         3rdParty::slang
 )
 
+# ---- offline shader header codegen (host tool) ----
+
+sky_add_exe(TARGET ShaderHeaderTool
+    SOURCES
+        tool/ShaderHeaderTool.cpp
+    INCS
+        include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    LIBS
+        Aurora.Shader
+        Core
+        3rdParty::slang
+)
+
+# slang shader assets, organized by resource tier:
+#   assets/shaders/slang/global/    -> set 0 (GlobalRenderResources)
+#   assets/shaders/slang/pipeline/  -> set 1 (PipelinePass)
+#   assets/shaders/slang/batch/     -> set 2 (per-draw dynamic UBO)
+set(SLANG_SHADER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/slang)
+
+set(SHADER_GEN_DIR ${CMAKE_BINARY_DIR}/Gen/ShaderHeaders)
+file(MAKE_DIRECTORY ${SHADER_GEN_DIR})
+
+set(GLOBAL_BLOCK_SRC ${SLANG_SHADER_ROOT}/global/GlobalBlock.slang)
+set(GLOBAL_BLOCK_GEN ${SHADER_GEN_DIR}/GlobalBlock.gen.h)
+
+add_custom_command(
+    OUTPUT ${GLOBAL_BLOCK_GEN}
+    COMMAND $<TARGET_FILE:ShaderHeaderTool> ${GLOBAL_BLOCK_SRC} ${GLOBAL_BLOCK_GEN}
+    DEPENDS ShaderHeaderTool ${GLOBAL_BLOCK_SRC}
+    VERBATIM
+)
+
+add_custom_target(ShaderHeaders DEPENDS ${GLOBAL_BLOCK_GEN})
+
 if (SKY_BUILD_TEST)
     sky_add_test(TARGET AuroraShaderTest
         SOURCES

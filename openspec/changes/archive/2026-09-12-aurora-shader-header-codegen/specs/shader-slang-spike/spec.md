@@ -1,8 +1,5 @@
-# shader-slang-spike Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change aurora-slang-spike. Update Purpose after archive.
-## Requirements
 ### Requirement: Slang 编译通道
 
 `ShaderCompilerSlang` SHALL 经 Slang Compilation API（`IGlobalSession` / `ISession` / `loadModuleFromSourceString` / compose+link / `getEntryPointCode`）把 Slang 源码编译为 SPIRV 与 MSL 双产物。
@@ -30,4 +27,3 @@ Slang 程序布局（program layout）SHALL 收敛到统一 `ShaderReflection`�
 
 - **WHEN** shader 源码含 `#include "Generated/GlobalBlock.slang"`
 - **THEN** 编译器经 `ShaderFileSystem` 解析该路径为内存内容并成功编译；该路径不存在于磁盘
-

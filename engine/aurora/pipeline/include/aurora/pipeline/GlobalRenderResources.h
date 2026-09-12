@@ -8,21 +8,11 @@
 #include <aurora/shader/RgBlockDesc.h>
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/ResourceGroup.h>
-#include <core/math/Matrix4.h>
-#include <core/math/Vector4.h>
 
 namespace sky::aurora {
 
     class Device;
     class SceneView;
-
-    // must match the generated Global cbuffer layout
-    struct GlobalParams {
-        Matrix4 view;
-        Matrix4 proj;
-        Matrix4 viewProj;
-        Vector4 cameraPos; // xyz + time in w
-    };
 
     class GlobalRenderResources {
     public:

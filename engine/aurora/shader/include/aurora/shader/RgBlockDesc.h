@@ -30,6 +30,9 @@ namespace sky::aurora {
         TEXTURE2D,
         TEXTURE_CUBE,
         SAMPLER,
+        INT,
+        UINT,
+        BOOL,
     };
 
     struct RgField {

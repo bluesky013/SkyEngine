@@ -20,6 +20,9 @@ namespace sky::aurora {
             case RgFieldType::FLOAT3: return {16, 16}; // vec3 occupies 16B under std140
             case RgFieldType::FLOAT4: return {16, 16};
             case RgFieldType::MAT4:   return {64, 16};
+            case RgFieldType::INT:    return {4, 4};
+            case RgFieldType::UINT:   return {4, 4};
+            case RgFieldType::BOOL:   return {4, 4};
             default:                  return {0, 0};   // textures/samplers are not cbuffer fields
             }
         }

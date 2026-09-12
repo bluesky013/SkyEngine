@@ -3,6 +3,7 @@
 //
 
 #include <aurora/shader/ShaderCompilerSlang.h>
+#include <aurora/shader/ShaderFileSystem.h>
 #include <core/logger/Logger.h>
 
 #include <slang.h>
@@ -75,8 +76,31 @@ namespace sky::aurora {
             }
         }
 
+        ShaderScalarType MapScalarType(slang::TypeReflection::ScalarType type)
+        {
+            switch (type) {
+            case slang::TypeReflection::ScalarType::Float32: return ShaderScalarType::FLOAT;
+            case slang::TypeReflection::ScalarType::Int32:   return ShaderScalarType::INT;
+            case slang::TypeReflection::ScalarType::UInt32:  return ShaderScalarType::UINT;
+            case slang::TypeReflection::ScalarType::Bool:    return ShaderScalarType::BOOL;
+            default:                                         return ShaderScalarType::UNKNOWN;
+            }
+        }
+
+        ShaderTypeKind MapTypeKind(slang::TypeReflection::Kind kind)
+        {
+            switch (kind) {
+            case slang::TypeReflection::Kind::Scalar: return ShaderTypeKind::SCALAR;
+            case slang::TypeReflection::Kind::Vector: return ShaderTypeKind::VECTOR;
+            case slang::TypeReflection::Kind::Matrix: return ShaderTypeKind::MATRIX;
+            case slang::TypeReflection::Kind::Array:  return ShaderTypeKind::ARRAY;
+            case slang::TypeReflection::Kind::Struct: return ShaderTypeKind::STRUCT;
+            default:                                  return ShaderTypeKind::UNKNOWN;
+            }
+        }
+
         void ReflectBlockMembers(slang::VariableLayoutReflection *var, uint32_t set, uint32_t binding,
-                                 ShaderCompileResult &result)
+                                 ShaderReflection &reflection)
         {
             // ParameterBlock / ConstantBuffer: unwrap to the element type, then read fields
             auto *typeLayout = var->getTypeLayout();
@@ -92,6 +116,11 @@ namespace sky::aurora {
             block.size    = static_cast<uint32_t>(
                 elemLayout->getSize(slang::ParameterCategory::Uniform));
 
+            auto *elemType = elemLayout->getType();
+            if (elemType != nullptr && elemType->getName() != nullptr) {
+                block.structName = elemType->getName();
+            }
+
             const uint32_t fieldCount = elemLayout->getFieldCount();
             for (uint32_t f = 0; f < fieldCount; ++f) {
                 auto *field = elemLayout->getFieldByIndex(f);
@@ -103,15 +132,23 @@ namespace sky::aurora {
                 member.offset = static_cast<uint32_t>(
                     field->getOffset(slang::ParameterCategory::Uniform));
                 auto *fieldType = field->getTypeLayout();
-                member.size = fieldType != nullptr
-                    ? static_cast<uint32_t>(fieldType->getSize(slang::ParameterCategory::Uniform))
-                    : 0;
+                if (fieldType != nullptr) {
+                    member.size = static_cast<uint32_t>(
+                        fieldType->getSize(slang::ParameterCategory::Uniform));
+                    auto *type = fieldType->getType();
+                    if (type != nullptr) {
+                        member.kind       = MapTypeKind(type->getKind());
+                        member.scalarType = MapScalarType(type->getScalarType());
+                        member.rows       = type->getRowCount();
+                        member.cols       = type->getColumnCount();
+                    }
+                }
                 block.members.push_back(std::move(member));
             }
-            result.reflection.blocks.push_back(std::move(block));
+            reflection.blocks.push_back(std::move(block));
         }
 
-        void CollectSlangResources(slang::ProgramLayout *layout, ShaderCompileResult &result)
+        void CollectSlangResources(slang::ProgramLayout *layout, ShaderReflection &reflection)
         {
             const uint32_t count = layout->getParameterCount();
             for (uint32_t i = 0; i < count; ++i) {
@@ -133,9 +170,9 @@ namespace sky::aurora {
                     res.set     = set;
                     res.binding = 0;
                     res.type    = ShaderResourceType::UNIFORM_BUFFER;
-                    result.reflection.resources.push_back(std::move(res));
+                    reflection.resources.push_back(std::move(res));
 
-                    ReflectBlockMembers(var, set, 0, result);
+                    ReflectBlockMembers(var, set, 0, reflection);
                     continue;
                 }
 
@@ -159,10 +196,10 @@ namespace sky::aurora {
                 res.set     = set;
                 res.binding = binding;
                 res.type    = FromSlangCategory(category, var->getTypeLayout());
-                result.reflection.resources.push_back(std::move(res));
+                reflection.resources.push_back(std::move(res));
 
                 if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
-                    ReflectBlockMembers(var, set, binding, result);
+                    ReflectBlockMembers(var, set, binding, reflection);
                 }
             }
         }
@@ -211,6 +248,11 @@ namespace sky::aurora {
 
         sessionDesc.targets     = &targetDesc;
         sessionDesc.targetCount = 1;
+
+        // virtual include: resolve #include against in-memory generated headers
+        sessionDesc.fileSystem = desc.fileSystem != nullptr
+            ? desc.fileSystem->GetSlangFileSystem()
+            : nullptr;
 
         Slang::ComPtr<slang::ISession> session;
         if (!SLANG_SUCCEEDED(gGlobalSession->createSession(sessionDesc, session.writeRef()))) {
@@ -280,7 +322,7 @@ namespace sky::aurora {
 
         // slang-side reflection (per-platform own reflection principle)
         if (auto *layout = linked->getLayout(0, diagnostics.writeRef())) {
-            CollectSlangResources(layout, result);
+            CollectSlangResources(layout, result.reflection);
         }
 
         // spike: intentionally leak session/module chain; COM teardown order in slang
@@ -289,6 +331,66 @@ namespace sky::aurora {
         linked.detach();
         composed.detach();
         entryPoint.detach();
+        module.detach();
+        session.detach();
+        return true;
+    }
+
+    bool ShaderCompilerSlang::ReflectBlocks(const std::string &source, ShaderTarget target,
+                                            ShaderReflection &reflection, std::string &error)
+    {
+        if (!InitGlobalSession()) {
+            error = "createGlobalSession failed";
+            return false;
+        }
+
+        const auto slangTarget = ToSlangTarget(target);
+        const char *profileName = SlangTargetProfile(target);
+        if (slangTarget == SLANG_TARGET_UNKNOWN || profileName == nullptr) {
+            error = "unsupported slang target";
+            return false;
+        }
+
+        slang::SessionDesc sessionDesc = {};
+        slang::TargetDesc targetDesc = {};
+        targetDesc.format  = slangTarget;
+        targetDesc.profile = gGlobalSession->findProfile(profileName);
+        sessionDesc.targets     = &targetDesc;
+        sessionDesc.targetCount = 1;
+
+        Slang::ComPtr<slang::ISession> session;
+        if (!SLANG_SUCCEEDED(gGlobalSession->createSession(sessionDesc, session.writeRef()))) {
+            error = "createSession failed";
+            return false;
+        }
+
+        Slang::ComPtr<slang::IBlob> diagnostics;
+        Slang::ComPtr<slang::IModule> module;
+        module.attach(session->loadModuleFromSourceString(
+            "spike", "spike.slang", source.c_str(), diagnostics.writeRef()));
+        if (diagnostics != nullptr) {
+            error = static_cast<const char *>(diagnostics->getBufferPointer());
+        }
+        if (module == nullptr) {
+            return false;
+        }
+
+        // link the module directly (no entry point); the linked layout exposes
+        // the global-scope ParameterBlocks
+        Slang::ComPtr<slang::IComponentType> linked;
+        if (!SLANG_SUCCEEDED(module->link(linked.writeRef(), diagnostics.writeRef()))) {
+            if (diagnostics != nullptr) {
+                error = static_cast<const char *>(diagnostics->getBufferPointer());
+            }
+            return false;
+        }
+
+        if (auto *layout = linked->getLayout(0, diagnostics.writeRef())) {
+            CollectSlangResources(layout, reflection);
+        }
+
+        // spike: intentionally leak the session/module chain (see Compile)
+        linked.detach();
         module.detach();
         session.detach();
         return true;

@@ -10,6 +10,7 @@
 #include <aurora/scene/SceneView.h>
 #include <aurora/rdg/RenderGraph.h>
 #include <aurora/rdg/CompiledGraph.h>
+#include <aurora/shader/ShaderCompilerSlang.h>
 
 using namespace sky;
 using namespace sky::aurora;
@@ -143,4 +144,35 @@ TEST_F(AuroraVulkanTest, ReflectionValidationMismatch)
     // not present at all
     ShaderReflection empty{};
     EXPECT_FALSE(ValidateBlockAgainstReflection(desc, empty).empty());
+}
+
+TEST_F(AuroraVulkanTest, GeneratedBlockDescMatchesReflection)
+{
+    const char *shader = R"(
+struct GlobalParams {
+    float4x4 view;
+    float4x4 proj;
+    float4x4 viewProj;
+    float4 cameraPos;
+};
+[[vk::binding(0, 0)]] ParameterBlock<GlobalParams> gGlobal;
+
+[shader("fragment")]
+float4 mainFS() : SV_Target { return gGlobal.cameraPos; }
+)";
+
+    ShaderCompilerSlang compiler;
+    ShaderCompileDesc d{};
+    d.source = shader;
+    d.entry  = "mainFS";
+    d.stage  = ShaderStageFlagBit::FS;
+    d.target = ShaderTarget::SPIRV;
+
+    ShaderCompileResult r{};
+    ASSERT_TRUE(compiler.Compile(d, r)) << r.errorInfo;
+
+    // the generated RgBlockDesc (from GlobalBlock.slang) must match the
+    // shader reflection of the same block
+    EXPECT_TRUE(ValidateBlockAgainstReflection(GlobalRenderResources::GetGlobalBlockDesc(),
+                                               r.reflection).empty());
 }

@@ -7,6 +7,7 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         ${INC_FILES}
     PRIVATE_INC
         src
+        ${CMAKE_BINARY_DIR}/Gen/ShaderHeaders
     PUBLIC_INC
         include
     LINK_LIBS
@@ -15,6 +16,9 @@ sky_add_library(TARGET Aurora.Pipeline STATIC
         Aurora
         Aurora.Shader
 )
+
+# generated shader headers must exist before Aurora.Pipeline compiles
+add_dependencies(Aurora.Pipeline ShaderHeaders)
 
 file(GLOB_RECURSE TEST_FILES test/*)
 
