@@ -6,6 +6,7 @@
 
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/ShaderReflection.h>
+#include <aurora/shader/ShaderVariant.h>
 
 #include <string>
 #include <vector>
@@ -24,8 +25,11 @@ namespace sky::aurora {
         std::string        source;
         std::string        entry;
         ShaderStageFlagBit stage;
-        ShaderTarget       target = ShaderTarget::SPIRV;
-        ShaderFileSystem  *fileSystem = nullptr;
+        ShaderTarget        target     = ShaderTarget::SPIRV;
+        ShaderFileSystem   *fileSystem = nullptr;
+        const ShaderVariant       *variant = nullptr;
+        const ShaderVariantSchema *schema  = nullptr;
+        ShaderCache               *cache   = nullptr;
     };
 
     struct ShaderCompileResult {

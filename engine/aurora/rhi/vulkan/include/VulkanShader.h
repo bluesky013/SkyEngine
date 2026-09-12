@@ -40,6 +40,7 @@ namespace sky::aurora {
         VulkanShaderFunction *GetFragmentFunction() const { return fragmentFunction.Get(); }
         VulkanShaderFunction *GetComputeFunction() const { return computeFunction.Get(); }
         VkPipelineLayout GetPipelineLayout() const { return layout; }
+        const ShaderSpecialization &GetSpecialization() const { return specialization; }
 
     private:
         bool CreatePipelineLayout();
@@ -49,6 +50,7 @@ namespace sky::aurora {
         CounterPtr<VulkanShaderFunction>    fragmentFunction;
         CounterPtr<VulkanShaderFunction>    computeFunction;
         ShaderReflection                    reflection;
+        ShaderSpecialization                specialization;
         std::vector<VkDescriptorSetLayout>  descriptorSetLayouts;
         VkPipelineLayout                    layout = VK_NULL_HANDLE;
     };

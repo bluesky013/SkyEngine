@@ -108,6 +108,11 @@ namespace sky::aurora {
         return it != mFiles.end() ? &it->second : nullptr;
     }
 
+    bool ShaderFileSystem::ReadFile(const std::string &path, std::string &content)
+    {
+        return Resolve(path, content);
+    }
+
     bool ShaderFileSystem::Resolve(const std::string &path, std::string &content)
     {
         const auto it = mFiles.find(path);

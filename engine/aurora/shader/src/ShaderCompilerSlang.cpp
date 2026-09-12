@@ -237,6 +237,43 @@ namespace sky::aurora {
         targetDesc.format  = slangTarget;
         targetDesc.profile = gGlobalSession->findProfile(profileName);
 
+        // variant defines (strong variants) -> preprocessor macros. String
+        // storage must stay alive for the duration of the compile call.
+        // Weak variants (specialization constants) are NOT injected on
+        // SPIRV/MSL (value applied at pipeline/function creation); on DXIL they
+        // fold via a -D override (no native specialization constant).
+        std::vector<std::string>               macroNames;
+        std::vector<std::string>               macroValues;
+        std::vector<slang::PreprocessorMacroDesc> macros;
+
+        // target-identifying macros (string literals have static storage) so
+        // shaders can conditionally declare target-specific code, e.g. fold
+        // specialization constants on DXIL instead of emitting spec constants
+        macros.push_back({"AURORA_TARGET_SPIRV", desc.target == ShaderTarget::SPIRV ? "1" : "0"});
+        macros.push_back({"AURORA_TARGET_MSL", desc.target == ShaderTarget::MSL ? "1" : "0"});
+        macros.push_back({"AURORA_TARGET_DXIL", desc.target == ShaderTarget::DXIL ? "1" : "0"});
+
+        if (desc.variant != nullptr) {
+            macroNames.reserve(desc.variant->entries.size());
+            macroValues.reserve(desc.variant->entries.size());
+            macros.reserve(desc.variant->entries.size() + 3);
+            for (const auto &entry : desc.variant->entries) {
+                bool isSpec = false;
+                if (desc.schema != nullptr) {
+                    const ShaderVariantSchema::Entry *se = desc.schema->FindEntry(entry.key);
+                    isSpec = se != nullptr && se->isSpec;
+                }
+                if (isSpec && desc.target != ShaderTarget::DXIL) {
+                    continue;   // leave for native specialization
+                }
+                macroNames.emplace_back(entry.key.GetStr());
+                macroValues.emplace_back(std::to_string(entry.value));
+                macros.push_back({macroNames.back().c_str(), macroValues.back().c_str()});
+            }
+        }
+        sessionDesc.preprocessorMacros     = macros.empty() ? nullptr : macros.data();
+        sessionDesc.preprocessorMacroCount = static_cast<SlangInt>(macros.size());
+
         // no #line directives in emitted code (keeps MSL/GLSL output clean);
         // output-format options live on TargetDesc
         slang::CompilerOptionEntry lineOpt{};

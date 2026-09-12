@@ -8,7 +8,6 @@
 #include <core/archive/BinaryData.h>
 #include <aurora/rhi/Core.h>
 #include <aurora/rhi/ShaderReflection.h>
-#include <variant>
 
 namespace sky::aurora {
 
@@ -32,7 +31,10 @@ namespace sky::aurora {
     };
     using ShaderFunctionPtr = CounterPtr<ShaderFunction>;
 
-    using ShaderSpecializationEntry = std::variant<uint32_t, int32_t>;
+    struct ShaderSpecializationEntry {
+        uint32_t id    = 0;   // specialization constant id
+        uint32_t value = 0;   // value (bool/int/uint; float via bit reinterpretation)
+    };
     struct ShaderSpecialization {
         std::vector<ShaderSpecializationEntry> entries;
     };
@@ -49,7 +51,8 @@ namespace sky::aurora {
                     ShaderFunction* cs;
                 };
             };
-            const ShaderReflection* reflection = nullptr; // whole-program layout
+            const ShaderReflection*    reflection     = nullptr; // whole-program layout
+            const ShaderSpecialization* specialization = nullptr; // spec constant values
         };
 
         Shader() = default;

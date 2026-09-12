@@ -164,6 +164,9 @@ namespace sky::aurora {
         if (desc.reflection != nullptr) {
             reflection = *desc.reflection;
         }
+        if (desc.specialization != nullptr) {
+            specialization = *desc.specialization;
+        }
 
         // Shader::Descriptor is a union where cs and vs share the same memory.
         // Check ps to distinguish graphics (vs+ps) from compute (cs only).

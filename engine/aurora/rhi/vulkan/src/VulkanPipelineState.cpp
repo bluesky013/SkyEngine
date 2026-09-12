@@ -12,6 +12,37 @@ namespace sky::aurora {
 
     static const char *TAG = "VulkanPipelineState";
 
+    namespace {
+        // packed specialization info (kept alive for the pipeline creation call)
+        struct SpecializationData {
+            std::vector<VkSpecializationMapEntry> mapEntries;
+            std::vector<uint32_t>                 data;
+            VkSpecializationInfo                  info{};
+        };
+
+        bool BuildSpecializationInfo(const ShaderSpecialization &spec, SpecializationData &out)
+        {
+            if (spec.entries.empty()) {
+                return false;
+            }
+            out.mapEntries.reserve(spec.entries.size());
+            out.data.reserve(spec.entries.size());
+            for (const auto &entry : spec.entries) {
+                VkSpecializationMapEntry mapEntry{};
+                mapEntry.constantID = entry.id;
+                mapEntry.offset     = static_cast<uint32_t>(out.data.size() * sizeof(uint32_t));
+                mapEntry.size       = sizeof(uint32_t);
+                out.mapEntries.push_back(mapEntry);
+                out.data.push_back(entry.value);
+            }
+            out.info.mapEntryCount  = static_cast<uint32_t>(out.mapEntries.size());
+            out.info.pMapEntries    = out.mapEntries.data();
+            out.info.dataSize       = out.data.size() * sizeof(uint32_t);
+            out.info.pData          = out.data.data();
+            return true;
+        }
+    } // namespace
+
     // ---- VulkanGraphicsPipeline ----
 
     VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice &dev)
@@ -77,6 +108,10 @@ namespace sky::aurora {
             return false;
         }
 
+        // ---- specialization constants (weak variants) ----
+        SpecializationData specData;
+        const bool hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+
         // ---- shader stages ----
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
         const auto *vs = vkShader->GetVertexFunction();
@@ -85,6 +120,7 @@ namespace sky::aurora {
             stageCI.stage  = FromShaderStage(vs->GetStage());
             stageCI.module = vs->GetNativeHandle();
             stageCI.pName  = "main";
+            stageCI.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
             shaderStages.push_back(stageCI);
         }
         const auto *fs = vkShader->GetFragmentFunction();
@@ -93,6 +129,7 @@ namespace sky::aurora {
             stageCI.stage  = FromShaderStage(fs->GetStage());
             stageCI.module = fs->GetNativeHandle();
             stageCI.pName  = "main";
+            stageCI.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
             shaderStages.push_back(stageCI);
         }
 
@@ -253,6 +290,11 @@ namespace sky::aurora {
                 ci.stage.pName  = "main";
             }
         }
+
+        // specialization constants (weak variants)
+        SpecializationData specData;
+        const bool hasSpec = BuildSpecializationInfo(vkShader->GetSpecialization(), specData);
+        ci.stage.pSpecializationInfo = hasSpec ? &specData.info : nullptr;
 
         const VkResult result = device.GetDeviceFn().vkCreateComputePipelines(
             device.GetNativeHandle(), VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline);

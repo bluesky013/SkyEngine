@@ -34,6 +34,10 @@ namespace sky::aurora {
         // Look up an in-memory virtual file; nullptr when not registered.
         const std::string *Find(const std::string &path) const;
 
+        // Resolve a logical path (virtual first, then disk search paths) to its
+        // content. Returns false when unresolved.
+        bool ReadFile(const std::string &path, std::string &content);
+
         // Slang file system adapter (global ::ISlangFileSystem) that resolves
         // #include against virtual files (top priority) then mounted file systems.
         ISlangFileSystem *GetSlangFileSystem();
