@@ -8,6 +8,8 @@
 #include <D3D12Encoder.h>
 #include <D3D12Image.h>
 #include <D3D12PipelineState.h>
+#include <D3D12ResourceGroup.h>
+#include <D3D12RootSignature.h>
 
 namespace sky::aurora {
 
@@ -46,15 +48,41 @@ namespace sky::aurora {
     void D3D12GraphicsEncoder::BindPipeline(GraphicsPipeline *pso)
     {
         auto *d3dPso = static_cast<D3D12GraphicsPipeline *>(pso);
+        currentRootSignature = d3dPso->GetRootSignature();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
     }
 
-    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t /*set*/,
-                                                 ResourceGroup * /*group*/,
-                                                 uint32_t /*numDynamicOffsets*/,
-                                                 const uint32_t * /*dynamicOffsets*/)
+    void D3D12GraphicsEncoder::BindResourceGroup(uint32_t set,
+                                                 ResourceGroup *group,
+                                                 uint32_t numDynamicOffsets,
+                                                 const uint32_t *dynamicOffsets)
     {
-        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables (aurora-resource-group DX12 phase)
+        // Dynamic offsets are not yet supported (D3D12 root CBV requires a
+        // dedicated root parameter per dynamic binding).
+        (void)numDynamicOffsets;
+        (void)dynamicOffsets;
+
+        if (currentRootSignature == nullptr || group == nullptr) {
+            return;
+        }
+        auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
+
+        auto *allocator = device.GetDescriptorAllocator();
+        if (allocator == nullptr) {
+            return;
+        }
+        ID3D12DescriptorHeap *heaps[2] = {allocator->GetCbvSrvUavHeap(), allocator->GetSamplerHeap()};
+        cmdList->SetDescriptorHeaps(2, heaps);
+
+        const uint32_t cbvSrvUavParam = currentRootSignature->GetCbvSrvUavRootParam(set);
+        if (cbvSrvUavParam != INVALID_INDEX) {
+            cmdList->SetGraphicsRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
+        }
+
+        const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
+        if (samplerParam != INVALID_INDEX) {
+            cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
+        }
     }
 
     void D3D12GraphicsEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/)
@@ -62,9 +90,16 @@ namespace sky::aurora {
         // TODO: D3D12 descriptor heap bind (aurora-resource-group tier2)
     }
 
-    void D3D12GraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    void D3D12GraphicsEncoder::PushConstants(ShaderStageFlags /*stages*/, uint32_t offset, uint32_t size, const void *data)
     {
-        // TODO: SetGraphicsRoot32BitConstants once RootSignature is wired
+        if (currentRootSignature == nullptr) {
+            return;
+        }
+        const uint32_t rootParam = currentRootSignature->GetPushConstantRootParam();
+        if (rootParam == INVALID_INDEX) {
+            return;
+        }
+        cmdList->SetGraphicsRoot32BitConstants(rootParam, size / 4, data, offset / 4);
     }
 
     void D3D12GraphicsEncoder::BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views)
@@ -154,15 +189,39 @@ namespace sky::aurora {
     void D3D12ComputeEncoder::BindPipeline(ComputePipeline *pso)
     {
         auto *d3dPso = static_cast<D3D12ComputePipeline *>(pso);
+        currentRootSignature = d3dPso->GetRootSignature();
         cmdList->SetPipelineState(d3dPso->GetNativeHandle());
     }
 
-    void D3D12ComputeEncoder::BindResourceGroup(uint32_t /*set*/,
-                                                ResourceGroup * /*group*/,
-                                                uint32_t /*numDynamicOffsets*/,
-                                                const uint32_t * /*dynamicOffsets*/)
+    void D3D12ComputeEncoder::BindResourceGroup(uint32_t set,
+                                                ResourceGroup *group,
+                                                uint32_t numDynamicOffsets,
+                                                const uint32_t *dynamicOffsets)
     {
-        // TODO: implement once ResourceGroup maps to D3D12 descriptor tables (aurora-resource-group DX12 phase)
+        (void)numDynamicOffsets;
+        (void)dynamicOffsets;
+
+        if (currentRootSignature == nullptr || group == nullptr) {
+            return;
+        }
+        auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
+
+        auto *allocator = device.GetDescriptorAllocator();
+        if (allocator == nullptr) {
+            return;
+        }
+        ID3D12DescriptorHeap *heaps[2] = {allocator->GetCbvSrvUavHeap(), allocator->GetSamplerHeap()};
+        cmdList->SetDescriptorHeaps(2, heaps);
+
+        const uint32_t cbvSrvUavParam = currentRootSignature->GetCbvSrvUavRootParam(set);
+        if (cbvSrvUavParam != INVALID_INDEX) {
+            cmdList->SetGraphicsRootDescriptorTable(cbvSrvUavParam, d3dGroup->GetCbvSrvUavGpuHandle());
+        }
+
+        const uint32_t samplerParam = currentRootSignature->GetSamplerRootParam(set);
+        if (samplerParam != INVALID_INDEX) {
+            cmdList->SetGraphicsRootDescriptorTable(samplerParam, d3dGroup->GetSamplerGpuHandle());
+        }
     }
 
     void D3D12ComputeEncoder::BindDescriptorHeap(DescriptorHeap * /*heap*/)
@@ -170,9 +229,16 @@ namespace sky::aurora {
         // TODO: D3D12 descriptor heap bind (aurora-resource-group tier2)
     }
 
-    void D3D12ComputeEncoder::PushConstants(uint32_t /*offset*/, uint32_t /*size*/, const void * /*data*/)
+    void D3D12ComputeEncoder::PushConstants(uint32_t offset, uint32_t size, const void *data)
     {
-        // TODO: SetComputeRoot32BitConstants once RootSignature is wired
+        if (currentRootSignature == nullptr) {
+            return;
+        }
+        const uint32_t rootParam = currentRootSignature->GetPushConstantRootParam();
+        if (rootParam == INVALID_INDEX) {
+            return;
+        }
+        cmdList->SetGraphicsRoot32BitConstants(rootParam, size / 4, data, offset / 4);
     }
 
     void D3D12ComputeEncoder::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)

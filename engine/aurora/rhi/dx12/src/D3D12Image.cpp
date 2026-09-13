@@ -26,6 +26,10 @@ namespace sky::aurora {
     {
         pixelFormat = desc.format;
         mipLevels   = desc.mipLevels;
+        imageType   = desc.imageType;
+        arrayLayers = desc.arrayLayers;
+        depth       = desc.extent.depth;
+        samples     = desc.samples;
         dxgiFormat = FromPixelFormat(desc.format);
         if (dxgiFormat == DXGI_FORMAT_UNKNOWN) {
             LOG_E(TAG, "unsupported pixel format for image");
@@ -98,6 +102,63 @@ namespace sky::aurora {
     {
         resource   = std::move(res);
         dxgiFormat = fmt;
+    }
+
+    void D3D12Image::CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv   = {};
+        srv.Format                           = dxgiFormat;
+        srv.Shader4ComponentMapping          = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        if (imageType == ImageType::IMAGE_1D) {
+            if (arrayLayers > 1) {
+                srv.ViewDimension              = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+                srv.Texture1DArray.MipLevels   = mipLevels;
+                srv.Texture1DArray.ArraySize   = arrayLayers;
+            } else {
+                srv.ViewDimension            = D3D12_SRV_DIMENSION_TEXTURE1D;
+                srv.Texture1D.MipLevels      = mipLevels;
+            }
+        } else if (imageType == ImageType::IMAGE_3D) {
+            srv.ViewDimension        = D3D12_SRV_DIMENSION_TEXTURE3D;
+            srv.Texture3D.MipLevels  = mipLevels;
+        } else if (samples != SampleCount::X1) {
+            if (arrayLayers > 1) {
+                srv.ViewDimension               = D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY;
+                srv.Texture2DMSArray.ArraySize  = arrayLayers;
+            } else {
+                srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
+            }
+        } else if (arrayLayers > 1) {
+            srv.ViewDimension            = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+            srv.Texture2DArray.MipLevels = mipLevels;
+            srv.Texture2DArray.ArraySize = arrayLayers;
+        } else {
+            srv.ViewDimension       = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srv.Texture2D.MipLevels = mipLevels;
+        }
+
+        device.GetNativeHandle()->CreateShaderResourceView(resource.Get(), &srv, handle);
+    }
+
+    void D3D12Image::CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    {
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
+        uav.Format                          = dxgiFormat;
+
+        if (imageType == ImageType::IMAGE_1D) {
+            uav.ViewDimension       = D3D12_UAV_DIMENSION_TEXTURE1D;
+            uav.Texture1D.MipSlice  = 0;
+        } else if (imageType == ImageType::IMAGE_3D) {
+            uav.ViewDimension       = D3D12_UAV_DIMENSION_TEXTURE3D;
+            uav.Texture3D.MipSlice  = 0;
+            uav.Texture3D.WSize     = depth;
+        } else {
+            uav.ViewDimension       = D3D12_UAV_DIMENSION_TEXTURE2D;
+            uav.Texture2D.MipSlice  = 0;
+        }
+
+        device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
     }
 
 } // namespace sky::aurora

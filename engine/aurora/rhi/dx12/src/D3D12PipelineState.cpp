@@ -31,6 +31,7 @@ namespace sky::aurora {
 
         const auto &state = *desc.state;
         auto *d3dShader = static_cast<D3D12Shader *>(desc.shader);
+        shader = d3dShader;
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
         psoDesc.pRootSignature = d3dShader->GetRootSignature()->GetNativeHandle();
@@ -153,6 +154,7 @@ namespace sky::aurora {
         }
 
         auto *d3dShader = static_cast<D3D12Shader *>(desc.cs);
+        shader = d3dShader;
         if (d3dShader->GetRootSignature() == nullptr) {
             LOG_E(TAG, "compute pipeline missing root signature (shader has none)");
             return false;

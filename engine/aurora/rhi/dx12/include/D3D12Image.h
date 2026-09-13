@@ -31,13 +31,21 @@ namespace sky::aurora {
         PixelFormat     GetPixelFormat() const { return pixelFormat; }
         uint32_t        GetMipLevels() const { return mipLevels; }
 
+        // Write a shader-resource / unordered-access view into a CPU descriptor.
+        void CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+        void CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+
     private:
         D3D12Device            &device;
         ComPtr<ID3D12Resource>  resource;
         ComPtr<D3D12MA::Allocation> allocation;
         DXGI_FORMAT             dxgiFormat = DXGI_FORMAT_UNKNOWN;
         PixelFormat             pixelFormat = PixelFormat::UNDEFINED;
-        uint32_t                mipLevels = 1;
+        uint32_t                mipLevels   = 1;
+        ImageType               imageType   = ImageType::IMAGE_2D;
+        uint32_t                arrayLayers = 1;
+        uint32_t                depth       = 1;
+        SampleCount             samples     = SampleCount::X1;
     };
 
 } // namespace sky::aurora

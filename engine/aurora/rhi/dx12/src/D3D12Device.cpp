@@ -9,6 +9,8 @@
 #include <D3D12Instance.h>
 #include <D3D12PipelineState.h>
 #include <D3D12Queue.h>
+#include <D3D12ResourceGroup.h>
+#include <D3D12ResourceGroupLayout.h>
 #include <D3D12Semaphore.h>
 #include <D3D12ShaderFunction.h>
 #include <core/logger/Logger.h>
@@ -53,6 +55,12 @@ namespace sky::aurora {
             return false;
         }
         if (!CreateCommandQueues()) {
+            return false;
+        }
+
+        descriptorAllocator = std::make_unique<D3D12DescriptorAllocator>();
+        if (!descriptorAllocator->Init(*this, 4096, 1024)) {
+            LOG_E(TAG, "failed to create descriptor allocator");
             return false;
         }
 
@@ -244,6 +252,26 @@ namespace sky::aurora {
             return nullptr;
         }
         return smp;
+    }
+
+    ResourceGroupLayout *D3D12Device::CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc)
+    {
+        auto *layout = new D3D12ResourceGroupLayout(*this);
+        if (!layout->Init(desc)) {
+            delete layout;
+            return nullptr;
+        }
+        return layout;
+    }
+
+    ResourceGroup *D3D12Device::CreateResourceGroup(const ResourceGroup::Descriptor &desc)
+    {
+        auto *group = new D3D12ResourceGroup(*this);
+        if (!group->Init(desc)) {
+            delete group;
+            return nullptr;
+        }
+        return group;
     }
 
     ShaderFunction *D3D12Device::CreateShaderFunction(const ShaderFunction::Descriptor &desc)

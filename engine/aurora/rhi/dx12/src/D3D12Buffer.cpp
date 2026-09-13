@@ -100,4 +100,39 @@ namespace sky::aurora {
         }
     }
 
+    void D3D12Buffer::CreateCBV(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint64_t offset, uint64_t range) const
+    {
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv = {};
+        cbv.BufferLocation                 = resource->GetGPUVirtualAddress() + offset;
+        cbv.SizeInBytes                    = static_cast<UINT>(range == 0 ? size : range);
+        cbv.SizeInBytes                    = (cbv.SizeInBytes + 255) & ~255u;
+        device.GetNativeHandle()->CreateConstantBufferView(&cbv, handle);
+    }
+
+    void D3D12Buffer::CreateSRV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+        srv.Format                          = DXGI_FORMAT_R32_TYPELESS;
+        srv.ViewDimension                   = D3D12_SRV_DIMENSION_BUFFER;
+        srv.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srv.Buffer.FirstElement             = 0;
+        srv.Buffer.NumElements              = static_cast<UINT>(size / 4);
+        srv.Buffer.StructureByteStride      = 0;
+        srv.Buffer.Flags                    = D3D12_BUFFER_SRV_FLAG_RAW;
+        device.GetNativeHandle()->CreateShaderResourceView(resource.Get(), &srv, handle);
+    }
+
+    void D3D12Buffer::CreateUAV(D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+    {
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
+        uav.Format                          = DXGI_FORMAT_R32_TYPELESS;
+        uav.ViewDimension                   = D3D12_UAV_DIMENSION_BUFFER;
+        uav.Buffer.FirstElement             = 0;
+        uav.Buffer.NumElements              = static_cast<UINT>(size / 4);
+        uav.Buffer.StructureByteStride      = 0;
+        uav.Buffer.CounterOffsetInBytes     = 0;
+        uav.Buffer.Flags                    = D3D12_BUFFER_UAV_FLAG_RAW;
+        device.GetNativeHandle()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav, handle);
+    }
+
 } // namespace sky::aurora

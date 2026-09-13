@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <D3D12ShaderFunction.h>
 #include <aurora/rhi/PipelineState.h>
 #include <d3d12.h>
 #include <wrl/client.h>
@@ -24,10 +25,12 @@ namespace sky::aurora {
         bool Init(const Descriptor &desc);
 
         ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
+        const D3D12RootSignature *GetRootSignature() const { return shader->GetRootSignature(); }
 
     private:
         D3D12Device &device;
         ComPtr<ID3D12PipelineState> pso;
+        CounterPtr<D3D12Shader>     shader;
     };
 
     class D3D12ComputePipeline : public ComputePipeline {
@@ -38,10 +41,12 @@ namespace sky::aurora {
         bool Init(const Descriptor &desc);
 
         ID3D12PipelineState *GetNativeHandle() const { return pso.Get(); }
+        const D3D12RootSignature *GetRootSignature() const { return shader->GetRootSignature(); }
 
     private:
         D3D12Device &device;
         ComPtr<ID3D12PipelineState> pso;
+        CounterPtr<D3D12Shader>     shader;
     };
 
 } // namespace sky::aurora

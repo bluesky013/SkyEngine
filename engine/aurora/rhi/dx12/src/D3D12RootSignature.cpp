@@ -50,39 +50,60 @@ namespace sky::aurora {
 
     bool D3D12RootSignature::Init(const RootSignatureDescriptor &desc)
     {
-        rangeSets.reserve(desc.sets.size());
-        parameters.reserve(desc.sets.size() + desc.pushConstants.size());
+        rangeSets.reserve(desc.sets.size() * 2);
+        parameters.reserve(desc.sets.size() * 2 + desc.pushConstants.size());
 
-        // descriptor table parameters
-        for (UINT i = 0; i < desc.sets.size(); ++i) {
-            const auto &set = desc.sets[i];
+        for (size_t i = 0; i < desc.sets.size(); ++i) {
+            const uint32_t setIndex = i < desc.setIndices.size() ? desc.setIndices[i] : static_cast<uint32_t>(i);
+            const auto    &set      = desc.sets[i];
 
-            auto &ranges = rangeSets.emplace_back();
-            ranges.reserve(set.ranges.size());
+            if (setParams.size() <= setIndex) {
+                setParams.resize(setIndex + 1);
+            }
 
-            D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL;
+            auto &cbvRanges = rangeSets.emplace_back();
+            auto &smpRanges = rangeSets.emplace_back();
+            cbvRanges.reserve(set.ranges.size());
+            smpRanges.reserve(set.ranges.size());
 
             for (const auto &range : set.ranges) {
                 D3D12_DESCRIPTOR_RANGE d3dRange = {};
                 d3dRange.RangeType                         = ToRangeType(range.type);
                 d3dRange.NumDescriptors                    = range.count;
                 d3dRange.BaseShaderRegister                = range.binding;
-                d3dRange.RegisterSpace                     = i;
+                d3dRange.RegisterSpace                     = setIndex;
                 d3dRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-                ranges.emplace_back(d3dRange);
 
-                visibility = ToShaderVisibility(range.visibility);
+                if (range.type == DescriptorType::SAMPLER) {
+                    smpRanges.push_back(d3dRange);
+                } else {
+                    cbvRanges.push_back(d3dRange);
+                }
             }
 
-            D3D12_ROOT_PARAMETER param = {};
-            param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(ranges.size());
-            param.DescriptorTable.pDescriptorRanges   = ranges.data();
-            param.ShaderVisibility                    = visibility;
-            parameters.emplace_back(param);
+            if (!cbvRanges.empty()) {
+                D3D12_ROOT_PARAMETER param = {};
+                param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(cbvRanges.size());
+                param.DescriptorTable.pDescriptorRanges   = cbvRanges.data();
+                param.ShaderVisibility                    = D3D12_SHADER_VISIBILITY_ALL;
+                setParams[setIndex].cbvSrvUav             = static_cast<uint32_t>(parameters.size());
+                parameters.emplace_back(param);
+            }
+
+            if (!smpRanges.empty()) {
+                D3D12_ROOT_PARAMETER param = {};
+                param.ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(smpRanges.size());
+                param.DescriptorTable.pDescriptorRanges   = smpRanges.data();
+                param.ShaderVisibility                    = D3D12_SHADER_VISIBILITY_ALL;
+                setParams[setIndex].sampler               = static_cast<uint32_t>(parameters.size());
+                parameters.emplace_back(param);
+            }
         }
 
         // root constants (push constants)
+        pushConstantRootParam = desc.pushConstants.empty() ? INVALID_INDEX : static_cast<uint32_t>(parameters.size());
         for (const auto &pc : desc.pushConstants) {
             D3D12_ROOT_PARAMETER param = {};
             param.ParameterType            = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
@@ -127,6 +148,22 @@ namespace sky::aurora {
         }
 
         return true;
+    }
+
+    uint32_t D3D12RootSignature::GetCbvSrvUavRootParam(uint32_t set) const
+    {
+        if (set < setParams.size()) {
+            return setParams[set].cbvSrvUav;
+        }
+        return INVALID_INDEX;
+    }
+
+    uint32_t D3D12RootSignature::GetSamplerRootParam(uint32_t set) const
+    {
+        if (set < setParams.size()) {
+            return setParams[set].sampler;
+        }
+        return INVALID_INDEX;
     }
 
 } // namespace sky::aurora

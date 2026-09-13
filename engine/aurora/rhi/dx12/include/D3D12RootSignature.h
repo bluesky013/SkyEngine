@@ -28,7 +28,8 @@ namespace sky::aurora {
 
     struct RootSignatureDescriptor {
         std::vector<RootSignatureDescriptorSet> sets;
-        std::vector<PushConstantRange>          pushConstants;
+        std::vector<uint32_t>                  setIndices;   // original set index per sets[i]
+        std::vector<PushConstantRange>         pushConstants;
     };
 
     class D3D12RootSignature : public RefObject {
@@ -40,6 +41,15 @@ namespace sky::aurora {
 
         ID3D12RootSignature *GetNativeHandle() const { return rootSignature.Get(); }
 
+        // Root param index of the CBV/SRV/UAV descriptor table for `set`,
+        // or INVALID_INDEX when the set has no non-sampler bindings.
+        uint32_t GetCbvSrvUavRootParam(uint32_t set) const;
+        // Root param index of the sampler descriptor table for `set`,
+        // or INVALID_INDEX when the set has no sampler bindings.
+        uint32_t GetSamplerRootParam(uint32_t set) const;
+        // Root param index of the first push-constant root param.
+        uint32_t GetPushConstantRootParam() const { return pushConstantRootParam; }
+
     private:
         static D3D12_SHADER_VISIBILITY ToShaderVisibility(ShaderStageFlags flags);
         static D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(DescriptorType type);
@@ -50,6 +60,13 @@ namespace sky::aurora {
         // keep alive for the lifetime of the root signature
         std::vector<std::vector<D3D12_DESCRIPTOR_RANGE>> rangeSets;
         std::vector<D3D12_ROOT_PARAMETER>                parameters;
+
+        struct SetRootParams {
+            uint32_t cbvSrvUav = INVALID_INDEX;
+            uint32_t sampler   = INVALID_INDEX;
+        };
+        std::vector<SetRootParams> setParams; // indexed by set index
+        uint32_t                   pushConstantRootParam = INVALID_INDEX;
     };
 
 } // namespace sky::aurora

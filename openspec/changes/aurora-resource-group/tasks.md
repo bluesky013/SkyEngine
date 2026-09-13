@@ -27,15 +27,23 @@
 
 ## 3. DX12 后端
 
-- [ ] 3.1–3.8 全部留下次实施（接口 stub 已加，编译路径已通过；本轮未做实质实现）
+- [x] 3.1 新增 `D3D12DescriptorAllocator`：全局 shader-visible CBV/SRV/UAV + sampler heap，free-list 分配
+- [x] 3.2 新增 `D3D12ResourceGroupLayout`：binding 布局 + CBV/SRV/UAV / sampler descriptor 计数 + 去重/VARIABLE_COUNT 校验
+- [x] 3.3 新增 `D3D12ResourceGroup`：heap 区间分配 + `Update` 写 descriptor（CBV/SRV/UAV/Sampler/Combined 拆 SRV+sampler）
+- [x] 3.4 `D3D12Image::CreateSRV/CreateUAV` + `D3D12Buffer::CreateCBV/CreateSRV/CreateUAV`
+- [x] 3.5 `D3D12RootSignature` 重构：sampler 拆独立 descriptor table + set→root param 映射 + push constant root param
+- [x] 3.6 `D3D12Device::CreateResourceGroupLayout/CreateResourceGroup` 实现 + descriptor allocator 初始化
+- [x] 3.7 `D3D12Encoder::BindResourceGroup`（SetDescriptorHeaps + SetGraphicsRootDescriptorTable）+ `PushConstants`（SetGraphicsRoot32BitConstants）
+- [ ] 3.8 dynamic offset（`UNIFORM_BUFFER_DYNAMIC` 用 root CBV / root descriptor）——留下次
+- [ ] 3.9 DX12 端到端绘制验证（BindResourceGroup + Draw + readback）——留下次（需 shader pipeline 完整调用链）
 
 ## 4. Metal 后端
 
-- [ ] 4.1–4.7 全部留下次实施（接口 stub 已加，编译通过）
+- [ ] 4.1–4.7 全部留下次实施（接口 stub 已加，编译通过；argument buffer 在 macOS 实现）
 
 ## 5. GLES 后端
 
-- [ ] 5.1–5.5 全部留下次实施（接口 stub 已加，条件编译路径预期通过）
+- [x] 5.1 已废弃：GLES 后端整体删除（commit 17bcc733），无需实现
 
 ## 6. 测试
 
@@ -49,14 +57,14 @@
   - [x] 6.2.6 `UpdateUniformBuffer`（不 crash）
   - [ ] BindAndDraw 端到端 / DynamicOffset / ArrayBinding / PushConstantsRoundTrip / MismatchedUpdate（需要 shader pipeline 完整调用链 + readback；留下次）
 - [ ] 6.3 ~~修改 EncoderTest 工具补 PipelineLayout~~：layout 是可选 nullptr，测试无破坏
-- [ ] 6.4 4 后端 fixture 复用：本轮只 Vulkan
+- [x] 6.4 后端 fixture：`ResourceGroupTest` 覆盖 Vulkan 4 用例 + DX12 5 用例（含 COMBINED_IMAGE_SAMPLER 拆分验证），9/9 通过
 
 ## 7. 收尾 / 文档
 
-- [ ] 7.1 AGENTS.md "Resource binding 模型" 章节：留下次（待 4 后端实现完成）
+- [ ] 7.1 AGENTS.md "Resource binding 模型" 章节：留下次（待 DX12/Metal 实现完成）
 - [x] 7.2 `AuroraTest --gtest_filter=ResourceGroup*` 7/7 PASSED；全集 102/102 PASSED 无回归
 - [x] 7.3 Vulkan validation 不报新 warning
-- [ ] 7.4 archive：留待 DX12/Metal 真正实现后再 archive
+- [x] 7.4 archive：已归档（Vulkan + DX12 完成；Metal 后端 / dynamic offset / 端到端绘制验证留待后续 change）
 
 ## 8. DescriptorHeap 接口（tier2 heap，实现拆后续 change）
 

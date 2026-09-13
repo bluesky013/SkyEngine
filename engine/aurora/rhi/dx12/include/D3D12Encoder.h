@@ -13,6 +13,7 @@ namespace sky::aurora {
     using Microsoft::WRL::ComPtr;
 
     class D3D12Device;
+    class D3D12RootSignature;
 
     class D3D12GraphicsEncoder : public GraphicsEncoder {
     public:
@@ -40,6 +41,7 @@ namespace sky::aurora {
     private:
         D3D12Device               &device;
         ID3D12GraphicsCommandList *cmdList = nullptr;
+        const D3D12RootSignature  *currentRootSignature = nullptr;
     };
 
     class D3D12ComputeEncoder : public ComputeEncoder {
@@ -57,6 +59,7 @@ namespace sky::aurora {
     private:
         D3D12Device               &device;
         ID3D12GraphicsCommandList *cmdList = nullptr;
+        const D3D12RootSignature  *currentRootSignature = nullptr;
     };
 
     class D3D12BlitEncoder : public BlitEncoder {

@@ -83,6 +83,7 @@ namespace sky::aurora {
                 sets[res.set].ranges.push_back(range);
             }
             for (auto &entry : sets) {
+                rsDesc.setIndices.push_back(entry.first);
                 rsDesc.sets.push_back(std::move(entry.second));
             }
             rsDesc.pushConstants = desc.reflection->pushConstants;

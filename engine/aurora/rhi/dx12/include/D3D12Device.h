@@ -6,6 +6,7 @@
 
 #include <D3D12Buffer.h>
 #include <D3D12CommandPool.h>
+#include <D3D12DescriptorAllocator.h>
 #include <D3D12Image.h>
 #include <D3D12Queue.h>
 #include <D3D12Sampler.h>
@@ -49,17 +50,11 @@ namespace sky::aurora {
         Buffer              *CreateBuffer(const Buffer::Descriptor &desc) override;
         Image               *CreateImage(const Image::Descriptor &desc) override;
         Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
-        ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) override
+        ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) override;
+        ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
         {
-            return nullptr;
-        }
-        ResourceGroup *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override
-        {
-            return nullptr;
-        }
-        DescriptorHeap *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override
-        {
-            return nullptr;
+            return nullptr; // TODO: SM6.6 ResourceDescriptorHeap (tier2)
         }
         SwapChain *CreateSwapChain(const SwapChain::Descriptor &desc) override
         {
@@ -91,6 +86,10 @@ namespace sky::aurora {
         {
             return allocator.Get();
         }
+        D3D12DescriptorAllocator *GetDescriptorAllocator() const
+        {
+            return descriptorAllocator.get();
+        }
 
     private:
         bool        OnInit(const DeviceInit &init) override;
@@ -108,6 +107,8 @@ namespace sky::aurora {
         ComPtr<IDXGIAdapter1>      adapter;
         ComPtr<ID3D12Device>       device;
         ComPtr<D3D12MA::Allocator> allocator;
+
+        std::unique_ptr<D3D12DescriptorAllocator> descriptorAllocator;
 
         std::array<std::unique_ptr<D3D12Queue>, 3> queues; // by QueueType
 
