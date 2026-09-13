@@ -376,9 +376,6 @@
 			"url": "https://github.com/shader-slang/slang.git",
 			"tag": "v2026.9.2",
 			"header_only": false,
-			"platforms": [
-				"Win32"
-			],
 			"options": {
 				"SLANG_ENABLE_TESTS": "OFF",
 				"SLANG_ENABLE_EXAMPLES": "OFF",
@@ -387,10 +384,7 @@
 				"SLANG_ENABLE_GFX": "OFF",
 				"SLANG_SLANG_LLVM_FLAVOR": "DISABLE",
 				"SLANG_ENABLE_SLANG_RHI": "OFF",
-				"CMAKE_C_FLAGS": "/wd4819",
-				"CMAKE_CXX_FLAGS": "/wd4819",
-				"SLANG_ENABLE_DXIL": "ON",
-				"FETCHCONTENT_SOURCE_DIR_DXC": "D:/Code/Engine/SkyEngine/build_3rd/dxc-local"
+				"SLANG_ENABLE_DXIL": "ON"
 			},
 			"submodules": [
 				"external/spirv-headers",
@@ -407,8 +401,8 @@
 	],
 	"archives": {
 		"Win32": {
-			"file": "thirdparty_Win32_6b331ed790b1.zip",
-			"md5": "6b331ed790b107d036378d789cadb645"
+			"file": "thirdparty_Win32_5d0a0c6074ef.zip",
+			"md5": "5d0a0c6074ef0e61ddb3169cf3c06fda"
 		},
 		"MacOS-x86": {
 			"file": "thirdparty_MacOS-x86_6c8ce9a01129.zip",

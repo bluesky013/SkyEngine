@@ -1,0 +1,30 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1b78c407f..57eb3c7d3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -44,6 +44,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+ #
+ enable_language(C CXX)
+ 
++# Treat source files as UTF-8 so MSVC does not emit C4819 (and turn it into a
++# hard error via C2220 under /WX) when building on a non-UTF-8 system code page
++# (e.g. GBK/936 on Chinese Windows).
++if(MSVC)
++    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/utf-8>)
++endif()
++
+ include(FindPackageHandleStandardArgs)
+ include(CMakeDependentOption)
+ include(GNUInstallDirs)
+diff --git a/source/slang-glsl-module/CMakeLists.txt b/source/slang-glsl-module/CMakeLists.txt
+index 74aed35d6..72452a7b7 100644
+--- a/source/slang-glsl-module/CMakeLists.txt
++++ b/source/slang-glsl-module/CMakeLists.txt
+@@ -20,7 +20,6 @@ slang_add_target(
+         ./slang-embedded-glsl-module.cpp
+         ${glsl_module_generated_header}
+     REQUIRES generate_core_module_headers
+-    EXCLUDE_FROM_ALL
+     EXTRA_COMPILE_DEFINITIONS_PRIVATE SLANG_SHARED_LIBRARY_TOOL
+     EXPORT_SET_NAME SlangTargets
+     INCLUDE_DIRECTORIES_PRIVATE

@@ -151,6 +151,20 @@ def get_log_dir():
     Path(log_dir).mkdir(parents=True, exist_ok=True)
     return log_dir
 
+def _write_stdout(text):
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        enc = sys.stdout.encoding or 'utf-8'
+        sys.stdout.write(text.encode(enc, errors='replace').decode(enc, errors='replace'))
+    sys.stdout.flush()
+
+
+def get_extra_cmake_args():
+    raw = os.environ.get('SKY_3RD_CMAKE_ARGS', '')
+    return raw.split() if raw else []
+
+
 def run_stream(cmd, log_file=None):
     """Run a command, streaming merged stdout/stderr to the console and optionally a log file."""
     process = subprocess.Popen(
@@ -164,8 +178,7 @@ def run_stream(cmd, log_file=None):
     )
     if process.stdout is not None:
         for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            _write_stdout(line)
             if log_file:
                 log_file.write(line)
                 log_file.flush()
@@ -188,6 +201,8 @@ def run_cmake(build_dir: str, source_dir: str, build_type, options: dict[str, st
     if options:
         for key, value in options.items():
             cmake_cmd.extend([f"-D{key}={value}"])
+
+    cmake_cmd.extend(get_extra_cmake_args())
 
     log_file = None
     if log_name:
@@ -321,6 +336,8 @@ def build_package_type(name, source_dir, build_type, options, cache, components,
         if options:
             for key, value in options.items():
                 cmake_cmd.extend([f"-D{key}={value}"])
+
+        cmake_cmd.extend(get_extra_cmake_args())
 
         print(f"  [configure] {source_dir}")
         run_stream(cmake_cmd)
