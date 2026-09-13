@@ -67,6 +67,14 @@ TEST_F(DeviceTestD3D12, CreateFrameContext)
     info.parallelNum        = 2;
     DeviceFrameContext *ctx = device->CreateFrameContext(info);
     ASSERT_NE(ctx, nullptr);
+
+    // rotate the descriptor ring a few frames; exercises the shader-visible
+    // descriptor heap ring rotation (BeginFrame -> allocator->BeginFrame)
+    for (int i = 0; i < 6; ++i) {
+        ctx->BeginFrame();
+        ctx->EndFrame();
+    }
+
     delete ctx;
 }
 #endif

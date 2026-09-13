@@ -14,6 +14,13 @@ namespace sky::aurora {
 
     class VulkanDevice;
 
+    // Packed descriptor write slot (union of buffer/image info). The per-set
+    // VkDescriptorUpdateTemplate reads these with a fixed stride.
+    union DescriptorWriteInfo {
+        VkDescriptorBufferInfo buffer;
+        VkDescriptorImageInfo  image;
+    };
+
     class VulkanShaderFunction : public ShaderFunction {
     public:
         explicit VulkanShaderFunction(VulkanDevice &dev);
@@ -48,6 +55,10 @@ namespace sky::aurora {
         // real set index (may contain holes). Returns VK_NULL_HANDLE if absent.
         VkDescriptorSetLayout GetDescriptorSetLayout(uint32_t set) const;
 
+        // Per-set descriptor update template (Vulkan 1.1 core), queried by real
+        // set index. Returns VK_NULL_HANDLE if absent or creation failed.
+        VkDescriptorUpdateTemplate GetDescriptorUpdateTemplate(uint32_t set) const;
+
     private:
         bool CreatePipelineLayout();
 
@@ -57,7 +68,8 @@ namespace sky::aurora {
         CounterPtr<VulkanShaderFunction>    computeFunction;
         ShaderReflection                    reflection;
         ShaderSpecialization                specialization;
-        std::map<uint32_t, VkDescriptorSetLayout> descriptorSetLayouts; // set index -> layout
+        std::map<uint32_t, VkDescriptorSetLayout> descriptorSetLayouts;       // set index -> layout
+        std::map<uint32_t, VkDescriptorUpdateTemplate> descriptorUpdateTemplates; // set index -> template
         VkPipelineLayout                    layout = VK_NULL_HANDLE;
     };
 

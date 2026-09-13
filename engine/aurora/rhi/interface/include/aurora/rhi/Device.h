@@ -7,6 +7,7 @@
 #include <aurora/rhi/Buffer.h>
 #include <aurora/rhi/CommandBuffer.h>
 #include <aurora/rhi/Core.h>
+#include <aurora/rhi/DescriptorEncoder.h>
 #include <aurora/rhi/DescriptorHeap.h>
 #include <aurora/rhi/Encoder.h>
 #include <aurora/rhi/Fence.h>

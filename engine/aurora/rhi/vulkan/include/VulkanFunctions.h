@@ -118,6 +118,9 @@ namespace sky::aurora {
         PFN_vkAllocateDescriptorSets       vkAllocateDescriptorSets       = nullptr;
         PFN_vkFreeDescriptorSets           vkFreeDescriptorSets           = nullptr;
         PFN_vkUpdateDescriptorSets         vkUpdateDescriptorSets         = nullptr;
+        PFN_vkCreateDescriptorUpdateTemplate vkCreateDescriptorUpdateTemplate = nullptr;
+        PFN_vkDestroyDescriptorUpdateTemplate vkDestroyDescriptorUpdateTemplate = nullptr;
+        PFN_vkUpdateDescriptorSetWithTemplate vkUpdateDescriptorSetWithTemplate = nullptr;
 
         // push constants
         PFN_vkCmdPushConstants             vkCmdPushConstants             = nullptr;

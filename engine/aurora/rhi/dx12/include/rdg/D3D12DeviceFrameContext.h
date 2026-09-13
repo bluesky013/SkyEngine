@@ -15,6 +15,8 @@ namespace sky::aurora {
         explicit D3D12DeviceFrameContext(D3D12Device *device, const DeviceFrameContextInitInfo &info);
         ~D3D12DeviceFrameContext() noexcept override;
 
+        void BeginFrame() noexcept override;
+
     private:
         D3D12Device                 *mDevice;
         std::unique_ptr<CommandPool> mPool;

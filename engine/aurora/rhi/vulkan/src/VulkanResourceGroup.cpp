@@ -3,14 +3,10 @@
 //
 
 #include <VulkanResourceGroup.h>
-#include <VulkanShader.h>
+#include <VulkanDescriptorEncoder.h>
 #include <VulkanDevice.h>
-#include <VulkanBuffer.h>
-#include <VulkanImage.h>
-#include <VulkanSampler.h>
 #include <VulkanConversion.h>
 #include <core/logger/Logger.h>
-#include <core/platform/Platform.h>
 #include <unordered_map>
 #include <vector>
 
@@ -38,20 +34,31 @@ namespace sky::aurora {
             LOG_E(TAG, "ResourceGroup requires a non-null shader");
             return false;
         }
-        shader = static_cast<VulkanShader *>(desc.shader);
+        shader    = static_cast<VulkanShader *>(desc.shader);
+        mSetIndex = desc.set;
 
-        // snapshot this set's resources from reflection (for Update type lookup)
-        setResources.clear();
+        // snapshot this set's bindings + packed slot layout (same reflection
+        // order as the shader's set layout / update template)
+        mBindings.clear();
+        uint32_t slotBase = 0;
         for (const auto &res : shader->GetReflection().resources) {
-            if (res.set == desc.set) {
-                setResources.push_back(res);
+            if (res.set != desc.set) {
+                continue;
             }
+            BindingInfo info{};
+            info.binding  = res.binding;
+            info.count    = res.count;
+            info.slotBase = slotBase;
+            info.type     = FromShaderResourceType(res.type);
+            mBindings.push_back(info);
+            slotBase += res.count;
         }
+        mWriteInfos.resize(slotBase);
 
         // build a tight descriptor pool sized exactly for this set.
         std::unordered_map<VkDescriptorType, uint32_t> counts;
-        for (const auto &res : setResources) {
-            counts[FromShaderResourceType(res.type)] += res.count;
+        for (const auto &b : mBindings) {
+            counts[b.type] += b.count;
         }
         std::vector<VkDescriptorPoolSize> sizes;
         sizes.reserve(counts.size());
@@ -96,78 +103,9 @@ namespace sky::aurora {
         return true;
     }
 
-    void VulkanResourceGroup::Update(const std::vector<ResourceUpdateInfo> &writes)
+    std::unique_ptr<DescriptorEncoder> VulkanResourceGroup::CreateEncoder()
     {
-        if (writes.empty() || set == VK_NULL_HANDLE) {
-            return;
-        }
-
-        std::vector<VkDescriptorBufferInfo> bufInfos;
-        std::vector<VkDescriptorImageInfo>  imgInfos;
-        bufInfos.reserve(writes.size());
-        imgInfos.reserve(writes.size());
-
-        std::vector<VkWriteDescriptorSet> vkWrites;
-        vkWrites.reserve(writes.size());
-
-        auto findType = [&](uint32_t b) -> VkDescriptorType {
-            for (const auto &res : setResources) {
-                if (res.binding == b) {
-                    return FromShaderResourceType(res.type);
-                }
-            }
-            return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-        };
-
-        for (const auto &w : writes) {
-            VkWriteDescriptorSet write = {};
-            write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet          = set;
-            write.dstBinding      = w.binding;
-            write.dstArrayElement = w.arrayElement;
-            write.descriptorCount = 1;
-            write.descriptorType  = findType(w.binding);
-
-            switch (w.kind) {
-            case ResourceWriteKind::BUFFER: {
-                const bool isDynamic = (write.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
-                                        write.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
-                if (isDynamic && w.bufferRange == 0) {
-                    SKY_ASSERT(false && "dynamic buffer binding requires explicit bufferRange");
-                    LOG_E(TAG, "dynamic buffer binding %u requires explicit range; got 0", w.binding);
-                }
-                VkDescriptorBufferInfo bi = {};
-                bi.buffer = w.buffer != nullptr ? static_cast<VulkanBuffer *>(w.buffer)->GetNativeHandle() : VK_NULL_HANDLE;
-                bi.offset = w.bufferOffset;
-                bi.range  = w.bufferRange == 0 ? VK_WHOLE_SIZE : w.bufferRange;
-                bufInfos.push_back(bi);
-                write.pBufferInfo = &bufInfos.back();
-                break;
-            }
-            case ResourceWriteKind::IMAGE: {
-                VkDescriptorImageInfo ii = {};
-                ii.imageView   = w.image != nullptr ? static_cast<VulkanImage *>(w.image)->GetDefaultView() : VK_NULL_HANDLE;
-                ii.imageLayout = FromImageLayout(w.imageLayout);
-                imgInfos.push_back(ii);
-                write.pImageInfo = &imgInfos.back();
-                break;
-            }
-            case ResourceWriteKind::SAMPLER: {
-                VkDescriptorImageInfo ii = {};
-                ii.sampler = w.sampler != nullptr ? static_cast<VulkanSampler *>(w.sampler)->GetNativeHandle() : VK_NULL_HANDLE;
-                imgInfos.push_back(ii);
-                write.pImageInfo = &imgInfos.back();
-                break;
-            }
-            }
-
-            vkWrites.push_back(write);
-        }
-
-        device->GetDeviceFn().vkUpdateDescriptorSets(
-            device->GetNativeHandle(),
-            static_cast<uint32_t>(vkWrites.size()), vkWrites.data(),
-            0, nullptr);
+        return std::make_unique<VulkanDescriptorEncoder>(*this);
     }
 
 } // namespace sky::aurora

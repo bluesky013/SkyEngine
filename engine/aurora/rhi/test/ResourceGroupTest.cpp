@@ -81,6 +81,37 @@ namespace {
         return refl;
     }
 
+    ShaderReflection MakeMixedReflection(uint32_t set)
+    {
+        ShaderReflection refl{};
+
+        ShaderResource ubo{};
+        ubo.name = "Ubo";
+        ubo.set = set;
+        ubo.binding = 0;
+        ubo.type = ShaderResourceType::UNIFORM_BUFFER;
+        ubo.count = 1;
+        refl.resources.push_back(ubo);
+
+        ShaderResource img{};
+        img.name = "Tex";
+        img.set = set;
+        img.binding = 1;
+        img.type = ShaderResourceType::SAMPLED_IMAGE;
+        img.count = 1;
+        refl.resources.push_back(img);
+
+        ShaderResource smp{};
+        smp.name = "Smp";
+        smp.set = set;
+        smp.binding = 2;
+        smp.type = ShaderResourceType::SAMPLER;
+        smp.count = 1;
+        refl.resources.push_back(smp);
+
+        return refl;
+    }
+
 } // namespace
 
 using ResourceGroupTestVulkan = AuroraVulkanTest;
@@ -131,14 +162,59 @@ TEST_F(ResourceGroupTestVulkan, UpdateUniformBuffer)
     auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
     ASSERT_NE(ub.Get(), nullptr);
 
-    ResourceUpdateInfo w{};
-    w.binding      = 0;
-    w.kind         = ResourceWriteKind::BUFFER;
-    w.buffer       = ub.Get();
-    w.bufferOffset = 0;
-    w.bufferRange  = 256;
+    auto encoder = group->CreateEncoder();
+    encoder->WriteBuffer(0, ub.Get(), 0, 256);
+    encoder->End(); // should not assert / crash
+    SUCCEED();
+}
 
-    group->Update({w}); // should not assert / crash
+TEST_F(ResourceGroupTestVulkan, EncoderBatchWrite)
+{
+    auto *device = GetDevice();
+
+    auto shader = CounterPtr<Shader>(MakeComputeShader(device, MakeMixedReflection(0)));
+    ASSERT_NE(shader.Get(), nullptr);
+
+    ResourceGroup::Descriptor gd{};
+    gd.shader = shader.Get();
+    gd.set    = 0;
+    auto group = CounterPtr<ResourceGroup>(device->CreateResourceGroup(gd));
+    ASSERT_NE(group.Get(), nullptr);
+
+    Buffer::Descriptor bd{};
+    bd.size   = 256;
+    bd.usage  = BufferUsageFlagBit::UNIFORM;
+    bd.memory = MemoryType::CPU_TO_GPU;
+    auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
+    ASSERT_NE(ub.Get(), nullptr);
+
+    Image::Descriptor id{};
+    id.imageType   = ImageType::IMAGE_2D;
+    id.format      = PixelFormat::RGBA8_UNORM;
+    id.extent      = {16, 16, 1};
+    id.mipLevels   = 1;
+    id.arrayLayers = 1;
+    id.samples     = SampleCount::X1;
+    id.usage       = ImageUsageFlagBit::SAMPLED;
+    id.memory      = MemoryType::GPU_ONLY;
+    auto img = CounterPtr<Image>(device->CreateImage(id));
+    ASSERT_NE(img.Get(), nullptr);
+
+    Sampler::Descriptor sd{};
+    sd.magFilter    = Filter::LINEAR;
+    sd.minFilter    = Filter::LINEAR;
+    sd.mipmapMode   = MipFilter::LINEAR;
+    sd.addressModeU = WrapMode::REPEAT;
+    sd.addressModeV = WrapMode::REPEAT;
+    sd.addressModeW = WrapMode::REPEAT;
+    auto smp = CounterPtr<Sampler>(device->CreateSampler(sd));
+    ASSERT_NE(smp.Get(), nullptr);
+
+    auto encoder = group->CreateEncoder();
+    encoder->WriteBuffer(0, ub.Get(), 0, 256);
+    encoder->WriteImage(1, img.Get(), ImageLayout::SHADER_READ_ONLY);
+    encoder->WriteSampler(2, smp.Get());
+    encoder->End(); // batched write must not assert / crash
     SUCCEED();
 }
 
@@ -205,14 +281,9 @@ TEST_F(ResourceGroupTestD3D12, UpdateUniformBuffer)
     auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
     ASSERT_NE(ub.Get(), nullptr);
 
-    ResourceUpdateInfo w{};
-    w.binding      = 0;
-    w.kind         = ResourceWriteKind::BUFFER;
-    w.buffer       = ub.Get();
-    w.bufferOffset = 0;
-    w.bufferRange  = 256;
-
-    group->Update({w});
+    auto encoder = group->CreateEncoder();
+    encoder->WriteBuffer(0, ub.Get(), 0, 256);
+    encoder->End();
     SUCCEED();
 }
 
@@ -251,14 +322,9 @@ TEST_F(ResourceGroupTestD3D12, UpdateDynamicUniformBuffer)
     auto ub = CounterPtr<Buffer>(device->CreateBuffer(bd));
     ASSERT_NE(ub.Get(), nullptr);
 
-    ResourceUpdateInfo w{};
-    w.binding      = 0;
-    w.kind         = ResourceWriteKind::BUFFER;
-    w.buffer       = ub.Get();
-    w.bufferOffset = 0;
-    w.bufferRange  = 256;
-
-    group->Update({w}); // dynamic binding records buffer, no descriptor write
+    auto encoder = group->CreateEncoder();
+    encoder->WriteBuffer(0, ub.Get(), 0, 256); // dynamic binding: recorded, no descriptor write
+    encoder->End();
     SUCCEED();
 }
 #endif

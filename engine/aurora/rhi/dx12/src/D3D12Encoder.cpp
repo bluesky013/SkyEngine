@@ -62,6 +62,9 @@ namespace sky::aurora {
         }
         auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
 
+        // copy staging -> current frame's shader-visible heap before binding
+        d3dGroup->EnsureFrameCopy();
+
         auto *allocator = device.GetDescriptorAllocator();
         if (allocator == nullptr) {
             return;
@@ -218,6 +221,9 @@ namespace sky::aurora {
             return;
         }
         auto *d3dGroup = static_cast<D3D12ResourceGroup *>(group);
+
+        // copy staging -> current frame's shader-visible heap before binding
+        d3dGroup->EnsureFrameCopy();
 
         auto *allocator = device.GetDescriptorAllocator();
         if (allocator == nullptr) {

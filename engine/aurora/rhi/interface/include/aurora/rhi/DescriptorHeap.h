@@ -4,9 +4,10 @@
 
 #pragma once
 
-#include <aurora/rhi/ResourceGroup.h>
+#include <core/template/ReferenceObject.h>
+#include <aurora/rhi/DescriptorEncoder.h>
 
-#include <vector>
+#include <cstdint>
 
 namespace sky::aurora {
 
@@ -37,7 +38,7 @@ namespace sky::aurora {
         virtual void       Free(const Allocation &allocation) = 0;
         // Write descriptor blobs (vkWriteResourceDescriptorsEXT) into the
         // allocated index range.
-        virtual void Update(const Allocation &allocation, const std::vector<ResourceUpdateInfo> &writes) = 0;
+        virtual void Update(const Allocation &allocation, DescriptorEncoder &encoder) = 0;
     };
 
     using DescriptorHeapPtr = CounterPtr<DescriptorHeap>;

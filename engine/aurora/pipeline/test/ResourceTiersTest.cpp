@@ -271,14 +271,13 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboStableBinding)
     ASSERT_NE(buffer.Get(), nullptr);
 
     // stable binding: offset=0, range=blockSize, written once per frame
-    ResourceUpdateInfo write{};
-    write.binding      = binding;
-    write.kind         = ResourceWriteKind::BUFFER;
-    write.buffer       = buffer.Get();
-    write.bufferOffset = 0;
-    write.bufferRange  = blockSize;
-    group->Update({write}); // must not assert
-    group->Update({write}); // a second frame bind with the same explicit range also succeeds
+    auto encoder = group->CreateEncoder();
+    encoder->WriteBuffer(binding, buffer.Get(), 0, blockSize);
+    encoder->End(); // must not assert
+
+    auto encoder2 = group->CreateEncoder();
+    encoder2->WriteBuffer(binding, buffer.Get(), 0, blockSize);
+    encoder2->End(); // a second frame bind with the same explicit range also succeeds
 }
 
 TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
@@ -302,16 +301,16 @@ TEST_F(AuroraVulkanTest, BatchDynamicUboRangeZeroRejected)
     auto buffer = CounterPtr<Buffer>(device->CreateBuffer(bufDesc));
     ASSERT_NE(buffer.Get(), nullptr);
 
-    ResourceUpdateInfo write{};
-    write.binding     = binding;
-    write.kind        = ResourceWriteKind::BUFFER;
-    write.buffer      = buffer.Get();
-    write.bufferRange = 0; // bug: dynamic UBO requires an explicit range
-
 #if defined(_DEBUG)
-    EXPECT_DEATH({ group->Update({write}); }, "requires explicit bufferRange");
+    EXPECT_DEATH({
+        auto enc = group->CreateEncoder();
+        enc->WriteBuffer(binding, buffer.Get(), 0, 0); // bug: dynamic UBO requires an explicit range
+        enc->End();
+    }, "requires explicit bufferRange");
 #else
-    group->Update({write}); // release: logs an error, must not crash
+    auto enc = group->CreateEncoder();
+    enc->WriteBuffer(binding, buffer.Get(), 0, 0);
+    enc->End(); // release: logs an error, must not crash
 #endif
 }
 

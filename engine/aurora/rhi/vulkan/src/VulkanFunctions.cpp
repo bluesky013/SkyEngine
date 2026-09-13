@@ -172,6 +172,9 @@ namespace sky::aurora {
         LOAD_DEVICE(vkAllocateDescriptorSets);
         LOAD_DEVICE(vkFreeDescriptorSets);
         LOAD_DEVICE(vkUpdateDescriptorSets);
+        LOAD_DEVICE(vkCreateDescriptorUpdateTemplate);
+        LOAD_DEVICE(vkDestroyDescriptorUpdateTemplate);
+        LOAD_DEVICE(vkUpdateDescriptorSetWithTemplate);
 
         LOAD_DEVICE(vkCmdPushConstants);
 

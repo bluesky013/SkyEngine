@@ -35,6 +35,13 @@ namespace sky::aurora {
         }
     }
 
+    void D3D12DeviceFrameContext::BeginFrame() noexcept
+    {
+        DeviceFrameContext::BeginFrame();
+        // rotate the descriptor ring to the current in-flight frame
+        mDevice->GetDescriptorAllocator()->BeginFrame(mFrameIndex);
+    }
+
     D3D12DeviceFrameContext::~D3D12DeviceFrameContext() noexcept
     {
         mThreadPool = nullptr;

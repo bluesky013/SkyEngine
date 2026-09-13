@@ -3,6 +3,7 @@
 //
 
 #include <D3D12ResourceGroup.h>
+#include <D3D12DescriptorEncoder.h>
 #include <D3D12Buffer.h>
 #include <D3D12Device.h>
 #include <D3D12Image.h>
@@ -83,88 +84,22 @@ namespace sky::aurora {
         return true;
     }
 
-    void D3D12ResourceGroup::Update(const std::vector<ResourceUpdateInfo> &writes)
+    std::unique_ptr<DescriptorEncoder> D3D12ResourceGroup::CreateEncoder()
     {
-        if (writes.empty()) {
-            return;
-        }
+        return std::make_unique<D3D12DescriptorEncoder>(*this);
+    }
 
+    void D3D12ResourceGroup::EnsureFrameCopy()
+    {
         auto *allocator = device->GetDescriptorAllocator();
         if (allocator == nullptr) {
             return;
         }
-
-        auto findIndex = [&](uint32_t binding) -> uint32_t {
-            for (size_t i = 0; i < setResources.size(); ++i) {
-                if (setResources[i].binding == binding) {
-                    return static_cast<uint32_t>(i);
-                }
-            }
-            return INVALID_INDEX;
-        };
-
-        for (const auto &w : writes) {
-            const uint32_t index = findIndex(w.binding);
-            if (index == INVALID_INDEX) {
-                continue;
-            }
-            const auto &res = setResources[index];
-
-            switch (w.kind) {
-            case ResourceWriteKind::BUFFER: {
-                auto *buf = static_cast<D3D12Buffer *>(w.buffer);
-                if (buf == nullptr) {
-                    break;
-                }
-                if (res.type == ShaderResourceType::UNIFORM_BUFFER_DYNAMIC ||
-                    res.type == ShaderResourceType::STORAGE_BUFFER_DYNAMIC) {
-                    // record the buffer; address is rebound at bind time with offset
-                    for (auto &db : dynamicBindings) {
-                        if (db.binding == res.binding) {
-                            db.buffer     = buf;
-                            db.baseOffset = w.bufferOffset;
-                            db.range      = w.bufferRange;
-                            break;
-                        }
-                    }
-                    break;
-                }
-                const uint32_t slot   = allocation.cbvSrvUavFirst + cbvSrvUavOffsets[index] + w.arrayElement;
-                const auto     handle = allocator->GetCbvSrvUavCpuHandle(slot);
-                if (res.type == ShaderResourceType::STORAGE_BUFFER) {
-                    buf->CreateUAV(handle);
-                } else if (res.type == ShaderResourceType::UNIFORM_BUFFER) {
-                    buf->CreateCBV(handle, w.bufferOffset, w.bufferRange);
-                } else {
-                    buf->CreateSRV(handle);
-                }
-                break;
-            }
-            case ResourceWriteKind::IMAGE: {
-                auto *img = static_cast<D3D12Image *>(w.image);
-                if (img == nullptr) {
-                    break;
-                }
-                const uint32_t slot   = allocation.cbvSrvUavFirst + cbvSrvUavOffsets[index] + w.arrayElement;
-                const auto     handle = allocator->GetCbvSrvUavCpuHandle(slot);
-                if (res.type == ShaderResourceType::STORAGE_IMAGE) {
-                    img->CreateUAV(handle);
-                } else {
-                    img->CreateSRV(handle);
-                }
-                break;
-            }
-            case ResourceWriteKind::SAMPLER: {
-                auto *smp = static_cast<D3D12Sampler *>(w.sampler);
-                if (smp == nullptr) {
-                    break;
-                }
-                const uint32_t slot   = allocation.samplerFirst + samplerOffsets[index] + w.arrayElement;
-                const auto     handle = allocator->GetSamplerCpuHandle(slot);
-                device->GetNativeHandle()->CreateSampler(&smp->GetNativeDesc(), handle);
-                break;
-            }
-            }
+        if (mDirty || mCopiedFrame != allocator->GetCurrentFrame()) {
+            allocator->CopyCbvSrvUav(allocation.cbvSrvUavFirst, allocation.cbvSrvUavCount);
+            allocator->CopySampler(allocation.samplerFirst, allocation.samplerCount);
+            mCopiedFrame = allocator->GetCurrentFrame();
+            mDirty       = false;
         }
     }
 

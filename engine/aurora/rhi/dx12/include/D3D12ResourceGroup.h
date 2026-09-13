@@ -16,6 +16,7 @@ namespace sky::aurora {
     class D3D12Device;
     class D3D12Shader;
     class D3D12Buffer;
+    class D3D12DescriptorEncoder;
 
     class D3D12ResourceGroup : public ResourceGroup {
     public:
@@ -34,7 +35,11 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void Update(const std::vector<ResourceUpdateInfo> &writes) override;
+        std::unique_ptr<DescriptorEncoder> CreateEncoder() override;
+
+        // Copy the persistent CPU-only staging range into the current frame's
+        // shader-visible heap (when dirty or first bind of this frame).
+        void EnsureFrameCopy();
 
         D3D12_GPU_DESCRIPTOR_HANDLE GetCbvSrvUavGpuHandle() const;
         D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerGpuHandle() const;
@@ -42,6 +47,8 @@ namespace sky::aurora {
         const std::vector<DynamicBinding> &GetDynamicBindings() const { return dynamicBindings; }
 
     private:
+        friend class D3D12DescriptorEncoder;
+
         D3D12Device                *device = nullptr;
         CounterPtr<D3D12Shader>     shader; // keeps reflection source alive
         std::vector<ShaderResource> setResources;
@@ -51,6 +58,8 @@ namespace sky::aurora {
         uint32_t                    samplerCount   = 0;
         DescriptorAllocation        allocation;
         std::vector<DynamicBinding> dynamicBindings;
+        bool                        mDirty       = false;
+        uint32_t                    mCopiedFrame = INVALID_INDEX;
     };
 
 } // namespace sky::aurora

@@ -55,6 +55,16 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 - ResourceGroup 复用 shader 内派生的 native set layout（Vulkan `GetDescriptorSetLayout(set)` / DX12 从 reflection 算 descriptor 数量）。
 - binding 类型统一用 `ShaderResourceType`（含 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC`，batch tier 用）；`DescriptorType` / `DescriptorBindingFlags` 已删除。
 
+## DescriptorEncoder 批量写入
+
+descriptor 写入统一走 **`DescriptorEncoder`**（`aurora/rhi/DescriptorEncoder.h`），`ResourceUpdateInfo` + `ResourceGroup::Update(vector)` 已移除：
+
+- 接口：`ResourceGroup::CreateEncoder()` 返回 `std::unique_ptr<DescriptorEncoder>`；`WriteBuffer(binding, buffer, offset, range, arrayElement=0)` / `WriteImage` / `WriteSampler` + `End()` 提交。
+- **Vulkan**：`VulkanResourceGroup` 持持久化 packed `mWriteInfos` + `mDirty`；`VulkanShader` 为每个 set 建 `VkDescriptorUpdateTemplate`（core 1.1，1.3 floor 下始终可用）。`End()` 仅 dirty 时 `vkUpdateDescriptorSetWithTemplate`；template 创建失败回退 `vkUpdateDescriptorSets`。DYNAMIC + `range==0` 仍 assert/warning（`aurora-dynamic-ubo-pack` 约定）。
+- **DX12**：无批量 flush，descriptor heap 写入即时；动态绑定（`*_DYNAMIC`）记录到 `dynamicBindings`，bind 时走 root CBV/UAV。`End()` 是 no-op（接口对称）。
+  - **shader-visible 隔离**：`D3D12DescriptorAllocator` 用 CPU-only staging heap（source of truth）+ `ringSize` 张 shader-visible heap（每 in-flight frame 一张，offset 1:1）；encoder 只写 staging，`BindResourceGroup` 前 `EnsureFrameCopy()` 用 `CopyDescriptorsSimple` 拷到当前帧 heap；`D3D12DeviceFrameContext::BeginFrame` 调 `allocator->BeginFrame(mFrameIndex)` 轮换 ring。
+- **Metal**：`MetalDescriptorEncoder` 是 header-only stub，`MetalResourceGroup` 未实现，随 `aurora-resource-group Metal phase` 落地。
+
 ## Dynamic UBO pack（batch tier / set 2）
 
 Batch tier（set 2）用 dynamic UBO 承载 per-object uniform 数据，契约如下：

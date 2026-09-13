@@ -6,14 +6,16 @@
 
 #include <aurora/rhi/ResourceGroup.h>
 #include <aurora/rhi/ShaderReflection.h>
+#include <VulkanShader.h>
 #include <vulkan/vulkan.h>
 
+#include <memory>
 #include <vector>
 
 namespace sky::aurora {
 
     class VulkanDevice;
-    class VulkanShader;
+    class VulkanDescriptorEncoder;
 
     class VulkanResourceGroup : public ResourceGroup {
     public:
@@ -22,16 +24,28 @@ namespace sky::aurora {
 
         bool Init(const Descriptor &desc);
 
-        void Update(const std::vector<ResourceUpdateInfo> &writes) override;
+        std::unique_ptr<DescriptorEncoder> CreateEncoder() override;
 
         VkDescriptorSet GetNativeHandle() const { return set; }
 
     private:
-        VulkanDevice               *device = nullptr;
-        CounterPtr<VulkanShader>    shader;         // keeps the derived set layout alive
-        std::vector<ShaderResource> setResources;   // this set's resources (type lookup for Update)
-        VkDescriptorPool            pool = VK_NULL_HANDLE;
-        VkDescriptorSet             set  = VK_NULL_HANDLE;
+        friend class VulkanDescriptorEncoder;
+
+        struct BindingInfo {
+            uint32_t          binding  = 0;
+            uint32_t          count    = 0;
+            uint32_t          slotBase = 0;
+            VkDescriptorType  type     = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+        };
+
+        VulkanDevice                    *device = nullptr;
+        CounterPtr<VulkanShader>         shader;       // keeps the derived set layout + template alive
+        uint32_t                         mSetIndex = 0;
+        std::vector<BindingInfo>         mBindings;    // binding -> packed slot layout
+        std::vector<DescriptorWriteInfo> mWriteInfos;  // persistent packed write buffer
+        bool                             mDirty = false;
+        VkDescriptorPool                 pool = VK_NULL_HANDLE;
+        VkDescriptorSet                  set  = VK_NULL_HANDLE;
     };
 
 } // namespace sky::aurora

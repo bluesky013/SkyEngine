@@ -46,12 +46,9 @@ namespace sky::aurora {
             return false;
         }
 
-        ResourceUpdateInfo write{};
-        write.binding     = 0;
-        write.kind        = ResourceWriteKind::BUFFER;
-        write.buffer      = mUBO.Get();
-        write.bufferRange = mUboSize;
-        mGroup->Update({write});
+        auto encoder = mGroup->CreateEncoder();
+        encoder->WriteBuffer(0, mUBO.Get(), 0, mUboSize);
+        encoder->End();
         return true;
     }
 
