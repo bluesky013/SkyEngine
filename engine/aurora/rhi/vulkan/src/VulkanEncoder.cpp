@@ -2,13 +2,13 @@
 // Created on 2026/04/07.
 //
 
-#include <VulkanEncoder.h>
-#include <VulkanDevice.h>
 #include <VulkanBuffer.h>
+#include <VulkanConversion.h>
+#include <VulkanDevice.h>
+#include <VulkanEncoder.h>
 #include <VulkanImage.h>
 #include <VulkanPipelineState.h>
 #include <VulkanResourceGroup.h>
-#include <VulkanConversion.h>
 #include <core/platform/Platform.h>
 
 namespace sky::aurora {
@@ -18,15 +18,11 @@ namespace sky::aurora {
         switch (format) {
         case VK_FORMAT_D16_UNORM:
         case VK_FORMAT_X8_D24_UNORM_PACK32:
-        case VK_FORMAT_D32_SFLOAT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT;
-        case VK_FORMAT_S8_UINT:
-            return VK_IMAGE_ASPECT_STENCIL_BIT;
+        case VK_FORMAT_D32_SFLOAT: return VK_IMAGE_ASPECT_DEPTH_BIT;
+        case VK_FORMAT_S8_UINT: return VK_IMAGE_ASPECT_STENCIL_BIT;
         case VK_FORMAT_D24_UNORM_S8_UINT:
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            return VK_IMAGE_ASPECT_DEPTH_BIT;
-        default:
-            return VK_IMAGE_ASPECT_COLOR_BIT;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT: return VK_IMAGE_ASPECT_DEPTH_BIT;
+        default: return VK_IMAGE_ASPECT_COLOR_BIT;
         }
     }
 
@@ -39,9 +35,7 @@ namespace sky::aurora {
 
     // ---- VulkanGraphicsEncoder ----
 
-    VulkanGraphicsEncoder::VulkanGraphicsEncoder(VulkanDevice &device, VkCommandBuffer cmd)
-        : fn(device.GetDeviceFn())
-        , cmd(cmd)
+    VulkanGraphicsEncoder::VulkanGraphicsEncoder(VulkanDevice &device, VkCommandBuffer cmd) : fn(device.GetDeviceFn()), cmd(cmd)
     {
     }
 
@@ -49,54 +43,48 @@ namespace sky::aurora {
     {
         VkRenderingAttachmentInfo colorAttachments[MAX_COLOR_ATTACHMENTS] = {};
         for (uint32_t i = 0; i < info.numColors; ++i) {
-            auto &src = info.colors[i];
-            auto &dst = colorAttachments[i];
-            auto *image = static_cast<VulkanImage *>(src.image);
-            dst.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-            dst.imageView   = image != nullptr ? image->GetDefaultView() : VK_NULL_HANDLE;
-            dst.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            dst.loadOp      = FromLoadOp(src.loadOp);
-            dst.storeOp     = FromStoreOp(src.storeOp);
-            dst.clearValue.color = {{
-                src.clearValue.color.float32[0],
-                src.clearValue.color.float32[1],
-                src.clearValue.color.float32[2],
-                src.clearValue.color.float32[3]
-            }};
+            auto &src            = info.colors[i];
+            auto &dst            = colorAttachments[i];
+            auto *image          = static_cast<VulkanImage *>(src.image);
+            dst.sType            = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            dst.imageView        = image != nullptr ? image->GetDefaultView() : VK_NULL_HANDLE;
+            dst.imageLayout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            dst.loadOp           = FromLoadOp(src.loadOp);
+            dst.storeOp          = FromStoreOp(src.storeOp);
+            dst.clearValue.color = {
+                {src.clearValue.color.float32[0], src.clearValue.color.float32[1], src.clearValue.color.float32[2], src.clearValue.color.float32[3]}};
         }
 
-        VkRenderingAttachmentInfo depthAttachment = {};
+        VkRenderingAttachmentInfo depthAttachment   = {};
         VkRenderingAttachmentInfo stencilAttachment = {};
-        auto *depthImage = static_cast<VulkanImage *>(info.depthStencil.image);
+        auto                     *depthImage        = static_cast<VulkanImage *>(info.depthStencil.image);
 
         bool hasDepth   = false;
         bool hasStencil = false;
         if (depthImage != nullptr) {
             const auto &fmtInfo = GetImageFormatInfo(depthImage->GetPixelFormat());
-            hasDepth   = fmtInfo.hasDepth;
-            hasStencil = fmtInfo.hasStencil;
+            hasDepth            = fmtInfo.hasDepth;
+            hasStencil          = fmtInfo.hasStencil;
 
-            depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-            depthAttachment.imageView   = depthImage->GetDefaultView();
-            depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depthAttachment.loadOp      = FromLoadOp(info.depthStencil.depthLoadOp);
-            depthAttachment.storeOp     = FromStoreOp(info.depthStencil.depthStoreOp);
-            depthAttachment.clearValue.depthStencil = {
-                info.depthStencil.clearValue.depthStencil.depth,
-                info.depthStencil.clearValue.depthStencil.stencil
-            };
+            depthAttachment.sType                   = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            depthAttachment.imageView               = depthImage->GetDefaultView();
+            depthAttachment.imageLayout             = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depthAttachment.loadOp                  = FromLoadOp(info.depthStencil.depthLoadOp);
+            depthAttachment.storeOp                 = FromStoreOp(info.depthStencil.depthStoreOp);
+            depthAttachment.clearValue.depthStencil = {info.depthStencil.clearValue.depthStencil.depth,
+                                                       info.depthStencil.clearValue.depthStencil.stencil};
 
             if (hasStencil) {
-                stencilAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                stencilAttachment.imageView   = depthImage->GetDefaultView();
-                stencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-                stencilAttachment.loadOp      = FromLoadOp(info.depthStencil.stencilLoadOp);
-                stencilAttachment.storeOp     = FromStoreOp(info.depthStencil.stencilStoreOp);
+                stencilAttachment.sType                   = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                stencilAttachment.imageView               = depthImage->GetDefaultView();
+                stencilAttachment.imageLayout             = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                stencilAttachment.loadOp                  = FromLoadOp(info.depthStencil.stencilLoadOp);
+                stencilAttachment.storeOp                 = FromStoreOp(info.depthStencil.stencilStoreOp);
                 stencilAttachment.clearValue.depthStencil = depthAttachment.clearValue.depthStencil;
             }
         }
 
-        VkRenderingInfo renderInfo = {};
+        VkRenderingInfo renderInfo      = {};
         renderInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
         renderInfo.renderArea.offset    = {info.renderArea.offset.x, info.renderArea.offset.y};
         renderInfo.renderArea.extent    = {info.renderArea.extent.width, info.renderArea.extent.height};
@@ -120,20 +108,24 @@ namespace sky::aurora {
 
     void VulkanGraphicsEncoder::BindPipeline(GraphicsPipeline *pso)
     {
-        auto *vkPso = static_cast<VulkanGraphicsPipeline *>(pso);
+        auto *vkPso   = static_cast<VulkanGraphicsPipeline *>(pso);
         currentLayout = vkPso->GetLayoutHandle();
         fn.vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPso->GetNativeHandle());
     }
 
-    void VulkanGraphicsEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group,
-                                                  uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
+    void VulkanGraphicsEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
         if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
             return;
         }
         VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
-        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentLayout,
-                                   set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentLayout, set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+    }
+
+    void VulkanGraphicsEncoder::BindDescriptorHeap(DescriptorHeap *heap)
+    {
+        (void)heap;
+        // TODO: VK_EXT_descriptor_heap bind (aurora-resource-group tier2)
     }
 
     void VulkanGraphicsEncoder::PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
@@ -213,28 +205,30 @@ namespace sky::aurora {
 
     // ---- VulkanComputeEncoder ----
 
-    VulkanComputeEncoder::VulkanComputeEncoder(VulkanDevice &device, VkCommandBuffer cmd)
-        : fn(device.GetDeviceFn())
-        , cmd(cmd)
+    VulkanComputeEncoder::VulkanComputeEncoder(VulkanDevice &device, VkCommandBuffer cmd) : fn(device.GetDeviceFn()), cmd(cmd)
     {
     }
 
     void VulkanComputeEncoder::BindPipeline(ComputePipeline *pso)
     {
-        auto *vkPso = static_cast<VulkanComputePipeline *>(pso);
+        auto *vkPso   = static_cast<VulkanComputePipeline *>(pso);
         currentLayout = vkPso->GetLayoutHandle();
         fn.vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, vkPso->GetNativeHandle());
     }
 
-    void VulkanComputeEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group,
-                                                 uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
+    void VulkanComputeEncoder::BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets)
     {
         if (currentLayout == VK_NULL_HANDLE || group == nullptr) {
             return;
         }
         VkDescriptorSet vkSet = static_cast<VulkanResourceGroup *>(group)->GetNativeHandle();
-        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentLayout,
-                                   set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+        fn.vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentLayout, set, 1, &vkSet, numDynamicOffsets, dynamicOffsets);
+    }
+
+    void VulkanComputeEncoder::BindDescriptorHeap(DescriptorHeap *heap)
+    {
+        (void)heap;
+        // TODO: VK_EXT_descriptor_heap bind (aurora-resource-group tier2)
     }
 
     void VulkanComputeEncoder::PushConstants(uint32_t offset, uint32_t size, const void *data)
@@ -259,112 +253,98 @@ namespace sky::aurora {
 
     // ---- VulkanBlitEncoder ----
 
-    VulkanBlitEncoder::VulkanBlitEncoder(VulkanDevice &device, VkCommandBuffer cmd)
-        : fn(device.GetDeviceFn())
-        , cmd(cmd)
+    VulkanBlitEncoder::VulkanBlitEncoder(VulkanDevice &device, VkCommandBuffer cmd) : fn(device.GetDeviceFn()), cmd(cmd)
     {
     }
 
     void VulkanBlitEncoder::CopyBuffer(Buffer *src, Buffer *dst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
     {
         VkBufferCopy region = {};
-        region.srcOffset = srcOffset;
-        region.dstOffset = dstOffset;
-        region.size      = size;
-        fn.vkCmdCopyBuffer(cmd,
-            static_cast<VulkanBuffer *>(src)->GetNativeHandle(),
-            static_cast<VulkanBuffer *>(dst)->GetNativeHandle(),
-            1, &region);
+        region.srcOffset    = srcOffset;
+        region.dstOffset    = dstOffset;
+        region.size         = size;
+        fn.vkCmdCopyBuffer(cmd, static_cast<VulkanBuffer *>(src)->GetNativeHandle(), static_cast<VulkanBuffer *>(dst)->GetNativeHandle(), 1, &region);
     }
 
     void VulkanBlitEncoder::CopyBufferToImage(Buffer *src, Image *dst, const std::vector<BufferImageCopy> &regions)
     {
-        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
+        const auto                     dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkBufferImageCopy> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
-            auto &s = regions[i];
-            auto &d = vkRegions[i];
+            auto &s             = regions[i];
+            auto &d             = vkRegions[i];
             d.bufferOffset      = s.bufferOffset;
             d.bufferRowLength   = s.bufferRowLength;
             d.bufferImageHeight = s.bufferImageHeight;
             d.imageSubresource  = FromImageSubRangeLayers(s.subRange);
             FixImageSubresourceLayers(d.imageSubresource, dstFormat);
-            d.imageOffset       = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
-            d.imageExtent       = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
+            d.imageOffset = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
+            d.imageExtent = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
         }
-        fn.vkCmdCopyBufferToImage(cmd,
-            static_cast<VulkanBuffer *>(src)->GetNativeHandle(),
-            static_cast<VulkanImage *>(dst)->GetNativeHandle(),
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
+        fn.vkCmdCopyBufferToImage(cmd, static_cast<VulkanBuffer *>(src)->GetNativeHandle(), static_cast<VulkanImage *>(dst)->GetNativeHandle(),
+                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
     }
 
     void VulkanBlitEncoder::CopyImageToBuffer(Image *src, Buffer *dst, const std::vector<BufferImageCopy> &regions)
     {
-        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
+        const auto                     srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
         std::vector<VkBufferImageCopy> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
-            auto &s = regions[i];
-            auto &d = vkRegions[i];
+            auto &s             = regions[i];
+            auto &d             = vkRegions[i];
             d.bufferOffset      = s.bufferOffset;
             d.bufferRowLength   = s.bufferRowLength;
             d.bufferImageHeight = s.bufferImageHeight;
             d.imageSubresource  = FromImageSubRangeLayers(s.subRange);
             FixImageSubresourceLayers(d.imageSubresource, srcFormat);
-            d.imageOffset       = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
-            d.imageExtent       = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
+            d.imageOffset = {s.imageOffset.x, s.imageOffset.y, s.imageOffset.z};
+            d.imageExtent = {s.imageExtent.width, s.imageExtent.height, s.imageExtent.depth};
         }
-        fn.vkCmdCopyImageToBuffer(cmd,
-            static_cast<VulkanImage *>(src)->GetNativeHandle(),
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            static_cast<VulkanBuffer *>(dst)->GetNativeHandle(),
-            static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
+        fn.vkCmdCopyImageToBuffer(cmd, static_cast<VulkanImage *>(src)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                  static_cast<VulkanBuffer *>(dst)->GetNativeHandle(), static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
     }
 
     void VulkanBlitEncoder::BlitImage(Image *src, Image *dst, const std::vector<BlitInfo> &regions, Filter filter)
     {
-        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
-        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
+        const auto               srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
+        const auto               dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkImageBlit> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
-            auto &s = regions[i];
-            auto &d = vkRegions[i];
+            auto &s          = regions[i];
+            auto &d          = vkRegions[i];
             d.srcSubresource = FromImageSubRangeLayers(s.srcRange);
             d.dstSubresource = FromImageSubRangeLayers(s.dstRange);
             FixImageSubresourceLayers(d.srcSubresource, srcFormat);
             FixImageSubresourceLayers(d.dstSubresource, dstFormat);
-            d.srcOffsets[0]  = {s.srcOffsets[0].x, s.srcOffsets[0].y, s.srcOffsets[0].z};
-            d.srcOffsets[1]  = {s.srcOffsets[1].x, s.srcOffsets[1].y, s.srcOffsets[1].z};
-            d.dstOffsets[0]  = {s.dstOffsets[0].x, s.dstOffsets[0].y, s.dstOffsets[0].z};
-            d.dstOffsets[1]  = {s.dstOffsets[1].x, s.dstOffsets[1].y, s.dstOffsets[1].z};
+            d.srcOffsets[0] = {s.srcOffsets[0].x, s.srcOffsets[0].y, s.srcOffsets[0].z};
+            d.srcOffsets[1] = {s.srcOffsets[1].x, s.srcOffsets[1].y, s.srcOffsets[1].z};
+            d.dstOffsets[0] = {s.dstOffsets[0].x, s.dstOffsets[0].y, s.dstOffsets[0].z};
+            d.dstOffsets[1] = {s.dstOffsets[1].x, s.dstOffsets[1].y, s.dstOffsets[1].z};
         }
-        fn.vkCmdBlitImage(cmd,
-            static_cast<VulkanImage *>(src)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            static_cast<VulkanImage *>(dst)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            static_cast<uint32_t>(vkRegions.size()), vkRegions.data(),
-            FromFilter(filter));
+        fn.vkCmdBlitImage(cmd, static_cast<VulkanImage *>(src)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                          static_cast<VulkanImage *>(dst)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          static_cast<uint32_t>(vkRegions.size()), vkRegions.data(), FromFilter(filter));
     }
 
     void VulkanBlitEncoder::ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions)
     {
-        const auto srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
-        const auto dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
+        const auto                  srcFormat = static_cast<VulkanImage *>(src)->GetVkFormat();
+        const auto                  dstFormat = static_cast<VulkanImage *>(dst)->GetVkFormat();
         std::vector<VkImageResolve> vkRegions(regions.size());
         for (size_t i = 0; i < regions.size(); ++i) {
-            auto &s = regions[i];
-            auto &d = vkRegions[i];
+            auto &s          = regions[i];
+            auto &d          = vkRegions[i];
             d.srcSubresource = FromImageSubRangeLayers(s.srcRange);
             d.dstSubresource = FromImageSubRangeLayers(s.dstRange);
             FixImageSubresourceLayers(d.srcSubresource, srcFormat);
             FixImageSubresourceLayers(d.dstSubresource, dstFormat);
-            d.srcOffset      = {s.srcOffset.x, s.srcOffset.y, s.srcOffset.z};
-            d.dstOffset      = {s.dstOffset.x, s.dstOffset.y, s.dstOffset.z};
-            d.extent         = {s.extent.width, s.extent.height, s.extent.depth};
+            d.srcOffset = {s.srcOffset.x, s.srcOffset.y, s.srcOffset.z};
+            d.dstOffset = {s.dstOffset.x, s.dstOffset.y, s.dstOffset.z};
+            d.extent    = {s.extent.width, s.extent.height, s.extent.depth};
         }
-        fn.vkCmdResolveImage(cmd,
-            static_cast<VulkanImage *>(src)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            static_cast<VulkanImage *>(dst)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
+        fn.vkCmdResolveImage(cmd, static_cast<VulkanImage *>(src)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             static_cast<VulkanImage *>(dst)->GetNativeHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             static_cast<uint32_t>(vkRegions.size()), vkRegions.data());
     }
 
 } // namespace sky::aurora

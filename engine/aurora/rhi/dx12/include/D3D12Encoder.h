@@ -24,6 +24,7 @@ namespace sky::aurora {
 
         void BindPipeline(GraphicsPipeline *pso) override;
         void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void BindDescriptorHeap(DescriptorHeap *heap) override;
         void PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) override;
         void BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views) override;
         void BindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType type) override;
@@ -37,8 +38,8 @@ namespace sky::aurora {
         void DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride) override;
 
     private:
-        D3D12Device                &device;
-        ID3D12GraphicsCommandList  *cmdList = nullptr;
+        D3D12Device               &device;
+        ID3D12GraphicsCommandList *cmdList = nullptr;
     };
 
     class D3D12ComputeEncoder : public ComputeEncoder {
@@ -48,13 +49,14 @@ namespace sky::aurora {
 
         void BindPipeline(ComputePipeline *pso) override;
         void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void BindDescriptorHeap(DescriptorHeap *heap) override;
         void PushConstants(uint32_t offset, uint32_t size, const void *data) override;
         void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 
     private:
-        D3D12Device                &device;
-        ID3D12GraphicsCommandList  *cmdList = nullptr;
+        D3D12Device               &device;
+        ID3D12GraphicsCommandList *cmdList = nullptr;
     };
 
     class D3D12BlitEncoder : public BlitEncoder {
@@ -69,8 +71,8 @@ namespace sky::aurora {
         void ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions) override;
 
     private:
-        D3D12Device                &device;
-        ID3D12GraphicsCommandList  *cmdList = nullptr;
+        D3D12Device               &device;
+        ID3D12GraphicsCommandList *cmdList = nullptr;
     };
 
 } // namespace sky::aurora

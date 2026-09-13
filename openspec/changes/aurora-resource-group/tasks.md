@@ -56,4 +56,15 @@
 - [ ] 7.1 AGENTS.md "Resource binding 模型" 章节：留下次（待 4 后端实现完成）
 - [x] 7.2 `AuroraTest --gtest_filter=ResourceGroup*` 7/7 PASSED；全集 102/102 PASSED 无回归
 - [x] 7.3 Vulkan validation 不报新 warning
-- [ ] 7.4 archive：留待 DX12/Metal/GLES 真正实现后再 archive
+- [ ] 7.4 archive：留待 DX12/Metal 真正实现后再 archive
+
+## 8. DescriptorHeap 接口（tier2 heap，实现拆后续 change）
+
+- [x] 8.1 新增 `DescriptorHeap.h`：`Descriptor`（per-type 容量）+ `Allocation`（per-type 索引）+ `Allocate`/`Free`/`Update`
+- [x] 8.2 `DeviceFeature` 加 `descriptorHeap`
+- [x] 8.3 `Device::CreateDescriptorHeap` 接口
+- [x] 8.4 `Encoder::BindDescriptorHeap`（Graphics + Compute）接口
+- [x] 8.5 三后端 stub（`CreateDescriptorHeap` 返回 nullptr / `BindDescriptorHeap` 空实现）
+- [ ] 8.6 tier2 heap 实现：Vulkan（`VK_EXT_descriptor_heap`）——拆独立 change
+- [ ] 8.7 tier2 heap 实现：DX12（native `ID3D12DescriptorHeap` + SM6.6）——拆独立 change
+- [ ] 8.8 tier2 heap 实现：Metal（argument buffer）——拆独立 change

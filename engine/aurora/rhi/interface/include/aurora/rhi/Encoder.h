@@ -15,6 +15,7 @@ namespace sky::aurora {
     class GraphicsPipeline;
     class ComputePipeline;
     class ResourceGroup;
+    class DescriptorHeap;
 
     class GraphicsEncoder {
     public:
@@ -32,6 +33,7 @@ namespace sky::aurora {
         virtual void BindResourceGroup(uint32_t set, ResourceGroup *group,
                                        uint32_t numDynamicOffsets = 0,
                                        const uint32_t *dynamicOffsets = nullptr) = 0;
+        virtual void BindDescriptorHeap(DescriptorHeap *heap) = 0;
 
         // push constants
         virtual void PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
@@ -60,6 +62,7 @@ namespace sky::aurora {
         virtual void BindResourceGroup(uint32_t set, ResourceGroup *group,
                                        uint32_t numDynamicOffsets = 0,
                                        const uint32_t *dynamicOffsets = nullptr) = 0;
+        virtual void BindDescriptorHeap(DescriptorHeap *heap) = 0;
         virtual void PushConstants(uint32_t offset, uint32_t size, const void *data) = 0;
         virtual void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) = 0;
         virtual void DispatchIndirect(Buffer *buffer, uint64_t offset) = 0;

@@ -179,6 +179,83 @@ VK / DX12 descriptor pool 设计：
 - `CreateResourceGroup` 从首个未满 pool 分配；满了开新 pool
 - 不实现自动 GC；ResourceGroup 析构时把 set / heap 区域归还本 pool（free list）
 
+## descriptor heap 方向（tier1 pool + tier2 heap，按 VK_EXT_descriptor_heap）
+
+### 核心模型
+
+| tier | 能力 | typed（`layout(set, binding)`） | untyped（`layout(descriptor_heap)`） |
+|---|---|---|---|
+| tier1 | 无 `VK_EXT_descriptor_heap` | `VkDescriptorPool` + `VkDescriptorSet` | 不可用 |
+| tier2 | 有 `VK_EXT_descriptor_heap` | heap + `VkShaderDescriptorSetAndBindingMappingInfoEXT`（SPIR-V 映射） | heap + untyped pointer（`VK_KHR_shader_untyped_pointers` + `SPV_EXT_descriptor_heap`） |
+
+tier2 里 **typed 与 untyped 都走同一套 heap**，不再用 pool；pool 只是 tier1 的兜底。
+
+### 决策 9：DescriptorHeap = 一个对象管两个 backing buffer（resource + sampler）
+
+```cpp
+class DescriptorHeap : public RefObject {
+public:
+    struct Descriptor {
+        uint32_t maxTextures = 0;   // sampled/storage image
+        uint32_t maxBuffers  = 0;   // uniform/storage buffer
+        uint32_t maxSamplers = 0;
+    };
+    struct Allocation {
+        uint32_t texFirst = 0, texCount = 0;
+        uint32_t bufFirst = 0, bufCount = 0;
+        uint32_t smpFirst = 0, smpCount = 0;
+    };
+
+    virtual Allocation Allocate(const Descriptor &) = 0;
+    virtual void Free(const Allocation &) = 0;
+    // 写 descriptor blob（vkWriteResourceDescriptorsEXT）到索引段
+    virtual void Update(const Allocation &, const std::vector<ResourceUpdateInfo> &writes) = 0;
+};
+```
+
+内部两个 backing `VkBuffer`（resource heap + sampler heap，`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT` + `SHADER_DEVICE_ADDRESS`），分别 `vkCmdBindResourceHeapEXT` / `vkCmdBindSamplerHeapEXT`。分配按 per-type stride（`image/buffer/samplerDescriptorSize`）+ `*DescriptorAlignment` + `resourceHeapAlignment`/`samplerHeapAlignment` + reserved range（`min*ReservedRange`）。
+
+### 决策 10：typed ResourceGroup 在 tier2 也走 heap（mapping）
+
+typed `ResourceGroup` 接口不变；backend 实现分档：
+
+- tier1：`VkDescriptorSet`（pool）。
+- tier2：heap 里一段 region + `VkShaderDescriptorSetAndBindingMappingInfoEXT`（set/binding → heap offset，pipeline/shader 创建时提供）。
+
+调用方无感；`ResourceGroup` 恒可用，`DescriptorHeap` 仅 tier2。
+
+### 决策 11：mapping source 先只做 HEAP_WITH_PUSH_INDEX
+
+material index 走 push data（`VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_PUSH_INDEX_EXT`）。`CONSTANT_OFFSET` / `INDIRECT_INDEX` / `INDIRECT_INDEX_ARRAY` / inline 系列（PUSH_DATA / PUSH_ADDRESS / INDIRECT_ADDRESS）/ shader-record 留后续。接口留 mapping source 枚举位，本轮只实现 push index。
+
+### 决策 12：untyped 不支持 combined image sampler
+
+`VK_EXT_descriptor_heap` 的 untyped 模型不支持 `COMBINED_IMAGE_SAMPLER`（combined 跨两个 heap，untyped 无法分别设 image/sampler 的 array stride）。`DescriptorHeap` 的 untyped 路径 SHALL 拒绝 combined，只允许分离的 sampled image + sampler；typed 路径（`ResourceGroup`）仍支持 combined（tier1 pool 原生、tier2 mapping 用 `samplerHeapOffset` / `useCombinedImageSamplerIndex`）。
+
+### 决策 13：接口先定，实现拆 change
+
+- 本 change：定接口（`DescriptorHeap` + 能力门 + mapping source 枚举）+ tier1 pool 收尾（DX12/Metal 补齐 `ResourceGroup`）。
+- tier2 heap 实现拆后续 change：Vulkan（`VK_EXT_descriptor_heap`）→ DX12（native `ID3D12DescriptorHeap` + SM6.6 `ResourceDescriptorHeap[]`）→ Metal（argument buffer）。
+
+### Vulkan descriptor heap 模型（VK_EXT_descriptor_heap）——记录
+
+1. **两个 heap**：resource heap + sampler heap，各是 `VkBuffer`（`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT` + `SHADER_DEVICE_ADDRESS`）。
+2. **descriptor = 不透明 blob**，per-type stride（`sampler/image/bufferDescriptorSize`，精确值 `vkGetPhysicalDeviceDescriptorSizeEXT`）。
+3. **写 descriptor**：`vkWriteResourceDescriptorsEXT`（写 host 内存或 `pDescriptors->address` 直指 heap）；**无 `VkImageView`**，image 直接喂 `VkImageViewCreateInfo`。
+4. **绑 heap**：`vkCmdBindResourceHeapEXT` + `vkCmdBindSamplerHeapEXT`（heapRange + reservedRange）。
+5. **无 `VkDescriptorSetLayout` / `VkPipelineLayout`**：typed 用 `VkShaderDescriptorSetAndBindingMappingInfoEXT`（pipeline/shader 创建时映射 set/binding → heap offset）；untyped 用 `VK_KHR_shader_untyped_pointers` + `SPV_EXT_descriptor_heap`。
+6. **mapping source**：`VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_PUSH_INDEX_EXT` 等，决定 shader 索引怎么落到 heap offset。
+7. **无 dynamic UBO**（push index / indirect index / buffer device address 替代）；**null descriptor**（`nullDescriptor` feature）；**alignment**（heap + per-descriptor）。
+
+### 后端映射表
+
+| 概念 | Vulkan（tier2） | DX12（tier2） | Metal（tier2） |
+|---|---|---|---|
+| DescriptorHeap | 两个 `VkBuffer`（resource/sampler）+ `vkWriteResourceDescriptorsEXT` + `vkCmdBindResourceHeapEXT`/`BindSamplerHeapEXT` | `ID3D12DescriptorHeap`（CBV/SRV/UAV + sampler） | argument buffer（`MTLBuffer`）+ `MTLArgumentEncoder` |
+| typed（ResourceGroup） | heap region + `VkShaderDescriptorSetAndBindingMappingInfoEXT` | root descriptor table（heap 区间） | argument buffer 区间 |
+| untyped（DescriptorHeap） | untyped pointer + `SPV_EXT_descriptor_heap` | SM6.6 `ResourceDescriptorHeap[]` | Metal bindless / argument buffer 索引 |
+| 逐 draw 索引 | `HEAP_WITH_PUSH_INDEX`（push data） | root constant / push 里的 index | push / `setBytes` 里的 index |
+
 ## Risks / Trade-offs
 
 - **DX12 root signature 设计：把每个 set 映射成一个 root descriptor table** → 缓解：限制 group 数 ≤ 4（VK 也常见），剩余 root slot 留给 push constants + dynamic CBV
@@ -204,6 +281,5 @@ VK / DX12 descriptor pool 设计：
 
 ## Open Questions
 
-- **是否在接口层提供 `ShaderReflection` 自动生成 layout？** Spec 里现在写了 `ShaderVertexInput` 占位，看起来作者已有反射的预想。倾向：本 change 只做手写 layout；反射作为独立 change（SPIRV-Cross / D3D12 root sig 反射 / Metal autogen）。
-- **VK descriptor indexing 是否要在本 change 提前打开？** 倾向：不打开，单独 change（与 bindless / variable count 一起）。
-- **Push constants 跨 set 在 GLES 上怎么表达？** 倾向：GLES 后端用一块预留 UBO（slot 0）模拟；layout 校验时给 push constants 分配独立 slot。
+- **是否在接口层提供 `ShaderReflection` 自动生成 layout？** 倾向：本 change 只做手写 layout；反射作为独立 change（SPIRV-Cross / D3D12 root sig 反射 / Metal autogen）。
+- **typed（`ResourceGroup`）在 tier2 的 heap 映射，其 set/binding → heap offset 的映射信息由谁提供？** `VkShaderDescriptorSetAndBindingMappingInfoEXT` 在 pipeline/shader 创建时给；aurora 侧是沿用 `ResourceGroupLayout` 生成，还是引入 `ShaderReflection` 生成。倾向：先沿用 `ResourceGroupLayout` 手写，反射后续。

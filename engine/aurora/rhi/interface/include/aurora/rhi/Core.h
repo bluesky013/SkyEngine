@@ -696,6 +696,7 @@ namespace sky::aurora {
     struct DeviceFeature {
         bool sparseBinding = false;
         bool descriptorIndexing = false;
+        bool descriptorHeap = false;
         bool variableRateShading = false;
         bool multiView = false;
         bool meshShader = false;

@@ -12,10 +12,10 @@
 #include "VulkanResourceGroupLayout.h"
 #include "VulkanSemaphore.h"
 #include "VulkanSwapChain.h"
+#include "rdg/VulkanRDGBackend.h"
 #include <core/logger/Logger.h>
 #include <cstring>
 #include <rdg/VulkanDeviceFrameContext.h>
-#include "rdg/VulkanRDGBackend.h"
 #include <vector>
 
 static const char *TAG                          = "AuroraVulkan";
@@ -84,8 +84,7 @@ namespace sky::aurora {
         capability.isUMA = false;
         for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
             const auto flags = memoryProperties.memoryTypes[i].propertyFlags;
-            if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) &&
-                (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
+            if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
                 (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
                 capability.isUMA = true;
                 break;
@@ -229,10 +228,10 @@ namespace sky::aurora {
         enabledFeature13.dynamicRendering                 = VK_TRUE;
         enabledFeature13.synchronization2                 = VK_TRUE;
         // slang-emitted SPIRV declares DrawParameters for SV_VertexID etc.
-        enabledFeature11.shaderDrawParameters             = vkFeature11.shaderDrawParameters;
-        enabledFeature11.pNext                            = &enabledFeature12;
-        enabledFeature12.pNext                            = &enabledFeature13;
-        enabledFeature13.pNext                            = &enabledFeature14;
+        enabledFeature11.shaderDrawParameters = vkFeature11.shaderDrawParameters;
+        enabledFeature11.pNext                = &enabledFeature12;
+        enabledFeature12.pNext                = &enabledFeature13;
+        enabledFeature13.pNext                = &enabledFeature14;
 
         VkDeviceCreateInfo createInfo      = {};
         createInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -402,6 +401,12 @@ namespace sky::aurora {
             return nullptr;
         }
         return group;
+    }
+
+    DescriptorHeap *VulkanDevice::CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc)
+    {
+        (void)desc;
+        return nullptr; // TODO: VK_EXT_descriptor_heap (aurora-resource-group tier2)
     }
 
     SwapChain *VulkanDevice::CreateSwapChain(const SwapChain::Descriptor &desc)

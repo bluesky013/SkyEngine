@@ -25,6 +25,7 @@ namespace sky::aurora {
 
         void BindPipeline(GraphicsPipeline *pso) override;
         void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void BindDescriptorHeap(DescriptorHeap *heap) override;
         void PushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) override;
         void BindVertexBuffers(uint32_t firstBinding, uint32_t count, const BufferView *views) override;
         void BindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType type) override;
@@ -38,12 +39,12 @@ namespace sky::aurora {
         void DrawIndexedIndirect(Buffer *buffer, uint64_t offset, uint32_t drawCount, uint32_t stride) override;
 
     private:
-        MetalDevice         &device;
-        MetalCommandBuffer  *owner         = nullptr;
-        void                *renderEncoder = nullptr; // id<MTLRenderCommandEncoder>
-        void                *indexBuffer   = nullptr; // id<MTLBuffer>
-        uint64_t             indexOffset   = 0;
-        uint32_t             indexType     = 0;       // MTLIndexType
+        MetalDevice        &device;
+        MetalCommandBuffer *owner         = nullptr;
+        void               *renderEncoder = nullptr; // id<MTLRenderCommandEncoder>
+        void               *indexBuffer   = nullptr; // id<MTLBuffer>
+        uint64_t            indexOffset   = 0;
+        uint32_t            indexType     = 0; // MTLIndexType
     };
 
     class MetalComputeEncoder : public ComputeEncoder {
@@ -53,14 +54,15 @@ namespace sky::aurora {
 
         void BindPipeline(ComputePipeline *pso) override;
         void BindResourceGroup(uint32_t set, ResourceGroup *group, uint32_t numDynamicOffsets, const uint32_t *dynamicOffsets) override;
+        void BindDescriptorHeap(DescriptorHeap *heap) override;
         void PushConstants(uint32_t offset, uint32_t size, const void *data) override;
         void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
         void DispatchIndirect(Buffer *buffer, uint64_t offset) override;
 
     private:
-        MetalDevice         &device;
-        MetalCommandBuffer  *owner          = nullptr;
-        void                *computeEncoder = nullptr; // id<MTLComputeCommandEncoder>
+        MetalDevice        &device;
+        MetalCommandBuffer *owner          = nullptr;
+        void               *computeEncoder = nullptr; // id<MTLComputeCommandEncoder>
     };
 
     class MetalBlitEncoder : public BlitEncoder {
@@ -75,9 +77,9 @@ namespace sky::aurora {
         void ResolveImage(Image *src, Image *dst, const std::vector<ResolveInfo> &regions) override;
 
     private:
-        MetalDevice         &device;
-        MetalCommandBuffer  *owner       = nullptr;
-        void                *blitEncoder = nullptr; // id<MTLBlitCommandEncoder>
+        MetalDevice        &device;
+        MetalCommandBuffer *owner       = nullptr;
+        void               *blitEncoder = nullptr; // id<MTLBlitCommandEncoder>
     };
 
 } // namespace sky::aurora

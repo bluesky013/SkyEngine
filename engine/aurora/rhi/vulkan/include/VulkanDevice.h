@@ -47,6 +47,7 @@ namespace sky::aurora {
         Sampler             *CreateSampler(const Sampler::Descriptor &desc) override;
         ResourceGroupLayout *CreateResourceGroupLayout(const ResourceGroupLayout::Descriptor &desc) override;
         ResourceGroup       *CreateResourceGroup(const ResourceGroup::Descriptor &desc) override;
+        DescriptorHeap      *CreateDescriptorHeap(const DescriptorHeap::Descriptor &desc) override;
         SwapChain           *CreateSwapChain(const SwapChain::Descriptor &desc) override;
 
         ShaderFunction   *CreateShaderFunction(const ShaderFunction::Descriptor &desc) override;
