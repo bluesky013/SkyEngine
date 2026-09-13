@@ -10,6 +10,7 @@
 #include <VulkanSampler.h>
 #include <VulkanConversion.h>
 #include <core/logger/Logger.h>
+#include <core/platform/Platform.h>
 #include <unordered_map>
 #include <vector>
 
@@ -129,6 +130,12 @@ namespace sky::aurora {
 
             switch (w.kind) {
             case ResourceWriteKind::BUFFER: {
+                const bool isDynamic = (write.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+                                        write.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
+                if (isDynamic && w.bufferRange == 0) {
+                    SKY_ASSERT(false && "dynamic buffer binding requires explicit bufferRange");
+                    LOG_E(TAG, "dynamic buffer binding %u requires explicit range; got 0", w.binding);
+                }
                 VkDescriptorBufferInfo bi = {};
                 bi.buffer = w.buffer != nullptr ? static_cast<VulkanBuffer *>(w.buffer)->GetNativeHandle() : VK_NULL_HANDLE;
                 bi.offset = w.bufferOffset;

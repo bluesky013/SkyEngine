@@ -80,6 +80,8 @@ namespace sky::aurora {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
 
+        capability.minUniformBufferOffsetAlignment = gpuProperties.properties.limits.minUniformBufferOffsetAlignment;
+
         capability.isUMA = false;
         for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
             const auto flags = memoryProperties.memoryTypes[i].propertyFlags;

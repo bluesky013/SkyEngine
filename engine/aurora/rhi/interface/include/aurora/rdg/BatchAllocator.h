@@ -1,7 +1,9 @@
 //
 // BatchAllocator: per-frame dynamic uniform buffer for batch (set 2) data.
-// Single big host-visible buffer; offsets are 256B aligned; reset each frame.
-// (Ring/multi-buffering for in-flight frames is a follow-up.)
+// Single host-visible buffer; a pure linear allocator whose offsets are aligned
+// to the device's minUniformBufferOffsetAlignment; reset each frame.
+// In-flight frame safety (per-inflight-frame buffers / packed pool) is owned by
+// the DeviceFrameContext / renderer, not by this allocator.
 //
 
 #pragma once
@@ -14,8 +16,6 @@ namespace sky::aurora {
 
     class BatchAllocator {
     public:
-        static constexpr uint32_t OFFSET_ALIGNMENT = 256;
-
         BatchAllocator() = default;
         ~BatchAllocator() = default;
 
@@ -38,11 +38,12 @@ namespace sky::aurora {
         uint32_t  GetCapacity() const { return mCapacity; }
 
     private:
-        Device  *mDevice   = nullptr;
+        Device  *mDevice    = nullptr;
         BufferPtr mBuffer;
-        uint8_t *mMapped   = nullptr;
-        uint32_t mCursor   = 0;
-        uint32_t mCapacity = 0;
+        uint8_t *mMapped    = nullptr;
+        uint32_t mCursor    = 0;
+        uint32_t mCapacity  = 0;
+        uint32_t mAlignment = 256;
     };
 
 } // namespace sky::aurora

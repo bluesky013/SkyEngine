@@ -39,6 +39,8 @@ namespace sky::aurora {
     struct DeviceCapability {
         uint32_t maxThreads = 1;
 
+        uint32_t minUniformBufferOffsetAlignment = 256;
+
         bool anisotropyEnable = false;
         bool isUMA            = false;
     };

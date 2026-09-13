@@ -55,6 +55,16 @@ Aurora 是 SkyEngine 在 `dev_refactor_rhi` 分支上重写的 RHI（取代旧 `
 - ResourceGroup 复用 shader 内派生的 native set layout（Vulkan `GetDescriptorSetLayout(set)` / DX12 从 reflection 算 descriptor 数量）。
 - binding 类型统一用 `ShaderResourceType`（含 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC`，batch tier 用）；`DescriptorType` / `DescriptorBindingFlags` 已删除。
 
+## Dynamic UBO pack（batch tier / set 2）
+
+Batch tier（set 2）用 dynamic UBO 承载 per-object uniform 数据，契约如下：
+
+- **stable binding**：batch RG 的 dynamic UBO descriptor 每帧以 `offset=0, range=blockSize` 绑定一次（`blockSize` 为该 RG 对应 shader block 的固定大小）；帧内每 draw 只改 dynamic offset（`DrawItem::batchDynamicOffset`），不重写 descriptor。Vulkan 后端对 `UNIFORM_BUFFER_DYNAMIC` / `STORAGE_BUFFER_DYNAMIC` + `bufferRange==0` 会 assert/warning，不得静默退化为 `VK_WHOLE_SIZE`。
+- **`BatchAllocator` 是纯线性分配器**（`aurora/rdg/BatchAllocator.h`）：`Allocate/Write/Reset`，offset 对齐取自 `DeviceCapability::minUniformBufferOffsetAlignment`；**不感知帧**（无 frame index / slot）。
+- **in-flight 安全由 `DeviceFrameContext` 维护**：每个 in-flight frame 一个 pack buffer（packed pool），帧 fence 完成后回收并 `Reset` 复用；随 `aurora-renderer` 落地，allocator 本身不实现回收/扩容。
+- **batch RG 由各特性创建**（如「材质→shader」），不在 RHI/allocator 层；pipeline 层 `BatchPackWriter`（`aurora/pipeline/BatchPackWriter.h`）负责「结构体写入 → 返回 dynamic offset」。
+- **注意**：`ShaderResourceType::UNIFORM_BUFFER_DYNAMIC` 当前**不**由 slang 反射产出（`ShaderCompilerSlang` 把 ParameterBlock 都映射为静态 `UNIFORM_BUFFER`）；DYNAMIC 标记由调用方 / 后续 compiler change 提供，测试中用「手工改 reflection 类型」验证 RG 语义。
+
 ## Vulkan dynamic rendering 与 stencil
 
 `VulkanGraphicsEncoder::BeginRendering` 处理 depth + stencil：
@@ -158,5 +168,6 @@ graph 结构、setup、以及后端无关的分析（依赖边 / 拓扑 / 生命
 | `aurora-remove-resource-group-layout` | ✅ 已实施 | 移除 ResourceGroupLayout，ResourceGroup 从 shader reflection 派生 |
 | `aurora-renderer` | 未开 | top-level 渲染主循环 |
 | `aurora-rdg` | ✅ 已实施 | render graph（三段式 RDG） |
+| `aurora-dynamic-ubo-pack` | ✅ 已实施 | Batch tier dynamic UBO stable binding + `BatchAllocator` 线性分配 + `BatchPackWriter` |
 
 详见 `openspec/changes/<name>/`。

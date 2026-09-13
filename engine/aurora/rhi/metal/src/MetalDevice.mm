@@ -105,6 +105,8 @@ namespace sky::aurora {
 
         auto *mtlDevice = (id<MTLDevice>)metalDevice;
         capability.isUMA = mtlDevice != nil && [mtlDevice hasUnifiedMemory];
+        capability.minUniformBufferOffsetAlignment =
+            mtlDevice != nil ? static_cast<uint32_t>([mtlDevice minConstantBufferAlignmentBytes]) : 256u;
     }
 
     std::string MetalDevice::GetDeviceInfo() const

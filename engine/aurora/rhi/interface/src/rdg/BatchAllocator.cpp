@@ -14,6 +14,11 @@ namespace sky::aurora {
         mDevice   = device;
         mCapacity = capacity;
 
+        mAlignment = device->GetCapability().minUniformBufferOffsetAlignment;
+        if (mAlignment == 0) {
+            mAlignment = 256;
+        }
+
         Buffer::Descriptor desc{};
         desc.size   = capacity;
         desc.usage  = BufferUsageFlagBit::UNIFORM;
@@ -29,7 +34,7 @@ namespace sky::aurora {
 
     uint32_t BatchAllocator::Allocate(uint32_t size)
     {
-        const uint32_t alignedCursor = (mCursor + OFFSET_ALIGNMENT - 1u) / OFFSET_ALIGNMENT * OFFSET_ALIGNMENT;
+        const uint32_t alignedCursor = (mCursor + mAlignment - 1u) / mAlignment * mAlignment;
         const uint32_t end = alignedCursor + size;
         if (end > mCapacity) {
             return UINT32_MAX;

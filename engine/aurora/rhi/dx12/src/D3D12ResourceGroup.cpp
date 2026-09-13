@@ -123,6 +123,7 @@ namespace sky::aurora {
                         if (db.binding == res.binding) {
                             db.buffer     = buf;
                             db.baseOffset = w.bufferOffset;
+                            db.range      = w.bufferRange;
                             break;
                         }
                     }

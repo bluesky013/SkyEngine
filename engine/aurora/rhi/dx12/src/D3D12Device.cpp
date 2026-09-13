@@ -72,6 +72,8 @@ namespace sky::aurora {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
 
+        capability.minUniformBufferOffsetAlignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
         D3D12_FEATURE_DATA_ARCHITECTURE arch = {};
         if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch)))) {
             capability.isUMA = arch.UMA || arch.CacheCoherentUMA;

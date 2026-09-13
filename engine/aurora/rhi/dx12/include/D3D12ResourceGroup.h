@@ -26,6 +26,7 @@ namespace sky::aurora {
             ShaderResourceType type;
             D3D12Buffer       *buffer     = nullptr;
             uint64_t           baseOffset = 0;
+            uint64_t           range      = 0;
         };
 
         explicit D3D12ResourceGroup(D3D12Device &dev);
