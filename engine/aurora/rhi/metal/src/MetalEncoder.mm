@@ -322,15 +322,11 @@ namespace sky::aurora {
             MTLSize sourceSize = MTLSizeMake(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
             MTLOrigin dstOrigin = MTLOriginMake(region.imageOffset.x, region.imageOffset.y, region.imageOffset.z);
 
-            NSUInteger bytesPerRow = 0;
-            if (region.bufferRowLength > 0) {
-                bytesPerRow = region.bufferRowLength;
-            }
-
-            NSUInteger bytesPerImage = 0;
-            if (region.bufferImageHeight > 0) {
-                bytesPerImage = region.bufferImageHeight * bytesPerRow;
-            }
+            const uint32_t rowLength = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width;
+            const uint32_t imageHeight = region.bufferImageHeight > 0 ? region.bufferImageHeight : region.imageExtent.height;
+            const auto *metalDst = static_cast<MetalImage *>(dst);
+            const NSUInteger bytesPerRow = static_cast<NSUInteger>(GetImageRowPitch(metalDst->GetPixelFormat(), rowLength));
+            const NSUInteger bytesPerImage = static_cast<NSUInteger>(GetImageSlicePitch(metalDst->GetPixelFormat(), rowLength, imageHeight));
 
             [enc copyFromBuffer:srcBuf
                    sourceOffset:(NSUInteger)region.bufferOffset
@@ -354,15 +350,11 @@ namespace sky::aurora {
             MTLSize sourceSize = MTLSizeMake(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
             MTLOrigin srcOrigin = MTLOriginMake(region.imageOffset.x, region.imageOffset.y, region.imageOffset.z);
 
-            NSUInteger bytesPerRow = 0;
-            if (region.bufferRowLength > 0) {
-                bytesPerRow = region.bufferRowLength;
-            }
-
-            NSUInteger bytesPerImage = 0;
-            if (region.bufferImageHeight > 0) {
-                bytesPerImage = region.bufferImageHeight * bytesPerRow;
-            }
+            const uint32_t rowLength = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width;
+            const uint32_t imageHeight = region.bufferImageHeight > 0 ? region.bufferImageHeight : region.imageExtent.height;
+            const auto *metalSrc = static_cast<MetalImage *>(src);
+            const NSUInteger bytesPerRow = static_cast<NSUInteger>(GetImageRowPitch(metalSrc->GetPixelFormat(), rowLength));
+            const NSUInteger bytesPerImage = static_cast<NSUInteger>(GetImageSlicePitch(metalSrc->GetPixelFormat(), rowLength, imageHeight));
 
             [enc copyFromTexture:srcTex
                      sourceSlice:region.subRange.baseLayer

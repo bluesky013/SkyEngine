@@ -24,6 +24,8 @@ namespace sky::aurora {
 
     bool D3D12Image::Init(const Descriptor &desc)
     {
+        pixelFormat = desc.format;
+        mipLevels   = desc.mipLevels;
         dxgiFormat = FromPixelFormat(desc.format);
         if (dxgiFormat == DXGI_FORMAT_UNKNOWN) {
             LOG_E(TAG, "unsupported pixel format for image");
@@ -78,6 +80,16 @@ namespace sky::aurora {
             return false;
         }
         allocation.Attach(pAlloc);
+
+#if SKY_ENABLE_RESOURCE_NAME
+        if (desc.name != nullptr && resource) {
+            std::wstring wideName;
+            for (const char *c = desc.name; *c != '\0'; ++c) {
+                wideName.push_back(static_cast<wchar_t>(*c));
+            }
+            resource->SetName(wideName.c_str());
+        }
+#endif
 
         return true;
     }

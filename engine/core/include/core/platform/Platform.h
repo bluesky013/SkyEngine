@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "BuildConfig.h"
+
 #ifdef _DEBUG
 #include <cassert>
 #define SKY_ASSERT(val) assert(val);

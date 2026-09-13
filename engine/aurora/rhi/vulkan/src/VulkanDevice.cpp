@@ -81,7 +81,19 @@ namespace sky::aurora {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = gpuFeatures.features.samplerAnisotropy == VK_TRUE;
 
+        capability.isUMA = false;
+        for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i) {
+            const auto flags = memoryProperties.memoryTypes[i].propertyFlags;
+            if ((flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) &&
+                (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
+                (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+                capability.isUMA = true;
+                break;
+            }
+        }
+
         LOG_I(TAG, "sampler anisotropy: %s", capability.anisotropyEnable ? "enabled" : "disabled");
+        LOG_I(TAG, "isUMA: %s", capability.isUMA ? "yes" : "no");
     }
 
     std::string VulkanDevice::GetDeviceInfo() const

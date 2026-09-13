@@ -516,19 +516,29 @@ namespace sky::aurora {
 
     struct BufferUploadRequest {
         CounterPtr<IUploadStream> source;
-        uint64_t       offset = 0;
-        uint64_t       size   = 0;
+        uint64_t       offset    = 0;  // source offset into the stream
+        uint64_t       size      = 0;
+        uint64_t       dstOffset = 0;  // destination offset into the buffer
     };
 
     struct ImageUploadRequest {
         CounterPtr<IUploadStream> source;
-        uint64_t       offset   = 0;
-        uint64_t       size     = 0;
+        uint64_t       offset   = 0;   // source offset into the stream (bytes)
+        uint64_t       size     = 0;   // bytes to read (strided data included)
         uint32_t       mipLevel = 0;
         uint32_t       layer    = 0;
-        Offset3D       imageOffset;
-        Extent3D       imageExtent;
+        // Source buffer row length / slice height in texels. 0 means tightly
+        // packed (= imageExtent.width / imageExtent.height). Non-zero for a
+        // strided sub-region whose source row/slice pitch is larger than the
+        // copied extent.
+        uint32_t       bufferRowLength   = 0;
+        uint32_t       bufferImageHeight = 0;
+        Offset3D       imageOffset       = {0, 0, 0};
+        Extent3D       imageExtent       = {0, 0, 0};
     };
+
+    // Opaque waitable handle returned by Queue upload operations.
+    using TransferTaskHandle = uint32_t;
 
     struct ImageFormatInfo {
         uint32_t components   = 1;
@@ -541,6 +551,14 @@ namespace sky::aurora {
     };
 
     const ImageFormatInfo &GetImageFormatInfo(PixelFormat format);
+
+    // Row pitch in bytes for a tightly-packed buffer row of `width` texels,
+    // accounting for block-compressed formats (BC/ASTC).
+    uint64_t GetImageRowPitch(PixelFormat format, uint32_t width);
+
+    // Slice pitch in bytes for a tightly-packed 3D/array slice of `width` x
+    // `height` texels, accounting for block-compressed formats.
+    uint64_t GetImageSlicePitch(PixelFormat format, uint32_t width, uint32_t height);
 
     struct ImageSubRange {
         uint32_t baseLevel = 0;

@@ -5,6 +5,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanDevice.h"
 #include "VulkanConversion.h"
+#include "VulkanInstance.h"
 #include <core/logger/Logger.h>
 
 static const char *TAG = "AuroraVulkan";
@@ -48,6 +49,20 @@ namespace sky::aurora {
             LOG_E(TAG, "vmaCreateBuffer failed: %d", res);
             return false;
         }
+
+#if SKY_ENABLE_RESOURCE_NAME
+        if (desc.name != nullptr) {
+            const auto &instanceFn = device.GetVulkanInstance().GetInstanceFn();
+            if (instanceFn.vkSetDebugUtilsObjectNameEXT != nullptr) {
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType   = VK_OBJECT_TYPE_BUFFER;
+                nameInfo.objectHandle = reinterpret_cast<uint64_t>(buffer);
+                nameInfo.pObjectName  = desc.name;
+                instanceFn.vkSetDebugUtilsObjectNameEXT(device.GetNativeHandle(), &nameInfo);
+            }
+        }
+#endif
 
         return true;
     }

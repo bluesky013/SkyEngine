@@ -198,7 +198,7 @@ namespace sky::aurora {
             D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
             dstLoc.pResource        = dstImg->GetNativeHandle();
             dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-            dstLoc.SubresourceIndex = region.subRange.level + region.subRange.baseLayer * 1; // simplified
+            dstLoc.SubresourceIndex = region.subRange.level + region.subRange.baseLayer * dstImg->GetMipLevels();
 
             D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
             srcLoc.pResource                          = srcBuf->GetNativeHandle();
@@ -208,7 +208,8 @@ namespace sky::aurora {
             srcLoc.PlacedFootprint.Footprint.Width    = region.imageExtent.width;
             srcLoc.PlacedFootprint.Footprint.Height   = region.imageExtent.height;
             srcLoc.PlacedFootprint.Footprint.Depth    = region.imageExtent.depth;
-            srcLoc.PlacedFootprint.Footprint.RowPitch = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width * 4; // TODO: proper calculation
+            const uint32_t rowLength = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width;
+            srcLoc.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(GetImageRowPitch(dstImg->GetPixelFormat(), rowLength));
 
             D3D12_BOX srcBox = {};
             srcBox.left   = 0;
@@ -235,7 +236,7 @@ namespace sky::aurora {
             D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
             srcLoc.pResource        = srcImg->GetNativeHandle();
             srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-            srcLoc.SubresourceIndex = region.subRange.level + region.subRange.baseLayer * 1;
+            srcLoc.SubresourceIndex = region.subRange.level + region.subRange.baseLayer * srcImg->GetMipLevels();
 
             D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
             dstLoc.pResource                          = dstBuf->GetNativeHandle();
@@ -245,7 +246,8 @@ namespace sky::aurora {
             dstLoc.PlacedFootprint.Footprint.Width    = region.imageExtent.width;
             dstLoc.PlacedFootprint.Footprint.Height   = region.imageExtent.height;
             dstLoc.PlacedFootprint.Footprint.Depth    = region.imageExtent.depth;
-            dstLoc.PlacedFootprint.Footprint.RowPitch = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width * 4;
+            const uint32_t rowLength = region.bufferRowLength > 0 ? region.bufferRowLength : region.imageExtent.width;
+            dstLoc.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(GetImageRowPitch(srcImg->GetPixelFormat(), rowLength));
 
             D3D12_BOX srcBox = {};
             srcBox.left   = static_cast<UINT>(region.imageOffset.x);

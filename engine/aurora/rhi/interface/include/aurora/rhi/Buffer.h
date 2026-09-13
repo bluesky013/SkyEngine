@@ -18,6 +18,9 @@ namespace sky::aurora {
             uint64_t                  size = 0;
             Flags<BufferUsageFlagBit> usage;
             MemoryType                memory = MemoryType::GPU_ONLY;
+#if SKY_ENABLE_RESOURCE_NAME
+            const char               *name   = nullptr;
+#endif
         };
 
         Buffer() = default;

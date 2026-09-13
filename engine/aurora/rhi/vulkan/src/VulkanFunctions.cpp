@@ -102,6 +102,7 @@ namespace sky::aurora {
         // optional debug utils
         LOAD_INSTANCE(vkCreateDebugUtilsMessengerEXT);
         LOAD_INSTANCE(vkDestroyDebugUtilsMessengerEXT);
+        LOAD_INSTANCE(vkSetDebugUtilsObjectNameEXT);
 
         // surface
         LOAD_INSTANCE(vkDestroySurfaceKHR);

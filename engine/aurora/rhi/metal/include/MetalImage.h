@@ -24,12 +24,14 @@ namespace sky::aurora {
         // Release any current texture reference (also drops borrowed wrappers).
         void Reset();
 
-        void *GetNativeHandle() const { return texture; }
+        void       *GetNativeHandle() const { return texture; }
+        PixelFormat GetPixelFormat() const { return pixelFormat; }
 
     private:
         MetalDevice &device;
-        void        *texture = nullptr;
-        bool         owned   = true;
+        void        *texture     = nullptr;
+        bool         owned       = true;
+        PixelFormat  pixelFormat = PixelFormat::UNDEFINED;
     };
 
 } // namespace sky::aurora

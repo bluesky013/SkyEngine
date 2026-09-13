@@ -45,6 +45,13 @@ namespace sky::aurora {
         }
 
         buffer = nativeBuffer;
+
+#if SKY_ENABLE_RESOURCE_NAME
+        if (desc.name != nullptr) {
+            [nativeBuffer setLabel:[NSString stringWithUTF8String:desc.name]];
+        }
+#endif
+
         return true;
     }
 

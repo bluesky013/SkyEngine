@@ -24,6 +24,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     if(MSVC)
         cmake_host_system_information(RESULT CPU_NUMBER_OF_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
         add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP${CPU_NUMBER_OF_LOGICAL_CORES}>)
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
     endif()
 
 endif()
@@ -34,6 +35,10 @@ endif ()
 
 if (SKY_EDITOR OR SKY_BUILD_TOOL)
     add_compile_definitions(SKY_EDITOR)
+endif ()
+
+if (SKY_DEVELOP)
+    add_compile_definitions(SKY_DEVELOP=1)
 endif ()
 
 add_compile_definitions("$<$<CONFIG:Debug>:_DEBUG;DEBUG>")

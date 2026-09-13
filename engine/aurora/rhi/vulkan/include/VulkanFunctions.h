@@ -42,6 +42,7 @@ namespace sky::aurora {
         // debug utils (optional extension)
         PFN_vkCreateDebugUtilsMessengerEXT                 vkCreateDebugUtilsMessengerEXT                 = nullptr;
         PFN_vkDestroyDebugUtilsMessengerEXT                vkDestroyDebugUtilsMessengerEXT                = nullptr;
+        PFN_vkSetDebugUtilsObjectNameEXT                   vkSetDebugUtilsObjectNameEXT                   = nullptr;
 
         // surface (KHR_surface)
         PFN_vkDestroySurfaceKHR                            vkDestroySurfaceKHR                            = nullptr;

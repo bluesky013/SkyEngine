@@ -44,6 +44,8 @@ namespace sky::aurora {
             return false;
         }
 
+        this->pixelFormat = desc.format;
+
         const auto pixelFormat = ToMetalPixelFormat(desc.format);
         if (pixelFormat == MTLPixelFormatInvalid) {
             LOG_E(TAG, "unsupported Metal pixel format: %u", static_cast<uint32_t>(desc.format));
@@ -76,6 +78,13 @@ namespace sky::aurora {
 
         texture = nativeTexture;
         owned   = true;
+
+#if SKY_ENABLE_RESOURCE_NAME
+        if (desc.name != nullptr) {
+            [nativeTexture setLabel:[NSString stringWithUTF8String:desc.name]];
+        }
+#endif
+
         return true;
     }
 

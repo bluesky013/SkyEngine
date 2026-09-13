@@ -39,6 +39,7 @@ namespace sky::aurora {
         uint32_t maxThreads = 1;
 
         bool anisotropyEnable = false;
+        bool isUMA            = false;
     };
 
     class Device {

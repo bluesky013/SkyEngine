@@ -133,4 +133,19 @@ namespace sky::aurora {
         return FORMAT_INFO_TABLE[0]; // UNDEFINED
     }
 
+    uint64_t GetImageRowPitch(PixelFormat format, uint32_t width)
+    {
+        const auto &info = GetImageFormatInfo(format);
+        const uint32_t blocksPerRow = (width + info.blockWidth - 1) / info.blockWidth;
+        return static_cast<uint64_t>(blocksPerRow) * info.blockSize;
+    }
+
+    uint64_t GetImageSlicePitch(PixelFormat format, uint32_t width, uint32_t height)
+    {
+        const auto &info = GetImageFormatInfo(format);
+        const uint64_t rowPitch = GetImageRowPitch(format, width);
+        const uint32_t rowsPerSlice = (height + info.blockHeight - 1) / info.blockHeight;
+        return rowPitch * rowsPerSlice;
+    }
+
 } // namespace sky::aurora

@@ -28,12 +28,16 @@ namespace sky::aurora {
 
         ID3D12Resource *GetNativeHandle() const { return resource.Get(); }
         DXGI_FORMAT     GetDxgiFormat() const { return dxgiFormat; }
+        PixelFormat     GetPixelFormat() const { return pixelFormat; }
+        uint32_t        GetMipLevels() const { return mipLevels; }
 
     private:
         D3D12Device            &device;
         ComPtr<ID3D12Resource>  resource;
         ComPtr<D3D12MA::Allocation> allocation;
         DXGI_FORMAT             dxgiFormat = DXGI_FORMAT_UNKNOWN;
+        PixelFormat             pixelFormat = PixelFormat::UNDEFINED;
+        uint32_t                mipLevels = 1;
     };
 
 } // namespace sky::aurora

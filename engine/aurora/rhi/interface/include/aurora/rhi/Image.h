@@ -24,6 +24,9 @@ namespace sky::aurora {
             ImageUsageFlags     usage       = ImageUsageFlagBit::NONE;
             ImageViewUsageFlags viewUsage   = ImageViewUsageFlagBit::NONE;
             MemoryType          memory      = MemoryType::GPU_ONLY;
+#if SKY_ENABLE_RESOURCE_NAME
+            const char         *name        = nullptr;
+#endif
         };
 
         Image() = default;

@@ -69,6 +69,15 @@ engine/aurora/
 
 ---
 
+## Transient 命名区分（易混，务必分清）
+
+- **`TransientBuffer`（渲染层，`aurora/resource`）**：每帧内使用的 buffer 类型，经 `TransientBufferPool` **每帧分配**，仅当前帧有效。
+- **`TransientPool`（RDG，`rhi/interface/src/rdg/TransientPool.h`）**：RDG 每帧**可复用的资源池**（`ObjectPool` 整对象 Acquire/Release，覆盖 Image + Buffer，按完整 descriptor 键控），跨帧复用。
+
+二者命名同源但职责完全不同：前者是「资源语义」，后者是「RDG 内部复用机制」，不得混用。
+
+---
+
 ## 三层 ResourceGroup（aurora-resource-tiers 已落地）
 
 | tier | set | 持有方 | 更新 |

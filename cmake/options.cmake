@@ -15,6 +15,12 @@ if (SKY_BUILD_EDITOR)
     set(SKY_EDITOR ON)
 endif ()
 
+option(SKY_DEVELOP "develop mode" OFF)
+
+if (SKY_BUILD_EDITOR OR SKY_BUILD_TOOL OR SKY_EDITOR)
+    set(SKY_DEVELOP ON)
+endif ()
+
 option(SKY_BUILD_GLES  "build gles"          OFF)
 option(SKY_BUILD_TEST  "build test"           OFF)
 option(SKY_USE_TRACY   "use tracy profiler"   OFF)

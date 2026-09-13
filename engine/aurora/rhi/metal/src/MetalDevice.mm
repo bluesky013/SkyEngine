@@ -102,6 +102,9 @@ namespace sky::aurora {
     {
         capability.maxThreads = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
+
+        auto *mtlDevice = (id<MTLDevice>)metalDevice;
+        capability.isUMA = mtlDevice != nil && [mtlDevice hasUnifiedMemory];
     }
 
     std::string MetalDevice::GetDeviceInfo() const

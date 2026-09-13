@@ -64,6 +64,13 @@ namespace sky::aurora {
     {
         capability.maxThreads       = std::max(std::thread::hardware_concurrency(), 1U);
         capability.anisotropyEnable = true;
+
+        D3D12_FEATURE_DATA_ARCHITECTURE arch = {};
+        if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &arch, sizeof(arch)))) {
+            capability.isUMA = arch.UMA || arch.CacheCoherentUMA;
+        } else {
+            capability.isUMA = false;
+        }
     }
 
     std::string D3D12Device::GetDeviceInfo() const
